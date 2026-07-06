@@ -23,3 +23,7 @@
 .feedback-textarea.da-input {
   padding: var(--s2-spacing-100) var(--s2-spacing-200);
 }
+
+.da-form-field nx-picker {
+  align-self: flex-start;
+}

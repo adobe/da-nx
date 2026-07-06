@@ -3,6 +3,7 @@ import { loadStyle, hashChange, DA_FEEDBACK } from '../../utils/utils.js';
 import { loadIms } from '../../utils/ims.js';
 import { loadMessages, getRoomKey } from '../chat/utils/persistence.js';
 import '../shared/dialog/dialog.js';
+import '../shared/picker/picker.js';
 
 const style = await loadStyle(import.meta.url);
 const contentStyle = await loadStyle(new URL('../shared/dialog/dialog-content.css', import.meta.url).href);
@@ -28,13 +29,24 @@ class NxFeedbackDialog extends LitElement {
     _messageError: { state: true },
     _submitting: { state: true },
     _submitError: { state: true },
+    _category: { state: true },
   };
+
+  constructor() {
+    super();
+    this._category = CATEGORIES[0].value;
+  }
 
   get _message() { return this.shadowRoot.getElementById('feedback-message'); }
 
-  get _category() { return this.shadowRoot.getElementById('feedback-category'); }
-
   get _linkChatSession() { return this.shadowRoot.getElementById('feedback-include-chat'); }
+
+  // Just tracks the selection - nx-picker owns its own open/close state,
+  // this only needs to know which value is currently picked so it can be
+  // read back in _handleSubmit.
+  _onCategoryChange({ detail: { value } }) {
+    this._category = value;
+  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -91,8 +103,8 @@ class NxFeedbackDialog extends LitElement {
 
     const ims = await loadIms();
     const kindLabel = KIND_LABELS[this.kind] ?? KIND_LABELS.idea;
-    const categoryOption = CATEGORIES.find((c) => c.value === this._category.value);
-    const categoryLabel = categoryOption?.label ?? this._category.value;
+    const categoryOption = CATEGORIES.find((c) => c.value === this._category);
+    const categoryLabel = categoryOption?.label ?? this._category;
 
     const linkChatSession = this._linkChatSession.checked;
     const context = this._getContext();
@@ -130,10 +142,14 @@ class NxFeedbackDialog extends LitElement {
         <div class="feedback-body">
           <p class="feedback-intro">Describe what you tried, what you expected, and what actually happened. Do not share credentials or tokens!</p>
           <div class="da-form-field">
-            <label for="feedback-category">Category</label>
-            <select id="feedback-category" class="da-select">
-              ${CATEGORIES.map((c) => html`<option value=${c.value}>${c.label}</option>`)}
-            </select>
+            <label id="feedback-category-label">Category</label>
+            <nx-picker
+              .items=${CATEGORIES}
+              .value=${this._category}
+              placement="below-start"
+              aria-labelledby="feedback-category-label"
+              @change=${this._onCategoryChange}
+            ></nx-picker>
           </div>
           <div class="da-form-field ${this._messageError ? 'da-field-error' : ''}">
             <label for="feedback-message">Details</label>
