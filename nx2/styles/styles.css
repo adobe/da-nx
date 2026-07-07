@@ -560,6 +560,16 @@ html:has(meta[content="edge-delivery"]) {
             left: -12px;
           }
         }
+
+        &:has([styled-as-panel]) .panel-wrapper {
+          border-radius: 0;
+          background: none;
+        }
+
+        &:has([styled-as-panel]) .panel-shell {
+          border: none;
+          overflow: visible;
+        }
       }
 
       footer {
