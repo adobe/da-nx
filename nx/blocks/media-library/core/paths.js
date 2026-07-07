@@ -221,6 +221,10 @@ export async function validateSitePath(sitePath) {
         };
       }
 
+      if (resp.status >= 500) {
+        return { valid: false, error: t('VALIDATION_SERVER_ERROR') };
+      }
+
       return { valid: false, error: `Validation failed: ${resp.status}` };
     } catch (error) {
       return { valid: false, error: error.message };
@@ -260,6 +264,10 @@ export async function validateSitePath(sitePath) {
           error: t('VALIDATION_PATH_403'),
           suggestion: t('VALIDATION_PATH_403_SUGGESTION'),
         };
+      }
+
+      if (resp.status >= 500) {
+        return { valid: false, error: t('VALIDATION_SERVER_ERROR') };
       }
 
       return { valid: false, error: `Validation failed: ${resp.status}` };
