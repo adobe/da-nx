@@ -28,7 +28,7 @@
   height: 100%;
   width: 100%;
   max-width: 100%;
-  background: var(--s2-gray-50);
+  background: light-dark(#f9f9f9, #1c1c1c);
   overflow: hidden;
   position: relative;
 }
@@ -245,6 +245,7 @@ nx-media-sidebar {
   display: flex;
   flex-direction: column;
   position: relative;
+  background: inherit;
 }
 
 .content:has(nx-media-grid[pluginmode]) {
@@ -380,7 +381,8 @@ nx-media-sidebar {
   min-height: 0;
   padding: var(--s2-spacing-600, var(--spacing-600, 40px));
   text-align: center;
-  background: light-dark(var(--s2-gray-50), #1a1a1a);
+  background: transparent;
+  border-radius: 0;
 }
 
 .indexing-spinner {
@@ -472,7 +474,7 @@ nx-media-sidebar {
   justify-content: center;
   width: 100%;
   height: 100vh;
-  background: light-dark(var(--s2-gray-50), #1a1a1a);
+  background: light-dark(#f9f9f9, #1c1c1c);
 }
 
 .validation-content,
@@ -486,6 +488,13 @@ nx-media-sidebar {
   max-width: 500px;
   background: light-dark(white, var(--s2-gray-800));
   border-radius: var(--s2-radius-100);
+}
+
+/* Override card styling when showing loading/indexing state */
+.validation-content.indexing-state {
+  background: transparent;
+  border-radius: 0;
+  max-width: none;
 }
 
 .validation-content p {
