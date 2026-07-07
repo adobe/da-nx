@@ -372,7 +372,7 @@ export async function streamLog(
         throw new MediaLibraryError(
           ErrorCodes.EDS_LOG_DENIED,
           t('EDS_LOG_DENIED'),
-          { status: 403, endpoint: nextUrl },
+          { status: 403, endpoint: nextUrl, hint: t('EDS_LOG_DENIED_HINT') },
         );
       }
       if (resp.status === 401) {
