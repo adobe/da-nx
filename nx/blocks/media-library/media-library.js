@@ -612,7 +612,7 @@ class NxMediaLibrary extends LitElement {
         validationError: null,
         validationSuggestion: null,
         persistentError: this.siteAuthInfo?.authFailed
-          ? 'Protected site - some images may not load, refresh or login into site in a new tab using sidekick'
+          ? t('PROTECTED_SITE_IMAGES_WARNING')
           : null,
         isValidating: false,
       });
@@ -719,7 +719,7 @@ class NxMediaLibrary extends LitElement {
         // eslint-disable-next-line no-console
         console.error('[MEDIA-LIB:loadMediaData]', error);
         updateAppState({
-          validationError: 'Failed to load media data. Please ensure you are signed in.',
+          validationError: t('DATA_LOAD_FAILED'),
           sitePathValid: false,
         });
       }
