@@ -1,4 +1,5 @@
 import { fetchFileGetInfo, fetchFileHeadInfo } from './admin-api.js';
+import { HttpStatus, Operation } from '../core/constants.js';
 import {
   isPdf,
   isSvg,
@@ -10,7 +11,6 @@ import {
   toExternalMediaEntry,
 } from './parse.js';
 import { normalizePath } from './parse-utils.js';
-import { Operation } from '../core/constants.js';
 import {
   isIndexedExternalMediaOperation,
   isIndexedExternalMediaEntry,
@@ -53,7 +53,7 @@ function classifyExternalMediaValidation(entry, headInfo) {
     return { discard: true, reason: 'redirect-non-media', lastModified: null };
   }
 
-  if (status === 401 || status === 403) {
+  if (status === HttpStatus.UNAUTHORIZED || status === HttpStatus.FORBIDDEN) {
     return { discard: false, reason: `auth-${status}`, lastModified: null };
   }
 

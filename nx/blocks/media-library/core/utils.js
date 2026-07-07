@@ -1,4 +1,4 @@
-import { Domains } from './constants.js';
+import { Domains, HttpStatus } from './constants.js';
 import { etcFetch, getLivePreviewUrl } from './urls.js';
 import {
   getCanonicalMediaTimestamp as _getCanonicalMediaTimestamp,
@@ -129,7 +129,8 @@ export async function checkSiteAuthRequired(org, repo) {
 
   try {
     const response = await etcFetch(indexUrl, 'cors', { method: 'HEAD' });
-    const requiresAuth = response.status === 401 || response.status === 403;
+    const requiresAuth = response.status === HttpStatus.UNAUTHORIZED
+      || response.status === HttpStatus.FORBIDDEN;
     const result = { requiresAuth, status: response.status };
 
     debugLog('Site auth check result', result);

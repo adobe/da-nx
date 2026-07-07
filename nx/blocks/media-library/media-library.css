@@ -7,6 +7,10 @@
   overflow: hidden;
   color-scheme: light dark;
 
+  --ml-bg: light-dark(rgb(249 249 249), rgb(28 28 28));
+  --ml-surface: light-dark(rgb(255 255 255), rgb(26 26 26));
+  --ml-topbar-bg: light-dark(rgb(248 248 248), rgb(27 27 27));
+
   > svg {
     display: none;
   }
@@ -28,7 +32,7 @@
   height: 100%;
   width: 100%;
   max-width: 100%;
-  background: light-dark(#f9f9f9, #1c1c1c);
+  background: var(--ml-bg);
   overflow: hidden;
   position: relative;
 }
@@ -74,7 +78,7 @@ nx-media-scan {
   padding: var(--s2-spacing-200, var(--spacing-200, 12px)) var(--s2-spacing-300, var(--spacing-300, 16px));
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-radius-75);
-  background: var(--s2-gray-50);
+  background: var(--ml-bg);
   color: var(--s2-gray-700);
   font-size: var(--s2-font-size-100);
   font-weight: 500;
@@ -85,7 +89,7 @@ nx-media-scan {
 }
 
 .view-btn:hover {
-  background: var(--s2-gray-50);
+  background: var(--ml-bg);
   border-color: var(--s2-gray-700);
 }
 
@@ -288,7 +292,7 @@ nx-media-sidebar {
   position: fixed;
   top: var(--s2-spacing-400, var(--spacing-400, 24px));
   right: var(--s2-spacing-400, var(--spacing-400, 24px));
-  background: var(--s2-gray-50);
+  background: var(--ml-bg);
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-radius-100);
   padding: var(--s2-spacing-200, var(--spacing-200, 12px)) var(--s2-spacing-300, var(--spacing-300, 16px));
@@ -311,7 +315,7 @@ nx-media-sidebar {
   position: fixed;
   top: 16px;
   right: 16px;
-  background: var(--s2-gray-50);
+  background: var(--ml-bg);
   border: 1px solid var(--s2-gray-200);
   border-radius: 4px;
   padding: 16px;
@@ -474,7 +478,7 @@ nx-media-sidebar {
   justify-content: center;
   width: 100%;
   height: 100vh;
-  background: light-dark(#f9f9f9, #1c1c1c);
+  background: var(--ml-bg);
 }
 
 .validation-content,

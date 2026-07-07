@@ -5,6 +5,8 @@
  * relying on window, localStorage, or global state.
  */
 
+import { HttpStatus } from '../../core/constants.js';
+
 // Counter for generating unique request IDs for token refresh messages
 let tokenRefreshRequestId = 0;
 
@@ -448,7 +450,9 @@ export async function fetchPageMarkdown(
 
     // Retry on 401/403 with fresh token (protected sites)
     // Main thread clears cache and refetches, so even if token value is same, retry is valid
-    if ((resp.status === 401 || resp.status === 403) && siteToken) {
+    const isAuthError = resp.status === HttpStatus.UNAUTHORIZED
+      || resp.status === HttpStatus.FORBIDDEN;
+    if (isAuthError && siteToken) {
       const freshToken = await requestTokenRefresh();
       if (freshToken) {
         // Retry with fresh token (even if same value - cache was cleared on main thread)
@@ -679,13 +683,19 @@ export async function streamLog(
     const resp = await workerFetchWithAuth(nextUrl, imsToken);
 
     if (!resp.ok) {
-      if (resp.status === 403) {
-        throw new Error(`403 Forbidden: ${endpoint} access denied for ${nextUrl}`);
+      if (resp.status === HttpStatus.FORBIDDEN) {
+        const err = new Error(`403 Forbidden: ${endpoint} access denied for ${nextUrl}`);
+        err.status = HttpStatus.FORBIDDEN;
+        throw err;
       }
-      if (resp.status === 401) {
-        throw new Error(`401 Unauthorized: IMS token expired for ${nextUrl}`);
+      if (resp.status === HttpStatus.UNAUTHORIZED) {
+        const err = new Error(`401 Unauthorized: IMS token expired for ${nextUrl}`);
+        err.status = HttpStatus.UNAUTHORIZED;
+        throw err;
       }
-      throw new Error(`${endpoint} API error: ${resp.status} ${resp.statusText}`);
+      const err = new Error(`${endpoint} API error: ${resp.status} ${resp.statusText}`);
+      err.status = resp.status;
+      throw err;
     }
 
     const data = await resp.json();
