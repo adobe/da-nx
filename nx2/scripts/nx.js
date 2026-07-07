@@ -25,6 +25,13 @@ export function getColorScheme() {
     || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-scheme' : 'light-scheme');
 }
 
+export function setColorScheme(scheme) {
+  document.body.classList.remove('light-scheme', 'dark-scheme');
+  document.body.classList.add(scheme);
+  localStorage.setItem('color-scheme', scheme);
+  return scheme;
+}
+
 export function getMetadata(name) {
   const attr = name && name.includes(':') ? 'property' : 'name';
   const meta = document.head.querySelector(`meta[${attr}="${name}"]`);
