@@ -5,13 +5,14 @@ import {
   IndexFiles,
   ExternalMedia,
   DA_ETC_ORIGIN,
+  HttpStatus,
 } from '../core/constants.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isPerfEnabled } from '../core/params.js';
 import { t } from '../core/messages.js';
 
 const AEM_PAGE_MARKDOWN_RATE = 180; /* keep some headroom under the 200 RPS host limit */
-const AEM_SITE_AUTH_DENIED = new Set([401, 403]);
+const AEM_SITE_AUTH_DENIED = new Set([HttpStatus.UNAUTHORIZED, HttpStatus.FORBIDDEN]);
 
 const delay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
@@ -367,23 +368,35 @@ export async function streamLog(
     const resp = await fetchWithAuth(nextUrl);
 
     if (!resp.ok) {
-      if (resp.status === 403) {
-        logMediaLibraryError(ErrorCodes.EDS_LOG_DENIED, { status: 403, endpoint: nextUrl });
-        throw new MediaLibraryError(
+      if (resp.status === HttpStatus.FORBIDDEN) {
+        logMediaLibraryError(
+          ErrorCodes.EDS_LOG_DENIED,
+          { status: HttpStatus.FORBIDDEN, endpoint: nextUrl },
+        );
+        const err = new MediaLibraryError(
           ErrorCodes.EDS_LOG_DENIED,
           t('EDS_LOG_DENIED'),
-          { status: 403, endpoint: nextUrl, hint: t('EDS_LOG_DENIED_HINT') },
+          { status: HttpStatus.FORBIDDEN, endpoint: nextUrl, hint: t('EDS_LOG_DENIED_HINT') },
         );
+        err.status = HttpStatus.FORBIDDEN;
+        throw err;
       }
-      if (resp.status === 401) {
-        logMediaLibraryError(ErrorCodes.EDS_AUTH_EXPIRED, { status: 401, endpoint: nextUrl });
-        throw new MediaLibraryError(
+      if (resp.status === HttpStatus.UNAUTHORIZED) {
+        logMediaLibraryError(
+          ErrorCodes.EDS_AUTH_EXPIRED,
+          { status: HttpStatus.UNAUTHORIZED, endpoint: nextUrl },
+        );
+        const err = new MediaLibraryError(
           ErrorCodes.EDS_AUTH_EXPIRED,
           t('EDS_AUTH_EXPIRED'),
-          { status: 401, endpoint: nextUrl },
+          { status: HttpStatus.UNAUTHORIZED, endpoint: nextUrl },
         );
+        err.status = HttpStatus.UNAUTHORIZED;
+        throw err;
       }
-      throw new Error(`${endpoint} API error: ${resp.status} ${resp.statusText}`);
+      const err = new Error(`${endpoint} API error: ${resp.status} ${resp.statusText}`);
+      err.status = resp.status;
+      throw err;
     }
 
     const data = await resp.json();

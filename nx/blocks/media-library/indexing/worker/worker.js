@@ -134,25 +134,12 @@ self.onmessage = async (event) => {
   } catch (error) {
     console.error('[IndexWorker] Build failed:', error);
 
-    let errorCode = error.code || 'WORKER_ERROR';
-    let errorStatus = error.status;
-
-    if (!errorStatus && error.message) {
-      if (error.message.includes('403 Forbidden')) {
-        errorStatus = 403;
-        errorCode = 'EDS_LOG_DENIED';
-      } else if (error.message.includes('401 Unauthorized')) {
-        errorStatus = 401;
-        errorCode = 'EDS_AUTH_EXPIRED';
-      }
-    }
-
     self.postMessage({
       type: 'error',
       error: {
         message: error.message || 'Unknown error',
-        code: errorCode,
-        status: errorStatus,
+        code: error.code || 'WORKER_ERROR',
+        status: error.status,
         stack: error.stack,
       },
     });
