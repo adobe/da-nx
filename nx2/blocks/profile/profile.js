@@ -10,18 +10,40 @@ const config = getConfig();
 const LEGAL_NOTICES_PATH = '/fragments/nav/help';
 
 const style = await loadStyle(import.meta.url);
+const formStyle = await loadStyle(new URL('../../styles/form.css', import.meta.url).href);
+
+function ensureFormStyle() {
+  if (!document.adoptedStyleSheets.includes(formStyle)) {
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, formStyle];
+  }
+}
 
 async function openFragmentDialog(path) {
-  const [{ loadFragment }] = await Promise.all([
-    import('../fragment/fragment.js'),
-    import('../shared/dialog/dialog.js'),
-  ]);
-  const fragment = await loadFragment(path);
-  if (!fragment) return;
-  const dialog = document.createElement('nx-dialog');
-  dialog.append(...fragment.children);
-  dialog.addEventListener('close', () => dialog.remove());
-  document.body.append(dialog);
+  try {
+    const [{ loadFragment }] = await Promise.all([
+      import('../fragment/fragment.js'),
+      import('../shared/dialog/dialog.js'),
+    ]);
+    const fragment = await loadFragment(path);
+    if (!fragment) return;
+    ensureFormStyle();
+    const dialog = document.createElement('nx-dialog');
+    // Content-only dialog (no title/actions) - tighten the default panel
+    // padding so fragment content isn't swimming in whitespace.
+    dialog.style.setProperty('--nx-dialog-padding', 'var(--s2-spacing-400)');
+    dialog.append(...fragment.children);
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'da-btn-secondary';
+    closeBtn.slot = 'actions';
+    closeBtn.textContent = 'Close';
+    closeBtn.addEventListener('click', () => dialog.close());
+    dialog.append(closeBtn);
+    dialog.addEventListener('close', () => dialog.remove());
+    document.body.append(dialog);
+  } catch {
+    config.log('Could not open fragment dialog.');
+  }
 }
 class NxProfile extends LitElement {
   static properties = {

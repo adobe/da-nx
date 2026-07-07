@@ -26,6 +26,18 @@ function mockFragmentFetch(html = '<div><p>Legal notice content</p></div>') {
   return () => { window.fetch = originalFetch; };
 }
 
+function mockFragmentFetchFailure() {
+  const originalFetch = window.fetch;
+  window.fetch = async (url, opts) => {
+    const urlStr = typeof url === 'string' ? url : url.toString();
+    if (urlStr.includes('/fragments/nav/help')) {
+      return new Response('Not found', { status: 404 });
+    }
+    return originalFetch.call(window, url, opts);
+  };
+  return () => { window.fetch = originalFetch; };
+}
+
 async function createProfile() {
   const el = document.createElement('nx-profile');
   document.body.append(el);
@@ -43,6 +55,18 @@ async function waitForSignedIn(el) {
     await new Promise((r) => { setTimeout(r, 10); });
   }
   await el.updateComplete;
+}
+
+// Generic poller for conditions that settle asynchronously (e.g. a dialog
+// appended after a chain of dynamic imports resolves) instead of racing a
+// fixed timer.
+async function waitFor(predicate, { attempts = 50, interval = 10 } = {}) {
+  for (let i = 0; i < attempts; i += 1) {
+    if (predicate()) return true;
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((r) => { setTimeout(r, interval); });
+  }
+  return predicate();
 }
 
 describe('nx-profile', () => {
@@ -81,10 +105,42 @@ describe('nx-profile', () => {
 
     const legalBtn = el.shadowRoot.querySelector('.nx-menu-links .nx-menu-link-btn');
     legalBtn.click();
-    await new Promise((r) => { setTimeout(r, 50); });
+    await waitFor(() => document.querySelector('nx-dialog'));
 
     const dialog = document.querySelector('nx-dialog');
     expect(dialog).to.not.be.null;
     expect(dialog.textContent).to.include('Legal notice content');
+  });
+
+  it('closes the fragment dialog via the Close action button', async () => {
+    restoreFetch = mockFragmentFetch();
+    const el = await createProfile();
+    await waitForSignedIn(el);
+
+    const legalBtn = el.shadowRoot.querySelector('.nx-menu-links .nx-menu-link-btn');
+    legalBtn.click();
+    await waitFor(() => document.querySelector('nx-dialog'));
+
+    const closeBtn = document.querySelector('nx-dialog [slot="actions"]');
+    expect(closeBtn).to.not.be.null;
+    expect(closeBtn.textContent.trim()).to.equal('Close');
+
+    closeBtn.click();
+    await waitFor(() => !document.querySelector('nx-dialog'));
+    expect(document.querySelector('nx-dialog')).to.be.null;
+  });
+
+  it('does not append a dialog when the fragment fetch fails', async () => {
+    restoreFetch = mockFragmentFetchFailure();
+    const el = await createProfile();
+    await waitForSignedIn(el);
+
+    const legalBtn = el.shadowRoot.querySelector('.nx-menu-links .nx-menu-link-btn');
+    legalBtn.click();
+
+    // Give the failed fetch a chance to settle; there's no success signal
+    // to poll for, so we assert absence after a short grace period.
+    await new Promise((r) => { setTimeout(r, 100); });
+    expect(document.querySelector('nx-dialog')).to.be.null;
   });
 });
