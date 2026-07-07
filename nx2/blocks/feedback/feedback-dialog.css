@@ -1,0 +1,35 @@
+.feedback-body {
+  display: flex;
+  flex-flow: column nowrap;
+  gap: var(--s2-spacing-300);
+}
+
+.feedback-intro {
+  margin: 0;
+  line-height: 1.5;
+
+  span {
+    color: var(--s2-gray-500);
+  }
+}
+
+.feedback-textarea {
+  width: 100%;
+  height: auto;
+  min-height: 120px;
+  resize: vertical;
+}
+
+.feedback-textarea.da-input {
+  padding: var(--s2-spacing-100) var(--s2-spacing-200);
+}
+
+.da-form-field nx-picker {
+  align-self: flex-start;
+
+  --nx-picker-height: 32px;
+  --nx-picker-padding: 0 var(--s2-spacing-200);
+  --nx-picker-border: 2px solid var(--s2-gray-300);
+  --nx-picker-radius: var(--s2-corner-radius-500);
+  --nx-picker-background: var(--s2-gray-25);
+}

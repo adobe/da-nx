@@ -88,3 +88,7 @@ export function saveMessages(room, messages, sessionId) {
 export function resetSession(room, sessionId) {
   return write((store) => store.put({ room, messages: [], sessionId, updatedAt: Date.now() }));
 }
+
+export function getRoomKey({ org, site, userId }) {
+  return org && site && userId ? `${org}--${site}--${userId}` : 'default';
+}
