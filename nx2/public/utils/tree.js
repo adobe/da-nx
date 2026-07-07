@@ -1,5 +1,4 @@
-import { daFetch } from '../../utils/api.js';
-import { DA_ORIGIN } from './constants.js';
+import { source, fromPath } from '../../utils/api.js';
 
 export class Queue {
   constructor(callback, maxConcurrent = 500, onError = null, throttle = null) {
@@ -55,14 +54,10 @@ async function getChildren(path) {
   let continuationToken = null;
 
   do {
-    const opts = continuationToken
-      ? { headers: { 'da-continuation-token': continuationToken } }
-      : {};
-    const resp = await daFetch({ url: `${DA_ORIGIN}/list${path}`, opts });
-    if (!resp.ok) break;
+    const result = await source.list({ ...fromPath(path), continuationToken });
+    if (!result.ok) break;
 
-    const json = await resp.json();
-    json.forEach((child) => {
+    result.items.forEach((child) => {
       if (!child.name) {
         // eslint-disable-next-line no-console
         console.log(`This folder has a child with an empty name: ${child.path}`);
@@ -75,7 +70,7 @@ async function getChildren(path) {
       }
     });
 
-    continuationToken = resp.headers.get('da-continuation-token');
+    continuationToken = result.continuationToken;
   } while (continuationToken);
 
   return { files, folders };

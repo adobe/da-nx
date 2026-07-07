@@ -182,14 +182,6 @@ export function resolveAemOrigin() {
   return 'https://admin.hlx.page';
 }
 
-// Main-thread convenience exports (use window.location)
-// IMPORTANT: These will fail in worker context - use resolve* functions instead
-export const DA_ORIGIN = typeof window !== 'undefined'
-  ? resolveDaOrigin(window.location)
-  : DA_ADMIN_ENVS.prod;
-
-export const AEM_ORIGIN = resolveAemOrigin();
-
 export const DA_ETC_ORIGIN = typeof window !== 'undefined'
   ? resolveDaEtcOrigin(window.location)
   : DA_ETC_ENVS.prod;
