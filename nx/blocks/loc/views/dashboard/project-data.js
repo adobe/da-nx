@@ -18,7 +18,7 @@
 import { daFetch } from '../../../../../nx2/utils/api.js';
 import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 
-import { Queue } from '../../../../public/utils/tree.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
 
 import { fetchProject } from './index.js';
 import createProjectCache from './project-cache.js';

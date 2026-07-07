@@ -1,15 +1,15 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig } from '../../../../scripts/nexter.js';
-import getStyle from '../../../../utils/styles.js';
-import { getSvg } from '../../../../utils/svg.js';
+import config from '../../../../../nx2/utils/nxToggle.js';
+import { loadStyle } from '../../../../../nx2/utils/utils.js';
+import loadIcons from '../../../../../nx2/utils/svg.js';
 import { VIEWS } from '../../utils/steps.js';
 
-const { nxBase: nx } = getConfig();
-const style = await getStyle(import.meta.url);
+const { nxBase: nx } = config;
+const style = await loadStyle(import.meta.url);
 
 const ICONS = [
-  `${nx}/img/icons/Smock_ChevronLeft_18_N.svg`,
-  `${nx}/img/icons/Smock_ChevronRight_18_N.svg`,
+  `${nx}/public/icons/Smock_ChevronLeft_18_N.svg`,
+  `${nx}/public/icons/Smock_ChevronRight_18_N.svg`,
   `${nx}/public/icons/S2_Icon_Archive_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Emoji_20_N.svg`,
   `${nx}/public/icons/S2_Icon_FileConvert_20_N.svg`,
@@ -20,6 +20,7 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_GlobeGrid_20_N.svg`,
   `${nx}/public/icons/S2_Icon_CheckmarkCircleGreen_20_N.svg`,
 ];
+const icons = await loadIcons({ paths: ICONS });
 
 class NxLocSteps extends LitElement {
   static properties = {
@@ -30,7 +31,7 @@ class NxLocSteps extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
+    this.shadowRoot.append(...icons);
   }
 
   update(props) {

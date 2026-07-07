@@ -1,19 +1,20 @@
 import { LitElement, html, nothing } from 'da-lit';
-import getStyle from '../../../../utils/styles.js';
-import { getConfig } from '../../../../scripts/nexter.js';
-import { getSvg } from '../../../../utils/svg.js';
-import { Queue } from '../../../../public/utils/tree.js';
+import config from '../../../../../nx2/utils/nxToggle.js';
+import { loadStyle } from '../../../../../nx2/utils/utils.js';
+import loadIcons from '../../../../../nx2/utils/svg.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { getSyncUrls } from './index.js';
 import { MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
 
-const { nxBase: nx } = getConfig();
+const { nxBase: nx } = config;
 
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
 const ICONS = [
   `${nx}/public/icons/S2_Icon_CheckmarkCircleGreen_20_N.svg`,
   `${nx}/public/icons/S2_Icon_AlertDiamondOrange_20_N.svg`,
 ];
+const icons = await loadIcons({ paths: ICONS });
 
 class NxLocSync extends LitElement {
   static properties = {
@@ -26,7 +27,7 @@ class NxLocSync extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
+    this.shadowRoot.append(...icons);
     this._message = this._defaultMessage;
     this.getSyncUrls();
   }

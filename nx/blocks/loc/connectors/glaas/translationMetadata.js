@@ -1,5 +1,5 @@
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { daFetch } from '../../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
+import { daFetch } from '../../../../../nx2/utils/api.js';
 
 const BLOCK_SCHEMA_PATH = '/.da/block-schema.json';
 const SEO_GLOSSARY_PATH = '/.da/seo/glossary.json';
@@ -80,9 +80,9 @@ export function parseBlockSchema(schemaData) {
 }
 
 async function fetchJson(org, site, relativePath) {
-  const url = `${DA_ORIGIN}/source/${org}/${site}${relativePath}`;
+  const url = `${DA_ADMIN}/source/${org}/${site}${relativePath}`;
   try {
-    const resp = await daFetch(url);
+    const resp = await daFetch({ url });
     if (!resp.ok) return null;
     return resp.json();
   } catch (error) {
@@ -112,17 +112,17 @@ export async function fetchKeywordsFile(org, site, pagePath) {
   const cleanPath = pagePath.replace(/\.html$/, '');
   const keywordsPath = `${cleanPath}-keywords.json`;
   // Try primary path
-  let url = `${DA_ORIGIN}/source/${org}/${site}${keywordsPath}`;
+  let url = `${DA_ADMIN}/source/${org}/${site}${keywordsPath}`;
   try {
-    const resp = await daFetch(url);
+    const resp = await daFetch({ url });
     if (resp.ok) {
       return resp.json();
     }
     // If 404 and path contains /langstore/, try fallback
     if (resp.status === 404 && keywordsPath.includes('/langstore/')) {
       const fallbackPath = keywordsPath.replace(/\/langstore\/[^/]+\//, '/');
-      url = `${DA_ORIGIN}/source/${org}/${site}${fallbackPath}`;
-      const fallbackResp = await daFetch(url);
+      url = `${DA_ADMIN}/source/${org}/${site}${fallbackPath}`;
+      const fallbackResp = await daFetch({ url });
       if (fallbackResp.ok) {
         return fallbackResp.json();
       }

@@ -1,4 +1,4 @@
-import makeBatches from '../../../../public/utils/batch.js';
+import makeBatches from '../../../../../nx2/public/utils/batch.js';
 
 export async function throttle(ms = 500) {
   return new Promise((resolve) => {

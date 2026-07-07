@@ -1,17 +1,18 @@
 import { LitElement, html, nothing } from 'da-lit';
-import getStyle from '../../../../utils/styles.js';
-import { getConfig } from '../../../../scripts/nexter.js';
-import { getSvg } from '../../../../utils/svg.js';
+import config from '../../../../../nx2/utils/nxToggle.js';
+import { loadStyle } from '../../../../../nx2/utils/utils.js';
+import loadIcons from '../../../../../nx2/utils/svg.js';
 import { sortLangs, rolloutLang, getFilteredLangs, getSummaryCards } from './index.js';
 
-const { nxBase: nx } = getConfig();
+const { nxBase: nx } = config;
 
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
 const ICONS = [
   `${nx}/public/icons/S2_Icon_CheckmarkCircleGreen_20_N.svg`,
   `${nx}/public/icons/S2_Icon_AlertDiamondOrange_20_N.svg`,
 ];
+const icons = await loadIcons({ paths: ICONS });
 
 class NxLocRollout extends LitElement {
   static properties = {
@@ -28,7 +29,7 @@ class NxLocRollout extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
+    this.shadowRoot.append(...icons);
     this._langs = this.project.langs;
     this._urls = this.project.urls;
     this._sortedLangs = sortLangs(this._langs);

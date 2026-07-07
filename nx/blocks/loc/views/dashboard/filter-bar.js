@@ -1,15 +1,16 @@
-import { LitElement, html, nothing } from '../../../../deps/lit/lit-core.min.js';
-import { getConfig } from '../../../../scripts/nexter.js';
-import getStyle from '../../../../utils/styles.js';
-import { getSvg } from '../../../../utils/svg.js';
+import { LitElement, html, nothing } from 'da-lit';
+import config from '../../../../../nx2/utils/nxToggle.js';
+import { loadStyle } from '../../../../../nx2/utils/utils.js';
+import loadIcons from '../../../../../nx2/utils/svg.js';
 
-const { nxBase } = getConfig();
-const style = await getStyle(import.meta.url);
-const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
+const { nxBase: nx } = config;
+const style = await loadStyle(import.meta.url);
+const buttons = await loadStyle(new URL('./buttons.css', import.meta.url).href);
 
 const FILTER_BAR_ICONS = [
-  `${nxBase}/blocks/loc/img/clear.svg`,
+  `${nx}/public/icons/clear.svg`,
 ];
+const icons = await loadIcons({ paths: FILTER_BAR_ICONS });
 
 const PROJECT_STATUSES = ['not started', 'in progress', 'complete', 'cancelled'];
 
@@ -121,8 +122,8 @@ class NxFilterBar extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener('click', this._boundHandleOutsideClick);
-    this.shadowRoot.adoptedStyleSheets = [style, buttons];
-    getSvg({ parent: this.shadowRoot, paths: FILTER_BAR_ICONS });
+    this.shadowRoot.adoptedStyleSheets = [buttons, style];
+    this.shadowRoot.append(...icons);
   }
 
   disconnectedCallback() {
@@ -164,7 +165,7 @@ class NxFilterBar extends LitElement {
       <div class="filter-bar">
         <!-- Search Input with Clear Button -->
         <div class="search-container">
-          <input type="text" class="search-input" placeholder="Search projects..." .value=${this.searchQuery} @input=${this.handleSearchInput} />
+          <input name="search" type="text" class="search-input" placeholder="Search projects..." .value=${this.searchQuery} @input=${this.handleSearchInput} />
           ${this.searchQuery ? html`<button class="clear-search-btn" @click=${this.clearSearch} title="Clear search"><svg class="icon"><use href="#da-loc-clear"/></svg></button>` : nothing}
         </div>
 
@@ -202,9 +203,9 @@ class NxFilterBar extends LitElement {
           <!-- Filter Popup -->
 
         <!-- Date Range -->
-        <input type="date" class="date-picker" .value=${this.startDate || ''} @change=${this.handleStartDateChange} />
+        <input name="start-date" type="date" class="date-picker" .value=${this.startDate || ''} @change=${this.handleStartDateChange} />
         <span>to</span>
-        <input type="date" class="date-picker" .value=${this.endDate || ''} @change=${this.handleEndDateChange} />
+        <input name="end-date" type="date" class="date-picker" .value=${this.endDate || ''} @change=${this.handleEndDateChange} />
 
         <!-- Toggle Switch -->
         <div class="toggle-switch">

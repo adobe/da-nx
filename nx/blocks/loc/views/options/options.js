@@ -1,18 +1,19 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig } from '../../../../scripts/nexter.js';
-import getStyle from '../../../../utils/styles.js';
-import { getSvg } from '../../../../utils/svg.js';
+import nxConfig from '../../../../../nx2/utils/nxToggle.js';
+import { loadStyle } from '../../../../../nx2/utils/utils.js';
+import loadIcons from '../../../../../nx2/utils/svg.js';
 import { fetchConfig } from '../../utils/utils.js';
 import { getAllActions, formatLangs, formatConfig, finalizeOptions, getCustomOptions } from './utils/utils.js';
 
-const { nxBase: nx } = getConfig();
+const { nxBase: nx } = nxConfig;
 
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
 const ICONS = [
-  `${nx}/blocks/loc/img/Smock_Close_18_N.svg`,
-  `${nx}/blocks/loc/img/Smock_Add_18_N.svg`,
+  `${nx}/public/icons/Smock_Close_18_N.svg`,
+  `${nx}/public/icons/Smock_Add_18_N.svg`,
 ];
+const icons = await loadIcons({ paths: ICONS });
 
 class NxLocOptions extends LitElement {
   static properties = {
@@ -30,7 +31,7 @@ class NxLocOptions extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
+    this.shadowRoot.append(...icons);
     this._message = { text: 'Starting the project will lock sources, options, and languages.' };
     this.formatOptions();
   }

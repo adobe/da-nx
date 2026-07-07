@@ -12,6 +12,7 @@ import './filter-bar.js';
 import createProjectData from './project-data.js';
 
 const style = await loadStyle(import.meta.url);
+const buttons = await loadStyle(new URL('./buttons.css', import.meta.url).href);
 
 const { nxBase: nx } = config;
 
@@ -137,7 +138,7 @@ class NxLocDashboard extends LitElement {
     this._showTo = ITEMS_PER_PAGE;
     this._currentPage = 0;
     this._isLoading = true;
-    this.shadowRoot.adoptedStyleSheets = [style];
+    this.shadowRoot.adoptedStyleSheets = [buttons, style];
     this.shadowRoot.append(...icons);
     // not awaiting to not block UI
     this.ensureInitialized();

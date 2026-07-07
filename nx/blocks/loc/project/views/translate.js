@@ -1,19 +1,17 @@
-import { LitElement, html, nothing } from '../../../../deps/lit/dist/index.js';
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { getConfig } from '../../../../scripts/nexter.js';
-import { daFetch } from '../../../../utils/daFetch.js';
-import getStyle from '../../../../utils/styles.js';
-import { getSvg } from '../../../../utils/svg.js';
+import { LitElement, html, nothing } from 'da-lit';
+import config from '../../../../../nx2/utils/nxToggle.js';
+import { daFetch } from '../../../../../nx2/utils/api.js';
+import { DA_ADMIN, loadStyle } from '../../../../../nx2/utils/utils.js';
+import loadIcons from '../../../../../nx2/utils/svg.js';
 import { detectService, saveLangItems, saveStatus, formatDate } from '../index.js';
 
-const { nxBase } = getConfig();
-const style = await getStyle(import.meta.url);
-const shared = await getStyle(`${nxBase}/blocks/loc/project/views/shared.css`);
-const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
+const { nxBase: nx } = config;
+const style = await loadStyle(import.meta.url);
 
 const ICONS = [
-  `${nxBase}/blocks/loc/img/Smock_ChevronRight_18_N.svg`,
+  `${nx}/public/icons/Smock_ChevronRight_18_N.svg`,
 ];
+const icons = await loadIcons({ paths: ICONS });
 
 class NxLocTranslate extends LitElement {
   static properties = {
@@ -29,8 +27,8 @@ class NxLocTranslate extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style, shared, buttons];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
+    this.shadowRoot.adoptedStyleSheets = [style];
+    this.shadowRoot.append(...icons);
     this.connectService();
     this.formatUrls();
   }
@@ -151,9 +149,9 @@ class NxLocTranslate extends LitElement {
   }
 
   async getSiteConfig() {
-    let resp = await daFetch(`${DA_ORIGIN}/source/${this.state.org}/${this.state.site}/.da/translate.json`);
+    let resp = await daFetch({ url: `${DA_ADMIN}/source/${this.state.org}/${this.state.site}/.da/translate.json` });
     if (!resp.ok) {
-      resp = await fetch(`${nxBase}/blocks/loc/setup/translate.json`);
+      resp = await fetch(`${nx}/blocks/loc/setup/translate.json`);
     }
     return resp.json();
   }
@@ -164,7 +162,7 @@ class NxLocTranslate extends LitElement {
     const siteConfig = await this.getSiteConfig();
 
     await Promise.all(this.urls.map(async (url) => {
-      const resp = await daFetch(`${DA_ORIGIN}/source${url.srcPath}`);
+      const resp = await daFetch({ url: `${DA_ADMIN}/source${url.srcPath}` });
       if (!resp.ok) {
         url.error = 'Error fetching document for DNT.';
         url.status = 520;

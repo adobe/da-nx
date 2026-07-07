@@ -1,8 +1,8 @@
-import getElementMetadata from '../../../utils/getElementMetadata.js';
+import getElementMetadata from '../../../../nx2/utils/getElementMetadata.js';
 import { regionalDiff, removeLocTags } from '../regional-diff/regional-diff.js';
-import { daFetch, saveToDa } from '../../../utils/daFetch.js';
-import { DA_ORIGIN } from '../../../public/utils/constants.js';
-import { Queue } from '../../../public/utils/tree.js';
+import { daFetch, source as daSource } from '../../../../nx2/utils/api.js';
+import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
+import { Queue } from '../../../../nx2/public/utils/tree.js';
 
 // Max concurrent /source/ reads from da-admin. Prevents flooding da-admin
 // with OPTIONS+GET bursts during content scans (translate, rollout, validate).
@@ -28,7 +28,7 @@ let projPath;
 let projJson;
 
 async function fetchData(path) {
-  const resp = await daFetch(path);
+  const resp = await daFetch({ url: path });
   if (!resp.ok) return null;
   return resp.json();
 }
@@ -88,7 +88,7 @@ export async function detectService(config, env = 'stage') {
 
 export async function getDetails() {
   projPath = window.location.hash.replace('#', '');
-  const data = await fetchData(`${DA_ORIGIN}/source${projPath}.json`);
+  const data = await fetchData(`${DA_ADMIN}/source${projPath}.json`);
   return data;
 }
 
@@ -110,7 +110,7 @@ export async function saveStatus(json) {
   const file = new Blob([JSON.stringify(proj)], { type: 'application/json' });
   body.append('data', file);
   const opts = { body, method: 'POST' };
-  const resp = await daFetch(`${DA_ORIGIN}/source${projPath}.json`, opts);
+  const resp = await daFetch({ url: `${DA_ADMIN}/source${projPath}.json`, opts });
   if (!resp.ok) return { error: 'Could not update project' };
   return json;
 }
@@ -125,7 +125,7 @@ async function saveVersion(path, label) {
   try {
     const opts = { method: 'POST' };
     if (label) opts.body = JSON.stringify({ label });
-    await daFetch(`${DA_ORIGIN}/versionsource${path}`, opts);
+    await daFetch({ url: `${DA_ADMIN}/versionsource${path}`, opts });
   } finally {
     versionSaving.delete(path);
   }
@@ -146,7 +146,7 @@ function collapseInnerTextSpaces(html) {
 
 const getHtml = async (path, html) => {
   const fetchHtml = async () => {
-    const res = await daFetch(`${DA_ORIGIN}/source${path}`);
+    const res = await daFetch({ url: `${DA_ADMIN}/source${path}` });
     if (!res.ok) return null;
     const str = await res.text();
     return str;
@@ -163,6 +163,43 @@ const getDaUrl = (url) => {
   return { org, repo, pathname };
 };
 
+function replaceHtml(text, fromOrg, fromRepo, options = {}) {
+  const { daMetadata = {}, replaceRelative = true } = options;
+  let inner = text;
+
+  if (fromOrg && fromRepo && replaceRelative) {
+    const fromOrigin = `https://main--${fromRepo}--${fromOrg}.aem.live`;
+    inner = text
+      .replaceAll('./media', `${fromOrigin}/media`)
+      .replaceAll('href="/', `href="${fromOrigin}/`);
+  }
+
+  let metadataHTML = '';
+  if (Object.keys(daMetadata).length > 0) {
+    const daRows = Object.entries(daMetadata)
+      .map(([key, value]) => {
+        const textContent = value?.text ?? value ?? '';
+        return `<div><div>${key}</div><div>${textContent}</div></div>`;
+      })
+      .join('');
+    metadataHTML = `\n  <div class="da-metadata">${daRows}</div>\n`;
+  }
+
+  return `
+    <body>
+      <header></header>
+      <main>${inner}</main>
+      ${metadataHTML}<footer></footer>
+    </body>
+  `;
+}
+
+function saveHtml(url, content, { daMetadata = {}, replaceRelative = false } = {}) {
+  const { org, repo, pathname } = getDaUrl(url);
+  const body = replaceHtml(content, org, repo, { daMetadata, replaceRelative });
+  return daSource.save({ org, site: repo, path: `${pathname}.html`, body });
+}
+
 export async function overwriteCopy(url, title) {
   let resp;
   if (url.sourceContent) {
@@ -173,7 +210,7 @@ export async function overwriteCopy(url, title) {
       body: new FormData(),
     };
     opts.body.append('data', blob);
-    resp = await daFetch(`${DA_ORIGIN}/source${url.destination}`, opts);
+    resp = await daFetch({ url: `${DA_ADMIN}/source${url.destination}`, opts });
   } else {
     const srcHtml = await getHtml(url.source);
     if (srcHtml) {
@@ -181,11 +218,7 @@ export async function overwriteCopy(url, title) {
       const daMetadata = getElementMetadata(srcHtml.querySelector(DA_METADATA_SELECTOR));
       delete daMetadata?.acceptedhashes;
       delete daMetadata?.rejectedhashes;
-      resp = await saveToDa(
-        srcHtml.querySelector('main').innerHTML,
-        getDaUrl(url),
-        { daMetadata, replaceRelative: false },
-      );
+      resp = await saveHtml(url, srcHtml.querySelector('main').innerHTML, { daMetadata });
     }
   }
 
@@ -245,15 +278,14 @@ export async function rolloutCopy(
     if (labelUpstream) daMetadata['diff-label-upstream'] = labelUpstream;
 
     return new Promise((resolve) => {
-      const daUrl = getDaUrl(url);
-      const savePromise = saveToDa(diffed.innerHTML, daUrl, { daMetadata, replaceRelative: false });
+      const savePromise = saveHtml(url, diffed.innerHTML, { daMetadata });
 
       const timedout = setTimeout(() => {
         url.status = 'timeout';
         resolve('timeout');
       }, DEFAULT_TIMEOUT);
 
-      savePromise.then(({ daResp }) => {
+      savePromise.then((daResp) => {
         clearTimeout(timedout);
         url.status = daResp.ok ? 'success' : 'error';
         if (daResp.ok) {
@@ -307,12 +339,7 @@ export async function mergeCopy(
     if (labelLocal) daMetadata['diff-label-local'] = labelLocal;
     if (labelUpstream) daMetadata['diff-label-upstream'] = labelUpstream;
 
-    const daUrl = getDaUrl(url);
-    const { daResp } = await saveToDa(
-      diffed.innerHTML,
-      daUrl,
-      { daMetadata, replaceRelative: false },
-    );
+    const daResp = await saveHtml(url, diffed.innerHTML, { daMetadata });
     if (daResp.ok) {
       url.status = 'success';
       saveVersion(url.destination, `${projectTitle} - Rolled Out`);
@@ -338,7 +365,7 @@ export async function saveLangItems(sitePath, items, lang, removeDnt) {
     const body = new FormData();
     body.append('data', blob);
     const opts = { body, method: 'POST' };
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`, opts);
+    const resp = await daFetch({ url: `${DA_ADMIN}/source${path}`, opts });
     results[idx] = { success: resp.status };
   }, MAX_CONCURRENT_WRITES);
 

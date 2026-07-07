@@ -1,6 +1,6 @@
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { Queue } from '../../../../public/utils/tree.js';
-import { daFetch } from '../../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
+import { daFetch } from '../../../../../nx2/utils/api.js';
 import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
 import { convertPath, createSnapshotPrefix } from '../../utils/utils.js';
 
@@ -30,7 +30,7 @@ function getRespStatusText(status) {
 
 async function fetchLangSources(lang, urls) {
   const fetchUrl = async (url) => {
-    const resp = await daFetch(`${DA_ORIGIN}/source${url.source}`);
+    const resp = await daFetch({ url: `${DA_ADMIN}/source${url.source}` });
     if (!resp.ok) {
       url.error = `Error fetching content from ${url.source} - ${getRespStatusText(resp.status)}`;
       return url;

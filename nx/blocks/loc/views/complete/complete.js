@@ -1,16 +1,16 @@
 import { LitElement, html } from 'da-lit';
-import { getConfig } from '../../../../scripts/nexter.js';
-import getStyle from '../../../../utils/styles.js';
-import { getSvg } from '../../../../utils/svg.js';
-import loadScript from '../../../../utils/script.js';
+import config from '../../../../../nx2/utils/nxToggle.js';
+import { loadStyle, loadScript } from '../../../../../nx2/utils/utils.js';
+import loadIcons from '../../../../../nx2/utils/svg.js';
 
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
-const { nxBase: nx } = getConfig();
+const { nxBase: nx } = config;
 
 const ICONS = [
   `${nx}/public/icons/S2_Icon_Emoji_20_N.svg`,
 ];
+const icons = await loadIcons({ paths: ICONS });
 
 let makeConfetti;
 
@@ -20,7 +20,7 @@ class NxLocComplete extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
+    this.shadowRoot.append(...icons);
     this.loadConfetti();
   }
 

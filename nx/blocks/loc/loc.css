@@ -1,7 +1,7 @@
 :host {
   display: block;
   color: var(--s2-gray-900);
-  font-size: var(--type-body-s-size);
+  font-size: var(--s2-body-size-s);
 }
 
 .nx-loc-step {

@@ -2,10 +2,6 @@ svg {
   display: none;
 }
 
-button {
-  font-family: var(--s2-font-family);
-}
-
 .icon {
   display: block;
   width: 20px;
