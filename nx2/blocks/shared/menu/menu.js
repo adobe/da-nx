@@ -45,7 +45,7 @@ class NxMenu extends LitElement {
     if (e.newState !== 'open') return;
     this._trigger?.toggleAttribute('data-active', true);
     this._trigger?.setAttribute('aria-expanded', 'true');
-    const first = this.items?.find((i) => !i.divider && !i.section);
+    const first = this.items?.find((i) => !i.divider && !i.section && !i.hint);
     this._active = first?.id;
     this.updateComplete.then(() => {
       if (!this.ignoreFocus) this.shadowRoot.querySelector(`[data-id="${this._active}"]`)?.focus();
@@ -110,6 +110,7 @@ class NxMenu extends LitElement {
   _renderItem(item) {
     if (item.divider) return html`<li role="separator"><hr class="menu-divider"></li>`;
     if (item.section) return html`<li role="presentation"><span class="menu-section">${item.section}</span></li>`;
+    if (item.hint) return html`<li role="presentation"><span class="menu-hint">${item.hint}</span></li>`;
     if (!item.label || !item.id) return nothing;
 
     return html`
@@ -125,6 +126,7 @@ class NxMenu extends LitElement {
         >
           ${item.icon ? html`<svg class="menu-item-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-${item.icon}-20-n.svg#icon"></use></svg>` : nothing}
           <span class="menu-item-label">${item.label}</span>
+          ${item.subtitle ? html`<span class="menu-item-subtitle">${item.subtitle}</span>` : nothing}
         </button>
       </li>
     `;

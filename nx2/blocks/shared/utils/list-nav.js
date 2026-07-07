@@ -2,7 +2,7 @@ export function listKeydown(key, {
   items, active, itemKey, shadowRoot, setActive, onSelect, onClose,
   focusActiveItem = true,
 }) {
-  const selectable = items?.filter((i) => !i.divider && !i.section) ?? [];
+  const selectable = items?.filter((i) => !i.divider && !i.section && !i.hint) ?? [];
   if (!selectable.length) return false;
 
   const curIdx = selectable.findIndex((i) => i[itemKey] === active);
