@@ -83,7 +83,7 @@ dialog.modal-overlay::backdrop {
   overflow: hidden;
   display: grid;
   grid-template-columns: 0.5fr 1fr;
-  background: light-dark(white, #1a1a1a);
+  background: var(--ml-surface);
 
   .modal-header {
     display: flex;
@@ -133,7 +133,7 @@ dialog.modal-overlay::backdrop {
     overflow-y: auto;
     flex: 1;
     height: 460px;
-    background: light-dark(white, #1a1a1a);
+    background: var(--ml-surface);
   }
 }
 
@@ -370,7 +370,7 @@ dialog.modal-overlay::backdrop {
 
 .modal-details {
   overflow: hidden;
-  background: light-dark(white, #1a1a1a);
+  background: var(--ml-surface);
 }
 
 .image-preview-container {
@@ -513,7 +513,7 @@ dialog.modal-overlay::backdrop {
 
 /* Metadata Section */
 .metadata-section {
-  background: light-dark(white, #1a1a1a);
+  background: var(--ml-surface);
 }
 
 .metadata-section h3 {
