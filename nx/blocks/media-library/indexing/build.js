@@ -154,7 +154,10 @@ async function runWorkerBuild(
         resolve(data);
       } else if (type === 'error') {
         clearTimeout(watchdogTimer);
-        reject(new Error(error.message || 'Worker error'));
+        const err = new Error(error.message || 'Worker error');
+        err.code = error.code;
+        err.status = error.status;
+        reject(err);
       }
     };
 
