@@ -122,7 +122,7 @@ svg.icon {
   contain: layout;
   padding-top: 0;
   margin-top: 0;
-  background: light-dark(var(--s2-gray-50), #1a1a1a);
+  background: light-dark(#f9f9f9, #1c1c1c);
 }
 
 .media-main:focus-visible {
