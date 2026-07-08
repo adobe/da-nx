@@ -1,4 +1,3 @@
-/* Grid component styles - inherits CSS variables from parent */
 :host {
   display: block;
   height: 100%;
