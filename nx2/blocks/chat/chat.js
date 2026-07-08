@@ -32,7 +32,6 @@ class NxChat extends LitElement {
     thinking: { type: Boolean },
     connected: { type: Boolean },
     toolCards: { type: Object },
-    agentId: { type: String, attribute: 'agent-id' },
     _prompts: { state: true },
     _items: { state: true },
   };
@@ -175,7 +174,8 @@ class NxChat extends LitElement {
       },
     });
     if (this._context) this._controller.setContext(this._context);
-    if (this.agentId) this._controller.setAgentId(this.agentId);
+    const agentId = this.getAttribute('agent-id');
+    if (agentId) this._controller.setAgentId(agentId);
 
     this._unsubscribeHash = hashChange.subscribe((state) => {
       if (!this._explicitContext) this._applyContext(state);
@@ -217,9 +217,6 @@ class NxChat extends LitElement {
   };
 
   updated(changed) {
-    if (changed.has('agentId') && this._controller) {
-      this._controller.setAgentId(this.agentId);
-    }
     if (changed.has('messages')) {
       const log = this.shadowRoot.querySelector('.chat-scroll-container');
       if (log) requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
