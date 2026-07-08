@@ -32,7 +32,7 @@ import { isMediaLibraryPluginMode } from '../../../core/utils.js';
 const style = await loadStyle(import.meta.url);
 const nx2 = `${new URL(import.meta.url).origin}/nx2`;
 const nx = `${new URL(import.meta.url).origin}/nx`;
-const sl = await loadStyle(`${nx2}/public/sl/styles.css`);
+const sl = await loadStyle(`${nx2}/styles/styles.css`);
 const slComponents = await loadStyle(`${nx2}/public/sl/components.css`);
 
 const ICONS = [
