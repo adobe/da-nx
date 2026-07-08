@@ -83,7 +83,7 @@
   padding: 0 var(--s2-spacing-300);
   box-sizing: border-box;
   justify-content: flex-end;
-  gap: var(--s2-spacing-300);
+  gap: var(--s2-spacing-100);
 
   .chat-header-btn {
     display: inline-flex;
@@ -98,7 +98,7 @@
     color: var(--s2-gray-800);
     cursor: pointer;
     font-family: inherit;
-    font-size: var(--s2-body-size-s);
+    font-size: var(--s2-body-size-xs);
 
     &.clear-btn {
       padding: 0 var(--s2-spacing-100);
@@ -190,6 +190,10 @@
     color: var(--s2-gray-500);
     overflow-wrap: break-word;
   }
+
+  &.tool-card-detail {
+    margin-left: 14px;
+  }
 }
 
 .directive {
@@ -203,6 +207,7 @@
 
 .directive-checklist ul {
   list-style: none;
+  padding: 0;
 }
 
 .directive-toggle-list {
@@ -306,8 +311,25 @@
     gap: var(--s2-spacing-75);
   }
 
-  .message-content p {
-    margin: 0;
+  .message-content {
+    p {
+      margin: 0;
+    }
+
+    code {
+      background: var(--s2-gray-75);
+      border-radius: var(--s2-corner-radius-75);
+      padding: var(--s2-spacing-50);
+      overflow-x: auto;
+      margin: 0;
+      font-size: var(--s2-body-size-xs);
+    }
+
+    hr {
+      border: none;
+      height: 1px;
+      background: var(--s2-gray-200);
+    }
   }
 
   .message-content code {
@@ -320,7 +342,7 @@
   }
 
   .message-action-copy {
-    align-self: flex-end;
+    align-self: flex-start;
     visibility: hidden;
     box-sizing: border-box;
     width: 20px;

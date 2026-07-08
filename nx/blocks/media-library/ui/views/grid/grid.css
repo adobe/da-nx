@@ -1,4 +1,9 @@
 /* Grid component styles - inherits CSS variables from parent */
+:host {
+  display: block;
+  height: 100%;
+}
+
 svg.icon {
   width: 20px;
   height: 20px;
@@ -123,6 +128,10 @@ svg.icon {
 .media-main:focus-visible {
   outline: 2px solid var(--s2-blue-500);
   outline-offset: -2px;
+}
+
+:host([pluginmode]) .media-main {
+  height: 100%;
 }
 
 .media-main > * {

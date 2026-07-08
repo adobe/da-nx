@@ -426,7 +426,7 @@ html:has(meta[content="edge-delivery"]) {
       grid-template:
         "header" var(--s2-nav-height)
         "main" 1fr;
-      background-color: light-dark(rgb(240 240 240), rgb(17 17 17));
+      background-color: var(--s2-gray-50);
 
       header {
         grid-area: header;
@@ -492,6 +492,7 @@ html:has(meta[content="edge-delivery"]) {
             min-height: 0;
             height: 100%;
             border-radius: inherit;
+            border: 1px solid var(--s2-gray-100);
             overflow: hidden;
           }
 
@@ -513,12 +514,11 @@ html:has(meta[content="edge-delivery"]) {
           .panel-resize-handle {
             display: none;
             position: absolute;
-            top: 50%;
-            translate: 0 -50%;
+            top: var(--s2-spacing-75);
             z-index: 2;
             box-sizing: border-box;
             width: 12px;
-            height: 56px;
+            height: calc(100% - var(--s2-spacing-75) * 2);
             padding: 0;
             margin: 0;
             border: none;
@@ -532,17 +532,19 @@ html:has(meta[content="edge-delivery"]) {
             content: '';
             position: absolute;
             left: 50%;
-            top: 50%;
-            translate: -50% -50%;
+            top: 0;
+            translate: -50% 0;
             width: 4px;
-            height: 48px;
+            height: 100%;
             border-radius: 999px;
-            background-color: var(--s2-gray-600);
+            background-color: transparent;
+            transition: background-color 0.1s;
           }
 
           .panel-resize-handle:hover::before,
           .panel-resize-handle:focus-visible::before {
-            background-color: var(--s2-gray-900);
+            background-color: var(--s2-gray-400);
+            transition: background-color 0.2s ease-in;
           }
 
           .panel-resize-handle:focus-visible {
@@ -592,9 +594,9 @@ html:has(meta[content="edge-delivery"]) {
           display: grid;
           margin: 0 12px 0 0;
           border-radius: var(--s2-corner-radius-800) var(--s2-corner-radius-800) 0 0;
+          border: 1px solid var(--s2-gray-100);
           max-height: 100%;
           overflow-y: auto;
-
         }
 
         &:has(aside.panel:not([hidden]))::before {

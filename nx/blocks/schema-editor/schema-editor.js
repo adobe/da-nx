@@ -1,25 +1,24 @@
 import { html, LitElement, nothing } from 'da-lit';
-import { getConfig } from '../../scripts/nexter.js';
-import getStyle from '../../utils/styles.js';
-import { getSvg } from '../../utils/svg.js';
+import { loadStyle } from '../../../nx2/utils/utils.js';
+import { loadHrefSvg } from '../../../nx2/utils/svg.js';
 import { loadSchemas, saveSchema, deleteSchema, loadCodeMirror, updateCodeMirror } from './utils/utils.js';
 
-import '../../public/sl/components.js';
+import '../../../nx2/public/sl/components.js';
 import '../shared/path/path.js';
 
-const { nxBase: nx } = getConfig();
-
-const ICONS = [
-  `${nx}/public/icons/S2_Icon_InfoCircle_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_AlertDiamond_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_CheckmarkCircle_20_N.svg`,
-];
+const ALERT_ICONS = {
+  info: '/img/icons/s2-icon-infocircle-20-n.svg',
+  warning: '/img/icons/s2-icon-alertdiamond-20-n.svg',
+  success: '/img/icons/s2-icon-checkmarkcircle-20-n.svg',
+};
 
 const EL_NAME = 'nx-schema-editor';
 const DEFAULT_SCHEMA = { $schema: 'https://json-schema.org/draft/2020-12/schema' };
 
-const styles = await getStyle(import.meta.url);
-const icons = await getSvg({ paths: ICONS });
+const style = await loadStyle(import.meta.url);
+const icons = (await Promise.all(
+  Object.values(ALERT_ICONS).map((path) => loadHrefSvg(path)),
+)).filter(Boolean);
 
 class SchemaEditor extends LitElement {
   static properties = {
@@ -33,7 +32,7 @@ class SchemaEditor extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [style];
     this.shadowRoot.append(...icons);
   }
 
@@ -109,7 +108,11 @@ class SchemaEditor extends LitElement {
   }
 
   async handleSave(isUpdate) {
-    const id = isUpdate && this._currentSchema ? this._currentSchema : this.newInput.value;
+    const id = isUpdate && this._currentSchema ? this._currentSchema : this.newInput?.value;
+    if (this._createNew && !id) {
+      this._alert = { type: 'warning', message: 'Please enter a schema name before saving.' };
+      return;
+    }
     const content = this._editor.state.doc.toString();
     const prefix = this.getPrefix();
     const result = await saveSchema(prefix, id, content);
@@ -180,15 +183,9 @@ class SchemaEditor extends LitElement {
   renderAlert() {
     if (!this._alert) return nothing;
 
-    const type2icon = {
-      info: 'InfoCircle',
-      warning: 'AlertDiamond',
-      success: 'CheckmarkCircle',
-    };
-
     return html`
       <div class="nx-alert ${this._alert.type || 'info'}">
-        <svg class="icon"><use href="#S2_Icon_${type2icon[this._alert.type || 'info']}_20_N"/></svg>
+        <svg class="icon"><use href="${ALERT_ICONS[this._alert.type || 'info']}"/></svg>
         <p>${this._alert.message}</p>
       </div>
     `;
