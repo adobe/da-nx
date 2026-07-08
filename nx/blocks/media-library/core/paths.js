@@ -1,6 +1,6 @@
 import { daFetch } from '../../../utils/daFetch.js';
 import { DA_ADMIN } from '../../../utils/utils.js';
-import { Paths, Domains, DA_LIVE_EDIT_BASE, HttpStatus } from './constants.js';
+import { Paths, Domains, DA_LIVE_EDIT_BASE } from './constants.js';
 import { ErrorCodes, logMediaLibraryError } from './errors.js';
 import { t } from './messages.js';
 import {
@@ -212,7 +212,7 @@ export async function validateSitePath(sitePath) {
         return { valid: false, error: t('VALIDATION_SITE_NOT_FOUND', { path: `/${org}/${repo}` }) };
       }
 
-      if (resp.status === HttpStatus.UNAUTHORIZED || resp.status === HttpStatus.FORBIDDEN) {
+      if (resp.status === 401 || resp.status === 403) {
         logMediaLibraryError(ErrorCodes.DA_READ_DENIED, { path: `/${org}/${repo}`, status: resp.status });
         return {
           valid: false,
@@ -221,7 +221,7 @@ export async function validateSitePath(sitePath) {
         };
       }
 
-      if (resp.status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      if (resp.status >= 500) {
         return { valid: false, error: t('VALIDATION_SERVER_ERROR') };
       }
 
@@ -254,7 +254,7 @@ export async function validateSitePath(sitePath) {
         };
       }
 
-      if (resp.status === HttpStatus.UNAUTHORIZED || resp.status === HttpStatus.FORBIDDEN) {
+      if (resp.status === 401 || resp.status === 403) {
         logMediaLibraryError(
           ErrorCodes.DA_READ_DENIED,
           { path: parentPath, status: resp.status },
@@ -266,7 +266,7 @@ export async function validateSitePath(sitePath) {
         };
       }
 
-      if (resp.status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      if (resp.status >= 500) {
         return { valid: false, error: t('VALIDATION_SERVER_ERROR') };
       }
 

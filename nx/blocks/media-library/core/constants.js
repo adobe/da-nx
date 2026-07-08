@@ -185,9 +185,3 @@ export function resolveAemOrigin() {
 export const DA_ETC_ORIGIN = typeof window !== 'undefined'
   ? resolveDaEtcOrigin(window.location)
   : DA_ETC_ENVS.prod;
-
-export const HttpStatus = Object.freeze({
-  UNAUTHORIZED: 401,
-  FORBIDDEN: 403,
-  INTERNAL_SERVER_ERROR: 500,
-});
