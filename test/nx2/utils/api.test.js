@@ -153,18 +153,18 @@ describe('api.js', () => {
   });
 
   describe('source', () => {
-    it('source.load hits DA on legacy', async () => {
+    it('source.get hits DA on legacy', async () => {
       const { org: o, site: s } = makeOrgSite();
       // Trigger a ping fetch by querying — it returns no upgrade header → legacy
-      await source.load({ org: o, site: s, path: '/index.html' });
+      await source.get({ org: o, site: s, path: '/index.html' });
       const last = lastCall();
       expect(last.url).to.equal(`${DA_ADMIN}/source/${o}/${s}/index.html`);
       expect(last.method).to.equal('GET');
     });
 
-    it('source.load hits AEM_API on hlx6', async () => {
+    it('source.get hits AEM_API on hlx6', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.load({ org: o, site: s, path: '/index.html' });
+      await source.get({ org: o, site: s, path: '/index.html' });
       expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/source/index.html`);
     });
 
@@ -255,6 +255,42 @@ describe('api.js', () => {
       expect(folder.path).to.equal(`/${o}/${s}/parent/sub`);
     });
 
+    it('source.list hlx6 filters out hidden files and folders starting with "."', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify([
+          { name: 'visible.html', 'content-type': 'text/html', 'last-modified': '2026-05-03T19:05:03.000Z' },
+          { name: '.trash/', 'content-type': 'application/folder' },
+          { name: '.da/', 'content-type': 'application/folder' },
+          { name: '.hidden-file.json', 'content-type': 'application/json' },
+          { name: 'normal/', 'content-type': 'application/folder' },
+        ]),
+      });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const result = await source.list({ org: o, site: s, path: '/parent' });
+      expect(result.ok).to.equal(true);
+      expect(result.items).to.have.length(2);
+      expect(result.items.map((i) => i.name)).to.deep.equal(['visible', 'normal']);
+    });
+
+    it('source.list hlx6 filters out items with empty or missing name', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify([
+          { name: 'visible.html', 'content-type': 'text/html' },
+          { name: '', 'content-type': 'text/html' },
+          { name: '', 'content-type': 'application/folder' },
+          { name: null, 'content-type': 'application/folder' },
+          { 'content-type': 'application/folder' },
+        ]),
+      });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const result = await source.list({ org: o, site: s, path: '/parent' });
+      expect(result.ok).to.equal(true);
+      expect(result.items).to.have.length(1);
+      expect(result.items[0].name).to.equal('visible');
+    });
+
     it('source.list returns { ok: false, items: [] } on non-ok response', async () => {
       restoreFetch();
       installFetch({ status: 403, body: '' });
@@ -268,7 +304,7 @@ describe('api.js', () => {
     it('source.save DA wraps data in FormData', async () => {
       const { org: o, site: s } = makeOrgSite();
       const data = new Blob(['<html></html>'], { type: 'text/html' });
-      await source.save({ org: o, site: s, path: '/page.html', data });
+      await source.save({ org: o, site: s, path: '/page.html', body: data });
       const last = lastCall();
       expect(last.method).to.equal('POST');
       expect(last.body).to.be.instanceof(FormData);
@@ -279,7 +315,7 @@ describe('api.js', () => {
 
     it('source.save hlx6 sets Content-Type for known text exts', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.save({ org: o, site: s, path: '/page.html', data: '<main></main>' });
+      await source.save({ org: o, site: s, path: '/page.html', body: '<main></main>' });
       const last = lastCall();
       expect(last.method).to.equal('POST');
       expect(last.headers['Content-Type']).to.equal('text/html');
@@ -289,7 +325,7 @@ describe('api.js', () => {
     it('source.save hlx6 sets image Content-Type and preserves binary Blob body', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       const blob = new Blob(['binary'], { type: 'image/png' });
-      await source.save({ org: o, site: s, path: '/img.png', data: blob });
+      await source.save({ org: o, site: s, path: '/img.png', body: blob });
       const last = lastCall();
       expect(last.headers['Content-Type']).to.equal('image/png');
       // Blob passes through untouched — no UTF-8 decoding that would corrupt binary.
@@ -298,14 +334,14 @@ describe('api.js', () => {
 
     it('source.save hlx6 maps .link to application/json', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.save({ org: o, site: s, path: '/foo.link', data: '{"externalUrl":"https://x"}' });
+      await source.save({ org: o, site: s, path: '/foo.link', body: '{"externalUrl":"https://x"}' });
       expect(lastCall().headers['Content-Type']).to.equal('application/json');
     });
 
     it('source.save hlx6 omits Content-Type for unknown extensions', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       const blob = new Blob(['payload']);
-      await source.save({ org: o, site: s, path: '/file.xyz', data: blob });
+      await source.save({ org: o, site: s, path: '/file.xyz', body: blob });
       const last = lastCall();
       expect(last.headers['Content-Type']).to.be.undefined;
       expect(last.body).to.equal(blob);
@@ -331,14 +367,15 @@ describe('api.js', () => {
       expect(result.status).to.equal(404);
     });
 
-    it('source.delete sends DELETE and returns { ok, status } on 204', async () => {
+    it('source.delete sends DELETE and returns Response with status 204', async () => {
       restoreFetch();
       // 204 is a null-body status; Response constructor rejects a non-null body.
       installFetch({ status: 204, body: null });
       const { org: o, site: s } = makeOrgSite();
       const result = await source.delete({ org: o, site: s, path: '/x.html' });
       expect(lastCall().method).to.equal('DELETE');
-      expect(result).to.deep.equal({ ok: true, status: 204 });
+      expect(result.ok).to.equal(true);
+      expect(result.status).to.equal(204);
     });
 
     it('source.copy hlx6 PUTs with source/collision query params', async () => {
@@ -381,15 +418,15 @@ describe('api.js', () => {
       expect(last.body.get('destination')).to.equal('/dest.html');
     });
 
-    it('source.load accepts a full /org/site/path string', async () => {
+    it('source.get accepts a full /org/site/path string', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.load(`/${o}/${s}/index.html`);
+      await source.get(`/${o}/${s}/index.html`);
       expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/source/index.html`);
     });
 
     it('source.save accepts a path string with extras', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.save(`/${o}/${s}/page.html`, { data: '<main></main>' });
+      await source.save(`/${o}/${s}/page.html`, { body: '<main></main>' });
       const last = lastCall();
       expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/source/page.html`);
       expect(last.body).to.equal('<main></main>');
@@ -407,12 +444,12 @@ describe('api.js', () => {
       expect(u.searchParams.get('collision')).to.equal('overwrite');
     });
 
-    it('source.load logs an error when org is missing', async () => {
+    it('source.get logs an error when org is missing', async () => {
       const origErr = console.error;
       let errored = false;
       console.error = () => { errored = true; };
       try {
-        await source.load('');
+        await source.get('');
       } finally {
         console.error = origErr;
       }
@@ -470,16 +507,19 @@ describe('api.js', () => {
     it('versions.get legacy hits /versionsource/{org}/{versionId}', async () => {
       const { org: o, site: s } = makeOrgSite();
       await versions.get({ org: o, site: s, path: '/x.html', versionId: 'guid1/guid2.html' });
-      expect(lastCall().url).to.equal(`${DA_ADMIN}/versionsource/${o}/guid1/guid2.html`);
+      expect(lastCall().url).to.equal(`${DA_ADMIN}/versionsource/${o}/${s}/guid1/guid2.html`);
     });
 
-    it('versions.create hlx6 POSTs operation/comment as JSON body', async () => {
+    it('versions.create hlx6 POSTs operation/comment as query params with no body', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await versions.create({ org: o, site: s, path: '/x.html', operation: 'preview', comment: 'note' });
       const last = lastCall();
       expect(last.method).to.equal('POST');
-      expect(last.headers['Content-Type']).to.equal('application/json');
-      expect(JSON.parse(last.body)).to.deep.equal({ operation: 'preview', comment: 'note' });
+      const u = new URL(last.url);
+      expect(u.pathname).to.equal(`/${o}/sites/${s}/source/x.html/.versions`);
+      expect(u.searchParams.get('operation')).to.equal('preview');
+      expect(u.searchParams.get('comment')).to.equal('note');
+      expect(last.body).to.be.undefined;
     });
 
     it('versions.create legacy POSTs comment as { label } JSON body', async () => {
@@ -512,11 +552,11 @@ describe('api.js', () => {
       expect(lastCall().url).to.equal(`${DA_ADMIN}/config/${o}/`);
     });
 
-    it('config.put uses FormData with config field', async () => {
+    it('config.save uses FormData with config field', async () => {
       const { org: o, site: s } = makeOrgSite();
-      await config.put({ org: o, site: s, body: '{"foo":"bar"}' });
+      await config.save({ org: o, site: s, body: '{"foo":"bar"}' });
       const last = lastCall();
-      expect(last.method).to.equal('POST');
+      expect(last.method).to.equal('PUT');
       expect(last.body).to.be.instanceof(FormData);
       expect(last.body.get('config')).to.equal('{"foo":"bar"}');
     });
@@ -621,10 +661,10 @@ describe('api.js', () => {
       expect(JSON.parse(last.body)).to.deep.equal({ paths: ['/a', '/b'], delete: true });
     });
 
-    it('aem.preview single ignores forceUpdate/forceSync (bulk-only flags)', async () => {
+    it('aem.preview single ignores forceUpdate (bulk-only flag)', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await aem.preview({
-        org: o, site: s, path: '/x.html', forceUpdate: true, forceSync: true,
+        org: o, site: s, path: '/x.html', forceUpdate: true,
       });
       const last = lastCall();
       // Single-path URL has no query params for these flags.
@@ -632,14 +672,14 @@ describe('api.js', () => {
       expect(last.body).to.be.undefined;
     });
 
-    it('aem.preview bulk folds forceUpdate/forceSync into JSON body', async () => {
+    it('aem.preview bulk folds forceUpdate into JSON body', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await aem.preview({
-        org: o, site: s, path: ['/a', '/b'], forceUpdate: true, forceSync: true,
+        org: o, site: s, path: ['/a', '/b'], forceUpdate: true,
       });
       const last = lastCall();
       expect(JSON.parse(last.body)).to.deep.equal({
-        paths: ['/a', '/b'], forceUpdate: true, forceSync: true,
+        paths: ['/a', '/b'], forceUpdate: true,
       });
     });
 
@@ -656,33 +696,28 @@ describe('api.js', () => {
       expect(lastCall().method).to.equal('GET');
     });
 
-    it('aem.getPreview returns parsed JSON by default', async () => {
+    it('aem.getPreview returns Response (caller parses with asJson)', async () => {
       restoreFetch();
       installFetch({ body: '{"state":"complete"}' });
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       const result = await aem.getPreview({ org: o, site: s, path: '/x' });
-      expect(result).to.deep.equal({ state: 'complete' });
+      expect(result.ok).to.equal(true);
+      expect(await result.json()).to.deep.equal({ state: 'complete' });
     });
 
-    it('aem.getPreview returns undefined when response is not ok', async () => {
+    it('aem.getPreview returns Response with ok:false when response is not ok', async () => {
       restoreFetch();
       installFetch({ status: 404 });
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       const result = await aem.getPreview({ org: o, site: s, path: '/x' });
-      expect(result).to.equal(undefined);
+      expect(result.ok).to.equal(false);
+      expect(result.status).to.equal(404);
     });
 
-    it('aem.getPreview returns Response when returnJson is false', async () => {
-      const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      const result = await aem.getPreview({ org: o, site: s, path: '/x', returnJson: false });
-      expect(result).to.have.property('ok', true);
-      expect(result.permissions).to.deep.equal(['read', 'write']);
-    });
-
-    it('aem.preview bulk returns Response even with returnJson default', async () => {
+    it('aem.preview bulk returns Response with permissions', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       const result = await aem.preview({ org: o, site: s, path: ['/a', '/b'] });
-      expect(result).to.have.property('ok', true);
+      expect(result.ok).to.equal(true);
       expect(result.permissions).to.deep.equal(['read', 'write']);
     });
   });
@@ -706,9 +741,9 @@ describe('api.js', () => {
       expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/snapshots/snap1`);
     });
 
-    it('snapshot.update POSTs body', async () => {
+    it('snapshot.save POSTs body', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await snapshot.update({ org: o, site: s, snapshotId: 'snap1', body: { title: 'hi' } });
+      await snapshot.save({ org: o, site: s, snapshotId: 'snap1', body: { title: 'hi' } });
       const last = lastCall();
       expect(last.method).to.equal('POST');
       expect(JSON.parse(last.body)).to.deep.equal({ title: 'hi' });

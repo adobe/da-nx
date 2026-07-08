@@ -1,3 +1,11 @@
+import { loadStyle } from '../../../nx2/utils/utils.js';
+
+const style = await loadStyle(import.meta.url);
+
+if (!document.adoptedStyleSheets.includes(style)) {
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
+}
+
 async function personalize(fg) {
   const { loadIms } = await import('../../utils/ims.js');
   try {

@@ -6,42 +6,43 @@ How a request moves through the block.
 
 ## 1. Initial load
 
-From `init(el)` to a rendered editor (or a status screen).
+From `decorate(block)` to a rendered editor (or a status screen).
 
 ```txt
-init(el)
-  ├─ getPathDetails()                            sync
-  ├─ create <da-title> + <nx-form>               sync
-  └─ <nx-form> upgrades
+decorate(block)                                  ← form.js (EW workspace wrapper)
+  ├─ ensureAppFrame() / ensureNavPath()          sync
+  ├─ decorateEditor(block)                        sync
+  │    ├─ create <nx-form>                         sync
+  │    └─ nxForm.startRouting()                    ← subscribe ctx to hashChange
+  ├─ setupChat(block)                             ← header + docked chat when ew.enabled
+  └─ <nx-form> upgrades                            ← editor.js element
        ├─ connectedCallback → adoptedStyleSheets sync
-       ├─ updated(changed) sees `details`        sync
+       ├─ hashChange emits → set `ctx`            sync
+       ├─ updated(changed) sees `ctx`             sync
        └─ _loadContext()
+            ├─ _details = detailsFromCtx(ctx); bail if none
             ├─ status = 'loading' → render nothing (no spinner, no message)
             ├─ loadFormContext({ details })      ← network
             │    ├─ loadSchemas({ owner, repo })     ← DA list + N source GETs
             │    └─ fetchSourceHtml({ sourceUrl })    ← single GET
             ├─ if status !== 'blocked':
-            │    └─ await import('../../public/sl/components.js')  ← SL components
+            │    └─ await import('../../../nx2/public/sl/components.js')  ← SL components
             ├─ Route by status:
             │    ├─ 'blocked'        → inline message (no modal, no extra import)
             │    ├─ 'select-schema'  → schema picker
             │    ├─ 'no-schemas'     → "Create a schema" CTA
             │    └─ 'ready'          → _start({ schema, json })
-            └─ _start
-                 └─ createCore({ path, saveDocument, onChange })
-                      └─ core.load({ schema, document })
-                           ├─ compileSchema(schema)             ← CPU
-                           ├─ parseDocument(document)           ← deep clone
-                           ├─ coerceData(parsed.data, definition) ← cast primitive leaves to schema kinds
-                           ├─ if isDataEmpty(parsed.data):
-                           │    └─ materializeDefaults(definition)  ← O(schema)
-                           └─ rebuildModel(parsed)
-                                ├─ buildModel                   ← tree walk + byPointer Map
-                                └─ validateDocument             ← schema validation + model walk
+            └─ _start({ schema, json })
+                 ├─ createEngine({ schema, document, onChange })   ← synchronous
+                 │    (engine compiles schema, builds model, validates;
+                 │     onChange suppressed during init. See
+                 │     [SDK lifecycle.md §1](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/lifecycle.md#1-createengine-lifecycle)
+                 │     for the full call flow.)
+                 └─ attachPersistence(engine, { path })             ← single-flight save layer
        → render editor + sidebar + preview
 ```
 
-**Context routing.** [`loadFormContext`](nx/blocks/form/app/context.js) consults the loaded HTML in this order:
+**Context routing.** [`loadFormContext`](nx/blocks/form/utils/context.js) consults the loaded HTML in this order:
 
 | Condition                         | Resulting status            | UI                     |
 | --------------------------------- | --------------------------- | ---------------------- |
@@ -66,29 +67,22 @@ Single keystroke into a text or number `<input>`.
 ```txt
 DOM <input> @input
   └─ editor._onTextInput(node, e)
-       └─ editor._mutateDebounced(pointer, fn)        ← 350ms per-pointer timer
+       └─ editor._mutateDebounced(pointer, fn)         ← 350ms per-pointer timer
             └─ [350ms later]
                  └─ editor._mutate(fn)
-                      └─ fn(core) → core.setField(pointer, value)
-                           ├─ canMutate?                  ← guard
-                           ├─ nodeAt({ model, pointer })  ← Map lookup
-                           ├─ readonly?                   ← guard
-                           └─ commit(applySet({...}))
-                                ├─ applySet (mutate.js)
-                                │    ├─ deepClone(document)
-                                │    ├─ shouldClear?
-                                │    │   ├─ yes: clearValueAt
-                                │    │   └─ no:  setValueAt
-                                │    └─ return { document, changed }
-                                ├─ if !changed: return state (no-op)
-                                ├─ rebuildModel(nextDoc)
-                                │    ├─ buildModel              ← O(N) tree walk
-                                │    ├─ validateDocument        ← schema validation + O(N) model walk
-                                │    └─ commitState(next)       → onChange()
-                                │         └─ shell._state = core.getState()
-                                │              → Lit re-renders form tree
-                                └─ persist()  (fire-and-forget — see §4)
+                      └─ engine.setField(pointer, value)
+                         (engine commits new state, fires onChange — see
+                          [SDK lifecycle.md §2](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/lifecycle.md#2-mutation-lifecycle)
+                          for the commit pipeline)
+                                ↓
+                          shell._onChange()
+                            ├─ this._state = engine.getState()
+                            │    → Lit re-renders <nx-form> + children
+                            └─ persistence.notify()
+                                 → single-flight save (see §4)
 ```
+
+The engine knows nothing about persistence. It fires `onChange` after every mutation; whether that triggers a save is the form block's decision (made in `_onChange` → `persistence.notify()`).
 
 **Why debounced.** Native `<input>` value echo is immediate; the model/validation/save pipeline runs in the background after 350ms of quiet. Typing always feels instant regardless of document size.
 
@@ -102,10 +96,8 @@ Toggle a checkbox, change a select, or click an array action.
 DOM @change or @click
   └─ editor._onBooleanInput | _onSelectInput | array event handler
        └─ editor._mutate(fn)                    ← no debounce
-            └─ fn(core) → core.setField | addItem | insertItem | removeItem | moveItem
-                 └─ commit(applyXxx({...}))     ← same commit path as §2
-                      └─ rebuildModel → onChange → re-render
-                      └─ persist
+            └─ engine.setField | addItem | insertItem | removeItem | moveItem
+               (same SDK commit + onChange path as §2 → shell re-render + persistence.notify())
 ```
 
 Immediate because there is no per-keystroke noise to coalesce — a single discrete user action.
@@ -114,45 +106,51 @@ Immediate because there is no per-keystroke noise to coalesce — a single discr
 
 ## 4. Save lifecycle
 
-Triggered by every `commit` that reports `changed: true`.
+Lives entirely in [`utils/persistence.js`](../utils/persistence.js). The SDK has no save concept; persistence observes the engine via the shell's `onChange` handler and runs a single-flight POST loop on its own.
+
+Triggered every time the shell's `onChange` fires (after every real mutation).
 
 ```txt
-commit({ document, changed: true })
-  ├─ rebuildModel(...) → onChange (state with new values)
-  └─ persist()  ← async, NOT awaited by commit
-       │
-       ├─ if inFlight:
-       │    └─ pending = true; return
-       │    (next branch will re-iterate using the latest state.document)
-       │
-       └─ inFlight = true
-            ├─ patchState({ saveStatus: 'saving' })     → onChange
-            └─ do {
-                 pending = false
-                 try {
-                   result = await saveDocument({ path, document: state.document.values })
-                     └─ shell.saveDocument
-                          ├─ serialize({ json })            ← prune + json2html
-                          │    ├─ prune(data)               ← strips empty/null
-                          │    └─ json2html({ ...json, data: pruned })
-                          └─ saveSourceHtml({ path, html }) ← POST /source{path}
-                                └─ daFetch  (auth + retry handled here)
-                 } catch { failed = true }
-                 if result?.error or thrown:
-                   patchState({ saveStatus: 'error' })  → onChange
-                   return                                ← do-while exits
-            } while (pending)
-            ├─ patchState({ saveStatus: 'saved' })       → onChange
-            └─ inFlight = false
+shell._onChange()
+  └─ persistence.notify()
+       ├─ reference-compare state.document vs last captured
+       │    (mutate.js deep-clones on every real mutation → new ref = new content)
+       ├─ if same reference: return (no-op)
+       └─ persist()  ← async, NOT awaited by notify
+            │
+            ├─ if inFlight:
+            │    └─ pending = true; return
+            │       (current branch will re-iterate with the latest state)
+            │
+            └─ inFlight = true
+                 └─ do {
+                      pending = false
+                      const { html, error } = convertJsonToHtml({
+                        json: engine.getState().document,
+                      })
+                        ├─ prune(data)               ← strips empty/null
+                        └─ json2html({ ...json, data: pruned })
+                      if error: return              ← do-while exits cleanly
+                      try {
+                        await save({ path, html })  ← source.save({ body }) (nx2 api)
+                          └─ daFetch (auth + retry handled in the nx2 api)
+                      } catch {
+                        return                       ← do-while exits cleanly
+                      }
+                 } while (pending)
+                 inFlight = false
 ```
 
 ### Key properties
 
-- **Fire-and-forget at the mutation site.** `commit` returns synchronously. UI never waits on the network.
-- **Single-flight.** At most one POST is in flight. New mutations during a save just flip `pending`.
-- **Latest-wins.** When the in-flight save completes with `pending=true`, the loop iterates and POSTs `state.document.values` again — which now reflects every edit that happened during the wait. An earlier POST cannot land after a newer one.
-- **Errors break the queue.** On error, `pending` is not honored; the next user edit starts a fresh save.
-- **`load` clears `pending`.** A stale in-flight save from a previous document cannot trigger a resave of the new one.
+- **Fire-and-forget at the mutation site.** `engine.setField` returns synchronously. UI never waits on the network.
+- **Single-flight.** At most one POST is in flight. New mutations during a save flip `pending`.
+- **Latest-wins.** When the in-flight save completes with `pending=true`, the loop iterates and POSTs `engine.getState().document` again — which reflects every edit that happened during the wait. An earlier POST cannot land after a newer one.
+- **Errors stop the loop.** A failed POST exits the loop cleanly; the next user edit kicks off a fresh save. No infinite retry.
+- **`detach()` halts everything.** A teardown (hashchange / context reset) calls `persistence.detach()`; subsequent `notify()` calls become no-ops. A stale in-flight save from a previous document cannot trigger a resave of the new one.
+- **No save status in the SDK.** The engine never emits a `saveStatus` field. If a save-indicator UI is added later, the form block's persistence would gain a status callback at that layer — the SDK stays uninvolved.
+
+Contract details verified by [test/nx/blocks/form/utils/persistence.test.js](../../../../test/nx/blocks/form/utils/persistence.test.js).
 
 ---
 
@@ -160,24 +158,19 @@ commit({ document, changed: true })
 
 ```txt
 addItem → click "Add item" button
-  └─ editor._mutate(core => core.addItem(arrayPointer))
-       ├─ canAdd? (maxItems / readonly check)
-       └─ commit(applyAdd({ document, pointer, itemDefinition }))
-            ├─ applyAdd
-            │    ├─ deepClone(document)
-            │    ├─ ensureArray(...)
-            │    ├─ buildDefault(itemDefinition) ← seeds defaults for new item
-            │    └─ insertValueAt(end)
-            └─ commit pipeline (see §2)
+  └─ editor._mutate(engine => engine.addItem(arrayPointer))
+     (engine guards maxItems/readonly, seeds defaults for the new item, commits)
 
 removeItem → array-menu "Remove"
-  └─ canRemove? (minItems / readonly check)
-  └─ commit(applyRemove(...))
+  └─ engine.removeItem(itemPointer)
+     (engine guards minItems/readonly, removes the item, commits)
 
 moveItem  → reorder dialog confirm
-  └─ canReorder? (length > 1 / readonly check)
-  └─ commit(applyMove(...))   ← splice 1 out, splice in at target
+  └─ engine.moveItem(arrayPointer, fromIndex, toIndex)
+     (engine guards length/readonly, reorders, commits)
 ```
+
+Each commit flows through the same `onChange` path as §2: shell re-renders, persistence saves. See [SDK schema-builder.md](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/schema-builder.md) and [SDK model-builder.md](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/model-builder.md) for how the engine builds default-seeded items and rebuilds the model.
 
 After a reorder, the model is rebuilt positionally — items have no separate stable id. DOM nodes are diffed by index; focus tracking lives at the editor level via `data-pointer` attributes.
 
@@ -187,60 +180,48 @@ After a reorder, the model is rebuilt positionally — items have no separate st
 
 ```txt
 context.status === 'select-schema'
-  └─ render <sl-select> + Create button
+  └─ render <form-picker> + Create button
        └─ user picks a schema, clicks Create
-            └─ form._applySelectedSchema()
+            └─ nx-form._applySelectedSchema()
                  ├─ build empty json: { metadata: { schemaName }, data: {} }
                  ├─ context = { ...context, status: 'ready', schema, json }
-                 └─ _start({ schema, json })  ← same path as §1's _start
-                      └─ core.load
-                           └─ materializeDefaults runs (data is empty)
+                 └─ _start({ schema, json })   ← same entry as §1's _start
 ```
 
-Result: an empty doc loaded with the picked schema, defaults already materialized, ready to type.
+Result: an empty doc loaded with the picked schema, defaults already materialized by the engine, ready to type. The materialization rule lives in the SDK — see [SDK architecture.md §10](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/architecture.md).
 
 ---
 
 ## 7. Hash change
 
 ```txt
-window 'hashchange'
-  └─ setup(el)
-       ├─ el.replaceChildren()                      ← full teardown
-       ├─ getPathDetails()                          ← new path
-       └─ setDetails(...) for <da-title>, <nx-form>
-            └─ <nx-form> upgrades → see §1
+window hash changes
+  └─ hashChange emits new { org, site, path }   ← editor.js subscribed in startRouting()
+       └─ ctxFromHashState(state) → set `ctx`
+            └─ updated() sees `ctx` → _loadContext() → see §1
 ```
 
-Full teardown and re-mount. Documented as a perf item in [performance-review.md §H4](./performance-review.md) — fix is a path comparison before tearing down. Not done because it doesn't bite at current usage.
+The `nx-form` element subscribes to `hashChange` once (in `startRouting`); a new hash sets `ctx`, which re-runs `_loadContext`. No element teardown/re-mount — `_loadContext` resets state and detaches the previous persistence in place.
 
 ---
 
 ## 8. State change notification
 
-Every state mutation funnels through one of two helpers on the core:
-
-```txt
-commitState(next)                      patchState(partial)
-  ├─ state = next                        ├─ state = { ...state, ...partial }
-  └─ onChange?.()                        └─ onChange?.()
-```
-
-`onChange` is the single notification path. The shell wires it once in `_start`:
+The engine fires `onChange` exactly once per mutation (and never at construction — see [SDK lifecycle.md §1–§2](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/lifecycle.md) for the contract). The shell wires it once in `_start`:
 
 ```js
 this._onChange = () => {
-  this._state = this._core.getState();
+  this._state = this._editor.getState();
+  this._persistence?.notify();
 };
 ```
 
-The shell's reactive Lit property `_state` triggers re-render. No `requestUpdate`, no events, no manual diffing — every state transition (mutation OR async save status) reaches the UI through the same one-line callback.
+That's the entire seam. The shell's reactive Lit property `_state` triggers re-render; `notify()` runs single-flight save (§4). No `requestUpdate`, no events, no manual diffing — every mutation reaches both UI and persistence through this one callback. The engine has no save-status concept of its own; that lives entirely in the form block's `persistence.js`.
 
 ---
 
 ## Cross-references
 
 - Detailed contracts and rules: [architecture.md](./architecture.md)
-- Schema contract (what consumers can write): [schema-spec.md](./schema-spec.md)
-- Hot-path costs and ranked bottlenecks: [performance-review.md](./performance-review.md)
-- Headless / agentic consumer example: [headless-consumer.md](./headless-consumer.md)
+- Schema contract (what consumers can write): SDK [schema-spec.md](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/schema-spec.md)
+- Headless / agentic consumer example: SDK [headless-consumer.md](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/headless-consumer.md)

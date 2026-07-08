@@ -13,16 +13,26 @@
   border: 0;
 }
 
+form svg {
+  fill: light-dark(var(--s2-gray-800), var(--s2-gray-200));
+}
+
 form button svg {
   width: 26px;
   height: 26px;
+  fill: light-dark(var(--s2-gray-800), var(--s2-gray-200));
+}
+
+.da-no-site-well svg {
+  fill: light-dark(var(--s2-gray-800), var(--s2-gray-200));
 }
 
 :host {
   display: block;
   width: 100%;
   height: 100vh;
-  background: var(--s2-gray-50);
+  background: light-dark(var(--s2-gray-50), #0d0d0d);
+  color-scheme: light dark;
 
   /* Fonts */
   --font-family: "Adobe Clean", adobe-clean, "Trebuchet MS", sans-serif;
@@ -53,11 +63,11 @@ sl-alert {
 .da-site-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: var(--spacing-600) var(--spacing-500);
+  padding: var(--s2-spacing-600, var(--spacing-600, 40px)) var(--s2-spacing-500, var(--spacing-500, 32px));
 
   .da-site-header {
     display: flex;
-    gap: var(--spacing-400);
+    gap: var(--s2-spacing-400, var(--spacing-400, 24px));
     align-items: flex-start;
     justify-content: space-between;
     flex-flow: wrap;
@@ -71,8 +81,8 @@ sl-alert {
 .error-title {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--s2-gray-800);
-  margin: 0 0 var(--spacing-500) 0;
+  color: light-dark(var(--s2-gray-800), var(--s2-gray-200));
+  margin: 0 0 var(--s2-spacing-500, var(--spacing-500, 32px)) 0;
   text-align: left;
 }
 
@@ -92,6 +102,7 @@ sl-alert {
     width: 42px;
     height: auto;
     margin-bottom: 10px;
+    fill: var(--s2-gray-800);
   }
 }
 
@@ -115,53 +126,59 @@ sl-alert {
 .tabs {
   display: flex;
   gap: 18px;
-  margin-bottom: var(--spacing-400);
+  margin-bottom: var(--s2-spacing-400, var(--spacing-400, 24px));
+}
 
-  .tab-button {
-    padding: 12px 0;
-    border: none;
-    background: transparent;
-    color: var(--s2-gray-700);
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border-bottom: 3px solid transparent;
-    position: relative;
-    border-radius: 0 6px 0 0;
-    display: flex;
-    gap: 5px;
+.tabs .tab-button {
+  padding: 12px 0;
+  border: none;
+  background: transparent;
+  color: light-dark(var(--s2-gray-700), var(--s2-gray-300));
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 3px solid transparent;
+  position: relative;
+  border-radius: 0 6px 0 0;
+  display: flex;
+  gap: 5px;
+}
 
-    &:hover {
-      color: var(--s2-gray-800);
-    }
+.tabs .tab-button:hover {
+  color: light-dark(var(--s2-gray-800), var(--s2-gray-200));
+}
 
-    &::after {
-      content: "";
-      opacity: 0;
-      position: absolute;
-      bottom: -1px;
-      left: 0;
-      right: 0;
-      height: 3px;
-      transition: opacity 0.2s ease-in-out;
-      background: rgb(19  19 19);
-      border-radius: 3px;
-    }
+.tabs .tab-button::after {
+  content: "";
+  opacity: 0;
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  transition: opacity 0.2s ease-in-out;
+  background: light-dark(rgb(19 19 19), var(--s2-gray-400));
+  border-radius: 3px;
+}
 
-    &[aria-selected="true"] {
-      color: var(--s2-gray-800);
+.tabs .tab-button[aria-selected="true"] {
+  color: light-dark(var(--s2-gray-800), var(--s2-gray-200));
+}
 
-      &::after {
-        opacity: 1;
-      }
-    }
+.tabs .tab-button[aria-selected="true"]::after {
+  opacity: 1;
+}
 
-    svg {
-      width: 20px;
-      height: 20px;
-    }
-  }
+/* Card menu button svg - before .tabs for specificity order */
+.card-menu-btn svg {
+  fill: var(--s2-gray-25);
+}
+
+.tabs .tab-button svg {
+  width: 20px;
+  height: 20px;
+  fill: currentcolor;
 }
 
 /* No site well styling */
@@ -172,9 +189,9 @@ sl-alert {
   justify-content: center;
   min-height: 300px;
   text-align: center;
-  background: white;
+  background: light-dark(white, var(--s2-gray-100));
   border-radius: var(--s2-radius-200);
-  padding: var(--spacing-500);
+  padding: var(--s2-spacing-500, var(--spacing-500, 32px));
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 10%);
 
   &.browse-media {
@@ -183,20 +200,20 @@ sl-alert {
 }
 
 .da-no-site-well img {
-  margin-bottom: var(--spacing-300);
+  margin-bottom: var(--s2-spacing-300, var(--spacing-300, 16px));
 }
 
 .da-no-site-text h3 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--s2-gray-800);
-  margin: 0 0 var(--spacing-200) 0;
+  color: light-dark(var(--s2-gray-800), var(--s2-gray-200));
+  margin: 0 0 var(--s2-spacing-200, var(--spacing-200, 12px)) 0;
 }
 
 .da-no-site-text p {
   font-size: 1rem;
   color: var(--s2-gray-600);
-  margin: 0 0 var(--spacing-400) 0;
+  margin: 0 0 var(--s2-spacing-400, var(--spacing-400, 24px)) 0;
 }
 
 /* Form styling */
@@ -211,12 +228,13 @@ form {
 form input {
   border: none;
   background: transparent;
-  border-bottom: 1px solid var(--s2-gray-400, #a2a2a2);
+  border-bottom: 1px solid light-dark(var(--s2-gray-400, #a2a2a2), var(--s2-gray-600));
   font-family: var(--body-font-family);
   font-size: 16px;
   padding: 0 0 4px 4px;
   line-height: 26px;
   width: 100%;
+  color: light-dark(var(--s2-gray-800), var(--s2-gray-200));
 }
 
 form input:focus-visible {
@@ -295,7 +313,7 @@ form button {
 
 form button:hover {
   background: var(--s2-blue-800);
-  color: var(--s2-white, #fff);
+  color: light-dark(#fff, var(--s2-gray-25));
 }
 
 .da-form-btn-offset {
@@ -309,32 +327,53 @@ form button:hover {
   transform-style: preserve-3d;
   cursor: pointer;
   perspective: 1000px;
+  color-scheme: light;
 
 
   .card-arrow {
-    color: white;
+    color: var(--s2-gray-25);
     display: flex;
     align-items: center;
     justify-content: end;
     pointer-events: none;
-
-    svg {
-      width: 32px;
-      height: 32px;
-      transition: transform 0.5s ease-in-out;
-
-      &.mini-arrow {
-        width: 20px;
-        height: 20px;
-        padding: 6px 0;
-      }
-    }
   }
+}
+
+/* Card menu button - before .nx-card-back .card-menu-btn for specificity order */
+.card-menu-btn {
+  position: absolute;
+  left: var(--s2-spacing-200, var(--spacing-200, 12px));
+  background: none;
+  color: var(--s2-gray-25);
+  border: none;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  transition: background 0.2s ease;
+  z-index: 10;
+  padding: 0;
+  margin-inline-start: 10px;
+}
+
+.nx-card .card-arrow svg {
+  width: 32px;
+  height: 32px;
+  transition: transform 0.5s ease-in-out;
+  fill: var(--s2-gray-25);
+}
+
+.nx-card .card-arrow svg.mini-arrow {
+  width: 20px;
+  height: 20px;
+  padding: 6px 0;
 }
 
 .nx-card-inner {
   box-shadow: 0 1px 6px 0 rgb(0 0 0 / 12%);
-  background-color: var(--s2-white, #fff);
+  background-color: light-dark(#fff, var(--s2-gray-100));
   border-radius: var(--s2-radius-200);
   height: 240px;
   overflow: hidden;
@@ -353,25 +392,6 @@ form button:hover {
   .card-arrow svg {
     transform: translateX(4px);
   }
-}
-
-/* Card menu button - before .nx-card-back .card-menu-btn for specificity order */
-.card-menu-btn {
-  position: absolute;
-  left: var(--spacing-200);
-  background: none;
-  color: white;
-  border: none;
-  width: 32px;
-  height: 32px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: start;
-  transition: background 0.2s ease;
-  z-index: 10;
-  padding: 0;
-  margin-inline-start: 10px;
 }
 
 .nx-card-front,
@@ -396,16 +416,16 @@ form button:hover {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-400);
+  gap: var(--s2-spacing-400, var(--spacing-400, 24px));
   opacity: 0;
   box-sizing: border-box;
 
   .card-menu-btn {
     position: absolute;
-    right: var(--spacing-400);
+    right: var(--s2-spacing-400, var(--spacing-400, 24px));
     left: unset;
-    bottom: var(--spacing-400);
-    color: #000;
+    bottom: var(--s2-spacing-400, var(--spacing-400, 24px));
+    color: light-dark(#000, var(--s2-gray-900));
   }
 }
 
@@ -440,7 +460,7 @@ form button:hover {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: var(--spacing-400);
+  padding: var(--s2-spacing-400, var(--spacing-400, 24px));
   color: white;
 }
 
@@ -448,17 +468,17 @@ form button:hover {
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: white;
+  color: var(--s2-gray-25);
 }
 
 .nx-card-overlay p {
   margin: 0;
   font-size: 15px;
-  color: rgb(255 255 255 / 80%);
+  color: var(--s2-gray-25);
 }
 
 .nx-card-overlay p.base-path {
-  margin-top: var(--spacing-100);
+  margin-top: var(--s2-spacing-100, var(--spacing-100, 8px));
   font-size: 13px;
   font-style: italic;
   color: rgb(255 255 255 / 70%);
@@ -510,8 +530,8 @@ form button:hover {
 
 /* Site-apps grid styles */
 .nx-site-apps {
-  margin-top: var(--spacing-500);
+  margin-top: var(--s2-spacing-500, var(--spacing-500, 32px));
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--spacing-500);
+  gap: var(--s2-spacing-500, var(--spacing-500, 32px));
 }

@@ -37,11 +37,11 @@ dialog {
   box-sizing: border-box;
   display: flex;
   flex-flow: column nowrap;
-  min-width: min(400px, calc(100vw - 2 * var(--s2-spacing-500)));
-  max-width: min(480px, calc(100vw - 2 * var(--s2-spacing-500)));
-  max-height: min(90vh, calc(100vh - 2 * var(--s2-spacing-500)));
-  max-height: min(90dvh, calc(100dvh - 2 * var(--s2-spacing-500)));
-  padding: var(--s2-spacing-500);
+  min-width: min(var(--nx-dialog-min-width, 400px), calc(100vw - 2 * var(--s2-spacing-500)));
+  max-width: min(var(--nx-dialog-max-width, 480px), calc(100vw - 2 * var(--s2-spacing-500)));
+  max-height: min(var(--nx-dialog-max-height, 90vh), calc(100vh - 2 * var(--s2-spacing-500)));
+  max-height: min(var(--nx-dialog-max-height, 90dvh), calc(100dvh - 2 * var(--s2-spacing-500)));
+  padding: var(--nx-dialog-padding, var(--s2-spacing-500));
   gap: var(--s2-spacing-300);
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-corner-radius-500);
@@ -53,7 +53,6 @@ dialog {
 .heading {
   flex-shrink: 0;
   padding-bottom: var(--s2-spacing-200);
-  border-bottom: 1px solid var(--s2-gray-200);
 }
 
 .title {
@@ -81,4 +80,5 @@ dialog {
   flex-flow: row wrap;
   justify-content: flex-end;
   gap: var(--s2-spacing-100);
+  padding-top: var(--s2-spacing-200);
 }

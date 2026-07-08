@@ -1,81 +1,53 @@
 import { html, nothing } from 'da-lit';
 import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
+import { parseDirectives } from './utils/parse.js';
+import { pillIconName } from './utils/icons.js';
+import { linkifyBareUrls, sanitizeLinks } from './utils/links.js';
 
 const { codeBase } = getConfig();
 
-const SELECTION_ICON_NAMES = {
-  block: 's2-icon-3d-20-n',
-  file: 's2-icon-filetext-20-n',
-  image: 's2-icon-image-20-n',
-  table: 's2-icon-table-20-n',
-};
+const { unified, remarkParse, remarkGfmNoLink, mdast2hast, hastToDom } = await import('../../deps/mdast/dist/index.js');
 
-const { unified, remarkParse } = await import('../../deps/mdast/dist/index.js');
+const parser = unified().use(remarkParse).use(remarkGfmNoLink);
 
-function renderNode(node) {
-  switch (node.type) {
-    case 'root':
-      return node.children.map(renderNode);
-    case 'paragraph':
-      return html`<p>${node.children.map(renderNode)}</p>`;
-    case 'heading':
-      return html`<h${node.depth}>${node.children.map(renderNode)}</h${node.depth}>`;
-    case 'list':
-      return node.ordered
-        ? html`<ol>${node.children.map(renderNode)}</ol>`
-        : html`<ul>${node.children.map(renderNode)}</ul>`;
-    case 'listItem': {
-      const children = node.spread
-        ? node.children.map(renderNode)
-        : node.children.flatMap((c) => (c.type === 'paragraph' ? c.children.map(renderNode) : [renderNode(c)]));
-      return html`<li>${children}</li>`;
-    }
-    case 'strong':
-      return html`<strong>${node.children.map(renderNode)}</strong>`;
-    case 'emphasis':
-      return html`<em>${node.children.map(renderNode)}</em>`;
-    case 'inlineCode':
-      return html`<code>${node.value}</code>`;
-    case 'link':
-      return html`<a href="${node.url}" target="_blank" rel="noopener noreferrer">${node.children.map(renderNode)}</a>`;
-    case 'text':
-      return node.value;
-    default:
-      return nothing;
-  }
+function toDOM(hast) {
+  return hastToDom(sanitizeLinks(linkifyBareUrls(hast)), { fragment: true });
 }
-
-const parser = unified().use(remarkParse);
 
 function renderMessageContent(text) {
   if (!text) return nothing;
-  const tree = parser.parse(text);
-  return renderNode(tree);
+
+  return parseDirectives(text).map(({ kind, type, content }) => {
+    if (!content) return nothing;
+    const dom = toDOM(mdast2hast(parser.parse(content)));
+    return kind === 'directive' ? html`<div class="directive directive-${type}">${dom}</div>` : dom;
+  });
 }
 
-function approvalSummary(input) {
+function approvalSummary(input, { json = false } = {}) {
   if (!input) return null;
   const {
     HUMAN_READABLE_SUMMARY, SOURCE_PATH, DESTINATION_PATH, PATH, SKILL_ID, NAME,
   } = TOOL_INPUT;
   return input[HUMAN_READABLE_SUMMARY]
     ?? (input[SOURCE_PATH] && input[DESTINATION_PATH] ? `${input[SOURCE_PATH]} → ${input[DESTINATION_PATH]}` : null)
-    ?? input[PATH] ?? input[SKILL_ID] ?? input[NAME] ?? null;
+    ?? input[PATH] ?? input[SKILL_ID] ?? input[NAME]
+    ?? (json ? JSON.stringify(input, null, 2) : null);
 }
 
 function renderToolCard(toolCallId, toolCards) {
   const card = toolCards?.get(toolCallId);
   if (!card || card.state === TOOL_STATE.APPROVAL_REQUESTED) return nothing;
   const { toolName, state, input } = card;
-  const detail = approvalSummary(input);
+  const detail = approvalSummary(input, { json: true });
   const failed = state === TOOL_STATE.ERROR || state === TOOL_STATE.REJECTED;
-  return html`
+  const status = failed ? html`<span class="tool-card-status">${state}</span>` : nothing;
+  return detail ? html`
     <details class="tool-card tool-card-${state}">
-      <summary>${toolName}${failed ? html`<span class="tool-card-status">${state}</span>` : nothing}</summary>
-      ${detail ? html`<span class="tool-card-detail">${detail}</span>` : nothing}
-    </details>
-  `;
+      <summary>${toolName}${status}</summary>
+      <span class="tool-card-detail">${detail}</span>
+    </details>` : html`<span class="tool-card-detail">${toolName}${status}</span>`;
 }
 
 function renderApprovalCard(pending, onApprove) {
@@ -101,57 +73,70 @@ function renderApprovalCard(pending, onApprove) {
   `;
 }
 
-// Mirrors entryTypeFromExtension in browse/utils.js — switch to common utils once migrated.
-function selectionIcon(blockName) {
-  const ext = (blockName ?? '').includes('.') ? blockName.split('.').pop().toLowerCase() : '';
-  let name = SELECTION_ICON_NAMES.block;
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'].includes(ext)) name = SELECTION_ICON_NAMES.image;
-  else if (['json', 'xlsx', 'xls', 'csv'].includes(ext)) name = SELECTION_ICON_NAMES.table;
-  else if (ext) name = SELECTION_ICON_NAMES.file;
-  return html`<svg class="selection-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${name}.svg#icon"></use></svg>`;
-}
-
-function renderMessage(msg, toolCards) {
-  if (msg.role === ROLE.TOOL) return nothing;
-  const isAssistant = msg.role === ROLE.ASSISTANT;
-
-  // Assistant message with tool-call parts (array content)
-  if (isAssistant && Array.isArray(msg.content)) {
+function renderAssistantMessage(msg, toolCards) {
+  if (Array.isArray(msg.content)) {
     return html`${msg.content.map((part) => (part.type === AGENT_EVENT.TOOL_CALL
       ? renderToolCard(part.toolCallId, toolCards)
       : nothing))}`;
   }
 
-  const copy = isAssistant && !msg.streaming
-    ? html`<button class="message-action-copy" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
-        <svg class="icon-paste" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-paste-20-n.svg#icon"></use></svg>
-        <svg class="icon-checkmark" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-checkmark-20-n.svg#icon"></use></svg>
-      </button>`
-    : nothing;
-
-  const selectionItem = ({ blockName }) => html`
-    <li class="selection-context-item">
-      ${selectionIcon(blockName)}
-      <span>${blockName}</span>
-    </li>`;
-
-  let selectionPills = nothing;
-  if (!isAssistant && msg.selectionContext?.length) {
-    selectionPills = msg.selectionContext.length === 1
-      ? html`<ul class="selection-context-list" aria-label="Attached context">${selectionItem(msg.selectionContext[0])}</ul>`
-      : html`<details class="selection-context">
-          <summary><span class="selection-context-count">${msg.selectionContext.length} items added</span></summary>
-          <ul class="selection-context-list">${msg.selectionContext.map(selectionItem)}</ul>
-        </details>`;
-  }
+  const copy = msg.streaming ? nothing : html`<button class="message-action-copy" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
+      <svg class="icon-paste" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-paste-20-n.svg#icon"></use></svg>
+      <svg class="icon-checkmark" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-checkmark-20-n.svg#icon"></use></svg>
+    </button>`;
 
   return html`
-    <div class="message message-${msg.role}">
-      ${selectionPills}
-      <div class="message-content">${isAssistant ? renderMessageContent(msg.content) : msg.content}</div>
+    <div class="message message-assistant">
+      <div class="message-content">${renderMessageContent(msg.content)}</div>
       ${copy}
     </div>
   `;
+}
+
+function renderSelectionPills(msg) {
+  const contextItem = (name, iconName) => html`
+    <li class="selection-context-item">
+      <svg class="selection-icon" viewBox="0 0 20 20" aria-hidden="true">
+        <use href="${codeBase}/img/icons/${iconName}.svg#icon"></use>
+      </svg>
+      <span>${name}</span>
+    </li>`;
+
+  const items = [
+    ...(msg.selectionContext ?? []).map((sc) => {
+      const name = sc.blockName || 'Selection';
+      return contextItem(name, pillIconName(sc.type, name));
+    }),
+    ...(msg.attachmentsMeta ?? []).map(({ fileName }) => (
+      contextItem(fileName, pillIconName(undefined, fileName))
+    )),
+  ];
+  if (items.length === 1) {
+    return html`<ul class="selection-context-list" aria-label="Attached context">${items[0]}</ul>`;
+  }
+  if (items.length > 1) {
+    return html`<details class="selection-context">
+        <summary><span class="selection-context-count">${items.length} items added</span></summary>
+        <ul class="selection-context-list">${items}</ul>
+      </details>`;
+  }
+  return nothing;
+}
+
+function renderUserMessage(msg) {
+  return html`
+    <div class="message message-user">
+      ${renderSelectionPills(msg)}
+      <div class="message-content">${msg.content}</div>
+    </div>
+  `;
+}
+
+function renderMessage(msg, toolCards) {
+  if (msg.role === ROLE.TOOL) return nothing;
+  return msg.role === ROLE.ASSISTANT
+    ? renderAssistantMessage(msg, toolCards)
+    : renderUserMessage(msg);
 }
 
 export { renderMessage, renderApprovalCard };

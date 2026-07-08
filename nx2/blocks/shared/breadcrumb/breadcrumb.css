@@ -25,13 +25,16 @@
   min-width: 0;
 }
 
-.crumb-sep {
+.crumb:not(:first-child)::before {
+  content: '';
   flex-shrink: 0;
   width: 8px;
   height: 8px;
+  background-color: currentcolor;
+  mask: url('/img/icons/s2-icon-chevronleft-10-n.svg') center / contain no-repeat;
   margin-inline: var(--s2-spacing-75);
-  color: currentcolor;
-  display: block;
+  position:relative;
+  top: 2px;
 }
 
 .crumb a,

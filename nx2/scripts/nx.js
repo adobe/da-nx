@@ -12,6 +12,8 @@
 
 const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
 
+const NX_BLOCKS = new Set(['importer', 'site-apps', 'hero', 'card', 'section-metadata', 'schema-editor', 'media-library', 'form']);
+
 const EW_ORIGINS = {
   dev: 'http://localhost:3001',
   stage: 'https://main--ew-extensions--adobe-rnd.aem.page',
@@ -109,7 +111,7 @@ export async function loadBlock(block) {
   const isNx = name.startsWith('nx-');
   if (isNx) {
     name = name.replace('nx-', '');
-    path = `${nxBase}/blocks`;
+    path = NX_BLOCKS.has(name) ? '/nx/blocks' : `${nxBase}/blocks`;
   } else {
     const prefix = name.split('-')[0];
     const provider = providers[prefix];

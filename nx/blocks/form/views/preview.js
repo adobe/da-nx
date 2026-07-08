@@ -1,7 +1,7 @@
 import { LitElement, html } from 'da-lit';
+import { loadStyle } from '../../../../nx2/utils/utils.js';
 
-const { default: getStyle } = await import('../../../utils/styles.js');
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
 const EL_NAME = 'nx-preview';
 const REFRESH_MS = 500;
@@ -60,7 +60,7 @@ class Preview extends LitElement {
   async _paint() {
     const code = this.shadowRoot?.querySelector('code');
     if (!code) return;
-    code.textContent = JSON.stringify(this.state?.document?.values ?? {}, null, 2);
+    code.textContent = JSON.stringify(this.state?.document ?? {}, null, 2);
     const Prism = await loadPrism();
     if (Prism) Prism.highlightElement(code);
   }

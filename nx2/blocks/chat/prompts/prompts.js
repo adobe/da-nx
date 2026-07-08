@@ -15,9 +15,11 @@ class NxPrompts extends LitElement {
     _category: { state: true },
   };
 
-  _search = '';
-
-  _category = ALL_CATEGORY;
+  constructor() {
+    super();
+    this._search = '';
+    this._category = ALL_CATEGORY;
+  }
 
   connectedCallback() {
     super.connectedCallback();

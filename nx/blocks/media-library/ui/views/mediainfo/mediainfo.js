@@ -1,6 +1,6 @@
 import { html, LitElement } from 'da-lit';
-import getStyle from '../../../../../utils/styles.js';
-import loadSvgIcons from '../../../../../utils/svg.js';
+import { loadStyle } from '../../../../../../nx2/utils/utils.js';
+import { loadHrefSvg } from '../../../../../../nx2/utils/svg.js';
 import {
   getSubtype,
   isImage,
@@ -36,19 +36,19 @@ import { SUPPORTED_FILES } from '../../../../../public/utils/constants.js';
 import { Domains, MediaType } from '../../../core/constants.js';
 import { t } from '../../../core/messages.js';
 
-const styles = await getStyle(import.meta.url);
-const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
+const style = await loadStyle(import.meta.url);
+const nx = `${new URL(import.meta.url).origin}/nx`;
 
 const ICONS = [
-  `${iconsBase}S2_Icon_PDF_20_N.svg`,
-  `${iconsBase}S2_Icon_AIGenReferenceImage_20_N.svg`,
-  `${iconsBase}C_Icon_Image_Info.svg`,
-  `${iconsBase}S2_Icon_OpenIn_20_N.svg`,
-  `${iconsBase}S2_Icon_AdobeExpressSolid_20_N.svg`,
-  `${iconsBase}S2_Icon_ChevronRight_20_N.svg`,
-  `${iconsBase}S2_Icon_Close_20_N.svg`,
-  `${iconsBase}C_Icon_Fragment.svg`,
-  `${iconsBase}Smock_Copy_18_N.svg`,
+  `${nx}/img/icons/S2_Icon_PDF_20_N.svg`,
+  `${nx}/img/icons/S2_Icon_AIGenReferenceImage_20_N.svg`,
+  `${nx}/img/icons/C_Icon_Image_Info.svg`,
+  `${nx}/img/icons/S2_Icon_OpenIn_20_N.svg`,
+  `${nx}/img/icons/S2_Icon_AdobeExpressSolid_20_N.svg`,
+  `${nx}/img/icons/S2_Icon_ChevronRight_20_N.svg`,
+  `${nx}/img/icons/S2_Icon_Close_20_N.svg`,
+  `${nx}/img/icons/C_Icon_Fragment.svg`,
+  `${nx}/img/icons/Smock_Copy_18_N.svg`,
 ];
 
 const SUPPORTED_TABS = ['usage', 'metadata'];
@@ -108,10 +108,13 @@ class NxMediaInfo extends LitElement {
     this._pdfCurrentUrl = null;
   }
 
-  connectedCallback() {
+  async connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
-    loadSvgIcons({ parent: this.shadowRoot, paths: ICONS });
+    this.shadowRoot.adoptedStyleSheets = [style];
+    const icons = (await Promise.all(ICONS.map(loadHrefSvg)))
+      .filter(Boolean)
+      .map((svg) => svg.cloneNode(true));
+    this.shadowRoot.append(...icons);
   }
 
   disconnectedCallback() {
