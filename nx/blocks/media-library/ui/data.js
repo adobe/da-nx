@@ -24,7 +24,6 @@ import { getDedupeKey, canonicalizeMediaUrl } from '../core/urls.js';
 import { isIndexedExternalMediaEntry } from '../core/media.js';
 import {
   IndexFiles,
-  HttpStatus,
   SheetNames,
 } from '../core/constants.js';
 
@@ -101,8 +100,8 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
       };
     }
 
-    if (resp.status === HttpStatus.UNAUTHORIZED
-      || resp.status === HttpStatus.FORBIDDEN) {
+    if (resp.status === 401
+      || resp.status === 403) {
       logMediaLibraryError(ErrorCodes.DA_READ_DENIED, { path, status: resp.status });
       throw new MediaLibraryError(ErrorCodes.DA_READ_DENIED, t('DA_READ_DENIED'), {
         path,
