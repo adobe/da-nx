@@ -172,8 +172,23 @@ class NXEwActions extends LitElement {
     }
 
     this._hasError = false;
-    window.open(result.url, result.url);
+    const url = this._resolveOpenUrl(action, aemPath, result.url);
+    window.open(url, url);
     this._busy = false;
+  }
+
+  // A page can override the EDS delivery URL with `preview-url` / `live-url`
+  // metas whose content is a template containing `${aemPath}`.
+  // eslint-disable-next-line class-methods-use-this
+  _resolveOpenUrl(action, aemPath, fallbackUrl) {
+    const metaName = action === 'publish' ? 'live-url' : 'preview-url';
+    const template = document.head.querySelector(`meta[name="${metaName}"]`)?.content;
+    if (!template) return fallbackUrl;
+    // eslint-disable-next-line no-template-curly-in-string
+    const url = template.replace('${aemPath}', aemPath);
+    // aemPath carries a leading slash, so a template like `.../preview/${aemPath}`
+    // yields `preview//...`; collapse duplicate slashes but keep the `://` scheme.
+    return url.replace(/([^:])\/{2,}/g, '$1/');
   }
 
   _renderDialog() {

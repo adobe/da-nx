@@ -10,11 +10,10 @@ const style = await loadStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await loadStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await loadStyle(`${nx}/public/sl/components.css`);
-const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
 const ICONS = [
-  `${iconsBase}Smock_Folder_18_N.svg`,
-  `${iconsBase}Smock_FileHTML_18_N.svg`,
-  `${iconsBase}S2_Icon_PinOff_20_N.svg`,
+  `${nx}/img/icons/Smock_Folder_18_N.svg`,
+  `${nx}/img/icons/Smock_FileHTML_18_N.svg`,
+  `${nx}/img/icons/S2_Icon_PinOff_20_N.svg`,
 ];
 
 class NxMediaTopBar extends LitElement {

@@ -182,12 +182,6 @@ export function resolveAemOrigin() {
   return 'https://admin.hlx.page';
 }
 
-// Worker-safe constants (no window/localStorage dependency)
-// Use static prod values - workers don't need environment switching
-export const DA_ADMIN = 'https://admin.da.live';
-export const HLX_ADMIN = 'https://admin.hlx.page';
-export const AEM_API = 'https://api.aem.live';
-
 export const DA_ETC_ORIGIN = typeof window !== 'undefined'
   ? resolveDaEtcOrigin(window.location)
   : DA_ETC_ENVS.prod;

@@ -10,7 +10,8 @@
  * NO indexing logic - only reads already-published index data.
  */
 
-import { source, fromPath } from '../../../../nx2/utils/api.js';
+import { daFetch } from '../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../utils/utils.js';
 import {
   loadIndexChunks,
   loadSheetMeta,
@@ -82,8 +83,7 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
       }
     }
 
-    const { org: pathOrg, site, path: filePath } = fromPath(path);
-    const resp = await source.get({ org: pathOrg, site, path: filePath });
+    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
 
     if (resp.ok) {
       const data = await resp.json();

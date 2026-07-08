@@ -920,6 +920,7 @@ class NxMediaLibrary extends LitElement {
       || this._appState.isProgressiveLoading
       || this._appState.isLoadingData);
 
+    const pluginMode = isMediaLibraryPluginMode();
     return html`
       <nx-media-grid
         .mediaData=${displayData}
@@ -927,6 +928,7 @@ class NxMediaLibrary extends LitElement {
         .repo=${this.repo}
         .usePreviewDaLive=${this.siteAuthInfo?.requiresAuth || false}
         .resultsBusy=${resultsBusy}
+        .pluginMode=${pluginMode}
         @mediaClick=${this.handleMediaClick}
         @mediaCopy=${this.handleMediaCopy}
       ></nx-media-grid>
