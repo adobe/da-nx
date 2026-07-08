@@ -10,7 +10,7 @@ import { DA_ADMIN } from '../../../utils/utils.js';
 import { createSheet } from './admin-api.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { t } from '../core/messages.js';
-import { IndexFiles, IndexConfig, HttpStatus } from '../core/constants.js';
+import { IndexFiles, IndexConfig } from '../core/constants.js';
 
 const LOCK_OWNER_STORAGE_KEY = 'media-library-lock-owner-id';
 
@@ -97,8 +97,8 @@ export async function createIndexLock(sitePath) {
   });
   if (!resp.ok) {
     logMediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, { status: resp.status, path });
-    const isDenied = resp.status === HttpStatus.UNAUTHORIZED
-      || resp.status === HttpStatus.FORBIDDEN;
+    const isDenied = resp.status === 401
+      || resp.status === 403;
     const msg = isDenied ? t('LOCK_CREATE_FAILED_PERMISSION') : t('LOCK_CREATE_FAILED_GENERIC');
     throw new MediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, msg, { status: resp.status, path });
   }
@@ -122,8 +122,8 @@ export async function refreshIndexLock(sitePath, lockData = {}) {
   });
   if (!resp.ok) {
     logMediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, { status: resp.status, path });
-    const isDenied = resp.status === HttpStatus.UNAUTHORIZED
-      || resp.status === HttpStatus.FORBIDDEN;
+    const isDenied = resp.status === 401
+      || resp.status === 403;
     const msg = isDenied ? t('LOCK_CREATE_FAILED_PERMISSION') : t('LOCK_CREATE_FAILED_GENERIC');
     throw new MediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, msg, { status: resp.status, path });
   }
