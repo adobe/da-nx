@@ -6,8 +6,9 @@ import { getMessage } from '../../../core/messages.js';
 
 const style = await loadStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
-const sl = await loadStyle(`${nx}/public/sl/styles.css`);
-const slComponents = await loadStyle(`${nx}/public/sl/components.css`);
+const nx2 = `${new URL(import.meta.url).origin}/nx2`;
+const sl = await loadStyle(`${nx2}/styles/styles.css`);
+const slComponents = await loadStyle(`${nx2}/public/sl/components.css`);
 const ICONS = [
   `${nx}/img/icons/S2_Icon_Properties_20_N.svg`,
   `${nx}/img/icons/S2_GraphBarVertical_18_N.svg`,
