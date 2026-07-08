@@ -365,8 +365,14 @@ export async function saveLangItems(sitePath, items, lang, removeDnt) {
     const body = new FormData();
     body.append('data', blob);
     const opts = { body, method: 'POST' };
-    const resp = await daFetch({ url: `${DA_ADMIN}/source${path}`, opts });
-    results[idx] = { success: resp.status };
+    try {
+      const resp = await daFetch({ url: `${DA_ADMIN}/source${path}`, opts });
+      results[idx] = resp.ok
+        ? { success: resp.status }
+        : { error: 'Could not save item.', status: resp.status };
+    } catch (e) {
+      results[idx] = { error: e.message };
+    }
   }, MAX_CONCURRENT_WRITES);
 
   await Promise.all(items.map((item, idx) => queue.push({ item, idx })));

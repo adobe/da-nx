@@ -1,6 +1,5 @@
 import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
 import { daFetch, loadIms } from '../../../../nx2/utils/api.js';
-import config from '../../../../nx2/utils/nxToggle.js';
 
 const CONFIG_PATH = '/.da/translate.json';
 
@@ -213,7 +212,8 @@ export async function fetchConfig(org, site) {
 
   // Fallback to zero config defaults
   if (options.error) {
-    options = await fetchConf(`${config.nxBase.replace('nx2', 'nx')}/blocks/loc/connectors/google/translate.json`);
+    const fallbackUrl = new URL('../connectors/google/translate.json', import.meta.url).href;
+    options = await fetchConf(fallbackUrl);
   }
 
   CONFIG_CACHE = options;
