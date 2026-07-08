@@ -9,6 +9,7 @@ import {
   annotateHTML,
   needsKeywordsMetadata,
   buildLanguageMetadata,
+  normalizeKeywordsFile,
   loadSeoGlossary,
   addSeoGlossary,
   isUpdatedColumn,
@@ -897,6 +898,91 @@ describe('translationMetadata', () => {
       expect(result.fr['keywords|aso-app_google_listing_1_short-description']).to.deep.equal({
         value: 'legacy keyword',
         updated: false,
+      });
+    });
+
+    it('should build metadata from single-sheet keywords files with :sheetname', () => {
+      const singleSheetKeywords = {
+        total: 2,
+        limit: 2,
+        offset: 0,
+        data: [
+          {
+            language: 'English',
+            Subtitle: '',
+            'Subtitle (updated)': '',
+            Description: '',
+            'Description (updated)': '',
+          },
+          {
+            language: 'French',
+            Subtitle: 'mot-clé sous-titre',
+            'Subtitle (updated)': 'yes',
+            Description: 'mot-clé description',
+            'Description (updated)': 'yes',
+          },
+        ],
+        ':sheetname': 'aso-app (apple, listing) (1)',
+        ':type': 'sheet',
+      };
+      const result = buildLanguageMetadata(singleSheetKeywords, [
+        { name: 'French', code: 'fr' },
+      ]);
+
+      expect(result.fr['keywords|aso-app_apple_listing_1_subtitle']).to.deep.equal({
+        value: 'mot-clé sous-titre',
+        updated: true,
+      });
+      expect(result.fr['keywords|aso-app_apple_listing_1_description']).to.deep.equal({
+        value: 'mot-clé description',
+        updated: true,
+      });
+    });
+
+    it('should skip keyword metadata when single-sheet file has no :sheetname', () => {
+      const singleSheetKeywords = {
+        total: 1,
+        limit: 1,
+        offset: 0,
+        data: [{
+          language: 'French',
+          Subtitle: 'orphaned keyword',
+          'Subtitle (updated)': 'yes',
+        }],
+        ':type': 'sheet',
+      };
+      const warnStub = sinon.stub(console, 'warn');
+      const result = buildLanguageMetadata(singleSheetKeywords, [{ name: 'French', code: 'fr' }]);
+      warnStub.restore();
+
+      expect(result).to.deep.equal({});
+      expect(warnStub.calledOnce).to.be.true;
+    });
+
+    describe('normalizeKeywordsFile', () => {
+      it('should convert single-sheet format to multi-sheet using :sheetname', () => {
+        const singleSheet = {
+          total: 1,
+          offset: 0,
+          limit: 1,
+          data: [{ language: 'French', Subtitle: 'test' }],
+          ':sheetname': 'aso-app (apple, listing) (1)',
+          ':type': 'sheet',
+        };
+        const result = normalizeKeywordsFile(singleSheet);
+
+        expect(result[':type']).to.equal('multi-sheet');
+        expect(result[':names']).to.deep.equal(['aso-app (apple, listing) (1)']);
+        expect(result['aso-app (apple, listing) (1)'].data).to.deep.equal(singleSheet.data);
+      });
+
+      it('should return input unchanged for multi-sheet files', () => {
+        const multiSheet = {
+          ':type': 'multi-sheet',
+          ':names': ['aso-app (apple, listing) (1)'],
+          'aso-app (apple, listing) (1)': { data: [{ language: 'French' }] },
+        };
+        expect(normalizeKeywordsFile(multiSheet)).to.equal(multiSheet);
       });
     });
 

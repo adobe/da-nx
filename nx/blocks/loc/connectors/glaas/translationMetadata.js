@@ -332,6 +332,28 @@ function buildKeywordMetadataValue(keywordValue, updatedCell) {
   return { value, updated };
 }
 
+function isSingleSheetKeywords(json) {
+  return json?.[':type'] === 'sheet' && Array.isArray(json.data);
+}
+
+export function normalizeKeywordsFile(json) {
+  if (!json || !isSingleSheetKeywords(json)) return json;
+  const sheetName = typeof json[':sheetname'] === 'string' ? json[':sheetname'].trim() : '';
+  if (!sheetName) {
+    // eslint-disable-next-line no-console
+    console.warn('[keywords] Single-sheet keywords file is missing :sheetname; skipping keyword metadata.');
+    return null;
+  }
+  const { data, total, offset, limit, ':colWidths': colWidths } = json;
+  const sheet = { total, offset, limit, data };
+  if (colWidths) sheet[':colWidths'] = colWidths;
+  return {
+    ':type': 'multi-sheet',
+    ':names': [sheetName],
+    [sheetName]: sheet,
+  };
+}
+
 export function buildLanguageMetadata(keywordsData, langs, {
   constantsHtml,
   pageHtml,
@@ -352,8 +374,9 @@ export function buildLanguageMetadata(keywordsData, langs, {
   };
   const langMetadata = {};
 
-  if (keywordsData) {
-    Object.entries(keywordsData).forEach(([key, blockData]) => {
+  const normalizedKeywords = normalizeKeywordsFile(keywordsData);
+  if (normalizedKeywords) {
+    Object.entries(normalizedKeywords).forEach(([key, blockData]) => {
       if (key.startsWith(':') || !blockData?.data) return;
       const indexMatch = key.match(/\((\d+)\)$/);
       if (!indexMatch) return;
