@@ -8,7 +8,7 @@ import {
 } from '../core/constants.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isPerfEnabled } from '../core/params.js';
-import { t } from '../core/messages.js';
+import { getMessage } from '../core/messages.js';
 
 const AEM_PAGE_MARKDOWN_RATE = 180; /* keep some headroom under the 200 RPS host limit */
 const AEM_SITE_AUTH_DENIED = new Set([401, 403]);
@@ -374,8 +374,8 @@ export async function streamLog(
         );
         const err = new MediaLibraryError(
           ErrorCodes.EDS_LOG_DENIED,
-          t('EDS_LOG_DENIED'),
-          { status: 403, endpoint: nextUrl, hint: t('EDS_LOG_DENIED_HINT') },
+          getMessage('EDS_LOG_DENIED'),
+          { status: 403, endpoint: nextUrl, hint: getMessage('EDS_LOG_DENIED_HINT') },
         );
         err.status = 403;
         throw err;
@@ -387,7 +387,7 @@ export async function streamLog(
         );
         const err = new MediaLibraryError(
           ErrorCodes.EDS_AUTH_EXPIRED,
-          t('EDS_AUTH_EXPIRED'),
+          getMessage('EDS_AUTH_EXPIRED'),
           { status: 401, endpoint: nextUrl },
         );
         err.status = 401;

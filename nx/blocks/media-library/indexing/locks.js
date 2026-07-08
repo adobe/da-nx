@@ -9,7 +9,7 @@ import { daFetch } from '../../../utils/daFetch.js';
 import { DA_ADMIN } from '../../../utils/utils.js';
 import { createSheet } from './admin-api.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
-import { t } from '../core/messages.js';
+import { getMessage } from '../core/messages.js';
 import { IndexFiles, IndexConfig } from '../core/constants.js';
 
 const LOCK_OWNER_STORAGE_KEY = 'media-library-lock-owner-id';
@@ -99,7 +99,7 @@ export async function createIndexLock(sitePath) {
     logMediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, { status: resp.status, path });
     const isDenied = resp.status === 401
       || resp.status === 403;
-    const msg = isDenied ? t('LOCK_CREATE_FAILED_PERMISSION') : t('LOCK_CREATE_FAILED_GENERIC');
+    const msg = isDenied ? getMessage('LOCK_CREATE_FAILED_PERMISSION') : getMessage('LOCK_CREATE_FAILED_GENERIC');
     throw new MediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, msg, { status: resp.status, path });
   }
   return resp;
@@ -124,7 +124,7 @@ export async function refreshIndexLock(sitePath, lockData = {}) {
     logMediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, { status: resp.status, path });
     const isDenied = resp.status === 401
       || resp.status === 403;
-    const msg = isDenied ? t('LOCK_CREATE_FAILED_PERMISSION') : t('LOCK_CREATE_FAILED_GENERIC');
+    const msg = isDenied ? getMessage('LOCK_CREATE_FAILED_PERMISSION') : getMessage('LOCK_CREATE_FAILED_GENERIC');
     throw new MediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, msg, { status: resp.status, path });
   }
   return resp;
@@ -138,7 +138,7 @@ export async function removeIndexLock(sitePath) {
   if (!resp.ok) {
     if (resp.status === 404) return resp;
     logMediaLibraryError(ErrorCodes.LOCK_REMOVE_FAILED, { status: resp.status, path });
-    throw new MediaLibraryError(ErrorCodes.LOCK_REMOVE_FAILED, t('LOCK_REMOVE_FAILED'), { status: resp.status, path });
+    throw new MediaLibraryError(ErrorCodes.LOCK_REMOVE_FAILED, getMessage('LOCK_REMOVE_FAILED'), { status: resp.status, path });
   }
   return resp;
 }
