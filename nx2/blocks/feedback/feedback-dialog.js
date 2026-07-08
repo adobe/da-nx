@@ -29,11 +29,13 @@ class NxFeedbackDialog extends LitElement {
     _submitting: { state: true },
     _submitError: { state: true },
     _category: { state: true },
+    _linkChatSession: { state: true },
   };
 
   constructor() {
     super();
     this._category = CATEGORIES[0].value;
+    this._linkChatSession = false;
   }
 
   connectedCallback() {
@@ -49,10 +51,13 @@ class NxFeedbackDialog extends LitElement {
 
   get _message() { return this.shadowRoot.getElementById('feedback-message'); }
 
-  get _linkChatSession() { return this.shadowRoot.getElementById('feedback-include-chat'); }
-
   _onCategoryChange({ detail: { value } }) {
     this._category = value;
+    if (value === 'assistant') this._linkChatSession = true;
+  }
+
+  _onLinkChatSessionChange({ target: { checked } }) {
+    this._linkChatSession = checked;
   }
 
   _handleClose(e) {
@@ -103,7 +108,7 @@ class NxFeedbackDialog extends LitElement {
     const categoryOption = CATEGORIES.find((c) => c.value === this._category);
     const categoryLabel = categoryOption?.label ?? this._category;
 
-    const linkChatSession = this._linkChatSession.checked;
+    const linkChatSession = this._linkChatSession;
     const context = this._getContext();
     const sessionId = linkChatSession ? await this._getChatSessionId(context) : null;
 
@@ -161,7 +166,7 @@ class NxFeedbackDialog extends LitElement {
             ${this._messageError ? html`<p class="da-input-error-msg">Please describe your feedback before submitting.</p>` : nothing}
           </div>
           <label class="da-checkbox">
-            <input id="feedback-include-chat" type="checkbox" />
+            <input id="feedback-include-chat" type="checkbox" .checked=${this._linkChatSession} @change=${this._onLinkChatSessionChange} />
             Include assistant chat history?
           </label>
           <p class="feedback-intro"><span>Your name, email and current page will be shared with the team.</span></p>
