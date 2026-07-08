@@ -1,7 +1,7 @@
 import { etcFetch } from './urls.js';
 import { getMediaType, getSubtype } from './media.js';
 import { decodeDisplayName, getFileName } from './files.js';
-import { t } from './messages.js';
+import { getMessage } from './messages.js';
 import { isMediaLibraryPluginMode, withTimeout } from './utils.js';
 
 function escapeCsvCell(value) {
@@ -187,8 +187,8 @@ export async function copyMediaToClipboard(media) {
         try {
           await copyNonImageLinkRichClipboard(media);
           return {
-            heading: t('NOTIFY_PLUGIN_FALLBACK_HEADING'),
-            message: t('NOTIFY_PLUGIN_FALLBACK_LINK_MSG'),
+            heading: getMessage('NOTIFY_PLUGIN_FALLBACK_HEADING'),
+            message: getMessage('NOTIFY_PLUGIN_FALLBACK_LINK_MSG'),
           };
         } catch {
           /* fall through to plain writeText */
@@ -202,23 +202,23 @@ export async function copyMediaToClipboard(media) {
       await copyImageToClipboard(mediaUrl);
       if (plugin) {
         return {
-          heading: t('NOTIFY_PLUGIN_FALLBACK_HEADING'),
-          message: t('NOTIFY_PLUGIN_FALLBACK_IMAGE_MSG'),
+          heading: getMessage('NOTIFY_PLUGIN_FALLBACK_HEADING'),
+          message: getMessage('NOTIFY_PLUGIN_FALLBACK_IMAGE_MSG'),
         };
       }
-      return { heading: t('NOTIFY_COPIED'), message: t('NOTIFY_COPIED_IMAGE') };
+      return { heading: getMessage('NOTIFY_COPIED'), message: getMessage('NOTIFY_COPIED_IMAGE') };
     }
     await navigator.clipboard.writeText(mediaUrl);
     if (plugin) {
       return {
-        heading: t('NOTIFY_PLUGIN_FALLBACK_HEADING'),
-        message: t('NOTIFY_PLUGIN_FALLBACK_PLAIN_MSG'),
+        heading: getMessage('NOTIFY_PLUGIN_FALLBACK_HEADING'),
+        message: getMessage('NOTIFY_PLUGIN_FALLBACK_PLAIN_MSG'),
       };
     }
-    return { heading: t('NOTIFY_COPIED'), message: t('NOTIFY_COPIED_URL') };
+    return { heading: getMessage('NOTIFY_COPIED'), message: getMessage('NOTIFY_COPIED_URL') };
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to copy to clipboard:', error);
-    return { heading: t('NOTIFY_ERROR'), message: t('NOTIFY_COPY_ERROR') };
+    return { heading: getMessage('NOTIFY_ERROR'), message: getMessage('NOTIFY_COPY_ERROR') };
   }
 }

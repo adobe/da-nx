@@ -94,7 +94,7 @@ const MESSAGES = {
   UI_OPEN_IN_NEW_TAB: 'Open in new tab',
 };
 
-export function t(key, params = {}) {
+export function getMessage(key, params = {}) {
   const str = MESSAGES[key];
   if (str == null) return key;
 

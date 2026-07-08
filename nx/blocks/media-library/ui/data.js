@@ -17,7 +17,7 @@ import {
   loadSheetMeta,
 } from '../indexing/admin-api.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
-import { t } from '../core/messages.js';
+import { getMessage } from '../core/messages.js';
 import { getIndexStatus } from '../indexing/index-status.js';
 import { getCanonicalMediaTimestamp } from '../core/utils.js';
 import { getDedupeKey, canonicalizeMediaUrl } from '../core/urls.js';
@@ -68,7 +68,7 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
         );
         if (!Array.isArray(result)) {
           logMediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, { path, error: 'Invalid chunked index shape' });
-          throw new MediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, t('INDEX_PARSE_ERROR'), { path });
+          throw new MediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, getMessage('INDEX_PARSE_ERROR'), { path });
         }
         const mappedData = result.map((item) => ({
           ...item,
@@ -90,7 +90,7 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
       const result = data[SheetNames.MEDIA]?.data;
       if (!Array.isArray(result)) {
         logMediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, { path, error: 'Invalid index shape' });
-        throw new MediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, t('INDEX_PARSE_ERROR'), { path });
+        throw new MediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, getMessage('INDEX_PARSE_ERROR'), { path });
       }
       return {
         data: result.map((item) => ({
@@ -103,9 +103,9 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
     if (resp.status === 401
       || resp.status === 403) {
       logMediaLibraryError(ErrorCodes.DA_READ_DENIED, { path, status: resp.status });
-      throw new MediaLibraryError(ErrorCodes.DA_READ_DENIED, t('DA_READ_DENIED'), {
+      throw new MediaLibraryError(ErrorCodes.DA_READ_DENIED, getMessage('DA_READ_DENIED'), {
         path,
-        hint: t('DA_READ_DENIED_SUGGESTION'),
+        hint: getMessage('DA_READ_DENIED_SUGGESTION'),
       });
     }
 
@@ -117,7 +117,7 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
     }
 
     logMediaLibraryError(ErrorCodes.INDEX_LOAD_FAILED, { path, status: resp.status });
-    throw new MediaLibraryError(ErrorCodes.INDEX_LOAD_FAILED, t('INDEX_LOAD_FAILED'), { path });
+    throw new MediaLibraryError(ErrorCodes.INDEX_LOAD_FAILED, getMessage('INDEX_LOAD_FAILED'), { path });
   } catch (error) {
     if (error instanceof MediaLibraryError) throw error;
     const isParseLike = error instanceof SyntaxError
@@ -125,10 +125,10 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
 
     if (isParseLike) {
       logMediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, { path, error: error?.message });
-      throw new MediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, t('INDEX_PARSE_ERROR'), { path });
+      throw new MediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, getMessage('INDEX_PARSE_ERROR'), { path });
     }
     logMediaLibraryError(ErrorCodes.NETWORK_TIMEOUT, { path, error: error?.message });
-    throw new MediaLibraryError(ErrorCodes.NETWORK_TIMEOUT, t('NOTIFY_DISCOVERY_FAILED'), { path });
+    throw new MediaLibraryError(ErrorCodes.NETWORK_TIMEOUT, getMessage('NOTIFY_DISCOVERY_FAILED'), { path });
   }
 }
 

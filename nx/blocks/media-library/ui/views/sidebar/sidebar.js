@@ -2,7 +2,7 @@ import { html, LitElement } from 'da-lit';
 import { loadStyle } from '../../../../../../nx2/utils/utils.js';
 import { loadHrefSvg } from '../../../../../../nx2/utils/svg.js';
 import { getAppState, onStateChange } from '../../../core/state.js';
-import { t } from '../../../core/messages.js';
+import { getMessage } from '../../../core/messages.js';
 
 const style = await loadStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -147,7 +147,7 @@ class NxMediaSidebar extends LitElement {
     return html`
       <aside
         class="media-sidebar ${isExpanded ? 'expanded' : 'collapsed'}"
-        aria-label="${t('UI_MEDIA_FILTERS')}"
+        aria-label="${getMessage('UI_MEDIA_FILTERS')}"
       >
         <div class="sidebar-icons">
           <button

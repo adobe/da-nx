@@ -4,7 +4,7 @@ import { loadHrefSvg } from '../../../../../../nx2/utils/svg.js';
 import { parseColonSyntax, getSearchSuggestions, createSearchSuggestion } from '../../filters.js';
 import { formatDocPath, getBasePath } from '../../../core/paths.js';
 import { highlightMatch } from '../../templates.js';
-import { t } from '../../../core/messages.js';
+import { getMessage } from '../../../core/messages.js';
 
 const style = await loadStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -205,7 +205,7 @@ class NxMediaTopBar extends LitElement {
                 type="text"
                 id="search-input"
                 role="combobox"
-                aria-label="${t('UI_SEARCH_MEDIA')}"
+                aria-label="${getMessage('UI_SEARCH_MEDIA')}"
                 aria-autocomplete="list"
                 aria-expanded="${this._showSuggestions}"
                 aria-controls="suggestions-listbox"
