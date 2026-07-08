@@ -1,7 +1,10 @@
 import { html, LitElement, nothing } from 'da-lit';
 import { loadStyle } from '../../../../nx2/utils/utils.js';
 
-import '../../../../nx2/public/sl/components.js';
+// `nx-path` renders `sl-input` / `sl-button` but does not register them itself.
+// Consumers must import their desired `sl/components.js` flavor (nx or nx2)
+// before importing this module, otherwise a second `customElements.define`
+// for the same tag names will throw (NotSupportedError).
 
 const style = await loadStyle(import.meta.url);
 
