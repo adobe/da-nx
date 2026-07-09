@@ -1,9 +1,24 @@
 import { DA_ADMIN } from './utils.js';
 import { daFetch } from './api.js';
-import { showToast, VARIANT_ERROR } from '../blocks/shared/toast/toast.js';
+import { showToast, VARIANT_WARNING } from '../blocks/shared/toast/toast.js';
 
 const DEF_SANDBOX = 'aem-sandbox';
-const SANDBOX_MSG = 'You are viewing a sandbox organization. Some features may be unavailable.';
+const SANDBOX_FRAGMENT = '/fragments/toasts/sandbox';
+
+async function getSandboxContent() {
+  const resp = await fetch(`${SANDBOX_FRAGMENT}.plain.html`);
+  if (!resp.ok) return null;
+  const html = await resp.text();
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const link = doc.body.querySelector('a');
+  const cta = link ? {
+    text: link.textContent.trim(),
+    href: `${new URL(link.href).pathname}${window.location.search}${window.location.hash}`,
+  } : null;
+  link?.remove();
+  const text = doc.body.textContent.trim();
+  return text ? { text, cta } : null;
+}
 
 async function getIsSandbox(org) {
   const confResp = await daFetch({ url: `${DA_ADMIN}/config/${org}/` });
@@ -32,7 +47,9 @@ async function orgCheck() {
   const isSandbox = await getIsSandbox(org);
   if (!isSandbox) return;
 
-  showToast({ text: SANDBOX_MSG, variant: VARIANT_ERROR });
+  const content = await getSandboxContent();
+  if (!content) return;
+  showToast({ text: content.text, cta: content.cta, variant: VARIANT_WARNING, timeout: null });
 }
 
 orgCheck();
