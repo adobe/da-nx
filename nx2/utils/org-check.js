@@ -49,7 +49,7 @@ async function orgCheck() {
 
   const content = await getSandboxContent();
   if (!content) return;
-  showToast({ text: content.text, cta: content.cta, variant: VARIANT_WARNING, timeout: null });
+  showToast({ text: content.text, cta: content.cta, variant: VARIANT_WARNING, timeout: null, maxWidth: '42rem' });
 }
 
 orgCheck();

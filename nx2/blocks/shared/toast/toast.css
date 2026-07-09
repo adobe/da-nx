@@ -1,7 +1,7 @@
 :host {
   display: block;
   box-sizing: border-box;
-  max-width: min(22rem, calc(100vw - 2 * var(--s2-spacing-300)));
+  max-width: min(var(--nx-toast-max-width, 22rem), calc(100vw - 2 * var(--s2-spacing-300)));
   margin: 0;
   padding: 0;
   border: 0;

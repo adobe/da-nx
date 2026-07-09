@@ -99,7 +99,7 @@ class NxToast extends LitElement {
   }
 }
 
-export function showToast({ text, variant = VARIANT_SUCCESS, cta, timeout = 6000 } = {}) {
+export function showToast({ text, variant = VARIANT_SUCCESS, cta, timeout = 6000, maxWidth } = {}) {
   const messageText = text?.trim();
   if (!messageText) return;
   const toast = document.createElement('nx-toast');
@@ -107,6 +107,7 @@ export function showToast({ text, variant = VARIANT_SUCCESS, cta, timeout = 6000
   toast.variant = [VARIANT_ERROR, VARIANT_WARNING].includes(variant) ? variant : VARIANT_SUCCESS;
   toast.cta = cta;
   toast.duration = timeout; // null = indefinite (no auto-dismiss)
+  if (maxWidth) toast.style.setProperty('--nx-toast-max-width', maxWidth);
   ensureHost().append(toast);
 }
 
