@@ -62,7 +62,9 @@ export async function getDaUsers(path) {
   if (!resp.ok) return [];
   return (await resp.json()).users?.data.map((user) => {
     const formatted = {
-      displayName: `${user['First Name']} ${user['Last Name']}`,
+      // Build from present parts only; an empty string lets user.js fall back
+      // to the email (a template literal would yield "undefined undefined").
+      displayName: [user['First Name'], user['Last Name']].filter(Boolean).join(' '),
       email: user.Email,
       id: user.Id,
     };
