@@ -1,11 +1,11 @@
-import { LitElement, html, nothing } from '../../deps/lit/lit-core.min.js';
-import { getConfig } from '../../scripts/nexter.js';
-import { crawl } from '../../public/utils/tree.js';
-import getStyle from '../../utils/styles.js';
+import { LitElement, html, nothing } from 'da-lit';
+import { getConfig } from '../../../nx2/scripts/nx.js';
+import { crawl } from '../../../nx2/public/utils/tree.js';
+import { loadStyle } from '../../../nx2/utils/utils.js';
 
 const { nxBase } = getConfig();
-const style = await getStyle(import.meta.url);
-const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
+const style = await loadStyle(import.meta.url);
+const buttons = await loadStyle(`${nxBase}/styles/buttons.js`);
 
 class NxBulk extends LitElement {
   static properties = {
