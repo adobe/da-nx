@@ -1,15 +1,14 @@
-import { LitElement, html, nothing } from '../../deps/lit/lit-core.min.js';
-import { getConfig } from '../../scripts/nexter.js';
+import { LitElement, html, nothing } from 'da-lit';
 import { formatUrls, sendAction } from './index.js';
-import { Queue } from '../../public/utils/tree.js';
-import { getSvg } from '../../utils/svg.js';
-import getStyle from '../../utils/styles.js';
+import { Queue } from '../../../nx2/public/utils/tree.js';
+import loadIcons from '../../../nx2/utils/svg.js';
+import { loadStyle } from '../../../nx2/utils/utils.js';
 
 await import('../../public/sl/components.js');
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
-const { nxBase: nx } = getConfig();
-const icons = await getSvg({ paths: [`${nx}/img/icons/Smock_ChevronRight_18_N.svg`] });
+const chevronHref = new URL('../../img/icons/Smock_ChevronRight_18_N.svg', import.meta.url).href;
+const icons = await loadIcons({ paths: [chevronHref] });
 
 // const MOCK_URLS = 'https://main--docket--da-pilot.aem.page/about/faq\nhttps://main--docket--da-pilot.aem.page/about/release-notes\nhttps://main--docket--da-pilot.aem.page/about/release-notes/da-admin\nhttps://main--docket--da-pilot.aem.page/about/release-notes/da-collab\nhttps://main--docket--da-pilot.aem.page/about/release-notes/da-content\nhttps://main--docket--da-pilot.aem.page/about/release-notes/da-live';
 

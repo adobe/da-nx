@@ -1,7 +1,7 @@
 :host {
   display: block;
-  max-width: var(--grid-container-width);
-  margin: 0 auto var(--spacing-500) auto;
+  max-width: var(--se-grid-container-width, var(--grid-container-width));
+  margin: 0 auto var(--s2-spacing-500, var(--spacing-500)) auto;
 }
 
 :host > svg {
@@ -9,12 +9,12 @@
 }
 
 button {
-  font-family: var(--body-font-family);
+  font-family: var(--s2-font-family, var(--body-font-family));
 }
 
 sl-textarea {
   height: 320px;
-  margin-bottom: var(--spacing-400);
+  margin-bottom: var(--s2-spacing-400, var(--spacing-400));
 }
 
 sl-select {
@@ -24,7 +24,7 @@ sl-select {
 input[name="label"] {
   height: 32px;
   width: 160px;
-  font-family: var(--body-font-family);
+  font-family: var(--s2-font-family, var(--body-font-family));
   margin: 0;
   padding: 0 6px;
 }
@@ -58,7 +58,7 @@ input[name="label"] {
   justify-content: end;
   align-items: end;
   gap: 12px;
-  margin: 0 0 var(--spacing-400);
+  margin: 0 0 var(--s2-spacing-400, var(--spacing-400));
 }
 
 .da-bulk-action-submit button {
@@ -69,7 +69,7 @@ input[name="label"] {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 24px;
-  margin: 0 0 var(--spacing-400);
+  margin: 0 0 var(--s2-spacing-400, var(--spacing-400));
 }
 
 .detail-card {
@@ -78,7 +78,7 @@ input[name="label"] {
   background: rgb(215 247 225);
   border-radius: 18px;
   overflow: hidden;
-  padding: var(--spacing-400);
+  padding: var(--s2-spacing-400, var(--spacing-400));
 
   button {
     background: transparent;
@@ -101,7 +101,7 @@ input[name="label"] {
   margin: 0;
   padding: 0;
   min-width: 72px;
-  border-radius: var(--s2-radius-100);
+  border-radius: var(--s2-corner-radius-500, var(--s2-radius-100));
   border: none;
   background: rgb(0 0 0 / 10%);
 }
@@ -113,11 +113,11 @@ input[name="label"] {
 }
 
 .detail-card h3 {
-  margin-bottom: var(--spacing-100);
+  margin-bottom: var(--s2-spacing-100, var(--spacing-100));
 }
 
 .detail-card p {
-  font-size: var(--s2-font-size-600);
+  font-size: var(--s2-heading-size-xl, var(--s2-font-size-600));
 }
 
 .url-list {
@@ -125,8 +125,8 @@ input[name="label"] {
   background: rgb(215 247 225);
   border-radius: 18px;
   overflow: hidden;
-  padding: var(--spacing-400);
-  margin: 0 0 var(--spacing-400);
+  padding: var(--s2-spacing-400, var(--spacing-400));
+  margin: 0 0 var(--s2-spacing-400, var(--spacing-400));
 }
 
 .url-list.is-expanded {
