@@ -325,6 +325,7 @@ export async function loadArea({ area } = { area: document }) {
 
       if (!isSession) loadSession();
       import('../utils/favicon.js');
+      import('../utils/org-check.js');
     }
   }
 
