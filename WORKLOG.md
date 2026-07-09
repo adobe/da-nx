@@ -1,5 +1,27 @@
 # Worklog
 
+## 2026-07-09
+
+### nx/blocks/secure-org — migrate secure-org block to nx2
+
+Added `'secure-org'` to `NX_BLOCKS` in `nx2/scripts/nx.js`. Block stays in `nx/blocks/secure-org/` per migration convention.
+
+Import updates in `secure-org.js`:
+- Dropped `getConfig` from nexter.js; icon URLs built via `new URL('../../public/icons/...', import.meta.url).href` (icons live only in nx1)
+- `../../utils/ims.js` `loadIms` → `../../../nx2/utils/ims.js`
+- `../../utils/styles.js` default `getStyle` → `{ loadStyle }` from `../../../nx2/utils/utils.js`
+- `../../utils/svg.js` `getSvg` → default `loadIcons` from `../../../nx2/utils/svg.js`
+
+Import updates in `utils.js`:
+- `../../public/utils/constants.js` (DA_ORIGIN) → `../../../nx2/public/utils/constants.js`
+- `../../utils/daFetch.js` (daFetch) → `../../../nx2/utils/api.js`; call site updated from positional `daFetch(url, opts)` to destructured `daFetch({ url, opts })`
+
+CSS variables in `secure-org.css`:
+- `--grid-container-width` → `--se-grid-container-width` with nx1 fallback
+- `--spacing-800` → `--s2-spacing-800` with nx1 fallback
+
+Verified live at `/apps/sandbox?nx=local` — block renders correctly (nx-path input, orange warning alert with AlertDiamond icon), no console errors.
+
 ## 2026-06-26
 
 ### nx2/blocks/chat/chat.js — skill selection preserves pending attachments (feat/da-skill-attachment-fix)
