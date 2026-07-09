@@ -1,6 +1,6 @@
 import { html, LitElement, nothing } from 'da-lit';
-import getStyle from '../../../utils/styles.js';
-import { getSvg } from '../../../utils/svg.js';
+import getStyle from '../../../../nx2/public/utils/styles.js';
+import getSvg from '../../../../nx2/public/utils/svg.js';
 import {
   deleteSnapshot,
   fetchManifest,
@@ -14,23 +14,23 @@ import {
 } from '../utils/utils.js';
 import { findFragments } from '../utils/fragments.js';
 
-const nx = `${new URL(import.meta.url).origin}/nx`;
+const nxBase = `${new URL(import.meta.url).origin}/nx2`;
 const style = await getStyle(import.meta.url);
 
 const ICONS = [
-  `${nx}/img/icons/S2IconClose20N-icon.svg`,
-  `${nx}/public/icons/S2_Icon_Compare_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Save_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Lock_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_LockOpen_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Delete_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_OpenIn_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_PublishNo_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Publish_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_ArrowDown_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_ArrowUp_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Link_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Exposure_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_Close_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_Compare_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_Save_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_Lock_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_LockOpen_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_Delete_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_OpenIn_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_PublishNo_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_Publish_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_ArrowDown_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_ArrowUp_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_Link_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_Exposure_20_N.svg`,
 ];
 
 class NxSnapshot extends LitElement {
