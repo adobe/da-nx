@@ -1,25 +1,22 @@
 import { html, LitElement, nothing } from 'da-lit';
-import { getConfig } from '../../scripts/nexter.js';
-import { loadIms } from '../../utils/ims.js';
-import getStyle from '../../utils/styles.js';
-import { getSvg } from '../../utils/svg.js';
+import { loadIms } from '../../../nx2/utils/ims.js';
+import { loadStyle } from '../../../nx2/utils/utils.js';
+import loadIcons from '../../../nx2/utils/svg.js';
 import { loadConfig, saveConfig } from './utils.js';
 
 import '../../public/sl/components.js';
 import '../shared/path/path.js';
 
-const { nxBase: nx } = getConfig();
-
 const ICONS = [
-  `${nx}/public/icons/S2_Icon_InfoCircle_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_AlertDiamond_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_CheckmarkCircle_20_N.svg`,
+  new URL('../../public/icons/S2_Icon_InfoCircle_20_N.svg', import.meta.url).href,
+  new URL('../../public/icons/S2_Icon_AlertDiamond_20_N.svg', import.meta.url).href,
+  new URL('../../public/icons/S2_Icon_CheckmarkCircle_20_N.svg', import.meta.url).href,
 ];
 
 const EL_NAME = 'nx-secure-org';
 
-const styles = await getStyle(import.meta.url);
-const icons = await getSvg({ paths: ICONS });
+const styles = await loadStyle(import.meta.url);
+const icons = await loadIcons({ paths: ICONS });
 
 class SecureOrg extends LitElement {
   static properties = {
