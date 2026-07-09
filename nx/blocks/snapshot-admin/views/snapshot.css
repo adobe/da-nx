@@ -400,7 +400,7 @@ svg.icon {
 
     &:disabled {
       background-color: #00000045;
-      color: light-dark(#000, var(--s2-gray-500));
+      color: light-dark(var(--s2-gray-1000), var(--s2-gray-500));
     }
   }
 }
