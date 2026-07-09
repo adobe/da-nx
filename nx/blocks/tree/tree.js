@@ -2,9 +2,8 @@ import { LitElement, html, nothing } from 'da-lit';
 import { crawl } from '../../../nx2/public/utils/tree.js';
 import { loadStyle } from '../../../nx2/utils/utils.js';
 
-const nx2Base = new URL('../../../nx2', import.meta.url).href;
 const style = await loadStyle(import.meta.url);
-const buttons = await loadStyle(`${nx2Base}/styles/buttons.js`);
+const buttons = await loadStyle(new URL('../../styles/buttons.js', import.meta.url).href);
 
 class NxBulk extends LitElement {
   static properties = {
