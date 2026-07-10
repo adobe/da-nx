@@ -4,10 +4,6 @@
   margin: 0 auto var(--s2-spacing-500, var(--spacing-500)) auto;
 }
 
-:host > svg {
-  display: none;
-}
-
 sl-textarea {
   height: 320px;
   margin-bottom: var(--s2-spacing-400, var(--spacing-400));
