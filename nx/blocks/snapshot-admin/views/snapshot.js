@@ -1,6 +1,6 @@
 import { html, LitElement, nothing } from 'da-lit';
-import getStyle from '../../../utils/styles.js';
-import { getSvg } from '../../../utils/svg.js';
+import getStyle from '../../../../nx2/public/utils/styles.js';
+import { getConfig } from '../../../../nx2/scripts/nx.js';
 import {
   deleteSnapshot,
   fetchManifest,
@@ -14,24 +14,24 @@ import {
 } from '../utils/utils.js';
 import { findFragments } from '../utils/fragments.js';
 
-const nx = `${new URL(import.meta.url).origin}/nx`;
+const { codeBase } = getConfig();
 const style = await getStyle(import.meta.url);
 
-const ICONS = [
-  `${nx}/img/icons/S2IconClose20N-icon.svg`,
-  `${nx}/public/icons/S2_Icon_Compare_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Save_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Lock_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_LockOpen_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Delete_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_OpenIn_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_PublishNo_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Publish_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_ArrowDown_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_ArrowUp_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Link_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Exposure_20_N.svg`,
-];
+const icon = (name) => `${codeBase}/img/icons/s2-icon-${name}-20-n.svg#icon`;
+
+const ICONS = {
+  compare: icon('compare'),
+  save: icon('savefloppy'),
+  lock: icon('lock'),
+  lockOpen: icon('lockopen'),
+  delete: icon('delete'),
+  publishNo: icon('publish-no'),
+  publish: icon('publish'),
+  download: icon('download'),
+  upload: icon('upload'),
+  link: icon('link'),
+  exposure: icon('exposure'),
+};
 
 class NxSnapshot extends LitElement {
   static properties = {
@@ -66,7 +66,6 @@ class NxSnapshot extends LitElement {
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
   update(props) {
@@ -503,8 +502,8 @@ class NxSnapshot extends LitElement {
   }
 
   get _lockStatus() {
-    if (!this._manifest?.locked) return { text: 'Unlocked', icon: '#S2_Icon_LockOpen_20_N' };
-    return { text: 'Locked', icon: '#S2_Icon_Lock_20_N' };
+    if (!this._manifest?.locked) return { text: 'Unlocked', icon: ICONS.lockOpen };
+    return { text: 'Locked', icon: ICONS.lock };
   }
 
   get _reviewStatus() {
@@ -529,12 +528,12 @@ class NxSnapshot extends LitElement {
         ` : nothing}
         ${this.hasLaunchPermission && this._launchEnabled ? html`
           <button @click=${() => this.handleCopySingleUrl(res, 'fork')}>
-            <svg class="icon"><use href="#S2_Icon_ArrowDown_20_N"/></svg>
+            <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICONS.download}"></use></svg>
             Sync to .snapshots
           </button>
           ${snapshotExists ? html`
             <button @click=${() => this.handleCopySingleUrl(res, 'promote')}>
-              <svg class="icon"><use href="#S2_Icon_ArrowUp_20_N"/></svg>
+              <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICONS.upload}"></use></svg>
               Promote to main
             </button>
           ` : nothing}
@@ -621,11 +620,11 @@ class NxSnapshot extends LitElement {
                 ${this._launchEnabled ? html`
                   <div class="nx-launch-action-group">
                     <button data-tooltip="Create or sync launch content in DA" @click=${() => this.handleCopyUrls('fork')}>
-                      <svg class="icon"><use href="#S2_Icon_ArrowDown_20_N"/></svg>
+                      <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICONS.download}"></use></svg>
                       Sync
                     </button>
                     <button data-tooltip="Sync launch content back to the production tree" @click=${() => this.handleCopyUrls('promote')}>
-                      <svg class="icon"><use href="#S2_Icon_ArrowUp_20_N"/></svg>
+                      <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICONS.upload}"></use></svg>
                       Promote
                     </button>
                   </div>
@@ -641,23 +640,23 @@ class NxSnapshot extends LitElement {
             <p class="nx-snapshot-sub-heading">Snapshot</p>
             <div class="nx-snapshot-action-group">
               <button @click=${this.handleDelete} ?disabled=${this._manifest?.locked}>
-                <svg class="icon"><use href="#S2_Icon_Delete_20_N"/></svg>
+                <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICONS.delete}"></use></svg>
                 Delete
               </button>
               <button @click=${this.handleLock}>
-                <svg class="icon"><use href="${this._lockStatus.icon}"/></svg>
+                <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${this._lockStatus.icon}"></use></svg>
                 ${this._lockStatus.text}
               </button>
               <button class="${showEdit ? 'is-editing' : ''}" @click=${() => this.handleSave()}>
-                <svg class="icon"><use href="#S2_Icon_Save_20_N"/></svg>
+                <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICONS.save}"></use></svg>
                 Save
               </button>
             </div>
             <p class="nx-snapshot-sub-heading">Review</p>
             <div class="nx-snapshot-action-group">
-              <button @click=${() => this.handleReview('request')} ?disabled=${this._manifest?.locked}><svg class="icon"><use href="#S2_Icon_Compare_20_N"/></svg>Request<br/>review</button>
-              <button @click=${() => this.handleReview('reject')} ?disabled=${!this._manifest?.locked}><svg class="icon"><use href="#S2_Icon_PublishNo_20_N"/></svg>Reject <br/>& unlock</button>
-              <button @click=${() => this.handleReview('approve')} ?disabled=${!this._manifest?.locked}><svg class="icon"><use href="#S2_Icon_Publish_20_N"/></svg>Approve<br/>& publish</button>
+              <button @click=${() => this.handleReview('request')} ?disabled=${this._manifest?.locked}><svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICONS.compare}"></use></svg>Request<br/>review</button>
+              <button @click=${() => this.handleReview('reject')} ?disabled=${!this._manifest?.locked}><svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICONS.publishNo}"></use></svg>Reject <br/>& unlock</button>
+              <button @click=${() => this.handleReview('approve')} ?disabled=${!this._manifest?.locked}><svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICONS.publish}"></use></svg>Approve<br/>& publish</button>
             </div>
           </div>
         </div>
@@ -681,7 +680,7 @@ class NxSnapshot extends LitElement {
           ${this.basics.name}
           ${this.basics.open ? html`
             <button class="nx-snapshot-link" @click=${this.handleCopyLink}>
-              <svg class="icon" viewBox="0 0 20 20"><use href="#S2_Icon_Link_20_N"/></svg>
+              <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICONS.link}"></use></svg>
               ${this._linkCopied ? html`<span class="copied">copied</span>` : nothing}
             </button>
           ` : nothing}
@@ -695,7 +694,7 @@ class NxSnapshot extends LitElement {
       <div class="nx-snapshot-wrapper ${this.basics.open ? 'is-open' : ''} ${this._action ? 'is-saving' : ''}">
         ${this._action ? html`<div class="nx-snapshot-overlay">
           ${typeof this._action === 'string' ? html`<span>${this._action}</span>` : nothing}
-          <svg class="nx-snapshot-spinner" viewBox="0 0 20 20"><use href="#S2_Icon_Exposure_20_N"/></svg>
+          <svg class="nx-snapshot-spinner" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICONS.exposure}"></use></svg>
         </div>` : nothing}
         <div class="nx-snapshot-header" @click=${this.handleExpand}>
           ${this.basics.name ? this.renderName() : this.renderEditName()}

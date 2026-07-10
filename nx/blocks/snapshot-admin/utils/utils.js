@@ -1,7 +1,8 @@
-import { AEM_ORIGIN, DA_ORIGIN } from '../../../public/utils/constants.js';
-import { daFetch, initIms } from '../../../utils/daFetch.js';
+import { AEM_ORIGIN, DA_ORIGIN } from '../../../../nx2/public/utils/constants.js';
+import { daFetch, source } from '../../../../nx2/utils/api.js';
+import { loadIms } from '../../../../nx2/utils/ims.js';
 import { mergeCopy, overwriteCopy } from '../../loc/project/index.js';
-import { Queue } from '../../../public/utils/tree.js';
+import { Queue } from '../../../../nx2/public/utils/tree.js';
 
 const SNAPSHOT_SCHEDULER_URL = 'https://helix-snapshot-scheduler-prod.adobeaem.workers.dev';
 
@@ -19,7 +20,7 @@ function formatError(resp) {
 
 async function pollJob(jobUrl, interval = 750) {
   while (true) {
-    const resp = await daFetch(jobUrl);
+    const resp = await daFetch({ url: jobUrl });
     if (!resp.ok) return;
     const job = await resp.json();
     if (job.state === 'stopped') return;
@@ -74,7 +75,7 @@ export async function saveManifest(name, manifestToSave) {
     opts.headers = { 'Content-Type': 'application/json' };
   }
 
-  const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}`, opts);
+  const resp = await daFetch({ url: `${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}`, opts });
   if (!resp.ok) return formatError(resp);
   const { manifest } = await resp.json();
   manifest.resources = formatResources(name, manifest.resources);
@@ -85,13 +86,13 @@ export async function reviewSnapshot(name, state) {
   const opts = { method: 'POST' };
   // Review status
   const review = `?review=${state}&keepResources=true`;
-  const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}${review}`, opts);
+  const resp = await daFetch({ url: `${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}${review}`, opts });
   if (!resp.ok) return formatError(resp);
   return { success: true };
 }
 
 export async function fetchManifest(name) {
-  const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}`);
+  const resp = await daFetch({ url: `${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}` });
   if (!resp.ok) return formatError(resp);
   const { manifest } = await resp.json();
   manifest.resources = formatResources(name, manifest.resources);
@@ -99,7 +100,7 @@ export async function fetchManifest(name) {
 }
 
 export async function fetchSnapshots() {
-  const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main`);
+  const resp = await daFetch({ url: `${AEM_ORIGIN}/snapshot/${org}/${site}/main` });
   if (!resp.ok) return formatError(resp);
   const json = await resp.json();
 
@@ -111,8 +112,7 @@ export async function fetchSnapshots() {
 }
 
 async function deleteDaSnapshotDirectory(name) {
-  const opts = { method: 'DELETE' };
-  const resp = await daFetch(`${DA_ORIGIN}/source/${org}/${site}/.snapshots/${name}`, opts);
+  const resp = await source.delete(`/${org}/${site}/.snapshots/${name}`);
   if (!resp.ok) return formatError(resp);
   return { success: true };
 }
@@ -123,7 +123,7 @@ export async function deleteSnapshotFiles(name, paths = ['/*']) {
     body: JSON.stringify({ delete: true, paths }),
     headers: { 'Content-Type': 'application/json' },
   };
-  const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}/*`, opts);
+  const resp = await daFetch({ url: `${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}/*`, opts });
   if (!resp.ok && resp.status !== 404) return formatError(resp);
 
   // Handle async job (202) by polling until complete
@@ -146,7 +146,7 @@ export async function deleteSnapshot(name, paths = []) {
 
   // once all resources are deleted, delete the snapshot
   const opts = { method: 'DELETE' };
-  const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}`, opts);
+  const resp = await daFetch({ url: `${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}`, opts });
   if (!resp.ok) return formatError(resp);
   return { success: true };
 }
@@ -175,7 +175,7 @@ export async function updatePaths(name, currPaths, editedHrefs) {
     };
 
     // This is technically a bulk ops request
-    const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}/*`, opts);
+    const resp = await daFetch({ url: `${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}/*`, opts });
     if (!resp.ok) return formatError(resp);
 
     // Handle async job (202) by polling until complete
@@ -199,7 +199,7 @@ export function appendHtmlUnlessExtension(pathname) {
 }
 
 async function directDaCopy(url) {
-  const srcResp = await daFetch(`${DA_ORIGIN}/source${url.source}`);
+  const srcResp = await source.get(url.source);
   if (!srcResp.ok) {
     url.status = 'error';
     return;
@@ -212,10 +212,7 @@ async function directDaCopy(url) {
   const blob = new Blob([data], { type });
   const body = new FormData();
   body.append('data', blob);
-  const resp = await daFetch(`${DA_ORIGIN}/source${url.destination}`, {
-    method: 'POST',
-    body,
-  });
+  const resp = await daFetch({ url: `${DA_ORIGIN}/source${url.destination}`, opts: { method: 'POST', body } });
   url.status = resp.ok ? 'success' : 'error';
 }
 
@@ -264,7 +261,7 @@ export async function copyManifest(name, resources, direction, mode = 'merge') {
 
 export async function updateSchedule(snapshotId, approved = false) {
   const adminURL = `${SNAPSHOT_SCHEDULER_URL}/schedule`;
-  const imsProfile = await initIms();
+  const imsProfile = await loadIms();
   const body = {
     org,
     site,
@@ -273,11 +270,7 @@ export async function updateSchedule(snapshotId, approved = false) {
     userId: imsProfile?.email,
   };
   const headers = { 'content-type': 'application/json' };
-  const resp = await daFetch(`${adminURL}`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
+  const resp = await daFetch({ url: adminURL, opts: { method: 'POST', headers, body: JSON.stringify(body) } });
   const result = resp.headers.get('X-Error');
   return { status: resp.status, text: result };
 }
@@ -286,7 +279,7 @@ export async function getUserPublishPermission(path = '/') {
   try {
     // Use the admin.hlx.page status endpoint to check permissions
     const statusURL = `https://admin.hlx.page/status/${org}/${site}/main${path}`;
-    const resp = await daFetch(statusURL);
+    const resp = await daFetch({ url: statusURL });
     if (!resp.ok) return false;
 
     const json = await resp.json();
@@ -302,7 +295,7 @@ export async function getUserPublishPermission(path = '/') {
 export async function isRegistered() {
   try {
     const adminURL = `${SNAPSHOT_SCHEDULER_URL}/register/${org}/${site}`;
-    const resp = await daFetch(adminURL);
+    const resp = await daFetch({ url: adminURL });
     return resp.status === 200;
   } catch (error) {
     // eslint-disable-next-line no-console
@@ -315,7 +308,7 @@ const fetchDaConfigs = (() => {
   const configCache = {};
 
   const fetchConfig = async (pathname) => {
-    const resp = await daFetch(`${DA_ORIGIN}/config${pathname}/`);
+    const resp = await daFetch({ url: `${DA_ORIGIN}/config${pathname}/` });
     if (!resp.ok) return { error: `Error loading ${pathname}`, status: resp.status };
     return resp.json();
   };
@@ -354,9 +347,8 @@ const getConfig = async (_org, _site) => {
 
 export async function checkSnapshotSource(name, path) {
   const extPath = appendHtmlUnlessExtension(path);
-  const url = `${DA_ORIGIN}/source/${org}/${site}/.snapshots/${name}${extPath}`;
   try {
-    const resp = await daFetch(url, { method: 'HEAD' });
+    const resp = await source.getMetadata(`/${org}/${site}/.snapshots/${name}${extPath}`);
     return resp.ok;
   } catch {
     return false;
