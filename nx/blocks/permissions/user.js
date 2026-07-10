@@ -1,17 +1,15 @@
 import { html, LitElement, nothing } from 'da-lit';
-import getStyle from '../../utils/styles.js';
-import { getSvg } from '../../utils/svg.js';
-import '../../public/sl/components.js';
+import getStyle from '../../../nx2/public/utils/styles.js';
+import { getConfig } from '../../../nx2/scripts/nx.js';
+import '../../../nx2/public/sl/components.js';
 
-const nx = `${new URL(import.meta.url).origin}/nx`;
-const sl = await getStyle(`${nx}/public/sl/styles.css`);
+const { nxBase, codeBase } = getConfig();
+const sl = await getStyle(`${nxBase}/public/sl/styles.css`);
 const styles = await getStyle(import.meta.url);
 
-const ICONS = [
-  `${nx}/public/icons/S2_Icon_Add_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Checkmark_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
-];
+const ADD_ICON = `${codeBase}/img/icons/s2-icon-add-20-n.svg#icon`;
+const CHECKMARK_ICON = `${codeBase}/img/icons/s2-icon-checkmark-20-n.svg#icon`;
+const CLOSE_ICON = `${codeBase}/img/icons/s2-icon-close-20-n.svg#icon`;
 
 class NxPermissionUser extends LitElement {
   static properties = {
@@ -24,7 +22,6 @@ class NxPermissionUser extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, styles];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
   update(props) {
@@ -84,17 +81,17 @@ class NxPermissionUser extends LitElement {
   renderRoles(roles) {
     return roles.map((role) => html`
     <button class="nx-role-tag ${role.active ? 'is-active' : ''}" @click=${() => this.handleRoleToggle(role.name)}>
-      ${role.name}<svg><use href="${role.active ? '#S2_Icon_Close_20_N' : '#S2_Icon_Add_20_N'}" /></svg>
+      ${role.name}<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${role.active ? CLOSE_ICON : ADD_ICON}"></use></svg>
     </button>`);
   }
 
   renderButtons(positiveAction, negativeAction) {
     return html`
       <button class="deny-request" @click=${() => this.handleAction(negativeAction)}>
-        <svg><use href="#S2_Icon_Close_20_N" /></svg>${negativeAction}
+        <svg viewBox="0 0 20 20" aria-hidden="true"><use href="${CLOSE_ICON}"></use></svg>${negativeAction}
       </button>
       <button class="approve-request" @click=${() => this.handleAction(positiveAction)}>
-        <svg><use href="#S2_Icon_Checkmark_20_N" /></svg>${positiveAction}
+        <svg viewBox="0 0 20 20" aria-hidden="true"><use href="${CHECKMARK_ICON}"></use></svg>${positiveAction}
       </button>
     `;
   }
