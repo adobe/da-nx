@@ -80,9 +80,7 @@ class NxToast extends LitElement {
     if (!text) return nothing;
     const isError = this.variant === VARIANT_ERROR;
     const isWarning = this.variant === VARIANT_WARNING;
-    let variantClass = VARIANT_SUCCESS;
-    if (isError) variantClass = VARIANT_ERROR;
-    else if (isWarning) variantClass = VARIANT_WARNING;
+    const variantClass = isError || isWarning ? this.variant : VARIANT_SUCCESS;
     const role = isError || isWarning ? 'alert' : 'status';
     return html`
       <div class="toast toast-${variantClass}" role=${role}>
