@@ -3,7 +3,7 @@ import { crawl } from '../../../nx2/public/utils/tree.js';
 import { loadStyle } from '../../../nx2/utils/utils.js';
 
 const style = await loadStyle(import.meta.url);
-const buttons = await loadStyle(new URL('../../styles/buttons.js', import.meta.url).href);
+const formStyle = await loadStyle(new URL('../../../nx2/styles/form.js', import.meta.url).href);
 
 class NxBulk extends LitElement {
   static properties = {
@@ -14,7 +14,7 @@ class NxBulk extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style, buttons];
+    this.shadowRoot.adoptedStyleSheets = [style, formStyle];
     this._canSubmit = true;
   }
 
@@ -114,8 +114,8 @@ class NxBulk extends LitElement {
         <h2>Files - ${this._files.length}</h2>
         <h2>${this._time ? html`${this._time}s` : nothing}</h2>
         <div class="da-list-actions">
-          <button class="accent" @click=${this.handleCopy}>Copy list</button>
-          <button class="primary" @click=${this.toggleView}>Toggle view</button>
+          <button class="da-btn-primary" @click=${this.handleCopy}>Copy list</button>
+          <button class="da-btn-secondary" @click=${this.toggleView}>Toggle view</button>
         </div>
       </div>
       <ul class="files-list">${this._files.map(this.renderFile)}</ul>`;
@@ -125,9 +125,9 @@ class NxBulk extends LitElement {
     return html`
       <h1>Crawl Tree</h1>
       <form @submit=${this.handleSubmit}>
-        <input name="path" value="/da-sites/bacom" />
-        <button class="accent" .disabled=${!this._canSubmit}>Crawl</button>
-        <button class="primary">Cancel</button>
+        <input class="da-input" name="path" value="/da-sites/bacom" />
+        <button class="da-btn-primary" .disabled=${!this._canSubmit}>Crawl</button>
+        <button class="da-btn-secondary">Cancel</button>
       </form>
       ${this._files ? this.renderFiles() : nothing}
     `;
