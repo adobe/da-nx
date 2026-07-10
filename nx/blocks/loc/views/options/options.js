@@ -1,19 +1,9 @@
 import { LitElement, html, nothing } from 'da-lit';
-import nxConfig from '../../../../../nx2/utils/nxToggle.js';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
-import loadIcons from '../../../../../nx2/utils/svg.js';
 import { fetchConfig } from '../../utils/utils.js';
 import { getAllActions, formatLangs, formatConfig, finalizeOptions, getCustomOptions } from './utils/utils.js';
 
-const { nxBase: nx } = nxConfig;
-
 const style = await loadStyle(import.meta.url);
-
-const ICONS = [
-  `${nx}/public/icons/Smock_Close_18_N.svg`,
-  `${nx}/public/icons/Smock_Add_18_N.svg`,
-];
-const icons = await loadIcons({ paths: ICONS });
 
 class NxLocOptions extends LitElement {
   static properties = {
@@ -31,7 +21,6 @@ class NxLocOptions extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    this.shadowRoot.append(...icons);
     this._message = { text: 'Starting the project will lock sources, options, and languages.' };
     this.formatOptions();
   }
@@ -246,7 +235,7 @@ class NxLocOptions extends LitElement {
             <li class="${locale.active ? 'active' : 'inactive'}">
               <button @click=${(e) => this.handleLocaleToggle(e, locale)}>
                 <span>${locale.code.replace('/', '')}</span>
-                ${locale.active ? html`<svg class="icon"><use href="#spectrum-close"/></svg>` : html`<svg class="icon"><use href="#spectrum-add"/></svg>`}
+                ${locale.active ? html`<svg class="icon" viewBox="0 0 20 20"><use href="/img/icons/s2-icon-close-20-n.svg#icon"/></svg>` : html`<svg class="icon" viewBox="0 0 20 20"><use href="/img/icons/s2-icon-add-20-n.svg#icon"/></svg>`}
               </button>
             </li>
           `)}

@@ -1,8 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 
-import config from '../../../../../nx2/utils/nxToggle.js';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
-import loadIcons from '../../../../../nx2/utils/svg.js';
 import { loadIms } from '../../../../../nx2/utils/api.js';
 
 import { archiveProject, copyProject } from './index.js';
@@ -13,14 +11,6 @@ import createProjectData from './project-data.js';
 
 const style = await loadStyle(import.meta.url);
 const buttons = await loadStyle(new URL('./buttons.css', import.meta.url).href);
-
-const { nxBase: nx } = config;
-
-const ICONS = [
-  `${nx}/public/icons/S2_Icon_Copy_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_ProjectAddInto_20_N.svg`,
-];
-const icons = await loadIcons({ paths: ICONS });
 
 const ITEMS_PER_PAGE = 25;
 const DRAFT_STATUS_HTML = html`<p class="draft-project"><strong>Draft</strong></p>`;
@@ -139,7 +129,6 @@ class NxLocDashboard extends LitElement {
     this._currentPage = 0;
     this._isLoading = true;
     this.shadowRoot.adoptedStyleSheets = [buttons, style];
-    this.shadowRoot.append(...icons);
     // not awaiting to not block UI
     this.ensureInitialized();
   }
@@ -260,8 +249,8 @@ class NxLocDashboard extends LitElement {
   renderArchiveButton(project) {
     if (project.isArchived) return nothing;
     return html`<button class="archive-btn" @click=${() => this.handleArchive(project)}>
-      <svg class="icon">
-        <use href="#S2_Icon_ProjectAddInto_20_N"/>
+      <svg class="icon" viewBox="0 0 20 20">
+        <use href="/img/icons/s2-icon-projectaddinto-20-n.svg#icon"/>
       </svg>
     </button>`;
   }
@@ -296,7 +285,11 @@ class NxLocDashboard extends LitElement {
             ${this.renderStatus(project)}
           </div>
           <div class="project-actions">
-            <button class="copy-btn" @click=${() => this.handleCopy(project)}><svg class="icon"><use href="#S2_Icon_Copy_20_N"/></svg></button>
+            <button class="copy-btn" @click=${() => this.handleCopy(project)}>
+              <svg class="icon" viewBox="0 0 20 20">
+                <use href="/img/icons/s2-icon-copy-20-n.svg#icon"/>
+              </svg>
+            </button>
             ${this.renderArchiveButton(project)}
           </div>
         </div>

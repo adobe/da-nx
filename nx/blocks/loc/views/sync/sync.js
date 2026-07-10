@@ -1,20 +1,10 @@
 import { LitElement, html, nothing } from 'da-lit';
-import config from '../../../../../nx2/utils/nxToggle.js';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
-import loadIcons from '../../../../../nx2/utils/svg.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { getSyncUrls } from './index.js';
 import { MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
 
-const { nxBase: nx } = config;
-
 const style = await loadStyle(import.meta.url);
-
-const ICONS = [
-  `${nx}/public/icons/S2_Icon_CheckmarkCircleGreen_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_AlertDiamondOrange_20_N.svg`,
-];
-const icons = await loadIcons({ paths: ICONS });
 
 class NxLocSync extends LitElement {
   static properties = {
@@ -27,7 +17,6 @@ class NxLocSync extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    this.shadowRoot.append(...icons);
     this._message = this._defaultMessage;
     this.getSyncUrls();
   }
@@ -124,9 +113,9 @@ class NxLocSync extends LitElement {
 
   renderStatus(status) {
     const iconIds = {
-      synced: '#S2_Icon_CheckmarkCircleGreen_20_N',
-      skipped: '#S2_Icon_CheckmarkCircleGreen_20_N',
-      error: '#S2_Icon_AlertDiamondOrange_20_N',
+      synced: '/img/icons/s2-icon-checkmarkcirclegreen-20-n.svg#icon',
+      skipped: '/img/icons/s2-icon-checkmarkcirclegreen-20-n.svg#icon',
+      error: '/img/icons/s2-icon-alertdiamondorange-20-n.svg#icon',
     };
 
     if (status) {

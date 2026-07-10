@@ -1,18 +1,8 @@
 import { LitElement, html, nothing } from 'da-lit';
-import config from '../../../../../nx2/utils/nxToggle.js';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
-import loadIcons from '../../../../../nx2/utils/svg.js';
 import { sortLangs, rolloutLang, getFilteredLangs, getSummaryCards } from './index.js';
 
-const { nxBase: nx } = config;
-
 const style = await loadStyle(import.meta.url);
-
-const ICONS = [
-  `${nx}/public/icons/S2_Icon_CheckmarkCircleGreen_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_AlertDiamondOrange_20_N.svg`,
-];
-const icons = await loadIcons({ paths: ICONS });
 
 class NxLocRollout extends LitElement {
   static properties = {
@@ -29,7 +19,6 @@ class NxLocRollout extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    this.shadowRoot.append(...icons);
     this._langs = this.project.langs;
     this._urls = this.project.urls;
     this._sortedLangs = sortLangs(this._langs);

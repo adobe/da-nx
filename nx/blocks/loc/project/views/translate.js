@@ -2,16 +2,10 @@ import { LitElement, html, nothing } from 'da-lit';
 import config from '../../../../../nx2/utils/nxToggle.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
 import { DA_ADMIN, loadStyle } from '../../../../../nx2/utils/utils.js';
-import loadIcons from '../../../../../nx2/utils/svg.js';
 import { detectService, saveLangItems, saveStatus, formatDate } from '../index.js';
 
 const { nxBase: nx } = config;
 const style = await loadStyle(import.meta.url);
-
-const ICONS = [
-  `${nx}/public/icons/Smock_ChevronRight_18_N.svg`,
-];
-const icons = await loadIcons({ paths: ICONS });
 
 class NxLocTranslate extends LitElement {
   static properties = {
@@ -28,7 +22,6 @@ class NxLocTranslate extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    this.shadowRoot.append(...icons);
     this.connectService();
     this.formatUrls();
   }
@@ -296,7 +289,9 @@ class NxLocTranslate extends LitElement {
           <h3>Translate <span class="quiet">(${this._service?.name})</span></h3>
           <div class="da-loc-panel-title-expand">
             <h3>Behavior: <span class="quiet">overwrite</span></h3>
-            <button class="da-loc-panel-expand-btn rotate" @click=${this.toggleExpand} aria-label="Toggle Expand"><svg class="icon"><use href="#spectrum-chevronRight"/></svg></button>
+            <button class="da-loc-panel-expand-btn rotate" @click=${this.toggleExpand} aria-label="Toggle Expand">
+              <svg class="icon" viewBox="0 0 20 20"><use href="/img/icons/s2-icon-chevronright-20-n.svg#icon"/></svg>
+            </button>
           </div>
         </div>
         <div class="da-loc-panel-content is-visible">

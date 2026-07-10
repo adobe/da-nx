@@ -1,16 +1,8 @@
 import { LitElement, html, nothing } from 'da-lit';
-import config from '../../../../../nx2/utils/nxToggle.js';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
-import loadIcons from '../../../../../nx2/utils/svg.js';
 
-const { nxBase: nx } = config;
 const style = await loadStyle(import.meta.url);
 const buttons = await loadStyle(new URL('./buttons.css', import.meta.url).href);
-
-const FILTER_BAR_ICONS = [
-  `${nx}/public/icons/clear.svg`,
-];
-const icons = await loadIcons({ paths: FILTER_BAR_ICONS });
 
 const PROJECT_STATUSES = ['not started', 'in progress', 'complete', 'cancelled'];
 
@@ -123,7 +115,6 @@ class NxFilterBar extends LitElement {
     super.connectedCallback();
     window.addEventListener('click', this._boundHandleOutsideClick);
     this.shadowRoot.adoptedStyleSheets = [buttons, style];
-    this.shadowRoot.append(...icons);
   }
 
   disconnectedCallback() {
@@ -166,7 +157,11 @@ class NxFilterBar extends LitElement {
         <!-- Search Input with Clear Button -->
         <div class="search-container">
           <input name="search" type="text" class="search-input" placeholder="Search projects..." .value=${this.searchQuery} @input=${this.handleSearchInput} />
-          ${this.searchQuery ? html`<button class="clear-search-btn" @click=${this.clearSearch} title="Clear search"><svg class="icon"><use href="#da-loc-clear"/></svg></button>` : nothing}
+          ${this.searchQuery ? html`<button class="clear-search-btn" @click=${this.clearSearch} title="Clear search">
+            <svg class="icon" viewBox="0 0 20 20">
+              <use href="/img/icons/s2-icon-closecircle-20-n.svg#icon"/>
+            </svg>
+          </button>` : nothing}
         </div>
 
         <!-- Filter Button -->
