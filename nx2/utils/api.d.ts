@@ -165,6 +165,20 @@ export const source: {
    * @param arg Path string (`/org/site/folder`) or `{ org, site, path }`
    */
   deleteFolder(arg: any): Promise<ApiResponse>;
+
+  /**
+   * Copy a folder recursively. `path` is the source folder; `destination`
+   * is the target folder path. `collision` sets conflict policy when the
+   * destination exists (e.g. `'overwrite'`). Returns an augmented `Response`.
+   *
+   * **hlx6** normalizes `path`/`destination` to a trailing slash before
+   * dispatch. **Legacy DA** uses them as-is (no trailing slash needed,
+   * as handled by da-admin).
+   *
+   * - **Object:** `copyFolder({ org, site, path, destination, collision? })`
+   * - **Path:** `copyFolder('/org/site/folder', { destination, collision? })`
+   */
+  copyFolder(arg: any, pathExtras?: object): Promise<ApiResponse>;
 };
 
 // ─── versions ───────────────────────────────────────────────────────────────
