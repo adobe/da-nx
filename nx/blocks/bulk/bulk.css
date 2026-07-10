@@ -8,10 +8,6 @@
   display: none;
 }
 
-button {
-  font-family: var(--s2-font-family, var(--body-font-family));
-}
-
 sl-textarea {
   height: 320px;
   margin-bottom: var(--s2-spacing-400, var(--spacing-400));
@@ -21,17 +17,9 @@ sl-select {
   width: 120px;
 }
 
-input[name="label"] {
-  height: 32px;
-  width: 160px;
-  font-family: var(--s2-font-family, var(--body-font-family));
-  margin: 0;
-  padding: 0 6px;
-}
-
 .delete-toggle {
-  background: #ff5d4b;
-  border-radius: 8px;
+  background: var(--s2-red-700);
+  border-radius: var(--s2-corner-radius-500, 8px);
   line-height: 32px;
   padding: 0 10px;
   color: #fff;
@@ -75,7 +63,7 @@ input[name="label"] {
 .detail-card {
   display: flex;
   justify-content: space-between;
-  background: rgb(215 247 225);
+  background: var(--s2-green-200);
   border-radius: 18px;
   overflow: hidden;
   padding: var(--s2-spacing-400, var(--spacing-400));
@@ -86,15 +74,15 @@ input[name="label"] {
 }
 
 .detail-card-remaining {
-  background: rgb(202 248 250);
+  background: var(--s2-cyan-200);
 }
 
 .detail-card-total {
-  background: rgb(181 230 252);
+  background: var(--s2-cyan-300);
 }
 
 .detail-card-errors {
-  background: rgb(255 214 209);
+  background: var(--s2-red-300);
 }
 
 .detail-card .cancel-button {
@@ -122,7 +110,7 @@ input[name="label"] {
 
 .url-list {
   display: none;
-  background: rgb(215 247 225);
+  background: var(--s2-green-200);
   border-radius: 18px;
   overflow: hidden;
   padding: var(--s2-spacing-400, var(--spacing-400));
@@ -134,15 +122,15 @@ input[name="label"] {
 }
 
 .url-list-remaining {
-  background: rgb(202 248 250);
+  background: var(--s2-cyan-200);
 }
 
 .url-list-errors {
-  background: rgb(255 214 209);
+  background: var(--s2-red-300);
 }
 
 .url-list-total {
-  background: rgb(202 248 250);
+  background: var(--s2-cyan-200);
 }
 
 .url-list h2 {
