@@ -676,9 +676,19 @@ export async function streamLog(
   const baseUrl = `https://admin.hlx.page/${endpoint}/${org}/${repo}/${ref}`;
   const separator = endpoint === 'medialog' ? '/' : '';
   let nextUrl = `${baseUrl}${separator}?${fetchParams.toString()}`;
+  let currentToken = imsToken;
 
   while (nextUrl) {
-    const resp = await workerFetchWithAuth(nextUrl, imsToken);
+    let resp = await workerFetchWithAuth(nextUrl, currentToken);
+
+    // Retry once with fresh IMS token on 401
+    if (!resp.ok && resp.status === 401) {
+      const freshImsToken = await requestTokenRefresh();
+      if (freshImsToken) {
+        currentToken = freshImsToken;
+        resp = await workerFetchWithAuth(nextUrl, currentToken);
+      }
+    }
 
     if (!resp.ok) {
       if (resp.status === 403) {
