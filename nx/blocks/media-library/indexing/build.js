@@ -79,7 +79,9 @@ async function runWorkerBuild(
   // When running with ?nx=local, files load from localhost but page is on da.live
   // Workers must be same-origin, so we create a blob URL
   const workerUrl = new URL('./worker/worker.js', import.meta.url).href;
-  const response = await fetch(workerUrl);
+  // Add cache-busting to ensure fresh worker code is loaded
+  const cacheBustedUrl = `${workerUrl}?t=${Date.now()}`;
+  const response = await fetch(cacheBustedUrl, { cache: 'no-store' });
   if (!response.ok) {
     throw new Error(`Failed to fetch worker code: ${response.status}`);
   }
@@ -87,13 +89,14 @@ async function runWorkerBuild(
   let workerCode = await response.text();
 
   // Replace ALL relative imports with absolute URLs so worker can fetch them
-  // This converts: import './foo.js' → import 'http://localhost:6456/.../foo.js'
+  // This converts: import './foo.js' → import 'http://localhost:6456/.../foo.js?t=...'
   const baseUrl = new URL('./worker/', import.meta.url).href;
+  const cacheBuster = Date.now();
   workerCode = workerCode.replace(
     /from\s+['"](\.\.[^'"]*|\.\/[^'"]*)['"]/g,
     (match, path) => {
       const absoluteUrl = new URL(path, baseUrl).href;
-      return `from '${absoluteUrl}'`;
+      return `from '${absoluteUrl}?t=${cacheBuster}'`;
     },
   );
 
