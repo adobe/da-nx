@@ -10,7 +10,7 @@
  * NO indexing logic - only reads already-published index data.
  */
 
-import { daFetch } from '../../../utils/daFetch.js';
+import { daFetch } from '../core/ims-adapter.js';
 import { DA_ADMIN } from '../../../utils/utils.js';
 import {
   loadIndexChunks,
