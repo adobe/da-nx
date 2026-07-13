@@ -177,6 +177,9 @@ export const source: {
    *
    * - **Object:** `copyFolder({ org, site, path, destination, collision? })`
    * - **Path:** `copyFolder('/org/site/folder', { destination, collision? })`
+   *
+   * @param arg Path string (`/org/site/folder`) or `{ org, site, path, destination, collision? }`
+   * @param pathExtras Path-form only — `{ destination, collision? }`
    */
   copyFolder(arg: any, pathExtras?: object): Promise<ApiResponse>;
 };
