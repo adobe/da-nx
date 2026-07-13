@@ -91,8 +91,6 @@ class NxFeedback extends LitElement {
   }
 
   async _loadItems() {
-    // Parse directly, not via loadFragment: loadArea's icon decorator 404s
-    // on nonexistent S2_Icon_* SVGs, and we discard its DOM work anyway.
     const resp = await fetch(FEEDBACK_PATH);
     if (!resp.ok) return;
     const doc = new DOMParser().parseFromString(await resp.text(), 'text/html');
