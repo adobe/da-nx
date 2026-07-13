@@ -146,8 +146,8 @@ export async function checkSiteAuthRequired(org, repo) {
 
 export async function livePreviewLogin(owner, repo) {
   try {
-    const { initIms } = await import('../../../utils/daFetch.js');
-    const { accessToken } = await initIms() || {};
+    const { initIms } = await import('./ims-adapter.js');
+    const { accessToken } = (await initIms()) || {};
     const url = `${getLivePreviewUrl(owner, repo)}/gimme_cookie`;
 
     debugLog('Setting preview.da.live cookie', { owner, repo, url });

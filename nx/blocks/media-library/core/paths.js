@@ -1,4 +1,4 @@
-import { daFetch } from '../../../utils/daFetch.js';
+import { daFetch } from './ims-adapter.js';
 import { DA_ADMIN } from '../../../utils/utils.js';
 import { Paths, Domains, DA_LIVE_EDIT_BASE } from './constants.js';
 import { ErrorCodes, logMediaLibraryError } from './errors.js';
