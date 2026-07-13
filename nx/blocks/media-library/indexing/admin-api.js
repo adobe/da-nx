@@ -1,4 +1,4 @@
-import { daFetch } from '../../../utils/daFetch.js';
+import { daFetch } from '../core/ims-adapter.js';
 import { DA_ADMIN, HLX_ADMIN } from '../../../utils/utils.js';
 import { etcFetch } from '../core/urls.js';
 import {

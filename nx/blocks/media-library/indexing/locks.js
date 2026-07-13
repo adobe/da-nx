@@ -5,7 +5,7 @@
  * It handles lock creation, refresh (heartbeat), removal, ownership, and checking.
  */
 
-import { daFetch } from '../../../utils/daFetch.js';
+import { daFetch } from '../core/ims-adapter.js';
 import { DA_ADMIN } from '../../../utils/utils.js';
 import { createSheet } from './admin-api.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
