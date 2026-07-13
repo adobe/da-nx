@@ -1,10 +1,10 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
 
-// fragment.js (a transitive dependency of feedback.js) captures getConfig()
-// into a module-level constant at import time, so setConfig() must resolve
-// before feedback.js is ever imported — a static import would evaluate (and
-// freeze that constant) before this file's own top-level code could run.
+// feedback.js captures getConfig() into a module-level constant at import
+// time (for ICON_HREF), so setConfig() must resolve before feedback.js is
+// ever imported — a static import would evaluate (and freeze that constant)
+// before this file's own top-level code could run.
 await setConfig({ hostnames: [] });
 const { parseFeedbackItems } = await import('../../../../../blocks/feedback/feedback.js');
 
