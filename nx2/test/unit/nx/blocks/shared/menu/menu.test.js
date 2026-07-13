@@ -36,3 +36,44 @@ describe('nx-menu description', () => {
     expect(label.textContent).to.equal('Report a bug');
   });
 });
+
+describe('nx-menu disabled', () => {
+  afterEach(() => {
+    document.querySelectorAll('nx-menu').forEach((el) => el.remove());
+  });
+
+  it('renders a disabled item as a disabled button', async () => {
+    const el = await createMenu([{ id: 'lib', label: 'Open block library', disabled: true }]);
+    const btn = el.shadowRoot.querySelector('[data-id="lib"]');
+    expect(btn.disabled).to.be.true;
+    expect(btn.getAttribute('aria-disabled')).to.equal('true');
+  });
+
+  it('does not emit select when a disabled item is clicked', async () => {
+    const el = await createMenu([{ id: 'lib', label: 'Open block library', disabled: true }]);
+    let selected = false;
+    el.addEventListener('select', () => { selected = true; });
+    el.shadowRoot.querySelector('[data-id="lib"]').click();
+    expect(selected).to.be.false;
+  });
+
+  it('skips disabled items when picking the initial active item', async () => {
+    const el = await createMenu([
+      { id: 'lib', label: 'Open block library', disabled: true },
+      { id: 'insert', label: 'Insert block' },
+    ]);
+    el._onMenuToggle({ newState: 'open' });
+    await el.updateComplete;
+    expect(el._active).to.equal('insert');
+  });
+
+  it('skips disabled items during keyboard navigation', async () => {
+    const el = await createMenu([
+      { id: 'insert', label: 'Insert block' },
+      { id: 'lib', label: 'Open block library', disabled: true },
+    ]);
+    el._active = 'insert';
+    el.handleKey('ArrowDown');
+    expect(el._active).to.equal('insert');
+  });
+});

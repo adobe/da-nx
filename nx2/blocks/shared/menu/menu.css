@@ -41,6 +41,15 @@
   background: var(--s2-gray-200);
 }
 
+.menu-item:disabled {
+  color: light-dark(var(--s2-gray-500), var(--s2-gray-600));
+  cursor: default;
+}
+
+.menu-item:disabled:hover {
+  background: none;
+}
+
 .menu-item-icon {
   display: flex;
   align-items: center;
@@ -61,6 +70,11 @@
   text {
     fill: var(--s2-gray-800);
   }
+}
+
+.menu-item:disabled .menu-item-icon path,
+.menu-item:disabled .menu-item-icon text {
+  fill: light-dark(var(--s2-gray-500), var(--s2-gray-600));
 }
 
 .menu-item-text {

@@ -45,7 +45,7 @@ class NxMenu extends LitElement {
     if (e.newState !== 'open') return;
     this._trigger?.toggleAttribute('data-active', true);
     this._trigger?.setAttribute('aria-expanded', 'true');
-    const first = this.items?.find((i) => !i.divider && !i.section);
+    const first = this.items?.find((i) => !i.divider && !i.section && !i.disabled);
     this._active = first?.id;
     this.updateComplete.then(() => {
       if (!this.ignoreFocus) this.shadowRoot.querySelector(`[data-id="${this._active}"]`)?.focus();
@@ -85,6 +85,7 @@ class NxMenu extends LitElement {
   }
 
   _select(item) {
+    if (!item || item.disabled) return;
     this.close();
     this.dispatchEvent(new CustomEvent('select', { detail: { id: item.id }, bubbles: true, composed: true }));
   }
@@ -119,9 +120,11 @@ class NxMenu extends LitElement {
           data-id=${item.id}
           class="menu-item ${item.id === this._active ? 'menu-item-active' : ''}"
           type="button"
+          ?disabled=${item.disabled}
+          aria-disabled=${item.disabled ? 'true' : nothing}
           @click=${() => this._select(item)}
-          @mouseenter=${() => { this._active = item.id; }}
-          @focus=${() => { this._active = item.id; }}
+          @mouseenter=${() => { if (!item.disabled) this._active = item.id; }}
+          @focus=${() => { if (!item.disabled) this._active = item.id; }}
         >
           ${item.icon ? html`<svg class="menu-item-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-${item.icon}-20-n.svg#icon"></use></svg>` : nothing}
           <span class="menu-item-text">
