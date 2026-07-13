@@ -1,7 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../scripts/nx.js';
 import { loadStyle } from '../../utils/utils.js';
-import { loadFragment } from '../fragment/fragment.js';
 import '../shared/menu/menu.js';
 
 const { codeBase } = getConfig();
@@ -92,9 +91,12 @@ class NxFeedback extends LitElement {
   }
 
   async _loadItems() {
-    const fragment = await loadFragment(FEEDBACK_PATH);
-    if (!fragment) return;
-    this._items = parseFeedbackItems(fragment);
+    const resp = await fetch(FEEDBACK_PATH);
+    if (!resp.ok) return;
+    const doc = new DOMParser().parseFromString(await resp.text(), 'text/html');
+    const main = doc.querySelector('main');
+    if (!main) return;
+    this._items = parseFeedbackItems(main);
   }
 
   _handleSelect({ detail: { id } }) {
