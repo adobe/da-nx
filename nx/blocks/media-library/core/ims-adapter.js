@@ -12,6 +12,7 @@ let isRedirectingToSignIn = false;
  * @param {string} token - Bearer token from plugin host
  */
 export function setImsDetails(token) {
+  console.log('[IMS-Adapter] setImsDetails called with token:', token ? `${token.substring(0, 20)}...` : 'null');
   cachedImsDetails = { accessToken: { token } };
   imsLoadPromise = Promise.resolve(cachedImsDetails);
 }
@@ -65,10 +66,12 @@ export const daFetch = async (url, opts = {}) => {
 
   // Add auth header if user is authenticated
   const hasAuthSession = !!localStorage.getItem('nx-ims');
+  console.log('[IMS-Adapter] daFetch: hasAuthSession:', hasAuthSession, 'cachedImsDetails:', !!cachedImsDetails);
   if (hasAuthSession || cachedImsDetails) {
     const imsDetails = await initIms();
     if (imsDetails && !imsDetails.anonymous && imsDetails.accessToken) {
       opts.headers.Authorization = `Bearer ${imsDetails.accessToken.token}`;
+      console.log('[IMS-Adapter] Authorization header added:', `Bearer ${imsDetails.accessToken.token.substring(0, 20)}...`);
     }
   }
 
