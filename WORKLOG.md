@@ -1,5 +1,46 @@
 # Worklog
 
+## 2026-06-26 (lint fixes)
+
+### nx2/blocks/chat — CI lint fixes
+
+- `chat-controller.js` line 283: broke the long `.then().catch()` chain onto three lines to satisfy `max-len` (100 char limit).
+- `persistence.js` line 119: changed bare `return;` to `return undefined;` so the `.then()` callback is `consistent-return` (always returns a value or always returns nothing — now always returns a value).
+- `persistence.js` line 123: replaced `console.warn(...)` on `tx.onerror` with a silent no-op comment; transaction errors bubble via `req.onerror → reject(err)` anyway.
+
+## 2026-06-26 (follow-up)
+
+### nx2/blocks/chat — review fixes for always-approve persistence
+
+**persistence.js**:
+- `saveAutoApprovedTools` now returns a real Promise (resolves on `tx.oncomplete`, rejects on `tx.onerror` / `req.onerror` / `store.put` throw). Previously `async` function returned `undefined` before the IDB write settled.
+- Added `blankRecord(room)` factory to replace duplicated `{ room, messages: [], sessionId: null }` skeleton.
+- `tx.onerror` now logs a `console.warn` instead of silently swallowing quota-exceeded errors.
+
+**chat-controller.js**:
+- `approveToolCall`: removed dead `??= new Set()` guard (unreachable after `loadInitialMessages` always sets `_autoApprovedTools`).
+- Fire-and-forget `saveAutoApprovedTools` call now has `.catch(() => {})` to suppress unhandled rejection.
+- Added comment in `clear()` explaining `_autoApprovedTools` is intentionally not reset (persisted per-user).
+
+**Tests**: removed `setTimeout(50)` timing hacks — tests now `await saveAutoApprovedTools(...)` directly.
+
+## 2026-06-26
+
+### nx2/blocks/chat — persist always-approve tool selections (feat/da-always-approve-persist branch)
+
+`_autoApprovedTools` was an in-memory Set that reset on every page load. Now it round-trips through IndexedDB alongside messages.
+
+**persistence.js** — two new exports:
+- `loadAutoApprovedTools(room)` — readonly transaction, returns `new Set(record?.autoApprovedTools ?? [])`.
+- `saveAutoApprovedTools(room, toolNamesSet)` — opens a readwrite transaction, does a `get` then `put` inside the same transaction to merge only `autoApprovedTools` without touching `messages` or `sessionId`.
+
+**chat-controller.js**:
+- `loadInitialMessages` now calls both `loadMessages` and `loadAutoApprovedTools` in parallel via `Promise.all` and sets `this._autoApprovedTools` from the result.
+- `approveToolCall` fires `saveAutoApprovedTools` (fire-and-forget) after adding to the Set in the `if (always)` branch.
+- `clear()` no longer resets `_autoApprovedTools` — the Set persists through conversation resets.
+
+Tests: 4 new cases in `test/nx2/blocks/chat/utils/persistence.test.js`; all 28 chat tests pass.
+
 ## 2026-06-26
 
 ### nx2/blocks/chat/chat.js — skill selection preserves pending attachments (feat/da-skill-attachment-fix)
@@ -13,7 +54,6 @@ Post-review follow-up (fe049a9b):
 - Read `this._items` once into local `const items` before filter calls
 - Renamed loop variable `i` → `item` in `_onSlashSelect` callbacks
 - Added regression tests in `test/nx2/blocks/chat/chat.test.js` (8 tests, all pass)
-
 
 ## 2026-06-23
 

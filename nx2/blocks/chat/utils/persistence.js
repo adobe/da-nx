@@ -3,6 +3,10 @@ const DB_VERSION = 1;
 const STORE_NAME = 'conversations';
 const EMPTY_STATE = { messages: [], sessionId: null };
 
+function blankRecord(room) {
+  return { room, messages: [], sessionId: null, updatedAt: Date.now() };
+}
+
 let dbPromise = null;
 
 function closeDb(resolve) {
@@ -87,6 +91,52 @@ export function saveMessages(room, messages, sessionId) {
 // Clears messages but writes the new sessionId so a reload continues the same session boundary.
 export function resetSession(room, sessionId) {
   return write((store) => store.put({ room, messages: [], sessionId, updatedAt: Date.now() }));
+}
+
+export async function loadAutoApprovedTools(room) {
+  const db = await openDb();
+  if (!db) return new Set();
+
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const req = tx.objectStore(STORE_NAME).get(room);
+
+      req.onsuccess = (e) => {
+        const { result } = e.target;
+        resolve(new Set(Array.isArray(result?.autoApprovedTools) ? result.autoApprovedTools : []));
+      };
+      req.onerror = () => resolve(new Set());
+    } catch {
+      resolve(new Set());
+    }
+  });
+}
+
+export function saveAutoApprovedTools(room, toolNamesSet) {
+  return openDb().then((db) => {
+    if (!db) return undefined;
+    return new Promise((resolve, reject) => {
+      try {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => { /* transaction errors are surfaced via reject in req.onerror */ };
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(room);
+        req.onsuccess = (e) => {
+          try {
+            const existing = e.target.result ?? blankRecord(room);
+            store.put({ ...existing, autoApprovedTools: [...toolNamesSet], updatedAt: Date.now() });
+          } catch (err) {
+            reject(err);
+          }
+        };
+        req.onerror = (e) => reject(e);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  });
 }
 
 export function getRoomKey({ org, site, userId }) {
