@@ -26,6 +26,7 @@ The component manages its own controller internally. No external wiring needed.
 
 ```js
 { role: 'user', content: string }
+{ role: 'user', content: string, compacted: true }  // synthetic summary after context compaction
 { role: 'assistant', content: string }
 { role: 'tool', ... }  // filtered from display automatically
 ```
@@ -148,6 +149,25 @@ Within a single stream connection, events for a given `toolCallId` are expected 
 **Missing `tool-result`:** If the stream is interrupted, a tool card may be left in `running` or `approval-requested` state indefinitely. `running` is in-memory only and resets on page load. `approval-requested` messages are persisted — `loadInitialMessages` filters incomplete approval sequences on reload to avoid sending unresolved tool-calls to the agent on the next request.
 
 **Reconnect:** The stream is a live feed — events are not replayed on reconnect. A new stream starts fresh; any in-flight tool state from the previous connection is lost.
+
+### Context compaction (`compact_context`)
+
+When the conversation exceeds the model's context window, da-agent triggers the `compact_context` tool. The agent produces a markdown summary and emits a `tool-result` with:
+
+```js
+{ toolCallId, toolName: 'compact_context', output: { compacted: true, summary: string } }
+```
+
+**Client behaviour on receipt:**
+
+1. Replace `this._messages` with a single synthetic message: `{ role: 'user', content: summary, compacted: true }`
+2. Clear all in-flight tool cards
+3. Persist trimmed messages to IndexedDB (preserving `sessionId`)
+4. The model's follow-up `text-end` appends normally, giving a final state of `[compacted-summary, assistant-confirmation]`
+
+> **Contract:** The `compact_context` event shape (`output.compacted === true` + `output.summary` as string) is the shared contract between da-agent and da-nx. Changes require coordinated updates.
+
+The `compacted: true` marker on the synthetic message is reserved for future UI use (e.g. a visual indicator that the session was compacted). It has no runtime effect today.
 
 The approval popover accepts keyboard shortcuts: `Esc` = Reject, `↵` = Approve, `⌘↵` = Always approve.
 

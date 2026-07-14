@@ -220,6 +220,20 @@ export default class ChatController {
       const prior = next.get(toolCallId) ?? { toolName, input: {} };
       const state = isError ? TOOL_STATE.ERROR : TOOL_STATE.DONE;
       next.set(toolCallId, { ...prior, state, output });
+
+      // Auto-compact: replace history with agent summary (see docs/chat-ui-component.md).
+      if (
+        prior.toolName === 'compact_context'
+        && output?.compacted === true
+        && typeof output.summary === 'string'
+      ) {
+        this._messages = [{ role: ROLE.USER, content: output.summary, compacted: true }];
+        this._toolCards = new Map();
+        this._getRoom().then((room) => saveMessages(room, this._messages, this._sessionId));
+        this._update();
+        return;
+      }
+
       if (state === TOOL_STATE.DONE) {
         // Skip if a real message already exists for this toolCallId (approval flow adds one).
         const hasApprovalMessage = this._messages.some(
