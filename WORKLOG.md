@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-07-14
+
+### nx2/blocks/chat — tests for compact_context handling (ew-shell-compact-client, PR #452)
+
+PR #452 added the auto-compact branch to `ChatController._onToolEvent` but shipped with no coverage. Added unit tests in `test/nx2/blocks/chat/chat-controller.test.js` pinning the history-destroying path: trims to the compacted summary + clears cards + persists on the happy path, keys off either the prior tool-call card or the tool-result's own toolName, and (the important guards) does NOT trim when `compacted !== true` or when `summary` is missing/non-string, so a malformed agent payload can't silently wipe the conversation.
+
+Open nit, not addressed: `compact_context` is a magic string in `_onToolEvent`; sibling tool names live in the `TOOL_NAME` enum in `constants.js`.
+
 ## 2026-06-26
 
 ### nx2/blocks/chat/chat.js — skill selection preserves pending attachments (feat/da-skill-attachment-fix)
