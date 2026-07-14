@@ -103,3 +103,86 @@ describe('chat-controller _messagesForAgent', () => {
     expect(result).to.deep.equal([]); // no orphan tool-call emitted
   });
 });
+
+// ─── auto-compact (compact_context tool-result) ──────────────────────────────
+
+const COMPACT = 'compact_context';
+
+const history = () => ([
+  { role: 'user', content: 'first question' },
+  { role: 'assistant', content: 'a long answer' },
+]);
+
+// Build a controller whose history is `messages` and that has already seen the
+// compact_context tool-call, so a following tool-result has a prior card to key
+// off. The trimmed history is persisted fire-and-forget via _getRoom().then(...);
+// we stub _getRoom so it never touches IndexedDB but we can still count that the
+// persist was attempted.
+function compactController(messages) {
+  const controller = new ChatController({ onUpdate() {}, onToolDone() {} });
+  controller._messages = messages;
+  controller._sessionId = 'sess-1';
+  controller._roomCalls = 0;
+  controller._getRoom = () => {
+    controller._roomCalls += 1;
+    return new Promise(() => {});
+  };
+  controller._onToolEvent({ type: 'tool-call', toolCallId: 'c1', toolName: COMPACT, input: {} });
+  return controller;
+}
+
+describe('chat-controller _onToolEvent compact_context', () => {
+  it('replaces history with the compacted summary, clears cards, and persists', () => {
+    const controller = compactController(history());
+    // real da-agent tool-result events do not repeat toolName; it keys off the card
+    controller._onToolEvent({
+      type: 'tool-result',
+      toolCallId: 'c1',
+      output: { compacted: true, summary: 'compacted summary' },
+    });
+    expect(controller._messages).to.deep.equal([
+      { role: 'user', content: 'compacted summary', compacted: true },
+    ]);
+    expect(controller._toolCards.size).to.equal(0);
+    expect(controller._roomCalls).to.equal(1);
+  });
+
+  it('trims using the result toolName when there is no prior tool-call card', () => {
+    const controller = new ChatController({ onUpdate() {}, onToolDone() {} });
+    controller._messages = history();
+    controller._sessionId = 'sess-1';
+    controller._getRoom = () => new Promise(() => {});
+    controller._onToolEvent({
+      type: 'tool-result',
+      toolCallId: 'c1',
+      toolName: COMPACT,
+      output: { compacted: true, summary: 'S' },
+    });
+    expect(controller._messages).to.deep.equal([
+      { role: 'user', content: 'S', compacted: true },
+    ]);
+  });
+
+  it('does not trim history when compacted is not true', () => {
+    const controller = compactController(history());
+    controller._onToolEvent({
+      type: 'tool-result',
+      toolCallId: 'c1',
+      output: { compacted: false, summary: 'ignored' },
+    });
+    expect(controller._messages.some((m) => m.compacted)).to.equal(false);
+    expect(controller._messages[0]).to.deep.equal({ role: 'user', content: 'first question' });
+    expect(controller._roomCalls).to.equal(0);
+  });
+
+  it('does not trim history when summary is missing or not a string', () => {
+    const controller = compactController(history());
+    controller._onToolEvent({
+      type: 'tool-result',
+      toolCallId: 'c1',
+      output: { compacted: true }, // malformed payload: no summary must not wipe history
+    });
+    expect(controller._messages.some((m) => m.compacted)).to.equal(false);
+    expect(controller._messages[0]).to.deep.equal({ role: 'user', content: 'first question' });
+  });
+});
