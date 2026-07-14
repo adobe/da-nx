@@ -1,6 +1,8 @@
 # Form — Architecture
 
-JSON Schema-driven structured content editor. A thin Lit shell wires [da-sc-sdk](https://github.com/adobe-rnd/da-sc-sdk) (the headless engine for state, mutation, validation, and HTML serialization) to a set of Lit components that render the model and dispatch user input back into the SDK.
+JSON Schema-driven structured content editor. A thin Lit element wires [da-sc-sdk](https://github.com/adobe-rnd/da-sc-sdk) (the headless engine for state, mutation, validation, and HTML serialization) to a set of Lit components that render the model and dispatch user input back into the SDK.
+
+The block runs inside the Experience Workspace (EW): it is kept under `nx/blocks/form` but loaded by the nx2 loader (`nx-form` is listed in `NX_BLOCKS` in [`nx2/scripts/nx.js`](../../../../nx2/scripts/nx.js)), and it adopts nx2 platform utilities (`loadStyle`, `hashChange`, the `source` api, `openPanel`, `getEWFlags`) via `../../../nx2/...` imports. `form.js` is the EW workspace wrapper (app-frame grid, canvas header, docked chat); `editor.js` is the `nx-form` Lit element that owns the SDK and the editing UI.
 
 For engine internals — schema compilation, model build, validation, defaults policy, persistence semantics — see the SDK's [architecture.md](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/architecture.md). This document only covers the nexter shell and what it adds on top.
 
@@ -10,11 +12,14 @@ For engine internals — schema compilation, model build, validation, defaults p
 
 ```txt
 nx/blocks/form/
-  form.js               Lit shell: routes, mounts SDK, holds state snapshot + nav
-  form.css
+  form.js               EW workspace wrapper: app-frame grid, floating chat toggle, docked chat (flag-gated)
+  form.css              workspace layout
+  editor.js / .css      nx-form Lit element: routes (ctx/hash), mounts SDK, state snapshot + nav
+  icons.js              sprite-backed icon() helper
+  fields/               Spectrum 2 field components (input, picker, checkbox, button, number)
   utils/
     context.js          loadFormContext — routes documents to ready / blocked / select-schema
-    da-api.js           fetch/save against DA source endpoints
+    da-api.js           fetch/save against DA source via the nx2 source api
     schemas.js          loadSchemas — schema discovery + module cache
     persistence.js      attachPersistence — single-flight save with re-queue
   views/
@@ -34,12 +39,13 @@ The SDK is consumed via the bundled artifact at [`nx/deps/da-sc-sdk/dist/index.j
 ## 2. Dependency direction
 
 ```txt
-form.js (shell)  →  da-sc-sdk          (createEngine, convertJsonToHtml)
-form.js          →  utils/              (loadFormContext, attachPersistence)
-form.js          →  views/              (editor, sidebar, preview)
+form.js (workspace) →  editor.js          (mounts the nx-form element; sets up header + chat)
+editor.js (element) →  da-sc-sdk          (createEngine, convertJsonToHtml)
+editor.js          →  utils/              (loadFormContext, attachPersistence)
+editor.js          →  views/ + fields/    (editor, sidebar, preview; S2 field components)
 utils/context.js   →  da-sc-sdk          (convertHtmlToJson)
 utils/persistence.js → da-sc-sdk        (convertJsonToHtml)
-views/           →  (SDK engine only via prop binding from the shell — no direct imports)
+views/           →  (SDK engine only via prop binding from the element — no direct imports)
 ```
 
 The SDK is the only piece that holds canonical state. Everything in `utils/` and `views/` is nexter-specific: DA I/O, UI components, schema discovery, single-flight save.
@@ -48,7 +54,7 @@ The SDK is the only piece that holds canonical state. Everything in `utils/` and
 
 ## 3. Shell wiring
 
-`form.js` instantiates the SDK engine with the (schema, document, onChange) triple, holds the current state snapshot, and the navigation state. It passes the engine plus the selection callback to the children:
+`editor.js` (the `nx-form` element) instantiates the SDK engine with the (schema, document, onChange) triple, holds the current state snapshot, and the navigation state. (`form.js` is only the EW workspace wrapper — it mounts the element via `decorateEditor(block)` and, when `ew.enabled` is set, the header + docked chat.) The element passes the engine plus the selection callback to the children:
 
 ```js
 <nx-editor
@@ -124,7 +130,7 @@ Schema discovery (`utils/schemas.js`) and DA storage (`utils/da-api.js`) live in
 
 The SDK engine is a pure state machine; it does not persist. The form block owns persistence entirely via [`utils/persistence.js`](../utils/persistence.js), which exposes a `notify()` method that the shell's `onChange` handler calls. When a mutation has actually changed the document, the persistence serializes and POSTs to DA. Single-flight with re-queue prevents out-of-order overwrites.
 
-Wiring (in `form.js`):
+Wiring (in `editor.js`):
 
 ```js
 import { createEngine } from '../../deps/da-sc-sdk/dist/index.js';
@@ -135,7 +141,7 @@ import { attachPersistence } from './utils/persistence.js';
 // itself — no flag, no observing toggle.
 this._editor = createEngine({ schema, document: json, onChange: this._onChange });
 this._state = this._editor.getState();
-this._persistence = attachPersistence(this._editor, { path: this.details.fullpath });
+this._persistence = attachPersistence(this._editor, { path: this._details?.fullpath });
 
 // On teardown (`_loadContext` reset, hashchange to a different doc):
 this._persistence?.detach();

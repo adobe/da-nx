@@ -1,5 +1,20 @@
 # Worklog
 
+## 2026-06-26
+
+### nx2/blocks/chat/chat.js — skill selection preserves pending attachments (feat/da-skill-attachment-fix)
+
+`_onSlashSelect()` was calling `sendMessage(message, [], { requestedSkills: [skillId] })`, discarding any pending file pills in `this._items`. Fixed by mirroring `_submit()`'s attachment-building logic: split `this._items` into `fileItems` (truthy `dataBase64`) and `contextItems`, build the `attachments` array with the same field/sizeBytes pattern, revoke thumbnail object URLs, clear `this._items`, then pass `{ requestedSkills: [skillId], attachments }` and `contextItems` to `sendMessage`.
+
+Post-review follow-up (fe049a9b):
+- Extracted `_buildAttachmentPayload(items)` shared by both `_submit` and `_onSlashSelect`
+- Moved `this._items = []` to after `sendMessage` call (was before, losing attachments on throw)
+- Guard `attachments` key: only spread into opts when `attachments.length > 0`
+- Read `this._items` once into local `const items` before filter calls
+- Renamed loop variable `i` → `item` in `_onSlashSelect` callbacks
+- Added regression tests in `test/nx2/blocks/chat/chat.test.js` (8 tests, all pass)
+
+
 ## 2026-06-23
 
 ### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)

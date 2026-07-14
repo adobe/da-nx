@@ -1,7 +1,7 @@
 import { loadIms } from '../../utils/ims.js';
 import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_STATE } from './constants.js';
 import { readStream } from './utils/stream.js';
-import { loadMessages, saveMessages, resetSession } from './utils/persistence.js';
+import { loadMessages, saveMessages, resetSession, getRoomKey } from './utils/persistence.js';
 
 function affectedFolders(toolName, input) {
   const { org, repo } = input ?? {};
@@ -97,7 +97,7 @@ export default class ChatController {
     if (this._room) return this._room;
     const { userId } = await loadIms();
     const { org, site } = this._context ?? {};
-    this._room = org && site && userId ? `${org}--${site}--${userId}` : 'default';
+    this._room = getRoomKey({ org, site, userId });
     return this._room;
   }
 
