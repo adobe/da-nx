@@ -1,0 +1,35 @@
+:host {
+  display: contents;
+  font-family: var(--s2-font-family);
+}
+
+nx-popover {
+  --popover-gap: 6px;
+
+  min-width: 0;
+  max-width: 240px;
+  padding: var(--s2-spacing-75) var(--s2-spacing-100);
+  background: var(--s2-gray-900);
+  border: none;
+  box-shadow: 0 2px 8px rgb(from var(--s2-gray-1000) r g b / 20%);
+  color: var(--s2-gray-25);
+  font-size: var(--s2-body-size-xs);
+  line-height: var(--s2-component-xs-regular-line-height);
+  pointer-events: none;
+}
+
+nx-popover::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+nx-popover.is-below::after {
+  top: -4px;
+  bottom: auto;
+}
