@@ -299,7 +299,7 @@
   --adobe-corporate-color: rgb(235 16 0);
 
   /* color schemes */
-  color-scheme: light;
+  color-scheme: light dark;
 }
 
 @media (width >= 1440px) {
@@ -415,7 +415,7 @@ html:has(meta[content="edge-delivery"]) {
     }
 
     .dark-scheme {
-      color-scheme: light;
+      color-scheme: dark;
     }
   }
 

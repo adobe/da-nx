@@ -1,11 +1,5 @@
 # Worklog
 
-## 2026-07-13
-
-### nx2/styles/styles.css — pin to light mode
-
-Changed `:root { color-scheme: light dark; }` → `color-scheme: light;` and `.dark-scheme { color-scheme: dark; }` → `color-scheme: light;`. Matches nx1 (`nexter.css`) which pins `:root` to light, and da-live browse which forces both `.light-scheme` and `.dark-scheme` to `color-scheme: light` so the profile toggle can't override.
-
 ## 2026-07-09
 
 ### nx/blocks/secure-org — migrate secure-org block to nx2
