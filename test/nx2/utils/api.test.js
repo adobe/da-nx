@@ -471,6 +471,45 @@ describe('api.js', () => {
       expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/source/folder/`);
       expect(last.method).to.equal('DELETE');
     });
+
+    it('source.copyFolder hlx6 PUTs with trailing-slash source/destination and collision query', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      await source.copyFolder({
+        org: o, site: s, path: '/src', destination: '/dest', collision: 'overwrite',
+      });
+      const last = lastCall();
+      expect(last.method).to.equal('PUT');
+      const u = new URL(last.url);
+      expect(u.pathname).to.equal(`/${o}/sites/${s}/source/dest/`);
+      expect(u.searchParams.get('source')).to.equal('/src/');
+      expect(u.searchParams.get('collision')).to.equal('overwrite');
+    });
+
+    it('source.copyFolder legacy POSTs to /copy/{org}/{site}{path} with destination form field (no trailing slash)', async () => {
+      const { org: o, site: s } = makeOrgSite();
+      await source.copyFolder({ org: o, site: s, path: '/src', destination: '/dest' });
+      const last = lastCall();
+      expect(last.url).to.equal(`${DA_ADMIN}/copy/${o}/${s}/src`);
+      expect(last.method).to.equal('POST');
+      expect(last.body).to.be.instanceof(FormData);
+      expect(last.body.get('destination')).to.equal('/dest');
+    });
+
+    it('source.copyFolder normalizes paths that already have a trailing slash', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      await source.copyFolder({ org: o, site: s, path: '/src/', destination: '/dest/' });
+      const u = new URL(lastCall().url);
+      expect(u.pathname).to.equal(`/${o}/sites/${s}/source/dest/`);
+      expect(u.searchParams.get('source')).to.equal('/src/');
+    });
+
+    it('source.copyFolder accepts a path string with extras', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      await source.copyFolder(`/${o}/${s}/src`, { destination: '/dest' });
+      const u = new URL(lastCall().url);
+      expect(u.pathname).to.equal(`/${o}/sites/${s}/source/dest/`);
+      expect(u.searchParams.get('source')).to.equal('/src/');
+    });
   });
 
   describe('versions', () => {
