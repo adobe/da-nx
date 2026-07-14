@@ -100,6 +100,7 @@ class NxTooltip extends LitElement {
       <slot name="trigger" @slotchange=${this._onTriggerSlotChange}></slot>
       <nx-popover role="tooltip" id=${this._id}>
         <slot></slot>
+        <span class="nx-tooltip-arrow" aria-hidden="true"></span>
       </nx-popover>
     `;
   }

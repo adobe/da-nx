@@ -18,18 +18,17 @@ nx-popover {
   pointer-events: none;
 }
 
-nx-popover::after {
-  content: '';
+.nx-tooltip-arrow {
   position: absolute;
   left: 50%;
   bottom: -4px;
   width: 8px;
   height: 8px;
-  background: inherit;
+  background: var(--s2-gray-900);
   transform: translateX(-50%) rotate(45deg);
 }
 
-nx-popover.is-below::after {
+nx-popover.is-below .nx-tooltip-arrow {
   top: -4px;
   bottom: auto;
 }
