@@ -19,7 +19,7 @@ function affectedFolders(toolName, input) {
 }
 
 const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
-  ? 'http://localhost:4200/chat'
+  ? 'http://localhost:4002/chat'
   : 'https://agent.da.live/chat';
 
 /**

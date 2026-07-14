@@ -57,6 +57,9 @@ const TOOL_NAME = {
   CONTENT_MOVE: 'content_move',
   CONTENT_UPDATE: 'content_update',
   CONTENT_UPLOAD: 'content_upload',
+  ENTER_PLAN_MODE: 'enter_plan_mode',
+  EXIT_PLAN_MODE: 'exit_plan_mode',
+  RUN_PREFLIGHT: 'run_preflight',
 };
 
 /**
@@ -88,12 +91,38 @@ const ROLE = {
   TOOL: 'tool',
 };
 
+/**
+ * Directive fence types that map to rich interactive renderer components.
+ * These are emitted by da-agent inside :::type ... ::: fences in text-delta events.
+ */
+const DIRECTIVE_TYPE = {
+  PLAN: 'plan',
+  TASK_LIST: 'task-list',
+  TASK_ITEM: 'task-item',
+  PREFLIGHT: 'preflight',
+};
+
+/**
+ * Task status values shared across plan/task-list/task-item components.
+ * Matches values sent in :::plan / :::task-list / :::task-item directive payloads.
+ */
+const TASK_STATUS = {
+  PENDING: 'pending',
+  RUNNING: 'running',
+  DONE: 'done',
+};
+
+const PLAN_RUN_EVENT = 'nx-plan-run';
+
 export {
   ADOBE_AI_GUIDELINES_URL,
   ADD_MENU_ITEMS,
   AGENT_EVENT,
+  DIRECTIVE_TYPE,
   MENU_OPTIONS,
+  PLAN_RUN_EVENT,
   ROLE,
+  TASK_STATUS,
   TOOL_INPUT,
   TOOL_NAME,
   TOOL_SCOPE,
