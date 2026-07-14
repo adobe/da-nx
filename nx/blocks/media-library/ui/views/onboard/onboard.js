@@ -1,26 +1,26 @@
 import { html, LitElement, nothing } from 'da-lit';
-import getStyle from '../../../../../utils/styles.js';
+import { loadStyle } from '../../../../../../nx2/utils/utils.js';
 import { parseOrgRepoFromUrl } from '../../../core/urls.js';
 import { normalizeSitePath } from '../../../core/paths.js';
-import loadSvgIcons from '../../../../../utils/svg.js';
+import { loadHrefSvg } from '../../../../../../nx2/utils/svg.js';
 import { Storage } from '../../../core/constants.js';
 import { showNotification } from '../../../core/state.js';
 import { t } from '../../../core/messages.js';
 import { ErrorCodes, logMediaLibraryError } from '../../../core/errors.js';
 
 const EL_NAME = 'nx-media-onboard';
-const styles = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 const RANDOM_MAX = 8;
-const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
+const nx = `${new URL(import.meta.url).origin}/nx`;
 const assetsBase = new URL('../../../assets/', import.meta.url).href;
 
 const ICONS = [
-  `${iconsBase}C_Icon_Arrow_Next.svg`,
-  `${iconsBase}S2_Icon_PinOff_20_N.svg`,
-  `${iconsBase}S2_Icon_More_20_N.svg`,
-  `${iconsBase}S2_Icon_Share_20_N.svg`,
-  `${iconsBase}S2_Icon_VisibilityOff_20_N.svg`,
-  `${iconsBase}S2_Icon_Clock_20_N.svg`,
+  `${nx}/img/icons/C_Icon_Arrow_Next.svg`,
+  `${nx}/img/icons/S2_Icon_PinOff_20_N.svg`,
+  `${nx}/img/icons/S2_Icon_More_20_N.svg`,
+  `${nx}/img/icons/S2_Icon_Share_20_N.svg`,
+  `${nx}/img/icons/S2_Icon_VisibilityOff_20_N.svg`,
+  `${nx}/img/icons/S2_Icon_Clock_20_N.svg`,
 ];
 
 function getRandom() {
@@ -52,12 +52,15 @@ class NxMediaOnboard extends LitElement {
     this._urlError = false;
     this._urlErrorMessage = null;
     this._flippedCards = new Set();
+    this._iconSprites = null;
   }
 
-  connectedCallback() {
+  async connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
-    loadSvgIcons({ parent: this.shadowRoot, paths: ICONS });
+    this.shadowRoot.adoptedStyleSheets = [style];
+    this._iconSprites = (await Promise.all(ICONS.map(loadHrefSvg)))
+      .filter(Boolean)
+      .map((svg) => svg.cloneNode(true));
     this.loadRecentSites();
     this.loadPinnedFolders();
   }
@@ -398,11 +401,15 @@ class NxMediaOnboard extends LitElement {
   render() {
     if (this._recents && this._recents.length > 0) {
       return html`
+        ${this._iconSprites || []}
         ${this.renderRecentSites()}
         ${this.renderAddNewSite()}
       `;
     }
-    return this.renderEmpty();
+    return html`
+      ${this._iconSprites || []}
+      ${this.renderEmpty()}
+    `;
   }
 }
 

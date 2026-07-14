@@ -1,7 +1,7 @@
 import { loadIms } from '../../utils/ims.js';
 import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_STATE } from './constants.js';
 import { readStream } from './utils/stream.js';
-import { loadMessages, saveMessages, resetSession } from './utils/persistence.js';
+import { loadMessages, saveMessages, resetSession, getRoomKey } from './utils/persistence.js';
 
 function affectedFolders(toolName, input) {
   const { org, repo } = input ?? {};
@@ -97,7 +97,7 @@ export default class ChatController {
     if (this._room) return this._room;
     const { userId } = await loadIms();
     const { org, site } = this._context ?? {};
-    this._room = org && site && userId ? `${org}--${site}--${userId}` : 'default';
+    this._room = getRoomKey({ org, site, userId });
     return this._room;
   }
 
@@ -416,25 +416,25 @@ export default class ChatController {
     const selectionContext = context
       .filter((item) => {
         const t = item.type ?? (item.blockName ? 'block' : null);
-        if (t === 'block') return !!item.blockName;
+        if (t === 'block' || t === 'file' || t === 'folder' || t === 'image') return !!item.blockName;
         if (t === 'text') return !!item.innerHTML;
         return false;
       })
       .map((item) => {
         const t = item.type ?? 'block';
         const { proseIndex } = item;
-        if (t === 'block') {
+        if (t === 'text') {
           return {
-            type: 'block',
+            type: 'text',
             ...(typeof proseIndex === 'number' && { proseIndex }),
-            blockName: item.blockName,
-            ...(item.innerText && { innerText: item.innerText }),
+            innerHTML: item.innerHTML,
           };
         }
         return {
-          type: 'text',
+          type: t,
           ...(typeof proseIndex === 'number' && { proseIndex }),
-          innerHTML: item.innerHTML,
+          blockName: item.blockName,
+          ...(item.innerText && { innerText: item.innerText }),
         };
       });
 

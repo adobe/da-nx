@@ -25,9 +25,12 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: var(--s2-spacing-75) var(--s2-spacing-100);
-  border: none;
-  background: none;
+  box-sizing: border-box;
+  height: var(--nx-picker-height, auto);
+  padding: var(--nx-picker-padding, var(--s2-spacing-75) var(--s2-spacing-100));
+  border: var(--nx-picker-border, none);
+  border-radius: var(--nx-picker-radius, 0);
+  background: var(--nx-picker-background, none);
   color: var(--s2-gray-900);
   font-family: inherit;
   font-size: var(--s2-body-size-xs);

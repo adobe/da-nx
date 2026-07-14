@@ -1,6 +1,5 @@
 # Worklog
 
-<<<<<<< feat/plan-tasks
 ## 2026-06-22
 
 ### nx2 chat — plan card UX polish + task-status persistence fixes
@@ -29,7 +28,21 @@
 - `.plan-btn`: height 24px, padding `0 16px`, weight 400.
 - `.plan-btn-primary`: color `--s2-static-white` (was `--s2-gray-25` which flips to near-black in dark mode).
 - `task-item.css`: `.task-label` margin-left `--s2-spacing-100`; `:host` gap `--s2-spacing-200`.
-=======
+
+## 2026-06-26
+
+### nx2/blocks/chat/chat.js — skill selection preserves pending attachments (feat/da-skill-attachment-fix)
+
+`_onSlashSelect()` was calling `sendMessage(message, [], { requestedSkills: [skillId] })`, discarding any pending file pills in `this._items`. Fixed by mirroring `_submit()`'s attachment-building logic: split `this._items` into `fileItems` (truthy `dataBase64`) and `contextItems`, build the `attachments` array with the same field/sizeBytes pattern, revoke thumbnail object URLs, clear `this._items`, then pass `{ requestedSkills: [skillId], attachments }` and `contextItems` to `sendMessage`.
+
+Post-review follow-up (fe049a9b):
+- Extracted `_buildAttachmentPayload(items)` shared by both `_submit` and `_onSlashSelect`
+- Moved `this._items = []` to after `sendMessage` call (was before, losing attachments on throw)
+- Guard `attachments` key: only spread into opts when `attachments.length > 0`
+- Read `this._items` once into local `const items` before filter calls
+- Renamed loop variable `i` → `item` in `_onSlashSelect` callbacks
+- Added regression tests in `test/nx2/blocks/chat/chat.test.js` (8 tests, all pass)
+
 ## 2026-06-23
 
 ### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)
@@ -44,7 +57,6 @@ Exposes four CSS custom properties on `.panel` so consumers can resize the dialo
 Values stay clamped to the viewport via the existing `min(<custom>, calc(100vw - 2 * --s2-spacing-500))` envelope, so a too-large custom value won't overflow. Purely additive — existing usage of `<nx-dialog>` is unchanged (each fallback in the `var()` call matches the previous literal).
 
 Driving use case is da-live's new EW block library modal, which needs a ~960px wide 2-column tree+preview layout that the previous fixed 480px cap couldn't accommodate.
->>>>>>> main
 
 ## 2026-05-28
 

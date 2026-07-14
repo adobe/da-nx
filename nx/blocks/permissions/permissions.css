@@ -1,7 +1,7 @@
 :host {
   display: block;
-  max-width: var(--grid-container-width);
-  margin: var(--spacing-800) auto var(--spacing-800) auto;
+  max-width: var(--se-grid-container-width);
+  margin: var(--s2-spacing-800) auto var(--s2-spacing-800) auto;
 
   > svg {
     display: none;
@@ -10,21 +10,21 @@
 
 input,
 button {
-  font-family: var(--font-family);
+  font-family: var(--s2-font-family);
 }
 
 hr {
-  margin-bottom: var(--spacing-400);
+  margin-bottom: var(--s2-spacing-400);
 }
 
 h1 {
-  font-size: var(--type-heading-xxl-size);
-  line-height: var(--spectrum-line-height-100);
-  margin: 0 0 var(--spacing-400);
+  font-size: var(--s2-heading-size-xxl);
+  line-height: var(--s2-heading-line-height);
+  margin: 0 0 var(--s2-spacing-400);
 }
 
 h2 {
-  margin: 0 0 var(--spacing-100);
+  margin: 0 0 var(--s2-spacing-100);
 }
 
 ul {
@@ -32,7 +32,7 @@ ul {
   padding: 0;
   list-style: none;
   border: var(--sl-field-border);
-  border-radius: var(--s2-radius-100);
+  border-radius: var(--s2-corner-radius-500);
   overflow: hidden;
 }
 
@@ -61,9 +61,9 @@ li {
 
 .nx-site-path {
   display: grid;
-  gap: var(--spacing-400);
+  gap: var(--s2-spacing-400);
   grid-template-columns: 1fr auto;
-  margin-bottom: var(--spacing-400);
+  margin-bottom: var(--s2-spacing-400);
 }
 
 .nx-user-list {
@@ -86,9 +86,9 @@ li {
   border-radius: 8px;
   background-color: var(--s2-blue-200);
   color: var(--s2-blue-1000);
-  padding: var(--spacing-300) var(--spacing-400);
-  margin-top: var(--spacing-300);
-  margin-bottom: var(--spacing-400);
+  padding: var(--s2-spacing-300) var(--s2-spacing-400);
+  margin-top: var(--s2-spacing-300);
+  margin-bottom: var(--s2-spacing-400);
   border: 2px solid;
 
   a {

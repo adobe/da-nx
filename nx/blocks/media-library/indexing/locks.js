@@ -6,10 +6,11 @@
  */
 
 import { daFetch } from '../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../utils/utils.js';
 import { createSheet } from './admin-api.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { t } from '../core/messages.js';
-import { DA_ORIGIN, IndexFiles, IndexConfig } from '../core/constants.js';
+import { IndexFiles, IndexConfig } from '../core/constants.js';
 
 const LOCK_OWNER_STORAGE_KEY = 'media-library-lock-owner-id';
 
@@ -24,7 +25,7 @@ export function getIndexLockPath(sitePath) {
 export async function checkIndexLock(sitePath) {
   const path = getIndexLockPath(sitePath);
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
     if (resp.ok) {
       const data = await resp.json();
       const lockData = data.data?.[0] || data;
@@ -90,7 +91,7 @@ export async function createIndexLock(sitePath) {
     locked: true,
   }];
   const formData = await createSheet(lockData);
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}`, {
+  const resp = await daFetch(`${DA_ADMIN}/source${path}`, {
     method: 'PUT',
     body: formData,
   });
@@ -114,7 +115,7 @@ export async function refreshIndexLock(sitePath, lockData = {}) {
     ownerId: lockData.ownerId || getIndexLockOwnerId(),
     mode: lockData.mode || '',
   }]);
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}`, {
+  const resp = await daFetch(`${DA_ADMIN}/source${path}`, {
     method: 'PUT',
     body: formData,
   });
@@ -129,7 +130,9 @@ export async function refreshIndexLock(sitePath, lockData = {}) {
 
 export async function removeIndexLock(sitePath) {
   const path = getIndexLockPath(sitePath);
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'DELETE' });
+  const resp = await daFetch(`${DA_ADMIN}/source${path}`, {
+    method: 'DELETE',
+  });
   if (!resp.ok) {
     if (resp.status === 404) return resp;
     logMediaLibraryError(ErrorCodes.LOCK_REMOVE_FAILED, { status: resp.status, path });
