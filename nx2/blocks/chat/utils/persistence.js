@@ -138,3 +138,7 @@ export function saveAutoApprovedTools(room, toolNamesSet) {
     });
   });
 }
+
+export function getRoomKey({ org, site, userId }) {
+  return org && site && userId ? `${org}--${site}--${userId}` : 'default';
+}

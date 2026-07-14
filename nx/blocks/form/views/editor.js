@@ -1,7 +1,13 @@
 import { LitElement, html, nothing } from 'da-lit';
+import { loadStyle } from '../../../../nx2/utils/utils.js';
+import '../fields/input.js';
+import '../fields/picker.js';
+import '../fields/checkbox.js';
+import '../fields/button.js';
+import '../fields/number.js';
+import { icon } from '../icons.js';
 
-const { default: getStyle } = await import('../../../utils/styles.js');
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
 const EL_NAME = 'nx-editor';
 const DEBOUNCE_MS = 350;
@@ -36,6 +42,8 @@ class Editor extends LitElement {
     _reorderPointer: { state: true },
     _reorderTargetIndex: { state: true },
     _reorderConfirmed: { state: true },
+    _issuesOpen: { state: true },
+    _openMenuPointer: { state: true },
   };
 
   constructor() {
@@ -43,8 +51,18 @@ class Editor extends LitElement {
     this._reorderPointer = '';
     this._reorderTargetIndex = 0;
     this._reorderConfirmed = false;
+    this._issuesOpen = false;
+    this._openMenuPointer = '';
     this._inputTimers = new Map();
     this._lastIssues = null;
+    this._onDocClick = (e) => {
+      const openEl = this.shadowRoot?.querySelector('.form-array-item.menu-open nx-array-menu');
+      if (openEl && e.composedPath().includes(openEl)) return;
+      this._closeMenu();
+    };
+    this._onDocKeydown = (e) => {
+      if (e.key === 'Escape') this._closeMenu();
+    };
   }
 
   connectedCallback() {
@@ -57,18 +75,21 @@ class Editor extends LitElement {
     // (`nx-array-menu`, `nx-reorder`) once the modules call customElements.define.
     import('./array-menu.js');
     import('./reorder.js');
+    import('../../../../nx2/blocks/shared/dialog/dialog.js');
   }
 
   disconnectedCallback() {
     this._inputTimers.forEach((id) => clearTimeout(id));
     this._inputTimers.clear();
+    document.removeEventListener('click', this._onDocClick);
+    document.removeEventListener('keydown', this._onDocKeydown);
     super.disconnectedCallback();
   }
 
   updated(changed) {
     if (!changed.has('state') && !changed.has('nav')) return;
 
-    this._maybeShowIssuesDialog();
+    this._syncIssuesDialog();
 
     if (this._reorderConfirmed) {
       this._resetReorder();
@@ -169,14 +190,16 @@ class Editor extends LitElement {
     const pointer = node?.pointer ?? '';
     const error = this._error(pointer);
     const value = this._primitiveValue(node);
-    const label = hideLabel ? '' : `${node?.label ?? ''}${required ? '*' : ''}`;
+    const label = hideLabel ? '' : (node?.label ?? '');
+    const showRequired = !hideLabel && required;
 
     if (Array.isArray(node.enumValues)) {
       const currentValue = value === '' || value === undefined || value === null ? '' : value;
       return html`
-        <sl-select
+        <form-picker
           data-pointer=${pointer}
           .label=${label}
+          .required=${showRequired}
           .error=${error}
           .value=${currentValue}
           ?disabled=${readonly}
@@ -188,53 +211,58 @@ class Editor extends LitElement {
           ${node.enumValues.map((item) => html`
             <option value=${item} ?selected=${item === currentValue}>${item}</option>
           `)}
-        </sl-select>
+        </form-picker>
       `;
     }
 
     if (node.kind === 'boolean') {
-      // sl-checkbox uses its default slot as the label.
+      // form-checkbox uses its default slot as the label.
       return html`
-        <sl-checkbox
+        <form-checkbox
           data-pointer=${pointer}
           .error=${error}
           ?checked=${!!value}
           ?disabled=${readonly}
           @change=${(e) => this._onBooleanInput(node, e)}
-        >${label}</sl-checkbox>
+        >${label}${showRequired ? html`<span class="is-required">*</span>` : nothing}</form-checkbox>
       `;
     }
 
     if (node.kind === 'number' || node.kind === 'integer') {
+      const { minimum, maximum } = node.validation ?? {};
       return html`
-        <sl-input
+        <form-number-field
           data-pointer=${pointer}
-          type="number"
           .label=${label}
+          .required=${showRequired}
           .error=${error}
           .value=${String(value ?? '')}
+          .min=${minimum}
+          .max=${maximum}
+          .step=${node.kind === 'integer' ? 1 : undefined}
           ?disabled=${readonly}
           @input=${(e) => this._onNumberInput(node, e)}
-        ></sl-input>
+        ></form-number-field>
       `;
     }
 
     return html`
-      <sl-input
+      <form-input
         data-pointer=${pointer}
         type="text"
         .label=${label}
+        .required=${showRequired}
         .error=${error}
         .value=${value ?? ''}
         ?disabled=${readonly}
         @input=${(e) => this._onTextInput(node, e)}
-      ></sl-input>
+      ></form-input>
     `;
   }
 
   _addLabel(node) {
     const itemLabel = node?.itemLabel ?? '';
-    return itemLabel ? `+ Add ${itemLabel}` : '+ Add item';
+    return itemLabel ? `Add ${itemLabel}` : 'Add item';
   }
 
   _resetReorder() {
@@ -248,11 +276,39 @@ class Editor extends LitElement {
     this._reorderTargetIndex = Math.max(0, Math.min(index, lastIndex));
   }
 
-  _onArrayMenuOpen() {
+  _onArrayMenuToggle(e, node) {
+    e.stopPropagation();
+    const pointer = e?.detail?.pointer ?? '';
+    if (!pointer) return;
+    if (this._openMenuPointer === pointer) {
+      this._closeMenu();
+      return;
+    }
+    const item = node?.items?.find((i) => i.pointer === pointer);
+    const structured = item?.kind === 'object' || item?.kind === 'array';
+    this._openMenu(pointer);
+    this._select(structured ? pointer : (node?.pointer ?? pointer));
     if (this._reorderPointer) this._resetReorder();
   }
 
+  _openMenu(pointer) {
+    this._openMenuPointer = pointer;
+    document.addEventListener('keydown', this._onDocKeydown);
+    setTimeout(() => {
+      if (this._openMenuPointer) document.addEventListener('click', this._onDocClick);
+    }, 0);
+  }
+
+  _closeMenu() {
+    if (!this._openMenuPointer) return;
+    this._openMenuPointer = '';
+    document.removeEventListener('click', this._onDocClick);
+    document.removeEventListener('keydown', this._onDocKeydown);
+  }
+
   _onReorderStart(e, itemCount) {
+    e.stopPropagation();
+    this._closeMenu();
     const pointer = e?.detail?.pointer ?? '';
     if (!pointer) return;
     this._reorderPointer = pointer;
@@ -260,12 +316,16 @@ class Editor extends LitElement {
   }
 
   _onArrayInsert(e) {
+    e.stopPropagation();
+    this._closeMenu();
     const pointer = e?.detail?.pointer ?? '';
     if (!pointer) return;
     this._mutate((editor) => editor.insertItem(pointer));
   }
 
   _onArrayRemove(e) {
+    e.stopPropagation();
+    this._closeMenu();
     const pointer = e?.detail?.pointer ?? '';
     if (!pointer) return;
     this._mutate((editor) => editor.removeItem(pointer));
@@ -344,10 +404,10 @@ class Editor extends LitElement {
         data-pointer=${node.pointer}
         @click=${activate}
         @focusin=${activate}
-        @array-menu-open=${this._onArrayMenuOpen}
-        @array-reorder-start=${(e) => { e.stopPropagation(); this._onReorderStart(e, itemCount); }}
-        @array-insert=${(e) => { e.stopPropagation(); this._onArrayInsert(e); }}
-        @array-remove=${(e) => { e.stopPropagation(); this._onArrayRemove(e); }}
+        @array-menu-toggle=${(e) => this._onArrayMenuToggle(e, node)}
+        @array-reorder-start=${(e) => this._onReorderStart(e, itemCount)}
+        @array-insert=${(e) => this._onArrayInsert(e)}
+        @array-remove=${(e) => this._onArrayRemove(e)}
       >
         <div class="form-node-header">
           <p class="form-node-title">
@@ -372,6 +432,8 @@ class Editor extends LitElement {
         .minItems=${minItems}
         .maxItems=${maxItems}
         .active=${reorderActive}
+        .open=${this._openMenuPointer === item.pointer}
+        @focusin=${(e) => e.stopPropagation()}
       ></nx-array-menu>
     `;
 
@@ -383,7 +445,7 @@ class Editor extends LitElement {
       };
       return html`
             <article
-              class="form-array-item${this._activeClass(item.pointer)}${structured ? '' : ' form-array-item-primitive'}${reorderActive ? ' move-item-picked' : ''}"
+              class="form-array-item${this._activeClass(item.pointer)}${structured ? '' : ' form-array-item-primitive'}${reorderActive ? ' move-item-picked' : ''}${this._openMenuPointer === item.pointer ? ' menu-open' : ''}"
               data-pointer=${item.pointer}
               @click=${itemActivate}
               @focusin=${itemActivate}
@@ -397,9 +459,7 @@ class Editor extends LitElement {
               ` : html`
                 <p class="form-array-item-simple-label">${title}</p>
                 <div class="form-array-item-input-row">
-                  <div class="form-array-item-input-main">
-                    ${this._renderPrimitive(item, { hideLabel: true })}
-                  </div>
+                  ${this._renderPrimitive(item, { hideLabel: true })}
                   <div class="form-array-item-actions">${menu}</div>
                 </div>
               `}
@@ -419,12 +479,12 @@ class Editor extends LitElement {
           `;
     })}
         <div class="form-array-footer">
-          <button
-            type="button"
+          <form-button
+            variant="secondary"
             class="add-item-btn"
             ?disabled=${!canAdd}
-            @click=${() => this._mutate((editor) => editor.addItem(node.pointer))}
-          >${addLabel}</button>
+            @click=${() => { if (canAdd) this._mutate((editor) => editor.addItem(node.pointer)); }}
+          >${icon('add')}<span>${addLabel}</span></form-button>
         </div>
       </section>
     `;
@@ -440,35 +500,30 @@ class Editor extends LitElement {
     return this._renderPrimitive(node);
   }
 
-  _maybeShowIssuesDialog() {
+  _syncIssuesDialog() {
     // schemaIssues is a closure-stable reference in createEngine (only changes
     // inside load), so reference equality is sufficient to detect a new set.
     const issues = this.state?.schemaIssues;
     if (issues === this._lastIssues) return;
     this._lastIssues = issues;
-    if (!issues || issues.length === 0) return;
-    const dialog = this.shadowRoot?.querySelector('dialog.schema-issues');
-    if (dialog && !dialog.open) dialog.showModal();
+    this._issuesOpen = !!(issues && issues.length);
   }
 
   _renderIssuesDialog() {
     const issues = this.state?.schemaIssues ?? [];
-    if (issues.length === 0) return nothing;
+    if (!this._issuesOpen || issues.length === 0) return nothing;
     return html`
-      <dialog class="schema-issues">
-        <h2>Schema issues</h2>
+      <nx-dialog title="Schema issues" @close=${() => { this._issuesOpen = false; }}>
         <p>The schema uses features the form does not support. Affected fields are not rendered. Their existing values remain in the saved document but cannot be edited here.</p>
-        <ul>
+        <ul class="schema-issues-list">
           ${issues.map((issue) => html`
             <li>
               <code>${issue.pointer}</code> — ${describeIssue(issue)}
             </li>
           `)}
         </ul>
-        <form method="dialog">
-          <button type="submit">Dismiss</button>
-        </form>
-      </dialog>
+        <form-button slot="actions" variant="secondary" @click=${() => { this._issuesOpen = false; }}>Dismiss</form-button>
+      </nx-dialog>
     `;
   }
 

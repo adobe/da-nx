@@ -238,7 +238,7 @@ export const source = {
     const hlx6 = await isHlx6(org, site);
     const url = await getDaApiPath(SOURCE, org, site, path);
     const opts = { method: 'POST' };
-    const ext = Object.keys(TYPE_MAP).find((e) => path.endsWith(e));
+    const ext = Object.keys(TYPE_MAP).find((e) => path.toLowerCase().endsWith(e));
     if (hlx6) {
       opts.body = body;
       if (ext) opts.headers = { 'Content-Type': TYPE_MAP[ext] };
@@ -306,6 +306,26 @@ export const source = {
   deleteFolder: withArgs(async ({ org, site, path }) => {
     const url = await getDaApiPath(SOURCE, org, site, `${path}/`);
     return daFetch({ url, opts: { method: 'DELETE' } });
+  }),
+
+  copyFolder: withArgs(async ({
+    org, site, path, destination, collision,
+  }) => {
+    const hlx6 = await isHlx6(org, site);
+    if (hlx6) {
+      const folderPath = path.endsWith('/') ? path : `${path}/`;
+      const folderDestination = destination.endsWith('/') ? destination : `${destination}/`;
+      const url = new URL(await getDaApiPath(SOURCE, org, site, folderDestination));
+      url.searchParams.set('source', folderPath);
+      if (collision) url.searchParams.set('collision', collision);
+      return daFetch({ url: url.toString(), opts: { method: 'PUT' } });
+    }
+    const formData = new FormData();
+    formData.append('destination', destination);
+    return daFetch({
+      url: `${DA_ADMIN}/copy/${org}/${site}${path}`,
+      opts: { method: 'POST', body: formData },
+    });
   }),
 };
 
@@ -628,36 +648,39 @@ async function callPath({
   return daFetch({ url, opts: { method } });
 }
 
+function toHlx6DaItem(parentPath, item) {
+  // Normalize folder
+  const isFolder = item.name.endsWith('/');
+  let name = isFolder ? item.name.slice(0, -1) : item.name;
+
+  // Set the path before extension removal
+  const path = `${parentPath}/${name}`;
+
+  // Remove extension for display
+  const nameSplit = name.split('.');
+  name = nameSplit.length > 1 ? nameSplit[0] : name;
+
+  // Scaffold out the basics
+  const daItem = { name, path, contentType: item['content-type'] };
+
+  const ext = nameSplit.length > 1 && nameSplit.pop();
+  if (ext) daItem.ext = ext;
+
+  const lastModified = item['last-modified'];
+  if (lastModified) {
+    const unixTime = Math.floor(new Date(lastModified).getTime());
+    daItem.lastModified = unixTime;
+  }
+
+  return daItem;
+}
+
 function hlx6ToDaList(parentPath, items) {
   return items.map((item) => {
-    const contentType = item['content-type'];
-
-    // Only HLX6 has a content type
-    if (!contentType) return item;
-
-    // Normalize folder
-    const isFolder = item.name.endsWith('/');
-    let name = isFolder ? item.name.slice(0, -1) : item.name;
-
-    // Set the path before extension removal
-    const path = `${parentPath}/${name}`;
-
-    // Remove extension for display
-    const nameSplit = name.split('.');
-    name = nameSplit.length > 1 ? nameSplit[0] : name;
-
-    // Scaffold out the basics
-    const daItem = { name, path, contentType };
-
-    const ext = nameSplit.length > 1 && nameSplit.pop();
-    if (ext) daItem.ext = ext;
-
-    const lastModified = item['last-modified'];
-    if (lastModified) {
-      const unixTime = Math.floor(new Date(lastModified).getTime());
-      daItem.lastModified = unixTime;
-    }
-
-    return daItem;
-  });
+    // Legacy DA items (no content-type) are returned as-is; callers handle their edge cases.
+    if (!item['content-type']) return item;
+    // HLX6 items: filter out hidden or nameless entries, then normalize.
+    if (!item.name || item.name.startsWith('.')) return null;
+    return toHlx6DaItem(parentPath, item);
+  }).filter(Boolean);
 }

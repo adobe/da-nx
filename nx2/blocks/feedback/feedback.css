@@ -1,0 +1,42 @@
+:host {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.nx-feedback-trigger {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--s2-spacing-75, 4px);
+  height: 32px;
+  padding: 0;
+  padding-inline-end: var(--s2-spacing-100);
+  border: none;
+  border-radius: var(--s2-corner-radius-500);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.nx-feedback-trigger:hover {
+  background-color: var(--s2-gray-100);
+}
+
+.nx-feedback-trigger .icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.nx-feedback-trigger span {
+  display: block;
+}
+
+nx-menu {
+  --nx-menu-font-size: var(--s2-body-size-s);
+}
