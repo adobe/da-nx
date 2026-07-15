@@ -106,6 +106,32 @@
   height: 18px;
 }
 
+.preview-dropdown-btn.is-busy:disabled {
+  color: light-dark(var(--s2-gray-25), #fff);
+  background-color: var(--s2-blue-900);
+}
+
+.preview-dropdown-spinner {
+  display: block;
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentcolor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: preview-dropdown-spin 0.6s linear infinite;
+}
+
+@keyframes preview-dropdown-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preview-dropdown-spinner {
+    animation-duration: 1.5s;
+  }
+}
+
 .preview-dropdown-label {
   white-space: nowrap;
 }

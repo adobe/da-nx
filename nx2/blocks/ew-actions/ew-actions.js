@@ -59,8 +59,6 @@ class NXEwActions extends LitElement {
     _dialog: { state: true },
   };
 
-  _busy = false;
-
   get _popover() {
     return this.shadowRoot?.querySelector('nx-popover');
   }
@@ -83,6 +81,7 @@ class NXEwActions extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this._busy = false;
     this.shadowRoot.adoptedStyleSheets = [style];
     this._unsubHash = hashChange.subscribe((state) => { this._hashState = state; });
     this._loadPrepare();
@@ -268,14 +267,16 @@ class NXEwActions extends LitElement {
             ` : nothing}
             <button
               type="button"
-              class="preview-dropdown-btn${this._hasError ? ' is-error' : ''}"
+              class="preview-dropdown-btn${this._hasError ? ' is-error' : ''}${this._busy ? ' is-busy' : ''}"
               aria-label="Preview and publish"
               aria-haspopup="menu"
               aria-expanded="false"
               ?disabled=${disabled}
               @click=${this._togglePreviewPopover}
             >
-              <svg class="preview-dropdown-icon" viewBox="0 0 20 20" aria-hidden="true"><use href=${SEND_ICON_HREF}></use></svg>
+              ${this._busy
+                ? html`<span class="preview-dropdown-spinner" aria-hidden="true"></span>`
+                : html`<svg class="preview-dropdown-icon" viewBox="0 0 20 20" aria-hidden="true"><use href=${SEND_ICON_HREF}></use></svg>`}
             </button>
             <nx-popover placement="below" @close=${this._onSendPopoverClose}>
               <div class="send-popover" role="menu">
