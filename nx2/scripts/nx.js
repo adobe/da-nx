@@ -11,7 +11,8 @@
  */
 
 const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
-const NX_BLOCKS = new Set(['importer', 'exp', 'site-apps', 'hero', 'card', 'section-metadata', 'schema-editor', 'media-library', 'form']);
+
+const NX_BLOCKS = new Set(['importer', 'exp', 'site-apps', 'hero', 'card', 'section-metadata', 'schema-editor', 'media-library', 'form', 'secure-org', 'bulk', 'tree', 'permissions', 'snapshot-admin']);
 
 const EW_ORIGINS = {
   dev: 'http://localhost:3001',
@@ -324,6 +325,7 @@ export async function loadArea({ area } = { area: document }) {
 
       if (!isSession) loadSession();
       import('../utils/favicon.js');
+      import('../utils/org-check.js');
     }
   }
 

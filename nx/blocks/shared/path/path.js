@@ -1,8 +1,6 @@
 import { html, LitElement, nothing } from 'da-lit';
 import { loadStyle } from '../../../../nx2/utils/utils.js';
 
-import '../../../../nx2/public/sl/components.js';
-
 const style = await loadStyle(import.meta.url);
 
 const DEFAULT_ERROR = 'Not a valid path. Please use /org/site.';
