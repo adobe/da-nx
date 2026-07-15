@@ -123,6 +123,7 @@ Document CRUD on `source` paths. Bridges DA's `/source` and AEM's `/sites/{site}
 | `move`         | `({ org, site, path, destination, collision? })` or `(fullPath, { destination, collision? })` | Same shape as `copy`. Raw `Response`. Adds `?move=true` (hlx6) or POSTs to `/move/{org}/{site}{path}` (DA).                                                                                  |
 | `createFolder` | `({ org, site, path })` or `(fullPath)`                                                       | POST on `${path}/` (trailing slash).                                                                                                                                                           |
 | `deleteFolder` | `({ org, site, path })` or `(fullPath)`                                                       | DELETE on `${path}/`.                                                                                                                                                                          |
+| `copyFolder`   | `({ org, site, path, destination, collision? })` or `(fullPath, { destination, collision? })` | Recursive folder copy. Same shape as `copy`. **hlx6**: `path`/`destination` are normalized to a trailing slash first, then PUT to dest URL with `?source=…/&collision=…` query. **DA**: POST `/copy/{org}/{site}{path}` with `multipart/form-data` field `destination` — no trailing-slash normalization (legacy DA doesn't need it). |
 
 
 ### URL shapes
@@ -134,6 +135,7 @@ Document CRUD on `source` paths. Bridges DA's `/source` and AEM's `/sites/{site}
 | list (org-only)                  | n/a                                              | `${DA_ADMIN}/list/{org}`                                                                 |
 | list (with site, legacy)         | n/a                                              | `${DA_ADMIN}/list/{org}/{site}{path}`                                                    |
 | copy / move                      | PUT to dest URL with `?source=&collision=&move=` | POST to `${DA_ADMIN}/copy/{org}/{site}{path}` (or `/move`) with `destination` form field |
+| copyFolder                       | PUT to dest URL (trailing slash normalized) with `?source=&collision=` | POST to `${DA_ADMIN}/copy/{org}/{site}{path}` with `destination` form field (no trailing-slash normalization) |
 
 
 ### Examples
@@ -165,6 +167,16 @@ const copyResp = await source.copy({
   site: 'aem-boilerplate',
   path: '/old.html',          // source
   destination: '/new.html',   // dest
+  collision: 'overwrite',
+});
+
+// Copy a folder recursively — path/destination don't need a trailing slash.
+// On hlx6 they're normalized to one before dispatch; legacy DA uses them as-is.
+const copyFolderResp = await source.copyFolder({
+  org: 'adobe',
+  site: 'aem-boilerplate',
+  path: '/old-folder',        // source folder
+  destination: '/new-folder', // dest folder
   collision: 'overwrite',
 });
 ```
