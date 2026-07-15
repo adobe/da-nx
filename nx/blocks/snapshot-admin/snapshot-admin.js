@@ -1,16 +1,17 @@
 import { html, LitElement, repeat, nothing } from 'da-lit';
-import getStyle from '../../utils/styles.js';
+import getStyle from '../../../nx2/public/utils/styles.js';
+import { getConfig } from '../../../nx2/scripts/nx.js';
 import { fetchSnapshots, setOrgSite, isRegistered, getUserPublishPermission, fetchLaunchPermission } from './utils/utils.js';
 
-import '../../public/sl/components.js';
+import '../../../nx2/public/sl/components.js';
 import './views/dialog.js';
 import './views/snapshot.js';
 
 const EL_NAME = 'nx-snapshot-admin';
 
 // Styles
-const nx = `${new URL(import.meta.url).origin}/nx`;
-const sl = await getStyle(`${nx}/public/sl/styles.css`);
+const { nxBase } = getConfig();
+const sl = await getStyle(`${nxBase}/public/sl/styles.css`);
 const styles = await getStyle(import.meta.url);
 
 class NxSnapshotAdmin extends LitElement {

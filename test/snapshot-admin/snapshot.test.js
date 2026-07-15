@@ -1,5 +1,8 @@
 import { expect } from '@esm-bundle/chai';
-import '../../nx/blocks/snapshot-admin/snapshot-admin.js';
+import { setConfig } from '../../nx2/scripts/nx.js';
+
+await setConfig({ hostnames: [] });
+await import('../../nx/blocks/snapshot-admin/snapshot-admin.js');
 
 function mockManifestResponse(manifest = {}) {
   const defaults = {
@@ -117,14 +120,14 @@ describe('NxSnapshot', () => {
       const el = document.createElement('nx-snapshot');
       el._manifest = { locked: false };
       expect(el._lockStatus.text).to.equal('Unlocked');
-      expect(el._lockStatus.icon).to.equal('#S2_Icon_LockOpen_20_N');
+      expect(el._lockStatus.icon).to.have.string('/img/icons/s2-icon-lockopen-20-n.svg#icon');
     });
 
     it('Returns Locked when manifest is locked', () => {
       const el = document.createElement('nx-snapshot');
       el._manifest = { locked: true };
       expect(el._lockStatus.text).to.equal('Locked');
-      expect(el._lockStatus.icon).to.equal('#S2_Icon_Lock_20_N');
+      expect(el._lockStatus.icon).to.have.string('/img/icons/s2-icon-lock-20-n.svg#icon');
     });
 
     it('Returns Unlocked when manifest is undefined', () => {

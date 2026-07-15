@@ -1,6 +1,5 @@
 /* eslint-disable no-continue */
-import { DA_ORIGIN } from '../../../public/utils/constants.js';
-import { daFetch } from '../../../utils/daFetch.js';
+import { source } from '../../../../nx2/utils/api.js';
 import { appendHtmlUnlessExtension } from './utils.js';
 
 const FRAGMENT_SELECTOR = 'a[href*="/fragments/"], .fragment a';
@@ -52,10 +51,8 @@ export async function findFragments(resources, org, site) {
       if (visited.has(path)) return [];
       visited.add(path);
 
-      const daUrl = `${DA_ORIGIN}/source/${org}/${site}${appendHtmlUnlessExtension(path)}`;
-
       try {
-        const resp = await daFetch(daUrl);
+        const resp = await source.get(`/${org}/${site}${appendHtmlUnlessExtension(path)}`);
         if (!resp.ok) return [];
         const text = await resp.text();
         return getFragmentUrls(text);
