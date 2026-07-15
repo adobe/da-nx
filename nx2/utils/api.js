@@ -307,6 +307,26 @@ export const source = {
     const url = await getDaApiPath(SOURCE, org, site, `${path}/`);
     return daFetch({ url, opts: { method: 'DELETE' } });
   }),
+
+  copyFolder: withArgs(async ({
+    org, site, path, destination, collision,
+  }) => {
+    const hlx6 = await isHlx6(org, site);
+    if (hlx6) {
+      const folderPath = path.endsWith('/') ? path : `${path}/`;
+      const folderDestination = destination.endsWith('/') ? destination : `${destination}/`;
+      const url = new URL(await getDaApiPath(SOURCE, org, site, folderDestination));
+      url.searchParams.set('source', folderPath);
+      if (collision) url.searchParams.set('collision', collision);
+      return daFetch({ url: url.toString(), opts: { method: 'PUT' } });
+    }
+    const formData = new FormData();
+    formData.append('destination', destination);
+    return daFetch({
+      url: `${DA_ADMIN}/copy/${org}/${site}${path}`,
+      opts: { method: 'POST', body: formData },
+    });
+  }),
 };
 
 // status: single-path only. H6 has no bulk status endpoint.

@@ -6,6 +6,7 @@ import {
   requestAemRole,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
+import { versions } from '../../utils/api.js';
 import { getConfig } from '../../scripts/nx.js';
 import '../shared/popover/popover.js';
 
@@ -58,8 +59,6 @@ class NXEwActions extends LitElement {
     _dialog: { state: true },
   };
 
-  _busy = false;
-
   get _popover() {
     return this.shadowRoot?.querySelector('nx-popover');
   }
@@ -76,8 +75,13 @@ class NXEwActions extends LitElement {
     return this.shadowRoot?.querySelector('.prepare-dropdown-btn');
   }
 
+  get _prepareDetails() {
+    return buildPrepareDetails(this._hashState);
+  }
+
   connectedCallback() {
     super.connectedCallback();
+    this._busy = false;
     this.shadowRoot.adoptedStyleSheets = [style];
     this._unsubHash = hashChange.subscribe((state) => { this._hashState = state; });
     this._loadPrepare();
@@ -174,7 +178,16 @@ class NXEwActions extends LitElement {
     this._hasError = false;
     const url = this._resolveOpenUrl(action, aemPath, result.url);
     window.open(url, url);
+    this._saveVersion(action);
     this._busy = false;
+  }
+
+  _saveVersion(action) {
+    const fullpath = this._prepareDetails?.fullpath;
+    if (!fullpath) return;
+    const comment = action === 'publish' ? 'Published' : 'Previewed';
+    // eslint-disable-next-line no-console
+    versions.create(fullpath, { comment }).catch(() => console.log(`Error creating auto version (${comment}).`));
   }
 
   // A page can override the EDS delivery URL with `preview-url` / `live-url`
@@ -233,7 +246,7 @@ class NXEwActions extends LitElement {
   render() {
     const hasDoc = Boolean(buildAemPathFromHashState(this._hashState));
     const disabled = !hasDoc || this._busy;
-    const prepareDetails = this._prepareReady ? buildPrepareDetails(this._hashState) : null;
+    const prepareDetails = this._prepareReady ? this._prepareDetails : null;
 
     return html`
       <div class="ew-actions">
@@ -254,14 +267,16 @@ class NXEwActions extends LitElement {
             ` : nothing}
             <button
               type="button"
-              class="preview-dropdown-btn${this._hasError ? ' is-error' : ''}"
+              class="preview-dropdown-btn${this._hasError ? ' is-error' : ''}${this._busy ? ' is-busy' : ''}"
               aria-label="Preview and publish"
               aria-haspopup="menu"
               aria-expanded="false"
               ?disabled=${disabled}
               @click=${this._togglePreviewPopover}
             >
-              <svg class="preview-dropdown-icon" viewBox="0 0 20 20" aria-hidden="true"><use href=${SEND_ICON_HREF}></use></svg>
+              ${this._busy
+                ? html`<span class="preview-dropdown-spinner" aria-hidden="true"></span>`
+                : html`<svg class="preview-dropdown-icon" viewBox="0 0 20 20" aria-hidden="true"><use href=${SEND_ICON_HREF}></use></svg>`}
             </button>
             <nx-popover placement="below" @close=${this._onSendPopoverClose}>
               <div class="send-popover" role="menu">
