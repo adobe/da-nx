@@ -169,6 +169,10 @@ class NXEwActions extends LitElement {
     if (editorDoc?.forceSave) {
       const flushResult = await editorDoc.forceSave();
       if (!flushResult?.ok) {
+        await Promise.all([
+          import('../shared/dialog/dialog.js'),
+          import(`${NX_BASE}/public/sl/components.js`),
+        ]);
         this._busy = false;
         this._hasError = true;
         this._dialog = {
@@ -179,10 +183,6 @@ class NXEwActions extends LitElement {
             message: flushResult?.error || 'Unable to confirm save. Please retry or reload the editor.',
           },
         };
-        await Promise.all([
-          import('../shared/dialog/dialog.js'),
-          import(`${NX_BASE}/public/sl/components.js`),
-        ]);
         return;
       }
     }
