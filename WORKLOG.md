@@ -1,5 +1,67 @@
 # Worklog
 
+## 2026-07-14
+
+### nx2/styles/styles.css — pin to light mode
+
+Changed `:root { color-scheme: light dark; }` → `color-scheme: light;` and `.dark-scheme { color-scheme: dark; }` → `color-scheme: light;`. Matches nx1 (`nexter.css`) which pins `:root` to light, and da-live browse which forces both `.light-scheme` and `.dark-scheme` to `color-scheme: light` so the profile toggle can't override.
+
+## 2026-07-09
+
+### nx/blocks/secure-org — migrate secure-org block to nx2
+
+Added `'secure-org'` to `NX_BLOCKS` in `nx2/scripts/nx.js`. Block stays in `nx/blocks/secure-org/` per migration convention.
+
+Import updates in `secure-org.js`:
+- Dropped `getConfig` from nexter.js; icon URLs built via `new URL('../../public/icons/...', import.meta.url).href` (icons live only in nx1)
+- `../../utils/ims.js` `loadIms` → `../../../nx2/utils/ims.js`
+- `../../utils/styles.js` default `getStyle` → `{ loadStyle }` from `../../../nx2/utils/utils.js`
+- `../../utils/svg.js` `getSvg` → default `loadIcons` from `../../../nx2/utils/svg.js`
+
+Import updates in `utils.js`:
+- `../../public/utils/constants.js` (DA_ORIGIN) → `../../../nx2/public/utils/constants.js`
+- `../../utils/daFetch.js` (daFetch) → `../../../nx2/utils/api.js`; call site updated from positional `daFetch(url, opts)` to destructured `daFetch({ url, opts })`
+
+CSS variables in `secure-org.css`:
+- `--grid-container-width` → `--se-grid-container-width` with nx1 fallback
+- `--spacing-800` → `--s2-spacing-800` with nx1 fallback
+
+Verified live at `/apps/sandbox?nx=local` — block renders correctly (nx-path input, orange warning alert with AlertDiamond icon), no console errors.
+
+### nx/blocks/bulk — migrate bulk operations block to nx2
+
+Added `'bulk'` to `NX_BLOCKS` in `nx2/scripts/nx.js`. Block stays in `nx/blocks/bulk/` per migration convention.
+
+Import updates in `bulk.js`:
+- `../../deps/lit/lit-core.min.js` → `da-lit`
+- Dropped `getConfig` from nexter.js; icon URL built via `new URL('../../img/icons/...', import.meta.url).href` (icon only exists in nx1)
+- `../../public/utils/tree.js` → `../../../nx2/public/utils/tree.js` (Queue)
+- `../../utils/svg.js` `getSvg` → `../../../nx2/utils/svg.js` default `loadIcons` (compatible `{ paths } → Promise<svg[]>` signature)
+- `../../utils/styles.js` default `getStyle` → `{ loadStyle }` from `../../../nx2/utils/utils.js`
+
+Import updates in `index.js`:
+- `../../public/utils/getExt.js` → `../../../nx2/public/utils/getExt.js`
+- `../../utils/daFetch.js` → `../../../nx2/utils/api.js`
+- `../../public/utils/constants.js` → `../../../nx2/public/utils/constants.js`
+- **API signature change:** nx2's `daFetch` uses destructured args, so `daFetch(url, opts)` → `daFetch({ url, opts })`
+
+CSS variables in `bulk.css` mapped to nx2-first-nx1-fallback:
+- `--grid-container-width` → `--se-grid-container-width`
+- `--spacing-*` → `--s2-spacing-*`
+- `--body-font-family` → `--s2-font-family`
+- `--s2-radius-100` → `--s2-corner-radius-500`
+- `--s2-font-size-600` (31px) → `--s2-heading-size-xl` (36px, closest available)
+
+### nx/blocks/tree/tree.js — migrate tree block to nx2
+
+Added `'tree'` to `NX_BLOCKS` in `nx2/scripts/nx.js` so the block always loads from `/nx/blocks`.
+
+Updated imports in `nx/blocks/tree/tree.js` to nx2 equivalents (block stays in place per migration convention):
+- `../../deps/lit/lit-core.min.js` → `da-lit` (importmap)
+- `../../scripts/nexter.js` → `../../../nx2/scripts/nx.js` (for `getConfig`)
+- `../../public/utils/tree.js` → `../../../nx2/public/utils/tree.js` (for `crawl`)
+- `../../utils/styles.js` (default `getStyle`) → `{ loadStyle }` from `../../../nx2/utils/utils.js`
+
 ## 2026-06-26
 
 ### nx2/blocks/chat/chat.js — skill selection preserves pending attachments (feat/da-skill-attachment-fix)
