@@ -1,5 +1,15 @@
 import makeBatches from '../../../../public/utils/batch.js';
 
+export const GLAAS_DEBUG_LOG_KEY = 'glaas.log';
+
+export function shouldLogGLaaSRequests() {
+  try {
+    return localStorage.getItem(GLAAS_DEBUG_LOG_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 export async function throttle(ms = 500) {
   return new Promise((resolve) => {
     setTimeout(() => { resolve(); }, ms);
@@ -129,7 +139,8 @@ async function readGlaasResponse(resp) {
 function logGlaasAddAssetsRequest({
   url, workflow, taskName, targetLocales, fileDetails, assetMetadata, daBasePath,
 }) {
-  // eslint-disable-next-line no-console -- intentional upload debug
+  if (!shouldLogGLaaSRequests()) return;
+  // eslint-disable-next-line no-console -- dev GLaaS handoff (glaas.log)
   console.info('[GLaaS addAssets] request', {
     daBasePath,
     url,
@@ -146,13 +157,14 @@ function logGlaasAddAssetsRequest({
       ...(assetMetadata.languageContext && { languageContext: assetMetadata.languageContext }),
     },
   });
-  // eslint-disable-next-line no-console -- copy-paste wire payload for GLaaS team
+  // eslint-disable-next-line no-console -- dev GLaaS handoff (glaas.log)
   console.info('[GLaaS addAssets] _asset_metadata_\n', JSON.stringify(assetMetadata, null, 2));
 }
 
 function logGlaasAddAssetsResponse({
   daBasePath, ok, status, statusText, body, json,
 }) {
+  if (!shouldLogGLaaSRequests()) return;
   const label = ok ? '[GLaaS addAssets] success' : '[GLaaS addAssets] error';
   const detail = {
     daBasePath,
@@ -246,11 +258,13 @@ export async function addAssets({
         }
         return { status: response.status };
       } catch (error) {
-        // eslint-disable-next-line no-console -- intentional upload debug
-        console.error('[GLaaS addAssets] error', {
-          daBasePath: item.daBasePath,
-          message: error?.message ?? String(error),
-        });
+        if (shouldLogGLaaSRequests()) {
+          // eslint-disable-next-line no-console -- dev GLaaS handoff (glaas.log)
+          console.error('[GLaaS addAssets] error', {
+            daBasePath: item.daBasePath,
+            message: error?.message ?? String(error),
+          });
+        }
         return { error: 'There was an error uploading' };
       }
     }));
@@ -258,15 +272,17 @@ export async function addAssets({
     task.error += results.filter((result) => (result.error)).length;
     updateLangTask(task, task.langs);
   }
-  // eslint-disable-next-line no-console -- intentional upload debug
-  console.info('[GLaaS addAssets] batch complete', {
-    taskName: name,
-    workflow,
-    targetLocales,
-    sent: task.sent,
-    error: task.error,
-    status: task.error === 0 ? 'uploaded' : 'uploading-with-errors',
-  });
+  if (shouldLogGLaaSRequests()) {
+    // eslint-disable-next-line no-console -- dev GLaaS handoff (glaas.log)
+    console.info('[GLaaS addAssets] batch complete', {
+      taskName: name,
+      workflow,
+      targetLocales,
+      sent: task.sent,
+      error: task.error,
+      status: task.error === 0 ? 'uploaded' : 'uploading-with-errors',
+    });
+  }
   if (task.error === 0) task.status = 'uploaded';
 }
 

@@ -6,15 +6,19 @@ import {
   fieldNameToKey,
   languageNameToCode,
   parseBlockSchema,
-  annotateHTML,
   needsKeywordsMetadata,
-  buildLanguageMetadata,
   normalizeKeywordsFile,
+  fetchBlockSchema,
   loadSeoGlossary,
   addSeoGlossary,
+  addTranslationMetadata,
   isUpdatedColumn,
   parseUpdatedFlag,
 } from '../../../nx/blocks/loc/connectors/glaas/translationMetadata.js';
+
+const TM_TEST_ORG = 'test-org';
+const TM_TEST_SITE = 'test-site';
+const TM_PAGE_PATH = '/content/page';
 
 const mockRes = ({ payload, status = 404, ok = false } = {}) => new Promise((resolve) => {
   resolve({
@@ -25,6 +29,72 @@ const mockRes = ({ payload, status = 404, ok = false } = {}) => new Promise((res
     headers: { get: () => null },
   });
 });
+
+function schemaKeyFromBlock({ selector }) {
+  const parts = selector.replace(/^\./, '').split('.');
+  const [blockType, ...classes] = parts;
+  if (classes.length === 0) return blockType;
+  return `${blockType} (${[...classes].sort().join(', ')})`;
+}
+
+function blockSchemaJsonFromParsed(parsedSchema) {
+  if (!parsedSchema || Object.keys(parsedSchema).length === 0) {
+    return { ':version': 1 };
+  }
+  const schemaData = { ':version': 1 };
+  Object.values(parsedSchema).forEach((block) => {
+    schemaData[schemaKeyFromBlock(block)] = {
+      data: block.fields.map((field) => ({
+        'field name': field.fieldName,
+        'character count': field.charCount || '',
+        'keywords injection': field.keywordsInjection ? 'yes' : '',
+      })),
+    };
+  });
+  return schemaData;
+}
+
+async function runTranslationMetadata({
+  html,
+  langs = [{ name: 'French', code: 'fr' }],
+  blockSchemaJson,
+  blockSchema404 = false,
+  keywordsData,
+  constantsHtml,
+  suppliedPath = TM_PAGE_PATH,
+}) {
+  window.fetch = sinon.stub().callsFake((input) => {
+    const urlStr = String(typeof input === 'string' ? input : input.url);
+
+    if (urlStr.includes('/.da/block-schema.json')) {
+      if (blockSchema404) return mockRes({ status: 404, ok: false });
+      return mockRes({
+        payload: blockSchemaJson ?? { ':version': 1 },
+        status: 200,
+        ok: true,
+      });
+    }
+    if (urlStr.includes('-keywords.json')) {
+      if (keywordsData === undefined) return mockRes({ status: 404, ok: false });
+      return mockRes({ payload: keywordsData, status: 200, ok: true });
+    }
+    if (urlStr.includes('-constants.html')) {
+      if (!constantsHtml) return mockRes({ status: 404, ok: false });
+      return mockRes({ payload: constantsHtml, status: 200, ok: true });
+    }
+    if (urlStr.includes('/.da/seo/glossary.json')) {
+      return mockRes({ status: 404, ok: false });
+    }
+    return mockRes({ status: 404, ok: false });
+  });
+
+  await fetchBlockSchema(TM_TEST_ORG, TM_TEST_SITE, { reset: true });
+  await loadSeoGlossary(TM_TEST_ORG, TM_TEST_SITE, { reset: true });
+
+  const urls = [{ suppliedPath, content: html }];
+  await addTranslationMetadata(TM_TEST_ORG, TM_TEST_SITE, langs, urls);
+  return urls[0];
+}
 
 describe('translationMetadata', () => {
   describe('processSchemaKey', () => {
@@ -303,7 +373,8 @@ describe('translationMetadata', () => {
     });
   });
 
-  describe('annotateHTML', () => {
+  describe('annotateHTML (via addTranslationMetadata)', () => {
+    const originalFetch = window.fetch;
     const parsedSchema = {
       'aso-app_apple_listing': {
         selector: '.aso-app.apple.listing',
@@ -318,7 +389,19 @@ describe('translationMetadata', () => {
       },
     };
 
-    it('should add attributes to HTML elements', () => {
+    afterEach(() => {
+      window.fetch = originalFetch;
+    });
+
+    async function annotateUrl(html, schema = parsedSchema, { blockSchema404 = false } = {}) {
+      return runTranslationMetadata({
+        html,
+        blockSchemaJson: blockSchema404 ? undefined : blockSchemaJsonFromParsed(schema),
+        blockSchema404,
+      });
+    }
+
+    it('should add attributes to HTML elements', async () => {
       const html = `
         <div class="aso-app listing apple">
           <div>
@@ -328,31 +411,31 @@ describe('translationMetadata', () => {
         </div>
       `;
 
-      const result = annotateHTML(html, parsedSchema);
+      const { content: result } = await annotateUrl(html);
 
       expect(result).to.include('its-storage-size="30"');
       expect(result).to.include('its-loc-note="block-name=aso-app_apple_listing_1_subtitle|fieldName=Subtitle|apply-keywords=true"');
       expect(result).to.include('its-loc-note-type="description"');
     });
 
-    it('should return unchanged HTML if parsedSchema is empty', () => {
+    it('should return unchanged HTML if parsedSchema is empty', async () => {
       const html = '<div>Test</div>';
-      const result = annotateHTML(html, {});
+      const { content: result } = await annotateUrl(html, {});
       expect(result).to.equal(html);
     });
 
-    it('should return unchanged HTML if htmlContent is empty', () => {
-      const result = annotateHTML('', parsedSchema);
+    it('should return unchanged HTML if htmlContent is empty', async () => {
+      const { content: result } = await annotateUrl('');
       expect(result).to.equal('');
     });
 
-    it('should return unchanged HTML if parsedSchema is null', () => {
+    it('should return unchanged HTML if block schema is unavailable', async () => {
       const html = '<div>Test</div>';
-      const result = annotateHTML(html, null);
+      const { content: result } = await annotateUrl(html, null, { blockSchema404: true });
       expect(result).to.equal(html);
     });
 
-    it('should handle multiple blocks of the same type with correct indexing', () => {
+    it('should handle multiple blocks of the same type with correct indexing', async () => {
       const html = `
         <div class="aso-app listing apple">
           <div>
@@ -368,13 +451,13 @@ describe('translationMetadata', () => {
         </div>
       `;
 
-      const result = annotateHTML(html, parsedSchema);
+      const { content: result } = await annotateUrl(html);
 
       expect(result).to.include('block-name=aso-app_apple_listing_1_subtitle');
       expect(result).to.include('block-name=aso-app_apple_listing_2_subtitle');
     });
 
-    it('should handle multiple fields in a block', () => {
+    it('should handle multiple fields in a block', async () => {
       const schemaWithMultipleFields = {
         'aso-app_apple_listing': {
           selector: '.aso-app.apple.listing',
@@ -408,7 +491,7 @@ describe('translationMetadata', () => {
         </div>
       `;
 
-      const result = annotateHTML(html, schemaWithMultipleFields);
+      const { content: result } = await annotateUrl(html, schemaWithMultipleFields);
 
       expect(result).to.include('block-name=aso-app_apple_listing_1_subtitle');
       expect(result).to.include('block-name=aso-app_apple_listing_1_description');
@@ -416,7 +499,7 @@ describe('translationMetadata', () => {
       expect(result).to.include('its-storage-size="4000"');
     });
 
-    it('should handle field without charCount (keywords only)', () => {
+    it('should handle field without charCount (keywords only)', async () => {
       const schemaKeywordsOnly = {
         'aso-app_apple_listing': {
           selector: '.aso-app.apple.listing',
@@ -440,13 +523,13 @@ describe('translationMetadata', () => {
         </div>
       `;
 
-      const result = annotateHTML(html, schemaKeywordsOnly);
+      const { content: result } = await annotateUrl(html, schemaKeywordsOnly);
 
       expect(result).to.not.include('its-storage-size');
       expect(result).to.include('its-loc-note="block-name=aso-app_apple_listing_1_subtitle|fieldName=Subtitle|apply-keywords=true"');
     });
 
-    it('should skip field if field name div not found in HTML', () => {
+    it('should skip field if field name div not found in HTML', async () => {
       const html = `
         <div class="aso-app listing apple">
           <div>
@@ -456,13 +539,13 @@ describe('translationMetadata', () => {
         </div>
       `;
 
-      const result = annotateHTML(html, parsedSchema);
+      const { content: result } = await annotateUrl(html);
 
       expect(result).to.not.include('its-storage-size');
       expect(result).to.not.include('its-loc-note');
     });
 
-    it('should skip field if next sibling is not a div', () => {
+    it('should skip field if next sibling is not a div', async () => {
       const html = `
         <div class="aso-app listing apple">
           <div>
@@ -472,13 +555,13 @@ describe('translationMetadata', () => {
         </div>
       `;
 
-      const result = annotateHTML(html, parsedSchema);
+      const { content: result } = await annotateUrl(html);
 
       expect(result).to.not.include('its-storage-size');
       expect(result).to.not.include('its-loc-note');
     });
 
-    it('should unwrap single <p> tag from label div', () => {
+    it('should unwrap single <p> tag from label div', async () => {
       const html = `
         <div class="aso-app listing apple">
           <div>
@@ -488,16 +571,14 @@ describe('translationMetadata', () => {
         </div>
       `;
 
-      const result = annotateHTML(html, parsedSchema);
+      const { content: result } = await annotateUrl(html);
 
-      // Should unwrap <p> tag
       expect(result).to.include('<div>Subtitle</div>');
       expect(result).to.not.include('<p>Subtitle</p>');
-      // Should still add attributes
       expect(result).to.include('its-storage-size="30"');
     });
 
-    it('should unwrap single <p> tag from content div', () => {
+    it('should unwrap single <p> tag from content div', async () => {
       const html = `
         <div class="aso-app listing apple">
           <div>
@@ -507,15 +588,14 @@ describe('translationMetadata', () => {
         </div>
       `;
 
-      const result = annotateHTML(html, parsedSchema);
+      const { content: result } = await annotateUrl(html);
 
-      // Should unwrap <p> tag
       expect(result).to.include('<div its-storage-size="30"');
       expect(result).to.include('>Adobe Firefly</div>');
       expect(result).to.not.include('<p>Adobe Firefly</p>');
     });
 
-    it('should not unwrap multiple <p> tags', () => {
+    it('should not unwrap multiple <p> tags', async () => {
       const html = `
         <div class="aso-app listing apple">
           <div>
@@ -525,14 +605,13 @@ describe('translationMetadata', () => {
         </div>
       `;
 
-      const result = annotateHTML(html, parsedSchema);
+      const { content: result } = await annotateUrl(html);
 
-      // Should keep multiple <p> tags
       expect(result).to.include('<p>Line 1</p>');
       expect(result).to.include('<p>Line 2</p>');
     });
 
-    it('should unwrap <p> tags even without schema', () => {
+    it('should unwrap <p> tags when schema has no matching fields', async () => {
       const html = `
         <div class="aso-app listing apple">
           <div>
@@ -542,18 +621,15 @@ describe('translationMetadata', () => {
         </div>
       `;
 
-      const result = annotateHTML(html, null);
+      const { content: result } = await annotateUrl(html, {});
 
-      // Should unwrap <p> tags even without schema
       expect(result).to.include('<div>Label</div>');
       expect(result).to.include('<div>Content</div>');
       expect(result).to.not.include('<p>Label</p>');
       expect(result).to.not.include('<p>Content</p>');
     });
 
-    it('should be resilient to wrapped content - attributes work even with <p> tags', () => {
-      // This test simulates what would happen if unwrapping was skipped
-      // The isExactMatch function should still work with <p> wrapped labels
+    it('should be resilient to wrapped content - attributes work even with <p> tags', async () => {
       const htmlWithPTags = `
         <div class="aso-app listing apple">
           <div>
@@ -563,18 +639,14 @@ describe('translationMetadata', () => {
         </div>
       `;
 
-      const result = annotateHTML(htmlWithPTags, parsedSchema);
+      const { content: result } = await annotateUrl(htmlWithPTags);
 
-      // Even though input has <p> tags, attributes should be added
-      // (after unwrapping, of course, but isExactMatch handles both cases)
       expect(result).to.include('its-storage-size="30"');
       expect(result).to.include('block-name=aso-app_apple_listing_1_subtitle');
       expect(result).to.include('apply-keywords=true');
     });
 
-    it('should NOT match label divs with nested elements (prevents false positives)', () => {
-      // Tests that we reject <div><p>Field <strong>Name</strong></p></div>
-      // and <div>Field <span>Name</span></div> as label matches
+    it('should NOT match label divs with nested elements (prevents false positives)', async () => {
       const htmlWithNestedElements = `
         <div class="aso-app listing apple">
           <div>
@@ -592,12 +664,11 @@ describe('translationMetadata', () => {
         </div>
       `;
 
-      const result = annotateHTML(htmlWithNestedElements, parsedSchema);
+      const { content: result } = await annotateUrl(htmlWithNestedElements);
 
       const parser = new DOMParser();
       const doc = parser.parseFromString(result, 'text/html');
 
-      // First two rows should NOT have attributes (nested elements in label)
       const rows = doc.querySelectorAll('.aso-app.listing.apple > div');
       const contentA = rows[0].querySelector(':scope > div:nth-child(2)');
       const contentB = rows[1].querySelector(':scope > div:nth-child(2)');
@@ -607,13 +678,12 @@ describe('translationMetadata', () => {
       expect(contentB.hasAttribute('its-storage-size')).to.be.false;
       expect(contentB.hasAttribute('its-loc-note')).to.be.false;
 
-      // Third row SHOULD have attributes (valid label)
       const validContent = rows[2].querySelector(':scope > div:nth-child(2)');
       expect(validContent.getAttribute('its-storage-size')).to.equal('30');
       expect(validContent.getAttribute('its-loc-note')).to.include('subtitle');
     });
 
-    it('should add attributes to content div (column 2), not label div (column 1)', () => {
+    it('should add attributes to content div (column 2), not label div (column 1)', async () => {
       const html = `
         <div class="aso-app listing apple">
           <div>
@@ -623,7 +693,7 @@ describe('translationMetadata', () => {
         </div>
       `;
 
-      const result = annotateHTML(html, parsedSchema);
+      const { content: result } = await annotateUrl(html);
 
       const parser = new DOMParser();
       const doc = parser.parseFromString(result, 'text/html');
@@ -633,11 +703,9 @@ describe('translationMetadata', () => {
       const labelDiv = row.querySelector(':scope > div:nth-child(1)');
       const contentDiv = row.querySelector(':scope > div:nth-child(2)');
 
-      // Label div should NOT have ITS attributes
       expect(labelDiv.hasAttribute('its-storage-size')).to.be.false;
       expect(labelDiv.hasAttribute('its-loc-note')).to.be.false;
 
-      // Content div SHOULD have ITS attributes
       expect(contentDiv.hasAttribute('its-storage-size')).to.be.true;
       expect(contentDiv.getAttribute('its-storage-size')).to.equal('30');
       expect(contentDiv.hasAttribute('its-loc-note')).to.be.true;
@@ -645,9 +713,7 @@ describe('translationMetadata', () => {
       expect(contentDiv.hasAttribute('its-loc-note-type')).to.be.true;
     });
 
-    it('should handle empty content divs correctly', () => {
-      // Ensures attributes are added to content div (column 2), not row container
-      // Tests with both empty and non-empty content divs
+    it('should handle empty content divs correctly', async () => {
       const html = `
         <div class="aso-app listing apple">
           <div>
@@ -681,7 +747,7 @@ describe('translationMetadata', () => {
         },
       };
 
-      const result = annotateHTML(html, schemaWithDescription);
+      const { content: result } = await annotateUrl(html, schemaWithDescription);
 
       const parser = new DOMParser();
       const doc = parser.parseFromString(result, 'text/html');
@@ -689,7 +755,6 @@ describe('translationMetadata', () => {
       const block = doc.querySelector('.aso-app.listing.apple');
       const rows = block.querySelectorAll(':scope > div');
 
-      // First row (Subtitle with empty content)
       const row1 = rows[0];
       expect(row1.hasAttribute('its-storage-size')).to.be.false;
       expect(row1.hasAttribute('its-loc-note')).to.be.false;
@@ -698,7 +763,6 @@ describe('translationMetadata', () => {
       expect(row1Content.hasAttribute('its-storage-size')).to.be.true;
       expect(row1Content.getAttribute('its-storage-size')).to.equal('30');
 
-      // Second row (Description with content)
       const row2 = rows[1];
       expect(row2.hasAttribute('its-storage-size')).to.be.false;
       expect(row2.hasAttribute('its-loc-note')).to.be.false;
@@ -709,32 +773,79 @@ describe('translationMetadata', () => {
     });
   });
 
-  describe('buildLanguageMetadata', () => {
+  describe('buildLanguageMetadata (via addTranslationMetadata)', () => {
     let mockKeywords;
     const languageMapping = [
       { name: 'English', code: 'en' },
       { name: 'French', code: 'fr' },
       { name: 'Japanese', code: 'ja' },
     ];
+    const originalFetch = window.fetch;
+
+    const keywordsBlockSchemaJson = blockSchemaJsonFromParsed({
+      'aso-app_apple_listing': {
+        selector: '.aso-app.apple.listing',
+        fields: [{
+          fieldName: 'Subtitle',
+          fieldKey: 'subtitle',
+          charCount: '30',
+          keywordsInjection: true,
+        }],
+      },
+    });
+
+    const googleKeywordsBlockSchemaJson = blockSchemaJsonFromParsed({
+      'aso-app_google_listing': {
+        selector: '.aso-app.google.listing',
+        fields: [{
+          fieldName: 'Short Description',
+          fieldKey: 'short-description',
+          charCount: '80',
+          keywordsInjection: true,
+        }],
+      },
+    });
+
+    afterEach(() => {
+      window.fetch = originalFetch;
+    });
+
+    async function metadataUrl({
+      html = '<div></div>',
+      langs,
+      blockSchemaJson = keywordsBlockSchemaJson,
+      keywordsData,
+      constantsHtml,
+    }) {
+      return runTranslationMetadata({
+        html,
+        langs,
+        blockSchemaJson,
+        keywordsData,
+        constantsHtml,
+      });
+    }
 
     before(async () => {
       mockKeywords = JSON.parse(await readFile({ path: './mocks/page-keywords.json' }));
     });
 
-    it('should build language metadata for target languages only', () => {
-      // Only pass French and Japanese (exclude English)
+    it('should build language metadata for target languages only', async () => {
       const frenchAndJapanese = [
         { name: 'French', code: 'fr' },
         { name: 'Japanese', code: 'ja' },
       ];
-      const result = buildLanguageMetadata(mockKeywords, frenchAndJapanese);
+      const { translationMetadata: result } = await metadataUrl({
+        langs: frenchAndJapanese,
+        keywordsData: mockKeywords,
+      });
 
       expect(result).to.have.property('fr');
       expect(result).to.have.property('ja');
       expect(result).to.not.have.property('en');
     });
 
-    it('should create correct metadata keys with block ID, index, and field', () => {
+    it('should create correct metadata keys with block ID, index, and field', async () => {
       const frenchOnly = [{ name: 'French', code: 'fr' }];
       const expectedSubtitle = 'générateur d\'art ia, créer ia, générateur d\'image ia, '
         + 'image ia, design ia, vidéo ia, photo ia, montage vidéo ia, artiste ia, outil ia, '
@@ -748,7 +859,10 @@ describe('translationMetadata', () => {
         + 'concevez des graphiques, produisez des animations, créez des films, '
         + 'transformez du texte en visuels';
 
-      const result = buildLanguageMetadata(mockKeywords, frenchOnly);
+      const { translationMetadata: result } = await metadataUrl({
+        langs: frenchOnly,
+        keywordsData: mockKeywords,
+      });
 
       expect(result.fr).to.have.property('keywords|aso-app_apple_listing_1_subtitle');
       expect(result.fr).to.have.property('keywords|aso-app_apple_listing_1_description');
@@ -762,7 +876,7 @@ describe('translationMetadata', () => {
       });
     });
 
-    it('should handle multiple blocks', () => {
+    it('should handle multiple blocks', async () => {
       const frenchOnly = [{ name: 'French', code: 'fr' }];
       const expectedBlock2Subtitle = 'éditeur de photos pro, montage professionnel, '
         + 'modifier des photos, outils photo, édition d\'image, filtres photo, '
@@ -771,7 +885,10 @@ describe('translationMetadata', () => {
         + 'filtres et effets avancés, retoucher et améliorer les images, '
         + 'studio photo créatif';
 
-      const result = buildLanguageMetadata(mockKeywords, frenchOnly);
+      const { translationMetadata: result } = await metadataUrl({
+        langs: frenchOnly,
+        keywordsData: mockKeywords,
+      });
 
       expect(result.fr).to.have.property('keywords|aso-app_apple_listing_1_subtitle');
       expect(result.fr).to.have.property('keywords|aso-app_apple_listing_2_subtitle');
@@ -785,26 +902,26 @@ describe('translationMetadata', () => {
       });
     });
 
-    it('should return empty object if keywordsData is null', () => {
-      const result = buildLanguageMetadata(null, languageMapping);
-      expect(result).to.deep.equal({});
+    it('should omit translationMetadata when keywords file is missing', async () => {
+      const url = await metadataUrl({
+        langs: languageMapping,
+        keywordsData: null,
+      });
+      expect(url.translationMetadata).to.be.undefined;
     });
 
-    it('should return empty object if langs is null', () => {
-      const result = buildLanguageMetadata(mockKeywords, null);
-      expect(result).to.deep.equal({});
-    });
-
-    it('should skip metadata keys starting with colon', () => {
-      const targetLangs = [{ code: 'fr' }];
-      const result = buildLanguageMetadata(mockKeywords, languageMapping, targetLangs);
+    it('should skip metadata keys starting with colon', async () => {
+      const { translationMetadata: result } = await metadataUrl({
+        langs: languageMapping,
+        keywordsData: mockKeywords,
+      });
 
       const keys = Object.keys(result.fr || {});
       const hasDescriptionKey = keys.some((key) => key.includes('description'));
       expect(hasDescriptionKey).to.be.true;
     });
 
-    it('should handle language name not found in languageMapping', () => {
+    it('should handle language name not found in languageMapping', async () => {
       const keywordsWithUnknownLang = {
         'aso-app (apple, listing) (1)': {
           total: 1,
@@ -814,21 +931,27 @@ describe('translationMetadata', () => {
         },
       };
 
-      const result = buildLanguageMetadata(keywordsWithUnknownLang, languageMapping);
+      const { translationMetadata: result } = await metadataUrl({
+        langs: languageMapping,
+        keywordsData: keywordsWithUnknownLang,
+      });
 
-      expect(Object.keys(result)).to.have.lengthOf(0);
+      expect(Object.keys(result || {})).to.have.lengthOf(0);
     });
 
-    it('should exclude language field from metadata', () => {
+    it('should exclude language field from metadata', async () => {
       const frenchOnly = [{ name: 'French', code: 'fr' }];
-      const result = buildLanguageMetadata(mockKeywords, frenchOnly);
+      const { translationMetadata: result } = await metadataUrl({
+        langs: frenchOnly,
+        keywordsData: mockKeywords,
+      });
 
       const keys = Object.keys(result.fr || {});
       const hasLanguageKey = keys.some((key) => key.includes('language'));
       expect(hasLanguageKey).to.be.false;
     });
 
-    it('should send keywords with updated false when flag is empty or no', () => {
+    it('should send keywords with updated false when flag is empty or no', async () => {
       const keywords = {
         'aso-app (google, listing) (1)': {
           data: [{
@@ -840,7 +963,11 @@ describe('translationMetadata', () => {
           }],
         },
       };
-      const result = buildLanguageMetadata(keywords, [{ name: 'French', code: 'fr' }]);
+      const { translationMetadata: result } = await metadataUrl({
+        langs: [{ name: 'French', code: 'fr' }],
+        keywordsData: keywords,
+        blockSchemaJson: googleKeywordsBlockSchemaJson,
+      });
       expect(result.fr['keywords|aso-app_google_listing_1_short-description']).to.deep.equal({
         value: 'keyword text',
         updated: false,
@@ -851,7 +978,7 @@ describe('translationMetadata', () => {
       });
     });
 
-    it('should send empty value when updated is yes and keywords were deleted', () => {
+    it('should send empty value when updated is yes and keywords were deleted', async () => {
       const keywords = {
         'aso-app (google, listing) (1)': {
           data: [{
@@ -861,14 +988,18 @@ describe('translationMetadata', () => {
           }],
         },
       };
-      const result = buildLanguageMetadata(keywords, [{ name: 'Japanese', code: 'ja' }]);
+      const { translationMetadata: result } = await metadataUrl({
+        langs: [{ name: 'Japanese', code: 'ja' }],
+        keywordsData: keywords,
+        blockSchemaJson: googleKeywordsBlockSchemaJson,
+      });
       expect(result.ja['keywords|aso-app_google_listing_1_short-description']).to.deep.equal({
         value: '',
         updated: true,
       });
     });
 
-    it('should trim keyword value before send', () => {
+    it('should trim keyword value before send', async () => {
       const keywords = {
         'aso-app (google, listing) (1)': {
           data: [{
@@ -878,14 +1009,18 @@ describe('translationMetadata', () => {
           }],
         },
       };
-      const result = buildLanguageMetadata(keywords, [{ name: 'French', code: 'fr' }]);
+      const { translationMetadata: result } = await metadataUrl({
+        langs: [{ name: 'French', code: 'fr' }],
+        keywordsData: keywords,
+        blockSchemaJson: googleKeywordsBlockSchemaJson,
+      });
       expect(result.fr['keywords|aso-app_google_listing_1_short-description']).to.deep.equal({
         value: 'keyword text',
         updated: true,
       });
     });
 
-    it('should send legacy keywords with updated false when column is missing', () => {
+    it('should send legacy keywords with updated false when column is missing', async () => {
       const legacyKeywords = {
         'aso-app (google, listing) (1)': {
           data: [{
@@ -894,14 +1029,18 @@ describe('translationMetadata', () => {
           }],
         },
       };
-      const result = buildLanguageMetadata(legacyKeywords, [{ name: 'French', code: 'fr' }]);
+      const { translationMetadata: result } = await metadataUrl({
+        langs: [{ name: 'French', code: 'fr' }],
+        keywordsData: legacyKeywords,
+        blockSchemaJson: googleKeywordsBlockSchemaJson,
+      });
       expect(result.fr['keywords|aso-app_google_listing_1_short-description']).to.deep.equal({
         value: 'legacy keyword',
         updated: false,
       });
     });
 
-    it('should build metadata from single-sheet keywords files with :sheetname', () => {
+    it('should build metadata from single-sheet keywords files with :sheetname', async () => {
       const singleSheetKeywords = {
         total: 2,
         limit: 2,
@@ -925,9 +1064,10 @@ describe('translationMetadata', () => {
         ':sheetname': 'aso-app (apple, listing) (1)',
         ':type': 'sheet',
       };
-      const result = buildLanguageMetadata(singleSheetKeywords, [
-        { name: 'French', code: 'fr' },
-      ]);
+      const { translationMetadata: result } = await metadataUrl({
+        langs: [{ name: 'French', code: 'fr' }],
+        keywordsData: singleSheetKeywords,
+      });
 
       expect(result.fr['keywords|aso-app_apple_listing_1_subtitle']).to.deep.equal({
         value: 'mot-clé sous-titre',
@@ -939,7 +1079,7 @@ describe('translationMetadata', () => {
       });
     });
 
-    it('should skip keyword metadata when single-sheet file has no :sheetname', () => {
+    it('should skip keyword metadata when single-sheet file has no :sheetname', async () => {
       const singleSheetKeywords = {
         total: 1,
         limit: 1,
@@ -951,12 +1091,12 @@ describe('translationMetadata', () => {
         }],
         ':type': 'sheet',
       };
-      const warnStub = sinon.stub(console, 'warn');
-      const result = buildLanguageMetadata(singleSheetKeywords, [{ name: 'French', code: 'fr' }]);
-      warnStub.restore();
+      const url = await metadataUrl({
+        langs: [{ name: 'French', code: 'fr' }],
+        keywordsData: singleSheetKeywords,
+      });
 
-      expect(result).to.deep.equal({});
-      expect(warnStub.calledOnce).to.be.true;
+      expect(url.translationMetadata).to.be.undefined;
     });
 
     describe('normalizeKeywordsFile', () => {
@@ -1015,6 +1155,7 @@ describe('translationMetadata', () => {
           ],
         },
       };
+      const listingBlockSchemaJson = blockSchemaJsonFromParsed(listingSchema);
       const listingHtml = `
         <div class="aso-app listing apple">
           <div>
@@ -1023,21 +1164,22 @@ describe('translationMetadata', () => {
           </div>
         </div>
       `;
-      const metadataOptions = () => ({
-        constantsHtml: mockConstantsHtml,
-        pageHtml: listingHtml,
-        parsedSchema: listingSchema,
-      });
 
       before(async () => {
         mockConstantsHtml = await readFile({ path: './mocks/page-constants.html' });
       });
 
-      it('should add placeholders metadata for target languages only', () => {
-        const result = buildLanguageMetadata(null, [
-          { name: 'Japanese', code: 'ja' },
-          { name: 'French', code: 'fr' },
-        ], metadataOptions());
+      it('should add placeholders metadata for target languages only', async () => {
+        const { translationMetadata: result } = await metadataUrl({
+          html: listingHtml,
+          langs: [
+            { name: 'Japanese', code: 'ja' },
+            { name: 'French', code: 'fr' },
+          ],
+          constantsHtml: mockConstantsHtml,
+          blockSchemaJson: listingBlockSchemaJson,
+          keywordsData: null,
+        });
 
         expect(result).to.deep.equal({
           ja: {
@@ -1048,7 +1190,7 @@ describe('translationMetadata', () => {
         });
       });
 
-      it('should resolve placeholders when slug is one of multiple block classes', () => {
+      it('should resolve placeholders when slug is one of multiple block classes', async () => {
         const constantsHtml = `
           <body><main><div>
             <div class="legacy-wrapper legal-terms">
@@ -1059,15 +1201,13 @@ describe('translationMetadata', () => {
             </div>
           </div></main></body>
         `;
-        const result = buildLanguageMetadata(
-          null,
-          [{ name: 'Japanese', code: 'ja' }],
-          {
-            constantsHtml,
-            pageHtml: listingHtml,
-            parsedSchema: listingSchema,
-          },
-        );
+        const { translationMetadata: result } = await metadataUrl({
+          html: listingHtml,
+          langs: [{ name: 'Japanese', code: 'ja' }],
+          constantsHtml,
+          blockSchemaJson: listingBlockSchemaJson,
+          keywordsData: null,
+        });
 
         expect(result).to.deep.equal({
           ja: {
@@ -1078,9 +1218,13 @@ describe('translationMetadata', () => {
         });
       });
 
-      it('should include both keywords and placeholders for the same locale', () => {
-        const result = buildLanguageMetadata(
-          {
+      it('should include both keywords and placeholders for the same locale', async () => {
+        const { translationMetadata: result } = await metadataUrl({
+          html: listingHtml,
+          langs: [{ name: 'Japanese', code: 'ja' }],
+          constantsHtml: mockConstantsHtml,
+          blockSchemaJson: listingBlockSchemaJson,
+          keywordsData: {
             'aso-app (apple, listing) (1)': {
               data: [{
                 language: 'Japanese',
@@ -1089,9 +1233,7 @@ describe('translationMetadata', () => {
               }],
             },
           },
-          [{ name: 'Japanese', code: 'ja' }],
-          metadataOptions(),
-        );
+        });
 
         expect(result).to.deep.equal({
           ja: {
@@ -1106,7 +1248,7 @@ describe('translationMetadata', () => {
         });
       });
 
-      it('should include multiple placeholder slugs in one field when all are mapped', () => {
+      it('should include multiple placeholder slugs in one field when all are mapped', async () => {
         const constantsHtml = `
           <body><main><div>
             <div class="legal-terms">
@@ -1131,10 +1273,12 @@ describe('translationMetadata', () => {
             </div>
           </div>
         `;
-        const result = buildLanguageMetadata(null, [{ name: 'Japanese', code: 'ja' }], {
+        const { translationMetadata: result } = await metadataUrl({
+          html: pageHtml,
+          langs: [{ name: 'Japanese', code: 'ja' }],
           constantsHtml,
-          pageHtml,
-          parsedSchema: listingSchema,
+          blockSchemaJson: listingBlockSchemaJson,
+          keywordsData: null,
         });
 
         expect(result).to.deep.equal({
@@ -1147,7 +1291,7 @@ describe('translationMetadata', () => {
         });
       });
 
-      it('should omit unmapped slugs but keep mapped ones in placeholders metadata', () => {
+      it('should omit unmapped slugs but keep mapped ones in placeholders metadata', async () => {
         const constantsHtml = `
           <body><main><div>
             <div class="legal-terms">
@@ -1172,10 +1316,12 @@ describe('translationMetadata', () => {
             </div>
           </div>
         `;
-        const result = buildLanguageMetadata(null, [{ name: 'Japanese', code: 'ja' }], {
+        const { translationMetadata: result } = await metadataUrl({
+          html: pageHtml,
+          langs: [{ name: 'Japanese', code: 'ja' }],
           constantsHtml,
-          pageHtml,
-          parsedSchema: listingSchema,
+          blockSchemaJson: listingBlockSchemaJson,
+          keywordsData: null,
         });
 
         expect(result).to.deep.equal({
@@ -1187,7 +1333,7 @@ describe('translationMetadata', () => {
         });
       });
 
-      it('should omit placeholders metadata when no slugs resolve for a target locale', () => {
+      it('should omit placeholders metadata when no slugs resolve for a target locale', async () => {
         const constantsHtml = `
           <body><main><div>
             <div class="legal-terms">
@@ -1216,19 +1362,21 @@ describe('translationMetadata', () => {
             </div>
           </div>
         `;
-        const result = buildLanguageMetadata(null, [
-          { name: 'Japanese', code: 'ja' },
-          { name: 'French', code: 'fr' },
-        ], {
+        const url = await metadataUrl({
+          html: pageHtml,
+          langs: [
+            { name: 'Japanese', code: 'ja' },
+            { name: 'French', code: 'fr' },
+          ],
           constantsHtml,
-          pageHtml,
-          parsedSchema: listingSchema,
+          blockSchemaJson: listingBlockSchemaJson,
+          keywordsData: null,
         });
 
-        expect(result).to.deep.equal({});
+        expect(url.translationMetadata).to.be.undefined;
       });
 
-      it('should emit separate placeholders metadata per field with different slug sets', () => {
+      it('should emit separate placeholders metadata per field with different slug sets', async () => {
         const constantsHtml = `
           <body><main><div>
             <div class="legal-terms">
@@ -1276,10 +1424,12 @@ describe('translationMetadata', () => {
             </div>
           </div>
         `;
-        const result = buildLanguageMetadata(null, [{ name: 'Japanese', code: 'ja' }], {
+        const { translationMetadata: result } = await metadataUrl({
+          html: pageHtml,
+          langs: [{ name: 'Japanese', code: 'ja' }],
           constantsHtml,
-          pageHtml,
-          parsedSchema: schema,
+          blockSchemaJson: blockSchemaJsonFromParsed(schema),
+          keywordsData: null,
         });
 
         expect(result).to.deep.equal({
@@ -1295,7 +1445,6 @@ describe('translationMetadata', () => {
       });
     });
   });
-
   describe('addSeoGlossary (languageContext)', () => {
     const org = 'test-org';
     const site = 'test-site';
