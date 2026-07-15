@@ -1048,6 +1048,36 @@ describe('translationMetadata', () => {
         });
       });
 
+      it('should resolve placeholders when slug is one of multiple block classes', () => {
+        const constantsHtml = `
+          <body><main><div>
+            <div class="legacy-wrapper legal-terms">
+              <div>
+                <div><p>Japanese</p></div>
+                <div><p>LEGACY JA</p></div>
+              </div>
+            </div>
+          </div></main></body>
+        `;
+        const result = buildLanguageMetadata(
+          null,
+          [{ name: 'Japanese', code: 'ja' }],
+          {
+            constantsHtml,
+            pageHtml: listingHtml,
+            parsedSchema: listingSchema,
+          },
+        );
+
+        expect(result).to.deep.equal({
+          ja: {
+            'placeholders|aso-app_apple_listing_1_description': {
+              'legal-terms': '<p>LEGACY JA</p>',
+            },
+          },
+        });
+      });
+
       it('should include both keywords and placeholders for the same locale', () => {
         const result = buildLanguageMetadata(
           {
@@ -1078,20 +1108,20 @@ describe('translationMetadata', () => {
 
       it('should include multiple placeholder slugs in one field when all are mapped', () => {
         const constantsHtml = `
-          <body><main>
-            <div class="aso-constants legal-terms">
+          <body><main><div>
+            <div class="legal-terms">
               <div>
                 <div><p>Japanese</p></div>
                 <div><p>LEGAL JA</p></div>
               </div>
             </div>
-            <div class="aso-constants privacy-note">
+            <div class="privacy-note">
               <div>
                 <div><p>Japanese</p></div>
                 <div><p>PRIVACY JA</p></div>
               </div>
             </div>
-          </main></body>
+          </div></main></body>
         `;
         const pageHtml = `
           <div class="aso-app listing apple">
@@ -1119,20 +1149,20 @@ describe('translationMetadata', () => {
 
       it('should omit unmapped slugs but keep mapped ones in placeholders metadata', () => {
         const constantsHtml = `
-          <body><main>
-            <div class="aso-constants legal-terms">
+          <body><main><div>
+            <div class="legal-terms">
               <div>
                 <div><p>Japanese</p></div>
                 <div><p>LEGAL JA</p></div>
               </div>
             </div>
-            <div class="aso-constants privacy-note">
+            <div class="privacy-note">
               <div>
                 <div><p>Japanese</p></div>
                 <div></div>
               </div>
             </div>
-          </main></body>
+          </div></main></body>
         `;
         const pageHtml = `
           <div class="aso-app listing apple">
@@ -1159,8 +1189,8 @@ describe('translationMetadata', () => {
 
       it('should omit placeholders metadata when no slugs resolve for a target locale', () => {
         const constantsHtml = `
-          <body><main>
-            <div class="aso-constants legal-terms">
+          <body><main><div>
+            <div class="legal-terms">
               <div>
                 <div><p>Japanese</p></div>
                 <div></div>
@@ -1170,13 +1200,13 @@ describe('translationMetadata', () => {
                 <div></div>
               </div>
             </div>
-            <div class="aso-constants privacy-note">
+            <div class="privacy-note">
               <div>
                 <div><p>Japanese</p></div>
                 <div></div>
               </div>
             </div>
-          </main></body>
+          </div></main></body>
         `;
         const pageHtml = `
           <div class="aso-app listing apple">
@@ -1200,20 +1230,20 @@ describe('translationMetadata', () => {
 
       it('should emit separate placeholders metadata per field with different slug sets', () => {
         const constantsHtml = `
-          <body><main>
-            <div class="aso-constants legal-terms">
+          <body><main><div>
+            <div class="legal-terms">
               <div>
                 <div><p>Japanese</p></div>
                 <div><p>LEGAL JA</p></div>
               </div>
             </div>
-            <div class="aso-constants promo-disclaimer">
+            <div class="promo-disclaimer">
               <div>
                 <div><p>Japanese</p></div>
                 <div><p>PROMO JA</p></div>
               </div>
             </div>
-          </main></body>
+          </div></main></body>
         `;
         const schema = {
           'aso-app_apple_listing': {

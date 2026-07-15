@@ -160,21 +160,18 @@ function collectConstantSlugsFromText(text) {
   return [...slugs].sort();
 }
 
-function slugFromConstantsBlock(block) {
-  if (!block) return null;
-  const slugClasses = [...block.classList].filter((className) => className !== 'aso-constants');
-  if (slugClasses.length !== 1) return null;
-  const slug = slugClasses[0];
-  return CONSTANT_SLUG_PATTERN.test(slug) ? slug : null;
+function getConstantsBlockBySlug(doc, slug) {
+  if (!doc || !slug || !CONSTANT_SLUG_PATTERN.test(slug)) return null;
+  return doc.querySelector(`main > div > div.${CSS.escape(slug)}`);
 }
 
-function constantsRowsFromHtml(html) {
-  if (!html || typeof html !== 'string') return [];
+function constantsRowsFromHtml(html, slugs = []) {
+  if (!html || typeof html !== 'string' || slugs.length === 0) return [];
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const byLanguage = new Map();
-  doc.querySelectorAll('div.aso-constants').forEach((block) => {
-    const slug = slugFromConstantsBlock(block);
-    if (!slug) return;
+  slugs.forEach((slug) => {
+    const block = getConstantsBlockBySlug(doc, slug);
+    if (!block) return;
     Array.from(block.children).forEach((row) => {
       if (row.tagName !== 'DIV' || row.children.length < 2) return;
       const language = row.children[0].textContent.trim();
@@ -184,7 +181,10 @@ function constantsRowsFromHtml(html) {
       byLanguage.get(language)[slug] = value;
     });
   });
-  return [...byLanguage.entries()].map(([language, slugs]) => ({ language, slugs }));
+  return [...byLanguage.entries()].map(([language, slugValues]) => ({
+    language,
+    slugs: slugValues,
+  }));
 }
 
 /**
@@ -409,7 +409,8 @@ export function buildLanguageMetadata(keywordsData, langs, {
   if (constantsHtml && pageHtml && parsedSchema) {
     const fieldsWithSlugs = fieldConstantSlugs(pageHtml, parsedSchema);
     if (fieldsWithSlugs.length > 0) {
-      constantsRowsFromHtml(constantsHtml).forEach(({ language, slugs }) => {
+      const neededSlugs = [...new Set(fieldsWithSlugs.flatMap(({ slugs }) => slugs))];
+      constantsRowsFromHtml(constantsHtml, neededSlugs).forEach(({ language, slugs }) => {
         const langCode = langCodeForName(language);
         if (!langCode || !targetLangCodes.has(langCode)) return;
         fieldsWithSlugs.forEach(({ blockId, blockIndex, fieldKey, slugs: fieldSlugs }) => {
