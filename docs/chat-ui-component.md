@@ -22,6 +22,12 @@ The component manages its own controller internally. No external wiring needed.
 | `thinking` | `Boolean` | Agent is processing. Disables input.                                   |
 | `context`  | `Object`  | Page context: `{ org, site, path, view }`. Required — set by the host view. `view` must be `browse` or `edit`. |
 
+## Attributes in
+
+| Attribute  | Type     | Description                                                                                     |
+| ---------- | -------- | ----------------------------------------------------------------------------------------------- |
+| `agent-id` | `String` | Optional. Selects a specific agent/persona. Read once on mount and forwarded to the agent as `agentId` in the request body. Not a reactive property — set it before mount; later changes are not observed. |
+
 **Message shape:**
 
 ```js
@@ -30,7 +36,7 @@ The component manages its own controller internally. No external wiring needed.
 { role: 'tool', ... }  // filtered from display automatically
 ```
 
-**Request body:** The controller POSTs `{ messages, pageContext, imsToken, room, sessionId }` to the agent. `sessionId` is a UUID scoped to the current conversation session — it resets when the user clears the chat. Selection context is embedded on individual user messages (see [Selection context](#selection-context)) rather than as a top-level request field.
+**Request body:** The controller POSTs `{ messages, pageContext, imsToken, room, sessionId }` to the agent (plus `agentId` when the `agent-id` attribute is set). `sessionId` is a UUID scoped to the current conversation session — it resets when the user clears the chat. Selection context is embedded on individual user messages (see [Selection context](#selection-context)) rather than as a top-level request field.
 
 ## Methods
 

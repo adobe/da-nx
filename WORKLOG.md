@@ -1,5 +1,19 @@
 # Worklog
 
+## 2026-07-08
+
+### nx2/blocks/chat — agent-id as a plain attribute (feat/chat-agent-id branch, PR #462)
+
+Reviewer consensus (sharanyavinod + mhaack) on #462: `agentId` should not be a reactive Lit property since it is not used for rendering. Keeping it reactive re-renders `<nx-chat>` on `agent-id` changes for no benefit today.
+
+- Removed `agentId: { type: String, attribute: 'agent-id' }` from `static properties`.
+- Read the value once in `connectedCallback` via `getAttribute('agent-id')` and forward it to the controller's `setAgentId`.
+- Dropped the `agentId` branch from `updated(changed)` (no longer observed).
+- Controller plumbing unchanged: `setAgentId` stores `_agentId`, sent as `agentId` in the request body only when set.
+- Documented the `agent-id` attribute and its request-body contract in `docs/chat-ui-component.md`.
+
+If we later drive rendering from the agent id, reintroduce it as a reactive property then (per the review thread).
+
 ## 2026-06-26
 
 ### nx2/blocks/chat/chat.js — skill selection preserves pending attachments (feat/da-skill-attachment-fix)
@@ -13,7 +27,6 @@ Post-review follow-up (fe049a9b):
 - Read `this._items` once into local `const items` before filter calls
 - Renamed loop variable `i` → `item` in `_onSlashSelect` callbacks
 - Added regression tests in `test/nx2/blocks/chat/chat.test.js` (8 tests, all pass)
-
 
 ## 2026-06-23
 

@@ -211,6 +211,8 @@ class NxChat extends LitElement {
       },
     });
     if (this._context) this._controller.setContext(this._context);
+    const agentId = this.getAttribute('agent-id');
+    if (agentId) this._controller.setAgentId(agentId);
 
     this._unsubscribeHash = hashChange.subscribe((state) => {
       if (!this._explicitContext) this._applyContext(state);
