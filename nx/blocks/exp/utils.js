@@ -1,5 +1,5 @@
-import { DA_ORIGIN, AEM_ORIGIN } from '../../public/utils/constants.js';
-import { loadIms } from '../../utils/ims.js';
+import { DA_ADMIN, HLX_ADMIN } from '../../../nx2/utils/utils.js';
+import { loadIms } from '../../../nx2/utils/ims.js';
 
 export function getDefaultData(page) {
   return {
@@ -253,7 +253,7 @@ async function aemReq(type, page) {
   const { org, repo, path } = getOrgSite(page.url);
   const token = await getToken();
   const opts = { method: 'POST', headers: { Authorization: `Bearer ${token}` } };
-  const url = `${AEM_ORIGIN}/${type}/${org}/${repo}/main${path}`;
+  const url = `${HLX_ADMIN}/${type}/${org}/${repo}/main${path}`;
   const resp = await fetch(url, opts);
   if (!resp.ok) return { error: 'Error previewing doc.' };
   return resp.json();
@@ -266,7 +266,7 @@ async function getDaDetails(page, api = 'source') {
   if (!token) return { error: 'Please login.' };
 
   const opts = { headers: { Authorization: `Bearer ${token}` } };
-  const url = `${DA_ORIGIN}/${api}/${org}/${repo}${path}.html`;
+  const url = `${DA_ADMIN}/${api}/${org}/${repo}${path}.html`;
 
   return { url, opts };
 }

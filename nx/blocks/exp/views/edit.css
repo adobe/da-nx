@@ -31,51 +31,66 @@ input[type="range"] {
   }
 }
 
-input[type="range"]::after {
-  content: "";
+/* Track styling. Earlier versions drew the bar via ::after on the <input>,
+   which Chrome no longer renders (pseudo-elements aren't supported on form
+   controls per spec). Style the actual track pseudo instead. */
+input[type="range"]::-webkit-slider-runnable-track {
   height: 2px;
   border-radius: 1px;
   background: rgb(143 143 143);
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
 }
 
-input[type="range"]:focus-visible::after {
+input[type="range"]::-moz-range-track {
+  height: 2px;
+  border-radius: 1px;
+  background: rgb(143 143 143);
+}
+
+input[type="range"]:focus-visible::-webkit-slider-runnable-track {
   background: var(--s2-blue-900);
-  margin-top: -1px;
+  height: 3px;
+}
+
+input[type="range"]:focus-visible::-moz-range-track {
+  background: var(--s2-blue-900);
   height: 3px;
 }
 
 input[type="range"]::-webkit-slider-thumb {
-  position: relative;
   appearance: none;
   border: 2px solid #464646;
-  margin-top: 2px;
+  margin-top: -7px;
   background: #fff;
   width: 16px;
   height: 16px;
   border-radius: 8px;
-  z-index: 1;
+}
+
+input[type="range"]::-moz-range-thumb {
+  appearance: none;
+  border: 2px solid #464646;
+  background: #fff;
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
 }
 
 .nx-grid-two-up {
   display: grid;
-  gap: var(--spacing-200);
+  gap: var(--s2-spacing-200);
   grid-template-columns: repeat(2, 1fr);
 }
 
 .nx-space-bottom-100 {
-  margin-bottom: var(--spacing-100);
+  margin-bottom: var(--s2-spacing-100);
 }
 
 .nx-space-bottom-200 {
-  margin-bottom: var(--spacing-200);
+  margin-bottom: var(--s2-spacing-200);
 }
 
 .nx-space-bottom-300 {
-  margin-bottom: var(--spacing-300);
+  margin-bottom: var(--s2-spacing-300);
 }
 
 .nx-exp-details-header {
@@ -112,17 +127,17 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .nx-details-area {
-  padding: 0 var(--spacing-300);
+  padding: 0 var(--s2-spacing-300);
   border-bottom: 1px solid #dedede;
 }
 
 .nx-variants-area {
-  padding: var(--spacing-300);
+  padding: var(--s2-spacing-300);
   border-bottom: 1px solid #dedede;
 }
 
 .nx-date-area {
-  padding: var(--spacing-300);
+  padding: var(--s2-spacing-300);
 }
 
 .nx-expandable {
@@ -212,10 +227,10 @@ input[type="range"]::-webkit-slider-thumb {
 
     p {
       position: absolute;
-      top: -10px;
+      bottom: 100%;
       font-size: var(--s2-body-xxs-size);
       color: var(--s2-gray-600);
-      margin: 0;
+      margin: 0 0 2px;
 
       &.on-right {
         right: 0;
