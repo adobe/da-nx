@@ -183,7 +183,6 @@ class NXEwActions extends LitElement {
     this._busy = false;
   }
 
-  // Mirrors da-live's da-title `saveDaVersion` pairing with aemAction.
   _saveVersion(action) {
     const fullpath = this._prepareDetails?.fullpath;
     if (!fullpath) return;
