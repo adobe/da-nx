@@ -160,7 +160,7 @@ function handleUndoRedo(view, event, port) {
 }
 
 function handleNewVersion(view, event, port) {
-  if ((event.ctrlKey || event.metaKey) && event.altKey && (event.key === 's' || event.key === 'S')) {
+  if ((event.ctrlKey || event.metaKey) && event.altKey && event.code === 'KeyS') {
     event.preventDefault();
 
     port.postMessage({

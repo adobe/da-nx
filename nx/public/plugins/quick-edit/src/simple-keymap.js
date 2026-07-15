@@ -159,20 +159,6 @@ function handleUndoRedo(view, event, port) {
   return false;
 }
 
-function handleNewVersion(view, event, port) {
-  if ((event.ctrlKey || event.metaKey) && event.altKey && (event.key === 's' || event.key === 'S')) {
-    event.preventDefault();
-
-    port.postMessage({
-      type: 'new-version',
-    });
-
-    return true;
-  }
-
-  return false;
-}
-
 export function createSimpleKeymap(port) {
   return new Plugin({
     props: {
@@ -185,9 +171,6 @@ export function createSimpleKeymap(port) {
 
         const undoRedoHandled = handleUndoRedo(view, event, port);
         if (undoRedoHandled) return true;
-
-        const newVersionHandled = handleNewVersion(view, event, port);
-        if (newVersionHandled) return true;
 
         return false;
       },
