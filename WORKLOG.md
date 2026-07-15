@@ -6,6 +6,18 @@
 
 Changed `:root { color-scheme: light dark; }` → `color-scheme: light;` and `.dark-scheme { color-scheme: dark; }` → `color-scheme: light;`. Matches nx1 (`nexter.css`) which pins `:root` to light, and da-live browse which forces both `.light-scheme` and `.dark-scheme` to `color-scheme: light` so the profile toggle can't override.
 
+## 2026-07-09
+
+### nx/blocks/tree/tree.js — migrate tree block to nx2
+
+Added `'tree'` to `NX_BLOCKS` in `nx2/scripts/nx.js` so the block always loads from `/nx/blocks`.
+
+Updated imports in `nx/blocks/tree/tree.js` to nx2 equivalents (block stays in place per migration convention):
+- `../../deps/lit/lit-core.min.js` → `da-lit` (importmap)
+- `../../scripts/nexter.js` → `../../../nx2/scripts/nx.js` (for `getConfig`)
+- `../../public/utils/tree.js` → `../../../nx2/public/utils/tree.js` (for `crawl`)
+- `../../utils/styles.js` (default `getStyle`) → `{ loadStyle }` from `../../../nx2/utils/utils.js`
+
 ## 2026-06-26
 
 ### nx2/blocks/chat/chat.js — skill selection preserves pending attachments (feat/da-skill-attachment-fix)
