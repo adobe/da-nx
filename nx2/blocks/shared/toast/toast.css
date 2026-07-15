@@ -1,7 +1,7 @@
 :host {
   display: block;
   box-sizing: border-box;
-  max-width: min(22rem, calc(100vw - 2 * var(--s2-spacing-300)));
+  max-width: min(var(--nx-toast-max-width, 22rem), calc(100vw - 2 * var(--s2-spacing-300)));
   margin: 0;
   padding: 0;
   border: 0;
@@ -30,6 +30,12 @@
     background: var(--s2-red-900);
     color: var(--s2-gray-25);
   }
+
+  &.toast-warning {
+    border-color: var(--s2-orange-800);
+    background: var(--s2-orange-700);
+    color: var(--s2-gray-25);
+  }
 }
 
 .text {
@@ -40,6 +46,19 @@
   line-height: var(--s2-component-m-medium-line-height, 1.4);
   overflow-wrap: anywhere;
   white-space: pre-line;
+}
+
+.cta {
+  flex-shrink: 0;
+  color: inherit;
+  font-size: var(--s2-component-m-medium-font-size, 14px);
+  font-weight: bold;
+  text-decoration: underline;
+  white-space: nowrap;
+
+  &:hover {
+    opacity: 0.85;
+  }
 }
 
 .close {
