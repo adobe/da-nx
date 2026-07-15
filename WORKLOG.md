@@ -1,5 +1,21 @@
 # Worklog
 
+## 2026-07-15
+
+### nx2 nav — editortoggle switch for opting into the new editor
+
+New `<nx-editortoggle>` block in `nx2/blocks/editortoggle/`, a `role="switch"` labelled "New editor" that sits in the nav-bar action area. Persists user opt-in to `localStorage['nx2:ew-user-enabled']` and mirrors the site-level `ew.enabled` flag for that browser.
+
+- **`nx2/utils/ewFlags.js`**: added `isEWUserEnabled()` / `setEWUserEnabled(bool)`; split site-only check into `isEWEnabledBySite`; `isEWEnabled({ org, site })` now short-circuits to `true` when the user override is on so `da-browse`'s existing call site picks it up with zero changes there. Kept `isEwChatDisabled` site-only on purpose.
+- **`nx2/blocks/editortoggle/`**: Lit element mounted via nav.js's plain-label pattern (same as `nx-feedback`). Subscribes to `hashChange` and re-checks `isEWEnabledBySite` per site — hides via `nothing` when the site flag is already on so the toggle isn't redundant.
+- **Toggle click**: sets localStorage, then if `location.pathname` is the "other" editor (`/edit` ↔ `/canvas`), sets `location.href` to swap paths while preserving `search` + `hash`; otherwise reloads so consumers re-read `isEWEnabled` from scratch (da-browse only re-fetches on org/site change).
+- **`nx2/blocks/nav/nav.js`**: TEMP force-injects `<li><nx-editortoggle></li>` at the start of the action `<ul>` if the fragment doesn't already include an `editortoggle` entry — so the switch is visible without a content change to the nav fragment. Marked `TEMP`; strip once the fragment carries its own `editortoggle` `<li>`.
+- **Tests**: `nx2/test/unit/nx/utils/ewFlags.test.js` — 3 tests covering default state, set/unset roundtrip, and the user-override short circuit in `isEWEnabled` (uses a bogus org/site to catch any accidental network call). All pass.
+
+**Verified in playwright** on `/edit#/hannessolo/da-playground/demo` (no site-level `ew.enabled`): toggle renders, click flips localStorage, URL swaps to `/canvas`, doc renders in canvas. On `/edit#/exp-workspace/frescopa/about-us` (`ew.enabled=true`): toggle correctly renders `nothing`.
+
+**Gotcha:** browser cached the module during iteration — first click ran the older "just reload" version even after Edit had saved. `nx=local` serves from `localhost:6456` and modules aren't versioned, so a hard reload is needed after each source change. Not a bug in the code, but easy to trip on.
+
 ## 2026-06-26
 
 ### nx2/blocks/chat/chat.js — skill selection preserves pending attachments (feat/da-skill-attachment-fix)
