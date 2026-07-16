@@ -1,10 +1,9 @@
 import { html, LitElement, nothing } from 'da-lit';
-import { loadStyle } from '../../scripts/nexter.js';
-import getStyle from '../../utils/styles.js';
+import { loadStyle } from '../../../nx2/utils/utils.js';
 import { getIsAllowed, processDetails, getStrings } from './utils.js';
 
 // Super Lite
-import '../../public/sl/components.js';
+import '../../../nx2/public/sl/components.js';
 
 // Sub-components
 import './views/new.js';
@@ -13,15 +12,20 @@ import './views/edit.js';
 import './views/login.js';
 import './views/dialog.js';
 import './views/actions.js';
-import '../profile/profile.js';
+import '../../../nx2/blocks/profile/profile.js';
 
 // NX Base
 const nx = `${new URL(import.meta.url).origin}/nx`;
 
 // Styles
-await loadStyle(`${nx}/public/sl/styles.css`);
-const sl = await getStyle(`${nx}/public/sl/styles.css`);
-const styles = await getStyle(import.meta.url);
+const sl = await loadStyle(`${nx}/public/sl/styles.css`);
+const styles = await loadStyle(import.meta.url);
+
+// SL CSS targets `:root`, which doesn't match inside a shadow tree. Adopt it on
+// document too so the --s2-* custom properties inherit into the shadow.
+if (!document.adoptedStyleSheets.includes(sl)) {
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, sl];
+}
 
 class NxExp extends LitElement {
   static properties = {

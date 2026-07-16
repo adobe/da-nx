@@ -12,9 +12,13 @@ import { makeDraggable, calcOrigin, calcUrl, getExpDetails } from './utils.js';
 const { searchParams, origin, pathname, hash } = new URL(window.location.href);
 const branch = searchParams.get('nx') || 'main';
 
+// nxver=2 forces da-live's iframe to boot in nx2 mode so its runtime
+// (initIms in particular) loads from /nx2 instead of /nx — same module as
+// this branch's exp block statically imports, so loadIms memoization is
+// shared and imslib bootstraps once.
 export const EXP_SRC = branch === 'main'
-  ? 'https://da.live/plugins/exp'
-  : `https://main--da-live--adobe.aem.live/plugins/exp?nx=${branch}`;
+  ? 'https://da.live/plugins/exp?nxver=2'
+  : `https://main--da-live--adobe.aem.live/plugins/exp?nx=${branch}&nxver=2`;
 
 const MAIN_SELECTOR = 'aem-sidekick-exp';
 

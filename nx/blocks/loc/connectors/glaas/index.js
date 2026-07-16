@@ -1,7 +1,7 @@
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import {
   checkSession, createTask, addAssets, updateStatus, getTask, downloadAsset,
-  prepareTargetPreview, getGlaasFilename,
+  prepareTargetPreview, getGlaasFilename, shouldLogGLaaSRequests,
 } from './api.js';
 import {
   createMultimodalTask,
@@ -10,7 +10,6 @@ import {
   getMultimodalV2TaskStatus,
   prepareMultimodalPageForSave,
   logMultimodalRequest,
-  shouldLogMultimodalRequests,
 } from './multimodalApi.js';
 import { getGlaasToken, connectToGlaas } from './auth.js';
 import { addDnt, removeDnt } from './dnt.js';
@@ -219,7 +218,7 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, s
     updateLangTask(task, task.langs);
     await saveState();
 
-    const logRequest = shouldLogMultimodalRequests() ? logMultimodalRequest : undefined;
+    const logRequest = shouldLogGLaaSRequests() ? logMultimodalRequest : undefined;
     logRequest?.('translate-all-send', {
       taskName: task.name,
       workflow: task.workflow,
@@ -588,7 +587,7 @@ export async function saveItems({
     throw new Error(`No matching tasks found for URLs: ${missingUrls.map((u) => u.suppliedPath).join(', ')}`);
   }
 
-  const logRequest = shouldLogMultimodalRequests() ? logMultimodalRequest : undefined;
+  const logRequest = shouldLogGLaaSRequests() ? logMultimodalRequest : undefined;
 
   const downloadCallback = async (url) => {
     const task = urlToTaskMap.get(url.suppliedPath);
