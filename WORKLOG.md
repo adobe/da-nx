@@ -1,5 +1,67 @@
 # Worklog
 
+## 2026-07-14
+
+### nx2/styles/styles.css — pin to light mode
+
+Changed `:root { color-scheme: light dark; }` → `color-scheme: light;` and `.dark-scheme { color-scheme: dark; }` → `color-scheme: light;`. Matches nx1 (`nexter.css`) which pins `:root` to light, and da-live browse which forces both `.light-scheme` and `.dark-scheme` to `color-scheme: light` so the profile toggle can't override.
+
+## 2026-07-09
+
+### nx/blocks/secure-org — migrate secure-org block to nx2
+
+Added `'secure-org'` to `NX_BLOCKS` in `nx2/scripts/nx.js`. Block stays in `nx/blocks/secure-org/` per migration convention.
+
+Import updates in `secure-org.js`:
+- Dropped `getConfig` from nexter.js; icon URLs built via `new URL('../../public/icons/...', import.meta.url).href` (icons live only in nx1)
+- `../../utils/ims.js` `loadIms` → `../../../nx2/utils/ims.js`
+- `../../utils/styles.js` default `getStyle` → `{ loadStyle }` from `../../../nx2/utils/utils.js`
+- `../../utils/svg.js` `getSvg` → default `loadIcons` from `../../../nx2/utils/svg.js`
+
+Import updates in `utils.js`:
+- `../../public/utils/constants.js` (DA_ORIGIN) → `../../../nx2/public/utils/constants.js`
+- `../../utils/daFetch.js` (daFetch) → `../../../nx2/utils/api.js`; call site updated from positional `daFetch(url, opts)` to destructured `daFetch({ url, opts })`
+
+CSS variables in `secure-org.css`:
+- `--grid-container-width` → `--se-grid-container-width` with nx1 fallback
+- `--spacing-800` → `--s2-spacing-800` with nx1 fallback
+
+Verified live at `/apps/sandbox?nx=local` — block renders correctly (nx-path input, orange warning alert with AlertDiamond icon), no console errors.
+
+### nx/blocks/bulk — migrate bulk operations block to nx2
+
+Added `'bulk'` to `NX_BLOCKS` in `nx2/scripts/nx.js`. Block stays in `nx/blocks/bulk/` per migration convention.
+
+Import updates in `bulk.js`:
+- `../../deps/lit/lit-core.min.js` → `da-lit`
+- Dropped `getConfig` from nexter.js; icon URL built via `new URL('../../img/icons/...', import.meta.url).href` (icon only exists in nx1)
+- `../../public/utils/tree.js` → `../../../nx2/public/utils/tree.js` (Queue)
+- `../../utils/svg.js` `getSvg` → `../../../nx2/utils/svg.js` default `loadIcons` (compatible `{ paths } → Promise<svg[]>` signature)
+- `../../utils/styles.js` default `getStyle` → `{ loadStyle }` from `../../../nx2/utils/utils.js`
+
+Import updates in `index.js`:
+- `../../public/utils/getExt.js` → `../../../nx2/public/utils/getExt.js`
+- `../../utils/daFetch.js` → `../../../nx2/utils/api.js`
+- `../../public/utils/constants.js` → `../../../nx2/public/utils/constants.js`
+- **API signature change:** nx2's `daFetch` uses destructured args, so `daFetch(url, opts)` → `daFetch({ url, opts })`
+
+CSS variables in `bulk.css` mapped to nx2-first-nx1-fallback:
+- `--grid-container-width` → `--se-grid-container-width`
+- `--spacing-*` → `--s2-spacing-*`
+- `--body-font-family` → `--s2-font-family`
+- `--s2-radius-100` → `--s2-corner-radius-500`
+- `--s2-font-size-600` (31px) → `--s2-heading-size-xl` (36px, closest available)
+
+### nx/blocks/tree/tree.js — migrate tree block to nx2
+
+Added `'tree'` to `NX_BLOCKS` in `nx2/scripts/nx.js` so the block always loads from `/nx/blocks`.
+
+Updated imports in `nx/blocks/tree/tree.js` to nx2 equivalents (block stays in place per migration convention):
+- `../../deps/lit/lit-core.min.js` → `da-lit` (importmap)
+- `../../scripts/nexter.js` → `../../../nx2/scripts/nx.js` (for `getConfig`)
+- `../../public/utils/tree.js` → `../../../nx2/public/utils/tree.js` (for `crawl`)
+- `../../utils/styles.js` (default `getStyle`) → `{ loadStyle }` from `../../../nx2/utils/utils.js`
+
 ## 2026-06-26
 
 ### nx2/blocks/chat/chat.js — skill selection preserves pending attachments (feat/da-skill-attachment-fix)
@@ -14,6 +76,38 @@ Post-review follow-up (fe049a9b):
 - Renamed loop variable `i` → `item` in `_onSlashSelect` callbacks
 - Added regression tests in `test/nx2/blocks/chat/chat.test.js` (8 tests, all pass)
 
+## 2026-06-25
+
+### exp block — fix IMS timeout, restore SL typography
+
+The iframe palette failed with `Error: IMS timeout` from `nx2/utils/ims.js` on `?nx=nx2-exp` URLs. Root cause: da-live's `/plugins/exp` page lacks a `<meta name="nxver">`, so the iframe boots in **nx1 mode** — `nxJS = '/scripts/nexter.js'`, `getNx()` returns `…/nx` (not `…/nx2`), and da-live's `initIms()` imports `nx/utils/ims.js`. But this branch's `nx/blocks/exp/exp.js` statically imports `nx2/blocks/profile/profile.js`, which statically imports `nx2/utils/ims.js`. Two `loadIms` modules in the same window, each with its own memoization, each tries to bootstrap imslib independently — first one wins; the second's `onReady` is never re-fired (imslib reads `window.adobeid` once at load time), and we time out.
+
+Fix in `nx/public/plugins/exp/exp.js`: append `&nxver=2` to the iframe `src`. da-live then boots the iframe in nx2 mode, loads `nx2/utils/ims.js` for `initIms`, and shares memoization with exp's statics. Single setup, single bootstrap. (Applied to both the `main` and branched URLs so the fix holds once the migration lands on main.)
+
+Other changes needed to support exp on nx2 profile:
+- `nx/blocks/exp/exp.js`: swapped `'../profile/profile.js'` → `'../../../nx2/blocks/profile/profile.js'` so exp shares the nx2 ims memoization with da-live's `initIms` (now also nx2 thanks to the `nxver=2` flip above).
+- `nx2/blocks/profile/profile.js`: `handleLoaded` now also dispatches `CustomEvent('loaded', { detail: this._ims, bubbles, composed })`, matching the nx1 contract that exp's `@loaded=${this.handleProfileLoad}` listens for.
+- `nx/blocks/exp/exp.js`: adopt the SL stylesheet on `document` as well as the shadow root. SL targets `:root`, which doesn't match inside a shadow tree, so without document adoption the `--s2-*` custom-property cascade was never set up and typography (e.g. the "Edit experiment" heading, the slider's `%` label) fell back to browser defaults. nx1 got this for free because the previous `loadStyle` had a document-level side effect; nx2's `loadStyle` returns a constructable sheet only.
+- `nx2/scripts/nx.js` `loc()`: `strings.get(key) ?? key` → `strings?.get(key) ?? key`. Latent bug — when `getConfig()` returns the `{ error }` stub (config not set yet), `strings` is undefined and the throw masked the design-intended `?? key` fallback.
+
+Things that looked load-bearing during investigation but weren't (all reverted once the iframe-mode mismatch was identified):
+- Short-circuit / "reuse existing `window.adobeIMS`" in `nx2/utils/ims.js` `setup()` — only needed when two `loadIms` modules race against the same imslib, which the `nxver=2` flip prevents.
+- `loginPopup` / `modalMode` plumbing in `loadIms`.
+- Async setup + per-call `resolveNxConfig()` re-read.
+- `IMS_TIMEOUT` bump to 15s.
+- Defensive `config.log` / `_ims` guards in `nx2/blocks/profile/profile.js`.
+
+### exp block — completed nx2 migration (importer pattern)
+
+Block stays under `nx/blocks/exp/`; all nx2 API imports use relative paths into `nx2/`.
+
+- `nx/blocks/exp/exp.js`: removed nx1 `loadStyle` (nexter.js) and `getStyle` (utils/styles.js); imports `loadStyle` from `nx2/utils/utils.js`; SL components updated to `nx2/public/sl/components.js`; dropped document-level `loadStyle` side effect (nx2 version returns constructable sheet directly).
+- `nx/blocks/exp/views/edit.js`: removed `getConfig` from nx1 `nexter.js` (returns `{ error }` in nx2 context since nx1 config is never initialized); replaced `nxBase` with `new URL(import.meta.url).origin + '/nx'` pattern; switched to nx2 `loadStyle`.
+- All other views (`actions`, `dialog`, `login`, `new`, `view`): `getStyle` (nx1) → `loadStyle` from `nx2/utils/utils.js`.
+
+Previously done (2026-06-24):
+- `nx2/scripts/nx.js`: added `'exp'` to `NX_BLOCKS`.
+- `nx/blocks/exp/utils.js`: `DA_ORIGIN` → `DA_ADMIN`, `AEM_ORIGIN` → `HLX_ADMIN`, `loadIms` → `nx2/utils/ims.js`.
 
 ## 2026-06-23
 

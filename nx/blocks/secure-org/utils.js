@@ -1,5 +1,5 @@
-import { DA_ORIGIN } from '../../public/utils/constants.js';
-import { daFetch } from '../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../../nx2/public/utils/constants.js';
+import { daFetch } from '../../../nx2/utils/api.js';
 
 const DEF_CONFIG = `{
     "data": {
@@ -39,7 +39,7 @@ async function fetchConfig(org, body) {
   let opts;
   if (body) opts = { method: 'POST', body };
 
-  return daFetch(`${DA_ORIGIN}/config/${org}/`, opts);
+  return daFetch({ url: `${DA_ORIGIN}/config/${org}/`, opts });
 }
 
 export async function loadConfig(org) {
