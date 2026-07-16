@@ -6,6 +6,7 @@ import {
   requestAemRole,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
+import { versions } from '../../utils/api.js';
 import { getConfig } from '../../scripts/nx.js';
 import '../shared/popover/popover.js';
 
@@ -72,6 +73,10 @@ class NXEwActions extends LitElement {
 
   get _prepareBtn() {
     return this.shadowRoot?.querySelector('.prepare-dropdown-btn');
+  }
+
+  get _prepareDetails() {
+    return buildPrepareDetails(this._hashState);
   }
 
   connectedCallback() {
@@ -173,7 +178,16 @@ class NXEwActions extends LitElement {
     this._hasError = false;
     const url = this._resolveOpenUrl(action, aemPath, result.url);
     window.open(url, url);
+    this._saveVersion(action);
     this._busy = false;
+  }
+
+  _saveVersion(action) {
+    const fullpath = this._prepareDetails?.fullpath;
+    if (!fullpath) return;
+    const comment = action === 'publish' ? 'Published' : 'Previewed';
+    // eslint-disable-next-line no-console
+    versions.create(fullpath, { comment }).catch(() => console.log(`Error creating auto version (${comment}).`));
   }
 
   // A page can override the EDS delivery URL with `preview-url` / `live-url`
@@ -232,7 +246,7 @@ class NXEwActions extends LitElement {
   render() {
     const hasDoc = Boolean(buildAemPathFromHashState(this._hashState));
     const disabled = !hasDoc || this._busy;
-    const prepareDetails = this._prepareReady ? buildPrepareDetails(this._hashState) : null;
+    const prepareDetails = this._prepareReady ? this._prepareDetails : null;
 
     return html`
       <div class="ew-actions">

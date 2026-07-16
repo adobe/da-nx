@@ -1,24 +1,16 @@
 :host {
   display: block;
-  max-width: var(--grid-container-width);
-  margin: var(--spacing-500) auto;
+  max-width: var(--se-grid-container-width, var(--grid-container-width));
+  margin: var(--s2-spacing-500, var(--spacing-500)) auto;
 }
 
 form {
   display: flex;
-  gap: var(--spacing-400);
+  gap: var(--s2-spacing-400, var(--spacing-400));
 }
 
-input {
-  font-family: var(--body-font-family);
+.da-input {
   flex: 1 1 auto;
-  display: block;
-  border: 2px solid var(--s2-gray-200);
-  border-radius: var(--s2-radius-100);
-  padding: 0 8px;
-  height: 32px;
-  margin: 0;
-  box-sizing: border-box;
 }
 
 .totals-header {
@@ -29,7 +21,7 @@ input {
 
 .da-list-actions {
   display: flex;
-  gap: var(--spacing-400);
+  gap: var(--s2-spacing-400, var(--spacing-400));
 }
 
 .da-list-actions button {
@@ -44,12 +36,12 @@ ul {
 
 li .details {
   background: var(--s2-gray-75);
-  border-radius: var(--s2-radius-100);
+  border-radius: var(--s2-corner-radius-100, var(--s2-radius-100));
   display: flex;
-  margin-bottom: var(--spacing-200);
+  margin-bottom: var(--s2-spacing-200, var(--spacing-200));
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--spacing-400);
+  padding: 0 var(--s2-spacing-400, var(--spacing-400));
 }
 
 li a {
