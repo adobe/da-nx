@@ -32,26 +32,33 @@ function handleReady(e, ctx) {
 }
 
 function onMessage(e, ctx) {
-  if (e.data.type === 'ready') {
+  // Prefer nested `payload` fields, falling back to the deprecated flat top-level
+  // ones — da-live currently sends both (see blocks/canvas/editor-utils/editor-utils.js
+  // and blocks/canvas/ew-editor-wysiwyg/utils/image.js).
+  const data = e.data?.payload ? { ...e.data, ...e.data.payload } : e.data;
+
+  if (data.type === 'ready') {
     handleReady(e, ctx);
-  } else if (e.data.type === 'set-body') {
-    setBody(e.data.body, ctx);
-  } else if (e.data.type === 'set-editor-state') {
-    const { editorState, cursorOffset } = e.data;
+  } else if (data.type === 'set-body') {
+    setBody(data.body, ctx);
+  } else if (data.type === 'set-editor-state') {
+    const { editorState, cursorOffset } = data;
     setEditorState(cursorOffset, editorState, ctx);
-  } else if (e.data.type === 'set-cursors') {
-    setCursors(e.data.cursors, ctx);
-  } else if (e.data.type === 'update-image-src') {
-    const { newSrc, originalSrc } = e.data;
+  } else if (data.type === 'set-cursors') {
+    setCursors(data.cursors, ctx);
+  } else if (data.type === 'update-image-src') {
+    const { newSrc, originalSrc } = data;
     updateImageSrc(originalSrc, newSrc);
-  } else if (e.data.type === 'image-error') {
-    handleImageError(e.data.error);
+  } else if (data.type === 'image-error') {
+    handleImageError(data.error);
   }
 }
 
 function setupParentController(loadPage) {
   const listener = (e) => {
-    if (e.source !== window.parent || e.data?.init == null || !e.ports?.length) return;
+    // @deprecated `init` presence check — prefer `type === 'init'` (da-live sends both).
+    const isInit = e.data?.type === 'init' || e.data?.init != null;
+    if (e.source !== window.parent || !isInit || !e.ports?.length) return;
 
     const port = e.ports[0];
     parentControllerPort = port;
@@ -62,7 +69,9 @@ function setupParentController(loadPage) {
       port,
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
-    port.postMessage({ ready: true });
+    // @deprecated flat `ready` — prefer `type: 'ready'` (added alongside for callers
+    // that already migrated their ack check).
+    port.postMessage({ ready: true, type: 'ready' });
 
     window.removeEventListener('message', listener);
   };

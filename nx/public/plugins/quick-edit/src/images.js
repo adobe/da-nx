@@ -6,6 +6,7 @@ export function setupContentEditableListeners(ctx) {
     ctx.port.postMessage({
       type: 'get-editor',
       cursorOffset: dataCursor,
+      payload: { cursorOffset: dataCursor },
     });
   });
 }
@@ -62,13 +63,19 @@ export function setupImageDropListeners(ctx, dom = document) {
         // Read and send the image to DA editor for upload
         const reader = new FileReader();
         reader.onload = () => {
+          const cursorOffset = dataCursor ? parseInt(dataCursor, 10) : null;
+          const imageData = reader.result;
+          const { name: fileName, type: mimeType } = file;
           ctx.port.postMessage({
             type: 'image-replace',
-            cursorOffset: dataCursor ? parseInt(dataCursor, 10) : null,
-            imageData: reader.result,
-            fileName: file.name,
-            mimeType: file.type,
+            cursorOffset,
+            imageData,
+            fileName,
+            mimeType,
             originalSrc,
+            payload: {
+              cursorOffset, imageData, fileName, mimeType, originalSrc,
+            },
           });
         };
         reader.onerror = () => {

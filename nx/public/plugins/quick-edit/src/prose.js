@@ -48,12 +48,16 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
 
   if (ctx.remoteUpdate) { return; }
 
+  // @deprecated flat fields alongside `type` — prefer nesting under `payload`
+  // (da-live's quick-edit-controller.js already prefers payload when present).
   if (numChanges > 0) {
     const editedEl = newState.doc.firstChild;
+    const node = editedEl.toJSON();
     ctx.port.postMessage({
       type: 'node-update',
-      node: editedEl.toJSON(),
+      node,
       cursorOffset: currentCursorOffset,
+      payload: { node, cursorOffset: currentCursorOffset },
     });
   }
 
@@ -62,18 +66,26 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
     const base = currentCursorOffset - 1;
     if (newSel.anchor !== newSel.head) {
       const coords = editorView.coordsAtPos(newSel.anchor);
+      const anchor = base + newSel.anchor;
+      const head = base + newSel.head;
+      const anchorX = coords.left;
+      const anchorY = coords.top;
       ctx.port.postMessage({
         type: 'selection-change',
-        anchor: base + newSel.anchor,
-        head: base + newSel.head,
-        anchorX: coords.left,
-        anchorY: coords.top,
+        anchor,
+        head,
+        anchorX,
+        anchorY,
+        payload: {
+          anchor, head, anchorX, anchorY,
+        },
       });
     } else {
       ctx.port.postMessage({
         type: 'cursor-move',
         cursorOffset: base,
         textCursorOffset: newSel.from,
+        payload: { cursorOffset: base, textCursorOffset: newSel.from },
       });
     }
   }
@@ -82,10 +94,8 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   // This lets the da-nx toolbar reflect mark toggles immediately without waiting
   // for the next character to be typed.
   if (!marksEqual(oldStoredMarks, newState.storedMarks)) {
-    ctx.port.postMessage({
-      type: 'stored-marks',
-      marks: newState.storedMarks ? newState.storedMarks.map((m) => m.toJSON()) : [],
-    });
+    const marks = newState.storedMarks ? newState.storedMarks.map((m) => m.toJSON()) : [];
+    ctx.port.postMessage({ type: 'stored-marks', marks, payload: { marks } });
   }
 
   // Update toolbar button states and position
@@ -115,12 +125,19 @@ function initScrollListener(win, ctx) {
       const offset = parseInt(editorParent.getAttribute('data-prose-index'), 10);
       const base = offset - 1;
       const coords = view.coordsAtPos(selection.anchor);
+      const anchor = base + selection.anchor;
+      const head = base + selection.head;
+      const anchorX = coords.left;
+      const anchorY = coords.top;
       scrollCtx.port.postMessage({
         type: 'selection-change',
-        anchor: base + selection.anchor,
-        head: base + selection.head,
-        anchorX: coords.left,
-        anchorY: coords.top,
+        anchor,
+        head,
+        anchorX,
+        anchorY,
+        payload: {
+          anchor, head, anchorX, anchorY,
+        },
       });
     });
   }, { passive: true });
