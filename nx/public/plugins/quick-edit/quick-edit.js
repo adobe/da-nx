@@ -2,6 +2,7 @@ import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc,
 import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
+import { MessageTypes } from './src/message-types.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
 
@@ -37,27 +38,35 @@ function onMessage(e, ctx) {
   // and blocks/canvas/ew-editor-wysiwyg/utils/image.js).
   const data = e.data?.payload ? { ...e.data, ...e.data.payload } : e.data;
 
-  if (data.type === 'ready') {
+  if (data.type === MessageTypes.READY) {
     handleReady(e, ctx);
-  } else if (data.type === 'set-body') {
+  } else if (data.type === MessageTypes.SET_BODY) {
     setBody(data.body, ctx);
-  } else if (data.type === 'set-editor-state') {
+  } else if (data.type === MessageTypes.SET_EDITOR_STATE) {
     const { editorState, cursorOffset } = data;
     setEditorState(cursorOffset, editorState, ctx);
-  } else if (data.type === 'set-cursors') {
+  } else if (data.type === MessageTypes.SET_CURSORS) {
     setCursors(data.cursors, ctx);
-  } else if (data.type === 'update-image-src') {
-    const { newSrc, originalSrc } = data;
-    updateImageSrc(originalSrc, newSrc);
-  } else if (data.type === 'image-error') {
-    handleImageError(data.error);
+  } else if (data.type === MessageTypes.UPDATE_IMAGE_SRC
+    || data.type === MessageTypes.IMAGE_ERROR) {
+    // Both are replies to the same image-replace request; `error` is only ever present
+    // (a truthy message) on the failure case, so its presence is the outcome signal —
+    // no separate flag needed. Once the two legacy type names are retired, this becomes
+    // a single `type === IMAGE_REPLACE` check with the same `if (data.error)` branch.
+    if (data.error) {
+      handleImageError(data.error);
+    } else {
+      const { newSrc, originalSrc } = data;
+      updateImageSrc(originalSrc, newSrc);
+    }
   }
 }
 
 function setupParentController(loadPage) {
   const listener = (e) => {
-    // @deprecated `init` presence check — prefer `type === 'init'` (da-live sends both).
-    const isInit = e.data?.type === 'init' || e.data?.init != null;
+    // @deprecated `init` presence check — prefer `type === MessageTypes.INIT` (da-live
+    // sends both).
+    const isInit = e.data?.type === MessageTypes.INIT || e.data?.[MessageTypes.INIT] != null;
     if (e.source !== window.parent || !isInit || !e.ports?.length) return;
 
     const port = e.ports[0];
@@ -69,9 +78,9 @@ function setupParentController(loadPage) {
       port,
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
-    // @deprecated flat `ready` — prefer `type: 'ready'` (added alongside for callers
-    // that already migrated their ack check).
-    port.postMessage({ ready: true, type: 'ready' });
+    // @deprecated flat `ready` — prefer `type: MessageTypes.READY` (added alongside for
+    // callers that already migrated their ack check).
+    port.postMessage({ [MessageTypes.READY]: true, type: MessageTypes.READY });
 
     window.removeEventListener('message', listener);
   };
@@ -95,7 +104,7 @@ function handleLoad(target, config, location, ctx) {
   const { port1, port2 } = CHANNEL;
   ctx.port = port1;
 
-  target.contentWindow.postMessage({ init: config, location }, '*', [port2]);
+  target.contentWindow.postMessage({ [MessageTypes.INIT]: config, location }, '*', [port2]);
   ctx.port.onmessage = (e) => onMessage(e, ctx);
 }
 

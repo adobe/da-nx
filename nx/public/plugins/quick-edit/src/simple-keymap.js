@@ -1,5 +1,6 @@
 /* eslint-disable import/prefer-default-export */
 import { Plugin } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
+import { MessageTypes } from './message-types.js';
 
 function handleListItem(view, event) {
   const { state, dispatch } = view;
@@ -148,7 +149,7 @@ function handleUndoRedo(view, event, port) {
       const action = event.shiftKey ? 'redo' : 'undo';
 
       port.postMessage({
-        type: 'history',
+        type: MessageTypes.HISTORY,
         action,
         payload: { action },
       });
@@ -165,7 +166,7 @@ function handleNewVersion(view, event, port) {
     event.preventDefault();
 
     port.postMessage({
-      type: 'new-version',
+      type: MessageTypes.NEW_VERSION,
     });
 
     return true;

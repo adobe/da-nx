@@ -1,10 +1,12 @@
+import { MessageTypes } from './message-types.js';
+
 export function setupContentEditableListeners(ctx) {
   const editableElements = document.querySelectorAll('[data-prose-index]');
   editableElements.forEach((element) => {
     const dataCursor = parseInt(element.getAttribute('data-prose-index'), 10);
 
     ctx.port.postMessage({
-      type: 'get-editor',
+      type: MessageTypes.GET_EDITOR,
       cursorOffset: dataCursor,
       payload: { cursorOffset: dataCursor },
     });
@@ -67,7 +69,7 @@ export function setupImageDropListeners(ctx, dom = document) {
           const imageData = reader.result;
           const { name: fileName, type: mimeType } = file;
           ctx.port.postMessage({
-            type: 'image-replace',
+            type: MessageTypes.IMAGE_REPLACE,
             cursorOffset,
             imageData,
             fileName,

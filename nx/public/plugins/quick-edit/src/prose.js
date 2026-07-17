@@ -13,6 +13,7 @@ import { createSimpleKeymap } from './simple-keymap.js';
 import { createImageWrapperPlugin } from './image-wrapper.js';
 import { setupImageDropListeners } from './images.js';
 import { setRemoteCursors } from './cursors.js';
+import { MessageTypes } from './message-types.js';
 
 function marksEqual(a, b) {
   if (!a && !b) return true;
@@ -54,7 +55,7 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
     const editedEl = newState.doc.firstChild;
     const node = editedEl.toJSON();
     ctx.port.postMessage({
-      type: 'node-update',
+      type: MessageTypes.NODE_UPDATE,
       node,
       cursorOffset: currentCursorOffset,
       payload: { node, cursorOffset: currentCursorOffset },
@@ -71,7 +72,7 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
       const anchorX = coords.left;
       const anchorY = coords.top;
       ctx.port.postMessage({
-        type: 'selection-change',
+        type: MessageTypes.SELECTION_CHANGE,
         anchor,
         head,
         anchorX,
@@ -82,7 +83,7 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
       });
     } else {
       ctx.port.postMessage({
-        type: 'cursor-move',
+        type: MessageTypes.CURSOR_MOVE,
         cursorOffset: base,
         textCursorOffset: newSel.from,
         payload: { cursorOffset: base, textCursorOffset: newSel.from },
@@ -95,7 +96,7 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   // for the next character to be typed.
   if (!marksEqual(oldStoredMarks, newState.storedMarks)) {
     const marks = newState.storedMarks ? newState.storedMarks.map((m) => m.toJSON()) : [];
-    ctx.port.postMessage({ type: 'stored-marks', marks, payload: { marks } });
+    ctx.port.postMessage({ type: MessageTypes.STORED_MARKS, marks, payload: { marks } });
   }
 
   // Update toolbar button states and position
@@ -130,7 +131,7 @@ function initScrollListener(win, ctx) {
       const anchorX = coords.left;
       const anchorY = coords.top;
       scrollCtx.port.postMessage({
-        type: 'selection-change',
+        type: MessageTypes.SELECTION_CHANGE,
         anchor,
         head,
         anchorX,
@@ -159,7 +160,7 @@ function blur(view, event, ctx) {
   hideToolbar(view);
   setCurrentEditorView(null);
   blurClearTimeout = setTimeout(() => {
-    ctx.port.postMessage({ type: 'cursor-move' });
+    ctx.port.postMessage({ type: MessageTypes.CURSOR_MOVE });
     blurClearTimeout = null;
   }, 150);
   return false; // Let other handlers run
@@ -187,7 +188,7 @@ function createEditor(cursorOffset, state, ctx) {
   const element = document.querySelector(`[data-prose-index="${cursorOffset}"]`);
 
   if (!element) {
-    ctx.port.postMessage({ type: 'reload' });
+    ctx.port.postMessage({ type: MessageTypes.RELOAD });
     return;
   }
 
