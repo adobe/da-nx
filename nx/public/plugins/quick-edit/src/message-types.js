@@ -1,4 +1,6 @@
 // Canonical postMessage `type` values for the quick-edit iframe <-> host boundary.
+// da-live imports this file directly via getNx1() (forces nx/, never nx2/) — coordinate
+// renames/moves with da-live's canvas quick-edit files.
 export const MessageTypes = Object.freeze({
   // Host <-> iframe: handshake
   INIT: 'init',
