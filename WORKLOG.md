@@ -14,6 +14,8 @@ New `<nx-editortoggle>` block in `nx2/blocks/editortoggle/`, a `role="switch"` l
 
 **Verified in playwright** on `/edit#/hannessolo/da-playground/demo` (no site-level `ew.enabled`): toggle renders, click flips localStorage, URL swaps to `/canvas`, doc renders in canvas. On `/edit#/exp-workspace/frescopa/about-us` (`ew.enabled=true`): toggle correctly renders `nothing`.
 
+Follow-up: scoped the toggle to editor routes only. `render()` early-returns `nothing` unless `location.pathname` is `/edit` or `/canvas` (new `EDITOR_PATHS` set at module scope), so the switch no longer bleeds into browse / other pages. One-shot check is fine since these routes are full page loads.
+
 **Gotcha:** browser cached the module during iteration — first click ran the older "just reload" version even after Edit had saved. `nx=local` serves from `localhost:6456` and modules aren't versioned, so a hard reload is needed after each source change. Not a bug in the code, but easy to trip on.
 
 ## 2026-06-26
