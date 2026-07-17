@@ -18,7 +18,11 @@ const style = await loadStyle(import.meta.url);
  * Hidden whenever `ew.enabled === 'true'` at the site level, since the toggle
  * would be redundant there. Site-level state is re-checked on every hash
  * change so switching between sites shows/hides the toggle correctly.
+ *
+ * Only rendered on the editor routes (`/edit` and `/canvas`) — nowhere else in
+ * the nav does swapping editors make sense.
  */
+const EDITOR_PATHS = new Set(['/edit', '/canvas']);
 class NxEditorToggle extends LitElement {
   static properties = {
     _siteEwEnabled: { state: true },
@@ -65,6 +69,7 @@ class NxEditorToggle extends LitElement {
   }
 
   render() {
+    if (!EDITOR_PATHS.has(window.location.pathname)) return nothing;
     if (this._siteEwEnabled) return nothing;
     return html`
       <button
