@@ -16,6 +16,8 @@ New `<nx-editortoggle>` block in `nx2/blocks/editortoggle/`, a `role="switch"` l
 
 Follow-up: scoped the toggle to editor routes only. `render()` early-returns `nothing` unless `location.pathname` is `/edit` or `/canvas` (new `EDITOR_PATHS` set at module scope), so the switch no longer bleeds into browse / other pages. One-shot check is fine since these routes are full page loads.
 
+Follow-up 2: on-mount pathname → persisted-flag sync. Landing directly on `/edit` or `/canvas` (bookmark, external link) is treated as an implicit choice, so `connectedCallback` reconciles `ew-user-enabled` to match the pathname (`/canvas` → true, `/edit` → false). Without this you could sit on `/edit` with the switch reading "on".
+
 **Gotcha:** browser cached the module during iteration — first click ran the older "just reload" version even after Edit had saved. `nx=local` serves from `localhost:6456` and modules aren't versioned, so a hard reload is needed after each source change. Not a bug in the code, but easy to trip on.
 
 ## 2026-06-26
