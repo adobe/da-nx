@@ -33,6 +33,14 @@ class NxEditorToggle extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this._userEnabled = isEWUserEnabled();
+    // Landing directly on /edit or /canvas (bookmark, external link, hand-typed
+    // URL) is an implicit choice — sync the persisted flag so the switch shows
+    // the editor you're actually looking at instead of the last-saved pref.
+    const desired = window.location.pathname === '/canvas';
+    if (EDITOR_PATHS.has(window.location.pathname) && this._userEnabled !== desired) {
+      this._userEnabled = desired;
+      setEWUserEnabled(desired);
+    }
     this._unsubHash = hashChange.subscribe((state) => this._onHashState(state));
   }
 
