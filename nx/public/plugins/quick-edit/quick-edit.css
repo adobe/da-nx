@@ -320,8 +320,7 @@ da-palette .da-palette-field {
   line-height: 1.4;
   border: 0;
   white-space: nowrap;
-  pointer-events: none;
-  appearance: none;
+  pointer-events: none; 
   z-index: 1;
 }
 
@@ -331,9 +330,9 @@ da-palette .da-palette-field {
 }
 
 .qe-pill-grip {
-  width: 10px;
+  width: 12px;
   height: 12px;
   flex-shrink: 0;
   background-color: currentcolor;
-  mask: url("https://da.live/img/icons/s2-icon-select-20-n.svg") no-repeat center / contain;
+  mask: url("/nx/img/icons/S2_Icon_Select_20_N.svg") no-repeat center / contain;
 }
