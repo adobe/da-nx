@@ -45,8 +45,9 @@ button {
   display: flex;
   transition: transform 0.125s ease-out;
   padding: var(--s2-spacing-75) 10px;
-  font-size: var(--s2-component-s-regular-font-size);
-  line-height: var(--s2-component-s-regular-line-height);
+  font-size: var(--s2-component-s-medium-font-size);
+  line-height: var(--s2-component-s-medium-line-height);
+  font-weight: var(--s2-component-s-medium-font-weight);
   border: none;
   cursor: pointer;
   border-radius: var(--s2-corner-radius-400);
@@ -76,7 +77,6 @@ button {
 }
 
 .nx-action-btn {
-  font-weight: normal;
   background: var(--s2-gray-200);
 
   &:hover:not(:disabled) {
