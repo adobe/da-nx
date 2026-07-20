@@ -103,3 +103,21 @@ describe('chat-controller _messagesForAgent', () => {
     expect(result).to.deep.equal([]); // no orphan tool-call emitted
   });
 });
+
+describe('chat-controller _pageContextForAgent', () => {
+  it('includes the browser IANA time zone alongside org/site/path/view', () => {
+    const controller = new ChatController({ onUpdate() {}, onToolDone() {} });
+    controller.setContext({ org: 'adobe', site: 'da-nx', path: '/foo', view: 'edit' });
+    const result = controller._pageContextForAgent();
+    expect(result.timeZone).to.equal(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    expect(result).to.deep.equal({
+      org: 'adobe', site: 'da-nx', path: '/foo', view: 'edit', timeZone: result.timeZone,
+    });
+  });
+
+  it('returns undefined when org/site are missing, same as before', () => {
+    const controller = new ChatController({ onUpdate() {}, onToolDone() {} });
+    controller.setContext({ path: '/foo' });
+    expect(controller._pageContextForAgent()).to.equal(undefined);
+  });
+});
