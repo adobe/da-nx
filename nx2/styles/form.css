@@ -40,8 +40,7 @@ input, button {
   }
 }
 
-.da-btn-primary, .nx-form-btn-primary,
-.da-btn-secondary, .nx-form-btn-secondary {
+.da-btn-primary, .da-btn-secondary {
   height: 32px;
   padding: 0 16px;
   border: none;
@@ -61,7 +60,7 @@ input, button {
   }
 }
 
-.da-btn-primary, .nx-form-btn-primary {
+.da-btn-primary {
   background: var(--s2-blue-900);
   color: light-dark(var(--s2-gray-25), #fff);
 
@@ -70,7 +69,7 @@ input, button {
   }
 }
 
-.da-btn-secondary, .nx-form-btn-secondary {
+.da-btn-secondary {
   background: var(--s2-gray-200);
   color: var(--s2-gray-800);
 

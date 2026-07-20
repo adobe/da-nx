@@ -22,8 +22,9 @@
   <header class="sg-header">
     <h1>DA Live Style Guide</h1>
     <p>
-      A living reference of reusable CSS patterns (<code>nx2/styles/form.css</code>) and
-      shared UI components (<code>nx2/blocks/shared/</code>). Each example is rendered live
+      A living reference of reusable CSS patterns (<code>nx2/styles/form.css</code>,
+      <code>nx2/styles/buttons.css</code>) and shared UI components (<code>nx2/blocks/shared/</code>).
+      Each example is rendered live
       from the real stylesheets/components, so it can't drift out of sync — copy the snippet
       shown under each one. Full API docs for each component live under
       <code>docs/</code> and are linked inline.
@@ -42,50 +43,61 @@
       <p>Source: <code>nx2/styles/buttons.css</code></p>
 
       <article class="sg-example">
-        <h3>Button</h3>
+        <h3>Buttons</h3>
         <div class="sg-demo">
-          <button type="button" class="nx-btn">Label</button>
-          <button type="button" class="nx-btn" disabled>Label</button>
+          <button class="nx-btn-primary">Primary</button>
+          <button class="nx-btn-secondary">Secondary</button>
+          <button class="nx-btn-primary" disabled>Disabled</button>
         </div>
-        <pre><code>&lt;button type="button" class="nx-btn"&gt;Label&lt;/button&gt;</code></pre>
+        <pre><code>&lt;button class="nx-btn-primary"&gt;Primary&lt;/button&gt;
+&lt;button class="nx-btn-secondary"&gt;Secondary&lt;/button&gt;</code></pre>
       </article>
 
       <article class="sg-example">
-        <h3>Button (quiet)</h3>
+        <h3>Action button (small)</h3>
         <div class="sg-demo">
-          <button type="button" class="nx-btn nx-btn-quiet">Label</button>
-          <button type="button" class="nx-btn nx-btn-quiet" disabled>Label</button>
+          <button type="button" class="nx-action-btn">Label</button>
+          <button type="button" class="nx-action-btn" disabled>Label</button>
         </div>
-        <pre><code>&lt;button type="button" class="nx-btn nx-btn-quiet"&gt;Label&lt;/button&gt;</code></pre>
+        <pre><code>&lt;button type="button" class="nx-action-btn"&gt;Label&lt;/button&gt;</code></pre>
       </article>
 
       <article class="sg-example">
-        <h3>Icon button</h3>
+        <h3>Action button quiet (small)</h3>
         <div class="sg-demo">
-          <button type="button" class="nx-icon-btn" aria-label="More actions">
+          <button type="button" class="nx-action-btn nx-action-btn-quiet">Label</button>
+          <button type="button" class="nx-action-btn nx-action-btn-quiet" disabled>Label</button>
+        </div>
+        <pre><code>&lt;button type="button" class="nx-action-btn nx-action-btn-quiet"&gt;Label&lt;/button&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>Action button icon only (small + quiet)</h3>
+        <div class="sg-demo">
+          <button type="button" class="nx-action-btn-icon" aria-label="More actions">
             <svg viewBox="0 0 20 20" aria-hidden="true">
               <use href="/nx2/public/style-guide/icons/selected.svg#icon"></use>
             </svg>
           </button>
-          <button type="button" class="nx-icon-btn is-active" aria-label="More actions">
+          <button type="button" class="nx-action-btn-icon is-active" aria-label="More actions">
             <svg viewBox="0 0 20 20" aria-hidden="true">
               <use href="/nx2/public/style-guide/icons/selected.svg#icon"></use>
             </svg>
           </button>
-          <button type="button" class="nx-icon-btn" disabled aria-label="More actions">
+          <button type="button" class="nx-action-btn-icon" disabled aria-label="More actions">
             <svg viewBox="0 0 20 20" aria-hidden="true">
               <use href="/nx2/public/style-guide/icons/selected.svg#icon"></use>
             </svg>
           </button>
         </div>
-        <pre><code>&lt;button type="button" class="nx-icon-btn" aria-label="More actions"&gt;
+        <pre><code>&lt;button type="button" class="nx-action-btn-icon" aria-label="More actions"&gt;
   &lt;svg viewBox="0 0 20 20" aria-hidden="true"&gt;
-    &lt;use href="${ICON_MORE}#icon"&gt;&lt;/use&gt;
+    &lt;use href="path_to_icon"&gt;&lt;/use&gt;
   &lt;/svg&gt;
 &lt;/button&gt;
 
 &lt;!-- toggled/selected state --&gt;
-&lt;button type="button" class="nx-icon-btn is-active" aria-label="More actions"&gt;...&lt;/button&gt;</code></pre>
+&lt;button type="button" class="nx-action-btn-icon is-active" aria-label="More actions"&gt;...&lt;/button&gt;</code></pre>
       </article>
     </section>
 
@@ -135,17 +147,6 @@
 &lt;!-- --nx-checkbox-size overrides the checkbox's width/height (default 14px) --&gt;
 &lt;label class="nx-checkbox" style="--nx-checkbox-size: 20px;"&gt;&lt;input type="checkbox" checked/&gt; Large&lt;/label&gt;</code></pre>
       </article>
-
-      <article class="sg-example">
-        <h3>Buttons</h3>
-        <div class="sg-demo">
-          <button class="nx-form-btn-primary">Primary</button>
-          <button class="nx-form-btn-secondary">Secondary</button>
-          <button class="nx-form-btn-primary" disabled>Disabled</button>
-        </div>
-        <pre><code>&lt;button class="nx-form-btn-primary"&gt;Primary&lt;/button&gt;
-&lt;button class="nx-form-btn-secondary"&gt;Secondary&lt;/button&gt;</code></pre>
-      </article>
     </section>
 
     <section id="shared-blocks" class="sg-section">
@@ -156,7 +157,7 @@
         <h3>nx-menu <a href="/docs/menu.md">docs →</a></h3>
         <div class="sg-demo">
           <nx-menu id="demo-menu" placement="below">
-            <button slot="trigger" class="nx-form-btn-secondary" aria-label="Options">Options</button>
+            <button slot="trigger" class="nx-btn-secondary" aria-label="Options">Options</button>
           </nx-menu>
         </div>
         <pre><code>&lt;nx-menu id="my-menu"&gt;
@@ -173,19 +174,19 @@ menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));</code></pre
       <article class="sg-example">
         <h3>nx-dialog <a href="/docs/dialog.md">docs →</a></h3>
         <div class="sg-demo" id="demo-dialog-container">
-          <button class="nx-form-btn-secondary" id="demo-dialog-open">Open dialog</button>
+          <button class="nx-btn-secondary" id="demo-dialog-open">Open dialog</button>
         </div>
         <pre><code>&lt;nx-dialog title="Delete item" @close=${onClose}&gt;
   &lt;p&gt;This action cannot be undone.&lt;/p&gt;
-  &lt;button slot="actions" class="nx-form-btn-secondary"&gt;Cancel&lt;/button&gt;
-  &lt;button slot="actions" class="nx-form-btn-primary"&gt;Delete&lt;/button&gt;
+  &lt;button slot="actions" class="nx-btn-secondary"&gt;Cancel&lt;/button&gt;
+  &lt;button slot="actions" class="nx-btn-primary"&gt;Delete&lt;/button&gt;
 &lt;/nx-dialog&gt;</code></pre>
       </article>
 
       <article class="sg-example">
         <h3>nx-popover <a href="/docs/popover.md">docs →</a></h3>
         <div class="sg-demo" id="demo-popover-container">
-          <button class="nx-form-btn-secondary" id="demo-popover-trigger">Show popover</button>
+          <button class="nx-btn-secondary" id="demo-popover-trigger">Show popover</button>
         </div>
         <pre><code>const popover = document.createElement('nx-popover');
 container.append(popover);
@@ -226,8 +227,8 @@ toggle.value = 'sitemap';</code></pre>
       <article class="sg-example">
         <h3>showToast <a href="/docs/toast.md">docs →</a></h3>
         <div class="sg-demo">
-          <button class="nx-form-btn-secondary" id="demo-toast-trigger">Show toast</button>
-          <button class="nx-form-btn-secondary" id="demo-toast-warning-trigger">Show warning + CTA</button>
+          <button class="nx-btn-secondary" id="demo-toast-trigger">Show toast</button>
+          <button class="nx-btn-secondary" id="demo-toast-warning-trigger">Show warning + CTA</button>
         </div>
         <pre><code>import { showToast, VARIANT_WARNING } from '/nx2/blocks/shared/toast/toast.js';
 
@@ -282,8 +283,8 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
       dialog.setAttribute('title', 'Delete item');
       dialog.innerHTML = `
           <p>This action cannot be undone.</p>
-          <button slot="actions" class="nx-form-btn-secondary" id="demo-dialog-cancel">Cancel</button>
-          <button slot="actions" class="nx-form-btn-primary" id="demo-dialog-confirm">Delete</button>
+          <button slot="actions" class="nx-btn-secondary" id="demo-dialog-cancel">Cancel</button>
+          <button slot="actions" class="nx-btn-primary" id="demo-dialog-confirm">Delete</button>
         `;
       dialog.addEventListener('close', () => dialog.remove());
       dialog.querySelector('#demo-dialog-cancel').addEventListener('click', () => dialog.close());
