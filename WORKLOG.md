@@ -40,6 +40,16 @@ Two follow-ups on the `editortoggle` branch.
 
 **Not verified in-app yet** — styling iterated from user screenshots; worth an eyeball on `/canvas`.
 
+Follow-ups: welcome modal title dropped (`welcome-dialog.js`) since the fragment carries its own heading — `nx-dialog` falls back to `aria-label="Dialog"`.
+
+### editortoggle — switch-back feedback prompt
+
+Reverse of the welcome guide: first time a user turns EW *off* and lands back on `/edit`, ask why. Feedback forms here are code (see `feedback-dialog.js`), not fragments — only the feedback *menu* uses a fragment — so this is a dedicated coded dialog, no content fragment.
+- **`ewFlags.js`**: `armEwSwitchbackFeedback()` / `isEwSwitchbackPending()` / `consumeEwSwitchback()` over `nx2:ew-switchback-pending` + `nx2:ew-switchback-seen`, same first-time/armed-at-toggle pattern as the welcome flags.
+- **`editortoggle.js`**: `_toggle()` arms welcome on turn-on, switch-back feedback on turn-off (`else`). `_maybeShowSwitchback()` shows it once on `/edit`, toolbar-instance-only (same double-fire guard as welcome).
+- **`switchback-dialog.js` (+ css)**: `nx-ew-switchback-dialog`, single free-text box, Skip + Submit (dismissable — consumed on open). POSTs to `DA_FEEDBACK` with `category: 'Editor switch-back'` to keep responses filterable.
+- **Tests**: 4 new cases in `ewFlags.test.js` for the switch-back flags.
+
 ## 2026-06-26
 
 ### nx2/blocks/chat/chat.js — skill selection preserves pending attachments (feat/da-skill-attachment-fix)
