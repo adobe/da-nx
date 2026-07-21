@@ -90,7 +90,7 @@ function isAtomicInline(el) {
   return ATOMIC_TAGS.has(el.tagName.toLowerCase());
 }
 
-function walkProsePositions(root, startPos, callbacks) {
+export function walkProsePositions(root, startPos, callbacks) {
   let pos = startPos;
 
   function walk(node) {
