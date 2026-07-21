@@ -2,7 +2,7 @@ import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc,
 import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
-import { MessageTypes } from '../../../utils/message-types.js';
+import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 import { restoreBlockIndices } from './src/dom-index.js';
 import {
   setupNodeSelection,
@@ -47,17 +47,17 @@ function onMessage(e, ctx) {
   // and blocks/canvas/ew-editor-wysiwyg/utils/image.js).
   const data = e.data?.payload ? { ...e.data, ...e.data.payload } : e.data;
 
-  if (data.type === MessageTypes.READY) {
+  if (data.type === MESSAGE_TYPES.READY) {
     handleReady(e, ctx);
-  } else if (data.type === MessageTypes.SET_BODY) {
+  } else if (data.type === MESSAGE_TYPES.SET_BODY) {
     setBody(data.body, ctx);
-  } else if (data.type === MessageTypes.SET_EDITOR_STATE) {
+  } else if (data.type === MESSAGE_TYPES.SET_EDITOR_STATE) {
     const { editorState, cursorOffset } = data;
     setEditorState(cursorOffset, editorState, ctx);
-  } else if (data.type === MessageTypes.SET_CURSORS) {
+  } else if (data.type === MESSAGE_TYPES.SET_CURSORS) {
     setCursors(data.cursors, ctx);
-  } else if (data.type === MessageTypes.UPDATE_IMAGE_SRC
-    || data.type === MessageTypes.IMAGE_ERROR) {
+  } else if (data.type === MESSAGE_TYPES.UPDATE_IMAGE_SRC
+    || data.type === MESSAGE_TYPES.IMAGE_ERROR) {
     // Both are replies to the same image-replace request; `error` is only ever present
     // (a truthy message) on the failure case, so its presence is the outcome signal —
     // no separate flag needed. Once the two legacy type names are retired, this becomes
@@ -68,16 +68,16 @@ function onMessage(e, ctx) {
       const { newSrc, originalSrc } = data;
       updateImageSrc(originalSrc, newSrc);
     }
-  } else if (data.type === MessageTypes.SET_SELECTED_NODE) {
+  } else if (data.type === MESSAGE_TYPES.SET_SELECTED_NODE) {
     setSelectedNode(data.node, document, { scrollIntoView: data.scrollIntoView });
   }
 }
 
 function setupParentController(loadPage) {
   const listener = (e) => {
-    // @deprecated `init` presence check — prefer `type === MessageTypes.INIT` (da-live
+    // @deprecated `init` presence check — prefer `type === MESSAGE_TYPES.INIT` (da-live
     // sends both).
-    const isInit = e.data?.type === MessageTypes.INIT || e.data?.[MessageTypes.INIT] != null;
+    const isInit = e.data?.type === MESSAGE_TYPES.INIT || e.data?.[MESSAGE_TYPES.INIT] != null;
     if (e.source !== window.parent || !isInit || !e.ports?.length) return;
 
     const port = e.ports[0];
@@ -89,9 +89,9 @@ function setupParentController(loadPage) {
       port,
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
-    // @deprecated flat `ready` — prefer `type: MessageTypes.READY` (added alongside for
+    // @deprecated flat `ready` — prefer `type: MESSAGE_TYPES.READY` (added alongside for
     // callers that already migrated their ack check).
-    port.postMessage({ [MessageTypes.READY]: true, type: MessageTypes.READY });
+    port.postMessage({ [MESSAGE_TYPES.READY]: true, type: MESSAGE_TYPES.READY });
 
     window.removeEventListener('message', listener);
   };
@@ -118,7 +118,7 @@ function handleLoad(target, config, location, ctx) {
   // @deprecated flat `init`/`location` — prefer `type`/`payload` (added alongside for
   // callers that already migrated their INIT check).
   target.contentWindow.postMessage({
-    [MessageTypes.INIT]: config, location, type: MessageTypes.INIT, payload: { config, location },
+    [MESSAGE_TYPES.INIT]: config, location, type: MESSAGE_TYPES.INIT, payload: { config, location },
   }, '*', [port2]);
   ctx.port.onmessage = (e) => onMessage(e, ctx);
 }

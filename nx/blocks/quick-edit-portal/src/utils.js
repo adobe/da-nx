@@ -1,5 +1,5 @@
 import { handleSignIn, loadIms } from '../../../utils/ims.js';
-import { MessageTypes } from '../../../utils/message-types.js';
+import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 
 const DA_LIVE_PREVIEW_ENVS = {
   local: 'localhost:8000',
@@ -280,9 +280,9 @@ export async function handlePreview(ctx) {
     console.error('Failed to preview:', resp.statusText);
     const error = `Failed to preview: ${resp.statusText}`;
     ctx.port.postMessage({
-      type: MessageTypes.PREVIEW, ok: false, error, payload: { ok: false, error },
+      type: MESSAGE_TYPES.PREVIEW, ok: false, error, payload: { ok: false, error },
     });
   } else {
-    ctx.port.postMessage({ type: MessageTypes.PREVIEW, ok: true, payload: { ok: true } });
+    ctx.port.postMessage({ type: MESSAGE_TYPES.PREVIEW, ok: true, payload: { ok: true } });
   }
 }

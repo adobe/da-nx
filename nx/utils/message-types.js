@@ -4,7 +4,7 @@
 // nx/, never nx2/) — coordinate renames/moves with that file.
 // Payload shape is documented per-key below; see docs/quick-edit-events.md for narrative
 // context (why a message exists, which host implementations wire it up).
-export const MessageTypes = Object.freeze({
+export const MESSAGE_TYPES = Object.freeze({
   // Host <-> iframe: handshake
   INIT: 'init', // { config: { mountpoint }, location: { pathname } }
   READY: 'ready', // no payload

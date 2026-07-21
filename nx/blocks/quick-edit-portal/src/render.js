@@ -1,6 +1,6 @@
 import { TextSelection, yUndo, yRedo } from 'da-y-wrapper';
 import { getInstrumentedHTML, extractCursors } from './prose2aem.js';
-import { MessageTypes } from '../../../utils/message-types.js';
+import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 
 export function updateDocument(ctx) {
   // Skip rerender if suppressed (e.g., during image updates)
@@ -8,13 +8,13 @@ export function updateDocument(ctx) {
   const body = getInstrumentedHTML(window.view);
   // @deprecated top-level `body` — prefer payload.body (kept so the quick-edit iframe
   // script in da-nx keeps working until it migrates).
-  ctx.port.postMessage({ type: MessageTypes.SET_BODY, body, payload: { body } });
+  ctx.port.postMessage({ type: MESSAGE_TYPES.SET_BODY, body, payload: { body } });
 }
 
 export function updateCursors(ctx) {
   const cursors = extractCursors(window.view);
   // @deprecated top-level `cursors` — prefer payload.cursors.
-  ctx.port.postMessage({ type: MessageTypes.SET_CURSORS, cursors, payload: { cursors } });
+  ctx.port.postMessage({ type: MESSAGE_TYPES.SET_CURSORS, cursors, payload: { cursors } });
 }
 
 export function updateState(data, ctx) {
@@ -50,7 +50,7 @@ export function getEditor(data, ctx) {
   const newCursorOffset = before + 1;
   // @deprecated top-level editorState/cursorOffset — prefer payload.editorState/cursorOffset.
   ctx.port.postMessage({
-    type: MessageTypes.SET_EDITOR_STATE,
+    type: MESSAGE_TYPES.SET_EDITOR_STATE,
     editorState,
     cursorOffset: newCursorOffset,
     payload: { editorState, cursorOffset: newCursorOffset },

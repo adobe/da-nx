@@ -1,7 +1,7 @@
 /* eslint-disable import/prefer-default-export */
 import { daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
-import { MessageTypes } from '../../../utils/message-types.js';
+import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 
 function updateImageInDocument(originalSrc, newSrc) {
   if (!window.view) return false;
@@ -92,7 +92,7 @@ export async function handleImageReplace({ imageData, fileName, originalSrc }, c
     if (!resp.ok) {
       const error = `Upload failed with status ${resp.status}`;
       ctx.port.postMessage({
-        type: MessageTypes.IMAGE_ERROR, error, originalSrc, payload: { error, originalSrc },
+        type: MESSAGE_TYPES.IMAGE_ERROR, error, originalSrc, payload: { error, originalSrc },
       });
       return;
     }
@@ -105,13 +105,13 @@ export async function handleImageReplace({ imageData, fileName, originalSrc }, c
 
     // Send back the new URL to update the quick-edit view
     ctx.port.postMessage({
-      type: MessageTypes.UPDATE_IMAGE_SRC, newSrc, originalSrc, payload: { newSrc, originalSrc },
+      type: MESSAGE_TYPES.UPDATE_IMAGE_SRC, newSrc, originalSrc, payload: { newSrc, originalSrc },
     });
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Error replacing image:', error);
     ctx.port.postMessage({
-      type: MessageTypes.IMAGE_ERROR,
+      type: MESSAGE_TYPES.IMAGE_ERROR,
       error: error.message,
       originalSrc,
       payload: { error: error.message, originalSrc },

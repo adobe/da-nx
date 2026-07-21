@@ -1,4 +1,4 @@
-import { MessageTypes } from '../../../../utils/message-types.js';
+import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
 export function setupContentEditableListeners(ctx) {
   const editableElements = document.querySelectorAll('[data-prose-index]');
@@ -6,7 +6,7 @@ export function setupContentEditableListeners(ctx) {
     const dataCursor = parseInt(element.getAttribute('data-prose-index'), 10);
 
     ctx.port.postMessage({
-      type: MessageTypes.GET_EDITOR,
+      type: MESSAGE_TYPES.GET_EDITOR,
       cursorOffset: dataCursor,
       payload: { cursorOffset: dataCursor },
     });
@@ -69,7 +69,7 @@ export function setupImageDropListeners(ctx, dom = document) {
           const imageData = reader.result;
           const { name: fileName, type: mimeType } = file;
           ctx.port.postMessage({
-            type: MessageTypes.IMAGE_REPLACE,
+            type: MESSAGE_TYPES.IMAGE_REPLACE,
             cursorOffset,
             imageData,
             fileName,

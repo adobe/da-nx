@@ -1,4 +1,4 @@
-import { MessageTypes } from '../../../../utils/message-types.js';
+import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
 function removeQuickEditParam() {
   const url = new URL(window.location.href);
@@ -32,10 +32,10 @@ export function pollConnection(ctx, action) {
 }
 
 async function handlePreview(ctx) {
-  ctx.port.postMessage({ type: MessageTypes.PREVIEW });
+  ctx.port.postMessage({ type: MESSAGE_TYPES.PREVIEW });
   await new Promise((resolve) => {
     const previewListener = (e) => {
-      if (e.data.type === MessageTypes.PREVIEW) {
+      if (e.data.type === MESSAGE_TYPES.PREVIEW) {
         ctx.port.removeEventListener('message', previewListener);
         if (e.data.ok) {
           removeQuickEditParam();
