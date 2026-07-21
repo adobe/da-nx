@@ -163,6 +163,30 @@ class NXEwActions extends LitElement {
     this._dialog = undefined;
     this._busy = true;
 
+    // Flush pending collab updates to da-admin before AEM reads it,
+    // otherwise the last ~2s of edits (held in da-collab's debounce) are missed.
+    const editorDoc = document.querySelector('ew-editor-doc');
+    if (editorDoc?.forceSave) {
+      const flushResult = await editorDoc.forceSave();
+      if (!flushResult?.ok) {
+        await Promise.all([
+          import('../shared/dialog/dialog.js'),
+          import(`${NX_BASE}/public/sl/components.js`),
+        ]);
+        this._busy = false;
+        this._hasError = true;
+        this._dialog = {
+          phase: 'error',
+          error: {
+            action,
+            type: 'error',
+            message: flushResult?.error || 'Unable to confirm save. Please retry or reload the editor.',
+          },
+        };
+        return;
+      }
+    }
+
     const result = await runAemPreviewOrPublish({ aemPath, action });
     if (!result.ok) {
       await Promise.all([
