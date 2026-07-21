@@ -64,7 +64,7 @@ parallel one. If you do add a new key:
 | `HISTORY` | iframe → host | both hosts |
 | `NEW_VERSION` | iframe → host | da-live only |
 | `SELECTION_CHANGE` | iframe → host | da-live only |
-| `STORED_MARKS` | iframe → host | **no live receiver** — see Known gaps |
+| `STORED_MARKS` | iframe → host | da-live only |
 | `PREVIEW` | iframe ↔ host (request/reply) | standalone (quick-edit-portal) only |
 | `IMAGE_REPLACE` | iframe → host | both hosts |
 | `UPDATE_IMAGE_SRC` | Host → iframe, @deprecated reply | both hosts |
@@ -97,6 +97,16 @@ Keeps da-live's selection-driven toolbar in sync with text selections made insid
 quick-edit iframe (as opposed to `NODE_SELECT`, which is for whole-node/block
 selection). Only consumed by da-live; the standalone host has no toolbar to sync.
 
+### `STORED_MARKS`
+
+Keeps the host's toolbar in sync when the user toggles a mark (e.g. Cmd+B) at a
+collapsed cursor with no adjacent marked text to infer from. `CURSOR_MOVE`'s own
+`marksBefore`/`marksAfter` heuristic (see `handleCursorMove` in da-live's
+`utils/handlers.js`) only runs when the selection's anchor/head actually changes —
+toggling a mark on a collapsed cursor doesn't move the selection, so that heuristic
+never fires and `STORED_MARKS` is the only signal the toggle happened. Only consumed
+by da-live; the standalone host has no toolbar to sync.
+
 ### `PREVIEW`
 
 Request/reply pair scoped entirely to the standalone flow: the "Preview" action inside
@@ -115,10 +125,6 @@ bidirectional. Both hosts implement the full round-trip.
 
 ## Known gaps
 
-- **`STORED_MARKS` has no live receiver.** It's sent by the iframe (`prose.js`) when
-  stored marks change (e.g. toggling Bold before typing), but neither host handles it —
-  da-live has a `handleStoredMarks` function (`utils/handlers.js`) that would apply it,
-  but it's never wired into `quick-edit-controller.js`'s `onMessage` switch.
 - **Several payload fields are sent but not read by any current receiver:**
   `SELECTION_CHANGE.anchorX`/`anchorY`, `IMAGE_REPLACE.cursorOffset`/`mimeType`,
   `IMAGE_ERROR.originalSrc`. Not necessarily bugs — may be intended for a future
