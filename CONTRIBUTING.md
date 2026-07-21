@@ -49,6 +49,10 @@ We enforce a coding styleguide using `eslint`. As part of your build, run `npm r
 
 You can fix some of the issues automatically by running `npx eslint . --fix`.
 
+## UI Style Guide
+
+Before building a new UI pattern, check the [style guide](https://main--da-nx--adobe.aem.live/nx2/public/style-guide/style-guide.html) (or `nx2/public/style-guide/style-guide.html` if running locally) for reusable CSS classes (`nx2/styles/`) and shared components (`nx2/blocks/shared/`) you can use instead of building your own. If you add or change a shared class or component, update the style guide (and its `docs/*.md`, if one exists) in the same PR — see `AGENTS.md` for details.
+
 ## Commit Message Format
 
 This project uses a structured commit changelog format that should be used for every commit. Use `npm run commit` instead of your usual `git commit` to generate commit messages using a wizard.
