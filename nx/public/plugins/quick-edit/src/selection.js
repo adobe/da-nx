@@ -2,7 +2,7 @@ import {
   findBlock, findImageAtProseIndex, pictureSrc, srcPathsMatch, OVERLAY_SELECTOR,
 } from './dom-index.js';
 import { parseIndex, positionBox } from './utils.js';
-import { MessageTypes } from './message-types.js';
+import { MessageTypes } from '../../../../utils/message-types.js';
 
 export function blockName(el) {
   return el?.classList?.[0] || '';

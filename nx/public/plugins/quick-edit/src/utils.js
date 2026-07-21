@@ -1,4 +1,4 @@
-import { MessageTypes } from './message-types.js';
+import { MessageTypes } from '../../../../utils/message-types.js';
 
 function removeQuickEditParam() {
   const url = new URL(window.location.href);

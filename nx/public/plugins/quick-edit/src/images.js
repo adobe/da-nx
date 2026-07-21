@@ -1,4 +1,4 @@
-import { MessageTypes } from './message-types.js';
+import { MessageTypes } from '../../../../utils/message-types.js';
 
 export function setupContentEditableListeners(ctx) {
   const editableElements = document.querySelectorAll('[data-prose-index]');

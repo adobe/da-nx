@@ -55,6 +55,11 @@ A shell/framework for Adobe AEM Edge Delivery Services. Provides shared blocks, 
 - Before implementing a utility, parser, or helper, check whether an equivalent already exists in the codebase — search both `nx/` and `nx2/`. Common examples: markdown parsing (`nx/deps/mdast`), IMS auth (`nx2/utils/ims.js`), hash routing (`nx2/utils/utils.js`).
 - Also check `package.json` dependencies before reaching for a third-party package. The project already bundles remark, unified, mdast utilities, Lit, CodeMirror, and others that can be reused rather than re-implemented.
 
+## Quick-edit message protocol
+
+- The canonical list of postMessage `type` values for the quick-edit iframe boundary lives in `nx/utils/message-types.js`, with each key's payload shape documented as an inline comment there — that file is the single source of truth for names and shapes, so it doesn't drift from a separate doc.
+- When adding a **new** message type (not just a payload tweak to an existing one), also add a short entry to `docs/quick-edit-events.md` explaining what it's for and which host(s) (da-nx's standalone `quick-edit-portal.js`, or da-live's embedded `?controller=parent` flow) actually consume it. The doc exists because the type name alone doesn't convey that context across two repos — keep entries to the "why," not a restatement of the payload.
+
 ## JavaScript conventions not enforced by lint
 
 - As a project purposefully avoiding TypeScript and build tools, be mindful of how variables and properties are named. If you see `somethingUrl`, this should be a proper URL object. If you see `href` this would imply a string that has all parts of a url: origin, pathname, search, hash, etc. but is not an actual URL object.

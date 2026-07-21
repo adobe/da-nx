@@ -2,7 +2,7 @@ import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc,
 import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
-import { MessageTypes } from './src/message-types.js';
+import { MessageTypes } from '../../../utils/message-types.js';
 import { restoreBlockIndices } from './src/dom-index.js';
 import {
   setupNodeSelection,
@@ -115,7 +115,11 @@ function handleLoad(target, config, location, ctx) {
   const { port1, port2 } = CHANNEL;
   ctx.port = port1;
 
-  target.contentWindow.postMessage({ [MessageTypes.INIT]: config, location }, '*', [port2]);
+  // @deprecated flat `init`/`location` — prefer `type`/`payload` (added alongside for
+  // callers that already migrated their INIT check).
+  target.contentWindow.postMessage({
+    [MessageTypes.INIT]: config, location, type: MessageTypes.INIT, payload: { config, location },
+  }, '*', [port2]);
   ctx.port.onmessage = (e) => onMessage(e, ctx);
 }
 

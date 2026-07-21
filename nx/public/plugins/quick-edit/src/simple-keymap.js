@@ -1,6 +1,6 @@
 /* eslint-disable import/prefer-default-export */
 import { Plugin } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
-import { MessageTypes } from './message-types.js';
+import { MessageTypes } from '../../../../utils/message-types.js';
 
 function handleListItem(view, event) {
   const { state, dispatch } = view;

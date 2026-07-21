@@ -13,7 +13,7 @@ import { createSimpleKeymap } from './simple-keymap.js';
 import { createImageWrapperPlugin } from './image-wrapper.js';
 import { setupImageDropListeners } from './images.js';
 import { setRemoteCursors } from './cursors.js';
-import { MessageTypes } from './message-types.js';
+import { MessageTypes } from '../../../../utils/message-types.js';
 
 function marksEqual(a, b) {
   if (!a && !b) return true;
