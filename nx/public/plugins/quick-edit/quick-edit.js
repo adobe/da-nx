@@ -13,6 +13,12 @@ import {
   relayControllerMessage,
 } from './src/standalone.js';
 import {
+  setCommentMarkers,
+  applyCommentMarkers,
+  setupCommentShortcut,
+  scrollToProseIndex,
+} from './src/comments.js';
+import {
   setupNodeSelection,
   setSelectedNode,
   getSelectedNode,
@@ -38,6 +44,7 @@ async function setBody(body, ctx) {
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage(document);
   restoreBlockIndices(doc, document);
+  applyCommentMarkers(ctx);
   setupNodeSelection(ctx);
   setSelectedNode(getSelectedNode());
   setupContentEditableListeners(ctx);
@@ -73,6 +80,10 @@ function onMessage(e, ctx) {
       const { newSrc, originalSrc } = payload;
       updateImageSrc(originalSrc, newSrc);
     }
+  } else if (type === MESSAGE_TYPES.SET_COMMENT_MARKERS) {
+    setCommentMarkers(payload, ctx);
+  } else if (type === MESSAGE_TYPES.SCROLL_TO_POS) {
+    scrollToProseIndex(payload.proseIndex);
   } else if (type === MESSAGE_TYPES.SET_SELECTED_NODE) {
     setSelectedNode(payload.node, document, { scrollIntoView: payload.scrollIntoView });
   }
@@ -104,6 +115,7 @@ function setupParentController(loadPage) {
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
+    setupCommentShortcut(ctx);
 
     window.removeEventListener('message', listener);
   };

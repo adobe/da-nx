@@ -14,6 +14,8 @@ export const MESSAGE_TYPES = Object.freeze({
   SET_EDITOR_STATE: 'set-editor-state', // { editorState: PM node JSON, cursorOffset: number }
   SET_CURSORS: 'set-cursors', // { cursors: [{ proseIndex, remote, color }] }
   SET_SELECTED_NODE: 'set-selected-node', // { node: { anchorType, proseIndex, ... } | null, scrollIntoView }
+  SET_COMMENT_MARKERS: 'set-comment-markers', // { markers: [...], selectedThreadId: string | null }
+  SCROLL_TO_POS: 'scroll-to-pos', // { proseIndex: number } — scroll layout mode to a comment
 
   // Iframe -> host: ongoing
   CURSOR_MOVE: 'cursor-move', // { cursorOffset?, textCursorOffset? } — absent = clear remote cursor
@@ -25,6 +27,9 @@ export const MESSAGE_TYPES = Object.freeze({
   NEW_VERSION: 'new-version', // no payload
   SELECTION_CHANGE: 'selection-change', // { anchor, head, anchorX, anchorY }
   STORED_MARKS: 'stored-marks', // { marks: PM Mark.toJSON()[] }
+  COMMENT_MARKER_CLICK: 'comment-marker-click', // { threadId: string }
+  COMMENT_MARKER_CLEAR: 'comment-marker-clear', // no payload
+  COMMENT_SHORTCUT: 'comment-shortcut', // no payload
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }
 
   // Iframe -> host (request): { cursorOffset, imageData, fileName, mimeType, originalSrc }
