@@ -20,6 +20,26 @@ Follow-up 2: on-mount pathname → persisted-flag sync. Landing directly on `/ed
 
 **Gotcha:** browser cached the module during iteration — first click ran the older "just reload" version even after Edit had saved. `nx=local` serves from `localhost:6456` and modules aren't versioned, so a hard reload is needed after each source change. Not a bug in the code, but easy to trip on.
 
+## 2026-07-21
+
+### editortoggle — one-time welcome guide + profile-menu placement on canvas
+
+Two follow-ups on the `editortoggle` branch.
+
+**One-time welcome guide.** First time a user opts into the new editor and lands on `/canvas`, show a welcome modal loaded from the `/nx/fragments/guides/welcome` fragment.
+- **`nx2/utils/ewFlags.js`**: added `armEwWelcome()` / `isEwWelcomePending()` / `consumeEwWelcome()` over two keys — `nx2:ew-welcome-pending` (armed at toggle-on, survives the reload/path-swap) and `nx2:ew-welcome-seen` (permanent guard). `armEwWelcome()` no-ops once seen, so it fires strictly first-time and only on an explicit toggle (not direct/bookmarked landings, which never arm it).
+- **`nx2/blocks/editortoggle/welcome-dialog.js` (+ `.css`)**: `nx-ew-welcome-dialog` modeled on `feedback-dialog.js` — wraps `nx-dialog`, loads the fragment via `loadFragment`, slots it in with a "Get started" close button, removes itself on close / silent teardown if the fragment 404s. Adopts `styles/form.css` so the button gets `da-btn-primary` styling.
+- **`editortoggle.js`**: `_toggle()` arms the flag on turn-on; `connectedCallback` → `_maybeShowWelcome()` shows the dialog on `/canvas` when pending, then consumes it.
+
+**Profile-menu placement on canvas.** On `/canvas` the toolbar switch steps aside and the switch lives in the profile dropdown instead.
+- **`editortoggle.js`**: added reflected `variant` prop (`toolbar` default | `menu`). Toolbar renders only on `/edit`, menu only on `/canvas`. Both instances mount on canvas (toolbar renders `nothing`), so the welcome fires from the toolbar instance only to avoid a double dialog.
+- **`profile.js`**: imports editortoggle and drops `<nx-editortoggle variant="menu">` into the popover between the org section and Links; self-hides off `/canvas`.
+- **CSS**: menu variant is a full-width `16px 24px` row using inset `::before`/`::after` separators matching `.nx-menu-btn`, with `margin: -1px 0 0` on the host (in `profile.css`) so the top line collapses onto the section above instead of doubling. Separators/padding live on the button so the host is zero-height when it renders nothing.
+
+**Tests**: 4 new cases in `ewFlags.test.js` (default / arm / consume / no-op-once-seen). ewFlags + profile suites green; JS + CSS lint clean.
+
+**Not verified in-app yet** — styling iterated from user screenshots; worth an eyeball on `/canvas`.
+
 ## 2026-06-26
 
 ### nx2/blocks/chat/chat.js — skill selection preserves pending attachments (feat/da-skill-attachment-fix)
