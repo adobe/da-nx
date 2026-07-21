@@ -1,6 +1,5 @@
 import { html, LitElement, nothing } from 'da-lit';
-import { getConfig } from '../../../scripts/nexter.js';
-import getStyle from '../../../utils/styles.js';
+import { loadStyle } from '../../../../nx2/utils/utils.js';
 import { getSvg } from '../../../utils/svg.js';
 import {
   getAbb,
@@ -12,15 +11,15 @@ import {
   observeDetailChanges,
 } from '../utils.js';
 
-const { nxBase } = getConfig();
+const nx = `${new URL(import.meta.url).origin}/nx`;
 
-const sl = await getStyle(`${nxBase}/public/sl/styles.css`);
-const style = await getStyle(import.meta.url);
+const sl = await loadStyle(`${nx}/public/sl/styles.css`);
+const style = await loadStyle(import.meta.url);
 
 const ICONS = [
-  `${nxBase}/public/icons/S2_Icon_Add_20_N.svg`,
-  `${nxBase}/public/icons/S2_Icon_Lock_20_N.svg`,
-  `${nxBase}/public/icons/S2_Icon_LockOpen_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Add_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Lock_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_LockOpen_20_N.svg`,
 ];
 
 class NxExpEdit extends LitElement {
@@ -211,25 +210,25 @@ class NxExpEdit extends LitElement {
           </sl-input>
           <div class="nx-variant-action-area ${isControl ? 'is-control' : ''}">
             <button ?disabled=${!editUrl} @click=${(e) => this.handleLink(e, editUrl)}>
-              <img src="${nxBase}/public/icons/S2_Icon_Edit_20_N.svg" loading="lazy" />
+              <img src="${nx}/public/icons/S2_Icon_Edit_20_N.svg" loading="lazy" />
               <span>Edit</span>
             </button>
             ${!isControl ? html`
               <button
                 ?disabled=${!openUrl}
                 @click=${(e) => this.handleLink(e, openUrl)}>
-                <img src="${nxBase}/public/icons/S2_Icon_OpenIn_20_N.svg" loading="lazy" />
+                <img src="${nx}/public/icons/S2_Icon_OpenIn_20_N.svg" loading="lazy" />
                 <span>Open</span>
             </button>` : nothing}
             <button
               title=${this._hasChanges ? 'Save changes to simulate.' : nothing}
               ?disabled=${!previewParam || this._hasChanges}
               @click=${() => this.handlePreview(previewParam)}>
-              <img src="${nxBase}/public/icons/S2_Icon_Community_20_N.svg" loading="lazy" />
+              <img src="${nx}/public/icons/S2_Icon_Community_20_N.svg" loading="lazy" />
               <span>Simulate</span>
             </button>
             ${!isControl ? html`<button @click=${() => this.handleDelete(idx)}>
-              <img src="${nxBase}/public/icons/S2_Icon_Delete_20_N.svg" loading="lazy" />
+              <img src="${nx}/public/icons/S2_Icon_Delete_20_N.svg" loading="lazy" />
               <span>Delete</span>
             </button>` : nothing}
           </div>
@@ -300,7 +299,7 @@ class NxExpEdit extends LitElement {
       <div class="nx-exp-main">
         <div class="nx-exp-details-header">
           <button aria-label="Back" @click=${this.handleBack}>
-            <img class="nx-exp-back" src="${nxBase}/img/icons/S2_Icon_Undo_20_N.svg" />
+            <img class="nx-exp-back" src="${nx}/img/icons/S2_Icon_Undo_20_N.svg" />
           </button>
           <p class="sl-heading-m">Edit experiment</p>
         </div>

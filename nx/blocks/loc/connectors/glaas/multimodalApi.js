@@ -2,10 +2,25 @@ import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import {
-  buildGlaasCreateMetadata, getOpts, glaasSourcePreviewUrl, throttle,
+  buildGlaasCreateMetadata,
+  getOpts,
+  glaasSourcePreviewUrl,
+  shouldLogGLaaSRequests,
+  throttle,
 } from './api.js';
 
-const MULTIMODAL_LOG_KEY = 'glaas.multimodal.log';
+export { shouldLogGLaaSRequests } from './api.js';
+
+function logMultimodalDebug(logRequest, step, detail, { level = 'info' } = {}) {
+  if (logRequest) {
+    logRequest(step, detail);
+    return;
+  }
+  if (!shouldLogGLaaSRequests()) return;
+  const fn = level === 'warn' ? console.warn : console.info;
+  // eslint-disable-next-line no-console -- dev GLaaS handoff (glaas.log)
+  fn('[GLaaS multimodal]', step, detail);
+}
 /** Documented GLaaS budget is 120/min per client id; target 100 for shared-stage headroom. */
 const GLAAS_API_LIMIT_PER_MINUTE = 100;
 const GLAAS_API_WINDOW_MS = 60_000;
@@ -171,17 +186,8 @@ export function buildTranslatedMediaPath({ langCode, glaasName }) {
   return `/${locale}${base}`;
 }
 
-export function shouldLogMultimodalRequests() {
-  try {
-    return localStorage.getItem(MULTIMODAL_LOG_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
 export function logMultimodalRequest(step, detail) {
-  // eslint-disable-next-line no-console -- dev multimodal handoff
-  console.info('[GLaaS multimodal]', step, detail);
+  logMultimodalDebug(undefined, step, detail);
 }
 
 export async function getPutUrlForFile({
@@ -299,10 +305,7 @@ export async function createMultimodalTask({
 
   const url = `${origin}/api/l10n/v2.0/tasks/${product}/${project}/create`;
   logRequest?.('v2-create', { method: 'POST', url, body });
-  if (logRequest) {
-    // eslint-disable-next-line no-console -- dev handoff
-    console.info('[GLaaS multimodal] v2-create-body-json\n', JSON.stringify(body, null, 2));
-  }
+  logMultimodalDebug(logRequest, 'v2-create-body-json\n', JSON.stringify(body, null, 2));
   const opts = getOpts(clientid, token, JSON.stringify(body), 'application/json', 'POST');
   try {
     const resp = await fetch(url, opts);
@@ -865,14 +868,21 @@ export function checkMediaImageSize({ glaasName, mediaPath, sizeBytes, logReques
     exceedsUploadLimit,
     exceedsDocumentedLimit,
   };
-  logRequest?.('media-image-size', detail);
-  if (!logRequest) {
-    console.info('[GLaaS multimodal] Media image upload size:', detail);
-  }
+  logMultimodalDebug(logRequest, 'media-image-size', detail);
   if (exceedsUploadLimit) {
-    console.warn('[GLaaS multimodal] Image exceeds observed Media Bus upload limit:', detail);
+    logMultimodalDebug(
+      logRequest,
+      'Image exceeds observed Media Bus upload limit',
+      detail,
+      { level: 'warn' },
+    );
   } else if (exceedsDocumentedLimit) {
-    console.warn('[GLaaS multimodal] Image exceeds documented Media Bus limit:', detail);
+    logMultimodalDebug(
+      logRequest,
+      'Image exceeds documented Media Bus limit',
+      detail,
+      { level: 'warn' },
+    );
   }
   return detail;
 }
@@ -959,8 +969,12 @@ async function saveMultimodalImageToMedia({
       sizeFormatted: uploaded.sizeFormatted,
       maxFormatted: uploaded.maxFormatted,
     };
-    logRequest?.('media-image-skip', detail);
-    console.warn('[GLaaS multimodal] Skipping oversized image (keeping source URL):', detail);
+    logMultimodalDebug(
+      logRequest,
+      'Skipping oversized image (keeping source URL)',
+      detail,
+      { level: 'warn' },
+    );
     return {
       skipped: true,
       glaasName: image.glaasName,
