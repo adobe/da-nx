@@ -68,7 +68,7 @@ function onMessage(e, ctx) {
       const { newSrc, originalSrc } = data;
       updateImageSrc(originalSrc, newSrc);
     }
-  } else if (data.type === 'set-selected-node') {
+  } else if (data.type === MessageTypes.SET_SELECTED_NODE) {
     setSelectedNode(data.node, document, { scrollIntoView: data.scrollIntoView });
   }
 }

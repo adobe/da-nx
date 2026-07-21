@@ -2,6 +2,7 @@ import {
   findBlock, findImageAtProseIndex, pictureSrc, srcPathsMatch, OVERLAY_SELECTOR,
 } from './dom-index.js';
 import { parseIndex, positionBox } from './utils.js';
+import { MessageTypes } from './message-types.js';
 
 export function blockName(el) {
   return el?.classList?.[0] || '';
@@ -179,7 +180,7 @@ export function setupNodeSelection(ctx) {
       if (!node) return;
       blurActiveEditor();
       clearHoverPill();
-      activeCtx?.port?.postMessage({ type: 'node-select', node });
+      activeCtx?.port?.postMessage({ type: MessageTypes.NODE_SELECT, node, payload: { node } });
       return;
     }
 
@@ -189,7 +190,9 @@ export function setupNodeSelection(ctx) {
       || t.closest?.('[data-prose-index]')) return;
     const selectedEl = resolveSelectionElement(currentSelectedNode, document);
     if (selectedEl?.contains?.(t)) return;
-    activeCtx?.port?.postMessage({ type: 'node-select', node: null });
+    activeCtx?.port?.postMessage({
+      type: MessageTypes.NODE_SELECT, node: null, payload: { node: null },
+    });
   });
 
   document.addEventListener('dragstart', (e) => {
@@ -205,13 +208,15 @@ export function setupNodeSelection(ctx) {
     const node = imageSelectPayload(picture);
     if (!node) return;
     blurActiveEditor();
-    activeCtx?.port?.postMessage({ type: 'node-select', node });
+    activeCtx?.port?.postMessage({ type: MessageTypes.NODE_SELECT, node, payload: { node } });
   });
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!currentSelectedNode) return;
-    activeCtx?.port?.postMessage({ type: 'node-select', node: null });
+    activeCtx?.port?.postMessage({
+      type: MessageTypes.NODE_SELECT, node: null, payload: { node: null },
+    });
   });
 
   let scheduled = false;

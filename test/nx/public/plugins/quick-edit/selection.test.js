@@ -186,18 +186,17 @@ describe('quick-edit selection gestures', () => {
     expect(posted).to.deep.include({
       type: 'node-select',
       node: { anchorType: 'table', proseIndex: 50 },
+      payload: { node: { anchorType: 'table', proseIndex: 50 } },
     });
   });
 
   it('posts node-select when an image is clicked', () => {
     const img = document.querySelector('picture img');
     img.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    expect(posted).to.deep.include({
-      type: 'node-select',
-      node: {
-        anchorType: 'image', proseIndex: 27, src: '/img.png', blockIndex: null,
-      },
-    });
+    const node = {
+      anchorType: 'image', proseIndex: 27, src: '/img.png', blockIndex: null,
+    };
+    expect(posted).to.deep.include({ type: 'node-select', node, payload: { node } });
   });
 
   it('does NOT post node-select for an image drag', () => {
@@ -210,7 +209,7 @@ describe('quick-edit selection gestures', () => {
   it('posts node-select null on Escape when a node is selected', () => {
     setSelectedNode({ anchorType: 'table', proseIndex: 50 });
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    expect(posted).to.deep.include({ type: 'node-select', node: null });
+    expect(posted).to.deep.include({ type: 'node-select', node: null, payload: { node: null } });
   });
 
   it('hover pill is clickable (pointer-events) but the static pill is not', async () => {
@@ -259,6 +258,7 @@ describe('quick-edit selection gestures', () => {
     expect(posted).to.deep.include({
       type: 'node-select',
       node: { anchorType: 'table', proseIndex: 60 },
+      payload: { node: { anchorType: 'table', proseIndex: 60 } },
     });
     expect(posted.some((m) => m.type === 'node-select' && m.node === null)).to.equal(false);
   });
@@ -267,7 +267,7 @@ describe('quick-edit selection gestures', () => {
     setSelectedNode({ anchorType: 'table', proseIndex: 50 });
     document.querySelector('.no-index')
       .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    expect(posted).to.deep.include({ type: 'node-select', node: null });
+    expect(posted).to.deep.include({ type: 'node-select', node: null, payload: { node: null } });
   });
 
   it('keeps the selection when clicking inside the selected block', () => {
