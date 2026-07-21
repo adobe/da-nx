@@ -247,6 +247,13 @@
   text-decoration: underline;
 }
 
+/* Pull the editor-toggle row up 1px so its top separator collapses onto the
+   section above, the same trick .nx-menu-btn uses (see margin: -1px 0 0). */
+nx-editortoggle[variant="menu"] {
+  display: block;
+  margin: -1px 0 0;
+}
+
 .nx-menu-links {
   padding: 24px;
 }

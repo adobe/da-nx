@@ -3,9 +3,14 @@ import {
   isEWEnabled,
   isEWUserEnabled,
   setEWUserEnabled,
+  armEwWelcome,
+  isEwWelcomePending,
+  consumeEwWelcome,
 } from '../../../../utils/ewFlags.js';
 
 const EW_USER_KEY = 'nx2:ew-user-enabled';
+const EW_WELCOME_PENDING_KEY = 'nx2:ew-welcome-pending';
+const EW_WELCOME_SEEN_KEY = 'nx2:ew-welcome-seen';
 
 describe('ewFlags user-level override', () => {
   beforeEach(() => {
@@ -37,5 +42,40 @@ describe('ewFlags user-level override', () => {
     setEWUserEnabled(true);
     const result = await isEWEnabled({ org: '__ewflags_test_never_hit__', site: '__nope__' });
     expect(result).to.equal(true);
+  });
+});
+
+describe('ewFlags welcome guide', () => {
+  beforeEach(() => {
+    localStorage.removeItem(EW_WELCOME_PENDING_KEY);
+    localStorage.removeItem(EW_WELCOME_SEEN_KEY);
+  });
+
+  afterEach(() => {
+    localStorage.removeItem(EW_WELCOME_PENDING_KEY);
+    localStorage.removeItem(EW_WELCOME_SEEN_KEY);
+  });
+
+  it('isEwWelcomePending defaults to false when unset', () => {
+    expect(isEwWelcomePending()).to.equal(false);
+  });
+
+  it('armEwWelcome sets the pending flag', () => {
+    armEwWelcome();
+    expect(isEwWelcomePending()).to.equal(true);
+  });
+
+  it('consumeEwWelcome clears pending and permanently marks seen', () => {
+    armEwWelcome();
+    consumeEwWelcome();
+    expect(isEwWelcomePending()).to.equal(false);
+    expect(localStorage.getItem(EW_WELCOME_SEEN_KEY)).to.equal('true');
+  });
+
+  it('armEwWelcome is a no-op once the guide has been seen', () => {
+    armEwWelcome();
+    consumeEwWelcome();
+    armEwWelcome();
+    expect(isEwWelcomePending()).to.equal(false);
   });
 });

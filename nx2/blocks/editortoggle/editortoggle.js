@@ -4,6 +4,9 @@ import {
   isEWEnabledBySite,
   isEWUserEnabled,
   setEWUserEnabled,
+  armEwWelcome,
+  isEwWelcomePending,
+  consumeEwWelcome,
 } from '../../utils/ewFlags.js';
 
 const style = await loadStyle(import.meta.url);
@@ -21,13 +24,28 @@ const style = await loadStyle(import.meta.url);
  *
  * Only rendered on the editor routes (`/edit` and `/canvas`) — nowhere else in
  * the nav does swapping editors make sense.
+ *
+ * Two placements, selected by the `variant` attribute:
+ *  - `toolbar` (default): the nav-injected switch. Shown on `/edit` only; on
+ *    `/canvas` it steps aside so the switch lives in the profile menu instead.
+ *  - `menu`: rendered inside the profile popover (see profile.js). Shown on
+ *    `/canvas` only.
+ * Both instances coexist on canvas (the toolbar one just renders nothing),
+ * so the one-time welcome is triggered from the always-present toolbar
+ * instance to avoid firing it twice.
  */
 const EDITOR_PATHS = new Set(['/edit', '/canvas']);
 class NxEditorToggle extends LitElement {
   static properties = {
+    variant: { type: String, reflect: true },
     _siteEwEnabled: { state: true },
     _userEnabled: { state: true },
   };
+
+  constructor() {
+    super();
+    this.variant = 'toolbar';
+  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -41,7 +59,21 @@ class NxEditorToggle extends LitElement {
       this._userEnabled = desired;
       setEWUserEnabled(desired);
     }
+    this._maybeShowWelcome();
     this._unsubHash = hashChange.subscribe((state) => this._onHashState(state));
+  }
+
+  // First time on canvas after toggling EW on: show the welcome guide once.
+  // The pending flag was armed in _toggle() and survives the reload/path-swap
+  // it triggers; consuming it here permanently marks the guide as seen. Only
+  // the toolbar instance fires it — the menu instance also mounts on canvas,
+  // and we don't want the dialog opening twice.
+  async _maybeShowWelcome() {
+    if (this.variant === 'menu') return;
+    if (window.location.pathname !== '/canvas' || !isEwWelcomePending()) return;
+    consumeEwWelcome();
+    await import('./welcome-dialog.js');
+    document.body.append(document.createElement('nx-ew-welcome-dialog'));
   }
 
   disconnectedCallback() {
@@ -62,6 +94,9 @@ class NxEditorToggle extends LitElement {
   _toggle() {
     this._userEnabled = !this._userEnabled;
     setEWUserEnabled(this._userEnabled);
+    // Arm the one-time welcome guide so canvas shows it once we land there.
+    // No-op when turning off, and only ever the first time (see ewFlags.js).
+    if (this._userEnabled) armEwWelcome();
 
     // If we're on the "other" editor for the current doc, hop to the matching
     // one so the toggle immediately reflects the choice; otherwise just reload
@@ -77,8 +112,10 @@ class NxEditorToggle extends LitElement {
   }
 
   render() {
-    if (!EDITOR_PATHS.has(window.location.pathname)) return nothing;
     if (this._siteEwEnabled) return nothing;
+    // Toolbar lives on /edit; on /canvas the switch moves into the profile menu.
+    const visiblePath = this.variant === 'menu' ? '/canvas' : '/edit';
+    if (window.location.pathname !== visiblePath) return nothing;
     return html`
       <button
         type="button"

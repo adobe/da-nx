@@ -3,6 +3,7 @@ import { getConfig, loc } from '../../scripts/nx.js';
 import { loadIms, handleSignOut, handleSignIn } from '../../utils/ims.js';
 import { loadStyle } from '../../utils/utils.js';
 import { signout } from '../../utils/api.js';
+import '../editortoggle/editortoggle.js';
 
 const config = getConfig();
 
@@ -203,6 +204,7 @@ class NxProfile extends LitElement {
           </div>
           ${this._org && !this._openOrgs ? this.renderOrg() : nothing}
           ${this._openOrgs ? this.renderOrgSwitcher() : nothing}
+          <nx-editortoggle variant="menu"></nx-editortoggle>
           <div class="nx-menu-links">
             <p class="nx-menu-link-title">Links</p>
             <ul>

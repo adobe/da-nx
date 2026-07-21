@@ -60,3 +60,42 @@
   outline: 2px solid var(--s2-accent-color-900, #2680eb);
   outline-offset: 2px;
 }
+
+/* Menu variant: a full-width row inside the profile popover. Separators are
+   inset pseudo-elements matching the profile menu's .nx-menu-btn lines (see
+   profile.css); the host's -1px top margin (also in profile.css) collapses the
+   top line with the section above so it doesn't double. Everything lives on
+   the button so the host stays zero-height when render() returns nothing off
+   the /canvas route. */
+:host([variant="menu"]) {
+  display: block;
+  height: auto;
+}
+
+:host([variant="menu"]) .editortoggle-switch {
+  position: relative;
+  width: 100%;
+  height: auto;
+  justify-content: space-between;
+  gap: var(--s2-spacing-200, 16px);
+  padding: 16px 24px;
+  border-radius: 0;
+  font-size: 16px;
+}
+
+:host([variant="menu"]) .editortoggle-switch::before,
+:host([variant="menu"]) .editortoggle-switch::after {
+  content: "";
+  position: absolute;
+  inset: 0 24px auto;
+  height: 1px;
+  background: var(--s2-gray-100);
+}
+
+:host([variant="menu"]) .editortoggle-switch::after {
+  inset: auto 24px 0;
+}
+
+:host([variant="menu"]) .editortoggle-switch:hover {
+  background-color: var(--s2-gray-100);
+}

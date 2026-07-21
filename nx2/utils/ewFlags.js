@@ -39,6 +39,48 @@ export function setEWUserEnabled(enabled) {
   } catch { /* storage disabled — no-op */ }
 }
 
+// One-time welcome guide for the new (canvas) editor. `pending` is armed the
+// moment the user toggles EW on (see editortoggle.js) and consumed the next
+// time canvas renders, so it survives the reload/path-swap the toggle does.
+// `seen` is the permanent guard: once the guide has shown, re-toggling never
+// re-arms it, so the welcome appears only the first time.
+const EW_WELCOME_PENDING_KEY = 'nx2:ew-welcome-pending';
+const EW_WELCOME_SEEN_KEY = 'nx2:ew-welcome-seen';
+
+function hasSeenEwWelcome() {
+  try {
+    return localStorage.getItem(EW_WELCOME_SEEN_KEY) === 'true';
+  } catch {
+    // Storage unreadable — treat as seen so we never loop on the guide.
+    return true;
+  }
+}
+
+// Arm the welcome so canvas shows it after the toggle navigates there. No-op
+// once the guide has already been seen, keeping it strictly first-time-only.
+export function armEwWelcome() {
+  if (hasSeenEwWelcome()) return;
+  try {
+    localStorage.setItem(EW_WELCOME_PENDING_KEY, 'true');
+  } catch { /* storage disabled — no-op */ }
+}
+
+export function isEwWelcomePending() {
+  try {
+    return localStorage.getItem(EW_WELCOME_PENDING_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+// Clear the armed flag and permanently mark the guide as seen.
+export function consumeEwWelcome() {
+  try {
+    localStorage.removeItem(EW_WELCOME_PENDING_KEY);
+    localStorage.setItem(EW_WELCOME_SEEN_KEY, 'true');
+  } catch { /* storage disabled — no-op */ }
+}
+
 export async function isEWEnabledBySite({ org, site }) {
   const flags = await getEWFlags({ org, site });
   return flags['ew.enabled'] === 'true';
