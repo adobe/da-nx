@@ -53,7 +53,7 @@ class NxEwWelcomeDialog extends LitElement {
   render() {
     if (!this._content) return nothing;
     return html`
-      <nx-dialog title="Welcome to the new editor" @close=${this._handleClose}>
+      <nx-dialog @close=${this._handleClose}>
         <div class="welcome-body">${this._content}</div>
         <button
           type="button"
