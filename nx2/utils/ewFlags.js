@@ -81,6 +81,46 @@ export function consumeEwWelcome() {
   } catch { /* storage disabled — no-op */ }
 }
 
+// One-time "why did you switch back?" feedback prompt, mirroring the welcome
+// guide but armed when the user turns EW *off* and consumed the first time
+// they land back on /edit. Same pending/seen split and first-time-only guard.
+const EW_SWITCHBACK_PENDING_KEY = 'nx2:ew-switchback-pending';
+const EW_SWITCHBACK_SEEN_KEY = 'nx2:ew-switchback-seen';
+
+function hasSeenEwSwitchback() {
+  try {
+    return localStorage.getItem(EW_SWITCHBACK_SEEN_KEY) === 'true';
+  } catch {
+    // Storage unreadable — treat as seen so we never loop on the prompt.
+    return true;
+  }
+}
+
+// Arm the switch-back feedback so /edit shows it after the toggle navigates
+// there. No-op once seen, keeping it strictly first-time-only.
+export function armEwSwitchbackFeedback() {
+  if (hasSeenEwSwitchback()) return;
+  try {
+    localStorage.setItem(EW_SWITCHBACK_PENDING_KEY, 'true');
+  } catch { /* storage disabled — no-op */ }
+}
+
+export function isEwSwitchbackPending() {
+  try {
+    return localStorage.getItem(EW_SWITCHBACK_PENDING_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+// Clear the armed flag and permanently mark the prompt as seen.
+export function consumeEwSwitchback() {
+  try {
+    localStorage.removeItem(EW_SWITCHBACK_PENDING_KEY);
+    localStorage.setItem(EW_SWITCHBACK_SEEN_KEY, 'true');
+  } catch { /* storage disabled — no-op */ }
+}
+
 export async function isEWEnabledBySite({ org, site }) {
   const flags = await getEWFlags({ org, site });
   return flags['ew.enabled'] === 'true';

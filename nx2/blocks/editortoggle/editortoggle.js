@@ -7,6 +7,9 @@ import {
   armEwWelcome,
   isEwWelcomePending,
   consumeEwWelcome,
+  armEwSwitchbackFeedback,
+  isEwSwitchbackPending,
+  consumeEwSwitchback,
 } from '../../utils/ewFlags.js';
 
 const style = await loadStyle(import.meta.url);
@@ -30,9 +33,10 @@ const style = await loadStyle(import.meta.url);
  *    `/canvas` it steps aside so the switch lives in the profile menu instead.
  *  - `menu`: rendered inside the profile popover (see profile.js). Shown on
  *    `/canvas` only.
- * Both instances coexist on canvas (the toolbar one just renders nothing),
- * so the one-time welcome is triggered from the always-present toolbar
- * instance to avoid firing it twice.
+ * Both instances coexist on each editor route (the hidden one just renders
+ * nothing), so the one-time prompts — the welcome guide on canvas, the
+ * switch-back feedback on /edit — are triggered from the always-present
+ * toolbar instance to avoid firing them twice.
  */
 const EDITOR_PATHS = new Set(['/edit', '/canvas']);
 class NxEditorToggle extends LitElement {
@@ -60,6 +64,7 @@ class NxEditorToggle extends LitElement {
       setEWUserEnabled(desired);
     }
     this._maybeShowWelcome();
+    this._maybeShowSwitchback();
     this._unsubHash = hashChange.subscribe((state) => this._onHashState(state));
   }
 
@@ -74,6 +79,17 @@ class NxEditorToggle extends LitElement {
     consumeEwWelcome();
     await import('./welcome-dialog.js');
     document.body.append(document.createElement('nx-ew-welcome-dialog'));
+  }
+
+  // Mirror of _maybeShowWelcome for the reverse direction: first time back on
+  // /edit after toggling EW off, ask why. Same toolbar-only guard so the menu
+  // instance (which also mounts on /edit) doesn't open it a second time.
+  async _maybeShowSwitchback() {
+    if (this.variant === 'menu') return;
+    if (window.location.pathname !== '/edit' || !isEwSwitchbackPending()) return;
+    consumeEwSwitchback();
+    await import('./switchback-dialog.js');
+    document.body.append(document.createElement('nx-ew-switchback-dialog'));
   }
 
   disconnectedCallback() {
@@ -94,9 +110,11 @@ class NxEditorToggle extends LitElement {
   _toggle() {
     this._userEnabled = !this._userEnabled;
     setEWUserEnabled(this._userEnabled);
-    // Arm the one-time welcome guide so canvas shows it once we land there.
-    // No-op when turning off, and only ever the first time (see ewFlags.js).
+    // Arm the matching one-time prompt for wherever we're headed: the welcome
+    // guide on canvas when turning on, the switch-back feedback on /edit when
+    // turning off. Both no-op after their first showing (see ewFlags.js).
     if (this._userEnabled) armEwWelcome();
+    else armEwSwitchbackFeedback();
 
     // If we're on the "other" editor for the current doc, hop to the matching
     // one so the toggle immediately reflects the choice; otherwise just reload
