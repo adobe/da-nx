@@ -5,6 +5,11 @@ import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 import { restoreBlockIndices } from './src/dom-index.js';
 import {
+  setCommentMarkers,
+  applyCommentMarkers,
+  setupCommentShortcut,
+} from './src/comments.js';
+import {
   setupNodeSelection,
   setSelectedNode,
   getSelectedNode,
@@ -28,6 +33,7 @@ async function setBody(body, ctx) {
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage();
   restoreBlockIndices(doc, document);
+  applyCommentMarkers(ctx);
   setupNodeSelection(ctx);
   setSelectedNode(getSelectedNode());
   setupContentEditableListeners(ctx);
@@ -68,6 +74,8 @@ function onMessage(e, ctx) {
       const { newSrc, originalSrc } = data;
       updateImageSrc(originalSrc, newSrc);
     }
+  } else if (data.type === MESSAGE_TYPES.SET_COMMENT_MARKERS) {
+    setCommentMarkers(data, ctx);
   } else if (data.type === MESSAGE_TYPES.SET_SELECTED_NODE) {
     setSelectedNode(data.node, document, { scrollIntoView: data.scrollIntoView });
   }
@@ -92,6 +100,7 @@ function setupParentController(loadPage) {
     // @deprecated flat `ready` — prefer `type: MESSAGE_TYPES.READY` (added alongside for
     // callers that already migrated their ack check).
     port.postMessage({ [MESSAGE_TYPES.READY]: true, type: MESSAGE_TYPES.READY });
+    setupCommentShortcut(ctx);
 
     window.removeEventListener('message', listener);
   };
