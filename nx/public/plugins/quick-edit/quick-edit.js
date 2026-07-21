@@ -3,6 +3,12 @@ import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MessageTypes } from './src/message-types.js';
+import { restoreBlockIndices } from './src/dom-index.js';
+import {
+  setupNodeSelection,
+  setSelectedNode,
+  getSelectedNode,
+} from './src/selection.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
 
@@ -21,6 +27,9 @@ async function setBody(body, ctx) {
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage();
+  restoreBlockIndices(doc, document);
+  setupNodeSelection(ctx);
+  setSelectedNode(getSelectedNode());
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
   if (!parentControllerPort) {
@@ -59,6 +68,8 @@ function onMessage(e, ctx) {
       const { newSrc, originalSrc } = data;
       updateImageSrc(originalSrc, newSrc);
     }
+  } else if (data.type === 'set-selected-node') {
+    setSelectedNode(data.node, document, { scrollIntoView: data.scrollIntoView });
   }
 }
 
