@@ -57,7 +57,7 @@ A shell/framework for Adobe AEM Edge Delivery Services. Provides shared blocks, 
 
 ## Keep the style guide in sync
 
-- `nx2/public/style-guide/style-guide.html` is a living reference of shared CSS patterns (`nx2/styles/*.css`) and shared components (`nx2/blocks/shared/*`). When you add or change a class in `nx2/styles/` or a component in `nx2/blocks/shared/`, add or update its entry in the style guide, and keep the matching `docs/*.md` file (if one exists for that component) in sync too.
+- `docs/style-guide/style-guide.html` is a living reference of shared CSS patterns (`nx2/styles/*.css`) and shared components (`nx2/blocks/shared/*`). When you add or change a class in `nx2/styles/` or a component in `nx2/blocks/shared/`, add or update its entry in the style guide, and keep the matching `docs/*.md` file (if one exists for that component) in sync too.
 - This does not apply to page- or feature-specific blocks (`nx2/blocks/nav`, `sidenav`, `profile`, etc.) — only the shared, reusable patterns the style guide actually catalogs.
 
 ## JavaScript conventions not enforced by lint
