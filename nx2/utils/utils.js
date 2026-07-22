@@ -17,36 +17,36 @@ export const SUPPORTED_FILES = {
 const DA_DEFAULT_ENV = env === 'dev' ? 'stage' : env;
 
 const DA_ADMIN_ENVS = {
-  dev: 'http://localhost:8787',
+  local: 'http://localhost:8787',
   stage: 'https://stage-admin.da.live',
   prod: 'https://admin.da.live',
 };
 
 const DA_COLLAB_ENVS = {
-  dev: 'ws://localhost:4711',
+  local: 'ws://localhost:4711',
   stage: 'wss://stage-collab.da.live',
   prod: 'wss://collab.da.live',
 };
 
 const DA_CONTENT_ENVS = {
-  dev: 'http://localhost:8788',
+  local: 'http://localhost:8788',
   stage: 'https://stage-content.da.live',
   prod: 'https://content.da.live',
 };
 
 const DA_LIVE_PREVIEW_ENVS = {
-  dev: 'https://localhost:8000',
+  local: 'https://localhost:8000',
   stage: 'https://stage-preview.da.live',
   prod: 'https://preview.da.live',
 };
 
 const DA_ETC_ENVS = {
-  dev: 'http://localhost:8787',
+  local: 'http://localhost:8787',
   prod: 'https://da-etc.adobeaem.workers.dev',
 };
 
 const DA_FEEDBACK_ENVS = {
-  dev: 'http://localhost:8787/feedback',
+  local: 'http://localhost:8787/feedback',
   stage: 'https://feedback.da.live/feedback',
   prod: 'https://feedback.da.live/feedback',
 };

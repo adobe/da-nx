@@ -1,3 +1,5 @@
+import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
+
 function removeQuickEditParam() {
   const url = new URL(window.location.href);
   url.searchParams.delete('quick-edit');
@@ -30,10 +32,10 @@ export function pollConnection(ctx, action) {
 }
 
 async function handlePreview(ctx) {
-  ctx.port.postMessage({ type: 'preview' });
+  ctx.port.postMessage({ type: MESSAGE_TYPES.PREVIEW });
   await new Promise((resolve) => {
     const previewListener = (e) => {
-      if (e.data.type === 'preview') {
+      if (e.data.type === MESSAGE_TYPES.PREVIEW) {
         ctx.port.removeEventListener('message', previewListener);
         if (e.data.ok) {
           removeQuickEditParam();
@@ -110,4 +112,16 @@ export function setupActions(ctx) {
   });
 
   document.body.appendChild(container);
+}
+
+export function parseIndex(value) {
+  const idx = parseInt(value, 10);
+  return Number.isNaN(idx) ? null : idx;
+}
+
+export function positionBox(box, rect) {
+  box.style.left = `${rect.left + window.scrollX}px`;
+  box.style.top = `${rect.top + window.scrollY}px`;
+  box.style.width = `${Math.max(rect.width, 1)}px`;
+  box.style.height = `${Math.max(rect.height, 1)}px`;
 }

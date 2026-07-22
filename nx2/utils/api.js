@@ -73,9 +73,12 @@ export const aem = {
 
 // config: top-level org/site config.
 export const config = {
-  get: withArgs(async ({ org, site }) => {
+  get: withArgs(async ({ org, site, cachebust }) => {
     const url = await getDaApiPath(CONFIG, org, site);
-    return daFetch({ url });
+    const finalUrl = cachebust
+      ? `${url}${url.includes('?') ? '&' : '?'}nocache=${Date.now()}`
+      : url;
+    return daFetch({ url: finalUrl });
   }),
 
   save: withArgs(async ({ org, site, body }) => {

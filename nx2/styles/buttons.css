@@ -1,0 +1,106 @@
+button {
+  font-family: var(--s2-font-family);
+}
+
+.nx-btn-primary,
+.nx-btn-secondary {
+  height: 32px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--s2-corner-radius-800);
+  font-size: var(--s2-body-size-s, 0.875rem);
+  font-weight: 600;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-800);
+    outline-offset: 4px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+ .nx-btn-primary {
+  background: var(--s2-blue-900);
+  color: light-dark(var(--s2-gray-25), #fff);
+
+  &:hover:not(:disabled) {
+    background: var(--s2-blue-1000);
+  }
+}
+
+.nx-btn-secondary {
+  background: var(--s2-gray-100);
+  color: var(--s2-gray-800);
+
+  &:hover:not(:disabled) {
+    background: var(--s2-gray-200);
+    color: var(--s2-gray-900);
+  }
+}
+
+.nx-action-btn, .nx-action-btn-icon, .nx-action-btn-quiet {
+  display: flex;
+  transition: transform 0.125s ease-out;
+  padding: var(--s2-spacing-75) 10px;
+  font-size: var(--s2-component-s-medium-font-size);
+  line-height: var(--s2-component-s-medium-line-height);
+  font-weight: var(--s2-component-s-medium-font-weight);
+  border: none;
+  cursor: pointer;
+  border-radius: var(--s2-corner-radius-400);
+  color: var(--s2-gray-800);
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2-spacing-75);
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-800);
+    outline-offset: 4px;
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--s2-gray-200);
+    color: var(--s2-gray-900);
+  }
+}
+
+.nx-action-btn {
+  background: var(--s2-gray-100);
+}
+
+.nx-action-btn-quiet, .nx-action-btn-icon  {
+  background: transparent;
+}
+
+.nx-action-btn-icon {
+  display: flex;
+  width: 24px;
+  padding: var(--s2-spacing-75);
+
+  &.is-active {
+    background: var(--s2-gray-900);
+    color: var(--s2-gray-25);
+
+    &:hover {
+      background: var(--s2-gray-1000);
+    }
+  }
+}
