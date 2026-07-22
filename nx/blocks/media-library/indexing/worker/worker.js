@@ -134,12 +134,12 @@ self.onmessage = async (event) => {
   } catch (error) {
     console.error('[IndexWorker] Build failed:', error);
 
-    // Send error response
     self.postMessage({
       type: 'error',
       error: {
         message: error.message || 'Unknown error',
         code: error.code || 'WORKER_ERROR',
+        status: error.status,
         stack: error.stack,
       },
     });

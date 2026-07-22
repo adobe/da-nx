@@ -6,7 +6,7 @@
  */
 
 import { updateAppState, getAppState, showNotification } from './state.js';
-import { t } from './messages.js';
+import { getMessage } from './messages.js';
 import { clearProcessDataCache } from '../ui/filters.js';
 import { getDedupeKey } from './urls.js';
 import { getCanonicalMediaTimestamp } from './utils.js';
@@ -82,22 +82,22 @@ function getErrorMessage(errorCode, technicalMessage) {
   switch (errorCode) {
     case IndexingErrorCode.AUTH_REQUIRED:
     case IndexingErrorCode.AUTH_FAILED:
-      return t('NOTIFY_SIGN_IN');
+      return getMessage('NOTIFY_SIGN_IN');
     case IndexingErrorCode.DA_READ_DENIED:
-      return t('DA_READ_DENIED');
+      return getMessage('DA_READ_DENIED');
     case IndexingErrorCode.DA_WRITE_DENIED:
     case IndexingErrorCode.DA_SAVE_FAILED:
-      return t('DA_SAVE_FAILED');
+      return getMessage('DA_SAVE_FAILED');
     case IndexingErrorCode.INDEX_PARSE_ERROR:
-      return t('INDEX_PARSE_ERROR');
+      return getMessage('INDEX_PARSE_ERROR');
     case IndexingErrorCode.LOCK_CREATE_FAILED:
-      return t('LOCK_CREATE_FAILED_GENERIC');
+      return getMessage('LOCK_CREATE_FAILED_GENERIC');
     case IndexingErrorCode.LOCK_REMOVE_FAILED:
-      return t('LOCK_REMOVE_FAILED');
+      return getMessage('LOCK_REMOVE_FAILED');
     case IndexingErrorCode.NETWORK_TIMEOUT:
     case IndexingErrorCode.BUILD_FAILED:
     default:
-      return technicalMessage || t('NOTIFY_DISCOVERY_FAILED');
+      return technicalMessage || getMessage('NOTIFY_DISCOVERY_FAILED');
   }
 }
 
@@ -147,7 +147,7 @@ export function handleIndexingEvent(event, onMediaDataUpdated) {
       clearProcessDataCache();
 
       if (event.lockRemoveFailed) {
-        showNotification(t('NOTIFY_WARNING'), t('LOCK_REMOVE_FAILED'), 'danger');
+        showNotification(getMessage('NOTIFY_WARNING'), getMessage('LOCK_REMOVE_FAILED'), 'danger');
       }
 
       if (event.hasChanges && event.data && event.data.length > 0) {
@@ -214,9 +214,9 @@ export function handleIndexingEvent(event, onMediaDataUpdated) {
       // Show notification for non-persistent errors
       if (!event.isPersistent && event.code !== IndexingErrorCode.AUTH_REQUIRED) {
         const userMessage = getErrorMessage(event.code, event.message);
-        showNotification(t('NOTIFY_ERROR'), userMessage, 'danger');
+        showNotification(getMessage('NOTIFY_ERROR'), userMessage, 'danger');
       } else if (event.code === IndexingErrorCode.AUTH_REQUIRED) {
-        showNotification(t('NOTIFY_ERROR'), t('NOTIFY_SIGN_IN'), 'danger');
+        showNotification(getMessage('NOTIFY_ERROR'), getMessage('NOTIFY_SIGN_IN'), 'danger');
       }
 
       resetProgressiveState();

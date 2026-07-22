@@ -1,4 +1,4 @@
-import { daFetch } from '../../../utils/daFetch.js';
+import { daFetch } from '../core/ims-adapter.js';
 import { DA_ADMIN, HLX_ADMIN } from '../../../utils/utils.js';
 import { etcFetch } from '../core/urls.js';
 import {
@@ -8,7 +8,7 @@ import {
 } from '../core/constants.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isPerfEnabled } from '../core/params.js';
-import { t } from '../core/messages.js';
+import { getMessage } from '../core/messages.js';
 
 const AEM_PAGE_MARKDOWN_RATE = 180; /* keep some headroom under the 200 RPS host limit */
 const AEM_SITE_AUTH_DENIED = new Set([401, 403]);
@@ -368,22 +368,34 @@ export async function streamLog(
 
     if (!resp.ok) {
       if (resp.status === 403) {
-        logMediaLibraryError(ErrorCodes.EDS_LOG_DENIED, { status: 403, endpoint: nextUrl });
-        throw new MediaLibraryError(
+        logMediaLibraryError(
           ErrorCodes.EDS_LOG_DENIED,
-          t('EDS_LOG_DENIED'),
           { status: 403, endpoint: nextUrl },
         );
+        const err = new MediaLibraryError(
+          ErrorCodes.EDS_LOG_DENIED,
+          getMessage('EDS_LOG_DENIED'),
+          { status: 403, endpoint: nextUrl, hint: getMessage('EDS_LOG_DENIED_HINT') },
+        );
+        err.status = 403;
+        throw err;
       }
       if (resp.status === 401) {
-        logMediaLibraryError(ErrorCodes.EDS_AUTH_EXPIRED, { status: 401, endpoint: nextUrl });
-        throw new MediaLibraryError(
+        logMediaLibraryError(
           ErrorCodes.EDS_AUTH_EXPIRED,
-          t('EDS_AUTH_EXPIRED'),
           { status: 401, endpoint: nextUrl },
         );
+        const err = new MediaLibraryError(
+          ErrorCodes.EDS_AUTH_EXPIRED,
+          getMessage('EDS_AUTH_EXPIRED'),
+          { status: 401, endpoint: nextUrl },
+        );
+        err.status = 401;
+        throw err;
       }
-      throw new Error(`${endpoint} API error: ${resp.status} ${resp.statusText}`);
+      const err = new Error(`${endpoint} API error: ${resp.status} ${resp.statusText}`);
+      err.status = resp.status;
+      throw err;
     }
 
     const data = await resp.json();

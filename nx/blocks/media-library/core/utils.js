@@ -129,7 +129,8 @@ export async function checkSiteAuthRequired(org, repo) {
 
   try {
     const response = await etcFetch(indexUrl, 'cors', { method: 'HEAD' });
-    const requiresAuth = response.status === 401 || response.status === 403;
+    const requiresAuth = response.status === 401
+      || response.status === 403;
     const result = { requiresAuth, status: response.status };
 
     debugLog('Site auth check result', result);
@@ -145,8 +146,8 @@ export async function checkSiteAuthRequired(org, repo) {
 
 export async function livePreviewLogin(owner, repo) {
   try {
-    const { loadIms } = await import('../../../../nx2/utils/ims.js');
-    const { accessToken } = await loadIms() || {};
+    const { initIms } = await import('./ims-adapter.js');
+    const { accessToken } = (await initIms()) || {};
     const url = `${getLivePreviewUrl(owner, repo)}/gimme_cookie`;
 
     debugLog('Setting preview.da.live cookie', { owner, repo, url });
