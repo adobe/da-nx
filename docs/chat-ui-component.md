@@ -188,9 +188,12 @@ Each conversation has a `sessionId` (UUID) stored in IndexedDB alongside its mes
 
 ## Events out
 
-| Event | Bubbles | Detail | Description |
-|---|---|---|---|
-| `nx-agent-change` | Yes | `{ scope: 'file' \| 'document', paths: string[] }` | The agent completed a tool action that changed content. `scope: 'file'` means the file tree changed (files created, deleted, moved, or copied); `scope: 'document'` means a document's content was modified. `paths` contains the affected parent folder paths. |
+Event names are exported as `CHAT_EVENT` from `constants.js` — consumers (in da-nx or elsewhere, e.g. da-live's canvas) should import that constant rather than hardcoding the string.
+
+| Event | `CHAT_EVENT` key | Bubbles | Detail | Description |
+|---|---|---|---|---|
+| `nx-agent-change` | `AGENT_CHANGE` | Yes | `{ scope: 'file' \| 'document', paths: string[] }` | The agent completed a tool action that changed content. `scope: 'file'` means the file tree changed (files created, deleted, moved, or copied); `scope: 'document'` means a document's content was modified. `paths` contains the affected parent folder paths. |
+| `nx-highlight-selection` | `HIGHLIGHT_SELECTION` | No | `{ selFrom, selTo, selectionType, blockName, proseIndex }` | A pinned selection pill was activated (clicked) in the chat's context list. Tells the host editor to highlight/scroll to that selection in the document. |
 
 ## Skills slash menu
 

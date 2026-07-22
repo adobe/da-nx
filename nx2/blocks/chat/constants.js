@@ -88,10 +88,24 @@ const ROLE = {
   TOOL: 'tool',
 };
 
+/**
+ * DOM CustomEvent names for <nx-chat>'s boundary with the outside world — part of
+ * chat's public surface, see docs/chat-ui-component.md ("Events in"/"Events out").
+ */
+const CHAT_EVENT = {
+  // Chat -> document: notifications chat dispatches when something happened.
+  AGENT_CHANGE: 'nx-agent-change',
+  HIGHLIGHT_SELECTION: 'nx-highlight-selection',
+
+  // document -> chat: commands other components dispatch for chat to act on.
+  ADD_TO_CHAT: 'nx-add-to-chat',
+};
+
 export {
   ADOBE_AI_GUIDELINES_URL,
   ADD_MENU_ITEMS,
   AGENT_EVENT,
+  CHAT_EVENT,
   MENU_OPTIONS,
   ROLE,
   TOOL_INPUT,

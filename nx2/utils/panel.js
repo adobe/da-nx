@@ -116,6 +116,19 @@ export function hidePanel(aside) {
   setPanelsGrid();
 }
 
+export const PANEL_EVENT = Object.freeze({
+  // { section?: string } — omitted when a panel's own chrome closes itself
+  // (bubbles to the aside it's inside, no section needed); include one to
+  // close a specific panel from anywhere without holding a DOM reference.
+  CLOSE: 'nx-panel-close',
+
+  // fire from anywhere to open a section, optionally a specific item within
+  // it (e.g. a tool-panel view, a BYO extension's id). `options` is opaque to
+  // the registry — it's forwarded as-is to the section's own `onShow`, which
+  // decides what (if anything) to do with it.
+  OPEN: 'nx-panel-open', // { section: string, id?: string, options?: unknown }
+});
+
 function buildPanelDOM(aside) {
   const edge = aside.dataset.position === 'before' ? 'trailing' : 'leading';
 
@@ -138,8 +151,8 @@ function buildPanelDOM(aside) {
   wrapper.append(shell, handle);
   aside.append(wrapper);
 
-  // Allow any consumer inside the panel to close it by firing nx-panel-close.
-  aside.addEventListener('nx-panel-close', () => hidePanel(aside));
+  // Allow any consumer inside the panel to close it by firing PANEL_EVENT.CLOSE.
+  aside.addEventListener(PANEL_EVENT.CLOSE, () => hidePanel(aside));
 }
 export function createPanel({ width = '400px', beforeMain = false, content, fragment } = {}) {
   const aside = document.createElement('aside');
@@ -212,7 +225,6 @@ export async function restorePanels() {
       }
     }
   }
-  document.dispatchEvent(new CustomEvent('nx-panels-restored'));
 }
 
 export async function openPanel({ position, width = '400px', getContent } = {}) {
@@ -227,3 +239,78 @@ export async function openPanel({ position, width = '400px', getContent } = {}) 
   const content = await getContent?.();
   return mountPanel({ width, beforeMain, content });
 }
+
+const panelSections = new Map();
+
+/**
+ * Called once per host page to declare a section it owns. `onShow`, if given,
+ * runs after the section's panel is open — e.g. to activate a specific view
+ * inside a tool-panel. Not called at all for sections with no sub-items.
+ *
+ * @param {string} name - stable section id, e.g. 'chat' | 'tools'
+ * @param {{
+ *   position: 'before'|'after',
+ *   width?: string,
+ *   getContent: () => Promise<Element>,
+ *   onShow?: (aside: Element, id?: string, options?: unknown) => Promise<void>|void,
+ *   shouldAutoOpen?: () => Promise<boolean>|boolean,
+ * }} config
+ */
+export function registerPanelSection(name, config) {
+  panelSections.set(name, config);
+}
+
+export function getSectionAtPosition(position) {
+  for (const [name, config] of panelSections) {
+    if (config.position === position) return name;
+  }
+  return undefined;
+}
+
+async function showPanelSection(name, id, options) {
+  const config = panelSections.get(name);
+  if (!config) return undefined;
+  const store = getPanelStore();
+  const width = store[config.position]?.width ?? config.width;
+  const aside = await openPanel({
+    position: config.position, width, getContent: config.getContent,
+  });
+  await config.onShow?.(aside, id, options);
+  return aside;
+}
+
+function closePanelSection(name) {
+  const config = panelSections.get(name);
+  if (!config) return;
+  const aside = document.querySelector(`aside.panel[data-position="${config.position}"]`);
+  if (aside && !aside.hidden) hidePanel(aside);
+}
+
+/**
+ * Called once per host page, after all its sections are registered, to reopen
+ * whichever were left open last time. A section reopens if either a persisted
+ * (non-fragment) panel state exists at its position, or — for sections that
+ * want a fallback policy, e.g. a site-level config default — `shouldAutoOpen`
+ * resolves true.
+ */
+export async function restorePanelSections() {
+  const store = getPanelStore();
+  await Promise.all([...panelSections].map(async ([name, config]) => {
+    const persisted = store[config.position];
+    if (persisted && !persisted.fragment) {
+      await showPanelSection(name);
+      return;
+    }
+    if (await config.shouldAutoOpen?.()) await showPanelSection(name);
+  }));
+}
+
+document.addEventListener(PANEL_EVENT.OPEN, ({ detail }) => {
+  const { section, id, options } = detail ?? {};
+  if (section) showPanelSection(section, id, options);
+});
+
+document.addEventListener(PANEL_EVENT.CLOSE, ({ detail }) => {
+  const { section } = detail ?? {};
+  if (section) closePanelSection(section);
+});
