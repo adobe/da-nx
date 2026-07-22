@@ -34,6 +34,7 @@ class NxChat extends LitElement {
     thinking: { type: Boolean },
     connected: { type: Boolean },
     toolCards: { type: Object },
+    styled: { type: Boolean, reflect: true, attribute: 'styled-as-panel' },
     _prompts: { state: true },
     _items: { state: true },
     _dragging: { state: true },
@@ -506,89 +507,91 @@ class NxChat extends LitElement {
           .onSend=${(p) => this._sendPrompt(p)}
         ></nx-prompts>
       </nx-popover>
-      <div class="chat-header">
-        <button
-          type="button"
-          class="chat-header-btn clear-btn"
-          aria-label="Clear chat"
-          ?hidden=${!this.messages?.length}
-          @click=${() => this.clear()}
-        >${icon('clear')}<span>Clear</span></button>
-        <button
-          type="button"
-          class="chat-header-btn"
-          aria-label="Close chat panel"
-          @click=${this._closePanel}
-        >${icon('close')}</button>
-      </div>
-      <div class="chat-scroll-container">
-        <div class="chat-messages-container" role="log" aria-live="polite">
-          ${!this.messages?.length && !this.thinking
-        ? html`<nx-chat-welcome
-              .prompts=${prompts}
-              .onSend=${(p) => this._sendPrompt(p)}
-              @nx-show-prompts=${this._openPrompts}
-            ></nx-chat-welcome>`
-        : nothing}
-        ${this.messages?.map((msg) => renderMessage(msg, this.toolCards))}
-        ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
+      <div class="chat-body">
+        <div class="chat-header">
+          <button
+            type="button"
+            class="chat-header-btn clear-btn"
+            aria-label="Clear chat"
+            ?hidden=${!this.messages?.length}
+            @click=${() => this.clear()}
+          >${icon('clear')}<span>Clear</span></button>
+          <button
+            type="button"
+            class="chat-header-btn"
+            aria-label="Close chat panel"
+            @click=${this._closePanel}
+          >${icon('close')}</button>
         </div>
-      </div>
-      <div class="chat-form-wrap">
-        <nx-menu
-          class="slash-menu"
-          .ignoreFocus=${true}
-          .scoped=${true}
-          @select=${({ detail }) => this._onSlashSelect(detail.id)}
-          @mousedown=${(e) => e.preventDefault()}
-        ></nx-menu>
-        ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
-        <form class="chat-form" autocomplete="off" @submit=${this._submit}
-          @dragenter=${this._onDragEnter}
-          @dragleave=${this._onDragLeave}
-          @dragover=${this._onDragOver}
-          @drop=${this._onDrop}
-        >
-        <input
-          class="chat-file-input"
-          type="file"
-          accept="image/*,text/markdown,.md,application/pdf,.pdf"
-          multiple
-          hidden
-          @change=${this._onFileInputChange}
-        />
-        ${this._dragging ? html`
-          <div class="chat-drop-zone" aria-hidden="true">
-            <span class="chat-drop-title">Drop a file to add context</span>
-            <span class="chat-drop-hint">Supports PDF, images, and documents</span>
-          </div>` : nothing}
-        ${this._items?.length ? html`
-          <nx-chat-pills
-            .items=${this._items}
-            @nx-pill-remove=${this._handlePillRemove}
-            @nx-pill-pin=${this._handlePillPin}
-            @nx-pill-activate=${this._handlePillActivate}
-          ></nx-chat-pills>` : nothing}
-        <textarea
-          name="chat-input"
-          class="chat-input"
-          placeholder="Ask anything, or type / for skills..."
-          ?disabled=${this.thinking || !this.connected}
-          @input=${this._handleInput}
-          @keydown=${this._handleKeydown}
-          @blur=${this._handleBlur}
-        ></textarea>
-        <div class="chat-actions" ?data-thinking=${this.thinking} ?data-has-items=${!!this._items?.length}>
-          <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-            <button slot="trigger" class="chat-add" type="button" aria-label="Add" @click=${this._onAddClick}>
-              <span class="icon-add">${icon('add')}</span>
-              <span class="icon-up">${icon('up')}</span>
-            </button>
-          </nx-menu>
-          <button class="chat-stop action-btn" type="button" aria-label="Stop" @click=${this._submit}>${icon('stop')}</button>
-          <button class="chat-send action-btn" type="submit" aria-label="Send">${icon('send')}</button>
+        <div class="chat-scroll-container">
+          <div class="chat-messages-container" role="log" aria-live="polite">
+            ${!this.messages?.length && !this.thinking
+          ? html`<nx-chat-welcome
+                .prompts=${prompts}
+                .onSend=${(p) => this._sendPrompt(p)}
+                @nx-show-prompts=${this._openPrompts}
+              ></nx-chat-welcome>`
+          : nothing}
+          ${this.messages?.map((msg) => renderMessage(msg, this.toolCards))}
+          ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
+          </div>
         </div>
-        </form>
+        <div class="chat-form-wrap">
+          <nx-menu
+            class="slash-menu"
+            .ignoreFocus=${true}
+            .scoped=${true}
+            @select=${({ detail }) => this._onSlashSelect(detail.id)}
+            @mousedown=${(e) => e.preventDefault()}
+          ></nx-menu>
+          ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
+          <form class="chat-form" autocomplete="off" @submit=${this._submit}
+            @dragenter=${this._onDragEnter}
+            @dragleave=${this._onDragLeave}
+            @dragover=${this._onDragOver}
+            @drop=${this._onDrop}
+          >
+          <input
+            class="chat-file-input"
+            type="file"
+            accept="image/*,text/markdown,.md,application/pdf,.pdf"
+            multiple
+            hidden
+            @change=${this._onFileInputChange}
+          />
+          ${this._dragging ? html`
+            <div class="chat-drop-zone" aria-hidden="true">
+              <span class="chat-drop-title">Drop a file to add context</span>
+              <span class="chat-drop-hint">Supports PDF, images, and documents</span>
+            </div>` : nothing}
+          ${this._items?.length ? html`
+            <nx-chat-pills
+              .items=${this._items}
+              @nx-pill-remove=${this._handlePillRemove}
+              @nx-pill-pin=${this._handlePillPin}
+              @nx-pill-activate=${this._handlePillActivate}
+            ></nx-chat-pills>` : nothing}
+          <textarea
+            name="chat-input"
+            class="chat-input"
+            placeholder="Ask anything, or type / for skills..."
+            ?disabled=${this.thinking || !this.connected}
+            @input=${this._handleInput}
+            @keydown=${this._handleKeydown}
+            @blur=${this._handleBlur}
+          ></textarea>
+          <div class="chat-actions" ?data-thinking=${this.thinking} ?data-has-items=${!!this._items?.length}>
+            <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
+              <button slot="trigger" class="chat-add" type="button" aria-label="Add" @click=${this._onAddClick}>
+                <span class="icon-add">${icon('add')}</span>
+                <span class="icon-up">${icon('up')}</span>
+              </button>
+            </nx-menu>
+            <button class="chat-stop action-btn" type="button" aria-label="Stop" @click=${this._submit}>${icon('stop')}</button>
+            <button class="chat-send action-btn" type="submit" aria-label="Send">${icon('send')}</button>
+          </div>
+          </form>
+        </div>
       </div>
       <p class="chat-disclaimer">
         Responses are generated using AI, and may be inaccurate. Check before using.
