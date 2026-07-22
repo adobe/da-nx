@@ -1,7 +1,5 @@
-import { LitElement, html, nothing } from '../../../../deps/lit/dist/index.js';
-import { getConfig } from '../../../../scripts/nexter.js';
-import { getSvg } from '../../../../utils/svg.js';
-import getStyle from '../../../../utils/styles.js';
+import { LitElement, html, nothing } from 'da-lit';
+import { loadStyle } from '../../../../../nx2/utils/utils.js';
 import {
   calculateTime,
   formatDate,
@@ -11,16 +9,9 @@ import {
   saveStatus,
   timeoutWrapper,
 } from '../index.js';
-import { Queue } from '../../../../public/utils/tree.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
 
-const { nxBase } = getConfig();
-const style = await getStyle(import.meta.url);
-const shared = await getStyle(`${nxBase}/blocks/loc/project/views/shared.js`);
-const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
-
-const ICONS = [
-  `${nxBase}/blocks/loc/img/Smock_ChevronRight_18_N.svg`,
-];
+const style = await loadStyle(import.meta.url);
 
 class NxLocRollout extends LitElement {
   static properties = {
@@ -32,8 +23,7 @@ class NxLocRollout extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style, shared, buttons];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
+    this.shadowRoot.adoptedStyleSheets = [style];
     setTimeout(() => { this.toggleExpand(); }, 100);
   }
 
@@ -138,7 +128,9 @@ class NxLocRollout extends LitElement {
           <h3>Rollout <span class="quiet">(${this._totalRollout} items)</span></h3>
           <div class="da-loc-panel-title-expand">
             <h3>Behavior: <span class="quiet">${this.conflictBehavior}</span></h3>
-            <button class="da-loc-panel-expand-btn" @click=${this.toggleExpand} aria-label="Toggle Expand"><svg class="icon"><use href="#spectrum-chevronRight"/></svg></button>
+            <button class="da-loc-panel-expand-btn" @click=${this.toggleExpand} aria-label="Toggle Expand">
+              <svg class="icon" viewBox="0 0 20 20"><use href="/img/icons/s2-icon-chevronright-20-n.svg#icon"/></svg>
+            </button>
           </div>
         </div>
         <div class="da-loc-panel-content">

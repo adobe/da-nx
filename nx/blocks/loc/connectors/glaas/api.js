@@ -1,4 +1,4 @@
-import makeBatches from '../../../../public/utils/batch.js';
+import makeBatches from '../../../../../nx2/public/utils/batch.js';
 
 export const GLAAS_DEBUG_LOG_KEY = 'glaas.log';
 

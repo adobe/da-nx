@@ -1,8 +1,8 @@
-import { LitElement, html, nothing } from '../../../deps/lit/dist/index.js';
-import getStyle from '../../../utils/styles.js';
+import { LitElement, html, nothing } from 'da-lit';
+import { loadStyle } from '../../../../nx2/utils/utils.js';
 import { getDetails } from './index.js';
 
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
 class NxLocProject extends LitElement {
   static properties = {

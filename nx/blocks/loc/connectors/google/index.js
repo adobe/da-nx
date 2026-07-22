@@ -1,5 +1,5 @@
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
-import { Queue } from '../../../../public/utils/tree.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { convertPath } from '../../utils/utils.js';
 
 const MAX_LENGTH = 5000;

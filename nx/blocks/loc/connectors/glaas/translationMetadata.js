@@ -1,5 +1,5 @@
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { daFetch } from '../../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
+import { daFetch } from '../../../../../nx2/utils/api.js';
 import { shouldLogGLaaSRequests } from './api.js';
 
 const BLOCK_SCHEMA_PATH = '/.da/block-schema.json';
@@ -81,9 +81,9 @@ export function parseBlockSchema(schemaData) {
 }
 
 async function fetchJson(org, site, relativePath) {
-  const url = `${DA_ORIGIN}/source/${org}/${site}${relativePath}`;
+  const url = `${DA_ADMIN}/source/${org}/${site}${relativePath}`;
   try {
-    const resp = await daFetch(url);
+    const resp = await daFetch({ url });
     if (!resp.ok) return null;
     return resp.json();
   } catch (error) {
@@ -118,16 +118,16 @@ function metadataPathForPage(pagePath, suffix) {
 
 async function fetchMetadataFile(org, site, pagePath, suffix, readBody) {
   const metadataPath = metadataPathForPage(pagePath, suffix);
-  let url = `${DA_ORIGIN}/source/${org}/${site}${metadataPath}`;
+  let url = `${DA_ADMIN}/source/${org}/${site}${metadataPath}`;
   try {
-    let resp = await daFetch(url);
+    let resp = await daFetch({ url });
     if (resp.ok) {
       return readBody(resp);
     }
     if (resp.status === 404 && metadataPath.includes('/langstore/')) {
       const fallbackPath = metadataPath.replace(/\/langstore\/[^/]+\//, '/');
-      url = `${DA_ORIGIN}/source/${org}/${site}${fallbackPath}`;
-      resp = await daFetch(url);
+      url = `${DA_ADMIN}/source/${org}/${site}${fallbackPath}`;
+      resp = await daFetch({ url });
       if (resp.ok) {
         return readBody(resp);
       }
