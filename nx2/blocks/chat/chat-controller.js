@@ -90,7 +90,15 @@ export default class ChatController {
 
   _pageContextForAgent() {
     const { org, site, path, view } = this._context ?? {};
-    return org && site ? { org, site, path: path ?? '', view } : undefined;
+    return org && site
+      ? {
+        org,
+        site,
+        path: path ?? '',
+        view,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }
+      : undefined;
   }
 
   async _getRoom() {

@@ -1,5 +1,15 @@
 import makeBatches from '../../../../public/utils/batch.js';
 
+export const GLAAS_DEBUG_LOG_KEY = 'glaas.log';
+
+export function shouldLogGLaaSRequests() {
+  try {
+    return localStorage.getItem(GLAAS_DEBUG_LOG_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 export async function throttle(ms = 500) {
   return new Promise((resolve) => {
     setTimeout(() => { resolve(); }, ms);
@@ -109,6 +119,69 @@ export function glaasSourcePreviewUrl(aemHref) {
   return aemHref.replace(/\/index$/, '/');
 }
 
+async function readGlaasResponse(resp) {
+  const { status, statusText } = resp;
+  let body = '';
+  try {
+    body = await resp.text();
+  } catch (error) {
+    body = `[response read error: ${error?.message ?? error}]`;
+  }
+  let json;
+  try {
+    json = body ? JSON.parse(body) : undefined;
+  } catch {
+    json = undefined;
+  }
+  return { status, statusText, body, json };
+}
+
+function logGlaasAddAssetsRequest({
+  url, workflow, taskName, targetLocales, fileDetails, assetMetadata, daBasePath,
+}) {
+  if (!shouldLogGLaaSRequests()) return;
+  // eslint-disable-next-line no-console -- dev GLaaS handoff (glaas.log)
+  console.info('[GLaaS addAssets] request', {
+    daBasePath,
+    url,
+    workflow,
+    taskName,
+    targetLocales,
+    fileDetails,
+    assetMetadata: {
+      assetName: assetMetadata.assetName,
+      assetType: assetMetadata.assetType,
+      targetLocales: assetMetadata.targetLocales,
+      'source-preview-url': assetMetadata.metadata?.['source-preview-url'],
+      ...(assetMetadata.langMetadata && { langMetadata: assetMetadata.langMetadata }),
+      ...(assetMetadata.languageContext && { languageContext: assetMetadata.languageContext }),
+    },
+  });
+  // eslint-disable-next-line no-console -- dev GLaaS handoff (glaas.log)
+  console.info('[GLaaS addAssets] _asset_metadata_\n', JSON.stringify(assetMetadata, null, 2));
+}
+
+function logGlaasAddAssetsResponse({
+  daBasePath, ok, status, statusText, body, json,
+}) {
+  if (!shouldLogGLaaSRequests()) return;
+  const label = ok ? '[GLaaS addAssets] success' : '[GLaaS addAssets] error';
+  const detail = {
+    daBasePath,
+    status,
+    statusText,
+    ...(json && { json }),
+    ...(!json && body && { body }),
+  };
+  if (ok) {
+    // eslint-disable-next-line no-console -- intentional upload debug
+    console.info(label, detail);
+  } else {
+    // eslint-disable-next-line no-console -- intentional upload debug
+    console.error(label, detail);
+  }
+}
+
 export async function addAssets({
   origin,
   clientid,
@@ -158,34 +231,57 @@ export async function addAssets({
       const opts = getOpts(clientid, token, body, null, 'POST');
       // Add fileDetails parameter for GLaaS v1.2
       const url = `${origin}/api/l10n/v1.2/tasks/${workflow}/${name}/assets?targetLanguages=${targetLocales.join(',')}&fileDetails=${encodeURIComponent(JSON.stringify(fileDetails))}`;
-      // eslint-disable-next-line no-console -- intentional upload debug
-      console.info('[GLaaS addAssets]', {
+      logGlaasAddAssetsRequest({
         url,
         workflow,
         taskName: name,
         targetLocales,
         fileDetails,
-        assetMetadata: {
-          assetName: assetMetadata.assetName,
-          assetType: assetMetadata.assetType,
-          targetLocales: assetMetadata.targetLocales,
-          'source-preview-url': assetMetadata.metadata?.['source-preview-url'],
-          ...(assetMetadata.langMetadata && { langMetadata: assetMetadata.langMetadata }),
-          ...(assetMetadata.languageContext && { languageContext: assetMetadata.languageContext }),
-        },
+        assetMetadata,
+        daBasePath: item.daBasePath,
       });
 
       try {
         const resp = await fetch(url, opts);
-        if (!resp.ok) throw new Error(resp.status);
-        return { status: resp.status };
-      } catch {
+        const response = await readGlaasResponse(resp);
+        logGlaasAddAssetsResponse({
+          daBasePath: item.daBasePath,
+          ok: resp.ok,
+          ...response,
+        });
+        if (!resp.ok) {
+          return {
+            error: 'There was an error uploading',
+            status: response.status,
+            glaasBody: response.body,
+          };
+        }
+        return { status: response.status };
+      } catch (error) {
+        if (shouldLogGLaaSRequests()) {
+          // eslint-disable-next-line no-console -- dev GLaaS handoff (glaas.log)
+          console.error('[GLaaS addAssets] error', {
+            daBasePath: item.daBasePath,
+            message: error?.message ?? String(error),
+          });
+        }
         return { error: 'There was an error uploading' };
       }
     }));
     task.sent += results.filter((result) => (result.status)).length;
     task.error += results.filter((result) => (result.error)).length;
     updateLangTask(task, task.langs);
+  }
+  if (shouldLogGLaaSRequests()) {
+    // eslint-disable-next-line no-console -- dev GLaaS handoff (glaas.log)
+    console.info('[GLaaS addAssets] batch complete', {
+      taskName: name,
+      workflow,
+      targetLocales,
+      sent: task.sent,
+      error: task.error,
+      status: task.error === 0 ? 'uploaded' : 'uploading-with-errors',
+    });
   }
   if (task.error === 0) task.status = 'uploaded';
 }
