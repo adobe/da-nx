@@ -60,6 +60,12 @@ A shell/framework for Adobe AEM Edge Delivery Services. Provides shared blocks, 
 - The canonical list of postMessage `type` values for the quick-edit iframe boundary lives in `nx/utils/message-types.js`, with each key's payload shape documented as an inline comment there — that file is the single source of truth for names and shapes, so it doesn't drift from a separate doc.
 - When adding a **new** message type (not just a payload tweak to an existing one), also add a short entry to `docs/quick-edit-events.md` explaining what it's for and which host(s) (da-nx's standalone `quick-edit-portal.js`, or da-live's embedded `?controller=parent` flow) actually consume it. The doc exists because the type name alone doesn't convey that context across two repos — keep entries to the "why," not a restatement of the payload.
 
+## Keep the style guide in sync
+
+- `docs/style-guide/style-guide.html` is a living reference of shared CSS patterns (`nx2/styles/*.css`) and shared components (`nx2/blocks/shared/*`). When you add or change a class in `nx2/styles/` or a component in `nx2/blocks/shared/`, add or update its entry in the style guide, and keep the matching `docs/*.md` file (if one exists for that component) in sync too.
+- This does not apply to page- or feature-specific blocks (`nx2/blocks/nav`, `sidenav`, `profile`, etc.) — only the shared, reusable patterns the style guide actually catalogs.
+
+
 ## JavaScript conventions not enforced by lint
 
 - As a project purposefully avoiding TypeScript and build tools, be mindful of how variables and properties are named. If you see `somethingUrl`, this should be a proper URL object. If you see `href` this would imply a string that has all parts of a url: origin, pathname, search, hash, etc. but is not an actual URL object.
