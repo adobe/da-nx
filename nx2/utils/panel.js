@@ -167,7 +167,7 @@ function createPanel({
   aside.dataset.width = width;
   aside.style.width = width;
   aside.dataset.position = beforeMain ? 'before' : 'after';
-  aside.dataset.section = section;
+  if (section) aside.dataset.section = section;
 
   buildPanelDOM(aside);
 
@@ -223,19 +223,8 @@ async function openPanel({
 
 const panelSections = new Map();
 
-/**
- * Called once per host page to declare a section it owns. `onShow`, if given,
- * runs after the section's panel is open — e.g. to activate a specific view
- * inside a tool-panel. Not called at all for sections with no sub-items.
- *
- * @param {string} name - stable section id, e.g. 'chat' | 'tools'
- * @param {{
- *   position: 'before'|'after',
- *   width?: string,
- *   getContent: () => Promise<Element>,
- *   onShow?: (aside: Element, id?: string, options?: unknown) => Promise<void>|void,
- * }} config
- */
+// Called once per host page to declare a section it owns — see docs/workspace.md
+// ("Side panels") for the full config contract.
 export function registerPanelSection(name, config) {
   panelSections.set(name, config);
 }

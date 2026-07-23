@@ -47,18 +47,20 @@ The component manages its own controller internally. No external wiring needed.
 
 Components that want to add pills without holding a direct reference to the chat element can dispatch on `document`:
 
-| Event | Detail | Description |
-|---|---|---|
-| `nx-add-to-chat` | `{ key?, id, label, ...contextFields }` | Adds or replaces a pill. If `key` is set, replaces any existing pill with the same key (use for selection-driven context that changes as the user moves focus). If `key` is omitted, appends a new pill regardless. Dispatching `{ key }` with no `id` removes the pill for that key. |
+| Event | `CHAT_EVENT` key | Detail | Description |
+|---|---|---|---|
+| `nx-add-to-chat` | `ADD_TO_CHAT` | `{ key?, id, label, ...contextFields }` | Adds or replaces a pill. If `key` is set, replaces any existing pill with the same key (use for selection-driven context that changes as the user moves focus). If `key` is omitted, appends a new pill regardless. Dispatching `{ key }` with no `id` removes the pill for that key. |
 Context fields on the detail (`blockName`, `innerText`, `proseIndex`) are forwarded to the agent as selection context on the next message. See [Selection context](#selection-context).
 
-**Setting a prompt programmatically:** Call `setPrompt(text, { autoSend? })` directly on the `nx-chat` element. Within DA Live, prefer dispatching `nx-open-chat-panel` on `document` instead — this also ensures the chat panel is open before the prompt is set:
+**Setting a prompt programmatically:** Call `setPrompt(text, { autoSend? })` directly on the `nx-chat` element. Within DA Live, prefer dispatching `PANEL_EVENT.OPEN` (`nx2/utils/panel.js`) on `document` instead — this also ensures the chat panel is open before the prompt is set:
 
 ```js
-document.dispatchEvent(new CustomEvent('nx-open-chat-panel', { detail: { text, autoSend } }));
+document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, { detail: { section: 'chat', options: { text, autoSend } } }));
 ```
 
-**Extension iframe usage:** Extensions running in cross-origin iframes cannot dispatch document events directly. Use `actions.setPrompt(text)` or `actions.setPrompt(text, { autoSend: true })` from the DA SDK — the iframe protocol relays it to `nx-open-chat-panel` on the host document, which opens the panel and calls `setPrompt()` on the chat element. `actions.setPrompt` is available on the object resolved from `DA_SDK`.
+The registered `'chat'` section's `onShow` reads `options.text`/`options.autoSend` and calls `setPrompt()` on the mounted `nx-chat` element — see the host page's `registerPanelSection('chat', { onShow })`.
+
+**Extension iframe usage:** Extensions running in cross-origin iframes cannot dispatch document events directly. Use `actions.setPrompt(text)` or `actions.setPrompt(text, { autoSend: true })` from the DA SDK — the iframe protocol relays it to `PANEL_EVENT.OPEN` (`{ section: 'chat', options: { text, autoSend } }`) on the host document, which opens the panel and calls `setPrompt()` on the chat element. `actions.setPrompt` is available on the object resolved from `DA_SDK`.
 
 ## Selection context
 
