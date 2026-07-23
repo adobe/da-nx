@@ -35,15 +35,6 @@ function ensureNavPath() {
   document.head.append(meta);
 }
 
-registerPanelSection('chat', {
-  position: 'before',
-  width: '400px',
-  getContent: async () => {
-    await import('../../../nx2/blocks/chat/chat.js');
-    return document.createElement('nx-chat');
-  },
-});
-
 function openChatPanel() {
   document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, { detail: { section: 'chat' } }));
 }
@@ -80,6 +71,15 @@ async function setupChat(block) {
 
   const flags = await getEWFlags({ org, site });
   if (flags['ew.enabled'] !== 'true') return;
+
+  registerPanelSection('chat', {
+    position: 'before',
+    width: '400px',
+    getContent: async () => {
+      await import('../../../nx2/blocks/chat/chat.js');
+      return document.createElement('nx-chat');
+    },
+  });
 
   installChatToggle(block);
   if (wasPanelOpen('chat')) openChatPanel();
