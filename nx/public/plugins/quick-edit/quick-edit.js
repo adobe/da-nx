@@ -31,7 +31,9 @@ async function setBody(body, ctx) {
   setupNodeSelection(ctx);
   setSelectedNode(getSelectedNode());
   setupContentEditableListeners(ctx);
-  setupImageDropListeners(ctx, document.body.querySelector('main'));
+  if (!ctx.readOnly) {
+    setupImageDropListeners(ctx, document.body.querySelector('main'));
+  }
   if (!parentControllerPort) {
     setupActions(ctx);
   }
@@ -74,10 +76,13 @@ function setupParentController(loadPage) {
     const port = e.ports[0];
     parentControllerPort = port;
 
+    const config = e.data?.payload?.config ?? e.data?.init;
+
     const ctx = {
       initialized: true,
       loadPage,
       port,
+      readOnly: config?.canWrite !== true,
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
