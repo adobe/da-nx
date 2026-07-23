@@ -1,5 +1,5 @@
 import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
-import { registerPanelSection, PANEL_EVENT } from '../../../nx2/utils/panel.js';
+import { registerPanelSection, wasPanelOpen, PANEL_EVENT } from '../../../nx2/utils/panel.js';
 import { getEWFlags } from '../../../nx2/utils/ewFlags.js';
 import { getConfig } from '../../../nx2/scripts/nx.js';
 import decorateEditor from './editor.js';
@@ -35,35 +35,12 @@ function ensureNavPath() {
   document.head.append(meta);
 }
 
-// Remember the chat's open/closed state per browser session, so a refresh
-// keeps the user's choice.
-const CHAT_SESSION_KEY = 'nx-chat-open';
-
-function isChatOpen() {
-  try {
-    return !!sessionStorage.getItem(CHAT_SESSION_KEY);
-  } catch {
-    return false;
-  }
-}
-
-function setChatOpen(open) {
-  try {
-    if (open) sessionStorage.setItem(CHAT_SESSION_KEY, '1');
-    else sessionStorage.removeItem(CHAT_SESSION_KEY);
-  } catch { /* ignore */ }
-}
-
 registerPanelSection('chat', {
   position: 'before',
   width: '400px',
   getContent: async () => {
     await import('../../../nx2/blocks/chat/chat.js');
     return document.createElement('nx-chat');
-  },
-  onShow: (aside) => {
-    setChatOpen(true);
-    aside.addEventListener(PANEL_EVENT.CLOSE, () => setChatOpen(false), { once: true });
   },
 });
 
@@ -105,7 +82,7 @@ async function setupChat(block) {
   if (flags['ew.enabled'] !== 'true') return;
 
   installChatToggle(block);
-  if (isChatOpen()) openChatPanel();
+  if (wasPanelOpen('chat')) openChatPanel();
 }
 
 // Block entry: EW surfaces the form via an `nx-form` content block, which NX
