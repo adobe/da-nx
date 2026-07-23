@@ -1,5 +1,17 @@
 # Worklog
 
+## 2026-07-23
+
+### nx2/utils/api.js — org-level listing merges DA-legacy and hlx6 source-bus sites (da-live#1169)
+
+`source.list({ org })` (no `site`) previously only queried `${DA_ADMIN}/list/{org}`, so hlx6-upgraded sites were invisible in org-level listings. Now, when `site` is omitted, it fires both the DA-legacy list and `org.listSites({ org })` in parallel, normalizes each via `hlx6ToDaList`, and dedupes the combined items by `name` (legacy entry wins on a name collision). `ok` is true if either call succeeds, so a 404 from either side (non-migrated org, or an org with no legacy DA content) doesn't blank out the other's results. Only DA returns a `continuationToken` — hlx6 has no pagination — so `org.listSites` is only queried on the first page (`continuationToken` absent); later pages skip it entirely instead of redundantly re-merging the same unpaginated site list each time (caught in review).
+
+Also fixed `org.listSites`: was hitting the wrong (unused/stubbed) endpoint `${AEM_API}/{org}/sites`; corrected to `${AEM_API}/{org}/source/` per the source-bus API.
+
+New internal helpers `parseListItems` (ok-check + parse-or-`[]`) and `dedupeByName`, alongside `hlx6ToDaList`. Updated `api.d.ts`/`api.md` accordingly. Consumers in `da-live` (`da-sites.js`/`da-list.js`) and its `test/fixtures/nx2/utils/api.js` mirror need no da-nx-side change but should be synced manually — out of scope for this repo.
+
+**Test-suite flake fixed in passing:** `test/nx2/utils/api.test.js`'s outer `beforeEach` did a blanket `localStorage.removeItem('hlx6-upgrade')`. Since `tree.test.js` seeds the same shared-origin key for its own hlx6 tests, and wtr runs test files concurrently (`--concurrent-browsers 4`) with a shared localStorage, this occasionally wiped `tree.test.js`'s seeded entry mid-run, causing intermittent unrelated failures. Removed the clear — every `org`/`site` pair in `api.test.js` already comes from a randomized `uniq()` helper, so the blanket clear was never actually load-bearing.
+
 ## 2026-07-14
 
 ### nx2/styles/styles.css — pin to light mode
