@@ -199,6 +199,7 @@ function createEditor(cursorOffset, state, ctx) {
 
   const editorView = new EditorView(editorParent, {
     state: editorState,
+    editable: () => !ctx.readOnly,
     handleDOMEvents: {
       focus,
       keydown,
@@ -211,7 +212,7 @@ function createEditor(cursorOffset, state, ctx) {
 
   element.replaceWith(editorParent);
   editorParent.view = editorView;
-  setupImageDropListeners(ctx, editorParent);
+  if (!ctx.readOnly) setupImageDropListeners(ctx, editorParent);
   setRemoteCursors();
   initScrollListener(editorParent.ownerDocument.defaultView, ctx);
 
@@ -248,7 +249,7 @@ function updateEditor(editorEl, state, ctx) {
   ctx.remoteUpdate = true;
   view.dispatch(tr);
   ctx.remoteUpdate = false;
-  setupImageDropListeners(ctx, editorEl.parentElement);
+  if (!ctx.readOnly) setupImageDropListeners(ctx, editorEl.parentElement);
 
   if (blurClearTimeout !== null) {
     clearTimeout(blurClearTimeout);

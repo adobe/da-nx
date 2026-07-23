@@ -31,7 +31,9 @@ async function setBody(body, ctx) {
   setupNodeSelection(ctx);
   setSelectedNode(getSelectedNode());
   setupContentEditableListeners(ctx);
-  setupImageDropListeners(ctx, document.body.querySelector('main'));
+  if (!ctx.readOnly) {
+    setupImageDropListeners(ctx, document.body.querySelector('main'));
+  }
   if (!parentControllerPort) {
     setupActions(ctx);
   }
@@ -87,6 +89,7 @@ function setupParentController(loadPage) {
       initialized: true,
       loadPage,
       port,
+      readOnly: e.data.init?.canWrite !== true,
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
     // @deprecated flat `ready` — prefer `type: MESSAGE_TYPES.READY` (added alongside for
