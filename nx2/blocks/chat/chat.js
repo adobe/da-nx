@@ -235,7 +235,7 @@ class NxChat extends LitElement {
   _pendingApproval() {
     if (!this.toolCards) return null;
     for (const [toolCallId, card] of this.toolCards) {
-      if (card.state === TOOL_STATE.APPROVAL_REQUESTED) return { toolCallId, ...card };
+      if (card.state === TOOL_STATE.AWAITING_APPROVAL) return { toolCallId, ...card };
     }
     return null;
   }

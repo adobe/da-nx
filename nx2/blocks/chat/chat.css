@@ -179,7 +179,7 @@
     font-size: var(--s2-body-size-xs);
   }
 
-  &.tool-card-error .tool-card-status,
+  &.tool-card-output-error .tool-card-status,
   &.tool-card-rejected .tool-card-status {
     color: var(--s2-red-700);
   }
