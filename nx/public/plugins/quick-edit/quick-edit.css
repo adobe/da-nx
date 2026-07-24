@@ -336,3 +336,149 @@ da-palette .da-palette-field {
   background-color: currentcolor;
   mask: url("/nx/img/icons/S2_Icon_Select_20_N.svg") no-repeat center / contain;
 }
+
+.qe-comment-overlay {
+  --comment-highlight-bg: light-dark(#fbf198, rgb(255 200 50 / 24%));
+  --comment-highlight-bg-active: light-dark(#f8d904, rgb(255 220 90 / 38%));
+  --comment-highlight-border: light-dark(#f8d904, rgb(255 210 70 / 90%));
+  --comment-highlight-border-active: light-dark(#e8c600, rgb(255 238 130));
+
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+.qe-comment-box {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: none;
+  pointer-events: auto;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.qe-comment-box-text {
+  --da-comment-bg: var(--comment-highlight-bg);
+  --da-comment-border-color: var(--comment-highlight-border);
+
+  /* Visual only: let clicks fall through to the editable text underneath. */
+  pointer-events: none;
+  background: light-dark(
+    color-mix(in srgb, var(--da-comment-bg) 42%, transparent),
+    color-mix(in srgb, var(--da-comment-bg) 55%, transparent)
+  );
+  border-bottom: 2px solid var(--da-comment-border-color);
+  z-index: 2;
+}
+
+.qe-comment-box.is-active {
+  --da-comment-bg: var(--comment-highlight-bg-active);
+  --da-comment-border-color: var(--comment-highlight-border-active);
+}
+
+.qe-comment-box-text.is-active {
+  background: light-dark(
+    color-mix(in srgb, var(--da-comment-bg) 55%, transparent),
+    color-mix(in srgb, var(--da-comment-bg) 65%, transparent)
+  );
+  border-bottom-color: var(--da-comment-border-color);
+}
+
+/* Per-author color, toned down. Overrides the yellow theme when a color is set. */
+.qe-comment-box-text.is-authored {
+  background: color-mix(in srgb, var(--da-comment-color) 20%, transparent);
+  border-bottom-color: var(--da-comment-color);
+}
+
+.qe-comment-box-text.is-authored.is-active {
+  background: color-mix(in srgb, var(--da-comment-color) 34%, transparent);
+}
+
+.qe-comment-box-anchor-block {
+  pointer-events: none;
+  z-index: 1;
+  background: transparent !important;
+
+  /* Only rendered while the thread is selected (see drawAnchorMarker). */
+  outline: 2px solid var(--comment-highlight-border-active);
+  outline-offset: 3px;
+}
+
+.qe-comment-box-anchor-block.is-authored {
+  outline-color: var(--da-comment-color);
+}
+
+.qe-comment-marker {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  border-radius: 50% 50% 50% 2px;
+  background: var(--comment-highlight-border);
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 9999;
+}
+
+.qe-comment-marker.is-top-right {
+  border-radius: 50% 50% 2px;
+}
+
+.qe-comment-marker.is-active {
+  background: var(--comment-highlight-border-active);
+}
+
+.qe-comment-marker:hover {
+  filter: brightness(0.95);
+}
+
+.qe-comment-bubble {
+  position: absolute;
+  box-sizing: content-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border: 2px solid #fff;
+
+  /* Teardrop: pointy bottom-left corner, mirroring the anchor marker. */
+  border-radius: 50% 50% 50% 2px;
+  background: var(--da-comment-color, var(--comment-highlight-border));
+  color: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  filter:
+    drop-shadow(0 2px 8px rgb(0 0 0 / 8%))
+    drop-shadow(0 1px 4px rgb(0 0 0 / 4%))
+    drop-shadow(0 0 1px rgb(0 0 0 / 8%));
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 9999;
+}
+
+.qe-comment-bubble.is-top-right {
+  /* Pointy bottom-right when the bubble sits to the right of its anchor. */
+  border-radius: 50% 50% 2px;
+}
+
+.qe-comment-bubble.is-active {
+  outline: 2px solid var(--da-comment-color, var(--comment-highlight-border-active));
+  outline-offset: 1px;
+}
+
+.qe-comment-bubble:hover {
+  filter:
+    drop-shadow(0 4px 12px rgb(0 0 0 / 8%))
+    drop-shadow(0 2px 6px rgb(0 0 0 / 4%))
+    drop-shadow(0 0 2px rgb(0 0 0 / 12%));
+}
+
