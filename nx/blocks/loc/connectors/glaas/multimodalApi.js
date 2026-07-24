@@ -1,6 +1,6 @@
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { Queue } from '../../../../public/utils/tree.js';
-import { daFetch } from '../../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
+import { daFetch } from '../../../../../nx2/utils/api.js';
 import {
   buildGlaasCreateMetadata,
   getOpts,
@@ -433,7 +433,7 @@ const CONTENT_DA_LIVE_ORIGIN = `https://${CONTENT_DA_LIVE}`;
 
 /** Map delivery URL to DA Admin source (same path after /source/). */
 export function contentDaLiveToDaSourceUrl(imageUrl) {
-  return imageUrl.replace(CONTENT_DA_LIVE_ORIGIN, `${DA_ORIGIN}/source`);
+  return imageUrl.replace(CONTENT_DA_LIVE_ORIGIN, `${DA_ADMIN}/source`);
 }
 
 export function contentDaLivePathKey(href) {
@@ -653,7 +653,7 @@ async function fetchMultimodalImage({ imageIndex, imageUrl, logRequest }) {
   logRequest?.('fetch-image', { imageIndex, contentDaLiveUrl: imageUrl, daSourceUrl: imageSourceUrl });
   let imageResp;
   try {
-    imageResp = await daFetch(imageSourceUrl);
+    imageResp = await daFetch({ url: imageSourceUrl });
   } catch {
     return { error: 'Error fetching content.da.live image.', step: `fetch-image-${imageIndex}` };
   }
@@ -923,7 +923,7 @@ export async function postImageToDaMedia({
   const body = new FormData();
   body.append('data', data, mediaPath.split('/').pop());
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/media/${org}/${site}${mediaPath}`, { method: 'POST', body });
+    const resp = await daFetch({ url: `${DA_ADMIN}/media/${org}/${site}${mediaPath}`, opts: { method: 'POST', body } });
     if (!resp.ok) {
       if (resp.status === 413) {
         return skippedOversizedMediaUpload({ glaasName, sizeCheck });

@@ -2,10 +2,6 @@ svg {
   display: none;
 }
 
-button {
-  font-family: var(--font-family);
-}
-
 .icon {
   display: block;
   width: 20px;
@@ -29,8 +25,8 @@ p {
   gap: 24px;
   grid-template-columns: 1fr 180px 170px 210px 80px;
   background-color: var(--s2-gray-75);
-  border: 1px solid rgb(230 230 230);
-  border-radius: var(--s2-radius-100) var(--s2-radius-100) 0 0;
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-500) var(--s2-corner-radius-500) 0 0;
 
   p {
     font-weight: 700;
@@ -55,9 +51,9 @@ ul {
   padding: 0;
   list-style: none;
   background-color: var(--s2-gray-50);
-  border: 1px solid rgb(230 230 230);
+  border: 1px solid var(--s2-gray-200);
   border-top: none;
-  border-radius: 0 0 var(--s2-radius-100) var(--s2-radius-100);
+  border-radius: 0 0 var(--s2-corner-radius-500) var(--s2-corner-radius-500);
   overflow: hidden;
 
   li {
@@ -78,7 +74,7 @@ ul {
       position: absolute;
       content: "";
       display: block;
-      background-color: rgb(230 230 230);
+      background-color: var(--s2-gray-200);
       height: 1px;
       left: 24px;
       right: 24px;
@@ -94,14 +90,14 @@ ul {
     }
 
     &:hover {
-      background: rgb(228 240 255);
+      background: var(--s2-blue-200);
       z-index: 2;
 
       &::before,
       &::after {
         left: 0;
         right: 0;
-        background-color: rgb(22 122 243);
+        background-color: var(--s2-blue-900);
       }
 
       a {

@@ -1,7 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import getStyle from '../../../../utils/styles.js';
-import { getConfig } from '../../../../scripts/nexter.js';
-import { getSvg } from '../../../../utils/svg.js';
+import { loadStyle } from '../../../../../nx2/scripts/nx.js';
 import {
   setupConnector,
   getUrls,
@@ -12,14 +10,7 @@ import {
   removeWaitingLanguagesFromConf,
 } from './index.js';
 
-const { nxBase: nx } = getConfig();
-
-const style = await getStyle(import.meta.url);
-
-const ICONS = [
-  `${nx}/public/icons/S2_Icon_CheckmarkCircleGreen_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_AlertDiamondOrange_20_N.svg`,
-];
+const style = await loadStyle(import.meta.url);
 
 class NxLocTranslate extends LitElement {
   static properties = {
@@ -38,7 +29,6 @@ class NxLocTranslate extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
     this.setupService();
   }
 

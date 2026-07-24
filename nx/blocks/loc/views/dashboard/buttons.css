@@ -1,0 +1,11 @@
+button,
+input[type="submit"],
+input[type="button"] {
+  background: none;
+  font-family: var(--s2-font-family);
+  display: inline-block;
+  font-style: normal;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}

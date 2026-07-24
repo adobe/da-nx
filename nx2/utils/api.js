@@ -1,7 +1,7 @@
 /* eslint-disable no-use-before-define */
 import { HLX_ADMIN, AEM_API, DA_ADMIN, ALLOWED_TOKEN } from './utils.js';
 
-const { loadIms, handleSignIn } = await (async () => {
+export const { loadIms, handleSignIn } = await (async () => {
   try {
     const { getNx } = await import(`${window.location.origin}/scripts/utils.js`);
     return await import(`${getNx()}/utils/ims.js`);

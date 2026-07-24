@@ -1,4 +1,4 @@
-import { env } from '../scripts/nx.js';
+import { env, loadStyle } from '../scripts/nx.js';
 
 export const SUPPORTED_FILES = {
   html: 'text/html',
@@ -149,5 +149,5 @@ export const loadPageStyle = (href) => new Promise((resolve) => {
   }
 });
 
-export { loadStyle } from '../scripts/nx.js';
+export { loadStyle };
 export { default as loadScript } from '../../nx/utils/script.js';

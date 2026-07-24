@@ -15,11 +15,13 @@
  * from Adobe.
  ************************************************************************* */
 
-import { Queue } from '../../../../public/utils/tree.js';
-import createProjectCache from './project-cache.js';
-import { daFetch } from '../../../../utils/daFetch.js';
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
+import { daFetch } from '../../../../../nx2/utils/api.js';
+import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
+
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
+
 import { fetchProject } from './index.js';
+import createProjectCache from './project-cache.js';
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
 
 const createProjectData = async ({
@@ -75,7 +77,7 @@ const createProjectData = async ({
   };
 
   const fetchProjectList = async (signal, type) => {
-    const resp = await daFetch(`${DA_ORIGIN}/list/${org}/${site}/.da/translation/${type}`, { signal });
+    const resp = await daFetch({ url: `${DA_ADMIN}/list/${org}/${site}/.da/translation/${type}`, opts: { signal } });
     if (!resp.ok) {
       setError(resp.status, resp.statusText);
       return { projects: [] };

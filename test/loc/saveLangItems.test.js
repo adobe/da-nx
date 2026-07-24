@@ -107,13 +107,27 @@ describe('saveLangItems', () => {
     );
   });
 
-  it('returns success 500 when the underlying fetch fails with a network error', async () => {
+  it('returns an error result when the underlying fetch fails with a network error', async () => {
     globalThis.fetch = sinon.stub().rejects(new Error('network failure'));
 
     const items = [makeItem('/fail.html')];
     const results = await saveLangItems(SITE_PATH, items, LANG, removeDnt);
 
-    expect(results[0]).to.deep.equal({ success: 500 });
+    expect(results[0]).to.deep.equal({ error: 'network failure' });
+  });
+
+  it('returns an error result with status when the save response is not ok', async () => {
+    globalThis.fetch = sinon.stub().resolves({
+      ok: false,
+      status: 403,
+      headers: new Headers({ 'x-da-actions': 'read=true' }),
+      text: async () => '',
+    });
+
+    const items = [makeItem('/forbidden.html')];
+    const results = await saveLangItems(SITE_PATH, items, LANG, removeDnt);
+
+    expect(results[0]).to.deep.equal({ error: 'Could not save item.', status: 403 });
   });
 
   it('handles JSON items with correct content-type', async () => {

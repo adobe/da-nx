@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
+import { DA_ADMIN } from '../../../nx2/utils/utils.js';
 import { glaasSourcePreviewUrl } from '../../../nx/blocks/loc/connectors/glaas/api.js';
 import {
   buildMultimodalPageAssetEntry,
@@ -219,7 +220,7 @@ describe('GLaaS multimodal image source URLs', () => {
     expect(contentDaLiveToDaSourceUrl(
       'https://content.da.live/adobecom/da-dc/acrobat/test/.acrobat-pro/rect.png',
     )).to.equal(
-      'https://admin.da.live/source/adobecom/da-dc/acrobat/test/.acrobat-pro/rect.png',
+      `${DA_ADMIN}/source/adobecom/da-dc/acrobat/test/.acrobat-pro/rect.png`,
     );
   });
 });
