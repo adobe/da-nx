@@ -1,6 +1,6 @@
-import { getExt } from '../../public/utils/getExt.js';
-import { daFetch } from '../../utils/daFetch.js';
-import { DA_ORIGIN } from '../../public/utils/constants.js';
+import { getExt } from '../../../nx2/public/utils/getExt.js';
+import { daFetch } from '../../../nx2/utils/api.js';
+import { DA_ORIGIN } from '../../../nx2/public/utils/constants.js';
 
 const AEM_ORIGIN = 'https://admin.hlx.page';
 
@@ -39,7 +39,7 @@ export async function sendAction(url, label) {
     const path = !ext && isBulkDa(url.action) ? `${url.pathname}.html` : url.pathname;
     const ref = isBulkDa(url.action) ? '' : `/${url.ref}`;
     const aemUrl = `${origin}/${url.action}/${url.org}/${url.repo}${ref}${path}`;
-    resp = await daFetch(aemUrl, opts);
+    resp = await daFetch({ url: aemUrl, opts });
   } catch {
     // eslint-disable-next-line no-console
     console.log(`Error sending ${url.action} for ${url.href}`);

@@ -4,6 +4,7 @@ import { loadHrefSvg } from '../../../utils/svg.js';
 
 export const VARIANT_SUCCESS = 'success';
 export const VARIANT_ERROR = 'error';
+export const VARIANT_WARNING = 'warning';
 
 const CLOSE_ICON_URL = new URL('../../../img/icons/S2_Icon_Close_20_N.svg', import.meta.url).href;
 
@@ -37,6 +38,7 @@ class NxToast extends LitElement {
   static properties = {
     message: { type: String, attribute: false },
     variant: { type: String, attribute: false },
+    cta: { attribute: false },
     _closeIcon: { state: true },
   };
 
@@ -48,8 +50,10 @@ class NxToast extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     this.style.pointerEvents = 'auto';
-    const ms = Math.max(6000, Number(this.duration) || 6000);
-    this._timerId = window.setTimeout(this.dismiss, ms);
+    if (this.duration !== null) {
+      const ms = Math.max(6000, Number(this.duration) || 6000);
+      this._timerId = window.setTimeout(this.dismiss, ms);
+    }
     this._loadIcon();
   }
 
@@ -75,12 +79,13 @@ class NxToast extends LitElement {
     const text = this.message?.trim();
     if (!text) return nothing;
     const isError = this.variant === VARIANT_ERROR;
+    const isWarning = this.variant === VARIANT_WARNING;
+    const variantClass = isError || isWarning ? this.variant : VARIANT_SUCCESS;
+    const role = isError || isWarning ? 'alert' : 'status';
     return html`
-      <div
-        class="toast toast-${isError ? VARIANT_ERROR : VARIANT_SUCCESS}"
-        role=${isError ? 'alert' : 'status'}
-      >
+      <div class="toast toast-${variantClass}" role=${role}>
         <p class="text">${text}</p>
+        ${this.cta?.href ? html`<a class="cta" href=${this.cta.href}>${this.cta.text}</a>` : nothing}
         <button
           type="button"
           class="close"
@@ -92,13 +97,15 @@ class NxToast extends LitElement {
   }
 }
 
-export function showToast({ text, variant = VARIANT_SUCCESS, timeout = 6000 } = {}) {
+export function showToast({ text, variant = VARIANT_SUCCESS, cta, timeout = 6000, maxWidth } = {}) {
   const messageText = text?.trim();
   if (!messageText) return;
   const toast = document.createElement('nx-toast');
   toast.message = messageText;
-  toast.variant = variant === VARIANT_ERROR ? VARIANT_ERROR : VARIANT_SUCCESS;
-  toast.duration = timeout;
+  toast.variant = [VARIANT_ERROR, VARIANT_WARNING].includes(variant) ? variant : VARIANT_SUCCESS;
+  toast.cta = cta;
+  toast.duration = timeout; // null = indefinite (no auto-dismiss)
+  if (maxWidth) toast.style.setProperty('--nx-toast-max-width', maxWidth);
   ensureHost().append(toast);
 }
 

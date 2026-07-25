@@ -1,11 +1,14 @@
+import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
+
 export function setupContentEditableListeners(ctx) {
   const editableElements = document.querySelectorAll('[data-prose-index]');
   editableElements.forEach((element) => {
     const dataCursor = parseInt(element.getAttribute('data-prose-index'), 10);
 
     ctx.port.postMessage({
-      type: 'get-editor',
+      type: MESSAGE_TYPES.GET_EDITOR,
       cursorOffset: dataCursor,
+      payload: { cursorOffset: dataCursor },
     });
   });
 }
@@ -62,13 +65,19 @@ export function setupImageDropListeners(ctx, dom = document) {
         // Read and send the image to DA editor for upload
         const reader = new FileReader();
         reader.onload = () => {
+          const cursorOffset = dataCursor ? parseInt(dataCursor, 10) : null;
+          const imageData = reader.result;
+          const { name: fileName, type: mimeType } = file;
           ctx.port.postMessage({
-            type: 'image-replace',
-            cursorOffset: dataCursor ? parseInt(dataCursor, 10) : null,
-            imageData: reader.result,
-            fileName: file.name,
-            mimeType: file.type,
+            type: MESSAGE_TYPES.IMAGE_REPLACE,
+            cursorOffset,
+            imageData,
+            fileName,
+            mimeType,
             originalSrc,
+            payload: {
+              cursorOffset, imageData, fileName, mimeType, originalSrc,
+            },
           });
         };
         reader.onerror = () => {

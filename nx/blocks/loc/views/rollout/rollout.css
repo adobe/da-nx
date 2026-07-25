@@ -3,7 +3,7 @@ svg {
 }
 
 button {
-  font-family: var(--font-family);
+  font-family: var(--s2-font-family);
 }
 
 p {
@@ -27,14 +27,15 @@ nx-loc-actions {
   text-indent: -1000px;
   overflow: hidden;
   transition: transform 0.2s ease-in-out;
-  background: url("/blocks/browse/img/Smock_ChevronRight_18_N.svg") center center / 18px no-repeat;
+  background-color: currentcolor;
+  mask: url("/blocks/browse/img/Smock_ChevronRight_18_N.svg") center / 18px no-repeat;
 }
 
 .summary {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--spacing-400);
-  margin: var(--spacing-400) 0;
+  gap: var(--s2-spacing-400);
+  margin: var(--s2-spacing-400) 0;
 
   .summary-card {
     display: flex;
@@ -44,7 +45,7 @@ nx-loc-actions {
     border: none;
     border-radius: 18px;
     overflow: hidden;
-    padding: var(--spacing-400) var(--spacing-300) var(--spacing-400) var(--spacing-400);
+    padding: var(--s2-spacing-400) var(--s2-spacing-300) var(--s2-spacing-400) var(--s2-spacing-400);
     margin: 0;
     cursor: pointer;
     border-width: 3px;
@@ -108,7 +109,7 @@ nx-loc-actions {
       }
 
       p:last-child {
-        font-size: var(--s2-font-size-600);
+        font-size: var(--s2-heading-size-l);
       }
     }
   }
@@ -138,8 +139,8 @@ ul.lang-list {
   padding: 0;
   list-style: none;
   background-color: var(--s2-gray-50);
-  border: 1px solid rgb(230 230 230);
-  border-radius: var(--s2-radius-100);
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-500);
   overflow: hidden;
 
   li.lang-item {
@@ -151,7 +152,7 @@ ul.lang-list {
       position: absolute;
       content: "";
       display: block;
-      background-color: rgb(230 230 230);
+      background-color: var(--s2-gray-200);
       height: 1px;
       left: 24px;
       right: 24px;
@@ -175,7 +176,7 @@ ul.lang-list {
       &::after {
         left: 0;
         right: 0;
-        background-color: rgb(22 122 243);
+        background-color: var(--s2-blue-900);
       }
     }
   }
@@ -214,7 +215,7 @@ ul.lang-list {
       padding: 12px 24px;
 
       &:nth-child(even) {
-        background-color: rgb(0 0 0 / 2%);
+        background-color: light-dark(rgb(0 0 0 / 4%), rgb(255 255 255 / 6%));
       }
     }
 

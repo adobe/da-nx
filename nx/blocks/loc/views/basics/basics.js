@@ -1,8 +1,8 @@
 import { LitElement, html } from 'da-lit';
-import getStyle from '../../../../utils/styles.js';
+import { loadStyle } from '../../../../../nx2/scripts/nx.js';
 import formatBasics from './index.js';
 
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
 const MOCK_URLS = '';
 // const MOCK_URLS = 'https://main--da-bacom--adobecom.aem.page/drafts/cmillar/loc-test/main-doc';

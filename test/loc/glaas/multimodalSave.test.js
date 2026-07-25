@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { DA_ORIGIN } from '../../../nx/public/utils/constants.js';
+import { DA_ADMIN } from '../../../nx2/utils/utils.js';
 import {
   blobContentTypeForDaSource,
   buildTranslatedMediaPath,
@@ -46,8 +46,8 @@ describe('GLaaS multimodal save', () => {
       expect(result.url).to.equal('https://main--da-dc--adobecom.aem.page/media_abc.avif');
       expect(fetchStub.calledOnce).to.be.true;
       const [url, opts] = fetchStub.firstCall.args;
-      expect(url).to.equal(`${DA_ORIGIN}/media/${org}/${site}${buildTranslatedMediaPath({ langCode, glaasName })}`);
-      expect(url).to.equal(`${DA_ORIGIN}/media/adobecom/da-dc/de/acrobat/shared/hero.png`);
+      expect(url).to.equal(`${DA_ADMIN}/media/${org}/${site}${buildTranslatedMediaPath({ langCode, glaasName })}`);
+      expect(url).to.equal(`${DA_ADMIN}/media/adobecom/da-dc/de/acrobat/shared/hero.png`);
       expect(url).not.to.include('/media/adobecom/da-dc/de/adobecom/da-dc/');
       expect(opts.method).to.equal('POST');
       expect(opts.body).to.be.instanceOf(FormData);
@@ -67,7 +67,7 @@ describe('GLaaS multimodal save', () => {
         contentType: 'image/png',
       });
       const [url] = fetchStub.firstCall.args;
-      expect(url).to.equal(`${DA_ORIGIN}/media/adobecom/da-dc/fr-CA/acrobat/online/test/report.png`);
+      expect(url).to.equal(`${DA_ADMIN}/media/adobecom/da-dc/fr-CA/acrobat/online/test/report.png`);
     });
 
     it('postImageToDaMedia skips images above observed upload limit without POST', async () => {
@@ -117,7 +117,7 @@ describe('GLaaS multimodal save', () => {
     const translatedHtml = `<img src="${contentDaLiveUrl}">`;
     const deliveryUrl = 'https://main--da-dc--adobecom.aem.page/media_abc.avif';
 
-    const expectedMediaPost = `${DA_ORIGIN}/media/${org}/${site}/de/acrobat/shared/hero.png`;
+    const expectedMediaPost = `${DA_ADMIN}/media/${org}/${site}/de/acrobat/shared/hero.png`;
     const fetchStub = sinon.stub(window, 'fetch').callsFake((url) => {
       const href = String(url);
       if (href.includes('/api/l10n/v2.0/') && href.includes(encodeURI(imageGlaasName))) {

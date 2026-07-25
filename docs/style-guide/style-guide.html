@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>EW Style Guide</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:,">
+  <script type="importmap">
+      {
+        "imports": {
+          "da-lit": "/nx2/deps/lit/dist/index.js"
+        }
+      }
+    </script>
+  <link rel="stylesheet" href="/nx2/styles/styles.css" />
+  <link rel="stylesheet" href="/nx2/styles/form.css" />
+  <link rel="stylesheet" href="/nx2/styles/buttons.css" />
+  <link rel="stylesheet" href="style-guide.css" />
+</head>
+
+<body>
+  <header class="sg-header">
+    <h1>EW Style Guide</h1>
+    <p>
+      A living reference of reusable CSS patterns (<code>nx2/styles/form.css</code>,
+      <code>nx2/styles/buttons.css</code>) and shared UI components (<code>nx2/blocks/shared/</code>).
+      Each example is rendered live
+      from the real stylesheets/components, so it can't drift out of sync — copy the snippet
+      shown under each one. Full API docs for each component live under
+      <code>docs/</code> and are linked inline.
+    </p>
+  </header>
+
+  <nav class="sg-toc">
+    <a href="#buttons">Buttons</a>
+    <a href="#form">Form</a>
+    <a href="#shared-blocks">Shared Blocks</a>
+  </nav>
+
+  <main>
+    <section id="buttons" class="sg-section">
+      <h2>Buttons</h2>
+      <p>Source: <code>nx2/styles/buttons.css</code></p>
+
+      <article class="sg-example">
+        <h3>Buttons</h3>
+        <div class="sg-demo">
+          <button class="nx-btn-primary">Primary</button>
+          <button class="nx-btn-secondary">Secondary</button>
+          <button class="nx-btn-primary" disabled>Disabled</button>
+        </div>
+        <pre><code>&lt;button class="nx-btn-primary"&gt;Primary&lt;/button&gt;
+&lt;button class="nx-btn-secondary"&gt;Secondary&lt;/button&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>Action button (small)</h3>
+        <div class="sg-demo">
+          <button type="button" class="nx-action-btn">Label</button>
+          <button type="button" class="nx-action-btn">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <use href="./icons/selected.svg#icon"></use>
+            </svg>
+            <span>Label</span>
+          </button>
+          <button type="button" class="nx-action-btn" disabled>Label</button>
+        </div>
+        <pre><code>&lt;button type="button" class="nx-action-btn"&gt;Label&lt;/button&gt;
+
+&lt;!-- with icon --&gt;
+&lt;button type="button" class="nx-action-btn"&gt;
+  &lt;svg viewBox="0 0 20 20" aria-hidden="true"&gt;
+    &lt;use href="path_to_icon"&gt;&lt;/use&gt;
+  &lt;/svg&gt;
+  &lt;span&gt;Label&lt;/span&gt;
+&lt;/button&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>Action button quiet (small)</h3>
+        <div class="sg-demo">
+          <button type="button" class="nx-action-btn-quiet">Label</button>
+          <button type="button" class="nx-action-btn-quiet">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <use href="./icons/selected.svg#icon"></use>
+            </svg>
+            <span>Label</span>
+          </button>
+          <button type="button" class="nx-action-btn-quiet" disabled>Label</button>
+        </div>
+        <pre><code>&lt;button type="button" class="nx-action-btn-quiet"&gt;Label&lt;/button&gt;
+
+&lt;!-- with icon --&gt;
+&lt;button type="button" class="nx-action-btn-quiet"&gt;
+  &lt;svg viewBox="0 0 20 20" aria-hidden="true"&gt;
+    &lt;use href="path_to_icon"&gt;&lt;/use&gt;
+  &lt;/svg&gt;
+  &lt;span&gt;Label&lt;/span&gt;
+&lt;/button&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>Action button icon only (small + quiet)</h3>
+        <div class="sg-demo">
+          <button type="button" class="nx-action-btn-icon" aria-label="More actions">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <use href="./icons/selected.svg#icon"></use>
+            </svg>
+          </button>
+          <button type="button" class="nx-action-btn-icon is-active" aria-label="More actions">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <use href="./icons/selected.svg#icon"></use>
+            </svg>
+          </button>
+          <button type="button" class="nx-action-btn-icon" disabled aria-label="More actions">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <use href="./icons/selected.svg#icon"></use>
+            </svg>
+          </button>
+        </div>
+        <pre><code>&lt;button type="button" class="nx-action-btn-icon" aria-label="More actions"&gt;
+  &lt;svg viewBox="0 0 20 20" aria-hidden="true"&gt;
+    &lt;use href="path_to_icon"&gt;&lt;/use&gt;
+  &lt;/svg&gt;
+&lt;/button&gt;
+
+&lt;!-- toggled/selected state --&gt;
+&lt;button type="button" class="nx-action-btn-icon is-active" aria-label="More actions"&gt;...&lt;/button&gt;</code></pre>
+      </article>
+    </section>
+
+    <section id="form" class="sg-section">
+      <h2>Form</h2>
+      <p>Source: <code>nx2/styles/form.css</code></p>
+
+      <article class="sg-example">
+        <h3>Text input</h3>
+        <div class="sg-demo">
+          <input class="nx-input" type="text" placeholder="Placeholder text" />
+        </div>
+        <pre><code>&lt;input class="nx-input" type="text" placeholder="Placeholder text"/&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>Form field with label + error</h3>
+        <div class="sg-demo">
+          <label class="nx-form-field nx-field-error">
+            Email
+            <input class="nx-input" type="email" value="not-an-email" />
+            <span class="nx-input-error-msg">Enter a valid email address.</span>
+          </label>
+        </div>
+        <pre><code>&lt;label class="nx-form-field nx-field-error"&gt;
+  Email
+  &lt;input class="nx-input" type="email" value="not-an-email"/&gt;
+  &lt;span class="nx-input-error-msg"&gt;Enter a valid email address.&lt;/span&gt;
+&lt;/label&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>Checkbox</h3>
+        <div class="sg-demo">
+          <label class="nx-checkbox"><input type="checkbox" /> Unchecked</label>
+          <label class="nx-checkbox"><input type="checkbox" checked /> Checked</label>
+          <label class="nx-checkbox indeterminate"><input type="checkbox" /> Indeterminate</label>
+          <label class="nx-checkbox loading"><input type="checkbox" disabled /> Loading</label>
+          <label class="nx-checkbox" style="--nx-checkbox-size: 20px;"><input type="checkbox" checked /> Large
+            (20px)</label>
+        </div>
+        <pre><code>&lt;label class="nx-checkbox"&gt;&lt;input type="checkbox"/&gt; Unchecked&lt;/label&gt;
+&lt;label class="nx-checkbox"&gt;&lt;input type="checkbox" checked/&gt; Checked&lt;/label&gt;
+&lt;label class="nx-checkbox indeterminate"&gt;&lt;input type="checkbox"/&gt; Indeterminate&lt;/label&gt;
+&lt;label class="nx-checkbox loading"&gt;&lt;input type="checkbox" disabled/&gt; Loading&lt;/label&gt;
+
+&lt;!-- --nx-checkbox-size overrides the checkbox's width/height (default 14px) --&gt;
+&lt;label class="nx-checkbox" style="--nx-checkbox-size: 20px;"&gt;&lt;input type="checkbox" checked/&gt; Large&lt;/label&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>Loading spinner</h3>
+        <div class="sg-demo">
+          <span class="nx-loading-spinner" role="status" aria-label="Loading"></span>
+        </div>
+        <pre><code>&lt;span class="nx-loading-spinner" role="status" aria-label="Loading"&gt;&lt;/span&gt;</code></pre>
+      </article>
+    </section>
+
+    <section id="shared-blocks" class="sg-section">
+      <h2>Shared Blocks</h2>
+      <p>Source: <code>nx2/blocks/shared/</code> — see linked docs for full props/events/slots.</p>
+
+      <article class="sg-example">
+        <h3>nx-menu <a href="https://github.com/adobe/da-nx/blob/main/docs/menu.md" target="_blank" rel="noopener">docs
+            →</a></h3>
+        <div class="sg-demo">
+          <nx-menu id="demo-menu" placement="below">
+            <button slot="trigger" class="nx-btn-secondary" aria-label="Options">Options</button>
+          </nx-menu>
+        </div>
+        <pre><code>&lt;nx-menu id="my-menu"&gt;
+  &lt;button slot="trigger"&gt;Options&lt;/button&gt;
+&lt;/nx-menu&gt;
+
+menu.items = [
+  { id: 'edit', label: 'Edit' },
+  { id: 'delete', label: 'Delete' },
+];
+menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-dialog <a href="https://github.com/adobe/da-nx/blob/main/docs/dialog.md" target="_blank"
+            rel="noopener">docs →</a></h3>
+        <div class="sg-demo" id="demo-dialog-container">
+          <button class="nx-btn-secondary" id="demo-dialog-open">Open dialog</button>
+        </div>
+        <pre><code>&lt;nx-dialog title="Delete item" @close=${onClose}&gt;
+  &lt;p&gt;This action cannot be undone.&lt;/p&gt;
+  &lt;button slot="actions" class="nx-btn-secondary"&gt;Cancel&lt;/button&gt;
+  &lt;button slot="actions" class="nx-btn-primary"&gt;Delete&lt;/button&gt;
+&lt;/nx-dialog&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-popover <a href="https://github.com/adobe/da-nx/blob/main/docs/popover.md" target="_blank"
+            rel="noopener">docs →</a></h3>
+        <div class="sg-demo" id="demo-popover-container">
+          <button class="nx-btn-secondary" id="demo-popover-trigger">Show popover</button>
+        </div>
+        <pre><code>const popover = document.createElement('nx-popover');
+container.append(popover);
+popover.innerHTML = '&lt;p&gt;Popover content&lt;/p&gt;';
+button.addEventListener('click', () =&gt; popover.show({ anchor: button }));</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-picker <a href="https://github.com/adobe/da-nx/blob/main/docs/picker.md" target="_blank"
+            rel="noopener">docs →</a></h3>
+        <div class="sg-demo">
+          <nx-picker id="demo-picker" placement="below"></nx-picker>
+        </div>
+        <pre><code>&lt;nx-picker id="my-picker"&gt;&lt;/nx-picker&gt;
+
+picker.items = [
+  { value: 'all', label: 'All' },
+  { value: 'content', label: 'Content' },
+];
+picker.value = 'all';
+picker.addEventListener('change', (e) =&gt; console.log(e.detail.value));</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-segmented-btn <a href="https://github.com/adobe/da-nx/blob/main/docs/segmented-btn.md" target="_blank"
+            rel="noopener">docs →</a></h3>
+        <div class="sg-demo">
+          <nx-segmented-btn id="demo-segmented"></nx-segmented-btn>
+        </div>
+        <pre><code>&lt;nx-segmented-btn id="view-toggle"&gt;&lt;/nx-segmented-btn&gt;
+
+toggle.label = 'View';
+toggle.items = [
+  { value: 'sitemap', label: 'Sitemap' },
+  { value: 'structure', label: 'Structure' },
+];
+toggle.value = 'sitemap';</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>showToast <a href="https://github.com/adobe/da-nx/blob/main/docs/toast.md" target="_blank"
+            rel="noopener">docs →</a></h3>
+        <div class="sg-demo">
+          <button class="nx-btn-secondary" id="demo-toast-trigger">Show toast</button>
+          <button class="nx-btn-secondary" id="demo-toast-warning-trigger">Show warning + CTA</button>
+        </div>
+        <pre><code>import { showToast, VARIANT_WARNING } from '/nx2/blocks/shared/toast/toast.js';
+
+showToast({ text: 'File saved.' });
+showToast({
+  text: 'Storage almost full.',
+  variant: VARIANT_WARNING,
+  cta: { text: 'Upgrade', href: '#upgrade' },
+});</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-breadcrumb <a href="https://github.com/adobe/da-nx/blob/main/docs/breadcrumb.md" target="_blank"
+            rel="noopener">docs →</a></h3>
+        <div class="sg-demo">
+          <nx-breadcrumb id="demo-breadcrumb"></nx-breadcrumb>
+        </div>
+        <pre><code>&lt;nx-breadcrumb&gt;&lt;/nx-breadcrumb&gt;
+
+breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pre>
+      </article>
+    </section>
+  </main>
+
+  <script type="module">
+    import { setConfig } from '/nx2/scripts/nx.js';
+
+    await setConfig({});
+
+    const [
+      { showToast, VARIANT_WARNING },
+    ] = await Promise.all([
+      import('/nx2/blocks/shared/toast/toast.js'),
+      import('/nx2/blocks/shared/menu/menu.js'),
+      import('/nx2/blocks/shared/dialog/dialog.js'),
+      import('/nx2/blocks/shared/popover/popover.js'),
+      import('/nx2/blocks/shared/picker/picker.js'),
+      import('/nx2/blocks/shared/segmented-btn/segmented.js'),
+      import('/nx2/blocks/shared/breadcrumb/breadcrumb.js'),
+    ]);
+
+    // nx-menu
+    const menu = document.querySelector('#demo-menu');
+    menu.items = [
+      { id: 'edit', label: 'Edit' },
+      { id: 'delete', label: 'Delete' },
+    ];
+    menu.addEventListener('select', (e) => showToast({ text: `Selected: ${e.detail.id}` }));
+
+    // nx-dialog
+    document.querySelector('#demo-dialog-open').addEventListener('click', () => {
+      const dialog = document.createElement('nx-dialog');
+      dialog.setAttribute('title', 'Delete item');
+      dialog.innerHTML = `
+          <p>This action cannot be undone.</p>
+          <button slot="actions" class="nx-btn-secondary" id="demo-dialog-cancel">Cancel</button>
+          <button slot="actions" class="nx-btn-primary" id="demo-dialog-confirm">Delete</button>
+        `;
+      dialog.addEventListener('close', () => dialog.remove());
+      dialog.querySelector('#demo-dialog-cancel').addEventListener('click', () => dialog.close());
+      dialog.querySelector('#demo-dialog-confirm').addEventListener('click', () => {
+        dialog.close();
+        showToast({ text: 'Item deleted.' });
+      });
+      document.querySelector('#demo-dialog-container').append(dialog);
+    });
+
+    // nx-popover
+    const popoverTrigger = document.querySelector('#demo-popover-trigger');
+    const popover = document.createElement('nx-popover');
+    popover.innerHTML = '<p>Popover content</p>';
+    document.querySelector('#demo-popover-container').append(popover);
+    popoverTrigger.addEventListener('click', () => popover.show({ anchor: popoverTrigger }));
+
+    // nx-picker
+    const picker = document.querySelector('#demo-picker');
+    picker.items = [
+      { value: 'all', label: 'All' },
+      { value: 'content', label: 'Content' },
+      { value: 'seo', label: 'SEO' },
+      { divider: true },
+      { value: 'review', label: 'Review' },
+    ];
+    picker.value = 'all';
+
+    // nx-segmented-btn
+    const segmented = document.querySelector('#demo-segmented');
+    segmented.label = 'View';
+    segmented.items = [
+      { value: 'sitemap', label: 'Sitemap' },
+      { value: 'structure', label: 'Structure' },
+    ];
+    segmented.value = 'sitemap';
+
+    // showToast
+    document.querySelector('#demo-toast-trigger').addEventListener('click', () => {
+      showToast({ text: 'File saved.' });
+    });
+    document.querySelector('#demo-toast-warning-trigger').addEventListener('click', () => {
+      showToast({
+        text: 'Storage almost full.',
+        variant: VARIANT_WARNING,
+        cta: { text: 'Upgrade', href: '#upgrade' },
+      });
+    });
+
+    // nx-breadcrumb
+    document.querySelector('#demo-breadcrumb').pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];
+  </script>
+</body>
+
+</html>

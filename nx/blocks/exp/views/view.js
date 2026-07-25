@@ -1,5 +1,5 @@
 import { html, LitElement } from 'da-lit';
-import getStyle from '../../../utils/styles.js';
+import { loadStyle } from '../../../../nx2/utils/utils.js';
 import {
   getAbb,
   toColor,
@@ -10,8 +10,8 @@ import {
 } from '../utils.js';
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
-const sl = await getStyle(`${nx}/public/sl/styles.css`);
-const style = await getStyle(import.meta.url);
+const sl = await loadStyle(`${nx}/public/sl/styles.css`);
+const style = await loadStyle(import.meta.url);
 
 class NxExpView extends LitElement {
   static properties = {

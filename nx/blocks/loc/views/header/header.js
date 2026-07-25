@@ -1,8 +1,8 @@
 import { LitElement, html, nothing } from 'da-lit';
-import getStyle from '../../../../utils/styles.js';
+import { loadStyle } from '../../../../../nx2/utils/utils.js';
 
 const root = import.meta.url.replace('/views/header/header.js', '');
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
 class NxLocHeader extends LitElement {
   static properties = {

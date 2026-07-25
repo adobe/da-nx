@@ -140,6 +140,13 @@ export const loadIms = (() => {
         loadDetails(accessToken).then(done, fail);
       },
     };
+    // When running inside an iframe, imslib's default in-frame redirect is
+    // blocked by IMS's X-Frame-Options. modalMode tells imslib to open the
+    // sign-in flow in a popup window instead — works regardless of CSP.
+    if (window.self !== window.top) {
+      window.adobeid.modalMode = true;
+      window.adobeid.modalSettings = { allowedOrigin: window.location.origin };
+    }
     loadScript(IMS_URL).catch(fail);
   });
 

@@ -1,7 +1,7 @@
 /* eslint-disable no-use-before-define */
 import { HLX_ADMIN, AEM_API, DA_ADMIN, ALLOWED_TOKEN } from './utils.js';
 
-const { loadIms, handleSignIn } = await (async () => {
+export const { loadIms, handleSignIn } = await (async () => {
   try {
     const { getNx } = await import(`${window.location.origin}/scripts/utils.js`);
     return await import(`${getNx()}/utils/ims.js`);
@@ -73,9 +73,12 @@ export const aem = {
 
 // config: top-level org/site config.
 export const config = {
-  get: withArgs(async ({ org, site }) => {
+  get: withArgs(async ({ org, site, cachebust }) => {
     const url = await getDaApiPath(CONFIG, org, site);
-    return daFetch({ url });
+    const finalUrl = cachebust
+      ? `${url}${url.includes('?') ? '&' : '?'}nocache=${Date.now()}`
+      : url;
+    return daFetch({ url: finalUrl });
   }),
 
   save: withArgs(async ({ org, site, body }) => {

@@ -2,6 +2,13 @@ import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc,
 import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
+import { MESSAGE_TYPES } from '../../../utils/message-types.js';
+import { restoreBlockIndices } from './src/dom-index.js';
+import {
+  setupNodeSelection,
+  setSelectedNode,
+  getSelectedNode,
+} from './src/selection.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
 
@@ -20,6 +27,9 @@ async function setBody(body, ctx) {
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage();
+  restoreBlockIndices(doc, document);
+  setupNodeSelection(ctx);
+  setSelectedNode(getSelectedNode());
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
   if (!parentControllerPort) {
@@ -32,26 +42,43 @@ function handleReady(e, ctx) {
 }
 
 function onMessage(e, ctx) {
-  if (e.data.type === 'ready') {
+  // Prefer nested `payload` fields, falling back to the deprecated flat top-level
+  // ones — da-live currently sends both (see blocks/canvas/editor-utils/editor-utils.js
+  // and blocks/canvas/ew-editor-wysiwyg/utils/image.js).
+  const data = e.data?.payload ? { ...e.data, ...e.data.payload } : e.data;
+
+  if (data.type === MESSAGE_TYPES.READY) {
     handleReady(e, ctx);
-  } else if (e.data.type === 'set-body') {
-    setBody(e.data.body, ctx);
-  } else if (e.data.type === 'set-editor-state') {
-    const { editorState, cursorOffset } = e.data;
+  } else if (data.type === MESSAGE_TYPES.SET_BODY) {
+    setBody(data.body, ctx);
+  } else if (data.type === MESSAGE_TYPES.SET_EDITOR_STATE) {
+    const { editorState, cursorOffset } = data;
     setEditorState(cursorOffset, editorState, ctx);
-  } else if (e.data.type === 'set-cursors') {
-    setCursors(e.data.cursors, ctx);
-  } else if (e.data.type === 'update-image-src') {
-    const { newSrc, originalSrc } = e.data;
-    updateImageSrc(originalSrc, newSrc);
-  } else if (e.data.type === 'image-error') {
-    handleImageError(e.data.error);
+  } else if (data.type === MESSAGE_TYPES.SET_CURSORS) {
+    setCursors(data.cursors, ctx);
+  } else if (data.type === MESSAGE_TYPES.UPDATE_IMAGE_SRC
+    || data.type === MESSAGE_TYPES.IMAGE_ERROR) {
+    // Both are replies to the same image-replace request; `error` is only ever present
+    // (a truthy message) on the failure case, so its presence is the outcome signal —
+    // no separate flag needed. Once the two legacy type names are retired, this becomes
+    // a single `type === IMAGE_REPLACE` check with the same `if (data.error)` branch.
+    if (data.error) {
+      handleImageError(data.error);
+    } else {
+      const { newSrc, originalSrc } = data;
+      updateImageSrc(originalSrc, newSrc);
+    }
+  } else if (data.type === MESSAGE_TYPES.SET_SELECTED_NODE) {
+    setSelectedNode(data.node, document, { scrollIntoView: data.scrollIntoView });
   }
 }
 
 function setupParentController(loadPage) {
   const listener = (e) => {
-    if (e.source !== window.parent || e.data?.init == null || !e.ports?.length) return;
+    // @deprecated `init` presence check — prefer `type === MESSAGE_TYPES.INIT` (da-live
+    // sends both).
+    const isInit = e.data?.type === MESSAGE_TYPES.INIT || e.data?.[MESSAGE_TYPES.INIT] != null;
+    if (e.source !== window.parent || !isInit || !e.ports?.length) return;
 
     const port = e.ports[0];
     parentControllerPort = port;
@@ -62,7 +89,9 @@ function setupParentController(loadPage) {
       port,
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
-    port.postMessage({ ready: true });
+    // @deprecated flat `ready` — prefer `type: MESSAGE_TYPES.READY` (added alongside for
+    // callers that already migrated their ack check).
+    port.postMessage({ [MESSAGE_TYPES.READY]: true, type: MESSAGE_TYPES.READY });
 
     window.removeEventListener('message', listener);
   };
@@ -86,7 +115,11 @@ function handleLoad(target, config, location, ctx) {
   const { port1, port2 } = CHANNEL;
   ctx.port = port1;
 
-  target.contentWindow.postMessage({ init: config, location }, '*', [port2]);
+  // @deprecated flat `init`/`location` — prefer `type`/`payload` (added alongside for
+  // callers that already migrated their INIT check).
+  target.contentWindow.postMessage({
+    [MESSAGE_TYPES.INIT]: config, location, type: MESSAGE_TYPES.INIT, payload: { config, location },
+  }, '*', [port2]);
   ctx.port.onmessage = (e) => onMessage(e, ctx);
 }
 

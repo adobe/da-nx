@@ -330,6 +330,17 @@
       height: 1px;
       background: var(--s2-gray-200);
     }
+
+    img {
+      max-width: 100%;
+      height: auto;
+      max-height: 400px;
+      border-radius: var(--s2-corner-radius-300);
+      margin: var(--s2-spacing-100) 0;
+      object-fit: contain;
+      display: block;
+      border: 1px solid var(--s2-gray-200);
+    }
   }
 
   .message-content code {

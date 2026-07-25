@@ -9,7 +9,7 @@ svg {
 }
 
 input {
-  font-family: var(--body-font-family);
+  font-family: var(--s2-font-family);
 }
 
 .filter-bar {
@@ -28,7 +28,7 @@ input {
 .search-input {
   flex: 1;
   padding: 8px 32px 8px 12px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--s2-gray-400);
   border-radius: 4px;
   font-size: 1rem;
 }
@@ -63,7 +63,7 @@ input {
 
 .date-picker {
   padding: 8px 16px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--s2-gray-400);
   border-radius: 4px;
   font-weight: bold;
   text-transform: uppercase;
@@ -71,26 +71,26 @@ input {
 
 .date-picker:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--s2-blue-900);
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: var(--s2-blue-900);
 }
 
 .filter-button {
   padding: 8px 12px;
-  border: 1px solid rgb(204 204 204);
-  background-color: rgb(255 255 255);
+  border: 1px solid var(--s2-gray-400);
+  background-color: var(--s2-gray-25);
   border-radius: 4px;
   cursor: pointer;
 }
 
 .filter-popup {
   position: absolute;
-  background-color: white;
-  border: 1px solid #ddd;
+  background-color: var(--s2-gray-25);
+  border: 1px solid var(--s2-gray-300);
   border-radius: 4px;
   box-shadow: 0 2px 6px rgb(0 0 0 / 20%);
   padding: 16px;
@@ -134,7 +134,7 @@ input {
 .apply-filter-button {
   padding: 10px;
   border: none;
-  background-color: #007bff;
+  background-color: var(--s2-blue-900);
   color: #fff;
   border-radius: 4px;
   cursor: pointer;
@@ -144,7 +144,7 @@ input {
 }
 
 .apply-filter-button:hover {
-  background-color: #0056b3;
+  background-color: var(--s2-blue-1000);
 }
 
 .filter-bar .toggle-switch {
@@ -171,7 +171,7 @@ input {
   display: inline-block;
   width: 50px;
   height: 24px;
-  background-color: #ccc;
+  background-color: var(--s2-gray-400);
   border-radius: 24px;
   cursor: pointer;
   transition: background-color 0.3s ease;
@@ -190,7 +190,7 @@ input {
 }
 
 .filter-bar .toggle-switch input:checked + .slider {
-  background-color: #007bff;
+  background-color: var(--s2-blue-900);
 }
 
 .filter-bar .toggle-switch input:checked + .slider::before {
@@ -199,10 +199,10 @@ input {
 
 .filter-bar .toggle-label {
   font-size: 0.9rem;
-  color: #333;
+  color: var(--s2-gray-800);
   font-weight: bold;
 }
 
 .filter-bar .toggle-switch label:hover .slider {
-  background-color: #0056b3;
+  background-color: var(--s2-blue-1000);
 }

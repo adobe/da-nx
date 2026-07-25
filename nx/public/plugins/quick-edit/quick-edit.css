@@ -1,3 +1,9 @@
+:root {
+  --s2-blue-500: #1a3ac3;
+  --s2-blue-600: #2549e5;
+  --s2-blue-100: #0e173f;
+}
+
 .remote-cursor-indicator::before {
   content: attr(data-cursor-remote);
   position: absolute;
@@ -18,14 +24,12 @@
   outline: 2px solid;
 }
 
-/* Hover outline for instrumented editables and blocks (data-prose-index, data-block-index) */
-[data-prose-index]:hover,
-[data-block-index]:hover {
-  outline: 1px solid var(--color-blue-600, blue);
+[data-prose-index]:hover {
+  outline: 1px solid var(--s2-blue-600);
 }
 
 [data-prose-index]:has(.ProseMirror-focused) {
-  outline: 2px solid var(--color-blue-600, blue);
+  outline: 2px solid var(--s2-blue-600);
 
   .ProseMirror-focused {
     outline: none;
@@ -42,7 +46,7 @@ picture.image-drop-target::before {
   content: "";
   position: absolute;
   inset: 0;
-  border: 3px dashed var(--color-blue-600, #3b82f6);
+  border: 3px dashed var(--s2-blue-600);
   border-radius: 4px;
   pointer-events: none;
   z-index: 10;
@@ -75,7 +79,7 @@ picture.image-uploading img {
 }
 
 main picture img:hover {
-  outline: 1px solid var(--color-blue-600, blue);
+  outline: 1px solid var(--s2-blue-600);
 }
 
 /* Loading state during upload */
@@ -92,7 +96,7 @@ picture.image-uploading::after {
   height: 32px;
   margin: -16px 0 0 -16px;
   border: 3px solid rgb(59 130 246 / 30%);
-  border-top-color: var(--color-blue-600, #3b82f6);
+  border-top-color: var(--s2-blue-600);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   z-index: 10;
@@ -118,7 +122,7 @@ picture.image-uploading::after {
   width: 32px;
   height: 32px;
   padding: 0;
-  background: var(--color-blue-500, rgb(19 115 230));
+  background: var(--s2-blue-500);
   border: none;
   border-radius: 50%;
   cursor: pointer;
@@ -130,7 +134,7 @@ picture.image-uploading::after {
 }
 
 .quick-edit-close:hover {
-  background: var(--color-blue-600, #3b82f6);
+  background: var(--s2-blue-600);
 }
 
 .quick-edit-close .icon-close {
@@ -151,8 +155,8 @@ picture.image-uploading::after {
   height: 32px;
   padding: 0 16px;
   background: white;
-  border: 1px solid var(--color-blue-500, rgb(19 115 230));
-  color: var(--color-blue-500, rgb(19 115 230));
+  border: 1px solid var(--s2-blue-500);
+  color: var(--s2-blue-500);
   border-radius: 16px;
   cursor: pointer;
   box-shadow: 0 2px 8px rgb(0 0 0 / 20%);
@@ -166,18 +170,18 @@ picture.image-uploading::after {
 }
 
 .quick-edit-preview {
-  background: var(--color-blue-500, rgb(19 115 230));
+  background: var(--s2-blue-500);
   color: white;
 }
 
 .quick-edit-exit:hover {
-  background: var(--color-blue-50, #eff6ff);
-  border-color: var(--color-blue-600, #3b82f6);
-  color: var(--color-blue-600, #3b82f6);
+  background: var(--s2-blue-100);
+  border-color: var(--s2-blue-600);
+  color: var(--s2-blue-600);
 }
 
 .quick-edit-preview:hover {
-  background: var(--color-blue-600, #3b82f6);
+  background: var(--s2-blue-600);
 }
 
 /* Floating Toolbar Styles */
@@ -270,4 +274,65 @@ da-palette {
 
 da-palette .da-palette-field {
   color: black;
+}
+
+.qe-selection-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.qe-selected-box {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: 2px solid var(--s2-blue-600);
+  background: transparent;
+  pointer-events: none;
+}
+
+.qe-hover-box {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: 1px solid var(--s2-blue-600);
+  background: transparent;
+  pointer-events: none;
+}
+
+.qe-selected-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--s2-blue-600);
+  color: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  border: 0;
+  white-space: nowrap;
+  pointer-events: none; 
+  z-index: 1;
+}
+
+.qe-selected-pill.is-hover {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.qe-pill-grip {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  background-color: currentcolor;
+  mask: url("/nx/img/icons/S2_Icon_Select_20_N.svg") no-repeat center / contain;
 }

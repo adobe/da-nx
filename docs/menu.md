@@ -1,6 +1,6 @@
 # nx-menu
 
-A dropdown menu with keyboard navigation. Supports section headers, dividers, and optional icons per item.
+A dropdown menu with keyboard navigation. Supports section headers, dividers, and optional icons/descriptions per item.
 
 ## Usage
 
@@ -44,6 +44,9 @@ Each entry in the `items` array is one of:
 ```js
 // Regular item
 { id: 'copy', label: 'Copy', icon: 'Copy' }   // icon is optional
+
+// With a secondary description line
+{ id: 'export', label: 'Export', description: 'Download as a .zip file' }
 
 // Section header (non-interactive label)
 { section: 'Actions' }

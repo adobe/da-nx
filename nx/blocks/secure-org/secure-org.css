@@ -1,11 +1,7 @@
 :host {
   display: block;
-  max-width: var(--grid-container-width);
-  margin: var(--spacing-800) auto var(--spacing-800) auto;
-
-  > svg {
-    display: none;
-  }
+  max-width: var(--se-grid-container-width, var(--grid-container-width));
+  margin: var(--s2-spacing-800, var(--spacing-800)) auto var(--s2-spacing-800, var(--spacing-800)) auto;
 
   nx-path {
     display: block;

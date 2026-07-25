@@ -12,9 +12,12 @@ import './messages/preflight-card.js';
 import './messages/task-list.js';
 import './messages/task-item.js';
 import { loadSiteConfig } from './utils/api.js';
-import { ADOBE_AI_GUIDELINES_URL, ADD_MENU_ITEMS, MENU_OPTIONS, ROLE, TOOL_STATE } from './constants.js';
+import {
+  ADOBE_AI_GUIDELINES_URL, ADD_MENU_ITEMS, CHAT_EVENT, MENU_OPTIONS, ROLE, TOOL_STATE,
+} from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { buildAttachmentPayload, buildSlashMessage } from './utils/chat-helpers.js';
+import { PANEL_EVENT } from '../../utils/panel.js';
 
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
@@ -105,7 +108,7 @@ class NxChat extends LitElement {
   }
 
   _closePanel() {
-    this.dispatchEvent(new CustomEvent('nx-panel-close', { bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent(PANEL_EVENT.CLOSE, { bubbles: true, composed: true }));
   }
 
   async _loadConfig() {
@@ -192,7 +195,7 @@ class NxChat extends LitElement {
 
     this._controller = new ChatController({
       onToolDone: (scope, paths) => {
-        this.dispatchEvent(new CustomEvent('nx-agent-change', {
+        this.dispatchEvent(new CustomEvent(CHAT_EVENT.AGENT_CHANGE, {
           bubbles: true,
           composed: true,
           detail: { scope, paths },
@@ -221,7 +224,7 @@ class NxChat extends LitElement {
     });
 
     this._controller.connect().then(() => this._controller.loadInitialMessages());
-    document.addEventListener('nx-add-to-chat', this._onAddToChat);
+    document.addEventListener(CHAT_EVENT.ADD_TO_CHAT, this._onAddToChat);
   }
 
   disconnectedCallback() {
@@ -233,7 +236,7 @@ class NxChat extends LitElement {
     this._unsubscribeHash?.();
     this._controller?.destroy();
     document.removeEventListener('keydown', this._onApprovalKeydown);
-    document.removeEventListener('nx-add-to-chat', this._onAddToChat);
+    document.removeEventListener(CHAT_EVENT.ADD_TO_CHAT, this._onAddToChat);
   }
 
   _pendingApproval() {
@@ -452,7 +455,7 @@ class NxChat extends LitElement {
     if (!item) return;
     const { selFrom, selTo, selectionType, blockName, proseIndex } = item;
     if (typeof selFrom !== 'number' || typeof selTo !== 'number') return;
-    document.dispatchEvent(new CustomEvent('nx-highlight-selection', {
+    document.dispatchEvent(new CustomEvent(CHAT_EVENT.HIGHLIGHT_SELECTION, {
       detail: { selFrom, selTo, selectionType, blockName, proseIndex },
     }));
   }

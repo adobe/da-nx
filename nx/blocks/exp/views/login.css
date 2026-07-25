@@ -10,15 +10,15 @@
 }
 
 .nx-space-bottom-100 {
-  margin-bottom: var(--spacing-100);
+  margin-bottom: var(--s2-spacing-100);
 }
 
 .nx-space-bottom-200 {
-  margin-bottom: var(--spacing-200);
+  margin-bottom: var(--s2-spacing-200);
 }
 
 .nx-space-bottom-300 {
-  margin-bottom: var(--spacing-300);
+  margin-bottom: var(--s2-spacing-300);
 }
 
 .nx-new {

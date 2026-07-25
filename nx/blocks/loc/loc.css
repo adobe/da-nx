@@ -1,11 +1,11 @@
 :host {
   display: block;
   color: var(--s2-gray-900);
-  font-size: var(--type-body-s-size);
+  font-size: var(--s2-body-size-s);
 }
 
 .nx-loc-step {
   display: block;
-  max-width: var(--grid-container-width);
-  margin: 0 auto var(--spacing-500) auto;
+  max-width: var(--se-grid-container-width);
+  margin: 0 auto var(--s2-spacing-500) auto;
 }

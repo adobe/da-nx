@@ -131,7 +131,7 @@ function canComplete(project) {
 }
 
 function getStyle(comparison, name, view, defaultIcon) {
-  const checkedIcon = '#S2_Icon_CheckmarkCircleGreen_20_N';
+  const checkedIcon = '/img/icons/s2-icon-checkmarkcirclegreen-20-n.svg#icon';
   const styles = [];
   if (comparison) styles.push('filled');
   if (name === view) styles.push('highlight');
@@ -140,11 +140,11 @@ function getStyle(comparison, name, view, defaultIcon) {
 }
 
 function dashboard({ view, org, site }) {
-  const { style } = getStyle((org && site), 'dashboard', view, '#S2_Icon_Archive_20_N');
+  const { style } = getStyle((org && site), 'dashboard', view, '/img/icons/s2-icon-archive-20-n.svg#icon');
   const step = {
     style,
     visible: view !== 'dashboard' && view !== 'complete',
-    icon: '#S2_Icon_Archive_20_N',
+    icon: '/img/icons/s2-icon-archive-20-n.svg#icon',
     text: 'All projects',
   };
 
@@ -155,7 +155,7 @@ function dashboard({ view, org, site }) {
 }
 
 function basics({ view, org, site, urls }) {
-  const { style, icon } = getStyle(urls?.length, 'basics', view, '#S2_Icon_ListBulleted_20_N');
+  const { style, icon } = getStyle(urls?.length, 'basics', view, '/img/icons/s2-icon-listbulleted-20-n.svg#icon');
 
   const step = {
     icon,
@@ -172,7 +172,7 @@ function basics({ view, org, site, urls }) {
 
 function validate({ view, urls }) {
   const checked = urls?.every((url) => url.checked);
-  const { style, icon } = getStyle(checked, 'validate', view, '#S2_Icon_Binoculars_20_N');
+  const { style, icon } = getStyle(checked, 'validate', view, '/img/icons/s2-icon-binoculars-20-n.svg#icon');
   const step = {
     icon,
     style,
@@ -187,7 +187,7 @@ function validate({ view, urls }) {
 }
 
 function optionsStep(project) {
-  const { style, icon } = getStyle(project.options, 'options', project.view, '#S2_Icon_Properties_20_N');
+  const { style, icon } = getStyle(project.options, 'options', project.view, '/img/icons/s2-icon-properties-20-n.svg#icon');
 
   const step = {
     style,
@@ -205,7 +205,7 @@ function optionsStep(project) {
 function syncStep(project) {
   const needsSync = hasSync(project);
   const synced = project.urls?.every((url) => url.synced === 'synced' || url.synced === 'skipped');
-  const { style, icon } = getStyle(needsSync && synced, 'sync', project.view, '#S2_Icon_Refresh_20_N');
+  const { style, icon } = getStyle(needsSync && synced, 'sync', project.view, '/img/icons/s2-icon-refresh-20-n.svg#icon');
 
   const step = {
     style,
@@ -222,7 +222,7 @@ function syncStep(project) {
 
 function translateStep(project) {
   const translateComplete = isTranslateComplete(project);
-  const { style, icon } = getStyle(translateComplete, 'translate', project.view, '#S2_Icon_GlobeGrid_20_N');
+  const { style, icon } = getStyle(translateComplete, 'translate', project.view, '/img/icons/s2-icon-globegrid-20-n.svg#icon');
 
   const translate = getTranslateStep(project);
 
@@ -246,7 +246,7 @@ function translateStep(project) {
 function rolloutStep(project) {
   const needsRollout = hasRollout(project);
   const rolloutComplete = isRolloutComplete(project);
-  const { style, icon } = getStyle(rolloutComplete, 'rollout', project.view, '#S2_Icon_FileConvert_20_N');
+  const { style, icon } = getStyle(rolloutComplete, 'rollout', project.view, '/img/icons/s2-icon-fileconvert-20-n.svg#icon');
 
   const step = {
     style,
@@ -265,7 +265,7 @@ function startStep({ view }) {
   const step = {
     visible: VIEW_TYPES[view] === 'setup',
     style: false,
-    icon: '#S2_Icon_GlobeGrid_20_N',
+    icon: '/img/icons/s2-icon-globegrid-20-n.svg#icon',
     text: 'Start project',
   };
 
@@ -278,7 +278,7 @@ function startStep({ view }) {
 function completeStep({ view }) {
   const step = {
     style: '',
-    icon: '#S2_Icon_GlobeGrid_20_N',
+    icon: '/img/icons/s2-icon-globegrid-20-n.svg#icon',
     text: 'Project complete',
     visible: VIEW_TYPES[view] === 'manage',
   };
