@@ -10,6 +10,7 @@ class NxGovernanceEvaluationCard extends LitElement {
     _isExpanded: { state: true },
     _openCategories: { state: true },
     _openChecks: { state: true },
+    _imageGroupOpen: { state: true },
   };
 
   constructor() {
@@ -17,6 +18,7 @@ class NxGovernanceEvaluationCard extends LitElement {
     this._isExpanded = true;
     this._openCategories = new Set();
     this._openChecks = new Set();
+    this._imageGroupOpen = false;
   }
 
   connectedCallback() {
@@ -183,12 +185,48 @@ class NxGovernanceEvaluationCard extends LitElement {
 
   _renderImageGroup(imageEvaluations) {
     if (!imageEvaluations.length) return nothing;
+    const count = imageEvaluations.length;
+    const aggregate = imageEvaluations.reduce((acc, img) => {
+      const summary = sectionSummary(img);
+      return {
+        successful: acc.successful + summary.successful,
+        failed: acc.failed + summary.failed,
+      };
+    }, { successful: 0, failed: 0 });
+    const imageSummary = sectionSummary({
+      successful_checks: aggregate.successful,
+      failed_checks: aggregate.failed,
+    });
+    const isOpen = this._imageGroupOpen;
+    const chevronClass = `ge-group-chevron${isOpen ? ' ge-group-chevron-open' : ''}`;
+
     return html`
       <div class="ge-section ge-image-group">
-        <h4 class="ge-section-title">Image evaluations</h4>
-        <div class="ge-image-list">
-          ${imageEvaluations.map((img, index) => this._renderImageSection(img, index))}
+        <button
+          type="button"
+          class="ge-group-header"
+          aria-expanded=${isOpen}
+          @click=${() => { this._imageGroupOpen = !this._imageGroupOpen; }}
+        >
+          <span class="ge-group-title-col">
+            <span class="ge-section-title">Image evaluations</span>
+            <span class="ge-group-meta">${count} image${count === 1 ? '' : 's'} evaluated</span>
+          </span>
+          <span class="ge-group-header-right">
+            <span class="ge-passed-badge">${imageSummary.successful}/${imageSummary.successful + imageSummary.failed} passed</span>
+            <svg class=${chevronClass} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M5 7.5l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </button>
+        <div class="ge-progress-bar" role="progressbar" aria-valuenow=${imageSummary.percent} aria-valuemin="0" aria-valuemax="100">
+          <div class="ge-progress-fill" style="width: ${imageSummary.percent}%"></div>
         </div>
+        ${isOpen ? html`
+          <div class="ge-image-list">
+            ${imageEvaluations.map((img, index) => this._renderImageSection(img, index))}
+          </div>
+        ` : nothing}
       </div>
     `;
   }

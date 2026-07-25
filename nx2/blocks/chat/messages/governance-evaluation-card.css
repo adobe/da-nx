@@ -158,6 +158,59 @@
 
 /* ── Image group (umbrella "Image evaluation") ── */
 
+.ge-group-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: var(--s2-spacing-200);
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  box-sizing: border-box;
+  border-radius: var(--s2-corner-radius-300);
+
+  &:hover {
+    background: var(--s2-gray-75);
+  }
+}
+
+.ge-group-title-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-25, 2px);
+  flex: 1;
+}
+
+.ge-group-meta {
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-600);
+}
+
+.ge-group-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-100);
+  flex-shrink: 0;
+}
+
+.ge-group-chevron {
+  width: 14px;
+  height: 14px;
+  color: var(--s2-gray-600);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.ge-group-chevron-open {
+  transform: rotate(180deg);
+}
+
+.ge-image-group .ge-progress-bar {
+  margin: var(--s2-spacing-100) 0 0;
+}
+
 .ge-image-list {
   display: flex;
   flex-direction: column;

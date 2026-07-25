@@ -156,9 +156,45 @@ describe('nx-governance-evaluation-card image sections', () => {
   let card;
   afterEach(() => cleanup(card));
 
+  async function openImageGroup() {
+    card.shadowRoot.querySelector('.ge-image-group .ge-group-header').click();
+    await card.updateComplete;
+  }
+
+  it('collapses the image group by default, showing count and passing rate in the header', async () => {
+    card = makeCard(fullEvaluation());
+    await card.updateComplete;
+
+    const group = card.shadowRoot.querySelector('.ge-image-group');
+    expect(group).to.exist;
+    expect(group.querySelector('.ge-image-list')).to.not.exist;
+    expect(group.querySelectorAll('.ge-image-section')).to.have.lengthOf(0);
+
+    expect(group.querySelector('.ge-group-meta').textContent).to.contain('2 images evaluated');
+    expect(group.querySelector('.ge-group-header .ge-passed-badge').textContent).to.contain('1/2 passed');
+  });
+
+  it('reads "1 image evaluated" (singular) with a single image', async () => {
+    card = makeCard(fullEvaluation({ image_evaluations: [IMAGE_EVALUATIONS[0]] }));
+    await card.updateComplete;
+    expect(card.shadowRoot.querySelector('.ge-group-meta').textContent).to.contain('1 image evaluated');
+  });
+
+  it('reveals the image list when the header is clicked and hides it again on a second click', async () => {
+    card = makeCard(fullEvaluation());
+    await card.updateComplete;
+
+    await openImageGroup();
+    expect(card.shadowRoot.querySelectorAll('.ge-image-section')).to.have.lengthOf(2);
+
+    await openImageGroup();
+    expect(card.shadowRoot.querySelector('.ge-image-list')).to.not.exist;
+  });
+
   it('renders one section per image evaluation with a thumbnail and alignment badge', async () => {
     card = makeCard(fullEvaluation());
     await card.updateComplete;
+    await openImageGroup();
     const sections = card.shadowRoot.querySelectorAll('.ge-image-section');
     expect(sections).to.have.lengthOf(2);
 
@@ -200,6 +236,7 @@ describe('nx-governance-evaluation-card image sections', () => {
   it('keeps category open-state independent between images sharing the same category name', async () => {
     card = makeCard(fullEvaluation());
     await card.updateComplete;
+    await openImageGroup();
     const [first, second] = card.shadowRoot.querySelectorAll('.ge-image-section');
 
     first.querySelector('.ge-cat-header').click();
