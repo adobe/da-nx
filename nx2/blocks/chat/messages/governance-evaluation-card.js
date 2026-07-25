@@ -9,12 +9,14 @@ class NxGovernanceEvaluationCard extends LitElement {
     evaluation: { attribute: false },
     _isExpanded: { state: true },
     _openCategories: { state: true },
+    _openChecks: { state: true },
   };
 
   constructor() {
     super();
     this._isExpanded = true;
     this._openCategories = new Set();
+    this._openChecks = new Set();
   }
 
   connectedCallback() {
@@ -22,11 +24,36 @@ class NxGovernanceEvaluationCard extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [styles];
   }
 
+  willUpdate(changedProperties) {
+    if (!changedProperties.has('evaluation')) return;
+    const sections = [
+      ['text', this.evaluation?.text_evaluation],
+      ...(this.evaluation?.image_evaluations ?? []).map((img, index) => [`img:${index}`, img]),
+    ];
+    const next = new Set(this._openChecks);
+    sections.forEach(([sectionKey, section]) => {
+      (section?.evaluations ?? []).forEach((check) => {
+        if (check.alignment === 'NO') {
+          const categoryId = check.category_id ?? 'uncategorized';
+          next.add(`${sectionKey}:${categoryId}:${check.check_id}`);
+        }
+      });
+    });
+    this._openChecks = next;
+  }
+
   _toggleCategory(key) {
     const next = new Set(this._openCategories);
     if (next.has(key)) next.delete(key);
     else next.add(key);
     this._openCategories = next;
+  }
+
+  _toggleCheck(key) {
+    const next = new Set(this._openChecks);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    this._openChecks = next;
   }
 
   _renderChevronIcon() {
@@ -68,6 +95,45 @@ class NxGovernanceEvaluationCard extends LitElement {
     `;
   }
 
+  _renderCheckRow(sectionKey, categoryId, check) {
+    const key = `${sectionKey}:${categoryId}:${check.check_id}`;
+    const isOpen = this._openChecks.has(key);
+    const chevronClass = `ge-check-chevron${isOpen ? ' ge-check-chevron-open' : ''}`;
+
+    return html`
+      <li class="ge-check-item">
+        <button
+          type="button"
+          class="ge-check-row"
+          aria-expanded=${isOpen}
+          @click=${() => this._toggleCheck(key)}
+        >
+          ${this._renderCheckIcon(check)}
+          <span class="ge-check-label">${check.check_title}</span>
+          <svg class=${chevronClass} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M5 7.5l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        ${isOpen ? html`
+          <div class="ge-check-detail">
+            ${check.reasoning ? html`
+              <p class="ge-check-detail-block">
+                <span class="ge-check-detail-label">Reasoning</span>
+                ${check.reasoning}
+              </p>
+            ` : nothing}
+            ${check.suggestions ? html`
+              <p class="ge-check-detail-block ge-check-suggestion">
+                <span class="ge-check-detail-label">Suggestion</span>
+                ${check.suggestions}
+              </p>
+            ` : nothing}
+          </div>
+        ` : nothing}
+      </li>
+    `;
+  }
+
   _renderCategory(sectionKey, category) {
     const { categoryId, categoryName, checks } = category;
     const key = `${sectionKey}:${categoryId}`;
@@ -86,12 +152,7 @@ class NxGovernanceEvaluationCard extends LitElement {
         </button>
         ${isOpen ? html`
           <ul class="ge-checks">
-            ${checks.map((check) => html`
-              <li class="ge-check-row">
-                ${this._renderCheckIcon(check)}
-                <span class="ge-check-label">${check.check_title}</span>
-              </li>
-            `)}
+            ${checks.map((check) => this._renderCheckRow(sectionKey, categoryId, check))}
           </ul>
         ` : nothing}
       </div>

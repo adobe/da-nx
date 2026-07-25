@@ -253,3 +253,87 @@ describe('nx-governance-evaluation-card check alignment icons', () => {
     expect(rows[3].querySelector('.ge-check-error')).to.exist;
   });
 });
+
+// ─── check reasoning & suggestions ─────────────────────────────────────────
+
+describe('nx-governance-evaluation-card check reasoning & suggestions', () => {
+  let card;
+  afterEach(() => cleanup(card));
+
+  function evaluationWithChecks(checks) {
+    return fullEvaluation({
+      text_evaluation: {
+        evaluations: checks,
+        successful_checks: checks.filter((c) => c.alignment === 'YES').length,
+        failed_checks: checks.filter((c) => c.alignment === 'NO').length,
+        not_applicable_checks: checks.filter((c) => c.alignment === 'NA').length,
+        error_checks: 0,
+      },
+      image_evaluations: [],
+    });
+  }
+
+  it('auto-expands failed checks and shows both reasoning and suggestion', async () => {
+    card = makeCard(evaluationWithChecks([
+      {
+        check_id: '1', check_title: 'No Shouty Caps', alignment: 'NO', category_id: 'c', category: 'C', reasoning: 'Uses all caps.', suggestions: 'Use title case.',
+      },
+    ]));
+    await card.updateComplete;
+
+    card.shadowRoot.querySelector('.ge-text-section .ge-cat-header').click();
+    await card.updateComplete;
+
+    const detail = card.shadowRoot.querySelector('.ge-check-detail');
+    expect(detail).to.exist;
+    expect(detail.textContent).to.contain('Uses all caps.');
+    expect(detail.textContent).to.contain('Use title case.');
+    expect(detail.querySelector('.ge-check-suggestion')).to.exist;
+  });
+
+  it('keeps passing checks collapsed by default, showing reasoning without a suggestion once expanded', async () => {
+    card = makeCard(evaluationWithChecks([
+      {
+        check_id: '1', check_title: 'Sophisticated Voice', alignment: 'YES', category_id: 'c', category: 'C', reasoning: 'Warm, sensory language throughout.', suggestions: null,
+      },
+    ]));
+    await card.updateComplete;
+
+    card.shadowRoot.querySelector('.ge-text-section .ge-cat-header').click();
+    await card.updateComplete;
+    expect(card.shadowRoot.querySelector('.ge-check-detail')).to.not.exist;
+
+    card.shadowRoot.querySelector('.ge-text-section .ge-check-row').click();
+    await card.updateComplete;
+
+    const detail = card.shadowRoot.querySelector('.ge-check-detail');
+    expect(detail).to.exist;
+    expect(detail.textContent).to.contain('Warm, sensory language throughout.');
+    expect(detail.querySelector('.ge-check-suggestion')).to.not.exist;
+  });
+
+  it('toggles a single check row independently of its siblings', async () => {
+    card = makeCard(evaluationWithChecks([
+      {
+        check_id: '1', check_title: 'Check A', alignment: 'NO', category_id: 'c', category: 'C', reasoning: 'Reason A.', suggestions: 'Fix A.',
+      },
+      {
+        check_id: '2', check_title: 'Check B', alignment: 'NO', category_id: 'c', category: 'C', reasoning: 'Reason B.', suggestions: 'Fix B.',
+      },
+    ]));
+    await card.updateComplete;
+
+    card.shadowRoot.querySelector('.ge-text-section .ge-cat-header').click();
+    await card.updateComplete;
+
+    const rows = card.shadowRoot.querySelectorAll('.ge-text-section .ge-check-row');
+    expect(rows).to.have.lengthOf(2);
+    expect(card.shadowRoot.querySelectorAll('.ge-check-detail')).to.have.lengthOf(2);
+
+    rows[0].click();
+    await card.updateComplete;
+
+    expect(card.shadowRoot.querySelectorAll('.ge-check-detail')).to.have.lengthOf(1);
+    expect(card.shadowRoot.querySelector('.ge-check-detail').textContent).to.contain('Reason B.');
+  });
+});
