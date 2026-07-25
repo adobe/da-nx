@@ -2,10 +2,11 @@ import { expect } from '@esm-bundle/chai';
 import { render, nothing } from 'da-lit';
 import { renderMessage, renderApprovalCard } from '../../../../nx2/blocks/chat/renderers.js';
 import { DIRECTIVE_TYPE, TOOL_NAME, TOOL_STATE } from '../../../../nx2/blocks/chat/constants.js';
+import { evaluationSummaryText } from '../../../../nx2/blocks/chat/messages/governance-evaluation-card-data.js';
 
 // Import components so custom elements are registered before renderers run.
 import '../../../../nx2/blocks/chat/messages/campaign-plan-card.js';
-import '../../../../nx2/blocks/chat/messages/preflight-card.js';
+import '../../../../nx2/blocks/chat/messages/governance-evaluation-card.js';
 import '../../../../nx2/blocks/chat/messages/task-list.js';
 import '../../../../nx2/blocks/chat/messages/task-item.js';
 
@@ -25,66 +26,77 @@ function renderAssistant(content) {
   return host;
 }
 
-const MOCK_PREFLIGHT = {
-  title: 'Cold Coffee Campaign',
-  readiness: 94,
-  categories: [
-    {
-      name: 'Context',
-      checks: [
-        { label: 'Tone of voice & messaging', passed: true },
-        { label: 'Logo Usage', passed: true },
-      ],
-    },
-    {
-      name: 'SEO',
-      checks: [
-        { label: 'Title tag present', passed: true },
-        { label: 'Meta description', passed: false },
-      ],
-    },
-  ],
-  summary: '94% readiness across all checks.',
+const MOCK_EVALUATION = {
+  brand_name: 'Frescopa Coffee',
+  pageUrl: 'https://example.com/index',
+  text_evaluation: {
+    evaluations: [
+      {
+        check_id: '1', check_title: 'Tone of voice & messaging', alignment: 'YES', category_id: 'cat-1', category: 'Context',
+      },
+      {
+        check_id: '2', check_title: 'Logo Usage', alignment: 'YES', category_id: 'cat-1', category: 'Context',
+      },
+      {
+        check_id: '3', check_title: 'Title tag present', alignment: 'YES', category_id: 'cat-2', category: 'SEO',
+      },
+      {
+        check_id: '4', check_title: 'Meta description', alignment: 'NO', category_id: 'cat-2', category: 'SEO',
+      },
+    ],
+    successful_checks: 3,
+    failed_checks: 1,
+    not_applicable_checks: 0,
+    error_checks: 0,
+  },
+  image_evaluations: [],
 };
 
 // ─── constants contract ────────────────────────────────────────────────────
 
 describe('DIRECTIVE_TYPE and TOOL_NAME constants', () => {
-  it('exports PREFLIGHT directive type', () => {
-    expect(DIRECTIVE_TYPE.PREFLIGHT).to.equal('preflight');
+  it('exports GOVERNANCE_EVALUATION directive type', () => {
+    expect(DIRECTIVE_TYPE.GOVERNANCE_EVALUATION).to.equal('governance-evaluation');
   });
 
-  it('exports RUN_PREFLIGHT tool name', () => {
-    expect(TOOL_NAME.RUN_PREFLIGHT).to.equal('run_preflight');
-  });
-});
-
-// ─── renderMessage — :::preflight directive ────────────────────────────────
-
-describe('renderMessage — :::preflight directive', () => {
-  it('renders nx-preflight-card from a :::preflight directive', async () => {
-    const json = JSON.stringify(MOCK_PREFLIGHT);
-    const msg = { role: 'assistant', content: `:::preflight\n${json}\n:::` };
-    const result = renderMessage(msg, null, null);
-    const container = await renderToDOM(result);
-    expect(container.querySelector('nx-preflight-card')).to.exist;
-  });
-
-  it('renders empty preflight card on malformed JSON', async () => {
-    const msg = { role: 'assistant', content: ':::preflight\nnot-json\n:::' };
-    const result = renderMessage(msg, null, null);
-    const container = await renderToDOM(result);
-    expect(container.querySelector('.directive-preflight')).to.exist;
+  it('exports EVALUATE_PAGE tool name', () => {
+    expect(TOOL_NAME.EVALUATE_PAGE).to.equal('evaluate_page');
   });
 });
 
-// ─── renderMessage — RUN_PREFLIGHT tool card ──────────────────────────────
+// ─── renderMessage — :::governance-evaluation directive ────────────────────
 
-describe('renderMessage — RUN_PREFLIGHT tool card (post-approval)', () => {
+describe('renderMessage — :::governance-evaluation directive', () => {
+  it('renders nx-governance-evaluation-card from a :::governance-evaluation directive', async () => {
+    const json = JSON.stringify(MOCK_EVALUATION);
+    const msg = { role: 'assistant', content: `:::governance-evaluation\n${json}\n:::` };
+    const result = renderMessage(msg, null, null);
+    const container = await renderToDOM(result);
+    expect(container.querySelector('nx-governance-evaluation-card')).to.exist;
+  });
+
+  it('renders empty governance-evaluation card on malformed JSON', async () => {
+    const msg = { role: 'assistant', content: ':::governance-evaluation\nnot-json\n:::' };
+    const result = renderMessage(msg, null, null);
+    const container = await renderToDOM(result);
+    expect(container.querySelector('.directive-governance-evaluation')).to.exist;
+  });
+});
+
+// ─── renderMessage — EVALUATE_PAGE tool card ──────────────────────────────
+
+describe('renderMessage — EVALUATE_PAGE tool card (post-approval)', () => {
+  // The tool-call `input` is just the small argument object the agent passed to
+  // invoke the tool (e.g. pageUrl/brand_id) — the real evaluation payload only
+  // arrives later as the tool-result `output`.
+  const MOCK_TOOL_INPUT = { pageUrl: 'https://example.com/index', brand_id: 'brand-1' };
+
   function makeMsg(state) {
-    const toolCallId = 'pf-1';
+    const toolCallId = 'ge-1';
     const toolCards = new Map([
-      [toolCallId, { toolName: TOOL_NAME.RUN_PREFLIGHT, state, input: MOCK_PREFLIGHT }],
+      [toolCallId, {
+        toolName: TOOL_NAME.EVALUATE_PAGE, state, input: MOCK_TOOL_INPUT, output: MOCK_EVALUATION,
+      }],
     ]);
     const msg = {
       role: 'assistant',
@@ -93,11 +105,44 @@ describe('renderMessage — RUN_PREFLIGHT tool card (post-approval)', () => {
     return { msg, toolCards };
   }
 
-  it('renders nx-preflight-card when state is done', async () => {
+  it('renders nx-governance-evaluation-card populated from the tool result (output), not the call input', async () => {
     const { msg, toolCards } = makeMsg(TOOL_STATE.DONE);
     const result = renderMessage(msg, toolCards, null);
     const container = await renderToDOM(result);
-    expect(container.querySelector('nx-preflight-card')).to.exist;
+    document.body.appendChild(container);
+    try {
+      const card = container.querySelector('nx-governance-evaluation-card');
+      await card.updateComplete;
+      expect(card.shadowRoot.querySelector('.ge-title').textContent).to.contain('Frescopa Coffee');
+      expect(card.shadowRoot.querySelector('.ge-summary-row').textContent).to.contain('3/4 passed');
+    } finally {
+      container.remove();
+    }
+  });
+
+  it('populates the card when the tool output arrives as a JSON string (MCP result shape)', async () => {
+    // da-agent forwards MCP tool results verbatim, so `output` is a JSON *string*,
+    // not an object like native tools (content_read) return.
+    const toolCallId = 'ge-str-1';
+    const toolCards = new Map([
+      [toolCallId, {
+        toolName: TOOL_NAME.EVALUATE_PAGE,
+        state: TOOL_STATE.DONE,
+        input: MOCK_TOOL_INPUT,
+        output: JSON.stringify(MOCK_EVALUATION),
+      }],
+    ]);
+    const msg = { role: 'assistant', content: [{ type: 'tool-call', toolCallId }] };
+    const container = await renderToDOM(renderMessage(msg, toolCards, null));
+    document.body.appendChild(container);
+    try {
+      const card = container.querySelector('nx-governance-evaluation-card');
+      await card.updateComplete;
+      expect(card.shadowRoot.querySelector('.ge-title').textContent).to.contain('Frescopa Coffee');
+      expect(card.shadowRoot.querySelector('.ge-summary-row').textContent).to.contain('3/4 passed');
+    } finally {
+      container.remove();
+    }
   });
 
   it('renders nothing when state is approval-requested', async () => {
@@ -105,38 +150,66 @@ describe('renderMessage — RUN_PREFLIGHT tool card (post-approval)', () => {
     const result = renderMessage(msg, toolCards, null);
     const container = await renderToDOM(result);
     // approval-requested suppresses the inline tool card
-    expect(container.querySelector('nx-preflight-card')).to.not.exist;
+    expect(container.querySelector('nx-governance-evaluation-card')).to.not.exist;
+  });
+
+  it('renders nx-governance-evaluation-card when da-agent sends the MCP-qualified tool name', async () => {
+    const toolCallId = 'ge-mcp-1';
+    const toolCards = new Map([
+      [toolCallId, {
+        toolName: 'mcp__governance-agent__evaluate_page',
+        state: TOOL_STATE.DONE,
+        input: MOCK_TOOL_INPUT,
+        output: MOCK_EVALUATION,
+      }],
+    ]);
+    const msg = { role: 'assistant', content: [{ type: 'tool-call', toolCallId }] };
+    const result = renderMessage(msg, toolCards, null);
+    const container = await renderToDOM(result);
+    expect(container.querySelector('nx-governance-evaluation-card')).to.exist;
   });
 });
 
-// ─── renderApprovalCard — RUN_PREFLIGHT ───────────────────────────────────
+// ─── renderApprovalCard — EVALUATE_PAGE ───────────────────────────────────
 
-describe('renderApprovalCard — RUN_PREFLIGHT', () => {
+describe('renderApprovalCard — EVALUATE_PAGE', () => {
   const onApprove = () => {};
 
-  it('renders approval-actions panel with preflight summary', async () => {
+  it('renders approval-actions panel with a computed evaluation summary', async () => {
     const pending = {
-      toolCallId: 'pf-1',
-      toolName: TOOL_NAME.RUN_PREFLIGHT,
-      input: MOCK_PREFLIGHT,
+      toolCallId: 'ge-1',
+      toolName: TOOL_NAME.EVALUATE_PAGE,
+      input: MOCK_EVALUATION,
     };
     const result = renderApprovalCard(pending, onApprove);
     const container = await renderToDOM(result);
     expect(container.querySelector('.approval-actions')).to.exist;
-    expect(container.querySelector('.approval-tool-name').textContent).to.equal('Pre-flight checks complete');
-    expect(container.querySelector('.approval-summary').textContent).to.equal(MOCK_PREFLIGHT.summary);
+    expect(container.querySelector('.approval-tool-name').textContent).to.equal('Governance evaluation complete');
+    expect(container.querySelector('.approval-summary').textContent).to.equal(evaluationSummaryText(MOCK_EVALUATION));
+    expect(container.querySelector('.approval-summary').textContent).to.equal('3/4 checks passed');
   });
 
-  it('falls back to readiness% when no summary provided', async () => {
-    const { summary: _, ...noSummary } = MOCK_PREFLIGHT;
-    const pending = { toolCallId: 'pf-1', toolName: TOOL_NAME.RUN_PREFLIGHT, input: noSummary };
+  it('falls back to a brand-based message when there are no checks to count', async () => {
+    const input = { brand_name: 'Frescopa Coffee', text_evaluation: null, image_evaluations: [] };
+    const pending = { toolCallId: 'ge-1', toolName: TOOL_NAME.EVALUATE_PAGE, input };
     const result = renderApprovalCard(pending, onApprove);
     const container = await renderToDOM(result);
-    expect(container.querySelector('.approval-summary').textContent).to.contain('94%');
+    expect(container.querySelector('.approval-summary').textContent).to.equal('Evaluation complete for Frescopa Coffee');
+  });
+
+  it('renders the approval panel when da-agent sends the MCP-qualified tool name', async () => {
+    const pending = {
+      toolCallId: 'ge-mcp-1',
+      toolName: 'mcp__governance-agent__evaluate_page',
+      input: MOCK_EVALUATION,
+    };
+    const result = renderApprovalCard(pending, onApprove);
+    const container = await renderToDOM(result);
+    expect(container.querySelector('.approval-tool-name').textContent).to.equal('Governance evaluation complete');
   });
 
   it('renders Approve, Always approve, and Reject buttons', async () => {
-    const pending = { toolCallId: 'pf-1', toolName: TOOL_NAME.RUN_PREFLIGHT, input: MOCK_PREFLIGHT };
+    const pending = { toolCallId: 'ge-1', toolName: TOOL_NAME.EVALUATE_PAGE, input: MOCK_EVALUATION };
     const result = renderApprovalCard(pending, onApprove);
     const container = await renderToDOM(result);
     const buttons = [...container.querySelectorAll('.approval-buttons button')];

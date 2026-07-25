@@ -93,27 +93,27 @@ describe('parseDirectives', () => {
   });
 });
 
-describe('parseDirectives — preflight directive', () => {
-  const payload = JSON.stringify({ title: 'Test', readiness: 90, categories: [] });
+describe('parseDirectives — governance-evaluation directive', () => {
+  const payload = JSON.stringify({ brand_name: 'Test', text_evaluation: null, image_evaluations: [] });
 
-  it('parses a complete :::preflight block', () => {
-    const text = `:::preflight\n${payload}\n:::`;
+  it('parses a complete :::governance-evaluation block', () => {
+    const text = `:::governance-evaluation\n${payload}\n:::`;
     expect(parseDirectives(text)).to.deep.equal([
-      { kind: 'directive', type: 'preflight', content: payload },
+      { kind: 'directive', type: 'governance-evaluation', content: payload },
     ]);
   });
 
-  it('parses :::preflight mixed with surrounding text', () => {
-    const text = `Here are the results:\n:::preflight\n${payload}\n:::\nLet me know if you want changes.`;
+  it('parses :::governance-evaluation mixed with surrounding text', () => {
+    const text = `Here are the results:\n:::governance-evaluation\n${payload}\n:::\nLet me know if you want changes.`;
     const result = parseDirectives(text);
     expect(result).to.have.lengthOf(3);
-    expect(result[1]).to.deep.equal({ kind: 'directive', type: 'preflight', content: payload });
+    expect(result[1]).to.deep.equal({ kind: 'directive', type: 'governance-evaluation', content: payload });
   });
 
-  it('handles an unclosed :::preflight block gracefully', () => {
-    const text = `:::preflight\n${payload}`;
+  it('handles an unclosed :::governance-evaluation block gracefully', () => {
+    const text = `:::governance-evaluation\n${payload}`;
     const result = parseDirectives(text);
     expect(result).to.have.lengthOf(1);
-    expect(result[0].type).to.equal('preflight');
+    expect(result[0].type).to.equal('governance-evaluation');
   });
 });

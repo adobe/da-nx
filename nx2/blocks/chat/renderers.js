@@ -6,6 +6,8 @@ import { getConfig } from '../../scripts/nx.js';
 import { parseDirectives } from './utils/parse.js';
 import { pillIconName } from './utils/icons.js';
 import { linkifyBareUrls, sanitizeLinks } from './utils/links.js';
+import { evaluationSummaryText } from './messages/governance-evaluation-card-data.js';
+import { mcpToolName } from './utils/tool-name.js';
 
 const { codeBase } = getConfig();
 
@@ -25,16 +27,26 @@ function parseDirectiveJSON(content) {
   }
 }
 
+/**
+ * da-agent forwards MCP tool results verbatim, so their `output` arrives as a
+ * JSON string rather than the parsed object native tools return. Normalize both
+ * shapes to an object before handing it to a card.
+ */
+function parseToolOutput(output) {
+  if (typeof output !== 'string') return output;
+  return parseDirectiveJSON(output);
+}
+
 function renderPlanDirective(content) {
   const plan = parseDirectiveJSON(content);
   if (!plan) return html`<div class="directive directive-plan"></div>`;
   return html`<nx-campaign-plan-card .plan=${plan}></nx-campaign-plan-card>`;
 }
 
-function renderPreflightDirective(content) {
-  const preflight = parseDirectiveJSON(content);
-  if (!preflight) return html`<div class="directive directive-preflight"></div>`;
-  return html`<nx-preflight-card .preflight=${preflight}></nx-preflight-card>`;
+function renderGovernanceEvaluationDirective(content) {
+  const evaluation = parseDirectiveJSON(content);
+  if (!evaluation) return html`<div class="directive directive-governance-evaluation"></div>`;
+  return html`<nx-governance-evaluation-card .evaluation=${evaluation}></nx-governance-evaluation-card>`;
 }
 
 function renderTaskListDirective(content) {
@@ -109,7 +121,9 @@ function renderMessageContent(text) {
       if (type === DIRECTIVE_TYPE.PLAN) return renderPlanDirective(content);
       if (type === DIRECTIVE_TYPE.TASK_LIST) return renderTaskListDirective(content);
       if (type === DIRECTIVE_TYPE.TASK_ITEM) return nothing;
-      if (type === DIRECTIVE_TYPE.PREFLIGHT) return renderPreflightDirective(content);
+      if (type === DIRECTIVE_TYPE.GOVERNANCE_EVALUATION) {
+        return renderGovernanceEvaluationDirective(content);
+      }
       if (!content) return nothing;
       const dom = toDOM(mdast2hast(parser.parse(content)));
       return html`<div class="directive directive-${type}">${dom}</div>`;
@@ -140,9 +154,14 @@ function renderExitPlanCard(plan, taskText) {
 function renderToolCard(toolCallId, toolCards, streamingText) {
   const card = toolCards?.get(toolCallId);
   if (!card || card.state === TOOL_STATE.APPROVAL_REQUESTED) return nothing;
-  const { toolName, state, input } = card;
-  if (toolName === TOOL_NAME.EXIT_PLAN_MODE) return renderExitPlanCard(input, streamingText);
-  if (toolName === TOOL_NAME.RUN_PREFLIGHT) return html`<nx-preflight-card .preflight=${input}></nx-preflight-card>`;
+  const {
+    toolName, state, input, output,
+  } = card;
+  const shortToolName = mcpToolName(toolName);
+  if (shortToolName === TOOL_NAME.EXIT_PLAN_MODE) return renderExitPlanCard(input, streamingText);
+  if (shortToolName === TOOL_NAME.EVALUATE_PAGE) {
+    return html`<nx-governance-evaluation-card .evaluation=${parseToolOutput(output)}></nx-governance-evaluation-card>`;
+  }
   const detail = approvalSummary(input, { json: true });
   const failed = state === TOOL_STATE.ERROR || state === TOOL_STATE.REJECTED;
   const status = failed ? html`<span class="tool-card-status">${state}</span>` : nothing;
@@ -156,18 +175,18 @@ function renderToolCard(toolCallId, toolCards, streamingText) {
 function renderApprovalCard(pending, onApprove) {
   if (!pending) return nothing;
   const { toolCallId, toolName, input } = pending;
-  if (toolName === TOOL_NAME.EXIT_PLAN_MODE) {
+  const shortToolName = mcpToolName(toolName);
+  if (shortToolName === TOOL_NAME.EXIT_PLAN_MODE) {
     return html`<nx-campaign-plan-card
       .plan=${input}
       @nx-plan-run=${() => onApprove(toolCallId, true)}
     ></nx-campaign-plan-card>`;
   }
-  if (toolName === TOOL_NAME.RUN_PREFLIGHT) {
-    const pfSummary = input?.summary ?? `${input?.readiness ?? 0}% readiness across all checks.`;
+  if (shortToolName === TOOL_NAME.EVALUATE_PAGE) {
     return html`
       <div class="approval-actions">
-        <span class="approval-tool-name">Pre-flight checks complete</span>
-        <span class="approval-summary">${pfSummary}</span>
+        <span class="approval-tool-name">Governance evaluation complete</span>
+        <span class="approval-summary">${evaluationSummaryText(input)}</span>
         <div class="approval-buttons">
           <button type="button" class="secondary-btn" @click=${() => onApprove(toolCallId, false)}>
             <span>Reject</span><kbd>Esc</kbd>
