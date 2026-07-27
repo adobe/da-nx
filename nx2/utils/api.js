@@ -221,10 +221,12 @@ export const source = {
     if (!site) {
       // Only DA returns a continuation token; hlx6 has no pagination, so its
       // (unpaginated) site list is only fetched on the first page.
-      const [legacyResp, sitesResp] = await Promise.all([
+      const [legacyResult, sitesResult] = await Promise.allSettled([
         daFetch({ url: await getDaApiPath(LIST, org, site, path), opts: fetchOpts }),
         continuationToken ? null : orgNs.listSites({ org }),
       ]);
+      const legacyResp = legacyResult.status === 'fulfilled' ? legacyResult.value : undefined;
+      const sitesResp = sitesResult.status === 'fulfilled' ? sitesResult.value : undefined;
       const legacyItems = await parseListItems(legacyResp, parentPath);
       const siteItems = await parseListItems(sitesResp, parentPath);
       const items = dedupeByName([...legacyItems, ...siteItems]);
