@@ -304,10 +304,16 @@ da-palette .da-palette-field {
   pointer-events: none;
 }
 
-.qe-selected-pill {
+.qe-pill-row {
   position: absolute;
   top: 0;
   left: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.qe-selected-pill {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -320,7 +326,7 @@ da-palette .da-palette-field {
   line-height: 1.4;
   border: 0;
   white-space: nowrap;
-  pointer-events: none; 
+  pointer-events: none;
   z-index: 1;
 }
 
@@ -335,4 +341,70 @@ da-palette .da-palette-field {
   flex-shrink: 0;
   background-color: currentcolor;
   mask: url("/nx/img/icons/S2_Icon_Select_20_N.svg") no-repeat center / contain;
+}
+
+.qe-pill-block-variant-select {
+  flex-shrink: 0;
+  width: 20px;
+  padding: 0;
+  border: 0;
+  background: var(--s2-blue-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.qe-pill-block-variant-select-icon {
+  display: block;
+  width: 12px;
+  height: 12px;
+  background-color: white;
+  mask: url("/nx/img/icons/S2_Icon_Brush_20_N.svg") no-repeat center / contain;
+}
+
+.qe-variant-menu {
+  color-scheme: light dark;
+  position: absolute;
+  min-width: 100px;
+  padding: 8px;
+  background: light-dark(rgb(255 255 255), rgb(17 17 17));
+  border: 1px solid light-dark(rgb(225 225 225), rgb(50 50 50));
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.qe-variant-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: light-dark(rgb(19 19 19), rgb(242 242 242));
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.qe-variant-menu-item:hover {
+  background: light-dark(rgb(225 225 225), rgb(50 50 50));
+}
+
+.qe-variant-menu-item.is-active::before {
+  content: "";
+  display: block;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  background-color: currentcolor;
+  mask: url("/nx/img/icons/S2_Icon_Checkmark_20_N.svg") no-repeat center / contain;
 }

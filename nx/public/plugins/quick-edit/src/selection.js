@@ -8,15 +8,6 @@ export function blockName(el) {
   return el?.classList?.[0] || '';
 }
 
-function fillPill(pill, root, name) {
-  const grip = root.createElement('span');
-  grip.className = 'qe-pill-grip';
-  grip.setAttribute('aria-hidden', 'true');
-  const label = root.createElement('span');
-  label.textContent = name;
-  pill.append(grip, label);
-}
-
 export function blockSelectPayload(el) {
   const proseIndex = parseIndex(el?.getAttribute?.('data-block-index'));
   if (proseIndex == null) return null;
@@ -85,6 +76,135 @@ function resolveSelectionElement(node, root) {
 }
 
 let currentSelectedNode = null;
+let variantCatalog = {};
+let selectionListenersBound = false;
+let activeCtx = null;
+let pendingVariantScrollIndex = null;
+
+export function setVariantCatalog(catalog) {
+  variantCatalog = catalog || {};
+}
+
+export function getVariantCatalog() {
+  return variantCatalog;
+}
+
+export function takePendingVariantScrollIndex() {
+  const index = pendingVariantScrollIndex;
+  pendingVariantScrollIndex = null;
+  return index;
+}
+
+function findVariants(name) {
+  const nameLower = name.toLowerCase();
+  return Object.entries(variantCatalog)
+    .find(([key]) => key.toLowerCase() === nameLower)?.[1];
+}
+
+function slugifyToken(text) {
+  return text.toLowerCase().replace(/[^0-9a-z]+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
+}
+
+function activeTokensFor(element, tokens) {
+  if (!element) return [];
+  const modifierClasses = [...element.classList].slice(1);
+  return tokens.filter((token) => modifierClasses.includes(slugifyToken(token)));
+}
+
+function composeVariantLabel(name, tokens, activeSet) {
+  const ordered = tokens.filter((token) => activeSet.has(token));
+  return ordered.length ? `${name} (${ordered.join(', ')})` : name;
+}
+
+const VARIANT_MENU_ID = 'qe-variant-menu';
+
+function closeVariantMenu(root = document) {
+  root.getElementById(VARIANT_MENU_ID)?.remove();
+}
+
+function applyVariantToggle(root, name, tokens, element, token) {
+  const selectNode = blockSelectPayload(element);
+  if (!selectNode) return;
+  const activeSet = new Set(activeTokensFor(element, tokens));
+  if (activeSet.has(token)) activeSet.delete(token); else activeSet.add(token);
+  const label = composeVariantLabel(name, tokens, activeSet);
+  const applyNode = { proseIndex: selectNode.proseIndex };
+
+  activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node: selectNode } });
+  activeCtx?.port?.postMessage({
+    type: MESSAGE_TYPES.APPLY_VARIANT, payload: { node: applyNode, label },
+  });
+  closeVariantMenu(root);
+  // eslint-disable-next-line no-use-before-define
+  clearHoverPill(root);
+  pendingVariantScrollIndex = selectNode.proseIndex;
+  // eslint-disable-next-line no-use-before-define
+  setSelectedNode(selectNode, root);
+}
+
+function openVariantMenu(triggerEl, root, name, tokens, element) {
+  const menuEl = root.createElement('div');
+  menuEl.id = VARIANT_MENU_ID;
+  menuEl.className = 'qe-variant-menu';
+  menuEl.ownerTrigger = triggerEl;
+
+  const active = activeTokensFor(element, tokens);
+  tokens.forEach((token) => {
+    const item = root.createElement('button');
+    item.type = 'button';
+    item.className = 'qe-variant-menu-item';
+    if (active.includes(token)) item.classList.add('is-active');
+    item.textContent = token;
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      applyVariantToggle(root, name, tokens, element, token);
+    });
+    menuEl.appendChild(item);
+  });
+
+  const rect = triggerEl.getBoundingClientRect();
+  menuEl.style.left = `${rect.left + window.scrollX}px`;
+  menuEl.style.top = `${rect.bottom + window.scrollY + 4}px`;
+  getSelectionOverlay(root).appendChild(menuEl);
+}
+
+function createVariantButton(root, name, tokens, element) {
+  const button = root.createElement('button');
+  button.type = 'button';
+  button.className = 'qe-pill-block-variant-select';
+  button.setAttribute('aria-label', 'Change block variant');
+  const icon = root.createElement('span');
+  icon.className = 'qe-pill-block-variant-select-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  button.appendChild(icon);
+  button.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const existing = root.getElementById(VARIANT_MENU_ID);
+    const wasOpenForThisTrigger = existing?.ownerTrigger === button;
+    closeVariantMenu(root);
+    if (wasOpenForThisTrigger) return;
+    openVariantMenu(button, root, name, tokens, element);
+  });
+  return button;
+}
+
+function fillPill(pill, root, name) {
+  const grip = root.createElement('span');
+  grip.className = 'qe-pill-grip';
+  grip.setAttribute('aria-hidden', 'true');
+  const label = root.createElement('span');
+  label.textContent = name;
+  pill.append(grip, label);
+}
+
+function appendPillRow(box, root, ...children) {
+  const row = root.createElement('div');
+  row.className = 'qe-pill-row';
+  row.append(...children.filter(Boolean));
+  box.appendChild(row);
+}
 
 function isSelectedBlock(block) {
   if (currentSelectedNode?.anchorType !== 'table') return false;
@@ -113,10 +233,13 @@ export function setSelectedNode(node, root = document, { scrollIntoView = false 
   overlay.appendChild(box);
 
   if (node.anchorType === 'table') {
+    const name = blockName(element);
     const pill = root.createElement('div');
     pill.className = 'qe-selected-pill';
-    fillPill(pill, root, blockName(element));
-    box.appendChild(pill);
+    fillPill(pill, root, name);
+    const tokens = findVariants(name);
+    const button = tokens?.length ? createVariantButton(root, name, tokens, element) : null;
+    appendPillRow(box, root, pill, button);
   }
 }
 
@@ -136,21 +259,20 @@ function drawHoverPill(block, root = document) {
   box.setAttribute('aria-hidden', 'true');
   positionBox(box, rect);
   overlay.appendChild(box);
-  const pill = root.createElement('button');
-  pill.type = 'button';
+  const name = blockName(block);
+  const pill = root.createElement('div');
   pill.className = 'qe-selected-pill is-hover';
-  fillPill(pill, root, blockName(block));
+  fillPill(pill, root, name);
   pill.dataset.blockIndex = block.getAttribute('data-block-index');
-  box.appendChild(pill);
+  const tokens = findVariants(name);
+  const button = tokens?.length ? createVariantButton(root, name, tokens, block) : null;
+  appendPillRow(box, root, pill, button);
 }
 
 function blurActiveEditor() {
   const active = document.activeElement;
   if (active?.closest?.('.prosemirror-editor')) active.blur();
 }
-
-let selectionListenersBound = false;
-let activeCtx = null;
 
 export function setupNodeSelection(ctx) {
   activeCtx = ctx;
@@ -167,11 +289,18 @@ export function setupNodeSelection(ctx) {
   document.addEventListener('mouseout', (e) => {
     const toBlock = e.relatedTarget?.closest?.('[data-block-index]');
     const toPill = e.relatedTarget?.closest?.('.qe-selected-pill.is-hover');
-    if (!toBlock && !toPill) clearHoverPill();
+    const toButton = e.relatedTarget?.closest?.('.qe-pill-block-variant-select');
+    const toMenu = e.relatedTarget?.closest?.(`#${VARIANT_MENU_ID}`);
+    if (toBlock || toPill || toButton || toMenu) return;
+    clearHoverPill();
+    const openMenu = document.getElementById(VARIANT_MENU_ID);
+    if (openMenu?.ownerTrigger?.closest('.qe-hover-box')) closeVariantMenu();
   });
 
   document.addEventListener('mousedown', (e) => {
     const t = e.target;
+    closeVariantMenu();
+
     const pill = t.closest?.('.qe-selected-pill.is-hover');
     if (pill) {
       e.preventDefault();
@@ -213,6 +342,10 @@ export function setupNodeSelection(ctx) {
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (document.getElementById(VARIANT_MENU_ID)) {
+      closeVariantMenu();
+      return;
+    }
     if (!currentSelectedNode) return;
     activeCtx?.port?.postMessage({
       type: MESSAGE_TYPES.NODE_SELECT, payload: { node: null },

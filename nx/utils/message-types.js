@@ -14,6 +14,7 @@ export const MESSAGE_TYPES = Object.freeze({
   SET_EDITOR_STATE: 'set-editor-state', // { editorState: PM node JSON, cursorOffset: number }
   SET_CURSORS: 'set-cursors', // { cursors: [{ proseIndex, remote, color }] }
   SET_SELECTED_NODE: 'set-selected-node', // { node: { anchorType, proseIndex, ... } | null, scrollIntoView }
+  BLOCK_VARIANTS: 'block-variants', // { catalog: { [blockName: string]: string[] } } — pushed once, unprompted
 
   // Iframe -> host: ongoing
   CURSOR_MOVE: 'cursor-move', // { cursorOffset?, textCursorOffset? } — absent = clear remote cursor
@@ -21,6 +22,7 @@ export const MESSAGE_TYPES = Object.freeze({
   GET_EDITOR: 'get-editor', // { cursorOffset: number }
   NODE_UPDATE: 'node-update', // { node: PM node JSON, cursorOffset: number }
   NODE_SELECT: 'node-select', // { node: { anchorType, proseIndex, src?, blockIndex? } | null }
+  APPLY_VARIANT: 'apply-variant', // { node: { proseIndex: number }, label: string }
   HISTORY: 'history', // { action: 'undo' | 'redo' }
   NEW_VERSION: 'new-version', // no payload
   SELECTION_CHANGE: 'selection-change', // { anchor, head, anchorX, anchorY }

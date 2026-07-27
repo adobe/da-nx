@@ -8,6 +8,8 @@ import {
   setupNodeSelection,
   setSelectedNode,
   getSelectedNode,
+  setVariantCatalog,
+  takePendingVariantScrollIndex,
 } from './src/selection.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
@@ -29,7 +31,10 @@ async function setBody(body, ctx) {
   await ctx.loadPage();
   restoreBlockIndices(doc, document);
   setupNodeSelection(ctx);
-  setSelectedNode(getSelectedNode());
+  const selected = getSelectedNode();
+  const scrollToIndex = takePendingVariantScrollIndex();
+  const scrollIntoView = scrollToIndex != null && selected?.proseIndex === scrollToIndex;
+  setSelectedNode(selected, document, { scrollIntoView });
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
   if (!parentControllerPort) {
@@ -63,6 +68,8 @@ function onMessage(e, ctx) {
     }
   } else if (type === MESSAGE_TYPES.SET_SELECTED_NODE) {
     setSelectedNode(payload.node, document, { scrollIntoView: payload.scrollIntoView });
+  } else if (type === MESSAGE_TYPES.BLOCK_VARIANTS) {
+    setVariantCatalog(payload.catalog);
   }
 }
 

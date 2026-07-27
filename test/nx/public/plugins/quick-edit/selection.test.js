@@ -5,6 +5,9 @@ import {
   imageSelectPayload,
   setSelectedNode,
   setupNodeSelection,
+  setVariantCatalog,
+  getVariantCatalog,
+  takePendingVariantScrollIndex,
 } from '../../../../../nx/public/plugins/quick-edit/src/selection.js';
 
 function buildBody() {
@@ -309,5 +312,246 @@ describe('quick-edit selection gestures', () => {
     expect(document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')).to.not.equal(null);
     setSelectedNode({ anchorType: 'image', proseIndex: 27 });
     expect(document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')).to.not.equal(null);
+  });
+});
+
+describe('variant catalog + variant-select button', () => {
+  beforeEach(buildBody);
+  afterEach(() => {
+    setSelectedNode(null);
+    setVariantCatalog({});
+    document.body.innerHTML = '';
+  });
+
+  it('getVariantCatalog reflects the last setVariantCatalog call', () => {
+    setVariantCatalog({ cards: ['large', 'light'] });
+    expect(getVariantCatalog()).to.deep.equal({ cards: ['large', 'light'] });
+  });
+
+  it('defaults to an empty catalog', () => {
+    expect(getVariantCatalog()).to.deep.equal({});
+  });
+
+  it('setVariantCatalog(null) resets to an empty catalog', () => {
+    setVariantCatalog({ cards: ['large'] });
+    setVariantCatalog(null);
+    expect(getVariantCatalog()).to.deep.equal({});
+  });
+
+  it('renders the variant-select button on the selected pill when the catalog has entries for this block', () => {
+    setVariantCatalog({ cards: ['large'] });
+    setSelectedNode({ anchorType: 'table', proseIndex: 50 });
+    const button = document.querySelector('#qe-selection-overlay .qe-selected-box .qe-pill-block-variant-select');
+    expect(button).to.not.equal(null);
+  });
+
+  it('does not render the variant-select button when the catalog has no entries for this block', () => {
+    setVariantCatalog({});
+    setSelectedNode({ anchorType: 'table', proseIndex: 50 });
+    const button = document.querySelector('#qe-selection-overlay .qe-selected-box .qe-pill-block-variant-select');
+    expect(button).to.equal(null);
+  });
+
+  it('matches the catalog key case-insensitively against the block\'s class name', () => {
+    setVariantCatalog({ CARDS: ['large'] });
+    setSelectedNode({ anchorType: 'table', proseIndex: 50 });
+    const button = document.querySelector('#qe-selection-overlay .qe-selected-box .qe-pill-block-variant-select');
+    expect(button).to.not.equal(null);
+  });
+
+  it('also renders the variant-select button on the hover pill, so it works without selecting first', () => {
+    setVariantCatalog({ cards: ['large'] });
+    const block = document.querySelector('[data-block-index="50"]');
+    block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const button = document.querySelector('#qe-selection-overlay .qe-hover-box .qe-pill-block-variant-select');
+    expect(button).to.not.equal(null);
+  });
+
+  it('closes a hover-triggered menu once the block is no longer hovered', () => {
+    setVariantCatalog({ cards: ['large'] });
+    const block = document.querySelector('[data-block-index="50"]');
+    block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const button = document.querySelector('#qe-selection-overlay .qe-hover-box .qe-pill-block-variant-select');
+    button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(document.getElementById('qe-variant-menu')).to.not.equal(null);
+
+    block.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
+    expect(document.getElementById('qe-variant-menu')).to.equal(null);
+  });
+
+  it('does not close a selected block\'s menu just because the mouse moves away', () => {
+    setVariantCatalog({ cards: ['large'] });
+    setSelectedNode({ anchorType: 'table', proseIndex: 50 });
+    const trigger = document.querySelector('#qe-selection-overlay .qe-selected-box .qe-pill-block-variant-select');
+    trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(document.getElementById('qe-variant-menu')).to.not.equal(null);
+
+    const block = document.querySelector('[data-block-index="50"]');
+    block.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
+    expect(document.getElementById('qe-variant-menu')).to.not.equal(null);
+  });
+
+  it('does not render a variant-select button on the hover pill when the catalog has no entries', () => {
+    setVariantCatalog({});
+    const block = document.querySelector('[data-block-index="50"]');
+    block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const button = document.querySelector('#qe-selection-overlay .qe-hover-box .qe-pill-block-variant-select');
+    expect(button).to.equal(null);
+  });
+
+  function variantButton() {
+    return document.querySelector('#qe-selection-overlay .qe-selected-box .qe-pill-block-variant-select');
+  }
+
+  function menuItems() {
+    return [...document.querySelectorAll('#qe-variant-menu .qe-variant-menu-item')];
+  }
+
+  it('lists atomic variant tokens as menu items, not the blockName-prefixed label', () => {
+    setVariantCatalog({ cards: ['large', 'light'] });
+    setSelectedNode({ anchorType: 'table', proseIndex: 50 });
+    variantButton().dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(menuItems().map((el) => el.textContent)).to.deep.equal(['large', 'light']);
+  });
+
+  it('marks a token as checked (is-active, for the CSS checkmark) when it matches one of the block\'s already-applied classes', () => {
+    // buildBody's block 50 is class="cards highlight" — "highlight" is already applied.
+    setVariantCatalog({ cards: ['highlight', 'large'] });
+    setSelectedNode({ anchorType: 'table', proseIndex: 50 });
+    variantButton().dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    const [highlight, large] = menuItems();
+    expect(highlight.classList.contains('is-active')).to.equal(true);
+    expect(large.classList.contains('is-active')).to.equal(false);
+  });
+
+  it('closes the menu when clicking outside it', () => {
+    setVariantCatalog({ cards: ['large'] });
+    setSelectedNode({ anchorType: 'table', proseIndex: 50 });
+    variantButton().dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(document.getElementById('qe-variant-menu')).to.not.equal(null);
+
+    document.querySelector('.no-index').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(document.getElementById('qe-variant-menu')).to.equal(null);
+  });
+
+  it('clicking the trigger again toggles the menu closed', () => {
+    setVariantCatalog({ cards: ['large'] });
+    setSelectedNode({ anchorType: 'table', proseIndex: 50 });
+    variantButton().dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(document.getElementById('qe-variant-menu')).to.not.equal(null);
+
+    variantButton().dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(document.getElementById('qe-variant-menu')).to.equal(null);
+  });
+});
+
+describe('variant menu selection', () => {
+  let posted;
+  let ctx;
+
+  beforeEach(() => {
+    buildBody();
+    setVariantCatalog({ cards: ['highlight', 'large', 'light'] });
+    posted = [];
+    ctx = { port: { postMessage: (m) => posted.push(m) } };
+    setupNodeSelection(ctx);
+    setSelectedNode({ anchorType: 'table', proseIndex: 50 });
+  });
+  afterEach(() => {
+    setSelectedNode(null);
+    setVariantCatalog({});
+    takePendingVariantScrollIndex();
+    document.body.innerHTML = '';
+  });
+
+  function trigger() {
+    return document.querySelector('#qe-selection-overlay .qe-selected-box .qe-pill-block-variant-select');
+  }
+
+  function openMenu() {
+    trigger().dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+  }
+
+  function clickItem(label) {
+    const item = [...document.querySelectorAll('#qe-variant-menu .qe-variant-menu-item')]
+      .find((el) => el.textContent === label);
+    item.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+  }
+
+  it('composes the label from just the newly-toggled-on token when none was active', () => {
+    // buildBody's block 50 has class="cards highlight", but the catalog here only
+    // exposes 'large'/'light' as togglable (not 'highlight'), so none start active.
+    setVariantCatalog({ cards: ['large', 'light'] });
+    setSelectedNode({ anchorType: 'table', proseIndex: 50 });
+    openMenu();
+    clickItem('large');
+
+    expect(posted).to.deep.include({
+      type: 'apply-variant',
+      payload: { node: { proseIndex: 50 }, label: 'cards (large)' },
+    });
+  });
+
+  it('composes a combined label when toggling on a second token alongside an already-active one', () => {
+    // 'highlight' is already applied (buildBody's class="cards highlight"); toggling
+    // 'large' on should combine with it, in catalog order.
+    openMenu();
+    clickItem('large');
+
+    expect(posted).to.deep.include({
+      type: 'apply-variant',
+      payload: { node: { proseIndex: 50 }, label: 'cards (highlight, large)' },
+    });
+  });
+
+  it('toggling off the only active token resets to the base block name', () => {
+    openMenu();
+    clickItem('highlight');
+
+    expect(posted).to.deep.include({
+      type: 'apply-variant',
+      payload: { node: { proseIndex: 50 }, label: 'cards' },
+    });
+  });
+
+  it('also posts node-select for the affected block, so doc-mode/outline stays in sync', () => {
+    openMenu();
+    clickItem('large');
+
+    expect(posted).to.deep.include({
+      type: 'node-select',
+      payload: { node: { anchorType: 'table', proseIndex: 50 } },
+    });
+  });
+
+  it('marks the block for a deferred scroll, consumed once by takePendingVariantScrollIndex', () => {
+    openMenu();
+    clickItem('large');
+    expect(takePendingVariantScrollIndex()).to.equal(50);
+    expect(takePendingVariantScrollIndex()).to.equal(null);
+  });
+
+  it('closes the menu after applying a selection', () => {
+    openMenu();
+    clickItem('large');
+    expect(document.getElementById('qe-variant-menu')).to.equal(null);
+  });
+
+  it('clicking the variant-select button does not clear the block selection', () => {
+    openMenu();
+    expect(posted.some((m) => m.type === 'node-select')).to.equal(false);
+  });
+
+  it('Escape closes an open menu without deselecting the block', () => {
+    openMenu();
+    expect(document.getElementById('qe-variant-menu')).to.not.equal(null);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(document.getElementById('qe-variant-menu')).to.equal(null);
+    expect(posted.some((m) => m.type === 'node-select' && m.payload?.node === null)).to.equal(false);
+  });
+
+  it('Escape deselects the block when no menu is open (existing behavior unchanged)', () => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(posted).to.deep.include({ type: 'node-select', payload: { node: null } });
   });
 });
