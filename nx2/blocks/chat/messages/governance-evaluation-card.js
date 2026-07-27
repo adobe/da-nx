@@ -7,6 +7,7 @@ const styles = await loadStyle(import.meta.url);
 class NxGovernanceEvaluationCard extends LitElement {
   static properties = {
     evaluation: { attribute: false },
+    loading: { type: Boolean },
     _isExpanded: { state: true },
     _openCategories: { state: true },
     _openChecks: { state: true },
@@ -249,6 +250,23 @@ class NxGovernanceEvaluationCard extends LitElement {
   }
 
   render() {
+    if (this.loading) {
+      return html`
+        <div class="ge-card">
+          <div class="ge-header">
+            <span class="ge-type-label">
+              <span class="ge-type-icon" aria-hidden="true"></span>
+              Governance Page Evaluation
+            </span>
+          </div>
+          <div class="ge-body ge-loading">
+            <span class="ge-spinner" aria-hidden="true"></span>
+            <span class="ge-loading-text">Evaluating page…</span>
+          </div>
+        </div>
+      `;
+    }
+
     const evaluation = this.evaluation ?? {};
     const {
       brand_name: brandName = '', pageUrl = '', text_evaluation: textEvaluation, image_evaluations: imageEvaluations = [],

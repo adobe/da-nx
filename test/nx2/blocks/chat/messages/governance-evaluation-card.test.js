@@ -112,6 +112,34 @@ describe('nx-governance-evaluation-card header', () => {
   });
 });
 
+// ─── loading state ──────────────────────────────────────────────────────────
+
+describe('nx-governance-evaluation-card loading state', () => {
+  let card;
+  afterEach(() => cleanup(card));
+
+  it('shows a spinner and no scorecard while loading, with no evaluation yet', async () => {
+    const el = document.createElement('nx-governance-evaluation-card');
+    el.loading = true;
+    document.body.appendChild(el);
+    card = el;
+    await card.updateComplete;
+    expect(card.shadowRoot.querySelector('.ge-loading')).to.exist;
+    expect(card.shadowRoot.querySelector('.ge-spinner')).to.exist;
+    expect(card.shadowRoot.querySelector('.ge-summary-row')).to.not.exist;
+    expect(card.shadowRoot.querySelector('.ge-passed-badge')).to.not.exist;
+  });
+
+  it('does not show the spinner once loading is false, even with a falsy/unparseable evaluation', async () => {
+    card = makeCard(null);
+    card.loading = false;
+    await card.updateComplete;
+    expect(card.shadowRoot.querySelector('.ge-loading')).to.not.exist;
+    expect(card.shadowRoot.querySelector('.ge-spinner')).to.not.exist;
+    expect(card.shadowRoot.querySelector('.ge-header')).to.exist;
+  });
+});
+
 // ─── text evaluation section ───────────────────────────────────────────────
 
 describe('nx-governance-evaluation-card text section', () => {

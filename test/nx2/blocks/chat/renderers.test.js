@@ -153,6 +153,31 @@ describe('renderMessage — EVALUATE_PAGE tool card (post-approval)', () => {
     expect(container.querySelector('nx-governance-evaluation-card')).to.not.exist;
   });
 
+  [TOOL_STATE.RUNNING, TOOL_STATE.APPROVED, TOOL_STATE.REJECTED].forEach((state) => {
+    it(`renders a loading spinner, not the empty scorecard, while state is ${state}`, async () => {
+      const toolCallId = `ge-${state}-1`;
+      const toolCards = new Map([
+        [toolCallId, {
+          toolName: TOOL_NAME.EVALUATE_PAGE,
+          state,
+          input: MOCK_TOOL_INPUT,
+          output: undefined,
+        }],
+      ]);
+      const msg = { role: 'assistant', content: [{ type: 'tool-call', toolCallId }] };
+      const container = await renderToDOM(renderMessage(msg, toolCards, null));
+      document.body.appendChild(container);
+      try {
+        const card = container.querySelector('nx-governance-evaluation-card');
+        await card.updateComplete;
+        expect(card.shadowRoot.querySelector('.ge-loading')).to.exist;
+        expect(card.shadowRoot.querySelector('.ge-summary-row')).to.not.exist;
+      } finally {
+        container.remove();
+      }
+    });
+  });
+
   it('renders nx-governance-evaluation-card when da-agent sends the MCP-qualified tool name', async () => {
     const toolCallId = 'ge-mcp-1';
     const toolCards = new Map([

@@ -160,7 +160,12 @@ function renderToolCard(toolCallId, toolCards, streamingText) {
   const shortToolName = mcpToolName(toolName);
   if (shortToolName === TOOL_NAME.EXIT_PLAN_MODE) return renderExitPlanCard(input, streamingText);
   if (shortToolName === TOOL_NAME.EVALUATE_PAGE) {
-    return html`<nx-governance-evaluation-card .evaluation=${parseToolOutput(output)}></nx-governance-evaluation-card>`;
+    // RUNNING (pre-approval) and APPROVED/REJECTED (post-approval, execution still in
+    // flight) all precede the real tool-result event — only DONE/ERROR carry real output.
+    return html`<nx-governance-evaluation-card
+      .evaluation=${parseToolOutput(output)}
+      .loading=${state !== TOOL_STATE.DONE && state !== TOOL_STATE.ERROR}
+    ></nx-governance-evaluation-card>`;
   }
   const detail = approvalSummary(input, { json: true });
   const failed = state === TOOL_STATE.ERROR || state === TOOL_STATE.REJECTED;
