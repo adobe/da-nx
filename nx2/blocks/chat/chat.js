@@ -586,7 +586,8 @@ class NxChat extends LitElement {
             ></nx-chat-welcome>`
         : nothing}
         ${this.messages?.map((msg) => renderMessage(msg, this.toolCards))}
-        ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
+        ${this.thinking && !this.messages?.at(-1)?.streaming && !this._pendingApproval() && !this.pendingQuestion
+        ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>
       </div>
       <div class="chat-form-wrap">

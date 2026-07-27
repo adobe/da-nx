@@ -1,5 +1,7 @@
 import { loadIms } from '../../utils/ims.js';
 import { env } from '../../scripts/nx.js';
+import { daFetch } from '../../utils/api.js';
+import { DA_ADMIN } from '../../utils/utils.js';
 import { ROLE, TOOL_STATE } from './constants.js';
 import {
   loadMessages, saveMessages, resetSession, getRoomKey,
@@ -39,6 +41,13 @@ function parseToolArguments(raw) {
   } catch {
     return {};
   }
+}
+
+function base64ToBlob(base64, mediaType) {
+  const byteChars = atob(base64);
+  const bytes = new Uint8Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i += 1) bytes[i] = byteChars.charCodeAt(i);
+  return new Blob([bytes], { type: mediaType });
 }
 
 /**
@@ -169,6 +178,12 @@ export default class ChatControllerAO {
         content: evt.data?.content ?? this._streaming,
       }];
       this._streaming = '';
+      // _done() used to clear this as a side effect; now that text_done no longer
+      // calls _done() (see comment above), clear it explicitly — otherwise chat.js
+      // renders the just-finalized text a second time as a stale "still streaming"
+      // bubble, which only stops duplicating once the *next* segment's deltas
+      // happen to overwrite it.
+      this._streamingText = undefined;
       this._persist();
       this._update();
       return;
@@ -285,7 +300,15 @@ export default class ChatControllerAO {
           this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: 'Error: connection closed' }];
           this._done();
         }
-        if (!wasReady) rejectAuth(new Error(`WebSocket closed before auth resolved (code ${event.code})`));
+        if (!wasReady) {
+          rejectAuth(new Error(`WebSocket closed before auth resolved (code ${event.code})`));
+        } else if (!this._closingIntentionally && !this._destroyed) {
+          // Browsers can't send WS ping frames, and AO's own docs note intermediary
+          // proxies drop idle connections after 30-60s — so a connection that was
+          // fine a moment ago can die with no warning. Without this, the chat would
+          // stay permanently disabled (connected=false) until a full page reload.
+          this.connect();
+        }
         this._update();
       });
 
@@ -297,6 +320,8 @@ export default class ChatControllerAO {
   }
 
   async connect(attempt = 0) {
+    // A fresh connect() attempt supersedes any earlier "intentional close" state.
+    this._closingIntentionally = false;
     try {
       await this._openSocket();
       this._connected = true;
@@ -322,6 +347,10 @@ export default class ChatControllerAO {
 
   async clear() {
     if (this._thinking) this.stop();
+    // Suppress the close handler's auto-reconnect — clear() drives its own
+    // reconnect below (which resets this flag), so we don't want two racing
+    // connect() calls. Left true here; connect() clears it once it actually runs.
+    this._closingIntentionally = true;
     this._ws?.close();
     this._messages = [];
     this._streamingText = undefined;
@@ -336,6 +365,7 @@ export default class ChatControllerAO {
   }
 
   destroy() {
+    this._destroyed = true;
     clearTimeout(this._retryTimeout);
     this._ws?.close();
   }
@@ -435,22 +465,79 @@ export default class ChatControllerAO {
     return `[Selected context]\n${lines.join('\n')}\n`;
   }
 
-  async sendMessage(message, context = []) {
+  // AO's USER_INPUT.attachments only accepts artifact ids from its own Files API
+  // (raw bytes aren't a wire option — confirmed from UserInputOp: `attachments: list[str]`)
+  // and that HTTP endpoint sits behind the same CORS/entitlement wall the A2A transport
+  // hit. Upload straight to DA's own admin API instead — the same one da-live's own
+  // editor already uses — and just tell the agent the resulting URL in the message text.
+  async _uploadAttachment(attachment) {
+    const { fileName, mediaType, dataBase64 } = attachment;
+    const { org, site } = this._context ?? {};
+    if (!org || !site || !dataBase64) return { ...attachment, contentUrl: null };
+
+    const path = `/${org}/${site}/.da-chat-uploads/${Date.now()}-${fileName}`;
+    try {
+      const formData = new FormData();
+      formData.append('data', base64ToBlob(dataBase64, mediaType));
+      const resp = await daFetch({ url: `${DA_ADMIN}/source${path}`, opts: { method: 'PUT', body: formData } });
+      if (!resp.ok) return { ...attachment, contentUrl: null };
+      const json = await resp.json().catch(() => null);
+      return { ...attachment, contentUrl: json?.source?.contentUrl ?? null };
+    } catch {
+      return { ...attachment, contentUrl: null };
+    }
+  }
+
+  _describeAttachments(uploaded) {
+    if (!uploaded.length) return '';
+    const lines = uploaded.map((a) => (a.contentUrl
+      ? `- Attached file: ${a.fileName} — uploaded to: ${a.contentUrl}`
+      : `- Attached file: ${a.fileName} — upload failed`));
+    return `[Attachments]\n${lines.join('\n')}\n`;
+  }
+
+  async sendMessage(message, context = [], { attachments = [] } = {}) {
     if (this._thinking || !this._connected || !this._ready) return;
 
     const selectionContext = buildSelectionContext(context);
+    const attachmentsMeta = attachments.map(({
+      id, fileName, mediaType, sizeBytes,
+    }) => ({
+      id, fileName, mediaType, ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
+    }));
+
     this._messages = [...(this._messages ?? []), {
       role: ROLE.USER,
       content: message,
       ...(selectionContext.length && { selectionContext }),
+      ...(attachmentsMeta.length && { attachmentsMeta }),
     }];
     this._thinking = true;
     this._update();
     this._persist();
 
+    const uploaded = await Promise.all(attachments.map((a) => this._uploadAttachment(a)));
+
+    // The upload above can take long enough for an idle-timeout to drop the socket
+    // in the background (browsers can't send WS pings to prevent this — see the
+    // close handler's auto-reconnect). Reconnect before sending if that happened,
+    // rather than throwing on a closed socket and losing the message.
+    if (this._ws?.readyState !== WebSocket.OPEN) {
+      await this.connect();
+      if (!this._ready) {
+        this._messages = [...this._messages, {
+          role: ROLE.ASSISTANT,
+          content: 'Error: connection lost while sending. Please try again.',
+        }];
+        this._done();
+        return;
+      }
+    }
+
     this._ws.send(JSON.stringify({
       type: 'USER_INPUT',
-      text: `${this._contextPrefix()}${this._describeSelectionContext(selectionContext)}${message}`,
+      text: `${this._contextPrefix()}${this._describeSelectionContext(selectionContext)}`
+        + `${this._describeAttachments(uploaded)}${message}`,
       manifestId: AO_MANIFEST_ID,
       // Required for manifestId to actually override auto-targeting — see
       // apply_control_plane_targeting in aep-ai: an explicit manifestId is only
