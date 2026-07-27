@@ -6,15 +6,12 @@ export function updateDocument(ctx) {
   // Skip rerender if suppressed (e.g., during image updates)
   if (ctx.suppressRerender) return;
   const body = getInstrumentedHTML(window.view);
-  // @deprecated top-level `body` — prefer payload.body (kept so the quick-edit iframe
-  // script in da-nx keeps working until it migrates).
-  ctx.port.postMessage({ type: MESSAGE_TYPES.SET_BODY, body, payload: { body } });
+  ctx.port.postMessage({ type: MESSAGE_TYPES.SET_BODY, payload: { body } });
 }
 
 export function updateCursors(ctx) {
   const cursors = extractCursors(window.view);
-  // @deprecated top-level `cursors` — prefer payload.cursors.
-  ctx.port.postMessage({ type: MESSAGE_TYPES.SET_CURSORS, cursors, payload: { cursors } });
+  ctx.port.postMessage({ type: MESSAGE_TYPES.SET_CURSORS, payload: { cursors } });
 }
 
 export function updateState(data, ctx) {
@@ -48,11 +45,8 @@ export function getEditor(data, ctx) {
   const nodeAtBefore = beforePos.nodeAfter;
   const editorState = nodeAtBefore.toJSON();
   const newCursorOffset = before + 1;
-  // @deprecated top-level editorState/cursorOffset — prefer payload.editorState/cursorOffset.
   ctx.port.postMessage({
     type: MESSAGE_TYPES.SET_EDITOR_STATE,
-    editorState,
-    cursorOffset: newCursorOffset,
     payload: { editorState, cursorOffset: newCursorOffset },
   });
 }

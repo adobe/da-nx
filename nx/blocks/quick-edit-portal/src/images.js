@@ -92,7 +92,7 @@ export async function handleImageReplace({ imageData, fileName, originalSrc }, c
     if (!resp.ok) {
       const error = `Upload failed with status ${resp.status}`;
       ctx.port.postMessage({
-        type: MESSAGE_TYPES.IMAGE_ERROR, error, originalSrc, payload: { error, originalSrc },
+        type: MESSAGE_TYPES.IMAGE_ERROR, payload: { error, originalSrc },
       });
       return;
     }
@@ -105,15 +105,13 @@ export async function handleImageReplace({ imageData, fileName, originalSrc }, c
 
     // Send back the new URL to update the quick-edit view
     ctx.port.postMessage({
-      type: MESSAGE_TYPES.UPDATE_IMAGE_SRC, newSrc, originalSrc, payload: { newSrc, originalSrc },
+      type: MESSAGE_TYPES.UPDATE_IMAGE_SRC, payload: { newSrc, originalSrc },
     });
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Error replacing image:', error);
     ctx.port.postMessage({
       type: MESSAGE_TYPES.IMAGE_ERROR,
-      error: error.message,
-      originalSrc,
       payload: { error: error.message, originalSrc },
     });
   } finally {

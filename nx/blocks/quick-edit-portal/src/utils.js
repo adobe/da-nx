@@ -280,9 +280,9 @@ export async function handlePreview(ctx) {
     console.error('Failed to preview:', resp.statusText);
     const error = `Failed to preview: ${resp.statusText}`;
     ctx.port.postMessage({
-      type: MESSAGE_TYPES.PREVIEW, ok: false, error, payload: { ok: false, error },
+      type: MESSAGE_TYPES.PREVIEW, payload: { ok: false, error },
     });
   } else {
-    ctx.port.postMessage({ type: MESSAGE_TYPES.PREVIEW, ok: true, payload: { ok: true } });
+    ctx.port.postMessage({ type: MESSAGE_TYPES.PREVIEW, payload: { ok: true } });
   }
 }
