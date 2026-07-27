@@ -55,10 +55,6 @@ function onMessage(e, ctx) {
     setCursors(payload.cursors, ctx);
   } else if (type === MESSAGE_TYPES.UPDATE_IMAGE_SRC
     || type === MESSAGE_TYPES.IMAGE_ERROR) {
-    // Both are replies to the same image-replace request; `error` is only ever present
-    // (a truthy message) on the failure case, so its presence is the outcome signal —
-    // no separate flag needed. Once the two legacy type names are retired, this becomes
-    // a single `type === IMAGE_REPLACE` check with the same `if (payload.error)` branch.
     if (payload.error) {
       handleImageError(payload.error);
     } else {
