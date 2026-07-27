@@ -158,13 +158,19 @@ export default class ChatControllerAO {
     }
 
     if (evt.type === 'text_done') {
+      // A turn can emit several text_done segments interleaved with tool calls —
+      // this closes one text segment, not the whole turn. Ending "thinking" here
+      // re-enables the input mid-turn, and a message sent in that window gets
+      // queued as a mid-turn injection into a still-active turn (see the
+      // "turn did not complete in time" investigation). Only the genuine
+      // terminal events below should call _done().
       this._messages = [...this._messages, {
         role: ROLE.ASSISTANT,
         content: evt.data?.content ?? this._streaming,
       }];
       this._streaming = '';
       this._persist();
-      this._done();
+      this._update();
       return;
     }
 
@@ -178,8 +184,21 @@ export default class ChatControllerAO {
       return;
     }
 
-    if (evt.type === 'turn_completed' || evt.type === 'turn_aborted' || evt.type === 'turn_suspended') {
+    if (evt.type === 'turn_completed' || evt.type === 'turn_aborted') {
       this._done();
+      return;
+    }
+
+    if (evt.type === 'turn_suspended') {
+      // Fires after permission_request/user_question to formally mark the suspension.
+      // If either already put up a popup, the *only* valid response channel is that
+      // popup (PERMISSION_RESPONSE/QUESTION_RESPONSE) — re-enabling the plain chat
+      // input here would let the user answer in two conflicting ways at once, and a
+      // plain USER_INPUT sent while suspended just becomes a stray "injection" the
+      // server drops. Only fall back to _done() if nothing is actually pending.
+      const hasPendingApproval = [...(this._toolCards?.values() ?? [])]
+        .some((c) => c.state === TOOL_STATE.APPROVAL_REQUESTED);
+      if (!this._pendingQuestion && !hasPendingApproval) this._done();
       return;
     }
 
