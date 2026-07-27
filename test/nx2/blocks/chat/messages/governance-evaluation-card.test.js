@@ -140,6 +140,43 @@ describe('nx-governance-evaluation-card loading state', () => {
   });
 });
 
+// ─── error state ─────────────────────────────────────────────────────────
+
+describe('nx-governance-evaluation-card error state', () => {
+  let card;
+  afterEach(() => cleanup(card));
+
+  it('shows the error message and no scorecard/spinner when error is set', async () => {
+    const el = document.createElement('nx-governance-evaluation-card');
+    el.error = 'Page evaluation failed.';
+    document.body.appendChild(el);
+    card = el;
+    await card.updateComplete;
+    expect(card.shadowRoot.querySelector('.ge-error-text').textContent).to.contain('Page evaluation failed.');
+    expect(card.shadowRoot.querySelector('.ge-loading')).to.not.exist;
+    expect(card.shadowRoot.querySelector('.ge-summary-row')).to.not.exist;
+  });
+
+  it('takes precedence over loading when both are set', async () => {
+    const el = document.createElement('nx-governance-evaluation-card');
+    el.error = 'Page evaluation failed.';
+    el.loading = true;
+    document.body.appendChild(el);
+    card = el;
+    await card.updateComplete;
+    expect(card.shadowRoot.querySelector('.ge-error-text')).to.exist;
+    expect(card.shadowRoot.querySelector('.ge-loading')).to.not.exist;
+  });
+
+  it('does not show the error state once error is cleared', async () => {
+    card = makeCard(fullEvaluation());
+    card.error = undefined;
+    await card.updateComplete;
+    expect(card.shadowRoot.querySelector('.ge-error-text')).to.not.exist;
+    expect(card.shadowRoot.querySelector('.ge-header')).to.exist;
+  });
+});
+
 // ─── text evaluation section ───────────────────────────────────────────────
 
 describe('nx-governance-evaluation-card text section', () => {

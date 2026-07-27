@@ -162,9 +162,15 @@ function renderToolCard(toolCallId, toolCards, streamingText) {
   if (shortToolName === TOOL_NAME.EVALUATE_PAGE) {
     // RUNNING (pre-approval) and APPROVED/REJECTED (post-approval, execution still in
     // flight) all precede the real tool-result event — only DONE/ERROR carry real output.
+    const isError = state === TOOL_STATE.ERROR;
+    const parsedOutput = parseToolOutput(output);
+    const errorMessage = isError
+      ? (typeof parsedOutput?.error === 'string' && parsedOutput.error) || 'Page evaluation failed.'
+      : undefined;
     return html`<nx-governance-evaluation-card
-      .evaluation=${parseToolOutput(output)}
+      .evaluation=${parsedOutput}
       .loading=${state !== TOOL_STATE.DONE && state !== TOOL_STATE.ERROR}
+      .error=${errorMessage}
     ></nx-governance-evaluation-card>`;
   }
   const detail = approvalSummary(input, { json: true });

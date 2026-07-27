@@ -178,6 +178,60 @@ describe('renderMessage — EVALUATE_PAGE tool card (post-approval)', () => {
     });
   });
 
+  describe('when state is error', () => {
+    function makeErrorMsg(output) {
+      const toolCallId = 'ge-error-1';
+      const toolCards = new Map([
+        [toolCallId, {
+          toolName: TOOL_NAME.EVALUATE_PAGE,
+          state: TOOL_STATE.ERROR,
+          input: MOCK_TOOL_INPUT,
+          output,
+        }],
+      ]);
+      const msg = { role: 'assistant', content: [{ type: 'tool-call', toolCallId }] };
+      return { msg, toolCards };
+    }
+
+    async function renderErrorCard(output) {
+      const { msg, toolCards } = makeErrorMsg(output);
+      const container = await renderToDOM(renderMessage(msg, toolCards, null));
+      document.body.appendChild(container);
+      const card = container.querySelector('nx-governance-evaluation-card');
+      await card.updateComplete;
+      return { card, container };
+    }
+
+    it('renders the error message, not the empty scorecard', async () => {
+      const { card, container } = await renderErrorCard({ error: 'Sample failure' });
+      try {
+        expect(card.shadowRoot.querySelector('.ge-error-text').textContent).to.contain('Sample failure');
+        expect(card.shadowRoot.querySelector('.ge-loading')).to.not.exist;
+        expect(card.shadowRoot.querySelector('.ge-summary-row')).to.not.exist;
+      } finally {
+        container.remove();
+      }
+    });
+
+    it('falls back to a generic message when output is missing', async () => {
+      const { card, container } = await renderErrorCard(undefined);
+      try {
+        expect(card.shadowRoot.querySelector('.ge-error-text').textContent).to.contain('Page evaluation failed.');
+      } finally {
+        container.remove();
+      }
+    });
+
+    it('falls back to a generic message when output.error is not a string', async () => {
+      const { card, container } = await renderErrorCard({ error: { code: 500 } });
+      try {
+        expect(card.shadowRoot.querySelector('.ge-error-text').textContent).to.contain('Page evaluation failed.');
+      } finally {
+        container.remove();
+      }
+    });
+  });
+
   it('renders nx-governance-evaluation-card when da-agent sends the MCP-qualified tool name', async () => {
     const toolCallId = 'ge-mcp-1';
     const toolCards = new Map([

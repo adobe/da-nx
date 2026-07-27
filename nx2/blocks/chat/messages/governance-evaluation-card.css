@@ -75,6 +75,10 @@
   transform: rotate(180deg);
 }
 
+.ge-type-icon-error {
+  mask-image: url("/img/icons/s2-icon-alertdiamondorange-20-n.svg");
+}
+
 /* ── Body ── */
 
 .ge-body {
@@ -108,6 +112,24 @@
 .ge-loading-text {
   font-size: var(--s2-body-size-s);
   color: var(--s2-gray-600);
+}
+
+.ge-body.ge-error {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--s2-spacing-200);
+}
+
+.ge-error-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--s2-red-700, #c9292b);
+}
+
+.ge-error-text {
+  font-size: var(--s2-body-size-s);
+  color: var(--s2-gray-800);
 }
 
 .ge-title {

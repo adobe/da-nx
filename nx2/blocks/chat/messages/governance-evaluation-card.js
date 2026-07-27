@@ -8,6 +8,7 @@ class NxGovernanceEvaluationCard extends LitElement {
   static properties = {
     evaluation: { attribute: false },
     loading: { type: Boolean },
+    error: { attribute: false },
     _isExpanded: { state: true },
     _openCategories: { state: true },
     _openChecks: { state: true },
@@ -66,11 +67,15 @@ class NxGovernanceEvaluationCard extends LitElement {
       </svg>`;
   }
 
+  _renderWarningIcon(className) {
+    return html`<svg class=${className} viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M10 6v5m0 3h.01M2.5 17h15L10 3 2.5 17z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>`;
+  }
+
   _renderCheckIcon(check) {
     if (check.error) {
-      return html`<svg class="ge-check-icon ge-check-error" viewBox="0 0 20 20" aria-hidden="true">
-        <path d="M10 6v5m0 3h.01M2.5 17h15L10 3 2.5 17z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      </svg>`;
+      return this._renderWarningIcon('ge-check-icon ge-check-error');
     }
     if (check.alignment === 'YES') {
       return html`<svg class="ge-check-icon ge-check-yes" viewBox="0 0 20 20" aria-hidden="true">
@@ -250,6 +255,23 @@ class NxGovernanceEvaluationCard extends LitElement {
   }
 
   render() {
+    if (this.error) {
+      return html`
+        <div class="ge-card">
+          <div class="ge-header">
+            <span class="ge-type-label">
+              <span class="ge-type-icon ge-type-icon-error" aria-hidden="true"></span>
+              Governance Page Evaluation
+            </span>
+          </div>
+          <div class="ge-body ge-error">
+            ${this._renderWarningIcon('ge-error-icon')}
+            <span class="ge-error-text">${this.error}</span>
+          </div>
+        </div>
+      `;
+    }
+
     if (this.loading) {
       return html`
         <div class="ge-card">
