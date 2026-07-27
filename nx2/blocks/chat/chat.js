@@ -3,7 +3,8 @@ import { loadStyle, hashChange } from '../../utils/utils.js';
 import { readFileAsBase64 } from './utils/stream.js';
 import '../shared/menu/menu.js';
 import ChatController from './chat-controller.js';
-import { renderMessage, renderApprovalCard } from './renderers.js';
+import ChatControllerAO from './chat-controller-ao.js';
+import { renderMessage, renderApprovalCard, renderQuestionCard } from './renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
 import './pills/pills.js';
@@ -31,12 +32,16 @@ const icon = (name) => html`<svg class="chat-icon" viewBox="0 0 20 20" aria-hidd
 
 const UI_PROMPTS_GAP = 8;
 
+// Flip to true to test the Agent Orchestrator backend instead of da-agent.
+const USE_AGENT_ORCHESTRATOR = true;
+
 class NxChat extends LitElement {
   static properties = {
     messages: { type: Array },
     thinking: { type: Boolean },
     connected: { type: Boolean },
     toolCards: { type: Object },
+    pendingQuestion: { type: Object },
     _prompts: { state: true },
     _items: { state: true },
     _dragging: { state: true },
@@ -189,7 +194,8 @@ class NxChat extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
 
-    this._controller = new ChatController({
+    const ControllerClass = USE_AGENT_ORCHESTRATOR ? ChatControllerAO : ChatController;
+    this._controller = new ControllerClass({
       onToolDone: (scope, paths) => {
         this.dispatchEvent(new CustomEvent(CHAT_EVENT.AGENT_CHANGE, {
           bubbles: true,
@@ -197,19 +203,29 @@ class NxChat extends LitElement {
           detail: { scope, paths },
         }));
       },
-      onUpdate: ({ messages, thinking, streamingText, connected, toolCards }) => {
+      onUpdate: ({
+        messages, thinking, streamingText, connected, toolCards, pendingQuestion,
+      }) => {
         const newMessages = streamingText
           ? [...(messages ?? []), { role: ROLE.ASSISTANT, content: streamingText, streaming: true }]
           : messages;
+        // Question ids can repeat across turns ("1", "2", ...) — clear stale answer
+        // drafts whenever a genuinely new question set arrives.
+        if (pendingQuestion && pendingQuestion.turnId !== this._lastQuestionTurnId) {
+          this._questionAnswers = {};
+          this._lastQuestionTurnId = pendingQuestion.turnId;
+        }
         this.thinking = thinking;
         this.connected = connected;
         this.toolCards = toolCards;
+        this.pendingQuestion = pendingQuestion;
         cancelAnimationFrame(this._updateRaf);
         this._updateRaf = requestAnimationFrame(() => {
           this.messages = newMessages;
           this.thinking = thinking;
           this.connected = connected;
           this.toolCards = toolCards;
+          this.pendingQuestion = pendingQuestion;
         });
       },
     });
@@ -241,6 +257,42 @@ class NxChat extends LitElement {
       if (card.state === TOOL_STATE.APPROVAL_REQUESTED) return { toolCallId, ...card };
     }
     return null;
+  }
+
+  _questionAnswerEntry(qId) {
+    this._questionAnswers ??= {};
+    this._questionAnswers[qId] ??= { options: new Set(), text: '' };
+    return this._questionAnswers[qId];
+  }
+
+  _toggleQuestionOption(qId, label, multiSelect) {
+    const entry = this._questionAnswerEntry(qId);
+    if (multiSelect) {
+      if (entry.options.has(label)) entry.options.delete(label); else entry.options.add(label);
+    } else {
+      entry.options = entry.options.has(label) ? new Set() : new Set([label]);
+    }
+    this.requestUpdate();
+  }
+
+  _setQuestionText(qId, text) {
+    this._questionAnswerEntry(qId).text = text;
+  }
+
+  _submitQuestion() {
+    const answersByQuestionId = {};
+    Object.entries(this._questionAnswers ?? {}).forEach(([qId, entry]) => {
+      const opts = [...entry.options];
+      if (entry.text?.trim()) opts.push(entry.text.trim());
+      answersByQuestionId[qId] = opts;
+    });
+    this._controller.answerQuestion(answersByQuestionId);
+    this._questionAnswers = {};
+  }
+
+  _declineQuestion() {
+    this._controller.declineQuestion();
+    this._questionAnswers = {};
   }
 
   _onApprovalKeydown = (e) => {
@@ -546,6 +598,12 @@ class NxChat extends LitElement {
           @mousedown=${(e) => e.preventDefault()}
         ></nx-menu>
         ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
+        ${renderQuestionCard(this.pendingQuestion, this._questionAnswers ?? {}, {
+          onToggle: (qId, label, multi) => this._toggleQuestionOption(qId, label, multi),
+          onText: (qId, text) => this._setQuestionText(qId, text),
+          onSubmit: () => this._submitQuestion(),
+          onDecline: () => this._declineQuestion(),
+        })}
         <form class="chat-form" autocomplete="off" @submit=${this._submit}
           @dragenter=${this._onDragEnter}
           @dragleave=${this._onDragLeave}

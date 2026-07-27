@@ -2,6 +2,7 @@ import { loadIms } from '../../utils/ims.js';
 import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_STATE } from './constants.js';
 import { readStream } from './utils/stream.js';
 import { loadMessages, saveMessages, resetSession, getRoomKey } from './utils/persistence.js';
+import { buildSelectionContext } from './utils/chat-helpers.js';
 
 function affectedFolders(toolName, input) {
   const { org, repo } = input ?? {};
@@ -421,30 +422,7 @@ export default class ChatController {
 
     this._currentTurnId = crypto.randomUUID();
     this._requestedSkills = requestedSkills;
-    const selectionContext = context
-      .filter((item) => {
-        const t = item.type ?? (item.blockName ? 'block' : null);
-        if (t === 'block' || t === 'file' || t === 'folder' || t === 'image') return !!item.blockName;
-        if (t === 'text') return !!item.innerHTML;
-        return false;
-      })
-      .map((item) => {
-        const t = item.type ?? 'block';
-        const { proseIndex } = item;
-        if (t === 'text') {
-          return {
-            type: 'text',
-            ...(typeof proseIndex === 'number' && { proseIndex }),
-            innerHTML: item.innerHTML,
-          };
-        }
-        return {
-          type: t,
-          ...(typeof proseIndex === 'number' && { proseIndex }),
-          blockName: item.blockName,
-          ...(item.innerText && { innerText: item.innerText }),
-        };
-      });
+    const selectionContext = buildSelectionContext(context);
 
     const attachmentsMeta = attachments.map(({ id, fileName, mediaType, sizeBytes }) => ({
       id,
