@@ -180,7 +180,7 @@ export function setupNodeSelection(ctx) {
       if (!node) return;
       blurActiveEditor();
       clearHoverPill();
-      activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, node, payload: { node } });
+      activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node } });
       return;
     }
 
@@ -191,7 +191,7 @@ export function setupNodeSelection(ctx) {
     const selectedEl = resolveSelectionElement(currentSelectedNode, document);
     if (selectedEl?.contains?.(t)) return;
     activeCtx?.port?.postMessage({
-      type: MESSAGE_TYPES.NODE_SELECT, node: null, payload: { node: null },
+      type: MESSAGE_TYPES.NODE_SELECT, payload: { node: null },
     });
   });
 
@@ -208,14 +208,14 @@ export function setupNodeSelection(ctx) {
     const node = imageSelectPayload(picture);
     if (!node) return;
     blurActiveEditor();
-    activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, node, payload: { node } });
+    activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node } });
   });
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!currentSelectedNode) return;
     activeCtx?.port?.postMessage({
-      type: MESSAGE_TYPES.NODE_SELECT, node: null, payload: { node: null },
+      type: MESSAGE_TYPES.NODE_SELECT, payload: { node: null },
     });
   });
 
