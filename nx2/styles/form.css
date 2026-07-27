@@ -1,4 +1,4 @@
-input {
+input, button {
   font-family: var(--s2-font-family);
 }
 
@@ -75,6 +75,46 @@ input {
 
   &:hover:not(:disabled) {
     background: var(--s2-gray-300);
+  }
+}
+
+.nx-form-btn-primary,
+.nx-form-btn-secondary {
+  height: 32px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--s2-corner-radius-800);
+  font-size: var(--s2-body-size-s, 0.875rem);
+  font-weight: 600;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-800);
+    outline-offset: 4px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+ .nx-form-btn-primary {
+  background: var(--s2-blue-900);
+  color: light-dark(var(--s2-gray-25), #fff);
+
+  &:hover:not(:disabled) {
+    background: var(--s2-blue-1000);
+  }
+}
+
+.nx-form-btn-secondary {
+  background: var(--s2-gray-100);
+  color: var(--s2-gray-800);
+
+  &:hover:not(:disabled) {
+    background: var(--s2-gray-200);
+    color: var(--s2-gray-900);
   }
 }
 

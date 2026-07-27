@@ -1,6 +1,7 @@
 :host {
   position: relative;
   display: block;
+  margin-left: var(--s2-spacing-75);
 
   button {
     font-family: var(--s2-font-family);
@@ -30,15 +31,10 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   border: none;
-  padding: 4px;
-  border-radius: var(--s2-corner-radius-500);
-
-  &:hover {
-    background-color: var(--s2-gray-100);
-  }
+  cursor: pointer;
 }
 
 .nx-btn-profile img {

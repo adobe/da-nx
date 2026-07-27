@@ -34,7 +34,7 @@ async function openFragmentDialog(path) {
     dialog.append(...fragment.children);
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
-    closeBtn.className = 'da-btn-secondary';
+    closeBtn.className = 'nx-form-btn-secondary';
     closeBtn.slot = 'actions';
     closeBtn.textContent = 'Close';
     closeBtn.addEventListener('click', () => dialog.close());
