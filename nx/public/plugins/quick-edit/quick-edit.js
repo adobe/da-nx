@@ -66,6 +66,13 @@ function onMessage(e, ctx) {
   }
 }
 
+// Disables link clicks. When the page is embedded, it must not navigate away.
+function blockLinkNavigation() {
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('a')) e.preventDefault();
+  }, true);
+}
+
 function setupParentController(loadPage) {
   const listener = (e) => {
     const isInit = e.data?.type === MESSAGE_TYPES.INIT;
@@ -73,6 +80,7 @@ function setupParentController(loadPage) {
 
     const port = e.ports[0];
     parentControllerPort = port;
+    blockLinkNavigation();
 
     const ctx = {
       initialized: true,
