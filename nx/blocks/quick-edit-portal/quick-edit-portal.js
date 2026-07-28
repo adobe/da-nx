@@ -7,24 +7,21 @@ import { handleImageReplace } from './src/images.js';
 import { MESSAGE_TYPES } from '../../utils/message-types.js';
 
 function onMessage(e, ctx) {
-  // Prefer nested `payload` fields, falling back to the deprecated flat top-level
-  // ones — da-live currently sends both (see blocks/canvas/editor-utils/editor-utils.js
-  // and blocks/canvas/ew-editor-wysiwyg/utils/image.js).
-  const data = e.data?.payload ? { ...e.data, ...e.data.payload } : e.data;
+  const { type, payload = {} } = e.data ?? {};
 
-  if (data.type === MESSAGE_TYPES.CURSOR_MOVE) {
-    handleCursorMove(data, ctx);
-  } else if (data.type === MESSAGE_TYPES.RELOAD) {
+  if (type === MESSAGE_TYPES.CURSOR_MOVE) {
+    handleCursorMove(payload, ctx);
+  } else if (type === MESSAGE_TYPES.RELOAD) {
     updateDocument(ctx);
-  } else if (data.type === MESSAGE_TYPES.IMAGE_REPLACE) {
-    handleImageReplace(data, ctx);
-  } else if (data.type === MESSAGE_TYPES.GET_EDITOR) {
-    getEditor(data, ctx);
-  } else if (data.type === MESSAGE_TYPES.NODE_UPDATE) {
-    updateState(data, ctx);
-  } else if (data.type === MESSAGE_TYPES.HISTORY) {
-    handleUndoRedo(data, ctx);
-  } else if (data.type === MESSAGE_TYPES.PREVIEW) {
+  } else if (type === MESSAGE_TYPES.IMAGE_REPLACE) {
+    handleImageReplace(payload, ctx);
+  } else if (type === MESSAGE_TYPES.GET_EDITOR) {
+    getEditor(payload, ctx);
+  } else if (type === MESSAGE_TYPES.NODE_UPDATE) {
+    updateState(payload, ctx);
+  } else if (type === MESSAGE_TYPES.HISTORY) {
+    handleUndoRedo(payload, ctx);
+  } else if (type === MESSAGE_TYPES.PREVIEW) {
     handlePreview(ctx);
   }
 }
@@ -67,16 +64,15 @@ export default async function decorate(el) {
   await signIn();
 
   async function initPort(e) {
-    // @deprecated `init` presence check — prefer `type === MESSAGE_TYPES.INIT` (da-live
-    // sends both).
-    const isInit = e.data?.type === MESSAGE_TYPES.INIT || e.data?.[MESSAGE_TYPES.INIT] != null;
+    const isInit = e.data?.type === MESSAGE_TYPES.INIT;
     if (isInit) {
       const [port] = e.ports;
 
       el.innerHTML = '';
 
-      const mountPoint = e.data.init.mountpoint;
-      const path = e.data.location.pathname;
+      const { config, location } = e.data.payload ?? {};
+      const mountPoint = config?.mountpoint;
+      const path = location?.pathname;
 
       if (!mountPoint) {
         return;
@@ -105,9 +101,7 @@ export default async function decorate(el) {
       port.onmessage = (event) => onMessage(event, ctx);
 
       // Tell the other side we are ready
-      // @deprecated flat `ready` — prefer `type: MESSAGE_TYPES.READY` (added alongside for
-      // callers that already migrated their ack check).
-      port.postMessage({ [MESSAGE_TYPES.READY]: true, type: MESSAGE_TYPES.READY });
+      port.postMessage({ type: MESSAGE_TYPES.READY });
     }
   }
   // set up message channel
