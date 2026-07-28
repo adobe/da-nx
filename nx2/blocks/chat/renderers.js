@@ -136,7 +136,7 @@ function renderAssistantMessage(msg, toolCards) {
       : nothing))}`;
   }
 
-  const copy = msg.streaming ? nothing : html`<button class="message-action-copy" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
+  const copy = msg.streaming ? nothing : html`<button class="message-action-copy nx-action-btn-icon" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
       <svg class="icon-paste" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-paste-20-n.svg#icon"></use></svg>
       <svg class="icon-checkmark" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-checkmark-20-n.svg#icon"></use></svg>
     </button>`;

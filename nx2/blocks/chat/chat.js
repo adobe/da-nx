@@ -17,6 +17,8 @@ import { buildAttachmentPayload, buildSlashMessage } from './utils/chat-helpers.
 import { PANEL_EVENT } from '../../utils/panel.js';
 
 const styles = await loadStyle(import.meta.url);
+const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
+
 const { codeBase } = getConfig();
 
 const ICON_NAMES = {
@@ -42,6 +44,7 @@ class NxChat extends LitElement {
     connected: { type: Boolean },
     toolCards: { type: Object },
     pendingQuestion: { type: Object },
+    probingSkills: { type: Boolean },
     _prompts: { state: true },
     _items: { state: true },
     _dragging: { state: true },
@@ -120,14 +123,21 @@ class NxChat extends LitElement {
     this._configKey = key;
     const { prompts, skills, mcpServers, mcpServerHeaders } = await loadSiteConfig(org, site);
     this._prompts = prompts ?? [];
+    // da-agent's skills are per-site (loaded above from a .da/skills config sheet);
+    // AO has no per-site equivalent — used only as the da-agent controller's list.
     this._skills = skills ?? [];
     this._controller?.setMcpConfig(mcpServers ?? {}, mcpServerHeaders ?? {});
     if (this._slashCtx) this._syncSlashMenu(this._slashCtx);
   }
 
   _getSlashItems(filter) {
-    if (!this._skills) return [];
-    const skills = this._skills.map((id) => ({ id, label: id }));
+    // AO's skill list can change after the probe in chat-controller-ao.js resolves
+    // (which happens after _loadConfig() already ran), so read it fresh here rather
+    // than caching it once — this._skills (da-agent's per-site list) is the fallback
+    // for controllers with no getSkills() of their own.
+    const skillIds = this._controller?.getSkills?.() ?? this._skills;
+    if (!skillIds) return [];
+    const skills = skillIds.map((id) => ({ id, label: id }));
     const filtered = filter
       ? skills.filter((item) => item.id.toLowerCase().includes(filter))
       : skills;
@@ -192,7 +202,7 @@ class NxChat extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
 
     const ControllerClass = USE_AGENT_ORCHESTRATOR ? ChatControllerAO : ChatController;
     this._controller = new ControllerClass({
@@ -204,7 +214,7 @@ class NxChat extends LitElement {
         }));
       },
       onUpdate: ({
-        messages, thinking, streamingText, connected, toolCards, pendingQuestion,
+        messages, thinking, streamingText, connected, toolCards, pendingQuestion, probingSkills,
       }) => {
         const newMessages = streamingText
           ? [...(messages ?? []), { role: ROLE.ASSISTANT, content: streamingText, streaming: true }]
@@ -219,6 +229,7 @@ class NxChat extends LitElement {
         this.connected = connected;
         this.toolCards = toolCards;
         this.pendingQuestion = pendingQuestion;
+        this.probingSkills = probingSkills;
         cancelAnimationFrame(this._updateRaf);
         this._updateRaf = requestAnimationFrame(() => {
           this.messages = newMessages;
@@ -226,6 +237,7 @@ class NxChat extends LitElement {
           this.connected = connected;
           this.toolCards = toolCards;
           this.pendingQuestion = pendingQuestion;
+          this.probingSkills = probingSkills;
         });
       },
     });
@@ -564,14 +576,14 @@ class NxChat extends LitElement {
       <div class="chat-header">
         <button
           type="button"
-          class="chat-header-btn clear-btn"
+          class="nx-action-btn-quiet clear-btn"
           aria-label="Clear chat"
           ?hidden=${!this.messages?.length}
           @click=${() => this.clear()}
         >${icon('clear')}<span>Clear</span></button>
         <button
           type="button"
-          class="chat-header-btn"
+          class="nx-action-btn-icon"
           aria-label="Close chat panel"
           @click=${this._closePanel}
         >${icon('close')}</button>
@@ -586,7 +598,11 @@ class NxChat extends LitElement {
             ></nx-chat-welcome>`
         : nothing}
         ${this.messages?.map((msg) => renderMessage(msg, this.toolCards))}
-        ${this.thinking && !this.messages?.at(-1)?.streaming && !this._pendingApproval() && !this.pendingQuestion
+        ${this.probingSkills
+        ? html`<div class="chat-thinking">Fetching configs…</div>`
+        : nothing}
+        ${this.thinking && !this.messages?.at(-1)?.streaming
+          && !this._pendingApproval() && !this.pendingQuestion
         ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>
       </div>
@@ -642,7 +658,7 @@ class NxChat extends LitElement {
         ></textarea>
         <div class="chat-actions" ?data-thinking=${this.thinking} ?data-has-items=${!!this._items?.length}>
           <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-            <button slot="trigger" class="chat-add" type="button" aria-label="Add" @click=${this._onAddClick}>
+            <button slot="trigger" class="nx-action-btn-icon chat-add" type="button" aria-label="Add" @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>
               <span class="icon-up">${icon('up')}</span>
             </button>
