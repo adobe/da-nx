@@ -115,7 +115,7 @@ Document CRUD on `source` paths. Bridges DA's `/source` and AEM's `/sites/{site}
 | Method         | Signature                                                                                     | Notes                                                                                                                                                                                          |
 | -------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `get`          | `({ org, site, path })` or `(fullPath)`                                                       | GET — raw `Response`.                                                                                                                                                                          |
-| `list`         | `({ org, site, path?, continuationToken? })` or `(fullPath, { continuationToken? })`            | List a folder. Returns `{ ok, items, continuationToken, permissions }` (normalized — items match legacy DA shape regardless of server). Pass `{ org }` (no site) to list at org level — DA-legacy only. Bulk lists paginate — pass `continuationToken` back into the next call. |
+| `list`         | `({ org, site, path?, continuationToken? })` or `(fullPath, { continuationToken? })`            | List a folder. Returns `{ ok, items, continuationToken, permissions }` (normalized — items match legacy DA shape regardless of server). Pass `{ org }` (no site) to list at org level — merges DA-legacy folders (`${DA_ADMIN}/list/{org}`) with hlx6 source-bus sites (`org.listSites`), deduped by name. Only DA paginates; `org.listSites` is only queried on the first page (no `continuationToken`). Bulk lists paginate — pass `continuationToken` back into the next call. |
 | `save`         | `({ org, site, path, body })` or `(fullPath, { body })`                                       | Upload — raw `Response`. POST for both branches. **DA-legacy**: wraps `body` as a Blob in `multipart/form-data` field `data`, with the Blob's type set from the path extension via `TYPE_MAP`. **hlx6**: sends `body` raw (string, Blob, or File); `Content-Type` is set from the path extension via `TYPE_MAP` and overrides any auto-applied Blob type. Extensions not in `TYPE_MAP` send no `Content-Type`. |
 | `getMetadata`  | `({ org, site, path })` or `(fullPath)`                                                       | HEAD — raw `Response`. Value is in `resp.headers` (`doc-id`, `last-modified`, etc.).                                                                                                          |
 | `delete`       | `({ org, site, path })` or `(fullPath)`                                                       | DELETE — raw `Response` (typically 204). For recursive folder deletion use `deleteFolder`.                                                                                                    |
@@ -132,7 +132,7 @@ Document CRUD on `source` paths. Bridges DA's `/source` and AEM's `/sites/{site}
 | Method                                       | hlx6                                             | legacy DA                                                                                |
 | -------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | get / list / save / getMetadata / delete     | `${AEM_API}/{org}/sites/{site}/source{path}`     | `${DA_ADMIN}/source/{org}/{site}{path}`                                                  |
-| list (org-only)                  | n/a                                              | `${DA_ADMIN}/list/{org}`                                                                 |
+| list (org-only)                  | `${AEM_API}/{org}/source/` (via `org.listSites`) | `${DA_ADMIN}/list/{org}` — results from both are merged, deduped by name                |
 | list (with site, legacy)         | n/a                                              | `${DA_ADMIN}/list/{org}/{site}{path}`                                                    |
 | copy / move                      | PUT to dest URL with `?source=&collision=&move=` | POST to `${DA_ADMIN}/copy/{org}/{site}{path}` (or `/move`) with `destination` form field |
 | copyFolder                       | PUT to dest URL (trailing slash normalized) with `?source=&collision=` | POST to `${DA_ADMIN}/copy/{org}/{site}{path}` with `destination` form field (no trailing-slash normalization) |
@@ -250,12 +250,12 @@ if (agg.status === 501) {
 
 ## Namespace: `org`
 
-Organization-level operations. hlx6-only (no DA-legacy fallback exists at org level).
+Organization-level operations. hlx6-only (no DA-legacy fallback exists at org level). Used internally by `source.list({ org })` to merge in hlx6 sites alongside DA-legacy folders — see [Namespace: `source`](#namespace-source).
 
 
 | Method      | Signature   | Notes                                                            |
 | ----------- | ----------- | ---------------------------------------------------------------- |
-| `listSites` | `({ org })` | GETs `${AEM_API}/{org}/sites`. Returns 404 on non-migrated orgs. |
+| `listSites` | `({ org })` | GETs `${AEM_API}/{org}/source/`. Returns 404 on non-migrated orgs. |
 
 
 ---
