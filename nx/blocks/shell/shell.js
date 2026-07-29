@@ -14,6 +14,7 @@ const TRUSTED_ORGS = ['adobe'];
 const TRUSTED_APPS = [
   'https://main--storefront-tools--adobe-commerce.aem.live/tools/site-creator/site-creator.html',
   'https://main--storefront-tools--adobe-commerce.aem.live/tools/config-generator/config-generator.html',
+  'https://main--aem-apps--adobe-rnd.aem.live/tools/apps/publish-requests-inbox/publish-requests-inbox.html',
 ];
 
 /**
@@ -58,7 +59,7 @@ function getUrl() {
   const {
     org, repo, ref, path, search, hash,
   } = getParts();
-  if (ref === 'local') return `http://localhost:3000/${path}.html${search}${hash}`;
+  if (ref === 'local') { return `http://localhost:3000/${path}.html${search}${hash}`; }
   return `https://${ref}--${repo}--${org}.aem.live/${path}.html${search}${hash}`;
 }
 
@@ -90,7 +91,7 @@ function handleLoad({ target }) {
 }
 
 function createIframe(el) {
-  if (!document.querySelector('header')) document.body.classList.add('no-shell');
+  if (!document.querySelector('header')) { document.body.classList.add('no-shell'); }
   const iframe = document.createElement('iframe');
   iframe.setAttribute('allow', 'clipboard-write *');
   iframe.addEventListener('load', handleLoad);
@@ -100,8 +101,8 @@ function createIframe(el) {
 
 function isAppTrusted(org, repo, ref) {
   const url = getUrl();
-  if (TRUSTED_ORGS.includes(org)) return true;
-  if (TRUSTED_APPS.some((trustedApp) => url.startsWith(trustedApp))) return true;
+  if (TRUSTED_ORGS.includes(org)) { return true; }
+  if (TRUSTED_APPS.some((trustedApp) => url.startsWith(trustedApp))) { return true; }
 
   const trustedApps = JSON.parse(localStorage.getItem('trustedApps') || '{}');
   const appKey = `${org}/${repo}/${ref}`;
