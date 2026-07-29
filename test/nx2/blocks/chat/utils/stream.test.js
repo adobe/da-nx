@@ -19,7 +19,7 @@ describe('readStream — data-continuation', () => {
         {
           type: 'data-continuation',
           transient: true,
-          data: { toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page' },
+          data: { toolCallId: 't1', toolName: 'mcp__mock-server__mock_tool' },
         },
         { type: 'finish' },
       ]),
@@ -30,7 +30,7 @@ describe('readStream — data-continuation', () => {
       {
         type: 'data-continuation',
         toolCallId: 't1',
-        toolName: 'mcp__governance-agent__evaluate_page',
+        toolName: 'mcp__mock-server__mock_tool',
       },
     ]);
   });

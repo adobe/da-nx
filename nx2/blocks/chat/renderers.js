@@ -42,16 +42,16 @@ function renderPlanDirective(content) {
   return html`<nx-campaign-plan-card .plan=${plan}></nx-campaign-plan-card>`;
 }
 
-function renderGovernanceEvaluationDirective(content) {
-  const evaluation = parseDirectiveJSON(content);
-  if (!evaluation) return html`<div class="directive directive-governance-evaluation"></div>`;
-  return html`<nx-governance-evaluation-card .evaluation=${evaluation}></nx-governance-evaluation-card>`;
-}
-
 function renderTaskListDirective(content) {
   const data = parseDirectiveJSON(content);
   if (!data) return html`<div class="directive directive-task-list"></div>`;
   return html`<nx-task-list .tasks=${data.tasks ?? []}></nx-task-list>`;
+}
+
+function renderGovernanceEvaluationDirective(content) {
+  const evaluation = parseDirectiveJSON(content);
+  if (!evaluation) return html`<div class="directive directive-governance-evaluation"></div>`;
+  return html`<nx-governance-evaluation-card .evaluation=${evaluation}></nx-governance-evaluation-card>`;
 }
 
 function buildTaskStatusMap(directives) {

@@ -3,6 +3,7 @@ import ChatController, {
   stripOrphanedToolCallMessages,
   reconstructToolCards,
 } from '../../../../nx2/blocks/chat/chat-controller.js';
+import { TOOL_NAME } from '../../../../nx2/blocks/chat/constants.js';
 
 const TURN = 'turn-current';
 const OTHER_TURN = 'turn-previous';
@@ -126,20 +127,20 @@ describe('chat-controller _pageContextForAgent', () => {
 });
 
 describe('chat-controller reload persistence (cards survive refresh)', () => {
-  const evalVirtual = (toolCallId, output) => ({
+  const virtualMockTool = (toolCallId, output) => ({
     role: 'assistant',
     virtual: true,
     turnId: 't',
     toolResult: { output },
     content: [{
-      type: 'tool-call', toolCallId, toolName: 'mcp__governance-agent__evaluate_page', input: { url: 'x' },
+      type: 'tool-call', toolCallId, toolName: 'mock_tool', input: { url: 'x' },
     }],
   });
 
   it('keeps a self-resolved virtual tool card (result stored inline, no role:tool message)', () => {
     const msgs = [
       { role: 'user', content: 'evaluate the page' },
-      evalVirtual('t1', { brand_name: 'X' }),
+      virtualMockTool('t1', { brand_name: 'X' }),
     ];
     const kept = stripOrphanedToolCallMessages(msgs);
     expect(kept).to.have.lengthOf(2); // the virtual card message is NOT stripped
@@ -150,16 +151,16 @@ describe('chat-controller reload persistence (cards survive refresh)', () => {
       role: 'assistant',
       virtual: true,
       turnId: 't',
-      content: [{ type: 'tool-call', toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page', input: {} }],
+      content: [{ type: 'tool-call', toolCallId: 't1', toolName: 'mock_tool', input: {} }],
     };
     const kept = stripOrphanedToolCallMessages([{ role: 'user', content: 'hi' }, running]);
     expect(kept).to.deep.equal([{ role: 'user', content: 'hi' }]);
   });
 
   it('reconstructs a tool card with its stored output and DONE state', () => {
-    const cards = reconstructToolCards([evalVirtual('t1', { brand_name: 'X' })]);
+    const cards = reconstructToolCards([virtualMockTool('t1', { brand_name: 'X' })]);
     expect(cards.get('t1')).to.deep.equal({
-      toolName: 'mcp__governance-agent__evaluate_page',
+      toolName: 'mock_tool',
       input: { url: 'x' },
       output: { brand_name: 'X' },
       state: 'done',
@@ -167,7 +168,7 @@ describe('chat-controller reload persistence (cards survive refresh)', () => {
   });
 
   it('reconstructs an errored tool card with ERROR state', () => {
-    const cards = reconstructToolCards([evalVirtual('t1', { error: 'nope' })]);
+    const cards = reconstructToolCards([virtualMockTool('t1', { error: 'nope' })]);
     expect(cards.get('t1').state).to.equal('error');
     expect(cards.get('t1').output).to.deep.equal({ error: 'nope' });
   });
@@ -184,10 +185,10 @@ describe('chat-controller continuation gate', () => {
   it('flags a DONE tool card as continuationPending without pushing to _messages', () => {
     const controller = makeController();
     controller._toolCards.set('t1', {
-      toolName: 'mcp__governance-agent__evaluate_page', state: 'done', output: {},
+      toolName: 'mock_tool', state: 'done', output: {},
     });
     controller._onToolEvent({
-      type: 'data-continuation', toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page',
+      type: 'data-continuation', toolCallId: 't1', toolName: 'mock_tool',
     });
     expect(controller._toolCards.get('t1').continuationPending).to.equal(true);
     expect(controller._toolCards.get('t1').state).to.equal('done'); // still shows its result
@@ -203,7 +204,7 @@ describe('chat-controller continuation gate', () => {
   it('creates a message at tool-call time for evaluate_page so its loading card renders', () => {
     const controller = makeController();
     controller._onToolEvent({
-      type: 'tool-call', toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page', input: { url: 'x' },
+      type: 'tool-call', toolCallId: 't1', toolName: `mcp__mock-server__${TOOL_NAME.EVALUATE_PAGE}`, input: { url: 'x' },
     });
     const running = controller._messages.filter(
       (m) => Array.isArray(m.content)
@@ -216,10 +217,10 @@ describe('chat-controller continuation gate', () => {
   it('updates the running evaluate_page message in place on result (no duplicate card)', () => {
     const controller = makeController();
     controller._onToolEvent({
-      type: 'tool-call', toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page', input: { url: 'x' },
+      type: 'tool-call', toolCallId: 't1', toolName: `mcp__mock-server__${TOOL_NAME.EVALUATE_PAGE}`, input: { url: 'x' },
     });
     controller._onToolEvent({
-      type: 'tool-result', toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page', output: { brand_name: 'X' },
+      type: 'tool-result', toolCallId: 't1', toolName: `mcp__mock-server__${TOOL_NAME.EVALUATE_PAGE}`, output: { brand_name: 'X' },
     });
     const msgs = controller._messages.filter(
       (m) => Array.isArray(m.content)
@@ -241,13 +242,13 @@ describe('chat-controller continuation gate', () => {
   it('renders a card for an errored tool result (creates a message, not just a Map entry)', () => {
     const controller = makeController();
     controller._onToolEvent({
-      type: 'tool-call', toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page', input: { url: 'x' },
+      type: 'tool-call', toolCallId: 't1', toolName: 'mock_tool', input: { url: 'x' },
     });
     controller._onToolEvent({
-      type: 'tool-result', toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page', output: { error: 'boom' }, isError: true,
+      type: 'tool-result', toolCallId: 't1', toolName: 'mock_tool', output: { error: 'boom' }, isError: true,
     });
     // renderToolCard only fires for tool-call parts in _messages, so an error must
-    // produce a message — otherwise the failed evaluation card never renders.
+    // produce a message — otherwise the failed tool's result never renders.
     const rendered = controller._messages.some(
       (m) => Array.isArray(m.content)
         && m.content.some((p) => p.type === 'tool-call' && p.toolCallId === 't1'),

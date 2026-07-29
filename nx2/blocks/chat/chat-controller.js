@@ -6,8 +6,7 @@ import { loadMessages, saveMessages, resetSession, getRoomKey } from './utils/pe
 
 // Tools whose card shows a live loading state while executing need a message created at
 // tool-call time to render from. Tools that go through approval get their message from the
-// approval branch instead, so we only pre-create for non-approval loading cards. Currently
-// just the governance evaluation card (evaluate_page), matching renderToolCard's special-case.
+// approval branch instead, so we only pre-create for non-approval loading cards.
 function rendersWhileRunning(toolName) {
   return mcpToolName(toolName) === TOOL_NAME.EVALUATE_PAGE;
 }
@@ -94,8 +93,7 @@ function stripOrphanedToolCallMessages(messages) {
 
 /**
  * Rebuild the toolCards map from persisted messages so cards render on reload. Restores
- * the stored output (from a virtual message's `toolResult`) and derives the terminal state,
- * so e.g. a governance evaluation card shows its results/error rather than an empty card.
+ * the stored output (from a virtual message's `toolResult`) and derives the terminal state
  */
 function reconstructToolCards(messages) {
   const cards = new Map();
@@ -286,9 +284,8 @@ export default class ChatController {
       next.set(toolCallId, { ...prior, state, output });
 
       // Render + persist a card for any terminal result — success OR error. Errors must
-      // create a card too: otherwise a failed tool (e.g. evaluate_page against an
-      // unconfigured domain) leaves the user with a continuation prompt but no visible
-      // result to review.
+      // create a card too: otherwise a failed tool leaves the user with a continuation
+      // prompt but no visible result to review.
       const existingIdx = this._messages.findIndex(
         (m) => Array.isArray(m.content) && m.content.some(
           (p) => p.type === AGENT_EVENT.TOOL_CALL && p.toolCallId === toolCallId,
@@ -313,7 +310,7 @@ export default class ChatController {
           },
         ];
       } else if (this._messages[existingIdx].virtual) {
-        // A running virtual message already exists (e.g. the evaluate_page loading card).
+        // A running virtual message already exists.
         // Attach the result in place so the card updates and can be replayed — no duplicate.
         this._messages = this._messages.map((m, i) => (
           i === existingIdx ? { ...m, toolResult: { output } } : m
@@ -508,8 +505,8 @@ export default class ChatController {
       onTool: this._onToolEvent,
     });
 
-    // Persist once the turn ends. A tool-only turn (e.g. evaluate_page halting at the
-    // continuation gate) produces no assistant text, so onText never fires — without this
+    // Persist once the turn ends. A tool-only turn
+    // produces no assistant text, so onText never fires — without this
     // its card would never be saved and would vanish on refresh.
     saveMessages(room, this._messages, this._sessionId);
   }

@@ -275,7 +275,7 @@ describe('renderContinuationCard', () => {
   });
 
   it('renders Continue and Stop buttons', async () => {
-    const pending = { toolCallId: 'ge-1', toolName: 'mcp__governance-agent__evaluate_page' };
+    const pending = { toolCallId: 'ge-1', toolName: 'mock_tool' };
     const container = await renderToDOM(renderContinuationCard(pending, () => {}, () => {}));
     const labels = [...container.querySelectorAll('.approval-buttons button')]
       .map((b) => b.querySelector('span').textContent.trim());
@@ -285,7 +285,7 @@ describe('renderContinuationCard', () => {
   it('wires Continue and Stop to their callbacks', async () => {
     let continued = 0;
     let stopped = 0;
-    const pending = { toolCallId: 'ge-1', toolName: 'mcp__governance-agent__evaluate_page' };
+    const pending = { toolCallId: 'ge-1', toolName: 'mock_tool' };
     const container = await renderToDOM(
       renderContinuationCard(pending, () => { continued += 1; }, () => { stopped += 1; }),
     );
