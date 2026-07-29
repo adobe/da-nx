@@ -3,7 +3,7 @@ import { loadStyle, hashChange } from '../../utils/utils.js';
 import { readFileAsBase64 } from './utils/stream.js';
 import '../shared/menu/menu.js';
 import ChatController from './chat-controller.js';
-import { renderMessage, renderApprovalCard } from './renderers.js';
+import { renderMessage, renderApprovalCard, renderContinuationCard } from './renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
 import './pills/pills.js';
@@ -247,7 +247,26 @@ class NxChat extends LitElement {
     return null;
   }
 
+  _pendingContinuation() {
+    if (!this.toolCards) return null;
+    for (const [toolCallId, card] of this.toolCards) {
+      if (card.continuationPending) return { toolCallId, ...card };
+    }
+    return null;
+  }
+
   _onApprovalKeydown = (e) => {
+    const continuation = this._pendingContinuation();
+    if (continuation) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this._controller.stopExecution();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        this._controller.continueExecution();
+      }
+      return;
+    }
     const pending = this._pendingApproval();
     if (!pending) return;
     if (e.key === 'Escape') {
@@ -281,7 +300,7 @@ class NxChat extends LitElement {
       this.shadowRoot.querySelector('.chat-input')?.focus();
     }
     if (changed.has('toolCards')) {
-      if (this._pendingApproval()) {
+      if (this._pendingApproval() || this._pendingContinuation()) {
         document.addEventListener('keydown', this._onApprovalKeydown);
       } else {
         document.removeEventListener('keydown', this._onApprovalKeydown);
@@ -568,6 +587,11 @@ class NxChat extends LitElement {
           @mousedown=${(e) => e.preventDefault()}
         ></nx-menu>
         ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
+        ${renderContinuationCard(
+    this._pendingContinuation(),
+    this._controller.continueExecution,
+    this._controller.stopExecution,
+  )}
         <form class="chat-form" autocomplete="off" @submit=${this._submit}
           @dragenter=${this._onDragEnter}
           @dragleave=${this._onDragLeave}

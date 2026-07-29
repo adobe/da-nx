@@ -6,7 +6,6 @@ import { getConfig } from '../../scripts/nx.js';
 import { parseDirectives } from './utils/parse.js';
 import { pillIconName } from './utils/icons.js';
 import { linkifyBareUrls, sanitizeLinks } from './utils/links.js';
-import { evaluationSummaryText } from './messages/governance-evaluation-card-data.js';
 import { mcpToolName } from './utils/tool-name.js';
 
 const { codeBase } = getConfig();
@@ -160,8 +159,9 @@ function renderToolCard(toolCallId, toolCards, streamingText) {
   const shortToolName = mcpToolName(toolName);
   if (shortToolName === TOOL_NAME.EXIT_PLAN_MODE) return renderExitPlanCard(input, streamingText);
   if (shortToolName === TOOL_NAME.EVALUATE_PAGE) {
-    // RUNNING (pre-approval) and APPROVED/REJECTED (post-approval, execution still in
-    // flight) all precede the real tool-result event — only DONE/ERROR carry real output.
+    // evaluate_page runs without pre-execution approval; RUNNING precedes the real
+    // tool-result event, so only DONE/ERROR carry real output. After DONE, a
+    // continuation prompt (see renderContinuationCard) lets the user review and decide.
     const isError = state === TOOL_STATE.ERROR;
     const parsedOutput = parseToolOutput(output);
     const errorMessage = isError
@@ -193,24 +193,6 @@ function renderApprovalCard(pending, onApprove) {
       @nx-plan-run=${() => onApprove(toolCallId, true)}
     ></nx-campaign-plan-card>`;
   }
-  if (shortToolName === TOOL_NAME.EVALUATE_PAGE) {
-    return html`
-      <div class="approval-actions">
-        <span class="approval-tool-name">Governance evaluation complete</span>
-        <span class="approval-summary">${evaluationSummaryText(input)}</span>
-        <div class="approval-buttons">
-          <button type="button" class="secondary-btn" @click=${() => onApprove(toolCallId, false)}>
-            <span>Reject</span><kbd>Esc</kbd>
-          </button>
-          <button type="button" class="secondary-btn" @click=${() => onApprove(toolCallId, true, true)}>
-            <span>Always approve</span><kbd>⌘↵</kbd>
-          </button>
-          <button type="button" class="action-btn" @click=${() => onApprove(toolCallId, true)}>
-            <span>Approve</span><kbd>↵</kbd>
-          </button>
-        </div>
-      </div>`;
-  }
   const summary = approvalSummary(input);
   return html`
     <div class="approval-actions">
@@ -225,6 +207,23 @@ function renderApprovalCard(pending, onApprove) {
         </button>
         <button type="button" class="action-btn" @click=${() => onApprove(toolCallId, true)}>
           <span>Approve</span><kbd>↵</kbd>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderContinuationCard(pending, onContinue, onStop) {
+  if (!pending) return nothing;
+  return html`
+    <div class="approval-actions">
+      <span class="approval-tool-name">Review the results before continuing</span>
+      <div class="approval-buttons">
+        <button type="button" class="secondary-btn" @click=${() => onStop()}>
+          <span>Stop</span><kbd>Esc</kbd>
+        </button>
+        <button type="button" class="action-btn" @click=${() => onContinue()}>
+          <span>Continue</span><kbd>↵</kbd>
         </button>
       </div>
     </div>
@@ -300,4 +299,4 @@ function renderMessage(msg, toolCards, streamingText) {
     : renderUserMessage(msg);
 }
 
-export { renderMessage, renderApprovalCard };
+export { renderMessage, renderApprovalCard, renderContinuationCard };

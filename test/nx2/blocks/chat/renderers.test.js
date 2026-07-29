@@ -1,8 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { render, nothing } from 'da-lit';
-import { renderMessage, renderApprovalCard } from '../../../../nx2/blocks/chat/renderers.js';
+import { renderMessage, renderApprovalCard, renderContinuationCard } from '../../../../nx2/blocks/chat/renderers.js';
 import { DIRECTIVE_TYPE, TOOL_NAME, TOOL_STATE } from '../../../../nx2/blocks/chat/constants.js';
-import { evaluationSummaryText } from '../../../../nx2/blocks/chat/messages/governance-evaluation-card-data.js';
 
 // Import components so custom elements are registered before renderers run.
 import '../../../../nx2/blocks/chat/messages/campaign-plan-card.js';
@@ -249,57 +248,52 @@ describe('renderMessage — EVALUATE_PAGE tool card (post-approval)', () => {
   });
 });
 
-// ─── renderApprovalCard — EVALUATE_PAGE ───────────────────────────────────
+// ─── renderApprovalCard — EVALUATE_PAGE no longer pre-exec gated ──────────
 
 describe('renderApprovalCard — EVALUATE_PAGE', () => {
   const onApprove = () => {};
 
-  it('renders approval-actions panel with a computed evaluation summary', async () => {
-    const pending = {
-      toolCallId: 'ge-1',
-      toolName: TOOL_NAME.EVALUATE_PAGE,
-      input: MOCK_EVALUATION,
-    };
-    const result = renderApprovalCard(pending, onApprove);
-    const container = await renderToDOM(result);
-    expect(container.querySelector('.approval-actions')).to.exist;
-    expect(container.querySelector('.approval-tool-name').textContent).to.equal('Governance evaluation complete');
-    expect(container.querySelector('.approval-summary').textContent).to.equal(evaluationSummaryText(MOCK_EVALUATION));
-    expect(container.querySelector('.approval-summary').textContent).to.equal('3/4 checks passed');
-  });
-
-  it('falls back to a brand-based message when there are no checks to count', async () => {
-    const input = { brand_name: 'Frescopa Coffee', text_evaluation: null, image_evaluations: [] };
-    const pending = { toolCallId: 'ge-1', toolName: TOOL_NAME.EVALUATE_PAGE, input };
-    const result = renderApprovalCard(pending, onApprove);
-    const container = await renderToDOM(result);
-    expect(container.querySelector('.approval-summary').textContent).to.equal('Evaluation complete for Frescopa Coffee');
-  });
-
-  it('renders the approval panel when da-agent sends the MCP-qualified tool name', async () => {
-    const pending = {
-      toolCallId: 'ge-mcp-1',
-      toolName: 'mcp__governance-agent__evaluate_page',
-      input: MOCK_EVALUATION,
-    };
-    const result = renderApprovalCard(pending, onApprove);
-    const container = await renderToDOM(result);
-    expect(container.querySelector('.approval-tool-name').textContent).to.equal('Governance evaluation complete');
-  });
-
-  it('renders Approve, Always approve, and Reject buttons', async () => {
+  it('no longer renders the "Governance evaluation complete" pre-exec card', async () => {
+    // evaluate_page now runs without pre-execution approval; the post-execution
+    // continuation prompt replaces the old approval-card hack. If renderApprovalCard
+    // is ever called for it, it must fall through to the generic card, not the hack.
     const pending = { toolCallId: 'ge-1', toolName: TOOL_NAME.EVALUATE_PAGE, input: MOCK_EVALUATION };
-    const result = renderApprovalCard(pending, onApprove);
-    const container = await renderToDOM(result);
-    const buttons = [...container.querySelectorAll('.approval-buttons button')];
-    const labels = buttons.map((b) => b.querySelector('span').textContent.trim());
-    expect(labels).to.include('Approve');
-    expect(labels).to.include('Always approve');
-    expect(labels).to.include('Reject');
+    const container = await renderToDOM(renderApprovalCard(pending, onApprove));
+    expect(container.querySelector('.approval-tool-name').textContent).to.not.equal('Governance evaluation complete');
   });
 
   it('returns nothing when pending is null', () => {
     expect(renderApprovalCard(null, onApprove)).to.equal(nothing);
+  });
+});
+
+// ─── renderContinuationCard — post-execution Continue/Stop prompt ─────────
+
+describe('renderContinuationCard', () => {
+  it('returns nothing when there is no pending continuation', () => {
+    expect(renderContinuationCard(null, () => {}, () => {})).to.equal(nothing);
+  });
+
+  it('renders Continue and Stop buttons', async () => {
+    const pending = { toolCallId: 'ge-1', toolName: 'mcp__governance-agent__evaluate_page' };
+    const container = await renderToDOM(renderContinuationCard(pending, () => {}, () => {}));
+    const labels = [...container.querySelectorAll('.approval-buttons button')]
+      .map((b) => b.querySelector('span').textContent.trim());
+    expect(labels).to.deep.equal(['Stop', 'Continue']);
+  });
+
+  it('wires Continue and Stop to their callbacks', async () => {
+    let continued = 0;
+    let stopped = 0;
+    const pending = { toolCallId: 'ge-1', toolName: 'mcp__governance-agent__evaluate_page' };
+    const container = await renderToDOM(
+      renderContinuationCard(pending, () => { continued += 1; }, () => { stopped += 1; }),
+    );
+    const [stopBtn, continueBtn] = container.querySelectorAll('.approval-buttons button');
+    continueBtn.click();
+    stopBtn.click();
+    expect(continued).to.equal(1);
+    expect(stopped).to.equal(1);
   });
 });
 

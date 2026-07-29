@@ -35,6 +35,9 @@ const AGENT_EVENT = {
   TOOL_RESULT_LEGACY: 'tool-output-available',
   TOOL_APPROVAL_REQUEST: 'tool-approval-request',
   TOOL_APPROVAL_RESPONSE: 'tool-approval-response',
+  // Transient (UI-only, never persisted) part emitted after a continuation-gated tool
+  // finishes, so the user can review results and decide whether the agent continues.
+  CONTINUATION: 'data-continuation',
 };
 
 const TOOL_STATE = {

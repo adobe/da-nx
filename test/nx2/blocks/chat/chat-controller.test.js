@@ -1,5 +1,8 @@
 import { expect } from '@esm-bundle/chai';
-import ChatController from '../../../../nx2/blocks/chat/chat-controller.js';
+import ChatController, {
+  stripOrphanedToolCallMessages,
+  reconstructToolCards,
+} from '../../../../nx2/blocks/chat/chat-controller.js';
 
 const TURN = 'turn-current';
 const OTHER_TURN = 'turn-previous';
@@ -119,5 +122,163 @@ describe('chat-controller _pageContextForAgent', () => {
     const controller = new ChatController({ onUpdate() {}, onToolDone() {} });
     controller.setContext({ path: '/foo' });
     expect(controller._pageContextForAgent()).to.equal(undefined);
+  });
+});
+
+describe('chat-controller reload persistence (cards survive refresh)', () => {
+  const evalVirtual = (toolCallId, output) => ({
+    role: 'assistant',
+    virtual: true,
+    turnId: 't',
+    toolResult: { output },
+    content: [{
+      type: 'tool-call', toolCallId, toolName: 'mcp__governance-agent__evaluate_page', input: { url: 'x' },
+    }],
+  });
+
+  it('keeps a self-resolved virtual tool card (result stored inline, no role:tool message)', () => {
+    const msgs = [
+      { role: 'user', content: 'evaluate the page' },
+      evalVirtual('t1', { brand_name: 'X' }),
+    ];
+    const kept = stripOrphanedToolCallMessages(msgs);
+    expect(kept).to.have.lengthOf(2); // the virtual card message is NOT stripped
+  });
+
+  it('still strips a virtual message with no stored result (incomplete run)', () => {
+    const running = {
+      role: 'assistant',
+      virtual: true,
+      turnId: 't',
+      content: [{ type: 'tool-call', toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page', input: {} }],
+    };
+    const kept = stripOrphanedToolCallMessages([{ role: 'user', content: 'hi' }, running]);
+    expect(kept).to.deep.equal([{ role: 'user', content: 'hi' }]);
+  });
+
+  it('reconstructs a tool card with its stored output and DONE state', () => {
+    const cards = reconstructToolCards([evalVirtual('t1', { brand_name: 'X' })]);
+    expect(cards.get('t1')).to.deep.equal({
+      toolName: 'mcp__governance-agent__evaluate_page',
+      input: { url: 'x' },
+      output: { brand_name: 'X' },
+      state: 'done',
+    });
+  });
+
+  it('reconstructs an errored tool card with ERROR state', () => {
+    const cards = reconstructToolCards([evalVirtual('t1', { error: 'nope' })]);
+    expect(cards.get('t1').state).to.equal('error');
+    expect(cards.get('t1').output).to.deep.equal({ error: 'nope' });
+  });
+});
+
+describe('chat-controller continuation gate', () => {
+  function makeController() {
+    const controller = new ChatController({ onUpdate() {}, onToolDone() {} });
+    controller._messages = [];
+    controller._toolCards = new Map();
+    return controller;
+  }
+
+  it('flags a DONE tool card as continuationPending without pushing to _messages', () => {
+    const controller = makeController();
+    controller._toolCards.set('t1', {
+      toolName: 'mcp__governance-agent__evaluate_page', state: 'done', output: {},
+    });
+    controller._onToolEvent({
+      type: 'data-continuation', toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page',
+    });
+    expect(controller._toolCards.get('t1').continuationPending).to.equal(true);
+    expect(controller._toolCards.get('t1').state).to.equal('done'); // still shows its result
+    expect(controller._messages).to.deep.equal([]);
+  });
+
+  it('ignores a continuation event for an unknown tool card', () => {
+    const controller = makeController();
+    controller._onToolEvent({ type: 'data-continuation', toolCallId: 'nope' });
+    expect(controller._toolCards.has('nope')).to.equal(false);
+  });
+
+  it('creates a message at tool-call time for evaluate_page so its loading card renders', () => {
+    const controller = makeController();
+    controller._onToolEvent({
+      type: 'tool-call', toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page', input: { url: 'x' },
+    });
+    const running = controller._messages.filter(
+      (m) => Array.isArray(m.content)
+        && m.content.some((p) => p.type === 'tool-call' && p.toolCallId === 't1'),
+    );
+    expect(running).to.have.lengthOf(1); // message exists → renderToolCard shows loading
+    expect(controller._toolCards.get('t1').state).to.equal('running');
+  });
+
+  it('updates the running evaluate_page message in place on result (no duplicate card)', () => {
+    const controller = makeController();
+    controller._onToolEvent({
+      type: 'tool-call', toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page', input: { url: 'x' },
+    });
+    controller._onToolEvent({
+      type: 'tool-result', toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page', output: { brand_name: 'X' },
+    });
+    const msgs = controller._messages.filter(
+      (m) => Array.isArray(m.content)
+        && m.content.some((p) => p.type === 'tool-call' && p.toolCallId === 't1'),
+    );
+    expect(msgs).to.have.lengthOf(1); // updated in place, not duplicated
+    expect(msgs[0].toolResult).to.deep.equal({ output: { brand_name: 'X' } });
+    expect(controller._toolCards.get('t1').state).to.equal('done');
+  });
+
+  it('does not pre-create a message for a running non-loading tool', () => {
+    const controller = makeController();
+    controller._onToolEvent({
+      type: 'tool-call', toolCallId: 'r1', toolName: 'content_read', input: { path: '/x' },
+    });
+    expect(controller._messages).to.deep.equal([]); // unchanged behavior for generic tools
+  });
+
+  it('renders a card for an errored tool result (creates a message, not just a Map entry)', () => {
+    const controller = makeController();
+    controller._onToolEvent({
+      type: 'tool-call', toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page', input: { url: 'x' },
+    });
+    controller._onToolEvent({
+      type: 'tool-result', toolCallId: 't1', toolName: 'mcp__governance-agent__evaluate_page', output: { error: 'boom' }, isError: true,
+    });
+    // renderToolCard only fires for tool-call parts in _messages, so an error must
+    // produce a message — otherwise the failed evaluation card never renders.
+    const rendered = controller._messages.some(
+      (m) => Array.isArray(m.content)
+        && m.content.some((p) => p.type === 'tool-call' && p.toolCallId === 't1'),
+    );
+    expect(rendered).to.equal(true);
+    expect(controller._toolCards.get('t1').state).to.equal('error');
+    expect(controller._toolCards.get('t1').output).to.deep.equal({ error: 'boom' });
+  });
+
+  it('continueExecution clears the flag and re-streams', async () => {
+    const controller = makeController();
+    controller._toolCards.set('t1', { toolName: 'x', state: 'done', continuationPending: true });
+    controller._pageContextForAgent = () => ({});
+    let streamed = 0;
+    controller._stream = async () => { streamed += 1; };
+    await controller.continueExecution();
+    expect(streamed).to.equal(1);
+    expect(controller._toolCards.get('t1').continuationPending).to.equal(false);
+  });
+
+  it('stopExecution records a user message and does not re-stream', async () => {
+    const controller = makeController();
+    controller._getRoom = async () => 'room';
+    controller._toolCards.set('t1', { toolName: 'x', state: 'done', continuationPending: true });
+    let streamed = false;
+    controller._stream = async () => { streamed = true; };
+    await controller.stopExecution();
+    expect(controller._messages).to.deep.equal([
+      { role: 'user', content: 'User decided not to continue further.' },
+    ]);
+    expect(controller._toolCards.get('t1').continuationPending).to.equal(false);
+    expect(streamed).to.equal(false);
   });
 });

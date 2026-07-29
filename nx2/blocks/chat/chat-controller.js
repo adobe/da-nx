@@ -1,7 +1,16 @@
 import { loadIms } from '../../utils/ims.js';
 import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_STATE } from './constants.js';
 import { readStream } from './utils/stream.js';
+import { mcpToolName } from './utils/tool-name.js';
 import { loadMessages, saveMessages, resetSession, getRoomKey } from './utils/persistence.js';
+
+// Tools whose card shows a live loading state while executing need a message created at
+// tool-call time to render from. Tools that go through approval get their message from the
+// approval branch instead, so we only pre-create for non-approval loading cards. Currently
+// just the governance evaluation card (evaluate_page), matching renderToolCard's special-case.
+function rendersWhileRunning(toolName) {
+  return mcpToolName(toolName) === TOOL_NAME.EVALUATE_PAGE;
+}
 
 function affectedFolders(toolName, input) {
   const { org, repo } = input ?? {};
@@ -49,6 +58,14 @@ function stripOrphanedToolCallMessages(messages) {
         }
       }
     }
+    // A virtual tool card stores its result inline in `toolResult` (no separate role:tool
+    // message), so it is self-resolved — otherwise it would be dropped as an orphan on
+    // reload and the card would vanish on refresh.
+    if (msg.virtual && msg.toolResult && Array.isArray(msg.content)) {
+      for (const p of msg.content) {
+        if (p.type === AGENT_EVENT.TOOL_CALL && p.toolCallId) resolvedIds.add(p.toolCallId);
+      }
+    }
   }
   // An approval is "complete" only when both request and response exist.
   // Incomplete approvals (e.g. session interrupted mid-flow) are treated as orphans.
@@ -74,6 +91,31 @@ function stripOrphanedToolCallMessages(messages) {
     return calls.every((c) => resolvedIds.has(c.toolCallId));
   });
 }
+
+/**
+ * Rebuild the toolCards map from persisted messages so cards render on reload. Restores
+ * the stored output (from a virtual message's `toolResult`) and derives the terminal state,
+ * so e.g. a governance evaluation card shows its results/error rather than an empty card.
+ */
+function reconstructToolCards(messages) {
+  const cards = new Map();
+  for (const msg of messages) {
+    if (msg.role === ROLE.ASSISTANT && Array.isArray(msg.content)) {
+      const call = msg.content.find((p) => p.type === AGENT_EVENT.TOOL_CALL);
+      if (call) {
+        const { toolCallId, toolName, input } = call;
+        const output = msg.toolResult?.output;
+        const isError = output && typeof output === 'object' && 'error' in output;
+        cards.set(toolCallId, {
+          toolName, input, output, state: isError ? TOOL_STATE.ERROR : TOOL_STATE.DONE,
+        });
+      }
+    }
+  }
+  return cards;
+}
+
+export { stripOrphanedToolCallMessages, reconstructToolCards };
 
 export default class ChatController {
   constructor({ onUpdate, onToolDone }) {
@@ -116,17 +158,8 @@ export default class ChatController {
     this._sessionId = sessionId ?? this._sessionId;
     if (!cached.length) return;
     this._messages = stripOrphanedToolCallMessages(cached);
-    // Reconstruct tool cards from persisted approval messages so they render on reload.
-    this._toolCards = new Map();
-    for (const msg of this._messages) {
-      if (msg.role === ROLE.ASSISTANT && Array.isArray(msg.content)) {
-        const call = msg.content.find((p) => p.type === AGENT_EVENT.TOOL_CALL);
-        if (call) {
-          const { toolCallId, toolName, input } = call;
-          this._toolCards.set(toolCallId, { toolName, input, state: TOOL_STATE.DONE });
-        }
-      }
-    }
+    // Reconstruct tool cards (with their stored output) so they render on reload.
+    this._toolCards = reconstructToolCards(this._messages);
     this._update();
   }
 
@@ -191,6 +224,19 @@ export default class ChatController {
     if (type === AGENT_EVENT.TOOL_CALL) {
       if (next.has(toolCallId)) return; // duplicate — ignore
       next.set(toolCallId, { toolName, input, state: TOOL_STATE.RUNNING });
+      if (rendersWhileRunning(toolName)) {
+        // Pre-create a virtual message so the loading card renders while the tool runs.
+        // No toolResult yet, so _messagesForAgent() skips it until the result arrives.
+        this._messages = [
+          ...this._messages,
+          {
+            role: ROLE.ASSISTANT,
+            virtual: true,
+            turnId: this._currentTurnId,
+            content: [{ type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName, input }],
+          },
+        ];
+      }
     } else if (type === AGENT_EVENT.TOOL_APPROVAL_REQUEST) {
       const existingCard = next.get(toolCallId);
       const settled = existingCard?.state;
@@ -224,37 +270,58 @@ export default class ChatController {
       this._update();
       if (autoApprove) queueMicrotask(() => this.approveToolCall(toolCallId, true));
       return;
+    } else if (type === AGENT_EVENT.CONTINUATION) {
+      // Post-execution gate: the tool already finished (card is DONE, result shown).
+      // Flag it as awaiting a Continue/Stop decision. Ephemeral (UI-only) — nothing is
+      // pushed to _messages, so a reload simply drops the prompt while the result persists.
+      const card = next.get(toolCallId);
+      if (!card) return;
+      next.set(toolCallId, { ...card, continuationPending: true });
+      this._toolCards = next;
+      this._update();
+      return;
     } else {
       const prior = next.get(toolCallId) ?? { toolName, input: {} };
       const state = isError ? TOOL_STATE.ERROR : TOOL_STATE.DONE;
       next.set(toolCallId, { ...prior, state, output });
-      if (state === TOOL_STATE.DONE) {
-        // Skip if a real message already exists for this toolCallId (approval flow adds one).
-        const hasApprovalMessage = this._messages.some(
-          (m) => !m.virtual && Array.isArray(m.content) && m.content.some(
-            (p) => p.type === AGENT_EVENT.TOOL_CALL && p.toolCallId === toolCallId,
-          ),
-        );
-        if (!hasApprovalMessage) {
-          // Virtual message: renders the tool card and persists across refreshes.
-          // turnId + toolResult let _messagesForAgent() replay this read to the agent.
-          this._messages = [
-            ...this._messages,
-            {
-              role: ROLE.ASSISTANT,
-              virtual: true,
-              turnId: this._currentTurnId,
-              toolResult: { output },
-              content: [{
-                type: AGENT_EVENT.TOOL_CALL,
-                toolCallId,
-                toolName: prior.toolName,
-                input: prior.input,
-              }],
-            },
-          ];
-        }
 
+      // Render + persist a card for any terminal result — success OR error. Errors must
+      // create a card too: otherwise a failed tool (e.g. evaluate_page against an
+      // unconfigured domain) leaves the user with a continuation prompt but no visible
+      // result to review.
+      const existingIdx = this._messages.findIndex(
+        (m) => Array.isArray(m.content) && m.content.some(
+          (p) => p.type === AGENT_EVENT.TOOL_CALL && p.toolCallId === toolCallId,
+        ),
+      );
+      if (existingIdx === -1) {
+        // No message yet — create a virtual one. turnId + toolResult let
+        // _messagesForAgent() replay this result to the agent (and it persists on refresh).
+        this._messages = [
+          ...this._messages,
+          {
+            role: ROLE.ASSISTANT,
+            virtual: true,
+            turnId: this._currentTurnId,
+            toolResult: { output },
+            content: [{
+              type: AGENT_EVENT.TOOL_CALL,
+              toolCallId,
+              toolName: prior.toolName,
+              input: prior.input,
+            }],
+          },
+        ];
+      } else if (this._messages[existingIdx].virtual) {
+        // A running virtual message already exists (e.g. the evaluate_page loading card).
+        // Attach the result in place so the card updates and can be replayed — no duplicate.
+        this._messages = this._messages.map((m, i) => (
+          i === existingIdx ? { ...m, toolResult: { output } } : m
+        ));
+      }
+      // else: a real (approval) message already carries this call; leave it untouched.
+
+      if (state === TOOL_STATE.DONE) {
         // Once content_upload succeeds, replace dataBase64 with contentUrl so
         // continuation POSTs don't retransmit bytes already in storage.
         const contentUrl = output?.source?.contentUrl;
@@ -333,6 +400,46 @@ export default class ChatController {
     }
   };
 
+  /** Clear the ephemeral continuation-pending flag from every tool card. */
+  _clearContinuationPending() {
+    const next = new Map(this._toolCards ?? []);
+    for (const [id, card] of next) {
+      if (card.continuationPending) next.set(id, { ...card, continuationPending: false });
+    }
+    this._toolCards = next;
+  }
+
+  // Continuation gate — user chose "Continue": resume the agentic loop. The gated tool's
+  // result is already persisted for the current turn, so re-streaming replays it to the
+  // agent (keeping the same turnId) and the model picks up where it left off.
+  continueExecution = async () => {
+    this._clearContinuationPending();
+    this._thinking = true;
+    this._update();
+    try {
+      await this._stream(this._pageContextForAgent());
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
+      }
+    } finally {
+      this._done();
+    }
+  };
+
+  // Continuation gate — user chose "Stop": record the decision as a user message and halt.
+  // No re-stream and no assistant reply — the turn simply ends (code-driven, not the LLM).
+  stopExecution = async () => {
+    this._clearContinuationPending();
+    this._messages = [
+      ...this._messages,
+      { role: ROLE.USER, content: 'User decided not to continue further.' },
+    ];
+    this._update();
+    const room = await this._getRoom();
+    saveMessages(room, this._messages, this._sessionId);
+  };
+
   // Adds in the tool calls and tool results for the current turn so the agent can replay them.
   _messagesForAgent() {
     const represented = new Set();
@@ -400,6 +507,11 @@ export default class ChatController {
       },
       onTool: this._onToolEvent,
     });
+
+    // Persist once the turn ends. A tool-only turn (e.g. evaluate_page halting at the
+    // continuation gate) produces no assistant text, so onText never fires — without this
+    // its card would never be saved and would vanish on refresh.
+    saveMessages(room, this._messages, this._sessionId);
   }
 
   setMcpConfig(mcpServers, mcpServerHeaders) {
