@@ -15,8 +15,8 @@ import { attachPersistence } from '../../../../nx/blocks/form/utils/persistence.
 //   imports          createEngine, convertJsonToHtml, convertHtmlToJson
 //   engine methods   getState, setField, addItem, insertItem, removeItem, moveItem
 //   state shape      document, model.root (kind / pointer / label / value /
-//                    required / children / items / enumValues / minItems /
-//                    maxItems), validation.errors[p].message, schemaIssues
+//                    required / children / items / enumValues / semanticType /
+//                    minItems / maxItems), validation.errors[p].message, schemaIssues
 //                    (pointer / reason / feature | compositionKeyword)
 //   semantics        onChange fires once per real mutation; not at construction;
 //                    not on no-ops; defaults materialize into empty data
@@ -117,6 +117,23 @@ describe('SDK state shape', () => {
     // editor.js
     expect(state.validation).to.have.property('errors');
     expect(state.schemaIssues).to.be.an('array');
+  });
+
+  it('surfaces x-semantic-type onto the model node, dropping unknown values (read by editor.js)', () => {
+    const schema = {
+      type: 'object',
+      title: 'Article',
+      properties: {
+        body: { type: 'string', title: 'Body', 'x-semantic-type': 'long-text' },
+        swatch: { type: 'string', title: 'Swatch', 'x-semantic-type': 'color' },
+      },
+    };
+    const engine = createEngine({ schema, document: validDoc({ body: 'hi', swatch: '#fff' }) });
+    const { root } = engine.getState().model;
+
+    expect(findByPointer(root, '/data/body').semanticType).to.equal('long-text');
+    // Unrecognized value is not surfaced — the node carries no hint.
+    expect(findByPointer(root, '/data/swatch').semanticType).to.equal(undefined);
   });
 
   it('validation.errors entries carry a .message field (read by editor.js)', () => {
