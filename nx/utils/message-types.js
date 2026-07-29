@@ -13,8 +13,6 @@ export const MESSAGE_TYPES = Object.freeze({
   SET_BODY: 'set-body', // { body: string }
   SET_EDITOR_STATE: 'set-editor-state', // { editorState: PM node JSON, cursorOffset: number }
   SET_CURSORS: 'set-cursors', // { cursors: [{ proseIndex, remote, color }] }
-  // node.anchorType: 'table' (block), 'image', or 'content' (loose default-content
-  // node — paragraph/heading/list/code/quote, resolved via data-prose-index)
   SET_SELECTED_NODE: 'set-selected-node', // { node: { anchorType, proseIndex, ... } | null, scrollIntoView }
 
   // Iframe -> host: ongoing
@@ -22,7 +20,6 @@ export const MESSAGE_TYPES = Object.freeze({
   RELOAD: 'reload', // no payload
   GET_EDITOR: 'get-editor', // { cursorOffset: number }
   NODE_UPDATE: 'node-update', // { node: PM node JSON, cursorOffset: number }
-  // node.anchorType: see SET_SELECTED_NODE above
   NODE_SELECT: 'node-select', // { node: { anchorType, proseIndex, src?, blockIndex? } | null }
   HISTORY: 'history', // { action: 'undo' | 'redo' }
   NEW_VERSION: 'new-version', // no payload
