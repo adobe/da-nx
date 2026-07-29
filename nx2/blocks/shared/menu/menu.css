@@ -25,7 +25,7 @@
   width: 100%;
   padding: var(--s2-spacing-75) var(--s2-spacing-100);
   border: none;
-  border-radius: var(--s2-corner-radius-200);
+  border-radius: var(--s2-corner-radius-400);
   background: none;
   color: var(--s2-gray-900);
   font-family: inherit;
@@ -36,7 +36,10 @@
   outline: none;
 }
 
-.menu-item:hover,
+.menu-item:hover {
+  background: var(--s2-gray-100);
+}
+
 .menu-item-active {
   background: var(--s2-gray-200);
 }

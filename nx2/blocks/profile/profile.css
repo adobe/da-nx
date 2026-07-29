@@ -24,6 +24,11 @@
 
 #profile-btn {
   anchor-name: --my-anchor;
+  transition: transform 0.125s ease-out;
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
 }
 
 .nx-btn-profile {

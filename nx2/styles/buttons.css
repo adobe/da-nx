@@ -4,7 +4,7 @@ button {
 
 .nx-action-btn, .nx-action-btn-icon, .nx-action-btn-quiet, .nx-btn-accent, .nx-btn-primary  {
   display: flex;
-  transition: transform 0.125s ease-out;
+  transition: transform 0.125s ease-out, background-color 0.125s ease-out, color 0.125s ease-out;
   padding: var(--s2-spacing-75) 10px;
   font-size: var(--s2-component-s-medium-font-size);
   line-height: var(--s2-component-s-medium-line-height);
@@ -44,7 +44,6 @@ button {
 
 .nx-btn-accent, .nx-btn-primary {
   border-radius: 12px;
-  padding: var(--s2-spacing-75) var(--s2-spacing-200);
   font-weight: var(--s2-component-s-bold-font-weight);
 }
 

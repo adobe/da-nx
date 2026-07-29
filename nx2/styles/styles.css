@@ -208,6 +208,11 @@
   --s2-corner-radius-700: 10px;
   --s2-corner-radius-800: 16px;
 
+  /* drop shadow */
+  --s2-drop-shadow-elevated: 0px 4px 12px light-dark(rgb(0 0 0 / 8%), rgb(0 0 0 / 24%)),
+    0px 2px 6px light-dark(rgb(0 0 0 / 4%), rgb(0 0 0 / 12%)),
+    0px 0px 2px light-dark(rgb(0 0 0 / 12%), rgb(0 0 0 / 36%));
+
   /* heading */
   --s2-heading-size-xs: 18px;
   --s2-heading-size-s: 20px;
