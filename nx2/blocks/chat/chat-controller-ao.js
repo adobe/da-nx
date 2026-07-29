@@ -209,6 +209,26 @@ export default class ChatControllerAO {
     this._update();
   }
 
+  // ui_artifact_created: AO's "a2ui" surface for rich, structured content (tables, etc.)
+  // alongside plain text. Stored as its own message so renderers.js can render known
+  // component types (starting with DataTable) and fall back to the artifact's own
+  // text_fallback for anything we don't handle yet, rather than silently dropping it.
+  _handleUiArtifactCreated(evt) {
+    const artifact = evt.data?.artifact;
+    if (!artifact) return;
+    this._messages = [...this._messages, {
+      role: ROLE.ASSISTANT,
+      uiArtifact: {
+        id: artifact.id,
+        components: artifact.a2ui_surface?.components ?? [],
+        textFallback: artifact.text_fallback,
+        title: artifact.display_hints?.title,
+      },
+    }];
+    this._persist();
+    this._update();
+  }
+
   // Concatenates text_delta chunks, finalizes on text_done, and ends the turn on any
   // terminal event. Everything else (reasoning, usage) is intentionally ignored per
   // this variant's scope.
@@ -258,6 +278,11 @@ export default class ChatControllerAO {
 
     if (evt.type === 'user_question') {
       this._handleUserQuestion(evt);
+      return;
+    }
+
+    if (evt.type === 'ui_artifact_created') {
+      this._handleUiArtifactCreated(evt);
       return;
     }
 

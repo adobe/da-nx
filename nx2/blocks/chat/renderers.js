@@ -129,7 +129,53 @@ function renderQuestionCard(pending, answers, {
   `;
 }
 
+function renderDataTable({ columns = [], data = [] } = {}) {
+  return html`
+    <div class="ui-artifact-table-wrapper">
+      <table class="ui-artifact-table">
+        <thead>
+          <tr>${columns.map((col) => html`<th>${col.label ?? col.key}</th>`)}</tr>
+        </thead>
+        <tbody>
+          ${data.map((row) => html`
+            <tr>${columns.map((col) => html`<td>${row[col.key] ?? ''}</td>`)}</tr>
+          `)}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// Registry of a2ui component types we know how to render. Add to this as we encounter
+// (and choose to support) new ones — anything not listed here falls back to the
+// artifact's own text_fallback instead of being silently dropped.
+const UI_ARTIFACT_RENDERERS = {
+  DataTable: renderDataTable,
+};
+
+function renderUiArtifactComponent(component, fallbackText) {
+  const renderer = UI_ARTIFACT_RENDERERS[component.type];
+  if (renderer) return renderer(component.props);
+  return html`<p class="ui-artifact-fallback">${fallbackText || `Unsupported content (${component.type}).`}</p>`;
+}
+
+function renderUiArtifact(uiArtifact) {
+  if (!uiArtifact) return nothing;
+  const { components, textFallback, title } = uiArtifact;
+  if (!components?.length) {
+    return textFallback ? html`<p class="ui-artifact-fallback">${textFallback}</p>` : nothing;
+  }
+  return html`
+    <div class="ui-artifact">
+      ${title ? html`<span class="ui-artifact-title">${title}</span>` : nothing}
+      ${components.map((c) => renderUiArtifactComponent(c, textFallback))}
+    </div>
+  `;
+}
+
 function renderAssistantMessage(msg, toolCards) {
+  if (msg.uiArtifact) return renderUiArtifact(msg.uiArtifact);
+
   if (Array.isArray(msg.content)) {
     return html`${msg.content.map((part) => (part.type === AGENT_EVENT.TOOL_CALL
       ? renderToolCard(part.toolCallId, toolCards)
