@@ -1,5 +1,5 @@
 import {
-  findBlock, findImageAtProseIndex, pictureSrc, srcPathsMatch, OVERLAY_SELECTOR,
+  findBlock, findImageAtProseIndex, findTextBlock, pictureSrc, srcPathsMatch, OVERLAY_SELECTOR,
 } from './dom-index.js';
 import { parseIndex, positionBox } from './utils.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
@@ -70,6 +70,13 @@ function findPictureBySrc(src, proseIndex, root = document) {
     .find((pic) => srcPathsMatch(pictureSrc(pic), src)) || null;
 }
 
+function findContentByIndex(proseIndex, root = document) {
+  if (proseIndex == null) return null;
+  const el = findTextBlock(proseIndex, root);
+  const elIndex = parseIndex(el?.getAttribute?.('data-prose-index'));
+  return elIndex === proseIndex ? el : null;
+}
+
 function resolveSelectionElement(node, root) {
   if (node.anchorType === 'table') {
     const block = findBlock(node.proseIndex, root);
@@ -80,6 +87,9 @@ function resolveSelectionElement(node, root) {
     return findImageByIndex(node.proseIndex, root)
       || findImageAtProseIndex(node.proseIndex, root)
       || findPictureBySrc(node.src, node.proseIndex, root);
+  }
+  if (node.anchorType === 'content') {
+    return findContentByIndex(node.proseIndex, root);
   }
   return null;
 }

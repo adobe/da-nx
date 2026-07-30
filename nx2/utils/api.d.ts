@@ -94,7 +94,8 @@ export const source: {
    * - **Object:** `list({ org, site?, path?, continuationToken?, opts? })`
    * - **Path:** `list('/org/site/folder', { continuationToken?, opts? })`
    *
-   * Pass `{ org }` without `site` to list sites at the org level (legacy DA only).
+   * Pass `{ org }` without `site` to list sites at the org level — merges
+   * DA-legacy folders with hlx6 source-bus sites, deduped by name.
    * For pagination, pass `continuationToken` from a prior result.
    *
    * Returns `{ ok, items, continuationToken, permissions? }`.
@@ -246,6 +247,7 @@ export const config: {
 // ─── org ────────────────────────────────────────────────────────────────────
 
 export const org: {
+  /** hlx6 source-bus site list. GETs `${AEM_API}/{org}/source/`; 404 on non-migrated orgs. */
   listSites(arg: { org: string }): Promise<ApiResponse>;
 };
 
