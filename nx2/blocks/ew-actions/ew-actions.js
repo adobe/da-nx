@@ -7,7 +7,7 @@ import {
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
 import { versions } from '../../utils/api.js';
-import { applyUrlTemplate } from '../../utils/deliveryPath.js';
+import { applyUrlTemplate, getConfiguredDeliveryUrl } from '../../utils/deliveryPath.js';
 import { getConfig } from '../../scripts/nx.js';
 import '../shared/popover/popover.js';
 
@@ -201,7 +201,7 @@ class NXEwActions extends LitElement {
     }
 
     this._hasError = false;
-    const url = this._resolveOpenUrl(action, aemPath, result.url);
+    const url = await this._resolveOpenUrl(action, aemPath, result.url);
     window.open(url, url);
     this._saveVersion(action);
     this._busy = false;
@@ -215,10 +215,17 @@ class NXEwActions extends LitElement {
     versions.create(fullpath, { comment }).catch(() => console.log(`Error creating auto version (${comment}).`));
   }
 
-  // A page can override the EDS delivery URL with `preview-url` / `live-url`
-  // metas whose content is a template containing `${aemPath}`.
-  // eslint-disable-next-line class-methods-use-this
-  _resolveOpenUrl(action, aemPath, fallbackUrl) {
+  // Resolve the tab URL to open after preview/publish, in precedence order:
+  // 1. Customer `preview.path` / `live.path` config (per document-path prefix).
+  // 2. A page-level `preview-url` / `live-url` meta template.
+  // 3. The AEM delivery URL returned by the admin call.
+  // Templates (config value or meta) may contain `${aemPath}`.
+  async _resolveOpenUrl(action, aemPath, fallbackUrl) {
+    const { org, site } = this._hashState || {};
+    if (org && site) {
+      const configUrl = await getConfiguredDeliveryUrl({ org, site, action, aemPath });
+      if (configUrl) return configUrl;
+    }
     const metaName = action === 'publish' ? 'live-url' : 'preview-url';
     const template = document.head.querySelector(`meta[name="${metaName}"]`)?.content;
     if (!template) return fallbackUrl;
