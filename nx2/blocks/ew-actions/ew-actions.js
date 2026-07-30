@@ -7,6 +7,7 @@ import {
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
 import { versions } from '../../utils/api.js';
+import { applyUrlTemplate } from '../../utils/deliveryPath.js';
 import { getConfig } from '../../scripts/nx.js';
 import '../shared/popover/popover.js';
 
@@ -221,11 +222,7 @@ class NXEwActions extends LitElement {
     const metaName = action === 'publish' ? 'live-url' : 'preview-url';
     const template = document.head.querySelector(`meta[name="${metaName}"]`)?.content;
     if (!template) return fallbackUrl;
-    // eslint-disable-next-line no-template-curly-in-string
-    const url = template.replace('${aemPath}', aemPath);
-    // aemPath carries a leading slash, so a template like `.../preview/${aemPath}`
-    // yields `preview//...`; collapse duplicate slashes but keep the `://` scheme.
-    return url.replace(/([^:])\/{2,}/g, '$1/');
+    return applyUrlTemplate(template, aemPath);
   }
 
   _renderDialog() {
