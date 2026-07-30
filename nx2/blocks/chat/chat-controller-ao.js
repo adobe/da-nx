@@ -24,6 +24,15 @@ const AO_HTTP_BASE = {
   stage: 'https://agent-orchestrator-stage-can2.adobe.io',
 };
 
+// DIAGNOSTIC ONLY — routes the blob-storage PUT (see uploadAttachmentToAo) through a
+// generic local CORS-bypass proxy (scratchpad's generic-cors-proxy.mjs, run via
+// `node generic-cors-proxy.mjs`) instead of hitting the presigned URL directly, to
+// confirm the failure is CORS specifically and not something else (bad signature,
+// missing required header, expired SAS) that would just present as a CORS error in the
+// browser because the response is never readable. Set to null to call the presigned URL
+// directly again once confirmed.
+const BLOB_PUT_CORS_TEST_PROXY = 'http://localhost:8788';
+
 // Manifest carrying the da-content skills (browse/create/update/delete/organize/
 // versions/media/fragment-lookup/publish/site-config) — not targeted to any segment,
 // so it must be selected explicitly per turn rather than relying on auto-selection.
@@ -55,15 +64,68 @@ function base64ToBlob(base64, mediaType) {
   return new Blob([bytes], { type: mediaType });
 }
 
-// Last-resort fallback if _fetchSkillsFromApi() itself fails (network error, etc.) —
-// asks the agent to self-report its skills instead. Inherently best-effort: it's an LLM
-// describing itself in prose, not a real catalog lookup, so the parsed result is
-// validated before ever being cached.
+// AO's own Files API, confirmed directly from aep-ai source (apps/a2a/api/routes/files.py
+// + filesystem/upload_service.py) — the public docs page's schema for POST /upload is
+// wrong (it documents multipart/binary; the real handler takes JSON metadata and hands
+// back a presigned URL for the actual bytes):
+//   1. POST /api/v1/files/upload  { filename, content_type, scope }
+//        -> { file_id, artifact_id, upload_url, expires_at }
+//   2. PUT <upload_url>  — raw bytes, direct to blob storage, not proxied through AO
+//   3. POST /api/v1/files/{file_id}/finalize -> { artifact_id, ... }
+// artifact_id is the string USER_INPUT.attachments expects. Best-effort throughout: any
+// failed step just returns null so the caller falls back to the DA-admin-upload workaround.
+async function uploadAttachmentToAo({ fileName, mediaType, dataBase64 }) {
+  if (!dataBase64) return null;
+  const { accessToken, projectedProductContext } = await loadIms();
+  const orgId = getOrgId(projectedProductContext);
+  const base = AO_HTTP_BASE[env] ?? AO_HTTP_BASE.stage;
+  const headers = {
+    authorization: `Bearer ${accessToken?.token}`,
+    // 'x-org-name': tenantId,
+    'x-tenant-id': orgId,
+    // 'x-user-email': email,
+    // 'x-user-id': userId,
+    // 'x-user-name': name,
+  };
+
+  try {
+    const initiateResp = await fetch(`${base}/api/v1/files/upload`, {
+      method: 'POST',
+      headers: { ...headers, 'content-type': 'application/json' },
+      body: JSON.stringify({ filename: fileName, content_type: mediaType, scope: 'user' }),
+    });
+    if (!initiateResp.ok) return null;
+    const { file_id: fileId, upload_url: uploadUrl } = await initiateResp.json();
+    if (!fileId || !uploadUrl) return null;
+
+    const putResp = await fetch(BLOB_PUT_CORS_TEST_PROXY ?? uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'content-type': mediaType,
+        // Azure's "Put Blob" REST operation requires this on a direct single-PUT
+        // upload (as opposed to Put Block/Put Block List) — without it, Azure returns
+        // 400 MissingRequiredHeader, which is indistinguishable from a CORS block in
+        // the browser (the response body isn't readable either way) until proxied.
+        'x-ms-blob-type': 'BlockBlob',
+        ...(BLOB_PUT_CORS_TEST_PROXY && { 'x-proxy-target': uploadUrl }),
+      },
+      body: base64ToBlob(dataBase64, mediaType),
+    });
+    if (!putResp.ok) return null;
+
+    const finalizeResp = await fetch(`${base}/api/v1/files/${fileId}/finalize`, {
+      method: 'POST',
+      headers,
+    });
+    if (!finalizeResp.ok) return null;
+    const { artifact_id: artifactId } = await finalizeResp.json();
+    return artifactId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const SKILLS_CACHE_PREFIX = 'da-chat-ao-skills--';
-const SKILLS_PROBE_PROMPT = 'List every skill you currently have access to for this '
-  + 'session for document authoring. Reply with ONLY a comma-separated list of their exact identifiers (e.g. '
-  + 'da-content-create, da-content-update) and nothing else — no explanation, no numbering, '
-  + 'no punctuation besides the commas.';
 
 // Confirmed shape from GET /api/v1/manifests/{manifest_id}/skills/discovered:
 // { skills: [{ name, display_name, description, path, source_name, included, hidden }], count }.
@@ -99,18 +161,6 @@ function saveCachedSkills(room, episodeId, skills) {
   } catch {
     // best-effort — localStorage can throw (quota, private mode); safe to ignore
   }
-}
-
-// Strips list markers/trailing punctuation and keeps only identifier-shaped tokens,
-// so stray prose the model adds despite the prompt doesn't corrupt the cached list.
-function parseSkillsResponse(text) {
-  if (!text) return null;
-  const ids = text
-    .split(/[,\n]/)
-    .map((s) => s.trim().replace(/^[-*\d.\s]+/, '').replace(/[.:]+$/, ''))
-    .filter(Boolean)
-    .filter((s) => /^[a-z0-9][a-z0-9_-]{1,60}$/i.test(s));
-  return ids.length ? ids : null;
 }
 
 /**
@@ -456,8 +506,9 @@ export default class ChatControllerAO {
   }
 
   // Reuses the cached list if it's still tied to the current episode; otherwise tries
-  // the real API, falling back to the self-report probe if that doesn't pan out. Never
-  // blocks connect() — runs fire-and-forget.
+  // the real API. No probe/self-report fallback anymore — if the API call fails,
+  // getSkills() just returns [] (chat.js shows "No skills available") until the next
+  // connect() retries. Never blocks connect() — runs fire-and-forget.
   async _syncSkillsCache() {
     const room = await this._getRoom();
     const cached = loadCachedSkills(room);
@@ -470,109 +521,7 @@ export default class ChatControllerAO {
     if (apiSkills) {
       this._cachedSkills = apiSkills;
       saveCachedSkills(room, this._episodeId, apiSkills);
-      return;
     }
-
-    await this._probeSkills(room);
-  }
-
-  // Asks the agent to self-report its skills on its own disposable connection/episode —
-  // deliberately NOT the user's real one, so it (a) never blocks real messaging, since
-  // AO allows only one turn at a time per connection, and (b) never becomes part of the
-  // real episode's server-side history. Nothing here touches _thinking or the main _ws
-  // at all. Best-effort throughout: an invalid/unparseable answer, timeout, or error just
-  // leaves the existing fallback (cached or static) in place rather than corrupting the cache.
-  async _probeSkills(room) {
-    if (this._skillsProbeInFlight) return;
-    this._skillsProbeInFlight = true;
-
-    const text = await this._runSkillsProbeConnection();
-
-    this._skillsProbeInFlight = false;
-
-    const skills = parseSkillsResponse(text);
-    if (skills) {
-      this._cachedSkills = skills;
-      saveCachedSkills(room, this._episodeId, skills);
-    }
-  }
-
-  async _runSkillsProbeConnection() {
-    const {
-      accessToken, userId, tenantId, email, name, projectedProductContext,
-    } = await loadIms();
-    const orgId = getOrgId(projectedProductContext);
-    const base = AO_WS_BASE[env] ?? AO_WS_BASE.stage;
-
-    return new Promise((resolve) => {
-      const ws = new WebSocket(`${base}/ws/sessions/new`);
-      let text = '';
-      let settled = false;
-      let timeout;
-
-      function finish(result) {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeout);
-        try {
-          ws.close();
-        } catch {
-          // already closing/closed — nothing to do
-        }
-        resolve(result);
-      }
-
-      // Generous but bounded — this is a background nicety, not something worth
-      // hanging around for if AO never responds.
-      timeout = setTimeout(() => finish(null), 15000);
-
-      ws.addEventListener('open', () => {
-        ws.send(JSON.stringify({
-          type: 'AUTH',
-          authorization: `Bearer ${accessToken?.token}`,
-          'x-org-name': tenantId,
-          'x-tenant-id': orgId,
-          'x-user-email': email,
-          'x-user-id': userId,
-          'x-user-name': name,
-        }));
-        // Safe to send immediately after AUTH without waiting for an ack — the real
-        // server (ws_handler.py) reads AUTH then the next message strictly in order
-        // regardless of how quickly both arrive; WS delivery is ordered.
-        ws.send(JSON.stringify({
-          type: 'USER_INPUT',
-          text: SKILLS_PROBE_PROMPT,
-          manifestId: AO_MANIFEST_ID,
-          debugMode: true,
-        }));
-      });
-
-      ws.addEventListener('message', (event) => {
-        const data = this._parse(event.data);
-        if (!data) return;
-
-        if (data.type === 'ERROR') {
-          finish(null);
-          return;
-        }
-        if (data.type === 'text_delta') {
-          text += data.data?.content ?? '';
-          return;
-        }
-        if (data.type === 'text_done') {
-          text = data.data?.content ?? text;
-          return;
-        }
-        if (data.type === 'turn_completed' || data.type === 'turn_aborted') {
-          finish(text);
-          return;
-        }
-        if (data.type === 'permission_request' || data.type === 'user_question') finish(null);
-      });
-
-      ws.addEventListener('close', () => finish(null));
-      ws.addEventListener('error', () => finish(null));
-    });
   }
 
   _done() {
@@ -600,7 +549,7 @@ export default class ChatControllerAO {
     this._pendingQuestion = null;
     this._toolCards = new Map();
     // Old episode is gone — its cached skills answer doesn't apply to the fresh one
-    // connect() is about to open; _syncSkillsCache() will re-probe once it has a
+    // connect() is about to open; _syncSkillsCache() will re-fetch once it has a
     // real episode id again.
     this._cachedSkills = null;
     this._update();
@@ -710,12 +659,15 @@ export default class ChatControllerAO {
     return `[Selected context]\n${lines.join('\n')}\n`;
   }
 
-  // AO's USER_INPUT.attachments only accepts artifact ids from its own Files API
-  // (raw bytes aren't a wire option — confirmed from UserInputOp: `attachments: list[str]`)
-  // and that HTTP endpoint sits behind the same CORS/entitlement wall the A2A transport
-  // hit. Upload straight to DA's own admin API instead — the same one da-live's own
-  // editor already uses — and just tell the agent the resulting URL in the message text.
+  // Tries AO's own Files API first (see uploadAttachmentToAo) so the attachment becomes
+  // a real USER_INPUT.attachments entry the agent can read directly. Falls back to
+  // uploading straight to DA's own admin API — the same one da-live's own editor already
+  // uses — and describing the resulting URL in the message text, for whenever AO's Files
+  // API isn't reachable yet (CORS rollout in progress) or the upload otherwise fails.
   async _uploadAttachment(attachment) {
+    const artifactId = await uploadAttachmentToAo(attachment);
+    if (artifactId) return { ...attachment, artifactId, contentUrl: null };
+
     const { fileName, mediaType, dataBase64 } = attachment;
     const { org, site } = this._context ?? {};
     if (!org || !site || !dataBase64) return { ...attachment, contentUrl: null };
@@ -733,9 +685,13 @@ export default class ChatControllerAO {
     }
   }
 
+  // Only the DA-admin fallback needs describing in text — natively-uploaded attachments
+  // (artifactId set) are passed via USER_INPUT.attachments instead, where the agent can
+  // read them directly rather than needing a URL mentioned in prose.
   _describeAttachments(uploaded) {
-    if (!uploaded.length) return '';
-    const lines = uploaded.map((a) => (a.contentUrl
+    const fallback = uploaded.filter((a) => !a.artifactId);
+    if (!fallback.length) return '';
+    const lines = fallback.map((a) => (a.contentUrl
       ? `- Attached file: ${a.fileName} — uploaded to: ${a.contentUrl}`
       : `- Attached file: ${a.fileName} — upload failed`));
     return `[Attachments]\n${lines.join('\n')}\n`;
@@ -779,6 +735,8 @@ export default class ChatControllerAO {
       }
     }
 
+    const artifactIds = uploaded.map((a) => a.artifactId).filter(Boolean);
+
     this._ws.send(JSON.stringify({
       type: 'USER_INPUT',
       text: `${this._contextPrefix()}${this._describeSelectionContext(selectionContext)}`
@@ -788,6 +746,7 @@ export default class ChatControllerAO {
       // apply_control_plane_targeting in aep-ai: an explicit manifestId is only
       // honored when debugMode is also true, otherwise it's silently ignored.
       debugMode: true,
+      ...(artifactIds.length && { attachments: artifactIds }),
     }));
   }
 }
