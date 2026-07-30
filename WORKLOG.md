@@ -1,5 +1,21 @@
 # Worklog
 
+## 2026-07-30
+
+### nx2 ew-actions / deliveryPath.js — customer `preview.path` / `live.path` override
+
+The tab opened after preview/publish can be overridden by `preview.path` (preview) / `live.path` (publish) config rows valued `PATH=URL_TEMPLATE` (with an `${aemPath}` token), mirroring da.live's `editor.path`. Precedence in `_resolveOpenUrl`: config, then the existing `preview-url`/`live-url` page meta, then the AEM delivery URL.
+
+Decisions that diverge from da.live's `editor.path` (and why):
+- Value split on the **first** `=` (not `.split('=')[1]`), so templates can carry a query string.
+- Rows read from the config tab **named `data`**, not the first tab, so adding other tabs can't shift resolution.
+- Matched against the lowercased `aemPath` (`/org/site/path`) — one canonical form for both match and substitution, no `.html`/case skew. Site config beats org on an equal-length prefix tie.
+
+Open questions / limits:
+- Precedence is config-over-meta; the meta is app-global while config is per-path — revisit if a page ever needs meta to win.
+- Only `${aemPath}` (which includes org/site) is supported. A clean custom-domain override needs a `${path}` token — not yet added.
+- The old `/edit` editor honors none of this: its preview/publish is da.live's `blocks/edit/da-title.js` (separate repo), with its own dormant origin-only `previewPrefix`/`livePrefix`. Deferred — fixing it needs a da-live change.
+
 ## 2026-07-23
 
 ### nx2/utils/api.js — org-level listing merges DA-legacy and hlx6 source-bus sites (da-live#1169)
