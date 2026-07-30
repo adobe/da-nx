@@ -20,8 +20,8 @@ const AO_WS_BASE = {
 };
 
 const AO_HTTP_BASE = {
-  prod: 'https://agent-orchestrator-prod-can2.adobe.io',
-  stage: 'https://agent-orchestrator-stage-can2.adobe.io',
+  prod: 'https://agent-orchestrator-prod-va7.adobe.io',
+  stage: 'https://agent-orchestrator-stage-va7.adobe.io',
 };
 
 // Manifest carrying the da-content skills (browse/create/update/delete/organize/
@@ -345,8 +345,14 @@ export default class ChatControllerAO {
       return;
     }
 
-    if (evt.type === 'ERROR') {
-      this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${evt.message}` }];
+    // 'ERROR' (connection-level, e.g. pre-auth failures) and 'error' (a genuine
+    // SessionEvent, e.g. the model provider being unreachable mid-turn) are two
+    // different frames with the message in different places — miss either one and
+    // the turn never resolves client-side: _done() never fires, so _thinking stays
+    // true and the chat looks stuck even though the server has already given up.
+    if (evt.type === 'ERROR' || evt.type === 'error') {
+      const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
+      this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${message}` }];
       this._done();
     }
   }
