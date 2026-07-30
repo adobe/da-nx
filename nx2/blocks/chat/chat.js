@@ -445,7 +445,7 @@ class NxChat extends LitElement {
       const url = new URL(window.location.href);
       url.pathname = '/apps/skills';
       url.search = `?tab=${id}&nx=ewao`;
-      console.log(url.search);
+
       url.hash = `#/${org}/${site}`;
       window.open(url.href, '_blank', 'noopener,noreferrer');
     }
