@@ -446,6 +446,26 @@ describe('api.js', () => {
       expect(last.body).to.equal(blob);
     });
 
+    it('source.save hlx6 normalizes empty body to { source: { contentUrl } }', async () => {
+      restoreFetch();
+      installFetch({ body: '' });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const blob = new Blob(['binary'], { type: 'image/png' });
+      const resp = await source.save({ org: o, site: s, path: '/docs/.foo/image.png', body: blob });
+      expect(resp.ok).to.equal(true);
+      const json = await resp.json();
+      expect(json.source.contentUrl).to.equal(`${AEM_API}/${o}/sites/${s}/source/docs/.foo/image.png`);
+    });
+
+    it('source.save hlx6 does not normalize non-ok responses', async () => {
+      restoreFetch();
+      installFetch({ status: 403, body: '' });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.save({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
+      expect(resp.ok).to.equal(false);
+      expect(resp.status).to.equal(403);
+    });
+
     it('source.getMetadata sends HEAD and returns { ok, status, headers }', async () => {
       restoreFetch();
       installFetch({ status: 200, headers: { 'last-modified': 'Mon, 01 Jan 2025 00:00:00 GMT' } });
