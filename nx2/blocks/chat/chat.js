@@ -444,7 +444,8 @@ class NxChat extends LitElement {
       if (!org || !site) return;
       const url = new URL(window.location.href);
       url.pathname = '/apps/skills';
-      url.search = `?tab=${id}`;
+      url.search = `?tab=${id}&nx=ewao`;
+      console.log(url.search);
       url.hash = `#/${org}/${site}`;
       window.open(url.href, '_blank', 'noopener,noreferrer');
     }
@@ -597,7 +598,7 @@ class NxChat extends LitElement {
         : nothing}
         ${this.messages?.map((msg) => renderMessage(msg, this.toolCards))}
         ${this.thinking && !this.messages?.at(-1)?.streaming
-          && !this._pendingApproval() && !this.pendingQuestion
+        && !this._pendingApproval() && !this.pendingQuestion
         ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>
       </div>
