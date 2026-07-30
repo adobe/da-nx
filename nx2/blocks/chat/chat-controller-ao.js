@@ -24,15 +24,6 @@ const AO_HTTP_BASE = {
   stage: 'https://agent-orchestrator-stage-can2.adobe.io',
 };
 
-// DIAGNOSTIC ONLY — routes the blob-storage PUT (see uploadAttachmentToAo) through a
-// generic local CORS-bypass proxy (scratchpad's generic-cors-proxy.mjs, run via
-// `node generic-cors-proxy.mjs`) instead of hitting the presigned URL directly, to
-// confirm the failure is CORS specifically and not something else (bad signature,
-// missing required header, expired SAS) that would just present as a CORS error in the
-// browser because the response is never readable. Set to null to call the presigned URL
-// directly again once confirmed.
-const BLOB_PUT_CORS_TEST_PROXY = 'http://localhost:8788';
-
 // Manifest carrying the da-content skills (browse/create/update/delete/organize/
 // versions/media/fragment-lookup/publish/site-config) — not targeted to any segment,
 // so it must be selected explicitly per turn rather than relying on auto-selection.
@@ -98,7 +89,7 @@ async function uploadAttachmentToAo({ fileName, mediaType, dataBase64 }) {
     const { file_id: fileId, upload_url: uploadUrl } = await initiateResp.json();
     if (!fileId || !uploadUrl) return null;
 
-    const putResp = await fetch(BLOB_PUT_CORS_TEST_PROXY ?? uploadUrl, {
+    const putResp = await fetch(uploadUrl, {
       method: 'PUT',
       headers: {
         'content-type': mediaType,
@@ -107,7 +98,6 @@ async function uploadAttachmentToAo({ fileName, mediaType, dataBase64 }) {
         // 400 MissingRequiredHeader, which is indistinguishable from a CORS block in
         // the browser (the response body isn't readable either way) until proxied.
         'x-ms-blob-type': 'BlockBlob',
-        ...(BLOB_PUT_CORS_TEST_PROXY && { 'x-proxy-target': uploadUrl }),
       },
       body: base64ToBlob(dataBase64, mediaType),
     });
