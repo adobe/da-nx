@@ -15,10 +15,17 @@ function toDOM(hast) {
   return hastToDom(sanitizeLinks(linkifyBareUrls(hast)), { fragment: true });
 }
 
+// Some AO payloads (e.g. user_question context) arrive with literal backslash-n
+// sequences instead of real newlines, which remark renders as visible "\n" text
+// rather than paragraph/list breaks. Normalize before parsing.
+function unescapeLiteralNewlines(text) {
+  return text.replace(/\\r\\n|\\n/g, '\n');
+}
+
 function renderMessageContent(text) {
   if (!text) return nothing;
 
-  return parseDirectives(text).map(({ kind, type, content }) => {
+  return parseDirectives(unescapeLiteralNewlines(text)).map(({ kind, type, content }) => {
     if (!content) return nothing;
     const dom = toDOM(mdast2hast(parser.parse(content)));
     return kind === 'directive' ? html`<div class="directive directive-${type}">${dom}</div>` : dom;
