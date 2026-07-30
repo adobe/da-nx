@@ -19,28 +19,15 @@ const AO_WS_BASE = {
   stage: 'wss://agent-orchestrator-stage-va7.adobe.io',
 };
 
+const AO_HTTP_BASE = {
+  prod: 'https://agent-orchestrator-prod-can2.adobe.io',
+  stage: 'https://agent-orchestrator-stage-can2.adobe.io',
+};
+
 // Manifest carrying the da-content skills (browse/create/update/delete/organize/
 // versions/media/fragment-lookup/publish/site-config) — not targeted to any segment,
 // so it must be selected explicitly per turn rather than relying on auto-selection.
 const AO_MANIFEST_ID = 'experience-workspace';
-
-// da-agent's own skills are per-site, dynamically loaded from a .da/skills config sheet
-// (see loadSiteConfig) — AO has no equivalent per-site mechanism. This manifest's skills
-// are static, baked into the da-content plugin (Adobe-AEM-Sites/experience-workspace-extensions),
-// the same set for every site. Fetching them from AO's own API would hit the same
-// CORS/entitlement wall the A2A transport did, so this is just the plugin's fixed list.
-export const AO_SKILLS = [
-  'da-content-browse',
-  'da-content-create',
-  'da-content-update',
-  'da-content-delete',
-  'da-content-organize',
-  'da-content-versions',
-  'da-content-media',
-  'da-fragment-lookup',
-  'da-content-publish',
-  'da-site-config',
-];
 
 // ims.js's own `tenantId` is prodCtx.tenant_id (a human-readable label like "sitesinternal"),
 // not the IMS Org ID AO's x-tenant-id expects (the "ORGID@AdobeOrg" shape). Pull that from
@@ -68,16 +55,31 @@ function base64ToBlob(base64, mediaType) {
   return new Blob([bytes], { type: mediaType });
 }
 
-// There's no API for listing AO's skills that isn't behind the same CORS/entitlement
-// wall as the rest of REST (see conversation history) — so this asks the agent to
-// self-report, once per episode, and caches the answer as an override for AO_SKILLS.
-// Inherently best-effort: it's an LLM describing itself in prose, not a real catalog
-// lookup, so the parsed result is validated before ever replacing the static fallback.
+// Last-resort fallback if _fetchSkillsFromApi() itself fails (network error, etc.) —
+// asks the agent to self-report its skills instead. Inherently best-effort: it's an LLM
+// describing itself in prose, not a real catalog lookup, so the parsed result is
+// validated before ever being cached.
 const SKILLS_CACHE_PREFIX = 'da-chat-ao-skills--';
 const SKILLS_PROBE_PROMPT = 'List every skill you currently have access to for this '
   + 'session for document authoring. Reply with ONLY a comma-separated list of their exact identifiers (e.g. '
   + 'da-content-create, da-content-update) and nothing else — no explanation, no numbering, '
   + 'no punctuation besides the commas.';
+
+// Confirmed shape from GET /api/v1/manifests/{manifest_id}/skills/discovered:
+// { skills: [{ name, display_name, description, path, source_name, included, hidden }], count }.
+// Respects the manifest's own included/hidden flags rather than showing everything it
+// returns — a skill marked excluded or hidden there shouldn't surface in the slash-menu.
+function parseSkillsDiscoveredResponse(json) {
+  const skills = Array.isArray(json?.skills) ? json.skills : null;
+  if (!skills) return null;
+  const ids = skills
+    .filter((s) => s?.included !== false && !s?.hidden)
+    .map((s) => s?.name)
+    .filter((s) => typeof s === 'string')
+    .map((s) => s.trim())
+    .filter((s) => /^[a-z0-9][a-z0-9_-]{1,60}$/i.test(s));
+  return ids.length ? ids : null;
+}
 
 function loadCachedSkills(room) {
   try {
@@ -165,7 +167,6 @@ export default class ChatControllerAO {
       connected: this._connected,
       toolCards: this._toolCards,
       pendingQuestion: this._pendingQuestion,
-      probingSkills: this._probingSkills,
     });
   }
 
@@ -422,14 +423,41 @@ export default class ChatControllerAO {
     }
   }
 
-  // Current best-known skill list: the once-per-episode probed/cached answer if we
-  // have one for this episode, else the static plugin-default fallback.
+  // Current best-known skill list: the once-per-episode cached/discovered answer if
+  // we have one, else empty — no static fallback list anymore, since a hardcoded guess
+  // (the old 10-item da-* list) doesn't reflect what a manifest actually exposes (this
+  // one has 27, across multiple plugins) and would be actively misleading to show.
   getSkills() {
-    return this._cachedSkills ?? AO_SKILLS;
+    return this._cachedSkills ?? [];
   }
 
-  // Reuses the cached list if it's still tied to the current episode; otherwise fires
-  // the background probe. Never blocks connect() — runs fire-and-forget.
+  // Real catalog lookup — both the IMS entitlement wall and CORS that used to block
+  // this are resolved, so this calls AO directly now. Still best-effort: a network
+  // error or unexpected response shape just returns null so the caller falls back to
+  // the self-report probe instead of throwing or caching garbage.
+  async _fetchSkillsFromApi() {
+    const {
+      accessToken, projectedProductContext,
+    } = await loadIms();
+    const orgId = getOrgId(projectedProductContext);
+    const base = AO_HTTP_BASE[env] ?? AO_HTTP_BASE.stage;
+    try {
+      const resp = await fetch(`${base}/api/v1/manifests/${AO_MANIFEST_ID}/skills/discovered`, {
+        headers: {
+          authorization: `Bearer ${accessToken?.token}`,
+          'x-tenant-id': orgId,
+        },
+      });
+      if (!resp.ok) return null;
+      return parseSkillsDiscoveredResponse(await resp.json());
+    } catch {
+      return null;
+    }
+  }
+
+  // Reuses the cached list if it's still tied to the current episode; otherwise tries
+  // the real API, falling back to the self-report probe if that doesn't pan out. Never
+  // blocks connect() — runs fire-and-forget.
   async _syncSkillsCache() {
     const room = await this._getRoom();
     const cached = loadCachedSkills(room);
@@ -437,27 +465,30 @@ export default class ChatControllerAO {
       this._cachedSkills = cached.skills;
       return;
     }
-    this._probeSkills(room);
+
+    const apiSkills = await this._fetchSkillsFromApi();
+    if (apiSkills) {
+      this._cachedSkills = apiSkills;
+      saveCachedSkills(room, this._episodeId, apiSkills);
+      return;
+    }
+
+    await this._probeSkills(room);
   }
 
   // Asks the agent to self-report its skills on its own disposable connection/episode —
   // deliberately NOT the user's real one, so it (a) never blocks real messaging, since
   // AO allows only one turn at a time per connection, and (b) never becomes part of the
-  // real episode's server-side history. probingSkills is UI-only (welcome-screen loader);
-  // nothing here touches _thinking or the main _ws at all. Best-effort throughout: an
-  // invalid/unparseable answer, timeout, or error just leaves the existing fallback
-  // (cached or static) in place rather than corrupting the cache.
+  // real episode's server-side history. Nothing here touches _thinking or the main _ws
+  // at all. Best-effort throughout: an invalid/unparseable answer, timeout, or error just
+  // leaves the existing fallback (cached or static) in place rather than corrupting the cache.
   async _probeSkills(room) {
     if (this._skillsProbeInFlight) return;
     this._skillsProbeInFlight = true;
-    this._probingSkills = true;
-    this._update();
 
     const text = await this._runSkillsProbeConnection();
 
-    this._probingSkills = false;
     this._skillsProbeInFlight = false;
-    this._update();
 
     const skills = parseSkillsResponse(text);
     if (skills) {

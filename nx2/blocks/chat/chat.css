@@ -40,7 +40,6 @@
   button {
     border: none;
     background: none;
-    padding: 0;
     cursor: pointer;
     font-family: inherit;
 
@@ -606,6 +605,10 @@
     font-size: var(--s2-body-size-xs);
     color: var(--s2-gray-600);
     overflow-wrap: break-word;
+
+    p {
+      margin: 0;
+    }
   }
 
   .approval-buttons {
@@ -646,9 +649,12 @@
   box-sizing: border-box;
 
   .question-context {
-    margin: 0;
     font-size: var(--s2-body-size-xs);
     color: var(--s2-gray-600);
+
+    p {
+      margin: 0;
+    }
   }
 
   .question-block {
@@ -665,9 +671,12 @@
   }
 
   .question-text {
-    margin: 0;
     font-size: var(--s2-body-size-s);
     color: var(--s2-gray-800);
+
+    p {
+      margin: 0;
+    }
   }
 
   .question-options {

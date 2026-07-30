@@ -44,7 +44,6 @@ class NxChat extends LitElement {
     connected: { type: Boolean },
     toolCards: { type: Object },
     pendingQuestion: { type: Object },
-    probingSkills: { type: Boolean },
     _prompts: { state: true },
     _items: { state: true },
     _dragging: { state: true },
@@ -137,6 +136,7 @@ class NxChat extends LitElement {
     // for controllers with no getSkills() of their own.
     const skillIds = this._controller?.getSkills?.() ?? this._skills;
     if (!skillIds) return [];
+    if (!skillIds.length) return [{ section: 'No skills available' }];
     const skills = skillIds.map((id) => ({ id, label: id }));
     const filtered = filter
       ? skills.filter((item) => item.id.toLowerCase().includes(filter))
@@ -214,7 +214,7 @@ class NxChat extends LitElement {
         }));
       },
       onUpdate: ({
-        messages, thinking, streamingText, connected, toolCards, pendingQuestion, probingSkills,
+        messages, thinking, streamingText, connected, toolCards, pendingQuestion,
       }) => {
         const newMessages = streamingText
           ? [...(messages ?? []), { role: ROLE.ASSISTANT, content: streamingText, streaming: true }]
@@ -229,7 +229,6 @@ class NxChat extends LitElement {
         this.connected = connected;
         this.toolCards = toolCards;
         this.pendingQuestion = pendingQuestion;
-        this.probingSkills = probingSkills;
         cancelAnimationFrame(this._updateRaf);
         this._updateRaf = requestAnimationFrame(() => {
           this.messages = newMessages;
@@ -237,7 +236,6 @@ class NxChat extends LitElement {
           this.connected = connected;
           this.toolCards = toolCards;
           this.pendingQuestion = pendingQuestion;
-          this.probingSkills = probingSkills;
         });
       },
     });
@@ -598,9 +596,6 @@ class NxChat extends LitElement {
             ></nx-chat-welcome>`
         : nothing}
         ${this.messages?.map((msg) => renderMessage(msg, this.toolCards))}
-        ${this.probingSkills
-        ? html`<div class="chat-thinking">Fetching configs…</div>`
-        : nothing}
         ${this.thinking && !this.messages?.at(-1)?.streaming
           && !this._pendingApproval() && !this.pendingQuestion
         ? html`<div class="chat-thinking">Thinking...</div>` : nothing}

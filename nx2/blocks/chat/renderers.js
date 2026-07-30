@@ -57,7 +57,7 @@ function renderApprovalCard(pending, onApprove) {
   return html`
     <div class="approval-actions">
       <span class="approval-tool-name">${toolName}</span>
-      ${summary ? html`<span class="approval-summary">${summary}</span>` : nothing}
+      ${summary ? html`<div class="approval-summary">${renderMessageContent(summary)}</div>` : nothing}
       <div class="approval-buttons">
         <button type="button" class="secondary-btn" @click=${() => onApprove(toolCallId, false)}>
           <span>Reject</span><kbd>Esc</kbd>
@@ -92,7 +92,7 @@ function renderQuestion(q, answers, onToggle, onText) {
   return html`
     <div class="question-block">
       <span class="question-header">${q.header}</span>
-      <p class="question-text">${q.question}</p>
+      <div class="question-text">${renderMessageContent(q.question)}</div>
       ${q.options?.length ? html`
         <div class="question-options">
           ${q.options.map((opt) => renderQuestionOption(q.id, opt, entry, q.multi_select, onToggle))}
@@ -115,7 +115,7 @@ function renderQuestionCard(pending, answers, {
   const { questions, context } = pending;
   return html`
     <div class="question-actions">
-      ${context ? html`<p class="question-context">${context}</p>` : nothing}
+      ${context ? html`<div class="question-context">${renderMessageContent(context)}</div>` : nothing}
       ${questions.map((q) => renderQuestion(q, answers, onToggle, onText))}
       <div class="question-buttons">
         <button type="button" class="secondary-btn" @click=${onDecline}>
