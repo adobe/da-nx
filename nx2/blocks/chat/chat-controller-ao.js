@@ -117,15 +117,18 @@ async function uploadAttachmentToAo({ fileName, mediaType, dataBase64 }) {
 
 const SKILLS_CACHE_PREFIX = 'da-chat-ao-skills--';
 
-// Confirmed shape from GET /api/v1/manifests/{manifest_id}/skills/discovered:
-// { skills: [{ name, display_name, description, path, source_name, included, hidden }], count }.
-// Respects the manifest's own included/hidden flags rather than showing everything it
-// returns — a skill marked excluded or hidden there shouldn't surface in the slash-menu.
-function parseSkillsDiscoveredResponse(json) {
+// GET /api/v1/skills?manifest_id={manifest_id} — confirmed from aep-ai's
+// apps/a2a/api/routes/skills/routes.py (list_skills), whose own docstring says it merges
+// platform + tenant/org + OWNER-SPECIFIC (personal) skills from identity headers, and is
+// what Coworker's own chat page uses. Deliberately used instead of the narrower
+// /manifests/{id}/skills/discovered (a manifest-config listing with no identity-scoping
+// at all, so it can never include personal skills — that's the gap this replaces).
+// Shape: { skills: [{ name, directory_name, hidden, user_invocable, ... }], count }.
+function parseSkillsListResponse(json) {
   const skills = Array.isArray(json?.skills) ? json.skills : null;
   if (!skills) return null;
   const ids = skills
-    .filter((s) => s?.included !== false && !s?.hidden)
+    .filter((s) => !s?.hidden && s?.user_invocable !== false)
     .map((s) => s?.name)
     .filter((s) => typeof s === 'string')
     .map((s) => s.trim())
@@ -133,21 +136,24 @@ function parseSkillsDiscoveredResponse(json) {
   return ids.length ? ids : null;
 }
 
+// Tied to the manifest, not the conversation — unlike the old LLM self-report probe,
+// a GET is cheap enough to just refresh every connect(), so this is stale-while-
+// revalidate rather than a once-per-episode cache: shows the last-known list
+// immediately, then _syncSkillsCache() overwrites it once a fresh fetch lands.
 function loadCachedSkills(room) {
   try {
     const raw = localStorage.getItem(`${SKILLS_CACHE_PREFIX}${room}`);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed?.episodeId || !Array.isArray(parsed?.skills) || !parsed.skills.length) return null;
-    return parsed;
+    const skills = JSON.parse(raw);
+    return Array.isArray(skills) && skills.length ? skills : null;
   } catch {
     return null;
   }
 }
 
-function saveCachedSkills(room, episodeId, skills) {
+function saveCachedSkills(room, skills) {
   try {
-    localStorage.setItem(`${SKILLS_CACHE_PREFIX}${room}`, JSON.stringify({ episodeId, skills }));
+    localStorage.setItem(`${SKILLS_CACHE_PREFIX}${room}`, JSON.stringify(skills));
   } catch {
     // best-effort — localStorage can throw (quota, private mode); safe to ignore
   }
@@ -479,8 +485,8 @@ export default class ChatControllerAO {
 
   // Real catalog lookup — both the IMS entitlement wall and CORS that used to block
   // this are resolved, so this calls AO directly now. Still best-effort: a network
-  // error or unexpected response shape just returns null so the caller falls back to
-  // the self-report probe instead of throwing or caching garbage.
+  // error or unexpected response shape just returns null, leaving whatever's already
+  // cached (or []) in place rather than throwing or caching garbage.
   async _fetchSkillsFromApi() {
     const {
       accessToken, projectedProductContext,
@@ -488,35 +494,34 @@ export default class ChatControllerAO {
     const orgId = getOrgId(projectedProductContext);
     const base = AO_HTTP_BASE[env] ?? AO_HTTP_BASE.stage;
     try {
-      const resp = await fetch(`${base}/api/v1/manifests/${AO_MANIFEST_ID}/skills/discovered`, {
+      const resp = await fetch(`${base}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`, {
         headers: {
           authorization: `Bearer ${accessToken?.token}`,
           'x-tenant-id': orgId,
         },
       });
       if (!resp.ok) return null;
-      return parseSkillsDiscoveredResponse(await resp.json());
+      return parseSkillsListResponse(await resp.json());
     } catch {
       return null;
     }
   }
 
-  // Reuses the cached list if it's still tied to the current episode; otherwise tries
-  // the real API. No probe/self-report fallback anymore — if the API call fails,
-  // getSkills() just returns [] (chat.js shows "No skills available") until the next
-  // connect() retries. Never blocks connect() — runs fire-and-forget.
+  // Stale-while-revalidate: shows the last-known list immediately (so the slash-menu
+  // isn't empty while this resolves), then refreshes from the real API in the
+  // background and updates both the in-memory list and localStorage once that lands.
+  // No probe/self-report fallback anymore — if the API call fails, the stale cached
+  // list (or [] if there never was one) just stays until the next connect() retries.
+  // Never blocks connect() — runs fire-and-forget.
   async _syncSkillsCache() {
     const room = await this._getRoom();
     const cached = loadCachedSkills(room);
-    if (cached && cached.episodeId === this._episodeId) {
-      this._cachedSkills = cached.skills;
-      return;
-    }
+    if (cached) this._cachedSkills = cached;
 
     const apiSkills = await this._fetchSkillsFromApi();
     if (apiSkills) {
       this._cachedSkills = apiSkills;
-      saveCachedSkills(room, this._episodeId, apiSkills);
+      saveCachedSkills(room, apiSkills);
     }
   }
 
@@ -544,10 +549,9 @@ export default class ChatControllerAO {
     this._episodeId = undefined;
     this._pendingQuestion = null;
     this._toolCards = new Map();
-    // Old episode is gone — its cached skills answer doesn't apply to the fresh one
-    // connect() is about to open; _syncSkillsCache() will re-fetch once it has a
-    // real episode id again.
-    this._cachedSkills = null;
+    // _cachedSkills is deliberately left as-is — it's tied to the manifest, not the
+    // episode being cleared, so the slash-menu keeps showing it through the reconnect
+    // rather than blanking until _syncSkillsCache() re-fetches.
     this._update();
     const room = await this._getRoom();
     resetSession(room, undefined);
