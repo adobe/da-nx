@@ -118,6 +118,12 @@
   gap: var(--s2-spacing-100);
 }
 
+/* A multi-line field is tall, so its action sits at the top (first line)
+   rather than floating in the vertical center of the box. */
+.editor-root .form-array-item-input-row:has(> form-textarea) {
+  align-items: flex-start;
+}
+
 .editor-root .form-node.is-active > .form-node-title,
 .editor-root .form-node.is-active > .form-node-header > .form-node-title,
 .editor-root
@@ -128,6 +134,7 @@
 }
 
 .editor-root form-input,
+.editor-root form-textarea,
 .editor-root form-number-field,
 .editor-root form-picker,
 .editor-root form-checkbox {
@@ -136,6 +143,7 @@
 }
 
 .editor-root .form-array-item-primitive form-input,
+.editor-root .form-array-item-primitive form-textarea,
 .editor-root .form-array-item-primitive form-number-field,
 .editor-root .form-array-item-primitive form-picker,
 .editor-root .form-array-item-primitive form-checkbox {
@@ -145,6 +153,7 @@
 /* In a primitive array row the field takes the remaining width and the action
    sits beside it. */
 .editor-root .form-array-item-input-row > form-input,
+.editor-root .form-array-item-input-row > form-textarea,
 .editor-root .form-array-item-input-row > form-number-field,
 .editor-root .form-array-item-input-row > form-picker,
 .editor-root .form-array-item-input-row > form-checkbox {
