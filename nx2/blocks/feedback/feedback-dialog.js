@@ -172,8 +172,8 @@ class NxFeedbackDialog extends LitElement {
           <p class="feedback-intro"><span>Your name, email and current page will be shared with the team.</span></p>
           ${this._submitError ? html`<p class="nx-input-error-msg">${this._submitError}</p>` : nothing}
         </div>
-        <button type="button" class="nx-btn-secondary" slot="actions" @click=${this.close}>Cancel</button>
-        <button type="button" class="nx-btn-primary" slot="actions" ?disabled=${this._submitting} @click=${this._handleSubmit}>${this._submitting ? 'Submitting\u2026' : 'Submit'}</button>
+        <button type="button" class="nx-form-btn-secondary" slot="actions" @click=${this.close}>Cancel</button>
+        <button type="button" class="nx-form-btn-primary" slot="actions" ?disabled=${this._submitting} @click=${this._handleSubmit}>${this._submitting ? 'Submitting\u2026' : 'Submit'}</button>
       </nx-dialog>
     `;
   }
