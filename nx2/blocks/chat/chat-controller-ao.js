@@ -36,6 +36,18 @@ function getOrgId(projectedProductContext) {
   return projectedProductContext?.find((p) => p.prodCtx?.owningEntity)?.prodCtx.owningEntity;
 }
 
+// AO's episode_id is a numeric Snowflake id (ws_handler.py accepts 'new' or a numeric
+// string; anything else is resolved as an external session/context id, which only
+// works if that id was previously mapped to an episode on this AO deployment). This
+// same IndexedDB room key is also written by chat-controller.js (the non-AO chat
+// path), which persists its own client-invented `crypto.randomUUID()` as sessionId —
+// never registered with AO. Without this guard, a room that ever ran under the old
+// controller hands that UUID back here as `this._episodeId`, sent straight to
+// `/ws/sessions/{uuid}`, which AO correctly rejects as "Invalid episode_id".
+function isAoEpisodeId(id) {
+  return id != null && /^\d+$/.test(String(id));
+}
+
 // Public spec calls this event "question" with answers shaped {id, value} — the real
 // server (aep_ai_runtime.agents.events.SessionEvent.user_question) emits "user_question"
 // and expects answers shaped {question_id, selected_options: [...]} instead. Same mismatch
@@ -192,7 +204,7 @@ export default class ChatControllerAO {
     const room = await this._getRoom();
     const { messages, sessionId: episodeId } = await loadMessages(room);
     if (messages.length) this._messages = messages;
-    this._episodeId = episodeId ?? undefined;
+    this._episodeId = isAoEpisodeId(episodeId) ? episodeId : undefined;
   }
 
   _persist() {
