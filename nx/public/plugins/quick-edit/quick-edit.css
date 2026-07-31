@@ -282,6 +282,7 @@ da-palette .da-palette-field {
   left: 0;
   pointer-events: none;
   z-index: 9999;
+  box-sizing: border-box;
 }
 
 .qe-selected-box {
@@ -292,6 +293,7 @@ da-palette .da-palette-field {
   outline: 2px solid var(--s2-blue-600);
   background: transparent;
   pointer-events: none;
+  box-sizing: border-box;
 }
 
 .qe-hover-box {
@@ -302,37 +304,57 @@ da-palette .da-palette-field {
   outline: 1px solid var(--s2-blue-600);
   background: transparent;
   pointer-events: none;
+  box-sizing: border-box;
 }
 
-.qe-selected-pill {
+#qe-selection-overlay .qe-selected-pill {
   position: absolute;
   top: 0;
   left: 0;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  max-width: none;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
   background: var(--s2-blue-600);
   color: #fff;
-  font-family: inherit;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 12px;
+  font-style: normal;
   font-weight: 600;
   line-height: 1.4;
-  border: 0;
+  letter-spacing: normal;
+  text-align: left;
+  text-decoration: none;
+  text-transform: none;
   white-space: nowrap;
-  pointer-events: none; 
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  box-sizing: border-box;
+  pointer-events: none;
   z-index: 1;
 }
 
-.qe-selected-pill.is-hover {
+#qe-selection-overlay .qe-selected-pill.is-hover {
   pointer-events: auto;
   cursor: pointer;
 }
 
-.qe-pill-grip {
+#qe-selection-overlay .qe-pill-grip {
   width: 12px;
   height: 12px;
   flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
   background-color: currentcolor;
   mask: url("/nx/img/icons/S2_Icon_Select_20_N.svg") no-repeat center / contain;
+  box-sizing: border-box;
 }

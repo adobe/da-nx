@@ -150,7 +150,6 @@ function handleUndoRedo(view, event, port) {
 
       port.postMessage({
         type: MESSAGE_TYPES.HISTORY,
-        action,
         payload: { action },
       });
 

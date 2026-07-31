@@ -1,5 +1,25 @@
 # Worklog
 
+## 2026-07-30
+
+### nx2/utils/api.js — normalize hlx6 `source.save` response to `{ source: { contentUrl } }` (#631)
+
+The hlx6 source-bus save endpoint (`${AEM_API}/{org}/sites/{site}/source{path}`) returns a **200 with an empty body**, whereas DA returns `{ source: { contentUrl } }`. da-live's image-upload plugin (`blocks/edit/prose/plugins/imageDrop.js`) calls `resp.json()` on the save result and reads `json.source.contentUrl`; on hlx6 the empty body made `resp.json()` throw `SyntaxError: Unexpected end of JSON input`. Because the caller is an un-awaited async fn, the throw became an unhandled rejection and the FPO-placeholder → real-image swap never ran — the placeholder stuck around and published with a stale hlx5 fragment, so preview couldn't find the image.
+
+Fix: on a successful hlx6 save, shadow the Response's `json()` (new `withSourceJson` helper) so it resolves to `{ source: { contentUrl } }` with `contentUrl` = the source URL just written (`${AEM_API}/{org}/sites/{site}/source{path}`). Non-ok responses pass through untouched so callers' error handling is unchanged. Only `imageDrop.js` reads the save body — every other da-live `source.save` consumer checks `resp.ok` only — so the change is contained. Updated `nx2/utils/api.md`; added two tests.
+
+## 2026-07-23
+
+### nx2/utils/api.js — org-level listing merges DA-legacy and hlx6 source-bus sites (da-live#1169)
+
+`source.list({ org })` (no `site`) previously only queried `${DA_ADMIN}/list/{org}`, so hlx6-upgraded sites were invisible in org-level listings. Now, when `site` is omitted, it fires both the DA-legacy list and `org.listSites({ org })` in parallel, normalizes each via `hlx6ToDaList`, and dedupes the combined items by `name` (legacy entry wins on a name collision). `ok` is true if either call succeeds, so a 404 from either side (non-migrated org, or an org with no legacy DA content) doesn't blank out the other's results. Only DA returns a `continuationToken` — hlx6 has no pagination — so `org.listSites` is only queried on the first page (`continuationToken` absent); later pages skip it entirely instead of redundantly re-merging the same unpaginated site list each time (caught in review).
+
+Also fixed `org.listSites`: was hitting the wrong (unused/stubbed) endpoint `${AEM_API}/{org}/sites`; corrected to `${AEM_API}/{org}/source/` per the source-bus API.
+
+New internal helpers `parseListItems` (ok-check + parse-or-`[]`) and `dedupeByName`, alongside `hlx6ToDaList`. Updated `api.d.ts`/`api.md` accordingly. Consumers in `da-live` (`da-sites.js`/`da-list.js`) and its `test/fixtures/nx2/utils/api.js` mirror need no da-nx-side change but should be synced manually — out of scope for this repo.
+
+**Test-suite flake fixed in passing:** `test/nx2/utils/api.test.js`'s outer `beforeEach` did a blanket `localStorage.removeItem('hlx6-upgrade')`. Since `tree.test.js` seeds the same shared-origin key for its own hlx6 tests, and wtr runs test files concurrently (`--concurrent-browsers 4`) with a shared localStorage, this occasionally wiped `tree.test.js`'s seeded entry mid-run, causing intermittent unrelated failures. Removed the clear — every `org`/`site` pair in `api.test.js` already comes from a randomized `uniq()` helper, so the blanket clear was never actually load-bearing.
+
 ## 2026-07-14
 
 ### nx2/styles/styles.css — pin to light mode

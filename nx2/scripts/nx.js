@@ -328,11 +328,6 @@ export async function loadArea({ area } = { area: document }) {
       import('../utils/org-check.js');
     }
   }
-
-  if (isDoc && localStorage.getItem('nx-panels')) {
-    const { restorePanels } = await import('../utils/panel.js');
-    await restorePanels();
-  }
 }
 
 const cache = {};
