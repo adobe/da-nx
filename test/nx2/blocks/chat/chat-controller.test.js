@@ -1,33 +1,32 @@
 import { expect } from '@esm-bundle/chai';
-import ChatController, {
-  stripOrphanedToolCallMessages,
-  reconstructToolCards,
-} from '../../../../nx2/blocks/chat/chat-controller.js';
-import { TOOL_NAME } from '../../../../nx2/blocks/chat/constants.js';
+import ChatController, { migrateHistory } from '../../../../nx2/blocks/chat/chat-controller.js';
+import { TOOL_NAME, TOOL_STATE } from '../../../../nx2/blocks/chat/constants.js';
 
 const TURN = 'turn-current';
 const OTHER_TURN = 'turn-previous';
 
-// Build a controller with a known message history and current turn, then read back
-// what would actually be POSTed to the (stateless) agent.
-function agentMessages(messages, currentTurnId = TURN) {
+function makeController() {
   const controller = new ChatController({ onUpdate() {}, onToolDone() {} });
-  controller._messages = messages;
-  controller._currentTurnId = currentTurnId;
-  return controller._messagesForAgent();
+  controller._messages = [];
+  controller._currentTurnId = TURN;
+  return controller;
 }
 
-// A completed non-approval tool call (e.g. content_read) as the UI stores it.
-const virtualRead = (toolCallId, turnId, output) => ({
+// A v2 assistant message wrapping a single tool part.
+const toolMsg = (part, turnId = TURN) => ({
   role: 'assistant',
-  virtual: true,
   turnId,
-  toolResult: { output },
-  content: [{ type: 'tool-call', toolCallId, toolName: 'content_read', input: { path: '/x' } }],
+  content: [{ type: 'tool', ...part }],
 });
 
 describe('chat-controller _messagesForAgent', () => {
-  it('passes non-virtual messages through unchanged', () => {
+  function agentMessages(messages) {
+    const controller = makeController();
+    controller._messages = messages;
+    return controller._messagesForAgent();
+  }
+
+  it('passes plain messages through unchanged', () => {
     const msgs = [
       { role: 'user', content: 'hello' },
       { role: 'assistant', content: 'hi there' },
@@ -35,76 +34,180 @@ describe('chat-controller _messagesForAgent', () => {
     expect(agentMessages(msgs)).to.deep.equal(msgs);
   });
 
-  it('replays a current-turn content_read as a paired tool-call + tool-result', () => {
-    const output = { content: '<p>surf</p>', blocks: [{ locator: 'abc' }] };
-    const result = agentMessages([
-      { role: 'user', content: 'add fishing para' },
-      virtualRead('r1', TURN, output),
-    ]);
-
-    expect(result).to.have.lengthOf(3);
-    expect(result[0]).to.deep.equal({ role: 'user', content: 'add fishing para' });
-    expect(result[1]).to.deep.equal({
-      role: 'assistant',
-      content: [{ type: 'tool-call', toolCallId: 'r1', toolName: 'content_read', input: { path: '/x' } }],
-    });
-    expect(result[2]).to.deep.equal({
-      role: 'tool',
-      content: [{ type: 'tool-result', toolCallId: 'r1', toolName: 'content_read', output: { type: 'json', value: output } }],
-    });
+  it('keeps current-turn tool parts', () => {
+    const msgs = [
+      { role: 'user', content: 'go' },
+      toolMsg({ toolCallId: 'r1', toolName: 'content_read', input: { path: '/x' }, state: TOOL_STATE.OUTPUT_AVAILABLE, output: {} }),
+    ];
+    expect(agentMessages(msgs)).to.deep.equal(msgs);
   });
 
-  it('wraps a string tool output as a text part', () => {
-    const result = agentMessages([virtualRead('r1', TURN, 'plain text')]);
-    expect(result[1].content[0].output).to.deep.equal({ type: 'text', value: 'plain text' });
-  });
-
-  it('drops tool I/O from previous turns to keep the payload bounded', () => {
+  it('drops prior-turn non-gated tool reads to keep the payload bounded', () => {
     const result = agentMessages([
-      virtualRead('old', OTHER_TURN, { content: 'stale' }),
+      toolMsg({ toolCallId: 'old', toolName: 'content_read', input: {}, state: TOOL_STATE.OUTPUT_AVAILABLE, output: {} }, OTHER_TURN),
       { role: 'user', content: 'new question' },
-      virtualRead('new', TURN, { content: 'fresh' }),
+      toolMsg({ toolCallId: 'new', toolName: 'content_read', input: {}, state: TOOL_STATE.OUTPUT_AVAILABLE, output: {} }, TURN),
     ]);
-    const readIds = result
+    const ids = result
       .flatMap((m) => (Array.isArray(m.content) ? m.content : []))
-      .filter((p) => p.type === 'tool-call')
+      .filter((p) => p.type === 'tool')
       .map((p) => p.toolCallId);
-    expect(readIds).to.deep.equal(['new']); // 'old' dropped
+    expect(ids).to.deep.equal(['new']); // 'old' dropped
   });
 
-  it('drops the virtual twin of an approval tool already represented by a real tool-call', () => {
+  it('keeps prior-turn approval-gated tool parts (record of destructive actions)', () => {
     const result = agentMessages([
-      // Real (non-virtual) approval message for content_replace.
+      toolMsg({
+        toolCallId: 'w1', toolName: 'content_create', input: {}, state: TOOL_STATE.OUTPUT_AVAILABLE, output: {}, approvalRequired: true,
+      }, OTHER_TURN),
+      { role: 'user', content: 'next' },
+    ]);
+    const ids = result
+      .flatMap((m) => (Array.isArray(m.content) ? m.content : []))
+      .filter((p) => p.type === 'tool')
+      .map((p) => p.toolCallId);
+    expect(ids).to.deep.equal(['w1']); // gated part retained across turns
+  });
+});
+
+describe('chat-controller _onToolEvent', () => {
+  it('creates an in-flight tool part on tool-input-available', () => {
+    const c = makeController();
+    c._onToolEvent({ type: 'tool-input-available', toolCallId: 't1', toolName: 'content_create', input: { path: '/a' } });
+    const card = c._deriveToolCards().get('t1');
+    expect(card.state).to.equal(TOOL_STATE.INPUT_AVAILABLE);
+    expect(card.toolName).to.equal('content_create');
+  });
+
+  it('moves a part to awaiting-approval on tool-approval-request', () => {
+    const c = makeController();
+    c._onToolEvent({ type: 'tool-input-available', toolCallId: 't1', toolName: 'content_create', input: {} });
+    c._onToolEvent({ type: 'tool-approval-request', toolCallId: 't1' });
+    expect(c._deriveToolCards().get('t1').state).to.equal(TOOL_STATE.AWAITING_APPROVAL);
+  });
+
+  it('auto-approves an approval request for an always-approved tool', () => {
+    const c = makeController();
+    c._autoApprovedTools = new Set(['content_create']);
+    c._onToolEvent({ type: 'tool-input-available', toolCallId: 't1', toolName: 'content_create', input: {} });
+    c._onToolEvent({ type: 'tool-approval-request', toolCallId: 't1' });
+    expect(c._deriveToolCards().get('t1').state).to.equal(TOOL_STATE.APPROVED);
+  });
+
+  it('settles a part on tool-output-available', () => {
+    const c = makeController();
+    c._onToolEvent({ type: 'tool-input-available', toolCallId: 't1', toolName: 'content_read', input: {} });
+    c._onToolEvent({ type: 'tool-output-available', toolCallId: 't1', output: { ok: true } });
+    const card = c._deriveToolCards().get('t1');
+    expect(card.state).to.equal(TOOL_STATE.OUTPUT_AVAILABLE);
+    expect(card.output).to.deep.equal({ ok: true });
+  });
+});
+
+describe('chat-controller approveToolCall (batching)', () => {
+  // Seed two gated tool parts awaiting approval and stub the network round.
+  function seedTwoAwaiting() {
+    const c = makeController();
+    const streamCalls = [];
+    c._connected = true;
+    c._stream = async (pc) => { streamCalls.push(pc); };
+    c._messages = [
+      toolMsg({ toolCallId: 'a', toolName: 'content_create', input: {}, state: TOOL_STATE.AWAITING_APPROVAL, approvalRequired: true }),
+      toolMsg({ toolCallId: 'b', toolName: 'content_create', input: {}, state: TOOL_STATE.AWAITING_APPROVAL, approvalRequired: true }),
+    ];
+    return { c, streamCalls };
+  }
+
+  it('does not POST until the whole queue is drained, then POSTs once', async () => {
+    const { c, streamCalls } = seedTwoAwaiting();
+
+    await c.approveToolCall('a', true);
+    expect(streamCalls).to.have.lengthOf(0); // 'b' still awaiting
+    expect(c._deriveToolCards().get('a').state).to.equal(TOOL_STATE.APPROVED);
+
+    await c.approveToolCall('b', true);
+    expect(streamCalls).to.have.lengthOf(1); // single batched POST
+    expect(c._deriveToolCards().get('b').state).to.equal(TOOL_STATE.APPROVED);
+  });
+
+  it('marks the batch as sent so it cannot resend', async () => {
+    const { c } = seedTwoAwaiting();
+    await c.approveToolCall('a', true);
+    await c.approveToolCall('b', true);
+    expect([...c._sentToolCallIds].sort()).to.deep.equal(['a', 'b']);
+    expect(c._pendingUnsent()).to.have.lengthOf(0);
+  });
+
+  it('"always approve" drains the rest of the same-tool queue and POSTs once', async () => {
+    const { c, streamCalls } = seedTwoAwaiting();
+    await c.approveToolCall('a', true, true);
+    expect(c._deriveToolCards().get('b').state).to.equal(TOOL_STATE.APPROVED);
+    expect(c._autoApprovedTools.has('content_create')).to.equal(true);
+    expect(streamCalls).to.have.lengthOf(1);
+  });
+
+  it('reject-all still POSTs once so the agent can respond', async () => {
+    const { c, streamCalls } = seedTwoAwaiting();
+    await c.approveToolCall('a', false);
+    expect(streamCalls).to.have.lengthOf(0); // 'b' still awaiting
+    await c.approveToolCall('b', false);
+    expect(streamCalls).to.have.lengthOf(1);
+    expect(c._deriveToolCards().get('a').state).to.equal(TOOL_STATE.REJECTED);
+    expect(c._deriveToolCards().get('b').state).to.equal(TOOL_STATE.REJECTED);
+  });
+});
+
+describe('chat-controller migrateHistory (v1 → v2)', () => {
+  it('collapses a v1 tool-call + role:tool tool-result into a v2 tool part', () => {
+    const out = migrateHistory([
       {
         role: 'assistant',
-        content: [
-          { type: 'tool-call', toolCallId: 'w1', toolName: 'content_replace', input: {} },
-          { type: 'tool-approval-request', approvalId: 'a1', toolCallId: 'w1' },
-        ],
+        content: [{ type: 'tool-call', toolCallId: 'r1', toolName: 'content_read', input: { path: '/x' } }],
       },
-      { role: 'tool', content: [{ type: 'tool-approval-response', approvalId: 'a1', approved: true }] },
-      // Virtual DONE twin for the same call — must NOT be re-sent (would duplicate w1).
+      { role: 'tool', content: [{ type: 'tool-result', toolCallId: 'r1', output: { type: 'json', value: { ok: true } } }] },
+    ]);
+    expect(out).to.have.lengthOf(1);
+    expect(out[0].content[0]).to.deep.include({
+      type: 'tool', toolCallId: 'r1', toolName: 'content_read', state: TOOL_STATE.OUTPUT_AVAILABLE,
+    });
+    expect(out[0].content[0].output).to.deep.equal({ ok: true });
+  });
+
+  it('migrates a v1 virtual read using its stored toolResult', () => {
+    const out = migrateHistory([
       {
         role: 'assistant',
         virtual: true,
         turnId: TURN,
-        toolResult: { output: { updated: true } },
-        content: [{ type: 'tool-call', toolCallId: 'w1', toolName: 'content_replace', input: {} }],
+        toolResult: { output: 'plain' },
+        content: [{ type: 'tool-call', toolCallId: 'r1', toolName: 'content_read', input: {} }],
       },
     ]);
-
-    const w1Calls = result
-      .filter((m) => m.role === 'assistant' && Array.isArray(m.content))
-      .flatMap((m) => m.content)
-      .filter((p) => p.type === 'tool-call' && p.toolCallId === 'w1');
-    expect(w1Calls).to.have.lengthOf(1); // exactly one, from the real approval message
+    expect(out[0].content[0].state).to.equal(TOOL_STATE.OUTPUT_AVAILABLE);
+    expect(out[0].content[0].output).to.equal('plain');
+    expect(out[0].virtual).to.equal(undefined);
   });
 
-  it('skips a current-turn virtual message that has no stored output', () => {
-    const result = agentMessages([
-      { role: 'assistant', virtual: true, turnId: TURN, content: [{ type: 'tool-call', toolCallId: 'r1', toolName: 'content_read', input: {} }] },
+  it('drops unresolved v1 tool-calls and approval artifacts', () => {
+    const out = migrateHistory([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'tool-call', toolCallId: 'w1', toolName: 'content_create', input: {} },
+          { type: 'tool-approval-request', approvalId: 'a1', toolCallId: 'w1' },
+        ],
+      },
+      { role: 'tool', content: [{ type: 'tool-approval-response', approvalId: 'a1', approved: true }] },
     ]);
-    expect(result).to.deep.equal([]); // no orphan tool-call emitted
+    expect(out).to.deep.equal([]); // nothing resolved → all dropped
+  });
+
+  it('passes plain text messages through', () => {
+    const msgs = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: 'hello' },
+    ];
+    expect(migrateHistory(msgs)).to.deep.equal(msgs);
   });
 });
 
@@ -126,160 +229,63 @@ describe('chat-controller _pageContextForAgent', () => {
   });
 });
 
-describe('chat-controller reload persistence (cards survive refresh)', () => {
-  const virtualMockTool = (toolCallId, output) => ({
-    role: 'assistant',
-    virtual: true,
-    turnId: 't',
-    toolResult: { output },
-    content: [{
-      type: 'tool-call', toolCallId, toolName: 'mock_tool', input: { url: 'x' },
-    }],
-  });
-
-  it('keeps a self-resolved virtual tool card (result stored inline, no role:tool message)', () => {
-    const msgs = [
-      { role: 'user', content: 'evaluate the page' },
-      virtualMockTool('t1', { brand_name: 'X' }),
-    ];
-    const kept = stripOrphanedToolCallMessages(msgs);
-    expect(kept).to.have.lengthOf(2); // the virtual card message is NOT stripped
-  });
-
-  it('still strips a virtual message with no stored result (incomplete run)', () => {
-    const running = {
-      role: 'assistant',
-      virtual: true,
-      turnId: 't',
-      content: [{ type: 'tool-call', toolCallId: 't1', toolName: 'mock_tool', input: {} }],
-    };
-    const kept = stripOrphanedToolCallMessages([{ role: 'user', content: 'hi' }, running]);
-    expect(kept).to.deep.equal([{ role: 'user', content: 'hi' }]);
-  });
-
-  it('reconstructs a tool card with its stored output and DONE state', () => {
-    const cards = reconstructToolCards([virtualMockTool('t1', { brand_name: 'X' })]);
-    expect(cards.get('t1')).to.deep.equal({
-      toolName: 'mock_tool',
-      input: { url: 'x' },
-      output: { brand_name: 'X' },
-      state: 'done',
-    });
-  });
-
-  it('reconstructs an errored tool card with ERROR state', () => {
-    const cards = reconstructToolCards([virtualMockTool('t1', { error: 'nope' })]);
-    expect(cards.get('t1').state).to.equal('error');
-    expect(cards.get('t1').output).to.deep.equal({ error: 'nope' });
-  });
-});
-
 describe('chat-controller continuation gate', () => {
-  function makeController() {
-    const controller = new ChatController({ onUpdate() {}, onToolDone() {} });
-    controller._messages = [];
-    controller._toolCards = new Map();
-    return controller;
+  const EVALUATE_PAGE = `mcp__mock-server__${TOOL_NAME.EVALUATE_PAGE}`;
+
+  // Drive a tool through to a completed (output-available) part, as the stream would.
+  function runToolToDone(controller, toolCallId, output = {}, toolName = EVALUATE_PAGE) {
+    controller._onToolEvent({
+      type: 'tool-input-available', toolCallId, toolName, input: { url: 'x' },
+    });
+    controller._onToolEvent({
+      type: 'tool-output-available', toolCallId, toolName, output,
+    });
   }
 
-  it('flags a DONE tool card as continuationPending without pushing to _messages', () => {
+  it('flags a completed tool card as continuationPending without pushing to _messages', () => {
     const controller = makeController();
-    controller._toolCards.set('t1', {
-      toolName: 'mock_tool', state: 'done', output: {},
-    });
+    runToolToDone(controller, 't1', { brand_name: 'X' });
+    const before = controller._messages.length;
     controller._onToolEvent({
-      type: 'data-continuation', toolCallId: 't1', toolName: 'mock_tool',
+      type: 'data-continuation', toolCallId: 't1', toolName: EVALUATE_PAGE,
     });
-    expect(controller._toolCards.get('t1').continuationPending).to.equal(true);
-    expect(controller._toolCards.get('t1').state).to.equal('done'); // still shows its result
-    expect(controller._messages).to.deep.equal([]);
+    const card = controller._deriveToolCards().get('t1');
+    expect(card.continuationPending).to.equal(true);
+    expect(card.state).to.equal(TOOL_STATE.OUTPUT_AVAILABLE); // still shows its result
+    expect(controller._messages.length).to.equal(before); // the gate persists nothing
   });
 
-  it('ignores a continuation event for an unknown tool card', () => {
+  it('ignores a continuation event for an unknown tool call', () => {
     const controller = makeController();
     controller._onToolEvent({ type: 'data-continuation', toolCallId: 'nope' });
-    expect(controller._toolCards.has('nope')).to.equal(false);
-  });
-
-  it('creates a message at tool-call time for evaluate_page so its loading card renders', () => {
-    const controller = makeController();
-    controller._onToolEvent({
-      type: 'tool-call', toolCallId: 't1', toolName: `mcp__mock-server__${TOOL_NAME.EVALUATE_PAGE}`, input: { url: 'x' },
-    });
-    const running = controller._messages.filter(
-      (m) => Array.isArray(m.content)
-        && m.content.some((p) => p.type === 'tool-call' && p.toolCallId === 't1'),
-    );
-    expect(running).to.have.lengthOf(1); // message exists → renderToolCard shows loading
-    expect(controller._toolCards.get('t1').state).to.equal('running');
-  });
-
-  it('updates the running evaluate_page message in place on result (no duplicate card)', () => {
-    const controller = makeController();
-    controller._onToolEvent({
-      type: 'tool-call', toolCallId: 't1', toolName: `mcp__mock-server__${TOOL_NAME.EVALUATE_PAGE}`, input: { url: 'x' },
-    });
-    controller._onToolEvent({
-      type: 'tool-result', toolCallId: 't1', toolName: `mcp__mock-server__${TOOL_NAME.EVALUATE_PAGE}`, output: { brand_name: 'X' },
-    });
-    const msgs = controller._messages.filter(
-      (m) => Array.isArray(m.content)
-        && m.content.some((p) => p.type === 'tool-call' && p.toolCallId === 't1'),
-    );
-    expect(msgs).to.have.lengthOf(1); // updated in place, not duplicated
-    expect(msgs[0].toolResult).to.deep.equal({ output: { brand_name: 'X' } });
-    expect(controller._toolCards.get('t1').state).to.equal('done');
-  });
-
-  it('does not pre-create a message for a running non-loading tool', () => {
-    const controller = makeController();
-    controller._onToolEvent({
-      type: 'tool-call', toolCallId: 'r1', toolName: 'content_read', input: { path: '/x' },
-    });
-    expect(controller._messages).to.deep.equal([]); // unchanged behavior for generic tools
-  });
-
-  it('renders a card for an errored tool result (creates a message, not just a Map entry)', () => {
-    const controller = makeController();
-    controller._onToolEvent({
-      type: 'tool-call', toolCallId: 't1', toolName: 'mock_tool', input: { url: 'x' },
-    });
-    controller._onToolEvent({
-      type: 'tool-result', toolCallId: 't1', toolName: 'mock_tool', output: { error: 'boom' }, isError: true,
-    });
-    // renderToolCard only fires for tool-call parts in _messages, so an error must
-    // produce a message — otherwise the failed tool's result never renders.
-    const rendered = controller._messages.some(
-      (m) => Array.isArray(m.content)
-        && m.content.some((p) => p.type === 'tool-call' && p.toolCallId === 't1'),
-    );
-    expect(rendered).to.equal(true);
-    expect(controller._toolCards.get('t1').state).to.equal('error');
-    expect(controller._toolCards.get('t1').output).to.deep.equal({ error: 'boom' });
+    expect(controller._deriveToolCards().has('nope')).to.equal(false);
+    expect(controller._continuationPendingIds?.has('nope') ?? false).to.equal(false);
   });
 
   it('continueExecution clears the flag and re-streams', async () => {
     const controller = makeController();
-    controller._toolCards.set('t1', { toolName: 'x', state: 'done', continuationPending: true });
+    runToolToDone(controller, 't1');
+    controller._onToolEvent({ type: 'data-continuation', toolCallId: 't1', toolName: EVALUATE_PAGE });
     controller._pageContextForAgent = () => ({});
     let streamed = 0;
     controller._stream = async () => { streamed += 1; };
     await controller.continueExecution();
     expect(streamed).to.equal(1);
-    expect(controller._toolCards.get('t1').continuationPending).to.equal(false);
+    expect(controller._deriveToolCards().get('t1').continuationPending).to.equal(false);
   });
 
   it('stopExecution records a user message and does not re-stream', async () => {
     const controller = makeController();
     controller._getRoom = async () => 'room';
-    controller._toolCards.set('t1', { toolName: 'x', state: 'done', continuationPending: true });
+    runToolToDone(controller, 't1');
+    controller._onToolEvent({ type: 'data-continuation', toolCallId: 't1', toolName: EVALUATE_PAGE });
     let streamed = false;
     controller._stream = async () => { streamed = true; };
     await controller.stopExecution();
-    expect(controller._messages).to.deep.equal([
+    expect(controller._messages.at(-1)).to.deep.equal(
       { role: 'user', content: 'User decided not to continue further.' },
-    ]);
-    expect(controller._toolCards.get('t1').continuationPending).to.equal(false);
+    );
+    expect(controller._deriveToolCards().get('t1').continuationPending).to.equal(false);
     expect(streamed).to.equal(false);
   });
 });

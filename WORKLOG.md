@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-07-30
+
+### nx2/utils/api.js — normalize hlx6 `source.save` response to `{ source: { contentUrl } }` (#631)
+
+The hlx6 source-bus save endpoint (`${AEM_API}/{org}/sites/{site}/source{path}`) returns a **200 with an empty body**, whereas DA returns `{ source: { contentUrl } }`. da-live's image-upload plugin (`blocks/edit/prose/plugins/imageDrop.js`) calls `resp.json()` on the save result and reads `json.source.contentUrl`; on hlx6 the empty body made `resp.json()` throw `SyntaxError: Unexpected end of JSON input`. Because the caller is an un-awaited async fn, the throw became an unhandled rejection and the FPO-placeholder → real-image swap never ran — the placeholder stuck around and published with a stale hlx5 fragment, so preview couldn't find the image.
+
+Fix: on a successful hlx6 save, shadow the Response's `json()` (new `withSourceJson` helper) so it resolves to `{ source: { contentUrl } }` with `contentUrl` = the source URL just written (`${AEM_API}/{org}/sites/{site}/source{path}`). Non-ok responses pass through untouched so callers' error handling is unchanged. Only `imageDrop.js` reads the save body — every other da-live `source.save` consumer checks `resp.ok` only — so the change is contained. Updated `nx2/utils/api.md`; added two tests.
+
 ## 2026-07-23
 
 ### nx2/utils/api.js — org-level listing merges DA-legacy and hlx6 source-bus sites (da-live#1169)

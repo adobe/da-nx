@@ -99,13 +99,13 @@ describe('renderMessage — EVALUATE_PAGE tool card (post-approval)', () => {
     ]);
     const msg = {
       role: 'assistant',
-      content: [{ type: 'tool-call', toolCallId }],
+      content: [{ type: 'tool', toolCallId }],
     };
     return { msg, toolCards };
   }
 
   it('renders nx-governance-evaluation-card populated from the tool result (output), not the call input', async () => {
-    const { msg, toolCards } = makeMsg(TOOL_STATE.DONE);
+    const { msg, toolCards } = makeMsg(TOOL_STATE.OUTPUT_AVAILABLE);
     const result = renderMessage(msg, toolCards, null);
     const container = await renderToDOM(result);
     document.body.appendChild(container);
@@ -126,12 +126,12 @@ describe('renderMessage — EVALUATE_PAGE tool card (post-approval)', () => {
     const toolCards = new Map([
       [toolCallId, {
         toolName: TOOL_NAME.EVALUATE_PAGE,
-        state: TOOL_STATE.DONE,
+        state: TOOL_STATE.OUTPUT_AVAILABLE,
         input: MOCK_TOOL_INPUT,
         output: JSON.stringify(MOCK_EVALUATION),
       }],
     ]);
-    const msg = { role: 'assistant', content: [{ type: 'tool-call', toolCallId }] };
+    const msg = { role: 'assistant', content: [{ type: 'tool', toolCallId }] };
     const container = await renderToDOM(renderMessage(msg, toolCards, null));
     document.body.appendChild(container);
     try {
@@ -145,14 +145,14 @@ describe('renderMessage — EVALUATE_PAGE tool card (post-approval)', () => {
   });
 
   it('renders nothing when state is approval-requested', async () => {
-    const { msg, toolCards } = makeMsg(TOOL_STATE.APPROVAL_REQUESTED);
+    const { msg, toolCards } = makeMsg(TOOL_STATE.AWAITING_APPROVAL);
     const result = renderMessage(msg, toolCards, null);
     const container = await renderToDOM(result);
     // approval-requested suppresses the inline tool card
     expect(container.querySelector('nx-governance-evaluation-card')).to.not.exist;
   });
 
-  [TOOL_STATE.RUNNING, TOOL_STATE.APPROVED, TOOL_STATE.REJECTED].forEach((state) => {
+  [TOOL_STATE.INPUT_AVAILABLE, TOOL_STATE.APPROVED, TOOL_STATE.REJECTED].forEach((state) => {
     it(`renders a loading spinner, not the empty scorecard, while state is ${state}`, async () => {
       const toolCallId = `ge-${state}-1`;
       const toolCards = new Map([
@@ -163,7 +163,7 @@ describe('renderMessage — EVALUATE_PAGE tool card (post-approval)', () => {
           output: undefined,
         }],
       ]);
-      const msg = { role: 'assistant', content: [{ type: 'tool-call', toolCallId }] };
+      const msg = { role: 'assistant', content: [{ type: 'tool', toolCallId }] };
       const container = await renderToDOM(renderMessage(msg, toolCards, null));
       document.body.appendChild(container);
       try {
@@ -183,12 +183,12 @@ describe('renderMessage — EVALUATE_PAGE tool card (post-approval)', () => {
       const toolCards = new Map([
         [toolCallId, {
           toolName: TOOL_NAME.EVALUATE_PAGE,
-          state: TOOL_STATE.ERROR,
+          state: TOOL_STATE.OUTPUT_ERROR,
           input: MOCK_TOOL_INPUT,
           output,
         }],
       ]);
-      const msg = { role: 'assistant', content: [{ type: 'tool-call', toolCallId }] };
+      const msg = { role: 'assistant', content: [{ type: 'tool', toolCallId }] };
       return { msg, toolCards };
     }
 
@@ -236,12 +236,12 @@ describe('renderMessage — EVALUATE_PAGE tool card (post-approval)', () => {
     const toolCards = new Map([
       [toolCallId, {
         toolName: 'mcp__governance-agent__evaluate_page',
-        state: TOOL_STATE.DONE,
+        state: TOOL_STATE.OUTPUT_AVAILABLE,
         input: MOCK_TOOL_INPUT,
         output: MOCK_EVALUATION,
       }],
     ]);
-    const msg = { role: 'assistant', content: [{ type: 'tool-call', toolCallId }] };
+    const msg = { role: 'assistant', content: [{ type: 'tool', toolCallId }] };
     const result = renderMessage(msg, toolCards, null);
     const container = await renderToDOM(result);
     expect(container.querySelector('nx-governance-evaluation-card')).to.exist;

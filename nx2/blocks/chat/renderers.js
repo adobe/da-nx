@@ -1,6 +1,6 @@
 import { html, nothing } from 'da-lit';
 import {
-  AGENT_EVENT, DIRECTIVE_TYPE, ROLE, TOOL_INPUT, TOOL_NAME, TOOL_STATE,
+  DIRECTIVE_TYPE, PART_TYPE, ROLE, TOOL_INPUT, TOOL_NAME, TOOL_STATE,
 } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { parseDirectives } from './utils/parse.js';
@@ -84,29 +84,29 @@ function renderExitPlanCard(plan, taskText) {
 
 function renderToolCard(toolCallId, toolCards, streamingText) {
   const card = toolCards?.get(toolCallId);
-  if (!card || card.state === TOOL_STATE.APPROVAL_REQUESTED) return nothing;
+  if (!card || card.state === TOOL_STATE.AWAITING_APPROVAL) return nothing;
   const {
     toolName, state, input, output,
   } = card;
   const shortToolName = mcpToolName(toolName);
   if (shortToolName === TOOL_NAME.EXIT_PLAN_MODE) return renderExitPlanCard(input, streamingText);
   if (shortToolName === TOOL_NAME.EVALUATE_PAGE) {
-    // evaluate_page runs without pre-execution approval; RUNNING precedes the real
-    // tool-result event, so only DONE/ERROR carry real output. After DONE, a
-    // continuation prompt (see renderContinuationCard) lets the user review and decide.
-    const isError = state === TOOL_STATE.ERROR;
+    // evaluate_page runs without pre-execution approval; INPUT_AVAILABLE precedes the real
+    // tool-result event, so only OUTPUT_AVAILABLE/OUTPUT_ERROR carry real output. After it
+    // completes, a continuation prompt (renderContinuationCard) lets the user review + decide.
+    const isError = state === TOOL_STATE.OUTPUT_ERROR;
     const parsedOutput = parseToolOutput(output);
     const errorMessage = isError
       ? (typeof parsedOutput?.error === 'string' && parsedOutput.error) || 'Page evaluation failed.'
       : undefined;
     return html`<nx-governance-evaluation-card
       .evaluation=${parsedOutput}
-      .loading=${state !== TOOL_STATE.DONE && state !== TOOL_STATE.ERROR}
+      .loading=${state !== TOOL_STATE.OUTPUT_AVAILABLE && state !== TOOL_STATE.OUTPUT_ERROR}
       .error=${errorMessage}
     ></nx-governance-evaluation-card>`;
   }
   const detail = approvalSummary(input, { json: true });
-  const failed = state === TOOL_STATE.ERROR || state === TOOL_STATE.REJECTED;
+  const failed = state === TOOL_STATE.OUTPUT_ERROR || state === TOOL_STATE.REJECTED;
   const status = failed ? html`<span class="tool-card-status">${state}</span>` : nothing;
   return detail ? html`
     <details class="tool-card tool-card-${state}">
@@ -164,7 +164,7 @@ function renderContinuationCard(pending, onContinue, onStop) {
 
 function renderAssistantMessage(msg, toolCards, streamingText) {
   if (Array.isArray(msg.content)) {
-    return html`${msg.content.map((part) => (part.type === AGENT_EVENT.TOOL_CALL
+    return html`${msg.content.map((part) => (part.type === PART_TYPE.TOOL
       ? renderToolCard(part.toolCallId, toolCards, streamingText)
       : nothing))}`;
   }
