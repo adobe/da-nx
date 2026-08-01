@@ -90,11 +90,11 @@ describe('nx-governance-evaluation-card header', () => {
   it('collapses the body when the header chevron is clicked', async () => {
     card = makeCard(fullEvaluation());
     await card.updateComplete;
-    expect(card.shadowRoot.querySelector('.ge-body')).to.exist;
+    const details = card.shadowRoot.querySelector('details.ge-card');
+    expect(details.open).to.be.true;
 
-    card.shadowRoot.querySelector('.ge-icon-btn').click();
-    await card.updateComplete;
-    expect(card.shadowRoot.querySelector('.ge-body')).to.not.exist;
+    card.shadowRoot.querySelector('.ge-header').click();
+    expect(details.open).to.be.false;
   });
 
   it('renders an aggregate summary combining text and image checks', async () => {
@@ -194,11 +194,12 @@ describe('nx-governance-evaluation-card text section', () => {
     card = makeCard(fullEvaluation());
     await card.updateComplete;
     const textSection = card.shadowRoot.querySelector('.ge-text-section');
-    expect(textSection.querySelector('.ge-checks')).to.not.exist;
+    const category = textSection.querySelector('.ge-category');
+    expect(category.open).to.be.false;
 
     textSection.querySelector('.ge-cat-header').click();
-    await card.updateComplete;
-    expect(textSection.querySelector('.ge-checks').querySelectorAll('.ge-check-row')).to.have.lengthOf(2);
+    expect(category.open).to.be.true;
+    expect(category.querySelectorAll('.ge-check-row')).to.have.lengthOf(2);
   });
 
   it('shows a neutral placeholder when text_evaluation is missing', async () => {
@@ -232,8 +233,7 @@ describe('nx-governance-evaluation-card image sections', () => {
 
     const group = card.shadowRoot.querySelector('.ge-image-group');
     expect(group).to.exist;
-    expect(group.querySelector('.ge-image-list')).to.not.exist;
-    expect(group.querySelectorAll('.ge-image-section')).to.have.lengthOf(0);
+    expect(group.open).to.be.false;
 
     expect(group.querySelector('.ge-group-meta').textContent).to.contain('2 images evaluated');
     expect(group.querySelector('.ge-group-header .ge-passed-badge').textContent).to.contain('1/2 passed');
@@ -249,11 +249,12 @@ describe('nx-governance-evaluation-card image sections', () => {
     card = makeCard(fullEvaluation());
     await card.updateComplete;
 
+    const group = card.shadowRoot.querySelector('.ge-image-group');
     await openImageGroup();
-    expect(card.shadowRoot.querySelectorAll('.ge-image-section')).to.have.lengthOf(2);
+    expect(group.open).to.be.true;
 
     await openImageGroup();
-    expect(card.shadowRoot.querySelector('.ge-image-list')).to.not.exist;
+    expect(group.open).to.be.false;
   });
 
   it('renders one section per image evaluation with a thumbnail and alignment badge', async () => {
@@ -305,10 +306,9 @@ describe('nx-governance-evaluation-card image sections', () => {
     const [first, second] = card.shadowRoot.querySelectorAll('.ge-image-section');
 
     first.querySelector('.ge-cat-header').click();
-    await card.updateComplete;
 
-    expect(first.querySelector('.ge-checks')).to.exist;
-    expect(second.querySelector('.ge-checks')).to.not.exist;
+    expect(first.querySelector('.ge-category').open).to.be.true;
+    expect(second.querySelector('.ge-category').open).to.be.false;
   });
 });
 
@@ -384,10 +384,10 @@ describe('nx-governance-evaluation-card check reasoning & suggestions', () => {
     await card.updateComplete;
 
     card.shadowRoot.querySelector('.ge-text-section .ge-cat-header').click();
-    await card.updateComplete;
 
-    const detail = card.shadowRoot.querySelector('.ge-check-detail');
-    expect(detail).to.exist;
+    const checkItem = card.shadowRoot.querySelector('.ge-check-item');
+    expect(checkItem.open).to.be.true;
+    const detail = checkItem.querySelector('.ge-check-detail');
     expect(detail.textContent).to.contain('Uses all caps.');
     expect(detail.textContent).to.contain('Use title case.');
     expect(detail.querySelector('.ge-check-suggestion')).to.exist;
@@ -402,14 +402,13 @@ describe('nx-governance-evaluation-card check reasoning & suggestions', () => {
     await card.updateComplete;
 
     card.shadowRoot.querySelector('.ge-text-section .ge-cat-header').click();
-    await card.updateComplete;
-    expect(card.shadowRoot.querySelector('.ge-check-detail')).to.not.exist;
+    const checkItem = card.shadowRoot.querySelector('.ge-check-item');
+    expect(checkItem.open).to.be.false;
 
     card.shadowRoot.querySelector('.ge-text-section .ge-check-row').click();
-    await card.updateComplete;
+    expect(checkItem.open).to.be.true;
 
-    const detail = card.shadowRoot.querySelector('.ge-check-detail');
-    expect(detail).to.exist;
+    const detail = checkItem.querySelector('.ge-check-detail');
     expect(detail.textContent).to.contain('Warm, sensory language throughout.');
     expect(detail.querySelector('.ge-check-suggestion')).to.not.exist;
   });
@@ -426,16 +425,15 @@ describe('nx-governance-evaluation-card check reasoning & suggestions', () => {
     await card.updateComplete;
 
     card.shadowRoot.querySelector('.ge-text-section .ge-cat-header').click();
-    await card.updateComplete;
 
-    const rows = card.shadowRoot.querySelectorAll('.ge-text-section .ge-check-row');
-    expect(rows).to.have.lengthOf(2);
-    expect(card.shadowRoot.querySelectorAll('.ge-check-detail')).to.have.lengthOf(2);
+    const items = card.shadowRoot.querySelectorAll('.ge-text-section .ge-check-item');
+    expect(items).to.have.lengthOf(2);
+    expect(items[0].open).to.be.true;
+    expect(items[1].open).to.be.true;
 
-    rows[0].click();
-    await card.updateComplete;
+    items[0].querySelector('.ge-check-row').click();
 
-    expect(card.shadowRoot.querySelectorAll('.ge-check-detail')).to.have.lengthOf(1);
-    expect(card.shadowRoot.querySelector('.ge-check-detail').textContent).to.contain('Reason B.');
+    expect(items[0].open).to.be.false;
+    expect(items[1].open).to.be.true;
   });
 });

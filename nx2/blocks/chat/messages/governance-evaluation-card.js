@@ -21,55 +21,11 @@ class NxGovernanceEvaluationCard extends LitElement {
     evaluation: { attribute: false },
     loading: { type: Boolean },
     error: { attribute: false },
-    _isExpanded: { state: true },
-    _openCategories: { state: true },
-    _openChecks: { state: true },
-    _imageGroupOpen: { state: true },
   };
-
-  constructor() {
-    super();
-    this._isExpanded = true;
-    this._openCategories = new Set();
-    this._openChecks = new Set();
-    this._imageGroupOpen = false;
-  }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
-  }
-
-  willUpdate(changedProperties) {
-    if (!changedProperties.has('evaluation')) return;
-    const sections = [
-      ['text', this.evaluation?.text_evaluation],
-      ...(this.evaluation?.image_evaluations ?? []).map((img, index) => [`img:${index}`, img]),
-    ];
-    const next = new Set(this._openChecks);
-    sections.forEach(([sectionKey, section]) => {
-      (section?.evaluations ?? []).forEach((check) => {
-        if (check.alignment === 'NO') {
-          const categoryId = check.category_id ?? 'uncategorized';
-          next.add(`${sectionKey}:${categoryId}:${check.check_id}`);
-        }
-      });
-    });
-    this._openChecks = next;
-  }
-
-  _toggleCategory(key) {
-    const next = new Set(this._openCategories);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
-    this._openCategories = next;
-  }
-
-  _toggleCheck(key) {
-    const next = new Set(this._openChecks);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
-    this._openChecks = next;
   }
 
   _renderCheckIcon(check) {
@@ -90,71 +46,55 @@ class NxGovernanceEvaluationCard extends LitElement {
     `;
   }
 
-  _renderCheckRow(sectionKey, categoryId, check) {
-    const key = `${sectionKey}:${categoryId}:${check.check_id}`;
-    const isOpen = this._openChecks.has(key);
-    const chevronClass = `ge-check-chevron${isOpen ? ' ge-check-chevron-open' : ''}`;
-
+  _renderCheckRow(check) {
     return html`
-      <li class="ge-check-item">
-        <button
-          type="button"
-          class="ge-check-row"
-          aria-expanded=${isOpen}
-          @click=${() => this._toggleCheck(key)}
-        >
+      <details class="ge-check-item" ?open=${check.alignment === 'NO'}>
+        <summary class="ge-check-row">
           ${this._renderCheckIcon(check)}
           <span class="ge-check-label">${check.check_title}</span>
-          ${icon('chevron', chevronClass)}
-        </button>
-        ${isOpen ? html`
-          <div class="ge-check-detail">
-            ${check.reasoning ? html`
-              <p class="ge-check-detail-block">
-                <span class="ge-check-detail-label">Reasoning</span>
-                ${check.reasoning}
-              </p>
-            ` : nothing}
-            ${check.suggestions ? html`
-              <p class="ge-check-detail-block ge-check-suggestion">
-                <span class="ge-check-detail-label">Suggestion</span>
-                ${check.suggestions}
-              </p>
-            ` : nothing}
-          </div>
-        ` : nothing}
-      </li>
+          ${icon('chevron', 'ge-check-chevron')}
+        </summary>
+        <div class="ge-check-detail">
+          ${check.reasoning ? html`
+            <p class="ge-check-detail-block">
+              <span class="ge-check-detail-label">Reasoning</span>
+              ${check.reasoning}
+            </p>
+          ` : nothing}
+          ${check.suggestions ? html`
+            <p class="ge-check-detail-block ge-check-suggestion">
+              <span class="ge-check-detail-label">Suggestion</span>
+              ${check.suggestions}
+            </p>
+          ` : nothing}
+        </div>
+      </details>
     `;
   }
 
-  _renderCategory(sectionKey, category) {
-    const { categoryId, categoryName, checks } = category;
-    const key = `${sectionKey}:${categoryId}`;
+  _renderCategory(category) {
+    const { categoryName, checks } = category;
     const aligned = checks.filter((c) => c.alignment === 'YES').length;
-    const isOpen = this._openCategories.has(key);
-    const chevronClass = `ge-cat-chevron${isOpen ? ' ge-cat-chevron-open' : ''}`;
 
     return html`
-      <div class="ge-category">
-        <button class="ge-cat-header" @click=${() => this._toggleCategory(key)}>
+      <details class="ge-category">
+        <summary class="ge-cat-header">
           <span class="ge-cat-name">${categoryName}</span>
           <span class="ge-cat-summary">${aligned}/${checks.length} aligned</span>
-          ${icon('chevron', chevronClass)}
-        </button>
-        ${isOpen ? html`
-          <ul class="ge-checks">
-            ${checks.map((check) => this._renderCheckRow(sectionKey, categoryId, check))}
-          </ul>
-        ` : nothing}
-      </div>
+          ${icon('chevron', 'ge-cat-chevron')}
+        </summary>
+        <div class="ge-checks">
+          ${checks.map((check) => this._renderCheckRow(check))}
+        </div>
+      </details>
     `;
   }
 
-  _renderCategories(sectionKey, evaluations) {
+  _renderCategories(evaluations) {
     const groups = groupChecksByCategory(evaluations);
     return html`
       <div class="ge-categories">
-        ${groups.map((category) => this._renderCategory(sectionKey, category))}
+        ${groups.map((category) => this._renderCategory(category))}
       </div>
     `;
   }
@@ -166,7 +106,7 @@ class NxGovernanceEvaluationCard extends LitElement {
         <h4 class="ge-section-title">Text evaluation</h4>
         ${evaluations.length ? html`
           ${this._renderSummaryBar(sectionSummary(textEvaluation))}
-          ${this._renderCategories('text', evaluations)}
+          ${this._renderCategories(evaluations)}
         ` : html`<p class="ge-section-empty">No text evaluation available.</p>`}
       </div>
     `;
@@ -186,39 +126,30 @@ class NxGovernanceEvaluationCard extends LitElement {
       successful_checks: aggregate.successful,
       failed_checks: aggregate.failed,
     });
-    const isOpen = this._imageGroupOpen;
-    const chevronClass = `ge-group-chevron${isOpen ? ' ge-group-chevron-open' : ''}`;
 
     return html`
-      <div class="ge-section ge-image-group">
-        <button
-          type="button"
-          class="ge-group-header"
-          aria-expanded=${isOpen}
-          @click=${() => { this._imageGroupOpen = !this._imageGroupOpen; }}
-        >
+      <details class="ge-section ge-image-group">
+        <summary class="ge-group-header">
           <span class="ge-group-title-col">
             <span class="ge-section-title">Image evaluations</span>
             <span class="ge-group-meta">${count} image${count === 1 ? '' : 's'} evaluated</span>
           </span>
           <span class="ge-group-header-right">
             <span class="ge-passed-badge">${imageSummary.successful}/${imageSummary.successful + imageSummary.failed} passed</span>
-            ${icon('chevron', chevronClass)}
+            ${icon('chevron', 'ge-group-chevron')}
           </span>
-        </button>
+        </summary>
         <div class="ge-progress-bar" role="progressbar" aria-valuenow=${imageSummary.percent} aria-valuemin="0" aria-valuemax="100">
           <div class="ge-progress-fill" style="width: ${imageSummary.percent}%"></div>
         </div>
-        ${isOpen ? html`
-          <div class="ge-image-list">
-            ${imageEvaluations.map((img, index) => this._renderImageSection(img, index))}
-          </div>
-        ` : nothing}
-      </div>
+        <div class="ge-image-list">
+          ${imageEvaluations.map((img) => this._renderImageSection(img))}
+        </div>
+      </details>
     `;
   }
 
-  _renderImageSection(imageEvaluation, index) {
+  _renderImageSection(imageEvaluation) {
     const { source, overall_aligned: overallAligned, evaluations = [] } = imageEvaluation;
     const badgeClass = `ge-align-badge ${overallAligned ? 'ge-align-badge-pass' : 'ge-align-badge-fail'}`;
     return html`
@@ -229,7 +160,7 @@ class NxGovernanceEvaluationCard extends LitElement {
         </div>
         ${evaluations.length ? html`
           ${this._renderSummaryBar(sectionSummary(imageEvaluation))}
-          ${this._renderCategories(`img:${index}`, evaluations)}
+          ${this._renderCategories(evaluations)}
         ` : html`<p class="ge-section-empty">No checks available for this image.</p>`}
       </div>
     `;
@@ -274,7 +205,6 @@ class NxGovernanceEvaluationCard extends LitElement {
     const {
       brand_name: brandName = '', pageUrl = '', text_evaluation: textEvaluation, image_evaluations: imageEvaluations = [],
     } = evaluation;
-    const chevronClass = `ge-icon-btn${this._isExpanded ? ' ge-icon-btn-expanded' : ''}`;
 
     const sections = [textEvaluation, ...imageEvaluations].filter(Boolean);
     const aggregate = sections.reduce((acc, section) => {
@@ -290,30 +220,22 @@ class NxGovernanceEvaluationCard extends LitElement {
     });
 
     return html`
-      <div class="ge-card">
-        <div class="ge-header">
+      <details class="ge-card" open>
+        <summary class="ge-header">
           <span class="ge-type-label">
             <span class="ge-type-icon" aria-hidden="true"></span>
             Governance Page Evaluation
           </span>
-          <button
-            type="button"
-            class=${chevronClass}
-            aria-label=${this._isExpanded ? 'Collapse evaluation' : 'Expand evaluation'}
-            @click=${() => { this._isExpanded = !this._isExpanded; }}
-          >${icon('chevron', 'ge-chevron-icon')}</button>
+          ${icon('chevron', 'ge-chevron-icon')}
+        </summary>
+        <div class="ge-body">
+          <h3 class="ge-title">${brandName || 'Brand evaluation'}</h3>
+          ${pageUrl ? html`<p class="ge-page-url">${pageUrl}</p>` : nothing}
+          ${this._renderSummaryBar(aggregateSummary)}
+          ${this._renderTextSection(textEvaluation)}
+          ${this._renderImageGroup(imageEvaluations)}
         </div>
-
-        ${this._isExpanded ? html`
-          <div class="ge-body">
-            <h3 class="ge-title">${brandName || 'Brand evaluation'}</h3>
-            ${pageUrl ? html`<p class="ge-page-url">${pageUrl}</p>` : nothing}
-            ${this._renderSummaryBar(aggregateSummary)}
-            ${this._renderTextSection(textEvaluation)}
-            ${this._renderImageGroup(imageEvaluations)}
-          </div>
-        ` : nothing}
-      </div>
+      </details>
     `;
   }
 }
