@@ -1,8 +1,20 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { getConfig } from '../../../scripts/nx.js';
 import { groupChecksByCategory, sectionSummary } from './governance-evaluation-card-data.js';
 
 const styles = await loadStyle(import.meta.url);
+const { codeBase } = getConfig();
+
+const ICON_NAMES = {
+  chevron: 's2-icon-chevrondown-20-n',
+  check: 's2-icon-checkmark-20-n',
+  close: 's2-icon-close-20-n',
+  warning: 's2-icon-alertdiamond-20-n',
+  na: 's2-icon-circle-20-n',
+};
+
+const icon = (name, className) => html`<svg class=${className} viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
 
 class NxGovernanceEvaluationCard extends LitElement {
   static properties = {
@@ -60,36 +72,11 @@ class NxGovernanceEvaluationCard extends LitElement {
     this._openChecks = next;
   }
 
-  _renderChevronIcon() {
-    return html`
-      <svg class="ge-chevron-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path d="M5 7.5l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>`;
-  }
-
-  _renderWarningIcon(className) {
-    return html`<svg class=${className} viewBox="0 0 20 20" aria-hidden="true">
-      <path d="M10 6v5m0 3h.01M2.5 17h15L10 3 2.5 17z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </svg>`;
-  }
-
   _renderCheckIcon(check) {
-    if (check.error) {
-      return this._renderWarningIcon('ge-check-icon ge-check-error');
-    }
-    if (check.alignment === 'YES') {
-      return html`<svg class="ge-check-icon ge-check-yes" viewBox="0 0 20 20" aria-hidden="true">
-        <path d="M4 10l4.5 4.5L16 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      </svg>`;
-    }
-    if (check.alignment === 'NO') {
-      return html`<svg class="ge-check-icon ge-check-no" viewBox="0 0 20 20" aria-hidden="true">
-        <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      </svg>`;
-    }
-    return html`<svg class="ge-check-icon ge-check-na" viewBox="0 0 20 20" aria-hidden="true">
-      <path d="M5 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </svg>`;
+    if (check.error) return icon('warning', 'ge-check-icon ge-check-error');
+    if (check.alignment === 'YES') return icon('check', 'ge-check-icon ge-check-yes');
+    if (check.alignment === 'NO') return icon('close', 'ge-check-icon ge-check-no');
+    return icon('na', 'ge-check-icon ge-check-na');
   }
 
   _renderSummaryBar(summary) {
@@ -118,9 +105,7 @@ class NxGovernanceEvaluationCard extends LitElement {
         >
           ${this._renderCheckIcon(check)}
           <span class="ge-check-label">${check.check_title}</span>
-          <svg class=${chevronClass} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M5 7.5l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          ${icon('chevron', chevronClass)}
         </button>
         ${isOpen ? html`
           <div class="ge-check-detail">
@@ -154,9 +139,7 @@ class NxGovernanceEvaluationCard extends LitElement {
         <button class="ge-cat-header" @click=${() => this._toggleCategory(key)}>
           <span class="ge-cat-name">${categoryName}</span>
           <span class="ge-cat-summary">${aligned}/${checks.length} aligned</span>
-          <svg class=${chevronClass} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M5 7.5l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          ${icon('chevron', chevronClass)}
         </button>
         ${isOpen ? html`
           <ul class="ge-checks">
@@ -220,9 +203,7 @@ class NxGovernanceEvaluationCard extends LitElement {
           </span>
           <span class="ge-group-header-right">
             <span class="ge-passed-badge">${imageSummary.successful}/${imageSummary.successful + imageSummary.failed} passed</span>
-            <svg class=${chevronClass} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M5 7.5l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+            ${icon('chevron', chevronClass)}
           </span>
         </button>
         <div class="ge-progress-bar" role="progressbar" aria-valuenow=${imageSummary.percent} aria-valuemin="0" aria-valuemax="100">
@@ -265,7 +246,7 @@ class NxGovernanceEvaluationCard extends LitElement {
             </span>
           </div>
           <div class="ge-body ge-error">
-            ${this._renderWarningIcon('ge-error-icon')}
+            ${icon('warning', 'ge-error-icon')}
             <span class="ge-error-text">${this.error}</span>
           </div>
         </div>
@@ -320,7 +301,7 @@ class NxGovernanceEvaluationCard extends LitElement {
             class=${chevronClass}
             aria-label=${this._isExpanded ? 'Collapse evaluation' : 'Expand evaluation'}
             @click=${() => { this._isExpanded = !this._isExpanded; }}
-          >${this._renderChevronIcon()}</button>
+          >${icon('chevron', 'ge-chevron-icon')}</button>
         </div>
 
         ${this._isExpanded ? html`

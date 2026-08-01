@@ -40,7 +40,7 @@
   display: inline-block;
   flex-shrink: 0;
   background-color: currentcolor;
-  mask-image: url("/img/icons/s2-icon-checkmark-circle-20-n.svg");
+  mask-image: url("/img/icons/s2-icon-checkmarkcircle-20-n.svg");
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;
