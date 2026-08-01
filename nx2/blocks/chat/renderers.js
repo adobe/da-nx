@@ -4,6 +4,9 @@ import {
 } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { parseDirectives } from './utils/parse.js';
+import {
+  parseDirectiveJSON, parseToolOutput, mergeTaskItemsFromText, mergeTaskItemsIntoPlan,
+} from './utils/directives.js';
 import { pillIconName } from './utils/icons.js';
 import { linkifyBareUrls, sanitizeLinks } from './utils/links.js';
 import { mcpToolName } from './utils/tool-name.js';
@@ -16,24 +19,6 @@ const parser = unified().use(remarkParse).use(remarkGfmNoLink);
 
 function toDOM(hast) {
   return hastToDom(sanitizeLinks(linkifyBareUrls(hast)), { fragment: true });
-}
-
-function parseDirectiveJSON(content) {
-  try {
-    return JSON.parse(content.trim());
-  } catch {
-    return null;
-  }
-}
-
-/**
- * da-agent forwards MCP tool results verbatim, so their `output` arrives as a
- * JSON string rather than the parsed object native tools return. Normalize both
- * shapes to an object before handing it to a card.
- */
-function parseToolOutput(output) {
-  if (typeof output !== 'string') return output;
-  return parseDirectiveJSON(output);
 }
 
 function renderPlanDirective(content) {
@@ -52,62 +37,6 @@ function renderGovernanceEvaluationDirective(content) {
   const evaluation = parseDirectiveJSON(content);
   if (!evaluation) return html`<div class="directive directive-governance-evaluation"></div>`;
   return html`<nx-governance-evaluation-card .evaluation=${evaluation}></nx-governance-evaluation-card>`;
-}
-
-function buildTaskStatusMap(directives) {
-  const updates = new Map();
-  for (const d of directives) {
-    if (d.kind === 'directive' && d.type === DIRECTIVE_TYPE.TASK_ITEM) {
-      const data = parseDirectiveJSON(d.content);
-      if (data?.label) updates.set(data.label, data.status);
-    }
-  }
-  return updates;
-}
-
-/**
- * Merge :::task-item status updates from streaming text into a plan task list.
- * Returns a new plan object with updated task statuses, or the original if nothing changed.
- */
-function mergeTaskItemsFromText(plan, streamingText) {
-  if (!streamingText || !plan?.tasks?.length) return plan;
-  const updates = buildTaskStatusMap(parseDirectives(streamingText));
-  if (!updates.size) return plan;
-  return {
-    ...plan,
-    tasks: plan.tasks.map((t) => ({ ...t, status: updates.get(t.label) ?? t.status })),
-  };
-}
-
-function mergeTaskItemsIntoPlan(directives) {
-  const planIdx = directives.findIndex((d) => d.kind === 'directive' && d.type === DIRECTIVE_TYPE.PLAN);
-  if (planIdx < 0) return directives;
-
-  const updates = buildTaskStatusMap(directives.slice(planIdx + 1));
-
-  if (!updates.size) return directives;
-
-  const planData = parseDirectiveJSON(directives[planIdx].content);
-  if (!planData?.tasks) return directives;
-
-  const merged = directives.map((d, i) => {
-    if (i === planIdx) {
-      return {
-        ...d,
-        content: JSON.stringify({
-          ...planData,
-          tasks: planData.tasks.map((t) => ({ ...t, status: updates.get(t.label) ?? t.status })),
-        }),
-      };
-    }
-    // Suppress standalone task-item blocks that belong to this plan
-    if (i > planIdx && d.kind === 'directive' && d.type === DIRECTIVE_TYPE.TASK_ITEM) {
-      return null;
-    }
-    return d;
-  });
-
-  return merged.filter(Boolean);
 }
 
 function renderMessageContent(text) {
