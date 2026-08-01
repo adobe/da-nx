@@ -7,10 +7,6 @@ import { renderMessage, renderApprovalCard, renderContinuationCard } from './ren
 import './welcome/welcome.js';
 import './prompts/prompts.js';
 import './pills/pills.js';
-import './messages/campaign-plan-card.js';
-import './messages/governance-evaluation-card.js';
-import './messages/task-list.js';
-import './messages/task-item.js';
 import { loadSiteConfig } from './utils/api.js';
 import {
   ADOBE_AI_GUIDELINES_URL, ADD_MENU_ITEMS, CHAT_EVENT, MENU_OPTIONS, ROLE, TOOL_STATE,

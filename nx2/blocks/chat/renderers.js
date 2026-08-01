@@ -10,6 +10,9 @@ import {
 import { pillIconName } from './utils/icons.js';
 import { linkifyBareUrls, sanitizeLinks } from './utils/links.js';
 import { mcpToolName } from './utils/tool-name.js';
+import './messages/campaign-plan-card.js';
+import './messages/governance-evaluation-card.js';
+import './messages/task-list.js';
 
 const { codeBase } = getConfig();
 

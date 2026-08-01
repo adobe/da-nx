@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import { PLAN_RUN_EVENT, TASK_STATUS } from '../constants.js';
+import './task-item.js';
 
 const styles = await loadStyle(import.meta.url);
 
