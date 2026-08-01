@@ -149,19 +149,30 @@
 }
 
 .ge-progress-bar {
+  display: block;
   width: 100%;
   height: 6px;
-  background: var(--s2-gray-200, #e1e1e1);
+  border: none;
   border-radius: 3px;
   overflow: hidden;
   margin: var(--s2-spacing-100) 0 var(--s2-spacing-200);
+  appearance: none;
+  background: var(--s2-gray-200, #e1e1e1);
 }
 
-.ge-progress-fill {
-  height: 100%;
+.ge-progress-bar::-webkit-progress-bar {
+  background: var(--s2-gray-200, #e1e1e1);
+  border-radius: 3px;
+}
+
+.ge-progress-bar::-webkit-progress-value {
   background: var(--s2-green-700, #268e49);
   border-radius: 3px;
-  transition: width 0.4s ease;
+}
+
+.ge-progress-bar::-moz-progress-bar {
+  background: var(--s2-green-700, #268e49);
+  border-radius: 3px;
 }
 
 /* ── Sections (text evaluation / per-image evaluation) ── */

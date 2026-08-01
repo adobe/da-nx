@@ -40,9 +40,7 @@ class NxGovernanceEvaluationCard extends LitElement {
       <span class="ge-summary-row">
         <span class="ge-passed-badge">${summary.successful}/${summary.successful + summary.failed} passed</span>
       </span>
-      <div class="ge-progress-bar" role="progressbar" aria-valuenow=${summary.percent} aria-valuemin="0" aria-valuemax="100">
-        <div class="ge-progress-fill" style="width: ${summary.percent}%"></div>
-      </div>
+      <progress class="ge-progress-bar" value=${summary.percent} max="100">${summary.percent}%</progress>
     `;
   }
 
@@ -139,9 +137,7 @@ class NxGovernanceEvaluationCard extends LitElement {
             ${icon('chevron', 'ge-group-chevron')}
           </span>
         </summary>
-        <div class="ge-progress-bar" role="progressbar" aria-valuenow=${imageSummary.percent} aria-valuemin="0" aria-valuemax="100">
-          <div class="ge-progress-fill" style="width: ${imageSummary.percent}%"></div>
-        </div>
+        <progress class="ge-progress-bar" value=${imageSummary.percent} max="100">${imageSummary.percent}%</progress>
         <div class="ge-image-list">
           ${imageEvaluations.map((img) => this._renderImageSection(img))}
         </div>
