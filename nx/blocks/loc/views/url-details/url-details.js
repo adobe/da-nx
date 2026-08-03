@@ -16,11 +16,15 @@ class NxLocUrlDetails extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    this._editPath = getEditPath(this.path);
+    this.loadEditPath();
     const { preview, publish } = getAemPaths(this.path);
     this._previewPath = preview;
     this._publishPath = publish;
     this.getDetails();
+  }
+
+  async loadEditPath() {
+    this._editPath = await getEditPath(this.path);
   }
 
   async getDetails() {
