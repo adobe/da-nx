@@ -1,6 +1,6 @@
 # Worklog
 
-## 2026-07-30
+## 2026-08-03
 
 ### nx2 ew-actions / deliveryPath.js — customer `preview.path` / `live.path` override
 
@@ -15,6 +15,14 @@ Open questions / limits:
 - Precedence is config-over-meta; the meta is app-global while config is per-path — revisit if a page ever needs meta to win.
 - Only `${aemPath}` (which includes org/site) is supported. A clean custom-domain override needs a `${path}` token — not yet added.
 - The old `/edit` editor honors none of this: its preview/publish is da.live's `blocks/edit/da-title.js` (separate repo), with its own dormant origin-only `previewPrefix`/`livePrefix`. Deferred — fixing it needs a da-live change.
+
+## 2026-07-30
+
+### nx2/utils/api.js — normalize hlx6 `source.save` response to `{ source: { contentUrl } }` (#631)
+
+The hlx6 source-bus save endpoint (`${AEM_API}/{org}/sites/{site}/source{path}`) returns a **200 with an empty body**, whereas DA returns `{ source: { contentUrl } }`. da-live's image-upload plugin (`blocks/edit/prose/plugins/imageDrop.js`) calls `resp.json()` on the save result and reads `json.source.contentUrl`; on hlx6 the empty body made `resp.json()` throw `SyntaxError: Unexpected end of JSON input`. Because the caller is an un-awaited async fn, the throw became an unhandled rejection and the FPO-placeholder → real-image swap never ran — the placeholder stuck around and published with a stale hlx5 fragment, so preview couldn't find the image.
+
+Fix: on a successful hlx6 save, shadow the Response's `json()` (new `withSourceJson` helper) so it resolves to `{ source: { contentUrl } }` with `contentUrl` = the source URL just written (`${AEM_API}/{org}/sites/{site}/source{path}`). Non-ok responses pass through untouched so callers' error handling is unchanged. Only `imageDrop.js` reads the save body — every other da-live `source.save` consumer checks `resp.ok` only — so the change is contained. Updated `nx2/utils/api.md`; added two tests.
 
 ## 2026-07-23
 
