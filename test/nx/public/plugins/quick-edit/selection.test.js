@@ -13,6 +13,7 @@ function buildBody() {
     + '<div class="hero" data-block-index="60">other block</div>'
     + '<div class="no-index">unindexed</div>'
     + '<picture><img data-image-index="27" src="/img.png" alt="" style="width:100px;height:60px"></picture>'
+    + '<p data-prose-index="71" style="width:100px;height:20px">a paragraph</p>'
     + '</main>';
 }
 
@@ -91,6 +92,27 @@ describe('quick-edit selection overlay', () => {
     const overlay = document.getElementById('qe-selection-overlay');
     expect(overlay.querySelector('.qe-selected-box')).to.not.equal(null);
     expect(overlay.querySelector('.qe-selected-pill')).to.equal(null);
+  });
+
+  it('setSelectedNode draws a content box without a pill', () => {
+    setSelectedNode({ anchorType: 'content', proseIndex: 71 });
+    const overlay = document.getElementById('qe-selection-overlay');
+    expect(overlay.querySelector('.qe-selected-box')).to.not.equal(null);
+    expect(overlay.querySelector('.qe-selected-pill')).to.equal(null);
+  });
+
+  it('setSelectedNode ignores a content index that resolves to no element', () => {
+    setSelectedNode({ anchorType: 'content', proseIndex: 9999 });
+    const overlay = document.getElementById('qe-selection-overlay');
+    expect(overlay?.querySelector('.qe-selected-box') ?? null).to.equal(null);
+  });
+
+  it('scrolls a content node into view when requested', () => {
+    const el = document.querySelector('[data-prose-index="71"]');
+    let scrolled = false;
+    el.scrollIntoView = () => { scrolled = true; };
+    setSelectedNode({ anchorType: 'content', proseIndex: 71 }, document, { scrollIntoView: true });
+    expect(scrolled).to.equal(true);
   });
 
   it('setSelectedNode with null clears the overlay', () => {
@@ -185,7 +207,6 @@ describe('quick-edit selection gestures', () => {
     pill.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     expect(posted).to.deep.include({
       type: 'node-select',
-      node: { anchorType: 'table', proseIndex: 50 },
       payload: { node: { anchorType: 'table', proseIndex: 50 } },
     });
   });
@@ -196,7 +217,7 @@ describe('quick-edit selection gestures', () => {
     const node = {
       anchorType: 'image', proseIndex: 27, src: '/img.png', blockIndex: null,
     };
-    expect(posted).to.deep.include({ type: 'node-select', node, payload: { node } });
+    expect(posted).to.deep.include({ type: 'node-select', payload: { node } });
   });
 
   it('does NOT post node-select for an image drag', () => {
@@ -209,7 +230,7 @@ describe('quick-edit selection gestures', () => {
   it('posts node-select null on Escape when a node is selected', () => {
     setSelectedNode({ anchorType: 'table', proseIndex: 50 });
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    expect(posted).to.deep.include({ type: 'node-select', node: null, payload: { node: null } });
+    expect(posted).to.deep.include({ type: 'node-select', payload: { node: null } });
   });
 
   it('hover pill is clickable (pointer-events) but the static pill is not', async () => {
@@ -257,24 +278,23 @@ describe('quick-edit selection gestures', () => {
       .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     expect(posted).to.deep.include({
       type: 'node-select',
-      node: { anchorType: 'table', proseIndex: 60 },
       payload: { node: { anchorType: 'table', proseIndex: 60 } },
     });
-    expect(posted.some((m) => m.type === 'node-select' && m.node === null)).to.equal(false);
+    expect(posted.some((m) => m.type === 'node-select' && m.payload?.node === null)).to.equal(false);
   });
 
   it('clears the selection when clicking outside it', () => {
     setSelectedNode({ anchorType: 'table', proseIndex: 50 });
     document.querySelector('.no-index')
       .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    expect(posted).to.deep.include({ type: 'node-select', node: null, payload: { node: null } });
+    expect(posted).to.deep.include({ type: 'node-select', payload: { node: null } });
   });
 
   it('keeps the selection when clicking inside the selected block', () => {
     setSelectedNode({ anchorType: 'table', proseIndex: 50 });
     document.querySelector('[data-block-index="50"]')
       .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    expect(posted.some((m) => m.type === 'node-select' && m.node === null)).to.equal(false);
+    expect(posted.some((m) => m.type === 'node-select' && m.payload?.node === null)).to.equal(false);
   });
 
   it('does not clear on a text click (the caret round-trip handles it)', () => {
@@ -283,7 +303,7 @@ describe('quick-edit selection gestures', () => {
     text.setAttribute('data-prose-index', '70');
     document.querySelector('main').appendChild(text);
     text.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    expect(posted.some((m) => m.type === 'node-select' && m.node === null)).to.equal(false);
+    expect(posted.some((m) => m.type === 'node-select' && m.payload?.node === null)).to.equal(false);
   });
 
   it('blurs the focused inline editor when a block is selected', () => {

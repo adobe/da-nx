@@ -37,12 +37,12 @@ async function handlePreview(ctx) {
     const previewListener = (e) => {
       if (e.data.type === MESSAGE_TYPES.PREVIEW) {
         ctx.port.removeEventListener('message', previewListener);
-        if (e.data.ok) {
+        if (e.data.payload?.ok) {
           removeQuickEditParam();
           navigateToAemPageOrReload();
         } else {
           // eslint-disable-next-line no-alert
-          alert(e.data.error);
+          alert(e.data.payload?.error);
         }
         resolve();
       }
