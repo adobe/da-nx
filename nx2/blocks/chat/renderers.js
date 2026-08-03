@@ -166,6 +166,30 @@ function renderPlanApprovalCard(pending, feedback, { onFeedbackText, onApprove, 
   `;
 }
 
+// Cross-surface episode continuity (chat-controller-ao.js#_reconcileWithLatestEpisode):
+// surfaced only when the owner's most-recently-active conversation lives on a
+// different episode than the one open here — switching replaces this tab's
+// conversation with that one; dismissing just hides the banner until an even
+// newer episode shows up.
+function renderNewerEpisodeBanner(info, { onSwitch, onDismiss }) {
+  if (!info) return nothing;
+  return html`
+    <div class="newer-episode-banner">
+      <span class="newer-episode-text">
+        You have a newer conversation${info.title ? html` — <strong>${info.title}</strong>` : ''}.
+      </span>
+      <div class="newer-episode-actions">
+        <button type="button" class="secondary-btn" @click=${onDismiss}>
+          <span>Dismiss</span>
+        </button>
+        <button type="button" class="action-btn" @click=${onSwitch}>
+          <span>Switch</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function renderDataTable({ columns = [], data = [] } = {}) {
   return html`
     <div class="ui-artifact-table-wrapper">
@@ -313,4 +337,5 @@ function renderMessage(msg, toolCards, onSendPrompt) {
 
 export {
   renderMessage, renderApprovalCard, renderQuestionCard, renderPlanApprovalCard,
+  renderNewerEpisodeBanner,
 };

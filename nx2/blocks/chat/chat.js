@@ -6,6 +6,7 @@ import ChatController from './chat-controller.js';
 import ChatControllerAO from './chat-controller-ao.js';
 import {
   renderMessage, renderApprovalCard, renderQuestionCard, renderPlanApprovalCard,
+  renderNewerEpisodeBanner,
 } from './renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
@@ -47,6 +48,7 @@ class NxChat extends LitElement {
     toolCards: { type: Object },
     pendingQuestion: { type: Object },
     pendingPlanApproval: { type: Object },
+    newerEpisodeAvailable: { type: Object },
     _prompts: { state: true },
     _items: { state: true },
     _dragging: { state: true },
@@ -218,7 +220,7 @@ class NxChat extends LitElement {
       },
       onUpdate: ({
         messages, thinking, streamingText, connected, toolCards, pendingQuestion,
-        pendingPlanApproval,
+        pendingPlanApproval, newerEpisodeAvailable,
       }) => {
         const newMessages = streamingText
           ? [...(messages ?? []), { role: ROLE.ASSISTANT, content: streamingText, streaming: true }]
@@ -238,6 +240,7 @@ class NxChat extends LitElement {
         this.toolCards = toolCards;
         this.pendingQuestion = pendingQuestion;
         this.pendingPlanApproval = pendingPlanApproval;
+        this.newerEpisodeAvailable = newerEpisodeAvailable;
         cancelAnimationFrame(this._updateRaf);
         this._updateRaf = requestAnimationFrame(() => {
           this.messages = newMessages;
@@ -246,6 +249,7 @@ class NxChat extends LitElement {
           this.toolCards = toolCards;
           this.pendingQuestion = pendingQuestion;
           this.pendingPlanApproval = pendingPlanApproval;
+          this.newerEpisodeAvailable = newerEpisodeAvailable;
         });
       },
     });
@@ -613,6 +617,10 @@ class NxChat extends LitElement {
           @click=${this._closePanel}
         >${icon('close')}</button>
       </div>
+      ${renderNewerEpisodeBanner(this.newerEpisodeAvailable, {
+        onSwitch: () => this._controller.switchToLatestEpisode(),
+        onDismiss: () => this._controller.dismissNewerEpisode(),
+      })}
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">
           ${!this.messages?.length && !this.thinking
