@@ -4,7 +4,9 @@ import { readFileAsBase64 } from './utils/stream.js';
 import '../shared/menu/menu.js';
 import ChatController from './chat-controller.js';
 import ChatControllerAO from './chat-controller-ao.js';
-import { renderMessage, renderApprovalCard, renderQuestionCard } from './renderers.js';
+import {
+  renderMessage, renderApprovalCard, renderQuestionCard, renderPlanApprovalCard,
+} from './renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
 import './pills/pills.js';
@@ -44,6 +46,7 @@ class NxChat extends LitElement {
     connected: { type: Boolean },
     toolCards: { type: Object },
     pendingQuestion: { type: Object },
+    pendingPlanApproval: { type: Object },
     _prompts: { state: true },
     _items: { state: true },
     _dragging: { state: true },
@@ -215,6 +218,7 @@ class NxChat extends LitElement {
       },
       onUpdate: ({
         messages, thinking, streamingText, connected, toolCards, pendingQuestion,
+        pendingPlanApproval,
       }) => {
         const newMessages = streamingText
           ? [...(messages ?? []), { role: ROLE.ASSISTANT, content: streamingText, streaming: true }]
@@ -225,10 +229,15 @@ class NxChat extends LitElement {
           this._questionAnswers = {};
           this._lastQuestionTurnId = pendingQuestion.turnId;
         }
+        if (pendingPlanApproval && pendingPlanApproval.turnId !== this._lastPlanTurnId) {
+          this._planFeedback = '';
+          this._lastPlanTurnId = pendingPlanApproval.turnId;
+        }
         this.thinking = thinking;
         this.connected = connected;
         this.toolCards = toolCards;
         this.pendingQuestion = pendingQuestion;
+        this.pendingPlanApproval = pendingPlanApproval;
         cancelAnimationFrame(this._updateRaf);
         this._updateRaf = requestAnimationFrame(() => {
           this.messages = newMessages;
@@ -236,6 +245,7 @@ class NxChat extends LitElement {
           this.connected = connected;
           this.toolCards = toolCards;
           this.pendingQuestion = pendingQuestion;
+          this.pendingPlanApproval = pendingPlanApproval;
         });
       },
     });
@@ -303,6 +313,20 @@ class NxChat extends LitElement {
   _declineQuestion() {
     this._controller.declineQuestion();
     this._questionAnswers = {};
+  }
+
+  _setPlanFeedback(text) {
+    this._planFeedback = text;
+  }
+
+  _approvePlan() {
+    this._controller.respondToPlanApproval('approve');
+    this._planFeedback = '';
+  }
+
+  _rejectPlan() {
+    this._controller.respondToPlanApproval('reject', this._planFeedback?.trim());
+    this._planFeedback = '';
   }
 
   _onApprovalKeydown = (e) => {
@@ -598,9 +622,13 @@ class NxChat extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-chat-welcome>`
         : nothing}
-        ${this.messages?.map((msg) => renderMessage(msg, this.toolCards))}
+        ${this.messages?.map((msg) => renderMessage(
+          msg,
+          this.toolCards,
+          (p) => this._sendPrompt(p, { autoSend: true }),
+        ))}
         ${this.thinking && !this.messages?.at(-1)?.streaming
-        && !this._pendingApproval() && !this.pendingQuestion
+        && !this._pendingApproval() && !this.pendingQuestion && !this.pendingPlanApproval
         ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>
       </div>
@@ -618,6 +646,11 @@ class NxChat extends LitElement {
           onText: (qId, text) => this._setQuestionText(qId, text),
           onSubmit: () => this._submitQuestion(),
           onDecline: () => this._declineQuestion(),
+        })}
+        ${renderPlanApprovalCard(this.pendingPlanApproval, this._planFeedback ?? '', {
+          onFeedbackText: (text) => this._setPlanFeedback(text),
+          onApprove: () => this._approvePlan(),
+          onReject: () => this._rejectPlan(),
         })}
         <form class="chat-form" autocomplete="off" @submit=${this._submit}
           @dragenter=${this._onDragEnter}

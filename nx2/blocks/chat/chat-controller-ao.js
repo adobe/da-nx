@@ -225,6 +225,7 @@ export default class ChatControllerAO {
       connected: this._connected,
       toolCards: this._toolCards,
       pendingQuestion: this._pendingQuestion,
+      pendingPlanApproval: this._pendingPlanApproval,
     });
   }
 
@@ -268,10 +269,23 @@ export default class ChatControllerAO {
     this._update();
   }
 
-  // ui_artifact_created: AO's "a2ui" surface for rich, structured content (tables, etc.)
-  // alongside plain text. Stored as its own message so renderers.js can render known
-  // component types (starting with DataTable) and fall back to the artifact's own
-  // text_fallback for anything we don't handle yet, rather than silently dropping it.
+  // plan_approval_request: the agent drafted a plan and suspended the turn pending
+  // review — stores it for the plan-approval-card UI (renderPlanApprovalCard/
+  // respondToPlanApproval) to approve or reject.
+  _handlePlanApprovalRequest(evt) {
+    this._pendingPlanApproval = {
+      turnId: evt.data?.turn_id ?? evt.turn_id,
+      planContent: evt.data?.plan_content ?? '',
+      planFilePath: evt.data?.plan_file_path,
+    };
+    this._update();
+  }
+
+  // ui_artifact_created: AO's "a2ui" surface for rich, structured content (tables,
+  // plan cards, etc.) alongside plain text. Stored as its own message so renderers.js
+  // can render known component types (DataTable, Markdown) and fall back to the
+  // artifact's own text_fallback for anything we don't handle yet, rather than
+  // silently dropping it.
   _handleUiArtifactCreated(evt) {
     const artifact = evt.data?.artifact;
     if (!artifact) return;
@@ -340,6 +354,11 @@ export default class ChatControllerAO {
       return;
     }
 
+    if (evt.type === 'plan_approval_request') {
+      this._handlePlanApprovalRequest(evt);
+      return;
+    }
+
     if (evt.type === 'ui_artifact_created') {
       this._handleUiArtifactCreated(evt);
       return;
@@ -351,15 +370,18 @@ export default class ChatControllerAO {
     }
 
     if (evt.type === 'turn_suspended') {
-      // Fires after permission_request/user_question to formally mark the suspension.
-      // If either already put up a popup, the *only* valid response channel is that
-      // popup (PERMISSION_RESPONSE/QUESTION_RESPONSE) — re-enabling the plain chat
-      // input here would let the user answer in two conflicting ways at once, and a
-      // plain USER_INPUT sent while suspended just becomes a stray "injection" the
-      // server drops. Only fall back to _done() if nothing is actually pending.
+      // Fires after permission_request/user_question/plan_approval_request to formally
+      // mark the suspension. If any of those already put up a popup, the *only* valid
+      // response channel is that popup (PERMISSION_RESPONSE/QUESTION_RESPONSE/the
+      // plan-response RESUME frame) — re-enabling the plain chat input here would let
+      // the user answer in two conflicting ways at once, and a plain USER_INPUT sent
+      // while suspended just becomes a stray "injection" the server drops. Only fall
+      // back to _done() if nothing is actually pending.
       const hasPendingApproval = [...(this._toolCards?.values() ?? [])]
         .some((c) => c.state === TOOL_STATE.APPROVAL_REQUESTED);
-      if (!this._pendingQuestion && !hasPendingApproval) this._done();
+      if (!this._pendingQuestion && !hasPendingApproval && !this._pendingPlanApproval) {
+        this._done();
+      }
       return;
     }
 
@@ -560,6 +582,7 @@ export default class ChatControllerAO {
     this._connected = false;
     this._episodeId = undefined;
     this._pendingQuestion = null;
+    this._pendingPlanApproval = null;
     this._toolCards = new Map();
     // _cachedSkills is deliberately left as-is — it's tied to the manifest, not the
     // episode being cleared, so the slash-menu keeps showing it through the reconnect
@@ -639,6 +662,27 @@ export default class ChatControllerAO {
       turn_id: turnId,
       answers: [],
       declined: true,
+    }));
+  };
+
+  // Plan approval has no dedicated WS frame type of its own (unlike
+  // PERMISSION_RESPONSE/QUESTION_RESPONSE) — the server dispatches by DataPart
+  // "type" inside the generic RESUME op (build_resume_op in aep-ai), so this sends
+  // a "plan-response" part wrapped in a RESUME frame instead.
+  respondToPlanApproval = (decision, feedback = '') => {
+    if (!this._pendingPlanApproval) return;
+    const { turnId } = this._pendingPlanApproval;
+    this._pendingPlanApproval = null;
+    this._update();
+    this._ws?.send(JSON.stringify({
+      type: 'RESUME',
+      turn_id: turnId,
+      data: {
+        type: 'plan-response',
+        decision,
+        feedback,
+        edited_plan_content: null,
+      },
     }));
   };
 

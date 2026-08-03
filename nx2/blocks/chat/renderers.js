@@ -136,6 +136,36 @@ function renderQuestionCard(pending, answers, {
   `;
 }
 
+// plan_approval_request: the agent produced a plan (markdown, .ao/plans/*.md on the
+// server) and suspended the turn pending review. Response goes back via the generic
+// RESUME op with a plan-response DataPart (see chat-controller-ao.js#respondToPlanApproval)
+// — there's no dedicated PLAN_RESPONSE WS frame type, unlike permission/question.
+function renderPlanApprovalCard(pending, feedback, { onFeedbackText, onApprove, onReject }) {
+  if (!pending) return nothing;
+  const { planContent } = pending;
+  return html`
+    <div class="plan-approval-actions">
+      <span class="plan-approval-header">Review plan</span>
+      <div class="plan-approval-content message-content">${renderMessageContent(planContent)}</div>
+      <input
+        type="text"
+        class="plan-approval-feedback"
+        placeholder="Optional feedback if rejecting…"
+        .value=${feedback}
+        @input=${(e) => onFeedbackText(e.target.value)}
+      />
+      <div class="plan-approval-buttons">
+        <button type="button" class="secondary-btn" @click=${onReject}>
+          <span>Reject</span>
+        </button>
+        <button type="button" class="action-btn" @click=${onApprove}>
+          <span>Approve</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function renderDataTable({ columns = [], data = [] } = {}) {
   return html`
     <div class="ui-artifact-table-wrapper">
@@ -153,20 +183,53 @@ function renderDataTable({ columns = [], data = [] } = {}) {
   `;
 }
 
+// Plan cards (surface_id "sample-plan-card" today) arrive as a single Markdown
+// component — reuse the same markdown pipeline as regular assistant text so
+// headings/lists/checklists render the same way, inside a bordered card to set
+// it apart from a plain chat bubble.
+function renderMarkdownArtifact({ content = '' } = {}) {
+  return html`
+    <div class="ui-artifact-markdown">
+      <div class="message-content">${renderMessageContent(content)}</div>
+    </div>
+  `;
+}
+
+// Cross-surface component (also rendered as Teams AdaptiveCard chips by
+// cx-surface's next_actions_card builder — same { prompts: [{ title, prompt }] }
+// shape there). Clicking a chip sends its `prompt` through onSendPrompt, which
+// chat.js wires to the same _sendPrompt(text, { autoSend: true }) used by the
+// prompt-shortcut popover.
+function renderNextActionsCard({ prompts = [] } = {}, { onSendPrompt } = {}) {
+  if (!prompts.length) return nothing;
+  return html`
+    <div class="ui-artifact-next-actions">
+      <span class="ui-artifact-next-actions-header">Next, would you like to:</span>
+      ${prompts.map(({ title, prompt }) => html`
+        <button type="button" class="ui-artifact-next-action-chip"
+          @click=${() => onSendPrompt?.(prompt)}
+        >${title || prompt}</button>
+      `)}
+    </div>
+  `;
+}
+
 // Registry of a2ui component types we know how to render. Add to this as we encounter
 // (and choose to support) new ones — anything not listed here falls back to the
 // artifact's own text_fallback instead of being silently dropped.
 const UI_ARTIFACT_RENDERERS = {
   DataTable: renderDataTable,
+  Markdown: renderMarkdownArtifact,
+  NextActionsCard: renderNextActionsCard,
 };
 
-function renderUiArtifactComponent(component, fallbackText) {
+function renderUiArtifactComponent(component, fallbackText, onSendPrompt) {
   const renderer = UI_ARTIFACT_RENDERERS[component.type];
-  if (renderer) return renderer(component.props);
+  if (renderer) return renderer(component.props, { onSendPrompt });
   return html`<p class="ui-artifact-fallback">${fallbackText || `Unsupported content (${component.type}).`}</p>`;
 }
 
-function renderUiArtifact(uiArtifact) {
+function renderUiArtifact(uiArtifact, onSendPrompt) {
   if (!uiArtifact) return nothing;
   const { components, textFallback, title } = uiArtifact;
   if (!components?.length) {
@@ -175,13 +238,13 @@ function renderUiArtifact(uiArtifact) {
   return html`
     <div class="ui-artifact">
       ${title ? html`<span class="ui-artifact-title">${title}</span>` : nothing}
-      ${components.map((c) => renderUiArtifactComponent(c, textFallback))}
+      ${components.map((c) => renderUiArtifactComponent(c, textFallback, onSendPrompt))}
     </div>
   `;
 }
 
-function renderAssistantMessage(msg, toolCards) {
-  if (msg.uiArtifact) return renderUiArtifact(msg.uiArtifact);
+function renderAssistantMessage(msg, toolCards, onSendPrompt) {
+  if (msg.uiArtifact) return renderUiArtifact(msg.uiArtifact, onSendPrompt);
 
   if (Array.isArray(msg.content)) {
     return html`${msg.content.map((part) => (part.type === AGENT_EVENT.TOOL_CALL
@@ -236,16 +299,18 @@ function renderUserMessage(msg) {
   return html`
     <div class="message message-user">
       ${renderSelectionPills(msg)}
-      <div class="message-content">${msg.content}</div>
+      <div class="message-content">${renderMessageContent(msg.content)}</div>
     </div>
   `;
 }
 
-function renderMessage(msg, toolCards) {
+function renderMessage(msg, toolCards, onSendPrompt) {
   if (msg.role === ROLE.TOOL) return nothing;
   return msg.role === ROLE.ASSISTANT
-    ? renderAssistantMessage(msg, toolCards)
+    ? renderAssistantMessage(msg, toolCards, onSendPrompt)
     : renderUserMessage(msg);
 }
 
-export { renderMessage, renderApprovalCard, renderQuestionCard };
+export {
+  renderMessage, renderApprovalCard, renderQuestionCard, renderPlanApprovalCard,
+};
