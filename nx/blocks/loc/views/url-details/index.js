@@ -21,7 +21,7 @@ function splitPath(path) {
 // Mirrors da-live's da-browse.js getEditor(): EW flag picks the canvas/edit
 // default, then the site's `editor.path` config rows override by longest
 // path-prefix match, so linked-page edit URLs land in the same editor browse would use.
-async function getEditorRoute(org, site, path) {
+async function getEditorRoute({ org, site, path }) {
   const isEW = await isEWEnabled({ org, site });
   const defRoute = isEW ? '/canvas#' : '/edit#';
 
@@ -47,7 +47,7 @@ export async function getEditPath(path) {
   if (hasExt) return `https://da.live/sheet#${editPath}`;
 
   const [, org, site] = path.split('/');
-  const route = await getEditorRoute(org, site, editPath);
+  const route = await getEditorRoute({ org, site, path: editPath });
 
   if (route.includes('experience.adobe.com')) {
     return `${route}/${editPath.split('/').slice(3).join('/')}`;

@@ -1,4 +1,4 @@
-import { LitElement, html } from 'da-lit';
+import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
 import { getEditPath, getAemPaths, getAemDetails } from './index.js';
 
@@ -38,10 +38,10 @@ class NxLocUrlDetails extends LitElement {
 
   render() {
     return html`
-      <a class="link-group"
+      <a class="link-group ${this._editPath ? '' : 'is-loading'}"
          aria-label="Open in author"
-         href="${this._editPath}"
-         target="${this._editPath}">
+         href="${this._editPath || nothing}"
+         target="${this._editPath || nothing}">
         <div class="url-icon edit-icon is-active"></div>
         <div class="group-text">
           <p class="group-title">Edit</p>
