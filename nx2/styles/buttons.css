@@ -5,17 +5,17 @@ button {
 .nx-action-btn, .nx-action-btn-icon, .nx-action-btn-quiet, .nx-btn-accent, .nx-btn-primary  {
   display: flex;
   transition: transform 0.125s ease-out, background-color 0.125s ease-out, color 0.125s ease-out;
-  padding: var(--s2-spacing-75) 10px;
-  font-size: var(--s2-component-s-medium-font-size);
-  line-height: var(--s2-component-s-medium-line-height);
-  font-weight: var(--s2-component-s-medium-font-weight);
+  padding: 7px var(--s2-spacing-200);
+  font-size: var(--s2-component-m-medium-font-size);
+  line-height: var(--s2-component-m-medium-line-height);
+  font-weight: var(--s2-component-m-medium-font-weight);
+  gap: 6px;
   border: none;
   cursor: pointer;
   border-radius: var(--s2-corner-radius-400);
   color: var(--s2-gray-800);
   align-items: center;
   justify-content: center;
-  gap: var(--s2-spacing-75);
 
   &:disabled {
     opacity: 0.4;
@@ -28,8 +28,8 @@ button {
   }
 
   svg {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
   }
 
   &:active:not(:disabled) {
@@ -40,11 +40,29 @@ button {
     background: var(--s2-gray-200);
     color: var(--s2-gray-900);
   }
+
+  &.nx-btn-sm {
+    padding: var(--s2-spacing-75) 10px;
+    font-size: var(--s2-component-s-medium-font-size);
+    line-height: var(--s2-component-s-medium-line-height);
+    font-weight: var(--s2-component-s-medium-font-weight);
+    gap: var(--s2-spacing-75);
+      
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
 }
 
 .nx-btn-accent, .nx-btn-primary {
-  border-radius: 12px;
-  font-weight: var(--s2-component-s-bold-font-weight);
+  border-radius: var(--s2-corner-radius-800);
+  font-weight: var(--s2-component-m-bold-font-weight);
+
+  &.nx-btn-sm {
+    border-radius: 12px;
+    font-weight: var(--s2-component-s-bold-font-weight);
+  }
 }
 
 .nx-btn-accent {
@@ -77,8 +95,8 @@ button {
 
 .nx-action-btn-icon {
   display: flex;
-  width: 24px;
-  padding: var(--s2-spacing-75);
+  width: 32px;
+  padding: 7px;
 
   &.is-active {
     background: var(--s2-gray-900);
@@ -88,6 +106,11 @@ button {
       color: var(--s2-gray-25);
       background: var(--s2-gray-1000);
     }
+  }
+
+  &.nx-btn-sm {
+    width: 24px;
+    padding: var(--s2-spacing-75);
   }
 }
 
