@@ -448,7 +448,9 @@ export async function fetchPageMarkdown(
 
     // Retry on 401/403 with fresh token (protected sites)
     // Main thread clears cache and refetches, so even if token value is same, retry is valid
-    if ((resp.status === 401 || resp.status === 403) && siteToken) {
+    const isAuthError = resp.status === 401
+      || resp.status === 403;
+    if (isAuthError && siteToken) {
       const freshToken = await requestTokenRefresh();
       if (freshToken) {
         // Retry with fresh token (even if same value - cache was cleared on main thread)
@@ -674,18 +676,34 @@ export async function streamLog(
   const baseUrl = `https://admin.hlx.page/${endpoint}/${org}/${repo}/${ref}`;
   const separator = endpoint === 'medialog' ? '/' : '';
   let nextUrl = `${baseUrl}${separator}?${fetchParams.toString()}`;
+  let currentToken = imsToken;
 
   while (nextUrl) {
-    const resp = await workerFetchWithAuth(nextUrl, imsToken);
+    let resp = await workerFetchWithAuth(nextUrl, currentToken);
+
+    // Retry once with fresh IMS token on 401
+    if (!resp.ok && resp.status === 401) {
+      const freshImsToken = await requestTokenRefresh();
+      if (freshImsToken) {
+        currentToken = freshImsToken;
+        resp = await workerFetchWithAuth(nextUrl, currentToken);
+      }
+    }
 
     if (!resp.ok) {
       if (resp.status === 403) {
-        throw new Error(`403 Forbidden: ${endpoint} access denied for ${nextUrl}`);
+        const err = new Error(`403 Forbidden: ${endpoint} access denied for ${nextUrl}`);
+        err.status = 403;
+        throw err;
       }
       if (resp.status === 401) {
-        throw new Error(`401 Unauthorized: IMS token expired for ${nextUrl}`);
+        const err = new Error(`401 Unauthorized: IMS token expired for ${nextUrl}`);
+        err.status = 401;
+        throw err;
       }
-      throw new Error(`${endpoint} API error: ${resp.status} ${resp.statusText}`);
+      const err = new Error(`${endpoint} API error: ${resp.status} ${resp.statusText}`);
+      err.status = resp.status;
+      throw err;
     }
 
     const data = await resp.json();

@@ -34,7 +34,7 @@ import { getUsageIndexKey } from '../../data.js';
 import loadScript from '../../../../../utils/script.js';
 import { SUPPORTED_FILES } from '../../../../../public/utils/constants.js';
 import { Domains, MediaType } from '../../../core/constants.js';
-import { t } from '../../../core/messages.js';
+import { getMessage } from '../../../core/messages.js';
 
 const style = await loadStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -326,13 +326,13 @@ class NxMediaInfo extends LitElement {
     const atLast = this._navigationIndex >= total - 1 || this._navBusy;
 
     return html`
-      <div class="media-nav-controls" role="group" aria-label="${t('UI_MEDIA_POSITION', { current: pos, total })}">
+      <div class="media-nav-controls" role="group" aria-label="${getMessage('UI_MEDIA_POSITION', { current: pos, total })}">
         <button
           type="button"
           class="media-nav-btn media-nav-prev"
           @click=${this.handleMediaNavPrev}
           ?disabled=${atFirst}
-          aria-label="${t('UI_MEDIA_PREV')}"
+          aria-label="${getMessage('UI_MEDIA_PREV')}"
         >
           <svg class="media-nav-chevron" viewBox="0 0 20 20" aria-hidden="true">
             <use href="#S2_Icon_ChevronRight_20_N"></use>
@@ -343,13 +343,13 @@ class NxMediaInfo extends LitElement {
           class="media-nav-btn media-nav-next"
           @click=${this.handleMediaNavNext}
           ?disabled=${atLast}
-          aria-label="${t('UI_MEDIA_NEXT')}"
+          aria-label="${getMessage('UI_MEDIA_NEXT')}"
         >
           <svg class="media-nav-chevron" viewBox="0 0 20 20" aria-hidden="true">
             <use href="#S2_Icon_ChevronRight_20_N"></use>
           </svg>
         </button>
-        <span class="media-nav-position">${t('UI_MEDIA_POSITION', { current: pos, total })}</span>
+        <span class="media-nav-position">${getMessage('UI_MEDIA_POSITION', { current: pos, total })}</span>
       </div>
     `;
   }
@@ -431,14 +431,14 @@ class NxMediaInfo extends LitElement {
 
       if (!response.ok) {
         this._pdfState = 'error';
-        this._pdfError = t('UI_PDF_HTTP_ERROR', { status: response.status });
+        this._pdfError = getMessage('UI_PDF_HTTP_ERROR', { status: response.status });
         return;
       }
 
       const contentType = response.headers.get('content-type');
       if (contentType && !contentType.includes('application/pdf') && !contentType.includes('application/octet-stream')) {
         this._pdfState = 'error';
-        this._pdfError = t('UI_PDF_INVALID_TYPE');
+        this._pdfError = getMessage('UI_PDF_INVALID_TYPE');
         return;
       }
 
@@ -461,7 +461,7 @@ class NxMediaInfo extends LitElement {
       }
       if (this._pdfCurrentUrl === pdfUrl) {
         this._pdfState = 'error';
-        this._pdfError = t('UI_PDF_INACCESSIBLE');
+        this._pdfError = getMessage('UI_PDF_INACCESSIBLE');
       }
     }
   }
@@ -715,14 +715,14 @@ class NxMediaInfo extends LitElement {
               const blob = await getResponse.blob();
               this._fileSize = formatFileSize(blob.size);
             } else {
-              this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH');
+              this._fileSize = isExternal ? getMessage('UI_EXTERNAL_RESOURCE') : getMessage('UI_UNABLE_TO_FETCH');
             }
           }
         } else {
-          this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH');
+          this._fileSize = isExternal ? getMessage('UI_EXTERNAL_RESOURCE') : getMessage('UI_UNABLE_TO_FETCH');
         }
       } catch {
-        this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH');
+        this._fileSize = isExternal ? getMessage('UI_EXTERNAL_RESOURCE') : getMessage('UI_UNABLE_TO_FETCH');
       }
 
       this._pendingRequests.delete(controller);
@@ -792,20 +792,20 @@ class NxMediaInfo extends LitElement {
                 type="button"
                 class="action-button copy-button"
                 @click=${this.handleCopyUrl}
-                title="${isPluginMode ? t('UI_INSERT_MEDIA') : t('UI_COPY_URL')}"
-                aria-label="${isPluginMode ? t('UI_INSERT_MEDIA') : t('UI_COPY_URL')}"
+                title="${isPluginMode ? getMessage('UI_INSERT_MEDIA') : getMessage('UI_COPY_URL')}"
+                aria-label="${isPluginMode ? getMessage('UI_INSERT_MEDIA') : getMessage('UI_COPY_URL')}"
               >
                 <svg class="icon" viewBox="0 0 18 18">
                   <use href="#Smock_Copy_18_N"></use>
                 </svg>
-                ${isPluginMode ? t('UI_INSERT_BUTTON') : t('UI_COPY_BUTTON')}
+                ${isPluginMode ? getMessage('UI_INSERT_BUTTON') : getMessage('UI_COPY_BUTTON')}
               </button>
               <button
                 type="button"
                 class="action-button open-button"
                 @click=${this.handleOpenInTab}
-                title="${t('UI_OPEN_IN_NEW_TAB')}"
-                aria-label="${t('UI_OPEN_IN_NEW_TAB')}"
+                title="${getMessage('UI_OPEN_IN_NEW_TAB')}"
+                aria-label="${getMessage('UI_OPEN_IN_NEW_TAB')}"
               >
                 <svg class="icon" viewBox="0 0 20 20">
                   <use href="#S2_Icon_OpenIn_20_N"></use>
@@ -856,11 +856,11 @@ class NxMediaInfo extends LitElement {
           <div class="modal-notification-overlay">
             <div class="toast-notification ${this._modalNotification.type || 'success'}">
               <div class="toast-notification-header">
-                <p class="da-notification-status-title">${this._modalNotification.heading || t('NOTIFY_INFO')}</p>
+                <p class="da-notification-status-title">${this._modalNotification.heading || getMessage('NOTIFY_INFO')}</p>
                 <button
                   type="button"
                   class="toast-notification-close"
-                  aria-label="${t('UI_DISMISS')}"
+                  aria-label="${getMessage('UI_DISMISS')}"
                   @click=${this.dismissModalNotification}
                 >
                   <span aria-hidden="true">&times;</span>
@@ -952,8 +952,8 @@ class NxMediaInfo extends LitElement {
       if (this._pdfState === 'loading') {
         return html`
           <div class="pdf-loading-container" role="status" aria-live="polite">
-            <sl-spinner aria-label="${t('UI_PDF_LOADING_ARIA')}"></sl-spinner>
-            <p class="pdf-error-message">${t('UI_PDF_LOADING')}</p>
+            <sl-spinner aria-label="${getMessage('UI_PDF_LOADING_ARIA')}"></sl-spinner>
+            <p class="pdf-error-message">${getMessage('UI_PDF_LOADING')}</p>
           </div>
         `;
       }
@@ -965,10 +965,10 @@ class NxMediaInfo extends LitElement {
               <use href="#S2_Icon_PDF_20_N"></use>
             </svg>
             <p class="pdf-error-message">
-              ${this._pdfError || t('UI_PDF_FAILED')}
+              ${this._pdfError || getMessage('UI_PDF_FAILED')}
             </p>
             <a href="${pdfUrl}" target="_blank" rel="noopener noreferrer" class="pdf-error-link">
-              ${t('UI_PDF_OPEN_IN_NEW_TAB')}
+              ${getMessage('UI_PDF_OPEN_IN_NEW_TAB')}
             </a>
           </div>
         `;
@@ -982,7 +982,7 @@ class NxMediaInfo extends LitElement {
 
       return html`
         <div class="pdf-loading-container" role="status" aria-live="polite">
-          <sl-spinner aria-label="${t('UI_PDF_LOADING_ARIA')}"></sl-spinner>
+          <sl-spinner aria-label="${getMessage('UI_PDF_LOADING_ARIA')}"></sl-spinner>
         </div>
       `;
     }
@@ -1349,7 +1349,7 @@ class NxMediaInfo extends LitElement {
       const isError = result.heading === 'Error';
       this.showModalNotification(result.heading, result.message, isError ? 'danger' : 'success');
     } catch (_) {
-      this.showModalNotification(t('NOTIFY_ERROR'), t('NOTIFY_COPY_ERROR'), 'danger');
+      this.showModalNotification(getMessage('NOTIFY_ERROR'), getMessage('NOTIFY_COPY_ERROR'), 'danger');
     }
   }
 

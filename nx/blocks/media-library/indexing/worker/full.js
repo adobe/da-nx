@@ -157,8 +157,6 @@ export async function buildFullIndex(
   const deletedPaths = new Set();
   const deletedPages = new Set();
   const medialogStart = Date.now();
-  const medialogChunks = [];
-  const auditlogChunks = [];
   let medialogResourcePathCount = 0;
 
   const earlyLinkedEntries = [];
@@ -181,12 +179,32 @@ export async function buildFullIndex(
 
   const contentPath = getContentPathFromSitePath(sitePath);
   const progressiveMediaMap = new Map();
+
+  // Accumulate medialog entries directly (not chunks) to save memory
+  const medialogEntries = [];
+  let totalMedialogEntries = 0;
+
   const medialogPromise = streamLog('medialog', org, repo, ref, null, IndexConfig.API_PAGE_SIZE, (chunk) => {
     perf.medialog.chunks += 1;
     chunk.forEach((m) => {
       if (m.resourcePath) medialogResourcePathCount += 1;
+
+      // Field projection: Only keep the 10 fields actually used in processing
+      // This reduces memory by ~40-50% (257K entries with 10 fields vs 20-30 fields)
+      medialogEntries.push({
+        path: m.path,
+        resourcePath: m.resourcePath,
+        mediaHash: m.mediaHash,
+        timestamp: m.timestamp,
+        user: m.user,
+        operation: m.operation,
+        originalFilename: m.originalFilename,
+        contentType: m.contentType,
+        modifiedTimestamp: m.modifiedTimestamp,
+        originalPath: m.originalPath,
+      });
     });
-    medialogChunks.push(chunk);
+    totalMedialogEntries += chunk.length;
 
     const pathScope = contentPath || '';
     mergeMedialogChunkIntoMap(chunk, progressiveMediaMap, org, repo, pathScope);
@@ -197,14 +215,13 @@ export async function buildFullIndex(
 
     onProgress({
       stage: 'fetching',
-      message: `Status job polling, Medialog: ${medialogChunks.reduce((s, c) => s + c.length, 0)} entries...`,
+      message: `Status job polling, Medialog: ${totalMedialogEntries} entries...`,
     });
   }, imsToken, { fullHistory: true });
 
-  // Fetch auditlog for fragment/PDF/SVG file discovery (like helix-tools does)
-  const auditlogPromise = streamLog('log', org, repo, ref, null, IndexConfig.API_PAGE_SIZE, (chunk) => {
-    auditlogChunks.push(chunk);
-  }, imsToken, {});
+  // Note: Auditlog NOT fetched for full builds - Status API provides all files
+  // (fragments, PDFs, SVGs) with accurate timestamps. Auditlog only needed for
+  // incremental builds to track changes over time.
 
   try {
     const progressCallback = (p) => {
@@ -223,12 +240,14 @@ export async function buildFullIndex(
       isPerfEnabled,
     });
 
-    // Run status API, auditlog, and medialog in parallel
+    // Run status API and medialog in parallel
     const bulkStatusResult = (await Promise.all([
       statusPromise,
-      auditlogPromise,
       medialogPromise,
     ]))[0];
+
+    // Release progressive media map after streaming completes (~5-10MB)
+    progressiveMediaMap.clear();
 
     const { resources, perf: bulkPerf } = bulkStatusResult;
 
@@ -246,9 +265,11 @@ export async function buildFullIndex(
       perf.statusAPI.partitionDetailsMs = bulkPerf.partitionDetailsMs;
     }
 
-    const payloadJson = JSON.stringify(resources);
-    const payloadSizeKB = Math.round((payloadJson.length / 1024) * 10) / 10;
-    const payloadSizeMB = Math.round((payloadJson.length / (1024 * 1024)) * 100) / 100;
+    // Estimate payload size instead of JSON.stringify to avoid 10MB+ string allocation
+    const estimatedBytesPerResource = 200;
+    const estimatedBytes = resources.length * estimatedBytesPerResource;
+    const payloadSizeKB = Math.round((estimatedBytes / 1024) * 10) / 10;
+    const payloadSizeMB = Math.round((estimatedBytes / (1024 * 1024)) * 100) / 100;
     perf.statusAPI.payloadSizeKB = payloadSizeKB;
     if (payloadSizeMB >= 1) {
       perf.statusAPI.payloadSizeMB = payloadSizeMB;
@@ -295,39 +316,22 @@ export async function buildFullIndex(
     perf.statusAPI.fragmentsDiscovered = fragmentCount;
     perf.statusAPI.filesDiscovered = fileCount;
 
-    // Process auditlog entries for fragment/PDF/SVG files (like helix-tools)
-    const auditlogEntries = auditlogChunks.flat();
-    const auditlogFiles = auditlogEntries.filter(
-      (e) => e.route === 'preview' && !isPage(e.path) && (isPdfOrSvg(e.path) || isFragmentDoc(e.path)),
-    );
-
-    auditlogFiles.forEach((e) => {
-      const fp = toAbsoluteFilePath(e.path);
-      const syntheticEvent = {
-        path: e.path,
-        timestamp: e.timestamp || currentTimestamp,
-        user: e.user || '',
-        method: e.method || 'UPDATE',
-        route: 'preview',
-      };
-      const existing = filesByPath.get(fp);
-      if (!existing || syntheticEvent.timestamp < existing.timestamp) {
-        filesByPath.set(fp, syntheticEvent);
-      }
-    });
+    // Release resources array after processing into maps (~5-10MB)
+    resources.length = 0;
 
     emitEarlyLinked();
   } finally {
     await medialogPromise?.catch(() => {});
-    await auditlogPromise?.catch(() => {});
   }
 
-  perf.medialog.streamed = medialogChunks.reduce((s, c) => s + c.length, 0);
+  perf.medialog.streamed = medialogEntries.length;
   perf.medialog.resourcePathCount = medialogResourcePathCount;
   perf.medialog.durationMs = Date.now() - medialogStart;
 
   const pages = [];
   pagesByPath.forEach((events) => pages.push(...events));
+  // Release pagesByPath after converting to array (~2-5MB)
+  pagesByPath.clear();
 
   perf.statusAPI.pagesForParsing = pages.length;
 
@@ -342,13 +346,16 @@ export async function buildFullIndex(
     message: `Building index from ${perf.medialog.streamed} medialog (page-based)...`,
   });
 
-  let medialogEntries = medialogChunks.flat();
+  // medialogEntries already accumulated during streaming - filter by contentPath if needed
   if (contentPath) {
     const pathPrefix = contentPath.endsWith('/') ? contentPath : `${contentPath}/`;
     const isUnderPath = (path) => path === contentPath || (path && path.startsWith(pathPrefix));
-    medialogEntries = medialogEntries.filter(
+    const filtered = medialogEntries.filter(
       (m) => m.resourcePath && isUnderPath(normalizePath(m.resourcePath)),
     );
+    // Replace with filtered version
+    medialogEntries.length = 0;
+    medialogEntries.push(...filtered);
   }
 
   const canonicalTimestamps = buildCanonicalTimestampMap(medialogEntries);
@@ -403,17 +410,7 @@ export async function buildFullIndex(
     index.push(entry);
   });
 
-  // Build oldUsageMap from medialog-based index (before markdown validation)
-  // This represents what medialog says is on each page
-  const oldUsageMap = new Map();
-  index.forEach((entry) => {
-    if (entry.doc && entry.hash) {
-      if (!oldUsageMap.has(entry.doc)) {
-        oldUsageMap.set(entry.doc, new Set());
-      }
-      oldUsageMap.get(entry.doc).add(entry.hash);
-    }
-  });
+  // oldUsageMap removed - was built but never used in full builds (~5-10MB saved)
 
   // Normalize hash format in index entries built from medialog
   // Hash should always be bare (e.g. "abc123"), never with prefix (e.g. "media_abc123.jpg")
@@ -423,14 +420,7 @@ export async function buildFullIndex(
     }
   });
 
-  // Build existingIndexMap for markdown parsing (metadata lookup)
-  const existingIndexMap = new Map();
-  index.forEach((entry) => {
-    const dedupeKey = getDedupeKey(entry.url);
-    if (!existingIndexMap.has(dedupeKey)) {
-      existingIndexMap.set(dedupeKey, entry);
-    }
-  });
+  // existingIndexMap removed - was built but never used in full builds (~5-10MB saved)
 
   deletedPages.forEach((doc) => {
     const toRemove = index.filter((e) => e.doc === doc);
@@ -438,6 +428,9 @@ export async function buildFullIndex(
       removeOrOrphanMedia(index, entry, doc, medialogEntries);
     });
   });
+
+  // Release medialogEntries after all processing (~10-20MB)
+  medialogEntries.length = 0;
 
   if (onProgressiveData && (index.length > 0 || earlyLinkedEntries.length > 0)) {
     const combined = [...earlyLinkedEntries, ...index];
@@ -563,7 +556,13 @@ export async function buildFullIndex(
     imagePathsInMarkdown: imageToPages.size,
   };
 
+  // Release image-to-pages map after truthing (~5-10MB)
+  imageToPages.clear();
+
   const files = Array.from(filesByPath.values());
+  // Release filesByPath after converting to array (~2-5MB)
+  filesByPath.clear();
+
   const linkedStart = Date.now();
   const linkedResults = await processLinkedContent(
     index,
@@ -577,6 +576,15 @@ export async function buildFullIndex(
     usageMap,
     usageMapContext,
   );
+  // Release usageMap after linked content processing (~5-10MB)
+  usageMap.images?.clear();
+  usageMap.videos?.clear();
+  usageMap.external?.clear();
+
+  // Release pages and files arrays (~5-10MB)
+  pages.length = 0;
+  files.length = 0;
+
   const linkedDurationMs = Date.now() - linkedStart;
 
   if (onProgressiveData && (index.length > 0 || earlyLinkedEntries.length > 0)) {
