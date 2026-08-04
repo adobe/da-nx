@@ -1,5 +1,7 @@
 /* eslint-disable no-use-before-define */
-import { HLX_ADMIN, AEM_API, DA_ADMIN, ALLOWED_TOKEN } from './utils.js';
+import {
+  HLX_ADMIN, AEM_API, DA_ADMIN, ALLOWED_TOKEN, sheet2object, object2sheet,
+} from './utils.js';
 
 export const { loadIms, handleSignIn } = await (async () => {
   try {
@@ -77,7 +79,12 @@ export const config = {
     const hlx6 = await isHlx6(org, site);
     if (hlx6) {
       const url = `${AEM_API}/${org}/sites/${site}/config/editor/da.json`;
-      return daFetch({ url });
+      const resp = await daFetch({ url });
+      if (resp.ok) {
+        const cfg = object2sheet(await resp.json());
+        resp.json = () => cfg;
+      }
+      return resp;
     }
     const url = await getDaApiPath(CONFIG, org, site);
     const finalUrl = cachebust
@@ -95,7 +102,7 @@ export const config = {
         headers: {
           'content-type': 'application/json',
         },
-        body,
+        body: JSON.stringify(sheet2object(JSON.parse(body))),
       };
       return daFetch({ url, opts });
     }
@@ -282,7 +289,9 @@ export const source = {
     let raw;
     try {
       raw = await resp.json();
-    } catch { raw = []; }
+    } catch {
+      raw = [];
+    }
     const items = Array.isArray(raw) ? hlx6ToDaList(parentPath, raw) : [];
     return { ok: true, items, continuationToken: nextToken, permissions };
   }),
@@ -760,7 +769,9 @@ async function parseListItems(resp, parentPath) {
   let raw;
   try {
     raw = await resp.json();
-  } catch { return []; }
+  } catch {
+    return [];
+  }
   return Array.isArray(raw) ? hlx6ToDaList(parentPath, raw) : [];
 }
 

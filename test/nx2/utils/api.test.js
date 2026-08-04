@@ -698,10 +698,10 @@ describe('api.js', () => {
   });
 
   describe('config', () => {
-    it('config.get site-level uses DA regardless of hlx6 status', async () => {
+    it('config.get site-level uses AEM_API editor config on hlx6', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await config.get({ org: o, site: s });
-      expect(lastCall().url).to.equal(`${DA_ADMIN}/config/${o}/${s}/`);
+      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/config/editor/da.json`);
     });
 
     it('config.get org-only legacy', async () => {
@@ -717,6 +717,79 @@ describe('api.js', () => {
       expect(last.method).to.equal('PUT');
       expect(last.body).to.be.instanceof(FormData);
       expect(last.body.get('config')).to.equal('{"foo":"bar"}');
+    });
+
+    it('config.get on hlx6 converts the simple AEM_API response into sheet format', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({ body: JSON.stringify({ library: [{ title: 'Foo' }] }) });
+
+      const resp = await config.get({ org: o, site: s });
+
+      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/config/editor/da.json`);
+      expect(await resp.json()).to.deep.equal({
+        total: 1, limit: 1, offset: 0, data: [{ title: 'Foo' }], ':sheetname': 'library', ':type': 'sheet',
+      });
+    });
+
+    it('config.get on hlx6 converts a multi-key AEM_API response into a multi-sheet doc', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ library: [{ title: 'Foo' }], permissions: [{ email: 'a@b.com' }] }),
+      });
+
+      const resp = await config.get({ org: o, site: s });
+
+      expect(await resp.json()).to.deep.equal({
+        ':type': 'multi-sheet',
+        ':names': ['library', 'permissions'],
+        library: { total: 1, limit: 1, offset: 0, data: [{ title: 'Foo' }] },
+        permissions: { total: 1, limit: 1, offset: 0, data: [{ email: 'a@b.com' }] },
+      });
+    });
+
+    it('config.get on hlx6 leaves non-ok responses untransformed', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({ status: 404, body: JSON.stringify({ error: 'not found' }) });
+
+      const resp = await config.get({ org: o, site: s });
+
+      expect(resp.ok).to.equal(false);
+      expect(await resp.json()).to.deep.equal({ error: 'not found' });
+    });
+
+    it('config.save on hlx6 converts a sheet-format body into simple JSON for AEM_API', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const sheetBody = JSON.stringify({
+        total: 1, limit: 1, offset: 0, data: [{ title: 'Foo' }], ':sheetname': 'library', ':type': 'sheet',
+      });
+
+      await config.save({ org: o, site: s, body: sheetBody });
+
+      const last = lastCall();
+      expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/config/editor/da.json`);
+      expect(last.method).to.equal('POST');
+      expect(last.headers['content-type']).to.equal('application/json');
+      expect(JSON.parse(last.body)).to.deep.equal({ library: [{ title: 'Foo' }] });
+    });
+
+    it('config.save on hlx6 converts a multi-sheet body into a multi-key simple object', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const sheetBody = JSON.stringify({
+        ':type': 'multi-sheet',
+        ':names': ['library', 'permissions'],
+        library: { total: 1, limit: 1, offset: 0, data: [{ title: 'Foo' }] },
+        permissions: { total: 1, limit: 1, offset: 0, data: [{ email: 'a@b.com' }] },
+      });
+
+      await config.save({ org: o, site: s, body: sheetBody });
+
+      expect(JSON.parse(lastCall().body)).to.deep.equal({
+        library: [{ title: 'Foo' }],
+        permissions: [{ email: 'a@b.com' }],
+      });
     });
 
     it('config.delete sends DELETE', async () => {
