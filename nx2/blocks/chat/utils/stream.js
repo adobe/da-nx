@@ -19,9 +19,9 @@ function processEvent(event, streaming, callbacks) {
     return { streaming: next, done: false };
   }
 
-  if (event.type === EVENT.TOOL_CALL || event.type === EVENT.TOOL_CALL_LEGACY) {
+  if (event.type === EVENT.TOOL_INPUT_AVAILABLE) {
     onTool?.({
-      type: EVENT.TOOL_CALL,
+      type: EVENT.TOOL_INPUT_AVAILABLE,
       toolCallId: event.toolCallId,
       toolName: event.toolName,
       input: event.input ?? event.args ?? {},
@@ -30,20 +30,24 @@ function processEvent(event, streaming, callbacks) {
     onTool?.({
       type: EVENT.TOOL_APPROVAL_REQUEST,
       toolCallId: event.toolCallId,
-      toolName: event.toolName,
-      approvalId: event.approvalId,
-      input: event.input ?? event.args ?? {},
     });
-  } else if (event.type === EVENT.TOOL_RESULT || event.type === EVENT.TOOL_RESULT_LEGACY) {
+  } else if (event.type === EVENT.TOOL_OUTPUT_AVAILABLE) {
     const raw = event.output ?? event.result;
     const isError = raw && typeof raw === 'object' && 'error' in raw;
     onTool?.({
-      type: EVENT.TOOL_RESULT,
+      type: isError ? EVENT.TOOL_OUTPUT_ERROR : EVENT.TOOL_OUTPUT_AVAILABLE,
       toolCallId: event.toolCallId,
       toolName: event.toolName,
       output: raw,
       isError,
       scope: !isError ? TOOL_SCOPE[event.toolName] : undefined,
+    });
+  } else if (event.type === EVENT.TOOL_OUTPUT_ERROR) {
+    onTool?.({
+      type: EVENT.TOOL_OUTPUT_ERROR,
+      toolCallId: event.toolCallId,
+      toolName: event.toolName,
+      errorText: event.errorText ?? event.error?.message,
     });
   }
 
