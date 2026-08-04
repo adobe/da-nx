@@ -72,6 +72,7 @@ export const DA_FEEDBACK = getEnv('da-feedback', DA_FEEDBACK_ENVS);
 
 export const HLX_ADMIN = 'https://admin.hlx.page';
 export const AEM_API = 'https://api.aem.live';
+export const DA_TRANSLATE = 'https://translate.da.live';
 
 export const ALLOWED_TOKEN = [
   DA_ADMIN,
@@ -81,6 +82,7 @@ export const ALLOWED_TOKEN = [
   DA_ETC,
   AEM_API,
   HLX_ADMIN,
+  DA_TRANSLATE,
 ];
 
 const IMS_HASH_KEYS = ['access_token', 'old_hash', 'ld_hash'];
