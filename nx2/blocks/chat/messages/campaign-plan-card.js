@@ -1,9 +1,13 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { getConfig } from '../../../scripts/nx.js';
 import { PLAN_RUN_EVENT, TASK_STATUS } from '../constants.js';
 import './task-item.js';
 
 const styles = await loadStyle(import.meta.url);
+const { codeBase } = getConfig();
+
+const icon = (name, className) => html`<svg class=${className} viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${name}.svg#icon"></use></svg>`;
 
 /**
  * <nx-campaign-plan-card> — Content Generation Plan card.
@@ -36,13 +40,6 @@ class NxCampaignPlanCard extends LitElement {
   _findRunningTask(tasks) {
     const runningIdx = tasks.findIndex((t) => t.status === TASK_STATUS.RUNNING);
     return runningIdx >= 0 ? { task: tasks[runningIdx], current: runningIdx + 1 } : null;
-  }
-
-  _renderChevronIcon() {
-    return html`
-      <svg class="plan-chevron-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path d="M5 7.5l5 5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>`;
   }
 
   _renderTasksFull(tasks) {
@@ -108,7 +105,7 @@ class NxCampaignPlanCard extends LitElement {
     if (!isRunning && !isDone) this._dispatch(PLAN_RUN_EVENT);
   }}
               >${runBtnLabel}</button>
-              ${this._renderChevronIcon()}
+              ${icon('s2-icon-chevrondown-20-n', 'plan-chevron-icon')}
             </div>
           </div>
 
