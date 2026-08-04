@@ -1,4 +1,11 @@
 {
   "extends": ["github>adobe/helix-shared"],
-  "baseBranches": ["main"]
+  "baseBranches": ["main"],
+  "packageRules": [
+    {
+      "groupName": "web test tooling",
+      "matchPackagePatterns": ["^@web/"],
+      "automerge": false
+    }
+  ]
 }
