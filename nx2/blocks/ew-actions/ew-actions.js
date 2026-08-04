@@ -266,6 +266,7 @@ class NXEwActions extends LitElement {
             ` : nothing}
             <nx-menu
               placement="below"
+              size="m"
               .items=${[
         { id: 'preview', label: 'Preview' },
         { id: 'publish', label: 'Publish' },
@@ -281,7 +282,8 @@ class NXEwActions extends LitElement {
               >
                 ${this._busy
         ? html`<span class="preview-dropdown-spinner" aria-hidden="true"></span>`
-        : html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href=${SEND_ICON_HREF}></use></svg><span>Send</span>`}
+        : html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href=${SEND_ICON_HREF}></use></svg>`}
+        <span>Send</span>
               </button>
             </nx-menu>
           </div>
