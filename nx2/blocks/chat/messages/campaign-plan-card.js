@@ -20,13 +20,7 @@ const styles = await loadStyle(import.meta.url);
 class NxCampaignPlanCard extends LitElement {
   static properties = {
     plan: { attribute: false },
-    _isExpanded: { state: true },
   };
-
-  constructor() {
-    super();
-    this._isExpanded = true;
-  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -69,7 +63,7 @@ class NxCampaignPlanCard extends LitElement {
 
   _renderTasksCollapsed(runningTask, current, total) {
     return html`
-      <div class="plan-tasks">
+      <div class="plan-tasks plan-tasks-collapsed">
         <span class="plan-tasks-progress">${current}/${total}</span>
         <div class="plan-task-row">
           <nx-task-item
@@ -94,42 +88,42 @@ class NxCampaignPlanCard extends LitElement {
     if (isRunning) runBtnLabel = 'Running...';
     else if (isDone) runBtnLabel = 'Done';
     const runBtnClass = `plan-btn ${isRunning ? 'plan-btn-ghost' : 'plan-btn-primary'} plan-btn-run`;
-    const chevronClass = `plan-icon-btn${this._isExpanded ? ' plan-icon-btn-expanded' : ''}`;
-    const chevronLabel = this._isExpanded ? 'Collapse plan' : 'Expand plan';
 
     return html`
-      <div class="plan-card">
-        <div class="plan-header">
-          <span class="plan-type-label">
-            <span class="plan-type-icon" aria-hidden="true"></span>
-            Content Generation Plan
-          </span>
-          <div class="plan-header-actions">
-            <button
-              type="button"
-              class=${runBtnClass}
-              ?disabled=${isRunning || isDone}
-              @click=${() => !isRunning && !isDone && this._dispatch(PLAN_RUN_EVENT)}
-            >${runBtnLabel}</button>
-            <button
-              type="button"
-              class=${chevronClass}
-              aria-label=${chevronLabel}
-              @click=${() => { this._isExpanded = !this._isExpanded; }}
-            >${this._renderChevronIcon()}</button>
+      <details class="plan-card" open>
+        <summary class="plan-summary">
+          <div class="plan-header">
+            <span class="plan-type-label">
+              <span class="plan-type-icon" aria-hidden="true"></span>
+              Content Generation Plan
+            </span>
+            <div class="plan-header-actions">
+              <button
+                type="button"
+                class=${runBtnClass}
+                ?disabled=${isRunning || isDone}
+                @click=${(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isRunning && !isDone) this._dispatch(PLAN_RUN_EVENT);
+  }}
+              >${runBtnLabel}</button>
+              ${this._renderChevronIcon()}
+            </div>
           </div>
-        </div>
 
-        <div class="plan-body">
-          <h3 class="plan-title">${title}</h3>
-          ${description ? html`<p class="plan-description">${description}</p>` : nothing}
-        </div>
+          <div class="plan-body">
+            <h3 class="plan-title">${title}</h3>
+            ${description ? html`<p class="plan-description">${description}</p>` : nothing}
+          </div>
 
-        ${!this._isExpanded && isRunning
-          ? this._renderTasksCollapsed(running.task, running.current, tasks.length)
-          : nothing}
-        ${this._isExpanded ? this._renderTasksFull(tasks) : nothing}
-      </div>
+          ${isRunning
+    ? this._renderTasksCollapsed(running.task, running.current, tasks.length)
+    : nothing}
+        </summary>
+
+        ${this._renderTasksFull(tasks)}
+      </details>
     `;
   }
 }

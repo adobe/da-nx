@@ -15,6 +15,14 @@
   margin-bottom: var(--s2-spacing-75);
 }
 
+.plan-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-200);
+  cursor: pointer;
+  list-style: none;
+}
+
 /* ── Header strip (48px, border-bottom) ── */
 
 .plan-header {
@@ -79,33 +87,20 @@
   flex-shrink: 0;
 }
 
-.plan-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--s2-corner-radius-300);
-  border: none;
-  background: transparent;
-  color: var(--s2-gray-700);
-  cursor: pointer;
-  padding: 0;
-
-  &:hover {
-    background-color: var(--s2-gray-100);
-  }
-}
-
 .plan-chevron-icon {
   width: 16px;
   height: 16px;
   display: block;
+  color: var(--s2-gray-700);
   transition: transform 0.2s ease;
 }
 
-.plan-icon-btn-expanded .plan-chevron-icon {
+.plan-card[open] .plan-chevron-icon {
   transform: rotate(180deg);
+}
+
+.plan-card[open] .plan-tasks-collapsed {
+  display: none;
 }
 
 /* ── Task area ── */
