@@ -269,7 +269,12 @@ export const source = {
     if (hlx6) {
       opts.body = body;
       if (ext) opts.headers = { 'Content-Type': TYPE_MAP[ext] };
-      return daFetch({ url, opts });
+      const resp = await daFetch({ url, opts });
+      // hlx6 source save returns an empty body, whereas DA returns
+      // { source: { contentUrl } }. Normalize the success case to that shape
+      // (contentUrl = the source URL just written) so callers can read
+      // source.contentUrl uniformly across hlx5/hlx6.
+      return resp.ok ? withSourceJson(resp, url) : resp;
     }
     const formData = new FormData();
     formData.append('data', new Blob([body], { type: TYPE_MAP[ext] }));
@@ -648,6 +653,14 @@ function normalizePath(path) {
   if (Array.isArray(path)) return path.map(normalizePath);
   if (typeof path !== 'string') return path;
   return path.startsWith('/') ? path : `/${path}`;
+}
+
+// Shadow a Response's `json()` so it resolves to the DA-shaped
+// `{ source: { contentUrl } }`. Used for hlx6 saves, whose body is empty —
+// preserves the original ok/status/headers/permissions.
+function withSourceJson(resp, contentUrl) {
+  resp.json = async () => ({ source: { contentUrl } });
+  return resp;
 }
 
 function jsonOpts(method, payload) {

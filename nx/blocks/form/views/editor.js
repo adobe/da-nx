@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../nx2/utils/utils.js';
 import '../fields/input.js';
+import '../fields/textarea.js';
 import '../fields/picker.js';
 import '../fields/checkbox.js';
 import '../fields/button.js';
@@ -243,6 +244,20 @@ class Editor extends LitElement {
           ?disabled=${readonly}
           @input=${(e) => this._onNumberInput(node, e)}
         ></form-number-field>
+      `;
+    }
+
+    if (node.semanticType === 'long-text') {
+      return html`
+        <form-textarea
+          data-pointer=${pointer}
+          .label=${label}
+          .required=${showRequired}
+          .error=${error}
+          .value=${value ?? ''}
+          ?disabled=${readonly}
+          @input=${(e) => this._onTextInput(node, e)}
+        ></form-textarea>
       `;
     }
 
