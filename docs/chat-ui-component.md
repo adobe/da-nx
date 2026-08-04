@@ -26,9 +26,14 @@ The component manages its own controller internally. No external wiring needed.
 
 ```js
 { role: 'user', content: string }
-{ role: 'assistant', content: string }
-{ role: 'tool', ... }  // filtered from display automatically
+{ role: 'assistant', content: string }                      // chat text
+{ role: 'assistant', content: [{ type: 'tool', ... }] }     // tool activity
 ```
+
+There is no `role: 'tool'` message — tool activity lives as `type: 'tool'` parts
+on `assistant` messages (each carries its own lifecycle `state`; see
+[Tool parts & card states](#tool-parts--card-states)). The full client↔agent
+approval contract is specified in [`approval-protocol.md`](./approval-protocol.md).
 
 **Request body:** The controller POSTs `{ messages, pageContext, imsToken, room, sessionId }` to the agent. `sessionId` is a UUID scoped to the current conversation session — it resets when the user clears the chat. Selection context is embedded on individual user messages (see [Selection context](#selection-context)) rather than as a top-level request field.
 
@@ -116,44 +121,76 @@ The controller consumes a server-sent event stream from `da-agent`. Each line is
 
 ### Tool events
 
-> **Contract:** Canonical field names are `input` and `output`. Legacy aliases (`args`, `result`, `tool-input-available`, `tool-output-available`) are accepted by the client for backward compatibility — producers should emit canonical names only.
+This wire vocabulary is owned jointly by da-nx and da-agent — it is **not** the
+AI SDK's format. The canonical spec (message shapes, lifecycle states, batching)
+is [`approval-protocol.md`](./approval-protocol.md); this section is the client's
+view.
 
-| Type | Legacy alias | Fields | Description |
-|---|---|---|---|
-| `tool-call` | `tool-input-available` | `toolCallId`, `toolName`, `input` | Agent invoked a tool. Legacy field alias: `args` → `input` |
-| `tool-approval-request` | — | `toolCallId`, `approvalId` | Tool requires user approval. `toolName` and `input` are **not** included — the client recovers them from the prior `tool-call` event with the matching `toolCallId` |
-| `tool-result` | `tool-output-available` | `toolCallId`, `toolName`, `output` | Tool completed; `output.error` signals failure. Legacy field alias: `result` → `output` |
+| Type | Fields | Description |
+|---|---|---|
+| `tool-input-available` | `toolCallId`, `toolName`, `input` | Agent invoked a tool — the client creates an in-flight tool part. |
+| `tool-approval-request` | `toolCallId` | The call is gated behind user approval. `toolName`/`input` are recovered from the earlier `tool-input-available` with the same `toolCallId`. |
+| `tool-output-available` | `toolCallId`, `output` | Tool executed successfully. |
+| `tool-output-error` | `toolCallId`, `errorText` | Tool failed. |
 
-### Tool card states
+### Tool parts & card states
 
-A tool card transitions through these states as events arrive:
+Each tool invocation is a single part — `{ type: 'tool', toolCallId, toolName,
+input, state, output? }` — on an `assistant` message. The `state` is the single
+key both the UI and the server reconcile on (never message position):
 
 ```
-tool-call → running
-tool-approval-request → approval-requested  (or → approved directly if auto-approved)
-(user approves) → approved → done
-(user rejects) → rejected
-tool-result (success) → done
-tool-result (error) → error
+tool-input-available   → input-available    (in-flight)
+tool-approval-request  → awaiting-approval   (or → approved if auto-approved)
+(user approves)        → approved
+(user rejects)         → rejected
+tool-output-available  → output-available    (done)
+tool-output-error      → output-error
 ```
 
-`approval-requested` is the only state that requires user action. All other states are informational.
+`awaiting-approval` is the only state that requires user action. The tool card
+renders every state except `awaiting-approval`, which the approval popover shows
+instead.
+
+### Batched approvals
+
+When one agent step gates **multiple** tools, the client surfaces the approval
+requests **as a queue, one at a time**. Each decision is recorded on its tool
+part (`approved` / `rejected`) but **nothing is sent until the whole queue is
+drained** — then the client sends **one** POST with the full history carrying all
+decisions. The server executes the approved tools **sequentially**, streams a
+`tool-output-available` / `tool-output-error` per tool, and continues the turn.
+This batching is what makes multi-tool approvals correct — see
+[`approval-protocol.md`](./approval-protocol.md) §6–§7.
 
 ### Tool event ordering guarantees
 
-Within a single stream connection, events for a given `toolCallId` are expected to arrive in order: `tool-call` first, then optionally `tool-approval-request`, then `tool-result` as the terminal event. The client state machine depends on this ordering — a `tool-result` arriving before `tool-call` would produce incorrect state.
+Per `toolCallId`, events arrive in order: `tool-input-available` first, then
+optionally `tool-approval-request`, then a terminal `tool-output-available` /
+`tool-output-error`. All tool state is keyed on `toolCallId`, so ordering across
+different tools and message position do not matter.
 
-> **Contract:** Event ordering per `toolCallId` is a stable contract with da-agent. Breaking changes require a coordinated update on both sides.
+> **Contract:** Event ordering per `toolCallId` is a stable contract with
+> da-agent. Breaking changes require a coordinated update on both sides.
 
-**Duplicates:** Should not occur within a stream. The client ignores a duplicate `tool-call` for an already-known `toolCallId` — subsequent events for that id are still processed normally.
+**Duplicates:** The client ignores a duplicate `tool-input-available` for a
+known `toolCallId`.
 
-**Missing `tool-result`:** If the stream is interrupted, a tool card may be left in `running` or `approval-requested` state indefinitely. `running` is in-memory only and resets on page load. `approval-requested` messages are persisted — `loadInitialMessages` filters incomplete approval sequences on reload to avoid sending unresolved tool-calls to the agent on the next request.
+**Interruptions:** If the stream drops, a tool part may be left `input-available`
+or `awaiting-approval`. On reload, `migrateHistory` normalises persisted history
+and drops mid-flight (unresolved) tool parts so no orphaned tool-call is sent on
+the next request. (Accepted edge: a tool executed by the server right before an
+interruption — before the client stored its result — can re-run on the next
+send; see [`approval-protocol.md`](./approval-protocol.md) §12.)
 
-**Reconnect:** The stream is a live feed — events are not replayed on reconnect. A new stream starts fresh; any in-flight tool state from the previous connection is lost.
+**Reconnect:** The stream is a live feed — events are not replayed. A new stream
+starts fresh.
 
-The approval popover accepts keyboard shortcuts: `Esc` = Reject, `↵` = Approve, `⌘↵` = Always approve.
+The approval popover accepts keyboard shortcuts: `Esc` = Reject, `↵` = Approve,
+`⌘↵` = Always approve.
 
-**If the agent team adds or renames event types, `processEvent` in `utils.js` must be updated to match.**
+**If the agent team adds or renames event types, `processEvent` in
+`utils/stream.js` must be updated to match.**
 
 ### Approval summary rendering
 
@@ -168,11 +205,11 @@ The UI picks one field from `input` to display as a human-readable summary benea
 
 For new tools that require approval, prefer adding a `humanReadableSummary` field to the input schema rather than relying on the fallback chain above.
 
-`tool-result` output is stored in the tool card but not currently rendered. If da-agent adds a `humanReadableSummary` to tool output, it would be the natural place to show a completion summary (e.g. "Created `/drafts/page.md` successfully").
+The tool `output` (from `tool-output-available`) is stored on the tool part but not currently rendered. If da-agent adds a `humanReadableSummary` to tool output, it would be the natural place to show a completion summary (e.g. "Created `/drafts/page.md` successfully").
 
 ### "Always approve" scope
 
-When the user clicks "Always approve", the tool name is added to an in-memory `Set` on the controller. Subsequent `tool-approval-request` events for that tool are auto-approved via `queueMicrotask`. The set is **conversation-scoped** — it resets only on `clear()`. There is no path-scoping: "always approve" applies to the tool by name regardless of what path the agent acts on, since the path is in the tool input rather than the tool name. There is no cross-session persistence.
+When the user clicks "Always approve", the tool name is added to an in-memory `Set` on the controller, and every other still-queued approval for that same tool is drained to `approved` in the same batch. Subsequent `tool-approval-request` events for that tool arrive pre-approved (the part goes straight to `approved` instead of `awaiting-approval`). The set is **conversation-scoped** — it resets only on `clear()`. There is no path-scoping: "always approve" applies to the tool by name regardless of what path the agent acts on, since the path is in the tool input rather than the tool name. There is no cross-session persistence.
 
 ## Persistence
 
