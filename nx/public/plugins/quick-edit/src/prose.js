@@ -49,15 +49,11 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
 
   if (ctx.remoteUpdate) { return; }
 
-  // @deprecated flat fields alongside `type` — prefer nesting under `payload`
-  // (da-live's quick-edit-controller.js already prefers payload when present).
   if (numChanges > 0) {
     const editedEl = newState.doc.firstChild;
     const node = editedEl.toJSON();
     ctx.port.postMessage({
       type: MESSAGE_TYPES.NODE_UPDATE,
-      node,
-      cursorOffset: currentCursorOffset,
       payload: { node, cursorOffset: currentCursorOffset },
     });
   }
@@ -73,10 +69,6 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
       const anchorY = coords.top;
       ctx.port.postMessage({
         type: MESSAGE_TYPES.SELECTION_CHANGE,
-        anchor,
-        head,
-        anchorX,
-        anchorY,
         payload: {
           anchor, head, anchorX, anchorY,
         },
@@ -84,8 +76,6 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
     } else {
       ctx.port.postMessage({
         type: MESSAGE_TYPES.CURSOR_MOVE,
-        cursorOffset: base,
-        textCursorOffset: newSel.from,
         payload: { cursorOffset: base, textCursorOffset: newSel.from },
       });
     }
@@ -96,7 +86,7 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   // for the next character to be typed.
   if (!marksEqual(oldStoredMarks, newState.storedMarks)) {
     const marks = newState.storedMarks ? newState.storedMarks.map((m) => m.toJSON()) : [];
-    ctx.port.postMessage({ type: MESSAGE_TYPES.STORED_MARKS, marks, payload: { marks } });
+    ctx.port.postMessage({ type: MESSAGE_TYPES.STORED_MARKS, payload: { marks } });
   }
 
   // Update toolbar button states and position
@@ -132,10 +122,6 @@ function initScrollListener(win, ctx) {
       const anchorY = coords.top;
       scrollCtx.port.postMessage({
         type: MESSAGE_TYPES.SELECTION_CHANGE,
-        anchor,
-        head,
-        anchorX,
-        anchorY,
         payload: {
           anchor, head, anchorX, anchorY,
         },
@@ -199,6 +185,7 @@ function createEditor(cursorOffset, state, ctx) {
 
   const editorView = new EditorView(editorParent, {
     state: editorState,
+    editable: () => !ctx.readOnly,
     handleDOMEvents: {
       focus,
       keydown,
@@ -211,7 +198,7 @@ function createEditor(cursorOffset, state, ctx) {
 
   element.replaceWith(editorParent);
   editorParent.view = editorView;
-  setupImageDropListeners(ctx, editorParent);
+  if (!ctx.readOnly) setupImageDropListeners(ctx, editorParent);
   setRemoteCursors();
   initScrollListener(editorParent.ownerDocument.defaultView, ctx);
 
@@ -248,7 +235,7 @@ function updateEditor(editorEl, state, ctx) {
   ctx.remoteUpdate = true;
   view.dispatch(tr);
   ctx.remoteUpdate = false;
-  setupImageDropListeners(ctx, editorEl.parentElement);
+  if (!ctx.readOnly) setupImageDropListeners(ctx, editorEl.parentElement);
 
   if (blurClearTimeout !== null) {
     clearTimeout(blurClearTimeout);

@@ -27,12 +27,7 @@ export const MESSAGE_TYPES = Object.freeze({
   STORED_MARKS: 'stored-marks', // { marks: PM Mark.toJSON()[] }
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }
 
-  // Iframe -> host today (the request); host -> iframe once the deprecated
-  // UPDATE_IMAGE_SRC/IMAGE_ERROR replies below are retired in favor of replying
-  // with this same type + a top-level `error` boolean — becomes bidirectional then.
-  IMAGE_REPLACE: 'image-replace', // { cursorOffset, imageData, fileName, mimeType, originalSrc }
-
-  // Host -> iframe: @deprecated replies to IMAGE_REPLACE
-  UPDATE_IMAGE_SRC: 'update-image-src', // { newSrc: string, originalSrc: string }
-  IMAGE_ERROR: 'image-error', // { error: string, originalSrc: string }
+  // Iframe -> host (request): { cursorOffset, imageData, fileName, mimeType, originalSrc }
+  // Host -> iframe (reply): { originalSrc, newSrc } | { originalSrc, error }
+  IMAGE_REPLACE: 'image-replace',
 });

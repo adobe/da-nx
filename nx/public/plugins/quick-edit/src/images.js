@@ -7,7 +7,6 @@ export function setupContentEditableListeners(ctx) {
 
     ctx.port.postMessage({
       type: MESSAGE_TYPES.GET_EDITOR,
-      cursorOffset: dataCursor,
       payload: { cursorOffset: dataCursor },
     });
   });
@@ -70,11 +69,6 @@ export function setupImageDropListeners(ctx, dom = document) {
           const { name: fileName, type: mimeType } = file;
           ctx.port.postMessage({
             type: MESSAGE_TYPES.IMAGE_REPLACE,
-            cursorOffset,
-            imageData,
-            fileName,
-            mimeType,
-            originalSrc,
             payload: {
               cursorOffset, imageData, fileName, mimeType, originalSrc,
             },

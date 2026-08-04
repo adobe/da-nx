@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import '../../../../../nx/blocks/form/fields/input.js';
+import '../../../../../nx/blocks/form/fields/textarea.js';
 import '../../../../../nx/blocks/form/fields/picker.js';
 import '../../../../../nx/blocks/form/fields/checkbox.js';
 import '../../../../../nx/blocks/form/fields/button.js';
@@ -57,6 +58,42 @@ describe('form-input', () => {
   it('honors the type attribute', async () => {
     const el = await mount('<form-input type="number"></form-input>');
     expect(el.shadowRoot.querySelector('input').type).to.equal('number');
+  });
+});
+
+describe('form-textarea', () => {
+  it('reflects value onto the inner textarea', async () => {
+    const el = await mount('<form-textarea></form-textarea>');
+    el.value = 'hello\nworld';
+    await el.updateComplete;
+    const textarea = el.shadowRoot.querySelector('textarea');
+    expect(textarea.value).to.equal('hello\nworld');
+  });
+
+  it('fires an input event and updates value on user input', async () => {
+    const el = await mount('<form-textarea></form-textarea>');
+    let fired;
+    el.addEventListener('input', (e) => { fired = e.target.value; });
+    const textarea = el.shadowRoot.querySelector('textarea');
+    textarea.value = 'typed';
+    textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    expect(el.value).to.equal('typed');
+    expect(fired).to.equal('typed');
+  });
+
+  it('renders the label and error message', async () => {
+    const el = await mount('<form-textarea></form-textarea>');
+    el.label = 'Summary';
+    el.error = 'Required';
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('label').textContent).to.equal('Summary');
+    expect(el.shadowRoot.querySelector('.form-field-error').textContent).to.equal('Required');
+    expect(el.shadowRoot.querySelector('.form-field').classList.contains('has-error')).to.be.true;
+  });
+
+  it('honors disabled', async () => {
+    const el = await mount('<form-textarea disabled></form-textarea>');
+    expect(el.shadowRoot.querySelector('textarea').disabled).to.be.true;
   });
 });
 

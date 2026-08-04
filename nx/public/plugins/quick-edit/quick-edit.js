@@ -31,7 +31,9 @@ async function setBody(body, ctx) {
   setupNodeSelection(ctx);
   setSelectedNode(getSelectedNode());
   setupContentEditableListeners(ctx);
-  setupImageDropListeners(ctx, document.body.querySelector('main'));
+  if (!ctx.readOnly) {
+    setupImageDropListeners(ctx, document.body.querySelector('main'));
+  }
   if (!parentControllerPort) {
     setupActions(ctx);
   }
@@ -42,56 +44,55 @@ function handleReady(e, ctx) {
 }
 
 function onMessage(e, ctx) {
-  // Prefer nested `payload` fields, falling back to the deprecated flat top-level
-  // ones — da-live currently sends both (see blocks/canvas/editor-utils/editor-utils.js
-  // and blocks/canvas/ew-editor-wysiwyg/utils/image.js).
-  const data = e.data?.payload ? { ...e.data, ...e.data.payload } : e.data;
+  const { type, payload = {} } = e.data ?? {};
 
-  if (data.type === MESSAGE_TYPES.READY) {
+  if (type === MESSAGE_TYPES.READY) {
     handleReady(e, ctx);
-  } else if (data.type === MESSAGE_TYPES.SET_BODY) {
-    setBody(data.body, ctx);
-  } else if (data.type === MESSAGE_TYPES.SET_EDITOR_STATE) {
-    const { editorState, cursorOffset } = data;
+  } else if (type === MESSAGE_TYPES.SET_BODY) {
+    setBody(payload.body, ctx);
+  } else if (type === MESSAGE_TYPES.SET_EDITOR_STATE) {
+    const { editorState, cursorOffset } = payload;
     setEditorState(cursorOffset, editorState, ctx);
-  } else if (data.type === MESSAGE_TYPES.SET_CURSORS) {
-    setCursors(data.cursors, ctx);
-  } else if (data.type === MESSAGE_TYPES.UPDATE_IMAGE_SRC
-    || data.type === MESSAGE_TYPES.IMAGE_ERROR) {
-    // Both are replies to the same image-replace request; `error` is only ever present
-    // (a truthy message) on the failure case, so its presence is the outcome signal —
-    // no separate flag needed. Once the two legacy type names are retired, this becomes
-    // a single `type === IMAGE_REPLACE` check with the same `if (data.error)` branch.
-    if (data.error) {
-      handleImageError(data.error);
+  } else if (type === MESSAGE_TYPES.SET_CURSORS) {
+    setCursors(payload.cursors, ctx);
+  } else if (type === MESSAGE_TYPES.IMAGE_REPLACE) {
+    if (payload.error) {
+      handleImageError(payload.error);
     } else {
-      const { newSrc, originalSrc } = data;
+      const { newSrc, originalSrc } = payload;
       updateImageSrc(originalSrc, newSrc);
     }
-  } else if (data.type === MESSAGE_TYPES.SET_SELECTED_NODE) {
-    setSelectedNode(data.node, document, { scrollIntoView: data.scrollIntoView });
+  } else if (type === MESSAGE_TYPES.SET_SELECTED_NODE) {
+    setSelectedNode(payload.node, document, { scrollIntoView: payload.scrollIntoView });
   }
+}
+
+// Disables link clicks. When the page is embedded, it must not navigate away.
+function blockLinkNavigation() {
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('a')) e.preventDefault();
+  }, true);
 }
 
 function setupParentController(loadPage) {
   const listener = (e) => {
-    // @deprecated `init` presence check — prefer `type === MESSAGE_TYPES.INIT` (da-live
-    // sends both).
-    const isInit = e.data?.type === MESSAGE_TYPES.INIT || e.data?.[MESSAGE_TYPES.INIT] != null;
+    const isInit = e.data?.type === MESSAGE_TYPES.INIT;
     if (e.source !== window.parent || !isInit || !e.ports?.length) return;
 
     const port = e.ports[0];
     parentControllerPort = port;
+    blockLinkNavigation();
+
+    const config = e.data?.payload?.config ?? e.data?.init;
 
     const ctx = {
       initialized: true,
       loadPage,
       port,
+      readOnly: config?.canWrite !== true,
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
-    // @deprecated flat `ready` — prefer `type: MESSAGE_TYPES.READY` (added alongside for
-    // callers that already migrated their ack check).
-    port.postMessage({ [MESSAGE_TYPES.READY]: true, type: MESSAGE_TYPES.READY });
+    port.postMessage({ type: MESSAGE_TYPES.READY });
 
     window.removeEventListener('message', listener);
   };
@@ -115,10 +116,8 @@ function handleLoad(target, config, location, ctx) {
   const { port1, port2 } = CHANNEL;
   ctx.port = port1;
 
-  // @deprecated flat `init`/`location` — prefer `type`/`payload` (added alongside for
-  // callers that already migrated their INIT check).
   target.contentWindow.postMessage({
-    [MESSAGE_TYPES.INIT]: config, location, type: MESSAGE_TYPES.INIT, payload: { config, location },
+    type: MESSAGE_TYPES.INIT, payload: { config, location },
   }, '*', [port2]);
   ctx.port.onmessage = (e) => onMessage(e, ctx);
 }
