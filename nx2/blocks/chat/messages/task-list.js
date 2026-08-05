@@ -3,6 +3,7 @@ import { loadStyle } from '../../../utils/utils.js';
 import { TASK_STATUS } from '../constants.js';
 import './task-item.js';
 
+const shared = await loadStyle(new URL('./messages.css', import.meta.url).href);
 const styles = await loadStyle(import.meta.url);
 
 /**
@@ -19,7 +20,7 @@ class NxTaskList extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [shared, styles];
   }
 
   render() {

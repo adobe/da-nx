@@ -4,6 +4,8 @@ import { getConfig } from '../../../scripts/nx.js';
 import { PLAN_RUN_EVENT, TASK_STATUS } from '../constants.js';
 import './task-item.js';
 
+const shared = await loadStyle(new URL('./messages.css', import.meta.url).href);
+const buttons = await loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href);
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
 
@@ -28,7 +30,7 @@ class NxCampaignPlanCard extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [shared, buttons, styles];
   }
 
   _dispatch(eventName) {
@@ -84,14 +86,14 @@ class NxCampaignPlanCard extends LitElement {
     let runBtnLabel = 'Run';
     if (isRunning) runBtnLabel = 'Running...';
     else if (isDone) runBtnLabel = 'Done';
-    const runBtnClass = `plan-btn ${isRunning ? 'plan-btn-ghost' : 'plan-btn-primary'} plan-btn-run`;
+    const runBtnClass = `${isRunning ? 'nx-btn-secondary' : 'nx-btn-primary'} plan-btn-run`;
 
     return html`
-      <details class="plan-card" open>
+      <details class="msg-card plan-card" open>
         <summary class="plan-summary">
-          <div class="plan-header">
-            <span class="plan-type-label">
-              <span class="plan-type-icon" aria-hidden="true"></span>
+          <div class="msg-card-header">
+            <span class="msg-type-label">
+              <span class="msg-type-icon plan-type-icon" aria-hidden="true"></span>
               Content Generation Plan
             </span>
             <div class="plan-header-actions">
@@ -105,12 +107,12 @@ class NxCampaignPlanCard extends LitElement {
     if (!isRunning && !isDone) this._dispatch(PLAN_RUN_EVENT);
   }}
               >${runBtnLabel}</button>
-              ${icon('s2-icon-chevrondown-20-n', 'plan-chevron-icon')}
+              ${icon('s2-icon-chevrondown-20-n', 'msg-chevron plan-chevron-icon')}
             </div>
           </div>
 
           <div class="plan-body">
-            <h3 class="plan-title">${title}</h3>
+            <h3 class="msg-title">${title}</h3>
             ${description ? html`<p class="plan-description">${description}</p>` : nothing}
           </div>
 

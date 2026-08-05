@@ -112,7 +112,7 @@ describe('renderMessage — EVALUATE_PAGE tool card (post-approval)', () => {
     try {
       const card = container.querySelector('nx-governance-evaluation-card');
       await card.updateComplete;
-      expect(card.shadowRoot.querySelector('.ge-title').textContent).to.contain('Frescopa Coffee');
+      expect(card.shadowRoot.querySelector('.msg-title').textContent).to.contain('Frescopa Coffee');
       expect(card.shadowRoot.querySelector('.ge-summary-row').textContent).to.contain('3/4 passed');
     } finally {
       container.remove();
@@ -137,7 +137,7 @@ describe('renderMessage — EVALUATE_PAGE tool card (post-approval)', () => {
     try {
       const card = container.querySelector('nx-governance-evaluation-card');
       await card.updateComplete;
-      expect(card.shadowRoot.querySelector('.ge-title').textContent).to.contain('Frescopa Coffee');
+      expect(card.shadowRoot.querySelector('.msg-title').textContent).to.contain('Frescopa Coffee');
       expect(card.shadowRoot.querySelector('.ge-summary-row').textContent).to.contain('3/4 passed');
     } finally {
       container.remove();

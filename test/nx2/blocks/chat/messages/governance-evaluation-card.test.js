@@ -82,8 +82,8 @@ describe('nx-governance-evaluation-card header', () => {
   it('renders the type label and title/subtitle', async () => {
     card = makeCard(fullEvaluation());
     await card.updateComplete;
-    expect(card.shadowRoot.querySelector('.ge-type-label').textContent).to.contain('Governance Page Evaluation');
-    expect(card.shadowRoot.querySelector('.ge-title').textContent).to.contain('Frescopa Coffee');
+    expect(card.shadowRoot.querySelector('.msg-type-label').textContent).to.contain('Governance Page Evaluation');
+    expect(card.shadowRoot.querySelector('.msg-title').textContent).to.contain('Frescopa Coffee');
     expect(card.shadowRoot.querySelector('.ge-page-url').textContent).to.contain('https://example.com/index');
   });
 
@@ -125,7 +125,7 @@ describe('nx-governance-evaluation-card loading state', () => {
     card = el;
     await card.updateComplete;
     expect(card.shadowRoot.querySelector('.ge-loading')).to.exist;
-    expect(card.shadowRoot.querySelector('.ge-spinner')).to.exist;
+    expect(card.shadowRoot.querySelector('.msg-spinner')).to.exist;
     expect(card.shadowRoot.querySelector('.ge-summary-row')).to.not.exist;
     expect(card.shadowRoot.querySelector('.ge-passed-badge')).to.not.exist;
   });
@@ -135,7 +135,7 @@ describe('nx-governance-evaluation-card loading state', () => {
     card.loading = false;
     await card.updateComplete;
     expect(card.shadowRoot.querySelector('.ge-loading')).to.not.exist;
-    expect(card.shadowRoot.querySelector('.ge-spinner')).to.not.exist;
+    expect(card.shadowRoot.querySelector('.msg-spinner')).to.not.exist;
     expect(card.shadowRoot.querySelector('.ge-header')).to.exist;
   });
 });

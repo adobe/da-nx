@@ -4,6 +4,7 @@ import { TASK_STATUS } from '../constants.js';
 
 export { TASK_STATUS };
 
+const shared = await loadStyle(new URL('./messages.css', import.meta.url).href);
 const styles = await loadStyle(import.meta.url);
 
 /**
@@ -25,13 +26,13 @@ class NxTaskItem extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [shared, styles];
   }
 
   _renderIcon() {
     const { status = TASK_STATUS.PENDING } = this;
     if (status === TASK_STATUS.RUNNING) {
-      return html`<span class="task-icon"><span class="task-icon-running" aria-hidden="true"></span></span>`;
+      return html`<span class="task-icon"><span class="msg-spinner" aria-hidden="true"></span></span>`;
     }
     if (status === TASK_STATUS.DONE) {
       return html`<span class="task-icon"><span class="task-icon-done" aria-label="Completed"></span></span>`;

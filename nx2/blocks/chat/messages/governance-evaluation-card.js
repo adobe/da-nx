@@ -3,6 +3,7 @@ import { loadStyle } from '../../../utils/utils.js';
 import { getConfig } from '../../../scripts/nx.js';
 import { groupChecksByCategory, sectionSummary } from './governance-evaluation-card-data.js';
 
+const shared = await loadStyle(new URL('./messages.css', import.meta.url).href);
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
 
@@ -25,7 +26,7 @@ class NxGovernanceEvaluationCard extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [shared, styles];
   }
 
   _renderCheckIcon(check) {
@@ -165,10 +166,10 @@ class NxGovernanceEvaluationCard extends LitElement {
   render() {
     if (this.error) {
       return html`
-        <div class="ge-card">
-          <div class="ge-header">
-            <span class="ge-type-label">
-              <span class="ge-type-icon ge-type-icon-error" aria-hidden="true"></span>
+        <div class="msg-card ge-card">
+          <div class="msg-card-header ge-header">
+            <span class="msg-type-label">
+              <span class="msg-type-icon ge-type-icon ge-type-icon-error" aria-hidden="true"></span>
               Governance Page Evaluation
             </span>
           </div>
@@ -182,15 +183,15 @@ class NxGovernanceEvaluationCard extends LitElement {
 
     if (this.loading) {
       return html`
-        <div class="ge-card">
-          <div class="ge-header">
-            <span class="ge-type-label">
-              <span class="ge-type-icon" aria-hidden="true"></span>
+        <div class="msg-card ge-card">
+          <div class="msg-card-header ge-header">
+            <span class="msg-type-label">
+              <span class="msg-type-icon ge-type-icon" aria-hidden="true"></span>
               Governance Page Evaluation
             </span>
           </div>
           <div class="ge-body ge-loading">
-            <span class="ge-spinner" aria-hidden="true"></span>
+            <span class="msg-spinner" aria-hidden="true"></span>
             <span class="ge-loading-text">Evaluating page…</span>
           </div>
         </div>
@@ -216,16 +217,16 @@ class NxGovernanceEvaluationCard extends LitElement {
     });
 
     return html`
-      <details class="ge-card" open>
-        <summary class="ge-header">
-          <span class="ge-type-label">
-            <span class="ge-type-icon" aria-hidden="true"></span>
+      <details class="msg-card ge-card" open>
+        <summary class="msg-card-header ge-header">
+          <span class="msg-type-label">
+            <span class="msg-type-icon ge-type-icon" aria-hidden="true"></span>
             Governance Page Evaluation
           </span>
-          ${icon('chevron', 'ge-chevron-icon')}
+          ${icon('chevron', 'msg-chevron ge-chevron-icon')}
         </summary>
         <div class="ge-body">
-          <h3 class="ge-title">${brandName || 'Brand evaluation'}</h3>
+          <h3 class="msg-title">${brandName || 'Brand evaluation'}</h3>
           ${pageUrl ? html`<p class="ge-page-url">${pageUrl}</p>` : nothing}
           ${this._renderSummaryBar(aggregateSummary)}
           ${this._renderTextSection(textEvaluation)}
