@@ -14,7 +14,13 @@ class NxMenu extends LitElement {
     _active: { state: true },
     ignoreFocus: { attribute: true },
     scoped: { type: Boolean },
+    size: { type: String, reflect: true },
   };
+
+  constructor() {
+    super();
+    this.size = 's';
+  }
 
   get _popover() { return this.shadowRoot.querySelector('nx-popover'); }
 

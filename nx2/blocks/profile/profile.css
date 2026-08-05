@@ -1,6 +1,7 @@
 :host {
   position: relative;
   display: block;
+  margin-left: var(--s2-spacing-75);
 
   button {
     font-family: var(--s2-font-family);
@@ -23,6 +24,11 @@
 
 #profile-btn {
   anchor-name: --my-anchor;
+  transition: transform 0.125s ease-out;
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
 }
 
 .nx-btn-profile {
@@ -33,12 +39,7 @@
   width: 32px;
   height: 32px;
   border: none;
-  padding: 4px;
-  border-radius: var(--s2-corner-radius-500);
-
-  &:hover {
-    background-color: var(--s2-gray-100);
-  }
+  cursor: pointer;
 }
 
 .nx-btn-profile img {
