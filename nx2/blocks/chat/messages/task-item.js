@@ -2,19 +2,15 @@ import { LitElement, html } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import { TASK_STATUS } from '../constants.js';
 
-export { TASK_STATUS };
-
 const shared = await loadStyle(new URL('./messages.css', import.meta.url).href);
 const styles = await loadStyle(import.meta.url);
 
 /**
- * <nx-task-item> — single task row with icon + label + optional progress badge.
+ * <nx-task-item> — single task row with icon + label.
  *
  * Attributes / properties:
  *   status  {string}  'pending' | 'running' | 'done'
  *   label   {string}  Task description text
- *   current {number}  Current step index (1-based, shown when running)
- *   total   {number}  Total step count (shown when running)
  */
 class NxTaskItem extends LitElement {
   static properties = {

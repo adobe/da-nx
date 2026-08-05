@@ -26,18 +26,4 @@ function sectionSummary(section) {
   };
 }
 
-function evaluationSummaryText(input) {
-  const sections = [input?.text_evaluation, ...(input?.image_evaluations ?? [])].filter(Boolean);
-  const { successful, total } = sections.reduce((acc, section) => {
-    const summary = sectionSummary(section);
-    return {
-      successful: acc.successful + summary.successful,
-      total: acc.total + summary.successful + summary.failed,
-    };
-  }, { successful: 0, total: 0 });
-
-  if (!total) return `Evaluation complete for ${input?.brand_name ?? 'page'}`;
-  return `${successful}/${total} checks passed`;
-}
-
-export { groupChecksByCategory, sectionSummary, evaluationSummaryText };
+export { groupChecksByCategory, sectionSummary };

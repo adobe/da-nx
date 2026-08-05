@@ -2,7 +2,6 @@ import { expect } from '@esm-bundle/chai';
 import {
   groupChecksByCategory,
   sectionSummary,
-  evaluationSummaryText,
 } from '../../../../../nx2/blocks/chat/messages/governance-evaluation-card-data.js';
 
 // ─── groupChecksByCategory ──────────────────────────────────────────────────
@@ -92,32 +91,5 @@ describe('sectionSummary', () => {
     expect(sectionSummary(undefined)).to.deep.equal({
       successful: 0, failed: 0, notApplicable: 0, error: 0, total: 0, percent: 0,
     });
-  });
-});
-
-// ─── evaluationSummaryText ──────────────────────────────────────────────────
-
-describe('evaluationSummaryText', () => {
-  it('sums successful/failed checks across text and image evaluations', () => {
-    const input = {
-      brand_name: 'Frescopa',
-      text_evaluation: { successful_checks: 2, failed_checks: 2 },
-      image_evaluations: [
-        { successful_checks: 2, failed_checks: 0 },
-        { successful_checks: 1, failed_checks: 1 },
-      ],
-    };
-
-    expect(evaluationSummaryText(input)).to.equal('5/8 checks passed');
-  });
-
-  it('falls back to a brand-based message when there are no checks to count', () => {
-    const input = { brand_name: 'Frescopa', text_evaluation: null, image_evaluations: [] };
-
-    expect(evaluationSummaryText(input)).to.equal('Evaluation complete for Frescopa');
-  });
-
-  it('falls back to a generic message when brand_name is also missing', () => {
-    expect(evaluationSummaryText({})).to.equal('Evaluation complete for page');
   });
 });
