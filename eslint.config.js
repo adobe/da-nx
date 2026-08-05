@@ -67,6 +67,8 @@ export default defineConfig([
         minProperties: 6,
         consistent: true,
       }],
+
+      curly: ['error', 'multi-line'],
     },
     plugins: {
       import: recommended.plugins.import,
