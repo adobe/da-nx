@@ -117,6 +117,42 @@ export async function submitCatalystAnswer(answers) {
   });
 }
 
+/* --- feature: figma->catalyst (result preview) ---
+ * Best-effort: pull result links out of Catalyst's streamed text so EW can
+ * offer a preview + PR link. Refine the patterns once we watch a real run. */
+const RE_DA_EDIT = /da\.live\/edit#(\/[^\s)]+)/i;
+const RE_DA_PATH = /(?:^|\s)(\/[a-z0-9-]+\/[a-z0-9-]+\/[a-z0-9/_-]+)/i;
+const RE_PR = /(https?:\/\/github\.com\/\S+\/pull\/\d+)/i;
+const RE_PREVIEW = /(https?:\/\/[\w-]+--[\w-]+--[\w-]+\.aem\.(?:page|live)\/\S*)/i;
+
+function firstMatch(text, re) {
+  const m = text.match(re);
+  return m ? m[1] : null;
+}
+
+function extractResultLinks(text) {
+  return {
+    daPath: firstMatch(text, RE_DA_EDIT) || firstMatch(text, RE_DA_PATH),
+    prUrl: firstMatch(text, RE_PR),
+    previewUrl: firstMatch(text, RE_PREVIEW),
+  };
+}
+
+// Builds a chat message with clickable result links. "Preview page in canvas"
+// re-opens this canvas on the new DA path, preserving the current nx build/env.
+function previewMessage({ daPath, prUrl, previewUrl }) {
+  const parts = [];
+  if (daPath) {
+    const canvas = `${window.location.origin}/canvas${window.location.search}#${daPath}`;
+    parts.push(`[Preview page in canvas](${canvas})`);
+  }
+  if (previewUrl) parts.push(`[Open branch preview](${previewUrl})`);
+  if (prUrl) parts.push(`[View PR](${prUrl})`);
+  if (!parts.length) return null;
+  return { role: ROLE.ASSISTANT, content: `**Result:** ${parts.join(' · ')}` };
+}
+/* --- end feature --- */
+
 /**
  * Run one Figma turn against Catalyst, rendering into the existing chat UI.
  * `component` is the <nx-chat> LitElement (uses its reactive messages/thinking).
@@ -149,6 +185,10 @@ export async function runFigmaTurn({ component, message, context = [] }) {
         component.requestUpdate();
       },
     });
+    /* --- feature: figma->catalyst (result preview) --- */
+    const preview = previewMessage(extractResultLinks(assistant.content));
+    if (preview) component.messages = [...component.messages, preview];
+    /* --- end feature --- */
   } catch (err) {
     assistant.content += `\n\n_Catalyst error: ${err.message}_`;
   } finally {
