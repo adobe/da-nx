@@ -5,16 +5,15 @@
 
 import { IMS_ORIGIN, loadIms } from '../../utils/ims.js';
 import { DA_ORIGIN } from '../../public/utils/constants.js';
+import { getLivePreviewUrl, livePreviewLogin } from '../../utils/utils.js';
 
 const IMS_DETAILS = await loadIms();
 
 await import('../../public/sl/components.js');
 
 const TRUSTED_ORGS = ['adobe'];
-const TRUSTED_APPS = [
-  'https://main--storefront-tools--adobe-commerce.aem.live/tools/site-creator/site-creator.html',
-  'https://main--storefront-tools--adobe-commerce.aem.live/tools/config-generator/config-generator.html',
-];
+// Trusted apps keyed by `org/repo`.
+const TRUSTED_APPS = ['adobe-commerce/storefront-tools'];
 
 /**
  * Parses the current URL to extract view, organization, repository, reference,
@@ -52,13 +51,16 @@ function getParts() {
 /**
  * Constructs the appropriate URL based on the reference type, forwarding parent
  * search params to the iframe
+ * @param {boolean} [usePreview] - Load from preview.da.live (authenticated) instead
+ * of the public aem.live host
  * @returns {string} The constructed URL for the iframe
  */
-function getUrl() {
+function getUrl(usePreview) {
   const {
     org, repo, ref, path, search, hash,
   } = getParts();
   if (ref === 'local') return `http://localhost:3000/${path}.html${search}${hash}`;
+  if (usePreview) return `${getLivePreviewUrl(org, repo, ref)}/${path}.html${search}${hash}`;
   return `https://${ref}--${repo}--${org}.aem.live/${path}.html${search}${hash}`;
 }
 
@@ -89,19 +91,22 @@ function handleLoad({ target }) {
   }, 750);
 }
 
-function createIframe(el) {
+async function createIframe(el) {
   if (!document.querySelector('header')) document.body.classList.add('no-shell');
+  const { org, repo, ref } = getParts();
+  // Prefer authenticated preview.da.live; fall back to public aem.live when the
+  // user is anonymous or the login handshake fails.
+  const usePreview = ref !== 'local' && await livePreviewLogin(org, repo, ref);
   const iframe = document.createElement('iframe');
   iframe.setAttribute('allow', 'clipboard-write *');
   iframe.addEventListener('load', handleLoad);
-  iframe.src = getUrl();
+  iframe.src = getUrl(usePreview);
   el.append(iframe);
 }
 
 function isAppTrusted(org, repo, ref) {
-  const url = getUrl();
   if (TRUSTED_ORGS.includes(org)) return true;
-  if (TRUSTED_APPS.some((trustedApp) => url.startsWith(trustedApp))) return true;
+  if (TRUSTED_APPS.includes(`${org}/${repo}`)) return true;
 
   const trustedApps = JSON.parse(localStorage.getItem('trustedApps') || '{}');
   const appKey = `${org}/${repo}/${ref}`;

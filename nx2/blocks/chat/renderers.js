@@ -1,5 +1,5 @@
 import { html, nothing } from 'da-lit';
-import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
+import { PART_TYPE, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { parseDirectives } from './utils/parse.js';
 import { pillIconName } from './utils/icons.js';
@@ -38,10 +38,10 @@ function approvalSummary(input, { json = false } = {}) {
 
 function renderToolCard(toolCallId, toolCards) {
   const card = toolCards?.get(toolCallId);
-  if (!card || card.state === TOOL_STATE.APPROVAL_REQUESTED) return nothing;
+  if (!card || card.state === TOOL_STATE.AWAITING_APPROVAL) return nothing;
   const { toolName, state, input } = card;
   const detail = approvalSummary(input, { json: true });
-  const failed = state === TOOL_STATE.ERROR || state === TOOL_STATE.REJECTED;
+  const failed = state === TOOL_STATE.OUTPUT_ERROR || state === TOOL_STATE.REJECTED;
   const status = failed ? html`<span class="tool-card-status">${state}</span>` : nothing;
   return detail ? html`
     <details class="tool-card tool-card-${state}">
@@ -75,7 +75,7 @@ function renderApprovalCard(pending, onApprove) {
 
 function renderAssistantMessage(msg, toolCards) {
   if (Array.isArray(msg.content)) {
-    return html`${msg.content.map((part) => (part.type === AGENT_EVENT.TOOL_CALL
+    return html`${msg.content.map((part) => (part.type === PART_TYPE.TOOL
       ? renderToolCard(part.toolCallId, toolCards)
       : nothing))}`;
   }

@@ -1,5 +1,7 @@
 import { loadIms } from '../../utils/ims.js';
-import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_STATE } from './constants.js';
+import {
+  AGENT_EVENT, PART_TYPE, ROLE, TOOL_NAME, TOOL_STATE,
+} from './constants.js';
 import { readStream } from './utils/stream.js';
 import { loadMessages, saveMessages, resetSession, getRoomKey } from './utils/persistence.js';
 
@@ -19,59 +21,68 @@ function affectedFolders(toolName, input) {
 }
 
 const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
-  ? 'http://localhost:4200/chat'
+  ? 'http://localhost:4002/chat'
   : 'https://agent.da.live/chat';
 
-/**
- * Drop assistant array-content messages whose tool-call IDs have no matching
- * tool-result anywhere in the history. These orphans appear when the agent's
- * streamText step-limit fires mid-tool-execution or when the client strips
- * virtual (non-approval) tool results. Without this filter the Anthropic API
- * rejects the request with "tool_use ids without tool_result blocks".
- */
-function stripOrphanedToolCallMessages(messages) {
-  const resolvedIds = new Set();
-  const requestedApprovalIds = new Set();
-  const respondedApprovalIds = new Set();
-  for (const msg of messages) {
-    if (msg.role === ROLE.ASSISTANT && Array.isArray(msg.content)) {
-      for (const p of msg.content) {
-        if (p.type === AGENT_EVENT.TOOL_APPROVAL_REQUEST && p.approvalId) {
-          requestedApprovalIds.add(p.approvalId);
-        }
-      }
-    }
-    if (msg.role === ROLE.TOOL && Array.isArray(msg.content)) {
-      for (const p of msg.content) {
-        if (p.type === AGENT_EVENT.TOOL_RESULT && p.toolCallId) resolvedIds.add(p.toolCallId);
-        if (p.type === AGENT_EVENT.TOOL_APPROVAL_RESPONSE && p.approvalId) {
-          respondedApprovalIds.add(p.approvalId);
-        }
-      }
-    }
-  }
-  // An approval is "complete" only when both request and response exist.
-  // Incomplete approvals (e.g. session interrupted mid-flow) are treated as orphans.
-  const completeApprovalIds = new Set(
-    [...respondedApprovalIds].filter((id) => requestedApprovalIds.has(id)),
-  );
+const isToolPart = (p) => p?.type === PART_TYPE.TOOL;
+const hasResult = (p) => p.state === TOOL_STATE.OUTPUT_AVAILABLE
+  || p.state === TOOL_STATE.OUTPUT_ERROR;
+const isDecided = (p) => p.state === TOOL_STATE.APPROVED || p.state === TOOL_STATE.REJECTED;
 
-  return messages.filter((msg) => {
-    // Strip dangling approval-response messages whose request was already dropped.
-    if (msg.role === ROLE.TOOL && Array.isArray(msg.content)) {
-      const resp = msg.content.find((p) => p.type === AGENT_EVENT.TOOL_APPROVAL_RESPONSE);
-      if (resp) return completeApprovalIds.has(resp.approvalId);
-      return true;
-    }
-    if (msg.role !== ROLE.ASSISTANT || !Array.isArray(msg.content)) return true;
-    const calls = msg.content.filter((p) => p.type === AGENT_EVENT.TOOL_CALL);
-    if (calls.length === 0) return true;
-    const approvals = msg.content.filter((p) => p.type === AGENT_EVENT.TOOL_APPROVAL_REQUEST);
-    if (approvals.length > 0) {
-      // Keep only if every approval in this message has a corresponding response.
-      return approvals.every((a) => completeApprovalIds.has(a.approvalId));
-    }
-    return calls.every((c) => resolvedIds.has(c.toolCallId));
+// Convert a single v1 content part to its v2 equivalent (may drop it).
+function migratePart(part, resultsById, msg) {
+  if (isToolPart(part) || part.type === PART_TYPE.TEXT) return [part];
+  if (part.type === 'tool-call' || part.type === 'tool-input-available') {
+    const output = resultsById.has(part.toolCallId)
+      ? resultsById.get(part.toolCallId)
+      : msg.toolResult?.output;
+    // An unresolved v1 tool-call is mid-flight buggy state — drop it.
+    if (output === undefined) return [];
+    return [{
+      type: PART_TYPE.TOOL,
+      toolCallId: part.toolCallId,
+      toolName: part.toolName,
+      input: part.input,
+      state: TOOL_STATE.OUTPUT_AVAILABLE,
+      output,
+    }];
+  }
+  // tool-approval-request / tool-approval-response → drop
+  return [];
+}
+
+/**
+ * Best-effort migration of persisted v1 histories to the v2 tool-part shape.
+ * v1 stored tool activity as separate `tool-call` / `tool-result` /
+ * `tool-approval-*` parts, `role: 'tool'` messages and `virtual` assistant
+ * messages. v2 collapses each tool invocation into a single `type: 'tool'` part
+ * on an assistant message that carries its own lifecycle `state` + `output`.
+ * See docs/approval-protocol.md §9.
+ */
+export function migrateHistory(messages) {
+  if (!Array.isArray(messages)) return [];
+
+  const resultsById = new Map();
+  messages.forEach((m) => {
+    if (m?.role !== ROLE.TOOL || !Array.isArray(m.content)) return;
+    m.content.forEach((p) => {
+      const isResult = p.type === 'tool-result' || p.type === 'tool-output-available';
+      if (!isResult || !p.toolCallId) return;
+      resultsById.set(p.toolCallId, p.output?.value ?? p.output ?? p.result);
+    });
+  });
+
+  return messages.flatMap((m) => {
+    if (!m || m.role === ROLE.TOOL) return [];
+    const passthrough = m.role === ROLE.USER || typeof m.content === 'string'
+      || !Array.isArray(m.content);
+    if (passthrough) return [m];
+    const parts = m.content.flatMap((p) => migratePart(p, resultsById, m));
+    if (!parts.length) return [];
+    const migrated = { ...m, content: parts };
+    delete migrated.virtual;
+    delete migrated.toolResult;
+    return [migrated];
   });
 }
 
@@ -81,6 +92,9 @@ export default class ChatController {
     this._onToolDone = onToolDone;
     this._sessionId = crypto.randomUUID();
     this._currentTurnId = crypto.randomUUID();
+    // toolCallIds already submitted to the server in a batch — prevents a
+    // decided-but-unexecuted part (esp. a rejection) from resending in a loop.
+    this._sentToolCallIds = new Set();
   }
 
   setContext(context) {
@@ -115,19 +129,35 @@ export default class ChatController {
     const { messages: cached, sessionId } = await loadMessages(room);
     this._sessionId = sessionId ?? this._sessionId;
     if (!cached.length) return;
-    this._messages = stripOrphanedToolCallMessages(cached);
-    // Reconstruct tool cards from persisted approval messages so they render on reload.
-    this._toolCards = new Map();
-    for (const msg of this._messages) {
-      if (msg.role === ROLE.ASSISTANT && Array.isArray(msg.content)) {
-        const call = msg.content.find((p) => p.type === AGENT_EVENT.TOOL_CALL);
-        if (call) {
-          const { toolCallId, toolName, input } = call;
-          this._toolCards.set(toolCallId, { toolName, input, state: TOOL_STATE.DONE });
-        }
-      }
-    }
+    this._messages = migrateHistory(cached);
+    // Anything decided-but-unexecuted was already submitted in a prior session;
+    // don't auto-resend it on load.
+    this._toolParts()
+      .filter((p) => isDecided(p) && !hasResult(p))
+      .forEach((p) => this._sentToolCallIds.add(p.toolCallId));
     this._update();
+  }
+
+  // Derive the tool-card view for the UI from the single source of truth
+  // (`_messages`). Keeping it derived removes the class of bugs that came from
+  // maintaining a parallel `_toolCards` map alongside the message history.
+  _deriveToolCards() {
+    const cards = new Map();
+    (this._messages ?? []).forEach((msg) => {
+      if (msg.role !== ROLE.ASSISTANT || !Array.isArray(msg.content)) return;
+      msg.content.forEach((part) => {
+        if (!isToolPart(part)) return;
+        cards.set(part.toolCallId, {
+          toolName: part.toolName,
+          input: part.input,
+          state: part.state,
+          output: part.output,
+          errorText: part.errorText,
+          approvalRequired: part.approvalRequired,
+        });
+      });
+    });
+    return cards;
   }
 
   _update() {
@@ -136,7 +166,7 @@ export default class ChatController {
       thinking: this._thinking,
       streamingText: this._streamingText,
       connected: this._connected,
-      toolCards: this._toolCards,
+      toolCards: this._deriveToolCards(),
     });
   }
 
@@ -169,8 +199,8 @@ export default class ChatController {
     if (this._thinking) this.stop();
     this._messages = undefined;
     this._streamingText = undefined;
-    this._toolCards = new Map();
     this._autoApprovedTools = new Set();
+    this._sentToolCallIds = new Set();
     this._sessionId = crypto.randomUUID();
     this._currentTurnId = crypto.randomUUID();
     this._update();
@@ -183,186 +213,178 @@ export default class ChatController {
     this.stop();
   }
 
-  _onToolEvent = ({
-    type, toolCallId, toolName, input, output, isError, approvalId, scope,
-  }) => {
-    const next = new Map(this._toolCards ?? []);
+  // --- tool-part helpers (operate on the single source of truth) ---
 
-    if (type === AGENT_EVENT.TOOL_CALL) {
-      if (next.has(toolCallId)) return; // duplicate — ignore
-      next.set(toolCallId, { toolName, input, state: TOOL_STATE.RUNNING });
-    } else if (type === AGENT_EVENT.TOOL_APPROVAL_REQUEST) {
-      const existingCard = next.get(toolCallId);
-      const settled = existingCard?.state;
-      if (settled === TOOL_STATE.APPROVED || settled === TOOL_STATE.REJECTED
-        || settled === TOOL_STATE.DONE || settled === TOOL_STATE.ERROR) return;
-      // prior carries the toolName from the earlier TOOL_CALL event; the TOOL_APPROVAL_REQUEST
-      // event from da-agent omits toolName, so we cannot rely on the destructured value here.
-      const prior = existingCard ?? { toolName, input: {} };
-      const autoApprove = this._autoApprovedTools?.has(prior.toolName ?? toolName);
-      // Promote to _messages now that we know approval is needed.
-      // Both parts go in one message — resolveApprovals() matches tool-approval-request
-      // to tool-call by toolCallId within the same assistant message.
+  _findToolPart(toolCallId) {
+    const parts = this._toolParts();
+    return parts.find((p) => p.toolCallId === toolCallId) ?? null;
+  }
+
+  _patchToolPart(toolCallId, patch) {
+    this._messages = (this._messages ?? []).map((msg) => {
+      if (!Array.isArray(msg.content)) return msg;
+      const match = msg.content.some((x) => isToolPart(x) && x.toolCallId === toolCallId);
+      if (!match) return msg;
+      const content = msg.content.map((x) => (
+        isToolPart(x) && x.toolCallId === toolCallId ? { ...x, ...patch } : x
+      ));
+      return { ...msg, content };
+    });
+  }
+
+  _toolParts() {
+    const parts = [];
+    (this._messages ?? []).forEach((msg) => {
+      if (msg.role !== ROLE.ASSISTANT || !Array.isArray(msg.content)) return;
+      msg.content.forEach((p) => {
+        if (isToolPart(p)) parts.push(p);
+      });
+    });
+    return parts;
+  }
+
+  _awaitingParts() {
+    return this._toolParts().filter((p) => p.state === TOOL_STATE.AWAITING_APPROVAL);
+  }
+
+  // Decided (approved/rejected) parts not yet sent to the server — the batch to
+  // POST on the next round. Excludes already-sent parts so a rejection (which
+  // never gets a client-side result) cannot trigger an endless resend.
+  _pendingUnsent() {
+    return this._toolParts().filter(
+      (p) => isDecided(p) && !hasResult(p) && !this._sentToolCallIds.has(p.toolCallId),
+    );
+  }
+
+  // --- stream event handling (agent → client) ---
+
+  _onToolEvent = ({
+    type, toolCallId, toolName, input, output, errorText, isError, scope,
+  }) => {
+    if (type === AGENT_EVENT.TOOL_INPUT_AVAILABLE) {
+      if (this._findToolPart(toolCallId)) return; // duplicate
+      const part = {
+        type: PART_TYPE.TOOL,
+        toolCallId,
+        toolName,
+        input,
+        state: TOOL_STATE.INPUT_AVAILABLE,
+      };
       this._messages = [
         ...this._messages,
-        {
-          role: ROLE.ASSISTANT,
-          content: [
-            {
-              type: AGENT_EVENT.TOOL_CALL,
-              toolCallId,
-              toolName: prior.toolName,
-              input: prior.input,
-            },
-            { type: AGENT_EVENT.TOOL_APPROVAL_REQUEST, approvalId, toolCallId },
-          ],
-        },
+        { role: ROLE.ASSISTANT, turnId: this._currentTurnId, content: [part] },
       ];
-      const state = autoApprove ? TOOL_STATE.APPROVED : TOOL_STATE.APPROVAL_REQUESTED;
-      next.set(toolCallId, { ...prior, state, approvalId });
-      this._toolCards = next;
       this._update();
-      if (autoApprove) queueMicrotask(() => this.approveToolCall(toolCallId, true));
       return;
-    } else {
-      const prior = next.get(toolCallId) ?? { toolName, input: {} };
-      const state = isError ? TOOL_STATE.ERROR : TOOL_STATE.DONE;
-      next.set(toolCallId, { ...prior, state, output });
-      if (state === TOOL_STATE.DONE) {
-        // Skip if a real message already exists for this toolCallId (approval flow adds one).
-        const hasApprovalMessage = this._messages.some(
-          (m) => !m.virtual && Array.isArray(m.content) && m.content.some(
-            (p) => p.type === AGENT_EVENT.TOOL_CALL && p.toolCallId === toolCallId,
-          ),
-        );
-        if (!hasApprovalMessage) {
-          // Virtual message: renders the tool card and persists across refreshes.
-          // turnId + toolResult let _messagesForAgent() replay this read to the agent.
-          this._messages = [
-            ...this._messages,
-            {
-              role: ROLE.ASSISTANT,
-              virtual: true,
-              turnId: this._currentTurnId,
-              toolResult: { output },
-              content: [{
-                type: AGENT_EVENT.TOOL_CALL,
-                toolCallId,
-                toolName: prior.toolName,
-                input: prior.input,
-              }],
-            },
-          ];
-        }
-
-        // Once content_upload succeeds, replace dataBase64 with contentUrl so
-        // continuation POSTs don't retransmit bytes already in storage.
-        const contentUrl = output?.source?.contentUrl;
-        if (prior.toolName === 'content_upload' && prior.input?.attachmentRef && contentUrl) {
-          this._pendingAttachments = (this._pendingAttachments ?? []).map((a) => (
-            a.id === prior.input.attachmentRef
-              ? { id: a.id, fileName: a.fileName, mediaType: a.mediaType, contentUrl, ...(typeof a.sizeBytes === 'number' ? { sizeBytes: a.sizeBytes } : {}) }
-              : a
-          ));
-        }
-
-        this._onToolDone?.(scope, affectedFolders(toolName, prior.input));
-      }
     }
 
-    this._toolCards = next;
+    // The agent gates this call behind user approval. Auto-approved tools skip
+    // the queue and join the next batch directly.
+    if (type === AGENT_EVENT.TOOL_APPROVAL_REQUEST) {
+      const existing = this._findToolPart(toolCallId);
+      if (!existing) return;
+      const autoApprove = this._autoApprovedTools?.has(existing.toolName);
+      this._patchToolPart(toolCallId, {
+        state: autoApprove ? TOOL_STATE.APPROVED : TOOL_STATE.AWAITING_APPROVAL,
+        approvalRequired: true,
+      });
+      this._update();
+      return;
+    }
+
+    const isOutput = type === AGENT_EVENT.TOOL_OUTPUT_AVAILABLE
+      || type === AGENT_EVENT.TOOL_OUTPUT_ERROR;
+    if (!isOutput) return;
+
+    const prior = this._findToolPart(toolCallId);
+    if (type === AGENT_EVENT.TOOL_OUTPUT_ERROR || isError) {
+      this._patchToolPart(toolCallId, {
+        state: TOOL_STATE.OUTPUT_ERROR,
+        errorText: errorText ?? output?.error ?? 'Tool error',
+      });
+      this._update();
+      return;
+    }
+
+    this._patchToolPart(toolCallId, { state: TOOL_STATE.OUTPUT_AVAILABLE, output });
+
+    // Once content_upload succeeds, replace dataBase64 with contentUrl so
+    // continuation POSTs don't retransmit bytes already in storage.
+    const contentUrl = output?.source?.contentUrl;
+    if (prior?.toolName === TOOL_NAME.CONTENT_UPLOAD && prior?.input?.attachmentRef && contentUrl) {
+      this._pendingAttachments = (this._pendingAttachments ?? []).map((a) => {
+        if (a.id !== prior.input.attachmentRef) return a;
+        return {
+          id: a.id,
+          fileName: a.fileName,
+          mediaType: a.mediaType,
+          contentUrl,
+          ...(typeof a.sizeBytes === 'number' ? { sizeBytes: a.sizeBytes } : {}),
+        };
+      });
+    }
+
+    this._onToolDone?.(scope, affectedFolders(prior?.toolName ?? toolName, prior?.input ?? input));
     this._update();
   };
 
+  // --- approvals (client → agent), batched ---
+
   approveToolCall = async (toolCallId, approved, always = false) => {
-    const card = this._toolCards.get(toolCallId);
-    if (!card?.approvalId) return;
+    const part = this._findToolPart(toolCallId);
+    if (!part || part.state !== TOOL_STATE.AWAITING_APPROVAL) return;
 
-    if (always) {
-      this._autoApprovedTools ??= new Set();
-      this._autoApprovedTools.add(card.toolName);
-    }
-
-    const next = new Map(this._toolCards ?? []);
-    next.set(toolCallId, { ...card, state: approved ? TOOL_STATE.APPROVED : TOOL_STATE.REJECTED });
-
-    // When "always approve" is clicked, bulk-approve any other pending parallel calls
-    // with the same tool name so they don't surface their own popovers.
-    const bulkApprovalMessages = [];
     if (always && approved) {
-      for (const [id, c] of next) {
-        if (id !== toolCallId && c.toolName === card.toolName
-          && c.state === TOOL_STATE.APPROVAL_REQUESTED && c.approvalId) {
-          next.set(id, { ...c, state: TOOL_STATE.APPROVED });
-          bulkApprovalMessages.push({
-            role: ROLE.TOOL,
-            content: [{
-              type: AGENT_EVENT.TOOL_APPROVAL_RESPONSE, approvalId: c.approvalId, approved: true,
-            }],
-          });
-        }
-      }
+      this._autoApprovedTools ??= new Set();
+      this._autoApprovedTools.add(part.toolName);
     }
 
-    this._toolCards = next;
+    this._patchToolPart(toolCallId, {
+      state: approved ? TOOL_STATE.APPROVED : TOOL_STATE.REJECTED,
+    });
 
-    const { approvalId } = card;
-    this._messages = [
-      ...this._messages,
-      {
-        role: ROLE.TOOL,
-        content: [{ type: AGENT_EVENT.TOOL_APPROVAL_RESPONSE, approvalId, approved }],
-      },
-      ...bulkApprovalMessages,
-    ];
-    this._thinking = approved;
+    // "Always approve" drains every still-queued approval of the same tool.
+    if (always && approved) {
+      this._awaitingParts()
+        .filter((p) => p.toolName === part.toolName)
+        .forEach((p) => this._patchToolPart(p.toolCallId, { state: TOOL_STATE.APPROVED }));
+    }
+
     this._update();
 
-    if (approved) {
-      try {
-        await this._stream(this._pageContextForAgent());
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
-        }
-      } finally {
-        this._done();
+    // Wait until the whole approval queue for this round is drained, then send
+    // one batched POST (the core Bug 1 fix — all decisions in a single request).
+    if (this._awaitingParts().length) return;
+    const batch = this._pendingUnsent();
+    if (!batch.length) {
+      this._done();
+      return;
+    }
+    batch.forEach((p) => this._sentToolCallIds.add(p.toolCallId));
+
+    this._thinking = true;
+    this._update();
+    try {
+      await this._stream(this._pageContextForAgent());
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
       }
-    } else {
+    } finally {
       this._done();
     }
   };
 
-  // Adds in the tool calls and tool results for the current turn so the agent can replay them.
+  // Prune prior-turn non-gated tool reads to bound payload size, mirroring the
+  // old virtual-message pruning. Approval-gated tool parts are kept across turns
+  // so the agent retains the record of destructive actions it took.
   _messagesForAgent() {
-    const represented = new Set();
-    this._messages.forEach((msg) => {
-      if (msg.virtual || msg.role !== ROLE.ASSISTANT || !Array.isArray(msg.content)) return;
-      msg.content.forEach((part) => {
-        if (part.type === AGENT_EVENT.TOOL_CALL) represented.add(part.toolCallId);
-      });
-    });
-
-    return this._messages.flatMap((msg) => {
-      if (!msg.virtual) return [msg];
-      if (msg.turnId !== this._currentTurnId || !msg.toolResult) return [];
-      const call = msg.content?.find((p) => p.type === AGENT_EVENT.TOOL_CALL);
-      if (!call || represented.has(call.toolCallId)) return [];
-      const { output } = msg.toolResult;
-      const { toolCallId, toolName, input } = call;
-      const wrapped = typeof output === 'string'
-        ? { type: 'text', value: output }
-        : { type: 'json', value: output };
-      return [
-        {
-          role: ROLE.ASSISTANT,
-          content: [{ type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName, input }],
-        },
-        {
-          role: ROLE.TOOL,
-          content: [{ type: AGENT_EVENT.TOOL_RESULT, toolCallId, toolName, output: wrapped }],
-        },
-      ];
+    return (this._messages ?? []).flatMap((msg) => {
+      if (msg.role !== ROLE.ASSISTANT || !Array.isArray(msg.content)) return [msg];
+      if (!msg.turnId || msg.turnId === this._currentTurnId) return [msg];
+      const kept = msg.content.filter((p) => !isToolPart(p) || p.approvalRequired);
+      if (!kept.length) return [];
+      return kept.length === msg.content.length ? [msg] : [{ ...msg, content: kept }];
     });
   }
 
@@ -374,7 +396,7 @@ export default class ChatController {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        messages: stripOrphanedToolCallMessages(this._messagesForAgent()),
+        messages: this._messagesForAgent(),
         pageContext,
         imsToken: accessToken?.token ?? null,
         room,
@@ -400,6 +422,21 @@ export default class ChatController {
       },
       onTool: this._onToolEvent,
     });
+
+    // Persist tool-part state (approvals/results) as well as text.
+    saveMessages(room, this._messages, this._sessionId);
+
+    // Chain rounds: pause for the user if approvals are pending; otherwise, if a
+    // decided batch is waiting (e.g. auto-approved tools), send it right away.
+    await this._maybeContinue(pageContext);
+  }
+
+  async _maybeContinue(pageContext) {
+    if (this._awaitingParts().length) return; // wait for the user's decisions
+    const batch = this._pendingUnsent();
+    if (!batch.length) return;
+    batch.forEach((p) => this._sentToolCallIds.add(p.toolCallId));
+    await this._stream(pageContext); // execute the auto-approved batch
   }
 
   setMcpConfig(mcpServers, mcpServerHeaders) {
@@ -464,8 +501,6 @@ export default class ChatController {
     this._messages = [...(this._messages ?? []), userMessage];
     this._thinking = true;
     this._update();
-
-    this._toolCards = new Map();
 
     try {
       await this._stream(this._pageContextForAgent());
