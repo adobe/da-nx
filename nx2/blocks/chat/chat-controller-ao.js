@@ -17,11 +17,16 @@ import { buildSelectionContext } from './utils/chat-helpers.js';
 const AO_WS_BASE = {
   prod: 'wss://agent-orchestrator-prod-va7.adobe.io',
   stage: 'wss://agent-orchestrator-stage-va7.adobe.io',
+  // Local dev runs the bridge locally (claudebridge, plain ws:// on :8080).
+  // With AGENT_TOKEN_VALIDATION_ENABLED=false it accepts the AUTH frame without
+  // an IMS check, so the localhost staging token is a non-issue.
+  dev: 'ws://localhost:8080',
 };
 
 const AO_HTTP_BASE = {
   prod: 'https://agent-orchestrator-prod-va7.adobe.io',
   stage: 'https://agent-orchestrator-stage-va7.adobe.io',
+  dev: 'http://localhost:8080',
 };
 
 // Manifest carrying the da-content skills (browse/create/update/delete/organize/

@@ -4,6 +4,9 @@ import { readFileAsBase64 } from './utils/stream.js';
 import '../shared/menu/menu.js';
 import ChatController from './chat-controller.js';
 import ChatControllerAO from './chat-controller-ao.js';
+/* --- feature: figma->catalyst --- */
+import { FIGMA_TO_CATALYST, isFigmaInput, runFigmaTurn } from './catalyst/catalyst-client.js';
+/* --- end feature: figma->catalyst --- */
 import {
   renderMessage, renderApprovalCard, renderQuestionCard, renderPlanApprovalCard,
   renderNewerEpisodeBanner,
@@ -445,6 +448,16 @@ class NxChat extends LitElement {
     const attachments = buildAttachmentPayload(this._items ?? []);
     fileItems.forEach((i) => { if (i.thumbnail) URL.revokeObjectURL(i.thumbnail); });
     this._slashMenuEl?.close();
+    /* --- feature: figma->catalyst: route Figma design jobs to Experience
+     * Catalyst instead of CX Coworker/AO. Remove this block (or set
+     * FIGMA_TO_CATALYST=false in ./catalyst/catalyst-client.js) to disable. --- */
+    if (FIGMA_TO_CATALYST && isFigmaInput(text, this._items)) {
+      runFigmaTurn({ component: this, message, context: contextItems });
+      input.value = '';
+      this._items = [];
+      return;
+    }
+    /* --- end feature: figma->catalyst --- */
     this._controller.sendMessage(message, contextItems, { attachments });
     input.value = '';
     this._items = [];
@@ -470,10 +483,13 @@ class NxChat extends LitElement {
     if (id === 'prompts' || id === 'skills') {
       const { org, site } = this._context ?? {};
       if (!org || !site) return;
+      // Preserve the current query params (da-admin, da-collab, da-skills, ref,
+      // nxver, ...) and pick nx by host: local dev serves nx from localhost, the
+      // deployed da.live keeps the ewao build.
       const url = new URL(window.location.href);
       url.pathname = '/apps/skills';
-      url.search = `?tab=${id}&nx=ewao`;
-
+      url.searchParams.set('tab', id);
+      url.searchParams.set('nx', url.hostname === 'localhost' ? 'local' : 'ewao');
       url.hash = `#/${org}/${site}`;
       window.open(url.href, '_blank', 'noopener,noreferrer');
     }
