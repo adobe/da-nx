@@ -7,6 +7,9 @@ import {
   basicSetup,
   Compartment,
   json as cmjson,
+  jsonParseLinter,
+  linter,
+  lintGutter,
   githubLight,
   oneDark,
 } from '../../../deps/codemirror/dist/index.js';
@@ -29,8 +32,15 @@ async function loadSchema(schema) {
 
   const parser = new DOMParser();
   const dom = parser.parseFromString(html, 'text/html');
-  const jsonStr = dom.querySelector('code').textContent;
-  return JSON.parse(jsonStr);
+  const jsonStr = dom.querySelector('code')?.textContent || '';
+
+  try {
+    return JSON.parse(jsonStr);
+  } catch {
+    // Keep a single malformed schema from breaking the whole editor.
+    // Preserve the raw text so it can be repaired and re-saved.
+    return { error: 'Invalid JSON in schema.', invalid: jsonStr };
+  }
 }
 
 export async function loadSchemas(org, site) {
@@ -98,7 +108,14 @@ export async function deleteSchema(prefix, id) {
 export function loadCodeMirror(el, doc) {
   const editor = new EditorView({
     doc,
-    extensions: [basicSetup, cmjson(), themeCompartment.of(getTheme())],
+    extensions: [
+      basicSetup,
+      cmjson(),
+      // Underline JSON syntax errors on the offending line, with a gutter marker.
+      linter(jsonParseLinter()),
+      lintGutter(),
+      themeCompartment.of(getTheme()),
+    ],
     parent: el,
   });
 
