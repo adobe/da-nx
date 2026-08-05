@@ -449,9 +449,13 @@ class NxChat extends LitElement {
     fileItems.forEach((i) => { if (i.thumbnail) URL.revokeObjectURL(i.thumbnail); });
     this._slashMenuEl?.close();
     /* --- feature: figma->catalyst: route Figma design jobs to Experience
-     * Catalyst instead of CX Coworker/AO. Remove this block (or set
+     * Catalyst instead of CX Coworker/AO. Fires when the + menu flagged a Figma
+     * turn or the text has a figma.com link. Remove this block (or set
      * FIGMA_TO_CATALYST=false in ./catalyst/catalyst-client.js) to disable. --- */
-    if (FIGMA_TO_CATALYST && isFigmaInput(text, this._items)) {
+    const figmaTurn = FIGMA_TO_CATALYST
+      && (this._figmaPending || isFigmaInput(text, this._items));
+    this._figmaPending = false;
+    if (figmaTurn) {
       runFigmaTurn({ component: this, message, context: contextItems });
       input.value = '';
       this._items = [];
@@ -480,6 +484,9 @@ class NxChat extends LitElement {
     if (id === MENU_OPTIONS.FILES) this._openFilePicker();
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._insertSlash();
+    /* --- feature: figma->catalyst --- */
+    if (id === MENU_OPTIONS.FIGMA) this._startFigma();
+    /* --- end feature: figma->catalyst --- */
     if (id === 'prompts' || id === 'skills') {
       const { org, site } = this._context ?? {};
       if (!org || !site) return;
@@ -505,6 +512,21 @@ class NxChat extends LitElement {
     input.focus();
     input.dispatchEvent(new Event('input'));
   }
+
+  /* --- feature: figma->catalyst ---
+   * "Figma design" in the + menu: scaffold a migration prompt and flag the next
+   * send so it routes to Catalyst even if the pasted link isn't a figma.com URL. */
+  _startFigma() {
+    this._figmaPending = true;
+    const input = this.shadowRoot.querySelector('.chat-input');
+    if (!input) return;
+    if (!/figma/i.test(input.value)) {
+      input.value = `Migrate this Figma design to EDS: ${input.value}`;
+    }
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+  /* --- end feature: figma->catalyst --- */
 
   _openFilePicker() {
     this.shadowRoot.querySelector('.chat-file-input')?.click();

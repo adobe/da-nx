@@ -4,11 +4,17 @@ const MENU_OPTIONS = {
   PROMPT: 'prompt',
   COMMAND: 'command',
   FILES: 'files',
+  /* --- feature: figma->catalyst --- */
+  FIGMA: 'figma',
+  /* --- end feature --- */
 };
 
 const ADD_MENU_ITEMS = [
   { section: 'Add' },
   { id: MENU_OPTIONS.FILES, label: 'Files or images', icon: 'link' },
+  /* --- feature: figma->catalyst --- */
+  { id: MENU_OPTIONS.FIGMA, label: 'Figma design', icon: 'link' },
+  /* --- end feature --- */
   { id: MENU_OPTIONS.PROMPT, label: 'Prompt', icon: 'commentremove' },
   { id: MENU_OPTIONS.COMMAND, label: '"/" Command', icon: 'prompt' },
   { divider: true },
