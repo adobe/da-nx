@@ -181,6 +181,66 @@ function startQuestionPolling(host, token, component, onSettled) {
   return () => { active = false; };
 }
 
+// Live activity via the /api/events SSE (fetch-based so we can send the Bearer).
+// Best-effort + fully isolated: any event carrying todos updates the determinate
+// progress; any event carrying a text label updates the step line. A shape
+// mismatch or stream error never affects the turn.
+function applyCatalystEvent(component, chunk) {
+  let data = '';
+  chunk.split('\n').forEach((line) => {
+    if (line.startsWith('data:')) data += line.slice(5).trim();
+  });
+  if (!data || data === '[DONE]') return;
+  let p = null;
+  try {
+    p = JSON.parse(data);
+  } catch {
+    return;
+  }
+  const d = (p && p.data) || p || {};
+  const todos = d.todos || (Array.isArray(d) ? d : null);
+  // eslint-disable-next-line no-underscore-dangle
+  if (todos) component._setCatalystTodos(todos);
+  const label = d.activeForm || d.content || d.text || d.message || d.status;
+  if (typeof label === 'string' && label.trim()) {
+    // eslint-disable-next-line no-underscore-dangle
+    component._setCatalystActivity(label.trim().slice(0, 140));
+  }
+}
+
+function startEventStream(host, token, component) {
+  const ctrl = new AbortController();
+  (async () => {
+    let resp = null;
+    try {
+      resp = await fetch(`${host}/api/events`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'text/event-stream' },
+        signal: ctrl.signal,
+      });
+    } catch {
+      return;
+    }
+    if (!resp || !resp.ok || !resp.body) return;
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    try {
+      for (;;) {
+        // eslint-disable-next-line no-await-in-loop
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split('\n\n');
+        buffer = chunks.pop() ?? '';
+        chunks.forEach((chunk) => applyCatalystEvent(component, chunk));
+      }
+    } catch {
+      // aborted or stream closed
+    }
+  })();
+  return () => ctrl.abort();
+}
+
 /* --- feature: figma->catalyst (result preview) ---
  * Best-effort: pull result links out of Catalyst's streamed text so EW can
  * offer a preview + PR link. Refine the patterns once we watch a real run. */
@@ -261,6 +321,7 @@ export async function runFigmaTurn({ component, message, context = [] }) {
   // resolve while the skill is waiting on an answer.
   const controller = new AbortController();
   const stopPolling = startQuestionPolling(host, token, component, () => controller.abort());
+  const stopEvents = startEventStream(host, token, component);
   // Let the chat's Stop button cancel THIS turn (not the AO controller, which
   // would send an INTERRUPT to a non-existent AO session).
   /* eslint-disable no-underscore-dangle */
@@ -268,6 +329,7 @@ export async function runFigmaTurn({ component, message, context = [] }) {
   component._catalystStop = () => {
     controller.abort();
     stopPolling();
+    stopEvents();
   };
   /* eslint-enable no-underscore-dangle */
   try {
@@ -291,6 +353,7 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     }
   } finally {
     stopPolling();
+    stopEvents();
     /* eslint-disable no-underscore-dangle */
     component._catalystActive = false;
     component._setCatalystProgress(null);

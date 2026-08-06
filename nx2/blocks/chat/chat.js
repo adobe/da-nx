@@ -58,6 +58,7 @@ class NxChat extends LitElement {
     /* --- feature: figma->catalyst --- */
     _catalystQuestion: { state: true },
     _catalystStep: { state: true },
+    _catalystPct: { state: true },
     /* --- end feature: figma->catalyst --- */
   };
 
@@ -395,14 +396,41 @@ class NxChat extends LitElement {
       </div>`;
   }
 
-  // Best-effort current-step label from Catalyst history (todos). Null clears it.
+  // Progress is step-based (completed/total todos) — EMA provides no time/ETA.
+  // Determinate when todos are present, indeterminate otherwise.
+  _applyCatalystTodos(todos) {
+    if (Array.isArray(todos) && todos.length) {
+      const done = todos.filter((t) => t && t.status === 'completed').length;
+      this._catalystPct = done / todos.length;
+      const cur = todos.find((t) => t && t.status === 'in_progress');
+      if (cur) this._catalystStep = cur.activeForm || cur.content || cur.text || this._catalystStep;
+    } else {
+      this._catalystPct = null;
+    }
+  }
+
+  // Hooks the /api/events stream calls.
+  _setCatalystTodos(todos) { this._applyCatalystTodos(todos); }
+
+  _setCatalystActivity(label) { this._catalystStep = label; }
+
+  // Called by the history poller; null clears when the turn ends.
   _setCatalystProgress(hist) {
-    const todos = (hist && hist.todos) || [];
-    const cur = todos.find((t) => t && t.status === 'in_progress');
-    this._catalystStep = cur ? (cur.activeForm || cur.content || cur.text || '') : '';
+    if (!hist) {
+      this._catalystStep = '';
+      this._catalystPct = null;
+      return;
+    }
+    this._applyCatalystTodos(hist.todos || []);
   }
 
   _renderCatalystProgress() {
+    const pct = this._catalystPct;
+    const bar = pct == null
+      ? html`<div class="catalyst-bar catalyst-bar-indet"></div>`
+      : html`<div class="catalyst-bar">
+          <div class="catalyst-bar-fill" style="width:${Math.round(pct * 100)}%"></div>
+        </div>`;
     return html`
       <style>
         .catalyst-progress { margin: 8px 0; }
@@ -410,7 +438,11 @@ class NxChat extends LitElement {
         .catalyst-bar {
           height: 4px; border-radius: 2px; background: #e6e6e6; overflow: hidden;
         }
-        .catalyst-bar::after {
+        .catalyst-bar-fill {
+          height: 100%; background: #1473e6; border-radius: 2px;
+          transition: width .3s ease;
+        }
+        .catalyst-bar-indet::after {
           content: ''; display: block; height: 100%; width: 40%;
           border-radius: 2px; background: #1473e6;
           animation: catalyst-indeterminate 1.2s infinite ease-in-out;
@@ -424,7 +456,7 @@ class NxChat extends LitElement {
         ${this._catalystStep
     ? html`<div class="catalyst-progress-step">${this._catalystStep}</div>`
     : nothing}
-        <div class="catalyst-bar"></div>
+        ${bar}
       </div>`;
   }
   /* --- end feature: figma->catalyst --- */
