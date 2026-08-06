@@ -5,7 +5,9 @@ import '../shared/menu/menu.js';
 import ChatController from './chat-controller.js';
 import ChatControllerAO from './chat-controller-ao.js';
 /* --- feature: figma->catalyst --- */
-import { FIGMA_TO_CATALYST, isFigmaInput, runFigmaTurn } from './catalyst/catalyst-client.js';
+import {
+  FIGMA_TO_CATALYST, isFigmaInput, runFigmaTurn, resumeCatalystRun,
+} from './catalyst/catalyst-client.js';
 /* --- end feature: figma->catalyst --- */
 import {
   renderMessage, renderApprovalCard, renderQuestionCard, renderPlanApprovalCard,
@@ -269,6 +271,9 @@ class NxChat extends LitElement {
 
     this._controller.connect().then(() => this._controller.loadInitialMessages());
     document.addEventListener(CHAT_EVENT.ADD_TO_CHAT, this._onAddToChat);
+    /* --- feature: figma->catalyst: re-attach to a run left in flight --- */
+    if (FIGMA_TO_CATALYST) resumeCatalystRun(this);
+    /* --- end feature: figma->catalyst --- */
   }
 
   disconnectedCallback() {
@@ -451,12 +456,25 @@ class NxChat extends LitElement {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(320%); }
         }
+        .catalyst-note {
+          font-size: 12px; color: #666; margin-top: 6px;
+        }
+        .catalyst-cancel {
+          margin-left: 8px; padding: 0; border: none; background: none;
+          color: #1473e6; cursor: pointer; font-size: 12px; text-decoration: underline;
+        }
       </style>
       <div class="catalyst-progress">
         ${this._catalystStep
     ? html`<div class="catalyst-progress-step">${this._catalystStep}</div>`
     : nothing}
         ${bar}
+        <div class="catalyst-note">
+          Building your page. You can keep working or close this and come back —
+          it'll finish on its own and open when it's ready.
+          <button type="button" class="catalyst-cancel"
+            @click=${() => this._catalystStop?.()}>Cancel</button>
+        </div>
       </div>`;
   }
   /* --- end feature: figma->catalyst --- */

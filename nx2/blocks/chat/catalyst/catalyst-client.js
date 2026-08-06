@@ -284,13 +284,40 @@ function announceAndOpen(component, { daPath, prUrl, previewUrl }) {
 }
 /* --- end feature --- */
 
+// Run marker (localStorage): lets reopening the canvas re-attach to a run that
+// was in flight, so the user can leave and come back. Keyed by the chat room.
+const RUN_MARKER = 'nx-catalyst-run';
+function roomKey() {
+  return window.location.hash || '';
+}
+function setRunMarker(message) {
+  try {
+    localStorage.setItem(
+      RUN_MARKER,
+      JSON.stringify({ room: roomKey(), message, at: Date.now() }),
+    );
+  } catch {
+    // storage unavailable — resume-on-return just won't fire
+  }
+}
+function clearRunMarker() {
+  try {
+    localStorage.removeItem(RUN_MARKER);
+  } catch {
+    // ignore
+  }
+}
+function readRunMarker() {
+  try {
+    return JSON.parse(localStorage.getItem(RUN_MARKER) || 'null');
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Run one Figma turn against Catalyst, rendering into the existing chat UI.
- * `component` is the <nx-chat> LitElement (uses its reactive messages/thinking).
- *
- * Note: this streams the assistant text (POST /api/chat). Rich tool/todo
- * activity (GET /api/events) and interactive AskUserQuestion prompts are TODO -
- * wire once CORS is live and we can watch a real run. See module header.
+ * Run one Figma turn against Catalyst. Streams the reply for users who stay,
+ * shows a progress bar + "you can leave" note, and does NOT block the chat.
  */
 export async function runFigmaTurn({ component, message, context = [] }) {
   const host = catalystHost();
@@ -300,7 +327,8 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     { role: ROLE.USER, content: message },
     assistant,
   ];
-  component.thinking = true;
+  // Note: intentionally NOT setting component.thinking — a Catalyst run must not
+  // block the chat input. The progress bar + Cancel drive its state instead.
   component.requestUpdate();
 
   let token = null;
@@ -312,11 +340,11 @@ export async function runFigmaTurn({ component, message, context = [] }) {
   if (!token) {
     assistant.content = '_Catalyst error: no IMS token_';
     assistant.streaming = false;
-    component.thinking = false;
     component.requestUpdate();
     return;
   }
 
+  setRunMarker(message);
   const controller = new AbortController();
   const flags = { dropped: false };
   let finalized = false;
@@ -349,12 +377,12 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     /* --- feature: figma->catalyst (auto-preview) --- */
     announceAndOpen(component, extractResultLinks(text));
     /* --- end feature --- */
+    clearRunMarker();
     /* eslint-disable no-underscore-dangle */
     component._catalystActive = false;
     component._setCatalystProgress(null);
     /* eslint-enable no-underscore-dangle */
     assistant.streaming = false;
-    component.thinking = false;
     component.requestUpdate();
   };
 
@@ -389,5 +417,90 @@ export async function runFigmaTurn({ component, message, context = [] }) {
       flags.dropped = true;
     }
   }
+}
+
+/**
+ * On chat load: if a Figma run was in flight for this room, re-attach — resume
+ * the bar if it's still running, or surface the result if it finished while the
+ * user was away. Enables "close the page / come back later".
+ */
+export async function resumeCatalystRun(component) {
+  const marker = readRunMarker();
+  if (!marker || marker.room !== roomKey()) return;
+  const host = catalystHost();
+  let token = null;
+  try {
+    token = await imsToken();
+  } catch {
+    return;
+  }
+  if (!token) return;
+  let hist = null;
+  try {
+    hist = await getHistory(host, token);
+  } catch {
+    return;
+  }
+  if (!hist) return;
+
+  // Finished while away: surface the result once and clear the marker.
+  if (!hist.isProcessing && !hist.pendingQuestion) {
+    const last = ((hist.history) || [])
+      .filter((m) => m && m.role === ROLE.ASSISTANT).pop();
+    announceAndOpen(component, extractResultLinks((last && last.content) || ''));
+    clearRunMarker();
+    return;
+  }
+
+  // Still running: re-attach a bubble + monitor (no new POST).
+  const assistant = { role: ROLE.ASSISTANT, content: '', streaming: true };
+  component.messages = [
+    ...(component.messages ?? []),
+    { role: ROLE.ASSISTANT, content: 'Resuming your Figma migration…' },
+    assistant,
+  ];
+  component.requestUpdate();
+
+  const controller = new AbortController();
+  const flags = { dropped: true };
+  let finalized = false;
+  let stopPolling = () => {};
+  let stopEvents = () => {};
+  const finalize = async () => {
+    if (finalized) return;
+    finalized = true;
+    stopPolling();
+    stopEvents();
+    controller.abort();
+    let text = assistant.content;
+    if (!extractResultLinks(text).daPath) {
+      try {
+        const h = await getHistory(host, token);
+        const last = ((h && h.history) || [])
+          .filter((m) => m && m.role === ROLE.ASSISTANT).pop();
+        if (last && last.content) text = `${text}\n${last.content}`;
+      } catch {
+        // ignore
+      }
+    }
+    announceAndOpen(component, extractResultLinks(text));
+    clearRunMarker();
+    assistant.streaming = false;
+    /* eslint-disable no-underscore-dangle */
+    component._catalystActive = false;
+    component._setCatalystProgress(null);
+    /* eslint-enable no-underscore-dangle */
+    component.requestUpdate();
+  };
+  stopPolling = startQuestionPolling(host, token, component, finalize, flags);
+  stopEvents = startEventStream(host, token, component);
+  /* eslint-disable no-underscore-dangle */
+  component._catalystActive = true;
+  component._catalystStop = () => {
+    controller.abort();
+    finalize();
+  };
+  /* eslint-enable no-underscore-dangle */
+  component.requestUpdate();
 }
 /* --- end feature: figma->catalyst ---------------------------------------- */
