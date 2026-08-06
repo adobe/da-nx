@@ -57,6 +57,7 @@ class NxChat extends LitElement {
     _dragging: { state: true },
     /* --- feature: figma->catalyst --- */
     _catalystQuestion: { state: true },
+    _catalystStep: { state: true },
     /* --- end feature: figma->catalyst --- */
   };
 
@@ -391,6 +392,39 @@ class NxChat extends LitElement {
           </div>`)}
         <button type="button" class="catalyst-q-submit"
           @click=${() => this._submitCatalystQuestion()}>Send answer</button>
+      </div>`;
+  }
+
+  // Best-effort current-step label from Catalyst history (todos). Null clears it.
+  _setCatalystProgress(hist) {
+    const todos = (hist && hist.todos) || [];
+    const cur = todos.find((t) => t && t.status === 'in_progress');
+    this._catalystStep = cur ? (cur.activeForm || cur.content || cur.text || '') : '';
+  }
+
+  _renderCatalystProgress() {
+    return html`
+      <style>
+        .catalyst-progress { margin: 8px 0; }
+        .catalyst-progress-step { font-size: 12px; color: #666; margin-bottom: 4px; }
+        .catalyst-bar {
+          height: 4px; border-radius: 2px; background: #e6e6e6; overflow: hidden;
+        }
+        .catalyst-bar::after {
+          content: ''; display: block; height: 100%; width: 40%;
+          border-radius: 2px; background: #1473e6;
+          animation: catalyst-indeterminate 1.2s infinite ease-in-out;
+        }
+        @keyframes catalyst-indeterminate {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(320%); }
+        }
+      </style>
+      <div class="catalyst-progress">
+        ${this._catalystStep
+    ? html`<div class="catalyst-progress-step">${this._catalystStep}</div>`
+    : nothing}
+        <div class="catalyst-bar"></div>
       </div>`;
   }
   /* --- end feature: figma->catalyst --- */
@@ -777,6 +811,8 @@ class NxChat extends LitElement {
           onDecline: () => this._declineQuestion(),
         })}
         ${/* --- feature: figma->catalyst --- */ this._renderCatalystQuestion()}
+        ${this._catalystActive && !this._catalystQuestion
+    ? this._renderCatalystProgress() : nothing}
         ${renderPlanApprovalCard(this.pendingPlanApproval, this._planFeedback ?? '', {
           onFeedbackText: (text) => this._setPlanFeedback(text),
           onApprove: () => this._approvePlan(),

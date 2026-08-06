@@ -156,6 +156,8 @@ function startQuestionPolling(host, token, component) {
         // eslint-disable-next-line no-underscore-dangle
         component._showCatalystQuestion(pq, (answers) => postAnswer(host, token, answers));
       }
+      // eslint-disable-next-line no-underscore-dangle
+      component._setCatalystProgress(hist);
     }
   })();
   return () => { active = false; };
@@ -271,8 +273,10 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     }
   } finally {
     stopPolling();
-    // eslint-disable-next-line no-underscore-dangle
+    /* eslint-disable no-underscore-dangle */
     component._catalystActive = false;
+    component._setCatalystProgress(null);
+    /* eslint-enable no-underscore-dangle */
     assistant.streaming = false;
     component.thinking = false;
     component.requestUpdate();
