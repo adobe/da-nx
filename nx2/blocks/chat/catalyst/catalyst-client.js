@@ -134,9 +134,12 @@ export async function submitCatalystAnswer(answers) {
 
 // Poll chat history while a turn runs; surface any AskUserQuestion to the UI so
 // an interactive skill (e.g. map-vs-snowflake) doesn't hang. Returns a stop().
-function startQuestionPolling(host, token, component) {
+function startQuestionPolling(host, token, component, onSettled) {
   let active = true;
   const seen = new Set();
+  let everBusy = false;
+  let everAsked = false;
+  let idle = 0;
   (async () => {
     while (active) {
       // eslint-disable-next-line no-await-in-loop
@@ -151,13 +154,28 @@ function startQuestionPolling(host, token, component) {
       }
       const pq = hist && hist.pendingQuestion;
       const key = pq && (pq.toolUseId || (pq.questions || []).map((q) => q.id).join(','));
-      if (pq && key && !seen.has(key)) {
-        seen.add(key);
-        // eslint-disable-next-line no-underscore-dangle
-        component._showCatalystQuestion(pq, (answers) => postAnswer(host, token, answers));
+      if (pq) {
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          everAsked = true;
+          // eslint-disable-next-line no-underscore-dangle
+          component._showCatalystQuestion(pq, (answers) => postAnswer(host, token, answers));
+        }
+        idle = 0; // a question on screen is not idle
+      } else if (hist && hist.isProcessing) {
+        everBusy = true;
+        idle = 0;
+      } else {
+        idle += 1;
       }
       // eslint-disable-next-line no-underscore-dangle
       component._setCatalystProgress(hist);
+      // Finalize a turn whose /api/chat stream Catalyst left open after going
+      // idle (e.g. an enable-only turn), so the UI doesn't spin forever.
+      if ((everBusy || everAsked) && idle >= 2) {
+        active = false;
+        onSettled();
+      }
     }
   })();
   return () => { active = false; };
@@ -241,8 +259,8 @@ export async function runFigmaTurn({ component, message, context = [] }) {
 
   // Poll for interactive questions in parallel — the /api/chat stream won't
   // resolve while the skill is waiting on an answer.
-  const stopPolling = startQuestionPolling(host, token, component);
   const controller = new AbortController();
+  const stopPolling = startQuestionPolling(host, token, component, () => controller.abort());
   // Let the chat's Stop button cancel THIS turn (not the AO controller, which
   // would send an INTERRUPT to a non-existent AO session).
   /* eslint-disable no-underscore-dangle */
