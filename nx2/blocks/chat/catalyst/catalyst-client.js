@@ -412,9 +412,22 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     await finalize();
   } catch (err) {
     if (err.name !== 'AbortError') {
-      // Dropped/timed-out stream: don't error — keep reconciling via history;
-      // the poller finalizes on settle (result read from history).
-      flags.dropped = true;
+      // Distinguish a mid-run stream drop (backend still reachable → keep
+      // reconciling via history) from the backend being unreachable
+      // (CORS/network → show a clear message instead of doing nothing).
+      let reachable = false;
+      try {
+        await getHistory(host, token);
+        reachable = true;
+      } catch {
+        reachable = false;
+      }
+      if (reachable) {
+        flags.dropped = true;
+      } else {
+        assistant.content = 'Migration service unavailable. Please try again, later.';
+        await finalize();
+      }
     }
   }
 }
