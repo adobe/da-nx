@@ -58,10 +58,13 @@ class SchemaEditor extends LitElement {
   updated(props) {
     if (!(props.has('_currentSchema') || props.has('_createNew'))) return;
 
-    const data = this._schemas?.[this._currentSchema] || DEFAULT_SCHEMA;
+    const entry = this._schemas?.[this._currentSchema];
 
-    // A malformed schema keeps its raw text so it can be repaired in the editor.
-    const doc = typeof data.invalid === 'string' ? data.invalid : JSON.stringify(data, null, 2);
+    // A malformed schema keeps its raw text so it can be repaired in the editor;
+    // anything else renders the parsed schema (falling back to a new one).
+    const doc = entry?.status === 'invalid-json'
+      ? entry.raw
+      : JSON.stringify(entry?.schema ?? DEFAULT_SCHEMA, null, 2);
 
     if (!this._editor) {
       this._editor = loadCodeMirror(this.codeEditor, doc);
@@ -81,15 +84,15 @@ class SchemaEditor extends LitElement {
 
   async validateCurrent() {
     const id = this._currentSchema;
-    const data = this._schemas?.[id];
-    if (!data) return;
+    const entry = this._schemas?.[id];
+    if (!entry) return;
 
-    if (typeof data.invalid === 'string') {
+    if (entry.status === 'invalid-json') {
       this._schemaErrors = { message: 'This schema contains invalid JSON. Correct the syntax and save to continue.' };
       return;
     }
 
-    const { valid, schemaIssues } = await this.runValidation(data);
+    const { valid, schemaIssues } = await this.runValidation(entry.schema);
     // Selection may have changed while the validator loaded.
     if (this._currentSchema !== id) return;
     this._schemaErrors = valid
@@ -196,7 +199,7 @@ class SchemaEditor extends LitElement {
       this.newInput.error = result.error;
       return;
     }
-    this._schemas[id] = parsed;
+    this._schemas[id] = { status: 'loaded', schema: parsed };
     if (!isUpdate) {
       this._createNew = undefined;
     }
@@ -218,13 +221,14 @@ class SchemaEditor extends LitElement {
 
   // Programatically make the select so lit doesn't keep old options
   get schemaSelect() {
-    // Make a synthetic list with a "new schema" entry
-    const schemas = { ...this._schemas, 'nx-new-schema': { title: 'New schema' } };
+    // Make a synthetic list with a "new schema" entry (same tagged shape).
+    const schemas = { ...this._schemas, 'nx-new-schema': { status: 'loaded', schema: { title: 'New schema' } } };
     const select = document.createElement('sl-select');
     const options = Object.keys(schemas).map((key) => {
       const option = document.createElement('option');
       option.value = key;
-      option.innerText = schemas[key].title || key;
+      // A malformed schema has no parsed title, so fall back to its name.
+      option.innerText = schemas[key].schema?.title || key;
       return option;
     });
     if (this._currentSchema) select.value = this._currentSchema;
