@@ -1,5 +1,7 @@
 /* eslint-disable no-use-before-define */
-import { HLX_ADMIN, AEM_API, DA_ADMIN, ALLOWED_TOKEN } from './utils.js';
+import {
+  HLX_ADMIN, AEM_API, DA_ADMIN, ALLOWED_TOKEN, sheet2object, object2sheet,
+} from './utils.js';
 
 export const { loadIms, handleSignIn } = await (async () => {
   try {
@@ -74,6 +76,16 @@ export const aem = {
 // config: top-level org/site config.
 export const config = {
   get: withArgs(async ({ org, site, cachebust }) => {
+    const hlx6 = await isHlx6(org, site);
+    if (hlx6) {
+      const url = `${AEM_API}/${org}/sites/${site}/config/editor/da.json`;
+      const resp = await daFetch({ url });
+      if (resp.ok) {
+        const cfg = object2sheet(await resp.json());
+        resp.json = () => cfg;
+      }
+      return resp;
+    }
     const url = await getDaApiPath(CONFIG, org, site);
     const finalUrl = cachebust
       ? `${url}${url.includes('?') ? '&' : '?'}nocache=${Date.now()}`
@@ -82,6 +94,18 @@ export const config = {
   }),
 
   save: withArgs(async ({ org, site, body }) => {
+    const hlx6 = await isHlx6(org, site);
+    if (hlx6) {
+      const url = `${AEM_API}/${org}/sites/${site}/config/editor/da.json`;
+      const opts = {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(sheet2object(JSON.parse(body))),
+      };
+      return daFetch({ url, opts });
+    }
     const url = await getDaApiPath(CONFIG, org, site);
     const formData = new FormData();
     formData.append(CONFIG, body);
@@ -89,6 +113,15 @@ export const config = {
   }),
 
   delete: withArgs(async ({ org, site }) => {
+    const hlx6 = await isHlx6(org, site);
+    if (hlx6) {
+      const url = `${AEM_API}/${org}/sites/${site}/config/editor/da.json`;
+      const opts = {
+        method: 'DELETE',
+      };
+      return daFetch({ url, opts });
+    }
+
     const url = await getDaApiPath(CONFIG, org, site);
     return daFetch({ url, opts: { method: 'DELETE' } });
   }),
@@ -256,7 +289,9 @@ export const source = {
     let raw;
     try {
       raw = await resp.json();
-    } catch { raw = []; }
+    } catch {
+      raw = [];
+    }
     const items = Array.isArray(raw) ? hlx6ToDaList(parentPath, raw) : [];
     return { ok: true, items, continuationToken: nextToken, permissions };
   }),
@@ -738,7 +773,9 @@ async function parseListItems(resp, parentPath) {
   let raw;
   try {
     raw = await resp.json();
-  } catch { return []; }
+  } catch {
+    return [];
+  }
   return Array.isArray(raw) ? hlx6ToDaList(parentPath, raw) : [];
 }
 
