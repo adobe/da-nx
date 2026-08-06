@@ -82,7 +82,7 @@ export const config = {
       const resp = await daFetch({ url });
       if (resp.ok) {
         const cfg = object2sheet(await resp.json());
-        resp.json = () => cfg;
+        return adaptJsonResponse(resp, cfg);
       }
       return resp;
     }
@@ -299,9 +299,11 @@ export const source = {
   save: withArgs(async (opts) => {
     const { org, site } = opts;
     if (await isHlx6(org, site)) {
-      return this._saveHlx6(opts);
+      // eslint-disable-next-line no-underscore-dangle
+      return source._saveHlx6(opts);
     }
-    return this._saveDA(opts);
+    // eslint-disable-next-line no-underscore-dangle
+    return source._saveDA(opts);
   }),
 
   _saveHlx6: withArgs(async ({ org, site, path, body }) => {
@@ -346,9 +348,21 @@ export const source = {
     const hlx6 = await isHlx6(org, site);
     if (!hlx6) {
       // fall back to original source store
-      return this._saveDA({ org, site, path, body });
+      // eslint-disable-next-line no-underscore-dangle
+      const resp = await source._saveDA({ org, site, path, body });
+      if (resp.ok && DA_ADMIN === 'https://stage-admin.da.live') {
+        // special check for stage content. should be handled in stage da-admin ?
+        const json = await resp.json();
+        const sourceUrl = new URL(json.source.contentUrl);
+        if (sourceUrl.host === 'content.da.live') {
+          sourceUrl.host = 'stage-content.da.live';
+          json.source.contentUrl = sourceUrl.href;
+        }
+        return adaptJsonResponse(resp, json);
+      }
+      return resp;
     }
-    const url = `${AEM_API}/${org}/sites/${site}/media/${path}`;
+    const url = `${AEM_API}/${org}/sites/${site}/media${path}`;
     const opts = {
       method: 'POST',
       body,
@@ -359,17 +373,21 @@ export const source = {
     const resp = await daFetch({ url, opts });
     if (resp.ok) {
       const json = await resp.json();
-      // api returns:
       // {
-      //  uri,
+      //  uri: 'https://main--site--org.aem.page/media_....,
       //  meta: {
       //    type: 'image/png',
       //    width: 640,
       //    height: 480,
       //  },
+      const pfx = `https://main--${site}--${org}.aem.page/`;
+      let contentUrl = json.uri;
+      if (contentUrl.startsWith(pfx)) {
+        contentUrl = `./${contentUrl.substring(pfx.length)}`;
+      }
       return adaptJsonResponse(resp, {
         source: {
-          contentUrl: json.uri,
+          contentUrl,
         },
         // exact use to be defined
         meta: json.meta,
