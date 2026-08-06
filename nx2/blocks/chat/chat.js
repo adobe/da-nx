@@ -3,7 +3,11 @@ import { loadStyle, hashChange } from '../../utils/utils.js';
 import { readFileAsBase64 } from './utils/stream.js';
 import '../shared/menu/menu.js';
 import ChatController from './chat-controller.js';
-import { renderMessage, renderApprovalCard } from './renderers.js';
+import ChatControllerAO from './chat-controller-ao.js';
+import {
+  renderMessage, renderApprovalCard, renderQuestionCard, renderPlanApprovalCard,
+  renderNewerEpisodeBanner,
+} from './renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
 import './pills/pills.js';
@@ -16,6 +20,8 @@ import { buildAttachmentPayload, buildSlashMessage } from './utils/chat-helpers.
 import { PANEL_EVENT } from '../../utils/panel.js';
 
 const styles = await loadStyle(import.meta.url);
+const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
+
 const { codeBase } = getConfig();
 
 const ICON_NAMES = {
@@ -31,12 +37,18 @@ const icon = (name) => html`<svg class="chat-icon" viewBox="0 0 20 20" aria-hidd
 
 const UI_PROMPTS_GAP = 8;
 
+// Flip to true to test the Agent Orchestrator backend instead of da-agent.
+const USE_AGENT_ORCHESTRATOR = true;
+
 class NxChat extends LitElement {
   static properties = {
     messages: { type: Array },
     thinking: { type: Boolean },
     connected: { type: Boolean },
     toolCards: { type: Object },
+    pendingQuestion: { type: Object },
+    pendingPlanApproval: { type: Object },
+    newerEpisodeAvailable: { type: Object },
     _prompts: { state: true },
     _items: { state: true },
     _dragging: { state: true },
@@ -115,14 +127,22 @@ class NxChat extends LitElement {
     this._configKey = key;
     const { prompts, skills, mcpServers, mcpServerHeaders } = await loadSiteConfig(org, site);
     this._prompts = prompts ?? [];
+    // da-agent's skills are per-site (loaded above from a .da/skills config sheet);
+    // AO has no per-site equivalent — used only as the da-agent controller's list.
     this._skills = skills ?? [];
     this._controller?.setMcpConfig(mcpServers ?? {}, mcpServerHeaders ?? {});
     if (this._slashCtx) this._syncSlashMenu(this._slashCtx);
   }
 
   _getSlashItems(filter) {
-    if (!this._skills) return [];
-    const skills = this._skills.map((id) => ({ id, label: id }));
+    // AO's skill list can change after the probe in chat-controller-ao.js resolves
+    // (which happens after _loadConfig() already ran), so read it fresh here rather
+    // than caching it once — this._skills (da-agent's per-site list) is the fallback
+    // for controllers with no getSkills() of their own.
+    const skillIds = this._controller?.getSkills?.() ?? this._skills;
+    if (!skillIds) return [];
+    if (!skillIds.length) return [{ section: 'No skills available' }];
+    const skills = skillIds.map((id) => ({ id, label: id }));
     const filtered = filter
       ? skills.filter((item) => item.id.toLowerCase().includes(filter))
       : skills;
@@ -187,9 +207,10 @@ class NxChat extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
 
-    this._controller = new ChatController({
+    const ControllerClass = USE_AGENT_ORCHESTRATOR ? ChatControllerAO : ChatController;
+    this._controller = new ControllerClass({
       onToolDone: (scope, paths) => {
         this.dispatchEvent(new CustomEvent(CHAT_EVENT.AGENT_CHANGE, {
           bubbles: true,
@@ -197,19 +218,38 @@ class NxChat extends LitElement {
           detail: { scope, paths },
         }));
       },
-      onUpdate: ({ messages, thinking, streamingText, connected, toolCards }) => {
+      onUpdate: ({
+        messages, thinking, streamingText, connected, toolCards, pendingQuestion,
+        pendingPlanApproval, newerEpisodeAvailable,
+      }) => {
         const newMessages = streamingText
           ? [...(messages ?? []), { role: ROLE.ASSISTANT, content: streamingText, streaming: true }]
           : messages;
+        // Question ids can repeat across turns ("1", "2", ...) — clear stale answer
+        // drafts whenever a genuinely new question set arrives.
+        if (pendingQuestion && pendingQuestion.turnId !== this._lastQuestionTurnId) {
+          this._questionAnswers = {};
+          this._lastQuestionTurnId = pendingQuestion.turnId;
+        }
+        if (pendingPlanApproval && pendingPlanApproval.turnId !== this._lastPlanTurnId) {
+          this._planFeedback = '';
+          this._lastPlanTurnId = pendingPlanApproval.turnId;
+        }
         this.thinking = thinking;
         this.connected = connected;
         this.toolCards = toolCards;
+        this.pendingQuestion = pendingQuestion;
+        this.pendingPlanApproval = pendingPlanApproval;
+        this.newerEpisodeAvailable = newerEpisodeAvailable;
         cancelAnimationFrame(this._updateRaf);
         this._updateRaf = requestAnimationFrame(() => {
           this.messages = newMessages;
           this.thinking = thinking;
           this.connected = connected;
           this.toolCards = toolCards;
+          this.pendingQuestion = pendingQuestion;
+          this.pendingPlanApproval = pendingPlanApproval;
+          this.newerEpisodeAvailable = newerEpisodeAvailable;
         });
       },
     });
@@ -241,6 +281,56 @@ class NxChat extends LitElement {
       if (card.state === TOOL_STATE.AWAITING_APPROVAL) return { toolCallId, ...card };
     }
     return null;
+  }
+
+  _questionAnswerEntry(qId) {
+    this._questionAnswers ??= {};
+    this._questionAnswers[qId] ??= { options: new Set(), text: '' };
+    return this._questionAnswers[qId];
+  }
+
+  _toggleQuestionOption(qId, label, multiSelect) {
+    const entry = this._questionAnswerEntry(qId);
+    if (multiSelect) {
+      if (entry.options.has(label)) entry.options.delete(label); else entry.options.add(label);
+    } else {
+      entry.options = entry.options.has(label) ? new Set() : new Set([label]);
+    }
+    this.requestUpdate();
+  }
+
+  _setQuestionText(qId, text) {
+    this._questionAnswerEntry(qId).text = text;
+  }
+
+  _submitQuestion() {
+    const answersByQuestionId = {};
+    Object.entries(this._questionAnswers ?? {}).forEach(([qId, entry]) => {
+      const opts = [...entry.options];
+      if (entry.text?.trim()) opts.push(entry.text.trim());
+      answersByQuestionId[qId] = opts;
+    });
+    this._controller.answerQuestion(answersByQuestionId);
+    this._questionAnswers = {};
+  }
+
+  _declineQuestion() {
+    this._controller.declineQuestion();
+    this._questionAnswers = {};
+  }
+
+  _setPlanFeedback(text) {
+    this._planFeedback = text;
+  }
+
+  _approvePlan() {
+    this._controller.respondToPlanApproval('approve');
+    this._planFeedback = '';
+  }
+
+  _rejectPlan() {
+    this._controller.respondToPlanApproval('reject', this._planFeedback?.trim());
+    this._planFeedback = '';
   }
 
   _onApprovalKeydown = (e) => {
@@ -382,7 +472,8 @@ class NxChat extends LitElement {
       if (!org || !site) return;
       const url = new URL(window.location.href);
       url.pathname = '/apps/skills';
-      url.search = `?tab=${id}`;
+      url.search = `?tab=${id}&nx=ewao`;
+
       url.hash = `#/${org}/${site}`;
       window.open(url.href, '_blank', 'noopener,noreferrer');
     }
@@ -492,7 +583,9 @@ class NxChat extends LitElement {
       f.type?.startsWith('image/')
       || f.type === 'application/pdf'
       || f.type === 'text/markdown'
+      || f.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       || f.name?.endsWith('.md')
+      || f.name?.endsWith('.docx')
     ));
     await this._onFilesSelected(accepted);
   }
@@ -512,18 +605,22 @@ class NxChat extends LitElement {
       <div class="chat-header">
         <button
           type="button"
-          class="chat-header-btn clear-btn"
+          class="nx-action-btn-quiet clear-btn"
           aria-label="Clear chat"
           ?hidden=${!this.messages?.length}
           @click=${() => this.clear()}
         >${icon('clear')}<span>Clear</span></button>
         <button
           type="button"
-          class="chat-header-btn"
+          class="nx-action-btn-icon"
           aria-label="Close chat panel"
           @click=${this._closePanel}
         >${icon('close')}</button>
       </div>
+      ${renderNewerEpisodeBanner(this.newerEpisodeAvailable, {
+        onSwitch: () => this._controller.switchToLatestEpisode(),
+        onDismiss: () => this._controller.dismissNewerEpisode(),
+      })}
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">
           ${!this.messages?.length && !this.thinking
@@ -533,8 +630,14 @@ class NxChat extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-chat-welcome>`
         : nothing}
-        ${this.messages?.map((msg) => renderMessage(msg, this.toolCards))}
-        ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
+        ${this.messages?.map((msg) => renderMessage(
+          msg,
+          this.toolCards,
+          (p) => this._sendPrompt(p, { autoSend: true }),
+        ))}
+        ${this.thinking && !this.messages?.at(-1)?.streaming
+        && !this._pendingApproval() && !this.pendingQuestion && !this.pendingPlanApproval
+        ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>
       </div>
       <div class="chat-form-wrap">
@@ -546,6 +649,17 @@ class NxChat extends LitElement {
           @mousedown=${(e) => e.preventDefault()}
         ></nx-menu>
         ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
+        ${renderQuestionCard(this.pendingQuestion, this._questionAnswers ?? {}, {
+          onToggle: (qId, label, multi) => this._toggleQuestionOption(qId, label, multi),
+          onText: (qId, text) => this._setQuestionText(qId, text),
+          onSubmit: () => this._submitQuestion(),
+          onDecline: () => this._declineQuestion(),
+        })}
+        ${renderPlanApprovalCard(this.pendingPlanApproval, this._planFeedback ?? '', {
+          onFeedbackText: (text) => this._setPlanFeedback(text),
+          onApprove: () => this._approvePlan(),
+          onReject: () => this._rejectPlan(),
+        })}
         <form class="chat-form" autocomplete="off" @submit=${this._submit}
           @dragenter=${this._onDragEnter}
           @dragleave=${this._onDragLeave}
@@ -555,7 +669,7 @@ class NxChat extends LitElement {
         <input
           class="chat-file-input"
           type="file"
-          accept="image/*,text/markdown,.md,application/pdf,.pdf"
+          accept="image/*,text/markdown,.md,application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
           multiple
           hidden
           @change=${this._onFileInputChange}
@@ -583,7 +697,7 @@ class NxChat extends LitElement {
         ></textarea>
         <div class="chat-actions" ?data-thinking=${this.thinking} ?data-has-items=${!!this._items?.length}>
           <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-            <button slot="trigger" class="chat-add" type="button" aria-label="Add" @click=${this._onAddClick}>
+            <button slot="trigger" class="nx-action-btn-icon chat-add" type="button" aria-label="Add" @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>
               <span class="icon-up">${icon('up')}</span>
             </button>
