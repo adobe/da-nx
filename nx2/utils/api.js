@@ -337,7 +337,13 @@ export const source = {
   }) => {
     const hlx6 = await isHlx6(org, site);
     if (hlx6) {
-      const url = new URL(await getDaApiPath(SOURCE, org, site, destination));
+      // 'destination' contains '/org/site/' prefix, which is needed for DA source
+      // but not for the source bus
+      const pfx = `/${org}/${site}/`;
+      const dst = destination.startsWith(pfx)
+        ? destination.substring(pfx.length - 1)
+        : destination;
+      const url = new URL(await getDaApiPath(SOURCE, org, site, dst));
       url.searchParams.set('source', path);
       if (collision) url.searchParams.set('collision', collision);
       return daFetch({ url: url.toString(), opts: { method: 'PUT' } });
