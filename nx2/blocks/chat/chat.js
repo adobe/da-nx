@@ -55,6 +55,9 @@ class NxChat extends LitElement {
     _prompts: { state: true },
     _items: { state: true },
     _dragging: { state: true },
+    /* --- feature: figma->catalyst --- */
+    _catalystQuestion: { state: true },
+    /* --- end feature: figma->catalyst --- */
   };
 
   set context(value) {
@@ -321,6 +324,70 @@ class NxChat extends LitElement {
     this._controller.declineQuestion();
     this._questionAnswers = {};
   }
+
+  /* --- feature: figma->catalyst: interactive AskUserQuestion from Catalyst.
+   * Answers are keyed by question id, value = option id (array if allow_multiple),
+   * matching Catalyst's /api/chat/answer contract. --- */
+  _showCatalystQuestion(pq, onAnswer) {
+    this._catalystQuestion = { pq, onAnswer, answers: {} };
+    this.requestUpdate();
+  }
+
+  _pickCatalystOption(qId, optionId, multi) {
+    const cq = this._catalystQuestion;
+    if (!cq) return;
+    if (multi) {
+      const cur = new Set(cq.answers[qId] ?? []);
+      if (cur.has(optionId)) cur.delete(optionId); else cur.add(optionId);
+      cq.answers[qId] = [...cur];
+    } else {
+      cq.answers[qId] = optionId;
+    }
+    this.requestUpdate();
+  }
+
+  _submitCatalystQuestion() {
+    const cq = this._catalystQuestion;
+    if (!cq) return;
+    cq.onAnswer(cq.answers);
+    this._catalystQuestion = null;
+    this.requestUpdate();
+  }
+
+  _renderCatalystQuestion() {
+    const cq = this._catalystQuestion;
+    if (!cq) return nothing;
+    return html`
+      <style>
+        .catalyst-question { border: 1px solid #d0d0d0; border-radius: 8px; padding: 12px; margin: 8px 0; font-size: 14px; }
+        .catalyst-q-prompt { margin: 0 0 6px; }
+        .catalyst-opt { margin: 0 6px 6px 0; padding: 6px 10px; border: 1px solid #c0c0c0; border-radius: 6px; background: transparent; cursor: pointer; }
+        .catalyst-opt.selected { background: #1473e6; color: #fff; border-color: #1473e6; }
+        .catalyst-q-submit { margin-top: 4px; padding: 6px 14px; border: none; border-radius: 6px; background: #1473e6; color: #fff; cursor: pointer; }
+      </style>
+      <div class="catalyst-question">
+        ${cq.pq.questions.map((q) => html`
+          <div class="catalyst-q">
+            <p class="catalyst-q-prompt">
+              ${q.header ? html`<strong>${q.header}</strong> ` : nothing}${q.prompt}
+            </p>
+            <div class="catalyst-q-options">
+              ${(q.options ?? []).map((o) => {
+    const multi = !!q.allow_multiple;
+    const sel = multi
+      ? (cq.answers[q.id] ?? []).includes(o.id)
+      : cq.answers[q.id] === o.id;
+    return html`<button type="button" class="catalyst-opt ${sel ? 'selected' : ''}"
+                  title=${o.description ?? ''}
+                  @click=${() => this._pickCatalystOption(q.id, o.id, multi)}>${o.label}</button>`;
+  })}
+            </div>
+          </div>`)}
+        <button type="button" class="catalyst-q-submit"
+          @click=${() => this._submitCatalystQuestion()}>Send answer</button>
+      </div>`;
+  }
+  /* --- end feature: figma->catalyst --- */
 
   _setPlanFeedback(text) {
     this._planFeedback = text;
@@ -694,6 +761,7 @@ class NxChat extends LitElement {
           onSubmit: () => this._submitQuestion(),
           onDecline: () => this._declineQuestion(),
         })}
+        ${/* --- feature: figma->catalyst --- */ this._renderCatalystQuestion()}
         ${renderPlanApprovalCard(this.pendingPlanApproval, this._planFeedback ?? '', {
           onFeedbackText: (text) => this._setPlanFeedback(text),
           onApprove: () => this._approvePlan(),

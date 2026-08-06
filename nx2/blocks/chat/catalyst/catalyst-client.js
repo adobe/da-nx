@@ -107,15 +107,58 @@ async function streamChat({
   }
 }
 
-/** POST /api/chat/answer - answer a Catalyst AskUserQuestion prompt. */
-export async function submitCatalystAnswer(answers) {
-  const host = catalystHost();
-  const token = await imsToken();
+function sleep(ms) {
+  return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
+async function getHistory(host, token) {
+  const resp = await fetch(`${host}/api/chat/history`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!resp.ok) throw new Error(`Catalyst /api/chat/history ${resp.status}`);
+  return resp.json();
+}
+
+async function postAnswer(host, token, answers) {
   await fetch(`${host}/api/chat/answer`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ answers }),
   });
+}
+
+/** POST /api/chat/answer - answer a Catalyst AskUserQuestion prompt. */
+export async function submitCatalystAnswer(answers) {
+  await postAnswer(catalystHost(), await imsToken(), answers);
+}
+
+// Poll chat history while a turn runs; surface any AskUserQuestion to the UI so
+// an interactive skill (e.g. map-vs-snowflake) doesn't hang. Returns a stop().
+function startQuestionPolling(host, token, component) {
+  let active = true;
+  const seen = new Set();
+  (async () => {
+    while (active) {
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(2000);
+      if (!active) break;
+      let hist = null;
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        hist = await getHistory(host, token);
+      } catch {
+        hist = null;
+      }
+      const pq = hist && hist.pendingQuestion;
+      const key = pq && (pq.toolUseId || (pq.questions || []).map((q) => q.id).join(','));
+      if (pq && key && !seen.has(key)) {
+        seen.add(key);
+        // eslint-disable-next-line no-underscore-dangle
+        component._showCatalystQuestion(pq, (answers) => postAnswer(host, token, answers));
+      }
+    }
+  })();
+  return () => { active = false; };
 }
 
 /* --- feature: figma->catalyst (result preview) ---
@@ -180,9 +223,24 @@ export async function runFigmaTurn({ component, message, context = [] }) {
   component.thinking = true;
   component.requestUpdate();
 
+  let token = null;
   try {
-    const token = await imsToken();
-    if (!token) throw new Error('No IMS token for Catalyst');
+    token = await imsToken();
+  } catch {
+    token = null;
+  }
+  if (!token) {
+    assistant.content = '_Catalyst error: no IMS token_';
+    assistant.streaming = false;
+    component.thinking = false;
+    component.requestUpdate();
+    return;
+  }
+
+  // Poll for interactive questions in parallel — the /api/chat stream won't
+  // resolve while the skill is waiting on an answer.
+  const stopPolling = startQuestionPolling(host, token, component);
+  try {
     await streamChat({
       host,
       token,
@@ -199,6 +257,7 @@ export async function runFigmaTurn({ component, message, context = [] }) {
   } catch (err) {
     assistant.content += `\n\n_Catalyst error: ${err.message}_`;
   } finally {
+    stopPolling();
     assistant.streaming = false;
     component.thinking = false;
     component.requestUpdate();
