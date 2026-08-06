@@ -509,6 +509,15 @@ class NxChat extends LitElement {
   _submit(e) {
     e?.preventDefault();
     if (this.thinking) {
+      /* --- feature: figma->catalyst: cancel a Catalyst turn locally, not via
+       * the AO controller (which would INTERRUPT a non-existent AO session). --- */
+      if (this._catalystActive) {
+        this._catalystStop?.();
+        this._catalystActive = false;
+        this.thinking = false;
+        return;
+      }
+      /* --- end feature: figma->catalyst --- */
       this._controller.stop();
       return;
     }

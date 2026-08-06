@@ -240,12 +240,23 @@ export async function runFigmaTurn({ component, message, context = [] }) {
   // Poll for interactive questions in parallel — the /api/chat stream won't
   // resolve while the skill is waiting on an answer.
   const stopPolling = startQuestionPolling(host, token, component);
+  const controller = new AbortController();
+  // Let the chat's Stop button cancel THIS turn (not the AO controller, which
+  // would send an INTERRUPT to a non-existent AO session).
+  /* eslint-disable no-underscore-dangle */
+  component._catalystActive = true;
+  component._catalystStop = () => {
+    controller.abort();
+    stopPolling();
+  };
+  /* eslint-enable no-underscore-dangle */
   try {
     await streamChat({
       host,
       token,
       message,
       context,
+      signal: controller.signal,
       onChunk: (chunk) => {
         assistant.content += chunk;
         component.requestUpdate();
@@ -255,9 +266,13 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     announceAndOpen(component, extractResultLinks(assistant.content));
     /* --- end feature --- */
   } catch (err) {
-    assistant.content += `\n\n_Catalyst error: ${err.message}_`;
+    if (err.name !== 'AbortError') {
+      assistant.content += `\n\n_Catalyst error: ${err.message}_`;
+    }
   } finally {
     stopPolling();
+    // eslint-disable-next-line no-underscore-dangle
+    component._catalystActive = false;
     assistant.streaming = false;
     component.thinking = false;
     component.requestUpdate();
