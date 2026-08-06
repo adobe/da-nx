@@ -31,8 +31,9 @@ import { ROLE } from '../constants.js';
 // Master toggle for the whole feature.
 export const FIGMA_TO_CATALYST = true;
 
-// Provisioned Catalyst deployment. Overridable at runtime with ?catalyst=<host>.
-const DEFAULT_CATALYST_HOST = 'https://excat-experimental4.adobe.io';
+// Provisioned Catalyst deployment (the CORS-enabled one). Overridable at
+// runtime with ?catalyst=<host>.
+const DEFAULT_CATALYST_HOST = 'https://excat-stage.adobe.io';
 
 function catalystHost() {
   const override = new URLSearchParams(window.location.search).get('catalyst');
