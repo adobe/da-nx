@@ -1,5 +1,15 @@
 # Worklog
 
+## 2026-08-06
+
+### nx2/utils/api.js — tests for `source.uploadMedia`, plus two bug fixes found while writing them
+
+Added test coverage for the new `source.uploadMedia({ org, site, path, body })` method (added in `3300b1ee`, "feat: add media upload api"): legacy delegation to `_saveDA` as FormData, the stage `content.da.live` → `stage-content.da.live` contentUrl rewrite, hlx6 POSTs to the AEM media route with the correct `content-type` header, `contentUrl` prefix-stripping against the site's `aem.page` origin, non-ok passthrough for both branches, and the `/org/site/path` string call form. 11 new tests in `test/nx2/utils/api.test.js`.
+
+Two bugs surfaced while writing the tests (both fixed, confirmed with the author):
+1. The non-hlx6 branch fell through to the hlx6 media POST whenever `DA_ADMIN` wasn't exactly `'https://stage-admin.da.live'` — i.e. for any ordinary non-hlx6 site in most environments, `uploadMedia` made a second, unintended request to the hlx6-only endpoint after `_saveDA` had already completed. Fixed by returning after the `_saveDA` call unconditionally.
+2. In this repo's test/dev env `DA_ADMIN` *is* `'https://stage-admin.da.live'`, so the stage-content rewrite branch always runs for non-hlx6 uploads. When the returned `contentUrl`'s host wasn't `content.da.live` (no rewrite needed), the code had already consumed the response body via `resp.json()` and then returned that same (now-drained) `Response` — any caller subsequently calling `resp.json()` would get a "body stream already read" error. Fixed by always returning `adaptJsonResponse(resp, json)` in that branch, rewritten or not, so callers get a fresh readable response either way.
+
 ## 2026-07-30
 
 ### nx2/utils/api.js — normalize hlx6 `source.save` response to `{ source: { contentUrl } }` (#631)
