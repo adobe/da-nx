@@ -134,7 +134,7 @@ export async function submitCatalystAnswer(answers) {
 
 // Poll chat history while a turn runs; surface any AskUserQuestion to the UI so
 // an interactive skill (e.g. map-vs-snowflake) doesn't hang. Returns a stop().
-function startQuestionPolling(host, token, component, onSettled) {
+function startQuestionPolling(host, token, component, onSettled, flags) {
   let active = true;
   const seen = new Set();
   let everBusy = false;
@@ -172,7 +172,7 @@ function startQuestionPolling(host, token, component, onSettled) {
       component._setCatalystProgress(hist);
       // Finalize a turn whose /api/chat stream Catalyst left open after going
       // idle (e.g. an enable-only turn), so the UI doesn't spin forever.
-      if ((everBusy || everAsked) && idle >= 2) {
+      if ((everBusy || everAsked || (flags && flags.dropped)) && idle >= 2) {
         active = false;
         onSettled();
       }
@@ -317,21 +317,58 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     return;
   }
 
-  // Poll for interactive questions in parallel — the /api/chat stream won't
-  // resolve while the skill is waiting on an answer.
   const controller = new AbortController();
-  const stopPolling = startQuestionPolling(host, token, component, () => controller.abort());
-  const stopEvents = startEventStream(host, token, component);
-  // Let the chat's Stop button cancel THIS turn (not the AO controller, which
-  // would send an INTERRUPT to a non-existent AO session).
+  const flags = { dropped: false };
+  let finalized = false;
+  let stopPolling = () => {};
+  let stopEvents = () => {};
+  // Finalize once, from wherever the turn actually ends (stream done, settled
+  // idle, Stop, or a dropped/timed-out stream). Result comes from streamed text,
+  // falling back to the final assistant message in history — so a lost
+  // connection doesn't lose the result; the run persists server-side.
+  const finalize = async () => {
+    if (finalized) return;
+    finalized = true;
+    stopPolling();
+    stopEvents();
+    controller.abort();
+    let text = assistant.content;
+    if (!extractResultLinks(text).daPath) {
+      try {
+        const hist = await getHistory(host, token);
+        const last = ((hist && hist.history) || [])
+          .filter((m) => m && m.role === 'assistant').pop();
+        if (last && last.content) {
+          if (!assistant.content) assistant.content = last.content;
+          text = `${text}\n${last.content}`;
+        }
+      } catch {
+        // nothing more we can read
+      }
+    }
+    /* --- feature: figma->catalyst (auto-preview) --- */
+    announceAndOpen(component, extractResultLinks(text));
+    /* --- end feature --- */
+    /* eslint-disable no-underscore-dangle */
+    component._catalystActive = false;
+    component._setCatalystProgress(null);
+    /* eslint-enable no-underscore-dangle */
+    assistant.streaming = false;
+    component.thinking = false;
+    component.requestUpdate();
+  };
+
+  // History poll (questions, progress, settle detection) + live events stream.
+  stopPolling = startQuestionPolling(host, token, component, finalize, flags);
+  stopEvents = startEventStream(host, token, component);
   /* eslint-disable no-underscore-dangle */
   component._catalystActive = true;
   component._catalystStop = () => {
     controller.abort();
-    stopPolling();
-    stopEvents();
+    finalize();
   };
   /* eslint-enable no-underscore-dangle */
+
   try {
     await streamChat({
       host,
@@ -344,23 +381,13 @@ export async function runFigmaTurn({ component, message, context = [] }) {
         component.requestUpdate();
       },
     });
-    /* --- feature: figma->catalyst (auto-preview) --- */
-    announceAndOpen(component, extractResultLinks(assistant.content));
-    /* --- end feature --- */
+    await finalize();
   } catch (err) {
     if (err.name !== 'AbortError') {
-      assistant.content += `\n\n_Catalyst error: ${err.message}_`;
+      // Dropped/timed-out stream: don't error — keep reconciling via history;
+      // the poller finalizes on settle (result read from history).
+      flags.dropped = true;
     }
-  } finally {
-    stopPolling();
-    stopEvents();
-    /* eslint-disable no-underscore-dangle */
-    component._catalystActive = false;
-    component._setCatalystProgress(null);
-    /* eslint-enable no-underscore-dangle */
-    assistant.streaming = false;
-    component.thinking = false;
-    component.requestUpdate();
   }
 }
 /* --- end feature: figma->catalyst ---------------------------------------- */
