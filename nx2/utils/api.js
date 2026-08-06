@@ -272,9 +272,13 @@ export const source = {
       const resp = await daFetch({ url, opts });
       // hlx6 source save returns an empty body, whereas DA returns
       // { source: { contentUrl } }. Normalize the success case to that shape
-      // (contentUrl = the source URL just written) so callers can read
-      // source.contentUrl uniformly across hlx5/hlx6.
-      return resp.ok ? withSourceJson(resp, url) : resp;
+      // so callers can read source.contentUrl uniformly across hlx5/hlx6.
+      // contentUrl comes from the response's location header (resolved
+      // against the request url) since the server may write the source to a
+      // different canonical path than the one requested.
+      const location = resp.headers.get('location') || '';
+      const sourceUrl = new URL(location, url).href;
+      return resp.ok ? withSourceJson(resp, sourceUrl) : resp;
     }
     const formData = new FormData();
     formData.append('data', new Blob([body], { type: TYPE_MAP[ext] }));
