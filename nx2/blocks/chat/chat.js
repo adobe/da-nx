@@ -340,10 +340,16 @@ class NxChat extends LitElement {
       const cur = new Set(cq.answers[qId] ?? []);
       if (cur.has(optionId)) cur.delete(optionId); else cur.add(optionId);
       cq.answers[qId] = [...cur];
-    } else {
-      cq.answers[qId] = optionId;
+      this.requestUpdate();
+      return;
     }
-    this.requestUpdate();
+    cq.answers[qId] = optionId;
+    // Single-select, single-question: one click answers (no extra Send step).
+    if ((cq.pq.questions ?? []).length <= 1) {
+      this._submitCatalystQuestion();
+    } else {
+      this.requestUpdate();
+    }
   }
 
   _submitCatalystQuestion() {
