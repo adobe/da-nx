@@ -521,7 +521,8 @@ class NxChat extends LitElement {
     const input = this.shadowRoot.querySelector('.chat-input');
     if (!input) return;
     if (!/figma/i.test(input.value)) {
-      input.value = `Migrate this Figma design to EDS: ${input.value}`;
+      const ask = 'Migrate this Figma to EDS; tell me the new page DA path: ';
+      input.value = `${ask}${input.value}`;
     }
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);

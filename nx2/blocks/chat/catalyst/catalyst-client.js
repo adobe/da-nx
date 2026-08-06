@@ -138,18 +138,25 @@ function extractResultLinks(text) {
   };
 }
 
-// Builds a chat message with clickable result links. "Preview page in canvas"
-// re-opens this canvas on the new DA path, preserving the current nx build/env.
-function previewMessage({ daPath, prUrl, previewUrl }) {
-  const parts = [];
+// On completion, auto-open the new page in the canvas (no manual step) by
+// navigating to its DA path, and note the path + PR/branch-preview links.
+function announceAndOpen(component, { daPath, prUrl, previewUrl }) {
+  const extras = [];
+  if (previewUrl) extras.push(`[branch preview](${previewUrl})`);
+  if (prUrl) extras.push(`[PR](${prUrl})`);
+  const suffix = extras.length ? ` · ${extras.join(' · ')}` : '';
+  const push = (content) => {
+    component.messages = [...component.messages, { role: ROLE.ASSISTANT, content }];
+    component.requestUpdate();
+  };
   if (daPath) {
-    const canvas = `${window.location.origin}/canvas${window.location.search}#${daPath}`;
-    parts.push(`[Preview page in canvas](${canvas})`);
+    push(`**Opening the new page in the canvas:** \`${daPath}\`${suffix}`);
+    // Auto-preview: point the canvas at the new DA path. hashChange swaps the
+    // previewed doc in place, keeping the chat panel.
+    window.location.hash = daPath;
+  } else if (extras.length) {
+    push(`**Result:**${suffix}`);
   }
-  if (previewUrl) parts.push(`[Open branch preview](${previewUrl})`);
-  if (prUrl) parts.push(`[View PR](${prUrl})`);
-  if (!parts.length) return null;
-  return { role: ROLE.ASSISTANT, content: `**Result:** ${parts.join(' · ')}` };
 }
 /* --- end feature --- */
 
@@ -185,9 +192,8 @@ export async function runFigmaTurn({ component, message, context = [] }) {
         component.requestUpdate();
       },
     });
-    /* --- feature: figma->catalyst (result preview) --- */
-    const preview = previewMessage(extractResultLinks(assistant.content));
-    if (preview) component.messages = [...component.messages, preview];
+    /* --- feature: figma->catalyst (auto-preview) --- */
+    announceAndOpen(component, extractResultLinks(assistant.content));
     /* --- end feature --- */
   } catch (err) {
     assistant.content += `\n\n_Catalyst error: ${err.message}_`;
