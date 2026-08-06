@@ -457,6 +457,28 @@ describe('api.js', () => {
       expect(json.source.contentUrl).to.equal(`${AEM_API}/${o}/sites/${s}/source/docs/.foo/image.png`);
     });
 
+    it('source.save hlx6 uses the response location header for contentUrl when present', async () => {
+      restoreFetch();
+      installFetch({ body: '', headers: { location: '/docs/renamed.png' } });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const blob = new Blob(['binary'], { type: 'image/png' });
+      const resp = await source.save({ org: o, site: s, path: '/docs/image.png', body: blob });
+      expect(resp.ok).to.equal(true);
+      const json = await resp.json();
+      expect(json.source.contentUrl).to.equal(`${AEM_API}/docs/renamed.png`);
+      expect(json.source.contentUrl).to.be.a('string');
+    });
+
+    it('source.save hlx6 resolves an absolute location header as-is', async () => {
+      restoreFetch();
+      const absolute = 'https://example.com/other/path/image.png';
+      installFetch({ body: '', headers: { location: absolute } });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.save({ org: o, site: s, path: '/docs/image.png', body: new Blob(['x']) });
+      const json = await resp.json();
+      expect(json.source.contentUrl).to.equal(absolute);
+    });
+
     it('source.save hlx6 does not normalize non-ok responses', async () => {
       restoreFetch();
       installFetch({ status: 403, body: '' });
