@@ -25,12 +25,8 @@ by one of two different hosts, depending on how it's loaded:
   the role `quick-edit-portal.js` plays in the standalone flow.
 
 Several message types are only meaningful in one of these two flows — noted below.
-Both hosts normalize incoming messages the same way, merging deprecated flat top-level
-fields with the newer `payload` object:
-
-```js
-const data = e.data?.payload ? { ...e.data, ...e.data.payload } : e.data;
-```
+Both hosts read `payload` directly off every message; there are no flat top-level
+fields to merge.
 
 ## Before adding a new message type
 
@@ -66,9 +62,7 @@ parallel one. If you do add a new key:
 | `SELECTION_CHANGE` | iframe → host | da-live only |
 | `STORED_MARKS` | iframe → host | da-live only |
 | `PREVIEW` | iframe ↔ host (request/reply) | standalone (quick-edit-portal) only |
-| `IMAGE_REPLACE` | iframe → host | both hosts |
-| `UPDATE_IMAGE_SRC` | Host → iframe, @deprecated reply | both hosts |
-| `IMAGE_ERROR` | Host → iframe, @deprecated reply | both hosts |
+| `IMAGE_REPLACE` | iframe ↔ host (request/reply) | both hosts |
 
 ---
 
@@ -115,17 +109,16 @@ embedded in da-live), so this message never appears on the da-live/WYSIWYG canva
 This is intentional scoping, not a gap — da-live has its own preview mechanism outside
 this protocol.
 
-### `IMAGE_REPLACE` / `UPDATE_IMAGE_SRC` / `IMAGE_ERROR`
+### `IMAGE_REPLACE`
 
-Image drag-drop upload flow. `IMAGE_REPLACE` is the iframe's upload request;
-`UPDATE_IMAGE_SRC`/`IMAGE_ERROR` are the two possible replies. These two reply types are
-`@deprecated` — once retired, the reply becomes a single `IMAGE_REPLACE` message back
-from the host, distinguished by a top-level `error` field, making the type
-bidirectional. Both hosts implement the full round-trip.
+Image drag-drop upload flow, request/reply on the same type: the iframe sends the
+upload request, the host replies with the same `IMAGE_REPLACE` type, distinguished by
+`payload.error` (failure) vs `payload.newSrc` (success). Both hosts implement the full
+round-trip.
 
 ## Known gaps
 
 - **Several payload fields are sent but not read by any current receiver:**
-  `SELECTION_CHANGE.anchorX`/`anchorY`, `IMAGE_REPLACE.cursorOffset`/`mimeType`,
-  `IMAGE_ERROR.originalSrc`. Not necessarily bugs — may be intended for a future
+  `SELECTION_CHANGE.anchorX`/`anchorY`, `IMAGE_REPLACE` request's `cursorOffset`/`mimeType`,
+  `IMAGE_REPLACE` error reply's `originalSrc`. Not necessarily bugs — may be intended for a future
   consumer — but worth checking before assuming they're load-bearing.

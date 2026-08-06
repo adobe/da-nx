@@ -20,11 +20,11 @@
   resize: vertical;
 }
 
-.feedback-textarea.da-input {
+.feedback-textarea.nx-input {
   padding: var(--s2-spacing-100) var(--s2-spacing-200);
 }
 
-.da-form-field nx-picker {
+.nx-form-field nx-picker {
   align-self: flex-start;
 
   --nx-picker-height: 32px;
