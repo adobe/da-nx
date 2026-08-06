@@ -1,5 +1,6 @@
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
+import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
 
 export const dnt = { addDnt };
 
@@ -8,6 +9,15 @@ const BASE_OPTS = {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
 };
+
+// translate.da.live's legacy /smartling route is deprecated in favor of
+// /translate/smartling/<org>/<site> - rewrite configs still pointing at the
+// old origin so they keep working without a config migration.
+function resolveOrigin(origin, org, site) {
+  return origin === `${DA_TRANSLATE}/smartling`
+    ? `${DA_TRANSLATE}/translate/smartling/${org}/${site}`
+    : origin;
+}
 
 let token;
 let tokenPolling;
@@ -64,19 +74,22 @@ export async function isConnected(config) {
 }
 
 export async function connect(service) {
-  const { name, origin, env, userId, userSecret } = service;
+  const {
+    name, origin, env, userId, userSecret, org, site,
+  } = service;
+  const endpoint = resolveOrigin(origin, org, site);
   const userIdentifier = userId;
 
   const body = JSON.stringify({ userIdentifier, userSecret });
 
   const opts = { ...BASE_OPTS, body };
 
-  const resp = await fetch(`${origin}/auth-api/v2/authenticate`, opts);
+  const resp = await fetch(`${endpoint}/auth-api/v2/authenticate`, opts);
   if (!resp.ok) return false;
   const json = await resp.json();
   const { accessToken, refreshToken } = json?.response?.data || {};
   setTokenDetails(name, env, accessToken, refreshToken);
-  if (refreshToken) refreshTheToken(name, env, origin, refreshToken);
+  if (refreshToken) refreshTheToken(name, env, endpoint, refreshToken);
   return true;
 }
 
@@ -159,6 +172,7 @@ export async function saveItems({
   saveFn,
 }) {
   const { origin, projectId } = service;
+  const endpoint = resolveOrigin(origin, org, site);
 
   const opts = {
     method: 'GET',
@@ -169,7 +183,7 @@ export async function saveItems({
   };
 
   const downloadCallback = async (url) => {
-    const text = await downloadFile(opts, origin, projectId, lang, url);
+    const text = await downloadFile(opts, endpoint, projectId, lang, url);
 
     url.sourceContent = await removeDnt({ org, site, html: text, ext: url.ext });
 
@@ -195,13 +209,16 @@ export async function saveItems({
   });
 }
 
-export async function sendAllLanguages({ title, options, langs, urls, actions }) {
+export async function sendAllLanguages({
+  org, site, title, options, langs, urls, actions,
+}) {
   const { sendMessage, saveState } = actions;
 
   const { origin, projectId } = options.service;
+  const endpoint = resolveOrigin(origin, org, site);
 
   sendMessage({ text: `Creating job in Smartling for: ${title}.` });
-  const jobUid = await createJob(origin, projectId, title, langs);
+  const jobUid = await createJob(endpoint, projectId, title, langs);
   if (!jobUid) return;
 
   // Presist to the state for future reference
@@ -211,7 +228,7 @@ export async function sendAllLanguages({ title, options, langs, urls, actions })
   // config[`${env}.jobUid`] = jobUid;
 
   sendMessage({ text: `Creating a batch in Smartling for: ${title}.` });
-  const batchUid = await createBatch(origin, projectId, jobUid, urls);
+  const batchUid = await createBatch(endpoint, projectId, jobUid, urls);
   if (!batchUid) return;
 
   // Presist to the state for future reference
@@ -221,7 +238,7 @@ export async function sendAllLanguages({ title, options, langs, urls, actions })
   // config[`${env}.batchUid`] = batchUid;
 
   sendMessage({ text: `Uploading ${urls.length} items to Smartling for job: ${title}.` });
-  const results = await uploadFiles(origin, projectId, jobUid, batchUid, langs, urls);
+  const results = await uploadFiles(endpoint, projectId, jobUid, batchUid, langs, urls);
   const accepted = results.filter((result) => result === 'ACCEPTED').length;
 
   langs.forEach((lang) => {
@@ -233,9 +250,12 @@ export async function sendAllLanguages({ title, options, langs, urls, actions })
   await saveState({ options });
 }
 
-export async function getStatusAll({ service, langs, urls, actions }) {
+export async function getStatusAll({
+  org, site, service, langs, urls, actions,
+}) {
   const { saveState } = actions;
   const { origin, projectId, jobUid } = service;
+  const endpoint = resolveOrigin(origin, org, site);
 
   const opts = { headers: { 'Content-Type': 'application/json' } };
   opts.headers.Authorization = `Bearer ${token}`;
@@ -243,7 +263,7 @@ export async function getStatusAll({ service, langs, urls, actions }) {
   langs.forEach((lang) => { lang.translation.translated = 0; });
 
   for (const url of urls) {
-    const resp = await fetch(`${origin}/jobs-api/v3/projects/${projectId}/jobs/${jobUid.value}/file/progress?fileUri=${url.daBasePath}`, opts);
+    const resp = await fetch(`${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid.value}/file/progress?fileUri=${url.daBasePath}`, opts);
     const { response } = await resp.json();
     if (response.code !== 'SUCCESS') return;
     const langReports = response?.data?.contentProgressReport;
