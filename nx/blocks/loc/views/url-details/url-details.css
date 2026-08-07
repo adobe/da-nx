@@ -29,6 +29,11 @@
     opacity: 1;
   }
 
+  &.is-loading {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
   .url-icon {
     width: 33.33px;
     height: 32px;
