@@ -299,13 +299,23 @@ function announceAndOpen(component, { daPath, prUrl, previewUrl }) {
   const push = (content) => {
     addMsg(component, { role: ROLE.ASSISTANT, content });
   };
+  // Notify the inbox so a user who stepped away sees a badge and can come back.
+  /* eslint-disable no-underscore-dangle */
+  const notify = (title, body, path) => {
+    if (typeof component._pushNotification === 'function') {
+      component._pushNotification({ title, body, daPath: path });
+    }
+  };
+  /* eslint-enable no-underscore-dangle */
   if (daPath) {
     push(`**Opening the new page in the canvas:** \`${daPath}\`${suffix}`);
+    notify('Your page is ready', `Open ${daPath}`, daPath);
     // Auto-preview: point the canvas at the new DA path. hashChange swaps the
     // previewed doc in place, keeping the chat panel.
     window.location.hash = daPath;
   } else if (extras.length) {
     push(`**Result:**${suffix}`);
+    notify('Migration finished', 'Result links are in the chat.', '');
   }
 }
 /* --- end feature --- */

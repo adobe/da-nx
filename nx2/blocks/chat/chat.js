@@ -61,6 +61,8 @@ class NxChat extends LitElement {
     _catalystQuestion: { state: true },
     _catalystStep: { state: true },
     _catalystPct: { state: true },
+    _notifications: { state: true },
+    _inboxOpen: { state: true },
     /* --- end feature: figma->catalyst --- */
   };
 
@@ -477,6 +479,78 @@ class NxChat extends LitElement {
         </div>
       </div>`;
   }
+
+  _pushNotification({ title, body, daPath } = {}) {
+    const note = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title: title || 'Update',
+      body: body || '',
+      daPath: daPath || '',
+      read: false,
+    };
+    this._notifications = [note, ...(this._notifications ?? [])];
+    this.requestUpdate();
+  }
+
+  _toggleInbox() {
+    this._inboxOpen = !this._inboxOpen;
+    if (this._inboxOpen) {
+      this._notifications = (this._notifications ?? []).map((n) => ({ ...n, read: true }));
+    }
+    this.requestUpdate();
+  }
+
+  _openNotification(note) {
+    this._inboxOpen = false;
+    if (note?.daPath) window.location.hash = note.daPath;
+    this.requestUpdate();
+  }
+
+  _renderInbox() {
+    const notes = this._notifications ?? [];
+    const unread = notes.filter((n) => !n.read).length;
+    return html`
+      <style>
+        .inbox-wrap { position: relative; display: inline-flex; }
+        .inbox-badge {
+          position: absolute; top: -2px; right: -2px; min-width: 15px; height: 15px;
+          box-sizing: border-box; padding: 0 3px; border-radius: 8px;
+          background: #d7373f; color: #fff; font-size: 10px; line-height: 15px;
+          text-align: center; pointer-events: none;
+        }
+        .inbox-modal {
+          position: absolute; top: 30px; right: 0; width: 280px; max-height: 340px;
+          overflow: auto; z-index: 30; padding: 6px;
+          background: #fff; border: 1px solid #d0d0d0; border-radius: 8px;
+          box-shadow: 0 6px 20px rgba(0, 0, 0, .18);
+        }
+        .inbox-empty { color: #767676; font-size: 13px; padding: 10px 8px; }
+        .inbox-item {
+          padding: 8px; border-radius: 6px; cursor: pointer;
+        }
+        .inbox-item + .inbox-item { border-top: 1px solid #eee; }
+        .inbox-item:hover { background: #f5f5f5; }
+        .inbox-item-title { font-weight: 600; font-size: 13px; }
+        .inbox-item-body { font-size: 12px; color: #555; word-break: break-word; }
+      </style>
+      <div class="inbox-wrap">
+        <button type="button" class="nx-action-btn-icon" aria-label="Notifications"
+          @click=${() => this._toggleInbox()}>
+          <svg class="chat-icon" viewBox="0 0 20 20" aria-hidden="true">
+            <path fill="currentColor" d="M15.5 3h-11A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17h11a1.5 1.5 0 0 0 1.5-1.5v-11A1.5 1.5 0 0 0 15.5 3zm.5 9h-3.2a2.8 2.8 0 0 1-5.6 0H4V4.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 .5.5V12z"/>
+          </svg>
+          ${unread ? html`<span class="inbox-badge">${unread}</span>` : nothing}
+        </button>
+        ${this._inboxOpen ? html`
+          <div class="inbox-modal">
+            ${notes.length ? notes.map((n) => html`
+              <div class="inbox-item" @click=${() => this._openNotification(n)}>
+                <div class="inbox-item-title">${n.title}</div>
+                <div class="inbox-item-body">${n.body}</div>
+              </div>`) : html`<div class="inbox-empty">No notifications yet.</div>`}
+          </div>` : nothing}
+      </div>`;
+  }
   /* --- end feature: figma->catalyst --- */
 
   _setPlanFeedback(text) {
@@ -815,6 +889,7 @@ class NxChat extends LitElement {
           ?hidden=${!this.messages?.length}
           @click=${() => this.clear()}
         >${icon('clear')}<span>Clear</span></button>
+        ${FIGMA_TO_CATALYST ? this._renderInbox() : nothing}
         <button
           type="button"
           class="nx-action-btn-icon"
