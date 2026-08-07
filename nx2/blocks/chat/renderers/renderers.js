@@ -1,13 +1,15 @@
 import { html, nothing } from 'da-lit';
-import { PART_TYPE, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
-import { getConfig } from '../../scripts/nx.js';
-import { parseDirectives } from './utils/parse.js';
-import { pillIconName } from './utils/icons.js';
-import { linkifyBareUrls, sanitizeLinks } from './utils/links.js';
+import {
+  PART_TYPE, ROLE, TOOL_INPUT, TOOL_STATE,
+} from '../constants.js';
+import { getConfig } from '../../../scripts/nx.js';
+import { parseDirectives } from '../utils/parse.js';
+import { pillIconName } from '../utils/icons.js';
+import { linkifyBareUrls, sanitizeLinks } from '../utils/links.js';
 
 const { codeBase } = getConfig();
 
-const { unified, remarkParse, remarkGfmNoLink, mdast2hast, hastToDom } = await import('../../deps/mdast/dist/index.js');
+const { unified, remarkParse, remarkGfmNoLink, mdast2hast, hastToDom } = await import('../../../deps/mdast/dist/index.js');
 
 const parser = unified().use(remarkParse).use(remarkGfmNoLink);
 
@@ -139,4 +141,7 @@ function renderMessage(msg, toolCards) {
     : renderUserMessage(msg);
 }
 
-export { renderMessage, renderApprovalCard };
+// renderMessageContent is additionally exported (no implementation change) so
+// ao/ao-renderers.js can reuse the same markdown/directive pipeline instead of
+// duplicating it — see card-renderers.js's file header for the migration rationale.
+export { renderMessage, renderApprovalCard, renderMessageContent };

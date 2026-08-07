@@ -581,52 +581,6 @@
   animation: chat-thinking-shimmer 2.2s ease-in-out infinite;
 }
 
-.approval-actions {
-  position: absolute;
-  bottom: 10px;
-  left: -4px;
-  right: -4px;
-  background: var(--s2-gray-25);
-  border: 1px solid var(--s2-gray-200);
-  border-radius: var(--s2-corner-radius-500);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s2-spacing-100);
-  padding: var(--s2-spacing-100);
-  z-index: 1;
-
-  .approval-tool-name {
-    font-weight: bold;
-    font-size: var(--s2-body-size-s);
-    color: var(--s2-gray-800);
-  }
-
-  .approval-summary {
-    font-size: var(--s2-body-size-xs);
-    color: var(--s2-gray-600);
-    overflow-wrap: break-word;
-  }
-
-  .approval-buttons {
-    display: flex;
-    gap: var(--s2-spacing-100);
-    justify-content: flex-end;
-    padding-top: var(--s2-spacing-100);
-  }
-
-  button {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--s2-spacing-75);
-    border-radius: var(--s2-corner-radius-400);
-    font-size: var(--s2-body-size-s);
-    padding: var(--s2-spacing-75) var(--s2-spacing-75) var(--s2-spacing-75)
-      var(--s2-spacing-100);
-  }
-}
-
 :host:has(.prompts-popover[open]) .chat-add {
   .icon-add {
     display: none;

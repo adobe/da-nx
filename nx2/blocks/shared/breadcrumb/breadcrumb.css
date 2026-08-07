@@ -31,10 +31,10 @@
   width: 8px;
   height: 8px;
   background-color: currentcolor;
-  mask: url('/img/icons/s2-icon-chevronleft-10-n.svg') center / contain no-repeat;
-  margin-inline: var(--s2-spacing-75);
+  mask: url('/img/icons/s2-icon-chevronright-10-n.svg') center / contain no-repeat;
+  margin-inline: 6px;
   position:relative;
-  top: 2px;
+  top: 1px;
 }
 
 .crumb a,
