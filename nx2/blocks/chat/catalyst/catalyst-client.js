@@ -439,6 +439,7 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     /* eslint-disable no-underscore-dangle */
     component._catalystActive = false;
     component._setCatalystProgress(null);
+    component._controller?.setBackgroundNote?.('');
     /* eslint-enable no-underscore-dangle */
     assistant.streaming = false;
     refreshMsgs(component, { persist: true });
@@ -450,6 +451,12 @@ export async function runFigmaTurn({ component, message, context = [] }) {
   stopEvents = startEventStream(host, token, component);
   /* eslint-disable no-underscore-dangle */
   component._catalystActive = true;
+  component._controller?.setBackgroundNote?.(
+    'A Figma-to-EDS page migration is running in the background via Experience '
+    + 'Catalyst, a separate system you do not control or observe. If the user asks '
+    + 'about its progress, say it is still running and they will be notified when the '
+    + 'page is ready. Do not claim you are performing or monitoring it yourself.',
+  );
   component._catalystStop = () => {
     controller.abort();
     finalize();
@@ -464,7 +471,10 @@ export async function runFigmaTurn({ component, message, context = [] }) {
       context,
       signal: controller.signal,
       onChunk: (chunk) => {
-        assistant.content += chunk;
+        // Each SSE frame is a discrete status message from Catalyst; keep them as
+        // separate paragraphs instead of gluing them into one run-on blob.
+        const text = chunk.trim();
+        if (text) assistant.content += (assistant.content ? '\n\n' : '') + text;
         refreshMsgs(component);
       },
     });
@@ -557,6 +567,7 @@ export async function resumeCatalystRun(component) {
     /* eslint-disable no-underscore-dangle */
     component._catalystActive = false;
     component._setCatalystProgress(null);
+    component._controller?.setBackgroundNote?.('');
     /* eslint-enable no-underscore-dangle */
     refreshMsgs(component, { persist: true });
     component.requestUpdate();
@@ -565,6 +576,12 @@ export async function resumeCatalystRun(component) {
   stopEvents = startEventStream(host, token, component);
   /* eslint-disable no-underscore-dangle */
   component._catalystActive = true;
+  component._controller?.setBackgroundNote?.(
+    'A Figma-to-EDS page migration is running in the background via Experience '
+    + 'Catalyst, a separate system you do not control or observe. If the user asks '
+    + 'about its progress, say it is still running and they will be notified when the '
+    + 'page is ready. Do not claim you are performing or monitoring it yourself.',
+  );
   component._catalystStop = () => {
     controller.abort();
     finalize();

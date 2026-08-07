@@ -872,10 +872,22 @@ export default class ChatControllerAO {
   // AO has no resolved channel for page context yet (see experience-workspace-extensions'
   // README, "Open dependency: page context") — so until that lands, prefix it onto the
   // wire text ourselves. Kept out of the UI-visible message; only the outgoing frame gets it.
+  /* --- feature: figma->catalyst — let chat.js tell AO that a migration is
+   * running in the background, so a follow-up question in the box gets a sane
+   * answer instead of "I'm not doing anything". Non-blocking: purely additive
+   * context on the next USER_INPUT. --- */
+  setBackgroundNote(note) {
+    this._backgroundNote = note || '';
+  }
+  /* --- end feature: figma->catalyst --- */
+
   _contextPrefix() {
     const { org, site, path } = this._context ?? {};
-    if (!org || !site) return '';
-    return `[Current document — org: ${org}, site: ${site}, path: ${path || '/'}]\n`;
+    /* --- feature: figma->catalyst --- */
+    const bg = this._backgroundNote ? `[Background task] ${this._backgroundNote}\n` : '';
+    /* --- end feature: figma->catalyst --- */
+    if (!org || !site) return bg;
+    return `${bg}[Current document — org: ${org}, site: ${site}, path: ${path || '/'}]\n`;
   }
 
   // Same gap as page context: AO's USER_INPUT has no structured field for "the block/

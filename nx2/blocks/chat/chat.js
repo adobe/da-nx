@@ -376,9 +376,12 @@ class NxChat extends LitElement {
       <style>
         .catalyst-question { border: 1px solid #d0d0d0; border-radius: 8px; padding: 12px; margin: 8px 0; font-size: 14px; }
         .catalyst-q-prompt { margin: 0 0 6px; }
-        .catalyst-opt { margin: 0 6px 6px 0; padding: 6px 10px; border: 1px solid #c0c0c0; border-radius: 6px; background: transparent; cursor: pointer; }
-        .catalyst-opt.selected { background: #1473e6; color: #fff; border-color: #1473e6; }
-        .catalyst-q-submit { margin-top: 4px; padding: 6px 14px; border: none; border-radius: 6px; background: #1473e6; color: #fff; cursor: pointer; }
+        .catalyst-opt { margin: 0 6px 6px 0; padding: 6px 14px; border: 1px solid #222; border-radius: 16px; background: transparent; color: #222; cursor: pointer; font-size: 13px; }
+        .catalyst-opt:hover { background: #f0f0f0; }
+        .catalyst-opt.primary { background: #222; color: #fff; }
+        .catalyst-opt.primary:hover { background: #000; }
+        .catalyst-opt.selected { background: #222; color: #fff; border-color: #222; }
+        .catalyst-q-submit { margin-top: 4px; padding: 6px 16px; border: 1px solid #222; border-radius: 16px; background: #222; color: #fff; cursor: pointer; }
       </style>
       <div class="catalyst-question">
         ${cq.pq.questions.map((q) => html`
@@ -387,12 +390,14 @@ class NxChat extends LitElement {
               ${q.header ? html`<strong>${q.header}</strong> ` : nothing}${q.prompt}
             </p>
             <div class="catalyst-q-options">
-              ${(q.options ?? []).map((o) => {
+              ${(q.options ?? []).map((o, i) => {
     const multi = !!q.allow_multiple;
     const sel = multi
       ? (cq.answers[q.id] ?? []).includes(o.id)
       : cq.answers[q.id] === o.id;
-    return html`<button type="button" class="catalyst-opt ${sel ? 'selected' : ''}"
+    // First option renders solid black (the recommended default); the rest outlined.
+    const cls = `catalyst-opt${i === 0 ? ' primary' : ''}${sel ? ' selected' : ''}`;
+    return html`<button type="button" class=${cls}
                   title=${o.description ?? ''}
                   @click=${() => this._pickCatalystOption(q.id, o.id, multi)}>${o.label}</button>`;
   })}
