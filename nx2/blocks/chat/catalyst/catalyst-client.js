@@ -378,6 +378,20 @@ function readRunMarker() {
   }
 }
 
+// EMA doesn't know which DA repo the canvas is on unless we tell it — otherwise it
+// falls back to its own default workspace (e.g. "ema-demo") and 403s. Append an
+// explicit target so it writes where the user actually is. Kept out of the visible
+// user bubble; only the wire message carries it.
+function targetHint(component, targetPath) {
+  /* eslint-disable-next-line no-underscore-dangle */
+  const { org, site } = component._context ?? {};
+  if (!org || !site) return '';
+  const leaf = (targetPath || '').replace(/^\/+/, '');
+  const path = leaf ? `/${org}/${site}/${leaf}` : `/${org}/${site}/`;
+  return `\n\n[Target workspace — write the page to DA org "${org}", repo "${site}", `
+    + `at path "${path}". Do not use any other workspace or default repo.]`;
+}
+
 /**
  * Run one Figma turn against Catalyst. Streams the reply for users who stay,
  * shows a progress bar + "you can leave" note, and does NOT block the chat.
@@ -385,6 +399,7 @@ function readRunMarker() {
 export async function runFigmaTurn({ component, message, context = [] }) {
   const host = catalystHost();
   const targetPath = extractTargetPath(message);
+  const wireMessage = message + targetHint(component, targetPath);
   // Narration streams into the migration panel's log, not the main thread, so it
   // never mixes with the (AO) chat. `streamed` keeps a local copy for finalize.
   let streamed = '';
@@ -491,7 +506,7 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     await streamChat({
       host,
       token,
-      message,
+      message: wireMessage,
       context,
       signal: controller.signal,
       onChunk: (chunk) => {
@@ -628,6 +643,7 @@ export async function resumeCatalystRun(component) {
 export async function continueCatalystRun(component, message) {
   const host = catalystHost();
   const targetPath = extractTargetPath((readRunMarker() || {}).message || message);
+  const wireMessage = message + targetHint(component, targetPath);
   let token = null;
   try {
     token = await imsToken();
@@ -689,7 +705,7 @@ export async function continueCatalystRun(component, message) {
     await streamChat({
       host,
       token,
-      message,
+      message: wireMessage,
       signal: controller.signal,
       onChunk: (chunk) => {
         const text = chunk.trim();
