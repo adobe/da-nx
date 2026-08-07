@@ -488,6 +488,94 @@ describe('api.js', () => {
       expect(resp.status).to.equal(403);
     });
 
+    it('source.uploadMedia legacy delegates to _saveDA as FormData with no double-fetch', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ source: { contentUrl: 'https://stage-content.da.live/o/s/img.png' } }),
+      });
+      const { org: o, site: s } = makeOrgSite();
+      const data = new Blob(['binary'], { type: 'image/png' });
+      await source.uploadMedia({ org: o, site: s, path: '/img.png', body: data });
+      const last = lastCall();
+      expect(last.method).to.equal('POST');
+      expect(last.body).to.be.instanceof(FormData);
+      const stored = last.body.get('data');
+      expect(stored).to.be.instanceof(Blob);
+      expect(stored.size).to.equal(data.size);
+      expect(calls.some((c) => c.url.includes('/media'))).to.equal(false);
+    });
+
+    it('source.uploadMedia hlx6 POSTs to the media route with content-type header and raw body', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ uri: `https://main--${s}--${o}.aem.page/media_1.png`, meta: {} }),
+      });
+      const blob = new Blob(['binary'], { type: 'image/png' });
+      await source.uploadMedia({ org: o, site: s, path: '/img.png', body: blob });
+      const last = lastCall();
+      expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/media/img.png`);
+      expect(last.method).to.equal('POST');
+      expect(last.headers['content-type']).to.equal('image/png');
+      expect(last.body).to.equal(blob);
+    });
+
+    it('source.uploadMedia hlx6 falls back to application/octet-stream for unknown extensions', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ uri: `https://main--${s}--${o}.aem.page/media_1`, meta: {} }),
+      });
+      await source.uploadMedia({ org: o, site: s, path: '/file.xyz', body: new Blob(['x']) });
+      expect(lastCall().headers['content-type']).to.equal('application/octet-stream');
+    });
+
+    it('source.uploadMedia hlx6 normalizes contentUrl by stripping the site aem.page prefix', async () => {
+      restoreFetch();
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      installFetch({
+        body: JSON.stringify({
+          uri: `https://main--${s}--${o}.aem.page/media_123.png`,
+          meta: { type: 'image/png', width: 640, height: 480 },
+        }),
+      });
+      const resp = await source.uploadMedia({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
+      const json = await resp.json();
+      expect(json.source.contentUrl).to.equal('./media_123.png');
+      expect(json.meta).to.deep.equal({ type: 'image/png', width: 640, height: 480 });
+    });
+
+    it('source.uploadMedia hlx6 leaves contentUrl unchanged when uri does not match the site prefix', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ uri: 'https://cdn.example.com/media_999.png', meta: {} }),
+      });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.uploadMedia({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
+      const json = await resp.json();
+      expect(json.source.contentUrl).to.equal('https://cdn.example.com/media_999.png');
+    });
+
+    it('source.uploadMedia hlx6 returns the raw response on non-ok status without parsing the body', async () => {
+      restoreFetch();
+      installFetch({ status: 404, body: '' });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.uploadMedia({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
+      expect(resp.ok).to.equal(false);
+      expect(resp.status).to.equal(404);
+    });
+
+    it('source.uploadMedia accepts a path string with extras', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ uri: `https://main--${s}--${o}.aem.page/media_1.png`, meta: {} }),
+      });
+      const blob = new Blob(['x'], { type: 'image/png' });
+      await source.uploadMedia(`/${o}/${s}/img.png`, { body: blob });
+      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/media/img.png`);
+    });
+
     it('source.getMetadata sends HEAD and returns { ok, status, headers }', async () => {
       restoreFetch();
       installFetch({ status: 200, headers: { 'last-modified': 'Mon, 01 Jan 2025 00:00:00 GMT' } });
