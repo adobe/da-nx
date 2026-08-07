@@ -138,6 +138,9 @@ function sleep(ms) {
 async function getHistory(host, token) {
   const resp = await fetch(`${host}/api/chat/history`, {
     headers: { Authorization: `Bearer ${token}` },
+    // Bound the wait so an unreachable backend fails fast (~10s) instead of
+    // hanging out a full TCP timeout.
+    signal: AbortSignal.timeout(10000),
   });
   if (!resp.ok) throw new Error(`Catalyst /api/chat/history ${resp.status}`);
   return resp.json();
@@ -368,6 +371,22 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     assistant.streaming = false;
     // eslint-disable-next-line no-underscore-dangle
     component._catalystActive = false;
+    refreshMsgs(component);
+    component.requestUpdate();
+    return;
+  }
+
+  // Fast-fail if the backend is unreachable, so the user gets a clear message
+  // in ~10s instead of waiting out a long stream timeout.
+  try {
+    await getHistory(host, token);
+  } catch {
+    assistant.content = 'Migration service unavailable. Please try again, later.';
+    assistant.streaming = false;
+    /* eslint-disable no-underscore-dangle */
+    component._catalystActive = false;
+    component._setCatalystProgress(null);
+    /* eslint-enable no-underscore-dangle */
     refreshMsgs(component);
     component.requestUpdate();
     return;
