@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import ChatController, { migrateHistory } from '../../../../nx2/blocks/chat/chat-controller.js';
-import { TOOL_STATE } from '../../../../nx2/blocks/chat/constants.js';
+import { TOOL_NAME, TOOL_STATE } from '../../../../nx2/blocks/chat/constants.js';
 
 const TURN = 'turn-current';
 const OTHER_TURN = 'turn-previous';
@@ -226,5 +226,66 @@ describe('chat-controller _pageContextForAgent', () => {
     const controller = new ChatController({ onUpdate() {}, onToolDone() {} });
     controller.setContext({ path: '/foo' });
     expect(controller._pageContextForAgent()).to.equal(undefined);
+  });
+});
+
+describe('chat-controller continuation gate', () => {
+  const EVALUATE_PAGE = `mcp__mock-server__${TOOL_NAME.EVALUATE_PAGE}`;
+
+  // Drive a tool through to a completed (output-available) part, as the stream would.
+  function runToolToDone(controller, toolCallId, output = {}, toolName = EVALUATE_PAGE) {
+    controller._onToolEvent({
+      type: 'tool-input-available', toolCallId, toolName, input: { url: 'x' },
+    });
+    controller._onToolEvent({
+      type: 'tool-output-available', toolCallId, toolName, output,
+    });
+  }
+
+  it('flags a completed tool card as continuationPending without pushing to _messages', () => {
+    const controller = makeController();
+    runToolToDone(controller, 't1', { brand_name: 'X' });
+    const before = controller._messages.length;
+    controller._onToolEvent({
+      type: 'data-continuation', toolCallId: 't1', toolName: EVALUATE_PAGE,
+    });
+    const card = controller._deriveToolCards().get('t1');
+    expect(card.continuationPending).to.equal(true);
+    expect(card.state).to.equal(TOOL_STATE.OUTPUT_AVAILABLE); // still shows its result
+    expect(controller._messages.length).to.equal(before); // the gate persists nothing
+  });
+
+  it('ignores a continuation event for an unknown tool call', () => {
+    const controller = makeController();
+    controller._onToolEvent({ type: 'data-continuation', toolCallId: 'nope' });
+    expect(controller._deriveToolCards().has('nope')).to.equal(false);
+    expect(controller._continuationPendingIds?.has('nope') ?? false).to.equal(false);
+  });
+
+  it('continueExecution clears the flag and re-streams', async () => {
+    const controller = makeController();
+    runToolToDone(controller, 't1');
+    controller._onToolEvent({ type: 'data-continuation', toolCallId: 't1', toolName: EVALUATE_PAGE });
+    controller._pageContextForAgent = () => ({});
+    let streamed = 0;
+    controller._stream = async () => { streamed += 1; };
+    await controller.continueExecution();
+    expect(streamed).to.equal(1);
+    expect(controller._deriveToolCards().get('t1').continuationPending).to.equal(false);
+  });
+
+  it('stopExecution records a user message and does not re-stream', async () => {
+    const controller = makeController();
+    controller._getRoom = async () => 'room';
+    runToolToDone(controller, 't1');
+    controller._onToolEvent({ type: 'data-continuation', toolCallId: 't1', toolName: EVALUATE_PAGE });
+    let streamed = false;
+    controller._stream = async () => { streamed = true; };
+    await controller.stopExecution();
+    expect(controller._messages.at(-1)).to.deep.equal(
+      { role: 'user', content: 'User decided not to continue further.' },
+    );
+    expect(controller._deriveToolCards().get('t1').continuationPending).to.equal(false);
+    expect(streamed).to.equal(false);
   });
 });

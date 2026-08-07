@@ -1,9 +1,18 @@
 import { html, nothing } from 'da-lit';
-import { PART_TYPE, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
+import {
+  DIRECTIVE_TYPE, PART_TYPE, ROLE, TOOL_INPUT, TOOL_NAME, TOOL_STATE,
+} from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { parseDirectives } from './utils/parse.js';
+import {
+  parseDirectiveJSON, parseToolOutput, mergeTaskItemsFromText, mergeTaskItemsIntoPlan,
+} from './utils/directives.js';
 import { pillIconName } from './utils/icons.js';
 import { linkifyBareUrls, sanitizeLinks } from './utils/links.js';
+import { mcpToolName } from './utils/tool-name.js';
+import './messages/campaign-plan-card.js';
+import './messages/governance-evaluation-card.js';
+import './messages/task-list.js';
 
 const { codeBase } = getConfig();
 
@@ -15,14 +24,46 @@ function toDOM(hast) {
   return hastToDom(sanitizeLinks(linkifyBareUrls(hast)), { fragment: true });
 }
 
+function renderPlanDirective(content) {
+  const plan = parseDirectiveJSON(content);
+  if (!plan) return html`<div class="directive directive-plan"></div>`;
+  return html`<nx-campaign-plan-card .plan=${plan}></nx-campaign-plan-card>`;
+}
+
+function renderTaskListDirective(content) {
+  const data = parseDirectiveJSON(content);
+  if (!data) return html`<div class="directive directive-task-list"></div>`;
+  return html`<nx-task-list .tasks=${data.tasks ?? []}></nx-task-list>`;
+}
+
+function renderGovernanceEvaluationDirective(content) {
+  const evaluation = parseDirectiveJSON(content);
+  if (!evaluation) return html`<div class="directive directive-governance-evaluation"></div>`;
+  return html`<nx-governance-evaluation-card .evaluation=${evaluation}></nx-governance-evaluation-card>`;
+}
+
 function renderMessageContent(text) {
   if (!text) return nothing;
 
-  return parseDirectives(text).map(({ kind, type, content }) => {
+  const directives = mergeTaskItemsIntoPlan(parseDirectives(text));
+
+  const items = directives.map(({ kind, type, content }) => {
+    if (kind === 'directive') {
+      if (type === DIRECTIVE_TYPE.PLAN) return renderPlanDirective(content);
+      if (type === DIRECTIVE_TYPE.TASK_LIST) return renderTaskListDirective(content);
+      if (type === DIRECTIVE_TYPE.TASK_ITEM) return nothing;
+      if (type === DIRECTIVE_TYPE.GOVERNANCE_EVALUATION) {
+        return renderGovernanceEvaluationDirective(content);
+      }
+      if (!content) return nothing;
+      const dom = toDOM(mdast2hast(parser.parse(content)));
+      return html`<div class="directive directive-${type}">${dom}</div>`;
+    }
     if (!content) return nothing;
-    const dom = toDOM(mdast2hast(parser.parse(content)));
-    return kind === 'directive' ? html`<div class="directive directive-${type}">${dom}</div>` : dom;
-  });
+    return toDOM(mdast2hast(parser.parse(content)));
+  }).filter((item) => item !== nothing);
+
+  return items.length ? items : nothing;
 }
 
 function approvalSummary(input, { json = false } = {}) {
@@ -36,10 +77,34 @@ function approvalSummary(input, { json = false } = {}) {
     ?? (json ? JSON.stringify(input, null, 2) : null);
 }
 
-function renderToolCard(toolCallId, toolCards) {
+function renderExitPlanCard(plan, taskText) {
+  const merged = mergeTaskItemsFromText(plan, taskText);
+  return html`<nx-campaign-plan-card .plan=${merged}></nx-campaign-plan-card>`;
+}
+
+function renderToolCard(toolCallId, toolCards, streamingText) {
   const card = toolCards?.get(toolCallId);
   if (!card || card.state === TOOL_STATE.AWAITING_APPROVAL) return nothing;
-  const { toolName, state, input } = card;
+  const {
+    toolName, state, input, output,
+  } = card;
+  const shortToolName = mcpToolName(toolName);
+  if (shortToolName === TOOL_NAME.EXIT_PLAN_MODE) return renderExitPlanCard(input, streamingText);
+  if (shortToolName === TOOL_NAME.EVALUATE_PAGE) {
+    // evaluate_page runs without pre-execution approval; INPUT_AVAILABLE precedes the real
+    // tool-result event, so only OUTPUT_AVAILABLE/OUTPUT_ERROR carry real output. After it
+    // completes, a continuation prompt (renderContinuationCard) lets the user review + decide.
+    const isError = state === TOOL_STATE.OUTPUT_ERROR;
+    const parsedOutput = parseToolOutput(output);
+    const errorMessage = isError
+      ? (typeof parsedOutput?.error === 'string' && parsedOutput.error) || 'Page evaluation failed.'
+      : undefined;
+    return html`<nx-governance-evaluation-card
+      .evaluation=${parsedOutput}
+      .loading=${state !== TOOL_STATE.OUTPUT_AVAILABLE && state !== TOOL_STATE.OUTPUT_ERROR}
+      .error=${errorMessage}
+    ></nx-governance-evaluation-card>`;
+  }
   const detail = approvalSummary(input, { json: true });
   const failed = state === TOOL_STATE.OUTPUT_ERROR || state === TOOL_STATE.REJECTED;
   const status = failed ? html`<span class="tool-card-status">${state}</span>` : nothing;
@@ -53,6 +118,13 @@ function renderToolCard(toolCallId, toolCards) {
 function renderApprovalCard(pending, onApprove) {
   if (!pending) return nothing;
   const { toolCallId, toolName, input } = pending;
+  const shortToolName = mcpToolName(toolName);
+  if (shortToolName === TOOL_NAME.EXIT_PLAN_MODE) {
+    return html`<nx-campaign-plan-card
+      .plan=${input}
+      @nx-plan-run=${() => onApprove(toolCallId, true)}
+    ></nx-campaign-plan-card>`;
+  }
   const summary = approvalSummary(input);
   return html`
     <div class="approval-actions">
@@ -73,12 +145,32 @@ function renderApprovalCard(pending, onApprove) {
   `;
 }
 
-function renderAssistantMessage(msg, toolCards) {
+function renderContinuationCard(pending, onContinue, onStop) {
+  if (!pending) return nothing;
+  return html`
+    <div class="approval-actions">
+      <span class="approval-tool-name">Review the results before continuing</span>
+      <div class="approval-buttons">
+        <button type="button" class="secondary-btn" @click=${() => onStop()}>
+          <span>Stop</span><kbd>Esc</kbd>
+        </button>
+        <button type="button" class="action-btn" @click=${() => onContinue()}>
+          <span>Continue</span><kbd>↵</kbd>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderAssistantMessage(msg, toolCards, streamingText) {
   if (Array.isArray(msg.content)) {
     return html`${msg.content.map((part) => (part.type === PART_TYPE.TOOL
-      ? renderToolCard(part.toolCallId, toolCards)
+      ? renderToolCard(part.toolCallId, toolCards, streamingText)
       : nothing))}`;
   }
+
+  const content = renderMessageContent(msg.content);
+  if (content === nothing) return nothing;
 
   const copy = msg.streaming ? nothing : html`<button class="message-action-copy" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
       <svg class="icon-paste" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-paste-20-n.svg#icon"></use></svg>
@@ -87,7 +179,7 @@ function renderAssistantMessage(msg, toolCards) {
 
   return html`
     <div class="message message-assistant">
-      <div class="message-content">${renderMessageContent(msg.content)}</div>
+      <div class="message-content">${content}</div>
       ${copy}
     </div>
   `;
@@ -132,11 +224,11 @@ function renderUserMessage(msg) {
   `;
 }
 
-function renderMessage(msg, toolCards) {
+function renderMessage(msg, toolCards, streamingText) {
   if (msg.role === ROLE.TOOL) return nothing;
   return msg.role === ROLE.ASSISTANT
-    ? renderAssistantMessage(msg, toolCards)
+    ? renderAssistantMessage(msg, toolCards, streamingText)
     : renderUserMessage(msg);
 }
 
-export { renderMessage, renderApprovalCard };
+export { renderMessage, renderApprovalCard, renderContinuationCard };

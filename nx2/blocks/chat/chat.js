@@ -3,7 +3,7 @@ import { loadStyle, hashChange } from '../../utils/utils.js';
 import { readFileAsBase64 } from './utils/stream.js';
 import '../shared/menu/menu.js';
 import ChatController from './chat-controller.js';
-import { renderMessage, renderApprovalCard } from './renderers.js';
+import { renderMessage, renderApprovalCard, renderContinuationCard } from './renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
 import './pills/pills.js';
@@ -243,7 +243,26 @@ class NxChat extends LitElement {
     return null;
   }
 
+  _pendingContinuation() {
+    if (!this.toolCards) return null;
+    for (const [toolCallId, card] of this.toolCards) {
+      if (card.continuationPending) return { toolCallId, ...card };
+    }
+    return null;
+  }
+
   _onApprovalKeydown = (e) => {
+    const continuation = this._pendingContinuation();
+    if (continuation) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this._controller.stopExecution();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        this._controller.continueExecution();
+      }
+      return;
+    }
     const pending = this._pendingApproval();
     if (!pending) return;
     if (e.key === 'Escape') {
@@ -277,7 +296,7 @@ class NxChat extends LitElement {
       this.shadowRoot.querySelector('.chat-input')?.focus();
     }
     if (changed.has('toolCards')) {
-      if (this._pendingApproval()) {
+      if (this._pendingApproval() || this._pendingContinuation()) {
         document.addEventListener('keydown', this._onApprovalKeydown);
       } else {
         document.removeEventListener('keydown', this._onApprovalKeydown);
@@ -497,6 +516,24 @@ class NxChat extends LitElement {
     await this._onFilesSelected(accepted);
   }
 
+  get _taskText() {
+    const msgs = this.messages ?? [];
+    const last = msgs.at(-1);
+    const streamingText = last?.streaming ? last.content : null;
+    if (streamingText) return streamingText;
+    // TEXT_END splits output into one string message per inter-tool segment, so
+    // task-item directives for step N may live in a different message than step N+1.
+    // Concatenate all assistant text to let mergeTaskItemsFromText find them all.
+    return msgs
+      .filter((m) => m.role === ROLE.ASSISTANT && typeof m.content === 'string' && !m.streaming)
+      .map((m) => m.content)
+      .join('\n') || null;
+  }
+
+  _renderMessages() {
+    return (this.messages ?? []).map((msg) => renderMessage(msg, this.toolCards, this._taskText));
+  }
+
   render() {
     const { view } = this._context ?? {};
     const prompts = (this._prompts ?? [])
@@ -533,7 +570,7 @@ class NxChat extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-chat-welcome>`
         : nothing}
-        ${this.messages?.map((msg) => renderMessage(msg, this.toolCards))}
+        ${this._renderMessages()}
         ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>
       </div>
@@ -546,6 +583,11 @@ class NxChat extends LitElement {
           @mousedown=${(e) => e.preventDefault()}
         ></nx-menu>
         ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
+        ${renderContinuationCard(
+    this._pendingContinuation(),
+    this._controller.continueExecution,
+    this._controller.stopExecution,
+  )}
         <form class="chat-form" autocomplete="off" @submit=${this._submit}
           @dragenter=${this._onDragEnter}
           @dragleave=${this._onDragLeave}

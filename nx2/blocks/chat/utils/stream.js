@@ -31,6 +31,14 @@ function processEvent(event, streaming, callbacks) {
       type: EVENT.TOOL_APPROVAL_REQUEST,
       toolCallId: event.toolCallId,
     });
+  } else if (event.type === EVENT.CONTINUATION) {
+    // Transient, UI-only: surface a continuation prompt for the (already DONE) tool card.
+    // Not added to message history — the tool result is already persisted on its own.
+    onTool?.({
+      type: EVENT.CONTINUATION,
+      toolCallId: event.data?.toolCallId,
+      toolName: event.data?.toolName,
+    });
   } else if (event.type === EVENT.TOOL_OUTPUT_AVAILABLE) {
     const raw = event.output ?? event.result;
     const isError = raw && typeof raw === 'object' && 'error' in raw;
