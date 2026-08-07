@@ -58,6 +58,30 @@ async function imsToken() {
   return accessToken?.token;
 }
 
+// The AO controller owns the message store. Route Catalyst messages through it
+// so the EMA conversation renders, persists, and isn't overwritten by a later
+// controller update. Falls back to component.messages if no such controller.
+function addMsg(component, msg) {
+  // eslint-disable-next-line no-underscore-dangle
+  const c = component._controller;
+  if (c && typeof c.appendMessage === 'function') {
+    c.appendMessage(msg);
+    return;
+  }
+  component.messages = [...(component.messages ?? []), msg];
+  component.requestUpdate();
+}
+
+function refreshMsgs(component, opts) {
+  // eslint-disable-next-line no-underscore-dangle
+  const c = component._controller;
+  if (c && typeof c.refreshMessages === 'function') {
+    c.refreshMessages(opts);
+    return;
+  }
+  component.requestUpdate();
+}
+
 /**
  * POST /api/chat and stream the assistant text back via onChunk. Mirrors
  * chatService.sendChatMessage's SSE-over-fetch-body parsing exactly.
@@ -270,8 +294,7 @@ function announceAndOpen(component, { daPath, prUrl, previewUrl }) {
   if (prUrl) extras.push(`[PR](${prUrl})`);
   const suffix = extras.length ? ` · ${extras.join(' · ')}` : '';
   const push = (content) => {
-    component.messages = [...component.messages, { role: ROLE.ASSISTANT, content }];
-    component.requestUpdate();
+    addMsg(component, { role: ROLE.ASSISTANT, content });
   };
   if (daPath) {
     push(`**Opening the new page in the canvas:** \`${daPath}\`${suffix}`);
@@ -322,13 +345,16 @@ function readRunMarker() {
 export async function runFigmaTurn({ component, message, context = [] }) {
   const host = catalystHost();
   const assistant = { role: ROLE.ASSISTANT, content: '', streaming: true };
-  component.messages = [
-    ...(component.messages ?? []),
-    { role: ROLE.USER, content: message },
-    assistant,
-  ];
+  // Add to the controller's store so the EMA conversation persists + survives.
+  addMsg(component, { role: ROLE.USER, content: message });
+  addMsg(component, assistant);
   // Note: intentionally NOT setting component.thinking — a Catalyst run must not
   // block the chat input. The progress bar + Cancel drive its state instead.
+  // Turn the bar on immediately (before the IMS round-trip) for instant feedback.
+  /* eslint-disable no-underscore-dangle */
+  component._catalystActive = true;
+  component._setCatalystActivity('Starting the migration…');
+  /* eslint-enable no-underscore-dangle */
   component.requestUpdate();
 
   let token = null;
@@ -340,6 +366,9 @@ export async function runFigmaTurn({ component, message, context = [] }) {
   if (!token) {
     assistant.content = '_Catalyst error: no IMS token_';
     assistant.streaming = false;
+    // eslint-disable-next-line no-underscore-dangle
+    component._catalystActive = false;
+    refreshMsgs(component);
     component.requestUpdate();
     return;
   }
@@ -383,6 +412,7 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     component._setCatalystProgress(null);
     /* eslint-enable no-underscore-dangle */
     assistant.streaming = false;
+    refreshMsgs(component, { persist: true });
     component.requestUpdate();
   };
 
@@ -406,7 +436,7 @@ export async function runFigmaTurn({ component, message, context = [] }) {
       signal: controller.signal,
       onChunk: (chunk) => {
         assistant.content += chunk;
-        component.requestUpdate();
+        refreshMsgs(component);
       },
     });
     await finalize();
@@ -467,12 +497,8 @@ export async function resumeCatalystRun(component) {
 
   // Still running: re-attach a bubble + monitor (no new POST).
   const assistant = { role: ROLE.ASSISTANT, content: '', streaming: true };
-  component.messages = [
-    ...(component.messages ?? []),
-    { role: ROLE.ASSISTANT, content: 'Resuming your Figma migration…' },
-    assistant,
-  ];
-  component.requestUpdate();
+  addMsg(component, { role: ROLE.ASSISTANT, content: 'Resuming your Figma migration…' });
+  addMsg(component, assistant);
 
   const controller = new AbortController();
   const flags = { dropped: true };
@@ -503,6 +529,7 @@ export async function resumeCatalystRun(component) {
     component._catalystActive = false;
     component._setCatalystProgress(null);
     /* eslint-enable no-underscore-dangle */
+    refreshMsgs(component, { persist: true });
     component.requestUpdate();
   };
   stopPolling = startQuestionPolling(host, token, component, finalize, flags);

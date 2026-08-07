@@ -249,6 +249,24 @@ export default class ChatControllerAO {
     });
   }
 
+  /* --- feature: figma->catalyst — let the Catalyst path own its messages in
+   * this store, so the EMA conversation renders, persists, and isn't wiped by a
+   * later controller update. `appendMessage` adds one; `refreshMessages` re-emits
+   * after a message object was mutated in place (e.g. streaming). --- */
+  appendMessage(msg) {
+    this._messages = [...(this._messages ?? []), msg];
+    this._persist();
+    this._update();
+    return msg;
+  }
+
+  refreshMessages({ persist = false } = {}) {
+    this._messages = [...(this._messages ?? [])];
+    if (persist) this._persist();
+    this._update();
+  }
+  /* --- end feature: figma->catalyst --- */
+
   _parse(raw) {
     try {
       return JSON.parse(raw);
