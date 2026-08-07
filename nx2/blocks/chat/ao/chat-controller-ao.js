@@ -16,13 +16,13 @@ import { AO_EVENT, AO_FRAME, AO_TOOL_STATE } from './ao-constants.js';
 // Templated with the episode (context) id so a reload can reconnect to the same episode
 // instead of always starting a fresh one — see _loadPersisted()/_openSocket().
 const AO_WS_BASE = {
-  prod: 'wss://agent-orchestrator-prod-va7.adobe.io',
-  stage: 'wss://agent-orchestrator-stage-va7.adobe.io',
+  prod: 'wss://agent-orchestrator-prod.adobe.io',
+  stage: 'wss://agent-orchestrator-stage.adobe.io',
 };
 
 const AO_HTTP_BASE = {
-  prod: 'https://agent-orchestrator-prod-va7.adobe.io',
-  stage: 'https://agent-orchestrator-stage-va7.adobe.io',
+  prod: 'https://agent-orchestrator-prod.adobe.io',
+  stage: 'https://agent-orchestrator-stage.adobe.io',
 };
 
 const AO_MANIFEST_ID = 'experience-workspace';
