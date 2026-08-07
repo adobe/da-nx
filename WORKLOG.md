@@ -1,5 +1,11 @@
 # Worklog
 
+## 2026-08-07
+
+### nx2/utils/api.js — remove stage-content.da.live rewrite workaround
+
+`80f9db79` removed the `content.da.live` → `stage-content.da.live` contentUrl rewrite from `source.uploadMedia`'s non-hlx6 branch (added `3300b1ee`/`3070fa63`, see `2026-08-06` below), plus its three dedicated tests. Server-side fix landed on stage-admin.da.live — it now returns the correct content host directly, so the client-side rewrite is no longer needed. This makes bug fix #2 in the `2026-08-06` entry below (the body-stream-already-read fix) moot: it only mattered inside the now-deleted rewrite branch.
+
 ## 2026-08-06
 
 ### nx2/utils/api.js — tests for `source.uploadMedia`, plus two bug fixes found while writing them
