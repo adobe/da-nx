@@ -99,5 +99,25 @@ describe('persistence', () => {
       expect(result.messages).to.deep.equal([]);
       expect(result.sessionId).to.equal(id);
     });
+
+    it('records the cleared sessionId so a reload can skip resuming it', async () => {
+      const testRoom = room();
+      const oldId = crypto.randomUUID();
+      await saveMessages(testRoom, [{ role: 'user', content: 'hi' }], oldId);
+
+      await resetSession(testRoom, undefined, oldId);
+
+      const result = await loadMessages(testRoom);
+      expect(result.messages).to.deep.equal([]);
+      expect(result.clearedSessionId).to.equal(oldId);
+    });
+
+    it('defaults clearedSessionId to null when not provided', async () => {
+      const testRoom = room();
+      await resetSession(testRoom, crypto.randomUUID());
+
+      const result = await loadMessages(testRoom);
+      expect(result.clearedSessionId).to.be.null;
+    });
   });
 });

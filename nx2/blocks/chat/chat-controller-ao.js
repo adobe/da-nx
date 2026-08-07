@@ -221,9 +221,10 @@ export default class ChatControllerAO {
     if (this._persistedLoaded) return;
     this._persistedLoaded = true;
     const room = await this._getRoom();
-    const { messages, sessionId: episodeId } = await loadMessages(room);
+    const { messages, sessionId: episodeId, clearedSessionId } = await loadMessages(room);
     if (messages.length) this._messages = messages;
     this._episodeId = isAoEpisodeId(episodeId) ? episodeId : undefined;
+    this._clearedEpisodeId = clearedSessionId ? String(clearedSessionId) : undefined;
   }
 
   _persist() {
@@ -671,6 +672,8 @@ export default class ChatControllerAO {
     const latestId = String(latest.id);
 
     if (!this._episodeId) {
+      // Don't resurrect an episode the user explicitly cleared in this room.
+      if (this._clearedEpisodeId && latestId === this._clearedEpisodeId) return;
       this._messages = await this._fetchEpisodeMessages(latestId);
       this._episodeId = latestId;
       this._persist();
@@ -741,6 +744,10 @@ export default class ChatControllerAO {
 
   async clear() {
     if (this._thinking) this.stop();
+    // Remember the dismissed episode so a fresh controller on reload doesn't
+    // silently resume it from the server via _reconcileWithLatestEpisode.
+    const clearedEpisodeId = this._episodeId ? String(this._episodeId) : undefined;
+    this._clearedEpisodeId = clearedEpisodeId;
     // Suppress the close handler's auto-reconnect — clear() drives its own
     // reconnect below (which resets this flag), so we don't want two racing
     // connect() calls. Left true here; connect() clears it once it actually runs.
@@ -759,7 +766,7 @@ export default class ChatControllerAO {
     // rather than blanking until _syncSkillsCache() re-fetches.
     this._update();
     const room = await this._getRoom();
-    resetSession(room, undefined);
+    resetSession(room, undefined, clearedEpisodeId);
     await this.connect();
   }
 

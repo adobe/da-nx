@@ -1,7 +1,7 @@
 const DB_NAME = 'da-chat';
 const DB_VERSION = 1;
 const STORE_NAME = 'conversations';
-const EMPTY_STATE = { messages: [], sessionId: null };
+const EMPTY_STATE = { messages: [], sessionId: null, clearedSessionId: null };
 
 let dbPromise = null;
 
@@ -71,6 +71,7 @@ export async function loadMessages(room) {
         resolve({
           messages: Array.isArray(result?.messages) ? result.messages : [],
           sessionId: result?.sessionId ?? null,
+          clearedSessionId: result?.clearedSessionId ?? null,
         });
       };
       req.onerror = () => resolve(EMPTY_STATE);
@@ -85,8 +86,12 @@ export function saveMessages(room, messages, sessionId) {
 }
 
 // Clears messages but writes the new sessionId so a reload continues the same session boundary.
-export function resetSession(room, sessionId) {
-  return write((store) => store.put({ room, messages: [], sessionId, updatedAt: Date.now() }));
+// clearedSessionId records the episode that was explicitly dismissed, so a fresh controller on
+// reload won't silently resume it from the server (see _reconcileWithLatestEpisode).
+export function resetSession(room, sessionId, clearedSessionId = null) {
+  return write((store) => store.put({
+    room, messages: [], sessionId, clearedSessionId, updatedAt: Date.now(),
+  }));
 }
 
 export function getRoomKey({ org, site, userId }) {
