@@ -1,6 +1,7 @@
 const DB_NAME = 'da-chat';
 const DB_VERSION = 1;
 const STORE_NAME = 'conversations';
+// clearedSessionId: fix: clear-persist (upstream candidate, not demo-only)
 const EMPTY_STATE = { messages: [], sessionId: null, clearedSessionId: null };
 
 let dbPromise = null;
@@ -71,6 +72,7 @@ export async function loadMessages(room) {
         resolve({
           messages: Array.isArray(result?.messages) ? result.messages : [],
           sessionId: result?.sessionId ?? null,
+          // fix: clear-persist (upstream candidate, not demo-only)
           clearedSessionId: result?.clearedSessionId ?? null,
         });
       };
@@ -86,13 +88,15 @@ export function saveMessages(room, messages, sessionId) {
 }
 
 // Clears messages but writes the new sessionId so a reload continues the same session boundary.
-// clearedSessionId records the episode that was explicitly dismissed, so a fresh controller on
-// reload won't silently resume it from the server (see _reconcileWithLatestEpisode).
+/* --- fix: clear-persist (upstream candidate, not demo-only) ---
+ * clearedSessionId records the episode that was explicitly dismissed, so a fresh controller on
+ * reload won't silently resume it from the server (see _reconcileWithLatestEpisode). */
 export function resetSession(room, sessionId, clearedSessionId = null) {
   return write((store) => store.put({
     room, messages: [], sessionId, clearedSessionId, updatedAt: Date.now(),
   }));
 }
+/* --- end fix: clear-persist --- */
 
 export function getRoomKey({ org, site, userId }) {
   return org && site && userId ? `${org}--${site}--${userId}` : 'default';
