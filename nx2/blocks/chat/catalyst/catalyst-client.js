@@ -212,6 +212,16 @@ function startQuestionPolling(host, token, component, onSettled, flags) {
 // Best-effort + fully isolated: any event carrying todos updates the determinate
 // progress; any event carrying a text label updates the step line. A shape
 // mismatch or stream error never affects the turn.
+// A raw tool identifier (e.g. "api_request", "read_file") sometimes arrives as the
+// event status — never show that to the user; fall back to a generic phrase.
+function looksLikeToolId(s) {
+  return /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/.test(s);
+}
+
+function humanizeActivity(s) {
+  return looksLikeToolId(s) ? 'Working on your page…' : s;
+}
+
 function applyCatalystEvent(component, chunk) {
   let data = '';
   chunk.split('\n').forEach((line) => {
@@ -231,7 +241,7 @@ function applyCatalystEvent(component, chunk) {
   const label = d.activeForm || d.content || d.text || d.message || d.status;
   if (typeof label === 'string' && label.trim()) {
     // eslint-disable-next-line no-underscore-dangle
-    component._setCatalystActivity(label.trim().slice(0, 140));
+    component._setCatalystActivity(humanizeActivity(label.trim()).slice(0, 140));
   }
 }
 
@@ -281,6 +291,30 @@ function firstMatch(text, re) {
   return m ? m[1] : null;
 }
 
+// The user names the target DA path in their message (e.g. "...in path /test-ema-figma").
+// Pull the first standalone slash-path (URLs don't match: their path isn't space-led).
+function extractTargetPath(message) {
+  const m = (message || '').match(/(?:^|\s)(\/[a-z0-9][a-z0-9/_-]*)/i);
+  return m ? m[1].replace(/\/+$/, '') : null;
+}
+
+// Auto-open should land on the page the user asked for, not whatever link EMA
+// happened to echo (it often points at /index or the site root). If we know the
+// target leaf, graft it onto the org/repo we can see (from an edit link or the
+// current canvas hash) so we navigate to the real new page.
+function preferTargetPath(extractedDaPath, targetPath) {
+  if (!targetPath) return extractedDaPath;
+  const leaf = targetPath.replace(/^\/+/, '');
+  const base = (() => {
+    const parts = (extractedDaPath || '').split('/').filter(Boolean);
+    if (parts.length >= 2) return `/${parts[0]}/${parts[1]}`;
+    const hash = (window.location.hash || '').replace(/^#/, '').split('/').filter(Boolean);
+    if (hash.length >= 2) return `/${hash[0]}/${hash[1]}`;
+    return '';
+  })();
+  return base ? `${base}/${leaf}` : targetPath;
+}
+
 function extractResultLinks(text) {
   return {
     daPath: firstMatch(text, RE_DA_EDIT) || firstMatch(text, RE_DA_PATH),
@@ -291,7 +325,10 @@ function extractResultLinks(text) {
 
 // On completion, auto-open the new page in the canvas (no manual step) by
 // navigating to its DA path, and note the path + PR/branch-preview links.
-function announceAndOpen(component, { daPath, prUrl, previewUrl }) {
+function announceAndOpen(component, {
+  daPath: rawDaPath, prUrl, previewUrl, targetPath,
+}) {
+  const daPath = preferTargetPath(rawDaPath, targetPath);
   const extras = [];
   if (previewUrl) extras.push(`[branch preview](${previewUrl})`);
   if (prUrl) extras.push(`[PR](${prUrl})`);
@@ -357,6 +394,7 @@ function readRunMarker() {
  */
 export async function runFigmaTurn({ component, message, context = [] }) {
   const host = catalystHost();
+  const targetPath = extractTargetPath(message);
   const assistant = { role: ROLE.ASSISTANT, content: '', streaming: true };
   // Add to the controller's store so the EMA conversation persists + survives.
   addMsg(component, { role: ROLE.USER, content: message });
@@ -433,7 +471,7 @@ export async function runFigmaTurn({ component, message, context = [] }) {
       }
     }
     /* --- feature: figma->catalyst (auto-preview) --- */
-    announceAndOpen(component, extractResultLinks(text));
+    announceAndOpen(component, { ...extractResultLinks(text), targetPath });
     /* --- end feature --- */
     clearRunMarker();
     /* eslint-disable no-underscore-dangle */
@@ -509,6 +547,7 @@ export async function runFigmaTurn({ component, message, context = [] }) {
 export async function resumeCatalystRun(component) {
   const marker = readRunMarker();
   if (!marker || marker.room !== roomKey()) return;
+  const targetPath = extractTargetPath(marker.message);
   const host = catalystHost();
   let token = null;
   try {
@@ -529,7 +568,9 @@ export async function resumeCatalystRun(component) {
   if (!hist.isProcessing && !hist.pendingQuestion) {
     const last = ((hist.history) || [])
       .filter((m) => m && m.role === ROLE.ASSISTANT).pop();
-    announceAndOpen(component, extractResultLinks((last && last.content) || ''));
+    announceAndOpen(component, {
+      ...extractResultLinks((last && last.content) || ''), targetPath,
+    });
     clearRunMarker();
     return;
   }
@@ -561,7 +602,7 @@ export async function resumeCatalystRun(component) {
         // ignore
       }
     }
-    announceAndOpen(component, extractResultLinks(text));
+    announceAndOpen(component, { ...extractResultLinks(text), targetPath });
     clearRunMarker();
     assistant.streaming = false;
     /* eslint-disable no-underscore-dangle */
