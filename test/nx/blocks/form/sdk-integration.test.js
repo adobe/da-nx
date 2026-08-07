@@ -17,7 +17,7 @@ import { attachPersistence } from '../../../../nx/blocks/form/utils/persistence.
 //   state shape      document, model.root (kind / pointer / label / value /
 //                    required / children / items / enumValues / semanticType /
 //                    minItems / maxItems), validation.errors[p].message, schemaIssues
-//                    (pointer / reason / feature | compositionKeyword)
+//                    (reason / message / schemaPath / pointer / details)
 //   semantics        onChange fires once per real mutation; not at construction;
 //                    not on no-ops; defaults materialize into empty data
 //   error shapes     convertJsonToHtml / convertHtmlToJson return { error }
@@ -393,16 +393,16 @@ describe('SDK model.root node shape', () => {
   });
 });
 
-// editor.js:9–28 — describeIssue switches on issue.reason and reads
-// issue.feature / issue.compositionKeyword / issue.details?.ref. A rename
-// would silently render "uses unsupported schema feature undefined" in
-// the schema-issues dialog without any other test catching it.
+// editor.js — describeIssue switches on issue.reason and reads the offending
+// value from issue.details (details.keyword / details.type / details.ref).
+// If the SDK issue shape drifts, the dialog would silently render "unknown";
+// these assertions catch that.
 describe('SDK schemaIssues entry shape', () => {
   const issueSchema = {
     type: 'object',
     properties: {
       // oneOf at a property is known unsupported by the form's renderer —
-      // editor.js:13 maps `reason: 'unsupported-composition'` to a human-readable string.
+      // editor.js maps `reason: 'unsupported-composition'` to a human-readable string.
       weird: { oneOf: [{ type: 'string' }, { type: 'number' }] },
     },
   };
@@ -413,15 +413,15 @@ describe('SDK schemaIssues entry shape', () => {
     expect(issues).to.be.an('array').that.is.not.empty;
   });
 
-  it('each entry carries pointer + reason + feature (or compositionKeyword)', () => {
+  it('each entry carries reason + message + schemaPath + pointer + details', () => {
     const engine = createEngine({ schema: issueSchema, document: validDoc() });
     const [issue] = engine.getState().schemaIssues;
-    expect(issue.pointer).to.be.a('string');
     expect(issue.reason).to.be.a('string');
-    // editor.js:10 reads `issue.feature ?? issue.compositionKeyword` — at
-    // least one must be a non-empty string or the dialog shows "undefined".
-    const feature = issue.feature ?? issue.compositionKeyword;
-    expect(feature, 'issue.feature ?? issue.compositionKeyword').to.be.a('string');
+    expect(issue.message).to.be.a('string');
+    expect(issue.schemaPath).to.be.a('string');
+    expect(issue.pointer).to.be.a('string');
+    // Composition folds its keyword into details — describeIssue reads it there.
+    expect(issue.details.keyword, 'issue.details.keyword').to.be.a('string');
   });
 });
 

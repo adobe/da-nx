@@ -14,7 +14,7 @@ const EL_NAME = 'nx-editor';
 const DEBOUNCE_MS = 350;
 
 function describeIssue(issue) {
-  const feature = issue.feature ?? issue.compositionKeyword ?? 'unknown';
+  const feature = issue.details?.keyword ?? issue.details?.type ?? 'unknown';
   const ref = issue.details?.ref;
   switch (issue.reason) {
     case 'unsupported-composition':
