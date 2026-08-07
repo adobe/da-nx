@@ -630,8 +630,7 @@ export function buildMultimodalTextAsset({
   signedUrl,
   targetLocales,
   pagePreviewUrl,
-  translationMetadata,
-  languageContext,
+  assetMetadataUrl,
 }) {
   return {
     type: 'TEXT',
@@ -639,7 +638,28 @@ export function buildMultimodalTextAsset({
     parentAsset: pagePath,
     signedUrl,
     targetLocales,
+    ...(assetMetadataUrl && { assetMetadataUrl }),
     ...(pagePreviewUrl && { sourcePreviewUrlPage: pagePreviewUrl }),
+  };
+}
+
+function buildMultimodalMetadataAssetName(htmlAssetName) {
+  if (/\.html$/i.test(htmlAssetName)) return htmlAssetName.replace(/\.html$/i, '.metadata.json');
+  return `${htmlAssetName}.metadata.json`;
+}
+
+function buildMultimodalAssetMetadataPayload({
+  pagePath,
+  pagePreviewUrl,
+  targetLocales,
+  translationMetadata,
+  languageContext,
+}) {
+  return {
+    assetName: pagePath,
+    metadata: { 'source-preview-url': pagePreviewUrl },
+    assetType: 'SOURCE',
+    targetLocales,
     ...(translationMetadata && Object.keys(translationMetadata).length > 0 && {
       langMetadata: translationMetadata,
     }),
@@ -747,13 +767,35 @@ export async function uploadMultimodalPageAssets({
 
   const pagePath = ensureLeadingSlash(htmlAssetName);
   const pagePreviewUrl = sourcePreviewUrl ?? glaasSourcePreviewUrl(aemHref);
+
+  const metadataAssetName = buildMultimodalMetadataAssetName(htmlAssetName);
+  const metadataPut = await getPutUrlForFile({
+    origin, clientid, token, assetName: metadataAssetName, logRequest,
+  });
+  if (metadataPut.error) return { error: metadataPut.error, step: 'getPutURL-metadata', ...metadataPut };
+
+  const assetMetadataPayload = buildMultimodalAssetMetadataPayload({
+    pagePath,
+    pagePreviewUrl,
+    targetLocales,
+    translationMetadata,
+    languageContext,
+  });
+  const metadataUpload = await putAssetToSignedUrl({
+    putURL: metadataPut.putURL,
+    body: JSON.stringify(assetMetadataPayload),
+    contentType: 'application/json',
+    logRequest,
+    putLabel: 'metadata',
+  });
+  if (metadataUpload.error) return { error: metadataUpload.error, step: 'put-metadata', ...metadataUpload };
+
   const assets = [buildMultimodalTextAsset({
     pagePath,
     signedUrl: htmlPut.putURL,
     targetLocales,
     pagePreviewUrl,
-    translationMetadata,
-    languageContext,
+    assetMetadataUrl: metadataPut.putURL,
   })];
 
   let imageUrls = collectContentDaLiveImageUrls(htmlContent, { org, site });
