@@ -72,16 +72,6 @@ function addMsg(component, msg) {
   component.requestUpdate();
 }
 
-function refreshMsgs(component, opts) {
-  // eslint-disable-next-line no-underscore-dangle
-  const c = component._controller;
-  if (c && typeof c.refreshMessages === 'function') {
-    c.refreshMessages(opts);
-    return;
-  }
-  component.requestUpdate();
-}
-
 /**
  * POST /api/chat and stream the assistant text back via onChunk. Mirrors
  * chatService.sendChatMessage's SSE-over-fetch-body parsing exactly.
@@ -395,14 +385,17 @@ function readRunMarker() {
 export async function runFigmaTurn({ component, message, context = [] }) {
   const host = catalystHost();
   const targetPath = extractTargetPath(message);
-  const assistant = { role: ROLE.ASSISTANT, content: '', streaming: true };
-  // Add to the controller's store so the EMA conversation persists + survives.
+  // Narration streams into the migration panel's log, not the main thread, so it
+  // never mixes with the (AO) chat. `streamed` keeps a local copy for finalize.
+  let streamed = '';
+  // Keep the user's request in the main thread so there's context; narration goes
+  // to the panel. The final result is pushed to the thread by announceAndOpen.
   addMsg(component, { role: ROLE.USER, content: message });
-  addMsg(component, assistant);
   // Note: intentionally NOT setting component.thinking — a Catalyst run must not
   // block the chat input. The progress bar + Cancel drive its state instead.
   // Turn the bar on immediately (before the IMS round-trip) for instant feedback.
   /* eslint-disable no-underscore-dangle */
+  component._resetCatalystLog?.();
   component._catalystActive = true;
   component._setCatalystActivity('Starting the migration…');
   /* eslint-enable no-underscore-dangle */
@@ -415,11 +408,9 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     token = null;
   }
   if (!token) {
-    assistant.content = '_Catalyst error: no IMS token_';
-    assistant.streaming = false;
+    addMsg(component, { role: ROLE.ASSISTANT, content: '_Catalyst error: no IMS token_' });
     // eslint-disable-next-line no-underscore-dangle
     component._catalystActive = false;
-    refreshMsgs(component);
     component.requestUpdate();
     return;
   }
@@ -429,13 +420,13 @@ export async function runFigmaTurn({ component, message, context = [] }) {
   try {
     await getHistory(host, token);
   } catch {
-    assistant.content = 'Migration service unavailable. Please try again, later.';
-    assistant.streaming = false;
+    addMsg(component, {
+      role: ROLE.ASSISTANT, content: 'Migration service unavailable. Please try again, later.',
+    });
     /* eslint-disable no-underscore-dangle */
     component._catalystActive = false;
     component._setCatalystProgress(null);
     /* eslint-enable no-underscore-dangle */
-    refreshMsgs(component);
     component.requestUpdate();
     return;
   }
@@ -456,16 +447,13 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     stopPolling();
     stopEvents();
     controller.abort();
-    let text = assistant.content;
+    let text = streamed;
     if (!extractResultLinks(text).daPath) {
       try {
         const hist = await getHistory(host, token);
         const last = ((hist && hist.history) || [])
           .filter((m) => m && m.role === 'assistant').pop();
-        if (last && last.content) {
-          if (!assistant.content) assistant.content = last.content;
-          text = `${text}\n${last.content}`;
-        }
+        if (last && last.content) text = `${text}\n${last.content}`;
       } catch {
         // nothing more we can read
       }
@@ -479,8 +467,6 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     component._setCatalystProgress(null);
     component._controller?.setBackgroundNote?.('');
     /* eslint-enable no-underscore-dangle */
-    assistant.streaming = false;
-    refreshMsgs(component, { persist: true });
     component.requestUpdate();
   };
 
@@ -509,11 +495,14 @@ export async function runFigmaTurn({ component, message, context = [] }) {
       context,
       signal: controller.signal,
       onChunk: (chunk) => {
-        // Each SSE frame is a discrete status message from Catalyst; keep them as
-        // separate paragraphs instead of gluing them into one run-on blob.
+        // Each SSE frame is a discrete status message; keep it as its own line in
+        // the panel log (not glued into one run-on blob, not in the main thread).
         const text = chunk.trim();
-        if (text) assistant.content += (assistant.content ? '\n\n' : '') + text;
-        refreshMsgs(component);
+        if (text) {
+          streamed += (streamed ? '\n\n' : '') + text;
+          // eslint-disable-next-line no-underscore-dangle
+          component._appendCatalystLog(text);
+        }
       },
     });
     await finalize();
@@ -532,7 +521,9 @@ export async function runFigmaTurn({ component, message, context = [] }) {
       if (reachable) {
         flags.dropped = true;
       } else {
-        assistant.content = 'Migration service unavailable. Please try again, later.';
+        addMsg(component, {
+          role: ROLE.ASSISTANT, content: 'Migration service unavailable. Please try again, later.',
+        });
         await finalize();
       }
     }
@@ -575,10 +566,11 @@ export async function resumeCatalystRun(component) {
     return;
   }
 
-  // Still running: re-attach a bubble + monitor (no new POST).
-  const assistant = { role: ROLE.ASSISTANT, content: '', streaming: true };
-  addMsg(component, { role: ROLE.ASSISTANT, content: 'Resuming your Figma migration…' });
-  addMsg(component, assistant);
+  // Still running: re-attach the migration panel + monitor (no new POST).
+  /* eslint-disable no-underscore-dangle */
+  component._resetCatalystLog?.();
+  component._appendCatalystLog?.('Resuming your Figma migration…');
+  /* eslint-enable no-underscore-dangle */
 
   const controller = new AbortController();
   const flags = { dropped: true };
@@ -591,26 +583,22 @@ export async function resumeCatalystRun(component) {
     stopPolling();
     stopEvents();
     controller.abort();
-    let text = assistant.content;
-    if (!extractResultLinks(text).daPath) {
-      try {
-        const h = await getHistory(host, token);
-        const last = ((h && h.history) || [])
-          .filter((m) => m && m.role === ROLE.ASSISTANT).pop();
-        if (last && last.content) text = `${text}\n${last.content}`;
-      } catch {
-        // ignore
-      }
+    let text = '';
+    try {
+      const h = await getHistory(host, token);
+      const last = ((h && h.history) || [])
+        .filter((m) => m && m.role === ROLE.ASSISTANT).pop();
+      if (last && last.content) text = last.content;
+    } catch {
+      // ignore
     }
     announceAndOpen(component, { ...extractResultLinks(text), targetPath });
     clearRunMarker();
-    assistant.streaming = false;
     /* eslint-disable no-underscore-dangle */
     component._catalystActive = false;
     component._setCatalystProgress(null);
     component._controller?.setBackgroundNote?.('');
     /* eslint-enable no-underscore-dangle */
-    refreshMsgs(component, { persist: true });
     component.requestUpdate();
   };
   stopPolling = startQuestionPolling(host, token, component, finalize, flags);
@@ -629,5 +617,107 @@ export async function resumeCatalystRun(component) {
   };
   /* eslint-enable no-underscore-dangle */
   component.requestUpdate();
+}
+
+/**
+ * Continue an EMA conversation from the migration panel's own reply box. Sends the
+ * reply to Catalyst, streams narration back into the panel log, and re-monitors —
+ * so the main input box stays wired to AO and the two conversations never mix.
+ * Also the recovery path when EMA asked a prose question and the run finalized early.
+ */
+export async function continueCatalystRun(component, message) {
+  const host = catalystHost();
+  const targetPath = extractTargetPath((readRunMarker() || {}).message || message);
+  let token = null;
+  try {
+    token = await imsToken();
+  } catch {
+    token = null;
+  }
+  if (!token) {
+    // eslint-disable-next-line no-underscore-dangle
+    component._appendCatalystLog?.('Could not reach the migration (no token).');
+    return;
+  }
+
+  let streamed = '';
+  const controller = new AbortController();
+  const flags = { dropped: false };
+  let finalized = false;
+  let stopPolling = () => {};
+  let stopEvents = () => {};
+  const finalize = async () => {
+    if (finalized) return;
+    finalized = true;
+    stopPolling();
+    stopEvents();
+    controller.abort();
+    let text = streamed;
+    if (!extractResultLinks(text).daPath) {
+      try {
+        const hist = await getHistory(host, token);
+        const last = ((hist && hist.history) || [])
+          .filter((m) => m && m.role === ROLE.ASSISTANT).pop();
+        if (last && last.content) text = `${text}\n${last.content}`;
+      } catch {
+        // nothing more to read
+      }
+    }
+    announceAndOpen(component, { ...extractResultLinks(text), targetPath });
+    /* eslint-disable no-underscore-dangle */
+    component._catalystActive = false;
+    component._setCatalystProgress(null);
+    component._controller?.setBackgroundNote?.('');
+    /* eslint-enable no-underscore-dangle */
+    component.requestUpdate();
+  };
+
+  setRunMarker(message);
+  stopPolling = startQuestionPolling(host, token, component, finalize, flags);
+  stopEvents = startEventStream(host, token, component);
+  /* eslint-disable no-underscore-dangle */
+  component._catalystActive = true;
+  component._setCatalystActivity('Sending your reply…');
+  component._catalystStop = () => {
+    controller.abort();
+    finalize();
+  };
+  /* eslint-enable no-underscore-dangle */
+  component.requestUpdate();
+
+  try {
+    await streamChat({
+      host,
+      token,
+      message,
+      signal: controller.signal,
+      onChunk: (chunk) => {
+        const text = chunk.trim();
+        if (text) {
+          streamed += (streamed ? '\n\n' : '') + text;
+          // eslint-disable-next-line no-underscore-dangle
+          component._appendCatalystLog(text);
+        }
+      },
+    });
+    await finalize();
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      let reachable = false;
+      try {
+        await getHistory(host, token);
+        reachable = true;
+      } catch {
+        reachable = false;
+      }
+      if (reachable) {
+        flags.dropped = true;
+      } else {
+        // eslint-disable-next-line no-underscore-dangle
+        component._appendCatalystLog('Migration service unavailable. Please try again, later.');
+        await finalize();
+      }
+    }
+  }
 }
 /* --- end feature: figma->catalyst ---------------------------------------- */

@@ -6,7 +6,7 @@ import ChatController from './chat-controller.js';
 import ChatControllerAO from './chat-controller-ao.js';
 /* --- feature: figma->catalyst --- */
 import {
-  FIGMA_TO_CATALYST, isFigmaInput, runFigmaTurn, resumeCatalystRun,
+  FIGMA_TO_CATALYST, isFigmaInput, runFigmaTurn, resumeCatalystRun, continueCatalystRun,
 } from './catalyst/catalyst-client.js';
 /* --- end feature: figma->catalyst --- */
 import {
@@ -63,6 +63,8 @@ class NxChat extends LitElement {
     _catalystPct: { state: true },
     _notifications: { state: true },
     _inboxOpen: { state: true },
+    _catalystLog: { state: true },
+    _catalystLogOpen: { state: true },
     /* --- end feature: figma->catalyst --- */
   };
 
@@ -436,8 +438,49 @@ class NxChat extends LitElement {
     this._applyCatalystTodos(hist.todos || []);
   }
 
+  _resetCatalystLog() {
+    this._catalystLog = [];
+    this._catalystLogOpen = false;
+  }
+
+  // Narration + status from the Catalyst run lands here, not in the main thread,
+  // so the migration never mixes with the (AO) conversation in the box.
+  _appendCatalystLog(text) {
+    const line = String(text ?? '').trim();
+    if (!line) return;
+    const log = this._catalystLog ?? [];
+    if (log[log.length - 1] === line) return; // drop consecutive dupes
+    this._catalystLog = [...log, line].slice(-200);
+    this.requestUpdate();
+  }
+
+  _toggleCatalystLog() {
+    this._catalystLogOpen = !this._catalystLogOpen;
+    this.requestUpdate();
+  }
+
+  _dismissCatalystPanel() {
+    this._resetCatalystLog();
+    this.requestUpdate();
+  }
+
+  // The panel's own reply box talks to EMA (continues the migration turn), so the
+  // main input box can stay wired to AO. This is also the recovery path if EMA
+  // asked a prose question and the run finalized early: reply here to resume.
+  _submitCatalystReply(e) {
+    e?.preventDefault();
+    const el = this.shadowRoot.querySelector('.catalyst-reply-input');
+    const text = el?.value.trim();
+    if (!text) return;
+    el.value = '';
+    this._appendCatalystLog(`You: ${text}`);
+    continueCatalystRun(this, text);
+  }
+
   _renderCatalystProgress() {
+    const active = this._catalystActive;
     const pct = this._catalystPct;
+    const log = this._catalystLog ?? [];
     const bar = pct == null
       ? html`<div class="catalyst-bar catalyst-bar-indet"></div>`
       : html`<div class="catalyst-bar">
@@ -445,14 +488,22 @@ class NxChat extends LitElement {
         </div>`;
     return html`
       <style>
-        .catalyst-progress { margin: 8px 0; }
-        .catalyst-progress-step { font-size: 12px; color: #666; margin-bottom: 4px; }
-        .catalyst-bar {
-          height: 4px; border-radius: 2px; background: #e6e6e6; overflow: hidden;
+        .catalyst-panel {
+          margin: 8px 0; border: 1px solid #e0e0e0; border-radius: 8px;
+          padding: 10px 12px; background: #fafafa;
         }
+        .catalyst-panel-head {
+          display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
+        }
+        .catalyst-panel-title { flex: 1; }
+        .catalyst-panel-btn {
+          padding: 0; border: none; background: none; color: #1473e6;
+          cursor: pointer; font-size: 12px;
+        }
+        .catalyst-progress-step { font-size: 12px; color: #666; margin: 6px 0 4px; }
+        .catalyst-bar { height: 4px; border-radius: 2px; background: #e6e6e6; overflow: hidden; }
         .catalyst-bar-fill {
-          height: 100%; background: #1473e6; border-radius: 2px;
-          transition: width .3s ease;
+          height: 100%; background: #1473e6; border-radius: 2px; transition: width .3s ease;
         }
         .catalyst-bar-indet::after {
           content: ''; display: block; height: 100%; width: 40%;
@@ -463,25 +514,57 @@ class NxChat extends LitElement {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(320%); }
         }
-        .catalyst-note {
-          font-size: 12px; color: #666; margin-top: 6px;
+        .catalyst-log {
+          margin-top: 8px; max-height: 180px; overflow: auto; font-size: 12px;
+          color: #444; background: #fff; border: 1px solid #eee; border-radius: 6px; padding: 8px;
+        }
+        .catalyst-log p { margin: 0 0 6px; white-space: pre-wrap; word-break: break-word; }
+        .catalyst-log p:last-child { margin-bottom: 0; }
+        .catalyst-note { font-size: 12px; color: #666; margin-top: 8px; }
+        .catalyst-reply { display: flex; gap: 6px; margin-top: 8px; }
+        .catalyst-reply-input {
+          flex: 1; padding: 6px 8px; border: 1px solid #c0c0c0; border-radius: 6px; font-size: 13px;
+        }
+        .catalyst-reply-send {
+          padding: 6px 12px; border: 1px solid #222; border-radius: 16px;
+          background: #222; color: #fff; cursor: pointer; font-size: 13px;
         }
         .catalyst-cancel {
           margin-left: 8px; padding: 0; border: none; background: none;
           color: #1473e6; cursor: pointer; font-size: 12px; text-decoration: underline;
         }
       </style>
-      <div class="catalyst-progress">
-        ${this._catalystStep
-    ? html`<div class="catalyst-progress-step">${this._catalystStep}</div>`
-    : nothing}
-        ${bar}
-        <div class="catalyst-note">
-          Building your page. You can keep working or close this and come back —
-          it'll finish on its own and open when it's ready.
-          <button type="button" class="catalyst-cancel"
-            @click=${() => this._catalystStop?.()}>Cancel</button>
+      <div class="catalyst-panel">
+        <div class="catalyst-panel-head">
+          <span class="catalyst-panel-title">
+            Figma → EDS migration${active ? '' : ' · finished'}
+          </span>
+          ${log.length ? html`<button type="button" class="catalyst-panel-btn"
+            @click=${() => this._toggleCatalystLog()}>
+            ${this._catalystLogOpen ? 'Hide activity' : 'Show activity'}</button>` : nothing}
+          ${!active ? html`<button type="button" class="catalyst-panel-btn"
+            @click=${() => this._dismissCatalystPanel()}>Dismiss</button>` : nothing}
         </div>
+        ${active ? html`
+          ${this._catalystStep
+    ? html`<div class="catalyst-progress-step">${this._catalystStep}</div>` : nothing}
+          ${bar}` : nothing}
+        ${this._catalystLogOpen && log.length ? html`
+          <div class="catalyst-log">
+            ${log.map((line) => html`<p>${line}</p>`)}
+          </div>` : nothing}
+        ${active ? html`
+          <div class="catalyst-note">
+            Building your page. You can keep working in the box or close this and come
+            back — it'll finish on its own and open when it's ready.
+            <button type="button" class="catalyst-cancel"
+              @click=${() => this._catalystStop?.()}>Cancel</button>
+          </div>` : nothing}
+        <form class="catalyst-reply" @submit=${(e) => this._submitCatalystReply(e)}>
+          <input class="catalyst-reply-input" type="text"
+            placeholder="Reply to the migration…" aria-label="Reply to the migration" />
+          <button type="submit" class="catalyst-reply-send">Send</button>
+        </form>
       </div>`;
   }
 
@@ -941,7 +1024,7 @@ class NxChat extends LitElement {
           onDecline: () => this._declineQuestion(),
         })}
         ${/* --- feature: figma->catalyst --- */ this._renderCatalystQuestion()}
-        ${this._catalystActive && !this._catalystQuestion
+        ${(this._catalystActive || this._catalystLog?.length) && !this._catalystQuestion
     ? this._renderCatalystProgress() : nothing}
         ${renderPlanApprovalCard(this.pendingPlanApproval, this._planFeedback ?? '', {
           onFeedbackText: (text) => this._setPlanFeedback(text),
