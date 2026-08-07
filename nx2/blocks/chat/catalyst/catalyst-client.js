@@ -149,6 +149,22 @@ export async function submitCatalystAnswer(answers) {
   await postAnswer(catalystHost(), await imsToken(), answers);
 }
 
+// DELETE /api/chat/history - abort + clear EMA's per-user session so a new
+// migration starts fresh. Without this, EMA keeps the prior conversation (and
+// its old target repo) and ignores the new one. Best-effort: a failure here
+// shouldn't block the run.
+async function resetCatalystSession(host, token) {
+  try {
+    await fetch(`${host}/api/chat/history`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch {
+    // best-effort — proceed even if the reset didn't land
+  }
+}
+
 // Poll chat history while a turn runs; surface any AskUserQuestion to the UI so
 // an interactive skill (e.g. map-vs-snowflake) doesn't hang. Returns a stop().
 function startQuestionPolling(host, token, component, onSettled, flags) {
@@ -445,6 +461,11 @@ export async function runFigmaTurn({ component, message, context = [] }) {
     component.requestUpdate();
     return;
   }
+
+  // Start a fresh EMA session so it doesn't carry the prior run's target repo.
+  // eslint-disable-next-line no-underscore-dangle
+  component._setCatalystActivity('Starting a fresh session…');
+  await resetCatalystSession(host, token);
 
   setRunMarker(message);
   const controller = new AbortController();
