@@ -609,7 +609,8 @@ describe('api.js', () => {
 
     it('source.copy hlx6 PUTs with source/collision query params', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.copy({ org: o, site: s, path: '/src.html', destination: '/dest.html', collision: 'overwrite' });
+      const destination = `/${o}/${s}/dest.html`;
+      await source.copy({ org: o, site: s, path: '/src.html', destination, collision: 'overwrite' });
       const last = lastCall();
       expect(last.method).to.equal('PUT');
       const u = new URL(last.url);
@@ -621,12 +622,13 @@ describe('api.js', () => {
 
     it('source.copy legacy POSTs to /copy/{org}/{site}{path} with destination form field', async () => {
       const { org: o, site: s } = makeOrgSite();
-      await source.copy({ org: o, site: s, path: '/src.html', destination: '/dest.html' });
+      const destination = `/${o}/${s}/dest.html`;
+      await source.copy({ org: o, site: s, path: '/src.html', destination });
       const last = lastCall();
       expect(last.url).to.equal(`${DA_ADMIN}/copy/${o}/${s}/src.html`);
       expect(last.method).to.equal('POST');
       expect(last.body).to.be.instanceof(FormData);
-      expect(last.body.get('destination')).to.equal('/dest.html');
+      expect(last.body.get('destination')).to.equal(destination);
     });
 
     it('source.move hlx6 adds move=true', async () => {
