@@ -457,6 +457,28 @@ describe('api.js', () => {
       expect(json.source.contentUrl).to.equal(`${AEM_API}/${o}/sites/${s}/source/docs/.foo/image.png`);
     });
 
+    it('source.save hlx6 uses the response location header for contentUrl when present', async () => {
+      restoreFetch();
+      installFetch({ body: '', headers: { location: '/docs/renamed.png' } });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const blob = new Blob(['binary'], { type: 'image/png' });
+      const resp = await source.save({ org: o, site: s, path: '/docs/image.png', body: blob });
+      expect(resp.ok).to.equal(true);
+      const json = await resp.json();
+      expect(json.source.contentUrl).to.equal(`${AEM_API}/docs/renamed.png`);
+      expect(json.source.contentUrl).to.be.a('string');
+    });
+
+    it('source.save hlx6 resolves an absolute location header as-is', async () => {
+      restoreFetch();
+      const absolute = 'https://example.com/other/path/image.png';
+      installFetch({ body: '', headers: { location: absolute } });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.save({ org: o, site: s, path: '/docs/image.png', body: new Blob(['x']) });
+      const json = await resp.json();
+      expect(json.source.contentUrl).to.equal(absolute);
+    });
+
     it('source.save hlx6 does not normalize non-ok responses', async () => {
       restoreFetch();
       installFetch({ status: 403, body: '' });
@@ -464,6 +486,94 @@ describe('api.js', () => {
       const resp = await source.save({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
       expect(resp.ok).to.equal(false);
       expect(resp.status).to.equal(403);
+    });
+
+    it('source.uploadMedia legacy delegates to _saveDA as FormData with no double-fetch', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ source: { contentUrl: 'https://stage-content.da.live/o/s/img.png' } }),
+      });
+      const { org: o, site: s } = makeOrgSite();
+      const data = new Blob(['binary'], { type: 'image/png' });
+      await source.uploadMedia({ org: o, site: s, path: '/img.png', body: data });
+      const last = lastCall();
+      expect(last.method).to.equal('POST');
+      expect(last.body).to.be.instanceof(FormData);
+      const stored = last.body.get('data');
+      expect(stored).to.be.instanceof(Blob);
+      expect(stored.size).to.equal(data.size);
+      expect(calls.some((c) => c.url.includes('/media'))).to.equal(false);
+    });
+
+    it('source.uploadMedia hlx6 POSTs to the media route with content-type header and raw body', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ uri: `https://main--${s}--${o}.aem.page/media_1.png`, meta: {} }),
+      });
+      const blob = new Blob(['binary'], { type: 'image/png' });
+      await source.uploadMedia({ org: o, site: s, path: '/img.png', body: blob });
+      const last = lastCall();
+      expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/media/img.png`);
+      expect(last.method).to.equal('POST');
+      expect(last.headers['content-type']).to.equal('image/png');
+      expect(last.body).to.equal(blob);
+    });
+
+    it('source.uploadMedia hlx6 falls back to application/octet-stream for unknown extensions', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ uri: `https://main--${s}--${o}.aem.page/media_1`, meta: {} }),
+      });
+      await source.uploadMedia({ org: o, site: s, path: '/file.xyz', body: new Blob(['x']) });
+      expect(lastCall().headers['content-type']).to.equal('application/octet-stream');
+    });
+
+    it('source.uploadMedia hlx6 normalizes contentUrl by stripping the site aem.page prefix', async () => {
+      restoreFetch();
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      installFetch({
+        body: JSON.stringify({
+          uri: `https://main--${s}--${o}.aem.page/media_123.png`,
+          meta: { type: 'image/png', width: 640, height: 480 },
+        }),
+      });
+      const resp = await source.uploadMedia({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
+      const json = await resp.json();
+      expect(json.source.contentUrl).to.equal('./media_123.png');
+      expect(json.meta).to.deep.equal({ type: 'image/png', width: 640, height: 480 });
+    });
+
+    it('source.uploadMedia hlx6 leaves contentUrl unchanged when uri does not match the site prefix', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ uri: 'https://cdn.example.com/media_999.png', meta: {} }),
+      });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.uploadMedia({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
+      const json = await resp.json();
+      expect(json.source.contentUrl).to.equal('https://cdn.example.com/media_999.png');
+    });
+
+    it('source.uploadMedia hlx6 returns the raw response on non-ok status without parsing the body', async () => {
+      restoreFetch();
+      installFetch({ status: 404, body: '' });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.uploadMedia({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
+      expect(resp.ok).to.equal(false);
+      expect(resp.status).to.equal(404);
+    });
+
+    it('source.uploadMedia accepts a path string with extras', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ uri: `https://main--${s}--${o}.aem.page/media_1.png`, meta: {} }),
+      });
+      const blob = new Blob(['x'], { type: 'image/png' });
+      await source.uploadMedia(`/${o}/${s}/img.png`, { body: blob });
+      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/media/img.png`);
     });
 
     it('source.getMetadata sends HEAD and returns { ok, status, headers }', async () => {
@@ -499,7 +609,8 @@ describe('api.js', () => {
 
     it('source.copy hlx6 PUTs with source/collision query params', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.copy({ org: o, site: s, path: '/src.html', destination: '/dest.html', collision: 'overwrite' });
+      const destination = `/${o}/${s}/dest.html`;
+      await source.copy({ org: o, site: s, path: '/src.html', destination, collision: 'overwrite' });
       const last = lastCall();
       expect(last.method).to.equal('PUT');
       const u = new URL(last.url);
@@ -511,12 +622,13 @@ describe('api.js', () => {
 
     it('source.copy legacy POSTs to /copy/{org}/{site}{path} with destination form field', async () => {
       const { org: o, site: s } = makeOrgSite();
-      await source.copy({ org: o, site: s, path: '/src.html', destination: '/dest.html' });
+      const destination = `/${o}/${s}/dest.html`;
+      await source.copy({ org: o, site: s, path: '/src.html', destination });
       const last = lastCall();
       expect(last.url).to.equal(`${DA_ADMIN}/copy/${o}/${s}/src.html`);
       expect(last.method).to.equal('POST');
       expect(last.body).to.be.instanceof(FormData);
-      expect(last.body.get('destination')).to.equal('/dest.html');
+      expect(last.body.get('destination')).to.equal(destination);
     });
 
     it('source.move hlx6 adds move=true', async () => {
@@ -698,10 +810,10 @@ describe('api.js', () => {
   });
 
   describe('config', () => {
-    it('config.get site-level uses DA regardless of hlx6 status', async () => {
+    it('config.get site-level uses AEM_API editor config on hlx6', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await config.get({ org: o, site: s });
-      expect(lastCall().url).to.equal(`${DA_ADMIN}/config/${o}/${s}/`);
+      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/config/editor/da.json`);
     });
 
     it('config.get org-only legacy', async () => {
@@ -717,6 +829,79 @@ describe('api.js', () => {
       expect(last.method).to.equal('PUT');
       expect(last.body).to.be.instanceof(FormData);
       expect(last.body.get('config')).to.equal('{"foo":"bar"}');
+    });
+
+    it('config.get on hlx6 converts the simple AEM_API response into sheet format', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({ body: JSON.stringify({ library: [{ title: 'Foo' }] }) });
+
+      const resp = await config.get({ org: o, site: s });
+
+      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/config/editor/da.json`);
+      expect(await resp.json()).to.deep.equal({
+        total: 1, limit: 1, offset: 0, data: [{ title: 'Foo' }], ':sheetname': 'library', ':type': 'sheet',
+      });
+    });
+
+    it('config.get on hlx6 converts a multi-key AEM_API response into a multi-sheet doc', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ library: [{ title: 'Foo' }], permissions: [{ email: 'a@b.com' }] }),
+      });
+
+      const resp = await config.get({ org: o, site: s });
+
+      expect(await resp.json()).to.deep.equal({
+        ':type': 'multi-sheet',
+        ':names': ['library', 'permissions'],
+        library: { total: 1, limit: 1, offset: 0, data: [{ title: 'Foo' }] },
+        permissions: { total: 1, limit: 1, offset: 0, data: [{ email: 'a@b.com' }] },
+      });
+    });
+
+    it('config.get on hlx6 leaves non-ok responses untransformed', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({ status: 404, body: JSON.stringify({ error: 'not found' }) });
+
+      const resp = await config.get({ org: o, site: s });
+
+      expect(resp.ok).to.equal(false);
+      expect(await resp.json()).to.deep.equal({ error: 'not found' });
+    });
+
+    it('config.save on hlx6 converts a sheet-format body into simple JSON for AEM_API', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const sheetBody = JSON.stringify({
+        total: 1, limit: 1, offset: 0, data: [{ title: 'Foo' }], ':sheetname': 'library', ':type': 'sheet',
+      });
+
+      await config.save({ org: o, site: s, body: sheetBody });
+
+      const last = lastCall();
+      expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/config/editor/da.json`);
+      expect(last.method).to.equal('POST');
+      expect(last.headers['content-type']).to.equal('application/json');
+      expect(JSON.parse(last.body)).to.deep.equal({ library: [{ title: 'Foo' }] });
+    });
+
+    it('config.save on hlx6 converts a multi-sheet body into a multi-key simple object', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const sheetBody = JSON.stringify({
+        ':type': 'multi-sheet',
+        ':names': ['library', 'permissions'],
+        library: { total: 1, limit: 1, offset: 0, data: [{ title: 'Foo' }] },
+        permissions: { total: 1, limit: 1, offset: 0, data: [{ email: 'a@b.com' }] },
+      });
+
+      await config.save({ org: o, site: s, body: sheetBody });
+
+      expect(JSON.parse(lastCall().body)).to.deep.equal({
+        library: [{ title: 'Foo' }],
+        permissions: [{ email: 'a@b.com' }],
+      });
     });
 
     it('config.delete sends DELETE', async () => {
