@@ -7,8 +7,10 @@
   right: auto;
   bottom: auto;
   flex-direction: column;
+  box-sizing: border-box;
   padding: var(--s2-spacing-100) 10px;
   min-width: 100px;
+  overflow-y: auto;
   background: var(--s2-gray-25);
   border: none;
   border-radius: var(--s2-corner-radius-700);
