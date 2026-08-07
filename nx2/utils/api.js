@@ -349,18 +349,7 @@ export const source = {
     if (!hlx6) {
       // fall back to original source store
       // eslint-disable-next-line no-underscore-dangle
-      const resp = await source._saveDA({ org, site, path, body });
-      if (resp.ok && DA_ADMIN === 'https://stage-admin.da.live') {
-        // special check for stage content. should be handled in stage da-admin ?
-        const json = await resp.json();
-        const sourceUrl = new URL(json.source.contentUrl);
-        if (sourceUrl.host === 'content.da.live') {
-          sourceUrl.host = 'stage-content.da.live';
-          json.source.contentUrl = sourceUrl.href;
-        }
-        return adaptJsonResponse(resp, json);
-      }
-      return resp;
+      return source._saveDA({ org, site, path, body });
     }
     const url = `${AEM_API}/${org}/sites/${site}/media${path}`;
     const opts = {

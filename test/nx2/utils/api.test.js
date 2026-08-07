@@ -505,40 +505,6 @@ describe('api.js', () => {
       expect(calls.some((c) => c.url.includes('/media'))).to.equal(false);
     });
 
-    it('source.uploadMedia legacy rewrites a content.da.live contentUrl to stage-content.da.live', async () => {
-      restoreFetch();
-      installFetch({
-        body: JSON.stringify({ source: { contentUrl: 'https://content.da.live/o/s/img.png' } }),
-      });
-      const { org: o, site: s } = makeOrgSite();
-      const resp = await source.uploadMedia({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
-      expect(resp.ok).to.equal(true);
-      const json = await resp.json();
-      expect(json.source.contentUrl).to.equal('https://stage-content.da.live/o/s/img.png');
-    });
-
-    it('source.uploadMedia legacy leaves contentUrl unchanged when host is not content.da.live', async () => {
-      restoreFetch();
-      installFetch({
-        body: JSON.stringify({ source: { contentUrl: 'https://stage-content.da.live/o/s/img.png' } }),
-      });
-      const { org: o, site: s } = makeOrgSite();
-      const resp = await source.uploadMedia({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
-      expect(resp.ok).to.equal(true);
-      const json = await resp.json();
-      expect(json.source.contentUrl).to.equal('https://stage-content.da.live/o/s/img.png');
-    });
-
-    it('source.uploadMedia legacy returns the response unmodified on failure', async () => {
-      restoreFetch();
-      installFetch({ status: 500, body: '' });
-      const { org: o, site: s } = makeOrgSite();
-      const resp = await source.uploadMedia({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
-      expect(resp.ok).to.equal(false);
-      expect(resp.status).to.equal(500);
-      expect(calls.some((c) => c.url.includes('/media'))).to.equal(false);
-    });
-
     it('source.uploadMedia hlx6 POSTs to the media route with content-type header and raw body', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       restoreFetch();
