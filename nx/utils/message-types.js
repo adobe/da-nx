@@ -27,7 +27,7 @@ export const MESSAGE_TYPES = Object.freeze({
   NEW_VERSION: 'new-version', // no payload
   SELECTION_CHANGE: 'selection-change', // { anchor, head, anchorX, anchorY }
   STORED_MARKS: 'stored-marks', // { marks: PM Mark.toJSON()[] }
-  COMMENT_MARKER_CLICK: 'comment-marker-click', // { threadId: string }
+  COMMENT_MARKER_CLICK: 'comment-marker-click', // { payload: { threadId: string } }
   COMMENT_MARKER_CLEAR: 'comment-marker-clear', // no payload
   COMMENT_SHORTCUT: 'comment-shortcut', // no payload
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }

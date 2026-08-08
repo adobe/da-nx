@@ -220,7 +220,7 @@ describe('quick-edit comments', () => {
       clientX: Math.floor(r.left + (r.width / 2)),
       clientY: Math.floor(r.top + (r.height / 2)),
     }));
-    expect(posted[0]).to.deep.equal({ type: 'comment-marker-click', threadId: 't2' });
+    expect(posted[0]).to.deep.equal({ type: 'comment-marker-click', payload: { threadId: 't2' } });
   });
 
   it('setCommentMarkers clears markers when given an empty list', () => {
@@ -301,7 +301,7 @@ describe('quick-edit comments', () => {
       markers: [{ threadId: 'tbl1', anchorType: 'table', from: 50, to: 51, anchorText: 'block: cards' }],
     }, ctx);
     document.querySelector('.qe-comment-bubble').click();
-    expect(posted[0]).to.deep.equal({ type: 'comment-marker-click', threadId: 'tbl1' });
+    expect(posted[0]).to.deep.equal({ type: 'comment-marker-click', payload: { threadId: 'tbl1' } });
   });
 
   it('bubbles carry the author initials and color; the selected outline is author-tinted', () => {
@@ -402,7 +402,7 @@ describe('quick-edit comments', () => {
       clientX: Math.floor(r.left + (r.width / 2)),
       clientY: Math.floor(r.top + (r.height / 2)),
     }));
-    expect(posted[0]).to.deep.equal({ type: 'comment-marker-click', threadId: 'txt' });
+    expect(posted[0]).to.deep.equal({ type: 'comment-marker-click', payload: { threadId: 'txt' } });
   });
 
   it('sortMarkersForRender draws block markers before nested anchors', () => {
