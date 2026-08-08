@@ -16,12 +16,6 @@ function blockClassFromAnchor(anchorText) {
   return String(anchorText || '').replace(/^block:\s*/, '').trim().split(/\s+/)[0] || '';
 }
 
-// The anchored block node spans the PM range [from, to). getInstrumentedHTML
-// stamps data-block-index = posAtDOM(node, 0), i.e. the node's content-start
-// (from + 1), which is the unique block index inside that range. Selecting the
-// smallest in-range index returns the outermost (anchored) block when blocks
-// are nested. Because the range comes from a Yjs relative position, this is an
-// exact, per-instance match — duplicate block types are never confused.
 function findBlockByRange(from, to, root) {
   const rangeEnd = typeof to === 'number' && to > from ? to : from + 1;
   let best = null;
@@ -38,14 +32,9 @@ function findBlockByRange(from, to, root) {
 }
 
 export function findBlockForMarker(marker, root = document) {
-  // Primary path: exact position match via the instrumented data-block-index.
-  // This is unambiguous for duplicate blocks and requires no name heuristics.
   const byRange = findBlockByRange(marker.from, marker.to, root);
   if (byRange) return byRange;
 
-  // Fallback for content that was not instrumented with a block index. Only
-  // resolve when the block name is unambiguous — never guess between duplicates,
-  // since marking the wrong instance is worse than drawing no marker.
   const name = blockClassFromAnchor(marker.anchorText);
   if (!name) return null;
   const candidates = safeQuerySelectorAll(root, `div.${CSS.escape(name)}`);
@@ -95,12 +84,6 @@ function buildRangeAtContentStart(block, contentStart, from, to) {
   return range;
 }
 
-// Map an exact PM range [from, to) to a DOM Range by walking the block's text
-// from its content-start (data-prose-index === posAtDOM(element, 0)). This is
-// the layout-mode equivalent of doc-mode's position-based decorations: it is
-// fully deterministic and resolves to the exact characters at those PM offsets,
-// never a text search or "best match". The block is already the correct one
-// (selected by position), so this can never resolve to another instance.
 export function mapProseRangeToDomRange(block, blockProseIndex, from, to) {
   if (to - from <= 0) return null;
   return buildRangeAtContentStart(block, blockProseIndex, from, to);
@@ -153,11 +136,10 @@ function attachMarkerClick(el, threadId, ctx) {
   el.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    ctx.port?.postMessage({ type: MESSAGE_TYPES.COMMENT_MARKER_CLICK, threadId });
+    ctx.port?.postMessage({ type: MESSAGE_TYPES.COMMENT_MARKER_CLICK, payload: { threadId } });
   });
 }
 
-/** Client rects include line-height leading; nudge highlights down onto the text body. */
 export function adjustTextHighlightRect(rect) {
   const insetTop = Math.min(6, Math.max(0, (rect.height - 16) / 2));
   return {
@@ -168,12 +150,6 @@ export function adjustTextHighlightRect(rect) {
   };
 }
 
-// Text highlights are visual only (pointer-events: none in CSS) so the
-// underlying text stays editable; the click target is resolved by hit-testing
-// these rects in the document click handler (see setupCommentClicks).
-// A commented element gets its author's color (toned down in CSS). Setting the
-// custom property + is-authored class lets CSS derive the fill/border/outline
-// from one color, falling back to the yellow theme when no color is provided.
 function applyAuthorColor(el, color) {
   if (!color) return;
   el.classList.add('is-authored');
@@ -360,7 +336,6 @@ function drawMarker(marker, root, overlay, ctx) {
 
 const MARKER_RENDER_ORDER = { table: 0, image: 1, text: 2 };
 
-/** Block outlines are drawn first so nested text/image highlights stay clickable on top. */
 export function sortMarkersForRender(markers) {
   return markers.slice().sort((a, b) => {
     const layerA = MARKER_RENDER_ORDER[a.anchorType] ?? 1;
@@ -385,7 +360,7 @@ function setupCommentClicks(ctx) {
   ctx.commentClickListener = (event) => {
     const threadId = textHighlightThreadAtPoint(event.clientX, event.clientY);
     if (threadId) {
-      ctx.port?.postMessage({ type: MESSAGE_TYPES.COMMENT_MARKER_CLICK, threadId });
+      ctx.port?.postMessage({ type: MESSAGE_TYPES.COMMENT_MARKER_CLICK, payload: { threadId } });
       return;
     }
     if (!ctx.selectedThreadId) return;
@@ -404,8 +379,6 @@ function renderCommentMarkers(ctx, root = document) {
     try {
       drawMarker(marker, root, overlay, ctx);
     } catch (err) {
-      // Defense in depth: one malformed marker must not abort the rest.
-      // eslint-disable-next-line no-console
       console.warn('[comments] failed to draw marker', marker?.threadId, err);
     }
   });
@@ -420,11 +393,6 @@ export function scheduleCommentMarkerLayout(ctx, root = document) {
   const run = () => {
     if (ctx.commentMarkers?.length) renderCommentMarkers(ctx, root);
   };
-
-  clearTimeout(ctx.layoutStableTimer);
-  ctx.layoutStableTimer = setTimeout(run, 400);
-  ctx.layoutSettleTimers?.forEach(clearTimeout);
-  ctx.layoutSettleTimers = [1600].map((delay) => setTimeout(run, delay));
 
   document.fonts?.ready?.then(() => {
     requestAnimationFrame(() => requestAnimationFrame(run));
@@ -459,13 +427,6 @@ export function applyCommentMarkers(ctx, root = document) {
       const main = root.querySelector('main');
       if (main) ctx.commentResizeObserver.observe(main);
     }
-
-    window.addEventListener('animationend', handler, true);
-    window.addEventListener('transitionend', handler, true);
-    setTimeout(() => {
-      window.removeEventListener('animationend', handler, true);
-      window.removeEventListener('transitionend', handler, true);
-    }, 6000);
   }
   renderCommentMarkers(ctx, root);
   scheduleCommentMarkerLayout(ctx, root);
