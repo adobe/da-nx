@@ -62,8 +62,7 @@ function onMessage(e, ctx) {
     setEditorState(cursorOffset, editorState, ctx);
   } else if (type === MESSAGE_TYPES.SET_CURSORS) {
     setCursors(payload.cursors, ctx);
-  } else if (type === MESSAGE_TYPES.UPDATE_IMAGE_SRC
-    || type === MESSAGE_TYPES.IMAGE_ERROR) {
+  } else if (type === MESSAGE_TYPES.IMAGE_REPLACE) {
     if (payload.error) {
       handleImageError(payload.error);
     } else {

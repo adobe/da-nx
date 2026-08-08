@@ -72,6 +72,7 @@ export const DA_FEEDBACK = getEnv('da-feedback', DA_FEEDBACK_ENVS);
 
 export const HLX_ADMIN = 'https://admin.hlx.page';
 export const AEM_API = 'https://api.aem.live';
+export const DA_TRANSLATE = 'https://translate.da.live';
 
 export const ALLOWED_TOKEN = [
   DA_ADMIN,
@@ -81,6 +82,7 @@ export const ALLOWED_TOKEN = [
   DA_ETC,
   AEM_API,
   HLX_ADMIN,
+  DA_TRANSLATE,
 ];
 
 const IMS_HASH_KEYS = ['access_token', 'old_hash', 'ld_hash'];
@@ -151,3 +153,37 @@ export const loadPageStyle = (href) => new Promise((resolve) => {
 
 export { loadStyle };
 export { default as loadScript } from '../../nx/utils/script.js';
+
+// Sheet-format JSON (as served by DA/AEM config stores) -> simple object,
+// keyed by sheet name(s), values are each sheet's `data` array.
+export function sheet2object(json) {
+  if (!json || typeof json !== 'object') return json;
+
+  if (json[':type'] === 'multi-sheet') {
+    return (json[':names'] || []).reduce((acc, name) => {
+      const sheet = json[name];
+      acc[sheet?.[':sheetname'] || name] = sheet?.data;
+      return acc;
+    }, {});
+  }
+
+  if (json[':type'] === 'sheet') return { [json[':sheetname']]: json.data };
+
+  return json;
+}
+
+// Simple object (as returned by `sheet2object`) -> sheet-format JSON.
+export function object2sheet(obj) {
+  const names = Object.keys(obj);
+  const toSheet = (data) => ({ total: data.length, limit: data.length, offset: 0, data });
+
+  if (names.length === 1) {
+    const [name] = names;
+    return { ...toSheet(obj[name]), ':sheetname': name, ':type': 'sheet' };
+  }
+
+  return names.reduce((acc, name) => {
+    acc[name] = toSheet(obj[name]);
+    return acc;
+  }, { ':type': 'multi-sheet', ':names': names });
+}
