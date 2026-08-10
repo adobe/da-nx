@@ -1,5 +1,7 @@
 import { expect } from '@esm-bundle/chai';
-import { getEWFlags, isEWEnabled, isEwChatDisabled } from '../../../nx2/utils/ewFlags.js';
+import {
+  getEWFlags, isEWEnabled, isEwChatDisabled, isCoworkerEnabled,
+} from '../../../nx2/utils/ewFlags.js';
 
 describe('getEWFlags', () => {
   let savedFetch;
@@ -96,5 +98,26 @@ describe('isEwChatDisabled', () => {
   it('returns false when ew.disableChat flag is not set at any level', async () => {
     window.fetch = async () => ({ ok: true, json: async () => ({ flags: { data: [] } }) });
     expect(await isEwChatDisabled({ org: 'dc-org3', site: 'dc-site3' })).to.be.false;
+  });
+});
+
+describe('isCoworkerEnabled', () => {
+  let savedFetch;
+  beforeEach(() => { savedFetch = window.fetch; });
+  afterEach(() => { window.fetch = savedFetch; });
+
+  it('returns true when ew.coworker flag value is "true"', async () => {
+    window.fetch = async (url) => ({
+      ok: true,
+      json: async () => (url.includes('/cw-site1/')
+        ? { flags: { data: [{ key: 'ew.coworker', value: 'true' }] } }
+        : {}),
+    });
+    expect(await isCoworkerEnabled({ org: 'cw-org1', site: 'cw-site1' })).to.be.true;
+  });
+
+  it('returns false when ew.coworker flag is not set at any level', async () => {
+    window.fetch = async () => ({ ok: true, json: async () => ({ flags: { data: [] } }) });
+    expect(await isCoworkerEnabled({ org: 'cw-org2', site: 'cw-site2' })).to.be.false;
   });
 });
