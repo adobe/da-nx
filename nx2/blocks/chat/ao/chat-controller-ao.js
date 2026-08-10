@@ -711,11 +711,39 @@ export default class ChatControllerAO {
     this._ws?.close();
   }
 
+  // Every interaction-response method below sends through this instead of a bare
+  // this._ws.send(...): AO's session for an episode goes idle almost immediately
+  // once a turn suspends, so the socket has commonly already silently reconnected
+  // by the time the user actually answers. Reconnect first if needed, same as
+  // sendMessage() already does for its own upload-delay case.
+  async _ensureReady() {
+    if (this._ws?.readyState === WebSocket.OPEN && this._ready) return true;
+    await this.connect();
+    return !!this._ready;
+  }
+
+  _reportUndeliverable() {
+    this._messages = [...this._messages, {
+      role: ROLE.ASSISTANT,
+      content: 'Error: could not deliver your response. Please try again.',
+    }];
+    this._update();
+  }
+
   // Mirrors chat-controller.js's approveToolCall: resolves the clicked card, bulk-approves
   // any other pending cards with the same tool name on "always approve", then answers all
-  // of those decisions in one PERMISSION_RESPONSE frame (AO resumes the turn as soon as any
-  // response arrives, so partial/staggered responses aren't supported).
-  approveToolCall = (toolCallId, approved, always = false) => {
+  // of those decisions in one permission-response DataPart (AO resumes the turn as soon as
+  // any response arrives, so partial/staggered responses aren't supported). Sent via the
+  // generic RESUME op rather than the dedicated PERMISSION_RESPONSE frame: RESUME is a
+  // valid *first* op on a fresh connection (the server dispatches on the DataPart's own
+  // "type"), while PERMISSION_RESPONSE is only ever valid as a *later* op — and per
+  // _ensureReady above, the connection here is commonly fresh. manifestId/debugMode are
+  // required on RESUME too, not just USER_INPUT: AO re-resolves the episode's manifest
+  // from each op's own fields (confirmed directly against aep-ai source) — omitting them
+  // silently rebuilds (or discards a live, cached session for) the worker under AO's
+  // default manifest instead of experience-workspace, dropping the da-content plugin's
+  // MCP servers entirely.
+  approveToolCall = async (toolCallId, approved, always = false) => {
     const card = this._toolCards?.get(toolCallId);
     if (!card) return;
 
@@ -739,16 +767,23 @@ export default class ChatControllerAO {
     this._toolCards = next;
     this._update();
 
-    this._ws?.send(JSON.stringify({
-      type: AO_FRAME.PERMISSION_RESPONSE,
+    if (!(await this._ensureReady())) {
+      this._reportUndeliverable();
+      return;
+    }
+    this._ws.send(JSON.stringify({
+      type: AO_FRAME.RESUME,
       turn_id: card.turnId,
-      decisions,
+      data: { type: 'permission-response', decisions },
+      manifestId: AO_MANIFEST_ID,
+      debugMode: true,
     }));
   };
 
   // answersByQuestionId: { [questionId]: string[] } — selected option labels plus any
-  // free-text answer, already merged by the question-card UI.
-  answerQuestion = (answersByQuestionId) => {
+  // free-text answer, already merged by the question-card UI. Sent via RESUME, same
+  // reasoning as approveToolCall above.
+  answerQuestion = async (answersByQuestionId) => {
     if (!this._pendingQuestion) return;
     const { turnId, questions } = this._pendingQuestion;
     const answers = questions.map((q) => ({
@@ -757,36 +792,54 @@ export default class ChatControllerAO {
     }));
     this._pendingQuestion = null;
     this._update();
-    this._ws?.send(JSON.stringify({
-      type: AO_FRAME.QUESTION_RESPONSE,
+
+    if (!(await this._ensureReady())) {
+      this._reportUndeliverable();
+      return;
+    }
+    this._ws.send(JSON.stringify({
+      type: AO_FRAME.RESUME,
       turn_id: turnId,
-      answers,
-      declined: false,
+      data: { type: 'question-response', answers, declined: false },
+      manifestId: AO_MANIFEST_ID,
+      debugMode: true,
     }));
   };
 
-  declineQuestion = () => {
+  declineQuestion = async () => {
     if (!this._pendingQuestion) return;
     const { turnId } = this._pendingQuestion;
     this._pendingQuestion = null;
     this._update();
-    this._ws?.send(JSON.stringify({
-      type: AO_FRAME.QUESTION_RESPONSE,
+
+    if (!(await this._ensureReady())) {
+      this._reportUndeliverable();
+      return;
+    }
+    this._ws.send(JSON.stringify({
+      type: AO_FRAME.RESUME,
       turn_id: turnId,
-      answers: [],
-      declined: true,
+      data: { type: 'question-response', answers: [], declined: true },
+      manifestId: AO_MANIFEST_ID,
+      debugMode: true,
     }));
   };
 
   // Plan approval has no dedicated WS frame type of its own — the server dispatches
   // by DataPart "type" inside the generic RESUME op, so this sends a "plan-response"
-  // part wrapped in a RESUME frame instead.
-  respondToPlanApproval = (decision, feedback = '') => {
+  // part wrapped in a RESUME frame instead. See approveToolCall above: RESUME
+  // re-resolves the manifest per-op, so manifestId/debugMode must be repeated here too.
+  respondToPlanApproval = async (decision, feedback = '') => {
     if (!this._pendingPlanApproval) return;
     const { turnId } = this._pendingPlanApproval;
     this._pendingPlanApproval = null;
     this._update();
-    this._ws?.send(JSON.stringify({
+
+    if (!(await this._ensureReady())) {
+      this._reportUndeliverable();
+      return;
+    }
+    this._ws.send(JSON.stringify({
       type: AO_FRAME.RESUME,
       turn_id: turnId,
       data: {
@@ -795,6 +848,8 @@ export default class ChatControllerAO {
         feedback,
         edited_plan_content: null,
       },
+      manifestId: AO_MANIFEST_ID,
+      debugMode: true,
     }));
   };
 
