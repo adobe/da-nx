@@ -366,9 +366,7 @@ export default class ChatControllerAO {
       // response channel is that popup — re-enabling the plain chat input here would let
       // the user answer in two conflicting ways at once. Only fall back to _done() if
       // nothing is actually pending.
-      const hasPendingApproval = [...(this._toolCards?.values() ?? [])]
-        .some((c) => c.state === AO_TOOL_STATE.APPROVAL_REQUESTED);
-      if (!this._pendingQuestion && !hasPendingApproval && !this._pendingPlanApproval) {
+      if (!this._hasPendingInteraction()) {
         this._done();
       }
       return;
@@ -379,9 +377,22 @@ export default class ChatControllerAO {
     // different frames with the message in different places.
     if (evt.type === AO_EVENT.ERROR_CONNECTION || evt.type === AO_EVENT.ERROR_SESSION) {
       const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
-      this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${message}` }];
+      // _done() first, so any partial streamed response it flushes lands in
+      // history before this error message, not after it.
       this._done();
+      this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${message}` }];
+      this._update();
     }
+  }
+
+  // True only while a turn is genuinely suspended waiting for a permission/question/
+  // plan reply. Used by the "don't clobber/auto-resume over live state" checks — e.g.
+  // don't treat a turn as done, or silently reconcile onto a newer episode, or show a
+  // spurious connection error, while the user still has something pending to answer.
+  _hasPendingInteraction() {
+    const hasPendingApproval = [...(this._toolCards?.values() ?? [])]
+      .some((c) => c.state === AO_TOOL_STATE.APPROVAL_REQUESTED);
+    return !!(this._pendingQuestion || this._pendingPlanApproval || hasPendingApproval);
   }
 
   async _openSocket() {
@@ -457,9 +468,20 @@ export default class ChatControllerAO {
         const wasReady = this._ready;
         this._ready = false;
         this._connected = false;
-        if (this._thinking) {
-          this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: 'Error: connection closed' }];
+        // _thinking stays true across a pending question/approval/plan (see the
+        // turn_suspended handler) purely to keep the plain input disabled while a
+        // popup is the only valid response channel — it does NOT mean a turn is
+        // still actively in flight. AO tears down the episode's worker almost
+        // immediately after suspending a turn to ask something, so the socket
+        // closing right here is the normal, expected shape of "waiting on the
+        // user," not a dropped connection — don't show an error for it. The
+        // pending card stays up; answering it still works (it reconnects and
+        // sends via RESUME).
+        if (this._thinking && !this._hasPendingInteraction()) {
+          // _done() first, so any partial streamed response it flushes lands in
+          // history before this error message, not after it.
           this._done();
+          this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: 'Error: connection closed' }];
         }
         if (!wasReady) {
           rejectAuth(new Error(`WebSocket closed before auth resolved (code ${event.code})`));
@@ -621,10 +643,7 @@ export default class ChatControllerAO {
     }
 
     if (String(this._episodeId) === latestId) {
-      const hasPendingApproval = [...(this._toolCards?.values() ?? [])]
-        .some((c) => c.state === AO_TOOL_STATE.APPROVAL_REQUESTED);
-      if (this._thinking
-        || this._pendingQuestion || this._pendingPlanApproval || hasPendingApproval) {
+      if (this._thinking || this._hasPendingInteraction()) {
         return;
       }
       this._messages = await this._fetchEpisodeMessages(latestId);
@@ -671,6 +690,15 @@ export default class ChatControllerAO {
   };
 
   _done() {
+    // A turn can end (error, abort, or a dropped connection) before its text_done
+    // event ever arrives. Flush whatever streamed in so far into a real message
+    // first — otherwise clearing _streamingText below silently discards it, and
+    // the assistant's (partial) response just vanishes from history instead of
+    // showing whatever was actually received.
+    if (this._streaming) {
+      this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: this._streaming }];
+      this._streaming = '';
+    }
     this._thinking = false;
     this._streamingText = undefined;
     this._update();
