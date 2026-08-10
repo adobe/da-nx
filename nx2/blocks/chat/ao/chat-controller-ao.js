@@ -15,14 +15,25 @@ import { AO_EVENT, AO_FRAME, AO_TOOL_STATE } from './ao-constants.js';
 // and an AEP product-entitlement gate we don't have. Hence WebSocket here instead of fetch.
 // Templated with the episode (context) id so a reload can reconnect to the same episode
 // instead of always starting a fresh one — see _loadPersisted()/_openSocket().
+//
+// AO is deployed per-region (va7, aus5, can2, che2, gbr9, ind2, nld2, ...), each with
+// its own isolated data store — an org's episodes/turns live in exactly one region, not
+// behind a shared front door. Coworker never hardcodes this: its browser calls its own
+// same-origin API, and the server resolves the real AO host from deployment config. EW
+// has no server of its own to do the equivalent, so this is pinned to the region our
+// current tenants are actually provisioned in — not a durable per-org resolution. If EW
+// ever serves an org provisioned in a different region, this single constant is where
+// that needs to change (see the region write-up shared with the Coworker/AO team).
+const AO_REGION = 'va7';
+
 const AO_WS_BASE = {
-  prod: 'wss://agent-orchestrator-prod.adobe.io',
-  stage: 'wss://agent-orchestrator-stage.adobe.io',
+  prod: `wss://agent-orchestrator-prod-${AO_REGION}.adobe.io`,
+  stage: `wss://agent-orchestrator-stage-${AO_REGION}.adobe.io`,
 };
 
 const AO_HTTP_BASE = {
-  prod: 'https://agent-orchestrator-prod.adobe.io',
-  stage: 'https://agent-orchestrator-stage.adobe.io',
+  prod: `https://agent-orchestrator-prod-${AO_REGION}.adobe.io`,
+  stage: `https://agent-orchestrator-stage-${AO_REGION}.adobe.io`,
 };
 
 const AO_MANIFEST_ID = 'experience-workspace';
