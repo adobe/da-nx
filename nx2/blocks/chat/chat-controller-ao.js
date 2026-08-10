@@ -392,9 +392,7 @@ export default class ChatControllerAO {
       // the user answer in two conflicting ways at once, and a plain USER_INPUT sent
       // while suspended just becomes a stray "injection" the server drops. Only fall
       // back to _done() if nothing is actually pending.
-      const hasPendingApproval = [...(this._toolCards?.values() ?? [])]
-        .some((c) => c.state === TOOL_STATE.APPROVAL_REQUESTED);
-      if (!this._pendingQuestion && !hasPendingApproval && !this._pendingPlanApproval) {
+      if (!this._hasPendingInteraction()) {
         this._done();
       }
       return;
@@ -407,8 +405,11 @@ export default class ChatControllerAO {
     // true and the chat looks stuck even though the server has already given up.
     if (evt.type === 'ERROR' || evt.type === 'error') {
       const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
-      this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${message}` }];
+      // _done() first, so any partial streamed response it flushes lands in
+      // history before this error message, not after it.
       this._done();
+      this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${message}` }];
+      this._update();
     }
   }
 
@@ -485,9 +486,20 @@ export default class ChatControllerAO {
         const wasReady = this._ready;
         this._ready = false;
         this._connected = false;
-        if (this._thinking) {
-          this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: 'Error: connection closed' }];
+        // _thinking stays true across a pending question/approval/plan (see the
+        // turn_suspended handler) purely to keep the plain input disabled while a
+        // popup is the only valid response channel — it does NOT mean a turn is
+        // still actively in flight. AO tears down the episode's worker almost
+        // immediately after suspending a turn to ask something, so the socket
+        // closing right here is the normal, expected shape of "waiting on the
+        // user," not a dropped connection — don't show an error for it. The
+        // pending card stays up; answering it still works (it reconnects and
+        // sends via RESUME).
+        if (this._thinking && !this._hasPendingInteraction()) {
+          // _done() first, so any partial streamed response it flushes lands in
+          // history before this error message, not after it.
           this._done();
+          this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: 'Error: connection closed' }];
         }
         if (!wasReady) {
           rejectAuth(new Error(`WebSocket closed before auth resolved (code ${event.code})`));
@@ -656,10 +668,7 @@ export default class ChatControllerAO {
     }
 
     if (String(this._episodeId) === latestId) {
-      const hasPendingApproval = [...(this._toolCards?.values() ?? [])]
-        .some((c) => c.state === TOOL_STATE.APPROVAL_REQUESTED);
-      if (this._thinking
-        || this._pendingQuestion || this._pendingPlanApproval || hasPendingApproval) {
+      if (this._thinking || this._hasPendingInteraction()) {
         return;
       }
       this._messages = await this._fetchEpisodeMessages(latestId);
@@ -705,7 +714,26 @@ export default class ChatControllerAO {
     this._update();
   };
 
+  // True only while a turn is genuinely suspended waiting for a permission/question/
+  // plan reply. Used by the "don't clobber/auto-resume over live state" checks —
+  // e.g. don't treat a turn as done, or silently reconcile onto a newer episode,
+  // while the user still has something pending to answer.
+  _hasPendingInteraction() {
+    const hasPendingApproval = [...(this._toolCards?.values() ?? [])]
+      .some((c) => c.state === TOOL_STATE.APPROVAL_REQUESTED);
+    return !!(this._pendingQuestion || this._pendingPlanApproval || hasPendingApproval);
+  }
+
   _done() {
+    // A turn can end (error, abort, or a dropped connection) before its text_done
+    // event ever arrives. Flush whatever streamed in so far into a real message
+    // first — otherwise clearing _streamingText below silently discards it, and
+    // the assistant's (partial) response just vanishes from history instead of
+    // showing whatever was actually received.
+    if (this._streaming) {
+      this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: this._streaming }];
+      this._streaming = '';
+    }
     this._thinking = false;
     this._streamingText = undefined;
     this._update();
@@ -746,12 +774,36 @@ export default class ChatControllerAO {
     this._ws?.close();
   }
 
+  // Every interaction-response method below sends through this instead of a bare
+  // this._ws.send(...): AO's session for an episode goes idle almost immediately
+  // once a turn suspends (confirmed directly — ATTACH fails with "not active"
+  // within moments of turn_suspended/session_ended), so the socket has commonly
+  // already silently reconnected by the time the user actually answers. Reconnect
+  // first if needed, same as sendMessage() already does for its own upload-delay case.
+  async _ensureReady() {
+    if (this._ws?.readyState === WebSocket.OPEN && this._ready) return true;
+    await this.connect();
+    return !!this._ready;
+  }
+
+  _reportUndeliverable() {
+    this._messages = [...this._messages, {
+      role: ROLE.ASSISTANT,
+      content: 'Error: could not deliver your response. Please try again.',
+    }];
+    this._update();
+  }
+
   // Mirrors chat-controller.js's approveToolCall: resolves the clicked card, bulk-approves
   // any other pending cards with the same tool name on "always approve", then answers all
-  // of those decisions in one PERMISSION_RESPONSE frame (AO resumes the turn as soon as any
-  // response arrives, so partial/staggered responses aren't supported — see
-  // handle_permission_response in aep-ai).
-  approveToolCall = (toolCallId, approved, always = false) => {
+  // of those decisions in one permission-response DataPart (AO resumes the turn as soon as
+  // any response arrives, so partial/staggered responses aren't supported — see
+  // handle_permission_response in aep-ai). Sent via the generic RESUME op rather than the
+  // dedicated PERMISSION_RESPONSE frame: RESUME is a valid *first* op on a fresh
+  // connection (build_resume_op dispatches on the DataPart's own "type"), while
+  // PERMISSION_RESPONSE is only ever valid as a *later* op — and per _ensureReady above,
+  // the connection here is commonly fresh.
+  approveToolCall = async (toolCallId, approved, always = false) => {
     const card = this._toolCards?.get(toolCallId);
     if (!card) return;
 
@@ -773,16 +825,30 @@ export default class ChatControllerAO {
     this._toolCards = next;
     this._update();
 
-    this._ws?.send(JSON.stringify({
-      type: 'PERMISSION_RESPONSE',
+    if (!(await this._ensureReady())) {
+      this._reportUndeliverable();
+      return;
+    }
+    this._ws.send(JSON.stringify({
+      type: 'RESUME',
       turn_id: card.turnId,
-      decisions,
+      data: { type: 'permission-response', decisions },
+      // Confirmed directly: RESUME re-resolves the episode's manifest from THIS op's
+      // own manifestId/debugMode (aep-ai's ws_handler.py runs derive_manifest_selection
+      // unconditionally for every op_type, RESUME included) — there is no "reuse the
+      // episode's originally-pinned manifest" fallback. Omitting these silently rebuilds
+      // (or discards a live, cached session for — see local.py's manifest-mismatch check)
+      // the worker under AO's default manifest instead of experience-workspace, dropping
+      // the da-content plugin's MCP servers entirely. Must match USER_INPUT exactly.
+      manifestId: AO_MANIFEST_ID,
+      debugMode: true,
     }));
   };
 
   // answersByQuestionId: { [questionId]: string[] } — selected option labels plus any
-  // free-text answer, already merged by the question-card UI.
-  answerQuestion = (answersByQuestionId) => {
+  // free-text answer, already merged by the question-card UI. Sent via RESUME, same
+  // reasoning as approveToolCall above.
+  answerQuestion = async (answersByQuestionId) => {
     if (!this._pendingQuestion) return;
     const { turnId, questions } = this._pendingQuestion;
     const answers = questions.map((q) => ({
@@ -791,24 +857,39 @@ export default class ChatControllerAO {
     }));
     this._pendingQuestion = null;
     this._update();
-    this._ws?.send(JSON.stringify({
-      type: 'QUESTION_RESPONSE',
+
+    if (!(await this._ensureReady())) {
+      this._reportUndeliverable();
+      return;
+    }
+    this._ws.send(JSON.stringify({
+      type: 'RESUME',
       turn_id: turnId,
-      answers,
-      declined: false,
+      data: { type: 'question-response', answers, declined: false },
+      // See approveToolCall above: RESUME re-resolves the manifest per-op, so this
+      // must be repeated on every RESUME frame, not just USER_INPUT.
+      manifestId: AO_MANIFEST_ID,
+      debugMode: true,
     }));
   };
 
-  declineQuestion = () => {
+  declineQuestion = async () => {
     if (!this._pendingQuestion) return;
     const { turnId } = this._pendingQuestion;
     this._pendingQuestion = null;
     this._update();
-    this._ws?.send(JSON.stringify({
-      type: 'QUESTION_RESPONSE',
+
+    if (!(await this._ensureReady())) {
+      this._reportUndeliverable();
+      return;
+    }
+    this._ws.send(JSON.stringify({
+      type: 'RESUME',
       turn_id: turnId,
-      answers: [],
-      declined: true,
+      data: { type: 'question-response', answers: [], declined: true },
+      // See approveToolCall above: RESUME re-resolves the manifest per-op.
+      manifestId: AO_MANIFEST_ID,
+      debugMode: true,
     }));
   };
 
@@ -816,12 +897,17 @@ export default class ChatControllerAO {
   // PERMISSION_RESPONSE/QUESTION_RESPONSE) — the server dispatches by DataPart
   // "type" inside the generic RESUME op (build_resume_op in aep-ai), so this sends
   // a "plan-response" part wrapped in a RESUME frame instead.
-  respondToPlanApproval = (decision, feedback = '') => {
+  respondToPlanApproval = async (decision, feedback = '') => {
     if (!this._pendingPlanApproval) return;
     const { turnId } = this._pendingPlanApproval;
     this._pendingPlanApproval = null;
     this._update();
-    this._ws?.send(JSON.stringify({
+
+    if (!(await this._ensureReady())) {
+      this._reportUndeliverable();
+      return;
+    }
+    this._ws.send(JSON.stringify({
       type: 'RESUME',
       turn_id: turnId,
       data: {
@@ -830,6 +916,9 @@ export default class ChatControllerAO {
         feedback,
         edited_plan_content: null,
       },
+      // See approveToolCall above: RESUME re-resolves the manifest per-op.
+      manifestId: AO_MANIFEST_ID,
+      debugMode: true,
     }));
   };
 
