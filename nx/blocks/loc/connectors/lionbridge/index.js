@@ -2,6 +2,7 @@ import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import authReady, { getAccessToken } from './auth.js';
 import { getOrCreateConnectorGuid } from './connectorGuid.js';
+import fetchWithRetry from '../../utils/fetchWithRetry.js';
 
 export const dnt = { addDnt };
 
@@ -13,10 +14,14 @@ const MAX_NAME_BYTES = 250;
 
 // Lionbridge rate-limits at 10 (staging) / 20 (prod) requests/sec/IP. Their
 // dev guidelines require retrying 429/503 with exponential backoff, honoring
-// Retry-After when present.
-const MAX_RETRIES = 3;
-const BASE_RETRY_DELAY_MS = 500;
-const MAX_RETRY_DELAY_MS = 8000;
+// Retry-After when present. Only 429/503 (not all 5xx) are retried here, and
+// with a tighter ceiling than fetchWithRetry's defaults, to match Lionbridge's
+// specific guidance rather than the shared default tuning.
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  maxDelayMs: 8000,
+  isRetryable: (status) => status === 429 || status === 503,
+};
 
 // Request statuses that mean translated content is ready to retrieve.
 const READY_STATUSES = ['REVIEW_TRANSLATION', 'TRANSLATION_APPROVED', 'COMPLETED_NO_NEED_TO_TRANSLATE'];
@@ -48,38 +53,6 @@ export function connect(service) {
 // `cancelTranslation` export, so this is a deliberate omission, not a gap.
 
 // --- Helpers ---
-
-/**
- * Resolves after the given delay.
- * @param {number} ms - Milliseconds to wait.
- * @returns {Promise<void>}
- */
-function wait(ms) {
-  return new Promise((resolve) => { setTimeout(resolve, ms); });
-}
-
-/**
- * Fetches, retrying on 429/503 with exponential backoff (honoring
- * Retry-After when present) up to MAX_RETRIES times.
- * @param {string|URL} url - The request URL.
- * @param {Object} opts - Fetch options.
- * @param {number} [attempt] - Current retry attempt, for internal recursion.
- * @returns {Promise<Response>} The final response (ok or not).
- */
-async function fetchWithRetry(url, opts, attempt = 0) {
-  const resp = await fetch(url, opts);
-  if ((resp.status !== 429 && resp.status !== 503) || attempt >= MAX_RETRIES) {
-    return resp;
-  }
-
-  const retryAfterSecs = Number(resp.headers.get('retry-after'));
-  const delayMs = Number.isFinite(retryAfterSecs) && retryAfterSecs > 0
-    ? retryAfterSecs * 1000
-    : Math.min(BASE_RETRY_DELAY_MS * (2 ** attempt), MAX_RETRY_DELAY_MS);
-
-  await wait(delayMs);
-  return fetchWithRetry(url, opts, attempt + 1);
-}
 
 /**
  * Builds fetch options for a Lionbridge API call, including a fresh bearer
@@ -168,7 +141,7 @@ async function createJob(service, title, options) {
   };
 
   const opts = await getOpts(service, 'POST', body);
-  const resp = await fetchWithRetry(`${apiEndpoint}/jobs`, opts);
+  const resp = await fetchWithRetry(`${apiEndpoint}/jobs`, opts, RETRY_CONFIG);
   if (!resp.ok) return null;
 
   const json = await resp.json();
@@ -187,7 +160,7 @@ async function initSourceFile(service, jobId, name) {
   const { apiEndpoint } = service;
   const opts = await getOpts(service, 'POST');
   const url = `${apiEndpoint}/jobs/${jobId}/sourcefiles?fileName=${encodeURIComponent(name)}`;
-  const resp = await fetchWithRetry(url, opts);
+  const resp = await fetchWithRetry(url, opts, RETRY_CONFIG);
   if (!resp.ok) return null;
   return resp.json();
 }
@@ -206,7 +179,7 @@ async function uploadSourceFile(fmsPostMultipartUrl, content, name) {
   formData.append('file', file, name);
 
   // The upload URL is a pre-signed SAS URL — no bearer token needed or wanted.
-  const resp = await fetchWithRetry(fmsPostMultipartUrl, { method: 'POST', body: formData });
+  const resp = await fetchWithRetry(fmsPostMultipartUrl, { method: 'POST', body: formData }, RETRY_CONFIG);
   return resp.ok;
 }
 
@@ -237,7 +210,7 @@ async function addRequest({
   };
 
   const opts = await getOpts(service, 'POST', body);
-  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/requests/add`, opts);
+  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/requests/add`, opts, RETRY_CONFIG);
   if (!resp.ok) return [];
 
   const { _embedded: embedded } = await resp.json();
@@ -254,7 +227,7 @@ async function addRequest({
 async function submitJob(service, jobId) {
   const { apiEndpoint, providerId } = service;
   const opts = await getOpts(service, 'PUT', { providerId });
-  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/submit`, opts);
+  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/submit`, opts, RETRY_CONFIG);
   return resp.ok;
 }
 
@@ -269,7 +242,7 @@ async function submitJob(service, jobId) {
 async function approveRequest(service, jobId, requestId) {
   const { apiEndpoint } = service;
   const opts = await getOpts(service, 'PUT', { requestIds: [requestId] });
-  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/requests/approve`, opts);
+  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/requests/approve`, opts, RETRY_CONFIG);
   return resp.ok;
 }
 
@@ -413,7 +386,7 @@ async function fetchAllRequests(service, jobId) {
     if (next) url.searchParams.set('next', next);
 
     // eslint-disable-next-line no-await-in-loop
-    const resp = await fetchWithRetry(url, opts);
+    const resp = await fetchWithRetry(url, opts, RETRY_CONFIG);
     if (!resp.ok) break;
 
     // eslint-disable-next-line no-await-in-loop
@@ -493,7 +466,7 @@ export async function saveItems({
       // retrievefile returns the raw file, not JSON. application/octet-stream
       // is Lionbridge's documented Accept for file retrieval (avoids base64).
       const dlOpts = await getOpts(service, 'GET', null, 'application/octet-stream');
-      const dlResp = await fetchWithRetry(dlUrl, dlOpts);
+      const dlResp = await fetchWithRetry(dlUrl, dlOpts, RETRY_CONFIG);
       if (!dlResp.ok) throw new Error(dlResp.status);
 
       const text = await dlResp.text();
