@@ -128,19 +128,27 @@ describe('ChatBackend AO-only actions wrapping AO', () => {
     expect(backend.getSkills()).to.deep.equal(['writeBlog', 'summarize']);
   });
 
-  it('answerQuestion delegates through to a real QUESTION_RESPONSE frame', () => {
+  it('answerQuestion delegates through to a real RESUME/question-response frame', async () => {
     const { backend } = makeBackend(true);
     backend._controller._pendingQuestion = { turnId: 't1', questions: [{ id: 'q1' }] };
     const sent = [];
-    backend._controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
+    backend._controller._ws = {
+      readyState: WebSocket.OPEN, send: (msg) => sent.push(JSON.parse(msg)),
+    };
+    backend._controller._ready = true;
 
-    backend.answerQuestion({ q1: ['Yes'] });
+    await backend.answerQuestion({ q1: ['Yes'] });
 
     expect(sent[0]).to.deep.equal({
-      type: 'QUESTION_RESPONSE',
+      type: 'RESUME',
       turn_id: 't1',
-      answers: [{ question_id: 'q1', selected_options: ['Yes'] }],
-      declined: false,
+      data: {
+        type: 'question-response',
+        answers: [{ question_id: 'q1', selected_options: ['Yes'] }],
+        declined: false,
+      },
+      manifestId: 'experience-workspace',
+      debugMode: true,
     });
   });
 });

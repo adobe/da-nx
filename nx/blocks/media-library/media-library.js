@@ -1170,7 +1170,8 @@ class NxMediaLibrary extends LitElement {
     if (!media) return;
 
     try {
-      const result = await copyMediaToClipboard(media);
+      const usePreviewDaLive = this.siteAuthInfo?.requiresAuth || false;
+      const result = await copyMediaToClipboard(media, this.org, this.repo, usePreviewDaLive);
       if (result.silent) return;
       const isError = result.heading === 'Error';
       showNotification(result.heading, result.message, isError ? 'danger' : 'success');
