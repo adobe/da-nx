@@ -5,7 +5,7 @@ import { getOrCreateConnectorGuid } from './connectorGuid.js';
 
 export const dnt = { addDnt };
 
-const CONNECTOR_NAME = 'DA Live Localization';
+const CONNECTOR_NAME = 'DA Live Localization for Lionbridge';
 const CONNECTOR_VERSION = '1.0.0';
 
 // jobName / requestName are capped at 250 bytes by Lionbridge's dev guidelines.
@@ -23,10 +23,20 @@ const READY_STATUSES = ['REVIEW_TRANSLATION', 'TRANSLATION_APPROVED', 'COMPLETED
 const ERROR_STATUSES = ['TRANSLATION_REJECTED'];
 const CANCELED_STATUSES = ['CANCELLED'];
 
+/**
+ * Determines if the user is currently authenticated to Lionbridge.
+ * @param {Object} service - The service configuration.
+ * @returns {Promise<boolean>} Whether a valid access token was obtained.
+ */
 export function isConnected(service) {
   return authReady(service);
 }
 
+/**
+ * Connects to Lionbridge by obtaining an access token.
+ * @param {Object} service - The service configuration.
+ * @returns {Promise<boolean>} Whether the connection succeeded.
+ */
 export function connect(service) {
   return authReady(service);
 }
@@ -39,10 +49,23 @@ export function connect(service) {
 
 // --- Helpers ---
 
+/**
+ * Resolves after the given delay.
+ * @param {number} ms - Milliseconds to wait.
+ * @returns {Promise<void>}
+ */
 function wait(ms) {
   return new Promise((resolve) => { setTimeout(resolve, ms); });
 }
 
+/**
+ * Fetches, retrying on 429/503 with exponential backoff (honoring
+ * Retry-After when present) up to MAX_RETRIES times.
+ * @param {string|URL} url - The request URL.
+ * @param {Object} opts - Fetch options.
+ * @param {number} [attempt] - Current retry attempt, for internal recursion.
+ * @returns {Promise<Response>} The final response (ok or not).
+ */
 async function fetchWithRetry(url, opts, attempt = 0) {
   const resp = await fetch(url, opts);
   if ((resp.status !== 429 && resp.status !== 503) || attempt >= MAX_RETRIES) {
@@ -58,6 +81,15 @@ async function fetchWithRetry(url, opts, attempt = 0) {
   return fetchWithRetry(url, opts, attempt + 1);
 }
 
+/**
+ * Builds fetch options for a Lionbridge API call, including a fresh bearer
+ * token.
+ * @param {Object} service - The service configuration.
+ * @param {string} [method] - HTTP method.
+ * @param {Object|null} [body] - JSON-serializable request body, if any.
+ * @param {string} [accept] - Accept header value.
+ * @returns {Promise<Object>} Fetch options.
+ */
 async function getOpts(service, method = 'GET', body = null, accept = 'application/json') {
   const token = await getAccessToken(service);
   if (!token) throw new Error('Lionbridge authentication failed');
@@ -76,6 +108,11 @@ async function getOpts(service, method = 'GET', body = null, accept = 'applicati
   return opts;
 }
 
+/**
+ * Ensures a path has an extension Lionbridge will treat as a file.
+ * @param {string} path - A DA base path, with or without an extension.
+ * @returns {string} The path, with `.html` appended if it had no extension.
+ */
 function ensureExtension(path) {
   if (path.endsWith('.html')) return path;
 
@@ -84,6 +121,11 @@ function ensureExtension(path) {
   return `${path}.html`;
 }
 
+/**
+ * Derives a flat file name for Lionbridge from a DA base path.
+ * @param {string} daBasePath - The source item's DA base path.
+ * @returns {string} A dash-joined file name, e.g. `/foo/bar` -> `bar.html`.
+ */
 function fileName(daBasePath) {
   const [, ...parts] = ensureExtension(daBasePath).split('/');
   return parts.join('-') || 'index.html';
@@ -105,6 +147,13 @@ function truncateBytes(str, maxBytes) {
 
 // --- Job / request operations ---
 
+/**
+ * Creates a new Lionbridge job for a translation project.
+ * @param {Object} service - The service configuration.
+ * @param {string} title - The project title.
+ * @param {Object} options - Project options; `project.due` sets a due date.
+ * @returns {Promise<string|null>} The new job's id, or null on failure.
+ */
 async function createJob(service, title, options) {
   const { apiEndpoint } = service;
   const dueDate = options['project.due'];
@@ -126,6 +175,14 @@ async function createJob(service, title, options) {
   return json.jobId;
 }
 
+/**
+ * Registers a source file with Lionbridge and gets back an upload URL.
+ * @param {Object} service - The service configuration.
+ * @param {string} jobId - The job to attach the source file to.
+ * @param {string} name - The file name.
+ * @returns {Promise<Object|null>} `{ fmsPostMultipartUrl, fmsFileId }`, or
+ *  null on failure.
+ */
 async function initSourceFile(service, jobId, name) {
   const { apiEndpoint } = service;
   const opts = await getOpts(service, 'POST');
@@ -135,6 +192,14 @@ async function initSourceFile(service, jobId, name) {
   return resp.json();
 }
 
+/**
+ * Uploads source content to Lionbridge's pre-signed SAS URL.
+ * @param {string} fmsPostMultipartUrl - The pre-signed upload URL from
+ *  `initSourceFile`.
+ * @param {string} content - The source file content.
+ * @param {string} name - The file name.
+ * @returns {Promise<boolean>} Whether the upload succeeded.
+ */
 async function uploadSourceFile(fmsPostMultipartUrl, content, name) {
   const formData = new FormData();
   const file = new Blob([content], { type: 'text/html' });
@@ -145,6 +210,18 @@ async function uploadSourceFile(fmsPostMultipartUrl, content, name) {
   return resp.ok;
 }
 
+/**
+ * Adds a translation request for an uploaded source file to a job.
+ * @param {Object} params
+ * @param {Object} params.service - The service configuration.
+ * @param {string} params.jobId - The target job.
+ * @param {string} params.sourceLanguage - The source language code.
+ * @param {string[]} params.targetCodes - Target language codes.
+ * @param {Object} params.url - The DA url entry the request is for.
+ * @param {string} params.fmsFileId - The uploaded source file's id.
+ * @returns {Promise<Object[]>} The created requests (one per target
+ *  language), or an empty array on failure.
+ */
 async function addRequest({
   service, jobId, sourceLanguage, targetCodes, url, fmsFileId,
 }) {
@@ -167,6 +244,13 @@ async function addRequest({
   return embedded?.requests || [];
 }
 
+/**
+ * Submits a job for translation. providerId must be sent here — Lionbridge
+ * silently ignores it on job creation but requires it here.
+ * @param {Object} service - The service configuration.
+ * @param {string} jobId - The job to submit.
+ * @returns {Promise<boolean>} Whether the submit succeeded.
+ */
 async function submitJob(service, jobId) {
   const { apiEndpoint, providerId } = service;
   const opts = await getOpts(service, 'PUT', { providerId });
@@ -174,6 +258,14 @@ async function submitJob(service, jobId) {
   return resp.ok;
 }
 
+/**
+ * Approves a translated request, moving it from REVIEW_TRANSLATION to
+ * TRANSLATION_APPROVED in Lionbridge's review workflow.
+ * @param {Object} service - The service configuration.
+ * @param {string} jobId - The job the request belongs to.
+ * @param {string} requestId - The request to approve.
+ * @returns {Promise<boolean>} Whether the approval succeeded.
+ */
 async function approveRequest(service, jobId, requestId) {
   const { apiEndpoint } = service;
   const opts = await getOpts(service, 'PUT', { requestIds: [requestId] });
@@ -181,6 +273,17 @@ async function approveRequest(service, jobId, requestId) {
   return resp.ok;
 }
 
+/**
+ * Uploads a single DA url to Lionbridge: registers the source file, uploads
+ * its content, and adds a translation request for it.
+ * @param {Object} service - The service configuration.
+ * @param {string} jobId - The target job.
+ * @param {string} sourceLanguage - The source language code.
+ * @param {string[]} targetCodes - Target language codes.
+ * @param {Object} url - The DA url entry to upload; mutated with
+ *  `requestIds` on success.
+ * @returns {Promise<boolean>} Whether the upload succeeded.
+ */
 async function uploadUrl(service, jobId, sourceLanguage, targetCodes, url) {
   const name = fileName(url.daBasePath);
 
@@ -205,6 +308,20 @@ async function uploadUrl(service, jobId, sourceLanguage, targetCodes, url) {
 
 // --- Exports ---
 
+/**
+ * Sends a translation project's urls to Lionbridge for every target
+ * language: creates a job, uploads all urls, then submits the job.
+ * @param {Object} params
+ * @param {string} params.title - The project title.
+ * @param {Object} params.service - The service configuration.
+ * @param {Object} params.options - Project options (e.g. `project.due`,
+ *  `source.language`).
+ * @param {Object[]} params.langs - Target languages; mutated in place with
+ *  `translation` status.
+ * @param {Object[]} params.urls - The urls to translate.
+ * @param {Object} params.actions - `{ sendMessage, saveState }` callbacks.
+ * @returns {Promise<void>}
+ */
 export async function sendAllLanguages({
   title, service, options, langs, urls, actions,
 }) {
@@ -252,6 +369,16 @@ export async function sendAllLanguages({
   sendMessage();
 }
 
+/**
+ * Computes the aggregate translation status for one language from a job's
+ * requests.
+ * @param {Object[]} requests - All requests for the job (any language).
+ * @param {string} langCode - The language to compute status for.
+ * @param {number} fileCount - The total number of files expected for this
+ *  language.
+ * @returns {{status: string, translated: number}} `status` is one of
+ *  'error', 'canceled', 'translated', or 'in progress'.
+ */
 export function statusFor(requests, langCode, fileCount) {
   const langRequests = requests.filter((request) => request.targetNativeLanguageCode === langCode);
 
@@ -269,6 +396,12 @@ export function statusFor(requests, langCode, fileCount) {
   return { status: 'in progress', translated };
 }
 
+/**
+ * Fetches every request for a job, paginating via the `next` cursor.
+ * @param {Object} service - The service configuration.
+ * @param {string} jobId - The job to fetch requests for.
+ * @returns {Promise<Object[]>} All requests across all pages.
+ */
 async function fetchAllRequests(service, jobId) {
   const { apiEndpoint } = service;
   const requests = [];
@@ -292,6 +425,16 @@ async function fetchAllRequests(service, jobId) {
   return requests;
 }
 
+/**
+ * Refreshes translation status for every target language of a job.
+ * @param {Object} params
+ * @param {Object} params.service - The service configuration.
+ * @param {Object[]} params.langs - Target languages; mutated in place with
+ *  `translation.status`/`translation.translated`.
+ * @param {Object[]} params.urls - The urls in the project.
+ * @param {Object} params.actions - `{ sendMessage, saveState }` callbacks.
+ * @returns {Promise<void>}
+ */
 export async function getStatusAll({ service, langs, urls, actions }) {
   const { sendMessage, saveState } = actions;
 
@@ -315,6 +458,21 @@ export async function getStatusAll({ service, langs, urls, actions }) {
   await saveState();
 }
 
+/**
+ * Downloads and saves translated content for a completed language,
+ * approving each request in Lionbridge afterward.
+ * @param {Object} params
+ * @param {string} params.org - The DA org.
+ * @param {string} params.site - The DA site.
+ * @param {Object} params.service - The service configuration.
+ * @param {Object} params.lang - The language to save; reads
+ *  `lang.translation.jobId`.
+ * @param {Object[]} params.urls - The urls to download; mutated in place
+ *  with `sourceContent`/`status`.
+ * @param {Function} params.saveFn - Called with each url once its
+ *  translated content is ready to persist.
+ * @returns {Promise<Object[]>} The same `urls`, once all have a `status`.
+ */
 export async function saveItems({
   org, site, service, lang, urls, saveFn,
 }) {

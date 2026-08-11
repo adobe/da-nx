@@ -198,7 +198,7 @@ describe('lionbridge connector', () => {
       });
 
       const jobCall = calls.find((c) => c.url.endsWith('/jobs') && c.method === 'POST');
-      expect(JSON.parse(jobCall.body).connectorName).to.equal('guid-123 DA Live Localization');
+      expect(JSON.parse(jobCall.body).connectorName).to.equal('guid-123 DA Live Localization for Lionbridge');
     });
 
     it('truncates jobName and requestName to 250 bytes', async () => {

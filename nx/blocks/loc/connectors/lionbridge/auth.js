@@ -7,10 +7,25 @@ import { DA_ETC } from '../../../../../nx2/utils/utils.js';
 const LOGIN_ORIGIN = DA_ETC || 'https://da-etc.adobeaem.workers.dev';
 const TOKEN_BUFFER = 300000; // 5 min buffer before expiry
 
+/**
+ * Builds the localStorage key a token is cached under.
+ * @param {string} org - The DA org.
+ * @param {string} site - The DA site.
+ * @param {string} env - The Lionbridge environment (e.g. 'prod').
+ * @returns {string} The cache key.
+ */
 function tokenKey(org, site, env) {
   return `lionbridge.${org}.${site}.${env}.token`;
 }
 
+/**
+ * Reads a cached token, if any.
+ * @param {string} org - The DA org.
+ * @param {string} site - The DA site.
+ * @param {string} env - The Lionbridge environment (e.g. 'prod').
+ * @returns {{accessToken?: string, expires?: number}} The cached details,
+ *  or `{}` if none are stored.
+ */
 function getTokenDetails(org, site, env) {
   const stored = localStorage.getItem(tokenKey(org, site, env));
   if (!stored) return {};
@@ -21,6 +36,16 @@ function getTokenDetails(org, site, env) {
   }
 }
 
+/**
+ * Caches a token and its expiry.
+ * @param {string} org - The DA org.
+ * @param {string} site - The DA site.
+ * @param {string} env - The Lionbridge environment (e.g. 'prod').
+ * @param {string} accessToken - The token to cache.
+ * @param {number} expires - Epoch ms after which the token should be
+ *  treated as expired.
+ * @returns {void}
+ */
 function setTokenDetails(org, site, env, accessToken, expires) {
   localStorage.setItem(
     tokenKey(org, site, env),
@@ -28,6 +53,13 @@ function setTokenDetails(org, site, env, accessToken, expires) {
   );
 }
 
+/**
+ * Returns a valid Lionbridge access token, reusing a cached one if it
+ * hasn't expired, otherwise logging in via da-etc.
+ * @param {Object} service - The service configuration; reads `org`,
+ *  `site`, and `env` (defaults to 'prod').
+ * @returns {Promise<string|null>} The access token, or null on failure.
+ */
 export async function getAccessToken(service) {
   const { org, site, env = 'prod' } = service;
 
@@ -49,6 +81,11 @@ export async function getAccessToken(service) {
   return accessToken;
 }
 
+/**
+ * Determines if the service is authenticated to Lionbridge.
+ * @param {Object} service - The service configuration.
+ * @returns {Promise<boolean>} Whether a valid access token was obtained.
+ */
 export default async function authReady(service) {
   const accessToken = await getAccessToken(service);
   return !!accessToken;

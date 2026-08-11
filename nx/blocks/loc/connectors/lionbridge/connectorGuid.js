@@ -3,12 +3,26 @@ import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 
 const CONFIG_PATH = '.da/translate.json';
 
+/**
+ * Fetches a site's raw `.da/translate.json` config document.
+ * @param {string} org - The DA org.
+ * @param {string} site - The DA site.
+ * @returns {Promise<Object|null>} The parsed multi-sheet document, or null
+ *  on failure.
+ */
 async function fetchRawConfig(org, site) {
   const resp = await daFetch({ url: `${DA_ADMIN}/source/${org}/${site}/${CONFIG_PATH}` });
   if (!resp.ok) return null;
   return resp.json();
 }
 
+/**
+ * Writes a site's raw `.da/translate.json` config document back to DA.
+ * @param {string} org - The DA org.
+ * @param {string} site - The DA site.
+ * @param {Object} json - The full document to write.
+ * @returns {Promise<Response>} The raw fetch response.
+ */
 async function saveRawConfig(org, site, json) {
   const data = new Blob([JSON.stringify(json)], { type: 'application/json' });
   const body = new FormData();
