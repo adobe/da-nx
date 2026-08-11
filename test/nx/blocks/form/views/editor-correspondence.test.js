@@ -341,3 +341,22 @@ describe('nx-editor renders descriptions', () => {
     expect(desc.textContent).to.equal('Search settings.');
   });
 });
+
+describe('nx-editor marks required fields', () => {
+  it('adds the required asterisk to a required field label, not an optional one', async () => {
+    const schema = {
+      type: 'object',
+      title: 'T',
+      required: ['title'],
+      properties: {
+        title: { type: 'string', title: 'Title' },
+        subtitle: { type: 'string', title: 'Subtitle' },
+      },
+    };
+    const { el } = await mountEditor(schema, { metadata: { schemaName: 't' }, data: {} });
+    const req = controlAt(el, '/data/title').shadowRoot.querySelector('.form-required');
+    expect(req, 'asterisk on required field').to.exist;
+    expect(req.textContent).to.equal('*');
+    expect(controlAt(el, '/data/subtitle').shadowRoot.querySelector('.form-required')).to.equal(null);
+  });
+});
