@@ -209,6 +209,16 @@
   margin-left: 2px;
 }
 
+.editor-root .form-node-error {
+  /* Group-level validation message (required / minItems / maxItems on an
+     object or array). Mirrors the primitive field's .form-field-error, whose
+     distance from its control is the .form-field flex gap (--s2-spacing-75);
+     match that gap here so group and input errors share the same rhythm. */
+  margin: var(--s2-spacing-75) 0;
+  font-size: var(--s2-body-size-xs, 12px);
+  color: var(--s2-red-900);
+}
+
 .editor-root [data-pointer] {
   /* Clear the host's docked header (--nx-scroll-offset-top) when scrolling to a group. */
   scroll-margin-top: var(
