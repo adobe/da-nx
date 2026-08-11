@@ -57,103 +57,132 @@ describe('chat-controller-ao approveToolCall', () => {
     ]);
   }
 
-  it('sends a single-decision PERMISSION_RESPONSE frame', () => {
+  // A mock this open/ready lets _ensureReady() short-circuit without calling the
+  // real connect() (which would try to open an actual WebSocket).
+  function readyWs(sent) {
+    return { readyState: WebSocket.OPEN, send: (msg) => sent.push(JSON.parse(msg)) };
+  }
+
+  it('sends a single-decision RESUME/permission-response frame with the manifest pinned', async () => {
     const { controller } = makeController();
     seedPending(controller);
     const sent = [];
-    controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
+    controller._ws = readyWs(sent);
+    controller._ready = true;
 
-    controller.approveToolCall('a', true);
+    await controller.approveToolCall('a', true);
 
     expect(sent).to.have.length(1);
     expect(sent[0]).to.deep.equal({
-      type: 'PERMISSION_RESPONSE', turn_id: 'turn-1', decisions: { a: { approved: true } },
+      type: 'RESUME',
+      turn_id: 'turn-1',
+      data: { type: 'permission-response', decisions: { a: { approved: true } } },
+      manifestId: 'experience-workspace',
+      debugMode: true,
     });
     expect(controller._toolCards.get('a').state).to.equal('approved');
     expect(controller._toolCards.get('b').state).to.equal('approval-requested');
   });
 
-  it('bulk-approves other pending calls of the same tool on "always approve"', () => {
+  it('bulk-approves other pending calls of the same tool on "always approve"', async () => {
     const { controller } = makeController();
     seedPending(controller);
     const sent = [];
-    controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
+    controller._ws = readyWs(sent);
+    controller._ready = true;
 
-    controller.approveToolCall('a', true, true);
+    await controller.approveToolCall('a', true, true);
 
-    expect(sent[0].decisions).to.deep.equal({
+    expect(sent[0].data.decisions).to.deep.equal({
       a: { approved: true }, b: { approved: true },
     });
     expect(controller._toolCards.get('b').state).to.equal('approved');
   });
 
-  it('marks a rejection without bulk-affecting other pending calls', () => {
+  it('marks a rejection without bulk-affecting other pending calls', async () => {
     const { controller } = makeController();
     seedPending(controller);
-    controller._ws = { send: () => {} };
+    controller._ws = readyWs([]);
+    controller._ready = true;
 
-    controller.approveToolCall('a', false);
+    await controller.approveToolCall('a', false);
 
     expect(controller._toolCards.get('a').state).to.equal('rejected');
     expect(controller._toolCards.get('b').state).to.equal('approval-requested');
   });
 
-  it('is a no-op for an unknown toolCallId', () => {
+  it('is a no-op for an unknown toolCallId', async () => {
     const { controller } = makeController();
     seedPending(controller);
     let sendCalled = false;
     controller._ws = { send: () => { sendCalled = true; } };
 
-    controller.approveToolCall('missing', true);
+    await controller.approveToolCall('missing', true);
 
     expect(sendCalled).to.equal(false);
   });
 });
 
 describe('chat-controller-ao questions', () => {
-  it('answerQuestion sends merged options + free text per question, then clears', () => {
+  function readyWs(sent) {
+    return { readyState: WebSocket.OPEN, send: (msg) => sent.push(JSON.parse(msg)) };
+  }
+
+  it('answerQuestion sends merged options + free text per question, then clears', async () => {
     const { controller } = makeController();
     controller._pendingQuestion = { turnId: 't1', questions: [{ id: 'q1' }, { id: 'q2' }] };
     const sent = [];
-    controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
+    controller._ws = readyWs(sent);
+    controller._ready = true;
 
-    controller.answerQuestion({ q1: ['Yes'], q2: [] });
+    await controller.answerQuestion({ q1: ['Yes'], q2: [] });
 
     expect(sent[0]).to.deep.equal({
-      type: 'QUESTION_RESPONSE',
+      type: 'RESUME',
       turn_id: 't1',
-      answers: [
-        { question_id: 'q1', selected_options: ['Yes'] },
-        { question_id: 'q2', selected_options: [] },
-      ],
-      declined: false,
+      data: {
+        type: 'question-response',
+        answers: [
+          { question_id: 'q1', selected_options: ['Yes'] },
+          { question_id: 'q2', selected_options: [] },
+        ],
+        declined: false,
+      },
+      manifestId: 'experience-workspace',
+      debugMode: true,
     });
     expect(controller._pendingQuestion).to.equal(null);
   });
 
-  it('declineQuestion sends declined:true with no answers', () => {
+  it('declineQuestion sends declined:true with no answers', async () => {
     const { controller } = makeController();
     controller._pendingQuestion = { turnId: 't1', questions: [{ id: 'q1' }] };
     const sent = [];
-    controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
+    controller._ws = readyWs(sent);
+    controller._ready = true;
 
-    controller.declineQuestion();
+    await controller.declineQuestion();
 
     expect(sent[0]).to.deep.equal({
-      type: 'QUESTION_RESPONSE', turn_id: 't1', answers: [], declined: true,
+      type: 'RESUME',
+      turn_id: 't1',
+      data: { type: 'question-response', answers: [], declined: true },
+      manifestId: 'experience-workspace',
+      debugMode: true,
     });
     expect(controller._pendingQuestion).to.equal(null);
   });
 });
 
 describe('chat-controller-ao plan approval', () => {
-  it('respondToPlanApproval sends a RESUME frame with a plan-response part', () => {
+  it('respondToPlanApproval sends a RESUME frame with a plan-response part and the manifest pinned', async () => {
     const { controller } = makeController();
     controller._pendingPlanApproval = { turnId: 't1', planContent: '# Plan' };
     const sent = [];
-    controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
+    controller._ws = { readyState: WebSocket.OPEN, send: (msg) => sent.push(JSON.parse(msg)) };
+    controller._ready = true;
 
-    controller.respondToPlanApproval('reject', 'needs more detail');
+    await controller.respondToPlanApproval('reject', 'needs more detail');
 
     expect(sent[0]).to.deep.equal({
       type: 'RESUME',
@@ -161,6 +190,8 @@ describe('chat-controller-ao plan approval', () => {
       data: {
         type: 'plan-response', decision: 'reject', feedback: 'needs more detail', edited_plan_content: null,
       },
+      manifestId: 'experience-workspace',
+      debugMode: true,
     });
     expect(controller._pendingPlanApproval).to.equal(null);
   });
