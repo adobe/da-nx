@@ -6,8 +6,6 @@ import '../../../../../nx/blocks/form/views/editor.js';
 // (same one the form block ships); we feed its getState() into the component
 // and assert on the rendered shadow DOM — the repo's standard UI-test idiom.
 
-const DEBOUNCE_MS = 350; // mirrors editor.js text-input debounce
-const aTimeout = (ms) => new Promise((r) => { setTimeout(r, ms); });
 const tick = () => new Promise((r) => { requestAnimationFrame(r); });
 const settle = async (el) => {
   await el.updateComplete;
@@ -151,7 +149,31 @@ describe('nx-editor renders the model state', () => {
   });
 });
 
-export {
-  mountEditor, allAt, controlAt, groupAt, settle, aTimeout, DEBOUNCE_MS,
-  FEATURE_SCHEMA, featureDoc,
-};
+describe('nx-editor add-array-item action', () => {
+  const rows = (el, ptr) => groupAt(el, ptr).querySelectorAll(':scope > .form-array-item').length;
+
+  it('adds an item to the DOM and the document when the add button is clicked', async () => {
+    const { el, engine } = await mountEditor(FEATURE_SCHEMA, featureDoc());
+    const before = rows(el, '/data/authors');
+    const addBtn = groupAt(el, '/data/authors').querySelector('.add-item-btn');
+    expect(addBtn).to.exist;
+    addBtn.click();
+    await settle(el);
+    expect(rows(el, '/data/authors')).to.equal(before + 1);
+    expect(engine.getState().document.data.authors.length).to.equal(before + 1);
+  });
+
+  it('disables the add button when maxItems is reached', async () => {
+    const schema = {
+      type: 'object',
+      title: 'Capped',
+      properties: {
+        xs: { type: 'array', title: 'Xs', maxItems: 1, items: { type: 'string', title: 'X' } },
+      },
+    };
+    const doc = { metadata: { schemaName: 'capped' }, data: { xs: ['a'] } };
+    const { el } = await mountEditor(schema, doc);
+    const addBtn = groupAt(el, '/data/xs').querySelector('.add-item-btn');
+    expect(addBtn.disabled).to.equal(true);
+  });
+});
