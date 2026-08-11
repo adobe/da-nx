@@ -33,6 +33,8 @@ class FormTextarea extends LitElement {
   }
 
   render() {
+    // Spectrum: the error replaces the help text while the field is invalid.
+    const showHint = !this.error && this.description;
     return html`
       <div class="form-field${this.error ? ' has-error' : ''}">
         ${this.label ? html`<label for="form-textarea">${this.label}${this.required ? html`<span class="form-required">*</span>` : nothing}</label>` : nothing}
@@ -47,8 +49,8 @@ class FormTextarea extends LitElement {
           ></textarea>
           ${this.error ? icon('alert', 'form-field-icon') : nothing}
         </div>
-        ${this.description ? html`<p class="form-field-description">${this.description}</p>` : nothing}
         ${this.error ? html`<p class="form-field-error">${this.error}</p>` : nothing}
+        ${showHint ? html`<p class="form-field-description">${this.description}</p>` : nothing}
       </div>
     `;
   }

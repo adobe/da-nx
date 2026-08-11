@@ -53,6 +53,8 @@ class FormPicker extends LitElement {
   }
 
   render() {
+    // Spectrum: the error replaces the help text while the field is invalid.
+    const showHint = !this.error && this.description;
     return html`
       <slot hidden @slotchange=${this.handleSlotchange}></slot>
       <div class="form-field${this.error ? ' has-error' : ''}">
@@ -66,8 +68,8 @@ class FormPicker extends LitElement {
           ${this.error ? icon('alert', 'form-field-icon') : nothing}
           ${icon('chevronDown', 'form-picker-chevron')}
         </div>
-        ${this.description ? html`<p class="form-field-description">${this.description}</p>` : nothing}
         ${this.error ? html`<p class="form-field-error">${this.error}</p>` : nothing}
+        ${showHint ? html`<p class="form-field-description">${this.description}</p>` : nothing}
       </div>
     `;
   }

@@ -69,20 +69,26 @@ describe('form-input', () => {
     expect(el.shadowRoot.querySelector('.form-required')).to.equal(null);
   });
 
-  it('shows description and error together, both under the input', async () => {
+  it('shows the description under the input when valid', async () => {
+    const el = await mount('<form-input></form-input>');
+    el.description = 'Lowercase and hyphens.';
+    await el.updateComplete;
+    const desc = el.shadowRoot.querySelector('.form-field-description');
+    const wrap = el.shadowRoot.querySelector('.form-input-wrap');
+    expect(desc.textContent).to.equal('Lowercase and hyphens.');
+    // Spectrum: help text renders under the field.
+    const order = [...el.shadowRoot.querySelector('.form-field').children];
+    expect(order.indexOf(wrap)).to.be.lessThan(order.indexOf(desc));
+  });
+
+  it('replaces the description with the error when invalid (Spectrum)', async () => {
     const el = await mount('<form-input></form-input>');
     el.description = 'Lowercase and hyphens.';
     el.error = 'Invalid';
     await el.updateComplete;
-    const desc = el.shadowRoot.querySelector('.form-field-description');
-    const err = el.shadowRoot.querySelector('.form-field-error');
-    const wrap = el.shadowRoot.querySelector('.form-input-wrap');
-    expect(desc.textContent).to.equal('Lowercase and hyphens.');
-    expect(err.textContent).to.equal('Invalid');
-    // Layout: input, then description, then error (both under the field).
-    const order = [...el.shadowRoot.querySelector('.form-field').children];
-    expect(order.indexOf(wrap)).to.be.lessThan(order.indexOf(desc));
-    expect(order.indexOf(desc)).to.be.lessThan(order.indexOf(err));
+    expect(el.shadowRoot.querySelector('.form-field-error').textContent).to.equal('Invalid');
+    // Error replaces the help text — description is not shown while invalid.
+    expect(el.shadowRoot.querySelector('.form-field-description')).to.equal(null);
   });
 
   it('honors disabled', async () => {

@@ -391,6 +391,8 @@ class Editor extends LitElement {
   _renderObject(node, { itemLabel = '' } = {}) {
     const children = node.children ?? [];
     const error = this._error(node.pointer);
+    // Spectrum: the error replaces the group help text while it is invalid.
+    const showDesc = !error && node.description;
     const activate = (e) => this._onGroupActivate(node.pointer, e);
     return html`
       <fieldset
@@ -403,8 +405,8 @@ class Editor extends LitElement {
           ${itemLabel ? html`<span class="form-item-label">${itemLabel}</span>` : nothing}
           ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
         </legend>
-        ${node.description ? html`<p class="form-node-description">${node.description}</p>` : nothing}
         ${error ? html`<p class="form-node-error">${error}</p>` : nothing}
+        ${showDesc ? html`<p class="form-node-description">${node.description}</p>` : nothing}
         ${children.map((child) => this._renderNode(child))}
       </fieldset>
     `;
@@ -422,6 +424,8 @@ class Editor extends LitElement {
     const canAdd = !readonly && (maxItems === undefined || itemCount < maxItems);
     const addLabel = this._addLabel(node);
     const error = this._error(node.pointer);
+    // Spectrum: the error replaces the group help text while it is invalid.
+    const showDesc = !error && node.description;
 
     const activate = (e) => this._onGroupActivate(node.pointer, e);
     return html`
@@ -440,8 +444,8 @@ class Editor extends LitElement {
             ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
           </p>
         </div>
-        ${node.description ? html`<p class="form-node-description">${node.description}</p>` : nothing}
         ${error ? html`<p class="form-node-error">${error}</p>` : nothing}
+        ${showDesc ? html`<p class="form-node-description">${node.description}</p>` : nothing}
 
         ${displayItems.map((item, index) => {
       const structured = item.kind === 'object' || item.kind === 'array';
