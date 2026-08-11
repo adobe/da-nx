@@ -1,6 +1,10 @@
 import { daFetch } from '../../../../../nx2/utils/api.js';
+import { DA_ETC } from '../../../../../nx2/utils/utils.js';
 
-const LOGIN_ORIGIN = 'https://da-etc.adobeaem.workers.dev';
+// DA_ETC_ENVS has no 'stage' entry, so DA_ETC resolves to undefined in a
+// dev-classified host (e.g. localhost without a ?da-etc= override) — fall
+// back to the known-good production origin in that case.
+const LOGIN_ORIGIN = DA_ETC || 'https://da-etc.adobeaem.workers.dev';
 const TOKEN_BUFFER = 300000; // 5 min buffer before expiry
 
 function tokenKey(org, site, env) {

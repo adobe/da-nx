@@ -1,11 +1,22 @@
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import authReady, { getAccessToken } from './auth.js';
+import { getOrCreateConnectorGuid } from './connectorGuid.js';
 
 export const dnt = { addDnt };
 
 const CONNECTOR_NAME = 'DA Live Localization';
 const CONNECTOR_VERSION = '1.0.0';
+
+// jobName / requestName are capped at 250 bytes by Lionbridge's dev guidelines.
+const MAX_NAME_BYTES = 250;
+
+// Lionbridge rate-limits at 10 (staging) / 20 (prod) requests/sec/IP. Their
+// dev guidelines require retrying 429/503 with exponential backoff, honoring
+// Retry-After when present.
+const MAX_RETRIES = 3;
+const BASE_RETRY_DELAY_MS = 500;
+const MAX_RETRY_DELAY_MS = 8000;
 
 // Request statuses that mean translated content is ready to retrieve.
 const READY_STATUSES = ['REVIEW_TRANSLATION', 'TRANSLATION_APPROVED', 'COMPLETED_NO_NEED_TO_TRANSLATE'];
@@ -20,9 +31,34 @@ export function connect(service) {
   return authReady(service);
 }
 
+// No `cancelTranslation` export: Lionbridge's dev guidelines explicitly
+// prohibit connectors from letting users cancel or delete in-progress jobs
+// (developers.lionbridge.com/content/v2/docs/dev_guidelines.html). The
+// translate UI already hides its cancel action when a connector has no
+// `cancelTranslation` export, so this is a deliberate omission, not a gap.
+
 // --- Helpers ---
 
-async function getOpts(service, method = 'GET', body = null) {
+function wait(ms) {
+  return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
+async function fetchWithRetry(url, opts, attempt = 0) {
+  const resp = await fetch(url, opts);
+  if ((resp.status !== 429 && resp.status !== 503) || attempt >= MAX_RETRIES) {
+    return resp;
+  }
+
+  const retryAfterSecs = Number(resp.headers.get('retry-after'));
+  const delayMs = Number.isFinite(retryAfterSecs) && retryAfterSecs > 0
+    ? retryAfterSecs * 1000
+    : Math.min(BASE_RETRY_DELAY_MS * (2 ** attempt), MAX_RETRY_DELAY_MS);
+
+  await wait(delayMs);
+  return fetchWithRetry(url, opts, attempt + 1);
+}
+
+async function getOpts(service, method = 'GET', body = null, accept = 'application/json') {
   const token = await getAccessToken(service);
   if (!token) throw new Error('Lionbridge authentication failed');
 
@@ -31,6 +67,7 @@ async function getOpts(service, method = 'GET', body = null) {
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
+      Accept: accept,
     },
   };
 
@@ -52,23 +89,37 @@ function fileName(daBasePath) {
   return parts.join('-') || 'index.html';
 }
 
+// Truncates to a max UTF-8 byte length without splitting a multi-byte
+// codepoint (Lionbridge caps jobName/requestName at 250 bytes each).
+function truncateBytes(str, maxBytes) {
+  const bytes = new TextEncoder().encode(str);
+  if (bytes.length <= maxBytes) return str;
+
+  const decoder = new TextDecoder();
+  let end = maxBytes;
+  while (end > 0 && decoder.decode(bytes.slice(0, end)).endsWith('�')) {
+    end -= 1;
+  }
+  return decoder.decode(bytes.slice(0, end));
+}
+
 // --- Job / request operations ---
 
 async function createJob(service, title, options) {
-  const { apiEndpoint, providerId } = service;
+  const { apiEndpoint } = service;
   const dueDate = options['project.due'];
+  const guid = await getOrCreateConnectorGuid(service);
 
   const body = {
-    jobName: `${title} - ${Date.now()}`,
+    jobName: truncateBytes(`${title} - ${Date.now()}`, MAX_NAME_BYTES),
     description: `DA translation project: ${title}`,
-    providerId,
-    connectorName: CONNECTOR_NAME,
+    connectorName: guid ? `${guid} ${CONNECTOR_NAME}` : CONNECTOR_NAME,
     connectorVersion: CONNECTOR_VERSION,
     ...(dueDate ? { dueDate } : {}),
   };
 
   const opts = await getOpts(service, 'POST', body);
-  const resp = await fetch(`${apiEndpoint}/jobs`, opts);
+  const resp = await fetchWithRetry(`${apiEndpoint}/jobs`, opts);
   if (!resp.ok) return null;
 
   const json = await resp.json();
@@ -79,7 +130,7 @@ async function initSourceFile(service, jobId, name) {
   const { apiEndpoint } = service;
   const opts = await getOpts(service, 'POST');
   const url = `${apiEndpoint}/jobs/${jobId}/sourcefiles?fileName=${encodeURIComponent(name)}`;
-  const resp = await fetch(url, opts);
+  const resp = await fetchWithRetry(url, opts);
   if (!resp.ok) return null;
   return resp.json();
 }
@@ -90,7 +141,7 @@ async function uploadSourceFile(fmsPostMultipartUrl, content, name) {
   formData.append('file', file, name);
 
   // The upload URL is a pre-signed SAS URL — no bearer token needed or wanted.
-  const resp = await fetch(fmsPostMultipartUrl, { method: 'POST', body: formData });
+  const resp = await fetchWithRetry(fmsPostMultipartUrl, { method: 'POST', body: formData });
   return resp.ok;
 }
 
@@ -102,14 +153,14 @@ async function addRequest({
 
   const body = {
     fmsFileId,
-    requestName: name,
+    requestName: truncateBytes(name, MAX_NAME_BYTES),
     sourceNativeId: url.daBasePath,
     sourceNativeLanguageCode: sourceLanguage,
     targetNativeLanguageCodes: targetCodes,
   };
 
   const opts = await getOpts(service, 'POST', body);
-  const resp = await fetch(`${apiEndpoint}/jobs/${jobId}/requests/add`, opts);
+  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/requests/add`, opts);
   if (!resp.ok) return [];
 
   const { _embedded: embedded } = await resp.json();
@@ -117,9 +168,16 @@ async function addRequest({
 }
 
 async function submitJob(service, jobId) {
+  const { apiEndpoint, providerId } = service;
+  const opts = await getOpts(service, 'PUT', { providerId });
+  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/submit`, opts);
+  return resp.ok;
+}
+
+async function approveRequest(service, jobId, requestId) {
   const { apiEndpoint } = service;
-  const opts = await getOpts(service, 'PUT', {});
-  const resp = await fetch(`${apiEndpoint}/jobs/${jobId}/submit`, opts);
+  const opts = await getOpts(service, 'PUT', { requestIds: [requestId] });
+  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/requests/approve`, opts);
   return resp.ok;
 }
 
@@ -222,7 +280,7 @@ async function fetchAllRequests(service, jobId) {
     if (next) url.searchParams.set('next', next);
 
     // eslint-disable-next-line no-await-in-loop
-    const resp = await fetch(url, opts);
+    const resp = await fetchWithRetry(url, opts);
     if (!resp.ok) break;
 
     // eslint-disable-next-line no-await-in-loop
@@ -274,8 +332,10 @@ export async function saveItems({
 
     try {
       const dlUrl = `${apiEndpoint}/jobs/${jobId}/requests/${requestId}/retrievefile`;
-      const dlOpts = await getOpts(service);
-      const dlResp = await fetch(dlUrl, dlOpts);
+      // retrievefile returns the raw file, not JSON. application/octet-stream
+      // is Lionbridge's documented Accept for file retrieval (avoids base64).
+      const dlOpts = await getOpts(service, 'GET', null, 'application/octet-stream');
+      const dlResp = await fetchWithRetry(dlUrl, dlOpts);
       if (!dlResp.ok) throw new Error(dlResp.status);
 
       const text = await dlResp.text();
@@ -283,6 +343,15 @@ export async function saveItems({
       url.sourceContent = await removeDnt({ org, site, html: text, ext });
 
       await saveFn(url);
+
+      // Best-effort: close out the request in Lionbridge's review workflow
+      // (REVIEW_TRANSLATION -> TRANSLATION_APPROVED). Failure here doesn't
+      // affect the already-successful download/save.
+      try {
+        await approveRequest(service, jobId, requestId);
+      } catch {
+        // Ignore — approval is a courtesy call, not required for DA's own flow.
+      }
     } catch {
       url.status = 'error';
     }
