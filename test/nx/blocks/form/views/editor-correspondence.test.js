@@ -177,3 +177,136 @@ describe('nx-editor add-array-item action', () => {
     expect(addBtn.disabled).to.equal(true);
   });
 });
+
+const DEBOUNCE_MS = 350; // mirrors editor.js text-input debounce
+const aTimeout = (ms) => new Promise((r) => { setTimeout(r, ms); });
+
+// Leaf errors live in the field's own shadow (.form-field-error); array/object
+// group errors render as a .form-node-error child of the fieldset/section.
+const fieldErrorText = (el, ptr) => controlAt(el, ptr)?.shadowRoot?.querySelector('.form-field-error')?.textContent ?? '';
+const groupErrorText = (el, ptr) => groupAt(el, ptr)?.querySelector(':scope > .form-node-error')?.textContent ?? '';
+const errorText = (el, ptr) => fieldErrorText(el, ptr) || groupErrorText(el, ptr);
+
+const engineErrors = (engine) => Object.fromEntries(
+  Object.entries(engine.getState().validation.errors).map(([p, e]) => [p, e.message]),
+);
+
+function renderedErrorPointers(el) {
+  const ptrs = new Set();
+  el.shadowRoot.querySelectorAll('.form-node-error').forEach((p) => {
+    const group = p.closest('[data-pointer]');
+    if (group) ptrs.add(group.getAttribute('data-pointer'));
+  });
+  el.shadowRoot.querySelectorAll('[data-pointer]').forEach((node) => {
+    if (CONTROL_TAGS.includes(node.tagName) && node.shadowRoot?.querySelector('.form-field-error')) {
+      ptrs.add(node.getAttribute('data-pointer'));
+    }
+  });
+  return ptrs;
+}
+
+async function typeInto(el, ptr, value) {
+  const input = controlAt(el, ptr).shadowRoot.querySelector('input, textarea');
+  input.value = value;
+  input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+  await aTimeout(DEBOUNCE_MS + 80);
+  await settle(el);
+}
+
+const REQUIRED = 'This field is required.';
+
+const VALIDATION_FIXTURES = [
+  {
+    name: 'leaf errors',
+    schema: {
+      type: 'object',
+      title: 'T',
+      properties: {
+        title: { type: 'string', title: 'Title', minLength: 3 },
+        status: { type: 'string', title: 'Status', enum: ['a', 'b'] },
+      },
+    },
+    data: { title: 'ab', status: 'x' },
+    expected: {
+      '/data/title': 'Must be at least 3 characters.',
+      '/data/status': 'Must be one of the allowed options.',
+    },
+  },
+  {
+    name: 'required empty array (array-level)',
+    schema: {
+      type: 'object',
+      title: 'T',
+      required: ['tags'],
+      properties: { tags: { type: 'array', title: 'Tags', minItems: 1, items: { type: 'string', title: 'Tag' } } },
+    },
+    data: { tags: [] },
+    expected: { '/data/tags': 'Must contain at least one item with content.' },
+  },
+  {
+    name: 'array under minItems (array-level)',
+    schema: {
+      type: 'object',
+      title: 'T',
+      properties: { tags: { type: 'array', title: 'Tags', minItems: 2, items: { type: 'string', title: 'Tag' } } },
+    },
+    data: { tags: ['a'] },
+    expected: { '/data/tags': 'Must contain at least 2 items with content.' },
+  },
+  {
+    name: 'required empty object (object-level)',
+    schema: {
+      type: 'object',
+      title: 'T',
+      required: ['seo'],
+      properties: { seo: { type: 'object', title: 'SEO', properties: { mt: { type: 'string', title: 'MT' } } } },
+    },
+    data: { seo: {} },
+    expected: { '/data/seo': 'This section is required.' },
+  },
+  {
+    name: 'nested required child (leaf-level)',
+    schema: {
+      type: 'object',
+      title: 'T',
+      properties: {
+        seo: { type: 'object', title: 'SEO', required: ['mt'], properties: { mt: { type: 'string', title: 'MT' } } },
+      },
+    },
+    data: { seo: {} },
+    expected: { '/data/seo/mt': REQUIRED },
+  },
+];
+
+describe('nx-editor applies validation errors', () => {
+  VALIDATION_FIXTURES.forEach((fx) => {
+    it(`renders ${fx.name} on the right elements`, async () => {
+      const { el, engine } = await mountEditor(fx.schema, { metadata: { schemaName: 't' }, data: fx.data });
+      // guard: the SDK produced exactly the expected errors
+      expect(engineErrors(engine)).to.deep.equal(fx.expected);
+      // each error renders on its pointer with the right message
+      Object.entries(fx.expected).forEach(([ptr, msg]) => {
+        expect(errorText(el, ptr), ptr).to.equal(msg);
+      });
+      // no stray or missing rendered errors
+      expect([...renderedErrorPointers(el)].sort()).to.deep.equal(Object.keys(fx.expected).sort());
+    });
+  });
+
+  it('clears a field error on valid input without touching siblings', async () => {
+    const schema = {
+      type: 'object',
+      title: 'T',
+      properties: {
+        a: { type: 'string', title: 'A', minLength: 3 },
+        b: { type: 'string', title: 'B', minLength: 3 },
+      },
+    };
+    const { el } = await mountEditor(schema, { metadata: { schemaName: 't' }, data: { a: 'x', b: 'y' } });
+    expect(fieldErrorText(el, '/data/a')).to.contain('at least 3');
+    expect(fieldErrorText(el, '/data/b')).to.contain('at least 3');
+    await typeInto(el, '/data/a', 'valid');
+    expect(fieldErrorText(el, '/data/a')).to.equal('');
+    expect(fieldErrorText(el, '/data/b')).to.contain('at least 3');
+  });
+});
