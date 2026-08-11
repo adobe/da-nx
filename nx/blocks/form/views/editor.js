@@ -192,6 +192,8 @@ class Editor extends LitElement {
     const error = this._error(pointer);
     const value = this._primitiveValue(node);
     const label = hideLabel ? '' : (node?.label ?? '');
+    // Hide help text on array-item rows (same reason the label is hidden there).
+    const description = hideLabel ? '' : (node?.description ?? '');
     const showRequired = !hideLabel && required;
 
     if (Array.isArray(node.enumValues)) {
@@ -202,6 +204,7 @@ class Editor extends LitElement {
           .label=${label}
           .required=${showRequired}
           .error=${error}
+          .description=${description}
           .value=${currentValue}
           ?disabled=${readonly}
           @change=${(e) => this._onSelectInput(node, e)}
@@ -222,6 +225,7 @@ class Editor extends LitElement {
         <form-checkbox
           data-pointer=${pointer}
           .error=${error}
+          .description=${description}
           ?checked=${!!value}
           ?disabled=${readonly}
           @change=${(e) => this._onBooleanInput(node, e)}
@@ -237,6 +241,7 @@ class Editor extends LitElement {
           .label=${label}
           .required=${showRequired}
           .error=${error}
+          .description=${description}
           .value=${String(value ?? '')}
           .min=${minimum}
           .max=${maximum}
@@ -254,6 +259,7 @@ class Editor extends LitElement {
           .label=${label}
           .required=${showRequired}
           .error=${error}
+          .description=${description}
           .value=${value ?? ''}
           ?disabled=${readonly}
           @input=${(e) => this._onTextInput(node, e)}
@@ -268,6 +274,7 @@ class Editor extends LitElement {
         .label=${label}
         .required=${showRequired}
         .error=${error}
+        .description=${description}
         .value=${value ?? ''}
         ?disabled=${readonly}
         @input=${(e) => this._onTextInput(node, e)}
@@ -396,6 +403,7 @@ class Editor extends LitElement {
           ${itemLabel ? html`<span class="form-item-label">${itemLabel}</span>` : nothing}
           ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
         </legend>
+        ${node.description ? html`<p class="form-node-description">${node.description}</p>` : nothing}
         ${error ? html`<p class="form-node-error">${error}</p>` : nothing}
         ${children.map((child) => this._renderNode(child))}
       </fieldset>
@@ -432,6 +440,7 @@ class Editor extends LitElement {
             ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
           </p>
         </div>
+        ${node.description ? html`<p class="form-node-description">${node.description}</p>` : nothing}
         ${error ? html`<p class="form-node-error">${error}</p>` : nothing}
 
         ${displayItems.map((item, index) => {

@@ -219,6 +219,13 @@
   color: var(--s2-red-900);
 }
 
+.editor-root .form-node-description {
+  /* Group-level help text (object/array), shown under the title. */
+  margin: var(--s2-spacing-75) 0;
+  font-size: var(--s2-body-size-xs, 12px);
+  color: var(--s2-gray-700);
+}
+
 .editor-root [data-pointer] {
   /* Clear the host's docked header (--nx-scroll-offset-top) when scrolling to a group. */
   scroll-margin-top: var(

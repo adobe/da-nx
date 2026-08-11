@@ -310,3 +310,34 @@ describe('nx-editor applies validation errors', () => {
     expect(fieldErrorText(el, '/data/b')).to.contain('at least 3');
   });
 });
+
+describe('nx-editor renders descriptions', () => {
+  it('renders field help text from a schema description', async () => {
+    const schema = {
+      type: 'object',
+      title: 'T',
+      properties: { slug: { type: 'string', title: 'Slug', description: 'Lowercase and hyphens.' } },
+    };
+    const { el } = await mountEditor(schema, { metadata: { schemaName: 't' }, data: {} });
+    const desc = controlAt(el, '/data/slug').shadowRoot.querySelector('.form-field-description');
+    expect(desc.textContent).to.equal('Lowercase and hyphens.');
+  });
+
+  it('renders group help text from a schema description', async () => {
+    const schema = {
+      type: 'object',
+      title: 'T',
+      properties: {
+        seo: {
+          type: 'object',
+          title: 'SEO',
+          description: 'Search settings.',
+          properties: { mt: { type: 'string', title: 'MT' } },
+        },
+      },
+    };
+    const { el } = await mountEditor(schema, { metadata: { schemaName: 't' }, data: {} });
+    const desc = groupAt(el, '/data/seo').querySelector(':scope > .form-node-description');
+    expect(desc.textContent).to.equal('Search settings.');
+  });
+});
