@@ -2,6 +2,11 @@ const DEFAULT_MAX_RETRIES = 5;
 const DEFAULT_BASE_DELAY_MS = 500;
 const DEFAULT_MAX_DELAY_MS = 30000;
 
+/**
+ * Default retry predicate: rate-limited or server-error responses.
+ * @param {number} status - The response's HTTP status code.
+ * @returns {boolean} Whether the status should trigger a retry.
+ */
 function isDefaultRetryable(status) {
   return status === 429 || status >= 500;
 }
@@ -41,6 +46,12 @@ export default async function fetchWithRetry(url, opts, config = {}) {
     isRetryable = isDefaultRetryable,
   } = config;
 
+  /**
+   * Makes one fetch attempt, retrying itself (with a delay) if the
+   * response is retryable and attempts remain.
+   * @param {number} attemptNum - Zero-based attempt count so far.
+   * @returns {Promise<Response>} The final response (ok or not).
+   */
   async function attempt(attemptNum) {
     const resp = await fetch(url, opts);
     if (!isRetryable(resp.status) || attemptNum >= maxRetries) return resp;
