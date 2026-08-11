@@ -1,4 +1,4 @@
-import { etcFetch } from './urls.js';
+import { etcFetch, resolveMediaUrl } from './urls.js';
 import { getMediaType, getSubtype } from './media.js';
 import { decodeDisplayName, getFileName } from './files.js';
 import { t } from './messages.js';
@@ -113,18 +113,29 @@ async function insertMediaViaPluginSdk(media) {
   actions.closeLibrary?.();
 }
 
-async function copyImageToClipboard(imageUrl) {
+async function copyImageToClipboard(imageUrl, org, repo, usePreviewDaLive = false) {
+  const fetchUrl = (org && repo && usePreviewDaLive)
+    ? resolveMediaUrl(imageUrl, org, repo, true)
+    : imageUrl;
+
   let response;
   try {
-    const url = new URL(imageUrl);
+    const url = new URL(fetchUrl);
     if (url.origin !== window.location.origin) {
-      response = await etcFetch(imageUrl, 'cors');
+      // Check actual hostname, not just parameter - defense against sending credentials
+      // to external images when usePreviewDaLive=true (resolveMediaUrl may not convert them)
+      const isPreviewDaLive = url.hostname.endsWith('.preview.da.live');
+      if (isPreviewDaLive) {
+        response = await fetch(fetchUrl, { credentials: 'include' });
+      } else {
+        response = await etcFetch(fetchUrl, 'cors');
+      }
     }
   } catch (e) {
     /* fall through to direct fetch for invalid or relative URLs */
   }
 
-  response ||= await fetch(imageUrl);
+  response ||= await fetch(fetchUrl);
   if (!response.ok) {
     throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
   }
@@ -160,7 +171,8 @@ async function copyImageToClipboard(imageUrl) {
   }
 
   // Copy multiple formats like browser's "Copy image" does
-  // Include HTML and text with the original URL so document editors can deduplicate
+  // Use original imageUrl (not fetchUrl) so pasted content has canonical URLs
+  // that work in published documents, not preview-specific URLs
   const escapedUrl = escapeHtml(imageUrl);
   const clipboardItem = new ClipboardItem({
     [mimeType]: clipboardBlob,
@@ -171,7 +183,7 @@ async function copyImageToClipboard(imageUrl) {
   await navigator.clipboard.write([clipboardItem]);
 }
 
-export async function copyMediaToClipboard(media) {
+export async function copyMediaToClipboard(media, org, repo, usePreviewDaLive = false) {
   const mediaUrl = media.url;
   const mediaType = getMediaType(media);
   const plugin = isMediaLibraryPluginMode();
@@ -199,7 +211,7 @@ export async function copyMediaToClipboard(media) {
 
   try {
     if (mediaType === 'image') {
-      await copyImageToClipboard(mediaUrl);
+      await copyImageToClipboard(mediaUrl, org, repo, usePreviewDaLive);
       if (plugin) {
         return {
           heading: t('NOTIFY_PLUGIN_FALLBACK_HEADING'),
