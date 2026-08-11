@@ -29,7 +29,7 @@
   color: var(--s2-red-900);
 }
 
-::slotted([slot="description"]) {
+.form-field-description {
   margin: 0;
   font-size: var(--s2-body-size-xs, 12px);
   color: var(--s2-gray-700);

@@ -9,6 +9,7 @@ class FormPicker extends LitElement {
   static properties = {
     value: { type: String },
     label: { type: String },
+    description: { type: String },
     error: { type: String },
     placeholder: { type: String },
     name: { type: String },
@@ -65,9 +66,8 @@ class FormPicker extends LitElement {
           ${this.error ? icon('alert', 'form-field-icon') : nothing}
           ${icon('chevronDown', 'form-picker-chevron')}
         </div>
-        ${this.error
-        ? html`<p class="form-field-error">${this.error}</p>`
-        : html`<slot name="description"></slot>`}
+        ${this.description ? html`<p class="form-field-description">${this.description}</p>` : nothing}
+        ${this.error ? html`<p class="form-field-error">${this.error}</p>` : nothing}
       </div>
     `;
   }

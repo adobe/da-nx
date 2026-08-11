@@ -101,5 +101,10 @@ describe('nx-form', () => {
     await el.updateComplete;
     expect(el.shadowRoot.querySelector('.nx-form-schema-heading')).to.exist;
     expect(el.shadowRoot.querySelector('form-picker')).to.exist;
+    // The "open Schema Editor" guidance renders as a sibling of the picker (it
+    // used to rely on form-picker's description slot, which no longer exists).
+    const link = el.shadowRoot.querySelector('.nx-form-schema-hint .nx-form-schema-text-link');
+    expect(link, 'schema editor link').to.exist;
+    expect(link.textContent).to.equal('Schema Editor');
   });
 });

@@ -101,7 +101,7 @@ nx-sidebar {
 .nx-form-schema-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
 }
 
 .nx-form-schema-start {
@@ -110,6 +110,22 @@ nx-sidebar {
 
 .nx-form-schema-hint {
   margin: 0;
+}
+
+.nx-form-schema-select-group {
+  /* Keep the picker and its help text tight together — same gap the form
+     editor's fields use between input and description (.form-field). The
+     form's own 16px gap then separates this group from the Create button. */
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-75);
+}
+
+.nx-form-schema-form .nx-form-schema-hint {
+  /* Match the field/group help text in the form editor (.form-field-description
+     / .form-node-description): small and muted, sitting under the picker. */
+  font-size: var(--s2-body-size-xs, 12px);
+  color: var(--s2-gray-700);
 }
 
 .nx-form-schema-text-link {

@@ -264,19 +264,21 @@ class Form extends LitElement {
       <div class="nx-form-schema-shell">
         <h2 class="nx-form-schema-heading">Choose a schema</h2>
         <div class="nx-form-schema-form">
-          <form-picker
-            hoist
-            class="nx-form-schema-select"
-            label="Schema"
-            placeholder="Select a schema"
-            .value=${this._pendingSchemaId ?? ''}
-            @change=${this._onPendingSchemaChange}
-          >
-            <option value="">Select a schema</option>
-            ${Object.entries(schemas).map(([id, schema]) => html`
-              <option value="${id}">${schema?.title ?? id}</option>
-            `)}
-            <p slot="description">
+          <div class="nx-form-schema-select-group">
+            <form-picker
+              hoist
+              class="nx-form-schema-select"
+              label="Schema"
+              placeholder="Select a schema"
+              .value=${this._pendingSchemaId ?? ''}
+              @change=${this._onPendingSchemaChange}
+            >
+              <option value="">Select a schema</option>
+              ${Object.entries(schemas).map(([id, schema]) => html`
+                <option value="${id}">${schema?.title ?? id}</option>
+              `)}
+            </form-picker>
+            <p class="nx-form-schema-hint">
               To create a new schema, open
               <a
                 class="nx-form-schema-text-link"
@@ -285,7 +287,7 @@ class Form extends LitElement {
                 rel="noopener noreferrer"
               >Schema Editor</a>.
             </p>
-          </form-picker>
+          </div>
           <form-button
             variant="accent"
             class="nx-form-schema-start"

@@ -50,6 +50,22 @@ describe('form-input', () => {
     expect(el.shadowRoot.querySelector('.form-field').classList.contains('has-error')).to.be.true;
   });
 
+  it('shows description and error together, both under the input', async () => {
+    const el = await mount('<form-input></form-input>');
+    el.description = 'Lowercase and hyphens.';
+    el.error = 'Invalid';
+    await el.updateComplete;
+    const desc = el.shadowRoot.querySelector('.form-field-description');
+    const err = el.shadowRoot.querySelector('.form-field-error');
+    const wrap = el.shadowRoot.querySelector('.form-input-wrap');
+    expect(desc.textContent).to.equal('Lowercase and hyphens.');
+    expect(err.textContent).to.equal('Invalid');
+    // Layout: input, then description, then error (both under the field).
+    const order = [...el.shadowRoot.querySelector('.form-field').children];
+    expect(order.indexOf(wrap)).to.be.lessThan(order.indexOf(desc));
+    expect(order.indexOf(desc)).to.be.lessThan(order.indexOf(err));
+  });
+
   it('honors disabled', async () => {
     const el = await mount('<form-input disabled></form-input>');
     expect(el.shadowRoot.querySelector('input').disabled).to.be.true;

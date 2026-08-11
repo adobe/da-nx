@@ -7,6 +7,7 @@ const style = await loadStyle(import.meta.url);
 class FormCheckbox extends LitElement {
   static properties = {
     checked: { type: Boolean, reflect: true },
+    description: { type: String },
     error: { type: String },
     disabled: { type: Boolean, reflect: true },
   };
@@ -38,6 +39,7 @@ class FormCheckbox extends LitElement {
         </span>
         <span class="form-switch-label"><slot></slot></span>
       </label>
+      ${this.description ? html`<p class="form-field-description">${this.description}</p>` : nothing}
       ${this.error ? html`<p class="form-field-error">${this.error}</p>` : nothing}
     `;
   }
