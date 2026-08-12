@@ -4,6 +4,7 @@ import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 import { restoreBlockIndices } from './src/dom-index.js';
+import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
 import {
   setupNodeSelection,
   setSelectedNode,
@@ -24,6 +25,7 @@ const QUICK_EDIT_ID = 'quick-edit-iframe';
 let parentControllerPort = null;
 
 async function setBody(body, ctx) {
+  const anchor = captureScrollAnchor();
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage();
@@ -37,6 +39,7 @@ async function setBody(body, ctx) {
   if (!parentControllerPort) {
     setupActions(ctx);
   }
+  restoreScrollAnchor(anchor);
 }
 
 function handleReady(e, ctx) {
