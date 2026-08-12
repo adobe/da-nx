@@ -66,6 +66,42 @@ describe('ChatBackend normalization — da-agent', () => {
 
     expect(updates.at(-1).pendingInteraction.summary).to.equal(null);
   });
+
+  it('does NOT surface exit_plan_mode as a generic approval (its plan card owns approval)', () => {
+    const { backend, updates } = makeBackend(false);
+    const toolCards = new Map([
+      ['p1', { toolName: 'exit_plan_mode', input: { title: 'X' }, state: TOOL_STATE.AWAITING_APPROVAL }],
+    ]);
+
+    emit(backend, { toolCards });
+
+    expect(updates.at(-1).pendingInteraction).to.equal(null);
+  });
+
+  it('derives a continuation pendingInteraction from a continuation-pending tool card', () => {
+    const { backend, updates } = makeBackend(false);
+    const toolCards = new Map([
+      ['e1', { toolName: 'evaluate_page', state: TOOL_STATE.OUTPUT_AVAILABLE, continuationPending: true }],
+    ]);
+
+    emit(backend, { toolCards });
+
+    expect(updates.at(-1).pendingInteraction).to.deep.equal({ type: 'continuation', toolCallId: 'e1' });
+  });
+
+  it('proxies continueExecution/stopExecution to the wrapped controller', () => {
+    const { backend } = makeBackend(false);
+    let continued = false;
+    let stopped = false;
+    backend._controller.continueExecution = () => { continued = true; };
+    backend._controller.stopExecution = () => { stopped = true; };
+
+    backend.continueExecution();
+    backend.stopExecution();
+
+    expect(continued).to.equal(true);
+    expect(stopped).to.equal(true);
+  });
 });
 
 describe('ChatBackend normalization — AO', () => {

@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import ChatController, { migrateHistory } from '../../../../nx2/blocks/chat/chat-controller.js';
-import { TOOL_STATE } from '../../../../nx2/blocks/chat/constants.js';
+import { TOOL_STATE, AGENT_EVENT, ROLE } from '../../../../nx2/blocks/chat/constants.js';
 
 const TURN = 'turn-current';
 const OTHER_TURN = 'turn-previous';
@@ -226,5 +226,36 @@ describe('chat-controller _pageContextForAgent', () => {
     const controller = new ChatController({ onUpdate() {}, onToolDone() {} });
     controller.setContext({ path: '/foo' });
     expect(controller._pageContextForAgent()).to.equal(undefined);
+  });
+});
+
+describe('chat-controller continuation gate', () => {
+  const evalMsg = () => toolMsg({
+    toolCallId: 'e1', toolName: 'evaluate_page', input: {}, state: TOOL_STATE.OUTPUT_AVAILABLE, output: {},
+  });
+
+  it('flags the tool card as continuationPending on a CONTINUATION event', () => {
+    const controller = makeController();
+    controller._messages = [evalMsg()];
+    controller._onToolEvent({ type: AGENT_EVENT.CONTINUATION, toolCallId: 'e1' });
+    expect(controller._deriveToolCards().get('e1').continuationPending).to.equal(true);
+  });
+
+  it('ignores a CONTINUATION event for an unknown tool call', () => {
+    const controller = makeController();
+    controller._messages = [];
+    expect(() => controller._onToolEvent({ type: AGENT_EVENT.CONTINUATION, toolCallId: 'nope' })).to.not.throw();
+    expect(controller._continuationPendingIds?.has('nope') ?? false).to.equal(false);
+  });
+
+  it('stopExecution records a user message and clears the pending flag', async () => {
+    const controller = makeController();
+    controller._getRoom = async () => 'continuation-test-room';
+    controller._sessionId = 's1';
+    controller._messages = [evalMsg()];
+    controller._onToolEvent({ type: AGENT_EVENT.CONTINUATION, toolCallId: 'e1' });
+    await controller.stopExecution();
+    expect(controller._deriveToolCards().get('e1').continuationPending).to.equal(false);
+    expect(controller._messages.at(-1).role).to.equal(ROLE.USER);
   });
 });

@@ -1,6 +1,7 @@
 import ChatController from './chat-controller.js';
 import ChatControllerAO from './ao/chat-controller-ao.js';
-import { TOOL_INPUT, TOOL_STATE } from './constants.js';
+import { TOOL_INPUT, TOOL_NAME, TOOL_STATE } from './constants.js';
+import { mcpToolName } from './utils/tool-name.js';
 
 // da-agent's own tool-input schema field names (see constants.js's TOOL_INPUT) — used
 // only here, to compute the approval-popover summary for da-agent's controller, since
@@ -49,27 +50,44 @@ export default class ChatBackend {
       toolCards, pendingApproval, pendingQuestion, pendingPlanApproval, ...rest
     } = payload;
     const approval = this._useAo ? pendingApproval : this._daAgentPendingApproval(toolCards);
+    // Continuation is da-agent-only (its controller sets card.continuationPending); AO has
+    // no equivalent, so it's never derived when wrapping AO.
+    const continuation = this._useAo ? null : this._daAgentPendingContinuation(toolCards);
     const pendingInteraction = this._pendingInteraction(
       approval,
       pendingQuestion,
       pendingPlanApproval,
+      continuation,
     );
     return { ...rest, toolCards, pendingInteraction };
   }
 
-  _pendingInteraction(approval, question, plan) {
+  _pendingInteraction(approval, question, plan, continuation) {
     if (approval) return { type: 'approval', ...approval };
     if (question) return { type: 'question', ...question };
     if (plan) return { type: 'plan', ...plan };
+    if (continuation) return { type: 'continuation', ...continuation };
     return null;
   }
 
+  // exit_plan_mode is intentionally excluded: its plan card renders inline in the message
+  // stream (renderers.js) with its own Run→approve control, so it must not also surface as
+  // a generic approval popover here.
   _daAgentPendingApproval(toolCards) {
     if (!toolCards) return null;
     for (const [toolCallId, card] of toolCards) {
-      if (card.state === TOOL_STATE.AWAITING_APPROVAL) {
+      if (card.state === TOOL_STATE.AWAITING_APPROVAL
+        && mcpToolName(card.toolName) !== TOOL_NAME.EXIT_PLAN_MODE) {
         return { toolCallId, toolName: card.toolName, summary: daAgentApprovalSummary(card.input) };
       }
+    }
+    return null;
+  }
+
+  _daAgentPendingContinuation(toolCards) {
+    if (!toolCards) return null;
+    for (const [toolCallId, card] of toolCards) {
+      if (card.continuationPending) return { toolCallId };
     }
     return null;
   }
@@ -91,6 +109,11 @@ export default class ChatBackend {
   }
 
   approveToolCall = (...args) => this._controller.approveToolCall(...args);
+
+  // Continuation gate (da-agent only): no-ops when wrapping AO's controller.
+  continueExecution = () => this._controller.continueExecution?.();
+
+  stopExecution = () => this._controller.stopExecution?.();
 
   clear() {
     return this._controller.clear();

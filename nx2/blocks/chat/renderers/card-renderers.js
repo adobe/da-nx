@@ -40,6 +40,28 @@ export function renderToolCard(card) {
  * @param {{ toolCallId: string, toolName: string, summary: string|null }|null} pending
  * @param {(toolCallId: string, approved: boolean, always?: boolean) => void} onApprove
  */
+/**
+ * Post-execution continuation gate: a tool has finished and the agent paused for the user
+ * to review its result before continuing. Backend-neutral (only da-agent produces it today).
+ * @param {() => void} onContinue
+ * @param {() => void} onStop
+ */
+export function renderContinuationCard(onContinue, onStop) {
+  return html`
+    <div class="approval-actions">
+      <span class="approval-tool-name">Review the results before continuing</span>
+      <div class="approval-buttons">
+        <button type="button" class="secondary-btn" @click=${() => onStop()}>
+          <span>Stop</span><kbd>Esc</kbd>
+        </button>
+        <button type="button" class="action-btn" @click=${() => onContinue()}>
+          <span>Continue</span><kbd>↵</kbd>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 export function renderApprovalCard(pending, onApprove) {
   if (!pending) return nothing;
   const { toolCallId, toolName, summary } = pending;

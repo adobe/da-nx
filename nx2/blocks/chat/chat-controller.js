@@ -154,6 +154,8 @@ export default class ChatController {
           output: part.output,
           errorText: part.errorText,
           approvalRequired: part.approvalRequired,
+          // Ephemeral, transient continuation prompt (never persisted in message history).
+          continuationPending: this._continuationPendingIds?.has(part.toolCallId) ?? false,
         });
       });
     });
@@ -278,6 +280,19 @@ export default class ChatController {
       return;
     }
 
+    // Post-execution continuation gate: the tool already finished (its result is shown)
+    // and the server ended the turn. Flag it as awaiting a Continue/Stop decision.
+    // Ephemeral (UI-only) — nothing is pushed to _messages, so a reload simply drops the
+    // prompt while the result persists.
+    if (type === AGENT_EVENT.CONTINUATION) {
+      const existing = this._findToolPart(toolCallId);
+      if (!existing) return;
+      this._continuationPendingIds ??= new Set();
+      this._continuationPendingIds.add(toolCallId);
+      this._update();
+      return;
+    }
+
     // The agent gates this call behind user approval. Auto-approved tools skip
     // the queue and join the next batch directly.
     if (type === AGENT_EVENT.TOOL_APPROVAL_REQUEST) {
@@ -373,6 +388,42 @@ export default class ChatController {
     } finally {
       this._done();
     }
+  };
+
+  /** Clear the ephemeral continuation-pending flags (never persisted). */
+  _clearContinuationPending() {
+    this._continuationPendingIds?.clear();
+  }
+
+  // Continuation gate — user chose "Continue": resume the agentic loop. The gated tool's
+  // result is already persisted for the current turn, so re-streaming replays it to the
+  // agent (keeping the same turnId) and the model picks up where it left off.
+  continueExecution = async () => {
+    this._clearContinuationPending();
+    this._thinking = true;
+    this._update();
+    try {
+      await this._stream(this._pageContextForAgent());
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
+      }
+    } finally {
+      this._done();
+    }
+  };
+
+  // Continuation gate — user chose "Stop": record the decision as a user message and halt.
+  // No re-stream and no assistant reply — the turn simply ends (code-driven, not the LLM).
+  stopExecution = async () => {
+    this._clearContinuationPending();
+    this._messages = [
+      ...this._messages,
+      { role: ROLE.USER, content: 'User decided not to continue further.' },
+    ];
+    this._update();
+    const room = await this._getRoom();
+    saveMessages(room, this._messages, this._sessionId);
   };
 
   // Prune prior-turn non-gated tool reads to bound payload size, mirroring the

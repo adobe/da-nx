@@ -1,0 +1,400 @@
+/*
+ * Shared card shell, header, type-label, type-icon base, chevron (+ rotate),
+ * title, and spinner live in messages.css.
+ */
+
+:host {
+  display: block;
+}
+
+/* ── Header ── */
+
+.ge-header {
+  cursor: pointer;
+  list-style: none;
+}
+
+.ge-type-icon {
+  mask-image: url("/img/icons/s2-icon-checkmarkcircle-20-n.svg");
+}
+
+.ge-type-icon-error {
+  mask-image: url("/img/icons/s2-icon-alertdiamondorange-20-n.svg");
+}
+
+/* ── Body ── */
+
+.ge-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-200);
+  padding: var(--s2-spacing-200) var(--s2-spacing-300) var(--s2-spacing-300);
+}
+
+.ge-body.ge-loading {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--s2-spacing-200);
+}
+
+.ge-loading-text {
+  font-size: var(--s2-body-size-s);
+  color: var(--s2-gray-600);
+}
+
+.ge-body.ge-error {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--s2-spacing-200);
+}
+
+.ge-error-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--s2-red-700, #c9292b);
+}
+
+.ge-error-text {
+  font-size: var(--s2-body-size-s);
+  color: var(--s2-gray-800);
+}
+
+.ge-page-url {
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-600);
+  margin: 0;
+  word-break: break-all;
+}
+
+/* ── Summary / progress bar (reused at card, text-section, and image-section level) ── */
+
+.ge-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.ge-passed-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-50);
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-green-800, #1b7a3e);
+  font-weight: 500;
+}
+
+.ge-progress-bar {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border: none;
+  border-radius: 3px;
+  overflow: hidden;
+  margin: var(--s2-spacing-100) 0 var(--s2-spacing-200);
+  appearance: none;
+  background: var(--s2-gray-200, #e1e1e1);
+}
+
+.ge-progress-bar::-webkit-progress-bar {
+  background: var(--s2-gray-200, #e1e1e1);
+  border-radius: 3px;
+}
+
+.ge-progress-bar::-webkit-progress-value {
+  background: var(--s2-green-700, #268e49);
+  border-radius: 3px;
+}
+
+.ge-progress-bar::-moz-progress-bar {
+  background: var(--s2-green-700, #268e49);
+  border-radius: 3px;
+}
+
+/* ── Sections (text evaluation / per-image evaluation) ── */
+
+.ge-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+  padding-top: var(--s2-spacing-200);
+  border-top: 1px solid var(--s2-gray-200, #e1e1e1);
+}
+
+.ge-section-title {
+  font-size: var(--s2-body-size-s);
+  font-weight: 600;
+  color: var(--s2-gray-900);
+  margin: 0;
+}
+
+.ge-section-empty {
+  font-size: var(--s2-body-size-s);
+  color: var(--s2-gray-600);
+  margin: 0;
+  font-style: italic;
+}
+
+/* ── Image group (umbrella "Image evaluation") ── */
+
+.ge-group-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: var(--s2-spacing-200);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  box-sizing: border-box;
+  border-radius: var(--s2-corner-radius-300);
+  list-style: none;
+
+  &:hover {
+    background: var(--s2-gray-75);
+  }
+}
+
+.ge-group-title-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-25, 2px);
+  flex: 1;
+}
+
+.ge-group-meta {
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-600);
+}
+
+.ge-group-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-100);
+  flex-shrink: 0;
+}
+
+.ge-group-chevron {
+  width: 14px;
+  height: 14px;
+  color: var(--s2-gray-600);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.ge-image-group[open] .ge-group-chevron {
+  transform: rotate(180deg);
+}
+
+.ge-image-group .ge-progress-bar {
+  margin: var(--s2-spacing-100) 0 0;
+}
+
+.ge-image-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-300);
+  margin-top: var(--s2-spacing-200);
+}
+
+.ge-image-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+}
+
+.ge-image-list > .ge-image-section + .ge-image-section {
+  padding-top: var(--s2-spacing-300);
+  border-top: 1px solid var(--s2-gray-200, #e1e1e1);
+}
+
+/* ── Image section header ── */
+
+.ge-image-header {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-200);
+}
+
+.ge-image-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: var(--s2-corner-radius-300);
+  border: 1px solid var(--s2-gray-200, #e1e1e1);
+  background: var(--s2-gray-100);
+}
+
+.ge-align-badge {
+  font-size: var(--s2-body-size-xs);
+  font-weight: 500;
+  padding: var(--s2-spacing-50) var(--s2-spacing-100);
+  border-radius: var(--s2-corner-radius-200, 4px);
+}
+
+.ge-align-badge-pass {
+  color: var(--s2-green-800, #1b7a3e);
+  background: var(--s2-green-100, #e3f5e9);
+}
+
+.ge-align-badge-fail {
+  color: var(--s2-red-700, #c9292b);
+  background: var(--s2-red-100, #fbe4e4);
+}
+
+/* ── Categories ── */
+
+.ge-categories {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-50);
+  background-color: var(--s2-gray-50, #f8f8f8);
+  border-radius: var(--s2-corner-radius-500);
+  border: 1px solid var(--s2-gray-200, #e1e1e1);
+  overflow: hidden;
+}
+
+.ge-category {
+  border-bottom: 1px solid var(--s2-gray-200, #e1e1e1);
+  min-height: var(--s2-spacing-700);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.ge-cat-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--s2-spacing-400) var(--s2-spacing-300);
+  background: transparent;
+  cursor: pointer;
+  gap: var(--s2-spacing-100);
+  text-align: left;
+  box-sizing: border-box;
+  list-style: none;
+
+  &:hover {
+    background: var(--s2-gray-75);
+  }
+}
+
+.ge-cat-name {
+  flex: 1;
+  font-size: var(--s2-body-size-s);
+  color: var(--s2-gray-800);
+  font-weight: 500;
+}
+
+.ge-cat-summary {
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-600);
+  white-space: nowrap;
+}
+
+.ge-cat-chevron {
+  width: 14px;
+  height: 14px;
+  color: var(--s2-gray-600);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.ge-category[open] .ge-cat-chevron {
+  transform: rotate(180deg);
+}
+
+/* ── Check rows ── */
+
+.ge-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--s2-spacing-200) var(--s2-spacing-200);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-75);
+}
+
+.ge-check-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.ge-check-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: var(--s2-spacing-100);
+  padding: var(--s2-spacing-50) 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  box-sizing: border-box;
+  list-style: none;
+
+  &:hover {
+    background: var(--s2-gray-75);
+  }
+}
+
+.ge-check-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.ge-check-yes {
+  color: var(--s2-green-700, #268e49);
+}
+
+.ge-check-no {
+  color: var(--s2-red-700, #c9292b);
+}
+
+.ge-check-na {
+  color: var(--s2-gray-500, #909090);
+}
+
+.ge-check-error {
+  color: var(--s2-orange-700, #b9530f);
+}
+
+.ge-check-label {
+  flex: 1;
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-700);
+}
+
+.ge-check-chevron {
+  width: 12px;
+  height: 12px;
+  color: var(--s2-gray-500);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.ge-check-item[open] .ge-check-chevron {
+  transform: rotate(180deg);
+}
+
+.ge-check-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+  padding: 0 0 var(--s2-spacing-100) var(--s2-spacing-400);
+}
+
+.ge-check-detail-block {
+  margin: 0;
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-700);
+  line-height: 1.5;
+}
+
+.ge-check-detail-label {
+  display: block;
+  font-weight: 600;
+  color: var(--s2-gray-800);
+  margin-bottom: var(--s2-spacing-25, 2px);
+}
