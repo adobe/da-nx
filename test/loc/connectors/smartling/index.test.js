@@ -107,6 +107,83 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(calls[0].url).to.equal(expectedUrl);
   });
 
+  it('reports Smartling\'s own active workflow step, not a stale status, when translation is incomplete', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/file/progress')) {
+        return new Response(JSON.stringify({
+          response: {
+            code: 'SUCCESS',
+            data: {
+              contentProgressReport: [{
+                targetLocaleId: 'fr-FR',
+                progress: { percentComplete: 50 },
+                workflowProgressReportList: [{
+                  workflowStepSummaryReportItemList: [
+                    { workflowStepName: 'Processing', wordCount: 0, stringCount: 0 },
+                    { workflowStepName: 'Translation', wordCount: 50, stringCount: 5 },
+                    { workflowStepName: 'Published', wordCount: 0, stringCount: 0 },
+                  ],
+                }],
+              }],
+            },
+          },
+        }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+    // Leftover status from sendAllLanguages — should not still read 'created' after getStatusAll.
+    const langs = [{ code: 'fr-FR', translation: { translated: 0, status: 'created' } }];
+    const urls = [{ daBasePath: '/page' }];
+    const actions = { saveState: async () => {} };
+
+    await getStatusAll({
+      org, site, service, langs, urls, actions,
+    });
+
+    expect(langs[0].translation.status).to.equal('Translation');
+    expect(langs[0].translation.translated).to.equal(0);
+  });
+
+  it('falls back to a generic "in progress" label when Smartling reports no active workflow step', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/file/progress')) {
+        return new Response(JSON.stringify({
+          response: {
+            code: 'SUCCESS',
+            data: {
+              contentProgressReport: [{
+                targetLocaleId: 'fr-FR',
+                progress: { percentComplete: 0 },
+              }],
+            },
+          },
+        }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+    const langs = [{ code: 'fr-FR', translation: { translated: 0, status: 'created' } }];
+    const urls = [{ daBasePath: '/page' }];
+    const actions = { saveState: async () => {} };
+
+    await getStatusAll({
+      org, site, service, langs, urls, actions,
+    });
+
+    expect(langs[0].translation.status).to.equal('in progress');
+  });
+
   it('rewrites the origin for saveItems file downloads', async () => {
     const service = { origin: legacyOrigin, projectId: 'proj-1' };
     const lang = { code: 'fr-FR' };
