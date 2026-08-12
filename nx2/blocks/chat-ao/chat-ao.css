@@ -33,6 +33,13 @@
   }
 }
 
+.prompts-popover {
+  max-width: 720px;
+  box-sizing: border-box;
+  top: auto;
+  padding: 0;
+}
+
 .chat-header {
   display: flex;
   align-items: center;
@@ -151,6 +158,10 @@
       background-color: var(--s2-gray-200);
     }
 
+    .icon-add {
+      display: flex;
+    }
+
     .icon-up {
       display: none;
     }
@@ -163,6 +174,16 @@
   .nx-btn-primary.nx-btn-sm  {
     padding: var(--s2-spacing-75);
     border-radius: 20px;
+  }
+}
+
+:host:has(.prompts-popover[open]) .chat-add {
+  .icon-add {
+    display: none;
+  }
+
+  .icon-up {
+    display: flex;
   }
 }
 

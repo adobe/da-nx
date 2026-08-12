@@ -7,7 +7,7 @@ import { renderMessage } from './renderers/renderers.js';
 import { renderToolCard } from './renderers/card-renderers.js';
 import { renderNewerEpisodeBanner, renderUiArtifact } from './ao/ao-renderers.js';
 import './welcome/welcome.js';
-import './prompts/prompts.js';
+import '../shared/chat/prompts/prompts.js';
 import '../shared/pills/pills.js';
 import './interaction/interaction.js';
 import { loadSiteConfig } from './utils/api.js';
@@ -17,24 +17,14 @@ import { buildAttachmentPayload, buildSlashMessage } from './utils/chat-helpers.
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
-import { ADD_MENU_ITEMS, ADOBE_AI_GUIDELINES_URL, MENU_OPTIONS } from '../shared/chat/constants.js';
+import { openPopoverAbove } from '../shared/chat/positioning.js';
+import { ADD_MENU_ITEMS, ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 import { ROLE } from './constants.js';
 
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
 
-const ICON_NAMES = {
-  add: 's2-icon-add-20-n',
-  clear: 's2-icon-removecircle-20-n',
-  close: 's2-icon-splitleft-20-n',
-  send: 's2-icon-arrowupsend-20-n',
-  stop: 's2-icon-stop-20-n',
-  up: 's2-icon-chevronup-20-n',
-};
-
 const icon = (name) => html`<svg class="chat-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
-
-const UI_PROMPTS_GAP = 8;
 
 function isAllowedFile(file) {
   return file.type?.startsWith('image/')
@@ -287,16 +277,9 @@ class NxChat extends LitElement {
   _openPrompts() {
     const popover = this.shadowRoot.querySelector('.prompts-popover');
     const form = this.shadowRoot.querySelector('.chat-form');
-    if (!popover || !form) return;
-    const { left, width, top } = form.getBoundingClientRect();
-    popover.style.left = `${left}px`;
-    popover.style.width = `${width}px`;
-    popover.style.bottom = `${window.innerHeight - top + UI_PROMPTS_GAP}px`;
-    popover.style.height = `${Math.min(top - UI_PROMPTS_GAP, 400)}px`;
-    popover.addEventListener('toggle', ({ newState }) => {
-      if (newState === 'open') this.shadowRoot.querySelector('nx-prompts')?.focus();
-    }, { once: true });
-    popover.show();
+    openPopoverAbove(popover, form, {
+      onOpen: () => this.shadowRoot.querySelector('nx-prompts')?.focus(),
+    });
   }
 
   _onAddClick(e) {

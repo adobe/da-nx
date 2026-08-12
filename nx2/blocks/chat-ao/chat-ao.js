@@ -11,29 +11,26 @@
  */
 
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle } from '../../utils/utils.js';
+import { loadStyle, hashChange } from '../../utils/utils.js';
+import { loadSiteConfig } from '../chat/utils/api.js';
 import AoChatController from './ao-controller.js';
 import { AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES, COWORKER_SKILLS_URL } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
+import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
 import '../shared/pills/pills.js';
 import '../shared/menu/menu.js';
-import { ADD_MENU_ITEMS, ADOBE_AI_GUIDELINES_URL, MENU_OPTIONS } from '../shared/chat/constants.js';
+import '../shared/popover/popover.js';
+import '../shared/chat/prompts/prompts.js';
+import { ADD_MENU_ITEMS, ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
 
 const { codeBase } = getConfig();
-
-const ICON_NAMES = {
-  add: 's2-icon-add-20-n',
-  close: 's2-icon-splitleft-20-n',
-  send: 's2-icon-arrowupsend-20-n',
-  stop: 's2-icon-stop-20-n',
-};
 
 const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
 
@@ -47,10 +44,59 @@ export default class NxChatAo extends LitElement {
     messages: { type: Array },
     thinking: { type: Boolean },
     _dragging: { state: true },
+    _prompts: { state: true },
   };
+
+  set context(value) {
+    this._explicitContext = true;
+    this._applyContext(value);
+  }
+
+  _applyContext(value) {
+    this._context = value;
+    this._loadConfig();
+  }
+
+  async _loadConfig() {
+    const { org, site } = this._context ?? {};
+    if (!org || !site) return;
+    const key = `${org}/${site}`;
+    if (this._configKey === key) return;
+    this._configKey = key;
+    const { prompts } = await loadSiteConfig(org, site);
+    this._prompts = prompts ?? [];
+  }
 
   _closePanel() {
     this.dispatchEvent(new CustomEvent(PANEL_EVENT.CLOSE, { bubbles: true, composed: true }));
+  }
+
+  _openPrompts() {
+    const popover = this.shadowRoot.querySelector('.prompts-popover');
+    const form = this.shadowRoot.querySelector('.chat-form');
+    openPopoverAbove(popover, form, {
+      onOpen: () => this.shadowRoot.querySelector('nx-prompts')?.focus(),
+    });
+  }
+
+  _sendPrompt(prompt, { autoSend = false } = {}) {
+    if (!prompt || this.thinking) return;
+    this.shadowRoot.querySelector('.prompts-popover')?.close();
+    const input = this.shadowRoot.querySelector('.chat-input');
+    if (!input) return;
+    input.value = prompt;
+    if (autoSend) {
+      input.closest('form')?.requestSubmit();
+    } else {
+      input.focus();
+    }
+  }
+
+  _onAddClick(e) {
+    const popover = this.shadowRoot.querySelector('.prompts-popover');
+    if (!popover?.open) return;
+    e.stopImmediatePropagation();
+    popover.close();
   }
 
   _handlePillActivate({ detail }) {
@@ -76,11 +122,15 @@ export default class NxChatAo extends LitElement {
       onDragging: (dragging) => { this._dragging = dragging; },
       onFiles: (files) => this._onFilesSelected(files),
     });
+    this._unsubscribeHash = hashChange.subscribe((state) => {
+      if (!this._explicitContext) this._applyContext(state);
+    });
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this._controller?.destroy();
+    this._unsubscribeHash?.();
   }
 
   updated(changed) {
@@ -120,7 +170,19 @@ export default class NxChatAo extends LitElement {
 
   _handleMenuSelect({ detail: { id } }) {
     if (id === MENU_OPTIONS.FILES) this._openFilePicker();
+    if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
+    if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
     if (id === MENU_OPTIONS.MANAGE_SKILLS) window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
+  }
+
+  _openConfigPage() {
+    const { org, site } = this._context ?? {};
+    if (!org || !site) return;
+    const url = new URL(window.location.href);
+    url.pathname = '/config';
+    url.search = '';
+    url.hash = `#/${org}/${site}/`;
+    window.open(url.href, '_blank', 'noopener,noreferrer');
   }
 
   _openFilePicker() {
@@ -143,7 +205,17 @@ export default class NxChatAo extends LitElement {
   }
 
   render() {
+    const { view } = this._context ?? {};
+    const prompts = (this._prompts ?? [])
+      .filter((p) => !p.area || p.area === 'all' || p.area === view);
+
     return html`
+      <nx-popover class="prompts-popover">
+        <nx-prompts
+          .prompts=${prompts}
+          .onSend=${(p) => this._sendPrompt(p)}
+        ></nx-prompts>
+      </nx-popover>
       <div class="chat-header">
         <button
           class="nx-action-btn-icon nx-btn-sm"
@@ -195,8 +267,9 @@ export default class NxChatAo extends LitElement {
           ></textarea>
           <div class="chat-actions" ?data-thinking=${this.thinking}>
             <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-              <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add">
-                ${icon('add')}
+              <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
+                <span class="icon-add">${icon('add')}</span>
+                <span class="icon-up">${icon('up')}</span>
               </button>
             </nx-menu>
             <button
