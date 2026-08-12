@@ -14,6 +14,9 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
 import AoChatController from './ao-controller.js';
 import { getConfig } from '../../scripts/nx.js';
+import { CHAT_EVENT } from '../../utils/chat.js';
+import { PANEL_EVENT } from '../../utils/panel.js';
+import '../shared/pills/pills.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
@@ -33,6 +36,17 @@ export default class NxChatAo extends LitElement {
     messages: { type: Array },
     thinking: { type: Boolean },
   };
+
+  _closePanel() {
+    this.dispatchEvent(new CustomEvent(PANEL_EVENT.CLOSE, { bubbles: true, composed: true }));
+  }
+
+  _handlePillActivate({ detail }) {
+    const { selFrom, selTo, selectionType, blockName, proseIndex } = detail;
+    document.dispatchEvent(new CustomEvent(CHAT_EVENT.HIGHLIGHT_SELECTION, {
+      detail: { selFrom, selTo, selectionType, blockName, proseIndex },
+    }));
+  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -71,8 +85,10 @@ export default class NxChatAo extends LitElement {
     const input = this.shadowRoot.querySelector('.chat-input');
     const text = input.value.trim();
     if (!text) return;
-    this._controller.sendMessage(text);
+    const pills = this.shadowRoot.querySelector('nx-pills');
+    this._controller.sendMessage(text, pills?.items ?? []);
     input.value = '';
+    pills?.clear();
   }
 
   _handleKeydown(e) {
@@ -105,6 +121,10 @@ export default class NxChatAo extends LitElement {
       </div>
       <div class="chat-form-wrap">
         <form class="chat-form" @submit=${this._submit}>
+          <nx-pills
+            addEvent=${CHAT_EVENT.ADD_TO_CHAT}
+            @nx-pill-activate=${this._handlePillActivate}
+          ></nx-pills>
           <textarea
             class="chat-input"
             placeholder="Ask anything, or type / for skills..."
@@ -127,4 +147,4 @@ export default class NxChatAo extends LitElement {
   }
 }
 
-customElements.define('nx-chat-ao', NxChatAo);
+if (!customElements.get('nx-chat-ao')) customElements.define('nx-chat-ao', NxChatAo);

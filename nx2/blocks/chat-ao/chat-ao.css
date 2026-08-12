@@ -119,7 +119,7 @@
   }
 
   .nx-btn-primary.nx-btn-sm  {
-    padding: 7px;
+    padding: var(--s2-spacing-75);
     border-radius: 20px;
   }
 }

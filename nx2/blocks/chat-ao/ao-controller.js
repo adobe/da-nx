@@ -20,6 +20,18 @@ function getOrgId(projectedProductContext) {
   return projectedProductContext?.find((p) => p.prodCtx?.owningEntity)?.prodCtx.owningEntity;
 }
 
+function describeSelection(items) {
+  if (!items.length) return '';
+  const lines = items.map((item) => {
+    if (item.type === 'text' && item.innerHTML) {
+      return `- Selected text: "${item.innerHTML.replace(/<[^>]+>/g, '').trim()}"`;
+    }
+    const label = item.innerText ? ` — "${item.innerText}"` : '';
+    return `- Selected ${item.type ?? 'block'}: ${item.blockName ?? 'Selection'}${label}`;
+  });
+  return `[Selected context]\n${lines.join('\n')}\n`;
+}
+
 export default class AoChatController {
   constructor({ onUpdate }) {
     this._onUpdate = onUpdate;
@@ -134,7 +146,7 @@ export default class AoChatController {
     this._done();
   }
 
-  async sendMessage(message) {
+  async sendMessage(message, items = []) {
     if (!message || this._thinking) return;
 
     this._messages = [...this._messages, { role: ROLE.USER, content: message }];
@@ -146,7 +158,7 @@ export default class AoChatController {
       this._ws.send(JSON.stringify(await this._authFrame()));
       this._ws.send(JSON.stringify({
         type: AO_FRAME.USER_INPUT,
-        text: message,
+        text: `${describeSelection(items)}${message}`,
         manifestId: AO_MANIFEST_ID,
         debugMode: false,
       }));

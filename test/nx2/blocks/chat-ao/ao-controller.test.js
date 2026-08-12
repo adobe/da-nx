@@ -34,6 +34,20 @@ describe('ao-controller sendMessage', () => {
     expect(sent).to.have.length(0);
   });
 
+  it('prefixes selected context items into the wire text, not the shown message', async () => {
+    const { controller, sent } = makeController();
+
+    await controller.sendMessage('what does this do?', [
+      { type: 'block', blockName: 'hero', id: 'a' },
+      { type: 'text', innerHTML: '<p>hello <b>world</b></p>', id: 'b' },
+    ]);
+
+    expect(controller._messages).to.deep.equal([{ role: 'user', content: 'what does this do?' }]);
+    expect(sent[1].text).to.equal(
+      '[Selected context]\n- Selected block: hero\n- Selected text: "hello world"\nwhat does this do?',
+    );
+  });
+
   it('is a no-op for an empty message', async () => {
     const { controller, sent } = makeController();
 

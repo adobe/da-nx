@@ -8,16 +8,17 @@ import { renderToolCard } from './renderers/card-renderers.js';
 import { renderNewerEpisodeBanner, renderUiArtifact } from './ao/ao-renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
-import './pills/pills.js';
+import '../shared/pills/pills.js';
 import './interaction/interaction.js';
 import { loadSiteConfig } from './utils/api.js';
 import { isCoworkerEnabled } from '../../utils/ewFlags.js';
 import {
-  ADOBE_AI_GUIDELINES_URL, ADD_MENU_ITEMS, CHAT_EVENT, MENU_OPTIONS, ROLE,
+  ADOBE_AI_GUIDELINES_URL, ADD_MENU_ITEMS, MENU_OPTIONS, ROLE,
 } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { buildAttachmentPayload, buildSlashMessage } from './utils/chat-helpers.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
+import { CHAT_EVENT } from '../../utils/chat.js';
 
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
@@ -607,12 +608,12 @@ class NxChat extends LitElement {
             <span class="chat-drop-hint">Supports PDF, images, and documents</span>
           </div>` : nothing}
         ${this._items?.length ? html`
-          <nx-chat-pills
+          <nx-pills
             .items=${this._items}
             @nx-pill-remove=${this._handlePillRemove}
             @nx-pill-pin=${this._handlePillPin}
             @nx-pill-activate=${this._handlePillActivate}
-          ></nx-chat-pills>` : nothing}
+          ></nx-pills>` : nothing}
         <textarea
           name="chat-input"
           class="chat-input"
