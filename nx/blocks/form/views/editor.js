@@ -463,6 +463,7 @@ class Editor extends LitElement {
         .itemCount=${itemCount}
         .minItems=${minItems}
         .maxItems=${maxItems}
+        .required=${!!node.required}
         .active=${reorderActive}
         .open=${this._openMenuPointer === item.pointer}
         @focusin=${(e) => e.stopPropagation()}

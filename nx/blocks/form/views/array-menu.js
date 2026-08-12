@@ -15,6 +15,7 @@ class ArrayMenu extends LitElement {
     itemCount: { attribute: false },
     minItems: { attribute: false },
     maxItems: { attribute: false },
+    required: { attribute: false },
     active: { attribute: false },
     open: { attribute: false },
     _confirmRemove: { state: true },
@@ -24,6 +25,7 @@ class ArrayMenu extends LitElement {
     super();
     this.active = false;
     this.open = false;
+    this.required = false;
     this._confirmRemove = false;
     this._confirmTimer = null;
   }
@@ -58,7 +60,11 @@ class ArrayMenu extends LitElement {
 
   _canRemove() {
     if (this.readonly) return false;
-    return this._count() > (this.minItems ?? 0);
+    // Only a required array holds a floor at minItems. An optional array can
+    // always be cleared back to empty (it prunes to absent, which is valid),
+    // so its rows must stay removable — matches the SDK's canRemove.
+    const floor = this.required ? (this.minItems ?? 0) : 0;
+    return this._count() > floor;
   }
 
   _clearConfirmTimer() {
