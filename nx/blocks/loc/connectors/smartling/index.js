@@ -251,32 +251,63 @@ export async function sendAllLanguages({
 }
 
 /**
- * Finds the name of the workflow step a not-yet-complete file/locale is
- * currently sitting in (e.g. "Processing", "Translation"), from
- * Smartling's own per-locale progress report. Smartling's file/progress
- * endpoint has no single status enum — only per-step word/string counts —
- * so this reports Smartling's own step name rather than a made-up label.
- * @param {Object} report - One entry from a file/progress response's
- *  `contentProgressReport`.
- * @returns {string} The active step's name, or 'in progress' if
- *  Smartling hasn't reported any step activity yet.
+ * Computes Smartling's translation progress percentage for one locale's
+ * string counts, per Smartling's own documented formula (Checking File
+ * Translation Status): floors the result rather than rounding — 99.9999%
+ * complete must report as 99%, not 100% — and treats a fully-excluded
+ * file (nothing left to translate) as 100%.
+ * @param {Object} counts
+ * @param {number} counts.totalStringCount - Strings in the file.
+ * @param {number} counts.completedStringCount - Published strings.
+ * @param {number} counts.excludedStringCount - Strings excluded from
+ *  translation.
+ * @returns {number} Progress percentage, 0-100.
  */
-function activeWorkflowStepName(report) {
-  const steps = report.workflowProgressReportList?.[0]?.workflowStepSummaryReportItemList || [];
-  const active = steps.find((step) => step.wordCount > 0 || step.stringCount > 0);
-  return active?.workflowStepName || 'in progress';
+function translationProgress({ totalStringCount, completedStringCount, excludedStringCount }) {
+  const denominator = totalStringCount - excludedStringCount;
+  if (denominator === 0) return 100;
+  return Math.floor((completedStringCount / denominator) * 100);
+}
+
+/**
+ * Fetches per-locale translation status counts for a single file. Unlike
+ * the job-scoped file/progress endpoint, this needs no jobUid.
+ *
+ * `totalStringCount` is a file-level count (the source content is the
+ * same regardless of target locale) — it is not repeated per item in
+ * Smartling's response, so it's returned alongside `items` rather than
+ * on each one.
+ * @param {string} endpoint - The resolved Smartling API origin.
+ * @param {string} projectId - The Smartling project id.
+ * @param {string} fileUri - The file's DA base path.
+ * @returns {Promise<{totalStringCount: number, items: Object[]}>} The
+ *  file's total string count and its per-locale completed/excluded
+ *  counts, or zero/empty on failure.
+ */
+async function fetchFileStatus(endpoint, projectId, fileUri) {
+  const url = new URL(`${endpoint}/files-api/v2/projects/${projectId}/file/status`);
+  url.searchParams.set('fileUri', fileUri);
+  const opts = { headers: { Authorization: `Bearer ${token}` } };
+
+  const resp = await fetch(url, opts);
+  if (!resp.ok) return { totalStringCount: 0, items: [] };
+  const { response } = await resp.json();
+  const { totalStringCount = 0, items = [] } = response?.data || {};
+  return { totalStringCount, items };
 }
 
 /**
  * Refreshes translation status for every target language of a job by
- * polling per-file progress.
+ * polling per-locale file status (Smartling's recommended
+ * getFileTranslationStatusAllLocales endpoint).
  * @param {Object} params
  * @param {string} params.org - The DA org.
  * @param {string} params.site - The DA site.
  * @param {Object} params.service - The service configuration.
  * @param {Object[]} params.langs - Target languages; mutated in place with
- *  `translation.status` (Smartling's active workflow step name, or
- *  'translated' once complete) and `translation.translated`.
+ *  `translation.status` ('translated' once every file is complete for
+ *  that locale, otherwise Smartling's real progress percentage, e.g.
+ *  '62% translated') and `translation.translated` (files complete).
  * @param {Object[]} params.urls - The urls in the project.
  * @param {Object} params.actions - `{ saveState }` callback.
  * @returns {Promise<void>}
@@ -285,29 +316,22 @@ export async function getStatusAll({
   org, site, service, langs, urls, actions,
 }) {
   const { saveState } = actions;
-  const { origin, projectId, jobUid } = service;
+  const { origin, projectId } = service;
   const endpoint = resolveOrigin(origin, org, site);
-
-  const opts = { headers: { 'Content-Type': 'application/json' } };
-  opts.headers.Authorization = `Bearer ${token}`;
 
   langs.forEach((lang) => { lang.translation.translated = 0; });
 
   for (const url of urls) {
-    const resp = await fetch(`${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid.value}/file/progress?fileUri=${url.daBasePath}`, opts);
-    const { response } = await resp.json();
-    if (response.code !== 'SUCCESS') return;
-    const langReports = response?.data?.contentProgressReport;
-    if (!langReports) return;
-    langReports.forEach((report) => {
-      const { targetLocaleId, progress } = report;
-      const lang = langs.find((projLang) => projLang.code === targetLocaleId);
+    // eslint-disable-next-line no-await-in-loop
+    const { totalStringCount, items } = await fetchFileStatus(endpoint, projectId, url.daBasePath);
+    items.forEach((item) => {
+      const lang = langs.find((projLang) => projLang.code === item.localeId);
       if (!lang) return;
-      // Previously translated files will have a null progress object.
-      if (!progress || progress.percentComplete === 100) {
+      const progress = translationProgress({ totalStringCount, ...item });
+      if (progress === 100) {
         lang.translation.translated += 1;
       } else {
-        lang.translation.status = activeWorkflowStepName(report);
+        lang.translation.status = `${progress}% translated`;
       }
     });
   }
