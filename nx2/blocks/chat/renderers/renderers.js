@@ -4,8 +4,8 @@ import {
 } from '../constants.js';
 import { getConfig } from '../../../scripts/nx.js';
 import { parseDirectives } from '../utils/parse.js';
-import { pillIconName } from '../utils/icons.js';
 import { linkifyBareUrls, sanitizeLinks } from '../utils/links.js';
+import { pillIconName } from '../../shared/utils/icons.js';
 
 const { codeBase } = getConfig();
 
