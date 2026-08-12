@@ -278,6 +278,37 @@ export async function sendAllLanguages({
   await saveState({ options });
 }
 
+/**
+ * Finds the name of the workflow step a not-yet-complete file/locale is
+ * currently sitting in (e.g. "Processing", "Translation"), from
+ * Smartling's own per-locale progress report. Smartling's file/progress
+ * endpoint has no single status enum — only per-step word/string counts —
+ * so this reports Smartling's own step name rather than a made-up label.
+ * @param {Object} report - One entry from a file/progress response's
+ *  `contentProgressReport`.
+ * @returns {string} The active step's name, or 'in progress' if
+ *  Smartling hasn't reported any step activity yet.
+ */
+function activeWorkflowStepName(report) {
+  const steps = report.workflowProgressReportList?.[0]?.workflowStepSummaryReportItemList || [];
+  const active = steps.find((step) => step.wordCount > 0 || step.stringCount > 0);
+  return active?.workflowStepName || 'in progress';
+}
+
+/**
+ * Refreshes translation status for every target language of a job by
+ * polling per-file progress.
+ * @param {Object} params
+ * @param {string} params.org - The DA org.
+ * @param {string} params.site - The DA site.
+ * @param {Object} params.service - The service configuration.
+ * @param {Object[]} params.langs - Target languages; mutated in place with
+ *  `translation.status` (Smartling's active workflow step name, or
+ *  'translated' once complete) and `translation.translated`.
+ * @param {Object[]} params.urls - The urls in the project.
+ * @param {Object} params.actions - `{ saveState }` callback.
+ * @returns {Promise<void>}
+ */
 export async function getStatusAll({
   org, site, service, langs, urls, actions,
 }) {
@@ -299,9 +330,12 @@ export async function getStatusAll({
     langReports.forEach((report) => {
       const { targetLocaleId, progress } = report;
       const lang = langs.find((projLang) => projLang.code === targetLocaleId);
+      if (!lang) return;
       // Previously translated files will have a null progress object.
       if (!progress || progress.percentComplete === 100) {
         lang.translation.translated += 1;
+      } else {
+        lang.translation.status = activeWorkflowStepName(report);
       }
     });
   }
