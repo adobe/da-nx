@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
-import { readFileAsBase64 } from './utils/stream.js';
+import { buildAttachmentItems } from '../shared/chat/files.js';
 import '../shared/menu/menu.js';
 import ChatBackend from './chat-backend.js';
 import { renderMessage } from './renderers/renderers.js';
@@ -12,20 +12,16 @@ import '../shared/pills/pills.js';
 import './interaction/interaction.js';
 import { loadSiteConfig } from './utils/api.js';
 import { isCoworkerEnabled } from '../../utils/ewFlags.js';
-import {
-  ADOBE_AI_GUIDELINES_URL, ADD_MENU_ITEMS, MENU_OPTIONS, ROLE,
-} from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { buildAttachmentPayload, buildSlashMessage } from './utils/chat-helpers.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
+import { createFileDropHandlers } from '../shared/chat/dnd.js';
+import { ADD_MENU_ITEMS, ADOBE_AI_GUIDELINES_URL, MENU_OPTIONS } from '../shared/chat/constants.js';
+import { ROLE } from './constants.js';
 
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
-
-const COWORKER_SKILLS_URL = 'https://coworker.experience.adobe.io/skills';
-
-const MENU_ITEMS_NO_PROMPTS = ADD_MENU_ITEMS.filter((item) => item.id !== 'prompts');
 
 const ICON_NAMES = {
   add: 's2-icon-add-20-n',
@@ -39,6 +35,13 @@ const ICON_NAMES = {
 const icon = (name) => html`<svg class="chat-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
 
 const UI_PROMPTS_GAP = 8;
+
+function isAllowedFile(file) {
+  return file.type?.startsWith('image/')
+    || file.type === 'application/pdf'
+    || file.type === 'text/markdown'
+    || file.name?.endsWith('.md');
+}
 
 class NxChat extends LitElement {
   static properties = {
@@ -57,7 +60,7 @@ class NxChat extends LitElement {
     // renders as the full (da-agent) list during that brief window.
     _useCoworker: { state: true },
     _prompts: { state: true },
-    _items: { state: true },
+    _hasItems: { state: true },
     _dragging: { state: true },
   };
 
@@ -65,34 +68,6 @@ class NxChat extends LitElement {
     this._explicitContext = true;
     this._applyContext(value);
   }
-
-  _keyedItemIds = new Map();
-
-  _onAddToChat = ({ detail }) => {
-    const { key, ...item } = detail;
-    if (key !== undefined) {
-      const prevId = this._keyedItemIds.get(key);
-      const without = (this._items ?? []).filter((i) => i.id !== prevId);
-      const matchesPinned = item.id
-        && typeof item.selFrom === 'number'
-        && typeof item.selTo === 'number'
-        && without.some((i) => i.pinned
-          && i.selFrom === item.selFrom
-          && i.selTo === item.selTo);
-      if (matchesPinned) {
-        this._keyedItemIds.delete(key);
-        this._items = without;
-      } else if (item.id) {
-        this._keyedItemIds.set(key, item.id);
-        this._items = [...without, item];
-      } else {
-        this._keyedItemIds.delete(key);
-        this._items = without;
-      }
-    } else {
-      this.addAttachment(item);
-    }
-  };
 
   setPrompt(text, { autoSend = false } = {}) {
     if (this.connected) {
@@ -103,9 +78,11 @@ class NxChat extends LitElement {
   }
 
   addAttachment(item) {
-    const current = this._items ?? [];
-    if (current.some((i) => i.id === item.id)) return;
-    this._items = [...current, item];
+    this.shadowRoot.querySelector('nx-pills')?.add(item);
+  }
+
+  _onPillsChange({ detail: { items } }) {
+    this._hasItems = items.length > 0;
   }
 
   _applyContext(value) {
@@ -115,9 +92,7 @@ class NxChat extends LitElement {
     } else {
       this._ensureController(value);
     }
-    const contextIds = new Set(this._keyedItemIds.values());
-    this._items = (this._items ?? []).filter((item) => !contextIds.has(item.id));
-    this._keyedItemIds = new Map();
+    this.shadowRoot.querySelector('nx-pills')?.dropKeyed();
     this._loadConfig();
     this.requestUpdate();
   }
@@ -199,14 +174,13 @@ class NxChat extends LitElement {
     this._slashCtx = null;
     this._slashMenuEl?.close();
     if (input) input.value = '';
-    const items = this._items ?? [];
-    const fileItems = items.filter((item) => item.dataBase64);
+    const pills = this.shadowRoot.querySelector('nx-pills');
+    const items = pills?.items ?? [];
     const contextItems = items.filter((item) => !item.dataBase64);
     const attachments = buildAttachmentPayload(items);
-    fileItems.forEach((item) => { if (item.thumbnail) URL.revokeObjectURL(item.thumbnail); });
     const opts = { requestedSkills: [skillId], ...(attachments.length ? { attachments } : {}) };
     this._controller.sendMessage(message, contextItems, opts);
-    this._items = [];
+    pills?.clear();
   }
 
   async connectedCallback() {
@@ -219,7 +193,11 @@ class NxChat extends LitElement {
       if (!this._explicitContext) this._applyContext(state);
     });
 
-    document.addEventListener(CHAT_EVENT.ADD_TO_CHAT, this._onAddToChat);
+    this._dnd = createFileDropHandlers({
+      isAllowed: isAllowedFile,
+      onDragging: (dragging) => { this._dragging = dragging; },
+      onFiles: (files) => this._onFilesSelected(files),
+    });
   }
 
   async _ensureController(context) {
@@ -277,12 +255,8 @@ class NxChat extends LitElement {
     super.disconnectedCallback();
     this._destroyed = true;
     cancelAnimationFrame(this._updateRaf);
-    (this._items ?? []).forEach((item) => {
-      if (item.thumbnail) URL.revokeObjectURL(item.thumbnail);
-    });
     this._unsubscribeHash?.();
     this._controller?.destroy();
-    document.removeEventListener(CHAT_EVENT.ADD_TO_CHAT, this._onAddToChat);
   }
 
   willUpdate(changed) {
@@ -368,16 +342,17 @@ class NxChat extends LitElement {
     }
     const input = this.shadowRoot.querySelector('.chat-input');
     const text = input.value.trim();
-    if (!text && !this._items?.length) return;
-    const fileItems = (this._items ?? []).filter((i) => i.dataBase64);
-    const contextItems = (this._items ?? []).filter((i) => !i.dataBase64);
+    const pills = this.shadowRoot.querySelector('nx-pills');
+    const items = pills?.items ?? [];
+    if (!text && !items.length) return;
+    const fileItems = items.filter((i) => i.dataBase64);
+    const contextItems = items.filter((i) => !i.dataBase64);
     const message = text || (fileItems.length > 1 ? 'Attached files' : 'Attached file');
-    const attachments = buildAttachmentPayload(this._items ?? []);
-    fileItems.forEach((i) => { if (i.thumbnail) URL.revokeObjectURL(i.thumbnail); });
+    const attachments = buildAttachmentPayload(items);
     this._slashMenuEl?.close();
     this._controller.sendMessage(message, contextItems, { attachments });
     input.value = '';
-    this._items = [];
+    pills?.clear();
   }
 
   _sendPrompt(prompt, { autoSend = false } = {}) {
@@ -397,11 +372,7 @@ class NxChat extends LitElement {
     if (id === MENU_OPTIONS.FILES) this._openFilePicker();
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._insertSlash();
-    if (id === 'skills' && this._useCoworker) {
-      window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    if (id === 'prompts' || id === 'skills') {
+    if (id === MENU_OPTIONS.MANAGE_PROMPT || id === MENU_OPTIONS.MANAGE_SKILLS) {
       const { org, site } = this._context ?? {};
       if (!org || !site) return;
       const url = new URL(window.location.href);
@@ -428,31 +399,10 @@ class NxChat extends LitElement {
   }
 
   async _onFilesSelected(fileList) {
-    const MAX_FILES = 20;
-    const fileCount = (this._items ?? []).filter((i) => i.dataBase64).length;
-    const available = Math.max(0, MAX_FILES - fileCount);
-    const files = Array.from(fileList).slice(0, available);
-    if (!files.length) return;
-
-    const results = await Promise.all(files.map(async (file) => {
-      try {
-        const dataBase64 = await readFileAsBase64(file);
-        if (!dataBase64) return null;
-        const isImage = file.type?.startsWith('image/');
-        return {
-          id: crypto.randomUUID(),
-          label: file.name,
-          type: isImage ? 'image' : 'file',
-          fileName: file.name,
-          mediaType: file.type,
-          sizeBytes: file.size,
-          dataBase64,
-          ...(isImage ? { thumbnail: URL.createObjectURL(file) } : {}),
-        };
-      } catch { return null; }
-    }));
-
-    results.filter(Boolean).forEach((item) => this.addAttachment(item));
+    const pills = this.shadowRoot.querySelector('nx-pills');
+    const currentCount = (pills?.items ?? []).filter((i) => i.dataBase64).length;
+    const items = await buildAttachmentItems(fileList, { currentCount });
+    items.forEach((item) => pills?.add(item));
   }
 
   async _onFileInputChange(e) {
@@ -461,64 +411,11 @@ class NxChat extends LitElement {
     target.value = '';
   }
 
-  _handlePillRemove({ detail: { id } }) {
-    const removed = (this._items ?? []).find((i) => i.id === id);
-    if (removed?.thumbnail) URL.revokeObjectURL(removed.thumbnail);
-    for (const [key, mappedId] of this._keyedItemIds) {
-      if (mappedId === id) this._keyedItemIds.delete(key);
-    }
-    this._items = (this._items ?? []).filter((item) => item.id !== id);
-  }
-
-  _handlePillActivate({ detail: { id } }) {
-    const item = (this._items ?? []).find((i) => i.id === id);
-    if (!item) return;
-    const { selFrom, selTo, selectionType, blockName, proseIndex } = item;
-    if (typeof selFrom !== 'number' || typeof selTo !== 'number') return;
+  _handlePillActivate({ detail }) {
+    const { selFrom, selTo, selectionType, blockName, proseIndex } = detail;
     document.dispatchEvent(new CustomEvent(CHAT_EVENT.HIGHLIGHT_SELECTION, {
       detail: { selFrom, selTo, selectionType, blockName, proseIndex },
     }));
-  }
-
-  _handlePillPin({ detail: { id } }) {
-    const items = this._items ?? [];
-    const target = items.find((i) => i.id === id);
-    if (!target || !target.pinnable || target.pinned) return;
-    for (const [key, mappedId] of this._keyedItemIds) {
-      if (mappedId === id) this._keyedItemIds.delete(key);
-    }
-    const pinnedId = `pinned-${crypto.randomUUID()}`;
-    this._items = items.map((item) => (
-      item.id === id ? { ...item, id: pinnedId, pinned: true } : item
-    ));
-  }
-
-  _onDragEnter(e) {
-    e.preventDefault();
-    this._dragging = true;
-  }
-
-  _onDragLeave(e) {
-    if (e.currentTarget.contains(e.relatedTarget)) return;
-    this._dragging = false;
-  }
-
-  _onDragOver(e) {
-    e.preventDefault();
-  }
-
-  async _onDrop(e) {
-    e.preventDefault();
-    this._dragging = false;
-    const { files } = e.dataTransfer ?? {};
-    if (!files?.length) return;
-    const accepted = Array.from(files).filter((f) => (
-      f.type?.startsWith('image/')
-      || f.type === 'application/pdf'
-      || f.type === 'text/markdown'
-      || f.name?.endsWith('.md')
-    ));
-    await this._onFilesSelected(accepted);
   }
 
   render() {
@@ -589,10 +486,10 @@ class NxChat extends LitElement {
           .onRejectPlan=${(feedback) => this._controller.respondToPlanApproval('reject', feedback)}
         ></nx-chat-interaction>
         <form class="chat-form" autocomplete="off" @submit=${this._submit}
-          @dragenter=${this._onDragEnter}
-          @dragleave=${this._onDragLeave}
-          @dragover=${this._onDragOver}
-          @drop=${this._onDrop}
+          @dragenter=${this._dnd.onDragEnter}
+          @dragleave=${this._dnd.onDragLeave}
+          @dragover=${this._dnd.onDragOver}
+          @drop=${this._dnd.onDrop}
         >
         <input
           class="chat-file-input"
@@ -607,13 +504,11 @@ class NxChat extends LitElement {
             <span class="chat-drop-title">Drop a file to add context</span>
             <span class="chat-drop-hint">Supports PDF, images, and documents</span>
           </div>` : nothing}
-        ${this._items?.length ? html`
-          <nx-pills
-            .items=${this._items}
-            @nx-pill-remove=${this._handlePillRemove}
-            @nx-pill-pin=${this._handlePillPin}
-            @nx-pill-activate=${this._handlePillActivate}
-          ></nx-pills>` : nothing}
+        <nx-pills
+          addEvent=${CHAT_EVENT.ADD_TO_CHAT}
+          @nx-pill-activate=${this._handlePillActivate}
+          @nx-pills-change=${this._onPillsChange}
+        ></nx-pills>
         <textarea
           name="chat-input"
           class="chat-input"
@@ -623,8 +518,8 @@ class NxChat extends LitElement {
           @keydown=${this._handleKeydown}
           @blur=${this._handleBlur}
         ></textarea>
-        <div class="chat-actions" ?data-thinking=${this.thinking} ?data-has-items=${!!this._items?.length}>
-          <nx-menu .items=${this._useCoworker ? MENU_ITEMS_NO_PROMPTS : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
+        <div class="chat-actions" ?data-thinking=${this.thinking} ?data-has-items=${this._hasItems}>
+          <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
             <button slot="trigger" class="chat-add" type="button" aria-label="Add" @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>
               <span class="icon-up">${icon('up')}</span>

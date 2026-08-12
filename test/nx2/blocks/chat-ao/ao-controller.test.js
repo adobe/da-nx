@@ -21,7 +21,7 @@ describe('ao-controller sendMessage', () => {
     expect(updates[0].thinking).to.equal(true);
     expect(sent).to.deep.equal([
       { type: 'AUTH' },
-      { type: 'USER_INPUT', text: 'hello AO', manifestId: 'experience-workspace', debugMode: false },
+      { type: 'USER_INPUT', text: 'hello AO', manifestId: 'experience-workspace', debugMode: true },
     ]);
   });
 

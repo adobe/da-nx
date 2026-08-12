@@ -37,6 +37,14 @@ class NxPills extends LitElement {
     items.forEach((item) => { if (item.thumbnail) URL.revokeObjectURL(item.thumbnail); });
   }
 
+  // Self-managed mode only — pills owns `items`, so a host can't reactively bind to
+  // it; this is how a host learns something changed (e.g. to drive a has-items CSS
+  // attribute) without polling.
+  _setItems(next) {
+    this.items = next;
+    this.dispatchEvent(new CustomEvent('nx-pills-change', { detail: { items: next } }));
+  }
+
   _onAdd = ({ detail }) => {
     const { key, ...item } = detail;
     if (key === undefined) {
@@ -50,23 +58,33 @@ class NxPills extends LitElement {
       && without.some((i) => i.pinned && i.selFrom === item.selFrom && i.selTo === item.selTo);
     if (matchesPinned || !item.id) {
       this._keyedItemIds.delete(key);
-      this.items = without;
+      this._setItems(without);
       return;
     }
     this._keyedItemIds.set(key, item.id);
-    this.items = [...without, item];
+    this._setItems([...without, item]);
   };
 
   // Self-managed mode only — a direct push (e.g. a file attachment) outside the
   // addEvent flow.
   add(item) {
     if (this._list.some((i) => i.id === item.id)) return;
-    this.items = [...this._list, item];
+    this._setItems([...this._list, item]);
+  }
+
+  // Drops everything tied to a `key` (selection-based context) while keeping
+  // directly-added items — for when the host's editing context changes and old
+  // selections no longer apply.
+  dropKeyed() {
+    const keptIds = new Set(this._keyedItemIds.values());
+    this._revoke(this._list.filter((i) => !keptIds.has(i.id)));
+    this._setItems(this._list.filter((i) => keptIds.has(i.id)));
+    this._keyedItemIds = new Map();
   }
 
   clear() {
     this._revoke(this._list);
-    this.items = [];
+    this._setItems([]);
     this._keyedItemIds = new Map();
   }
 
@@ -80,7 +98,7 @@ class NxPills extends LitElement {
     for (const [key, mappedId] of this._keyedItemIds) {
       if (mappedId === id) this._keyedItemIds.delete(key);
     }
-    this.items = this._list.filter((item) => item.id !== id);
+    this._setItems(this._list.filter((item) => item.id !== id));
   }
 
   _pin(id) {
@@ -94,9 +112,9 @@ class NxPills extends LitElement {
       if (mappedId === id) this._keyedItemIds.delete(key);
     }
     const pinnedId = `pinned-${crypto.randomUUID()}`;
-    this.items = this._list.map((item) => (
+    this._setItems(this._list.map((item) => (
       item.id === id ? { ...item, id: pinnedId, pinned: true } : item
-    ));
+    )));
   }
 
   _activate(id) {

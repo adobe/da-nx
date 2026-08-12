@@ -13,24 +13,10 @@
 import { loadIms } from '../../utils/ims.js';
 import { env } from '../../scripts/nx.js';
 import {
-  AO_WS_BASE, AO_FRAME, AO_EVENT, AO_MANIFEST_ID, ROLE,
+  AO_WS_BASE, AO_FRAME, AO_EVENT, AO_MANIFEST_ID,
 } from './ao-constants.js';
-
-function getOrgId(projectedProductContext) {
-  return projectedProductContext?.find((p) => p.prodCtx?.owningEntity)?.prodCtx.owningEntity;
-}
-
-function describeSelection(items) {
-  if (!items.length) return '';
-  const lines = items.map((item) => {
-    if (item.type === 'text' && item.innerHTML) {
-      return `- Selected text: "${item.innerHTML.replace(/<[^>]+>/g, '').trim()}"`;
-    }
-    const label = item.innerText ? ` — "${item.innerText}"` : '';
-    return `- Selected ${item.type ?? 'block'}: ${item.blockName ?? 'Selection'}${label}`;
-  });
-  return `[Selected context]\n${lines.join('\n')}\n`;
-}
+import { buildSelectionText, buildFailedUploadsText } from './utils/user-context.js';
+import { uploadAttachment, getOrgId } from './utils/uploads.js';
 
 export default class AoChatController {
   constructor({ onUpdate }) {
@@ -90,7 +76,7 @@ export default class AoChatController {
         if (!isCurrent()) return;
         this._ws = null;
         if (this._thinking) {
-          this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: 'Error: connection closed' }];
+          this._messages = [...this._messages, { role: 'assistant', content: 'Error: connection closed' }];
           this._done();
         }
       });
@@ -112,7 +98,7 @@ export default class AoChatController {
 
     if (evt.type === AO_EVENT.TEXT_DONE) {
       this._messages = [...this._messages, {
-        role: ROLE.ASSISTANT,
+        role: 'assistant',
         content: evt.data?.content ?? this._streaming,
       }];
       this._streaming = '';
@@ -128,7 +114,7 @@ export default class AoChatController {
 
     if (evt.type === AO_EVENT.ERROR_CONNECTION || evt.type === AO_EVENT.ERROR_SESSION) {
       const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
-      this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${message}` }];
+      this._messages = [...this._messages, { role: 'assistant', content: `Error: ${message}` }];
       this._done();
     }
   }
@@ -146,24 +132,31 @@ export default class AoChatController {
     this._done();
   }
 
-  async sendMessage(message, items = []) {
+  async sendMessage(message, items = [], attachments = []) {
     if (!message || this._thinking) return;
 
-    this._messages = [...this._messages, { role: ROLE.USER, content: message }];
+    this._messages = [...this._messages, { role: 'user', content: message }];
     this._thinking = true;
     this._update();
 
     try {
+      const uploaded = await Promise.all(attachments.map(async (a) => (
+        { ...a, artifactId: await uploadAttachment(a) }
+      )));
+      const artifactIds = uploaded.map((a) => a.artifactId).filter(Boolean);
+      const failed = uploaded.filter((a) => !a.artifactId);
+
       await this._ensureSocket();
       this._ws.send(JSON.stringify(await this._authFrame()));
       this._ws.send(JSON.stringify({
         type: AO_FRAME.USER_INPUT,
-        text: `${describeSelection(items)}${message}`,
+        text: `${buildSelectionText(items)}${buildFailedUploadsText(failed)}${message}`,
         manifestId: AO_MANIFEST_ID,
-        debugMode: false,
+        debugMode: true,
+        ...(artifactIds.length && { attachments: artifactIds }),
       }));
     } catch (err) {
-      this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
+      this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
       this._done();
     }
   }

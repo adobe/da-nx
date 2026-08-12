@@ -2,7 +2,6 @@ import { loadIms } from '../../../utils/ims.js';
 import { env } from '../../../scripts/nx.js';
 import { daFetch } from '../../../utils/api.js';
 import { DA_ADMIN } from '../../../utils/utils.js';
-import { ROLE } from '../constants.js';
 import {
   loadMessages, saveMessages, resetSession, getRoomKey,
 } from '../utils/persistence.js';
@@ -146,8 +145,8 @@ function parseSkillsListResponse(json) {
 function turnsToMessages(turns) {
   const messages = [];
   (turns ?? []).forEach((turn) => {
-    if (turn?.user_input) messages.push({ role: ROLE.USER, content: turn.user_input });
-    if (turn?.final_response) messages.push({ role: ROLE.ASSISTANT, content: turn.final_response });
+    if (turn?.user_input) messages.push({ role: 'user', content: turn.user_input });
+    if (turn?.final_response) messages.push({ role: 'assistant', content: turn.final_response });
   });
   return messages;
 }
@@ -295,7 +294,7 @@ export default class ChatControllerAO {
     const artifact = evt.data?.artifact;
     if (!artifact) return;
     this._messages = [...this._messages, {
-      role: ROLE.ASSISTANT,
+      role: 'assistant',
       uiArtifact: {
         id: artifact.id,
         components: artifact.a2ui_surface?.components ?? [],
@@ -325,7 +324,7 @@ export default class ChatControllerAO {
 
     if (evt.type === AO_EVENT.TEXT_DONE) {
       this._messages = [...this._messages, {
-        role: ROLE.ASSISTANT,
+        role: 'assistant',
         content: evt.data?.content ?? this._streaming,
       }];
       this._streaming = '';
@@ -379,7 +378,7 @@ export default class ChatControllerAO {
     // different frames with the message in different places.
     if (evt.type === AO_EVENT.ERROR_CONNECTION || evt.type === AO_EVENT.ERROR_SESSION) {
       const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
-      this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${message}` }];
+      this._messages = [...this._messages, { role: 'assistant', content: `Error: ${message}` }];
       this._done();
     }
   }
@@ -458,7 +457,7 @@ export default class ChatControllerAO {
         this._ready = false;
         this._connected = false;
         if (this._thinking) {
-          this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: 'Error: connection closed' }];
+          this._messages = [...this._messages, { role: 'assistant', content: 'Error: connection closed' }];
           this._done();
         }
         if (!wasReady) {
@@ -872,7 +871,7 @@ export default class ChatControllerAO {
     }));
 
     this._messages = [...(this._messages ?? []), {
-      role: ROLE.USER,
+      role: 'user',
       content: message,
       ...(selectionContext.length && { selectionContext }),
       ...(attachmentsMeta.length && { attachmentsMeta }),
@@ -890,7 +889,7 @@ export default class ChatControllerAO {
       await this.connect();
       if (!this._ready) {
         this._messages = [...this._messages, {
-          role: ROLE.ASSISTANT,
+          role: 'assistant',
           content: 'Error: connection lost while sending. Please try again.',
         }];
         this._done();

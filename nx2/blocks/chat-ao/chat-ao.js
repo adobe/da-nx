@@ -13,10 +13,15 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
 import AoChatController from './ao-controller.js';
+import { AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES, COWORKER_SKILLS_URL } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
+import { createFileDropHandlers } from '../shared/chat/dnd.js';
+import { buildAttachmentItems } from '../shared/chat/files.js';
 import '../shared/pills/pills.js';
+import '../shared/menu/menu.js';
+import { ADD_MENU_ITEMS, ADOBE_AI_GUIDELINES_URL, MENU_OPTIONS } from '../shared/chat/constants.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
@@ -24,6 +29,7 @@ const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.m
 const { codeBase } = getConfig();
 
 const ICON_NAMES = {
+  add: 's2-icon-add-20-n',
   close: 's2-icon-splitleft-20-n',
   send: 's2-icon-arrowupsend-20-n',
   stop: 's2-icon-stop-20-n',
@@ -31,10 +37,16 @@ const ICON_NAMES = {
 
 const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
 
+function isAllowedFile(file) {
+  const name = file.name?.toLowerCase() ?? '';
+  return AO_UPLOAD_EXTENSIONS.some((ext) => name.endsWith(ext));
+}
+
 export default class NxChatAo extends LitElement {
   static properties = {
     messages: { type: Array },
     thinking: { type: Boolean },
+    _dragging: { state: true },
   };
 
   _closePanel() {
@@ -58,6 +70,11 @@ export default class NxChatAo extends LitElement {
           : messages;
         this.thinking = thinking;
       },
+    });
+    this._dnd = createFileDropHandlers({
+      isAllowed: isAllowedFile,
+      onDragging: (dragging) => { this._dragging = dragging; },
+      onFiles: (files) => this._onFilesSelected(files),
     });
   }
 
@@ -86,7 +103,10 @@ export default class NxChatAo extends LitElement {
     const text = input.value.trim();
     if (!text) return;
     const pills = this.shadowRoot.querySelector('nx-pills');
-    this._controller.sendMessage(text, pills?.items ?? []);
+    const items = pills?.items ?? [];
+    const attachments = items.filter((i) => i.dataBase64);
+    const context = items.filter((i) => !i.dataBase64);
+    this._controller.sendMessage(text, context, attachments);
     input.value = '';
     pills?.clear();
   }
@@ -96,6 +116,30 @@ export default class NxChatAo extends LitElement {
       e.preventDefault();
       this._submit();
     }
+  }
+
+  _handleMenuSelect({ detail: { id } }) {
+    if (id === MENU_OPTIONS.FILES) this._openFilePicker();
+    if (id === MENU_OPTIONS.MANAGE_SKILLS) window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
+  }
+
+  _openFilePicker() {
+    this.shadowRoot.querySelector('.chat-file-input')?.click();
+  }
+
+  async _onFilesSelected(fileList) {
+    const pills = this.shadowRoot.querySelector('nx-pills');
+    const currentCount = (pills?.items ?? []).filter((i) => i.dataBase64).length;
+    const items = await buildAttachmentItems(fileList, {
+      currentCount, maxFileSize: AO_MAX_FILE_SIZE_BYTES,
+    });
+    items.forEach((item) => pills?.add(item));
+  }
+
+  async _onFileInputChange(e) {
+    const { target } = e;
+    await this._onFilesSelected(target.files);
+    target.value = '';
   }
 
   render() {
@@ -120,11 +164,29 @@ export default class NxChatAo extends LitElement {
         </div>
       </div>
       <div class="chat-form-wrap">
-        <form class="chat-form" @submit=${this._submit}>
+        <form class="chat-form" @submit=${this._submit}
+          @dragenter=${this._dnd.onDragEnter}
+          @dragleave=${this._dnd.onDragLeave}
+          @dragover=${this._dnd.onDragOver}
+          @drop=${this._dnd.onDrop}
+        >
+          ${this._dragging ? html`
+            <div class="chat-drop-zone" aria-hidden="true">
+              <span class="chat-drop-title">Drop a file to add context</span>
+              <span class="chat-drop-hint">Supports documents, images, and code</span>
+            </div>` : nothing}
           <nx-pills
             addEvent=${CHAT_EVENT.ADD_TO_CHAT}
             @nx-pill-activate=${this._handlePillActivate}
           ></nx-pills>
+          <input
+            class="chat-file-input"
+            type="file"
+            accept=${AO_UPLOAD_EXTENSIONS.join(',')}
+            multiple
+            hidden
+            @change=${this._onFileInputChange}
+          />
           <textarea
             class="chat-input"
             placeholder="Ask anything, or type / for skills..."
@@ -132,6 +194,11 @@ export default class NxChatAo extends LitElement {
             @keydown=${this._handleKeydown}
           ></textarea>
           <div class="chat-actions" ?data-thinking=${this.thinking}>
+            <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
+              <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add">
+                ${icon('add')}
+              </button>
+            </nx-menu>
             <button
               class="chat-stop nx-btn-primary nx-btn-sm"
               ?hidden=${!this.thinking}
@@ -143,6 +210,10 @@ export default class NxChatAo extends LitElement {
           </div>
         </form>
       </div>
+      <p class="chat-disclaimer">
+        Responses are generated using AI, and may be inaccurate.
+        <a href="${ADOBE_AI_GUIDELINES_URL}" target="_blank" rel="noopener noreferrer">AI User Guidelines</a>
+      </p>
     `;
   }
 }

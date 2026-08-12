@@ -17,7 +17,34 @@ export const AO_WS_BASE = {
   stage: `wss://agent-orchestrator-stage-${AO_REGION}.adobe.io`,
 };
 
+export const AO_HTTP_BASE = {
+  prod: `https://agent-orchestrator-prod-${AO_REGION}.adobe.io`,
+  stage: `https://agent-orchestrator-stage-${AO_REGION}.adobe.io`,
+};
+
 export const AO_MANIFEST_ID = 'experience-workspace';
+
+// Mirrors AO's own server-side allowlist
+export const AO_UPLOAD_EXTENSIONS = [
+  '.pdf', '.txt', '.md', '.docx', '.pptx',
+  '.zip', '.tar', '.tgz', '.tar.gz',
+  '.csv', '.xlsx', '.json', '.yaml', '.yml', '.xml', '.toml',
+  '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp',
+  '.html', '.css', '.js', '.ts', '.tsx', '.jsx',
+  '.py', '.java', '.kt', '.go', '.rs', '.cpp', '.c', '.h', '.cs', '.rb', '.sh', '.sql', '.r', '.swift', '.scala',
+];
+
+// AO's per-file size limit (filesystem/quotas.py's _SINGLE_FILE_LIMIT).
+export const AO_MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
+
+export const COWORKER_SKILLS_URL = 'https://coworker.experience.adobe.io/skills';
+
+export const ADD_MENU_ITEMS = [
+  { section: 'Add' },
+  { id: 'files', label: 'Files or images', icon: 'link' },
+  { divider: true },
+  { id: 'skills', label: 'Manage Skills' },
+];
 
 export const AO_FRAME = {
   AUTH: 'AUTH',
@@ -33,9 +60,4 @@ export const AO_EVENT = {
   TURN_ABORTED: 'turn_aborted',
   ERROR_CONNECTION: 'ERROR',
   ERROR_SESSION: 'error',
-};
-
-export const ROLE = {
-  USER: 'user',
-  ASSISTANT: 'assistant',
 };

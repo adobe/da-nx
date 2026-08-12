@@ -1,21 +1,3 @@
-const ADOBE_AI_GUIDELINES_URL = 'https://www.adobe.com/legal/licenses-terms/adobe-dx-gen-ai-user-guidelines.html';
-
-const MENU_OPTIONS = {
-  PROMPT: 'prompt',
-  COMMAND: 'command',
-  FILES: 'files',
-};
-
-const ADD_MENU_ITEMS = [
-  { section: 'Add' },
-  { id: MENU_OPTIONS.FILES, label: 'Files or images', icon: 'link' },
-  { id: MENU_OPTIONS.PROMPT, label: 'Prompt', icon: 'commentremove' },
-  { id: MENU_OPTIONS.COMMAND, label: '"/" Command', icon: 'prompt' },
-  { divider: true },
-  { id: 'prompts', label: 'Manage Prompts' },
-  { id: 'skills', label: 'Manage Skills' },
-];
-
 /**
  * Agent stream event types (v2 approval protocol — see docs/approval-protocol.md §5).
  * This wire contract is owned by da-nx + da-agent; it is not the AI SDK's format.
@@ -101,10 +83,7 @@ const ROLE = {
 };
 
 export {
-  ADOBE_AI_GUIDELINES_URL,
-  ADD_MENU_ITEMS,
   AGENT_EVENT,
-  MENU_OPTIONS,
   PART_TYPE,
   ROLE,
   TOOL_INPUT,
