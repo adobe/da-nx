@@ -112,11 +112,34 @@ class Form extends LitElement {
 
   _start({ schema, json }) {
     this._editor = createEngine({ schema, document: json, onChange: this._onChange });
+    // Seed empty rows for required arrays up to minItems (UI-only convenience so
+    // authors don't click "Add" N times). Runs BEFORE persistence attaches, so
+    // the seeded rows are the baseline and don't trigger a save; they're empty,
+    // so they don't count toward minItems and get stripped on save. The SDK
+    // never seeds — headless/CLI consumers must not receive phantom items.
+    this._seedRequiredArrays();
     this._state = this._editor.getState();
     // Attach AFTER load so the loaded document is the persistence's baseline —
     // mutations after this point trigger saves; the load itself does not.
     this._persistence = attachPersistence(this._editor, { path: this._details?.fullpath });
     this._nav = { pointer: '/data', origin: null, seq: 0 };
+  }
+
+  // Walk the model and, for each required array with fewer rows than it needs,
+  // add empty rows up to its minimum (at least one). Recurses into object
+  // groups but not into array items (those are dynamic and start empty).
+  _seedRequiredArrays() {
+    const seed = (node) => {
+      if (!node) return;
+      if (node.kind === 'array' && node.required) {
+        const target = Math.max(node.minItems ?? 0, 1);
+        const have = node.items?.length ?? 0;
+        for (let i = have; i < target; i += 1) this._editor.addItem(node.pointer);
+      } else if (node.kind === 'object' && Array.isArray(node.children)) {
+        node.children.forEach(seed);
+      }
+    };
+    seed(this._editor.getState().model.root);
   }
 
   async _loadContext() {

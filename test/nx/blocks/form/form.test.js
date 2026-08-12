@@ -107,4 +107,34 @@ describe('nx-form', () => {
     expect(link, 'schema editor link').to.exist;
     expect(link.textContent).to.equal('Schema Editor');
   });
+
+  it('seeds empty rows for a required array up to minItems on load', async () => {
+    const schema = {
+      type: 'object',
+      title: 'Demo',
+      required: ['tags'],
+      properties: {
+        tags: { type: 'array', title: 'Tags', minItems: 3, items: { type: 'string', title: 'Tag' } },
+      },
+    };
+    const el = makeForm();
+    el._start({ schema, json: validDoc({}) });
+    await el.updateComplete;
+    expect(el._editor.getState().document.data.tags).to.have.lengthOf(3);
+  });
+
+  it('does not seed an optional array', async () => {
+    const schema = {
+      type: 'object',
+      title: 'Demo',
+      properties: {
+        tags: { type: 'array', title: 'Tags', minItems: 3, items: { type: 'string', title: 'Tag' } },
+      },
+    };
+    const el = makeForm();
+    el._start({ schema, json: validDoc({}) });
+    await el.updateComplete;
+    const { tags } = el._editor.getState().document.data;
+    expect(tags === undefined || tags.length === 0).to.equal(true);
+  });
 });
