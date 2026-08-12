@@ -120,4 +120,46 @@ describe('smartling connector - legacy origin rewriting', () => {
     const call = calls.find((c) => c.url.includes('/files-api/v2/projects'));
     expect(call.url).to.include(`${DA_TRANSLATE}/translate/smartling/${org}/${site}/files-api/v2/projects/proj-1/locales/fr-FR/file`);
   });
+
+  it('does not auto-authorize the batch by default', async () => {
+    const options = { service: { origin: legacyOrigin, projectId: 'proj-1' } };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    const batchCall = calls.find((c) => c.url.includes('/job-batches-api/v2/projects') && !c.url.includes('/file'));
+    expect(JSON.parse(batchCall.body).authorize).to.equal(false);
+  });
+
+  it('auto-authorizes the batch when translation.service.autoAuthorize is "yes"', async () => {
+    const options = { service: { origin: legacyOrigin, projectId: 'proj-1', autoAuthorize: 'yes' } };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    const batchCall = calls.find((c) => c.url.includes('/job-batches-api/v2/projects') && !c.url.includes('/file'));
+    expect(JSON.parse(batchCall.body).authorize).to.equal(true);
+  });
+
+  it('does not auto-authorize when autoAuthorize is set to anything other than "yes"', async () => {
+    const options = { service: { origin: legacyOrigin, projectId: 'proj-1', autoAuthorize: 'no' } };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    const batchCall = calls.find((c) => c.url.includes('/job-batches-api/v2/projects') && !c.url.includes('/file'));
+    expect(JSON.parse(batchCall.body).authorize).to.equal(false);
+  });
 });
