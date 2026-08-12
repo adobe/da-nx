@@ -137,9 +137,20 @@ async function createJob(endpoint, projectId, title, langs) {
   return jobUid;
 }
 
-async function createBatch(endpoint, projectId, jobUid, urls) {
+/**
+ * Creates a job batch for the uploaded files.
+ * @param {string} endpoint - The resolved Smartling API origin.
+ * @param {string} projectId - The Smartling project id.
+ * @param {string} jobUid - The job to attach the batch to.
+ * @param {Object[]} urls - The urls that will be uploaded to this batch.
+ * @param {boolean} autoAuthorize - Whether Smartling should immediately
+ *  authorize the job for translation once the batch finishes processing,
+ *  instead of requiring manual authorization in Smartling's dashboard.
+ * @returns {Promise<string|null>} The new batch's id, or null on failure.
+ */
+async function createBatch(endpoint, projectId, jobUid, urls, autoAuthorize) {
   const body = JSON.stringify({
-    authorize: false,
+    authorize: autoAuthorize,
     translationJobUid: jobUid,
     fileUris: urls.map((url) => url.daBasePath),
   });
@@ -210,12 +221,28 @@ export async function saveItems({
   });
 }
 
+/**
+ * Sends a translation project's urls to Smartling for every target
+ * language: creates a job, creates a batch (optionally auto-authorized),
+ * then uploads all urls to it.
+ * @param {Object} params
+ * @param {string} params.org - The DA org.
+ * @param {string} params.site - The DA site.
+ * @param {string} params.title - The project title.
+ * @param {Object} params.options - Project options; reads/mutates
+ *  `options.service`.
+ * @param {Object[]} params.langs - Target languages; mutated in place with
+ *  `translation` status.
+ * @param {Object[]} params.urls - The urls to translate.
+ * @param {Object} params.actions - `{ sendMessage, saveState }` callbacks.
+ * @returns {Promise<void>}
+ */
 export async function sendAllLanguages({
   org, site, title, options, langs, urls, actions,
 }) {
   const { sendMessage, saveState } = actions;
 
-  const { origin, projectId } = options.service;
+  const { origin, projectId, autoAuthorize } = options.service;
   const endpoint = resolveOrigin(origin, org, site);
 
   sendMessage({ text: `Creating job in Smartling for: ${title}.` });
@@ -229,7 +256,7 @@ export async function sendAllLanguages({
   // config[`${env}.jobUid`] = jobUid;
 
   sendMessage({ text: `Creating a batch in Smartling for: ${title}.` });
-  const batchUid = await createBatch(endpoint, projectId, jobUid, urls);
+  const batchUid = await createBatch(endpoint, projectId, jobUid, urls, autoAuthorize === 'yes');
   if (!batchUid) return;
 
   // Presist to the state for future reference
