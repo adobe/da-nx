@@ -90,6 +90,26 @@ describe('nx-ew-actions', () => {
 
       expect(el._hidePublish).to.be.true;
     });
+
+    it('hides publish when editor.hidePublish lives in a non-first multi-sheet tab named "data"', async () => {
+      const org = uniq('org');
+      const site = uniq('site');
+      restoreFetch = installFetch({
+        [`${DA_ADMIN}/config/${org}/`]: {
+          permissions: { data: [{ path: '/', groups: 'everyone', actions: 'write' }] },
+          data: { data: [{ key: 'editor.hidePublish', value: `/${org}/${site}/test` }] },
+          ':names': ['permissions', 'data'],
+          ':type': 'multi-sheet',
+        },
+        [`${DA_ADMIN}/config/${org}/${site}/`]: { data: [] },
+      });
+
+      el = await makeEl();
+      el._hashState = { org, site, path: '/test/page' };
+      await el._filterHidePublish();
+
+      expect(el._hidePublish).to.be.true;
+    });
   });
 
   describe('render', () => {
