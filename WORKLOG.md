@@ -2,6 +2,16 @@
 
 ## 2026-08-13
 
+### loc translate view — loading spinners on action buttons
+
+Added a `.nx-loading-spinner` CSS spinner (`translate.css`) and busy-state flags for every async action button in `translate.js` (Connect, Get status, Translate all, Cancel project, Copy all, per-language Cancel), disabling the button and showing the spinner while its handler is in flight. Combined the two spinner patterns already in the repo rather than adding a third: the `.nx-loading-spinner`/`da-spin` naming from `nx2/styles/buttons.css` (defined there but never actually wired to anything) with the `currentcolor` border technique from the one spinner that's actually shipping (`nx2/blocks/ew-actions/ew-actions.js`) — needed since these buttons have different text colors per variant (white on `.accent`, gray on `.primary.outline`). Per-language Cancel uses a `_cancelingLangs` Set (one row can be busy independently of others) rather than a single flag.
+
+### smartling connector — implement cancelTranslation
+
+Smartling had no `cancelTranslation` at all (the `sample` connector's stub), so `translate.js`'s `canCancel` getter (`!!connector.cancelTranslation`) was always false and the Cancel buttons never rendered for Smartling projects. Confirmed the correct endpoint against Smartling's official OpenAPI spec (github.com/Smartling/api-docs) before implementing: `DELETE /jobs-api/v3/projects/{projectId}/jobs/{translationJobUid}/locales/{targetLocaleId}` (`removeLocaleFromJob`) — not the job-level `cancelJob` endpoint, which would cancel every other language sharing the same job (`sendAllLanguages` bundles all target languages into one job). Polls `GET .../processes/{processUid}` (`getJobAsyncProcessStatus`) to completion on a 202 response (2s interval, ~60s cap before treating it as failed).
+
+Also extended `getStatusAll`'s existing "don't revert completed languages" guard to also cover `'cancelled'` — without it, the next status poll would have undone a fresh cancel the same way it was re-triggering saves for completed languages.
+
 ### smartling connector — stop re-saving already-completed languages
 
 `getStatusAll` unconditionally set `lang.translation.status = 'translated'` whenever every url was 100% on Smartling's side — but Smartling keeps reporting 100% forever once done, so every subsequent "Get status" click reverted a lang's `'complete'` (set by `saveLangItemsToDa` after actually saving to DA) back to `'translated'`, which re-triggered a redundant download/save each time. Fixed by skipping langs already at `'complete'`, mirroring a guard GLaaS already has (`determineStatus`'s "Respect existing final statuses"). Trados has the identical bug in its own `getStatusAll` — deferred, not fixed here.
