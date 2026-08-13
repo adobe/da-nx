@@ -120,4 +120,99 @@ describe('smartling connector - legacy origin rewriting', () => {
     const call = calls.find((c) => c.url.includes('/files-api/v2/projects'));
     expect(call.url).to.include(`${DA_TRANSLATE}/translate/smartling/${org}/${site}/files-api/v2/projects/proj-1/locales/fr-FR/file`);
   });
+
+  // Smartling's documented error envelope (Error Handling support article):
+  // every 4xx/5xx response, on every endpoint, has this shape.
+  function validationErrorResponse(message) {
+    return new Response(JSON.stringify({
+      response: {
+        code: 'VALIDATION_ERROR',
+        errors: [{ key: 'error.validation.job.locales.invalid', message, details: { field: 'targetLocaleIds' } }],
+      },
+    }), { status: 400 });
+  }
+
+  it('surfaces a job-creation failure as an error message instead of failing silently', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/jobs-api/v3/projects')) return validationErrorResponse('Invalid locales [fr-FR]');
+      return new Response('{}', { status: 200 });
+    };
+
+    const options = { service: { origin: 'https://api.smartling.com', projectId: 'proj-1' } };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const messages = [];
+    const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    const errorMessage = messages.find((m) => m.type === 'error');
+    expect(errorMessage.text).to.include('Invalid locales [fr-FR]');
+  });
+
+  it('surfaces a batch-creation failure as an error message instead of failing silently', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/jobs-api/v3/projects')) {
+        return new Response(JSON.stringify({ response: { data: { translationJobUid: 'job-1' } } }), { status: 200 });
+      }
+      if (u.includes('/job-batches-api/v2/projects') && !u.includes('/file')) {
+        return validationErrorResponse('Invalid fileUri');
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const options = { service: { origin: 'https://api.smartling.com', projectId: 'proj-1' } };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const messages = [];
+    const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    const errorMessage = messages.find((m) => m.type === 'error');
+    expect(errorMessage.text).to.include('Invalid fileUri');
+  });
+
+  it('surfaces a per-file upload failure as an error message instead of only counting it as not-accepted', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/jobs-api/v3/projects')) {
+        return new Response(JSON.stringify({ response: { data: { translationJobUid: 'job-1' } } }), { status: 200 });
+      }
+      if (u.includes('/job-batches-api/v2/projects') && u.includes('/batches') && !u.includes('/file')) {
+        return new Response(JSON.stringify({ response: { data: { batchUid: 'batch-1' } } }), { status: 200 });
+      }
+      if (u.includes('/file') && opts.method === 'POST') return validationErrorResponse('Invalid locales [fr-FR]');
+      return new Response('{}', { status: 200 });
+    };
+
+    const options = { service: { origin: 'https://api.smartling.com', projectId: 'proj-1' } };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const messages = [];
+    const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    const errorMessage = messages.find((m) => m.type === 'error');
+    expect(errorMessage.text).to.include('Invalid locales [fr-FR]');
+    expect(langs[0].translation.status).to.equal('error');
+  });
 });
