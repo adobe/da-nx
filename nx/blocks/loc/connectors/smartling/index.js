@@ -478,7 +478,10 @@ async function fetchFileStatus(endpoint, projectId, fileUri) {
  * @param {Object[]} params.langs - Target languages; mutated in place with
  *  `translation.status` ('translated' once every file is complete for
  *  that locale, otherwise Smartling's real progress percentage, e.g.
- *  '62% translated') and `translation.translated` (files complete).
+ *  '62% translated') and `translation.translated` (files complete). A
+ *  lang already at `'complete'` (saved to DA by `saveLangItemsToDa`) is
+ *  left untouched, since Smartling keeps reporting 100% indefinitely and
+ *  would otherwise look "newly finished" on every subsequent check.
  * @param {Object[]} params.urls - The urls in the project.
  * @param {Object} params.actions - `{ saveState }` callback.
  * @returns {Promise<void>}
@@ -507,7 +510,11 @@ export async function getStatusAll({
     });
   }
 
-  for (const lang of langs) {
+  // 'complete' means saveLangItemsToDa already downloaded and saved this
+  // lang's content - Smartling keeps reporting 100% translated forever
+  // after that, so without this guard every subsequent status check would
+  // revert it to 'translated' and trigger a re-save.
+  for (const lang of langs.filter((l) => l.translation.status !== 'complete')) {
     if (lang.translation.translated === urls.length) {
       lang.translation.status = 'translated';
     }
