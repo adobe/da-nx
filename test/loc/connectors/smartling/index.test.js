@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  connect, saveItems, sendAllLanguages, getStatusAll,
+  connect, saveItems, sendAllLanguages, getStatusAll, cancelTranslation,
 } from '../../../../nx/blocks/loc/connectors/smartling/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 
@@ -119,5 +119,122 @@ describe('smartling connector - legacy origin rewriting', () => {
 
     const call = calls.find((c) => c.url.includes('/files-api/v2/projects'));
     expect(call.url).to.include(`${DA_TRANSLATE}/translate/smartling/${org}/${site}/files-api/v2/projects/proj-1/locales/fr-FR/file`);
+  });
+
+  // Smartling's documented error envelope (Error Handling support article):
+  // every 4xx/5xx response, on every endpoint, has this shape.
+  function validationErrorResponse(message) {
+    return new Response(JSON.stringify({
+      response: {
+        code: 'VALIDATION_ERROR',
+        errors: [{ key: 'error.validation.job.locales.invalid', message, details: { field: 'targetLocaleIds' } }],
+      },
+    }), { status: 400 });
+  }
+
+  describe('cancelTranslation', () => {
+    it('skips cancellation when the lang has no translation info or job yet', async () => {
+      const service = {};
+      const lang = { code: 'fr-FR', name: 'French' };
+      const messages = [];
+      const sendMessage = (m) => messages.push(m);
+
+      const result = await cancelTranslation({ service, lang, sendMessage });
+
+      expect(result).to.deep.equal({ ok: true, skipped: true });
+      expect(calls.length).to.equal(0);
+    });
+
+    it('cancels a language by removing its locale from the job (200, synchronous)', async () => {
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+        return new Response(JSON.stringify({ response: { code: 'SUCCESS' } }), { status: 200 });
+      };
+
+      const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+      const lang = { code: 'fr-FR', name: 'French', translation: { status: 'translated' } };
+      const messages = [];
+      const sendMessage = (m) => messages.push(m);
+
+      const result = await cancelTranslation({ service, lang, sendMessage });
+
+      expect(result).to.deep.equal({ ok: true });
+      expect(lang.translation.status).to.equal('cancelled');
+      expect(calls[0].method).to.equal('DELETE');
+      expect(calls[0].url).to.equal('https://api.smartling.com/jobs-api/v3/projects/proj-1/jobs/job-1/locales/fr-FR');
+    });
+
+    it('polls the async process to completion when Smartling responds 202', async () => {
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+
+        if (u.includes('/locales/fr-FR')) {
+          return new Response(JSON.stringify({ response: { data: { processUid: 'proc-1' } } }), { status: 202 });
+        }
+        if (u.includes('/processes/proc-1')) {
+          return new Response(JSON.stringify({ response: { data: { processState: 'COMPLETED' } } }), { status: 200 });
+        }
+        return new Response('{}', { status: 200 });
+      };
+
+      const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+      const lang = { code: 'fr-FR', name: 'French', translation: { status: 'translated' } };
+      const messages = [];
+      const sendMessage = (m) => messages.push(m);
+
+      const result = await cancelTranslation({ service, lang, sendMessage });
+
+      expect(result).to.deep.equal({ ok: true });
+      expect(lang.translation.status).to.equal('cancelled');
+      expect(calls.some((c) => c.url.includes('/processes/proc-1'))).to.equal(true);
+    });
+
+    it('reports an error and does not cancel when the async process fails', async () => {
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+
+        if (u.includes('/locales/fr-FR')) {
+          return new Response(JSON.stringify({ response: { data: { processUid: 'proc-1' } } }), { status: 202 });
+        }
+        if (u.includes('/processes/proc-1')) {
+          return new Response(JSON.stringify({ response: { data: { processState: 'FAILED' } } }), { status: 200 });
+        }
+        return new Response('{}', { status: 200 });
+      };
+
+      const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+      const lang = { code: 'fr-FR', name: 'French', translation: { status: 'translated' } };
+      const messages = [];
+      const sendMessage = (m) => messages.push(m);
+
+      const result = await cancelTranslation({ service, lang, sendMessage });
+
+      expect(result).to.deep.equal({ ok: false });
+      expect(lang.translation.status).to.equal('translated');
+      expect(messages.find((m) => m.type === 'error')).to.exist;
+    });
+
+    it('surfaces an error message when the cancel request itself fails', async () => {
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+        return validationErrorResponse('Job can be cancelled only in DRAFT, AWAITING_AUTHORIZATION, or IN_PROGRESS statuses');
+      };
+
+      const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+      const lang = { code: 'fr-FR', name: 'French', translation: { status: 'translated' } };
+      const messages = [];
+      const sendMessage = (m) => messages.push(m);
+
+      const result = await cancelTranslation({ service, lang, sendMessage });
+
+      expect(result).to.deep.equal({ ok: false });
+      expect(lang.translation.status).to.equal('translated');
+      const errorMessage = messages.find((m) => m.type === 'error');
+      expect(errorMessage.text).to.include('Job can be cancelled only in DRAFT');
+    });
   });
 });
