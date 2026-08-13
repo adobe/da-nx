@@ -178,6 +178,74 @@ describe('nx-editor add-array-item action', () => {
   });
 });
 
+// The Add action is covered above; these drive the per-row menu actions
+// (remove / insert / reorder) end-to-end through the real buttons, and assert
+// both the DOM and the engine document change.
+describe('nx-editor array item menu actions', () => {
+  const ACTION_SCHEMA = {
+    type: 'object',
+    title: 'T',
+    properties: {
+      authors: {
+        type: 'array',
+        title: 'Authors',
+        items: {
+          type: 'object',
+          title: 'Author',
+          properties: { name: { type: 'string', title: 'Name' } },
+        },
+      },
+    },
+  };
+  const actionDoc = (authors) => ({ metadata: { schemaName: 't' }, data: { authors } });
+  const rowCount = (el) => groupAt(el, '/data/authors').querySelectorAll(':scope > .form-array-item').length;
+  const menuOf = (el, ptr) => el.shadowRoot.querySelector(`[data-pointer="${esc(ptr)}"] nx-array-menu`);
+  const menuItem = (menu, re) => [...menu.shadowRoot.querySelectorAll('.menu-item')].find((b) => re.test(b.textContent));
+  async function openMenu(el, ptr) {
+    menuOf(el, ptr).shadowRoot.querySelector('.menu-trigger').click();
+    await settle(el);
+    return menuOf(el, ptr);
+  }
+
+  it('removes a row from the DOM and the document when Remove is confirmed', async () => {
+    const { el, engine } = await mountEditor(ACTION_SCHEMA, actionDoc([{ name: 'Ada' }, { name: 'Grace' }]));
+    expect(rowCount(el)).to.equal(2);
+    const menu = await openMenu(el, '/data/authors/0');
+    menuItem(menu, /remov/i).click(); // arms the confirm step
+    await settle(el);
+    menuItem(menu, /remov/i).click(); // confirms -> emits array-remove
+    await settle(el);
+    expect(rowCount(el)).to.equal(1);
+    expect(engine.getState().document.data.authors).to.deep.equal([{ name: 'Grace' }]);
+  });
+
+  it('inserts a row before the item when Insert before is chosen', async () => {
+    const { el, engine } = await mountEditor(ACTION_SCHEMA, actionDoc([{ name: 'Ada' }]));
+    const menu = await openMenu(el, '/data/authors/0');
+    menuItem(menu, /insert/i).click();
+    await settle(el);
+    expect(rowCount(el)).to.equal(2);
+    const { authors } = engine.getState().document.data;
+    // Inserted before -> the new (empty) row is index 0, Ada shifts to index 1.
+    expect(authors).to.have.lengthOf(2);
+    expect(authors[1]).to.deep.equal({ name: 'Ada' });
+  });
+
+  it('reorders rows when a move is applied in the reorder toolbar', async () => {
+    const { el, engine } = await mountEditor(ACTION_SCHEMA, actionDoc([{ name: 'Ada' }, { name: 'Grace' }]));
+    const menu = await openMenu(el, '/data/authors/0');
+    menuItem(menu, /reorder/i).click();
+    await settle(el);
+    el.shadowRoot.querySelector(`[data-pointer="${esc('/data/authors/0')}"] nx-reorder`)
+      .shadowRoot.querySelector('[aria-label^="Move down"]').click();
+    await settle(el);
+    el.shadowRoot.querySelector(`[data-pointer="${esc('/data/authors/0')}"] nx-reorder`)
+      .shadowRoot.querySelector('.reorder-confirm').click();
+    await settle(el);
+    expect(engine.getState().document.data.authors.map((a) => a.name)).to.deep.equal(['Grace', 'Ada']);
+  });
+});
+
 const DEBOUNCE_MS = 350; // mirrors editor.js text-input debounce
 const aTimeout = (ms) => new Promise((r) => { setTimeout(r, ms); });
 
