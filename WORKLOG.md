@@ -2,20 +2,24 @@
 
 ## 2026-08-13
 
-### nx/blocks/loc/connectors/smartling/index.js — token refresh/reauth fixes (docs review)
+### smartling connector — session-expiry recovery, stale-token fix
 
-Reviewed the connector against Smartling's own docs (Key Concepts for Developers, API Integrations Best Practices, Rate Limits — the help center 403s direct `curl`/`WebFetch`, had to go via search instead). Findings and fixes:
+Refresh now falls back to a full re-authenticate when it fails (Smartling sessions cap at 12h regardless of refresh count, so long jobs eventually hit a dead refresh token). Tracks the API's real `expiresIn` instead of a hardcoded interval. `saveItems` no longer reuses a token snapshot taken before its download batch started.
 
-1. **No recovery once a session's refresh token permanently stops working.** Smartling caps a token pair's session at 12 hours regardless of refresh count; after that, refreshes 401 forever. The old `refreshTheToken` polled on a fixed `setInterval` and just went inert (`token = undefined`) on failure, with no reconnect path — silent since translation jobs commonly outlive 12h. Replaced with a self-rescheduling `scheduleRefresh`/`setTimeout` chain; on a failed refresh it falls back to a full `authenticate()` using retained credentials (new module-level `authCredentials`), only going inert if both the refresh and the fallback re-auth fail.
-2. **Token expiry bookkeeping ignored the API's actual `expiresIn`/`refreshExpiresIn`** in favor of a hardcoded 280s `REFRESH_TIME` constant. Now reads the real `expiresIn` from both `/authenticate` and `/authenticate/refresh` responses (falls back to `FALLBACK_EXPIRES_IN_S = 280` if omitted, e.g. in the existing test mocks).
-3. **`saveItems` built its download `opts` (with the `Authorization` header) once up front** and reused it for the whole batch — unlike every other function in the file, which reads the module-level `token` fresh at each fetch call site. Moved `opts` construction inside the per-download callback.
-4. Dead 4th arg (`refreshToken`) passed to the old `refreshTheToken` but unused in its signature — resolved as part of the rewrite.
+## 2026-08-12
 
-`isConnected` also now retains `userId`/`userSecret` into `authCredentials` on resume (e.g. after a page reload with a still-valid cached token), so the reauth fallback works whether the token came from a fresh `connect()` or a resumed session.
+### smartling connector — status polling, auto-authorize, service-mutation bug
 
-All 13 existing tests in `test/loc/connectors/smartling/index.test.js` pass unchanged; `npx eslint` clean.
+- Status polling switched to Smartling's recommended `getFileTranslationStatusAllLocales` (no `jobUid` needed) with its documented progress formula; reports the real percentage instead of a fabricated label.
+- `getStatusAll` reports Smartling's actual current workflow-step name instead of leaving a stale `sendAllLanguages` status in place.
+- Added `translation.service.{env}.autoAuthorize` site config to auto-authorize a batch instead of requiring manual authorization in Smartling's dashboard.
+- Fixed `setupService` copying (not mutating) `options.service` — dropped connector-written state like `jobUid` within the same session. Affects every connector, not just Smartling.
 
-**Open items, not fixed (low risk today):** Smartling caps concurrent file-API operations at 10/project — `saveItems`'s download queue (concurrency 5) is safe alone, but nothing coordinates concurrency across simultaneous operations (e.g. a status poll running alongside a download pass). Also `fetchWithRetry`'s defaults (5 retries / 30s max delay) sit at the low end of Smartling's recommended 5–10 retries / 30–60s max-delay range.
+## 2026-08-11
+
+### smartling connector — retry on 429/5xx
+
+Added shared `nx/blocks/loc/utils/fetchWithRetry.js` (exponential backoff + jitter, honors `Retry-After`) and wired every Smartling fetch through it — `getStatusAll`'s polling and `saveItems`'s 5-concurrent downloads could both trip Smartling's rate limits with no retry. Meant to replace Lionbridge's inline copy of the same logic once #656 lands.
 
 ## 2026-08-07
 
