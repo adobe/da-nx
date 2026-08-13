@@ -2,6 +2,12 @@
 
 ## 2026-08-13
 
+### smartling connector — surface connector errors, fix translate.js message clobbering
+
+`createJob`/`createBatch`/`uploadFiles` now parse Smartling's documented error envelope (`response.errors[].message`) and call `sendMessage({ type: 'error' })` on failure instead of silently returning `null` (matches Trados's existing pattern) — found via a live 400 (language mismatch) that went unsurfaced.
+
+Found via that same live test: the error still didn't render. `translate.js`'s `handleSendAll` unconditionally calls `checkAndSaveLangs` right after the connector call, which immediately overwrites/clears the message before it can be seen — a pre-existing bug affecting every connector's error messages, not just Smartling's. Fixed by skipping `checkAndSaveLangs` when the last message set was type `error`.
+
 ### smartling connector — session-expiry recovery, stale-token fix
 
 Refresh now falls back to a full re-authenticate when it fails (Smartling sessions cap at 12h regardless of refresh count, so long jobs eventually hit a dead refresh token). Tracks the API's real `expiresIn` instead of a hardcoded interval. `saveItems` no longer reuses a token snapshot taken before its download batch started.
