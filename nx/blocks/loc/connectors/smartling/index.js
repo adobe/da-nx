@@ -5,7 +5,9 @@ import fetchWithRetry from '../../utils/fetchWithRetry.js';
 
 export const dnt = { addDnt };
 
-const REFRESH_TIME = 280000; // 4.666 minutes
+const REFRESH_BUFFER_MS = 5000; // refresh this long before the token actually expires
+const FALLBACK_EXPIRES_IN_S = 280; // used only if the API response omits expiresIn
+const MIN_REFRESH_DELAY_MS = 2000; // never schedule a refresh sooner than this
 const BASE_OPTS = {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -22,11 +24,28 @@ function resolveOrigin(origin, org, site) {
 
 let token;
 let tokenPolling;
+// Credentials retained so a failed refresh can fall back to a full
+// re-authentication: Smartling caps a token pair's session at 12 hours
+// regardless of how many times it's refreshed, so refreshes eventually
+// start failing even though the original userId/userSecret still work.
+let authCredentials;
 
-function setTokenDetails(name, env, accessToken, refreshToken) {
+/**
+ * Caches the current access token in the ES module and persists both
+ * tokens plus a computed expiry to localStorage.
+ * @param {string} name - The connector's display name (e.g. 'Smartling').
+ * @param {string} env - The environment key (e.g. 'prod').
+ * @param {string} accessToken - The current access token.
+ * @param {string} refreshToken - The current refresh token.
+ * @param {number} [expiresInSecs] - Seconds until `accessToken` expires;
+ *  falls back to `FALLBACK_EXPIRES_IN_S` if omitted.
+ * @returns {void}
+ */
+function setTokenDetails(name, env, accessToken, refreshToken, expiresInSecs) {
   token = accessToken;
   const timestamp = Date.now();
-  localStorage.setItem(`${name.toLowerCase()}.${env}.token`, JSON.stringify({ accessToken, refreshToken, expires: timestamp + REFRESH_TIME }));
+  const expiresInMs = (expiresInSecs ?? FALLBACK_EXPIRES_IN_S) * 1000;
+  localStorage.setItem(`${name.toLowerCase()}.${env}.token`, JSON.stringify({ accessToken, refreshToken, expires: timestamp + expiresInMs }));
 }
 
 function getTokenDetails(name, env) {
@@ -41,56 +60,120 @@ function getTokenDetails(name, env) {
   return {};
 }
 
-function refreshTheToken(name, env, endpoint) {
-  tokenPolling = setInterval(async () => {
-    const { refreshToken: currRefreshToken } = getTokenDetails(name, env);
-    const body = JSON.stringify({ refreshToken: currRefreshToken });
-    const opts = { ...BASE_OPTS, body };
+/**
+ * Authenticates with Smartling using a user's identifier/secret.
+ * @param {string} endpoint - The resolved Smartling API origin.
+ * @param {string} userIdentifier - The Smartling user identifier.
+ * @param {string} userSecret - The Smartling user secret.
+ * @returns {Promise<Object|null>} The response's `accessToken`,
+ *  `refreshToken`, and `expiresIn`, or null on failure.
+ */
+async function authenticate(endpoint, userIdentifier, userSecret) {
+  const body = JSON.stringify({ userIdentifier, userSecret });
+  const opts = { ...BASE_OPTS, body };
 
-    const resp = await fetchWithRetry(`${endpoint}/auth-api/v2/authenticate/refresh`, opts);
-    if (!resp.ok) token = undefined;
-    const json = await resp.json();
-
-    const { accessToken, refreshToken } = json?.response?.data || {};
-    if (accessToken && refreshToken) setTokenDetails(name, env, accessToken, refreshToken);
-  }, REFRESH_TIME - 5000);
+  const resp = await fetchWithRetry(`${endpoint}/auth-api/v2/authenticate`, opts);
+  if (!resp.ok) return null;
+  const json = await resp.json();
+  return json?.response?.data || null;
 }
 
+/**
+ * Schedules a token refresh shortly before the current token expires,
+ * tracking Smartling's actual reported `expiresIn` instead of assuming a
+ * constant lifetime (that value shrinks as a session nears its 12-hour
+ * cap). Falls back to a full re-authentication with the original
+ * credentials if the refresh token itself has stopped working, and
+ * reschedules itself afterward - only stops rescheduling once both the
+ * refresh and the fallback re-authentication fail, so a translation job
+ * that outlives several sessions keeps working without user intervention.
+ * @param {number} [expiresInSecs] - Seconds until the current token
+ *  expires; falls back to `FALLBACK_EXPIRES_IN_S` if omitted.
+ * @returns {void}
+ */
+function scheduleRefresh(expiresInSecs) {
+  const expiresInMs = (expiresInSecs ?? FALLBACK_EXPIRES_IN_S) * 1000;
+  const delay = Math.max(expiresInMs - REFRESH_BUFFER_MS, MIN_REFRESH_DELAY_MS);
+
+  clearTimeout(tokenPolling);
+  tokenPolling = setTimeout(async () => {
+    const { name, env, endpoint, userIdentifier, userSecret } = authCredentials;
+    const { refreshToken: currRefreshToken } = getTokenDetails(name, env);
+
+    const body = JSON.stringify({ refreshToken: currRefreshToken });
+    const opts = { ...BASE_OPTS, body };
+    const resp = await fetchWithRetry(`${endpoint}/auth-api/v2/authenticate/refresh`, opts);
+    let data = resp.ok ? (await resp.json())?.response?.data : null;
+
+    if (!data?.accessToken) data = await authenticate(endpoint, userIdentifier, userSecret);
+
+    if (!data?.accessToken) {
+      // Both refresh and re-authentication failed - stop polling rather than
+      // hammering the API forever with credentials that no longer work.
+      token = undefined;
+      tokenPolling = undefined;
+      return;
+    }
+
+    const { accessToken, refreshToken, expiresIn } = data;
+    setTokenDetails(name, env, accessToken, refreshToken, expiresIn);
+    scheduleRefresh(expiresIn);
+  }, delay);
+}
+
+/**
+ * Checks for a still-valid cached token and, if found, resumes background
+ * refresh scheduling (e.g. after a page reload) instead of requiring the
+ * user to reconnect.
+ * @param {Object} config - The service configuration, including
+ *  `userId`/`userSecret` (retained for a later refresh-failure fallback)
+ *  and the env-specific endpoint.
+ * @returns {Promise<boolean>} Whether a still-valid cached token was found.
+ */
 export async function isConnected(config) {
-  const { name, env } = config;
+  const { name, env, userId, userSecret } = config;
   const endpoint = config[`${env}.endpoint`];
-  const { expires, refreshToken, accessToken } = getTokenDetails(name, env);
+  const { expires, accessToken } = getTokenDetails(name, env);
   const notExpired = expires > Date.now();
 
   if (notExpired && !tokenPolling) {
     // Cache the token for the ES Module
-    setTokenDetails(name, env, accessToken, refreshToken);
+    token = accessToken;
+    authCredentials = { name, env, endpoint, userIdentifier: userId, userSecret };
 
-    // Kick off the refresh polling
-    refreshTheToken(name, env, endpoint, refreshToken);
+    // Kick off the refresh scheduling
+    scheduleRefresh((expires - Date.now()) / 1000);
     return true;
   }
 
   return false;
 }
 
+/**
+ * Authenticates with Smartling and starts background refresh scheduling.
+ * @param {Object} service - The service configuration.
+ * @param {string} service.name - The connector's display name.
+ * @param {string} service.origin - The configured API origin.
+ * @param {string} service.env - The environment key (e.g. 'prod').
+ * @param {string} service.userId - The Smartling user identifier.
+ * @param {string} service.userSecret - The Smartling user secret.
+ * @param {string} service.org - The DA org.
+ * @param {string} service.site - The DA site.
+ * @returns {Promise<boolean>} Whether authentication succeeded.
+ */
 export async function connect(service) {
   const {
     name, origin, env, userId, userSecret, org, site,
   } = service;
   const endpoint = resolveOrigin(origin, org, site);
-  const userIdentifier = userId;
 
-  const body = JSON.stringify({ userIdentifier, userSecret });
+  const data = await authenticate(endpoint, userId, userSecret);
+  if (!data?.accessToken) return false;
 
-  const opts = { ...BASE_OPTS, body };
-
-  const resp = await fetchWithRetry(`${endpoint}/auth-api/v2/authenticate`, opts);
-  if (!resp.ok) return false;
-  const json = await resp.json();
-  const { accessToken, refreshToken } = json?.response?.data || {};
-  setTokenDetails(name, env, accessToken, refreshToken);
-  if (refreshToken) refreshTheToken(name, env, endpoint, refreshToken);
+  authCredentials = { name, env, endpoint, userIdentifier: userId, userSecret };
+  const { accessToken, refreshToken, expiresIn } = data;
+  setTokenDetails(name, env, accessToken, refreshToken, expiresIn);
+  scheduleRefresh(expiresIn);
   return true;
 }
 
@@ -186,15 +269,18 @@ export async function saveItems({
   const { origin, projectId } = service;
   const endpoint = resolveOrigin(origin, org, site);
 
-  const opts = {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  };
-
   const downloadCallback = async (url) => {
+    // Built per-download (not hoisted) so a background token refresh mid-batch
+    // is picked up instead of every download reusing whatever token was
+    // current when saveItems started.
+    const opts = {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    };
+
     const text = await downloadFile(opts, endpoint, projectId, lang, url);
 
     url.sourceContent = await removeDnt({ org, site, html: text, ext: url.ext });
