@@ -177,7 +177,40 @@ export async function connect(service) {
   return true;
 }
 
-async function uploadFiles(endpoint, projectId, jobUid, batchUid, langs, urls) {
+/**
+ * Extracts a human-readable message from Smartling's documented error
+ * envelope. Per their Error Handling docs, every 4xx/5xx response on every
+ * endpoint returns `{ response: { code, errors: [{ key, message,
+ * details }] } }` - this reads the `errors` array rather than just the
+ * top-level `code`, since `code` alone (e.g. `VALIDATION_ERROR`) doesn't
+ * say what's actually wrong (e.g. an invalid target locale).
+ * @param {Object} json - The parsed error response body.
+ * @returns {string} The joined `message` from each reported error, or the
+ *  response `code` if no `errors` array is present.
+ */
+function extractErrorMessage(json) {
+  const errors = json?.response?.errors;
+  if (Array.isArray(errors) && errors.length > 0) {
+    return errors.map((error) => error.message).join('; ');
+  }
+  return json?.response?.code || 'Unknown error';
+}
+
+/**
+ * Uploads every url to a Smartling batch, reporting an error message per
+ * file that Smartling rejects (e.g. a locale mismatch) instead of only
+ * counting it as not-accepted.
+ * @param {string} endpoint - The resolved Smartling API origin.
+ * @param {string} projectId - The Smartling project id.
+ * @param {string} batchUid - The batch to upload files into.
+ * @param {Object[]} langs - Target languages to authorize each file for.
+ * @param {Object[]} urls - The urls to upload.
+ * @param {Function} sendMessage - Callback to surface a status/error
+ *  message to the user.
+ * @returns {Promise<string[]>} Each file's Smartling response `code`
+ *  (`'ACCEPTED'` on success).
+ */
+async function uploadFiles(endpoint, projectId, batchUid, langs, urls, sendMessage) {
   const uploadUrl = `${endpoint}/job-batches-api/v2/projects/${projectId}/batches/${batchUid}/file`;
 
   const results = [];
@@ -197,13 +230,27 @@ async function uploadFiles(endpoint, projectId, jobUid, batchUid, langs, urls) {
 
     const resp = await fetchWithRetry(uploadUrl, opts);
     const json = await resp.json();
+    if (!resp.ok) {
+      sendMessage({ text: `Upload failed for ${url.daBasePath}: ${extractErrorMessage(json)}`, type: 'error' });
+    }
     results.push(json.response.code);
   }
 
   return results;
 }
 
-async function createJob(endpoint, projectId, title, langs) {
+/**
+ * Creates a Smartling translation job for the given target languages.
+ * @param {string} endpoint - The resolved Smartling API origin.
+ * @param {string} projectId - The Smartling project id.
+ * @param {string} title - The project title, used to build the job name.
+ * @param {Object[]} langs - Target languages; each `code` becomes a
+ *  `targetLocaleId`.
+ * @param {Function} sendMessage - Callback to surface a status/error
+ *  message to the user.
+ * @returns {Promise<string|null>} The new job's id, or null on failure.
+ */
+async function createJob(endpoint, projectId, title, langs, sendMessage) {
   const timestamp = Date.now();
   const jobName = `${title}-${timestamp}`;
   const targetLocaleIds = langs.map((lang) => lang.code);
@@ -214,7 +261,11 @@ async function createJob(endpoint, projectId, title, langs) {
 
   const url = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs`;
   const resp = await fetchWithRetry(url, opts);
-  if (!resp.ok) return null;
+  if (!resp.ok) {
+    const json = await resp.json();
+    sendMessage({ text: `Job creation failed: ${extractErrorMessage(json)}`, type: 'error' });
+    return null;
+  }
   const json = await resp.json();
   const { translationJobUid: jobUid } = json.response.data;
   return jobUid;
@@ -229,9 +280,11 @@ async function createJob(endpoint, projectId, title, langs) {
  * @param {boolean} autoAuthorize - Whether Smartling should immediately
  *  authorize the job for translation once the batch finishes processing,
  *  instead of requiring manual authorization in Smartling's dashboard.
+ * @param {Function} sendMessage - Callback to surface a status/error
+ *  message to the user.
  * @returns {Promise<string|null>} The new batch's id, or null on failure.
  */
-async function createBatch(endpoint, projectId, jobUid, urls, autoAuthorize) {
+async function createBatch(endpoint, projectId, jobUid, urls, autoAuthorize, sendMessage) {
   const body = JSON.stringify({
     authorize: autoAuthorize,
     translationJobUid: jobUid,
@@ -244,7 +297,11 @@ async function createBatch(endpoint, projectId, jobUid, urls, autoAuthorize) {
   const url = `${endpoint}/job-batches-api/v2/projects/${projectId}/batches`;
 
   const resp = await fetchWithRetry(url, opts);
-  if (!resp.ok) return null;
+  if (!resp.ok) {
+    const json = await resp.json();
+    sendMessage({ text: `Batch creation failed: ${extractErrorMessage(json)}`, type: 'error' });
+    return null;
+  }
   const json = await resp.json();
   const { batchUid } = json.response.data;
   return batchUid;
@@ -332,7 +389,7 @@ export async function sendAllLanguages({
   const endpoint = resolveOrigin(origin, org, site);
 
   sendMessage({ text: `Creating job in Smartling for: ${title}.` });
-  const jobUid = await createJob(endpoint, projectId, title, langs);
+  const jobUid = await createJob(endpoint, projectId, title, langs, sendMessage);
   if (!jobUid) return;
 
   // Presist to the state for future reference
@@ -342,7 +399,7 @@ export async function sendAllLanguages({
   // config[`${env}.jobUid`] = jobUid;
 
   sendMessage({ text: `Creating a batch in Smartling for: ${title}.` });
-  const batchUid = await createBatch(endpoint, projectId, jobUid, urls, autoAuthorize === 'yes');
+  const batchUid = await createBatch(endpoint, projectId, jobUid, urls, autoAuthorize === 'yes', sendMessage);
   if (!batchUid) return;
 
   // Presist to the state for future reference
@@ -352,7 +409,7 @@ export async function sendAllLanguages({
   // config[`${env}.batchUid`] = batchUid;
 
   sendMessage({ text: `Uploading ${urls.length} items to Smartling for job: ${title}.` });
-  const results = await uploadFiles(endpoint, projectId, jobUid, batchUid, langs, urls);
+  const results = await uploadFiles(endpoint, projectId, batchUid, langs, urls, sendMessage);
   const accepted = results.filter((result) => result === 'ACCEPTED').length;
 
   langs.forEach((lang) => {
