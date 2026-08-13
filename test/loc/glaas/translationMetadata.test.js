@@ -1446,6 +1446,108 @@ describe('translationMetadata', () => {
       });
     });
   });
+  describe('addTranslationMetadata (per-locale source keywords/constants)', () => {
+    const originalFetch = window.fetch;
+    const sourceSchemaJson = blockSchemaJsonFromParsed({
+      'aso-app_apple_listing': {
+        selector: '.aso-app.apple.listing',
+        fields: [{
+          fieldName: 'Subtitle',
+          fieldKey: 'subtitle',
+          charCount: '30',
+          keywordsInjection: true,
+        }],
+      },
+    });
+
+    afterEach(() => {
+      window.fetch = originalFetch;
+    });
+
+    function keywordsPayload(language, value) {
+      return {
+        'aso-app (apple, listing) (1)': {
+          total: 1,
+          offset: 0,
+          limit: 1,
+          data: [{
+            language,
+            Subtitle: value,
+            'Subtitle (updated)': '',
+          }],
+        },
+      };
+    }
+
+    it('fetches each language\'s keywords from its own `source` location and merges the results', async () => {
+      window.fetch = sinon.stub().callsFake((input) => {
+        const urlStr = String(typeof input === 'string' ? input : input.url);
+        if (urlStr.includes('/.da/block-schema.json')) {
+          return mockRes({ payload: sourceSchemaJson, status: 200, ok: true });
+        }
+        if (urlStr.includes('/source/en-de/content/page-keywords.json')) {
+          return mockRes({ payload: keywordsPayload('German', 'german-specific-keywords'), status: 200, ok: true });
+        }
+        if (urlStr.includes('/content/page-keywords.json')) {
+          return mockRes({ payload: keywordsPayload('French', 'base-french-keywords'), status: 200, ok: true });
+        }
+        if (urlStr.includes('/.da/seo/glossary.json')) {
+          return mockRes({ status: 404, ok: false });
+        }
+        return mockRes({ status: 404, ok: false });
+      });
+
+      await fetchBlockSchema(TM_TEST_ORG, TM_TEST_SITE, { reset: true });
+      await loadSeoGlossary(TM_TEST_ORG, TM_TEST_SITE, { reset: true });
+
+      const langs = [
+        { name: 'French', code: 'fr' },
+        { name: 'German', code: 'de', source: '/source/en-de' },
+      ];
+      const urls = [{ suppliedPath: TM_PAGE_PATH, content: '<div></div>' }];
+      await addTranslationMetadata(TM_TEST_ORG, TM_TEST_SITE, langs, urls);
+
+      expect(urls[0].translationMetadata.fr['keywords|aso-app_apple_listing_1_subtitle']).to.deep.equal({
+        value: 'base-french-keywords',
+        updated: false,
+      });
+      expect(urls[0].translationMetadata.de['keywords|aso-app_apple_listing_1_subtitle']).to.deep.equal({
+        value: 'german-specific-keywords',
+        updated: false,
+      });
+    });
+
+    it('falls back to the default keywords file when a locale\'s own source file is missing', async () => {
+      window.fetch = sinon.stub().callsFake((input) => {
+        const urlStr = String(typeof input === 'string' ? input : input.url);
+        if (urlStr.includes('/.da/block-schema.json')) {
+          return mockRes({ payload: sourceSchemaJson, status: 200, ok: true });
+        }
+        if (urlStr.includes('/source/en-it/content/page-keywords.json')) {
+          return mockRes({ status: 404, ok: false });
+        }
+        if (urlStr.includes('/content/page-keywords.json')) {
+          return mockRes({ payload: keywordsPayload('Italian', 'fallback-italian-keywords'), status: 200, ok: true });
+        }
+        if (urlStr.includes('/.da/seo/glossary.json')) {
+          return mockRes({ status: 404, ok: false });
+        }
+        return mockRes({ status: 404, ok: false });
+      });
+
+      await fetchBlockSchema(TM_TEST_ORG, TM_TEST_SITE, { reset: true });
+      await loadSeoGlossary(TM_TEST_ORG, TM_TEST_SITE, { reset: true });
+
+      const langs = [{ name: 'Italian', code: 'it', source: '/source/en-it' }];
+      const urls = [{ suppliedPath: TM_PAGE_PATH, content: '<div></div>' }];
+      await addTranslationMetadata(TM_TEST_ORG, TM_TEST_SITE, langs, urls);
+
+      expect(urls[0].translationMetadata.it['keywords|aso-app_apple_listing_1_subtitle']).to.deep.equal({
+        value: 'fallback-italian-keywords',
+        updated: false,
+      });
+    });
+  });
   describe('addSeoGlossary (languageContext)', () => {
     const org = 'test-org';
     const site = 'test-site';

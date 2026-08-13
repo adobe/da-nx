@@ -1,4 +1,8 @@
 /* eslint-disable import/prefer-default-export */
+export function normalizeSource(source) {
+  return source ? source.replace(/\/$/, '') : '';
+}
+
 function getPathLength(urlPattern) {
   const path = urlPattern.replace(/^https?:\/\/[^/]+/, '');
   return (path.match(/[^/]+/g) || []).length;
@@ -40,12 +44,13 @@ function parseLocPageRules(config) {
   return pageRules;
 }
 
-function addAssignment(assignments, workflow, workflowName, lang, url) {
+function addAssignment(assignments, workflow, workflowName, lang, url, source) {
   const assignment = {
     lang,
     url,
     workflow,
     workflowName,
+    source,
   };
   assignments.push(assignment);
 }
@@ -67,15 +72,15 @@ function findMatchingRules(url, pageRules) {
   });
 }
 
-function processLanguageWithRules(assignments, sortedMatches, lang, url) {
+function processLanguageWithRules(assignments, sortedMatches, langObj, url) {
   let hasRuleAssignment = false;
-  const trimmedLang = lang.trim();
+  const trimmedLang = langObj.code.trim();
   sortedMatches.forEach((match) => {
     if (hasRuleAssignment) return;
     const { rule } = match;
     if (rule[trimmedLang]) {
       const { workflow, workflowName } = rule[trimmedLang];
-      addAssignment(assignments, workflow, workflowName, trimmedLang, url);
+      addAssignment(assignments, workflow, workflowName, trimmedLang, url, langObj.source);
       hasRuleAssignment = true;
     }
   });
@@ -85,7 +90,8 @@ function processLanguageWithRules(assignments, sortedMatches, lang, url) {
 function processLanguageWithDefaults(assignments, langObj, url) {
   if (langObj.workflow && langObj.workflowName) {
     const trimmedCode = langObj.code.trim();
-    addAssignment(assignments, langObj.workflow, langObj.workflowName, trimmedCode, url);
+    const { workflow, workflowName, source } = langObj;
+    addAssignment(assignments, workflow, workflowName, trimmedCode, url, source);
   }
 }
 
@@ -95,7 +101,7 @@ function processUrl(assignments, url, languageObjects, pageRules) {
 
   languageObjects.forEach((langObj) => {
     if (matches.length > 0) {
-      const hasRuleAssignment = processLanguageWithRules(assignments, matches, langObj.code, url);
+      const hasRuleAssignment = processLanguageWithRules(assignments, matches, langObj, url);
       if (!hasRuleAssignment) {
         languagesForDefaultWorkflow.push(langObj);
       }
@@ -113,45 +119,55 @@ function buildLanguageUrlSets(assignments) {
   const languageUrlSets = {};
 
   assignments.forEach((assignment) => {
-    const { lang, url, workflow, workflowName } = assignment;
+    const { lang, url, workflow, workflowName, source } = assignment;
     if (!workflow || !workflowName) {
       // eslint-disable-next-line no-console
       console.warn(`Skipping assignment with empty workflow/workflowName: lang=${lang}, url=${url}, workflow="${workflow}", workflowName="${workflowName}"`);
       return;
     }
     const workflowKey = `${workflow}/${workflowName}`;
+    const sourceKey = normalizeSource(source);
 
     if (!languageUrlSets[lang]) {
       languageUrlSets[lang] = {};
     }
     if (!languageUrlSets[lang][workflowKey]) {
-      languageUrlSets[lang][workflowKey] = new Set();
+      languageUrlSets[lang][workflowKey] = {};
     }
-    languageUrlSets[lang][workflowKey].add(url);
+    if (!languageUrlSets[lang][workflowKey][sourceKey]) {
+      languageUrlSets[lang][workflowKey][sourceKey] = new Set();
+    }
+    languageUrlSets[lang][workflowKey][sourceKey].add(url);
   });
 
   return languageUrlSets;
 }
 
+// Languages with different `source` values must not share a task's content, even in one workflow.
 function groupLanguagesByWorkflow(languageUrlSets) {
   const workflowGroups = {};
   Object.entries(languageUrlSets).forEach(([language, workflows]) => {
-    Object.entries(workflows).forEach(([workflowKey, urlSet]) => {
-      const urlSetKey = Array.from(urlSet).sort().join(',');
-      if (!workflowGroups[workflowKey]) {
-        workflowGroups[workflowKey] = new Map();
-      }
-
-      const existingEntry = Array.from(workflowGroups[workflowKey].entries())
-        .find(([existingUrls]) => existingUrls === urlSetKey);
-      if (existingEntry) {
-        const [, languages] = existingEntry;
-        if (!languages.includes(language)) {
-          languages.push(language);
+    Object.entries(workflows).forEach(([workflowKey, sources]) => {
+      Object.entries(sources).forEach(([source, urlSet]) => {
+        const urlSetKey = Array.from(urlSet).sort().join(',');
+        const groupKey = `${source}::${urlSetKey}`;
+        if (!workflowGroups[workflowKey]) {
+          workflowGroups[workflowKey] = new Map();
         }
-      } else {
-        workflowGroups[workflowKey].set(urlSetKey, [language]);
-      }
+
+        const existing = workflowGroups[workflowKey].get(groupKey);
+        if (existing) {
+          if (!existing.languages.includes(language)) {
+            existing.languages.push(language);
+          }
+        } else {
+          workflowGroups[workflowKey].set(groupKey, {
+            source,
+            urlPaths: Array.from(urlSet),
+            languages: [language],
+          });
+        }
+      });
     });
   });
   return workflowGroups;
@@ -160,16 +176,14 @@ function groupLanguagesByWorkflow(languageUrlSets) {
 function buildWorkflowGroups(workflowGroups) {
   const finalResult = {};
 
-  Object.entries(workflowGroups).forEach(([workflowKey, urlSets]) => {
-    finalResult[workflowKey] = [];
-
-    urlSets.forEach((value, key) => {
-      const urlPaths = key.split(',');
-
-      finalResult[workflowKey].push({
-        languages: value.sort(),
-        urlPaths: urlPaths.sort(),
-      });
+  Object.entries(workflowGroups).forEach(([workflowKey, groupMap]) => {
+    finalResult[workflowKey] = Array.from(groupMap.values()).map((group) => {
+      const result = {
+        languages: group.languages.sort(),
+        urlPaths: group.urlPaths.sort(),
+      };
+      if (group.source) result.source = group.source;
+      return result;
     });
   });
   return finalResult;

@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { groupUrlsByWorkflow } from '../../../nx/blocks/loc/connectors/glaas/locPageRules.js';
+import { groupUrlsByWorkflow, normalizeSource } from '../../../nx/blocks/loc/connectors/glaas/locPageRules.js';
 
 describe('locPageRules', () => {
   describe('groupUrlsByWorkflow', () => {
@@ -457,6 +457,74 @@ describe('locPageRules', () => {
       // Verify that languages with empty/undefined workflowName are excluded
       expect(result['WCMS/DX/Human Translation'][0].languages).to.not.include('fr');
       expect(result['WCMS/DX/Human Translation'][0].languages).to.not.include('ja');
+    });
+
+    it('should split languages sharing a workflow into separate groups when their `source` differs', () => {
+      const urls = ['/products/photoshop/description'];
+      const languageObjects = [
+        { code: 'de', workflow: 'WCMS/DX', workflowName: 'Human Translation', source: '/source/en-de' },
+        { code: 'fr', workflow: 'WCMS/DX', workflowName: 'Human Translation', source: '/source/en-fr' },
+        { code: 'en-GB', workflow: 'WCMS/DX', workflowName: 'Human Translation', source: '/' },
+      ];
+      const config = {};
+
+      const result = groupUrlsByWorkflow(urls, languageObjects, config);
+
+      const expected = {
+        'WCMS/DX/Human Translation': [
+          {
+            languages: ['de'],
+            urlPaths: ['/products/photoshop/description'],
+            source: '/source/en-de',
+          },
+          {
+            languages: ['fr'],
+            urlPaths: ['/products/photoshop/description'],
+            source: '/source/en-fr',
+          },
+          {
+            languages: ['en-GB'],
+            urlPaths: ['/products/photoshop/description'],
+          },
+        ],
+      };
+
+      expect(result).to.deep.equal(expected);
+    });
+
+    it('should keep languages together when they share the same `source` (trailing slash ignored)', () => {
+      const urls = ['/products/photoshop/description'];
+      const languageObjects = [
+        { code: 'de', workflow: 'WCMS/DX', workflowName: 'Human Translation', source: '/source/en-de' },
+        { code: 'at', workflow: 'WCMS/DX', workflowName: 'Human Translation', source: '/source/en-de/' },
+      ];
+      const config = {};
+
+      const result = groupUrlsByWorkflow(urls, languageObjects, config);
+
+      const expected = {
+        'WCMS/DX/Human Translation': [
+          {
+            languages: ['at', 'de'],
+            urlPaths: ['/products/photoshop/description'],
+            source: '/source/en-de',
+          },
+        ],
+      };
+
+      expect(result).to.deep.equal(expected);
+    });
+  });
+
+  describe('normalizeSource', () => {
+    it('strips a trailing slash', () => {
+      expect(normalizeSource('/source/en-de/')).to.equal('/source/en-de');
+    });
+
+    it('returns an empty string for the root and for falsy values', () => {
+      expect(normalizeSource('/')).to.equal('');
+      expect(normalizeSource('')).to.equal('');
+      expect(normalizeSource(undefined)).to.equal('');
     });
   });
 });
