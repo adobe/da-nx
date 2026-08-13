@@ -13,9 +13,20 @@ import {
 } from './multimodalApi.js';
 import { getGlaasToken, connectToGlaas } from './auth.js';
 import { addDnt, removeDnt } from './dnt.js';
-import { groupUrlsByWorkflow } from './locPageRules.js';
+import { groupUrlsByWorkflow, normalizeSource } from './locPageRules.js';
 import { fetchConfig } from '../../utils/utils.js';
 import { addTranslationMetadata } from './translationMetadata.js';
+
+// Each language's own `source` urls may hold different content than the default urls.
+function groupLangsWithUrlsBySource(langsWithUrls = []) {
+  const bySource = new Map();
+  langsWithUrls.forEach((lang) => {
+    const key = normalizeSource(lang.source);
+    if (!bySource.has(key)) bySource.set(key, { source: key, langs: [], urls: lang.urls });
+    bySource.get(key).langs.push(lang);
+  });
+  return bySource;
+}
 
 function determineStatus(translation) {
   if (translation.error > 0) return 'failed';
@@ -77,6 +88,7 @@ function langs2Tasks(langs) {
             name,
             langs: [],
             urlPaths: workflowTask.urls || [],
+            source: workflowTask.source,
           };
         }
         taskGroups[compositeKey].langs.push(lang);
@@ -140,6 +152,7 @@ function workflowGroups2tasks(title, workflowGroups, langs, timestamp) {
           workflow,
           langs: groupLangs,
           urlPaths: group.urlPaths,
+          source: group.source,
         };
       }
     });
@@ -419,6 +432,7 @@ function initializeLanguageWorkflowTasks(tasks) {
         businessUnit: task.businessUnit,
         name: task.name,
         urls: task.urlPaths || [],
+        source: task.source,
         status: {
           sent: 0,
           error: 0,
@@ -450,21 +464,30 @@ async function getTasks(org, site, title, langs, urls, timestamp) {
 }
 
 export async function sendAllLanguages({
-  org, site, title, service, langs, urls, actions,
+  org, site, title, service, langs, langsWithUrls, urls, actions,
 }) {
   const timestamp = Date.now();
   const tasks = await getTasks(org, site, title, langs, urls, timestamp);
-  await addTranslationMetadata(org, site, langs, urls);
+
+  const sourceGroups = groupLangsWithUrlsBySource(langsWithUrls);
+  await Promise.all([...sourceGroups.values()].map(
+    (group) => addTranslationMetadata(org, site, group.langs, group.urls),
+  ));
+
   for (const key of Object.keys(tasks)) {
-    await sendTask(service, tasks[key], urls, actions, { org, site });
+    const task = tasks[key];
+    const taskUrls = sourceGroups.get(normalizeSource(task.source))?.urls ?? urls;
+    // eslint-disable-next-line no-await-in-loop
+    await sendTask(service, task, taskUrls, actions, { org, site });
   }
 }
 
 export async function getStatusAll({
-  org, site, service, langs, urls, actions,
+  org, site, service, langs, langsWithUrls, urls, actions,
 }) {
   const baseConf = { ...service, token };
   const { sendMessage, saveState } = actions;
+  const sourceGroups = groupLangsWithUrlsBySource(langsWithUrls);
 
   normalizeAllLanguages(langs, urls);
   const tasks = langs2Tasks(langs);
@@ -506,13 +529,14 @@ export async function getStatusAll({
       pageAssets: taskPageAssets,
     });
     if (subtasks.status === 404) {
+      const taskUrls = sourceGroups.get(normalizeSource(task.source))?.urls ?? urls;
       subtasks = await recreateTaskAndFetchSubtasks({
         service,
         glaasToken: baseConf.token,
         taskConfig,
         task,
         langs: task.langs,
-        urls,
+        urls: taskUrls,
         actions,
         org,
         site,
