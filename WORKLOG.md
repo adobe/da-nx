@@ -1,5 +1,22 @@
 # Worklog
 
+## 2026-08-13
+
+### nx/blocks/loc/connectors/smartling/index.js — token refresh/reauth fixes (docs review)
+
+Reviewed the connector against Smartling's own docs (Key Concepts for Developers, API Integrations Best Practices, Rate Limits — the help center 403s direct `curl`/`WebFetch`, had to go via search instead). Findings and fixes:
+
+1. **No recovery once a session's refresh token permanently stops working.** Smartling caps a token pair's session at 12 hours regardless of refresh count; after that, refreshes 401 forever. The old `refreshTheToken` polled on a fixed `setInterval` and just went inert (`token = undefined`) on failure, with no reconnect path — silent since translation jobs commonly outlive 12h. Replaced with a self-rescheduling `scheduleRefresh`/`setTimeout` chain; on a failed refresh it falls back to a full `authenticate()` using retained credentials (new module-level `authCredentials`), only going inert if both the refresh and the fallback re-auth fail.
+2. **Token expiry bookkeeping ignored the API's actual `expiresIn`/`refreshExpiresIn`** in favor of a hardcoded 280s `REFRESH_TIME` constant. Now reads the real `expiresIn` from both `/authenticate` and `/authenticate/refresh` responses (falls back to `FALLBACK_EXPIRES_IN_S = 280` if omitted, e.g. in the existing test mocks).
+3. **`saveItems` built its download `opts` (with the `Authorization` header) once up front** and reused it for the whole batch — unlike every other function in the file, which reads the module-level `token` fresh at each fetch call site. Moved `opts` construction inside the per-download callback.
+4. Dead 4th arg (`refreshToken`) passed to the old `refreshTheToken` but unused in its signature — resolved as part of the rewrite.
+
+`isConnected` also now retains `userId`/`userSecret` into `authCredentials` on resume (e.g. after a page reload with a still-valid cached token), so the reauth fallback works whether the token came from a fresh `connect()` or a resumed session.
+
+All 13 existing tests in `test/loc/connectors/smartling/index.test.js` pass unchanged; `npx eslint` clean.
+
+**Open items, not fixed (low risk today):** Smartling caps concurrent file-API operations at 10/project — `saveItems`'s download queue (concurrency 5) is safe alone, but nothing coordinates concurrency across simultaneous operations (e.g. a status poll running alongside a download pass). Also `fetchWithRetry`'s defaults (5 retries / 30s max delay) sit at the low end of Smartling's recommended 5–10 retries / 30–60s max-delay range.
+
 ## 2026-08-07
 
 ### nx2/utils/api.js — remove stage-content.da.live rewrite workaround
