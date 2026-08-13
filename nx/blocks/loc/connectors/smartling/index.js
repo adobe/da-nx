@@ -278,7 +278,11 @@ export async function getStatusAll({
     });
   }
 
-  for (const lang of langs) {
+  // 'complete' means saveLangItemsToDa already downloaded and saved this
+  // lang's content - Smartling keeps reporting 100% translated forever
+  // after that, so without this guard every subsequent status check would
+  // revert it to 'translated' and trigger a re-save.
+  for (const lang of langs.filter((l) => l.translation.status !== 'complete')) {
     if (lang.translation.translated === urls.length) {
       lang.translation.status = 'translated';
     }

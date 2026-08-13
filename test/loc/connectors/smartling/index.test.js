@@ -107,6 +107,36 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(calls[0].url).to.equal(expectedUrl);
   });
 
+  it('does not revert a lang already saved to DA back to "translated"', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/file/progress')) {
+        // Smartling keeps reporting 100% complete indefinitely once done.
+        return new Response(JSON.stringify({
+          response: {
+            code: 'SUCCESS',
+            data: { contentProgressReport: [{ targetLocaleId: 'fr-FR', progress: { percentComplete: 100 } }] },
+          },
+        }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+    const langs = [{ code: 'fr-FR', translation: { translated: 0, status: 'complete', saved: 1 } }];
+    const urls = [{ daBasePath: '/page' }];
+    const actions = { saveState: async () => {} };
+
+    await getStatusAll({
+      org, site, service, langs, urls, actions,
+    });
+
+    expect(langs[0].translation.status).to.equal('complete');
+  });
+
   it('rewrites the origin for saveItems file downloads', async () => {
     const service = { origin: legacyOrigin, projectId: 'proj-1' };
     const lang = { code: 'fr-FR' };
