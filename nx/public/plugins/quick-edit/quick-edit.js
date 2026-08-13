@@ -1,5 +1,5 @@
-import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc, handleImageError } from './src/images.js';
-import { setEditorState } from './src/prose.js';
+import { setupImageDropListeners, updateImageSrc, handleImageError } from './src/images.js';
+import { setEditorState, setupOnDemandEditing } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
@@ -30,7 +30,7 @@ async function setBody(body, ctx) {
   restoreBlockIndices(doc, document);
   setupNodeSelection(ctx);
   setSelectedNode(getSelectedNode());
-  setupContentEditableListeners(ctx);
+  setupOnDemandEditing(ctx);
   if (!ctx.readOnly) {
     setupImageDropListeners(ctx, document.body.querySelector('main'));
   }

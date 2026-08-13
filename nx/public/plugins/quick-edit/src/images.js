@@ -1,17 +1,5 @@
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
-export function setupContentEditableListeners(ctx) {
-  const editableElements = document.querySelectorAll('[data-prose-index]');
-  editableElements.forEach((element) => {
-    const dataCursor = parseInt(element.getAttribute('data-prose-index'), 10);
-
-    ctx.port.postMessage({
-      type: MESSAGE_TYPES.GET_EDITOR,
-      payload: { cursorOffset: dataCursor },
-    });
-  });
-}
-
 export function setupImageDropListeners(ctx, dom = document) {
   const images = dom.querySelectorAll('picture img');
 
