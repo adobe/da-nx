@@ -2,6 +2,9 @@ import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
 import { daFetch, loadIms } from '../../../../nx2/utils/api.js';
 
 const CONFIG_PATH = '/.da/translate.json';
+// ASO is piloting a redesigned config shape under a separate filename — every other site
+// still uses the standard translate.json until that redesign is ready more broadly.
+const ASO_CONFIG_PATH = '/.da/translate-redesign.json';
 
 export const VIEWS = [
   'dashboard',
@@ -202,12 +205,14 @@ export async function fetchConfig(org, site) {
     }
   };
 
+  const configPath = site === 'aso' ? ASO_CONFIG_PATH : CONFIG_PATH;
+
   // Attempt a site based config
-  let options = await fetchConf(`${DA_ADMIN}/source/${org}/${site}${CONFIG_PATH}`);
+  let options = await fetchConf(`${DA_ADMIN}/source/${org}/${site}${configPath}`);
 
   // Attempt an org based config
   if (options.error) {
-    options = await fetchConf(`${DA_ADMIN}/source/${org}${CONFIG_PATH}`);
+    options = await fetchConf(`${DA_ADMIN}/source/${org}${configPath}`);
   }
 
   // Fallback to zero config defaults
