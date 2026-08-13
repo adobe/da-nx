@@ -8,6 +8,19 @@ export function blockName(el) {
   return el?.classList?.[0] || '';
 }
 
+/**
+ * Block name with its authored variant in parentheses (e.g. `hero (center)`) — the same
+ * descriptor the doc editor's header row shows. The variant is read from the
+ * `data-block-variant` attribute stamped from the source HTML (see restoreBlockIndices)
+ * rather than from live classes, which also carry classes added by block decoration.
+ */
+export function blockLabel(el) {
+  const name = blockName(el);
+  if (!name) return '';
+  const variant = el?.getAttribute?.('data-block-variant') || '';
+  return variant ? `${name} (${variant})` : name;
+}
+
 function fillPill(pill, root, name) {
   const grip = root.createElement('span');
   grip.className = 'qe-pill-grip';
@@ -125,7 +138,7 @@ export function setSelectedNode(node, root = document, { scrollIntoView = false 
   if (node.anchorType === 'table') {
     const pill = root.createElement('div');
     pill.className = 'qe-selected-pill';
-    fillPill(pill, root, blockName(element));
+    fillPill(pill, root, blockLabel(element));
     box.appendChild(pill);
   }
 }
@@ -149,7 +162,7 @@ function drawHoverPill(block, root = document) {
   const pill = root.createElement('button');
   pill.type = 'button';
   pill.className = 'qe-selected-pill is-hover';
-  fillPill(pill, root, blockName(block));
+  fillPill(pill, root, blockLabel(block));
   pill.dataset.blockIndex = block.getAttribute('data-block-index');
   box.appendChild(pill);
 }
