@@ -2,6 +2,10 @@
 
 ## 2026-08-13
 
+### smartling connector — stop re-saving already-completed languages
+
+`getStatusAll` unconditionally set `lang.translation.status = 'translated'` whenever every url was 100% on Smartling's side — but Smartling keeps reporting 100% forever once done, so every subsequent "Get status" click reverted a lang's `'complete'` (set by `saveLangItemsToDa` after actually saving to DA) back to `'translated'`, which re-triggered a redundant download/save each time. Fixed by skipping langs already at `'complete'`, mirroring a guard GLaaS already has (`determineStatus`'s "Respect existing final statuses"). Trados has the identical bug in its own `getStatusAll` — deferred, not fixed here.
+
 ### smartling connector — surface connector errors, fix translate.js message clobbering
 
 `createJob`/`createBatch`/`uploadFiles` now parse Smartling's documented error envelope (`response.errors[].message`) and call `sendMessage({ type: 'error' })` on failure instead of silently returning `null` (matches Trados's existing pattern) — found via a live 400 (language mismatch) that went unsurfaced.
