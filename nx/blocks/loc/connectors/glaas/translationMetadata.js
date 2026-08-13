@@ -2,6 +2,7 @@ import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
 import { shouldLogGLaaSRequests } from './api.js';
 import { parseSelections } from './imageSelections.js';
+import { normalizeSource } from './locPageRules.js';
 
 const BLOCK_SCHEMA_PATH = '/.da/block-schema.json';
 const SEO_GLOSSARY_PATH = '/.da/seo/glossary.json';
@@ -117,21 +118,28 @@ function metadataPathForPage(pagePath, suffix) {
   return `${cleanPath}${suffix}`;
 }
 
-async function fetchMetadataFile(org, site, pagePath, suffix, readBody) {
+function metadataPathCandidates(metadataPath, sourceLocation) {
+  const candidates = [];
+  const normalizedSourceLocation = sourceLocation?.replace(/\/$/, '');
+  if (normalizedSourceLocation) {
+    candidates.push(`${normalizedSourceLocation}${metadataPath}`);
+  }
+  candidates.push(metadataPath);
+  if (metadataPath.includes('/langstore/')) {
+    candidates.push(metadataPath.replace(/\/langstore\/[^/]+\//, '/'));
+  }
+  return candidates;
+}
+
+async function fetchMetadataFile(org, site, pagePath, suffix, readBody, sourceLocation) {
   const metadataPath = metadataPathForPage(pagePath, suffix);
-  let url = `${DA_ADMIN}/source/${org}/${site}${metadataPath}`;
+  const candidates = metadataPathCandidates(metadataPath, sourceLocation);
   try {
-    let resp = await daFetch({ url });
-    if (resp.ok) {
-      return readBody(resp);
-    }
-    if (resp.status === 404 && metadataPath.includes('/langstore/')) {
-      const fallbackPath = metadataPath.replace(/\/langstore\/[^/]+\//, '/');
-      url = `${DA_ADMIN}/source/${org}/${site}${fallbackPath}`;
-      resp = await daFetch({ url });
-      if (resp.ok) {
-        return readBody(resp);
-      }
+    // eslint-disable-next-line no-restricted-syntax
+    for (const path of candidates) {
+      // eslint-disable-next-line no-await-in-loop
+      const resp = await daFetch({ url: `${DA_ADMIN}/source/${org}/${site}${path}` });
+      if (resp.ok) return readBody(resp);
     }
     return null;
   } catch (error) {
@@ -141,12 +149,12 @@ async function fetchMetadataFile(org, site, pagePath, suffix, readBody) {
   }
 }
 
-export async function fetchKeywordsFile(org, site, pagePath) {
-  return fetchMetadataFile(org, site, pagePath, '-keywords.json', (resp) => resp.json());
+export async function fetchKeywordsFile(org, site, pagePath, sourceLocation) {
+  return fetchMetadataFile(org, site, pagePath, '-keywords.json', (resp) => resp.json(), sourceLocation);
 }
 
-export async function fetchConstantsFile(org, site, pagePath) {
-  return fetchMetadataFile(org, site, pagePath, '-constants.html', (resp) => resp.text());
+export async function fetchConstantsFile(org, site, pagePath, sourceLocation) {
+  return fetchMetadataFile(org, site, pagePath, '-constants.html', (resp) => resp.text(), sourceLocation);
 }
 
 function collectConstantSlugsFromText(text) {
@@ -561,6 +569,16 @@ function logGlaasLangMetadata(pagePath, langMetadata) {
   );
 }
 
+function groupLangsBySource(langs) {
+  const groups = new Map();
+  langs.forEach((lang) => {
+    const key = normalizeSource(lang.source);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(lang);
+  });
+  return [...groups.entries()].map(([source, groupLangs]) => ({ source, langs: groupLangs }));
+}
+
 /**
  * Add translation metadata to URLs (HTML annotation + keywords + placeholders + SEO glossary),
  * plus each url's imageSelections (which images are marked for translation).
@@ -574,6 +592,7 @@ export async function addTranslationMetadata(org, site, langs, urls) {
   const blockSchema = await fetchBlockSchema(org, site);
   if (blockSchema) {
     const hasKeywords = needsKeywordsMetadata(blockSchema);
+    const langGroups = groupLangsBySource(langs);
     await Promise.all(urls.map(async (url) => {
       let pageDoc = null;
       let fieldsWithSlugs = [];
@@ -588,16 +607,22 @@ export async function addTranslationMetadata(org, site, langs, urls) {
       }
 
       const needsConstants = fieldsWithSlugs.length > 0;
-      const [keywordsData, constantsHtml] = await Promise.all([
-        hasKeywords ? fetchKeywordsFile(org, site, url.suppliedPath) : null,
-        needsConstants ? fetchConstantsFile(org, site, url.suppliedPath) : null,
-      ]);
 
-      const translationMetadata = buildLanguageMetadata(keywordsData, langs, {
-        constantsHtml,
-        fieldsWithSlugs,
-        parsedSchema: blockSchema,
-      });
+      const groupMetadata = await Promise.all(langGroups.map(async (group) => {
+        const { source, langs: groupLangs } = group;
+        const [keywordsData, constantsHtml] = await Promise.all([
+          hasKeywords ? fetchKeywordsFile(org, site, url.suppliedPath, source) : null,
+          needsConstants ? fetchConstantsFile(org, site, url.suppliedPath, source) : null,
+        ]);
+
+        return buildLanguageMetadata(keywordsData, groupLangs, {
+          constantsHtml,
+          fieldsWithSlugs,
+          parsedSchema: blockSchema,
+        });
+      }));
+
+      const translationMetadata = Object.assign({}, ...groupMetadata);
 
       if (Object.keys(translationMetadata).length > 0) {
         url.translationMetadata = translationMetadata;

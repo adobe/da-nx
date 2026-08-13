@@ -142,7 +142,10 @@ class NxLocTranslate extends LitElement {
   }
 
   async getSiteConfig() {
-    let resp = await daFetch({ url: `${DA_ADMIN}/source/${this.state.org}/${this.state.site}/.da/translate.json` });
+    // ASO pilots a redesigned config shape under a separate filename; every other site
+    // still reads the standard translate.json until that redesign is ready more broadly.
+    const configFile = this.state.site === 'aso' ? 'translate-redesign.json' : 'translate.json';
+    let resp = await daFetch({ url: `${DA_ADMIN}/source/${this.state.org}/${this.state.site}/.da/${configFile}` });
     if (!resp.ok) {
       resp = await fetch(`${nx}/blocks/loc/setup/translate.json`);
     }
