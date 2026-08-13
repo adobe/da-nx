@@ -25,6 +25,7 @@ import '../shared/pills/pills.js';
 import '../shared/menu/menu.js';
 import '../shared/popover/popover.js';
 import '../shared/chat/prompts/prompts.js';
+import '../shared/chat/new-chat/new-chat.js';
 import { ADD_MENU_ITEMS, ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 
 const styles = await loadStyle(import.meta.url);
@@ -54,6 +55,7 @@ export default class NxChatAo extends LitElement {
 
   _applyContext(value) {
     this._context = value;
+    this._controller?.setContext(value);
     this._loadConfig();
   }
 
@@ -117,6 +119,7 @@ export default class NxChatAo extends LitElement {
         this.thinking = thinking;
       },
     });
+    if (this._context) this._controller.setContext(this._context);
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
       onDragging: (dragging) => { this._dragging = dragging; },
@@ -217,6 +220,10 @@ export default class NxChatAo extends LitElement {
         ></nx-prompts>
       </nx-popover>
       <div class="chat-header">
+        <button type="button" class="nx-action-btn-quiet nx-btn-sm">
+          ${icon('add')}
+          <span>New session</span>
+        </button>
         <button
           class="nx-action-btn-icon nx-btn-sm"
           aria-label="Close chat panel"
@@ -226,7 +233,11 @@ export default class NxChatAo extends LitElement {
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">
           ${!this.messages?.length && !this.thinking
-        ? html`<p class="chat-empty">Ask anything to get started.</p>`
+        ? html`<nx-new-chat
+              .prompts=${prompts}
+              .onSend=${(p) => this._sendPrompt(p)}
+              @nx-show-prompts=${this._openPrompts}
+            ></nx-new-chat>`
         : nothing}
           ${this.messages?.map((msg) => html`
             <div class="message message-${msg.role}">${msg.content}</div>

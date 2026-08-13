@@ -69,12 +69,6 @@
   box-sizing: border-box;
 }
 
-.chat-empty {
-  margin: auto;
-  color: var(--s2-gray-600);
-  font-size: var(--s2-body-size-s);
-}
-
 .message {
   padding: 6px var(--s2-spacing-200);
   border-radius: 12px;

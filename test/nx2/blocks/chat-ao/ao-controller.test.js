@@ -48,6 +48,25 @@ describe('ao-controller sendMessage', () => {
     );
   });
 
+  it('prefixes the current page context, once setContext has been called', async () => {
+    const { controller, sent } = makeController();
+    controller.setContext({ org: 'adobe', site: 'da-live', path: '/docs/foo' });
+
+    await controller.sendMessage('what does this do?');
+
+    expect(sent[1].text).to.equal(
+      '[Current document — org: adobe, site: da-live, path: /docs/foo]\nwhat does this do?',
+    );
+  });
+
+  it('omits the page-context prefix when no context has been set', async () => {
+    const { controller, sent } = makeController();
+
+    await controller.sendMessage('hello AO');
+
+    expect(sent[1].text).to.equal('hello AO');
+  });
+
   it('is a no-op for an empty message', async () => {
     const { controller, sent } = makeController();
 

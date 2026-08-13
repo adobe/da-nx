@@ -6,7 +6,7 @@ import ChatBackend from './chat-backend.js';
 import { renderMessage } from './renderers/renderers.js';
 import { renderToolCard } from './renderers/card-renderers.js';
 import { renderNewerEpisodeBanner, renderUiArtifact } from './ao/ao-renderers.js';
-import './welcome/welcome.js';
+import '../shared/chat/new-chat/new-chat.js';
 import '../shared/chat/prompts/prompts.js';
 import '../shared/pills/pills.js';
 import './interaction/interaction.js';
@@ -435,11 +435,11 @@ class NxChat extends LitElement {
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">
           ${!this.messages?.length && !this.thinking
-        ? html`<nx-chat-welcome
+        ? html`<nx-new-chat
               .prompts=${prompts}
               .onSend=${(p) => this._sendPrompt(p)}
               @nx-show-prompts=${this._openPrompts}
-            ></nx-chat-welcome>`
+            ></nx-new-chat>`
         : nothing}
         ${this.messages?.map((msg) => {
           if (msg.uiArtifact) {

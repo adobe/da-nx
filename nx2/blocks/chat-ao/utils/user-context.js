@@ -17,3 +17,9 @@ export function buildFailedUploadsText(failed) {
   const lines = failed.map((a) => `- Attached file: ${a.fileName} — upload failed`);
   return `[Attachments]\n${lines.join('\n')}\n`;
 }
+
+export function buildPageContextText(context) {
+  const { org, site, path } = context ?? {};
+  if (!org || !site) return '';
+  return `[Current document — org: ${org}, site: ${site}, path: ${path || '/'}]\n`;
+}

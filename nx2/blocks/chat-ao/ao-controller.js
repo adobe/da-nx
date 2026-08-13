@@ -15,7 +15,7 @@ import { env } from '../../scripts/nx.js';
 import {
   AO_WS_BASE, AO_FRAME, AO_EVENT, AO_MANIFEST_ID,
 } from './ao-constants.js';
-import { buildSelectionText, buildFailedUploadsText } from './utils/user-context.js';
+import { buildSelectionText, buildFailedUploadsText, buildPageContextText } from './utils/user-context.js';
 import { uploadAttachment, getOrgId } from './utils/uploads.js';
 
 export default class AoChatController {
@@ -23,6 +23,10 @@ export default class AoChatController {
     this._onUpdate = onUpdate;
     this._messages = [];
     this._streaming = '';
+  }
+
+  setContext(context) {
+    this._context = context;
   }
 
   _update() {
@@ -150,7 +154,7 @@ export default class AoChatController {
       this._ws.send(JSON.stringify(await this._authFrame()));
       this._ws.send(JSON.stringify({
         type: AO_FRAME.USER_INPUT,
-        text: `${buildSelectionText(items)}${buildFailedUploadsText(failed)}${message}`,
+        text: `${buildPageContextText(this._context)}${buildSelectionText(items)}${buildFailedUploadsText(failed)}${message}`,
         manifestId: AO_MANIFEST_ID,
         debugMode: true,
         ...(artifactIds.length && { attachments: artifactIds }),
