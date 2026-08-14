@@ -1,5 +1,15 @@
 # Worklog
 
+## 2026-08-14
+
+### smartling connector — switch getStatusAll to getJobProgress
+
+Replaced the file-scoped `getFileTranslationStatusAllLocales` approach (one API call per file, plus our own floor/excluded-string formula) with Smartling's job-scoped `getJobProgress` (`jobs-api/v3/.../progress`): one API call for the whole job, consuming Smartling's own precomputed `percentComplete` per locale directly instead of reimplementing their formula. Explored as an alternative specifically for the reduced call volume on larger batches (matters given the earlier rate-limit work).
+
+Trade-off: now requires `service.jobUid.value` (guarded — no-ops if missing), and `translation.translated` is no longer a per-file count (this endpoint reports one job-wide percentage per locale, not a per-file breakdown) — it's `0` or `urls.length`, so the "N of M files translated" UI column only ever shows `0` or the full count until 100%, never partial numbers. Also added a genuine efficiency win beyond parity: skips the API call entirely when every lang is already `'complete'`/`'cancelled'`, rather than fetching and discarding.
+
+Rewrote all 6 affected tests for the new endpoint/response shape, plus 2 new ones (no-jobUid skip, cancelled-guard — the latter was a gap even in the old suite, only the `'complete'` case had a dedicated test).
+
 ## 2026-08-13
 
 ### loc translate view — loading spinners on action buttons
