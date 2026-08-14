@@ -305,6 +305,21 @@ export function getLangStatus(tasks, langCode, fileCount) {
   return { status: 'in progress', translated };
 }
 
+/**
+ * Refreshes translation status for every target language of a project by
+ * polling Trados's task list.
+ * @param {Object} params
+ * @param {Object} params.service - The service configuration.
+ * @param {Object[]} params.langs - Target languages; mutated in place with
+ *  `translation.status`/`translation.translated`. A lang already at
+ *  `'complete'` (saved to DA) or `'cancelled'` is left untouched - both
+ *  are terminal, and Trados keeps reporting completed file-delivery
+ *  tasks indefinitely, which would otherwise look "newly finished" (or
+ *  un-cancel a cancelled lang) on every subsequent check.
+ * @param {Object[]} params.urls - The urls in the project.
+ * @param {Object} params.actions - `{ sendMessage, saveState }` callbacks.
+ * @returns {Promise<void>}
+ */
 export async function getStatusAll({ service, langs, urls, actions }) {
   const { sendMessage, saveState } = actions;
   const { apiEndpoint } = service;
@@ -329,6 +344,14 @@ export async function getStatusAll({ service, langs, urls, actions }) {
 
   langs.forEach((lang) => {
     lang.translation ??= {};
+
+    // 'complete'/'cancelled' are terminal - Trados keeps reporting
+    // completed file-delivery tasks indefinitely, so without this guard
+    // every subsequent status check would revert 'complete' back to
+    // 'translated' (triggering a re-save) or 'cancelled' back to
+    // 'translated' (undoing a cancel).
+    if (['complete', 'cancelled'].includes(lang.translation.status)) return;
+
     if (sourceError) {
       lang.translation.status = sourceError;
     } else {
