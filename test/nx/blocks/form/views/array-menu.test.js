@@ -1,9 +1,10 @@
 import { expect } from '@esm-bundle/chai';
 import '../../../../../nx/blocks/form/views/array-menu.js';
 
-// The remove action is gated by _canRemove. A required array holds a floor at
-// minItems (its rows must stay); an optional array can always be cleared back
-// to empty, so removal must stay enabled there even below minItems.
+// The remove action is gated by _canRemove. Removal is never floored — any row
+// can be deleted (readonly aside). Dropping below minItems, on a required array
+// or not, surfaces as a validation error rather than being blocked, matching
+// the SDK's canRemove and the engine's non-blocking model.
 
 const tick = () => new Promise((r) => { requestAnimationFrame(r); });
 const settle = async (el) => {
@@ -33,14 +34,14 @@ describe('nx-array-menu remove gating', () => {
     expect(removeButton(el).disabled).to.equal(false);
   });
 
-  it('disables remove on a required array at its minItems floor', async () => {
+  it('keeps remove enabled on a required array at its minItems (flagged, not blocked)', async () => {
     const el = await mountMenu({ required: true, minItems: 3, itemCount: 3 });
-    expect(removeButton(el).disabled).to.equal(true);
+    expect(removeButton(el).disabled).to.equal(false);
   });
 
-  it('keeps remove enabled on a required array above its minItems floor', async () => {
-    const el = await mountMenu({ required: true, minItems: 3, itemCount: 4 });
-    expect(removeButton(el).disabled).to.equal(false);
+  it('disables remove only when there are no rows to remove', async () => {
+    const el = await mountMenu({ required: true, minItems: 3, itemCount: 0 });
+    expect(removeButton(el).disabled).to.equal(true);
   });
 
   it('never allows remove when readonly', async () => {
