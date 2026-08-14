@@ -60,11 +60,8 @@ class ArrayMenu extends LitElement {
 
   _canRemove() {
     if (this.readonly) return false;
-    // Removal is never floored — any row can be deleted. Dropping below minItems
-    // (or emptying a required array) surfaces as a validation error rather than
-    // being blocked, matching the SDK's canRemove and the non-blocking model. A
-    // floor here would have to be per-row to let blank rows go, which makes some
-    // rows deletable and others not — misleading to the author.
+    // No minItems floor — mirrors the SDK's canRemove: below-min is flagged by
+    // validation, not blocked. Keep in sync with the SDK guard.
     return this._count() > 0;
   }
 

@@ -1,10 +1,8 @@
 import { expect } from '@esm-bundle/chai';
 import '../../../../../nx/blocks/form/views/array-menu.js';
 
-// The remove action is gated by _canRemove. Removal is never floored — any row
-// can be deleted (readonly aside). Dropping below minItems, on a required array
-// or not, surfaces as a validation error rather than being blocked, matching
-// the SDK's canRemove and the engine's non-blocking model.
+// _canRemove has no minItems floor — below-min is flagged by validation, not
+// blocked (mirrors the SDK). Remove is disabled only when readonly or empty.
 
 const tick = () => new Promise((r) => { requestAnimationFrame(r); });
 const settle = async (el) => {
