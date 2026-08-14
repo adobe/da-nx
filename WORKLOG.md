@@ -1,5 +1,18 @@
 # Worklog
 
+## 2026-08-14
+
+### nx2/utils/ewFlags.js — user-level Experience Workspace opt-in
+
+Core logic split out of the `editortoggle` work so it can land on its own. Adds a browser-scoped opt-in to the new (canvas) editor that mirrors the site-level `ew.enabled` flag, letting individual users preview EW on sites that haven't been switched over yet.
+
+- New `EW_USER_KEY = 'nx2:ew-user-enabled'` in localStorage, with `isEWUserEnabled()` / `setEWUserEnabled(bool)` accessors (both storage-safe — `isEWUserEnabled` returns `false` and `setEWUserEnabled` no-ops when storage is unavailable).
+- Split the old site-only check into `isEWEnabledBySite({ org, site })`, and made `isEWEnabled({ org, site })` short-circuit to `true` when the user override is on — so `da-browse`'s existing `isEWEnabled` call site opts the user into the new editor with zero changes there. The short-circuit intentionally runs before the `fetchDaConfigs` network call.
+- `isEwChatDisabled` / `isCoworkerEnabled` stay site-only on purpose.
+- Tests in `nx2/test/unit/nx/utils/ewFlags.test.js`: default state, set/unset roundtrip, and the user-override short circuit in `isEWEnabled` (uses a bogus org/site so an accidental network call would surface as a rejection, not a false positive).
+
+The toggle UI, welcome guide, and switch-back feedback prompt that consume this flag live on the stacked `editortoggle` branch.
+
 ## 2026-08-07
 
 ### nx2/utils/api.js — remove stage-content.da.live rewrite workaround
