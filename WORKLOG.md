@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-08-14
+
+### trados connector — stop re-saving already-completed languages
+
+Same bug as Smartling's `getStatusAll` (fixed on the separate `smartling-connector-enhancements` branch): `langs.forEach` unconditionally overwrote `lang.translation.status` from Trados's task list, with no guard against an already-`'complete'` status. Trados keeps reporting completed file-delivery tasks indefinitely, so every subsequent "Get status" click reverted a `'complete'` lang back to `'translated'`, re-triggering a redundant download/save. Fixed by skipping langs already at `'complete'` or `'cancelled'` (Trados has no `cancelTranslation` yet, but added the guard for consistency/future-proofing).
+
+`test/loc/trados/getStatusAll.test.js` previously only tested the pure helpers (`getSourceFileStatus`/`getLangStatus`) — no coverage of `getStatusAll` itself. Added 3 tests against mocked `fetch` (Trados login + the `corsFetch`-proxied tasks call): guard holds for `'complete'`, guard holds for `'cancelled'`, non-terminal langs still update normally.
+
 ## 2026-08-07
 
 ### nx2/utils/api.js — remove stage-content.da.live rewrite workaround
