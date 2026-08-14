@@ -38,4 +38,27 @@ describe('ewFlags user-level override', () => {
     const result = await isEWEnabled({ org: '__ewflags_test_never_hit__', site: '__nope__' });
     expect(result).to.equal(true);
   });
+
+  it('?ew=true seeds and persists the flag', () => {
+    expect(isEWUserEnabled({ href: 'https://da.live/?ew=true' })).to.equal(true);
+    expect(localStorage.getItem(EW_USER_KEY)).to.equal('true');
+  });
+
+  it('?ew=false clears a previously-set flag', () => {
+    setEWUserEnabled(true);
+    expect(isEWUserEnabled({ href: 'https://da.live/?ew=false' })).to.equal(false);
+    expect(localStorage.getItem(EW_USER_KEY)).to.equal(null);
+  });
+
+  it('?ew=reset clears a previously-set flag', () => {
+    setEWUserEnabled(true);
+    expect(isEWUserEnabled({ href: 'https://da.live/?ew=reset' })).to.equal(false);
+    expect(localStorage.getItem(EW_USER_KEY)).to.equal(null);
+  });
+
+  it('leaves the persisted flag untouched when ?ew is absent', () => {
+    setEWUserEnabled(true);
+    expect(isEWUserEnabled({ href: 'https://da.live/edit#/org/site' })).to.equal(true);
+    expect(localStorage.getItem(EW_USER_KEY)).to.equal('true');
+  });
 });

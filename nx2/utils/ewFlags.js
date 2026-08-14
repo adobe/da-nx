@@ -24,19 +24,41 @@ export async function getEWFlags({ org, site }) {
 // switched over yet.
 const EW_USER_KEY = 'nx2:ew-user-enabled';
 
-export function isEWUserEnabled() {
-  try {
-    return localStorage.getItem(EW_USER_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
+// Query param that seeds the flag, mirroring da-live's `?da-admin` pattern
+// (see da-live blocks/shared/constants.js `getDaEnv`): visiting a page with
+// `?ew=true` opts this browser in, `?ew=false` (or `?ew=reset`) opts out, and
+// the choice is persisted to localStorage so it survives navigations that drop
+// the param.
+const EW_USER_PARAM = 'ew';
 
 export function setEWUserEnabled(enabled) {
   try {
     if (enabled) localStorage.setItem(EW_USER_KEY, 'true');
     else localStorage.removeItem(EW_USER_KEY);
   } catch { /* storage disabled — no-op */ }
+}
+
+// Read `?ew` from the URL and persist it, mirroring da-live's getDaEnv: the
+// param wins when present and is written through to localStorage. `location`
+// is injectable for testing; defaults to the current page.
+function syncEWUserFromQuery(location = window.location) {
+  let value;
+  try {
+    value = new URL(location.href).searchParams.get(EW_USER_PARAM);
+  } catch {
+    return;
+  }
+  if (value === null) return;
+  setEWUserEnabled(value !== 'false' && value !== 'reset');
+}
+
+export function isEWUserEnabled(location = window.location) {
+  syncEWUserFromQuery(location);
+  try {
+    return localStorage.getItem(EW_USER_KEY) === 'true';
+  } catch {
+    return false;
+  }
 }
 
 export async function isEWEnabledBySite({ org, site }) {
