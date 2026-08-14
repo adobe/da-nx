@@ -2,6 +2,10 @@
 
 ## 2026-08-14
 
+### loc translate view — hide Cancel buttons once nothing's left to cancel
+
+`renderCancelLang`'s guard only excluded `'cancelled'` status, never `'complete'`, so a completed language's per-row Cancel button stayed visible as long as some other language in the project was still in progress. Separately, `incompleteLangs` counted a language as cancellable even with no `translation` object at all (never sent), so "Cancel project" could show with nothing actually cancellable. Extracted a single `canCancelLang(lang)` predicate (has `translation`, not `'cancelled'`, not `'complete'`) used consistently by `renderCancelLang`, `incompleteLangs`, and the `with-cancel` grid-column class, so all three can't drift out of sync with each other again.
+
 ### smartling connector — switch getStatusAll to getJobProgress
 
 Replaced the file-scoped `getFileTranslationStatusAllLocales` approach (one API call per file, plus our own floor/excluded-string formula) with Smartling's job-scoped `getJobProgress` (`jobs-api/v3/.../progress`): one API call for the whole job, consuming Smartling's own precomputed `percentComplete` per locale directly instead of reimplementing their formula. Explored as an alternative specifically for the reduced call volume on larger batches (matters given the earlier rate-limit work).
