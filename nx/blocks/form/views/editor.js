@@ -391,7 +391,6 @@ class Editor extends LitElement {
   _renderObject(node, { itemLabel = '' } = {}) {
     const children = node.children ?? [];
     const error = this._error(node.pointer);
-    // Spectrum: the error replaces the group help text while it is invalid.
     const showDesc = !error && node.description;
     const activate = (e) => this._onGroupActivate(node.pointer, e);
     return html`
@@ -424,7 +423,6 @@ class Editor extends LitElement {
     const canAdd = !readonly && (maxItems === undefined || itemCount < maxItems);
     const addLabel = this._addLabel(node);
     const error = this._error(node.pointer);
-    // Spectrum: the error replaces the group help text while it is invalid.
     const showDesc = !error && node.description;
 
     const activate = (e) => this._onGroupActivate(node.pointer, e);

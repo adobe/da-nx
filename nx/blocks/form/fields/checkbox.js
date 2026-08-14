@@ -24,7 +24,6 @@ class FormCheckbox extends LitElement {
   }
 
   render() {
-    // Spectrum: the error replaces the help text while the field is invalid.
     const showHint = !this.error && this.description;
     return html`
       <label class="form-switch${this.error ? ' has-error' : ''}">

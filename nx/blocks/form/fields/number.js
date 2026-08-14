@@ -143,7 +143,6 @@ class FormNumberField extends LitElement {
   }
 
   render() {
-    // Spectrum: the error replaces the help text while the field is invalid.
     const showHint = !this.error && this.description;
     return html`
       <div class="form-field${this.error ? ' has-error' : ''}">
