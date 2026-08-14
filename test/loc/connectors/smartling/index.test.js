@@ -7,16 +7,17 @@ import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 let calls;
 let origFetch;
 
-// totalStringCount is a file-level count in Smartling's real response
-// (shared across all locales), not repeated per item.
-function fileStatusResponse(totalStringCount, items) {
+// getJobProgress reports one precomputed percentComplete per locale for
+// the whole job - Smartling does its own floor/excluded-string handling,
+// so there's no per-file breakdown or formula left for us to reimplement.
+function jobProgressResponse(contentProgressReport) {
   return new Response(JSON.stringify({
-    response: { data: { totalStringCount, items } },
+    response: { data: { contentProgressReport } },
   }), { status: 200 });
 }
 
-function localeItem({ localeId, completedStringCount, excludedStringCount = 0 }) {
-  return { localeId, completedStringCount, excludedStringCount };
+function localeProgress(targetLocaleId, percentComplete) {
+  return { targetLocaleId, progress: { percentComplete } };
 }
 
 function installFetch() {
@@ -44,8 +45,8 @@ function installFetch() {
     if (u.includes('/file') && opts.method === 'POST') {
       return new Response(JSON.stringify({ response: { code: 'ACCEPTED' } }), { status: 200 });
     }
-    if (u.includes('/file/status')) {
-      return fileStatusResponse(10, [localeItem({ localeId: 'fr-FR', completedStringCount: 10 })]);
+    if (u.includes('/jobs-api/v3/projects') && u.includes('/progress')) {
+      return jobProgressResponse([localeProgress('fr-FR', 100)]);
     }
     if (u.includes('/files-api/v2/projects')) {
       return new Response('translated content', { status: 200 });
@@ -100,8 +101,8 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(calls.some((c) => c.url === `${base}/job-batches-api/v2/projects/proj-1/batches/batch-1/file`)).to.equal(true);
   });
 
-  it('rewrites the origin for getStatusAll file-status polling and needs no jobUid', async () => {
-    const service = { origin: legacyOrigin, projectId: 'proj-1' };
+  it('rewrites the origin for getStatusAll job-progress polling', async () => {
+    const service = { origin: legacyOrigin, projectId: 'proj-1', jobUid: { value: 'job-1' } };
     const langs = [{ code: 'fr-FR', translation: { translated: 0 } }];
     const urls = [{ daBasePath: '/page' }];
     const actions = { saveState: async () => {} };
@@ -110,9 +111,24 @@ describe('smartling connector - legacy origin rewriting', () => {
       org, site, service, langs, urls, actions,
     });
 
-    const expectedUrl = `${DA_TRANSLATE}/translate/smartling/${org}/${site}/files-api/v2/projects/proj-1/file/status?fileUri=%2Fpage`;
+    const expectedUrl = `${DA_TRANSLATE}/translate/smartling/${org}/${site}/jobs-api/v3/projects/proj-1/jobs/job-1/progress`;
     expect(calls[0].url).to.equal(expectedUrl);
     expect(langs[0].translation.status).to.equal('translated');
+    expect(langs[0].translation.translated).to.equal(1);
+  });
+
+  it('does nothing when the job has not been created yet (no jobUid)', async () => {
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1' };
+    const langs = [{ code: 'fr-FR', translation: { translated: 0, status: 'created' } }];
+    const urls = [{ daBasePath: '/page' }];
+    const actions = { saveState: async () => {} };
+
+    await getStatusAll({
+      org, site, service, langs, urls, actions,
+    });
+
+    expect(calls.length).to.equal(0);
+    expect(langs[0].translation.status).to.equal('created');
   });
 
   it('reports Smartling\'s real progress percentage, not a stale status, when translation is incomplete', async () => {
@@ -121,13 +137,13 @@ describe('smartling connector - legacy origin rewriting', () => {
       const u = url.toString();
       calls.push({ url: u, method: opts.method, body: opts.body });
 
-      if (u.includes('/file/status')) {
-        return fileStatusResponse(10, [localeItem({ localeId: 'fr-FR', completedStringCount: 5 })]);
+      if (u.includes('/progress')) {
+        return jobProgressResponse([localeProgress('fr-FR', 50)]);
       }
       return new Response('{}', { status: 200 });
     };
 
-    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1' };
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
     // Leftover status from sendAllLanguages — should not still read 'created' after getStatusAll.
     const langs = [{ code: 'fr-FR', translation: { translated: 0, status: 'created' } }];
     const urls = [{ daBasePath: '/page' }];
@@ -141,20 +157,21 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(langs[0].translation.translated).to.equal(0);
   });
 
-  it('floors progress rather than rounding up, per Smartling\'s documented formula', async () => {
+  it('passes through Smartling\'s percentComplete verbatim, without re-deriving it ourselves', async () => {
     origFetch = window.fetch;
     window.fetch = async (url, opts = {}) => {
       const u = url.toString();
       calls.push({ url: u, method: opts.method, body: opts.body });
 
-      if (u.includes('/file/status')) {
-        // 999999 / 1000000 = 99.9999% — must report 99%, not 100%.
-        return fileStatusResponse(1000000, [localeItem({ localeId: 'fr-FR', completedStringCount: 999999 })]);
+      if (u.includes('/progress')) {
+        // Smartling floors internally (e.g. 99.9999% -> 99) - we must not
+        // re-round or otherwise recompute this ourselves.
+        return jobProgressResponse([localeProgress('fr-FR', 99)]);
       }
       return new Response('{}', { status: 200 });
     };
 
-    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1' };
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
     const langs = [{ code: 'fr-FR', translation: { translated: 0 } }];
     const urls = [{ daBasePath: '/page' }];
     const actions = { saveState: async () => {} };
@@ -166,21 +183,21 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(langs[0].translation.status).to.equal('99% translated');
   });
 
-  it('treats a fully-excluded file as 100% (nothing left to translate)', async () => {
+  it('marks a lang translated (full file count) once Smartling reports 100% complete', async () => {
     origFetch = window.fetch;
     window.fetch = async (url, opts = {}) => {
       const u = url.toString();
       calls.push({ url: u, method: opts.method, body: opts.body });
 
-      if (u.includes('/file/status')) {
-        return fileStatusResponse(10, [localeItem({ localeId: 'fr-FR', completedStringCount: 0, excludedStringCount: 10 })]);
+      if (u.includes('/progress')) {
+        return jobProgressResponse([localeProgress('fr-FR', 100)]);
       }
       return new Response('{}', { status: 200 });
     };
 
-    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1' };
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
     const langs = [{ code: 'fr-FR', translation: { translated: 0 } }];
-    const urls = [{ daBasePath: '/page' }];
+    const urls = [{ daBasePath: '/page' }, { daBasePath: '/page-2' }];
     const actions = { saveState: async () => {} };
 
     await getStatusAll({
@@ -188,7 +205,7 @@ describe('smartling connector - legacy origin rewriting', () => {
     });
 
     expect(langs[0].translation.status).to.equal('translated');
-    expect(langs[0].translation.translated).to.equal(1);
+    expect(langs[0].translation.translated).to.equal(2);
   });
 
   it('does not revert a lang already saved to DA back to "translated"', async () => {
@@ -197,14 +214,14 @@ describe('smartling connector - legacy origin rewriting', () => {
       const u = url.toString();
       calls.push({ url: u, method: opts.method, body: opts.body });
 
-      if (u.includes('/file/status')) {
+      if (u.includes('/progress')) {
         // Smartling keeps reporting 100% complete indefinitely once done.
-        return fileStatusResponse(10, [localeItem({ localeId: 'fr-FR', completedStringCount: 10 })]);
+        return jobProgressResponse([localeProgress('fr-FR', 100)]);
       }
       return new Response('{}', { status: 200 });
     };
 
-    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1' };
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
     const langs = [{ code: 'fr-FR', translation: { translated: 1, status: 'complete', saved: 1 } }];
     const urls = [{ daBasePath: '/page' }];
     const actions = { saveState: async () => {} };
@@ -214,6 +231,32 @@ describe('smartling connector - legacy origin rewriting', () => {
     });
 
     expect(langs[0].translation.status).to.equal('complete');
+    expect(calls.length).to.equal(0);
+  });
+
+  it('does not revert a cancelled lang back to "translated"', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/progress')) {
+        return jobProgressResponse([localeProgress('fr-FR', 100)]);
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+    const langs = [{ code: 'fr-FR', translation: { translated: 0, status: 'cancelled' } }];
+    const urls = [{ daBasePath: '/page' }];
+    const actions = { saveState: async () => {} };
+
+    await getStatusAll({
+      org, site, service, langs, urls, actions,
+    });
+
+    expect(langs[0].translation.status).to.equal('cancelled');
+    expect(calls.length).to.equal(0);
   });
 
   it('rewrites the origin for saveItems file downloads', async () => {
@@ -230,24 +273,24 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(call.url).to.include(`${DA_TRANSLATE}/translate/smartling/${org}/${site}/files-api/v2/projects/proj-1/locales/fr-FR/file`);
   });
 
-  it('retries a 429 from getStatusAll file-status polling before succeeding', async () => {
+  it('retries a 429 from getStatusAll job-progress polling before succeeding', async () => {
     let statusCalls = 0;
     origFetch = window.fetch;
     window.fetch = async (url, opts = {}) => {
       const u = url.toString();
       calls.push({ url: u, method: opts.method, body: opts.body });
 
-      if (u.includes('/file/status')) {
+      if (u.includes('/progress')) {
         statusCalls += 1;
         if (statusCalls === 1) {
           return new Response('', { status: 429, headers: { 'Retry-After': '0.01' } });
         }
-        return fileStatusResponse(10, [localeItem({ localeId: 'fr-FR', completedStringCount: 10 })]);
+        return jobProgressResponse([localeProgress('fr-FR', 100)]);
       }
       return new Response('{}', { status: 200 });
     };
 
-    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1' };
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
     const langs = [{ code: 'fr-FR', translation: { translated: 0 } }];
     const urls = [{ daBasePath: '/page' }];
     const actions = { saveState: async () => {} };
