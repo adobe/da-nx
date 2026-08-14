@@ -299,7 +299,7 @@ class NxLocTranslate extends LitElement {
           return html`
             ${this.renderBehavior()}
             ${this.canCancel ? html`<sl-button @click=${this.handleCancelAll} class="primary outline">Cancel project</sl-button>` : nothing}
-            <sl-button @click=${this.handleGetStatus} class="accent">Get status</sl-button>
+            ${this.incompleteLangs ? html`<sl-button @click=${this.handleGetStatus} class="accent">Get status</sl-button>` : nothing}
           `;
         }
 
