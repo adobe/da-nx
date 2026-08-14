@@ -457,6 +457,21 @@ describe('api.js', () => {
       expect(json.source.contentUrl).to.equal(`${AEM_API}/${o}/sites/${s}/source/docs/.foo/image.png`);
     });
 
+    it('source.save hlx6 keeps permissions on the response', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.save({ org: o, site: s, path: '/page.html', body: '<main></main>' });
+      expect(resp.ok).to.equal(true);
+      expect(resp.permissions).to.deep.equal(['read', 'write']);
+    });
+
+    it('source.save hlx6 keeps permissions parsed from response headers', async () => {
+      restoreFetch();
+      installFetch({ headers: { 'x-da-actions': 'role=read,write,delete' } });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.save({ org: o, site: s, path: '/page.html', body: '<main></main>' });
+      expect(resp.permissions).to.deep.equal(['read', 'write', 'delete']);
+    });
+
     it('source.save hlx6 uses the response location header for contentUrl when present', async () => {
       restoreFetch();
       installFetch({ body: '', headers: { location: '/docs/renamed.png' } });
