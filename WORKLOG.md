@@ -2,6 +2,10 @@
 
 ## 2026-08-14
 
+### loc translate view — hide Get status once nothing's incomplete
+
+Once every sent language is `'complete'`/`'cancelled'`, "Get status" was already a functional no-op (`getStatusAll` skips its own API call when there's nothing non-terminal left) but still showed, spun, and triggered a redundant DA save on click. Gated the button on `this.incompleteLangs` — the same predicate already driving Cancel-button visibility — so it hides once there's nothing left to check.
+
 ### loc translate view — hide Cancel buttons once nothing's left to cancel
 
 `renderCancelLang`'s guard only excluded `'cancelled'` status, never `'complete'`, so a completed language's per-row Cancel button stayed visible as long as some other language in the project was still in progress. Separately, `incompleteLangs` counted a language as cancellable even with no `translation` object at all (never sent), so "Cancel project" could show with nothing actually cancellable. Extracted a single `canCancelLang(lang)` predicate (has `translation`, not `'cancelled'`, not `'complete'`) used consistently by `renderCancelLang`, `incompleteLangs`, and the `with-cancel` grid-column class, so all three can't drift out of sync with each other again.
