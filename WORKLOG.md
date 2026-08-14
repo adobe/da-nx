@@ -1,5 +1,11 @@
 # Worklog
 
+## 2026-09-15
+
+### Revert Slack PR ticker runner to `ubuntu-latest`
+
+- `.github/workflows/slack-pr-ticker.yml`: the `notify` job `runs-on` reverted from `gh-hosted` back to `ubuntu-latest`.
+
 ## 2026-09-14
 
 ### nx2/utils/api.js — cross-backend copy/move (#731)
@@ -747,9 +753,3 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 - "Always approve" is conversation-scoped — resets on `clear()` only, not per message.
 - Conversation history keyed by `org--site--userId` — site-scoped, not path-scoped.
 - Agent stream contract and persistence model documented in `docs/chat-ui-component.md`.
-
-## 2026-09-15
-
-### Revert Slack PR ticker runner to `ubuntu-latest`
-
-- `.github/workflows/slack-pr-ticker.yml`: the `notify` job `runs-on` reverted from `gh-hosted` back to `ubuntu-latest`.
