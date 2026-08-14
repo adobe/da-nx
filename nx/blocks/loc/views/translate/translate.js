@@ -365,9 +365,11 @@ class NxLocTranslate extends LitElement {
                 ${this._cancelAllBusy ? this.renderSpinner() : nothing} Cancel project
               </sl-button>
             ` : nothing}
-            <sl-button @click=${this.handleGetStatus} class="accent" ?disabled=${this._getStatusBusy}>
-              ${this._getStatusBusy ? this.renderSpinner() : nothing} Get status
-            </sl-button>
+            ${this.incompleteLangs ? html`
+              <sl-button @click=${this.handleGetStatus} class="accent" ?disabled=${this._getStatusBusy}>
+                ${this._getStatusBusy ? this.renderSpinner() : nothing} Get status
+              </sl-button>
+            ` : nothing}
           `;
         }
 
