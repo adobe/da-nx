@@ -8,8 +8,9 @@ Core logic split out of the `editortoggle` work so it can land on its own. Adds 
 
 - New `EW_USER_KEY = 'nx2:ew-user-enabled'` in localStorage, with `isEWUserEnabled()` / `setEWUserEnabled(bool)` accessors (both storage-safe — `isEWUserEnabled` returns `false` and `setEWUserEnabled` no-ops when storage is unavailable).
 - Split the old site-only check into `isEWEnabledBySite({ org, site })`, and made `isEWEnabled({ org, site })` short-circuit to `true` when the user override is on — so `da-browse`'s existing `isEWEnabled` call site opts the user into the new editor with zero changes there. The short-circuit intentionally runs before the `fetchDaConfigs` network call.
+- `?ew` query-param seeding, mirroring da-live's `?da-admin` pattern (`blocks/shared/constants.js` `getDaEnv`): `isEWUserEnabled()` reads `?ew` from the URL and persists it before returning — `?ew=true` opts in, `?ew=false`/`?ew=reset` opts out — so the choice survives navigations that drop the param. `isEWUserEnabled(location?)` takes an injectable `location` for testing; `syncEWUserFromQuery` is the private read-through helper.
 - `isEwChatDisabled` / `isCoworkerEnabled` stay site-only on purpose.
-- Tests in `nx2/test/unit/nx/utils/ewFlags.test.js`: default state, set/unset roundtrip, and the user-override short circuit in `isEWEnabled` (uses a bogus org/site so an accidental network call would surface as a rejection, not a false positive).
+- Tests in `nx2/test/unit/nx/utils/ewFlags.test.js`: default state, set/unset roundtrip, the user-override short circuit in `isEWEnabled` (uses a bogus org/site so an accidental network call would surface as a rejection, not a false positive), and `?ew=true`/`false`/`reset`/absent query-param seeding.
 
 The toggle UI, welcome guide, and switch-back feedback prompt that consume this flag live on the stacked `editortoggle` branch.
 
