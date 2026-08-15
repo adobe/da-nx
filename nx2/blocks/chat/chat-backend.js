@@ -25,7 +25,7 @@ function daAgentApprovalSummary(input) {
  * card-renderers.js/ao-renderers.js expect; AO-only actions (answerQuestion, etc.) are
  * safe to call unconditionally from chat.js since they're no-ops here when wrapping
  * da-agent's controller, which has no equivalent concept of skills-by-manifest,
- * questions, plans, or episodes.
+ * questions, or plans.
  */
 export default class ChatBackend {
   constructor(useAgentOrchestrator, { onToolDone, onUpdate }) {
@@ -119,8 +119,4 @@ export default class ChatBackend {
   declineQuestion = () => this._controller.declineQuestion?.();
 
   respondToPlanApproval = (...args) => this._controller.respondToPlanApproval?.(...args);
-
-  switchToLatestEpisode = () => this._controller.switchToLatestEpisode?.();
-
-  dismissNewerEpisode = () => this._controller.dismissNewerEpisode?.();
 }

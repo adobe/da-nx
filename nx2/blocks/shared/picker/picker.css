@@ -37,6 +37,8 @@
   cursor: pointer;
   outline: none;
   width: fit-content;
+  max-width: var(--nx-picker-max-width, none);
+  min-width: 0;
 
   &[data-active] {
     background: var(--s2-gray-200);
@@ -46,6 +48,12 @@
   &:focus-visible {
     outline: 2px solid var(--s2-focus-ring-color, currentColor);
     outline-offset: 2px;
+  }
+
+  .picker-trigger-label {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .picker-chevron {

@@ -142,15 +142,6 @@ function parseSkillsListResponse(json) {
   return ids.length ? ids : null;
 }
 
-function turnsToMessages(turns) {
-  const messages = [];
-  (turns ?? []).forEach((turn) => {
-    if (turn?.user_input) messages.push({ role: 'user', content: turn.user_input });
-    if (turn?.final_response) messages.push({ role: 'assistant', content: turn.final_response });
-  });
-  return messages;
-}
-
 function loadCachedSkills(room) {
   try {
     const raw = localStorage.getItem(`${SKILLS_CACHE_PREFIX}${room}`);
@@ -174,14 +165,14 @@ function saveCachedSkills(room, skills) {
  * Talks to Adobe's Agent Orchestrator (AO) over its WebSocket transport (see
  * https://aep-ao.pages.adobeitc.com/api-reference/spec/) instead of da-agent.
  * Handles message-in/message-out, tool-call permission requests, user questions,
- * plan approval, a2ui artifacts, and cross-surface episode continuity.
+ * plan approval, and a2ui artifacts.
  *
  * Public surface used by chat.js mirrors chat-controller.js's (connect,
  * setContext, loadInitialMessages, sendMessage, approveToolCall, clear,
  * setMcpConfig, stop, destroy) plus AO-only additions chat.js gates on
- * (getSkills, answerQuestion, declineQuestion, respondToPlanApproval,
- * switchToLatestEpisode, dismissNewerEpisode) — da-agent's controller has no
- * equivalent of these, since it has no concept of questions/plans/episodes.
+ * (getSkills, answerQuestion, declineQuestion, respondToPlanApproval) —
+ * da-agent's controller has no equivalent of these, since it has no concept
+ * of questions/plans.
  *
  * Output boundary: `_update()` only ever hands chat.js backend-neutral shapes
  * (see toToolCardDisplay/toApprovalDisplay above) — AO's own state names never
@@ -243,7 +234,6 @@ export default class ChatControllerAO {
       pendingApproval,
       pendingQuestion: this._pendingQuestion,
       pendingPlanApproval: this._pendingPlanApproval,
-      newerEpisodeAvailable: this._newerEpisodeAvailable,
     });
   }
 
@@ -483,17 +473,6 @@ export default class ChatControllerAO {
     // A fresh connect() attempt supersedes any earlier "intentional close" state.
     this._closingIntentionally = false;
     try {
-      // Only once per controller lifetime, on genuine first load — not on retry
-      // attempts, and not on the reconnect that follows an explicit clear().
-      // clear() means "start over"; re-running this there would immediately
-      // resume Coworker's latest episode and make Clear unable to ever produce
-      // an actual blank chat. Case 3 (auto-resume into an empty room) only
-      // applies to a tab that's never had a local conversation at all.
-      if (attempt === 0 && !this._reconciledOnce) {
-        this._reconciledOnce = true;
-        await this._loadPersisted();
-        await this._reconcileWithLatestEpisode();
-      }
       await this._openSocket();
       this._connected = true;
       this._syncSkillsCache();
@@ -550,125 +529,6 @@ export default class ChatControllerAO {
     }
   }
 
-  // GET /api/v1/episodes?limit=1 — episodes are returned most-recent-first, so the
-  // first entry is authoritative for "what's the latest conversation this owner has,
-  // on any client". Best-effort: network/shape failures return null rather than throwing.
-  async _fetchLatestEpisode() {
-    const { accessToken, projectedProductContext } = await loadIms();
-    const orgId = getOrgId(projectedProductContext);
-    const base = AO_HTTP_BASE[env] ?? AO_HTTP_BASE.stage;
-    try {
-      const resp = await fetch(`${base}/api/v1/episodes?limit=1`, {
-        headers: {
-          authorization: `Bearer ${accessToken?.token}`,
-          'x-tenant-id': orgId,
-        },
-      });
-      if (!resp.ok) return null;
-      const { episodes } = await resp.json();
-      return episodes?.[0] ?? null;
-    } catch {
-      return null;
-    }
-  }
-
-  // GET /api/v1/episodes/{id}/turns?root_only=true — root_only drops sub-agent turns
-  // (chat history only cares about the main thread); omitting `limit` returns the
-  // whole episode per the endpoint's documented legacy behavior.
-  async _fetchEpisodeMessages(episodeId) {
-    const { accessToken, projectedProductContext } = await loadIms();
-    const orgId = getOrgId(projectedProductContext);
-    const base = AO_HTTP_BASE[env] ?? AO_HTTP_BASE.stage;
-    try {
-      const resp = await fetch(`${base}/api/v1/episodes/${episodeId}/turns?root_only=true`, {
-        headers: {
-          authorization: `Bearer ${accessToken?.token}`,
-          'x-tenant-id': orgId,
-        },
-      });
-      if (!resp.ok) return [];
-      const { turns } = await resp.json();
-      return turnsToMessages(turns);
-    } catch {
-      return [];
-    }
-  }
-
-  // Cross-surface continuity: Coworker and this chat both resume episodes by the
-  // same numeric id, so we can tell when the owner's most-recently-active
-  // conversation lives on a different client and react per case:
-  //  - nothing local yet (fresh room)              -> silently resume it here
-  //  - local episode already IS the latest one      -> silently pull in anything
-  //    that happened over there since we last loaded (unless something in this
-  //    tab is actively pending — never clobber live state under the user)
-  //  - local episode is a DIFFERENT, older one       -> leave it alone and just
-  //    surface the option; switchToLatestEpisode() opts in explicitly
-  // Awaited from connect() before _openSocket() so case 1 can steer which
-  // episode id the socket resumes, rather than opening on 'new' and then
-  // realizing there was somewhere to resume.
-  async _reconcileWithLatestEpisode() {
-    const latest = await this._fetchLatestEpisode();
-    if (!latest) return;
-    const latestId = String(latest.id);
-
-    if (!this._episodeId) {
-      this._messages = await this._fetchEpisodeMessages(latestId);
-      this._episodeId = latestId;
-      this._persist();
-      this._update();
-      return;
-    }
-
-    if (String(this._episodeId) === latestId) {
-      const hasPendingApproval = [...(this._toolCards?.values() ?? [])]
-        .some((c) => c.state === AO_TOOL_STATE.APPROVAL_REQUESTED);
-      if (this._thinking
-        || this._pendingQuestion || this._pendingPlanApproval || hasPendingApproval) {
-        return;
-      }
-      this._messages = await this._fetchEpisodeMessages(latestId);
-      this._persist();
-      this._update();
-      return;
-    }
-
-    this._newerEpisodeAvailable = {
-      id: latestId,
-      title: latest.title,
-      updatedAt: latest.updated_at,
-    };
-    this._update();
-  }
-
-  // Opts into the newer conversation surfaced by _reconcileWithLatestEpisode(): drops
-  // this tab's live socket/turn (if any) and reopens on the other episode's id, after
-  // hydrating its history the same way case 1/2 above do.
-  switchToLatestEpisode = async () => {
-    const pending = this._newerEpisodeAvailable;
-    if (!pending) return;
-    this._newerEpisodeAvailable = null;
-    if (this._thinking) this.stop();
-    this._closingIntentionally = true;
-    this._ws?.close();
-
-    this._messages = await this._fetchEpisodeMessages(pending.id);
-    this._episodeId = pending.id;
-    this._streamingText = undefined;
-    this._connected = false;
-    this._pendingQuestion = null;
-    this._pendingPlanApproval = null;
-    this._toolCards = new Map();
-    this._persist();
-    this._update();
-
-    await this.connect();
-  };
-
-  dismissNewerEpisode = () => {
-    this._newerEpisodeAvailable = null;
-    this._update();
-  };
-
   _done() {
     this._thinking = false;
     this._streamingText = undefined;
@@ -693,7 +553,6 @@ export default class ChatControllerAO {
     this._episodeId = undefined;
     this._pendingQuestion = null;
     this._pendingPlanApproval = null;
-    this._newerEpisodeAvailable = null;
     this._toolCards = new Map();
     // _cachedSkills is deliberately left as-is — it's tied to the manifest, not the
     // episode being cleared, so the slash-menu keeps showing it through the reconnect

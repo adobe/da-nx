@@ -110,13 +110,11 @@ describe('ChatBackend AO-only actions wrapping da-agent', () => {
     expect(makeBackend(false).backend.getSkills()).to.equal(null);
   });
 
-  it('answerQuestion/declineQuestion/respondToPlanApproval/episode actions are silent no-ops', () => {
+  it('answerQuestion/declineQuestion/respondToPlanApproval are silent no-ops', () => {
     const { backend } = makeBackend(false);
     expect(() => backend.answerQuestion({ q1: ['Yes'] })).to.not.throw();
     expect(() => backend.declineQuestion()).to.not.throw();
     expect(() => backend.respondToPlanApproval('approve')).to.not.throw();
-    expect(() => backend.switchToLatestEpisode()).to.not.throw();
-    expect(() => backend.dismissNewerEpisode()).to.not.throw();
   });
 });
 

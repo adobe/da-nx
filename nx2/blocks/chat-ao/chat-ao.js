@@ -24,6 +24,7 @@ import { buildAttachmentItems } from '../shared/chat/files.js';
 import '../shared/pills/pills.js';
 import '../shared/menu/menu.js';
 import '../shared/popover/popover.js';
+import '../shared/picker/picker.js';
 import '../shared/chat/prompts/prompts.js';
 import '../shared/chat/new-chat/new-chat.js';
 import { ADD_MENU_ITEMS, ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
@@ -44,6 +45,8 @@ export default class NxChatAo extends LitElement {
   static properties = {
     messages: { type: Array },
     thinking: { type: Boolean },
+    episodes: { type: Array },
+    episodeId: { type: String },
     _dragging: { state: true },
     _prompts: { state: true },
   };
@@ -101,6 +104,18 @@ export default class NxChatAo extends LitElement {
     popover.close();
   }
 
+  _episodeLabel(episode) {
+    return episode.title || new Date(episode.updated_at).toLocaleString();
+  }
+
+  _handleNewSession() {
+    this._controller.startNewEpisode();
+  }
+
+  _handleEpisodeChange({ detail: { value } }) {
+    this._controller.switchEpisode(value);
+  }
+
   _handlePillActivate({ detail }) {
     const { selFrom, selTo, selectionType, blockName, proseIndex } = detail;
     document.dispatchEvent(new CustomEvent(CHAT_EVENT.HIGHLIGHT_SELECTION, {
@@ -112,14 +127,17 @@ export default class NxChatAo extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
     this._controller = new AoChatController({
-      onUpdate: ({ messages, thinking, streamingText }) => {
+      onUpdate: ({ messages, thinking, streamingText, episodes, episodeId }) => {
         this.messages = streamingText
           ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
           : messages;
         this.thinking = thinking;
+        this.episodes = episodes;
+        this.episodeId = episodeId;
       },
     });
     if (this._context) this._controller.setContext(this._context);
+    this._controller.loadEpisodes();
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
       onDragging: (dragging) => { this._dragging = dragging; },
@@ -220,15 +238,25 @@ export default class NxChatAo extends LitElement {
         ></nx-prompts>
       </nx-popover>
       <div class="chat-header">
-        <button type="button" class="nx-action-btn-quiet nx-btn-sm">
-          ${icon('add')}
-          <span>New session</span>
-        </button>
-        <button
-          class="nx-action-btn-icon nx-btn-sm"
-          aria-label="Close chat panel"
-          @click=${this._closePanel}
-        >${icon('close')}</button>
+        ${this.episodes?.length ? html`
+          <nx-picker
+            class="session-picker"
+            .items=${this.episodes.map((ep) => ({ value: ep.id, label: this._episodeLabel(ep) }))}
+            .value=${this.episodeId}
+            placement="below"
+            @change=${this._handleEpisodeChange}
+          ></nx-picker>` : nothing}
+        <div>
+          <button type="button" class="nx-action-btn-quiet nx-btn-sm" @click=${this._handleNewSession}>
+            ${icon('add')}
+            <span>New session</span>
+          </button>
+          <button
+            class="nx-action-btn-icon nx-btn-sm"
+            aria-label="Close chat panel"
+            @click=${this._closePanel}
+          >${icon('close')}</button>
+        </div>
       </div>
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">

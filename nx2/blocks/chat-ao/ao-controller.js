@@ -17,12 +17,16 @@ import {
 } from './ao-constants.js';
 import { buildSelectionText, buildFailedUploadsText, buildPageContextText } from './utils/user-context.js';
 import { uploadAttachment, getOrgId } from './utils/uploads.js';
+import { fetchEpisodes, fetchEpisodeMessages } from './utils/episodes.js';
+
+const EPISODE_LIST_LIMIT = 10;
 
 export default class AoChatController {
   constructor({ onUpdate }) {
     this._onUpdate = onUpdate;
     this._messages = [];
     this._streaming = '';
+    this._episodes = [];
   }
 
   setContext(context) {
@@ -34,7 +38,51 @@ export default class AoChatController {
       messages: this._messages,
       thinking: this._thinking,
       streamingText: this._streamingText,
+      episodes: this._episodes,
+      episodeId: this._episodeId,
     });
+  }
+
+  _fetchEpisodes() { return fetchEpisodes(EPISODE_LIST_LIMIT); }
+
+  _fetchEpisodeMessages(episodeId) { return fetchEpisodeMessages(episodeId); }
+
+  async loadEpisodes() {
+    this._episodes = await this._fetchEpisodes();
+    const latest = this._episodes[0];
+    if (latest) await this._loadEpisode(latest.id);
+    else this._update();
+  }
+
+  async _loadEpisode(episodeId) {
+    this._episodeId = episodeId;
+    this._messages = await this._fetchEpisodeMessages(episodeId);
+    this._update();
+  }
+
+  async _refreshEpisodeList() {
+    this._episodes = await this._fetchEpisodes();
+    this._update();
+  }
+
+  async switchEpisode(episodeId) {
+    if (!episodeId || episodeId === this._episodeId || this._thinking) return;
+    this._ws?.close();
+    this._ws = null;
+    this._streaming = '';
+    this._streamingText = undefined;
+    await this._loadEpisode(episodeId);
+  }
+
+  startNewEpisode() {
+    if (this._thinking) return;
+    this._ws?.close();
+    this._ws = null;
+    this._episodeId = undefined;
+    this._messages = [];
+    this._streaming = '';
+    this._streamingText = undefined;
+    this._update();
   }
 
   async _authFrame() {
@@ -57,7 +105,7 @@ export default class AoChatController {
 
     await new Promise((resolve, reject) => {
       const base = AO_WS_BASE[env] ?? AO_WS_BASE.stage;
-      const ws = new WebSocket(`${base}/ws/sessions/new`);
+      const ws = new WebSocket(`${base}/ws/sessions/${this._episodeId ?? 'new'}`);
       this._ws = ws;
 
       // Guards against a stale socket if clear()/a later _ensureSocket() call replaces it.
@@ -93,6 +141,13 @@ export default class AoChatController {
   }
 
   _handleServerEvent(evt) {
+    if (evt.type === AO_EVENT.SESSION_READY) {
+      const isNewEpisode = evt.episode_id && evt.episode_id !== this._episodeId;
+      this._episodeId = evt.episode_id ?? this._episodeId;
+      if (isNewEpisode) this._refreshEpisodeList();
+      return;
+    }
+
     if (evt.type === AO_EVENT.TEXT_DELTA) {
       this._streaming += evt.data?.content ?? '';
       this._streamingText = this._streaming;

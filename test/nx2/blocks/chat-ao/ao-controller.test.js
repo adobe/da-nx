@@ -132,6 +132,100 @@ describe('ao-controller turn lifecycle', () => {
   });
 });
 
+describe('ao-controller episodes', () => {
+  it('loadEpisodes hydrates the latest episode and its messages', async () => {
+    const { controller, updates } = makeController();
+    controller._fetchEpisodes = async () => [
+      { id: '2', title: 'Latest' }, { id: '1', title: 'Older' },
+    ];
+    controller._fetchEpisodeMessages = async (id) => [{ role: 'user', content: `hi from ${id}` }];
+
+    await controller.loadEpisodes();
+
+    expect(controller._episodeId).to.equal('2');
+    expect(controller._messages).to.deep.equal([{ role: 'user', content: 'hi from 2' }]);
+    expect(updates.at(-1).episodes).to.deep.equal([
+      { id: '2', title: 'Latest' }, { id: '1', title: 'Older' },
+    ]);
+    expect(updates.at(-1).episodeId).to.equal('2');
+  });
+
+  it('loadEpisodes is a no-op hydration when there are no prior episodes', async () => {
+    const { controller, updates } = makeController();
+    controller._fetchEpisodes = async () => [];
+
+    await controller.loadEpisodes();
+
+    expect(controller._episodeId).to.equal(undefined);
+    expect(updates.at(-1).episodes).to.deep.equal([]);
+  });
+
+  it('switchEpisode hydrates the picked episode and resets the socket', async () => {
+    const { controller, updates } = makeController();
+    controller._episodeId = '1';
+    controller._ws = { close: () => { controller._ws = null; } };
+    controller._fetchEpisodeMessages = async (id) => [{ role: 'assistant', content: `from ${id}` }];
+
+    await controller.switchEpisode('2');
+
+    expect(controller._episodeId).to.equal('2');
+    expect(controller._ws).to.equal(null);
+    expect(updates.at(-1).messages).to.deep.equal([{ role: 'assistant', content: 'from 2' }]);
+  });
+
+  it('switchEpisode is a no-op for the already-active episode or mid-turn', async () => {
+    const { controller } = makeController();
+    controller._episodeId = '1';
+    let called = false;
+    controller._fetchEpisodeMessages = async () => {
+      called = true;
+      return [];
+    };
+
+    await controller.switchEpisode('1');
+    expect(called).to.equal(false);
+
+    controller._thinking = true;
+    await controller.switchEpisode('2');
+    expect(called).to.equal(false);
+  });
+
+  it('startNewEpisode clears the active episode so the next send starts fresh', () => {
+    const { controller, updates } = makeController();
+    controller._episodeId = '1';
+    controller._messages = [{ role: 'user', content: 'hi' }];
+    controller._ws = { close: () => {} };
+
+    controller.startNewEpisode();
+
+    expect(controller._episodeId).to.equal(undefined);
+    expect(controller._ws).to.equal(null);
+    expect(updates.at(-1).messages).to.deep.equal([]);
+  });
+
+  it('captures the episode id from SESSION_READY and refreshes the episode list on a new episode', async () => {
+    const { controller, updates } = makeController();
+    controller._fetchEpisodes = async () => [{ id: '3', title: 'Brand new' }];
+
+    controller._handleServerEvent({ type: 'SESSION_READY', episode_id: '3' });
+
+    expect(controller._episodeId).to.equal('3');
+    await Promise.resolve();
+    expect(updates.at(-1).episodes).to.deep.equal([{ id: '3', title: 'Brand new' }]);
+  });
+
+  it('ignores a SESSION_READY that repeats the already-active episode id', () => {
+    const { controller, updates } = makeController();
+    controller._episodeId = '1';
+    controller._fetchEpisodes = async () => { throw new Error('should not refetch'); };
+
+    controller._handleServerEvent({ type: 'SESSION_READY', episode_id: '1' });
+
+    expect(controller._episodeId).to.equal('1');
+    expect(updates).to.have.length(0);
+  });
+});
+
 describe('ao-controller stop', () => {
   it('stop sends an INTERRUPT frame when the socket is open', () => {
     const { controller, updates } = makeController();

@@ -47,9 +47,18 @@
   max-width: 720px;
   padding: 0 var(--s2-spacing-300);
   box-sizing: border-box;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: var(--s2-spacing-100);
   margin-bottom: var(--s2-spacing-300);
+
+  .session-picker {
+    --nx-picker-max-width: 50%;
+  }
+
+  & > div {
+    display: inline-flex;
+    margin-inline-start: auto;
+  }
 }
 
 .chat-scroll-container {

@@ -3,10 +3,10 @@ import { renderMessageContent } from '../renderers/renderers.js';
 
 /**
  * Rendering for AO-only concepts that have no da-agent equivalent: user
- * questions, plan approval, a2ui artifacts, and cross-surface episode
- * continuity. Nothing here is a variant of an existing renderers.js function —
- * these are genuinely new UI surfaces, so unlike card-renderers.js this module
- * isn't a migration target for da-agent's rendering, just AO's own.
+ * questions, plan approval, and a2ui artifacts. Nothing here is a variant of an
+ * existing renderers.js function — these are genuinely new UI surfaces, so
+ * unlike card-renderers.js this module isn't a migration target for da-agent's
+ * rendering, just AO's own.
  */
 
 // Some AO payloads (e.g. user_question context) arrive with literal backslash-n
@@ -102,30 +102,6 @@ export function renderPlanApprovalCard(pending, feedback, { onFeedbackText, onAp
         </button>
         <button type="button" class="action-btn" @click=${onApprove}>
           <span>Approve</span>
-        </button>
-      </div>
-    </div>
-  `;
-}
-
-// Cross-surface episode continuity (chat-controller-ao.js#_reconcileWithLatestEpisode):
-// surfaced only when the owner's most-recently-active conversation lives on a
-// different episode than the one open here — switching replaces this tab's
-// conversation with that one; dismissing just hides the banner until an even
-// newer episode shows up.
-export function renderNewerEpisodeBanner(info, { onSwitch, onDismiss }) {
-  if (!info) return nothing;
-  return html`
-    <div class="newer-episode-banner">
-      <span class="newer-episode-text">
-        You have a newer conversation${info.title ? html` — <strong>${info.title}</strong>` : ''}.
-      </span>
-      <div class="newer-episode-actions">
-        <button type="button" class="secondary-btn" @click=${onDismiss}>
-          <span>Dismiss</span>
-        </button>
-        <button type="button" class="action-btn" @click=${onSwitch}>
-          <span>Switch</span>
         </button>
       </div>
     </div>

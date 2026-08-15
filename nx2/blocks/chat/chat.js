@@ -5,7 +5,7 @@ import '../shared/menu/menu.js';
 import ChatBackend from './chat-backend.js';
 import { renderMessage } from './renderers/renderers.js';
 import { renderToolCard } from './renderers/card-renderers.js';
-import { renderNewerEpisodeBanner, renderUiArtifact } from './ao/ao-renderers.js';
+import { renderUiArtifact } from './ao/ao-renderers.js';
 import '../shared/chat/new-chat/new-chat.js';
 import '../shared/chat/prompts/prompts.js';
 import '../shared/pills/pills.js';
@@ -43,8 +43,6 @@ class NxChat extends LitElement {
     // chat-backend.js#_normalize. Populated for both backends, since approval is
     // da-agent's one turn-suspension concept too; question/plan never occur there.
     pendingInteraction: { type: Object },
-    // AO-only — always undefined on the da-agent path, since it has no equivalent.
-    newerEpisodeAvailable: { type: Object },
     // Resolved async from the `ew.coworker` site flag once org/site are known (see
     // _ensureController) — undefined/false until then, which also means MENU_ITEMS
     // renders as the full (da-agent) list during that brief window.
@@ -215,8 +213,7 @@ class NxChat extends LitElement {
         }));
       },
       onUpdate: ({
-        messages, thinking, streamingText, connected, toolCards,
-        pendingInteraction, newerEpisodeAvailable,
+        messages, thinking, streamingText, connected, toolCards, pendingInteraction,
       }) => {
         const newMessages = streamingText
           ? [...(messages ?? []), { role: ROLE.ASSISTANT, content: streamingText, streaming: true }]
@@ -225,7 +222,6 @@ class NxChat extends LitElement {
         this.connected = connected;
         this.toolCards = toolCards;
         this.pendingInteraction = pendingInteraction;
-        this.newerEpisodeAvailable = newerEpisodeAvailable;
         cancelAnimationFrame(this._updateRaf);
         this._updateRaf = requestAnimationFrame(() => {
           this.messages = newMessages;
@@ -233,7 +229,6 @@ class NxChat extends LitElement {
           this.connected = connected;
           this.toolCards = toolCards;
           this.pendingInteraction = pendingInteraction;
-          this.newerEpisodeAvailable = newerEpisodeAvailable;
         });
       },
     });
@@ -428,10 +423,6 @@ class NxChat extends LitElement {
           @click=${this._closePanel}
         >${icon('close')}</button>
       </div>
-      ${renderNewerEpisodeBanner(this.newerEpisodeAvailable, {
-      onSwitch: () => this._controller.switchToLatestEpisode(),
-      onDismiss: () => this._controller.dismissNewerEpisode(),
-    })}
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">
           ${!this.messages?.length && !this.thinking
