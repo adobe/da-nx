@@ -520,6 +520,17 @@ class NxChat extends LitElement {
     await this._onFilesSelected(accepted);
   }
 
+  // All assistant text across the turn, concatenated in order, so :::task-item directives
+  // emitted across separate messages/steps can all be found and merged into the plan card
+  // (mergeTaskItemsFromText keys by label, last status wins). Includes the in-progress
+  // streaming message (appended to `messages` by onUpdate), so status updates live-render.
+  get _taskText() {
+    return (this.messages ?? [])
+      .filter((m) => m.role === ROLE.ASSISTANT && typeof m.content === 'string')
+      .map((m) => m.content)
+      .join('\n') || null;
+  }
+
   render() {
     const { view } = this._context ?? {};
     const prompts = (this._prompts ?? [])
@@ -565,7 +576,12 @@ class NxChat extends LitElement {
             return renderUiArtifact(msg.uiArtifact, (p) => this._sendPrompt(p, { autoSend: true }));
           }
           if (msg.toolCard) return renderToolCard(msg.toolCard);
-          return renderMessage(msg, this.toolCards);
+          return renderMessage(msg, this.toolCards, {
+            streamingText: this._taskText,
+            onApprove: (id, approved, always) => (
+              this._controller.approveToolCall(id, approved, always)
+            ),
+          });
         })}
         ${this.thinking && !this.messages?.at(-1)?.streaming && !this.pendingInteraction
         ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
@@ -586,6 +602,8 @@ class NxChat extends LitElement {
           .onDeclineQuestion=${() => this._controller.declineQuestion()}
           .onApprovePlan=${() => this._controller.respondToPlanApproval('approve')}
           .onRejectPlan=${(feedback) => this._controller.respondToPlanApproval('reject', feedback)}
+          .onContinue=${() => this._controller.continueExecution()}
+          .onStop=${() => this._controller.stopExecution()}
         ></nx-chat-interaction>
         <form class="chat-form" autocomplete="off" @submit=${this._submit}
           @dragenter=${this._onDragEnter}

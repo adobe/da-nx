@@ -1,5 +1,24 @@
 # Worklog
 
+## 2026-08-12
+
+### nx2/blocks/chat — port plan/task/governance client onto the #648 AO architecture
+
+Rebuilt the plan-mode client (originally PR #522, `feat/plan-tasks`, written against the pre-#648 `ChatController` + inline-approval-card design) on top of the #648 "ao support via config" architecture (`ChatBackend` facade + `<nx-chat-interaction>` + adapter-shaped tool cards). #522 could not be merged mechanically — the two branches independently implemented plan/approval with incompatible structures. This branch (`feat/plan-tasks-on-648`) supersedes #522 and is the matching client for da-agent #49 (`enter_plan_mode`/`exit_plan_mode` + `data-continuation` + `:::task-item`).
+
+What it delivers, mapped to da-agent #49's server behaviour:
+- **Plan card**: `exit_plan_mode` (approval-gated, carries `{title,tasks[]}`) renders inline in the message stream as `<nx-campaign-plan-card>` in every state, Run wired to `approveToolCall`. `renderers.js#renderToolCard` special-cases it; `chat-backend.js#_daAgentPendingApproval` excludes `exit_plan_mode` so it isn't also shown as a generic bottom approval popover.
+- **Task progress**: `chat.js#_taskText` concatenates all assistant text; `mergeTaskItemsFromText` (utils/directives.js) merges `:::task-item` status into the plan card by label (last-wins) → Run→Running…→Done.
+- **Continuation gate**: continuation-gate backend ported into `chat-controller.js` (`AGENT_EVENT.CONTINUATION`, `_continuationPendingIds`, `continuationPending` on derived cards, `continueExecution`/`stopExecution`) and `utils/stream.js` (forward `data-continuation`). `chat-backend.js#_normalize` derives a `{type:'continuation'}` `pendingInteraction`; `<nx-chat-interaction>` renders a Continue/Stop card (Enter/Esc); `card-renderers.js#renderContinuationCard`.
+- **Governance card**: `evaluate_page` output → `<nx-governance-evaluation-card>` (loading/error/result) via `renderToolCard`.
+
+Design notes / decisions:
+- Kept the da-agent tool-card rendering in `renderers.js` (which #648 preserved for the da-agent path); only `card-renderers.js` gained the neutral `renderContinuationCard`. AO path untouched.
+- `renderMessageContent` still renders directive plan/task-list/governance-evaluation cards for parity, but da-agent main only emits `:::task-item` as text (plan comes via the `exit_plan_mode` tool); the directive renderers are harmless if unused.
+- Purely additive over `origin/main` (~+2184/−19 in the chat block). 150/150 chat tests pass; ESLint + Stylelint clean. Brought in #522's `messages/*` card components + CSS and `utils/directives.js`/`utils/tool-name.js` verbatim (already tested).
+
+Related da-agent work (separate repo/PR): `hotfix/disable-evaluate-continuation-gate` temporarily disables governance's `continuationApprovalPatterns` in prod (the pre-this-client `main` had no UI to service `data-continuation`, so it hung the turn). Once this client ships, revert that hotfix to re-enable the gate.
+
 ## 2026-08-07
 
 ### nx2/utils/api.js — remove stage-content.da.live rewrite workaround

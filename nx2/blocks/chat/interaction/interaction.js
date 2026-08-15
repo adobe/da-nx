@@ -1,6 +1,6 @@
 import { LitElement, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
-import { renderApprovalCard } from '../renderers/card-renderers.js';
+import { renderApprovalCard, renderContinuationCard } from '../renderers/card-renderers.js';
 import { renderQuestionCard, renderPlanApprovalCard } from '../ao/ao-renderers.js';
 
 const styles = await loadStyle(import.meta.url);
@@ -48,6 +48,16 @@ class NxChatInteraction extends LitElement {
   }
 
   _onKeydown = (e) => {
+    if (this.pending?.type === 'continuation') {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.onStop?.();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        this.onContinue?.();
+      }
+      return;
+    }
     if (this.pending?.type !== 'approval') return;
     const { toolCallId } = this.pending;
     if (e.key === 'Escape') {
@@ -133,6 +143,10 @@ class NxChatInteraction extends LitElement {
         onApprove: () => this._approvePlan(),
         onReject: () => this._rejectPlan(),
       });
+    }
+
+    if (pending.type === 'continuation') {
+      return renderContinuationCard(() => this.onContinue?.(), () => this.onStop?.());
     }
 
     return nothing;

@@ -1,0 +1,83 @@
+/* Shared card shell, header, type-label/icon, chevron, and title live in messages.css. */
+
+:host {
+  display: block;
+}
+
+.plan-card {
+  gap: var(--s2-spacing-200);
+}
+
+.plan-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-200);
+  cursor: pointer;
+  list-style: none;
+}
+
+/* ── Body / description area ── */
+
+.plan-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+  padding: var(--s2-spacing-200) var(--s2-spacing-300);
+}
+
+.plan-type-icon {
+  mask-image: url("/img/icons/s2-icon-aichat-20-n.svg");
+}
+
+.plan-description {
+  font-size: var(--s2-body-size-s);
+  color: var(--s2-gray-700);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.plan-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-75);
+  flex-shrink: 0;
+}
+
+.plan-chevron-icon {
+  color: var(--s2-gray-700);
+}
+
+.plan-card[open] .plan-tasks-collapsed {
+  display: none;
+}
+
+/* ── Task area ── */
+
+.plan-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-200);
+  padding: var(--s2-spacing-200);
+  margin: 0 var(--s2-spacing-300) var(--s2-spacing-200);
+  background-color: var(--s2-gray-50, #f8f8f8);
+  border-radius: var(--s2-corner-radius-500);
+  border: 1px solid var(--s2-gray-200, #e1e1e1);
+}
+
+.plan-tasks-header {
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-600);
+  margin-bottom: var(--s2-spacing-50);
+}
+
+.plan-tasks-progress {
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-600);
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-task-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-200);
+}
