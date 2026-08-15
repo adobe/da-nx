@@ -6,12 +6,12 @@ import { getConfig } from '../../../scripts/nx.js';
 import { parseDirectives } from '../utils/parse.js';
 import { linkifyBareUrls, sanitizeLinks } from '../utils/links.js';
 import { pillIconName } from '../../shared/utils/icons.js';
+import { parseMarkdown } from '../../shared/chat/markdown.js';
+import { renderCopyButton } from '../../shared/chat/copy-button.js';
 
 const { codeBase } = getConfig();
 
-const { unified, remarkParse, remarkGfmNoLink, mdast2hast, hastToDom } = await import('../../../deps/mdast/dist/index.js');
-
-const parser = unified().use(remarkParse).use(remarkGfmNoLink);
+const { hastToDom } = await import('../../../deps/mdast/dist/index.js');
 
 function toDOM(hast) {
   return hastToDom(sanitizeLinks(linkifyBareUrls(hast)), { fragment: true });
@@ -22,7 +22,7 @@ function renderMessageContent(text) {
 
   return parseDirectives(text).map(({ kind, type, content }) => {
     if (!content) return nothing;
-    const dom = toDOM(mdast2hast(parser.parse(content)));
+    const dom = toDOM(parseMarkdown(content));
     return kind === 'directive' ? html`<div class="directive directive-${type}">${dom}</div>` : dom;
   });
 }
@@ -82,15 +82,10 @@ function renderAssistantMessage(msg, toolCards) {
       : nothing))}`;
   }
 
-  const copy = msg.streaming ? nothing : html`<button class="message-action-copy" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
-      <svg class="icon-paste" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-paste-20-n.svg#icon"></use></svg>
-      <svg class="icon-checkmark" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-checkmark-20-n.svg#icon"></use></svg>
-    </button>`;
-
   return html`
     <div class="message message-assistant">
       <div class="message-content">${renderMessageContent(msg.content)}</div>
-      ${copy}
+      ${renderCopyButton(msg.content, { streaming: msg.streaming })}
     </div>
   `;
 }

@@ -21,6 +21,8 @@ import { PANEL_EVENT } from '../../utils/panel.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
+import { renderMarkdown } from './utils/markdown.js';
+import { renderCopyButton } from '../shared/chat/copy-button.js';
 import '../shared/pills/pills.js';
 import '../shared/menu/menu.js';
 import '../shared/popover/popover.js';
@@ -268,7 +270,12 @@ export default class NxChatAo extends LitElement {
             ></nx-new-chat>`
         : nothing}
           ${this.messages?.map((msg) => html`
-            <div class="message message-${msg.role}">${msg.content}</div>
+            <div class="message message-${msg.role}">
+              ${msg.role === 'assistant' ? html`
+                <div class="message-content">${renderMarkdown(msg.content)}</div>
+                ${renderCopyButton(msg.content, { streaming: msg.streaming })}
+              ` : msg.content}
+            </div>
           `)}
           ${this.thinking && !this.messages?.at(-1)?.streaming
         ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
