@@ -5,7 +5,7 @@ import { glaasSourcePreviewUrl } from '../../../nx/blocks/loc/connectors/glaas/a
 import {
   buildMultimodalPageAssetEntry,
   buildMultimodalTextAsset,
-  collectContentDaLiveImageUrls,
+  collectMultimodalImageUrls,
   collectMultimodalAssetNames,
   countMultimodalTranslatedPages,
   contentDaLiveToDaSourceUrl,
@@ -17,6 +17,7 @@ import {
   uploadMultimodalPageAssets,
   v2AssetStatusFromProbe,
 } from '../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
+import { LOC_SRC_ATTR } from '../../../nx/blocks/loc/connectors/glaas/dnt.js';
 
 describe('GLaaS multimodal getPutUrlForFile', () => {
   beforeEach(() => {
@@ -227,11 +228,14 @@ describe('GLaaS multimodal image source URLs', () => {
 });
 
 describe('GLaaS multimodal pageAssets', () => {
+  const selectionsFor = (...srcs) => new Set(srcs.map((src) => new URL(src).href));
+
   it('builds page asset entry with html glaas name and image metadata', () => {
+    const src = 'https://content.da.live/adobecom/foo/rectangle%20810724.png';
     const html = `
-      <img src="https://content.da.live/adobecom/foo/rectangle%20810724.png">
+      <img src="${src}">
     `;
-    const imageUrls = collectContentDaLiveImageUrls(html, { org: 'adobecom', site: 'foo' });
+    const imageUrls = collectMultimodalImageUrls(html, { imageSelections: selectionsFor(src) });
     const entry = buildMultimodalPageAssetEntry({
       htmlAssetName: '/drafts/demo/page.html',
       imageUrls,
@@ -242,26 +246,41 @@ describe('GLaaS multimodal pageAssets', () => {
     expect(entry.images[0].glaasName).to.equal('/rectangle 810724.png');
   });
 
-  it('collects only images under https://content.da.live/{org}/{site}', () => {
+  it('only collects images explicitly marked for translation (opt-in default)', () => {
+    const markedSrc = 'https://content.da.live/adobecom/foo/same-site.png';
+    const unmarkedSrc = 'https://content.da.live/adobecom/foo/unmarked.png';
+    const html = `
+      <img src="${markedSrc}">
+      <img src="${unmarkedSrc}">
+    `;
+    const result = collectMultimodalImageUrls(html, { imageSelections: selectionsFor(markedSrc) });
+    expect(result).to.deep.equal([markedSrc]);
+  });
+
+  it('excludes every image when nothing is marked, regardless of host', () => {
     const html = `
       <img src="https://content.da.live/adobecom/foo/same-site.png">
-      <img src="https://content.da.live/otherorg/foo/other-org.png">
-      <img src="https://content.da.live/adobecom/othersite/other-site.png">
+      <img src="https://main--site--org.aem.live/media_def.jpg">
     `;
-    expect(collectContentDaLiveImageUrls(html, { org: 'adobecom', site: 'foo' })).to.deep.equal([
-      'https://content.da.live/adobecom/foo/same-site.png',
-    ]);
+    expect(collectMultimodalImageUrls(html, {})).to.deep.equal([]);
+    expect(collectMultimodalImageUrls(html)).to.deep.equal([]);
   });
 
-  it('ignores relative ./media_ paths (DNT) that are not on content.da.live', () => {
-    const html = `
-      <img src="./media_13f28848e8da34fafe003ee7053bf2118fb26c78a.jpg">
-      <img src="https://main--dc--adobecom.aem.live/media_13f28848e8da34fafe003ee7053bf2118fb26c78a.jpg">
-    `;
-    expect(collectContentDaLiveImageUrls(html)).to.deep.equal([]);
+  it('ignores relative paths (DNT) even if somehow marked - only absolute http(s) is eligible', () => {
+    const relativeSrc = './media_13f28848e8da34fafe003ee7053bf2118fb26c78a.jpg';
+    const html = `<img src="${relativeSrc}">`;
+    const imageSelections = new Set([relativeSrc]);
+    expect(collectMultimodalImageUrls(html, { imageSelections })).to.deep.equal([]);
   });
 
-  it('collects comma-separated png and jpeg filenames from img[src] only', () => {
+  it('excludes svg even when marked', () => {
+    const svgSrc = 'https://content.da.live/adobecom/da-dc/drafts/demo/.hero/variant=default,%20width=full,%20content=blur%20bg.svg';
+    const html = `<img src="${svgSrc}">`;
+    const imageSelections = selectionsFor(svgSrc);
+    expect(collectMultimodalImageUrls(html, { imageSelections })).to.deep.equal([]);
+  });
+
+  it('collects comma-separated filenames from img[src] only, marked ones only, svg excluded', () => {
     const commaPng = 'https://content.da.live/adobecom/da-dc/drafts/demo/.hero/variant=default,%20width=full,%20content=feature%20image.png';
     const commaJpg = 'https://content.da.live/adobecom/da-dc/drafts/demo/.hero/breakpoint=small,%20width=full,%20content=hero%20photo.jpg';
     const commaSvg = 'https://content.da.live/adobecom/da-dc/drafts/demo/.hero/variant=default,%20width=full,%20content=blur%20bg.svg';
@@ -278,27 +297,64 @@ describe('GLaaS multimodal pageAssets', () => {
         <img src="${commaSvg}" loading="lazy">
       </picture>
     `;
-    expect(collectContentDaLiveImageUrls(html, { org: 'adobecom', site: 'da-dc' })).to.deep.equal([
+    const marked = selectionsFor(commaPng, commaJpg, commaSvg);
+    expect(collectMultimodalImageUrls(html, { imageSelections: marked })).to.deep.equal([
       commaPng,
       commaJpg,
     ]);
   });
 
-  it('collects only png and jpeg images (GLaaS multimodal format support)', () => {
+  it('collects only png/jpeg marked images (GLaaS multimodal format support)', () => {
+    const png = 'https://content.da.live/adobecom/foo/hero.png';
+    const jpg = 'https://content.da.live/adobecom/foo/photo.jpg';
+    const jpeg = 'https://content.da.live/adobecom/foo/photo.jpeg';
+    const svg = 'https://content.da.live/adobecom/foo/blur.svg';
+    const gif = 'https://content.da.live/adobecom/foo/anim.gif';
+    const webp = 'https://content.da.live/adobecom/foo/modern.webp';
     const html = `
-      <img src="https://content.da.live/adobecom/foo/hero.png">
-      <img src="https://content.da.live/adobecom/foo/photo.jpg">
-      <img src="https://content.da.live/adobecom/foo/photo.jpeg">
-      <img src="https://content.da.live/adobecom/foo/blur.svg">
-      <img src="https://content.da.live/adobecom/foo/anim.gif">
-      <img src="https://content.da.live/adobecom/foo/modern.webp">
-      <img src="https://content.da.live/adobecom/foo/next.avif">
+      <img src="${png}">
+      <img src="${jpg}">
+      <img src="${jpeg}">
+      <img src="${svg}">
+      <img src="${gif}">
+      <img src="${webp}">
     `;
-    expect(collectContentDaLiveImageUrls(html, { org: 'adobecom', site: 'foo' })).to.deep.equal([
-      'https://content.da.live/adobecom/foo/hero.png',
-      'https://content.da.live/adobecom/foo/photo.jpg',
-      'https://content.da.live/adobecom/foo/photo.jpeg',
+    const marked = selectionsFor(png, jpg, jpeg, svg, gif, webp);
+    expect(collectMultimodalImageUrls(html, { imageSelections: marked })).to.deep.equal([
+      png,
+      jpg,
+      jpeg,
     ]);
+  });
+
+  it('collects a marked image hosted anywhere, not just content.da.live', () => {
+    const aemSrc = 'https://main--site--org.aem.live/media_def.jpg';
+    const externalSrc = 'https://example.com/photo.jpg';
+    const html = `
+      <img src="${aemSrc}">
+      <img src="${externalSrc}">
+    `;
+    const imageSelections = selectionsFor(aemSrc, externalSrc);
+    const result = collectMultimodalImageUrls(html, { imageSelections });
+    expect(result).to.deep.equal([aemSrc, externalSrc]);
+  });
+
+  it('collects a marked image via LOC_SRC_ATTR when DNT has relativized its src', () => {
+    // Regression: dnt.js relativizes AEM-hosted media_* srcs, stashing the original
+    // absolute href in LOC_SRC_ATTR for exactly this case - a relative src alone is
+    // ineligible (not absolute http(s)), so without reading the attribute this marked
+    // image would silently vanish from translation.
+    const originalSrc = 'https://main--site--org.aem.live/media_abc.png';
+    const html = `<img src="./media_abc.png" ${LOC_SRC_ATTR}="${originalSrc}">`;
+    const imageSelections = selectionsFor(originalSrc);
+    expect(collectMultimodalImageUrls(html, { imageSelections })).to.deep.equal([originalSrc]);
+  });
+
+  it('excludes a marked image if it is no longer present on the page', () => {
+    const src = 'https://content.da.live/adobecom/foo/deleted.png';
+    const html = '<p>No images here</p>';
+    const imageSelections = selectionsFor(src);
+    expect(collectMultimodalImageUrls(html, { imageSelections })).to.deep.equal([]);
   });
 
   it('returns empty images when page has no content.da.live assets', () => {

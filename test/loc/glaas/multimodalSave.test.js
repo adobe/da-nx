@@ -7,15 +7,24 @@ import {
   MEDIA_IMAGE_UPLOAD_MAX_BYTES,
   postImageToDaMedia,
   prepareMultimodalPageForSave,
-  siteRelativePathFromContentDaLiveUrl,
+  siteRelativePathFromImageUrl,
   rewriteContentDaLiveImageUrls,
+  fetchMultimodalImage,
 } from '../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
+import { LOC_SRC_ATTR } from '../../../nx/blocks/loc/connectors/glaas/dnt.js';
+import { DA_ETC } from '../../../nx/utils/utils.js';
 
 describe('GLaaS multimodal save', () => {
   it('strips content.da.live org/site segments from image URL', () => {
-    expect(siteRelativePathFromContentDaLiveUrl(
+    expect(siteRelativePathFromImageUrl(
       'https://content.da.live/adobecom/da-dc/acrobat/online/test/.acrobat-pro/report.png',
     )).to.equal('/acrobat/online/test/.acrobat-pro/report.png');
+  });
+
+  it('uses the full pathname for non-content.da.live hosts (no org/site prefix)', () => {
+    expect(siteRelativePathFromImageUrl(
+      'https://main--site--org.aem.live/media_abc.jpg',
+    )).to.equal('/media_abc.jpg');
   });
 
   afterEach(() => {
@@ -242,7 +251,7 @@ describe('GLaaS multimodal save', () => {
       </picture>
     `;
     const pathToNewUrl = new Map([
-      ['/adobecom/da-dc/acrobat/foo/rect 1.png', deliveryUrl],
+      ['https://content.da.live/adobecom/da-dc/acrobat/foo/rect%201.png', deliveryUrl],
     ]);
     const out = rewriteContentDaLiveImageUrls(html, pathToNewUrl);
     expect(out).to.include(`src="${deliveryUrl}"`);
@@ -261,12 +270,69 @@ describe('GLaaS multimodal save', () => {
       </picture>
     `;
     const pathToNewUrl = new Map([
-      ['/adobecom/da-dc/drafts/demo/.hero/variant=default, width=half or third, content=feature image.png', deliveryUrl],
+      [contentDaLiveUrl, deliveryUrl],
     ]);
     const out = rewriteContentDaLiveImageUrls(html, pathToNewUrl);
     expect(out).to.include(`src="${deliveryUrl}"`);
     expect((out.match(/srcset="/g) ?? []).length).to.equal(2);
     expect(out).not.to.include('content.da.live');
     expect(out).not.to.include('variant=default,');
+  });
+
+  it('resolves a DNT-relativized marked image via LOC_SRC_ATTR and removes the attribute after rewriting', () => {
+    // Regression: pathToNewUrl is keyed by the original absolute href (see fetchMultimodalImage),
+    // but a marked AEM-hosted image's src has already been relativized by DNT by this point -
+    // LOC_SRC_ATTR (see dnt.js) is what lets this still resolve to the right entry.
+    const originalSrc = 'https://main--cc--adobecom.aem.live/media_abc.png';
+    const deliveryUrl = 'https://main--da-dc--adobecom.aem.page/media_translated.avif';
+    const html = `<img src="./media_abc.png" ${LOC_SRC_ATTR}="${originalSrc}">`;
+    const pathToNewUrl = new Map([[originalSrc, deliveryUrl]]);
+    const out = rewriteContentDaLiveImageUrls(html, pathToNewUrl);
+    expect(out).to.include(`src="${deliveryUrl}"`);
+    expect(out).not.to.include(LOC_SRC_ATTR);
+  });
+
+  describe('fetchMultimodalImage', () => {
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    it('routes a plain absolute image URL (e.g. published .aem.live media) through the CORS proxy', async () => {
+      // A bare fetch() to published .aem.live media is CORS-blocked from da.live - same
+      // proxy pattern already used by the trados connector and media-library.
+      const imageUrl = 'https://main--cc--adobecom.aem.live/media_abc.png';
+      const blob = new Blob(['fake-bytes'], { type: 'image/png' });
+      const fetchStub = sinon.stub(window, 'fetch').resolves(new Response(blob, { status: 200 }));
+
+      const result = await fetchMultimodalImage({ imageIndex: 1, imageUrl });
+
+      expect(fetchStub.calledOnce).to.be.true;
+      const [proxyUrl] = fetchStub.firstCall.args;
+      expect(proxyUrl).to.equal(`${DA_ETC}/cors?url=${encodeURIComponent(imageUrl)}`);
+      expect(result.error).to.equal(undefined);
+      expect(result.imageBlob.size).to.equal(blob.size);
+      expect(result.imageBlob.type).to.equal(blob.type);
+    });
+
+    it('routes an arbitrary external host through the CORS proxy too', async () => {
+      const imageUrl = 'https://example.com/photo.jpg';
+      const blob = new Blob(['fake-bytes'], { type: 'image/jpeg' });
+      const fetchStub = sinon.stub(window, 'fetch').resolves(new Response(blob, { status: 200 }));
+
+      await fetchMultimodalImage({ imageIndex: 1, imageUrl });
+
+      const [proxyUrl] = fetchStub.firstCall.args;
+      expect(proxyUrl).to.equal(`${DA_ETC}/cors?url=${encodeURIComponent(imageUrl)}`);
+    });
+
+    it('returns an error when the proxied fetch is not ok', async () => {
+      sinon.stub(window, 'fetch').resolves(new Response('', { status: 404 }));
+      const result = await fetchMultimodalImage({
+        imageIndex: 1,
+        imageUrl: 'https://main--cc--adobecom.aem.live/media_missing.png',
+      });
+      expect(result.error).to.be.a('string');
+      expect(result.status).to.equal(404);
+    });
   });
 });

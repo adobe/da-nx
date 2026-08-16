@@ -242,6 +242,7 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, s
         aemHref: url.aemHref,
         translationMetadata: url.translationMetadata,
         languageContext: url.languageContext,
+        imageSelections: url.imageSelections,
         org,
         site,
       });
@@ -624,7 +625,10 @@ export async function saveItems({
     // Use the path to determine if this should be treated as a JSON file.
     const fileType = url.daBasePath.includes('.json') ? 'json' : undefined;
 
-    url.sourceContent = await removeDnt(text, org, site, { fileType });
+    // This is the only removeDnt call on the translate save-back path, so
+    // loc-images marks are dropped here rather than carried onto the
+    // regional page (see stripLocImages in dnt.js).
+    url.sourceContent = await removeDnt(text, org, site, { fileType, stripLocImages: true });
 
     await saveFn(url);
   };
