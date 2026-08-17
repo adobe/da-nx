@@ -30,6 +30,14 @@ export function buildSelectionContext(context) {
     });
 }
 
+export function buildAttachmentsMeta(attachments) {
+  return attachments.map(({
+    id, fileName, mediaType, sizeBytes,
+  }) => ({
+    id, fileName, mediaType, ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
+  }));
+}
+
 export function buildAttachmentPayload(items) {
   return items
     .filter((item) => item.dataBase64)

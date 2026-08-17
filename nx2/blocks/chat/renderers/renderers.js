@@ -2,14 +2,11 @@ import { html, nothing } from 'da-lit';
 import {
   PART_TYPE, ROLE, TOOL_INPUT, TOOL_STATE,
 } from '../constants.js';
-import { getConfig } from '../../../scripts/nx.js';
 import { parseDirectives } from '../utils/parse.js';
 import { linkifyBareUrls, sanitizeLinks } from '../utils/links.js';
-import { pillIconName } from '../../shared/utils/icons.js';
 import { parseMarkdown } from '../../shared/chat/markdown.js';
 import { renderCopyButton } from '../../shared/chat/copy-button.js';
-
-const { codeBase } = getConfig();
+import { renderSelectionPills } from '../../shared/chat/selection-pills.js';
 
 const { hastToDom } = await import('../../../deps/mdast/dist/index.js');
 
@@ -88,36 +85,6 @@ function renderAssistantMessage(msg, toolCards) {
       ${renderCopyButton(msg.content, { streaming: msg.streaming })}
     </div>
   `;
-}
-
-function renderSelectionPills(msg) {
-  const contextItem = (name, iconName) => html`
-    <li class="selection-context-item">
-      <svg class="selection-icon" viewBox="0 0 20 20" aria-hidden="true">
-        <use href="${codeBase}/img/icons/${iconName}.svg#icon"></use>
-      </svg>
-      <span>${name}</span>
-    </li>`;
-
-  const items = [
-    ...(msg.selectionContext ?? []).map((sc) => {
-      const name = sc.blockName || 'Selection';
-      return contextItem(name, pillIconName(sc.type, name));
-    }),
-    ...(msg.attachmentsMeta ?? []).map(({ fileName }) => (
-      contextItem(fileName, pillIconName(undefined, fileName))
-    )),
-  ];
-  if (items.length === 1) {
-    return html`<ul class="selection-context-list" aria-label="Attached context">${items[0]}</ul>`;
-  }
-  if (items.length > 1) {
-    return html`<details class="selection-context">
-        <summary><span class="selection-context-count">${items.length} items added</span></summary>
-        <ul class="selection-context-list">${items}</ul>
-      </details>`;
-  }
-  return nothing;
 }
 
 function renderUserMessage(msg) {

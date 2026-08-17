@@ -84,6 +84,21 @@
   overflow-wrap: anywhere;
 }
 
+.message .selection-context > summary::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background-color: currentcolor;
+  mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  transform: rotate(90deg);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
 .message {
   padding: 6px var(--s2-spacing-200);
   border-radius: 12px;
@@ -173,6 +188,58 @@
 
   &:hover .message-action-copy {
     visibility: visible;
+  }
+
+  .selection-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  .selection-context-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 var(--s2-spacing-75) 0;
+
+    .selection-context-item {
+      display: flex;
+      align-items: center;
+      gap: var(--s2-spacing-75);
+      padding: var(--s2-spacing-50) 0;
+      font-size: var(--s2-body-size-xs);
+      color: var(--s2-gray-700);
+      min-width: 0;
+
+      span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+  }
+
+  .selection-context {
+    padding-bottom: var(--s2-spacing-75);
+
+    > summary {
+      display: flex;
+      align-items: center;
+      gap: var(--s2-spacing-75);
+      list-style: none;
+      cursor: pointer;
+      user-select: none;
+      font-size: var(--s2-body-size-xs);
+      color: var(--s2-gray-700);
+      line-height: 24px;
+
+      &::-webkit-details-marker {
+        display: none;
+      }
+    }
+
+    &[open] > summary::before {
+      transform: rotate(180deg);
+    }
   }
 }
 

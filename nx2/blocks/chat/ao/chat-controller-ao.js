@@ -5,24 +5,9 @@ import { DA_ADMIN } from '../../../utils/utils.js';
 import {
   loadMessages, saveMessages, resetSession, getRoomKey,
 } from '../utils/persistence.js';
-import { buildSelectionContext } from '../utils/chat-helpers.js';
+import { buildSelectionContext, buildAttachmentsMeta } from '../utils/chat-helpers.js';
 import { AO_EVENT, AO_FRAME, AO_TOOL_STATE } from './ao-constants.js';
 
-// The /ws route skips AO's ingress-level IMS/entitlement check entirely (auth happens
-// via the app-level AUTH frame instead, since browsers can't send custom headers during
-// a WebSocket handshake) — unlike the A2A HTTP/SSE transport, which hit both a CORS wall
-// and an AEP product-entitlement gate we don't have. Hence WebSocket here instead of fetch.
-// Templated with the episode (context) id so a reload can reconnect to the same episode
-// instead of always starting a fresh one — see _loadPersisted()/_openSocket().
-//
-// AO is deployed per-region (va7, aus5, can2, che2, gbr9, ind2, nld2, ...), each with
-// its own isolated data store — an org's episodes/turns live in exactly one region, not
-// behind a shared front door. Coworker never hardcodes this: its browser calls its own
-// same-origin API, and the server resolves the real AO host from deployment config. EW
-// has no server of its own to do the equivalent, so this is pinned to the region our
-// current tenants are actually provisioned in — not a durable per-org resolution. If EW
-// ever serves an org provisioned in a different region, this single constant is where
-// that needs to change (see the region write-up shared with the Coworker/AO team).
 const AO_REGION = 'va7';
 
 const AO_WS_BASE = {
@@ -723,11 +708,7 @@ export default class ChatControllerAO {
     if (this._thinking || !this._connected || !this._ready) return;
 
     const selectionContext = buildSelectionContext(context);
-    const attachmentsMeta = attachments.map(({
-      id, fileName, mediaType, sizeBytes,
-    }) => ({
-      id, fileName, mediaType, ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
-    }));
+    const attachmentsMeta = buildAttachmentsMeta(attachments);
 
     this._messages = [...(this._messages ?? []), {
       role: 'user',

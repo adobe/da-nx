@@ -18,6 +18,7 @@ import {
 import { buildSelectionText, buildFailedUploadsText, buildPageContextText } from './utils/user-context.js';
 import { uploadAttachment, getOrgId } from './utils/uploads.js';
 import { fetchEpisodes, fetchEpisodeMessages } from './utils/episodes.js';
+import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-helpers.js';
 
 const EPISODE_LIST_LIMIT = 10;
 
@@ -194,7 +195,15 @@ export default class AoChatController {
   async sendMessage(message, items = [], attachments = []) {
     if (!message || this._thinking) return;
 
-    this._messages = [...this._messages, { role: 'user', content: message }];
+    const selectionContext = buildSelectionContext(items);
+    const attachmentsMeta = buildAttachmentsMeta(attachments);
+
+    this._messages = [...this._messages, {
+      role: 'user',
+      content: message,
+      ...(selectionContext.length && { selectionContext }),
+      ...(attachmentsMeta.length && { attachmentsMeta }),
+    }];
     this._thinking = true;
     this._update();
 

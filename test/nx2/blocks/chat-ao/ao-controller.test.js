@@ -42,7 +42,14 @@ describe('ao-controller sendMessage', () => {
       { type: 'text', innerHTML: '<p>hello <b>world</b></p>', id: 'b' },
     ]);
 
-    expect(controller._messages).to.deep.equal([{ role: 'user', content: 'what does this do?' }]);
+    expect(controller._messages).to.deep.equal([{
+      role: 'user',
+      content: 'what does this do?',
+      selectionContext: [
+        { type: 'block', blockName: 'hero' },
+        { type: 'text', innerHTML: '<p>hello <b>world</b></p>' },
+      ],
+    }]);
     expect(sent[1].text).to.equal(
       '[Selected context]\n- Selected block: hero\n- Selected text: "hello world"\nwhat does this do?',
     );
