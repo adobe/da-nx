@@ -1,5 +1,4 @@
-import { DA_ADMIN } from './utils.js';
-import { daFetch } from './api.js';
+import { config } from './api.js';
 
 /** Returns the primary data array from a DA config JSON response (handles multi-sheet). */
 export function getFirstSheet(json) {
@@ -11,14 +10,14 @@ export function getFirstSheet(json) {
 export const fetchDaConfigs = (() => {
   const cache = {};
 
-  const fetchConfig = async (pathname) => {
-    const resp = await daFetch({ url: `${DA_ADMIN}/config${pathname}/` });
-    if (!resp.ok) return { error: `Error loading ${pathname}`, status: resp.status };
+  const fetchConfig = async (key, org, site) => {
+    const resp = await config.get({ org, site });
+    if (!resp.ok) return { error: `Error loading ${key}`, status: resp.status };
     return resp.json();
   };
 
-  const cacheConfig = (key) => {
-    cache[key] = fetchConfig(key).then((result) => {
+  const cacheConfig = (key, org, site) => {
+    cache[key] = fetchConfig(key, org, site).then((result) => {
       if (result.error) delete cache[key];
       return result;
     });
@@ -29,8 +28,8 @@ export const fetchDaConfigs = (() => {
     const orgKey = `/${org}`;
     const siteKey = site ? `/${org}/${site}` : null;
 
-    const configs = [cache[orgKey] ?? cacheConfig(orgKey)];
-    if (siteKey) configs.push(cache[siteKey] ?? cacheConfig(siteKey));
+    const configs = [cache[orgKey] ?? cacheConfig(orgKey, org, undefined)];
+    if (siteKey) configs.push(cache[siteKey] ?? cacheConfig(siteKey, org, site));
     return configs;
   };
 })();
