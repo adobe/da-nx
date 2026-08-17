@@ -3,7 +3,7 @@ import { config } from './api.js';
 /** Returns the primary data array from a DA config JSON response (handles multi-sheet). */
 export function getFirstSheet(json) {
   if (json[':type'] !== 'multi-sheet') return json.data;
-  return json[Object.keys(json)[0]]?.data;
+  return json[json[':names']?.[0]]?.data;
 }
 
 /** Memoized fetches for `/{org}` and optional `/{org}/{site}` config documents. */
