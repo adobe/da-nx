@@ -405,7 +405,8 @@ function isAbsoluteContentDaLiveUrl(href) {
 /**
  * Which images on the page could be sent for translation at all - opt-in
  * selection (da-metadata's loc-images) is applied on top of this by callers.
- * Any absolute http(s) png/jpg/jpeg image is eligible.
+ * Any absolute http(s) png/jpg/jpeg image on an aem.live, aem.page, or
+ * content.da.live host is eligible.
  *
  * LOC_SRC_ATTR (see dnt.js), if present, is the image's real href - DNT relativizes
  * some absolute image srcs, which would otherwise make a marked image look ineligible.

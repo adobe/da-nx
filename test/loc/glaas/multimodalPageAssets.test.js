@@ -327,7 +327,7 @@ describe('GLaaS multimodal pageAssets', () => {
     ]);
   });
 
-  it('collects a marked image hosted anywhere, not just content.da.live', () => {
+  it('collects a marked image hosted on aem.live but excludes hosts outside the allowlist', () => {
     const aemSrc = 'https://main--site--org.aem.live/media_def.jpg';
     const externalSrc = 'https://example.com/photo.jpg';
     const html = `
@@ -336,7 +336,7 @@ describe('GLaaS multimodal pageAssets', () => {
     `;
     const imageSelections = selectionsFor(aemSrc, externalSrc);
     const result = collectMultimodalImageUrls(html, { imageSelections });
-    expect(result).to.deep.equal([aemSrc, externalSrc]);
+    expect(result).to.deep.equal([aemSrc]);
   });
 
   it('collects a marked image via LOC_SRC_ATTR when DNT has relativized its src', () => {

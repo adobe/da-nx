@@ -9,10 +9,16 @@ import {
 
 describe('imageSelections', () => {
   describe('isEligibleMultimodalImageUrl', () => {
-    it('accepts absolute http(s) png/jpg/jpeg urls, any host', () => {
+    it('accepts absolute http(s) png/jpg/jpeg urls on aem.live, aem.page, or content.da.live', () => {
       expect(isEligibleMultimodalImageUrl('https://content.da.live/org/site/media_abc.png')).to.be.true;
       expect(isEligibleMultimodalImageUrl('https://main--site--org.aem.live/media_def.jpg')).to.be.true;
-      expect(isEligibleMultimodalImageUrl('http://example.com/foo.jpeg')).to.be.true;
+      expect(isEligibleMultimodalImageUrl('https://main--site--org.aem.page/media_def.jpg')).to.be.true;
+    });
+
+    it('excludes hosts outside the allowlist', () => {
+      expect(isEligibleMultimodalImageUrl('http://example.com/foo.jpeg')).to.be.false;
+      expect(isEligibleMultimodalImageUrl('https://evil-aem.live/media_def.jpg')).to.be.false;
+      expect(isEligibleMultimodalImageUrl('https://admin.da.live/org/site/media_abc.png')).to.be.false;
     });
 
     it('excludes extensions outside the allowlist (svg, gif, webp, avif, ...)', () => {

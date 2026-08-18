@@ -5,6 +5,13 @@ export const LOC_IMAGES_KEY = 'loc-images';
 export const DA_METADATA_SELECTOR = 'body > .da-metadata';
 const ELIGIBLE_IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg']);
 const AEM_PAGE_SUFFIX = '.aem.page';
+const ELIGIBLE_IMAGE_HOSTS = new Set(['content.da.live']);
+const ELIGIBLE_IMAGE_HOST_SUFFIXES = ['.aem.live', '.aem.page'];
+
+function isEligibleImageHost(hostname) {
+  return ELIGIBLE_IMAGE_HOSTS.has(hostname)
+    || ELIGIBLE_IMAGE_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix));
+}
 
 export function toHref(src) {
   try {
@@ -34,6 +41,7 @@ export function isEligibleMultimodalImageUrl(src) {
   try {
     const url = new URL(src);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+    if (!isEligibleImageHost(url.hostname)) return false;
     const pathname = decodeURIComponent(url.pathname);
     const filename = pathname.split('/').pop() ?? '';
     const dot = filename.lastIndexOf('.');
