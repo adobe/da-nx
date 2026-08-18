@@ -5,6 +5,8 @@ import '../../../../../nx/blocks/form/fields/picker.js';
 import '../../../../../nx/blocks/form/fields/checkbox.js';
 import '../../../../../nx/blocks/form/fields/button.js';
 import '../../../../../nx/blocks/form/fields/number.js';
+import '../../../../../nx/blocks/form/fields/date.js';
+import { localToUtc, utcToLocal } from '../../../../../nx/blocks/form/fields/datetime-zone.js';
 
 const tick = () => new Promise((resolve) => { requestAnimationFrame(resolve); });
 
@@ -316,5 +318,99 @@ describe('form-button', () => {
     el.variant = 'accent';
     await el.updateComplete;
     expect(el.getAttribute('variant')).to.equal('accent');
+  });
+});
+
+describe('form-date (native)', () => {
+  const input = (el) => el.shadowRoot.querySelector('input');
+  const setInput = (el, v) => {
+    const i = input(el);
+    i.value = v;
+    i.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+  };
+
+  it('renders a native date input by default', async () => {
+    const el = await mount('<form-date></form-date>');
+    expect(input(el).type).to.equal('date');
+  });
+
+  it('reflects an external date value into the input', async () => {
+    const el = await mount('<form-date></form-date>');
+    el.value = '2026-08-14';
+    await el.updateComplete;
+    expect(input(el).value).to.equal('2026-08-14');
+  });
+
+  it('emits the date value on input', async () => {
+    const el = await mount('<form-date></form-date>');
+    let fired;
+    el.addEventListener('change', () => { fired = el.value; });
+    setInput(el, '2026-08-14');
+    expect(el.value).to.equal('2026-08-14');
+    expect(fired).to.equal('2026-08-14');
+  });
+
+  it('renders a native time input for type=time', async () => {
+    const el = await mount('<form-date type="time"></form-date>');
+    expect(input(el).type).to.equal('time');
+    setInput(el, '09:30');
+    expect(el.value).to.equal('09:30');
+  });
+
+  it('renders a datetime-local input for type=datetime and stores UTC', async () => {
+    const el = await mount('<form-date type="datetime"></form-date>');
+    expect(input(el).type).to.equal('datetime-local');
+    setInput(el, '2026-08-14T13:00');
+    expect(el.value).to.equal(localToUtc('2026-08-14T13:00'));
+    expect(el.value).to.match(/Z$/);
+  });
+
+  it('reflects a stored UTC datetime as local in the input', async () => {
+    const el = await mount('<form-date type="datetime"></form-date>');
+    const iso = localToUtc('2026-08-14T13:00');
+    el.value = iso;
+    await el.updateComplete;
+    expect(input(el).value).to.equal(utcToLocal(iso));
+  });
+
+  // Ancient dates carry sub-minute offsets; the widget must still emit canonical `…:00Z`.
+  it('stores a canonical minute-precision UTC value for an ancient datetime', async () => {
+    const el = await mount('<form-date type="datetime"></form-date>');
+    setInput(el, '0001-01-01T01:00');
+    expect(el.value).to.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\.000Z$/);
+  });
+
+  it('leaves the value empty for a partial or cleared entry (no fabricated value)', async () => {
+    const el = await mount('<form-date></form-date>');
+    // A partial entry gives the native input no value; we do not invent one.
+    el._onInput({ target: { value: '', validity: { badInput: true } } });
+    expect(el.value).to.equal('');
+  });
+
+  it('surfaces the SDK error when the value is invalid', async () => {
+    const el = await mount('<form-date></form-date>');
+    el.error = 'Please enter a valid date.';
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.form-field-error')?.textContent)
+      .to.equal('Please enter a valid date.');
+    expect(el.shadowRoot.querySelector('.form-field.has-error')).to.exist;
+  });
+
+  it('sets a 4-digit-year max on the date input', async () => {
+    const el = await mount('<form-date></form-date>');
+    expect(input(el).getAttribute('max')).to.equal('9999-12-31');
+    expect(input(el).getAttribute('min')).to.equal('0001-01-01');
+  });
+
+  it('sets min/max on the datetime input but not on time', async () => {
+    const dt = await mount('<form-date type="datetime"></form-date>');
+    expect(input(dt).getAttribute('max')).to.equal('9999-12-31T23:59');
+    const t = await mount('<form-date type="time"></form-date>');
+    expect(input(t).getAttribute('max')).to.equal(null);
+  });
+
+  it('honors disabled', async () => {
+    const el = await mount('<form-date disabled></form-date>');
+    expect(input(el).disabled).to.be.true;
   });
 });
