@@ -1,5 +1,7 @@
 import { HLX_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
+import { fetchDaConfigs, getFirstSheet } from '../../../../../nx2/utils/daConfig.js';
+import { isEWEnabled } from '../../../../../nx2/utils/ewFlags.js';
 import { getHasExt, formatDate } from '../../utils/utils.js';
 
 function getDate(suppliedDate) {
@@ -16,12 +18,43 @@ function splitPath(path) {
   return [org, site, ...parts];
 }
 
-export function getEditPath(path) {
+// Mirrors da-live's da-browse.js getEditor(): EW flag picks the canvas/edit
+// default, then the site's `editor.path` config rows override by longest
+// path-prefix match, so linked-page edit URLs land in the same editor browse would use.
+async function getEditorRoute({ org, site, path }) {
+  const isEW = await isEWEnabled({ org, site });
+  const defRoute = isEW ? '/canvas#' : '/edit#';
+
+  const configs = await Promise.all(fetchDaConfigs({ org, site }));
+  const rows = configs.filter(Boolean).reverse().flatMap((c) => getFirstSheet(c) || []);
+  const editorConfs = rows.reduce((acc, row) => {
+    if (row.key === 'editor.path') acc.push(row.value);
+    return acc;
+  }, []);
+
+  const matchedConfs = editorConfs.filter((conf) => path.startsWith(conf.split('=')[0]));
+  if (matchedConfs.length === 0) return defRoute;
+
+  const matchedConf = matchedConfs.sort((a, b) => b.split('=')[0].length - a.split('=')[0].length)[0];
+  return matchedConf.split('=')[1];
+}
+
+export async function getEditPath(path) {
   const hasExt = getHasExt(path);
-  const view = hasExt ? 'sheet' : 'edit';
   const indexedPath = path.endsWith('/') ? `${path}index` : path;
   const editPath = hasExt ? indexedPath.replace('.json', '') : indexedPath;
-  return `https://da.live/${view}#${editPath}`;
+
+  if (hasExt) return `https://da.live/sheet#${editPath}`;
+
+  const [, org, site] = path.split('/');
+  const route = await getEditorRoute({ org, site, path: editPath });
+
+  if (route.includes('experience.adobe.com')) {
+    return `${route}/${editPath.split('/').slice(3).join('/')}`;
+  }
+
+  const base = route.startsWith('http') ? route : `https://da.live${route}`;
+  return `${base}${editPath}`;
 }
 
 export function getAemPaths(path) {
