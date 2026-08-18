@@ -104,6 +104,8 @@ export default class AoChatController {
   async _ensureSocket() {
     if (this._ws?.readyState === WebSocket.OPEN) return;
 
+    const authFrame = await this._authFrame();
+
     await new Promise((resolve, reject) => {
       const base = AO_WS_BASE[env] ?? AO_WS_BASE.stage;
       const ws = new WebSocket(`${base}/ws/sessions/${this._episodeId ?? 'new'}`);
@@ -112,7 +114,11 @@ export default class AoChatController {
       // Guards against a stale socket if clear()/a later _ensureSocket() call replaces it.
       const isCurrent = () => this._ws === ws;
 
-      ws.addEventListener('open', () => { if (isCurrent()) resolve(); });
+      ws.addEventListener('open', () => {
+        if (!isCurrent()) return;
+        ws.send(JSON.stringify(authFrame));
+        resolve();
+      });
 
       ws.addEventListener('message', (event) => {
         if (!isCurrent()) return;
@@ -215,7 +221,6 @@ export default class AoChatController {
       const failed = uploaded.filter((a) => !a.artifactId);
 
       await this._ensureSocket();
-      this._ws.send(JSON.stringify(await this._authFrame()));
       this._ws.send(JSON.stringify({
         type: AO_FRAME.USER_INPUT,
         text: `${buildPageContextText(this._context)}${buildSelectionText(items)}${buildFailedUploadsText(failed)}${message}`,
