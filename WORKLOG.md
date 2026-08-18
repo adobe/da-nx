@@ -1,5 +1,64 @@
 # Worklog
 
+## 2026-08-14
+
+### loc translate view — hide Get status once nothing's incomplete
+
+Once every sent language is `'complete'`/`'cancelled'`, "Get status" was already a functional no-op (`getStatusAll` skips its own API call when there's nothing non-terminal left) but still showed, spun, and triggered a redundant DA save on click. Gated the button on `this.incompleteLangs` — the same predicate already driving Cancel-button visibility — so it hides once there's nothing left to check.
+
+### loc translate view — hide Cancel buttons once nothing's left to cancel
+
+`renderCancelLang`'s guard only excluded `'cancelled'` status, never `'complete'`, so a completed language's per-row Cancel button stayed visible as long as some other language in the project was still in progress. Separately, `incompleteLangs` counted a language as cancellable even with no `translation` object at all (never sent), so "Cancel project" could show with nothing actually cancellable. Extracted a single `canCancelLang(lang)` predicate (has `translation`, not `'cancelled'`, not `'complete'`) used consistently by `renderCancelLang`, `incompleteLangs`, and the `with-cancel` grid-column class, so all three can't drift out of sync with each other again.
+
+### smartling connector — switch getStatusAll to getJobProgress
+
+Replaced the file-scoped `getFileTranslationStatusAllLocales` approach (one API call per file, plus our own floor/excluded-string formula) with Smartling's job-scoped `getJobProgress` (`jobs-api/v3/.../progress`): one API call for the whole job, consuming Smartling's own precomputed `percentComplete` per locale directly instead of reimplementing their formula. Explored as an alternative specifically for the reduced call volume on larger batches (matters given the earlier rate-limit work).
+
+Trade-off: now requires `service.jobUid.value` (guarded — no-ops if missing), and `translation.translated` is no longer a per-file count (this endpoint reports one job-wide percentage per locale, not a per-file breakdown) — it's `0` or `urls.length`, so the "N of M files translated" UI column only ever shows `0` or the full count until 100%, never partial numbers. Also added a genuine efficiency win beyond parity: skips the API call entirely when every lang is already `'complete'`/`'cancelled'`, rather than fetching and discarding.
+
+Rewrote all 6 affected tests for the new endpoint/response shape, plus 2 new ones (no-jobUid skip, cancelled-guard — the latter was a gap even in the old suite, only the `'complete'` case had a dedicated test).
+
+## 2026-08-13
+
+### loc translate view — loading spinners on action buttons
+
+Added a `.nx-loading-spinner` CSS spinner (`translate.css`) and busy-state flags for every async action button in `translate.js` (Connect, Get status, Translate all, Cancel project, Copy all, per-language Cancel), disabling the button and showing the spinner while its handler is in flight. Combined the two spinner patterns already in the repo rather than adding a third: the `.nx-loading-spinner`/`da-spin` naming from `nx2/styles/buttons.css` (defined there but never actually wired to anything) with the `currentcolor` border technique from the one spinner that's actually shipping (`nx2/blocks/ew-actions/ew-actions.js`) — needed since these buttons have different text colors per variant (white on `.accent`, gray on `.primary.outline`). Per-language Cancel uses a `_cancelingLangs` Set (one row can be busy independently of others) rather than a single flag.
+
+### smartling connector — implement cancelTranslation
+
+Smartling had no `cancelTranslation` at all (the `sample` connector's stub), so `translate.js`'s `canCancel` getter (`!!connector.cancelTranslation`) was always false and the Cancel buttons never rendered for Smartling projects. Confirmed the correct endpoint against Smartling's official OpenAPI spec (github.com/Smartling/api-docs) before implementing: `DELETE /jobs-api/v3/projects/{projectId}/jobs/{translationJobUid}/locales/{targetLocaleId}` (`removeLocaleFromJob`) — not the job-level `cancelJob` endpoint, which would cancel every other language sharing the same job (`sendAllLanguages` bundles all target languages into one job). Polls `GET .../processes/{processUid}` (`getJobAsyncProcessStatus`) to completion on a 202 response (2s interval, ~60s cap before treating it as failed).
+
+Also extended `getStatusAll`'s existing "don't revert completed languages" guard to also cover `'cancelled'` — without it, the next status poll would have undone a fresh cancel the same way it was re-triggering saves for completed languages.
+
+### smartling connector — stop re-saving already-completed languages
+
+`getStatusAll` unconditionally set `lang.translation.status = 'translated'` whenever every url was 100% on Smartling's side — but Smartling keeps reporting 100% forever once done, so every subsequent "Get status" click reverted a lang's `'complete'` (set by `saveLangItemsToDa` after actually saving to DA) back to `'translated'`, which re-triggered a redundant download/save each time. Fixed by skipping langs already at `'complete'`, mirroring a guard GLaaS already has (`determineStatus`'s "Respect existing final statuses"). Trados has the identical bug in its own `getStatusAll` — deferred, not fixed here.
+
+### smartling connector — surface connector errors, fix translate.js message clobbering
+
+`createJob`/`createBatch`/`uploadFiles` now parse Smartling's documented error envelope (`response.errors[].message`) and call `sendMessage({ type: 'error' })` on failure instead of silently returning `null` (matches Trados's existing pattern) — found via a live 400 (language mismatch) that went unsurfaced.
+
+Found via that same live test: the error still didn't render. `translate.js`'s `handleSendAll` unconditionally calls `checkAndSaveLangs` right after the connector call, which immediately overwrites/clears the message before it can be seen — a pre-existing bug affecting every connector's error messages, not just Smartling's. Fixed by skipping `checkAndSaveLangs` when the last message set was type `error`.
+
+### smartling connector — session-expiry recovery, stale-token fix
+
+Refresh now falls back to a full re-authenticate when it fails (Smartling sessions cap at 12h regardless of refresh count, so long jobs eventually hit a dead refresh token). Tracks the API's real `expiresIn` instead of a hardcoded interval. `saveItems` no longer reuses a token snapshot taken before its download batch started.
+
+## 2026-08-12
+
+### smartling connector — status polling, auto-authorize, service-mutation bug
+
+- Status polling switched to Smartling's recommended `getFileTranslationStatusAllLocales` (no `jobUid` needed) with its documented progress formula; reports the real percentage instead of a fabricated label.
+- `getStatusAll` reports Smartling's actual current workflow-step name instead of leaving a stale `sendAllLanguages` status in place.
+- Added `translation.service.{env}.autoAuthorize` site config to auto-authorize a batch instead of requiring manual authorization in Smartling's dashboard.
+- Fixed `setupService` copying (not mutating) `options.service` — dropped connector-written state like `jobUid` within the same session. Affects every connector, not just Smartling.
+
+## 2026-08-11
+
+### smartling connector — retry on 429/5xx
+
+Added shared `nx/blocks/loc/utils/fetchWithRetry.js` (exponential backoff + jitter, honors `Retry-After`) and wired every Smartling fetch through it — `getStatusAll`'s polling and `saveItems`'s 5-concurrent downloads could both trip Smartling's rate limits with no retry. Meant to replace Lionbridge's inline copy of the same logic once #656 lands.
+
 ## 2026-08-07
 
 ### nx2/utils/api.js — remove stage-content.da.live rewrite workaround
