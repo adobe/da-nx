@@ -24,6 +24,7 @@ import { buildAttachmentItems } from '../shared/chat/files.js';
 import { renderMarkdown } from './utils/markdown.js';
 import { renderCopyButton } from '../shared/chat/copy-button.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
+import { createSlashMenu } from '../shared/chat/slash-menu.js';
 import '../shared/pills/pills.js';
 import '../shared/menu/menu.js';
 import '../shared/popover/popover.js';
@@ -53,6 +54,8 @@ export default class NxChatAo extends LitElement {
     _dragging: { state: true },
     _prompts: { state: true },
   };
+
+  _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
 
   set context(value) {
     this._explicitContext = true;
@@ -141,6 +144,7 @@ export default class NxChatAo extends LitElement {
     });
     if (this._context) this._controller.setContext(this._context);
     this._controller.loadEpisodes();
+    this._controller.loadSkills();
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
       onDragging: (dragging) => { this._dragging = dragging; },
@@ -167,6 +171,26 @@ export default class NxChatAo extends LitElement {
     }
   }
 
+  _getSlashItems(filter) {
+    const skills = this._controller.getSkills().map((id) => ({ id, label: id }));
+    const filtered = filter
+      ? skills.filter((item) => item.id.toLowerCase().includes(filter))
+      : skills;
+    if (!filtered.length) return [];
+    return [{ section: 'Skills' }, ...filtered];
+  }
+
+  _onSlashSelect(skillId) {
+    const { message, input } = this._slashMenu.resolveSelection(skillId);
+    const pills = this.shadowRoot.querySelector('nx-pills');
+    const items = pills?.items ?? [];
+    const attachments = items.filter((i) => i.dataBase64);
+    const context = items.filter((i) => !i.dataBase64);
+    this._controller.sendMessage(message, context, attachments);
+    input.value = '';
+    pills?.clear();
+  }
+
   _submit(e) {
     e?.preventDefault();
     if (this.thinking) {
@@ -180,12 +204,14 @@ export default class NxChatAo extends LitElement {
     const items = pills?.items ?? [];
     const attachments = items.filter((i) => i.dataBase64);
     const context = items.filter((i) => !i.dataBase64);
+    this._slashMenu.close();
     this._controller.sendMessage(text, context, attachments);
     input.value = '';
     pills?.clear();
   }
 
   _handleKeydown(e) {
+    if (this._slashMenu.onKeydown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       this._submit();
@@ -195,6 +221,7 @@ export default class NxChatAo extends LitElement {
   _handleMenuSelect({ detail: { id } }) {
     if (id === MENU_OPTIONS.FILES) this._openFilePicker();
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
+    if (id === MENU_OPTIONS.COMMAND) this._slashMenu.insertSlash();
     if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
     if (id === MENU_OPTIONS.MANAGE_SKILLS) window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
   }
@@ -286,6 +313,13 @@ export default class NxChatAo extends LitElement {
         </div>
       </div>
       <div class="chat-form-wrap">
+        <nx-menu
+          class="slash-menu"
+          .ignoreFocus=${true}
+          .scoped=${true}
+          @select=${({ detail }) => this._onSlashSelect(detail.id)}
+          @mousedown=${(e) => e.preventDefault()}
+        ></nx-menu>
         <form class="chat-form" @submit=${this._submit}
           @dragenter=${this._dnd.onDragEnter}
           @dragleave=${this._dnd.onDragLeave}
@@ -313,7 +347,9 @@ export default class NxChatAo extends LitElement {
             class="chat-input"
             placeholder="Ask anything, or type / for skills..."
             ?disabled=${this.thinking}
+            @input=${this._slashMenu.onInput}
             @keydown=${this._handleKeydown}
+            @blur=${this._slashMenu.onBlur}
           ></textarea>
           <div class="chat-actions" ?data-thinking=${this.thinking}>
             <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>

@@ -24,8 +24,7 @@ function daAgentApprovalSummary(input) {
  * again. Everything this class's onUpdate hands back is already in the neutral shapes
  * card-renderers.js/ao-renderers.js expect; AO-only actions (answerQuestion, etc.) are
  * safe to call unconditionally from chat.js since they're no-ops here when wrapping
- * da-agent's controller, which has no equivalent concept of skills-by-manifest,
- * questions, or plans.
+ * da-agent's controller, which has no equivalent concept of questions or plans.
  */
 export default class ChatBackend {
   constructor(useAgentOrchestrator, { onToolDone, onUpdate }) {
@@ -109,10 +108,6 @@ export default class ChatBackend {
   }
 
   // --- AO-only actions below: safe no-ops when wrapping da-agent's controller ---
-
-  getSkills() {
-    return this._controller.getSkills?.() ?? null;
-  }
 
   answerQuestion = (...args) => this._controller.answerQuestion?.(...args);
 

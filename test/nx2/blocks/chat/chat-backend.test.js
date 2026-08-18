@@ -106,10 +106,6 @@ describe('ChatBackend normalization — AO', () => {
 });
 
 describe('ChatBackend AO-only actions wrapping da-agent', () => {
-  it('getSkills returns null instead of throwing (da-agent has no skill list of its own)', () => {
-    expect(makeBackend(false).backend.getSkills()).to.equal(null);
-  });
-
   it('answerQuestion/declineQuestion/respondToPlanApproval are silent no-ops', () => {
     const { backend } = makeBackend(false);
     expect(() => backend.answerQuestion({ q1: ['Yes'] })).to.not.throw();
@@ -119,13 +115,6 @@ describe('ChatBackend AO-only actions wrapping da-agent', () => {
 });
 
 describe('ChatBackend AO-only actions wrapping AO', () => {
-  it('getSkills delegates to the real controller', () => {
-    const { backend } = makeBackend(true);
-    backend._controller._cachedSkills = ['writeBlog', 'summarize'];
-
-    expect(backend.getSkills()).to.deep.equal(['writeBlog', 'summarize']);
-  });
-
   it('answerQuestion delegates through to a real QUESTION_RESPONSE frame', () => {
     const { backend } = makeBackend(true);
     backend._controller._pendingQuestion = { turnId: 't1', questions: [{ id: 'q1' }] };

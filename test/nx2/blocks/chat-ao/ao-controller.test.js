@@ -6,13 +6,12 @@ function makeController() {
   const sent = [];
   const controller = new AoChatController({ onUpdate: (u) => updates.push(u) });
   controller._ensureSocket = async () => { };
-  controller._authFrame = async () => ({ type: 'AUTH' });
   controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
   return { controller, updates, sent };
 }
 
 describe('ao-controller sendMessage', () => {
-  it('sends AUTH followed by USER_INPUT, without waiting on any ready signal', async () => {
+  it('sends USER_INPUT without waiting on any ready signal', async () => {
     const { controller, updates, sent } = makeController();
 
     await controller.sendMessage('hello AO');
@@ -20,9 +19,17 @@ describe('ao-controller sendMessage', () => {
     expect(controller._messages).to.deep.equal([{ role: 'user', content: 'hello AO' }]);
     expect(updates[0].thinking).to.equal(true);
     expect(sent).to.deep.equal([
-      { type: 'AUTH' },
       { type: 'USER_INPUT', text: 'hello AO', manifestId: 'experience-workspace', debugMode: true },
     ]);
+  });
+
+  it('never sends AUTH itself — that is _ensureSocket\'s job, once per connection, not per message', async () => {
+    const { controller, sent } = makeController();
+
+    await controller.sendMessage('first');
+    await controller.sendMessage('second');
+
+    expect(sent.filter((f) => f.type === 'AUTH')).to.have.length(0);
   });
 
   it('is a no-op while a turn is already in flight', async () => {
@@ -50,7 +57,7 @@ describe('ao-controller sendMessage', () => {
         { type: 'text', innerHTML: '<p>hello <b>world</b></p>' },
       ],
     }]);
-    expect(sent[1].text).to.equal(
+    expect(sent[0].text).to.equal(
       '[Selected context]\n- Selected block: hero\n- Selected text: "hello world"\nwhat does this do?',
     );
   });
@@ -61,7 +68,7 @@ describe('ao-controller sendMessage', () => {
 
     await controller.sendMessage('what does this do?');
 
-    expect(sent[1].text).to.equal(
+    expect(sent[0].text).to.equal(
       '[Current document — org: adobe, site: da-live, path: /docs/foo]\nwhat does this do?',
     );
   });
@@ -71,7 +78,7 @@ describe('ao-controller sendMessage', () => {
 
     await controller.sendMessage('hello AO');
 
-    expect(sent[1].text).to.equal('hello AO');
+    expect(sent[0].text).to.equal('hello AO');
   });
 
   it('is a no-op for an empty message', async () => {
@@ -230,6 +237,32 @@ describe('ao-controller episodes', () => {
 
     expect(controller._episodeId).to.equal('1');
     expect(updates).to.have.length(0);
+  });
+});
+
+describe('ao-controller skills', () => {
+  it('getSkills starts out empty when nothing is cached', () => {
+    const { controller } = makeController();
+    expect(controller.getSkills()).to.deep.equal([]);
+  });
+
+  it('loadSkills refreshes the list from the API', async () => {
+    const { controller } = makeController();
+    controller._fetchSkills = async () => ['writeBlog', 'summarize'];
+
+    await controller.loadSkills();
+
+    expect(controller.getSkills()).to.deep.equal(['writeBlog', 'summarize']);
+  });
+
+  it('loadSkills leaves the current list in place on a failed fetch', async () => {
+    const { controller } = makeController();
+    controller._skills = ['writeBlog'];
+    controller._fetchSkills = async () => null;
+
+    await controller.loadSkills();
+
+    expect(controller.getSkills()).to.deep.equal(['writeBlog']);
   });
 });
 

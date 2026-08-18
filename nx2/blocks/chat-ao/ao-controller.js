@@ -18,6 +18,7 @@ import {
 import { buildSelectionText, buildFailedUploadsText, buildPageContextText } from './utils/user-context.js';
 import { uploadAttachment, getOrgId } from './utils/uploads.js';
 import { fetchEpisodes, fetchEpisodeMessages } from './utils/episodes.js';
+import { fetchSkills, loadCachedSkills } from './utils/skills.js';
 import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-helpers.js';
 
 const EPISODE_LIST_LIMIT = 10;
@@ -28,6 +29,7 @@ export default class AoChatController {
     this._messages = [];
     this._streaming = '';
     this._episodes = [];
+    this._skills = loadCachedSkills() ?? [];
   }
 
   setContext(context) {
@@ -47,6 +49,17 @@ export default class AoChatController {
   _fetchEpisodes() { return fetchEpisodes(EPISODE_LIST_LIMIT); }
 
   _fetchEpisodeMessages(episodeId) { return fetchEpisodeMessages(episodeId); }
+
+  _fetchSkills() { return fetchSkills(); }
+
+  getSkills() {
+    return this._skills;
+  }
+
+  async loadSkills() {
+    const fresh = await this._fetchSkills();
+    if (fresh) this._skills = fresh;
+  }
 
   async loadEpisodes() {
     this._episodes = await this._fetchEpisodes();

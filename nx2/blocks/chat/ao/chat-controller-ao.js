@@ -113,39 +113,6 @@ async function uploadAttachmentToAo({ fileName, mediaType, dataBase64 }) {
   }
 }
 
-const SKILLS_CACHE_PREFIX = 'da-chat-ao-skills--';
-
-function parseSkillsListResponse(json) {
-  const skills = Array.isArray(json?.skills) ? json.skills : null;
-  if (!skills) return null;
-  const ids = skills
-    .filter((s) => !s?.hidden && s?.user_invocable !== false)
-    .map((s) => s?.name)
-    .filter((s) => typeof s === 'string')
-    .map((s) => s.trim())
-    .filter((s) => /^[a-z0-9][a-z0-9_-]{1,60}$/i.test(s));
-  return ids.length ? ids : null;
-}
-
-function loadCachedSkills(room) {
-  try {
-    const raw = localStorage.getItem(`${SKILLS_CACHE_PREFIX}${room}`);
-    if (!raw) return null;
-    const skills = JSON.parse(raw);
-    return Array.isArray(skills) && skills.length ? skills : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveCachedSkills(room, skills) {
-  try {
-    localStorage.setItem(`${SKILLS_CACHE_PREFIX}${room}`, JSON.stringify(skills));
-  } catch {
-    // best-effort — localStorage can throw (quota, private mode); safe to ignore
-  }
-}
-
 /**
  * Talks to Adobe's Agent Orchestrator (AO) over its WebSocket transport (see
  * https://aep-ao.pages.adobeitc.com/api-reference/spec/) instead of da-agent.
@@ -155,9 +122,10 @@ function saveCachedSkills(room, skills) {
  * Public surface used by chat.js mirrors chat-controller.js's (connect,
  * setContext, loadInitialMessages, sendMessage, approveToolCall, clear,
  * setMcpConfig, stop, destroy) plus AO-only additions chat.js gates on
- * (getSkills, answerQuestion, declineQuestion, respondToPlanApproval) —
- * da-agent's controller has no equivalent of these, since it has no concept
- * of questions/plans.
+ * (answerQuestion, declineQuestion, respondToPlanApproval) — da-agent's
+ * controller has no equivalent of these, since it has no concept of
+ * questions/plans. Skill lookup (getSkills) moved to nx-chat-ao
+ * (chat-ao/utils/skills.js), not handled here.
  *
  * Output boundary: `_update()` only ever hands chat.js backend-neutral shapes
  * (see toToolCardDisplay/toApprovalDisplay above) — AO's own state names never
@@ -460,57 +428,12 @@ export default class ChatControllerAO {
     try {
       await this._openSocket();
       this._connected = true;
-      this._syncSkillsCache();
     } catch {
       this._connected = false;
       const delay = 1000 * 2 ** attempt;
       if (delay < 30000) this._retryTimeout = setTimeout(() => this.connect(attempt + 1), delay);
     } finally {
       this._update();
-    }
-  }
-
-  // Current best-known skill list: the once-per-episode cached/discovered answer if
-  // we have one, else empty — no static fallback list, since a hardcoded guess doesn't
-  // reflect what a manifest actually exposes and would be actively misleading to show.
-  getSkills() {
-    return this._cachedSkills ?? [];
-  }
-
-  // Real catalog lookup. Best-effort: a network error or unexpected response shape
-  // just returns null, leaving whatever's already cached (or []) in place rather than
-  // throwing or caching garbage.
-  async _fetchSkillsFromApi() {
-    const { accessToken, projectedProductContext } = await loadIms();
-    const orgId = getOrgId(projectedProductContext);
-    const base = AO_HTTP_BASE[env] ?? AO_HTTP_BASE.stage;
-    try {
-      const resp = await fetch(`${base}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`, {
-        headers: {
-          authorization: `Bearer ${accessToken?.token}`,
-          'x-tenant-id': orgId,
-        },
-      });
-      if (!resp.ok) return null;
-      return parseSkillsListResponse(await resp.json());
-    } catch {
-      return null;
-    }
-  }
-
-  // Stale-while-revalidate: shows the last-known list immediately (so the slash-menu
-  // isn't empty while this resolves), then refreshes from the real API in the
-  // background and updates both the in-memory list and localStorage once that lands.
-  // Never blocks connect() — runs fire-and-forget.
-  async _syncSkillsCache() {
-    const room = await this._getRoom();
-    const cached = loadCachedSkills(room);
-    if (cached) this._cachedSkills = cached;
-
-    const apiSkills = await this._fetchSkillsFromApi();
-    if (apiSkills) {
-      this._cachedSkills = apiSkills;
-      saveCachedSkills(room, apiSkills);
     }
   }
 
@@ -539,9 +462,6 @@ export default class ChatControllerAO {
     this._pendingQuestion = null;
     this._pendingPlanApproval = null;
     this._toolCards = new Map();
-    // _cachedSkills is deliberately left as-is — it's tied to the manifest, not the
-    // episode being cleared, so the slash-menu keeps showing it through the reconnect
-    // rather than blanking until _syncSkillsCache() re-fetches.
     this._update();
     const room = await this._getRoom();
     resetSession(room, undefined);
