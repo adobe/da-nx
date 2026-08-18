@@ -1,6 +1,6 @@
 import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
-import { daFetch } from '../../../../../nx2/utils/api.js';
+import { daFetch, source as daSource } from '../../../../../nx2/utils/api.js';
 import { DA_ETC } from '../../../../utils/utils.js';
 import {
   buildGlaasCreateMetadata,
@@ -41,8 +41,9 @@ const IMAGE_PUSH_INTERVAL_MS = 250;
 const PUT_URL_MAX_RETRIES = 4;
 const PUT_URL_RETRY_WAIT_MS = 1000;
 const PUT_URL_429_FALLBACK_DELAY_MS = Math.ceil(GLAAS_API_WINDOW_MS / 2) + 250;
-export const MEDIA_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
-export const MEDIA_IMAGE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
+// Translated images are saved as DA source files (see buildTranslatedImageSourcePath) - 20MB
+// is DA's documented /source upload ceiling, not an empirically-observed workaround.
+export const TRANSLATED_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 
 export function createPutUrlRollingLimiter({
   limitPerWindow = GLAAS_API_LIMIT_PER_MINUTE,
@@ -190,11 +191,12 @@ export function siteRelativePathFromImageUrl(imageUrl) {
   }
 }
 
-export function buildTranslatedMediaPath({ langCode, glaasName }) {
+// Deliberately path-based, not content-addressed: an image shared across pages saves a
+// separate copy per page today (dedup is left to a future job over /translated-images).
+export function buildTranslatedImageSourcePath({ langCode, glaasName }) {
   const base = ensureLeadingSlash(glaasName);
   const locale = String(langCode ?? '').replace(/^\/+|\/+$/g, '');
-  if (!locale) return base;
-  return `/${locale}${base}`;
+  return locale ? `/translated-images/${locale}${base}` : `/translated-images${base}`;
 }
 
 export function logMultimodalRequest(step, detail) {
@@ -899,33 +901,22 @@ export function formatMediaImageByteSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
 }
 
-export function checkMediaImageSize({ glaasName, mediaPath, sizeBytes, logRequest }) {
-  const exceedsDocumentedLimit = sizeBytes > MEDIA_IMAGE_MAX_BYTES;
-  const exceedsUploadLimit = sizeBytes > MEDIA_IMAGE_UPLOAD_MAX_BYTES;
+export function checkTranslatedImageSize({ glaasName, sourcePath, sizeBytes, logRequest }) {
+  const exceedsMaxBytes = sizeBytes > TRANSLATED_IMAGE_MAX_BYTES;
   const detail = {
     glaasName,
-    mediaPath,
+    sourcePath,
     sizeBytes,
     sizeFormatted: formatMediaImageByteSize(sizeBytes),
-    maxBytes: MEDIA_IMAGE_UPLOAD_MAX_BYTES,
-    maxFormatted: formatMediaImageByteSize(MEDIA_IMAGE_UPLOAD_MAX_BYTES),
-    documentedMaxBytes: MEDIA_IMAGE_MAX_BYTES,
-    documentedMaxFormatted: formatMediaImageByteSize(MEDIA_IMAGE_MAX_BYTES),
-    exceedsUploadLimit,
-    exceedsDocumentedLimit,
+    maxBytes: TRANSLATED_IMAGE_MAX_BYTES,
+    maxFormatted: formatMediaImageByteSize(TRANSLATED_IMAGE_MAX_BYTES),
+    exceedsMaxBytes,
   };
-  logMultimodalDebug(logRequest, 'media-image-size', detail);
-  if (exceedsUploadLimit) {
+  logMultimodalDebug(logRequest, 'translated-image-size', detail);
+  if (exceedsMaxBytes) {
     logMultimodalDebug(
       logRequest,
-      'Image exceeds observed Media Bus upload limit',
-      detail,
-      { level: 'warn' },
-    );
-  } else if (exceedsDocumentedLimit) {
-    logMultimodalDebug(
-      logRequest,
-      'Image exceeds documented Media Bus limit',
+      'Image exceeds DA source size limit',
       detail,
       { level: 'warn' },
     );
@@ -933,15 +924,15 @@ export function checkMediaImageSize({ glaasName, mediaPath, sizeBytes, logReques
   return detail;
 }
 
-function mediaImageSkipWarning({ glaasName, sizeFormatted, maxFormatted }) {
-  return `Skipping oversized image (keeping source URL): ${glaasName} (${sizeFormatted} exceeds ${maxFormatted} upload limit). Compress or resize the source asset.`;
+function translatedImageSkipWarning({ glaasName, sizeFormatted, maxFormatted }) {
+  return `Skipping oversized image (keeping source URL): ${glaasName} (${sizeFormatted} exceeds ${maxFormatted} limit). Compress or resize the source asset.`;
 }
 
-function skippedOversizedMediaUpload({ glaasName, sizeCheck }) {
+function skippedOversizedTranslatedImage({ glaasName, sizeCheck }) {
   return {
     skipped: true,
-    reason: 'exceeds_upload_limit',
-    warning: mediaImageSkipWarning({
+    reason: 'exceeds_size_limit',
+    warning: translatedImageSkipWarning({
       glaasName,
       sizeFormatted: sizeCheck.sizeFormatted,
       maxFormatted: sizeCheck.maxFormatted,
@@ -951,41 +942,35 @@ function skippedOversizedMediaUpload({ glaasName, sizeCheck }) {
   };
 }
 
-export async function postImageToDaMedia({
+export async function saveTranslatedImageToDaSource({
   org, site, langCode, glaasName, blob, contentType, logRequest,
 }) {
-  const mediaPath = buildTranslatedMediaPath({ langCode, glaasName });
-  const type = blobContentTypeForDaSource({ daSourcePath: mediaPath, blob, contentType });
+  const sourcePath = buildTranslatedImageSourcePath({ langCode, glaasName });
+  const type = blobContentTypeForDaSource({ daSourcePath: sourcePath, blob, contentType });
   const data = blob.type === type ? blob : new Blob([await blob.arrayBuffer()], { type });
-  const sizeCheck = checkMediaImageSize({
+  const sizeCheck = checkTranslatedImageSize({
     glaasName,
-    mediaPath,
+    sourcePath,
     sizeBytes: data.size,
     logRequest,
   });
-  if (sizeCheck.exceedsUploadLimit) {
-    return skippedOversizedMediaUpload({ glaasName, sizeCheck });
+  if (sizeCheck.exceedsMaxBytes) {
+    return skippedOversizedTranslatedImage({ glaasName, sizeCheck });
   }
-  const body = new FormData();
-  body.append('data', data, mediaPath.split('/').pop());
   try {
-    const resp = await daFetch({ url: `${DA_ADMIN}/media/${org}/${site}${mediaPath}`, opts: { method: 'POST', body } });
+    const resp = await daSource.save({
+      org, site, path: sourcePath, body: data,
+    });
     if (!resp.ok) {
-      if (resp.status === 413) {
-        return skippedOversizedMediaUpload({ glaasName, sizeCheck });
-      }
-      return { error: 'Error uploading image to media.', status: resp.status, glaasName, ...sizeCheck };
+      return { error: 'Error saving translated image to DA.', status: resp.status, glaasName, ...sizeCheck };
     }
-    const json = await resp.json();
-    const href = json?.uri ?? json?.url;
-    if (!href) return { error: 'Missing media URI in response.', status: resp.status, json };
-    return { url: href, status: resp.status };
+    return { url: `${CONTENT_DA_LIVE_ORIGIN}/${org}/${site}${sourcePath}`, status: resp.status };
   } catch {
-    return { error: 'Error uploading image to media.' };
+    return { error: 'Error saving translated image to DA.' };
   }
 }
 
-async function saveMultimodalImageToMedia({
+async function saveMultimodalTranslatedImage({
   service,
   token,
   task,
@@ -998,7 +983,7 @@ async function saveMultimodalImageToMedia({
   const downloaded = await downloadMultimodalAssetBlob(service, token, task, image.glaasName);
   if (downloaded.error) return downloaded;
 
-  const uploaded = await postImageToDaMedia({
+  const saved = await saveTranslatedImageToDaSource({
     org,
     site,
     langCode,
@@ -1007,13 +992,13 @@ async function saveMultimodalImageToMedia({
     contentType: downloaded.contentType,
     logRequest,
   });
-  if (uploaded.skipped) {
+  if (saved.skipped) {
     const detail = {
       glaasName: image.glaasName,
       contentDaLiveUrl: image.contentDaLiveUrl,
-      warning: uploaded.warning,
-      sizeFormatted: uploaded.sizeFormatted,
-      maxFormatted: uploaded.maxFormatted,
+      warning: saved.warning,
+      sizeFormatted: saved.sizeFormatted,
+      maxFormatted: saved.maxFormatted,
     };
     logMultimodalDebug(
       logRequest,
@@ -1025,13 +1010,13 @@ async function saveMultimodalImageToMedia({
       skipped: true,
       glaasName: image.glaasName,
       contentDaLiveUrl: image.contentDaLiveUrl,
-      warning: uploaded.warning,
+      warning: saved.warning,
     };
   }
-  if (uploaded.error) return uploaded;
+  if (saved.error) return saved;
 
   const sourceKey = toHref(image.contentDaLiveUrl);
-  return { sourceKey, url: uploaded.url };
+  return { sourceKey, url: saved.url };
 }
 
 export async function prepareMultimodalPageForSave({
@@ -1053,7 +1038,7 @@ export async function prepareMultimodalPageForSave({
   const { error: imageError, results: imageEntries } = await runImageQueue({
     items: pageAsset.images,
     pushIntervalMs: IMAGE_PUSH_INTERVAL_MS,
-    processItem: (image) => saveMultimodalImageToMedia({
+    processItem: (image) => saveMultimodalTranslatedImage({
       service,
       token,
       task,
