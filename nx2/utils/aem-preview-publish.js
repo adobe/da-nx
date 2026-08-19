@@ -2,8 +2,8 @@
  * Copyright 2026 Adobe. All rights reserved.
  * AEM admin preview / live (publish) flows aligned with da.live helpers.
  */
-import { HLX_ADMIN, DA_ADMIN } from './utils.js';
-import { daFetch } from './api.js';
+import { HLX_ADMIN } from './utils.js';
+import { daFetch, aem, source } from './api.js';
 
 const AEM_PERMISSION_TPL = '{"users":{"total":1,"limit":1,"offset":0,"data":[]},"data":{"total":1,"limit":1,"offset":0,"data":[{}]},":names":["users","data"],":version":3,":type":"multi-sheet"}';
 
@@ -35,10 +35,8 @@ async function getAemHrefs(fullPath) {
 }
 
 async function saveToAem(path, action) {
-  const [owner, repo, ...parts] = path.slice(1).toLowerCase().split('/');
-  const aemPath = parts.join('/');
-  const url = `${HLX_ADMIN}/${action}/${owner}/${repo}/main/${aemPath}`;
-  const resp = await daFetch({ url, opts: { method: 'POST' } });
+  const call = action === 'live' ? aem.publish : aem.preview;
+  const resp = await call(path);
   if (!resp.ok) {
     const { status } = resp;
     const authErr = [401, 403].includes(status);
@@ -128,9 +126,9 @@ export async function requestAemRole(org, site, action) {
     };
   }
 
-  const url = `${DA_ADMIN}/source/${org}/${site}/.da/aem-permission-requests.json`;
+  const path = '/.da/aem-permission-requests.json';
   let json = JSON.parse(AEM_PERMISSION_TPL);
-  const getResp = await daFetch({ url });
+  const getResp = await source.get({ org, site, path });
   if (getResp.ok) {
     try { json = await getResp.json(); } catch { /* fall back to template */ }
   }
@@ -146,9 +144,7 @@ export async function requestAemRole(org, site, action) {
   if (idx === -1) json.users.data.unshift(entry);
   else json.users.data[idx] = entry;
 
-  const formData = new FormData();
-  formData.append('data', new Blob([JSON.stringify(json)], { type: 'application/json' }));
-  const postResp = await daFetch({ url, opts: { method: 'POST', body: formData } });
+  const postResp = await source.save({ org, site, path, body: JSON.stringify(json) });
 
   if (!postResp.ok) {
     return {
