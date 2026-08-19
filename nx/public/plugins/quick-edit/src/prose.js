@@ -35,9 +35,8 @@ function updateInstrumentation(lengthDiff, offset) {
       element.setAttribute('data-initial-length', element.textContent.length);
     }
   });
-  // Blocks carry their prose position in data-block-index. An in-place edit shifts every
-  // position after it, so shift the following blocks the same way — otherwise their index
-  // goes stale (block selection breaks) until the next full SET_BODY re-index.
+  // An in-place edit shifts every prose position after it; shift the following blocks'
+  // data-block-index to match, or block selection breaks until the next SET_BODY re-index.
   if (lengthDiff) {
     document.querySelectorAll('[data-block-index]').forEach((element) => {
       const value = parseInt(element.getAttribute('data-block-index'), 10);

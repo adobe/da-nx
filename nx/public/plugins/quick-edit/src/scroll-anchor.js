@@ -1,19 +1,11 @@
-/**
- * Preserve the reader's place across a full-body reload (SET_BODY).
- *
- * A structural edit (e.g. adding a row to a block) can't be sent as an in-place
- * SET_EDITOR_STATE patch, so the parent replaces the whole document body, which
- * resets scroll to the top. We anchor to the top-most block currently in view
- * (by its stable `data-block-index`) before the swap and re-align to it after —
- * re-pinning while images/decoration reflow the page, then releasing.
- */
+// Keep scroll position across a full-body reload (SET_BODY resets it to the top):
+// anchor to the top-most visible block before the swap, re-align to it after.
 
 function indexedBlocks() {
   const scope = document.querySelector('main') || document;
   return [...scope.querySelectorAll('[data-block-index]')];
 }
 
-/** Snapshot the first block at/below the viewport top and its offset within it. */
 export function captureScrollAnchor() {
   const block = indexedBlocks().find((el) => el.getBoundingClientRect().bottom > 0);
   if (block) {
@@ -22,10 +14,8 @@ export function captureScrollAnchor() {
   return { scrollY: window.scrollY };
 }
 
-/**
- * Restore the view to a captured anchor. Re-aligns on layout changes (image loads,
- * EDS decoration) for a short window, and bails out the moment the user scrolls.
- */
+// Re-aligns to the anchor as the page reflows (images, decoration), stopping after a
+// short window or as soon as the user scrolls.
 export function restoreScrollAnchor(anchor) {
   if (!anchor || (anchor.index == null && anchor.scrollY == null)) return;
 

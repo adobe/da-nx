@@ -8,12 +8,8 @@ export function blockName(el) {
   return el?.classList?.[0] || '';
 }
 
-/**
- * Block name with its authored variant in parentheses (e.g. `hero (center)`) — the same
- * descriptor the doc editor's header row shows. The variant is read from the
- * `data-block-variant` attribute stamped from the source HTML (see restoreBlockIndices)
- * rather than from live classes, which also carry classes added by block decoration.
- */
+// Block name plus authored variant, e.g. `hero (center)`. Variant comes from
+// data-block-variant (see restoreBlockIndices), not live classes which include decoration.
 export function blockLabel(el) {
   const name = blockName(el);
   if (!name) return '';

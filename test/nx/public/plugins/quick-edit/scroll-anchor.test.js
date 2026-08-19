@@ -36,9 +36,8 @@ describe('quick-edit scroll anchor', () => {
     expect(anchor.scrollY).to.be.closeTo(300, 1);
   });
 
-  // Note: restoreScrollAnchor's realignment runs on requestAnimationFrame + ResizeObserver
-  // and real window scrolling, which are throttled/unreliable in the concurrent headless
-  // test browsers — so it's exercised in-app rather than asserted here to avoid flakiness.
+  // restoreScrollAnchor's rAF/ResizeObserver realignment is flaky in headless test
+  // browsers, so only its no-op guard is asserted here; the rest is exercised in-app.
 
   it('is a no-op for a null/empty anchor', () => {
     window.scrollTo(0, 500);

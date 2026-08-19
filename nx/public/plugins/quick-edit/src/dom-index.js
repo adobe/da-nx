@@ -51,8 +51,8 @@ export function restoreBlockIndices(sourceRoot, liveRoot = document) {
     }
     if (live) {
       live.setAttribute('data-block-index', index);
-      // Carry the authored variant (classes after the block name) from the source HTML,
-      // so labels can show it without picking up classes added by block decoration.
+      // Authored variant = classes after the block name, read from source HTML so it
+      // excludes classes added by decoration.
       const variant = [...(src.classList || [])].slice(1).join(', ');
       if (variant) live.setAttribute('data-block-variant', variant);
       else live.removeAttribute('data-block-variant');
