@@ -124,7 +124,7 @@ nx-sidebar {
 .nx-form-schema-form .nx-form-schema-hint {
   /* Match the field/group help text in the form editor (.form-field-description
      / .form-node-description): small and muted, sitting under the picker. */
-  font-size: var(--s2-body-size-xs, 12px);
+  font-size: var(--s2-component-s-regular-font-size, 12px);
   color: var(--s2-gray-700);
 }
 

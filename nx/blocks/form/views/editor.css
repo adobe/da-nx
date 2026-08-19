@@ -215,14 +215,14 @@
      distance from its control is the .form-field flex gap (--s2-spacing-75);
      match that gap here so group and input errors share the same rhythm. */
   margin: var(--s2-spacing-75) 0;
-  font-size: var(--s2-body-size-xs, 12px);
+  font-size: var(--s2-component-s-regular-font-size, 12px);
   color: var(--s2-red-900);
 }
 
 .editor-root .form-node-description {
   /* Group-level help text (object/array), shown under the title. */
   margin: var(--s2-spacing-75) 0;
-  font-size: var(--s2-body-size-xs, 12px);
+  font-size: var(--s2-component-s-regular-font-size, 12px);
   color: var(--s2-gray-700);
 }
 
