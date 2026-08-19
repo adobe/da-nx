@@ -2,8 +2,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--s2-spacing-100);
-  color: var(--s2-gray-900);
-  font-size: var(--s2-body-size-s, 14px);
+  color: var(--s2-gray-700);
+  font-size: var(--s2-component-m-regular-font-size, 14px);
   cursor: pointer;
 }
 
