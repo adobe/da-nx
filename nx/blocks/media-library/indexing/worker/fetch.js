@@ -692,12 +692,12 @@ export async function streamLog(
 
     if (!resp.ok) {
       if (resp.status === 403) {
-        const err = new Error(`403 Forbidden: ${endpoint} access denied for ${nextUrl}`);
+        const err = new Error('You need Author or higher permissions on EDS to see the latest media data. You can still browse existing media.');
         err.status = 403;
         throw err;
       }
       if (resp.status === 401) {
-        const err = new Error(`401 Unauthorized: IMS token expired for ${nextUrl}`);
+        const err = new Error('Session expired. Sign in again.');
         err.status = 401;
         throw err;
       }
