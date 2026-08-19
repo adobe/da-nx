@@ -137,6 +137,12 @@ async function copyImageToClipboard(imageUrl, org, repo, usePreviewDaLive = fals
 
   response ||= await fetch(fetchUrl);
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('You need Author or higher permissions on EDS to copy this resource. You can still browse existing media.');
+    }
+    if (response.status === 401) {
+      throw new Error('Sign in to the site using Sidekick to copy this resource.');
+    }
     throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
   }
 
@@ -231,6 +237,7 @@ export async function copyMediaToClipboard(media, org, repo, usePreviewDaLive = 
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to copy to clipboard:', error);
-    return { heading: getMessage('NOTIFY_ERROR'), message: getMessage('NOTIFY_COPY_ERROR') };
+    const message = error?.message || getMessage('NOTIFY_COPY_ERROR');
+    return { heading: getMessage('NOTIFY_ERROR'), message };
   }
 }
