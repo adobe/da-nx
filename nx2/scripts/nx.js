@@ -275,9 +275,49 @@ async function decoratePlaceholders(area, isDoc) {
   }
 }
 
+function rumWC(sampleRUM) {
+  const wcs = document.querySelectorAll('[data-rum]');
+  wcs.forEach((wc) => {
+    wc.shadowRoot.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const sourceEl = e.target.closest('a, button');
+      const source = sourceEl?.title || sourceEl?.href || sourceEl?.dataset.action;
+      if (!sampleRUM.targetselector) return;
+      const target = sampleRUM.targetselector(e.target);
+      sampleRUM('click', { source, target });
+    });
+  });
+}
+
+function loadRum() {
+  import('../deps/rum.js').then(({ sampleRUM }) => {
+    sampleRUM();
+    window.setTimeout(() => {
+      rumWC(sampleRUM);
+    }, 3000);
+  });
+}
+
 function loadSession() {
   sessionStorage.setItem('session', true);
   document.body.classList.add('session');
+}
+
+// Load the header after the LCP section. Returns true when no further
+// sections should be loaded (parity with the original early returns).
+function loadHeader(isSession) {
+  const header = document.querySelector('nx-nav');
+  if (!header) return true;
+  import('../blocks/nav/nav.js');
+  const appFrame = document.body.classList.contains('app-frame');
+  if (!appFrame) return true;
+  const sidenav = document.querySelector('nx-sidenav');
+  if (sidenav) import('../blocks/sidenav/sidenav.js');
+
+  if (!isSession) loadSession();
+  import('../utils/favicon.js');
+  import('../utils/org-check.js');
+  return false;
 }
 
 async function decorateDoc() {
@@ -314,20 +354,9 @@ export async function loadArea({ area } = { area: document }) {
     await Promise.all(section.linkBlocks.map((block) => loadBlock(block)));
     await Promise.all(section.blocks.map((block) => loadBlock(block)));
     delete section.dataset.status;
-    if (isDoc && idx === 0) {
-      const header = document.querySelector('nx-nav');
-      if (!header) return;
-      import('../blocks/nav/nav.js');
-      const appFrame = document.body.classList.contains('app-frame');
-      if (!appFrame) return;
-      const sidenav = document.querySelector('nx-sidenav');
-      if (sidenav) import('../blocks/sidenav/sidenav.js');
-
-      if (!isSession) loadSession();
-      import('../utils/favicon.js');
-      import('../utils/org-check.js');
-    }
+    if (isDoc && idx === 0 && loadHeader(isSession)) break;
   }
+  if (isDoc) loadRum();
 }
 
 const cache = {};
