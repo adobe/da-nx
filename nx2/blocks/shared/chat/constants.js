@@ -4,6 +4,7 @@ export const MENU_OPTIONS = {
   PROMPT: 'prompt',
   COMMAND: 'command',
   FILES: 'files',
+  FIGMA: 'figma',
   MANAGE_SKILLS: 'skills',
   MANAGE_PROMPT: 'prompts',
 };
@@ -11,6 +12,7 @@ export const MENU_OPTIONS = {
 export const ADD_MENU_ITEMS = [
   { section: 'Add' },
   { id: MENU_OPTIONS.FILES, label: 'Files or images', icon: 'link' },
+  { id: MENU_OPTIONS.FIGMA, label: 'Upload .fig file', icon: 'link' },
   { id: MENU_OPTIONS.PROMPT, label: 'Prompt', icon: 'commentremove' },
   { id: MENU_OPTIONS.COMMAND, label: '"/" Command', icon: 'prompt' },
   { divider: true },

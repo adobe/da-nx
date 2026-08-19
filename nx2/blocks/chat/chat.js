@@ -288,6 +288,7 @@ class NxChat extends LitElement {
 
   _handleMenuSelect({ detail: { id } }) {
     if (id === MENU_OPTIONS.FILES) this._openFilePicker();
+    if (id === MENU_OPTIONS.FIGMA) this._openFigPicker();
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._slashMenu.insertSlash();
     if (id === MENU_OPTIONS.MANAGE_PROMPT || id === MENU_OPTIONS.MANAGE_SKILLS) {
@@ -303,6 +304,13 @@ class NxChat extends LitElement {
 
   _openFilePicker() {
     this.shadowRoot.querySelector('.chat-file-input')?.click();
+  }
+
+  // "Upload .fig file": open a picker filtered to .fig. The file attaches like
+  // any other (as a `file` item with dataBase64); the agent + the
+  // figma-to-landing-page skill decide what to do with it.
+  _openFigPicker() {
+    this.shadowRoot.querySelector('.chat-fig-input')?.click();
   }
 
   async _onFilesSelected(fileList) {
@@ -399,6 +407,13 @@ class NxChat extends LitElement {
           type="file"
           accept="image/*,text/markdown,.md,application/pdf,.pdf"
           multiple
+          hidden
+          @change=${this._onFileInputChange}
+        />
+        <input
+          class="chat-fig-input"
+          type="file"
+          accept=".fig"
           hidden
           @change=${this._onFileInputChange}
         />
