@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-08-19
+
+### nx2 chat — remove EMA/Experience Catalyst; `.fig` upload → normal agent path
+
+- Removed the client-side figma→Catalyst feature end-to-end: deleted `catalyst/catalyst-client.js` (the `excat-stage.adobe.io` client), and stripped its UI/wiring from `chat.js` (migration panel, progress/log, in-chat Q&A, notification inbox, resume/cancel) and `chat-controller-ao.js` (`appendMessage`/`refreshMessages`/`setBackgroundNote`).
+- Dropped the client-side trigger (no more `figma.com`/`_figmaPending` routing). A `.fig` now flows through the normal `sendMessage` path as an ordinary attachment.
+- `+` menu item "Figma design" → **"Upload .fig file"**: opens a `.fig`-filtered picker (`.chat-fig-input`) and attaches like any file. The agent + an AO personal skill decide what to do (send the `.fig` to the parser Worker), instead of hardcoded routing.
+
 ## 2026-07-14
 
 ### nx2/styles/styles.css — pin to light mode
