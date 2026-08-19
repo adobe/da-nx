@@ -363,8 +363,9 @@
 
 .chat-loading {
   display: flex;
+  flex: 1;
+  align-items: center;
   justify-content: center;
-  padding: var(--s2-spacing-400) 0;
 }
 
 .chat-thinking {
