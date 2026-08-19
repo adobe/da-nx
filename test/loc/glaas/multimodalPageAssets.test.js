@@ -14,6 +14,7 @@ import {
   getPutUrlForFile,
   resetPutUrlRateLimitGateForTests,
   isV2AssetReady,
+  uploadMultimodalPageAssets,
   v2AssetStatusFromProbe,
 } from '../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
 
@@ -311,7 +312,7 @@ describe('GLaaS multimodal pageAssets', () => {
 });
 
 describe('GLaaS multimodal TEXT asset metadata', () => {
-  it('includes langMetadata and languageContext on TEXT assets (v1.2 parity)', () => {
+  it('does not include langMetadata or languageContext on TEXT assets (carried via assetMetadataUrl instead)', () => {
     const asset = buildMultimodalTextAsset({
       pagePath: '/drafts/demo/page.html',
       signedUrl: 'https://put.example/html',
@@ -333,25 +334,126 @@ describe('GLaaS multimodal TEXT asset metadata', () => {
       signedUrl: 'https://put.example/html',
       targetLocales: ['de', 'fr'],
       sourcePreviewUrlPage: 'https://main--site--org.aem.page/drafts/demo/page',
-      langMetadata: {
-        de: { 'keywords|block_1_title': 'keyword de' },
-      },
-      languageContext: {
-        de: {
-          keywords: [{ sourceKeyword: 'gif file', targetKeywords: [{ keyword: 'GIF-Datei' }] }],
-        },
-      },
     });
   });
 
-  it('omits empty langMetadata and languageContext', () => {
+  it('includes assetMetadataUrl when provided (GLaaS v2 requires it as its own file)', () => {
+    const asset = buildMultimodalTextAsset({
+      pagePath: '/drafts/demo/page.html',
+      signedUrl: 'https://put.example/html',
+      targetLocales: ['de'],
+      assetMetadataUrl: 'https://put.example/metadata',
+    });
+    expect(asset.assetMetadataUrl).to.equal('https://put.example/metadata');
+  });
+
+  it('omits assetMetadataUrl when not provided', () => {
     const asset = buildMultimodalTextAsset({
       pagePath: '/drafts/demo/page.html',
       signedUrl: 'https://put.example/html',
       targetLocales: ['de'],
     });
-    expect(asset.langMetadata).to.equal(undefined);
-    expect(asset.languageContext).to.equal(undefined);
+    expect(asset).to.not.have.property('assetMetadataUrl');
+  });
+});
+
+describe('GLaaS multimodal uploadMultimodalPageAssets', () => {
+  beforeEach(() => {
+    resetPutUrlRateLimitGateForTests();
+  });
+
+  afterEach(() => {
+    sinon.restore();
+    resetPutUrlRateLimitGateForTests();
+  });
+
+  it('uploads a metadata file and sets assetMetadataUrl on the TEXT asset', async () => {
+    // Mirrors putUrlAssetName() in multimodalApi.js: leading slash stripped, '/' -> '-'.
+    const putUrls = {
+      'drafts-demo-page.html': 'https://put.example/html',
+      'drafts-demo-page.metadata.json': 'https://put.example/metadata',
+    };
+    const putBodies = [];
+    sinon.stub(window, 'fetch').callsFake((url, opts) => {
+      if (typeof url === 'string' && url.includes('/getPutURLForFile/')) {
+        const wireName = url.split('/getPutURLForFile/')[1];
+        return Promise.resolve(new Response(
+          JSON.stringify({ putURL: putUrls[wireName] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ));
+      }
+      // PUT to a signed URL (html or metadata upload)
+      putBodies.push({ url, body: opts.body });
+      return Promise.resolve(new Response(null, { status: 200 }));
+    });
+
+    const result = await uploadMultimodalPageAssets({
+      origin: 'https://glaas.example',
+      clientid: 'client',
+      token: 'token',
+      htmlAssetName: '/drafts/demo/page.html',
+      htmlContent: '<p>hello</p>',
+      targetLocales: ['de'],
+    });
+
+    expect(result.error).to.equal(undefined);
+    expect(result.assets).to.have.length(1);
+    expect(result.assets[0].type).to.equal('TEXT');
+    expect(result.assets[0].signedUrl).to.equal('https://put.example/html');
+    expect(result.assets[0].assetMetadataUrl).to.equal('https://put.example/metadata');
+
+    const metadataPut = putBodies.find((call) => call.url === 'https://put.example/metadata');
+    expect(metadataPut).to.exist;
+    const metadataBody = JSON.parse(metadataPut.body);
+    expect(metadataBody.assetName).to.equal('/drafts/demo/page.html');
+    expect(metadataBody.assetType).to.equal('SOURCE');
+    expect(metadataBody.targetLocales).to.deep.equal(['de']);
+    expect(metadataBody).to.not.have.property('langMetadata');
+    expect(metadataBody).to.not.have.property('languageContext');
+  });
+
+  it('includes langMetadata and languageContext in the metadata file when provided (v1.2 parity)', async () => {
+    // Mirrors putUrlAssetName() in multimodalApi.js: leading slash stripped, '/' -> '-'.
+    const putUrls = {
+      'drafts-demo-page': 'https://put.example/html',
+      'drafts-demo-page.metadata.json': 'https://put.example/metadata',
+    };
+    const putBodies = [];
+    sinon.stub(window, 'fetch').callsFake((url, opts) => {
+      if (typeof url === 'string' && url.includes('/getPutURLForFile/')) {
+        const wireName = url.split('/getPutURLForFile/')[1];
+        return Promise.resolve(new Response(
+          JSON.stringify({ putURL: putUrls[wireName] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ));
+      }
+      putBodies.push({ url, body: opts.body });
+      return Promise.resolve(new Response(null, { status: 200 }));
+    });
+
+    await uploadMultimodalPageAssets({
+      origin: 'https://glaas.example',
+      clientid: 'client',
+      token: 'token',
+      htmlAssetName: '/drafts/demo/page',
+      htmlContent: '<p>hello</p>',
+      targetLocales: ['de', 'fr'],
+      translationMetadata: { de: { 'keywords|block_1_title': 'keyword de' } },
+      languageContext: { de: { keywords: [] } },
+    });
+
+    // No .html extension on the source asset, so the metadata asset name is simply suffixed.
+    const metadataPut = putBodies.find((call) => call.url === 'https://put.example/metadata');
+    expect(metadataPut).to.exist;
+    const metadataBody = JSON.parse(metadataPut.body);
+    expect(metadataBody).to.deep.equal({
+      assetName: '/drafts/demo/page',
+      metadata: {},
+      assetType: 'SOURCE',
+      targetLocales: ['de', 'fr'],
+      langMetadata: { de: { 'keywords|block_1_title': 'keyword de' } },
+      languageContext: { de: { keywords: [] } },
+    });
   });
 });
 
