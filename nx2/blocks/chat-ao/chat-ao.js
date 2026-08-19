@@ -313,12 +313,12 @@ export default class NxChatAo extends LitElement {
             <div class="chat-loading"><span class="nx-loading-spinner"></span></div>
           ` : html`
             ${!this.messages?.length && !this.thinking
-        ? html`<nx-new-chat
+          ? html`<nx-new-chat
               .prompts=${prompts}
               .onSend=${(p) => this._sendPrompt(p)}
               @nx-show-prompts=${this._openPrompts}
             ></nx-new-chat>`
-        : nothing}
+          : nothing}
             ${this.messages?.map((msg) => (msg.role === 'assistant' ? html`
               <div class="message message-assistant">
                 <div class="message-content">${renderMarkdown(msg.content)}</div>
@@ -331,7 +331,7 @@ export default class NxChatAo extends LitElement {
               </div>
             `))}
             ${this.thinking && !this.messages?.at(-1)?.streaming
-        ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
+          ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
           `}
         </div>
       </div>
@@ -387,11 +387,11 @@ export default class NxChatAo extends LitElement {
               </button>
             </nx-menu>
             <button
-              class="chat-stop nx-btn-primary nx-btn-sm"
+              class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
               ?hidden=${!this.thinking}
               @click=${this._submit}
             > ${icon('stop')}</button>
-            <button type="submit" class="chat-send nx-btn-primary nx-btn-sm" ?hidden=${this.thinking} aria-label="Send">
+            <button type="submit" class="chat-send nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.thinking} aria-label="Send">
               ${icon('send')}
             </button>
           </div>

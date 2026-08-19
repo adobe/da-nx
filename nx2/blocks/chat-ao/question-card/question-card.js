@@ -228,8 +228,8 @@ class NxQuestionCard extends LitElement {
         `;
     })}
         <div class="question-actions">
-          <button type="button" class="nx-action-btn nx-btn-sm" @click=${this._decline}>Skip</button>
-          <button type="submit" class="nx-btn-primary nx-btn-sm" ?disabled=${!this._canSubmit}>Submit</button>
+          <button type="button" class="nx-action-btn nx-btn-sm" @click=${this._decline}>Skip<kbd>Esc</kbd></button>
+          <button type="submit" class="nx-btn-primary nx-btn-sm" ?disabled=${!this._canSubmit}>Submit<kbd>↵</kbd></button>
         </div>
       </form>
     `;

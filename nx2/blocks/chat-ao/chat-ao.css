@@ -322,7 +322,7 @@
     display: flex;
   }
 
-  .nx-btn-primary.nx-btn-sm  {
+  .nx-action-btn-icon.nx-btn-sm  {
     padding: var(--s2-spacing-75);
     border-radius: 20px;
   }
