@@ -238,6 +238,33 @@ describe('ao-controller episodes', () => {
     expect(controller._episodeId).to.equal('1');
     expect(updates).to.have.length(0);
   });
+
+  it('patches the matching episode title on EPISODE_TITLE_UPDATED', () => {
+    const { controller, updates } = makeController();
+    controller._episodes = [{ id: '1', title: null }, { id: '2', title: 'Other episode' }];
+
+    controller._handleServerEvent({
+      type: 'episode_title_updated',
+      data: { episode_id: '1', title: 'Generated title' },
+    });
+
+    expect(updates.at(-1).episodes).to.deep.equal([
+      { id: '1', title: 'Generated title' },
+      { id: '2', title: 'Other episode' },
+    ]);
+  });
+
+  it('leaves other episodes untouched when one title updates', () => {
+    const { controller, updates } = makeController();
+    controller._episodes = [{ id: '1', title: null }];
+
+    controller._handleServerEvent({
+      type: 'episode_title_updated',
+      data: { episode_id: 'unknown-id', title: 'Generated title' },
+    });
+
+    expect(updates.at(-1).episodes).to.deep.equal([{ id: '1', title: null }]);
+  });
 });
 
 describe('ao-controller skills', () => {

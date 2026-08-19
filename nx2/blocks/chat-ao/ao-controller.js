@@ -11,7 +11,6 @@
  */
 
 import { loadIms } from '../../utils/ims.js';
-import { env } from '../../scripts/nx.js';
 import {
   AO_WS_BASE, AO_FRAME, AO_EVENT, AO_MANIFEST_ID,
 } from './ao-constants.js';
@@ -120,7 +119,7 @@ export default class AoChatController {
     const authFrame = await this._authFrame();
 
     await new Promise((resolve, reject) => {
-      const base = AO_WS_BASE[env] ?? AO_WS_BASE.stage;
+      const base = AO_WS_BASE;
       const ws = new WebSocket(`${base}/ws/sessions/${this._episodeId ?? 'new'}`);
       this._ws = ws;
 
@@ -188,6 +187,13 @@ export default class AoChatController {
 
     if (evt.type === AO_EVENT.TURN_COMPLETED || evt.type === AO_EVENT.TURN_ABORTED) {
       this._done();
+      return;
+    }
+
+    if (evt.type === AO_EVENT.EPISODE_TITLE_UPDATED) {
+      const { episode_id: episodeId, title } = evt.data ?? {};
+      this._episodes = this._episodes.map((ep) => (ep.id === episodeId ? { ...ep, title } : ep));
+      this._update();
       return;
     }
 

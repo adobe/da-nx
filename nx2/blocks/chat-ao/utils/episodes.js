@@ -1,5 +1,4 @@
 import { loadIms } from '../../../utils/ims.js';
-import { env } from '../../../scripts/nx.js';
 import { AO_HTTP_BASE } from '../ao-constants.js';
 import { getOrgId } from './uploads.js';
 
@@ -15,8 +14,7 @@ async function authHeaders() {
 // just pull the recent list. Most-recent-first, per AO's own ordering.
 export async function fetchEpisodes(limit) {
   try {
-    const base = AO_HTTP_BASE[env] ?? AO_HTTP_BASE.stage;
-    const resp = await fetch(`${base}/api/v1/episodes?limit=${limit}`, { headers: await authHeaders() });
+    const resp = await fetch(`${AO_HTTP_BASE}/api/v1/episodes?limit=${limit}`, { headers: await authHeaders() });
     if (!resp.ok) return [];
     const { episodes } = await resp.json();
     return episodes ?? [];
@@ -37,8 +35,7 @@ function turnsToMessages(turns) {
 // root_only drops sub-agent turns — chat history only cares about the main thread.
 export async function fetchEpisodeMessages(episodeId) {
   try {
-    const base = AO_HTTP_BASE[env] ?? AO_HTTP_BASE.stage;
-    const resp = await fetch(`${base}/api/v1/episodes/${episodeId}/turns?root_only=true`, {
+    const resp = await fetch(`${AO_HTTP_BASE}/api/v1/episodes/${episodeId}/turns?root_only=true`, {
       headers: await authHeaders(),
     });
     if (!resp.ok) return [];

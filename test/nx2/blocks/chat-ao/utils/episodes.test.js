@@ -9,8 +9,6 @@ import { AO_HTTP_BASE } from '../../../../../nx2/blocks/chat-ao/ao-constants.js'
 const imsPath = '../../../../../nx2/utils/ims.js';
 const { resetMockIms } = await import(imsPath);
 
-const BASE = AO_HTTP_BASE.stage;
-
 let calls;
 let origFetch;
 
@@ -47,7 +45,7 @@ describe('episodes.js', () => {
 
       await fetchEpisodes(10);
 
-      expect(lastCall().url).to.equal(`${BASE}/api/v1/episodes?limit=10`);
+      expect(lastCall().url).to.equal(`${AO_HTTP_BASE}/api/v1/episodes?limit=10`);
       expect(lastCall().headers.authorization).to.equal('Bearer test-token');
     });
 
@@ -90,7 +88,7 @@ describe('episodes.js', () => {
 
       await fetchEpisodeMessages('ep-1');
 
-      expect(lastCall().url).to.equal(`${BASE}/api/v1/episodes/ep-1/turns?root_only=true`);
+      expect(lastCall().url).to.equal(`${AO_HTTP_BASE}/api/v1/episodes/ep-1/turns?root_only=true`);
     });
 
     it('converts turns into user/assistant messages', async () => {

@@ -10,7 +10,6 @@ const imsPath = '../../../../../nx2/utils/ims.js';
 const { resetMockIms } = await import(imsPath);
 
 const CACHE_KEY = 'da-chat-ao-skills--experience-workspace';
-const BASE = AO_HTTP_BASE.stage;
 
 describe('loadCachedSkills', () => {
   afterEach(() => localStorage.removeItem(CACHE_KEY));
@@ -71,7 +70,7 @@ describe('fetchSkills', () => {
 
     await fetchSkills();
 
-    expect(lastCall().url).to.equal(`${BASE}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`);
+    expect(lastCall().url).to.equal(`${AO_HTTP_BASE}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`);
     expect(lastCall().headers.authorization).to.equal('Bearer test-token');
   });
 

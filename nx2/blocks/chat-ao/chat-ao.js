@@ -111,7 +111,18 @@ export default class NxChatAo extends LitElement {
   }
 
   _episodeLabel(episode) {
-    return episode.title || new Date(episode.updated_at).toLocaleString();
+    if (episode.title) return episode.title;
+    if (episode.id === this.episodeId) {
+      const firstUserMessage = this.messages?.find((msg) => msg.role === 'user')?.content;
+      if (firstUserMessage) return firstUserMessage;
+    }
+    return new Date(episode.updated_at).toLocaleString();
+  }
+
+  _sessionFallbackLabel() {
+    const active = this.episodes?.find((ep) => ep.id === this.episodeId);
+    if (active?.title) return '';
+    return this.messages?.find((msg) => msg.role === 'user')?.content ?? 'New session';
   }
 
   _handleNewSession() {
@@ -273,6 +284,7 @@ export default class NxChatAo extends LitElement {
             class="session-picker"
             .items=${this.episodes.map((ep) => ({ value: ep.id, label: this._episodeLabel(ep) }))}
             .value=${this.episodeId}
+            .labelOverride=${this._sessionFallbackLabel()}
             placement="below"
             @change=${this._handleEpisodeChange}
           ></nx-picker>` : nothing}

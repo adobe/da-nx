@@ -1,5 +1,4 @@
 import { loadIms } from '../../../utils/ims.js';
-import { env } from '../../../scripts/nx.js';
 import { AO_HTTP_BASE, AO_MANIFEST_ID } from '../ao-constants.js';
 import { getOrgId } from './uploads.js';
 
@@ -41,8 +40,7 @@ function saveCachedSkills(skills) {
 export async function fetchSkills() {
   try {
     const { accessToken, projectedProductContext } = await loadIms();
-    const base = AO_HTTP_BASE[env] ?? AO_HTTP_BASE.stage;
-    const resp = await fetch(`${base}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`, {
+    const resp = await fetch(`${AO_HTTP_BASE}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`, {
       headers: {
         authorization: `Bearer ${accessToken?.token}`,
         'x-tenant-id': getOrgId(projectedProductContext),

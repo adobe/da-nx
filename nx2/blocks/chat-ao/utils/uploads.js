@@ -1,5 +1,4 @@
 import { loadIms } from '../../../utils/ims.js';
-import { env } from '../../../scripts/nx.js';
 import { AO_HTTP_BASE } from '../ao-constants.js';
 
 export function getOrgId(projectedProductContext) {
@@ -15,13 +14,12 @@ function base64ToBlob(base64, mediaType) {
 export async function uploadAttachment({ fileName, mediaType, dataBase64 }) {
   try {
     const { accessToken, projectedProductContext } = await loadIms();
-    const base = AO_HTTP_BASE[env] ?? AO_HTTP_BASE.stage;
     const headers = {
       authorization: `Bearer ${accessToken?.token}`,
       'x-tenant-id': getOrgId(projectedProductContext),
     };
 
-    const initiate = await fetch(`${base}/api/v1/files/upload`, {
+    const initiate = await fetch(`${AO_HTTP_BASE}/api/v1/files/upload`, {
       method: 'POST',
       headers: { ...headers, 'content-type': 'application/json' },
       body: JSON.stringify({ filename: fileName, content_type: mediaType, scope: 'user' }),
@@ -37,7 +35,7 @@ export async function uploadAttachment({ fileName, mediaType, dataBase64 }) {
     });
     if (!put.ok) return null;
 
-    const finalize = await fetch(`${base}/api/v1/files/${fileId}/finalize`, { method: 'POST', headers });
+    const finalize = await fetch(`${AO_HTTP_BASE}/api/v1/files/${fileId}/finalize`, { method: 'POST', headers });
     if (!finalize.ok) return null;
     const { artifact_id: artifactId } = await finalize.json();
     return artifactId ?? null;

@@ -10,17 +10,9 @@
  * governing permissions and limitations under the License.
  */
 
-const AO_REGION = 'va7';
+export const AO_WS_BASE = 'wss://agent-orchestrator-prod-va7.adobe.io';
 
-export const AO_WS_BASE = {
-  prod: `wss://agent-orchestrator-prod-${AO_REGION}.adobe.io`,
-  stage: `wss://agent-orchestrator-stage-${AO_REGION}.adobe.io`,
-};
-
-export const AO_HTTP_BASE = {
-  prod: `https://agent-orchestrator-prod-${AO_REGION}.adobe.io`,
-  stage: `https://agent-orchestrator-stage-${AO_REGION}.adobe.io`,
-};
+export const AO_HTTP_BASE = 'https://agent-orchestrator-prod-va7.adobe.io';
 
 export const AO_MANIFEST_ID = 'experience-workspace';
 
@@ -60,4 +52,5 @@ export const AO_EVENT = {
   TURN_ABORTED: 'turn_aborted',
   ERROR_CONNECTION: 'ERROR',
   ERROR_SESSION: 'error',
+  EPISODE_TITLE_UPDATED: 'episode_title_updated',
 };
