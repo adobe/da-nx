@@ -101,8 +101,8 @@
 }
 
 .editor-root .form-array-item-simple-label {
-  color: var(--s2-gray-800);
-  font-size: 14px;
+  color: var(--s2-gray-700);
+  font-size: var(--s2-component-s-regular-font-size, 12px);
   line-height: 1;
   margin: 0 0 6px;
 }
