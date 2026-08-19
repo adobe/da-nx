@@ -45,3 +45,21 @@ export async function fetchEpisodeMessages(episodeId) {
     return [];
   }
 }
+
+export async function fetchEpisodeContext(episodeId) {
+  try {
+    const resp = await fetch(`${AO_HTTP_BASE}/api/v1/episodes/${episodeId}/context`, {
+      headers: await authHeaders(),
+    });
+    if (!resp.ok) return null;
+    const { suspendedTurn } = await resp.json();
+    if (!suspendedTurn?.questionData) return null;
+    return {
+      turnId: suspendedTurn.turnId,
+      context: suspendedTurn.questionData.context ?? null,
+      questions: suspendedTurn.questionData.questions ?? [],
+    };
+  } catch {
+    return null;
+  }
+}

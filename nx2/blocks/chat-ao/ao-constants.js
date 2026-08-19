@@ -42,6 +42,8 @@ export const AO_FRAME = {
   AUTH: 'AUTH',
   USER_INPUT: 'USER_INPUT',
   INTERRUPT: 'INTERRUPT',
+  QUESTION_RESPONSE: 'QUESTION_RESPONSE',
+  RESUME: 'RESUME',
 };
 
 export const AO_EVENT = {
@@ -53,4 +55,5 @@ export const AO_EVENT = {
   ERROR_CONNECTION: 'ERROR',
   ERROR_SESSION: 'error',
   EPISODE_TITLE_UPDATED: 'episode_title_updated',
+  USER_QUESTION: 'user_question',
 };

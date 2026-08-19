@@ -1,11 +1,9 @@
 import { expect } from '@esm-bundle/chai';
-import { fetchEpisodes, fetchEpisodeMessages } from '../../../../../nx2/blocks/chat-ao/utils/episodes.js';
+import {
+  fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext,
+} from '../../../../../nx2/blocks/chat-ao/utils/episodes.js';
 import { AO_HTTP_BASE } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
 
-// Dynamic-expression import (not a literal string) so @web/dev-server-import-maps
-// does not rewrite this to ...?wds-import-map=0. The same mock URL is reached at
-// runtime via the inline importmap when episodes.js's static import of ims.js
-// resolves, so both this test and episodes.js receive the *same* mock module instance.
 const imsPath = '../../../../../nx2/utils/ims.js';
 const { resetMockIms } = await import(imsPath);
 
@@ -124,6 +122,72 @@ describe('episodes.js', () => {
       window.fetch = async () => { throw new Error('network down'); };
 
       expect(await fetchEpisodeMessages('ep-1')).to.deep.equal([]);
+    });
+  });
+
+  describe('fetchEpisodeContext', () => {
+    it('requests the episode context endpoint', async () => {
+      restoreFetch();
+      installFetch({ body: JSON.stringify({ suspendedTurn: null }) });
+
+      await fetchEpisodeContext('ep-1');
+
+      expect(lastCall().url).to.equal(`${AO_HTTP_BASE}/api/v1/episodes/ep-1/context`);
+    });
+
+    it('returns null when there is no suspended turn', async () => {
+      restoreFetch();
+      installFetch({ body: JSON.stringify({ suspendedTurn: null }) });
+
+      expect(await fetchEpisodeContext('ep-1')).to.equal(null);
+    });
+
+    it('returns null when the suspended turn is not a question (e.g. a plan approval)', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({
+          suspendedTurn: { turnId: 't1', suspendReason: 'plan_approval', planData: {} },
+        }),
+      });
+
+      expect(await fetchEpisodeContext('ep-1')).to.equal(null);
+    });
+
+    it('extracts turnId/context/questions from a question-suspended turn', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({
+          suspendedTurn: {
+            turnId: 't1',
+            suspendReason: 'user_question',
+            questionData: {
+              context: 'Please confirm.',
+              questions: [{ id: '1', header: 'Publish page' }],
+            },
+          },
+        }),
+      });
+
+      expect(await fetchEpisodeContext('ep-1')).to.deep.equal({
+        turnId: 't1',
+        context: 'Please confirm.',
+        questions: [{ id: '1', header: 'Publish page' }],
+      });
+    });
+
+    it('returns null on a non-ok response', async () => {
+      restoreFetch();
+      installFetch({ status: 404 });
+
+      expect(await fetchEpisodeContext('ep-1')).to.equal(null);
+    });
+
+    it('returns null when the fetch itself throws', async () => {
+      restoreFetch();
+      origFetch = window.fetch;
+      window.fetch = async () => { throw new Error('network down'); };
+
+      expect(await fetchEpisodeContext('ep-1')).to.equal(null);
     });
   });
 });

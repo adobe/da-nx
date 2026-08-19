@@ -16,7 +16,7 @@ import {
 } from './ao-constants.js';
 import { buildSelectionText, buildFailedUploadsText, buildPageContextText } from './utils/user-context.js';
 import { uploadAttachment, getOrgId } from './utils/uploads.js';
-import { fetchEpisodes, fetchEpisodeMessages } from './utils/episodes.js';
+import { fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext } from './utils/episodes.js';
 import { fetchSkills, loadCachedSkills } from './utils/skills.js';
 import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-helpers.js';
 
@@ -42,12 +42,16 @@ export default class AoChatController {
       streamingText: this._streamingText,
       episodes: this._episodes,
       episodeId: this._episodeId,
+      pendingQuestion: this._pendingQuestion,
+      loadingEpisode: this._loadingEpisode,
     });
   }
 
   _fetchEpisodes() { return fetchEpisodes(EPISODE_LIST_LIMIT); }
 
   _fetchEpisodeMessages(episodeId) { return fetchEpisodeMessages(episodeId); }
+
+  _fetchEpisodeContext(episodeId) { return fetchEpisodeContext(episodeId); }
 
   _fetchSkills() { return fetchSkills(); }
 
@@ -69,7 +73,23 @@ export default class AoChatController {
 
   async _loadEpisode(episodeId) {
     this._episodeId = episodeId;
-    this._messages = await this._fetchEpisodeMessages(episodeId);
+    // Clear the old episode's content immediately and show a spinner instead
+    // of leaving stale messages on screen for however long the fetch below
+    // takes — switching episodes should feel instant, not laggy.
+    this._messages = [];
+    this._pendingQuestion = undefined;
+    this._thinking = false;
+    this._loadingEpisode = true;
+    this._update();
+
+    const [messages, pendingQuestion] = await Promise.all([
+      this._fetchEpisodeMessages(episodeId),
+      this._fetchEpisodeContext(episodeId),
+    ]);
+    this._messages = messages;
+    this._pendingQuestion = pendingQuestion ?? undefined;
+    this._thinking = !!pendingQuestion;
+    this._loadingEpisode = false;
     this._update();
   }
 
@@ -78,8 +98,16 @@ export default class AoChatController {
     this._update();
   }
 
+  // A pending question means the turn is merely suspended, not actively
+  // streaming — AO persists it durably, so it's safe to abandon here and
+  // pick back up later (_loadEpisode re-hydrates it via fetchEpisodeContext).
+  // Only genuinely-in-flight generation should block switching away.
+  get _blockedByActiveTurn() {
+    return this._thinking && !this._pendingQuestion;
+  }
+
   async switchEpisode(episodeId) {
-    if (!episodeId || episodeId === this._episodeId || this._thinking) return;
+    if (!episodeId || episodeId === this._episodeId || this._blockedByActiveTurn) return;
     this._ws?.close();
     this._ws = null;
     this._streaming = '';
@@ -88,13 +116,15 @@ export default class AoChatController {
   }
 
   startNewEpisode() {
-    if (this._thinking) return;
+    if (this._blockedByActiveTurn) return;
     this._ws?.close();
     this._ws = null;
     this._episodeId = undefined;
     this._messages = [];
     this._streaming = '';
     this._streamingText = undefined;
+    this._pendingQuestion = undefined;
+    this._thinking = false;
     this._update();
   }
 
@@ -197,6 +227,16 @@ export default class AoChatController {
       return;
     }
 
+    if (evt.type === AO_EVENT.USER_QUESTION) {
+      this._pendingQuestion = {
+        turnId: evt.turn_id,
+        context: evt.data?.context ?? null,
+        questions: evt.data?.questions ?? [],
+      };
+      this._update();
+      return;
+    }
+
     if (evt.type === AO_EVENT.ERROR_CONNECTION || evt.type === AO_EVENT.ERROR_SESSION) {
       const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
       this._messages = [...this._messages, { role: 'assistant', content: `Error: ${message}` }];
@@ -215,6 +255,33 @@ export default class AoChatController {
       this._ws.send(JSON.stringify({ type: AO_FRAME.INTERRUPT }));
     }
     this._done();
+  }
+
+  async _respondToQuestion(answers, declined) {
+    if (!this._pendingQuestion) return;
+    const { turnId } = this._pendingQuestion;
+    const wasAlreadyOpen = this._ws?.readyState === WebSocket.OPEN;
+    this._pendingQuestion = undefined;
+    this._update();
+
+    try {
+      await this._ensureSocket();
+      const frame = wasAlreadyOpen
+        ? { type: AO_FRAME.QUESTION_RESPONSE, turn_id: turnId, answers, declined }
+        : { type: AO_FRAME.RESUME, turn_id: turnId, data: { type: 'question-response', answers, declined } };
+      this._ws.send(JSON.stringify(frame));
+    } catch (err) {
+      this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
+      this._done();
+    }
+  }
+
+  answerQuestion(answers) {
+    return this._respondToQuestion(answers, false);
+  }
+
+  declineQuestion() {
+    return this._respondToQuestion([], true);
   }
 
   async sendMessage(message, items = [], attachments = []) {

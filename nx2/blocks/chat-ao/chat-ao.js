@@ -31,6 +31,7 @@ import '../shared/popover/popover.js';
 import '../shared/picker/picker.js';
 import '../shared/chat/prompts/prompts.js';
 import '../shared/chat/new-chat/new-chat.js';
+import './question-card/question-card.js';
 import { ADD_MENU_ITEMS, ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 
 const styles = await loadStyle(import.meta.url);
@@ -51,6 +52,8 @@ export default class NxChatAo extends LitElement {
     thinking: { type: Boolean },
     episodes: { type: Array },
     episodeId: { type: String },
+    pendingQuestion: { type: Object },
+    loadingEpisode: { type: Boolean },
     _dragging: { state: true },
     _prompts: { state: true },
   };
@@ -144,13 +147,17 @@ export default class NxChatAo extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
     this._controller = new AoChatController({
-      onUpdate: ({ messages, thinking, streamingText, episodes, episodeId }) => {
+      onUpdate: ({
+        messages, thinking, streamingText, episodes, episodeId, pendingQuestion, loadingEpisode,
+      }) => {
         this.messages = streamingText
           ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
           : messages;
         this.thinking = thinking;
         this.episodes = episodes;
         this.episodeId = episodeId;
+        this.pendingQuestion = pendingQuestion;
+        this.loadingEpisode = loadingEpisode;
       },
     });
     if (this._context) this._controller.setContext(this._context);
@@ -302,26 +309,30 @@ export default class NxChatAo extends LitElement {
       </div>
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">
-          ${!this.messages?.length && !this.thinking
+          ${this.loadingEpisode ? html`
+            <div class="chat-loading"><span class="nx-loading-spinner"></span></div>
+          ` : html`
+            ${!this.messages?.length && !this.thinking
         ? html`<nx-new-chat
               .prompts=${prompts}
               .onSend=${(p) => this._sendPrompt(p)}
               @nx-show-prompts=${this._openPrompts}
             ></nx-new-chat>`
         : nothing}
-          ${this.messages?.map((msg) => (msg.role === 'assistant' ? html`
-            <div class="message message-assistant">
-              <div class="message-content">${renderMarkdown(msg.content)}</div>
-              ${renderCopyButton(msg.content, { streaming: msg.streaming })}
-            </div>
-          ` : html`
-            <div class="message message-user">
-              ${renderSelectionPills(msg)}
-              <div class="message-content">${msg.content}</div>
-            </div>
-          `))}
-          ${this.thinking && !this.messages?.at(-1)?.streaming
+            ${this.messages?.map((msg) => (msg.role === 'assistant' ? html`
+              <div class="message message-assistant">
+                <div class="message-content">${renderMarkdown(msg.content)}</div>
+                ${renderCopyButton(msg.content, { streaming: msg.streaming })}
+              </div>
+            ` : html`
+              <div class="message message-user">
+                ${renderSelectionPills(msg)}
+                <div class="message-content">${msg.content}</div>
+              </div>
+            `))}
+            ${this.thinking && !this.messages?.at(-1)?.streaming
         ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
+          `}
         </div>
       </div>
       <div class="chat-form-wrap">
@@ -332,6 +343,11 @@ export default class NxChatAo extends LitElement {
           @select=${({ detail }) => this._onSlashSelect(detail.id)}
           @mousedown=${(e) => e.preventDefault()}
         ></nx-menu>
+        <nx-question-card
+          .pending=${this.pendingQuestion}
+          .onSubmit=${(answers) => this._controller.answerQuestion(answers)}
+          .onDecline=${() => this._controller.declineQuestion()}
+        ></nx-question-card>
         <form class="chat-form" @submit=${this._submit}
           @dragenter=${this._dnd.onDragEnter}
           @dragleave=${this._dnd.onDragLeave}

@@ -1,0 +1,129 @@
+/*
+ * Floats over the input the same way chat.js's nx-chat-interaction does: the
+ * host is a normal light-DOM child of chat-ao.js's .chat-form-wrap (position:
+ * relative), so this positions against it instead of pushing the form down.
+ */
+:host {
+  position: absolute;
+  bottom: 10px;
+  left: -4px;
+  right: -4px;
+  z-index: 1;
+  display: block;
+  font-family: var(--s2-font-family);
+}
+
+.question-card {
+  max-height: 60vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-200);
+  padding: var(--s2-spacing-200);
+  background-color: var(--s2-gray-25);
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-500);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
+}
+
+.question-context {
+  margin: 0;
+  font-size: var(--s2-component-s-regular-font-size);
+  color: var(--s2-gray-500);
+}
+
+.question-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-75);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.question-header {
+  padding: 0;
+  font-weight: var(--s2-component-m-bold-font-weight);
+  font-size: var(--s2-component-m-regular-font-size);
+  color: var(--s2-gray-800);
+}
+
+.question-text {
+  margin: 0;
+  font-size: var(--s2-body-size-s);
+  color: var(--s2-gray-800);
+}
+
+.question-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2-spacing-75);
+}
+
+.question-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-75);
+  padding: var(--s2-spacing-75) var(--s2-spacing-100);
+  border-radius: var(--s2-corner-radius-500);
+  width:100%;
+  background-color: var(--s2-gray-25);
+  cursor: pointer;
+
+  &:hover, &:has(input:checked) {
+    background-color: var(--s2-gray-75);
+  }
+
+  input[type="radio"], input[type="checkbox"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+.question-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-50);
+}
+
+.question-option-label {
+  font-size: var(--s2-component-m-regular-font-size);
+  color: var(--s2-gray-800);
+}
+
+.question-option-desc {
+  font-size: var(--s2-component-s-regular-font-size);
+  color: var(--s2-gray-600);
+}
+
+.question-other-input {
+  width: 100%;
+  font-family: inherit;
+  font-size: var(--s2-component-m-regular-font-size);
+  color: var(--s2-gray-900);
+  padding: 0;
+  border: none;
+  background: none;
+  outline: none;
+}
+
+.question-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s2-spacing-100);
+  padding-top: var(--s2-spacing-100);
+  border-top: 1px solid var(--s2-gray-200);
+
+  .nx-btn-primary.nx-btn-sm {
+    border-radius: var(--s2-corner-radius-400);
+  }
+}

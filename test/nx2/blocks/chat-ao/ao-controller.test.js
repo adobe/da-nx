@@ -6,6 +6,7 @@ function makeController() {
   const sent = [];
   const controller = new AoChatController({ onUpdate: (u) => updates.push(u) });
   controller._ensureSocket = async () => { };
+  controller._fetchEpisodeContext = async () => null;
   controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
   return { controller, updates, sent };
 }
@@ -164,6 +165,23 @@ describe('ao-controller episodes', () => {
     expect(updates.at(-1).episodeId).to.equal('2');
   });
 
+  it('loadEpisodes hydrates a pending question left over from a suspended turn', async () => {
+    const { controller, updates } = makeController();
+    controller._fetchEpisodes = async () => [{ id: '2', title: 'Latest' }];
+    controller._fetchEpisodeMessages = async () => [];
+    controller._fetchEpisodeContext = async () => ({
+      turnId: 't1', context: 'Please confirm.', questions: [{ id: '1' }],
+    });
+
+    await controller.loadEpisodes();
+
+    expect(controller._pendingQuestion).to.deep.equal({
+      turnId: 't1', context: 'Please confirm.', questions: [{ id: '1' }],
+    });
+    expect(updates.at(-1).pendingQuestion).to.deep.equal(controller._pendingQuestion);
+    expect(updates.at(-1).thinking).to.equal(true);
+  });
+
   it('loadEpisodes is a no-op hydration when there are no prior episodes', async () => {
     const { controller, updates } = makeController();
     controller._fetchEpisodes = async () => [];
@@ -204,6 +222,20 @@ describe('ao-controller episodes', () => {
     expect(called).to.equal(false);
   });
 
+  it('switchEpisode is allowed while a question is pending — it is suspended, not actively streaming', async () => {
+    const { controller } = makeController();
+    controller._episodeId = '1';
+    controller._thinking = true;
+    controller._pendingQuestion = { turnId: 't1', context: null, questions: [] };
+    controller._ws = { close: () => { controller._ws = null; } };
+    controller._fetchEpisodeMessages = async (id) => [{ role: 'assistant', content: `from ${id}` }];
+
+    await controller.switchEpisode('2');
+
+    expect(controller._episodeId).to.equal('2');
+    expect(controller._pendingQuestion).to.equal(undefined);
+  });
+
   it('startNewEpisode clears the active episode so the next send starts fresh', () => {
     const { controller, updates } = makeController();
     controller._episodeId = '1';
@@ -215,6 +247,34 @@ describe('ao-controller episodes', () => {
     expect(controller._episodeId).to.equal(undefined);
     expect(controller._ws).to.equal(null);
     expect(updates.at(-1).messages).to.deep.equal([]);
+  });
+
+  it('startNewEpisode is allowed while a question is pending, and clears it', () => {
+    const { controller, updates } = makeController();
+    controller._episodeId = '1';
+    controller._thinking = true;
+    controller._pendingQuestion = { turnId: 't1', context: null, questions: [] };
+    controller._ws = { close: () => {} };
+
+    controller.startNewEpisode();
+
+    expect(controller._episodeId).to.equal(undefined);
+    expect(controller._pendingQuestion).to.equal(undefined);
+    expect(updates.at(-1).pendingQuestion).to.equal(undefined);
+    expect(updates.at(-1).thinking).to.equal(false);
+  });
+
+  it('startNewEpisode still refuses to abandon an actively streaming turn', () => {
+    const { controller } = makeController();
+    controller._episodeId = '1';
+    controller._thinking = true;
+    let closed = false;
+    controller._ws = { close: () => { closed = true; } };
+
+    controller.startNewEpisode();
+
+    expect(closed).to.equal(false);
+    expect(controller._episodeId).to.equal('1');
   });
 
   it('captures the episode id from SESSION_READY and refreshes the episode list on a new episode', async () => {
@@ -315,5 +375,115 @@ describe('ao-controller stop', () => {
     controller.stop();
 
     expect(updates.at(-1).thinking).to.equal(false);
+  });
+});
+
+describe('ao-controller user questions', () => {
+  const sampleEvent = {
+    type: 'user_question',
+    turn_id: 't1',
+    context_id: 'c1',
+    data: {
+      turn_id: 't1',
+      tool_call_id: 'tooluse_1',
+      context: 'This is an example of how I pause and ask for your approval.',
+      questions: [{
+        id: '1',
+        header: 'Publish page',
+        multi_select: false,
+        options: [{ label: 'Approve' }, { label: 'Decline' }],
+        question: "I'm about to publish the page. Should I proceed?",
+        required: true,
+      }],
+    },
+  };
+
+  it('surfaces a USER_QUESTION event as pendingQuestion', () => {
+    const { controller, updates } = makeController();
+
+    controller._handleServerEvent(sampleEvent);
+
+    expect(updates.at(-1).pendingQuestion).to.deep.equal({
+      turnId: 't1',
+      context: 'This is an example of how I pause and ask for your approval.',
+      questions: sampleEvent.data.questions,
+    });
+  });
+
+  it('answerQuestion sends QUESTION_RESPONSE directly over an already-open socket, and clears pendingQuestion', async () => {
+    const { controller, updates, sent } = makeController();
+    controller._handleServerEvent(sampleEvent);
+    controller._ws.readyState = WebSocket.OPEN;
+
+    await controller.answerQuestion([{ question_id: '1', selected_options: ['Approve'] }]);
+
+    expect(sent).to.deep.equal([{
+      type: 'QUESTION_RESPONSE',
+      turn_id: 't1',
+      answers: [{ question_id: '1', selected_options: ['Approve'] }],
+      declined: false,
+    }]);
+    expect(updates.at(-1).pendingQuestion).to.equal(undefined);
+  });
+
+  it('declineQuestion sends QUESTION_RESPONSE with declined: true and no answers, over an open socket', async () => {
+    const { controller, sent } = makeController();
+    controller._handleServerEvent(sampleEvent);
+    controller._ws.readyState = WebSocket.OPEN;
+
+    await controller.declineQuestion();
+
+    expect(sent).to.deep.equal([{
+      type: 'QUESTION_RESPONSE', turn_id: 't1', answers: [], declined: true,
+    }]);
+  });
+
+  it('answerQuestion is a no-op when there is no pending question', async () => {
+    const { controller, sent } = makeController();
+
+    await controller.answerQuestion([{ question_id: '1', selected_options: ['Approve'] }]);
+
+    expect(sent).to.have.length(0);
+  });
+
+  it('answerQuestion resumes via RESUME when a question was hydrated with no live socket', async () => {
+    // Mirrors switching to / reloading an episode left mid-question: the WS
+    // is only opened lazily, so there's no live connection to send a plain
+    // QUESTION_RESPONSE over — AO also rejects it as an invalid first op.
+    const { controller, sent } = makeController();
+    controller._pendingQuestion = { turnId: 't1', context: null, questions: [] };
+    controller._ws = null;
+    controller._ensureSocket = async () => {
+      controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
+    };
+
+    await controller.answerQuestion([{ question_id: '1', selected_options: ['Approve'] }]);
+
+    expect(sent).to.deep.equal([{
+      type: 'RESUME',
+      turn_id: 't1',
+      data: {
+        type: 'question-response',
+        answers: [{ question_id: '1', selected_options: ['Approve'] }],
+        declined: false,
+      },
+    }]);
+  });
+
+  it('declineQuestion resumes via RESUME when a question was hydrated with no live socket', async () => {
+    const { controller, sent } = makeController();
+    controller._pendingQuestion = { turnId: 't1', context: null, questions: [] };
+    controller._ws = null;
+    controller._ensureSocket = async () => {
+      controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
+    };
+
+    await controller.declineQuestion();
+
+    expect(sent).to.deep.equal([{
+      type: 'RESUME',
+      turn_id: 't1',
+      data: { type: 'question-response', answers: [], declined: true },
+    }]);
   });
 });
