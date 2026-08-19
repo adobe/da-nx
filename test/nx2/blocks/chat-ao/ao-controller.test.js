@@ -145,6 +145,15 @@ describe('ao-controller turn lifecycle', () => {
     ]);
     expect(updates.at(-1).thinking).to.equal(false);
   });
+
+  it('swallows a session-level error silently when not thinking — e.g. a background warmSession ATTACH failing', () => {
+    const { controller, updates } = makeController();
+
+    controller._handleServerEvent({ type: 'error', data: { message: 'not active' } });
+
+    expect(controller._messages).to.deep.equal([]);
+    expect(updates).to.have.length(0);
+  });
 });
 
 describe('ao-controller episodes', () => {
@@ -485,5 +494,99 @@ describe('ao-controller user questions', () => {
       turn_id: 't1',
       data: { type: 'question-response', answers: [], declined: true },
     }]);
+  });
+});
+
+describe('ao-controller warmSession', () => {
+  it('warms the current episode once, then opens the socket and attaches', async () => {
+    const { controller, sent } = makeController();
+    controller._episodeId = '1';
+    const warmed = [];
+    let socketCalls = 0;
+    controller._fetchWarmSession = (id) => { warmed.push(id); };
+    controller._ensureSocket = async () => { socketCalls += 1; };
+
+    await controller.warmSession();
+    await controller.warmSession();
+
+    expect(warmed).to.deep.equal(['1']);
+    expect(socketCalls).to.equal(1);
+    expect(sent).to.deep.equal([{ type: 'ATTACH' }]);
+  });
+
+  it('is a no-op when there is no active episode', async () => {
+    const { controller } = makeController();
+    const warmed = [];
+    controller._fetchWarmSession = (id) => { warmed.push(id); };
+
+    await controller.warmSession();
+
+    expect(warmed).to.have.length(0);
+  });
+
+  it('is a no-op while a turn is already in flight', async () => {
+    const { controller } = makeController();
+    controller._episodeId = '1';
+    controller._thinking = true;
+    const warmed = [];
+    controller._fetchWarmSession = (id) => { warmed.push(id); };
+
+    await controller.warmSession();
+
+    expect(warmed).to.have.length(0);
+  });
+
+  it('warms again after switching to a different episode', async () => {
+    const { controller } = makeController();
+    controller._episodeId = '1';
+    const warmed = [];
+    controller._fetchWarmSession = (id) => { warmed.push(id); };
+
+    await controller.warmSession();
+    controller._episodeId = '2';
+    await controller.warmSession();
+
+    expect(warmed).to.deep.equal(['1', '2']);
+  });
+
+  it('swallows a failed connection attempt — sendMessage retries normally later', async () => {
+    const { controller } = makeController();
+    controller._episodeId = '1';
+    controller._fetchWarmSession = async () => {};
+    controller._ensureSocket = async () => { throw new Error('AO WebSocket error'); };
+
+    await controller.warmSession(); // rejecting would fail this test
+  });
+});
+
+describe('ao-controller socket coalescing', () => {
+  it('_ensureSocket shares one in-flight connection attempt across concurrent callers', async () => {
+    const { controller } = makeController();
+    delete controller._ensureSocket; // use the real implementation, not makeController's stub
+    let connectCalls = 0;
+    let resolveConnect;
+    controller._connect = () => {
+      connectCalls += 1;
+      return new Promise((resolve) => { resolveConnect = resolve; });
+    };
+
+    const first = controller._ensureSocket();
+    const second = controller._ensureSocket();
+    resolveConnect();
+    await Promise.all([first, second]);
+
+    expect(connectCalls).to.equal(1);
+  });
+
+  it('a later call reconnects once the in-flight attempt has settled', async () => {
+    const { controller } = makeController();
+    delete controller._ensureSocket;
+    let connectCalls = 0;
+    controller._connect = async () => { connectCalls += 1; };
+
+    await controller._ensureSocket();
+    await controller._ensureSocket();
+
+    expect(connectCalls).to.equal(2);
   });
 });

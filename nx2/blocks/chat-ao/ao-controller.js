@@ -16,7 +16,9 @@ import {
 } from './ao-constants.js';
 import { buildSelectionText, buildFailedUploadsText, buildPageContextText } from './utils/user-context.js';
 import { uploadAttachment, getOrgId } from './utils/uploads.js';
-import { fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext } from './utils/episodes.js';
+import {
+  fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession,
+} from './utils/episodes.js';
 import { fetchSkills, loadCachedSkills } from './utils/skills.js';
 import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-helpers.js';
 
@@ -52,6 +54,42 @@ export default class AoChatController {
   _fetchEpisodeMessages(episodeId) { return fetchEpisodeMessages(episodeId); }
 
   _fetchEpisodeContext(episodeId) { return fetchEpisodeContext(episodeId); }
+
+  _fetchWarmSession(episodeId) { return warmSession(episodeId); }
+
+  // Kicks the current episode's backend session awake as soon as the user
+  // starts typing, so its orchestrator cold-start happens during typing
+  // instead of after Send. Existing episodes only for now — warming a
+  // brand-new (no episodeId yet) session would create a real, persisted
+  // episode immediately, leaving an empty orphaned one behind if the user
+  // never actually sends anything. At most once per episode: _warmedEpisodeId
+  // naturally goes stale (and lets a fresh warm through) the moment
+  // _episodeId changes to a different episode.
+  //
+  // Opens the WebSocket too, after the REST warm call — AO's own guidance is
+  // to sequence them, and connecting early means sendMessage's own
+  // _ensureSocket() later just reuses an already-open (or already-connecting,
+  // via the coalescing there) socket instead of starting from scratch.
+  //
+  // AUTH alone doesn't get SESSION_READY moving — AO only prepares the
+  // session (and replies with SESSION_READY) once it sees the connection's
+  // first op (SESSION_INIT/USER_INPUT/RESUME/ATTACH). ATTACH is the one
+  // built for exactly this: "join this episode, don't submit a turn". If the
+  // backend session isn't actually live yet it comes back as an ERROR frame
+  // instead — _handleServerEvent only surfaces that to the user while
+  // actively thinking, so a failed *warm* attempt here stays silent and
+  // sendMessage just connects (and attaches) fresh when the user sends.
+  async warmSession() {
+    if (!this._episodeId || this._thinking || this._warmedEpisodeId === this._episodeId) return;
+    this._warmedEpisodeId = this._episodeId;
+    await this._fetchWarmSession(this._episodeId);
+    try {
+      await this._ensureSocket();
+      this._ws?.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
+    } catch {
+      // Best-effort — sendMessage will retry the connection normally on send.
+    }
+  }
 
   _fetchSkills() { return fetchSkills(); }
 
@@ -143,9 +181,26 @@ export default class AoChatController {
     };
   }
 
+  // Coalesces concurrent callers (warmSession opening the socket early,
+  // sendMessage needing it moments later) onto the same in-flight attempt —
+  // without this, a second call while the first is still connecting would
+  // open a competing WebSocket instead of reusing it.
   async _ensureSocket() {
     if (this._ws?.readyState === WebSocket.OPEN) return;
+    if (this._connecting) {
+      await this._connecting;
+      return;
+    }
 
+    this._connecting = this._connect();
+    try {
+      await this._connecting;
+    } finally {
+      this._connecting = null;
+    }
+  }
+
+  async _connect() {
     const authFrame = await this._authFrame();
 
     await new Promise((resolve, reject) => {
@@ -238,6 +293,10 @@ export default class AoChatController {
     }
 
     if (evt.type === AO_EVENT.ERROR_CONNECTION || evt.type === AO_EVENT.ERROR_SESSION) {
+      // Not thinking means nothing was actually asked of AO yet — e.g. a
+      // background warmSession() ATTACH landing before the session's fully
+      // live. Nothing for the user to see; sendMessage will connect fresh.
+      if (!this._thinking) return;
       const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
       this._messages = [...this._messages, { role: 'assistant', content: `Error: ${message}` }];
       this._done();

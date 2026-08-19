@@ -44,6 +44,7 @@ export const AO_FRAME = {
   INTERRUPT: 'INTERRUPT',
   QUESTION_RESPONSE: 'QUESTION_RESPONSE',
   RESUME: 'RESUME',
+  ATTACH: 'ATTACH',
 };
 
 export const AO_EVENT = {

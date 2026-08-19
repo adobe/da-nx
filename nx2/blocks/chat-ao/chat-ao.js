@@ -228,6 +228,11 @@ export default class NxChatAo extends LitElement {
     pills?.clear();
   }
 
+  _handleInput(e) {
+    this._slashMenu.onInput(e);
+    this._controller.warmSession();
+  }
+
   _handleKeydown(e) {
     if (this._slashMenu.onKeydown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -375,7 +380,7 @@ export default class NxChatAo extends LitElement {
             class="chat-input"
             placeholder="Ask anything, or type / for skills..."
             ?disabled=${this.thinking}
-            @input=${this._slashMenu.onInput}
+            @input=${this._handleInput}
             @keydown=${this._handleKeydown}
             @blur=${this._slashMenu.onBlur}
           ></textarea>

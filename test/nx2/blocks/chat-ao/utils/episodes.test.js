@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext,
+  fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession,
 } from '../../../../../nx2/blocks/chat-ao/utils/episodes.js';
 import { AO_HTTP_BASE } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
 
@@ -14,7 +14,9 @@ const installFetch = ({ status: httpStatus = 200, body = '{}' } = {}) => {
   calls = [];
   origFetch = window.fetch;
   window.fetch = async (url, opts = {}) => {
-    calls.push({ url: url.toString(), headers: opts.headers ?? {} });
+    calls.push({
+      url: url.toString(), headers: opts.headers ?? {}, method: opts.method, body: opts.body,
+    });
     return new Response(body, { status: httpStatus });
   };
 };
@@ -188,6 +190,35 @@ describe('episodes.js', () => {
       window.fetch = async () => { throw new Error('network down'); };
 
       expect(await fetchEpisodeContext('ep-1')).to.equal(null);
+    });
+  });
+
+  describe('warmSession', () => {
+    it('POSTs the episode id to the sessions endpoint', async () => {
+      restoreFetch();
+      installFetch({ body: '{}' });
+
+      await warmSession('ep-1');
+
+      expect(lastCall().url).to.equal(`${AO_HTTP_BASE}/api/v1/sessions`);
+      expect(lastCall().method).to.equal('POST');
+      expect(JSON.parse(lastCall().body)).to.deep.equal({ episodeId: 'ep-1' });
+      expect(lastCall().headers.authorization).to.equal('Bearer test-token');
+    });
+
+    it('does not throw on a non-ok response (e.g. manifest not running in Temporal mode)', async () => {
+      restoreFetch();
+      installFetch({ status: 400 });
+
+      await warmSession('ep-1'); // rejecting would fail this test
+    });
+
+    it('does not throw when the fetch itself throws', async () => {
+      restoreFetch();
+      origFetch = window.fetch;
+      window.fetch = async () => { throw new Error('network down'); };
+
+      await warmSession('ep-1'); // rejecting would fail this test
     });
   });
 });

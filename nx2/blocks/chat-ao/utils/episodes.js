@@ -46,6 +46,24 @@ export async function fetchEpisodeMessages(episodeId) {
   }
 }
 
+// Wakes an existing episode's backend session ahead of the user actually
+// sending anything — POST /api/v1/sessions starts the durable session
+// without submitting a turn, so by the time sendMessage's own WS connects,
+// the slow part (orchestrator cold start) is already done. Best-effort: a
+// manifest that isn't running in Temporal mode 400s here, which just means
+// no speedup, not an error worth surfacing.
+export async function warmSession(episodeId) {
+  try {
+    await fetch(`${AO_HTTP_BASE}/api/v1/sessions`, {
+      method: 'POST',
+      headers: { ...(await authHeaders()), 'content-type': 'application/json' },
+      body: JSON.stringify({ episodeId }),
+    });
+  } catch {
+    // best-effort — see comment above
+  }
+}
+
 export async function fetchEpisodeContext(episodeId) {
   try {
     const resp = await fetch(`${AO_HTTP_BASE}/api/v1/episodes/${episodeId}/context`, {
