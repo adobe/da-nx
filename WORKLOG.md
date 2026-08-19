@@ -1,5 +1,20 @@
 # Worklog
 
+## 2026-08-19
+
+### nx2 chat — "Upload .fig file" in the + menu (Figma → landing page)
+
+Additive change on top of the refactored (`ewaoinit`) chat: a new `+` menu item
+that uploads a `.fig` Figma export as an ordinary attachment, for a Figma→EDS
+landing-page conversion driven by the `figma-to-landing-page` AO personal skill
+(which sends the `.fig` to the fig-inspector Worker). No client-side routing.
+
+- `shared/chat/constants.js`: `MENU_OPTIONS.FIGMA` + an "Upload .fig file" entry
+  in `ADD_MENU_ITEMS`.
+- `chat/chat.js`: `_openFigPicker()` + a `.chat-fig-input` (`accept=".fig"`) that
+  reuses the existing `_onFileInputChange`/`_onFilesSelected`/`buildAttachmentItems`
+  path, so a `.fig` attaches as a `file` item like any other.
+
 ## 2026-08-07
 
 ### nx2/utils/api.js — remove stage-content.da.live rewrite workaround
