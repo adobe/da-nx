@@ -1,8 +1,5 @@
 :host {
   display: block;
-
-  /* Establish the Spectrum font for the whole form subtree (editor, preview,
-     sidebar/navigation) so every part inherits it instead of the page default. */
   font-family: var(
     --s2-font-family,
     "Adobe Clean",
@@ -36,7 +33,6 @@
 }
 
 .nx-form-wrapper {
-  /* editor (560) + gap (20) + sidebar (300) */
   width: min(880px, 100%);
   max-width: 880px;
   margin: 0 auto;
@@ -48,10 +44,6 @@
 
 .nx-form-wrapper.nx-form-wrapper-centered {
   justify-content: center;
-
-  /* The ready editor gets its top offset from the scroll container (views/
-     editor.css); the centered states (schema selector, messages) render
-     straight in the host, so give them the same gap below the header. */
   padding-top: var(--form-content-top, 32px);
 }
 
@@ -64,8 +56,6 @@
 
 nx-sidebar {
   position: sticky;
-
-  /* Stick below the host's docked header so it pins without a travel-then-stick jump. */
   top: var(--nx-scroll-offset-top, 0);
   flex: 0 0 300px;
   width: 300px;
@@ -113,17 +103,12 @@ nx-sidebar {
 }
 
 .nx-form-schema-select-group {
-  /* Keep the picker and its help text tight together — same gap the form
-     editor's fields use between input and description (.form-field). The
-     form's own 16px gap then separates this group from the Create button. */
   display: flex;
   flex-direction: column;
   gap: var(--s2-spacing-75);
 }
 
 .nx-form-schema-form .nx-form-schema-hint {
-  /* Match the field/group help text in the form editor (.form-field-description
-     / .form-node-description): small and muted, sitting under the picker. */
   font-size: var(--s2-component-s-regular-font-size, 12px);
   color: var(--s2-gray-700);
 }
