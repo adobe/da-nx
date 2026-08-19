@@ -4,11 +4,6 @@ import { readFileAsBase64 } from './utils/stream.js';
 import '../shared/menu/menu.js';
 import ChatController from './chat-controller.js';
 import ChatControllerAO from './chat-controller-ao.js';
-/* --- feature: figma->catalyst --- */
-import {
-  FIGMA_TO_CATALYST, isFigmaInput, runFigmaTurn, resumeCatalystRun, continueCatalystRun,
-} from './catalyst/catalyst-client.js';
-/* --- end feature: figma->catalyst --- */
 import {
   renderMessage, renderApprovalCard, renderQuestionCard, renderPlanApprovalCard,
   renderNewerEpisodeBanner,
@@ -57,15 +52,6 @@ class NxChat extends LitElement {
     _prompts: { state: true },
     _items: { state: true },
     _dragging: { state: true },
-    /* --- feature: figma->catalyst --- */
-    _catalystQuestion: { state: true },
-    _catalystStep: { state: true },
-    _catalystPct: { state: true },
-    _notifications: { state: true },
-    _inboxOpen: { state: true },
-    _catalystLog: { state: true },
-    _catalystLogOpen: { state: true },
-    /* --- end feature: figma->catalyst --- */
   };
 
   set context(value) {
@@ -275,9 +261,6 @@ class NxChat extends LitElement {
 
     this._controller.connect().then(() => this._controller.loadInitialMessages());
     document.addEventListener(CHAT_EVENT.ADD_TO_CHAT, this._onAddToChat);
-    /* --- feature: figma->catalyst: re-attach to a run left in flight --- */
-    if (FIGMA_TO_CATALYST) resumeCatalystRun(this);
-    /* --- end feature: figma->catalyst --- */
   }
 
   disconnectedCallback() {
@@ -335,311 +318,6 @@ class NxChat extends LitElement {
     this._controller.declineQuestion();
     this._questionAnswers = {};
   }
-
-  /* --- feature: figma->catalyst: interactive AskUserQuestion from Catalyst.
-   * Answers are keyed by question id, value = option id (array if allow_multiple),
-   * matching Catalyst's /api/chat/answer contract. --- */
-  _showCatalystQuestion(pq, onAnswer) {
-    this._catalystQuestion = { pq, onAnswer, answers: {} };
-    this.requestUpdate();
-  }
-
-  _pickCatalystOption(qId, optionId, multi) {
-    const cq = this._catalystQuestion;
-    if (!cq) return;
-    if (multi) {
-      const cur = new Set(cq.answers[qId] ?? []);
-      if (cur.has(optionId)) cur.delete(optionId); else cur.add(optionId);
-      cq.answers[qId] = [...cur];
-      this.requestUpdate();
-      return;
-    }
-    cq.answers[qId] = optionId;
-    // Single-select, single-question: one click answers (no extra Send step).
-    if ((cq.pq.questions ?? []).length <= 1) {
-      this._submitCatalystQuestion();
-    } else {
-      this.requestUpdate();
-    }
-  }
-
-  _submitCatalystQuestion() {
-    const cq = this._catalystQuestion;
-    if (!cq) return;
-    cq.onAnswer(cq.answers);
-    this._catalystQuestion = null;
-    this.requestUpdate();
-  }
-
-  _renderCatalystQuestion() {
-    const cq = this._catalystQuestion;
-    if (!cq) return nothing;
-    return html`
-      <style>
-        .catalyst-question { border: 1px solid #d0d0d0; border-radius: 8px; padding: 12px; margin: 8px 0; font-size: 14px; }
-        .catalyst-q-prompt { margin: 0 0 6px; }
-        .catalyst-opt { margin: 0 6px 6px 0; padding: 6px 14px; border: 1px solid #222; border-radius: 16px; background: transparent; color: #222; cursor: pointer; font-size: 13px; }
-        .catalyst-opt:hover { background: #f0f0f0; }
-        .catalyst-opt.primary { background: #222; color: #fff; }
-        .catalyst-opt.primary:hover { background: #000; }
-        .catalyst-opt.selected { background: #222; color: #fff; border-color: #222; }
-        .catalyst-q-submit { margin-top: 4px; padding: 6px 16px; border: 1px solid #222; border-radius: 16px; background: #222; color: #fff; cursor: pointer; }
-      </style>
-      <div class="catalyst-question">
-        ${cq.pq.questions.map((q) => html`
-          <div class="catalyst-q">
-            <p class="catalyst-q-prompt">
-              ${q.header ? html`<strong>${q.header}</strong> ` : nothing}${q.prompt}
-            </p>
-            <div class="catalyst-q-options">
-              ${(q.options ?? []).map((o, i) => {
-    const multi = !!q.allow_multiple;
-    const sel = multi
-      ? (cq.answers[q.id] ?? []).includes(o.id)
-      : cq.answers[q.id] === o.id;
-    // First option renders solid black (the recommended default); the rest outlined.
-    const cls = `catalyst-opt${i === 0 ? ' primary' : ''}${sel ? ' selected' : ''}`;
-    return html`<button type="button" class=${cls}
-                  title=${o.description ?? ''}
-                  @click=${() => this._pickCatalystOption(q.id, o.id, multi)}>${o.label}</button>`;
-  })}
-            </div>
-          </div>`)}
-        <button type="button" class="catalyst-q-submit"
-          @click=${() => this._submitCatalystQuestion()}>Send answer</button>
-      </div>`;
-  }
-
-  // Progress is step-based (completed/total todos) — EMA provides no time/ETA.
-  // Determinate when todos are present, indeterminate otherwise.
-  _applyCatalystTodos(todos) {
-    if (Array.isArray(todos) && todos.length) {
-      const done = todos.filter((t) => t && t.status === 'completed').length;
-      this._catalystPct = done / todos.length;
-      const cur = todos.find((t) => t && t.status === 'in_progress');
-      if (cur) this._catalystStep = cur.activeForm || cur.content || cur.text || this._catalystStep;
-    } else {
-      this._catalystPct = null;
-    }
-  }
-
-  // Hooks the /api/events stream calls.
-  _setCatalystTodos(todos) { this._applyCatalystTodos(todos); }
-
-  _setCatalystActivity(label) { this._catalystStep = label; }
-
-  // Called by the history poller; null clears when the turn ends.
-  _setCatalystProgress(hist) {
-    if (!hist) {
-      this._catalystStep = '';
-      this._catalystPct = null;
-      return;
-    }
-    this._applyCatalystTodos(hist.todos || []);
-  }
-
-  _resetCatalystLog() {
-    this._catalystLog = [];
-    this._catalystLogOpen = false;
-  }
-
-  // Narration + status from the Catalyst run lands here, not in the main thread,
-  // so the migration never mixes with the (AO) conversation in the box.
-  _appendCatalystLog(text) {
-    const line = String(text ?? '').trim();
-    if (!line) return;
-    const log = this._catalystLog ?? [];
-    if (log[log.length - 1] === line) return; // drop consecutive dupes
-    this._catalystLog = [...log, line].slice(-200);
-    this.requestUpdate();
-  }
-
-  _toggleCatalystLog() {
-    this._catalystLogOpen = !this._catalystLogOpen;
-    this.requestUpdate();
-  }
-
-  _dismissCatalystPanel() {
-    this._resetCatalystLog();
-    this.requestUpdate();
-  }
-
-  // The panel's own reply box talks to EMA (continues the migration turn), so the
-  // main input box can stay wired to AO. This is also the recovery path if EMA
-  // asked a prose question and the run finalized early: reply here to resume.
-  _submitCatalystReply(e) {
-    e?.preventDefault();
-    const el = this.shadowRoot.querySelector('.catalyst-reply-input');
-    const text = el?.value.trim();
-    if (!text) return;
-    el.value = '';
-    this._appendCatalystLog(`You: ${text}`);
-    continueCatalystRun(this, text);
-  }
-
-  _renderCatalystProgress() {
-    const active = this._catalystActive;
-    const pct = this._catalystPct;
-    const log = this._catalystLog ?? [];
-    const bar = pct == null
-      ? html`<div class="catalyst-bar catalyst-bar-indet"></div>`
-      : html`<div class="catalyst-bar">
-          <div class="catalyst-bar-fill" style="width:${Math.round(pct * 100)}%"></div>
-        </div>`;
-    return html`
-      <style>
-        .catalyst-panel {
-          margin: 8px 0; border: 1px solid #e0e0e0; border-radius: 8px;
-          padding: 10px 12px; background: #fafafa;
-        }
-        .catalyst-panel-head {
-          display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
-        }
-        .catalyst-panel-title { flex: 1; }
-        .catalyst-panel-btn {
-          padding: 0; border: none; background: none; color: #1473e6;
-          cursor: pointer; font-size: 12px;
-        }
-        .catalyst-progress-step { font-size: 12px; color: #666; margin: 6px 0 4px; }
-        .catalyst-bar { height: 4px; border-radius: 2px; background: #e6e6e6; overflow: hidden; }
-        .catalyst-bar-fill {
-          height: 100%; background: #1473e6; border-radius: 2px; transition: width .3s ease;
-        }
-        .catalyst-bar-indet::after {
-          content: ''; display: block; height: 100%; width: 40%;
-          border-radius: 2px; background: #1473e6;
-          animation: catalyst-indeterminate 1.2s infinite ease-in-out;
-        }
-        @keyframes catalyst-indeterminate {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(320%); }
-        }
-        .catalyst-log {
-          margin-top: 8px; max-height: 180px; overflow: auto; font-size: 12px;
-          color: #444; background: #fff; border: 1px solid #eee; border-radius: 6px; padding: 8px;
-        }
-        .catalyst-log p { margin: 0 0 6px; white-space: pre-wrap; word-break: break-word; }
-        .catalyst-log p:last-child { margin-bottom: 0; }
-        .catalyst-note { font-size: 12px; color: #666; margin-top: 8px; }
-        .catalyst-reply { display: flex; gap: 6px; margin-top: 8px; }
-        .catalyst-reply-input {
-          flex: 1; padding: 6px 8px; border: 1px solid #c0c0c0; border-radius: 6px; font-size: 13px;
-        }
-        .catalyst-reply-send {
-          padding: 6px 12px; border: 1px solid #222; border-radius: 16px;
-          background: #222; color: #fff; cursor: pointer; font-size: 13px;
-        }
-        .catalyst-cancel {
-          margin-left: 8px; padding: 0; border: none; background: none;
-          color: #1473e6; cursor: pointer; font-size: 12px; text-decoration: underline;
-        }
-      </style>
-      <div class="catalyst-panel">
-        <div class="catalyst-panel-head">
-          <span class="catalyst-panel-title">
-            Figma → EDS migration${active ? '' : ' · finished'}
-          </span>
-          ${log.length ? html`<button type="button" class="catalyst-panel-btn"
-            @click=${() => this._toggleCatalystLog()}>
-            ${this._catalystLogOpen ? 'Hide activity' : 'Show activity'}</button>` : nothing}
-          ${!active ? html`<button type="button" class="catalyst-panel-btn"
-            @click=${() => this._dismissCatalystPanel()}>Dismiss</button>` : nothing}
-        </div>
-        ${active ? html`
-          ${this._catalystStep
-    ? html`<div class="catalyst-progress-step">${this._catalystStep}</div>` : nothing}
-          ${bar}` : nothing}
-        ${this._catalystLogOpen && log.length ? html`
-          <div class="catalyst-log">
-            ${log.map((line) => html`<p>${line}</p>`)}
-          </div>` : nothing}
-        ${active ? html`
-          <div class="catalyst-note">
-            Building your page. You can keep working in the box or close this and come
-            back — it'll finish on its own and open when it's ready.
-            <button type="button" class="catalyst-cancel"
-              @click=${() => this._catalystStop?.()}>Cancel</button>
-          </div>` : nothing}
-        <form class="catalyst-reply" @submit=${(e) => this._submitCatalystReply(e)}>
-          <input class="catalyst-reply-input" type="text"
-            placeholder="Reply to the migration…" aria-label="Reply to the migration" />
-          <button type="submit" class="catalyst-reply-send">Send</button>
-        </form>
-      </div>`;
-  }
-
-  _pushNotification({ title, body, daPath } = {}) {
-    const note = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      title: title || 'Update',
-      body: body || '',
-      daPath: daPath || '',
-      read: false,
-    };
-    this._notifications = [note, ...(this._notifications ?? [])];
-    this.requestUpdate();
-  }
-
-  _toggleInbox() {
-    this._inboxOpen = !this._inboxOpen;
-    if (this._inboxOpen) {
-      this._notifications = (this._notifications ?? []).map((n) => ({ ...n, read: true }));
-    }
-    this.requestUpdate();
-  }
-
-  _openNotification(note) {
-    this._inboxOpen = false;
-    if (note?.daPath) window.location.hash = note.daPath;
-    this.requestUpdate();
-  }
-
-  _renderInbox() {
-    const notes = this._notifications ?? [];
-    const unread = notes.filter((n) => !n.read).length;
-    return html`
-      <style>
-        .inbox-wrap { position: relative; display: inline-flex; }
-        .inbox-badge {
-          position: absolute; top: -2px; right: -2px; min-width: 15px; height: 15px;
-          box-sizing: border-box; padding: 0 3px; border-radius: 8px;
-          background: #d7373f; color: #fff; font-size: 10px; line-height: 15px;
-          text-align: center; pointer-events: none;
-        }
-        .inbox-modal {
-          position: absolute; top: 30px; right: 0; width: 280px; max-height: 340px;
-          overflow: auto; z-index: 30; padding: 6px;
-          background: #fff; border: 1px solid #d0d0d0; border-radius: 8px;
-          box-shadow: 0 6px 20px rgba(0, 0, 0, .18);
-        }
-        .inbox-empty { color: #767676; font-size: 13px; padding: 10px 8px; }
-        .inbox-item {
-          padding: 8px; border-radius: 6px; cursor: pointer;
-        }
-        .inbox-item + .inbox-item { border-top: 1px solid #eee; }
-        .inbox-item:hover { background: #f5f5f5; }
-        .inbox-item-title { font-weight: 600; font-size: 13px; }
-        .inbox-item-body { font-size: 12px; color: #555; word-break: break-word; }
-      </style>
-      <div class="inbox-wrap">
-        <button type="button" class="nx-action-btn-icon" aria-label="Notifications"
-          @click=${() => this._toggleInbox()}>
-          <svg class="chat-icon" viewBox="0 0 20 20" aria-hidden="true">
-            <path fill="currentColor" d="M15.5 3h-11A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17h11a1.5 1.5 0 0 0 1.5-1.5v-11A1.5 1.5 0 0 0 15.5 3zm.5 9h-3.2a2.8 2.8 0 0 1-5.6 0H4V4.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 .5.5V12z"/>
-          </svg>
-          ${unread ? html`<span class="inbox-badge">${unread}</span>` : nothing}
-        </button>
-        ${this._inboxOpen ? html`
-          <div class="inbox-modal">
-            ${notes.length ? notes.map((n) => html`
-              <div class="inbox-item" @click=${() => this._openNotification(n)}>
-                <div class="inbox-item-title">${n.title}</div>
-                <div class="inbox-item-body">${n.body}</div>
-              </div>`) : html`<div class="inbox-empty">No notifications yet.</div>`}
-          </div>` : nothing}
-      </div>`;
-  }
-  /* --- end feature: figma->catalyst --- */
 
   _setPlanFeedback(text) {
     this._planFeedback = text;
@@ -755,15 +433,6 @@ class NxChat extends LitElement {
   _submit(e) {
     e?.preventDefault();
     if (this.thinking) {
-      /* --- feature: figma->catalyst: cancel a Catalyst turn locally, not via
-       * the AO controller (which would INTERRUPT a non-existent AO session). --- */
-      if (this._catalystActive) {
-        this._catalystStop?.();
-        this._catalystActive = false;
-        this.thinking = false;
-        return;
-      }
-      /* --- end feature: figma->catalyst --- */
       this._controller.stop();
       return;
     }
@@ -776,20 +445,6 @@ class NxChat extends LitElement {
     const attachments = buildAttachmentPayload(this._items ?? []);
     fileItems.forEach((i) => { if (i.thumbnail) URL.revokeObjectURL(i.thumbnail); });
     this._slashMenuEl?.close();
-    /* --- feature: figma->catalyst: route Figma design jobs to Experience
-     * Catalyst instead of CX Coworker/AO. Fires when the + menu flagged a Figma
-     * turn or the text has a figma.com link. Remove this block (or set
-     * FIGMA_TO_CATALYST=false in ./catalyst/catalyst-client.js) to disable. --- */
-    const figmaTurn = FIGMA_TO_CATALYST
-      && (this._figmaPending || isFigmaInput(text, this._items));
-    this._figmaPending = false;
-    if (figmaTurn) {
-      runFigmaTurn({ component: this, message, context: contextItems });
-      input.value = '';
-      this._items = [];
-      return;
-    }
-    /* --- end feature: figma->catalyst --- */
     this._controller.sendMessage(message, contextItems, { attachments });
     input.value = '';
     this._items = [];
@@ -812,9 +467,7 @@ class NxChat extends LitElement {
     if (id === MENU_OPTIONS.FILES) this._openFilePicker();
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._insertSlash();
-    /* --- feature: figma->catalyst --- */
-    if (id === MENU_OPTIONS.FIGMA) this._startFigma();
-    /* --- end feature: figma->catalyst --- */
+    if (id === MENU_OPTIONS.FIGMA) this._openFigPicker();
     if (id === 'prompts' || id === 'skills') {
       const { org, site } = this._context ?? {};
       if (!org || !site) return;
@@ -841,21 +494,12 @@ class NxChat extends LitElement {
     input.dispatchEvent(new Event('input'));
   }
 
-  /* --- feature: figma->catalyst ---
-   * "Figma design" in the + menu: scaffold a migration prompt and flag the next
-   * send so it routes to Catalyst even if the pasted link isn't a figma.com URL. */
-  _startFigma() {
-    this._figmaPending = true;
-    const input = this.shadowRoot.querySelector('.chat-input');
-    if (!input) return;
-    if (!/figma/i.test(input.value)) {
-      const ask = 'Migrate this Figma to EDS; tell me the new page DA path: ';
-      input.value = `${ask}${input.value}`;
-    }
-    input.focus();
-    input.setSelectionRange(input.value.length, input.value.length);
+  // "Upload .fig file" in the + menu: open a picker filtered to .fig. The file
+  // is attached like any other; the agent + the Figma-conversion skill decide
+  // what to do with it (no client-side routing).
+  _openFigPicker() {
+    this.shadowRoot.querySelector('.chat-fig-input')?.click();
   }
-  /* --- end feature: figma->catalyst --- */
 
   _openFilePicker() {
     this.shadowRoot.querySelector('.chat-file-input')?.click();
@@ -977,7 +621,6 @@ class NxChat extends LitElement {
           ?hidden=${!this.messages?.length}
           @click=${() => this.clear()}
         >${icon('clear')}<span>Clear</span></button>
-        ${FIGMA_TO_CATALYST ? this._renderInbox() : nothing}
         <button
           type="button"
           class="nx-action-btn-icon"
@@ -1023,9 +666,6 @@ class NxChat extends LitElement {
           onSubmit: () => this._submitQuestion(),
           onDecline: () => this._declineQuestion(),
         })}
-        ${/* --- feature: figma->catalyst --- */ this._renderCatalystQuestion()}
-        ${(this._catalystActive || this._catalystLog?.length) && !this._catalystQuestion
-    ? this._renderCatalystProgress() : nothing}
         ${renderPlanApprovalCard(this.pendingPlanApproval, this._planFeedback ?? '', {
           onFeedbackText: (text) => this._setPlanFeedback(text),
           onApprove: () => this._approvePlan(),
@@ -1042,6 +682,13 @@ class NxChat extends LitElement {
           type="file"
           accept="image/*,text/markdown,.md,application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
           multiple
+          hidden
+          @change=${this._onFileInputChange}
+        />
+        <input
+          class="chat-fig-input"
+          type="file"
+          accept=".fig"
           hidden
           @change=${this._onFileInputChange}
         />

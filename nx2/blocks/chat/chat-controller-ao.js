@@ -251,24 +251,6 @@ export default class ChatControllerAO {
     });
   }
 
-  /* --- feature: figma->catalyst — let the Catalyst path own its messages in
-   * this store, so the EMA conversation renders, persists, and isn't wiped by a
-   * later controller update. `appendMessage` adds one; `refreshMessages` re-emits
-   * after a message object was mutated in place (e.g. streaming). --- */
-  appendMessage(msg) {
-    this._messages = [...(this._messages ?? []), msg];
-    this._persist();
-    this._update();
-    return msg;
-  }
-
-  refreshMessages({ persist = false } = {}) {
-    this._messages = [...(this._messages ?? [])];
-    if (persist) this._persist();
-    this._update();
-  }
-  /* --- end feature: figma->catalyst --- */
-
   _parse(raw) {
     try {
       return JSON.parse(raw);
@@ -872,22 +854,10 @@ export default class ChatControllerAO {
   // AO has no resolved channel for page context yet (see experience-workspace-extensions'
   // README, "Open dependency: page context") — so until that lands, prefix it onto the
   // wire text ourselves. Kept out of the UI-visible message; only the outgoing frame gets it.
-  /* --- feature: figma->catalyst — let chat.js tell AO that a migration is
-   * running in the background, so a follow-up question in the box gets a sane
-   * answer instead of "I'm not doing anything". Non-blocking: purely additive
-   * context on the next USER_INPUT. --- */
-  setBackgroundNote(note) {
-    this._backgroundNote = note || '';
-  }
-  /* --- end feature: figma->catalyst --- */
-
   _contextPrefix() {
     const { org, site, path } = this._context ?? {};
-    /* --- feature: figma->catalyst --- */
-    const bg = this._backgroundNote ? `[Background task] ${this._backgroundNote}\n` : '';
-    /* --- end feature: figma->catalyst --- */
-    if (!org || !site) return bg;
-    return `${bg}[Current document — org: ${org}, site: ${site}, path: ${path || '/'}]\n`;
+    if (!org || !site) return '';
+    return `[Current document — org: ${org}, site: ${site}, path: ${path || '/'}]\n`;
   }
 
   // Same gap as page context: AO's USER_INPUT has no structured field for "the block/
