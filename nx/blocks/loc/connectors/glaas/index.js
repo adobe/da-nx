@@ -380,6 +380,7 @@ async function recreateTaskAndFetchSubtasks({
     workflow: task.workflow,
     workflowName: task.workflowName,
     businessUnit: workflowMeta?.businessUnit,
+    fixTranslation: workflowMeta?.fixTranslation,
     langs: task.langs,
     urlPaths: task.urlPaths,
   };
@@ -403,6 +404,13 @@ const getBusinessUnit = (siteName) => {
   return 'Digital Media';
 };
 
+const FIX_TRANSLATION_OPTION_KEY = 'translation.service.custom.option.Fix Translation';
+
+function isFixTranslation(options) {
+  const value = options?.[FIX_TRANSLATION_OPTION_KEY];
+  return value === true || value === 'true';
+}
+
 function initializeLanguageWorkflowTasks(tasks) {
   Object.values(tasks).forEach((task) => {
     task.langs.forEach((lang) => {
@@ -417,6 +425,7 @@ function initializeLanguageWorkflowTasks(tasks) {
         workflow: task.workflow,
         workflowName: task.workflowName,
         businessUnit: task.businessUnit,
+        fixTranslation: task.fixTranslation,
         name: task.name,
         urls: task.urlPaths || [],
         status: {
@@ -431,13 +440,18 @@ function initializeLanguageWorkflowTasks(tasks) {
   return tasks;
 }
 
-async function getTasks(org, site, title, langs, urls, timestamp) {
+async function getTasks(org, site, title, langs, urls, timestamp, options) {
   const config = await fetchConfig(org, site);
   // Extract just the URL paths for grouping logic
   const urlPaths = urls.map((url) => (typeof url === 'object' ? url.suppliedPath : url));
   // groupUrlsByWorkflow works with simple path strings
   const workflowGroups = groupUrlsByWorkflow(urlPaths, langs, config);
   const tasks = workflowGroups2tasks(title, workflowGroups, langs, timestamp);
+  // Mark tasks as a translation fix (resend) before persisting workflow task state
+  const fixTranslation = isFixTranslation(options);
+  Object.values(tasks).forEach((task) => {
+    task.fixTranslation = fixTranslation;
+  });
   // Pre-populate workflow task structure for each language
   initializeLanguageWorkflowTasks(tasks);
   // Add business unit to each task
@@ -450,10 +464,10 @@ async function getTasks(org, site, title, langs, urls, timestamp) {
 }
 
 export async function sendAllLanguages({
-  org, site, title, service, langs, urls, actions,
+  org, site, title, service, langs, urls, actions, options,
 }) {
   const timestamp = Date.now();
-  const tasks = await getTasks(org, site, title, langs, urls, timestamp);
+  const tasks = await getTasks(org, site, title, langs, urls, timestamp, options);
   await addTranslationMetadata(org, site, langs, urls);
   for (const key of Object.keys(tasks)) {
     await sendTask(service, tasks[key], urls, actions, { org, site });
