@@ -316,7 +316,9 @@ function mimeToExt(mime) {
  * Upload extracted images to DA under `.figma-assets/<slug>/` and return a
  * `{ <hash>: contentUrl }` map. `images` items are `{ hash, bytes, mime }`.
  */
-export async function uploadFigImages(images, { org, site, slug }) {
+export async function uploadFigImages(images, {
+  org, site, slug, onProgress,
+}) {
   const urlByHash = {};
   await Promise.all(images.map(async ({ hash, bytes, mime }) => {
     const path = `/${org}/${site}/.figma-assets/${slug}/${hash}.${mimeToExt(mime)}`;
@@ -329,6 +331,7 @@ export async function uploadFigImages(images, { org, site, slug }) {
         if (json?.source?.contentUrl) urlByHash[hash] = json.source.contentUrl;
       }
     } catch { /* skip this image; others still upload */ }
+    if (onProgress) onProgress();
   }));
   return urlByHash;
 }

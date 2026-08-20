@@ -54,6 +54,8 @@ class NxChat extends LitElement {
     _prompts: { state: true },
     _hasItems: { state: true },
     _dragging: { state: true },
+    // Progress line shown while a .fig is being parsed + its images uploaded.
+    _figStatus: { state: true },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
@@ -341,24 +343,36 @@ class NxChat extends LitElement {
 
     const pills = this.shadowRoot.querySelector('nx-pills');
     const { org, site } = this._context ?? {};
+    this._figStatus = `Reading ${file.name}…`;
     try {
       const buf = await file.arrayBuffer();
       // Parse the FULL file (needed for the image list + dims + layer names).
       // The raw .fig never goes to the agent — only the de-noised text + the
       // thumbnail + DA URLs of the extracted images.
+      this._figStatus = 'Parsing the design…';
       const parsed = await parseFig(new Uint8Array(buf));
 
       let imagesBlock = '';
       if (org && site && Array.isArray(parsed.images) && parsed.images.length) {
+        this._figStatus = 'Extracting images…';
         const mimeByHash = new Map(parsed.images.map((im) => [im.hash, im.mime]));
         const raw = await extractFigImages(buf);
         const toUpload = raw.map((r) => ({ ...r, mime: mimeByHash.get(r.hash) }));
         const base = (parsed.file_name || file.name)
           .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'figma';
-        const urlByHash = await uploadFigImages(toUpload, { org, site, slug: `${base}-${Date.now().toString(36)}` });
+        const total = toUpload.length;
+        let done = 0;
+        this._figStatus = `Uploading images (0/${total})…`;
+        const urlByHash = await uploadFigImages(toUpload, {
+          org,
+          site,
+          slug: `${base}-${Date.now().toString(36)}`,
+          onProgress: () => { done += 1; this._figStatus = `Uploading images (${done}/${total})…`; },
+        });
         imagesBlock = buildImagesBlock(parsed.images, urlByHash);
       }
 
+      this._figStatus = '';
       const summary = summarizeFigForAgent(parsed);
       // No dataBase64 → never uploaded as an attachment; _submit merges figSummary
       // into the hidden wire text and shows the thumbnail inline.
@@ -372,6 +386,7 @@ class NxChat extends LitElement {
           : {}),
       });
     } catch (err) {
+      this._figStatus = '';
       pills?.add({
         id: crypto.randomUUID(),
         label: `Couldn't read ${file.name}: ${err.message}`,
@@ -494,6 +509,12 @@ class NxChat extends LitElement {
           @nx-pill-activate=${this._handlePillActivate}
           @nx-pills-change=${this._onPillsChange}
         ></nx-pills>
+        ${this._figStatus
+    ? html`<div class="fig-status" role="status" aria-live="polite">
+          <span class="fig-spinner" aria-hidden="true"></span>
+          <span>${this._figStatus}</span>
+        </div>`
+    : nothing}
         <textarea
           name="chat-input"
           class="chat-input"

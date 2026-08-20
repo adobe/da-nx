@@ -2,6 +2,15 @@
 
 ## 2026-08-20
 
+### nx2 chat — progress indicator while a .fig is processed
+
+The `.fig` flow does a full-file parse + client extraction + image uploads to DA
+(seconds, no feedback before). Added a reactive `_figStatus` state rendered as a
+spinner row under the pills: "Reading… → Parsing the design… → Extracting
+images… → Uploading images (k/total)…", then cleared. `uploadFigImages` takes an
+`onProgress` callback fired per completed upload to drive the count. Spinner CSS
+(`.fig-status`/`.fig-spinner` + `fig-spin` keyframes) added to chat.css.
+
 ### nx2 chat — extract .fig images, upload to DA, hand the agent URLs
 
 Completes the image side of the Figma flow. The `.fig` picker now parses the
