@@ -120,6 +120,14 @@ class NXNav extends LitElement {
         button.addEventListener('click', () => openFragmentDialog(button.dataset.pathname));
       }
     }
+    // TEMP: force-inject editortoggle so the switch is visible without needing
+    // a nav-fragment content change. Remove once the fragment is updated.
+    if (!ul.querySelector('nx-editortoggle')) {
+      await import('../editortoggle/editortoggle.js');
+      const li = document.createElement('li');
+      li.append(document.createElement('nx-editortoggle'));
+      ul.prepend(li);
+    }
     return ul;
   }
 
