@@ -2,6 +2,21 @@
 
 ## 2026-08-20
 
+### nx2 chat — extract .fig images, upload to DA, hand the agent URLs
+
+Completes the image side of the Figma flow. The `.fig` picker now parses the
+**full** file via the fig-inspector worker (needed for the image list + per-image
+dimensions + best-effort layer names), extracts each `images/<hash>` entry
+**client-side** (`extractFigImages` — pure-JS ZIP, inflates deflate entries;
+real files store them), uploads them to DA under `.figma-assets/<slug>/`
+(`uploadFigImages` via `daFetch`), and appends an `[Images available]` block
+(`buildImagesBlock`: `- <layer_name>: <url> (WxH)`) to the hidden wire text. The
+skill (v1.3.0) places them by name. The raw `.fig` still never reaches the agent;
+only de-noised text + thumbnail + DA image URLs. Renamed `parseStrippedFig` →
+`parseFig` (it now takes the full file). Validated on the real test file: 7 images
+extracted with correct PNG/JPEG magic + sizes; parser returns names like
+"…unsplash 1" and dims up to 4096x2731.
+
 ### nx2 chat — show the .fig thumbnail inline in the chat
 
 Visual preview for the Figma flow: `sendMessage` gained a `thumbnail` option

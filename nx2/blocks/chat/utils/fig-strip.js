@@ -9,6 +9,9 @@
  * content to the agent inline. Nothing large ever leaves the browser.
  */
 
+import { daFetch } from '../../../utils/api.js';
+import { DA_ADMIN } from '../../../utils/utils.js';
+
 const FIG_INSPECTOR_URL = 'https://fig-inspector.franklin-prod.workers.dev';
 
 // ZIP record signatures (little-endian).
@@ -158,11 +161,13 @@ export function stripFig(arrayBuffer) {
 }
 
 /**
- * POST the (stripped) `.fig` bytes to the fig-inspector worker and return the
- * parsed inspection JSON: `{ file_name, meta, thumbnail_base64, images, text }`.
+ * POST `.fig` bytes to the fig-inspector worker and return the parsed inspection
+ * JSON: `{ file_name, meta, thumbnail_base64, images:[{hash,layer_name,width,
+ * height,mime}], text }`. Send the FULL file when you need the image list/dims —
+ * the images metadata is only present when the worker sees the `images/` entries.
  * @param {Uint8Array} bytes
  */
-export async function parseStrippedFig(bytes) {
+export async function parseFig(bytes) {
   const resp = await fetch(`${FIG_INSPECTOR_URL}/inspect`, {
     method: 'POST',
     headers: { 'content-type': 'application/octet-stream' },
@@ -240,4 +245,106 @@ export function summarizeFigForAgent(parsed) {
 
   lines.push('', 'Recovered copy (headings, body, labels):', body);
   return lines.join('\n');
+}
+
+async function inflateRaw(bytes) {
+  const stream = new Response(bytes).body.pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+/**
+ * Extract the embedded images from a full `.fig` (ZIP), client-side. Returns
+ * `[{ hash, bytes }]` for each `images/<hash>` entry — decompressing deflate
+ * entries (most image entries are stored, i.e. already-compressed pixels).
+ * @param {ArrayBuffer} arrayBuffer full `.fig`
+ */
+export async function extractFigImages(arrayBuffer) {
+  const buf = new Uint8Array(arrayBuffer);
+  const view = new DataView(arrayBuffer);
+
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= 0; i -= 1) {
+    if (view.getUint32(i, true) === EOCD_SIG) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) return [];
+
+  const cdCount = view.getUint16(eocd + 10, true);
+  const cdOffset = view.getUint32(eocd + 16, true);
+  let cursor = cdOffset;
+  const found = [];
+
+  for (let n = 0; n < cdCount; n += 1) {
+    if (view.getUint32(cursor, true) !== CENTRAL_SIG) break;
+    const method = view.getUint16(cursor + 10, true);
+    const compSize = view.getUint32(cursor + 20, true);
+    const fnameLen = view.getUint16(cursor + 28, true);
+    const extraLen = view.getUint16(cursor + 30, true);
+    const commentLen = view.getUint16(cursor + 32, true);
+    const localOffset = view.getUint32(cursor + 42, true);
+    const name = new TextDecoder().decode(buf.subarray(cursor + 46, cursor + 46 + fnameLen));
+    cursor = cursor + 46 + fnameLen + extraLen + commentLen;
+
+    if (name.startsWith('images/') && !name.endsWith('/') && view.getUint32(localOffset, true) === LOCAL_SIG) {
+      const lFnameLen = view.getUint16(localOffset + 26, true);
+      const lExtraLen = view.getUint16(localOffset + 28, true);
+      const dataStart = localOffset + 30 + lFnameLen + lExtraLen;
+      found.push({
+        hash: name.slice('images/'.length),
+        method,
+        comp: buf.subarray(dataStart, dataStart + compSize),
+      });
+    }
+  }
+
+  return Promise.all(found.map(async ({ hash, method, comp }) => ({
+    hash,
+    bytes: method === 8 ? await inflateRaw(comp) : comp,
+  })));
+}
+
+function mimeToExt(mime) {
+  if (mime === 'image/jpeg') return 'jpg';
+  if (mime === 'image/webp') return 'webp';
+  if (mime === 'image/gif') return 'gif';
+  return 'png';
+}
+
+/**
+ * Upload extracted images to DA under `.figma-assets/<slug>/` and return a
+ * `{ <hash>: contentUrl }` map. `images` items are `{ hash, bytes, mime }`.
+ */
+export async function uploadFigImages(images, { org, site, slug }) {
+  const urlByHash = {};
+  await Promise.all(images.map(async ({ hash, bytes, mime }) => {
+    const path = `/${org}/${site}/.figma-assets/${slug}/${hash}.${mimeToExt(mime)}`;
+    try {
+      const form = new FormData();
+      form.append('data', new Blob([bytes], { type: mime || 'image/png' }));
+      const resp = await daFetch({ url: `${DA_ADMIN}/source${path}`, opts: { method: 'PUT', body: form } });
+      if (resp.ok) {
+        const json = await resp.json().catch(() => null);
+        if (json?.source?.contentUrl) urlByHash[hash] = json.source.contentUrl;
+      }
+    } catch { /* skip this image; others still upload */ }
+  }));
+  return urlByHash;
+}
+
+/**
+ * Build the `[Images available]` block the skill places by name: one line per
+ * uploaded image as `- <layer_name|hash>: <url> (<W>x<H>)`.
+ */
+export function buildImagesBlock(parsedImages, urlByHash) {
+  const lines = (parsedImages || [])
+    .filter((im) => urlByHash[im.hash])
+    .map((im) => {
+      const label = im.layer_name || im.hash.slice(0, 8);
+      const dims = im.width && im.height ? ` (${im.width}x${im.height})` : '';
+      return `- ${label}: ${urlByHash[im.hash]}${dims}`;
+    });
+  if (!lines.length) return '';
+  return ['[Images available] (place by name/shape; these DA URLs are ready to use):', ...lines].join('\n');
 }

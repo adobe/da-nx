@@ -14,7 +14,9 @@ import { loadSiteConfig } from './utils/api.js';
 import { isCoworkerEnabled } from '../../utils/ewFlags.js';
 import { getConfig } from '../../scripts/nx.js';
 import { buildAttachmentPayload } from './utils/chat-helpers.js';
-import { stripFig, parseStrippedFig, summarizeFigForAgent } from './utils/fig-strip.js';
+import {
+  parseFig, summarizeFigForAgent, extractFigImages, uploadFigImages, buildImagesBlock,
+} from './utils/fig-strip.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
@@ -338,17 +340,33 @@ class NxChat extends LitElement {
     if (!file) return;
 
     const pills = this.shadowRoot.querySelector('nx-pills');
+    const { org, site } = this._context ?? {};
     try {
       const buf = await file.arrayBuffer();
-      const stripped = stripFig(buf); // ~190KB: canvas.fig + thumbnail + meta
-      const parsed = await parseStrippedFig(stripped);
-      // Carry the recovered content as a pill with NO dataBase64, so it is never
-      // uploaded; _submit merges its summary into the outgoing message text.
+      // Parse the FULL file (needed for the image list + dims + layer names).
+      // The raw .fig never goes to the agent — only the de-noised text + the
+      // thumbnail + DA URLs of the extracted images.
+      const parsed = await parseFig(new Uint8Array(buf));
+
+      let imagesBlock = '';
+      if (org && site && Array.isArray(parsed.images) && parsed.images.length) {
+        const mimeByHash = new Map(parsed.images.map((im) => [im.hash, im.mime]));
+        const raw = await extractFigImages(buf);
+        const toUpload = raw.map((r) => ({ ...r, mime: mimeByHash.get(r.hash) }));
+        const base = (parsed.file_name || file.name)
+          .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'figma';
+        const urlByHash = await uploadFigImages(toUpload, { org, site, slug: `${base}-${Date.now().toString(36)}` });
+        imagesBlock = buildImagesBlock(parsed.images, urlByHash);
+      }
+
+      const summary = summarizeFigForAgent(parsed);
+      // No dataBase64 → never uploaded as an attachment; _submit merges figSummary
+      // into the hidden wire text and shows the thumbnail inline.
       pills?.add({
         id: crypto.randomUUID(),
         label: parsed.file_name || file.name,
         type: 'image',
-        figSummary: summarizeFigForAgent(parsed),
+        figSummary: imagesBlock ? `${summary}\n\n${imagesBlock}` : summary,
         ...(parsed.thumbnail_base64
           ? { thumbnail: `data:image/png;base64,${parsed.thumbnail_base64}` }
           : {}),
