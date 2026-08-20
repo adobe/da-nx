@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import {
   blockName,
+  blockLabel,
   blockSelectPayload,
   imageSelectPayload,
   setSelectedNode,
@@ -9,7 +10,7 @@ import {
 
 function buildBody() {
   document.body.innerHTML = '<main>'
-    + '<div class="cards highlight" data-block-index="50">table block</div>'
+    + '<div class="cards highlight decorated" data-block-variant="highlight" data-block-index="50">table block</div>'
     + '<div class="hero" data-block-index="60">other block</div>'
     + '<div class="no-index">unindexed</div>'
     + '<picture><img data-image-index="27" src="/img.png" alt="" style="width:100px;height:60px"></picture>'
@@ -29,6 +30,17 @@ describe('quick-edit selection payloads', () => {
   it('blockName is empty for an element with no class', () => {
     const el = document.createElement('div');
     expect(blockName(el)).to.equal('');
+  });
+
+  it('blockLabel appends the authored variant (data-block-variant), ignoring decoration classes', () => {
+    const el = document.querySelector('[data-block-index="50"]');
+    // el also has a `decorated` class that must NOT appear in the label.
+    expect(blockLabel(el)).to.equal('cards (highlight)');
+  });
+
+  it('blockLabel is just the name when there is no variant', () => {
+    const el = document.querySelector('[data-block-index="60"]');
+    expect(blockLabel(el)).to.equal('hero');
   });
 
   it('blockSelectPayload reads data-block-index into a table payload', () => {
@@ -84,7 +96,7 @@ describe('quick-edit selection overlay', () => {
     expect(overlay.querySelector('.qe-selected-box')).to.not.equal(null);
     const pill = overlay.querySelector('.qe-selected-pill');
     expect(pill).to.not.equal(null);
-    expect(pill.textContent).to.equal('cards');
+    expect(pill.textContent).to.equal('cards (highlight)');
   });
 
   it('setSelectedNode draws an image box without a pill', () => {
@@ -174,7 +186,7 @@ describe('quick-edit selection gestures', () => {
     block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     const pill = document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover');
     expect(pill).to.not.equal(null);
-    expect(pill.textContent).to.equal('cards');
+    expect(pill.textContent).to.equal('cards (highlight)');
   });
 
   it('draws a persistent hover box alongside the pill', () => {

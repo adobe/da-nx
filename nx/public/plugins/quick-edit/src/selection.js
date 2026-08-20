@@ -8,6 +8,15 @@ export function blockName(el) {
   return el?.classList?.[0] || '';
 }
 
+// Block name plus authored variant, e.g. `hero (center)`. Variant comes from
+// data-block-variant (see restoreBlockIndices), not live classes which include decoration.
+export function blockLabel(el) {
+  const name = blockName(el);
+  if (!name) return '';
+  const variant = el?.getAttribute?.('data-block-variant') || '';
+  return variant ? `${name} (${variant})` : name;
+}
+
 function fillPill(pill, root, name) {
   const grip = root.createElement('span');
   grip.className = 'qe-pill-grip';
@@ -125,7 +134,7 @@ export function setSelectedNode(node, root = document, { scrollIntoView = false 
   if (node.anchorType === 'table') {
     const pill = root.createElement('div');
     pill.className = 'qe-selected-pill';
-    fillPill(pill, root, blockName(element));
+    fillPill(pill, root, blockLabel(element));
     box.appendChild(pill);
   }
 }
@@ -149,7 +158,7 @@ function drawHoverPill(block, root = document) {
   const pill = root.createElement('button');
   pill.type = 'button';
   pill.className = 'qe-selected-pill is-hover';
-  fillPill(pill, root, blockName(block));
+  fillPill(pill, root, blockLabel(block));
   pill.dataset.blockIndex = block.getAttribute('data-block-index');
   box.appendChild(pill);
 }
