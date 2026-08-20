@@ -28,7 +28,7 @@ async function setBody(body, ctx) {
   const anchor = captureScrollAnchor();
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
-  await ctx.loadPage();
+  await ctx.loadPage(document);
   restoreBlockIndices(doc, document);
   setupNodeSelection(ctx);
   setSelectedNode(getSelectedNode());

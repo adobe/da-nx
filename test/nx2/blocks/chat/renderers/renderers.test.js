@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { render } from 'da-lit';
-import { renderMessage } from '../../../../nx2/blocks/chat/renderers.js';
+import { renderMessage } from '../../../../../nx2/blocks/chat/renderers/renderers.js';
 
 // Render an assistant message and return the mounted container for DOM assertions.
 function renderAssistant(content) {
