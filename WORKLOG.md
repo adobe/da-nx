@@ -2,6 +2,20 @@
 
 ## 2026-08-20
 
+### nx2 chat — de-noise parsed .fig text + hide it from the UI
+
+Follow-ups to the client-side .fig parse:
+- The flat text extractor emits scaffolding (font ids, `--sds-*`/Spectrum
+  tokens, layer names) and binary runs mis-read as text. `summarizeFigForAgent`
+  now filters to human-readable copy (`isLikelyHumanText`: rejects token chars,
+  css vars/hex, font postscript names, layer names, low letter-ratio, no-vowel
+  and id-like single tokens) and hard-caps output (120 lines / 4000 chars) so it
+  can't bloat or break the WS frame. Real file: 456 raw runs → ~1.4 KB of copy.
+- The parsed block is now sent as **hidden wire text**, not shown in chat:
+  `sendMessage` gained a `hiddenText` option (appended to the AO USER_INPUT frame
+  but never put on the message `content`); `chat.js` passes the figma block via
+  it, so the user's visible message is just their prompt.
+
 ### nx2 chat — strip .fig to its document and parse client-side (no upload)
 
 A `.fig` is a ZIP that is ~99% embedded images (a real test file: 22 MB total,
