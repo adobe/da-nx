@@ -2,6 +2,27 @@
 
 ## 2026-08-19
 
+### nx2 chat (AO) — fix attachment upload to the real Files endpoint
+
+The AO controller's `uploadAttachmentToAo` used a two-phase presigned flow
+(`POST /api/v1/files/upload` → PUT → `/finalize`) that the backend never
+implemented, so every attachment upload failed and fell back to inlining
+`dataBase64` — which the backend rejects with `400 Invalid request body`
+(worse for large files, e.g. a 22 MB `.fig`). Verified the deployed contract
+(claudebridge `src/api/index.ts` + `session.ts`):
+
+- Upload is a **single multipart `POST /api/v1/files`** (field `file`, auth
+  headers) → `201 [{ id, filename, mime_type, size_bytes, created_at }]`.
+- `USER_INPUT.attachments` must be **objects** `[{ artifactId }]` (session
+  `resolveAttachments` reads `attachment.artifactId`), not raw id strings.
+
+Fixes in `nx2/blocks/chat/ao/chat-controller-ao.js`:
+- rewrote `uploadAttachmentToAo` to the single multipart POST, reading `[0].id`
+  as the artifactId (sends `authorization` / `x-tenant-id` / `x-user-id`);
+- `sendMessage` now sends `attachments: artifactIds.map((artifactId) => ({ artifactId }))`.
+
+Unblocks large `.fig` uploads (up to Managed Agents' 500 MB per-file cap).
+
 ### nx2 chat — "Upload .fig file" in the + menu (Figma → landing page)
 
 Additive change on top of the refactored (`ewaoinit`) chat: a new `+` menu item
