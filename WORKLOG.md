@@ -1,5 +1,19 @@
 # Worklog
 
+## 2026-08-20
+
+### nx2 chat (AO) — drop x-user-id from the attachment upload (CORS)
+
+The multipart upload to `POST /api/v1/files` (agent-orchestrator-prod-va7) sent
+`x-user-id`, which the endpoint's CORS policy doesn't list in
+`Access-Control-Allow-Headers` → the browser preflight failed
+(`Request header field x-user-id is not allowed`) and the POST never went out
+(`net::ERR_FAILED`). The Files API only requires `Authorization` + `x-tenant-id`
+(claudebridge `requireAuthHeaders`); `x-user-id` is needed only by the Skills
+API (`requireSkillAuthHeaders`). Removed `x-user-id` (and the now-unused `userId`
+binding) from `uploadAttachmentToAo` in `chat-controller-ao.js`. The WS AUTH
+frame still sends `x-user-id` — that's a WS message field, not subject to CORS.
+
 ## 2026-08-19
 
 ### nx2 chat (AO) — fix attachment upload to the real Files endpoint
