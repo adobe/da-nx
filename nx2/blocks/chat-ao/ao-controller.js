@@ -11,11 +11,9 @@
  */
 
 import { loadIms } from '../../utils/ims.js';
-import {
-  AO_WS_BASE, AO_FRAME, AO_EVENT, AO_MANIFEST_ID,
-} from './ao-constants.js';
+import { AO_FRAME, AO_EVENT, AO_MANIFEST_ID } from './ao-constants.js';
 import { buildSelectionText, buildFailedUploadsText, buildPageContextText } from './utils/user-context.js';
-import { uploadAttachment, getOrgId } from './utils/uploads.js';
+import { uploadAttachment, getOrgId, resolveAoWsBase } from './utils/uploads.js';
 import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession,
 } from './utils/episodes.js';
@@ -166,18 +164,21 @@ export default class AoChatController {
     this._update();
   }
 
-  async _authFrame() {
+  async _connectionInfo() {
     const {
       accessToken, userId, tenantId, email, name, projectedProductContext,
     } = await loadIms();
     return {
-      type: AO_FRAME.AUTH,
-      authorization: `Bearer ${accessToken?.token}`,
-      'x-org-name': tenantId,
-      'x-tenant-id': getOrgId(projectedProductContext),
-      'x-user-email': email,
-      'x-user-id': userId,
-      'x-user-name': name,
+      authFrame: {
+        type: AO_FRAME.AUTH,
+        authorization: `Bearer ${accessToken?.token}`,
+        'x-org-name': tenantId,
+        'x-tenant-id': getOrgId(projectedProductContext),
+        'x-user-email': email,
+        'x-user-id': userId,
+        'x-user-name': name,
+      },
+      wsBase: resolveAoWsBase(projectedProductContext),
     };
   }
 
@@ -201,11 +202,10 @@ export default class AoChatController {
   }
 
   async _connect() {
-    const authFrame = await this._authFrame();
+    const { authFrame, wsBase } = await this._connectionInfo();
 
     await new Promise((resolve, reject) => {
-      const base = AO_WS_BASE;
-      const ws = new WebSocket(`${base}/ws/sessions/${this._episodeId ?? 'new'}`);
+      const ws = new WebSocket(`${wsBase}/ws/sessions/${this._episodeId ?? 'new'}`);
       this._ws = ws;
 
       // Guards against a stale socket if clear()/a later _ensureSocket() call replaces it.

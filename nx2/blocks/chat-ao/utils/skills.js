@@ -1,6 +1,6 @@
 import { loadIms } from '../../../utils/ims.js';
-import { AO_HTTP_BASE, AO_MANIFEST_ID } from '../ao-constants.js';
-import { getOrgId } from './uploads.js';
+import { AO_MANIFEST_ID } from '../ao-constants.js';
+import { getOrgId, resolveAoHttpBase } from './uploads.js';
 
 const SKILLS_CACHE_KEY = `da-chat-ao-skills--${AO_MANIFEST_ID}`;
 
@@ -40,7 +40,7 @@ function saveCachedSkills(skills) {
 export async function fetchSkills() {
   try {
     const { accessToken, projectedProductContext } = await loadIms();
-    const resp = await fetch(`${AO_HTTP_BASE}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`, {
+    const resp = await fetch(`${resolveAoHttpBase(projectedProductContext)}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`, {
       headers: {
         authorization: `Bearer ${accessToken?.token}`,
         'x-tenant-id': getOrgId(projectedProductContext),

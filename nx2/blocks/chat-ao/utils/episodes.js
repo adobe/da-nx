@@ -1,12 +1,14 @@
 import { loadIms } from '../../../utils/ims.js';
-import { AO_HTTP_BASE } from '../ao-constants.js';
-import { getOrgId } from './uploads.js';
+import { getOrgId, resolveAoHttpBase } from './uploads.js';
 
-async function authHeaders() {
+async function aoContext() {
   const { accessToken, projectedProductContext } = await loadIms();
   return {
-    authorization: `Bearer ${accessToken?.token}`,
-    'x-tenant-id': getOrgId(projectedProductContext),
+    base: resolveAoHttpBase(projectedProductContext),
+    headers: {
+      authorization: `Bearer ${accessToken?.token}`,
+      'x-tenant-id': getOrgId(projectedProductContext),
+    },
   };
 }
 
@@ -14,7 +16,8 @@ async function authHeaders() {
 // just pull the recent list. Most-recent-first, per AO's own ordering.
 export async function fetchEpisodes(limit) {
   try {
-    const resp = await fetch(`${AO_HTTP_BASE}/api/v1/episodes?limit=${limit}`, { headers: await authHeaders() });
+    const { base, headers } = await aoContext();
+    const resp = await fetch(`${base}/api/v1/episodes?limit=${limit}`, { headers });
     if (!resp.ok) return [];
     const { episodes } = await resp.json();
     return episodes ?? [];
@@ -35,9 +38,8 @@ function turnsToMessages(turns) {
 // root_only drops sub-agent turns — chat history only cares about the main thread.
 export async function fetchEpisodeMessages(episodeId) {
   try {
-    const resp = await fetch(`${AO_HTTP_BASE}/api/v1/episodes/${episodeId}/turns?root_only=true`, {
-      headers: await authHeaders(),
-    });
+    const { base, headers } = await aoContext();
+    const resp = await fetch(`${base}/api/v1/episodes/${episodeId}/turns?root_only=true`, { headers });
     if (!resp.ok) return [];
     const { turns } = await resp.json();
     return turnsToMessages(turns);
@@ -54,9 +56,10 @@ export async function fetchEpisodeMessages(episodeId) {
 // no speedup, not an error worth surfacing.
 export async function warmSession(episodeId) {
   try {
-    await fetch(`${AO_HTTP_BASE}/api/v1/sessions`, {
+    const { base, headers } = await aoContext();
+    await fetch(`${base}/api/v1/sessions`, {
       method: 'POST',
-      headers: { ...(await authHeaders()), 'content-type': 'application/json' },
+      headers: { ...headers, 'content-type': 'application/json' },
       body: JSON.stringify({ episodeId }),
     });
   } catch {
@@ -66,9 +69,8 @@ export async function warmSession(episodeId) {
 
 export async function fetchEpisodeContext(episodeId) {
   try {
-    const resp = await fetch(`${AO_HTTP_BASE}/api/v1/episodes/${episodeId}/context`, {
-      headers: await authHeaders(),
-    });
+    const { base, headers } = await aoContext();
+    const resp = await fetch(`${base}/api/v1/episodes/${episodeId}/context`, { headers });
     if (!resp.ok) return null;
     const { suspendedTurn } = await resp.json();
     if (!suspendedTurn?.questionData) return null;
