@@ -1,5 +1,30 @@
 # Worklog
 
+## 2026-08-19
+
+### nx2 — restore lazy-loaded RUM (regression from nx1)
+
+nx1 lazy-loaded `deps/rum.js` at the tail of `loadArea` (via `scripts/lazy.js`); nx2 dropped it. Restored:
+
+- Copied `deps/rum.js` (vendored helix `sampleRUM`) into `nx2/deps/`.
+- Added `scripts/lazy.js` (self-invoking, like nx1): holds `rumWC` (RUM click tracking for `[data-rum]` web components) + a `loadLazy` IIFE that imports `../deps/rum.js`, calls `sampleRUM()`, and registers `rumWC` after 3s.
+- `nx.js` does `if (isDoc) import('./lazy.js')` **after the section loop** for every doc, matching nx1's post-loop timing. To reach that point on non-app-frame / no-nav pages, the `idx === 0` header setup was extracted into `loadHeader(isSession)`; its `return true` (the old early `return`s) now `break`s the loop instead of returning from `loadArea`, so section-loading semantics are unchanged but control still falls through to the lazy import.
+- nx2 has no `[data-rum]` elements yet, so `rumWC` is currently a no-op — kept for parity/forward-compat.
+
+## 2026-08-14
+
+### nx2/utils/ewFlags.js — user-level Experience Workspace opt-in
+
+Core logic split out of the `editortoggle` work so it can land on its own. Adds a browser-scoped opt-in to the new (canvas) editor that mirrors the site-level `ew.enabled` flag, letting individual users preview EW on sites that haven't been switched over yet.
+
+- New `EW_USER_KEY = 'nx2:ew-user-enabled'` in localStorage, with `isEWUserEnabled()` / `setEWUserEnabled(bool)` accessors (both storage-safe — `isEWUserEnabled` returns `false` and `setEWUserEnabled` no-ops when storage is unavailable).
+- Split the old site-only check into `isEWEnabledBySite({ org, site })`, and made `isEWEnabled({ org, site })` short-circuit to `true` when the user override is on — so `da-browse`'s existing `isEWEnabled` call site opts the user into the new editor with zero changes there. The short-circuit intentionally runs before the `fetchDaConfigs` network call.
+- `?ew` query-param seeding, mirroring da-live's `?da-admin` pattern (`blocks/shared/constants.js` `getDaEnv`): `isEWUserEnabled()` reads `?ew` from the URL and persists it before returning — `?ew=true` opts in, `?ew=false`/`?ew=reset` opts out — so the choice survives navigations that drop the param. `isEWUserEnabled(location?)` takes an injectable `location` for testing; `syncEWUserFromQuery` is the private read-through helper.
+- `isEwChatDisabled` / `isCoworkerEnabled` stay site-only on purpose.
+- Tests in `nx2/test/unit/nx/utils/ewFlags.test.js`: default state, set/unset roundtrip, the user-override short circuit in `isEWEnabled` (uses a bogus org/site so an accidental network call would surface as a rejection, not a false positive), and `?ew=true`/`false`/`reset`/absent query-param seeding.
+
+The toggle UI, welcome guide, and switch-back feedback prompt that consume this flag live on the stacked `editortoggle` branch.
+
 ## 2026-08-07
 
 ### nx2/utils/api.js — remove stage-content.da.live rewrite workaround

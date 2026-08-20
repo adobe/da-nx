@@ -9,6 +9,7 @@ class FormInput extends LitElement {
   static properties = {
     value: { type: String },
     label: { type: String },
+    description: { type: String },
     error: { type: String },
     type: { type: String },
     placeholder: { type: String },
@@ -33,6 +34,8 @@ class FormInput extends LitElement {
   }
 
   render() {
+    // Spectrum: the error replaces the help text while the field is invalid.
+    const showHint = !this.error && this.description;
     return html`
       <div class="form-field${this.error ? ' has-error' : ''}">
         ${this.label ? html`<label for="form-input">${this.label}${this.required ? html`<span class="form-required">*</span>` : nothing}</label>` : nothing}
@@ -49,6 +52,7 @@ class FormInput extends LitElement {
           ${this.error ? icon('alert', 'form-field-icon') : nothing}
         </div>
         ${this.error ? html`<p class="form-field-error">${this.error}</p>` : nothing}
+        ${showHint ? html`<p class="form-field-description">${this.description}</p>` : nothing}
       </div>
     `;
   }

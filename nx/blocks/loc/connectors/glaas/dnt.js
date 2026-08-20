@@ -1,3 +1,10 @@
+import { DA_METADATA_SELECTOR, findMetadataRow, parseSelections } from './imageSelections.js';
+
+// Data attribute stashing a marked <img>'s original absolute src before it gets relativized
+// below - collectMultimodalImageUrls/rewriteContentDaLiveImageUrls (multimodalApi.js) read
+// it back so a marked image's real href survives regardless of DNT's own rewriting.
+export const LOC_SRC_ATTR = 'data-loc-src';
+
 let globalDntConfig;
 const ALT_TEXT_PLACEHOLDER = '*alt-placeholder*';
 
@@ -190,12 +197,18 @@ function makeUrlRelative(originalSrc) {
   }
 }
 
-function makeImagesRelative(document) {
+// markedHrefs: only <img> (not <source> - neither collectMultimodalImageUrls nor
+// rewriteContentDaLiveImageUrls look at <source>) gets LOC_SRC_ATTR, and only when marked -
+// that's the sole case where losing the absolute src here would silently drop translation.
+function makeImagesRelative(document, markedHrefs) {
   const els = document.querySelectorAll('img[src*="media_"], source[srcset*="media_"]');
   els.forEach((el) => {
     if (el.nodeName === 'IMG') {
       const relativeSrc = makeUrlRelative(el.src);
-      if (relativeSrc) el.setAttribute('src', relativeSrc);
+      if (relativeSrc) {
+        if (markedHrefs?.has(el.src)) el.setAttribute(LOC_SRC_ATTR, el.src);
+        el.setAttribute('src', relativeSrc);
+      }
     } else {
       const relativeSrc = makeUrlRelative(el.srcset);
       if (relativeSrc) el.setAttribute('srcset', relativeSrc);
@@ -214,12 +227,13 @@ const addDntInfoToHtml = (html) => {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
 
-  makeImagesRelative(document);
+  makeImagesRelative(document, parseSelections(document));
   makeHrefsRelative(document);
 
   // Match existing content sent to GLaaS
   document.querySelector('header')?.remove();
   document.querySelector('footer')?.remove();
+  document.querySelectorAll(DA_METADATA_SELECTOR).forEach(setDntAttribute);
 
   globalDntConfig.get('docRules').forEach((operations, selector) => {
     const newSelector = selector.startsWith('.* >') ? selector.replace('.* >', 'div[class] >') : selector;
@@ -275,12 +289,27 @@ function resetHrefs(doc, org, repo) {
 function resetImages(doc, org, repo) {
   const imgs = doc.querySelectorAll('[src^="./media_"], [srcset^="./media_"]');
   imgs.forEach((img) => {
-    if (img.src) img.src = img.getAttribute('src').replace('./', `https://main--${repo}--${org}.aem.live/`);
+    if (img.src) {
+      // A marked image whose translation never completed the rewrite (still relative):
+      // prefer the stashed original over guessing .aem.live, which would be wrong for an
+      // image that was actually on .aem.page (not yet published under that host/ref).
+      const originalSrc = img.getAttribute(LOC_SRC_ATTR);
+      img.src = originalSrc || img.getAttribute('src').replace('./', `https://main--${repo}--${org}.aem.live/`);
+      if (originalSrc) img.removeAttribute(LOC_SRC_ATTR);
+    }
     if (img.srcset) img.srcset = img.getAttribute('srcset').replace('./', `https://main--${repo}--${org}.aem.live/`);
   });
 }
 
-export async function removeDnt(html, org, repo, { fileType = 'html' } = {}) {
+function removeLocImagesMetadata(document) {
+  const daMetadata = document.querySelector(DA_METADATA_SELECTOR);
+  findMetadataRow(daMetadata)?.remove();
+}
+
+// stripLocImages: true only for the translate save-back path - loc-images only
+// matters on the source page, not on translated output. Other removeDnt
+// callers (e.g. sync/rollout) don't set it, so they retain the mark.
+export async function removeDnt(html, org, repo, { fileType = 'html', stripLocImages = false } = {}) {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
   unwrapDntContent(document);
@@ -289,6 +318,7 @@ export async function removeDnt(html, org, repo, { fileType = 'html' } = {}) {
   resetHrefs(document, org, repo);
   resetImages(document, org, repo);
   removeDntAttributes(document);
+  if (stripLocImages) removeLocImagesMetadata(document);
   if (fileType === 'json') {
     const { html2json } = await import('../../dnt/json2html.js');
     return html2json(document.documentElement.outerHTML);

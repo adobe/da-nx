@@ -19,6 +19,7 @@ class FormNumberField extends LitElement {
   static properties = {
     value: { type: String },
     label: { type: String },
+    description: { type: String },
     error: { type: String },
     placeholder: { type: String },
     name: { type: String },
@@ -142,6 +143,7 @@ class FormNumberField extends LitElement {
   }
 
   render() {
+    const showHint = !this.error && this.description;
     return html`
       <div class="form-field${this.error ? ' has-error' : ''}">
         ${this.label ? html`<label for="form-number">${this.label}${this.required ? html`<span class="form-required">*</span>` : nothing}</label>` : nothing}
@@ -183,9 +185,8 @@ class FormNumberField extends LitElement {
             >${icon('chevronDown', 'form-number-chevron')}</button>
           </span>
         </div>
-        ${this.error
-        ? html`<p class="form-field-error">${this.error}</p>`
-        : html`<slot name="description"></slot>`}
+        ${this.error ? html`<p class="form-field-error">${this.error}</p>` : nothing}
+        ${showHint ? html`<p class="form-field-description">${this.description}</p>` : nothing}
       </div>
     `;
   }

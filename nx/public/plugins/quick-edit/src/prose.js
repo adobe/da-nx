@@ -35,6 +35,16 @@ function updateInstrumentation(lengthDiff, offset) {
       element.setAttribute('data-initial-length', element.textContent.length);
     }
   });
+  // An in-place edit shifts every prose position after it; shift the following blocks'
+  // data-block-index to match, or block selection breaks until the next SET_BODY re-index.
+  if (lengthDiff) {
+    document.querySelectorAll('[data-block-index]').forEach((element) => {
+      const value = parseInt(element.getAttribute('data-block-index'), 10);
+      if (Number.isFinite(value) && value > offset) {
+        element.setAttribute('data-block-index', value + lengthDiff);
+      }
+    });
+  }
 }
 
 function handleTransaction(tr, ctx, editorView, editorParent) {
