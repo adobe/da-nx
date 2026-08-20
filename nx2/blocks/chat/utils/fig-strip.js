@@ -175,11 +175,42 @@ export async function parseStrippedFig(bytes) {
   return resp.json();
 }
 
+// The flat text extractor is greedy: alongside real UI copy it emits design-
+// system scaffolding (font postscript names, `--sds-*`/Spectrum tokens, layer
+// names like "Vector 108") and binary runs mis-read as text. Keep only strings
+// that read like human copy, so we don't ship gibberish (and blow the WS frame).
+function isLikelyHumanText(raw) {
+  const s = String(raw ?? '').trim();
+  if (s.length < 2 || s.length > 300) return false;
+
+  // Structural / token characters that don't appear in page copy.
+  if (/[<>{}|/\\%?^~`=#@*+_()[\]]/.test(s)) return false;
+  if (/^[).(]/.test(s)) return false;
+
+  // Design-system scaffolding.
+  if (/^var\(|--sds-|^#[0-9a-fA-F]{3,8}$/.test(s)) return false; // css vars / hex
+  if (/^S2?[._]/.test(s)) return false; // S2.Color-theme, S2_Icon_...
+  if (/[A-Za-z]-(Bold|Regular|Italic|Light|Medium|Semibold|SemiBold|Extrabold|ExtraBold|Black|Thin)\b/.test(s)) return false; // font postscript ids
+  if (/^(Ellipse|Vector|Rectangle|Line|Group|Frame|Icon|Mask|Union|Path|Asset|image|Component|Slice|Layer|Polygon|Star|Arrow)\b/i.test(s)) return false; // layer names
+
+  const letters = (s.match(/[A-Za-z]/g) || []).length;
+  if (letters / s.length < 0.6) return false; // too many symbols/digits
+  if (!/[aeiouAEIOU]/.test(s)) return false; // no vowel → not a word
+  if (!/[a-z]/.test(s) && s.length > 4) return false; // all-caps run → likely noise
+
+  // Single tokens (no spaces) are where most id-like noise lives.
+  if (!/\s/.test(s)) {
+    if (/\d/.test(s) && s.length > 8) return false; // random id token
+    if (/[a-z][A-Z]/.test(s)) return false; // internal lower→upper, e.g. HuO, fID
+    if (!/[a-z]/.test(s) && s.length >= 3) return false; // short all-caps, e.g. XUU, BUU
+  }
+
+  return true;
+}
+
 /**
- * Build a compact, readable block for the agent from the parsed inspection.
- * Note: `text` mixes real page copy with design-system scaffolding (font names,
- * `--sds-*` tokens, Spectrum icon ids) — we pass it through as-is; the
- * figma-to-landing-page skill filters it.
+ * Build a compact, DE-NOISED block for the agent: file name, canvas background,
+ * and the human-readable copy only, hard-capped so it can never bloat the frame.
  */
 export function summarizeFigForAgent(parsed) {
   const name = parsed?.file_name || 'Figma design';
@@ -193,22 +224,20 @@ export function summarizeFigForAgent(parsed) {
 
   const runs = Array.isArray(parsed?.text) ? parsed.text : [];
   const seen = new Set();
-  const unique = [];
-  runs.forEach((t) => {
-    const s = String(t ?? '').trim();
-    if (!s || seen.has(s)) return;
-    seen.add(s);
-    unique.push(s);
+  const copy = [];
+  runs.forEach((run) => {
+    const s = String(run ?? '').trim();
+    if (isLikelyHumanText(s) && !seen.has(s)) {
+      seen.add(s);
+      copy.push(s);
+    }
   });
 
-  const CAP = 8000;
-  let body = unique.join('\n');
-  if (body.length > CAP) body = `${body.slice(0, CAP)}\n…(truncated)`;
+  const MAX_LINES = 120;
+  const MAX_CHARS = 4000;
+  let body = copy.slice(0, MAX_LINES).join('\n');
+  if (body.length > MAX_CHARS) body = `${body.slice(0, MAX_CHARS)}\n…(truncated)`;
 
-  lines.push(
-    '',
-    'Recovered text (may include design tokens / font names — ignore scaffolding):',
-    body,
-  );
+  lines.push('', 'Recovered copy (headings, body, labels):', body);
   return lines.join('\n');
 }

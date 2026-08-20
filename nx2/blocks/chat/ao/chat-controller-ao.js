@@ -619,7 +619,10 @@ export default class ChatControllerAO {
     return `[Attachments]\n${lines.join('\n')}\n`;
   }
 
-  async sendMessage(message, context = [], { attachments = [] } = {}) {
+  // `hiddenText` is appended to the wire frame the agent receives but never shown
+  // in the UI (it's not put on the message's `content`). Used for machine-facing
+  // context like a parsed Figma design block, which would be noise in the chat.
+  async sendMessage(message, context = [], { attachments = [], hiddenText = '' } = {}) {
     if (this._thinking || !this._connected || !this._ready) return;
 
     const selectionContext = buildSelectionContext(context);
@@ -657,7 +660,8 @@ export default class ChatControllerAO {
     this._ws.send(JSON.stringify({
       type: AO_FRAME.USER_INPUT,
       text: `${this._contextPrefix()}${this._describeSelectionContext(selectionContext)}`
-        + `${this._describeAttachments(uploaded)}${message}`,
+        + `${this._describeAttachments(uploaded)}${message}`
+        + `${hiddenText ? `\n\n${hiddenText}` : ''}`,
       manifestId: AO_MANIFEST_ID,
       // Required for manifestId to actually override auto-targeting — an explicit
       // manifestId is only honored when debugMode is also true, otherwise it's

@@ -273,11 +273,15 @@ class NxChat extends LitElement {
     if (figItems.length) defaultText = 'Create a landing page from this Figma design.';
     else if (fileItems.length > 1) defaultText = 'Attached files';
     const baseText = text || defaultText;
+    // The parsed-figma block goes to the agent as hidden wire text — it must not
+    // render in the chat (it's long, de-noised machine context, not user copy).
     const figBlock = figItems.map((i) => i.figSummary).join('\n\n');
-    const message = figBlock ? `${baseText}\n\n${figBlock}` : baseText;
     const attachments = buildAttachmentPayload(items);
     this._slashMenu.close();
-    this._controller.sendMessage(message, contextItems, { attachments });
+    this._controller.sendMessage(baseText, contextItems, {
+      attachments,
+      ...(figBlock ? { hiddenText: figBlock } : {}),
+    });
     input.value = '';
     pills?.clear();
   }
