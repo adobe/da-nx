@@ -51,7 +51,7 @@ async function getSha256InHex(input) {
 
 /** Shared callbackConfig + config for v1.2 and v2 multimodal task create. */
 export async function buildGlaasCreateMetadata({ task, service }) {
-  const { name, workflow, businessUnit } = task;
+  const { name, workflow, businessUnit, reviewerResync } = task;
   const callbackConfig = [];
   const projectKeyKV = [];
   if (service?.preview) {
@@ -69,6 +69,9 @@ export async function buildGlaasCreateMetadata({ task, service }) {
     key: 'businessUnit',
     value: businessUnit,
   }, ...projectKeyKV];
+  if (reviewerResync) {
+    config.push({ key: 'isAutoTranscreationFixTask', value: 'true' });
+  }
   return { callbackConfig, config };
 }
 

@@ -15,6 +15,7 @@ import {
   isUpdatedColumn,
   parseUpdatedFlag,
 } from '../../../nx/blocks/loc/connectors/glaas/translationMetadata.js';
+import { writeSelections } from '../../../nx/blocks/loc/connectors/glaas/imageSelections.js';
 
 const TM_TEST_ORG = 'test-org';
 const TM_TEST_SITE = 'test-site';
@@ -1731,6 +1732,32 @@ describe('translationMetadata', () => {
       await primeGlossaryFromFetch();
       addSeoGlossary(urls, [{ code: 'de' }]);
       expect(urls[0].languageContext).to.equal(undefined);
+    });
+  });
+
+  describe('addTranslationMetadata (imageSelections)', () => {
+    it('parses url.imageSelections from the page da-metadata, independent of block schema', async () => {
+      const markedSrc = 'https://content.da.live/org/site/media_abc.png';
+      const html = writeSelections('<main><p>Hi</p></main>', [{ src: markedSrc, translate: 'true' }]);
+      const url = await runTranslationMetadata({ html, blockSchema404: true });
+      expect(url.imageSelections).to.be.instanceOf(Set);
+      expect(url.imageSelections.has(markedSrc)).to.be.true;
+    });
+
+    it('returns an empty set when there is no da-metadata block', async () => {
+      const html = '<main><p>Hi</p></main>';
+      const url = await runTranslationMetadata({ html, blockSchema404: true });
+      expect(url.imageSelections.size).to.equal(0);
+    });
+
+    it('still parses imageSelections when a block schema is present', async () => {
+      const markedSrc = 'https://content.da.live/org/site/media_def.jpg';
+      const html = writeSelections('<main><p>Hi</p></main>', [{ src: markedSrc, translate: 'true' }]);
+      const url = await runTranslationMetadata({
+        html,
+        blockSchemaJson: { ':version': 1 },
+      });
+      expect(url.imageSelections.has(markedSrc)).to.be.true;
     });
   });
 });
