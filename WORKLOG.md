@@ -2,6 +2,29 @@
 
 ## 2026-08-20
 
+### nx2 chat — strip .fig to its document and parse client-side (no upload)
+
+A `.fig` is a ZIP that is ~99% embedded images (a real test file: 22 MB total,
+of which `images/` is 21.9 MB; `canvas.fig`+`thumbnail.png`+`meta.json` are only
+~190 KB). The design (layout, text, tokens) lives entirely in `canvas.fig`; the
+parser never needs the image bytes. Uploading the whole file to AO was the source
+of every prior failure (prod Files API 404, CORS, 400s).
+
+New approach — handle `.fig` entirely in the browser:
+- `nx2/blocks/chat/utils/fig-strip.js`: `stripFig(arrayBuffer)` rebuilds a ZIP
+  containing only `canvas.fig`/`thumbnail.png`/`meta.json` (copies compressed
+  entries, rebuilds local+central headers — no recompress); `parseStrippedFig`
+  POSTs the ~190 KB to the fig-inspector worker's `/inspect` (CORS `*`, open);
+  `summarizeFigForAgent` builds a compact `[Parsed Figma design: …]` text block.
+- `chat.js`: the `.fig` picker now uses `_onFigInputChange` — strip → parse →
+  add a no-`dataBase64` pill carrying the summary + thumbnail preview. `_submit`
+  merges the summary into the outgoing message and never uploads the raw file.
+  Non-.fig attachments are unchanged.
+
+Verified on the real `Figma _Test.fig`: 22 MB → 190 KB (0.86%), valid ZIP,
+parses via the worker (456 text runs + thumbnail). The AO Files API, CORS, and
+`x-ew-key`/MCP registration are all sidestepped for the EW flow.
+
 ### nx2 chat (AO) — drop x-user-id from the attachment upload (CORS)
 
 The multipart upload to `POST /api/v1/files` (agent-orchestrator-prod-va7) sent

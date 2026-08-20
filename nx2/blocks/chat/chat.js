@@ -14,6 +14,7 @@ import { loadSiteConfig } from './utils/api.js';
 import { isCoworkerEnabled } from '../../utils/ewFlags.js';
 import { getConfig } from '../../scripts/nx.js';
 import { buildAttachmentPayload } from './utils/chat-helpers.js';
+import { stripFig, parseStrippedFig, summarizeFigForAgent } from './utils/fig-strip.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
@@ -263,9 +264,17 @@ class NxChat extends LitElement {
     const pills = this.shadowRoot.querySelector('nx-pills');
     const items = pills?.items ?? [];
     if (!text && !items.length) return;
+    const figItems = items.filter((i) => i.figSummary);
     const fileItems = items.filter((i) => i.dataBase64);
-    const contextItems = items.filter((i) => !i.dataBase64);
-    const message = text || (fileItems.length > 1 ? 'Attached files' : 'Attached file');
+    // Fig items carry no dataBase64 and are merged into the message text, not
+    // sent as context or uploaded — exclude them from both.
+    const contextItems = items.filter((i) => !i.dataBase64 && !i.figSummary);
+    let defaultText = 'Attached file';
+    if (figItems.length) defaultText = 'Create a landing page from this Figma design.';
+    else if (fileItems.length > 1) defaultText = 'Attached files';
+    const baseText = text || defaultText;
+    const figBlock = figItems.map((i) => i.figSummary).join('\n\n');
+    const message = figBlock ? `${baseText}\n\n${figBlock}` : baseText;
     const attachments = buildAttachmentPayload(items);
     this._slashMenu.close();
     this._controller.sendMessage(message, contextItems, { attachments });
@@ -306,11 +315,44 @@ class NxChat extends LitElement {
     this.shadowRoot.querySelector('.chat-file-input')?.click();
   }
 
-  // "Upload .fig file": open a picker filtered to .fig. The file attaches like
-  // any other (as a `file` item with dataBase64); the agent + the
-  // figma-to-landing-page skill decide what to do with it.
+  // "Upload .fig file": open a picker filtered to .fig. Unlike a normal
+  // attachment, a .fig is stripped to its ~190KB document + parsed IN THE
+  // BROWSER (see _onFigInputChange) — the ~99% that is embedded images never
+  // leaves the client, and the agent receives the recovered design content
+  // inline instead of the raw file.
   _openFigPicker() {
     this.shadowRoot.querySelector('.chat-fig-input')?.click();
+  }
+
+  async _onFigInputChange(e) {
+    const { target } = e;
+    const file = target.files?.[0];
+    target.value = '';
+    if (!file) return;
+
+    const pills = this.shadowRoot.querySelector('nx-pills');
+    try {
+      const buf = await file.arrayBuffer();
+      const stripped = stripFig(buf); // ~190KB: canvas.fig + thumbnail + meta
+      const parsed = await parseStrippedFig(stripped);
+      // Carry the recovered content as a pill with NO dataBase64, so it is never
+      // uploaded; _submit merges its summary into the outgoing message text.
+      pills?.add({
+        id: crypto.randomUUID(),
+        label: parsed.file_name || file.name,
+        type: 'image',
+        figSummary: summarizeFigForAgent(parsed),
+        ...(parsed.thumbnail_base64
+          ? { thumbnail: `data:image/png;base64,${parsed.thumbnail_base64}` }
+          : {}),
+      });
+    } catch (err) {
+      pills?.add({
+        id: crypto.randomUUID(),
+        label: `Couldn't read ${file.name}: ${err.message}`,
+        type: 'file',
+      });
+    }
   }
 
   async _onFilesSelected(fileList) {
@@ -415,7 +457,7 @@ class NxChat extends LitElement {
           type="file"
           accept=".fig"
           hidden
-          @change=${this._onFileInputChange}
+          @change=${this._onFigInputChange}
         />
         ${this._dragging ? html`
           <div class="chat-drop-zone" aria-hidden="true">
