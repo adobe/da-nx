@@ -74,8 +74,15 @@ export function aemPageToPreviewDaLiveUrl(imageUrl, { ref, repo, org }) {
 const livePreviewLogins = new Map();
 export function ensureLivePreviewLogin({ org, repo, ref }) {
   const key = `${org}/${repo}/${ref}`;
-  if (!livePreviewLogins.has(key)) livePreviewLogins.set(key, livePreviewLogin(org, repo, ref));
-  return livePreviewLogins.get(key);
+  let login = livePreviewLogins.get(key);
+  if (!login) {
+    login = livePreviewLogin(org, repo, ref).then((ok) => {
+      if (!ok) livePreviewLogins.delete(key);
+      return ok;
+    });
+    livePreviewLogins.set(key, login);
+  }
+  return login;
 }
 
 // Accepts an HTML string or an already-parsed Document (skips re-parsing when the caller has one).

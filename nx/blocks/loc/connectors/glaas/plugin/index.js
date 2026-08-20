@@ -24,7 +24,7 @@ function needsAuthenticatedFetch(href) {
   try {
     return DA_INTERNAL_HOSTS.has(new URL(href).hostname);
   } catch {
-    return true;
+    return false;
   }
 }
 

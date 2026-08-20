@@ -672,7 +672,10 @@ export async function fetchMultimodalImage({ imageIndex, imageUrl, logRequest })
   try {
     const aemPageHost = parseAemPageHost(imageSourceUrl);
     if (aemPageHost) {
-      await ensureLivePreviewLogin(aemPageHost);
+      const loggedIn = await ensureLivePreviewLogin(aemPageHost);
+      if (!loggedIn) {
+        return { error: 'Error fetching image.', step: `fetch-image-${imageIndex}` };
+      }
       const previewUrl = aemPageToPreviewDaLiveUrl(imageSourceUrl, aemPageHost);
       imageResp = await fetch(previewUrl, { credentials: 'include' });
     } else if (isAbsoluteContentDaLiveUrl(imageUrl)) {
