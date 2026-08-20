@@ -1,5 +1,4 @@
 .form-field input {
-  /* Bordered field, matched to form-input (2px border, 8px radius). */
   box-sizing: border-box;
   width: 100%;
   height: 32px;
