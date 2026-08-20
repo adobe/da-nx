@@ -12,6 +12,9 @@
 
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { renderMarkdown, unescapeLiteralNewlines } from '../utils/markdown.js';
+
+const renderQuestionText = (text) => renderMarkdown(unescapeLiteralNewlines(text));
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href);
@@ -157,13 +160,13 @@ class NxQuestionCard extends LitElement {
     const { context, questions } = this.pending;
     return html`
       <form class="question-card" @submit=${this._submit} @keydown=${this._handleFormKeydown}>
-        ${context ? html`<p class="question-context">${context}</p>` : nothing}
+        ${context ? html`<div class="question-context">${renderQuestionText(context)}</div>` : nothing}
         ${questions.map((q) => {
       const hasOptions = (q.options ?? []).length > 0;
       return html`
           <fieldset class="question-fieldset">
             <legend class="question-header">${q.header}</legend>
-            <p class="question-text">${q.question}</p>
+            <div class="question-text">${renderQuestionText(q.question)}</div>
             <div class="question-options">
               ${(q.options ?? []).map((opt) => html`
                 <label class="question-option">

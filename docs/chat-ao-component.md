@@ -76,6 +76,17 @@ checks whether the socket was already open *before* sending:
   `{ type: 'RESUME', turn_id, data: { type: 'question-response', answers, declined } }`
   — which AO accepts as a first op and dispatches by `data.type`.
 
+**Rendering `context`/`question` text.** AO's question/context payloads
+sometimes carry literal backslash-n sequences instead of real newlines, which
+`parseMarkdown` would otherwise render as visible `\n` text rather than
+paragraph breaks. `question-card.js` runs both fields through
+`unescapeLiteralNewlines` (`utils/markdown.js`) before `renderMarkdown` — not
+folded into `renderMarkdown` itself, since it's a quirk of these specific AO
+fields, not a general markdown-rendering concern (regular assistant text
+doesn't need it). For the same reason, the `context`/`question` containers
+are `<div>`s, not `<p>`s — markdown output can itself contain block elements
+(paragraphs, lists), which can't validly nest inside a `<p>`.
+
 **"Other" is a real, grouped radio/checkbox** (`question-card.js`), not a
 separate free-standing text field — this is what makes Tab/Arrow-keys/
 Space/Enter work identically for every option in the group, with no custom

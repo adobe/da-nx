@@ -22,9 +22,9 @@ function daAgentApprovalSummary(input) {
  * (untouched, on main) or AO's ChatControllerAO — behind one normalized interface, so
  * chat.js only ever makes a single decision (which backend) and never branches on it
  * again. Everything this class's onUpdate hands back is already in the neutral shapes
- * card-renderers.js/ao-renderers.js expect; AO-only actions (answerQuestion, etc.) are
- * safe to call unconditionally from chat.js since they're no-ops here when wrapping
- * da-agent's controller, which has no equivalent concept of questions or plans.
+ * card-renderers.js/ao-renderers.js expect; AO-only actions (respondToPlanApproval,
+ * etc.) are safe to call unconditionally from chat.js since they're no-ops here when
+ * wrapping da-agent's controller, which has no equivalent concept of plans.
  */
 export default class ChatBackend {
   constructor(useAgentOrchestrator, { onToolDone, onUpdate }) {
@@ -36,29 +36,24 @@ export default class ChatBackend {
     });
   }
 
-  // Approval/question/plan-approval are mutually exclusive at any moment — the agent
-  // has suspended the current turn for exactly one reason, if any — so this folds all
-  // three into one discriminated union rather than handing chat.js three separate
-  // fields to juggle. AO's controller already hands back neutral pendingApproval/
-  // pendingQuestion/pendingPlanApproval fields; da-agent's has no equivalent of any of
-  // them (chat-controller.js is untouched), so pendingApproval is derived here instead,
-  // from its own toolCards vocabulary.
+  // Approval/plan-approval are mutually exclusive at any moment — the agent has
+  // suspended the current turn for exactly one reason, if any — so this folds both
+  // into one discriminated union rather than handing chat.js two separate fields to
+  // juggle. AO's controller already hands back a neutral pendingApproval/
+  // pendingPlanApproval field; da-agent's has no equivalent of either (chat-controller.js
+  // is untouched), so pendingApproval is derived here instead, from its own toolCards
+  // vocabulary.
   _normalize(payload) {
     const {
-      toolCards, pendingApproval, pendingQuestion, pendingPlanApproval, ...rest
+      toolCards, pendingApproval, pendingPlanApproval, ...rest
     } = payload;
     const approval = this._useAo ? pendingApproval : this._daAgentPendingApproval(toolCards);
-    const pendingInteraction = this._pendingInteraction(
-      approval,
-      pendingQuestion,
-      pendingPlanApproval,
-    );
+    const pendingInteraction = this._pendingInteraction(approval, pendingPlanApproval);
     return { ...rest, toolCards, pendingInteraction };
   }
 
-  _pendingInteraction(approval, question, plan) {
+  _pendingInteraction(approval, plan) {
     if (approval) return { type: 'approval', ...approval };
-    if (question) return { type: 'question', ...question };
     if (plan) return { type: 'plan', ...plan };
     return null;
   }
@@ -107,11 +102,6 @@ export default class ChatBackend {
     this._controller.destroy();
   }
 
-  // --- AO-only actions below: safe no-ops when wrapping da-agent's controller ---
-
-  answerQuestion = (...args) => this._controller.answerQuestion?.(...args);
-
-  declineQuestion = () => this._controller.declineQuestion?.();
-
+  // AO-only action below: a safe no-op when wrapping da-agent's controller.
   respondToPlanApproval = (...args) => this._controller.respondToPlanApproval?.(...args);
 }

@@ -78,16 +78,7 @@ describe('ChatBackend normalization — AO', () => {
     expect(updates.at(-1).pendingInteraction).to.deep.equal({ type: 'approval', ...pendingApproval });
   });
 
-  it('falls back to pendingQuestion when there is no pending approval', () => {
-    const { backend, updates } = makeBackend(true);
-    const pendingQuestion = { turnId: 't1', questions: [] };
-
-    emit(backend, { toolCards: new Map(), pendingQuestion });
-
-    expect(updates.at(-1).pendingInteraction).to.deep.equal({ type: 'question', ...pendingQuestion });
-  });
-
-  it('falls back to pendingPlanApproval when neither approval nor question is pending', () => {
+  it('falls back to pendingPlanApproval when approval is not pending', () => {
     const { backend, updates } = makeBackend(true);
     const pendingPlanApproval = { turnId: 't1', planContent: '# Plan' };
 
@@ -106,29 +97,9 @@ describe('ChatBackend normalization — AO', () => {
 });
 
 describe('ChatBackend AO-only actions wrapping da-agent', () => {
-  it('answerQuestion/declineQuestion/respondToPlanApproval are silent no-ops', () => {
+  it('respondToPlanApproval is a silent no-op', () => {
     const { backend } = makeBackend(false);
-    expect(() => backend.answerQuestion({ q1: ['Yes'] })).to.not.throw();
-    expect(() => backend.declineQuestion()).to.not.throw();
     expect(() => backend.respondToPlanApproval('approve')).to.not.throw();
-  });
-});
-
-describe('ChatBackend AO-only actions wrapping AO', () => {
-  it('answerQuestion delegates through to a real QUESTION_RESPONSE frame', () => {
-    const { backend } = makeBackend(true);
-    backend._controller._pendingQuestion = { turnId: 't1', questions: [{ id: 'q1' }] };
-    const sent = [];
-    backend._controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
-
-    backend.answerQuestion({ q1: ['Yes'] });
-
-    expect(sent[0]).to.deep.equal({
-      type: 'QUESTION_RESPONSE',
-      turn_id: 't1',
-      answers: [{ question_id: 'q1', selected_options: ['Yes'] }],
-      declined: false,
-    });
   });
 });
 

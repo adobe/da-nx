@@ -2,10 +2,10 @@ import { html, nothing } from 'da-lit';
 import { renderMessageContent } from '../renderers/renderers.js';
 
 /**
- * Rendering for AO-only concepts that have no da-agent equivalent: user
- * questions, plan approval, and a2ui artifacts. Nothing here is a variant of an
- * existing renderers.js function — these are genuinely new UI surfaces, so
- * unlike card-renderers.js this module isn't a migration target for da-agent's
+ * Rendering for AO-only concepts that have no da-agent equivalent: plan
+ * approval and a2ui artifacts. Nothing here is a variant of an existing
+ * renderers.js function — these are genuinely new UI surfaces, so unlike
+ * card-renderers.js this module isn't a migration target for da-agent's
  * rendering, just AO's own.
  */
 
@@ -20,62 +20,6 @@ function unescapeLiteralNewlines(text) {
 
 function renderAoMarkdown(text) {
   return renderMessageContent(unescapeLiteralNewlines(text ?? ''));
-}
-
-function renderQuestionOption(qId, opt, entry, multiSelect, onToggle) {
-  const selected = entry.options.has(opt.label);
-  return html`
-    <button
-      type="button"
-      class="question-option ${selected ? 'selected' : ''}"
-      @click=${() => onToggle(qId, opt.label, multiSelect)}
-    >
-      <span class="question-option-label">${opt.label}</span>
-      ${opt.description ? html`<span class="question-option-description">${opt.description}</span>` : nothing}
-    </button>
-  `;
-}
-
-function renderQuestion(q, answers, onToggle, onText) {
-  const entry = answers[q.id] ?? { options: new Set(), text: '' };
-  return html`
-    <div class="question-block">
-      <span class="question-header">${q.header}</span>
-      <div class="question-text">${renderAoMarkdown(q.question)}</div>
-      ${q.options?.length ? html`
-        <div class="question-options">
-          ${q.options.map((opt) => renderQuestionOption(q.id, opt, entry, q.multi_select, onToggle))}
-        </div>` : nothing}
-      <input
-        type="text"
-        class="question-freetext"
-        placeholder="Or type your own answer…"
-        .value=${entry.text}
-        @input=${(e) => onText(q.id, e.target.value)}
-      />
-    </div>
-  `;
-}
-
-export function renderQuestionCard(pending, answers, {
-  onToggle, onText, onSubmit, onDecline,
-}) {
-  if (!pending) return nothing;
-  const { questions, context } = pending;
-  return html`
-    <div class="question-actions">
-      ${context ? html`<div class="question-context">${renderAoMarkdown(context)}</div>` : nothing}
-      ${questions.map((q) => renderQuestion(q, answers, onToggle, onText))}
-      <div class="question-buttons">
-        <button type="button" class="secondary-btn" @click=${onDecline}>
-          <span>Decline</span>
-        </button>
-        <button type="button" class="action-btn" @click=${onSubmit}>
-          <span>Submit</span>
-        </button>
-      </div>
-    </div>
-  `;
 }
 
 // plan_approval_request: the agent produced a plan and suspended the turn pending

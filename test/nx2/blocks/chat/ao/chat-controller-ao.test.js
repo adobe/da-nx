@@ -1,16 +1,14 @@
 import { expect } from '@esm-bundle/chai';
 import ChatControllerAO from '../../../../../nx2/blocks/chat/ao/chat-controller-ao.js';
 
-// Builds a controller with the network-adjacent bits stubbed out (no IndexedDB, no
-// WebSocket) so these tests can drive the same internal handler methods connect()/
-// _openSocket() would call, the way chat-controller.test.js does for the da-agent
-// controller — direct instance manipulation, not a live connection.
+// Builds a controller with the network-adjacent bits stubbed out (no WebSocket) so
+// these tests can drive the same internal handler methods connect()/_openSocket()
+// would call, the way chat-controller.test.js does for the da-agent controller —
+// direct instance manipulation, not a live connection.
 function makeController() {
   const updates = [];
   const controller = new ChatControllerAO({ onUpdate: (u) => updates.push(u) });
   controller._messages = [];
-  controller._getRoom = async () => 'test-room';
-  controller._persist = () => {};
   return { controller, updates };
 }
 
@@ -110,42 +108,6 @@ describe('chat-controller-ao approveToolCall', () => {
   });
 });
 
-describe('chat-controller-ao questions', () => {
-  it('answerQuestion sends merged options + free text per question, then clears', () => {
-    const { controller } = makeController();
-    controller._pendingQuestion = { turnId: 't1', questions: [{ id: 'q1' }, { id: 'q2' }] };
-    const sent = [];
-    controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
-
-    controller.answerQuestion({ q1: ['Yes'], q2: [] });
-
-    expect(sent[0]).to.deep.equal({
-      type: 'QUESTION_RESPONSE',
-      turn_id: 't1',
-      answers: [
-        { question_id: 'q1', selected_options: ['Yes'] },
-        { question_id: 'q2', selected_options: [] },
-      ],
-      declined: false,
-    });
-    expect(controller._pendingQuestion).to.equal(null);
-  });
-
-  it('declineQuestion sends declined:true with no answers', () => {
-    const { controller } = makeController();
-    controller._pendingQuestion = { turnId: 't1', questions: [{ id: 'q1' }] };
-    const sent = [];
-    controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
-
-    controller.declineQuestion();
-
-    expect(sent[0]).to.deep.equal({
-      type: 'QUESTION_RESPONSE', turn_id: 't1', answers: [], declined: true,
-    });
-    expect(controller._pendingQuestion).to.equal(null);
-  });
-});
-
 describe('chat-controller-ao plan approval', () => {
   it('respondToPlanApproval sends a RESUME frame with a plan-response part', () => {
     const { controller } = makeController();
@@ -222,10 +184,10 @@ describe('chat-controller-ao server events', () => {
     expect(updates.at(-1).thinking).to.equal(false);
   });
 
-  it('does not end the turn on turn_suspended while a question is pending', () => {
+  it('does not end the turn on turn_suspended while plan approval is pending', () => {
     const { controller, updates } = makeController();
     controller._thinking = true;
-    controller._pendingQuestion = { turnId: 't1', questions: [] };
+    controller._pendingPlanApproval = { turnId: 't1', planContent: '# Plan' };
 
     controller._handleServerEvent({ type: 'turn_suspended' });
 

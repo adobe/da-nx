@@ -1,34 +1,11 @@
 import { loadIms } from '../../../utils/ims.js';
-import { env } from '../../../scripts/nx.js';
 import { daFetch } from '../../../utils/api.js';
 import { DA_ADMIN } from '../../../utils/utils.js';
-import {
-  loadMessages, saveMessages, resetSession, getRoomKey,
-} from '../utils/persistence.js';
 import { buildSelectionContext, buildAttachmentsMeta } from '../utils/chat-helpers.js';
 import { AO_EVENT, AO_FRAME, AO_TOOL_STATE } from './ao-constants.js';
-
-const AO_REGION = 'va7';
-
-const AO_WS_BASE = {
-  prod: `wss://agent-orchestrator-prod-${AO_REGION}.adobe.io`,
-  stage: `wss://agent-orchestrator-stage-${AO_REGION}.adobe.io`,
-};
-
-const AO_HTTP_BASE = {
-  prod: `https://agent-orchestrator-prod-${AO_REGION}.adobe.io`,
-  stage: `https://agent-orchestrator-stage-${AO_REGION}.adobe.io`,
-};
-
-const AO_MANIFEST_ID = 'experience-workspace';
-
-function getOrgId(projectedProductContext) {
-  return projectedProductContext?.find((p) => p.prodCtx?.owningEntity)?.prodCtx.owningEntity;
-}
-
-function isAoEpisodeId(id) {
-  return id != null && /^\d+$/.test(String(id));
-}
+import { getOrgId, resolveAoWsBase, uploadAttachment } from '../../chat-ao/utils/uploads.js';
+import { buildPageContextText, buildSelectionText } from '../../chat-ao/utils/user-context.js';
+import { AO_MANIFEST_ID } from '../../chat-ao/ao-constants.js';
 
 function parseToolArguments(raw) {
   try {
@@ -71,61 +48,19 @@ function base64ToBlob(base64, mediaType) {
   return new Blob([bytes], { type: mediaType });
 }
 
-async function uploadAttachmentToAo({ fileName, mediaType, dataBase64 }) {
-  if (!dataBase64) return null;
-  const { accessToken, projectedProductContext } = await loadIms();
-  const orgId = getOrgId(projectedProductContext);
-  const base = AO_HTTP_BASE[env] ?? AO_HTTP_BASE.stage;
-  const headers = {
-    authorization: `Bearer ${accessToken?.token}`,
-    'x-tenant-id': orgId,
-  };
-
-  try {
-    const initiateResp = await fetch(`${base}/api/v1/files/upload`, {
-      method: 'POST',
-      headers: { ...headers, 'content-type': 'application/json' },
-      body: JSON.stringify({ filename: fileName, content_type: mediaType, scope: 'user' }),
-    });
-    if (!initiateResp.ok) return null;
-    const { file_id: fileId, upload_url: uploadUrl } = await initiateResp.json();
-    if (!fileId || !uploadUrl) return null;
-
-    const putResp = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'content-type': mediaType,
-        'x-ms-blob-type': 'BlockBlob',
-      },
-      body: base64ToBlob(dataBase64, mediaType),
-    });
-    if (!putResp.ok) return null;
-
-    const finalizeResp = await fetch(`${base}/api/v1/files/${fileId}/finalize`, {
-      method: 'POST',
-      headers,
-    });
-    if (!finalizeResp.ok) return null;
-    const { artifact_id: artifactId } = await finalizeResp.json();
-    return artifactId ?? null;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Talks to Adobe's Agent Orchestrator (AO) over its WebSocket transport (see
  * https://aep-ao.pages.adobeitc.com/api-reference/spec/) instead of da-agent.
- * Handles message-in/message-out, tool-call permission requests, user questions,
- * plan approval, and a2ui artifacts.
+ * Handles message-in/message-out, tool-call permission requests, plan approval,
+ * and a2ui artifacts. User questions moved to nx-chat-ao (question-card.js),
+ * skill lookup moved to nx-chat-ao (chat-ao/utils/skills.js) — neither is
+ * handled here.
  *
  * Public surface used by chat.js mirrors chat-controller.js's (connect,
  * setContext, loadInitialMessages, sendMessage, approveToolCall, clear,
- * setMcpConfig, stop, destroy) plus AO-only additions chat.js gates on
- * (answerQuestion, declineQuestion, respondToPlanApproval) — da-agent's
- * controller has no equivalent of these, since it has no concept of
- * questions/plans. Skill lookup (getSkills) moved to nx-chat-ao
- * (chat-ao/utils/skills.js), not handled here.
+ * setMcpConfig, stop, destroy) plus the AO-only respondToPlanApproval chat.js
+ * gates on — da-agent's controller has no equivalent, since it has no concept
+ * of plans.
  *
  * Output boundary: `_update()` only ever hands chat.js backend-neutral shapes
  * (see toToolCardDisplay/toApprovalDisplay above) — AO's own state names never
@@ -138,33 +73,10 @@ export default class ChatControllerAO {
 
   setContext(context) {
     this._context = context;
-    this._room = null;
-  }
-
-  async _getRoom() {
-    if (this._room) return this._room;
-    const { userId } = await loadIms();
-    const { org, site } = this._context ?? {};
-    this._room = getRoomKey({ org, site, userId });
-    return this._room;
-  }
-
-  async _loadPersisted() {
-    if (this._persistedLoaded) return;
-    this._persistedLoaded = true;
-    const room = await this._getRoom();
-    const { messages, sessionId: episodeId } = await loadMessages(room);
-    if (messages.length) this._messages = messages;
-    this._episodeId = isAoEpisodeId(episodeId) ? episodeId : undefined;
-  }
-
-  _persist() {
-    this._getRoom().then((room) => saveMessages(room, this._messages, this._episodeId));
   }
 
   async loadInitialMessages() {
     this._messages = this._messages ?? [];
-    await this._loadPersisted();
     this._update();
   }
 
@@ -185,7 +97,6 @@ export default class ChatControllerAO {
       connected: this._connected,
       toolCards,
       pendingApproval,
-      pendingQuestion: this._pendingQuestion,
       pendingPlanApproval: this._pendingPlanApproval,
     });
   }
@@ -215,15 +126,6 @@ export default class ChatControllerAO {
     this._update();
   }
 
-  _handleUserQuestion(evt) {
-    this._pendingQuestion = {
-      turnId: evt.data?.turn_id ?? evt.turn_id,
-      questions: evt.data?.questions ?? [],
-      context: evt.data?.context,
-    };
-    this._update();
-  }
-
   _handlePlanApprovalRequest(evt) {
     this._pendingPlanApproval = {
       turnId: evt.data?.turn_id ?? evt.turn_id,
@@ -245,16 +147,13 @@ export default class ChatControllerAO {
         title: artifact.display_hints?.title,
       },
     }];
-    this._persist();
     this._update();
   }
 
   _handleServerEvent(evt) {
     if (evt.type === AO_EVENT.SESSION_READY) {
-      // Arrives after the first USER_INPUT is processed (see _openSocket's grace-timer
-      // comment) — carries the episode id a future reload should reconnect to.
+      // Arrives after the first USER_INPUT is processed (see _openSocket's grace-timer comment).
       this._episodeId = evt.episode_id ?? this._episodeId;
-      this._persist();
       return;
     }
 
@@ -272,18 +171,12 @@ export default class ChatControllerAO {
       }];
       this._streaming = '';
       this._streamingText = undefined;
-      this._persist();
       this._update();
       return;
     }
 
     if (evt.type === AO_EVENT.PERMISSION_REQUEST) {
       this._handlePermissionRequest(evt);
-      return;
-    }
-
-    if (evt.type === AO_EVENT.USER_QUESTION) {
-      this._handleUserQuestion(evt);
       return;
     }
 
@@ -303,14 +196,12 @@ export default class ChatControllerAO {
     }
 
     if (evt.type === AO_EVENT.TURN_SUSPENDED) {
-      // Fires after permission_request/user_question/plan_approval_request to formally
-      // mark the suspension. If any of those already put up a popup, the *only* valid
-      // response channel is that popup — re-enabling the plain chat input here would let
-      // the user answer in two conflicting ways at once. Only fall back to _done() if
-      // nothing is actually pending.
+      // Fires after permission_request/plan_approval_request to formally mark the
+      // suspension. If either already put up a popup, that's the only valid response
+      // channel — only fall back to _done() if nothing is actually pending.
       const hasPendingApproval = [...(this._toolCards?.values() ?? [])]
         .some((c) => c.state === AO_TOOL_STATE.APPROVAL_REQUESTED);
-      if (!this._pendingQuestion && !hasPendingApproval && !this._pendingPlanApproval) {
+      if (!hasPendingApproval && !this._pendingPlanApproval) {
         this._done();
       }
       return;
@@ -331,15 +222,9 @@ export default class ChatControllerAO {
       accessToken, userId, tenantId, email, name, projectedProductContext,
     } = await loadIms();
     const orgId = getOrgId(projectedProductContext);
-    await this._loadPersisted();
-    // Show persisted history immediately rather than waiting for the WS handshake
-    // (AUTH round-trip + grace timer) to finish — that gate is seconds away, while
-    // this IndexedDB read is effectively instant. Without this, the welcome screen
-    // flashes before the real history pops in.
-    this._update();
 
     return new Promise((resolve, reject) => {
-      const base = AO_WS_BASE[env] ?? AO_WS_BASE.stage;
+      const base = resolveAoWsBase(projectedProductContext);
       const wsTarget = `${base}/ws/sessions/${this._episodeId ?? 'new'}`;
       const ws = new WebSocket(wsTarget);
       this._ws = ws;
@@ -459,12 +344,9 @@ export default class ChatControllerAO {
     this._streamingText = undefined;
     this._connected = false;
     this._episodeId = undefined;
-    this._pendingQuestion = null;
     this._pendingPlanApproval = null;
     this._toolCards = new Map();
     this._update();
-    const room = await this._getRoom();
-    resetSession(room, undefined);
     await this.connect();
   }
 
@@ -509,38 +391,6 @@ export default class ChatControllerAO {
     }));
   };
 
-  // answersByQuestionId: { [questionId]: string[] } — selected option labels plus any
-  // free-text answer, already merged by the question-card UI.
-  answerQuestion = (answersByQuestionId) => {
-    if (!this._pendingQuestion) return;
-    const { turnId, questions } = this._pendingQuestion;
-    const answers = questions.map((q) => ({
-      question_id: q.id,
-      selected_options: answersByQuestionId[q.id] ?? [],
-    }));
-    this._pendingQuestion = null;
-    this._update();
-    this._ws?.send(JSON.stringify({
-      type: AO_FRAME.QUESTION_RESPONSE,
-      turn_id: turnId,
-      answers,
-      declined: false,
-    }));
-  };
-
-  declineQuestion = () => {
-    if (!this._pendingQuestion) return;
-    const { turnId } = this._pendingQuestion;
-    this._pendingQuestion = null;
-    this._update();
-    this._ws?.send(JSON.stringify({
-      type: AO_FRAME.QUESTION_RESPONSE,
-      turn_id: turnId,
-      answers: [],
-      declined: true,
-    }));
-  };
-
   // Plan approval has no dedicated WS frame type of its own — the server dispatches
   // by DataPart "type" inside the generic RESUME op, so this sends a "plan-response"
   // part wrapped in a RESUME frame instead.
@@ -564,36 +414,12 @@ export default class ChatControllerAO {
   // No MCP config surface yet.
   setMcpConfig() { }
 
-  // AO has no resolved channel for page context yet — so until that lands, prefix it
-  // onto the wire text ourselves. Kept out of the UI-visible message; only the
-  // outgoing frame gets it.
-  _contextPrefix() {
-    const { org, site, path } = this._context ?? {};
-    if (!org || !site) return '';
-    return `[Current document — org: ${org}, site: ${site}, path: ${path || '/'}]\n`;
-  }
-
-  // Same gap as page context: AO's USER_INPUT has no structured field for "the block/
-  // text the user picked in the canvas", so describe it inline in the wire text too.
-  _describeSelectionContext(selectionContext) {
-    if (!selectionContext.length) return '';
-    const lines = selectionContext.map((item) => {
-      if (item.type === 'text') {
-        const plain = item.innerHTML.replace(/<[^>]+>/g, '').trim();
-        return `- Selected text: "${plain}"`;
-      }
-      const label = item.innerText ? ` — "${item.innerText}"` : '';
-      return `- Selected ${item.type}: ${item.blockName}${label}`;
-    });
-    return `[Selected context]\n${lines.join('\n')}\n`;
-  }
-
-  // Tries AO's own Files API first (see uploadAttachmentToAo) so the attachment becomes
-  // a real USER_INPUT.attachments entry the agent can read directly. Falls back to
+  // Tries AO's own Files API first so the attachment becomes a real
+  // USER_INPUT.attachments entry the agent can read directly. Falls back to
   // uploading straight to DA's own admin API and describing the resulting URL in the
   // message text, for whenever AO's Files API isn't reachable or the upload fails.
   async _uploadAttachment(attachment) {
-    const artifactId = await uploadAttachmentToAo(attachment);
+    const artifactId = attachment.dataBase64 ? await uploadAttachment(attachment) : null;
     if (artifactId) return { ...attachment, artifactId, contentUrl: null };
 
     const { fileName, mediaType, dataBase64 } = attachment;
@@ -638,7 +464,6 @@ export default class ChatControllerAO {
     }];
     this._thinking = true;
     this._update();
-    this._persist();
 
     const uploaded = await Promise.all(attachments.map((a) => this._uploadAttachment(a)));
 
@@ -661,7 +486,7 @@ export default class ChatControllerAO {
 
     this._ws.send(JSON.stringify({
       type: AO_FRAME.USER_INPUT,
-      text: `${this._contextPrefix()}${this._describeSelectionContext(selectionContext)}`
+      text: `${buildPageContextText(this._context)}${buildSelectionText(selectionContext)}`
         + `${this._describeAttachments(uploaded)}${message}`,
       manifestId: AO_MANIFEST_ID,
       // Required for manifestId to actually override auto-targeting — an explicit
