@@ -276,11 +276,14 @@ class NxChat extends LitElement {
     // The parsed-figma block goes to the agent as hidden wire text — it must not
     // render in the chat (it's long, de-noised machine context, not user copy).
     const figBlock = figItems.map((i) => i.figSummary).join('\n\n');
+    // Show the .fig thumbnail inline in the chat as the visual design preview.
+    const figThumb = figItems.find((i) => i.thumbnail)?.thumbnail;
     const attachments = buildAttachmentPayload(items);
     this._slashMenu.close();
     this._controller.sendMessage(baseText, contextItems, {
       attachments,
       ...(figBlock ? { hiddenText: figBlock } : {}),
+      ...(figThumb ? { thumbnail: figThumb } : {}),
     });
     input.value = '';
     pills?.clear();

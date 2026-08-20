@@ -91,6 +91,14 @@ function renderUserMessage(msg) {
   return html`
     <div class="message message-user">
       ${renderSelectionPills(msg)}
+      ${msg.thumbnail
+    ? html`<img
+          class="message-fig-thumb"
+          src=${msg.thumbnail}
+          alt="Figma design preview"
+          style="display:block;max-width:240px;width:100%;border-radius:8px;margin-bottom:6px;"
+        />`
+    : nothing}
       <div class="message-content">${msg.content}</div>
     </div>
   `;

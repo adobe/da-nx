@@ -622,7 +622,9 @@ export default class ChatControllerAO {
   // `hiddenText` is appended to the wire frame the agent receives but never shown
   // in the UI (it's not put on the message's `content`). Used for machine-facing
   // context like a parsed Figma design block, which would be noise in the chat.
-  async sendMessage(message, context = [], { attachments = [], hiddenText = '' } = {}) {
+  async sendMessage(message, context = [], {
+    attachments = [], hiddenText = '', thumbnail = '',
+  } = {}) {
     if (this._thinking || !this._connected || !this._ready) return;
 
     const selectionContext = buildSelectionContext(context);
@@ -633,6 +635,7 @@ export default class ChatControllerAO {
       content: message,
       ...(selectionContext.length && { selectionContext }),
       ...(attachmentsMeta.length && { attachmentsMeta }),
+      ...(thumbnail && { thumbnail }),
     }];
     this._thinking = true;
     this._update();
