@@ -1,5 +1,16 @@
 # Worklog
 
+## 2026-08-19
+
+### nx2 — restore lazy-loaded RUM (regression from nx1)
+
+nx1 lazy-loaded `deps/rum.js` at the tail of `loadArea` (via `scripts/lazy.js`); nx2 dropped it. Restored:
+
+- Copied `deps/rum.js` (vendored helix `sampleRUM`) into `nx2/deps/`.
+- Added `scripts/lazy.js` (self-invoking, like nx1): holds `rumWC` (RUM click tracking for `[data-rum]` web components) + a `loadLazy` IIFE that imports `../deps/rum.js`, calls `sampleRUM()`, and registers `rumWC` after 3s.
+- `nx.js` does `if (isDoc) import('./lazy.js')` **after the section loop** for every doc, matching nx1's post-loop timing. To reach that point on non-app-frame / no-nav pages, the `idx === 0` header setup was extracted into `loadHeader(isSession)`; its `return true` (the old early `return`s) now `break`s the loop instead of returning from `loadArea`, so section-loading semantics are unchanged but control still falls through to the lazy import.
+- nx2 has no `[data-rum]` elements yet, so `rumWC` is currently a no-op — kept for parity/forward-compat.
+
 ## 2026-08-14
 
 ### nx2/utils/ewFlags.js — user-level Experience Workspace opt-in
