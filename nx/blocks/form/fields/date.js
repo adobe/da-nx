@@ -5,18 +5,14 @@ import { localToUtc, utcToLocal } from './datetime-zone.js';
 
 const style = await loadStyle(import.meta.url);
 
-// Component type → native input type.
 const NATIVE_TYPE = { date: 'date', time: 'time', datetime: 'datetime-local' };
 
-// Cap the year at 4 digits; Chrome's native year field otherwise allows 6, which
-// storage (`\d{4}`) can't represent.
+// Cap the year to 4 digits; native inputs otherwise allow up to 6.
 const RANGE = {
   date: { min: '0001-01-01', max: '9999-12-31' },
   datetime: { min: '0001-01-01T00:00', max: '9999-12-31T23:59' },
 };
 
-// Thin wrapper over a native date/time input. Stores date → `YYYY-MM-DD`,
-// time → `HH:MM`, datetime → UTC (`…Z`) edited in the viewer's local zone.
 class FormDate extends LitElement {
   static properties = {
     value: { type: String },
@@ -43,8 +39,7 @@ class FormDate extends LitElement {
 
   focus() { this._input?.focus(); }
 
-  // Push an external value in; skip our own emissions so a re-render can't wipe
-  // an in-progress entry.
+  // Skip values we emitted so a re-render can't wipe an in-progress entry.
   updated(changed) {
     if (changed.has('value') && this.value !== this._lastValue) {
       this._lastValue = this.value;
@@ -57,7 +52,6 @@ class FormDate extends LitElement {
   }
 
   _onInput(e) {
-    // datetime converts local → UTC; a partial entry has no value, so we store none.
     const raw = e.target.value;
     const next = this.type === 'datetime' ? localToUtc(raw) : raw;
     this._lastValue = next;
@@ -67,7 +61,6 @@ class FormDate extends LitElement {
   }
 
   render() {
-    // The SDK is the single source of the error (it validates the stored value).
     const showHint = !this.error && this.description;
     return html`
       <div class="form-field${this.error ? ' has-error' : ''}">
