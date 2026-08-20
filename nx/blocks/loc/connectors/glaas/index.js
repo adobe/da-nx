@@ -380,7 +380,7 @@ async function recreateTaskAndFetchSubtasks({
     workflow: task.workflow,
     workflowName: task.workflowName,
     businessUnit: workflowMeta?.businessUnit,
-    fixTranslation: workflowMeta?.fixTranslation,
+    reviewerResync: workflowMeta?.reviewerResync,
     langs: task.langs,
     urlPaths: task.urlPaths,
   };
@@ -404,10 +404,10 @@ const getBusinessUnit = (siteName) => {
   return 'Digital Media';
 };
 
-const FIX_TRANSLATION_OPTION_KEY = 'translation.service.custom.option.Fix Translation';
+const REVIEWER_RESYNC_OPTION_KEY = 'translation.service.custom.option.Reviewer Resync';
 
-function isFixTranslation(options) {
-  const value = options?.[FIX_TRANSLATION_OPTION_KEY];
+function isReviewerResync(options) {
+  const value = options?.[REVIEWER_RESYNC_OPTION_KEY];
   return value === true || value === 'true';
 }
 
@@ -425,7 +425,7 @@ function initializeLanguageWorkflowTasks(tasks) {
         workflow: task.workflow,
         workflowName: task.workflowName,
         businessUnit: task.businessUnit,
-        fixTranslation: task.fixTranslation,
+        reviewerResync: task.reviewerResync,
         name: task.name,
         urls: task.urlPaths || [],
         status: {
@@ -447,10 +447,10 @@ async function getTasks(org, site, title, langs, urls, timestamp, options) {
   // groupUrlsByWorkflow works with simple path strings
   const workflowGroups = groupUrlsByWorkflow(urlPaths, langs, config);
   const tasks = workflowGroups2tasks(title, workflowGroups, langs, timestamp);
-  // Mark tasks as a translation fix (resend) before persisting workflow task state
-  const fixTranslation = isFixTranslation(options);
+  // Mark tasks as a reviewer resync (resend) before persisting workflow task state
+  const reviewerResync = isReviewerResync(options);
   Object.values(tasks).forEach((task) => {
-    task.fixTranslation = fixTranslation;
+    task.reviewerResync = reviewerResync;
   });
   // Pre-populate workflow task structure for each language
   initializeLanguageWorkflowTasks(tasks);
