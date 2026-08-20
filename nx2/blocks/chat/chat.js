@@ -11,7 +11,6 @@ import '../shared/chat/prompts/prompts.js';
 import '../shared/pills/pills.js';
 import './interaction/interaction.js';
 import { loadSiteConfig } from './utils/api.js';
-import { isCoworkerEnabled } from '../../utils/ewFlags.js';
 import { getConfig } from '../../scripts/nx.js';
 import { buildAttachmentPayload } from './utils/chat-helpers.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
@@ -44,10 +43,6 @@ class NxChat extends LitElement {
     // chat-backend.js#_normalize. Populated for both backends, since approval is
     // da-agent's one turn-suspension concept too; question/plan never occur there.
     pendingInteraction: { type: Object },
-    // Resolved async from the `ew.coworker` site flag once org/site are known (see
-    // _ensureController) — undefined/false until then, which also means MENU_ITEMS
-    // renders as the full (da-agent) list during that brief window.
-    _useCoworker: { state: true },
     _prompts: { state: true },
     _hasItems: { state: true },
     _dragging: { state: true },
@@ -148,23 +143,14 @@ class NxChat extends LitElement {
     });
   }
 
+  // AO vs da-agent is now decided one level up, in loadChat() — nx-chat-ao is a
+  // separate element entirely, so this always wraps the da-agent controller.
   async _ensureController(context) {
-    if (this._controller || this._resolvingController) return;
+    if (this._controller) return;
     const { org, site } = context ?? {};
     if (!org || !site) return;
 
-    this._resolvingController = true;
-    const useCoworker = await isCoworkerEnabled({ org, site });
-    this._resolvingController = false;
-    if (this._destroyed || this._controller) return;
-
-    this._useCoworker = useCoworker;
-    if (useCoworker) {
-      const aoStyles = await loadStyle(new URL('./ao/ao.css', import.meta.url).href);
-      this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, aoStyles];
-    }
-
-    this._controller = new ChatBackend(useCoworker, {
+    this._controller = new ChatBackend(false, {
       onToolDone: (scope, paths) => {
         this.dispatchEvent(new CustomEvent(CHAT_EVENT.AGENT_CHANGE, {
           bubbles: true,
