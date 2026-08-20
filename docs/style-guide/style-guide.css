@@ -96,3 +96,7 @@ body {
 .nx-checkbox input[type="checkbox"]:checked::after {
   mask-image: url('https://da.live/img/icons/s2-icon-checkmark-20-n.svg');
 }
+
+.nx-input[type="search"]::-webkit-search-cancel-button {
+  mask-image: url('https://da.live/img/icons/s2-icon-close-20-n.svg');
+}
