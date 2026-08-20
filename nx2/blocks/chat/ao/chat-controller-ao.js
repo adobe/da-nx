@@ -73,7 +73,7 @@ function base64ToBlob(base64, mediaType) {
 
 async function uploadAttachmentToAo({ fileName, mediaType, dataBase64 }) {
   if (!dataBase64) return null;
-  const { accessToken, projectedProductContext, userId } = await loadIms();
+  const { accessToken, projectedProductContext } = await loadIms();
   const orgId = getOrgId(projectedProductContext);
   const base = AO_HTTP_BASE[env] ?? AO_HTTP_BASE.stage;
 
@@ -91,7 +91,10 @@ async function uploadAttachmentToAo({ fileName, mediaType, dataBase64 }) {
       headers: {
         authorization: `Bearer ${accessToken?.token}`,
         'x-tenant-id': orgId,
-        'x-user-id': userId,
+        // No x-user-id: the Files API only requires Authorization + x-tenant-id
+        // (claudebridge requireAuthHeaders), and the endpoint's CORS policy does
+        // not allow x-user-id — sending it fails the preflight. (x-user-id is
+        // only needed by the Skills API's requireSkillAuthHeaders.)
         // No content-type — fetch derives the multipart boundary from FormData.
       },
       body: form,
