@@ -73,41 +73,33 @@ function base64ToBlob(base64, mediaType) {
 
 async function uploadAttachmentToAo({ fileName, mediaType, dataBase64 }) {
   if (!dataBase64) return null;
-  const { accessToken, projectedProductContext } = await loadIms();
+  const { accessToken, projectedProductContext, userId } = await loadIms();
   const orgId = getOrgId(projectedProductContext);
   const base = AO_HTTP_BASE[env] ?? AO_HTTP_BASE.stage;
-  const headers = {
-    authorization: `Bearer ${accessToken?.token}`,
-    'x-tenant-id': orgId,
-  };
 
   try {
-    const initiateResp = await fetch(`${base}/api/v1/files/upload`, {
+    // Single multipart POST — matches the deployed backend's `POST /api/v1/files`
+    // (multipart field name "file"), which returns 201 with
+    // [{ id, filename, mime_type, size_bytes, created_at }]. `id` is used verbatim
+    // as the USER_INPUT.attachments[].artifactId. (The previous two-phase
+    // initiate/PUT/finalize presigned flow was never implemented server-side, so
+    // every upload failed and fell back to inlining — which 400s on large files.)
+    const form = new FormData();
+    form.append('file', base64ToBlob(dataBase64, mediaType), fileName);
+    const resp = await fetch(`${base}/api/v1/files`, {
       method: 'POST',
-      headers: { ...headers, 'content-type': 'application/json' },
-      body: JSON.stringify({ filename: fileName, content_type: mediaType, scope: 'user' }),
-    });
-    if (!initiateResp.ok) return null;
-    const { file_id: fileId, upload_url: uploadUrl } = await initiateResp.json();
-    if (!fileId || !uploadUrl) return null;
-
-    const putResp = await fetch(uploadUrl, {
-      method: 'PUT',
       headers: {
-        'content-type': mediaType,
-        'x-ms-blob-type': 'BlockBlob',
+        authorization: `Bearer ${accessToken?.token}`,
+        'x-tenant-id': orgId,
+        'x-user-id': userId,
+        // No content-type — fetch derives the multipart boundary from FormData.
       },
-      body: base64ToBlob(dataBase64, mediaType),
+      body: form,
     });
-    if (!putResp.ok) return null;
-
-    const finalizeResp = await fetch(`${base}/api/v1/files/${fileId}/finalize`, {
-      method: 'POST',
-      headers,
-    });
-    if (!finalizeResp.ok) return null;
-    const { artifact_id: artifactId } = await finalizeResp.json();
-    return artifactId ?? null;
+    if (!resp.ok) return null;
+    const files = await resp.json();
+    const id = Array.isArray(files) ? files[0]?.id : files?.id;
+    return id ?? null;
   } catch {
     return null;
   }
@@ -668,7 +660,7 @@ export default class ChatControllerAO {
       // manifestId is only honored when debugMode is also true, otherwise it's
       // silently ignored.
       debugMode: true,
-      ...(artifactIds.length && { attachments: artifactIds }),
+      ...(artifactIds.length && { attachments: artifactIds.map((artifactId) => ({ artifactId })) }),
     }));
   }
 }
