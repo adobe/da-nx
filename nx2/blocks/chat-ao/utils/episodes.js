@@ -12,8 +12,7 @@ async function aoContext() {
   };
 }
 
-// AO durably owns episode/turn history — there's nothing to persist client-side,
-// just pull the recent list. Most-recent-first, per AO's own ordering.
+// AO owns episode history durably — nothing to persist client-side.
 export async function fetchEpisodes(limit) {
   try {
     const { base, headers } = await aoContext();
@@ -48,12 +47,8 @@ export async function fetchEpisodeMessages(episodeId) {
   }
 }
 
-// Wakes an existing episode's backend session ahead of the user actually
-// sending anything — POST /api/v1/sessions starts the durable session
-// without submitting a turn, so by the time sendMessage's own WS connects,
-// the slow part (orchestrator cold start) is already done. Best-effort: a
-// manifest that isn't running in Temporal mode 400s here, which just means
-// no speedup, not an error worth surfacing.
+// Starts the durable session without submitting a turn. Best-effort: a
+// manifest that isn't Temporal-mode 400s here, which just means no speedup.
 export async function warmSession(episodeId) {
   try {
     const { base, headers } = await aoContext();

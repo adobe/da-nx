@@ -15,9 +15,9 @@ describe('chat-ao renderMarkdown', () => {
     expect(a.getAttribute('rel')).to.include('noopener');
   });
 
-  it('does not linkify bare URLs — that is a chat.js customization, not core markdown', () => {
+  it('linkifies bare URLs — parseMarkdown suppresses GFM autolinks, same as chat.js', () => {
     const frag = renderMarkdown('see https://example.com/x for more');
-    expect(frag.querySelector('a')).to.equal(null);
+    expect(frag.querySelector('a')?.getAttribute('href')).to.equal('https://example.com/x');
   });
 
   it('does not interpret custom directive syntax as anything special', () => {

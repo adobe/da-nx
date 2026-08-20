@@ -16,26 +16,12 @@ import { loadStyle } from '../../../utils/utils.js';
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href);
 
-// Sentinel for "the answer is whatever's typed in this question's free-text
-// field" — never sent over the wire itself, always swapped for the typed
-// text (see _answerFor).
+// Never sent over the wire — swapped for the typed text (see _answerFor).
 const OTHER = '__other__';
 
-// AO's ask_user_question tool call, rendered as-is — this is the only shape AO
-// sends for a "should I proceed?" pause today (no separate permission-request
-// concept has shown up in practice).
-//
-// "Other" gets a real radio/checkbox in the *same* native group as the fixed
-// options — that's what makes Tab/Arrow-keys/Space/Enter work identically
-// for every option, with no custom nav code. The one thing that radio's own
-// change handler must NOT do is jump focus into its paired text field:
-// arrow-key movement in a native radiogroup always both moves *and* selects,
-// so auto-focusing the text field on selection meant arrowing onto "Other"
-// (even just passing through) yanked focus out of the group entirely,
-// trapping keyboard users there. Reaching the text field to actually type is
-// one more Tab press — the same as moving between any two distinct native
-// controls — and only *typing* in it (not merely focusing/tabbing through)
-// marks it as the chosen answer, so passing through never hijacks a pick.
+// Renders AO's ask_user_question pause. "Other" is a real radio/checkbox in
+// the same native group as the fixed options, not a separate free-standing
+// field — see docs/chat-ao-component.md#question-flow.
 class NxQuestionCard extends LitElement {
   static properties = {
     pending: { attribute: false },
@@ -108,14 +94,8 @@ class NxQuestionCard extends LitElement {
     this._selections = next;
   }
 
-  // Radio/checkbox inputs only toggle on Space natively — Enter is a no-op
-  // for them (unlike the free-text field, where Enter submits the form).
-  // Wiring Enter to do the same thing Space already does keeps every option
-  // in the row responding to the same key — and since Enter is a deliberate
-  // "I'm done" keypress rather than the arrow-key browsing that both moves
-  // and selects as a side effect, it also submits once that choice is enough
-  // to satisfy every required question (e.g. picking the one answer to a
-  // single-question approval submits immediately).
+  // Enter mirrors Space (a no-op on radio/checkbox natively) and also submits
+  // once this answer completes the form.
   _handleOptionKeydown(e, question, value) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
@@ -123,9 +103,7 @@ class NxQuestionCard extends LitElement {
     if (this._canSubmit) this._submit(e);
   }
 
-  // Same as above, but Enter on "Other" also moves focus into its text field
-  // when there's nothing typed yet to submit — there's no answer here until
-  // the user actually types one.
+  // Same, but moves focus into the text field when there's nothing to submit yet.
   _handleOtherOptionKeydown(e, question) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
@@ -134,18 +112,15 @@ class NxQuestionCard extends LitElement {
     else e.target.nextElementSibling?.focus();
   }
 
-  // Escape mirrors clicking Skip — a quick way to bail out of the whole
-  // question from anywhere in the card, not just the Skip button itself.
+  // Escape = Skip, from anywhere in the card.
   _handleFormKeydown(e) {
     if (e.key !== 'Escape') return;
     e.preventDefault();
     this._decline();
   }
 
-  // Typing is the only thing that selects "Other" — never merely focusing or
-  // tabbing through it — so passing through on the way to Submit never
-  // clobbers a fixed pick, and this keeps the paired radio's checked state
-  // (and thus the chip's highlight) in sync with whether there's real text.
+  // Typing is the only thing that selects "Other" — focusing/tabbing through
+  // it must not clobber a fixed pick.
   _handleOtherText(question, text) {
     this._otherTexts = new Map(this._otherTexts).set(question.id, text);
     const next = new Map(this._selections);

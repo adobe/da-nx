@@ -5,10 +5,8 @@ export function getOrgId(projectedProductContext) {
   return projectedProductContext?.find((p) => p.prodCtx?.owningEntity)?.prodCtx.owningEntity;
 }
 
-// AO's coworker team resolves the orchestrator region per-user rather than hardcoding it:
-// the active acp/dma_tartan product-context entry's fulfillable_data carries the region
-// this profile is actually provisioned in. Falls back to null (callers fall back to the
-// default AO_HTTP_BASE/AO_WS_BASE) if nothing matches or fulfillable_data doesn't parse.
+// Resolves the AO region from the IMS profile; null falls back to the default
+// base — see docs/chat-ao-component.md#region-resolution.
 function resolveAoLocation(projectedProductContext) {
   const found = projectedProductContext?.find(({ prodCtx } = {}) => prodCtx?.statusCode === 'ACTIVE'
     && (prodCtx?.serviceCode === 'acp' || prodCtx?.serviceCode === 'dma_tartan'));
