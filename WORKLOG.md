@@ -2,6 +2,14 @@
 
 ## 2026-08-20
 
+### nx2 chat — show the .fig thumbnail inline in the chat
+
+Visual preview for the Figma flow: `sendMessage` gained a `thumbnail` option
+(set on the user message, not the wire frame); `chat.js` passes the parsed
+`thumbnail_base64` (as a data URL) from the fig pill; `renderUserMessage` renders
+it as an `<img class="message-fig-thumb">` above the message text. So sending a
+`.fig` shows the design mockup in the conversation.
+
 ### nx2 chat — de-noise parsed .fig text + hide it from the UI
 
 Follow-ups to the client-side .fig parse:
