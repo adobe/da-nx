@@ -1,5 +1,5 @@
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { daFetch } from '../../../../utils/daFetch.js';
+import { daFetch } from '../../../../../nx2/utils/api.js';
+import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 
 const TRANSLATION_PATH_ACTIVE = 'translation/active';
 const TRANSLATION_PATH_ARCHIVE = 'translation/archive';
@@ -11,7 +11,7 @@ const TRANSLATION_PATH_ARCHIVE = 'translation/archive';
  * @returns {Promise<{ok: boolean, status: number, data?: Object}>}
  */
 export async function fetchProject(projectPath, options = {}) {
-  const resp = await daFetch(`${DA_ORIGIN}/source${projectPath}`, options);
+  const resp = await daFetch({ url: `${DA_ADMIN}/source${projectPath}`, opts: options });
 
   if (!resp.ok) {
     return { ok: false, status: resp.status, statusText: resp.statusText };
@@ -58,7 +58,7 @@ export async function copyProject(project, email) {
   // Replace the last path segment (timestamp) with the new timestamp
   const newPath = path.substring(0, path.lastIndexOf('/') + 1) + newTimestamp;
 
-  await daFetch(`${DA_ORIGIN}/source${newPath}.json`, { body, method: 'POST' });
+  await daFetch({ url: `${DA_ADMIN}/source${newPath}.json`, opts: { body, method: 'POST' } });
 
   // Return just the path and timestamp for the new project
   return { path: newPath, lastModified: newTimestamp, newProject };
@@ -71,6 +71,6 @@ export async function archiveProject(project) {
   const newPath = path.replace(TRANSLATION_PATH_ACTIVE, TRANSLATION_PATH_ARCHIVE);
   formData.append('destination', `${newPath}.json`);
   const opts = { body: formData, method: 'POST' };
-  await daFetch(`${DA_ORIGIN}/move${path}.json`, opts);
+  await daFetch({ url: `${DA_ADMIN}/move${path}.json`, opts });
   return newPath;
 }

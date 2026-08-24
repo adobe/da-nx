@@ -1,5 +1,66 @@
 # Worklog
 
+## 2026-08-19
+
+### nx2 — restore lazy-loaded RUM (regression from nx1)
+
+nx1 lazy-loaded `deps/rum.js` at the tail of `loadArea` (via `scripts/lazy.js`); nx2 dropped it. Restored:
+
+- Copied `deps/rum.js` (vendored helix `sampleRUM`) into `nx2/deps/`.
+- Added `scripts/lazy.js` (self-invoking, like nx1): holds `rumWC` (RUM click tracking for `[data-rum]` web components) + a `loadLazy` IIFE that imports `../deps/rum.js`, calls `sampleRUM()`, and registers `rumWC` after 3s.
+- `nx.js` does `if (isDoc) import('./lazy.js')` **after the section loop** for every doc, matching nx1's post-loop timing. To reach that point on non-app-frame / no-nav pages, the `idx === 0` header setup was extracted into `loadHeader(isSession)`; its `return true` (the old early `return`s) now `break`s the loop instead of returning from `loadArea`, so section-loading semantics are unchanged but control still falls through to the lazy import.
+- nx2 has no `[data-rum]` elements yet, so `rumWC` is currently a no-op — kept for parity/forward-compat.
+
+## 2026-08-14
+
+### nx2/utils/ewFlags.js — user-level Experience Workspace opt-in
+
+Core logic split out of the `editortoggle` work so it can land on its own. Adds a browser-scoped opt-in to the new (canvas) editor that mirrors the site-level `ew.enabled` flag, letting individual users preview EW on sites that haven't been switched over yet.
+
+- New `EW_USER_KEY = 'nx2:ew-user-enabled'` in localStorage, with `isEWUserEnabled()` / `setEWUserEnabled(bool)` accessors (both storage-safe — `isEWUserEnabled` returns `false` and `setEWUserEnabled` no-ops when storage is unavailable).
+- Split the old site-only check into `isEWEnabledBySite({ org, site })`, and made `isEWEnabled({ org, site })` short-circuit to `true` when the user override is on — so `da-browse`'s existing `isEWEnabled` call site opts the user into the new editor with zero changes there. The short-circuit intentionally runs before the `fetchDaConfigs` network call.
+- `?ew` query-param seeding, mirroring da-live's `?da-admin` pattern (`blocks/shared/constants.js` `getDaEnv`): `isEWUserEnabled()` reads `?ew` from the URL and persists it before returning — `?ew=true` opts in, `?ew=false`/`?ew=reset` opts out — so the choice survives navigations that drop the param. `isEWUserEnabled(location?)` takes an injectable `location` for testing; `syncEWUserFromQuery` is the private read-through helper.
+- `isEwChatDisabled` / `isCoworkerEnabled` stay site-only on purpose.
+- Tests in `nx2/test/unit/nx/utils/ewFlags.test.js`: default state, set/unset roundtrip, the user-override short circuit in `isEWEnabled` (uses a bogus org/site so an accidental network call would surface as a rejection, not a false positive), and `?ew=true`/`false`/`reset`/absent query-param seeding.
+
+The toggle UI, welcome guide, and switch-back feedback prompt that consume this flag live on the stacked `editortoggle` branch.
+
+## 2026-08-07
+
+### nx2/utils/api.js — remove stage-content.da.live rewrite workaround
+
+`80f9db79` removed the `content.da.live` → `stage-content.da.live` contentUrl rewrite from `source.uploadMedia`'s non-hlx6 branch (added `3300b1ee`/`3070fa63`, see `2026-08-06` below), plus its three dedicated tests. Server-side fix landed on stage-admin.da.live — it now returns the correct content host directly, so the client-side rewrite is no longer needed. This makes bug fix #2 in the `2026-08-06` entry below (the body-stream-already-read fix) moot: it only mattered inside the now-deleted rewrite branch.
+
+## 2026-08-06
+
+### nx2/utils/api.js — tests for `source.uploadMedia`, plus two bug fixes found while writing them
+
+Added test coverage for the new `source.uploadMedia({ org, site, path, body })` method (added in `3300b1ee`, "feat: add media upload api"): legacy delegation to `_saveDA` as FormData, the stage `content.da.live` → `stage-content.da.live` contentUrl rewrite, hlx6 POSTs to the AEM media route with the correct `content-type` header, `contentUrl` prefix-stripping against the site's `aem.page` origin, non-ok passthrough for both branches, and the `/org/site/path` string call form. 11 new tests in `test/nx2/utils/api.test.js`.
+
+Two bugs surfaced while writing the tests (both fixed, confirmed with the author):
+1. The non-hlx6 branch fell through to the hlx6 media POST whenever `DA_ADMIN` wasn't exactly `'https://stage-admin.da.live'` — i.e. for any ordinary non-hlx6 site in most environments, `uploadMedia` made a second, unintended request to the hlx6-only endpoint after `_saveDA` had already completed. Fixed by returning after the `_saveDA` call unconditionally.
+2. In this repo's test/dev env `DA_ADMIN` *is* `'https://stage-admin.da.live'`, so the stage-content rewrite branch always runs for non-hlx6 uploads. When the returned `contentUrl`'s host wasn't `content.da.live` (no rewrite needed), the code had already consumed the response body via `resp.json()` and then returned that same (now-drained) `Response` — any caller subsequently calling `resp.json()` would get a "body stream already read" error. Fixed by always returning `adaptJsonResponse(resp, json)` in that branch, rewritten or not, so callers get a fresh readable response either way.
+
+## 2026-07-30
+
+### nx2/utils/api.js — normalize hlx6 `source.save` response to `{ source: { contentUrl } }` (#631)
+
+The hlx6 source-bus save endpoint (`${AEM_API}/{org}/sites/{site}/source{path}`) returns a **200 with an empty body**, whereas DA returns `{ source: { contentUrl } }`. da-live's image-upload plugin (`blocks/edit/prose/plugins/imageDrop.js`) calls `resp.json()` on the save result and reads `json.source.contentUrl`; on hlx6 the empty body made `resp.json()` throw `SyntaxError: Unexpected end of JSON input`. Because the caller is an un-awaited async fn, the throw became an unhandled rejection and the FPO-placeholder → real-image swap never ran — the placeholder stuck around and published with a stale hlx5 fragment, so preview couldn't find the image.
+
+Fix: on a successful hlx6 save, shadow the Response's `json()` (new `withSourceJson` helper) so it resolves to `{ source: { contentUrl } }` with `contentUrl` = the source URL just written (`${AEM_API}/{org}/sites/{site}/source{path}`). Non-ok responses pass through untouched so callers' error handling is unchanged. Only `imageDrop.js` reads the save body — every other da-live `source.save` consumer checks `resp.ok` only — so the change is contained. Updated `nx2/utils/api.md`; added two tests.
+
+## 2026-07-23
+
+### nx2/utils/api.js — org-level listing merges DA-legacy and hlx6 source-bus sites (da-live#1169)
+
+`source.list({ org })` (no `site`) previously only queried `${DA_ADMIN}/list/{org}`, so hlx6-upgraded sites were invisible in org-level listings. Now, when `site` is omitted, it fires both the DA-legacy list and `org.listSites({ org })` in parallel, normalizes each via `hlx6ToDaList`, and dedupes the combined items by `name` (legacy entry wins on a name collision). `ok` is true if either call succeeds, so a 404 from either side (non-migrated org, or an org with no legacy DA content) doesn't blank out the other's results. Only DA returns a `continuationToken` — hlx6 has no pagination — so `org.listSites` is only queried on the first page (`continuationToken` absent); later pages skip it entirely instead of redundantly re-merging the same unpaginated site list each time (caught in review).
+
+Also fixed `org.listSites`: was hitting the wrong (unused/stubbed) endpoint `${AEM_API}/{org}/sites`; corrected to `${AEM_API}/{org}/source/` per the source-bus API.
+
+New internal helpers `parseListItems` (ok-check + parse-or-`[]`) and `dedupeByName`, alongside `hlx6ToDaList`. Updated `api.d.ts`/`api.md` accordingly. Consumers in `da-live` (`da-sites.js`/`da-list.js`) and its `test/fixtures/nx2/utils/api.js` mirror need no da-nx-side change but should be synced manually — out of scope for this repo.
+
+**Test-suite flake fixed in passing:** `test/nx2/utils/api.test.js`'s outer `beforeEach` did a blanket `localStorage.removeItem('hlx6-upgrade')`. Since `tree.test.js` seeds the same shared-origin key for its own hlx6 tests, and wtr runs test files concurrently (`--concurrent-browsers 4`) with a shared localStorage, this occasionally wiped `tree.test.js`'s seeded entry mid-run, causing intermittent unrelated failures. Removed the clear — every `org`/`site` pair in `api.test.js` already comes from a randomized `uniq()` helper, so the blanket clear was never actually load-bearing.
+
 ## 2026-07-14
 
 ### nx2/styles/styles.css — pin to light mode

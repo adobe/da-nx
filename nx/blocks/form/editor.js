@@ -112,11 +112,30 @@ class Form extends LitElement {
 
   _start({ schema, json }) {
     this._editor = createEngine({ schema, document: json, onChange: this._onChange });
+    // Seed empty rows for required arrays (UI convenience). Runs before
+    // persistence so seeded rows are the baseline (no save); empty rows don't
+    // count toward minItems and prune on save. The SDK never seeds.
+    this._seedRequiredArrays();
     this._state = this._editor.getState();
     // Attach AFTER load so the loaded document is the persistence's baseline —
     // mutations after this point trigger saves; the load itself does not.
     this._persistence = attachPersistence(this._editor, { path: this._details?.fullpath });
     this._nav = { pointer: '/data', origin: null, seq: 0 };
+  }
+
+  // Recurses object groups, not array items (those are dynamic and start empty).
+  _seedRequiredArrays() {
+    const seed = (node) => {
+      if (!node) return;
+      if (node.kind === 'array' && node.required) {
+        const target = Math.max(node.minItems ?? 0, 1);
+        const have = node.items?.length ?? 0;
+        for (let i = have; i < target; i += 1) this._editor.addItem(node.pointer);
+      } else if (node.kind === 'object' && Array.isArray(node.children)) {
+        node.children.forEach(seed);
+      }
+    };
+    seed(this._editor.getState().model.root);
   }
 
   async _loadContext() {
@@ -264,19 +283,21 @@ class Form extends LitElement {
       <div class="nx-form-schema-shell">
         <h2 class="nx-form-schema-heading">Choose a schema</h2>
         <div class="nx-form-schema-form">
-          <form-picker
-            hoist
-            class="nx-form-schema-select"
-            label="Schema"
-            placeholder="Select a schema"
-            .value=${this._pendingSchemaId ?? ''}
-            @change=${this._onPendingSchemaChange}
-          >
-            <option value="">Select a schema</option>
-            ${Object.entries(schemas).map(([id, schema]) => html`
-              <option value="${id}">${schema?.title ?? id}</option>
-            `)}
-            <p slot="description">
+          <div class="nx-form-schema-select-group">
+            <form-picker
+              hoist
+              class="nx-form-schema-select"
+              label="Schema"
+              placeholder="Select a schema"
+              .value=${this._pendingSchemaId ?? ''}
+              @change=${this._onPendingSchemaChange}
+            >
+              <option value="">Select a schema</option>
+              ${Object.entries(schemas).map(([id, schema]) => html`
+                <option value="${id}">${schema?.title ?? id}</option>
+              `)}
+            </form-picker>
+            <p class="nx-form-schema-hint">
               To create a new schema, open
               <a
                 class="nx-form-schema-text-link"
@@ -285,7 +306,7 @@ class Form extends LitElement {
                 rel="noopener noreferrer"
               >Schema Editor</a>.
             </p>
-          </form-picker>
+          </div>
           <form-button
             variant="accent"
             class="nx-form-schema-start"

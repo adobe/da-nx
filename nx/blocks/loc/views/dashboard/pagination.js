@@ -1,10 +1,8 @@
-import { LitElement, html, nothing } from '../../../../deps/lit/lit-core.min.js';
-import { getConfig } from '../../../../scripts/nexter.js';
-import getStyle from '../../../../utils/styles.js';
+import { LitElement, html, nothing } from 'da-lit';
+import { loadStyle } from '../../../../../nx2/utils/utils.js';
 
-const { nxBase } = getConfig();
-const style = await getStyle(import.meta.url);
-const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
+const style = await loadStyle(import.meta.url);
+const buttons = await loadStyle(new URL('./buttons.css', import.meta.url).href);
 
 const ELLIPSIS_HTML = html`<span class="pagination-ellipsis">. . .</span>`;
 
@@ -25,7 +23,7 @@ class NxPagination extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style, buttons];
+    this.shadowRoot.adoptedStyleSheets = [buttons, style];
   }
 
   get totalPages() {

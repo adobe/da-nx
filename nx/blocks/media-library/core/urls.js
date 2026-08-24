@@ -252,7 +252,8 @@ export function isInternalToSite(urlString, org, repo) {
     const url = new URL(urlString);
 
     const isAemDomain = url.hostname === `main--${repo}--${org}.aem.page`
-        || url.hostname === `main--${repo}--${org}.aem.live`;
+        || url.hostname === `main--${repo}--${org}.aem.live`
+        || url.hostname === `main--${repo}--${org}.preview.da.live`;
 
     const hasOrgRepoPath = url.pathname.startsWith(`/${org}/${repo}/`);
 

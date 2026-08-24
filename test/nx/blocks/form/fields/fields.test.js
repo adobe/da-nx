@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import '../../../../../nx/blocks/form/fields/input.js';
+import '../../../../../nx/blocks/form/fields/textarea.js';
 import '../../../../../nx/blocks/form/fields/picker.js';
 import '../../../../../nx/blocks/form/fields/checkbox.js';
 import '../../../../../nx/blocks/form/fields/button.js';
@@ -49,6 +50,47 @@ describe('form-input', () => {
     expect(el.shadowRoot.querySelector('.form-field').classList.contains('has-error')).to.be.true;
   });
 
+  it('marks a required field with the red asterisk in its label', async () => {
+    const el = await mount('<form-input></form-input>');
+    el.label = 'Title';
+    el.required = true;
+    await el.updateComplete;
+    const star = el.shadowRoot.querySelector('label .form-required');
+    expect(star, 'required asterisk').to.exist;
+    expect(star.textContent).to.equal('*');
+    // .form-required is the class that colors it red (defaults.css).
+    expect(star.classList.contains('form-required')).to.be.true;
+  });
+
+  it('omits the asterisk when the field is not required', async () => {
+    const el = await mount('<form-input></form-input>');
+    el.label = 'Title';
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.form-required')).to.equal(null);
+  });
+
+  it('shows the description under the input when valid', async () => {
+    const el = await mount('<form-input></form-input>');
+    el.description = 'Lowercase and hyphens.';
+    await el.updateComplete;
+    const desc = el.shadowRoot.querySelector('.form-field-description');
+    const wrap = el.shadowRoot.querySelector('.form-input-wrap');
+    expect(desc.textContent).to.equal('Lowercase and hyphens.');
+    // Spectrum: help text renders under the field.
+    const order = [...el.shadowRoot.querySelector('.form-field').children];
+    expect(order.indexOf(wrap)).to.be.lessThan(order.indexOf(desc));
+  });
+
+  it('replaces the description with the error when invalid (Spectrum)', async () => {
+    const el = await mount('<form-input></form-input>');
+    el.description = 'Lowercase and hyphens.';
+    el.error = 'Invalid';
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.form-field-error').textContent).to.equal('Invalid');
+    // Error replaces the help text — description is not shown while invalid.
+    expect(el.shadowRoot.querySelector('.form-field-description')).to.equal(null);
+  });
+
   it('honors disabled', async () => {
     const el = await mount('<form-input disabled></form-input>');
     expect(el.shadowRoot.querySelector('input').disabled).to.be.true;
@@ -57,6 +99,42 @@ describe('form-input', () => {
   it('honors the type attribute', async () => {
     const el = await mount('<form-input type="number"></form-input>');
     expect(el.shadowRoot.querySelector('input').type).to.equal('number');
+  });
+});
+
+describe('form-textarea', () => {
+  it('reflects value onto the inner textarea', async () => {
+    const el = await mount('<form-textarea></form-textarea>');
+    el.value = 'hello\nworld';
+    await el.updateComplete;
+    const textarea = el.shadowRoot.querySelector('textarea');
+    expect(textarea.value).to.equal('hello\nworld');
+  });
+
+  it('fires an input event and updates value on user input', async () => {
+    const el = await mount('<form-textarea></form-textarea>');
+    let fired;
+    el.addEventListener('input', (e) => { fired = e.target.value; });
+    const textarea = el.shadowRoot.querySelector('textarea');
+    textarea.value = 'typed';
+    textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    expect(el.value).to.equal('typed');
+    expect(fired).to.equal('typed');
+  });
+
+  it('renders the label and error message', async () => {
+    const el = await mount('<form-textarea></form-textarea>');
+    el.label = 'Summary';
+    el.error = 'Required';
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('label').textContent).to.equal('Summary');
+    expect(el.shadowRoot.querySelector('.form-field-error').textContent).to.equal('Required');
+    expect(el.shadowRoot.querySelector('.form-field').classList.contains('has-error')).to.be.true;
+  });
+
+  it('honors disabled', async () => {
+    const el = await mount('<form-textarea disabled></form-textarea>');
+    expect(el.shadowRoot.querySelector('textarea').disabled).to.be.true;
   });
 });
 

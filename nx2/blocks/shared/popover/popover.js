@@ -93,8 +93,10 @@ class NxPopover extends LitElement {
     if (!this._anchor) return;
     const rect = this._anchor.getBoundingClientRect();
     const gap = parseFloat(getComputedStyle(this).getPropertyValue('--popover-gap')) ?? 0;
+    const buffer = 10;
 
     this.style.visibility = 'hidden';
+    this.style.maxHeight = '';
 
     // For scoped popovers, position:fixed is relative to the containing block.
     // Measure it by sizing to 100%/100% — the browser resolves percentages
@@ -107,13 +109,15 @@ class NxPopover extends LitElement {
       this.style.height = '';
     }
     requestAnimationFrame(() => {
+      this.style.maxHeight = '';
       const pop = this.getBoundingClientRect();
-      const cbTop = cb?.top ?? 0;
+      const containerTop = cb?.top ?? 0;
+      const containerBottom = cb?.bottom ?? window.innerHeight;
       let { left } = rect;
       let placement = this._placement;
       if (placement === 'auto') {
-        const spaceBelow = (cb?.bottom ?? window.innerHeight) - rect.bottom - gap;
-        const spaceAbove = rect.top - cbTop - gap;
+        const spaceBelow = containerBottom - rect.bottom - gap;
+        const spaceAbove = rect.top - containerTop - gap;
         placement = spaceBelow < pop.height && spaceAbove >= pop.height ? 'above' : 'below';
         this._placement = placement;
       }
@@ -121,9 +125,21 @@ class NxPopover extends LitElement {
       if (placement === 'below-end' || left + pop.width > (cb?.right ?? window.innerWidth)) left = rect.right - pop.width;
 
       this.style.left = `${left - (cb?.left ?? 0)}px`;
-      this.style.top = placement === 'above'
-        ? `${rect.top - gap - pop.height - cbTop}px`
-        : `${rect.bottom + gap - cbTop}px`;
+
+      // Clamp to the container bounds (with a buffer) so tall content doesn't
+      // push the popover off-screen — the excess scrolls instead.
+      let top;
+      let maxHeight;
+      if (placement === 'above') {
+        top = Math.max(containerTop + buffer, rect.top - gap - pop.height);
+        maxHeight = rect.top - gap - top;
+      } else {
+        top = rect.bottom + gap;
+        maxHeight = containerBottom - buffer - top;
+      }
+
+      this.style.top = `${top - containerTop}px`;
+      if (maxHeight < pop.height) this.style.maxHeight = `${Math.max(maxHeight, 0)}px`;
       this.style.visibility = '';
     });
   }

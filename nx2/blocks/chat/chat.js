@@ -2,18 +2,29 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { readFileAsBase64 } from './utils/stream.js';
 import '../shared/menu/menu.js';
-import ChatController from './chat-controller.js';
-import { renderMessage, renderApprovalCard } from './renderers.js';
+import ChatBackend from './chat-backend.js';
+import { renderMessage } from './renderers/renderers.js';
+import { renderToolCard } from './renderers/card-renderers.js';
+import { renderNewerEpisodeBanner, renderUiArtifact } from './ao/ao-renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
 import './pills/pills.js';
+import './interaction/interaction.js';
 import { loadSiteConfig } from './utils/api.js';
-import { ADOBE_AI_GUIDELINES_URL, ADD_MENU_ITEMS, MENU_OPTIONS, ROLE, TOOL_STATE } from './constants.js';
+import { isCoworkerEnabled } from '../../utils/ewFlags.js';
+import {
+  ADOBE_AI_GUIDELINES_URL, ADD_MENU_ITEMS, CHAT_EVENT, MENU_OPTIONS, ROLE,
+} from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { buildAttachmentPayload, buildSlashMessage } from './utils/chat-helpers.js';
+import { PANEL_EVENT } from '../../utils/panel.js';
 
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
+
+const COWORKER_SKILLS_URL = 'https://coworker.experience.adobe.io/skills';
+
+const MENU_ITEMS_NO_PROMPTS = ADD_MENU_ITEMS.filter((item) => item.id !== 'prompts');
 
 const ICON_NAMES = {
   add: 's2-icon-add-20-n',
@@ -34,6 +45,16 @@ class NxChat extends LitElement {
     thinking: { type: Boolean },
     connected: { type: Boolean },
     toolCards: { type: Object },
+    // Discriminated union { type: 'approval'|'question'|'plan', ... } | null — see
+    // chat-backend.js#_normalize. Populated for both backends, since approval is
+    // da-agent's one turn-suspension concept too; question/plan never occur there.
+    pendingInteraction: { type: Object },
+    // AO-only — always undefined on the da-agent path, since it has no equivalent.
+    newerEpisodeAvailable: { type: Object },
+    // Resolved async from the `ew.coworker` site flag once org/site are known (see
+    // _ensureController) — undefined/false until then, which also means MENU_ITEMS
+    // renders as the full (da-agent) list during that brief window.
+    _useCoworker: { state: true },
     _prompts: { state: true },
     _items: { state: true },
     _dragging: { state: true },
@@ -88,7 +109,11 @@ class NxChat extends LitElement {
 
   _applyContext(value) {
     this._context = value;
-    this._controller?.setContext(value);
+    if (this._controller) {
+      this._controller.setContext(value);
+    } else {
+      this._ensureController(value);
+    }
     const contextIds = new Set(this._keyedItemIds.values());
     this._items = (this._items ?? []).filter((item) => !contextIds.has(item.id));
     this._keyedItemIds = new Map();
@@ -101,7 +126,7 @@ class NxChat extends LitElement {
   }
 
   _closePanel() {
-    this.dispatchEvent(new CustomEvent('nx-panel-close', { bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent(PANEL_EVENT.CLOSE, { bubbles: true, composed: true }));
   }
 
   async _loadConfig() {
@@ -118,8 +143,9 @@ class NxChat extends LitElement {
   }
 
   _getSlashItems(filter) {
-    if (!this._skills) return [];
-    const skills = this._skills.map((id) => ({ id, label: id }));
+    const skillIds = this._controller?.getSkills() ?? this._skills;
+    if (!skillIds) return [];
+    const skills = skillIds.map((id) => ({ id, label: id }));
     const filtered = filter
       ? skills.filter((item) => item.id.toLowerCase().includes(filter))
       : skills;
@@ -186,74 +212,77 @@ class NxChat extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
 
-    this._controller = new ChatController({
+    if (this._context) this._ensureController(this._context);
+
+    this._unsubscribeHash = hashChange.subscribe((state) => {
+      if (!this._explicitContext) this._applyContext(state);
+    });
+
+    document.addEventListener(CHAT_EVENT.ADD_TO_CHAT, this._onAddToChat);
+  }
+
+  async _ensureController(context) {
+    if (this._controller || this._resolvingController) return;
+    const { org, site } = context ?? {};
+    if (!org || !site) return;
+
+    this._resolvingController = true;
+    const useCoworker = await isCoworkerEnabled({ org, site });
+    this._resolvingController = false;
+    if (this._destroyed || this._controller) return;
+
+    this._useCoworker = useCoworker;
+    if (useCoworker) {
+      const aoStyles = await loadStyle(new URL('./ao/ao.css', import.meta.url).href);
+      this.shadowRoot.adoptedStyleSheets = [...this.shadowRoot.adoptedStyleSheets, aoStyles];
+    }
+
+    this._controller = new ChatBackend(useCoworker, {
       onToolDone: (scope, paths) => {
-        this.dispatchEvent(new CustomEvent('nx-agent-change', {
+        this.dispatchEvent(new CustomEvent(CHAT_EVENT.AGENT_CHANGE, {
           bubbles: true,
           composed: true,
           detail: { scope, paths },
         }));
       },
-      onUpdate: ({ messages, thinking, streamingText, connected, toolCards }) => {
+      onUpdate: ({
+        messages, thinking, streamingText, connected, toolCards,
+        pendingInteraction, newerEpisodeAvailable,
+      }) => {
         const newMessages = streamingText
           ? [...(messages ?? []), { role: ROLE.ASSISTANT, content: streamingText, streaming: true }]
           : messages;
         this.thinking = thinking;
         this.connected = connected;
         this.toolCards = toolCards;
+        this.pendingInteraction = pendingInteraction;
+        this.newerEpisodeAvailable = newerEpisodeAvailable;
         cancelAnimationFrame(this._updateRaf);
         this._updateRaf = requestAnimationFrame(() => {
           this.messages = newMessages;
           this.thinking = thinking;
           this.connected = connected;
           this.toolCards = toolCards;
+          this.pendingInteraction = pendingInteraction;
+          this.newerEpisodeAvailable = newerEpisodeAvailable;
         });
       },
     });
-    if (this._context) this._controller.setContext(this._context);
-
-    this._unsubscribeHash = hashChange.subscribe((state) => {
-      if (!this._explicitContext) this._applyContext(state);
-    });
-
+    this._controller.setContext(this._context ?? context);
     this._controller.connect().then(() => this._controller.loadInitialMessages());
-    document.addEventListener('nx-add-to-chat', this._onAddToChat);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this._destroyed = true;
     cancelAnimationFrame(this._updateRaf);
     (this._items ?? []).forEach((item) => {
       if (item.thumbnail) URL.revokeObjectURL(item.thumbnail);
     });
     this._unsubscribeHash?.();
     this._controller?.destroy();
-    document.removeEventListener('keydown', this._onApprovalKeydown);
-    document.removeEventListener('nx-add-to-chat', this._onAddToChat);
+    document.removeEventListener(CHAT_EVENT.ADD_TO_CHAT, this._onAddToChat);
   }
-
-  _pendingApproval() {
-    if (!this.toolCards) return null;
-    for (const [toolCallId, card] of this.toolCards) {
-      if (card.state === TOOL_STATE.APPROVAL_REQUESTED) return { toolCallId, ...card };
-    }
-    return null;
-  }
-
-  _onApprovalKeydown = (e) => {
-    const pending = this._pendingApproval();
-    if (!pending) return;
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      this._controller.approveToolCall(pending.toolCallId, false);
-    } else if (e.key === 'Enter' && e.metaKey) {
-      e.preventDefault();
-      this._controller.approveToolCall(pending.toolCallId, true, true);
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      this._controller.approveToolCall(pending.toolCallId, true);
-    }
-  };
 
   willUpdate(changed) {
     if (changed.has('messages')) {
@@ -272,13 +301,6 @@ class NxChat extends LitElement {
     }
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
       this.shadowRoot.querySelector('.chat-input')?.focus();
-    }
-    if (changed.has('toolCards')) {
-      if (this._pendingApproval()) {
-        document.addEventListener('keydown', this._onApprovalKeydown);
-      } else {
-        document.removeEventListener('keydown', this._onApprovalKeydown);
-      }
     }
     if (changed.has('connected') && this.connected && this._pendingPrompt) {
       const { text, autoSend } = this._pendingPrompt;
@@ -374,6 +396,10 @@ class NxChat extends LitElement {
     if (id === MENU_OPTIONS.FILES) this._openFilePicker();
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._insertSlash();
+    if (id === 'skills' && this._useCoworker) {
+      window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
+      return;
+    }
     if (id === 'prompts' || id === 'skills') {
       const { org, site } = this._context ?? {};
       if (!org || !site) return;
@@ -448,7 +474,7 @@ class NxChat extends LitElement {
     if (!item) return;
     const { selFrom, selTo, selectionType, blockName, proseIndex } = item;
     if (typeof selFrom !== 'number' || typeof selTo !== 'number') return;
-    document.dispatchEvent(new CustomEvent('nx-highlight-selection', {
+    document.dispatchEvent(new CustomEvent(CHAT_EVENT.HIGHLIGHT_SELECTION, {
       detail: { selFrom, selTo, selectionType, blockName, proseIndex },
     }));
   }
@@ -521,6 +547,10 @@ class NxChat extends LitElement {
           @click=${this._closePanel}
         >${icon('close')}</button>
       </div>
+      ${renderNewerEpisodeBanner(this.newerEpisodeAvailable, {
+      onSwitch: () => this._controller.switchToLatestEpisode(),
+      onDismiss: () => this._controller.dismissNewerEpisode(),
+    })}
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">
           ${!this.messages?.length && !this.thinking
@@ -530,8 +560,15 @@ class NxChat extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-chat-welcome>`
         : nothing}
-        ${this.messages?.map((msg) => renderMessage(msg, this.toolCards))}
-        ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
+        ${this.messages?.map((msg) => {
+          if (msg.uiArtifact) {
+            return renderUiArtifact(msg.uiArtifact, (p) => this._sendPrompt(p, { autoSend: true }));
+          }
+          if (msg.toolCard) return renderToolCard(msg.toolCard);
+          return renderMessage(msg, this.toolCards);
+        })}
+        ${this.thinking && !this.messages?.at(-1)?.streaming && !this.pendingInteraction
+        ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>
       </div>
       <div class="chat-form-wrap">
@@ -542,7 +579,14 @@ class NxChat extends LitElement {
           @select=${({ detail }) => this._onSlashSelect(detail.id)}
           @mousedown=${(e) => e.preventDefault()}
         ></nx-menu>
-        ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
+        <nx-chat-interaction
+          .pending=${this.pendingInteraction}
+          .onApprove=${(toolCallId, approved, always) => this._controller.approveToolCall(toolCallId, approved, always)}
+          .onAnswerQuestion=${(answers) => this._controller.answerQuestion(answers)}
+          .onDeclineQuestion=${() => this._controller.declineQuestion()}
+          .onApprovePlan=${() => this._controller.respondToPlanApproval('approve')}
+          .onRejectPlan=${(feedback) => this._controller.respondToPlanApproval('reject', feedback)}
+        ></nx-chat-interaction>
         <form class="chat-form" autocomplete="off" @submit=${this._submit}
           @dragenter=${this._onDragEnter}
           @dragleave=${this._onDragLeave}
@@ -579,7 +623,7 @@ class NxChat extends LitElement {
           @blur=${this._handleBlur}
         ></textarea>
         <div class="chat-actions" ?data-thinking=${this.thinking} ?data-has-items=${!!this._items?.length}>
-          <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
+          <nx-menu .items=${this._useCoworker ? MENU_ITEMS_NO_PROMPTS : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
             <button slot="trigger" class="chat-add" type="button" aria-label="Add" @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>
               <span class="icon-up">${icon('up')}</span>

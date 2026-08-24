@@ -1,6 +1,7 @@
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { daFetch } from '../../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
+import { daFetch } from '../../../../../nx2/utils/api.js';
 import { shouldLogGLaaSRequests } from './api.js';
+import { parseSelections } from './imageSelections.js';
 
 const BLOCK_SCHEMA_PATH = '/.da/block-schema.json';
 const SEO_GLOSSARY_PATH = '/.da/seo/glossary.json';
@@ -81,9 +82,9 @@ export function parseBlockSchema(schemaData) {
 }
 
 async function fetchJson(org, site, relativePath) {
-  const url = `${DA_ORIGIN}/source/${org}/${site}${relativePath}`;
+  const url = `${DA_ADMIN}/source/${org}/${site}${relativePath}`;
   try {
-    const resp = await daFetch(url);
+    const resp = await daFetch({ url });
     if (!resp.ok) return null;
     return resp.json();
   } catch (error) {
@@ -118,16 +119,16 @@ function metadataPathForPage(pagePath, suffix) {
 
 async function fetchMetadataFile(org, site, pagePath, suffix, readBody) {
   const metadataPath = metadataPathForPage(pagePath, suffix);
-  let url = `${DA_ORIGIN}/source/${org}/${site}${metadataPath}`;
+  let url = `${DA_ADMIN}/source/${org}/${site}${metadataPath}`;
   try {
-    let resp = await daFetch(url);
+    let resp = await daFetch({ url });
     if (resp.ok) {
       return readBody(resp);
     }
     if (resp.status === 404 && metadataPath.includes('/langstore/')) {
       const fallbackPath = metadataPath.replace(/\/langstore\/[^/]+\//, '/');
-      url = `${DA_ORIGIN}/source/${org}/${site}${fallbackPath}`;
-      resp = await daFetch(url);
+      url = `${DA_ADMIN}/source/${org}/${site}${fallbackPath}`;
+      resp = await daFetch({ url });
       if (resp.ok) {
         return readBody(resp);
       }
@@ -561,8 +562,9 @@ function logGlaasLangMetadata(pagePath, langMetadata) {
 }
 
 /**
- * Add translation metadata to URLs (HTML annotation + keywords + placeholders + SEO glossary)
- * Modifies url.content, url.translationMetadata, and url.languageContext in place
+ * Add translation metadata to URLs (HTML annotation + keywords + placeholders + SEO glossary),
+ * plus each url's imageSelections (which images are marked for translation).
+ * Modifies url.content, url.translationMetadata, url.languageContext, and url.imageSelections.
  * @param {string} org - Organization name
  * @param {string} site - Site name
  * @param {Array} langs - Array of language objects with .name and .code
@@ -575,8 +577,12 @@ export async function addTranslationMetadata(org, site, langs, urls) {
     await Promise.all(urls.map(async (url) => {
       let pageDoc = null;
       let fieldsWithSlugs = [];
+      // annotateHTML returns its input unchanged (a string, not a Document)
+      // for falsy content, so this must stay gated on truthiness too.
       if (url.content && typeof url.content === 'string') {
         pageDoc = annotateHTML(url.content, blockSchema);
+        // Reuses pageDoc rather than re-parsing url.content a second time.
+        url.imageSelections = parseSelections(pageDoc);
         url.content = pageDoc.body.innerHTML;
         fieldsWithSlugs = fieldConstantSlugs(pageDoc, blockSchema);
       }
@@ -598,6 +604,10 @@ export async function addTranslationMetadata(org, site, langs, urls) {
         logGlaasLangMetadata(url.suppliedPath, translationMetadata);
       }
     }));
+  } else {
+    urls.forEach((url) => {
+      if (typeof url.content === 'string') url.imageSelections = parseSelections(url.content);
+    });
   }
 
   await loadSeoGlossary(org, site);

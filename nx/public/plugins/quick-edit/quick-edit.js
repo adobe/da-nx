@@ -2,6 +2,14 @@ import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc,
 import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
+import { MESSAGE_TYPES } from '../../../utils/message-types.js';
+import { restoreBlockIndices } from './src/dom-index.js';
+import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
+import {
+  setupNodeSelection,
+  setSelectedNode,
+  getSelectedNode,
+} from './src/selection.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
 
@@ -17,14 +25,21 @@ const QUICK_EDIT_ID = 'quick-edit-iframe';
 let parentControllerPort = null;
 
 async function setBody(body, ctx) {
+  const anchor = captureScrollAnchor();
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
-  await ctx.loadPage();
+  await ctx.loadPage(document);
+  restoreBlockIndices(doc, document);
+  setupNodeSelection(ctx);
+  setSelectedNode(getSelectedNode());
   setupContentEditableListeners(ctx);
-  setupImageDropListeners(ctx, document.body.querySelector('main'));
+  if (!ctx.readOnly) {
+    setupImageDropListeners(ctx, document.body.querySelector('main'));
+  }
   if (!parentControllerPort) {
     setupActions(ctx);
   }
+  restoreScrollAnchor(anchor);
 }
 
 function handleReady(e, ctx) {
@@ -32,37 +47,55 @@ function handleReady(e, ctx) {
 }
 
 function onMessage(e, ctx) {
-  if (e.data.type === 'ready') {
+  const { type, payload = {} } = e.data ?? {};
+
+  if (type === MESSAGE_TYPES.READY) {
     handleReady(e, ctx);
-  } else if (e.data.type === 'set-body') {
-    setBody(e.data.body, ctx);
-  } else if (e.data.type === 'set-editor-state') {
-    const { editorState, cursorOffset } = e.data;
+  } else if (type === MESSAGE_TYPES.SET_BODY) {
+    setBody(payload.body, ctx);
+  } else if (type === MESSAGE_TYPES.SET_EDITOR_STATE) {
+    const { editorState, cursorOffset } = payload;
     setEditorState(cursorOffset, editorState, ctx);
-  } else if (e.data.type === 'set-cursors') {
-    setCursors(e.data.cursors, ctx);
-  } else if (e.data.type === 'update-image-src') {
-    const { newSrc, originalSrc } = e.data;
-    updateImageSrc(originalSrc, newSrc);
-  } else if (e.data.type === 'image-error') {
-    handleImageError(e.data.error);
+  } else if (type === MESSAGE_TYPES.SET_CURSORS) {
+    setCursors(payload.cursors, ctx);
+  } else if (type === MESSAGE_TYPES.IMAGE_REPLACE) {
+    if (payload.error) {
+      handleImageError(payload.error);
+    } else {
+      const { newSrc, originalSrc } = payload;
+      updateImageSrc(originalSrc, newSrc);
+    }
+  } else if (type === MESSAGE_TYPES.SET_SELECTED_NODE) {
+    setSelectedNode(payload.node, document, { scrollIntoView: payload.scrollIntoView });
   }
+}
+
+// Disables link clicks. When the page is embedded, it must not navigate away.
+function blockLinkNavigation() {
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('a')) e.preventDefault();
+  }, true);
 }
 
 function setupParentController(loadPage) {
   const listener = (e) => {
-    if (e.source !== window.parent || e.data?.init == null || !e.ports?.length) return;
+    const isInit = e.data?.type === MESSAGE_TYPES.INIT;
+    if (e.source !== window.parent || !isInit || !e.ports?.length) return;
 
     const port = e.ports[0];
     parentControllerPort = port;
+    blockLinkNavigation();
+
+    const config = e.data?.payload?.config ?? e.data?.init;
 
     const ctx = {
       initialized: true,
       loadPage,
       port,
+      readOnly: config?.canWrite !== true,
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
-    port.postMessage({ ready: true });
+    port.postMessage({ type: MESSAGE_TYPES.READY });
 
     window.removeEventListener('message', listener);
   };
@@ -86,7 +119,9 @@ function handleLoad(target, config, location, ctx) {
   const { port1, port2 } = CHANNEL;
   ctx.port = port1;
 
-  target.contentWindow.postMessage({ init: config, location }, '*', [port2]);
+  target.contentWindow.postMessage({
+    type: MESSAGE_TYPES.INIT, payload: { config, location },
+  }, '*', [port2]);
   ctx.port.onmessage = (e) => onMessage(e, ctx);
 }
 

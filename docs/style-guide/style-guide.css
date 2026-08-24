@@ -1,0 +1,98 @@
+body {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--s2-spacing-500) var(--s2-spacing-400) 80px;
+  font-family: var(--s2-font-family);
+}
+
+.sg-header p {
+  color: var(--s2-gray-700);
+  max-width: 60ch;
+}
+
+.sg-toc {
+  display: flex;
+  gap: var(--s2-spacing-300);
+  margin: var(--s2-spacing-500) 0;
+  padding: var(--s2-spacing-200) 0;
+  border-top: 1px solid var(--s2-gray-300);
+  border-bottom: 1px solid var(--s2-gray-300);
+}
+
+.sg-toc a {
+  color: var(--s2-blue-900);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.sg-toc a:where(:hover) {
+  text-decoration: underline;
+}
+
+.sg-section {
+  margin-top: var(--s2-spacing-600);
+}
+
+.sg-section > p {
+  color: var(--s2-gray-700);
+}
+
+.sg-example {
+  margin: var(--s2-spacing-400) 0;
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-200);
+  overflow: hidden;
+}
+
+.sg-example h3 {
+  margin: 0;
+  padding: var(--s2-spacing-200) var(--s2-spacing-300);
+  font-size: 1rem;
+  background: var(--s2-gray-75);
+  border-bottom: 1px solid var(--s2-gray-300);
+}
+
+.sg-example h3 a {
+  float: right;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--s2-blue-900);
+}
+
+.sg-note {
+  margin: 0;
+  padding: var(--s2-spacing-100) var(--s2-spacing-300);
+  font-size: 0.8125rem;
+  color: var(--s2-gray-700);
+  background: var(--s2-yellow-100, #fff8e1);
+  border-bottom: 1px solid var(--s2-gray-300);
+}
+
+.sg-demo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2-spacing-300);
+  padding: var(--s2-spacing-400) var(--s2-spacing-300);
+}
+
+.sg-demo pre {
+  margin: 0;
+  padding: var(--s2-spacing-300);
+  background: var(--s2-gray-900);
+  color: var(--s2-gray-25);
+  font-size: 0.8125rem;
+  overflow-x: auto;
+  border-top: 1px solid var(--s2-gray-300);
+}
+
+.sg-demo + pre {
+  padding-left: 10px;
+}
+
+/* form.css references icons at a root-relative path that consuming sites are
+   expected to serve; this repo doesn't ship them, so point this preview at a
+   live consumer (da.live) that does, instead of a broken image. */
+.nx-checkbox input[type="checkbox"]:checked::after {
+  mask-image: url('https://da.live/img/icons/s2-icon-checkmark-20-n.svg');
+}
