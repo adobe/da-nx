@@ -1,11 +1,12 @@
-import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
-import authReady, { getAccessToken } from './auth.js';
+import authReady, { getAccessToken as getCachedAccessToken } from '../../utils/auth.js';
 import { getOrCreateConnectorGuid } from './connectorGuid.js';
 import fetchWithRetry from '../../utils/fetchWithRetry.js';
+import downloadQueue from '../../utils/downloadQueue.js';
 
 export const dnt = { addDnt };
 
+const INTEGRATION_NAME = 'lionbridge';
 const CONNECTOR_NAME = 'DA Live Localization for Lionbridge';
 const CONNECTOR_VERSION = '1.0.0';
 
@@ -34,7 +35,7 @@ const CANCELED_STATUSES = ['CANCELLED'];
  * @returns {Promise<boolean>} Whether a valid access token was obtained.
  */
 export function isConnected(service) {
-  return authReady(service);
+  return authReady(INTEGRATION_NAME, service);
 }
 
 /**
@@ -43,7 +44,7 @@ export function isConnected(service) {
  * @returns {Promise<boolean>} Whether the connection succeeded.
  */
 export function connect(service) {
-  return authReady(service);
+  return authReady(INTEGRATION_NAME, service);
 }
 
 // No `cancelTranslation` export: Lionbridge's dev guidelines explicitly
@@ -64,7 +65,7 @@ export function connect(service) {
  * @returns {Promise<Object>} Fetch options.
  */
 async function getOpts(service, method = 'GET', body = null, accept = 'application/json') {
-  const token = await getAccessToken(service);
+  const token = await getCachedAccessToken(INTEGRATION_NAME, service);
   if (!token) throw new Error('Lionbridge authentication failed');
 
   const opts = {
@@ -488,18 +489,5 @@ export async function saveItems({
     }
   };
 
-  const queue = new Queue(downloadCallback, 5);
-
-  return new Promise((resolve) => {
-    const throttle = setInterval(() => {
-      const nextUrl = urls.find((u) => !u.inProgress);
-      if (nextUrl) {
-        nextUrl.inProgress = true;
-        queue.push(nextUrl);
-      } else if (urls.every((u) => u.status)) {
-        clearInterval(throttle);
-        resolve(urls);
-      }
-    }, 250);
-  });
+  return downloadQueue(urls, downloadCallback);
 }
