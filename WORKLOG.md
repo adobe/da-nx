@@ -1,5 +1,21 @@
 # Worklog
 
+## 2026-08-24
+
+### loc connectors — extract duplicate download-queue and da-etc auth logic
+
+Audited all 5 loc connectors for duplicate code before touching anything (Smartling, Trados, Lionbridge, GLaaS, Google); extracted the two genuine, safe candidates into `nx/blocks/loc/utils/`. Left alone: Smartling/GLaaS's auth (fundamentally different flows - refresh-token polling and OAuth-redirect, respectively), the Trados/GLaaS CORS-proxy-wrapper duplication, and the partial DNT-helper overlap with GLaaS's own local `dnt.js` - flagged but not extracted this round.
+
+- **`downloadQueue.js`**: the `Queue` + `setInterval`-poll-until-every-url-has-a-status pattern was copy-pasted identically in all 4 real connectors' `saveItems`. Now a single `downloadQueue(urls, callback, concurrency = 5)`; each connector's `saveItems` ends with one line instead of ~15.
+- **`auth.js`** (originally `tokenCache.js`, renamed twice as its scope grew - see below): Trados's and Lionbridge's `auth.js` were near-verbatim duplicates (same localStorage cache-key shape, same da-etc login flow, same `TOKEN_BUFFER`). Fully consolidated in stages:
+  1. Extracted the shared caching logic as `getCachedAccessToken(name, loginUrl, service)`.
+  2. Merged `LOGIN_ORIGIN` onto the more capable of the two definitions (Lionbridge's `DA_ETC`-aware version with a prod fallback) - this gives Trados a `?da-etc=`-override capability it didn't have before, harmless since it only adds a local-dev escape hatch.
+  3. Folded `loginUrl` construction in too, keyed only by the connector name (already needed as the cache-key prefix) - confirmed against da-etc's own `routes/ints.js` that it reads `env` from the query string generically for any integration, so this also fixes a latent gap where Trados never sent `?env=` and silently only ever worked against prod.
+  4. Extracted `getAccessToken`/`authReady` themselves, since each connector's own `auth.js` had shrunk to a trivial one-line delegation - deleted both per-connector `auth.js` files entirely; `trados/index.js`/`lionbridge/index.js` now call the shared module directly with a local `INTEGRATION_NAME` constant.
+  5. Renamed `tokenCache.js` → `daEtcAuth.js` → `auth.js` as its scope grew from "cache a token" to "the whole da-etc login flow" to just "this connector-type's auth module."
+
+Test coverage consolidated alongside: `test/loc/lionbridge/auth.test.js`'s cases moved into the generic `test/loc/utils/auth.test.js` (which also gives Trados its first-ever auth test coverage, having previously had none).
+
 ## 2026-08-19
 
 ### nx2 — restore lazy-loaded RUM (regression from nx1)
