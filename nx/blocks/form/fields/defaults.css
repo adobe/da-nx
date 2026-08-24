@@ -13,8 +13,8 @@
   gap: var(--s2-spacing-75);
 
   label {
-    font-size: var(--s2-body-size-xs, 12px);
-    color: var(--s2-gray-500);
+    font-size: var(--s2-component-s-regular-font-size, 12px);
+    color: var(--s2-gray-700);
   }
 }
 
@@ -25,13 +25,13 @@
 
 .form-field-error {
   margin: 0;
-  font-size: var(--s2-body-size-xs, 12px);
+  font-size: var(--s2-component-s-regular-font-size, 12px);
   color: var(--s2-red-900);
 }
 
-::slotted([slot="description"]) {
+.form-field-description {
   margin: 0;
-  font-size: var(--s2-body-size-xs, 12px);
+  font-size: var(--s2-component-s-regular-font-size, 12px);
   color: var(--s2-gray-700);
 }
 

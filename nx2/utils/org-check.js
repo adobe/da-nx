@@ -1,5 +1,4 @@
-import { DA_ADMIN } from './utils.js';
-import { daFetch } from './api.js';
+import { config, source } from './api.js';
 import { showToast, VARIANT_WARNING } from '../blocks/shared/toast/toast.js';
 
 const DEF_SANDBOX = 'aem-sandbox';
@@ -21,7 +20,7 @@ async function getSandboxContent() {
 }
 
 async function getIsSandbox(org) {
-  const confResp = await daFetch({ url: `${DA_ADMIN}/config/${org}/` });
+  const confResp = await config.get({ org });
   const { status } = confResp;
 
   if (status === 403 || status === 401) return false;
@@ -31,9 +30,8 @@ async function getIsSandbox(org) {
     if (json.permissions) return false;
   }
 
-  const listResp = await daFetch({ url: `${DA_ADMIN}/list/${org}` });
-  const listJson = await listResp.json();
-  return listJson.length > 0;
+  const { items } = await source.list({ org });
+  return items.length > 0;
 }
 
 async function orgCheck() {

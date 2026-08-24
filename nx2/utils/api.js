@@ -775,7 +775,11 @@ function normalizePath(path) {
 
 // Create a new response with a different JSON response body
 function adaptJsonResponse(resp, obj) {
-  return new Response(JSON.stringify(obj), resp);
+  const adapted = new Response(JSON.stringify(obj), resp);
+  // new Response(body, init) copies status, statusText and headers only, so the
+  // permissions daFetch attached to the original response are carried over here.
+  adapted.permissions = resp.permissions;
+  return adapted;
 }
 
 function jsonOpts(method, payload) {
