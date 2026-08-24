@@ -2,6 +2,18 @@
 
 ## 2026-08-24
 
+### lionbridge connector — implementation, bug fixes, and compliance
+
+Continued the connector from #651 (thanks @ravuthu); found real bugs via live API testing against Lionbridge's Content API v2, plus brought it up to their dev-guideline requirements and test parity with Trados/Smartling.
+
+- Bug: `providerId` must be sent on `submit`, not `createJob` — API silently drops it, then `submit` rejects with "missing providerId".
+- Bug: `retrievefile` needs `Accept: application/octet-stream`; the default `application/json` 403s.
+- Bug: `auth.js` now resolves the da-etc origin via the shared `DA_ETC` export instead of a hardcoded URL, so it can actually be tested locally.
+- Compliance: retry 429/503 with backoff, truncate `jobName`/`requestName` to their 250-byte limit, persist a per org/site/env connector GUID prefixed onto `connectorName`, call `approve` after a successful download.
+- Compliance: no `cancelTranslation` export — their guidelines prohibit connector-initiated cancellation.
+- Added full test coverage (`sendAllLanguages`/`getStatusAll`/`saveItems`/`connect`/GUID generation) to match Trados/Smartling's depth; two tests regression-lock the `providerId` and `Accept`-header bugs.
+- Verified end-to-end against real Lionbridge staging APIs and through the real DA Translate app UI against `scdemos/lionbridge-demo`.
+
 ### loc connectors — extract duplicate download-queue and da-etc auth logic
 
 Audited all 5 connectors for duplication; extracted two genuine candidates into `nx/blocks/loc/utils/`:
