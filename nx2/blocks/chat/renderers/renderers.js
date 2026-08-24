@@ -103,7 +103,4 @@ function renderMessage(msg, toolCards) {
     : renderUserMessage(msg);
 }
 
-// renderMessageContent is additionally exported (no implementation change) so
-// ao/ao-renderers.js can reuse the same markdown/directive pipeline instead of
-// duplicating it — see card-renderers.js's file header for the migration rationale.
-export { renderMessage, renderApprovalCard, renderMessageContent };
+export { renderMessage, renderApprovalCard };

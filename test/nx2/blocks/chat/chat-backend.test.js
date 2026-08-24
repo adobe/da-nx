@@ -1,12 +1,11 @@
 import { expect } from '@esm-bundle/chai';
 import ChatBackend from '../../../../nx2/blocks/chat/chat-backend.js';
 import ChatController from '../../../../nx2/blocks/chat/chat-controller.js';
-import ChatControllerAO from '../../../../nx2/blocks/chat/ao/chat-controller-ao.js';
 import { TOOL_STATE } from '../../../../nx2/blocks/chat/constants.js';
 
-function makeBackend(useAo) {
+function makeBackend() {
   const updates = [];
-  const backend = new ChatBackend(useAo, { onUpdate: (u) => updates.push(u) });
+  const backend = new ChatBackend({ onUpdate: (u) => updates.push(u) });
   return { backend, updates };
 }
 
@@ -18,18 +17,14 @@ function emit(backend, payload) {
 }
 
 describe('ChatBackend controller selection', () => {
-  it('wraps ChatController when useAgentOrchestrator is false', () => {
-    expect(makeBackend(false).backend._controller).to.be.instanceOf(ChatController);
-  });
-
-  it('wraps ChatControllerAO when useAgentOrchestrator is true', () => {
-    expect(makeBackend(true).backend._controller).to.be.instanceOf(ChatControllerAO);
+  it('wraps ChatController', () => {
+    expect(makeBackend().backend._controller).to.be.instanceOf(ChatController);
   });
 });
 
-describe('ChatBackend normalization — da-agent', () => {
+describe('ChatBackend normalization', () => {
   it('derives an approval pendingInteraction from an awaiting-approval tool card', () => {
-    const { backend, updates } = makeBackend(false);
+    const { backend, updates } = makeBackend();
     const toolCards = new Map([
       ['t1', {
         toolName: 'content_create',
@@ -46,7 +41,7 @@ describe('ChatBackend normalization — da-agent', () => {
   });
 
   it('reports no pendingInteraction when no tool card is awaiting approval', () => {
-    const { backend, updates } = makeBackend(false);
+    const { backend, updates } = makeBackend();
     const toolCards = new Map([
       ['t1', { toolName: 'content_read', input: {}, state: TOOL_STATE.OUTPUT_AVAILABLE }],
     ]);
@@ -57,7 +52,7 @@ describe('ChatBackend normalization — da-agent', () => {
   });
 
   it('summary is null when the tool input has none of the known field names', () => {
-    const { backend, updates } = makeBackend(false);
+    const { backend, updates } = makeBackend();
     const toolCards = new Map([
       ['t1', { toolName: 'mystery_tool', input: { foo: 'bar' }, state: TOOL_STATE.AWAITING_APPROVAL }],
     ]);
@@ -68,36 +63,9 @@ describe('ChatBackend normalization — da-agent', () => {
   });
 });
 
-describe('ChatBackend normalization — AO', () => {
-  it('derives approval from toolCards the same way as da-agent — AO no longer has its own pending-interaction concept', () => {
-    const { backend, updates } = makeBackend(true);
-    const toolCards = new Map([
-      ['t1', {
-        toolName: 'content_create',
-        input: { humanReadableSummary: 'Create /a/b' },
-        state: TOOL_STATE.AWAITING_APPROVAL,
-      }],
-    ]);
-
-    emit(backend, { toolCards });
-
-    expect(updates.at(-1).pendingInteraction).to.deep.equal({
-      type: 'approval', toolCallId: 't1', toolName: 'content_create', summary: 'Create /a/b',
-    });
-  });
-
-  it('reports no pendingInteraction when nothing is pending', () => {
-    const { backend, updates } = makeBackend(true);
-
-    emit(backend, { toolCards: new Map() });
-
-    expect(updates.at(-1).pendingInteraction).to.equal(null);
-  });
-});
-
 describe('ChatBackend pass-through delegation', () => {
   it('forwards setContext and approveToolCall to the wrapped controller, unchanged', () => {
-    const { backend } = makeBackend(false);
+    const { backend } = makeBackend();
     const calls = [];
     backend._controller.setContext = (...args) => calls.push(['setContext', args]);
     backend._controller.approveToolCall = (...args) => calls.push(['approveToolCall', args]);

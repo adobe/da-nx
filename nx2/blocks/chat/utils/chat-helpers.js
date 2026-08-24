@@ -1,8 +1,5 @@
-// Shared shape for "what the user had selected/attached" sent to either backend.
-// da-agent's chat-controller.js keeps its own inline copy of this (untouched, per its
-// own file's stability) — this extraction is what chat-controller-ao.js uses today,
-// and a candidate to fold chat-controller.js's copy into later if that file is ever
-// revisited on its own merits.
+// Shared shape for "what the user had selected/attached", reused by nx-chat-ao's
+// ao-controller.js. da-agent's own chat-controller.js keeps its own inline copy.
 export function buildSelectionContext(context) {
   return context
     .filter((item) => {

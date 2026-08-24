@@ -5,7 +5,6 @@ import '../shared/menu/menu.js';
 import ChatBackend from './chat-backend.js';
 import { renderMessage } from './renderers/renderers.js';
 import { renderToolCard } from './renderers/card-renderers.js';
-import { renderUiArtifact } from './ao/ao-renderers.js';
 import '../shared/chat/new-chat/new-chat.js';
 import '../shared/chat/prompts/prompts.js';
 import '../shared/pills/pills.js';
@@ -141,14 +140,12 @@ class NxChat extends LitElement {
     });
   }
 
-  // AO vs da-agent is now decided one level up, in loadChat() — nx-chat-ao is a
-  // separate element entirely, so this always wraps the da-agent controller.
   async _ensureController(context) {
     if (this._controller) return;
     const { org, site } = context ?? {};
     if (!org || !site) return;
 
-    this._controller = new ChatBackend(false, {
+    this._controller = new ChatBackend({
       onToolDone: (scope, paths) => {
         this.dispatchEvent(new CustomEvent(CHAT_EVENT.AGENT_CHANGE, {
           bubbles: true,
@@ -346,9 +343,6 @@ class NxChat extends LitElement {
             ></nx-new-chat>`
         : nothing}
         ${this.messages?.map((msg) => {
-          if (msg.uiArtifact) {
-            return renderUiArtifact(msg.uiArtifact, (p) => this._sendPrompt(p, { autoSend: true }));
-          }
           if (msg.toolCard) return renderToolCard(msg.toolCard);
           return renderMessage(msg, this.toolCards);
         })}

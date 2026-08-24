@@ -1,5 +1,4 @@
 import ChatController from './chat-controller.js';
-import ChatControllerAO from './ao/chat-controller-ao.js';
 import { TOOL_INPUT, TOOL_STATE } from './constants.js';
 
 // da-agent's own tool-input schema field names (see constants.js's TOOL_INPUT) — used
@@ -18,18 +17,13 @@ function daAgentApprovalSummary(input) {
 }
 
 /**
- * Wraps whichever controller nx-chat is configured to use — da-agent's ChatController
- * (untouched, on main) or AO's ChatControllerAO — behind one normalized interface, so
- * chat.js only ever makes a single decision (which backend) and never branches on it
- * again. Everything this class's onUpdate hands back is already in the neutral shapes
- * card-renderers.js expects. AO's controller no longer has any pending-interaction
- * concept of its own (question/plan/permission all moved to or reimplemented in
- * nx-chat-ao) — approval is always derived from da-agent's own toolCards vocabulary.
+ * Wraps da-agent's ChatController behind a normalized interface, so everything this
+ * class's onUpdate hands back is already in the neutral shapes card-renderers.js
+ * expects — approval is derived from da-agent's own toolCards vocabulary.
  */
 export default class ChatBackend {
-  constructor(useAgentOrchestrator, { onToolDone, onUpdate }) {
-    const ControllerClass = useAgentOrchestrator ? ChatControllerAO : ChatController;
-    this._controller = new ControllerClass({
+  constructor({ onToolDone, onUpdate }) {
+    this._controller = new ChatController({
       onToolDone,
       onUpdate: (payload) => onUpdate(this._normalize(payload)),
     });
