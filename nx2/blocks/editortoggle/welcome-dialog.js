@@ -6,10 +6,15 @@ import '../shared/dialog/dialog.js';
 const style = await loadStyle(import.meta.url);
 const formStyle = await loadStyle(new URL('../../styles/form.css', import.meta.url).href);
 
-// Well-known, hardcoded path (matches the /nx/fragments convention used by
-// nav/sidenav) so the welcome guide works regardless of a consuming project's
-// own config. Authored at main--da-live--adobe.aem.page/nx/fragments/guides/welcome.
-const WELCOME_PATH = '/nx/fragments/guides/welcome';
+// Well-known, hardcoded fragment so the welcome guide works regardless of a
+// consuming project's own config. Authored at
+// main--da-live--adobe.aem.page/nx/fragments/guides/welcome. Unlike nav/sidenav
+// (whose root-relative paths are proxied by whichever site is consuming
+// Nexter), this guide isn't part of that per-site proxy setup, so it must be
+// an absolute URL to da-live's own publish host rather than a root-relative
+// path — otherwise `loadFragment` resolves it against the current page's
+// origin (e.g. da.live) and 404s, silently tearing the dialog down.
+const WELCOME_PATH = 'https://main--da-live--adobe.aem.live/nx/fragments/guides/welcome';
 
 /**
  * One-time welcome guide shown the first time a user opts into the new editor
