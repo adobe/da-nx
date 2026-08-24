@@ -25,13 +25,58 @@ export async function fetchEpisodes(limit) {
   }
 }
 
-function turnsToMessages(turns) {
+export function toUiArtifact(artifact) {
+  return {
+    id: artifact.id,
+    components: artifact.a2ui_surface?.components ?? [],
+    textFallback: artifact.text_fallback,
+    title: artifact.display_hints?.title,
+  };
+}
+
+function turnsToMessages(turns, artifacts = []) {
+  // Endpoint pages newest-first; reverse for creation order within a turn.
+  const artifactsByTurn = new Map();
+  [...artifacts].reverse().forEach((artifact) => {
+    const list = artifactsByTurn.get(artifact.turn_id) ?? [];
+    list.push(artifact);
+    artifactsByTurn.set(artifact.turn_id, list);
+  });
+
   const messages = [];
   (turns ?? []).forEach((turn) => {
     if (turn?.user_input) messages.push({ role: 'user', content: turn.user_input });
     if (turn?.final_response) messages.push({ role: 'assistant', content: turn.final_response });
+    (artifactsByTurn.get(turn?.id) ?? []).forEach((artifact) => {
+      messages.push({ role: 'assistant', uiArtifact: toUiArtifact(artifact) });
+    });
   });
   return messages;
+}
+
+const MAX_ARTIFACT_FETCH_PAGES = 200;
+
+// Artifacts live outside the turn/event log, so history needs this separate fetch.
+export async function fetchEpisodeArtifacts(episodeId) {
+  try {
+    const { base, headers } = await aoContext();
+    const artifacts = [];
+    let beforeArtifactId;
+    for (let page = 0; page < MAX_ARTIFACT_FETCH_PAGES; page += 1) {
+      const query = beforeArtifactId ? `?before_artifact_id=${beforeArtifactId}` : '';
+      // eslint-disable-next-line no-await-in-loop
+      const resp = await fetch(`${base}/api/v1/episodes/${episodeId}/artifacts${query}`, { headers });
+      if (!resp.ok) break;
+      // eslint-disable-next-line no-await-in-loop
+      const { artifacts: pageArtifacts = [], has_more: hasMore } = await resp.json();
+      artifacts.push(...pageArtifacts);
+      if (!hasMore || !pageArtifacts.length) break;
+      beforeArtifactId = pageArtifacts.at(-1).id;
+    }
+    return artifacts;
+  } catch {
+    return [];
+  }
 }
 
 // root_only drops sub-agent turns — chat history only cares about the main thread.
@@ -41,7 +86,8 @@ export async function fetchEpisodeMessages(episodeId) {
     const resp = await fetch(`${base}/api/v1/episodes/${episodeId}/turns?root_only=true`, { headers });
     if (!resp.ok) return [];
     const { turns } = await resp.json();
-    return turnsToMessages(turns);
+    const artifacts = await fetchEpisodeArtifacts(episodeId);
+    return turnsToMessages(turns, artifacts);
   } catch {
     return [];
   }

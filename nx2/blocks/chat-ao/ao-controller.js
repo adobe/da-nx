@@ -15,7 +15,7 @@ import { AO_FRAME, AO_EVENT, AO_MANIFEST_ID } from './ao-constants.js';
 import { buildSelectionText, buildFailedUploadsText, buildPageContextText } from './utils/user-context.js';
 import { uploadAttachment, getOrgId, resolveAoWsBase } from './utils/uploads.js';
 import {
-  fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession,
+  fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession, toUiArtifact,
 } from './utils/episodes.js';
 import { fetchSkills, loadCachedSkills } from './utils/skills.js';
 import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-helpers.js';
@@ -246,6 +246,14 @@ export default class AoChatController {
       }];
       this._streaming = '';
       this._streamingText = undefined;
+      this._update();
+      return;
+    }
+
+    if (evt.type === AO_EVENT.UI_ARTIFACT_CREATED) {
+      const artifact = evt.data?.artifact;
+      if (!artifact) return;
+      this._messages = [...this._messages, { role: 'assistant', uiArtifact: toUiArtifact(artifact) }];
       this._update();
       return;
     }

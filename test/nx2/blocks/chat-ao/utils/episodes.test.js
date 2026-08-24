@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession,
+  fetchEpisodes, fetchEpisodeMessages, fetchEpisodeArtifacts, fetchEpisodeContext, warmSession,
+  toUiArtifact,
 } from '../../../../../nx2/blocks/chat-ao/utils/episodes.js';
 import { AO_HTTP_BASE } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
 
@@ -82,13 +83,14 @@ describe('episodes.js', () => {
   });
 
   describe('fetchEpisodeMessages', () => {
-    it('requests root-only turns for the given episode', async () => {
+    it('requests root-only turns for the given episode, then its artifacts', async () => {
       restoreFetch();
       installFetch({ body: JSON.stringify({ turns: [] }) });
 
       await fetchEpisodeMessages('ep-1');
 
-      expect(lastCall().url).to.equal(`${AO_HTTP_BASE}/api/v1/episodes/ep-1/turns?root_only=true`);
+      expect(calls[0].url).to.equal(`${AO_HTTP_BASE}/api/v1/episodes/ep-1/turns?root_only=true`);
+      expect(calls[1].url).to.equal(`${AO_HTTP_BASE}/api/v1/episodes/ep-1/artifacts`);
     });
 
     it('converts turns into user/assistant messages', async () => {
@@ -111,6 +113,46 @@ describe('episodes.js', () => {
       ]);
     });
 
+    it('interleaves a turn\'s ui artifact after its text response', async () => {
+      restoreFetch();
+      calls = [];
+      origFetch = window.fetch;
+      window.fetch = async (url) => {
+        calls.push({ url: url.toString() });
+        if (url.toString().includes('/turns')) {
+          return new Response(JSON.stringify({
+            turns: [{ id: 't1', user_input: 'show me a table', final_response: 'Here it is:' }],
+          }), { status: 200 });
+        }
+        return new Response(JSON.stringify({
+          artifacts: [{
+            id: 'a1',
+            turn_id: 't1',
+            a2ui_surface: { components: [{ type: 'DataTable', props: {} }] },
+            text_fallback: 'a table',
+            display_hints: { title: 'Results' },
+          }],
+          has_more: false,
+        }), { status: 200 });
+      };
+
+      const messages = await fetchEpisodeMessages('ep-1');
+
+      expect(messages).to.deep.equal([
+        { role: 'user', content: 'show me a table' },
+        { role: 'assistant', content: 'Here it is:' },
+        {
+          role: 'assistant',
+          uiArtifact: {
+            id: 'a1',
+            components: [{ type: 'DataTable', props: {} }],
+            textFallback: 'a table',
+            title: 'Results',
+          },
+        },
+      ]);
+    });
+
     it('returns [] on a non-ok response', async () => {
       restoreFetch();
       installFetch({ status: 404 });
@@ -124,6 +166,78 @@ describe('episodes.js', () => {
       window.fetch = async () => { throw new Error('network down'); };
 
       expect(await fetchEpisodeMessages('ep-1')).to.deep.equal([]);
+    });
+  });
+
+  describe('fetchEpisodeArtifacts', () => {
+    it('requests the episode artifacts endpoint', async () => {
+      restoreFetch();
+      installFetch({ body: JSON.stringify({ artifacts: [], has_more: false }) });
+
+      await fetchEpisodeArtifacts('ep-1');
+
+      expect(lastCall().url).to.equal(`${AO_HTTP_BASE}/api/v1/episodes/ep-1/artifacts`);
+    });
+
+    it('pages through before_artifact_id until has_more is false', async () => {
+      restoreFetch();
+      calls = [];
+      origFetch = window.fetch;
+      let call = 0;
+      window.fetch = async (url) => {
+        calls.push({ url: url.toString() });
+        call += 1;
+        if (call === 1) {
+          return new Response(JSON.stringify({ artifacts: [{ id: 'a2' }], has_more: true }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ artifacts: [{ id: 'a1' }], has_more: false }), { status: 200 });
+      };
+
+      const artifacts = await fetchEpisodeArtifacts('ep-1');
+
+      expect(artifacts).to.deep.equal([{ id: 'a2' }, { id: 'a1' }]);
+      expect(calls[0].url).to.equal(`${AO_HTTP_BASE}/api/v1/episodes/ep-1/artifacts`);
+      expect(calls[1].url).to.equal(`${AO_HTTP_BASE}/api/v1/episodes/ep-1/artifacts?before_artifact_id=a2`);
+    });
+
+    it('returns [] on a non-ok response', async () => {
+      restoreFetch();
+      installFetch({ status: 500 });
+
+      expect(await fetchEpisodeArtifacts('ep-1')).to.deep.equal([]);
+    });
+
+    it('returns [] when the fetch itself throws', async () => {
+      restoreFetch();
+      origFetch = window.fetch;
+      window.fetch = async () => { throw new Error('network down'); };
+
+      expect(await fetchEpisodeArtifacts('ep-1')).to.deep.equal([]);
+    });
+  });
+
+  describe('toUiArtifact', () => {
+    it('maps the wire shape to the shape the renderer expects', () => {
+      expect(toUiArtifact({
+        id: 'a1',
+        a2ui_surface: { components: [{ type: 'Markdown', props: { content: 'hi' } }] },
+        text_fallback: 'hi',
+        display_hints: { title: 'Summary' },
+      })).to.deep.equal({
+        id: 'a1',
+        components: [{ type: 'Markdown', props: { content: 'hi' } }],
+        textFallback: 'hi',
+        title: 'Summary',
+      });
+    });
+
+    it('defaults components to [] and title to undefined when absent', () => {
+      expect(toUiArtifact({ id: 'a1', text_fallback: 'hi' })).to.deep.equal({
+        id: 'a1',
+        components: [],
+        textFallback: 'hi',
+        title: undefined,
+      });
     });
   });
 

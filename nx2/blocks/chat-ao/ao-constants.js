@@ -58,4 +58,5 @@ export const AO_EVENT = {
   EPISODE_TITLE_UPDATED: 'episode_title_updated',
   USER_QUESTION: 'user_question',
   PLAN_APPROVAL_REQUEST: 'plan_approval_request',
+  UI_ARTIFACT_CREATED: 'ui_artifact_created',
 };

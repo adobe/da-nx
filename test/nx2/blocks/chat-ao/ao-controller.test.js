@@ -178,6 +178,44 @@ describe('ao-controller turn lifecycle', () => {
   });
 });
 
+describe('ao-controller ui artifacts', () => {
+  it('appends a uiArtifact message on UI_ARTIFACT_CREATED', () => {
+    const { controller, updates } = makeController();
+
+    controller._handleServerEvent({
+      type: 'ui_artifact_created',
+      data: {
+        artifact: {
+          id: 'artifact-1',
+          a2ui_surface: { components: [{ type: 'Markdown', props: { content: 'hi' } }] },
+          text_fallback: 'hi',
+          display_hints: { title: 'Summary' },
+        },
+      },
+    });
+
+    expect(controller._messages).to.deep.equal([{
+      role: 'assistant',
+      uiArtifact: {
+        id: 'artifact-1',
+        components: [{ type: 'Markdown', props: { content: 'hi' } }],
+        textFallback: 'hi',
+        title: 'Summary',
+      },
+    }]);
+    expect(updates).to.have.length(1);
+  });
+
+  it('is a no-op when the event carries no artifact', () => {
+    const { controller, updates } = makeController();
+
+    controller._handleServerEvent({ type: 'ui_artifact_created', data: {} });
+
+    expect(controller._messages).to.deep.equal([]);
+    expect(updates).to.have.length(0);
+  });
+});
+
 describe('ao-controller episodes', () => {
   it('loadEpisodes hydrates the latest episode and its messages', async () => {
     const { controller, updates } = makeController();

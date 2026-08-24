@@ -22,6 +22,7 @@ import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
 import { renderMarkdown } from './utils/markdown.js';
+import { renderUiArtifact } from './artifacts/index.js';
 import { renderCopyButton } from '../shared/chat/copy-button.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
 import { createSlashMenu } from '../shared/chat/slash-menu.js';
@@ -363,8 +364,10 @@ export default class NxChatAo extends LitElement {
           : nothing}
             ${this.messages?.map((msg) => (msg.role === 'assistant' ? html`
               <div class="message message-assistant">
-                <div class="message-content">${renderMarkdown(msg.content)}</div>
-                ${renderCopyButton(msg.content, { streaming: msg.streaming })}
+                ${msg.uiArtifact ? renderUiArtifact(msg.uiArtifact) : html`
+                  <div class="message-content">${renderMarkdown(msg.content)}</div>
+                  ${renderCopyButton(msg.content, { streaming: msg.streaming })}
+                `}
               </div>
             ` : html`
               <div class="message message-user">
