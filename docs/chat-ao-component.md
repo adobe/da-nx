@@ -215,6 +215,33 @@ the first `fetchSkills()` resolves.
 rather than throwing; `sendMessage` reports failed uploads inline in the
 message text (`buildFailedUploadsText`) rather than blocking the send.
 
+## Client context
+
+`buildClientContext` (`utils/user-context.js`) sends the current document and
+selection as a `client_context.focused_resources[]` object on the `USER_INPUT`
+frame, per AO's native-protocol client-context schema
+(`aep-ao.pages.adobeitc.com/developer-reference/client-context/`), rather than
+inlining them into `text` as prose. This replaced an earlier prose-prefix
+approach (`[Current document — org: ..., site: ..., path: ...]` etc.) — AO
+treats `client_context` as an ephemeral, per-turn reminder that is never
+replayed into later turns' history, so it doesn't bloat the conversation the
+way a permanent text prefix resent on every message would.
+
+`focused_resources` is ranked most to least relevant per AO's contract, so the
+document being edited always comes first, with any selection inside it after.
+Failed uploads are the one exception left in `text` (`buildFailedUploadsText`)
+rather than folded into `client_context` — they're a transient error status
+for that turn, not "where the agent was invoked," so they don't fit the
+schema's purpose.
+
+The document resource carries `org`/`site` as plain text in `description`
+rather than expecting the agent to parse them back out of `id` — the schema
+has no dedicated org/site fields, and `id`/`uri` are identifiers, not
+something meant to be reverse-engineered. `client_context.application` is
+always sent too (`{ id: 'da.live', name: 'DA Live' }`), even with no document
+context yet, since it's static per host app and AO uses `application` to
+identify the invoking surface generally (e.g. `AEP`, `CJA` in AO's own docs).
+
 ## AO wire-protocol notes
 
 - **First-op restriction.** A fresh WebSocket connection's first substantive

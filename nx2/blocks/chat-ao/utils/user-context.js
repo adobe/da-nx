@@ -1,25 +1,39 @@
-// AO's USER_INPUT has no structured field for "what the user had selected" or
-// "which attachment failed" — inline both into the wire text instead.
-export function buildSelectionText(items) {
-  if (!items.length) return '';
-  const lines = items.map((item) => {
-    if (item.type === 'text' && item.innerHTML) {
-      return `- Selected text: "${item.innerHTML.replace(/<[^>]+>/g, '').trim()}"`;
-    }
-    const label = item.innerText ? ` — "${item.innerText}"` : '';
-    return `- Selected ${item.type ?? 'block'}: ${item.blockName ?? 'Selection'}${label}`;
-  });
-  return `[Selected context]\n${lines.join('\n')}\n`;
-}
-
+// See docs/chat-ao-component.md#client-context for why this stays in `text`.
 export function buildFailedUploadsText(failed) {
   if (!failed.length) return '';
   const lines = failed.map((a) => `- Attached file: ${a.fileName} — upload failed`);
   return `[Attachments]\n${lines.join('\n')}\n`;
 }
 
-export function buildPageContextText(context) {
+function selectionResource(item) {
+  if (item.type === 'text' && item.innerHTML) {
+    return { type: 'text-selection', name: item.innerHTML.replace(/<[^>]+>/g, '').trim() };
+  }
+  return { type: item.type ?? 'block', id: item.id, name: item.blockName ?? item.innerText ?? 'Selection' };
+}
+
+// See docs/chat-ao-component.md#client-context for the id/description split.
+function documentResource(org, site, path) {
+  const normalizedPath = (path || '').replace(/^\//, '');
+  return {
+    type: 'document',
+    id: `${org}/${site}/${normalizedPath}`,
+    name: path || '/',
+    description: `Organization: ${org}, Site: ${site}`,
+  };
+}
+
+const APPLICATION = { id: 'da.live', name: 'DA Live' };
+
+// See docs/chat-ao-component.md#client-context for the ranking rationale.
+export function buildClientContext(context, items = []) {
   const { org, site, path } = context ?? {};
-  if (!org || !site) return '';
-  return `[Current document — org: ${org}, site: ${site}, path: ${path || '/'}]\n`;
+  const focusedResources = [
+    ...(org && site ? [documentResource(org, site, path)] : []),
+    ...items.map(selectionResource),
+  ];
+  return {
+    application: APPLICATION,
+    ...(focusedResources.length && { focused_resources: focusedResources }),
+  };
 }

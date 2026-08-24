@@ -12,7 +12,7 @@
 
 import { loadIms } from '../../utils/ims.js';
 import { AO_FRAME, AO_EVENT, AO_MANIFEST_ID } from './ao-constants.js';
-import { buildSelectionText, buildFailedUploadsText, buildPageContextText } from './utils/user-context.js';
+import { buildFailedUploadsText, buildClientContext } from './utils/user-context.js';
 import { uploadAttachment, getOrgId, resolveAoWsBase } from './utils/uploads.js';
 import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession, toUiArtifact,
@@ -391,10 +391,11 @@ export default class AoChatController {
       await this._ensureSocket();
       this._ws.send(JSON.stringify({
         type: AO_FRAME.USER_INPUT,
-        text: `${buildPageContextText(this._context)}${buildSelectionText(items)}${buildFailedUploadsText(failed)}${message}`,
+        text: `${buildFailedUploadsText(failed)}${message}`,
         manifestId: AO_MANIFEST_ID,
         debugMode: true,
         ...(artifactIds.length && { attachments: artifactIds }),
+        client_context: buildClientContext(this._context, items),
       }));
     } catch (err) {
       this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];

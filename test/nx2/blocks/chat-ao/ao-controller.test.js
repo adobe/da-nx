@@ -20,7 +20,13 @@ describe('ao-controller sendMessage', () => {
     expect(controller._messages).to.deep.equal([{ role: 'user', content: 'hello AO' }]);
     expect(updates[0].thinking).to.equal(true);
     expect(sent).to.deep.equal([
-      { type: 'USER_INPUT', text: 'hello AO', manifestId: 'experience-workspace', debugMode: true },
+      {
+        type: 'USER_INPUT',
+        text: 'hello AO',
+        manifestId: 'experience-workspace',
+        debugMode: true,
+        client_context: { application: { id: 'da.live', name: 'DA Live' } },
+      },
     ]);
   });
 
@@ -60,11 +66,17 @@ describe('ao-controller sendMessage', () => {
     await controller.sendMessage('looks good, go ahead');
 
     expect(sent).to.deep.equal([
-      { type: 'USER_INPUT', text: 'looks good, go ahead', manifestId: 'experience-workspace', debugMode: true },
+      {
+        type: 'USER_INPUT',
+        text: 'looks good, go ahead',
+        manifestId: 'experience-workspace',
+        debugMode: true,
+        client_context: { application: { id: 'da.live', name: 'DA Live' } },
+      },
     ]);
   });
 
-  it('prefixes selected context items into the wire text, not the shown message', async () => {
+  it('carries selected context items as focused_resources, not the shown message', async () => {
     const { controller, sent } = makeController();
 
     await controller.sendMessage('what does this do?', [
@@ -80,28 +92,47 @@ describe('ao-controller sendMessage', () => {
         { type: 'text', innerHTML: '<p>hello <b>world</b></p>' },
       ],
     }]);
-    expect(sent[0].text).to.equal(
-      '[Selected context]\n- Selected block: hero\n- Selected text: "hello world"\nwhat does this do?',
-    );
+    expect(sent[0].text).to.equal('what does this do?');
+    expect(sent[0].client_context.focused_resources).to.deep.equal([
+      { type: 'block', id: 'a', name: 'hero' },
+      { type: 'text-selection', name: 'hello world' },
+    ]);
   });
 
-  it('prefixes the current page context, once setContext has been called', async () => {
+  it('carries the current document as a focused resource, with org/site spelled out rather than embedded in id', async () => {
     const { controller, sent } = makeController();
     controller.setContext({ org: 'adobe', site: 'da-live', path: '/docs/foo' });
 
     await controller.sendMessage('what does this do?');
 
-    expect(sent[0].text).to.equal(
-      '[Current document — org: adobe, site: da-live, path: /docs/foo]\nwhat does this do?',
-    );
+    expect(sent[0].text).to.equal('what does this do?');
+    expect(sent[0].client_context).to.deep.equal({
+      application: { id: 'da.live', name: 'DA Live' },
+      focused_resources: [{
+        type: 'document',
+        id: 'adobe/da-live/docs/foo',
+        name: '/docs/foo',
+        description: 'Organization: adobe, Site: da-live',
+      }],
+    });
   });
 
-  it('omits the page-context prefix when no context has been set', async () => {
+  it('normalizes the id separator when path has no leading slash', async () => {
+    const { controller, sent } = makeController();
+    controller.setContext({ org: 'adobe', site: 'da-live', path: 'docs/foo' });
+
+    await controller.sendMessage('what does this do?');
+
+    expect(sent[0].client_context.focused_resources[0].id).to.equal('adobe/da-live/docs/foo');
+  });
+
+  it('still sends the da.live application, but no focused_resources, when no context has been set and nothing is selected', async () => {
     const { controller, sent } = makeController();
 
     await controller.sendMessage('hello AO');
 
     expect(sent[0].text).to.equal('hello AO');
+    expect(sent[0].client_context).to.deep.equal({ application: { id: 'da.live', name: 'DA Live' } });
   });
 
   it('is a no-op for an empty message', async () => {
