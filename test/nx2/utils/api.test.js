@@ -1,5 +1,8 @@
 import { expect } from '@esm-bundle/chai';
 import { HLX_ADMIN, AEM_API, DA_ADMIN } from '../../../nx2/utils/utils.js';
+import {
+  calls, installFetch, restoreFetch, lastCall, callsTo,
+} from '../../../nx2/test/mocks/fetch.js';
 
 import {
   daFetch,
@@ -42,31 +45,6 @@ const makeOrgSite = ({ hlx6 = false } = {}) => {
   }
   return { org: o, site: s };
 };
-
-let calls;
-let origFetch;
-
-const installFetch = ({ pingHlx6 = false, headers = {}, status: httpStatus = 200, body = '{}' } = {}) => {
-  calls = [];
-  origFetch = window.fetch;
-  window.fetch = async (url, opts = {}) => {
-    const u = url.toString();
-    calls.push({ url: u, method: opts.method || 'GET', headers: opts.headers || {}, body: opts.body });
-    if (u.includes(`${HLX_ADMIN}/ping/`)) {
-      const respHeaders = pingHlx6 ? { 'x-api-upgrade-available': 'true' } : {};
-      return new Response('', { status: 200, headers: respHeaders });
-    }
-    return new Response(body, { status: httpStatus, headers });
-  };
-};
-
-const restoreFetch = () => {
-  if (origFetch) window.fetch = origFetch;
-  origFetch = null;
-};
-
-const lastCall = () => calls[calls.length - 1];
-const callsTo = (origin) => calls.filter((c) => c.url.startsWith(origin));
 
 describe('api.js', () => {
   beforeEach(() => {
@@ -194,7 +172,7 @@ describe('api.js', () => {
 
     it('source.list org-level merges DA-legacy and hlx6 sites, deduping by name', async () => {
       restoreFetch();
-      calls = [];
+      calls.length = 0;
       window.fetch = async (url, opts = {}) => {
         const u = url.toString();
         calls.push({ url: u, method: opts.method || 'GET', headers: opts.headers || {} });
@@ -223,7 +201,7 @@ describe('api.js', () => {
 
     it('source.list org-level returns hlx6 sites even when DA-legacy 404s', async () => {
       restoreFetch();
-      calls = [];
+      calls.length = 0;
       window.fetch = async (url, opts = {}) => {
         const u = url.toString();
         calls.push({ url: u, method: opts.method || 'GET' });
@@ -244,7 +222,7 @@ describe('api.js', () => {
 
     it('source.list org-level returns DA-legacy sites even when hlx6 source-bus 404s', async () => {
       restoreFetch();
-      calls = [];
+      calls.length = 0;
       window.fetch = async (url, opts = {}) => {
         const u = url.toString();
         calls.push({ url: u, method: opts.method || 'GET' });
@@ -271,7 +249,7 @@ describe('api.js', () => {
 
     it('source.list org-level only fetches hlx6 sites on the first page (no continuationToken)', async () => {
       restoreFetch();
-      calls = [];
+      calls.length = 0;
       window.fetch = async (url, opts = {}) => {
         const u = url.toString();
         calls.push({ url: u, method: opts.method || 'GET', headers: opts.headers || {} });
@@ -455,6 +433,21 @@ describe('api.js', () => {
       expect(resp.ok).to.equal(true);
       const json = await resp.json();
       expect(json.source.contentUrl).to.equal(`${AEM_API}/${o}/sites/${s}/source/docs/.foo/image.png`);
+    });
+
+    it('source.save hlx6 keeps permissions on the response', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.save({ org: o, site: s, path: '/page.html', body: '<main></main>' });
+      expect(resp.ok).to.equal(true);
+      expect(resp.permissions).to.deep.equal(['read', 'write']);
+    });
+
+    it('source.save hlx6 keeps permissions parsed from response headers', async () => {
+      restoreFetch();
+      installFetch({ headers: { 'x-da-actions': 'role=read,write,delete' } });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.save({ org: o, site: s, path: '/page.html', body: '<main></main>' });
+      expect(resp.permissions).to.deep.equal(['read', 'write', 'delete']);
     });
 
     it('source.save hlx6 uses the response location header for contentUrl when present', async () => {

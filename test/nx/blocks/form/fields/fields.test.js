@@ -50,6 +50,47 @@ describe('form-input', () => {
     expect(el.shadowRoot.querySelector('.form-field').classList.contains('has-error')).to.be.true;
   });
 
+  it('marks a required field with the red asterisk in its label', async () => {
+    const el = await mount('<form-input></form-input>');
+    el.label = 'Title';
+    el.required = true;
+    await el.updateComplete;
+    const star = el.shadowRoot.querySelector('label .form-required');
+    expect(star, 'required asterisk').to.exist;
+    expect(star.textContent).to.equal('*');
+    // .form-required is the class that colors it red (defaults.css).
+    expect(star.classList.contains('form-required')).to.be.true;
+  });
+
+  it('omits the asterisk when the field is not required', async () => {
+    const el = await mount('<form-input></form-input>');
+    el.label = 'Title';
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.form-required')).to.equal(null);
+  });
+
+  it('shows the description under the input when valid', async () => {
+    const el = await mount('<form-input></form-input>');
+    el.description = 'Lowercase and hyphens.';
+    await el.updateComplete;
+    const desc = el.shadowRoot.querySelector('.form-field-description');
+    const wrap = el.shadowRoot.querySelector('.form-input-wrap');
+    expect(desc.textContent).to.equal('Lowercase and hyphens.');
+    // Spectrum: help text renders under the field.
+    const order = [...el.shadowRoot.querySelector('.form-field').children];
+    expect(order.indexOf(wrap)).to.be.lessThan(order.indexOf(desc));
+  });
+
+  it('replaces the description with the error when invalid (Spectrum)', async () => {
+    const el = await mount('<form-input></form-input>');
+    el.description = 'Lowercase and hyphens.';
+    el.error = 'Invalid';
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.form-field-error').textContent).to.equal('Invalid');
+    // Error replaces the help text — description is not shown while invalid.
+    expect(el.shadowRoot.querySelector('.form-field-description')).to.equal(null);
+  });
+
   it('honors disabled', async () => {
     const el = await mount('<form-input disabled></form-input>');
     expect(el.shadowRoot.querySelector('input').disabled).to.be.true;

@@ -51,6 +51,11 @@ export function restoreBlockIndices(sourceRoot, liveRoot = document) {
     }
     if (live) {
       live.setAttribute('data-block-index', index);
+      // Authored variant = classes after the block name, read from source HTML so it
+      // excludes classes added by decoration.
+      const variant = [...(src.classList || [])].slice(1).join(', ');
+      if (variant) live.setAttribute('data-block-variant', variant);
+      else live.removeAttribute('data-block-variant');
       claimed.add(live);
     }
   });
