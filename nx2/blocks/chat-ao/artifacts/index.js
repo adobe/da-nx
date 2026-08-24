@@ -1,6 +1,10 @@
 import { html, nothing } from 'da-lit';
 import { renderArtifactNode, renderFallback } from './registry.js';
 import './markdown.js';
+import './row.js';
+import './column.js';
+import './card.js';
+import './data-table.js';
 
 export function renderUiArtifact(uiArtifact) {
   if (!uiArtifact) return nothing;

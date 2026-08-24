@@ -36,9 +36,9 @@ describe('artifacts renderUiArtifact', () => {
 
   it('falls back for an unregistered component type without dropping the artifact', () => {
     const host = mount(renderUiArtifact({
-      textFallback: 'a table you cannot see yet',
-      components: [{ type: 'DataTable', props: { columns: [], data: [] } }],
+      textFallback: 'a chart you cannot see yet',
+      components: [{ type: 'Visualization', props: {} }],
     }));
-    expect(host.querySelector('.ui-artifact-fallback').textContent).to.equal('a table you cannot see yet');
+    expect(host.querySelector('.ui-artifact-fallback').textContent).to.equal('a chart you cannot see yet');
   });
 });

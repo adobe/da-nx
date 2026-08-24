@@ -113,7 +113,7 @@ describe('episodes.js', () => {
       ]);
     });
 
-    it('interleaves a turn\'s ui artifact after its text response', async () => {
+    it('interleaves a turn\'s ui artifact before its text response, matching AO\'s tool-call-then-text order', async () => {
       restoreFetch();
       calls = [];
       origFetch = window.fetch;
@@ -140,7 +140,6 @@ describe('episodes.js', () => {
 
       expect(messages).to.deep.equal([
         { role: 'user', content: 'show me a table' },
-        { role: 'assistant', content: 'Here it is:' },
         {
           role: 'assistant',
           uiArtifact: {
@@ -150,6 +149,7 @@ describe('episodes.js', () => {
             title: 'Results',
           },
         },
+        { role: 'assistant', content: 'Here it is:' },
       ]);
     });
 

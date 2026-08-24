@@ -46,10 +46,11 @@ function turnsToMessages(turns, artifacts = []) {
   const messages = [];
   (turns ?? []).forEach((turn) => {
     if (turn?.user_input) messages.push({ role: 'user', content: turn.user_input });
-    if (turn?.final_response) messages.push({ role: 'assistant', content: turn.final_response });
+    // Artifacts come from a mid-turn tool call, so they precede final_response on the wire.
     (artifactsByTurn.get(turn?.id) ?? []).forEach((artifact) => {
       messages.push({ role: 'assistant', uiArtifact: toUiArtifact(artifact) });
     });
+    if (turn?.final_response) messages.push({ role: 'assistant', content: turn.final_response });
   });
   return messages;
 }

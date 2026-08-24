@@ -1,6 +1,8 @@
 import { expect } from '@esm-bundle/chai';
-import { render } from 'da-lit';
-import { registerArtifact, renderArtifactNode, renderFallback } from '../../../../../nx2/blocks/chat-ao/artifacts/registry.js';
+import { render, html } from 'da-lit';
+import {
+  registerArtifact, renderArtifactNode, renderChildren, renderFallback,
+} from '../../../../../nx2/blocks/chat-ao/artifacts/registry.js';
 
 function mount(template) {
   const host = document.createElement('div');
@@ -47,5 +49,40 @@ describe('artifacts registry renderArtifactNode', () => {
     const host = mount(renderArtifactNode({ type: 'Broken' }, 'recovered summary'));
 
     expect(host.querySelector('.ui-artifact-fallback').textContent).to.equal('recovered summary');
+  });
+
+  it('hoists top-level node.children into props for a container renderer', () => {
+    registerArtifact('TestContainer', ({ children }) => html`<div class="test-container">${renderChildren(children)}</div>`);
+    registerArtifact('TestLeaf', ({ label }) => renderFallback(`leaf: ${label}`));
+
+    const host = mount(renderArtifactNode({
+      type: 'TestContainer',
+      children: [{ type: 'TestLeaf', props: { label: 'a' } }],
+    }));
+
+    expect(host.querySelector('.test-container .ui-artifact-fallback').textContent).to.equal('leaf: a');
+  });
+
+  it('also accepts children hoisted into props.children', () => {
+    registerArtifact('TestContainer', ({ children }) => html`<div class="test-container">${renderChildren(children)}</div>`);
+    registerArtifact('TestLeaf', ({ label }) => renderFallback(`leaf: ${label}`));
+
+    const host = mount(renderArtifactNode({
+      type: 'TestContainer',
+      props: { children: [{ type: 'TestLeaf', props: { label: 'b' } }] },
+    }));
+
+    expect(host.querySelector('.test-container .ui-artifact-fallback').textContent).to.equal('leaf: b');
+  });
+
+  it('propagates fallbackText down to nested children', () => {
+    registerArtifact('TestContainer', ({ children }, ctx) => html`<div class="test-container">${renderChildren(children, ctx)}</div>`);
+
+    const host = mount(renderArtifactNode({
+      type: 'TestContainer',
+      children: [{ type: 'NeverRegistered' }],
+    }, 'inherited fallback'));
+
+    expect(host.querySelector('.ui-artifact-fallback').textContent).to.equal('inherited fallback');
   });
 });

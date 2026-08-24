@@ -49,6 +49,38 @@ describe('chat-ao unescapeLiteralNewlines', () => {
   });
 });
 
+describe('chat-ao renderMarkdown fenced code blocks', () => {
+  it('wraps a fenced code block in a card with a language header', () => {
+    const frag = renderMarkdown('```python\nprint(1)\n```');
+
+    const block = frag.querySelector('.code-block');
+    expect(block).to.exist;
+    expect(block.querySelector('.code-block-lang').textContent).to.equal('python');
+    expect(block.querySelector('pre > code').textContent.trim()).to.equal('print(1)');
+  });
+
+  it('wraps a fenced code block with no declared language, but adds no header', () => {
+    const frag = renderMarkdown('```\nplain text\n```');
+
+    const block = frag.querySelector('.code-block');
+    expect(block).to.exist;
+    expect(block.querySelector('.code-block-header')).to.equal(null);
+  });
+
+  it('leaves inline code spans alone', () => {
+    const frag = renderMarkdown('use `const x = 1` inline');
+
+    expect(frag.querySelector('.code-block')).to.equal(null);
+    expect(frag.querySelector('code').textContent).to.equal('const x = 1');
+  });
+
+  it('does not interpret the fence language as HTML', () => {
+    const frag = renderMarkdown('```<img src=x onerror="alert(1)">\ncode\n```');
+
+    expect(frag.querySelector('img')).to.equal(null);
+  });
+});
+
 describe('chat-ao question-card markdown rendering', () => {
   it('renders question context with literal backslash-n-backslash-n normalized into separate paragraphs', () => {
     const frag = renderMarkdown(unescapeLiteralNewlines('First paragraph.\\n\\nSecond paragraph.'));
