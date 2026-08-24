@@ -2,44 +2,10 @@ import { loadIms } from '../../../utils/ims.js';
 import { daFetch } from '../../../utils/api.js';
 import { DA_ADMIN } from '../../../utils/utils.js';
 import { buildSelectionContext, buildAttachmentsMeta } from '../utils/chat-helpers.js';
-import { AO_EVENT, AO_FRAME, AO_TOOL_STATE } from './ao-constants.js';
+import { AO_EVENT, AO_FRAME } from './ao-constants.js';
 import { getOrgId, resolveAoWsBase, uploadAttachment } from '../../chat-ao/utils/uploads.js';
 import { buildPageContextText, buildSelectionText } from '../../chat-ao/utils/user-context.js';
 import { AO_MANIFEST_ID } from '../../chat-ao/ao-constants.js';
-
-function parseToolArguments(raw) {
-  try {
-    return JSON.parse(raw || '{}');
-  } catch {
-    return {};
-  }
-}
-
-function summarizeToolInput(input, { json = false } = {}) {
-  if (!input) return null;
-  const {
-    humanReadableSummary, sourcePath, destinationPath, path, skillId, name,
-  } = input;
-  return humanReadableSummary
-    ?? (sourcePath && destinationPath ? `${sourcePath} → ${destinationPath}` : null)
-    ?? path ?? skillId ?? name
-    ?? (json ? JSON.stringify(input, null, 2) : null);
-}
-
-function toToolCardDisplay(card) {
-  const { toolName, input, state } = card;
-  return {
-    toolName,
-    detail: summarizeToolInput(input, { json: true }),
-    hidden: state === AO_TOOL_STATE.APPROVAL_REQUESTED,
-    failed: state === AO_TOOL_STATE.REJECTED,
-    state,
-  };
-}
-
-function toApprovalDisplay(toolCallId, card) {
-  return { toolCallId, toolName: card.toolName, summary: summarizeToolInput(card.input) };
-}
 
 function base64ToBlob(base64, mediaType) {
   const byteChars = atob(base64);
@@ -51,20 +17,14 @@ function base64ToBlob(base64, mediaType) {
 /**
  * Talks to Adobe's Agent Orchestrator (AO) over its WebSocket transport (see
  * https://aep-ao.pages.adobeitc.com/api-reference/spec/) instead of da-agent.
- * Handles message-in/message-out, tool-call permission requests, plan approval,
- * and a2ui artifacts. User questions moved to nx-chat-ao (question-card.js),
- * skill lookup moved to nx-chat-ao (chat-ao/utils/skills.js) — neither is
- * handled here.
+ * Handles message-in/message-out and a2ui artifacts. User questions, plan
+ * approval, and tool-call permission all moved to nx-chat-ao (or, for
+ * permission, don't exist there yet) — none are handled here; da-agent's own
+ * approveToolCall/toolCards concept is separate and untouched.
  *
  * Public surface used by chat.js mirrors chat-controller.js's (connect,
- * setContext, loadInitialMessages, sendMessage, approveToolCall, clear,
- * setMcpConfig, stop, destroy) plus the AO-only respondToPlanApproval chat.js
- * gates on — da-agent's controller has no equivalent, since it has no concept
- * of plans.
- *
- * Output boundary: `_update()` only ever hands chat.js backend-neutral shapes
- * (see toToolCardDisplay/toApprovalDisplay above) — AO's own state names never
- * leak past this file.
+ * setContext, loadInitialMessages, sendMessage, clear, setMcpConfig, stop,
+ * destroy).
  */
 export default class ChatControllerAO {
   constructor({ onUpdate }) {
@@ -81,23 +41,11 @@ export default class ChatControllerAO {
   }
 
   _update() {
-    const toolCards = new Map();
-    let pendingApproval = null;
-    (this._toolCards ?? new Map()).forEach((card, toolCallId) => {
-      toolCards.set(toolCallId, toToolCardDisplay(card));
-      if (!pendingApproval && card.state === AO_TOOL_STATE.APPROVAL_REQUESTED) {
-        pendingApproval = toApprovalDisplay(toolCallId, card);
-      }
-    });
-
     this._onUpdate({
       messages: this._messages,
       thinking: this._thinking,
       streamingText: this._streamingText,
       connected: this._connected,
-      toolCards,
-      pendingApproval,
-      pendingPlanApproval: this._pendingPlanApproval,
     });
   }
 
@@ -107,32 +55,6 @@ export default class ChatControllerAO {
     } catch {
       return null;
     }
-  }
-
-  _handlePermissionRequest(evt) {
-    const turnId = evt.data?.turn_id ?? evt.turn_id;
-    const pendingCalls = (evt.data?.pending_calls ?? [])
-      .filter((c) => c.needs_permission !== false);
-    const next = new Map(this._toolCards ?? []);
-    pendingCalls.forEach((call) => {
-      next.set(call.id, {
-        toolName: call.name,
-        input: parseToolArguments(call.arguments),
-        state: AO_TOOL_STATE.APPROVAL_REQUESTED,
-        turnId,
-      });
-    });
-    this._toolCards = next;
-    this._update();
-  }
-
-  _handlePlanApprovalRequest(evt) {
-    this._pendingPlanApproval = {
-      turnId: evt.data?.turn_id ?? evt.turn_id,
-      planContent: evt.data?.plan_content ?? '',
-      planFilePath: evt.data?.plan_file_path,
-    };
-    this._update();
   }
 
   _handleUiArtifactCreated(evt) {
@@ -175,35 +97,17 @@ export default class ChatControllerAO {
       return;
     }
 
-    if (evt.type === AO_EVENT.PERMISSION_REQUEST) {
-      this._handlePermissionRequest(evt);
-      return;
-    }
-
-    if (evt.type === AO_EVENT.PLAN_APPROVAL_REQUEST) {
-      this._handlePlanApprovalRequest(evt);
-      return;
-    }
-
     if (evt.type === AO_EVENT.UI_ARTIFACT_CREATED) {
       this._handleUiArtifactCreated(evt);
       return;
     }
 
-    if (evt.type === AO_EVENT.TURN_COMPLETED || evt.type === AO_EVENT.TURN_ABORTED) {
+    if (
+      evt.type === AO_EVENT.TURN_COMPLETED
+      || evt.type === AO_EVENT.TURN_ABORTED
+      || evt.type === AO_EVENT.TURN_SUSPENDED
+    ) {
       this._done();
-      return;
-    }
-
-    if (evt.type === AO_EVENT.TURN_SUSPENDED) {
-      // Fires after permission_request/plan_approval_request to formally mark the
-      // suspension. If either already put up a popup, that's the only valid response
-      // channel — only fall back to _done() if nothing is actually pending.
-      const hasPendingApproval = [...(this._toolCards?.values() ?? [])]
-        .some((c) => c.state === AO_TOOL_STATE.APPROVAL_REQUESTED);
-      if (!hasPendingApproval && !this._pendingPlanApproval) {
-        this._done();
-      }
       return;
     }
 
@@ -344,8 +248,6 @@ export default class ChatControllerAO {
     this._streamingText = undefined;
     this._connected = false;
     this._episodeId = undefined;
-    this._pendingPlanApproval = null;
-    this._toolCards = new Map();
     this._update();
     await this.connect();
   }
@@ -355,61 +257,6 @@ export default class ChatControllerAO {
     clearTimeout(this._retryTimeout);
     this._ws?.close();
   }
-
-  // Mirrors chat-controller.js's approveToolCall: resolves the clicked card, bulk-approves
-  // any other pending cards with the same tool name on "always approve", then answers all
-  // of those decisions in one PERMISSION_RESPONSE frame (AO resumes the turn as soon as any
-  // response arrives, so partial/staggered responses aren't supported).
-  approveToolCall = (toolCallId, approved, always = false) => {
-    const card = this._toolCards?.get(toolCallId);
-    if (!card) return;
-
-    const next = new Map(this._toolCards);
-    next.set(toolCallId, {
-      ...card, state: approved ? AO_TOOL_STATE.APPROVED : AO_TOOL_STATE.REJECTED,
-    });
-    const decisions = { [toolCallId]: { approved } };
-
-    if (always && approved) {
-      for (const [id, c] of next) {
-        const isSameToolPending = c.toolName === card.toolName
-          && c.state === AO_TOOL_STATE.APPROVAL_REQUESTED;
-        if (id !== toolCallId && isSameToolPending) {
-          next.set(id, { ...c, state: AO_TOOL_STATE.APPROVED });
-          decisions[id] = { approved: true };
-        }
-      }
-    }
-
-    this._toolCards = next;
-    this._update();
-
-    this._ws?.send(JSON.stringify({
-      type: AO_FRAME.PERMISSION_RESPONSE,
-      turn_id: card.turnId,
-      decisions,
-    }));
-  };
-
-  // Plan approval has no dedicated WS frame type of its own — the server dispatches
-  // by DataPart "type" inside the generic RESUME op, so this sends a "plan-response"
-  // part wrapped in a RESUME frame instead.
-  respondToPlanApproval = (decision, feedback = '') => {
-    if (!this._pendingPlanApproval) return;
-    const { turnId } = this._pendingPlanApproval;
-    this._pendingPlanApproval = null;
-    this._update();
-    this._ws?.send(JSON.stringify({
-      type: AO_FRAME.RESUME,
-      turn_id: turnId,
-      data: {
-        type: 'plan-response',
-        decision,
-        feedback,
-        edited_plan_content: null,
-      },
-    }));
-  };
 
   // No MCP config surface yet.
   setMcpConfig() { }

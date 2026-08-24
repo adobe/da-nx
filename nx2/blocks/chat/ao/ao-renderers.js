@@ -2,11 +2,10 @@ import { html, nothing } from 'da-lit';
 import { renderMessageContent } from '../renderers/renderers.js';
 
 /**
- * Rendering for AO-only concepts that have no da-agent equivalent: plan
- * approval and a2ui artifacts. Nothing here is a variant of an existing
- * renderers.js function — these are genuinely new UI surfaces, so unlike
- * card-renderers.js this module isn't a migration target for da-agent's
- * rendering, just AO's own.
+ * Rendering for AO-only concepts that have no da-agent equivalent: a2ui
+ * artifacts. Nothing here is a variant of an existing renderers.js function —
+ * these are a genuinely new UI surface, so unlike card-renderers.js this
+ * module isn't a migration target for da-agent's rendering, just AO's own.
  */
 
 // Some AO payloads (e.g. user_question context) arrive with literal backslash-n
@@ -20,36 +19,6 @@ function unescapeLiteralNewlines(text) {
 
 function renderAoMarkdown(text) {
   return renderMessageContent(unescapeLiteralNewlines(text ?? ''));
-}
-
-// plan_approval_request: the agent produced a plan and suspended the turn pending
-// review. Response goes back via the generic RESUME op with a plan-response
-// DataPart (see chat-controller-ao.js#respondToPlanApproval) — there's no
-// dedicated PLAN_RESPONSE WS frame type, unlike permission/question.
-export function renderPlanApprovalCard(pending, feedback, { onFeedbackText, onApprove, onReject }) {
-  if (!pending) return nothing;
-  const { planContent } = pending;
-  return html`
-    <div class="plan-approval-actions">
-      <span class="plan-approval-header">Review plan</span>
-      <div class="plan-approval-content message-content">${renderAoMarkdown(planContent)}</div>
-      <input
-        type="text"
-        class="plan-approval-feedback"
-        placeholder="Optional feedback if rejecting…"
-        .value=${feedback}
-        @input=${(e) => onFeedbackText(e.target.value)}
-      />
-      <div class="plan-approval-buttons">
-        <button type="button" class="secondary-btn" @click=${onReject}>
-          <span>Reject</span>
-        </button>
-        <button type="button" class="action-btn" @click=${onApprove}>
-          <span>Approve</span>
-        </button>
-      </div>
-    </div>
-  `;
 }
 
 function renderDataTable({ columns = [], data = [] } = {}) {

@@ -39,9 +39,7 @@ class NxChat extends LitElement {
     thinking: { type: Boolean },
     connected: { type: Boolean },
     toolCards: { type: Object },
-    // Discriminated union { type: 'approval'|'plan', ... } | null — see
-    // chat-backend.js#_normalize. Populated for both backends, since approval is
-    // da-agent's one turn-suspension concept too; plan never occurs there.
+    // { type: 'approval', ... } | null — see chat-backend.js#_normalize.
     pendingInteraction: { type: Object },
     _prompts: { state: true },
     _hasItems: { state: true },
@@ -369,8 +367,6 @@ class NxChat extends LitElement {
         <nx-chat-interaction
           .pending=${this.pendingInteraction}
           .onApprove=${(toolCallId, approved, always) => this._controller.approveToolCall(toolCallId, approved, always)}
-          .onApprovePlan=${() => this._controller.respondToPlanApproval('approve')}
-          .onRejectPlan=${(feedback) => this._controller.respondToPlanApproval('reject', feedback)}
         ></nx-chat-interaction>
         <form class="chat-form" autocomplete="off" @submit=${this._submit}
           @dragenter=${this._dnd.onDragEnter}

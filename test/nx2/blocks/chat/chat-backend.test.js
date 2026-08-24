@@ -69,22 +69,21 @@ describe('ChatBackend normalization — da-agent', () => {
 });
 
 describe('ChatBackend normalization — AO', () => {
-  it('tags a passed-through pendingApproval with type: approval', () => {
+  it('derives approval from toolCards the same way as da-agent — AO no longer has its own pending-interaction concept', () => {
     const { backend, updates } = makeBackend(true);
-    const pendingApproval = { toolCallId: 'c1', toolName: 'content_create', summary: '/a/b' };
+    const toolCards = new Map([
+      ['t1', {
+        toolName: 'content_create',
+        input: { humanReadableSummary: 'Create /a/b' },
+        state: TOOL_STATE.AWAITING_APPROVAL,
+      }],
+    ]);
 
-    emit(backend, { toolCards: new Map(), pendingApproval });
+    emit(backend, { toolCards });
 
-    expect(updates.at(-1).pendingInteraction).to.deep.equal({ type: 'approval', ...pendingApproval });
-  });
-
-  it('falls back to pendingPlanApproval when approval is not pending', () => {
-    const { backend, updates } = makeBackend(true);
-    const pendingPlanApproval = { turnId: 't1', planContent: '# Plan' };
-
-    emit(backend, { toolCards: new Map(), pendingPlanApproval });
-
-    expect(updates.at(-1).pendingInteraction).to.deep.equal({ type: 'plan', ...pendingPlanApproval });
+    expect(updates.at(-1).pendingInteraction).to.deep.equal({
+      type: 'approval', toolCallId: 't1', toolName: 'content_create', summary: 'Create /a/b',
+    });
   });
 
   it('reports no pendingInteraction when nothing is pending', () => {
@@ -93,13 +92,6 @@ describe('ChatBackend normalization — AO', () => {
     emit(backend, { toolCards: new Map() });
 
     expect(updates.at(-1).pendingInteraction).to.equal(null);
-  });
-});
-
-describe('ChatBackend AO-only actions wrapping da-agent', () => {
-  it('respondToPlanApproval is a silent no-op', () => {
-    const { backend } = makeBackend(false);
-    expect(() => backend.respondToPlanApproval('approve')).to.not.throw();
   });
 });
 

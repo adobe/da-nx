@@ -1,9 +1,9 @@
 /*
- * Positions whichever single card is showing (approval/plan are mutually
- * exclusive — see chat-backend.js#_normalize). :host carries the positioning that
- * used to live on each card's own class when they rendered directly in chat.js's
- * shadow root; the host is a normal light-DOM child of chat.js's .chat-form-wrap
- * (which is position: relative), so this resolves against it exactly as before.
+ * Positions the pending approval card, if any. :host carries the positioning
+ * that used to live on the card's own class when it rendered directly in
+ * chat.js's shadow root; the host is a normal light-DOM child of chat.js's
+ * .chat-form-wrap (which is position: relative), so this resolves against it
+ * exactly as before.
  */
 :host {
   position: absolute;
@@ -17,7 +17,7 @@
 
 /* Base button/kbd skin — chat.css's version is scoped to chat.js's own :host, which
  * doesn't reach into this component's separate shadow root, so it's duplicated here
- * for the buttons both cards render. */
+ * for the buttons this card renders. */
 kbd {
   font-family: inherit;
   font-size: var(--s2-body-size-xs);
@@ -97,64 +97,5 @@ button {
     font-size: var(--s2-body-size-s);
     padding: var(--s2-spacing-75) var(--s2-spacing-75) var(--s2-spacing-75)
       var(--s2-spacing-100);
-  }
-}
-
-.plan-approval-actions {
-  background: var(--s2-gray-25);
-  border: 1px solid var(--s2-gray-200);
-  border-radius: var(--s2-corner-radius-500);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s2-spacing-200);
-  padding: var(--s2-spacing-200);
-  box-sizing: border-box;
-  height: 85vh;
-
-  .plan-approval-header {
-    font-weight: bold;
-    font-size: var(--s2-body-size-xs);
-    text-transform: uppercase;
-    color: var(--s2-gray-600);
-  }
-
-  .plan-approval-content {
-    font-size: var(--s2-body-size-s);
-    color: var(--s2-gray-800);
-    overflow-y: auto;
-  }
-
-  .plan-approval-feedback {
-    font-family: inherit;
-    font-size: var(--s2-body-size-s);
-    color: var(--s2-gray-900);
-    border: 1px solid var(--s2-gray-300);
-    border-radius: var(--s2-corner-radius-400);
-    padding: var(--s2-spacing-75) var(--s2-spacing-100);
-    background: var(--s2-gray-25);
-    outline: none;
-
-    &:focus {
-      border-color: var(--s2-blue-900);
-    }
-  }
-
-  .plan-approval-buttons {
-    display: flex;
-    gap: var(--s2-spacing-100);
-    justify-content: flex-end;
-    padding-top: var(--s2-spacing-100);
-    border-top: 1px solid var(--s2-gray-200);
-  }
-
-  button {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: var(--s2-spacing-75);
-    border-radius: var(--s2-corner-radius-400);
-    font-size: var(--s2-body-size-s);
-    padding: var(--s2-spacing-75) var(--s2-spacing-100);
   }
 }
