@@ -68,12 +68,23 @@ export async function fetchEpisodeContext(episodeId) {
     const resp = await fetch(`${base}/api/v1/episodes/${episodeId}/context`, { headers });
     if (!resp.ok) return null;
     const { suspendedTurn } = await resp.json();
-    if (!suspendedTurn?.questionData) return null;
-    return {
-      turnId: suspendedTurn.turnId,
-      context: suspendedTurn.questionData.context ?? null,
-      questions: suspendedTurn.questionData.questions ?? [],
-    };
+    if (suspendedTurn?.questionData) {
+      return {
+        type: 'question',
+        turnId: suspendedTurn.turnId,
+        context: suspendedTurn.questionData.context ?? null,
+        questions: suspendedTurn.questionData.questions ?? [],
+      };
+    }
+    if (suspendedTurn?.planData) {
+      return {
+        type: 'plan',
+        turnId: suspendedTurn.turnId,
+        planContent: suspendedTurn.planData.planContent ?? '',
+        planFilePath: suspendedTurn.planData.planFilePath ?? null,
+      };
+    }
+    return null;
   } catch {
     return null;
   }

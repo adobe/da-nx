@@ -42,6 +42,28 @@ describe('ao-controller sendMessage', () => {
     expect(sent).to.have.length(0);
   });
 
+  it('is still a no-op while a question is pending — that flow stays blocking', async () => {
+    const { controller, sent } = makeController();
+    controller._thinking = true;
+    controller._pendingQuestion = { turnId: 't1', context: null, questions: [] };
+
+    await controller.sendMessage('hello again');
+
+    expect(sent).to.have.length(0);
+  });
+
+  it('is allowed while only a plan approval is pending — that flow is non-blocking', async () => {
+    const { controller, sent } = makeController();
+    controller._thinking = true;
+    controller._pendingPlanApproval = { turnId: 't1', planContent: '# Plan', planFilePath: null };
+
+    await controller.sendMessage('looks good, go ahead');
+
+    expect(sent).to.deep.equal([
+      { type: 'USER_INPUT', text: 'looks good, go ahead', manifestId: 'experience-workspace', debugMode: true },
+    ]);
+  });
+
   it('prefixes selected context items into the wire text, not the shown message', async () => {
     const { controller, sent } = makeController();
 
@@ -179,15 +201,34 @@ describe('ao-controller episodes', () => {
     controller._fetchEpisodes = async () => [{ id: '2', title: 'Latest' }];
     controller._fetchEpisodeMessages = async () => [];
     controller._fetchEpisodeContext = async () => ({
-      turnId: 't1', context: 'Please confirm.', questions: [{ id: '1' }],
+      type: 'question', turnId: 't1', context: 'Please confirm.', questions: [{ id: '1' }],
     });
 
     await controller.loadEpisodes();
 
     expect(controller._pendingQuestion).to.deep.equal({
-      turnId: 't1', context: 'Please confirm.', questions: [{ id: '1' }],
+      type: 'question', turnId: 't1', context: 'Please confirm.', questions: [{ id: '1' }],
     });
+    expect(controller._pendingPlanApproval).to.equal(undefined);
     expect(updates.at(-1).pendingQuestion).to.deep.equal(controller._pendingQuestion);
+    expect(updates.at(-1).thinking).to.equal(true);
+  });
+
+  it('loadEpisodes hydrates a pending plan approval left over from a suspended turn', async () => {
+    const { controller, updates } = makeController();
+    controller._fetchEpisodes = async () => [{ id: '2', title: 'Latest' }];
+    controller._fetchEpisodeMessages = async () => [];
+    controller._fetchEpisodeContext = async () => ({
+      type: 'plan', turnId: 't1', planContent: '# Plan', planFilePath: '.ao/plans/x.md',
+    });
+
+    await controller.loadEpisodes();
+
+    expect(controller._pendingPlanApproval).to.deep.equal({
+      type: 'plan', turnId: 't1', planContent: '# Plan', planFilePath: '.ao/plans/x.md',
+    });
+    expect(controller._pendingQuestion).to.equal(undefined);
+    expect(updates.at(-1).pendingPlanApproval).to.deep.equal(controller._pendingPlanApproval);
     expect(updates.at(-1).thinking).to.equal(true);
   });
 
@@ -245,6 +286,20 @@ describe('ao-controller episodes', () => {
     expect(controller._pendingQuestion).to.equal(undefined);
   });
 
+  it('switchEpisode is allowed while a plan approval is pending — it is suspended, not actively streaming', async () => {
+    const { controller } = makeController();
+    controller._episodeId = '1';
+    controller._thinking = true;
+    controller._pendingPlanApproval = { turnId: 't1', planContent: '# Plan', planFilePath: null };
+    controller._ws = { close: () => { controller._ws = null; } };
+    controller._fetchEpisodeMessages = async (id) => [{ role: 'assistant', content: `from ${id}` }];
+
+    await controller.switchEpisode('2');
+
+    expect(controller._episodeId).to.equal('2');
+    expect(controller._pendingPlanApproval).to.equal(undefined);
+  });
+
   it('startNewEpisode clears the active episode so the next send starts fresh', () => {
     const { controller, updates } = makeController();
     controller._episodeId = '1';
@@ -270,6 +325,21 @@ describe('ao-controller episodes', () => {
     expect(controller._episodeId).to.equal(undefined);
     expect(controller._pendingQuestion).to.equal(undefined);
     expect(updates.at(-1).pendingQuestion).to.equal(undefined);
+    expect(updates.at(-1).thinking).to.equal(false);
+  });
+
+  it('startNewEpisode is allowed while a plan approval is pending, and clears it', () => {
+    const { controller, updates } = makeController();
+    controller._episodeId = '1';
+    controller._thinking = true;
+    controller._pendingPlanApproval = { turnId: 't1', planContent: '# Plan', planFilePath: null };
+    controller._ws = { close: () => {} };
+
+    controller.startNewEpisode();
+
+    expect(controller._episodeId).to.equal(undefined);
+    expect(controller._pendingPlanApproval).to.equal(undefined);
+    expect(updates.at(-1).pendingPlanApproval).to.equal(undefined);
     expect(updates.at(-1).thinking).to.equal(false);
   });
 
@@ -494,6 +564,83 @@ describe('ao-controller user questions', () => {
       turn_id: 't1',
       data: { type: 'question-response', answers: [], declined: true },
     }]);
+  });
+});
+
+describe('ao-controller plan approval', () => {
+  const sampleEvent = {
+    type: 'plan_approval_request',
+    turn_id: 't1',
+    context_id: 'c1',
+    data: {
+      turn_id: 't1',
+      plan_file_path: '.ao/plans/x.md',
+      plan_content: '# Plan\n\n## Todos\n\n- [ ] Do the thing\n',
+    },
+  };
+
+  it('surfaces a PLAN_APPROVAL_REQUEST event as pendingPlanApproval', () => {
+    const { controller, updates } = makeController();
+
+    controller._handleServerEvent(sampleEvent);
+
+    expect(updates.at(-1).pendingPlanApproval).to.deep.equal({
+      turnId: 't1',
+      planContent: sampleEvent.data.plan_content,
+      planFilePath: '.ao/plans/x.md',
+    });
+  });
+
+  it('respondToPlanApproval sends a RESUME frame with a plan-response part, and clears pendingPlanApproval', async () => {
+    const { controller, updates, sent } = makeController();
+    controller._handleServerEvent(sampleEvent);
+
+    await controller.respondToPlanApproval('reject', 'needs more detail');
+
+    expect(sent).to.deep.equal([{
+      type: 'RESUME',
+      turn_id: 't1',
+      data: {
+        type: 'plan-response', decision: 'reject', feedback: 'needs more detail', edited_plan_content: null,
+      },
+    }]);
+    expect(updates.at(-1).pendingPlanApproval).to.equal(undefined);
+  });
+
+  it('respondToPlanApproval is a no-op when there is no pending plan approval', async () => {
+    const { controller, sent } = makeController();
+
+    await controller.respondToPlanApproval('approve');
+
+    expect(sent).to.have.length(0);
+  });
+
+  it('respondToPlanApproval always uses RESUME, even with no live socket — unlike questions, it has no direct response frame to fall back to', async () => {
+    const { controller, sent } = makeController();
+    controller._pendingPlanApproval = { turnId: 't1', planContent: '# Plan', planFilePath: null };
+    controller._ws = null;
+    controller._ensureSocket = async () => {
+      controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
+    };
+
+    await controller.respondToPlanApproval('approve');
+
+    expect(sent).to.deep.equal([{
+      type: 'RESUME',
+      turn_id: 't1',
+      data: {
+        type: 'plan-response', decision: 'approve', feedback: '', edited_plan_content: null,
+      },
+    }]);
+  });
+
+  it('clears a stale pendingPlanApproval once text streams again, even without an explicit decision — e.g. AO resolving it via conversational_resume', () => {
+    const { controller, updates } = makeController();
+    controller._handleServerEvent(sampleEvent);
+
+    controller._handleServerEvent({ type: 'text_delta', data: { content: 'Sure' } });
+
+    expect(updates.at(-1).pendingPlanApproval).to.equal(undefined);
   });
 });
 

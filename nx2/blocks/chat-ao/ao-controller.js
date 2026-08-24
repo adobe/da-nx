@@ -43,6 +43,7 @@ export default class AoChatController {
       episodes: this._episodes,
       episodeId: this._episodeId,
       pendingQuestion: this._pendingQuestion,
+      pendingPlanApproval: this._pendingPlanApproval,
       loadingEpisode: this._loadingEpisode,
     });
   }
@@ -92,17 +93,19 @@ export default class AoChatController {
     // Clear + show a spinner immediately rather than leaving stale messages up.
     this._messages = [];
     this._pendingQuestion = undefined;
+    this._pendingPlanApproval = undefined;
     this._thinking = false;
     this._loadingEpisode = true;
     this._update();
 
-    const [messages, pendingQuestion] = await Promise.all([
+    const [messages, pendingInteraction] = await Promise.all([
       this._fetchEpisodeMessages(episodeId),
       this._fetchEpisodeContext(episodeId),
     ]);
     this._messages = messages;
-    this._pendingQuestion = pendingQuestion ?? undefined;
-    this._thinking = !!pendingQuestion;
+    this._pendingQuestion = pendingInteraction?.type === 'question' ? pendingInteraction : undefined;
+    this._pendingPlanApproval = pendingInteraction?.type === 'plan' ? pendingInteraction : undefined;
+    this._thinking = !!pendingInteraction;
     this._loadingEpisode = false;
     this._update();
   }
@@ -112,10 +115,10 @@ export default class AoChatController {
     this._update();
   }
 
-  // A pending question is suspended, not streaming — safe to abandon and resume
-  // later. Only real in-flight generation should block switching away.
+  // A pending question/plan is suspended, not streaming — safe to abandon and
+  // resume later. Only real in-flight generation should block switching away.
   get _blockedByActiveTurn() {
-    return this._thinking && !this._pendingQuestion;
+    return this._thinking && !this._pendingQuestion && !this._pendingPlanApproval;
   }
 
   async switchEpisode(episodeId) {
@@ -136,6 +139,7 @@ export default class AoChatController {
     this._streaming = '';
     this._streamingText = undefined;
     this._pendingQuestion = undefined;
+    this._pendingPlanApproval = undefined;
     this._thinking = false;
     this._update();
   }
@@ -226,6 +230,9 @@ export default class AoChatController {
     }
 
     if (evt.type === AO_EVENT.TEXT_DELTA) {
+      // See docs/chat-ao-component.md#plan-approval — clears a stale card left
+      // over from a conversational (non-button) resolution.
+      this._pendingPlanApproval = undefined;
       this._streaming += evt.data?.content ?? '';
       this._streamingText = this._streaming;
       this._update();
@@ -260,6 +267,16 @@ export default class AoChatController {
         turnId: evt.turn_id,
         context: evt.data?.context ?? null,
         questions: evt.data?.questions ?? [],
+      };
+      this._update();
+      return;
+    }
+
+    if (evt.type === AO_EVENT.PLAN_APPROVAL_REQUEST) {
+      this._pendingPlanApproval = {
+        turnId: evt.data?.turn_id ?? evt.turn_id,
+        planContent: evt.data?.plan_content ?? '',
+        planFilePath: evt.data?.plan_file_path ?? null,
       };
       this._update();
       return;
@@ -317,8 +334,32 @@ export default class AoChatController {
     return this._respondToQuestion([], true);
   }
 
+  // Plan approval has no dedicated response frame — the server dispatches by
+  // DataPart "type" inside the generic RESUME op, which (unlike QUESTION_RESPONSE)
+  // is always a valid first op, so no cold/warm connection distinction is needed here.
+  async respondToPlanApproval(decision, feedback = '') {
+    if (!this._pendingPlanApproval) return;
+    const { turnId } = this._pendingPlanApproval;
+    this._pendingPlanApproval = undefined;
+    this._update();
+
+    try {
+      await this._ensureSocket();
+      this._ws.send(JSON.stringify({
+        type: AO_FRAME.RESUME,
+        turn_id: turnId,
+        data: {
+          type: 'plan-response', decision, feedback, edited_plan_content: null,
+        },
+      }));
+    } catch (err) {
+      this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
+      this._done();
+    }
+  }
+
   async sendMessage(message, items = [], attachments = []) {
-    if (!message || this._thinking) return;
+    if (!message || (this._thinking && !this._pendingPlanApproval)) return;
 
     const selectionContext = buildSelectionContext(items);
     const attachmentsMeta = buildAttachmentsMeta(attachments);

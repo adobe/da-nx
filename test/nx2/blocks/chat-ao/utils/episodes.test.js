@@ -144,11 +144,31 @@ describe('episodes.js', () => {
       expect(await fetchEpisodeContext('ep-1')).to.equal(null);
     });
 
-    it('returns null when the suspended turn is not a question (e.g. a plan approval)', async () => {
+    it('extracts turnId/planContent/planFilePath from a plan-approval-suspended turn', async () => {
       restoreFetch();
       installFetch({
         body: JSON.stringify({
-          suspendedTurn: { turnId: 't1', suspendReason: 'plan_approval', planData: {} },
+          suspendedTurn: {
+            turnId: 't1',
+            suspendReason: 'plan_approval',
+            planData: { planContent: '# Plan', planFilePath: '.ao/plans/x.md' },
+          },
+        }),
+      });
+
+      expect(await fetchEpisodeContext('ep-1')).to.deep.equal({
+        type: 'plan',
+        turnId: 't1',
+        planContent: '# Plan',
+        planFilePath: '.ao/plans/x.md',
+      });
+    });
+
+    it('returns null when the suspended turn has neither questionData nor planData', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({
+          suspendedTurn: { turnId: 't1', suspendReason: 'entity_mutation' },
         }),
       });
 
@@ -171,6 +191,7 @@ describe('episodes.js', () => {
       });
 
       expect(await fetchEpisodeContext('ep-1')).to.deep.equal({
+        type: 'question',
         turnId: 't1',
         context: 'Please confirm.',
         questions: [{ id: '1', header: 'Publish page' }],

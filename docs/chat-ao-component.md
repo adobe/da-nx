@@ -111,6 +111,69 @@ option.
 **Not yet implemented / open TODOs:** screen-reader verification, multi-question
 layout testing under real content, focus-ring polish, component test coverage.
 
+## Plan approval
+
+AO suspends a turn with `plan_approval_request` (`data: { turn_id, plan_file_path,
+plan_content }`) when the agent wants sign-off on a plan before acting on it.
+Unlike the question flow, this renders **inline in the message log**
+(`.chat-messages-container`), not as a card floating over the input — a plan
+is read-heavy prose the user is meant to actually read, so it fits better as
+part of the conversation than as a popup competing for space with the
+textarea. `chat-ao.js`'s `renderPlanApprovalCard` shows it in place of the
+"Thinking..." indicator, with the plan content run through `renderMarkdown`,
+a feedback text input, and Approve/Reject buttons.
+
+**Responding always uses `RESUME`, with no cold/warm distinction.** Plan
+approval has no dedicated response frame of its own — the server dispatches
+by `data.type` inside the generic `RESUME` op:
+
+```json
+{ "type": "RESUME", "turn_id": "...", "data": { "type": "plan-response", "decision": "approve"|"reject", "feedback": "...", "edited_plan_content": null } }
+```
+
+This is simpler than the question flow: `RESUME` is always a valid *first*
+op (unlike a bare `QUESTION_RESPONSE`), so `respondToPlanApproval` never
+needs to check whether the socket was already open before sending.
+
+**REST hydration** (`fetchEpisodeContext`, restoring a suspended episode) is
+a discriminated result now — `{ type: 'question', ... }` or
+`{ type: 'plan', turnId, planContent, planFilePath }` — read from
+`suspendedTurn.questionData` or `suspendedTurn.planData` respectively
+(confirmed against AO's actual `_serialize_suspended_turn` in
+`apps/a2a/api/routes/episodes.py`; `planData` is
+`{ planContent, planFilePath }`, camelCased on the wire). `_loadEpisode`
+hydrates whichever one AO reports into `_pendingQuestion`/`_pendingPlanApproval`.
+
+**Genuinely non-blocking — the input stays enabled.** Unlike a pending
+question, a pending plan approval does *not* disable the chat input.
+`chat-ao.js`'s `_blocked` getter (`thinking && !pendingPlanApproval`) is what
+every input-disabling/send-blocking site checks instead of raw `thinking` —
+the textarea's `disabled` state, `_submit`'s stop-vs-send branch, `_sendPrompt`,
+and `ao-controller.js`'s own `sendMessage` guard. A pending question still
+uses raw `thinking` and stays blocking, unchanged.
+
+This isn't just a UI preference — AO has a real backend mechanism,
+`conversational_resume` (`agents/config/base.py`, off by default, not yet
+enabled for `experience-workspace`), that resolves a suspended turn (plan
+approval, question, permission) from an ordinary free-text reply instead of
+requiring the structured frame. Once enabled, a user can just type "looks
+good" into the normal input instead of clicking Approve. Until then, a
+message sent while a plan is pending is simply treated as a new, unrelated
+turn — the plan card doesn't clear itself in that case, since we don't know
+whether the reply was actually about the plan.
+
+Because there's no dedicated event marking "the plan was resolved via
+conversational text" (it just looks like an ordinary resumed turn once
+`conversational_resume` picks it up), `_handleServerEvent`'s `TEXT_DELTA`
+branch also clears `_pendingPlanApproval` defensively — text streaming again
+means the turn resumed one way or another, so the card would otherwise linger
+with nothing left to click.
+
+Both pending questions and pending plan approvals are still exempted from
+`_blockedByActiveTurn`, so switching episodes or starting a new one while
+either is awaiting a decision is allowed — the turn is durably suspended
+server-side regardless of whether the local input is disabled.
+
 ## Markdown rendering
 
 `renderMarkdown` (`utils/markdown.js`) shares `parseMarkdown`

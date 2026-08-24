@@ -46,6 +46,27 @@ function isAllowedFile(file) {
   return AO_UPLOAD_EXTENSIONS.some((ext) => name.endsWith(ext));
 }
 
+function renderPlanApprovalCard(pending, feedback, { onFeedbackText, onApprove, onReject }) {
+  if (!pending) return nothing;
+  return html`
+    <div class="plan-approval-card">
+      <span class="plan-approval-header">Review plan</span>
+      <div class="message-content">${renderMarkdown(pending.planContent)}</div>
+      <input
+        type="text"
+        class="plan-approval-feedback"
+        placeholder="Optional feedback if rejecting…"
+        .value=${feedback}
+        @input=${(e) => onFeedbackText(e.target.value)}
+      />
+      <div class="plan-approval-buttons">
+        <button type="button" class="nx-action-btn nx-btn-sm" @click=${onReject}>Reject</button>
+        <button type="button" class="nx-btn-primary nx-btn-sm" @click=${onApprove}>Approve</button>
+      </div>
+    </div>
+  `;
+}
+
 export default class NxChatAo extends LitElement {
   static properties = {
     messages: { type: Array },
@@ -53,9 +74,11 @@ export default class NxChatAo extends LitElement {
     episodes: { type: Array },
     episodeId: { type: String },
     pendingQuestion: { type: Object },
+    pendingPlanApproval: { type: Object },
     loadingEpisode: { type: Boolean },
     _dragging: { state: true },
     _prompts: { state: true },
+    _planFeedback: { state: true },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
@@ -63,6 +86,12 @@ export default class NxChatAo extends LitElement {
   set context(value) {
     this._explicitContext = true;
     this._applyContext(value);
+  }
+
+  // See docs/chat-ao-component.md#plan-approval — a pending plan, unlike a
+  // pending question, doesn't disable the input.
+  get _blocked() {
+    return this.thinking && !this.pendingPlanApproval;
   }
 
   _applyContext(value) {
@@ -94,7 +123,7 @@ export default class NxChatAo extends LitElement {
   }
 
   _sendPrompt(prompt, { autoSend = false } = {}) {
-    if (!prompt || this.thinking) return;
+    if (!prompt || this._blocked) return;
     this.shadowRoot.querySelector('.prompts-popover')?.close();
     const input = this.shadowRoot.querySelector('.chat-input');
     if (!input) return;
@@ -148,7 +177,8 @@ export default class NxChatAo extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
     this._controller = new AoChatController({
       onUpdate: ({
-        messages, thinking, streamingText, episodes, episodeId, pendingQuestion, loadingEpisode,
+        messages, thinking, streamingText, episodes, episodeId,
+        pendingQuestion, pendingPlanApproval, loadingEpisode,
       }) => {
         this.messages = streamingText
           ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
@@ -157,6 +187,7 @@ export default class NxChatAo extends LitElement {
         this.episodes = episodes;
         this.episodeId = episodeId;
         this.pendingQuestion = pendingQuestion;
+        this.pendingPlanApproval = pendingPlanApproval;
         this.loadingEpisode = loadingEpisode;
       },
     });
@@ -177,6 +208,12 @@ export default class NxChatAo extends LitElement {
     super.disconnectedCallback();
     this._controller?.destroy();
     this._unsubscribeHash?.();
+  }
+
+  willUpdate(changed) {
+    if (changed.has('pendingPlanApproval') && this.pendingPlanApproval?.turnId !== changed.get('pendingPlanApproval')?.turnId) {
+      this._planFeedback = '';
+    }
   }
 
   updated(changed) {
@@ -211,7 +248,7 @@ export default class NxChatAo extends LitElement {
 
   _submit(e) {
     e?.preventDefault();
-    if (this.thinking) {
+    if (this._blocked) {
       this._controller.stop();
       return;
     }
@@ -335,7 +372,12 @@ export default class NxChatAo extends LitElement {
                 <div class="message-content">${msg.content}</div>
               </div>
             `))}
-            ${this.thinking && !this.messages?.at(-1)?.streaming
+            ${this.pendingPlanApproval ? renderPlanApprovalCard(this.pendingPlanApproval, this._planFeedback ?? '', {
+            onFeedbackText: (text) => { this._planFeedback = text; },
+            onApprove: () => this._controller.respondToPlanApproval('approve'),
+            onReject: () => this._controller.respondToPlanApproval('reject', this._planFeedback?.trim() ?? ''),
+          }) : nothing}
+            ${this.thinking && !this.pendingPlanApproval && !this.messages?.at(-1)?.streaming
           ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
           `}
         </div>
@@ -379,12 +421,12 @@ export default class NxChatAo extends LitElement {
           <textarea
             class="chat-input"
             placeholder="Ask anything, or type / for skills..."
-            ?disabled=${this.thinking}
+            ?disabled=${this._blocked}
             @input=${this._handleInput}
             @keydown=${this._handleKeydown}
             @blur=${this._slashMenu.onBlur}
           ></textarea>
-          <div class="chat-actions" ?data-thinking=${this.thinking}>
+          <div class="chat-actions" ?data-thinking=${this._blocked}>
             <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
               <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
@@ -393,10 +435,10 @@ export default class NxChatAo extends LitElement {
             </nx-menu>
             <button
               class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
-              ?hidden=${!this.thinking}
+              ?hidden=${!this._blocked}
               @click=${this._submit}
             > ${icon('stop')}</button>
-            <button type="submit" class="chat-send nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.thinking} aria-label="Send">
+            <button type="submit" class="chat-send nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this._blocked} aria-label="Send">
               ${icon('send')}
             </button>
           </div>
