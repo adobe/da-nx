@@ -83,6 +83,30 @@ switching away.
 *before* fetching, so switching feels instant rather than leaving stale
 messages on screen for however long the fetch takes.
 
+**`_refreshEpisodeList` never overwrites a known list with an empty one.**
+`fetchEpisodes` (`utils/episodes.js`) collapses every failure mode — a
+non-ok response, a thrown error — into a plain `[]`, indistinguishable from
+"you genuinely have zero episodes." But `_refreshEpisodeList` only ever runs
+right after `SESSION_READY` reports a new episode id, meaning at least one
+episode (the one that was just created) must exist — so an empty result
+there can only mean the fetch itself failed. Without the guard, one transient
+failure (a network blip, a token-refresh race) at exactly that moment would
+wipe the *entire* session picker, not just fail to add the new episode —
+confirmed as a real bug report (2026-08-25): starting a second new session
+made the first one disappear from the picker entirely, not just show
+untitled or out of order.
+
+**`EPISODE_TITLE_UPDATED` upserts instead of only patching.** It used to only
+`.map()` an existing entry, so if the episode wasn't already in `_episodes`
+yet — `_refreshEpisodeList`'s fetch for it hadn't resolved, or failed — the
+title had nothing to match and was silently dropped; the picker only ever
+picked it up after a full reload re-fetched everything from scratch. Now, if
+the episode isn't found, a new `{ id, title }` entry is inserted at the front
+(matching `fetchEpisodes`' most-recent-first order) instead of no-op'ing, so
+the picker reflects the title live regardless of whether the other fetch
+path ever succeeded. A missing/falsy title with no existing entry is still a
+genuine no-op — there's nothing useful to insert (bare id, no label).
+
 ## Question flow
 
 AO pauses a turn by sending a `USER_QUESTION`/`question` event (see the

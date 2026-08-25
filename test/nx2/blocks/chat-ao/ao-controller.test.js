@@ -761,6 +761,18 @@ describe('ao-controller episodes', () => {
     expect(updates.at(-1).episodes).to.deep.equal([{ id: '3', title: 'Brand new' }]);
   });
 
+  it('does not wipe a known episode list when the refresh fetch itself fails (returns [])', async () => {
+    const { controller, updates } = makeController();
+    controller._episodes = [{ id: '1', title: 'Existing episode' }];
+    controller._fetchEpisodes = async () => []; // e.g. a transient network/auth failure
+
+    controller._handleServerEvent({ type: 'SESSION_READY', episode_id: '2' });
+    await Promise.resolve();
+
+    expect(controller._episodes).to.deep.equal([{ id: '1', title: 'Existing episode' }]);
+    expect(updates).to.have.length(0);
+  });
+
   it('ignores a SESSION_READY that repeats the already-active episode id', () => {
     const { controller, updates } = makeController();
     controller._episodeId = '1';
@@ -787,16 +799,32 @@ describe('ao-controller episodes', () => {
     ]);
   });
 
-  it('leaves other episodes untouched when one title updates', () => {
+  it('inserts a new entry at the front when the episode isn\'t in the list yet, rather than dropping the title', () => {
+    const { controller, updates } = makeController();
+    controller._episodes = [{ id: '1', title: 'Existing episode' }];
+
+    controller._handleServerEvent({
+      type: 'episode_title_updated',
+      data: { episode_id: 'brand-new', title: 'Generated title' },
+    });
+
+    expect(updates.at(-1).episodes).to.deep.equal([
+      { id: 'brand-new', title: 'Generated title' },
+      { id: '1', title: 'Existing episode' },
+    ]);
+  });
+
+  it('is a genuine no-op when the episode is unknown and there is no title to insert', () => {
     const { controller, updates } = makeController();
     controller._episodes = [{ id: '1', title: null }];
 
     controller._handleServerEvent({
       type: 'episode_title_updated',
-      data: { episode_id: 'unknown-id', title: 'Generated title' },
+      data: { episode_id: 'unknown-id', title: null },
     });
 
-    expect(updates.at(-1).episodes).to.deep.equal([{ id: '1', title: null }]);
+    expect(controller._episodes).to.deep.equal([{ id: '1', title: null }]);
+    expect(updates).to.have.length(0);
   });
 });
 

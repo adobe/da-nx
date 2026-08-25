@@ -146,8 +146,12 @@ export default class AoChatController {
     this._update();
   }
 
+  // See docs/chat-ao-component.md#episode-switching — an empty result here
+  // can only mean the fetch itself failed, never a real empty state.
   async _refreshEpisodeList() {
-    this._episodes = await this._fetchEpisodes();
+    const episodes = await this._fetchEpisodes();
+    if (!episodes.length && this._episodes.length) return;
+    this._episodes = episodes;
     this._update();
   }
 
@@ -353,9 +357,19 @@ export default class AoChatController {
       return;
     }
 
+    // See docs/chat-ao-component.md#episode-switching — upserts rather than
+    // only patching, so a title doesn't get silently dropped when it beats
+    // (or outlives a failed) _refreshEpisodeList to adding the episode first.
     if (evt.type === AO_EVENT.EPISODE_TITLE_UPDATED) {
       const { episode_id: episodeId, title } = evt.data ?? {};
-      this._episodes = this._episodes.map((ep) => (ep.id === episodeId ? { ...ep, title } : ep));
+      const exists = this._episodes.some((ep) => ep.id === episodeId);
+      if (exists) {
+        this._episodes = this._episodes.map((ep) => (ep.id === episodeId ? { ...ep, title } : ep));
+      } else if (title) {
+        this._episodes = [{ id: episodeId, title }, ...this._episodes];
+      } else {
+        return;
+      }
       this._update();
       return;
     }
