@@ -1,21 +1,17 @@
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
+import authReady, { getAccessToken } from './auth.js';
 
 export const dnt = { addDnt };
 
 const BATCH_NAME = 'Batch1';
 const DEFAULT_DUE_DATE_DAYS = 7;
-const DEFAULT_TOKEN_TTL_MS = 3600000;
-const REFRESH_BUFFER_MS = 60000;
 const PROCESS_POLL_MS = 2000;
 const PROCESS_POLL_MAX = 60;
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 const ORIGIN_HEADER = 'x-globallink-origin';
-
-let token;
-let tokenPolling;
 
 /**
  * Builds the DA_TRANSLATE proxy origin GlobalLink requests are routed through, so the
@@ -47,175 +43,20 @@ function originHeader(service) {
 }
 
 /**
- * Builds the localStorage key used to persist a service's OAuth token details.
- * @param {string} name - The connector/service display name (e.g. "GlobalLink").
- * @param {string} env - The selected environment (e.g. "prod").
- * @returns {string} The localStorage key.
- */
-function tokenKey(name, env) {
-  return `${name.toLowerCase()}.${env}.token`;
-}
-
-/**
- * Caches the current access token in memory and persists the full token
- * details (with expiry) to localStorage for reuse across page loads.
- * @param {string} name - The connector/service display name.
- * @param {string} env - The selected environment.
- * @param {string} accessToken - The OAuth access token.
- * @param {string} refreshToken - The OAuth refresh token.
- * @param {number|string} expiresIn - Token lifetime in seconds, as returned by the OAuth server.
- * @returns {number} The token's time-to-live in milliseconds.
- */
-function setTokenDetails(name, env, accessToken, refreshToken, expiresIn) {
-  token = accessToken;
-  const ttlMs = (Number(expiresIn) * 1000) || DEFAULT_TOKEN_TTL_MS;
-  const expires = Date.now() + ttlMs;
-  localStorage.setItem(tokenKey(name, env), JSON.stringify({
-    accessToken,
-    refreshToken,
-    expires,
-  }));
-  return ttlMs;
-}
-
-/**
- * Reads the persisted OAuth token details for a service/environment from localStorage.
- * @param {string} name - The connector/service display name.
- * @param {string} env - The selected environment.
- * @returns {{accessToken?: string, refreshToken?: string, expires?: number}} The stored token
- * details, or an empty object if none are stored or the stored value is invalid JSON.
- */
-function getTokenDetails(name, env) {
-  const lsTokenDetails = localStorage.getItem(tokenKey(name, env));
-  if (!lsTokenDetails) return {};
-  try {
-    return JSON.parse(lsTokenDetails);
-  } catch {
-    return {};
-  }
-}
-
-/**
- * Clears the in-memory access token, stops the refresh-polling interval, and
- * removes the persisted token details for a service/environment.
- * @param {string} name - The connector/service display name.
- * @param {string} env - The selected environment.
- * @returns {void}
- */
-function clearToken(name, env) {
-  token = undefined;
-  if (tokenPolling) {
-    clearInterval(tokenPolling);
-    tokenPolling = undefined;
-  }
-  localStorage.removeItem(tokenKey(name, env));
-}
-
-/**
  * Builds the bearer-auth + JSON + proxy-origin headers used for authenticated
- * GlobalLink API calls routed through the DA_TRANSLATE proxy.
+ * GlobalLink API calls routed through the DA_TRANSLATE proxy. The access token is
+ * obtained via {@link getAccessToken} (da-etc), never built from credentials here.
  * @param {object} service - The flattened per-environment service config.
  * @param {string} service.endpoint - The real GlobalLink API base endpoint.
- * @returns {object} The request headers.
+ * @returns {Promise<object>} The request headers.
  */
-function authHeaders(service) {
+async function authHeaders(service) {
+  const token = await getAccessToken(service);
   return {
     Authorization: `Bearer ${token}`,
     ...originHeader(service),
     ...JSON_HEADERS,
   };
-}
-
-/**
- * Builds a Basic auth header value from an OAuth client id/secret pair.
- * @param {string} client - The OAuth client id.
- * @param {string} secret - The OAuth client secret.
- * @returns {string} The `Basic <base64>` header value.
- */
-function basicAuthHeader(client, secret) {
-  return `Basic ${btoa(`${client}:${secret}`)}`;
-}
-
-/**
- * Requests a new OAuth token (password or refresh grant) from GlobalLink, via the
- * DA_TRANSLATE proxy.
- * @param {object} service - The flattened per-environment service config.
- * @param {string} service.org - The DA org, used to resolve the DA_TRANSLATE proxy origin.
- * @param {string} service.site - The DA site, used to resolve the DA_TRANSLATE proxy origin.
- * @param {string} service.endpoint - The real GlobalLink API base endpoint.
- * @param {string} oauthClient - The OAuth client id.
- * @param {string} oauthSecret - The OAuth client secret.
- * @param {URLSearchParams} body - The grant-specific form-encoded request body.
- * @returns {Promise<object|null>} The parsed token response, or `null` on failure.
- */
-async function requestToken(service, oauthClient, oauthSecret, body) {
-  const opts = {
-    method: 'POST',
-    headers: {
-      Authorization: basicAuthHeader(oauthClient, oauthSecret),
-      'Content-Type': 'application/x-www-form-urlencoded',
-      ...originHeader(service),
-    },
-    body,
-  };
-  const resp = await fetch(`${resolveOrigin(service)}/oauth/token`, opts);
-  if (!resp.ok) return null;
-  return resp.json();
-}
-
-/**
- * Attempts to refresh the current OAuth access token using the stored refresh token.
- * Clears the token if there is no refresh token or the refresh request fails.
- * @param {object} service - The flattened per-environment service config.
- * @param {string} service.name - The connector/service display name.
- * @param {string} service.env - The selected environment.
- * @param {string} service.oauthClient - The OAuth client id.
- * @param {string} service.oauthSecret - The OAuth client secret.
- * @returns {Promise<boolean>} Whether the token was refreshed successfully.
- */
-async function refreshAccessToken(service) {
-  const { name, env, oauthClient, oauthSecret } = service;
-  const { refreshToken: currRefreshToken } = getTokenDetails(name, env);
-  if (!currRefreshToken) {
-    clearToken(name, env);
-    return false;
-  }
-
-  const body = new URLSearchParams({
-    grant_type: 'refresh_token',
-    refresh_token: currRefreshToken,
-  });
-
-  const json = await requestToken(service, oauthClient, oauthSecret, body);
-  if (!json?.access_token) {
-    clearToken(name, env);
-    return false;
-  }
-
-  setTokenDetails(
-    name,
-    env,
-    json.access_token,
-    json.refresh_token || currRefreshToken,
-    json.expires_in,
-  );
-  return true;
-}
-
-/**
- * (Re)starts the interval that proactively refreshes the OAuth access token
- * shortly before it expires.
- * @param {object} service - The flattened per-environment service config, forwarded to
- * {@link refreshAccessToken} on each tick.
- * @param {number} [ttlMs] - The current token's time-to-live in milliseconds.
- * @returns {void}
- */
-function refreshTheToken(service, ttlMs) {
-  if (tokenPolling) clearInterval(tokenPolling);
-  const interval = Math.max((ttlMs || DEFAULT_TOKEN_TTL_MS) - REFRESH_BUFFER_MS, REFRESH_BUFFER_MS);
-  tokenPolling = setInterval(() => {
-    refreshAccessToken(service);
-  }, interval);
 }
 
 /**
@@ -276,7 +117,7 @@ async function waitForSubmissionReady(service, submissionId) {
   for (let i = 0; i < PROCESS_POLL_MAX; i += 1) {
     // eslint-disable-next-line no-await-in-loop
     const resp = await fetch(`${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/status`, {
-      headers: authHeaders(service),
+      headers: await authHeaders(service),
     });
     if (resp.ok) {
       // eslint-disable-next-line no-await-in-loop
@@ -356,7 +197,7 @@ async function createSubmission(
 
   const resp = await fetch(`${resolveOrigin(service)}/rest/v0/submissions/create`, {
     method: 'POST',
-    headers: authHeaders(service),
+    headers: await authHeaders(service),
     body,
   });
   if (!resp.ok) return null;
@@ -385,6 +226,7 @@ async function uploadSourceFile(service, submissionId, url) {
   body.append('fileFormatName', service.fileFormatName);
   body.append('clientIdentifier', url.daBasePath);
 
+  const token = await getAccessToken(service);
   const resp = await fetch(`${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/upload/source`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, ...originHeader(service) },
@@ -409,7 +251,7 @@ async function uploadSourceFile(service, submissionId, url) {
 async function saveAndAutostart(service, submissionId) {
   const resp = await fetch(`${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/save`, {
     method: 'POST',
-    headers: authHeaders(service),
+    headers: await authHeaders(service),
     body: JSON.stringify({ autoStart: true }),
   });
   if (!resp.ok) return { started: false, messages: null };
@@ -438,7 +280,7 @@ async function listTargets(service, submissionId, { targetStatus, targetLanguage
   if (targetStatus) reqUrl.searchParams.set('targetStatus', targetStatus);
   if (targetLanguage) reqUrl.searchParams.set('targetLanguage', targetLanguage);
 
-  const resp = await fetch(reqUrl, { headers: authHeaders(service) });
+  const resp = await fetch(reqUrl, { headers: await authHeaders(service) });
   if (!resp.ok) return [];
   const json = await resp.json();
   if (Array.isArray(json)) return json;
@@ -478,79 +320,24 @@ function isCancelled(target) {
 }
 
 /**
- * Checks whether there is a currently valid GlobalLink session, refreshing the
- * access token from a stored refresh token if needed.
+ * Checks whether there is a currently valid GlobalLink session, fetching an access
+ * token via da-etc if needed. The client secret and GlobalLink password never reach
+ * the browser — see `auth.js`.
  * @param {object} service - The flattened per-environment service config.
- * @param {string} service.name - The connector/service display name.
- * @param {string} service.env - The selected environment.
- * @param {string} service.org - The DA org, used to resolve the DA_TRANSLATE proxy origin.
- * @param {string} service.site - The DA site, used to resolve the DA_TRANSLATE proxy origin.
- * @param {string} service.endpoint - The real GlobalLink API base endpoint.
  * @returns {Promise<boolean>} Whether the connector is authenticated and ready to use.
  */
-export async function isConnected(service) {
-  const { name, env } = service;
-  if (!resolveOrigin(service) || !service.endpoint) return false;
-
-  const { expires, refreshToken, accessToken } = getTokenDetails(name, env);
-  const notExpired = expires > Date.now() + REFRESH_BUFFER_MS;
-
-  if (accessToken && notExpired) {
-    token = accessToken;
-    if (!tokenPolling) {
-      refreshTheToken(service, expires - Date.now());
-    }
-    return true;
-  }
-
-  if (refreshToken) {
-    const ok = await refreshAccessToken(service);
-    if (ok) {
-      const details = getTokenDetails(name, env);
-      refreshTheToken(service, details.expires - Date.now());
-      return true;
-    }
-  }
-
-  return false;
+export function isConnected(service) {
+  return authReady(service);
 }
 
 /**
- * Authenticates with GlobalLink using the resource-owner password grant and
- * starts the background token-refresh loop on success.
+ * Authenticates with GlobalLink. Identical to {@link isConnected} — both simply ensure
+ * a usable access token is available, obtained server-side by da-etc.
  * @param {object} service - The flattened per-environment service config.
- * @param {string} service.name - The connector/service display name.
- * @param {string} service.env - The selected environment.
- * @param {string} service.org - The DA org, used to resolve the DA_TRANSLATE proxy origin.
- * @param {string} service.site - The DA site, used to resolve the DA_TRANSLATE proxy origin.
- * @param {string} service.endpoint - The real GlobalLink API base endpoint.
- * @param {string} service.oauthClient - The OAuth client id.
- * @param {string} service.oauthSecret - The OAuth client secret.
- * @param {string} service.username - The GlobalLink username.
- * @param {string} service.password - The GlobalLink password.
  * @returns {Promise<boolean>} Whether authentication succeeded.
  */
-export async function connect(service) {
-  const {
-    name, env, oauthClient, oauthSecret, username, password,
-  } = service;
-  const endpoint = resolveOrigin(service);
-  const hasCreds = oauthClient && oauthSecret && username && password;
-
-  if (!endpoint || !service.endpoint || !hasCreds) return false;
-
-  const body = new URLSearchParams({
-    grant_type: 'password',
-    username,
-    password,
-  });
-
-  const json = await requestToken(service, oauthClient, oauthSecret, body);
-  if (!json?.access_token) return false;
-
-  const ttlMs = setTokenDetails(name, env, json.access_token, json.refresh_token, json.expires_in);
-  refreshTheToken(service, ttlMs);
-  return true;
+export function connect(service) {
+  return authReady(service);
 }
 
 /**
@@ -575,16 +362,14 @@ export async function sendAllLanguages({
 }) {
   const { sendMessage, saveState } = actions;
 
-  if (!token) {
-    const connected = await isConnected(service);
-    if (!connected) {
-      sendMessage({ text: 'Not connected to GlobalLink.', type: 'error' });
-      langs.forEach((lang) => {
-        lang.translation ??= {};
-        lang.translation.status = 'error';
-      });
-      return;
-    }
+  const connected = await isConnected(service);
+  if (!connected) {
+    sendMessage({ text: 'Not connected to GlobalLink.', type: 'error' });
+    langs.forEach((lang) => {
+      lang.translation ??= {};
+      lang.translation.status = 'error';
+    });
+    return;
   }
 
   if (!service.projectId || !service.fileFormatName) {
@@ -691,12 +476,10 @@ export async function getStatusAll({ service, langs, urls, actions }) {
     return;
   }
 
-  if (!token) {
-    const connected = await isConnected(service);
-    if (!connected) {
-      sendMessage({ text: 'Not connected to GlobalLink.', type: 'error' });
-      return;
-    }
+  const connected = await isConnected(service);
+  if (!connected) {
+    sendMessage({ text: 'Not connected to GlobalLink.', type: 'error' });
+    return;
   }
 
   sendMessage({ text: `Checking GlobalLink status for submission ${submissionId}.` });
@@ -763,15 +546,15 @@ export async function saveItems({
   const submissionId = service.submissionId?.value;
   if (!submissionId) return urls;
 
-  if (!token) {
-    const connected = await isConnected(service);
-    if (!connected) return urls;
-  }
+  const connected = await isConnected(service);
+  if (!connected) return urls;
 
   const targets = await listTargets(service, submissionId, {
     targetStatus: 'PROCESSED',
     targetLanguage: lang.code,
   });
+
+  const token = await getAccessToken(service);
 
   const downloadCallback = async (url) => {
     const target = targets.find((entry) => {
@@ -837,12 +620,10 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
     return { ok: true, skipped: true };
   }
 
-  if (!token) {
-    const connected = await isConnected(service);
-    if (!connected) {
-      sendMessage({ text: 'Not connected to GlobalLink.', type: 'error' });
-      return { ok: false };
-    }
+  const connected = await isConnected(service);
+  if (!connected) {
+    sendMessage({ text: 'Not connected to GlobalLink.', type: 'error' });
+    return { ok: false };
   }
 
   const targets = await listTargets(service, submissionId, { targetLanguage: lang.code });
@@ -859,7 +640,7 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
 
   const resp = await fetch(`${resolveOrigin(service)}/rest/v0/submissions/cancel/${submissionId}`, {
     method: 'POST',
-    headers: authHeaders(service),
+    headers: await authHeaders(service),
     body: JSON.stringify({ targetIds }),
   });
 
