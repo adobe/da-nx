@@ -142,7 +142,7 @@ class NxEditorToggle extends LitElement {
         class="editortoggle-switch"
         @click=${this._toggle}
       >
-        <span class="editortoggle-label">New editor</span>
+        <span class="editortoggle-label">New Authoring</span>
         <span class="editortoggle-track" aria-hidden="true">
           <span class="editortoggle-handle"></span>
         </span>
