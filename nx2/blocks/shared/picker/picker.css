@@ -31,7 +31,7 @@
   border: var(--nx-picker-border, none);
   border-radius: var(--nx-picker-radius, 0);
   background: var(--nx-picker-background, none);
-  color: var(--s2-gray-900);
+  color: var(--s2-gray-800);
   font-family: inherit;
   font-size: var(--s2-component-s-regular-font-size);
   cursor: pointer;
@@ -76,7 +76,7 @@
   border: none;
   border-radius: var(--s2-corner-radius-200);
   background: none;
-  color: var(--s2-gray-900);
+  color: var(--s2-gray-800);
   font-family: inherit;
   font-size: var(--s2-body-size-xs);
   margin-bottom: 2px;
@@ -102,7 +102,7 @@
   width: 14px;
   height: 14px;
   flex-shrink: 0;
-  color: var(--s2-gray-900);
+  color: var(--s2-gray-800);
 }
 
 .picker-divider {
