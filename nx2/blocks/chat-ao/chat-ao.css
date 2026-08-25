@@ -53,6 +53,7 @@
 
   .session-picker {
     --nx-picker-max-width: 50%;
+    --nx-picker-height: 24px;
   }
 
   & > div {
