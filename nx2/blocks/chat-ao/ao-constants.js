@@ -37,10 +37,10 @@ export const ADD_MENU_ITEMS = [
   { section: 'Add' },
   { id: 'files', label: 'Files or images', icon: 'link' },
   { divider: true },
-  { id: 'skills', label: 'Manage Skills' },
+  { id: 'skills', label: 'Coworker Capabilities' },
 ];
 
-export const OPEN_COWORKER_ITEM = { id: 'coworker', label: 'Continue in CoWorker' };
+export const OPEN_COWORKER_ITEM = { id: 'coworker', label: 'Continue in Coworker' };
 
 export const AO_FRAME = {
   AUTH: 'AUTH',
