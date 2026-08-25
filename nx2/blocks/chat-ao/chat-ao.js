@@ -25,6 +25,8 @@ import { PANEL_EVENT } from '../../utils/panel.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
+import { createVoiceInput, isVoiceInputSupported, appendTranscript } from '../shared/chat/voice-input.js';
+import { showToast } from '../shared/toast/toast.js';
 import { renderAssistantMessageBody, renderPlanApprovalCard } from './renderers.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
 import { createSlashMenu } from '../shared/chat/slash-menu.js';
@@ -62,9 +64,14 @@ export default class NxChatAo extends LitElement {
     _dragging: { state: true },
     _prompts: { state: true },
     _planFeedback: { state: true },
+    _voiceListening: { state: true },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
+
+  // Tracks the last interim chunk inserted into .chat-input so the next
+  // chunk can replace it in place — see shared/chat/voice-input.js#appendTranscript.
+  _voiceInterim = '';
 
   set context(value) {
     this._explicitContext = true;
@@ -116,6 +123,19 @@ export default class NxChatAo extends LitElement {
     } else {
       input.focus();
     }
+  }
+
+  _toggleVoiceInput() {
+    if (this._voiceListening) this._voice.stop();
+    else this._voice.start();
+  }
+
+  _handleVoiceText(text, isInterim) {
+    const input = this.shadowRoot.querySelector('.chat-input');
+    if (!input) return;
+    const { value, interim } = appendTranscript(input.value, this._voiceInterim, text, isInterim);
+    input.value = value;
+    this._voiceInterim = interim;
   }
 
   _onAddClick(e) {
@@ -185,12 +205,23 @@ export default class NxChatAo extends LitElement {
     this._unsubscribeHash = hashChange.subscribe((state) => {
       if (!this._explicitContext) this._applyContext(state);
     });
+    this._voice = createVoiceInput({
+      onStart: () => { this._voiceListening = true; },
+      onEnd: () => { this._voiceListening = false; this._voiceInterim = ''; },
+      onInterimText: (text) => this._handleVoiceText(text, true),
+      onFinalText: (text) => {
+        this._handleVoiceText(text, false);
+        this.shadowRoot.querySelector('.chat-input')?.focus();
+      },
+      onError: (message) => showToast({ text: message, variant: 'error' }),
+    });
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this._controller?.destroy();
     this._unsubscribeHash?.();
+    this._voice?.stop();
   }
 
   willUpdate(changed) {
@@ -418,21 +449,34 @@ export default class NxChatAo extends LitElement {
             @keydown=${this._handleKeydown}
             @blur=${this._slashMenu.onBlur}
           ></textarea>
-          <div class="chat-actions" ?data-thinking=${this._blocked}>
+          <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
             <nx-menu .items=${this.episodeId ? [...ADD_MENU_ITEMS, OPEN_COWORKER_ITEM] : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
               <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>
               </button>
             </nx-menu>
-            <button
-              class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
-              ?hidden=${!this._blocked}
-              @click=${this._submit}
-            > ${icon('stop')}</button>
-            <button type="submit" class="chat-send nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this._blocked} aria-label="Send">
-              ${icon('send')}
-            </button>
+            <div class="chat-primary-action">
+              ${isVoiceInputSupported() ? html`
+                <button
+                  type="button"
+                  class="chat-voice nx-action-btn-icon nx-btn-sm"
+                  ?data-listening=${this._voiceListening}
+                  ?disabled=${this._blocked}
+                  aria-pressed=${this._voiceListening}
+                  aria-label=${this._voiceListening ? 'Stop recording' : 'Use voice input'}
+                  @click=${this._toggleVoiceInput}
+                >${icon('mic')}</button>
+              ` : nothing}
+              <button
+                class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
+                ?hidden=${!this._blocked}
+                @click=${this._submit}
+              > ${icon('stop')}</button>
+              <button type="submit" class="chat-send nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this._blocked} aria-label="Send">
+                ${icon('send')}
+              </button>
+            </div>
           </div>
         </form>
       </div>

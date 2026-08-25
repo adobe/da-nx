@@ -413,6 +413,86 @@ the first `fetchSkills()` resolves.
 rather than throwing; `sendMessage` reports failed uploads inline in the
 message text (`buildFailedUploadsText`) rather than blocking the send.
 
+## Voice input
+
+`shared/chat/voice-input.js` (`createVoiceInput`/`isVoiceInputSupported`/
+`appendTranscript`) wraps the browser's Web Speech API — purely client-side
+dictation into `.chat-input`, no AO/backend involvement at all. It's a
+from-scratch port of coworker's own `use-voice-input.ts`/`chat-input.tsx`
+(not shared code, per this component's standing rule against sharing
+controller/rendering code with coworker's UI or nx-chat), matched
+deliberately close to that implementation since two things in it are
+hard-won, non-obvious knowledge rather than arbitrary choices:
+
+- **The Chromium brand allowlist.** `webkitSpeechRecognition` is exposed by
+  many Chromium-based browsers, but only actually works reliably in Google
+  Chrome itself — other Chromium forks can expose the constructor while it
+  silently fails. `getSpeechRecognitionCtor` checks
+  `navigator.userAgentData.brands` and only trusts the constructor for
+  `"Google Chrome"`; browsers with no `userAgentData` at all (e.g. Safari)
+  are trusted directly, since that field is itself Chromium-specific.
+- **Interim transcripts replace themselves in place.** `SpeechRecognition`
+  fires repeated, refining "interim" results before a "final" one confirms
+  the utterance (e.g. "hel" → "hello" → final "hello"). `appendTranscript`
+  strips the previously-inserted interim chunk (tracked via `_voiceInterim`
+  on `chat-ao.js`) before inserting the next one, so the textarea shows the
+  live-refining transcript instead of every partial guess piling up; a final
+  result locks in the confirmed text with a trailing separator and clears
+  the tracker, without disturbing text the user typed by hand.
+
+No new icon asset was added for the mic button — `chat-ao.js`'s existing
+`icon()`/`ICON_NAMES` helper resolves SVGs from `codeBase` at runtime (served
+by the consuming host app, not bundled in this repo), and there was no
+existing mic icon there to reference with any confidence it actually
+resolves. `micIcon` is a small inline SVG instead, avoiding that risk
+entirely. Errors (mic permission denied, no speech detected, etc.) surface
+via `shared/toast/toast.js`'s `showToast`, an existing, previously-unused
+component-wide mechanism — not a new one built for this.
+
+**`stop()` treats the session as over immediately — it never waits on the
+browser's own `onend`.** Chrome's `SpeechRecognition.stop()` is known to be
+flaky: it doesn't reliably fire `onend` promptly, sometimes not at all. The
+first version of this waited for `onend` to flip `isListening`/clear the
+internal `recognition` reference, which reproduced as a real bug (2026-08-25
+report): the mic button would get stuck in "listening" state, especially on
+a second recording — clicking it again just called `.stop()` on an
+already-stuck instance, which did nothing. `createVoiceInput`'s `stop()` now
+flips state and detaches the old instance's `on*` handlers synchronously,
+then tells the browser to stop as a courtesy — so a second `start()` is
+never blocked by a session the browser itself failed to clean up. Every
+handler also guards with `inst !== recognition` (the closure-captured
+instance vs. whichever session is *currently* active) in case a browser
+fires an event for an instance that's already been superseded by a newer
+one — belt-and-suspenders alongside the handler-nulling, for a dispatch-
+timing edge case that's hard to rule out with certainty.
+
+**Mic, stop-recording, and Send share one stable slot — `.chat-primary-action`
+(`display: grid`, every child on `grid-area: 1 / 1`) — rather than being
+separate siblings in the `justify-content: flex-end` action row.** The first
+version had `.chat-send` simply appear the moment `.chat-input` gained
+content, as an ordinary sibling of `.chat-voice`; that meant Send popping in
+mid-recording (the instant speech writes text) shifted the mic button left
+right as the user went to click it — a real reported case (2026-08-25) of
+clicking "stop" and hitting "send" instead, purely from the layout moving
+under the cursor at the worst possible moment. Stacking all three in one
+grid cell means switching between them is only ever an icon swap, never a
+layout shift, regardless of which one is visible.
+
+Which one shows, in order: **mic** — supported, idle, and `.chat-input` is
+empty; **stop-recording** (still the mic icon, `.chat-voice[data-listening]`
+just pulses red rather than swapping glyphs) — recording is in progress,
+unconditionally, regardless of how much text has already been dictated into
+the field, so there's always something stable to click to actually stop;
+**Send** — not recording, and `.chat-input` has content (typed or
+dictated). Once there's
+content, mic is hidden rather than kept alongside Send — dictating more
+text onto an already-started message means clicking Send first, clearing
+the field, and starting a fresh recording; that's a deliberate, discussed
+tradeoff for a simpler, less error-prone control, not an oversight.
+`.chat-actions[data-voice-listening]` (mirroring the existing
+`[data-thinking]` pattern) is what the CSS keys off to know a recording is
+in progress.
+
 ## Client context
 
 `buildClientContext` (`utils/user-context.js`) sends the current document and

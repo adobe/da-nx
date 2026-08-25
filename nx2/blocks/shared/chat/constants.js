@@ -26,4 +26,5 @@ export const ICON_NAMES = {
   send: 's2-icon-arrowupsend-20-n',
   stop: 's2-icon-stop-20-n',
   up: 's2-icon-chevronup-20-n',
+  mic: 's2-icon-microphone-20-n',
 };
