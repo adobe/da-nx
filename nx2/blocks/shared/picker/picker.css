@@ -33,12 +33,13 @@
   background: var(--nx-picker-background, none);
   color: var(--s2-gray-900);
   font-family: inherit;
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-regular-font-size);
   cursor: pointer;
   outline: none;
   width: fit-content;
   max-width: var(--nx-picker-max-width, none);
   min-width: 0;
+  line-height: var(--s2-component-s-regular-line-height);
 
   &[data-active] {
     background: var(--s2-gray-200);

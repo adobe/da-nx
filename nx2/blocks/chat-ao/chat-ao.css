@@ -104,8 +104,12 @@
     color: var(--s2-gray-800);
   }
 
-  p {
+  p, ul, ol {
     margin: 0;
+  }
+
+  p {
+    margin-block-start: var(--s2-spacing-100);
   }
 
   ul.contains-task-list {
