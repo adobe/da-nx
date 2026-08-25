@@ -56,6 +56,7 @@ export const AO_EVENT = {
   ERROR_CONNECTION: 'ERROR',
   ERROR_SESSION: 'error',
   EPISODE_TITLE_UPDATED: 'episode_title_updated',
+  USER_MESSAGE: 'user_message',
   USER_QUESTION: 'user_question',
   PLAN_APPROVAL_REQUEST: 'plan_approval_request',
   UI_ARTIFACT_CREATED: 'ui_artifact_created',

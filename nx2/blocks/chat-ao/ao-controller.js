@@ -284,6 +284,19 @@ export default class AoChatController {
       return;
     }
 
+    // See docs/chat-ao-component.md#connection-recovery — AO broadcasts this
+    // to every attached connection including the sender's own, so a matching
+    // clientMessageId means we already rendered it optimistically in sendMessage.
+    if (evt.type === AO_EVENT.USER_MESSAGE) {
+      const { text, client_message_id: clientMessageId } = evt.data ?? {};
+      const isOwnEcho = clientMessageId
+        && this._messages.some((m) => m.clientMessageId === clientMessageId);
+      if (isOwnEcho) return;
+      this._messages = [...this._messages, { role: 'user', content: text }];
+      this._update();
+      return;
+    }
+
     if (evt.type === AO_EVENT.TEXT_DELTA) {
       // See docs/chat-ao-component.md#plan-approval — clears a stale card left
       // over from a conversational (non-button) resolution.
@@ -481,10 +494,15 @@ export default class AoChatController {
 
     const selectionContext = buildSelectionContext(items);
     const attachmentsMeta = buildAttachmentsMeta(attachments);
+    // See docs/chat-ao-component.md#connection-recovery — AO echoes every
+    // USER_MESSAGE back to every attached connection, including this one;
+    // clientMessageId is how we recognize and skip our own echo.
+    const clientMessageId = crypto.randomUUID();
 
     this._messages = [...this._messages, {
       role: 'user',
       content: message,
+      clientMessageId,
       ...(selectionContext.length && { selectionContext }),
       ...(attachmentsMeta.length && { attachmentsMeta }),
     }];
@@ -504,6 +522,7 @@ export default class AoChatController {
         text: `${buildFailedUploadsText(failed)}${message}`,
         manifestId: AO_MANIFEST_ID,
         debugMode: true,
+        clientMessageId,
         ...(artifactIds.length && { attachments: artifactIds }),
         client_context: buildClientContext(this._context, items),
       }));

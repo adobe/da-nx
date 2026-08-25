@@ -98,6 +98,37 @@ mechanism, though — a connection that goes silently stale without ever
 firing a `close` event (rare, but possible with some NATs/proxies) still
 wouldn't self-heal; that's a known gap, not yet built.
 
+**`user_message` closes the other half of the gap — rendering the human's
+own prompt from the other client, not just the assistant's reply.**
+Cross-client fanout alone would only get you the assistant's response
+appearing live (`TEXT_DELTA`/`TOOL_CALL_*` don't gate on origin); the human's
+own typed message needed its own event, and AO has one: `SessionEvent
+.user_message()` (`agents/events.py`) streams `{ text, attachments,
+client_message_id }` to *every* subscriber, confirmed to include the
+originating connection itself — AO does not exclude the sender, by design
+(its own docstring: "`client_message_id` lets the originating client dedup
+against its optimistic bubble while other tabs render fresh"). So
+`sendMessage` generates a `crypto.randomUUID()`, stores it on the locally
+(optimistically) rendered message as `clientMessageId`, and sends it on the
+wire as `clientMessageId` (camelCase — confirmed against `ws_handler.py`'s
+`_client_message_id()`, which reads exactly that key, distinct from the
+snake_case `client_message_id` the *event's* `data` payload uses).
+`_handleServerEvent`'s `USER_MESSAGE` handler checks incoming
+`data.client_message_id` against already-rendered messages: a match means
+it's this client's own echo (skip, already shown); no match means it
+originated elsewhere and gets appended fresh. Because this is purely
+`episode_id`-keyed fanout with no per-connection/per-browser/per-session
+distinction in the delivery path, it makes no difference whether the other
+client is a different browser, an incognito window, or a different device —
+only successfully authenticating and being authorized for that episode
+matters, same as any other access to it.
+
+Not yet handled: a cross-client turn doesn't set `_thinking` locally (nothing
+currently does, for a turn we didn't submit), so no "Thinking..." indicator
+shows while waiting for the *first* token of a reply typed elsewhere — the
+response still streams in via `TEXT_DELTA` once AO starts producing it, just
+without that lead-in cue. Deliberately not built yet, pending real usage.
+
 ## Episode switching
 
 `switchEpisode`/`startNewEpisode` (`ao-controller.js`) are blocked by

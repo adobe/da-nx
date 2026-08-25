@@ -17,7 +17,9 @@ describe('ao-controller sendMessage', () => {
 
     await controller.sendMessage('hello AO');
 
-    expect(controller._messages).to.deep.equal([{ role: 'user', content: 'hello AO' }]);
+    const { clientMessageId } = controller._messages[0];
+    expect(clientMessageId).to.be.a('string').with.length.above(0);
+    expect(controller._messages).to.deep.equal([{ role: 'user', content: 'hello AO', clientMessageId }]);
     expect(updates[0].thinking).to.equal(true);
     expect(sent).to.deep.equal([
       {
@@ -25,6 +27,7 @@ describe('ao-controller sendMessage', () => {
         text: 'hello AO',
         manifestId: 'experience-workspace',
         debugMode: true,
+        clientMessageId,
         client_context: { application: { id: 'da.live', name: 'DA Live' } },
       },
     ]);
@@ -71,9 +74,11 @@ describe('ao-controller sendMessage', () => {
         text: 'looks good, go ahead',
         manifestId: 'experience-workspace',
         debugMode: true,
+        clientMessageId: sent[0].clientMessageId,
         client_context: { application: { id: 'da.live', name: 'DA Live' } },
       },
     ]);
+    expect(sent[0].clientMessageId).to.be.a('string').with.length.above(0);
   });
 
   it('carries selected context items as focused_resources, not the shown message', async () => {
@@ -87,6 +92,7 @@ describe('ao-controller sendMessage', () => {
     expect(controller._messages).to.deep.equal([{
       role: 'user',
       content: 'what does this do?',
+      clientMessageId: controller._messages[0].clientMessageId,
       selectionContext: [
         { type: 'block', blockName: 'hero' },
         { type: 'text', innerHTML: '<p>hello <b>world</b></p>' },
@@ -153,6 +159,46 @@ describe('ao-controller sendMessage', () => {
       role: 'assistant', content: 'Error: AO WebSocket error',
     });
     expect(updates.at(-1).thinking).to.equal(false);
+  });
+});
+
+describe('ao-controller cross-client user messages', () => {
+  it('appends a message sent from another client attached to the same episode', () => {
+    const { controller, updates } = makeController();
+
+    controller._handleServerEvent({
+      type: 'user_message',
+      data: { text: 'update the headline', client_message_id: 'from-coworker-ui' },
+    });
+
+    expect(controller._messages).to.deep.equal([{ role: 'user', content: 'update the headline' }]);
+    expect(updates).to.have.length(1);
+  });
+
+  it('skips its own echo — a user_message whose clientMessageId matches one already rendered locally', async () => {
+    const { controller, updates } = makeController();
+    await controller.sendMessage('hello AO');
+    const { clientMessageId } = controller._messages[0];
+    const updateCountAfterSend = updates.length;
+
+    controller._handleServerEvent({
+      type: 'user_message',
+      data: { text: 'hello AO', client_message_id: clientMessageId },
+    });
+
+    expect(controller._messages).to.have.length(1); // not duplicated
+    expect(updates).to.have.length(updateCountAfterSend); // no extra update for the no-op
+  });
+
+  it('still appends when client_message_id is missing, rather than risking a false-positive dedup match', () => {
+    const { controller } = makeController();
+
+    controller._handleServerEvent({
+      type: 'user_message',
+      data: { text: 'no id on this one' },
+    });
+
+    expect(controller._messages).to.deep.equal([{ role: 'user', content: 'no id on this one' }]);
   });
 });
 
