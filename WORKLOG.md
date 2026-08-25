@@ -5,7 +5,7 @@
 ### nx2 editortoggle — label copy update
 
 Updated `nx2/blocks/editortoggle/editortoggle.js` toggle label text from **"New editor"** to **"New Authoring"** so both the opt-in toggle and the switch-back context use the same updated wording.
-Also updated the switch-back feedback modal title in `nx2/blocks/editortoggle/switchback-dialog.js` from **"Help us improve the new editor"** to **"Help us improve the New Authoring experience"**.
+Also updated the switch-back feedback modal title in `nx2/blocks/editortoggle/switchback-dialog.js` from **"Help us improve the new editor"** to **"Help us improve the new authoring experience"**.
 
 ## 2026-08-19
 
