@@ -1,5 +1,11 @@
 # Worklog
 
+## 2026-08-25
+
+### nx2 editortoggle — label copy update
+
+Updated `nx2/blocks/editortoggle/editortoggle.js` toggle label text from **"New editor"** to **"New Authoring"** so both the opt-in toggle and the switch-back context use the same updated wording.
+
 ## 2026-08-19
 
 ### nx2 — restore lazy-loaded RUM (regression from nx1)
