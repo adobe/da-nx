@@ -5,6 +5,9 @@ import './row.js';
 import './column.js';
 import './card.js';
 import './data-table.js';
+import './metric-card.js';
+import './code-block.js';
+import './alert.js';
 
 export function renderUiArtifact(uiArtifact) {
   if (!uiArtifact) return nothing;

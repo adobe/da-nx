@@ -59,4 +59,7 @@ export const AO_EVENT = {
   USER_QUESTION: 'user_question',
   PLAN_APPROVAL_REQUEST: 'plan_approval_request',
   UI_ARTIFACT_CREATED: 'ui_artifact_created',
+  TOOL_CALL_DETECTED: 'tool_call_detected',
+  TOOL_CALL_START: 'tool_call_start',
+  TOOL_CALL_END: 'tool_call_end',
 };

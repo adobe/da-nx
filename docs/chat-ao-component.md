@@ -44,6 +44,31 @@ first is still connecting would open a competing WebSocket.
 **Not yet implemented:** warming a brand-new session. Extending past existing
 episodes needs a way to avoid leaving an orphaned empty episode behind.
 
+## Connection recovery
+
+A closed WebSocket during a turn used to be treated as fatal — an immediate
+"Error: connection closed" and `_done()`. That was wrong: AO's episode
+session is durable server-side and can still be actively working (e.g.
+mid-retry on a tool call) when the socket drops for an unrelated reason —
+confirmed by a real case where the socket closed while AO was retrying a
+`da__da_update_source` call (a `tool_call_end` with `success: false` and
+`result: "...not executed — retrying."`, immediately followed by a fresh
+`tool_call_detected` for the same tool, same turn), and the turn went on to
+finish successfully server-side — visible only after a reload pulled the
+real answer from REST history, since the live client had already given up
+and stopped listening.
+
+`_recoverFromClose()` now reattaches (`_ensureSocket()` + `ATTACH`) once
+instead of declaring the turn dead, and otherwise does nothing — `_thinking`
+stays true, so the UI keeps showing progress while waiting for the turn's
+remaining events over the reattached socket. Only a failed *reattach* (not
+the original close) surfaces an error. A genuinely dead session still ends
+the turn correctly: it surfaces via the normal `ERROR_CONNECTION`/
+`ERROR_SESSION` handling once reattached. This does one recovery attempt,
+not retry-with-backoff — a repeatedly-flapping connection reattaches on every
+close with no delay; full backoff (with delay/attempt-limits) is a capability
+nx-chat already has and nx-chat-ao deliberately hasn't built yet.
+
 ## Episode switching
 
 `switchEpisode`/`startNewEpisode` (`ao-controller.js`) are blocked by
@@ -185,6 +210,95 @@ otherwise render as inert plain text. `renderMarkdown` runs the same
 (`chat/utils/links.js`) to fix that — this isn't a da-agent-specific
 customization, it's compensating for a parser choice both blocks share, so
 both need it.
+
+## Tool-call activity
+
+AO streams three WS events per tool call — `tool_call_detected` (name only,
+before args are ready), `tool_call_start` (`{tool_call_id, tool_name,
+arguments}`), `tool_call_end` (`{tool_call_id, result, success, duration_s}`)
+— all keyed by `tool_call_id`, verified against `agents/events.py` and
+`tool_executor/executor.py` in AO's backend. This is generic across every
+tool type (native, MCP, skill, code-exec); no manifest opt-in is needed to
+receive them.
+
+`ao-controller.js` handles all three events, patching the same
+`{ role: 'assistant', toolCall: {...} }` entry in `_messages` in place by
+`toolCallId` (same entry-patching pattern as `hydrateToolCall`'s summary
+rows) — `tool_call_detected` appends the entry (`status: 'detected'`, name
+only, no args yet); `tool_call_start` upgrades it to `status: 'running'` with
+`arguments`, appending fresh only if no `detected` row arrived first (AO
+doesn't guarantee `detected` fires before `start`); `tool_call_end` upgrades
+it again to `status: 'success'`/`'error'` with `result`. No event is skipped
+— `detected` gets the card on screen (and the "Using X" label locked in) as
+early as possible, before AO even has the tool's arguments ready. Both start
+and end also carry `data.metadata.skill_title` for a `skill` tool call —
+surfaced as `toolCall.title` and preferred over the raw `tool_name` ("skill")
+in the card's summary line, so a skill invocation reads as e.g. "AEM Sites DA
+Page Update" instead of "skill".
+
+`chat-ao.js`'s `renderToolCallCard` is a small collapsible `<details>` (styled
+after this file's own existing `.selection-context` chevron pattern, not
+copied from anywhere) — collapsed by default. **The summary label ("Using
+&lt;name&gt;") never changes across detected → running → done** — only the
+expandable detail (arguments while in progress, result once done) and an
+`error` badge change, so the line doesn't visibly jump/reflow once the user's
+eye is on it. Coworker's own production UI (`ao-collab`'s `tool-call-item.tsx`)
+does something visually similar (collapsible row, spinner while running) but
+this is an independent, from-scratch implementation, not a port —
+nx-chat-ao intentionally never shares controller or rendering code with
+either coworker's UI or nx-chat's own (unrelated) da-agent tool-card
+mechanism.
+
+A skill's `result` is its entire markdown body (can run to several KB) —
+`formatToolCallDetail` doesn't truncate it. `.tool-call-detail`'s own
+`max-height`/`overflow-y: auto` already keeps the message from growing past a
+fixed height; expanding the `<details>` is an explicit request to read the
+whole thing, so cutting the text short on top of that scroll box would only
+hide content from the one person who asked to see it.
+
+**Reload only shows a cheap summary, hydrated to full detail on first
+expand.** Live tool-call cards come entirely from the WS stream above; on
+reload there's no episode-level endpoint for tool calls (unlike
+`get_episode_artifacts` for artifacts), only a per-turn one
+(`GET /api/v1/events/turn/{turn_id}`) — replaying every turn just to populate
+history would mean one request per turn. `Turn.tools_summary` looked like a
+free per-call synopsis riding along on the `/turns` response, but it's
+declared and never actually written server-side (no caller of its own
+`update_summaries` repository method exists) — always `[]`. `turnsToMessages`
+(`utils/episodes.js`) instead uses `Turn.tool_call_count`, which genuinely is
+kept live (incremented per `assistant_message` as it's processed), to push
+one aggregate `{ status: 'summary', summaryText: 'Used N tools' }` row per
+turn — coarser than per-call (no titles, no per-call detail, just a count),
+but real. `renderToolCallCard` renders that row as a plain expandable
+`<summary>` with no status badge; opening it (`@toggle`) calls
+`AoChatController#hydrateToolCall`, which fetches the turn's full event log
+once (cached per `turnId`), extracts every real `{tool_call_id, name,
+arguments}`/`{result, display_result, status, duration_s, metadata}` pair via
+`extractToolCalls` (matching `assistant_message.tool_calls[]` against
+`tool_result` events by `tool_call_id`), and nests them as `toolCall.calls` on
+the *same* summary message — replacing it with sibling messages instead (the
+first version of this) changed `_messages`' length and swapped the header out
+from under the user mid-expand, which read as broken. `summaryText` itself is
+deliberately left untouched by hydration, even though the real calls now
+carry better titles — rewriting it out from under an already-open `<details>`
+was tried and read as just as broken as replacing the row outright; the live
+path already gets the right title from the start (`metadata.skill_title` on
+`tool_call_start`/`tool_call_end`), so this only ever mattered for reload.
+Each nested call renders through the same `renderToolCallCard` as the live
+path, just recursed into `.tool-call-children`.
+
+`hydrateToolCall` sets `toolCall.loadingCalls = true` synchronously, before
+the fetch, so `renderToolCallCard` can show `.nx-loading-spinner` in the
+summary row immediately on click rather than only once the fetch resolves.
+Once hydration finishes, `loadingCalls` is dropped from the object entirely
+rather than set to `false` — a fully-hydrated toolCall's shape then matches
+one that was never in a loading state at all, which matters for anything
+that deep-compares the object (this file's own tests included).
+
+`willUpdate`/`updated` guard the scroll-to-bottom behind `_wasNearBottom`
+(mirroring `nx-chat`'s own `chat.js`) rather than jumping unconditionally on
+every `messages` change — without it, expanding a tool-call row while
+scrolled up in history yanked the view back to the bottom.
 
 ## Region resolution
 

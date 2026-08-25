@@ -21,9 +21,7 @@ import { PANEL_EVENT } from '../../utils/panel.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
-import { renderMarkdown } from './utils/markdown.js';
-import { renderUiArtifact } from './artifacts/index.js';
-import { renderCopyButton } from '../shared/chat/copy-button.js';
+import { renderAssistantMessageBody, renderPlanApprovalCard } from './renderers.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
 import { createSlashMenu } from '../shared/chat/slash-menu.js';
 import '../shared/pills/pills.js';
@@ -37,6 +35,7 @@ import { ADD_MENU_ITEMS, ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } fro
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
+const artifactStyle = await loadStyle(new URL('./artifacts/artifacts.css', import.meta.url).href);
 
 const { codeBase } = getConfig();
 
@@ -45,27 +44,6 @@ const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use hre
 function isAllowedFile(file) {
   const name = file.name?.toLowerCase() ?? '';
   return AO_UPLOAD_EXTENSIONS.some((ext) => name.endsWith(ext));
-}
-
-function renderPlanApprovalCard(pending, feedback, { onFeedbackText, onApprove, onReject }) {
-  if (!pending) return nothing;
-  return html`
-    <div class="plan-approval-card">
-      <span class="plan-approval-header">Review plan</span>
-      <div class="message-content">${renderMarkdown(pending.planContent)}</div>
-      <input
-        type="text"
-        class="plan-approval-feedback"
-        placeholder="Optional feedback if rejecting…"
-        .value=${feedback}
-        @input=${(e) => onFeedbackText(e.target.value)}
-      />
-      <div class="plan-approval-buttons">
-        <button type="button" class="nx-action-btn nx-btn-sm" @click=${onReject}>Reject</button>
-        <button type="button" class="nx-btn-primary nx-btn-sm" @click=${onApprove}>Approve</button>
-      </div>
-    </div>
-  `;
 }
 
 export default class NxChatAo extends LitElement {
@@ -175,7 +153,7 @@ export default class NxChatAo extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
+    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, artifactStyle];
     this._controller = new AoChatController({
       onUpdate: ({
         messages, thinking, streamingText, episodes, episodeId,
@@ -215,12 +193,19 @@ export default class NxChatAo extends LitElement {
     if (changed.has('pendingPlanApproval') && this.pendingPlanApproval?.turnId !== changed.get('pendingPlanApproval')?.turnId) {
       this._planFeedback = '';
     }
+    if (changed.has('messages')) {
+      const log = this.shadowRoot?.querySelector('.chat-scroll-container');
+      this._wasNearBottom = !log || (log.scrollHeight - log.scrollTop - log.clientHeight < 50);
+    }
   }
 
   updated(changed) {
     if (changed.has('messages')) {
       const log = this.shadowRoot.querySelector('.chat-scroll-container');
-      if (log) log.scrollTop = log.scrollHeight;
+      if (log && this._wasNearBottom) {
+        cancelAnimationFrame(this._scrollRaf);
+        this._scrollRaf = requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
+      }
     }
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
       this.shadowRoot.querySelector('.chat-input')?.focus();
@@ -364,10 +349,9 @@ export default class NxChatAo extends LitElement {
           : nothing}
             ${this.messages?.map((msg) => (msg.role === 'assistant' ? html`
               <div class="message message-assistant">
-                ${msg.uiArtifact ? renderUiArtifact(msg.uiArtifact) : html`
-                  <div class="message-content">${renderMarkdown(msg.content)}</div>
-                  ${renderCopyButton(msg.content, { streaming: msg.streaming })}
-                `}
+                ${renderAssistantMessageBody(msg, {
+            onExpandToolCall: (toolCallId) => this._controller.hydrateToolCall(toolCallId),
+          })}
               </div>
             ` : html`
               <div class="message message-user">

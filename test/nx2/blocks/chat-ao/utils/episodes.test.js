@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeArtifacts, fetchEpisodeContext, warmSession,
-  toUiArtifact,
+  toUiArtifact, fetchTurnEvents, extractToolCalls,
 } from '../../../../../nx2/blocks/chat-ao/utils/episodes.js';
 import { AO_HTTP_BASE } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
 
@@ -153,6 +153,55 @@ describe('episodes.js', () => {
       ]);
     });
 
+    it('reconstructs one aggregate summary toolCall row per turn with tool_call_count > 0, before the text', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({
+          turns: [{
+            id: 't1', user_input: 'update the page', final_response: 'Done.', tool_call_count: 2,
+          }],
+        }),
+      });
+
+      const messages = await fetchEpisodeMessages('ep-1');
+
+      expect(messages).to.deep.equal([
+        { role: 'user', content: 'update the page' },
+        {
+          role: 'assistant',
+          toolCall: {
+            toolCallId: 't1:summary', status: 'summary', summaryText: 'Used 2 tools', turnId: 't1',
+          },
+        },
+        { role: 'assistant', content: 'Done.' },
+      ]);
+    });
+
+    it('singularizes the summary text for exactly one tool call', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ turns: [{ id: 't1', tool_call_count: 1 }] }),
+      });
+
+      const messages = await fetchEpisodeMessages('ep-1');
+
+      expect(messages[0].toolCall.summaryText).to.equal('Used 1 tool');
+    });
+
+    it('adds no toolCall row for a turn with no tool calls', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ turns: [{ id: 't1', user_input: 'hi', final_response: 'hey' }] }),
+      });
+
+      const messages = await fetchEpisodeMessages('ep-1');
+
+      expect(messages).to.deep.equal([
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: 'hey' },
+      ]);
+    });
+
     it('returns [] on a non-ok response', async () => {
       restoreFetch();
       installFetch({ status: 404 });
@@ -166,6 +215,122 @@ describe('episodes.js', () => {
       window.fetch = async () => { throw new Error('network down'); };
 
       expect(await fetchEpisodeMessages('ep-1')).to.deep.equal([]);
+    });
+  });
+
+  describe('fetchTurnEvents', () => {
+    it('requests the turn events endpoint', async () => {
+      restoreFetch();
+      installFetch({ body: JSON.stringify({ events: [] }) });
+
+      await fetchTurnEvents('t1');
+
+      expect(lastCall().url).to.equal(`${AO_HTTP_BASE}/api/v1/events/turn/t1`);
+    });
+
+    it('returns the events array from a successful response', async () => {
+      restoreFetch();
+      installFetch({ body: JSON.stringify({ events: [{ type: 'user_message' }] }) });
+
+      expect(await fetchTurnEvents('t1')).to.deep.equal([{ type: 'user_message' }]);
+    });
+
+    it('returns [] on a non-ok response', async () => {
+      restoreFetch();
+      installFetch({ status: 500 });
+
+      expect(await fetchTurnEvents('t1')).to.deep.equal([]);
+    });
+
+    it('returns [] when the fetch itself throws', async () => {
+      restoreFetch();
+      origFetch = window.fetch;
+      window.fetch = async () => { throw new Error('network down'); };
+
+      expect(await fetchTurnEvents('t1')).to.deep.equal([]);
+    });
+  });
+
+  describe('extractToolCalls', () => {
+    it('joins an assistant_message tool call with its matching tool_result', () => {
+      const toolCalls = extractToolCalls([
+        {
+          type: 'assistant_message',
+          tool_calls: [{ id: 'tc1', name: 'skill', arguments: '{"skill_name":"x"}' }],
+        },
+        {
+          type: 'tool_result',
+          tool_call_id: 'tc1',
+          tool_name: 'skill',
+          result: 'full raw body',
+          status: 'success',
+          duration_s: 0.03,
+          metadata: { skill_title: 'AEM Sites DA Page Update' },
+        },
+      ]);
+
+      expect(toolCalls).to.deep.equal([{
+        toolCallId: 'tc1',
+        toolName: 'skill',
+        arguments: { skill_name: 'x' },
+        result: 'full raw body',
+        status: 'success',
+        durationS: 0.03,
+        title: 'AEM Sites DA Page Update',
+      }]);
+    });
+
+    it('prefers display_result over the raw result when both are present', () => {
+      const toolCalls = extractToolCalls([
+        { type: 'assistant_message', tool_calls: [{ id: 'tc1', name: 'read_file', arguments: '{}' }] },
+        {
+          type: 'tool_result',
+          tool_call_id: 'tc1',
+          result: 'the entire file contents...',
+          display_result: 'Read file: foo.txt',
+          status: 'success',
+        },
+      ]);
+
+      expect(toolCalls[0].result).to.equal('Read file: foo.txt');
+    });
+
+    it('marks a call still running when no matching tool_result exists yet', () => {
+      const toolCalls = extractToolCalls([
+        { type: 'assistant_message', tool_calls: [{ id: 'tc1', name: 'skill', arguments: '{}' }] },
+      ]);
+
+      expect(toolCalls[0].status).to.equal('running');
+      expect(toolCalls[0].result).to.equal(undefined);
+    });
+
+    it('preserves call order across multiple tool calls in the same turn', () => {
+      const toolCalls = extractToolCalls([
+        {
+          type: 'assistant_message',
+          tool_calls: [
+            { id: 'tc1', name: 'read_file', arguments: '{}' },
+            { id: 'tc2', name: 'skill', arguments: '{}' },
+          ],
+        },
+        { type: 'tool_result', tool_call_id: 'tc1', result: 'a', status: 'success' },
+        { type: 'tool_result', tool_call_id: 'tc2', result: 'b', status: 'success' },
+      ]);
+
+      expect(toolCalls.map((c) => c.toolCallId)).to.deep.equal(['tc1', 'tc2']);
+    });
+
+    it('does not throw on malformed JSON arguments, defaulting to {}', () => {
+      const toolCalls = extractToolCalls([
+        { type: 'assistant_message', tool_calls: [{ id: 'tc1', name: 'skill', arguments: '{not json' }] },
+      ]);
+
+      expect(toolCalls[0].arguments).to.deep.equal({});
+    });
+
+    it('returns [] for an empty or missing events list', () => {
+      expect(extractToolCalls([])).to.deep.equal([]);
+      expect(extractToolCalls(undefined)).to.deep.equal([]);
     });
   });
 

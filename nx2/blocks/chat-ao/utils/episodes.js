@@ -46,6 +46,18 @@ function turnsToMessages(turns, artifacts = []) {
   const messages = [];
   (turns ?? []).forEach((turn) => {
     if (turn?.user_input) messages.push({ role: 'user', content: turn.user_input });
+    // tools_summary is declared but never actually written server-side — always [].
+    if (turn?.tool_call_count > 0) {
+      messages.push({
+        role: 'assistant',
+        toolCall: {
+          toolCallId: `${turn.id}:summary`,
+          status: 'summary',
+          summaryText: `Used ${turn.tool_call_count} tool${turn.tool_call_count === 1 ? '' : 's'}`,
+          turnId: turn.id,
+        },
+      });
+    }
     // Artifacts come from a mid-turn tool call, so they precede final_response on the wire.
     (artifactsByTurn.get(turn?.id) ?? []).forEach((artifact) => {
       messages.push({ role: 'assistant', uiArtifact: toUiArtifact(artifact) });
@@ -53,6 +65,49 @@ function turnsToMessages(turns, artifacts = []) {
     if (turn?.final_response) messages.push({ role: 'assistant', content: turn.final_response });
   });
   return messages;
+}
+
+export function extractToolCalls(events) {
+  const results = new Map();
+  (events ?? []).forEach((event) => {
+    if (event.type === 'tool_result') results.set(event.tool_call_id, event);
+  });
+
+  const calls = [];
+  (events ?? []).forEach((event) => {
+    if (event.type !== 'assistant_message') return;
+    (event.tool_calls ?? []).forEach((call) => {
+      const resultEvent = results.get(call.id);
+      let args = {};
+      try {
+        args = JSON.parse(call.arguments ?? '{}');
+      } catch {
+        args = {};
+      }
+      calls.push({
+        toolCallId: call.id,
+        toolName: call.name,
+        arguments: args,
+        result: resultEvent?.display_result ?? resultEvent?.result,
+        status: resultEvent?.status ?? 'running',
+        durationS: resultEvent?.duration_s,
+        ...(resultEvent?.metadata?.skill_title && { title: resultEvent.metadata.skill_title }),
+      });
+    });
+  });
+  return calls;
+}
+
+export async function fetchTurnEvents(turnId) {
+  try {
+    const { base, headers } = await aoContext();
+    const resp = await fetch(`${base}/api/v1/events/turn/${turnId}`, { headers });
+    if (!resp.ok) return [];
+    const { events } = await resp.json();
+    return events ?? [];
+  } catch {
+    return [];
+  }
 }
 
 const MAX_ARTIFACT_FETCH_PAGES = 200;

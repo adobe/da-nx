@@ -247,6 +247,331 @@ describe('ao-controller ui artifacts', () => {
   });
 });
 
+describe('ao-controller tool-call activity', () => {
+  it('appends a detected toolCall message on tool_call_detected, with no arguments yet', () => {
+    const { controller, updates } = makeController();
+
+    controller._handleServerEvent({
+      type: 'tool_call_detected',
+      data: { tool_call_id: 'tc1', tool_name: 'search_content' },
+    });
+
+    expect(controller._messages).to.deep.equal([{
+      role: 'assistant',
+      toolCall: { toolCallId: 'tc1', toolName: 'search_content', status: 'detected' },
+    }]);
+    expect(updates).to.have.length(1);
+  });
+
+  it('upgrades a detected toolCall to running on tool_call_start, patching in place rather than appending', () => {
+    const { controller, updates } = makeController();
+    controller._handleServerEvent({
+      type: 'tool_call_detected',
+      data: { tool_call_id: 'tc1', tool_name: 'search_content' },
+    });
+
+    controller._handleServerEvent({
+      type: 'tool_call_start',
+      data: { tool_call_id: 'tc1', tool_name: 'search_content', arguments: { query: 'hero' } },
+    });
+
+    expect(controller._messages).to.deep.equal([{
+      role: 'assistant',
+      toolCall: {
+        toolCallId: 'tc1', toolName: 'search_content', status: 'running', arguments: { query: 'hero' },
+      },
+    }]);
+    expect(updates).to.have.length(2);
+  });
+
+  it('appends a running toolCall message on tool_call_start', () => {
+    const { controller, updates } = makeController();
+
+    controller._handleServerEvent({
+      type: 'tool_call_start',
+      data: { tool_call_id: 'tc1', tool_name: 'search_content', arguments: { query: 'hero' } },
+    });
+
+    expect(controller._messages).to.deep.equal([{
+      role: 'assistant',
+      toolCall: {
+        toolCallId: 'tc1', toolName: 'search_content', status: 'running', arguments: { query: 'hero' },
+      },
+    }]);
+    expect(updates).to.have.length(1);
+  });
+
+  it('patches the same toolCall entry in place on tool_call_end, rather than appending a second row', () => {
+    const { controller, updates } = makeController();
+    controller._handleServerEvent({
+      type: 'tool_call_start',
+      data: { tool_call_id: 'tc1', tool_name: 'search_content', arguments: { query: 'hero' } },
+    });
+
+    controller._handleServerEvent({
+      type: 'tool_call_end',
+      data: { tool_call_id: 'tc1', result: { matches: 3 }, success: true, duration_s: 1.2 },
+    });
+
+    expect(controller._messages).to.deep.equal([{
+      role: 'assistant',
+      toolCall: {
+        toolCallId: 'tc1',
+        toolName: 'search_content',
+        status: 'success',
+        arguments: { query: 'hero' },
+        result: { matches: 3 },
+        durationS: 1.2,
+      },
+    }]);
+    expect(updates).to.have.length(2);
+  });
+
+  it('marks the toolCall as failed when tool_call_end reports success: false', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent({
+      type: 'tool_call_start',
+      data: { tool_call_id: 'tc1', tool_name: 'search_content', arguments: {} },
+    });
+
+    controller._handleServerEvent({
+      type: 'tool_call_end',
+      data: { tool_call_id: 'tc1', result: null, success: false },
+    });
+
+    expect(controller._messages[0].toolCall.status).to.equal('error');
+  });
+
+  it('leaves other messages untouched when patching a toolCall by id', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent({
+      type: 'tool_call_start',
+      data: { tool_call_id: 'tc1', tool_name: 'search_content', arguments: {} },
+    });
+    controller._handleServerEvent({
+      type: 'tool_call_start',
+      data: { tool_call_id: 'tc2', tool_name: 'read_file', arguments: {} },
+    });
+
+    controller._handleServerEvent({
+      type: 'tool_call_end',
+      data: { tool_call_id: 'tc1', result: 'done', success: true },
+    });
+
+    expect(controller._messages[1].toolCall).to.deep.equal({
+      toolCallId: 'tc2', toolName: 'read_file', status: 'running', arguments: {},
+    });
+  });
+
+  it('surfaces metadata.skill_title as a friendly title on tool_call_start, e.g. for a skill tool call', () => {
+    const { controller } = makeController();
+
+    controller._handleServerEvent({
+      type: 'tool_call_start',
+      data: {
+        tool_call_id: 'tc1',
+        tool_name: 'skill',
+        arguments: { skill_name: 'aem-sites-da-page-update' },
+        metadata: { skill_name: 'aem-sites-da-page-update', skill_title: 'AEM Sites DA Page Update' },
+      },
+    });
+
+    expect(controller._messages[0].toolCall.title).to.equal('AEM Sites DA Page Update');
+  });
+
+  it('carries the title through to tool_call_end without needing it repeated', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent({
+      type: 'tool_call_start',
+      data: {
+        tool_call_id: 'tc1',
+        tool_name: 'skill',
+        arguments: {},
+        metadata: { skill_title: 'AEM Sites DA Page Update' },
+      },
+    });
+
+    controller._handleServerEvent({
+      type: 'tool_call_end',
+      data: { tool_call_id: 'tc1', result: 'a long skill body...', success: true, duration_s: 0.03 },
+    });
+
+    expect(controller._messages[0].toolCall.title).to.equal('AEM Sites DA Page Update');
+  });
+
+  it('picks up the title from tool_call_end when tool_call_start had none', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent({
+      type: 'tool_call_start',
+      data: { tool_call_id: 'tc1', tool_name: 'skill', arguments: {} },
+    });
+
+    controller._handleServerEvent({
+      type: 'tool_call_end',
+      data: {
+        tool_call_id: 'tc1', result: 'done', success: true, metadata: { skill_title: 'Late Title' },
+      },
+    });
+
+    expect(controller._messages[0].toolCall.title).to.equal('Late Title');
+  });
+
+  it('omits title entirely for tool calls with no skill metadata', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent({
+      type: 'tool_call_start',
+      data: { tool_call_id: 'tc1', tool_name: 'search_content', arguments: {} },
+    });
+
+    expect(controller._messages[0].toolCall).to.not.have.property('title');
+  });
+});
+
+describe('ao-controller hydrateToolCall', () => {
+  function makeControllerWithSummary(toolCall) {
+    const { controller, updates } = makeController();
+    controller._messages = [{ role: 'assistant', toolCall }];
+    return { controller, updates };
+  }
+
+  it('nests the real tool call inside the same summary row, keeping its position and identity', async () => {
+    const { controller, updates } = makeControllerWithSummary({
+      toolCallId: 't1:summary', status: 'summary', summaryText: 'Used 1 tool', turnId: 't1',
+    });
+    let requestedTurnId;
+    controller._fetchTurnEvents = async (turnId) => {
+      requestedTurnId = turnId;
+      return [
+        { type: 'assistant_message', tool_calls: [{ id: 'real-tc1', name: 'skill', arguments: '{}' }] },
+        {
+          type: 'tool_result',
+          tool_call_id: 'real-tc1',
+          result: 'full body',
+          status: 'success',
+          duration_s: 0.05,
+          metadata: { skill_title: 'AEM Sites DA Page Update' },
+        },
+      ];
+    };
+
+    await controller.hydrateToolCall('t1:summary');
+
+    expect(requestedTurnId).to.equal('t1');
+    expect(controller._messages).to.have.length(1);
+    expect(controller._messages[0].toolCall).to.deep.equal({
+      toolCallId: 't1:summary', // kept stable so the <details> element identity/open-state survives
+      status: 'summary',
+      summaryText: 'Used 1 tool', // unchanged — swapping this out mid-expand read as broken
+      turnId: 't1',
+      calls: [{
+        toolCallId: 'real-tc1',
+        toolName: 'skill',
+        arguments: {},
+        result: 'full body',
+        status: 'success',
+        durationS: 0.05,
+        title: 'AEM Sites DA Page Update',
+      }],
+    });
+    expect(updates).to.have.length(2); // loadingCalls: true, then the hydrated result
+  });
+
+  it('marks loadingCalls true synchronously, and clears it once the fetch resolves', async () => {
+    const { controller, updates } = makeControllerWithSummary({
+      toolCallId: 't1:summary', status: 'summary', summaryText: 'Used 1 tool', turnId: 't1',
+    });
+    let resolveFetch;
+    controller._fetchTurnEvents = () => new Promise((resolve) => { resolveFetch = resolve; });
+
+    const pending = controller.hydrateToolCall('t1:summary');
+    expect(controller._messages[0].toolCall.loadingCalls).to.equal(true);
+    expect(updates).to.have.length(1);
+
+    resolveFetch([
+      { type: 'assistant_message', tool_calls: [{ id: 'tc1', name: 'skill', arguments: '{}' }] },
+      { type: 'tool_result', tool_call_id: 'tc1', result: 'r', status: 'success' },
+    ]);
+    await pending;
+
+    expect(controller._messages[0].toolCall).to.not.have.property('loadingCalls');
+    expect(updates).to.have.length(2);
+  });
+
+  it('leaves summaryText untouched once multiple calls are hydrated', async () => {
+    const { controller } = makeControllerWithSummary({
+      toolCallId: 't1:summary', status: 'summary', summaryText: 'Used 2 tools', turnId: 't1',
+    });
+    controller._fetchTurnEvents = async () => [
+      {
+        type: 'assistant_message',
+        tool_calls: [{ id: 'tc1', name: 'read_file', arguments: '{}' }, { id: 'tc2', name: 'skill', arguments: '{}' }],
+      },
+      { type: 'tool_result', tool_call_id: 'tc1', result: 'a-result', status: 'success' },
+      { type: 'tool_result', tool_call_id: 'tc2', result: 'b-result', status: 'success' },
+    ];
+
+    await controller.hydrateToolCall('t1:summary');
+
+    expect(controller._messages[0].toolCall.summaryText).to.equal('Used 2 tools');
+    expect(controller._messages[0].toolCall.calls.map((c) => c.toolCallId)).to.deep.equal(['tc1', 'tc2']);
+  });
+
+  it('leaves sibling messages untouched when hydrating one summary row', async () => {
+    const { controller } = makeController();
+    controller._messages = [
+      { role: 'assistant', content: 'before' },
+      {
+        role: 'assistant',
+        toolCall: { toolCallId: 't1:summary', status: 'summary', summaryText: 'Used 1 tool', turnId: 't1' },
+      },
+      { role: 'assistant', content: 'after' },
+    ];
+    controller._fetchTurnEvents = async () => [
+      { type: 'assistant_message', tool_calls: [{ id: 'tc1', name: 'skill', arguments: '{}' }] },
+      { type: 'tool_result', tool_call_id: 'tc1', result: 'a-result', status: 'success' },
+    ];
+
+    await controller.hydrateToolCall('t1:summary');
+
+    expect(controller._messages).to.have.length(3);
+    expect(controller._messages[0].content).to.equal('before');
+    expect(controller._messages[2].content).to.equal('after');
+    expect(controller._messages[1].toolCall.calls).to.have.length(1);
+  });
+
+  it('is a no-op for a toolCallId that is not pending hydration (already hydrated or unknown)', async () => {
+    const { controller, updates } = makeControllerWithSummary({
+      toolCallId: 't1:summary', toolName: 'skill', status: 'success', result: 'already hydrated',
+    });
+    let called = false;
+    controller._fetchTurnEvents = async () => {
+      called = true;
+      return [];
+    };
+
+    await controller.hydrateToolCall('t1:summary');
+    await controller.hydrateToolCall('does-not-exist');
+
+    expect(called).to.equal(false);
+    expect(updates).to.have.length(0);
+    expect(controller._messages[0].toolCall.result).to.equal('already hydrated');
+  });
+
+  it('still clears loadingCalls (leaving `calls` unset) when the turn\'s events yield no tool calls', async () => {
+    const { controller, updates } = makeControllerWithSummary({
+      toolCallId: 't1:summary', status: 'summary', summaryText: 'Used 1 tool', turnId: 't1',
+    });
+    controller._fetchTurnEvents = async () => [];
+
+    await controller.hydrateToolCall('t1:summary');
+
+    expect(controller._messages[0].toolCall.status).to.equal('summary');
+    expect(controller._messages[0].toolCall).to.not.have.property('calls');
+    expect(controller._messages[0].toolCall).to.not.have.property('loadingCalls');
+    expect(updates).to.have.length(2); // loadingCalls: true, then cleared
+  });
+});
+
 describe('ao-controller episodes', () => {
   it('loadEpisodes hydrates the latest episode and its messages', async () => {
     const { controller, updates } = makeController();
@@ -772,6 +1097,36 @@ describe('ao-controller warmSession', () => {
     controller._ensureSocket = async () => { throw new Error('AO WebSocket error'); };
 
     await controller.warmSession(); // rejecting would fail this test
+  });
+});
+
+describe('ao-controller connection recovery', () => {
+  it('reattaches on a dropped socket rather than declaring the turn dead', async () => {
+    const { controller, sent, updates } = makeController();
+    controller._thinking = true;
+    controller._messages = [{ role: 'user', content: 'update the headline' }];
+
+    await controller._recoverFromClose();
+
+    expect(sent).to.deep.equal([{ type: 'ATTACH' }]);
+    // Still waiting on the turn's remaining events — not declared dead.
+    expect(controller._thinking).to.equal(true);
+    expect(controller._messages).to.deep.equal([{ role: 'user', content: 'update the headline' }]);
+    expect(updates).to.have.length(0);
+  });
+
+  it('surfaces an error and ends the turn only when reattaching itself fails', async () => {
+    const { controller, updates } = makeController();
+    controller._thinking = true;
+    controller._ensureSocket = async () => { throw new Error('AO WebSocket error'); };
+
+    await controller._recoverFromClose();
+
+    expect(controller._messages.at(-1)).to.deep.equal({
+      role: 'assistant', content: 'Error: AO WebSocket error',
+    });
+    expect(controller._thinking).to.equal(false);
+    expect(updates.at(-1).thinking).to.equal(false);
   });
 });
 

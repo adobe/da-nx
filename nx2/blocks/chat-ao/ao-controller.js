@@ -16,6 +16,7 @@ import { buildFailedUploadsText, buildClientContext } from './utils/user-context
 import { uploadAttachment, getOrgId, resolveAoWsBase } from './utils/uploads.js';
 import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession, toUiArtifact,
+  fetchTurnEvents, extractToolCalls,
 } from './utils/episodes.js';
 import { fetchSkills, loadCachedSkills } from './utils/skills.js';
 import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-helpers.js';
@@ -79,6 +80,41 @@ export default class AoChatController {
   async loadSkills() {
     const fresh = await this._fetchSkills();
     if (fresh) this._skills = fresh;
+  }
+
+  _fetchTurnEvents(turnId) { return fetchTurnEvents(turnId); }
+
+  // Looked up by toolCallId, not index — _messages may be replaced elsewhere
+  // while a caller's own await (e.g. hydrateToolCall's fetch) is in flight.
+  _patchToolCall(toolCallId, patch) {
+    this._messages = this._messages.map((m) => (m.toolCall?.toolCallId === toolCallId
+      ? { ...m, toolCall: { ...m.toolCall, ...patch } } : m));
+    this._update();
+  }
+
+  async hydrateToolCall(toolCallId) {
+    const entry = this._messages.find((m) => m.toolCall?.toolCallId === toolCallId);
+    if (!entry || entry.toolCall.status !== 'summary') return;
+    if (entry.toolCall.calls || entry.toolCall.loadingCalls) return;
+    const { turnId } = entry.toolCall;
+
+    this._patchToolCall(toolCallId, { loadingCalls: true });
+
+    this._turnEventsCache ??= new Map();
+    if (!this._turnEventsCache.has(turnId)) {
+      this._turnEventsCache.set(turnId, this._fetchTurnEvents(turnId));
+    }
+    const events = await this._turnEventsCache.get(turnId);
+    const calls = extractToolCalls(events);
+
+    // See docs/chat-ao-component.md#tool-call-activity — loadingCalls is
+    // dropped, not set false, once hydration finishes.
+    this._messages = this._messages.map((m) => {
+      if (m.toolCall?.toolCallId !== toolCallId) return m;
+      const { loadingCalls: _, ...toolCall } = m.toolCall;
+      return { ...m, toolCall: { ...toolCall, ...(calls.length && { calls }) } };
+    });
+    this._update();
   }
 
   async loadEpisodes() {
@@ -208,10 +244,7 @@ export default class AoChatController {
       ws.addEventListener('close', () => {
         if (!isCurrent()) return;
         this._ws = null;
-        if (this._thinking) {
-          this._messages = [...this._messages, { role: 'assistant', content: 'Error: connection closed' }];
-          this._done();
-        }
+        if (this._thinking) this._recoverFromClose();
       });
 
       ws.addEventListener('error', () => {
@@ -219,6 +252,18 @@ export default class AoChatController {
         reject(new Error('AO WebSocket error'));
       });
     });
+  }
+
+  // See docs/chat-ao-component.md#connection-recovery — a dropped socket
+  // doesn't mean the turn died, so this reattaches once instead of giving up.
+  async _recoverFromClose() {
+    try {
+      await this._ensureSocket();
+      this._ws.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
+    } catch (err) {
+      this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
+      this._done();
+    }
   }
 
   _handleServerEvent(evt) {
@@ -254,6 +299,51 @@ export default class AoChatController {
       const artifact = evt.data?.artifact;
       if (!artifact) return;
       this._messages = [...this._messages, { role: 'assistant', uiArtifact: toUiArtifact(artifact) }];
+      this._update();
+      return;
+    }
+
+    // See docs/chat-ao-component.md#tool-call-activity — patches the same
+    // message entry across detected/start/end rather than appending a row
+    // per event.
+    if (evt.type === AO_EVENT.TOOL_CALL_DETECTED) {
+      const { tool_call_id: toolCallId, tool_name: toolName } = evt.data ?? {};
+      this._messages = [...this._messages, {
+        role: 'assistant', toolCall: { toolCallId, toolName, status: 'detected' },
+      }];
+      this._update();
+      return;
+    }
+
+    if (evt.type === AO_EVENT.TOOL_CALL_START) {
+      const {
+        tool_call_id: toolCallId, tool_name: toolName, arguments: args, metadata,
+      } = evt.data ?? {};
+      const title = metadata?.skill_title;
+      const patch = { toolName, status: 'running', arguments: args, ...(title && { title }) };
+      if (this._messages.some((m) => m.toolCall?.toolCallId === toolCallId)) {
+        this._patchToolCall(toolCallId, patch);
+      } else {
+        this._messages = [...this._messages, { role: 'assistant', toolCall: { toolCallId, ...patch } }];
+        this._update();
+      }
+      return;
+    }
+
+    if (evt.type === AO_EVENT.TOOL_CALL_END) {
+      const {
+        tool_call_id: toolCallId, result, success, duration_s: durationS, metadata,
+      } = evt.data ?? {};
+      this._messages = this._messages.map((m) => {
+        if (m.toolCall?.toolCallId !== toolCallId) return m;
+        const title = m.toolCall.title ?? metadata?.skill_title;
+        return {
+          ...m,
+          toolCall: {
+            ...m.toolCall, status: success ? 'success' : 'error', result, durationS, ...(title && { title }),
+          },
+        };
+      });
       this._update();
       return;
     }
