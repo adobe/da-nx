@@ -51,6 +51,12 @@ const DA_FEEDBACK_ENVS = {
   prod: 'https://feedback.da.live/feedback',
 };
 
+const DA_TRANSLATE_ENVS = {
+  local: 'http://localhost:8787',
+  stage: 'https://translate.da.live',
+  prod: 'https://translate.da.live',
+};
+
 function getEnv(key, envs) {
   const params = new URLSearchParams(window.location.search);
   const query = params.get(key);
@@ -69,10 +75,10 @@ export const DA_CONTENT = getEnv('da-content', DA_CONTENT_ENVS);
 export const DA_PREVIEW = getEnv('da-preview', DA_LIVE_PREVIEW_ENVS);
 export const DA_ETC = getEnv('da-etc', DA_ETC_ENVS);
 export const DA_FEEDBACK = getEnv('da-feedback', DA_FEEDBACK_ENVS);
+export const DA_TRANSLATE = getEnv('da-translate', DA_TRANSLATE_ENVS);
 
 export const HLX_ADMIN = 'https://admin.hlx.page';
 export const AEM_API = 'https://api.aem.live';
-export const DA_TRANSLATE = 'https://translate.da.live';
 
 export const ALLOWED_TOKEN = [
   DA_ADMIN,
