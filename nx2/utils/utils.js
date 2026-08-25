@@ -51,7 +51,7 @@ const DA_FEEDBACK_ENVS = {
   prod: 'https://feedback.da.live/feedback',
 };
 
-function getEnv(key, envs) {
+export function getEnv(key, envs) {
   const params = new URLSearchParams(window.location.search);
   const query = params.get(key);
   if (query === 'reset') {
