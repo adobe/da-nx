@@ -583,7 +583,12 @@ export default class AoChatController {
     return resolveManifestId({ org, site, search });
   }
 
-  async sendMessage(message, items = [], attachments = []) {
+  // `hiddenText` is appended to the wire frame AO receives but never shown in
+  // the UI (it's not put on the message's `content`) — used for machine-facing
+  // context like a parsed Figma design block, which would be noise in the chat.
+  // `thumbnail` is a data URL carried on the local message only, so the visual
+  // design preview renders inline above the user's own text.
+  async sendMessage(message, items = [], attachments = [], { hiddenText = '', thumbnail = '' } = {}) {
     if (!message || (this._thinking && !this._pendingPlanApproval)) return;
     this._interrupting = false;
 
@@ -598,6 +603,7 @@ export default class AoChatController {
       clientMessageId,
       ...(selectionContext.length && { selectionContext }),
       ...(attachmentsMeta.length && { attachmentsMeta }),
+      ...(thumbnail && { thumbnail }),
     }];
     this._thinking = true;
     this._update();
@@ -613,7 +619,7 @@ export default class AoChatController {
       await this._ensureSocket();
       this._ws.send(JSON.stringify({
         type: AO_FRAME.USER_INPUT,
-        text: `${buildFailedUploadsText(failed)}${message}`,
+        text: `${buildFailedUploadsText(failed)}${message}${hiddenText ? `\n\n${hiddenText}` : ''}`,
         manifestId,
         debugMode,
         clientMessageId,
