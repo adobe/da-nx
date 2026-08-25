@@ -26,6 +26,9 @@ import { PANEL_EVENT } from '../../utils/panel.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
+import {
+  parseFig, summarizeFigForAgent, extractFigImages, uploadFigImages, buildImagesBlock,
+} from './utils/fig-strip.js';
 import { createVoiceInput, isVoiceInputSupported, appendTranscript } from './utils/voice-input.js';
 import { showToast } from '../shared/toast/toast.js';
 import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
@@ -67,6 +70,8 @@ export default class NxChatAo extends LitElement {
     _prompts: { state: true },
     _planFeedback: { state: true },
     _voiceListening: { state: true },
+    // Progress line shown while a .fig is being parsed + its images uploaded.
+    _figStatus: { state: true },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
@@ -266,13 +271,24 @@ export default class NxChatAo extends LitElement {
     return [{ section: 'Skills' }, ...filtered];
   }
 
+  // Fig items carry no dataBase64 and are merged into the message as hidden
+  // wire text (see ao-controller.js#sendMessage) rather than sent as an
+  // attachment or context item.
+  _figSendOptions(items) {
+    const figItems = items.filter((i) => i.figSummary);
+    if (!figItems.length) return {};
+    const hiddenText = figItems.map((i) => i.figSummary).join('\n\n');
+    const thumbnail = figItems.find((i) => i.thumbnail)?.thumbnail;
+    return { ...(hiddenText && { hiddenText }), ...(thumbnail && { thumbnail }) };
+  }
+
   _onSlashSelect(skillId) {
     const { message, input } = this._slashMenu.resolveSelection(skillId);
     const pills = this.shadowRoot.querySelector('nx-pills');
     const items = pills?.items ?? [];
     const attachments = items.filter((i) => i.dataBase64);
-    const context = items.filter((i) => !i.dataBase64);
-    this._controller.sendMessage(message, context, attachments);
+    const context = items.filter((i) => !i.dataBase64 && !i.figSummary);
+    this._controller.sendMessage(message, context, attachments, this._figSendOptions(items));
     input.value = '';
     pills?.clear();
   }
@@ -284,14 +300,16 @@ export default class NxChatAo extends LitElement {
       return;
     }
     const input = this.shadowRoot.querySelector('.chat-input');
-    const text = input.value.trim();
-    if (!text) return;
     const pills = this.shadowRoot.querySelector('nx-pills');
     const items = pills?.items ?? [];
+    const figItems = items.filter((i) => i.figSummary);
+    const text = input.value.trim();
+    if (!text && !figItems.length) return;
+    const message = text || 'Create a landing page from this Figma design.';
     const attachments = items.filter((i) => i.dataBase64);
-    const context = items.filter((i) => !i.dataBase64);
+    const context = items.filter((i) => !i.dataBase64 && !i.figSummary);
     this._slashMenu.close();
-    this._controller.sendMessage(text, context, attachments);
+    this._controller.sendMessage(message, context, attachments, this._figSendOptions(items));
     input.value = '';
     pills?.clear();
   }
@@ -311,6 +329,7 @@ export default class NxChatAo extends LitElement {
 
   _handleMenuSelect({ detail: { id } }) {
     if (id === MENU_OPTIONS.FILES) this._openFilePicker();
+    if (id === MENU_OPTIONS.FIGMA) this._openFigPicker();
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._slashMenu.insertSlash();
     if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
@@ -330,6 +349,75 @@ export default class NxChatAo extends LitElement {
 
   _openFilePicker() {
     this.shadowRoot.querySelector('.chat-file-input')?.click();
+  }
+
+  // "Upload .fig file": open a picker filtered to .fig. Unlike a normal
+  // attachment, a .fig is stripped to its ~190KB document + parsed IN THE
+  // BROWSER (see _onFigInputChange) — the ~99% that is embedded images never
+  // leaves the client, and the agent receives the recovered design content
+  // inline instead of the raw file.
+  _openFigPicker() {
+    this.shadowRoot.querySelector('.chat-fig-input')?.click();
+  }
+
+  async _onFigInputChange(e) {
+    const { target } = e;
+    const file = target.files?.[0];
+    target.value = '';
+    if (!file) return;
+
+    const pills = this.shadowRoot.querySelector('nx-pills');
+    const { org, site } = this._context ?? {};
+    this._figStatus = `Reading ${file.name}…`;
+    try {
+      const buf = await file.arrayBuffer();
+      // Parse the FULL file (needed for the image list + dims + layer names).
+      // The raw .fig never goes to the agent — only the de-noised text + the
+      // thumbnail + DA URLs of the extracted images.
+      this._figStatus = 'Parsing the design…';
+      const parsed = await parseFig(new Uint8Array(buf));
+
+      let imagesBlock = '';
+      if (org && site && Array.isArray(parsed.images) && parsed.images.length) {
+        this._figStatus = 'Extracting images…';
+        const mimeByHash = new Map(parsed.images.map((im) => [im.hash, im.mime]));
+        const raw = await extractFigImages(buf);
+        const toUpload = raw.map((r) => ({ ...r, mime: mimeByHash.get(r.hash) }));
+        const base = (parsed.file_name || file.name)
+          .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'figma';
+        const total = toUpload.length;
+        let done = 0;
+        this._figStatus = `Uploading images (0/${total})…`;
+        const urlByHash = await uploadFigImages(toUpload, {
+          org,
+          site,
+          slug: `${base}-${Date.now().toString(36)}`,
+          onProgress: () => { done += 1; this._figStatus = `Uploading images (${done}/${total})…`; },
+        });
+        imagesBlock = buildImagesBlock(parsed.images, urlByHash);
+      }
+
+      this._figStatus = '';
+      const summary = summarizeFigForAgent(parsed);
+      // No dataBase64 → never uploaded as an attachment; _submit/_onSlashSelect
+      // merge figSummary into the hidden wire text and show the thumbnail inline.
+      pills?.add({
+        id: crypto.randomUUID(),
+        label: parsed.file_name || file.name,
+        type: 'image',
+        figSummary: imagesBlock ? `${summary}\n\n${imagesBlock}` : summary,
+        ...(parsed.thumbnail_base64
+          ? { thumbnail: `data:image/png;base64,${parsed.thumbnail_base64}` }
+          : {}),
+      });
+    } catch (err) {
+      this._figStatus = '';
+      pills?.add({
+        id: crypto.randomUUID(),
+        label: `Couldn't read ${file.name}: ${err.message}`,
+        type: 'file',
+      });
+    }
   }
 
   async _onFilesSelected(fileList) {
@@ -402,6 +490,13 @@ export default class NxChatAo extends LitElement {
             ` : html`
               <div class="message message-user">
                 ${renderSelectionPills(msg)}
+                ${msg.thumbnail
+                  ? html`<img
+                      class="message-fig-thumb"
+                      src=${msg.thumbnail}
+                      alt="Figma design preview"
+                    />`
+                  : nothing}
                 <div class="message-content">${msg.content}</div>
               </div>
             `))}
@@ -454,6 +549,19 @@ export default class NxChatAo extends LitElement {
             hidden
             @change=${this._onFileInputChange}
           />
+          <input
+            class="chat-fig-input"
+            type="file"
+            accept=".fig"
+            hidden
+            @change=${this._onFigInputChange}
+          />
+          ${this._figStatus
+            ? html`<div class="fig-status" role="status" aria-live="polite">
+                <span class="fig-spinner" aria-hidden="true"></span>
+                <span>${this._figStatus}</span>
+              </div>`
+            : nothing}
           <textarea
             class="chat-input"
             placeholder="Ask anything, or type / for skills..."

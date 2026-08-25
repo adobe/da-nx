@@ -38,6 +38,7 @@ export const COWORKER_CHAT_URL = 'https://experience.adobe.com/#/coworker';
 export const ADD_MENU_ITEMS = [
   { section: 'Add' },
   { id: MENU_OPTIONS.FILES, label: 'Files or images', icon: 'link' },
+  { id: MENU_OPTIONS.FIGMA, label: 'Upload .fig file', icon: 'link' },
   { id: MENU_OPTIONS.PROMPT, label: 'Prompt', icon: 'commentremove' },
   { id: MENU_OPTIONS.COMMAND, label: '"/" Command', icon: 'prompt' },
   { divider: true },

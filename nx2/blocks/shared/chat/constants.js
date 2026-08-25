@@ -4,6 +4,7 @@ export const MENU_OPTIONS = {
   PROMPT: 'prompt',
   COMMAND: 'command',
   FILES: 'files',
+  FIGMA: 'figma',
   MANAGE_SKILLS: 'skills',
   MANAGE_PROMPT: 'prompts',
   OPEN_COWORKER: 'coworker',
