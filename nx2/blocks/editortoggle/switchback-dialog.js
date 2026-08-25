@@ -95,7 +95,7 @@ class NxEwSwitchbackDialog extends LitElement {
 
   render() {
     return html`
-      <nx-dialog title="Help us improve New Authoring" @close=${this._handleClose}>
+      <nx-dialog title="Help us improve the New Authoring experience" @close=${this._handleClose}>
         <div class="switchback-body">
           <p class="switchback-intro">You just switched back to the old editor. What made you switch back?</p>
           <div class="da-form-field ${this._messageError ? 'da-field-error' : ''}">
