@@ -31,11 +31,14 @@ export const AO_MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 
 export const COWORKER_SKILLS_URL = 'https://coworker.experience.adobe.io/skills';
 
+export const COWORKER_CHAT_URL = 'https://coworker.experience.adobe.io/chat';
+
 export const ADD_MENU_ITEMS = [
   { section: 'Add' },
   { id: 'files', label: 'Files or images', icon: 'link' },
   { divider: true },
   { id: 'skills', label: 'Manage Skills' },
+  { id: 'coworker', label: 'Continue in CoWorker' },
 ];
 
 export const AO_FRAME = {
