@@ -38,8 +38,9 @@ export const ADD_MENU_ITEMS = [
   { id: 'files', label: 'Files or images', icon: 'link' },
   { divider: true },
   { id: 'skills', label: 'Manage Skills' },
-  { id: 'coworker', label: 'Continue in CoWorker' },
 ];
+
+export const OPEN_COWORKER_ITEM = { id: 'coworker', label: 'Continue in CoWorker' };
 
 export const AO_FRAME = {
   AUTH: 'AUTH',

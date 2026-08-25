@@ -14,7 +14,11 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
 import AoChatController from './ao-controller.js';
-import { AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES, COWORKER_SKILLS_URL, COWORKER_CHAT_URL, ADD_MENU_ITEMS } from './ao-constants.js';
+import {
+  AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES,
+  COWORKER_SKILLS_URL, COWORKER_CHAT_URL,
+  ADD_MENU_ITEMS, OPEN_COWORKER_ITEM,
+} from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
@@ -415,7 +419,7 @@ export default class NxChatAo extends LitElement {
             @blur=${this._slashMenu.onBlur}
           ></textarea>
           <div class="chat-actions" ?data-thinking=${this._blocked}>
-            <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
+            <nx-menu .items=${this.episodeId ? [...ADD_MENU_ITEMS, OPEN_COWORKER_ITEM] : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
               <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>
