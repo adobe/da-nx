@@ -6,6 +6,7 @@ export const MENU_OPTIONS = {
   FILES: 'files',
   MANAGE_SKILLS: 'skills',
   MANAGE_PROMPT: 'prompts',
+  OPEN_COWORKER: 'coworker',
 };
 
 export const ADD_MENU_ITEMS = [

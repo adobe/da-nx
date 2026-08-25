@@ -270,7 +270,7 @@ export default class NxChatAo extends LitElement {
     if (id === MENU_OPTIONS.COMMAND) this._slashMenu.insertSlash();
     if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
     if (id === MENU_OPTIONS.MANAGE_SKILLS) window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
-    if (id === 'coworker' && this.episodeId) window.open(`${COWORKER_CHAT_URL}/${this.episodeId}`, '_blank', 'noopener,noreferrer');
+    if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) window.open(`${COWORKER_CHAT_URL}/${this.episodeId}`, '_blank', 'noopener,noreferrer');
   }
 
   _openConfigPage() {
