@@ -6,7 +6,7 @@ import {
   requestAemRole,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
-import { versions } from '../../utils/api.js';
+import { versions, getAemSiteToken } from '../../utils/api.js';
 import { getConfig } from '../../scripts/nx.js';
 import '../shared/menu/menu.js';
 
@@ -17,6 +17,13 @@ const { codeBase } = getConfig();
 const NX_BASE = new URL('../../', import.meta.url).href.replace(/\/$/, '');
 const SEND_ICON_HREF = `${codeBase}/img/icons/s2-icon-send-20-n.svg#icon`;
 const MENU_ICON_HREF = `${codeBase}/img/icons/s2-icon-more-20-n.svg#icon`;
+const PASTE_ICON_HREF = `${codeBase}/img/icons/s2-icon-paste-20-n.svg#icon`;
+const CHECKMARK_ICON_HREF = `${codeBase}/img/icons/s2-icon-checkmark-20-n.svg#icon`;
+
+// `da-sc` (structured-content delivery) only authenticates via `Authorization: token <secret>`,
+// which a plain `window.open` navigation can never attach. Preview/live URLs resolving here are
+// fetched in-app with a site token instead of navigated to. See adobe/da-nx#685.
+const DA_SC_ORIGIN = 'https://da-sc.adobeaem.workers.dev';
 
 const prepareModuleUrl = () => `${window.location.origin}/blocks/canvas/editor-utils/prepare-menu.js`;
 
@@ -59,6 +66,9 @@ class NXEwActions extends LitElement {
     _prepareReady: { state: true },
     // phase: 'error' | 'pending' | 'result'
     _dialog: { state: true },
+    // { action, url, json } | { action, url, error }
+    _scPreview: { state: true },
+    _scCopyDone: { state: true },
   };
 
   get _prepareMenu() {
@@ -176,9 +186,61 @@ class NXEwActions extends LitElement {
 
     this._hasError = false;
     const url = this._resolveOpenUrl(action, aemPath, result.url);
-    window.open(url, url);
     this._saveVersion(action);
+
+    if (new URL(url).origin === DA_SC_ORIGIN) {
+      await this._openStructuredContentPreview(url, action);
+    } else {
+      window.open(url, url);
+    }
     this._busy = false;
+  }
+
+  // `da-sc` only accepts `Authorization: token <secret>`, which a browser navigation can't
+  // attach — fetch it in-app with the site's token and show the result in a dialog instead.
+  async _openStructuredContentPreview(url, action) {
+    const { org, site } = this._hashState || {};
+    const result = await getAemSiteToken({ org, site });
+    // Response field name isn't pinned down anywhere in this codebase — same hedge as
+    // nx/blocks/importer/index.js.
+    const siteToken = result?.siteToken || result?.token;
+
+    let json;
+    let error;
+    if (!siteToken) {
+      error = { message: 'Could not obtain a site token to authenticate this request.' };
+    } else {
+      try {
+        const resp = await fetch(url, { headers: { Authorization: `token ${siteToken}` } });
+        if (resp.ok) {
+          json = await resp.json();
+        } else {
+          error = { status: resp.status, message: `Request failed (${resp.status}).` };
+        }
+      } catch (e) {
+        error = { message: e?.message || 'Network error.' };
+      }
+    }
+
+    await Promise.all([
+      import('../shared/dialog/dialog.js'),
+      import(`${NX_BASE}/public/sl/components.js`),
+    ]);
+    this._scCopyDone = false;
+    this._scPreview = {
+      action, url, json, error,
+    };
+  }
+
+  async _copyScPreviewUrl() {
+    if (!this._scPreview?.url) return;
+    try {
+      await navigator.clipboard.writeText(this._scPreview.url);
+      this._scCopyDone = true;
+      setTimeout(() => { this._scCopyDone = false; }, 2000);
+    } catch {
+      /* clipboard unavailable; url is still visible/selectable in the dialog */
+    }
   }
 
   _saveVersion(action) {
@@ -242,6 +304,45 @@ class NXEwActions extends LitElement {
     `;
   }
 
+  _renderScPreviewDialog() {
+    if (!this._scPreview) return nothing;
+    const {
+      action, url, json, error,
+    } = this._scPreview;
+    const title = action === 'publish' ? 'Publish' : 'Preview';
+    const close = () => { this._scPreview = undefined; };
+
+    return html`
+      <nx-dialog title=${title} style="--nx-dialog-max-width: 720px" @close=${close}>
+        <div class="sc-preview-body">
+          <div class="sc-preview-url-row">
+            <input class="sc-preview-url" type="text" readonly .value=${url} @click=${(e) => e.target.select()} />
+            <button
+              type="button"
+              class="sc-preview-copy ${this._scCopyDone ? 'is-done' : ''}"
+              aria-label="Copy URL"
+              @click=${() => this._copyScPreviewUrl()}
+            >
+              <svg class="icon-paste" viewBox="0 0 20 20" aria-hidden="true"><use href=${PASTE_ICON_HREF}></use></svg>
+              <svg class="icon-checkmark" viewBox="0 0 20 20" aria-hidden="true"><use href=${CHECKMARK_ICON_HREF}></use></svg>
+            </button>
+          </div>
+          <p class="sc-preview-note">
+            If this site requires authentication, opening this URL directly (e.g. in a browser
+            tab) might 401 — it would need an <code>Authorization: token &lt;site-secret&gt;</code>
+            header, which only a programmatic request (e.g. curl) can attach.
+          </p>
+          ${error ? html`
+            <p class="sc-preview-error">${error.message}</p>
+          ` : html`
+            <pre class="sc-preview-json"><code>${JSON.stringify(json, null, 2)}</code></pre>
+          `}
+        </div>
+        <sl-button slot="actions" @click=${() => this.shadowRoot.querySelector('nx-dialog').close()}>Close</sl-button>
+      </nx-dialog>
+    `;
+  }
+
   render() {
     const hasDoc = Boolean(buildAemPathFromHashState(this._hashState));
     const disabled = !hasDoc || this._busy;
@@ -290,6 +391,7 @@ class NXEwActions extends LitElement {
         </div>
       </div>
       ${this._renderDialog()}
+      ${this._renderScPreviewDialog()}
     `;
   }
 }

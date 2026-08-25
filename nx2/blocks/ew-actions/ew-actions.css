@@ -65,3 +65,101 @@
   background-color: var(--s2-red-900);
 }
 
+.sc-preview-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-150);
+  min-width: 0;
+}
+
+.sc-preview-url-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-75);
+}
+
+.sc-preview-url {
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: var(--s2-spacing-75) var(--s2-spacing-100);
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-200);
+  background: var(--s2-gray-75);
+  color: var(--s2-gray-800);
+  font-family: monospace;
+  font-size: var(--s2-body-size-xs);
+}
+
+.sc-preview-copy {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--s2-corner-radius-200);
+  background: var(--s2-gray-100);
+  color: var(--s2-gray-800);
+  cursor: pointer;
+}
+
+.sc-preview-copy:hover {
+  background: var(--s2-gray-200);
+}
+
+.sc-preview-copy svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.sc-preview-copy .icon-checkmark {
+  display: none;
+}
+
+.sc-preview-copy.is-done .icon-paste {
+  display: none;
+}
+
+.sc-preview-copy.is-done .icon-checkmark {
+  display: block;
+  color: var(--s2-green-900, #1a7d3d);
+}
+
+.sc-preview-note {
+  margin: 0;
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-700);
+
+  code {
+    background: var(--s2-gray-75);
+    border-radius: var(--s2-corner-radius-75);
+    padding: 1px var(--s2-spacing-50);
+  }
+}
+
+.sc-preview-error {
+  margin: 0;
+  color: var(--s2-red-900, #b3261e);
+  font-size: var(--s2-body-size-s);
+}
+
+.sc-preview-json {
+  margin: 0;
+  max-height: 50vh;
+  overflow: auto;
+  padding: var(--s2-spacing-100);
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-200);
+  background: var(--s2-gray-75);
+  font-family: monospace;
+  font-size: var(--s2-body-size-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
