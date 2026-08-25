@@ -649,6 +649,17 @@ describe('ao-controller episodes', () => {
     expect(updates.at(-1).messages).to.deep.equal([{ role: 'assistant', content: 'from 2' }]);
   });
 
+  it('_loadEpisode also attaches for live listening, not just once the user starts typing', async () => {
+    const { controller } = makeController();
+    const warmed = [];
+    controller.warmSession = async () => { warmed.push(controller._episodeId); };
+    controller._fetchEpisodeMessages = async () => [];
+
+    await controller._loadEpisode('1');
+
+    expect(warmed).to.deep.equal(['1']);
+  });
+
   it('switchEpisode is a no-op for the already-active episode or mid-turn', async () => {
     const { controller } = makeController();
     controller._episodeId = '1';
@@ -1131,6 +1142,7 @@ describe('ao-controller warmSession', () => {
 describe('ao-controller connection recovery', () => {
   it('reattaches on a dropped socket rather than declaring the turn dead', async () => {
     const { controller, sent, updates } = makeController();
+    controller._episodeId = '1';
     controller._thinking = true;
     controller._messages = [{ role: 'user', content: 'update the headline' }];
 
@@ -1143,8 +1155,9 @@ describe('ao-controller connection recovery', () => {
     expect(updates).to.have.length(0);
   });
 
-  it('surfaces an error and ends the turn only when reattaching itself fails', async () => {
+  it('surfaces an error and ends the turn only when reattaching itself fails mid-turn', async () => {
     const { controller, updates } = makeController();
+    controller._episodeId = '1';
     controller._thinking = true;
     controller._ensureSocket = async () => { throw new Error('AO WebSocket error'); };
 
@@ -1155,6 +1168,37 @@ describe('ao-controller connection recovery', () => {
     });
     expect(controller._thinking).to.equal(false);
     expect(updates.at(-1).thinking).to.equal(false);
+  });
+
+  it('reattaches even while idle (not mid-turn), so cross-client updates keep arriving live', async () => {
+    const { controller, sent, updates } = makeController();
+    controller._episodeId = '1';
+    controller._thinking = false;
+
+    await controller._recoverFromClose();
+
+    expect(sent).to.deep.equal([{ type: 'ATTACH' }]);
+    expect(updates).to.have.length(0);
+  });
+
+  it('fails silently when idle — a background reconnect failure should not interrupt the user', async () => {
+    const { controller } = makeController();
+    controller._episodeId = '1';
+    controller._thinking = false;
+    controller._ensureSocket = async () => { throw new Error('AO WebSocket error'); };
+
+    await controller._recoverFromClose(); // throwing would fail this test
+
+    expect(controller._messages).to.deep.equal([]);
+  });
+
+  it('is a no-op when there is no active episode to reattach to', async () => {
+    const { controller, sent, updates } = makeController();
+
+    await controller._recoverFromClose();
+
+    expect(sent).to.have.length(0);
+    expect(updates).to.have.length(0);
   });
 });
 

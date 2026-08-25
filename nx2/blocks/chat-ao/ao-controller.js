@@ -144,6 +144,9 @@ export default class AoChatController {
     this._thinking = !!pendingInteraction;
     this._loadingEpisode = false;
     this._update();
+    // See docs/chat-ao-component.md#connection-recovery — attaches now, not
+    // just once the user types, so cross-client updates arrive live.
+    this.warmSession();
   }
 
   // See docs/chat-ao-component.md#episode-switching — an empty result here
@@ -248,7 +251,7 @@ export default class AoChatController {
       ws.addEventListener('close', () => {
         if (!isCurrent()) return;
         this._ws = null;
-        if (this._thinking) this._recoverFromClose();
+        if (!this._destroyed) this._recoverFromClose();
       });
 
       ws.addEventListener('error', () => {
@@ -258,13 +261,16 @@ export default class AoChatController {
     });
   }
 
-  // See docs/chat-ao-component.md#connection-recovery — a dropped socket
-  // doesn't mean the turn died, so this reattaches once instead of giving up.
+  // See docs/chat-ao-component.md#connection-recovery — reattaches on any
+  // drop, mid-turn or idle, so cross-client updates keep arriving live; only
+  // a mid-turn failure is surfaced to the user.
   async _recoverFromClose() {
+    if (!this._episodeId) return;
     try {
       await this._ensureSocket();
       this._ws.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
     } catch (err) {
+      if (!this._thinking) return;
       this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
       this._done();
     }

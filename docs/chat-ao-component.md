@@ -13,8 +13,12 @@ per backend. Which client loads for a given org/site is decided by
 ## Session warming
 
 `AoChatController.warmSession()` (`ao-controller.js`) kicks the current
-episode's backend session awake as soon as the user starts typing, so the
-orchestrator's cold start happens during typing instead of after Send.
+episode's backend session awake and attaches its WebSocket — called both as
+soon as the user starts typing (so the orchestrator's cold start happens
+during typing instead of after Send) and right after `_loadEpisode` loads or
+switches to an episode (so the socket is listening immediately, not only
+once the user does something — see
+[Connection recovery](#connection-recovery) for why that matters).
 
 - **Existing episodes only.** Warming a brand-new (no `episodeId` yet)
   session would create a real, persisted episode immediately — leaving an
@@ -58,16 +62,41 @@ finish successfully server-side — visible only after a reload pulled the
 real answer from REST history, since the live client had already given up
 and stopped listening.
 
-`_recoverFromClose()` now reattaches (`_ensureSocket()` + `ATTACH`) once
-instead of declaring the turn dead, and otherwise does nothing — `_thinking`
-stays true, so the UI keeps showing progress while waiting for the turn's
-remaining events over the reattached socket. Only a failed *reattach* (not
-the original close) surfaces an error. A genuinely dead session still ends
-the turn correctly: it surfaces via the normal `ERROR_CONNECTION`/
-`ERROR_SESSION` handling once reattached. This does one recovery attempt,
-not retry-with-backoff — a repeatedly-flapping connection reattaches on every
-close with no delay; full backoff (with delay/attempt-limits) is a capability
-nx-chat already has and nx-chat-ao deliberately hasn't built yet.
+`_recoverFromClose()` reattaches (`_ensureSocket()` + `ATTACH`) once instead
+of declaring the turn dead, and otherwise does nothing — `_thinking` stays
+whatever it already was, so the UI keeps showing progress (if any) while
+waiting for events over the reattached socket. Only a failed *reattach*
+that happens while a turn is actually in flight (`_thinking` true) surfaces
+an error; a failed reattach while idle fails silently, since nothing was
+asked of AO and nothing should visibly break for the user. A genuinely dead
+session mid-turn still ends the turn correctly: it surfaces via the normal
+`ERROR_CONNECTION`/`ERROR_SESSION` handling once reattached. This does one
+recovery attempt, not retry-with-backoff — a repeatedly-flapping connection
+reattaches on every close with no delay; full backoff (with delay/attempt-
+limits) is a capability nx-chat already has and nx-chat-ao deliberately
+hasn't built yet.
+
+**Reattaching isn't only about recovering a broken connection — it's also
+how cross-client updates arrive live.** AO fans out `SessionEvent`s to every
+WebSocket attached to an episode (not just the one that submitted a turn) in
+its production/durable orchestrator mode, via a Redis pub/sub channel keyed
+by `episode_id` — confirmed directly against AO's backend source (each
+connection gets an independent subscription; Temporal mode subscribes to
+Redis, which delivers to every subscriber of a channel independently, unlike
+AO's local/dev mode which drains a single shared queue and would NOT support
+this). Since most of `_handleServerEvent`'s branches don't gate on
+`_thinking` at all, a turn submitted from a *different* client attached to
+the same episode (e.g. AO's own "coworker" UI, open in another tab on the
+same conversation) renders here too, live — as long as this client's socket
+stays attached. That's the actual reason `warmSession()` now runs on every
+episode load/switch (see [Session warming](#session-warming)) and
+`_recoverFromClose()` reattaches unconditionally rather than only mid-turn:
+without both, an idle tab's socket would eventually close (e.g. a gateway's
+idle timeout) and never reattach, silently going deaf to a conversation
+someone kept working on elsewhere. This is not a heartbeat/keepalive
+mechanism, though — a connection that goes silently stale without ever
+firing a `close` event (rare, but possible with some NATs/proxies) still
+wouldn't self-heal; that's a known gap, not yet built.
 
 ## Episode switching
 
