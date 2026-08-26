@@ -9,6 +9,11 @@ their Experience Cloud routes. Capabilities now opens
 `https://experience.adobe.com/#/coworker/customizations`; continuing an episode
 opens `https://experience.adobe.com/#/coworker/{episodeId}`.
 
+### nx2/blocks/chat-ao — PR CSS cleanup
+
+Removed the unused `button.action-btn` rule and split the malformed
+`max-height`/`border-left` declaration in the tool-call detail styles.
+
 ## 2026-08-25
 
 ### nx2/utils/api.js — hlx6 rename/move via copy + delete (#687)
