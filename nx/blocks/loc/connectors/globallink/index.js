@@ -5,7 +5,7 @@ import authReady, { getAccessToken } from './auth.js';
 
 export const dnt = { addDnt };
 
-const BATCH_NAME = 'Batch1';
+const DEFAULT_BATCH_NAME = 'Batch1';
 const DEFAULT_DUE_DATE_DAYS = 7;
 const PROCESS_POLL_MS = 2000;
 const PROCESS_POLL_MAX = 60;
@@ -170,6 +170,7 @@ function extractCustomAttributes(options) {
  * @param {number} dueDateDays - The number of days until the submission is due.
  * @param {{name: string, value: string}[]} customAttributes - Any project-required custom
  * attributes (e.g. a mandatory field), from {@link extractCustomAttributes}.
+ * @param {string} batchName - The name of the batch to create within the submission.
  * @returns {Promise<string|number|null>} The created submission id, or `null` on failure.
  */
 async function createSubmission(
@@ -179,6 +180,7 @@ async function createSubmission(
   sourceLanguage,
   dueDateDays,
   customAttributes,
+  batchName,
 ) {
   const body = JSON.stringify({
     name: `${title}-${Date.now()}`,
@@ -190,7 +192,7 @@ async function createSubmission(
     batchInfos: [{
       targetLanguageInfos: langs.map((lang) => ({ targetLanguage: lang.code })),
       targetFormat: 'TXLF',
-      name: BATCH_NAME,
+      name: batchName,
     }],
     claimScope: 'LANGUAGE',
   });
@@ -206,7 +208,7 @@ async function createSubmission(
 }
 
 /**
- * Uploads a single source document to a GlobalLink submission's default batch.
+ * Uploads a single source document to a GlobalLink submission's batch.
  * @param {object} service - The flattened per-environment service config.
  * @param {string} service.fileFormatName - The GlobalLink file format to upload as.
  * @param {string|number} submissionId - The target submission id.
@@ -214,15 +216,17 @@ async function createSubmission(
  * @param {string} url.daBasePath - The DA-formatted base path, used for the file name and
  * as the GlobalLink `clientIdentifier` for later matching.
  * @param {string} url.content - The document's HTML content (with DNT applied).
+ * @param {string} batchName - The name of the batch this document belongs to, matching the
+ * one passed to {@link createSubmission}.
  * @returns {Promise<boolean>} Whether the upload succeeded.
  */
-async function uploadSourceFile(service, submissionId, url) {
+async function uploadSourceFile(service, submissionId, url, batchName) {
   const body = new FormData();
   const fileName = toFileName(url.daBasePath);
   const file = new Blob([url.content], { type: 'text/html' });
 
   body.append('file', file, fileName);
-  body.append('batchName', BATCH_NAME);
+  body.append('batchName', batchName);
   body.append('fileFormatName', service.fileFormatName);
   body.append('clientIdentifier', url.daBasePath);
 
@@ -347,6 +351,8 @@ export function connect(service) {
  * @param {string} conf.title - The localization project title.
  * @param {object} conf.service - The flattened per-environment service config (mutated
  * in place with the created `submissionId`).
+ * @param {string} [conf.service.batchName] - The batch name to create/upload under
+ * (defaults to `DEFAULT_BATCH_NAME`).
  * @param {object} conf.options - The full localization project options, including any
  * `translation.service.custom.*` fields required as GlobalLink submission custom attributes.
  * @param {object[]} conf.langs - The target languages to send (mutated in place with
@@ -384,6 +390,7 @@ export async function sendAllLanguages({
   const sourceLanguage = options?.['source.language']?.code || service.sourceLanguage || 'en-US';
   const dueDateDays = Number(service.dueDateDays) || DEFAULT_DUE_DATE_DAYS;
   const customAttributes = extractCustomAttributes(options);
+  const batchName = service.batchName || DEFAULT_BATCH_NAME;
 
   sendMessage({ text: `Creating GlobalLink submission for: ${title}.` });
   const submissionId = await createSubmission(
@@ -393,6 +400,7 @@ export async function sendAllLanguages({
     sourceLanguage,
     dueDateDays,
     customAttributes,
+    batchName,
   );
   if (!submissionId) {
     sendMessage({ text: 'Failed to create GlobalLink submission.', type: 'error' });
@@ -411,7 +419,7 @@ export async function sendAllLanguages({
   for (const url of urls) {
     sendMessage({ text: `Uploading ${url.daBasePath}` });
     // eslint-disable-next-line no-await-in-loop
-    const ok = await uploadSourceFile(service, submissionId, url);
+    const ok = await uploadSourceFile(service, submissionId, url, batchName);
     if (ok) accepted += 1;
   }
 
