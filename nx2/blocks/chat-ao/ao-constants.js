@@ -29,9 +29,9 @@ export const AO_UPLOAD_EXTENSIONS = [
 // AO's per-file size limit (filesystem/quotas.py's _SINGLE_FILE_LIMIT).
 export const AO_MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 
-export const COWORKER_SKILLS_URL = 'https://coworker.experience.adobe.io/skills';
+export const COWORKER_SKILLS_URL = 'https://experience.adobe.com/#/coworker/customizations';
 
-export const COWORKER_CHAT_URL = 'https://coworker.experience.adobe.io/chat';
+export const COWORKER_CHAT_URL = 'https://experience.adobe.com/#/coworker';
 
 export const ADD_MENU_ITEMS = [
   { section: 'Add' },
