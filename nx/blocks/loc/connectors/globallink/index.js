@@ -5,7 +5,6 @@ import authReady, { getAccessToken } from './auth.js';
 
 export const dnt = { addDnt };
 
-const DEFAULT_BATCH_NAME = 'Batch1';
 const DEFAULT_DUE_DATE_DAYS = 7;
 const PROCESS_POLL_MS = 2000;
 const PROCESS_POLL_MAX = 60;
@@ -161,6 +160,17 @@ function extractCustomAttributes(options) {
 }
 
 /**
+ * Generates a name for a submission's batch, derived from the title and a timestamp.
+ * GlobalLink batch names must be unique within the submission and no more than 64
+ * UTF-8 characters.
+ * @param {string} title - The localization project title.
+ * @returns {string} A batch name, truncated to 64 characters.
+ */
+function generateBatchName(title) {
+  return `${title}-batch-${Date.now()}`.slice(0, 64);
+}
+
+/**
  * Creates a new GlobalLink submission (with one batch targeting all requested languages).
  * @param {object} service - The flattened per-environment service config.
  * @param {string|number} service.projectId - The GlobalLink project id.
@@ -170,7 +180,8 @@ function extractCustomAttributes(options) {
  * @param {number} dueDateDays - The number of days until the submission is due.
  * @param {{name: string, value: string}[]} customAttributes - Any project-required custom
  * attributes (e.g. a mandatory field), from {@link extractCustomAttributes}.
- * @param {string} batchName - The name of the batch to create within the submission.
+ * @param {string} batchName - The name of the batch to create within the submission. Must
+ * be unique within the submission and no more than 64 UTF-8 characters.
  * @returns {Promise<string|number|null>} The created submission id, or `null` on failure.
  */
 async function createSubmission(
@@ -351,8 +362,6 @@ export function connect(service) {
  * @param {string} conf.title - The localization project title.
  * @param {object} conf.service - The flattened per-environment service config (mutated
  * in place with the created `submissionId`).
- * @param {string} [conf.service.batchName] - The batch name to create/upload under
- * (defaults to `DEFAULT_BATCH_NAME`).
  * @param {object} conf.options - The full localization project options, including any
  * `translation.service.custom.*` fields required as GlobalLink submission custom attributes.
  * @param {object[]} conf.langs - The target languages to send (mutated in place with
@@ -390,7 +399,7 @@ export async function sendAllLanguages({
   const sourceLanguage = options?.['source.language']?.code || service.sourceLanguage || 'en-US';
   const dueDateDays = Number(service.dueDateDays) || DEFAULT_DUE_DATE_DAYS;
   const customAttributes = extractCustomAttributes(options);
-  const batchName = service.batchName || DEFAULT_BATCH_NAME;
+  const batchName = generateBatchName(title);
 
   sendMessage({ text: `Creating GlobalLink submission for: ${title}.` });
   const submissionId = await createSubmission(
