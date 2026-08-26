@@ -236,6 +236,17 @@ describe('ao-controller turn lifecycle', () => {
     expect(updates.at(-1).thinking).to.equal(false);
   });
 
+  it('clears a pending plan approval when the suspended turn is aborted server-side (e.g. via INTERRUPT)', () => {
+    const { controller, updates } = makeController();
+    controller._thinking = true;
+    controller._pendingPlanApproval = { turnId: 't1', planContent: '# Plan', planFilePath: null };
+
+    controller._handleServerEvent({ type: 'turn_aborted' });
+
+    expect(controller._pendingPlanApproval).to.equal(undefined);
+    expect(updates.at(-1).pendingPlanApproval).to.equal(undefined);
+  });
+
   it('surfaces a session-level error as an assistant message', () => {
     const { controller, updates } = makeController();
     controller._thinking = true;
@@ -675,6 +686,29 @@ describe('ao-controller episodes', () => {
     expect(updates.at(-1).thinking).to.equal(true);
   });
 
+  it('loadEpisodes hydrates a pending permission request left over from a suspended turn, with a fresh empty decisions map', async () => {
+    const { controller, updates } = makeController();
+    controller._fetchEpisodes = async () => [{ id: '2', title: 'Latest' }];
+    controller._fetchEpisodeMessages = async () => [];
+    controller._fetchEpisodeContext = async () => ({
+      type: 'permission',
+      turnId: 't1',
+      calls: [{ toolCallId: 'tc1', toolName: 'da__da_copy_content', arguments: {} }],
+    });
+
+    await controller.loadEpisodes();
+
+    expect(controller._pendingPermission).to.deep.equal({
+      turnId: 't1',
+      calls: [{ toolCallId: 'tc1', toolName: 'da__da_copy_content', arguments: {} }],
+      decisions: {},
+    });
+    expect(controller._pendingQuestion).to.equal(undefined);
+    expect(controller._pendingPlanApproval).to.equal(undefined);
+    expect(updates.at(-1).pendingPermission).to.deep.equal(controller._pendingPermission);
+    expect(updates.at(-1).thinking).to.equal(true);
+  });
+
   it('loadEpisodes is a no-op hydration when there are no prior episodes', async () => {
     const { controller, updates } = makeController();
     controller._fetchEpisodes = async () => [];
@@ -937,6 +971,42 @@ describe('ao-controller stop', () => {
 
     expect(updates.at(-1).thinking).to.equal(false);
   });
+
+  it('clears a pending question left over from a suspended turn once the abort completes', () => {
+    const { controller, updates } = makeController();
+    controller._thinking = true;
+    controller._pendingQuestion = { turnId: 't1', context: null, questions: [] };
+    controller._ws.readyState = WebSocket.OPEN;
+
+    controller.stop();
+
+    expect(controller._pendingQuestion).to.equal(undefined);
+    expect(updates.at(-1).pendingQuestion).to.equal(undefined);
+  });
+
+  it('clears a pending plan approval left over from a suspended turn once the abort completes', () => {
+    const { controller, updates } = makeController();
+    controller._thinking = true;
+    controller._pendingPlanApproval = { turnId: 't1', planContent: '# Plan', planFilePath: null };
+    controller._ws.readyState = WebSocket.OPEN;
+
+    controller.stop();
+
+    expect(controller._pendingPlanApproval).to.equal(undefined);
+    expect(updates.at(-1).pendingPlanApproval).to.equal(undefined);
+  });
+
+  it('clears a pending permission request left over from a suspended turn once the abort completes', () => {
+    const { controller, updates } = makeController();
+    controller._thinking = true;
+    controller._pendingPermission = { turnId: 't1', calls: [{ toolCallId: 'tc1' }], decisions: {} };
+    controller._ws.readyState = WebSocket.OPEN;
+
+    controller.stop();
+
+    expect(controller._pendingPermission).to.equal(undefined);
+    expect(updates.at(-1).pendingPermission).to.equal(undefined);
+  });
 });
 
 describe('ao-controller user questions', () => {
@@ -1123,6 +1193,133 @@ describe('ao-controller plan approval', () => {
     controller._handleServerEvent({ type: 'text_delta', data: { content: 'Sure' } });
 
     expect(updates.at(-1).pendingPlanApproval).to.equal(undefined);
+  });
+});
+
+describe('ao-controller permission requests', () => {
+  const sampleEvent = {
+    type: 'permission_request',
+    turn_id: 't1',
+    context_id: 'c1',
+    data: {
+      turn_id: 't1',
+      pending_calls: [{
+        id: 'tooluse_1',
+        name: 'da__da_copy_content',
+        arguments: { sourcePath: '/coffee', destinationPath: '/drafts/coffee-2' },
+        needs_permission: true,
+      }],
+    },
+  };
+
+  it('surfaces a PERMISSION_REQUEST event as pendingPermission', () => {
+    const { controller, updates } = makeController();
+
+    controller._handleServerEvent(sampleEvent);
+
+    expect(updates.at(-1).pendingPermission).to.deep.equal({
+      turnId: 't1',
+      calls: [{
+        toolCallId: 'tooluse_1',
+        toolName: 'da__da_copy_content',
+        arguments: { sourcePath: '/coffee', destinationPath: '/drafts/coffee-2' },
+      }],
+      decisions: {},
+    });
+  });
+
+  it('respondToPermission sends PERMISSION_RESPONSE directly over an already-open socket, and clears pendingPermission', async () => {
+    const { controller, updates, sent } = makeController();
+    controller._handleServerEvent(sampleEvent);
+    controller._ws.readyState = WebSocket.OPEN;
+
+    await controller.respondToPermission('tooluse_1', true);
+
+    expect(sent).to.deep.equal([{
+      type: 'PERMISSION_RESPONSE',
+      turn_id: 't1',
+      decisions: { tooluse_1: { tool_call_id: 'tooluse_1', approved: true } },
+    }]);
+    expect(updates.at(-1).pendingPermission).to.equal(undefined);
+  });
+
+  it('resumes via RESUME when responding with no live socket — a bare PERMISSION_RESPONSE is rejected as an invalid first op', async () => {
+    const { controller, sent } = makeController();
+    controller._pendingPermission = {
+      turnId: 't1',
+      calls: [{ toolCallId: 'tooluse_1', toolName: 'da__da_copy_content', arguments: {} }],
+      decisions: {},
+    };
+    controller._ws = null;
+    controller._ensureSocket = async () => {
+      controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
+    };
+
+    await controller.respondToPermission('tooluse_1', false);
+
+    expect(sent).to.deep.equal([{
+      type: 'RESUME',
+      turn_id: 't1',
+      data: {
+        type: 'permission-response',
+        decisions: { tooluse_1: { tool_call_id: 'tooluse_1', approved: false } },
+      },
+    }]);
+  });
+
+  it('collects decisions locally and sends nothing until every pending call has one', async () => {
+    const { controller, updates, sent } = makeController();
+    controller._handleServerEvent({
+      type: 'permission_request',
+      turn_id: 't1',
+      data: {
+        turn_id: 't1',
+        pending_calls: [
+          { id: 'a', name: 'tool_a', arguments: {}, needs_permission: true },
+          { id: 'b', name: 'tool_b', arguments: {}, needs_permission: true },
+        ],
+      },
+    });
+    controller._ws.readyState = WebSocket.OPEN;
+
+    await controller.respondToPermission('a', true);
+
+    expect(sent).to.have.length(0); // still waiting on 'b'
+    expect(updates.at(-1).pendingPermission.decisions).to.deep.equal({ a: true });
+
+    await controller.respondToPermission('b', false);
+
+    expect(sent).to.deep.equal([{
+      type: 'PERMISSION_RESPONSE',
+      turn_id: 't1',
+      decisions: {
+        a: { tool_call_id: 'a', approved: true },
+        b: { tool_call_id: 'b', approved: false },
+      },
+    }]);
+    expect(updates.at(-1).pendingPermission).to.equal(undefined);
+  });
+
+  it('respondToPermission is a no-op when there is no pending permission request', async () => {
+    const { controller, sent } = makeController();
+
+    await controller.respondToPermission('tooluse_1', true);
+
+    expect(sent).to.have.length(0);
+  });
+
+  it('a pending permission request does not block switching episodes — it is suspended, not actively streaming', async () => {
+    const { controller } = makeController();
+    controller._episodeId = '1';
+    controller._thinking = true;
+    controller._handleServerEvent(sampleEvent);
+    controller._ws = { close: () => { controller._ws = null; } };
+    controller._fetchEpisodeMessages = async (id) => [{ role: 'assistant', content: `from ${id}` }];
+
+    await controller.switchEpisode('2');
+
+    expect(controller._episodeId).to.equal('2');
+    expect(controller._pendingPermission).to.equal(undefined);
   });
 });
 

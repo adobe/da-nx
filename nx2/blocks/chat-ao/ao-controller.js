@@ -45,6 +45,7 @@ export default class AoChatController {
       episodeId: this._episodeId,
       pendingQuestion: this._pendingQuestion,
       pendingPlanApproval: this._pendingPlanApproval,
+      pendingPermission: this._pendingPermission,
       loadingEpisode: this._loadingEpisode,
     });
   }
@@ -130,6 +131,7 @@ export default class AoChatController {
     this._messages = [];
     this._pendingQuestion = undefined;
     this._pendingPlanApproval = undefined;
+    this._pendingPermission = undefined;
     this._thinking = false;
     this._loadingEpisode = true;
     this._update();
@@ -141,6 +143,11 @@ export default class AoChatController {
     this._messages = messages;
     this._pendingQuestion = pendingInteraction?.type === 'question' ? pendingInteraction : undefined;
     this._pendingPlanApproval = pendingInteraction?.type === 'plan' ? pendingInteraction : undefined;
+    // decisions always starts empty on rehydration — any partial local
+    // progress from before the switch/reload wasn't submitted, so it's gone.
+    this._pendingPermission = pendingInteraction?.type === 'permission'
+      ? { turnId: pendingInteraction.turnId, calls: pendingInteraction.calls, decisions: {} }
+      : undefined;
     this._thinking = !!pendingInteraction;
     this._loadingEpisode = false;
     this._update();
@@ -158,10 +165,12 @@ export default class AoChatController {
     this._update();
   }
 
-  // A pending question/plan is suspended, not streaming — safe to abandon and
-  // resume later. Only real in-flight generation should block switching away.
+  // A pending question/plan/permission is suspended, not streaming — safe to
+  // abandon and resume later. Only real in-flight generation should block
+  // switching away.
   get _blockedByActiveTurn() {
-    return this._thinking && !this._pendingQuestion && !this._pendingPlanApproval;
+    return this._thinking && !this._pendingQuestion
+      && !this._pendingPlanApproval && !this._pendingPermission;
   }
 
   async switchEpisode(episodeId) {
@@ -183,6 +192,7 @@ export default class AoChatController {
     this._streamingText = undefined;
     this._pendingQuestion = undefined;
     this._pendingPlanApproval = undefined;
+    this._pendingPermission = undefined;
     this._thinking = false;
     this._update();
   }
@@ -413,6 +423,19 @@ export default class AoChatController {
       return;
     }
 
+    // See docs/chat-ao-component.md#permission-requests for the wire shapes.
+    if (evt.type === AO_EVENT.PERMISSION_REQUEST) {
+      this._pendingPermission = {
+        turnId: evt.data?.turn_id ?? evt.turn_id,
+        calls: (evt.data?.pending_calls ?? []).map((c) => ({
+          toolCallId: c.id, toolName: c.name, arguments: c.arguments,
+        })),
+        decisions: {},
+      };
+      this._update();
+      return;
+    }
+
     if (evt.type === AO_EVENT.ERROR_CONNECTION || evt.type === AO_EVENT.ERROR_SESSION) {
       // Idle means nothing was actually asked of AO — e.g. a background warm
       // attempt failing. Only surface errors during an actual turn.
@@ -423,9 +446,15 @@ export default class AoChatController {
     }
   }
 
+  // A suspended turn (question/plan/permission) that gets interrupted still
+  // reaches here via TURN_ABORTED — clear whichever card was pending so it
+  // doesn't linger after the turn it belonged to is gone.
   _done() {
     this._thinking = false;
     this._streamingText = undefined;
+    this._pendingQuestion = undefined;
+    this._pendingPlanApproval = undefined;
+    this._pendingPermission = undefined;
     this._update();
   }
 
@@ -483,6 +512,43 @@ export default class AoChatController {
           type: 'plan-response', decision, feedback, edited_plan_content: null,
         },
       }));
+    } catch (err) {
+      this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
+      this._done();
+    }
+  }
+
+  // One-shot: AO auto-denies any pending call not present in `decisions` the
+  // moment this is sent (see docs/chat-ao-component.md#permission-requests),
+  // so decisions are collected locally per call and only sent once every
+  // pending call in the turn has one — never streamed one at a time.
+  async respondToPermission(toolCallId, approved) {
+    if (!this._pendingPermission) return;
+    const decisions = { ...this._pendingPermission.decisions, [toolCallId]: approved };
+    if (!this._pendingPermission.calls.every((c) => c.toolCallId in decisions)) {
+      this._pendingPermission = { ...this._pendingPermission, decisions };
+      this._update();
+      return;
+    }
+
+    const { turnId } = this._pendingPermission;
+    const wasAlreadyOpen = this._ws?.readyState === WebSocket.OPEN;
+    this._pendingPermission = undefined;
+    this._update();
+
+    const decisionsPayload = Object.fromEntries(Object.entries(decisions).map(
+      ([id, ok]) => [id, { tool_call_id: id, approved: ok }],
+    ));
+    try {
+      await this._ensureSocket();
+      const frame = wasAlreadyOpen
+        ? { type: AO_FRAME.PERMISSION_RESPONSE, turn_id: turnId, decisions: decisionsPayload }
+        : {
+          type: AO_FRAME.RESUME,
+          turn_id: turnId,
+          data: { type: 'permission-response', decisions: decisionsPayload },
+        };
+      this._ws.send(JSON.stringify(frame));
     } catch (err) {
       this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
       this._done();

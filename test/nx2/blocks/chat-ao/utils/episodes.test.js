@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeArtifacts, fetchEpisodeContext, warmSession,
-  toUiArtifact, fetchTurnEvents, extractToolCalls,
+  toUiArtifact, fetchTurnEvents, extractToolCalls, extractSelectionContext,
 } from '../../../../../nx2/blocks/chat-ao/utils/episodes.js';
 import { AO_HTTP_BASE } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
 
@@ -202,6 +202,69 @@ describe('episodes.js', () => {
       ]);
     });
 
+    it('reconstructs the user message\'s selectionContext from its turn events, as a pill not prose', async () => {
+      restoreFetch();
+      origFetch = window.fetch;
+      window.fetch = async (url) => {
+        const href = url.toString();
+        if (href.includes('/turns')) {
+          return new Response(JSON.stringify({
+            turns: [{ id: 't1', user_input: 'update this' }],
+          }), { status: 200 });
+        }
+        if (href.includes('/events/turn/')) {
+          return new Response(JSON.stringify({
+            events: [{
+              type: 'user_message',
+              client_context: {
+                focused_resources: [
+                  { type: 'document', id: 'adobe/site/page', name: '/page' },
+                  { type: 'block', id: 'a', name: 'hero' },
+                  { type: 'text-selection', name: 'hello world' },
+                ],
+              },
+            }],
+          }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ artifacts: [], has_more: false }), { status: 200 });
+      };
+
+      const messages = await fetchEpisodeMessages('ep-1');
+
+      expect(messages[0]).to.deep.equal({
+        role: 'user',
+        content: 'update this',
+        selectionContext: [
+          { type: 'block', blockName: 'hero' },
+          { type: 'text', innerHTML: 'hello world' },
+        ],
+      });
+    });
+
+    it('omits selectionContext when the turn carried only the document resource', async () => {
+      restoreFetch();
+      origFetch = window.fetch;
+      window.fetch = async (url) => {
+        const href = url.toString();
+        if (href.includes('/turns')) {
+          return new Response(JSON.stringify({ turns: [{ id: 't1', user_input: 'hi' }] }), { status: 200 });
+        }
+        if (href.includes('/events/turn/')) {
+          return new Response(JSON.stringify({
+            events: [{
+              type: 'user_message',
+              client_context: { focused_resources: [{ type: 'document', id: 'a/b/c', name: '/c' }] },
+            }],
+          }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ artifacts: [], has_more: false }), { status: 200 });
+      };
+
+      const messages = await fetchEpisodeMessages('ep-1');
+
+      expect(messages[0]).to.deep.equal({ role: 'user', content: 'hi' });
+    });
+
     it('returns [] on a non-ok response', async () => {
       restoreFetch();
       installFetch({ status: 404 });
@@ -334,6 +397,70 @@ describe('episodes.js', () => {
     });
   });
 
+  describe('extractSelectionContext', () => {
+    it('reconstructs a block selection into the same shape selectionResource() started from', () => {
+      const selectionContext = extractSelectionContext([{
+        type: 'user_message',
+        client_context: { focused_resources: [{ type: 'block', id: 'a', name: 'hero' }] },
+      }]);
+
+      expect(selectionContext).to.deep.equal([{ type: 'block', blockName: 'hero' }]);
+    });
+
+    it('reconstructs a text-selection resource into the {type: "text", innerHTML} pill shape', () => {
+      const selectionContext = extractSelectionContext([{
+        type: 'user_message',
+        client_context: { focused_resources: [{ type: 'text-selection', name: 'hello world' }] },
+      }]);
+
+      expect(selectionContext).to.deep.equal([{ type: 'text', innerHTML: 'hello world' }]);
+    });
+
+    it('filters out the document resource — it was never a pill', () => {
+      const selectionContext = extractSelectionContext([{
+        type: 'user_message',
+        client_context: {
+          focused_resources: [
+            { type: 'document', id: 'adobe/site/page', name: '/page' },
+            { type: 'block', id: 'a', name: 'hero' },
+          ],
+        },
+      }]);
+
+      expect(selectionContext).to.deep.equal([{ type: 'block', blockName: 'hero' }]);
+    });
+
+    it('preserves the order of multiple selected resources', () => {
+      const selectionContext = extractSelectionContext([{
+        type: 'user_message',
+        client_context: {
+          focused_resources: [
+            { type: 'block', id: 'a', name: 'hero' },
+            { type: 'text-selection', name: 'hello world' },
+          ],
+        },
+      }]);
+
+      expect(selectionContext).to.deep.equal([
+        { type: 'block', blockName: 'hero' },
+        { type: 'text', innerHTML: 'hello world' },
+      ]);
+    });
+
+    it('returns [] when the turn carried no client_context, no focused_resources, or no events at all', () => {
+      expect(extractSelectionContext([{ type: 'user_message' }])).to.deep.equal([]);
+      expect(extractSelectionContext([{ type: 'user_message', client_context: {} }])).to.deep.equal([]);
+      expect(extractSelectionContext([])).to.deep.equal([]);
+      expect(extractSelectionContext(undefined)).to.deep.equal([]);
+    });
+
+    it('returns [] when the events list has no user_message event', () => {
+      const selectionContext = extractSelectionContext([{ type: 'assistant_message', tool_calls: [] }]);
+
+      expect(selectionContext).to.deep.equal([]);
+    });
+  });
+
   describe('fetchEpisodeArtifacts', () => {
     it('requests the episode artifacts endpoint', async () => {
       restoreFetch();
@@ -443,11 +570,50 @@ describe('episodes.js', () => {
       });
     });
 
-    it('returns null when the suspended turn has neither questionData nor planData', async () => {
+    it('extracts turnId/calls from a permission-suspended turn, via the always-present pendingCalls field', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({
+          suspendedTurn: {
+            turnId: 't1',
+            suspendReason: 'permission',
+            pendingCalls: [{
+              id: 'tc1',
+              name: 'da__da_copy_content',
+              arguments: { sourcePath: '/coffee', destinationPath: '/drafts/coffee-2' },
+              needs_permission: true,
+            }],
+          },
+        }),
+      });
+
+      expect(await fetchEpisodeContext('ep-1')).to.deep.equal({
+        type: 'permission',
+        turnId: 't1',
+        calls: [{
+          toolCallId: 'tc1',
+          toolName: 'da__da_copy_content',
+          arguments: { sourcePath: '/coffee', destinationPath: '/drafts/coffee-2' },
+        }],
+      });
+    });
+
+    it('returns null when the suspended turn has neither questionData, planData, nor pendingCalls', async () => {
       restoreFetch();
       installFetch({
         body: JSON.stringify({
           suspendedTurn: { turnId: 't1', suspendReason: 'entity_mutation' },
+        }),
+      });
+
+      expect(await fetchEpisodeContext('ep-1')).to.equal(null);
+    });
+
+    it('returns null when pendingCalls is present but empty — always on the response, not permission-specific', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({
+          suspendedTurn: { turnId: 't1', suspendReason: 'user_question', pendingCalls: [] },
         }),
       });
 

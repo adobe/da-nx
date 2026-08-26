@@ -52,6 +52,7 @@ export const AO_FRAME = {
   USER_INPUT: 'USER_INPUT',
   INTERRUPT: 'INTERRUPT',
   QUESTION_RESPONSE: 'QUESTION_RESPONSE',
+  PERMISSION_RESPONSE: 'PERMISSION_RESPONSE',
   RESUME: 'RESUME',
   ATTACH: 'ATTACH',
 };
@@ -68,6 +69,7 @@ export const AO_EVENT = {
   USER_MESSAGE: 'user_message',
   USER_QUESTION: 'user_question',
   PLAN_APPROVAL_REQUEST: 'plan_approval_request',
+  PERMISSION_REQUEST: 'permission_request',
   UI_ARTIFACT_CREATED: 'ui_artifact_created',
   TOOL_CALL_DETECTED: 'tool_call_detected',
   TOOL_CALL_START: 'tool_call_start',

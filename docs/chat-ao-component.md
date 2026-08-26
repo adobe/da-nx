@@ -283,6 +283,93 @@ Both pending questions and pending plan approvals are still exempted from
 either is awaiting a decision is allowed — the turn is durably suspended
 server-side regardless of whether the local input is disabled.
 
+## Permission requests
+
+AO suspends a turn with `permission_request` (`data: { turn_id, pending_calls:
+[{ id, name, arguments, needs_permission }] }`) when a tool call needs
+explicit sign-off before it runs — confirmed live (2026-08-26) for
+`da__da_copy_content`, previously unhandled here entirely. Verified directly
+against AO's backend source (`agents/events.py`, `agents/ops.py`,
+`apps/a2a/ws_handler.py`, `agents/tool_executor/{suspend,suspensions}.py`):
+
+- **Response wire shape**: `{ type: 'PERMISSION_RESPONSE', turn_id, decisions:
+  { [pending_calls[].id]: { tool_call_id, approved } } }` — bare on an
+  already-open connection, wrapped as `{ type: 'RESUME', turn_id, data: {
+  type: 'permission-response', decisions } }` on a cold one, identical
+  cold/warm split to `QUESTION_RESPONSE`.
+- **One-shot, not incremental.** Submitting `PERMISSION_RESPONSE` resolves
+  the *entire* gate for that turn immediately — any `pending_calls[].id` not
+  present in `decisions` at that moment is auto-denied server-side, not
+  re-prompted. So `respondToPermission` collects one decision per call
+  locally (`_pendingPermission.decisions`) and only sends once every call in
+  `pending_calls` has one; sending after the first click, before the rest
+  are decided, would silently deny whatever's left.
+- **No "always approve"/remember-my-choice mechanism exists for this at
+  all** — correcting an earlier, wrong assumption from prior research this
+  session (based on misattributed `scope`/`canRemember` findings that don't
+  actually appear anywhere in this code path). `PermissionDecision` has no
+  `scope` field. The real "don't ask again" behavior is entirely automatic
+  and server-side: approving a destructive tool once auto-approves repeats
+  of *that same tool by name* for the rest of the current turn only,
+  resetting on the next turn (`PermissionGate`/`TurnContext.requires_permission`
+  in `agents/session/.../turn.py`). There is nothing for a client to opt into
+  — no "remember this" button is possible here, unlike nx-chat's old
+  (confirmed non-functional, since removed) "Always approve".
+- **Blocking, like the question flow, not like plan approval.** A pending
+  permission request is added to `_blockedByActiveTurn`'s exemption list
+  (safe to abandon and resume later, same as question/plan), but `sendMessage`
+  is not given a carve-out the way plan approval has one — typing something
+  else while a destructive action is awaiting sign-off isn't offered as an
+  alternative to actually deciding.
+- **REST-hydrated on reload, same as question/plan** — via a field that
+  turned out to already be there. `GET /api/v1/episodes/{id}/context`'s
+  `suspendedTurn.pendingCalls` is *always* present in the response (unlike
+  `questionData`/`planData`, which are reason-specific), but only non-empty
+  when the suspend reason is permission — same `{id, name, arguments,
+  needs_permission}` shape as the live event's `pending_calls`. An earlier
+  version of this doc assumed no such field existed and shipped without
+  rehydration; that assumption was never actually checked against AO's REST
+  response and turned out to be wrong. `fetchEpisodeContext` now returns a
+  `type: 'permission'` result whenever `pendingCalls.length`, and
+  `_loadEpisode` rebuilds `_pendingPermission` from it (with a fresh, empty
+  `decisions` map — any local progress on partially-decided calls from
+  before the switch/reload wasn't submitted, so it's gone either way).
+- **The "Loaded schema for X; not executed — retrying" message is normal,
+  deterministic AO behavior — not a timing issue, and not something to
+  special-case.** Verified against `agents/tool_execution_request.py` and
+  `agents/tool_executor/executor.py`: some tools are "blind deferred" (their
+  schema isn't preloaded). The permission check always runs *before* the
+  schema-load check, so a permission-gated tool suspends for permission
+  first regardless of how long that takes; only once resumed does execution
+  reach the schema-load step, which — the *first* time only — returns this
+  message as a non-generic failure (`success: false`) and retries with a
+  fresh `tool_call_id`. That retry then succeeds without asking permission
+  again, purely because of the same-tool-name-for-the-rest-of-the-turn
+  mechanism above, nothing retry-specific. AO's own reference frontend
+  doesn't special-case this message either — it renders as a plain failed
+  attempt, same as any other tool-call error. Left unspecial-cased here too,
+  matching that precedent, rather than inventing a softer treatment AO's own
+  UI doesn't bother with.
+
+`renderPermissionCard`/`renderPermissionRow` (`renderers.js`) and the card's
+positioning (`chat-ao.css`) deliberately match nx-chat's own
+`renderApprovalCard`/`.approval-actions` — same floating-over-the-input
+placement (`position: absolute`, `.chat-form-wrap`-relative, verbatim the
+same offsets `question-card.js` already uses) and the same box treatment
+(background/border/shadow, tool-name-then-summary-then-right-aligned-buttons
+layout) — visual parity is intentional, but it's independent code, not
+shared, per this component's standing rule. No "Always approve" button, per
+the point above.
+
+A tool call's `arguments` can be a large raw blob (a real case: a full
+rendered-HTML page body as one of the arguments) — capped the same way this
+file already caps other raw-content dumps: `.permission-row-detail` gets
+`.tool-call-detail`'s exact treatment (`max-height: 120px; overflow-y:
+auto`), and `.permission-card` itself gets `.question-card`'s exact
+treatment (`max-height: 60vh; overflow-y: auto`) so Approve/Reject stay
+reachable by scrolling the card, rather than the whole thing overflowing
+off-screen.
+
 ## Markdown rendering
 
 `renderMarkdown` (`utils/markdown.js`) shares `parseMarkdown`
@@ -502,8 +589,26 @@ frame, per AO's native-protocol client-context schema
 inlining them into `text` as prose. This replaced an earlier prose-prefix
 approach (`[Current document — org: ..., site: ..., path: ...]` etc.) — AO
 treats `client_context` as an ephemeral, per-turn reminder that is never
-replayed into later turns' history, so it doesn't bloat the conversation the
-way a permanent text prefix resent on every message would.
+*replayed into a future turn's LLM context*, so it doesn't bloat the
+conversation the way a permanent text prefix resent on every message would.
+
+**"Ephemeral" is about the LLM context window, not about durable storage —
+it's still fully readable on reload.** `UserMessageEvent` (the actual WAL
+record) declares `client_context: ClientContextSnapshot | None` as a real
+field, retrievable via the same `GET /api/v1/events/turn/{turn_id}` endpoint
+`extractToolCalls` already uses. `extractSelectionContext` (`utils/episodes.js`)
+reads that turn's `user_message` event, pulls `focused_resources`, drops the
+`document` entry (never a pill), and maps the rest back into the exact
+`{type, blockName}`/`{type: 'text', innerHTML}` shape `selectionResource()`
+started from — so a reloaded pill renders through the same
+`renderSelectionPills` and looks identical to the one shown live. Inlining
+the description into `text` instead (like the pre-`client_context` approach)
+would also survive reload, since `text` becomes the durable `turn.user_input`
+— but it would render as literal visible prose in the historical message,
+not a pill, which is the opposite of what the pill UI exists for. There is no
+turn-level field for "had a selection" (unlike `tool_call_count` for tool
+calls), so — unlike tool-call hydration — this is fetched eagerly for every
+turn on episode load, not lazily on demand.
 
 `focused_resources` is ranked most to least relevant per AO's contract, so the
 document being edited always comes first, with any selection inside it after.

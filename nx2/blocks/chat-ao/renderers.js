@@ -65,6 +65,40 @@ export function renderAssistantMessageBody(msg, { onExpandToolCall } = {}) {
   `;
 }
 
+// Structure mirrors nx-chat's own renderApprovalCard (tool name, summary,
+// right-aligned button row) — visual parity is deliberate, not shared code.
+function renderPermissionRow(call, decisions, onDecide) {
+  const detail = formatToolCallDetail(call.arguments);
+  const decided = call.toolCallId in decisions;
+  return html`
+    <div class="permission-row">
+      <span class="permission-row-tool">${call.toolName}</span>
+      ${detail ? html`<span class="permission-row-detail">${detail}</span>` : nothing}
+      ${decided ? html`
+        <span class="permission-row-status permission-row-${decisions[call.toolCallId] ? 'approved' : 'rejected'}">
+          ${decisions[call.toolCallId] ? 'approved' : 'rejected'}
+        </span>
+      ` : html`
+        <div class="permission-row-buttons">
+          <button type="button" class="nx-action-btn nx-btn-sm" @click=${() => onDecide(call.toolCallId, false)}>Reject</button>
+          <button type="button" class="nx-btn-primary nx-btn-sm" @click=${() => onDecide(call.toolCallId, true)}>Approve</button>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+// See docs/chat-ao-component.md#permission-requests — decisions are
+// collected per row locally; nothing is sent until every row has one.
+export function renderPermissionCard(pending, { onDecide }) {
+  if (!pending) return nothing;
+  return html`
+    <div class="permission-card">
+      ${pending.calls.map((call) => renderPermissionRow(call, pending.decisions, onDecide))}
+    </div>
+  `;
+}
+
 export function renderPlanApprovalCard(pending, feedback, { onFeedbackText, onApprove, onReject }) {
   if (!pending) return nothing;
   return html`

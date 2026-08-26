@@ -34,7 +34,18 @@ export function toUiArtifact(artifact) {
   };
 }
 
-function turnsToMessages(turns, artifacts = []) {
+// See docs/chat-ao-component.md#client-context for why this is reversible/reloadable.
+export function extractSelectionContext(events) {
+  const userMessage = (events ?? []).find((event) => event.type === 'user_message');
+  const resources = userMessage?.client_context?.focused_resources ?? [];
+  return resources
+    .filter((resource) => resource.type !== 'document')
+    .map((resource) => (resource.type === 'text-selection'
+      ? { type: 'text', innerHTML: resource.name }
+      : { type: resource.type, blockName: resource.name }));
+}
+
+function turnsToMessages(turns, artifacts = [], turnEventsList = []) {
   // Endpoint pages newest-first; reverse for creation order within a turn.
   const artifactsByTurn = new Map();
   [...artifacts].reverse().forEach((artifact) => {
@@ -44,8 +55,15 @@ function turnsToMessages(turns, artifacts = []) {
   });
 
   const messages = [];
-  (turns ?? []).forEach((turn) => {
-    if (turn?.user_input) messages.push({ role: 'user', content: turn.user_input });
+  (turns ?? []).forEach((turn, index) => {
+    if (turn?.user_input) {
+      const selectionContext = extractSelectionContext(turnEventsList[index]);
+      messages.push({
+        role: 'user',
+        content: turn.user_input,
+        ...(selectionContext.length && { selectionContext }),
+      });
+    }
     // tools_summary is declared but never actually written server-side — always [].
     if (turn?.tool_call_count > 0) {
       messages.push({
@@ -142,15 +160,19 @@ export async function fetchEpisodeMessages(episodeId) {
     const resp = await fetch(`${base}/api/v1/episodes/${episodeId}/turns?root_only=true`, { headers });
     if (!resp.ok) return [];
     const { turns } = await resp.json();
-    const artifacts = await fetchEpisodeArtifacts(episodeId);
-    return turnsToMessages(turns, artifacts);
+    const [artifacts, turnEventsList] = await Promise.all([
+      fetchEpisodeArtifacts(episodeId),
+      // See docs/chat-ao-component.md#client-context for why this is eager, not lazy.
+      Promise.all((turns ?? []).map((turn) => fetchTurnEvents(turn.id))),
+    ]);
+    return turnsToMessages(turns, artifacts, turnEventsList);
   } catch {
     return [];
   }
 }
 
-// Starts the durable session without submitting a turn. Best-effort: a
-// manifest that isn't Temporal-mode 400s here, which just means no speedup.
+// See docs/chat-ao-component.md#ao-wire-protocol-notes — best-effort, and a
+// non-Temporal manifest 400s here (just means no speedup, nothing to catch for).
 export async function warmSession(episodeId) {
   try {
     const { base, headers } = await aoContext();
@@ -184,6 +206,17 @@ export async function fetchEpisodeContext(episodeId) {
         turnId: suspendedTurn.turnId,
         planContent: suspendedTurn.planData.planContent ?? '',
         planFilePath: suspendedTurn.planData.planFilePath ?? null,
+      };
+    }
+    // See docs/chat-ao-component.md#permission-requests for why this field
+    // check is enough (pendingCalls is always present, only ever non-empty here).
+    if (suspendedTurn?.pendingCalls?.length) {
+      return {
+        type: 'permission',
+        turnId: suspendedTurn.turnId,
+        calls: suspendedTurn.pendingCalls.map((c) => ({
+          toolCallId: c.id, toolName: c.name, arguments: c.arguments,
+        })),
       };
     }
     return null;

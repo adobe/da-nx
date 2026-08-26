@@ -27,7 +27,7 @@ import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
 import { createVoiceInput, isVoiceInputSupported, appendTranscript } from '../shared/chat/voice-input.js';
 import { showToast } from '../shared/toast/toast.js';
-import { renderAssistantMessageBody, renderPlanApprovalCard } from './renderers.js';
+import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
 import { createSlashMenu } from '../shared/chat/slash-menu.js';
 import '../shared/pills/pills.js';
@@ -60,6 +60,7 @@ export default class NxChatAo extends LitElement {
     episodeId: { type: String },
     pendingQuestion: { type: Object },
     pendingPlanApproval: { type: Object },
+    pendingPermission: { type: Object },
     loadingEpisode: { type: Boolean },
     _dragging: { state: true },
     _prompts: { state: true },
@@ -181,7 +182,7 @@ export default class NxChatAo extends LitElement {
     this._controller = new AoChatController({
       onUpdate: ({
         messages, thinking, streamingText, episodes, episodeId,
-        pendingQuestion, pendingPlanApproval, loadingEpisode,
+        pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode,
       }) => {
         this.messages = streamingText
           ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
@@ -191,6 +192,7 @@ export default class NxChatAo extends LitElement {
         this.episodeId = episodeId;
         this.pendingQuestion = pendingQuestion;
         this.pendingPlanApproval = pendingPlanApproval;
+        this.pendingPermission = pendingPermission;
         this.loadingEpisode = loadingEpisode;
       },
     });
@@ -418,6 +420,9 @@ export default class NxChatAo extends LitElement {
           .onSubmit=${(answers) => this._controller.answerQuestion(answers)}
           .onDecline=${() => this._controller.declineQuestion()}
         ></nx-question-card>
+        ${renderPermissionCard(this.pendingPermission, {
+          onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
+        })}
         <form class="chat-form" @submit=${this._submit}
           @dragenter=${this._dnd.onDragEnter}
           @dragleave=${this._dnd.onDragLeave}
