@@ -11,6 +11,7 @@ export default defineConfig([
   globalIgnores([
     'eslint.config.js',
     '**/deps',
+    '**/nx2/blocks/chat-ao/utils/fig-inspector/fig_inspector.js',
     '**/nx/blocks/loc/regional-diff/object_hash.js',
     '**/nx/blocks/loc/views/complete/confetti.js',
     '**/nx/blocks/loc/connectors/sample/index.js',

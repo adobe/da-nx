@@ -10,14 +10,7 @@
  */
 
 import { daFetch } from '../../../utils/api.js';
-import { DA_ADMIN, getEnv } from '../../../utils/utils.js';
-
-// No fig-inspector Worker is deployed in any environment right now (the prior
-// one was decommissioned). Once redeployed, point at it with `?fig-inspector=
-// <url>` (persisted to localStorage, matching DA_ADMIN/DA_ETC's own convention)
-// — never hardcode a literal Worker URL here.
-const FIG_INSPECTOR_ENVS = {};
-const FIG_INSPECTOR_URL = getEnv('fig-inspector', FIG_INSPECTOR_ENVS);
+import { DA_ADMIN } from '../../../utils/utils.js';
 
 // ZIP record signatures (little-endian).
 const LOCAL_SIG = 0x04034b50;
@@ -26,6 +19,34 @@ const EOCD_SIG = 0x06054b50;
 
 // The only entries the parser needs; everything else (notably images/) is dropped.
 const KEEP = ['canvas.fig', 'thumbnail.png', 'meta.json'];
+const FIG_PARSE_WORKER_URL = new URL('./fig-strip.worker.js', import.meta.url);
+
+let figParseWorker;
+let figParseRequestId = 0;
+const figParsePending = new Map();
+
+function getFigParseWorker() {
+  if (!figParseWorker) {
+    figParseWorker = new Worker(FIG_PARSE_WORKER_URL, { type: 'module' });
+    figParseWorker.addEventListener('message', ({ data }) => {
+      const pending = figParsePending.get(data?.id);
+      if (!pending) return;
+      figParsePending.delete(data.id);
+      if (data.ok) pending.resolve(data.result);
+      else {
+        const detail = data.error?.stack || data.error?.message || 'Failed to parse .fig file';
+        pending.reject(new Error(detail));
+      }
+    });
+    figParseWorker.addEventListener('error', (error) => {
+      figParsePending.forEach(({ reject }) => reject(error));
+      figParsePending.clear();
+      figParseWorker.terminate();
+      figParseWorker = undefined;
+    });
+  }
+  return figParseWorker;
+}
 
 function concatBytes(chunks) {
   const total = chunks.reduce((n, c) => n + c.length, 0);
@@ -166,26 +187,25 @@ export function stripFig(arrayBuffer) {
 }
 
 /**
- * POST `.fig` bytes to the fig-inspector worker and return the parsed inspection
+ * Parse `.fig` bytes in a dedicated worker and return the parsed inspection
  * JSON: `{ file_name, meta, thumbnail_base64, images:[{hash,layer_name,width,
  * height,mime}], text }`. Send the FULL file when you need the image list/dims —
- * the images metadata is only present when the worker sees the `images/` entries.
+ * the images metadata is only present when the parser sees the `images/` entries.
  * @param {Uint8Array} bytes
  */
 export async function parseFig(bytes) {
-  if (!FIG_INSPECTOR_URL) {
-    throw new Error('fig-inspector is not configured for this environment — set it via ?fig-inspector=<url> once a Worker is deployed.');
-  }
-  const resp = await fetch(`${FIG_INSPECTOR_URL}/inspect`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/octet-stream' },
-    body: bytes,
+  const worker = getFigParseWorker();
+  figParseRequestId += 1;
+  const id = figParseRequestId;
+  const transfer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+
+  return new Promise((resolve, reject) => {
+    figParsePending.set(id, { resolve, reject });
+    worker.postMessage({
+      id,
+      bytes: transfer,
+    }, [transfer]);
   });
-  if (!resp.ok) {
-    const detail = await resp.text().catch(() => '');
-    throw new Error(`fig-inspector responded ${resp.status}${detail ? `: ${detail}` : ''}`);
-  }
-  return resp.json();
 }
 
 // The flat text extractor is greedy: alongside real UI copy it emits design-
