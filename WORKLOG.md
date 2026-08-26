@@ -14,6 +14,12 @@ opens `https://experience.adobe.com/#/coworker/{episodeId}`.
 Removed the unused `button.action-btn` rule and split the malformed
 `max-height`/`border-left` declaration in the tool-call detail styles.
 
+### nx2/blocks/chat-ao — contain background request failures
+
+Made session warming catch both HTTP and WebSocket failures, and explicitly
+consumed rejected background episode-list refreshes. Added controller tests for
+both rejection paths.
+
 ## 2026-08-25
 
 ### nx2/utils/api.js — hlx6 rename/move via copy + delete (#687)
