@@ -1,5 +1,14 @@
 # Worklog
 
+## 2026-08-26
+
+### nx2/blocks/chat-ao — update Coworker destinations
+
+Replaced the retired `coworker.experience.adobe.io` skills and chat URLs with
+their Experience Cloud routes. Capabilities now opens
+`https://experience.adobe.com/#/coworker/customizations`; continuing an episode
+opens `https://experience.adobe.com/#/coworker/{episodeId}`.
+
 ## 2026-08-25
 
 ### nx2/utils/api.js — hlx6 rename/move via copy + delete (#687)
