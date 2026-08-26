@@ -1,6 +1,13 @@
 import { expect } from '@esm-bundle/chai';
 import AoChatController from '../../../../nx2/blocks/chat-ao/ao-controller.js';
 
+const APPLICATION = {
+  id: 'da.live',
+  name: 'Experience Workspace',
+  description: 'Experience Workspace, built on da.live: an intelligent authoring surface '
+    + 'where humans and AI agents collaborate to build, edit, and optimize digital experiences.',
+};
+
 function makeController() {
   const updates = [];
   const sent = [];
@@ -25,10 +32,8 @@ describe('ao-controller sendMessage', () => {
       {
         type: 'USER_INPUT',
         text: 'hello AO',
-        manifestId: 'experience-workspace',
-        debugMode: true,
         clientMessageId,
-        client_context: { application: { id: 'da.live', name: 'DA Live' } },
+        client_context: { application: APPLICATION },
       },
     ]);
   });
@@ -72,10 +77,8 @@ describe('ao-controller sendMessage', () => {
       {
         type: 'USER_INPUT',
         text: 'looks good, go ahead',
-        manifestId: 'experience-workspace',
-        debugMode: true,
         clientMessageId: sent[0].clientMessageId,
-        client_context: { application: { id: 'da.live', name: 'DA Live' } },
+        client_context: { application: APPLICATION },
       },
     ]);
     expect(sent[0].clientMessageId).to.be.a('string').with.length.above(0);
@@ -113,7 +116,7 @@ describe('ao-controller sendMessage', () => {
 
     expect(sent[0].text).to.equal('what does this do?');
     expect(sent[0].client_context).to.deep.equal({
-      application: { id: 'da.live', name: 'DA Live' },
+      application: APPLICATION,
       focused_resources: [{
         type: 'document',
         id: 'adobe/da-live/docs/foo',
@@ -138,7 +141,7 @@ describe('ao-controller sendMessage', () => {
     await controller.sendMessage('hello AO');
 
     expect(sent[0].text).to.equal('hello AO');
-    expect(sent[0].client_context).to.deep.equal({ application: { id: 'da.live', name: 'DA Live' } });
+    expect(sent[0].client_context).to.deep.equal({ application: APPLICATION });
   });
 
   it('is a no-op for an empty message', async () => {

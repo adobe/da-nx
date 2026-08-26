@@ -11,7 +11,7 @@
  */
 
 import { loadIms } from '../../utils/ims.js';
-import { AO_FRAME, AO_EVENT, AO_MANIFEST_ID } from './ao-constants.js';
+import { AO_FRAME, AO_EVENT } from './ao-constants.js';
 import { buildFailedUploadsText, buildClientContext } from './utils/user-context.js';
 import { uploadAttachment, getOrgId, resolveAoWsBase } from './utils/uploads.js';
 import {
@@ -520,8 +520,6 @@ export default class AoChatController {
       this._ws.send(JSON.stringify({
         type: AO_FRAME.USER_INPUT,
         text: `${buildFailedUploadsText(failed)}${message}`,
-        manifestId: AO_MANIFEST_ID,
-        debugMode: true,
         clientMessageId,
         ...(artifactIds.length && { attachments: artifactIds }),
         client_context: buildClientContext(this._context, items),

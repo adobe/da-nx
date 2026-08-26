@@ -23,7 +23,14 @@ function documentResource(org, site, path) {
   };
 }
 
-const APPLICATION = { id: 'da.live', name: 'DA Live' };
+// Core wording ("an intelligent authoring surface...") is docs.da.live's own
+// product description (docs.da.live/about/early-access/experience-workspace).
+const APPLICATION = {
+  id: 'da.live',
+  name: 'Experience Workspace',
+  description: 'Experience Workspace, built on da.live: an intelligent authoring surface '
+    + 'where humans and AI agents collaborate to build, edit, and optimize digital experiences.',
+};
 
 // See docs/chat-ao-component.md#client-context for the ranking rationale.
 export function buildClientContext(context, items = []) {

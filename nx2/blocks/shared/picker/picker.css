@@ -1,7 +1,7 @@
 :host {
   display: contents;
   font-family: var(--s2-font-family);
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-regular-font-size);
 
   ul {
     list-style: none;
@@ -14,7 +14,8 @@
   padding: var(--s2-spacing-75) var(--s2-spacing-100) var(--s2-spacing-50);
   margin: 0;
   list-style: none;
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-bold-font-size);
+  line-height: var(--s2-component-s-bold-line-height);
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--s2-gray-700);
@@ -78,7 +79,8 @@
   background: none;
   color: var(--s2-gray-800);
   font-family: inherit;
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-regular-font-size);
+  line-height: var(--s2-component-s-regular-line-height);
   margin-bottom: 2px;
   cursor: pointer;
   box-sizing: border-box;
