@@ -63,8 +63,8 @@ export default class AoChatController {
   async warmSession() {
     if (!this._episodeId || this._thinking || this._warmedEpisodeId === this._episodeId) return;
     this._warmedEpisodeId = this._episodeId;
-    await this._fetchWarmSession(this._episodeId);
     try {
+      await this._fetchWarmSession(this._episodeId);
       await this._ensureSocket();
       this._ws?.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
     } catch {
@@ -290,7 +290,7 @@ export default class AoChatController {
     if (evt.type === AO_EVENT.SESSION_READY) {
       const isNewEpisode = evt.episode_id && evt.episode_id !== this._episodeId;
       this._episodeId = evt.episode_id ?? this._episodeId;
-      if (isNewEpisode) this._refreshEpisodeList();
+      if (isNewEpisode) this._refreshEpisodeList().catch(() => {});
       return;
     }
 

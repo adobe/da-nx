@@ -867,6 +867,16 @@ describe('ao-controller episodes', () => {
     expect(updates).to.have.length(0);
   });
 
+  it('swallows a rejected background episode-list refresh', async () => {
+    const { controller } = makeController();
+    controller._refreshEpisodeList = async () => { throw new Error('network down'); };
+
+    controller._handleServerEvent({ type: 'SESSION_READY', episode_id: '2' });
+    await new Promise((resolve) => { setTimeout(resolve); });
+
+    expect(controller._episodeId).to.equal('2');
+  });
+
   it('ignores a SESSION_READY that repeats the already-active episode id', () => {
     const { controller, updates } = makeController();
     controller._episodeId = '1';
@@ -1382,6 +1392,18 @@ describe('ao-controller warmSession', () => {
     controller._ensureSocket = async () => { throw new Error('AO WebSocket error'); };
 
     await controller.warmSession(); // rejecting would fail this test
+  });
+
+  it('swallows a failed HTTP warm-up without opening the socket', async () => {
+    const { controller } = makeController();
+    controller._episodeId = '1';
+    controller._fetchWarmSession = async () => { throw new Error('network down'); };
+    let socketCalls = 0;
+    controller._ensureSocket = async () => { socketCalls += 1; };
+
+    await controller.warmSession();
+
+    expect(socketCalls).to.equal(0);
   });
 });
 
