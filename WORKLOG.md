@@ -1,5 +1,18 @@
 # Worklog
 
+## 2026-08-25
+
+### nx2/utils/api.js — hlx6 rename/move via copy + delete (#687)
+
+The source bus has no move operation, so `source.move` on hlx6 (used by da-live's
+rename) failed. Reimplemented the hlx6 branch as `source.copy` then `source.delete`
+of the original, reusing the sibling methods (same delegation pattern as
+`save`→`_saveHlx6`). This also inherits copy's `/org/site/` destination-prefix
+stripping, which the old inline move branch was missing. Fails safe: if the copy is
+not ok, it returns that response and never deletes. Legacy (hlx5) `${DA_ADMIN}/move`
+path unchanged. Tests: hlx6 move now asserts copy-then-delete, plus a failure-path
+test asserting no DELETE when the copy fails.
+
 ## 2026-08-19
 
 ### nx2 — restore lazy-loaded RUM (regression from nx1)
