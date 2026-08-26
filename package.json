@@ -34,7 +34,8 @@
     "nx2:test:file:watch": "wtr --config ./nx2/test/wtr.config.mjs --node-resolve --port=2000 --coverage --watch",
     "nx2:build:da-lit": "esbuild --format=esm --minify ./nx2/deps/lit/src/index.js --bundle --outfile=./nx2/deps/lit/dist/index.js",
     "nx2:build:spectrum": "node nx2/deps/spectrum/build.js",
-    "nx2:build:mdast": "esbuild --format=esm --minify ./nx2/deps/mdast/src/index.js --bundle --outfile=./nx2/deps/mdast/dist/index.js"
+    "nx2:build:mdast": "esbuild --format=esm --minify ./nx2/deps/mdast/src/index.js --bundle --outfile=./nx2/deps/mdast/dist/index.js",
+    "nx2:build:fflate": "esbuild --format=esm --minify ./nx2/deps/fflate/src/index.js --bundle --outfile=./nx2/deps/fflate/dist/index.js"
   },
   "repository": {
     "type": "git",
@@ -75,6 +76,7 @@
     "@lit-labs/virtualizer": "^2.0.16",
     "codemirror": "^6.0.2",
     "esbuild": ">=0.25.0",
+    "fflate": "^0.8.3",
     "hast-util-raw": "^9.0.4",
     "hast-util-to-dom": "^4.0.1",
     "hast-util-to-html": "^9.0.3",

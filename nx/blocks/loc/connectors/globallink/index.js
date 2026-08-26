@@ -1,6 +1,7 @@
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
+import { zipSync, strToU8 } from '../../../../../nx2/deps/fflate/dist/index.js';
 import authReady, { getAccessToken } from './auth.js';
 
 export const dnt = { addDnt };
@@ -8,6 +9,8 @@ export const dnt = { addDnt };
 const DEFAULT_DUE_DATE_DAYS = 7;
 const PROCESS_POLL_MS = 2000;
 const PROCESS_POLL_MAX = 60;
+const DOWNLOAD_POLL_MS = 5000;
+const DOWNLOAD_POLL_MAX = 60;
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 const ORIGIN_HEADER = 'x-globallink-origin';
@@ -219,27 +222,34 @@ async function createSubmission(
 }
 
 /**
- * Uploads a single source document to a GlobalLink submission's batch.
+ * Uploads every source document for a submission's batch as a single zip archive, with
+ * `extractArchive=true` so GlobalLink unpacks it into individual documents — per GlobalLink's
+ * "upload files zipped in a single call" guidance, instead of one call per file. If the
+ * submission has hit GlobalLink's per-submission file limit, GlobalLink silently places
+ * overflow documents in a new, separate submission instead — the response's
+ * `documentIds[].submissionId` reveals this when it doesn't match `submissionId`.
  * @param {object} service - The flattened per-environment service config.
  * @param {string} service.fileFormatName - The GlobalLink file format to upload as.
  * @param {string|number} submissionId - The target submission id.
- * @param {object} url - The DA url entry to upload.
- * @param {string} url.daBasePath - The DA-formatted base path, used for the file name and
- * as the GlobalLink `clientIdentifier` for later matching.
- * @param {string} url.content - The document's HTML content (with DNT applied).
- * @param {string} batchName - The name of the batch this document belongs to, matching the
+ * @param {object[]} urls - The DA url entries to upload.
+ * @param {string} batchName - The name of the batch these documents belong to, matching the
  * one passed to {@link createSubmission}.
- * @returns {Promise<boolean>} Whether the upload succeeded.
+ * @returns {Promise<{uploadedFileNames: Set<string>, overflowSubmissionIds: string[]}>} The
+ * file names GlobalLink confirmed receiving, plus any other submission id(s) it placed some
+ * of them under.
  */
-async function uploadSourceFile(service, submissionId, url, batchName) {
-  const body = new FormData();
-  const fileName = toFileName(url.daBasePath);
-  const file = new Blob([url.content], { type: 'text/html' });
+async function uploadSourceFiles(service, submissionId, urls, batchName) {
+  const files = {};
+  urls.forEach((url) => {
+    files[toFileName(url.daBasePath)] = strToU8(url.content);
+  });
+  const zipped = zipSync(files);
 
-  body.append('file', file, fileName);
+  const body = new FormData();
+  body.append('file', new Blob([zipped], { type: 'application/zip' }), `${batchName}.zip`);
   body.append('batchName', batchName);
   body.append('fileFormatName', service.fileFormatName);
-  body.append('clientIdentifier', url.daBasePath);
+  body.append('extractArchive', 'true');
 
   const token = await getAccessToken(service);
   const resp = await fetch(`${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/upload/source`, {
@@ -247,10 +257,19 @@ async function uploadSourceFile(service, submissionId, url, batchName) {
     headers: { Authorization: `Bearer ${token}`, ...originHeader(service) },
     body,
   });
-  if (!resp.ok) return false;
+  if (!resp.ok) return { uploadedFileNames: new Set(), overflowSubmissionIds: [] };
 
   // processId is returned asynchronously; submission-level status is polled after all uploads.
-  return true;
+  const json = await resp.json().catch(() => null);
+  const documentIds = json?.documentIds || [];
+  const uploadedFileNames = new Set(documentIds.map((doc) => doc.name));
+  const overflowSubmissionIds = [...new Set(
+    documentIds
+      .map((doc) => String(doc.submissionId))
+      .filter((id) => id && id !== String(submissionId)),
+  )];
+
+  return { uploadedFileNames, overflowSubmissionIds };
 }
 
 /**
@@ -302,6 +321,84 @@ async function listTargets(service, submissionId, { targetStatus, targetLanguage
   if (Array.isArray(json?.targets)) return json.targets;
   if (Array.isArray(json?.items)) return json.items;
   return [];
+}
+
+/**
+ * Marks targets as delivered once their deliverables have been downloaded and successfully
+ * saved back to DA, so GlobalLink stops re-surfacing them as pending on later status checks.
+ * @param {object} service - The flattened per-environment service config.
+ * @param {string|number} submissionId - The submission whose targets to mark delivered.
+ * @param {(string|number)[]} targetIds - The target ids to mark delivered.
+ * @returns {Promise<boolean>} Whether the request succeeded.
+ */
+async function markTargetsDelivered(service, submissionId, targetIds) {
+  if (!targetIds.length) return true;
+  const resp = await fetch(`${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/targets/delivered`, {
+    method: 'POST',
+    headers: await authHeaders(service),
+    body: JSON.stringify({ targetIds }),
+  });
+  return resp.ok;
+}
+
+/**
+ * Requests that GlobalLink prepare a downloadable package of a submission's completed
+ * deliverables for a language. This is only used as a readiness signal — the actual files
+ * are still fetched individually via the per-target deliverable endpoint.
+ * @param {object} service - The flattened per-environment service config.
+ * @param {string|number} submissionId - The submission to request a download for.
+ * @param {string} langCode - The target language code to scope the request to.
+ * @returns {Promise<{downloadId: string|null, processingFinished: boolean}>} The download
+ * job id (`null` on failure), and whether it's already finished.
+ */
+async function requestDownload(service, submissionId, langCode) {
+  const reqUrl = new URL(`${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/download`);
+  reqUrl.searchParams.set('deliverableLanguages', langCode);
+  reqUrl.searchParams.set('includeManifest', 'true');
+
+  const resp = await fetch(reqUrl, { headers: await authHeaders(service) });
+  if (!resp.ok) return { downloadId: null, processingFinished: false };
+  const json = await resp.json().catch(() => null);
+  return { downloadId: json?.downloadId ?? null, processingFinished: !!json?.processingFinished };
+}
+
+/**
+ * Checks whether a previously requested download package has finished processing.
+ * @param {object} service - The flattened per-environment service config.
+ * @param {string|number} submissionId - The submission the download belongs to.
+ * @param {string} downloadId - The download job id from {@link requestDownload}.
+ * @returns {Promise<boolean>} Whether the package is ready.
+ */
+async function isDownloadReady(service, submissionId, downloadId) {
+  const reqUrl = new URL(`${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/download`);
+  reqUrl.searchParams.set('downloadId', downloadId);
+
+  const resp = await fetch(reqUrl, { headers: await authHeaders(service) });
+  if (!resp.ok) return false;
+  const json = await resp.json().catch(() => null);
+  return !!json?.processingFinished;
+}
+
+/**
+ * Waits for GlobalLink to finish preparing a language's completed deliverables, polling
+ * every 5 seconds per GlobalLink's guidance (up to `DOWNLOAD_POLL_MAX` attempts) before any
+ * individual targets are downloaded.
+ * @param {object} service - The flattened per-environment service config.
+ * @param {string|number} submissionId - The submission to wait on.
+ * @param {string} langCode - The target language code to scope the wait to.
+ * @returns {Promise<boolean>} Whether the deliverables are ready.
+ */
+async function waitForDeliverablesReady(service, submissionId, langCode) {
+  const { downloadId, processingFinished } = await requestDownload(service, submissionId, langCode);
+  if (!downloadId || processingFinished) return processingFinished;
+
+  for (let i = 0; i < DOWNLOAD_POLL_MAX; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((resolve) => { setTimeout(resolve, DOWNLOAD_POLL_MS); });
+    // eslint-disable-next-line no-await-in-loop
+    if (await isDownloadReady(service, submissionId, downloadId)) return true;
+  }
+  return false;
 }
 
 /**
@@ -424,12 +521,19 @@ export async function sendAllLanguages({
   service.submissionId = { value: String(submissionId) };
 
   sendMessage({ text: `Uploading ${urls.length} items to GlobalLink.` });
-  let accepted = 0;
-  for (const url of urls) {
-    sendMessage({ text: `Uploading ${url.daBasePath}` });
-    // eslint-disable-next-line no-await-in-loop
-    const ok = await uploadSourceFile(service, submissionId, url, batchName);
-    if (ok) accepted += 1;
+  const { uploadedFileNames, overflowSubmissionIds } = await uploadSourceFiles(
+    service,
+    submissionId,
+    urls,
+    batchName,
+  );
+  const accepted = urls.filter((url) => uploadedFileNames.has(toFileName(url.daBasePath))).length;
+
+  if (overflowSubmissionIds.length) {
+    sendMessage({
+      text: `GlobalLink split this submission across additional submission(s) (${overflowSubmissionIds.join(', ')}) because it exceeded the per-submission file limit — only ${submissionId} is tracked, so status/downloads for files in the others will be incomplete.`,
+      type: 'error',
+    });
   }
 
   if (accepted !== urls.length) {
@@ -544,7 +648,10 @@ export async function getStatusAll({ service, langs, urls, actions }) {
 
 /**
  * Downloads the processed translation deliverables for a language and hands each
- * one to `saveFn` for writing back to DA, removing DNT markers first.
+ * one to `saveFn` for writing back to DA, removing DNT markers first. Targets that save
+ * successfully are marked delivered on GlobalLink so they aren't re-surfaced later.
+ * Waits for GlobalLink to report the language's deliverables as fully prepared before
+ * downloading any individual target (see {@link waitForDeliverablesReady}).
  * @param {object} conf - The save configuration.
  * @param {string} conf.org - The DA org.
  * @param {string} conf.site - The DA site.
@@ -554,11 +661,12 @@ export async function getStatusAll({ service, langs, urls, actions }) {
  * @param {object[]} conf.urls - The DA url entries to download and save.
  * @param {Function} conf.saveFn - Callback invoked with each downloaded url entry
  * (with `sourceContent` populated) to persist it to DA.
+ * @param {Function} conf.sendMessage - Reports progress/status text to the UI.
  * @returns {Promise<object[]>} The url entries, each annotated with a `status` (e.g.
  * `'success'`/`'error'`) once processing completes.
  */
 export async function saveItems({
-  org, site, service, lang, urls, saveFn,
+  org, site, service, lang, urls, saveFn, sendMessage,
 }) {
   const submissionId = service.submissionId?.value;
   if (!submissionId) return urls;
@@ -566,12 +674,20 @@ export async function saveItems({
   const connected = await isConnected(service);
   if (!connected) return urls;
 
+  sendMessage({ text: `Waiting for GlobalLink to finish preparing ${lang.name} deliverables.` });
+  const ready = await waitForDeliverablesReady(service, submissionId, lang.code);
+  if (!ready) {
+    sendMessage({ text: `GlobalLink deliverables for ${lang.name} are not ready yet.`, type: 'error' });
+    return urls;
+  }
+
   const targets = await listTargets(service, submissionId, {
     targetStatus: 'PROCESSED',
     targetLanguage: lang.code,
   });
 
   const token = await getAccessToken(service);
+  const deliveredTargetIds = [];
 
   const downloadCallback = async (url) => {
     const target = targets.find((entry) => {
@@ -598,6 +714,7 @@ export async function saveItems({
       url.sourceContent = await removeDnt({ org, site, html: text, ext: url.ext });
 
       await saveFn(url);
+      if (url.status === 'success') deliveredTargetIds.push(targetId);
     } catch {
       url.status = 'error';
     }
@@ -606,13 +723,14 @@ export async function saveItems({
   const queue = new Queue(downloadCallback, 5);
 
   return new Promise((resolve) => {
-    const throttle = setInterval(() => {
+    const throttle = setInterval(async () => {
       const nextUrl = urls.find((url) => !url.inProgress);
       if (nextUrl) {
         nextUrl.inProgress = true;
         queue.push(nextUrl);
       } else if (urls.every((url) => url.status)) {
         clearInterval(throttle);
+        await markTargetsDelivered(service, submissionId, deliveredTargetIds);
         resolve(urls);
       }
     }, 250);
