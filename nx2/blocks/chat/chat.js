@@ -17,8 +17,8 @@ import { CHAT_EVENT } from '../../utils/chat.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { createSlashMenu } from '../shared/chat/slash-menu.js';
-import { ADD_MENU_ITEMS, ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
-import { ROLE } from './constants.js';
+import { ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
+import { ADD_MENU_ITEMS, ROLE } from './constants.js';
 
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();

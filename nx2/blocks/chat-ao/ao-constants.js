@@ -10,6 +10,8 @@
  * governing permissions and limitations under the License.
  */
 
+import { MENU_OPTIONS } from '../shared/chat/constants.js';
+
 export const AO_WS_BASE = 'wss://agent-orchestrator-prod-va7.adobe.io';
 
 export const AO_HTTP_BASE = 'https://agent-orchestrator-prod-va7.adobe.io';
@@ -35,9 +37,11 @@ export const COWORKER_CHAT_URL = 'https://coworker.experience.adobe.io/chat';
 
 export const ADD_MENU_ITEMS = [
   { section: 'Add' },
-  { id: 'files', label: 'Files or images', icon: 'link' },
+  { id: MENU_OPTIONS.FILES, label: 'Files or images', icon: 'link' },
+  { id: MENU_OPTIONS.PROMPT, label: 'Prompt', icon: 'commentremove' },
+  { id: MENU_OPTIONS.COMMAND, label: '"/" Command', icon: 'prompt' },
   { divider: true },
-  { id: 'skills', label: 'Coworker Capabilities' },
+  { id: MENU_OPTIONS.MANAGE_SKILLS, label: 'Coworker Capabilities' },
 ];
 
 export const OPEN_COWORKER_ITEM = { id: 'coworker', label: 'Continue in Coworker' };

@@ -9,16 +9,6 @@ export const MENU_OPTIONS = {
   OPEN_COWORKER: 'coworker',
 };
 
-export const ADD_MENU_ITEMS = [
-  { section: 'Add' },
-  { id: MENU_OPTIONS.FILES, label: 'Files or images', icon: 'link' },
-  { id: MENU_OPTIONS.PROMPT, label: 'Prompt', icon: 'commentremove' },
-  { id: MENU_OPTIONS.COMMAND, label: '"/" Command', icon: 'prompt' },
-  { divider: true },
-  { id: MENU_OPTIONS.MANAGE_PROMPT, label: 'Manage Prompts' },
-  { id: MENU_OPTIONS.MANAGE_SKILLS, label: 'Manage Skills' },
-];
-
 export const ICON_NAMES = {
   add: 's2-icon-add-20-n',
   clear: 's2-icon-removecircle-20-n',

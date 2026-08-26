@@ -1,3 +1,15 @@
+import { MENU_OPTIONS } from '../shared/chat/constants.js';
+
+const ADD_MENU_ITEMS = [
+  { section: 'Add' },
+  { id: MENU_OPTIONS.FILES, label: 'Files or images', icon: 'link' },
+  { id: MENU_OPTIONS.PROMPT, label: 'Prompt', icon: 'commentremove' },
+  { id: MENU_OPTIONS.COMMAND, label: '"/" Command', icon: 'prompt' },
+  { divider: true },
+  { id: MENU_OPTIONS.MANAGE_PROMPT, label: 'Manage Prompts' },
+  { id: MENU_OPTIONS.MANAGE_SKILLS, label: 'Manage Skills' },
+];
+
 /**
  * Agent stream event types (v2 approval protocol — see docs/approval-protocol.md §5).
  * This wire contract is owned by da-nx + da-agent; it is not the AI SDK's format.
@@ -83,6 +95,7 @@ const ROLE = {
 };
 
 export {
+  ADD_MENU_ITEMS,
   AGENT_EVENT,
   PART_TYPE,
   ROLE,
