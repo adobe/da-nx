@@ -23,6 +23,22 @@ import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-
 
 const EPISODE_LIST_LIMIT = 10;
 
+// AO's abort is async — dropped while stop() is waiting for its confirming
+// TURN_ABORTED/TURN_COMPLETED, so nothing already in flight for the
+// interrupted turn (or generated in the gap before the abort lands
+// server-side) can resurrect it client-side.
+const IGNORED_WHILE_INTERRUPTING = new Set([
+  AO_EVENT.TEXT_DELTA,
+  AO_EVENT.TEXT_DONE,
+  AO_EVENT.UI_ARTIFACT_CREATED,
+  AO_EVENT.TOOL_CALL_DETECTED,
+  AO_EVENT.TOOL_CALL_START,
+  AO_EVENT.TOOL_CALL_END,
+  AO_EVENT.USER_QUESTION,
+  AO_EVENT.PLAN_APPROVAL_REQUEST,
+  AO_EVENT.PERMISSION_REQUEST,
+]);
+
 export default class AoChatController {
   constructor({ onUpdate }) {
     this._onUpdate = onUpdate;
@@ -287,6 +303,8 @@ export default class AoChatController {
   }
 
   _handleServerEvent(evt) {
+    if (this._interrupting && IGNORED_WHILE_INTERRUPTING.has(evt.type)) return;
+
     if (evt.type === AO_EVENT.SESSION_READY) {
       const isNewEpisode = evt.episode_id && evt.episode_id !== this._episodeId;
       this._episodeId = evt.episode_id ?? this._episodeId;
@@ -382,6 +400,7 @@ export default class AoChatController {
     }
 
     if (evt.type === AO_EVENT.TURN_COMPLETED || evt.type === AO_EVENT.TURN_ABORTED) {
+      this._interrupting = false;
       this._done();
       return;
     }
@@ -459,6 +478,7 @@ export default class AoChatController {
   }
 
   stop() {
+    this._interrupting = true;
     if (this._ws?.readyState === WebSocket.OPEN) {
       this._ws.send(JSON.stringify({ type: AO_FRAME.INTERRUPT }));
     }
@@ -557,6 +577,7 @@ export default class AoChatController {
 
   async sendMessage(message, items = [], attachments = []) {
     if (!message || (this._thinking && !this._pendingPlanApproval)) return;
+    this._interrupting = false;
 
     const selectionContext = buildSelectionContext(items);
     const attachmentsMeta = buildAttachmentsMeta(attachments);

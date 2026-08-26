@@ -539,6 +539,13 @@
     }
   }
 
+  /* Otherwise this and .chat-stop both render in the same grid-stacked cell
+     while blocked — the textarea is empty right after submit, so .chat-voice's
+     only other hide-condition (content present) never kicks in on its own. */
+  &[data-thinking] .chat-voice {
+    display: none;
+  }
+
   .chat-primary-action {
     display: grid;
 
