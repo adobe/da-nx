@@ -21,31 +21,40 @@ const EOCD_SIG = 0x06054b50;
 const KEEP = ['canvas.fig', 'thumbnail.png', 'meta.json'];
 const FIG_PARSE_WORKER_URL = new URL('./fig-strip.worker.js', import.meta.url);
 
-let figParseWorker;
+let figParseWorkerPromise;
 let figParseRequestId = 0;
 const figParsePending = new Map();
 
-function getFigParseWorker() {
-  if (!figParseWorker) {
-    figParseWorker = new Worker(FIG_PARSE_WORKER_URL, { type: 'module' });
-    figParseWorker.addEventListener('message', ({ data }) => {
-      const pending = figParsePending.get(data?.id);
-      if (!pending) return;
-      figParsePending.delete(data.id);
-      if (data.ok) pending.resolve(data.result);
-      else {
-        const detail = data.error?.stack || data.error?.message || 'Failed to parse .fig file';
-        pending.reject(new Error(detail));
-      }
-    });
-    figParseWorker.addEventListener('error', (error) => {
-      figParsePending.forEach(({ reject }) => reject(error));
-      figParsePending.clear();
-      figParseWorker.terminate();
-      figParseWorker = undefined;
-    });
+// A cross-origin Worker script is blocked outright (no CORS opt-in, unlike a
+// plain cross-origin `import`) — da-nx's code is served from a different
+// origin (aem.live/aem.page) than the page (da.live). Fetch the script as
+// text and construct the Worker from a same-origin blob: URL instead.
+async function getFigParseWorker() {
+  if (!figParseWorkerPromise) {
+    figParseWorkerPromise = (async () => {
+      const src = await (await fetch(FIG_PARSE_WORKER_URL)).text();
+      const blobUrl = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      const worker = new Worker(blobUrl, { type: 'module' });
+      worker.addEventListener('message', ({ data }) => {
+        const pending = figParsePending.get(data?.id);
+        if (!pending) return;
+        figParsePending.delete(data.id);
+        if (data.ok) pending.resolve(data.result);
+        else {
+          const detail = data.error?.stack || data.error?.message || 'Failed to parse .fig file';
+          pending.reject(new Error(detail));
+        }
+      });
+      worker.addEventListener('error', (error) => {
+        figParsePending.forEach(({ reject }) => reject(error));
+        figParsePending.clear();
+        worker.terminate();
+        figParseWorkerPromise = undefined;
+      });
+      return worker;
+    })();
   }
-  return figParseWorker;
+  return figParseWorkerPromise;
 }
 
 function concatBytes(chunks) {
@@ -194,7 +203,7 @@ export function stripFig(arrayBuffer) {
  * @param {Uint8Array} bytes
  */
 export async function parseFig(bytes) {
-  const worker = getFigParseWorker();
+  const worker = await getFigParseWorker();
   figParseRequestId += 1;
   const id = figParseRequestId;
   const transfer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
@@ -204,6 +213,7 @@ export async function parseFig(bytes) {
     worker.postMessage({
       id,
       bytes: transfer,
+      baseUrl: import.meta.url,
     }, [transfer]);
   });
 }
