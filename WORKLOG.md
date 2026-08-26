@@ -20,6 +20,13 @@ Made session warming catch both HTTP and WebSocket failures, and explicitly
 consumed rejected background episode-list refreshes. Added controller tests for
 both rejection paths.
 
+### nx2/blocks/chat-ao — scope skills cache by IMS tenant
+
+Replaced the manifest-only skills cache with tenant-specific localStorage keys
+derived from AO's `x-tenant-id`. Cache hydration now waits for IMS context,
+preventing one organization from rendering another's cached skills. Added
+cross-tenant utility tests and controller cache-hydration coverage.
+
 ## 2026-08-25
 
 ### nx2/utils/api.js — hlx6 rename/move via copy + delete (#687)
