@@ -52,7 +52,7 @@ const DA_FEEDBACK_ENVS = {
 };
 
 const DA_TRANSLATE_ENVS = {
-  local: 'http://localhost:8787',
+  local: 'http://localhost:8788',
   stage: 'https://translate.da.live',
   prod: 'https://translate.da.live',
 };
