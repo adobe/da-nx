@@ -41,7 +41,8 @@ export const ADD_MENU_ITEMS = [
   { id: MENU_OPTIONS.PROMPT, label: 'Prompt', icon: 'commentremove' },
   { id: MENU_OPTIONS.COMMAND, label: '"/" Command', icon: 'prompt' },
   { divider: true },
-  { id: MENU_OPTIONS.MANAGE_SKILLS, label: 'Coworker Capabilities' },
+  { id: MENU_OPTIONS.MANAGE_PROMPT, label: 'Manage Prompts' },
+  { id: MENU_OPTIONS.MANAGE_SKILLS, label: 'Customize Coworker' },
 ];
 
 export const OPEN_COWORKER_ITEM = { id: 'coworker', label: 'Continue in Coworker' };
