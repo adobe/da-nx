@@ -490,7 +490,8 @@ Unlike `nx-chat`, which loads skills from the site's own DA config (see
 `nx-chat-ao` fetches skills from AO's own `GET /api/v1/skills?manifest_id=...`
 endpoint (`utils/skills.js`). The result is cached in `localStorage`
 (`loadCachedSkills`/`saveCachedSkills`) so the slash-menu isn't empty before
-the first `fetchSkills()` resolves.
+the first `fetchSkills()` resolves. Cache keys include the AO `x-tenant-id`;
+skills from one IMS organization are never used for another.
 
 ## Attachments
 

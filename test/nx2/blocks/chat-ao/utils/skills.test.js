@@ -1,37 +1,46 @@
 import { expect } from '@esm-bundle/chai';
 import { loadCachedSkills, fetchSkills } from '../../../../../nx2/blocks/chat-ao/utils/skills.js';
 import { AO_HTTP_BASE, AO_MANIFEST_ID } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
+import { resetMockIms, setMockIms } from '../../../../../nx2/test/mocks/ims.js';
 
-// Dynamic-expression import (not a literal string) so @web/dev-server-import-maps
-// does not rewrite this to ...?wds-import-map=0. The same mock URL is reached at
-// runtime via the inline importmap when skills.js's static import of ims.js
-// resolves, so both this test and skills.js receive the *same* mock module instance.
-const imsPath = '../../../../../nx2/utils/ims.js';
-const { resetMockIms } = await import(imsPath);
-
-const CACHE_KEY = 'da-chat-ao-skills--experience-workspace';
+const cacheKey = (tenantId) => `da-chat-ao-skills--${tenantId}`;
+const projectedProductContext = (tenantId) => [{ prodCtx: { owningEntity: tenantId } }];
 
 describe('loadCachedSkills', () => {
-  afterEach(() => localStorage.removeItem(CACHE_KEY));
-
-  it('returns null when nothing is cached', () => {
-    expect(loadCachedSkills()).to.equal(null);
+  beforeEach(() => {
+    resetMockIms();
+    setMockIms({ projectedProductContext: projectedProductContext('org1') });
   });
 
-  it('returns the cached list when present', () => {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(['writeBlog', 'summarize']));
-    expect(loadCachedSkills()).to.deep.equal(['writeBlog', 'summarize']);
+  afterEach(() => {
+    localStorage.removeItem(cacheKey('org1'));
+    localStorage.removeItem(cacheKey('org2'));
   });
 
-  it('returns null for an empty cached list', () => {
-    localStorage.setItem(CACHE_KEY, JSON.stringify([]));
-    expect(loadCachedSkills()).to.equal(null);
+  it('returns null when nothing is cached', async () => {
+    expect(await loadCachedSkills()).to.equal(null);
   });
 
-  it('returns null for malformed JSON rather than throwing', () => {
-    localStorage.setItem(CACHE_KEY, '{not json');
-    expect(() => loadCachedSkills()).to.not.throw();
-    expect(loadCachedSkills()).to.equal(null);
+  it('returns the cached list for the active tenant', async () => {
+    localStorage.setItem(cacheKey('org1'), JSON.stringify(['writeBlog', 'summarize']));
+    expect(await loadCachedSkills()).to.deep.equal(['writeBlog', 'summarize']);
+  });
+
+  it('does not return another tenant\'s cached list', async () => {
+    localStorage.setItem(cacheKey('org1'), JSON.stringify(['writeBlog']));
+    setMockIms({ projectedProductContext: projectedProductContext('org2') });
+
+    expect(await loadCachedSkills()).to.equal(null);
+  });
+
+  it('returns null for an empty cached list', async () => {
+    localStorage.setItem(cacheKey('org1'), JSON.stringify([]));
+    expect(await loadCachedSkills()).to.equal(null);
+  });
+
+  it('returns null for malformed JSON rather than throwing', async () => {
+    localStorage.setItem(cacheKey('org1'), '{not json');
+    expect(await loadCachedSkills()).to.equal(null);
   });
 });
 
@@ -57,12 +66,15 @@ describe('fetchSkills', () => {
 
   beforeEach(() => {
     resetMockIms();
-    localStorage.removeItem(CACHE_KEY);
+    setMockIms({ projectedProductContext: projectedProductContext('org1') });
+    localStorage.removeItem(cacheKey('org1'));
+    localStorage.removeItem(cacheKey('org2'));
   });
 
   afterEach(() => {
     restoreFetch();
-    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(cacheKey('org1'));
+    localStorage.removeItem(cacheKey('org2'));
   });
 
   it('requests the manifest\'s skill list with an auth header', async () => {
@@ -94,15 +106,17 @@ describe('fetchSkills', () => {
     installFetch({ body: JSON.stringify({ skills: [{ name: 'hiddenSkill', hidden: true }] }) });
 
     expect(await fetchSkills()).to.equal(null);
-    expect(loadCachedSkills()).to.equal(null);
+    expect(await loadCachedSkills()).to.equal(null);
   });
 
-  it('caches the fetched list for loadCachedSkills to pick up', async () => {
+  it('caches the fetched list for the active tenant', async () => {
     installFetch({ body: JSON.stringify({ skills: [{ name: 'writeBlog' }, { name: 'summarize' }] }) });
 
     await fetchSkills();
 
-    expect(loadCachedSkills()).to.deep.equal(['writeBlog', 'summarize']);
+    expect(await loadCachedSkills()).to.deep.equal(['writeBlog', 'summarize']);
+    setMockIms({ projectedProductContext: projectedProductContext('org2') });
+    expect(await loadCachedSkills()).to.equal(null);
   });
 
   it('returns null on a non-ok response', async () => {

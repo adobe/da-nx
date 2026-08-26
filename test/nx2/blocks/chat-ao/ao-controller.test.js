@@ -940,6 +940,7 @@ describe('ao-controller skills', () => {
 
   it('loadSkills refreshes the list from the API', async () => {
     const { controller } = makeController();
+    controller._loadCachedSkills = async () => null;
     controller._fetchSkills = async () => ['writeBlog', 'summarize'];
 
     await controller.loadSkills();
@@ -950,6 +951,17 @@ describe('ao-controller skills', () => {
   it('loadSkills leaves the current list in place on a failed fetch', async () => {
     const { controller } = makeController();
     controller._skills = ['writeBlog'];
+    controller._loadCachedSkills = async () => null;
+    controller._fetchSkills = async () => null;
+
+    await controller.loadSkills();
+
+    expect(controller.getSkills()).to.deep.equal(['writeBlog']);
+  });
+
+  it('loadSkills retains the tenant cache when the fresh request fails', async () => {
+    const { controller } = makeController();
+    controller._loadCachedSkills = async () => ['writeBlog'];
     controller._fetchSkills = async () => null;
 
     await controller.loadSkills();

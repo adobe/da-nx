@@ -2,7 +2,11 @@ import { loadIms } from '../../../utils/ims.js';
 import { AO_MANIFEST_ID } from '../ao-constants.js';
 import { getOrgId, resolveAoHttpBase } from './uploads.js';
 
-const SKILLS_CACHE_KEY = `da-chat-ao-skills--${AO_MANIFEST_ID}`;
+const SKILLS_CACHE_PREFIX = 'da-chat-ao-skills';
+
+function getSkillsCacheKey(tenantId) {
+  return tenantId ? `${SKILLS_CACHE_PREFIX}--${tenantId}` : null;
+}
 
 function parseSkillsListResponse(json) {
   const skills = Array.isArray(json?.skills) ? json.skills : null;
@@ -17,9 +21,12 @@ function parseSkillsListResponse(json) {
 }
 
 // Last-known skill list, so the slash-menu isn't empty before fetchSkills() resolves.
-export function loadCachedSkills() {
+export async function loadCachedSkills() {
   try {
-    const raw = localStorage.getItem(SKILLS_CACHE_KEY);
+    const { projectedProductContext } = await loadIms();
+    const key = getSkillsCacheKey(getOrgId(projectedProductContext));
+    if (!key) return null;
+    const raw = localStorage.getItem(key);
     const skills = raw ? JSON.parse(raw) : null;
     return Array.isArray(skills) && skills.length ? skills : null;
   } catch {
@@ -27,9 +34,10 @@ export function loadCachedSkills() {
   }
 }
 
-function saveCachedSkills(skills) {
+function saveCachedSkills(skills, tenantId) {
   try {
-    localStorage.setItem(SKILLS_CACHE_KEY, JSON.stringify(skills));
+    const key = getSkillsCacheKey(tenantId);
+    if (key) localStorage.setItem(key, JSON.stringify(skills));
   } catch {
     // best-effort — localStorage can throw (quota, private mode); safe to ignore
   }
@@ -40,15 +48,16 @@ function saveCachedSkills(skills) {
 export async function fetchSkills() {
   try {
     const { accessToken, projectedProductContext } = await loadIms();
+    const tenantId = getOrgId(projectedProductContext);
     const resp = await fetch(`${resolveAoHttpBase(projectedProductContext)}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`, {
       headers: {
         authorization: `Bearer ${accessToken?.token}`,
-        'x-tenant-id': getOrgId(projectedProductContext),
+        'x-tenant-id': tenantId,
       },
     });
     if (!resp.ok) return null;
     const skills = parseSkillsListResponse(await resp.json());
-    if (skills) saveCachedSkills(skills);
+    if (skills) saveCachedSkills(skills, tenantId);
     return skills;
   } catch {
     return null;

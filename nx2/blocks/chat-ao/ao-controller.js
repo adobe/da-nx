@@ -29,7 +29,7 @@ export default class AoChatController {
     this._messages = [];
     this._streaming = '';
     this._episodes = [];
-    this._skills = loadCachedSkills() ?? [];
+    this._skills = [];
   }
 
   setContext(context) {
@@ -74,11 +74,15 @@ export default class AoChatController {
 
   _fetchSkills() { return fetchSkills(); }
 
+  _loadCachedSkills() { return loadCachedSkills(); }
+
   getSkills() {
     return this._skills;
   }
 
   async loadSkills() {
+    const cached = await this._loadCachedSkills();
+    if (cached) this._skills = cached;
     const fresh = await this._fetchSkills();
     if (fresh) this._skills = fresh;
   }
