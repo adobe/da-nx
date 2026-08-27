@@ -1,5 +1,14 @@
 # Worklog
 
+## 2026-08-25
+
+### nx2 editortoggle — label copy update
+
+Updated `nx2/blocks/editortoggle/editortoggle.js` toggle label text from **"New editor"** to **"New Authoring"** so both the opt-in toggle and the switch-back context use the same updated wording.
+Also updated the switch-back feedback modal title in `nx2/blocks/editortoggle/switchback-dialog.js` from **"Help us improve the new editor"** to **"Help us improve the new authoring experience"**.
+Matched the profile-menu toggle hover state to the surrounding menu buttons in `nx2/blocks/editortoggle/editortoggle.css`, including blue text, background, and full-width separators.
+Added matching 0.2s transitions for the toggle row and separator expansion animation.
+
 ## 2026-08-26
 
 ### nx2/blocks/chat-ao — update Coworker destinations
@@ -50,6 +59,18 @@ nx1 lazy-loaded `deps/rum.js` at the tail of `loadArea` (via `scripts/lazy.js`);
 - Added `scripts/lazy.js` (self-invoking, like nx1): holds `rumWC` (RUM click tracking for `[data-rum]` web components) + a `loadLazy` IIFE that imports `../deps/rum.js`, calls `sampleRUM()`, and registers `rumWC` after 3s.
 - `nx.js` does `if (isDoc) import('./lazy.js')` **after the section loop** for every doc, matching nx1's post-loop timing. To reach that point on non-app-frame / no-nav pages, the `idx === 0` header setup was extracted into `loadHeader(isSession)`; its `return true` (the old early `return`s) now `break`s the loop instead of returning from `loadArea`, so section-loading semantics are unchanged but control still falls through to the lazy import.
 - nx2 has no `[data-rum]` elements yet, so `rumWC` is currently a no-op — kept for parity/forward-compat.
+
+## 2026-08-14
+
+### editortoggle — UI + first-time/switch-back tracking (stacked on ew-user-flag)
+
+The editor-toggle UI and its one-time guidance flows, stacked on top of the `ew-user-flag` branch (which owns the core `isEWUserEnabled` / `setEWUserEnabled` / `isEWEnabled` short-circuit logic). This branch consumes that flag; it does not define it.
+
+- **`nx2/blocks/editortoggle/`**: `<nx-editortoggle>` Lit element — a `role="switch"` "New editor" toggle. Reflected `variant` prop: `toolbar` (default, renders only on `/edit`) and `menu` (renders only on `/canvas`). `_toggle()` calls `setEWUserEnabled`, then swaps `/edit` ↔ `/canvas` preserving `search`+`hash` (or reloads). `connectedCallback` reconciles the persisted flag to the pathname on direct/bookmarked landings, and scopes rendering to `EDITOR_PATHS` only.
+- **Placement**: `nav.js` TEMP-injects the toolbar toggle into the action `<ul>` (strip once the nav fragment carries its own `<li>`); `profile.js` drops `<nx-editortoggle variant="menu">` into the profile popover for `/canvas`.
+- **First-time tracking (welcome guide)**: `armEwWelcome()` / `isEwWelcomePending()` / `consumeEwWelcome()` over `nx2:ew-welcome-pending` + `nx2:ew-welcome-seen` (armed at toggle-on, first-time-only). `welcome-dialog.js` (`nx-ew-welcome-dialog`) loads `/nx/fragments/guides/welcome` and shows once on `/canvas`.
+- **Switch-back tracking (feedback)**: `armEwSwitchbackFeedback()` / `isEwSwitchbackPending()` / `consumeEwSwitchback()` over `nx2:ew-switchback-pending` + `nx2:ew-switchback-seen`, armed on toggle-off, shown once on `/edit`. `switchback-dialog.js` POSTs to `DA_FEEDBACK` with `category: 'Editor switch-back'`.
+- These tracking flags all live in `ewFlags.js` alongside the inherited core logic; tests for them are in `ewFlags.test.js` (welcome + switch-back describe blocks). The double-fire guard keeps welcome/switch-back firing from the toolbar instance only.
 
 ## 2026-08-14
 
