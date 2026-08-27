@@ -124,11 +124,22 @@ async function runWorkerBuild(
     resetWatchdog();
 
     // Handle token refresh requests (async, but doesn't interfere with message ordering)
-    const handleTokenRefresh = async (requestId) => {
+    const handleTokenRefresh = async (requestId, tokenType = 'site') => {
       try {
-        clearCachedAemSiteToken(org, repo, ref);
-        const tokenResult = await getAemSiteToken({ org, site: repo, ref });
-        const freshToken = tokenResult?.siteToken || null;
+        let freshToken = null;
+
+        if (tokenType === 'ims') {
+          // Refresh IMS token for admin.hlx.page APIs
+          const { initIms } = await import('../core/ims-adapter.js');
+          const imsDetails = await initIms();
+          freshToken = imsDetails?.accessToken?.token || null;
+        } else {
+          // Refresh site token for .aem.page content fetches
+          clearCachedAemSiteToken(org, repo, ref);
+          const tokenResult = await getAemSiteToken({ org, site: repo, ref });
+          freshToken = tokenResult?.siteToken || null;
+        }
+
         worker.postMessage({ type: 'token-refresh-response', requestId, token: freshToken });
       } catch (err) {
         worker.postMessage({ type: 'token-refresh-response', requestId, token: null, error: err.message });
@@ -136,7 +147,9 @@ async function runWorkerBuild(
     };
 
     worker.onmessage = (event) => {
-      const { type, data, error, message, requestId } = event.data;
+      const {
+        type, data, error, message, requestId, tokenType,
+      } = event.data;
 
       if (type === 'progress') {
         resetWatchdog(); // Reset timeout on activity
@@ -151,7 +164,7 @@ async function runWorkerBuild(
         }
       } else if (type === 'token-refresh') {
         // Handle async token refresh without blocking message handler
-        handleTokenRefresh(requestId);
+        handleTokenRefresh(requestId, tokenType);
       } else if (type === 'success') {
         clearTimeout(watchdogTimer);
         resolve(data);

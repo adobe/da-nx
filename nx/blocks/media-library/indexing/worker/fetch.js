@@ -32,12 +32,13 @@ function initTokenRefreshListener() {
 }
 
 /**
- * Request fresh site token from main thread (on 401/403)
+ * Request fresh token from main thread (on 401/403)
  * Uses shared listener + Map pattern to prevent listener stacking on concurrent refreshes
  *
- * @returns {Promise<string|null>} Fresh site token or null if refresh failed
+ * @param {string} tokenType - Token type to refresh: 'ims' or 'site'
+ * @returns {Promise<string|null>} Fresh token or null if refresh failed
  */
-function requestTokenRefresh() {
+function requestTokenRefresh(tokenType = 'site') {
   initTokenRefreshListener();
 
   return new Promise((resolve) => {
@@ -53,7 +54,7 @@ function requestTokenRefresh() {
     }, 5000);
 
     pendingTokenRefreshes.set(requestId, { resolve, timeoutId });
-    self.postMessage({ type: 'token-refresh', requestId });
+    self.postMessage({ type: 'token-refresh', requestId, tokenType });
   });
 }
 
@@ -451,7 +452,7 @@ export async function fetchPageMarkdown(
     const isAuthError = resp.status === 401
       || resp.status === 403;
     if (isAuthError && siteToken) {
-      const freshToken = await requestTokenRefresh();
+      const freshToken = await requestTokenRefresh('site');
       if (freshToken) {
         // Retry with fresh token (even if same value - cache was cleared on main thread)
         const retryHeaders = { Authorization: `token ${freshToken}` };
@@ -683,7 +684,7 @@ export async function streamLog(
 
     // Retry once with fresh IMS token on 401
     if (!resp.ok && resp.status === 401) {
-      const freshImsToken = await requestTokenRefresh();
+      const freshImsToken = await requestTokenRefresh('ims');
       if (freshImsToken) {
         currentToken = freshImsToken;
         resp = await workerFetchWithAuth(nextUrl, currentToken);
