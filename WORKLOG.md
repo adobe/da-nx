@@ -1,5 +1,15 @@
 # Worklog
 
+## 2026-08-27
+
+### Standalone quick-edit — authenticate before embedding preview
+
+Replaced the unauthenticated top-level redirect from `aem.page` to
+`preview.da.live` with a standalone shell flow. The existing quick-edit portal
+first obtains the preview cookie, after which the shell embeds the authenticated
+preview page with `controller=parent` and relays the unchanged quick-edit
+protocol between the two frames. The da-live Canvas host remains unchanged.
+
 ## 2026-08-25
 
 ### nx2 editortoggle — label copy update
