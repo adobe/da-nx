@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle } from '../../../utils/utils.js';
-import '../../shared/picker/picker.js';
-import { getConfig } from '../../../scripts/nx.js';
+import { loadStyle } from '../../../../utils/utils.js';
+import '../../picker/picker.js';
+import { getConfig } from '../../../../scripts/nx.js';
 
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
@@ -127,4 +127,4 @@ class NxPrompts extends LitElement {
   }
 }
 
-customElements.define('nx-prompts', NxPrompts);
+if (!customElements.get('nx-prompts')) customElements.define('nx-prompts', NxPrompts);

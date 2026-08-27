@@ -425,11 +425,15 @@ export const source = {
   }) => {
     const hlx6 = await isHlx6(org, site);
     if (hlx6) {
-      const url = new URL(await getDaApiPath(SOURCE, org, site, destination));
-      url.searchParams.set('source', path);
-      url.searchParams.set('move', 'true');
-      if (collision) url.searchParams.set('collision', collision);
-      return daFetch({ url: url.toString(), opts: { method: 'PUT' } });
+      // The source bus has no move operation; emulate it as a copy followed by a
+      // delete of the original. copy handles the hlx6 destination-prefix stripping.
+      const copyResp = await source.copy({
+        org, site, path, destination, collision,
+      });
+      if (!copyResp.ok) {
+        return copyResp;
+      }
+      return source.delete({ org, site, path });
     }
     const formData = new FormData();
     formData.append('destination', destination);
