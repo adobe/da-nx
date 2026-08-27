@@ -7,6 +7,46 @@
 Updated `nx2/blocks/editortoggle/editortoggle.js` toggle label text from **"New editor"** to **"New Authoring"** so both the opt-in toggle and the switch-back context use the same updated wording.
 Also updated the switch-back feedback modal title in `nx2/blocks/editortoggle/switchback-dialog.js` from **"Help us improve the new editor"** to **"Help us improve the new authoring experience"**.
 
+## 2026-08-26
+
+### nx2/blocks/chat-ao — update Coworker destinations
+
+Replaced the retired `coworker.experience.adobe.io` skills and chat URLs with
+their Experience Cloud routes. Capabilities now opens
+`https://experience.adobe.com/#/coworker/customizations`; continuing an episode
+opens `https://experience.adobe.com/#/coworker/{episodeId}`.
+
+### nx2/blocks/chat-ao — PR CSS cleanup
+
+Removed the unused `button.action-btn` rule and split the malformed
+`max-height`/`border-left` declaration in the tool-call detail styles.
+
+### nx2/blocks/chat-ao — contain background request failures
+
+Made session warming catch both HTTP and WebSocket failures, and explicitly
+consumed rejected background episode-list refreshes. Added controller tests for
+both rejection paths.
+
+### nx2/blocks/chat-ao — scope skills cache by IMS tenant
+
+Replaced the manifest-only skills cache with tenant-specific localStorage keys
+derived from AO's `x-tenant-id`. Cache hydration now waits for IMS context,
+preventing one organization from rendering another's cached skills. Added
+cross-tenant utility tests and controller cache-hydration coverage.
+
+## 2026-08-25
+
+### nx2/utils/api.js — hlx6 rename/move via copy + delete (#687)
+
+The source bus has no move operation, so `source.move` on hlx6 (used by da-live's
+rename) failed. Reimplemented the hlx6 branch as `source.copy` then `source.delete`
+of the original, reusing the sibling methods (same delegation pattern as
+`save`→`_saveHlx6`). This also inherits copy's `/org/site/` destination-prefix
+stripping, which the old inline move branch was missing. Fails safe: if the copy is
+not ok, it returns that response and never deletes. Legacy (hlx5) `${DA_ADMIN}/move`
+path unchanged. Tests: hlx6 move now asserts copy-then-delete, plus a failure-path
+test asserting no DELETE when the copy fails.
+
 ## 2026-08-19
 
 ### nx2 — restore lazy-loaded RUM (regression from nx1)

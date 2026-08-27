@@ -1,12 +1,12 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle } from '../../../utils/utils.js';
-import { loadIms } from '../../../utils/ims.js';
-import { getConfig } from '../../../scripts/nx.js';
+import { loadStyle } from '../../../../utils/utils.js';
+import { loadIms } from '../../../../utils/ims.js';
+import { getConfig } from '../../../../scripts/nx.js';
 
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
 
-class NxChatWelcome extends LitElement {
+class NxNewChat extends LitElement {
   static properties = { prompts: { attribute: false } };
 
   connectedCallback() {
@@ -48,4 +48,4 @@ class NxChatWelcome extends LitElement {
   }
 }
 
-customElements.define('nx-chat-welcome', NxChatWelcome);
+if (!customElements.get('nx-new-chat')) customElements.define('nx-new-chat', NxNewChat);
