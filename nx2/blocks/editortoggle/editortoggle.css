@@ -97,5 +97,17 @@
 }
 
 :host([variant="menu"]) .editortoggle-switch:hover {
-  background-color: var(--s2-gray-100);
+  z-index: 2;
+  color: var(--s2-blue-900);
+  background-color: var(--s2-blue-200);
+}
+
+:host([variant="menu"]) .editortoggle-switch:hover::before {
+  inset: 0;
+  background: var(--s2-blue-900);
+}
+
+:host([variant="menu"]) .editortoggle-switch:hover::after {
+  inset: auto 0 0;
+  background: var(--s2-blue-900);
 }
