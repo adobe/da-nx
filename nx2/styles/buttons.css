@@ -16,6 +16,7 @@ button {
   color: var(--s2-gray-800);
   align-items: center;
   justify-content: center;
+  height: 32px;
 
   &:disabled {
     opacity: 0.4;
@@ -30,6 +31,14 @@ button {
   svg {
     width: 18px;
     height: 18px;
+  }
+
+  kbd {
+    font-family: inherit;
+    font-size: var(--s2-component-s-medium-font-size);
+    padding: var(--s2-spacing-75);
+    border-radius: var(--s2-corner-radius-300);
+    line-height: var(--s2-component-s-medium-line-height);
   }
 
   &:active:not(:disabled) {
@@ -47,6 +56,7 @@ button {
     line-height: var(--s2-component-s-medium-line-height);
     font-weight: var(--s2-component-s-medium-font-weight);
     gap: var(--s2-spacing-75);
+    height: 24px;
       
     svg {
       width: 16px;
@@ -83,10 +93,23 @@ button {
     color: var(--s2-gray-25);
     background: var(--s2-gray-900);
   }
+
+  kbd {
+    background-color: var(--s2-gray-700);
+  }
 }
 
 .nx-action-btn {
   background: var(--s2-gray-100);
+
+  kbd {
+    background-color: var(--s2-gray-300);
+    color: var(--s2-gray-700);
+  }
+}
+
+.nx-btn-sm kbd {
+  font-size: var(--s2-component-xs-medium-font-size);
 }
 
 .nx-action-btn-quiet, .nx-action-btn-icon  {
