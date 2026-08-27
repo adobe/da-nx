@@ -81,6 +81,7 @@
   padding: 16px 24px;
   border-radius: 0;
   font-size: 16px;
+  transition: all 0.2s ease-in-out;
 }
 
 :host([variant="menu"]) .editortoggle-switch::before,
@@ -90,6 +91,7 @@
   inset: 0 24px auto;
   height: 1px;
   background: var(--s2-gray-100);
+  transition: all 0.2s ease-in-out;
 }
 
 :host([variant="menu"]) .editortoggle-switch::after {
