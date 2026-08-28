@@ -484,13 +484,15 @@ export async function saveItems({
 
       await saveFn(url);
 
-      // Best-effort: close out the request in Lionbridge's review workflow
-      // (REVIEW_TRANSLATION -> TRANSLATION_APPROVED). Failure here doesn't
-      // affect the already-successful download/save.
-      try {
-        await approveRequest(service, jobId, requestId);
-      } catch {
-        // Ignore — approval is a courtesy call, not required for DA's own flow.
+      if (url.status === 'success') {
+        // Best-effort: close out the request in Lionbridge's review workflow
+        // (REVIEW_TRANSLATION -> TRANSLATION_APPROVED). Failure here doesn't
+        // affect the already-successful download/save.
+        try {
+          await approveRequest(service, jobId, requestId);
+        } catch {
+          // Ignore — approval is a courtesy call, not required for DA's own flow.
+        }
       }
     } catch {
       url.status = 'error';

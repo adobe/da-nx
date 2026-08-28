@@ -419,6 +419,24 @@ describe('lionbridge connector', () => {
       expect(url.status).to.equal('success');
     });
 
+    it('does not approve the request when saveFn does not mark the url as success', async () => {
+      const url = { daBasePath: '/page', requestIds: { 'fr-FR': 'req-fr' } };
+      const lang = { code: 'fr-FR', translation: { jobId: 'job-1' } };
+
+      await saveItems({
+        org: 'acme',
+        site: 'site1',
+        service: baseService(),
+        lang,
+        urls: [url],
+        saveFn: async (u) => { u.status = 'error'; },
+      });
+
+      const approveCall = calls.find((c) => c.url.includes('/requests/approve'));
+      expect(approveCall, 'approve call').to.equal(undefined);
+      expect(url.status).to.equal('error');
+    });
+
     it('marks the url as error when there is no requestId for the lang', async () => {
       const url = { daBasePath: '/page', requestIds: {} };
       const lang = { code: 'fr-FR', translation: { jobId: 'job-1' } };
