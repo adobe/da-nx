@@ -65,38 +65,40 @@ and stopped listening.
 `_recoverFromClose()` reattaches (`_ensureSocket()` + `ATTACH`) once instead
 of declaring the turn dead, and otherwise does nothing — `_thinking` stays
 whatever it already was, so the UI keeps showing progress (if any) while
-waiting for events over the reattached socket. Only a failed *reattach*
-that happens while a turn is actually in flight (`_thinking` true) surfaces
-an error; a failed reattach while idle fails silently, since nothing was
-asked of AO and nothing should visibly break for the user. A genuinely dead
-session mid-turn still ends the turn correctly: it surfaces via the normal
-`ERROR_CONNECTION`/`ERROR_SESSION` handling once reattached. This does one
-recovery attempt, not retry-with-backoff — a repeatedly-flapping connection
-reattaches on every close with no delay; full backoff (with delay/attempt-
-limits) is a capability nx-chat already has and nx-chat-ao deliberately
-hasn't built yet.
+waiting for events over the reattached socket. A genuinely dead session
+mid-turn still ends the turn correctly: it surfaces via the normal
+`ERROR_CONNECTION`/`ERROR_SESSION` handling once reattached.
 
-**Reattaching isn't only about recovering a broken connection — it's also
-how cross-client updates arrive live.** AO fans out `SessionEvent`s to every
-WebSocket attached to an episode (not just the one that submitted a turn) in
-its production/durable orchestrator mode, via a Redis pub/sub channel keyed
-by `episode_id` — confirmed directly against AO's backend source (each
-connection gets an independent subscription; Temporal mode subscribes to
-Redis, which delivers to every subscriber of a channel independently, unlike
-AO's local/dev mode which drains a single shared queue and would NOT support
-this). Since most of `_handleServerEvent`'s branches don't gate on
-`_thinking` at all, a turn submitted from a *different* client attached to
-the same episode (e.g. AO's own "coworker" UI, open in another tab on the
-same conversation) renders here too, live — as long as this client's socket
-stays attached. That's the actual reason `warmSession()` now runs on every
-episode load/switch (see [Session warming](#session-warming)) and
-`_recoverFromClose()` reattaches unconditionally rather than only mid-turn:
-without both, an idle tab's socket would eventually close (e.g. a gateway's
-idle timeout) and never reattach, silently going deaf to a conversation
-someone kept working on elsewhere. This is not a heartbeat/keepalive
-mechanism, though — a connection that goes silently stale without ever
-firing a `close` event (rare, but possible with some NATs/proxies) still
-wouldn't self-heal; that's a known gap, not yet built.
+**Only reconnects automatically while a turn is actually in flight
+(`_shouldReattachOnClose()`: `!_destroyed && _thinking`) — an idle close does
+nothing on its own.** This used to reattach unconditionally, mid-turn or
+idle, so a tab sitting on an ended/idle episode would retry forever: AO's
+`ATTACH` rejects a non-live episode only after running a billable liveness
+check, and the rejection itself closes the socket — an immediate,
+no-backoff retry loop against an episode that will never become attachable
+again (a real production incident: flat user traffic, but a runaway spike
+in that liveness check from idle tabs re-`ATTACH`ing roughly once a second,
+for hours, after their one real message). There's no "permanently idle"
+state for AO to signal either, since an episode is always reopenable — the
+fix is entirely client-side: stop treating a rejection as "retry
+immediately," and only reattach when there's an actual local reason to.
+
+Those reasons are `warmSession()` (user starts typing, or an episode is
+loaded/switched to — see [Session warming](#session-warming)) and
+`reattachIfIdle()` (the tab regains visibility, via `chat-ao.js`'s
+`visibilitychange` listener) — both best-effort, single-attempt, and gated
+on there being no live socket already. This is what restores cross-client
+live updates (see below) without the background retry cost: AO fans out
+`SessionEvent`s to every WebSocket attached to an episode (not just the one
+that submitted a turn), so a turn submitted from a *different* client on the
+same episode (e.g. AO's own "coworker" UI, open in another tab) renders here
+too, live, as long as this client's socket stays attached — but only for as
+long as that socket lasts. A known, accepted gap: a tab that stays visible
+and idle the whole time (no typing, no visibility change) won't notice if
+its socket drops, and stays quiet until the user does something. This is
+also still not a heartbeat/keepalive mechanism — a connection that goes
+silently stale without ever firing a `close` event (rare, but possible with
+some NATs/proxies) still wouldn't self-heal.
 
 **`user_message` closes the other half of the gap — rendering the human's
 own prompt from the other client, not just the assistant's reply.**

@@ -207,6 +207,11 @@ export default class NxChatAo extends LitElement {
     this._unsubscribeHash = hashChange.subscribe((state) => {
       if (!this._explicitContext) this._applyContext(state);
     });
+    // See docs/chat-ao-component.md#connection-recovery for why this exists.
+    this._onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') this._controller.reattachIfIdle();
+    };
+    document.addEventListener('visibilitychange', this._onVisibilityChange);
     this._voice = createVoiceInput({
       onStart: () => { this._voiceListening = true; },
       onEnd: () => { this._voiceListening = false; this._voiceInterim = ''; },
@@ -223,6 +228,7 @@ export default class NxChatAo extends LitElement {
     super.disconnectedCallback();
     this._controller?.destroy();
     this._unsubscribeHash?.();
+    document.removeEventListener('visibilitychange', this._onVisibilityChange);
     this._voice?.stop();
   }
 
