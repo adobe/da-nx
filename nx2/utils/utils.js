@@ -1,4 +1,4 @@
-import { env } from '../scripts/nx.js';
+import { env, loadStyle } from '../scripts/nx.js';
 
 export const SUPPORTED_FILES = {
   html: 'text/html',
@@ -17,32 +17,38 @@ export const SUPPORTED_FILES = {
 const DA_DEFAULT_ENV = env === 'dev' ? 'stage' : env;
 
 const DA_ADMIN_ENVS = {
-  dev: 'http://localhost:8787',
+  local: 'http://localhost:8787',
   stage: 'https://stage-admin.da.live',
   prod: 'https://admin.da.live',
 };
 
 const DA_COLLAB_ENVS = {
-  dev: 'ws://localhost:4711',
+  local: 'ws://localhost:4711',
   stage: 'wss://stage-collab.da.live',
   prod: 'wss://collab.da.live',
 };
 
 const DA_CONTENT_ENVS = {
-  dev: 'http://localhost:8788',
+  local: 'http://localhost:8788',
   stage: 'https://stage-content.da.live',
   prod: 'https://content.da.live',
 };
 
 const DA_LIVE_PREVIEW_ENVS = {
-  dev: 'https://localhost:8000',
+  local: 'https://localhost:8000',
   stage: 'https://stage-preview.da.live',
   prod: 'https://preview.da.live',
 };
 
 const DA_ETC_ENVS = {
-  dev: 'http://localhost:8787',
+  local: 'http://localhost:8787',
   prod: 'https://da-etc.adobeaem.workers.dev',
+};
+
+const DA_FEEDBACK_ENVS = {
+  local: 'http://localhost:8787/feedback',
+  stage: 'https://feedback.da.live/feedback',
+  prod: 'https://feedback.da.live/feedback',
 };
 
 function getEnv(key, envs) {
@@ -62,9 +68,11 @@ export const DA_COLLAB = getEnv('da-collab', DA_COLLAB_ENVS);
 export const DA_CONTENT = getEnv('da-content', DA_CONTENT_ENVS);
 export const DA_PREVIEW = getEnv('da-preview', DA_LIVE_PREVIEW_ENVS);
 export const DA_ETC = getEnv('da-etc', DA_ETC_ENVS);
+export const DA_FEEDBACK = getEnv('da-feedback', DA_FEEDBACK_ENVS);
 
 export const HLX_ADMIN = 'https://admin.hlx.page';
 export const AEM_API = 'https://api.aem.live';
+export const DA_TRANSLATE = 'https://translate.da.live';
 
 export const ALLOWED_TOKEN = [
   DA_ADMIN,
@@ -74,6 +82,7 @@ export const ALLOWED_TOKEN = [
   DA_ETC,
   AEM_API,
   HLX_ADMIN,
+  DA_TRANSLATE,
 ];
 
 const IMS_HASH_KEYS = ['access_token', 'old_hash', 'ld_hash'];
@@ -142,4 +151,39 @@ export const loadPageStyle = (href) => new Promise((resolve) => {
   }
 });
 
-export { loadStyle } from '../scripts/nx.js';
+export { loadStyle };
+export { default as loadScript } from '../../nx/utils/script.js';
+
+// Sheet-format JSON (as served by DA/AEM config stores) -> simple object,
+// keyed by sheet name(s), values are each sheet's `data` array.
+export function sheet2object(json) {
+  if (!json || typeof json !== 'object') return json;
+
+  if (json[':type'] === 'multi-sheet') {
+    return (json[':names'] || []).reduce((acc, name) => {
+      const sheet = json[name];
+      acc[sheet?.[':sheetname'] || name] = sheet?.data;
+      return acc;
+    }, {});
+  }
+
+  if (json[':type'] === 'sheet') return { [json[':sheetname']]: json.data };
+
+  return json;
+}
+
+// Simple object (as returned by `sheet2object`) -> sheet-format JSON.
+export function object2sheet(obj) {
+  const names = Object.keys(obj);
+  const toSheet = (data) => ({ total: data.length, limit: data.length, offset: 0, data });
+
+  if (names.length === 1) {
+    const [name] = names;
+    return { ...toSheet(obj[name]), ':sheetname': name, ':type': 'sheet' };
+  }
+
+  return names.reduce((acc, name) => {
+    acc[name] = toSheet(obj[name]);
+    return acc;
+  }, { ':type': 'multi-sheet', ':names': names });
+}

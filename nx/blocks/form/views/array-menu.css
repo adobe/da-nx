@@ -1,5 +1,8 @@
 :host {
-  display: inline-block;
+  /* inline-flex (not inline-block) so the inline-flex trigger inside doesn't
+     generate a baseline line-box with a descender gap, which would push the
+     trigger a couple px off-center from an adjacent input. */
+  display: inline-flex;
 }
 
 .array-item-menu {
@@ -8,32 +11,32 @@
 }
 
 .menu-trigger {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   margin: 0;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--s2-corner-radius-300);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   transition: background 0.15s ease;
-  color: var(--s2-gray-600, #4b5563);
+  color: var(--s2-gray-600);
 
   &:hover {
-    background: var(--s2-gray-200, #e5e7eb);
+    background: var(--s2-gray-200);
   }
 
   &.active {
-    background: var(--s2-blue-200, #bfdbfe);
-    color: var(--s2-blue-700, #1d4ed8);
+    background: var(--s2-blue-200);
+    color: var(--s2-blue-700);
   }
 
   svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
   }
 }
 
@@ -41,29 +44,29 @@
   position: absolute;
   top: 100%;
   right: 0;
-  margin-top: 4px;
+  margin-top: var(--s2-spacing-75);
   min-width: 180px;
-  padding: 4px;
-  background: var(--background-color, #fff);
-  border: 1px solid var(--s2-gray-300, #d1d5db);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+  padding: var(--s2-spacing-75);
+  background: var(--s2-gray-25);
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-500);
+  box-shadow: 0 4px 12px light-dark(rgb(0 0 0 / 15%), rgb(0 0 0 / 50%));
   z-index: 100;
 }
 
 .menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--s2-spacing-100);
   width: 100%;
-  padding: 8px 12px;
+  padding: var(--s2-spacing-100) var(--s2-spacing-200);
   font-size: 13px;
   text-align: left;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--s2-corner-radius-300);
   cursor: pointer;
-  color: var(--s2-gray-800, #1f2937);
+  color: var(--s2-gray-800);
   transition: background 0.15s ease;
 
   &:disabled {
@@ -72,22 +75,16 @@
   }
 
   &:hover:not(:disabled) {
-    background: var(--s2-gray-100, #f3f4f6);
+    background: var(--s2-gray-100);
   }
 
   &.confirm {
-    color: var(--s2-red-600, #dc2626);
+    color: var(--s2-red-600);
   }
 
-  svg,
-  .insert-icon,
-  .check-icon {
+  svg {
     width: 16px;
     height: 16px;
     flex-shrink: 0;
-  }
-
-  .check-icon {
-    font-weight: bold;
   }
 }

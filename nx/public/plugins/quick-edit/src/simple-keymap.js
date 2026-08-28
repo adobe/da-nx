@@ -1,5 +1,6 @@
 /* eslint-disable import/prefer-default-export */
 import { Plugin } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
+import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
 function handleListItem(view, event) {
   const { state, dispatch } = view;
@@ -148,12 +149,26 @@ function handleUndoRedo(view, event, port) {
       const action = event.shiftKey ? 'redo' : 'undo';
 
       port.postMessage({
-        type: 'history',
-        action,
+        type: MESSAGE_TYPES.HISTORY,
+        payload: { action },
       });
 
       return true;
     }
+  }
+
+  return false;
+}
+
+function handleNewVersion(view, event, port) {
+  if ((event.ctrlKey || event.metaKey) && event.altKey && event.code === 'KeyS') {
+    event.preventDefault();
+
+    port.postMessage({
+      type: MESSAGE_TYPES.NEW_VERSION,
+    });
+
+    return true;
   }
 
   return false;
@@ -171,6 +186,9 @@ export function createSimpleKeymap(port) {
 
         const undoRedoHandled = handleUndoRedo(view, event, port);
         if (undoRedoHandled) return true;
+
+        const newVersionHandled = handleNewVersion(view, event, port);
+        if (newVersionHandled) return true;
 
         return false;
       },

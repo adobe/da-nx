@@ -12,7 +12,7 @@
 
 const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
 
-const NX_BLOCKS = new Set(['importer']);
+const NX_BLOCKS = new Set(['importer', 'exp', 'site-apps', 'hero', 'card', 'section-metadata', 'schema-editor', 'media-library', 'form', 'secure-org', 'bulk', 'tree', 'permissions', 'snapshot-admin', 'loc']);
 
 const EW_ORIGINS = {
   dev: 'http://localhost:3001',
@@ -99,7 +99,7 @@ export const [setConfig, getConfig] = (() => {
 export const loc = ([first], ...values) => {
   const key = values.length ? values[0] : first;
   const { strings } = getConfig();
-  return strings.get(key) ?? key;
+  return strings?.get(key) ?? key;
 };
 
 export async function loadBlock(block) {
@@ -280,6 +280,23 @@ function loadSession() {
   document.body.classList.add('session');
 }
 
+// Load the header after the LCP section. Returns true when no further
+// sections should be loaded (parity with the original early returns).
+function loadHeader(isSession) {
+  const header = document.querySelector('nx-nav');
+  if (!header) return true;
+  import('../blocks/nav/nav.js');
+  const appFrame = document.body.classList.contains('app-frame');
+  if (!appFrame) return true;
+  const sidenav = document.querySelector('nx-sidenav');
+  if (sidenav) import('../blocks/sidenav/sidenav.js');
+
+  if (!isSession) loadSession();
+  import('../utils/favicon.js');
+  import('../utils/org-check.js');
+  return false;
+}
+
 async function decorateDoc() {
   // Fast track IMS if returning from sign in
   if (window.location.hash.startsWith('#old_hash')) {
@@ -314,24 +331,9 @@ export async function loadArea({ area } = { area: document }) {
     await Promise.all(section.linkBlocks.map((block) => loadBlock(block)));
     await Promise.all(section.blocks.map((block) => loadBlock(block)));
     delete section.dataset.status;
-    if (isDoc && idx === 0) {
-      const header = document.querySelector('nx-nav');
-      if (!header) return;
-      import('../blocks/nav/nav.js');
-      const appFrame = document.body.classList.contains('app-frame');
-      if (!appFrame) return;
-      const sidenav = document.querySelector('nx-sidenav');
-      if (sidenav) import('../blocks/sidenav/sidenav.js');
-
-      if (!isSession) loadSession();
-      import('../utils/favicon.js');
-    }
+    if (isDoc && idx === 0 && loadHeader(isSession)) break;
   }
-
-  if (isDoc && localStorage.getItem('nx-panels')) {
-    const { restorePanels } = await import('../utils/panel.js');
-    await restorePanels();
-  }
+  if (isDoc) import('./lazy.js');
 }
 
 const cache = {};

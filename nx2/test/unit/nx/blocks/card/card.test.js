@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import init from '../../../../../blocks/card/card.js';
+import init from '../../../../../../nx/blocks/card/card.js';
 
 function buildCard(innerHtml, extraClasses = '') {
   const el = document.createElement('div');

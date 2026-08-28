@@ -1,9 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig } from '../../scripts/nexter.js';
-import getStyle from '../../utils/styles.js';
 import { getHashDetails, loadProject, updateProject } from './utils/utils.js';
-
-import '../../public/sl/components.js';
+import { loadStyle } from '../../../nx2/scripts/nx.js';
 
 import './views/header/header.js';
 import './views/steps/steps.js';
@@ -18,11 +15,11 @@ import './views/rollout/rollout.js';
 import './views/complete/complete.js';
 import './views/url-details/url-details.js';
 
+import '../../../nx2/public/sl/components.js';
+
 const EL_NAME = 'nx-loc';
 
-const { nxBase: nx } = getConfig();
-const sl = await getStyle(`${nx}/public/sl/styles.css`);
-const styles = await getStyle(import.meta.url);
+const styles = await loadStyle(import.meta.url);
 
 class NxLoc extends LitElement {
   static properties = {
@@ -36,7 +33,7 @@ class NxLoc extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [sl, styles];
+    this.shadowRoot.adoptedStyleSheets = [styles];
   }
 
   update(props) {
@@ -178,7 +175,7 @@ function handleHashCallback() {
 }
 
 export default function init(el) {
-  el.innerHTML = '';
+  el.replaceChildren();
   handleHashCallback();
   setup(el);
   window.addEventListener('hashchange', () => { setup(el); });

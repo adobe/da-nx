@@ -1,37 +1,21 @@
 :host {
   display: block;
-  max-width: var(--grid-container-width);
-  margin: 0 auto var(--spacing-500) auto;
-}
-
-:host > svg {
-  display: none;
-}
-
-button {
-  font-family: var(--body-font-family);
+  max-width: var(--se-grid-container-width, var(--grid-container-width));
+  margin: 0 auto var(--s2-spacing-500, var(--spacing-500)) auto;
 }
 
 sl-textarea {
   height: 320px;
-  margin-bottom: var(--spacing-400);
+  margin-bottom: var(--s2-spacing-400, var(--spacing-400));
 }
 
 sl-select {
   width: 120px;
 }
 
-input[name="label"] {
-  height: 32px;
-  width: 160px;
-  font-family: var(--body-font-family);
-  margin: 0;
-  padding: 0 6px;
-}
-
 .delete-toggle {
-  background: #ff5d4b;
-  border-radius: 8px;
+  background: var(--s2-red-700);
+  border-radius: var(--s2-corner-radius-500, 8px);
   line-height: 32px;
   padding: 0 10px;
   color: #fff;
@@ -58,7 +42,7 @@ input[name="label"] {
   justify-content: end;
   align-items: end;
   gap: 12px;
-  margin: 0 0 var(--spacing-400);
+  margin: 0 0 var(--s2-spacing-400, var(--spacing-400));
 }
 
 .da-bulk-action-submit button {
@@ -69,16 +53,16 @@ input[name="label"] {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 24px;
-  margin: 0 0 var(--spacing-400);
+  margin: 0 0 var(--s2-spacing-400, var(--spacing-400));
 }
 
 .detail-card {
   display: flex;
   justify-content: space-between;
-  background: rgb(215 247 225);
+  background: var(--s2-green-200);
   border-radius: 18px;
   overflow: hidden;
-  padding: var(--spacing-400);
+  padding: var(--s2-spacing-400, var(--spacing-400));
 
   button {
     background: transparent;
@@ -86,22 +70,22 @@ input[name="label"] {
 }
 
 .detail-card-remaining {
-  background: rgb(202 248 250);
+  background: var(--s2-cyan-200);
 }
 
 .detail-card-total {
-  background: rgb(181 230 252);
+  background: var(--s2-cyan-300);
 }
 
 .detail-card-errors {
-  background: rgb(255 214 209);
+  background: var(--s2-red-300);
 }
 
 .detail-card .cancel-button {
   margin: 0;
   padding: 0;
   min-width: 72px;
-  border-radius: var(--s2-radius-100);
+  border-radius: var(--s2-corner-radius-500, var(--s2-radius-100));
   border: none;
   background: rgb(0 0 0 / 10%);
 }
@@ -113,20 +97,20 @@ input[name="label"] {
 }
 
 .detail-card h3 {
-  margin-bottom: var(--spacing-100);
+  margin-bottom: var(--s2-spacing-100, var(--spacing-100));
 }
 
 .detail-card p {
-  font-size: var(--s2-font-size-600);
+  font-size: var(--s2-heading-size-xl, var(--s2-font-size-600));
 }
 
 .url-list {
   display: none;
-  background: rgb(215 247 225);
+  background: var(--s2-green-200);
   border-radius: 18px;
   overflow: hidden;
-  padding: var(--spacing-400);
-  margin: 0 0 var(--spacing-400);
+  padding: var(--s2-spacing-400, var(--spacing-400));
+  margin: 0 0 var(--s2-spacing-400, var(--spacing-400));
 }
 
 .url-list.is-expanded {
@@ -134,15 +118,15 @@ input[name="label"] {
 }
 
 .url-list-remaining {
-  background: rgb(202 248 250);
+  background: var(--s2-cyan-200);
 }
 
 .url-list-errors {
-  background: rgb(255 214 209);
+  background: var(--s2-red-300);
 }
 
 .url-list-total {
-  background: rgb(202 248 250);
+  background: var(--s2-cyan-200);
 }
 
 .url-list h2 {

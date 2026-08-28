@@ -1,4 +1,20 @@
+/* Color scheme support - respects system preference */
+:root {
+  color-scheme: light dark;
+}
+
 @media (width > 600px) {
+  /* nx2 mode - prevent double scrollbars */
+  body:not(.nx-app) .media-library-wrapper,
+  body:not(.nx-app) main {
+    overflow: hidden;
+    height: 100%;
+  }
+
+  body:not(.nx-app) media-library {
+    height: 100%;
+  }
+
   body.nx-app.has-media-library main {
     overflow: hidden;
   }

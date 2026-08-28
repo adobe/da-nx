@@ -1,4 +1,4 @@
-import { source } from '../../utils/api.js';
+import { source, fromPath } from '../../utils/api.js';
 
 export class Queue {
   constructor(callback, maxConcurrent = 500, onError = null, throttle = null) {
@@ -54,16 +54,10 @@ async function getChildren(path) {
   let continuationToken = null;
 
   do {
-    // Use the backend-aware source.list rather than hitting the DA list endpoint
-    // directly. source.list routes per-site via isHlx6, so the crawl works for
-    // both the legacy DA backend and Helix 6 (and returns DA-normalized items).
-    const { ok, items, continuationToken: nextToken } = await source.list(
-      path,
-      { continuationToken },
-    );
-    if (!ok) break;
+    const result = await source.list({ ...fromPath(path), continuationToken });
+    if (!result.ok) break;
 
-    items.forEach((child) => {
+    result.items.forEach((child) => {
       if (!child.name) {
         // eslint-disable-next-line no-console
         console.log(`This folder has a child with an empty name: ${child.path}`);
@@ -76,7 +70,7 @@ async function getChildren(path) {
       }
     });
 
-    continuationToken = nextToken;
+    continuationToken = result.continuationToken;
   } while (continuationToken);
 
   return { files, folders };

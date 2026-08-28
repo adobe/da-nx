@@ -1,6 +1,7 @@
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { Queue } from '../../../../public/utils/tree.js';
-import { daFetch } from '../../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
+import { daFetch } from '../../../../../nx2/utils/api.js';
+
 import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
 import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
 
@@ -48,11 +49,8 @@ export async function getUrls(
 
     // Fetch the content and add DNT
     const fetchUrl = async (url) => {
-      const resp = await daFetch(`${DA_ORIGIN}/source/${org}/${site}${url.daDestPath}`, {
-        headers: {
-          'Cache-Control': 'no-cache',
-        },
-      });
+      const opts = { headers: { 'Cache-Control': 'no-cache' } };
+      const resp = await daFetch({ url: `${DA_ADMIN}/source/${org}/${site}${url.daDestPath}`, opts });
       if (!resp.ok) {
         url.error = `Error fetching content from ${url.daDestPath} - ${resp.status}`;
         return;

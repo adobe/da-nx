@@ -1,29 +1,18 @@
-const ADOBE_AI_GUIDELINES_URL = 'https://www.adobe.com/legal/licenses-terms/adobe-dx-gen-ai-user-guidelines.html';
-
-const MENU_OPTIONS = {
-  PROMPT: 'prompt',
-  COMMAND: 'command',
-  FILES: 'files',
-};
+import { MENU_OPTIONS } from '../shared/chat/constants.js';
 
 const ADD_MENU_ITEMS = [
   { section: 'Add' },
-  { id: 'files', label: 'Files or images', icon: 'link' },
-  { id: MENU_OPTIONS.PROMPT, label: 'Prompt' },
-  { id: 'command', label: '"/" Command' },
+  { id: MENU_OPTIONS.FILES, label: 'Files or images', icon: 'link' },
+  { id: MENU_OPTIONS.PROMPT, label: 'Prompt', icon: 'commentremove' },
+  { id: MENU_OPTIONS.COMMAND, label: '"/" Command', icon: 'prompt' },
   { divider: true },
-  { id: 'prompts', label: 'Manage Prompts' },
-  { id: 'skills', label: 'Manage Skills' },
+  { id: MENU_OPTIONS.MANAGE_PROMPT, label: 'Manage Prompts' },
+  { id: MENU_OPTIONS.MANAGE_SKILLS, label: 'Manage Skills' },
 ];
 
-const CHAT_ICONS = {
-  add: 'Add', clear: 'RemoveCircle', close: 'SplitLeft', send: 'ArrowUpSend', stop: 'Stop', up: 'ChevronUp',
-};
-
 /**
- * Agent stream event types.
- * Source: Vercel AI SDK v6 UIMessageStream format, as emitted by da-agent.
- * TODO: move to a shared @da/agent-types package so both sides import from one place.
+ * Agent stream event types (v2 approval protocol — see docs/approval-protocol.md §5).
+ * This wire contract is owned by da-nx + da-agent; it is not the AI SDK's format.
  */
 const AGENT_EVENT = {
   TEXT_DELTA: 'text-delta',
@@ -31,23 +20,36 @@ const AGENT_EVENT = {
   FINISH: 'finish',
   FINISH_MESSAGE: 'finish-message',
   ERROR: 'error',
-  // tool-input-available is the legacy alias for tool-call
-  TOOL_CALL: 'tool-call',
-  TOOL_CALL_LEGACY: 'tool-input-available',
-  // tool-output-available is the legacy alias for tool-result
-  TOOL_RESULT: 'tool-result',
-  TOOL_RESULT_LEGACY: 'tool-output-available',
+  // A tool call the agent wants to make.
+  TOOL_INPUT_AVAILABLE: 'tool-input-available',
+  // Emitted for a tool call that requires user approval before it runs.
   TOOL_APPROVAL_REQUEST: 'tool-approval-request',
-  TOOL_APPROVAL_RESPONSE: 'tool-approval-response',
+  // Result of an executed tool.
+  TOOL_OUTPUT_AVAILABLE: 'tool-output-available',
+  TOOL_OUTPUT_ERROR: 'tool-output-error',
 };
 
+/**
+ * Message content part types (v2). Assistant `content` is either a plain string
+ * (chat text) or an array of these parts.
+ */
+const PART_TYPE = {
+  TEXT: 'text',
+  TOOL: 'tool',
+};
+
+/**
+ * Lifecycle state carried on a `type: 'tool'` part — the single key the server
+ * reconciles on (see docs/approval-protocol.md §4). Also used as the UI card
+ * state and as the `tool-card-${state}` CSS class.
+ */
 const TOOL_STATE = {
-  RUNNING: 'running',
-  APPROVAL_REQUESTED: 'approval-requested',
+  INPUT_AVAILABLE: 'input-available',
+  AWAITING_APPROVAL: 'awaiting-approval',
   APPROVED: 'approved',
   REJECTED: 'rejected',
-  DONE: 'done',
-  ERROR: 'error',
+  OUTPUT_AVAILABLE: 'output-available',
+  OUTPUT_ERROR: 'output-error',
 };
 
 /**
@@ -93,11 +95,9 @@ const ROLE = {
 };
 
 export {
-  ADOBE_AI_GUIDELINES_URL,
   ADD_MENU_ITEMS,
   AGENT_EVENT,
-  CHAT_ICONS,
-  MENU_OPTIONS,
+  PART_TYPE,
   ROLE,
   TOOL_INPUT,
   TOOL_NAME,

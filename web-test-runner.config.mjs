@@ -25,6 +25,7 @@ export default {
   coverageConfig: {
     include: [
       '**/nx/**',
+      '**/nx2/**',
       '**/scripts/**',
     ],
     exclude: [

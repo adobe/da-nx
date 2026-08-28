@@ -1,5 +1,245 @@
 # Worklog
 
+## 2026-08-27
+
+### Standalone quick-edit — authenticate before embedding preview
+
+Replaced the unauthenticated top-level redirect from `aem.page` to
+`preview.da.live` with a standalone shell flow. The existing quick-edit portal
+first obtains the preview cookie, after which the shell embeds the authenticated
+preview page with `controller=parent` and relays the unchanged quick-edit
+protocol between the two frames. The da-live Canvas host remains unchanged.
+
+## 2026-08-25
+
+### nx2 editortoggle — label copy update
+
+Updated `nx2/blocks/editortoggle/editortoggle.js` toggle label text from **"New editor"** to **"New Authoring"** so both the opt-in toggle and the switch-back context use the same updated wording.
+Also updated the switch-back feedback modal title in `nx2/blocks/editortoggle/switchback-dialog.js` from **"Help us improve the new editor"** to **"Help us improve the new authoring experience"**.
+Matched the profile-menu toggle hover state to the surrounding menu buttons in `nx2/blocks/editortoggle/editortoggle.css`, including blue text, background, and full-width separators.
+Added matching 0.2s transitions for the toggle row and separator expansion animation.
+
+## 2026-08-26
+
+### nx2/blocks/chat-ao — update Coworker destinations
+
+Replaced the retired `coworker.experience.adobe.io` skills and chat URLs with
+their Experience Cloud routes. Capabilities now opens
+`https://experience.adobe.com/#/coworker/customizations`; continuing an episode
+opens `https://experience.adobe.com/#/coworker/{episodeId}`.
+
+### nx2/blocks/chat-ao — PR CSS cleanup
+
+Removed the unused `button.action-btn` rule and split the malformed
+`max-height`/`border-left` declaration in the tool-call detail styles.
+
+### nx2/blocks/chat-ao — contain background request failures
+
+Made session warming catch both HTTP and WebSocket failures, and explicitly
+consumed rejected background episode-list refreshes. Added controller tests for
+both rejection paths.
+
+### nx2/blocks/chat-ao — scope skills cache by IMS tenant
+
+Replaced the manifest-only skills cache with tenant-specific localStorage keys
+derived from AO's `x-tenant-id`. Cache hydration now waits for IMS context,
+preventing one organization from rendering another's cached skills. Added
+cross-tenant utility tests and controller cache-hydration coverage.
+
+## 2026-08-25
+
+### nx2/utils/api.js — hlx6 rename/move via copy + delete (#687)
+
+The source bus has no move operation, so `source.move` on hlx6 (used by da-live's
+rename) failed. Reimplemented the hlx6 branch as `source.copy` then `source.delete`
+of the original, reusing the sibling methods (same delegation pattern as
+`save`→`_saveHlx6`). This also inherits copy's `/org/site/` destination-prefix
+stripping, which the old inline move branch was missing. Fails safe: if the copy is
+not ok, it returns that response and never deletes. Legacy (hlx5) `${DA_ADMIN}/move`
+path unchanged. Tests: hlx6 move now asserts copy-then-delete, plus a failure-path
+test asserting no DELETE when the copy fails.
+
+## 2026-08-19
+
+### nx2 — restore lazy-loaded RUM (regression from nx1)
+
+nx1 lazy-loaded `deps/rum.js` at the tail of `loadArea` (via `scripts/lazy.js`); nx2 dropped it. Restored:
+
+- Copied `deps/rum.js` (vendored helix `sampleRUM`) into `nx2/deps/`.
+- Added `scripts/lazy.js` (self-invoking, like nx1): holds `rumWC` (RUM click tracking for `[data-rum]` web components) + a `loadLazy` IIFE that imports `../deps/rum.js`, calls `sampleRUM()`, and registers `rumWC` after 3s.
+- `nx.js` does `if (isDoc) import('./lazy.js')` **after the section loop** for every doc, matching nx1's post-loop timing. To reach that point on non-app-frame / no-nav pages, the `idx === 0` header setup was extracted into `loadHeader(isSession)`; its `return true` (the old early `return`s) now `break`s the loop instead of returning from `loadArea`, so section-loading semantics are unchanged but control still falls through to the lazy import.
+- nx2 has no `[data-rum]` elements yet, so `rumWC` is currently a no-op — kept for parity/forward-compat.
+
+## 2026-08-14
+
+### editortoggle — UI + first-time/switch-back tracking (stacked on ew-user-flag)
+
+The editor-toggle UI and its one-time guidance flows, stacked on top of the `ew-user-flag` branch (which owns the core `isEWUserEnabled` / `setEWUserEnabled` / `isEWEnabled` short-circuit logic). This branch consumes that flag; it does not define it.
+
+- **`nx2/blocks/editortoggle/`**: `<nx-editortoggle>` Lit element — a `role="switch"` "New editor" toggle. Reflected `variant` prop: `toolbar` (default, renders only on `/edit`) and `menu` (renders only on `/canvas`). `_toggle()` calls `setEWUserEnabled`, then swaps `/edit` ↔ `/canvas` preserving `search`+`hash` (or reloads). `connectedCallback` reconciles the persisted flag to the pathname on direct/bookmarked landings, and scopes rendering to `EDITOR_PATHS` only.
+- **Placement**: `nav.js` TEMP-injects the toolbar toggle into the action `<ul>` (strip once the nav fragment carries its own `<li>`); `profile.js` drops `<nx-editortoggle variant="menu">` into the profile popover for `/canvas`.
+- **First-time tracking (welcome guide)**: `armEwWelcome()` / `isEwWelcomePending()` / `consumeEwWelcome()` over `nx2:ew-welcome-pending` + `nx2:ew-welcome-seen` (armed at toggle-on, first-time-only). `welcome-dialog.js` (`nx-ew-welcome-dialog`) loads `/nx/fragments/guides/welcome` and shows once on `/canvas`.
+- **Switch-back tracking (feedback)**: `armEwSwitchbackFeedback()` / `isEwSwitchbackPending()` / `consumeEwSwitchback()` over `nx2:ew-switchback-pending` + `nx2:ew-switchback-seen`, armed on toggle-off, shown once on `/edit`. `switchback-dialog.js` POSTs to `DA_FEEDBACK` with `category: 'Editor switch-back'`.
+- These tracking flags all live in `ewFlags.js` alongside the inherited core logic; tests for them are in `ewFlags.test.js` (welcome + switch-back describe blocks). The double-fire guard keeps welcome/switch-back firing from the toolbar instance only.
+
+## 2026-08-14
+
+### nx2/utils/ewFlags.js — user-level Experience Workspace opt-in
+
+Core logic split out of the `editortoggle` work so it can land on its own. Adds a browser-scoped opt-in to the new (canvas) editor that mirrors the site-level `ew.enabled` flag, letting individual users preview EW on sites that haven't been switched over yet.
+
+- New `EW_USER_KEY = 'nx2:ew-user-enabled'` in localStorage, with `isEWUserEnabled()` / `setEWUserEnabled(bool)` accessors (both storage-safe — `isEWUserEnabled` returns `false` and `setEWUserEnabled` no-ops when storage is unavailable).
+- Split the old site-only check into `isEWEnabledBySite({ org, site })`, and made `isEWEnabled({ org, site })` short-circuit to `true` when the user override is on — so `da-browse`'s existing `isEWEnabled` call site opts the user into the new editor with zero changes there. The short-circuit intentionally runs before the `fetchDaConfigs` network call.
+- `?ew` query-param seeding, mirroring da-live's `?da-admin` pattern (`blocks/shared/constants.js` `getDaEnv`): `isEWUserEnabled()` reads `?ew` from the URL and persists it before returning — `?ew=true` opts in, `?ew=false`/`?ew=reset` opts out — so the choice survives navigations that drop the param. `isEWUserEnabled(location?)` takes an injectable `location` for testing; `syncEWUserFromQuery` is the private read-through helper.
+- `isEwChatDisabled` / `isCoworkerEnabled` stay site-only on purpose.
+- Tests in `nx2/test/unit/nx/utils/ewFlags.test.js`: default state, set/unset roundtrip, the user-override short circuit in `isEWEnabled` (uses a bogus org/site so an accidental network call would surface as a rejection, not a false positive), and `?ew=true`/`false`/`reset`/absent query-param seeding.
+
+The toggle UI, welcome guide, and switch-back feedback prompt that consume this flag live on the stacked `editortoggle` branch.
+
+## 2026-08-07
+
+### nx2/utils/api.js — remove stage-content.da.live rewrite workaround
+
+`80f9db79` removed the `content.da.live` → `stage-content.da.live` contentUrl rewrite from `source.uploadMedia`'s non-hlx6 branch (added `3300b1ee`/`3070fa63`, see `2026-08-06` below), plus its three dedicated tests. Server-side fix landed on stage-admin.da.live — it now returns the correct content host directly, so the client-side rewrite is no longer needed. This makes bug fix #2 in the `2026-08-06` entry below (the body-stream-already-read fix) moot: it only mattered inside the now-deleted rewrite branch.
+
+## 2026-08-06
+
+### nx2/utils/api.js — tests for `source.uploadMedia`, plus two bug fixes found while writing them
+
+Added test coverage for the new `source.uploadMedia({ org, site, path, body })` method (added in `3300b1ee`, "feat: add media upload api"): legacy delegation to `_saveDA` as FormData, the stage `content.da.live` → `stage-content.da.live` contentUrl rewrite, hlx6 POSTs to the AEM media route with the correct `content-type` header, `contentUrl` prefix-stripping against the site's `aem.page` origin, non-ok passthrough for both branches, and the `/org/site/path` string call form. 11 new tests in `test/nx2/utils/api.test.js`.
+
+Two bugs surfaced while writing the tests (both fixed, confirmed with the author):
+1. The non-hlx6 branch fell through to the hlx6 media POST whenever `DA_ADMIN` wasn't exactly `'https://stage-admin.da.live'` — i.e. for any ordinary non-hlx6 site in most environments, `uploadMedia` made a second, unintended request to the hlx6-only endpoint after `_saveDA` had already completed. Fixed by returning after the `_saveDA` call unconditionally.
+2. In this repo's test/dev env `DA_ADMIN` *is* `'https://stage-admin.da.live'`, so the stage-content rewrite branch always runs for non-hlx6 uploads. When the returned `contentUrl`'s host wasn't `content.da.live` (no rewrite needed), the code had already consumed the response body via `resp.json()` and then returned that same (now-drained) `Response` — any caller subsequently calling `resp.json()` would get a "body stream already read" error. Fixed by always returning `adaptJsonResponse(resp, json)` in that branch, rewritten or not, so callers get a fresh readable response either way.
+
+## 2026-07-30
+
+### nx2/utils/api.js — normalize hlx6 `source.save` response to `{ source: { contentUrl } }` (#631)
+
+The hlx6 source-bus save endpoint (`${AEM_API}/{org}/sites/{site}/source{path}`) returns a **200 with an empty body**, whereas DA returns `{ source: { contentUrl } }`. da-live's image-upload plugin (`blocks/edit/prose/plugins/imageDrop.js`) calls `resp.json()` on the save result and reads `json.source.contentUrl`; on hlx6 the empty body made `resp.json()` throw `SyntaxError: Unexpected end of JSON input`. Because the caller is an un-awaited async fn, the throw became an unhandled rejection and the FPO-placeholder → real-image swap never ran — the placeholder stuck around and published with a stale hlx5 fragment, so preview couldn't find the image.
+
+Fix: on a successful hlx6 save, shadow the Response's `json()` (new `withSourceJson` helper) so it resolves to `{ source: { contentUrl } }` with `contentUrl` = the source URL just written (`${AEM_API}/{org}/sites/{site}/source{path}`). Non-ok responses pass through untouched so callers' error handling is unchanged. Only `imageDrop.js` reads the save body — every other da-live `source.save` consumer checks `resp.ok` only — so the change is contained. Updated `nx2/utils/api.md`; added two tests.
+
+## 2026-07-23
+
+### nx2/utils/api.js — org-level listing merges DA-legacy and hlx6 source-bus sites (da-live#1169)
+
+`source.list({ org })` (no `site`) previously only queried `${DA_ADMIN}/list/{org}`, so hlx6-upgraded sites were invisible in org-level listings. Now, when `site` is omitted, it fires both the DA-legacy list and `org.listSites({ org })` in parallel, normalizes each via `hlx6ToDaList`, and dedupes the combined items by `name` (legacy entry wins on a name collision). `ok` is true if either call succeeds, so a 404 from either side (non-migrated org, or an org with no legacy DA content) doesn't blank out the other's results. Only DA returns a `continuationToken` — hlx6 has no pagination — so `org.listSites` is only queried on the first page (`continuationToken` absent); later pages skip it entirely instead of redundantly re-merging the same unpaginated site list each time (caught in review).
+
+Also fixed `org.listSites`: was hitting the wrong (unused/stubbed) endpoint `${AEM_API}/{org}/sites`; corrected to `${AEM_API}/{org}/source/` per the source-bus API.
+
+New internal helpers `parseListItems` (ok-check + parse-or-`[]`) and `dedupeByName`, alongside `hlx6ToDaList`. Updated `api.d.ts`/`api.md` accordingly. Consumers in `da-live` (`da-sites.js`/`da-list.js`) and its `test/fixtures/nx2/utils/api.js` mirror need no da-nx-side change but should be synced manually — out of scope for this repo.
+
+**Test-suite flake fixed in passing:** `test/nx2/utils/api.test.js`'s outer `beforeEach` did a blanket `localStorage.removeItem('hlx6-upgrade')`. Since `tree.test.js` seeds the same shared-origin key for its own hlx6 tests, and wtr runs test files concurrently (`--concurrent-browsers 4`) with a shared localStorage, this occasionally wiped `tree.test.js`'s seeded entry mid-run, causing intermittent unrelated failures. Removed the clear — every `org`/`site` pair in `api.test.js` already comes from a randomized `uniq()` helper, so the blanket clear was never actually load-bearing.
+
+## 2026-07-14
+
+### nx2/styles/styles.css — pin to light mode
+
+Changed `:root { color-scheme: light dark; }` → `color-scheme: light;` and `.dark-scheme { color-scheme: dark; }` → `color-scheme: light;`. Matches nx1 (`nexter.css`) which pins `:root` to light, and da-live browse which forces both `.light-scheme` and `.dark-scheme` to `color-scheme: light` so the profile toggle can't override.
+
+## 2026-07-09
+
+### nx/blocks/secure-org — migrate secure-org block to nx2
+
+Added `'secure-org'` to `NX_BLOCKS` in `nx2/scripts/nx.js`. Block stays in `nx/blocks/secure-org/` per migration convention.
+
+Import updates in `secure-org.js`:
+- Dropped `getConfig` from nexter.js; icon URLs built via `new URL('../../public/icons/...', import.meta.url).href` (icons live only in nx1)
+- `../../utils/ims.js` `loadIms` → `../../../nx2/utils/ims.js`
+- `../../utils/styles.js` default `getStyle` → `{ loadStyle }` from `../../../nx2/utils/utils.js`
+- `../../utils/svg.js` `getSvg` → default `loadIcons` from `../../../nx2/utils/svg.js`
+
+Import updates in `utils.js`:
+- `../../public/utils/constants.js` (DA_ORIGIN) → `../../../nx2/public/utils/constants.js`
+- `../../utils/daFetch.js` (daFetch) → `../../../nx2/utils/api.js`; call site updated from positional `daFetch(url, opts)` to destructured `daFetch({ url, opts })`
+
+CSS variables in `secure-org.css`:
+- `--grid-container-width` → `--se-grid-container-width` with nx1 fallback
+- `--spacing-800` → `--s2-spacing-800` with nx1 fallback
+
+Verified live at `/apps/sandbox?nx=local` — block renders correctly (nx-path input, orange warning alert with AlertDiamond icon), no console errors.
+
+### nx/blocks/bulk — migrate bulk operations block to nx2
+
+Added `'bulk'` to `NX_BLOCKS` in `nx2/scripts/nx.js`. Block stays in `nx/blocks/bulk/` per migration convention.
+
+Import updates in `bulk.js`:
+- `../../deps/lit/lit-core.min.js` → `da-lit`
+- Dropped `getConfig` from nexter.js; icon URL built via `new URL('../../img/icons/...', import.meta.url).href` (icon only exists in nx1)
+- `../../public/utils/tree.js` → `../../../nx2/public/utils/tree.js` (Queue)
+- `../../utils/svg.js` `getSvg` → `../../../nx2/utils/svg.js` default `loadIcons` (compatible `{ paths } → Promise<svg[]>` signature)
+- `../../utils/styles.js` default `getStyle` → `{ loadStyle }` from `../../../nx2/utils/utils.js`
+
+Import updates in `index.js`:
+- `../../public/utils/getExt.js` → `../../../nx2/public/utils/getExt.js`
+- `../../utils/daFetch.js` → `../../../nx2/utils/api.js`
+- `../../public/utils/constants.js` → `../../../nx2/public/utils/constants.js`
+- **API signature change:** nx2's `daFetch` uses destructured args, so `daFetch(url, opts)` → `daFetch({ url, opts })`
+
+CSS variables in `bulk.css` mapped to nx2-first-nx1-fallback:
+- `--grid-container-width` → `--se-grid-container-width`
+- `--spacing-*` → `--s2-spacing-*`
+- `--body-font-family` → `--s2-font-family`
+- `--s2-radius-100` → `--s2-corner-radius-500`
+- `--s2-font-size-600` (31px) → `--s2-heading-size-xl` (36px, closest available)
+
+### nx/blocks/tree/tree.js — migrate tree block to nx2
+
+Added `'tree'` to `NX_BLOCKS` in `nx2/scripts/nx.js` so the block always loads from `/nx/blocks`.
+
+Updated imports in `nx/blocks/tree/tree.js` to nx2 equivalents (block stays in place per migration convention):
+- `../../deps/lit/lit-core.min.js` → `da-lit` (importmap)
+- `../../scripts/nexter.js` → `../../../nx2/scripts/nx.js` (for `getConfig`)
+- `../../public/utils/tree.js` → `../../../nx2/public/utils/tree.js` (for `crawl`)
+- `../../utils/styles.js` (default `getStyle`) → `{ loadStyle }` from `../../../nx2/utils/utils.js`
+
+## 2026-06-26
+
+### nx2/blocks/chat/chat.js — skill selection preserves pending attachments (feat/da-skill-attachment-fix)
+
+`_onSlashSelect()` was calling `sendMessage(message, [], { requestedSkills: [skillId] })`, discarding any pending file pills in `this._items`. Fixed by mirroring `_submit()`'s attachment-building logic: split `this._items` into `fileItems` (truthy `dataBase64`) and `contextItems`, build the `attachments` array with the same field/sizeBytes pattern, revoke thumbnail object URLs, clear `this._items`, then pass `{ requestedSkills: [skillId], attachments }` and `contextItems` to `sendMessage`.
+
+Post-review follow-up (fe049a9b):
+- Extracted `_buildAttachmentPayload(items)` shared by both `_submit` and `_onSlashSelect`
+- Moved `this._items = []` to after `sendMessage` call (was before, losing attachments on throw)
+- Guard `attachments` key: only spread into opts when `attachments.length > 0`
+- Read `this._items` once into local `const items` before filter calls
+- Renamed loop variable `i` → `item` in `_onSlashSelect` callbacks
+- Added regression tests in `test/nx2/blocks/chat/chat.test.js` (8 tests, all pass)
+
+## 2026-06-25
+
+### exp block — fix IMS timeout, restore SL typography
+
+The iframe palette failed with `Error: IMS timeout` from `nx2/utils/ims.js` on `?nx=nx2-exp` URLs. Root cause: da-live's `/plugins/exp` page lacks a `<meta name="nxver">`, so the iframe boots in **nx1 mode** — `nxJS = '/scripts/nexter.js'`, `getNx()` returns `…/nx` (not `…/nx2`), and da-live's `initIms()` imports `nx/utils/ims.js`. But this branch's `nx/blocks/exp/exp.js` statically imports `nx2/blocks/profile/profile.js`, which statically imports `nx2/utils/ims.js`. Two `loadIms` modules in the same window, each with its own memoization, each tries to bootstrap imslib independently — first one wins; the second's `onReady` is never re-fired (imslib reads `window.adobeid` once at load time), and we time out.
+
+Fix in `nx/public/plugins/exp/exp.js`: append `&nxver=2` to the iframe `src`. da-live then boots the iframe in nx2 mode, loads `nx2/utils/ims.js` for `initIms`, and shares memoization with exp's statics. Single setup, single bootstrap. (Applied to both the `main` and branched URLs so the fix holds once the migration lands on main.)
+
+Other changes needed to support exp on nx2 profile:
+- `nx/blocks/exp/exp.js`: swapped `'../profile/profile.js'` → `'../../../nx2/blocks/profile/profile.js'` so exp shares the nx2 ims memoization with da-live's `initIms` (now also nx2 thanks to the `nxver=2` flip above).
+- `nx2/blocks/profile/profile.js`: `handleLoaded` now also dispatches `CustomEvent('loaded', { detail: this._ims, bubbles, composed })`, matching the nx1 contract that exp's `@loaded=${this.handleProfileLoad}` listens for.
+- `nx/blocks/exp/exp.js`: adopt the SL stylesheet on `document` as well as the shadow root. SL targets `:root`, which doesn't match inside a shadow tree, so without document adoption the `--s2-*` custom-property cascade was never set up and typography (e.g. the "Edit experiment" heading, the slider's `%` label) fell back to browser defaults. nx1 got this for free because the previous `loadStyle` had a document-level side effect; nx2's `loadStyle` returns a constructable sheet only.
+- `nx2/scripts/nx.js` `loc()`: `strings.get(key) ?? key` → `strings?.get(key) ?? key`. Latent bug — when `getConfig()` returns the `{ error }` stub (config not set yet), `strings` is undefined and the throw masked the design-intended `?? key` fallback.
+
+Things that looked load-bearing during investigation but weren't (all reverted once the iframe-mode mismatch was identified):
+- Short-circuit / "reuse existing `window.adobeIMS`" in `nx2/utils/ims.js` `setup()` — only needed when two `loadIms` modules race against the same imslib, which the `nxver=2` flip prevents.
+- `loginPopup` / `modalMode` plumbing in `loadIms`.
+- Async setup + per-call `resolveNxConfig()` re-read.
+- `IMS_TIMEOUT` bump to 15s.
+- Defensive `config.log` / `_ims` guards in `nx2/blocks/profile/profile.js`.
+
+### exp block — completed nx2 migration (importer pattern)
+
+Block stays under `nx/blocks/exp/`; all nx2 API imports use relative paths into `nx2/`.
+
+- `nx/blocks/exp/exp.js`: removed nx1 `loadStyle` (nexter.js) and `getStyle` (utils/styles.js); imports `loadStyle` from `nx2/utils/utils.js`; SL components updated to `nx2/public/sl/components.js`; dropped document-level `loadStyle` side effect (nx2 version returns constructable sheet directly).
+- `nx/blocks/exp/views/edit.js`: removed `getConfig` from nx1 `nexter.js` (returns `{ error }` in nx2 context since nx1 config is never initialized); replaced `nxBase` with `new URL(import.meta.url).origin + '/nx'` pattern; switched to nx2 `loadStyle`.
+- All other views (`actions`, `dialog`, `login`, `new`, `view`): `getStyle` (nx1) → `loadStyle` from `nx2/utils/utils.js`.
+
+Previously done (2026-06-24):
+- `nx2/scripts/nx.js`: added `'exp'` to `NX_BLOCKS`.
+- `nx/blocks/exp/utils.js`: `DA_ORIGIN` → `DA_ADMIN`, `AEM_ORIGIN` → `HLX_ADMIN`, `loadIms` → `nx2/utils/ims.js`.
 ## 2026-06-25
 
 ### nx2/public/utils/tree.js — backend-aware crawl (crawlhlx6 branch)

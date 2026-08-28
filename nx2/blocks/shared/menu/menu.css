@@ -9,12 +9,16 @@
   }
 }
 
+nx-popover {
+  padding: var(--s2-spacing-100);
+}
+
 .menu-section {
   display: block;
   padding: var(--s2-spacing-75) var(--s2-spacing-100);
   color: light-dark(var(--s2-gray-600), var(--s2-gray-700));
-  font-size: var(--s2-body-size-xs);
-  font-weight: var(--s2-heading-font-weight);
+  font-size: var(--s2-component-xs-regular-font-size);
+  line-height: var(--s2-component-xs-regular-line-height);
   cursor: default;
 }
 
@@ -23,20 +27,23 @@
   align-items: center;
   gap: var(--s2-spacing-100);
   width: 100%;
-  padding: var(--s2-spacing-75) var(--s2-spacing-100);
+  padding: 7px var(--s2-spacing-200);
   border: none;
-  border-radius: var(--s2-corner-radius-200);
+  border-radius: var(--s2-corner-radius-400);
   background: none;
   color: var(--s2-gray-900);
   font-family: inherit;
-  font-size: var(--s2-body-size-s);
-  margin-bottom: 2px;
+  font-size: var(--nx-menu-font-size, var(--s2-component-s-regular-font-size));
+  line-height: var(--s2-component-s-regular-line-height);
   cursor: pointer;
   box-sizing: border-box;
   outline: none;
 }
 
-.menu-item:hover,
+.menu-item:hover {
+  background: var(--s2-gray-100);
+}
+
 .menu-item-active {
   background: var(--s2-gray-200);
 }
@@ -63,10 +70,57 @@
   }
 }
 
+.menu-item-swatch {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-75);
+}
+
+.menu-item-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.menu-item-description {
+  color: light-dark(var(--s2-gray-600), var(--s2-gray-700));
+  font-size: var(--s2-component-xs-regular-font-size);
+  line-height: var(--s2-component-xs-regular-line-height);
+  text-align: left;
+}
+
 .menu-divider {
   margin: calc(var(--s2-spacing-100) - 2px) var(--s2-spacing-200)
     var(--s2-spacing-100);
   border: none;
   border-top: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-corner-radius-75);
+}
+
+:host([size="m"]) {
+  .menu-section {
+    padding: 7px var(--s2-spacing-200);
+    font-size: var(--s2-component-s-regular-font-size);
+    line-height: var(--s2-component-s-regular-line-height);
+  }
+
+  .menu-item {
+    padding: 7px var(--s2-spacing-200);
+    font-size: var(--nx-menu-font-size, var(--s2-component-m-regular-font-size));
+    line-height: var(--s2-component-m-regular-line-height);
+  }
+
+  .menu-item-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .menu-item-description {
+    font-size: var(--s2-component-s-regular-font-size);
+    line-height: var(--s2-component-s-regular-line-height);
+  }
 }

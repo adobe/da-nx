@@ -14,7 +14,13 @@ class NxMenu extends LitElement {
     _active: { state: true },
     ignoreFocus: { attribute: true },
     scoped: { type: Boolean },
+    size: { type: String, reflect: true },
   };
+
+  constructor() {
+    super();
+    this.size = 's';
+  }
 
   get _popover() { return this.shadowRoot.querySelector('nx-popover'); }
 
@@ -124,7 +130,11 @@ class NxMenu extends LitElement {
           @focus=${() => { this._active = item.id; }}
         >
           ${item.icon ? html`<svg class="menu-item-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-${item.icon}-20-n.svg#icon"></use></svg>` : nothing}
-          <span class="menu-item-label">${item.label}</span>
+          ${item.swatch ? html`<span class="menu-item-swatch" style="background:${item.swatch}"></span>` : nothing}
+          <span class="menu-item-text">
+            <span class="menu-item-label">${item.label}</span>
+            ${item.description ? html`<span class="menu-item-description">${item.description}</span>` : nothing}
+          </span>
         </button>
       </li>
     `;

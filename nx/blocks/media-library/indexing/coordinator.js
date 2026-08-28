@@ -16,7 +16,7 @@ import {
   isFreshIndexLock,
   getIndexLockOwnerId,
 } from './locks.js';
-import { ensureAuthenticated, getMediaLibraryHostMode } from '../core/utils.js';
+import { getMediaLibraryHostMode } from '../core/utils.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isFullRebuildRequested, isPerfEnabled } from '../core/params.js';
 import { IndexConfig } from '../core/constants.js';
@@ -67,9 +67,6 @@ export async function startCheckingIndexChanges(sitePath, org, repo) {
 
   inwardPollingInterval = setInterval(async () => {
     try {
-      const isAuthenticated = await ensureAuthenticated();
-      if (!isAuthenticated) return;
-
       const key = `${sitePath.replace(/\//g, '-')}-media-lastupdated`;
       const hadPreviousTimestamp = !!localStorage.getItem(key);
 
@@ -158,9 +155,6 @@ export async function startCheckingChanges(sitePath, org, repo, ref = 'main') {
       console.log('[perf] checkChanges poll: triggering incremental build check');
     }
     try {
-      const isAuthenticated = await ensureAuthenticated();
-      if (!isAuthenticated) return;
-
       const [siteOrg, siteRepo] = sitePath.split('/').slice(1, 3);
       // eslint-disable-next-line no-use-before-define
       await triggerBuild(sitePath, siteOrg, siteRepo, ref);
@@ -253,29 +247,6 @@ function startLockCheckPolling(sitePath, org, repo, hasMediaData) {
  */
 export async function triggerBuild(sitePath, org, repo, ref = 'main') {
   if (!sitePath || !(org && repo)) {
-    return;
-  }
-
-  try {
-    const isAuthenticated = await ensureAuthenticated();
-    if (!isAuthenticated) {
-      logMediaLibraryError(ErrorCodes.AUTH_REQUIRED, { context: 'build' });
-      emit(createBuildErrorEvent(
-        IndexingErrorCode.AUTH_REQUIRED,
-        'Authentication required to build index',
-        { context: 'build' },
-        false,
-      ));
-      return;
-    }
-  } catch (error) {
-    logMediaLibraryError(ErrorCodes.AUTH_REQUIRED, { context: 'build', error: error?.message });
-    emit(createBuildErrorEvent(
-      IndexingErrorCode.AUTH_REQUIRED,
-      error?.message || 'Authentication failed',
-      { context: 'build' },
-      false,
-    ));
     return;
   }
 

@@ -1,4 +1,6 @@
 :host {
+  color-scheme: light dark;
+
   >svg {
     display: none;
   }
@@ -7,16 +9,16 @@
 svg.icon {
   width: 20px;
   height: 20px;
-  color: var(--s2-gray-900, #000);
+  color: light-dark(var(--s2-gray-900, #000), var(--s2-gray-100));
 }
 
 .top-bar {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-300);
-  padding: var(--spacing-100) var(--spacing-100) var(--spacing-100) 0;
-  background: var(--s2-gray-50);
+  gap: var(--s2-spacing-300, var(--spacing-300, 16px));
+  padding: var(--s2-spacing-100, var(--spacing-100, 8px)) var(--s2-spacing-100, var(--spacing-100, 8px)) var(--s2-spacing-100, var(--spacing-100, 8px)) 0;
+  background: light-dark(var(--s2-gray-50), #1a1a1a);
 }
 
 .result-count {
@@ -26,7 +28,7 @@ svg.icon {
   font-size: 12px;
   font-weight: 400;
   font-style: italic;
-  color: var(--s2-gray-800);
+  color: light-dark(var(--s2-gray-800), var(--s2-gray-200));
   white-space: nowrap;
   min-width: 80px;
   text-align: left;
@@ -55,7 +57,7 @@ svg.icon {
 .left-controls {
   display: flex;
   align-items: center;
-  gap: var(--spacing-200);
+  gap: var(--s2-spacing-200, var(--spacing-200, 12px));
 }
 
 .search-container {
@@ -75,7 +77,7 @@ svg.icon {
     display: block;
     margin: 0;
     padding: 0 32px 0 8px;
-    border: 2px solid rgb(225  225 225);
+    border: 2px solid light-dark(rgb(225 225 225), var(--s2-gray-300));
     border-radius: 8px;
     width: 100%;
     height: 32px;
@@ -84,6 +86,12 @@ svg.icon {
     overflow: hidden;
     white-space: nowrap;
     text-align: left;
+    background: light-dark(white, var(--s2-gray-800));
+    color: light-dark(var(--s2-gray-900), white);
+  }
+
+  input[type="text"]::placeholder {
+    color: light-dark(var(--s2-gray-500), var(--s2-gray-400));
   }
 
   &.has-icon input[type="text"] {
@@ -123,11 +131,11 @@ svg.icon {
 }
 
 .search-type-icon .folder-icon {
-  fill: var(--s2-gray-700);
+  fill: light-dark(var(--s2-gray-700), var(--s2-gray-300));
 }
 
 .search-type-icon .doc-icon {
-  fill: var(--s2-gray-700);
+  fill: light-dark(var(--s2-gray-700), var(--s2-gray-300));
 }
 
 .pin-search-btn {
@@ -148,11 +156,11 @@ svg.icon {
   padding: 0;
   transition: all 0.2s ease;
   z-index: 10;
-  color: var(--s2-gray-600);
+  color: light-dark(var(--s2-gray-600), var(--s2-gray-400));
 }
 
 .pin-search-btn:hover {
-  color: var(--s2-gray-900);
+  color: light-dark(var(--s2-gray-900), var(--s2-gray-100));
   transform: translateY(-50%) scale(1.1);
 }
 
@@ -161,11 +169,11 @@ svg.icon {
 }
 
 .pin-search-btn.pinned {
-  color: var(--s2-blue-700);
+  color: light-dark(var(--s2-blue-700), var(--s2-blue-400));
 }
 
 .pin-search-btn.pinned:hover {
-  color: var(--s2-blue-900);
+  color: light-dark(var(--s2-blue-900), var(--s2-blue-300));
 }
 
 .pin-search-btn .pin-icon {
@@ -185,7 +193,7 @@ svg.icon {
   align-items: center;
   justify-content: center;
   background: transparent;
-  color: var(--s2-gray-600);
+  color: light-dark(var(--s2-gray-600), var(--s2-gray-400));
   border: none;
   cursor: pointer;
   font-size: 16px;
@@ -196,7 +204,7 @@ svg.icon {
 }
 
 .clear-search-btn:hover {
-  color: var(--s2-gray-900);
+  color: light-dark(var(--s2-gray-900), var(--s2-gray-100));
 }
 
 .clear-search-btn:active {
@@ -208,7 +216,7 @@ svg.icon {
   top: 100%;
   left: 0;
   right: 0;
-  background: white;
+  background: light-dark(white, #1a1a1a);
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-radius-75);
   box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
@@ -228,18 +236,18 @@ svg.icon {
 }
 
 .suggestion-item {
-  padding: var(--spacing-200) var(--spacing-300);
+  padding: var(--s2-spacing-200, var(--spacing-200, 12px)) var(--s2-spacing-300, var(--spacing-300, 16px));
   cursor: pointer;
   border-bottom: 1px solid var(--s2-gray-100);
   transition: background-color 0.2s ease;
 }
 
 .suggestion-item:hover {
-  background: var(--s2-gray-50);
+  background: light-dark(var(--s2-gray-50), var(--s2-gray-700));
 }
 
 .suggestion-item.active {
-  background: var(--s2-blue-100);
+  background: light-dark(var(--s2-blue-100), var(--s2-blue-900));
 }
 
 .suggestion-item:last-child {
@@ -249,7 +257,7 @@ svg.icon {
 .suggestion-main {
   display: flex;
   align-items: center;
-  gap: var(--spacing-200);
+  gap: var(--s2-spacing-200, var(--spacing-200, 12px));
 }
 
 .suggestion-icon {
@@ -259,27 +267,28 @@ svg.icon {
 }
 
 .suggestion-icon.folder-icon {
-  color: var(--s2-blue-500);
+  color: light-dark(var(--s2-blue-500), var(--s2-blue-400));
 }
 
 .suggestion-icon.doc-icon {
-  color: var(--s2-gray-600);
+  color: light-dark(var(--s2-gray-600), var(--s2-gray-400));
 }
 
 .suggestion-text {
   flex: 1;
   font-weight: 500;
+  color: light-dark(var(--s2-gray-900), var(--s2-gray-100));
 }
 
 .suggestion-details {
   margin-inline-start: 0;
-  margin-block-start: var(--spacing-100);
+  margin-block-start: var(--s2-spacing-100, var(--spacing-100, 8px));
   font-size: var(--s2-font-size-100);
-  color: var(--s2-gray-600);
+  color: light-dark(var(--s2-gray-600), var(--s2-gray-400));
 }
 
 .detail-line {
-  margin-bottom: var(--spacing-75);
+  margin-bottom: var(--s2-spacing-75, var(--spacing-75, 4px));
 }
 
 .detail-line:last-child {
@@ -287,7 +296,7 @@ svg.icon {
 }
 
 mark {
-  background: yellow;
+  background: light-dark(yellow, var(--s2-yellow-400));
   padding: 0 2px;
   border-radius: 2px;
 }
@@ -295,32 +304,41 @@ mark {
 .scanning-indicator {
   display: flex;
   align-items: center;
-  gap: var(--spacing-200);
-  padding: var(--spacing-200) var(--spacing-300);
-  background: linear-gradient(135deg, var(--s2-green-200) 0%, var(--s2-green-300) 100%);
+  gap: var(--s2-spacing-200, var(--spacing-200, 12px));
+  padding: var(--s2-spacing-200, var(--spacing-200, 12px)) var(--s2-spacing-300, var(--spacing-300, 16px));
+  background: light-dark(
+    linear-gradient(135deg, var(--s2-green-200) 0%, var(--s2-green-300) 100%),
+    linear-gradient(135deg, var(--s2-green-900) 0%, var(--s2-green-700) 100%)
+  );
   border: 1px solid var(--s2-green-300);
   border-radius: var(--s2-radius-75);
-  color: var(--s2-green-900);
+  color: light-dark(var(--s2-green-900), var(--s2-green-200));
   font-size: var(--s2-font-size-100);
   white-space: nowrap;
 }
 
 .scanning-indicator.completed {
-  background: linear-gradient(135deg, var(--s2-blue-200) 0%, var(--s2-blue-300) 100%);
+  background: light-dark(
+    linear-gradient(135deg, var(--s2-blue-200) 0%, var(--s2-blue-300) 100%),
+    linear-gradient(135deg, var(--s2-blue-900) 0%, var(--s2-blue-700) 100%)
+  );
   border-color: var(--s2-blue-300);
-  color: var(--s2-blue-900);
+  color: light-dark(var(--s2-blue-900), var(--s2-blue-200));
 }
 
 .scanning-indicator.completed.no-changes {
-  background: linear-gradient(135deg, var(--s2-gray-200) 0%, var(--s2-gray-300) 100%);
+  background: light-dark(
+    linear-gradient(135deg, var(--s2-gray-200) 0%, var(--s2-gray-300) 100%),
+    linear-gradient(135deg, var(--s2-gray-700) 0%, var(--s2-gray-600) 100%)
+  );
   border-color: var(--s2-gray-300);
-  color: var(--s2-gray-700);
+  color: light-dark(var(--s2-gray-700), var(--s2-gray-200));
 }
 
 .spinner-icon {
   width: 20px;
   height: 20px;
-  color: var(--s2-blue-800);
+  color: light-dark(var(--s2-blue-800), var(--s2-blue-200));
   animation: spin 2s linear infinite;
 }
 
@@ -330,19 +348,19 @@ mark {
 
 .view-controls {
   display: flex;
-  gap: var(--spacing-200);
+  gap: var(--s2-spacing-200, var(--spacing-200, 12px));
   justify-self: end;
 }
 
 .view-btn {
   display: flex;
   align-items: center;
-  gap: var(--spacing-200);
-  padding: var(--spacing-200) var(--spacing-300);
+  gap: var(--s2-spacing-200, var(--spacing-200, 12px));
+  padding: var(--s2-spacing-200, var(--spacing-200, 12px)) var(--s2-spacing-300, var(--spacing-300, 16px));
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-radius-75);
-  background: var(--s2-gray-50);
-  color: var(--s2-gray-700);
+  background: light-dark(var(--s2-gray-50), var(--s2-gray-800));
+  color: light-dark(var(--s2-gray-700), var(--s2-gray-300));
   font-size: var(--s2-font-size-100);
   font-weight: 500;
   cursor: pointer;
@@ -352,14 +370,14 @@ mark {
 }
 
 .view-btn:hover {
-  background: var(--s2-gray-50);
-  border-color: var(--s2-gray-700);
+  background: light-dark(var(--s2-gray-50), var(--s2-gray-700));
+  border-color: light-dark(var(--s2-gray-700), var(--s2-gray-500));
 }
 
 .view-btn.active {
   background: var(--s2-blue-800);
   border-color: var(--s2-blue-800);
-  color: var(--s2-white, #fff);
+  color: light-dark(#fff, var(--s2-gray-25));
 }
 
 .view-btn.active:hover {
@@ -397,7 +415,7 @@ mark {
   top: -4px;
   right: -4px;
   background: var(--s2-blue-800);
-  color: var(--s2-white, #fff);
+  color: light-dark(#fff, var(--s2-gray-25));
   font-size: 12px;
   font-weight: 600;
   padding: 2px 4px;

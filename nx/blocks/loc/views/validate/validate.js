@@ -1,16 +1,14 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { getConfig } from '../../../../scripts/nexter.js';
-import getStyle from '../../../../utils/styles.js';
-import { daFetch } from '../../../../utils/daFetch.js';
-import { Queue } from '../../../../public/utils/tree.js';
+import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
+import { loadStyle } from '../../../../../nx2/scripts/nx.js';
+import { daFetch } from '../../../../../nx2/utils/api.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
+
 import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
 import { getFragmentUrls } from './validate-utils.js';
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
 
-const { nxBase } = getConfig();
-const style = await getStyle(import.meta.url);
-const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
+const style = await loadStyle(import.meta.url);
 
 const DA_LIVE = 'https://da.live';
 
@@ -28,7 +26,7 @@ class NxLocValidate extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style, buttons];
+    this.shadowRoot.adoptedStyleSheets = [style];
     this.setupProject();
   }
 
@@ -103,8 +101,8 @@ class NxLocValidate extends LitElement {
     const isSheet = pathname.endsWith('.json');
     const extPath = isSheet ? pathname : `${pathname}.html`;
     const snapshotUrlFragment = createSnapshotPrefix(this._snapshot);
-    const daUrl = `${DA_ORIGIN}/source/${this._org}/${this._site}${snapshotUrlFragment}${extPath}`;
-    const resp = await daFetch(daUrl);
+    const daUrl = `${DA_ADMIN}/source/${this._org}/${this._site}${snapshotUrlFragment}${extPath}`;
+    const resp = await daFetch({ url: daUrl });
     const text = await resp.text();
     const ok = resp.status === 200;
     url.status = ok ? 'ready' : 'error - not found';

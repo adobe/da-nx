@@ -1,31 +1,49 @@
 import { html, LitElement, nothing } from 'da-lit';
-import { getConfig } from '../../scripts/nexter.js';
-import getStyle from '../../utils/styles.js';
-import { getSvg } from '../../utils/svg.js';
+import { loadStyle } from '../../../nx2/utils/utils.js';
+import { loadHrefSvg } from '../../../nx2/utils/svg.js';
 import { loadSchemas, saveSchema, deleteSchema, loadCodeMirror, updateCodeMirror } from './utils/utils.js';
 
-import '../../public/sl/components.js';
+import '../../../nx2/public/sl/components.js';
 import '../shared/path/path.js';
 
-const { nxBase: nx } = getConfig();
-
-const ICONS = [
-  `${nx}/public/icons/S2_Icon_InfoCircle_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_AlertDiamond_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_CheckmarkCircle_20_N.svg`,
-];
+const ALERT_ICONS = {
+  info: '/img/icons/s2-icon-infocircle-20-n.svg',
+  warning: '/img/icons/s2-icon-alertdiamond-20-n.svg',
+  success: '/img/icons/s2-icon-checkmarkcircle-20-n.svg',
+};
 
 const EL_NAME = 'nx-schema-editor';
-const DEFAULT_SCHEMA = { $schema: 'https://json-schema.org/draft/2020-12/schema' };
+const DEFAULT_SCHEMA = {
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  type: 'object',
+  properties: {},
+};
 
-const styles = await getStyle(import.meta.url);
-const icons = await getSvg({ paths: ICONS });
+function describeSchemaIssues(issues) {
+  const lines = issues.map((issue) => {
+    // The SDK supplies the human `message` and points at the schema source via
+    // `schemaPath` ($refs re-rooted at their $def). Root is '/' — show a
+    // friendly label there. Strip the message's trailing period before the
+    // location suffix so it reads as one clause.
+    const where = issue.schemaPath && issue.schemaPath !== '/' ? `#${issue.schemaPath}` : 'the schema root';
+    const what = (issue.message || issue.reason || '').replace(/\.$/, '');
+    return `${what} (at ${where})`;
+  });
+  // Distinct schema locations may collapse to the same line (a shared $def).
+  return [...new Set(lines)];
+}
+
+const style = await loadStyle(import.meta.url);
+const icons = (await Promise.all(
+  Object.values(ALERT_ICONS).map((path) => loadHrefSvg(path)),
+)).filter(Boolean);
 
 class SchemaEditor extends LitElement {
   static properties = {
     _org: { state: true },
     _site: { state: true },
     _alert: { state: true },
+    _schemaErrors: { state: true },
     _schemas: { state: true },
     _currentSchema: { state: true },
     _createNew: { state: true },
@@ -33,23 +51,56 @@ class SchemaEditor extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [style];
     this.shadowRoot.append(...icons);
   }
 
   updated(props) {
     if (!(props.has('_currentSchema') || props.has('_createNew'))) return;
 
-    const data = this._schemas?.[this._currentSchema] || DEFAULT_SCHEMA;
+    const entry = this._schemas?.[this._currentSchema];
 
-    const doc = JSON.stringify(data, null, 2);
+    // A malformed schema keeps its raw text so it can be repaired in the editor;
+    // anything else renders the parsed schema (falling back to a new one).
+    const doc = entry?.status === 'invalid-json'
+      ? entry.raw
+      : JSON.stringify(entry?.schema ?? DEFAULT_SCHEMA, null, 2);
 
     if (!this._editor) {
       this._editor = loadCodeMirror(this.codeEditor, doc);
+    } else {
+      updateCodeMirror(this._editor, doc);
+    }
+
+    // Flag a saved schema that's broken so the author isn't editing it blind.
+    if (this._currentSchema) this.validateCurrent();
+  }
+
+  // Lazily loaded on first use to keep the SDK bundle out of the editor's load.
+  async runValidation(schema) {
+    const { validateSchema } = await import('../../deps/da-sc-sdk/dist/index.js');
+    return validateSchema({ schema });
+  }
+
+  async validateCurrent() {
+    const id = this._currentSchema;
+    const entry = this._schemas?.[id];
+    if (!entry) return;
+
+    if (entry.status === 'invalid-json') {
+      this._schemaErrors = { message: 'This schema contains invalid JSON. Correct the syntax and save to continue.' };
       return;
     }
 
-    updateCodeMirror(this._editor, doc);
+    const { valid, schemaIssues } = await this.runValidation(entry.schema);
+    // Selection may have changed while the validator loaded.
+    if (this._currentSchema !== id) return;
+    this._schemaErrors = valid
+      ? undefined
+      : {
+        message: 'This schema has validation errors:',
+        issues: describeSchemaIssues(schemaIssues),
+      };
   }
 
   async handleDetail({ detail }) {
@@ -91,6 +142,8 @@ class SchemaEditor extends LitElement {
       this._createNew = true;
       // Remove any existing schema
       this._currentSchema = undefined;
+      // Drop any validation errors from the previously selected schema.
+      this._schemaErrors = undefined;
       return;
     }
     this._currentSchema = target.value;
@@ -109,18 +162,48 @@ class SchemaEditor extends LitElement {
   }
 
   async handleSave(isUpdate) {
-    const id = isUpdate && this._currentSchema ? this._currentSchema : this.newInput.value;
+    const id = isUpdate && this._currentSchema ? this._currentSchema : this.newInput?.value;
+    if (this._createNew && !id) {
+      this._alert = { type: 'warning', message: 'Please enter a schema name before saving.' };
+      return;
+    }
     const content = this._editor.state.doc.toString();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch (e) {
+      this._schemaErrors = {
+        message: 'This schema has invalid JSON and cannot be saved:',
+        issues: [e.message],
+      };
+      return;
+    }
+
+    // Structural validation against the SC engine. A schema it can't compile
+    // is unusable, so block the save and surface the issues rather than
+    // persisting something no form can consume. The default template is seeded
+    // valid so a new schema isn't trapped by this gate.
+    const { valid, schemaIssues } = await this.runValidation(parsed);
+    if (!valid) {
+      this._schemaErrors = {
+        message: 'This schema has validation errors and cannot be saved:',
+        issues: describeSchemaIssues(schemaIssues),
+      };
+      return;
+    }
+
     const prefix = this.getPrefix();
     const result = await saveSchema(prefix, id, content);
     if (result.error) {
       this.newInput.error = result.error;
       return;
     }
+    this._schemas[id] = { status: 'loaded', schema: parsed };
     if (!isUpdate) {
-      this._schemas[id] = JSON.parse(content);
       this._createNew = undefined;
     }
+    this._schemaErrors = undefined;
     this._alert = { type: 'success', message: 'Schema saved.' };
   }
 
@@ -138,13 +221,14 @@ class SchemaEditor extends LitElement {
 
   // Programatically make the select so lit doesn't keep old options
   get schemaSelect() {
-    // Make a synthetic list with a "new schema" entry
-    const schemas = { ...this._schemas, 'nx-new-schema': { title: 'New schema' } };
+    // Make a synthetic list with a "new schema" entry (same tagged shape).
+    const schemas = { ...this._schemas, 'nx-new-schema': { status: 'loaded', schema: { title: 'New schema' } } };
     const select = document.createElement('sl-select');
     const options = Object.keys(schemas).map((key) => {
       const option = document.createElement('option');
       option.value = key;
-      option.innerText = schemas[key].title || key;
+      // A malformed schema has no parsed title, so fall back to its name.
+      option.innerText = schemas[key].schema?.title || key;
       return option;
     });
     if (this._currentSchema) select.value = this._currentSchema;
@@ -173,6 +257,7 @@ class SchemaEditor extends LitElement {
       <div class="schema-select-wrapper">
         ${!this._schemas || this._createNew ? this.renderNewSchema() : this.renderSelectSchema()}
       </div>
+      ${this.renderSchemaErrors()}
       <div class="nx-codemirror"></div>
     `;
   }
@@ -180,16 +265,24 @@ class SchemaEditor extends LitElement {
   renderAlert() {
     if (!this._alert) return nothing;
 
-    const type2icon = {
-      info: 'InfoCircle',
-      warning: 'AlertDiamond',
-      success: 'CheckmarkCircle',
-    };
-
     return html`
       <div class="nx-alert ${this._alert.type || 'info'}">
-        <svg class="icon"><use href="#S2_Icon_${type2icon[this._alert.type || 'info']}_20_N"/></svg>
+        <svg class="icon"><use href="${ALERT_ICONS[this._alert.type || 'info']}"/></svg>
         <p>${this._alert.message}</p>
+      </div>
+    `;
+  }
+
+  renderSchemaErrors() {
+    if (!this._schemaErrors) return nothing;
+
+    const { message, issues } = this._schemaErrors;
+    return html`
+      <div class="nx-schema-errors" role="alert">
+        <p class="nx-schema-errors-title">${message}</p>
+        ${Array.isArray(issues) && issues.length
+    ? html`<ul>${issues.map((issue) => html`<li>${issue}</li>`)}</ul>`
+    : nothing}
       </div>
     `;
   }

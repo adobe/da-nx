@@ -1,7 +1,7 @@
 import { html, LitElement } from 'da-lit';
-import getStyle from '../../../utils/styles.js';
+import { loadStyle } from '../../../../nx2/utils/utils.js';
 
-const styles = await getStyle(import.meta.url);
+const styles = await loadStyle(import.meta.url);
 
 class NxExpActions extends LitElement {
   static properties = { status: { attribute: false } };

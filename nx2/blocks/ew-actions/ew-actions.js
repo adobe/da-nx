@@ -6,14 +6,17 @@ import {
   requestAemRole,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
+import { versions } from '../../utils/api.js';
 import { getConfig } from '../../scripts/nx.js';
-import '../shared/popover/popover.js';
+import '../shared/menu/menu.js';
 
 const style = await loadStyle(import.meta.url);
+const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
+
 const { codeBase } = getConfig();
 const NX_BASE = new URL('../../', import.meta.url).href.replace(/\/$/, '');
 const SEND_ICON_HREF = `${codeBase}/img/icons/s2-icon-send-20-n.svg#icon`;
-const PREPARE_ICON_HREF = `${codeBase}/img/icons/s2-icon-filetext-20-n.svg#icon`;
+const MENU_ICON_HREF = `${codeBase}/img/icons/s2-icon-more-20-n.svg#icon`;
 
 const prepareModuleUrl = () => `${window.location.origin}/blocks/canvas/editor-utils/prepare-menu.js`;
 
@@ -58,16 +61,6 @@ class NXEwActions extends LitElement {
     _dialog: { state: true },
   };
 
-  _busy = false;
-
-  get _popover() {
-    return this.shadowRoot?.querySelector('nx-popover');
-  }
-
-  get _menuAnchor() {
-    return this.shadowRoot?.querySelector('.preview-dropdown-btn');
-  }
-
   get _prepareMenu() {
     return this.shadowRoot?.querySelector('prepare-menu');
   }
@@ -76,9 +69,14 @@ class NXEwActions extends LitElement {
     return this.shadowRoot?.querySelector('.prepare-dropdown-btn');
   }
 
+  get _prepareDetails() {
+    return buildPrepareDetails(this._hashState);
+  }
+
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style];
+    this._busy = false;
+    this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];
     this._unsubHash = hashChange.subscribe((state) => { this._hashState = state; });
     this._loadPrepare();
   }
@@ -99,20 +97,6 @@ class NXEwActions extends LitElement {
     this._unsubHash?.();
   }
 
-  _togglePreviewPopover(e) {
-    e.preventDefault();
-    if (!buildAemPathFromHashState(this._hashState) || this._busy) return;
-    const pop = this._popover;
-    const anchor = this._menuAnchor;
-    if (!pop || !anchor) return;
-    if (pop.open) {
-      pop.close();
-    } else {
-      pop.show({ anchor, placement: 'below' });
-      anchor.setAttribute('aria-expanded', 'true');
-    }
-  }
-
   _togglePrepareMenu(e) {
     e.preventDefault();
     const btn = this._prepareBtn;
@@ -130,10 +114,6 @@ class NXEwActions extends LitElement {
     this._prepareBtn?.setAttribute('aria-expanded', 'false');
   }
 
-  _onSendPopoverClose() {
-    this._menuAnchor?.setAttribute('aria-expanded', 'false');
-  }
-
   async _handleRoleRequest() {
     const { org, site } = this._hashState || {};
     const { action } = this._dialog?.error || {};
@@ -148,7 +128,6 @@ class NXEwActions extends LitElement {
 
   _pickAem(action) {
     if (action !== 'preview' && action !== 'publish') return;
-    this._popover?.close();
     this._runAemAction(action);
   }
 
@@ -158,6 +137,30 @@ class NXEwActions extends LitElement {
 
     this._dialog = undefined;
     this._busy = true;
+
+    // Flush pending collab updates to da-admin before AEM reads it,
+    // otherwise the last ~2s of edits (held in da-collab's debounce) are missed.
+    const editorDoc = document.querySelector('ew-editor-doc');
+    if (editorDoc?.forceSave) {
+      const flushResult = await editorDoc.forceSave();
+      if (!flushResult?.ok) {
+        await Promise.all([
+          import('../shared/dialog/dialog.js'),
+          import(`${NX_BASE}/public/sl/components.js`),
+        ]);
+        this._busy = false;
+        this._hasError = true;
+        this._dialog = {
+          phase: 'error',
+          error: {
+            action,
+            type: 'error',
+            message: flushResult?.error || 'Unable to confirm save. Please retry or reload the editor.',
+          },
+        };
+        return;
+      }
+    }
 
     const result = await runAemPreviewOrPublish({ aemPath, action });
     if (!result.ok) {
@@ -172,8 +175,32 @@ class NXEwActions extends LitElement {
     }
 
     this._hasError = false;
-    window.open(result.url, result.url);
+    const url = this._resolveOpenUrl(action, aemPath, result.url);
+    window.open(url, url);
+    this._saveVersion(action);
     this._busy = false;
+  }
+
+  _saveVersion(action) {
+    const fullpath = this._prepareDetails?.fullpath;
+    if (!fullpath) return;
+    const comment = action === 'publish' ? 'Published' : 'Previewed';
+    // eslint-disable-next-line no-console
+    versions.create(fullpath, { comment }).catch(() => console.log(`Error creating auto version (${comment}).`));
+  }
+
+  // A page can override the EDS delivery URL with `preview-url` / `live-url`
+  // metas whose content is a template containing `${aemPath}`.
+  // eslint-disable-next-line class-methods-use-this
+  _resolveOpenUrl(action, aemPath, fallbackUrl) {
+    const metaName = action === 'publish' ? 'live-url' : 'preview-url';
+    const template = document.head.querySelector(`meta[name="${metaName}"]`)?.content;
+    if (!template) return fallbackUrl;
+    // eslint-disable-next-line no-template-curly-in-string
+    const url = template.replace('${aemPath}', aemPath);
+    // aemPath carries a leading slash, so a template like `.../preview/${aemPath}`
+    // yields `preview//...`; collapse duplicate slashes but keep the `://` scheme.
+    return url.replace(/([^:])\/{2,}/g, '$1/');
   }
 
   _renderDialog() {
@@ -218,7 +245,7 @@ class NXEwActions extends LitElement {
   render() {
     const hasDoc = Boolean(buildAemPathFromHashState(this._hashState));
     const disabled = !hasDoc || this._busy;
-    const prepareDetails = this._prepareReady ? buildPrepareDetails(this._hashState) : null;
+    const prepareDetails = this._prepareReady ? this._prepareDetails : null;
 
     return html`
       <div class="ew-actions">
@@ -227,37 +254,38 @@ class NXEwActions extends LitElement {
             ${prepareDetails ? html`
               <button
                 type="button"
-                class="prepare-dropdown-btn"
+                class="nx-action-btn-icon prepare-dropdown-btn"
                 aria-label="Open prepare menu"
                 aria-haspopup="menu"
                 aria-expanded="false"
                 @click=${this._togglePrepareMenu}
               >
-                <svg class="prepare-dropdown-btn-icon" viewBox="0 0 20 20" aria-hidden="true"><use href=${PREPARE_ICON_HREF}></use></svg>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><use href=${MENU_ICON_HREF}></use></svg>
               </button>
               <prepare-menu .details=${prepareDetails} @close=${this._onPrepareMenuClose}></prepare-menu>
             ` : nothing}
-            <button
-              type="button"
-              class="preview-dropdown-btn${this._hasError ? ' is-error' : ''}"
-              aria-label="Preview and publish"
-              aria-haspopup="menu"
-              aria-expanded="false"
-              ?disabled=${disabled}
-              @click=${this._togglePreviewPopover}
+            <nx-menu
+              placement="below"
+              size="m"
+              .items=${[
+        { id: 'preview', label: 'Preview' },
+        { id: 'publish', label: 'Publish' },
+      ]}
+              @select=${(e) => this._pickAem(e.detail.id)}
             >
-              <svg class="preview-dropdown-icon" viewBox="0 0 20 20" aria-hidden="true"><use href=${SEND_ICON_HREF}></use></svg>
-            </button>
-            <nx-popover placement="below" @close=${this._onSendPopoverClose}>
-              <div class="send-popover" role="menu">
-                <button type="button" class="send-popover-item" role="menuitem" @click=${() => this._pickAem('preview')}>
-                  Preview
-                </button>
-                <button type="button" class="send-popover-item" role="menuitem" @click=${() => this._pickAem('publish')}>
-                  Publish
-                </button>
-              </div>
-            </nx-popover>
+              <button
+                type="button"
+                slot="trigger"
+                class="nx-btn-accent preview-dropdown-btn${this._hasError ? ' is-error' : ''}${this._busy ? ' is-busy' : ''}"
+                aria-label="Preview and publish"
+                ?disabled=${disabled}
+              >
+                ${this._busy
+        ? html`<span class="preview-dropdown-spinner" aria-hidden="true"></span>`
+        : html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href=${SEND_ICON_HREF}></use></svg>`}
+        <span>Send</span>
+              </button>
+            </nx-menu>
           </div>
         </div>
       </div>

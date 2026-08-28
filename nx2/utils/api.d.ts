@@ -94,7 +94,8 @@ export const source: {
    * - **Object:** `list({ org, site?, path?, continuationToken?, opts? })`
    * - **Path:** `list('/org/site/folder', { continuationToken?, opts? })`
    *
-   * Pass `{ org }` without `site` to list sites at the org level (legacy DA only).
+   * Pass `{ org }` without `site` to list sites at the org level — merges
+   * DA-legacy folders with hlx6 source-bus sites, deduped by name.
    * For pagination, pass `continuationToken` from a prior result.
    *
    * Returns `{ ok, items, continuationToken, permissions? }`.
@@ -165,6 +166,23 @@ export const source: {
    * @param arg Path string (`/org/site/folder`) or `{ org, site, path }`
    */
   deleteFolder(arg: any): Promise<ApiResponse>;
+
+  /**
+   * Copy a folder recursively. `path` is the source folder; `destination`
+   * is the target folder path. `collision` sets conflict policy when the
+   * destination exists (e.g. `'overwrite'`). Returns an augmented `Response`.
+   *
+   * **hlx6** normalizes `path`/`destination` to a trailing slash before
+   * dispatch. **Legacy DA** uses them as-is (no trailing slash needed,
+   * as handled by da-admin).
+   *
+   * - **Object:** `copyFolder({ org, site, path, destination, collision? })`
+   * - **Path:** `copyFolder('/org/site/folder', { destination, collision? })`
+   *
+   * @param arg Path string (`/org/site/folder`) or `{ org, site, path, destination, collision? }`
+   * @param pathExtras Path-form only — `{ destination, collision? }`
+   */
+  copyFolder(arg: any, pathExtras?: object): Promise<ApiResponse>;
 };
 
 // ─── versions ───────────────────────────────────────────────────────────────
@@ -229,6 +247,7 @@ export const config: {
 // ─── org ────────────────────────────────────────────────────────────────────
 
 export const org: {
+  /** hlx6 source-bus site list. GETs `${AEM_API}/{org}/source/`; 404 on non-migrated orgs. */
   listSites(arg: { org: string }): Promise<ApiResponse>;
 };
 

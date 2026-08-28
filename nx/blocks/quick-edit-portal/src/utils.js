@@ -1,4 +1,5 @@
 import { handleSignIn, loadIms } from '../../../utils/ims.js';
+import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 
 const DA_LIVE_PREVIEW_ENVS = {
   local: 'localhost:8000',
@@ -34,11 +35,12 @@ function getLivePreviewUrl(owner, repo) {
 export async function getImageCookie(owner, repo) {
   const token = await getToken();
   if (token) {
-    await fetch(`${getLivePreviewUrl(owner, repo)}/gimme_cookie`, {
+    return fetch(`${getLivePreviewUrl(owner, repo)}/gimme_cookie`, {
       credentials: 'include',
       headers: { Authorization: `Bearer ${token}` },
     });
   }
+  return null;
 }
 
 export function findChangedNodes(oldDoc, newDoc) {
@@ -277,8 +279,11 @@ export async function handlePreview(ctx) {
   if (!resp.ok) {
     // eslint-disable-next-line no-console
     console.error('Failed to preview:', resp.statusText);
-    ctx.port.postMessage({ type: 'preview', ok: false, error: `Failed to preview: ${resp.statusText}` });
+    const error = `Failed to preview: ${resp.statusText}`;
+    ctx.port.postMessage({
+      type: MESSAGE_TYPES.PREVIEW, payload: { ok: false, error },
+    });
   } else {
-    ctx.port.postMessage({ type: 'preview', ok: true });
+    ctx.port.postMessage({ type: MESSAGE_TYPES.PREVIEW, payload: { ok: true } });
   }
 }

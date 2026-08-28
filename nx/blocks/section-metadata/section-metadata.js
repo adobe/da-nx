@@ -1,4 +1,11 @@
-import getElementMetadata from '../../utils/getElementMetadata.js';
+import { loadStyle } from '../../../nx2/utils/utils.js';
+import getElementMetadata from '../../../nx2/utils/getElementMetadata.js';
+
+const style = await loadStyle(import.meta.url);
+
+if (!document.adoptedStyleSheets.includes(style)) {
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
+}
 
 function handleBackground(content, section) {
   const pic = content.querySelector('picture');
@@ -15,8 +22,8 @@ function handleBackground(content, section) {
 }
 
 async function handleStyle(text, section) {
-  const styles = text.split(', ').map((style) => style.replaceAll(' ', '-'));
-  section.classList.add(...styles);
+  const classes = text.split(', ').map((s) => s.replaceAll(' ', '-'));
+  section.classList.add(...classes);
 }
 
 async function handleLayout(text, section, type) {
@@ -27,9 +34,18 @@ async function handleLayout(text, section, type) {
 function handleContainer(section) {
   const container = document.createElement('div');
   container.className = 'nx-section-container';
-  const children = section.childNodes;
-  const filtered = [...children].filter((item) => !item.classList?.contains('nx-section-metadata'));
-  container.append(...filtered);
+  for (const child of [...section.childNodes]) {
+    if (!child.classList?.contains('nx-section-metadata')) {
+      if (child.classList?.contains('block-content')) {
+        const blockChildren = [...child.childNodes].filter(
+          (item) => !item.classList?.contains('nx-section-metadata'),
+        );
+        container.append(...blockChildren);
+      } else {
+        container.append(child);
+      }
+    }
+  }
   section.insertAdjacentElement('afterbegin', container);
 }
 

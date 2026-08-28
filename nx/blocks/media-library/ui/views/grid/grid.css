@@ -1,4 +1,9 @@
 /* Grid component styles - inherits CSS variables from parent */
+:host {
+  display: block;
+  height: 100%;
+}
+
 svg.icon {
   width: 20px;
   height: 20px;
@@ -38,7 +43,7 @@ svg.icon {
 .share-button svg.icon {
   width: 20px;
   height: 20px;
-  color: var(--s2-white, #fff);
+  color: white;
   fill: currentcolor;
 }
 
@@ -53,7 +58,7 @@ svg.icon {
 }
 
 .empty-state h2 {
-  margin: 0 0 var(--spacing-200);
+  margin: 0 0 var(--s2-spacing-200, var(--spacing-200, 12px));
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--s2-gray-800);
@@ -76,7 +81,7 @@ svg.icon {
 }
 
 .scanning-state h3 {
-  margin: 0 0 var(--spacing-200);
+  margin: 0 0 var(--s2-spacing-200, var(--spacing-200, 12px));
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--s2-gray-800);
@@ -89,7 +94,7 @@ svg.icon {
   border-top: 2px solid var(--s2-blue-600);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-bottom: var(--spacing-200);
+  margin-bottom: var(--s2-spacing-200, var(--spacing-200, 12px));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -107,7 +112,7 @@ svg.icon {
   border-top: 2px solid var(--s2-blue-600);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-top: var(--spacing-200);
+  margin-top: var(--s2-spacing-200, var(--spacing-200, 12px));
 }
 
 .media-main {
@@ -117,11 +122,16 @@ svg.icon {
   contain: layout;
   padding-top: 0;
   margin-top: 0;
+  background: light-dark(var(--s2-gray-50), #1a1a1a);
 }
 
 .media-main:focus-visible {
   outline: 2px solid var(--s2-blue-500);
   outline-offset: -2px;
+}
+
+:host([pluginmode]) .media-main {
+  height: 100%;
 }
 
 .media-main > * {
@@ -154,9 +164,9 @@ svg.icon {
 }
 
 .media-card {
-  background: var(--s2-gray-50);
+  background: light-dark(var(--s2-gray-50), var(--s2-gray-800));
   border-radius: var(--s2-radius-300);
-  border: 1px solid #e8e8e8;
+  border: 1px solid light-dark(#e8e8e8, var(--s2-gray-300));
   overflow: hidden;
   cursor: default;
   padding: 0;
@@ -179,7 +189,7 @@ svg.icon {
 
 .media-preview {
   height: 300px;
-  background: var(--s2-gray-75);
+  background: light-dark(var(--s2-gray-75), var(--s2-gray-700));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -241,7 +251,7 @@ svg.icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--s2-gray-200);
+  background: light-dark(var(--s2-gray-200), var(--s2-gray-600));
   position: absolute;
   top: 0;
   left: 0;
@@ -249,7 +259,7 @@ svg.icon {
 }
 
 .error-placeholder {
-  background: var(--s2-red-100);
+  background: light-dark(var(--s2-red-100), var(--s2-red-900));
   border: 1px solid var(--s2-red-300);
 }
 
@@ -280,7 +290,7 @@ svg.icon {
   justify-content: center;
   text-align: center;
   padding: 20px;
-  background: white;
+  background: light-dark(white, var(--s2-gray-100));
   border-radius: 8px;
   box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
   border: 1px solid var(--s2-gray-200);
@@ -302,15 +312,15 @@ svg.icon {
 }
 
 .video-overlay .play-icon {
-  color: white;
-  fill: white;
+  color: light-dark(white, var(--s2-gray-25));
+  fill: light-dark(white, var(--s2-gray-25));
 }
 
 .media-name {
-  margin: 0 0 var(--spacing-100);
+  margin: 0 0 var(--s2-spacing-100, var(--spacing-100, 8px));
   font-size: 0.85rem;
   font-weight: 700;
-  color: white;
+  color: light-dark(white, var(--s2-gray-25));
   overflow: visible;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -319,17 +329,17 @@ svg.icon {
 
 .media-meta {
   display: flex;
-  gap: var(--spacing-100);
-  margin-bottom: var(--spacing-100);
+  gap: var(--s2-spacing-100, var(--spacing-100, 8px));
+  margin-bottom: var(--s2-spacing-100, var(--spacing-100, 8px));
   flex-wrap: wrap;
   align-items: center;
   justify-content: end;
-  padding: var(--spacing-300);
+  padding: var(--s2-spacing-300, var(--spacing-300, 16px));
   pointer-events: auto;
 }
 
 .media-label {
-  color: white;
+  color: light-dark(white, var(--s2-gray-25));
   padding: 4px 12px;
   border-radius: var(--s2-radius-100);
   font-size: 12px;
@@ -358,7 +368,7 @@ svg.icon {
   left: 0;
   right: 0;
   display: flex;
-  padding: var(--spacing-300);
+  padding: var(--s2-spacing-300, var(--spacing-300, 16px));
   align-items: center;
   pointer-events: none;
   z-index: 10;
@@ -373,11 +383,16 @@ svg.icon {
     padding: 4px;
     border-radius: var(--s2-radius-100);
 
+    svg.icon {
+      filter: drop-shadow(0 1px 2px rgb(0 0 0 / 40%));
+    }
+
     &:hover {
-      background-color: var(--s2-gray-50);
+      background-color: light-dark(var(--s2-gray-50), rgb(255 255 255 / 15%));
 
       svg.icon {
-        color: initial;
+        color: light-dark(var(--s2-gray-900), white);
+        filter: none;
       }
     }
   }
@@ -408,7 +423,10 @@ svg.icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--s2-gray-50) 0%, var(--s2-gray-200) 100%);
+  background: light-dark(
+    linear-gradient(135deg, var(--s2-gray-50) 0%, var(--s2-gray-200) 100%),
+    linear-gradient(135deg, var(--s2-gray-700) 0%, var(--s2-gray-600) 100%)
+  );
   position: absolute;
   top: 0;
   left: 0;
@@ -422,7 +440,7 @@ svg.icon {
   justify-content: center;
   text-align: center;
   padding: 20px;
-  background: white;
+  background: light-dark(white, var(--s2-gray-100));
   border-radius: 8px;
   box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
   border: 1px solid var(--s2-gray-200);
@@ -439,7 +457,7 @@ svg.icon {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--spacing-100);
+  gap: var(--s2-spacing-100, var(--spacing-100, 8px));
 }
 
 .video-name {
@@ -487,7 +505,10 @@ svg.icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--s2-gray-50) 0%, var(--s2-gray-200) 100%);
+  background: light-dark(
+    linear-gradient(135deg, var(--s2-gray-50) 0%, var(--s2-gray-200) 100%),
+    linear-gradient(135deg, var(--s2-gray-700) 0%, var(--s2-gray-600) 100%)
+  );
   position: absolute;
   top: 0;
   left: 0;
@@ -498,7 +519,7 @@ svg.icon {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--spacing-100);
+  gap: var(--s2-spacing-100, var(--spacing-100, 8px));
 }
 
 .pdf-name {
@@ -521,14 +542,14 @@ svg.icon {
 
 .pdf-link {
   text-decoration: none;
-  margin-top: var(--spacing-200);
+  margin-top: var(--s2-spacing-200, var(--spacing-200, 12px));
 }
 
 .pdf-loading {
   font-size: 0.8rem;
   color: var(--s2-blue-600);
   font-style: italic;
-  margin-top: var(--spacing-100);
+  margin-top: var(--s2-spacing-100, var(--spacing-100, 8px));
 }
 
 /* Fragment/PDF full card placeholders */
@@ -540,7 +561,10 @@ svg.icon {
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  background: linear-gradient(135deg, var(--s2-gray-50) 0%, var(--s2-gray-200) 100%);
+  background: light-dark(
+    linear-gradient(135deg, var(--s2-gray-50) 0%, var(--s2-gray-200) 100%),
+    linear-gradient(135deg, var(--s2-gray-700) 0%, var(--s2-gray-600) 100%)
+  );
 }
 
 .fragment-placeholder {
@@ -550,7 +574,7 @@ svg.icon {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--s2-cyan-light, #b5ebfb);
+  background: light-dark(var(--s2-cyan-light, #b5ebfb), var(--s2-cyan-800));
 }
 
 .pdf-placeholder {
@@ -560,7 +584,7 @@ svg.icon {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--s2-red-light, #fbb5b5);
+  background: light-dark(var(--s2-red-light, #fbb5b5), var(--s2-red-800));
 }
 
 .placeholder-icon {
@@ -607,7 +631,7 @@ svg.icon {
 
 /* Add highlighting styles */
 mark {
-  background: yellow;
+  background: light-dark(yellow, var(--s2-yellow-400));
   padding: 0 2px;
   border-radius: 2px;
 }

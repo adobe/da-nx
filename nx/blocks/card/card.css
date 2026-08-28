@@ -1,13 +1,14 @@
 .nx-card {
-  box-shadow: 0 1px 6px 0 rgb(0 0 0 / 12%);
-  border-radius: var(--s2-radius-200);
+  box-shadow: 0 1px 6px 0 light-dark(rgb(0 0 0 / 12%), rgb(0 0 0 / 40%));
+  border-radius: var(--s2-corner-radius-700);
   overflow: hidden;
-  background-color: #fff;
+  background-color: light-dark(#fff, var(--s2-gray-75));
+  border: 1px solid var(--s2-gray-200);
   transition: all 0.25s ease-in-out;
 
   &:hover {
     transform: scale(1.005);
-    box-shadow: 0 2px 8px 0 rgb(0 0 0 / 16%);
+    box-shadow: 0 2px 8px 0 light-dark(rgb(0 0 0 / 16%), rgb(0 0 0 / 50%));
   }
 }
 
@@ -41,11 +42,11 @@
 }
 
 .nx-card-content-container {
-  padding: var(--spacing-400) var(--spacing-400) var(--spacing-200) var(--spacing-400);
+  padding: var(--s2-spacing-400) var(--s2-spacing-400) var(--s2-spacing-200) var(--s2-spacing-400);
 
   :first-child {
     margin-top: 0;
-    font-size: 16px;
+    font-size: var(--s2-body-size-m);
   }
 
   :last-child {
@@ -54,32 +55,32 @@
 }
 
 .nx-card-cta-container {
-  padding: 0 var(--spacing-400) var(--spacing-400) var(--spacing-400);
+  padding: 0 var(--s2-spacing-400) var(--s2-spacing-400) var(--s2-spacing-400);
   margin: 0;
   display: flex;
   justify-content: end;
 }
 
 .nx-card-cta-container strong a {
-  background-color: var(--s2-blue-800);
-  border-radius: var(--s2-radius-300);
-  border: 2px solid var(--s2-blue-800);
-  border-color: var(--s2-blue-800);
+  background-color: var(--s2-blue-900);
+  border-radius: var(--s2-corner-radius-800);
+  border: 2px solid var(--s2-blue-900);
+  border-color: var(--s2-blue-900);
   color: #fff;
   display: inline-block;
-  font-size: 15px;
+  font-size: var(--s2-component-m-bold-font-size);
   font-style: normal;
-  font-weight: 700;
-  line-height: 18px;
+  font-weight: var(--s2-component-m-bold-font-weight);
+  line-height: var(--s2-component-m-bold-line-height);
   padding: 5px 14px;
   text-decoration: none;
   outline-offset: 0;
-  outline-color: var(--s2-blue-800);
+  outline-color: var(--s2-blue-900);
   transition: outline-offset 0.2s;
 }
 
 .nx-card-cta-container strong a:focus {
-  background-color: #3b63fb;
-  border: 2px solid #3b63fb;
+  background-color: var(--s2-blue-900);
+  border: 2px solid var(--s2-blue-900);
   outline-offset: 4px;
 }

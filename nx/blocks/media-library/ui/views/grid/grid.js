@@ -1,7 +1,7 @@
 import { html, LitElement } from '../../../../../deps/ml-lit/dist/index.js';
 import { virtualize, grid } from '../../../../../deps/virtualizer/dist/index.js';
-import getStyle from '../../../../../utils/styles.js';
-import getSvg from '../../../../../public/utils/svg.js';
+import { loadStyle } from '../../../../../../nx2/utils/utils.js';
+import { loadHrefSvg } from '../../../../../../nx2/utils/svg.js';
 import {
   getVideoThumbnail,
   isExternalVideoUrl,
@@ -29,17 +29,17 @@ import { MediaType } from '../../../core/constants.js';
 import { t } from '../../../core/messages.js';
 import { isMediaLibraryPluginMode } from '../../../core/utils.js';
 
-const styles = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
+const nx2 = `${new URL(import.meta.url).origin}/nx2`;
 const nx = `${new URL(import.meta.url).origin}/nx`;
-const sl = await getStyle(`${nx}/public/sl/styles.css`);
-const slComponents = await getStyle(`${nx}/public/sl/components.css`);
-const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
+const sl = await loadStyle(`${nx2}/public/sl/styles.css`);
+const slComponents = await loadStyle(`${nx2}/public/sl/components.css`);
 
 const ICONS = [
-  `${iconsBase}Smock_Copy_18_N.svg`,
-  `${iconsBase}S2_Icon_Play_20_N.svg`,
-  `${iconsBase}C_Icon_Fragment.svg`,
-  `${iconsBase}S2_Icon_AlertCircle_18_N.svg`,
+  `${nx}/img/icons/Smock_Copy_18_N.svg`,
+  `${nx}/img/icons/S2_Icon_Play_20_N.svg`,
+  `${nx}/img/icons/C_Icon_Fragment.svg`,
+  `${nx}/img/icons/S2_Icon_AlertCircle_18_N.svg`,
 ];
 
 class NxMediaGrid extends LitElement {
@@ -49,6 +49,7 @@ class NxMediaGrid extends LitElement {
     repo: { type: String },
     usePreviewDaLive: { type: Boolean },
     resultsBusy: { type: Boolean },
+    pluginMode: { type: Boolean, reflect: true },
   };
 
   constructor() {
@@ -72,7 +73,7 @@ class NxMediaGrid extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
+    this.shadowRoot.adoptedStyleSheets = [sl, slComponents, style];
   }
 
   handleKeyDown(e) {
@@ -320,7 +321,10 @@ class NxMediaGrid extends LitElement {
     });
 
     if (missingIcons.length > 0) {
-      await getSvg({ parent: this.shadowRoot, paths: missingIcons });
+      const icons = (await Promise.all(missingIcons.map(loadHrefSvg)))
+        .filter(Boolean)
+        .map((svg) => svg.cloneNode(true));
+      this.shadowRoot.append(...icons);
     }
   }
 

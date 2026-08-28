@@ -1,4 +1,11 @@
+import { loadStyle } from '../../../nx2/utils/utils.js';
+
+const style = await loadStyle(import.meta.url);
+
 export default function init(el) {
+  if (!document.adoptedStyleSheets.includes(style)) {
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
+  }
   const inner = el.querySelector(':scope > div');
   inner.classList.add('nx-card-inner');
   const pic = el.querySelector('picture');

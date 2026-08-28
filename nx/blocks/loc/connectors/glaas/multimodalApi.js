@@ -1,11 +1,32 @@
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { Queue } from '../../../../public/utils/tree.js';
-import { daFetch } from '../../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
+import { daFetch, source as daSource } from '../../../../../nx2/utils/api.js';
+import { DA_ETC } from '../../../../utils/utils.js';
 import {
-  buildGlaasCreateMetadata, getOpts, glaasSourcePreviewUrl, throttle,
+  buildGlaasCreateMetadata,
+  getOpts,
+  glaasSourcePreviewUrl,
+  shouldLogGLaaSRequests,
+  throttle,
 } from './api.js';
+import {
+  isEligibleMultimodalImageUrl, toHref, parseAemPageHost, aemPageToPreviewDaLiveUrl,
+  ensureLivePreviewLogin,
+} from './imageSelections.js';
+import { LOC_SRC_ATTR } from './dnt.js';
 
-const MULTIMODAL_LOG_KEY = 'glaas.multimodal.log';
+export { shouldLogGLaaSRequests } from './api.js';
+
+function logMultimodalDebug(logRequest, step, detail, { level = 'info' } = {}) {
+  if (logRequest) {
+    logRequest(step, detail);
+    return;
+  }
+  if (!shouldLogGLaaSRequests()) return;
+  const fn = level === 'warn' ? console.warn : console.info;
+  // eslint-disable-next-line no-console -- dev GLaaS handoff (glaas.log)
+  fn('[GLaaS multimodal]', step, detail);
+}
 /** Documented GLaaS budget is 120/min per client id; target 100 for shared-stage headroom. */
 const GLAAS_API_LIMIT_PER_MINUTE = 100;
 const GLAAS_API_WINDOW_MS = 60_000;
@@ -20,8 +41,9 @@ const IMAGE_PUSH_INTERVAL_MS = 250;
 const PUT_URL_MAX_RETRIES = 4;
 const PUT_URL_RETRY_WAIT_MS = 1000;
 const PUT_URL_429_FALLBACK_DELAY_MS = Math.ceil(GLAAS_API_WINDOW_MS / 2) + 250;
-export const MEDIA_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
-export const MEDIA_IMAGE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
+// Translated images are saved as DA source files (see buildTranslatedImageSourcePath) - 20MB
+// is DA's documented /source upload ceiling, not an empirically-observed workaround.
+export const TRANSLATED_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 
 export function createPutUrlRollingLimiter({
   limitPerWindow = GLAAS_API_LIMIT_PER_MINUTE,
@@ -153,9 +175,14 @@ export function ensureLeadingSlash(assetName) {
   return assetName.startsWith('/') ? assetName : `/${assetName}`;
 }
 
-export function siteRelativePathFromContentDaLiveUrl(contentDaLiveUrl) {
+const CONTENT_DA_LIVE = 'content.da.live';
+
+export function siteRelativePathFromImageUrl(imageUrl) {
   try {
-    const pathname = decodeURIComponent(new URL(contentDaLiveUrl).pathname);
+    const url = new URL(imageUrl);
+    const pathname = decodeURIComponent(url.pathname);
+    // Only content.da.live paths have an /{org}/{site} prefix to strip.
+    if (url.hostname !== CONTENT_DA_LIVE) return pathname || '/';
     const segments = pathname.split('/').filter(Boolean);
     if (segments.length <= 2) return '/';
     return `/${segments.slice(2).join('/')}`;
@@ -164,24 +191,16 @@ export function siteRelativePathFromContentDaLiveUrl(contentDaLiveUrl) {
   }
 }
 
-export function buildTranslatedMediaPath({ langCode, glaasName }) {
+// Deliberately path-based, not content-addressed: an image shared across pages saves a
+// separate copy per page today (dedup is left to a future job over /translated-images).
+export function buildTranslatedImageSourcePath({ langCode, glaasName }) {
   const base = ensureLeadingSlash(glaasName);
   const locale = String(langCode ?? '').replace(/^\/+|\/+$/g, '');
-  if (!locale) return base;
-  return `/${locale}${base}`;
-}
-
-export function shouldLogMultimodalRequests() {
-  try {
-    return localStorage.getItem(MULTIMODAL_LOG_KEY) === 'true';
-  } catch {
-    return false;
-  }
+  return locale ? `/translated-images/${locale}${base}` : `/translated-images${base}`;
 }
 
 export function logMultimodalRequest(step, detail) {
-  // eslint-disable-next-line no-console -- dev multimodal handoff
-  console.info('[GLaaS multimodal]', step, detail);
+  logMultimodalDebug(undefined, step, detail);
 }
 
 export async function getPutUrlForFile({
@@ -299,10 +318,7 @@ export async function createMultimodalTask({
 
   const url = `${origin}/api/l10n/v2.0/tasks/${product}/${project}/create`;
   logRequest?.('v2-create', { method: 'POST', url, body });
-  if (logRequest) {
-    // eslint-disable-next-line no-console -- dev handoff
-    console.info('[GLaaS multimodal] v2-create-body-json\n', JSON.stringify(body, null, 2));
-  }
+  logMultimodalDebug(logRequest, 'v2-create-body-json\n', JSON.stringify(body, null, 2));
   const opts = getOpts(clientid, token, JSON.stringify(body), 'application/json', 'POST');
   try {
     const resp = await fetch(url, opts);
@@ -367,8 +383,6 @@ export async function fetchBlobFromSignedUrl(signedURL) {
   }
 }
 
-const CONTENT_DA_LIVE = 'content.da.live';
-
 /** Encode delivery URL for HTML src/srcset (spaces → %20, valid srcset). */
 export function contentDaLiveHrefForAttribute(href) {
   if (!href) return href;
@@ -388,75 +402,51 @@ function isAbsoluteContentDaLiveUrl(href) {
   }
 }
 
-function isProjectContentDaLiveUrl(href, org, site) {
-  if (!isAbsoluteContentDaLiveUrl(href)) return false;
-  if (!org || !site) return true;
-  const prefix = `https://${CONTENT_DA_LIVE}/${org}/${site}`;
-  try {
-    return new URL(href).href.startsWith(prefix);
-  } catch {
-    return false;
-  }
-}
-
-const GLAAS_MULTIMODAL_IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg']);
-
-function isGlaasMultimodalImageUrl(href) {
-  try {
-    const pathname = decodeURIComponent(new URL(href).pathname);
-    const filename = pathname.split('/').pop() ?? '';
-    const dot = filename.lastIndexOf('.');
-    if (dot === -1) return false;
-    return GLAAS_MULTIMODAL_IMAGE_EXTS.has(filename.slice(dot + 1).toLowerCase());
-  } catch {
-    return false;
-  }
-}
-
-/** MVP: absolute https://content.da.live/... png/jpeg image URLs from img[src] only. */
-export function collectContentDaLiveImageUrls(html, { org, site } = {}) {
+/**
+ * Which images on the page could be sent for translation at all - opt-in
+ * selection (da-metadata's loc-images) is applied on top of this by callers.
+ * Any absolute http(s) png/jpg/jpeg image on an aem.live, aem.page, or
+ * content.da.live host is eligible.
+ *
+ * LOC_SRC_ATTR (see dnt.js), if present, is the image's real href - DNT relativizes
+ * some absolute image srcs, which would otherwise make a marked image look ineligible.
+ */
+export function collectMultimodalImageUrls(html, { imageSelections } = {}) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const urls = new Set();
   doc.querySelectorAll('img[src]').forEach((img) => {
-    const src = img.getAttribute('src');
-    if (isProjectContentDaLiveUrl(src, org, site) && isGlaasMultimodalImageUrl(src)) {
-      urls.add(new URL(src).href);
-    }
+    const src = img.getAttribute(LOC_SRC_ATTR) || img.getAttribute('src');
+    if (!isEligibleMultimodalImageUrl(src)) return;
+    const href = toHref(src);
+    if (href && imageSelections?.has(href)) urls.add(href);
   });
   return [...urls];
 }
 
 const CONTENT_DA_LIVE_ORIGIN = `https://${CONTENT_DA_LIVE}`;
 
-/** Map delivery URL to DA Admin source (same path after /source/). */
+/** Map delivery URL to DA Admin source (same path after /source/). content.da.live only. */
 export function contentDaLiveToDaSourceUrl(imageUrl) {
-  return imageUrl.replace(CONTENT_DA_LIVE_ORIGIN, `${DA_ORIGIN}/source`);
+  return imageUrl.replace(CONTENT_DA_LIVE_ORIGIN, `${DA_ADMIN}/source`);
 }
 
-export function contentDaLivePathKey(href) {
-  try {
-    const u = new URL(href, `https://${CONTENT_DA_LIVE}`);
-    if (u.hostname !== CONTENT_DA_LIVE) return undefined;
-    return decodeURIComponent(u.pathname);
-  } catch {
-    return undefined;
-  }
-}
-
-/** Replace content.da.live image URLs using pathname → new delivery URL map. */
+/** Replace original image URLs (any host) using normalized href → new delivery URL map. */
 export function rewriteContentDaLiveImageUrls(html, pathToNewUrl) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const resolveNewUrl = (href) => {
-    const key = contentDaLivePathKey(href);
+    const key = toHref(href);
     if (!key) return undefined;
     return pathToNewUrl.get(key);
   };
 
   doc.querySelectorAll('img[src]').forEach((img) => {
-    const next = resolveNewUrl(img.getAttribute('src'));
+    // LOC_SRC_ATTR (see dnt.js): the image's real href if DNT relativized its src -
+    // pathToNewUrl is keyed by the original absolute href, not the relativized one.
+    const next = resolveNewUrl(img.getAttribute(LOC_SRC_ATTR) || img.getAttribute('src'));
     if (!next) return;
     const encoded = contentDaLiveHrefForAttribute(next);
     img.setAttribute('src', encoded);
+    img.removeAttribute(LOC_SRC_ATTR);
     const picture = img.closest('picture');
     if (!picture) return;
     picture.querySelectorAll('source[srcset]').forEach((source) => {
@@ -617,7 +607,7 @@ export function buildMultimodalPageAssetEntry({ htmlAssetName, imageUrls }) {
   const htmlGlaasName = ensureLeadingSlash(htmlAssetName);
   const images = imageUrls.map((contentDaLiveUrl) => ({
     contentDaLiveUrl,
-    glaasName: ensureLeadingSlash(siteRelativePathFromContentDaLiveUrl(contentDaLiveUrl)),
+    glaasName: ensureLeadingSlash(siteRelativePathFromImageUrl(contentDaLiveUrl)),
   }));
   return { htmlGlaasName, images };
 }
@@ -627,8 +617,7 @@ export function buildMultimodalTextAsset({
   signedUrl,
   targetLocales,
   pagePreviewUrl,
-  translationMetadata,
-  languageContext,
+  assetMetadataUrl,
 }) {
   return {
     type: 'TEXT',
@@ -636,7 +625,28 @@ export function buildMultimodalTextAsset({
     parentAsset: pagePath,
     signedUrl,
     targetLocales,
+    ...(assetMetadataUrl && { assetMetadataUrl }),
     ...(pagePreviewUrl && { sourcePreviewUrlPage: pagePreviewUrl }),
+  };
+}
+
+function buildMultimodalMetadataAssetName(htmlAssetName) {
+  if (/\.html$/i.test(htmlAssetName)) return htmlAssetName.replace(/\.html$/i, '.metadata.json');
+  return `${htmlAssetName}.metadata.json`;
+}
+
+function buildMultimodalAssetMetadataPayload({
+  pagePath,
+  pagePreviewUrl,
+  targetLocales,
+  translationMetadata,
+  languageContext,
+}) {
+  return {
+    assetName: pagePath,
+    metadata: { 'source-preview-url': pagePreviewUrl },
+    assetType: 'SOURCE',
+    targetLocales,
     ...(translationMetadata && Object.keys(translationMetadata).length > 0 && {
       langMetadata: translationMetadata,
     }),
@@ -644,19 +654,41 @@ export function buildMultimodalTextAsset({
   };
 }
 
-async function fetchMultimodalImage({ imageIndex, imageUrl, logRequest }) {
-  const imageAssetName = siteRelativePathFromContentDaLiveUrl(imageUrl);
-  const imageSourceUrl = contentDaLiveToDaSourceUrl(imageUrl);
+// Plain absolute image URLs (e.g. published .aem.live media, or any other external host)
+// aren't CORS-enabled for reads from da.live - same proxy pattern already used by the
+// trados connector (connectors/trados/utils.js's corsFetch) and media-library.
+function corsProxyFetch(url) {
+  return fetch(`${DA_ETC}/cors?url=${encodeURIComponent(url)}`);
+}
+
+export async function fetchMultimodalImage({ imageIndex, imageUrl, logRequest }) {
+  const imageAssetName = siteRelativePathFromImageUrl(imageUrl);
+  // Only content.da.live needs the DA Admin source proxy for auth.
+  const imageSourceUrl = isAbsoluteContentDaLiveUrl(imageUrl)
+    ? contentDaLiveToDaSourceUrl(imageUrl)
+    : imageUrl;
   logRequest?.('fetch-image', { imageIndex, contentDaLiveUrl: imageUrl, daSourceUrl: imageSourceUrl });
   let imageResp;
   try {
-    imageResp = await daFetch(imageSourceUrl);
+    const aemPageHost = parseAemPageHost(imageSourceUrl);
+    if (aemPageHost) {
+      const loggedIn = await ensureLivePreviewLogin(aemPageHost);
+      if (!loggedIn) {
+        return { error: 'Error fetching image.', step: `fetch-image-${imageIndex}` };
+      }
+      const previewUrl = aemPageToPreviewDaLiveUrl(imageSourceUrl, aemPageHost);
+      imageResp = await fetch(previewUrl, { credentials: 'include' });
+    } else if (isAbsoluteContentDaLiveUrl(imageUrl)) {
+      imageResp = await daFetch({ url: imageSourceUrl });
+    } else {
+      imageResp = await corsProxyFetch(imageSourceUrl);
+    }
   } catch {
-    return { error: 'Error fetching content.da.live image.', step: `fetch-image-${imageIndex}` };
+    return { error: 'Error fetching image.', step: `fetch-image-${imageIndex}` };
   }
   if (!imageResp.ok) {
     return {
-      error: 'Error fetching content.da.live image.',
+      error: 'Error fetching image.',
       step: `fetch-image-${imageIndex}`,
       status: imageResp.status,
     };
@@ -725,6 +757,7 @@ export async function uploadMultimodalPageAssets({
   sourcePreviewUrl,
   translationMetadata,
   languageContext,
+  imageSelections,
   org,
   site,
 }) {
@@ -744,16 +777,38 @@ export async function uploadMultimodalPageAssets({
 
   const pagePath = ensureLeadingSlash(htmlAssetName);
   const pagePreviewUrl = sourcePreviewUrl ?? glaasSourcePreviewUrl(aemHref);
+
+  const metadataAssetName = buildMultimodalMetadataAssetName(htmlAssetName);
+  const metadataPut = await getPutUrlForFile({
+    origin, clientid, token, assetName: metadataAssetName, logRequest,
+  });
+  if (metadataPut.error) return { error: metadataPut.error, step: 'getPutURL-metadata', ...metadataPut };
+
+  const assetMetadataPayload = buildMultimodalAssetMetadataPayload({
+    pagePath,
+    pagePreviewUrl,
+    targetLocales,
+    translationMetadata,
+    languageContext,
+  });
+  const metadataUpload = await putAssetToSignedUrl({
+    putURL: metadataPut.putURL,
+    body: JSON.stringify(assetMetadataPayload),
+    contentType: 'application/json',
+    logRequest,
+    putLabel: 'metadata',
+  });
+  if (metadataUpload.error) return { error: metadataUpload.error, step: 'put-metadata', ...metadataUpload };
+
   const assets = [buildMultimodalTextAsset({
     pagePath,
     signedUrl: htmlPut.putURL,
     targetLocales,
     pagePreviewUrl,
-    translationMetadata,
-    languageContext,
+    assetMetadataUrl: metadataPut.putURL,
   })];
 
-  let imageUrls = collectContentDaLiveImageUrls(htmlContent, { org, site });
+  let imageUrls = collectMultimodalImageUrls(htmlContent, { imageSelections });
   if (maxImages != null) imageUrls = imageUrls.slice(0, maxImages);
   logRequest?.('collect-images', { htmlAssetName, org, site, count: imageUrls.length, imageUrls });
 
@@ -850,42 +905,38 @@ export function formatMediaImageByteSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
 }
 
-export function checkMediaImageSize({ glaasName, mediaPath, sizeBytes, logRequest }) {
-  const exceedsDocumentedLimit = sizeBytes > MEDIA_IMAGE_MAX_BYTES;
-  const exceedsUploadLimit = sizeBytes > MEDIA_IMAGE_UPLOAD_MAX_BYTES;
+export function checkTranslatedImageSize({ glaasName, sourcePath, sizeBytes, logRequest }) {
+  const exceedsMaxBytes = sizeBytes > TRANSLATED_IMAGE_MAX_BYTES;
   const detail = {
     glaasName,
-    mediaPath,
+    sourcePath,
     sizeBytes,
     sizeFormatted: formatMediaImageByteSize(sizeBytes),
-    maxBytes: MEDIA_IMAGE_UPLOAD_MAX_BYTES,
-    maxFormatted: formatMediaImageByteSize(MEDIA_IMAGE_UPLOAD_MAX_BYTES),
-    documentedMaxBytes: MEDIA_IMAGE_MAX_BYTES,
-    documentedMaxFormatted: formatMediaImageByteSize(MEDIA_IMAGE_MAX_BYTES),
-    exceedsUploadLimit,
-    exceedsDocumentedLimit,
+    maxBytes: TRANSLATED_IMAGE_MAX_BYTES,
+    maxFormatted: formatMediaImageByteSize(TRANSLATED_IMAGE_MAX_BYTES),
+    exceedsMaxBytes,
   };
-  logRequest?.('media-image-size', detail);
-  if (!logRequest) {
-    console.info('[GLaaS multimodal] Media image upload size:', detail);
-  }
-  if (exceedsUploadLimit) {
-    console.warn('[GLaaS multimodal] Image exceeds observed Media Bus upload limit:', detail);
-  } else if (exceedsDocumentedLimit) {
-    console.warn('[GLaaS multimodal] Image exceeds documented Media Bus limit:', detail);
+  logMultimodalDebug(logRequest, 'translated-image-size', detail);
+  if (exceedsMaxBytes) {
+    logMultimodalDebug(
+      logRequest,
+      'Image exceeds DA source size limit',
+      detail,
+      { level: 'warn' },
+    );
   }
   return detail;
 }
 
-function mediaImageSkipWarning({ glaasName, sizeFormatted, maxFormatted }) {
-  return `Skipping oversized image (keeping source URL): ${glaasName} (${sizeFormatted} exceeds ${maxFormatted} upload limit). Compress or resize the source asset.`;
+function translatedImageSkipWarning({ glaasName, sizeFormatted, maxFormatted }) {
+  return `Skipping oversized image (keeping source URL): ${glaasName} (${sizeFormatted} exceeds ${maxFormatted} limit). Compress or resize the source asset.`;
 }
 
-function skippedOversizedMediaUpload({ glaasName, sizeCheck }) {
+function skippedOversizedTranslatedImage({ glaasName, sizeCheck }) {
   return {
     skipped: true,
-    reason: 'exceeds_upload_limit',
-    warning: mediaImageSkipWarning({
+    reason: 'exceeds_size_limit',
+    warning: translatedImageSkipWarning({
       glaasName,
       sizeFormatted: sizeCheck.sizeFormatted,
       maxFormatted: sizeCheck.maxFormatted,
@@ -895,41 +946,35 @@ function skippedOversizedMediaUpload({ glaasName, sizeCheck }) {
   };
 }
 
-export async function postImageToDaMedia({
+export async function saveTranslatedImageToDaSource({
   org, site, langCode, glaasName, blob, contentType, logRequest,
 }) {
-  const mediaPath = buildTranslatedMediaPath({ langCode, glaasName });
-  const type = blobContentTypeForDaSource({ daSourcePath: mediaPath, blob, contentType });
+  const sourcePath = buildTranslatedImageSourcePath({ langCode, glaasName });
+  const type = blobContentTypeForDaSource({ daSourcePath: sourcePath, blob, contentType });
   const data = blob.type === type ? blob : new Blob([await blob.arrayBuffer()], { type });
-  const sizeCheck = checkMediaImageSize({
+  const sizeCheck = checkTranslatedImageSize({
     glaasName,
-    mediaPath,
+    sourcePath,
     sizeBytes: data.size,
     logRequest,
   });
-  if (sizeCheck.exceedsUploadLimit) {
-    return skippedOversizedMediaUpload({ glaasName, sizeCheck });
+  if (sizeCheck.exceedsMaxBytes) {
+    return skippedOversizedTranslatedImage({ glaasName, sizeCheck });
   }
-  const body = new FormData();
-  body.append('data', data, mediaPath.split('/').pop());
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/media/${org}/${site}${mediaPath}`, { method: 'POST', body });
+    const resp = await daSource.save({
+      org, site, path: sourcePath, body: data,
+    });
     if (!resp.ok) {
-      if (resp.status === 413) {
-        return skippedOversizedMediaUpload({ glaasName, sizeCheck });
-      }
-      return { error: 'Error uploading image to media.', status: resp.status, glaasName, ...sizeCheck };
+      return { error: 'Error saving translated image to DA.', status: resp.status, glaasName, ...sizeCheck };
     }
-    const json = await resp.json();
-    const href = json?.uri ?? json?.url;
-    if (!href) return { error: 'Missing media URI in response.', status: resp.status, json };
-    return { url: href, status: resp.status };
+    return { url: `${CONTENT_DA_LIVE_ORIGIN}/${org}/${site}${sourcePath}`, status: resp.status };
   } catch {
-    return { error: 'Error uploading image to media.' };
+    return { error: 'Error saving translated image to DA.' };
   }
 }
 
-async function saveMultimodalImageToMedia({
+async function saveMultimodalTranslatedImage({
   service,
   token,
   task,
@@ -942,7 +987,7 @@ async function saveMultimodalImageToMedia({
   const downloaded = await downloadMultimodalAssetBlob(service, token, task, image.glaasName);
   if (downloaded.error) return downloaded;
 
-  const uploaded = await postImageToDaMedia({
+  const saved = await saveTranslatedImageToDaSource({
     org,
     site,
     langCode,
@@ -951,27 +996,31 @@ async function saveMultimodalImageToMedia({
     contentType: downloaded.contentType,
     logRequest,
   });
-  if (uploaded.skipped) {
+  if (saved.skipped) {
     const detail = {
       glaasName: image.glaasName,
       contentDaLiveUrl: image.contentDaLiveUrl,
-      warning: uploaded.warning,
-      sizeFormatted: uploaded.sizeFormatted,
-      maxFormatted: uploaded.maxFormatted,
+      warning: saved.warning,
+      sizeFormatted: saved.sizeFormatted,
+      maxFormatted: saved.maxFormatted,
     };
-    logRequest?.('media-image-skip', detail);
-    console.warn('[GLaaS multimodal] Skipping oversized image (keeping source URL):', detail);
+    logMultimodalDebug(
+      logRequest,
+      'Skipping oversized image (keeping source URL)',
+      detail,
+      { level: 'warn' },
+    );
     return {
       skipped: true,
       glaasName: image.glaasName,
       contentDaLiveUrl: image.contentDaLiveUrl,
-      warning: uploaded.warning,
+      warning: saved.warning,
     };
   }
-  if (uploaded.error) return uploaded;
+  if (saved.error) return saved;
 
-  const sourceKey = contentDaLivePathKey(image.contentDaLiveUrl);
-  return { sourceKey, url: uploaded.url };
+  const sourceKey = toHref(image.contentDaLiveUrl);
+  return { sourceKey, url: saved.url };
 }
 
 export async function prepareMultimodalPageForSave({
@@ -993,7 +1042,7 @@ export async function prepareMultimodalPageForSave({
   const { error: imageError, results: imageEntries } = await runImageQueue({
     items: pageAsset.images,
     pushIntervalMs: IMAGE_PUSH_INTERVAL_MS,
-    processItem: (image) => saveMultimodalImageToMedia({
+    processItem: (image) => saveMultimodalTranslatedImage({
       service,
       token,
       task,

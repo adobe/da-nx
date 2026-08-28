@@ -1,9 +1,7 @@
 import { html, LitElement, nothing } from 'da-lit';
-import getStyle from '../../../utils/styles.js';
+import { loadStyle } from '../../../../nx2/utils/utils.js';
 
-import '../../../public/sl/components.js';
-
-const styles = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
 const DEFAULT_ERROR = 'Not a valid path. Please use /org/site.';
 
@@ -16,7 +14,7 @@ class NxPath extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [style];
 
     // Get the initial path
     this.getDetails();

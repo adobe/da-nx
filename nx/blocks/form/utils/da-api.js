@@ -1,13 +1,19 @@
-import { DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
-import { daFetch } from 'https://da.live/blocks/shared/utils.js';
+import { source, asText } from '../../../../nx2/utils/api.js';
+
+// DA source operations for the form block, rewritten onto the nx2 api. The
+// `sourceUrl`/`path` args are DA locator strings (`/org/site/rest`); the nx2
+// `source.*` methods accept that string form directly. Return shapes are kept
+// identical to the legacy nx da-api so context/schemas/persistence are
+// unchanged: `{ html }` / `{ json }` / `{ ok }` on success, `{ error, status }`
+// on failure.
 
 export async function fetchSourceHtml({ sourceUrl }) {
   if (!sourceUrl) return { error: 'Missing source URL.' };
 
   try {
-    const resp = await daFetch(sourceUrl);
-    if (!resp.ok) return { error: 'Could not load source document.', status: resp.status };
-    return { html: await resp.text() };
+    const { ok, data, status } = await asText(source.get(sourceUrl));
+    if (!ok) return { error: 'Could not load source document.', status };
+    return { html: data };
   } catch (e) {
     return { error: 'Could not load source document.', cause: e?.message ?? String(e) };
   }
@@ -17,9 +23,9 @@ export async function fetchSourceByPath({ path }) {
   if (!path) return { error: 'Missing source path.' };
 
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
-    if (!resp.ok) return { error: 'Could not load source path.', status: resp.status };
-    return { html: await resp.text() };
+    const { ok, data, status } = await asText(source.get(path));
+    if (!ok) return { error: 'Could not load source path.', status };
+    return { html: data };
   } catch (e) {
     return { error: 'Could not load source path.', cause: e?.message ?? String(e) };
   }
@@ -29,13 +35,9 @@ export async function listPath({ path }) {
   if (!path) return { error: 'Missing list path.' };
 
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/list${path}`);
-    if (!resp.ok) return { error: 'Could not list path.', status: resp.status };
-
-    const json = await resp.json();
-    if (!Array.isArray(json)) return { error: 'List payload is invalid.' };
-
-    return { json };
+    const { ok, items } = await source.list(path);
+    if (!ok) return { error: 'Could not list path.' };
+    return { json: items };
   } catch (e) {
     return { error: 'Could not list path.', cause: e?.message ?? String(e) };
   }
@@ -45,16 +47,8 @@ export async function saveSourceHtml({ path, html }) {
   if (!path || typeof html !== 'string') return { error: 'Invalid save input.' };
 
   try {
-    const body = new FormData();
-    body.append('data', new Blob([html], { type: 'text/html' }));
-
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`, {
-      method: 'POST',
-      body,
-    });
-
-    if (!resp.ok) return { error: 'Could not save source document.', status: resp.status };
-
+    const resp = await source.save(path, { body: html });
+    if (!resp?.ok) return { error: 'Could not save source document.', status: resp?.status };
     return { ok: true };
   } catch (e) {
     return { error: 'Could not save source document.', cause: e?.message ?? String(e) };

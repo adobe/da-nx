@@ -1,4 +1,4 @@
-import { Queue } from '../../../../public/utils/tree.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import authReady, { getAccessToken } from './auth.js';
 import { corsFetch } from './utils.js';

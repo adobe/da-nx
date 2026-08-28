@@ -1,7 +1,7 @@
-import { Queue } from '../../../../public/utils/tree.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import {
   checkSession, createTask, addAssets, updateStatus, getTask, downloadAsset,
-  prepareTargetPreview, getGlaasFilename,
+  prepareTargetPreview, getGlaasFilename, shouldLogGLaaSRequests,
 } from './api.js';
 import {
   createMultimodalTask,
@@ -10,7 +10,6 @@ import {
   getMultimodalV2TaskStatus,
   prepareMultimodalPageForSave,
   logMultimodalRequest,
-  shouldLogMultimodalRequests,
 } from './multimodalApi.js';
 import { getGlaasToken, connectToGlaas } from './auth.js';
 import { addDnt, removeDnt } from './dnt.js';
@@ -219,7 +218,7 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, s
     updateLangTask(task, task.langs);
     await saveState();
 
-    const logRequest = shouldLogMultimodalRequests() ? logMultimodalRequest : undefined;
+    const logRequest = shouldLogGLaaSRequests() ? logMultimodalRequest : undefined;
     logRequest?.('translate-all-send', {
       taskName: task.name,
       workflow: task.workflow,
@@ -243,6 +242,7 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, s
         aemHref: url.aemHref,
         translationMetadata: url.translationMetadata,
         languageContext: url.languageContext,
+        imageSelections: url.imageSelections,
         org,
         site,
       });
@@ -381,6 +381,7 @@ async function recreateTaskAndFetchSubtasks({
     workflow: task.workflow,
     workflowName: task.workflowName,
     businessUnit: workflowMeta?.businessUnit,
+    reviewerResync: workflowMeta?.reviewerResync,
     langs: task.langs,
     urlPaths: task.urlPaths,
   };
@@ -404,6 +405,13 @@ const getBusinessUnit = (siteName) => {
   return 'Digital Media';
 };
 
+const REVIEWER_RESYNC_OPTION_KEY = 'translation.service.custom.option.Reviewer Resync';
+
+function isReviewerResync(options) {
+  const value = options?.[REVIEWER_RESYNC_OPTION_KEY];
+  return value === true || value === 'true';
+}
+
 function initializeLanguageWorkflowTasks(tasks) {
   Object.values(tasks).forEach((task) => {
     task.langs.forEach((lang) => {
@@ -418,6 +426,7 @@ function initializeLanguageWorkflowTasks(tasks) {
         workflow: task.workflow,
         workflowName: task.workflowName,
         businessUnit: task.businessUnit,
+        reviewerResync: task.reviewerResync,
         name: task.name,
         urls: task.urlPaths || [],
         status: {
@@ -432,13 +441,18 @@ function initializeLanguageWorkflowTasks(tasks) {
   return tasks;
 }
 
-async function getTasks(org, site, title, langs, urls, timestamp) {
+async function getTasks(org, site, title, langs, urls, timestamp, options) {
   const config = await fetchConfig(org, site);
   // Extract just the URL paths for grouping logic
   const urlPaths = urls.map((url) => (typeof url === 'object' ? url.suppliedPath : url));
   // groupUrlsByWorkflow works with simple path strings
   const workflowGroups = groupUrlsByWorkflow(urlPaths, langs, config);
   const tasks = workflowGroups2tasks(title, workflowGroups, langs, timestamp);
+  // Mark tasks as a reviewer resync (resend) before persisting workflow task state
+  const reviewerResync = isReviewerResync(options);
+  Object.values(tasks).forEach((task) => {
+    task.reviewerResync = reviewerResync;
+  });
   // Pre-populate workflow task structure for each language
   initializeLanguageWorkflowTasks(tasks);
   // Add business unit to each task
@@ -451,10 +465,10 @@ async function getTasks(org, site, title, langs, urls, timestamp) {
 }
 
 export async function sendAllLanguages({
-  org, site, title, service, langs, urls, actions,
+  org, site, title, service, langs, urls, actions, options,
 }) {
   const timestamp = Date.now();
-  const tasks = await getTasks(org, site, title, langs, urls, timestamp);
+  const tasks = await getTasks(org, site, title, langs, urls, timestamp, options);
   await addTranslationMetadata(org, site, langs, urls);
   for (const key of Object.keys(tasks)) {
     await sendTask(service, tasks[key], urls, actions, { org, site });
@@ -588,7 +602,7 @@ export async function saveItems({
     throw new Error(`No matching tasks found for URLs: ${missingUrls.map((u) => u.suppliedPath).join(', ')}`);
   }
 
-  const logRequest = shouldLogMultimodalRequests() ? logMultimodalRequest : undefined;
+  const logRequest = shouldLogGLaaSRequests() ? logMultimodalRequest : undefined;
 
   const downloadCallback = async (url) => {
     const task = urlToTaskMap.get(url.suppliedPath);
@@ -625,7 +639,10 @@ export async function saveItems({
     // Use the path to determine if this should be treated as a JSON file.
     const fileType = url.daBasePath.includes('.json') ? 'json' : undefined;
 
-    url.sourceContent = await removeDnt(text, org, site, { fileType });
+    // This is the only removeDnt call on the translate save-back path, so
+    // loc-images marks are dropped here rather than carried onto the
+    // regional page (see stripLocImages in dnt.js).
+    url.sourceContent = await removeDnt(text, org, site, { fileType, stripLocImages: true });
 
     await saveFn(url);
   };

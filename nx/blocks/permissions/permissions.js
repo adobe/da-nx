@@ -1,6 +1,7 @@
 import { html, LitElement, repeat, nothing } from 'da-lit';
-import getStyle from '../../utils/styles.js';
-import '../../public/sl/components.js';
+import getStyle from '../../../nx2/public/utils/styles.js';
+import { getConfig } from '../../../nx2/scripts/nx.js';
+import '../../../nx2/public/sl/components.js';
 import {
   getAemConfig,
   getDaUsers,
@@ -14,8 +15,8 @@ import './user.js';
 
 const EL_NAME = 'nx-permissions';
 
-const nx = `${new URL(import.meta.url).origin}/nx`;
-const sl = await getStyle(`${nx}/public/sl/styles.css`);
+const { nxBase } = getConfig();
+const sl = await getStyle(`${nxBase}/public/sl/styles.css`);
 const styles = await getStyle(import.meta.url);
 
 class NxPermissions extends LitElement {

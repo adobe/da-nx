@@ -1,4 +1,4 @@
-import { daFetch } from '../../../../utils/daFetch.js';
+import { daFetch } from '../../../../../nx2/utils/api.js';
 
 const LOGIN_ORIGIN = 'https://da-etc.adobeaem.workers.dev';
 const TOKEN_BUFFER = 300000; // 5 min buffer before expiry
@@ -32,7 +32,7 @@ export async function getAccessToken(service) {
 
   const opts = { method: 'POST' };
 
-  const resp = await daFetch(`${LOGIN_ORIGIN}/${org}/sites/${site}/integrations/trados/login`, opts);
+  const resp = await daFetch({ url: `${LOGIN_ORIGIN}/${org}/sites/${site}/integrations/trados/login`, opts });
   if (!resp.ok) return null;
 
   const { access_token: accessToken, expires_in: expiresIn } = await resp.json();

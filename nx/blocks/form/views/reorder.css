@@ -11,10 +11,10 @@
   display: flex;
   align-items: center;
   padding: 6px 8px;
-  background: var(--background-color, #fff);
-  border: 1px solid var(--s2-gray-300, #d1d5db);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+  background: var(--s2-gray-25);
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-500);
+  box-shadow: 0 2px 8px light-dark(rgb(0 0 0 / 12%), rgb(0 0 0 / 50%));
 }
 
 .reorder-dialog-buttons {
@@ -27,7 +27,7 @@
   width: 1px;
   height: 20px;
   margin: 0 4px;
-  background: var(--s2-gray-300, #d1d5db);
+  background: var(--s2-gray-300);
 }
 
 .reorder-btn {
@@ -39,8 +39,8 @@
   padding: 0;
   background: transparent;
   border: none;
-  border-radius: 6px;
-  color: var(--s2-gray-700, #374151);
+  border-radius: var(--s2-corner-radius-300);
+  color: var(--s2-gray-700);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 
@@ -50,25 +50,22 @@
   }
 
   &:hover:not(:disabled) {
-    background: var(--s2-gray-100, #f3f4f6);
+    background: var(--s2-gray-100);
   }
 }
 
-.reorder-btn.reorder-confirm {
-  color: var(--s2-blue-600, #2563eb);
-}
-
 .reorder-btn.reorder-confirm:hover {
-  background: var(--s2-blue-100, #dbeafe);
+  background: var(--s2-green-100);
+  color: var(--s2-green-600);
 }
 
 .reorder-btn.reorder-cancel {
-  color: var(--s2-gray-600, #4b5563);
+  color: var(--s2-gray-600);
 }
 
 .reorder-btn.reorder-cancel:hover {
-  background: var(--s2-gray-100, #f3f4f6);
-  color: var(--s2-red-600, #dc2626);
+  background: var(--s2-gray-100);
+  color: var(--s2-red-600);
 }
 
 .reorder-btn svg {

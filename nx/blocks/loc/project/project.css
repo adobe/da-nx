@@ -1,6 +1,6 @@
 :host {
   display: block;
-  max-width: var(--grid-container-width);
+  max-width: var(--se-grid-container-width);
   margin: var(--spacing-800) auto;
 }
 

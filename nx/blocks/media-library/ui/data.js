@@ -11,6 +11,7 @@
  */
 
 import { daFetch } from '../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../utils/utils.js';
 import {
   loadIndexChunks,
   loadSheetMeta,
@@ -24,7 +25,6 @@ import { isIndexedExternalMediaEntry } from '../core/media.js';
 import {
   IndexFiles,
   SheetNames,
-  DA_ORIGIN,
 } from '../core/constants.js';
 
 function getOrgRepoFromSitePath(sitePath) {
@@ -83,7 +83,7 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
       }
     }
 
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
 
     if (resp.ok) {
       const data = await resp.json();

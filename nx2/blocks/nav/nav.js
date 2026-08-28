@@ -9,6 +9,16 @@ const DEFAULT_NAV_PATH = '/nx/fragments/nav';
 
 const style = await loadStyle(import.meta.url);
 
+async function openFragmentDialog(path) {
+  await import('../shared/dialog/dialog.js');
+  const fragment = await loadFragment(path);
+  if (!fragment) return;
+  const dialog = document.createElement('nx-dialog');
+  dialog.append(...fragment.children);
+  dialog.addEventListener('close', () => dialog.remove());
+  document.body.append(dialog);
+}
+
 class NXNav extends LitElement {
   static properties = {
     path: { attribute: false },
@@ -102,7 +112,23 @@ class NXNav extends LitElement {
         await import(`../${name}/${name}.js`);
         const cmp = document.createElement(`nx-${name}`);
         child.replaceChildren(cmp);
+      } else if (button.dataset.pathname) {
+        const hasLabel = [...button.childNodes].some(
+          (n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim(),
+        );
+        if (hasLabel) button.classList.add('has-label');
+        button.addEventListener('click', () => openFragmentDialog(button.dataset.pathname));
       }
+    }
+    // Exception to how header content is normally injected (via the nav fragment):
+    // editortoggle is force-injected here so the switch is visible without requiring
+    // a nav-fragment content change on every site. Consider replacing this with
+    // fragment-based loading in the future instead.
+    if (!ul.querySelector('nx-editortoggle')) {
+      await import('../editortoggle/editortoggle.js');
+      const li = document.createElement('li');
+      li.append(document.createElement('nx-editortoggle'));
+      ul.prepend(li);
     }
     return ul;
   }

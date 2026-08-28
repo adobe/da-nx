@@ -1,5 +1,11 @@
 import { expect } from '@esm-bundle/chai';
-import '../../nx/blocks/snapshot-admin/snapshot-admin.js';
+import { setConfig } from '../../nx2/scripts/nx.js';
+
+// snapshot-admin.js (and its view modules) capture getConfig() into module-level
+// constants at import time, so setConfig() must resolve before the block is
+// imported. A dynamic import keeps that ordering guaranteed.
+await setConfig({ hostnames: [] });
+await import('../../nx/blocks/snapshot-admin/snapshot-admin.js');
 
 function mockManifestResponse() {
   return new Response(JSON.stringify({

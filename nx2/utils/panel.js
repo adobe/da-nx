@@ -25,19 +25,27 @@ function getPanelStore() {
   }
 }
 
-function savePanelState(position, { width, fragment }) {
+/**
+ * Whether a section's panel was left open last time. Callers still decide
+ * themselves whether/how to reopen it.
+ */
+export function wasPanelOpen(section) {
+  return !!getPanelStore()[section];
+}
+
+function savePanelState(section, { width }) {
   const store = getPanelStore();
-  store[position] = { width, fragment };
+  store[section] = { width };
   localStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(store));
 }
 
-function removePanelState(position) {
+function removePanelState(section) {
   const store = getPanelStore();
-  delete store[position];
+  delete store[section];
   localStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(store));
 }
 
-export function setPanelsGrid() {
+function setPanelsGrid() {
   const { body } = document;
   if (getMetadata('template') !== 'app-frame') return;
 
@@ -99,10 +107,7 @@ function resizePointerDown(downEvent) {
     handle.removeEventListener('pointermove', onPointerMove);
     handle.removeEventListener('pointerup', onPointerUp);
     handle.removeEventListener('pointercancel', onPointerUp);
-    savePanelState(aside.dataset.position, {
-      width: aside.dataset.width,
-      fragment: aside.dataset.fragment,
-    });
+    savePanelState(aside.dataset.section, { width: aside.dataset.width });
   };
 
   handle.addEventListener('pointermove', onPointerMove);
@@ -110,11 +115,24 @@ function resizePointerDown(downEvent) {
   handle.addEventListener('pointercancel', onPointerUp);
 }
 
-export function hidePanel(aside) {
-  removePanelState(aside.dataset.position);
+function hidePanel(aside) {
+  removePanelState(aside.dataset.section);
   aside.hidden = true;
   setPanelsGrid();
 }
+
+export const PANEL_EVENT = Object.freeze({
+  // { section?: string } — omitted when a panel's own chrome closes itself
+  // (bubbles to the aside it's inside, no section needed); include one to
+  // close a specific panel from anywhere without holding a DOM reference.
+  CLOSE: 'nx-panel-close',
+
+  // fire from anywhere to open a section, optionally a specific item within
+  // it (e.g. a tool-panel view, a BYO extension's id). `options` is opaque to
+  // the registry — it's forwarded as-is to the section's own `onShow`, which
+  // decides what (if anything) to do with it.
+  OPEN: 'nx-panel-open', // { section: string, id?: string, options?: unknown }
+});
 
 function buildPanelDOM(aside) {
   const edge = aside.dataset.position === 'before' ? 'trailing' : 'leading';
@@ -138,23 +156,24 @@ function buildPanelDOM(aside) {
   wrapper.append(shell, handle);
   aside.append(wrapper);
 
-  // Allow any consumer inside the panel to close it by firing nx-panel-close.
-  aside.addEventListener('nx-panel-close', () => hidePanel(aside));
+  // Allow any consumer inside the panel to close it by firing PANEL_EVENT.CLOSE.
+  aside.addEventListener(PANEL_EVENT.CLOSE, () => hidePanel(aside));
 }
-export function createPanel({ width = '400px', beforeMain = false, content, fragment } = {}) {
+function createPanel({
+  width = '400px', beforeMain = false, content, section,
+} = {}) {
   const aside = document.createElement('aside');
   aside.classList.add('panel');
   aside.dataset.width = width;
   aside.style.width = width;
-  const position = beforeMain ? 'before' : 'after';
-  aside.dataset.position = position;
-  if (fragment) aside.dataset.fragment = fragment;
+  aside.dataset.position = beforeMain ? 'before' : 'after';
+  if (section) aside.dataset.section = section;
 
   buildPanelDOM(aside);
 
   if (content) aside.querySelector('.panel-body').append(content);
 
-  savePanelState(position, { width, fragment });
+  savePanelState(section, { width });
 
   if (beforeMain) {
     document.querySelector('main').before(aside);
@@ -165,17 +184,11 @@ export function createPanel({ width = '400px', beforeMain = false, content, frag
   return aside;
 }
 
-export function showPanel(aside) {
+function showPanel(aside) {
   aside.hidden = false;
-  savePanelState(aside.dataset.position, {
-    width: aside.dataset.width,
-    fragment: aside.dataset.fragment,
-  });
+  savePanelState(aside.dataset.section, { width: aside.dataset.width });
   setPanelsGrid();
 }
-
-// unhidePanel: legacy alias for showPanel, kept pending a full rename across all callers.
-export { getPanelStore, showPanel as unhidePanel };
 
 function mountPanel(opts) {
   const aside = createPanel(opts);
@@ -183,39 +196,17 @@ function mountPanel(opts) {
   return aside;
 }
 
-export async function loadPanelContent(value) {
-  if (!value) return { content: null, fragment: undefined };
-  if (value.includes('/fragments/')) {
-    const { loadFragment } = await import('../blocks/fragment/fragment.js');
-    const content = await loadFragment(value);
-    return { content, fragment: value };
-  }
-  const mod = await import(`../../nx/blocks/${value}/${value}.js`);
-  return { content: await mod.getPanel(), fragment: undefined };
-}
-
-export async function openPanelWithFragment({ width = '400px', beforeMain = false, fragment } = {}) {
-  const { content, fragment: persistedFragment } = await loadPanelContent(fragment);
-  if (!content) return undefined;
-  return mountPanel({ width, beforeMain, content, fragment: persistedFragment });
-}
-
-export async function restorePanels() {
-  const panels = getPanelStore();
-  if (!panels.before && !panels.after) return;
-  for (const [position, { width, fragment }] of Object.entries(panels)) {
-    if (fragment) {
-      const { content, fragment: frag } = await loadPanelContent(fragment);
-      if (content) {
-        const beforeMain = position === 'before';
-        mountPanel({ width, beforeMain, content, fragment: frag });
-      }
-    }
-  }
-  document.dispatchEvent(new CustomEvent('nx-panels-restored'));
-}
-
-export async function openPanel({ position, width = '400px', getContent } = {}) {
+/**
+ * @param {{
+ *   position: 'before'|'after',
+ *   width?: string,
+ *   getContent: () => Promise<Element>,
+ *   section: string,
+ * }} opts
+ */
+async function openPanel({
+  position, width = '400px', getContent, section,
+} = {}) {
   const existing = document.querySelector(`aside.panel[data-position="${position}"]`);
   if (existing && !existing.hidden) return existing;
   if (existing?.hidden) {
@@ -225,5 +216,50 @@ export async function openPanel({ position, width = '400px', getContent } = {}) 
 
   const beforeMain = position === 'before';
   const content = await getContent?.();
-  return mountPanel({ width, beforeMain, content });
+  return mountPanel({
+    width, beforeMain, content, section,
+  });
 }
+
+const panelSections = new Map();
+
+// Called once per host page to declare a section it owns — see docs/workspace.md
+// ("Side panels") for the full config contract.
+export function registerPanelSection(name, config) {
+  panelSections.set(name, config);
+}
+
+export function getSectionAtPosition(position) {
+  for (const [name, config] of panelSections) {
+    if (config.position === position) return name;
+  }
+  return undefined;
+}
+
+async function showPanelSection(name, id, options) {
+  const config = panelSections.get(name);
+  if (!config) return undefined;
+  const width = getPanelStore()[name]?.width ?? config.width;
+  const aside = await openPanel({
+    position: config.position, width, getContent: config.getContent, section: name,
+  });
+  await config.onShow?.(aside, id, options);
+  return aside;
+}
+
+function closePanelSection(name) {
+  const config = panelSections.get(name);
+  if (!config) return;
+  const aside = document.querySelector(`aside.panel[data-position="${config.position}"]`);
+  if (aside && !aside.hidden) hidePanel(aside);
+}
+
+document.addEventListener(PANEL_EVENT.OPEN, ({ detail }) => {
+  const { section, id, options } = detail ?? {};
+  if (section) showPanelSection(section, id, options);
+});
+
+document.addEventListener(PANEL_EVENT.CLOSE, ({ detail }) => {
+  const { section } = detail ?? {};
+  if (section) closePanelSection(section);
+});

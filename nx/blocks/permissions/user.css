@@ -75,7 +75,7 @@ svg {
 }
 
 button {
-  font-family: var(--font-family);
+  font-family: var(--s2-font-family);
   display: flex;
   justify-content: center;
   align-items: center;

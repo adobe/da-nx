@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
+import { loadStyle } from '../../../../nx2/utils/utils.js';
 
-const { default: getStyle } = await import('../../../utils/styles.js');
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
 const EL_NAME = 'nx-sidebar';
 

@@ -1,123 +1,71 @@
-:host {
-  display: block;
+/* Form workspace: the nx2 form fills main; nx-chat is docked on the left. */
+
+:root {
+  --form-content-top: 32px;
+
+  /* Top gap for scrolled-to groups + the sticky nav, applied by the editor
+     content. Apply it there only — padding the .nx-form scroll container would
+     misalign the two. */
+  --nx-scroll-offset-top: var(--form-content-top);
 }
 
-.nx-form-message {
-  background: var(--background-color, #fff);
+/* Nested scroll (like /canvas): the form scrolls inside a fixed-height region
+   below the global nav. */
+.nx-form {
+  box-sizing: border-box;
+  height: calc(100vh - var(--s2-nav-height));
+  overflow-y: auto;
+}
+
+/* Never override the chat's `display` here, or its flex layout collapses. */
+aside.panel[data-position='before'] nx-chat {
+  height: 100%;
+}
+
+/* Floating chat toggle at the top-left of the canvas. The anchor is a
+   zero-height element in the main flow, so it establishes the canvas left edge
+   (right of the app rail) without reserving vertical space or scrolling. */
+.form-chat-toggle-anchor {
+  position: relative;
+  height: 0;
+}
+
+.form-chat-toggle {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
   border: none;
   border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-}
-
-.nx-form-message h2 {
-  margin: 0 0 8px;
-}
-
-.nx-form-message p {
-  margin: 0 0 12px;
-}
-
-.nx-form-actions {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.nx-form-button {
-  background: var(--link-color, #0a66c2);
-  border: none;
-  border-radius: 999px;
-  color: var(--background-color, #fff);
+  color: var(--s2-gray-800);
+  background: transparent;
   cursor: pointer;
-  font: inherit;
-  min-height: 36px;
-  padding: 0 16px;
 }
 
-.nx-form-wrapper {
-  width: min(1020px, 100%);
-  max-width: 1020px;
-  margin: 0 auto;
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
-  box-sizing: border-box;
+.form-chat-toggle:hover {
+  background-color: var(--s2-gray-75);
 }
 
-.nx-form-wrapper.nx-form-wrapper-centered {
-  justify-content: center;
+.form-chat-toggle:focus-visible {
+  outline: 2px solid var(--s2-blue-800);
+  outline-offset: 2px;
 }
 
-.nx-editor-pane {
-  flex: 1 1 700px;
-  width: 700px;
-  min-width: 0;
-  max-width: 700px;
+.form-chat-toggle svg {
+  display: block;
+  width: 16px;
+  height: 16px;
 }
 
-nx-sidebar {
-  position: sticky;
-  top: 24px;
-  flex: 0 0 300px;
-  width: 300px;
-  max-width: 300px;
-  align-self: flex-start;
+/* Hide the toggle while the chat is open (it has its own close). */
+html:has(aside.panel[data-position='before']:not([hidden])) .form-chat-toggle {
+  display: none;
 }
-
-.nx-form-schema-shell {
-  flex: 1 1 700px;
-  width: 700px;
-  min-width: 0;
-  max-width: 700px;
-}
-
-.nx-form-schema-card {
-  box-sizing: border-box;
-  border-radius: 12px;
-  background: var(--sl-color-neutral-0, #fff);
-  box-shadow:
-    rgb(0 0 0 / 8%) 0 4px 24px,
-    rgb(0 0 0 / 6%) 0 1px 3px;
-  padding: 28px;
-}
-
-.nx-form-title {
-  margin: 0 0 8px;
-}
-
-.nx-form-schema-heading {
-  margin: 0 0 16px;
-}
-
-.nx-form-schema-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.nx-form-schema-start {
-  align-self: flex-end;
-}
-
-.nx-form-schema-hint {
-  margin: 0;
-}
-
-.nx-form-schema-text-link {
-  text-underline-offset: 2px;
-}
-
-.nx-form-schema-field-link {
-  text-align: center;
-}
-
-.nx-form-schema-cta {
-  display: inline-block;
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  text-decoration: none;
-}
-

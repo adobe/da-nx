@@ -83,7 +83,7 @@
   padding: 0 var(--s2-spacing-300);
   box-sizing: border-box;
   justify-content: flex-end;
-  gap: var(--s2-spacing-300);
+  gap: var(--s2-spacing-100);
 
   .chat-header-btn {
     display: inline-flex;
@@ -98,7 +98,7 @@
     color: var(--s2-gray-800);
     cursor: pointer;
     font-family: inherit;
-    font-size: var(--s2-body-size-s);
+    font-size: var(--s2-body-size-xs);
 
     &.clear-btn {
       padding: 0 var(--s2-spacing-100);
@@ -149,7 +149,7 @@
   width: 10px;
   height: 10px;
   background-color: currentcolor;
-  mask-image: url("/nx2/img/icons/S2_Icon_ChevronUp_20_N.svg");
+  mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;
@@ -179,7 +179,7 @@
     font-size: var(--s2-body-size-xs);
   }
 
-  &.tool-card-error .tool-card-status,
+  &.tool-card-output-error .tool-card-status,
   &.tool-card-rejected .tool-card-status {
     color: var(--s2-red-700);
   }
@@ -189,6 +189,10 @@
     padding-left: var(--s2-spacing-200);
     color: var(--s2-gray-500);
     overflow-wrap: break-word;
+  }
+
+  &.tool-card-detail {
+    margin-left: 14px;
   }
 }
 
@@ -203,6 +207,7 @@
 
 .directive-checklist ul {
   list-style: none;
+  padding: 0;
 }
 
 .directive-toggle-list {
@@ -247,7 +252,7 @@
         position: absolute;
         inset: 0;
         background-color: currentcolor;
-        mask-image: url("https://da.live/img/icons/s2-icon-checkmark-20-n.svg");
+        mask-image: url("/img/icons/s2-icon-checkmark-20-n.svg");
         mask-size: contain;
         mask-repeat: no-repeat;
         mask-position: center;
@@ -280,6 +285,12 @@
   background-color: var(--s2-red-200);
 }
 
+.message-content a {
+  color: var(--s2-blue-900);
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+
 .message {
   padding: 6px var(--s2-spacing-200);
   border-radius: 12px;
@@ -300,8 +311,36 @@
     gap: var(--s2-spacing-75);
   }
 
-  .message-content p {
-    margin: 0;
+  .message-content {
+    p {
+      margin: 0;
+    }
+
+    code {
+      background: var(--s2-gray-75);
+      border-radius: var(--s2-corner-radius-75);
+      padding: var(--s2-spacing-50);
+      overflow-x: auto;
+      margin: 0;
+      font-size: var(--s2-body-size-xs);
+    }
+
+    hr {
+      border: none;
+      height: 1px;
+      background: var(--s2-gray-200);
+    }
+
+    img {
+      max-width: 100%;
+      height: auto;
+      max-height: 400px;
+      border-radius: var(--s2-corner-radius-300);
+      margin: var(--s2-spacing-100) 0;
+      object-fit: contain;
+      display: block;
+      border: 1px solid var(--s2-gray-200);
+    }
   }
 
   .message-content code {
@@ -314,7 +353,7 @@
   }
 
   .message-action-copy {
-    align-self: flex-end;
+    align-self: flex-start;
     visibility: hidden;
     box-sizing: border-box;
     width: 20px;
@@ -476,6 +515,10 @@
       background-color: var(--s2-gray-200);
     }
 
+    .icon-add {
+      display: flex;
+    }
+
     .icon-up {
       display: none;
     }
@@ -540,52 +583,6 @@
   color: transparent;
   -webkit-text-fill-color: transparent;
   animation: chat-thinking-shimmer 2.2s ease-in-out infinite;
-}
-
-.approval-actions {
-  position: absolute;
-  bottom: 10px;
-  left: -4px;
-  right: -4px;
-  background: var(--s2-gray-25);
-  border: 1px solid var(--s2-gray-200);
-  border-radius: var(--s2-corner-radius-500);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s2-spacing-100);
-  padding: var(--s2-spacing-100);
-  z-index: 1;
-
-  .approval-tool-name {
-    font-weight: bold;
-    font-size: var(--s2-body-size-s);
-    color: var(--s2-gray-800);
-  }
-
-  .approval-summary {
-    font-size: var(--s2-body-size-xs);
-    color: var(--s2-gray-600);
-    overflow-wrap: break-word;
-  }
-
-  .approval-buttons {
-    display: flex;
-    gap: var(--s2-spacing-100);
-    justify-content: flex-end;
-    padding-top: var(--s2-spacing-100);
-  }
-
-  button {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--s2-spacing-75);
-    border-radius: var(--s2-corner-radius-400);
-    font-size: var(--s2-body-size-s);
-    padding: var(--s2-spacing-75) var(--s2-spacing-75) var(--s2-spacing-75)
-      var(--s2-spacing-100);
-  }
 }
 
 :host:has(.prompts-popover[open]) .chat-add {
