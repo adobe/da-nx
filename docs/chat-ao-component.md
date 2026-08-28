@@ -643,6 +643,23 @@ precedence" preamble by design (AO's own anti-prompt-injection guard), so it
 helps the model understand what it's operating within but can't be used to
 hard-restrict what it will answer.
 
+## Debug mode and manifest override
+
+`sendMessage` (`ao-controller.js`) always sends `manifestId` on `USER_INPUT`,
+resolved by `_resolveManifest()`:
+
+- `?debugmode=true` in the URL forces `AO_MANIFEST_ID` (the default,
+  `experience-workspace`) with `debugMode: true` — a dev override, not
+  persisted, mirroring `?nx-chat-ao=true` in `nx2/utils/chat.js#useAoChat`.
+- Otherwise, a site-configured `ew.manifest` flag (`getManifestId`,
+  `nx2/utils/ewFlags.js`) is used as-is in place of the default, and also
+  implies `debugMode: true` — running against a non-default manifest is
+  itself a test/debug scenario, not a vanilla production request. There's no
+  independent way to turn on debug mode against the default manifest via
+  config; only the query override does that.
+- With neither set, `manifestId` is the default and `debugMode` is omitted
+  from the frame entirely (not sent as `false`).
+
 ## AO wire-protocol notes
 
 - **First-op restriction.** A fresh WebSocket connection's first substantive

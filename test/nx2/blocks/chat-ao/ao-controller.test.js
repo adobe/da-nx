@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import AoChatController from '../../../../nx2/blocks/chat-ao/ao-controller.js';
+import { AO_MANIFEST_ID } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
 
 const APPLICATION = {
   id: 'da.live',
@@ -14,6 +15,7 @@ function makeController() {
   const controller = new AoChatController({ onUpdate: (u) => updates.push(u) });
   controller._ensureSocket = async () => { };
   controller._fetchEpisodeContext = async () => null;
+  controller._getManifestOverride = async () => null;
   controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
   return { controller, updates, sent };
 }
@@ -32,6 +34,7 @@ describe('ao-controller sendMessage', () => {
       {
         type: 'USER_INPUT',
         text: 'hello AO',
+        manifestId: AO_MANIFEST_ID,
         clientMessageId,
         client_context: { application: APPLICATION },
       },
@@ -77,6 +80,7 @@ describe('ao-controller sendMessage', () => {
       {
         type: 'USER_INPUT',
         text: 'looks good, go ahead',
+        manifestId: AO_MANIFEST_ID,
         clientMessageId: sent[0].clientMessageId,
         client_context: { application: APPLICATION },
       },
@@ -162,6 +166,57 @@ describe('ao-controller sendMessage', () => {
       role: 'assistant', content: 'Error: AO WebSocket error',
     });
     expect(updates.at(-1).thinking).to.equal(false);
+  });
+
+  describe('_resolveManifest', () => {
+    it('the ?debugmode=true query override forces the default manifest and debug mode', async () => {
+      const { controller } = makeController();
+      controller.setContext({ org: 'adobe', site: 'da-live' });
+      controller._getManifestOverride = async () => { throw new Error('should not be called'); };
+
+      const result = await controller._resolveManifest('?debugmode=true');
+
+      expect(result).to.deep.equal({ manifestId: AO_MANIFEST_ID, debugMode: true });
+    });
+
+    it('a configured ew.manifest override implies debug mode too', async () => {
+      const { controller } = makeController();
+      controller.setContext({ org: 'adobe', site: 'da-live' });
+      controller._getManifestOverride = async (org, site) => `${org}-${site}-staging`;
+
+      const result = await controller._resolveManifest('');
+
+      expect(result).to.deep.equal({ manifestId: 'adobe-da-live-staging', debugMode: true });
+    });
+
+    it('falls back to the default manifest with debug mode off when nothing is configured', async () => {
+      const { controller } = makeController();
+      controller.setContext({ org: 'adobe', site: 'da-live' });
+
+      const result = await controller._resolveManifest('');
+
+      expect(result).to.deep.equal({ manifestId: AO_MANIFEST_ID, debugMode: false });
+    });
+
+    it('does not look up a manifest override without both org and site set', async () => {
+      const { controller } = makeController();
+      controller._getManifestOverride = async () => { throw new Error('should not be called'); };
+
+      const result = await controller._resolveManifest('');
+
+      expect(result).to.deep.equal({ manifestId: AO_MANIFEST_ID, debugMode: false });
+    });
+  });
+
+  it('sends debugMode when a manifest override is configured, omits it otherwise', async () => {
+    const { controller, sent } = makeController();
+    controller.setContext({ org: 'adobe', site: 'da-live' });
+    controller._getManifestOverride = async () => 'staging-manifest';
+
+    await controller.sendMessage('hello AO');
+
+    expect(sent[0].manifestId).to.equal('staging-manifest');
+    expect(sent[0].debugMode).to.equal(true);
   });
 });
 

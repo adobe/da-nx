@@ -4,7 +4,7 @@ import {
   calls, installFetch, restoreFetch,
 } from '../../../nx2/test/mocks/fetch.js';
 import {
-  getEWFlags, isEWEnabled, isEwChatDisabled, isCoworkerEnabled,
+  getEWFlags, isEWEnabled, isEwChatDisabled, isCoworkerEnabled, getManifestId,
 } from '../../../nx2/utils/ewFlags.js';
 
 // getEWFlags -> daConfig.fetchDaConfigs -> api.js's config.get(), which
@@ -115,5 +115,21 @@ describe('isCoworkerEnabled', () => {
   it('returns false when ew.coworker flag is not set at any level', async () => {
     installFetch({ body: JSON.stringify({ flags: { data: [] } }) });
     expect(await isCoworkerEnabled({ org: 'cw-org2', site: 'cw-site2' })).to.be.false;
+  });
+});
+
+describe('getManifestId', () => {
+  afterEach(() => restoreFetch());
+
+  it('returns the configured ew.manifest value as-is', async () => {
+    installFlagsByPath({
+      '/mf-site1/': JSON.stringify({ flags: { data: [{ key: 'ew.manifest', value: 'staging-manifest' }] } }),
+    });
+    expect(await getManifestId({ org: 'mf-org1', site: 'mf-site1' })).to.equal('staging-manifest');
+  });
+
+  it('returns null when ew.manifest is not set at any level', async () => {
+    installFetch({ body: JSON.stringify({ flags: { data: [] } }) });
+    expect(await getManifestId({ org: 'mf-org2', site: 'mf-site2' })).to.equal(null);
   });
 });
