@@ -169,17 +169,17 @@ describe('ao-controller sendMessage', () => {
   });
 
   describe('_resolveManifest', () => {
-    it('the ?debugmode=true query override forces the default manifest and debug mode', async () => {
+    it('the ?nx-chat-ao-manifest=<name> query override uses that manifest and forces debug mode', async () => {
       const { controller } = makeController();
       controller.setContext({ org: 'adobe', site: 'da-live' });
       controller._getManifestOverride = async () => { throw new Error('should not be called'); };
 
-      const result = await controller._resolveManifest('?debugmode=true');
+      const result = await controller._resolveManifest('?nx-chat-ao-manifest=dev-manifest');
 
-      expect(result).to.deep.equal({ manifestId: AO_MANIFEST_ID, debugMode: true });
+      expect(result).to.deep.equal({ manifestId: 'dev-manifest', debugMode: true });
     });
 
-    it('a configured ew.manifest override implies debug mode too', async () => {
+    it('a configured ew.coworkerManifest override implies debug mode too', async () => {
       const { controller } = makeController();
       controller.setContext({ org: 'adobe', site: 'da-live' });
       controller._getManifestOverride = async (org, site) => `${org}-${site}-staging`;

@@ -166,5 +166,5 @@ export async function isCoworkerEnabled({ org, site }) {
 // See docs/chat-ao-component.md#debug-mode-and-manifest-override.
 export async function getManifestId({ org, site }) {
   const flags = await getEWFlags({ org, site });
-  return flags['ew.manifest'] || null;
+  return flags['ew.coworkerManifest'] || null;
 }

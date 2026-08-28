@@ -121,14 +121,16 @@ describe('isCoworkerEnabled', () => {
 describe('getManifestId', () => {
   afterEach(() => restoreFetch());
 
-  it('returns the configured ew.manifest value as-is', async () => {
+  it('returns the configured ew.coworkerManifest value as-is', async () => {
     installFlagsByPath({
-      '/mf-site1/': JSON.stringify({ flags: { data: [{ key: 'ew.manifest', value: 'staging-manifest' }] } }),
+      '/mf-site1/': JSON.stringify({
+        flags: { data: [{ key: 'ew.coworkerManifest', value: 'staging-manifest' }] },
+      }),
     });
     expect(await getManifestId({ org: 'mf-org1', site: 'mf-site1' })).to.equal('staging-manifest');
   });
 
-  it('returns null when ew.manifest is not set at any level', async () => {
+  it('returns null when ew.coworkerManifest is not set at any level', async () => {
     installFetch({ body: JSON.stringify({ flags: { data: [] } }) });
     expect(await getManifestId({ org: 'mf-org2', site: 'mf-site2' })).to.equal(null);
   });

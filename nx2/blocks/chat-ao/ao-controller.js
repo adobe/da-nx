@@ -25,7 +25,7 @@ import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-
 const EPISODE_LIST_LIMIT = 10;
 
 // See docs/chat-ao-component.md#debug-mode-and-manifest-override.
-const DEBUG_MODE_PARAM = 'debugmode';
+const MANIFEST_PARAM = 'nx-chat-ao-manifest';
 
 // AO's abort is async — dropped while stop() is waiting for its confirming
 // TURN_ABORTED/TURN_COMPLETED, so nothing already in flight for the
@@ -602,8 +602,8 @@ export default class AoChatController {
 
   // See docs/chat-ao-component.md#debug-mode-and-manifest-override.
   async _resolveManifest(search = window.location.search) {
-    const query = new URLSearchParams(search).get(DEBUG_MODE_PARAM);
-    if (query === 'true') return { manifestId: AO_MANIFEST_ID, debugMode: true };
+    const queryManifest = new URLSearchParams(search).get(MANIFEST_PARAM);
+    if (queryManifest) return { manifestId: queryManifest, debugMode: true };
 
     const { org, site } = this._context ?? {};
     const manifestId = (org && site) ? await this._getManifestOverride(org, site) : null;

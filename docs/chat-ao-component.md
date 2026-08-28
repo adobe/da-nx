@@ -648,17 +648,19 @@ hard-restrict what it will answer.
 `sendMessage` (`ao-controller.js`) always sends `manifestId` on `USER_INPUT`,
 resolved by `_resolveManifest()`:
 
-- `?debugmode=true` in the URL forces `AO_MANIFEST_ID` (the default,
-  `experience-workspace`) with `debugMode: true` — a dev override, not
-  persisted, mirroring `?nx-chat-ao=true` in `nx2/utils/chat.js#useAoChat`.
-- Otherwise, a site-configured `ew.manifest` flag (`getManifestId`,
-  `nx2/utils/ewFlags.js`) is used as-is in place of the default, and also
-  implies `debugMode: true` — running against a non-default manifest is
-  itself a test/debug scenario, not a vanilla production request. There's no
-  independent way to turn on debug mode against the default manifest via
-  config; only the query override does that.
-- With neither set, `manifestId` is the default and `debugMode` is omitted
-  from the frame entirely (not sent as `false`).
+- `?nx-chat-ao-manifest=<name>` in the URL uses that manifest id directly —
+  a dev override, not persisted, mirroring `?nx-chat-ao=true` in
+  `nx2/utils/chat.js#useAoChat`. Deliberately named for the manifest itself
+  rather than a generic `?debugmode=true` — the query value *is* the
+  manifest to use, not a boolean that could imply other unrelated things.
+- Otherwise, a site-configured `ew.coworkerManifest` flag (`getManifestId`,
+  `nx2/utils/ewFlags.js`) is used as-is in place of the default.
+- Either override — query or config — also sets `debugMode: true`, since
+  running against a non-default manifest is itself a test/debug scenario,
+  not a vanilla production request.
+- With neither set, `manifestId` is the default (`AO_MANIFEST_ID`,
+  `experience-workspace`) and `debugMode` is omitted from the frame entirely
+  (not sent as `false`).
 
 ## AO wire-protocol notes
 
