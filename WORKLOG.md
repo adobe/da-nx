@@ -2,26 +2,19 @@
 
 ## 2026-08-28
 
-### lionbridge connector (branch, PR not yet merged) — new translation connector + shared loc utils extraction
+### New lionbridge translation connector + shared loc utils extraction
 
-Single consolidated entry for the whole `lionbridge-connector` branch, updated in place as it evolves rather than appending a new entry per session — the PR hasn't merged, so there's no fixed point to log incremental changes against yet. Describes the branch's full diff against `main`.
-
-**New connector** (`nx/blocks/loc/connectors/lionbridge/index.js`, `connectorGuid.js`): full `isConnected`/`connect`/`sendAllLanguages`/`getStatusAll`/`saveItems` implementation against Lionbridge's Content API v2.
+**New connector** (`nx/blocks/loc/connectors/lionbridge/index.js`, `connectorGuid.js`): full implementation against Lionbridge's Content API v2.
 - Persists a per org/site/env connector GUID, prefixed onto `connectorName`.
 - Dev-guideline compliance: truncates `jobName`/`requestName` to 250 bytes, retries 429/503 with backoff (tighter than the shared default), no `cancelTranslation` export (guidelines prohibit connector-initiated cancellation), approves a request after a successful download — gated on `url.status === 'success'` so a failed DA save isn't approved in Lionbridge.
 - `getStatusAll` groups `langs` by `translation.jobId` and fetches/applies status per job, so a dependent (`waitingFor`) language submitted in its own follow-up job doesn't get another job's status applied.
-
-**Bugs found via live API testing against Lionbridge staging, fixed:**
-- `providerId` must be sent on `submit`, not `createJob` — the API silently drops it there, then `submit` rejects with "missing providerId".
-- `retrievefile` needs `Accept: application/octet-stream`; the default `application/json` 403s.
-- `auth.js` resolves the da-etc origin via the shared `DA_ETC` export instead of a hardcoded URL, so it's testable locally.
 
 **Shared loc utils extracted** (`nx/blocks/loc/utils/`), now used across connectors:
 - `downloadQueue.js` — the `Queue`+poll pattern previously copy-pasted in every connector's `saveItems`.
 - `auth.js` — the da-etc login/token-cache flow shared by Trados and Lionbridge; both per-connector `auth.js` files deleted. Also fixed Trados never sending `?env=`.
 - `fetchWithRetry.js` — shared retry/backoff, replacing an inline copy; GLaaS/Smartling/Trados updated to use it.
 
-**Tests:** full coverage for the Lionbridge connector (`sendAllLanguages`/`getStatusAll`/`saveItems`/`connect`/GUID generation/`statusFor`) at parity with Trados/Smartling depth, plus `test/loc/utils/auth.test.js` and `test/loc/utils/fetchWithRetry.test.js`. Verified end-to-end against real Lionbridge staging APIs and through the DA Translate app UI against `scdemos/lionbridge-demo`.
+**Tests:** full coverage for the Lionbridge connector at parity with Trados/Smartling depth, plus `test/loc/utils/auth.test.js` and `test/loc/utils/fetchWithRetry.test.js`. Verified end-to-end against real Lionbridge staging APIs and through the DA Translate app UI.
 
 ## 2026-08-27
 
