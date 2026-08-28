@@ -9,7 +9,16 @@
     <link rel="stylesheet" href="/nx/styles/nexter.css">
 
     <!-- Project App Logic -->
-    <script src="/nx/public/plugins/rollout/rollout.js" type="module"></script>
+    <script type="module">
+      import { setConfig } from 'https://da.live/nx/scripts/nexter.js';
+
+      setConfig({
+        imsClientId: 'darkalley',
+        imsScope: 'ab.manage,AdobeID,gnav,openid,org.read,read_organizations,session,aem.frontend.all,additional_info.ownerOrg,additional_info.projectedProductContext,account_cluster.read',
+      });
+
+      await import('/nx/public/plugins/rollout/rollout.js');
+    </script>
   </head>
   <body>
   </body>
