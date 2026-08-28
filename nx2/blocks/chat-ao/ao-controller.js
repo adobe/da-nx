@@ -81,10 +81,25 @@ export default class AoChatController {
     this._warmedEpisodeId = this._episodeId;
     try {
       await this._fetchWarmSession(this._episodeId);
-      await this._ensureSocket();
-      this._ws?.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
+      await this._attach();
     } catch {
       // best-effort — sendMessage retries the connection normally on send
+    }
+  }
+
+  async _attach() {
+    await this._ensureSocket();
+    this._ws?.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
+  }
+
+  // See docs/chat-ao-component.md#connection-recovery for why this exists
+  // and isn't gated by _warmedEpisodeId like warmSession() is.
+  async reattachIfIdle() {
+    if (!this._episodeId || this._thinking || this._ws?.readyState === WebSocket.OPEN) return;
+    try {
+      await this._attach();
+    } catch {
+      // best-effort — the next visibility change, keystroke, or send retries
     }
   }
 
@@ -281,7 +296,7 @@ export default class AoChatController {
       ws.addEventListener('close', () => {
         if (!isCurrent()) return;
         this._ws = null;
-        if (!this._destroyed) this._recoverFromClose();
+        if (this._shouldReattachOnClose()) this._recoverFromClose();
       });
 
       ws.addEventListener('error', () => {
@@ -291,16 +306,16 @@ export default class AoChatController {
     });
   }
 
-  // See docs/chat-ao-component.md#connection-recovery — reattaches on any
-  // drop, mid-turn or idle, so cross-client updates keep arriving live; only
-  // a mid-turn failure is surfaced to the user.
+  // See docs/chat-ao-component.md#connection-recovery for why this is mid-turn only.
+  _shouldReattachOnClose() {
+    return !this._destroyed && this._thinking;
+  }
+
   async _recoverFromClose() {
     if (!this._episodeId) return;
     try {
-      await this._ensureSocket();
-      this._ws.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
+      await this._attach();
     } catch (err) {
-      if (!this._thinking) return;
       this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
       this._done();
     }
