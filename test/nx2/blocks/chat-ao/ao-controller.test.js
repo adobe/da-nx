@@ -1450,24 +1450,59 @@ describe('ao-controller connection recovery', () => {
     expect(updates.at(-1).thinking).to.equal(false);
   });
 
-  it('reattaches even while idle (not mid-turn), so cross-client updates keep arriving live', async () => {
+  it('_shouldReattachOnClose is true only while a turn is in flight, not destroyed', () => {
+    const { controller } = makeController();
+    controller._thinking = true;
+    expect(controller._shouldReattachOnClose()).to.equal(true);
+
+    controller._thinking = false;
+    expect(controller._shouldReattachOnClose()).to.equal(false);
+
+    controller._thinking = true;
+    controller._destroyed = true;
+    expect(controller._shouldReattachOnClose()).to.equal(false);
+  });
+
+  it('reattachIfIdle attaches when idle with no live socket', async () => {
     const { controller, sent, updates } = makeController();
     controller._episodeId = '1';
     controller._thinking = false;
 
-    await controller._recoverFromClose();
+    await controller.reattachIfIdle();
 
     expect(sent).to.deep.equal([{ type: 'ATTACH' }]);
     expect(updates).to.have.length(0);
   });
 
-  it('fails silently when idle — a background reconnect failure should not interrupt the user', async () => {
+  it('reattachIfIdle is a no-op while a turn is in flight — _recoverFromClose owns that case', async () => {
+    const { controller, sent } = makeController();
+    controller._episodeId = '1';
+    controller._thinking = true;
+    controller._ws = null;
+
+    await controller.reattachIfIdle();
+
+    expect(sent).to.have.length(0);
+  });
+
+  it('reattachIfIdle is a no-op when the socket is already open', async () => {
+    const { controller, sent } = makeController();
+    controller._episodeId = '1';
+    controller._thinking = false;
+    controller._ws = { readyState: WebSocket.OPEN, send: () => sent.push('should-not-send') };
+
+    await controller.reattachIfIdle();
+
+    expect(sent).to.have.length(0);
+  });
+
+  it('reattachIfIdle fails silently — a background reconnect failure should not interrupt the user', async () => {
     const { controller } = makeController();
     controller._episodeId = '1';
     controller._thinking = false;
     controller._ensureSocket = async () => { throw new Error('AO WebSocket error'); };
 
-    await controller._recoverFromClose(); // throwing would fail this test
+    await controller.reattachIfIdle(); // throwing would fail this test
 
     expect(controller._messages).to.deep.equal([]);
   });
