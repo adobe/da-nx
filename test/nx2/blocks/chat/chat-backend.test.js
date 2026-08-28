@@ -1,12 +1,11 @@
 import { expect } from '@esm-bundle/chai';
 import ChatBackend from '../../../../nx2/blocks/chat/chat-backend.js';
 import ChatController from '../../../../nx2/blocks/chat/chat-controller.js';
-import ChatControllerAO from '../../../../nx2/blocks/chat/ao/chat-controller-ao.js';
 import { TOOL_STATE } from '../../../../nx2/blocks/chat/constants.js';
 
-function makeBackend(useAo) {
+function makeBackend() {
   const updates = [];
-  const backend = new ChatBackend(useAo, { onUpdate: (u) => updates.push(u) });
+  const backend = new ChatBackend({ onUpdate: (u) => updates.push(u) });
   return { backend, updates };
 }
 
@@ -18,18 +17,14 @@ function emit(backend, payload) {
 }
 
 describe('ChatBackend controller selection', () => {
-  it('wraps ChatController when useAgentOrchestrator is false', () => {
-    expect(makeBackend(false).backend._controller).to.be.instanceOf(ChatController);
-  });
-
-  it('wraps ChatControllerAO when useAgentOrchestrator is true', () => {
-    expect(makeBackend(true).backend._controller).to.be.instanceOf(ChatControllerAO);
+  it('wraps ChatController', () => {
+    expect(makeBackend().backend._controller).to.be.instanceOf(ChatController);
   });
 });
 
-describe('ChatBackend normalization — da-agent', () => {
+describe('ChatBackend normalization', () => {
   it('derives an approval pendingInteraction from an awaiting-approval tool card', () => {
-    const { backend, updates } = makeBackend(false);
+    const { backend, updates } = makeBackend();
     const toolCards = new Map([
       ['t1', {
         toolName: 'content_create',
@@ -46,7 +41,7 @@ describe('ChatBackend normalization — da-agent', () => {
   });
 
   it('reports no pendingInteraction when no tool card is awaiting approval', () => {
-    const { backend, updates } = makeBackend(false);
+    const { backend, updates } = makeBackend();
     const toolCards = new Map([
       ['t1', { toolName: 'content_read', input: {}, state: TOOL_STATE.OUTPUT_AVAILABLE }],
     ]);
@@ -57,7 +52,7 @@ describe('ChatBackend normalization — da-agent', () => {
   });
 
   it('summary is null when the tool input has none of the known field names', () => {
-    const { backend, updates } = makeBackend(false);
+    const { backend, updates } = makeBackend();
     const toolCards = new Map([
       ['t1', { toolName: 'mystery_tool', input: { foo: 'bar' }, state: TOOL_STATE.AWAITING_APPROVAL }],
     ]);
@@ -68,94 +63,9 @@ describe('ChatBackend normalization — da-agent', () => {
   });
 });
 
-describe('ChatBackend normalization — AO', () => {
-  it('tags a passed-through pendingApproval with type: approval', () => {
-    const { backend, updates } = makeBackend(true);
-    const pendingApproval = { toolCallId: 'c1', toolName: 'content_create', summary: '/a/b' };
-
-    emit(backend, { toolCards: new Map(), pendingApproval });
-
-    expect(updates.at(-1).pendingInteraction).to.deep.equal({ type: 'approval', ...pendingApproval });
-  });
-
-  it('falls back to pendingQuestion when there is no pending approval', () => {
-    const { backend, updates } = makeBackend(true);
-    const pendingQuestion = { turnId: 't1', questions: [] };
-
-    emit(backend, { toolCards: new Map(), pendingQuestion });
-
-    expect(updates.at(-1).pendingInteraction).to.deep.equal({ type: 'question', ...pendingQuestion });
-  });
-
-  it('falls back to pendingPlanApproval when neither approval nor question is pending', () => {
-    const { backend, updates } = makeBackend(true);
-    const pendingPlanApproval = { turnId: 't1', planContent: '# Plan' };
-
-    emit(backend, { toolCards: new Map(), pendingPlanApproval });
-
-    expect(updates.at(-1).pendingInteraction).to.deep.equal({ type: 'plan', ...pendingPlanApproval });
-  });
-
-  it('reports no pendingInteraction when nothing is pending', () => {
-    const { backend, updates } = makeBackend(true);
-
-    emit(backend, { toolCards: new Map() });
-
-    expect(updates.at(-1).pendingInteraction).to.equal(null);
-  });
-});
-
-describe('ChatBackend AO-only actions wrapping da-agent', () => {
-  it('getSkills returns null instead of throwing (da-agent has no skill list of its own)', () => {
-    expect(makeBackend(false).backend.getSkills()).to.equal(null);
-  });
-
-  it('answerQuestion/declineQuestion/respondToPlanApproval/episode actions are silent no-ops', () => {
-    const { backend } = makeBackend(false);
-    expect(() => backend.answerQuestion({ q1: ['Yes'] })).to.not.throw();
-    expect(() => backend.declineQuestion()).to.not.throw();
-    expect(() => backend.respondToPlanApproval('approve')).to.not.throw();
-    expect(() => backend.switchToLatestEpisode()).to.not.throw();
-    expect(() => backend.dismissNewerEpisode()).to.not.throw();
-  });
-});
-
-describe('ChatBackend AO-only actions wrapping AO', () => {
-  it('getSkills delegates to the real controller', () => {
-    const { backend } = makeBackend(true);
-    backend._controller._cachedSkills = ['writeBlog', 'summarize'];
-
-    expect(backend.getSkills()).to.deep.equal(['writeBlog', 'summarize']);
-  });
-
-  it('answerQuestion delegates through to a real RESUME/question-response frame', async () => {
-    const { backend } = makeBackend(true);
-    backend._controller._pendingQuestion = { turnId: 't1', questions: [{ id: 'q1' }] };
-    const sent = [];
-    backend._controller._ws = {
-      readyState: WebSocket.OPEN, send: (msg) => sent.push(JSON.parse(msg)),
-    };
-    backend._controller._ready = true;
-
-    await backend.answerQuestion({ q1: ['Yes'] });
-
-    expect(sent[0]).to.deep.equal({
-      type: 'RESUME',
-      turn_id: 't1',
-      data: {
-        type: 'question-response',
-        answers: [{ question_id: 'q1', selected_options: ['Yes'] }],
-        declined: false,
-      },
-      manifestId: 'experience-workspace',
-      debugMode: true,
-    });
-  });
-});
-
 describe('ChatBackend pass-through delegation', () => {
   it('forwards setContext and approveToolCall to the wrapped controller, unchanged', () => {
-    const { backend } = makeBackend(false);
+    const { backend } = makeBackend();
     const calls = [];
     backend._controller.setContext = (...args) => calls.push(['setContext', args]);
     backend._controller.approveToolCall = (...args) => calls.push(['approveToolCall', args]);

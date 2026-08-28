@@ -1,5 +1,4 @@
 import ChatController from './chat-controller.js';
-import ChatControllerAO from './ao/chat-controller-ao.js';
 import { TOOL_INPUT, TOOL_STATE } from './constants.js';
 
 // da-agent's own tool-input schema field names (see constants.js's TOOL_INPUT) — used
@@ -18,50 +17,23 @@ function daAgentApprovalSummary(input) {
 }
 
 /**
- * Wraps whichever controller nx-chat is configured to use — da-agent's ChatController
- * (untouched, on main) or AO's ChatControllerAO — behind one normalized interface, so
- * chat.js only ever makes a single decision (which backend) and never branches on it
- * again. Everything this class's onUpdate hands back is already in the neutral shapes
- * card-renderers.js/ao-renderers.js expect; AO-only actions (answerQuestion, etc.) are
- * safe to call unconditionally from chat.js since they're no-ops here when wrapping
- * da-agent's controller, which has no equivalent concept of skills-by-manifest,
- * questions, plans, or episodes.
+ * Wraps da-agent's ChatController behind a normalized interface, so everything this
+ * class's onUpdate hands back is already in the neutral shapes card-renderers.js
+ * expects — approval is derived from da-agent's own toolCards vocabulary.
  */
 export default class ChatBackend {
-  constructor(useAgentOrchestrator, { onToolDone, onUpdate }) {
-    this._useAo = useAgentOrchestrator;
-    const ControllerClass = useAgentOrchestrator ? ChatControllerAO : ChatController;
-    this._controller = new ControllerClass({
+  constructor({ onToolDone, onUpdate }) {
+    this._controller = new ChatController({
       onToolDone,
       onUpdate: (payload) => onUpdate(this._normalize(payload)),
     });
   }
 
-  // Approval/question/plan-approval are mutually exclusive at any moment — the agent
-  // has suspended the current turn for exactly one reason, if any — so this folds all
-  // three into one discriminated union rather than handing chat.js three separate
-  // fields to juggle. AO's controller already hands back neutral pendingApproval/
-  // pendingQuestion/pendingPlanApproval fields; da-agent's has no equivalent of any of
-  // them (chat-controller.js is untouched), so pendingApproval is derived here instead,
-  // from its own toolCards vocabulary.
   _normalize(payload) {
-    const {
-      toolCards, pendingApproval, pendingQuestion, pendingPlanApproval, ...rest
-    } = payload;
-    const approval = this._useAo ? pendingApproval : this._daAgentPendingApproval(toolCards);
-    const pendingInteraction = this._pendingInteraction(
-      approval,
-      pendingQuestion,
-      pendingPlanApproval,
-    );
+    const { toolCards, ...rest } = payload;
+    const approval = this._daAgentPendingApproval(toolCards);
+    const pendingInteraction = approval ? { type: 'approval', ...approval } : null;
     return { ...rest, toolCards, pendingInteraction };
-  }
-
-  _pendingInteraction(approval, question, plan) {
-    if (approval) return { type: 'approval', ...approval };
-    if (question) return { type: 'question', ...question };
-    if (plan) return { type: 'plan', ...plan };
-    return null;
   }
 
   _daAgentPendingApproval(toolCards) {
@@ -107,20 +79,4 @@ export default class ChatBackend {
   destroy() {
     this._controller.destroy();
   }
-
-  // --- AO-only actions below: safe no-ops when wrapping da-agent's controller ---
-
-  getSkills() {
-    return this._controller.getSkills?.() ?? null;
-  }
-
-  answerQuestion = (...args) => this._controller.answerQuestion?.(...args);
-
-  declineQuestion = () => this._controller.declineQuestion?.();
-
-  respondToPlanApproval = (...args) => this._controller.respondToPlanApproval?.(...args);
-
-  switchToLatestEpisode = () => this._controller.switchToLatestEpisode?.();
-
-  dismissNewerEpisode = () => this._controller.dismissNewerEpisode?.();
 }

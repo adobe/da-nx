@@ -1,29 +1,86 @@
 # Worklog
 
-## 2026-08-24
+## 2026-08-28
 
-### lionbridge connector — implementation, bug fixes, and compliance
+### lionbridge connector (branch, PR not yet merged) — new translation connector + shared loc utils extraction
 
-Continued the connector from #651 (thanks @ravuthu); found real bugs via live API testing against Lionbridge's Content API v2, plus brought it up to their dev-guideline requirements and test parity with Trados/Smartling.
+Single consolidated entry for the whole `lionbridge-connector` branch, updated in place as it evolves rather than appending a new entry per session — the PR hasn't merged, so there's no fixed point to log incremental changes against yet. Describes the branch's full diff against `main`.
 
-- Bug: `providerId` must be sent on `submit`, not `createJob` — API silently drops it, then `submit` rejects with "missing providerId".
-- Bug: `retrievefile` needs `Accept: application/octet-stream`; the default `application/json` 403s.
-- Bug: `auth.js` now resolves the da-etc origin via the shared `DA_ETC` export instead of a hardcoded URL, so it can actually be tested locally.
-- Compliance: retry 429/503 with backoff, truncate `jobName`/`requestName` to their 250-byte limit, persist a per org/site/env connector GUID prefixed onto `connectorName`, call `approve` after a successful download.
-- Compliance: no `cancelTranslation` export — their guidelines prohibit connector-initiated cancellation.
-- Added full test coverage (`sendAllLanguages`/`getStatusAll`/`saveItems`/`connect`/GUID generation) to match Trados/Smartling's depth; two tests regression-lock the `providerId` and `Accept`-header bugs.
-- Verified end-to-end against real Lionbridge staging APIs and through the real DA Translate app UI against `scdemos/lionbridge-demo`.
+**New connector** (`nx/blocks/loc/connectors/lionbridge/index.js`, `connectorGuid.js`): full `isConnected`/`connect`/`sendAllLanguages`/`getStatusAll`/`saveItems` implementation against Lionbridge's Content API v2.
+- Persists a per org/site/env connector GUID, prefixed onto `connectorName`.
+- Dev-guideline compliance: truncates `jobName`/`requestName` to 250 bytes, retries 429/503 with backoff (tighter than the shared default), no `cancelTranslation` export (guidelines prohibit connector-initiated cancellation), approves a request after a successful download — gated on `url.status === 'success'` so a failed DA save isn't approved in Lionbridge.
+- `getStatusAll` groups `langs` by `translation.jobId` and fetches/applies status per job, so a dependent (`waitingFor`) language submitted in its own follow-up job doesn't get another job's status applied.
 
-### loc connectors — extract duplicate download-queue and da-etc auth logic
+**Bugs found via live API testing against Lionbridge staging, fixed:**
+- `providerId` must be sent on `submit`, not `createJob` — the API silently drops it there, then `submit` rejects with "missing providerId".
+- `retrievefile` needs `Accept: application/octet-stream`; the default `application/json` 403s.
+- `auth.js` resolves the da-etc origin via the shared `DA_ETC` export instead of a hardcoded URL, so it's testable locally.
 
-Audited all 5 connectors for duplication; extracted two genuine candidates into `nx/blocks/loc/utils/`:
+**Shared loc utils extracted** (`nx/blocks/loc/utils/`), now used across connectors:
+- `downloadQueue.js` — the `Queue`+poll pattern previously copy-pasted in every connector's `saveItems`.
+- `auth.js` — the da-etc login/token-cache flow shared by Trados and Lionbridge; both per-connector `auth.js` files deleted. Also fixed Trados never sending `?env=`.
+- `fetchWithRetry.js` — shared retry/backoff, replacing an inline copy; GLaaS/Smartling/Trados updated to use it.
 
-- `downloadQueue.js` — the `Queue`+poll pattern copy-pasted in all 4 real connectors' `saveItems`.
-- `auth.js` — Trados's and Lionbridge's near-identical da-etc login/token-cache flow; both per-connector `auth.js` files deleted.
-- Unified `LOGIN_ORIGIN` on the `DA_ETC`-aware version, giving Trados the local-dev override Lionbridge had.
-- Fixed Trados never sending `?env=` (da-etc reads it generically for every integration).
-- Left alone: Smartling/GLaaS auth (different flows), Trados/GLaaS CORS-proxy duplication, GLaaS's partial `dnt.js` overlap.
-- Moved Lionbridge's `auth.test.js` into a generic `test/loc/utils/auth.test.js`, which also gives Trados its first auth test coverage.
+**Tests:** full coverage for the Lionbridge connector (`sendAllLanguages`/`getStatusAll`/`saveItems`/`connect`/GUID generation/`statusFor`) at parity with Trados/Smartling depth, plus `test/loc/utils/auth.test.js` and `test/loc/utils/fetchWithRetry.test.js`. Verified end-to-end against real Lionbridge staging APIs and through the DA Translate app UI against `scdemos/lionbridge-demo`.
+
+## 2026-08-27
+
+### Standalone quick-edit — authenticate before embedding preview
+
+Replaced the unauthenticated top-level redirect from `aem.page` to
+`preview.da.live` with a standalone shell flow. The existing quick-edit portal
+first obtains the preview cookie, after which the shell embeds the authenticated
+preview page with `controller=parent` and relays the unchanged quick-edit
+protocol between the two frames. The da-live Canvas host remains unchanged.
+
+## 2026-08-25
+
+### nx2 editortoggle — label copy update
+
+Updated `nx2/blocks/editortoggle/editortoggle.js` toggle label text from **"New editor"** to **"New Authoring"** so both the opt-in toggle and the switch-back context use the same updated wording.
+Also updated the switch-back feedback modal title in `nx2/blocks/editortoggle/switchback-dialog.js` from **"Help us improve the new editor"** to **"Help us improve the new authoring experience"**.
+Matched the profile-menu toggle hover state to the surrounding menu buttons in `nx2/blocks/editortoggle/editortoggle.css`, including blue text, background, and full-width separators.
+Added matching 0.2s transitions for the toggle row and separator expansion animation.
+
+## 2026-08-26
+
+### nx2/blocks/chat-ao — update Coworker destinations
+
+Replaced the retired `coworker.experience.adobe.io` skills and chat URLs with
+their Experience Cloud routes. Capabilities now opens
+`https://experience.adobe.com/#/coworker/customizations`; continuing an episode
+opens `https://experience.adobe.com/#/coworker/{episodeId}`.
+
+### nx2/blocks/chat-ao — PR CSS cleanup
+
+Removed the unused `button.action-btn` rule and split the malformed
+`max-height`/`border-left` declaration in the tool-call detail styles.
+
+### nx2/blocks/chat-ao — contain background request failures
+
+Made session warming catch both HTTP and WebSocket failures, and explicitly
+consumed rejected background episode-list refreshes. Added controller tests for
+both rejection paths.
+
+### nx2/blocks/chat-ao — scope skills cache by IMS tenant
+
+Replaced the manifest-only skills cache with tenant-specific localStorage keys
+derived from AO's `x-tenant-id`. Cache hydration now waits for IMS context,
+preventing one organization from rendering another's cached skills. Added
+cross-tenant utility tests and controller cache-hydration coverage.
+
+## 2026-08-25
+
+### nx2/utils/api.js — hlx6 rename/move via copy + delete (#687)
+
+The source bus has no move operation, so `source.move` on hlx6 (used by da-live's
+rename) failed. Reimplemented the hlx6 branch as `source.copy` then `source.delete`
+of the original, reusing the sibling methods (same delegation pattern as
+`save`→`_saveHlx6`). This also inherits copy's `/org/site/` destination-prefix
+stripping, which the old inline move branch was missing. Fails safe: if the copy is
+not ok, it returns that response and never deletes. Legacy (hlx5) `${DA_ADMIN}/move`
+path unchanged. Tests: hlx6 move now asserts copy-then-delete, plus a failure-path
+test asserting no DELETE when the copy fails.
 
 ## 2026-08-19
 
@@ -35,6 +92,18 @@ nx1 lazy-loaded `deps/rum.js` at the tail of `loadArea` (via `scripts/lazy.js`);
 - Added `scripts/lazy.js` (self-invoking, like nx1): holds `rumWC` (RUM click tracking for `[data-rum]` web components) + a `loadLazy` IIFE that imports `../deps/rum.js`, calls `sampleRUM()`, and registers `rumWC` after 3s.
 - `nx.js` does `if (isDoc) import('./lazy.js')` **after the section loop** for every doc, matching nx1's post-loop timing. To reach that point on non-app-frame / no-nav pages, the `idx === 0` header setup was extracted into `loadHeader(isSession)`; its `return true` (the old early `return`s) now `break`s the loop instead of returning from `loadArea`, so section-loading semantics are unchanged but control still falls through to the lazy import.
 - nx2 has no `[data-rum]` elements yet, so `rumWC` is currently a no-op — kept for parity/forward-compat.
+
+## 2026-08-14
+
+### editortoggle — UI + first-time/switch-back tracking (stacked on ew-user-flag)
+
+The editor-toggle UI and its one-time guidance flows, stacked on top of the `ew-user-flag` branch (which owns the core `isEWUserEnabled` / `setEWUserEnabled` / `isEWEnabled` short-circuit logic). This branch consumes that flag; it does not define it.
+
+- **`nx2/blocks/editortoggle/`**: `<nx-editortoggle>` Lit element — a `role="switch"` "New editor" toggle. Reflected `variant` prop: `toolbar` (default, renders only on `/edit`) and `menu` (renders only on `/canvas`). `_toggle()` calls `setEWUserEnabled`, then swaps `/edit` ↔ `/canvas` preserving `search`+`hash` (or reloads). `connectedCallback` reconciles the persisted flag to the pathname on direct/bookmarked landings, and scopes rendering to `EDITOR_PATHS` only.
+- **Placement**: `nav.js` TEMP-injects the toolbar toggle into the action `<ul>` (strip once the nav fragment carries its own `<li>`); `profile.js` drops `<nx-editortoggle variant="menu">` into the profile popover for `/canvas`.
+- **First-time tracking (welcome guide)**: `armEwWelcome()` / `isEwWelcomePending()` / `consumeEwWelcome()` over `nx2:ew-welcome-pending` + `nx2:ew-welcome-seen` (armed at toggle-on, first-time-only). `welcome-dialog.js` (`nx-ew-welcome-dialog`) loads `/nx/fragments/guides/welcome` and shows once on `/canvas`.
+- **Switch-back tracking (feedback)**: `armEwSwitchbackFeedback()` / `isEwSwitchbackPending()` / `consumeEwSwitchback()` over `nx2:ew-switchback-pending` + `nx2:ew-switchback-seen`, armed on toggle-off, shown once on `/edit`. `switchback-dialog.js` POSTs to `DA_FEEDBACK` with `category: 'Editor switch-back'`.
+- These tracking flags all live in `ewFlags.js` alongside the inherited core logic; tests for them are in `ewFlags.test.js` (welcome + switch-back describe blocks). The double-fire guard keeps welcome/switch-back firing from the toolbar instance only.
 
 ## 2026-08-14
 

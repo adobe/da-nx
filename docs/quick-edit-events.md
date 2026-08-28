@@ -16,8 +16,10 @@ implementations actually wire it up, and what to know before extending one.
 The same iframe overlay script (`nx/public/plugins/quick-edit/quick-edit.js`) is driven
 by one of two different hosts, depending on how it's loaded:
 
-- **Standalone** (no `?controller=parent`): `quick-edit.js` creates its own nested
-  iframe pointing at `nx/blocks/quick-edit-portal/quick-edit-portal.js`, which owns the
+- **Standalone** (no `?controller=parent`): on `aem.page`, `quick-edit.js` first uses
+  `quick-edit-portal.js` to mint the authenticated preview cookie, then embeds the
+  `preview.da.live` page with `?controller=parent`. The top-level page relays the
+  unchanged quick-edit protocol between that preview and the portal, which owns the
   ProseMirror/Yjs doc and plays the host role.
 - **da-live-embedded** (`?controller=parent`): `quick-edit.js` skips the nested iframe
   and treats `window.parent` (da-live's `ew-editor-wysiwyg.js`) as the host. da-live's
