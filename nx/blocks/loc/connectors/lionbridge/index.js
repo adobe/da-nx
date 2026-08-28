@@ -400,10 +400,15 @@ async function fetchAllRequests(service, jobId) {
 }
 
 /**
- * Refreshes translation status for every target language of a job.
+ * Refreshes translation status for every target language, grouped by job.
+ * A language whose config declares a `source language` other than the
+ * project's default is submitted in its own follow-up job once that source
+ * language is fully saved (see `waitingFor` / `checkWaitingLanguages` in
+ * translate/index.js), so `langs` can span more than one job here.
  * @param {Object} params
  * @param {Object} params.service - The service configuration.
- * @param {Object[]} params.langs - Target languages; mutated in place with
+ * @param {Object[]} params.langs - Target languages, possibly spanning
+ *  multiple jobs; mutated in place with
  *  `translation.status`/`translation.translated`.
  * @param {Object[]} params.urls - The urls in the project.
  * @param {Object} params.actions - `{ sendMessage, saveState }` callbacks.
@@ -412,21 +417,24 @@ async function fetchAllRequests(service, jobId) {
 export async function getStatusAll({ service, langs, urls, actions }) {
   const { sendMessage, saveState } = actions;
 
-  const jobId = langs[0]?.translation?.jobId;
-  if (!jobId) return;
+  const jobIds = [...new Set(langs.map((lang) => lang.translation?.jobId).filter(Boolean))];
+  if (!jobIds.length) return;
 
   const localesStr = langs.map((lang) => lang.code).join(', ');
   sendMessage({ text: `Getting status for ${localesStr}` });
 
-  const requests = await fetchAllRequests(service, jobId);
-  if (!requests.length) return;
+  await Promise.all(jobIds.map(async (jobId) => {
+    const jobLangs = langs.filter((lang) => lang.translation?.jobId === jobId);
 
-  langs.forEach((lang) => {
-    lang.translation ??= {};
-    const { status, translated } = statusFor(requests, lang.code, urls.length);
-    lang.translation.status = status;
-    lang.translation.translated = translated;
-  });
+    const requests = await fetchAllRequests(service, jobId);
+    if (!requests.length) return;
+
+    jobLangs.forEach((lang) => {
+      const { status, translated } = statusFor(requests, lang.code, urls.length);
+      lang.translation.status = status;
+      lang.translation.translated = translated;
+    });
+  }));
 
   sendMessage();
   await saveState();

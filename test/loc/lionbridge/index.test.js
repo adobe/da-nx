@@ -322,6 +322,39 @@ describe('lionbridge connector', () => {
       expect(langs[1].translation.status).to.equal('translated');
       expect(saved).to.have.length(1);
     });
+
+    it('computes status per job when langs span more than one job (waitingFor follow-up jobs)', async () => {
+      installFetch((url) => {
+        if (url.includes('/login')) return jsonResponse({ access_token: 'lb-token', expires_in: 3600 });
+        if (url.includes('/jobs/job-1/requests')) {
+          return jsonResponse({
+            _embedded: { requests: [{ requestId: 'r1', targetNativeLanguageCode: 'fr-FR', statusCode: 'REVIEW_TRANSLATION' }] },
+          });
+        }
+        if (url.includes('/jobs/job-2/requests')) {
+          // de-DE's own follow-up job has no ready requests yet.
+          return jsonResponse({
+            _embedded: { requests: [{ requestId: 'r2', targetNativeLanguageCode: 'de-DE', statusCode: 'IN_PROGRESS' }] },
+          });
+        }
+        return jsonResponse({});
+      });
+
+      const langs = [
+        { code: 'fr-FR', translation: { jobId: 'job-1' } },
+        { code: 'de-DE', translation: { jobId: 'job-2' } },
+      ];
+      const urls = [{ daBasePath: '/page' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await getStatusAll({ service: baseService(), langs, urls, actions });
+
+      const jobRequestUrls = calls.map((c) => c.url).filter((u) => u.includes('/requests') && !u.includes('/login'));
+      expect(jobRequestUrls.some((u) => u.includes('/jobs/job-1/requests'))).to.equal(true);
+      expect(jobRequestUrls.some((u) => u.includes('/jobs/job-2/requests'))).to.equal(true);
+      expect(langs[0].translation.status).to.equal('translated');
+      expect(langs[1].translation.status).to.equal('in progress');
+    });
   });
 
   describe('saveItems', () => {
