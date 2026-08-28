@@ -7,10 +7,22 @@
  * the file down to `{canvas.fig, thumbnail.png, meta.json}` (~190KB) in the
  * browser, parse that via the fig-inspector worker, and hand the recovered
  * content to the agent inline. Nothing large ever leaves the browser.
+ *
+ * Parsing runs server-side, not in-browser: da.live's CSP has no
+ * `wasm-unsafe-eval`, so the browser refuses to compile any WebAssembly
+ * module on that page at all — there is no client-side workaround for that.
  */
 
 import { daFetch } from '../../../utils/api.js';
-import { DA_ADMIN } from '../../../utils/utils.js';
+import { DA_ADMIN, getEnv } from '../../../utils/utils.js';
+
+// Only one Worker is deployed right now — stage and prod share it until a
+// separate staging deployment exists.
+const FIG_INSPECTOR_ENVS = {
+  local: 'http://localhost:8000',
+  stage: 'https://ew-figma-inspector.franklin-prod.workers.dev',
+  prod: 'https://ew-figma-inspector.franklin-prod.workers.dev',
+};
 
 // ZIP record signatures (little-endian).
 const LOCAL_SIG = 0x04034b50;
@@ -19,43 +31,6 @@ const EOCD_SIG = 0x06054b50;
 
 // The only entries the parser needs; everything else (notably images/) is dropped.
 const KEEP = ['canvas.fig', 'thumbnail.png', 'meta.json'];
-const FIG_PARSE_WORKER_URL = new URL('./fig-strip.worker.js', import.meta.url);
-
-let figParseWorkerPromise;
-let figParseRequestId = 0;
-const figParsePending = new Map();
-
-// A cross-origin Worker script is blocked outright (no CORS opt-in, unlike a
-// plain cross-origin `import`) — da-nx's code is served from a different
-// origin (aem.live/aem.page) than the page (da.live). Fetch the script as
-// text and construct the Worker from a same-origin blob: URL instead.
-async function getFigParseWorker() {
-  if (!figParseWorkerPromise) {
-    figParseWorkerPromise = (async () => {
-      const src = await (await fetch(FIG_PARSE_WORKER_URL)).text();
-      const blobUrl = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
-      const worker = new Worker(blobUrl, { type: 'module' });
-      worker.addEventListener('message', ({ data }) => {
-        const pending = figParsePending.get(data?.id);
-        if (!pending) return;
-        figParsePending.delete(data.id);
-        if (data.ok) pending.resolve(data.result);
-        else {
-          const detail = data.error?.stack || data.error?.message || 'Failed to parse .fig file';
-          pending.reject(new Error(detail));
-        }
-      });
-      worker.addEventListener('error', (error) => {
-        figParsePending.forEach(({ reject }) => reject(error));
-        figParsePending.clear();
-        worker.terminate();
-        figParseWorkerPromise = undefined;
-      });
-      return worker;
-    })();
-  }
-  return figParseWorkerPromise;
-}
 
 function concatBytes(chunks) {
   const total = chunks.reduce((n, c) => n + c.length, 0);
@@ -196,26 +171,27 @@ export function stripFig(arrayBuffer) {
 }
 
 /**
- * Parse `.fig` bytes in a dedicated worker and return the parsed inspection
+ * POST `.fig` bytes to the fig-inspector worker and return the parsed inspection
  * JSON: `{ file_name, meta, thumbnail_base64, images:[{hash,layer_name,width,
  * height,mime}], text }`. Send the FULL file when you need the image list/dims —
- * the images metadata is only present when the parser sees the `images/` entries.
+ * the images metadata is only present when the worker sees the `images/` entries.
  * @param {Uint8Array} bytes
  */
 export async function parseFig(bytes) {
-  const worker = await getFigParseWorker();
-  figParseRequestId += 1;
-  const id = figParseRequestId;
-  const transfer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-
-  return new Promise((resolve, reject) => {
-    figParsePending.set(id, { resolve, reject });
-    worker.postMessage({
-      id,
-      bytes: transfer,
-      baseUrl: import.meta.url,
-    }, [transfer]);
+  const figInspectorUrl = getEnv('fig-inspector', FIG_INSPECTOR_ENVS);
+  if (!figInspectorUrl) {
+    throw new Error('fig-inspector is not configured for this environment. Set it via ?fig-inspector=<url> once the Worker is deployed.');
+  }
+  const resp = await fetch(`${figInspectorUrl}/inspect`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/octet-stream' },
+    body: bytes,
   });
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '');
+    throw new Error(`fig-inspector responded ${resp.status}${detail ? `: ${detail}` : ''}`);
+  }
+  return resp.json();
 }
 
 // The flat text extractor is greedy: alongside real UI copy it emits design-
