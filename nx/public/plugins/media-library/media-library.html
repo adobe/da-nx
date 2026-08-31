@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Media Library</title>
+  <link rel="stylesheet" href="media-library.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "da-lit": "https://da.live/nx/deps/lit/dist/index.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="nx-app">
+    <main id="ml-container"></main>
+  </div>
+
+  <script type="module">
+    function showError(message) {
+      const container = document.getElementById('ml-container');
+      if (!container) return;
+      container.style.display = 'flex';
+      container.style.alignItems = 'center';
+      container.style.justifyContent = 'center';
+      container.style.height = '100vh';
+      container.style.padding = '2rem';
+      container.innerHTML = `
+        <div style="text-align: center; max-width: 500px; font-family: system-ui, -apple-system, sans-serif;">
+          <p style="margin: 0; font-size: 1rem; line-height: 1.6; color: light-dark(#333, #e8e8e8);">${message}</p>
+        </div>
+      `;
+    }
+
+    // Check if we're in an iframe (plugin context)
+    const isInIframe = window.self !== window.top;
+
+    if (!isInIframe) {
+      // Not in iframe - show error immediately
+      showError('Please register this plugin in Library and use it within authoring context.');
+    } else {
+      // In iframe - try to load normally
+      try {
+        const { setConfig, getColorScheme } = await import('https://da.live/nx/scripts/nexter.js');
+        const DA_SDK_module = await import('https://da.live/nx/utils/sdk.js');
+        const DA_SDK = DA_SDK_module.default;
+
+        // Set color scheme for dark mode support
+        const updateColorScheme = () => {
+          const scheme = getColorScheme();
+          // Remove previous scheme classes
+          document.documentElement.classList.remove('light-scheme', 'dark-scheme');
+          // Apply current scheme as class
+          if (scheme) {
+            document.documentElement.classList.add(scheme);
+          }
+        };
+        updateColorScheme();
+
+        // Listen for system preference changes
+        matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateColorScheme);
+
+        setConfig({ imsClientId: 'da-web', env: 'prod' });
+
+        const { context } = await DA_SDK;
+
+        await import('https://da.live/nx/blocks/media-library/media-library.js');
+
+        const ml = document.createElement('nx-media-library');
+        const org = context?.org;
+        const repo = context?.repo;
+        ml.sitePath = org && repo ? `/${org}/${repo}` : '';
+
+        document.getElementById('ml-container').appendChild(ml);
+      } catch (error) {
+        console.error('Media Library plugin error:', error);
+        showError('Please register this plugin in Library and use it within authoring context.');
+      }
+    }
+  </script>
+</body>
+</html>
