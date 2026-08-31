@@ -113,6 +113,7 @@ describe('ao-controller sendMessage', () => {
   it('carries the current document as a focused resource, with org/site spelled out rather than embedded in id', async () => {
     const { controller, sent } = makeController();
     controller.setContext({ org: 'adobe', site: 'da-live', path: '/docs/foo' });
+    controller._resolveManifest = async () => null;
 
     await controller.sendMessage('what does this do?');
 
@@ -131,6 +132,7 @@ describe('ao-controller sendMessage', () => {
   it('normalizes the id separator when path has no leading slash', async () => {
     const { controller, sent } = makeController();
     controller.setContext({ org: 'adobe', site: 'da-live', path: 'docs/foo' });
+    controller._resolveManifest = async () => null;
 
     await controller.sendMessage('what does this do?');
 
@@ -241,6 +243,47 @@ describe('ao-controller sendMessage', () => {
       expect(sent[0].text).to.equal('[Attachments]\n- Attached file: homepage.fig — upload failed\nhere is the mockup');
       expect(sent[0]).to.not.have.property('attachments');
     });
+  });
+
+  describe('_resolveManifest', () => {
+    it('the ?nx-chat-ao-manifest=<name> query override returns that manifest id directly', async () => {
+      const { controller } = makeController();
+
+      const result = await controller._resolveManifest('?nx-chat-ao-manifest=dev-manifest');
+
+      expect(result).to.equal('dev-manifest');
+    });
+
+    it('returns null without looking anything up when no context and no query override are set', async () => {
+      const { controller } = makeController();
+
+      const result = await controller._resolveManifest('');
+
+      expect(result).to.equal(null);
+    });
+
+    // getManifestId's own flag-reading behavior (config value vs. unset) is
+    // covered directly in ewFlags.test.js — not re-verified here.
+  });
+
+  it('sends manifestId and debugMode together when _resolveManifest finds an override', async () => {
+    const { controller, sent } = makeController();
+    controller._resolveManifest = async () => 'staging-manifest';
+
+    await controller.sendMessage('hello AO');
+
+    expect(sent[0].manifestId).to.equal('staging-manifest');
+    expect(sent[0].debugMode).to.equal(true);
+  });
+
+  it('omits both manifestId and debugMode when _resolveManifest finds no override', async () => {
+    const { controller, sent } = makeController();
+    controller._resolveManifest = async () => null;
+
+    await controller.sendMessage('hello AO');
+
+    expect(sent[0]).to.not.have.property('manifestId');
+    expect(sent[0]).to.not.have.property('debugMode');
   });
 });
 
@@ -1529,24 +1572,59 @@ describe('ao-controller connection recovery', () => {
     expect(updates.at(-1).thinking).to.equal(false);
   });
 
-  it('reattaches even while idle (not mid-turn), so cross-client updates keep arriving live', async () => {
+  it('_shouldReattachOnClose is true only while a turn is in flight, not destroyed', () => {
+    const { controller } = makeController();
+    controller._thinking = true;
+    expect(controller._shouldReattachOnClose()).to.equal(true);
+
+    controller._thinking = false;
+    expect(controller._shouldReattachOnClose()).to.equal(false);
+
+    controller._thinking = true;
+    controller._destroyed = true;
+    expect(controller._shouldReattachOnClose()).to.equal(false);
+  });
+
+  it('reattachIfIdle attaches when idle with no live socket', async () => {
     const { controller, sent, updates } = makeController();
     controller._episodeId = '1';
     controller._thinking = false;
 
-    await controller._recoverFromClose();
+    await controller.reattachIfIdle();
 
     expect(sent).to.deep.equal([{ type: 'ATTACH' }]);
     expect(updates).to.have.length(0);
   });
 
-  it('fails silently when idle — a background reconnect failure should not interrupt the user', async () => {
+  it('reattachIfIdle is a no-op while a turn is in flight — _recoverFromClose owns that case', async () => {
+    const { controller, sent } = makeController();
+    controller._episodeId = '1';
+    controller._thinking = true;
+    controller._ws = null;
+
+    await controller.reattachIfIdle();
+
+    expect(sent).to.have.length(0);
+  });
+
+  it('reattachIfIdle is a no-op when the socket is already open', async () => {
+    const { controller, sent } = makeController();
+    controller._episodeId = '1';
+    controller._thinking = false;
+    controller._ws = { readyState: WebSocket.OPEN, send: () => sent.push('should-not-send') };
+
+    await controller.reattachIfIdle();
+
+    expect(sent).to.have.length(0);
+  });
+
+  it('reattachIfIdle fails silently — a background reconnect failure should not interrupt the user', async () => {
     const { controller } = makeController();
     controller._episodeId = '1';
     controller._thinking = false;
     controller._ensureSocket = async () => { throw new Error('AO WebSocket error'); };
 
-    await controller._recoverFromClose(); // throwing would fail this test
+    await controller.reattachIfIdle(); // throwing would fail this test
 
     expect(controller._messages).to.deep.equal([]);
   });

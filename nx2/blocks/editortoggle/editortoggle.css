@@ -1,0 +1,115 @@
+:host {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.editortoggle-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2-spacing-100, 8px);
+  height: 32px;
+  padding: 0 var(--s2-spacing-100, 8px);
+  border: none;
+  border-radius: var(--s2-corner-radius-500);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.editortoggle-switch:hover {
+  background-color: var(--s2-gray-100);
+}
+
+.editortoggle-label {
+  white-space: nowrap;
+}
+
+.editortoggle-track {
+  position: relative;
+  display: inline-block;
+  width: 26px;
+  height: 14px;
+  border-radius: 999px;
+  background-color: light-dark(var(--s2-gray-300, #b3b3b3), var(--s2-gray-400, #7c7c7c));
+  transition: background-color 120ms ease;
+}
+
+.editortoggle-handle {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: light-dark(#fff, #1a1a1a);
+  transition: transform 120ms ease;
+}
+
+.editortoggle-switch[aria-checked="true"] .editortoggle-track {
+  background-color: var(--s2-accent-color-900, #2680eb);
+}
+
+.editortoggle-switch[aria-checked="true"] .editortoggle-handle {
+  transform: translateX(12px);
+}
+
+.editortoggle-switch:focus-visible {
+  outline: 2px solid var(--s2-accent-color-900, #2680eb);
+  outline-offset: 2px;
+}
+
+/* Menu variant: a full-width row inside the profile popover. Separators are
+   inset pseudo-elements matching the profile menu's .nx-menu-btn lines (see
+   profile.css); the host's -1px top margin (also in profile.css) collapses the
+   top line with the section above so it doesn't double. Everything lives on
+   the button so the host stays zero-height when render() returns nothing off
+   the /canvas route. */
+:host([variant="menu"]) {
+  display: block;
+  height: auto;
+}
+
+:host([variant="menu"]) .editortoggle-switch {
+  position: relative;
+  width: 100%;
+  height: auto;
+  justify-content: space-between;
+  gap: var(--s2-spacing-200, 16px);
+  padding: 16px 24px;
+  border-radius: 0;
+  font-size: 16px;
+  transition: all 0.2s ease-in-out;
+}
+
+:host([variant="menu"]) .editortoggle-switch::before,
+:host([variant="menu"]) .editortoggle-switch::after {
+  content: "";
+  position: absolute;
+  inset: 0 24px auto;
+  height: 1px;
+  background: var(--s2-gray-100);
+  transition: all 0.2s ease-in-out;
+}
+
+:host([variant="menu"]) .editortoggle-switch::after {
+  inset: auto 24px 0;
+}
+
+:host([variant="menu"]) .editortoggle-switch:hover {
+  z-index: 2;
+  color: var(--s2-blue-900);
+  background-color: var(--s2-blue-200);
+}
+
+:host([variant="menu"]) .editortoggle-switch:hover::before {
+  inset: 0;
+  background: var(--s2-blue-900);
+}
+
+:host([variant="menu"]) .editortoggle-switch:hover::after {
+  inset: auto 0 0;
+  background: var(--s2-blue-900);
+}
