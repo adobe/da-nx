@@ -64,25 +64,14 @@
 
         setConfig({ imsClientId: 'da-web', env: 'prod' });
 
-        const sdkResult = await DA_SDK;
-        console.log('[DEBUG] Full DA_SDK result:', sdkResult);
-        console.log('[DEBUG] context:', sdkResult.context);
-        console.log('[DEBUG] token from context:', sdkResult.context?.token);
-        console.log('[DEBUG] token from root:', sdkResult.token);
-
-        const { context } = sdkResult;
+        const { context, token } = await DA_SDK;
 
         // Import media library's ims-adapter BEFORE creating the element
         const { setImsDetails } = await import('https://da.live/nx/blocks/media-library/core/ims-adapter.js');
 
         // Inject token from DA_SDK into media library's ims-adapter
-        const token = context?.token || sdkResult.token;
-        console.log('[DEBUG] Token to inject:', token ? 'PRESENT' : 'MISSING');
         if (token) {
           setImsDetails(token);
-          console.log('[DEBUG] Token injected successfully');
-        } else {
-          console.warn('[DEBUG] No token available from DA_SDK');
         }
 
         await import('https://da.live/nx/blocks/media-library/media-library.js');
