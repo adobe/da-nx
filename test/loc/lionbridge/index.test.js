@@ -144,7 +144,8 @@ describe('lionbridge connector', () => {
       const service = baseService({ site: 'send-upload-fail' });
       const langs = [{ code: 'fr-FR', name: 'French' }];
       const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
-      const actions = { sendMessage: () => {}, saveState: async () => {} };
+      const messages = [];
+      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
 
       await sendAllLanguages({
         title: 'My Project', service, options: {}, langs, urls, actions,
@@ -152,6 +153,11 @@ describe('lionbridge connector', () => {
 
       expect(langs[0].translation.status).to.equal('error');
       expect(langs[0].translation.sent).to.equal(0);
+      const errorMessage = messages.find((m) => m.type === 'error' && m.text.includes('/page'));
+      expect(errorMessage, 'upload error message').to.exist;
+
+      const submitCall = calls.find((c) => c.url.includes('/submit'));
+      expect(submitCall, 'submit call').to.equal(undefined);
     });
 
     it('sends a dueDate on the job when project.due is set', async () => {

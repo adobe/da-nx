@@ -284,7 +284,9 @@ async function uploadUrl(service, jobId, sourceLanguage, targetCodes, url) {
 
 /**
  * Sends a translation project's urls to Lionbridge for every target
- * language: creates a job, uploads all urls, then submits the job.
+ * language: creates a job, uploads all urls, then submits the job. The job
+ * is only submitted once every url has uploaded successfully; if any upload
+ * fails, submit is skipped and every language is marked `error`.
  * @param {Object} params
  * @param {string} params.title - The project title.
  * @param {Object} params.service - The service configuration.
@@ -319,17 +321,25 @@ export async function sendAllLanguages({
   let uploaded = 0;
   for (const url of urls) {
     const ok = await uploadUrl(service, jobId, sourceLanguage, targetCodes, url);
-    if (ok) uploaded += 1;
+    if (ok) {
+      uploaded += 1;
+    } else {
+      sendMessage({ text: `Error uploading ${url.daBasePath} to Lionbridge.`, type: 'error' });
+    }
   }
 
-  sendMessage({ text: 'Submitting Lionbridge job.' });
-  const submitted = await submitJob(service, jobId);
+  const allUploaded = uploaded === urls.length;
+  let submitted = false;
+  if (allUploaded) {
+    sendMessage({ text: 'Submitting Lionbridge job...' });
+    submitted = await submitJob(service, jobId);
+  }
 
   langs.forEach((lang) => {
     lang.translation ??= {};
     lang.translation.jobId = jobId;
     lang.translation.sent = uploaded;
-    lang.translation.status = submitted && uploaded === urls.length ? 'created' : 'error';
+    lang.translation.status = submitted && allUploaded ? 'created' : 'error';
   });
 
   // Clean urls for persistence
