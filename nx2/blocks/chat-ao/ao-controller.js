@@ -11,10 +11,10 @@
  */
 
 import { loadIms } from '../../utils/ims.js';
-import { getManifestId } from '../../utils/ewFlags.js';
 import { AO_FRAME, AO_EVENT } from './ao-constants.js';
 import { buildFailedUploadsText, buildClientContext } from './utils/user-context.js';
 import { uploadAttachment, getOrgId, resolveAoWsBase } from './utils/uploads.js';
+import { resolveManifestId } from './utils/manifest.js';
 import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession, toUiArtifact,
   fetchTurnEvents, extractToolCalls,
@@ -23,9 +23,6 @@ import { fetchSkills, loadCachedSkills } from './utils/skills.js';
 import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-helpers.js';
 
 const EPISODE_LIST_LIMIT = 10;
-
-// See docs/chat-ao-component.md#manifest-override.
-const MANIFEST_PARAM = 'nx-chat-ao-manifest';
 
 // AO's abort is async — dropped while stop() is waiting for its confirming
 // TURN_ABORTED/TURN_COMPLETED, so nothing already in flight for the
@@ -107,7 +104,7 @@ export default class AoChatController {
     }
   }
 
-  _fetchSkills() { return fetchSkills(); }
+  _fetchSkills() { return fetchSkills(this._context ?? {}); }
 
   _loadCachedSkills() { return loadCachedSkills(); }
 
@@ -581,14 +578,9 @@ export default class AoChatController {
     }
   }
 
-  // See docs/chat-ao-component.md#manifest-override.
-  async _resolveManifest(search = window.location.search) {
-    const queryManifest = new URLSearchParams(search).get(MANIFEST_PARAM);
-    if (queryManifest) return queryManifest;
-
+  _resolveManifest(search = window.location.search) {
     const { org, site } = this._context ?? {};
-    const manifestId = (org && site) ? await getManifestId({ org, site }) : null;
-    return manifestId;
+    return resolveManifestId({ org, site, search });
   }
 
   async sendMessage(message, items = [], attachments = []) {
@@ -616,13 +608,14 @@ export default class AoChatController {
       )));
       const artifactIds = uploaded.map((a) => a.artifactId).filter(Boolean);
       const failed = uploaded.filter((a) => !a.artifactId);
-      const manifestId = await this._resolveManifest();
+      const { manifestId, debugMode } = await this._resolveManifest();
 
       await this._ensureSocket();
       this._ws.send(JSON.stringify({
         type: AO_FRAME.USER_INPUT,
         text: `${buildFailedUploadsText(failed)}${message}`,
-        ...(manifestId && { debugMode: true, manifestId }),
+        manifestId,
+        debugMode,
         clientMessageId,
         ...(artifactIds.length && { attachments: artifactIds }),
         client_context: buildClientContext(this._context, items),

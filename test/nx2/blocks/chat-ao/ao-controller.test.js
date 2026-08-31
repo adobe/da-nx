@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import AoChatController from '../../../../nx2/blocks/chat-ao/ao-controller.js';
-import { AO_HTTP_BASE } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
+import { AO_MANIFEST_ID, AO_HTTP_BASE } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
 import { setMockIms, resetMockIms } from '../../../../nx2/test/mocks/ims.js';
 
 const APPLICATION = {
@@ -16,6 +16,7 @@ function makeController() {
   const controller = new AoChatController({ onUpdate: (u) => updates.push(u) });
   controller._ensureSocket = async () => { };
   controller._fetchEpisodeContext = async () => null;
+  controller._resolveManifest = async () => ({ manifestId: AO_MANIFEST_ID, debugMode: false });
   controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
   return { controller, updates, sent };
 }
@@ -34,6 +35,8 @@ describe('ao-controller sendMessage', () => {
       {
         type: 'USER_INPUT',
         text: 'hello AO',
+        manifestId: AO_MANIFEST_ID,
+        debugMode: false,
         clientMessageId,
         client_context: { application: APPLICATION },
       },
@@ -79,6 +82,8 @@ describe('ao-controller sendMessage', () => {
       {
         type: 'USER_INPUT',
         text: 'looks good, go ahead',
+        manifestId: AO_MANIFEST_ID,
+        debugMode: false,
         clientMessageId: sent[0].clientMessageId,
         client_context: { application: APPLICATION },
       },
@@ -113,7 +118,6 @@ describe('ao-controller sendMessage', () => {
   it('carries the current document as a focused resource, with org/site spelled out rather than embedded in id', async () => {
     const { controller, sent } = makeController();
     controller.setContext({ org: 'adobe', site: 'da-live', path: '/docs/foo' });
-    controller._resolveManifest = async () => null;
 
     await controller.sendMessage('what does this do?');
 
@@ -132,7 +136,6 @@ describe('ao-controller sendMessage', () => {
   it('normalizes the id separator when path has no leading slash', async () => {
     const { controller, sent } = makeController();
     controller.setContext({ org: 'adobe', site: 'da-live', path: 'docs/foo' });
-    controller._resolveManifest = async () => null;
 
     await controller.sendMessage('what does this do?');
 
@@ -245,30 +248,43 @@ describe('ao-controller sendMessage', () => {
     });
   });
 
+  // Tier coverage lives in manifest.test.js; bypasses makeController()'s default stub.
   describe('_resolveManifest', () => {
-    it('the ?nx-chat-ao-manifest=<name> query override returns that manifest id directly', async () => {
+    let origFetch;
+
+    afterEach(() => {
+      if (origFetch) window.fetch = origFetch;
+      origFetch = null;
+    });
+
+    it('the ?nx-chat-ao-manifest=<name> query override wins without any network', async () => {
       const { controller } = makeController();
+      delete controller._resolveManifest;
+      origFetch = window.fetch;
+      window.fetch = async () => { throw new Error('should not have been called'); };
 
       const result = await controller._resolveManifest('?nx-chat-ao-manifest=dev-manifest');
 
-      expect(result).to.equal('dev-manifest');
+      expect(result).to.deep.equal({ manifestId: 'dev-manifest', debugMode: true });
     });
 
-    it('returns null without looking anything up when no context and no query override are set', async () => {
+    it('falls back to the fixed default when nothing else resolves', async () => {
       const { controller } = makeController();
+      delete controller._resolveManifest;
+      origFetch = window.fetch;
+      window.fetch = async () => new Response(JSON.stringify({ manifest_id: null }), {
+        status: 200,
+      });
 
       const result = await controller._resolveManifest('');
 
-      expect(result).to.equal(null);
+      expect(result).to.deep.equal({ manifestId: AO_MANIFEST_ID, debugMode: false });
     });
-
-    // getManifestId's own flag-reading behavior (config value vs. unset) is
-    // covered directly in ewFlags.test.js — not re-verified here.
   });
 
   it('sends manifestId and debugMode together when _resolveManifest finds an override', async () => {
     const { controller, sent } = makeController();
-    controller._resolveManifest = async () => 'staging-manifest';
+    controller._resolveManifest = async () => ({ manifestId: 'staging-manifest', debugMode: true });
 
     await controller.sendMessage('hello AO');
 
@@ -276,14 +292,13 @@ describe('ao-controller sendMessage', () => {
     expect(sent[0].debugMode).to.equal(true);
   });
 
-  it('omits both manifestId and debugMode when _resolveManifest finds no override', async () => {
+  it('sends the fixed default manifestId with debugMode false on the default resolution path', async () => {
     const { controller, sent } = makeController();
-    controller._resolveManifest = async () => null;
 
     await controller.sendMessage('hello AO');
 
-    expect(sent[0]).to.not.have.property('manifestId');
-    expect(sent[0]).to.not.have.property('debugMode');
+    expect(sent[0].manifestId).to.equal(AO_MANIFEST_ID);
+    expect(sent[0].debugMode).to.equal(false);
   });
 });
 

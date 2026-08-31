@@ -14,6 +14,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
 import AoChatController from './ao-controller.js';
+import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
   AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES,
   COWORKER_SKILLS_URL, COWORKER_CHAT_URL,
@@ -178,6 +179,7 @@ export default class NxChatAo extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    fetchResolvedManifestId();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, artifactStyle];
     this._controller = new AoChatController({
       onUpdate: ({
@@ -427,8 +429,8 @@ export default class NxChatAo extends LitElement {
           .onDecline=${() => this._controller.declineQuestion()}
         ></nx-question-card>
         ${renderPermissionCard(this.pendingPermission, {
-          onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
-        })}
+            onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
+          })}
         <form class="chat-form" @submit=${this._submit}
           @dragenter=${this._dnd.onDragEnter}
           @dragleave=${this._dnd.onDragLeave}
