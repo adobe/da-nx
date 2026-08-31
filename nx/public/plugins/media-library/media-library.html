@@ -19,6 +19,13 @@
   </div>
 
   <script type="module">
+    // Detect base URL: if loaded from branch, use same base; otherwise use da.live
+    const scriptUrl = document.currentScript?.src || window.location.href;
+    const baseUrl = scriptUrl.includes('.aem.live')
+      ? new URL(scriptUrl).origin
+      : 'https://da.live';
+    console.log('[ML Plugin] Base URL:', baseUrl);
+
     function showError(message) {
       const container = document.getElementById('ml-container');
       if (!container) return;
@@ -43,8 +50,8 @@
     } else {
       // In iframe - try to load normally
       try {
-        const { setConfig, getColorScheme } = await import('https://da.live/nx/scripts/nexter.js');
-        const DA_SDK_module = await import('https://da.live/nx/utils/sdk.js');
+        const { setConfig, getColorScheme } = await import(`${baseUrl}/nx/scripts/nexter.js`);
+        const DA_SDK_module = await import(`${baseUrl}/nx/utils/sdk.js`);
         const DA_SDK = DA_SDK_module.default;
 
         // Set color scheme for dark mode support
@@ -65,14 +72,32 @@
         setConfig({ imsClientId: 'da-web', env: 'prod' });
 
         const { context } = await DA_SDK;
+        console.log('[ML Plugin] DA_SDK context:', {
+          org: context?.org,
+          repo: context?.repo,
+          hasToken: !!context?.token,
+          tokenPreview: context?.token ? `${context.token.substring(0, 20)}...` : null
+        });
 
-        await import('https://da.live/nx/blocks/media-library/media-library.js');
+        // Import media library's ims-adapter BEFORE creating the element
+        const { setImsDetails } = await import(`${baseUrl}/nx/blocks/media-library/core/ims-adapter.js`);
+
+        // Inject token from DA_SDK into media library's ims-adapter
+        if (context?.token) {
+          console.log('[ML Plugin] Injecting token into media library ims-adapter');
+          setImsDetails(context.token);
+        } else {
+          console.warn('[ML Plugin] No token available from DA_SDK');
+        }
+
+        await import(`${baseUrl}/nx/blocks/media-library/media-library.js`);
 
         const ml = document.createElement('nx-media-library');
         const org = context?.org;
         const repo = context?.repo;
         ml.sitePath = org && repo ? `/${org}/${repo}` : '';
 
+        console.log('[ML Plugin] Created nx-media-library with sitePath:', ml.sitePath);
         document.getElementById('ml-container').appendChild(ml);
       } catch (error) {
         console.error('Media Library plugin error:', error);
