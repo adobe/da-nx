@@ -23,10 +23,7 @@ import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-
 
 const EPISODE_LIST_LIMIT = 10;
 
-// AO's abort is async — dropped while stop() is waiting for its confirming
-// TURN_ABORTED/TURN_COMPLETED, so nothing already in flight for the
-// interrupted turn (or generated in the gap before the abort lands
-// server-side) can resurrect it client-side.
+// See docs/chat-ao-component.md#stop--interrupt for why these are dropped.
 const IGNORED_WHILE_INTERRUPTING = new Set([
   AO_EVENT.TEXT_DELTA,
   AO_EVENT.TEXT_DONE,
@@ -105,8 +102,7 @@ export default class AoChatController {
 
   _fetchTurnEvents(turnId) { return fetchTurnEvents(turnId); }
 
-  // Looked up by toolCallId, not index — _messages may be replaced elsewhere
-  // while a caller's own await (e.g. hydrateToolCall's fetch) is in flight.
+  // See docs/chat-ao-component.md#tool-call-activity for why this is by id, not index.
   _patchToolCall(toolCallId, patch) {
     this._messages = this._messages.map((m) => (m.toolCall?.toolCallId === toolCallId
       ? { ...m, toolCall: { ...m.toolCall, ...patch } } : m));
@@ -121,11 +117,7 @@ export default class AoChatController {
 
     this._patchToolCall(toolCallId, { loadingCalls: true });
 
-    this._turnEventsCache ??= new Map();
-    if (!this._turnEventsCache.has(turnId)) {
-      this._turnEventsCache.set(turnId, this._fetchTurnEvents(turnId));
-    }
-    const events = await this._turnEventsCache.get(turnId);
+    const events = await this._fetchTurnEvents(turnId);
     const calls = extractToolCalls(events);
 
     // See docs/chat-ao-component.md#tool-call-activity — loadingCalls is
@@ -163,8 +155,8 @@ export default class AoChatController {
     this._messages = messages;
     this._pendingQuestion = pendingInteraction?.type === 'question' ? pendingInteraction : undefined;
     this._pendingPlanApproval = pendingInteraction?.type === 'plan' ? pendingInteraction : undefined;
-    // decisions always starts empty on rehydration — any partial local
-    // progress from before the switch/reload wasn't submitted, so it's gone.
+    // See docs/chat-ao-component.md#permission-requests — decisions always
+    // starts empty on rehydration.
     this._pendingPermission = pendingInteraction?.type === 'permission'
       ? { turnId: pendingInteraction.turnId, calls: pendingInteraction.calls, decisions: {} }
       : undefined;
@@ -185,9 +177,8 @@ export default class AoChatController {
     this._update();
   }
 
-  // A pending question/plan/permission is suspended, not streaming — safe to
-  // abandon and resume later. Only real in-flight generation should block
-  // switching away.
+  // See docs/chat-ao-component.md#episode-switching for why only real
+  // in-flight generation blocks switching away.
   get _blockedByActiveTurn() {
     return this._thinking && !this._pendingQuestion
       && !this._pendingPlanApproval && !this._pendingPermission;
@@ -291,9 +282,7 @@ export default class AoChatController {
     });
   }
 
-  // See docs/chat-ao-component.md#connection-recovery — reattaches on any
-  // drop, mid-turn or idle, so cross-client updates keep arriving live; only
-  // a mid-turn failure is surfaced to the user.
+  // See docs/chat-ao-component.md#connection-recovery for why this reattaches unconditionally.
   async _recoverFromClose() {
     if (!this._episodeId) return;
     try {
@@ -301,8 +290,7 @@ export default class AoChatController {
       this._ws.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
     } catch (err) {
       if (!this._thinking) return;
-      this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
-      this._done();
+      this._pushError(err);
     }
   }
 
@@ -316,9 +304,7 @@ export default class AoChatController {
       return;
     }
 
-    // See docs/chat-ao-component.md#connection-recovery — AO broadcasts this
-    // to every attached connection including the sender's own, so a matching
-    // clientMessageId means we already rendered it optimistically in sendMessage.
+    // See docs/chat-ao-component.md#connection-recovery for the clientMessageId dedup.
     if (evt.type === AO_EVENT.USER_MESSAGE) {
       const { text, client_message_id: clientMessageId } = evt.data ?? {};
       const isOwnEcho = clientMessageId
@@ -358,9 +344,7 @@ export default class AoChatController {
       return;
     }
 
-    // See docs/chat-ao-component.md#tool-call-activity — patches the same
-    // message entry across detected/start/end rather than appending a row
-    // per event.
+    // See docs/chat-ao-component.md#tool-call-activity for the detected/start/end patching.
     if (evt.type === AO_EVENT.TOOL_CALL_DETECTED) {
       const { tool_call_id: toolCallId, tool_name: toolName } = evt.data ?? {};
       this._messages = [...this._messages, {
@@ -409,9 +393,7 @@ export default class AoChatController {
       return;
     }
 
-    // See docs/chat-ao-component.md#episode-switching — upserts rather than
-    // only patching, so a title doesn't get silently dropped when it beats
-    // (or outlives a failed) _refreshEpisodeList to adding the episode first.
+    // See docs/chat-ao-component.md#episode-switching for why this upserts, not just patches.
     if (evt.type === AO_EVENT.EPISODE_TITLE_UPDATED) {
       const { episode_id: episodeId, title } = evt.data ?? {};
       const exists = this._episodes.some((ep) => ep.id === episodeId);
@@ -460,8 +442,7 @@ export default class AoChatController {
     }
 
     if (evt.type === AO_EVENT.ERROR_CONNECTION || evt.type === AO_EVENT.ERROR_SESSION) {
-      // Idle means nothing was actually asked of AO — e.g. a background warm
-      // attempt failing. Only surface errors during an actual turn.
+      // See docs/chat-ao-component.md#session-warming for why idle stays silent.
       if (!this._thinking) return;
       const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
       this._messages = [...this._messages, { role: 'assistant', content: `Error: ${message}` }];
@@ -469,9 +450,7 @@ export default class AoChatController {
     }
   }
 
-  // A suspended turn (question/plan/permission) that gets interrupted still
-  // reaches here via TURN_ABORTED — clear whichever card was pending so it
-  // doesn't linger after the turn it belonged to is gone.
+  // See docs/chat-ao-component.md#stop--interrupt for why this also fires on TURN_ABORTED.
   _done() {
     this._thinking = false;
     this._streamingText = undefined;
@@ -479,6 +458,11 @@ export default class AoChatController {
     this._pendingPlanApproval = undefined;
     this._pendingPermission = undefined;
     this._update();
+  }
+
+  _pushError(err) {
+    this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
+    this._done();
   }
 
   stop() {
@@ -505,8 +489,7 @@ export default class AoChatController {
         : { type: AO_FRAME.RESUME, turn_id: turnId, data: { type: 'question-response', answers, declined } };
       this._ws.send(JSON.stringify(frame));
     } catch (err) {
-      this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
-      this._done();
+      this._pushError(err);
     }
   }
 
@@ -518,9 +501,7 @@ export default class AoChatController {
     return this._respondToQuestion([], true);
   }
 
-  // Plan approval has no dedicated response frame — the server dispatches by
-  // DataPart "type" inside the generic RESUME op, which (unlike QUESTION_RESPONSE)
-  // is always a valid first op, so no cold/warm connection distinction is needed here.
+  // See docs/chat-ao-component.md#plan-approval for why this always uses RESUME.
   async respondToPlanApproval(decision, feedback = '') {
     if (!this._pendingPlanApproval) return;
     const { turnId } = this._pendingPlanApproval;
@@ -537,15 +518,12 @@ export default class AoChatController {
         },
       }));
     } catch (err) {
-      this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
-      this._done();
+      this._pushError(err);
     }
   }
 
-  // One-shot: AO auto-denies any pending call not present in `decisions` the
-  // moment this is sent (see docs/chat-ao-component.md#permission-requests),
-  // so decisions are collected locally per call and only sent once every
-  // pending call in the turn has one — never streamed one at a time.
+  // See docs/chat-ao-component.md#permission-requests — one-shot, so decisions
+  // are collected locally and only sent once every pending call has one.
   async respondToPermission(toolCallId, approved) {
     if (!this._pendingPermission) return;
     const decisions = { ...this._pendingPermission.decisions, [toolCallId]: approved };
@@ -574,8 +552,7 @@ export default class AoChatController {
         };
       this._ws.send(JSON.stringify(frame));
     } catch (err) {
-      this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
-      this._done();
+      this._pushError(err);
     }
   }
 
@@ -585,9 +562,7 @@ export default class AoChatController {
 
     const selectionContext = buildSelectionContext(items);
     const attachmentsMeta = buildAttachmentsMeta(attachments);
-    // See docs/chat-ao-component.md#connection-recovery — AO echoes every
-    // USER_MESSAGE back to every attached connection, including this one;
-    // clientMessageId is how we recognize and skip our own echo.
+    // See docs/chat-ao-component.md#connection-recovery for the clientMessageId dedup.
     const clientMessageId = crypto.randomUUID();
 
     this._messages = [...this._messages, {
@@ -616,8 +591,7 @@ export default class AoChatController {
         client_context: buildClientContext(this._context, items),
       }));
     } catch (err) {
-      this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
-      this._done();
+      this._pushError(err);
     }
   }
 

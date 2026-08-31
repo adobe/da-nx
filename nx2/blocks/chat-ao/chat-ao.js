@@ -25,7 +25,7 @@ import { PANEL_EVENT } from '../../utils/panel.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
-import { createVoiceInput, isVoiceInputSupported, appendTranscript } from '../shared/chat/voice-input.js';
+import { createVoiceInput, isVoiceInputSupported, appendTranscript } from './utils/voice-input.js';
 import { showToast } from '../shared/toast/toast.js';
 import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
@@ -71,7 +71,7 @@ export default class NxChatAo extends LitElement {
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
 
   // Tracks the last interim chunk inserted into .chat-input so the next
-  // chunk can replace it in place — see shared/chat/voice-input.js#appendTranscript.
+  // chunk can replace it in place — see utils/voice-input.js#appendTranscript.
   _voiceInterim = '';
 
   set context(value) {

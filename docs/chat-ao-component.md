@@ -394,8 +394,10 @@ receive them.
 
 `ao-controller.js` handles all three events, patching the same
 `{ role: 'assistant', toolCall: {...} }` entry in `_messages` in place by
-`toolCallId` (same entry-patching pattern as `hydrateToolCall`'s summary
-rows) — `tool_call_detected` appends the entry (`status: 'detected'`, name
+`toolCallId` — always looked up by id rather than array index, since
+`_messages` can be replaced out from under an in-flight patch (e.g. while
+`hydrateToolCall`'s own fetch is still pending) — `tool_call_detected`
+appends the entry (`status: 'detected'`, name
 only, no args yet); `tool_call_start` upgrades it to `status: 'running'` with
 `arguments`, appending fresh only if no `detected` row arrived first (AO
 doesn't guarantee `detected` fires before `start`); `tool_call_end` upgrades
@@ -443,8 +445,11 @@ turn — coarser than per-call (no titles, no per-call detail, just a count),
 but real. `renderToolCallCard` renders that row as a plain expandable
 `<summary>` with no status badge; opening it (`@toggle`) calls
 `AoChatController#hydrateToolCall`, which fetches the turn's full event log
-once (cached per `turnId`), extracts every real `{tool_call_id, name,
-arguments}`/`{result, display_result, status, duration_s, metadata}` pair via
+(no caching — there's exactly one summary row per turn, and hydration is
+already guarded against re-entry via `loadingCalls`/`calls`, so a second
+fetch for the same turn never actually happens), extracts every real
+`{tool_call_id, name, arguments}`/`{result, display_result, status,
+duration_s, metadata}` pair via
 `extractToolCalls` (matching `assistant_message.tool_calls[]` against
 `tool_result` events by `tool_call_id`), and nests them as `toolCall.calls` on
 the *same* summary message — replacing it with sibling messages instead (the
@@ -470,6 +475,26 @@ that deep-compares the object (this file's own tests included).
 (mirroring `nx-chat`'s own `chat.js`) rather than jumping unconditionally on
 every `messages` change — without it, expanding a tool-call row while
 scrolled up in history yanked the view back to the bottom.
+
+## Stop / interrupt
+
+`stop()` (`ao-controller.js`) sends `INTERRUPT` over an already-open socket
+and calls `_done()` immediately, client-side, without waiting for AO to
+confirm the abort — AO's own abort is asynchronous, so the turn can keep
+producing events for a beat after `INTERRUPT` is sent, until `TURN_ABORTED`
+actually lands. `_interrupting` (set by `stop()`, cleared by `sendMessage` or
+once `TURN_COMPLETED`/`TURN_ABORTED` arrives) gates `_handleServerEvent` via
+`IGNORED_WHILE_INTERRUPTING` — a fixed set of event types (`TEXT_DELTA`,
+`TEXT_DONE`, `UI_ARTIFACT_CREATED`, every `TOOL_CALL_*`, `USER_QUESTION`,
+`PLAN_APPROVAL_REQUEST`, `PERMISSION_REQUEST`) dropped outright while
+interrupting, so nothing already in flight for the interrupted turn (or
+generated in the gap before the abort actually lands server-side) can
+resurrect it client-side after `_done()` already cleared it.
+
+A suspended turn (question, plan approval, or permission request) that gets
+interrupted still reaches `_done()` via `TURN_ABORTED`, same as a normal
+completion — `_done()` unconditionally clears whichever card was pending, so
+it doesn't linger after the turn it belonged to is gone.
 
 ## Region resolution
 
@@ -503,7 +528,7 @@ message text (`buildFailedUploadsText`) rather than blocking the send.
 
 ## Voice input
 
-`shared/chat/voice-input.js` (`createVoiceInput`/`isVoiceInputSupported`/
+`utils/voice-input.js` (`createVoiceInput`/`isVoiceInputSupported`/
 `appendTranscript`) wraps the browser's Web Speech API — purely client-side
 dictation into `.chat-input`, no AO/backend involvement at all. It's a
 from-scratch port of coworker's own `use-voice-input.ts`/`chat-input.tsx`

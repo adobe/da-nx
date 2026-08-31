@@ -1,5 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import AoChatController from '../../../../nx2/blocks/chat-ao/ao-controller.js';
+import { AO_HTTP_BASE } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
+import { setMockIms, resetMockIms } from '../../../../nx2/test/mocks/ims.js';
 
 const APPLICATION = {
   id: 'da.live',
@@ -162,6 +164,83 @@ describe('ao-controller sendMessage', () => {
       role: 'assistant', content: 'Error: AO WebSocket error',
     });
     expect(updates.at(-1).thinking).to.equal(false);
+  });
+
+  describe('with attachments', () => {
+    // Real uploadAttachment()/aoContext() run against a stubbed fetch — only the
+    // network boundary is faked, so the actual upload sequencing and
+    // failed-uploads text building both get genuinely exercised.
+    function installUploadFetch(routes) {
+      const calls = [];
+      const origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        calls.push({ url: url.toString(), opts });
+        const route = routes.find((r) => r.match(url.toString(), opts));
+        if (!route) throw new Error(`unexpected fetch: ${url}`);
+        return new Response(JSON.stringify(route.body ?? {}), { status: route.status ?? 200 });
+      };
+      return { calls, restore: () => { window.fetch = origFetch; } };
+    }
+
+    beforeEach(() => setMockIms());
+    afterEach(() => resetMockIms());
+
+    it('uploads an attachment before sending, replacing it with an artifactId', async () => {
+      const { calls, restore } = installUploadFetch([
+        {
+          match: (url, opts) => url === `${AO_HTTP_BASE}/api/v1/files/upload` && opts.method === 'POST',
+          body: { file_id: 'file-1', upload_url: 'https://blob.example/upload-1' },
+        },
+        {
+          match: (url, opts) => url === 'https://blob.example/upload-1' && opts.method === 'PUT',
+        },
+        {
+          match: (url, opts) => url === `${AO_HTTP_BASE}/api/v1/files/file-1/finalize` && opts.method === 'POST',
+          body: { artifact_id: 'artifact-1' },
+        },
+      ]);
+      const { controller, sent } = makeController();
+
+      try {
+        await controller.sendMessage('here is the design', [], [
+          { id: 'a1', fileName: 'design.png', mediaType: 'image/png', dataBase64: btoa('image-bytes') },
+        ]);
+      } finally {
+        restore();
+      }
+
+      expect(sent[0].text).to.equal('here is the design');
+      expect(sent[0].attachments).to.deep.equal(['artifact-1']);
+      expect(calls[0].opts.headers.authorization).to.equal('Bearer test-token');
+      expect(JSON.parse(calls[0].opts.body)).to.deep.equal({
+        filename: 'design.png', content_type: 'image/png', scope: 'user',
+      });
+    });
+
+    it('prepends failed-upload text and omits the attachment when the upload fails — e.g. a .fig file', async () => {
+      const { restore } = installUploadFetch([
+        {
+          match: (url, opts) => url === `${AO_HTTP_BASE}/api/v1/files/upload` && opts.method === 'POST',
+          body: { file_id: 'file-2', upload_url: 'https://blob.example/upload-2' },
+        },
+        {
+          match: (url, opts) => url === 'https://blob.example/upload-2' && opts.method === 'PUT',
+          status: 500,
+        },
+      ]);
+      const { controller, sent } = makeController();
+
+      try {
+        await controller.sendMessage('here is the mockup', [], [
+          { id: 'f1', fileName: 'homepage.fig', mediaType: 'application/octet-stream', dataBase64: btoa('fig-bytes') },
+        ]);
+      } finally {
+        restore();
+      }
+
+      expect(sent[0].text).to.equal('[Attachments]\n- Attached file: homepage.fig — upload failed\nhere is the mockup');
+      expect(sent[0]).to.not.have.property('attachments');
+    });
   });
 });
 
