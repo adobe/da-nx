@@ -24,7 +24,6 @@
     const baseUrl = scriptUrl.includes('.aem.live')
       ? new URL(scriptUrl).origin
       : 'https://da.live';
-    console.log('[ML Plugin] Base URL:', baseUrl);
 
     function showError(message) {
       const container = document.getElementById('ml-container');
@@ -72,30 +71,15 @@
         setConfig({ imsClientId: 'da-web', env: 'prod' });
 
         const sdkResult = await DA_SDK;
-        console.log('[ML Plugin] Full DA_SDK result:', sdkResult);
-        console.log('[ML Plugin] DA_SDK keys:', Object.keys(sdkResult));
-
         const { context } = sdkResult;
-        console.log('[ML Plugin] DA_SDK context:', {
-          org: context?.org,
-          repo: context?.repo,
-          hasToken: !!context?.token,
-          hasTokenInRoot: !!sdkResult.token,
-          tokenPreview: context?.token ? `${context.token.substring(0, 20)}...` : null,
-          rootTokenPreview: sdkResult.token ? `${sdkResult.token.substring(0, 20)}...` : null,
-        });
 
         // Import media library's ims-adapter BEFORE creating the element
         const { setImsDetails } = await import(`${baseUrl}/nx/blocks/media-library/core/ims-adapter.js`);
 
         // Inject token from DA_SDK into media library's ims-adapter
-        // Token might be in context.token OR sdkResult.token
         const token = context?.token || sdkResult.token;
         if (token) {
-          console.log('[ML Plugin] Injecting token into media library ims-adapter');
           setImsDetails(token);
-        } else {
-          console.warn('[ML Plugin] No token available from DA_SDK - neither context.token nor root token found');
         }
 
         await import(`${baseUrl}/nx/blocks/media-library/media-library.js`);
@@ -105,7 +89,6 @@
         const repo = context?.repo;
         ml.sitePath = org && repo ? `/${org}/${repo}` : '';
 
-        console.log('[ML Plugin] Created nx-media-library with sitePath:', ml.sitePath);
         document.getElementById('ml-container').appendChild(ml);
       } catch (error) {
         console.error('Media Library plugin error:', error);

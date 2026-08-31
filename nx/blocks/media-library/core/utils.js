@@ -151,15 +151,6 @@ export async function livePreviewLogin(owner, repo) {
     const { accessToken } = imsDetails || {};
     const url = `${getLivePreviewUrl(owner, repo)}/gimme_cookie`;
 
-    // eslint-disable-next-line no-console
-    console.log('[ML Utils] livePreviewLogin called', {
-      owner,
-      repo,
-      hasImsDetails: !!imsDetails,
-      hasAccessToken: !!accessToken,
-      tokenPreview: accessToken?.token ? `${accessToken.token.substring(0, 20)}...` : null,
-    });
-
     debugLog('Setting preview.da.live cookie', { owner, repo, url });
 
     const response = await fetch(url, {

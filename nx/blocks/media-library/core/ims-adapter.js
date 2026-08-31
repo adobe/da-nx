@@ -12,11 +12,6 @@ let isRedirectingToSignIn = false;
  * @param {string} token - Bearer token from plugin host
  */
 export function setImsDetails(token) {
-  // eslint-disable-next-line no-console
-  console.log('[ML IMS Adapter] setImsDetails called', {
-    hasToken: !!token,
-    tokenPreview: token ? `${token.substring(0, 20)}...` : null,
-  });
   cachedImsDetails = { accessToken: { token } };
   imsLoadPromise = Promise.resolve(cachedImsDetails);
 }
@@ -26,33 +21,17 @@ export function setImsDetails(token) {
  * @returns {Promise<Object|null>} IMS details with accessToken
  */
 export async function initIms() {
-  // eslint-disable-next-line no-console
-  console.log('[ML IMS Adapter] initIms called', {
-    hasCached: !!cachedImsDetails,
-    hasPromise: !!imsLoadPromise,
-  });
   if (cachedImsDetails && !cachedImsDetails.anonymous) {
-    // eslint-disable-next-line no-console
-    console.log('[ML IMS Adapter] Returning cached IMS details');
     return cachedImsDetails;
   }
   if (imsLoadPromise) {
-    // eslint-disable-next-line no-console
-    console.log('[ML IMS Adapter] Returning existing IMS load promise');
     return imsLoadPromise;
   }
 
-  // eslint-disable-next-line no-console
-  console.log('[ML IMS Adapter] No cached token, falling back to nx2/utils/ims.js');
   imsLoadPromise = (async () => {
     const { loadIms } = await import('../../../../nx2/utils/ims.js');
     try {
       const imsDetails = await loadIms();
-      // eslint-disable-next-line no-console
-      console.log('[ML IMS Adapter] loadIms result:', {
-        hasDetails: !!imsDetails,
-        anonymous: imsDetails?.anonymous,
-      });
 
       // Only cache authenticated sessions
       if (imsDetails && !imsDetails.anonymous) {
@@ -94,18 +73,6 @@ export const daFetch = async (url, opts = {}) => {
     const imsDetails = await initIms();
     if (imsDetails && !imsDetails.anonymous && imsDetails.accessToken) {
       opts.headers.Authorization = `Bearer ${imsDetails.accessToken.token}`;
-      // eslint-disable-next-line no-console
-      console.log('[ML IMS Adapter] daFetch with auth', {
-        url: url.length > 100 ? `${url.substring(0, 100)}...` : url,
-        hasToken: true,
-      });
-    } else {
-      // eslint-disable-next-line no-console
-      console.log('[ML IMS Adapter] daFetch without auth', {
-        url: url.length > 100 ? `${url.substring(0, 100)}...` : url,
-        hasImsDetails: !!imsDetails,
-        anonymous: imsDetails?.anonymous,
-      });
     }
   }
 
