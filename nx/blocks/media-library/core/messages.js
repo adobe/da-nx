@@ -30,7 +30,7 @@ const MESSAGES = {
   EDS_LOG_DENIED: 'You need one of these roles in the EDS project: author, publish, or admin. Contact your project admin to add you to one of these roles. You can still browse existing media.',
   EDS_LOG_DENIED_HINT: 'The author role (or higher: publish, admin) is required for log:read permission. Note: basic_author and basic_publish do NOT have log:read access.',
   EDS_AUTH_EXPIRED: 'Session expired. Sign in again.',
-  PROTECTED_SITE_IMAGES_WARNING: 'Protected site - images will not load. Please login to your site first:',
+  PROTECTED_SITE_IMAGES_WARNING: 'To preview images please login into',
   DATA_LOAD_FAILED: 'Failed to load media data. Please ensure you are signed in.',
 
   NOTIFY_SIGN_IN: 'Sign in to run discovery.',

@@ -615,7 +615,8 @@ class NxMediaLibrary extends LitElement {
           ? {
             message: getMessage('PROTECTED_SITE_IMAGES_WARNING'),
             link: `https://main--${repo}--${org}.aem.page/`,
-            linkText: `Open ${org}/${repo} site`,
+            linkText: 'Home Page',
+            suffix: 'and reopen the plugin',
           }
           : null,
         isValidating: false,
@@ -846,11 +847,11 @@ class NxMediaLibrary extends LitElement {
               <p class="da-persistent-banner-message">
                 ${this._appState.persistentError.message}
                 ${this._appState.persistentError.link ? html`
-                  <br>
                   <a href="${this._appState.persistentError.link}" target="_blank" rel="noopener noreferrer">
                     ${this._appState.persistentError.linkText || this._appState.persistentError.link}
                   </a>
                 ` : ''}
+                ${this._appState.persistentError.suffix ? ` ${this._appState.persistentError.suffix}` : ''}
               </p>
             </div>
           ` : ''}
