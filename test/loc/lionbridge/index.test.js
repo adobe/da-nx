@@ -158,6 +158,10 @@ describe('lionbridge connector', () => {
 
       const submitCall = calls.find((c) => c.url.includes('/submit'));
       expect(submitCall, 'submit call').to.equal(undefined);
+
+      // No jobId on an errored lang - a later getStatusAll call must not
+      // re-poll this never-submitted job and flip status away from 'error'.
+      expect(langs[0].translation.jobId).to.equal(undefined);
     });
 
     it('sends a dueDate on the job when project.due is set', async () => {

@@ -335,11 +335,13 @@ export async function sendAllLanguages({
     submitted = await submitJob(service, jobId);
   }
 
+  const created = submitted && allUploaded;
   langs.forEach((lang) => {
     lang.translation ??= {};
-    lang.translation.jobId = jobId;
+    // No jobId when unsubmitted, so getStatusAll never re-polls a draft job.
+    lang.translation.jobId = created ? jobId : undefined;
     lang.translation.sent = uploaded;
-    lang.translation.status = submitted && allUploaded ? 'created' : 'error';
+    lang.translation.status = created ? 'created' : 'error';
   });
 
   // Clean urls for persistence

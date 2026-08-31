@@ -21,6 +21,34 @@ const EL_NAME = 'nx-loc';
 
 const styles = await loadStyle(import.meta.url);
 
+/**
+ * Merges a connector's per-language url save (e.g. requestIds) into the
+ * project's urls by path, instead of replacing the array wholesale.
+ * @param {Object} params
+ * @param {Object[]} [params.existingUrls] - The project's current urls.
+ * @param {Object[]} params.incomingUrls - The urls from the latest save.
+ * @returns {Object[]} The merged urls.
+ */
+export function mergeProjectUrls({ existingUrls, incomingUrls }) {
+  const urls = existingUrls || [];
+  const keyOf = (url) => url.basePath ?? url.suppliedPath;
+
+  const merged = urls.map((existing) => {
+    const incoming = incomingUrls.find((url) => keyOf(url) === keyOf(existing));
+    if (!incoming) return existing;
+    return {
+      ...existing,
+      ...incoming,
+      requestIds: { ...existing.requestIds, ...incoming.requestIds },
+    };
+  });
+
+  const existingKeys = new Set(urls.map(keyOf));
+  const onlyInIncoming = incomingUrls.filter((url) => !existingKeys.has(keyOf(url)));
+
+  return [...merged, ...onlyInIncoming];
+}
+
 class NxLoc extends LitElement {
   static properties = {
     view: { attribute: false },
@@ -63,8 +91,19 @@ class NxLoc extends LitElement {
   }
 
   async handleSave({ detail }) {
+    // mergeUrls is an internal signal, not part of the persisted project.
+    const { mergeUrls, ...data } = detail.data;
+
     // Combine the cached project with the new data
-    const updates = { ...this._project, ...detail.data };
+    const updates = { ...this._project, ...data };
+
+    // Merge only when the sender opts in; other views send a full
+    // replacement urls list and rely on the plain spread above.
+    if (mergeUrls) {
+      const existingUrls = this._project.urls;
+      updates.urls = mergeProjectUrls({ existingUrls, incomingUrls: data.urls });
+      this._project.urls = updates.urls;
+    }
 
     this._message = { text: 'Saving...' };
 

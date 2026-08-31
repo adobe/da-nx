@@ -213,9 +213,31 @@ export async function sendAllForTranslation(conf, connector) {
   return connector.sendAllLanguages(removeWaitingLanguagesFromConf(conf));
 }
 
+/**
+ * Submits a single dependent (`waitingFor`) language for translation, once
+ * its source language has been fully saved. Fetches the source language's
+ * now-translated content as this job's source, then sends it as its own
+ * job with `options['source.language']` overridden to the dependent
+ * language, so the connector reports the correct source language code
+ * (e.g. fr-FR for fr-CA) instead of the project's default source.
+ * @param {Object} conf - The translation conf; `conf.options`/`conf.langs`
+ *  are not mutated (this function builds its own `options` override).
+ * @param {Object} connector - The active loc connector.
+ * @param {Object} lang - The dependent language to submit; mutated in
+ *  place (`translation.status`, and `waitingFor` is deleted).
+ * @param {Object[]} originalUrls - The project's full supplied urls.
+ * @param {string} [sourceLocation] - The project's default source
+ *  location, used to de-prefix `originalUrls` before re-prefixing them
+ *  with the dependent language's own source location.
+ * @returns {Promise<void>}
+ */
 async function sendLanguageForTranslation(conf, connector, lang, originalUrls, sourceLocation) {
-  const newSourceLocation = lang.waitingFor.location;
-  const baseUrls = !sourceLocation ? originalUrls : originalUrls.map((url) => {
+  const { waitingFor } = lang;
+  const newSourceLocation = waitingFor.location;
+
+  // A root '/' has no prefix to strip - convertPath treats it the same way.
+  const hasSourceLocation = sourceLocation && sourceLocation !== '/';
+  const baseUrls = !hasSourceLocation ? originalUrls : originalUrls.map((url) => {
     const { suppliedPath: path } = url;
     return {
       ...url,
@@ -234,8 +256,13 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
   );
   lang.translation.status = 'not started';
   delete lang.waitingFor;
+
+  // Source is now the dependent language's own source, not the project default.
+  const options = { ...conf.options, 'source.language': waitingFor };
+
   return connector.sendAllLanguages({
     ...conf,
+    options,
     langs: [lang],
     urls,
   });
