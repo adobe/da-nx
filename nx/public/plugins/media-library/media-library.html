@@ -19,11 +19,7 @@
   </div>
 
   <script type="module">
-    // Detect base URL: if loaded from branch, use same base; otherwise use da.live
-    const scriptUrl = document.currentScript?.src || window.location.href;
-    const baseUrl = scriptUrl.includes('.aem.live')
-      ? new URL(scriptUrl).origin
-      : 'https://da.live';
+    const baseUrl = 'https://da.live';
 
     function showError(message) {
       const container = document.getElementById('ml-container');
