@@ -528,7 +528,7 @@ nx-media-sidebar {
 /* Persistent error/warning banner */
 .da-persistent-banner {
   position: relative;
-  margin: 0 0 16px;
+  margin: 0 auto 16px;
   max-width: 900px;
   z-index: 10;
   box-sizing: border-box;
