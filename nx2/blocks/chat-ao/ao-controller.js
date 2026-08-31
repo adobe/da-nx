@@ -11,6 +11,7 @@
  */
 
 import { loadIms } from '../../utils/ims.js';
+import { getManifestId } from '../../utils/ewFlags.js';
 import { AO_FRAME, AO_EVENT } from './ao-constants.js';
 import { buildFailedUploadsText, buildClientContext } from './utils/user-context.js';
 import { uploadAttachment, getOrgId, resolveAoWsBase } from './utils/uploads.js';
@@ -22,6 +23,9 @@ import { fetchSkills, loadCachedSkills } from './utils/skills.js';
 import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-helpers.js';
 
 const EPISODE_LIST_LIMIT = 10;
+
+// See docs/chat-ao-component.md#manifest-override.
+const MANIFEST_PARAM = 'nx-chat-ao-manifest';
 
 // AO's abort is async — dropped while stop() is waiting for its confirming
 // TURN_ABORTED/TURN_COMPLETED, so nothing already in flight for the
@@ -81,10 +85,25 @@ export default class AoChatController {
     this._warmedEpisodeId = this._episodeId;
     try {
       await this._fetchWarmSession(this._episodeId);
-      await this._ensureSocket();
-      this._ws?.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
+      await this._attach();
     } catch {
       // best-effort — sendMessage retries the connection normally on send
+    }
+  }
+
+  async _attach() {
+    await this._ensureSocket();
+    this._ws?.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
+  }
+
+  // See docs/chat-ao-component.md#connection-recovery for why this exists
+  // and isn't gated by _warmedEpisodeId like warmSession() is.
+  async reattachIfIdle() {
+    if (!this._episodeId || this._thinking || this._ws?.readyState === WebSocket.OPEN) return;
+    try {
+      await this._attach();
+    } catch {
+      // best-effort — the next visibility change, keystroke, or send retries
     }
   }
 
@@ -281,7 +300,7 @@ export default class AoChatController {
       ws.addEventListener('close', () => {
         if (!isCurrent()) return;
         this._ws = null;
-        if (!this._destroyed) this._recoverFromClose();
+        if (this._shouldReattachOnClose()) this._recoverFromClose();
       });
 
       ws.addEventListener('error', () => {
@@ -291,16 +310,16 @@ export default class AoChatController {
     });
   }
 
-  // See docs/chat-ao-component.md#connection-recovery — reattaches on any
-  // drop, mid-turn or idle, so cross-client updates keep arriving live; only
-  // a mid-turn failure is surfaced to the user.
+  // See docs/chat-ao-component.md#connection-recovery for why this is mid-turn only.
+  _shouldReattachOnClose() {
+    return !this._destroyed && this._thinking;
+  }
+
   async _recoverFromClose() {
     if (!this._episodeId) return;
     try {
-      await this._ensureSocket();
-      this._ws.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
+      await this._attach();
     } catch (err) {
-      if (!this._thinking) return;
       this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
       this._done();
     }
@@ -312,7 +331,7 @@ export default class AoChatController {
     if (evt.type === AO_EVENT.SESSION_READY) {
       const isNewEpisode = evt.episode_id && evt.episode_id !== this._episodeId;
       this._episodeId = evt.episode_id ?? this._episodeId;
-      if (isNewEpisode) this._refreshEpisodeList().catch(() => {});
+      if (isNewEpisode) this._refreshEpisodeList().catch(() => { });
       return;
     }
 
@@ -579,6 +598,16 @@ export default class AoChatController {
     }
   }
 
+  // See docs/chat-ao-component.md#manifest-override.
+  async _resolveManifest(search = window.location.search) {
+    const queryManifest = new URLSearchParams(search).get(MANIFEST_PARAM);
+    if (queryManifest) return queryManifest;
+
+    const { org, site } = this._context ?? {};
+    const manifestId = (org && site) ? await getManifestId({ org, site }) : null;
+    return manifestId;
+  }
+
   async sendMessage(message, items = [], attachments = []) {
     if (!message || (this._thinking && !this._pendingPlanApproval)) return;
     this._interrupting = false;
@@ -606,11 +635,13 @@ export default class AoChatController {
       )));
       const artifactIds = uploaded.map((a) => a.artifactId).filter(Boolean);
       const failed = uploaded.filter((a) => !a.artifactId);
+      const manifestId = await this._resolveManifest();
 
       await this._ensureSocket();
       this._ws.send(JSON.stringify({
         type: AO_FRAME.USER_INPUT,
         text: `${buildFailedUploadsText(failed)}${message}`,
+        ...(manifestId && { debugMode: true, manifestId }),
         clientMessageId,
         ...(artifactIds.length && { attachments: artifactIds }),
         client_context: buildClientContext(this._context, items),

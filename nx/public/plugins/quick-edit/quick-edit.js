@@ -6,6 +6,13 @@ import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 import { restoreBlockIndices } from './src/dom-index.js';
 import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
 import {
+  getQuickEditPortalSrc,
+  getQuickEditPreviewSrc,
+  getStandaloneConfig,
+  isStandaloneShell,
+  relayControllerMessage,
+} from './src/standalone.js';
+import {
   setupNodeSelection,
   setSelectedNode,
   getSelectedNode,
@@ -17,6 +24,7 @@ const nx = `${new URL(import.meta.url).origin}/nx`;
 await loadStyle(`${nx}/public/plugins/quick-edit/quick-edit.css`);
 
 const QUICK_EDIT_ID = 'quick-edit-iframe';
+const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
 
 /**
  * When set, the preview page is using exp-workspace as controller;
@@ -102,39 +110,21 @@ function setupParentController(loadPage) {
   window.addEventListener('message', listener);
 }
 
-function checkDomain() {
-  const currentUrl = new URL(window.location.href);
-  if (currentUrl.origin.endsWith('.aem.page')) {
-    const newOrigin = currentUrl.origin.replace('.aem.page', '.preview.da.live');
-    const params = new URLSearchParams(currentUrl.search);
-    if (!params.has('quick-edit')) params.set('quick-edit', 'on');
-    const search = params.toString() ? `?${params.toString()}` : '';
-    const newHref = `${newOrigin}${currentUrl.pathname}${search}${currentUrl.hash}`;
-    window.location.replace(newHref);
-  }
-}
-
-function handleLoad(target, config, location, ctx) {
+function handleLoad(target, config, location, ctx, handler = onMessage) {
   const CHANNEL = new MessageChannel();
   const { port1, port2 } = CHANNEL;
+  ctx.port?.close();
   ctx.port = port1;
 
   target.contentWindow.postMessage({
     type: MESSAGE_TYPES.INIT, payload: { config, location },
   }, '*', [port2]);
-  ctx.port.onmessage = (e) => onMessage(e, ctx);
+  port1.onmessage = (e) => {
+    if (ctx.port === port1) handler(e, ctx);
+  };
 }
 
-function getQuickEditSrc() {
-  const { search } = window.location;
-  const ref = new URLSearchParams(search).get('quick-edit');
-  if (!ref || ref === 'on') return 'https://da.live/plugins/quick-edit';
-  return `https://main--da-live--adobe.aem.live/plugins/quick-edit?nx=${ref}`;
-}
-
-function setupIframeController({ detail: payload }, loadPage) {
-  checkDomain();
-
+function setupIframeController(payload, loadPage) {
   const ctx = {
     initialized: false,
     loadPage,
@@ -142,7 +132,7 @@ function setupIframeController({ detail: payload }, loadPage) {
 
   const iframe = document.createElement('iframe');
   iframe.id = QUICK_EDIT_ID;
-  iframe.src = getQuickEditSrc();
+  iframe.src = getQuickEditPortalSrc(window.location.href);
   iframe.allow = 'local-network-access *; clipboard-write *';
 
   pollConnection(ctx, () => {
@@ -152,14 +142,102 @@ function setupIframeController({ detail: payload }, loadPage) {
   iframe.style.visibility = 'hidden';
 }
 
+function createPreviewIframe() {
+  const iframe = document.createElement('iframe');
+  iframe.id = QUICK_EDIT_PREVIEW_ID;
+  iframe.src = getQuickEditPreviewSrc(window.location.href);
+  iframe.allow = 'local-network-access *; clipboard-write *';
+  Object.assign(iframe.style, {
+    position: 'fixed',
+    inset: '0',
+    width: '100%',
+    height: '100%',
+    border: '0',
+    zIndex: '9998',
+  });
+  document.documentElement.append(iframe);
+  return iframe;
+}
+
+function setupStandaloneEditor(portal, payload) {
+  const preview = createPreviewIframe();
+  const config = getStandaloneConfig(payload.config);
+  const shellCtx = {
+    actionsReady: false,
+  };
+  const portalCtx = {
+    initialized: false,
+    queue: [],
+  };
+  const previewCtx = {
+    initialized: false,
+    queue: [],
+  };
+
+  const handleControllerMessage = (source, target) => (e) => {
+    relayControllerMessage({ data: e.data, source, target });
+    if (portalCtx.initialized && previewCtx.initialized && !shellCtx.actionsReady) {
+      shellCtx.actionsReady = true;
+      setupActions(portalCtx);
+    }
+  };
+
+  pollConnection(portalCtx, () => {
+    handleLoad(
+      portal,
+      config,
+      payload.location,
+      portalCtx,
+      handleControllerMessage(portalCtx, previewCtx),
+    );
+  });
+  pollConnection(previewCtx, () => {
+    handleLoad(
+      preview,
+      config,
+      payload.location,
+      previewCtx,
+      handleControllerMessage(previewCtx, portalCtx),
+    );
+  });
+}
+
+function setupStandaloneShell(payload) {
+  const ctx = {
+    initialized: false,
+    editorStarted: false,
+  };
+
+  const portal = document.createElement('iframe');
+  portal.id = QUICK_EDIT_ID;
+  portal.src = getQuickEditPortalSrc(window.location.href, { bootstrap: true });
+  portal.allow = 'local-network-access *; clipboard-write *';
+  portal.style.visibility = 'hidden';
+  document.documentElement.append(portal);
+
+  pollConnection(ctx, () => {
+    handleLoad(portal, payload.config, payload.location, ctx, (e, bootstrapCtx) => {
+      if (e.data?.type !== MESSAGE_TYPES.READY) return;
+      bootstrapCtx.initialized = true;
+      if (bootstrapCtx.editorStarted) return;
+      bootstrapCtx.editorStarted = true;
+      bootstrapCtx.port?.close();
+      setupStandaloneEditor(portal, payload);
+    });
+  });
+}
+
 export default async function loadQuickEdit(payload, loadPage) {
   if (document.getElementById(QUICK_EDIT_ID)) return;
   if (parentControllerPort != null) return;
 
+  const detail = payload?.detail ?? payload ?? {};
   const params = new URLSearchParams(window.location.search);
   if (params.get('controller') === 'parent') {
     setupParentController(loadPage);
+  } else if (isStandaloneShell(window.location.href)) {
+    setupStandaloneShell(detail);
   } else {
-    setupIframeController(payload, loadPage);
+    setupIframeController(detail, loadPage);
   }
 }

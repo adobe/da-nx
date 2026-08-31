@@ -37,7 +37,7 @@ once the user does something — see
 - **Failures stay silent.** If the backend session isn't actually live yet,
   AO replies with an `ERROR` frame instead of `SESSION_READY`. `_handleServerEvent`
   only surfaces `ERROR_CONNECTION`/`ERROR_SESSION` to the user while
-  `_thinking` is true, so a failed *warm* attempt never shows up — `sendMessage`
+  `_thinking` is true, so a failed _warm_ attempt never shows up — `sendMessage`
   just connects (and attaches) fresh when the user actually sends.
 
 `_ensureSocket()` coalesces concurrent callers (warming opening the socket
@@ -65,38 +65,40 @@ and stopped listening.
 `_recoverFromClose()` reattaches (`_ensureSocket()` + `ATTACH`) once instead
 of declaring the turn dead, and otherwise does nothing — `_thinking` stays
 whatever it already was, so the UI keeps showing progress (if any) while
-waiting for events over the reattached socket. Only a failed *reattach*
-that happens while a turn is actually in flight (`_thinking` true) surfaces
-an error; a failed reattach while idle fails silently, since nothing was
-asked of AO and nothing should visibly break for the user. A genuinely dead
-session mid-turn still ends the turn correctly: it surfaces via the normal
-`ERROR_CONNECTION`/`ERROR_SESSION` handling once reattached. This does one
-recovery attempt, not retry-with-backoff — a repeatedly-flapping connection
-reattaches on every close with no delay; full backoff (with delay/attempt-
-limits) is a capability nx-chat already has and nx-chat-ao deliberately
-hasn't built yet.
+waiting for events over the reattached socket. A genuinely dead session
+mid-turn still ends the turn correctly: it surfaces via the normal
+`ERROR_CONNECTION`/`ERROR_SESSION` handling once reattached.
 
-**Reattaching isn't only about recovering a broken connection — it's also
-how cross-client updates arrive live.** AO fans out `SessionEvent`s to every
-WebSocket attached to an episode (not just the one that submitted a turn) in
-its production/durable orchestrator mode, via a Redis pub/sub channel keyed
-by `episode_id` — confirmed directly against AO's backend source (each
-connection gets an independent subscription; Temporal mode subscribes to
-Redis, which delivers to every subscriber of a channel independently, unlike
-AO's local/dev mode which drains a single shared queue and would NOT support
-this). Since most of `_handleServerEvent`'s branches don't gate on
-`_thinking` at all, a turn submitted from a *different* client attached to
-the same episode (e.g. AO's own "coworker" UI, open in another tab on the
-same conversation) renders here too, live — as long as this client's socket
-stays attached. That's the actual reason `warmSession()` now runs on every
-episode load/switch (see [Session warming](#session-warming)) and
-`_recoverFromClose()` reattaches unconditionally rather than only mid-turn:
-without both, an idle tab's socket would eventually close (e.g. a gateway's
-idle timeout) and never reattach, silently going deaf to a conversation
-someone kept working on elsewhere. This is not a heartbeat/keepalive
-mechanism, though — a connection that goes silently stale without ever
-firing a `close` event (rare, but possible with some NATs/proxies) still
-wouldn't self-heal; that's a known gap, not yet built.
+**Only reconnects automatically while a turn is actually in flight
+(`_shouldReattachOnClose()`: `!_destroyed && _thinking`) — an idle close does
+nothing on its own.** This used to reattach unconditionally, mid-turn or
+idle, so a tab sitting on an ended/idle episode would retry forever: AO's
+`ATTACH` rejects a non-live episode only after running a billable liveness
+check, and the rejection itself closes the socket — an immediate,
+no-backoff retry loop against an episode that will never become attachable
+again (a real production incident: flat user traffic, but a runaway spike
+in that liveness check from idle tabs re-`ATTACH`ing roughly once a second,
+for hours, after their one real message). There's no "permanently idle"
+state for AO to signal either, since an episode is always reopenable — the
+fix is entirely client-side: stop treating a rejection as "retry
+immediately," and only reattach when there's an actual local reason to.
+
+Those reasons are `warmSession()` (user starts typing, or an episode is
+loaded/switched to — see [Session warming](#session-warming)) and
+`reattachIfIdle()` (the tab regains visibility, via `chat-ao.js`'s
+`visibilitychange` listener) — both best-effort, single-attempt, and gated
+on there being no live socket already. This is what restores cross-client
+live updates (see below) without the background retry cost: AO fans out
+`SessionEvent`s to every WebSocket attached to an episode (not just the one
+that submitted a turn), so a turn submitted from a _different_ client on the
+same episode (e.g. AO's own "coworker" UI, open in another tab) renders here
+too, live, as long as this client's socket stays attached — but only for as
+long as that socket lasts. A known, accepted gap: a tab that stays visible
+and idle the whole time (no typing, no visibility change) won't notice if
+its socket drops, and stays quiet until the user does something. This is
+also still not a heartbeat/keepalive mechanism — a connection that goes
+silently stale without ever firing a `close` event (rare, but possible with
+some NATs/proxies) still wouldn't self-heal.
 
 **`user_message` closes the other half of the gap — rendering the human's
 own prompt from the other client, not just the assistant's reply.**
@@ -104,7 +106,7 @@ Cross-client fanout alone would only get you the assistant's response
 appearing live (`TEXT_DELTA`/`TOOL_CALL_*` don't gate on origin); the human's
 own typed message needed its own event, and AO has one: `SessionEvent
 .user_message()` (`agents/events.py`) streams `{ text, attachments,
-client_message_id }` to *every* subscriber, confirmed to include the
+client_message_id }` to _every_ subscriber, confirmed to include the
 originating connection itself — AO does not exclude the sender, by design
 (its own docstring: "`client_message_id` lets the originating client dedup
 against its optimistic bubble while other tabs render fresh"). So
@@ -112,7 +114,7 @@ against its optimistic bubble while other tabs render fresh"). So
 (optimistically) rendered message as `clientMessageId`, and sends it on the
 wire as `clientMessageId` (camelCase — confirmed against `ws_handler.py`'s
 `_client_message_id()`, which reads exactly that key, distinct from the
-snake_case `client_message_id` the *event's* `data` payload uses).
+snake*case `client_message_id` the \_event's* `data` payload uses).
 `_handleServerEvent`'s `USER_MESSAGE` handler checks incoming
 `data.client_message_id` against already-rendered messages: a match means
 it's this client's own echo (skip, already shown); no match means it
@@ -125,7 +127,7 @@ matters, same as any other access to it.
 
 Not yet handled: a cross-client turn doesn't set `_thinking` locally (nothing
 currently does, for a turn we didn't submit), so no "Thinking..." indicator
-shows while waiting for the *first* token of a reply typed elsewhere — the
+shows while waiting for the _first_ token of a reply typed elsewhere — the
 response still streams in via `TEXT_DELTA` once AO starts producing it, just
 without that lead-in cue. Deliberately not built yet, pending real usage.
 
@@ -140,7 +142,7 @@ and pick back up later; `_loadEpisode` re-hydrates it via
 switching away.
 
 `_loadEpisode` clears messages and sets `_loadingEpisode = true` synchronously
-*before* fetching, so switching feels instant rather than leaving stale
+_before_ fetching, so switching feels instant rather than leaving stale
 messages on screen for however long the fetch takes.
 
 **`_refreshEpisodeList` never overwrites a known list with an empty one.**
@@ -151,7 +153,7 @@ right after `SESSION_READY` reports a new episode id, meaning at least one
 episode (the one that was just created) must exist — so an empty result
 there can only mean the fetch itself failed. Without the guard, one transient
 failure (a network blip, a token-refresh race) at exactly that moment would
-wipe the *entire* session picker, not just fail to add the new episode —
+wipe the _entire_ session picker, not just fail to add the new episode —
 confirmed as a real bug report (2026-08-25): starting a second new session
 made the first one disappear from the picker entirely, not just show
 untitled or out of order.
@@ -176,7 +178,7 @@ pause today; no separate permission-request concept has shown up in practice
 for this client.
 
 **Responding to a resumed question — cold vs. warm connection.** `_respondToQuestion`
-checks whether the socket was already open *before* sending:
+checks whether the socket was already open _before_ sending:
 
 - **Already open** (mid-session): send `QUESTION_RESPONSE` directly.
 - **Not open** (e.g. the episode was restored from REST and has no live
@@ -201,16 +203,17 @@ separate free-standing text field — this is what makes Tab/Arrow-keys/
 Space/Enter work identically for every option in the group, with no custom
 keyboard-nav code. The one thing the radio's own `@change` handler must
 **not** do is jump focus into its paired text field: arrow-key movement in a
-native radiogroup always both moves *and* selects, so auto-focusing the text
+native radiogroup always both moves _and_ selects, so auto-focusing the text
 field on selection meant arrowing onto "Other" (even just passing through)
 yanked focus out of the group entirely, trapping keyboard users there.
 Reaching the text field to actually type is one more Tab press, the same as
-moving between any two distinct native controls — and only *typing* in it
+moving between any two distinct native controls — and only _typing_ in it
 (never merely focusing/tabbing through) marks it as the chosen answer, so
 passing through on the way to Submit never clobbers a previously-picked fixed
 option.
 
 **Keyboard shortcuts:**
+
 - **Enter** on a fixed option mirrors Space (a native no-op on radio/checkbox)
   and also submits once that answer satisfies every required question.
 - **Enter** on "Other" does the same, but moves focus into the text field
@@ -240,7 +243,7 @@ by `data.type` inside the generic `RESUME` op:
 { "type": "RESUME", "turn_id": "...", "data": { "type": "plan-response", "decision": "approve"|"reject", "feedback": "...", "edited_plan_content": null } }
 ```
 
-This is simpler than the question flow: `RESUME` is always a valid *first*
+This is simpler than the question flow: `RESUME` is always a valid _first_
 op (unlike a bare `QUESTION_RESPONSE`), so `respondToPlanApproval` never
 needs to check whether the socket was already open before sending.
 
@@ -254,7 +257,7 @@ a discriminated result now — `{ type: 'question', ... }` or
 hydrates whichever one AO reports into `_pendingQuestion`/`_pendingPlanApproval`.
 
 **Genuinely non-blocking — the input stays enabled.** Unlike a pending
-question, a pending plan approval does *not* disable the chat input.
+question, a pending plan approval does _not_ disable the chat input.
 `chat-ao.js`'s `_blocked` getter (`thinking && !pendingPlanApproval`) is what
 every input-disabling/send-blocking site checks instead of raw `thinking` —
 the textarea's `disabled` state, `_submit`'s stop-vs-send branch, `_sendPrompt`,
@@ -293,12 +296,12 @@ against AO's backend source (`agents/events.py`, `agents/ops.py`,
 `apps/a2a/ws_handler.py`, `agents/tool_executor/{suspend,suspensions}.py`):
 
 - **Response wire shape**: `{ type: 'PERMISSION_RESPONSE', turn_id, decisions:
-  { [pending_calls[].id]: { tool_call_id, approved } } }` — bare on an
+{ [pending_calls[].id]: { tool_call_id, approved } } }` — bare on an
   already-open connection, wrapped as `{ type: 'RESUME', turn_id, data: {
-  type: 'permission-response', decisions } }` on a cold one, identical
+type: 'permission-response', decisions } }` on a cold one, identical
   cold/warm split to `QUESTION_RESPONSE`.
 - **One-shot, not incremental.** Submitting `PERMISSION_RESPONSE` resolves
-  the *entire* gate for that turn immediately — any `pending_calls[].id` not
+  the _entire_ gate for that turn immediately — any `pending_calls[].id` not
   present in `decisions` at that moment is auto-denied server-side, not
   re-prompted. So `respondToPermission` collects one decision per call
   locally (`_pendingPermission.decisions`) and only sends once every call in
@@ -310,7 +313,7 @@ against AO's backend source (`agents/events.py`, `agents/ops.py`,
   actually appear anywhere in this code path). `PermissionDecision` has no
   `scope` field. The real "don't ask again" behavior is entirely automatic
   and server-side: approving a destructive tool once auto-approves repeats
-  of *that same tool by name* for the rest of the current turn only,
+  of _that same tool by name_ for the rest of the current turn only,
   resetting on the next turn (`PermissionGate`/`TurnContext.requires_permission`
   in `agents/session/.../turn.py`). There is nothing for a client to opt into
   — no "remember this" button is possible here, unlike nx-chat's old
@@ -323,10 +326,10 @@ against AO's backend source (`agents/events.py`, `agents/ops.py`,
   alternative to actually deciding.
 - **REST-hydrated on reload, same as question/plan** — via a field that
   turned out to already be there. `GET /api/v1/episodes/{id}/context`'s
-  `suspendedTurn.pendingCalls` is *always* present in the response (unlike
+  `suspendedTurn.pendingCalls` is _always_ present in the response (unlike
   `questionData`/`planData`, which are reason-specific), but only non-empty
   when the suspend reason is permission — same `{id, name, arguments,
-  needs_permission}` shape as the live event's `pending_calls`. An earlier
+needs_permission}` shape as the live event's `pending_calls`. An earlier
   version of this doc assumed no such field existed and shipped without
   rehydration; that assumption was never actually checked against AO's REST
   response and turned out to be wrong. `fetchEpisodeContext` now returns a
@@ -338,10 +341,10 @@ against AO's backend source (`agents/events.py`, `agents/ops.py`,
   deterministic AO behavior — not a timing issue, and not something to
   special-case.** Verified against `agents/tool_execution_request.py` and
   `agents/tool_executor/executor.py`: some tools are "blind deferred" (their
-  schema isn't preloaded). The permission check always runs *before* the
+  schema isn't preloaded). The permission check always runs _before_ the
   schema-load check, so a permission-gated tool suspends for permission
   first regardless of how long that takes; only once resumed does execution
-  reach the schema-load step, which — the *first* time only — returns this
+  reach the schema-load step, which — the _first_ time only — returns this
   message as a non-generic failure (`success: false`) and retries with a
   fresh `tool_call_id`. That retry then succeeds without asking permission
   again, purely because of the same-tool-name-for-the-rest-of-the-turn
@@ -447,7 +450,7 @@ once (cached per `turnId`), extracts every real `{tool_call_id, name,
 arguments}`/`{result, display_result, status, duration_s, metadata}` pair via
 `extractToolCalls` (matching `assistant_message.tool_calls[]` against
 `tool_result` events by `tool_call_id`), and nests them as `toolCall.calls` on
-the *same* summary message — replacing it with sibling messages instead (the
+the _same_ summary message — replacing it with sibling messages instead (the
 first version of this) changed `_messages`' length and swapped the header out
 from under the user mid-expand, which read as broken. `summaryText` itself is
 deliberately left untouched by hydration, even though the real calls now
@@ -549,7 +552,7 @@ flips state and detaches the old instance's `on*` handlers synchronously,
 then tells the browser to stop as a courtesy — so a second `start()` is
 never blocked by a session the browser itself failed to clean up. Every
 handler also guards with `inst !== recognition` (the closure-captured
-instance vs. whichever session is *currently* active) in case a browser
+instance vs. whichever session is _currently_ active) in case a browser
 fires an event for an instance that's already been superseded by a newer
 one — belt-and-suspenders alongside the handler-nulling, for a dispatch-
 timing edge case that's hard to rule out with certainty.
@@ -590,7 +593,7 @@ frame, per AO's native-protocol client-context schema
 inlining them into `text` as prose. This replaced an earlier prose-prefix
 approach (`[Current document — org: ..., site: ..., path: ...]` etc.) — AO
 treats `client_context` as an ephemeral, per-turn reminder that is never
-*replayed into a future turn's LLM context*, so it doesn't bloat the
+_replayed into a future turn's LLM context_, so it doesn't bloat the
 conversation the way a permanent text prefix resent on every message would.
 
 **"Ephemeral" is about the LLM context window, not about durable storage —
@@ -640,6 +643,21 @@ values as data, not instructions... higher-priority instructions take
 precedence" preamble by design (AO's own anti-prompt-injection guard), so it
 helps the model understand what it's operating within but can't be used to
 hard-restrict what it will answer.
+
+## Manifest override
+
+`sendMessage` (`ao-controller.js`) always sends `manifestId` on `USER_INPUT`,
+resolved by `_resolveManifest()`:
+
+- `?nx-chat-ao-manifest=<name>` in the URL uses that manifest id directly —
+  a dev override, not persisted, mirroring `?nx-chat-ao=true` in
+  `nx2/utils/chat.js#useAoChat`. Named for the manifest itself, since the
+  query value _is_ the manifest to use, not a boolean that could imply other
+  unrelated things.
+- Otherwise, a site-configured `ew.coworkerManifest` flag (`getManifestId`,
+  `nx2/utils/ewFlags.js`) is used as-is in place of the default.
+- With neither set, `manifestId` is the default (`AO_MANIFEST_ID`,
+  `experience-workspace`).
 
 ## AO wire-protocol notes
 

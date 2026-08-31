@@ -3,9 +3,19 @@ import {
   isEWEnabled,
   isEWUserEnabled,
   setEWUserEnabled,
+  armEwWelcome,
+  isEwWelcomePending,
+  consumeEwWelcome,
+  armEwSwitchbackFeedback,
+  isEwSwitchbackPending,
+  consumeEwSwitchback,
 } from '../../../../utils/ewFlags.js';
 
 const EW_USER_KEY = 'nx2:ew-user-enabled';
+const EW_WELCOME_PENDING_KEY = 'nx2:ew-welcome-pending';
+const EW_WELCOME_SEEN_KEY = 'nx2:ew-welcome-seen';
+const EW_SWITCHBACK_PENDING_KEY = 'nx2:ew-switchback-pending';
+const EW_SWITCHBACK_SEEN_KEY = 'nx2:ew-switchback-seen';
 
 describe('ewFlags user-level override', () => {
   beforeEach(() => {
@@ -60,5 +70,75 @@ describe('ewFlags user-level override', () => {
     setEWUserEnabled(true);
     expect(isEWUserEnabled({ href: 'https://da.live/edit#/org/site' })).to.equal(true);
     expect(localStorage.getItem(EW_USER_KEY)).to.equal('true');
+  });
+});
+
+describe('ewFlags welcome guide', () => {
+  beforeEach(() => {
+    localStorage.removeItem(EW_WELCOME_PENDING_KEY);
+    localStorage.removeItem(EW_WELCOME_SEEN_KEY);
+  });
+
+  afterEach(() => {
+    localStorage.removeItem(EW_WELCOME_PENDING_KEY);
+    localStorage.removeItem(EW_WELCOME_SEEN_KEY);
+  });
+
+  it('isEwWelcomePending defaults to false when unset', () => {
+    expect(isEwWelcomePending()).to.equal(false);
+  });
+
+  it('armEwWelcome sets the pending flag', () => {
+    armEwWelcome();
+    expect(isEwWelcomePending()).to.equal(true);
+  });
+
+  it('consumeEwWelcome clears pending and permanently marks seen', () => {
+    armEwWelcome();
+    consumeEwWelcome();
+    expect(isEwWelcomePending()).to.equal(false);
+    expect(localStorage.getItem(EW_WELCOME_SEEN_KEY)).to.equal('true');
+  });
+
+  it('armEwWelcome is a no-op once the guide has been seen', () => {
+    armEwWelcome();
+    consumeEwWelcome();
+    armEwWelcome();
+    expect(isEwWelcomePending()).to.equal(false);
+  });
+});
+
+describe('ewFlags switch-back feedback', () => {
+  beforeEach(() => {
+    localStorage.removeItem(EW_SWITCHBACK_PENDING_KEY);
+    localStorage.removeItem(EW_SWITCHBACK_SEEN_KEY);
+  });
+
+  afterEach(() => {
+    localStorage.removeItem(EW_SWITCHBACK_PENDING_KEY);
+    localStorage.removeItem(EW_SWITCHBACK_SEEN_KEY);
+  });
+
+  it('isEwSwitchbackPending defaults to false when unset', () => {
+    expect(isEwSwitchbackPending()).to.equal(false);
+  });
+
+  it('armEwSwitchbackFeedback sets the pending flag', () => {
+    armEwSwitchbackFeedback();
+    expect(isEwSwitchbackPending()).to.equal(true);
+  });
+
+  it('consumeEwSwitchback clears pending and permanently marks seen', () => {
+    armEwSwitchbackFeedback();
+    consumeEwSwitchback();
+    expect(isEwSwitchbackPending()).to.equal(false);
+    expect(localStorage.getItem(EW_SWITCHBACK_SEEN_KEY)).to.equal('true');
+  });
+
+  it('armEwSwitchbackFeedback is a no-op once the prompt has been seen', () => {
+    armEwSwitchbackFeedback();
+    consumeEwSwitchback();
+    armEwSwitchbackFeedback();
+    expect(isEwSwitchbackPending()).to.equal(false);
   });
 });

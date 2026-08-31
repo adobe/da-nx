@@ -35,11 +35,12 @@ function getLivePreviewUrl(owner, repo) {
 export async function getImageCookie(owner, repo) {
   const token = await getToken();
   if (token) {
-    await fetch(`${getLivePreviewUrl(owner, repo)}/gimme_cookie`, {
+    return fetch(`${getLivePreviewUrl(owner, repo)}/gimme_cookie`, {
       credentials: 'include',
       headers: { Authorization: `Bearer ${token}` },
     });
   }
+  return null;
 }
 
 export function findChangedNodes(oldDoc, newDoc) {
