@@ -90,8 +90,33 @@ class NxLoc extends LitElement {
     if (project) this._project = { ...project, view: this.view };
   }
 
+  /**
+   * Queues a project save so concurrent `action` events (e.g. two
+   * `waitingFor` languages saved back-to-back by checkWaitingLanguages)
+   * are persisted one at a time, each reading `this._project` as of when
+   * it actually runs rather than when it was dispatched - dispatchEvent
+   * doesn't wait for this async listener, so without queuing, two saves
+   * can race and the later-resolving one can overwrite the other's merge.
+   * @param {Object} params
+   * @param {CustomEvent} params.detail - The `action` event's detail.
+   * @returns {Promise<void>} Resolves/rejects with this save's own
+   *  outcome; a prior save's failure never blocks this one from running.
+   */
   async handleSave({ detail }) {
-    // mergeUrls is an internal signal, not part of the persisted project.
+    const previous = this._saveQueue || Promise.resolve();
+    const current = previous.then(() => this.saveProject(detail));
+    this._saveQueue = current.catch(() => {});
+    return current;
+  }
+
+  /**
+   * Persists a project update to DA and refreshes local state.
+   * @param {Object} detail - The `action` event's detail.
+   * @param {Object} detail.data - The update payload; `mergeUrls` is an
+   *  internal signal (stripped before persisting), not project data.
+   * @returns {Promise<void>}
+   */
+  async saveProject(detail) {
     const { mergeUrls, ...data } = detail.data;
 
     // Combine the cached project with the new data
