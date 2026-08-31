@@ -6,7 +6,6 @@
   height: 100%;
   overflow: hidden;
   color-scheme: light dark;
-  position: relative;
 
   > svg {
     display: none;
@@ -20,12 +19,6 @@
   margin-bottom: var(--s2-spacing-400, var(--spacing-400, 24px));
 }
 
-.media-library-wrapper {
-  position: relative;
-  height: 100%;
-  width: 100%;
-}
-
 .media-library {
   display: grid;
   grid-template:
@@ -37,6 +30,7 @@
   max-width: 100%;
   background: light-dark(rgb(248 248 248), rgb(27 27 27));
   overflow: hidden;
+  position: relative;
 }
 
 .sidebar {
@@ -114,13 +108,13 @@ nx-media-scan {
 
 /* Toast notification */
 .da-notification-status {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  background: light-dark(rgb(255 255 255 / 60%), rgb(0 0 0 / 60%));
   display: flex;
-  align-items: center;
   justify-content: center;
-  z-index: 9999;
-  pointer-events: none;
+  align-items: center;
+  z-index: 500;
 }
 
 .toast-notification {
@@ -134,7 +128,6 @@ nx-media-scan {
   color: light-dark(#fff, var(--s2-gray-25));
   font-size: 14px;
   overflow: hidden;
-  pointer-events: auto;
 }
 
 .toast-notification-header {
@@ -204,10 +197,6 @@ nx-media-scan {
 
 .toast-notification.warning {
   background: var(--s2-amber-800, #b45309);
-}
-
-.toast-notification.info {
-  background: var(--s2-blue-800);
 }
 
 .view-btn .icon {
