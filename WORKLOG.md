@@ -1,20 +1,34 @@
 # Worklog
 
-## 2026-08-28
+## 2026-08-31
 
 ### New lionbridge translation connector + shared loc utils extraction
+
+Single consolidated entry for the whole `lionbridge-connector` branch, updated in place as it evolves — PR #656 hasn't merged yet.
 
 **New connector** (`nx/blocks/loc/connectors/lionbridge/index.js`, `connectorGuid.js`): full implementation against Lionbridge's Content API v2.
 - Persists a per org/site/env connector GUID, prefixed onto `connectorName`.
 - Dev-guideline compliance: truncates `jobName`/`requestName` to 250 bytes, retries 429/503 with backoff (tighter than the shared default), no `cancelTranslation` export (guidelines prohibit connector-initiated cancellation), approves a request after a successful download — gated on `url.status === 'success'` so a failed DA save isn't approved in Lionbridge.
 - `getStatusAll` groups `langs` by `translation.jobId` and fetches/applies status per job, so a dependent (`waitingFor`) language submitted in its own follow-up job doesn't get another job's status applied.
+- Displays an error message and skips submit if any file upload fails, instead of submitting a partial job.
+
+**Dependent-language (`waitingFor`) bugs found via live debugging** with a real project (French Canada waiting on French France, Spanish Mexico waiting on Spanish Spain):
+- `convertPath` (`nx/blocks/loc/utils/utils.js`) now joins `destPrefix` and the base path with exactly one slash regardless of leading-slash state — was silently producing paths like `/frtest-page.html` instead of `/fr/test-page.html`.
+- `sendLanguageForTranslation` no longer strips a root `/` sourceLocation, which sliced off the path's leading slash instead of an actual prefix (root cause of the above).
+- `sendLanguageForTranslation` now sends the dependent language's own source language code (e.g. `fr-FR` for `fr-CA`) instead of the project's default source.
+- An errored Lionbridge lang no longer gets a `jobId` attached, so `getStatusAll` can't re-poll a never-submitted job and flip it back to `'in progress'`, hiding the failure.
+- `loc.js`: connector per-language url saves (`requestIds`) are merged by path instead of replacing the project's `urls` wholesale — two dependent languages saved back-to-back were clobbering each other's metadata. Scoped to connector saves only (a `mergeUrls` flag from `translate.js`), so `validate`/`basics`'s intentional full-replace saves are unaffected.
+- `loc.js`: `handleSave` now queues saves, closing a race where `dispatchEvent` doesn't wait for the async save listener, letting two concurrent saves overwrite each other with stale project state.
+- `translate.css`: status pill colors added for `in-progress` and `error`.
+
+Debugged with a standalone wtr harness (`test/loc/waitingFor.test.js`, not committed) mounting the real `<nx-loc-translate>` + real Lionbridge connector against a mocked network, seeded with a sanitized copy of the real project's `.da/translate.json` shape.
 
 **Shared loc utils extracted** (`nx/blocks/loc/utils/`), now used across connectors:
 - `downloadQueue.js` — the `Queue`+poll pattern previously copy-pasted in every connector's `saveItems`.
 - `auth.js` — the da-etc login/token-cache flow shared by Trados and Lionbridge; both per-connector `auth.js` files deleted. Also fixed Trados never sending `?env=`.
 - `fetchWithRetry.js` — shared retry/backoff, replacing an inline copy; GLaaS/Smartling/Trados updated to use it.
 
-**Tests:** full coverage for the Lionbridge connector at parity with Trados/Smartling depth, plus `test/loc/utils/auth.test.js` and `test/loc/utils/fetchWithRetry.test.js`. Verified end-to-end against real Lionbridge staging APIs and through the DA Translate app UI.
+**Tests:** full coverage for the Lionbridge connector at parity with Trados/Smartling depth, plus `test/loc/utils/auth.test.js`, `test/loc/utils/fetchWithRetry.test.js`, `test/loc/convertPath.test.js`, `test/loc/mergeProjectUrls.test.js`, and `test/loc/handleSave.test.js` (including a test that forces the save race and asserts both languages' metadata survive). Verified end-to-end against real Lionbridge staging APIs and through the DA Translate app UI.
 
 ## 2026-08-27
 
