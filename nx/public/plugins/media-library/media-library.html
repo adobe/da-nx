@@ -19,8 +19,6 @@
   </div>
 
   <script type="module">
-    const baseUrl = 'https://da.live';
-
     function showError(message) {
       const container = document.getElementById('ml-container');
       if (!container) return;
@@ -45,8 +43,8 @@
     } else {
       // In iframe - try to load normally
       try {
-        const { setConfig, getColorScheme } = await import(`${baseUrl}/nx/scripts/nexter.js`);
-        const DA_SDK_module = await import(`${baseUrl}/nx/utils/sdk.js`);
+        const { setConfig, getColorScheme } = await import('https://da.live/nx/scripts/nexter.js');
+        const DA_SDK_module = await import('https://da.live/nx/utils/sdk.js');
         const DA_SDK = DA_SDK_module.default;
 
         // Set color scheme for dark mode support
@@ -70,7 +68,7 @@
         const { context } = sdkResult;
 
         // Import media library's ims-adapter BEFORE creating the element
-        const { setImsDetails } = await import(`${baseUrl}/nx/blocks/media-library/core/ims-adapter.js`);
+        const { setImsDetails } = await import('https://da.live/nx/blocks/media-library/core/ims-adapter.js');
 
         // Inject token from DA_SDK into media library's ims-adapter
         const token = context?.token || sdkResult.token;
@@ -78,7 +76,7 @@
           setImsDetails(token);
         }
 
-        await import(`${baseUrl}/nx/blocks/media-library/media-library.js`);
+        await import('https://da.live/nx/blocks/media-library/media-library.js');
 
         const ml = document.createElement('nx-media-library');
         const org = context?.org;
