@@ -18,7 +18,7 @@ svg.icon {
   justify-content: center;
   gap: var(--s2-spacing-300, var(--spacing-300, 16px));
   padding: var(--s2-spacing-100, var(--spacing-100, 8px)) var(--s2-spacing-100, var(--spacing-100, 8px)) var(--s2-spacing-100, var(--spacing-100, 8px)) 0;
-  background: light-dark(var(--s2-gray-50), #1a1a1a);
+  background: light-dark(rgb(248 248 248), rgb(27 27 27));
 }
 
 .result-count {
@@ -216,7 +216,7 @@ svg.icon {
   top: 100%;
   left: 0;
   right: 0;
-  background: light-dark(white, #1a1a1a);
+  background: light-dark(rgb(255 255 255), rgb(17 17 17));
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-radius-75);
   box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
@@ -284,7 +284,7 @@ svg.icon {
   margin-inline-start: 0;
   margin-block-start: var(--s2-spacing-100, var(--spacing-100, 8px));
   font-size: var(--s2-font-size-100);
-  color: light-dark(var(--s2-gray-600), var(--s2-gray-400));
+  color: light-dark(var(--s2-gray-700), var(--s2-gray-300));
 }
 
 .detail-line {
@@ -295,10 +295,15 @@ svg.icon {
   margin-bottom: 0;
 }
 
+.detail-line > span {
+  color: inherit;
+}
+
 mark {
   background: light-dark(yellow, var(--s2-yellow-400));
   padding: 0 2px;
   border-radius: 2px;
+  color: inherit;
 }
 
 .scanning-indicator {
