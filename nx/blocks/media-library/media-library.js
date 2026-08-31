@@ -796,76 +796,78 @@ class NxMediaLibrary extends LitElement {
     }
 
     return html`
-      <div class="media-library">
-        <h1 class="sr-only">Media Library</h1>
-        <div class="sidebar">
-          <nx-media-sidebar
-            @filter=${this.handleFilter}
-            @export-csv=${this.handleExportCsv}
-          ></nx-media-sidebar>
-        </div>
-
-        <div class="top-bar">
-          <nx-media-topbar
-            .searchQuery=${this._appState.searchQuery}
-            .resultSummary=${this.resultSummary}
-            .selectedFolder=${this._appState.selectedFolder}
-            .selectedDocument=${this._appState.selectedDocument}
-            .selectedFilterType=${this._appState.selectedFilterType}
-            .mediaData=${this._appState.mediaData}
-            .processedData=${this._appState.processedData}
-            .isIndexing=${this._appState.isIndexing}
-            .isBackgroundRefreshInProgress=${this._appState.isBackgroundRefreshInProgress}
-            .isProgressiveLoading=${this._appState.isProgressiveLoading}
-            .org=${this._appState.org}
-            .repo=${this._appState.repo}
-            @search=${this.handleSearch}
-            @clear-search=${this.handleClearSearch}
-            @pin-search=${this.handlePinFolder}
-          ></nx-media-topbar>
-        </div>
-
-        <div class="content">
-          ${this.renderCurrentView()}
-        </div>
-
-        <nx-media-info
-          @modal-open=${(e) => {
-            updateAppState({
-              selectedMediaKey: getDedupeKey(e.detail.media.url),
-              selectedMediaTab: e.detail.tab,
-            });
-          }}
-          @tab-change=${(e) => {
-            updateAppState({ selectedMediaTab: e.detail.tab });
-          }}
-          @modal-close=${() => {
-            updateAppState({
-              selectedMediaKey: null,
-              selectedMediaTab: 'usage',
-            });
-          }}
-        ></nx-media-info>
-      </div>
-
-      ${this._appState.notification ? html`
-        <div class="da-notification-status">
-          <div class="toast-notification ${this._appState.notification.type || 'success'}">
-            <div class="toast-notification-header">
-              <p class="da-notification-status-title">${this._appState.notification.heading || getMessage('NOTIFY_INFO')}</p>
-              <button
-                type="button"
-                class="toast-notification-close"
-                aria-label="${getMessage('UI_DISMISS')}"
-                @click=${this.handleDismissNotification}
-              >
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </div>
-            <p class="da-notification-status-description">${this._appState.notification.message}</p>
+      <div class="media-library-wrapper">
+        <div class="media-library">
+          <h1 class="sr-only">Media Library</h1>
+          <div class="sidebar">
+            <nx-media-sidebar
+              @filter=${this.handleFilter}
+              @export-csv=${this.handleExportCsv}
+            ></nx-media-sidebar>
           </div>
+
+          <div class="top-bar">
+            <nx-media-topbar
+              .searchQuery=${this._appState.searchQuery}
+              .resultSummary=${this.resultSummary}
+              .selectedFolder=${this._appState.selectedFolder}
+              .selectedDocument=${this._appState.selectedDocument}
+              .selectedFilterType=${this._appState.selectedFilterType}
+              .mediaData=${this._appState.mediaData}
+              .processedData=${this._appState.processedData}
+              .isIndexing=${this._appState.isIndexing}
+              .isBackgroundRefreshInProgress=${this._appState.isBackgroundRefreshInProgress}
+              .isProgressiveLoading=${this._appState.isProgressiveLoading}
+              .org=${this._appState.org}
+              .repo=${this._appState.repo}
+              @search=${this.handleSearch}
+              @clear-search=${this.handleClearSearch}
+              @pin-search=${this.handlePinFolder}
+            ></nx-media-topbar>
+          </div>
+
+          <div class="content">
+            ${this.renderCurrentView()}
+          </div>
+
+          <nx-media-info
+            @modal-open=${(e) => {
+              updateAppState({
+                selectedMediaKey: getDedupeKey(e.detail.media.url),
+                selectedMediaTab: e.detail.tab,
+              });
+            }}
+            @tab-change=${(e) => {
+              updateAppState({ selectedMediaTab: e.detail.tab });
+            }}
+            @modal-close=${() => {
+              updateAppState({
+                selectedMediaKey: null,
+                selectedMediaTab: 'usage',
+              });
+            }}
+          ></nx-media-info>
         </div>
-      ` : ''}
+
+        ${this._appState.notification ? html`
+          <div class="da-notification-status">
+            <div class="toast-notification ${this._appState.notification.type || 'success'}">
+              <div class="toast-notification-header">
+                <p class="da-notification-status-title">${this._appState.notification.heading || getMessage('NOTIFY_INFO')}</p>
+                <button
+                  type="button"
+                  class="toast-notification-close"
+                  aria-label="${getMessage('UI_DISMISS')}"
+                  @click=${this.handleDismissNotification}
+                >
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <p class="da-notification-status-description">${this._appState.notification.message}</p>
+            </div>
+          </div>
+        ` : ''}
+      </div>
     `;
   }
 

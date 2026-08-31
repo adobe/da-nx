@@ -20,6 +20,12 @@
   margin-bottom: var(--s2-spacing-400, var(--spacing-400, 24px));
 }
 
+.media-library-wrapper {
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+
 .media-library {
   display: grid;
   grid-template:
@@ -31,7 +37,6 @@
   max-width: 100%;
   background: light-dark(rgb(248 248 248), rgb(27 27 27));
   overflow: hidden;
-  position: relative;
 }
 
 .sidebar {
