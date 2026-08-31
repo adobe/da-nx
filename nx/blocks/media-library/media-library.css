@@ -109,12 +109,11 @@ nx-media-scan {
 /* Toast notification */
 .da-notification-status {
   position: fixed;
-  inset: 0;
-  background: light-dark(rgb(255 255 255 / 60%), rgb(0 0 0 / 60%));
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 500;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  pointer-events: none;
 }
 
 .toast-notification {
@@ -128,6 +127,7 @@ nx-media-scan {
   color: light-dark(#fff, var(--s2-gray-25));
   font-size: 14px;
   overflow: hidden;
+  pointer-events: auto;
 }
 
 .toast-notification-header {
