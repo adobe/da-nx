@@ -846,26 +846,26 @@ class NxMediaLibrary extends LitElement {
             });
           }}
         ></nx-media-info>
-
-        ${this._appState.notification ? html`
-          <div class="da-notification-status">
-            <div class="toast-notification ${this._appState.notification.type || 'success'}">
-              <div class="toast-notification-header">
-                <p class="da-notification-status-title">${this._appState.notification.heading || getMessage('NOTIFY_INFO')}</p>
-                <button
-                  type="button"
-                  class="toast-notification-close"
-                  aria-label="${getMessage('UI_DISMISS')}"
-                  @click=${this.handleDismissNotification}
-                >
-                  <span aria-hidden="true">&times;</span>
-                </button>
-              </div>
-              <p class="da-notification-status-description">${this._appState.notification.message}</p>
-            </div>
-          </div>
-        ` : ''}
       </div>
+
+      ${this._appState.notification ? html`
+        <div class="da-notification-status">
+          <div class="toast-notification ${this._appState.notification.type || 'success'}">
+            <div class="toast-notification-header">
+              <p class="da-notification-status-title">${this._appState.notification.heading || getMessage('NOTIFY_INFO')}</p>
+              <button
+                type="button"
+                class="toast-notification-close"
+                aria-label="${getMessage('UI_DISMISS')}"
+                @click=${this.handleDismissNotification}
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <p class="da-notification-status-description">${this._appState.notification.message}</p>
+          </div>
+        </div>
+      ` : ''}
     `;
   }
 
