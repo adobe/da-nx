@@ -34,6 +34,10 @@ function showPanel(name) {
   port2.postMessage({ action: 'showPanel', details: name });
 }
 
+function scrollTo(target) {
+  port2.postMessage({ action: 'scrollTo', details: target });
+}
+
 function getSelection() {
   return new Promise((resolve, reject) => {
     const listener = (e) => {
@@ -81,6 +85,7 @@ const DA_SDK = (() => new Promise((resolve) => {
         getSelection,
         setPrompt,
         showPanel,
+        scrollTo,
       };
 
       resolve({ ...e.data, actions });
