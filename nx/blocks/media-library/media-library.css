@@ -199,6 +199,10 @@ nx-media-scan {
   background: var(--s2-amber-800, #b45309);
 }
 
+.toast-notification.info {
+  background: var(--s2-blue-800);
+}
+
 .view-btn .icon {
   width: 1.25rem;
   height: 1.25rem;

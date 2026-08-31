@@ -605,20 +605,18 @@ class NxMediaLibrary extends LitElement {
       if (siteAuthInfo.requiresAuth) {
         const authSuccess = await livePreviewLogin(org, repo);
         this.siteAuthInfo.authFailed = !authSuccess;
+
+        if (!authSuccess) {
+          const loginLink = `https://main--${repo}--${org}.aem.page/`;
+          const message = `${getMessage('PROTECTED_SITE_IMAGES_WARNING')} <a href="${loginLink}" target="_blank" rel="noopener noreferrer">Home Page</a> and reopen the plugin`;
+          showNotification(getMessage('NOTIFY_INFO'), message, 'info');
+        }
       }
 
       updateAppState({
         sitePathValid: true,
         validationError: null,
         validationSuggestion: null,
-        persistentError: this.siteAuthInfo?.authFailed
-          ? {
-            message: getMessage('PROTECTED_SITE_IMAGES_WARNING'),
-            link: `https://main--${repo}--${org}.aem.page/`,
-            linkText: 'Home Page',
-            suffix: 'and reopen the plugin',
-          }
-          : null,
         isValidating: false,
       });
 
@@ -690,9 +688,6 @@ class NxMediaLibrary extends LitElement {
       );
 
       updateAppState({
-        persistentError: this.siteAuthInfo?.authFailed
-          ? this._appState.persistentError
-          : null,
         indexMissing: !!indexMissing,
       });
 
@@ -831,30 +826,6 @@ class NxMediaLibrary extends LitElement {
         </div>
 
         <div class="content">
-          ${this._appState.persistentError ? html`
-            <div class="da-persistent-banner info">
-              <div class="da-persistent-banner-header">
-                <span class="da-persistent-banner-heading">${getMessage('NOTIFY_INFO')}</span>
-                <button
-                  type="button"
-                  class="da-persistent-banner-close"
-                  aria-label="${getMessage('UI_DISMISS')}"
-                  @click=${this.handleDismissBanner}
-                >
-                  <span aria-hidden="true">&times;</span>
-                </button>
-              </div>
-              <p class="da-persistent-banner-message">
-                ${this._appState.persistentError.message}
-                ${this._appState.persistentError.link ? html`
-                  <a href="${this._appState.persistentError.link}" target="_blank" rel="noopener noreferrer">
-                    ${this._appState.persistentError.linkText || this._appState.persistentError.link}
-                  </a>
-                ` : ''}
-                ${this._appState.persistentError.suffix ? ` ${this._appState.persistentError.suffix}` : ''}
-              </p>
-            </div>
-          ` : ''}
           ${this.renderCurrentView()}
         </div>
 

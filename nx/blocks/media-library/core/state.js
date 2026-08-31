@@ -73,7 +73,7 @@ export function updateAppState(updates) {
   });
 }
 
-const NOTIFICATION_DURATION = { success: 3000, warning: 5000, danger: 10000 };
+const NOTIFICATION_DURATION = { success: 3000, warning: 5000, danger: 10000, info: 15000 };
 
 // Shows toast; auto-dismisses. Danger/warning stay longer; user can dismiss via close.
 export function showNotification(heading, message, type = 'success') {
