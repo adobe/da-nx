@@ -250,6 +250,122 @@ export async function sendAllLanguages({
   await saveState({ options });
 }
 
+/**
+ * Extracts a human-readable message from Smartling's documented error
+ * envelope. Per their Error Handling docs, every 4xx/5xx response on every
+ * endpoint returns `{ response: { code, errors: [{ key, message,
+ * details }] } }` - this reads the `errors` array rather than just the
+ * top-level `code`, since `code` alone (e.g. `VALIDATION_ERROR`) doesn't
+ * say what's actually wrong (e.g. an invalid target locale).
+ * @param {Object} json - The parsed error response body.
+ * @returns {string} The joined `message` from each reported error, or the
+ *  response `code` if no `errors` array is present.
+ */
+function extractErrorMessage(json) {
+  const errors = json?.response?.errors;
+  if (Array.isArray(errors) && errors.length > 0) {
+    return errors.map((error) => error.message).join('; ');
+  }
+  return json?.response?.code || 'Unknown error';
+}
+
+const PROCESS_POLL_INTERVAL_MS = 2000;
+const MAX_PROCESS_POLL_ATTEMPTS = 30; // ~60s before giving up on an async process
+
+function wait(ms) {
+  return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
+/**
+ * Polls Smartling's job async-process endpoint (`getJobAsyncProcessStatus`)
+ * until a submitted operation reports a terminal `processState`. Used for
+ * the 202 case of `removeLocaleFromJob`, whose removal isn't guaranteed
+ * complete until this reports `COMPLETED`.
+ * @param {string} endpoint - The resolved Smartling API origin.
+ * @param {string} projectId - The Smartling project id.
+ * @param {string} jobUid - The job the process belongs to.
+ * @param {string} processUid - The process to poll.
+ * @returns {Promise<string>} The final `processState` ('COMPLETED' or
+ *  'FAILED'); also resolves to 'FAILED' if a poll request errors or the
+ *  process doesn't finish within `MAX_PROCESS_POLL_ATTEMPTS`.
+ */
+async function pollJobProcess(endpoint, projectId, jobUid, processUid) {
+  const url = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid}/processes/${processUid}`;
+  const opts = { headers: { Authorization: `Bearer ${token}` } };
+
+  for (let attempt = 0; attempt < MAX_PROCESS_POLL_ATTEMPTS; attempt += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const resp = await fetch(url, opts);
+    if (!resp.ok) return 'FAILED';
+    // eslint-disable-next-line no-await-in-loop
+    const json = await resp.json();
+    const { processState } = json?.response?.data || {};
+    if (processState === 'COMPLETED' || processState === 'FAILED') return processState;
+    // eslint-disable-next-line no-await-in-loop
+    await wait(PROCESS_POLL_INTERVAL_MS);
+  }
+
+  return 'FAILED';
+}
+
+/**
+ * Cancels a single target language by removing its locale from the
+ * shared translation job (`removeLocaleFromJob`) - not Smartling's
+ * job-level `cancelJob` endpoint, which would cancel every other
+ * language still sharing that job, since `sendAllLanguages` sends every
+ * target language as one job. Polls the returned process to completion
+ * when Smartling responds 202 (async removal).
+ * @param {Object} params
+ * @param {Object} params.service - The service configuration; reads
+ *  `origin`/`org`/`site`/`projectId`/`jobUid`.
+ * @param {Object} params.lang - The language to cancel; mutated in place
+ *  with `translation.status = 'cancelled'` on success.
+ * @param {Function} params.sendMessage - Callback to surface a
+ *  status/error message to the user.
+ * @returns {Promise<{ok: boolean, skipped?: boolean}>} Whether the
+ *  cancellation succeeded (or was skipped as a no-op).
+ */
+export async function cancelTranslation({ service, lang, sendMessage }) {
+  if (!lang.translation || !service.jobUid?.value) {
+    sendMessage({ text: `Skipping ${lang.name}. No translation information.` });
+    return { ok: true, skipped: true };
+  }
+
+  const {
+    origin, org, site, projectId, jobUid,
+  } = service;
+  const endpoint = resolveOrigin(origin, org, site);
+  const translationJobUid = jobUid.value;
+
+  sendMessage({ text: `Canceling ${lang.name}.` });
+
+  const url = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${translationJobUid}/locales/${lang.code}`;
+  const opts = { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } };
+
+  const resp = await fetch(url, opts);
+  if (!resp.ok) {
+    const json = await resp.json();
+    sendMessage({ text: `Canceling ${lang.name} failed: ${extractErrorMessage(json)}`, type: 'error' });
+    return { ok: false };
+  }
+
+  if (resp.status === 202) {
+    const json = await resp.json();
+    const { processUid } = json?.response?.data || {};
+    const processState = processUid
+      ? await pollJobProcess(endpoint, projectId, translationJobUid, processUid)
+      : 'FAILED';
+
+    if (processState !== 'COMPLETED') {
+      sendMessage({ text: `Canceling ${lang.name} did not finish in time - check Smartling directly.`, type: 'error' });
+      return { ok: false };
+    }
+  }
+
+  lang.translation.status = 'cancelled';
+  return { ok: true };
+}
+
 export async function getStatusAll({
   org, site, service, langs, urls, actions,
 }) {
@@ -278,7 +394,11 @@ export async function getStatusAll({
     });
   }
 
-  for (const lang of langs) {
+  // 'complete'/'cancelled' are terminal - Smartling keeps reporting 100%
+  // translated forever once done, so without this guard every subsequent
+  // status check would revert 'complete' back to 'translated' (triggering
+  // a re-save) or 'cancelled' back to 'translated' (undoing the cancel).
+  for (const lang of langs.filter((l) => !['complete', 'cancelled'].includes(l.translation.status))) {
     if (lang.translation.translated === urls.length) {
       lang.translation.status = 'translated';
     }
