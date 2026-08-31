@@ -4,8 +4,6 @@
 
 ### New lionbridge translation connector + shared loc utils extraction
 
-Single consolidated entry for the `lionbridge-connector` branch, updated in place — PR #656 hasn't merged yet.
-
 - New connector (`nx/blocks/loc/connectors/lionbridge/`) implementing the standard connector interface against Lionbridge's Content API v2, with GUID persistence and dev-guideline compliance.
 - Fixed several dependent-language (`waitingFor`) bugs found via live debugging: a path-joining bug, wrong source language code, a stale-jobId status regression, url-metadata clobbering across concurrent saves, and a save-dispatch race.
 - Extracted shared connector utils (`downloadQueue.js`, `auth.js`, `fetchWithRetry.js`) used across Lionbridge/Trados/Smartling/GLaaS.
