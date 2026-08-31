@@ -525,19 +525,18 @@ nx-media-sidebar {
   text-decoration: underline;
 }
 
-/* Persistent error/warning banner (overlays content, does not push grid down) */
+/* Persistent error/warning banner */
 .da-persistent-banner {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  position: relative;
+  margin: 0 0 16px;
+  max-width: 900px;
   z-index: 10;
   box-sizing: border-box;
   padding: 0;
-  border-radius: 0 0 8px 8px;
+  border-radius: 8px;
   font-size: 14px;
   line-height: 1.5;
-  box-shadow: 0 4px 6px rgb(0 0 0 / 10%);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
 }
 
 .da-persistent-banner-header {
@@ -599,6 +598,17 @@ nx-media-sidebar {
   color: var(--s2-orange-900);
   background-color: var(--s2-orange-200);
   border: 2px solid var(--s2-orange-400);
+}
+
+.da-persistent-banner.info {
+  color: var(--s2-blue-900);
+  background-color: var(--s2-blue-100);
+  border: 2px solid var(--s2-blue-400);
+}
+
+.da-persistent-banner.info .da-persistent-banner-header {
+  background: var(--s2-blue-400);
+  color: light-dark(#fff, var(--s2-gray-25));
 }
 
 /* Screen reader only - visually hidden but accessible to assistive technology */

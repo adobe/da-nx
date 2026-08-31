@@ -832,9 +832,9 @@ class NxMediaLibrary extends LitElement {
 
         <div class="content">
           ${this._appState.persistentError ? html`
-            <div class="da-persistent-banner danger">
+            <div class="da-persistent-banner info">
               <div class="da-persistent-banner-header">
-                <span class="da-persistent-banner-heading">${getMessage('NOTIFY_ERROR')}</span>
+                <span class="da-persistent-banner-heading">${getMessage('NOTIFY_INFO')}</span>
                 <button
                   type="button"
                   class="da-persistent-banner-close"
