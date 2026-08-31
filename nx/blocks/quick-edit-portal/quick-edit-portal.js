@@ -52,6 +52,8 @@ async function initProse(owner, repo, path, el, ctx) {
 
 export default async function decorate(el) {
   el.innerHTML = 'Waiting for connection...';
+  const bootstrapMode = new URLSearchParams(window.location.search)
+    .get('controller') === 'bootstrap';
 
   const ctx = {
     owner: null,
@@ -60,6 +62,10 @@ export default async function decorate(el) {
     port: null,
     suppressRerender: false,
   };
+  let bootstrapPromise;
+  let bootstrapComplete = false;
+  let editorPromise;
+  let editorPort;
 
   await signIn();
 
@@ -67,8 +73,6 @@ export default async function decorate(el) {
     const isInit = e.data?.type === MESSAGE_TYPES.INIT;
     if (isInit) {
       const [port] = e.ports;
-
-      el.innerHTML = '';
 
       const { config, location } = e.data.payload ?? {};
       const mountPoint = config?.mountpoint;
@@ -91,13 +95,43 @@ export default async function decorate(el) {
       ctx.owner = owner;
       ctx.repo = repo;
       ctx.path = path;
-      ctx.port = port;
 
-      await getImageCookie(owner, repo);
+      if (bootstrapMode && !bootstrapComplete) {
+        bootstrapPromise ||= getImageCookie(owner, repo);
+        let cookieResp;
+        try {
+          cookieResp = await bootstrapPromise;
+        } catch (error) {
+          bootstrapPromise = undefined;
+          // eslint-disable-next-line no-console
+          console.error('Failed to initialize authenticated quick-edit preview', error);
+          return;
+        }
+        if (!cookieResp?.ok) {
+          bootstrapPromise = undefined;
+          // eslint-disable-next-line no-console
+          console.error('Failed to initialize authenticated quick-edit preview');
+          return;
+        }
+        bootstrapComplete = true;
+        port.postMessage({ type: MESSAGE_TYPES.READY });
+        return;
+      }
 
-      await initProse(owner, repo, path, el, ctx);
+      editorPort = port;
+      editorPromise ||= (async () => {
+        el.innerHTML = '';
+        if (!bootstrapComplete) await getImageCookie(owner, repo);
+        await initProse(owner, repo, path, el, ctx);
+      })();
+      await editorPromise;
+      if (editorPort !== port) {
+        port.close();
+        return;
+      }
 
       // Going forward, all messages will be sent via the port
+      ctx.port = port;
       port.onmessage = (event) => onMessage(event, ctx);
 
       // Tell the other side we are ready

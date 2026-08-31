@@ -624,13 +624,34 @@ describe('api.js', () => {
       expect(last.body.get('destination')).to.equal(destination);
     });
 
-    it('source.move hlx6 adds move=true', async () => {
+    it('source.move hlx6 emulates move via copy then delete of the original', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.move({ org: o, site: s, path: '/src.html', destination: '/dest.html' });
-      const u = new URL(lastCall().url);
-      expect(u.pathname).to.equal(`/${o}/sites/${s}/source/dest.html`);
-      expect(u.searchParams.get('move')).to.equal('true');
-      expect(u.searchParams.get('source')).to.equal('/src.html');
+      const destination = `/${o}/${s}/dest.html`;
+      await source.move({
+        org: o, site: s, path: '/src.html', destination, collision: 'overwrite',
+      });
+      const [copyCall, deleteCall] = calls;
+      // copy: PUT the destination source path with the original as ?source, no ?move
+      expect(copyCall.method).to.equal('PUT');
+      const copyUrl = new URL(copyCall.url);
+      expect(copyUrl.pathname).to.equal(`/${o}/sites/${s}/source/dest.html`);
+      expect(copyUrl.searchParams.get('source')).to.equal('/src.html');
+      expect(copyUrl.searchParams.get('collision')).to.equal('overwrite');
+      expect(copyUrl.searchParams.get('move')).to.be.null;
+      // delete: remove the original source path
+      expect(deleteCall.method).to.equal('DELETE');
+      expect(new URL(deleteCall.url).pathname).to.equal(`/${o}/sites/${s}/source/src.html`);
+    });
+
+    it('source.move hlx6 leaves the original in place when the copy fails', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({ status: 500 });
+      const resp = await source.move({
+        org: o, site: s, path: '/src.html', destination: `/${o}/${s}/dest.html`,
+      });
+      expect(resp.ok).to.be.false;
+      expect(calls.some((c) => c.method === 'DELETE')).to.be.false;
     });
 
     it('source.move legacy POSTs to /move/{org}/{site}{path} with destination form field', async () => {
