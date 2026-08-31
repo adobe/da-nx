@@ -65,6 +65,11 @@ parallel one. If you do add a new key:
 | `STORED_MARKS` | iframe → host | da-live only |
 | `PREVIEW` | iframe ↔ host (request/reply) | standalone (quick-edit-portal) only |
 | `IMAGE_REPLACE` | iframe ↔ host (request/reply) | both hosts |
+| `SET_COMMENT_MARKERS` | Host → iframe | da-live only |
+| `SCROLL_TO_POS` | Host → iframe | da-live only |
+| `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
+| `COMMENT_MARKER_CLEAR` | iframe → host | da-live only |
+| `COMMENT_SHORTCUT` | iframe → host | da-live only |
 
 ---
 
@@ -117,6 +122,28 @@ Image drag-drop upload flow, request/reply on the same type: the iframe sends th
 upload request, the host replies with the same `IMAGE_REPLACE` type, distinguished by
 `payload.error` (failure) vs `payload.newSrc` (success). Both hosts implement the full
 round-trip.
+
+### Comments (`SET_COMMENT_MARKERS` / `SCROLL_TO_POS` / `COMMENT_MARKER_CLICK` / `COMMENT_MARKER_CLEAR` / `COMMENT_SHORTCUT`)
+
+Drive the comments feature's overlay in layout/WYSIWYG mode. The comments UI (the panel,
+threads, and anchoring) lives host-side in da-live; the iframe only renders a DOM overlay
+of marker bubbles and highlights on top of the previewed page (`nx/public/plugins/quick-edit/src/comments.js`).
+
+- `SET_COMMENT_MARKERS` — host pushes the current marker set (and which thread is selected)
+  whenever comments change or panel visibility toggles; the iframe redraws the overlay from
+  it. An empty set clears the overlay.
+- `COMMENT_MARKER_CLICK` — the user clicked a marker/highlight in the overlay; the host
+  selects that thread, scrolls to it, and opens the comments panel.
+- `COMMENT_MARKER_CLEAR` — the user clicked empty space; the host clears the selected thread.
+- `COMMENT_SHORTCUT` — the user pressed the comment shortcut (Cmd/Ctrl+Alt+M) while focused
+  inside the iframe; the host opens the comments panel and starts a new comment on the
+  current selection. (The host page has its own keydown handler for the same shortcut when
+  focus is outside the iframe — see da-live's `canvas.js`.)
+- `SCROLL_TO_POS` — host asks the iframe to scroll a comment's anchor position into view in
+  layout mode (e.g. after selecting a thread in the panel).
+
+All five are da-live-embedded only; the standalone `quick-edit-portal.js` host has no
+comments UI, so none are wired up there.
 
 ## Known gaps
 

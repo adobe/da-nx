@@ -9,11 +9,15 @@ import {
   findBlockForMarker,
   mapProseRangeToDomRange,
   adjustTextHighlightRect,
+} from '../../../../../nx/public/plugins/quick-edit/src/comments/geometry.js';
+import {
+  sortMarkersForRender,
+} from '../../../../../nx/public/plugins/quick-edit/src/comments/render.js';
+import {
   scrollToProseIndex,
   setCommentMarkers,
   applyCommentMarkers,
-  sortMarkersForRender,
-} from '../../../../../nx/public/plugins/quick-edit/src/comments.js';
+} from '../../../../../nx/public/plugins/quick-edit/src/comments/index.js';
 
 function buildBody() {
   document.body.innerHTML = `

@@ -17,7 +17,7 @@ import {
   applyCommentMarkers,
   setupCommentShortcut,
   scrollToProseIndex,
-} from './src/comments.js';
+} from './src/comments/index.js';
 import {
   setupNodeSelection,
   setSelectedNode,
