@@ -341,13 +341,30 @@ describe('form-date (native)', () => {
     expect(input(el).value).to.equal('2026-08-14');
   });
 
-  it('emits the date value on input', async () => {
+  it('emits an input event on input', async () => {
     const el = await mount('<form-date></form-date>');
-    let fired;
-    el.addEventListener('change', () => { fired = el.value; });
+    let inputs = 0;
+    let changes = 0;
+    el.addEventListener('input', () => { inputs += 1; });
+    el.addEventListener('change', () => { changes += 1; });
     setInput(el, '2026-08-14');
     expect(el.value).to.equal('2026-08-14');
-    expect(fired).to.equal('2026-08-14');
+    expect(inputs).to.equal(1);
+    expect(changes).to.equal(0);
+  });
+
+  it('emits a change event on change, distinct from input', async () => {
+    const el = await mount('<form-date></form-date>');
+    let inputs = 0;
+    let changes = 0;
+    el.addEventListener('input', () => { inputs += 1; });
+    el.addEventListener('change', () => { changes += 1; });
+    const i = input(el);
+    i.value = '2026-08-14';
+    i.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    expect(el.value).to.equal('2026-08-14');
+    expect(changes).to.equal(1);
+    expect(inputs).to.equal(0);
   });
 
   it('renders a native time input for type=time', async () => {
@@ -383,7 +400,7 @@ describe('form-date (native)', () => {
   it('leaves the value empty for a partial or cleared entry (no fabricated value)', async () => {
     const el = await mount('<form-date></form-date>');
     // A partial entry gives the native input no value; we do not invent one.
-    el._onInput({ target: { value: '', validity: { badInput: true } } });
+    el._onEvent({ type: 'input', target: { value: '' }, stopPropagation() {} });
     expect(el.value).to.equal('');
   });
 

@@ -51,13 +51,13 @@ class FormDate extends LitElement {
     }
   }
 
-  _onInput(e) {
+  _onEvent(e) {
     const raw = e.target.value;
     const next = this.type === 'datetime' ? localToUtc(raw) : raw;
     this._lastValue = next;
     this.value = next;
-    this.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-    this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    e.stopPropagation();
+    this.dispatchEvent(new Event(e.type, { bubbles: true, composed: true }));
   }
 
   render() {
@@ -71,8 +71,8 @@ class FormDate extends LitElement {
           min=${RANGE[this.type]?.min ?? nothing}
           max=${RANGE[this.type]?.max ?? nothing}
           ?disabled=${this.disabled}
-          @input=${this._onInput}
-          @change=${this._onInput}
+          @input=${this._onEvent}
+          @change=${this._onEvent}
         />
         ${this.error ? html`<p class="form-field-error">${this.error}</p>` : nothing}
         ${showHint ? html`<p class="form-field-description">${this.description}</p>` : nothing}
