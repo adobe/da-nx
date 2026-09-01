@@ -269,7 +269,7 @@
     flex-direction: column;
     gap: var(--s2-spacing-75);
 
-    &:has(.tool-call-card) {
+    &:has(.tool-call-card), &:has(.tool-call-detail) {
       padding-top: 0;
       padding-bottom: 0;
     }
