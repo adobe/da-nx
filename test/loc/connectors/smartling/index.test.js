@@ -121,6 +121,71 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(call.url).to.include(`${DA_TRANSLATE}/translate/smartling/${org}/${site}/files-api/v2/projects/proj-1/locales/fr-FR/file`);
   });
 
+  it('retries a 429 from getStatusAll progress polling before succeeding', async () => {
+    let progressCalls = 0;
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/file/progress')) {
+        progressCalls += 1;
+        if (progressCalls === 1) {
+          return new Response('', { status: 429, headers: { 'Retry-After': '0.01' } });
+        }
+        return new Response(JSON.stringify({
+          response: {
+            code: 'SUCCESS',
+            data: { contentProgressReport: [{ targetLocaleId: 'fr-FR', progress: null }] },
+          },
+        }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+    const langs = [{ code: 'fr-FR', translation: { translated: 0 } }];
+    const urls = [{ daBasePath: '/page' }];
+    const actions = { saveState: async () => {} };
+
+    await getStatusAll({
+      org, site, service, langs, urls, actions,
+    });
+
+    expect(progressCalls).to.equal(2);
+    expect(langs[0].translation.status).to.equal('translated');
+  });
+
+  it('retries a 429 from saveItems file download before succeeding', async () => {
+    let downloadCalls = 0;
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/files-api/v2/projects')) {
+        downloadCalls += 1;
+        if (downloadCalls === 1) {
+          return new Response('', { status: 429, headers: { 'Retry-After': '0.01' } });
+        }
+        return new Response('translated content', { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1' };
+    const lang = { code: 'fr-FR' };
+    const urls = [{ daBasePath: '/page', ext: 'html' }];
+    const saveFn = async (url) => { url.status = 'success'; };
+
+    await saveItems({
+      org, site, service, lang, urls, saveFn,
+    });
+
+    expect(downloadCalls).to.equal(2);
+    expect(urls[0].status).to.equal('success');
+  });
+
   it('does not auto-authorize the batch by default', async () => {
     const options = { service: { origin: legacyOrigin, projectId: 'proj-1' } };
     const langs = [{ name: 'French', code: 'fr-FR' }];
