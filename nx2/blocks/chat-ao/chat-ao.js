@@ -66,6 +66,7 @@ export default class NxChatAo extends LitElement {
     _prompts: { state: true },
     _planFeedback: { state: true },
     _voiceListening: { state: true },
+    _backendWsBase: { state: true }, // TEMP(backend-banner)
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
@@ -183,7 +184,9 @@ export default class NxChatAo extends LitElement {
       onUpdate: ({
         messages, thinking, streamingText, episodes, episodeId,
         pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode,
+        wsBase, // TEMP(backend-banner)
       }) => {
+        this._backendWsBase = wsBase; // TEMP(backend-banner)
         this.messages = streamingText
           ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
           : messages;
@@ -345,12 +348,38 @@ export default class NxChatAo extends LitElement {
     target.value = '';
   }
 
+  // TEMP(backend-banner): shows which backend the chat socket is hitting so we
+  // can confirm CMA-via-bridge vs Agent Orchestrator. Remove this method, its
+  // call in render(), the _backendWsBase state, the onUpdate wiring, and the
+  // controller's _wsBase/_update plumbing when done verifying.
+  _renderBackendBanner() {
+    const ws = this._backendWsBase;
+    if (!ws) {
+      return html`<div style="padding:4px 8px;font:600 11px/1.4 monospace;color:#fff;background:#6b7280;text-align:center">🔌 connecting…</div>`;
+    }
+    let host = ws;
+    try {
+      host = new URL(ws).host;
+    } catch {
+      /* keep raw */
+    }
+    const isBridge = ws.includes('claudebridge') || ws.includes('localhost') || ws.includes('127.0.0.1');
+    let name = 'Backend';
+    if (ws.includes('agent-orchestrator')) name = 'Agent Orchestrator';
+    else if (isBridge) name = 'CMA via bridge';
+    const bg = isBridge ? '#15803d' : '#b45309';
+    return html`<div style="padding:4px 8px;font:600 11px/1.4 monospace;color:#fff;background:${bg};text-align:center;letter-spacing:.02em">
+      🔌 ${name} — ${host}
+    </div>`;
+  }
+
   render() {
     const { view } = this._context ?? {};
     const prompts = (this._prompts ?? [])
       .filter((p) => !p.area || p.area === 'all' || p.area === view);
 
     return html`
+      ${this._renderBackendBanner()}
       <nx-popover class="prompts-popover">
         <nx-prompts
           .prompts=${prompts}

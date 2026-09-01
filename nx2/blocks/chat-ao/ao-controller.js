@@ -63,6 +63,7 @@ export default class AoChatController {
       pendingPlanApproval: this._pendingPlanApproval,
       pendingPermission: this._pendingPermission,
       loadingEpisode: this._loadingEpisode,
+      wsBase: this._wsBase, // TEMP(backend-banner): resolved WS origin, remove with banner
     });
   }
 
@@ -268,6 +269,8 @@ export default class AoChatController {
 
   async _connect() {
     const { authFrame, wsBase } = await this._connectionInfo();
+    this._wsBase = wsBase; // TEMP(backend-banner): expose resolved origin, remove with banner
+    this._update();
 
     await new Promise((resolve, reject) => {
       const ws = new WebSocket(`${wsBase}/ws/sessions/${this._episodeId ?? 'new'}`);
