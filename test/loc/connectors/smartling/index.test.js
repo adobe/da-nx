@@ -107,6 +107,51 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(calls[0].url).to.equal(expectedUrl);
   });
 
+  it('recovers from a 401 on getStatusAll by refreshing the token and retrying', async () => {
+    await connect({
+      name: 'Smartling', origin: legacyOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
+    });
+
+    let progressCalls = 0;
+    let refreshCalls = 0;
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/auth-api/v2/authenticate/refresh')) {
+        refreshCalls += 1;
+        return new Response(JSON.stringify({
+          response: { data: { accessToken: 'new-token', refreshToken: 'new-refresh-token', expiresIn: 300 } },
+        }), { status: 200 });
+      }
+      if (u.includes('/file/progress')) {
+        progressCalls += 1;
+        if (opts.headers.Authorization !== 'Bearer new-token') return new Response('', { status: 401 });
+        return new Response(JSON.stringify({
+          response: {
+            code: 'SUCCESS',
+            data: { contentProgressReport: [{ targetLocaleId: 'fr-FR', progress: null }] },
+          },
+        }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+    const langs = [{ code: 'fr-FR', translation: { translated: 0 } }];
+    const urls = [{ daBasePath: '/page' }];
+    const actions = { saveState: async () => {} };
+
+    await getStatusAll({
+      org, site, service, langs, urls, actions,
+    });
+
+    expect(progressCalls).to.equal(2);
+    expect(refreshCalls).to.equal(1);
+    expect(langs[0].translation.status).to.equal('translated');
+  });
+
   it('rewrites the origin for saveItems file downloads', async () => {
     const service = { origin: legacyOrigin, projectId: 'proj-1' };
     const lang = { code: 'fr-FR' };
@@ -321,5 +366,87 @@ describe('smartling connector - legacy origin rewriting', () => {
     const errorMessage = messages.find((m) => m.type === 'error');
     expect(errorMessage.text).to.include('Invalid locales [fr-FR]');
     expect(langs[0].translation.status).to.equal('error');
+  });
+
+  it('recovers from a 401 by refreshing the token and retrying the request', async () => {
+    await connect({
+      name: 'Smartling', origin: legacyOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
+    });
+
+    let jobCalls = 0;
+    let refreshCalls = 0;
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/auth-api/v2/authenticate/refresh')) {
+        refreshCalls += 1;
+        return new Response(JSON.stringify({
+          response: { data: { accessToken: 'new-token', refreshToken: 'new-refresh-token', expiresIn: 300 } },
+        }), { status: 200 });
+      }
+      if (u.includes('/jobs-api/v3/projects') && opts.method === 'POST') {
+        jobCalls += 1;
+        if (opts.headers.Authorization !== 'Bearer new-token') return new Response('', { status: 401 });
+        return new Response(JSON.stringify({ response: { data: { translationJobUid: 'job-1' } } }), { status: 200 });
+      }
+      if (u.includes('/job-batches-api/v2/projects') && u.includes('/batches') && !u.includes('/file')) {
+        return new Response(JSON.stringify({ response: { data: { batchUid: 'batch-1' } } }), { status: 200 });
+      }
+      if (u.includes('/file') && opts.method === 'POST') {
+        return new Response(JSON.stringify({ response: { code: 'ACCEPTED' } }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const options = { service: { origin: 'https://api.smartling.com', projectId: 'proj-1' } };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const messages = [];
+    const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    expect(jobCalls).to.equal(2);
+    expect(refreshCalls).to.equal(1);
+    expect(langs[0].translation.status).to.equal('created');
+  });
+
+  it('gives up without looping when the retried request also 401s', async () => {
+    await connect({
+      name: 'Smartling', origin: legacyOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
+    });
+
+    let refreshCalls = 0;
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/auth-api/v2/authenticate/refresh')) {
+        refreshCalls += 1;
+        return new Response(JSON.stringify({
+          response: { data: { accessToken: 'still-bad-token', refreshToken: 'r', expiresIn: 300 } },
+        }), { status: 200 });
+      }
+      if (u.includes('/jobs-api/v3/projects') && opts.method === 'POST') return new Response('{}', { status: 401 });
+      return new Response('{}', { status: 200 });
+    };
+
+    const options = { service: { origin: 'https://api.smartling.com', projectId: 'proj-1' } };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const messages = [];
+    const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    expect(refreshCalls).to.equal(1);
+    expect(langs[0].translation).to.equal(undefined);
   });
 });

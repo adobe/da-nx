@@ -79,14 +79,42 @@ async function authenticate(endpoint, userIdentifier, userSecret) {
 }
 
 /**
+ * Refreshes the current access token, falling back to a full
+ * re-authentication with the original credentials if the refresh token
+ * itself has stopped working (Smartling caps a token pair's session at
+ * 12 hours regardless of how many times it's refreshed). Persists the
+ * new token, but leaves rescheduling the next proactive refresh to the
+ * caller - used both by the proactive schedule below and reactively via
+ * `onUnauthorized` when a request 401s before that schedule catches up
+ * (e.g. the tab was backgrounded and its timers were throttled).
+ * @returns {Promise<{accessToken: string, expiresIn: number}|null>} The
+ *  new token details, or null if both the refresh and the fallback
+ *  re-authentication failed.
+ */
+async function refreshOrReauthenticate() {
+  const { name, env, endpoint, userIdentifier, userSecret } = authCredentials;
+  const { refreshToken: currRefreshToken } = getTokenDetails(name, env);
+
+  const body = JSON.stringify({ refreshToken: currRefreshToken });
+  const opts = { ...BASE_OPTS, body };
+  const resp = await fetchWithRetry(`${endpoint}/auth-api/v2/authenticate/refresh`, opts);
+  let data = resp.ok ? (await resp.json())?.response?.data : null;
+
+  if (!data?.accessToken) data = await authenticate(endpoint, userIdentifier, userSecret);
+  if (!data?.accessToken) return null;
+
+  const { accessToken, refreshToken, expiresIn } = data;
+  setTokenDetails(name, env, accessToken, refreshToken, expiresIn);
+  return { accessToken, expiresIn };
+}
+
+/**
  * Schedules a token refresh shortly before the current token expires,
  * tracking Smartling's actual reported `expiresIn` instead of assuming a
  * constant lifetime (that value shrinks as a session nears its 12-hour
- * cap). Falls back to a full re-authentication with the original
- * credentials if the refresh token itself has stopped working, and
- * reschedules itself afterward - only stops rescheduling once both the
- * refresh and the fallback re-authentication fail, so a translation job
- * that outlives several sessions keeps working without user intervention.
+ * cap). Only stops rescheduling once `refreshOrReauthenticate` fails
+ * outright, so a translation job that outlives several sessions keeps
+ * working without user intervention.
  * @param {number} [expiresInSecs] - Seconds until the current token
  *  expires; falls back to `FALLBACK_EXPIRES_IN_S` if omitted.
  * @returns {void}
@@ -97,28 +125,37 @@ function scheduleRefresh(expiresInSecs) {
 
   clearTimeout(tokenPolling);
   tokenPolling = setTimeout(async () => {
-    const { name, env, endpoint, userIdentifier, userSecret } = authCredentials;
-    const { refreshToken: currRefreshToken } = getTokenDetails(name, env);
-
-    const body = JSON.stringify({ refreshToken: currRefreshToken });
-    const opts = { ...BASE_OPTS, body };
-    const resp = await fetchWithRetry(`${endpoint}/auth-api/v2/authenticate/refresh`, opts);
-    let data = resp.ok ? (await resp.json())?.response?.data : null;
-
-    if (!data?.accessToken) data = await authenticate(endpoint, userIdentifier, userSecret);
-
-    if (!data?.accessToken) {
+    const refreshed = await refreshOrReauthenticate();
+    if (!refreshed) {
       // Both refresh and re-authentication failed - stop polling rather than
       // hammering the API forever with credentials that no longer work.
       token = undefined;
       tokenPolling = undefined;
       return;
     }
-
-    const { accessToken, refreshToken, expiresIn } = data;
-    setTokenDetails(name, env, accessToken, refreshToken, expiresIn);
-    scheduleRefresh(expiresIn);
+    scheduleRefresh(refreshed.expiresIn);
   }, delay);
+}
+
+/**
+ * Builds a `fetchWithRetry` `onUnauthorized` callback: refreshes (or
+ * re-authenticates) the token, reschedules the next proactive refresh
+ * against the new expiry, and rebuilds `opts` with a fresh Authorization
+ * header - so a 401, e.g. from a token that expired while the tab was
+ * backgrounded before the proactive refresh above could run, triggers
+ * exactly one retry with a valid token instead of failing the request
+ * outright.
+ * @param {Object} opts - The fetch options to rebuild on success.
+ * @returns {() => Promise<Object|null>} Callback for `fetchWithRetry`'s
+ *  `onUnauthorized` config.
+ */
+function onUnauthorized(opts) {
+  return async () => {
+    const refreshed = await refreshOrReauthenticate();
+    if (!refreshed) return null;
+    scheduleRefresh(refreshed.expiresIn);
+    return { ...opts, headers: { ...opts.headers, Authorization: `Bearer ${refreshed.accessToken}` } };
+  };
 }
 
 /**
@@ -228,7 +265,7 @@ async function uploadFiles(endpoint, projectId, batchUid, langs, urls, sendMessa
 
     const opts = { method: 'POST', body, headers: { Authorization: `Bearer ${token}` } };
 
-    const resp = await fetchWithRetry(uploadUrl, opts);
+    const resp = await fetchWithRetry(uploadUrl, opts, { onUnauthorized: onUnauthorized(opts) });
     const json = await resp.json();
     if (!resp.ok) {
       sendMessage({ text: `Upload failed for ${url.daBasePath}: ${extractErrorMessage(json)}`, type: 'error' });
@@ -260,7 +297,7 @@ async function createJob(endpoint, projectId, title, langs, sendMessage) {
   opts.headers.Authorization = `Bearer ${token}`;
 
   const url = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs`;
-  const resp = await fetchWithRetry(url, opts);
+  const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
   if (!resp.ok) {
     const json = await resp.json();
     sendMessage({ text: `Job creation failed: ${extractErrorMessage(json)}`, type: 'error' });
@@ -296,7 +333,7 @@ async function createBatch(endpoint, projectId, jobUid, urls, autoAuthorize, sen
 
   const url = `${endpoint}/job-batches-api/v2/projects/${projectId}/batches`;
 
-  const resp = await fetchWithRetry(url, opts);
+  const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
   if (!resp.ok) {
     const json = await resp.json();
     sendMessage({ text: `Batch creation failed: ${extractErrorMessage(json)}`, type: 'error' });
@@ -311,7 +348,7 @@ async function downloadFile(opts, origin, projectId, lang, url) {
   const reqUrl = new URL(`${origin}/files-api/v2/projects/${projectId}/locales/${lang.code}/file`);
   reqUrl.searchParams.append('fileUri', url.daBasePath);
 
-  const resp = await fetchWithRetry(reqUrl, opts);
+  const resp = await fetchWithRetry(reqUrl, opts, { onUnauthorized: onUnauthorized(opts) });
   return resp.text();
 }
 
@@ -428,13 +465,14 @@ export async function getStatusAll({
   const { origin, projectId, jobUid } = service;
   const endpoint = resolveOrigin(origin, org, site);
 
-  const opts = { headers: { 'Content-Type': 'application/json' } };
-  opts.headers.Authorization = `Bearer ${token}`;
-
   langs.forEach((lang) => { lang.translation.translated = 0; });
 
   for (const url of urls) {
-    const resp = await fetchWithRetry(`${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid.value}/file/progress?fileUri=${url.daBasePath}`, opts);
+    // Built per-url (not hoisted) so a token refresh mid-loop - whether
+    // scheduled or triggered by a 401 below - is picked up by later urls.
+    const opts = { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } };
+    const progressUrl = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid.value}/file/progress?fileUri=${url.daBasePath}`;
+    const resp = await fetchWithRetry(progressUrl, opts, { onUnauthorized: onUnauthorized(opts) });
     const { response } = await resp.json();
     if (response.code !== 'SUCCESS') return;
     const langReports = response?.data?.contentProgressReport;
