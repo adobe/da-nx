@@ -85,3 +85,44 @@ describe('uploads.js resolveAoHttpBase/resolveAoWsBase', () => {
     expect(resolveAoHttpBase(ctx)).to.equal('https://agent-orchestrator-prod-va7.adobe.io');
   });
 });
+
+describe('uploads.js ?ao= override', () => {
+  const original = window.location.search;
+  function setAo(value) {
+    const qs = value === null ? '' : `?ao=${encodeURIComponent(value)}`;
+    window.history.replaceState({}, '', `${window.location.pathname}${qs}`);
+  }
+  afterEach(() => {
+    window.history.replaceState({}, '', `${window.location.pathname}${original}`);
+  });
+
+  it('routes to an allowlisted adobe.io origin, overriding the product context', () => {
+    setAo('wss://aem-sites-claudebridge-dev-va6.adobe.io');
+    const ctx = withActiveTartan({ region: 'VA7', environment: 'PROD' });
+    expect(resolveAoWsBase(ctx)).to.equal('wss://aem-sites-claudebridge-dev-va6.adobe.io');
+    expect(resolveAoHttpBase(ctx)).to.equal('https://aem-sites-claudebridge-dev-va6.adobe.io');
+  });
+
+  it('accepts a bare host and defaults to secure wss/https', () => {
+    setAo('aem-sites-claudebridge-dev-va6.adobe.io');
+    expect(resolveAoWsBase(undefined)).to.equal('wss://aem-sites-claudebridge-dev-va6.adobe.io');
+    expect(resolveAoHttpBase(undefined)).to.equal('https://aem-sites-claudebridge-dev-va6.adobe.io');
+  });
+
+  it('allows localhost with an insecure ws/http scheme and port', () => {
+    setAo('ws://localhost:8080');
+    expect(resolveAoWsBase(undefined)).to.equal('ws://localhost:8080');
+    expect(resolveAoHttpBase(undefined)).to.equal('http://localhost:8080');
+  });
+
+  it('ignores a non-allowlisted host and falls back to the default base', () => {
+    setAo('wss://evil.example.com');
+    expect(resolveAoWsBase(undefined)).to.equal(AO_WS_BASE);
+    expect(resolveAoHttpBase(undefined)).to.equal(AO_HTTP_BASE);
+  });
+
+  it('ignores a malformed override and falls back to the default base', () => {
+    setAo('not a url');
+    expect(resolveAoWsBase(undefined)).to.equal(AO_WS_BASE);
+  });
+});

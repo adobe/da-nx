@@ -19,12 +19,47 @@ function resolveAoLocation(projectedProductContext) {
   }
 }
 
+// Optional `?ao=<origin>` override to route chat through a different backend
+// (e.g. the claudebridge -> CMA deployment) instead of Agent Orchestrator.
+// The AUTH frame carries the IMS bearer token, so the origin is allowlisted to
+// Adobe/localhost hosts to prevent token exfiltration to an arbitrary host.
+// See docs/chat-ao-bridge-override.md.
+function isAllowedAoHost(hostname) {
+  return hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname.endsWith('.adobe.io')
+    || hostname.endsWith('.adobe.net')
+    || hostname.endsWith('.corp.adobe.com');
+}
+
+function resolveAoOverride() {
+  try {
+    const raw = new URLSearchParams(window.location.search).get('ao');
+    if (!raw) return null;
+    const url = new URL(raw.includes('://') ? raw : `wss://${raw}`);
+    if (!isAllowedAoHost(url.hostname)) return null;
+    const secure = url.protocol === 'wss:' || url.protocol === 'https:'
+      || (url.hostname !== 'localhost' && url.hostname !== '127.0.0.1');
+    const authority = `${url.hostname}${url.port ? `:${url.port}` : ''}`;
+    return {
+      ws: `${secure ? 'wss' : 'ws'}://${authority}`,
+      http: `${secure ? 'https' : 'http'}://${authority}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function resolveAoHttpBase(projectedProductContext) {
+  const override = resolveAoOverride();
+  if (override) return override.http;
   const loc = resolveAoLocation(projectedProductContext);
   return loc ? `https://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_HTTP_BASE;
 }
 
 export function resolveAoWsBase(projectedProductContext) {
+  const override = resolveAoOverride();
+  if (override) return override.ws;
   const loc = resolveAoLocation(projectedProductContext);
   return loc ? `wss://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_WS_BASE;
 }
