@@ -6,14 +6,6 @@ export function getFirstSheet(json) {
   return json[json[':names']?.[0]]?.data;
 }
 
-/** Returns the named sheet's data array from a DA config JSON response (handles multi-sheet). */
-export function getSheetByName(json, name) {
-  if (json[':type'] !== 'multi-sheet') {
-    return json[':sheetname'] === name ? json.data : undefined;
-  }
-  return json[name]?.data;
-}
-
 /** Memoized fetches for `/{org}` and optional `/{org}/{site}` config documents. */
 export const fetchDaConfigs = (() => {
   const cache = {};

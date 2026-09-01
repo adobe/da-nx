@@ -7,7 +7,7 @@ import {
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
 import { versions } from '../../utils/api.js';
-import { fetchDaConfigs, getSheetByName, getFirstSheet } from '../../utils/daConfig.js';
+import { fetchDaConfigs, getFirstSheet } from '../../utils/daConfig.js';
 import { getConfig } from '../../scripts/nx.js';
 import '../shared/menu/menu.js';
 
@@ -113,8 +113,7 @@ class NXEwActions extends LitElement {
     }
 
     const configs = await Promise.all(fetchDaConfigs({ org, site }));
-    const configTab = configs.filter(Boolean)
-      .flatMap((config) => getSheetByName(config, 'data') ?? getFirstSheet(config) ?? []);
+    const configTab = configs.flatMap((config) => getFirstSheet(config) || []);
     const publishConfigs = configTab.filter((c) => c.key === 'editor.hidePublish');
     this._hidePublish = publishConfigs.some((c) => fullpath.startsWith(c.value));
   }
