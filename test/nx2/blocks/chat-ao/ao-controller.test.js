@@ -404,6 +404,19 @@ describe('ao-controller turn lifecycle', () => {
     expect(controller._messages).to.deep.equal([]);
     expect(updates).to.have.length(0);
   });
+
+  it('clears a stuck thinking state silently on a stale reconnect ATTACH, without an error message', () => {
+    const { controller, updates } = makeController();
+    controller._thinking = true;
+
+    controller._handleServerEvent({
+      type: 'error',
+      data: { message: 'Cannot ATTACH to episode 123: not active (state=idle); send a message to start a turn.' },
+    });
+
+    expect(controller._messages).to.deep.equal([]);
+    expect(updates.at(-1).thinking).to.equal(false);
+  });
 });
 
 describe('ao-controller ui artifacts', () => {

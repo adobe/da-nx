@@ -467,6 +467,16 @@ export default class AoChatController {
       // See docs/chat-ao-component.md#session-warming for why idle stays silent.
       if (!this._thinking) return;
       const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
+      // A reconnect's ATTACH can lose the race with the episode's own turn
+      // ending server-side (e.g. a WS drop right as TURN_COMPLETED/ABORTED
+      // would have arrived) — AO then rejects the stale ATTACH as "not
+      // active (state=idle)". That's not a failure to report, just a sign
+      // there's nothing left to reattach to; _thinking is stuck true only
+      // because the real completion event never reached us. Reset silently.
+      if (/not active/i.test(message)) {
+        this._done();
+        return;
+      }
       this._messages = [...this._messages, { role: 'assistant', content: `Error: ${message}` }];
       this._done();
     }
