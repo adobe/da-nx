@@ -45,15 +45,19 @@ same CMA workspace/agent.
 
 ## Connecting da-nx to the bridge
 
-Add `ao=<bridge-origin>` to the chat URL. Example against the frescopa test
-site, on a branch that has the override:
+Add `ao=<bridge-origin>` to the chat URL. Use a da.live **view** that hosts the
+chat panel — `canvas` (with a document path in the hash) or `edit`. Note there
+is no `/browse` view on hosted da.live (it 404s). Example against the frescopa
+test site, on a branch that has the override:
 
 ```
-https://da.live/browse?nx=<branch>&nxver=2&ao=wss%3A%2F%2Faem-sites-claudebridge-dev-va6.adobe.io#/exp-workspace/frescopa
+https://da.live/canvas?nxver=2&nx=<branch>&ao=wss%3A%2F%2Faem-sites-claudebridge-dev-va6.adobe.io#/exp-workspace/frescopa/index
 ```
 
 - `ao` accepts a full `wss://…`/`https://…` URL or a bare host (bare defaults to
   `wss`). Remember to URL-encode it (`wss%3A%2F%2F…`).
+- If the chat panel doesn't appear, add `&nx-chat-ao=true` to force the AO /
+  coworker client (when the org/site has no `ew.coworker` flag).
 - **WS-only:** the override only redirects the chat WebSocket. The REST control
   plane (episode list, history, attachment uploads) stays on Agent Orchestrator,
   because the bridge implements only the WebSocket data plane — it does **not**
