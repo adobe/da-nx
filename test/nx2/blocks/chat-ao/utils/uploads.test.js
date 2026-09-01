@@ -86,10 +86,10 @@ describe('uploads.js resolveAoHttpBase/resolveAoWsBase', () => {
   });
 });
 
-describe('uploads.js ?ao= override', () => {
+describe('uploads.js ?bridge= override', () => {
   const original = window.location.search;
   function setAo(value) {
-    const qs = value === null ? '' : `?ao=${encodeURIComponent(value)}`;
+    const qs = value === null ? '' : `?bridge=${encodeURIComponent(value)}`;
     window.history.replaceState({}, '', `${window.location.pathname}${qs}`);
   }
   afterEach(() => {

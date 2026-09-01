@@ -19,7 +19,7 @@ bridge."
 By default `chat-ao` connects to Agent Orchestrator, resolving the region from
 your IMS profile (`resolveAoWsBase` in
 [`nx2/blocks/chat-ao/utils/uploads.js`](../nx2/blocks/chat-ao/utils/uploads.js)).
-The `?ao=` override below swaps that origin for the bridge.
+The `?bridge=` override below swaps that origin for the bridge.
 
 ## The deployed bridge
 
@@ -40,24 +40,27 @@ same CMA workspace/agent.
   the AUTH frame's IMS bearer token against IMS stage
   (`ims-na1-stg1.adobelogin.com`) unless token validation is disabled, so use a
   **stage** IMS login.
-- A da-nx branch that includes the `?ao=` override (see below). Merge target is
+- A da-nx branch that includes the `?bridge=` override (see below). Merge target is
   `main`.
 
 ## Connecting da-nx to the bridge
 
-Add `ao=<bridge-origin>` to the chat URL. Use a da.live **view** that hosts the
+Add `bridge=<origin>` to the chat URL. Use a da.live **view** that hosts the
 chat panel — `canvas` (with a document path in the hash) or `edit`. Note there
 is no `/browse` view on hosted da.live (it 404s). Example against the frescopa
 test site, on a branch that has the override:
 
 ```
-https://da.live/canvas?nxver=2&nx=<branch>&ao=wss%3A%2F%2Faem-sites-claudebridge-dev-va6.adobe.io#/exp-workspace/frescopa/index
+https://da.live/canvas?nxver=2&nx=<branch>&nx-chat-ao=true&bridge=wss%3A%2F%2Faem-sites-claudebridge-dev-va6.adobe.io#/exp-workspace/frescopa/index
 ```
 
-- `ao` accepts a full `wss://…`/`https://…` URL or a bare host (bare defaults to
-  `wss`). Remember to URL-encode it (`wss%3A%2F%2F…`).
-- If the chat panel doesn't appear, add `&nx-chat-ao=true` to force the AO /
-  coworker client (when the org/site has no `ew.coworker` flag).
+- `bridge` accepts a full `wss://…`/`https://…` URL or a bare host (bare
+  defaults to `wss`). Remember to URL-encode it (`wss%3A%2F%2F…`).
+- `nx-chat-ao=true` selects the **chat-ao client** (the WebSocket/AO-protocol
+  chat UI). It does **not** pick a backend — `bridge=` does. Without `bridge=`
+  the chat-ao client connects to the real Agent Orchestrator; with it, to the
+  bridge → CMA. Add `nx-chat-ao=true` when the org/site has no `ew.coworker`
+  flag, otherwise the legacy chat client loads and ignores `bridge=`.
 - **WS-only:** the override only redirects the chat WebSocket. The REST control
   plane (episode list, history, attachment uploads) stays on Agent Orchestrator,
   because the bridge implements only the WebSocket data plane — it does **not**
@@ -67,8 +70,8 @@ https://da.live/canvas?nxver=2&nx=<branch>&ao=wss%3A%2F%2Faem-sites-claudebridge
 
 ### Security: the origin is allowlisted
 
-The AUTH frame carries your IMS bearer token, so an arbitrary `?ao=` host would
-be a token-exfiltration vector. `resolveAoOverride` only honors origins whose
+The AUTH frame carries your IMS bearer token, so an arbitrary `?bridge=` host would
+be a token-exfiltration vector. `resolveBridgeWsOverride` only honors origins whose
 host is `localhost`, `127.0.0.1`, or ends in `.adobe.io` / `.adobe.net` /
 `.corp.adobe.com`. Anything else is ignored and the client falls back to the
 normal AO resolution.
@@ -82,7 +85,7 @@ To run the bridge yourself and point da-nx at `ws://localhost:8080`:
 2. From the `aem-sites-claudebridge` repo, `docker-compose up` (starts the
    bridge + a local DynamoDB and wires `WS_URL` back at itself). The default
    config already targets the `ew-dev` workspace/agent/environment.
-3. Open da-nx with `&ao=ws://localhost:8080` (localhost is allowlisted and
+3. Open da-nx with `&bridge=ws://localhost:8080` (localhost is allowlisted and
    defaults to the insecure `ws`/`http` scheme).
 
 ## Verifying CMA is up
