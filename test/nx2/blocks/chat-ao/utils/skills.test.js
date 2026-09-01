@@ -4,6 +4,8 @@ import { AO_HTTP_BASE, AO_MANIFEST_ID } from '../../../../../nx2/blocks/chat-ao/
 import { resetMockIms, setMockIms } from '../../../../../nx2/test/mocks/ims.js';
 
 const cacheKey = (tenantId) => `da-chat-ao-skills--${tenantId}`;
+// fetchSkills() -> resolveManifestId() also caches per tenant+user; clear it too.
+const resolvedManifestCacheKey = (tenantId, userId) => `da-chat-ao-resolved-manifest--${tenantId}--${userId}`;
 const projectedProductContext = (tenantId) => [{ prodCtx: { owningEntity: tenantId } }];
 
 describe('loadCachedSkills', () => {
@@ -64,17 +66,23 @@ describe('fetchSkills', () => {
 
   const lastCall = () => calls[calls.length - 1];
 
+  const defaultUserId = 'test-user@AdobeID'; // resetMockIms()'s own default
+
   beforeEach(() => {
     resetMockIms();
     setMockIms({ projectedProductContext: projectedProductContext('org1') });
     localStorage.removeItem(cacheKey('org1'));
     localStorage.removeItem(cacheKey('org2'));
+    sessionStorage.removeItem(resolvedManifestCacheKey('org1', defaultUserId));
+    sessionStorage.removeItem(resolvedManifestCacheKey('org2', defaultUserId));
   });
 
   afterEach(() => {
     restoreFetch();
     localStorage.removeItem(cacheKey('org1'));
     localStorage.removeItem(cacheKey('org2'));
+    sessionStorage.removeItem(resolvedManifestCacheKey('org1', defaultUserId));
+    sessionStorage.removeItem(resolvedManifestCacheKey('org2', defaultUserId));
   });
 
   it('requests the manifest\'s skill list with an auth header', async () => {
