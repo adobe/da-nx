@@ -29,6 +29,20 @@ export function resolveAoWsBase(projectedProductContext) {
   return loc ? `wss://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_WS_BASE;
 }
 
+// Shared IMS -> {base, headers} composition every AO REST call needs.
+export async function aoContext() {
+  const { accessToken, projectedProductContext } = await loadIms();
+  const tenantId = getOrgId(projectedProductContext);
+  return {
+    base: resolveAoHttpBase(projectedProductContext),
+    tenantId,
+    headers: {
+      authorization: `Bearer ${accessToken?.token}`,
+      'x-tenant-id': tenantId,
+    },
+  };
+}
+
 function base64ToBlob(base64, mediaType) {
   const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
   return new Blob([bytes], { type: mediaType });
@@ -37,12 +51,7 @@ function base64ToBlob(base64, mediaType) {
 // POST /files/upload -> PUT the blob -> POST /finalize, per AO's Files API.
 export async function uploadAttachment({ fileName, mediaType, dataBase64 }) {
   try {
-    const { accessToken, projectedProductContext } = await loadIms();
-    const headers = {
-      authorization: `Bearer ${accessToken?.token}`,
-      'x-tenant-id': getOrgId(projectedProductContext),
-    };
-    const base = resolveAoHttpBase(projectedProductContext);
+    const { base, headers } = await aoContext();
 
     const initiate = await fetch(`${base}/api/v1/files/upload`, {
       method: 'POST',
