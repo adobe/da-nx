@@ -85,6 +85,30 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(calls[0].url).to.equal(`${customOrigin}/auth-api/v2/authenticate`);
   });
 
+  it('surfaces an error and returns false when connect fails', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/auth-api/v2/authenticate')) {
+        return new Response('', { status: 401 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const messages = [];
+    const sendMessage = (m) => messages.push(m);
+
+    const result = await connect({
+      name: 'Smartling', origin: legacyOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
+    }, sendMessage);
+
+    expect(result).to.equal(false);
+    const errorMessage = messages.find((m) => m.type === 'error');
+    expect(errorMessage.text).to.include('Connection to Smartling failed');
+  });
+
   it('rewrites the origin for sendAllLanguages job/batch/upload calls', async () => {
     const options = { service: { origin: legacyOrigin, projectId: 'proj-1' } };
     const langs = [{ name: 'French', code: 'fr-FR' }];
@@ -128,6 +152,69 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(errorMessage.text).to.include('Job creation failed');
   });
 
+  it('surfaces an error and stops when batch creation fails', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/jobs-api/v3/projects') && opts.method === 'POST') {
+        return new Response(JSON.stringify({ response: { data: { translationJobUid: 'job-1' } } }), { status: 200 });
+      }
+      if (u.includes('/job-batches-api/v2/projects') && !u.includes('/file')) {
+        return new Response('{}', { status: 400 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const options = { service: { origin: 'https://api.smartling.com', projectId: 'proj-1' } };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const messages = [];
+    const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    expect(calls.some((c) => c.url.includes('/file') && c.method === 'POST')).to.equal(false);
+    const errorMessage = messages.find((m) => m.type === 'error');
+    expect(errorMessage.text).to.include('Batch creation failed');
+  });
+
+  it('surfaces an error per file that fails to upload', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/jobs-api/v3/projects') && opts.method === 'POST') {
+        return new Response(JSON.stringify({ response: { data: { translationJobUid: 'job-1' } } }), { status: 200 });
+      }
+      if (u.includes('/job-batches-api/v2/projects') && !u.includes('/file')) {
+        return new Response(JSON.stringify({ response: { data: { batchUid: 'batch-1' } } }), { status: 200 });
+      }
+      if (u.includes('/file') && opts.method === 'POST') {
+        return new Response(JSON.stringify({ response: { code: 'VALIDATION_ERROR' } }), { status: 400 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const options = { service: { origin: 'https://api.smartling.com', projectId: 'proj-1' } };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const messages = [];
+    const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    const errorMessage = messages.find((m) => m.type === 'error');
+    expect(errorMessage.text).to.include('Upload failed for /page');
+    expect(langs[0].translation.status).to.equal('error');
+  });
+
   it('rewrites the origin for getStatusAll job-progress polling', async () => {
     const service = { origin: legacyOrigin, projectId: 'proj-1', jobUid: { value: 'job-1' } };
     const langs = [{ code: 'fr-FR', translation: { translated: 0 } }];
@@ -159,6 +246,38 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(langs[0].translation.status).to.equal('created');
     const errorMessage = messages.find((m) => m.type === 'error');
     expect(errorMessage.text).to.include('no Smartling job has been created yet');
+  });
+
+  it('surfaces an error and does not touch lang status when the progress request fails', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/progress')) {
+        return new Response('', { status: 404 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+    const langs = [{ code: 'fr-FR', translation: { translated: 0, status: 'created' } }];
+    const urls = [{ daBasePath: '/page' }];
+    const messages = [];
+    let saveStateCalled = false;
+    const actions = {
+      saveState: async () => { saveStateCalled = true; },
+      sendMessage: (m) => messages.push(m),
+    };
+
+    await getStatusAll({
+      org, site, service, langs, urls, actions,
+    });
+
+    expect(langs[0].translation.status).to.equal('created');
+    expect(saveStateCalled).to.equal(false);
+    const errorMessage = messages.find((m) => m.type === 'error');
+    expect(errorMessage.text).to.include('Checking status failed');
   });
 
   it('reports Smartling\'s real progress percentage, not a stale status, when translation is incomplete', async () => {
@@ -365,6 +484,35 @@ describe('smartling connector - legacy origin rewriting', () => {
 
     expect(downloadCalls).to.equal(2);
     expect(urls[0].status).to.equal('success');
+  });
+
+  it('surfaces an error and skips saving when a file download fails', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/files-api/v2/projects')) {
+        return new Response('', { status: 404 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1' };
+    const lang = { code: 'fr-FR' };
+    const urls = [{ daBasePath: '/page', ext: 'html' }];
+    const messages = [];
+    const saveFn = async (url) => { url.status = 'success'; };
+    const sendMessage = (m) => messages.push(m);
+
+    await saveItems({
+      org, site, service, lang, urls, saveFn, sendMessage,
+    });
+
+    expect(urls[0].status).to.equal('error');
+    expect(urls[0].sourceContent).to.equal(undefined);
+    const errorMessage = messages.find((m) => m.type === 'error');
+    expect(errorMessage.text).to.include('Download failed for /page');
   });
 
   it('does not auto-authorize the batch by default', async () => {

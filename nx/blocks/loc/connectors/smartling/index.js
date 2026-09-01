@@ -74,7 +74,21 @@ export async function isConnected(config) {
   return false;
 }
 
-export async function connect(service) {
+/**
+ * Authenticates with Smartling and starts background token refresh.
+ * @param {Object} service - The service configuration.
+ * @param {string} service.name - The connector's display name.
+ * @param {string} service.origin - The configured API origin.
+ * @param {string} service.env - The environment key (e.g. 'prod').
+ * @param {string} service.userId - The Smartling user identifier.
+ * @param {string} service.userSecret - The Smartling user secret.
+ * @param {string} service.org - The DA org.
+ * @param {string} service.site - The DA site.
+ * @param {Function} [sendMessage] - Callback to surface an error message
+ *  to the user if authentication fails.
+ * @returns {Promise<boolean>} Whether authentication succeeded.
+ */
+export async function connect(service, sendMessage) {
   const {
     name, origin, env, userId, userSecret, org, site,
   } = service;
@@ -86,7 +100,10 @@ export async function connect(service) {
   const opts = { ...BASE_OPTS, body };
 
   const resp = await fetchWithRetry(`${endpoint}/auth-api/v2/authenticate`, opts);
-  if (!resp.ok) return false;
+  if (!resp.ok) {
+    sendMessage?.({ text: 'Connection to Smartling failed.', type: 'error' });
+    return false;
+  }
   const json = await resp.json();
   const { accessToken, refreshToken } = json?.response?.data || {};
   setTokenDetails(name, env, accessToken, refreshToken);
@@ -94,7 +111,21 @@ export async function connect(service) {
   return true;
 }
 
-async function uploadFiles(endpoint, projectId, jobUid, batchUid, langs, urls) {
+/**
+ * Uploads every url to a Smartling batch, reporting an error message per
+ * file that Smartling rejects instead of only counting it as not-accepted.
+ * @param {string} endpoint - The resolved Smartling API origin.
+ * @param {string} projectId - The Smartling project id.
+ * @param {string} jobUid - The job the batch belongs to.
+ * @param {string} batchUid - The batch to upload files into.
+ * @param {Object[]} langs - Target languages to authorize each file for.
+ * @param {Object[]} urls - The urls to upload.
+ * @param {Function} sendMessage - Callback to surface a status/error
+ *  message to the user.
+ * @returns {Promise<string[]>} Each file's Smartling response `code`
+ *  (`'ACCEPTED'` on success).
+ */
+async function uploadFiles(endpoint, projectId, jobUid, batchUid, langs, urls, sendMessage) {
   const uploadUrl = `${endpoint}/job-batches-api/v2/projects/${projectId}/batches/${batchUid}/file`;
 
   const results = [];
@@ -114,6 +145,9 @@ async function uploadFiles(endpoint, projectId, jobUid, batchUid, langs, urls) {
 
     const resp = await fetchWithRetry(uploadUrl, opts);
     const json = await resp.json();
+    if (!resp.ok) {
+      sendMessage({ text: `Upload failed for ${url.daBasePath}.`, type: 'error' });
+    }
     results.push(json.response.code);
   }
 
@@ -167,14 +201,44 @@ async function createBatch(endpoint, projectId, jobUid, urls, autoAuthorize) {
   return batchUid;
 }
 
+/**
+ * Downloads a single locale's translated file content.
+ * @param {Object} opts - Fetch options, including the `Authorization`
+ *  header.
+ * @param {string} origin - The resolved Smartling API origin.
+ * @param {string} projectId - The Smartling project id.
+ * @param {Object} lang - The target language; reads `lang.code`.
+ * @param {Object} url - The url to download; reads `url.daBasePath`.
+ * @returns {Promise<string|null>} The file's translated content, or null
+ *  on failure.
+ */
 async function downloadFile(opts, origin, projectId, lang, url) {
   const reqUrl = new URL(`${origin}/files-api/v2/projects/${projectId}/locales/${lang.code}/file`);
   reqUrl.searchParams.append('fileUri', url.daBasePath);
 
   const resp = await fetchWithRetry(reqUrl, opts);
+  if (!resp.ok) return null;
   return resp.text();
 }
 
+/**
+ * Downloads and saves every url's translated content for one target
+ * language, reporting an error message per file that fails to download
+ * instead of saving empty/incorrect content.
+ * @param {Object} params
+ * @param {string} params.org - The DA org.
+ * @param {string} params.site - The DA site.
+ * @param {Object} params.service - The service configuration.
+ * @param {Object} params.lang - The target language being saved.
+ * @param {Object[]} params.urls - The urls to download; mutated in place
+ *  with `sourceContent` and `status` (`'error'` on a failed download,
+ *  otherwise set by `saveFn`).
+ * @param {Function} params.saveFn - Callback to persist a downloaded
+ *  url's content.
+ * @param {Function} params.sendMessage - Callback to surface a status/
+ *  error message to the user.
+ * @returns {Promise<Object[]>} The urls, each mutated in place.
+ */
 export async function saveItems({
   org,
   site,
@@ -182,6 +246,7 @@ export async function saveItems({
   lang,
   urls,
   saveFn,
+  sendMessage,
 }) {
   const { origin, projectId } = service;
   const endpoint = resolveOrigin(origin, org, site);
@@ -196,6 +261,11 @@ export async function saveItems({
 
   const downloadCallback = async (url) => {
     const text = await downloadFile(opts, endpoint, projectId, lang, url);
+    if (text === null) {
+      sendMessage({ text: `Download failed for ${url.daBasePath}.`, type: 'error' });
+      url.status = 'error';
+      return;
+    }
 
     url.sourceContent = await removeDnt({ org, site, html: text, ext: url.ext });
 
@@ -260,16 +330,27 @@ export async function sendAllLanguages({
 
   sendMessage({ text: `Creating a batch in Smartling for: ${title}.` });
   const batchUid = await createBatch(endpoint, projectId, jobUid, urls, autoAuthorize === 'yes');
-  if (!batchUid) return;
+  if (!batchUid) {
+    sendMessage({ text: `Batch creation failed for: ${title}.`, type: 'error' });
+    return;
+  }
 
-  // Presist to the state for future reference
+  // Persist to the state for future reference
   options.service.batchUid = { value: batchUid };
 
   // // Persist into the immediate config object - janktown, but ok for now
   // config[`${env}.batchUid`] = batchUid;
 
   sendMessage({ text: `Uploading ${urls.length} items to Smartling for job: ${title}.` });
-  const results = await uploadFiles(endpoint, projectId, jobUid, batchUid, langs, urls);
+  const results = await uploadFiles(
+    endpoint,
+    projectId,
+    jobUid,
+    batchUid,
+    langs,
+    urls,
+    sendMessage,
+  );
   const accepted = results.filter((result) => result === 'ACCEPTED').length;
 
   langs.forEach((lang) => {
@@ -286,15 +367,15 @@ export async function sendAllLanguages({
  * @param {string} endpoint - The resolved Smartling API origin.
  * @param {string} projectId - The Smartling project id.
  * @param {string} jobUid - The job to check progress for.
- * @returns {Promise<Object[]>} Each locale's `{ targetLocaleId,
- *  percentComplete }`, or `[]` on failure.
+ * @returns {Promise<Object[]|null>} Each locale's `{ targetLocaleId,
+ *  percentComplete }`, or null on failure.
  */
 async function fetchJobProgress(endpoint, projectId, jobUid) {
   const url = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid}/progress`;
   const opts = { headers: { Authorization: `Bearer ${token}` } };
 
   const resp = await fetchWithRetry(url, opts);
-  if (!resp.ok) return [];
+  if (!resp.ok) return null;
   const { response } = await resp.json();
   const { contentProgressReport = [] } = response?.data || {};
   return contentProgressReport.map(({ targetLocaleId, progress }) => ({
@@ -323,7 +404,8 @@ async function fetchJobProgress(endpoint, projectId, jobUid) {
  *  already terminal, skips the API call entirely.
  * @param {Object[]} params.urls - The urls in the project.
  * @param {Object} params.actions - `{ saveState, sendMessage }` callbacks;
- *  `sendMessage` surfaces an error if no job has been created yet.
+ *  `sendMessage` surfaces an error if no job has been created yet, or if
+ *  the progress request itself fails.
  * @returns {Promise<void>}
  */
 export async function getStatusAll({
@@ -346,6 +428,10 @@ export async function getStatusAll({
   if (!activeLangs.length) return;
 
   const progressByLocale = await fetchJobProgress(endpoint, projectId, jobUid.value);
+  if (!progressByLocale) {
+    sendMessage({ text: 'Checking status failed: could not reach Smartling.', type: 'error' });
+    return;
+  }
 
   for (const lang of activeLangs) {
     const entry = progressByLocale.find((p) => p.targetLocaleId === lang.code);

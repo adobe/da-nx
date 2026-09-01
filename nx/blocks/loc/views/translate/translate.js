@@ -89,7 +89,8 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleConnect() {
-    this._connected = await this._service.connector.connect(this._service);
+    const sendMessage = this.handleMessage.bind(this);
+    this._connected = await this._service.connector.connect(this._service, sendMessage);
   }
 
   async fetchUrls(service, fetchContent, langs) {
