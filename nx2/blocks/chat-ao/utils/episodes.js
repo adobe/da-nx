@@ -1,16 +1,4 @@
-import { loadIms } from '../../../utils/ims.js';
-import { getOrgId, resolveAoHttpBase } from './uploads.js';
-
-async function aoContext() {
-  const { accessToken, projectedProductContext } = await loadIms();
-  return {
-    base: resolveAoHttpBase(projectedProductContext),
-    headers: {
-      authorization: `Bearer ${accessToken?.token}`,
-      'x-tenant-id': getOrgId(projectedProductContext),
-    },
-  };
-}
+import { aoContext } from './uploads.js';
 
 // AO owns episode history durably — nothing to persist client-side.
 export async function fetchEpisodes(limit) {
