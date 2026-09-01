@@ -607,3 +607,18 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 - "Always approve" is conversation-scoped — resets on `clear()` only, not per message.
 - Conversation history keyed by `org--site--userId` — site-scoped, not path-scoped.
 - Agent stream contract and persistence model documented in `docs/chat-ui-component.md`.
+
+## 2026-08-31
+
+### chat-ao — bridge (CMA) WS override
+
+- `?ao=<origin>` override in `resolveAoWsBase`/`resolveAoHttpBase`
+  ([uploads.js](nx2/blocks/chat-ao/utils/uploads.js)) routes chat through the
+  claudebridge (CMA) instead of Agent Orchestrator. Origin allowlisted to
+  `localhost`/`*.adobe.io`/`*.adobe.net`/`*.corp.adobe.com` because the AUTH
+  frame carries the IMS bearer token; bare host defaults to `wss`/`https`.
+- Deployed bridge: `wss://aem-sites-claudebridge-dev-va6.adobe.io` (Ethos112
+  stage va6, corp/VPN only) → CMA workspace/agent/env `ew-dev` (us-east-1).
+- Team how-to: `docs/chat-ao-bridge-override.md`.
+- Note: full pre-commit suite has a rare concurrency flake (1 test, not
+  reproducible in isolation, ~1 in several runs); unrelated to this change.
