@@ -19,11 +19,13 @@ function resolveAoLocation(projectedProductContext) {
   }
 }
 
-// Optional `?ao=<origin>` override to route chat through a different backend
-// (e.g. the claudebridge -> CMA deployment) instead of Agent Orchestrator.
-// The AUTH frame carries the IMS bearer token, so the origin is allowlisted to
-// Adobe/localhost hosts to prevent token exfiltration to an arbitrary host.
-// See docs/chat-ao-bridge-override.md.
+// Optional `?ao=<origin>` override to route the chat WebSocket through a
+// different backend (e.g. the claudebridge -> CMA deployment) instead of Agent
+// Orchestrator. WS-only on purpose: the bridge implements only the WebSocket
+// data plane, not the REST control plane (episodes/history/uploads), so the
+// HTTP base is left on Agent Orchestrator. The AUTH frame carries the IMS
+// bearer token, so the origin is allowlisted to Adobe/localhost hosts to
+// prevent token exfiltration. See docs/chat-ao-bridge-override.md.
 function isAllowedAoHost(hostname) {
   return hostname === 'localhost'
     || hostname === '127.0.0.1'
@@ -32,7 +34,7 @@ function isAllowedAoHost(hostname) {
     || hostname.endsWith('.corp.adobe.com');
 }
 
-function resolveAoOverride() {
+function resolveAoWsOverride() {
   try {
     const raw = new URLSearchParams(window.location.search).get('ao');
     if (!raw) return null;
@@ -41,25 +43,20 @@ function resolveAoOverride() {
     const secure = url.protocol === 'wss:' || url.protocol === 'https:'
       || (url.hostname !== 'localhost' && url.hostname !== '127.0.0.1');
     const authority = `${url.hostname}${url.port ? `:${url.port}` : ''}`;
-    return {
-      ws: `${secure ? 'wss' : 'ws'}://${authority}`,
-      http: `${secure ? 'https' : 'http'}://${authority}`,
-    };
+    return `${secure ? 'wss' : 'ws'}://${authority}`;
   } catch {
     return null;
   }
 }
 
 export function resolveAoHttpBase(projectedProductContext) {
-  const override = resolveAoOverride();
-  if (override) return override.http;
   const loc = resolveAoLocation(projectedProductContext);
   return loc ? `https://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_HTTP_BASE;
 }
 
 export function resolveAoWsBase(projectedProductContext) {
-  const override = resolveAoOverride();
-  if (override) return override.ws;
+  const override = resolveAoWsOverride();
+  if (override) return override;
   const loc = resolveAoLocation(projectedProductContext);
   return loc ? `wss://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_WS_BASE;
 }

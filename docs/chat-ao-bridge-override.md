@@ -54,8 +54,12 @@ https://da.live/browse?nx=<branch>&nxver=2&ao=wss%3A%2F%2Faem-sites-claudebridge
 
 - `ao` accepts a full `wss://…`/`https://…` URL or a bare host (bare defaults to
   `wss`). Remember to URL-encode it (`wss%3A%2F%2F…`).
-- The same value drives both the WebSocket base and the HTTP base (attachment
-  uploads).
+- **WS-only:** the override only redirects the chat WebSocket. The REST control
+  plane (episode list, history, attachment uploads) stays on Agent Orchestrator,
+  because the bridge implements only the WebSocket data plane — it does **not**
+  serve `/api/v1/episodes` etc. (pointing REST at the bridge would 404). So use
+  **New session** to test: episode history/resume against the bridge isn't
+  available until the bridge serves the REST control plane.
 
 ### Security: the origin is allowlisted
 

@@ -96,26 +96,27 @@ describe('uploads.js ?ao= override', () => {
     window.history.replaceState({}, '', `${window.location.pathname}${original}`);
   });
 
-  it('routes to an allowlisted adobe.io origin, overriding the product context', () => {
+  it('overrides only the WS base, leaving the HTTP base on Agent Orchestrator', () => {
     setAo('wss://aem-sites-claudebridge-dev-va6.adobe.io');
     const ctx = withActiveTartan({ region: 'VA7', environment: 'PROD' });
     expect(resolveAoWsBase(ctx)).to.equal('wss://aem-sites-claudebridge-dev-va6.adobe.io');
-    expect(resolveAoHttpBase(ctx)).to.equal('https://aem-sites-claudebridge-dev-va6.adobe.io');
+    // HTTP/REST (episodes, history, uploads) stays on AO - the bridge is WS-only.
+    expect(resolveAoHttpBase(ctx)).to.equal('https://agent-orchestrator-prod-va7.adobe.io');
   });
 
-  it('accepts a bare host and defaults to secure wss/https', () => {
+  it('accepts a bare host and defaults the WS base to secure wss', () => {
     setAo('aem-sites-claudebridge-dev-va6.adobe.io');
     expect(resolveAoWsBase(undefined)).to.equal('wss://aem-sites-claudebridge-dev-va6.adobe.io');
-    expect(resolveAoHttpBase(undefined)).to.equal('https://aem-sites-claudebridge-dev-va6.adobe.io');
+    expect(resolveAoHttpBase(undefined)).to.equal(AO_HTTP_BASE);
   });
 
-  it('allows localhost with an insecure ws/http scheme and port', () => {
+  it('allows localhost with an insecure ws scheme and port', () => {
     setAo('ws://localhost:8080');
     expect(resolveAoWsBase(undefined)).to.equal('ws://localhost:8080');
-    expect(resolveAoHttpBase(undefined)).to.equal('http://localhost:8080');
+    expect(resolveAoHttpBase(undefined)).to.equal(AO_HTTP_BASE);
   });
 
-  it('ignores a non-allowlisted host and falls back to the default base', () => {
+  it('ignores a non-allowlisted host and falls back to the default WS base', () => {
     setAo('wss://evil.example.com');
     expect(resolveAoWsBase(undefined)).to.equal(AO_WS_BASE);
     expect(resolveAoHttpBase(undefined)).to.equal(AO_HTTP_BASE);
