@@ -98,8 +98,9 @@ export function extractToolCalls(events) {
         args = {};
       }
       const result = resultEvent?.display_result ?? resultEvent?.result;
-      const status = isDeferredSchemaResult(resultEvent?.error, result)
-        ? 'retrying' : (resultEvent?.status ?? 'running');
+      const isDeferred = isDeferredSchemaResult(resultEvent?.error, resultEvent?.result)
+        || isDeferredSchemaResult(resultEvent?.error, resultEvent?.display_result);
+      const status = isDeferred ? 'retrying' : (resultEvent?.status ?? 'running');
       calls.push({
         toolCallId: call.id,
         toolName: call.name,
