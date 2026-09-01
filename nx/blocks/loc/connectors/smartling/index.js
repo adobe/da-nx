@@ -1,6 +1,7 @@
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
+import fetchWithRetry from '../../utils/fetchWithRetry.js';
 
 export const dnt = { addDnt };
 
@@ -46,7 +47,7 @@ function refreshTheToken(name, env, endpoint) {
     const body = JSON.stringify({ refreshToken: currRefreshToken });
     const opts = { ...BASE_OPTS, body };
 
-    const resp = await fetch(`${endpoint}/auth-api/v2/authenticate/refresh`, opts);
+    const resp = await fetchWithRetry(`${endpoint}/auth-api/v2/authenticate/refresh`, opts);
     if (!resp.ok) token = undefined;
     const json = await resp.json();
 
@@ -84,7 +85,7 @@ export async function connect(service) {
 
   const opts = { ...BASE_OPTS, body };
 
-  const resp = await fetch(`${endpoint}/auth-api/v2/authenticate`, opts);
+  const resp = await fetchWithRetry(`${endpoint}/auth-api/v2/authenticate`, opts);
   if (!resp.ok) return false;
   const json = await resp.json();
   const { accessToken, refreshToken } = json?.response?.data || {};
@@ -111,7 +112,7 @@ async function uploadFiles(endpoint, projectId, jobUid, batchUid, langs, urls) {
 
     const opts = { method: 'POST', body, headers: { Authorization: `Bearer ${token}` } };
 
-    const resp = await fetch(uploadUrl, opts);
+    const resp = await fetchWithRetry(uploadUrl, opts);
     const json = await resp.json();
     results.push(json.response.code);
   }
@@ -129,16 +130,27 @@ async function createJob(endpoint, projectId, title, langs) {
   opts.headers.Authorization = `Bearer ${token}`;
 
   const url = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs`;
-  const resp = await fetch(url, opts);
+  const resp = await fetchWithRetry(url, opts);
   if (!resp.ok) return null;
   const json = await resp.json();
   const { translationJobUid: jobUid } = json.response.data;
   return jobUid;
 }
 
-async function createBatch(endpoint, projectId, jobUid, urls) {
+/**
+ * Creates a job batch for the uploaded files.
+ * @param {string} endpoint - The resolved Smartling API origin.
+ * @param {string} projectId - The Smartling project id.
+ * @param {string} jobUid - The job to attach the batch to.
+ * @param {Object[]} urls - The urls that will be uploaded to this batch.
+ * @param {boolean} autoAuthorize - Whether Smartling should immediately
+ *  authorize the job for translation once the batch finishes processing,
+ *  instead of requiring manual authorization in Smartling's dashboard.
+ * @returns {Promise<string|null>} The new batch's id, or null on failure.
+ */
+async function createBatch(endpoint, projectId, jobUid, urls, autoAuthorize) {
   const body = JSON.stringify({
-    authorize: false,
+    authorize: autoAuthorize,
     translationJobUid: jobUid,
     fileUris: urls.map((url) => url.daBasePath),
   });
@@ -148,7 +160,7 @@ async function createBatch(endpoint, projectId, jobUid, urls) {
 
   const url = `${endpoint}/job-batches-api/v2/projects/${projectId}/batches`;
 
-  const resp = await fetch(url, opts);
+  const resp = await fetchWithRetry(url, opts);
   if (!resp.ok) return null;
   const json = await resp.json();
   const { batchUid } = json.response.data;
@@ -159,7 +171,7 @@ async function downloadFile(opts, origin, projectId, lang, url) {
   const reqUrl = new URL(`${origin}/files-api/v2/projects/${projectId}/locales/${lang.code}/file`);
   reqUrl.searchParams.append('fileUri', url.daBasePath);
 
-  const resp = await fetch(reqUrl, opts);
+  const resp = await fetchWithRetry(reqUrl, opts);
   return resp.text();
 }
 
@@ -209,12 +221,28 @@ export async function saveItems({
   });
 }
 
+/**
+ * Sends a translation project's urls to Smartling for every target
+ * language: creates a job, creates a batch (optionally auto-authorized),
+ * then uploads all urls to it.
+ * @param {Object} params
+ * @param {string} params.org - The DA org.
+ * @param {string} params.site - The DA site.
+ * @param {string} params.title - The project title.
+ * @param {Object} params.options - Project options; reads/mutates
+ *  `options.service`.
+ * @param {Object[]} params.langs - Target languages; mutated in place with
+ *  `translation` status.
+ * @param {Object[]} params.urls - The urls to translate.
+ * @param {Object} params.actions - `{ sendMessage, saveState }` callbacks.
+ * @returns {Promise<void>}
+ */
 export async function sendAllLanguages({
   org, site, title, options, langs, urls, actions,
 }) {
   const { sendMessage, saveState } = actions;
 
-  const { origin, projectId } = options.service;
+  const { origin, projectId, autoAuthorize } = options.service;
   const endpoint = resolveOrigin(origin, org, site);
 
   sendMessage({ text: `Creating job in Smartling for: ${title}.` });
@@ -228,7 +256,7 @@ export async function sendAllLanguages({
   // config[`${env}.jobUid`] = jobUid;
 
   sendMessage({ text: `Creating a batch in Smartling for: ${title}.` });
-  const batchUid = await createBatch(endpoint, projectId, jobUid, urls);
+  const batchUid = await createBatch(endpoint, projectId, jobUid, urls, autoAuthorize === 'yes');
   if (!batchUid) return;
 
   // Presist to the state for future reference
@@ -263,7 +291,7 @@ export async function getStatusAll({
   langs.forEach((lang) => { lang.translation.translated = 0; });
 
   for (const url of urls) {
-    const resp = await fetch(`${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid.value}/file/progress?fileUri=${url.daBasePath}`, opts);
+    const resp = await fetchWithRetry(`${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid.value}/file/progress?fileUri=${url.daBasePath}`, opts);
     const { response } = await resp.json();
     if (response.code !== 'SUCCESS') return;
     const langReports = response?.data?.contentProgressReport;
