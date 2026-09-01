@@ -620,5 +620,6 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 - Deployed bridge: `wss://aem-sites-claudebridge-dev-va6.adobe.io` (Ethos112
   stage va6, corp/VPN only) → CMA workspace/agent/env `ew-dev` (us-east-1).
 - Team how-to: `docs/chat-ao-bridge-override.md`.
+- TEMP backend banner (`TEMP(backend-banner)` tags in chat-ao.js + ao-controller.js): shows the connected WS origin (CMA via bridge / local / Agent Orchestrator) at the top of the chat panel to confirm routing; remove after verification.
 - Note: full pre-commit suite has a rare concurrency flake (1 test, not
   reproducible in isolation, ~1 in several runs); unrelated to this change.
