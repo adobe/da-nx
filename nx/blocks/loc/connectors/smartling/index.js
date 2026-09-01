@@ -368,7 +368,11 @@ export async function sendAllLanguages({
  * @param {string} projectId - The Smartling project id.
  * @param {string} jobUid - The job to check progress for.
  * @returns {Promise<Object[]|null>} Each locale's `{ targetLocaleId,
- *  percentComplete }`, or null on failure.
+ *  percentComplete }`, or null on failure. `percentComplete` is reported
+ *  as 100 when Smartling has no content at all for that locale in this
+ *  job (its own `progress` field is `null`, not a 0% in-progress state) -
+ *  matching the "No content for translation" status Smartling's dashboard
+ *  shows for it.
  */
 async function fetchJobProgress(endpoint, projectId, jobUid) {
   const url = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid}/progress`;
@@ -380,7 +384,7 @@ async function fetchJobProgress(endpoint, projectId, jobUid) {
   const { contentProgressReport = [] } = response?.data || {};
   return contentProgressReport.map(({ targetLocaleId, progress }) => ({
     targetLocaleId,
-    percentComplete: progress?.percentComplete ?? 0,
+    percentComplete: progress === null ? 100 : (progress?.percentComplete ?? 0),
   }));
 }
 

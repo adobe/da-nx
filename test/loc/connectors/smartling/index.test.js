@@ -357,6 +357,31 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(langs[0].translation.translated).to.equal(2);
   });
 
+  it('marks a lang translated when Smartling reports no content for that locale (progress: null)', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/progress')) {
+        return jobProgressResponse([{ targetLocaleId: 'it-IT', progress: null }]);
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+    const langs = [{ code: 'it-IT', translation: { translated: 0 } }];
+    const urls = [{ daBasePath: '/page' }, { daBasePath: '/page-2' }];
+    const actions = { saveState: async () => {} };
+
+    await getStatusAll({
+      org, site, service, langs, urls, actions,
+    });
+
+    expect(langs[0].translation.status).to.equal('translated');
+    expect(langs[0].translation.translated).to.equal(2);
+  });
+
   it('does not revert a lang already saved to DA back to "translated"', async () => {
     origFetch = window.fetch;
     window.fetch = async (url, opts = {}) => {
