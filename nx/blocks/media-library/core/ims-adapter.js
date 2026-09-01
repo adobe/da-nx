@@ -21,8 +21,12 @@ export function setImsDetails(token) {
  * @returns {Promise<Object|null>} IMS details with accessToken
  */
 export async function initIms() {
-  if (cachedImsDetails && !cachedImsDetails.anonymous) return cachedImsDetails;
-  if (imsLoadPromise) return imsLoadPromise;
+  if (cachedImsDetails && !cachedImsDetails.anonymous) {
+    return cachedImsDetails;
+  }
+  if (imsLoadPromise) {
+    return imsLoadPromise;
+  }
 
   imsLoadPromise = (async () => {
     const { loadIms } = await import('../../../../nx2/utils/ims.js');
@@ -91,8 +95,14 @@ export const daFetch = async (url, opts = {}) => {
       if (!userHasAuthSession && !hasActiveToken && !isRedirectingToSignIn) {
         // Anonymous user - auto-redirect to sign-in
         isRedirectingToSignIn = true;
-        const { handleSignIn } = await import('../../../../nx2/utils/ims.js');
-        handleSignIn();
+        try {
+          const { handleSignIn } = await import('../../../../nx2/utils/ims.js');
+          handleSignIn();
+        } catch (_) {
+          // Silent fail in plugin mode where window.adobeIMS is not available
+          // The 401 response will be handled by the calling code
+          isRedirectingToSignIn = false;
+        }
       }
     }
   }
