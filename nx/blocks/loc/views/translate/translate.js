@@ -39,14 +39,23 @@ class NxLocTranslate extends LitElement {
     super.update();
   }
 
+  /**
+   * Sets up the connector for this project's translation service.
+   *
+   * Augments (does not copy) `this.project.options.service` so that
+   * `this._service` stays the same object connectors mutate — e.g.
+   * Smartling's `sendAllLanguages` sets `service.jobUid` after this runs.
+   * A spread/copy here would leave `this._service` permanently stale for
+   * any property a connector adds after initial setup, until the next
+   * full page load rebuilds it from the freshly persisted project.
+   * @returns {Promise<void>}
+   */
   async setupService() {
-    const connector = await setupConnector(this.project.options.service);
-    this._service = {
-      ...this.project.options.service,
-      connector,
-      org: this.project.org,
-      site: this.project.site,
-    };
+    const { service } = this.project.options;
+    service.connector = await setupConnector(service);
+    service.org = this.project.org;
+    service.site = this.project.site;
+    this._service = service;
     this._connected = await this._service.connector.isConnected(this._service);
   }
 
