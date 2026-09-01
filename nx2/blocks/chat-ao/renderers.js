@@ -65,8 +65,7 @@ export function renderAssistantMessageBody(msg, { onExpandToolCall } = {}) {
   `;
 }
 
-// Structure mirrors nx-chat's own renderApprovalCard (tool name, summary,
-// right-aligned button row) — visual parity is deliberate, not shared code.
+// See docs/chat-ao-component.md#permission-requests for the nx-chat visual-parity rationale.
 function renderPermissionRow(call, decisions, onDecide) {
   const detail = formatToolCallDetail(call.arguments);
   const decided = call.toolCallId in decisions;

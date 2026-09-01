@@ -1,6 +1,6 @@
 import { loadIms } from '../../../utils/ims.js';
-import { AO_MANIFEST_ID } from '../ao-constants.js';
-import { getOrgId, resolveAoHttpBase } from './uploads.js';
+import { getOrgId, aoContext } from './uploads.js';
+import { resolveManifestId } from './manifest.js';
 
 const SKILLS_CACHE_PREFIX = 'da-chat-ao-skills';
 
@@ -45,16 +45,11 @@ function saveCachedSkills(skills, tenantId) {
 
 // Real catalog lookup. Best-effort: a network error or unexpected response shape
 // returns null, leaving the cache (or empty list) in place rather than throwing.
-export async function fetchSkills() {
+export async function fetchSkills({ org, site } = {}) {
   try {
-    const { accessToken, projectedProductContext } = await loadIms();
-    const tenantId = getOrgId(projectedProductContext);
-    const resp = await fetch(`${resolveAoHttpBase(projectedProductContext)}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`, {
-      headers: {
-        authorization: `Bearer ${accessToken?.token}`,
-        'x-tenant-id': tenantId,
-      },
-    });
+    const { base, headers, tenantId } = await aoContext();
+    const { manifestId } = await resolveManifestId({ org, site });
+    const resp = await fetch(`${base}/api/v1/skills?manifest_id=${manifestId}`, { headers });
     if (!resp.ok) return null;
     const skills = parseSkillsListResponse(await resp.json());
     if (skills) saveCachedSkills(skills, tenantId);
