@@ -164,12 +164,14 @@ function onUnauthorized(opts) {
  * user to reconnect.
  * @param {Object} config - The service configuration, including
  *  `userId`/`userSecret` (retained for a later refresh-failure fallback)
- *  and the env-specific endpoint.
+ *  and `origin`/`org`/`site` to resolve the API endpoint.
  * @returns {Promise<boolean>} Whether a still-valid cached token was found.
  */
 export async function isConnected(config) {
-  const { name, env, userId, userSecret } = config;
-  const endpoint = config[`${env}.endpoint`];
+  const {
+    name, env, userId, userSecret, origin, org, site,
+  } = config;
+  const endpoint = resolveOrigin(origin, org, site);
   const { expires, accessToken } = getTokenDetails(name, env);
   const notExpired = expires > Date.now();
 

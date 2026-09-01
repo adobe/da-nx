@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  connect, saveItems, sendAllLanguages, getStatusAll,
+  connect, isConnected, saveItems, sendAllLanguages, getStatusAll,
 } from '../../../../nx/blocks/loc/connectors/smartling/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 
@@ -59,6 +59,61 @@ describe('smartling connector - legacy origin rewriting', () => {
 
   beforeEach(() => installFetch());
   afterEach(() => restoreFetch());
+
+  // Must run before any other test calls connect()/scheduleRefresh - isConnected's
+  // early return depends on tokenPolling being unset, which is otherwise
+  // module-level state left over from every later connect() call in this file.
+  it('resolves the endpoint from origin/org/site in isConnected, not a nonexistent config key', async () => {
+    localStorage.setItem('smartling.prod.token', JSON.stringify({
+      accessToken: 'cached-token',
+      refreshToken: 'cached-refresh-token',
+      expires: Date.now() + 60000,
+    }));
+
+    const connected = await isConnected({
+      name: 'Smartling', env: 'prod', userId: 'u', userSecret: 's', origin: legacyOrigin, org, site,
+    });
+    expect(connected).to.equal(true);
+
+    let refreshCalls = 0;
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/auth-api/v2/authenticate/refresh')) {
+        refreshCalls += 1;
+        return new Response(JSON.stringify({
+          response: { data: { accessToken: 'new-token', refreshToken: 'r', expiresIn: 300 } },
+        }), { status: 200 });
+      }
+      if (u.includes('/jobs-api/v3/projects') && opts.method === 'POST') {
+        if (opts.headers.Authorization !== 'Bearer new-token') return new Response('', { status: 401 });
+        return new Response(JSON.stringify({ response: { data: { translationJobUid: 'job-1' } } }), { status: 200 });
+      }
+      if (u.includes('/job-batches-api/v2/projects') && u.includes('/batches') && !u.includes('/file')) {
+        return new Response(JSON.stringify({ response: { data: { batchUid: 'batch-1' } } }), { status: 200 });
+      }
+      if (u.includes('/file') && opts.method === 'POST') {
+        return new Response(JSON.stringify({ response: { code: 'ACCEPTED' } }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const options = { service: { origin: 'https://api.smartling.com', projectId: 'proj-1' } };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    expect(refreshCalls).to.equal(1);
+    const refreshCall = calls.find((c) => c.url.includes('/auth-api/v2/authenticate/refresh'));
+    expect(refreshCall.url).to.equal(`${DA_TRANSLATE}/translate/smartling/${org}/${site}/auth-api/v2/authenticate/refresh`);
+    expect(langs[0].translation.status).to.equal('created');
+  });
 
   it('rewrites the legacy /smartling origin to /translate/smartling/<org>/<site> on connect', async () => {
     await connect({
