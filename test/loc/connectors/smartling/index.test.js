@@ -101,6 +101,33 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(calls.some((c) => c.url === `${base}/job-batches-api/v2/projects/proj-1/batches/batch-1/file`)).to.equal(true);
   });
 
+  it('surfaces an error and stops when job creation fails', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/jobs-api/v3/projects') && opts.method === 'POST') {
+        return new Response('{}', { status: 400 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const options = { service: { origin: 'https://api.smartling.com', projectId: 'proj-1' } };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const messages = [];
+    const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    expect(calls.some((c) => c.url.includes('/job-batches-api/v2/projects'))).to.equal(false);
+    const errorMessage = messages.find((m) => m.type === 'error');
+    expect(errorMessage.text).to.include('Job creation failed');
+  });
+
   it('rewrites the origin for getStatusAll job-progress polling', async () => {
     const service = { origin: legacyOrigin, projectId: 'proj-1', jobUid: { value: 'job-1' } };
     const langs = [{ code: 'fr-FR', translation: { translated: 0 } }];
@@ -117,11 +144,12 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(langs[0].translation.translated).to.equal(1);
   });
 
-  it('does nothing when the job has not been created yet (no jobUid)', async () => {
+  it('surfaces an error and does nothing when the job has not been created yet (no jobUid)', async () => {
     const service = { origin: 'https://api.smartling.com', projectId: 'proj-1' };
     const langs = [{ code: 'fr-FR', translation: { translated: 0, status: 'created' } }];
     const urls = [{ daBasePath: '/page' }];
-    const actions = { saveState: async () => {} };
+    const messages = [];
+    const actions = { saveState: async () => {}, sendMessage: (m) => messages.push(m) };
 
     await getStatusAll({
       org, site, service, langs, urls, actions,
@@ -129,6 +157,8 @@ describe('smartling connector - legacy origin rewriting', () => {
 
     expect(calls.length).to.equal(0);
     expect(langs[0].translation.status).to.equal('created');
+    const errorMessage = messages.find((m) => m.type === 'error');
+    expect(errorMessage.text).to.include('no Smartling job has been created yet');
   });
 
   it('reports Smartling\'s real progress percentage, not a stale status, when translation is incomplete', async () => {

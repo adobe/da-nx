@@ -247,7 +247,10 @@ export async function sendAllLanguages({
 
   sendMessage({ text: `Creating job in Smartling for: ${title}.` });
   const jobUid = await createJob(endpoint, projectId, title, langs);
-  if (!jobUid) return;
+  if (!jobUid) {
+    sendMessage({ text: `Job creation failed for: ${title}.`, type: 'error' });
+    return;
+  }
 
   // Presist to the state for future reference
   options.service.jobUid = { value: jobUid };
@@ -319,17 +322,21 @@ async function fetchJobProgress(endpoint, projectId, jobUid) {
  *  look "newly finished" on every subsequent check. If every lang is
  *  already terminal, skips the API call entirely.
  * @param {Object[]} params.urls - The urls in the project.
- * @param {Object} params.actions - `{ saveState }` callback.
+ * @param {Object} params.actions - `{ saveState, sendMessage }` callbacks;
+ *  `sendMessage` surfaces an error if no job has been created yet.
  * @returns {Promise<void>}
  */
 export async function getStatusAll({
   org, site, service, langs, urls, actions,
 }) {
-  const { saveState } = actions;
+  const { saveState, sendMessage } = actions;
   const { origin, projectId, jobUid } = service;
   const endpoint = resolveOrigin(origin, org, site);
 
-  if (!jobUid?.value) return;
+  if (!jobUid?.value) {
+    sendMessage({ text: 'Cannot check status: no Smartling job has been created yet.', type: 'error' });
+    return;
+  }
 
   // 'complete'/'cancelled' are terminal - Smartling keeps reporting 100%
   // translated forever once done, so without this guard every subsequent
