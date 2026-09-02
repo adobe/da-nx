@@ -44,13 +44,12 @@ export function renderToolCallCard({
   // See docs/chat-ao-component.md#tool-call-activity — label stays fixed
   // across detected/running/done on purpose.
   const label = `Using ${title ?? toolName}`;
-  const terminal = status === 'success' || status === 'error' || status === 'retrying';
-  const statusEl = status === 'error' ? html`<span class="tool-call-status">error</span>` : nothing;
+  const terminal = status !== 'detected' && status !== 'running';
   const detail = formatToolCallDetail(terminal ? result : args);
-  if (!detail) return html`<span class="tool-call-detail tool-call-${status}">${label}${statusEl}</span>`;
+  if (!detail) return html`<span class="tool-call-detail tool-call-${status}">${label}</span>`;
   return html`
     <details class="tool-call-card tool-call-${status}">
-      <summary>${label}${statusEl}</summary>
+      <summary>${label}</summary>
       <span class="tool-call-detail">${detail}</span>
     </details>
   `;
@@ -71,16 +70,23 @@ function renderPermissionRow(call, decisions, onDecide) {
   const decided = call.toolCallId in decisions;
   return html`
     <div class="permission-row">
-      <span class="permission-row-tool">${call.toolName}</span>
+      <span class="permission-row-tool" title=${call.toolName}>${call.toolName}</span>
       ${detail ? html`<span class="permission-row-detail">${detail}</span>` : nothing}
       ${decided ? html`
         <span class="permission-row-status permission-row-${decisions[call.toolCallId] ? 'approved' : 'rejected'}">
           ${decisions[call.toolCallId] ? 'approved' : 'rejected'}
         </span>
       ` : html`
-        <div class="permission-row-buttons">
-          <button type="button" class="nx-action-btn nx-btn-sm" @click=${() => onDecide(call.toolCallId, false)}>Reject</button>
-          <button type="button" class="nx-btn-primary nx-btn-sm" @click=${() => onDecide(call.toolCallId, true)}>Approve</button>
+        <div
+          class="permission-row-buttons"
+          @keydown=${(e) => {
+        if (e.key !== 'Enter' && e.key !== 'Escape') return;
+        e.preventDefault();
+        onDecide(call.toolCallId, e.key === 'Enter');
+      }}
+        >
+          <button type="button" class="nx-action-btn" @click=${() => onDecide(call.toolCallId, false)}>Reject<kbd>Esc</kbd></button>
+          <button type="button" class="nx-btn-primary permission-approve-btn" @click=${() => onDecide(call.toolCallId, true)}>Approve<kbd>↵</kbd></button>
         </div>
       `}
     </div>

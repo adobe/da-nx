@@ -95,27 +95,54 @@ class NxQuestionCard extends LitElement {
     this._selections = next;
   }
 
-  // See docs/chat-ao-component.md#question-flow for the keyboard shortcuts.
-  _handleOptionKeydown(e, question, value) {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
+  _selectOption(question, value, e) {
     this._toggle(question, value);
     if (this._canSubmit) this._submit(e);
   }
 
-  // Same, but moves focus into the text field when there's nothing to submit yet.
+  _selectOther(question, e, focusEl) {
+    this._toggle(question, OTHER);
+    if (this._canSubmit) this._submit(e);
+    else focusEl?.focus();
+  }
+
+  _otherInputFor(e) {
+    return e.target.closest('.question-option')?.querySelector('.question-other-input');
+  }
+
+  // See docs/chat-ao-component.md#question-flow for the keyboard shortcuts.
+  _handleOptionKeydown(e, question, value) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    this._selectOption(question, value, e);
+  }
+
   _handleOtherOptionKeydown(e, question) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
-    this._toggle(question, OTHER);
-    if (this._canSubmit) this._submit(e);
-    else e.target.nextElementSibling?.focus();
+    this._selectOther(question, e, this._otherInputFor(e));
   }
 
-  // Escape = Skip, from anywhere in the card.
+  _handleOptionNumberKeydown(e, question) {
+    if (e.target.classList?.contains('question-other-input')) return;
+    const n = Number(e.key);
+    const optionCount = (question.options ?? []).length;
+    if (!Number.isInteger(n) || n < 1 || n > optionCount + 1) return;
+    e.preventDefault();
+    if (n <= optionCount) {
+      this._selectOption(question, question.options[n - 1].label, e);
+      return;
+    }
+    this._selectOther(question, e, e.currentTarget.querySelector('.question-other-input'));
+  }
+
   _handleFormKeydown(e) {
     if (e.key !== 'Escape') return;
     e.preventDefault();
+    if (e.target.classList?.contains('question-other-input')) {
+      e.target.closest('.question-fieldset')?.querySelector('input[type="radio"], input[type="checkbox"]')?.focus();
+      return;
+    }
     this._decline();
   }
 
@@ -156,6 +183,7 @@ class NxQuestionCard extends LitElement {
     const { context, questions } = this.pending;
     return html`
       <form class="question-card" @submit=${this._submit} @keydown=${this._handleFormKeydown}>
+        <div class="question-body">
         ${context ? html`<div class="question-context">${renderQuestionText(context)}</div>` : nothing}
         ${questions.map((q) => {
       const hasOptions = (q.options ?? []).length > 0;
@@ -163,8 +191,8 @@ class NxQuestionCard extends LitElement {
           <fieldset class="question-fieldset">
             <legend class="question-header">${q.header}</legend>
             <div class="question-text">${renderQuestionText(q.question)}</div>
-            <div class="question-options">
-              ${(q.options ?? []).map((opt) => html`
+            <div class="question-options" @keydown=${(e) => this._handleOptionNumberKeydown(e, q)}>
+              ${(q.options ?? []).map((opt, i) => html`
                 <label class="question-option">
                   <input
                     type=${q.multi_select ? 'checkbox' : 'radio'}
@@ -174,7 +202,12 @@ class NxQuestionCard extends LitElement {
                     @keydown=${(e) => this._handleOptionKeydown(e, q, opt.label)}
                   />
                   <span class="question-option-text">
-                    <span class="question-option-label">${opt.label}</span>
+                    <span class="question-option-label">
+                      <kbd
+                        class="question-option-number"
+                        @click=${(e) => { e.preventDefault(); this._selectOption(q, opt.label, e); }}
+                      >${i + 1}</kbd>${opt.label}
+                    </span>
                     ${opt.description ? html`<span class="question-option-desc">${opt.description}</span>` : nothing}
                   </span>
                 </label>
@@ -188,6 +221,10 @@ class NxQuestionCard extends LitElement {
                   @change=${() => this._toggle(q, OTHER)}
                   @keydown=${(e) => this._handleOtherOptionKeydown(e, q)}
                 />
+                <kbd
+                  class="question-option-number"
+                  @click=${(e) => this._selectOther(q, e, this._otherInputFor(e))}
+                >${(q.options ?? []).length + 1}</kbd>
                 <input
                   type="text"
                   class="question-other-input"
@@ -201,9 +238,10 @@ class NxQuestionCard extends LitElement {
           </fieldset>
         `;
     })}
+        </div>
         <div class="question-actions">
-          <button type="button" class="nx-action-btn nx-btn-sm" @click=${this._decline}>Skip<kbd>Esc</kbd></button>
-          <button type="submit" class="nx-btn-primary nx-btn-sm" ?disabled=${!this._canSubmit}>Submit<kbd>↵</kbd></button>
+          <button type="button" class="nx-action-btn" @click=${this._decline}>Skip<kbd>Esc</kbd></button>
+          <button type="submit" class="nx-btn-primary" ?disabled=${!this._canSubmit}>Submit<kbd>↵</kbd></button>
         </div>
       </form>
     `;

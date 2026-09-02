@@ -396,38 +396,6 @@ describe('episodes.js', () => {
       expect(extractToolCalls(undefined)).to.deep.equal([]);
     });
 
-    it('maps AO\'s blind-deferred-schema retry to status "retrying", not "error"', () => {
-      const toolCalls = extractToolCalls([
-        { type: 'assistant_message', tool_calls: [{ id: 'tc1', name: 'skill', arguments: '{}' }] },
-        {
-          type: 'tool_result',
-          tool_call_id: 'tc1',
-          result: 'Loaded schema for skill; not executed — retrying.',
-          error: null,
-          status: 'error',
-        },
-      ]);
-
-      expect(toolCalls[0].status).to.equal('retrying');
-      expect(toolCalls[0].result).to.equal('Loaded schema for skill; not executed — retrying.');
-    });
-
-    it('detects the deferred-schema retry when only the raw `result` field carries the marker, not `display_result`', () => {
-      const toolCalls = extractToolCalls([
-        { type: 'assistant_message', tool_calls: [{ id: 'tc1', name: 'skill', arguments: '{}' }] },
-        {
-          type: 'tool_result',
-          tool_call_id: 'tc1',
-          result: 'Loaded schema for skill; not executed — retrying.',
-          display_result: 'skill was not executed: its schema was not loaded yet.',
-          error: null,
-          status: 'error',
-        },
-      ]);
-
-      expect(toolCalls[0].status).to.equal('retrying');
-    });
-
     it('keeps a genuine tool failure as status "error"', () => {
       const toolCalls = extractToolCalls([
         { type: 'assistant_message', tool_calls: [{ id: 'tc1', name: 'skill', arguments: '{}' }] },

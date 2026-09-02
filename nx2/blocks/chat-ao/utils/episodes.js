@@ -73,13 +73,6 @@ function turnsToMessages(turns, artifacts = [], turnEventsList = []) {
   return messages;
 }
 
-// AO surfaces a blind tool's schema on first call as a status:"error" retry
-// step, not a real failure — see docs/chat-ao-component.md#tool-call-activity.
-const DEFERRED_SCHEMA_RESULT_PREFIX = 'Loaded schema for ';
-export function isDeferredSchemaResult(error, result) {
-  return !error && typeof result === 'string' && result.startsWith(DEFERRED_SCHEMA_RESULT_PREFIX);
-}
-
 export function extractToolCalls(events) {
   const results = new Map();
   (events ?? []).forEach((event) => {
@@ -97,16 +90,12 @@ export function extractToolCalls(events) {
       } catch {
         args = {};
       }
-      const result = resultEvent?.display_result ?? resultEvent?.result;
-      const isDeferred = isDeferredSchemaResult(resultEvent?.error, resultEvent?.result)
-        || isDeferredSchemaResult(resultEvent?.error, resultEvent?.display_result);
-      const status = isDeferred ? 'retrying' : (resultEvent?.status ?? 'running');
       calls.push({
         toolCallId: call.id,
         toolName: call.name,
         arguments: args,
-        result,
-        status,
+        result: resultEvent?.display_result ?? resultEvent?.result,
+        status: resultEvent?.status ?? 'running',
         durationS: resultEvent?.duration_s,
         ...(resultEvent?.metadata?.skill_title && { title: resultEvent.metadata.skill_title }),
       });
