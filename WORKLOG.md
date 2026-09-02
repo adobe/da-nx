@@ -1,5 +1,14 @@
 # Worklog
 
+## 2026-09-02
+
+### Lionbridge connector — auth failure handling + error surfacing
+
+- `getOpts` now returns `null` on auth failure instead of throwing, so every call site's existing `.ok`/failure handling covers it too; added `if (!opts) return ...` guards at each call site.
+- Added error messages for: missing requestId on download, download failures, job-submit failures, and per-job status-check failures.
+- `sendAllLanguages`/`getStatusAll` no longer clear a just-shown error with a trailing success `sendMessage()` call.
+- `auth.js`'s `getAccessToken` gained a `{ force }` option to bypass the cache and re-login, used by Lionbridge's reactive 401 recovery.
+
 ## 2026-08-31
 
 ### New lionbridge translation connector + shared loc utils extraction
