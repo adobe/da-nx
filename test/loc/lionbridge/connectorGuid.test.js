@@ -54,6 +54,7 @@ describe('lionbridge connectorGuid', () => {
 
   it('reads an existing guid from config without writing it back', async () => {
     installFetch((url) => {
+      if (url.includes('/ping/')) return new Response('', { status: 200 });
       if (url.endsWith('.da/translate.json') || url.includes('.da%2Ftranslate.json')) {
         return new Response(JSON.stringify(rawConfig([
           { key: 'translation.service.prod.connectorGuid', value: 'existing-guid' },
@@ -72,6 +73,7 @@ describe('lionbridge connectorGuid', () => {
 
   it('generates and persists a new guid when none exists', async () => {
     installFetch((url) => {
+      if (url.includes('/ping/')) return new Response('', { status: 200 });
       if (url.endsWith('.da/translate.json')) {
         return new Response(JSON.stringify(rawConfig([
           { key: 'translation.service.name', value: 'Lionbridge' },

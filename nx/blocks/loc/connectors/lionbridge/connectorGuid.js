@@ -1,5 +1,4 @@
-import { daFetch } from '../../../../../nx2/utils/api.js';
-import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
+import { source } from '../../../../../nx2/utils/api.js';
 
 const CONFIG_PATH = '.da/translate.json';
 
@@ -11,7 +10,7 @@ const CONFIG_PATH = '.da/translate.json';
  *  on failure.
  */
 async function fetchRawConfig(org, site) {
-  const resp = await daFetch({ url: `${DA_ADMIN}/source/${org}/${site}/${CONFIG_PATH}` });
+  const resp = await source.get({ org, site, path: CONFIG_PATH });
   if (!resp.ok) return null;
   return resp.json();
 }
@@ -24,11 +23,7 @@ async function fetchRawConfig(org, site) {
  * @returns {Promise<Response>} The raw fetch response.
  */
 async function saveRawConfig(org, site, json) {
-  const data = new Blob([JSON.stringify(json)], { type: 'application/json' });
-  const body = new FormData();
-  body.append('data', data);
-  const url = `${DA_ADMIN}/source/${org}/${site}/${CONFIG_PATH}`;
-  return daFetch({ url, opts: { method: 'POST', body } });
+  return source.save({ org, site, path: CONFIG_PATH, body: JSON.stringify(json) });
 }
 
 /**
