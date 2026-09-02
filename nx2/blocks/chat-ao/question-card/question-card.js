@@ -203,10 +203,7 @@ class NxQuestionCard extends LitElement {
                   />
                   <span class="question-option-text">
                     <span class="question-option-label">
-                      <kbd
-                        class="question-option-number"
-                        @click=${(e) => { e.preventDefault(); this._selectOption(q, opt.label, e); }}
-                      >${i + 1}</kbd>${opt.label}
+                      <kbd class="question-option-number">${i + 1}</kbd>${opt.label}
                     </span>
                     ${opt.description ? html`<span class="question-option-desc">${opt.description}</span>` : nothing}
                   </span>
@@ -221,10 +218,7 @@ class NxQuestionCard extends LitElement {
                   @change=${() => this._toggle(q, OTHER)}
                   @keydown=${(e) => this._handleOtherOptionKeydown(e, q)}
                 />
-                <kbd
-                  class="question-option-number"
-                  @click=${(e) => this._selectOther(q, e, this._otherInputFor(e))}
-                >${(q.options ?? []).length + 1}</kbd>
+                <kbd class="question-option-number">${(q.options ?? []).length + 1}</kbd>
                 <input
                   type="text"
                   class="question-other-input"

@@ -80,9 +80,9 @@ function renderPermissionRow(call, decisions, onDecide) {
         <div
           class="permission-row-buttons"
           @keydown=${(e) => {
-        if (e.key !== 'Enter' && e.key !== 'Escape') return;
+        if (e.key !== 'Escape') return;
         e.preventDefault();
-        onDecide(call.toolCallId, e.key === 'Enter');
+        onDecide(call.toolCallId, false);
       }}
         >
           <button type="button" class="nx-action-btn" @click=${() => onDecide(call.toolCallId, false)}>Reject<kbd>Esc</kbd></button>

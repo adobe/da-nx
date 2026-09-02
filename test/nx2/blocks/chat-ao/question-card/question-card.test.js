@@ -166,7 +166,7 @@ describe('nx-question-card', () => {
     expect(el.shadowRoot.activeElement).to.equal(el.shadowRoot.querySelector('.question-other-input'));
   });
 
-  it('clicking a numbered option toggles once, not twice via native label-click forwarding', async () => {
+  it('clicking the number hint still toggles its option, via the label it sits inside', async () => {
     const question = makeQuestion({ multi_select: true, required: false });
     const el = await mount({ context: null, questions: [question] });
     const kbd = el.shadowRoot.querySelector('.question-option-number');
@@ -177,13 +177,14 @@ describe('nx-question-card', () => {
     expect(firstCheckbox.checked).to.equal(true);
   });
 
-  it('clicking the "something else" kbd focuses the text input', async () => {
+  it('clicking the "something else" number hint does nothing on its own', async () => {
     const el = await mount({ context: null, questions: [makeQuestion()] });
     const otherKbd = [...el.shadowRoot.querySelectorAll('.question-option-number')].at(-1);
     otherKbd.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     await el.updateComplete;
 
-    expect(el.shadowRoot.activeElement).to.equal(el.shadowRoot.querySelector('.question-other-input'));
+    expect(el.shadowRoot.activeElement).to.not.equal(el.shadowRoot.querySelector('.question-other-input'));
+    expect(el.shadowRoot.querySelector('input[aria-label="Custom answer"]').checked).to.equal(false);
   });
 
   it('Escape while typing in the free-text input moves focus to the first option instead of skipping', async () => {
