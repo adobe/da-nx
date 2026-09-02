@@ -50,6 +50,14 @@ export const ADD_MENU_ITEMS = [
 
 export const OPEN_COWORKER_ITEM = { id: 'coworker', label: 'Continue in Coworker' };
 
+// Inserts "Continue in Coworker" + divider after the first divider in ADD_MENU_ITEMS.
+export const ADD_MENU_ITEMS_WITH_EPISODE = ADD_MENU_ITEMS.toSpliced(
+  ADD_MENU_ITEMS.findIndex((i) => i.divider) + 1,
+  0,
+  OPEN_COWORKER_ITEM,
+  { divider: true },
+);
+
 export const AO_FRAME = {
   AUTH: 'AUTH',
   USER_INPUT: 'USER_INPUT',
