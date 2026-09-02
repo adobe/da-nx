@@ -126,11 +126,11 @@ class NxEditorToggle extends LitElement {
 
   render() {
     if (this._siteEwEnabled) return nothing;
-    if (this.variant === 'menu') {
-      if (!this._userEnabled) return nothing;
-    } else if (window.location.pathname !== '/edit' || this._userEnabled) {
-      return nothing;
-    }
+    const showMenu = this.variant === 'menu' && this._userEnabled;
+    const showToolbar = this.variant !== 'menu'
+      && window.location.pathname === '/edit'
+      && !this._userEnabled;
+    if (!showMenu && !showToolbar) return nothing;
     return html`
       <button
         type="button"
