@@ -341,30 +341,31 @@ describe('form-date (native)', () => {
     expect(input(el).value).to.equal('2026-08-14');
   });
 
-  it('emits an input event on input', async () => {
+  it('lets the native input event cross and syncs the value on the host', async () => {
     const el = await mount('<form-date></form-date>');
     let inputs = 0;
     let changes = 0;
-    el.addEventListener('input', () => { inputs += 1; });
+    let target;
+    el.addEventListener('input', (e) => {
+      inputs += 1;
+      target = e.target;
+    });
     el.addEventListener('change', () => { changes += 1; });
     setInput(el, '2026-08-14');
-    expect(el.value).to.equal('2026-08-14');
     expect(inputs).to.equal(1);
     expect(changes).to.equal(0);
+    expect(target).to.equal(el);
+    expect(el.value).to.equal('2026-08-14');
   });
 
-  it('emits a change event on change, distinct from input', async () => {
-    const el = await mount('<form-date></form-date>');
-    let inputs = 0;
-    let changes = 0;
-    el.addEventListener('input', () => { inputs += 1; });
-    el.addEventListener('change', () => { changes += 1; });
-    const i = input(el);
-    i.value = '2026-08-14';
-    i.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-    expect(el.value).to.equal('2026-08-14');
-    expect(changes).to.equal(1);
-    expect(inputs).to.equal(0);
+  it('exposes the UTC value on the host for a datetime input event', async () => {
+    const el = await mount('<form-date type="datetime"></form-date>');
+    let value;
+    el.addEventListener('input', (e) => { value = e.target.value; });
+    setInput(el, '2026-08-14T13:00');
+    const utc = localToUtc('2026-08-14T13:00');
+    expect(el.value).to.equal(utc);
+    expect(value).to.equal(utc);
   });
 
   it('renders a native time input for type=time', async () => {
@@ -400,7 +401,7 @@ describe('form-date (native)', () => {
   it('leaves the value empty for a partial or cleared entry (no fabricated value)', async () => {
     const el = await mount('<form-date></form-date>');
     // A partial entry gives the native input no value; we do not invent one.
-    el._onEvent({ type: 'input', target: { value: '' }, stopPropagation() {} });
+    el._onInput({ target: { value: '' } });
     expect(el.value).to.equal('');
   });
 
