@@ -112,6 +112,25 @@ describe('auth', () => {
 
       expect(token).to.equal(null);
     });
+
+    it('force bypasses a still-unexpired cached token and logs in again', async () => {
+      let call = 0;
+      installFetch(async () => {
+        call += 1;
+        return tokenResponse(`token-${call}`);
+      });
+
+      const first = await getAccessToken('example', { org: 'acme', site: 'site10', env: 'prod' });
+      const second = await getAccessToken(
+        'example',
+        { org: 'acme', site: 'site10', env: 'prod' },
+        { force: true },
+      );
+
+      expect(first).to.equal('token-1');
+      expect(second).to.equal('token-2');
+      expect(calls).to.have.length(2);
+    });
   });
 
   describe('authReady (default export)', () => {

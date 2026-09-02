@@ -281,6 +281,78 @@ describe('lionbridge connector', () => {
       expect(jobPostCount).to.equal(4); // initial attempt + 3 retries
       expect(messages.some((m) => m?.text === 'Error creating Lionbridge job.')).to.equal(true);
     });
+
+    it('recovers from a 401 on job creation by forcing a fresh login and retrying', async () => {
+      let loginCalls = 0;
+      let jobPostCalls = 0;
+      installFetch((url, opts) => {
+        if (url.includes('/integrations/lionbridge/login')) {
+          loginCalls += 1;
+          return jsonResponse({ access_token: `lb-token-${loginCalls}`, expires_in: 3600 });
+        }
+        if (url.endsWith('/jobs') && opts.method === 'POST') {
+          jobPostCalls += 1;
+          if (opts.headers.Authorization !== 'Bearer lb-token-2') return new Response('', { status: 401 });
+          return jsonResponse({ jobId: 'job-1' }, 201);
+        }
+        return defaultHandler(url, opts);
+      });
+
+      const service = baseService({ site: 'send-401-recover' });
+      const langs = [{ code: 'fr-FR', name: 'French' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 'My Project', service, options: {}, langs, urls, actions,
+      });
+
+      expect(jobPostCalls).to.equal(2);
+      expect(loginCalls).to.equal(2); // initial login + forced re-login on 401
+      expect(langs[0].translation.jobId).to.equal('job-1');
+    });
+
+    it('surfaces an error and does not clear it when submit fails', async () => {
+      installFetch((url, opts) => {
+        if (url.includes('/submit')) return new Response('', { status: 500 });
+        return defaultHandler(url, opts);
+      });
+
+      const service = baseService({ site: 'send-submit-fails' });
+      const langs = [{ code: 'fr-FR', name: 'French' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const messages = [];
+      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 'My Project', service, options: {}, langs, urls, actions,
+      });
+
+      expect(langs[0].translation.status).to.equal('error');
+      const lastMessage = messages[messages.length - 1];
+      expect(lastMessage?.type).to.equal('error');
+      expect(lastMessage?.text).to.equal('Error submitting Lionbridge job.');
+    });
+
+    it('surfaces an error when authentication itself fails, not just a bad HTTP response', async () => {
+      installFetch((url, opts) => {
+        if (url.includes('/integrations/lionbridge/login')) return new Response('', { status: 500 });
+        return defaultHandler(url, opts);
+      });
+
+      const service = baseService({ site: 'send-auth-fails' });
+      const langs = [{ code: 'fr-FR', name: 'French' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const messages = [];
+      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 'My Project', service, options: {}, langs, urls, actions,
+      });
+
+      expect(calls.some((c) => c.url.endsWith('/jobs') && c.method === 'POST')).to.equal(false);
+      expect(messages.some((m) => m?.text === 'Error creating Lionbridge job.')).to.equal(true);
+    });
   });
 
   describe('getStatusAll', () => {
@@ -365,6 +437,52 @@ describe('lionbridge connector', () => {
       expect(langs[0].translation.status).to.equal('translated');
       expect(langs[1].translation.status).to.equal('in progress');
     });
+
+    it('surfaces an error and does not clear it when a status request fails', async () => {
+      installFetch((url) => {
+        if (url.includes('/login')) return jsonResponse({ access_token: 'lb-token', expires_in: 3600 });
+        if (url.includes('/requests')) return new Response('', { status: 500 });
+        return jsonResponse({});
+      });
+
+      const langs = [{ code: 'fr-FR', translation: { jobId: 'job-1' } }];
+      const urls = [{ daBasePath: '/page' }];
+      const messages = [];
+      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+      await getStatusAll({ service: baseService(), langs, urls, actions });
+
+      expect(langs[0].translation.status).to.equal(undefined);
+      const lastMessage = messages[messages.length - 1];
+      expect(lastMessage?.type).to.equal('error');
+      expect(lastMessage?.text).to.equal('Checking status failed for job job-1.');
+    });
+
+    it('recovers from a 401 on a status request by forcing a fresh login and retrying', async () => {
+      let loginCalls = 0;
+      installFetch((url, opts) => {
+        if (url.includes('/login')) {
+          loginCalls += 1;
+          return jsonResponse({ access_token: `lb-token-${loginCalls}`, expires_in: 3600 });
+        }
+        if (url.includes('/requests')) {
+          if (opts.headers.Authorization !== 'Bearer lb-token-2') return new Response('', { status: 401 });
+          return jsonResponse({
+            _embedded: { requests: [{ requestId: 'r1', targetNativeLanguageCode: 'fr-FR', statusCode: 'REVIEW_TRANSLATION' }] },
+          });
+        }
+        return jsonResponse({});
+      });
+
+      const langs = [{ code: 'fr-FR', translation: { jobId: 'job-1' } }];
+      const urls = [{ daBasePath: '/page' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await getStatusAll({ service: baseService(), langs, urls, actions });
+
+      expect(loginCalls).to.equal(2); // initial login + forced re-login on 401
+      expect(langs[0].translation.status).to.equal('translated');
+    });
   });
 
   describe('saveItems', () => {
@@ -380,6 +498,7 @@ describe('lionbridge connector', () => {
         lang,
         urls: [url],
         saveFn: async (u) => { saved.push(u); u.status = 'success'; },
+        sendMessage: () => {},
       });
 
       const dlCall = calls.find((c) => c.url.includes('/retrievefile'));
@@ -400,6 +519,7 @@ describe('lionbridge connector', () => {
         lang,
         urls: [url],
         saveFn: async (u) => { u.status = 'success'; },
+        sendMessage: () => {},
       });
 
       const approveCall = calls.find((c) => c.url.includes('/requests/approve'));
@@ -424,6 +544,7 @@ describe('lionbridge connector', () => {
         lang,
         urls: [url],
         saveFn: async (u) => { u.status = 'success'; },
+        sendMessage: () => {},
       });
 
       expect(url.status).to.equal('success');
@@ -440,6 +561,7 @@ describe('lionbridge connector', () => {
         lang,
         urls: [url],
         saveFn: async (u) => { u.status = 'error'; },
+        sendMessage: () => {},
       });
 
       const approveCall = calls.find((c) => c.url.includes('/requests/approve'));
@@ -447,9 +569,10 @@ describe('lionbridge connector', () => {
       expect(url.status).to.equal('error');
     });
 
-    it('marks the url as error when there is no requestId for the lang', async () => {
+    it('surfaces an error and marks the url as error when there is no requestId for the lang', async () => {
       const url = { daBasePath: '/page', requestIds: {} };
       const lang = { code: 'fr-FR', translation: { jobId: 'job-1' } };
+      const messages = [];
 
       const result = await saveItems({
         org: 'acme',
@@ -458,9 +581,37 @@ describe('lionbridge connector', () => {
         lang,
         urls: [url],
         saveFn: async () => {},
+        sendMessage: (m) => messages.push(m),
       });
 
       expect(result[0].status).to.equal('error');
+      const errorMessage = messages.find((m) => m.type === 'error');
+      expect(errorMessage.text).to.equal('No Lionbridge request found for /page.');
+    });
+
+    it('surfaces an error and marks the url as error when the download fails', async () => {
+      installFetch((url, opts) => {
+        if (url.includes('/retrievefile')) return new Response('', { status: 500 });
+        return defaultHandler(url, opts);
+      });
+
+      const url = { daBasePath: '/page', requestIds: { 'fr-FR': 'req-fr' } };
+      const lang = { code: 'fr-FR', translation: { jobId: 'job-1' } };
+      const messages = [];
+
+      const result = await saveItems({
+        org: 'acme',
+        site: 'site1',
+        service: baseService(),
+        lang,
+        urls: [url],
+        saveFn: async (u) => { u.status = 'success'; },
+        sendMessage: (m) => messages.push(m),
+      });
+
+      expect(result[0].status).to.equal('error');
+      const errorMessage = messages.find((m) => m.type === 'error');
+      expect(errorMessage.text).to.include('Download failed for /page');
     });
 
     it('returns the urls unchanged when the lang has no jobId', async () => {

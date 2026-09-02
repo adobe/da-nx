@@ -62,11 +62,12 @@ export function connect(service) {
  * @param {string} [method] - HTTP method.
  * @param {Object|null} [body] - JSON-serializable request body, if any.
  * @param {string} [accept] - Accept header value.
- * @returns {Promise<Object>} Fetch options.
+ * @returns {Promise<Object|null>} Fetch options, or null if authentication
+ *  failed - callers treat this the same as a failed HTTP response.
  */
 async function getOpts(service, method = 'GET', body = null, accept = 'application/json') {
   const token = await getCachedAccessToken(INTEGRATION_NAME, service);
-  if (!token) throw new Error('Lionbridge authentication failed');
+  if (!token) return null;
 
   const opts = {
     method,
@@ -80,6 +81,37 @@ async function getOpts(service, method = 'GET', body = null, accept = 'applicati
   if (body) opts.body = JSON.stringify(body);
 
   return opts;
+}
+
+/**
+ * Builds a `fetchWithRetry` `onUnauthorized` callback: forces a fresh
+ * Lionbridge login (bypassing the cached token, which the server can
+ * reject - e.g. revoked, or clock skew - even though the client's own
+ * expiry check still considered it valid) and rebuilds `opts` with the
+ * new bearer token, so a 401 triggers exactly one retry with a valid
+ * token instead of failing the request outright.
+ * @param {Object} service - The service configuration.
+ * @param {Object} opts - The fetch options to rebuild on success.
+ * @returns {() => Promise<Object|null>} Callback for `fetchWithRetry`'s
+ *  `onUnauthorized` config.
+ */
+function onUnauthorized(service, opts) {
+  return async () => {
+    const token = await getCachedAccessToken(INTEGRATION_NAME, service, { force: true });
+    if (!token) return null;
+    return { ...opts, headers: { ...opts.headers, Authorization: `Bearer ${token}` } };
+  };
+}
+
+/**
+ * Merges Lionbridge's tighter retry tuning with a per-request
+ * `onUnauthorized` callback, for `fetchWithRetry`'s config argument.
+ * @param {Object} service - The service configuration.
+ * @param {Object} opts - The fetch options to rebuild on a 401.
+ * @returns {Object} The merged `fetchWithRetry` config.
+ */
+function retryConfig(service, opts) {
+  return { ...RETRY_CONFIG, onUnauthorized: onUnauthorized(service, opts) };
 }
 
 /**
@@ -142,7 +174,8 @@ async function createJob(service, title, options) {
   };
 
   const opts = await getOpts(service, 'POST', body);
-  const resp = await fetchWithRetry(`${apiEndpoint}/jobs`, opts, RETRY_CONFIG);
+  if (!opts) return null;
+  const resp = await fetchWithRetry(`${apiEndpoint}/jobs`, opts, retryConfig(service, opts));
   if (!resp.ok) return null;
 
   const json = await resp.json();
@@ -160,8 +193,9 @@ async function createJob(service, title, options) {
 async function initSourceFile(service, jobId, name) {
   const { apiEndpoint } = service;
   const opts = await getOpts(service, 'POST');
+  if (!opts) return null;
   const url = `${apiEndpoint}/jobs/${jobId}/sourcefiles?fileName=${encodeURIComponent(name)}`;
-  const resp = await fetchWithRetry(url, opts, RETRY_CONFIG);
+  const resp = await fetchWithRetry(url, opts, retryConfig(service, opts));
   if (!resp.ok) return null;
   return resp.json();
 }
@@ -211,7 +245,8 @@ async function addRequest({
   };
 
   const opts = await getOpts(service, 'POST', body);
-  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/requests/add`, opts, RETRY_CONFIG);
+  if (!opts) return [];
+  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/requests/add`, opts, retryConfig(service, opts));
   if (!resp.ok) return [];
 
   const { _embedded: embedded } = await resp.json();
@@ -228,7 +263,8 @@ async function addRequest({
 async function submitJob(service, jobId) {
   const { apiEndpoint, providerId } = service;
   const opts = await getOpts(service, 'PUT', { providerId });
-  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/submit`, opts, RETRY_CONFIG);
+  if (!opts) return false;
+  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/submit`, opts, retryConfig(service, opts));
   return resp.ok;
 }
 
@@ -243,7 +279,8 @@ async function submitJob(service, jobId) {
 async function approveRequest(service, jobId, requestId) {
   const { apiEndpoint } = service;
   const opts = await getOpts(service, 'PUT', { requestIds: [requestId] });
-  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/requests/approve`, opts, RETRY_CONFIG);
+  if (!opts) return false;
+  const resp = await fetchWithRetry(`${apiEndpoint}/jobs/${jobId}/requests/approve`, opts, retryConfig(service, opts));
   return resp.ok;
 }
 
@@ -333,6 +370,9 @@ export async function sendAllLanguages({
   if (allUploaded) {
     sendMessage({ text: 'Submitting Lionbridge job...' });
     submitted = await submitJob(service, jobId);
+    if (!submitted) {
+      sendMessage({ text: 'Error submitting Lionbridge job.', type: 'error' });
+    }
   }
 
   const created = submitted && allUploaded;
@@ -352,7 +392,9 @@ export async function sendAllLanguages({
   }));
 
   await saveState({ options, urls: cleanUrls });
-  sendMessage();
+  // Only clear the message on full success - otherwise this would immediately
+  // overwrite the upload/submit error just shown above, before it's seen.
+  if (created) sendMessage();
 }
 
 /**
@@ -386,7 +428,10 @@ export function statusFor(requests, langCode, fileCount) {
  * Fetches every request for a job, paginating via the `next` cursor.
  * @param {Object} service - The service configuration.
  * @param {string} jobId - The job to fetch requests for.
- * @returns {Promise<Object[]>} All requests across all pages.
+ * @returns {Promise<Object[]|null>} All requests across all pages, or
+ *  null if any page failed to fetch - distinct from a legitimately empty
+ *  job, so callers can surface an error instead of silently treating a
+ *  failed status check as "nothing to report yet".
  */
 async function fetchAllRequests(service, jobId) {
   const { apiEndpoint } = service;
@@ -395,12 +440,13 @@ async function fetchAllRequests(service, jobId) {
 
   do {
     const opts = await getOpts(service);
+    if (!opts) return null;
     const url = new URL(`${apiEndpoint}/jobs/${jobId}/requests`);
     if (next) url.searchParams.set('next', next);
 
     // eslint-disable-next-line no-await-in-loop
-    const resp = await fetchWithRetry(url, opts, RETRY_CONFIG);
-    if (!resp.ok) break;
+    const resp = await fetchWithRetry(url, opts, retryConfig(service, opts));
+    if (!resp.ok) return null;
 
     // eslint-disable-next-line no-await-in-loop
     const { _embedded: embedded, next: nextCursor } = await resp.json();
@@ -423,7 +469,9 @@ async function fetchAllRequests(service, jobId) {
  *  multiple jobs; mutated in place with
  *  `translation.status`/`translation.translated`.
  * @param {Object[]} params.urls - The urls in the project.
- * @param {Object} params.actions - `{ sendMessage, saveState }` callbacks.
+ * @param {Object} params.actions - `{ sendMessage, saveState }` callbacks;
+ *  `sendMessage` surfaces an error per job whose status request fails,
+ *  leaving that job's langs untouched rather than misreporting them.
  * @returns {Promise<void>}
  */
 export async function getStatusAll({ service, langs, urls, actions }) {
@@ -435,20 +483,27 @@ export async function getStatusAll({ service, langs, urls, actions }) {
   const localesStr = langs.map((lang) => lang.code).join(', ');
   sendMessage({ text: `Getting status for ${localesStr}` });
 
-  await Promise.all(jobIds.map(async (jobId) => {
+  const results = await Promise.all(jobIds.map(async (jobId) => {
     const jobLangs = langs.filter((lang) => lang.translation?.jobId === jobId);
 
     const requests = await fetchAllRequests(service, jobId);
-    if (!requests.length) return;
+    if (requests === null) {
+      sendMessage({ text: `Checking status failed for job ${jobId}.`, type: 'error' });
+      return false;
+    }
+    if (!requests.length) return true;
 
     jobLangs.forEach((lang) => {
       const { status, translated } = statusFor(requests, lang.code, urls.length);
       lang.translation.status = status;
       lang.translation.translated = translated;
     });
+    return true;
   }));
 
-  sendMessage();
+  // Only clear the message when every job's status check succeeded -
+  // otherwise this would immediately overwrite the error just shown above.
+  if (results.every(Boolean)) sendMessage();
   await saveState();
 }
 
@@ -465,10 +520,12 @@ export async function getStatusAll({ service, langs, urls, actions }) {
  *  with `sourceContent`/`status`.
  * @param {Function} params.saveFn - Called with each url once its
  *  translated content is ready to persist.
+ * @param {Function} params.sendMessage - Callback to surface a status/
+ *  error message to the user - called per url that fails to download.
  * @returns {Promise<Object[]>} The same `urls`, once all have a `status`.
  */
 export async function saveItems({
-  org, site, service, lang, urls, saveFn,
+  org, site, service, lang, urls, saveFn, sendMessage,
 }) {
   const { apiEndpoint } = service;
   const jobId = lang?.translation?.jobId;
@@ -478,6 +535,7 @@ export async function saveItems({
     const requestId = url.requestIds?.[lang.code];
 
     if (!requestId) {
+      sendMessage({ text: `No Lionbridge request found for ${url.daBasePath}.`, type: 'error' });
       url.status = 'error';
       return;
     }
@@ -487,8 +545,9 @@ export async function saveItems({
       // retrievefile returns the raw file, not JSON. application/octet-stream
       // is Lionbridge's documented Accept for file retrieval (avoids base64).
       const dlOpts = await getOpts(service, 'GET', null, 'application/octet-stream');
-      const dlResp = await fetchWithRetry(dlUrl, dlOpts, RETRY_CONFIG);
-      if (!dlResp.ok) throw new Error(dlResp.status);
+      if (!dlOpts) throw new Error('Lionbridge authentication failed');
+      const dlResp = await fetchWithRetry(dlUrl, dlOpts, retryConfig(service, dlOpts));
+      if (!dlResp.ok) throw new Error(`request failed with status ${dlResp.status}`);
 
       const text = await dlResp.text();
       const ext = url.daBasePath.includes('.json') ? 'json' : 'html';
@@ -506,7 +565,8 @@ export async function saveItems({
           // Ignore — approval is a courtesy call, not required for DA's own flow.
         }
       }
-    } catch {
+    } catch (error) {
+      sendMessage({ text: `Download failed for ${url.daBasePath}: ${error.message}`, type: 'error' });
       url.status = 'error';
     }
   };

@@ -85,13 +85,20 @@ function loginUrl(name, org, site, env) {
  *  (e.g. 'trados', 'lionbridge').
  * @param {Object} service - The service configuration; reads `org`,
  *  `site`, and `env` (defaults to 'prod').
+ * @param {Object} [options]
+ * @param {boolean} [options.force] - Skip the cache and log in again even
+ *  if a cached token hasn't reached its own expiry - for reactively
+ *  recovering from a 401 the server considers stale (e.g. a revoked
+ *  token, or clock skew) that the client's own check didn't catch.
  * @returns {Promise<string|null>} The access token, or null on failure.
  */
-export async function getAccessToken(name, service) {
+export async function getAccessToken(name, service, { force = false } = {}) {
   const { org, site, env = 'prod' } = service;
 
-  const { accessToken: cached, expires: cachedExpires } = getTokenDetails(name, org, site, env);
-  if (cached && cachedExpires > Date.now()) return cached;
+  if (!force) {
+    const { accessToken: cached, expires: cachedExpires } = getTokenDetails(name, org, site, env);
+    if (cached && cachedExpires > Date.now()) return cached;
+  }
 
   const opts = { method: 'POST' };
   const resp = await daFetch({ url: loginUrl(name, org, site, env), opts });
