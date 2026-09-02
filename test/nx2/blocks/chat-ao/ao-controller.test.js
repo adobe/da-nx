@@ -404,6 +404,21 @@ describe('ao-controller turn lifecycle', () => {
     expect(controller._messages).to.deep.equal([]);
     expect(updates).to.have.length(0);
   });
+
+  it('swallows a session-level error while a turn is merely suspended on a pending question — AO legitimately reports the episode as idle while waiting on the user', () => {
+    const { controller, updates } = makeController();
+    controller._thinking = true;
+    controller._pendingQuestion = { turnId: 't1', context: null, questions: [] };
+
+    controller._handleServerEvent({
+      type: 'error',
+      data: { message: 'Cannot ATTACH to episode 1: not active (state=idle); send a message to start a turn.' },
+    });
+
+    expect(controller._messages).to.deep.equal([]);
+    expect(controller._pendingQuestion).to.not.equal(undefined);
+    expect(updates).to.have.length(0);
+  });
 });
 
 describe('ao-controller ui artifacts', () => {
@@ -537,6 +552,26 @@ describe('ao-controller tool-call activity', () => {
     });
 
     expect(controller._messages[0].toolCall.status).to.equal('error');
+  });
+
+  it('marks AO\'s blind-deferred-schema retry as "retrying", not "error"', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent({
+      type: 'tool_call_start',
+      data: { tool_call_id: 'tc1', tool_name: 'search_content', arguments: {} },
+    });
+
+    controller._handleServerEvent({
+      type: 'tool_call_end',
+      data: {
+        tool_call_id: 'tc1',
+        result: 'Loaded schema for search_content; not executed — retrying.',
+        error: null,
+        success: false,
+      },
+    });
+
+    expect(controller._messages[0].toolCall.status).to.equal('retrying');
   });
 
   it('leaves other messages untouched when patching a toolCall by id', () => {
@@ -1597,6 +1632,13 @@ describe('ao-controller connection recovery', () => {
 
     controller._thinking = true;
     controller._destroyed = true;
+    expect(controller._shouldReattachOnClose()).to.equal(false);
+  });
+
+  it('_shouldReattachOnClose is false while suspended on a pending question, even though _thinking is still true', () => {
+    const { controller } = makeController();
+    controller._thinking = true;
+    controller._pendingQuestion = { turnId: 't1', context: null, questions: [] };
     expect(controller._shouldReattachOnClose()).to.equal(false);
   });
 
