@@ -1,7 +1,6 @@
-import { loadIms } from '../../../utils/ims.js';
 import { getManifestId as getConfiguredManifestId } from '../../../utils/ewFlags.js';
 import { AO_MANIFEST_ID } from '../ao-constants.js';
-import { getOrgId, resolveAoHttpBase } from './uploads.js';
+import { aoContext } from './uploads.js';
 
 const MANIFEST_QUERY_PARAM = 'nx-chat-ao-manifest';
 
@@ -15,21 +14,14 @@ function getResolvedManifestCacheKey(tenantId, userId) {
 // cached as '', distinct from never having asked (no key at all).
 export async function fetchResolvedManifestId() {
   try {
-    const { accessToken, userId, projectedProductContext } = await loadIms();
-    const tenantId = getOrgId(projectedProductContext);
+    const { base, headers, tenantId, userId } = await aoContext();
     const cacheKey = getResolvedManifestCacheKey(tenantId, userId);
     if (cacheKey) {
       const cached = sessionStorage.getItem(cacheKey);
       if (cached !== null) return cached || null;
     }
 
-    const base = resolveAoHttpBase(projectedProductContext);
-    const resp = await fetch(`${base}/api/v1/overrides/user/resolved`, {
-      headers: {
-        authorization: `Bearer ${accessToken?.token}`,
-        'x-tenant-id': tenantId,
-      },
-    });
+    const resp = await fetch(`${base}/api/v1/overrides/user/resolved`, { headers });
     if (!resp.ok) return null;
     const { manifest_id: manifestId } = await resp.json();
 

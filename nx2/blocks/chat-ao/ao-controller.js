@@ -11,33 +11,39 @@
  */
 
 import { loadIms } from '../../utils/ims.js';
-import { AO_FRAME, AO_EVENT } from './ao-constants.js';
+import { AO_FRAME, AO_EVENT, IGNORED_WHILE_INTERRUPTING } from './ao-constants.js';
 import { buildFailedUploadsText, buildClientContext } from './utils/user-context.js';
 import { uploadAttachment, getOrgId, resolveAoWsBase } from './utils/uploads.js';
 import { resolveManifestId } from './utils/manifest.js';
 import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession, toUiArtifact,
-  fetchTurnEvents, extractToolCalls,
+  fetchTurnEvents, extractToolCalls, isDeferredSchemaResult,
 } from './utils/episodes.js';
 import { fetchSkills, loadCachedSkills } from './utils/skills.js';
 import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-helpers.js';
 
 const EPISODE_LIST_LIMIT = 10;
 
-// AO's abort is async — dropped while stop() is waiting for its confirming
-// TURN_ABORTED/TURN_COMPLETED, so nothing already in flight for the
-// interrupted turn (or generated in the gap before the abort lands
-// server-side) can resurrect it client-side.
-const IGNORED_WHILE_INTERRUPTING = new Set([
-  AO_EVENT.TEXT_DELTA,
-  AO_EVENT.TEXT_DONE,
-  AO_EVENT.UI_ARTIFACT_CREATED,
-  AO_EVENT.TOOL_CALL_DETECTED,
-  AO_EVENT.TOOL_CALL_START,
-  AO_EVENT.TOOL_CALL_END,
-  AO_EVENT.USER_QUESTION,
-  AO_EVENT.PLAN_APPROVAL_REQUEST,
-  AO_EVENT.PERMISSION_REQUEST,
+// Maps each server event to the AoChatController method that handles it —
+// looked up by name (not a bound function reference) so handlers stay plain
+// prototype methods with no per-instance binding step in the constructor.
+const EVENT_HANDLERS = new Map([
+  [AO_EVENT.SESSION_READY, '_onSessionReady'],
+  [AO_EVENT.USER_MESSAGE, '_onUserMessage'],
+  [AO_EVENT.TEXT_DELTA, '_onTextDelta'],
+  [AO_EVENT.TEXT_DONE, '_onTextDone'],
+  [AO_EVENT.UI_ARTIFACT_CREATED, '_onUiArtifactCreated'],
+  [AO_EVENT.TOOL_CALL_DETECTED, '_onToolCallDetected'],
+  [AO_EVENT.TOOL_CALL_START, '_onToolCallStart'],
+  [AO_EVENT.TOOL_CALL_END, '_onToolCallEnd'],
+  [AO_EVENT.TURN_COMPLETED, '_onTurnCompleted'],
+  [AO_EVENT.TURN_ABORTED, '_onTurnCompleted'],
+  [AO_EVENT.EPISODE_TITLE_UPDATED, '_onEpisodeTitleUpdated'],
+  [AO_EVENT.USER_QUESTION, '_onUserQuestion'],
+  [AO_EVENT.PLAN_APPROVAL_REQUEST, '_onPlanApprovalRequest'],
+  [AO_EVENT.PERMISSION_REQUEST, '_onPermissionRequest'],
+  [AO_EVENT.ERROR_CONNECTION, '_onSessionError'],
+  [AO_EVENT.ERROR_SESSION, '_onSessionError'],
 ]);
 
 export default class AoChatController {
@@ -301,9 +307,10 @@ export default class AoChatController {
     });
   }
 
-  // See docs/chat-ao-component.md#connection-recovery for why this is mid-turn only.
+  // See docs/chat-ao-component.md#connection-recovery for why this is mid-turn
+  // only, and why a suspended turn (pending question/plan/permission) doesn't count.
   _shouldReattachOnClose() {
-    return !this._destroyed && this._thinking;
+    return !this._destroyed && this._blockedByActiveTurn;
   }
 
   async _recoverFromClose() {
@@ -318,158 +325,153 @@ export default class AoChatController {
 
   _handleServerEvent(evt) {
     if (this._interrupting && IGNORED_WHILE_INTERRUPTING.has(evt.type)) return;
+    const handlerName = EVENT_HANDLERS.get(evt.type);
+    if (handlerName) this[handlerName](evt);
+  }
 
-    if (evt.type === AO_EVENT.SESSION_READY) {
-      const isNewEpisode = evt.episode_id && evt.episode_id !== this._episodeId;
-      this._episodeId = evt.episode_id ?? this._episodeId;
-      if (isNewEpisode) this._refreshEpisodeList().catch(() => { });
-      return;
-    }
+  _onSessionReady(evt) {
+    const isNewEpisode = evt.episode_id && evt.episode_id !== this._episodeId;
+    this._episodeId = evt.episode_id ?? this._episodeId;
+    if (isNewEpisode) this._refreshEpisodeList().catch(() => { });
+  }
 
-    // See docs/chat-ao-component.md#connection-recovery for the clientMessageId dedup.
-    if (evt.type === AO_EVENT.USER_MESSAGE) {
-      const { text, client_message_id: clientMessageId } = evt.data ?? {};
-      const isOwnEcho = clientMessageId
-        && this._messages.some((m) => m.clientMessageId === clientMessageId);
-      if (isOwnEcho) return;
-      this._messages = [...this._messages, { role: 'user', content: text }];
+  // See docs/chat-ao-component.md#connection-recovery for the clientMessageId dedup.
+  _onUserMessage(evt) {
+    const { text, client_message_id: clientMessageId } = evt.data ?? {};
+    const isOwnEcho = clientMessageId
+      && this._messages.some((m) => m.clientMessageId === clientMessageId);
+    if (isOwnEcho) return;
+    this._messages = [...this._messages, { role: 'user', content: text }];
+    this._update();
+  }
+
+  _onTextDelta(evt) {
+    // See docs/chat-ao-component.md#plan-approval — clears a stale card left
+    // over from a conversational (non-button) resolution.
+    this._pendingPlanApproval = undefined;
+    this._streaming += evt.data?.content ?? '';
+    this._streamingText = this._streaming;
+    this._update();
+  }
+
+  _onTextDone(evt) {
+    this._messages = [...this._messages, {
+      role: 'assistant',
+      content: evt.data?.content ?? this._streaming,
+    }];
+    this._streaming = '';
+    this._streamingText = undefined;
+    this._update();
+  }
+
+  _onUiArtifactCreated(evt) {
+    const artifact = evt.data?.artifact;
+    if (!artifact) return;
+    this._messages = [...this._messages, { role: 'assistant', uiArtifact: toUiArtifact(artifact) }];
+    this._update();
+  }
+
+  // See docs/chat-ao-component.md#tool-call-activity for the detected/start/end patching.
+  _onToolCallDetected(evt) {
+    const { tool_call_id: toolCallId, tool_name: toolName } = evt.data ?? {};
+    this._messages = [...this._messages, {
+      role: 'assistant', toolCall: { toolCallId, toolName, status: 'detected' },
+    }];
+    this._update();
+  }
+
+  _onToolCallStart(evt) {
+    const {
+      tool_call_id: toolCallId, tool_name: toolName, arguments: args, metadata,
+    } = evt.data ?? {};
+    const title = metadata?.skill_title;
+    const patch = { toolName, status: 'running', arguments: args, ...(title && { title }) };
+    if (this._messages.some((m) => m.toolCall?.toolCallId === toolCallId)) {
+      this._patchToolCall(toolCallId, patch);
+    } else {
+      this._messages = [...this._messages, { role: 'assistant', toolCall: { toolCallId, ...patch } }];
       this._update();
-      return;
     }
+  }
 
-    if (evt.type === AO_EVENT.TEXT_DELTA) {
-      // See docs/chat-ao-component.md#plan-approval — clears a stale card left
-      // over from a conversational (non-button) resolution.
-      this._pendingPlanApproval = undefined;
-      this._streaming += evt.data?.content ?? '';
-      this._streamingText = this._streaming;
-      this._update();
-      return;
-    }
-
-    if (evt.type === AO_EVENT.TEXT_DONE) {
-      this._messages = [...this._messages, {
-        role: 'assistant',
-        content: evt.data?.content ?? this._streaming,
-      }];
-      this._streaming = '';
-      this._streamingText = undefined;
-      this._update();
-      return;
-    }
-
-    if (evt.type === AO_EVENT.UI_ARTIFACT_CREATED) {
-      const artifact = evt.data?.artifact;
-      if (!artifact) return;
-      this._messages = [...this._messages, { role: 'assistant', uiArtifact: toUiArtifact(artifact) }];
-      this._update();
-      return;
-    }
-
-    // See docs/chat-ao-component.md#tool-call-activity for the detected/start/end patching.
-    if (evt.type === AO_EVENT.TOOL_CALL_DETECTED) {
-      const { tool_call_id: toolCallId, tool_name: toolName } = evt.data ?? {};
-      this._messages = [...this._messages, {
-        role: 'assistant', toolCall: { toolCallId, toolName, status: 'detected' },
-      }];
-      this._update();
-      return;
-    }
-
-    if (evt.type === AO_EVENT.TOOL_CALL_START) {
-      const {
-        tool_call_id: toolCallId, tool_name: toolName, arguments: args, metadata,
-      } = evt.data ?? {};
-      const title = metadata?.skill_title;
-      const patch = { toolName, status: 'running', arguments: args, ...(title && { title }) };
-      if (this._messages.some((m) => m.toolCall?.toolCallId === toolCallId)) {
-        this._patchToolCall(toolCallId, patch);
-      } else {
-        this._messages = [...this._messages, { role: 'assistant', toolCall: { toolCallId, ...patch } }];
-        this._update();
-      }
-      return;
-    }
-
-    if (evt.type === AO_EVENT.TOOL_CALL_END) {
-      const {
-        tool_call_id: toolCallId, result, success, duration_s: durationS, metadata,
-      } = evt.data ?? {};
-      this._messages = this._messages.map((m) => {
-        if (m.toolCall?.toolCallId !== toolCallId) return m;
-        const title = m.toolCall.title ?? metadata?.skill_title;
-        return {
-          ...m,
-          toolCall: {
-            ...m.toolCall, status: success ? 'success' : 'error', result, durationS, ...(title && { title }),
-          },
-        };
-      });
-      this._update();
-      return;
-    }
-
-    if (evt.type === AO_EVENT.TURN_COMPLETED || evt.type === AO_EVENT.TURN_ABORTED) {
-      this._interrupting = false;
-      this._done();
-      return;
-    }
-
-    // See docs/chat-ao-component.md#episode-switching for why this upserts, not just patches.
-    if (evt.type === AO_EVENT.EPISODE_TITLE_UPDATED) {
-      const { episode_id: episodeId, title } = evt.data ?? {};
-      const exists = this._episodes.some((ep) => ep.id === episodeId);
-      if (exists) {
-        this._episodes = this._episodes.map((ep) => (ep.id === episodeId ? { ...ep, title } : ep));
-      } else if (title) {
-        this._episodes = [{ id: episodeId, title }, ...this._episodes];
-      } else {
-        return;
-      }
-      this._update();
-      return;
-    }
-
-    if (evt.type === AO_EVENT.USER_QUESTION) {
-      this._pendingQuestion = {
-        turnId: evt.turn_id,
-        context: evt.data?.context ?? null,
-        questions: evt.data?.questions ?? [],
+  _onToolCallEnd(evt) {
+    const {
+      tool_call_id: toolCallId, result, error, success, duration_s: durationS, metadata,
+    } = evt.data ?? {};
+    let status = success ? 'success' : 'error';
+    if (isDeferredSchemaResult(error, result)) status = 'retrying';
+    this._messages = this._messages.map((m) => {
+      if (m.toolCall?.toolCallId !== toolCallId) return m;
+      const title = m.toolCall.title ?? metadata?.skill_title;
+      return {
+        ...m,
+        toolCall: {
+          ...m.toolCall, status, result, durationS, ...(title && { title }),
+        },
       };
-      this._update();
+    });
+    this._update();
+  }
+
+  _onTurnCompleted() {
+    this._interrupting = false;
+    this._done();
+  }
+
+  // See docs/chat-ao-component.md#episode-switching for why this upserts, not just patches.
+  _onEpisodeTitleUpdated(evt) {
+    const { episode_id: episodeId, title } = evt.data ?? {};
+    const exists = this._episodes.some((ep) => ep.id === episodeId);
+    if (exists) {
+      this._episodes = this._episodes.map((ep) => (ep.id === episodeId ? { ...ep, title } : ep));
+    } else if (title) {
+      this._episodes = [{ id: episodeId, title }, ...this._episodes];
+    } else {
       return;
     }
+    this._update();
+  }
 
-    if (evt.type === AO_EVENT.PLAN_APPROVAL_REQUEST) {
-      this._pendingPlanApproval = {
-        turnId: evt.data?.turn_id ?? evt.turn_id,
-        planContent: evt.data?.plan_content ?? '',
-        planFilePath: evt.data?.plan_file_path ?? null,
-      };
-      this._update();
-      return;
-    }
+  _onUserQuestion(evt) {
+    this._pendingQuestion = {
+      turnId: evt.turn_id,
+      context: evt.data?.context ?? null,
+      questions: evt.data?.questions ?? [],
+    };
+    this._update();
+  }
 
-    // See docs/chat-ao-component.md#permission-requests for the wire shapes.
-    if (evt.type === AO_EVENT.PERMISSION_REQUEST) {
-      this._pendingPermission = {
-        turnId: evt.data?.turn_id ?? evt.turn_id,
-        calls: (evt.data?.pending_calls ?? []).map((c) => ({
-          toolCallId: c.id, toolName: c.name, arguments: c.arguments,
-        })),
-        decisions: {},
-      };
-      this._update();
-      return;
-    }
+  _onPlanApprovalRequest(evt) {
+    this._pendingPlanApproval = {
+      turnId: evt.data?.turn_id ?? evt.turn_id,
+      planContent: evt.data?.plan_content ?? '',
+      planFilePath: evt.data?.plan_file_path ?? null,
+    };
+    this._update();
+  }
 
-    if (evt.type === AO_EVENT.ERROR_CONNECTION || evt.type === AO_EVENT.ERROR_SESSION) {
-      // See docs/chat-ao-component.md#session-warming for why idle stays silent.
-      if (!this._thinking) return;
-      const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
-      this._messages = [...this._messages, { role: 'assistant', content: `Error: ${message}` }];
-      this._done();
-    }
+  // See docs/chat-ao-component.md#permission-requests for the wire shapes.
+  _onPermissionRequest(evt) {
+    this._pendingPermission = {
+      turnId: evt.data?.turn_id ?? evt.turn_id,
+      calls: (evt.data?.pending_calls ?? []).map((c) => ({
+        toolCallId: c.id, toolName: c.name, arguments: c.arguments,
+      })),
+      decisions: {},
+    };
+    this._update();
+  }
+
+  _onSessionError(evt) {
+    // See docs/chat-ao-component.md#session-warming for why idle stays silent,
+    // and #connection-recovery for why a suspended turn stays silent too — AO
+    // legitimately reports the episode as idle while it's waiting on the user,
+    // and the pending question/plan/permission popover already works without
+    // a live socket.
+    if (!this._blockedByActiveTurn) return;
+    const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
+    this._messages = [...this._messages, { role: 'assistant', content: `Error: ${message}` }];
+    this._done();
   }
 
   // See docs/chat-ao-component.md#stop--interrupt for why this also fires on TURN_ABORTED.
