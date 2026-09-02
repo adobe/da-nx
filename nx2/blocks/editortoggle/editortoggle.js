@@ -126,12 +126,9 @@ class NxEditorToggle extends LitElement {
 
   render() {
     if (this._siteEwEnabled) return nothing;
-    const { pathname } = window.location;
     if (this.variant === 'menu') {
-      // Also shows off /canvas when the flag is on, so there's always a way
-      // to turn it off (e.g. stuck on /edit after a Sidekick bounce-back).
-      if (pathname !== '/canvas' && !this._userEnabled) return nothing;
-    } else if (pathname !== '/edit' || this._userEnabled) {
+      if (!this._userEnabled) return nothing;
+    } else if (window.location.pathname !== '/edit' || this._userEnabled) {
       return nothing;
     }
     return html`
