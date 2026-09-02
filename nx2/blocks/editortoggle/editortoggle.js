@@ -25,20 +25,16 @@ const style = await loadStyle(import.meta.url);
  * would be redundant there. Site-level state is re-checked on every hash
  * change so switching between sites shows/hides the toggle correctly.
  *
- * Only rendered on the editor routes (`/edit` and `/canvas`) — nowhere else in
- * the nav does swapping editors make sense.
- *
  * Two placements, selected by the `variant` attribute:
- *  - `toolbar` (default): the nav-injected switch. Shown on `/edit` only; on
+ *  - `toolbar` (default): the nav-injected switch. Shown on `/edit`, but
+ *    hidden if the flag is already on (e.g. bounced back by Sidekick) — on
  *    `/canvas` it steps aside so the switch lives in the profile menu instead.
- *  - `menu`: rendered inside the profile popover (see profile.js). Shown on
- *    `/canvas` only.
+ *  - `menu`: rendered inside the profile popover (see profile.js).
  * Both instances coexist on each editor route (the hidden one just renders
  * nothing), so the one-time prompts — the welcome guide on canvas, the
  * switch-back feedback on /edit — are triggered from the always-present
  * toolbar instance to avoid firing them twice.
  */
-const EDITOR_PATHS = new Set(['/edit', '/canvas']);
 class NxEditorToggle extends LitElement {
   static properties = {
     variant: { type: String, reflect: true },
@@ -55,13 +51,12 @@ class NxEditorToggle extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this._userEnabled = isEWUserEnabled();
-    // Landing directly on /edit or /canvas (bookmark, external link, hand-typed
-    // URL) is an implicit choice — sync the persisted flag so the switch shows
-    // the editor you're actually looking at instead of the last-saved pref.
-    const desired = window.location.pathname === '/canvas';
-    if (EDITOR_PATHS.has(window.location.pathname) && this._userEnabled !== desired) {
-      this._userEnabled = desired;
-      setEWUserEnabled(desired);
+    // Bookmarking /canvas directly is an implicit opt-in. Landing on /edit
+    // isn't the reverse — that can be Sidekick bouncing you back — so we
+    // never clear the flag for being on /edit.
+    if (window.location.pathname === '/canvas' && !this._userEnabled) {
+      this._userEnabled = true;
+      setEWUserEnabled(true);
     }
     this._maybeShowWelcome();
     this._maybeShowSwitchback();
@@ -131,9 +126,14 @@ class NxEditorToggle extends LitElement {
 
   render() {
     if (this._siteEwEnabled) return nothing;
-    // Toolbar lives on /edit; on /canvas the switch moves into the profile menu.
-    const visiblePath = this.variant === 'menu' ? '/canvas' : '/edit';
-    if (window.location.pathname !== visiblePath) return nothing;
+    const { pathname } = window.location;
+    if (this.variant === 'menu') {
+      // Also shows off /canvas when the flag is on, so there's always a way
+      // to turn it off (e.g. stuck on /edit after a Sidekick bounce-back).
+      if (pathname !== '/canvas' && !this._userEnabled) return nothing;
+    } else if (pathname !== '/edit' || this._userEnabled) {
+      return nothing;
+    }
     return html`
       <button
         type="button"
