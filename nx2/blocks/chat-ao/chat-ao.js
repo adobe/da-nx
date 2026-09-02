@@ -17,7 +17,7 @@ import AoChatController from './ao-controller.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
   AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES,
-  COWORKER_SKILLS_URL, COWORKER_CHAT_URL,
+  COWORKER_SKILLS_URL, COWORKER_CHAT_URL, ENTERPRISE_CONTEXT_URL,
   ADD_MENU_ITEMS, OPEN_COWORKER_ITEM,
 } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
@@ -316,6 +316,7 @@ export default class NxChatAo extends LitElement {
     if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
     if (id === MENU_OPTIONS.MANAGE_SKILLS) window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
     if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) window.open(`${COWORKER_CHAT_URL}/${this.episodeId}`, '_blank', 'noopener,noreferrer');
+    if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) window.open(ENTERPRISE_CONTEXT_URL, '_blank', 'noopener,noreferrer');
   }
 
   _openConfigPage() {
