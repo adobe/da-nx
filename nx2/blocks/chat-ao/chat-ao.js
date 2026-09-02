@@ -464,7 +464,7 @@ export default class NxChatAo extends LitElement {
             @blur=${this._slashMenu.onBlur}
           ></textarea>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
-            <nx-menu .items=${this.episodeId ? [...ADD_MENU_ITEMS, OPEN_COWORKER_ITEM] : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
+            <nx-menu .items=${this.episodeId ? ADD_MENU_ITEMS.toSpliced(5, 0, OPEN_COWORKER_ITEM, { divider: true }) : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
               <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>
