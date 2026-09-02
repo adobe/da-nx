@@ -44,7 +44,7 @@ export function renderToolCallCard({
   // See docs/chat-ao-component.md#tool-call-activity — label stays fixed
   // across detected/running/done on purpose.
   const label = `Using ${title ?? toolName}`;
-  const terminal = status === 'success' || status === 'error';
+  const terminal = status === 'success' || status === 'error' || status === 'retrying';
   const statusEl = status === 'error' ? html`<span class="tool-call-status">error</span>` : nothing;
   const detail = formatToolCallDetail(terminal ? result : args);
   if (!detail) return html`<span class="tool-call-detail tool-call-${status}">${label}${statusEl}</span>`;
@@ -65,8 +65,7 @@ export function renderAssistantMessageBody(msg, { onExpandToolCall } = {}) {
   `;
 }
 
-// Structure mirrors nx-chat's own renderApprovalCard (tool name, summary,
-// right-aligned button row) — visual parity is deliberate, not shared code.
+// See docs/chat-ao-component.md#permission-requests for the nx-chat visual-parity rationale.
 function renderPermissionRow(call, decisions, onDecide) {
   const detail = formatToolCallDetail(call.arguments);
   const decided = call.toolCallId in decisions;

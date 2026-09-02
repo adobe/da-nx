@@ -22,9 +22,7 @@ const buttonStyle = await loadStyle(new URL('../../../styles/buttons.css', impor
 // Never sent over the wire — swapped for the typed text (see _answerFor).
 const OTHER = '__other__';
 
-// Renders AO's ask_user_question pause. "Other" is a real radio/checkbox in
-// the same native group as the fixed options, not a separate free-standing
-// field — see docs/chat-ao-component.md#question-flow.
+// Renders AO's ask_user_question pause — see docs/chat-ao-component.md#question-flow.
 class NxQuestionCard extends LitElement {
   static properties = {
     pending: { attribute: false },
@@ -97,8 +95,7 @@ class NxQuestionCard extends LitElement {
     this._selections = next;
   }
 
-  // Enter mirrors Space (a no-op on radio/checkbox natively) and also submits
-  // once this answer completes the form.
+  // See docs/chat-ao-component.md#question-flow for the keyboard shortcuts.
   _handleOptionKeydown(e, question, value) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
@@ -122,8 +119,7 @@ class NxQuestionCard extends LitElement {
     this._decline();
   }
 
-  // Typing is the only thing that selects "Other" — focusing/tabbing through
-  // it must not clobber a fixed pick.
+  // See docs/chat-ao-component.md#question-flow for why only typing selects "Other".
   _handleOtherText(question, text) {
     this._otherTexts = new Map(this._otherTexts).set(question.id, text);
     const next = new Map(this._selections);

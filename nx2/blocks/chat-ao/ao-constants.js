@@ -78,3 +78,19 @@ export const AO_EVENT = {
   TOOL_CALL_START: 'tool_call_start',
   TOOL_CALL_END: 'tool_call_end',
 };
+
+// AO's abort is async — dropped while stop() is waiting for its confirming
+// TURN_ABORTED/TURN_COMPLETED, so nothing already in flight for the
+// interrupted turn (or generated in the gap before the abort lands
+// server-side) can resurrect it client-side.
+export const IGNORED_WHILE_INTERRUPTING = new Set([
+  AO_EVENT.TEXT_DELTA,
+  AO_EVENT.TEXT_DONE,
+  AO_EVENT.UI_ARTIFACT_CREATED,
+  AO_EVENT.TOOL_CALL_DETECTED,
+  AO_EVENT.TOOL_CALL_START,
+  AO_EVENT.TOOL_CALL_END,
+  AO_EVENT.USER_QUESTION,
+  AO_EVENT.PLAN_APPROVAL_REQUEST,
+  AO_EVENT.PERMISSION_REQUEST,
+]);

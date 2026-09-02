@@ -14,6 +14,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
 import AoChatController from './ao-controller.js';
+import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
   AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES,
   COWORKER_SKILLS_URL, COWORKER_CHAT_URL, ENTERPRISE_CONTEXT_URL,
@@ -25,7 +26,7 @@ import { PANEL_EVENT } from '../../utils/panel.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
-import { createVoiceInput, isVoiceInputSupported, appendTranscript } from '../shared/chat/voice-input.js';
+import { createVoiceInput, isVoiceInputSupported, appendTranscript } from './utils/voice-input.js';
 import { showToast } from '../shared/toast/toast.js';
 import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
@@ -71,7 +72,7 @@ export default class NxChatAo extends LitElement {
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
 
   // Tracks the last interim chunk inserted into .chat-input so the next
-  // chunk can replace it in place — see shared/chat/voice-input.js#appendTranscript.
+  // chunk can replace it in place — see utils/voice-input.js#appendTranscript.
   _voiceInterim = '';
 
   set context(value) {
@@ -178,6 +179,7 @@ export default class NxChatAo extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    fetchResolvedManifestId();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, artifactStyle];
     this._controller = new AoChatController({
       onUpdate: ({
@@ -428,8 +430,8 @@ export default class NxChatAo extends LitElement {
           .onDecline=${() => this._controller.declineQuestion()}
         ></nx-question-card>
         ${renderPermissionCard(this.pendingPermission, {
-          onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
-        })}
+            onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
+          })}
         <form class="chat-form" @submit=${this._submit}
           @dragenter=${this._dnd.onDragEnter}
           @dragleave=${this._dnd.onDragLeave}

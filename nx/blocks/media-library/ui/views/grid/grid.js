@@ -26,13 +26,13 @@ import {
   getMediaCardLabel,
 } from '../../templates.js';
 import { MediaType } from '../../../core/constants.js';
-import { t } from '../../../core/messages.js';
+import { getMessage } from '../../../core/messages.js';
 import { isMediaLibraryPluginMode } from '../../../core/utils.js';
 
 const style = await loadStyle(import.meta.url);
 const nx2 = `${new URL(import.meta.url).origin}/nx2`;
 const nx = `${new URL(import.meta.url).origin}/nx`;
-const sl = await loadStyle(`${nx2}/public/sl/styles.css`);
+const sl = await loadStyle(`${nx2}/styles/styles.css`);
 const slComponents = await loadStyle(`${nx2}/public/sl/components.css`);
 
 const ICONS = [
@@ -151,7 +151,7 @@ class NxMediaGrid extends LitElement {
       <main
         class="media-main"
         id="grid-scroller"
-        aria-label="${t('UI_MEDIA_RESULTS')}"
+        aria-label="${getMessage('UI_MEDIA_RESULTS')}"
         aria-busy="${this.resultsBusy}"
         tabindex="0"
         @keydown=${this.handleKeyDown}
@@ -183,8 +183,8 @@ class NxMediaGrid extends LitElement {
       copyClick: () => this.eventHandlers.handleMediaCopy(media),
     };
     const pluginMode = isMediaLibraryPluginMode();
-    const copyTitle = pluginMode ? t('UI_INSERT_MEDIA') : t('UI_COPY_URL');
-    const copyAria = pluginMode ? t('UI_INSERT_MEDIA') : t('UI_COPY_MEDIA_ARIA');
+    const copyTitle = pluginMode ? getMessage('UI_INSERT_MEDIA') : getMessage('UI_COPY_URL');
+    const copyAria = pluginMode ? getMessage('UI_INSERT_MEDIA') : getMessage('UI_COPY_MEDIA_ARIA');
     const usageCount = media.usageCount ?? '-';
     const cardLabel = this.getCardAriaLabel(media, usageCount);
 
@@ -339,7 +339,7 @@ class NxMediaGrid extends LitElement {
     if (name) parts.push(name);
     if (type) parts.push(type);
     if (typeof media.usageCount === 'number') {
-      parts.push(t('UI_CARD_REFERENCES', { count: media.usageCount }));
+      parts.push(getMessage('UI_CARD_REFERENCES', { count: media.usageCount }));
     } else if (usageDisplay && usageDisplay !== '-') {
       parts.push(String(usageDisplay));
     }
