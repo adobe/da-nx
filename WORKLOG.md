@@ -2,21 +2,15 @@
 
 ## 2026-09-02
 
-### Lionbridge connector — auth failure handling + error surfacing
-
-- `getOpts` now returns `null` on auth failure instead of throwing, so every call site's existing `.ok`/failure handling covers it too; added `if (!opts) return ...` guards at each call site.
-- Added error messages for: missing requestId on download, download failures, job-submit failures, and per-job status-check failures.
-- `sendAllLanguages`/`getStatusAll` no longer clear a just-shown error with a trailing success `sendMessage()` call.
-- `auth.js`'s `getAccessToken` gained a `{ force }` option to bypass the cache and re-login, used by Lionbridge's reactive 401 recovery.
-
-## 2026-08-31
-
 ### New lionbridge translation connector + shared loc utils extraction
 
 - New connector (`nx/blocks/loc/connectors/lionbridge/`) implementing the standard connector interface against Lionbridge's Content API v2, with GUID persistence and dev-guideline compliance.
 - Fixed several dependent-language (`waitingFor`) bugs found via live debugging: a path-joining bug, wrong source language code, a stale-jobId status regression, url-metadata clobbering across concurrent saves, and a save-dispatch race.
 - Extracted shared connector utils (`downloadQueue.js`, `auth.js`, `fetchWithRetry.js`) used across Lionbridge/Trados/Smartling/GLaaS.
 - Added status pill colors for in-progress/error.
+- `getOpts` returns `null` on auth failure instead of throwing, so every call site's existing `.ok`/failure handling covers it too.
+- Added error messages for: missing requestId on download, download failures, job-submit failures, and per-job status-check failures; `sendAllLanguages`/`getStatusAll` no longer clear a just-shown error with a trailing success message.
+- `auth.js`'s `getAccessToken` gained a `{ force }` option to bypass the cache and re-login, used for reactive 401 recovery.
 - Full test coverage; verified end-to-end against real Lionbridge staging APIs and the DA Translate app UI.
 
 ## 2026-08-27
