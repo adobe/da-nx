@@ -423,7 +423,11 @@ export async function saveItems({
 
     url.sourceContent = await removeDnt({ org, site, html: text, ext: url.ext });
 
-    await saveFn(url);
+    try {
+      await saveFn(url);
+    } catch {
+      url.status = 'error';
+    }
   };
 
   const queue = new Queue(downloadCallback, 5);

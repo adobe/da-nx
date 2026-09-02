@@ -639,6 +639,36 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(errorMessage.text).to.include('Download failed for /page');
   });
 
+  it('marks a url as errored (without hanging) when saveFn throws, and still finishes every other url', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/files-api/v2/projects')) return new Response('translated content', { status: 200 });
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1' };
+    const lang = { code: 'fr-FR' };
+    const urls = [
+      { daBasePath: '/page-fails', ext: 'html' },
+      { daBasePath: '/page-succeeds', ext: 'html' },
+    ];
+    const saveFn = async (url) => {
+      if (url.daBasePath === '/page-fails') throw new Error('save failed');
+      url.status = 'success';
+    };
+
+    const result = await saveItems({
+      org, site, service, lang, urls, saveFn,
+    });
+
+    expect(result).to.equal(urls);
+    expect(urls[0].status).to.equal('error');
+    expect(urls[1].status).to.equal('success');
+  });
+
   it('does not auto-authorize the batch by default', async () => {
     const options = { service: { origin: legacyOrigin, projectId: 'proj-1' } };
     const langs = [{ name: 'French', code: 'fr-FR' }];
