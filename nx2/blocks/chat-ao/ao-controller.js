@@ -17,7 +17,7 @@ import { uploadAttachment, getOrgId, resolveAoWsBase } from './utils/uploads.js'
 import { resolveManifestId } from './utils/manifest.js';
 import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession, toUiArtifact,
-  fetchTurnEvents, extractToolCalls, isDeferredSchemaResult,
+  fetchTurnEvents, extractToolCalls,
 } from './utils/episodes.js';
 import { fetchSkills, loadCachedSkills } from './utils/skills.js';
 import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-helpers.js';
@@ -396,10 +396,9 @@ export default class AoChatController {
 
   _onToolCallEnd(evt) {
     const {
-      tool_call_id: toolCallId, result, error, success, duration_s: durationS, metadata,
+      tool_call_id: toolCallId, result, success, duration_s: durationS, metadata,
     } = evt.data ?? {};
-    let status = success ? 'success' : 'error';
-    if (isDeferredSchemaResult(error, result)) status = 'retrying';
+    const status = success ? 'success' : 'error';
     this._messages = this._messages.map((m) => {
       if (m.toolCall?.toolCallId !== toolCallId) return m;
       const title = m.toolCall.title ?? metadata?.skill_title;
