@@ -429,27 +429,32 @@ surfaced as `toolCall.title` and preferred over the raw `tool_name` ("skill")
 in the card's summary line, so a skill invocation reads as e.g. "AEM Sites DA
 Page Update" instead of "skill".
 
-AO's tool executor defers loading a tool's schema until first invocation once
-the manifest's tool surface exceeds `inline_schema_token_budget`; that first
-call comes back over the wire as `success: false`, `error: null`, `result`
-starting with `"Loaded schema for "` — a normal, one-time-per-tool-per-episode
-retry, not a real failure, and indistinguishable from one on `success` alone.
-Both `ao-controller.js`'s live `tool_call_end` handler and
-`episodes.js`'s `extractToolCalls` (reload hydration) run this exact
-`error`+`result` shape through `isDeferredSchemaResult` and map it to
-`status: 'retrying'` instead of `'error'`, so `renderToolCallCard` shows no
-red badge — `'retrying'` isn't `'error'`, so `statusEl` skips it and the base
-`.tool-call-card` styling (already neutral gray) applies with no new CSS —
-while still counting as `terminal`, so the schema-guidance text renders as
-the expandable detail on click, same as a real result.
+**No error badge, by design — `status` is never rendered as a visual
+distinction, only as a `tool-call-${status}` class hook.** `success: false`
+on the wire is a much noisier signal than "the user should worry about
+this": it also covers AO's blind-deferred-schema retry (a tool's schema
+isn't preloaded past `inline_schema_token_budget`; the first call in an
+episode comes back `success: false`, `result` starting with `"Loaded schema
+for "`, then retries and succeeds — normal, deterministic, not a failure)
+and a user's own permission denial (`result` starting with `"<system-info>
+User denied permission"` — the user's deliberate choice, not something gone
+wrong). An earlier version of this doc had `ao-controller.js`/`episodes.js`
+detect the deferred-schema case specifically (via `isDeferredSchemaResult`,
+matching that one string) and map it to a `'retrying'` status so no badge
+showed — but the permission-denial case proved that was one instance of a
+pattern, not a one-off: `success: false` doesn't reliably mean "alarm the
+user," and detecting each non-alarming case as it's discovered doesn't
+scale. Removed rather than extended — the assistant's own reply is already
+the channel a user reads for "did this work," and doesn't need a wire-level
+heuristic to get it right.
 
 `chat-ao.js`'s `renderToolCallCard` is a small collapsible `<details>` (styled
 after this file's own existing `.selection-context` chevron pattern, not
 copied from anywhere) — collapsed by default. **The summary label ("Using
-&lt;name&gt;") never changes across detected → running → done** — only the
-expandable detail (arguments while in progress, result once done) and an
-`error` badge change, so the line doesn't visibly jump/reflow once the user's
-eye is on it. Coworker's own production UI (`ao-collab`'s `tool-call-item.tsx`)
+&lt;name&gt;") never changes across detected → running → done**, and neither
+does its styling regardless of outcome — only the expandable detail
+(arguments while in progress, result once done) changes, so the line doesn't
+visibly jump/reflow once the user's eye is on it. Coworker's own production UI (`ao-collab`'s `tool-call-item.tsx`)
 does something visually similar (collapsible row, spinner while running) but
 this is an independent, from-scratch implementation, not a port —
 nx-chat-ao intentionally never shares controller or rendering code with

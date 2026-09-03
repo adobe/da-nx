@@ -255,6 +255,10 @@ export default class NxChatAo extends LitElement {
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
       this.shadowRoot.querySelector('.chat-input')?.focus();
     }
+
+    if (changed.has('pendingPermission') && this.pendingPermission && !changed.get('pendingPermission')) {
+      this.shadowRoot.querySelector('.permission-approve-btn')?.focus();
+    }
   }
 
   _getSlashItems(filter) {
