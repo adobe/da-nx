@@ -198,16 +198,21 @@ export async function isConnected(config) {
  * @param {string} service.userSecret - The Smartling user secret.
  * @param {string} service.org - The DA org.
  * @param {string} service.site - The DA site.
+ * @param {Function} [sendMessage] - Callback to surface an error message
+ *  to the user if authentication fails.
  * @returns {Promise<boolean>} Whether authentication succeeded.
  */
-export async function connect(service) {
+export async function connect(service, sendMessage) {
   const {
     name, origin, env, userId, userSecret, org, site,
   } = service;
   const endpoint = resolveOrigin(origin, org, site);
 
   const data = await authenticate(endpoint, userId, userSecret);
-  if (!data?.accessToken) return false;
+  if (!data?.accessToken) {
+    sendMessage?.({ text: 'Connection to Smartling failed.', type: 'error' });
+    return false;
+  }
 
   authCredentials = { name, env, endpoint, userIdentifier: userId, userSecret };
   const { accessToken, refreshToken, expiresIn } = data;
@@ -346,14 +351,44 @@ async function createBatch(endpoint, projectId, jobUid, urls, autoAuthorize, sen
   return batchUid;
 }
 
+/**
+ * Downloads a single locale's translated file content.
+ * @param {Object} opts - Fetch options, including the `Authorization`
+ *  header.
+ * @param {string} origin - The resolved Smartling API origin.
+ * @param {string} projectId - The Smartling project id.
+ * @param {Object} lang - The target language; reads `lang.code`.
+ * @param {Object} url - The url to download; reads `url.daBasePath`.
+ * @returns {Promise<string|null>} The file's translated content, or null
+ *  on failure.
+ */
 async function downloadFile(opts, origin, projectId, lang, url) {
   const reqUrl = new URL(`${origin}/files-api/v2/projects/${projectId}/locales/${lang.code}/file`);
   reqUrl.searchParams.append('fileUri', url.daBasePath);
 
   const resp = await fetchWithRetry(reqUrl, opts, { onUnauthorized: onUnauthorized(opts) });
+  if (!resp.ok) return null;
   return resp.text();
 }
 
+/**
+ * Downloads and saves every url's translated content for one target
+ * language, reporting an error message per file that fails to download
+ * instead of saving empty/incorrect content.
+ * @param {Object} params
+ * @param {string} params.org - The DA org.
+ * @param {string} params.site - The DA site.
+ * @param {Object} params.service - The service configuration.
+ * @param {Object} params.lang - The target language being saved.
+ * @param {Object[]} params.urls - The urls to download; mutated in place
+ *  with `sourceContent` and `status` (`'error'` on a failed download,
+ *  otherwise set by `saveFn`).
+ * @param {Function} params.saveFn - Callback to persist a downloaded
+ *  url's content.
+ * @param {Function} params.sendMessage - Callback to surface a status/
+ *  error message to the user.
+ * @returns {Promise<Object[]>} The urls, each mutated in place.
+ */
 export async function saveItems({
   org,
   site,
@@ -361,6 +396,7 @@ export async function saveItems({
   lang,
   urls,
   saveFn,
+  sendMessage,
 }) {
   const { origin, projectId } = service;
   const endpoint = resolveOrigin(origin, org, site);
@@ -379,9 +415,19 @@ export async function saveItems({
 
     const text = await downloadFile(opts, endpoint, projectId, lang, url);
 
+    if (text === null) {
+      sendMessage({ text: `Download failed for ${url.daBasePath}.`, type: 'error' });
+      url.status = 'error';
+      return;
+    }
+
     url.sourceContent = await removeDnt({ org, site, html: text, ext: url.ext });
 
-    await saveFn(url);
+    try {
+      await saveFn(url);
+    } catch {
+      url.status = 'error';
+    }
   };
 
   return downloadQueue(urls, downloadCallback);
@@ -413,7 +459,10 @@ export async function sendAllLanguages({
 
   sendMessage({ text: `Creating job in Smartling for: ${title}.` });
   const jobUid = await createJob(endpoint, projectId, title, langs, sendMessage);
-  if (!jobUid) return;
+  if (!jobUid) {
+    sendMessage({ text: `Job creation failed for: ${title}.`, type: 'error' });
+    return;
+  }
 
   // Presist to the state for future reference
   options.service.jobUid = { value: jobUid };
@@ -423,16 +472,26 @@ export async function sendAllLanguages({
 
   sendMessage({ text: `Creating a batch in Smartling for: ${title}.` });
   const batchUid = await createBatch(endpoint, projectId, jobUid, urls, autoAuthorize === 'yes', sendMessage);
-  if (!batchUid) return;
+  if (!batchUid) {
+    sendMessage({ text: `Batch creation failed for: ${title}.`, type: 'error' });
+    return;
+  }
 
-  // Presist to the state for future reference
+  // Persist to the state for future reference
   options.service.batchUid = { value: batchUid };
 
   // // Persist into the immediate config object - janktown, but ok for now
   // config[`${env}.batchUid`] = batchUid;
 
   sendMessage({ text: `Uploading ${urls.length} items to Smartling for job: ${title}.` });
-  const results = await uploadFiles(endpoint, projectId, batchUid, langs, urls, sendMessage);
+  const results = await uploadFiles(
+    endpoint,
+    projectId,
+    batchUid,
+    langs,
+    urls,
+    sendMessage,
+  );
   const accepted = results.filter((result) => result === 'ACCEPTED').length;
 
   langs.forEach((lang) => {
@@ -444,38 +503,91 @@ export async function sendAllLanguages({
   await saveState({ options });
 }
 
+/**
+ * Fetches Smartling's per-locale progress for a job.
+ * @param {string} endpoint - The resolved Smartling API origin.
+ * @param {string} projectId - The Smartling project id.
+ * @param {string} jobUid - The job to check progress for.
+ * @returns {Promise<Object[]|null>} Each locale's `{ targetLocaleId,
+ *  percentComplete }`, or null on failure. `percentComplete` is reported
+ *  as 100 when Smartling has no content at all for that locale in this
+ *  job (its own `progress` field is `null`, not a 0% in-progress state) -
+ *  matching the "No content for translation" status Smartling's dashboard
+ *  shows for it.
+ */
+async function fetchJobProgress(endpoint, projectId, jobUid) {
+  const url = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid}/progress`;
+  const opts = { headers: { Authorization: `Bearer ${token}` } };
+
+  const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
+  if (!resp.ok) return null;
+  const { response } = await resp.json();
+  const { contentProgressReport = [] } = response?.data || {};
+  return contentProgressReport.map(({ targetLocaleId, progress }) => ({
+    targetLocaleId,
+    percentComplete: progress === null ? 100 : (progress?.percentComplete ?? 0),
+  }));
+}
+
+/**
+ * Refreshes translation status for every target language of a job via
+ * Smartling's getJobProgress endpoint.
+ * @param {Object} params
+ * @param {string} params.org - The DA org.
+ * @param {string} params.site - The DA site.
+ * @param {Object} params.service - The service configuration; reads
+ *  `jobUid.value` (set by `sendAllLanguages`).
+ * @param {Object[]} params.langs - Target languages; mutated in place with
+ *  `translation.status` ('translated' once Smartling reports 100% for
+ *  that locale, otherwise Smartling's real progress percentage, e.g.
+ *  '62% translated') and `translation.translated` (`urls.length` once
+ *  translated, otherwise `0` - this endpoint reports one job-wide
+ *  percentage per locale, not a per-file breakdown). A lang already at
+ *  `'complete'` or `'cancelled'` is left untouched - both are terminal,
+ *  and Smartling keeps reporting 100% indefinitely, which would otherwise
+ *  look "newly finished" on every subsequent check. If every lang is
+ *  already terminal, skips the API call entirely.
+ * @param {Object[]} params.urls - The urls in the project.
+ * @param {Object} params.actions - `{ saveState, sendMessage }` callbacks;
+ *  `sendMessage` surfaces an error if no job has been created yet, or if
+ *  the progress request itself fails.
+ * @returns {Promise<void>}
+ */
 export async function getStatusAll({
   org, site, service, langs, urls, actions,
 }) {
-  const { saveState } = actions;
+  const { saveState, sendMessage } = actions;
   const { origin, projectId, jobUid } = service;
   const endpoint = resolveOrigin(origin, org, site);
 
-  langs.forEach((lang) => { lang.translation.translated = 0; });
-
-  for (const url of urls) {
-    // Built per-url (not hoisted) so a token refresh mid-loop - whether
-    // scheduled or triggered by a 401 below - is picked up by later urls.
-    const opts = { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } };
-    const progressUrl = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid.value}/file/progress?fileUri=${url.daBasePath}`;
-    const resp = await fetchWithRetry(progressUrl, opts, { onUnauthorized: onUnauthorized(opts) });
-    const { response } = await resp.json();
-    if (response.code !== 'SUCCESS') return;
-    const langReports = response?.data?.contentProgressReport;
-    if (!langReports) return;
-    langReports.forEach((report) => {
-      const { targetLocaleId, progress } = report;
-      const lang = langs.find((projLang) => projLang.code === targetLocaleId);
-      // Previously translated files will have a null progress object.
-      if (!progress || progress.percentComplete === 100) {
-        lang.translation.translated += 1;
-      }
-    });
+  if (!jobUid?.value) {
+    sendMessage({ text: 'Cannot check status: no Smartling job has been created yet.', type: 'error' });
+    return;
   }
 
-  for (const lang of langs) {
-    if (lang.translation.translated === urls.length) {
+  // 'complete'/'cancelled' are terminal - Smartling keeps reporting 100%
+  // translated forever once done, so without this guard every subsequent
+  // status check would revert 'complete' back to 'translated' (triggering
+  // a re-save) or 'cancelled' back to 'translated' (undoing the cancel).
+  const activeLangs = langs.filter((l) => !['complete', 'cancelled'].includes(l.translation.status));
+  if (!activeLangs.length) return;
+
+  const progressByLocale = await fetchJobProgress(endpoint, projectId, jobUid.value);
+  if (!progressByLocale) {
+    sendMessage({ text: 'Checking status failed: could not reach Smartling.', type: 'error' });
+    return;
+  }
+
+  for (const lang of activeLangs) {
+    const entry = progressByLocale.find((p) => p.targetLocaleId === lang.code);
+    const percentComplete = entry?.percentComplete ?? 0;
+
+    if (percentComplete === 100) {
+      lang.translation.translated = urls.length;
       lang.translation.status = 'translated';
+    } else {
+      lang.translation.translated = 0;
+      lang.translation.status = `${percentComplete}% translated`;
     }
   }
 
