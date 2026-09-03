@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  connect, isConnected, saveItems, sendAllLanguages, getStatusAll,
+  isConnected, saveItems, sendAllLanguages, getStatusAll,
 } from '../../../../nx/blocks/loc/connectors/smartling/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 
@@ -64,14 +64,14 @@ describe('smartling connector - legacy origin rewriting', () => {
   // early return depends on tokenPolling being unset, which is otherwise
   // module-level state left over from every later connect() call in this file.
   it('resolves the endpoint from origin/org/site in isConnected, not a nonexistent config key', async () => {
-    localStorage.setItem('smartling.prod.token', JSON.stringify({
+    localStorage.setItem(`smartling.${org}.${site}.prod.token`, JSON.stringify({
       accessToken: 'cached-token',
       refreshToken: 'cached-refresh-token',
       expires: Date.now() + 60000,
     }));
 
     const connected = await isConnected({
-      name: 'Smartling', env: 'prod', userId: 'u', userSecret: 's', origin: legacyOrigin, org, site,
+      name: 'Smartling', env: 'prod', origin: legacyOrigin, org, site,
     });
     expect(connected).to.equal(true);
 
@@ -115,23 +115,6 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(langs[0].translation.status).to.equal('created');
   });
 
-  it('rewrites the legacy /smartling origin to /translate/smartling/<org>/<site> on connect', async () => {
-    await connect({
-      name: 'Smartling', origin: legacyOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
-    });
-
-    expect(calls[0].url).to.equal(`${DA_TRANSLATE}/translate/smartling/${org}/${site}/auth-api/v2/authenticate`);
-  });
-
-  it('leaves a non-legacy origin untouched on connect', async () => {
-    const customOrigin = 'https://api.smartling.com';
-    await connect({
-      name: 'Smartling', origin: customOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
-    });
-
-    expect(calls[0].url).to.equal(`${customOrigin}/auth-api/v2/authenticate`);
-  });
-
   it('rewrites the origin for sendAllLanguages job/batch/upload calls', async () => {
     const options = { service: { origin: legacyOrigin, projectId: 'proj-1' } };
     const langs = [{ name: 'French', code: 'fr-FR' }];
@@ -163,10 +146,11 @@ describe('smartling connector - legacy origin rewriting', () => {
   });
 
   it('recovers from a 401 on getStatusAll by refreshing the token and retrying', async () => {
-    await connect({
-      name: 'Smartling', origin: legacyOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
-    });
-
+    // Relies on `authContext` already being populated by the isConnected()
+    // call in the first test above - real auth (connect()) can't be
+    // exercised here since it now requires a signed-in IMS session. The
+    // target token is unique so this passes regardless of whatever token an
+    // earlier test in this file left cached.
     let progressCalls = 0;
     let refreshCalls = 0;
     origFetch = window.fetch;
@@ -177,12 +161,12 @@ describe('smartling connector - legacy origin rewriting', () => {
       if (u.includes('/auth-api/v2/authenticate/refresh')) {
         refreshCalls += 1;
         return new Response(JSON.stringify({
-          response: { data: { accessToken: 'new-token', refreshToken: 'new-refresh-token', expiresIn: 300 } },
+          response: { data: { accessToken: 'getstatusall-token', refreshToken: 'new-refresh-token', expiresIn: 300 } },
         }), { status: 200 });
       }
       if (u.includes('/file/progress')) {
         progressCalls += 1;
-        if (opts.headers.Authorization !== 'Bearer new-token') return new Response('', { status: 401 });
+        if (opts.headers.Authorization !== 'Bearer getstatusall-token') return new Response('', { status: 401 });
         return new Response(JSON.stringify({
           response: {
             code: 'SUCCESS',
@@ -424,10 +408,11 @@ describe('smartling connector - legacy origin rewriting', () => {
   });
 
   it('recovers from a 401 by refreshing the token and retrying the request', async () => {
-    await connect({
-      name: 'Smartling', origin: legacyOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
-    });
-
+    // Relies on `authContext` already being populated by the isConnected()
+    // call in the first test above - real auth (connect()) can't be
+    // exercised here since it now requires a signed-in IMS session. The
+    // target token is unique so this passes regardless of whatever token an
+    // earlier test in this file left cached.
     let jobCalls = 0;
     let refreshCalls = 0;
     origFetch = window.fetch;
@@ -438,12 +423,12 @@ describe('smartling connector - legacy origin rewriting', () => {
       if (u.includes('/auth-api/v2/authenticate/refresh')) {
         refreshCalls += 1;
         return new Response(JSON.stringify({
-          response: { data: { accessToken: 'new-token', refreshToken: 'new-refresh-token', expiresIn: 300 } },
+          response: { data: { accessToken: 'sendall-token', refreshToken: 'new-refresh-token', expiresIn: 300 } },
         }), { status: 200 });
       }
       if (u.includes('/jobs-api/v3/projects') && opts.method === 'POST') {
         jobCalls += 1;
-        if (opts.headers.Authorization !== 'Bearer new-token') return new Response('', { status: 401 });
+        if (opts.headers.Authorization !== 'Bearer sendall-token') return new Response('', { status: 401 });
         return new Response(JSON.stringify({ response: { data: { translationJobUid: 'job-1' } } }), { status: 200 });
       }
       if (u.includes('/job-batches-api/v2/projects') && u.includes('/batches') && !u.includes('/file')) {
@@ -471,10 +456,6 @@ describe('smartling connector - legacy origin rewriting', () => {
   });
 
   it('gives up without looping when the retried request also 401s', async () => {
-    await connect({
-      name: 'Smartling', origin: legacyOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
-    });
-
     let refreshCalls = 0;
     origFetch = window.fetch;
     window.fetch = async (url, opts = {}) => {
