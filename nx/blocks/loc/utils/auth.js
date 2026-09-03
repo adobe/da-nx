@@ -85,7 +85,7 @@ function loginUrl(name, org, site, env) {
  * @param {string} env - The environment key (e.g. 'prod').
  * @returns {Promise<Object|null>} The parsed response body, or null on failure.
  */
-export async function loginViaDaEtc(name, org, site, env) {
+export async function login(name, org, site, env) {
   const resp = await daFetch({ url: loginUrl(name, org, site, env), opts: { method: 'POST' } });
   if (!resp.ok) return null;
   return resp.json();
@@ -117,7 +117,7 @@ export async function getAccessToken(name, service, { force = false } = {}) {
     if (cached && cachedExpires > Date.now()) return cached;
   }
 
-  const data = await loginViaDaEtc(name, org, site, env);
+  const data = await login(name, org, site, env);
   const { access_token: accessToken, expires_in: expiresIn } = data || {};
   if (!accessToken) return null;
 

@@ -1,7 +1,8 @@
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
 import fetchWithRetry from '../../utils/fetchWithRetry.js';
-import { loginViaDaEtc, getCachedToken, setCachedToken } from '../../utils/auth.js';
+import { login, getCachedToken, setCachedToken } from '../../utils/auth.js';
 
+const INTEGRATION_NAME = 'smartling';
 const FALLBACK_EXPIRES_IN_S = 280; // used only if the API response omits expiresIn
 const REFRESH_BUFFER_MS = 5000; // refresh this long before the token actually expires
 const MIN_REFRESH_DELAY_MS = 2000; // never schedule a refresh sooner than this
@@ -19,7 +20,6 @@ export function resolveOrigin(origin, org, site) {
     : origin;
 }
 
-let token;
 let tokenPolling;
 // Retained so a failed refresh can fall back to a full re-authentication via
 // da-etc: Smartling caps a token pair's session at 12 hours regardless of how
@@ -27,8 +27,17 @@ let tokenPolling;
 // though da-etc's held credentials still work.
 let authContext;
 
-export function getToken() {
-  return token;
+/**
+ * Reads the currently cached access token, if any - the single source of
+ * truth for what's valid right now, kept current by the proactive refresh
+ * schedule and by `onUnauthorized`'s reactive recovery.
+ * @param {string} org - The DA org.
+ * @param {string} site - The DA site.
+ * @param {string} env - The environment key (e.g. 'prod').
+ * @returns {string|undefined} The cached access token, if any.
+ */
+export function getToken(org, site, env) {
+  return getCachedToken(INTEGRATION_NAME, org, site, env).accessToken;
 }
 
 /**
@@ -41,14 +50,13 @@ export function getToken() {
  *  `refreshToken`, and `expiresIn`, or null on failure.
  */
 async function authenticate(org, site, env) {
-  const json = await loginViaDaEtc('smartling', org, site, env);
+  const json = await login(INTEGRATION_NAME, org, site, env);
   return json?.response?.data || null;
 }
 
 /**
  * Persists the current access/refresh token pair plus a computed expiry to
  * localStorage.
- * @param {string} name - The connector's display name (e.g. 'Smartling').
  * @param {string} org - The DA org.
  * @param {string} site - The DA site.
  * @param {string} env - The environment key (e.g. 'prod').
@@ -58,15 +66,11 @@ async function authenticate(org, site, env) {
  *  falls back to `FALLBACK_EXPIRES_IN_S` if omitted.
  * @returns {void}
  */
-function setTokenDetails(name, org, site, env, accessToken, refreshToken, expiresInSecs) {
+function setTokenDetails(org, site, env, accessToken, refreshToken, expiresInSecs) {
   const timestamp = Date.now();
   const expiresInMs = (expiresInSecs ?? FALLBACK_EXPIRES_IN_S) * 1000;
   const expires = timestamp + expiresInMs;
-  setCachedToken(name.toLowerCase(), org, site, env, { accessToken, refreshToken, expires });
-}
-
-function getTokenDetails(name, org, site, env) {
-  return getCachedToken(name.toLowerCase(), org, site, env);
+  setCachedToken(INTEGRATION_NAME, org, site, env, { accessToken, refreshToken, expires });
 }
 
 /**
@@ -83,10 +87,8 @@ function getTokenDetails(name, org, site, env) {
  *  re-authentication failed.
  */
 async function refreshOrReauthenticate() {
-  const {
-    name, env, endpoint, org, site,
-  } = authContext;
-  const { refreshToken: currRefreshToken } = getTokenDetails(name, org, site, env);
+  const { endpoint, org, site, env } = authContext;
+  const { refreshToken: currRefreshToken } = getCachedToken(INTEGRATION_NAME, org, site, env);
 
   const body = JSON.stringify({ refreshToken: currRefreshToken });
   const opts = { ...BASE_OPTS, body };
@@ -97,8 +99,7 @@ async function refreshOrReauthenticate() {
   if (!data?.accessToken) return null;
 
   const { accessToken, refreshToken, expiresIn } = data;
-  token = accessToken;
-  setTokenDetails(name, org, site, env, accessToken, refreshToken, expiresIn);
+  setTokenDetails(org, site, env, accessToken, refreshToken, expiresIn);
   return { accessToken, expiresIn };
 }
 
@@ -123,7 +124,6 @@ function scheduleRefresh(expiresInSecs) {
     if (!refreshed) {
       // Both refresh and re-authentication failed - stop polling rather than
       // hammering the API forever with credentials that no longer work.
-      token = undefined;
       tokenPolling = undefined;
       return;
     }
@@ -157,22 +157,20 @@ export function onUnauthorized(opts) {
  * refresh scheduling (e.g. after a page reload) instead of requiring the
  * user to reconnect.
  * @param {Object} config - The service configuration, including
- *  `origin`/`org`/`site` to resolve the API endpoint.
+ *  `origin`/`org`/`site`/`env` to resolve the API endpoint.
  * @returns {Promise<boolean>} Whether a still-valid cached token was found.
  */
 export async function isConnected(config) {
   const {
-    name, env, origin, org, site,
+    origin, org, site, env,
   } = config;
   const endpoint = resolveOrigin(origin, org, site);
-  const { expires, accessToken } = getTokenDetails(name, org, site, env);
+  const { expires } = getCachedToken(INTEGRATION_NAME, org, site, env);
   const notExpired = expires > Date.now();
 
   if (notExpired && !tokenPolling) {
-    // Cache the token for the ES Module
-    token = accessToken;
     authContext = {
-      name, env, endpoint, org, site,
+      endpoint, org, site, env,
     };
 
     // Kick off the refresh scheduling
@@ -189,7 +187,6 @@ export async function isConnected(config) {
  * and only ever returns a short-lived access/refresh token pair, so no
  * secret reaches the browser.
  * @param {Object} service - The service configuration.
- * @param {string} service.name - The connector's display name.
  * @param {string} service.origin - The configured API origin.
  * @param {string} service.env - The environment key (e.g. 'prod').
  * @param {string} service.org - The DA org.
@@ -198,7 +195,7 @@ export async function isConnected(config) {
  */
 export async function connect(service) {
   const {
-    name, origin, env, org, site,
+    origin, env, org, site,
   } = service;
   const endpoint = resolveOrigin(origin, org, site);
 
@@ -206,11 +203,10 @@ export async function connect(service) {
   if (!data?.accessToken) return false;
 
   authContext = {
-    name, env, endpoint, org, site,
+    endpoint, org, site, env,
   };
   const { accessToken, refreshToken, expiresIn } = data;
-  token = accessToken;
-  setTokenDetails(name, org, site, env, accessToken, refreshToken, expiresIn);
+  setTokenDetails(org, site, env, accessToken, refreshToken, expiresIn);
   scheduleRefresh(expiresIn);
   return true;
 }
