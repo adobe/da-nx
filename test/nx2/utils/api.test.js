@@ -90,9 +90,29 @@ describe('api.js', () => {
       expect(resp.permissions).to.deep.equal(['read', 'write']);
     });
 
-    it('falls back to [read, write] when no permission headers', async () => {
+    it('falls back to [read, write] when no permission headers on AEM_API', async () => {
       const resp = await daFetch({ url: `${AEM_API}/some/path` });
       expect(resp.permissions).to.deep.equal(['read', 'write']);
+    });
+
+    it('does not fake permissions when no permission headers on non-AEM_API origins', async () => {
+      const respDaAdmin = await daFetch({ url: `${DA_ADMIN}/some/path` });
+      expect(respDaAdmin.permissions).to.be.undefined;
+
+      const respHlxAdmin = await daFetch({ url: `${HLX_ADMIN}/some/path` });
+      expect(respHlxAdmin.permissions).to.be.undefined;
+    });
+
+    it('does not fake permissions on AEM_API error responses (4xx/5xx)', async () => {
+      restoreFetch();
+      installFetch({ status: 404 });
+      const notFound = await daFetch({ url: `${AEM_API}/some/path` });
+      expect(notFound.permissions).to.be.undefined;
+
+      restoreFetch();
+      installFetch({ status: 500 });
+      const serverError = await daFetch({ url: `${AEM_API}/some/path` });
+      expect(serverError.permissions).to.be.undefined;
     });
 
     it('returns {} and signs in when no access token', async () => {
@@ -295,7 +315,7 @@ describe('api.js', () => {
         body: JSON.stringify([
           { path: '/o/s/folder/page.html', name: 'page', ext: 'html', lastModified: 1 },
         ]),
-        headers: { 'da-continuation-token': 'tok-next' },
+        headers: { 'da-continuation-token': 'tok-next', 'x-da-actions': 'role=read,write' },
       });
       const { org: o, site: s } = makeOrgSite();
       const result = await source.list({ org: o, site: s, path: '/folder' });
