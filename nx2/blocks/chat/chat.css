@@ -515,6 +515,10 @@
       background-color: var(--s2-gray-200);
     }
 
+    .icon-add {
+      display: flex;
+    }
+
     .icon-up {
       display: none;
     }

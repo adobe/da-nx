@@ -192,6 +192,8 @@ class Editor extends LitElement {
     const error = this._error(pointer);
     const value = this._primitiveValue(node);
     const label = hideLabel ? '' : (node?.label ?? '');
+    // Hide help text on array-item rows (same reason the label is hidden there).
+    const description = hideLabel ? '' : (node?.description ?? '');
     const showRequired = !hideLabel && required;
 
     if (Array.isArray(node.enumValues)) {
@@ -202,6 +204,7 @@ class Editor extends LitElement {
           .label=${label}
           .required=${showRequired}
           .error=${error}
+          .description=${description}
           .value=${currentValue}
           ?disabled=${readonly}
           @change=${(e) => this._onSelectInput(node, e)}
@@ -222,6 +225,7 @@ class Editor extends LitElement {
         <form-checkbox
           data-pointer=${pointer}
           .error=${error}
+          .description=${description}
           ?checked=${!!value}
           ?disabled=${readonly}
           @change=${(e) => this._onBooleanInput(node, e)}
@@ -237,6 +241,7 @@ class Editor extends LitElement {
           .label=${label}
           .required=${showRequired}
           .error=${error}
+          .description=${description}
           .value=${String(value ?? '')}
           .min=${minimum}
           .max=${maximum}
@@ -254,6 +259,7 @@ class Editor extends LitElement {
           .label=${label}
           .required=${showRequired}
           .error=${error}
+          .description=${description}
           .value=${value ?? ''}
           ?disabled=${readonly}
           @input=${(e) => this._onTextInput(node, e)}
@@ -268,6 +274,7 @@ class Editor extends LitElement {
         .label=${label}
         .required=${showRequired}
         .error=${error}
+        .description=${description}
         .value=${value ?? ''}
         ?disabled=${readonly}
         @input=${(e) => this._onTextInput(node, e)}
@@ -383,10 +390,12 @@ class Editor extends LitElement {
 
   _renderObject(node, { itemLabel = '' } = {}) {
     const children = node.children ?? [];
+    const error = this._error(node.pointer);
+    const showDesc = !error && node.description;
     const activate = (e) => this._onGroupActivate(node.pointer, e);
     return html`
       <fieldset
-        class="form-node${this._activeClass(node.pointer)}"
+        class="form-node${this._activeClass(node.pointer)}${error ? ' has-error' : ''}"
         data-pointer=${node.pointer}
         @click=${activate}
         @focusin=${activate}
@@ -395,6 +404,8 @@ class Editor extends LitElement {
           ${itemLabel ? html`<span class="form-item-label">${itemLabel}</span>` : nothing}
           ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
         </legend>
+        ${error ? html`<p class="form-node-error">${error}</p>` : nothing}
+        ${showDesc ? html`<p class="form-node-description">${node.description}</p>` : nothing}
         ${children.map((child) => this._renderNode(child))}
       </fieldset>
     `;
@@ -411,11 +422,13 @@ class Editor extends LitElement {
     const minItems = nodeMin ?? 0;
     const canAdd = !readonly && (maxItems === undefined || itemCount < maxItems);
     const addLabel = this._addLabel(node);
+    const error = this._error(node.pointer);
+    const showDesc = !error && node.description;
 
     const activate = (e) => this._onGroupActivate(node.pointer, e);
     return html`
       <section
-        class="form-node${this._activeClass(node.pointer)}"
+        class="form-node${this._activeClass(node.pointer)}${error ? ' has-error' : ''}"
         data-pointer=${node.pointer}
         @click=${activate}
         @focusin=${activate}
@@ -429,6 +442,8 @@ class Editor extends LitElement {
             ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
           </p>
         </div>
+        ${error ? html`<p class="form-node-error">${error}</p>` : nothing}
+        ${showDesc ? html`<p class="form-node-description">${node.description}</p>` : nothing}
 
         ${displayItems.map((item, index) => {
       const structured = item.kind === 'object' || item.kind === 'array';
@@ -446,6 +461,7 @@ class Editor extends LitElement {
         .itemCount=${itemCount}
         .minItems=${minItems}
         .maxItems=${maxItems}
+        .required=${!!node.required}
         .active=${reorderActive}
         .open=${this._openMenuPointer === item.pointer}
         @focusin=${(e) => e.stopPropagation()}

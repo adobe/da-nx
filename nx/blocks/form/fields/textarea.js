@@ -9,6 +9,7 @@ class FormTextarea extends LitElement {
   static properties = {
     value: { type: String },
     label: { type: String },
+    description: { type: String },
     error: { type: String },
     placeholder: { type: String },
     name: { type: String },
@@ -32,6 +33,7 @@ class FormTextarea extends LitElement {
   }
 
   render() {
+    const showHint = !this.error && this.description;
     return html`
       <div class="form-field${this.error ? ' has-error' : ''}">
         ${this.label ? html`<label for="form-textarea">${this.label}${this.required ? html`<span class="form-required">*</span>` : nothing}</label>` : nothing}
@@ -47,6 +49,7 @@ class FormTextarea extends LitElement {
           ${this.error ? icon('alert', 'form-field-icon') : nothing}
         </div>
         ${this.error ? html`<p class="form-field-error">${this.error}</p>` : nothing}
+        ${showHint ? html`<p class="form-field-description">${this.description}</p>` : nothing}
       </div>
     `;
   }

@@ -24,7 +24,13 @@ class NxPicker extends LitElement {
     labelOverride: { type: String },
     _active: { state: true },
     ignoreFocus: { attribute: true },
+    size: { type: String, reflect: true },
   };
+
+  constructor() {
+    super();
+    this.size = 's';
+  }
 
   get _popover() { return this.shadowRoot.querySelector('nx-popover'); }
 
@@ -147,13 +153,9 @@ class NxPicker extends LitElement {
         >
           <span class="picker-item-label">${item.label}</span>
           ${item.trailingIcon ? html`
-            <img
-              class="picker-open-in-icon"
-              src=${item.trailingIcon}
-              width="14"
-              height="14"
-              alt=""
-            />` : nothing}
+            <svg class="picker-open-in-icon" viewBox="0 0 20 20" aria-hidden="true">
+              <use href="${item.trailingIcon}#icon"></use>
+            </svg>` : nothing}
           ${selected ? CHECKMARK : nothing}
         </button>
       </li>

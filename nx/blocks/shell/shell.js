@@ -13,7 +13,7 @@ await import('../../public/sl/components.js');
 
 const TRUSTED_ORGS = ['adobe'];
 // Trusted apps keyed by `org/repo`.
-const TRUSTED_APPS = ['adobe-commerce/storefront-tools'];
+const TRUSTED_APPS = ['adobe-commerce/storefront-tools', 'adobe-rnd/aem-apps'];
 
 /**
  * Parses the current URL to extract view, organization, repository, reference,

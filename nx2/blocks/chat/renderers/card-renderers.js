@@ -1,13 +1,8 @@
 import { html, nothing } from 'da-lit';
 
 /**
- * Backend-neutral tool-activity/approval card rendering.
- *
- * Neither function here knows about any controller's wire vocabulary
- * (da-agent's TOOL_STATE, AO's own state names, etc). Each controller's own
- * adapter is responsible for translating its backend's concepts into the
- * small display shapes below before handing them to these renderers — see
- * chat.js (da-agent adapter) and ao/chat-controller-ao.js (AO adapter).
+ * Backend-neutral tool-activity/approval card rendering. chat.js translates
+ * da-agent's TOOL_STATE into the small display shapes below before calling these.
  *
  * This is the first piece of a gradual migration off renderers.js: as more
  * of that file's rendering is proven generic, it moves here and the

@@ -1,12 +1,113 @@
 # Worklog
 
+## 2026-09-02
+
+### New lionbridge translation connector + shared loc utils extraction
+
+- New connector (`nx/blocks/loc/connectors/lionbridge/`) implementing the standard connector interface against Lionbridge's Content API v2, with GUID persistence and dev-guideline compliance.
+- Fixed several dependent-language (`waitingFor`) bugs found via live debugging: a path-joining bug, wrong source language code, a stale-jobId status regression, url-metadata clobbering across concurrent saves, and a save-dispatch race.
+- Extracted shared connector utils (`downloadQueue.js`, `auth.js`, `fetchWithRetry.js`) used across Lionbridge/Trados/Smartling/GLaaS.
+- Added status pill colors for in-progress/error.
+- `getOpts` returns `null` on auth failure instead of throwing, so every call site's existing `.ok`/failure handling covers it too.
+- Added error messages for: missing requestId on download, download failures, job-submit failures, and per-job status-check failures; `sendAllLanguages`/`getStatusAll` no longer clear a just-shown error with a trailing success message.
+- `auth.js`'s `getAccessToken` gained a `{ force }` option to bypass the cache and re-login, used for reactive 401 recovery.
+- Full test coverage; verified end-to-end against real Lionbridge staging APIs and the DA Translate app UI.
+
+## 2026-08-27
+
+### Standalone quick-edit — authenticate before embedding preview
+
+Replaced the unauthenticated top-level redirect from `aem.page` to
+`preview.da.live` with a standalone shell flow. The existing quick-edit portal
+first obtains the preview cookie, after which the shell embeds the authenticated
+preview page with `controller=parent` and relays the unchanged quick-edit
+protocol between the two frames. The da-live Canvas host remains unchanged.
+
+## 2026-08-25
+
+### nx2 editortoggle — label copy update
+
+Updated `nx2/blocks/editortoggle/editortoggle.js` toggle label text from **"New editor"** to **"New Authoring"** so both the opt-in toggle and the switch-back context use the same updated wording.
+Also updated the switch-back feedback modal title in `nx2/blocks/editortoggle/switchback-dialog.js` from **"Help us improve the new editor"** to **"Help us improve the new authoring experience"**.
+Matched the profile-menu toggle hover state to the surrounding menu buttons in `nx2/blocks/editortoggle/editortoggle.css`, including blue text, background, and full-width separators.
+Added matching 0.2s transitions for the toggle row and separator expansion animation.
+
+## 2026-08-26
+
+### nx2/blocks/chat-ao — update Coworker destinations
+
+Replaced the retired `coworker.experience.adobe.io` skills and chat URLs with
+their Experience Cloud routes. Capabilities now opens
+`https://experience.adobe.com/#/coworker/customizations`; continuing an episode
+opens `https://experience.adobe.com/#/coworker/{episodeId}`.
+
+### nx2/blocks/chat-ao — PR CSS cleanup
+
+Removed the unused `button.action-btn` rule and split the malformed
+`max-height`/`border-left` declaration in the tool-call detail styles.
+
+### nx2/blocks/chat-ao — contain background request failures
+
+Made session warming catch both HTTP and WebSocket failures, and explicitly
+consumed rejected background episode-list refreshes. Added controller tests for
+both rejection paths.
+
+### nx2/blocks/chat-ao — scope skills cache by IMS tenant
+
+Replaced the manifest-only skills cache with tenant-specific localStorage keys
+derived from AO's `x-tenant-id`. Cache hydration now waits for IMS context,
+preventing one organization from rendering another's cached skills. Added
+cross-tenant utility tests and controller cache-hydration coverage.
+
+## 2026-08-25
+
+### nx2/utils/api.js — hlx6 rename/move via copy + delete (#687)
+
+The source bus has no move operation, so `source.move` on hlx6 (used by da-live's
+rename) failed. Reimplemented the hlx6 branch as `source.copy` then `source.delete`
+of the original, reusing the sibling methods (same delegation pattern as
+`save`→`_saveHlx6`). This also inherits copy's `/org/site/` destination-prefix
+stripping, which the old inline move branch was missing. Fails safe: if the copy is
+not ok, it returns that response and never deletes. Legacy (hlx5) `${DA_ADMIN}/move`
+path unchanged. Tests: hlx6 move now asserts copy-then-delete, plus a failure-path
+test asserting no DELETE when the copy fails.
+
+## 2026-08-19
+
+### nx2 — restore lazy-loaded RUM (regression from nx1)
+
+nx1 lazy-loaded `deps/rum.js` at the tail of `loadArea` (via `scripts/lazy.js`); nx2 dropped it. Restored:
+
+- Copied `deps/rum.js` (vendored helix `sampleRUM`) into `nx2/deps/`.
+- Added `scripts/lazy.js` (self-invoking, like nx1): holds `rumWC` (RUM click tracking for `[data-rum]` web components) + a `loadLazy` IIFE that imports `../deps/rum.js`, calls `sampleRUM()`, and registers `rumWC` after 3s.
+- `nx.js` does `if (isDoc) import('./lazy.js')` **after the section loop** for every doc, matching nx1's post-loop timing. To reach that point on non-app-frame / no-nav pages, the `idx === 0` header setup was extracted into `loadHeader(isSession)`; its `return true` (the old early `return`s) now `break`s the loop instead of returning from `loadArea`, so section-loading semantics are unchanged but control still falls through to the lazy import.
+- nx2 has no `[data-rum]` elements yet, so `rumWC` is currently a no-op — kept for parity/forward-compat.
+
 ## 2026-08-14
 
-### trados connector — stop re-saving already-completed languages
+### editortoggle — UI + first-time/switch-back tracking (stacked on ew-user-flag)
 
-Same bug as Smartling's `getStatusAll` (fixed on the separate `smartling-connector-enhancements` branch): `langs.forEach` unconditionally overwrote `lang.translation.status` from Trados's task list, with no guard against an already-`'complete'` status. Trados keeps reporting completed file-delivery tasks indefinitely, so every subsequent "Get status" click reverted a `'complete'` lang back to `'translated'`, re-triggering a redundant download/save. Fixed by skipping langs already at `'complete'` or `'cancelled'` (Trados has no `cancelTranslation` yet, but added the guard for consistency/future-proofing).
+The editor-toggle UI and its one-time guidance flows, stacked on top of the `ew-user-flag` branch (which owns the core `isEWUserEnabled` / `setEWUserEnabled` / `isEWEnabled` short-circuit logic). This branch consumes that flag; it does not define it.
 
-`test/loc/trados/getStatusAll.test.js` previously only tested the pure helpers (`getSourceFileStatus`/`getLangStatus`) — no coverage of `getStatusAll` itself. Added 3 tests against mocked `fetch` (Trados login + the `corsFetch`-proxied tasks call): guard holds for `'complete'`, guard holds for `'cancelled'`, non-terminal langs still update normally.
+- **`nx2/blocks/editortoggle/`**: `<nx-editortoggle>` Lit element — a `role="switch"` "New editor" toggle. Reflected `variant` prop: `toolbar` (default, renders only on `/edit`) and `menu` (renders only on `/canvas`). `_toggle()` calls `setEWUserEnabled`, then swaps `/edit` ↔ `/canvas` preserving `search`+`hash` (or reloads). `connectedCallback` reconciles the persisted flag to the pathname on direct/bookmarked landings, and scopes rendering to `EDITOR_PATHS` only.
+- **Placement**: `nav.js` TEMP-injects the toolbar toggle into the action `<ul>` (strip once the nav fragment carries its own `<li>`); `profile.js` drops `<nx-editortoggle variant="menu">` into the profile popover for `/canvas`.
+- **First-time tracking (welcome guide)**: `armEwWelcome()` / `isEwWelcomePending()` / `consumeEwWelcome()` over `nx2:ew-welcome-pending` + `nx2:ew-welcome-seen` (armed at toggle-on, first-time-only). `welcome-dialog.js` (`nx-ew-welcome-dialog`) loads `/nx/fragments/guides/welcome` and shows once on `/canvas`.
+- **Switch-back tracking (feedback)**: `armEwSwitchbackFeedback()` / `isEwSwitchbackPending()` / `consumeEwSwitchback()` over `nx2:ew-switchback-pending` + `nx2:ew-switchback-seen`, armed on toggle-off, shown once on `/edit`. `switchback-dialog.js` POSTs to `DA_FEEDBACK` with `category: 'Editor switch-back'`.
+- These tracking flags all live in `ewFlags.js` alongside the inherited core logic; tests for them are in `ewFlags.test.js` (welcome + switch-back describe blocks). The double-fire guard keeps welcome/switch-back firing from the toolbar instance only.
+
+## 2026-08-14
+
+### nx2/utils/ewFlags.js — user-level Experience Workspace opt-in
+
+Core logic split out of the `editortoggle` work so it can land on its own. Adds a browser-scoped opt-in to the new (canvas) editor that mirrors the site-level `ew.enabled` flag, letting individual users preview EW on sites that haven't been switched over yet.
+
+- New `EW_USER_KEY = 'nx2:ew-user-enabled'` in localStorage, with `isEWUserEnabled()` / `setEWUserEnabled(bool)` accessors (both storage-safe — `isEWUserEnabled` returns `false` and `setEWUserEnabled` no-ops when storage is unavailable).
+- Split the old site-only check into `isEWEnabledBySite({ org, site })`, and made `isEWEnabled({ org, site })` short-circuit to `true` when the user override is on — so `da-browse`'s existing `isEWEnabled` call site opts the user into the new editor with zero changes there. The short-circuit intentionally runs before the `fetchDaConfigs` network call.
+- `?ew` query-param seeding, mirroring da-live's `?da-admin` pattern (`blocks/shared/constants.js` `getDaEnv`): `isEWUserEnabled()` reads `?ew` from the URL and persists it before returning — `?ew=true` opts in, `?ew=false`/`?ew=reset` opts out — so the choice survives navigations that drop the param. `isEWUserEnabled(location?)` takes an injectable `location` for testing; `syncEWUserFromQuery` is the private read-through helper.
+- `isEwChatDisabled` / `isCoworkerEnabled` stay site-only on purpose.
+- Tests in `nx2/test/unit/nx/utils/ewFlags.test.js`: default state, set/unset roundtrip, the user-override short circuit in `isEWEnabled` (uses a bogus org/site so an accidental network call would surface as a rejection, not a false positive), and `?ew=true`/`false`/`reset`/absent query-param seeding.
+
+The toggle UI, welcome guide, and switch-back feedback prompt that consume this flag live on the stacked `editortoggle` branch.
 
 ## 2026-08-07
 

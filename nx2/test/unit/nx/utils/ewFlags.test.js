@@ -1,0 +1,144 @@
+import { expect } from '@esm-bundle/chai';
+import {
+  isEWEnabled,
+  isEWUserEnabled,
+  setEWUserEnabled,
+  armEwWelcome,
+  isEwWelcomePending,
+  consumeEwWelcome,
+  armEwSwitchbackFeedback,
+  isEwSwitchbackPending,
+  consumeEwSwitchback,
+} from '../../../../utils/ewFlags.js';
+
+const EW_USER_KEY = 'nx2:ew-user-enabled';
+const EW_WELCOME_PENDING_KEY = 'nx2:ew-welcome-pending';
+const EW_WELCOME_SEEN_KEY = 'nx2:ew-welcome-seen';
+const EW_SWITCHBACK_PENDING_KEY = 'nx2:ew-switchback-pending';
+const EW_SWITCHBACK_SEEN_KEY = 'nx2:ew-switchback-seen';
+
+describe('ewFlags user-level override', () => {
+  beforeEach(() => {
+    localStorage.removeItem(EW_USER_KEY);
+  });
+
+  afterEach(() => {
+    localStorage.removeItem(EW_USER_KEY);
+  });
+
+  it('isEWUserEnabled defaults to false when unset', () => {
+    expect(isEWUserEnabled()).to.equal(false);
+  });
+
+  it('setEWUserEnabled(true) writes and setEWUserEnabled(false) removes', () => {
+    setEWUserEnabled(true);
+    expect(localStorage.getItem(EW_USER_KEY)).to.equal('true');
+    expect(isEWUserEnabled()).to.equal(true);
+
+    setEWUserEnabled(false);
+    expect(localStorage.getItem(EW_USER_KEY)).to.equal(null);
+    expect(isEWUserEnabled()).to.equal(false);
+  });
+
+  // The user override intentionally short-circuits before the network call
+  // to fetchDaConfigs — test with an obviously bogus org/site so a failed
+  // fetch would surface as a rejection rather than a false positive.
+  it('isEWEnabled returns true when user toggle is on, regardless of site config', async () => {
+    setEWUserEnabled(true);
+    const result = await isEWEnabled({ org: '__ewflags_test_never_hit__', site: '__nope__' });
+    expect(result).to.equal(true);
+  });
+
+  it('?ew=true seeds and persists the flag', () => {
+    expect(isEWUserEnabled({ href: 'https://da.live/?ew=true' })).to.equal(true);
+    expect(localStorage.getItem(EW_USER_KEY)).to.equal('true');
+  });
+
+  it('?ew=false clears a previously-set flag', () => {
+    setEWUserEnabled(true);
+    expect(isEWUserEnabled({ href: 'https://da.live/?ew=false' })).to.equal(false);
+    expect(localStorage.getItem(EW_USER_KEY)).to.equal(null);
+  });
+
+  it('?ew=reset clears a previously-set flag', () => {
+    setEWUserEnabled(true);
+    expect(isEWUserEnabled({ href: 'https://da.live/?ew=reset' })).to.equal(false);
+    expect(localStorage.getItem(EW_USER_KEY)).to.equal(null);
+  });
+
+  it('leaves the persisted flag untouched when ?ew is absent', () => {
+    setEWUserEnabled(true);
+    expect(isEWUserEnabled({ href: 'https://da.live/edit#/org/site' })).to.equal(true);
+    expect(localStorage.getItem(EW_USER_KEY)).to.equal('true');
+  });
+});
+
+describe('ewFlags welcome guide', () => {
+  beforeEach(() => {
+    localStorage.removeItem(EW_WELCOME_PENDING_KEY);
+    localStorage.removeItem(EW_WELCOME_SEEN_KEY);
+  });
+
+  afterEach(() => {
+    localStorage.removeItem(EW_WELCOME_PENDING_KEY);
+    localStorage.removeItem(EW_WELCOME_SEEN_KEY);
+  });
+
+  it('isEwWelcomePending defaults to false when unset', () => {
+    expect(isEwWelcomePending()).to.equal(false);
+  });
+
+  it('armEwWelcome sets the pending flag', () => {
+    armEwWelcome();
+    expect(isEwWelcomePending()).to.equal(true);
+  });
+
+  it('consumeEwWelcome clears pending and permanently marks seen', () => {
+    armEwWelcome();
+    consumeEwWelcome();
+    expect(isEwWelcomePending()).to.equal(false);
+    expect(localStorage.getItem(EW_WELCOME_SEEN_KEY)).to.equal('true');
+  });
+
+  it('armEwWelcome is a no-op once the guide has been seen', () => {
+    armEwWelcome();
+    consumeEwWelcome();
+    armEwWelcome();
+    expect(isEwWelcomePending()).to.equal(false);
+  });
+});
+
+describe('ewFlags switch-back feedback', () => {
+  beforeEach(() => {
+    localStorage.removeItem(EW_SWITCHBACK_PENDING_KEY);
+    localStorage.removeItem(EW_SWITCHBACK_SEEN_KEY);
+  });
+
+  afterEach(() => {
+    localStorage.removeItem(EW_SWITCHBACK_PENDING_KEY);
+    localStorage.removeItem(EW_SWITCHBACK_SEEN_KEY);
+  });
+
+  it('isEwSwitchbackPending defaults to false when unset', () => {
+    expect(isEwSwitchbackPending()).to.equal(false);
+  });
+
+  it('armEwSwitchbackFeedback sets the pending flag', () => {
+    armEwSwitchbackFeedback();
+    expect(isEwSwitchbackPending()).to.equal(true);
+  });
+
+  it('consumeEwSwitchback clears pending and permanently marks seen', () => {
+    armEwSwitchbackFeedback();
+    consumeEwSwitchback();
+    expect(isEwSwitchbackPending()).to.equal(false);
+    expect(localStorage.getItem(EW_SWITCHBACK_SEEN_KEY)).to.equal('true');
+  });
+
+  it('armEwSwitchbackFeedback is a no-op once the prompt has been seen', () => {
+    armEwSwitchbackFeedback();
+    consumeEwSwitchback();
+    armEwSwitchbackFeedback();
+    expect(isEwSwitchbackPending()).to.equal(false);
+  });
+});
