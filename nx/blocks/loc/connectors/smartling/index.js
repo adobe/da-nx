@@ -1,6 +1,6 @@
-import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
+import downloadQueue from '../../utils/downloadQueue.js';
 import fetchWithRetry from '../../utils/fetchWithRetry.js';
 
 export const dnt = { addDnt };
@@ -430,23 +430,7 @@ export async function saveItems({
     }
   };
 
-  const queue = new Queue(downloadCallback, 5);
-
-  return new Promise((resolve) => {
-    const throttle = setInterval(() => {
-      const nextUrl = urls.find((url) => !url.inProgress);
-      if (nextUrl) {
-        nextUrl.inProgress = true;
-        queue.push(nextUrl);
-      } else {
-        const finished = urls.every((url) => url.status);
-        if (finished) {
-          clearInterval(throttle);
-          resolve(urls);
-        }
-      }
-    }, 250);
-  });
+  return downloadQueue(urls, downloadCallback);
 }
 
 /**

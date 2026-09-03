@@ -73,6 +73,8 @@ class NxLocTranslate extends LitElement {
 
   async handleSaveLangs(props) {
     const data = props ? { langs: this._langs, ...props } : { langs: this._langs };
+    // Connector urls carry per-language metadata; tell the host to merge.
+    if (props?.urls) data.mergeUrls = true;
     const opts = { detail: { data }, bubbles: true, composed: true };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);

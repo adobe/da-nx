@@ -1,16 +1,18 @@
-import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
-import authReady, { getAccessToken } from './auth.js';
+import downloadQueue from '../../utils/downloadQueue.js';
+import authReady, { getAccessToken as getCachedAccessToken } from '../../utils/auth.js';
 import { corsFetch } from './utils.js';
 
 export const dnt = { addDnt };
 
+const INTEGRATION_NAME = 'trados';
+
 export function isConnected(service) {
-  return authReady(service);
+  return authReady(INTEGRATION_NAME, service);
 }
 
 export function connect(service) {
-  return authReady(service);
+  return authReady(INTEGRATION_NAME, service);
 }
 
 // --- Helpers ---
@@ -43,7 +45,7 @@ function extractCustomFields(options) {
 
 async function getOpts(service, method = 'GET', body = null, contentType = 'application/json') {
   const { tenantId } = service;
-  const token = await getAccessToken(service);
+  const token = await getCachedAccessToken(INTEGRATION_NAME, service);
   if (!token) throw new Error('Trados authentication failed');
 
   const opts = {
@@ -399,18 +401,5 @@ export async function saveItems({
     }
   };
 
-  const queue = new Queue(downloadCallback, 5);
-
-  return new Promise((resolve) => {
-    const throttle = setInterval(() => {
-      const nextUrl = urls.find((u) => !u.inProgress);
-      if (nextUrl) {
-        nextUrl.inProgress = true;
-        queue.push(nextUrl);
-      } else if (urls.every((u) => u.status)) {
-        clearInterval(throttle);
-        resolve(urls);
-      }
-    }, 250);
-  });
+  return downloadQueue(urls, downloadCallback);
 }
