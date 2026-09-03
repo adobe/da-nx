@@ -35,10 +35,12 @@ once the user does something — see
   `RESUME`/`ATTACH`). `ATTACH` is the one built for exactly this: "join this
   episode, don't submit a turn."
 - **Failures stay silent.** If the backend session isn't actually live yet,
-  AO replies with an `ERROR` frame instead of `SESSION_READY`. `_handleServerEvent`
+  AO replies with an `ERROR` frame instead of `SESSION_READY`. `_onSessionError`
   only surfaces `ERROR_CONNECTION`/`ERROR_SESSION` to the user while
-  `_thinking` is true, so a failed _warm_ attempt never shows up — `sendMessage`
-  just connects (and attaches) fresh when the user actually sends.
+  `_blockedByActiveTurn` is true (see [Connection recovery](#connection-recovery)
+  for why plain `_thinking` isn't enough), so a failed _warm_ attempt never
+  shows up — `sendMessage` just connects (and attaches) fresh when the user
+  actually sends.
 
 `_ensureSocket()` coalesces concurrent callers (warming opening the socket
 early, `sendMessage` needing it moments later) onto the same in-flight
@@ -70,18 +72,33 @@ mid-turn still ends the turn correctly: it surfaces via the normal
 `ERROR_CONNECTION`/`ERROR_SESSION` handling once reattached.
 
 **Only reconnects automatically while a turn is actually in flight
-(`_shouldReattachOnClose()`: `!_destroyed && _thinking`) — an idle close does
-nothing on its own.** This used to reattach unconditionally, mid-turn or
-idle, so a tab sitting on an ended/idle episode would retry forever: AO's
-`ATTACH` rejects a non-live episode only after running a billable liveness
-check, and the rejection itself closes the socket — an immediate,
-no-backoff retry loop against an episode that will never become attachable
-again (a real production incident: flat user traffic, but a runaway spike
-in that liveness check from idle tabs re-`ATTACH`ing roughly once a second,
-for hours, after their one real message). There's no "permanently idle"
-state for AO to signal either, since an episode is always reopenable — the
-fix is entirely client-side: stop treating a rejection as "retry
-immediately," and only reattach when there's an actual local reason to.
+(`_shouldReattachOnClose()`: `!_destroyed && _blockedByActiveTurn`) — an idle
+close does nothing on its own.** This used to reattach unconditionally,
+mid-turn or idle, so a tab sitting on an ended/idle episode would retry
+forever: AO's `ATTACH` rejects a non-live episode only after running a
+billable liveness check, and the rejection itself closes the socket — an
+immediate, no-backoff retry loop against an episode that will never become
+attachable again (a real production incident: flat user traffic, but a
+runaway spike in that liveness check from idle tabs re-`ATTACH`ing roughly
+once a second, for hours, after their one real message). There's no
+"permanently idle" state for AO to signal either, since an episode is always
+reopenable — the fix is entirely client-side: stop treating a rejection as
+"retry immediately," and only reattach when there's an actual local reason
+to.
+
+**A suspended turn (pending question/plan/permission) doesn't count as
+"in flight" here, even though `_thinking` is still true.** AO genuinely
+reports the episode as idle while it's paused waiting on the user — there is
+no active generation for a reattach to rejoin, so a socket drop during a
+pending question/plan/permission used to reattach anyway, get the same
+"not active (state=idle)" rejection as the idle-tab case above, and surface
+it as a scary `Error: Cannot ATTACH to episode ...` — even though the popover
+itself was working fine and needed no live socket (`answerQuestion`/
+`respondToPlanApproval`/`respondToPermission` all already reconnect via
+`RESUME` on demand when the user actually responds). `_shouldReattachOnClose()`
+and `_onSessionError()` both gate on the existing `_blockedByActiveTurn`
+getter (see [Episode switching](#episode-switching)) instead of bare
+`_thinking`, so this case is now silent, same as the idle-tab case.
 
 Those reasons are `warmSession()` (user starts typing, or an episode is
 loaded/switched to — see [Session warming](#session-warming)) and
@@ -397,8 +414,10 @@ receive them.
 
 `ao-controller.js` handles all three events, patching the same
 `{ role: 'assistant', toolCall: {...} }` entry in `_messages` in place by
-`toolCallId` (same entry-patching pattern as `hydrateToolCall`'s summary
-rows) — `tool_call_detected` appends the entry (`status: 'detected'`, name
+`toolCallId` — always looked up by id rather than array index, since
+`_messages` can be replaced out from under an in-flight patch (e.g. while
+`hydrateToolCall`'s own fetch is still pending) — `tool_call_detected`
+appends the entry (`status: 'detected'`, name
 only, no args yet); `tool_call_start` upgrades it to `status: 'running'` with
 `arguments`, appending fresh only if no `detected` row arrived first (AO
 doesn't guarantee `detected` fires before `start`); `tool_call_end` upgrades
@@ -410,13 +429,32 @@ surfaced as `toolCall.title` and preferred over the raw `tool_name` ("skill")
 in the card's summary line, so a skill invocation reads as e.g. "AEM Sites DA
 Page Update" instead of "skill".
 
+**No error badge, by design — `status` is never rendered as a visual
+distinction, only as a `tool-call-${status}` class hook.** `success: false`
+on the wire is a much noisier signal than "the user should worry about
+this": it also covers AO's blind-deferred-schema retry (a tool's schema
+isn't preloaded past `inline_schema_token_budget`; the first call in an
+episode comes back `success: false`, `result` starting with `"Loaded schema
+for "`, then retries and succeeds — normal, deterministic, not a failure)
+and a user's own permission denial (`result` starting with `"<system-info>
+User denied permission"` — the user's deliberate choice, not something gone
+wrong). An earlier version of this doc had `ao-controller.js`/`episodes.js`
+detect the deferred-schema case specifically (via `isDeferredSchemaResult`,
+matching that one string) and map it to a `'retrying'` status so no badge
+showed — but the permission-denial case proved that was one instance of a
+pattern, not a one-off: `success: false` doesn't reliably mean "alarm the
+user," and detecting each non-alarming case as it's discovered doesn't
+scale. Removed rather than extended — the assistant's own reply is already
+the channel a user reads for "did this work," and doesn't need a wire-level
+heuristic to get it right.
+
 `chat-ao.js`'s `renderToolCallCard` is a small collapsible `<details>` (styled
 after this file's own existing `.selection-context` chevron pattern, not
 copied from anywhere) — collapsed by default. **The summary label ("Using
-&lt;name&gt;") never changes across detected → running → done** — only the
-expandable detail (arguments while in progress, result once done) and an
-`error` badge change, so the line doesn't visibly jump/reflow once the user's
-eye is on it. Coworker's own production UI (`ao-collab`'s `tool-call-item.tsx`)
+&lt;name&gt;") never changes across detected → running → done**, and neither
+does its styling regardless of outcome — only the expandable detail
+(arguments while in progress, result once done) changes, so the line doesn't
+visibly jump/reflow once the user's eye is on it. Coworker's own production UI (`ao-collab`'s `tool-call-item.tsx`)
 does something visually similar (collapsible row, spinner while running) but
 this is an independent, from-scratch implementation, not a port —
 nx-chat-ao intentionally never shares controller or rendering code with
@@ -446,8 +484,11 @@ turn — coarser than per-call (no titles, no per-call detail, just a count),
 but real. `renderToolCallCard` renders that row as a plain expandable
 `<summary>` with no status badge; opening it (`@toggle`) calls
 `AoChatController#hydrateToolCall`, which fetches the turn's full event log
-once (cached per `turnId`), extracts every real `{tool_call_id, name,
-arguments}`/`{result, display_result, status, duration_s, metadata}` pair via
+(no caching — there's exactly one summary row per turn, and hydration is
+already guarded against re-entry via `loadingCalls`/`calls`, so a second
+fetch for the same turn never actually happens), extracts every real
+`{tool_call_id, name, arguments}`/`{result, display_result, status,
+duration_s, metadata}` pair via
 `extractToolCalls` (matching `assistant_message.tool_calls[]` against
 `tool_result` events by `tool_call_id`), and nests them as `toolCall.calls` on
 the _same_ summary message — replacing it with sibling messages instead (the
@@ -473,6 +514,26 @@ that deep-compares the object (this file's own tests included).
 (mirroring `nx-chat`'s own `chat.js`) rather than jumping unconditionally on
 every `messages` change — without it, expanding a tool-call row while
 scrolled up in history yanked the view back to the bottom.
+
+## Stop / interrupt
+
+`stop()` (`ao-controller.js`) sends `INTERRUPT` over an already-open socket
+and calls `_done()` immediately, client-side, without waiting for AO to
+confirm the abort — AO's own abort is asynchronous, so the turn can keep
+producing events for a beat after `INTERRUPT` is sent, until `TURN_ABORTED`
+actually lands. `_interrupting` (set by `stop()`, cleared by `sendMessage` or
+once `TURN_COMPLETED`/`TURN_ABORTED` arrives) gates `_handleServerEvent` via
+`IGNORED_WHILE_INTERRUPTING` — a fixed set of event types (`TEXT_DELTA`,
+`TEXT_DONE`, `UI_ARTIFACT_CREATED`, every `TOOL_CALL_*`, `USER_QUESTION`,
+`PLAN_APPROVAL_REQUEST`, `PERMISSION_REQUEST`) dropped outright while
+interrupting, so nothing already in flight for the interrupted turn (or
+generated in the gap before the abort actually lands server-side) can
+resurrect it client-side after `_done()` already cleared it.
+
+A suspended turn (question, plan approval, or permission request) that gets
+interrupted still reaches `_done()` via `TURN_ABORTED`, same as a normal
+completion — `_done()` unconditionally clears whichever card was pending, so
+it doesn't linger after the turn it belonged to is gone.
 
 ## Region resolution
 
@@ -506,7 +567,7 @@ message text (`buildFailedUploadsText`) rather than blocking the send.
 
 ## Voice input
 
-`shared/chat/voice-input.js` (`createVoiceInput`/`isVoiceInputSupported`/
+`utils/voice-input.js` (`createVoiceInput`/`isVoiceInputSupported`/
 `appendTranscript`) wraps the browser's Web Speech API — purely client-side
 dictation into `.chat-input`, no AO/backend involvement at all. It's a
 from-scratch port of coworker's own `use-voice-input.ts`/`chat-input.tsx`

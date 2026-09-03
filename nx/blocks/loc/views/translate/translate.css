@@ -169,7 +169,8 @@ nx-loc-actions {
     background-color: var(--s2-cyan-300);
   }
 
-  &.is-created {
+  &.is-created,
+  &.is-in-progress {
     background-color: var(--s2-seafoam-300);
   }
 
@@ -184,5 +185,9 @@ nx-loc-actions {
 
   &.is-cancelled {
     background-color: var(--s2-red-300);
+  }
+
+  &.is-error {
+    background-color: var(--s2-red-900);
   }
 }

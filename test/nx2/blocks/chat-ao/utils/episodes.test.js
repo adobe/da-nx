@@ -395,6 +395,21 @@ describe('episodes.js', () => {
       expect(extractToolCalls([])).to.deep.equal([]);
       expect(extractToolCalls(undefined)).to.deep.equal([]);
     });
+
+    it('keeps a genuine tool failure as status "error"', () => {
+      const toolCalls = extractToolCalls([
+        { type: 'assistant_message', tool_calls: [{ id: 'tc1', name: 'skill', arguments: '{}' }] },
+        {
+          type: 'tool_result',
+          tool_call_id: 'tc1',
+          result: 'Tool execution failed.',
+          error: 'Tool execution failed.',
+          status: 'error',
+        },
+      ]);
+
+      expect(toolCalls[0].status).to.equal('error');
+    });
   });
 
   describe('extractSelectionContext', () => {

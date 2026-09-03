@@ -16,7 +16,6 @@
 
   button {
     border: none;
-    padding: 0;
     cursor: pointer;
     font-family: inherit;
   }
@@ -269,7 +268,7 @@
     flex-direction: column;
     gap: var(--s2-spacing-75);
 
-    &:has(.tool-call-card) {
+    &:has(.tool-call-card), &:has(.tool-call-detail) {
       padding-top: 0;
       padding-bottom: 0;
     }
@@ -423,14 +422,6 @@
       margin-top: var(--s2-spacing-100);
       overflow-y: auto;
     }
-  }
-
-  .tool-call-status {
-    text-transform: uppercase;
-  }
-
-  .tool-call-error .tool-call-status {
-    color: var(--s2-red-700);
   }
 
   .tool-call-children {
@@ -701,9 +692,16 @@
   }
 
   .permission-row-tool {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
     font-weight: bold;
     font-size: var(--s2-body-size-s);
     color: var(--s2-gray-800);
+    padding: var(--s2-spacing-100);
+    padding-bottom: 0;
   }
 
   .permission-row-detail {
@@ -712,8 +710,9 @@
     color: var(--s2-gray-600);
     overflow-wrap: break-word;
     white-space: pre-wrap;
-    max-height: 120px;
+    max-height: 200px;
     overflow-y: auto;
+    padding: var(--s2-spacing-100);
   }
 
   .permission-row-buttons {

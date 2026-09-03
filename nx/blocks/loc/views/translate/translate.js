@@ -45,14 +45,23 @@ class NxLocTranslate extends LitElement {
     super.update();
   }
 
+  /**
+   * Sets up the connector for this project's translation service.
+   *
+   * Augments (does not copy) `this.project.options.service` so that
+   * `this._service` stays the same object connectors mutate — e.g.
+   * Smartling's `sendAllLanguages` sets `service.jobUid` after this runs.
+   * A spread/copy here would leave `this._service` permanently stale for
+   * any property a connector adds after initial setup, until the next
+   * full page load rebuilds it from the freshly persisted project.
+   * @returns {Promise<void>}
+   */
   async setupService() {
-    const connector = await setupConnector(this.project.options.service);
-    this._service = {
-      ...this.project.options.service,
-      connector,
-      org: this.project.org,
-      site: this.project.site,
-    };
+    const { service } = this.project.options;
+    service.connector = await setupConnector(service);
+    service.org = this.project.org;
+    service.site = this.project.site;
+    this._service = service;
     this._connected = await this._service.connector.isConnected(this._service);
   }
 
@@ -70,6 +79,8 @@ class NxLocTranslate extends LitElement {
 
   async handleSaveLangs(props) {
     const data = props ? { langs: this._langs, ...props } : { langs: this._langs };
+    // Connector urls carry per-language metadata; tell the host to merge.
+    if (props?.urls) data.mergeUrls = true;
     const opts = { detail: { data }, bubbles: true, composed: true };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
@@ -86,9 +97,10 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleConnect() {
+    const sendMessage = this.handleMessage.bind(this);
     this._connectBusy = true;
     try {
-      this._connected = await this._service.connector.connect(this._service);
+      this._connected = await this._service.connector.connect(this._service, sendMessage);
     } finally {
       this._connectBusy = false;
     }
@@ -174,8 +186,15 @@ class NxLocTranslate extends LitElement {
       if (sendAll?.errors?.length) {
         this._urlErrors = sendAll.errors;
       }
-      // See if anything is finished immediately
-      this.checkAndSaveLangs(conf);
+      // Connectors report failures by calling `sendMessage({ type: 'error' })`
+      // and returning early - nothing was actually sent in that case, so
+      // skip checking for finished languages, which would otherwise
+      // immediately overwrite the error message with "Checking for
+      // languages to save" before the user ever sees it.
+      if (this._message?.type !== 'error') {
+        // See if anything is finished immediately
+        this.checkAndSaveLangs(conf);
+      }
     } finally {
       this._sendAllBusy = false;
     }
@@ -344,9 +363,11 @@ class NxLocTranslate extends LitElement {
                 ${this._cancelAllBusy ? this.renderSpinner() : nothing} Cancel project
               </sl-button>
             ` : nothing}
+            ${this.incompleteLangs ? html`
             <sl-button @click=${this.handleGetStatus} class="accent" ?disabled=${this._getStatusBusy}>
               ${this._getStatusBusy ? this.renderSpinner() : nothing} Get status
             </sl-button>
+            ` : nothing}
           `;
         }
 
