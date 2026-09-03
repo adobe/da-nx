@@ -123,6 +123,33 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(langs[0].translation.status).to.equal('created');
   });
 
+  it('auto-connects via isConnected when there is no cached token, with no separate connect() step', async () => {
+    // Distinct org/site so this test's cache key can't collide with the
+    // 'acme'/'site1' state other tests in this file leave behind.
+    const autoOrg = 'auto-org';
+    const autoSite = 'auto-site';
+
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/integrations/smartling/login')) {
+        return new Response(JSON.stringify({
+          response: { data: { accessToken: 'auto-token', refreshToken: 'auto-refresh', expiresIn: 300 } },
+        }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const connected = await isConnected({
+      name: 'Smartling', env: 'prod', origin: 'https://api.smartling.com', org: autoOrg, site: autoSite,
+    });
+
+    expect(connected).to.equal(true);
+    expect(calls.some((c) => c.url.includes('/integrations/smartling/login'))).to.equal(true);
+  });
+
   it('rewrites the origin for sendAllLanguages job/batch/upload calls', async () => {
     const options = { service: { origin: legacyOrigin, projectId: 'proj-1' } };
     const langs = [{ name: 'French', code: 'fr-FR' }];

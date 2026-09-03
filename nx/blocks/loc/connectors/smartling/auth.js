@@ -153,14 +153,21 @@ export function onUnauthorized(opts) {
 }
 
 /**
- * Checks for a still-valid cached token and, if found, resumes background
- * refresh scheduling (e.g. after a page reload) instead of requiring the
- * user to reconnect.
- * @param {Object} config - The service configuration, including
- *  `origin`/`org`/`site`/`env` to resolve the API endpoint.
- * @returns {Promise<boolean>} Whether a still-valid cached token was found.
+ * Ensures a connected session: reuses a still-valid cached token if one
+ * exists (resuming background refresh scheduling, e.g. after a page
+ * reload), otherwise authenticates via da-etc - which holds the org/site's
+ * Smartling credentials server-side and only ever returns a short-lived
+ * access/refresh token pair, so no secret reaches the browser. Matches
+ * Trados/Lionbridge's `authReady`: connecting is transparent, with no
+ * separate manual step required.
+ * @param {Object} config - The service configuration.
+ * @param {string} config.origin - The configured API origin.
+ * @param {string} config.env - The environment key (e.g. 'prod').
+ * @param {string} config.org - The DA org.
+ * @param {string} config.site - The DA site.
+ * @returns {Promise<boolean>} Whether a connected session is available.
  */
-export async function isConnected(config) {
+async function ensureConnected(config) {
   const {
     origin, org, site, env,
   } = config;
@@ -168,36 +175,15 @@ export async function isConnected(config) {
   const { expires } = getCachedToken(INTEGRATION_NAME, org, site, env);
   const notExpired = expires > Date.now();
 
-  if (notExpired && !tokenPolling) {
+  if (notExpired) {
     authContext = {
       endpoint, org, site, env,
     };
-
-    // Kick off the refresh scheduling
-    scheduleRefresh((expires - Date.now()) / 1000);
+    // Only (re)arm the schedule if it isn't already running, so repeated
+    // calls against an already-connected session don't stack timers.
+    if (!tokenPolling) scheduleRefresh((expires - Date.now()) / 1000);
     return true;
   }
-
-  return false;
-}
-
-/**
- * Authenticates with Smartling via da-etc and starts background refresh
- * scheduling. da-etc holds the org/site's Smartling credentials server-side
- * and only ever returns a short-lived access/refresh token pair, so no
- * secret reaches the browser.
- * @param {Object} service - The service configuration.
- * @param {string} service.origin - The configured API origin.
- * @param {string} service.env - The environment key (e.g. 'prod').
- * @param {string} service.org - The DA org.
- * @param {string} service.site - The DA site.
- * @returns {Promise<boolean>} Whether authentication succeeded.
- */
-export async function connect(service) {
-  const {
-    origin, env, org, site,
-  } = service;
-  const endpoint = resolveOrigin(origin, org, site);
 
   const data = await authenticate(org, site, env);
   if (!data?.accessToken) return false;
@@ -209,4 +195,12 @@ export async function connect(service) {
   setTokenDetails(org, site, env, accessToken, refreshToken, expiresIn);
   scheduleRefresh(expiresIn);
   return true;
+}
+
+export function isConnected(config) {
+  return ensureConnected(config);
+}
+
+export function connect(service) {
+  return ensureConnected(service);
 }
