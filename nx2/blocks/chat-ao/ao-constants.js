@@ -43,12 +43,20 @@ export const ADD_MENU_ITEMS = [
   { id: MENU_OPTIONS.PROMPT, label: 'Prompt', icon: 'commentremove' },
   { id: MENU_OPTIONS.COMMAND, label: '"/" Command', icon: 'prompt' },
   { divider: true },
+  { id: MENU_OPTIONS.MANAGE_SKILLS, label: 'Manage Coworker' },
   { id: MENU_OPTIONS.MANAGE_PROMPT, label: 'Manage Prompts' },
-  { id: MENU_OPTIONS.MANAGE_SKILLS, label: 'Customize Coworker' },
   { id: MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT, label: 'Manage Enterprise Context' },
 ];
 
 export const OPEN_COWORKER_ITEM = { id: 'coworker', label: 'Continue in Coworker' };
+
+// Inserts "Continue in Coworker" + divider after the first divider in ADD_MENU_ITEMS.
+export const ADD_MENU_ITEMS_WITH_EPISODE = ADD_MENU_ITEMS.toSpliced(
+  ADD_MENU_ITEMS.findIndex((i) => i.divider) + 1,
+  0,
+  OPEN_COWORKER_ITEM,
+  { divider: true },
+);
 
 export const AO_FRAME = {
   AUTH: 'AUTH',

@@ -172,8 +172,15 @@ class NxLocTranslate extends LitElement {
       if (sendAll?.errors?.length) {
         this._urlErrors = sendAll.errors;
       }
-      // See if anything is finished immediately
-      this.checkAndSaveLangs(conf);
+      // Connectors report failures by calling `sendMessage({ type: 'error' })`
+      // and returning early - nothing was actually sent in that case, so
+      // skip checking for finished languages, which would otherwise
+      // immediately overwrite the error message with "Checking for
+      // languages to save" before the user ever sees it.
+      if (this._message?.type !== 'error') {
+        // See if anything is finished immediately
+        this.checkAndSaveLangs(conf);
+      }
     } finally {
       this._sendAllBusy = false;
     }
