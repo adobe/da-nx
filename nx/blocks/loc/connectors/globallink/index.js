@@ -62,14 +62,18 @@ async function authHeaders(service) {
 }
 
 /**
- * Derives a GlobalLink-safe upload file name from a DA base path, flattening
- * any nested folders and ensuring an extension is present.
+ * Derives a GlobalLink-safe upload file name from a DA base path, flattening any nested
+ * folders and ensuring an extension is present. Literal underscores are doubled before
+ * folder separators are collapsed to a single underscore, so distinct paths can't collide
+ * on the flattened name (e.g. "/blog/post-1" and "/blog_post-1" no longer both flatten to
+ * the same file name) — a real collision would silently drop one file from the upload zip.
  * @param {string} daBasePath - The DA-formatted base path (e.g. "/blog/post-1").
- * @returns {string} The flattened file name (e.g. "blog__post-1.html").
+ * @returns {string} The flattened file name (e.g. "blog_post-1.html").
  */
 function toFileName(daBasePath) {
   const trimmed = (daBasePath || '/document').replace(/^\//, '');
-  const safe = trimmed.replace(/[\\/]/g, '__') || 'document';
+  const escaped = trimmed.split(/[\\/]/).map((segment) => segment.replace(/_/g, '__')).join('_');
+  const safe = escaped || 'document';
   return /\.[a-z0-9]+$/i.test(safe) ? safe : `${safe}.html`;
 }
 
@@ -296,31 +300,60 @@ async function saveAndAutostart(service, submissionId) {
   return { started, messages: json?.messages ?? null };
 }
 
+const TARGETS_PAGE_SIZE = 200;
+const TARGETS_PAGE_MAX = 50;
+
 /**
- * Lists a submission's targets (per-document, per-language translation records),
- * optionally filtered by status and/or target language.
+ * Fetches a single page of a submission's targets.
  * @param {object} service - The flattened per-environment service config.
  * @param {string|number} submissionId - The submission whose targets to list.
- * @param {object} [filters] - Optional query filters.
+ * @param {object} filters - Query filters.
  * @param {string} [filters.targetStatus] - Only return targets with this status.
  * @param {string} [filters.targetLanguage] - Only return targets for this language.
- * @returns {Promise<object[]>} The matching targets, or an empty array on failure.
+ * @param {number} pageNumber - The 1-based page number to fetch.
+ * @returns {Promise<object[]|null>} The page's targets, or `null` on failure.
  */
-async function listTargets(service, submissionId, { targetStatus, targetLanguage } = {}) {
+async function listTargetsPage(service, submissionId, filters, pageNumber) {
+  const { targetStatus, targetLanguage } = filters;
   const reqUrl = new URL(`${resolveOrigin(service)}/rest/v0/targets`);
   reqUrl.searchParams.set('submissionIds', submissionId);
   // 200 is the API's maximum page size — a larger value is rejected outright.
-  reqUrl.searchParams.set('pageSize', '200');
+  reqUrl.searchParams.set('pageSize', String(TARGETS_PAGE_SIZE));
+  reqUrl.searchParams.set('pageNumber', String(pageNumber));
   if (targetStatus) reqUrl.searchParams.set('targetStatus', targetStatus);
   if (targetLanguage) reqUrl.searchParams.set('targetLanguage', targetLanguage);
 
   const resp = await fetch(reqUrl, { headers: await authHeaders(service) });
-  if (!resp.ok) return [];
+  if (!resp.ok) return null;
   const json = await resp.json();
   if (Array.isArray(json)) return json;
   if (Array.isArray(json?.targets)) return json.targets;
   if (Array.isArray(json?.items)) return json.items;
   return [];
+}
+
+/**
+ * Lists a submission's targets (per-document, per-language translation records),
+ * optionally filtered by status and/or target language. Pages through the full
+ * result set, stopping once a page comes back short of `TARGETS_PAGE_SIZE` (or after
+ * `TARGETS_PAGE_MAX` pages, as a safety net against an unexpected always-full-page response).
+ * @param {object} service - The flattened per-environment service config.
+ * @param {string|number} submissionId - The submission whose targets to list.
+ * @param {object} [filters] - Optional query filters.
+ * @param {string} [filters.targetStatus] - Only return targets with this status.
+ * @param {string} [filters.targetLanguage] - Only return targets for this language.
+ * @returns {Promise<object[]>} All matching targets, or an empty array on failure.
+ */
+async function listTargets(service, submissionId, filters = {}) {
+  const targets = [];
+  for (let pageNumber = 1; pageNumber <= TARGETS_PAGE_MAX; pageNumber += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const page = await listTargetsPage(service, submissionId, filters, pageNumber);
+    if (!page) return pageNumber === 1 ? [] : targets;
+    targets.push(...page);
+    if (page.length < TARGETS_PAGE_SIZE) break;
+  }
+  return targets;
 }
 
 /**
@@ -518,7 +551,7 @@ export async function sendAllLanguages({
   }
 
   // Persist for status / download
-  service.submissionId = { value: String(submissionId) };
+  options.service.submissionId = { value: String(submissionId) };
 
   sendMessage({ text: `Uploading ${urls.length} items to GlobalLink.` });
   const { uploadedFileNames, overflowSubmissionIds } = await uploadSourceFiles(
