@@ -2,16 +2,13 @@ import { html, nothing } from 'da-lit';
 import {
   PART_TYPE, ROLE, TOOL_INPUT, TOOL_STATE,
 } from '../constants.js';
-import { getConfig } from '../../../scripts/nx.js';
 import { parseDirectives } from '../utils/parse.js';
-import { pillIconName } from '../utils/icons.js';
 import { linkifyBareUrls, sanitizeLinks } from '../utils/links.js';
+import { parseMarkdown } from '../../shared/chat/markdown.js';
+import { renderCopyButton } from '../../shared/chat/copy-button.js';
+import { renderSelectionPills } from '../../shared/chat/selection-pills.js';
 
-const { codeBase } = getConfig();
-
-const { unified, remarkParse, remarkGfmNoLink, mdast2hast, hastToDom } = await import('../../../deps/mdast/dist/index.js');
-
-const parser = unified().use(remarkParse).use(remarkGfmNoLink);
+const { hastToDom } = await import('../../../deps/mdast/dist/index.js');
 
 function toDOM(hast) {
   return hastToDom(sanitizeLinks(linkifyBareUrls(hast)), { fragment: true });
@@ -22,7 +19,7 @@ function renderMessageContent(text) {
 
   return parseDirectives(text).map(({ kind, type, content }) => {
     if (!content) return nothing;
-    const dom = toDOM(mdast2hast(parser.parse(content)));
+    const dom = toDOM(parseMarkdown(content));
     return kind === 'directive' ? html`<div class="directive directive-${type}">${dom}</div>` : dom;
   });
 }
@@ -38,13 +35,25 @@ function approvalSummary(input, { json = false } = {}) {
     ?? (json ? JSON.stringify(input, null, 2) : null);
 }
 
+// A failed tool call carries da-agent's message in `errorText` (e.g.
+// "DA Admin API Error (404): Not Found"). Surface its first line instead of a
+// bare state like "output-error" so the reason is visible without expanding.
+function summarizeToolError(text) {
+  if (typeof text !== 'string') return null;
+  const firstLine = text.split('\n').map((line) => line.trim()).find(Boolean);
+  return firstLine ? firstLine.slice(0, 100) : null;
+}
+
 function renderToolCard(toolCallId, toolCards) {
   const card = toolCards?.get(toolCallId);
   if (!card || card.state === TOOL_STATE.AWAITING_APPROVAL) return nothing;
-  const { toolName, state, input } = card;
-  const detail = approvalSummary(input, { json: true });
+  const {
+    toolName, state, input, errorText,
+  } = card;
   const failed = state === TOOL_STATE.OUTPUT_ERROR || state === TOOL_STATE.REJECTED;
-  const status = failed ? html`<span class="tool-card-status">${state}</span>` : nothing;
+  const label = failed ? (summarizeToolError(errorText) ?? state) : null;
+  const status = failed ? html`<span class="tool-card-status">${label}</span>` : nothing;
+  const detail = failed ? errorText : approvalSummary(input, { json: true });
   return detail ? html`
     <details class="tool-card tool-card-${state}">
       <summary>${toolName}${status}</summary>
@@ -82,47 +91,12 @@ function renderAssistantMessage(msg, toolCards) {
       : nothing))}`;
   }
 
-  const copy = msg.streaming ? nothing : html`<button class="message-action-copy" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
-      <svg class="icon-paste" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-paste-20-n.svg#icon"></use></svg>
-      <svg class="icon-checkmark" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-checkmark-20-n.svg#icon"></use></svg>
-    </button>`;
-
   return html`
     <div class="message message-assistant">
       <div class="message-content">${renderMessageContent(msg.content)}</div>
-      ${copy}
+      ${renderCopyButton(msg.content, { streaming: msg.streaming })}
     </div>
   `;
-}
-
-function renderSelectionPills(msg) {
-  const contextItem = (name, iconName) => html`
-    <li class="selection-context-item">
-      <svg class="selection-icon" viewBox="0 0 20 20" aria-hidden="true">
-        <use href="${codeBase}/img/icons/${iconName}.svg#icon"></use>
-      </svg>
-      <span>${name}</span>
-    </li>`;
-
-  const items = [
-    ...(msg.selectionContext ?? []).map((sc) => {
-      const name = sc.blockName || 'Selection';
-      return contextItem(name, pillIconName(sc.type, name));
-    }),
-    ...(msg.attachmentsMeta ?? []).map(({ fileName }) => (
-      contextItem(fileName, pillIconName(undefined, fileName))
-    )),
-  ];
-  if (items.length === 1) {
-    return html`<ul class="selection-context-list" aria-label="Attached context">${items[0]}</ul>`;
-  }
-  if (items.length > 1) {
-    return html`<details class="selection-context">
-        <summary><span class="selection-context-count">${items.length} items added</span></summary>
-        <ul class="selection-context-list">${items}</ul>
-      </details>`;
-  }
-  return nothing;
 }
 
 function renderUserMessage(msg) {
@@ -141,7 +115,4 @@ function renderMessage(msg, toolCards) {
     : renderUserMessage(msg);
 }
 
-// renderMessageContent is additionally exported (no implementation change) so
-// ao/ao-renderers.js can reuse the same markdown/directive pipeline instead of
-// duplicating it — see card-renderers.js's file header for the migration rationale.
-export { renderMessage, renderApprovalCard, renderMessageContent };
+export { renderMessage, renderApprovalCard, summarizeToolError };

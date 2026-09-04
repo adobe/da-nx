@@ -1,0 +1,25 @@
+.switchback-body {
+  display: flex;
+  flex-flow: column nowrap;
+  gap: var(--s2-spacing-300);
+}
+
+.switchback-intro {
+  margin: 0;
+  line-height: 1.5;
+
+  span {
+    color: var(--s2-gray-500);
+  }
+}
+
+.switchback-textarea {
+  width: 100%;
+  height: auto;
+  min-height: 120px;
+  resize: vertical;
+}
+
+.switchback-textarea.da-input {
+  padding: var(--s2-spacing-100) var(--s2-spacing-200);
+}

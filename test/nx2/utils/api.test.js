@@ -90,9 +90,29 @@ describe('api.js', () => {
       expect(resp.permissions).to.deep.equal(['read', 'write']);
     });
 
-    it('falls back to [read, write] when no permission headers', async () => {
+    it('falls back to [read, write] when no permission headers on AEM_API', async () => {
       const resp = await daFetch({ url: `${AEM_API}/some/path` });
       expect(resp.permissions).to.deep.equal(['read', 'write']);
+    });
+
+    it('does not fake permissions when no permission headers on non-AEM_API origins', async () => {
+      const respDaAdmin = await daFetch({ url: `${DA_ADMIN}/some/path` });
+      expect(respDaAdmin.permissions).to.be.undefined;
+
+      const respHlxAdmin = await daFetch({ url: `${HLX_ADMIN}/some/path` });
+      expect(respHlxAdmin.permissions).to.be.undefined;
+    });
+
+    it('does not fake permissions on AEM_API error responses (4xx/5xx)', async () => {
+      restoreFetch();
+      installFetch({ status: 404 });
+      const notFound = await daFetch({ url: `${AEM_API}/some/path` });
+      expect(notFound.permissions).to.be.undefined;
+
+      restoreFetch();
+      installFetch({ status: 500 });
+      const serverError = await daFetch({ url: `${AEM_API}/some/path` });
+      expect(serverError.permissions).to.be.undefined;
     });
 
     it('returns {} and signs in when no access token', async () => {
@@ -295,7 +315,7 @@ describe('api.js', () => {
         body: JSON.stringify([
           { path: '/o/s/folder/page.html', name: 'page', ext: 'html', lastModified: 1 },
         ]),
-        headers: { 'da-continuation-token': 'tok-next' },
+        headers: { 'da-continuation-token': 'tok-next', 'x-da-actions': 'role=read,write' },
       });
       const { org: o, site: s } = makeOrgSite();
       const result = await source.list({ org: o, site: s, path: '/folder' });
@@ -624,13 +644,34 @@ describe('api.js', () => {
       expect(last.body.get('destination')).to.equal(destination);
     });
 
-    it('source.move hlx6 adds move=true', async () => {
+    it('source.move hlx6 emulates move via copy then delete of the original', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.move({ org: o, site: s, path: '/src.html', destination: '/dest.html' });
-      const u = new URL(lastCall().url);
-      expect(u.pathname).to.equal(`/${o}/sites/${s}/source/dest.html`);
-      expect(u.searchParams.get('move')).to.equal('true');
-      expect(u.searchParams.get('source')).to.equal('/src.html');
+      const destination = `/${o}/${s}/dest.html`;
+      await source.move({
+        org: o, site: s, path: '/src.html', destination, collision: 'overwrite',
+      });
+      const [copyCall, deleteCall] = calls;
+      // copy: PUT the destination source path with the original as ?source, no ?move
+      expect(copyCall.method).to.equal('PUT');
+      const copyUrl = new URL(copyCall.url);
+      expect(copyUrl.pathname).to.equal(`/${o}/sites/${s}/source/dest.html`);
+      expect(copyUrl.searchParams.get('source')).to.equal('/src.html');
+      expect(copyUrl.searchParams.get('collision')).to.equal('overwrite');
+      expect(copyUrl.searchParams.get('move')).to.be.null;
+      // delete: remove the original source path
+      expect(deleteCall.method).to.equal('DELETE');
+      expect(new URL(deleteCall.url).pathname).to.equal(`/${o}/sites/${s}/source/src.html`);
+    });
+
+    it('source.move hlx6 leaves the original in place when the copy fails', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({ status: 500 });
+      const resp = await source.move({
+        org: o, site: s, path: '/src.html', destination: `/${o}/${s}/dest.html`,
+      });
+      expect(resp.ok).to.be.false;
+      expect(calls.some((c) => c.method === 'DELETE')).to.be.false;
     });
 
     it('source.move legacy POSTs to /move/{org}/{site}{path} with destination form field', async () => {

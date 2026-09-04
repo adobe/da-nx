@@ -1,6 +1,7 @@
 import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
 import { registerPanelSection, wasPanelOpen, PANEL_EVENT } from '../../../nx2/utils/panel.js';
 import { getEWFlags } from '../../../nx2/utils/ewFlags.js';
+import { loadChat } from '../../../nx2/utils/chat.js';
 import { getConfig } from '../../../nx2/scripts/nx.js';
 import decorateEditor from './editor.js';
 
@@ -75,10 +76,7 @@ async function setupChat(block) {
   registerPanelSection('chat', {
     position: 'before',
     width: '400px',
-    getContent: async () => {
-      await import('../../../nx2/blocks/chat/chat.js');
-      return document.createElement('nx-chat');
-    },
+    getContent: async () => loadChat(),
   });
 
   installChatToggle(block);

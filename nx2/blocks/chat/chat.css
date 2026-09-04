@@ -175,7 +175,7 @@
   }
 
   .tool-card-status {
-    text-transform: uppercase;
+    margin-inline-start: var(--s2-spacing-75);
     font-size: var(--s2-body-size-xs);
   }
 
@@ -513,6 +513,10 @@
     &[data-active],
     &:hover {
       background-color: var(--s2-gray-200);
+    }
+
+    .icon-add {
+      display: flex;
     }
 
     .icon-up {
