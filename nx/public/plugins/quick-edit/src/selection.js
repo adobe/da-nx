@@ -203,10 +203,23 @@ export function setupNodeSelection(ctx) {
       return;
     }
 
-    if (!currentSelectedNode) return;
     if (t.closest?.(OVERLAY_SELECTOR)
       || t.closest?.('picture')
       || t.closest?.('[data-prose-index]')) return;
+
+    const block = t.closest?.('[data-block-index]');
+    if (block) {
+      const node = blockSelectPayload(block);
+      if (!node) return;
+      if (currentSelectedNode?.anchorType === 'table'
+        && currentSelectedNode.proseIndex === node.proseIndex) return;
+      blurActiveEditor();
+      clearHoverPill();
+      activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node } });
+      return;
+    }
+
+    if (!currentSelectedNode) return;
     const selectedEl = resolveSelectionElement(currentSelectedNode, document);
     if (selectedEl?.contains?.(t)) return;
     activeCtx?.port?.postMessage({
