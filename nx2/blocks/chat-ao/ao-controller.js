@@ -445,11 +445,7 @@ export default class AoChatController {
     this._update();
   }
 
-  // Replaces the question card with a durable summary of what was answered —
-  // see docs/chat-ao-component.md#question-flow. `pendingQuestion` carries
-  // the original questions/context; `answers`/`declined` is what's being (or
-  // was) sent back, so the summary is correct even before AO's own echo
-  // confirms it.
+  // See docs/chat-ao-component.md#question-flow.
   _buildQuestionResponseMessage(pendingQuestion, answers, declined) {
     return {
       role: 'assistant',
@@ -462,13 +458,7 @@ export default class AoChatController {
     };
   }
 
-  // Fires for every client on the episode, including the one that answered —
-  // only act here if this client's own pendingQuestion is still set, meaning
-  // a *different* client answered first (this client already rendered its
-  // own summary optimistically in _respondToQuestion otherwise). AO's echo
-  // carries only `answers`, no `declined` flag, so an empty list is treated
-  // as declined — true for a real decline and for a required question
-  // answered with nothing, which shouldn't happen in practice.
+  // See docs/chat-ao-component.md#question-flow.
   _onUserQuestionResponse(evt) {
     const turnId = evt.data?.turn_id ?? evt.turn_id;
     if (!this._pendingQuestion || this._pendingQuestion.turnId !== turnId) return;
