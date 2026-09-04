@@ -2,9 +2,12 @@ import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
 import { zipSync, strToU8 } from '../../../../../nx2/deps/fflate/dist/index.js';
-import authReady, { getAccessToken } from './auth.js';
+import authReady, { getAccessToken as getCachedAccessToken } from '../../utils/auth.js';
+import fetchWithRetry from '../../utils/fetchWithRetry.js';
 
 export const dnt = { addDnt };
+
+const INTEGRATION_NAME = 'globallink';
 
 const DEFAULT_DUE_DATE_DAYS = 7;
 const PROCESS_POLL_MS = 2000;
@@ -47,18 +50,47 @@ function originHeader(service) {
 /**
  * Builds the bearer-auth + JSON + proxy-origin headers used for authenticated
  * GlobalLink API calls routed through the DA_TRANSLATE proxy. The access token is
- * obtained via {@link getAccessToken} (da-etc), never built from credentials here.
+ * obtained via da-etc (see `loc/utils/auth.js`), never built from credentials here.
  * @param {object} service - The flattened per-environment service config.
  * @param {string} service.endpoint - The real GlobalLink API base endpoint.
  * @returns {Promise<object>} The request headers.
  */
 async function authHeaders(service) {
-  const token = await getAccessToken(service);
+  const token = await getCachedAccessToken(INTEGRATION_NAME, service);
   return {
     Authorization: `Bearer ${token}`,
     ...originHeader(service),
     ...JSON_HEADERS,
   };
+}
+
+/**
+ * Builds a `fetchWithRetry` `onUnauthorized` callback: forces a fresh GlobalLink login
+ * (bypassing the cached token, which da-etc can reject - e.g. revoked, or clock skew -
+ * even though the client's own expiry check still considered it valid) and rebuilds
+ * `opts` with the new bearer token, so a 401 triggers exactly one retry with a valid
+ * token instead of failing the request outright.
+ * @param {object} service - The flattened per-environment service config.
+ * @param {object} opts - The fetch options to rebuild on success.
+ * @returns {() => Promise<object|null>} Callback for `fetchWithRetry`'s `onUnauthorized`.
+ */
+function onUnauthorized(service, opts) {
+  return async () => {
+    const token = await getCachedAccessToken(INTEGRATION_NAME, service, { force: true });
+    if (!token) return null;
+    return { ...opts, headers: { ...opts.headers, Authorization: `Bearer ${token}` } };
+  };
+}
+
+/**
+ * Builds the `fetchWithRetry` config for a GlobalLink request: default rate-limit/
+ * transient-failure backoff, plus a per-request `onUnauthorized` callback.
+ * @param {object} service - The flattened per-environment service config.
+ * @param {object} opts - The fetch options to rebuild on a 401.
+ * @returns {object} The `fetchWithRetry` config.
+ */
+function retryConfig(service, opts) {
+  return { onUnauthorized: onUnauthorized(service, opts) };
 }
 
 /**
@@ -142,10 +174,11 @@ function getDocumentIdsByPath(service) {
  */
 async function waitForSubmissionReady(service, submissionId) {
   for (let i = 0; i < PROCESS_POLL_MAX; i += 1) {
+    const url = `${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/status`;
     // eslint-disable-next-line no-await-in-loop
-    const resp = await fetch(`${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/status`, {
-      headers: await authHeaders(service),
-    });
+    const opts = { headers: await authHeaders(service) };
+    // eslint-disable-next-line no-await-in-loop
+    const resp = await fetchWithRetry(url, opts, retryConfig(service, opts));
     if (resp.ok) {
       // eslint-disable-next-line no-await-in-loop
       const json = await resp.json();
@@ -236,11 +269,9 @@ async function createSubmission(
     claimScope: 'LANGUAGE',
   });
 
-  const resp = await fetch(`${resolveOrigin(service)}/rest/v0/submissions/create`, {
-    method: 'POST',
-    headers: await authHeaders(service),
-    body,
-  });
+  const url = `${resolveOrigin(service)}/rest/v0/submissions/create`;
+  const opts = { method: 'POST', headers: await authHeaders(service), body };
+  const resp = await fetchWithRetry(url, opts, retryConfig(service, opts));
   if (!resp.ok) return null;
   const json = await resp.json();
   return json.submissionId ?? json.id ?? null;
@@ -280,12 +311,10 @@ async function uploadSourceFiles(service, submissionId, urls, batchName) {
   body.append('fileFormatName', service.fileFormatName);
   body.append('extractArchive', 'true');
 
-  const token = await getAccessToken(service);
-  const resp = await fetch(`${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/upload/source`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, ...originHeader(service) },
-    body,
-  });
+  const token = await getCachedAccessToken(INTEGRATION_NAME, service);
+  const reqUrl = `${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/upload/source`;
+  const opts = { method: 'POST', headers: { Authorization: `Bearer ${token}`, ...originHeader(service) }, body };
+  const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
   if (!resp.ok) {
     return { uploadedFileNames: new Set(), overflowSubmissionIds: [], documentIdsByPath: {} };
   }
@@ -321,11 +350,13 @@ async function uploadSourceFiles(service, submissionId, urls, batchName) {
  * actually started, plus any messages GlobalLink returned (e.g. explaining why it didn't).
  */
 async function saveAndAutostart(service, submissionId) {
-  const resp = await fetch(`${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/save`, {
+  const url = `${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/save`;
+  const opts = {
     method: 'POST',
     headers: await authHeaders(service),
     body: JSON.stringify({ autoStart: true }),
-  });
+  };
+  const resp = await fetchWithRetry(url, opts, retryConfig(service, opts));
   if (!resp.ok) return { started: false, messages: null };
 
   const json = await resp.json().catch(() => null);
@@ -354,7 +385,8 @@ async function listTargetsPage(service, submissionId, pageNumber) {
   reqUrl.searchParams.set('pageSize', String(TARGETS_PAGE_SIZE));
   reqUrl.searchParams.set('pageNumber', String(pageNumber));
 
-  const resp = await fetch(reqUrl, { headers: await authHeaders(service) });
+  const opts = { headers: await authHeaders(service) };
+  const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
   if (!resp.ok) return null;
   const json = await resp.json();
   if (Array.isArray(json)) return json;
@@ -395,11 +427,13 @@ async function listTargets(service, submissionId) {
  */
 async function markTargetsDelivered(service, submissionId, targetIds) {
   if (!targetIds.length) return true;
-  const resp = await fetch(`${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/targets/delivered`, {
+  const url = `${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/targets/delivered`;
+  const opts = {
     method: 'POST',
     headers: await authHeaders(service),
     body: JSON.stringify({ targetIds }),
-  });
+  };
+  const resp = await fetchWithRetry(url, opts, retryConfig(service, opts));
   return resp.ok;
 }
 
@@ -418,7 +452,8 @@ async function requestDownload(service, submissionId, langCode) {
   reqUrl.searchParams.set('deliverableLanguages', langCode);
   reqUrl.searchParams.set('includeManifest', 'true');
 
-  const resp = await fetch(reqUrl, { headers: await authHeaders(service) });
+  const opts = { headers: await authHeaders(service) };
+  const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
   if (!resp.ok) return { downloadId: null, processingFinished: false };
   const json = await resp.json().catch(() => null);
   return { downloadId: json?.downloadId ?? null, processingFinished: !!json?.processingFinished };
@@ -435,7 +470,8 @@ async function isDownloadReady(service, submissionId, downloadId) {
   const reqUrl = new URL(`${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/download`);
   reqUrl.searchParams.set('downloadId', downloadId);
 
-  const resp = await fetch(reqUrl, { headers: await authHeaders(service) });
+  const opts = { headers: await authHeaders(service) };
+  const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
   if (!resp.ok) return false;
   const json = await resp.json().catch(() => null);
   return !!json?.processingFinished;
@@ -496,12 +532,12 @@ function isCancelled(target) {
 /**
  * Checks whether there is a currently valid GlobalLink session, fetching an access
  * token via da-etc if needed. The client secret and GlobalLink password never reach
- * the browser — see `auth.js`.
+ * the browser — see `loc/utils/auth.js`.
  * @param {object} service - The flattened per-environment service config.
  * @returns {Promise<boolean>} Whether the connector is authenticated and ready to use.
  */
 export function isConnected(service) {
-  return authReady(service);
+  return authReady(INTEGRATION_NAME, service);
 }
 
 /**
@@ -511,7 +547,7 @@ export function isConnected(service) {
  * @returns {Promise<boolean>} Whether authentication succeeded.
  */
 export function connect(service) {
-  return authReady(service);
+  return authReady(INTEGRATION_NAME, service);
 }
 
 /**
@@ -753,7 +789,6 @@ export async function saveItems({
   );
   const documentIdsByPath = getDocumentIdsByPath(service);
 
-  const token = await getAccessToken(service);
   const deliveredTargetIds = [];
 
   const downloadCallback = async (url) => {
@@ -766,10 +801,13 @@ export async function saveItems({
     }
 
     try {
-      const resp = await fetch(
-        `${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/targets/${targetId}/download/deliverable`,
-        { headers: { Authorization: `Bearer ${token}`, ...originHeader(service) } },
-      );
+      // Built per-download (not hoisted) so a background token refresh mid-batch
+      // is picked up instead of every download reusing whatever token was
+      // current when saveItems started.
+      const token = await getCachedAccessToken(INTEGRATION_NAME, service);
+      const reqUrl = `${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/targets/${targetId}/download/deliverable`;
+      const opts = { headers: { Authorization: `Bearer ${token}`, ...originHeader(service) } };
+      const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
       if (!resp.ok) throw new Error(resp.status);
 
       const text = await resp.text();
@@ -836,11 +874,13 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
 
   sendMessage({ text: `Cancelling GlobalLink translation for ${lang.name}.` });
 
-  const resp = await fetch(`${resolveOrigin(service)}/rest/v0/submissions/cancel/${submissionId}`, {
+  const url = `${resolveOrigin(service)}/rest/v0/submissions/cancel/${submissionId}`;
+  const opts = {
     method: 'POST',
     headers: await authHeaders(service),
     body: JSON.stringify({ targetIds }),
-  });
+  };
+  const resp = await fetchWithRetry(url, opts, retryConfig(service, opts));
 
   if (!resp.ok) {
     const json = await resp.json().catch(() => null);
