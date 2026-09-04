@@ -237,8 +237,49 @@ option.
   first when there's nothing typed yet to submit.
 - **Escape** mirrors clicking Skip, from anywhere in the card.
 
+**Once answered, the question card is replaced by a `questionResponse`
+summary message** (`renderQuestionResponseCard`) — not a plain `{role: 'user',
+content}` bubble, which would misrepresent a selection as something the user
+typed, and not left as no trace at all, which is what happened before this
+existed (the card just vanished; the only record was the answer buried
+inside `ask_user_question`'s own tool-call result, one expand-and-scroll
+away). Three paths build the same message shape:
+
+- **This client answers:** `_respondToQuestion` builds it immediately from
+  the `pendingQuestion` it's about to clear plus the `answers`/`declined`
+  being sent — optimistic, same principle as `sendMessage` rendering the
+  user's own typed text before the round trip completes.
+- **A different client answers first:** AO fans out `user_question_response`
+  (`{ turn_id, answers }`) to every client on the episode, sender included —
+  same pattern as `user_message`'s cross-client fanout. `_onUserQuestionResponse`
+  only acts if `pendingQuestion` is *still* set for that turn — if this client
+  already answered, it cleared its own `pendingQuestion` already, so the echo
+  is a no-op here. That field carries no `declined` flag, unlike the
+  optimistic path which knows the real value directly — an empty `answers`
+  array is treated as declined, true for a real decline and for a required
+  question somehow answered with nothing, which shouldn't happen in practice.
+- **Reload:** `turnsToMessages` (`utils/episodes.js`) finds `ask_user_question`
+  tool calls in a turn's events, matches each to its `tool_result` by
+  `tool_call_id`, and rebuilds the same shape from the call's own `arguments`
+  (`questions`/`context`) and the result's `metadata` (`answers`/`declined`) —
+  the same `_build_question_metadata` shape AO already writes for this
+  exact call, not a new field.
+
+**Live, `ask_user_question` never gets a generic tool-call card** —
+`_onToolCallDetected`/`_onToolCallStart` skip any tool name in
+`DEDICATED_SUMMARY_TOOLS` (`ao-constants.js`), and `turnsToMessages` routes it
+to `questionResponse` on reload too. The alternative (showing both) would mean
+answering a question left *two* records behind: a raw, unformatted tool-call
+card with the question JSON as `arguments` and "User answers: ..." as
+`result`, and the readable summary above it — worse than either alone.
+
+This suppression is deliberately *not* mirrored in `extractToolCalls`, used
+only when a reloaded turn's collapsed "Used N tools" row is expanded — that
+view already shows every other tool's raw args/result, so `ask_user_question`
+appearing there too is consistent rather than a special case.
+
 **Not yet implemented / open TODOs:** screen-reader verification, multi-question
-layout testing under real content, focus-ring polish, component test coverage.
+layout testing under real content, focus-ring polish.
 
 ## Plan approval
 
@@ -429,27 +470,32 @@ surfaced as `toolCall.title` and preferred over the raw `tool_name` ("skill")
 in the card's summary line, so a skill invocation reads as e.g. "AEM Sites DA
 Page Update" instead of "skill".
 
-AO's tool executor defers loading a tool's schema until first invocation once
-the manifest's tool surface exceeds `inline_schema_token_budget`; that first
-call comes back over the wire as `success: false`, `error: null`, `result`
-starting with `"Loaded schema for "` — a normal, one-time-per-tool-per-episode
-retry, not a real failure, and indistinguishable from one on `success` alone.
-Both `ao-controller.js`'s live `tool_call_end` handler and
-`episodes.js`'s `extractToolCalls` (reload hydration) run this exact
-`error`+`result` shape through `isDeferredSchemaResult` and map it to
-`status: 'retrying'` instead of `'error'`, so `renderToolCallCard` shows no
-red badge — `'retrying'` isn't `'error'`, so `statusEl` skips it and the base
-`.tool-call-card` styling (already neutral gray) applies with no new CSS —
-while still counting as `terminal`, so the schema-guidance text renders as
-the expandable detail on click, same as a real result.
+**No error badge, by design — `status` is never rendered as a visual
+distinction, only as a `tool-call-${status}` class hook.** `success: false`
+on the wire is a much noisier signal than "the user should worry about
+this": it also covers AO's blind-deferred-schema retry (a tool's schema
+isn't preloaded past `inline_schema_token_budget`; the first call in an
+episode comes back `success: false`, `result` starting with `"Loaded schema
+for "`, then retries and succeeds — normal, deterministic, not a failure)
+and a user's own permission denial (`result` starting with `"<system-info>
+User denied permission"` — the user's deliberate choice, not something gone
+wrong). An earlier version of this doc had `ao-controller.js`/`episodes.js`
+detect the deferred-schema case specifically (via `isDeferredSchemaResult`,
+matching that one string) and map it to a `'retrying'` status so no badge
+showed — but the permission-denial case proved that was one instance of a
+pattern, not a one-off: `success: false` doesn't reliably mean "alarm the
+user," and detecting each non-alarming case as it's discovered doesn't
+scale. Removed rather than extended — the assistant's own reply is already
+the channel a user reads for "did this work," and doesn't need a wire-level
+heuristic to get it right.
 
 `chat-ao.js`'s `renderToolCallCard` is a small collapsible `<details>` (styled
 after this file's own existing `.selection-context` chevron pattern, not
 copied from anywhere) — collapsed by default. **The summary label ("Using
-&lt;name&gt;") never changes across detected → running → done** — only the
-expandable detail (arguments while in progress, result once done) and an
-`error` badge change, so the line doesn't visibly jump/reflow once the user's
-eye is on it. Coworker's own production UI (`ao-collab`'s `tool-call-item.tsx`)
+&lt;name&gt;") never changes across detected → running → done**, and neither
+does its styling regardless of outcome — only the expandable detail
+(arguments while in progress, result once done) changes, so the line doesn't
+visibly jump/reflow once the user's eye is on it. Coworker's own production UI (`ao-collab`'s `tool-call-item.tsx`)
 does something visually similar (collapsible row, spinner while running) but
 this is an independent, from-scratch implementation, not a port —
 nx-chat-ao intentionally never shares controller or rendering code with
@@ -496,6 +542,23 @@ path already gets the right title from the start (`metadata.skill_title` on
 `tool_call_start`/`tool_call_end`), so this only ever mattered for reload.
 Each nested call renders through the same `renderToolCallCard` as the live
 path, just recursed into `.tool-call-children`.
+
+**`turnsToMessages` surfaces every `assistant_message` with real text in a
+turn, not just the last one.** The `/turns` summary's `final_response` field
+only ever carries the turn's last assistant text — a turn that narrates
+mid-turn (e.g. explaining a planned edit before pausing on
+`ask_user_question`, confirmed against a real trace) had that narration
+silently dropped on reload, even though it renders live and is right there in
+the network response. The fix doesn't need a new fetch: `turnEventsList` (the
+per-turn event log) is already pulled for every turn for
+`extractSelectionContext` above, so `turnsToMessages` now walks it and pushes
+a message for every `assistant_message` event with non-null `content`,
+dropping the separate `final_response` field entirely (the last such event's
+content *is* the final response). Ordering is an approximation, same as
+artifacts already were: the tool-call summary row and any artifacts still
+render before all of a turn's text, rather than interleaved at the exact
+point each occurred — precise interleaving would mean giving up the single
+aggregate summary row above, which is a cost tradeoff, not a bug.
 
 `hydrateToolCall` sets `toolCall.loadingCalls = true` synchronously, before
 the fetch, so `renderToolCallCard` can show `.nx-loading-spinner` in the

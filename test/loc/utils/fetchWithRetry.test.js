@@ -96,4 +96,73 @@ describe('fetchWithRetry', () => {
     expect(resp.status).to.equal(200);
     expect(calls).to.equal(2);
   });
+
+  it('does not retry a 401 when onUnauthorized is not configured', async () => {
+    let calls = 0;
+    installFetch(async () => {
+      calls += 1;
+      return new Response('', { status: 401 });
+    });
+
+    const resp = await fetchWithRetry('https://example.com', {});
+
+    expect(resp.status).to.equal(401);
+    expect(calls).to.equal(1);
+  });
+
+  it('retries once with refreshed opts on a 401 via onUnauthorized', async () => {
+    let calls = 0;
+    installFetch(async (url, opts) => {
+      calls += 1;
+      if (opts.headers.Authorization === 'Bearer new-token') return new Response('{}', { status: 200 });
+      return new Response('', { status: 401 });
+    });
+
+    let onUnauthorizedCalls = 0;
+    const onUnauthorized = async () => {
+      onUnauthorizedCalls += 1;
+      return { headers: { Authorization: 'Bearer new-token' } };
+    };
+
+    const resp = await fetchWithRetry('https://example.com', { headers: { Authorization: 'Bearer old-token' } }, { onUnauthorized });
+
+    expect(resp.status).to.equal(200);
+    expect(calls).to.equal(2);
+    expect(onUnauthorizedCalls).to.equal(1);
+  });
+
+  it('gives up and returns the 401 when onUnauthorized cannot recover', async () => {
+    let calls = 0;
+    installFetch(async () => {
+      calls += 1;
+      return new Response('', { status: 401 });
+    });
+
+    const onUnauthorized = async () => null;
+
+    const resp = await fetchWithRetry('https://example.com', {}, { onUnauthorized });
+
+    expect(resp.status).to.equal(401);
+    expect(calls).to.equal(1);
+  });
+
+  it('does not call onUnauthorized more than once even if the retried request also 401s', async () => {
+    let calls = 0;
+    installFetch(async () => {
+      calls += 1;
+      return new Response('', { status: 401 });
+    });
+
+    let onUnauthorizedCalls = 0;
+    const onUnauthorized = async () => {
+      onUnauthorizedCalls += 1;
+      return { headers: { Authorization: 'Bearer still-bad-token' } };
+    };
+
+    const resp = await fetchWithRetry('https://example.com', {}, { onUnauthorized });
+
+    expect(resp.status).to.equal(401);
+    expect(calls).to.equal(2);
+    expect(onUnauthorizedCalls).to.equal(1);
+  });
 });

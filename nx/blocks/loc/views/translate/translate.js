@@ -73,6 +73,8 @@ class NxLocTranslate extends LitElement {
 
   async handleSaveLangs(props) {
     const data = props ? { langs: this._langs, ...props } : { langs: this._langs };
+    // Connector urls carry per-language metadata; tell the host to merge.
+    if (props?.urls) data.mergeUrls = true;
     const opts = { detail: { data }, bubbles: true, composed: true };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
@@ -89,7 +91,8 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleConnect() {
-    this._connected = await this._service.connector.connect(this._service);
+    const sendMessage = this.handleMessage.bind(this);
+    this._connected = await this._service.connector.connect(this._service, sendMessage);
   }
 
   async fetchUrls(service, fetchContent, langs) {
@@ -172,8 +175,15 @@ class NxLocTranslate extends LitElement {
       if (sendAll?.errors?.length) {
         this._urlErrors = sendAll.errors;
       }
-      // See if anything is finished immediately
-      this.checkAndSaveLangs(conf);
+      // Connectors report failures by calling `sendMessage({ type: 'error' })`
+      // and returning early - nothing was actually sent in that case, so
+      // skip checking for finished languages, which would otherwise
+      // immediately overwrite the error message with "Checking for
+      // languages to save" before the user ever sees it.
+      if (this._message?.type !== 'error') {
+        // See if anything is finished immediately
+        this.checkAndSaveLangs(conf);
+      }
     } finally {
       this._sendAllBusy = false;
     }
@@ -308,7 +318,7 @@ class NxLocTranslate extends LitElement {
           return html`
             ${this.renderBehavior()}
             ${this.canCancel ? html`<sl-button @click=${this.handleCancelAll} class="primary outline">Cancel project</sl-button>` : nothing}
-            <sl-button @click=${this.handleGetStatus} class="accent">Get status</sl-button>
+            ${this.incompleteLangs ? html`<sl-button @click=${this.handleGetStatus} class="accent">Get status</sl-button>` : nothing}
           `;
         }
 
