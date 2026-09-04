@@ -19,3 +19,7 @@ export async function sendAllLanguages({ title, service, langs, urls, actions })
 export async function connect(service) {
 
 }
+
+export async function closeJob({ service, sendMessage }) {
+
+}
