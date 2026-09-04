@@ -291,20 +291,67 @@ export function getSourceFileStatus(tasks) {
   return null;
 }
 
+// Trados project templates vary in which workflow steps they include (e.g.
+// TM-leverage-only projects have no 'file-delivery' task at all), so there's
+// no single task type reliable across templates to key completion off of.
+// Instead, a language is done once none of its tasks are still pending -
+// these are the terminal statuses a task can settle into.
+const TERMINAL_TASK_STATUSES = ['completed', 'failed', 'skipped', 'canceled'];
+
 export function getLangStatus(tasks, langCode, fileCount) {
   const langTasks = tasks.filter((task) => (
     task.input?.targetFile?.languageDirection?.targetLanguage?.languageCode === langCode
   ));
 
-  // Translated file count for this lang
-  const translated = langTasks.filter((t) => (
-    t.taskType?.key === 'file-delivery' && t.status === 'completed'
-  )).length;
+  if (langTasks.some((t) => t.status === 'failed')) return { status: 'error', translated: 0 };
 
-  if (langTasks.some((t) => t.status === 'failed')) return { status: 'error', translated };
-  if (translated === fileCount) return { status: 'translated', translated };
+  // Empty langTasks is "no data yet", not "done" - every() is vacuously
+  // true on an empty array, so this must be checked explicitly.
+  const allTerminal = langTasks.length > 0
+    && langTasks.every((t) => TERMINAL_TASK_STATUSES.includes(t.status));
+  if (allTerminal) return { status: 'translated', translated: fileCount };
 
-  return { status: 'in progress', translated };
+  return { status: 'in progress', translated: 0 };
+}
+
+const TASKS_PAGE_LIMIT = 100;
+
+/**
+ * Fetches every task for a project, paging through Trados's tasks list
+ * rather than taking the first page as the complete set - a project with
+ * more tasks than one page (e.g. many files x languages x workflow steps)
+ * would otherwise silently undercount completed work.
+ * @param {Object} service - The service configuration.
+ * @param {string} projectId - The Trados project id.
+ * @returns {Promise<Object[]|null>} All tasks, or null if any page fails.
+ */
+async function fetchAllTasks(service, projectId) {
+  const { apiEndpoint } = service;
+  const tasks = [];
+  let offset = 0;
+  let itemCount = Infinity;
+
+  while (offset < itemCount) {
+    // eslint-disable-next-line no-await-in-loop
+    const opts = await getOpts(service);
+    const url = `${apiEndpoint}/projects/${projectId}/tasks`
+      + `?fields=taskType,status,input.targetFile&offset=${offset}&limit=${TASKS_PAGE_LIMIT}`;
+    // eslint-disable-next-line no-await-in-loop
+    const resp = await corsFetch(url, opts);
+    if (!resp.ok) return null;
+
+    // eslint-disable-next-line no-await-in-loop
+    const json = await resp.json();
+    const items = json.items || [];
+    tasks.push(...items);
+    itemCount = json.itemCount ?? tasks.length;
+
+    // Guard against an infinite loop if itemCount is ever wrong.
+    if (!items.length) break;
+    offset += items.length;
+  }
+
+  return tasks;
 }
 
 /**
@@ -324,7 +371,6 @@ export function getLangStatus(tasks, langCode, fileCount) {
  */
 export async function getStatusAll({ service, langs, urls, actions }) {
   const { sendMessage, saveState } = actions;
-  const { apiEndpoint } = service;
 
   const projectId = langs[0]?.translation?.projectId;
   if (!projectId) return;
@@ -332,15 +378,8 @@ export async function getStatusAll({ service, langs, urls, actions }) {
   const localesStr = langs.map((lang) => lang.code).join(', ');
   sendMessage({ text: `Getting status for ${localesStr}` });
 
-  const opts = await getOpts(service);
-  const resp = await corsFetch(
-    `${apiEndpoint}/projects/${projectId}/tasks?fields=taskType,status,input.targetFile`,
-    opts,
-  );
-  if (!resp.ok) return;
-
-  const json = await resp.json();
-  const tasks = json.items || [];
+  const tasks = await fetchAllTasks(service, projectId);
+  if (!tasks) return;
 
   const sourceError = getSourceFileStatus(tasks);
 
