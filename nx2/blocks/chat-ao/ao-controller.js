@@ -40,6 +40,7 @@ const EVENT_HANDLERS = new Map([
   [AO_EVENT.TURN_ABORTED, '_onTurnCompleted'],
   [AO_EVENT.EPISODE_TITLE_UPDATED, '_onEpisodeTitleUpdated'],
   [AO_EVENT.USER_QUESTION, '_onUserQuestion'],
+  [AO_EVENT.USER_QUESTION_RESPONSE, '_onUserQuestionResponse'],
   [AO_EVENT.PLAN_APPROVAL_REQUEST, '_onPlanApprovalRequest'],
   [AO_EVENT.PERMISSION_REQUEST, '_onPermissionRequest'],
   [AO_EVENT.ERROR_CONNECTION, '_onSessionError'],
@@ -374,6 +375,10 @@ export default class AoChatController {
   // See docs/chat-ao-component.md#tool-call-activity for the detected/start/end patching.
   _onToolCallDetected(evt) {
     const { tool_call_id: toolCallId, tool_name: toolName } = evt.data ?? {};
+    // ask_user_question gets its own dedicated question-response summary
+    // (see _buildQuestionResponseMessage) once answered — a generic tool-call
+    // card for it would just duplicate that with raw, unformatted args/result.
+    if (toolName === 'ask_user_question') return;
     this._messages = [...this._messages, {
       role: 'assistant', toolCall: { toolCallId, toolName, status: 'detected' },
     }];
@@ -384,6 +389,7 @@ export default class AoChatController {
     const {
       tool_call_id: toolCallId, tool_name: toolName, arguments: args, metadata,
     } = evt.data ?? {};
+    if (toolName === 'ask_user_question') return;
     const title = metadata?.skill_title;
     const patch = { toolName, status: 'running', arguments: args, ...(title && { title }) };
     if (this._messages.some((m) => m.toolCall?.toolCallId === toolCallId)) {
@@ -437,6 +443,42 @@ export default class AoChatController {
       context: evt.data?.context ?? null,
       questions: evt.data?.questions ?? [],
     };
+    this._update();
+  }
+
+  // Replaces the question card with a durable summary of what was answered —
+  // see docs/chat-ao-component.md#question-flow. `pendingQuestion` carries
+  // the original questions/context; `answers`/`declined` is what's being (or
+  // was) sent back, so the summary is correct even before AO's own echo
+  // confirms it.
+  _buildQuestionResponseMessage(pendingQuestion, answers, declined) {
+    return {
+      role: 'assistant',
+      questionResponse: {
+        context: pendingQuestion.context,
+        questions: pendingQuestion.questions,
+        answers,
+        declined,
+      },
+    };
+  }
+
+  // Fires for every client on the episode, including the one that answered —
+  // only act here if this client's own pendingQuestion is still set, meaning
+  // a *different* client answered first (this client already rendered its
+  // own summary optimistically in _respondToQuestion otherwise). AO's echo
+  // carries only `answers`, no `declined` flag, so an empty list is treated
+  // as declined — true for a real decline and for a required question
+  // answered with nothing, which shouldn't happen in practice.
+  _onUserQuestionResponse(evt) {
+    const turnId = evt.data?.turn_id ?? evt.turn_id;
+    if (!this._pendingQuestion || this._pendingQuestion.turnId !== turnId) return;
+    const answers = evt.data?.answers ?? [];
+    this._messages = [
+      ...this._messages,
+      this._buildQuestionResponseMessage(this._pendingQuestion, answers, answers.length === 0),
+    ];
+    this._pendingQuestion = undefined;
     this._update();
   }
 
@@ -502,6 +544,10 @@ export default class AoChatController {
     if (!this._pendingQuestion) return;
     const { turnId } = this._pendingQuestion;
     const wasAlreadyOpen = this._ws?.readyState === WebSocket.OPEN;
+    this._messages = [
+      ...this._messages,
+      this._buildQuestionResponseMessage(this._pendingQuestion, answers, declined),
+    ];
     this._pendingQuestion = undefined;
     this._update();
 
