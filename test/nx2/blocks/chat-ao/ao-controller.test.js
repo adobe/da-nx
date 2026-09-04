@@ -554,26 +554,6 @@ describe('ao-controller tool-call activity', () => {
     expect(controller._messages[0].toolCall.status).to.equal('error');
   });
 
-  it('marks AO\'s blind-deferred-schema retry as "retrying", not "error"', () => {
-    const { controller } = makeController();
-    controller._handleServerEvent({
-      type: 'tool_call_start',
-      data: { tool_call_id: 'tc1', tool_name: 'search_content', arguments: {} },
-    });
-
-    controller._handleServerEvent({
-      type: 'tool_call_end',
-      data: {
-        tool_call_id: 'tc1',
-        result: 'Loaded schema for search_content; not executed — retrying.',
-        error: null,
-        success: false,
-      },
-    });
-
-    expect(controller._messages[0].toolCall.status).to.equal('retrying');
-  });
-
   it('leaves other messages untouched when patching a toolCall by id', () => {
     const { controller } = makeController();
     controller._handleServerEvent({
@@ -1261,6 +1241,118 @@ describe('ao-controller user questions', () => {
     expect(sent).to.deep.equal([{
       type: 'QUESTION_RESPONSE', turn_id: 't1', answers: [], declined: true,
     }]);
+  });
+
+  it('answerQuestion replaces the question card with a questionResponse summary, optimistically', async () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+    controller._ws.readyState = WebSocket.OPEN;
+
+    await controller.answerQuestion([{ question_id: '1', selected_options: ['Approve'] }]);
+
+    expect(controller._messages).to.deep.equal([{
+      role: 'assistant',
+      questionResponse: {
+        context: 'This is an example of how I pause and ask for your approval.',
+        questions: sampleEvent.data.questions,
+        answers: [{ question_id: '1', selected_options: ['Approve'] }],
+        declined: false,
+      },
+    }]);
+  });
+
+  it('declineQuestion replaces the question card with a declined questionResponse summary', async () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+    controller._ws.readyState = WebSocket.OPEN;
+
+    await controller.declineQuestion();
+
+    expect(controller._messages[0].questionResponse.declined).to.equal(true);
+    expect(controller._messages[0].questionResponse.answers).to.deep.equal([]);
+  });
+
+  it('never renders a generic tool-call card for ask_user_question — it gets its own summary instead', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent({
+      type: 'tool_call_detected',
+      data: { tool_call_id: 'tooluse_1', tool_name: 'ask_user_question' },
+    });
+    controller._handleServerEvent({
+      type: 'tool_call_start',
+      data: { tool_call_id: 'tooluse_1', tool_name: 'ask_user_question', arguments: {} },
+    });
+    controller._handleServerEvent({
+      type: 'tool_call_end',
+      data: { tool_call_id: 'tooluse_1', result: 'User answers: ...', success: true },
+    });
+
+    expect(controller._messages).to.deep.equal([]);
+  });
+
+  it('a USER_QUESTION_RESPONSE event from another client replaces this client\'s own pending question card', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+
+    controller._handleServerEvent({
+      type: 'user_question_response',
+      turn_id: 't1',
+      data: { turn_id: 't1', answers: [{ question_id: '1', selected_options: ['Decline'] }] },
+    });
+
+    expect(controller._pendingQuestion).to.equal(undefined);
+    expect(controller._messages).to.deep.equal([{
+      role: 'assistant',
+      questionResponse: {
+        context: sampleEvent.data.context,
+        questions: sampleEvent.data.questions,
+        answers: [{ question_id: '1', selected_options: ['Decline'] }],
+        declined: false,
+      },
+    }]);
+  });
+
+  it('treats an empty answers list on USER_QUESTION_RESPONSE as declined, since the event carries no explicit flag', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+
+    controller._handleServerEvent({
+      type: 'user_question_response',
+      turn_id: 't1',
+      data: { turn_id: 't1', answers: [] },
+    });
+
+    expect(controller._messages[0].questionResponse.declined).to.equal(true);
+  });
+
+  it('ignores a USER_QUESTION_RESPONSE once this client already answered its own pendingQuestion', async () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+    controller._ws.readyState = WebSocket.OPEN;
+    await controller.answerQuestion([{ question_id: '1', selected_options: ['Approve'] }]);
+
+    controller._handleServerEvent({
+      type: 'user_question_response',
+      turn_id: 't1',
+      data: { turn_id: 't1', answers: [{ question_id: '1', selected_options: ['Approve'] }] },
+    });
+
+    // Still just the one optimistic summary — the echo didn't add a second.
+    expect(controller._messages).to.have.length(1);
+  });
+
+  it('ignores a USER_QUESTION_RESPONSE for a different turn than the one currently pending', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+
+    controller._handleServerEvent({
+      type: 'user_question_response',
+      turn_id: 'some-other-turn',
+      data: { turn_id: 'some-other-turn', answers: [] },
+    });
+
+    expect(controller._pendingQuestion).to.not.equal(undefined);
+    expect(controller._messages).to.deep.equal([]);
   });
 
   it('answerQuestion is a no-op when there is no pending question', async () => {

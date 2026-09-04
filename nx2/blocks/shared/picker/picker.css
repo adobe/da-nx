@@ -114,3 +114,26 @@
   border-top: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-corner-radius-75);
 }
+
+:host([size="m"]) {
+  .picker-section {
+    font-size: var(--s2-component-m-bold-font-size);
+    line-height: var(--s2-component-m-bold-line-height);
+  }
+
+  .picker-trigger {
+    font-size: var(--s2-component-m-regular-font-size);
+    line-height: var(--s2-component-m-regular-line-height);
+  }
+
+  .picker-item {
+    font-size: var(--s2-component-m-regular-font-size);
+    line-height: var(--s2-component-m-regular-line-height);
+  }
+
+  .picker-open-in-icon,
+  .picker-check {
+    width: 16px;
+    height: 16px;
+  }
+}

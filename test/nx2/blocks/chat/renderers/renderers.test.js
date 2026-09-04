@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { render } from 'da-lit';
-import { renderMessage } from '../../../../../nx2/blocks/chat/renderers/renderers.js';
+import { renderMessage, summarizeToolError } from '../../../../../nx2/blocks/chat/renderers/renderers.js';
 
 // Render an assistant message and return the mounted container for DOM assertions.
 function renderAssistant(content) {
@@ -59,5 +59,27 @@ describe('renderers link handling', () => {
   it('does not linkify non-http schemes', () => {
     const host = renderAssistant('Reach me at mailto:me@example.com please.');
     expect(host.querySelector('.message-content a')).to.equal(null);
+  });
+});
+
+describe('summarizeToolError', () => {
+  it('returns the first non-empty line of da-agent errorText', () => {
+    const errorText = 'DA Admin API Error (404): Not Found\n{"path":"x"}';
+    expect(summarizeToolError(errorText)).to.equal('DA Admin API Error (404): Not Found');
+  });
+
+  it('skips leading blank lines and trims', () => {
+    expect(summarizeToolError('\n\n   Boom   \nmore')).to.equal('Boom');
+  });
+
+  it('caps a very long message at 100 characters', () => {
+    expect(summarizeToolError('x'.repeat(250))).to.have.length(100);
+  });
+
+  it('returns null for empty, whitespace, or non-string input (caller falls back to state)', () => {
+    expect(summarizeToolError('')).to.equal(null);
+    expect(summarizeToolError('   \n  ')).to.equal(null);
+    expect(summarizeToolError(undefined)).to.equal(null);
+    expect(summarizeToolError({ error: 'x' })).to.equal(null);
   });
 });
