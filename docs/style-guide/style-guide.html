@@ -272,8 +272,16 @@
           <nx-menu id="demo-menu" placement="below">
             <button slot="trigger" class="nx-form-btn-secondary" aria-label="Options">Options</button>
           </nx-menu>
+          <nx-menu id="demo-menu-m" size="m" placement="below">
+            <button slot="trigger" class="nx-form-btn-secondary" aria-label="Options">Options (m)</button>
+          </nx-menu>
         </div>
         <pre><code>&lt;nx-menu id="my-menu"&gt;
+  &lt;button slot="trigger"&gt;Options&lt;/button&gt;
+&lt;/nx-menu&gt;
+
+&lt;!-- size variant: "s" (default) or "m" --&gt;
+&lt;nx-menu id="my-menu" size="m"&gt;
   &lt;button slot="trigger"&gt;Options&lt;/button&gt;
 &lt;/nx-menu&gt;
 
@@ -314,8 +322,12 @@ button.addEventListener('click', () =&gt; popover.show({ anchor: button }));</co
             rel="noopener">docs →</a></h3>
         <div class="sg-demo">
           <nx-picker id="demo-picker" placement="below"></nx-picker>
+          <nx-picker id="demo-picker-m" size="m" placement="below"></nx-picker>
         </div>
         <pre><code>&lt;nx-picker id="my-picker"&gt;&lt;/nx-picker&gt;
+
+&lt;!-- size variant: "s" (default) or "m" --&gt;
+&lt;nx-picker id="my-picker" size="m"&gt;&lt;/nx-picker&gt;
 
 picker.items = [
   { value: 'all', label: 'All' },
@@ -389,12 +401,14 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
     ]);
 
     // nx-menu
-    const menu = document.querySelector('#demo-menu');
-    menu.items = [
+    const menuItems = [
       { id: 'edit', label: 'Edit' },
       { id: 'delete', label: 'Delete' },
     ];
-    menu.addEventListener('select', (e) => showToast({ text: `Selected: ${e.detail.id}` }));
+    [document.querySelector('#demo-menu'), document.querySelector('#demo-menu-m')].forEach((menu) => {
+      menu.items = menuItems;
+      menu.addEventListener('select', (e) => showToast({ text: `Selected: ${e.detail.id}` }));
+    });
 
     // nx-dialog
     document.querySelector('#demo-dialog-open').addEventListener('click', () => {
@@ -422,15 +436,17 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
     popoverTrigger.addEventListener('click', () => popover.show({ anchor: popoverTrigger }));
 
     // nx-picker
-    const picker = document.querySelector('#demo-picker');
-    picker.items = [
+    const pickerItems = [
       { value: 'all', label: 'All' },
       { value: 'content', label: 'Content' },
       { value: 'seo', label: 'SEO' },
       { divider: true },
       { value: 'review', label: 'Review' },
     ];
-    picker.value = 'all';
+    [document.querySelector('#demo-picker'), document.querySelector('#demo-picker-m')].forEach((picker) => {
+      picker.items = pickerItems;
+      picker.value = 'all';
+    });
 
     // nx-segmented-btn
     const segmented = document.querySelector('#demo-segmented');

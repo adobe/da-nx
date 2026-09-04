@@ -35,17 +35,28 @@ export const COWORKER_SKILLS_URL = 'https://experience.adobe.com/#/coworker/cust
 
 export const COWORKER_CHAT_URL = 'https://experience.adobe.com/#/coworker';
 
+export const ENTERPRISE_CONTEXT_URL = 'https://experience.adobe.com/#/experiencemanager/enterprise-context';
+
 export const ADD_MENU_ITEMS = [
   { section: 'Add' },
   { id: MENU_OPTIONS.FILES, label: 'Files or images', icon: 'link' },
   { id: MENU_OPTIONS.PROMPT, label: 'Prompt', icon: 'commentremove' },
   { id: MENU_OPTIONS.COMMAND, label: '"/" Command', icon: 'prompt' },
   { divider: true },
+  { id: MENU_OPTIONS.MANAGE_SKILLS, label: 'Manage Coworker' },
   { id: MENU_OPTIONS.MANAGE_PROMPT, label: 'Manage Prompts' },
-  { id: MENU_OPTIONS.MANAGE_SKILLS, label: 'Customize Coworker' },
+  { id: MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT, label: 'Manage Enterprise Context' },
 ];
 
 export const OPEN_COWORKER_ITEM = { id: 'coworker', label: 'Continue in Coworker' };
+
+// Inserts "Continue in Coworker" + divider after the first divider in ADD_MENU_ITEMS.
+export const ADD_MENU_ITEMS_WITH_EPISODE = ADD_MENU_ITEMS.toSpliced(
+  ADD_MENU_ITEMS.findIndex((i) => i.divider) + 1,
+  0,
+  OPEN_COWORKER_ITEM,
+  { divider: true },
+);
 
 export const AO_FRAME = {
   AUTH: 'AUTH',
@@ -68,6 +79,7 @@ export const AO_EVENT = {
   EPISODE_TITLE_UPDATED: 'episode_title_updated',
   USER_MESSAGE: 'user_message',
   USER_QUESTION: 'user_question',
+  USER_QUESTION_RESPONSE: 'user_question_response',
   PLAN_APPROVAL_REQUEST: 'plan_approval_request',
   PERMISSION_REQUEST: 'permission_request',
   UI_ARTIFACT_CREATED: 'ui_artifact_created',
@@ -75,3 +87,23 @@ export const AO_EVENT = {
   TOOL_CALL_START: 'tool_call_start',
   TOOL_CALL_END: 'tool_call_end',
 };
+
+// AO's abort is async — dropped while stop() is waiting for its confirming
+// TURN_ABORTED/TURN_COMPLETED, so nothing already in flight for the
+// interrupted turn (or generated in the gap before the abort lands
+// server-side) can resurrect it client-side.
+export const IGNORED_WHILE_INTERRUPTING = new Set([
+  AO_EVENT.TEXT_DELTA,
+  AO_EVENT.TEXT_DONE,
+  AO_EVENT.UI_ARTIFACT_CREATED,
+  AO_EVENT.TOOL_CALL_DETECTED,
+  AO_EVENT.TOOL_CALL_START,
+  AO_EVENT.TOOL_CALL_END,
+  AO_EVENT.USER_QUESTION,
+  AO_EVENT.PLAN_APPROVAL_REQUEST,
+  AO_EVENT.PERMISSION_REQUEST,
+]);
+
+// Tools with their own dedicated card on the live path (see ao-controller.js's
+// tool-call handlers) instead of a generic tool-call entry.
+export const DEDICATED_SUMMARY_TOOLS = new Set(['ask_user_question']);

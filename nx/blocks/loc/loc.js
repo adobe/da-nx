@@ -21,6 +21,34 @@ const EL_NAME = 'nx-loc';
 
 const styles = await loadStyle(import.meta.url);
 
+/**
+ * Merges a connector's per-language url save (e.g. requestIds) into the
+ * project's urls by path, instead of replacing the array wholesale.
+ * @param {Object} params
+ * @param {Object[]} [params.existingUrls] - The project's current urls.
+ * @param {Object[]} params.incomingUrls - The urls from the latest save.
+ * @returns {Object[]} The merged urls.
+ */
+export function mergeProjectUrls({ existingUrls, incomingUrls }) {
+  const urls = existingUrls || [];
+  const keyOf = (url) => url.basePath ?? url.suppliedPath;
+
+  const merged = urls.map((existing) => {
+    const incoming = incomingUrls.find((url) => keyOf(url) === keyOf(existing));
+    if (!incoming) return existing;
+    return {
+      ...existing,
+      ...incoming,
+      requestIds: { ...existing.requestIds, ...incoming.requestIds },
+    };
+  });
+
+  const existingKeys = new Set(urls.map(keyOf));
+  const onlyInIncoming = incomingUrls.filter((url) => !existingKeys.has(keyOf(url)));
+
+  return [...merged, ...onlyInIncoming];
+}
+
 class NxLoc extends LitElement {
   static properties = {
     view: { attribute: false },
@@ -62,9 +90,45 @@ class NxLoc extends LitElement {
     if (project) this._project = { ...project, view: this.view };
   }
 
+  /**
+   * Queues a project save so concurrent `action` events (e.g. two
+   * `waitingFor` languages saved back-to-back by checkWaitingLanguages)
+   * are persisted one at a time, each reading `this._project` as of when
+   * it actually runs rather than when it was dispatched - dispatchEvent
+   * doesn't wait for this async listener, so without queuing, two saves
+   * can race and the later-resolving one can overwrite the other's merge.
+   * @param {Object} params
+   * @param {CustomEvent} params.detail - The `action` event's detail.
+   * @returns {Promise<void>} Resolves/rejects with this save's own
+   *  outcome; a prior save's failure never blocks this one from running.
+   */
   async handleSave({ detail }) {
+    const previous = this._saveQueue || Promise.resolve();
+    const current = previous.then(() => this.saveProject(detail));
+    this._saveQueue = current.catch(() => {});
+    return current;
+  }
+
+  /**
+   * Persists a project update to DA and refreshes local state.
+   * @param {Object} detail - The `action` event's detail.
+   * @param {Object} detail.data - The update payload; `mergeUrls` is an
+   *  internal signal (stripped before persisting), not project data.
+   * @returns {Promise<void>}
+   */
+  async saveProject(detail) {
+    const { mergeUrls, ...data } = detail.data;
+
     // Combine the cached project with the new data
-    const updates = { ...this._project, ...detail.data };
+    const updates = { ...this._project, ...data };
+
+    // Merge only when the sender opts in; other views send a full
+    // replacement urls list and rely on the plain spread above.
+    if (mergeUrls) {
+      const existingUrls = this._project.urls;
+      updates.urls = mergeProjectUrls({ existingUrls, incomingUrls: data.urls });
+      this._project.urls = updates.urls;
+    }
 
     this._message = { text: 'Saving...' };
 

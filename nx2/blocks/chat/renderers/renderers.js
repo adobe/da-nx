@@ -35,13 +35,25 @@ function approvalSummary(input, { json = false } = {}) {
     ?? (json ? JSON.stringify(input, null, 2) : null);
 }
 
+// A failed tool call carries da-agent's message in `errorText` (e.g.
+// "DA Admin API Error (404): Not Found"). Surface its first line instead of a
+// bare state like "output-error" so the reason is visible without expanding.
+function summarizeToolError(text) {
+  if (typeof text !== 'string') return null;
+  const firstLine = text.split('\n').map((line) => line.trim()).find(Boolean);
+  return firstLine ? firstLine.slice(0, 100) : null;
+}
+
 function renderToolCard(toolCallId, toolCards) {
   const card = toolCards?.get(toolCallId);
   if (!card || card.state === TOOL_STATE.AWAITING_APPROVAL) return nothing;
-  const { toolName, state, input } = card;
-  const detail = approvalSummary(input, { json: true });
+  const {
+    toolName, state, input, errorText,
+  } = card;
   const failed = state === TOOL_STATE.OUTPUT_ERROR || state === TOOL_STATE.REJECTED;
-  const status = failed ? html`<span class="tool-card-status">${state}</span>` : nothing;
+  const label = failed ? (summarizeToolError(errorText) ?? state) : null;
+  const status = failed ? html`<span class="tool-card-status">${label}</span>` : nothing;
+  const detail = failed ? errorText : approvalSummary(input, { json: true });
   return detail ? html`
     <details class="tool-card tool-card-${state}">
       <summary>${toolName}${status}</summary>
@@ -103,4 +115,4 @@ function renderMessage(msg, toolCards) {
     : renderUserMessage(msg);
 }
 
-export { renderMessage, renderApprovalCard };
+export { renderMessage, renderApprovalCard, summarizeToolError };

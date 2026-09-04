@@ -404,6 +404,21 @@ describe('ao-controller turn lifecycle', () => {
     expect(controller._messages).to.deep.equal([]);
     expect(updates).to.have.length(0);
   });
+
+  it('swallows a session-level error while a turn is merely suspended on a pending question — AO legitimately reports the episode as idle while waiting on the user', () => {
+    const { controller, updates } = makeController();
+    controller._thinking = true;
+    controller._pendingQuestion = { turnId: 't1', context: null, questions: [] };
+
+    controller._handleServerEvent({
+      type: 'error',
+      data: { message: 'Cannot ATTACH to episode 1: not active (state=idle); send a message to start a turn.' },
+    });
+
+    expect(controller._messages).to.deep.equal([]);
+    expect(controller._pendingQuestion).to.not.equal(undefined);
+    expect(updates).to.have.length(0);
+  });
 });
 
 describe('ao-controller ui artifacts', () => {
@@ -1228,6 +1243,118 @@ describe('ao-controller user questions', () => {
     }]);
   });
 
+  it('answerQuestion replaces the question card with a questionResponse summary, optimistically', async () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+    controller._ws.readyState = WebSocket.OPEN;
+
+    await controller.answerQuestion([{ question_id: '1', selected_options: ['Approve'] }]);
+
+    expect(controller._messages).to.deep.equal([{
+      role: 'assistant',
+      questionResponse: {
+        context: 'This is an example of how I pause and ask for your approval.',
+        questions: sampleEvent.data.questions,
+        answers: [{ question_id: '1', selected_options: ['Approve'] }],
+        declined: false,
+      },
+    }]);
+  });
+
+  it('declineQuestion replaces the question card with a declined questionResponse summary', async () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+    controller._ws.readyState = WebSocket.OPEN;
+
+    await controller.declineQuestion();
+
+    expect(controller._messages[0].questionResponse.declined).to.equal(true);
+    expect(controller._messages[0].questionResponse.answers).to.deep.equal([]);
+  });
+
+  it('never renders a generic tool-call card for ask_user_question — it gets its own summary instead', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent({
+      type: 'tool_call_detected',
+      data: { tool_call_id: 'tooluse_1', tool_name: 'ask_user_question' },
+    });
+    controller._handleServerEvent({
+      type: 'tool_call_start',
+      data: { tool_call_id: 'tooluse_1', tool_name: 'ask_user_question', arguments: {} },
+    });
+    controller._handleServerEvent({
+      type: 'tool_call_end',
+      data: { tool_call_id: 'tooluse_1', result: 'User answers: ...', success: true },
+    });
+
+    expect(controller._messages).to.deep.equal([]);
+  });
+
+  it('a USER_QUESTION_RESPONSE event from another client replaces this client\'s own pending question card', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+
+    controller._handleServerEvent({
+      type: 'user_question_response',
+      turn_id: 't1',
+      data: { turn_id: 't1', answers: [{ question_id: '1', selected_options: ['Decline'] }] },
+    });
+
+    expect(controller._pendingQuestion).to.equal(undefined);
+    expect(controller._messages).to.deep.equal([{
+      role: 'assistant',
+      questionResponse: {
+        context: sampleEvent.data.context,
+        questions: sampleEvent.data.questions,
+        answers: [{ question_id: '1', selected_options: ['Decline'] }],
+        declined: false,
+      },
+    }]);
+  });
+
+  it('treats an empty answers list on USER_QUESTION_RESPONSE as declined, since the event carries no explicit flag', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+
+    controller._handleServerEvent({
+      type: 'user_question_response',
+      turn_id: 't1',
+      data: { turn_id: 't1', answers: [] },
+    });
+
+    expect(controller._messages[0].questionResponse.declined).to.equal(true);
+  });
+
+  it('ignores a USER_QUESTION_RESPONSE once this client already answered its own pendingQuestion', async () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+    controller._ws.readyState = WebSocket.OPEN;
+    await controller.answerQuestion([{ question_id: '1', selected_options: ['Approve'] }]);
+
+    controller._handleServerEvent({
+      type: 'user_question_response',
+      turn_id: 't1',
+      data: { turn_id: 't1', answers: [{ question_id: '1', selected_options: ['Approve'] }] },
+    });
+
+    // Still just the one optimistic summary — the echo didn't add a second.
+    expect(controller._messages).to.have.length(1);
+  });
+
+  it('ignores a USER_QUESTION_RESPONSE for a different turn than the one currently pending', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+
+    controller._handleServerEvent({
+      type: 'user_question_response',
+      turn_id: 'some-other-turn',
+      data: { turn_id: 'some-other-turn', answers: [] },
+    });
+
+    expect(controller._pendingQuestion).to.not.equal(undefined);
+    expect(controller._messages).to.deep.equal([]);
+  });
+
   it('answerQuestion is a no-op when there is no pending question', async () => {
     const { controller, sent } = makeController();
 
@@ -1597,6 +1724,13 @@ describe('ao-controller connection recovery', () => {
 
     controller._thinking = true;
     controller._destroyed = true;
+    expect(controller._shouldReattachOnClose()).to.equal(false);
+  });
+
+  it('_shouldReattachOnClose is false while suspended on a pending question, even though _thinking is still true', () => {
+    const { controller } = makeController();
+    controller._thinking = true;
+    controller._pendingQuestion = { turnId: 't1', context: null, questions: [] };
     expect(controller._shouldReattachOnClose()).to.equal(false);
   });
 

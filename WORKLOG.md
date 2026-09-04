@@ -1,5 +1,16 @@
 # Worklog
 
+## 2026-09-02
+
+### nx2 editortoggle — stop clearing the flag when Sidekick lands on /edit
+
+Fixes adobe/da-live#1289. `connectedCallback`'s implicit-choice sync treated
+any direct landing on `/edit` as opting out, clearing `nx2:ew-user-enabled`
+even when Sidekick's Edit button (not the user) put you there. Now only the
+`/canvas` → on-sync remains; the toolbar switch hides itself on `/edit` when
+the flag is already on instead of clearing it, and the profile-menu switch
+renders anywhere the flag is on so there's still a way to turn it off.
+
 ## 2026-08-27
 
 ### Standalone quick-edit — authenticate before embedding preview
