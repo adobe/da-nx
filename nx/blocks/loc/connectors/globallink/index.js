@@ -87,27 +87,48 @@ function dueDateMs(days) {
 }
 
 /**
- * Finds the DA url entry that corresponds to a GlobalLink target, matching
- * first by the uploaded `clientIdentifier`, then falling back to file name matching.
+ * Extracts a GlobalLink target's source document id, tolerating the different field
+ * names seen across GlobalLink API versions.
+ * @param {object} target - A GlobalLink target/document record.
+ * @returns {string|undefined} The document id, if present.
+ */
+function documentIdOf(target) {
+  const id = target.documentId ?? target.docId ?? target.document_id;
+  return id == null ? undefined : String(id);
+}
+
+/**
+ * Finds the DA url entry that corresponds to a GlobalLink target, by `documentId` against
+ * the `daBasePath -> documentId` map recorded at upload time (see {@link uploadSourceFiles}).
+ * `clientIdentifier` isn't usable here — it identifies the submission, not individual
+ * documents — and file-name matching is fuzzy, since two documents' flattened names can
+ * overlap, so neither is used as a fallback.
  * @param {object[]} urls - The DA url entries to search.
  * @param {object} target - A GlobalLink target/document record.
+ * @param {object} documentIdsByPath - The `daBasePath -> documentId` map from upload time.
  * @returns {object|undefined} The matching url entry, if any.
  */
-function matchUrl(urls, target) {
-  const clientId = target.clientIdentifier || target.client_identifier;
-  if (clientId) {
-    const byClient = urls.find((url) => url.daBasePath === clientId);
-    if (byClient) return byClient;
-  }
+function matchUrl(urls, target, documentIdsByPath) {
+  const targetDocId = documentIdOf(target);
+  if (!targetDocId) return undefined;
+  return urls.find((url) => documentIdsByPath[url.daBasePath] === targetDocId);
+}
 
-  const docName = target.documentName || target.name || target.documentNameWithPath || '';
-  return urls.find((url) => {
-    const fileName = toFileName(url.daBasePath);
-    return docName === fileName
-      || docName.endsWith(`/${fileName}`)
-      || docName.endsWith(`\\${fileName}`)
-      || docName.includes(fileName);
-  });
+/**
+ * Reads the `daBasePath -> documentId` map persisted by {@link sendAllLanguages}, used to
+ * precisely match GlobalLink targets back to DA urls (see {@link matchUrl}) instead of
+ * relying solely on fuzzy file-name matching.
+ * @param {object} service - The flattened per-environment service config, including the
+ * previously persisted `documentIds`.
+ * @returns {object} The map, or an empty object if absent/unparsable (e.g. a submission
+ * created before this map existed).
+ */
+function getDocumentIdsByPath(service) {
+  try {
+    return JSON.parse(service.documentIds?.value || '{}');
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -238,14 +259,18 @@ async function createSubmission(
  * @param {object[]} urls - The DA url entries to upload.
  * @param {string} batchName - The name of the batch these documents belong to, matching the
  * one passed to {@link createSubmission}.
- * @returns {Promise<{uploadedFileNames: Set<string>, overflowSubmissionIds: string[]}>} The
- * file names GlobalLink confirmed receiving, plus any other submission id(s) it placed some
- * of them under.
+ * @returns {Promise<{uploadedFileNames: Set<string>, overflowSubmissionIds: string[],
+ * documentIdsByPath: object}>} The file names GlobalLink confirmed receiving, any other
+ * submission id(s) it placed some of them under, and a `daBasePath -> documentId` map for
+ * precise status/download matching later (see {@link matchUrl}).
  */
 async function uploadSourceFiles(service, submissionId, urls, batchName) {
   const files = {};
+  const pathByFileName = new Map();
   urls.forEach((url) => {
-    files[toFileName(url.daBasePath)] = strToU8(url.content);
+    const fileName = toFileName(url.daBasePath);
+    files[fileName] = strToU8(url.content);
+    pathByFileName.set(fileName, url.daBasePath);
   });
   const zipped = zipSync(files);
 
@@ -261,7 +286,9 @@ async function uploadSourceFiles(service, submissionId, urls, batchName) {
     headers: { Authorization: `Bearer ${token}`, ...originHeader(service) },
     body,
   });
-  if (!resp.ok) return { uploadedFileNames: new Set(), overflowSubmissionIds: [] };
+  if (!resp.ok) {
+    return { uploadedFileNames: new Set(), overflowSubmissionIds: [], documentIdsByPath: {} };
+  }
 
   // processId is returned asynchronously; submission-level status is polled after all uploads.
   const json = await resp.json().catch(() => null);
@@ -273,7 +300,14 @@ async function uploadSourceFiles(service, submissionId, urls, batchName) {
       .filter((id) => id && id !== String(submissionId)),
   )];
 
-  return { uploadedFileNames, overflowSubmissionIds };
+  const documentIdsByPath = documentIds.reduce((acc, doc) => {
+    const daBasePath = pathByFileName.get(doc.name);
+    const documentId = doc.documentId ?? doc.id;
+    if (daBasePath && documentId != null) acc[daBasePath] = String(documentId);
+    return acc;
+  }, {});
+
+  return { uploadedFileNames, overflowSubmissionIds, documentIdsByPath };
 }
 
 /**
@@ -304,24 +338,21 @@ const TARGETS_PAGE_SIZE = 200;
 const TARGETS_PAGE_MAX = 50;
 
 /**
- * Fetches a single page of a submission's targets.
+ * Fetches a single page of a submission's targets. Status/language filtering is done
+ * client-side (see {@link listTargets}'s callers) rather than via query params — GlobalLink's
+ * `targetStatus`/`targetLanguage` request params aren't confirmed valid for this endpoint,
+ * and a status filter would also need to cover both `PROCESSED` and `DELIVERED`.
  * @param {object} service - The flattened per-environment service config.
  * @param {string|number} submissionId - The submission whose targets to list.
- * @param {object} filters - Query filters.
- * @param {string} [filters.targetStatus] - Only return targets with this status.
- * @param {string} [filters.targetLanguage] - Only return targets for this language.
- * @param {number} pageNumber - The 1-based page number to fetch.
+ * @param {number} pageNumber - The 0-based page number to fetch.
  * @returns {Promise<object[]|null>} The page's targets, or `null` on failure.
  */
-async function listTargetsPage(service, submissionId, filters, pageNumber) {
-  const { targetStatus, targetLanguage } = filters;
+async function listTargetsPage(service, submissionId, pageNumber) {
   const reqUrl = new URL(`${resolveOrigin(service)}/rest/v0/targets`);
   reqUrl.searchParams.set('submissionIds', submissionId);
   // 200 is the API's maximum page size — a larger value is rejected outright.
   reqUrl.searchParams.set('pageSize', String(TARGETS_PAGE_SIZE));
   reqUrl.searchParams.set('pageNumber', String(pageNumber));
-  if (targetStatus) reqUrl.searchParams.set('targetStatus', targetStatus);
-  if (targetLanguage) reqUrl.searchParams.set('targetLanguage', targetLanguage);
 
   const resp = await fetch(reqUrl, { headers: await authHeaders(service) });
   if (!resp.ok) return null;
@@ -333,23 +364,21 @@ async function listTargetsPage(service, submissionId, filters, pageNumber) {
 }
 
 /**
- * Lists a submission's targets (per-document, per-language translation records),
- * optionally filtered by status and/or target language. Pages through the full
- * result set, stopping once a page comes back short of `TARGETS_PAGE_SIZE` (or after
- * `TARGETS_PAGE_MAX` pages, as a safety net against an unexpected always-full-page response).
+ * Lists all of a submission's targets (per-document, per-language translation records).
+ * Pages through the full result set, stopping once a page comes back short of
+ * `TARGETS_PAGE_SIZE` (or after `TARGETS_PAGE_MAX` pages, as a safety net against an
+ * unexpected always-full-page response). Callers filter the result themselves (by status,
+ * language, etc.) — see {@link isProcessed}, {@link isCancelled}, {@link targetLanguageOf}.
  * @param {object} service - The flattened per-environment service config.
  * @param {string|number} submissionId - The submission whose targets to list.
- * @param {object} [filters] - Optional query filters.
- * @param {string} [filters.targetStatus] - Only return targets with this status.
- * @param {string} [filters.targetLanguage] - Only return targets for this language.
- * @returns {Promise<object[]>} All matching targets, or an empty array on failure.
+ * @returns {Promise<object[]>} All of the submission's targets, or an empty array on failure.
  */
-async function listTargets(service, submissionId, filters = {}) {
+async function listTargets(service, submissionId) {
   const targets = [];
-  for (let pageNumber = 1; pageNumber <= TARGETS_PAGE_MAX; pageNumber += 1) {
+  for (let pageNumber = 0; pageNumber < TARGETS_PAGE_MAX; pageNumber += 1) {
     // eslint-disable-next-line no-await-in-loop
-    const page = await listTargetsPage(service, submissionId, filters, pageNumber);
-    if (!page) return pageNumber === 1 ? [] : targets;
+    const page = await listTargetsPage(service, submissionId, pageNumber);
+    if (!page) return pageNumber === 0 ? [] : targets;
     targets.push(...page);
     if (page.length < TARGETS_PAGE_SIZE) break;
   }
@@ -491,7 +520,7 @@ export function connect(service) {
  * @param {object} conf - The translation-send configuration.
  * @param {string} conf.title - The localization project title.
  * @param {object} conf.service - The flattened per-environment service config (mutated
- * in place with the created `submissionId`).
+ * in place with the created `submissionId` and the `documentIds` daBasePath map).
  * @param {object} conf.options - The full localization project options, including any
  * `translation.service.custom.*` fields required as GlobalLink submission custom attributes.
  * @param {object[]} conf.langs - The target languages to send (mutated in place with
@@ -554,12 +583,15 @@ export async function sendAllLanguages({
   options.service.submissionId = { value: String(submissionId) };
 
   sendMessage({ text: `Uploading ${urls.length} items to GlobalLink.` });
-  const { uploadedFileNames, overflowSubmissionIds } = await uploadSourceFiles(
+  const { uploadedFileNames, overflowSubmissionIds, documentIdsByPath } = await uploadSourceFiles(
     service,
     submissionId,
     urls,
     batchName,
   );
+  if (Object.keys(documentIdsByPath).length) {
+    options.service.documentIds = { value: JSON.stringify(documentIdsByPath) };
+  }
   const accepted = urls.filter((url) => uploadedFileNames.has(toFileName(url.daBasePath))).length;
 
   if (overflowSubmissionIds.length) {
@@ -639,6 +671,7 @@ export async function getStatusAll({ service, langs, urls, actions }) {
   sendMessage({ text: `Checking GlobalLink status for submission ${submissionId}.` });
 
   const targets = await listTargets(service, submissionId);
+  const documentIdsByPath = getDocumentIdsByPath(service);
   langs.forEach((lang) => {
     lang.translation ??= {};
     lang.translation.translated = 0;
@@ -648,7 +681,7 @@ export async function getStatusAll({ service, langs, urls, actions }) {
   const cancelledCountByLang = {};
   const processedByLang = {};
   targets.forEach((target) => {
-    const matched = matchUrl(urls, target);
+    const matched = matchUrl(urls, target, documentIdsByPath);
     if (!matched) return;
     const langCode = targetLanguageOf(target);
     if (!langCode) return;
@@ -714,21 +747,17 @@ export async function saveItems({
     return urls;
   }
 
-  const targets = await listTargets(service, submissionId, {
-    targetStatus: 'PROCESSED',
-    targetLanguage: lang.code,
-  });
+  const allTargets = await listTargets(service, submissionId);
+  const targets = allTargets.filter(
+    (entry) => isProcessed(entry) && targetLanguageOf(entry) === lang.code,
+  );
+  const documentIdsByPath = getDocumentIdsByPath(service);
 
   const token = await getAccessToken(service);
   const deliveredTargetIds = [];
 
   const downloadCallback = async (url) => {
-    const target = targets.find((entry) => {
-      if (!isProcessed(entry)) return false;
-      const langCode = targetLanguageOf(entry);
-      if (langCode && langCode !== lang.code) return false;
-      return matchUrl([url], entry);
-    });
+    const target = targets.find((entry) => matchUrl([url], entry, documentIdsByPath));
 
     const targetId = target?.targetId || target?.id;
     if (!targetId) {
@@ -794,8 +823,9 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
     return { ok: false };
   }
 
-  const targets = await listTargets(service, submissionId, { targetLanguage: lang.code });
-  const targetIds = targets
+  const allTargets = await listTargets(service, submissionId);
+  const targetIds = allTargets
+    .filter((target) => targetLanguageOf(target) === lang.code)
     .map((target) => target.targetId ?? target.id)
     .filter((id) => id != null);
 
