@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  connect, isConnected, saveItems, sendAllLanguages, getStatusAll,
+  isConnected, saveItems, sendAllLanguages, getStatusAll,
 } from '../../../../nx/blocks/loc/connectors/smartling/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 
@@ -68,18 +68,18 @@ describe('smartling connector - legacy origin rewriting', () => {
   beforeEach(() => installFetch());
   afterEach(() => restoreFetch());
 
-  // Must run before any other test calls connect()/scheduleRefresh - isConnected's
+  // Must run before any other test calls scheduleRefresh - isConnected's
   // early return depends on tokenPolling being unset, which is otherwise
-  // module-level state left over from every later connect() call in this file.
+  // module-level state left over from every later test in this file.
   it('resolves the endpoint from origin/org/site in isConnected, not a nonexistent config key', async () => {
-    localStorage.setItem('smartling.prod.token', JSON.stringify({
+    localStorage.setItem(`smartling.${org}.${site}.prod.token`, JSON.stringify({
       accessToken: 'cached-token',
       refreshToken: 'cached-refresh-token',
       expires: Date.now() + 60000,
     }));
 
     const connected = await isConnected({
-      name: 'Smartling', env: 'prod', userId: 'u', userSecret: 's', origin: legacyOrigin, org, site,
+      name: 'Smartling', env: 'prod', origin: legacyOrigin, org, site,
     });
     expect(connected).to.equal(true);
 
@@ -123,45 +123,31 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(langs[0].translation.status).to.equal('created');
   });
 
-  it('rewrites the legacy /smartling origin to /translate/smartling/<org>/<site> on connect', async () => {
-    await connect({
-      name: 'Smartling', origin: legacyOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
-    });
+  it('auto-connects via isConnected when there is no cached token, with no separate connect() step', async () => {
+    // Distinct org/site so this test's cache key can't collide with the
+    // 'acme'/'site1' state other tests in this file leave behind.
+    const autoOrg = 'auto-org';
+    const autoSite = 'auto-site';
 
-    expect(calls[0].url).to.equal(`${DA_TRANSLATE}/translate/smartling/${org}/${site}/auth-api/v2/authenticate`);
-  });
-
-  it('leaves a non-legacy origin untouched on connect', async () => {
-    const customOrigin = 'https://api.smartling.com';
-    await connect({
-      name: 'Smartling', origin: customOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
-    });
-
-    expect(calls[0].url).to.equal(`${customOrigin}/auth-api/v2/authenticate`);
-  });
-
-  it('surfaces an error and returns false when connect fails', async () => {
     origFetch = window.fetch;
     window.fetch = async (url, opts = {}) => {
       const u = url.toString();
       calls.push({ url: u, method: opts.method, body: opts.body });
 
-      if (u.includes('/auth-api/v2/authenticate')) {
-        return new Response('', { status: 401 });
+      if (u.includes('/integrations/smartling/login')) {
+        return new Response(JSON.stringify({
+          response: { data: { accessToken: 'auto-token', refreshToken: 'auto-refresh', expiresIn: 300 } },
+        }), { status: 200 });
       }
       return new Response('{}', { status: 200 });
     };
 
-    const messages = [];
-    const sendMessage = (m) => messages.push(m);
+    const connected = await isConnected({
+      name: 'Smartling', env: 'prod', origin: 'https://api.smartling.com', org: autoOrg, site: autoSite,
+    });
 
-    const result = await connect({
-      name: 'Smartling', origin: legacyOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
-    }, sendMessage);
-
-    expect(result).to.equal(false);
-    const errorMessage = messages.find((m) => m.type === 'error');
-    expect(errorMessage.text).to.include('Connection to Smartling failed');
+    expect(connected).to.equal(true);
+    expect(calls.some((c) => c.url.includes('/integrations/smartling/login'))).to.equal(true);
   });
 
   it('rewrites the origin for sendAllLanguages job/batch/upload calls', async () => {
@@ -489,10 +475,12 @@ describe('smartling connector - legacy origin rewriting', () => {
   });
 
   it('recovers from a 401 on getStatusAll by refreshing the token and retrying', async () => {
-    await connect({
-      name: 'Smartling', origin: legacyOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
-    });
-
+    // Real auth (connect()) now goes through da-etc, which requires a
+    // signed-in IMS session and isn't mockable at this level. No seeding is
+    // needed here though - `authContext` is already populated by the
+    // isConnected() call in the first test above, and the initial request's
+    // token read is a cache miss regardless (this test's `service` has no
+    // `env`), so it always 401s and forces the refresh path being tested.
     let progressCalls = 0;
     let refreshCalls = 0;
     origFetch = window.fetch;
@@ -807,10 +795,8 @@ describe('smartling connector - legacy origin rewriting', () => {
   });
 
   it('recovers from a 401 by refreshing the token and retrying the request', async () => {
-    await connect({
-      name: 'Smartling', origin: legacyOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
-    });
-
+    // See the getStatusAll 401-recovery test above for why no seeding is
+    // needed here.
     let jobCalls = 0;
     let refreshCalls = 0;
     origFetch = window.fetch;
@@ -854,10 +840,8 @@ describe('smartling connector - legacy origin rewriting', () => {
   });
 
   it('gives up without looping when the retried request also 401s', async () => {
-    await connect({
-      name: 'Smartling', origin: legacyOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
-    });
-
+    // See the getStatusAll 401-recovery test above for why no seeding is
+    // needed here.
     let refreshCalls = 0;
     origFetch = window.fetch;
     window.fetch = async (url, opts = {}) => {
