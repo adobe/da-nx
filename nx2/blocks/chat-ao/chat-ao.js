@@ -164,6 +164,7 @@ export default class NxChatAo extends LitElement {
 
   _handleNewSession() {
     this._controller.startNewEpisode();
+    this.shadowRoot.querySelector('.chat-input')?.focus();
   }
 
   _handleEpisodeChange({ detail: { value } }) {

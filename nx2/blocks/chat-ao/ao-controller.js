@@ -11,7 +11,9 @@
  */
 
 import { loadIms } from '../../utils/ims.js';
-import { AO_FRAME, AO_EVENT, IGNORED_WHILE_INTERRUPTING } from './ao-constants.js';
+import {
+  AO_FRAME, AO_EVENT, IGNORED_WHILE_INTERRUPTING, DEDICATED_SUMMARY_TOOLS,
+} from './ao-constants.js';
 import { buildFailedUploadsText, buildClientContext } from './utils/user-context.js';
 import { uploadAttachment, getOrgId, resolveAoWsBase } from './utils/uploads.js';
 import { resolveManifestId } from './utils/manifest.js';
@@ -40,6 +42,7 @@ const EVENT_HANDLERS = new Map([
   [AO_EVENT.TURN_ABORTED, '_onTurnCompleted'],
   [AO_EVENT.EPISODE_TITLE_UPDATED, '_onEpisodeTitleUpdated'],
   [AO_EVENT.USER_QUESTION, '_onUserQuestion'],
+  [AO_EVENT.USER_QUESTION_RESPONSE, '_onUserQuestionResponse'],
   [AO_EVENT.PLAN_APPROVAL_REQUEST, '_onPlanApprovalRequest'],
   [AO_EVENT.PERMISSION_REQUEST, '_onPermissionRequest'],
   [AO_EVENT.ERROR_CONNECTION, '_onSessionError'],
@@ -374,6 +377,7 @@ export default class AoChatController {
   // See docs/chat-ao-component.md#tool-call-activity for the detected/start/end patching.
   _onToolCallDetected(evt) {
     const { tool_call_id: toolCallId, tool_name: toolName } = evt.data ?? {};
+    if (DEDICATED_SUMMARY_TOOLS.has(toolName)) return;
     this._messages = [...this._messages, {
       role: 'assistant', toolCall: { toolCallId, toolName, status: 'detected' },
     }];
@@ -384,6 +388,7 @@ export default class AoChatController {
     const {
       tool_call_id: toolCallId, tool_name: toolName, arguments: args, metadata,
     } = evt.data ?? {};
+    if (DEDICATED_SUMMARY_TOOLS.has(toolName)) return;
     const title = metadata?.skill_title;
     const patch = { toolName, status: 'running', arguments: args, ...(title && { title }) };
     if (this._messages.some((m) => m.toolCall?.toolCallId === toolCallId)) {
@@ -437,6 +442,32 @@ export default class AoChatController {
       context: evt.data?.context ?? null,
       questions: evt.data?.questions ?? [],
     };
+    this._update();
+  }
+
+  // See docs/chat-ao-component.md#question-flow.
+  _buildQuestionResponseMessage(pendingQuestion, answers, declined) {
+    return {
+      role: 'assistant',
+      questionResponse: {
+        context: pendingQuestion.context,
+        questions: pendingQuestion.questions,
+        answers,
+        declined,
+      },
+    };
+  }
+
+  // See docs/chat-ao-component.md#question-flow.
+  _onUserQuestionResponse(evt) {
+    const turnId = evt.data?.turn_id ?? evt.turn_id;
+    if (!this._pendingQuestion || this._pendingQuestion.turnId !== turnId) return;
+    const answers = evt.data?.answers ?? [];
+    this._messages = [
+      ...this._messages,
+      this._buildQuestionResponseMessage(this._pendingQuestion, answers, answers.length === 0),
+    ];
+    this._pendingQuestion = undefined;
     this._update();
   }
 
@@ -502,6 +533,10 @@ export default class AoChatController {
     if (!this._pendingQuestion) return;
     const { turnId } = this._pendingQuestion;
     const wasAlreadyOpen = this._ws?.readyState === WebSocket.OPEN;
+    this._messages = [
+      ...this._messages,
+      this._buildQuestionResponseMessage(this._pendingQuestion, answers, declined),
+    ];
     this._pendingQuestion = undefined;
     this._update();
 
