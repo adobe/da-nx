@@ -2,16 +2,14 @@
 
 ## 2026-09-02
 
-### New lionbridge translation connector + shared loc utils extraction
+### nx2 editortoggle — stop clearing the flag when Sidekick lands on /edit
 
-- New connector (`nx/blocks/loc/connectors/lionbridge/`) implementing the standard connector interface against Lionbridge's Content API v2, with GUID persistence and dev-guideline compliance.
-- Fixed several dependent-language (`waitingFor`) bugs found via live debugging: a path-joining bug, wrong source language code, a stale-jobId status regression, url-metadata clobbering across concurrent saves, and a save-dispatch race.
-- Extracted shared connector utils (`downloadQueue.js`, `auth.js`, `fetchWithRetry.js`) used across Lionbridge/Trados/Smartling/GLaaS.
-- Added status pill colors for in-progress/error.
-- `getOpts` returns `null` on auth failure instead of throwing, so every call site's existing `.ok`/failure handling covers it too.
-- Added error messages for: missing requestId on download, download failures, job-submit failures, and per-job status-check failures; `sendAllLanguages`/`getStatusAll` no longer clear a just-shown error with a trailing success message.
-- `auth.js`'s `getAccessToken` gained a `{ force }` option to bypass the cache and re-login, used for reactive 401 recovery.
-- Full test coverage; verified end-to-end against real Lionbridge staging APIs and the DA Translate app UI.
+Fixes adobe/da-live#1289. `connectedCallback`'s implicit-choice sync treated
+any direct landing on `/edit` as opting out, clearing `nx2:ew-user-enabled`
+even when Sidekick's Edit button (not the user) put you there. Now only the
+`/canvas` → on-sync remains; the toolbar switch hides itself on `/edit` when
+the flag is already on instead of clearing it, and the profile-menu switch
+renders anywhere the flag is on so there's still a way to turn it off.
 
 ## 2026-08-27
 
