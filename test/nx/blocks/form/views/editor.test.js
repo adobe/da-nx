@@ -39,6 +39,58 @@ describe('nx-editor primitive controls', () => {
     expect(el.shadowRoot.querySelector('form-textarea')).to.equal(null);
   });
 
+  it('renders a date widget for a string node with format date', async () => {
+    const root = objectRoot([
+      { kind: 'string', pointer: '/data/when', label: 'When', format: 'date', value: '2026-08-14' },
+    ]);
+    const el = await mountEditor(root);
+    const field = el.shadowRoot.querySelector('[data-pointer="/data/when"]');
+    expect(field.tagName).to.equal('FORM-DATE');
+    expect(el.shadowRoot.querySelector('form-input')).to.equal(null);
+    expect(field.value).to.equal('2026-08-14');
+  });
+
+  it('renders a time widget for a string node with format time', async () => {
+    const root = objectRoot([
+      { kind: 'string', pointer: '/data/opens', label: 'Opens', format: 'time', value: '09:00' },
+    ]);
+    const el = await mountEditor(root);
+    const field = el.shadowRoot.querySelector('[data-pointer="/data/opens"]');
+    expect(field.tagName).to.equal('FORM-DATE');
+    expect(field.type).to.equal('time');
+    expect(field.value).to.equal('09:00');
+  });
+
+  it('renders a datetime widget for a string node with format date-time', async () => {
+    const iso = '2026-08-14T09:30:00.000Z';
+    const root = objectRoot([
+      { kind: 'string', pointer: '/data/start', label: 'Start', format: 'date-time', value: iso },
+    ]);
+    const el = await mountEditor(root);
+    const field = el.shadowRoot.querySelector('[data-pointer="/data/start"]');
+    expect(field.tagName).to.equal('FORM-DATE');
+    expect(field.type).to.equal('datetime');
+    expect(field.value).to.equal(iso);
+  });
+
+  it('surfaces the SDK format error on the date widget', async () => {
+    const root = objectRoot([
+      { kind: 'string', pointer: '/data/when', label: 'When', format: 'date' },
+    ]);
+    const el = document.createElement('nx-editor');
+    el.editor = {};
+    el.onSelect = () => {};
+    el.nav = {};
+    el.state = {
+      model: { root },
+      validation: { errors: { '/data/when': { message: 'Must be a valid date (YYYY-MM-DD).' } } },
+    };
+    document.body.append(el);
+    await el.updateComplete;
+    const field = el.shadowRoot.querySelector('[data-pointer="/data/when"]');
+    expect(field.error).to.equal('Must be a valid date (YYYY-MM-DD).');
+  });
+
   it('stretches a long-text item to fill an array row', async () => {
     const root = objectRoot([
       {
