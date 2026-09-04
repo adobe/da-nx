@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  connect, isConnected, saveItems, sendAllLanguages, getStatusAll,
+  connect, isConnected, saveItems, sendAllLanguages, getStatusAll, closeJob,
 } from '../../../../nx/blocks/loc/connectors/smartling/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 
@@ -886,5 +886,80 @@ describe('smartling connector - legacy origin rewriting', () => {
 
     expect(refreshCalls).to.equal(1);
     expect(langs[0].translation).to.equal(undefined);
+  });
+
+  describe('closeJob', () => {
+    beforeEach(async () => {
+      await connect({
+        name: 'Smartling', origin: legacyOrigin, env: 'prod', userId: 'u', userSecret: 's', org, site,
+      });
+    });
+
+    it('closes the job and marks jobUid.closed', async () => {
+      origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+
+        if (u.includes('/jobs-api/v3/projects') && u.endsWith('/close')) {
+          return new Response(JSON.stringify({ response: {} }), { status: 200 });
+        }
+        return new Response('{}', { status: 200 });
+      };
+
+      const service = {
+        origin: legacyOrigin, org, site, projectId: 'proj-1', jobUid: { value: 'job-1' },
+      };
+      const result = await closeJob({ service, sendMessage: () => {} });
+
+      expect(result).to.equal(true);
+      expect(service.jobUid.closed).to.equal(true);
+      const closeCall = calls.find((c) => c.url.endsWith('/close'));
+      expect(closeCall.url).to.equal(`${DA_TRANSLATE}/translate/smartling/${org}/${site}/jobs-api/v3/projects/proj-1/jobs/job-1/close`);
+      expect(closeCall.method).to.equal('POST');
+      expect(closeCall.body).to.equal('{}');
+    });
+
+    it('does nothing and returns true when there is no job to close', async () => {
+      const service = { origin: legacyOrigin, projectId: 'proj-1' };
+      const result = await closeJob({ service, sendMessage: () => {} });
+
+      expect(result).to.equal(true);
+      expect(calls.some((c) => c.url.includes('jobs-api'))).to.equal(false);
+    });
+
+    it('does not re-close an already-closed job', async () => {
+      const service = {
+        origin: legacyOrigin, projectId: 'proj-1', jobUid: { value: 'job-1', closed: true },
+      };
+      const result = await closeJob({ service, sendMessage: () => {} });
+
+      expect(result).to.equal(true);
+      expect(calls.some((c) => c.url.includes('jobs-api'))).to.equal(false);
+    });
+
+    it('surfaces an error and returns false when closing fails', async () => {
+      origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+
+        if (u.includes('/jobs-api/v3/projects') && u.endsWith('/close')) {
+          return new Response(JSON.stringify({
+            response: { code: 'VALIDATION_ERROR', errors: [{ message: 'Job is not in a closeable state' }] },
+          }), { status: 400 });
+        }
+        return new Response('{}', { status: 200 });
+      };
+
+      const service = { origin: legacyOrigin, projectId: 'proj-1', jobUid: { value: 'job-1' } };
+      const messages = [];
+      const result = await closeJob({ service, sendMessage: (m) => messages.push(m) });
+
+      expect(result).to.equal(false);
+      expect(service.jobUid.closed).to.equal(undefined);
+      const errorMessage = messages.find((m) => m.type === 'error');
+      expect(errorMessage.text).to.include('Job is not in a closeable state');
+    });
   });
 });

@@ -593,3 +593,40 @@ export async function getStatusAll({
 
   await saveState();
 }
+
+/**
+ * Closes a Smartling translation job once every target language has
+ * finished translating and been saved to DA. Closing is one-way - it
+ * removes the job's content in Smartling - so this only ever runs once,
+ * gated by `jobUid.closed` (the translate view calls this generically once
+ * all languages report a terminal status; see `closeJobIfComplete` in
+ * views/translate/translate.js).
+ * @param {Object} params
+ * @param {Object} params.service - The service configuration; reads
+ *  `service.jobUid` (set by `sendAllLanguages`) and `service.org`/
+ *  `service.site`/`service.origin`/`service.projectId`.
+ * @param {Function} params.sendMessage - Callback to surface an error
+ *  message to the user if closing fails.
+ * @returns {Promise<boolean>} Whether the job is closed (or already was).
+ */
+export async function closeJob({ service, sendMessage }) {
+  const {
+    org, site, origin, projectId, jobUid,
+  } = service;
+  if (!jobUid?.value || jobUid.closed) return true;
+
+  const endpoint = resolveOrigin(origin, org, site);
+  const opts = { ...BASE_OPTS, body: '{}' };
+  opts.headers.Authorization = `Bearer ${token}`;
+
+  const url = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid.value}/close`;
+  const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
+  if (!resp.ok) {
+    const json = await resp.json();
+    sendMessage({ text: `Closing Smartling job failed: ${extractErrorMessage(json)}`, type: 'error' });
+    return false;
+  }
+
+  jobUid.closed = true;
+  return true;
+}

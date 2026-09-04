@@ -219,7 +219,28 @@ class NxLocTranslate extends LitElement {
 
     await this.checkAndSaveLangs(conf);
 
+    await this.closeJobIfComplete();
+
     this.handleSaveLangs();
+  }
+
+  /**
+   * Closes the connector's translation job once every target language has
+   * reached a terminal status (saved to DA, or cancelled) - a no-op for
+   * connectors that don't define `closeJob` (only Smartling does today).
+   * @returns {Promise<void>}
+   */
+  async closeJobIfComplete() {
+    const { closeJob } = this._service.connector;
+    if (!closeJob) return;
+
+    const langs = this._translateLangs;
+    const allDone = langs.length > 0
+      && langs.every((lang) => ['complete', 'cancelled'].includes(lang.translation?.status));
+    if (!allDone) return;
+
+    const sendMessage = this.handleMessage.bind(this);
+    await closeJob({ service: this._service, sendMessage });
   }
 
   async handleCancelAll() {
