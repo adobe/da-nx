@@ -265,13 +265,18 @@ away). Three paths build the same message shape:
   the same `_build_question_metadata` shape AO already writes for this
   exact call, not a new field.
 
-**`ask_user_question` never gets a generic tool-call card**, live or on
-reload — `_onToolCallDetected`/`_onToolCallStart` skip it by name, and the
-reload walk routes it to `questionResponse` instead of the regular tool-call
-list. The alternative (showing both) would mean answering a question left
-*two* records behind: a raw, unformatted tool-call card with the question
-JSON as `arguments` and "User answers: ..." as `result`, and the readable
-summary above it — worse than either alone.
+**Live, `ask_user_question` never gets a generic tool-call card** —
+`_onToolCallDetected`/`_onToolCallStart` skip any tool name in
+`DEDICATED_SUMMARY_TOOLS` (`ao-constants.js`), and `turnsToMessages` routes it
+to `questionResponse` on reload too. The alternative (showing both) would mean
+answering a question left *two* records behind: a raw, unformatted tool-call
+card with the question JSON as `arguments` and "User answers: ..." as
+`result`, and the readable summary above it — worse than either alone.
+
+This suppression is deliberately *not* mirrored in `extractToolCalls`, used
+only when a reloaded turn's collapsed "Used N tools" row is expanded — that
+view already shows every other tool's raw args/result, so `ask_user_question`
+appearing there too is consistent rather than a special case.
 
 **Not yet implemented / open TODOs:** screen-reader verification, multi-question
 layout testing under real content, focus-ring polish.

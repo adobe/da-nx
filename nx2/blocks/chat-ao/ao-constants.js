@@ -103,3 +103,7 @@ export const IGNORED_WHILE_INTERRUPTING = new Set([
   AO_EVENT.PLAN_APPROVAL_REQUEST,
   AO_EVENT.PERMISSION_REQUEST,
 ]);
+
+// Tools with their own dedicated card on the live path (see ao-controller.js's
+// tool-call handlers) instead of a generic tool-call entry.
+export const DEDICATED_SUMMARY_TOOLS = new Set(['ask_user_question']);

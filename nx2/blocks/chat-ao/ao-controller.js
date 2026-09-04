@@ -11,7 +11,9 @@
  */
 
 import { loadIms } from '../../utils/ims.js';
-import { AO_FRAME, AO_EVENT, IGNORED_WHILE_INTERRUPTING } from './ao-constants.js';
+import {
+  AO_FRAME, AO_EVENT, IGNORED_WHILE_INTERRUPTING, DEDICATED_SUMMARY_TOOLS,
+} from './ao-constants.js';
 import { buildFailedUploadsText, buildClientContext } from './utils/user-context.js';
 import { uploadAttachment, getOrgId, resolveAoWsBase } from './utils/uploads.js';
 import { resolveManifestId } from './utils/manifest.js';
@@ -375,10 +377,7 @@ export default class AoChatController {
   // See docs/chat-ao-component.md#tool-call-activity for the detected/start/end patching.
   _onToolCallDetected(evt) {
     const { tool_call_id: toolCallId, tool_name: toolName } = evt.data ?? {};
-    // ask_user_question gets its own dedicated question-response summary
-    // (see _buildQuestionResponseMessage) once answered — a generic tool-call
-    // card for it would just duplicate that with raw, unformatted args/result.
-    if (toolName === 'ask_user_question') return;
+    if (DEDICATED_SUMMARY_TOOLS.has(toolName)) return;
     this._messages = [...this._messages, {
       role: 'assistant', toolCall: { toolCallId, toolName, status: 'detected' },
     }];
@@ -389,7 +388,7 @@ export default class AoChatController {
     const {
       tool_call_id: toolCallId, tool_name: toolName, arguments: args, metadata,
     } = evt.data ?? {};
-    if (toolName === 'ask_user_question') return;
+    if (DEDICATED_SUMMARY_TOOLS.has(toolName)) return;
     const title = metadata?.skill_title;
     const patch = { toolName, status: 'running', arguments: args, ...(title && { title }) };
     if (this._messages.some((m) => m.toolCall?.toolCallId === toolCallId)) {
