@@ -68,11 +68,7 @@ function turnsToMessages(turns, artifacts = [], turnEventsList = []) {
     (artifactsByTurn.get(turn?.id) ?? []).forEach((artifact) => {
       messages.push({ role: 'assistant', uiArtifact: toUiArtifact(artifact) });
     });
-    // See docs/chat-ao-component.md#tool-call-activity for why every
-    // assistant_message is used here, not just the turn's final_response.
-    // ask_user_question gets its own question-response summary instead of a
-    // generic tool-call entry — see docs/chat-ao-component.md#question-flow —
-    // so both are built from one pass over the same events, in event order.
+    // See docs/chat-ao-component.md#tool-call-activity and #question-flow.
     const events = turnEventsList[index] ?? [];
     const resultsByCallId = new Map();
     events.forEach((event) => {
