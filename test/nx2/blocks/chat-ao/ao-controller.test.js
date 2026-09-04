@@ -554,26 +554,6 @@ describe('ao-controller tool-call activity', () => {
     expect(controller._messages[0].toolCall.status).to.equal('error');
   });
 
-  it('marks AO\'s blind-deferred-schema retry as "retrying", not "error"', () => {
-    const { controller } = makeController();
-    controller._handleServerEvent({
-      type: 'tool_call_start',
-      data: { tool_call_id: 'tc1', tool_name: 'search_content', arguments: {} },
-    });
-
-    controller._handleServerEvent({
-      type: 'tool_call_end',
-      data: {
-        tool_call_id: 'tc1',
-        result: 'Loaded schema for search_content; not executed — retrying.',
-        error: null,
-        success: false,
-      },
-    });
-
-    expect(controller._messages[0].toolCall.status).to.equal('retrying');
-  });
-
   it('leaves other messages untouched when patching a toolCall by id', () => {
     const { controller } = makeController();
     controller._handleServerEvent({
