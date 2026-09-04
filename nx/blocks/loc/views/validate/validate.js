@@ -1,10 +1,9 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { loadStyle } from '../../../../../nx2/scripts/nx.js';
-import { daFetch } from '../../../../../nx2/utils/api.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 
 import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
+import { fetchWithMsmFallback } from '../../utils/msm.js';
 import { getFragmentUrls } from './validate-utils.js';
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
 
@@ -101,16 +100,21 @@ class NxLocValidate extends LitElement {
     const isSheet = pathname.endsWith('.json');
     const extPath = isSheet ? pathname : `${pathname}.html`;
     const snapshotUrlFragment = createSnapshotPrefix(this._snapshot);
-    const daUrl = `${DA_ADMIN}/source/${this._org}/${this._site}${snapshotUrlFragment}${extPath}`;
-    const resp = await daFetch({ url: daUrl });
+    const daPath = `${snapshotUrlFragment}${extPath}`;
+    const { resp, resolvedSite, inherited } = await fetchWithMsmFallback({
+      org: this._org,
+      site: this._site,
+      daPath,
+    });
     const text = await resp.text();
     const ok = resp.status === 200;
     url.status = ok ? 'ready' : 'error - not found';
     url.checked = ok;
+    url.inherited = ok && inherited;
     url.sheet = isSheet;
     url.extPath = extPath;
     url.fragment = url.pathname.includes('/fragments/');
-    url.daEdit = `${DA_LIVE}/edit#/${this._org}/${this._site}${snapshotUrlFragment}${url.pathname}`;
+    url.daEdit = `${DA_LIVE}/edit#/${this._org}/${resolvedSite}${snapshotUrlFragment}${url.pathname}`;
     if (ok) await this.findFragments(text);
     this.requestUpdate();
   }
