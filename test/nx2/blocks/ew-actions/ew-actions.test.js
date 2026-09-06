@@ -38,11 +38,11 @@ describe('nx-ew-actions', () => {
     restoreFetch?.();
   });
 
-  describe('_filterHidePublish', () => {
+  describe('_updateHidePublish', () => {
     it('does not hide publish when there is no open document', async () => {
       el = await makeEl();
       el._hashState = null;
-      await el._filterHidePublish();
+      await el._updateHidePublish();
       expect(el._hidePublish).to.be.false;
     });
 
@@ -56,7 +56,7 @@ describe('nx-ew-actions', () => {
 
       el = await makeEl();
       el._hashState = { org, site, path: '/test/page' };
-      await el._filterHidePublish();
+      await el._updateHidePublish();
 
       expect(el._hidePublish).to.be.true;
     });
@@ -71,7 +71,7 @@ describe('nx-ew-actions', () => {
 
       el = await makeEl();
       el._hashState = { org, site, path: '/test/page' };
-      await el._filterHidePublish();
+      await el._updateHidePublish();
 
       expect(el._hidePublish).to.be.false;
     });
@@ -86,7 +86,7 @@ describe('nx-ew-actions', () => {
 
       el = await makeEl();
       el._hashState = { org, site, path: '/test/page' };
-      await el._filterHidePublish();
+      await el._updateHidePublish();
 
       expect(el._hidePublish).to.be.true;
     });
@@ -103,7 +103,7 @@ describe('nx-ew-actions', () => {
 
       el = await makeEl();
       el._hashState = { org, site, path: '/test/page' };
-      await el._filterHidePublish();
+      await el._updateHidePublish();
       await el.updateComplete;
 
       const ids = el.shadowRoot.querySelector('nx-menu').items.map((i) => i.id);
@@ -120,7 +120,7 @@ describe('nx-ew-actions', () => {
 
       el = await makeEl();
       el._hashState = { org, site, path: '/test/page' };
-      await el._filterHidePublish();
+      await el._updateHidePublish();
       await el.updateComplete;
 
       const ids = el.shadowRoot.querySelector('nx-menu').items.map((i) => i.id);

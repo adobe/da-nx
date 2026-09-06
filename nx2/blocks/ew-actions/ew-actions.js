@@ -52,6 +52,21 @@ function buildPrepareDetails(state) {
   };
 }
 
+async function shouldHidePublish(hashState) {
+  const { org, site } = hashState || {};
+  const fullpath = buildPrepareDetails(hashState)?.fullpath;
+  if (!org || !site || !fullpath) return false;
+
+  try {
+    const configs = await Promise.all(fetchDaConfigs({ org, site }));
+    const configTab = configs.flatMap((config) => getFirstSheet(config) || []);
+    const publishConfigs = configTab.filter((c) => c.key === 'editor.hidePublish' && c.value);
+    return publishConfigs.some((c) => fullpath.startsWith(c.value));
+  } catch {
+    return false;
+  }
+}
+
 class NXEwActions extends LitElement {
   static properties = {
     _busy: { state: true },
@@ -101,21 +116,11 @@ class NXEwActions extends LitElement {
 
   update(changed) {
     super.update(changed);
-    if (changed.has('_hashState') && this._hashState) this._filterHidePublish();
+    if (changed.has('_hashState') && this._hashState) this._updateHidePublish();
   }
 
-  async _filterHidePublish() {
-    const { org, site } = this._hashState || {};
-    const fullpath = buildPrepareDetails(this._hashState)?.fullpath;
-    if (!org || !site || !fullpath) {
-      this._hidePublish = false;
-      return;
-    }
-
-    const configs = await Promise.all(fetchDaConfigs({ org, site }));
-    const configTab = configs.flatMap((config) => getFirstSheet(config) || []);
-    const publishConfigs = configTab.filter((c) => c.key === 'editor.hidePublish');
-    this._hidePublish = publishConfigs.some((c) => fullpath.startsWith(c.value));
+  async _updateHidePublish() {
+    this._hidePublish = await shouldHidePublish(this._hashState);
   }
 
   _togglePrepareMenu(e) {
