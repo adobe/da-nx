@@ -1,12 +1,20 @@
 name: Close stale issues and PRs
 
-# Two-phase housekeeping. An item goes idle -> gets a `stale` label + a warning
-# comment (which notifies the original poster, who is subscribed to their own
-# thread) -> is closed after a grace period if still untouched. ANY activity, or
-# removing the `stale` label, resets the clock.
+# Three-stage, contributor-friendly housekeeping:
+#   1. Re-engage  - at the stale threshold, actions/stale adds `stale` and posts a
+#      no-pressure check-in (Notice #1). ANY activity, or removing `stale`, resets it.
+#   2. Final notice - a companion step posts a "closing soon" warning (Notice #2)
+#      ~7 days before the close date, based on how long `stale` has been applied.
+#   3. Close  - actions/stale closes after the grace period.
 #
-#   Issues:        stale after 60 days (2 months) -> close 21 days (3 weeks) later
-#   Pull requests: stale after 49 days (7 weeks)  -> close 14 days (2 weeks) later
+#   Issues:        stale after 60 days -> final notice ~day 74 -> close ~day 81
+#   Pull requests: stale after 49 days -> final notice ~day 56 -> close ~day 63
+#
+# Scope: `start-date` means only items created on/after 2026-03-01 are considered.
+# Anything older is left for manual review. Note the first run will re-engage
+# (Notice #1) any in-scope items already past the idle threshold.
+# Exempt from all of this: pinned / security / keep-open / hold / awaiting-maintainer
+# labels, and anything assigned to a milestone.
 
 on:
   schedule:
@@ -17,47 +25,104 @@ permissions:
   issues: write
   pull-requests: write
 
+env:
+  FINAL_NOTICE_LEAD_DAYS: '7'   # Notice #2 fires this many days before close
+  CLOSE_AFTER_ISSUE_DAYS: '21'  # must match days-before-issue-close
+  CLOSE_AFTER_PR_DAYS: '14'     # must match days-before-pr-close
+
 jobs:
   stale:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@v9
+      - name: Mark stale, re-engage, and close
+        uses: actions/stale@v9
         with:
-          # Process oldest items first so the longest-idle backlog clears first.
           ascending: true
-          # Raise from the default 30 so the initial backlog sweep isn't truncated.
           operations-per-run: 150
+          # Only govern items created on/after this date (not retroactive).
+          start-date: '2026-03-01T00:00:00Z'
 
           # ---- Issues: 2 months idle, then 3 weeks' grace ----
           days-before-issue-stale: 60
           days-before-issue-close: 21
           stale-issue-label: stale
           stale-issue-message: >
-            This issue has had no activity for 2 months, so it has been marked
-            `stale`. It will be closed in **3 weeks** if there is no further
-            activity. If it is still relevant, please leave a comment (or remove
-            the `stale` label) and we will keep it open. Thanks for helping keep
-            the backlog tidy!
+            Just checking in on this one. It has been quiet for a while, so we have
+            labeled it `stale` to make sure it does not get forgotten. Is it still
+            relevant? A quick comment (or removing the `stale` label) keeps it active.
+            If you were waiting on a review from us, that is on our side, not yours,
+            so give us a nudge. No action needed right now; we will post a final
+            notice before anything closes.
           close-issue-message: >
-            Closing this issue after 3 weeks of inactivity following the stale
-            notice. If it is still relevant, feel free to reopen it or open a new
-            issue with fresh context.
+            Closing this issue after a period of inactivity following the stale
+            notice. Nothing is lost: if it is still relevant, reopen it or open a
+            new issue with fresh context and we will pick it up.
 
           # ---- Pull requests: 7 weeks idle, then 2 weeks' grace ----
           days-before-pr-stale: 49
           days-before-pr-close: 14
           stale-pr-label: stale
           stale-pr-message: >
-            This pull request has had no activity for 7 weeks, so it has been
-            marked `stale`. It will be closed in **2 weeks** if there is no
-            further activity. If you are still working on it, please push a
-            commit or leave a comment (or remove the `stale` label). Thanks!
+            Checking in on this PR. It has been quiet for a while, so we have labeled
+            it `stale` to keep it on our radar. Are you still working on it, or waiting
+            on us? A comment or a new commit keeps it open. If the delay is on our
+            side, that is on us. We will post a final notice before it would close.
           close-pr-message: >
-            Closing this pull request after 2 weeks of inactivity following the
-            stale notice. If you would like to continue the work, please reopen
-            it or open a fresh PR.
+            Closing this pull request after a period of inactivity following the stale
+            notice. Nothing is lost: reopen it or open a fresh PR whenever you are
+            ready and we will continue.
 
-          # Never auto-close things that are intentionally long-lived.
-          exempt-issue-labels: 'pinned,security,keep-open,roadmap'
-          exempt-pr-labels: 'pinned,security,keep-open,work-in-progress'
+          # Never touch things that are intentionally long-lived or explicitly held.
+          exempt-issue-labels: 'pinned,security,keep-open,roadmap,hold,awaiting-maintainer'
+          exempt-pr-labels: 'pinned,security,keep-open,work-in-progress,hold,awaiting-maintainer'
           exempt-all-milestones: true
+
+      - name: Post final notice before close
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LEAD = Number(process.env.FINAL_NOTICE_LEAD_DAYS);
+            const CLOSE_AFTER = {
+              issue: Number(process.env.CLOSE_AFTER_ISSUE_DAYS),
+              pr: Number(process.env.CLOSE_AFTER_PR_DAYS),
+            };
+            const MARKER = '<!-- stale-final-notice';
+            const { owner, repo } = context.repo;
+
+            const items = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', labels: 'stale', per_page: 100,
+            });
+
+            for (const it of items) {
+              const isPR = !!it.pull_request;
+              const grace = isPR ? CLOSE_AFTER.pr : CLOSE_AFTER.issue;
+              const fireAfter = grace - LEAD; // days since `stale` was applied
+
+              // When was `stale` most recently applied?
+              const events = await github.paginate(github.rest.issues.listEvents, {
+                owner, repo, issue_number: it.number, per_page: 100,
+              });
+              const staleLabelings = events.filter(
+                e => e.event === 'labeled' && e.label && e.label.name === 'stale'
+              );
+              if (!staleLabelings.length) continue;
+              const staledAt = new Date(staleLabelings[staleLabelings.length - 1].created_at);
+              const ageDays = (Date.now() - staledAt.getTime()) / 86400000;
+              if (ageDays < fireAfter) continue;
+
+              // One final notice per stale cycle (marker carries the stale timestamp).
+              const marker = `${MARKER}:${staledAt.toISOString()} -->`;
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number: it.number, per_page: 100,
+              });
+              if (comments.some(c => (c.body || '').includes(marker))) continue;
+
+              const daysLeft = Math.max(1, Math.ceil(grace - ageDays));
+              const kind = isPR ? 'pull request' : 'issue';
+              const body = `${marker}\n**Final notice:** this ${kind} will close in about `
+                + `${daysLeft} day(s) unless there is a reply or a new commit. If it is `
+                + `still relevant, just comment or remove the \`stale\` label. If you were `
+                + `waiting on us, say so and we will pick it up.`;
+              await github.rest.issues.createComment({ owner, repo, issue_number: it.number, body });
+              core.info(`Final notice posted on #${it.number} (${Math.round(ageDays)}d stale).`);
+            }
