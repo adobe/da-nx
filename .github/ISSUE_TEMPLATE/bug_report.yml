@@ -17,7 +17,6 @@ body:
       options:
         - Editor / Canvas
         - Blocks / Rendering
-        - Heli
         - Config / Sheets
         - Auth / Permissions
         - AI Assistant / Agent

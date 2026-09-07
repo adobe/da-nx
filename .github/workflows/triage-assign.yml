@@ -26,7 +26,6 @@ jobs:
             const SCOPE_ASSIGNEES = {
               'Editor / Canvas':      ['svynod', 'hannesolo'],
               'Blocks / Rendering':   ['svynod', 'hannesolo', 'mhaack'],
-              'Heli':                 ['mhaack', 'hannesolo'],
               'Config / Sheets':      ['mhaack', 'hannesolo', 'anfibiacreativa'],
               'Auth / Permissions':   ['mhaack', 'hannesolo', 'anfibiacreativa'],
               'AI Assistant / Agent': ['anfibiacreativa', 'mhaack'],
@@ -39,7 +38,6 @@ jobs:
             const SCOPE_SLUG = {
               'Editor / Canvas':      'editor',
               'Blocks / Rendering':   'blocks',
-              'Heli':                 'heli',
               'Config / Sheets':      'config',
               'Auth / Permissions':   'auth',
               'AI Assistant / Agent': 'assistant',
