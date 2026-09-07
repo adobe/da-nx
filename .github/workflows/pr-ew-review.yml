@@ -26,7 +26,7 @@ jobs:
 
             const pr = context.payload.pull_request;
             const body = pr.body || '';
-            const isEW = /- \[[xX]\]\s*This PR touches Experience Workspace/.test(body);
+            const isEW = /- \[[xX]\]\s*This PR's scope is Experience Workspace/.test(body);
             const { owner, repo } = context.repo;
             const pull_number = pr.number;
             const author = (pr.user.login || '').toLowerCase();
