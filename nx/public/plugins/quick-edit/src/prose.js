@@ -13,6 +13,7 @@ import { createSimpleKeymap } from './simple-keymap.js';
 import { createImageWrapperPlugin } from './image-wrapper.js';
 import { setupImageDropListeners } from './images.js';
 import { setRemoteCursors } from './cursors.js';
+import { findTextBlock } from './dom-index.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
 function marksEqual(a, b) {
@@ -181,14 +182,25 @@ function createEditor(cursorOffset, state, ctx) {
   editorParent.setAttribute('data-prose-index', cursorOffset);
   editorParent.classList.add('prosemirror-editor');
 
-  const element = document.querySelector(`[data-prose-index="${cursorOffset}"]`);
+  // An exact match can miss after a *different* block's remote edit shifts every
+  // downstream data-prose-index without a full SET_BODY re-index (createEditor doesn't
+  // run updateInstrumentation the way handleTransaction does for edits to an
+  // already-open mini-editor). Fall back to the nearest indexed block at-or-before
+  // cursorOffset — the same drift-tolerant lookup findImageAtProseIndex already relies
+  // on for images — instead of giving up and forcing a full-body RELOAD. Exclude
+  // already-open editors: setEditorState already routed an exact match there via
+  // updateEditor, so the fallback must not steal a different live editor's element.
+  const element = findTextBlock(cursorOffset, document, '.prosemirror-editor');
 
   if (!element) {
     ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
     return;
   }
 
-  if (element.getAttribute('data-cursor-remote')) {
+  // Only trust the found element's remote-cursor badge on an exact match — on the
+  // nearest-block fallback it belongs to whatever block drift landed on, not this one.
+  const isExactMatch = parseInt(element.getAttribute('data-prose-index'), 10) === cursorOffset;
+  if (isExactMatch && element.getAttribute('data-cursor-remote')) {
     editorParent.setAttribute('data-cursor-remote', element.getAttribute('data-cursor-remote'));
     editorParent.setAttribute('data-cursor-remote-color', element.getAttribute('data-cursor-remote-color'));
   }

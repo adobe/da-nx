@@ -2,6 +2,38 @@
 
 ## 2026-09-07
 
+### quick-edit — stop RELOAD storms from cross-block index drift
+
+Debugged via da-live's `ew-editor-doc` collab-diagnostics branch (multi-user
+test showed a collaborator's continuous edits pegging the main thread for
+5-6s at a stretch, blocking local typing). Root cause traced to
+`nx/public/plugins/quick-edit/src/prose.js`'s `createEditor`: it looked up
+its target block by an exact `data-prose-index` match, but that index is a
+global ProseMirror position — any edit *before* a block shifts it.
+`handleTransaction` already re-shifts every other block's index for edits
+inside an already-open mini-editor (`updateInstrumentation`), but
+`createEditor` — the path taken the first time a block is touched by a
+*remote* edit — never did, so the first remote edit to any not-yet-opened
+block left every later block's cached index stale. Eventually some block's
+`SET_EDITOR_STATE` arrived with a `cursorOffset` matching nothing, and the
+portal gave up and asked the host to `RELOAD` (full body resend), which the
+host answered unconditionally — no debounce — so a sustained editing burst
+from one collaborator could retrigger this indefinitely.
+
+Fixed `createEditor` to fall back to `findTextBlock`'s existing
+nearest-indexed-block lookup (`dom-index.js`) instead of giving up — the same
+drift-tolerant match `findImageAtProseIndex` already relies on for images.
+Added an `exclude` param to `findTextBlock`/`findNearestIndexed` so the
+fallback can't resolve to (and destructively replace) a *different* block's
+already-open `.prosemirror-editor`; the remote-cursor collaborator badge is
+now only copied across on an exact match, not the fallback, so it can't get
+misattributed to the wrong paragraph. Da-live also got a `quick-edit-controller.js`
+RELOAD-coalescing debounce (150ms) as a stopgap while this was tracked down;
+kept, since it's still a legitimate backstop.
+
+Not verified end-to-end here (no way to drive the live iframe interactively
+in this environment) — needs a real multi-user retest.
+
 ### nx2/blocks/editortoggle — stop implicit `nx2:ew-user-enabled` writes on navigation
 
 `connectedCallback` used to reconcile the persisted `nx2:ew-user-enabled` flag
