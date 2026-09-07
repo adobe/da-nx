@@ -6,19 +6,8 @@ body:
     attributes:
       value: |
         Thanks for the idea. Fields marked required drive our triage automation
-        (the `ew` label, area assignment, and the completeness check). A bot will
-        tag you if anything required is missing.
-
-  - type: dropdown
-    id: ew
-    attributes:
-      label: Experience Workspace (EW) related?
-      description: Does this request involve the Experience Workspace (EW) assistant / AI experience?
-      options:
-        - "No"
-        - "Yes"
-    validations:
-      required: true
+        (area assignment and the completeness check). A bot will tag you if
+        anything required is missing.
 
   - type: dropdown
     id: scope

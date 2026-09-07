@@ -83,7 +83,6 @@ To keep the backlog healthy, this repo runs a few GitHub Actions bots. Here is w
 
 Issues are created through issue forms (blank issues are disabled). A few fields are **required** and power automatic triage:
 
-- **Experience Workspace (EW) related?** — choosing **Yes** automatically applies the `ew` label.
 - **Scope / Area** — applies a `scope:*` label and **auto-assigns** the area owner(s):
 
   | Scope / Area | Auto-assigned |
@@ -109,8 +108,6 @@ When an issue is opened or edited, a bot verifies the required information is pr
 ## Pull request notifications
 
 When a PR is opened, marked ready for review, or reopened, a short notice is posted to Slack. PRs from the **core team** and from **outside contributors** are routed to separate channels so nothing slips through.
-
-Check the **Experience Workspace (EW)** box in the PR description to automatically apply the `ew` label and request review from the core team.
 
 ## Stale issues and PRs (auto-close)
 

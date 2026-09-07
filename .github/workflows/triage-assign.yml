@@ -1,11 +1,9 @@
 name: Issue Triage & Assign
 
-# Reads the required dropdowns from the issue-form body and, without any
-# third-party actions:
-#   1. applies the `ew` label when the reporter marked the issue EW-related
-#   2. applies a `scope:*` label and assigns the area owner based on Scope / Area
+# Reads the Scope / Area dropdown from the issue-form body and, without any
+# third-party actions, applies a `scope:*` label and assigns the area owner.
 #
-# The field labels parsed below MUST match the `label:` values in
+# The field label parsed below MUST match the `label:` value in
 # .github/ISSUE_TEMPLATE/bug_report.yml and feature_request.yml exactly.
 
 on:
@@ -19,7 +17,7 @@ jobs:
   triage:
     runs-on: ubuntu-latest
     steps:
-      - name: Apply EW label, scope label and assignee
+      - name: Apply scope label and assignee
         uses: actions/github-script@v7
         with:
           script: |
@@ -60,14 +58,12 @@ jobs:
               return m ? m[1].trim() : '';
             };
 
-            const ew = readField('Experience Workspace (EW) related?');
             const scope = readField('Scope / Area');
 
             const { owner, repo } = context.repo;
             const issue_number = context.payload.issue.number;
 
             const labels = [];
-            if (/^yes\b/i.test(ew)) labels.push('ew');
             if (scope && SCOPE_SLUG[scope]) labels.push('scope:' + SCOPE_SLUG[scope]);
 
             if (labels.length) {

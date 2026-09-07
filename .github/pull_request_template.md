@@ -6,9 +6,3 @@ Test URLs:
 - Before: https://main--{repo}--{owner}.hlx.live/
 - After: https://<branch>--{repo}--{owner}.hlx.live/
 
-## Experience Workspace (EW)
-
-- [ ] This PR's scope is Experience Workspace
-
-<!-- If checked, the `ew` label is applied and the core team is added as reviewers automatically. -->
-
