@@ -46,9 +46,8 @@ jobs:
             const missing = [];
             const description = val('What happened?') || val('Problem / motivation');
             if (isEmpty(description)) missing.push('A description of the issue');
-            if (isEmpty(val('Customer request or developer need?')))
-              missing.push('Whether this is a **customer request** or a **developer need**');
-            if (isEmpty(val('Priority'))) missing.push('A **priority** (P0, P1, P2, or P3)');
+            if (isEmpty(val('Who is affected?')))
+              missing.push('Who is affected (**customer-facing** or **internal**)');
             if (isBug) {
               if (isEmpty(val('Steps to reproduce'))) missing.push('**Steps to reproduce**');
               if (isEmpty(val('Reproduction link(s)'))) missing.push('A **reproduction link**');

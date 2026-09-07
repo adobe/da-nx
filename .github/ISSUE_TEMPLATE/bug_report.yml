@@ -6,14 +6,14 @@ body:
     attributes:
       value: |
         Thanks for filing a bug. Fields marked required drive our triage automation
-        (area assignment and the completeness check). Please fill in as much as you
+        (scope labeling and the completeness check). Please fill in as much as you
         can — a bot will tag you if anything required is missing.
 
   - type: dropdown
     id: scope
     attributes:
       label: Scope / Area
-      description: Which part of the product does this touch? This drives auto-assignment.
+      description: Which part of the product does this touch?
       options:
         - Editor / Canvas
         - Blocks / Rendering
@@ -28,29 +28,13 @@ body:
       required: true
 
   - type: dropdown
-    id: request-type
+    id: affected
     attributes:
-      label: Customer request or developer need?
-      description: Where is this coming from?
+      label: Who is affected?
+      description: Is this customer-facing or internal?
       options:
-        - Customer request
-        - Developer need
-    validations:
-      required: true
-
-  - type: dropdown
-    id: priority
-    attributes:
-      label: Priority
-      description: |
-        P0 = production down / data loss, P1 = major broken, no workaround,
-        P2 = important but has a workaround, P3 = minor / nice to have.
-        Maintainers may adjust this during triage.
-      options:
-        - P0
-        - P1
-        - P2
-        - P3
+        - Customer-facing
+        - Internal
     validations:
       required: true
 

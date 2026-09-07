@@ -6,14 +6,14 @@ body:
     attributes:
       value: |
         Thanks for the idea. Fields marked required drive our triage automation
-        (area assignment and the completeness check). A bot will tag you if
+        (scope labeling and the completeness check). A bot will tag you if
         anything required is missing.
 
   - type: dropdown
     id: scope
     attributes:
       label: Scope / Area
-      description: Which part of the product does this touch? This drives auto-assignment.
+      description: Which part of the product does this touch?
       options:
         - Editor / Canvas
         - Blocks / Rendering
@@ -28,28 +28,13 @@ body:
       required: true
 
   - type: dropdown
-    id: request-type
+    id: affected
     attributes:
-      label: Customer request or developer need?
-      description: Where is this coming from?
+      label: Who is affected?
+      description: Is this customer-facing or internal?
       options:
-        - Customer request
-        - Developer need
-    validations:
-      required: true
-
-  - type: dropdown
-    id: priority
-    attributes:
-      label: Priority
-      description: |
-        P0 = critical / blocking, P1 = high, P2 = medium, P3 = low.
-        Maintainers may adjust this during triage.
-      options:
-        - P0
-        - P1
-        - P2
-        - P3
+        - Customer-facing
+        - Internal
     validations:
       required: true
 

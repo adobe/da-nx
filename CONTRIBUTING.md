@@ -83,21 +83,8 @@ To keep the backlog healthy, this repo runs a few GitHub Actions bots. Here is w
 
 Issues are created through issue forms (blank issues are disabled). A few fields are **required** and power automatic triage:
 
-- **Scope / Area** — applies a `scope:*` label and **auto-assigns** the area owner(s):
-
-  | Scope / Area | Auto-assigned |
-  | --- | --- |
-  | Editor / Canvas | @svynod, @hannesolo |
-  | Blocks / Rendering | @svynod, @hannesolo, @mhaack |
-  | Config / Sheets | @mhaack, @hannesolo, @anfibiacreativa |
-  | Auth / Permissions | @mhaack, @hannesolo, @anfibiacreativa |
-  | AI Assistant / Agent | @anfibiacreativa, @mhaack |
-  | MCP / Tooling | @anfibiacreativa |
-  | Infra / CI | @mhaack, @hannesolo, @anfibiacreativa |
-  | Docs | whole team |
-  | Other / Unsure | whole team |
-
-- **Customer request or developer need?** and **Priority (P0–P3)** — required so we can rank work.
+- **Scope / Area** — applies a `scope:*` label so the board can filter by area. Work is picked up from the prioritized board.
+- **Who is affected?** — customer-facing or internal, so we can triage impact.
 - For **bugs**: a description, **steps to reproduce**, and a **reproduction link**. A short **video is optional** but appreciated.
 
 ### Completeness check
