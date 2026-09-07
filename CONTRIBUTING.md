@@ -117,5 +117,5 @@ Inactive items are closed automatically after a warning period. **Any activity**
 | Issues | 60 days (2 months) of inactivity | 21 days (3 weeks) later |
 | Pull requests | 49 days (7 weeks) of inactivity | 14 days (2 weeks) later |
 
-When an item goes stale the bot comments so you are notified with time to act. To keep something open, comment on it or remove the `stale` label. Items labeled `pinned`, `security`, `keep-open`, or assigned to a milestone are never auto-closed.
+You get two heads-ups before anything closes: a no-pressure check-in when it is marked `stale`, then a final notice about a week before close. To keep something open, just comment or remove the `stale` label. Anything labeled `pinned`, `security`, `keep-open`, `hold`, or `awaiting-maintainer`, or assigned to a milestone, is never auto-closed. Use `hold` or `awaiting-maintainer` when the owner is away or the wait is on us. This only applies to items created on or after 2026-03-01.
 
