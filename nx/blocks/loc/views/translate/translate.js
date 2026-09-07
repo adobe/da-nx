@@ -73,6 +73,8 @@ class NxLocTranslate extends LitElement {
 
   async handleSaveLangs(props) {
     const data = props ? { langs: this._langs, ...props } : { langs: this._langs };
+    // Connector urls carry per-language metadata; tell the host to merge.
+    if (props?.urls) data.mergeUrls = true;
     const opts = { detail: { data }, bubbles: true, composed: true };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
@@ -89,7 +91,8 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleConnect() {
-    this._connected = await this._service.connector.connect(this._service);
+    const sendMessage = this.handleMessage.bind(this);
+    this._connected = await this._service.connector.connect(this._service, sendMessage);
   }
 
   async fetchUrls(service, fetchContent, langs) {
@@ -315,7 +318,7 @@ class NxLocTranslate extends LitElement {
           return html`
             ${this.renderBehavior()}
             ${this.canCancel ? html`<sl-button @click=${this.handleCancelAll} class="primary outline">Cancel project</sl-button>` : nothing}
-            <sl-button @click=${this.handleGetStatus} class="accent">Get status</sl-button>
+            ${this.incompleteLangs ? html`<sl-button @click=${this.handleGetStatus} class="accent">Get status</sl-button>` : nothing}
           `;
         }
 

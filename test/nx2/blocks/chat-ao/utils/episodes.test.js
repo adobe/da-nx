@@ -95,14 +95,27 @@ describe('episodes.js', () => {
 
     it('converts turns into user/assistant messages', async () => {
       restoreFetch();
-      installFetch({
-        body: JSON.stringify({
-          turns: [
-            { user_input: 'hi', final_response: 'hello' },
-            { user_input: 'again' },
-          ],
-        }),
-      });
+      origFetch = window.fetch;
+      window.fetch = async (url) => {
+        const href = url.toString();
+        if (href.includes('/turns')) {
+          return new Response(JSON.stringify({
+            turns: [
+              { id: 't1', user_input: 'hi' },
+              { id: 't2', user_input: 'again' },
+            ],
+          }), { status: 200 });
+        }
+        if (href.includes('/events/turn/t1')) {
+          return new Response(JSON.stringify({
+            events: [{ type: 'assistant_message', content: 'hello' }],
+          }), { status: 200 });
+        }
+        return new Response(
+          JSON.stringify({ events: [], artifacts: [], has_more: false }),
+          { status: 200 },
+        );
+      };
 
       const messages = await fetchEpisodeMessages('ep-1');
 
@@ -119,9 +132,15 @@ describe('episodes.js', () => {
       origFetch = window.fetch;
       window.fetch = async (url) => {
         calls.push({ url: url.toString() });
-        if (url.toString().includes('/turns')) {
+        const href = url.toString();
+        if (href.includes('/turns')) {
           return new Response(JSON.stringify({
-            turns: [{ id: 't1', user_input: 'show me a table', final_response: 'Here it is:' }],
+            turns: [{ id: 't1', user_input: 'show me a table' }],
+          }), { status: 200 });
+        }
+        if (href.includes('/events/turn/')) {
+          return new Response(JSON.stringify({
+            events: [{ type: 'assistant_message', content: 'Here it is:' }],
           }), { status: 200 });
         }
         return new Response(JSON.stringify({
@@ -155,13 +174,21 @@ describe('episodes.js', () => {
 
     it('reconstructs one aggregate summary toolCall row per turn with tool_call_count > 0, before the text', async () => {
       restoreFetch();
-      installFetch({
-        body: JSON.stringify({
-          turns: [{
-            id: 't1', user_input: 'update the page', final_response: 'Done.', tool_call_count: 2,
-          }],
-        }),
-      });
+      origFetch = window.fetch;
+      window.fetch = async (url) => {
+        const href = url.toString();
+        if (href.includes('/turns')) {
+          return new Response(JSON.stringify({
+            turns: [{ id: 't1', user_input: 'update the page', tool_call_count: 2 }],
+          }), { status: 200 });
+        }
+        if (href.includes('/events/turn/')) {
+          return new Response(JSON.stringify({
+            events: [{ type: 'assistant_message', content: 'Done.' }],
+          }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ artifacts: [], has_more: false }), { status: 200 });
+      };
 
       const messages = await fetchEpisodeMessages('ep-1');
 
@@ -177,6 +204,176 @@ describe('episodes.js', () => {
       ]);
     });
 
+    it('surfaces a mid-turn narration in addition to the final response — both are assistant_message events in the same turn', async () => {
+      restoreFetch();
+      origFetch = window.fetch;
+      window.fetch = async (url) => {
+        const href = url.toString();
+        if (href.includes('/turns')) {
+          return new Response(JSON.stringify({
+            turns: [{ id: 't1', user_input: 'make it funny', tool_call_count: 3 }],
+          }), { status: 200 });
+        }
+        if (href.includes('/events/turn/')) {
+          return new Response(JSON.stringify({
+            events: [
+              { type: 'assistant_message', content: 'Here are the changes I\'d like to make. Shall I proceed?' },
+              { type: 'assistant_message', content: null },
+              { type: 'assistant_message', content: 'Done — saved.' },
+            ],
+          }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ artifacts: [], has_more: false }), { status: 200 });
+      };
+
+      const messages = await fetchEpisodeMessages('ep-1');
+
+      expect(messages).to.deep.equal([
+        { role: 'user', content: 'make it funny' },
+        {
+          role: 'assistant',
+          toolCall: {
+            toolCallId: 't1:summary', status: 'summary', summaryText: 'Used 3 tools', turnId: 't1',
+          },
+        },
+        { role: 'assistant', content: 'Here are the changes I\'d like to make. Shall I proceed?' },
+        { role: 'assistant', content: 'Done — saved.' },
+      ]);
+    });
+
+    it('reconstructs an answered question as a questionResponse summary, not a plain tool-call entry', async () => {
+      restoreFetch();
+      origFetch = window.fetch;
+      window.fetch = async (url) => {
+        const href = url.toString();
+        if (href.includes('/turns')) {
+          return new Response(JSON.stringify({
+            turns: [{ id: 't1', user_input: 'make it funny', tool_call_count: 1 }],
+          }), { status: 200 });
+        }
+        if (href.includes('/events/turn/')) {
+          return new Response(JSON.stringify({
+            events: [
+              {
+                type: 'assistant_message',
+                tool_calls: [{
+                  id: 'tc1',
+                  name: 'ask_user_question',
+                  arguments: JSON.stringify({
+                    context: 'Some context',
+                    questions: [{ id: '1', header: 'Confirm edits', question: 'Apply these?' }],
+                  }),
+                }],
+              },
+              {
+                type: 'tool_result',
+                tool_call_id: 'tc1',
+                metadata: {
+                  type: 'ask_user_question',
+                  status: 'answered',
+                  declined: false,
+                  answers: [{ question_id: '1', selected_options: ['Yes, apply them'] }],
+                },
+              },
+            ],
+          }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ artifacts: [], has_more: false }), { status: 200 });
+      };
+
+      const messages = await fetchEpisodeMessages('ep-1');
+
+      expect(messages).to.deep.equal([
+        { role: 'user', content: 'make it funny' },
+        {
+          role: 'assistant',
+          toolCall: {
+            toolCallId: 't1:summary', status: 'summary', summaryText: 'Used 1 tool', turnId: 't1',
+          },
+        },
+        {
+          role: 'assistant',
+          questionResponse: {
+            context: 'Some context',
+            questions: [{ id: '1', header: 'Confirm edits', question: 'Apply these?' }],
+            answers: [{ question_id: '1', selected_options: ['Yes, apply them'] }],
+            declined: false,
+          },
+        },
+      ]);
+    });
+
+    it('reconstructs a declined question the same way', async () => {
+      restoreFetch();
+      origFetch = window.fetch;
+      window.fetch = async (url) => {
+        const href = url.toString();
+        if (href.includes('/turns')) {
+          return new Response(JSON.stringify({
+            turns: [{ id: 't1', tool_call_count: 1 }],
+          }), { status: 200 });
+        }
+        if (href.includes('/events/turn/')) {
+          return new Response(JSON.stringify({
+            events: [
+              {
+                type: 'assistant_message',
+                tool_calls: [{
+                  id: 'tc1',
+                  name: 'ask_user_question',
+                  arguments: JSON.stringify({ questions: [{ id: '1', header: 'Confirm' }] }),
+                }],
+              },
+              {
+                type: 'tool_result',
+                tool_call_id: 'tc1',
+                metadata: { type: 'ask_user_question', status: 'declined', declined: true, answers: [] },
+              },
+            ],
+          }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ artifacts: [], has_more: false }), { status: 200 });
+      };
+
+      const messages = await fetchEpisodeMessages('ep-1');
+
+      expect(messages[1]).to.deep.equal({
+        role: 'assistant',
+        questionResponse: {
+          context: null,
+          questions: [{ id: '1', header: 'Confirm' }],
+          answers: [],
+          declined: true,
+        },
+      });
+    });
+
+    it('ignores an ask_user_question call with no matching tool_result, or one lacking the expected metadata', async () => {
+      restoreFetch();
+      origFetch = window.fetch;
+      window.fetch = async (url) => {
+        const href = url.toString();
+        if (href.includes('/turns')) {
+          return new Response(JSON.stringify({
+            turns: [{ id: 't1', tool_call_count: 1 }],
+          }), { status: 200 });
+        }
+        if (href.includes('/events/turn/')) {
+          return new Response(JSON.stringify({
+            events: [{
+              type: 'assistant_message',
+              tool_calls: [{ id: 'tc1', name: 'ask_user_question', arguments: '{}' }],
+            }],
+          }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ artifacts: [], has_more: false }), { status: 200 });
+      };
+
+      const messages = await fetchEpisodeMessages('ep-1');
+
+      expect(messages.some((m) => m.questionResponse)).to.equal(false);
+    });
+
     it('singularizes the summary text for exactly one tool call', async () => {
       restoreFetch();
       installFetch({
@@ -190,9 +387,21 @@ describe('episodes.js', () => {
 
     it('adds no toolCall row for a turn with no tool calls', async () => {
       restoreFetch();
-      installFetch({
-        body: JSON.stringify({ turns: [{ id: 't1', user_input: 'hi', final_response: 'hey' }] }),
-      });
+      origFetch = window.fetch;
+      window.fetch = async (url) => {
+        const href = url.toString();
+        if (href.includes('/turns')) {
+          return new Response(JSON.stringify({
+            turns: [{ id: 't1', user_input: 'hi' }],
+          }), { status: 200 });
+        }
+        if (href.includes('/events/turn/')) {
+          return new Response(JSON.stringify({
+            events: [{ type: 'assistant_message', content: 'hey' }],
+          }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ artifacts: [], has_more: false }), { status: 200 });
+      };
 
       const messages = await fetchEpisodeMessages('ep-1');
 
@@ -394,38 +603,6 @@ describe('episodes.js', () => {
     it('returns [] for an empty or missing events list', () => {
       expect(extractToolCalls([])).to.deep.equal([]);
       expect(extractToolCalls(undefined)).to.deep.equal([]);
-    });
-
-    it('maps AO\'s blind-deferred-schema retry to status "retrying", not "error"', () => {
-      const toolCalls = extractToolCalls([
-        { type: 'assistant_message', tool_calls: [{ id: 'tc1', name: 'skill', arguments: '{}' }] },
-        {
-          type: 'tool_result',
-          tool_call_id: 'tc1',
-          result: 'Loaded schema for skill; not executed — retrying.',
-          error: null,
-          status: 'error',
-        },
-      ]);
-
-      expect(toolCalls[0].status).to.equal('retrying');
-      expect(toolCalls[0].result).to.equal('Loaded schema for skill; not executed — retrying.');
-    });
-
-    it('detects the deferred-schema retry when only the raw `result` field carries the marker, not `display_result`', () => {
-      const toolCalls = extractToolCalls([
-        { type: 'assistant_message', tool_calls: [{ id: 'tc1', name: 'skill', arguments: '{}' }] },
-        {
-          type: 'tool_result',
-          tool_call_id: 'tc1',
-          result: 'Loaded schema for skill; not executed — retrying.',
-          display_result: 'skill was not executed: its schema was not loaded yet.',
-          error: null,
-          status: 'error',
-        },
-      ]);
-
-      expect(toolCalls[0].status).to.equal('retrying');
     });
 
     it('keeps a genuine tool failure as status "error"', () => {

@@ -21,12 +21,30 @@ written); on `/edit` it redirects to `/canvas` if either the site-level
 flag, matching the "site config forces canvas" rule in `docs/workspace.md`),
 otherwise stays on `/edit`. Called once synchronously in `connectedCallback`
 (handles the user-flag case) and again from `_onHashState` once the async
-site-level check resolves (handles the site-forced case). No test coverage
-existed for this component before or after — an end-to-end test covering the
-toggle-on/welcome-dialog/toggle-off/redirect flow (working title
+site-level check resolves (handles the site-forced case). This supersedes the
+2026-09-02 fix below: that one kept /edit from clearing the flag by hiding the
+toolbar switch instead, but left the user stranded on /edit despite having
+opted into canvas — now /edit redirects to canvas in that case instead, which
+also fixes adobe/da-live#1289. `render()` is back to the plain path-based
+visibility check (toolbar on /edit, menu on /canvas); the flag-based
+`showMenu`/`showToolbar` split from 2026-09-02 no longer applies. No test
+coverage existed for this component before or after — an end-to-end test
+covering the toggle-on/welcome-dialog/toggle-off/redirect flow (working title
 "usertoggle") is planned for a follow-up PR once e2e infra (Playwright, not
 yet on this branch — exists only on the unmerged `feat/e2e-setup` branch) is
 sorted out, including what site/page to run it against.
+
+## 2026-09-02
+
+### nx2 editortoggle — stop clearing the flag when Sidekick lands on /edit
+
+Fixes adobe/da-live#1289. `connectedCallback`'s implicit-choice sync treated
+any direct landing on `/edit` as opting out, clearing `nx2:ew-user-enabled`
+even when Sidekick's Edit button (not the user) put you there. Now only the
+`/canvas` → on-sync remains; the toolbar switch hides itself on `/edit` when
+the flag is already on instead of clearing it, and the profile-menu switch
+renders anywhere the flag is on so there's still a way to turn it off.
+Superseded by the 2026-09-07 entry above.
 
 ## 2026-08-27
 

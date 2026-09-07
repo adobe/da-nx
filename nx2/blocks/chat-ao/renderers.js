@@ -44,21 +44,53 @@ export function renderToolCallCard({
   // See docs/chat-ao-component.md#tool-call-activity — label stays fixed
   // across detected/running/done on purpose.
   const label = `Using ${title ?? toolName}`;
-  const terminal = status === 'success' || status === 'error' || status === 'retrying';
-  const statusEl = status === 'error' ? html`<span class="tool-call-status">error</span>` : nothing;
+  const terminal = status !== 'detected' && status !== 'running';
   const detail = formatToolCallDetail(terminal ? result : args);
-  if (!detail) return html`<span class="tool-call-detail tool-call-${status}">${label}${statusEl}</span>`;
+  if (!detail) return html`<span class="tool-call-detail tool-call-${status}">${label}</span>`;
   return html`
     <details class="tool-call-card tool-call-${status}">
-      <summary>${label}${statusEl}</summary>
+      <summary>${label}</summary>
       <span class="tool-call-detail">${detail}</span>
     </details>
+  `;
+}
+
+// See docs/chat-ao-component.md#question-flow — a durable stand-in for the
+// question card once answered, instead of a plain chat bubble that would
+// misrepresent a selection as free-typed text.
+export function renderQuestionResponseCard({
+  context, questions, answers, declined,
+}) {
+  return html`
+    <div class="question-response-card">
+      <div class="question-response-header">
+        <span class="question-response-title">User Response</span>
+        <span class="question-response-status question-response-${declined ? 'declined' : 'answered'}">
+          ${declined ? 'Declined' : 'Answered'}
+        </span>
+      </div>
+      ${context ? html`<div class="question-response-context">${renderMarkdown(context)}</div>` : nothing}
+      ${!declined ? html`
+        <div class="question-response-answers">
+          ${questions.map((q) => {
+    const selected = answers.find((a) => a.question_id === q.id)?.selected_options ?? [];
+    return html`
+              <div class="question-response-answer">
+                <span class="question-response-answer-label">${q.header}:</span>
+                ${selected.length ? selected.join(', ') : '—'}
+              </div>
+            `;
+  })}
+        </div>
+      ` : nothing}
+    </div>
   `;
 }
 
 export function renderAssistantMessageBody(msg, { onExpandToolCall } = {}) {
   if (msg.toolCall) return renderToolCallCard(msg.toolCall, { onExpand: onExpandToolCall });
   if (msg.uiArtifact) return renderUiArtifact(msg.uiArtifact);
+  if (msg.questionResponse) return renderQuestionResponseCard(msg.questionResponse);
   return html`
     <div class="message-content">${renderMarkdown(msg.content)}</div>
     ${renderCopyButton(msg.content, { streaming: msg.streaming })}
@@ -71,16 +103,23 @@ function renderPermissionRow(call, decisions, onDecide) {
   const decided = call.toolCallId in decisions;
   return html`
     <div class="permission-row">
-      <span class="permission-row-tool">${call.toolName}</span>
+      <span class="permission-row-tool" title=${call.toolName}>${call.toolName}</span>
       ${detail ? html`<span class="permission-row-detail">${detail}</span>` : nothing}
       ${decided ? html`
         <span class="permission-row-status permission-row-${decisions[call.toolCallId] ? 'approved' : 'rejected'}">
           ${decisions[call.toolCallId] ? 'approved' : 'rejected'}
         </span>
       ` : html`
-        <div class="permission-row-buttons">
-          <button type="button" class="nx-action-btn nx-btn-sm" @click=${() => onDecide(call.toolCallId, false)}>Reject</button>
-          <button type="button" class="nx-btn-primary nx-btn-sm" @click=${() => onDecide(call.toolCallId, true)}>Approve</button>
+        <div
+          class="permission-row-buttons"
+          @keydown=${(e) => {
+        if (e.key !== 'Escape') return;
+        e.preventDefault();
+        onDecide(call.toolCallId, false);
+      }}
+        >
+          <button type="button" class="nx-action-btn" @click=${() => onDecide(call.toolCallId, false)}>Reject<kbd>Esc</kbd></button>
+          <button type="button" class="nx-btn-primary permission-approve-btn" @click=${() => onDecide(call.toolCallId, true)}>Approve<kbd>↵</kbd></button>
         </div>
       `}
     </div>

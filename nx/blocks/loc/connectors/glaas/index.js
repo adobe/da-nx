@@ -1,8 +1,8 @@
-import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import {
   checkSession, createTask, addAssets, updateStatus, getTask, downloadAsset,
   prepareTargetPreview, getGlaasFilename, shouldLogGLaaSRequests,
 } from './api.js';
+import downloadQueue from '../../utils/downloadQueue.js';
 import {
   createMultimodalTask,
   uploadMultimodalPageAssets,
@@ -647,23 +647,7 @@ export async function saveItems({
     await saveFn(url);
   };
 
-  const queue = new Queue(downloadCallback, 5);
-
-  return new Promise((resolve) => {
-    const throttle = setInterval(() => {
-      const nextUrl = urls.find((url) => !url.inProgress);
-      if (nextUrl) {
-        nextUrl.inProgress = true;
-        queue.push(nextUrl);
-      } else {
-        const finished = urls.every((url) => url.status);
-        if (finished) {
-          clearInterval(throttle);
-          resolve(urls);
-        }
-      }
-    }, 250);
-  });
+  return downloadQueue(urls, downloadCallback);
 }
 
 async function canCancelLang({ lang }) {

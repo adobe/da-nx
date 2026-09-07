@@ -1,0 +1,15 @@
+[
+  {
+    "requestId": "req-fr-3",
+    "jobId": "job-3",
+    "statusCode": "CANCELLED",
+    "hasError": false,
+    "targetNativeLanguageCode": "fr-FR",
+    "fileId": "file-3",
+    "fileType": "html",
+    "fileName": "page-3.html",
+    "requestName": "page-3.html",
+    "sourceNativeId": "/da-nx/test/page-3.html",
+    "sourceNativeLanguageCode": "en-US"
+  }
+]
