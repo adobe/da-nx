@@ -199,6 +199,8 @@ export function setupNodeSelection(ctx) {
       if (!node) return;
       blurActiveEditor();
       clearHoverPill();
+      // eslint-disable-next-line no-console
+      console.debug('[collab-diag] qe NODE_SELECT posted (block pill)', node);
       activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node } });
       return;
     }
@@ -209,6 +211,8 @@ export function setupNodeSelection(ctx) {
       || t.closest?.('[data-prose-index]')) return;
     const selectedEl = resolveSelectionElement(currentSelectedNode, document);
     if (selectedEl?.contains?.(t)) return;
+    // eslint-disable-next-line no-console
+    console.debug('[collab-diag] qe NODE_SELECT posted (clear, click-outside)');
     activeCtx?.port?.postMessage({
       type: MESSAGE_TYPES.NODE_SELECT, payload: { node: null },
     });
@@ -227,12 +231,16 @@ export function setupNodeSelection(ctx) {
     const node = imageSelectPayload(picture);
     if (!node) return;
     blurActiveEditor();
+    // eslint-disable-next-line no-console
+    console.debug('[collab-diag] qe NODE_SELECT posted (image click)', node);
     activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node } });
   });
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!currentSelectedNode) return;
+    // eslint-disable-next-line no-console
+    console.debug('[collab-diag] qe NODE_SELECT posted (clear, Escape)');
     activeCtx?.port?.postMessage({
       type: MESSAGE_TYPES.NODE_SELECT, payload: { node: null },
     });

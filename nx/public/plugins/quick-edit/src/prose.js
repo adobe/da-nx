@@ -16,6 +16,29 @@ import { setRemoteCursors } from './cursors.js';
 import { findTextBlock } from './dom-index.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
+// --- collab diagnostics (temporary — remove once the multi-user editing
+// investigation is done). Mirrors da-live's blocks/canvas/ew-editor-doc/prose.js
+// diagLogLocalDispatch: a dispatch on this mini-editor whose stack doesn't run
+// through a real DOM-input handler, and that isn't a known remote-state
+// application (ctx.remoteUpdate), is a plugin/mount-triggered "SUSPECT" transaction
+// — exactly the kind that could send a stale NODE_UPDATE and clobber a concurrent
+// local edit on the doc-view side.
+const USER_INPUT_MARKERS = /handleDOMChange|handleKeyDown|handleTextInput|handleCompositionEnd|handlePaste|handleDrop|handleClick|handleTripleClick|handleTouchstart/;
+
+function diagLogDispatch(tr, ctx, label) {
+  if (!tr.docChanged) return;
+  const stack = new Error('trace').stack ?? '';
+  if (ctx.remoteUpdate) {
+    // eslint-disable-next-line no-console
+    console.debug(`[collab-diag] qe ${label} remote-apply steps=[${tr.steps.map((s) => s.constructor.name).join(',')}]`);
+    return;
+  }
+  const isUserInput = USER_INPUT_MARKERS.test(stack);
+  const tag = isUserInput ? 'local' : 'SUSPECT';
+  // eslint-disable-next-line no-console
+  console.debug(`[collab-diag] qe ${label} ${tag} tx steps=[${tr.steps.map((s) => s.constructor.name).join(',')}]`, isUserInput ? '' : stack);
+}
+
 function marksEqual(a, b) {
   if (!a && !b) return true;
   if (!a || !b) return false;
@@ -49,6 +72,7 @@ function updateInstrumentation(lengthDiff, offset) {
 }
 
 function handleTransaction(tr, ctx, editorView, editorParent) {
+  diagLogDispatch(tr, ctx, 'handleTransaction');
   const numChanges = tr.steps.length;
   const currentCursorOffset = parseInt(editorParent.getAttribute('data-prose-index'), 10);
   const oldLength = editorView.state.doc.firstChild.nodeSize;
@@ -63,6 +87,8 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   if (numChanges > 0) {
     const editedEl = newState.doc.firstChild;
     const node = editedEl.toJSON();
+    // eslint-disable-next-line no-console
+    console.debug(`[collab-diag] qe NODE_UPDATE posted cursorOffset=${currentCursorOffset}`);
     ctx.port.postMessage({
       type: MESSAGE_TYPES.NODE_UPDATE,
       payload: { node, cursorOffset: currentCursorOffset },
@@ -78,6 +104,8 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
       const head = base + newSel.head;
       const anchorX = coords.left;
       const anchorY = coords.top;
+      // eslint-disable-next-line no-console
+      console.debug(`[collab-diag] qe SELECTION_CHANGE posted (handleTransaction) anchor=${anchor} head=${head}`);
       ctx.port.postMessage({
         type: MESSAGE_TYPES.SELECTION_CHANGE,
         payload: {
@@ -85,6 +113,8 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
         },
       });
     } else {
+      // eslint-disable-next-line no-console
+      console.debug(`[collab-diag] qe CURSOR_MOVE posted (handleTransaction) cursorOffset=${base} textCursorOffset=${newSel.from}`);
       ctx.port.postMessage({
         type: MESSAGE_TYPES.CURSOR_MOVE,
         payload: { cursorOffset: base, textCursorOffset: newSel.from },
@@ -131,6 +161,8 @@ function initScrollListener(win, ctx) {
       const head = base + selection.head;
       const anchorX = coords.left;
       const anchorY = coords.top;
+      // eslint-disable-next-line no-console
+      console.debug(`[collab-diag] qe SELECTION_CHANGE posted (scroll) anchor=${anchor} head=${head}`);
       scrollCtx.port.postMessage({
         type: MESSAGE_TYPES.SELECTION_CHANGE,
         payload: {
@@ -144,6 +176,8 @@ function initScrollListener(win, ctx) {
 let blurClearTimeout = null;
 
 function focus(view) {
+  // eslint-disable-next-line no-console
+  console.debug(`[collab-diag] qe mini-editor FOCUS at ${performance.now().toFixed(1)}`);
   if (blurClearTimeout !== null) {
     clearTimeout(blurClearTimeout);
     blurClearTimeout = null;
@@ -154,9 +188,13 @@ function focus(view) {
 }
 
 function blur(view, event, ctx) {
+  // eslint-disable-next-line no-console
+  console.debug(`[collab-diag] qe mini-editor BLUR at ${performance.now().toFixed(1)} (CURSOR_MOVE clear scheduled in 150ms)`);
   hideToolbar(view);
   setCurrentEditorView(null);
   blurClearTimeout = setTimeout(() => {
+    // eslint-disable-next-line no-console
+    console.debug('[collab-diag] qe CURSOR_MOVE posted (blur clear, no payload)');
     ctx.port.postMessage({ type: MESSAGE_TYPES.CURSOR_MOVE });
     blurClearTimeout = null;
   }, 150);
@@ -269,6 +307,8 @@ function updateEditor(editorEl, state, ctx) {
 
 export function setEditorState(cursorOffset, state, ctx) {
   const existingEditorParent = document.querySelector(`.prosemirror-editor[data-prose-index="${cursorOffset}"]`);
+  // eslint-disable-next-line no-console
+  console.debug(`[collab-diag] qe SET_EDITOR_STATE received cursorOffset=${cursorOffset} route=${existingEditorParent ? 'updateEditor (existing)' : 'createEditor (new)'}`);
   if (existingEditorParent) {
     updateEditor(existingEditorParent.view, state, ctx);
     return;
