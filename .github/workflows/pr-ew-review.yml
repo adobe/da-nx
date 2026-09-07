@@ -1,0 +1,48 @@
+name: PR Experience Workspace check
+
+# When a PR's "Experience Workspace (EW)" box is checked, apply the `ew` label
+# and request review from the core team (excluding the PR author). Unchecking it
+# later removes the label. Uses pull_request_target so it has write access for
+# PRs from forks; it only reads the PR body, never checks out PR code.
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  ew:
+    if: ${{ github.event.pull_request.user.type != 'Bot' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const CORE = ['svynod', 'hannesolo', 'mhaack', 'anfibiacreativa'];
+
+            const pr = context.payload.pull_request;
+            const body = pr.body || '';
+            const isEW = /- \[[xX]\]\s*This PR touches Experience Workspace/.test(body);
+            const { owner, repo } = context.repo;
+            const pull_number = pr.number;
+            const author = (pr.user.login || '').toLowerCase();
+            const labels = (pr.labels || []).map(l => l.name);
+
+            if (isEW) {
+              if (!labels.includes('ew')) {
+                await github.rest.issues.addLabels({ owner, repo, issue_number: pull_number, labels: ['ew'] });
+                const reviewers = CORE.filter(u => u.toLowerCase() !== author);
+                try {
+                  await github.rest.pulls.requestReviewers({ owner, repo, pull_number, reviewers });
+                  core.info('Requested review from: ' + reviewers.join(', '));
+                } catch (e) {
+                  core.warning('requestReviewers failed: ' + e.message);
+                }
+              }
+            } else if (labels.includes('ew')) {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number: pull_number, name: 'ew' }).catch(() => {});
+            }

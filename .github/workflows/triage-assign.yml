@@ -1,0 +1,84 @@
+name: Issue Triage & Assign
+
+# Reads the required dropdowns from the issue-form body and, without any
+# third-party actions:
+#   1. applies the `ew` label when the reporter marked the issue EW-related
+#   2. applies a `scope:*` label and assigns the area owner based on Scope / Area
+#
+# The field labels parsed below MUST match the `label:` values in
+# .github/ISSUE_TEMPLATE/bug_report.yml and feature_request.yml exactly.
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply EW label, scope label and assignee
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // ---- Roster: map each Scope / Area option to GitHub usernames ----
+            const ALL = ['svynod', 'hannesolo', 'mhaack', 'anfibiacreativa'];
+            const SCOPE_ASSIGNEES = {
+              'Editor / Canvas':      ['svynod', 'hannesolo'],
+              'Blocks / Rendering':   ['svynod', 'hannesolo', 'mhaack'],
+              'Heli':                 ['mhaack', 'hannesolo'],
+              'Config / Sheets':      ['mhaack', 'hannesolo', 'anfibiacreativa'],
+              'Auth / Permissions':   ['mhaack', 'hannesolo', 'anfibiacreativa'],
+              'AI Assistant / Agent': ['anfibiacreativa', 'mhaack'],
+              'MCP / Tooling':        ['anfibiacreativa'],
+              'Infra / CI':           ['mhaack', 'hannesolo', 'anfibiacreativa'],
+              'Docs':                 ALL,
+              'Other / Unsure':       ALL,
+            };
+            // Optional short slug used for the `scope:*` label.
+            const SCOPE_SLUG = {
+              'Editor / Canvas':      'editor',
+              'Blocks / Rendering':   'blocks',
+              'Heli':                 'heli',
+              'Config / Sheets':      'config',
+              'Auth / Permissions':   'auth',
+              'AI Assistant / Agent': 'assistant',
+              'MCP / Tooling':        'mcp',
+              'Infra / CI':           'infra',
+              'Docs':                 'docs',
+              'Other / Unsure':       'triage',
+            };
+
+            const body = context.payload.issue.body || '';
+
+            // Issue forms render each field as "### <label>\n\n<value>".
+            const readField = (label) => {
+              const esc = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const m = body.match(new RegExp('###\\s*' + esc + '\\s*\\n+([^\\n]+)'));
+              return m ? m[1].trim() : '';
+            };
+
+            const ew = readField('Experience Workspace (EW) related?');
+            const scope = readField('Scope / Area');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+
+            const labels = [];
+            if (/^yes\b/i.test(ew)) labels.push('ew');
+            if (scope && SCOPE_SLUG[scope]) labels.push('scope:' + SCOPE_SLUG[scope]);
+
+            if (labels.length) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels });
+              core.info('Added labels: ' + labels.join(', '));
+            }
+
+            const assignees = (SCOPE_ASSIGNEES[scope] || []).filter(Boolean);
+            if (assignees.length) {
+              await github.rest.issues.addAssignees({ owner, repo, issue_number, assignees });
+              core.info('Assigned: ' + assignees.join(', '));
+            } else {
+              core.info('No assignee configured for scope: ' + (scope || '(none)'));
+            }

@@ -1,0 +1,63 @@
+name: Close stale issues and PRs
+
+# Two-phase housekeeping. An item goes idle -> gets a `stale` label + a warning
+# comment (which notifies the original poster, who is subscribed to their own
+# thread) -> is closed after a grace period if still untouched. ANY activity, or
+# removing the `stale` label, resets the clock.
+#
+#   Issues:        stale after 60 days (2 months) -> close 21 days (3 weeks) later
+#   Pull requests: stale after 49 days (7 weeks)  -> close 14 days (2 weeks) later
+
+on:
+  schedule:
+    - cron: '30 1 * * *' # daily at 01:30 UTC
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          # Process oldest items first so the longest-idle backlog clears first.
+          ascending: true
+          # Raise from the default 30 so the initial backlog sweep isn't truncated.
+          operations-per-run: 150
+
+          # ---- Issues: 2 months idle, then 3 weeks' grace ----
+          days-before-issue-stale: 60
+          days-before-issue-close: 21
+          stale-issue-label: stale
+          stale-issue-message: >
+            This issue has had no activity for 2 months, so it has been marked
+            `stale`. It will be closed in **3 weeks** if there is no further
+            activity. If it is still relevant, please leave a comment (or remove
+            the `stale` label) and we will keep it open. Thanks for helping keep
+            the backlog tidy!
+          close-issue-message: >
+            Closing this issue after 3 weeks of inactivity following the stale
+            notice. If it is still relevant, feel free to reopen it or open a new
+            issue with fresh context.
+
+          # ---- Pull requests: 7 weeks idle, then 2 weeks' grace ----
+          days-before-pr-stale: 49
+          days-before-pr-close: 14
+          stale-pr-label: stale
+          stale-pr-message: >
+            This pull request has had no activity for 7 weeks, so it has been
+            marked `stale`. It will be closed in **2 weeks** if there is no
+            further activity. If you are still working on it, please push a
+            commit or leave a comment (or remove the `stale` label). Thanks!
+          close-pr-message: >
+            Closing this pull request after 2 weeks of inactivity following the
+            stale notice. If you would like to continue the work, please reopen
+            it or open a fresh PR.
+
+          # Never auto-close things that are intentionally long-lived.
+          exempt-issue-labels: 'pinned,security,keep-open,roadmap'
+          exempt-pr-labels: 'pinned,security,keep-open,work-in-progress'
+          exempt-all-milestones: true

@@ -1,0 +1,82 @@
+name: Feature request
+description: Suggest a new capability or an improvement.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Fields marked required drive our triage automation
+        (the `ew` label, area assignment, and the completeness check). A bot will
+        tag you if anything required is missing.
+
+  - type: dropdown
+    id: ew
+    attributes:
+      label: Experience Workspace (EW) related?
+      description: Does this request involve the Experience Workspace (EW) assistant / AI experience?
+      options:
+        - "No"
+        - "Yes"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope / Area
+      description: Which part of the product does this touch? This drives auto-assignment.
+      options:
+        - Editor / Canvas
+        - Blocks / Rendering
+        - Heli
+        - Config / Sheets
+        - Auth / Permissions
+        - AI Assistant / Agent
+        - MCP / Tooling
+        - Infra / CI
+        - Docs
+        - Other / Unsure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: request-type
+    attributes:
+      label: Customer request or developer need?
+      description: Where is this coming from?
+      options:
+        - Customer request
+        - Developer need
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: |
+        P0 = critical / blocking, P1 = high, P2 = medium, P3 = low.
+        Maintainers may adjust this during triage.
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do, and why is it hard today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like to see happen?
+    validations:
+      required: false

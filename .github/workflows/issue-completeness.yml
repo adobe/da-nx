@@ -1,0 +1,100 @@
+name: Issue completeness check
+
+# Verifies a new/edited issue has the information triage needs. If anything is
+# missing it applies the `triage-incomplete` label and leaves a single comment
+# (tagging the reporter) listing what's needed. The comment is updated in place
+# as the issue is fixed, and both the comment and label clear once it's complete.
+#
+# Required: a description, customer-vs-developer, a priority (P0-P3), and — for
+# bugs — reproduction steps and a reproduction link. A video is prompted but
+# never blocks.
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  check:
+    # Don't react to issues opened by bots (avoids automation loops).
+    if: ${{ github.event.issue.user.type != 'Bot' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const MARKER = '<!-- issue-completeness-bot -->';
+            const INCOMPLETE = 'triage-incomplete';
+
+            const body = context.payload.issue.body || '';
+            const author = context.payload.issue.user.login;
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.issue.number;
+            const labels = (context.payload.issue.labels || []).map(l => l.name);
+            const isBug = labels.includes('bug');
+
+            const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // Grab the first non-empty line under a "### <label>" heading.
+            const val = (label) => {
+              const m = body.match(new RegExp('###\\s*' + esc(label) + '\\s*\\n+([^\\n]+)'));
+              return m ? m[1].trim() : '';
+            };
+            const isEmpty = (v) => !v || /^_no response_$/i.test(v.trim());
+
+            const missing = [];
+            const description = val('What happened?') || val('Problem / motivation');
+            if (isEmpty(description)) missing.push('A description of the issue');
+            if (isEmpty(val('Customer request or developer need?')))
+              missing.push('Whether this is a **customer request** or a **developer need**');
+            if (isEmpty(val('Priority'))) missing.push('A **priority** (P0, P1, P2, or P3)');
+            if (isBug) {
+              if (isEmpty(val('Steps to reproduce'))) missing.push('**Steps to reproduce**');
+              if (isEmpty(val('Reproduction link(s)'))) missing.push('A **reproduction link**');
+            }
+            const videoMissing = isBug && isEmpty(val('Video (optional)'));
+
+            // Find our existing tracked comment, if any.
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100,
+            });
+            const existing = comments.find(c => (c.body || '').includes(MARKER));
+
+            const hasLabel = labels.includes(INCOMPLETE);
+            const upsert = async (bodyMd) => {
+              if (existing) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: bodyMd });
+              } else {
+                await github.rest.issues.createComment({ owner, repo, issue_number, body: bodyMd });
+              }
+            };
+
+            if (missing.length) {
+              if (!hasLabel) {
+                await github.rest.issues.addLabels({ owner, repo, issue_number, labels: [INCOMPLETE] });
+              }
+              let md = `${MARKER}\nHi @${author} :wave: thanks for opening this! `
+                + `Before we can triage it, please add the following:\n\n`
+                + missing.map(m => `- [ ] ${m}`).join('\n') + '\n';
+              if (videoMissing) {
+                md += `\n_Optional:_ a short screen recording of the problem helps a lot, but it is not required.\n`;
+              }
+              md += `\nEdit the issue description to add these — this notice and the \`${INCOMPLETE}\` `
+                + `label clear automatically once everything is filled in.`;
+              await upsert(md);
+              core.info('Marked incomplete. Missing: ' + missing.join('; '));
+            } else {
+              if (hasLabel) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name: INCOMPLETE }).catch(() => {});
+              }
+              if (existing) {
+                const done = `${MARKER}\nThanks @${author} — everything triage needs is here. :white_check_mark:`
+                  + (videoMissing ? ` (A short screen recording would still help if you can add one.)` : '');
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: done });
+              } else if (videoMissing) {
+                await upsert(`${MARKER}\nThanks @${author} — this looks complete. If you can, a short screen `
+                  + `recording would help us reproduce faster. Not required, just helpful!`);
+              }
+              core.info('Issue is complete.');
+            }

@@ -1,0 +1,114 @@
+name: Bug report
+description: Report something that is broken or not behaving as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Fields marked required drive our triage automation
+        (the `ew` label, area assignment, and the completeness check). Please fill in
+        as much as you can — a bot will tag you if anything required is missing.
+
+  - type: dropdown
+    id: ew
+    attributes:
+      label: Experience Workspace (EW) related?
+      description: Does this issue involve the Experience Workspace (EW) assistant / AI experience?
+      options:
+        - "No"
+        - "Yes"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope / Area
+      description: Which part of the product does this touch? This drives auto-assignment.
+      options:
+        - Editor / Canvas
+        - Blocks / Rendering
+        - Heli
+        - Config / Sheets
+        - Auth / Permissions
+        - AI Assistant / Agent
+        - MCP / Tooling
+        - Infra / CI
+        - Docs
+        - Other / Unsure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: request-type
+    attributes:
+      label: Customer request or developer need?
+      description: Where is this coming from?
+      options:
+        - Customer request
+        - Developer need
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: |
+        P0 = production down / data loss, P1 = major broken, no workaround,
+        P2 = important but has a workaround, P3 = minor / nice to have.
+        Maintainers may adjust this during triage.
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro-steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal, numbered steps someone else can follow.
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro-links
+    attributes:
+      label: Reproduction link(s)
+      description: URL(s) where the bug can be observed (before/after, test site, deployed branch).
+      placeholder: |
+        - Before: https://main--{repo}--{owner}.aem.live/
+        - After:  https://<branch>--{repo}--{owner}.aem.live/
+    validations:
+      required: true
+
+  - type: input
+    id: video
+    attributes:
+      label: Video (optional)
+      description: A short screen recording helps a lot, but it is not required.
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Environment / version
+      description: Branch, commit, or deployed URL where you saw this.
+    validations:
+      required: false
