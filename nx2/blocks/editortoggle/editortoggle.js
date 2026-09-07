@@ -21,9 +21,17 @@ const style = await loadStyle(import.meta.url);
  * for the same wiring). Same effect as the site-level ew.enabled flag, but
  * persisted per-user in localStorage — see nx2/utils/ewFlags.js.
  *
+ * `nx2:ew-user-enabled` is only ever written by an explicit click on this
+ * switch (_toggle()) — merely landing on /canvas or /edit never sets or
+ * clears it. Instead /edit checks the flag (and the site-level flag) on
+ * load and redirects to /canvas when either is on; /canvas never redirects
+ * back, since being there is already the outcome either flag would produce.
+ *
  * Hidden whenever `ew.enabled === 'true'` at the site level, since the toggle
- * would be redundant there. Site-level state is re-checked on every hash
- * change so switching between sites shows/hides the toggle correctly.
+ * would be redundant there — that flag also forces the /edit -> /canvas
+ * redirect regardless of the user's own preference. Site-level state is
+ * re-checked on every hash change so switching between sites shows/hides the
+ * toggle (and re-evaluates the redirect) correctly.
  *
  * Only rendered on the editor routes (`/edit` and `/canvas`) — nowhere else in
  * the nav does swapping editors make sense.
@@ -38,7 +46,6 @@ const style = await loadStyle(import.meta.url);
  * switch-back feedback on /edit — are triggered from the always-present
  * toolbar instance to avoid firing them twice.
  */
-const EDITOR_PATHS = new Set(['/edit', '/canvas']);
 class NxEditorToggle extends LitElement {
   static properties = {
     variant: { type: String, reflect: true },
@@ -55,17 +62,20 @@ class NxEditorToggle extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this._userEnabled = isEWUserEnabled();
-    // Landing directly on /edit or /canvas (bookmark, external link, hand-typed
-    // URL) is an implicit choice — sync the persisted flag so the switch shows
-    // the editor you're actually looking at instead of the last-saved pref.
-    const desired = window.location.pathname === '/canvas';
-    if (EDITOR_PATHS.has(window.location.pathname) && this._userEnabled !== desired) {
-      this._userEnabled = desired;
-      setEWUserEnabled(desired);
-    }
+    if (this._redirectToCanvasIfNeeded()) return;
     this._maybeShowWelcome();
     this._maybeShowSwitchback();
     this._unsubHash = hashChange.subscribe((state) => this._onHashState(state));
+  }
+
+  // /edit defers to canvas when either the site or the user has opted in;
+  // /canvas never redirects back, since being there already is that outcome.
+  _redirectToCanvasIfNeeded() {
+    if (window.location.pathname !== '/edit') return false;
+    if (!this._siteEwEnabled && !this._userEnabled) return false;
+    const { search, hash } = window.location;
+    window.location.href = `/canvas${search}${hash}`;
+    return true;
   }
 
   // First time on canvas after toggling EW on: show the welcome guide once.
@@ -105,6 +115,7 @@ class NxEditorToggle extends LitElement {
       return;
     }
     this._siteEwEnabled = await isEWEnabledBySite({ org: state.org, site: state.site });
+    this._redirectToCanvasIfNeeded();
   }
 
   _toggle() {
