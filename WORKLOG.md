@@ -1,5 +1,33 @@
 # Worklog
 
+## 2026-09-07
+
+### nx2/blocks/editortoggle — stop implicit `nx2:ew-user-enabled` writes on navigation
+
+`connectedCallback` used to reconcile the persisted `nx2:ew-user-enabled` flag
+to whatever path the toggle happened to mount on (`/canvas` → true, `/edit` →
+false) any time the component loaded — not just on a genuine bookmark/typed-URL
+landing as the comment claimed. Since the flag is a single global localStorage
+key (not scoped per org/site), and `/edit` vs `/canvas` routing is actually
+decided per-site via `editor.path` config (`docs/workspace.md`), simply opening
+a doc on one EW-enabled site would silently opt the browser into New
+Authoring globally, on every other site, with no user interaction.
+
+Fixed: the flag is now written only by an explicit click on the toggle
+(`_toggle()`). Replaced the reconciliation block with
+`_redirectToCanvasIfNeeded()`: on `/canvas` it's a no-op (nothing read or
+written); on `/edit` it redirects to `/canvas` if either the site-level
+`ew.enabled` flag or the user flag is on (site flag wins/ignores the user
+flag, matching the "site config forces canvas" rule in `docs/workspace.md`),
+otherwise stays on `/edit`. Called once synchronously in `connectedCallback`
+(handles the user-flag case) and again from `_onHashState` once the async
+site-level check resolves (handles the site-forced case). No test coverage
+existed for this component before or after — an end-to-end test covering the
+toggle-on/welcome-dialog/toggle-off/redirect flow (working title
+"usertoggle") is planned for a follow-up PR once e2e infra (Playwright, not
+yet on this branch — exists only on the unmerged `feat/e2e-setup` branch) is
+sorted out, including what site/page to run it against.
+
 ## 2026-08-27
 
 ### Standalone quick-edit — authenticate before embedding preview
