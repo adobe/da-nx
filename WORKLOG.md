@@ -31,8 +31,12 @@ misattributed to the wrong paragraph. Da-live also got a `quick-edit-controller.
 RELOAD-coalescing debounce (150ms) as a stopgap while this was tracked down;
 kept, since it's still a legitimate backstop.
 
-Not verified end-to-end here (no way to drive the live iframe interactively
-in this environment) — needs a real multi-user retest.
+Verified via a two-browser test (da-nx files served through Chrome local
+overrides): the RELOAD storm is gone under sustained multi-user editing.
+
+Review follow-ups: normalized `cursorOffset` to `Number` in `createEditor` so
+the exact-match badge gate can't silently fail on a string, and added unit
+tests for `findTextBlock`'s exclude + nearest-block fallback.
 
 ### nx2/blocks/editortoggle — stop implicit `nx2:ew-user-enabled` writes on navigation
 
