@@ -88,6 +88,7 @@
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-corner-radius-300);
   overflow: hidden;
+  margin: 0;
 }
 
 .ui-artifact-pe-section-header {
@@ -160,7 +161,7 @@
 .ui-artifact-pe-item {
   display: flex;
   align-items: flex-start;
-  gap: var(--s2-spacing-100);
+  gap: var(--s2-spacing-200);
   padding: var(--s2-spacing-200) var(--s2-spacing-300);
 
   &[hidden] {

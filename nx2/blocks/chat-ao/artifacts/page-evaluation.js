@@ -15,9 +15,9 @@ const toneOf = (tone) => TONE_MAP[tone] ?? TONE_FALLBACK;
 const iconUrl = (name) => `/img/icons/${name}.svg`;
 
 const toneIcon = (tone, size = 20) => {
-  const { icon } = toneOf(tone);
+  const { icon, cls } = toneOf(tone);
   return html`<span
-    class="ui-artifact-pe-icon"
+    class="ui-artifact-pe-icon ui-artifact-pe-tone-${cls}"
     style="--pe-icon:url('${iconUrl(icon)}');width:${size}px;height:${size}px"
   ></span>`;
 };
