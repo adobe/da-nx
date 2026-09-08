@@ -707,7 +707,9 @@ export async function sendAllLanguages({
 
 /**
  * Refreshes translation progress for a submission, marking languages as
- * `translated` once every document has a processed target.
+ * `translated` once every document has a processed target. Languages already `complete`
+ * or `cancelled` are skipped, since GlobalLink keeps reporting delivered targets as
+ * processed indefinitely.
  * @param {object} conf - The status-check configuration.
  * @param {object} conf.service - The flattened per-environment service config, including
  * the previously persisted `submissionId`.
@@ -728,6 +730,13 @@ export async function getStatusAll({ service, langs, urls, actions }) {
     return;
   }
 
+  // 'complete'/'cancelled' are terminal - GlobalLink keeps reporting a delivered target as
+  // processed forever, so without this guard every subsequent status check would revert
+  // 'complete' back to 'translated' (triggering a re-save) or 'cancelled' back to 'translated'
+  // (undoing the cancel).
+  const activeLangs = langs.filter((lang) => !['complete', 'cancelled'].includes(lang.translation?.status));
+  if (!activeLangs.length) return;
+
   const connected = await isConnected(service);
   if (!connected) {
     sendMessage({ text: 'Not connected to GlobalLink.', type: 'error' });
@@ -738,7 +747,7 @@ export async function getStatusAll({ service, langs, urls, actions }) {
 
   const targets = await listTargets(service, submissionId);
   const documentIdsByPath = getDocumentIdsByPath(service);
-  langs.forEach((lang) => {
+  activeLangs.forEach((lang) => {
     lang.translation ??= {};
     lang.translation.translated = 0;
   });
@@ -760,7 +769,7 @@ export async function getStatusAll({ service, langs, urls, actions }) {
     }
   });
 
-  langs.forEach((lang) => {
+  activeLangs.forEach((lang) => {
     const targetCount = targetCountByLang[lang.code] || 0;
     const cancelledCount = cancelledCountByLang[lang.code] || 0;
     if (targetCount > 0 && cancelledCount === targetCount) {

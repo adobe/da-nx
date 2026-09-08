@@ -430,11 +430,12 @@ describe('globallink connector', () => {
     it('errors when not connected', async () => {
       installFetch(() => new Response('', { status: 401 }));
       const service = baseService({ submissionId: { value: 'sub-1' } });
+      const langs = [{ code: 'fr-FR', translation: { status: 'created' } }];
       const messages = [];
       const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
 
       await getStatusAll({
-        service, langs: [], urls: [], actions,
+        service, langs, urls: [], actions,
       });
 
       const errorMessage = messages.find((m) => m.type === 'error');
@@ -488,6 +489,57 @@ describe('globallink connector', () => {
       });
 
       expect(langs[0].translation.status).to.equal('cancelled');
+    });
+
+    it('does not revert a lang already saved to DA back to "translated"', async () => {
+      installFetch((u) => {
+        if (u.includes('/rest/v0/targets')) {
+          // GlobalLink keeps reporting a delivered target as processed indefinitely.
+          return new Response(JSON.stringify({
+            targets: [{ documentId: 'doc-1', targetLanguage: 'fr-FR', targetStatus: 'DELIVERED' }],
+          }), { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService({
+        submissionId: { value: 'sub-1' },
+        documentIds: { value: JSON.stringify({ '/page': 'doc-1' }) },
+      });
+      const langs = [{ code: 'fr-FR', translation: { translated: 1, status: 'complete', saved: 1 } }];
+      const urls = [{ daBasePath: '/page' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await getStatusAll({
+        service, langs, urls, actions,
+      });
+
+      expect(langs[0].translation.status).to.equal('complete');
+      expect(calls.length).to.equal(0);
+    });
+
+    it('does not revert a cancelled lang back to "translated"', async () => {
+      installFetch((u) => {
+        if (u.includes('/rest/v0/targets')) {
+          return new Response(JSON.stringify({
+            targets: [{ documentId: 'doc-1', targetLanguage: 'fr-FR', targetStatus: 'PROCESSED' }],
+          }), { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService({
+        submissionId: { value: 'sub-1' },
+        documentIds: { value: JSON.stringify({ '/page': 'doc-1' }) },
+      });
+      const langs = [{ code: 'fr-FR', translation: { translated: 0, status: 'cancelled' } }];
+      const urls = [{ daBasePath: '/page' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await getStatusAll({
+        service, langs, urls, actions,
+      });
+
+      expect(langs[0].translation.status).to.equal('cancelled');
+      expect(calls.length).to.equal(0);
     });
 
     it('ignores a target whose documentId is not in the persisted map', async () => {
