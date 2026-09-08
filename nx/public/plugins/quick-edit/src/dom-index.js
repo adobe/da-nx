@@ -12,12 +12,13 @@ export function safeQuerySelectorAll(root, selector) {
   }
 }
 
-function findNearestIndexed(attr, from, root) {
-  const exact = root.querySelector(`[${attr}="${from}"]`);
+function findNearestIndexed(attr, from, root, exclude) {
+  const suffix = exclude ? `:not(${exclude})` : '';
+  const exact = root.querySelector(`[${attr}="${from}"]${suffix}`);
   if (exact) return exact;
   let best = null;
   let bestIndex = -1;
-  root.querySelectorAll(`[${attr}]`).forEach((el) => {
+  root.querySelectorAll(`[${attr}]${suffix}`).forEach((el) => {
     const idx = parseIndex(el.getAttribute(attr));
     if (idx == null || idx > from) return;
     if (idx > bestIndex) {
@@ -28,8 +29,10 @@ function findNearestIndexed(attr, from, root) {
   return best;
 }
 
-export function findTextBlock(from, root = document) {
-  return findNearestIndexed('data-prose-index', from, root);
+// exclude keeps an already-open editor out of the nearest-match fallback, so a
+// drifted cursorOffset can't resolve to and replace a different block's editor.
+export function findTextBlock(from, root = document, exclude = null) {
+  return findNearestIndexed('data-prose-index', from, root, exclude);
 }
 
 export function findBlock(from, root = document) {
