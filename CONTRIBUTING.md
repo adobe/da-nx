@@ -75,3 +75,34 @@ One of the maintainers will look at the pull request within one week. Feedback o
 The project's committers will release to the [Adobe organization on npmjs.org](https://www.npmjs.com/org/adobe).
 Please contact the [Adobe Open Source Advisory Board](https://git.corp.adobe.com/OpenSourceAdvisoryBoard/discuss/issues) to get access to the npmjs organization.
 
+# Issue and PR Housekeeping Automation
+
+To keep the backlog healthy, this repo runs a few GitHub Actions bots. Here is what to expect.
+
+## Filing an issue
+
+Issues are created through issue forms (blank issues are disabled). A few fields are **required** and power automatic triage:
+
+- **Scope / Area** — applies a `scope:*` label so the board can filter by area. Work is picked up from the prioritized board.
+- **Who is affected?** — customer-facing or internal, so we can triage impact.
+- For **bugs**: a description, **steps to reproduce**, and a **reproduction link**. A short **video is optional** but appreciated.
+
+### Completeness check
+
+When an issue is opened or edited, a bot verifies the required information is present. If anything is missing it applies the `triage-incomplete` label and leaves a comment (tagging you) listing exactly what to add. The comment and label clear automatically once the issue is complete, so just edit the description — no need to open a new issue.
+
+## Pull request notifications
+
+When a PR is opened, marked ready for review, or reopened, a short notice is posted to Slack. PRs from the **core team** and from **outside contributors** are routed to separate channels so nothing slips through.
+
+## Stale issues and PRs (auto-close)
+
+Inactive items are closed automatically after a warning period. **Any activity** — a comment, a new commit, or removing the `stale` label — resets the clock.
+
+| Type | Marked `stale` after | Closed after the warning |
+| --- | --- | --- |
+| Issues | 60 days (2 months) of inactivity | 21 days (3 weeks) later |
+| Pull requests | 49 days (7 weeks) of inactivity | 14 days (2 weeks) later |
+
+You get two heads-ups before anything closes: a no-pressure check-in when it is marked `stale`, then a final notice about a week before close. To keep something open, just comment or remove the `stale` label. Anything labeled `pinned`, `security`, `keep-open`, `hold`, or `awaiting-maintainer`, or assigned to a milestone, is never auto-closed. Use `hold` or `awaiting-maintainer` when the owner is away or the wait is on us. This only applies to items created on or after 2026-03-01.
+

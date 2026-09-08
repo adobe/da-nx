@@ -1,0 +1,71 @@
+name: Slack PR Ticker
+
+# Posts a one-line notice to Slack when a PR is opened / marked ready / reopened.
+# Core PRs go to one channel, external PRs to another. Core vs external is decided
+# from an explicit allowlist of core author usernames (CORE_AUTHORS below).
+#
+# Uses pull_request_target so the org secrets (webhook URLs) are available even
+# for PRs from forks. This job only reads event metadata and never checks out or
+# runs code from the PR, so it is not exposed to the pull_request_target risk of
+# executing untrusted code.
+#
+# Required secrets:
+#   SLACK_WEBHOOK_CORE_PRS       Incoming Webhook URL for the core-team channel
+#   SLACK_WEBHOOK_COMMUNITY_PRS  Incoming Webhook URL for the contributor channel
+
+on:
+  pull_request_target:
+    types: [opened, ready_for_review, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Route and post to Slack
+        env:
+          CORE_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_CORE_PRS }}
+          COMMUNITY_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_COMMUNITY_PRS }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+          REPO: ${{ github.repository }}
+          # Core contributors (edit to keep in sync with the team).
+          CORE_AUTHORS: 'svynod hannesolo mhaack anfibiacreativa'
+        run: |
+          set -euo pipefail
+
+          # Don't ticker drafts; the ready_for_review event covers them later.
+          if [ "$PR_DRAFT" = "true" ]; then
+            echo "Draft PR; skipping."
+            exit 0
+          fi
+
+          WEBHOOK="$COMMUNITY_WEBHOOK"; TIER="External Contribution"
+          for u in $CORE_AUTHORS; do
+            if [ "$(echo "$u" | tr '[:upper:]' '[:lower:]')" = "$(echo "$PR_AUTHOR" | tr '[:upper:]' '[:lower:]')" ]; then
+              WEBHOOK="$CORE_WEBHOOK"; TIER="Core Contribution"; break
+            fi
+          done
+
+          if [ -z "${WEBHOOK:-}" ]; then
+            echo "No webhook configured for tier=$TIER; skipping."
+            exit 0
+          fi
+
+          # Send discrete fields so a Slack Workflow Builder webhook can map them
+          # to variables (repo, number, title, author, url, tier) and compose the
+          # message itself. Raw URLs auto-linkify in Slack.
+          PAYLOAD="$(jq -n \
+            --arg repo "$REPO" \
+            --arg number "$PR_NUMBER" \
+            --arg title "$PR_TITLE" \
+            --arg author "$PR_AUTHOR" \
+            --arg url "$PR_URL" \
+            --arg tier "$TIER" \
+            '{repo: $repo, number: $number, title: $title, author: $author, url: $url, tier: $tier}')"
+          curl -sS -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$WEBHOOK"

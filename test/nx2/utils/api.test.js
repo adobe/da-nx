@@ -103,16 +103,28 @@ describe('api.js', () => {
       expect(respHlxAdmin.permissions).to.be.undefined;
     });
 
-    it('does not fake permissions on AEM_API error responses (4xx/5xx)', async () => {
+    it('does not fake permissions on AEM_API auth errors (401/403) or server errors (5xx)', async () => {
       restoreFetch();
-      installFetch({ status: 404 });
-      const notFound = await daFetch({ url: `${AEM_API}/some/path` });
-      expect(notFound.permissions).to.be.undefined;
+      installFetch({ status: 401 });
+      const unauthorized = await daFetch({ url: `${AEM_API}/some/path` });
+      expect(unauthorized.permissions).to.be.undefined;
+
+      restoreFetch();
+      installFetch({ status: 403 });
+      const forbidden = await daFetch({ url: `${AEM_API}/some/path` });
+      expect(forbidden.permissions).to.be.undefined;
 
       restoreFetch();
       installFetch({ status: 500 });
       const serverError = await daFetch({ url: `${AEM_API}/some/path` });
       expect(serverError.permissions).to.be.undefined;
+    });
+
+    it('fakes [read, write] on AEM_API 404s - a new/unsaved doc, not a denied request', async () => {
+      restoreFetch();
+      installFetch({ status: 404 });
+      const notFound = await daFetch({ url: `${AEM_API}/some/path` });
+      expect(notFound.permissions).to.deep.equal(['read', 'write']);
     });
 
     it('returns {} and signs in when no access token', async () => {
