@@ -257,27 +257,23 @@ function generateBatchName(title) {
 
 /**
  * Creates a new GlobalLink submission (with one batch targeting all requested languages).
- * @param {object} service - The flattened per-environment service config.
- * @param {string|number} service.projectId - The GlobalLink project id.
- * @param {string} title - The localization project title, used to build the submission name.
- * @param {object[]} langs - The target languages, each with a `code` (BCP-47 locale).
- * @param {string} sourceLanguage - The source language code.
- * @param {number} dueDateDays - The number of days until the submission is due.
- * @param {{name: string, value: string}[]} customAttributes - Any project-required custom
- * attributes (e.g. a mandatory field), from {@link extractCustomAttributes}.
- * @param {string} batchName - The name of the batch to create within the submission. Must
- * be unique within the submission and no more than 64 UTF-8 characters.
+ * @param {object} conf - The submission-create configuration.
+ * @param {object} conf.service - The flattened per-environment service config.
+ * @param {string|number} conf.service.projectId - The GlobalLink project id.
+ * @param {string} conf.title - The localization project title, used to build the
+ * submission name.
+ * @param {object[]} conf.langs - The target languages, each with a `code` (BCP-47 locale).
+ * @param {string} conf.sourceLanguage - The source language code.
+ * @param {number} conf.dueDateDays - The number of days until the submission is due.
+ * @param {{name: string, value: string}[]} conf.customAttributes - Any project-required
+ * custom attributes (e.g. a mandatory field), from {@link extractCustomAttributes}.
+ * @param {string} conf.batchName - The name of the batch to create within the submission.
+ * Must be unique within the submission and no more than 64 UTF-8 characters.
  * @returns {Promise<string|number|null>} The created submission id, or `null` on failure.
  */
-async function createSubmission(
-  service,
-  title,
-  langs,
-  sourceLanguage,
-  dueDateDays,
-  customAttributes,
-  batchName,
-) {
+async function createSubmission({
+  service, title, langs, sourceLanguage, dueDateDays, customAttributes, batchName,
+}) {
   const body = JSON.stringify({
     name: `${title}-${Date.now()}`,
     dueDate: dueDateMs(dueDateDays),
@@ -635,15 +631,9 @@ export async function sendAllLanguages({
   const batchName = generateBatchName(title);
 
   sendMessage({ text: `Creating GlobalLink submission for: ${title}.` });
-  const submissionId = await createSubmission(
-    service,
-    title,
-    langs,
-    sourceLanguage,
-    dueDateDays,
-    customAttributes,
-    batchName,
-  );
+  const submissionId = await createSubmission({
+    service, title, langs, sourceLanguage, dueDateDays, customAttributes, batchName,
+  });
   if (!submissionId) {
     sendMessage({ text: 'Failed to create GlobalLink submission.', type: 'error' });
     langs.forEach((lang) => {
