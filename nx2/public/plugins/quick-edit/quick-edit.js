@@ -10,13 +10,36 @@ await loadPageStyle(`${nx}/public/plugins/quick-edit/quick-edit.css`);
 
 const QUICK_EDIT_ID = 'quick-edit-iframe';
 
-async function setBody(body, ctx) {
+async function applyBody(body, ctx) {
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage(document);
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
   setupActions(ctx);
+}
+
+// SET_BODY arrives in bursts (the host re-posts on every editor transaction) and applyBody
+// re-runs the site's full loadPage/block pipeline. Left unguarded, those async passes overlap
+// and stack live block instances (timers, observers, fetches) until the tab hangs. Serialize
+// to one pass at a time and coalesce a backlog down to the latest body, so the iframe never
+// runs more decoration work than the newest state requires.
+let queuedBody;
+let applyingBody = false;
+
+async function setBody(body, ctx) {
+  queuedBody = body;
+  if (applyingBody) return;
+  applyingBody = true;
+  try {
+    while (queuedBody !== undefined) {
+      const next = queuedBody;
+      queuedBody = undefined;
+      await applyBody(next, ctx);
+    }
+  } finally {
+    applyingBody = false;
+  }
 }
 
 function onMessage(e, ctx) {
