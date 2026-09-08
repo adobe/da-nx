@@ -306,7 +306,7 @@ function openCheckModal(componentTitle, items, startIndex, sectionLabel) {
 function renderItem(item, tone, hidden, onAction) {
   return html`
     <div class="ui-artifact-pe-item" ?hidden=${hidden}>
-      ${toneIcon(tone)}
+      <span class="ui-artifact-pe-item-chip">${toneIcon(tone)}</span>
       <div class="ui-artifact-pe-item-body">
         <span class="ui-artifact-pe-item-title">${item.title ?? ''}</span>
         ${item.description

@@ -41,8 +41,6 @@
 
 .ui-artifact-pe-summary {
   display: flex;
-  border: 1px solid var(--s2-gray-200);
-  border-radius: var(--s2-corner-radius-300);
   overflow: hidden;
 }
 
@@ -146,8 +144,13 @@
 
 /* --- item rows --- */
 
-.ui-artifact-pe-items {
-  border-top: 1px solid var(--s2-gray-200);
+.ui-artifact-pe-item-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
 }
 
 .ui-artifact-pe-item {
