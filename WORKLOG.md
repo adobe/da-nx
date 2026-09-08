@@ -1,5 +1,23 @@
 # Worklog
 
+## 2026-09-08
+
+### quick-edit.js — serialize/coalesce SET_BODY to stop the iframe hang
+
+`f9669a0d` changed quick-edit's `setBody` to `ctx.loadPage(document)`, which re-runs the
+site's full block-decoration pipeline on every `SET_BODY`. The host posts `SET_BODY` on
+every doc-changing transaction (undebounced `rerenderPage`), so during initial Yjs sync of a
+large page the burst spawned overlapping `loadPage(document)` passes that stacked live block
+instances (timers/observers/fetches) until the tab hung ("Page Unresponsive").
+
+Split `setBody` into `applyBody` (original body-swap + `loadPage` + wiring, unchanged) and a
+thin `setBody` guard that serializes decoration to one pass at a time and coalesces a backlog
+down to the latest body via a `queuedBody` sentinel. Preserves `f9669a0d`'s intent (sites
+declaring `document` still fully decorate) while killing the overlap/pile-up. Applied to both
+the `nx/` and `nx2/` quick-edit twins. Not covered: leaky site blocks that survive an
+`innerHTML` swap can still accumulate across sequential edits — that's the block needing
+teardown, out of nx's control.
+
 ## 2026-09-07
 
 ### quick-edit — stop RELOAD storms from cross-block index drift
