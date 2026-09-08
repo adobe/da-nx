@@ -1,15 +1,7 @@
 .ui-artifact-pe {
   display: flex;
   flex-direction: column;
-  gap: var(--s2-spacing-300);
-}
-
-.ui-artifact-pe-title {
-  margin: 0;
-  font-size: var(--s2-component-l-bold-font-size);
-  font-weight: var(--s2-component-l-bold-font-weight);
-  line-height: var(--s2-component-l-bold-line-height);
-  color: var(--s2-gray-900);
+  gap: var(--s2-spacing-200);
 }
 
 .ui-artifact-pe-icon {

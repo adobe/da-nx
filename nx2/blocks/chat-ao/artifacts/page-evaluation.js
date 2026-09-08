@@ -380,7 +380,6 @@ registerArtifact('PageEvaluationWithIcons', ({
 }) => {
   const root = html`
     <div class="ui-artifact-pe">
-      ${title ? html`<h3 class="ui-artifact-pe-title">${title}</h3>` : nothing}
       ${summary.length ? renderSummary(summary) : nothing}
       ${sections.map((s) => renderSection(s, title))}
     </div>
