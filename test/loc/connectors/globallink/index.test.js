@@ -5,6 +5,11 @@ import {
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 import { unzipSync } from '../../../../nx2/deps/fflate/dist/index.js';
 
+// Dynamic-expression import (not a literal string) so @web/dev-server-import-maps
+// does not rewrite this to ...?wds-import-map=0. See test/nx2/utils/api.test.js.
+const imsPath = '../../../../nx2/utils/ims.js';
+const { setMockIms, resetMockIms } = await import(imsPath);
+
 const org = 'acme';
 const site = 'site1';
 const proxyOrigin = `${DA_TRANSLATE}/translate/globallink/${org}/${site}`;
@@ -76,6 +81,7 @@ function restoreFetch() {
 
 describe('globallink connector', () => {
   beforeEach(() => {
+    resetMockIms();
     localStorage.clear();
     installFetch();
   });
@@ -102,6 +108,47 @@ describe('globallink connector', () => {
     it('connect behaves identically to isConnected', async () => {
       expect(await connect(baseService())).to.equal(true);
     });
+
+    it('resolves false when there is no IMS session, even with a valid GlobalLink login', async () => {
+      setMockIms({ anonymous: true });
+
+      expect(await isConnected(baseService())).to.equal(false);
+    });
+  });
+
+  describe('IMS auth', () => {
+    it('sends the IMS bearer token as Authorization and the GlobalLink token as x-globallink-authorization', async () => {
+      const service = baseService();
+      const options = { service };
+      const langs = [{ name: 'French', code: 'fr-FR' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 't', service, options, langs, urls, actions,
+      });
+
+      const createCall = calls.find((c) => c.url.includes('/rest/v0/submissions/create'));
+      expect(createCall.headers.Authorization).to.equal('Bearer test-token');
+      expect(createCall.headers['x-globallink-authorization']).to.equal('Bearer gl-token');
+    });
+
+    it('does not call the submission-create proxy endpoint when there is no IMS session', async () => {
+      setMockIms({ anonymous: true });
+      const service = baseService();
+      const options = { service };
+      const langs = [{ name: 'French', code: 'fr-FR' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const messages = [];
+      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 't', service, options, langs, urls, actions,
+      });
+
+      expect(calls.some((c) => c.url.includes('/rest/v0/submissions/create'))).to.equal(false);
+      expect(langs[0].translation.status).to.equal('error');
+    });
   });
 
   describe('401 recovery', () => {
@@ -115,7 +162,7 @@ describe('globallink connector', () => {
           return new Response(body, { status: 200 });
         }
         if (u.includes('/rest/v0/submissions/create')) {
-          if (opts.headers.Authorization !== 'Bearer fresh-token') return new Response('', { status: 401 });
+          if (opts.headers['x-globallink-authorization'] !== 'Bearer fresh-token') return new Response('', { status: 401 });
           return new Response(JSON.stringify({ submissionId: 'sub-1' }), { status: 200 });
         }
         return defaultHandler(u);

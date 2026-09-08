@@ -2,7 +2,9 @@ import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
 import { zipSync, strToU8 } from '../../../../../nx2/deps/fflate/dist/index.js';
-import authReady, { getAccessToken as getCachedAccessToken } from '../../utils/auth.js';
+import authReady, {
+  getAccessToken as getCachedAccessToken, imsAccessToken, imsAuthHeader,
+} from '../../utils/auth.js';
 import fetchWithRetry from '../../utils/fetchWithRetry.js';
 
 export const dnt = { addDnt };
@@ -17,6 +19,10 @@ const DOWNLOAD_POLL_MAX = 60;
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 const ORIGIN_HEADER = 'x-globallink-origin';
+// Carries GlobalLink's own bearer token. The Authorization header itself is reserved for
+// the IMS token DA_TRANSLATE requires to gate access to the proxy (see imsAuthHeader) -
+// GlobalLink's credential can't travel there too without colliding with it.
+const CREDENTIAL_HEADER = 'x-globallink-authorization';
 
 /**
  * Builds the DA_TRANSLATE proxy origin GlobalLink requests are routed through, so the
@@ -48,9 +54,20 @@ function originHeader(service) {
 }
 
 /**
- * Builds the bearer-auth + JSON + proxy-origin headers used for authenticated
- * GlobalLink API calls routed through the DA_TRANSLATE proxy. The access token is
- * obtained via da-etc (see `loc/utils/auth.js`), never built from credentials here.
+ * Builds the GlobalLink credential header for a request routed through the DA_TRANSLATE
+ * proxy. The access token is obtained via da-etc (see `loc/utils/auth.js`), never built
+ * from credentials here. Kept out of Authorization since that header carries the IMS
+ * token instead (see {@link imsAuthHeader}).
+ * @param {string} token - The GlobalLink access token.
+ * @returns {{[CREDENTIAL_HEADER]: string}} The header to merge into the request.
+ */
+function credentialHeader(token) {
+  return { [CREDENTIAL_HEADER]: `Bearer ${token}` };
+}
+
+/**
+ * Builds the IMS-auth + GlobalLink-credential + JSON + proxy-origin headers used for
+ * authenticated GlobalLink API calls routed through the DA_TRANSLATE proxy.
  * @param {object} service - The flattened per-environment service config.
  * @param {string} service.endpoint - The real GlobalLink API base endpoint.
  * @returns {Promise<object>} The request headers.
@@ -58,7 +75,8 @@ function originHeader(service) {
 async function authHeaders(service) {
   const token = await getCachedAccessToken(INTEGRATION_NAME, service);
   return {
-    Authorization: `Bearer ${token}`,
+    ...(await imsAuthHeader()),
+    ...credentialHeader(token),
     ...originHeader(service),
     ...JSON_HEADERS,
   };
@@ -69,7 +87,9 @@ async function authHeaders(service) {
  * (bypassing the cached token, which da-etc can reject - e.g. revoked, or clock skew -
  * even though the client's own expiry check still considered it valid) and rebuilds
  * `opts` with the new bearer token, so a 401 triggers exactly one retry with a valid
- * token instead of failing the request outright.
+ * token instead of failing the request outright. A 401 caused by a stale IMS token
+ * instead of a stale GlobalLink one isn't recoverable here - `loadIms()` is expected to
+ * always hand back a live token, same as it does for `daFetch` elsewhere.
  * @param {object} service - The flattened per-environment service config.
  * @param {object} opts - The fetch options to rebuild on success.
  * @returns {() => Promise<object|null>} Callback for `fetchWithRetry`'s `onUnauthorized`.
@@ -78,7 +98,7 @@ function onUnauthorized(service, opts) {
   return async () => {
     const token = await getCachedAccessToken(INTEGRATION_NAME, service, { force: true });
     if (!token) return null;
-    return { ...opts, headers: { ...opts.headers, Authorization: `Bearer ${token}` } };
+    return { ...opts, headers: { ...opts.headers, ...credentialHeader(token) } };
   };
 }
 
@@ -313,7 +333,11 @@ async function uploadSourceFiles(service, submissionId, urls, batchName) {
 
   const token = await getCachedAccessToken(INTEGRATION_NAME, service);
   const reqUrl = `${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/upload/source`;
-  const opts = { method: 'POST', headers: { Authorization: `Bearer ${token}`, ...originHeader(service) }, body };
+  const opts = {
+    method: 'POST',
+    headers: { ...(await imsAuthHeader()), ...credentialHeader(token), ...originHeader(service) },
+    body,
+  };
   const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
   if (!resp.ok) {
     return { uploadedFileNames: new Set(), overflowSubmissionIds: [], documentIdsByPath: {} };
@@ -530,24 +554,30 @@ function isCancelled(target) {
 }
 
 /**
- * Checks whether there is a currently valid GlobalLink session, fetching an access
- * token via da-etc if needed. The client secret and GlobalLink password never reach
- * the browser — see `loc/utils/auth.js`.
+ * Checks whether there is a currently valid GlobalLink session (fetching an access token
+ * via da-etc if needed) and a valid IMS session (DA_TRANSLATE requires both - every call
+ * routes through its proxy). The client secret and GlobalLink password never reach the
+ * browser — see `loc/utils/auth.js`.
  * @param {object} service - The flattened per-environment service config.
  * @returns {Promise<boolean>} Whether the connector is authenticated and ready to use.
  */
-export function isConnected(service) {
-  return authReady(INTEGRATION_NAME, service);
+export async function isConnected(service) {
+  const [glReady, imsToken] = await Promise.all([
+    authReady(INTEGRATION_NAME, service),
+    imsAccessToken(),
+  ]);
+  return glReady && !!imsToken;
 }
 
 /**
  * Authenticates with GlobalLink. Identical to {@link isConnected} — both simply ensure
- * a usable access token is available, obtained server-side by da-etc.
+ * a usable GlobalLink access token (obtained server-side by da-etc) and IMS session are
+ * available.
  * @param {object} service - The flattened per-environment service config.
  * @returns {Promise<boolean>} Whether authentication succeeded.
  */
 export function connect(service) {
-  return authReady(INTEGRATION_NAME, service);
+  return isConnected(service);
 }
 
 /**
@@ -806,7 +836,12 @@ export async function saveItems({
       // current when saveItems started.
       const token = await getCachedAccessToken(INTEGRATION_NAME, service);
       const reqUrl = `${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/targets/${targetId}/download/deliverable`;
-      const opts = { headers: { Authorization: `Bearer ${token}`, ...originHeader(service) } };
+      const headers = {
+        ...(await imsAuthHeader()),
+        ...credentialHeader(token),
+        ...originHeader(service),
+      };
+      const opts = { headers };
       const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
       if (!resp.ok) throw new Error(resp.status);
 

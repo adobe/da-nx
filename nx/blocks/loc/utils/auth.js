@@ -1,4 +1,4 @@
-import { daFetch } from '../../../../nx2/utils/api.js';
+import { daFetch, loadIms, handleSignIn } from '../../../../nx2/utils/api.js';
 import { DA_ETC } from '../../../../nx2/utils/utils.js';
 
 // DA_ETC_ENVS has no 'stage' entry, so DA_ETC resolves to undefined in a
@@ -123,4 +123,31 @@ export async function getAccessToken(name, service, { force = false } = {}) {
 export default async function authReady(name, service) {
   const accessToken = await getAccessToken(name, service);
   return !!accessToken;
+}
+
+/**
+ * Resolves the current IMS access token, mirroring how `daFetch` authenticates calls to
+ * DA_TRANSLATE elsewhere (e.g. the Google connector). Connectors whose DA_TRANSLATE proxy
+ * requires IMS auth (e.g. GlobalLink) use this instead of building their own IMS session
+ * handling. Triggers the sign-in flow if no IMS session is available.
+ * @returns {Promise<string|null>} The token, or `null` if no IMS session is available.
+ */
+export async function imsAccessToken() {
+  const { accessToken } = await loadIms();
+  if (!accessToken) {
+    handleSignIn();
+    return null;
+  }
+  return accessToken.token;
+}
+
+/**
+ * Builds the Authorization header a DA_TRANSLATE proxy requires to gate access to a
+ * connector's endpoint.
+ * @returns {Promise<{Authorization?: string}>} The header to merge into the request, or
+ * `{}` if no IMS token could be obtained.
+ */
+export async function imsAuthHeader() {
+  const token = await imsAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
