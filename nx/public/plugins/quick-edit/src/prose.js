@@ -168,6 +168,9 @@ function keydown(view, event) {
 }
 
 function createEditor(cursorOffset, state, ctx) {
+  // Normalize once: the exact-match badge gate below is a strict === and would
+  // silently never match if cursorOffset arrived as a string.
+  const offset = Number(cursorOffset);
   const schema = getSchema();
   const node = schema.nodeFromJSON(state);
   const doc = schema.node('doc', null, [node]);
@@ -179,12 +182,12 @@ function createEditor(cursorOffset, state, ctx) {
   });
 
   const editorParent = document.createElement('div');
-  editorParent.setAttribute('data-prose-index', cursorOffset);
+  editorParent.setAttribute('data-prose-index', offset);
   editorParent.classList.add('prosemirror-editor');
 
   // Drift-tolerant lookup: an exact match can miss after another block's remote edit
   // shifts positions. Exclude open editors so the fallback can't steal a live one.
-  const element = findTextBlock(cursorOffset, document, '.prosemirror-editor');
+  const element = findTextBlock(offset, document, '.prosemirror-editor');
 
   if (!element) {
     ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
@@ -193,7 +196,7 @@ function createEditor(cursorOffset, state, ctx) {
 
   // Only trust the found element's remote-cursor badge on an exact match — on the
   // nearest-block fallback it belongs to whatever block drift landed on, not this one.
-  const isExactMatch = parseInt(element.getAttribute('data-prose-index'), 10) === cursorOffset;
+  const isExactMatch = parseInt(element.getAttribute('data-prose-index'), 10) === offset;
   if (isExactMatch && element.getAttribute('data-cursor-remote')) {
     editorParent.setAttribute('data-cursor-remote', element.getAttribute('data-cursor-remote'));
     editorParent.setAttribute('data-cursor-remote-color', element.getAttribute('data-cursor-remote-color'));
