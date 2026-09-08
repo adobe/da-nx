@@ -126,6 +126,17 @@ export default async function authReady(name, service) {
 }
 
 /**
+ * Checks whether an IMS session is currently available, without triggering the sign-in
+ * flow if not - unlike {@link imsAccessToken}, safe to call repeatedly (e.g. from inside a
+ * polling loop) without repeatedly invoking `handleSignIn()`.
+ * @returns {Promise<boolean>} Whether a usable IMS access token is available.
+ */
+export async function hasImsSession() {
+  const { accessToken } = await loadIms();
+  return !!accessToken;
+}
+
+/**
  * Resolves the current IMS access token, mirroring how `daFetch` authenticates calls to
  * DA_TRANSLATE elsewhere (e.g. the Google connector). Connectors whose DA_TRANSLATE proxy
  * requires IMS auth (e.g. GlobalLink) use this instead of building their own IMS session

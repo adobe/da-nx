@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import authReady, {
-  getAccessToken, imsAccessToken, imsAuthHeader,
+  getAccessToken, hasImsSession, imsAccessToken, imsAuthHeader,
 } from '../../../nx/blocks/loc/utils/auth.js';
 
 // Dynamic-expression import (not a literal string) so @web/dev-server-import-maps
@@ -176,6 +176,18 @@ describe('auth', () => {
       setMockIms({ anonymous: true });
 
       expect(await imsAuthHeader()).to.deep.equal({});
+    });
+  });
+
+  describe('hasImsSession', () => {
+    it('resolves true when there is a current IMS session', async () => {
+      expect(await hasImsSession()).to.equal(true);
+    });
+
+    it('resolves false without throwing or triggering sign-in when there is no IMS session', async () => {
+      setMockIms({ anonymous: true });
+
+      expect(await hasImsSession()).to.equal(false);
     });
   });
 });

@@ -411,6 +411,24 @@ describe('globallink connector', () => {
       expect(Object.keys(uploadedFiles)).to.have.length(2);
       expect(langs[0].translation.sent).to.equal(2);
     });
+
+    it('stops polling for submission-ready status once the IMS session is lost mid-wait', async () => {
+      installFetch((u) => {
+        if (u.includes('/upload/source')) setMockIms({ anonymous: true });
+        return defaultHandler(u);
+      });
+      const service = baseService();
+      const options = { service };
+      const langs = [{ name: 'French', code: 'fr-FR' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 't', service, options, langs, urls, actions,
+      });
+
+      expect(calls.some((c) => c.url.endsWith('/status'))).to.equal(false);
+    });
   });
 
   describe('getStatusAll', () => {
@@ -661,6 +679,35 @@ describe('globallink connector', () => {
       expect(result).to.equal(urls);
       const errorMessage = messages.find((m) => m.type === 'error');
       expect(errorMessage.text).to.include('are not ready yet');
+    });
+
+    it('stops waiting for deliverables without polling further once the IMS session is lost', async () => {
+      installFetch((u) => {
+        if (u.includes('/download') && !u.includes('/download/deliverable')) {
+          setMockIms({ anonymous: true });
+          return new Response(
+            JSON.stringify({ downloadId: 'dl-1', processingFinished: false }),
+            { status: 200 },
+          );
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService({ submissionId: { value: 'sub-1' } });
+      const urls = [{ daBasePath: '/page', ext: 'html' }];
+      const messages = [];
+
+      const result = await saveItems({
+        org,
+        site,
+        service,
+        lang: { code: 'fr-FR', name: 'French' },
+        urls,
+        saveFn: async () => {},
+        sendMessage: (m) => messages.push(m),
+      });
+
+      expect(result).to.equal(urls);
+      expect(calls.some((c) => c.url.includes('downloadId=dl-1'))).to.equal(false);
     });
 
     it('downloads processed deliverables, saves them, and marks targets delivered', async () => {

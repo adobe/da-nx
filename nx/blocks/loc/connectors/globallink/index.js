@@ -3,7 +3,7 @@ import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
 import { zipSync, strToU8 } from '../../../../../nx2/deps/fflate/dist/index.js';
 import authReady, {
-  getAccessToken as getCachedAccessToken, imsAccessToken, imsAuthHeader,
+  getAccessToken as getCachedAccessToken, hasImsSession, imsAccessToken, imsAuthHeader,
 } from '../../utils/auth.js';
 import fetchWithRetry from '../../utils/fetchWithRetry.js';
 
@@ -188,12 +188,16 @@ function getDocumentIdsByPath(service) {
  * source files (or a maximum number of attempts is reached).
  * @param {object} service - The flattened per-environment service config.
  * @param {string|number} submissionId - The submission to poll.
- * @returns {Promise<boolean>} `false` if the submission reported an error/failure status;
- * `true` otherwise (including the ambiguous/timeout case, since GlobalLink often finishes
- * processing during save).
+ * @returns {Promise<boolean>} `false` if the submission reported an error/failure status, or
+ * if the IMS session is lost mid-poll (stops polling immediately rather than repeatedly
+ * re-triggering IMS sign-in every attempt); `true` otherwise (including the ambiguous/
+ * timeout case, since GlobalLink often finishes processing during save).
  */
 async function waitForSubmissionReady(service, submissionId) {
   for (let i = 0; i < PROCESS_POLL_MAX; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    if (!(await hasImsSession())) return false;
+
     const url = `${resolveOrigin(service)}/rest/v0/submissions/${submissionId}/status`;
     // eslint-disable-next-line no-await-in-loop
     const opts = { headers: await authHeaders(service) };
@@ -504,7 +508,8 @@ async function isDownloadReady(service, submissionId, downloadId) {
 /**
  * Waits for GlobalLink to finish preparing a language's completed deliverables, polling
  * every 5 seconds per GlobalLink's guidance (up to `DOWNLOAD_POLL_MAX` attempts) before any
- * individual targets are downloaded.
+ * individual targets are downloaded. Stops polling immediately (rather than repeatedly
+ * re-triggering IMS sign-in every attempt) if the IMS session is lost mid-poll.
  * @param {object} service - The flattened per-environment service config.
  * @param {string|number} submissionId - The submission to wait on.
  * @param {string} langCode - The target language code to scope the wait to.
@@ -515,6 +520,9 @@ async function waitForDeliverablesReady(service, submissionId, langCode) {
   if (!downloadId || processingFinished) return processingFinished;
 
   for (let i = 0; i < DOWNLOAD_POLL_MAX; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    if (!(await hasImsSession())) return false;
+
     // eslint-disable-next-line no-await-in-loop
     await new Promise((resolve) => { setTimeout(resolve, DOWNLOAD_POLL_MS); });
     // eslint-disable-next-line no-await-in-loop
