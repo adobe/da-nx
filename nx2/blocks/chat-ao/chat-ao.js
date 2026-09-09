@@ -13,6 +13,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
+import { getEWFlags } from '../../utils/ewFlags.js';
 import AoChatController from './ao-controller.js';
 import {
   AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES,
@@ -98,8 +99,12 @@ export default class NxChatAo extends LitElement {
     const key = `${org}/${site}`;
     if (this._configKey === key) return;
     this._configKey = key;
-    const { prompts } = await loadSiteConfig(org, site);
+    const [{ prompts }, flags] = await Promise.all([
+      loadSiteConfig(org, site),
+      getEWFlags({ org, site }),
+    ]);
     this._prompts = prompts ?? [];
+    this._controller?.setActivationKey(flags['ew.altHarness']);
   }
 
   _closePanel() {

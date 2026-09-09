@@ -16,6 +16,11 @@ export const AO_WS_BASE = 'wss://agent-orchestrator-prod-va7.adobe.io';
 
 export const AO_HTTP_BASE = 'https://agent-orchestrator-prod-va7.adobe.io';
 
+// Alternate harness: the claudebridge -> CMA deployment. Routed to only when a
+// valid `ew.altHarness` activation key is present in site config; the bridge
+// validates the key server-side. See docs/chat-ao-alt-harness.md.
+export const CMA_BRIDGE_WS_BASE = 'wss://aem-sites-claudebridge-va6.adobe.io';
+
 export const AO_MANIFEST_ID = 'experience-workspace';
 
 // Mirrors AO's own server-side allowlist

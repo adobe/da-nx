@@ -52,6 +52,13 @@ export default class AoChatController {
     this._context = context;
   }
 
+  // Activation key from the `ew.altHarness` site-config flag. When set, the
+  // chat WebSocket routes to the CMA bridge and the key rides along on the AUTH
+  // frame for server-side validation.
+  setActivationKey(key) {
+    this._activationKey = key || null;
+  }
+
   _update() {
     this._onUpdate({
       messages: this._messages,
@@ -246,8 +253,9 @@ export default class AoChatController {
         'x-user-email': email,
         'x-user-id': userId,
         'x-user-name': name,
+        ...(this._activationKey ? { activationKey: this._activationKey } : {}),
       },
-      wsBase: resolveAoWsBase(projectedProductContext),
+      wsBase: resolveAoWsBase(projectedProductContext, { altHarnessKey: this._activationKey }),
     };
   }
 

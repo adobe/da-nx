@@ -2,7 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import {
   getOrgId, resolveAoHttpBase, resolveAoWsBase,
 } from '../../../../../nx2/blocks/chat-ao/utils/uploads.js';
-import { AO_HTTP_BASE, AO_WS_BASE } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
+import { AO_HTTP_BASE, AO_WS_BASE, CMA_BRIDGE_WS_BASE } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
 
 function withActiveTartan(fulfillableData) {
   return [
@@ -86,44 +86,22 @@ describe('uploads.js resolveAoHttpBase/resolveAoWsBase', () => {
   });
 });
 
-describe('uploads.js ?bridge= override', () => {
-  const original = window.location.search;
-  function setAo(value) {
-    const qs = value === null ? '' : `?bridge=${encodeURIComponent(value)}`;
-    window.history.replaceState({}, '', `${window.location.pathname}${qs}`);
-  }
-  afterEach(() => {
-    window.history.replaceState({}, '', `${window.location.pathname}${original}`);
-  });
-
-  it('overrides only the WS base, leaving the HTTP base on Agent Orchestrator', () => {
-    setAo('wss://aem-sites-claudebridge-dev-va6.adobe.io');
+describe('uploads.js alt-harness activation key', () => {
+  it('routes the WS base to the CMA bridge when an activation key is present', () => {
     const ctx = withActiveTartan({ region: 'VA7', environment: 'PROD' });
-    expect(resolveAoWsBase(ctx)).to.equal('wss://aem-sites-claudebridge-dev-va6.adobe.io');
+    expect(resolveAoWsBase(ctx, { altHarnessKey: 'some-key' })).to.equal(CMA_BRIDGE_WS_BASE);
     // HTTP/REST (episodes, history, uploads) stays on AO - the bridge is WS-only.
     expect(resolveAoHttpBase(ctx)).to.equal('https://agent-orchestrator-prod-va7.adobe.io');
   });
 
-  it('accepts a bare host and defaults the WS base to secure wss', () => {
-    setAo('aem-sites-claudebridge-dev-va6.adobe.io');
-    expect(resolveAoWsBase(undefined)).to.equal('wss://aem-sites-claudebridge-dev-va6.adobe.io');
-    expect(resolveAoHttpBase(undefined)).to.equal(AO_HTTP_BASE);
+  it('leaves the WS base on Agent Orchestrator when no key is present', () => {
+    const ctx = withActiveTartan({ region: 'VA7', environment: 'PROD' });
+    expect(resolveAoWsBase(ctx, {})).to.equal('wss://agent-orchestrator-prod-va7.adobe.io');
+    expect(resolveAoWsBase(ctx, { altHarnessKey: '' })).to.equal('wss://agent-orchestrator-prod-va7.adobe.io');
   });
 
-  it('allows localhost with an insecure ws scheme and port', () => {
-    setAo('ws://localhost:8080');
-    expect(resolveAoWsBase(undefined)).to.equal('ws://localhost:8080');
-    expect(resolveAoHttpBase(undefined)).to.equal(AO_HTTP_BASE);
-  });
-
-  it('ignores a non-allowlisted host and falls back to the default WS base', () => {
-    setAo('wss://evil.example.com');
-    expect(resolveAoWsBase(undefined)).to.equal(AO_WS_BASE);
-    expect(resolveAoHttpBase(undefined)).to.equal(AO_HTTP_BASE);
-  });
-
-  it('ignores a malformed override and falls back to the default base', () => {
-    setAo('not a url');
+  it('falls back to the default WS base with a key but no region context', () => {
+    expect(resolveAoWsBase(undefined, { altHarnessKey: 'some-key' })).to.equal(CMA_BRIDGE_WS_BASE);
     expect(resolveAoWsBase(undefined)).to.equal(AO_WS_BASE);
   });
 });

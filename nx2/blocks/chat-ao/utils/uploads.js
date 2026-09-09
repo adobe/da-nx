@@ -1,5 +1,5 @@
 import { loadIms } from '../../../utils/ims.js';
-import { AO_HTTP_BASE, AO_WS_BASE } from '../ao-constants.js';
+import { AO_HTTP_BASE, AO_WS_BASE, CMA_BRIDGE_WS_BASE } from '../ao-constants.js';
 
 export function getOrgId(projectedProductContext) {
   return projectedProductContext?.find((p) => p.prodCtx?.owningEntity)?.prodCtx.owningEntity;
@@ -19,44 +19,19 @@ function resolveAoLocation(projectedProductContext) {
   }
 }
 
-// Optional `?bridge=<origin>` override to route the chat WebSocket through a
-// different backend (e.g. the claudebridge -> CMA deployment) instead of Agent
-// Orchestrator. WS-only on purpose: the bridge implements only the WebSocket
-// data plane, not the REST control plane (episodes/history/uploads), so the
-// HTTP base is left on Agent Orchestrator. The AUTH frame carries the IMS
-// bearer token, so the origin is allowlisted to Adobe/localhost hosts to
-// prevent token exfiltration. See docs/chat-ao-bridge-override.md.
-function isAllowedBridgeHost(hostname) {
-  return hostname === 'localhost'
-    || hostname === '127.0.0.1'
-    || hostname.endsWith('.adobe.io')
-    || hostname.endsWith('.adobe.net')
-    || hostname.endsWith('.corp.adobe.com');
-}
-
-function resolveBridgeWsOverride() {
-  try {
-    const raw = new URLSearchParams(window.location.search).get('bridge');
-    if (!raw) return null;
-    const url = new URL(raw.includes('://') ? raw : `wss://${raw}`);
-    if (!isAllowedBridgeHost(url.hostname)) return null;
-    const secure = url.protocol === 'wss:' || url.protocol === 'https:'
-      || (url.hostname !== 'localhost' && url.hostname !== '127.0.0.1');
-    const authority = `${url.hostname}${url.port ? `:${url.port}` : ''}`;
-    return `${secure ? 'wss' : 'ws'}://${authority}`;
-  } catch {
-    return null;
-  }
-}
-
 export function resolveAoHttpBase(projectedProductContext) {
   const loc = resolveAoLocation(projectedProductContext);
   return loc ? `https://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_HTTP_BASE;
 }
 
-export function resolveAoWsBase(projectedProductContext) {
-  const override = resolveBridgeWsOverride();
-  if (override) return override;
+// When a valid `ew.altHarness` activation key is present the chat WebSocket is
+// routed through the claudebridge -> CMA deployment instead of Agent
+// Orchestrator. WS-only on purpose: the bridge implements only the WebSocket
+// data plane, not the REST control plane (episodes/history/uploads), so the
+// HTTP base stays on Agent Orchestrator. The key is a shared secret validated
+// server-side by the bridge. See docs/chat-ao-alt-harness.md.
+export function resolveAoWsBase(projectedProductContext, { altHarnessKey } = {}) {
+  if (altHarnessKey) return CMA_BRIDGE_WS_BASE;
   const loc = resolveAoLocation(projectedProductContext);
   return loc ? `wss://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_WS_BASE;
 }
