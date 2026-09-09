@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  isConnected, saveItems, sendAllLanguages, getStatusAll,
+  isConnected, connect, saveItems, sendAllLanguages, getStatusAll,
 } from '../../../../nx/blocks/loc/connectors/smartling/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 
@@ -148,6 +148,35 @@ describe('smartling connector - legacy origin rewriting', () => {
 
     expect(connected).to.equal(true);
     expect(calls.some((c) => c.url.includes('/integrations/smartling/login'))).to.equal(true);
+  });
+
+  it('surfaces an error and returns false when connect fails', async () => {
+    // Distinct org/site so this test's cache key can't collide with other
+    // tests' state in this file.
+    const failOrg = 'fail-org';
+    const failSite = 'fail-site';
+
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/integrations/smartling/login')) {
+        return new Response('', { status: 401 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const messages = [];
+    const sendMessage = (m) => messages.push(m);
+
+    const result = await connect({
+      name: 'Smartling', env: 'prod', origin: legacyOrigin, org: failOrg, site: failSite,
+    }, sendMessage);
+
+    expect(result).to.equal(false);
+    const errorMessage = messages.find((m) => m.type === 'error');
+    expect(errorMessage.text).to.include('Connection to Smartling failed');
   });
 
   it('rewrites the origin for sendAllLanguages job/batch/upload calls', async () => {

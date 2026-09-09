@@ -2,18 +2,24 @@ import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
 import fetchWithRetry from '../../utils/fetchWithRetry.js';
 import { login, getCachedToken, setCachedToken } from '../../utils/auth.js';
 
+// See docs/loc-smartling-auth.md for the token lifecycle this module implements.
+
 const INTEGRATION_NAME = 'smartling';
 const FALLBACK_EXPIRES_IN_S = 280; // used only if the API response omits expiresIn
 const REFRESH_BUFFER_MS = 5000; // refresh this long before the token actually expires
 const MIN_REFRESH_DELAY_MS = 2000; // never schedule a refresh sooner than this
-const BASE_OPTS = {
+export const BASE_OPTS = {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
 };
 
-// translate.da.live's legacy /smartling route is deprecated in favor of
-// /translate/smartling/<org>/<site> - rewrite configs still pointing at the
-// old origin so they keep working without a config migration.
+/**
+ * Rewrites the deprecated legacy /smartling origin to the current route.
+ * @param {string} origin - The configured API origin.
+ * @param {string} org - The DA org.
+ * @param {string} site - The DA site.
+ * @returns {string} The resolved origin.
+ */
 export function resolveOrigin(origin, org, site) {
   return origin === `${DA_TRANSLATE}/smartling`
     ? `${DA_TRANSLATE}/translate/smartling/${org}/${site}`
@@ -21,16 +27,10 @@ export function resolveOrigin(origin, org, site) {
 }
 
 let tokenPolling;
-// Retained so a failed refresh can fall back to a full re-authentication via
-// da-etc: Smartling caps a token pair's session at 12 hours regardless of how
-// many times it's refreshed, so refreshes eventually start failing even
-// though da-etc's held credentials still work.
 let authContext;
 
 /**
- * Reads the currently cached access token, if any - the single source of
- * truth for what's valid right now, kept current by the proactive refresh
- * schedule and by `onUnauthorized`'s reactive recovery.
+ * Reads the currently cached access token, if any.
  * @param {string} org - The DA org.
  * @param {string} site - The DA site.
  * @param {string} env - The environment key (e.g. 'prod').
@@ -41,8 +41,8 @@ export function getToken(org, site, env) {
 }
 
 /**
- * Exchanges the org/site's Smartling credentials - held server-side by
- * da-etc, never sent to the browser - for a fresh access/refresh token pair.
+ * Exchanges the org/site's Smartling credentials, held by da-etc, for a
+ * fresh access/refresh token pair.
  * @param {string} org - The DA org.
  * @param {string} site - The DA site.
  * @param {string} env - The environment key (e.g. 'prod').
@@ -76,12 +76,8 @@ function setTokenDetails(org, site, env, accessToken, refreshToken, expiresInSec
 /**
  * Refreshes the current access token, falling back to a full
  * re-authentication via da-etc if the refresh token itself has stopped
- * working (Smartling caps a token pair's session at 12 hours regardless of
- * how many times it's refreshed). Persists the new token, but leaves
- * rescheduling the next proactive refresh to the caller - used both by the
- * proactive schedule below and reactively via `onUnauthorized` when a
- * request 401s before that schedule catches up (e.g. the tab was
- * backgrounded and its timers were throttled).
+ * working. Persists the new token; leaves rescheduling the next proactive
+ * refresh to the caller.
  * @returns {Promise<{accessToken: string, expiresIn: number}|null>} The
  *  new token details, or null if both the refresh and the fallback
  *  re-authentication failed.
@@ -104,12 +100,7 @@ async function refreshOrReauthenticate() {
 }
 
 /**
- * Schedules a token refresh shortly before the current token expires,
- * tracking Smartling's actual reported `expiresIn` instead of assuming a
- * constant lifetime (that value shrinks as a session nears its 12-hour
- * cap). Only stops rescheduling once `refreshOrReauthenticate` fails
- * outright, so a translation job that outlives several sessions keeps
- * working without user intervention.
+ * Schedules a token refresh shortly before the current token expires.
  * @param {number} [expiresInSecs] - Seconds until the current token
  *  expires; falls back to `FALLBACK_EXPIRES_IN_S` if omitted.
  * @returns {void}
@@ -122,8 +113,6 @@ function scheduleRefresh(expiresInSecs) {
   tokenPolling = setTimeout(async () => {
     const refreshed = await refreshOrReauthenticate();
     if (!refreshed) {
-      // Both refresh and re-authentication failed - stop polling rather than
-      // hammering the API forever with credentials that no longer work.
       tokenPolling = undefined;
       return;
     }
@@ -133,12 +122,8 @@ function scheduleRefresh(expiresInSecs) {
 
 /**
  * Builds a `fetchWithRetry` `onUnauthorized` callback: refreshes (or
- * re-authenticates) the token, reschedules the next proactive refresh
- * against the new expiry, and rebuilds `opts` with a fresh Authorization
- * header - so a 401, e.g. from a token that expired while the tab was
- * backgrounded before the proactive refresh above could run, triggers
- * exactly one retry with a valid token instead of failing the request
- * outright.
+ * re-authenticates) the token, reschedules the next proactive refresh, and
+ * rebuilds `opts` with a fresh Authorization header.
  * @param {Object} opts - The fetch options to rebuild on success.
  * @returns {() => Promise<Object|null>} Callback for `fetchWithRetry`'s
  *  `onUnauthorized` config.
@@ -154,12 +139,7 @@ export function onUnauthorized(opts) {
 
 /**
  * Ensures a connected session: reuses a still-valid cached token if one
- * exists (resuming background refresh scheduling, e.g. after a page
- * reload), otherwise authenticates via da-etc - which holds the org/site's
- * Smartling credentials server-side and only ever returns a short-lived
- * access/refresh token pair, so no secret reaches the browser. Matches
- * Trados/Lionbridge's `authReady`: connecting is transparent, with no
- * separate manual step required.
+ * exists, otherwise authenticates via da-etc.
  * @param {Object} config - The service configuration.
  * @param {string} config.origin - The configured API origin.
  * @param {string} config.env - The environment key (e.g. 'prod').
@@ -179,8 +159,7 @@ async function ensureConnected(config) {
     authContext = {
       endpoint, org, site, env,
     };
-    // Only (re)arm the schedule if it isn't already running, so repeated
-    // calls against an already-connected session don't stack timers.
+    // Guards against stacking timers on repeated calls.
     if (!tokenPolling) scheduleRefresh((expires - Date.now()) / 1000);
     return true;
   }
