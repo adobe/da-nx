@@ -1,0 +1,26 @@
+:host {
+  display: block;
+  font-family: var(--s2-font-family);
+}
+
+.nx-gov-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--s2-spacing-200);
+}
+
+.nx-gov-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2-spacing-200);
+  padding: var(--s2-spacing-500);
+  color: var(--s2-gray-700);
+  text-align: center;
+}
+
+.nx-gov-error p {
+  margin: 0 0 var(--s2-spacing-100);
+  color: var(--s2-gray-800);
+}
