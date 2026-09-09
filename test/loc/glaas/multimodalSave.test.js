@@ -10,9 +10,16 @@ import {
   siteRelativePathFromImageUrl,
   rewriteContentDaLiveImageUrls,
   fetchMultimodalImage,
+  normalizeImages,
 } from '../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
 import { LOC_SRC_ATTR } from '../../../nx/blocks/loc/connectors/glaas/dnt.js';
 import { DA_ETC } from '../../../nx/utils/utils.js';
+
+function docWithMain(mainHtml) {
+  const doc = document.implementation.createHTMLDocument();
+  doc.body.innerHTML = `<main>${mainHtml}</main>`;
+  return doc;
+}
 
 describe('GLaaS multimodal save', () => {
   it('strips content.da.live org/site segments from image URL', () => {
@@ -100,6 +107,65 @@ describe('GLaaS multimodal save', () => {
 
     expect(buildTranslatedImageSourcePath({ langCode: '/fr-CA', glaasName }))
       .to.equal('/translated-images/fr-CA/acrobat/shared/hero.png');
+  });
+
+  describe('normalizeImages', () => {
+    it('adopts the regional translated-image src for an image not reselected this round', () => {
+      const original = docWithMain('<img src="https://main--da-dc--adobecom.aem.live/media_bbb222.png">');
+      const modified = docWithMain('<img src="https://content.da.live/adobecom/da-dc/translated-images/ja/media_bbb222.png">');
+
+      normalizeImages(original, modified);
+
+      expect(original.querySelector('img').src)
+        .to.equal('https://content.da.live/adobecom/da-dc/translated-images/ja/media_bbb222.png');
+    });
+
+    it('leaves a genuinely new translation untouched (same deterministic path both sides)', () => {
+      const src = 'https://content.da.live/adobecom/da-dc/translated-images/ja/media_aaa111.png';
+      const original = docWithMain(`<img src="${src}">`);
+      const modified = docWithMain(`<img src="${src}">`);
+
+      normalizeImages(original, modified);
+
+      expect(original.querySelector('img').src).to.equal(src);
+    });
+
+    it('leaves a first-time translation (no prior regional translated image) untouched', () => {
+      const original = docWithMain('<img src="https://content.da.live/adobecom/da-dc/media_ccc333.png">');
+      const modified = docWithMain('<img src="https://content.da.live/adobecom/da-dc/media_ccc333.png">');
+
+      normalizeImages(original, modified);
+
+      expect(original.querySelector('img').src)
+        .to.equal('https://content.da.live/adobecom/da-dc/media_ccc333.png');
+    });
+
+    it('does not adopt a regional edit onto an unrelated image (different site-relative path)', () => {
+      const original = docWithMain('<img src="https://main--da-dc--adobecom.aem.live/media_bbb222.png">');
+      const modified = docWithMain('<img src="https://content.da.live/adobecom/da-dc/media_custom-author-upload.png">');
+
+      normalizeImages(original, modified);
+
+      // different site-relative paths - no match, no rewrite
+      expect(original.querySelector('img').src)
+        .to.equal('https://main--da-dc--adobecom.aem.live/media_bbb222.png');
+    });
+
+    it('mirrors the adopted src onto a picture source[srcset] sibling', () => {
+      const original = docWithMain(`
+        <picture>
+          <source srcset="https://main--da-dc--adobecom.aem.live/media_bbb222.png">
+          <img src="https://main--da-dc--adobecom.aem.live/media_bbb222.png">
+        </picture>
+      `);
+      const modified = docWithMain('<img src="https://content.da.live/adobecom/da-dc/translated-images/ja/media_bbb222.png">');
+
+      normalizeImages(original, modified);
+
+      const translated = 'https://content.da.live/adobecom/da-dc/translated-images/ja/media_bbb222.png';
+      expect(original.querySelector('img').src).to.equal(translated);
+      expect(original.querySelector('source').getAttribute('srcset')).to.equal(translated);
+    });
   });
 
   it('infers image/png for langstore uploads when GLaaS returns octet-stream', () => {
