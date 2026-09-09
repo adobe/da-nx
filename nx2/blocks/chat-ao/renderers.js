@@ -55,9 +55,42 @@ export function renderToolCallCard({
   `;
 }
 
+// See docs/chat-ao-component.md#question-flow — a durable stand-in for the
+// question card once answered, instead of a plain chat bubble that would
+// misrepresent a selection as free-typed text.
+export function renderQuestionResponseCard({
+  context, questions, answers, declined,
+}) {
+  return html`
+    <div class="question-response-card">
+      <div class="question-response-header">
+        <span class="question-response-title">User Response</span>
+        <span class="question-response-status question-response-${declined ? 'declined' : 'answered'}">
+          ${declined ? 'Declined' : 'Answered'}
+        </span>
+      </div>
+      ${context ? html`<div class="question-response-context">${renderMarkdown(context)}</div>` : nothing}
+      ${!declined ? html`
+        <div class="question-response-answers">
+          ${questions.map((q) => {
+    const selected = answers.find((a) => a.question_id === q.id)?.selected_options ?? [];
+    return html`
+              <div class="question-response-answer">
+                <span class="question-response-answer-label">${q.header}:</span>
+                ${selected.length ? selected.join(', ') : '—'}
+              </div>
+            `;
+  })}
+        </div>
+      ` : nothing}
+    </div>
+  `;
+}
+
 export function renderAssistantMessageBody(msg, { onExpandToolCall } = {}) {
   if (msg.toolCall) return renderToolCallCard(msg.toolCall, { onExpand: onExpandToolCall });
   if (msg.uiArtifact) return renderUiArtifact(msg.uiArtifact);
+  if (msg.questionResponse) return renderQuestionResponseCard(msg.questionResponse);
   return html`
     <div class="message-content">${renderMarkdown(msg.content)}</div>
     ${renderCopyButton(msg.content, { streaming: msg.streaming })}

@@ -16,29 +16,17 @@ const style = await loadStyle(import.meta.url);
 
 /**
  * Nav-bar switch for opting into the new (canvas) editor before a site's
- * `ew.enabled` config flag flips it on globally. Rendered by nav.js's
- * decorateActions() from a plain "editortoggle" label <li> (see feedback.js
- * for the same wiring). Same effect as the site-level ew.enabled flag, but
- * persisted per-user in localStorage — see nx2/utils/ewFlags.js.
+ * `ew.enabled` flag flips it on for everyone. Persisted per-user via
+ * nx2/utils/ewFlags.js; only `_toggle()` writes the flag — landing on /edit
+ * or /canvas never does. /edit redirects to /canvas when the site flag or
+ * the user flag is on (site wins); /canvas never redirects back.
  *
- * Hidden whenever `ew.enabled === 'true'` at the site level, since the toggle
- * would be redundant there. Site-level state is re-checked on every hash
- * change so switching between sites shows/hides the toggle correctly.
- *
- * Only rendered on the editor routes (`/edit` and `/canvas`) — nowhere else in
- * the nav does swapping editors make sense.
- *
- * Two placements, selected by the `variant` attribute:
- *  - `toolbar` (default): the nav-injected switch. Shown on `/edit` only; on
- *    `/canvas` it steps aside so the switch lives in the profile menu instead.
- *  - `menu`: rendered inside the profile popover (see profile.js). Shown on
- *    `/canvas` only.
- * Both instances coexist on each editor route (the hidden one just renders
- * nothing), so the one-time prompts — the welcome guide on canvas, the
- * switch-back feedback on /edit — are triggered from the always-present
- * toolbar instance to avoid firing them twice.
+ * Hidden when the site flag is on. Shown only on /edit and /canvas, via two
+ * placements selected by `variant`: `toolbar` (default, nav-injected, shown
+ * on /edit) and `menu` (profile popover, shown on /canvas). Both mount on
+ * every editor route, so the one-time welcome/switch-back prompts fire from
+ * the toolbar instance only, to avoid double-firing.
  */
-const EDITOR_PATHS = new Set(['/edit', '/canvas']);
 class NxEditorToggle extends LitElement {
   static properties = {
     variant: { type: String, reflect: true },
@@ -55,24 +43,22 @@ class NxEditorToggle extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this._userEnabled = isEWUserEnabled();
-    // Landing directly on /edit or /canvas (bookmark, external link, hand-typed
-    // URL) is an implicit choice — sync the persisted flag so the switch shows
-    // the editor you're actually looking at instead of the last-saved pref.
-    const desired = window.location.pathname === '/canvas';
-    if (EDITOR_PATHS.has(window.location.pathname) && this._userEnabled !== desired) {
-      this._userEnabled = desired;
-      setEWUserEnabled(desired);
-    }
+    if (this._redirectToCanvasIfNeeded()) return;
     this._maybeShowWelcome();
     this._maybeShowSwitchback();
     this._unsubHash = hashChange.subscribe((state) => this._onHashState(state));
   }
 
-  // First time on canvas after toggling EW on: show the welcome guide once.
-  // The pending flag was armed in _toggle() and survives the reload/path-swap
-  // it triggers; consuming it here permanently marks the guide as seen. Only
-  // the toolbar instance fires it — the menu instance also mounts on canvas,
-  // and we don't want the dialog opening twice.
+  // /edit redirects to /canvas if the site or user flag is on; /canvas never redirects.
+  _redirectToCanvasIfNeeded() {
+    if (window.location.pathname !== '/edit') return false;
+    if (!this._siteEwEnabled && !this._userEnabled) return false;
+    const { search, hash } = window.location;
+    window.location.href = `/canvas${search}${hash}`;
+    return true;
+  }
+
+  // One-time welcome guide after toggling on; toolbar-only so it doesn't fire twice.
   async _maybeShowWelcome() {
     if (this.variant === 'menu') return;
     if (window.location.pathname !== '/canvas' || !isEwWelcomePending()) return;
@@ -81,9 +67,7 @@ class NxEditorToggle extends LitElement {
     document.body.append(document.createElement('nx-ew-welcome-dialog'));
   }
 
-  // Mirror of _maybeShowWelcome for the reverse direction: first time back on
-  // /edit after toggling EW off, ask why. Same toolbar-only guard so the menu
-  // instance (which also mounts on /edit) doesn't open it a second time.
+  // One-time switch-back prompt after toggling off; toolbar-only so it doesn't fire twice.
   async _maybeShowSwitchback() {
     if (this.variant === 'menu') return;
     if (window.location.pathname !== '/edit' || !isEwSwitchbackPending()) return;
@@ -98,27 +82,23 @@ class NxEditorToggle extends LitElement {
   }
 
   async _onHashState(state) {
-    // No site in the hash yet (e.g. org-only browse view) — nothing to check
-    // against, so show the toggle rather than flash-hiding on first render.
+    // No site yet (e.g. org-only view) — show the toggle rather than flash-hide it.
     if (!state?.org || !state?.site) {
       this._siteEwEnabled = false;
       return;
     }
     this._siteEwEnabled = await isEWEnabledBySite({ org: state.org, site: state.site });
+    this._redirectToCanvasIfNeeded();
   }
 
   _toggle() {
     this._userEnabled = !this._userEnabled;
     setEWUserEnabled(this._userEnabled);
-    // Arm the matching one-time prompt for wherever we're headed: the welcome
-    // guide on canvas when turning on, the switch-back feedback on /edit when
-    // turning off. Both no-op after their first showing (see ewFlags.js).
+    // Arm the matching one-time prompt (no-op after first showing).
     if (this._userEnabled) armEwWelcome();
     else armEwSwitchbackFeedback();
 
-    // If we're on the "other" editor for the current doc, hop to the matching
-    // one so the toggle immediately reflects the choice; otherwise just reload
-    // so da-browse (and other consumers) re-read isEWEnabled from scratch.
+    // Hop to the matching editor if we're on the other one; otherwise reload.
     const { pathname, search, hash } = window.location;
     const target = this._userEnabled ? '/canvas' : '/edit';
     const other = this._userEnabled ? '/edit' : '/canvas';

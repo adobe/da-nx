@@ -1,0 +1,59 @@
+name: Issue Triage
+
+# Reads the Scope / Area dropdown from the issue-form body and applies a
+# `scope:*` label, without any third-party actions. Ownership is worked from a
+# prioritized board rather than auto-assignment.
+#
+# The field label parsed below MUST match the `label:` value in
+# .github/ISSUE_TEMPLATE/bug_report.yml and feature_request.yml exactly.
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply scope label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const SCOPE_SLUG = {
+              'Editor / Canvas':      'editor',
+              'Blocks / Rendering':   'blocks',
+              'Config / Sheets':      'config',
+              'Auth / Permissions':   'auth',
+              'AI Assistant / Agent': 'assistant',
+              'MCP / Tooling':        'mcp',
+              'Infra / CI':           'infra',
+              'Docs':                 'docs',
+              'Other / Unsure':       'triage',
+            };
+
+            const body = context.payload.issue.body || '';
+
+            // Issue forms render each field as "### <label>\n\n<value>".
+            const readField = (label) => {
+              const esc = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const m = body.match(new RegExp('###\\s*' + esc + '\\s*\\n+([^\\n]+)'));
+              return m ? m[1].trim() : '';
+            };
+
+            const scope = readField('Scope / Area');
+            if (!scope || !SCOPE_SLUG[scope]) {
+              core.info('No mappable scope found: ' + (scope || '(none)'));
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: context.payload.issue.number,
+              labels: ['scope:' + SCOPE_SLUG[scope]],
+            });
+            core.info('Added label scope:' + SCOPE_SLUG[scope]);
