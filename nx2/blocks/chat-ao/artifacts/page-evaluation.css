@@ -1,3 +1,11 @@
+:host {
+  display: block;
+  font-family: var(--s2-font-family);
+  color: var(--s2-gray-800);
+  font-size: var(--s2-body-size-s);
+  line-height: normal;
+}
+
 .ui-artifact-pe {
   display: flex;
   flex-direction: column;
@@ -7,11 +15,28 @@
 .ui-artifact-pe-icon {
   display: inline-block;
   flex-shrink: 0;
+  width: 20px;
+  height: 20px;
   background-color: currentcolor;
-  mask-image: var(--pe-icon);
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;
+}
+
+.ui-artifact-pe-icon.ui-artifact-pe-tone-negative {
+  mask-image: url("/img/icons/s2-icon-closecircle-20-n.svg");
+}
+
+.ui-artifact-pe-icon.ui-artifact-pe-tone-positive {
+  mask-image: url("/img/icons/s2-icon-checkmarkcircle-20-n.svg");
+}
+
+.ui-artifact-pe-icon.ui-artifact-pe-tone-neutral {
+  mask-image: url("/img/icons/s2-icon-removecircle-20-n.svg");
+}
+
+.ui-artifact-pe-icon.ui-artifact-pe-tone-informative {
+  mask-image: url("/img/icons/s2-icon-infocircle-20-n.svg");
 }
 
 /* --- tone text colors --- */
@@ -110,7 +135,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--s2-spacing-50);
   min-width: 0;
 }
 
@@ -261,4 +286,181 @@
 
 .ui-artifact-pe-paging-next::after {
   transform: rotate(90deg);
+}
+
+/* --- modal --- */
+
+/* The modal spec carries several off-token-scale values (13px, 20px, 28px, 6px
+   gap, 10px, 12px radius, 1.6 line-height); those stay raw to match the design. */
+
+.ui-artifact-pe-modal-content {
+  font-family: var(--s2-font-family, 'Adobe Clean', adobe-clean, sans-serif);
+}
+
+.ui-artifact-pe-modal-asset-label {
+  font-size: var(--s2-body-size-l);
+  font-weight: bold;
+  color: var(--s2-gray-900);
+  margin: 0 0 var(--s2-spacing-300);
+}
+
+.ui-artifact-pe-modal-section {
+  margin-bottom: 20px;
+}
+
+.ui-artifact-pe-modal-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-100);
+  margin-bottom: var(--s2-spacing-100);
+}
+
+.ui-artifact-pe-modal-heading-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  background-color: currentcolor;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+}
+
+.ui-artifact-pe-modal-heading-icon.issue {
+  color: var(--s2-orange-900);
+  mask-image: url("/img/icons/s2-icon-closecircle-20-n.svg");
+}
+
+.ui-artifact-pe-modal-heading-icon.fix {
+  color: var(--s2-green-900);
+  mask-image: url("/img/icons/s2-icon-checkmarkcircle-20-n.svg");
+}
+
+.ui-artifact-pe-modal-heading-text {
+  font-weight: bold;
+  font-size: var(--s2-body-size-s);
+  color: var(--s2-gray-900);
+}
+
+.ui-artifact-pe-modal-body {
+  font-size: var(--s2-body-size-s);
+  line-height: 1.6;
+  color: var(--s2-gray-800);
+  margin: 0;
+}
+
+.ui-artifact-pe-modal-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--s2-gray-800);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--s2-spacing-75) 0;
+  margin-top: var(--s2-spacing-75);
+
+  &:hover {
+    color: var(--s2-gray-900);
+  }
+}
+
+.ui-artifact-pe-modal-copy-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  background-color: currentcolor;
+  mask-image: url("/img/icons/s2-icon-copy-20-n.svg");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+}
+
+.ui-artifact-pe-modal-context-title {
+  font-size: var(--s2-body-size-m);
+  font-weight: bold;
+  color: var(--s2-gray-900);
+  margin: var(--s2-spacing-400) 0 var(--s2-spacing-200);
+}
+
+.ui-artifact-pe-modal-context-card {
+  border: 1px solid var(--s2-gray-200);
+  border-radius: 12px;
+  padding: var(--s2-spacing-300);
+}
+
+.ui-artifact-pe-modal-chip {
+  display: inline-block;
+  background: var(--s2-gray-100);
+  border-radius: var(--s2-corner-radius-100);
+  padding: var(--s2-spacing-50) 10px;
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-800);
+  margin-bottom: var(--s2-spacing-200);
+}
+
+.ui-artifact-pe-modal-context-desc {
+  font-size: var(--s2-body-size-s);
+  line-height: 1.6;
+  color: var(--s2-gray-800);
+  margin: 0;
+}
+
+.ui-artifact-pe-modal-paging {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--s2-spacing-200);
+  margin-top: 20px;
+  padding-top: var(--s2-spacing-300);
+  border-top: 1px solid var(--s2-gray-200);
+}
+
+.ui-artifact-pe-modal-paging-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--s2-corner-radius-300);
+  background: none;
+  cursor: pointer;
+  color: var(--s2-gray-600);
+  padding: 0;
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--s2-gray-100);
+  }
+
+  &::after {
+    content: "";
+    display: block;
+    width: 16px;
+    height: 16px;
+    background-color: currentcolor;
+    mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+  }
+}
+
+.ui-artifact-pe-modal-paging-prev::after {
+  transform: rotate(-90deg);
+}
+
+.ui-artifact-pe-modal-paging-next::after {
+  transform: rotate(90deg);
+}
+
+.ui-artifact-pe-modal-paging-label {
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--s2-gray-800);
 }
