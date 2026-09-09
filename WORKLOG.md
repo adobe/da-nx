@@ -1,5 +1,21 @@
 # Worklog
 
+## 2026-09-09
+
+### nx2/blocks/chat-ao — activation-key gate for the CMA bridge (alt harness)
+
+Replaced the `?bridge=` URL override with a config-sheet-driven activation key.
+`chat-ao.js` reads `ew.altHarness` from the site `flags` sheet via `getEWFlags`
+and hands it to the controller; when set, `resolveAoWsBase` routes the chat
+WebSocket to `CMA_BRIDGE_WS_BASE` and the key rides the AUTH frame as
+`activationKey` for server-side validation by the bridge (which holds the
+allowlist, injected from vault). WS-only, as before — REST stays on AO.
+
+This client wiring lives only on `ewoncma`, so `main` never routes to the bridge
+even if a config sheet carries `ew.altHarness`. Removed `resolveBridgeWsOverride`
+/`isAllowedBridgeHost`; replaced the `?bridge=` tests with alt-harness key tests;
+renamed the doc to `docs/chat-ao-alt-harness.md`.
+
 ## 2026-08-27
 
 ### Standalone quick-edit — authenticate before embedding preview
