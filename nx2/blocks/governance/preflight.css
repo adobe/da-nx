@@ -1,6 +1,8 @@
 :host {
   display: block;
+  box-sizing: border-box;
   width: min(640px, 80vw);
+  padding: 0 var(--s2-spacing-400) var(--s2-spacing-400);
   font-family: var(--s2-font-family);
 }
 

@@ -54,6 +54,7 @@ describe('governance adapter', () => {
     const na = data.sections.find((s) => s.tone === 'neutral');
     expect(na.label).to.equal('Not applicable');
     expect(na.items).to.have.length(1);
+    expect(na.subLabel).to.equal('1 check not executed');
   });
 
   it('folds image-evaluation checks in and uses the image basename as the asset label', () => {
@@ -69,7 +70,7 @@ describe('governance adapter', () => {
     expect(passed.items[0].check.label).to.equal('hf-inzidenz-b1865518.jpg');
   });
 
-  it('builds summary tiles with counts and omits empty sections / the n-a tile', () => {
+  it('always builds all three summary tiles and sections with count subLabels', () => {
     const data = adaptEvaluation({
       text_evaluation: {
         evaluations: [
@@ -83,17 +84,24 @@ describe('governance adapter', () => {
     expect(data.summary).to.deep.equal([
       { label: 'Failed', value: 1, tone: 'negative' },
       { label: 'Passed', value: 2, tone: 'positive' },
+      { label: 'Not applicable', value: 0, tone: 'neutral' },
     ]);
-    expect(data.sections.map((s) => s.tone)).to.deep.equal(['negative', 'positive']);
+    expect(data.sections.map((s) => s.tone)).to.deep.equal(['negative', 'positive', 'neutral']);
+    expect(data.sections.map((s) => s.subLabel)).to.deep.equal([
+      '1 check failed', '2 checks passed', '0 checks not executed',
+    ]);
+    // Failed has items → it opens by default.
     expect(data.sections.find((s) => s.tone === 'negative').defaultOpen).to.equal(true);
+    expect(data.sections.find((s) => s.tone === 'positive').defaultOpen).to.equal(false);
   });
 
-  it('returns empty summary counts and no sections for an empty response', () => {
+  it('keeps all three (empty) sections for an empty response and opens Passed when no failures', () => {
     const data = adaptEvaluation({});
-    expect(data.sections).to.have.length(0);
-    expect(data.summary).to.deep.equal([
-      { label: 'Failed', value: 0, tone: 'negative' },
-      { label: 'Passed', value: 0, tone: 'positive' },
-    ]);
+    expect(data.sections.map((s) => s.tone)).to.deep.equal(['negative', 'positive', 'neutral']);
+    data.sections.forEach((s) => expect(s.items).to.have.length(0));
+    expect(data.summary.map((t) => t.value)).to.deep.equal([0, 0, 0]);
+    // No failures → Passed checks opens by default.
+    expect(data.sections.find((s) => s.tone === 'negative').defaultOpen).to.equal(false);
+    expect(data.sections.find((s) => s.tone === 'positive').defaultOpen).to.equal(true);
   });
 });

@@ -48,26 +48,36 @@ export function adaptEvaluation(response = {}) {
   const passed = itemsByTone('positive');
   const notApplicable = itemsByTone('neutral');
 
+  const countLabel = (n, verb) => `${n} check${n === 1 ? '' : 's'} ${verb}`;
+
   const summary = [
     { label: 'Failed', value: failed.length, tone: 'negative' },
     { label: 'Passed', value: passed.length, tone: 'positive' },
-    ...(notApplicable.length
-      ? [{ label: 'Not applicable', value: notApplicable.length, tone: 'neutral' }] : []),
+    { label: 'Not applicable', value: notApplicable.length, tone: 'neutral' },
   ];
 
   const sections = [
-    ...(failed.length
-      ? [{
-        label: 'Failed checks', tone: 'negative', defaultOpen: true, items: failed,
-      }] : []),
-    ...(passed.length
-      ? [{
-        label: 'Passed checks', tone: 'positive', defaultOpen: false, items: passed,
-      }] : []),
-    ...(notApplicable.length
-      ? [{
-        label: 'Not applicable', tone: 'neutral', defaultOpen: false, items: notApplicable,
-      }] : []),
+    {
+      label: 'Failed checks',
+      subLabel: countLabel(failed.length, 'failed'),
+      tone: 'negative',
+      defaultOpen: failed.length > 0,
+      items: failed,
+    },
+    {
+      label: 'Passed checks',
+      subLabel: countLabel(passed.length, 'passed'),
+      tone: 'positive',
+      defaultOpen: failed.length === 0,
+      items: passed,
+    },
+    {
+      label: 'Not applicable',
+      subLabel: countLabel(notApplicable.length, 'not executed'),
+      tone: 'neutral',
+      defaultOpen: false,
+      items: notApplicable,
+    },
   ];
 
   return {
