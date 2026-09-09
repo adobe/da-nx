@@ -605,7 +605,8 @@ export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false 
   }
 
   // TODO: HLX6 does not have this, so fake it for now.
-  if (resp.ok && new URL(url).origin === AEM_API) {
+  // 404 means not-found (e.g. new doc), not access-denied, so still fake it.
+  if ((resp.ok || resp.status === 404) && new URL(url).origin === AEM_API) {
     resp.permissions ??= ['read', 'write'];
   }
 

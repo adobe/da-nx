@@ -1,5 +1,75 @@
 # Worklog
 
+## 2026-09-07
+
+### quick-edit — stop RELOAD storms from cross-block index drift
+
+Debugged via da-live's `ew-editor-doc` collab-diagnostics branch (multi-user
+test showed a collaborator's continuous edits pegging the main thread for
+5-6s at a stretch, blocking local typing). Root cause traced to
+`nx/public/plugins/quick-edit/src/prose.js`'s `createEditor`: it looked up
+its target block by an exact `data-prose-index` match, but that index is a
+global ProseMirror position — any edit *before* a block shifts it.
+`handleTransaction` already re-shifts every other block's index for edits
+inside an already-open mini-editor (`updateInstrumentation`), but
+`createEditor` — the path taken the first time a block is touched by a
+*remote* edit — never did, so the first remote edit to any not-yet-opened
+block left every later block's cached index stale. Eventually some block's
+`SET_EDITOR_STATE` arrived with a `cursorOffset` matching nothing, and the
+portal gave up and asked the host to `RELOAD` (full body resend), which the
+host answered unconditionally — no debounce — so a sustained editing burst
+from one collaborator could retrigger this indefinitely.
+
+Fixed `createEditor` to fall back to `findTextBlock`'s existing
+nearest-indexed-block lookup (`dom-index.js`) instead of giving up — the same
+drift-tolerant match `findImageAtProseIndex` already relies on for images.
+Added an `exclude` param to `findTextBlock`/`findNearestIndexed` so the
+fallback can't resolve to (and destructively replace) a *different* block's
+already-open `.prosemirror-editor`; the remote-cursor collaborator badge is
+now only copied across on an exact match, not the fallback, so it can't get
+misattributed to the wrong paragraph. Da-live also got a `quick-edit-controller.js`
+RELOAD-coalescing debounce (150ms) as a stopgap while this was tracked down;
+kept, since it's still a legitimate backstop.
+
+Verified via a two-browser test (da-nx files served through Chrome local
+overrides): the RELOAD storm is gone under sustained multi-user editing.
+
+Review follow-ups: normalized `cursorOffset` to `Number` in `createEditor` so
+the exact-match badge gate can't silently fail on a string, and added unit
+tests for `findTextBlock`'s exclude + nearest-block fallback.
+
+### nx2/blocks/editortoggle — stop implicit `nx2:ew-user-enabled` writes on navigation
+
+`connectedCallback` used to reconcile the persisted `nx2:ew-user-enabled` flag
+to whatever path the toggle happened to mount on (`/canvas` → true, `/edit` →
+false) any time the component loaded — not just on a genuine bookmark/typed-URL
+landing as the comment claimed. Since the flag is a single global localStorage
+key (not scoped per org/site), and `/edit` vs `/canvas` routing is actually
+decided per-site via `editor.path` config (`docs/workspace.md`), simply opening
+a doc on one EW-enabled site would silently opt the browser into New
+Authoring globally, on every other site, with no user interaction.
+
+Fixed: the flag is now written only by an explicit click on the toggle
+(`_toggle()`). Replaced the reconciliation block with
+`_redirectToCanvasIfNeeded()`: on `/canvas` it's a no-op (nothing read or
+written); on `/edit` it redirects to `/canvas` if either the site-level
+`ew.enabled` flag or the user flag is on (site flag wins/ignores the user
+flag, matching the "site config forces canvas" rule in `docs/workspace.md`),
+otherwise stays on `/edit`. Called once synchronously in `connectedCallback`
+(handles the user-flag case) and again from `_onHashState` once the async
+site-level check resolves (handles the site-forced case). This supersedes the
+2026-09-02 fix below: that one kept /edit from clearing the flag by hiding the
+toolbar switch instead, but left the user stranded on /edit despite having
+opted into canvas — now /edit redirects to canvas in that case instead, which
+also fixes adobe/da-live#1289. `render()` is back to the plain path-based
+visibility check (toolbar on /edit, menu on /canvas); the flag-based
+`showMenu`/`showToolbar` split from 2026-09-02 no longer applies. No test
+coverage existed for this component before or after — an end-to-end test
+covering the toggle-on/welcome-dialog/toggle-off/redirect flow (working title
+"usertoggle") is planned for a follow-up PR once e2e infra (Playwright, not
+yet on this branch — exists only on the unmerged `feat/e2e-setup` branch) is
+sorted out, including what site/page to run it against.
+
 ## 2026-09-02
 
 ### nx2 editortoggle — stop clearing the flag when Sidekick lands on /edit
@@ -10,6 +80,7 @@ even when Sidekick's Edit button (not the user) put you there. Now only the
 `/canvas` → on-sync remains; the toolbar switch hides itself on `/edit` when
 the flag is already on instead of clearing it, and the profile-menu switch
 renders anywhere the flag is on so there's still a way to turn it off.
+Superseded by the 2026-09-07 entry above.
 
 ## 2026-08-27
 
