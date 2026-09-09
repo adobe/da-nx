@@ -2,8 +2,6 @@ import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
 import fetchWithRetry from '../../utils/fetchWithRetry.js';
 import { login, getCachedToken, setCachedToken } from '../../utils/auth.js';
 
-// See docs/loc-smartling-auth.md for the token lifecycle this module implements.
-
 const INTEGRATION_NAME = 'smartling';
 const FALLBACK_EXPIRES_IN_S = 280; // used only if the API response omits expiresIn
 const REFRESH_BUFFER_MS = 5000; // refresh this long before the token actually expires
