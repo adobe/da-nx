@@ -23,6 +23,20 @@ import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-
 
 const EPISODE_LIST_LIMIT = 10;
 
+// The alternate-harness (CMA bridge) rejects the AUTH frame with terse,
+// internal-sounding messages. Map those to tester-facing copy; leave any other
+// backend error untouched. See docs/chat-ao-alt-harness.md.
+function friendlyBackendError(message) {
+  if (typeof message !== 'string') return 'Something went wrong.';
+  if (/activation key/i.test(message)) {
+    return 'This site isn\'t enabled for the alternate assistant yet, or its activation key is wrong. Check the site\'s ew.altHarness config.';
+  }
+  if (/gate misconfigured/i.test(message)) {
+    return 'The alternate assistant is temporarily unavailable. Please try again shortly.';
+  }
+  return message;
+}
+
 // AO's abort is async — dropped while stop() is waiting for its confirming
 // TURN_ABORTED/TURN_COMPLETED, so nothing already in flight for the
 // interrupted turn (or generated in the gap before the abort lands
@@ -489,7 +503,7 @@ export default class AoChatController {
       // Idle means nothing was actually asked of AO — e.g. a background warm
       // attempt failing. Only surface errors during an actual turn.
       if (!this._thinking) return;
-      const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
+      const message = friendlyBackendError(evt.data?.message ?? evt.message);
       this._messages = [...this._messages, { role: 'assistant', content: `Error: ${message}` }];
       this._done();
     }

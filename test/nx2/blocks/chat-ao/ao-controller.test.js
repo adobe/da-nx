@@ -259,6 +259,25 @@ describe('ao-controller turn lifecycle', () => {
     expect(updates.at(-1).thinking).to.equal(false);
   });
 
+  it('rewrites the alternate-harness activation-key rejection to tester-facing copy', () => {
+    const { controller } = makeController();
+    controller._thinking = true;
+
+    controller._handleServerEvent({ type: 'ERROR', message: 'Invalid or missing activation key' });
+
+    expect(controller._messages[0].content).to.match(/ew\.altHarness/);
+    expect(controller._messages[0].content).to.not.match(/Invalid or missing/i);
+  });
+
+  it('rewrites the alternate-harness misconfigured-gate error to a try-again message', () => {
+    const { controller } = makeController();
+    controller._thinking = true;
+
+    controller._handleServerEvent({ type: 'ERROR', message: 'Activation-key gate misconfigured' });
+
+    expect(controller._messages[0].content).to.match(/temporarily unavailable/i);
+  });
+
   it('swallows a session-level error silently when not thinking — e.g. a background warmSession ATTACH failing', () => {
     const { controller, updates } = makeController();
 
