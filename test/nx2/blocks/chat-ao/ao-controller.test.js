@@ -55,6 +55,22 @@ describe('ao-controller buildAoConnectionInfo (alt-harness routing)', () => {
   });
 });
 
+describe('ao-controller setActivationKey', () => {
+  it('trims surrounding whitespace so a stray space in the config sheet still matches', () => {
+    const { controller } = makeController();
+    controller.setActivationKey('VK_key123 ');
+    expect(controller._activationKey).to.equal('VK_key123');
+  });
+
+  it('treats a whitespace-only or empty key as no key', () => {
+    const { controller } = makeController();
+    controller.setActivationKey('   ');
+    expect(controller._activationKey).to.equal(null);
+    controller.setActivationKey('');
+    expect(controller._activationKey).to.equal(null);
+  });
+});
+
 describe('ao-controller sendMessage', () => {
   it('sends USER_INPUT without waiting on any ready signal', async () => {
     const { controller, updates, sent } = makeController();

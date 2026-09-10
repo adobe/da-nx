@@ -93,7 +93,10 @@ export default class AoChatController {
   // chat WebSocket routes to the CMA bridge and the key rides along on the AUTH
   // frame for server-side validation.
   setActivationKey(key) {
-    this._activationKey = key || null;
+    // Trim: config-sheet values often carry stray whitespace, and the bridge
+    // compares the frame key exactly (it only trims its own allowlist).
+    const trimmed = typeof key === 'string' ? key.trim() : key;
+    this._activationKey = trimmed || null;
   }
 
   _update() {
