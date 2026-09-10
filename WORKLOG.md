@@ -2,6 +2,13 @@
 
 ## 2026-09-10
 
+### nx2/blocks/chat-ao — trim the activation key
+
+`setActivationKey` now trims the `ew.altHarness` value before use. Config-sheet
+cells often carry a trailing space, and the bridge compares the AUTH frame's
+activationKey exactly (it only trims its own allowlist), so an untrimmed value
+was rejected with the "not enabled" copy. Whitespace-only now resolves to no key.
+
 ### nx2/blocks/chat-ao — Tier-1 parity tests for the alt harness
 
 Extracted `buildAoConnectionInfo(ims, activationKey)` as a pure exported helper
