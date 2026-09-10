@@ -2,6 +2,15 @@
 
 ## 2026-09-10
 
+### nx2/blocks/chat-ao — Tier-1 parity tests for the alt harness
+
+Extracted `buildAoConnectionInfo(ims, activationKey)` as a pure exported helper
+so alt-harness routing and AUTH-frame wiring are unit-testable without a live
+IMS. Added deterministic tests: routing (no key → AO, key → CMA bridge +
+activationKey on the frame, empty string treated as no key) and the S9
+plan-approval known-gap ERROR passthrough. See
+private-docs/altharness-parity-test-plan.md for the full parity plan/bugbash.
+
 ### nx2/blocks/chat-ao — friendly UI copy for alt-harness auth rejections
 
 The CMA bridge rejects the AUTH frame with terse internal messages ("Invalid or
