@@ -10,6 +10,7 @@ import {
   getMultimodalV2TaskStatus,
   prepareMultimodalPageForSave,
   logMultimodalRequest,
+  normalizeImages,
 } from './multimodalApi.js';
 import { getGlaasToken, connectToGlaas } from './auth.js';
 import { addDnt, removeDnt } from './dnt.js';
@@ -643,6 +644,7 @@ export async function saveItems({
     // loc-images marks are dropped here rather than carried onto the
     // regional page (see stripLocImages in dnt.js).
     url.sourceContent = await removeDnt(text, org, site, { fileType, stripLocImages: true });
+    url.normalizeImages = normalizeImages; // read by mergeCopy - GLaaS-only
 
     await saveFn(url);
   };
