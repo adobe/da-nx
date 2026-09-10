@@ -1,5 +1,16 @@
 # Worklog
 
+## 2026-09-10
+
+### nx2/blocks/chat-ao — friendly UI copy for alt-harness auth rejections
+
+The CMA bridge rejects the AUTH frame with terse internal messages ("Invalid or
+missing activation key", "Activation-key gate misconfigured"). The controller
+now maps those to tester-facing copy before showing the assistant error bubble
+(points at the `ew.altHarness` config; "temporarily unavailable" for the
+fail-closed case). Other backend errors pass through unchanged. Errors still
+only surface during an active turn.
+
 ## 2026-09-09
 
 ### nx2/blocks/chat-ao — activation-key gate for the CMA bridge (alt harness)
