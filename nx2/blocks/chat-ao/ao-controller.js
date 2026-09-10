@@ -37,6 +37,29 @@ function friendlyBackendError(message) {
   return message;
 }
 
+// Builds the AUTH frame and resolves the WebSocket base from an IMS profile.
+// When an alt-harness activation key is present, the WS is routed to the CMA
+// bridge and the key rides the AUTH frame for server-side validation. Pure and
+// exported so routing/frame wiring is unit-testable without a live IMS.
+export function buildAoConnectionInfo(ims, activationKey) {
+  const {
+    accessToken, userId, tenantId, email, name, projectedProductContext,
+  } = ims ?? {};
+  return {
+    authFrame: {
+      type: AO_FRAME.AUTH,
+      authorization: `Bearer ${accessToken?.token}`,
+      'x-org-name': tenantId,
+      'x-tenant-id': getOrgId(projectedProductContext),
+      'x-user-email': email,
+      'x-user-id': userId,
+      'x-user-name': name,
+      ...(activationKey ? { activationKey } : {}),
+    },
+    wsBase: resolveAoWsBase(projectedProductContext, { altHarnessKey: activationKey }),
+  };
+}
+
 // AO's abort is async — dropped while stop() is waiting for its confirming
 // TURN_ABORTED/TURN_COMPLETED, so nothing already in flight for the
 // interrupted turn (or generated in the gap before the abort lands
@@ -255,22 +278,7 @@ export default class AoChatController {
   }
 
   async _connectionInfo() {
-    const {
-      accessToken, userId, tenantId, email, name, projectedProductContext,
-    } = await loadIms();
-    return {
-      authFrame: {
-        type: AO_FRAME.AUTH,
-        authorization: `Bearer ${accessToken?.token}`,
-        'x-org-name': tenantId,
-        'x-tenant-id': getOrgId(projectedProductContext),
-        'x-user-email': email,
-        'x-user-id': userId,
-        'x-user-name': name,
-        ...(this._activationKey ? { activationKey: this._activationKey } : {}),
-      },
-      wsBase: resolveAoWsBase(projectedProductContext, { altHarnessKey: this._activationKey }),
-    };
+    return buildAoConnectionInfo(await loadIms(), this._activationKey);
   }
 
   // Coalesces concurrent callers onto one in-flight connection attempt.
