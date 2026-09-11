@@ -58,7 +58,7 @@ dialog {
   height: 32px;
   padding: 0;
   border: none;
-  border-radius: 50%;
+  border-radius: var(--s2-corner-radius-800);
   background: transparent;
   color: var(--s2-gray-700);
   cursor: pointer;
@@ -87,13 +87,14 @@ dialog {
   width: 256px;
   padding: var(--s2-spacing-500) var(--s2-spacing-600);
   border-right: 1px solid var(--s2-gray-100);
+  background: var(--s2-gray-50);
   overflow-y: auto;
 }
 
 .wn-toc-title {
   margin: 0 0 20px;
   font-size: var(--s2-heading-size-m);
-  font-weight: var(--s2-heading-font-weight);
+  font-weight: var(--s2-component-xl-bold-font-weight);
   line-height: var(--s2-heading-line-height);
   color: var(--s2-gray-900);
 }
@@ -108,11 +109,11 @@ dialog {
 }
 
 .wn-toc-item {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
   width: 100%;
-  padding: 14px 0;
+  padding: 14px 0 14px 12px;
   border: none;
   background: none;
   color: var(--s2-gray-700);
@@ -133,14 +134,16 @@ dialog {
 }
 
 .wn-toc-bar {
-  align-self: stretch;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
   width: 2px;
   background: transparent;
 }
 
 .wn-toc-item[aria-current='true'] {
   color: var(--s2-gray-900);
-  font-weight: var(--s2-component-l-bold-font-weight);
 
   .wn-toc-bar {
     background: var(--s2-gray-800);
