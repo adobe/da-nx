@@ -1,5 +1,12 @@
 import { expect } from '@esm-bundle/chai';
-import authReady, { getAccessToken } from '../../../nx/blocks/loc/utils/auth.js';
+import authReady, {
+  getAccessToken, hasImsSession, imsAccessToken, imsAuthHeader,
+} from '../../../nx/blocks/loc/utils/auth.js';
+
+// Dynamic-expression import (not a literal string) so @web/dev-server-import-maps
+// does not rewrite this to ...?wds-import-map=0. See test/nx2/utils/api.test.js.
+const imsPath = '../../../nx2/utils/ims.js';
+const { setMockIms, resetMockIms } = await import(imsPath);
 
 const LOGIN_ORIGIN = 'https://da-etc.adobeaem.workers.dev';
 
@@ -26,7 +33,10 @@ function tokenResponse(accessToken, expiresIn = 3600) {
 }
 
 describe('auth', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    resetMockIms();
+    localStorage.clear();
+  });
 
   afterEach(() => {
     restoreFetch();
@@ -144,6 +154,40 @@ describe('auth', () => {
       installFetch(async () => new Response('', { status: 500 }));
 
       expect(await authReady('example', { org: 'acme', site: 'site9', env: 'prod' })).to.equal(false);
+    });
+  });
+
+  describe('imsAccessToken / imsAuthHeader', () => {
+    it('resolves the token from the current IMS session', async () => {
+      expect(await imsAccessToken()).to.equal('test-token');
+    });
+
+    it('resolves null and does not throw when there is no IMS session', async () => {
+      setMockIms({ anonymous: true });
+
+      expect(await imsAccessToken()).to.equal(null);
+    });
+
+    it('builds an Authorization header from the IMS session', async () => {
+      expect(await imsAuthHeader()).to.deep.equal({ Authorization: 'Bearer test-token' });
+    });
+
+    it('returns an empty header when there is no IMS session', async () => {
+      setMockIms({ anonymous: true });
+
+      expect(await imsAuthHeader()).to.deep.equal({});
+    });
+  });
+
+  describe('hasImsSession', () => {
+    it('resolves true when there is a current IMS session', async () => {
+      expect(await hasImsSession()).to.equal(true);
+    });
+
+    it('resolves false without throwing or triggering sign-in when there is no IMS session', async () => {
+      setMockIms({ anonymous: true });
+
+      expect(await hasImsSession()).to.equal(false);
     });
   });
 });
