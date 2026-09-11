@@ -9,6 +9,16 @@ cells often carry a trailing space, and the bridge compares the AUTH frame's
 activationKey exactly (it only trims its own allowlist), so an untrimmed value
 was rejected with the "not enabled" copy. Whitespace-only now resolves to no key.
 
+### nx2/blocks/chat-ao — hide Customize Coworker on the alt harness
+
+The `+` menu's "Customize Coworker" item opens the Coworker customization
+surface, which doesn't exist on CMA. `chat-ao.js` now tracks
+`this._altHarness` (set alongside `setActivationKey` in `_loadConfig`) and a
+`_addMenuItems` getter derives a filtered copy of `ADD_MENU_ITEMS` — dropping
+`MENU_OPTIONS.MANAGE_SKILLS` and any divider left dangling as a result —
+whenever the alt harness is active. `ADD_MENU_ITEMS` itself is untouched, and
+the item still renders (with its click handler intact) on the normal AO path.
+
 ### nx2/blocks/chat-ao — Tier-1 parity tests for the alt harness
 
 Extracted `buildAoConnectionInfo(ims, activationKey)` as a pure exported helper
