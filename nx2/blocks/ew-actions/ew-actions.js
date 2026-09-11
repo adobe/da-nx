@@ -7,11 +7,15 @@ import {
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
 import { versions } from '../../utils/api.js';
+import { fetchDaConfigs, getFirstSheet } from '../../utils/daConfig.js';
+import { PREFLIGHT_EVENT, newPreflightRequestId } from '../../utils/preflight-events.js';
 import { getConfig } from '../../scripts/nx.js';
 import '../shared/menu/menu.js';
 
 const style = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
+
+const PREFLIGHT_TIMEOUT = 60000;
 
 const { codeBase } = getConfig();
 const NX_BASE = new URL('../../', import.meta.url).href.replace(/\/$/, '');
@@ -57,6 +61,8 @@ class NXEwActions extends LitElement {
     _hasError: { state: true },
     _hashState: { state: true },
     _prepareReady: { state: true },
+    _enforcePreflight: { state: true },
+    _preflightPassed: { state: true },
     // phase: 'error' | 'pending' | 'result'
     _dialog: { state: true },
   };
@@ -77,8 +83,64 @@ class NXEwActions extends LitElement {
     super.connectedCallback();
     this._busy = false;
     this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];
-    this._unsubHash = hashChange.subscribe((state) => { this._hashState = state; });
+    this._unsubHash = hashChange.subscribe((state) => {
+      const prevPath = this._prepareDetails?.fullpath;
+      this._hashState = state;
+      // A new document resets the Preflight verdict and re-reads the flag.
+      if (this._prepareDetails?.fullpath !== prevPath) {
+        this._preflightPassed = false;
+        this._checkEnforcePreflight();
+      }
+    });
+    document.addEventListener(PREFLIGHT_EVENT.STATUS, this._onPreflightStatus);
+    this._checkEnforcePreflight();
     this._loadPrepare();
+  }
+
+  _onPreflightStatus = (e) => {
+    const { path, status } = e.detail || {};
+    if (path !== this._prepareDetails?.fullpath) return;
+    this._preflightPassed = status === 'success';
+  };
+
+  async _checkEnforcePreflight() {
+    const { org, site } = this._hashState || {};
+    if (!org || !site) {
+      this._enforcePreflight = false;
+      return;
+    }
+    try {
+      const configs = await Promise.all(fetchDaConfigs({ org, site }));
+      const rows = configs.filter(Boolean).flatMap((c) => getFirstSheet(c) || []);
+      this._enforcePreflight = rows.some((r) => r.key === 'editor.enforcePreflight'
+        && `${r.value}`.toLowerCase() === 'true');
+    } catch {
+      this._enforcePreflight = false;
+    }
+  }
+
+  // Ask Preflight to run for the open document; resolve with its verdict. Dispatches the shared
+  // `nx-preflight-run` and waits for the matching `nx-preflight-status`. Resolves
+  // 'success' | 'fail', or undefined on timeout (no Preflight surface answered).
+  requestPreflight(fullpath) {
+    const requestId = newPreflightRequestId();
+    return new Promise((resolve) => {
+      let timer;
+      let onStatus;
+      const finish = (status) => {
+        document.removeEventListener(PREFLIGHT_EVENT.STATUS, onStatus);
+        clearTimeout(timer);
+        resolve(status);
+      };
+      onStatus = (e) => {
+        const { path, status, requestId: rid } = e.detail || {};
+        if (rid === requestId && path === fullpath) finish(status);
+      };
+      timer = setTimeout(() => finish(undefined), PREFLIGHT_TIMEOUT);
+      document.addEventListener(PREFLIGHT_EVENT.STATUS, onStatus);
+      const detail = { paths: [fullpath], requestId };
+      document.dispatchEvent(new CustomEvent(PREFLIGHT_EVENT.RUN, { detail }));
+    });
   }
 
   async _loadPrepare() {
@@ -95,6 +157,7 @@ class NXEwActions extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._unsubHash?.();
+    document.removeEventListener(PREFLIGHT_EVENT.STATUS, this._onPreflightStatus);
   }
 
   _togglePrepareMenu(e) {
@@ -158,6 +221,14 @@ class NXEwActions extends LitElement {
             message: flushResult?.error || 'Unable to confirm save. Please retry or reload the editor.',
           },
         };
+        return;
+      }
+    }
+
+    if (action === 'publish' && this._enforcePreflight) {
+      const status = await this.requestPreflight(this._prepareDetails?.fullpath);
+      if (status !== 'success') {
+        this._busy = false;
         return;
       }
     }
@@ -247,6 +318,12 @@ class NXEwActions extends LitElement {
     const disabled = !hasDoc || this._busy;
     const prepareDetails = this._prepareReady ? this._prepareDetails : null;
 
+    const publishItem = { id: 'publish', label: 'Publish' };
+    if (this._enforcePreflight) {
+      publishItem.swatch = this._preflightPassed ? 'var(--s2-green-700)' : 'var(--s2-orange-500)';
+    }
+    const menuItems = [{ id: 'preview', label: 'Preview' }, publishItem];
+
     return html`
       <div class="ew-actions">
         <div class="right">
@@ -267,10 +344,7 @@ class NXEwActions extends LitElement {
             <nx-menu
               placement="below"
               size="m"
-              .items=${[
-        { id: 'preview', label: 'Preview' },
-        { id: 'publish', label: 'Publish' },
-      ]}
+              .items=${menuItems}
               @select=${(e) => this._pickAem(e.detail.id)}
             >
               <button
