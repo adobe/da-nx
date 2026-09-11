@@ -96,25 +96,25 @@ dialog {
   padding-right: 20px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--s2-gray-300) var(--s2-gray-200);
+  scrollbar-color: var(--s2-gray-400) var(--s2-gray-100);
+}
 
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
+.wn-toc-scroll::-webkit-scrollbar {
+  width: 4px;
+}
 
-  &::-webkit-scrollbar-track {
-    background: var(--s2-gray-200);
-    border-radius: 999px;
-  }
+.wn-toc-scroll::-webkit-scrollbar-track {
+  background: var(--s2-gray-100);
+  border-radius: 999px;
+}
 
-  &::-webkit-scrollbar-thumb {
-    background: var(--s2-gray-300);
-    border-radius: 999px;
-  }
+.wn-toc-scroll::-webkit-scrollbar-thumb {
+  background: var(--s2-gray-400);
+  border-radius: 999px;
+}
 
-  &::-webkit-scrollbar-thumb:hover {
-    background: var(--s2-gray-400);
-  }
+.wn-toc-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--s2-gray-500);
 }
 
 .wn-toc-title {
@@ -176,7 +176,7 @@ dialog {
   box-sizing: border-box;
   flex: 1;
   min-width: 0;
-  padding: var(--s2-spacing-600) 20px var(--s2-spacing-600) var(--s2-spacing-600);
+  padding: var(--s2-spacing-600) 20px 56px var(--s2-spacing-600);
   overflow: hidden;
 }
 
@@ -189,25 +189,25 @@ dialog {
   padding-right: 20px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--s2-gray-300) var(--s2-gray-200);
+  scrollbar-color: var(--s2-gray-400) var(--s2-gray-100);
+}
 
-  &::-webkit-scrollbar {
-    width: 4px;
-  }
+.wn-cards::-webkit-scrollbar {
+  width: 4px;
+}
 
-  &::-webkit-scrollbar-track {
-    background: var(--s2-gray-200);
-    border-radius: 999px;
-  }
+.wn-cards::-webkit-scrollbar-track {
+  background: var(--s2-gray-100);
+  border-radius: 999px;
+}
 
-  &::-webkit-scrollbar-thumb {
-    background: var(--s2-gray-300);
-    border-radius: 999px;
-  }
+.wn-cards::-webkit-scrollbar-thumb {
+  background: var(--s2-gray-400);
+  border-radius: 999px;
+}
 
-  &::-webkit-scrollbar-thumb:hover {
-    background: var(--s2-gray-400);
-  }
+.wn-cards::-webkit-scrollbar-thumb:hover {
+  background: var(--s2-gray-500);
 }
 
 .wn-card {
