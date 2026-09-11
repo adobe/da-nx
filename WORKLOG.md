@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-09-11
+
+### ci — Slack PR ticker uses the supported gh-hosted runner
+
+Org runners no longer allow `ubuntu-latest`; switched
+`.github/workflows/slack-pr-ticker.yml` to `runs-on: gh-hosted` (smallest
+supported label). Other workflows still on `ubuntu-latest` — separate change.
+
 ## 2026-09-07
 
 ### quick-edit — stop RELOAD storms from cross-block index drift
