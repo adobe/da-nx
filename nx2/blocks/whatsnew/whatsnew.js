@@ -11,7 +11,10 @@ const icon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_Lightbulb_20_N.svg`);
 
 // Well-known, hardcoded fragment — same convention as welcome-dialog.js and
 // whatsnew-dialog.js, which reads from the same path.
-const WHATSNEW_PATH = 'https://main--da-live--adobe.aem.live/nx/fragments/guides/whats-new';
+// TODO(new1140): temporarily .aem.page (preview, needs auth) instead of
+// .aem.live (published, public) — the real content isn't published yet.
+// Revert to .aem.live before merging; .page won't work for real end users.
+const WHATSNEW_PATH = 'https://main--da-live--adobe.aem.page/nx/fragments/guides/whats-new';
 
 /**
  * Nav-bar "What's new" trigger. Rendered by nav.js's decorateActions() from a

@@ -13,7 +13,10 @@ const closeIcon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_Close_20_N.svg`);
 // WELCOME_PATH: an absolute URL to da-live's own publish host so this works
 // regardless of a consuming project's proxy/config, and regardless of which
 // site the "What's new" nav item was authored on.
-const WHATSNEW_PATH = 'https://main--da-live--adobe.aem.live/nx/fragments/guides/whats-new';
+// TODO(new1140): temporarily .aem.page (preview, needs auth) instead of
+// .aem.live (published, public) — the real content isn't published yet.
+// Revert to .aem.live before merging; .page won't work for real end users.
+const WHATSNEW_PATH = 'https://main--da-live--adobe.aem.page/nx/fragments/guides/whats-new';
 
 /**
  * Two-pane "what's new" dialog: a left-hand table of contents and a

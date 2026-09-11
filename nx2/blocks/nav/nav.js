@@ -105,6 +105,19 @@ class NXNav extends LitElement {
 
   async decorateActions(section) {
     const ul = section.querySelector('ul');
+    // TODO(new1140): temporary, scoped to my own test page only, so no other
+    // page/site loading this branch is affected. Remove before merging.
+    // Inserted as plain content (like the real "feedback" li) so it flows
+    // through the loop below exactly like a real nav-authored item, right
+    // after Feedback, rather than being force-injected separately.
+    const isMyTestPage = window.location.hash.includes('/drafts/yseverinovska/test456');
+    if (isMyTestPage && ![...ul.children].some((li) => li.textContent.trim().toLowerCase() === 'whatsnew')) {
+      const feedbackLi = [...ul.children].find((li) => li.textContent.trim().toLowerCase() === 'feedback');
+      const li = document.createElement('li');
+      li.textContent = 'whatsnew';
+      if (feedbackLi) feedbackLi.insertAdjacentElement('afterend', li);
+      else ul.append(li);
+    }
     for (const child of ul.children) {
       const button = child.querySelector('button');
       if (!button) {
@@ -129,17 +142,6 @@ class NXNav extends LitElement {
       const li = document.createElement('li');
       li.append(document.createElement('nx-editortoggle'));
       ul.prepend(li);
-    }
-    // TODO(new1140): temporary, scoped to my own test page only, so no other
-    // page/site loading this branch is affected. Remove before merging — see
-    // editortoggle's own (unscoped) force-injection above for the pattern
-    // this is temporarily borrowing.
-    const isMyTestPage = window.location.hash.includes('/drafts/yseverinovska/test456');
-    if (isMyTestPage && !ul.querySelector('nx-whatsnew')) {
-      await import('../whatsnew/whatsnew.js');
-      const li = document.createElement('li');
-      li.append(document.createElement('nx-whatsnew'));
-      ul.append(li);
     }
     return ul;
   }
