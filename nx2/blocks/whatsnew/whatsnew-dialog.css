@@ -189,14 +189,15 @@ dialog {
   padding-right: 20px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--s2-gray-300) transparent;
+  scrollbar-color: var(--s2-gray-300) var(--s2-gray-200);
 
   &::-webkit-scrollbar {
-    width: 6px;
+    width: 4px;
   }
 
   &::-webkit-scrollbar-track {
-    background: transparent;
+    background: var(--s2-gray-200);
+    border-radius: 999px;
   }
 
   &::-webkit-scrollbar-thumb {
