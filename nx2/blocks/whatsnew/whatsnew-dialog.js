@@ -97,11 +97,19 @@ class NxWhatsNewDialog extends LitElement {
 
   _onClose() {
     this.remove();
+    window.dispatchEvent(new CustomEvent('nx-whatsnew-closed'));
   }
 
+  // Scrolls so the card's image sits 40px below the top of the scroll area,
+  // rather than flush against it.
   _scrollToEntry(id) {
-    this.shadowRoot.querySelector(`.wn-card[data-id="${id}"]`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const card = this.shadowRoot.querySelector(`.wn-card[data-id="${id}"]`);
+    const container = this.shadowRoot.querySelector('.wn-cards');
+    if (!card || !container) return;
+    const target = card.querySelector('.wn-card-image') ?? card;
+    const offset = target.getBoundingClientRect().top
+      - container.getBoundingClientRect().top + container.scrollTop - 40;
+    container.scrollTo({ top: offset, behavior: 'smooth' });
   }
 
   render() {
@@ -130,17 +138,22 @@ class NxWhatsNewDialog extends LitElement {
               `)}
             </ul>
           </nav>
-          <div class="wn-cards">
-            ${this._entries.map((entry) => html`
-              <article class="wn-card" data-id=${entry.id}>
-                <div class="wn-card-image">${entry.picture}</div>
-                <h3 class="wn-card-title">${entry.title}</h3>
-                <p class="wn-card-body">${entry.body}</p>
-                ${entry.href ? html`
-                  <a class="nx-btn-accent wn-card-cta" href=${entry.href}>Try it now</a>
-                ` : nothing}
-              </article>
-            `)}
+          <div class="wn-cards-panel">
+            <div class="wn-cards">
+              ${this._entries.map((entry) => html`
+                <article class="wn-card" data-id=${entry.id}>
+                  <div class="wn-card-image">${entry.picture}</div>
+                  <h3 class="wn-card-title">${entry.title}</h3>
+                  <p class="wn-card-body">${entry.body}</p>
+                  <button
+                    type="button"
+                    class="nx-btn-accent wn-card-cta"
+                    ?disabled=${!entry.href}
+                    @click=${() => window.open(entry.href, '_blank', 'noopener,noreferrer')}
+                  >Try it now</button>
+                </article>
+              `)}
+            </div>
           </div>
         </div>
       </dialog>

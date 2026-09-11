@@ -86,7 +86,6 @@ dialog {
   flex-shrink: 0;
   width: 256px;
   padding: var(--s2-spacing-500) var(--s2-spacing-600);
-  border-right: 1px solid var(--s2-gray-100);
   background: var(--s2-gray-50);
   overflow-y: auto;
 }
@@ -150,20 +149,48 @@ dialog {
   }
 }
 
-.wn-cards {
+.wn-cards-panel {
   box-sizing: border-box;
   flex: 1;
+  min-width: 0;
+  padding: var(--s2-spacing-600);
+  overflow: hidden;
+}
+
+.wn-cards {
+  height: 100%;
   display: flex;
   flex-direction: column;
   gap: 56px;
-  padding: var(--s2-spacing-600);
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--s2-gray-300) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--s2-gray-300);
+    border-radius: 999px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--s2-gray-400);
+  }
 }
 
 .wn-card {
   display: flex;
   flex-direction: column;
-  gap: var(--s2-spacing-400);
+}
+
+.wn-card-image {
+  margin-bottom: var(--s2-spacing-400);
 }
 
 .wn-card-image img {
@@ -174,7 +201,7 @@ dialog {
 }
 
 .wn-card-title {
-  margin: 0;
+  margin: 0 0 4px;
   font-size: var(--s2-component-xl-bold-font-size);
   font-weight: var(--s2-component-xl-bold-font-weight);
   line-height: var(--s2-component-xl-bold-line-height);
@@ -182,7 +209,7 @@ dialog {
 }
 
 .wn-card-body {
-  margin: 0;
+  margin: 0 0 var(--s2-spacing-400);
   font-size: var(--s2-body-size-m);
   font-weight: var(--s2-body-font-weight);
   line-height: var(--s2-body-line-height);
@@ -191,5 +218,4 @@ dialog {
 
 .wn-card-cta {
   align-self: flex-start;
-  text-decoration: none;
 }

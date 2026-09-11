@@ -23,9 +23,10 @@ const WHATSNEW_PATH = 'https://main--da-live--adobe.aem.page/nx/fragments/guides
  *
  * Shows a dot and auto-opens whatsnew-dialog.js once on connect if the
  * fragment's newest entry is newer than what this user last saw (see
- * whatsNewFlags.js); also opens on click regardless. Either path marks the
- * content seen (whatsnew-dialog.js owns that), which clears the dot on the
- * next render of this component.
+ * whatsNewFlags.js); also opens on click regardless. whatsnew-dialog.js
+ * marks content as seen as soon as it loads, but the dot only clears once
+ * the dialog is actually closed (nx-whatsnew-closed), not the instant it
+ * opens.
  */
 class NxWhatsNew extends LitElement {
   static properties = {
@@ -35,7 +36,14 @@ class NxWhatsNew extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];
+    this._onClosed = () => { this._hasUnseen = false; };
+    window.addEventListener('nx-whatsnew-closed', this._onClosed);
     this._checkUnseen();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener('nx-whatsnew-closed', this._onClosed);
   }
 
   async _checkUnseen() {
