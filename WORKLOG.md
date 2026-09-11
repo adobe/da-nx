@@ -1,5 +1,55 @@
 # Worklog
 
+## 2026-09-10
+
+### nx2/utils/api.js — cross-backend copy/move (#731)
+
+Copying a file between two sites on different backends (DA storage vs the hlx6
+source bus) silently failed — e.g. a PDF from a legacy DA site pasted into an
+hlx6 site. `source.copy`/`move` picked the backend from the *source* site
+(`withArgs` derives org/site from the first arg — the source path), so a
+legacy-source copy always POSTed to `admin.da.live` even when the destination
+was hlx6. The bytes never reached the hlx6 backend; da-list's optimistic UI
+showed the row (the DA copy returned ok), but it couldn't preview and vanished
+on reload.
+
+Fixed by routing on both ends: `copy` now also resolves the destination's
+org/site (`fromPath(destination)`) and its hlx6 status. Server-side copy only
+works within a single site (the hlx6 source-bus PUT is scoped to one site — its
+`?source=` can't reference another — and the DA `/copy` endpoint is keyed to one
+org/site), so a *cross-site* copy that touches hlx6 (a different hlx6 site, or
+across the DA/hlx6 backends) can't use it. In that case `copy` streams the bytes
+— `source.get` from the source, then `source.save` to the destination's source
+bus. Every tree file goes through `save`, docs and standalone assets alike
+(PDFs/images are served from their source path — the `/media` content-addressed
+store is only for images embedded *inside* documents, not standalone files; an
+earlier draft wrongly routed non-docs through `uploadMedia`, which is why PDFs
+landed in the wrong place).
+
+Because the write is a POST (not the server-side `?source=` PUT), the
+destination's ingestion re-imports embedded media — but only if it can fetch it.
+A doc's `media_` references are relative, so after the hop they'd resolve against
+the *destination* and 404. So for HTML, `copy` first rewrites relative `media_`
+refs (src/href/srcset) to absolute URLs on the *source's* content origin
+(`absolutizeMediaRefs`) — `DA_CONTENT` (content.da.live) for a DA source,
+`https://main--{site}--{org}.aem.page` for an hlx6 source — resolved against the
+source doc's URL; the destination POST then fetches and re-hosts them into its
+own media bus. Already-absolute URLs and non-`media_` links are left untouched.
+
+`move` emulates as copy + delete of the original whenever hlx6 is involved on
+either side (reusing copy's path), failing safe — the original is only deleted
+after a successful copy. Same-site copies/moves, and DA-to-DA cross-site (still
+server-side `/copy`), are unchanged.
+
+Relies on callers passing a full `/org/site/...` destination — verified for all
+da-live callers (paste, rename, trash-move), so no da-live change was needed.
+Not covered: cross-site *folder* copy (the source GET has no file body, so it
+fails non-ok rather than recursing) — a separate follow-up. Tests: cross-backend
+copy both directions, cross-site hlx6→hlx6 (asset + doc), media_ ref rewriting
+(DA + hlx6 source), the read-failure guard, and cross-backend move
+(copy-then-delete + fail-safe). ESLint still can't run (pre-existing v8/v9
+flat-config mismatch); full api.test.js suite (132) passes.
+
 ## 2026-09-07
 
 ### quick-edit — stop RELOAD storms from cross-block index drift
