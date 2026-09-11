@@ -173,7 +173,6 @@ dialog {
 }
 
 .wn-cards-panel {
-  position: relative;
   box-sizing: border-box;
   flex: 1;
   min-width: 0;
@@ -188,41 +187,22 @@ dialog {
   flex-direction: column;
   gap: 56px;
   padding-right: 20px;
-  padding-bottom: 56px;
+  padding-bottom: 120px;
   overflow-y: auto;
-
-  /* Custom scrollbar drawn below (.wn-cards-scrollbar-*) replaces the
-     native one entirely — see _setupCardsScrollbar in whatsnew-dialog.js
-     for why: native scrollbars can't stay hidden at rest and only
-     appear during active scroll without OS/hover involvement. */
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--s2-gray-400) var(--s2-gray-100);
 }
 
 .wn-cards::-webkit-scrollbar {
-  display: none;
+  width: 4px;
 }
 
-.wn-cards-scrollbar-track {
-  position: absolute;
-  top: 40px;
-  bottom: 40px;
-  right: 8px;
-  width: 2px;
+.wn-cards::-webkit-scrollbar-track {
   background: var(--s2-gray-100);
   border-radius: 999px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  pointer-events: none;
 }
 
-.wn-cards-scrollbar-track.is-visible {
-  opacity: 1;
-}
-
-.wn-cards-scrollbar-thumb {
-  position: absolute;
-  left: -1px;
-  width: 4px;
+.wn-cards::-webkit-scrollbar-thumb {
   background: var(--s2-gray-400);
   border-radius: 999px;
 }

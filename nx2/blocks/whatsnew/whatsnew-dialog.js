@@ -45,8 +45,6 @@ class NxWhatsNewDialog extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._observer?.disconnect();
-    this._cardsResizeObserver?.disconnect();
-    clearTimeout(this._scrollbarHideTimer);
   }
 
   get _dialog() { return this.shadowRoot.querySelector('dialog'); }
@@ -68,7 +66,6 @@ class NxWhatsNewDialog extends LitElement {
     if (changed.has('_entries') && this._entries && !this._dialog.open) {
       this._dialog.showModal();
       this._observeCards();
-      this._setupCardsScrollbar();
     }
     if (changed.has('_activeId')) this._positionIndicator();
   }
@@ -81,45 +78,6 @@ class NxWhatsNewDialog extends LitElement {
     if (!indicator || !active) return;
     indicator.style.transform = `translateY(${active.offsetTop}px)`;
     indicator.style.height = `${active.offsetHeight}px`;
-  }
-
-  // Native scrollbars can't do "invisible at rest, appears only while
-  // actively scrolling, no hover reaction" — that's OS-controlled overlay
-  // behavior, not something ::-webkit-scrollbar can override. So this pane
-  // hides its native scrollbar entirely (see CSS) and draws its own,
-  // positioned/sized here and faded in only during active scroll.
-  _setupCardsScrollbar() {
-    const container = this.shadowRoot.querySelector('.wn-cards');
-    const track = this.shadowRoot.querySelector('.wn-cards-scrollbar-track');
-    const thumb = this.shadowRoot.querySelector('.wn-cards-scrollbar-thumb');
-    if (!container || !track || !thumb) return;
-
-    const update = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      if (scrollHeight <= clientHeight) {
-        track.classList.remove('is-visible');
-        return;
-      }
-      const trackHeight = track.clientHeight;
-      const thumbHeight = Math.max(24, (clientHeight / scrollHeight) * trackHeight);
-      const maxThumbTop = trackHeight - thumbHeight;
-      const thumbTop = (scrollTop / (scrollHeight - clientHeight)) * maxThumbTop;
-      thumb.style.height = `${thumbHeight}px`;
-      thumb.style.transform = `translateY(${thumbTop}px)`;
-    };
-
-    container.addEventListener('scroll', () => {
-      update();
-      track.classList.add('is-visible');
-      clearTimeout(this._scrollbarHideTimer);
-      this._scrollbarHideTimer = setTimeout(() => track.classList.remove('is-visible'), 1000);
-    });
-
-    // Recompute sizing as images finish loading and change scrollHeight,
-    // without requiring the user to scroll first.
-    this._cardsResizeObserver = new ResizeObserver(update);
-    this._cardsResizeObserver.observe(container);
-    update();
   }
 
   _observeCards() {
@@ -208,9 +166,6 @@ class NxWhatsNewDialog extends LitElement {
                   >Try it now</button>
                 </article>
               `)}
-            </div>
-            <div class="wn-cards-scrollbar-track" aria-hidden="true">
-              <div class="wn-cards-scrollbar-thumb"></div>
             </div>
           </div>
         </div>
