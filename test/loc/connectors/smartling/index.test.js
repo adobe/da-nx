@@ -68,9 +68,22 @@ describe('smartling connector - legacy origin rewriting', () => {
   beforeEach(() => installFetch());
   afterEach(() => restoreFetch());
 
-  // Must run before any other test calls scheduleRefresh - isConnected's
-  // early return depends on tokenPolling being unset, which is otherwise
-  // module-level state left over from every later test in this file.
+  // auth.js's refreshOrReauthenticate() reads a module-level authContext
+  // that's only populated by isConnected()/connect(). Seed it via a cached,
+  // non-expired token before every test (not just relying on the first
+  // test's isConnected() call), so 401-recovery tests pass regardless of
+  // execution order or whether a single test runs in isolation.
+  beforeEach(async () => {
+    localStorage.setItem(`smartling.${org}.${site}.prod.token`, JSON.stringify({
+      accessToken: 'seed-token',
+      refreshToken: 'seed-refresh-token',
+      expires: Date.now() + 60000,
+    }));
+    await isConnected({
+      name: 'Smartling', env: 'prod', origin: legacyOrigin, org, site,
+    });
+  });
+
   it('resolves the endpoint from origin/org/site in isConnected, not a nonexistent config key', async () => {
     localStorage.setItem(`smartling.${org}.${site}.prod.token`, JSON.stringify({
       accessToken: 'cached-token',
@@ -504,12 +517,9 @@ describe('smartling connector - legacy origin rewriting', () => {
   });
 
   it('recovers from a 401 on getStatusAll by refreshing the token and retrying', async () => {
-    // Real auth (connect()) now goes through da-etc, which requires a
-    // signed-in IMS session and isn't mockable at this level. No seeding is
-    // needed here though - `authContext` is already populated by the
-    // isConnected() call in the first test above, and the initial request's
-    // token read is a cache miss regardless (this test's `service` has no
-    // `env`), so it always 401s and forces the refresh path being tested.
+    // authContext is seeded by the top-level beforeEach; this test's
+    // `service` has no `env`, so the initial token read is a cache miss
+    // regardless, and it always 401s and forces the refresh path being tested.
     let progressCalls = 0;
     let refreshCalls = 0;
     origFetch = window.fetch;
@@ -824,8 +834,8 @@ describe('smartling connector - legacy origin rewriting', () => {
   });
 
   it('recovers from a 401 by refreshing the token and retrying the request', async () => {
-    // See the getStatusAll 401-recovery test above for why no seeding is
-    // needed here.
+    // See the getStatusAll 401-recovery test above - authContext is seeded
+    // by the top-level beforeEach.
     let jobCalls = 0;
     let refreshCalls = 0;
     origFetch = window.fetch;
@@ -869,8 +879,8 @@ describe('smartling connector - legacy origin rewriting', () => {
   });
 
   it('gives up without looping when the retried request also 401s', async () => {
-    // See the getStatusAll 401-recovery test above for why no seeding is
-    // needed here.
+    // See the getStatusAll 401-recovery test above - authContext is seeded
+    // by the top-level beforeEach.
     let refreshCalls = 0;
     origFetch = window.fetch;
     window.fetch = async (url, opts = {}) => {

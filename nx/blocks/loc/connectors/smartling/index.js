@@ -123,7 +123,7 @@ async function createJob({
 
   const body = JSON.stringify({ jobName, targetLocaleIds });
   const opts = { ...BASE_OPTS, body };
-  opts.headers.Authorization = `Bearer ${getToken(org, site, env)}`;
+  opts.headers = { ...BASE_OPTS.headers, Authorization: `Bearer ${getToken(org, site, env)}` };
 
   const url = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs`;
   const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
@@ -164,7 +164,7 @@ async function createBatch({
   });
 
   const opts = { ...BASE_OPTS, body };
-  opts.headers.Authorization = `Bearer ${getToken(org, site, env)}`;
+  opts.headers = { ...BASE_OPTS.headers, Authorization: `Bearer ${getToken(org, site, env)}` };
 
   const url = `${endpoint}/job-batches-api/v2/projects/${projectId}/batches`;
 
