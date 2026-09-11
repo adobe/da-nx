@@ -1,6 +1,6 @@
 /* eslint-disable no-use-before-define */
 import {
-  HLX_ADMIN, AEM_API, DA_ADMIN, ALLOWED_TOKEN, sheet2object, object2sheet,
+  HLX_ADMIN, AEM_API, DA_ADMIN, DA_CONTENT, ALLOWED_TOKEN, sheet2object, object2sheet,
 } from './utils.js';
 
 export const { loadIms, handleSignIn } = await (async () => {
@@ -399,8 +399,34 @@ export const source = {
   copy: withArgs(async ({
     org, site, path, destination, collision,
   }) => {
-    const hlx6 = await isHlx6(org, site);
-    if (hlx6) {
+    const dest = fromPath(destination);
+    const sameSite = org === dest.org && site === dest.site;
+    const [srcHlx6, destHlx6] = await Promise.all([
+      isHlx6(org, site),
+      isHlx6(dest.org, dest.site),
+    ]);
+
+    // Cross-site copy touching hlx6 can't use a within-site server-side copy;
+    // stream the bytes to the destination's source bus instead.
+    if (!sameSite && (srcHlx6 || destHlx6)) {
+      const getResp = await source.get({ org, site, path });
+      if (!getResp.ok) return getResp;
+      let body;
+      if (findContentType(path) === 'text/html') {
+        // Absolutize relative media_ refs so the destination can re-fetch them.
+        const srcBase = srcHlx6
+          ? `https://main--${site}--${org}.aem.page${path}`
+          : `${DA_CONTENT}/${org}/${site}${path}`;
+        body = absolutizeMediaRefs(await getResp.text(), srcBase);
+      } else {
+        body = await getResp.blob();
+      }
+      return source.save({
+        org: dest.org, site: dest.site, path: dest.path, body,
+      });
+    }
+
+    if (srcHlx6) {
       // 'destination' contains '/org/site/' prefix, which is needed for DA source
       // but not for the source bus
       const pfx = `/${org}/${site}/`;
@@ -423,10 +449,14 @@ export const source = {
   move: withArgs(async ({
     org, site, path, destination, collision,
   }) => {
-    const hlx6 = await isHlx6(org, site);
-    if (hlx6) {
-      // The source bus has no move operation; emulate it as a copy followed by a
-      // delete of the original. copy handles the hlx6 destination-prefix stripping.
+    const dest = fromPath(destination);
+    const [srcHlx6, destHlx6] = await Promise.all([
+      isHlx6(org, site),
+      isHlx6(dest.org, dest.site),
+    ]);
+    // No server-side move for the source bus or across backends; when hlx6 is
+    // involved, emulate as copy + delete. Fails safe: no delete if copy fails.
+    if (srcHlx6 || destHlx6) {
       const copyResp = await source.copy({
         org, site, path, destination, collision,
       });
@@ -700,6 +730,17 @@ const TYPE_MAP = {
 function findContentType(path) {
   const ext = Object.keys(TYPE_MAP).find((e) => path.toLowerCase().endsWith(e));
   return TYPE_MAP[ext];
+}
+
+// Rewrite relative `media_` refs (src/href/srcset) to absolute URLs against
+// `base`. Each attribute holds a single bare url (srcset sizing lives in the
+// source element's other attributes, not as a descriptor). Non-`media_` links
+// and already-absolute URLs are left untouched.
+function absolutizeMediaRefs(html, base) {
+  return html.replace(/\b(src|href|srcset)=(["'])(.*?)\2/gi, (full, attr, quote, val) => {
+    if (!val.includes('media_') || /^(https?:)?\/\//i.test(val.trim())) return full;
+    return `${attr}=${quote}${new URL(val.trim(), base).href}${quote}`;
+  });
 }
 
 // DA-owned endpoints proxied between DA_ADMIN and AEM_API.
