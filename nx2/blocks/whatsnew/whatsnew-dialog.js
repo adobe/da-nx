@@ -79,8 +79,11 @@ class NxWhatsNewDialog extends LitElement {
   // of guessing a fixed px value.
   _ensureScrollRoom() {
     const container = this.shadowRoot.querySelector('.wn-cards');
-    if (!container) return;
-    container.style.paddingBottom = `${Math.max(0, container.clientHeight - 40)}px`;
+    const cards = this.shadowRoot.querySelectorAll('.wn-card');
+    const lastCard = cards[cards.length - 1];
+    if (!container || !lastCard) return;
+    const needed = container.clientHeight - 40 - lastCard.offsetHeight;
+    container.style.paddingBottom = `${Math.max(56, needed)}px`;
   }
 
   // Single shared indicator sliding between items, rather than each item

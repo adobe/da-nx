@@ -178,7 +178,7 @@ dialog {
   display: flex;
   flex: 1;
   min-width: 0;
-  padding: var(--s2-spacing-600) 20px var(--s2-spacing-600) var(--s2-spacing-600);
+  padding: var(--s2-spacing-600) 20px 0 var(--s2-spacing-600);
   overflow: hidden;
 }
 
