@@ -66,8 +66,21 @@ class NxWhatsNewDialog extends LitElement {
     if (changed.has('_entries') && this._entries && !this._dialog.open) {
       this._dialog.showModal();
       this._observeCards();
+      this._ensureScrollRoom();
     }
     if (changed.has('_activeId')) this._positionIndicator();
+  }
+
+  // A static trailing padding can't guarantee the last card can scroll all
+  // the way up to the 40px-from-top target _scrollToEntry aims for — the
+  // browser clamps scrollTop at scrollHeight - clientHeight, so without
+  // enough room after the last card, it clamps short and the last card
+  // never fully reaches that position. Compute exactly enough room instead
+  // of guessing a fixed px value.
+  _ensureScrollRoom() {
+    const container = this.shadowRoot.querySelector('.wn-cards');
+    if (!container) return;
+    container.style.paddingBottom = `${Math.max(0, container.clientHeight - 40)}px`;
   }
 
   // Single shared indicator sliding between items, rather than each item

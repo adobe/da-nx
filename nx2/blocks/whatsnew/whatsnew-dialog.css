@@ -80,6 +80,7 @@ dialog {
 
 .wn-toc {
   box-sizing: border-box;
+  display: flex;
   flex-shrink: 0;
   width: 256px;
   padding: var(--s2-spacing-500) 0 var(--s2-spacing-500) var(--s2-spacing-600);
@@ -89,9 +90,10 @@ dialog {
 
 .wn-toc-scroll {
   box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
   padding-right: 20px;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -173,6 +175,7 @@ dialog {
 
 .wn-cards-panel {
   box-sizing: border-box;
+  display: flex;
   flex: 1;
   min-width: 0;
   padding: var(--s2-spacing-600) 20px var(--s2-spacing-600) var(--s2-spacing-600);
@@ -181,7 +184,8 @@ dialog {
 
 .wn-cards {
   box-sizing: border-box;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 56px;
