@@ -67,6 +67,17 @@ class NxWhatsNewDialog extends LitElement {
       this._dialog.showModal();
       this._observeCards();
     }
+    if (changed.has('_activeId')) this._positionIndicator();
+  }
+
+  // Single shared indicator sliding between items, rather than each item
+  // toggling its own bar on/off (which reads as a blink, not a move).
+  _positionIndicator() {
+    const indicator = this.shadowRoot.querySelector('.wn-toc-indicator');
+    const active = this.shadowRoot.querySelector('.wn-toc-item[aria-current="true"]');
+    if (!indicator || !active) return;
+    indicator.style.transform = `translateY(${active.offsetTop}px)`;
+    indicator.style.height = `${active.offsetHeight}px`;
   }
 
   _observeCards() {
@@ -121,22 +132,24 @@ class NxWhatsNewDialog extends LitElement {
             ${closeIcon}
           </button>
           <nav class="wn-toc" aria-label="What's new sections">
-            <h2 class="wn-toc-title">What's new</h2>
-            <ul class="wn-toc-list">
-              ${this._entries.map((entry) => html`
-                <li>
-                  <button
-                    type="button"
-                    class="wn-toc-item"
-                    aria-current=${this._activeId === entry.id ? 'true' : nothing}
-                    @click=${() => this._scrollToEntry(entry.id)}
-                  >
-                    <span class="wn-toc-bar" aria-hidden="true"></span>
-                    <span class="wn-toc-label">${entry.title}</span>
-                  </button>
-                </li>
-              `)}
-            </ul>
+            <div class="wn-toc-scroll">
+              <h2 class="wn-toc-title">What's new</h2>
+              <ul class="wn-toc-list">
+                <li class="wn-toc-indicator" aria-hidden="true"></li>
+                ${this._entries.map((entry) => html`
+                  <li>
+                    <button
+                      type="button"
+                      class="wn-toc-item"
+                      aria-current=${this._activeId === entry.id ? 'true' : nothing}
+                      @click=${() => this._scrollToEntry(entry.id)}
+                    >
+                      <span class="wn-toc-label">${entry.title}</span>
+                    </button>
+                  </li>
+                `)}
+              </ul>
+            </div>
           </nav>
           <div class="wn-cards-panel">
             <div class="wn-cards">
