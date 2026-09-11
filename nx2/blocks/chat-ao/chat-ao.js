@@ -104,7 +104,14 @@ export default class NxChatAo extends LitElement {
       getEWFlags({ org, site }),
     ]);
     this._prompts = prompts ?? [];
+    this._altHarness = !!flags['ew.altHarness'];
     this._controller?.setActivationKey(flags['ew.altHarness']);
+  }
+
+  get _addMenuItems() {
+    if (!this._altHarness) return ADD_MENU_ITEMS;
+    const items = ADD_MENU_ITEMS.filter((item) => item.id !== MENU_OPTIONS.MANAGE_SKILLS);
+    return items.filter((item, i) => !item.divider || (items[i + 1] && !items[i + 1].divider));
   }
 
   _closePanel() {
@@ -495,7 +502,7 @@ export default class NxChatAo extends LitElement {
             @blur=${this._slashMenu.onBlur}
           ></textarea>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
-            <nx-menu .items=${this.episodeId ? [...ADD_MENU_ITEMS, OPEN_COWORKER_ITEM] : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
+            <nx-menu .items=${this.episodeId ? [...this._addMenuItems, OPEN_COWORKER_ITEM] : this._addMenuItems} placement="above" @select=${this._handleMenuSelect}>
               <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>
