@@ -130,6 +130,17 @@ class NXNav extends LitElement {
       li.append(document.createElement('nx-editortoggle'));
       ul.prepend(li);
     }
+    // TODO(new1140): temporary, scoped to my own test page only, so no other
+    // page/site loading this branch is affected. Remove before merging — see
+    // editortoggle's own (unscoped) force-injection above for the pattern
+    // this is temporarily borrowing.
+    const isMyTestPage = window.location.hash.includes('/drafts/yseverinovska/test456');
+    if (isMyTestPage && !ul.querySelector('nx-whatsnew')) {
+      await import('../whatsnew/whatsnew.js');
+      const li = document.createElement('li');
+      li.append(document.createElement('nx-whatsnew'));
+      ul.append(li);
+    }
     return ul;
   }
 
