@@ -295,6 +295,15 @@ describe('quick-edit selection gestures', () => {
     expect(posted.some((m) => m.type === 'node-select' && m.payload?.node === null)).to.equal(false);
   });
 
+  it('posts node-select when clicking a non-editable area inside a block directly', () => {
+    const block = document.querySelector('[data-block-index="60"]');
+    block.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(posted).to.deep.include({
+      type: 'node-select',
+      payload: { node: { anchorType: 'table', proseIndex: 60 } },
+    });
+  });
+
   it('clears the selection when clicking outside it', () => {
     setSelectedNode({ anchorType: 'table', proseIndex: 50 });
     document.querySelector('.no-index')
