@@ -2,6 +2,14 @@
 
 ## 2026-09-11
 
+### nx2/blocks/chat-ao — also hide "Continue in Coworker" on the alt harness
+
+The `+` menu appended `OPEN_COWORKER_ITEM` ("Continue in Coworker") whenever an
+episode existed, so it still showed on CMA even after "Customize Coworker" was
+hidden. Extracted a `_menuItems` getter (episode + not-altHarness → append the
+coworker item, else `_addMenuItems`) and used it in render, so both Coworker
+entry points are gated by `_altHarness`. Added tests.
+
 ### nx2/blocks/chat-ao — route skills catalog to the bridge on the alt harness
 
 The skills catalog fetch (`utils/skills.js` `fetchSkills`) now routes to the
