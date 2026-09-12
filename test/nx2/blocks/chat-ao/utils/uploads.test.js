@@ -1,8 +1,10 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  getOrgId, resolveAoHttpBase, resolveAoWsBase,
+  getOrgId, resolveAoHttpBase, resolveAoWsBase, resolveSkillsHttpBase,
 } from '../../../../../nx2/blocks/chat-ao/utils/uploads.js';
-import { AO_HTTP_BASE, AO_WS_BASE, CMA_BRIDGE_WS_BASE } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
+import {
+  AO_HTTP_BASE, AO_WS_BASE, CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE,
+} from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
 
 function withActiveTartan(fulfillableData) {
   return [
@@ -103,5 +105,13 @@ describe('uploads.js alt-harness activation key', () => {
   it('falls back to the default WS base with a key but no region context', () => {
     expect(resolveAoWsBase(undefined, { altHarnessKey: 'some-key' })).to.equal(CMA_BRIDGE_WS_BASE);
     expect(resolveAoWsBase(undefined)).to.equal(AO_WS_BASE);
+  });
+
+  it('routes the skills HTTP base to the bridge with a key, but to AO without one', () => {
+    const ctx = withActiveTartan({ region: 'VA7', environment: 'PROD' });
+    expect(resolveSkillsHttpBase(ctx, { altHarnessKey: 'some-key' })).to.equal(CMA_BRIDGE_HTTP_BASE);
+    expect(resolveSkillsHttpBase(ctx, {})).to.equal('https://agent-orchestrator-prod-va7.adobe.io');
+    expect(resolveSkillsHttpBase(ctx, { altHarnessKey: '' })).to.equal('https://agent-orchestrator-prod-va7.adobe.io');
+    expect(resolveSkillsHttpBase(undefined)).to.equal(AO_HTTP_BASE);
   });
 });

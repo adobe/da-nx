@@ -21,6 +21,11 @@ export const AO_HTTP_BASE = 'https://agent-orchestrator-prod-va7.adobe.io';
 // validates the key server-side. See docs/chat-ao-alt-harness.md.
 export const CMA_BRIDGE_WS_BASE = 'wss://aem-sites-claudebridge-va6.adobe.io';
 
+// The bridge's REST control plane (skills catalog + overrides). Used only for
+// skills management when an `ew.altHarness` key is present; AO stays the base
+// for uploads/episodes/history, which the bridge doesn't serve.
+export const CMA_BRIDGE_HTTP_BASE = 'https://aem-sites-claudebridge-va6.adobe.io';
+
 export const AO_MANIFEST_ID = 'experience-workspace';
 
 // Mirrors AO's own server-side allowlist

@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { loadCachedSkills, fetchSkills } from '../../../../../nx2/blocks/chat-ao/utils/skills.js';
-import { AO_HTTP_BASE, AO_MANIFEST_ID } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
+import { AO_HTTP_BASE, AO_MANIFEST_ID, CMA_BRIDGE_HTTP_BASE } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
 import { resetMockIms, setMockIms } from '../../../../../nx2/test/mocks/ims.js';
 
 const cacheKey = (tenantId) => `da-chat-ao-skills--${tenantId}`;
@@ -84,6 +84,26 @@ describe('fetchSkills', () => {
 
     expect(lastCall().url).to.equal(`${AO_HTTP_BASE}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`);
     expect(lastCall().headers.authorization).to.equal('Bearer test-token');
+    expect(lastCall().headers['x-user-id']).to.equal(undefined);
+  });
+
+  it('routes to the CMA bridge with an x-user-id header when an altHarness key is given', async () => {
+    installFetch({ body: JSON.stringify({ skills: [{ name: 'writeBlog' }] }) });
+
+    await fetchSkills({ altHarnessKey: 'the-key' });
+
+    expect(lastCall().url).to.equal(`${CMA_BRIDGE_HTTP_BASE}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`);
+    expect(lastCall().headers.authorization).to.equal('Bearer test-token');
+    expect(lastCall().headers['x-user-id']).to.equal('test-user@AdobeID');
+  });
+
+  it('stays on Agent Orchestrator when no altHarness key is present', async () => {
+    installFetch({ body: JSON.stringify({ skills: [{ name: 'writeBlog' }] }) });
+
+    await fetchSkills({ altHarnessKey: null });
+
+    expect(lastCall().url).to.equal(`${AO_HTTP_BASE}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`);
+    expect(lastCall().headers['x-user-id']).to.equal(undefined);
   });
 
   it('filters out hidden and non-invocable skills, keeping valid names', async () => {

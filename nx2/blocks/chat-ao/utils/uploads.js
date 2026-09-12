@@ -1,5 +1,7 @@
 import { loadIms } from '../../../utils/ims.js';
-import { AO_HTTP_BASE, AO_WS_BASE, CMA_BRIDGE_WS_BASE } from '../ao-constants.js';
+import {
+  AO_HTTP_BASE, AO_WS_BASE, CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE,
+} from '../ao-constants.js';
 
 export function getOrgId(projectedProductContext) {
   return projectedProductContext?.find((p) => p.prodCtx?.owningEntity)?.prodCtx.owningEntity;
@@ -34,6 +36,15 @@ export function resolveAoWsBase(projectedProductContext, { altHarnessKey } = {})
   if (altHarnessKey) return CMA_BRIDGE_WS_BASE;
   const loc = resolveAoLocation(projectedProductContext);
   return loc ? `wss://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_WS_BASE;
+}
+
+// Skills management (catalog + overrides) routes to the bridge's REST plane
+// when an `ew.altHarness` key is present, otherwise to Agent Orchestrator.
+// Unlike resolveAoHttpBase (uploads/episodes stay on AO), the bridge *does*
+// implement the skills control plane. Additive: no key => unchanged AO base.
+export function resolveSkillsHttpBase(projectedProductContext, { altHarnessKey } = {}) {
+  if (altHarnessKey) return CMA_BRIDGE_HTTP_BASE;
+  return resolveAoHttpBase(projectedProductContext);
 }
 
 function base64ToBlob(base64, mediaType) {

@@ -151,7 +151,7 @@ export default class AoChatController {
     }
   }
 
-  _fetchSkills() { return fetchSkills(); }
+  _fetchSkills() { return fetchSkills({ altHarnessKey: this._activationKey }); }
 
   _loadCachedSkills() { return loadCachedSkills(); }
 

@@ -1,5 +1,22 @@
 # Worklog
 
+## 2026-09-11
+
+### nx2/blocks/chat-ao — route skills catalog to the bridge on the alt harness
+
+The skills catalog fetch (`utils/skills.js` `fetchSkills`) now routes to the
+CMA bridge's REST plane when an `ew.altHarness` key is present, instead of
+always hitting Agent Orchestrator. Additive: no key → unchanged AO base. Added
+`CMA_BRIDGE_HTTP_BASE` and `resolveSkillsHttpBase(ctx, {altHarnessKey})`
+(sibling to `resolveAoWsBase`; note uploads/episodes still stay on AO via
+`resolveAoHttpBase` — the bridge only implements the skills/overrides control
+plane). `fetchSkills` takes an optional `{altHarnessKey}` and adds the
+`x-user-id` header the bridge requires (AO derives it from the token); the
+controller passes `this._activationKey`. The bridge's GET /api/v1/skills emits
+`{skills:[{name,scope:"owner",description,display_name,lineCount}]}`, which the
+existing `parseSkillsListResponse` already consumes. Org/site (non-owner)
+catalog scopes are a follow-up (need the sync manifest).
+
 ## 2026-09-10
 
 ### nx2/blocks/chat-ao — trim the activation key

@@ -1,6 +1,6 @@
 import { loadIms } from '../../../utils/ims.js';
 import { AO_MANIFEST_ID } from '../ao-constants.js';
-import { getOrgId, resolveAoHttpBase } from './uploads.js';
+import { getOrgId, resolveSkillsHttpBase } from './uploads.js';
 
 const SKILLS_CACHE_PREFIX = 'da-chat-ao-skills';
 
@@ -45,15 +45,20 @@ function saveCachedSkills(skills, tenantId) {
 
 // Real catalog lookup. Best-effort: a network error or unexpected response shape
 // returns null, leaving the cache (or empty list) in place rather than throwing.
-export async function fetchSkills() {
+export async function fetchSkills({ altHarnessKey } = {}) {
   try {
-    const { accessToken, projectedProductContext } = await loadIms();
+    const { accessToken, projectedProductContext, userId } = await loadIms();
     const tenantId = getOrgId(projectedProductContext);
-    const resp = await fetch(`${resolveAoHttpBase(projectedProductContext)}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`, {
-      headers: {
-        authorization: `Bearer ${accessToken?.token}`,
-        'x-tenant-id': tenantId,
-      },
+    const base = resolveSkillsHttpBase(projectedProductContext, { altHarnessKey });
+    const headers = {
+      authorization: `Bearer ${accessToken?.token}`,
+      'x-tenant-id': tenantId,
+    };
+    // The bridge's REST plane requires an explicit x-user-id; AO derives the
+    // caller from the token and ignores it.
+    if (altHarnessKey && userId) headers['x-user-id'] = userId;
+    const resp = await fetch(`${base}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`, {
+      headers,
     });
     if (!resp.ok) return null;
     const skills = parseSkillsListResponse(await resp.json());
