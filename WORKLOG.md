@@ -1,5 +1,16 @@
 # Worklog
 
+## 2026-09-12
+
+### nx2/blocks/chat-ao — real "Manage Skills" entry point on the alt harness
+
+Now that the Skills Editor is wired to the bridge, the + menu item is no longer
+hidden on the alt harness — it's kept and relabeled "Manage Skills", and its
+click opens the in-app Skills Editor (`/apps/skills?tab=skills#/<org>/<site>`,
+same-origin, matching the pattern in `nx2/blocks/chat/chat.js`) instead of the
+external Coworker customization URL. "Continue in Coworker" stays hidden.
+Open question: confirm the Skills Editor app parses `?tab=skills` as expected.
+
 ## 2026-09-11
 
 ### nx2/blocks/chat-ao — also hide "Continue in Coworker" on the alt harness
