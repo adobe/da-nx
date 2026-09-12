@@ -110,12 +110,12 @@ export default class NxChatAo extends LitElement {
 
   get _addMenuItems() {
     if (!this._altHarness) return ADD_MENU_ITEMS;
-    const items = ADD_MENU_ITEMS.filter((item) => item.id !== MENU_OPTIONS.MANAGE_SKILLS);
-    return items.filter((item, i) => !item.divider || (items[i + 1] && !items[i + 1].divider));
+    return ADD_MENU_ITEMS.map((item) => (
+      item.id === MENU_OPTIONS.MANAGE_SKILLS ? { ...item, label: 'Manage Skills' } : item
+    ));
   }
 
-  // Both Coworker entry points ("Customize Coworker" in _addMenuItems and
-  // "Continue in Coworker" here) are hidden on the alt harness — CMA has no
+  // "Continue in Coworker" is hidden on the alt harness — CMA has no
   // Coworker surface.
   get _menuItems() {
     if (this.episodeId && !this._altHarness) return [...this._addMenuItems, OPEN_COWORKER_ITEM];
@@ -335,7 +335,19 @@ export default class NxChatAo extends LitElement {
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._slashMenu.insertSlash();
     if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
-    if (id === MENU_OPTIONS.MANAGE_SKILLS) window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
+    if (id === MENU_OPTIONS.MANAGE_SKILLS) {
+      if (this._altHarness) {
+        const { org, site } = this._context ?? {};
+        if (!org || !site) return;
+        const url = new URL(window.location.href);
+        url.pathname = '/apps/skills';
+        url.search = '?tab=skills';
+        url.hash = `#/${org}/${site}`;
+        window.open(url.href, '_blank', 'noopener,noreferrer');
+      } else {
+        window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
+      }
+    }
     if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) window.open(`${COWORKER_CHAT_URL}/${this.episodeId}`, '_blank', 'noopener,noreferrer');
   }
 
