@@ -1,6 +1,6 @@
 # Worklog
 
-## 2026-09-10
+## 2026-09-12
 
 ### nx2/utils/api.js — cross-backend copy/move (#731)
 
@@ -49,6 +49,14 @@ copy both directions, cross-site hlx6→hlx6 (asset + doc), media_ ref rewriting
 (DA + hlx6 source), the read-failure guard, and cross-backend move
 (copy-then-delete + fail-safe). ESLint still can't run (pre-existing v8/v9
 flat-config mismatch); full api.test.js suite (132) passes.
+
+## 2026-09-11
+
+### ci — Slack PR ticker uses the supported gh-hosted runner
+
+Org runners no longer allow `ubuntu-latest`; switched
+`.github/workflows/slack-pr-ticker.yml` to `runs-on: gh-hosted` (smallest
+supported label). Other workflows still on `ubuntu-latest` — separate change.
 
 ## 2026-09-07
 
