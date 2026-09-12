@@ -114,6 +114,14 @@ export default class NxChatAo extends LitElement {
     return items.filter((item, i) => !item.divider || (items[i + 1] && !items[i + 1].divider));
   }
 
+  // Both Coworker entry points ("Customize Coworker" in _addMenuItems and
+  // "Continue in Coworker" here) are hidden on the alt harness — CMA has no
+  // Coworker surface.
+  get _menuItems() {
+    if (this.episodeId && !this._altHarness) return [...this._addMenuItems, OPEN_COWORKER_ITEM];
+    return this._addMenuItems;
+  }
+
   _closePanel() {
     this.dispatchEvent(new CustomEvent(PANEL_EVENT.CLOSE, { bubbles: true, composed: true }));
   }
@@ -502,7 +510,7 @@ export default class NxChatAo extends LitElement {
             @blur=${this._slashMenu.onBlur}
           ></textarea>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
-            <nx-menu .items=${this.episodeId ? [...this._addMenuItems, OPEN_COWORKER_ITEM] : this._addMenuItems} placement="above" @select=${this._handleMenuSelect}>
+            <nx-menu .items=${this._menuItems} placement="above" @select=${this._handleMenuSelect}>
               <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>
