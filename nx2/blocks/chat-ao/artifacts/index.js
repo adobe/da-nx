@@ -6,6 +6,7 @@ import './column.js';
 import './card.js';
 import './data-table.js';
 import './metric-card.js';
+import './page-evaluation.js';
 import './code-block.js';
 import './alert.js';
 

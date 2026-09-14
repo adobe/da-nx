@@ -64,11 +64,40 @@ function turnsToMessages(turns, artifacts = [], turnEventsList = []) {
         },
       });
     }
-    // Artifacts come from a mid-turn tool call, so they precede final_response on the wire.
+    // Artifacts come from a mid-turn tool call, so they precede assistant text on the wire.
     (artifactsByTurn.get(turn?.id) ?? []).forEach((artifact) => {
       messages.push({ role: 'assistant', uiArtifact: toUiArtifact(artifact) });
     });
-    if (turn?.final_response) messages.push({ role: 'assistant', content: turn.final_response });
+    // See docs/chat-ao-component.md#tool-call-activity and #question-flow.
+    const events = turnEventsList[index] ?? [];
+    const resultsByCallId = new Map();
+    events.forEach((event) => {
+      if (event.type === 'tool_result') resultsByCallId.set(event.tool_call_id, event);
+    });
+    events.forEach((event) => {
+      if (event.type !== 'assistant_message') return;
+      if (event.content) messages.push({ role: 'assistant', content: event.content });
+      (event.tool_calls ?? []).forEach((call) => {
+        if (call.name !== 'ask_user_question') return;
+        const resultEvent = resultsByCallId.get(call.id);
+        if (resultEvent?.metadata?.type !== 'ask_user_question') return;
+        let args = {};
+        try {
+          args = JSON.parse(call.arguments ?? '{}');
+        } catch {
+          args = {};
+        }
+        messages.push({
+          role: 'assistant',
+          questionResponse: {
+            context: args.context ?? null,
+            questions: args.questions ?? [],
+            answers: resultEvent.metadata.answers ?? [],
+            declined: !!resultEvent.metadata.declined,
+          },
+        });
+      });
+    });
   });
   return messages;
 }
