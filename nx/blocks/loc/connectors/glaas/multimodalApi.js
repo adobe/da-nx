@@ -199,6 +199,28 @@ export function buildTranslatedImageSourcePath({ langCode, glaasName }) {
   return locale ? `/translated-images/${locale}${base}` : `/translated-images${base}`;
 }
 
+// Inverse of buildTranslatedImageSourcePath: strips a leading /translated-images/{locale} segment.
+function canonicalImageKey(src) {
+  return siteRelativePathFromImageUrl(src).replace(/^\/translated-images\/[^/]+/, '');
+}
+
+// Adopts modified's (regional) image src onto original (langstore) wherever they're the same
+// image, so an unselected image's untranslated src doesn't look like a reverted change.
+export function normalizeImages(original, modified) {
+  const bySrc = new Map();
+  modified.querySelectorAll('img[src]').forEach((img) => {
+    bySrc.set(canonicalImageKey(img.src), img.src);
+  });
+
+  original.querySelectorAll('img[src]').forEach((img) => {
+    const match = bySrc.get(canonicalImageKey(img.src));
+    if (!match || match === img.src) return;
+    img.src = match;
+    img.closest('picture')?.querySelectorAll('source[srcset]')
+      .forEach((source) => source.setAttribute('srcset', match));
+  });
+}
+
 export function logMultimodalRequest(step, detail) {
   logMultimodalDebug(undefined, step, detail);
 }

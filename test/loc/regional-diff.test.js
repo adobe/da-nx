@@ -244,3 +244,37 @@ describe('normalizeLinks', () => {
     expect(links[3].href).to.equal('https://example.com/page');
   });
 });
+
+describe('regionalDiff normalizeImages hook', () => {
+  beforeEach(() => {
+    window.fetch = sinon.stub().callsFake(() => mockRes(''));
+  });
+
+  afterEach(() => {
+    window.fetch = originalFetch;
+  });
+
+  it('is a no-op when no normalizeImages option is passed (other connectors unaffected)', async () => {
+    const original = document.implementation.createHTMLDocument();
+    original.body.innerHTML = '<main><div><img src="https://example.com/a.png"></div></main>';
+    const modified = document.implementation.createHTMLDocument();
+    modified.body.innerHTML = '<main><div><img src="https://example.com/b.png"></div></main>';
+    const mainEl = await regionalDiff(original, modified);
+    // no hook - both differing images show up in the diff
+    expect(mainEl.innerHTML).to.include('a.png');
+    expect(mainEl.innerHTML).to.include('b.png');
+  });
+
+  it('calls the supplied normalizeImages hook with the normalized documents before diffing', async () => {
+    const original = document.implementation.createHTMLDocument();
+    original.body.innerHTML = '<main><div><img src="https://example.com/a.png"></div></main>';
+    const modified = document.implementation.createHTMLDocument();
+    modified.body.innerHTML = '<main><div><img src="https://example.com/a.png"></div></main>';
+    const normalizeImages = sinon.spy((normOriginal, normModified) => {
+      expect(normOriginal.querySelector('img').src).to.equal('https://example.com/a.png');
+      expect(normModified.querySelector('img').src).to.equal('https://example.com/a.png');
+    });
+    await regionalDiff(original, modified, undefined, undefined, { normalizeImages });
+    expect(normalizeImages.calledOnce).to.be.true;
+  });
+});
