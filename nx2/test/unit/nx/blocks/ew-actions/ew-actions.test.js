@@ -1,34 +1,153 @@
 import { expect } from '@esm-bundle/chai';
 import '../../../../../blocks/ew-actions/ew-actions.js';
 
-const create = () => document.createElement('nx-ew-actions');
+const mount = async () => {
+  const el = document.createElement('nx-ew-actions');
+  document.body.append(el);
+  await el.updateComplete;
+  return el;
+};
 
-describe('nx-ew-actions cache-bust', () => {
+describe('nx-ew-actions deploy popover', () => {
   afterEach(() => {
     document.querySelectorAll('nx-ew-actions').forEach((el) => el.remove());
   });
 
-  it('memoizes the cache-bust import so preload and call site share one promise', () => {
-    const el = create();
-    const first = el._ensureCacheBust();
-    const second = el._ensureCacheBust();
-    expect(first).to.equal(second);
+  describe('_hasUnpublished (unpublished-changes badge)', () => {
+    it('is false for a draft (nothing previewed)', async () => {
+      const el = await mount();
+      el._status = { preview: { status: 404 }, live: { status: 404 } };
+      expect(el._hasUnpublished).to.equal(false);
+    });
+
+    it('is true when previewed but never published', async () => {
+      const el = await mount();
+      el._status = { preview: { status: 200 }, live: { status: 404 } };
+      expect(el._hasUnpublished).to.equal(true);
+    });
+
+    it('is true when the preview is newer than the last publish', async () => {
+      const el = await mount();
+      el._status = {
+        preview: { status: 200, lastModified: '2024-06-18T14:32:00Z' },
+        live: { status: 200, lastModified: '2024-06-17T16:02:00Z' },
+      };
+      expect(el._hasUnpublished).to.equal(true);
+    });
+
+    it('is false when live is up to date with preview', async () => {
+      const el = await mount();
+      el._status = {
+        preview: { status: 200, lastModified: '2024-06-17T16:02:00Z' },
+        live: { status: 200, lastModified: '2024-06-17T16:02:00Z' },
+      };
+      expect(el._hasUnpublished).to.equal(false);
+    });
+
+    it('is false when there is no status yet', async () => {
+      const el = await mount();
+      el._status = undefined;
+      expect(el._hasUnpublished).to.equal(false);
+    });
   });
 
-  it('reuses an already-resolved cache-bust function without re-importing', async () => {
-    const el = create();
-    const sidekickCacheBust = () => {};
-    el._cacheBust = Promise.resolve(sidekickCacheBust);
-    const resolved = await el._ensureCacheBust();
-    expect(resolved).to.equal(sidekickCacheBust);
+  describe('_env / info getters', () => {
+    it('maps a 200 environment to ok + url + time', async () => {
+      const el = await mount();
+      el._status = {
+        preview: { status: 200, url: 'https://preview.example/page', lastModified: '2024-06-18T14:32:00Z' },
+        live: { status: 404 },
+      };
+      expect(el._previewInfo).to.deep.equal({
+        ok: true,
+        url: 'https://preview.example/page',
+        time: '2024-06-18T14:32:00Z',
+      });
+      expect(el._liveInfo).to.deep.equal({ ok: false, url: null, time: null });
+    });
+
+    it('returns a not-ok shape when an environment is missing', async () => {
+      const el = await mount();
+      el._status = {};
+      expect(el._previewInfo).to.deep.equal({ ok: false, url: null, time: null });
+    });
   });
 
-  it('resolves to null when the da-live sidekick module cannot be loaded', async () => {
-    // In the test env there is no da-live origin serving /blocks/shared/sidekick.js,
-    // so the dynamic import rejects and _ensureCacheBust must swallow it and yield
-    // null — the preview/publish call site relies on `bustCache?.(url)` no-opping.
-    const el = create();
-    const resolved = await el._ensureCacheBust();
-    expect(resolved).to.equal(null);
+  describe('rendering', () => {
+    it('renders the unpublished-changes badge only when there are changes', async () => {
+      const el = await mount();
+      el._status = { preview: { status: 200 }, live: { status: 404 } };
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.send-badge')).to.not.equal(null);
+
+      el._status = {
+        preview: { status: 200, lastModified: '2024-06-17T16:02:00Z' },
+        live: { status: 200, lastModified: '2024-06-17T16:02:00Z' },
+      };
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.send-badge')).to.equal(null);
+    });
+
+    it('labels the primary action "Update" for preview and "Publish" for live', async () => {
+      const el = await mount();
+      const label = () => el.shadowRoot.querySelector('.deploy-action').textContent.trim();
+
+      expect(el._target).to.equal('preview');
+      expect(label()).to.equal('Update');
+
+      el._selectTarget('live');
+      await el.updateComplete;
+      expect(el._target).to.equal('live');
+      expect(label()).to.equal('Publish');
+    });
+
+    it('shows the copy control with the selected environment URL', async () => {
+      const el = await mount();
+      el._status = {
+        preview: { status: 200, url: 'https://preview.example/page' },
+        live: { status: 404 },
+      };
+      el._selectTarget('preview');
+      await el.updateComplete;
+      const card = el.shadowRoot.querySelector('.deploy-card-preview');
+      expect(card.querySelector('.deploy-url-text').textContent).to.equal('https://preview.example/page');
+      expect(card.querySelector('.deploy-copy')).to.not.equal(null);
+    });
+  });
+
+  describe('_copyUrl', () => {
+    let originalClipboard;
+
+    beforeEach(() => {
+      originalClipboard = navigator.clipboard;
+    });
+
+    afterEach(() => {
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
+    });
+
+    it('copies the url and flags which environment was copied', async () => {
+      const copied = [];
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: async (text) => { copied.push(text); } },
+      });
+      const el = await mount();
+      await el._copyUrl('https://live.example/page', 'live');
+      expect(copied).to.deep.equal(['https://live.example/page']);
+      expect(el._copied).to.equal('live');
+    });
+
+    it('is a no-op when there is no url', async () => {
+      let called = false;
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: async () => { called = true; } },
+      });
+      const el = await mount();
+      await el._copyUrl(null, 'preview');
+      expect(called).to.equal(false);
+      expect(el._copied).to.equal(undefined);
+    });
   });
 });
