@@ -17,7 +17,9 @@ const MESSAGE_TYPES = Object.freeze({
   RESULT: 'result',
 });
 
-const runners = new Map();
+// Single runner for now — revisit a multi-runner registry (keyed by caller-chosen id) if
+// a real need for independent scripts registering separately comes up.
+let runner = null;
 
 // Single source of truth for "is this a well-shaped validation item" — shared by this
 // module's own pre-send filter below and by da-live's independent host-side re-validation
@@ -38,25 +40,22 @@ export function sanitizeValidationItems(items) {
 }
 
 async function collectItems() {
-  const entries = [...runners.entries()];
-  const settled = await Promise.allSettled(entries.map(([, runner]) => runner()));
-  const items = [];
-  settled.forEach((outcome, i) => {
-    const [id] = entries[i];
-    if (outcome.status === 'rejected') {
-      // eslint-disable-next-line no-console
-      console.warn(`[validation] runner "${id}" failed`, outcome.reason);
-      return;
-    }
-    const runnerItems = Array.isArray(outcome.value) ? outcome.value : [];
-    const validItems = sanitizeValidationItems(runnerItems);
-    if (validItems.length !== runnerItems.length) {
-      // eslint-disable-next-line no-console
-      console.warn(`[validation] runner "${id}" produced a malformed item`);
-    }
-    items.push(...validItems);
-  });
-  return items;
+  if (!runner) return [];
+  let runnerItems;
+  try {
+    runnerItems = await runner();
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[validation] runner failed', e);
+    return [];
+  }
+  const items = Array.isArray(runnerItems) ? runnerItems : [];
+  const validItems = sanitizeValidationItems(items);
+  if (validItems.length !== items.length) {
+    // eslint-disable-next-line no-console
+    console.warn('[validation] runner produced a malformed item');
+  }
+  return validItems;
 }
 
 // Called by quick-edit.js once it has the transferred validation port. No-ops cleanly
@@ -71,9 +70,9 @@ export function registerValidationPort(port) {
   };
 }
 
-// Registering again with an `id` already in use replaces just that runner.
-export function onValidationRequest(id, runner) {
-  runners.set(id, runner);
+// Registering again replaces the previous runner.
+export function onValidationRequest(fn) {
+  runner = fn;
 }
 
 // Set synchronously at module-evaluation time (not gated on the port handshake, which
