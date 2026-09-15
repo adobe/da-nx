@@ -12,7 +12,7 @@ export const VALIDATION_SEVERITY = Object.freeze({
 const VALIDATION_SEVERITIES = new Set(Object.values(VALIDATION_SEVERITY));
 export const VALIDATION_MESSAGE_MAX_LENGTH = 500;
 
-const MESSAGE_TYPES = Object.freeze({
+export const MESSAGE_TYPES = Object.freeze({
   RUN: 'run',
   RESULT: 'result',
 });
