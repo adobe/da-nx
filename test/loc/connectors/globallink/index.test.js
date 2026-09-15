@@ -786,6 +786,46 @@ describe('globallink connector', () => {
       expect(deliveredBody.targetIds).to.deep.equal(['target-1']);
     });
 
+    it('resolves every url to a terminal status above the concurrency cap', async function test() {
+      // downloadQueue's throttle dispatches one url per 250ms poll tick, so 8 urls
+      // need 2s+ just to all start - past mocha's default 2000ms test timeout.
+      this.timeout(5000);
+      const total = 8;
+      const documentIdsByPath = {};
+      const targets = [];
+      for (let i = 0; i < total; i += 1) {
+        documentIdsByPath[`/page-${i}`] = `doc-${i}`;
+        targets.push({
+          targetId: `target-${i}`, documentId: `doc-${i}`, targetLanguage: 'fr-FR', targetStatus: 'PROCESSED',
+        });
+      }
+      const deliveredIds = [];
+      installFetch((u, opts) => {
+        if (u.includes('/rest/v0/targets')) {
+          return new Response(JSON.stringify({ targets }), { status: 200 });
+        }
+        if (u.includes('/targets/delivered')) {
+          deliveredIds.push(...JSON.parse(opts.body).targetIds);
+          return new Response('{}', { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService({
+        submissionId: { value: 'sub-1' },
+        documentIds: { value: JSON.stringify(documentIdsByPath) },
+      });
+      const urls = Array.from({ length: total }, (_, i) => ({ daBasePath: `/page-${i}`, ext: 'html' }));
+      const saveFn = async (url) => { url.status = 'success'; };
+
+      const result = await saveItems({
+        org, site, service, lang: { code: 'fr-FR', name: 'French' }, urls, saveFn, sendMessage: () => {},
+      });
+
+      expect(result).to.have.length(total);
+      expect(result.every((url) => url.status === 'success')).to.equal(true);
+      expect(deliveredIds.sort()).to.deep.equal(targets.map((t) => t.targetId).sort());
+    });
+
     it('marks the url errored and surfaces an error when marking delivered fails', async () => {
       installFetch((u) => {
         if (u.includes('/rest/v0/targets')) {
