@@ -3,7 +3,9 @@
 // actually exposes onValidationRequest/VALIDATION_SEVERITY as window.qe.validation — this
 // file must not do that itself, since da-live's host code also imports it (for
 // sanitizeValidationItems/MESSAGE_TYPES) from its own top window, not the customer page.
+// SUCCESS: this check passed, nothing to report. INFO: neutral, no pass/fail judgment.
 export const VALIDATION_SEVERITY = Object.freeze({
+  SUCCESS: 'success',
   INFO: 'info',
   WARN: 'warn',
   ERROR: 'error',
