@@ -110,7 +110,7 @@ class NxWhatsNewDialog extends LitElement {
       if (visible.length === 0) return;
       visible.sort((a, b) => b.intersectionRatio - a.intersectionRatio);
       this._activeId = visible[0].target.dataset.id;
-    }, { root: this.shadowRoot.querySelector('.wn-cards'), threshold: [0.25, 0.5, 0.75] });
+    }, { root: this.shadowRoot.querySelector('.wn-cards'), threshold: [0.25, 0.5, 0.75, 1] });
     cards.forEach((card) => this._observer.observe(card));
   }
 
