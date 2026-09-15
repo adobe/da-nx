@@ -160,35 +160,37 @@ class NxWhatsNewDialog extends LitElement {
           <button type="button" class="wn-close" aria-label="Close" @click=${this.close}>
             ${closeIcon}
           </button>
-          <nav class="wn-toc" aria-label="What's new sections">
-            <div class="wn-toc-scroll">
-              <h2 class="wn-toc-title">What's new</h2>
-              <ul class="wn-toc-list">
-                <li class="wn-toc-indicator" aria-hidden="true"></li>
+          <div class="wn-body">
+            <nav class="wn-toc" aria-label="What's new sections">
+              <div class="wn-toc-scroll">
+                <h2 class="wn-toc-title">What's new</h2>
+                <ul class="wn-toc-list">
+                  <li class="wn-toc-indicator" aria-hidden="true"></li>
+                  ${this._entries.map((entry) => html`
+                    <li>
+                      <button
+                        type="button"
+                        class="wn-toc-item"
+                        aria-current=${this._activeId === entry.id ? 'true' : nothing}
+                        @click=${() => this._scrollToEntry(entry.id)}
+                      >
+                        <span class="wn-toc-label">${entry.title}</span>
+                      </button>
+                    </li>
+                  `)}
+                </ul>
+              </div>
+            </nav>
+            <div class="wn-cards-panel">
+              <div class="wn-cards">
                 ${this._entries.map((entry) => html`
-                  <li>
-                    <button
-                      type="button"
-                      class="wn-toc-item"
-                      aria-current=${this._activeId === entry.id ? 'true' : nothing}
-                      @click=${() => this._scrollToEntry(entry.id)}
-                    >
-                      <span class="wn-toc-label">${entry.title}</span>
-                    </button>
-                  </li>
+                  <article class="wn-card" data-id=${entry.id}>
+                    <div class="wn-card-image">${entry.picture}</div>
+                    <h3 class="wn-card-title">${entry.title}</h3>
+                    <p class="wn-card-body">${entry.body}</p>
+                  </article>
                 `)}
-              </ul>
-            </div>
-          </nav>
-          <div class="wn-cards-panel">
-            <div class="wn-cards">
-              ${this._entries.map((entry) => html`
-                <article class="wn-card" data-id=${entry.id}>
-                  <div class="wn-card-image">${entry.picture}</div>
-                  <h3 class="wn-card-title">${entry.title}</h3>
-                  <p class="wn-card-body">${entry.body}</p>
-                </article>
-              `)}
+              </div>
             </div>
           </div>
         </div>
