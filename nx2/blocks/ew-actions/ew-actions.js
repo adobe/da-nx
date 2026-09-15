@@ -7,6 +7,7 @@ import {
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
 import { versions } from '../../utils/api.js';
+import { sidekickCacheBust } from '../../utils/sidekick.js';
 import { getConfig } from '../../scripts/nx.js';
 import '../shared/menu/menu.js';
 
@@ -176,6 +177,7 @@ class NXEwActions extends LitElement {
 
     this._hasError = false;
     const url = this._resolveOpenUrl(action, aemPath, result.url);
+    await sidekickCacheBust(url);
     window.open(url, url);
     this._saveVersion(action);
     this._busy = false;
