@@ -51,16 +51,43 @@ function resetHrefs(doc, org, repo) {
   });
 }
 
-const addDntWrapper = (node, dntContent) => {
-  node.innerHTML = node.innerHTML.replaceAll(dntContent, `<span translate="no" class="dnt-text">${dntContent}</span>`);
+const addDntWrapper = (root, dntContent) => {
+  if (!dntContent) return;
+
+  const document = root.ownerDocument || root;
+  const textNodes = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+
+  for (let textNode = walker.nextNode(); textNode; textNode = walker.nextNode()) {
+    if (
+      textNode.nodeValue.includes(dntContent)
+      && !textNode.parentElement?.closest('[translate="no"]')
+    ) {
+      textNodes.push(textNode);
+    }
+  }
+
+  textNodes.forEach((textNode) => {
+    const parts = textNode.nodeValue.split(dntContent);
+    const fragment = document.createDocumentFragment();
+
+    parts.forEach((part, index) => {
+      if (part) fragment.append(document.createTextNode(part));
+      if (index < parts.length - 1) {
+        const wrapper = document.createElement('span');
+        wrapper.classList.add('dnt-text');
+        wrapper.setAttribute('translate', 'no');
+        wrapper.textContent = dntContent;
+        fragment.append(wrapper);
+      }
+    });
+
+    textNode.replaceWith(fragment);
+  });
 };
 
 const findAndAddDntWrapper = (document, dntContent) => {
-  const contentMatches = document.evaluate(`//text()[contains(., "${dntContent}")]/..`, document, null, 0, null);
-  // eslint-disable-next-line no-underscore-dangle
-  contentMatches?._value?.nodes.forEach((node) => {
-    addDntWrapper(node, dntContent);
-  });
+  addDntWrapper(document, dntContent);
 };
 
 const unwrapDntContent = (document) => {
