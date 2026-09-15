@@ -1,8 +1,8 @@
 // Public API for project code to answer host-initiated content-validation runs.
-// Imported internally by quick-edit.js (page-side handshake owner); project code never
-// imports this file directly — it reads window.qe.validation instead (set below), which
-// also means onValidationRequest/registerValidationPort just share state as one module
-// instance without needing project code to import this exact URL itself.
+// Imported internally by quick-edit.js (page-side handshake owner), which is what
+// actually exposes onValidationRequest/VALIDATION_SEVERITY as window.qe.validation — this
+// file must not do that itself, since da-live's host code also imports it (for
+// sanitizeValidationItems/MESSAGE_TYPES) from its own top window, not the customer page.
 export const VALIDATION_SEVERITY = Object.freeze({
   INFO: 'info',
   WARN: 'warn',
@@ -74,9 +74,3 @@ export function registerValidationPort(port) {
 export function onValidationRequest(fn) {
   runner = fn;
 }
-
-// Set synchronously at module-evaluation time (not gated on the port handshake, which
-// onValidationRequest doesn't need) so project code only has to race quick-edit.js's own
-// script load, not the full INIT round trip.
-window.qe = window.qe || {};
-window.qe.validation = { onValidationRequest, VALIDATION_SEVERITY };

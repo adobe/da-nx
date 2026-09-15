@@ -135,11 +135,14 @@ harmless.
 
 Project code never imports `validation.js` directly — it's an nx-internal file, and
 quick-edit.js is already force-injected onto the page rather than authored by the
-project. Instead, evaluating `validation.js` sets `window.qe.validation =
-{ onValidationRequest, VALIDATION_SEVERITY }` as a side effect, synchronously at module
-load (not gated on the port handshake, since registering a runner doesn't need the port
-to exist yet). Project code checks for `window.qe?.validation` and calls
-`onValidationRequest` directly — see that file for the request/response protocol.
+project. Instead, `quick-edit.js` itself sets `window.qe.validation =
+{ onValidationRequest, VALIDATION_SEVERITY }` as one of its own module-level statements
+(synchronously, not gated on the port handshake, since registering a runner doesn't need
+the port to exist yet). This lives in `quick-edit.js`, not `validation.js` — `validation.js`
+is also imported by da-live's own host code (for `sanitizeValidationItems`/`MESSAGE_TYPES`)
+from da-live's own top window, which must not get a `window.qe.validation` of its own.
+Project code checks for `window.qe?.validation` and calls `onValidationRequest`
+directly — see `validation.js` for the request/response protocol.
 
 ## Known gaps
 
