@@ -469,6 +469,28 @@ describe('globallink connector', () => {
       expect(langs[0].translation.status).to.equal('error');
     });
 
+    it('errors with no trailing detail when the /save request itself fails', async () => {
+      // 400 (not 500) - a 500 would trigger fetchWithRetry's slow backoff/retry loop.
+      installFetch((u) => {
+        if (u.endsWith('/save')) return new Response('', { status: 400 });
+        return defaultHandler(u);
+      });
+      const service = baseService();
+      const options = { service };
+      const langs = [{ name: 'French', code: 'fr-FR' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const messages = [];
+      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 't', service, options, langs, urls, actions,
+      });
+
+      const errorMessage = messages.find((m) => m.type === 'error');
+      expect(errorMessage.text).to.equal('Failed to save/start GlobalLink submission.');
+      expect(langs[0].translation.status).to.equal('error');
+    });
+
     it('does not let two DA paths collide into the same uploaded file name', async () => {
       let uploadedFiles;
       installFetch(async (u, opts) => {
