@@ -247,21 +247,43 @@ dialog {
 }
 
 .wn-card-body {
-  margin: 0 0 var(--s2-spacing-400);
+  margin: 0;
   font-size: var(--s2-body-size-m);
   font-weight: var(--s2-body-font-weight);
   line-height: var(--s2-body-line-height);
   color: var(--s2-gray-800);
 }
 
-.wn-card-cta {
-  align-self: flex-start;
+/* Mobile: toc collapses to just its gray heading strip across the top
+   (list hidden), cards stack full-width below on white, scrollable. */
+@media (width < 600px) {
+  .wn-panel {
+    flex-direction: column;
+    width: calc(100vw - 2 * var(--s2-spacing-300));
+    height: calc(100vh - 2 * var(--s2-spacing-300));
+    height: calc(100dvh - 2 * var(--s2-spacing-300));
+  }
 
-  /* buttons.css only dims the accent color by opacity when disabled;
-     spec wants a flat neutral gray instead, scoped to this button only. */
-  &:disabled {
-    opacity: 1;
-    background: var(--s2-gray-100);
-    color: var(--s2-gray-700);
+  .wn-toc {
+    width: 100%;
+    padding: var(--s2-spacing-500) var(--s2-spacing-600);
+  }
+
+  .wn-toc-scroll {
+    flex: none;
+    padding-right: 0;
+    overflow: visible;
+  }
+
+  .wn-toc-title {
+    margin: 0;
+  }
+
+  .wn-toc-list {
+    display: none;
+  }
+
+  .wn-cards-panel {
+    padding: var(--s2-spacing-600) 20px 0 var(--s2-spacing-600);
   }
 }

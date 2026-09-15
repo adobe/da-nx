@@ -1,9 +1,8 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
-import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
-import { parseWhatsNewEntries } from './parse-whatsnew.js';
-import { getWhatsNewLastSeen } from '../../utils/whatsNewFlags.js';
+import { fetchPublishedDate } from './parse-whatsnew.js';
+import { getWhatsNewLastSeenDate } from '../../utils/whatsNewFlags.js';
 
 const style = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
@@ -22,7 +21,7 @@ const WHATSNEW_PATH = 'https://main--da-live--adobe.aem.page/nx/fragments/guides
  * add or remove this from any page's nav fragment independently of code.
  *
  * Shows a dot and auto-opens whatsnew-dialog.js once on connect if the
- * fragment's newest entry is newer than what this user last saw (see
+ * fragment's published-date is newer than what this user last saw (see
  * whatsNewFlags.js); also opens on click regardless. whatsnew-dialog.js
  * marks content as seen as soon as it loads, but the dot only clears once
  * the dialog is actually closed (nx-whatsnew-closed), not the instant it
@@ -47,10 +46,10 @@ class NxWhatsNew extends LitElement {
   }
 
   async _checkUnseen() {
-    const fragment = await loadFragment(WHATSNEW_PATH);
-    const entries = fragment ? parseWhatsNewEntries(fragment) : [];
-    if (entries.length === 0) return;
-    this._hasUnseen = entries[0].id !== getWhatsNewLastSeen();
+    const publishedDate = await fetchPublishedDate(WHATSNEW_PATH);
+    if (!publishedDate) return;
+    const lastSeen = getWhatsNewLastSeenDate();
+    this._hasUnseen = !lastSeen || lastSeen < publishedDate;
     if (this._hasUnseen) this._openDialog();
   }
 
