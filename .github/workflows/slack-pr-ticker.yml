@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   notify:
-    runs-on: gh-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Route and post to Slack
         env:
