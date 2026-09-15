@@ -150,26 +150,45 @@ function documentIdOf(target) {
 }
 
 /**
- * Finds the DA url entry that corresponds to a GlobalLink target, by `documentId` against
- * the `daBasePath -> documentId` map recorded at upload time (see {@link uploadSourceFiles}).
- * `clientIdentifier` isn't usable here — it identifies the submission, not individual
- * documents — and file-name matching is fuzzy, since two documents' flattened names can
- * overlap, so neither is used as a fallback.
- * @param {object[]} urls - The DA url entries to search.
- * @param {object} target - A GlobalLink target/document record.
+ * Builds a `documentId -> url` index for O(1) lookups of the DA url entry corresponding
+ * to a GlobalLink target, replacing an O(urls) `Array#find` scan per target (see
+ * {@link getStatusAll}). `clientIdentifier` isn't usable here — it identifies the
+ * submission, not individual documents — and file-name matching is fuzzy, since two
+ * documents' flattened names can overlap, so neither is used as a fallback.
+ * @param {object[]} urls - The DA url entries to index.
  * @param {object} documentIdsByPath - The `daBasePath -> documentId` map from upload time.
- * @returns {object|undefined} The matching url entry, if any.
+ * @returns {Map<string, object>} The `documentId -> url` map.
  */
-function matchUrl(urls, target, documentIdsByPath) {
-  const targetDocId = documentIdOf(target);
-  if (!targetDocId) return undefined;
-  return urls.find((url) => documentIdsByPath[url.daBasePath] === targetDocId);
+function indexUrlsByDocumentId(urls, documentIdsByPath) {
+  const map = new Map();
+  urls.forEach((url) => {
+    const docId = documentIdsByPath[url.daBasePath];
+    if (docId) map.set(docId, url);
+  });
+  return map;
+}
+
+/**
+ * Builds a `documentId -> target` index for O(1) lookups of the GlobalLink target
+ * corresponding to a DA url, replacing an O(targets) `Array#find` scan per url (see
+ * {@link saveItems}).
+ * @param {object[]} targets - The GlobalLink targets to index.
+ * @returns {Map<string, object>} The `documentId -> target` map.
+ */
+function indexTargetsByDocumentId(targets) {
+  const map = new Map();
+  targets.forEach((target) => {
+    const docId = documentIdOf(target);
+    if (docId) map.set(docId, target);
+  });
+  return map;
 }
 
 /**
  * Reads the `daBasePath -> documentId` map persisted by {@link sendAllLanguages}, used to
- * precisely match GlobalLink targets back to DA urls (see {@link matchUrl}) instead of
- * relying solely on fuzzy file-name matching.
+ * precisely match GlobalLink targets back to DA urls (see {@link indexUrlsByDocumentId}
+ * and {@link indexTargetsByDocumentId}) instead of relying solely on fuzzy file-name
+ * matching.
  * @param {object} service - The flattened per-environment service config, including the
  * previously persisted `documentIds`.
  * @returns {object} The map, or an empty object if absent/unparsable (e.g. a submission
@@ -313,7 +332,7 @@ async function createSubmission({
  * @returns {Promise<{uploadedFileNames: Set<string>, overflowSubmissionIds: string[],
  * documentIdsByPath: object}>} The file names GlobalLink confirmed receiving, any other
  * submission id(s) it placed some of them under, and a `daBasePath -> documentId` map for
- * precise status/download matching later (see {@link matchUrl}).
+ * precise status/download matching later (see {@link indexUrlsByDocumentId}).
  */
 async function uploadSourceFiles(service, submissionId, urls, batchName) {
   const files = {};
@@ -767,6 +786,7 @@ export async function getStatusAll({ service, langs, urls, actions }) {
 
   const targets = await listTargets(service, submissionId);
   const documentIdsByPath = getDocumentIdsByPath(service);
+  const urlsByDocumentId = indexUrlsByDocumentId(urls, documentIdsByPath);
   activeLangs.forEach((lang) => {
     lang.translation ??= {};
     lang.translation.translated = 0;
@@ -776,7 +796,7 @@ export async function getStatusAll({ service, langs, urls, actions }) {
   const cancelledCountByLang = {};
   const processedByLang = {};
   targets.forEach((target) => {
-    const matched = matchUrl(urls, target, documentIdsByPath);
+    const matched = urlsByDocumentId.get(documentIdOf(target));
     if (!matched) return;
     const langCode = targetLanguageOf(target);
     if (!langCode) return;
@@ -847,9 +867,10 @@ export async function saveItems({
     (entry) => isProcessed(entry) && targetLanguageOf(entry) === lang.code,
   );
   const documentIdsByPath = getDocumentIdsByPath(service);
+  const targetsByDocumentId = indexTargetsByDocumentId(targets);
 
   const downloadCallback = async (url) => {
-    const target = targets.find((entry) => matchUrl([url], entry, documentIdsByPath));
+    const target = targetsByDocumentId.get(documentIdsByPath[url.daBasePath]);
 
     const targetId = target?.targetId || target?.id;
     if (!targetId) {
