@@ -680,7 +680,17 @@ export async function sendAllLanguages({
   }
 
   sendMessage({ text: 'Waiting for GlobalLink to finish processing uploads.' });
-  await waitForSubmissionReady(service, submissionId);
+  const uploadReady = await waitForSubmissionReady(service, submissionId);
+  if (!uploadReady) {
+    sendMessage({ text: 'Failed to process GlobalLink submission uploads.', type: 'error' });
+    langs.forEach((lang) => {
+      lang.translation ??= {};
+      lang.translation.sent = accepted;
+      lang.translation.status = 'error';
+    });
+    await saveState({ options });
+    return;
+  }
 
   sendMessage({ text: 'Starting GlobalLink submission.' });
   const { started, messages } = await saveAndAutostart(service, submissionId);

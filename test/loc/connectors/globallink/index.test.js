@@ -368,6 +368,35 @@ describe('globallink connector', () => {
       expect(langs[0].translation.status).to.equal('created');
     });
 
+    it('aborts and does not autostart when GlobalLink reports upload processing errored', async () => {
+      installFetch((u) => {
+        if (u.endsWith('/status')) {
+          return new Response(JSON.stringify({ status: 'ERROR' }), { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService();
+      const options = { service };
+      const langs = [{ name: 'French', code: 'fr-FR' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const messages = [];
+      let saveStateCalled = false;
+      const actions = {
+        sendMessage: (m) => messages.push(m),
+        saveState: async () => { saveStateCalled = true; },
+      };
+
+      await sendAllLanguages({
+        title: 't', service, options, langs, urls, actions,
+      });
+
+      const errorMessage = messages.find((m) => m.type === 'error');
+      expect(errorMessage.text).to.equal('Failed to process GlobalLink submission uploads.');
+      expect(langs[0].translation.status).to.equal('error');
+      expect(saveStateCalled).to.equal(true);
+      expect(calls.some((c) => c.url.endsWith('/save'))).to.equal(false);
+    });
+
     it('errors with GlobalLink\'s detail when save/autostart does not report the submission started', async () => {
       installFetch((u) => {
         if (u.endsWith('/save')) {
