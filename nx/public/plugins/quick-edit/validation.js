@@ -7,6 +7,9 @@ export const VALIDATION_SEVERITY = Object.freeze({
   ERROR: 'error',
 });
 
+const VALIDATION_SEVERITIES = new Set(Object.values(VALIDATION_SEVERITY));
+export const VALIDATION_MESSAGE_MAX_LENGTH = 500;
+
 const MESSAGE_TYPES = Object.freeze({
   RUN: 'run',
   RESULT: 'result',
@@ -14,11 +17,22 @@ const MESSAGE_TYPES = Object.freeze({
 
 const runners = new Map();
 
-function isValidItem(item) {
+// Single source of truth for "is this a well-shaped validation item" — shared by this
+// module's own pre-send filter below and by da-live's independent host-side re-validation
+// (which must run this itself rather than trust that the sender did; see security notes).
+export function isValidValidationItem(item) {
   if (!item || typeof item !== 'object') return false;
-  const hasBlockIndex = Number.isInteger(item.blockIndex);
-  const hasProseIndex = Number.isInteger(item.proseIndex);
+  if (!VALIDATION_SEVERITIES.has(item.severity)) return false;
+  if (typeof item.message !== 'string' || item.message.length > VALIDATION_MESSAGE_MAX_LENGTH) return false;
+  const { blockIndex, proseIndex } = item.item ?? {};
+  const hasBlockIndex = Number.isInteger(blockIndex) && blockIndex >= 0;
+  const hasProseIndex = Number.isInteger(proseIndex) && proseIndex >= 0;
   return hasBlockIndex !== hasProseIndex;
+}
+
+export function sanitizeValidationItems(items) {
+  if (!Array.isArray(items)) return [];
+  return items.filter(isValidValidationItem);
 }
 
 async function collectItems() {
@@ -33,14 +47,12 @@ async function collectItems() {
       return;
     }
     const runnerItems = Array.isArray(outcome.value) ? outcome.value : [];
-    runnerItems.forEach((item) => {
-      if (isValidItem(item)) {
-        items.push(item);
-      } else {
-        // eslint-disable-next-line no-console
-        console.warn(`[validation] runner "${id}" produced a malformed item`, item);
-      }
-    });
+    const validItems = sanitizeValidationItems(runnerItems);
+    if (validItems.length !== runnerItems.length) {
+      // eslint-disable-next-line no-console
+      console.warn(`[validation] runner "${id}" produced a malformed item`);
+    }
+    items.push(...validItems);
   });
   return items;
 }
