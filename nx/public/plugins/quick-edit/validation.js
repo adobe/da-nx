@@ -1,6 +1,8 @@
 // Public API for project code to answer host-initiated content-validation runs.
-// Imported by identical URL from quick-edit.js (page-side handshake owner) and by
-// arbitrary project JS — the shared ES module cache gives both the same instance.
+// Imported internally by quick-edit.js (page-side handshake owner); project code never
+// imports this file directly — it reads window.qe.validation instead (set below), which
+// also means onValidationRequest/registerValidationPort just share state as one module
+// instance without needing project code to import this exact URL itself.
 export const VALIDATION_SEVERITY = Object.freeze({
   INFO: 'info',
   WARN: 'warn',
@@ -73,3 +75,9 @@ export function registerValidationPort(port) {
 export function onValidationRequest(id, runner) {
   runners.set(id, runner);
 }
+
+// Set synchronously at module-evaluation time (not gated on the port handshake, which
+// onValidationRequest doesn't need) so project code only has to race quick-edit.js's own
+// script load, not the full INIT round trip.
+window.qe = window.qe || {};
+window.qe.validation = { onValidationRequest, VALIDATION_SEVERITY };

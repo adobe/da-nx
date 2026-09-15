@@ -131,9 +131,15 @@ Its two message types (`run`, `result`) are intentionally **not** in `message-ty
 this port's whole vocabulary. Da-live-embedded only: `quick-edit.js`'s
 `setupParentController` hands `ports[1]` to `validation.js`'s registration function,
 which no-ops on `undefined` so an older da-live host (not yet sending this port) is
-harmless. `validation.js` is also the public surface project code imports directly
-(`onValidationRequest`, `VALIDATION_SEVERITY`) to register content-validation runners —
-see that file for the request/response protocol.
+harmless.
+
+Project code never imports `validation.js` directly — it's an nx-internal file, and
+quick-edit.js is already force-injected onto the page rather than authored by the
+project. Instead, evaluating `validation.js` sets `window.qe.validation =
+{ onValidationRequest, VALIDATION_SEVERITY }` as a side effect, synchronously at module
+load (not gated on the port handshake, since registering a runner doesn't need the port
+to exist yet). Project code checks for `window.qe?.validation` and calls
+`onValidationRequest` directly — see that file for the request/response protocol.
 
 ## Known gaps
 
