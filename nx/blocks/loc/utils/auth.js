@@ -9,28 +9,28 @@ export const LOGIN_ORIGIN = DA_ETC || 'https://da-etc.adobeaem.workers.dev';
 const TOKEN_BUFFER = 300000; // 5 min buffer before expiry
 
 /**
- * Builds the localStorage key a token is cached under.
- * @param {string} name - Cache-key prefix identifying the connector
- *  (e.g. 'trados', 'lionbridge').
+ * Builds the localStorage key a connector caches its da-etc-issued token
+ * under, scoped per org/site/env so different sites don't collide.
+ * @param {string} name - The da-etc integration name (e.g. 'trados', 'smartling').
  * @param {string} org - The DA org.
  * @param {string} site - The DA site.
- * @param {string} env - The connector environment (e.g. 'prod').
- * @returns {string} The cache key.
+ * @param {string} env - The environment key (e.g. 'prod').
+ * @returns {string} The localStorage key.
  */
 function tokenKey(name, org, site, env) {
   return `${name}.${org}.${site}.${env}.token`;
 }
 
 /**
- * Reads a cached token, if any.
- * @param {string} name - Cache-key prefix identifying the connector.
+ * Reads and JSON-parses a connector's cached token entry, tolerating
+ * missing or corrupt values.
+ * @param {string} name - The da-etc integration name (e.g. 'trados', 'smartling').
  * @param {string} org - The DA org.
  * @param {string} site - The DA site.
- * @param {string} env - The connector environment (e.g. 'prod').
- * @returns {{accessToken?: string, expires?: number}} The cached details,
- *  or `{}` if none are stored.
+ * @param {string} env - The environment key (e.g. 'prod').
+ * @returns {Object} The parsed value, or `{}` if missing/invalid.
  */
-function getTokenDetails(name, org, site, env) {
+export function getCachedToken(name, org, site, env) {
   const stored = localStorage.getItem(tokenKey(name, org, site, env));
   if (!stored) return {};
   try {
@@ -41,21 +41,16 @@ function getTokenDetails(name, org, site, env) {
 }
 
 /**
- * Caches a token and its expiry.
- * @param {string} name - Cache-key prefix identifying the connector.
+ * JSON-serializes and persists a connector's token details to localStorage.
+ * @param {string} name - The da-etc integration name (e.g. 'trados', 'smartling').
  * @param {string} org - The DA org.
  * @param {string} site - The DA site.
- * @param {string} env - The connector environment (e.g. 'prod').
- * @param {string} accessToken - The token to cache.
- * @param {number} expires - Epoch ms after which the token should be
- *  treated as expired.
+ * @param {string} env - The environment key (e.g. 'prod').
+ * @param {Object} value - The value to persist.
  * @returns {void}
  */
-function setTokenDetails(name, org, site, env, accessToken, expires) {
-  localStorage.setItem(
-    tokenKey(name, org, site, env),
-    JSON.stringify({ accessToken, expires }),
-  );
+export function setCachedToken(name, org, site, env, value) {
+  localStorage.setItem(tokenKey(name, org, site, env), JSON.stringify(value));
 }
 
 /**
@@ -72,6 +67,28 @@ function setTokenDetails(name, org, site, env, accessToken, expires) {
  */
 function loginUrl(name, org, site, env) {
   return `${LOGIN_ORIGIN}/${org}/sites/${site}/integrations/${name}/login?env=${env}`;
+}
+
+/**
+ * Exchanges a DA org/site's third-party service credentials - held
+ * server-side by da-etc, never sent to the browser - for a fresh token via
+ * da-etc's `/integrations/<name>/login` endpoint. The caller's own DA/IMS
+ * session (attached by `daFetch`) is what authorizes the exchange, so no
+ * secret ever reaches the browser. Returns the raw parsed response rather
+ * than a normalized shape, since that varies by integration (Trados and
+ * Lionbridge return a flat OAuth `access_token`/`expires_in` pair; Smartling
+ * nests its own `accessToken`/`refreshToken`/`expiresIn` shape under
+ * `response.data`).
+ * @param {string} name - The da-etc integration name (e.g. 'trados', 'smartling').
+ * @param {string} org - The DA org.
+ * @param {string} site - The DA site.
+ * @param {string} env - The environment key (e.g. 'prod').
+ * @returns {Promise<Object|null>} The parsed response body, or null on failure.
+ */
+export async function login(name, org, site, env) {
+  const resp = await daFetch({ url: loginUrl(name, org, site, env), opts: { method: 'POST' } });
+  if (!resp.ok) return null;
+  return resp.json();
 }
 
 /**
@@ -96,19 +113,16 @@ export async function getAccessToken(name, service, { force = false } = {}) {
   const { org, site, env = 'prod' } = service;
 
   if (!force) {
-    const { accessToken: cached, expires: cachedExpires } = getTokenDetails(name, org, site, env);
+    const { accessToken: cached, expires: cachedExpires } = getCachedToken(name, org, site, env);
     if (cached && cachedExpires > Date.now()) return cached;
   }
 
-  const opts = { method: 'POST' };
-  const resp = await daFetch({ url: loginUrl(name, org, site, env), opts });
-  if (!resp.ok) return null;
-
-  const { access_token: accessToken, expires_in: expiresIn } = await resp.json();
+  const data = await login(name, org, site, env);
+  const { access_token: accessToken, expires_in: expiresIn } = data || {};
   if (!accessToken) return null;
 
   const expires = Date.now() + (expiresIn * 1000) - TOKEN_BUFFER;
-  setTokenDetails(name, org, site, env, accessToken, expires);
+  setCachedToken(name, org, site, env, { accessToken, expires });
 
   return accessToken;
 }
