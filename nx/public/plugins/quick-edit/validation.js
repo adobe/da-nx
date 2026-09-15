@@ -11,6 +11,7 @@ export const VALIDATION_SEVERITY = Object.freeze({
 
 const VALIDATION_SEVERITIES = new Set(Object.values(VALIDATION_SEVERITY));
 export const VALIDATION_MESSAGE_MAX_LENGTH = 500;
+export const VALIDATION_TITLE_MAX_LENGTH = 100;
 
 export const MESSAGE_TYPES = Object.freeze({
   RUN: 'run',
@@ -24,10 +25,13 @@ let runner = null;
 // Single source of truth for "is this a well-shaped validation item" — shared by this
 // module's own pre-send filter below and by da-live's independent host-side re-validation
 // (which must run this itself rather than trust that the sender did; see security notes).
+// `title` names the check the item came from (e.g. "Alt text") — da-live groups results
+// by it rather than dumping everything into one bucket.
 export function isValidValidationItem(item) {
   if (!item || typeof item !== 'object') return false;
   if (!VALIDATION_SEVERITIES.has(item.severity)) return false;
   if (typeof item.message !== 'string' || item.message.length > VALIDATION_MESSAGE_MAX_LENGTH) return false;
+  if (typeof item.title !== 'string' || !item.title || item.title.length > VALIDATION_TITLE_MAX_LENGTH) return false;
   const { blockIndex, proseIndex } = item.item ?? {};
   const hasBlockIndex = Number.isInteger(blockIndex) && blockIndex >= 0;
   const hasProseIndex = Number.isInteger(proseIndex) && proseIndex >= 0;
@@ -66,7 +70,9 @@ export function registerValidationPort(port) {
     if (e.data?.type !== MESSAGE_TYPES.RUN) return;
     const { requestId } = e.data;
     const items = await collectItems();
-    port.postMessage({ type: MESSAGE_TYPES.RESULT, requestId, items });
+    port.postMessage({
+      type: MESSAGE_TYPES.RESULT, requestId, items, hasRunner: runner !== null,
+    });
   };
 }
 
