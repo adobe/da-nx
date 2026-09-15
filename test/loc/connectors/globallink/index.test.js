@@ -147,7 +147,7 @@ describe('globallink connector', () => {
       });
 
       expect(calls.some((c) => c.url.includes('/rest/v0/submissions/create'))).to.equal(false);
-      expect(langs[0].translation.status).to.equal('error');
+      expect(langs[0].translation).to.be.undefined;
     });
   });
 
@@ -205,7 +205,7 @@ describe('globallink connector', () => {
 
       const createCalls = calls.filter((c) => c.url.includes('/rest/v0/submissions/create'));
       expect(createCalls).to.have.length(2);
-      expect(langs[0].translation.status).to.equal('error');
+      expect(langs[0].translation).to.be.undefined;
     });
   });
 
@@ -273,7 +273,7 @@ describe('globallink connector', () => {
       expect(body.customAttributes).to.be.undefined;
     });
 
-    it('marks every lang error and makes no submission calls when not connected', async () => {
+    it('marks no lang state and does not persist when not connected, so retry stays available', async () => {
       installFetch(() => new Response('', { status: 401 }));
       const service = baseService();
       const options = { service };
@@ -290,14 +290,14 @@ describe('globallink connector', () => {
         title: 't', service, options, langs, urls, actions,
       });
 
-      expect(langs[0].translation.status).to.equal('error');
+      expect(langs[0].translation).to.be.undefined;
       const errorMessage = messages.find((m) => m.type === 'error');
       expect(errorMessage.text).to.equal('Not connected to GlobalLink.');
       expect(calls.some((c) => c.url.includes('/rest/v0/submissions/create'))).to.equal(false);
-      expect(saveStateCalled).to.equal(true);
+      expect(saveStateCalled).to.equal(false);
     });
 
-    it('errors when projectId or fileFormatName is missing', async () => {
+    it('errors when projectId or fileFormatName is missing, without touching lang state', async () => {
       const service = baseService({ fileFormatName: undefined });
       const options = { service };
       const langs = [{ name: 'French', code: 'fr-FR' }];
@@ -315,12 +315,12 @@ describe('globallink connector', () => {
 
       const errorMessage = messages.find((m) => m.type === 'error');
       expect(errorMessage.text).to.include('projectId and fileFormatName are required');
-      expect(langs[0].translation.status).to.equal('error');
+      expect(langs[0].translation).to.be.undefined;
       expect(calls.some((c) => c.url.includes('/rest/v0/submissions/create'))).to.equal(false);
-      expect(saveStateCalled).to.equal(true);
+      expect(saveStateCalled).to.equal(false);
     });
 
-    it('errors and stops when submission creation fails', async () => {
+    it('errors and stops when submission creation fails, without touching lang state', async () => {
       installFetch((u) => {
         if (u.includes('/rest/v0/submissions/create')) return new Response('{}', { status: 400 });
         return defaultHandler(u);
@@ -342,8 +342,9 @@ describe('globallink connector', () => {
 
       const errorMessage = messages.find((m) => m.type === 'error');
       expect(errorMessage.text).to.equal('Failed to create GlobalLink submission.');
+      expect(langs[0].translation).to.be.undefined;
       expect(calls.some((c) => c.url.includes('/upload/source'))).to.equal(false);
-      expect(saveStateCalled).to.equal(true);
+      expect(saveStateCalled).to.equal(false);
     });
 
     it('aborts and reports partial upload when not all files are accepted', async () => {

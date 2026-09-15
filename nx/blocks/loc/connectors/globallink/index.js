@@ -637,21 +637,11 @@ export async function sendAllLanguages({
   const connected = await isConnected(service);
   if (!connected) {
     sendMessage({ text: 'Not connected to GlobalLink.', type: 'error' });
-    langs.forEach((lang) => {
-      lang.translation ??= {};
-      lang.translation.status = 'error';
-    });
-    await saveState({ options });
     return;
   }
 
   if (!service.projectId || !service.fileFormatName) {
     sendMessage({ text: 'GlobalLink projectId and fileFormatName are required.', type: 'error' });
-    langs.forEach((lang) => {
-      lang.translation ??= {};
-      lang.translation.status = 'error';
-    });
-    await saveState({ options });
     return;
   }
 
@@ -666,11 +656,6 @@ export async function sendAllLanguages({
   });
   if (!submissionId) {
     sendMessage({ text: 'Failed to create GlobalLink submission.', type: 'error' });
-    langs.forEach((lang) => {
-      lang.translation ??= {};
-      lang.translation.status = 'error';
-    });
-    await saveState({ options });
     return;
   }
 
