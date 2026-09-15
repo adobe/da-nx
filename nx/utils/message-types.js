@@ -16,6 +16,7 @@ export const MESSAGE_TYPES = Object.freeze({
   SET_SELECTED_NODE: 'set-selected-node', // { node: { anchorType, proseIndex, ... } | null, scrollIntoView }
   SET_COMMENT_MARKERS: 'set-comment-markers', // { markers: [...], selectedThreadId: string | null }
   SCROLL_TO_POS: 'scroll-to-pos', // { proseIndex: number } — scroll layout mode to a comment
+  METADATA_CHANGE: 'metadata-change', // { } empty payload
 
   // Iframe -> host: ongoing
   CURSOR_MOVE: 'cursor-move', // { cursorOffset?, textCursorOffset? } — absent = clear remote cursor

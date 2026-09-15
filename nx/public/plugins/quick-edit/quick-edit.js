@@ -4,7 +4,12 @@ import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 import { restoreBlockIndices } from './src/dom-index.js';
-import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
+import {
+  captureScrollAnchor,
+  restoreScrollAnchor,
+  persistScrollAnchor,
+  consumeScrollAnchor,
+} from './src/scroll-anchor.js';
 import {
   getQuickEditPortalSrc,
   getQuickEditPreviewSrc,
@@ -39,7 +44,7 @@ const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
 let parentControllerPort = null;
 
 async function setBody(body, ctx) {
-  const anchor = captureScrollAnchor();
+  const anchor = consumeScrollAnchor() ?? captureScrollAnchor();
   const doc = new DOMParser().parseFromString(body, 'text/html');
   if (ctx.reloadMode === 'decorateMain') {
     // TODO script.js snippet to trigger this optimized version:
@@ -98,6 +103,18 @@ function handleReady(e, ctx) {
   ctx.initialized = true;
 }
 
+const METADATA_RELOAD_DELAY = 3000;
+let metadataReloadDebounce = null;
+
+// Reload only after metadata changes settle; each change resets the timer.
+function reloadPreview() {
+  clearTimeout(metadataReloadDebounce);
+  metadataReloadDebounce = setTimeout(() => {
+    persistScrollAnchor();
+    window.location.reload();
+  }, METADATA_RELOAD_DELAY);
+}
+
 function onMessage(e, ctx) {
   const { type, payload = {} } = e.data ?? {};
 
@@ -123,6 +140,9 @@ function onMessage(e, ctx) {
     scrollToProseIndex(payload.proseIndex);
   } else if (type === MESSAGE_TYPES.SET_SELECTED_NODE) {
     setSelectedNode(payload.node, document, { scrollIntoView: payload.scrollIntoView });
+  } else if (type === MESSAGE_TYPES.METADATA_CHANGE) {
+    // Metadata affects head/scripts, so a full reload is needed to re-decorate the page.
+    reloadPreview();
   }
 }
 

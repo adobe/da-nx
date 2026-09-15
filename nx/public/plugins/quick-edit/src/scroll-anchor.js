@@ -14,6 +14,27 @@ export function captureScrollAnchor() {
   return { scrollY: window.scrollY };
 }
 
+const STORAGE_KEY = 'quick-edit-scroll-anchor';
+
+// Persist an anchor across a full page reload (in-memory state is lost otherwise).
+export function persistScrollAnchor(anchor = captureScrollAnchor()) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(anchor));
+  } catch { /* sessionStorage unavailable */ }
+}
+
+// Read and clear a persisted anchor; returns null when none was stored.
+export function consumeScrollAnchor() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    sessionStorage.removeItem(STORAGE_KEY);
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 // Re-aligns to the anchor as the page reflows (images, decoration), stopping after a
 // short window or as soon as the user scrolls.
 export function restoreScrollAnchor(anchor) {
