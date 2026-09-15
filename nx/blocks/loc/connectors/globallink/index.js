@@ -613,6 +613,7 @@ export async function sendAllLanguages({
       lang.translation ??= {};
       lang.translation.status = 'error';
     });
+    await saveState({ options });
     return;
   }
 
@@ -622,6 +623,7 @@ export async function sendAllLanguages({
       lang.translation ??= {};
       lang.translation.status = 'error';
     });
+    await saveState({ options });
     return;
   }
 
@@ -640,6 +642,7 @@ export async function sendAllLanguages({
       lang.translation ??= {};
       lang.translation.status = 'error';
     });
+    await saveState({ options });
     return;
   }
 

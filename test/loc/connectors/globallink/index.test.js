@@ -236,7 +236,11 @@ describe('globallink connector', () => {
       const langs = [{ name: 'French', code: 'fr-FR' }];
       const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
       const messages = [];
-      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+      let saveStateCalled = false;
+      const actions = {
+        sendMessage: (m) => messages.push(m),
+        saveState: async () => { saveStateCalled = true; },
+      };
 
       await sendAllLanguages({
         title: 't', service, options, langs, urls, actions,
@@ -246,6 +250,7 @@ describe('globallink connector', () => {
       const errorMessage = messages.find((m) => m.type === 'error');
       expect(errorMessage.text).to.equal('Not connected to GlobalLink.');
       expect(calls.some((c) => c.url.includes('/rest/v0/submissions/create'))).to.equal(false);
+      expect(saveStateCalled).to.equal(true);
     });
 
     it('errors when projectId or fileFormatName is missing', async () => {
@@ -254,7 +259,11 @@ describe('globallink connector', () => {
       const langs = [{ name: 'French', code: 'fr-FR' }];
       const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
       const messages = [];
-      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+      let saveStateCalled = false;
+      const actions = {
+        sendMessage: (m) => messages.push(m),
+        saveState: async () => { saveStateCalled = true; },
+      };
 
       await sendAllLanguages({
         title: 't', service, options, langs, urls, actions,
@@ -264,6 +273,7 @@ describe('globallink connector', () => {
       expect(errorMessage.text).to.include('projectId and fileFormatName are required');
       expect(langs[0].translation.status).to.equal('error');
       expect(calls.some((c) => c.url.includes('/rest/v0/submissions/create'))).to.equal(false);
+      expect(saveStateCalled).to.equal(true);
     });
 
     it('errors and stops when submission creation fails', async () => {
@@ -276,7 +286,11 @@ describe('globallink connector', () => {
       const langs = [{ name: 'French', code: 'fr-FR' }];
       const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
       const messages = [];
-      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+      let saveStateCalled = false;
+      const actions = {
+        sendMessage: (m) => messages.push(m),
+        saveState: async () => { saveStateCalled = true; },
+      };
 
       await sendAllLanguages({
         title: 't', service, options, langs, urls, actions,
@@ -285,6 +299,7 @@ describe('globallink connector', () => {
       const errorMessage = messages.find((m) => m.type === 'error');
       expect(errorMessage.text).to.equal('Failed to create GlobalLink submission.');
       expect(calls.some((c) => c.url.includes('/upload/source'))).to.equal(false);
+      expect(saveStateCalled).to.equal(true);
     });
 
     it('aborts and reports partial upload when not all files are accepted', async () => {
