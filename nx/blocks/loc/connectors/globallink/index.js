@@ -318,11 +318,20 @@ async function createSubmission({
 async function uploadSourceFiles(service, submissionId, urls, batchName) {
   const files = {};
   const pathByFileName = new Map();
-  urls.forEach((url) => {
+  // Yield every 10 files so strToU8 encoding this batch doesn't freeze the tab for a
+  // user-visible stretch on large sites (hundreds of pages). zipSync itself still runs
+  // synchronously once every file is added, but that's cheap relative to encoding.
+  for (let i = 0; i < urls.length; i += 1) {
+    const url = urls[i];
     const fileName = toFileName(url.daBasePath);
     files[fileName] = strToU8(url.content);
     pathByFileName.set(fileName, url.daBasePath);
-  });
+
+    if ((i + 1) % 10 === 0) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { setTimeout(resolve, 0); });
+    }
+  }
   const zipped = zipSync(files);
 
   const body = new FormData();

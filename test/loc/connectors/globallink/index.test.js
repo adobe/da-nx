@@ -456,6 +456,36 @@ describe('globallink connector', () => {
       expect(langs[0].translation.sent).to.equal(2);
     });
 
+    it('uploads every file in a batch spanning multiple chunk-yield boundaries', async () => {
+      const total = 25;
+      let uploadedFiles;
+      installFetch(async (u, opts) => {
+        if (u.includes('/upload/source')) {
+          const zipBlob = opts.body.get('file');
+          const buf = new Uint8Array(await zipBlob.arrayBuffer());
+          uploadedFiles = unzipSync(buf);
+          const documentIds = Object.keys(uploadedFiles).map((name, i) => (
+            { name, documentId: `doc-${i}`, submissionId: 'sub-1' }
+          ));
+          return new Response(JSON.stringify({ documentIds }), { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService();
+      const options = { service };
+      const langs = [{ name: 'French', code: 'fr-FR' }];
+      const urls = Array.from({ length: total }, (_, i) => ({ daBasePath: `/page-${i}`, content: `<p>${i}</p>` }));
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 't', service, options, langs, urls, actions,
+      });
+
+      expect(Object.keys(uploadedFiles)).to.have.length(total);
+      expect(langs[0].translation.sent).to.equal(total);
+      expect(langs[0].translation.status).to.equal('created');
+    });
+
     it('stops polling for submission-ready status once the IMS session is lost mid-wait', async () => {
       installFetch((u) => {
         if (u.includes('/upload/source')) setMockIms({ anonymous: true });
