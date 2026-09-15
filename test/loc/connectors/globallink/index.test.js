@@ -229,6 +229,50 @@ describe('globallink connector', () => {
       expect(JSON.parse(service.documentIds.value)).to.deep.equal({ '/page': 'doc-1' });
     });
 
+    it('sends translation.service.custom.* options as submission-create customAttributes', async () => {
+      const service = baseService();
+      const options = {
+        service,
+        'translation.service.custom.textarea.Custom_Mandatory': 'Some value',
+        'translation.service.custom.dropdown.Custom_Priority': 'High',
+      };
+      const langs = [{ name: 'French', code: 'fr-FR' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 'My Project', service, options, langs, urls, actions,
+      });
+
+      const createCall = calls.find((c) => c.url.includes('/rest/v0/submissions/create'));
+      const body = JSON.parse(createCall.body);
+      expect(body.customAttributes).to.deep.equal([
+        { name: 'Custom_Mandatory', value: 'Some value' },
+        { name: 'Custom_Priority', value: 'High' },
+      ]);
+    });
+
+    it('omits empty, null, and undefined translation.service.custom.* values', async () => {
+      const service = baseService();
+      const options = {
+        service,
+        'translation.service.custom.textarea.Custom_Empty': '',
+        'translation.service.custom.textarea.Custom_Null': null,
+        'translation.service.custom.textarea.Custom_Undefined': undefined,
+      };
+      const langs = [{ name: 'French', code: 'fr-FR' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 'My Project', service, options, langs, urls, actions,
+      });
+
+      const createCall = calls.find((c) => c.url.includes('/rest/v0/submissions/create'));
+      const body = JSON.parse(createCall.body);
+      expect(body.customAttributes).to.be.undefined;
+    });
+
     it('marks every lang error and makes no submission calls when not connected', async () => {
       installFetch(() => new Response('', { status: 401 }));
       const service = baseService();
