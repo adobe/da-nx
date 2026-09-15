@@ -284,6 +284,6 @@ dialog {
   }
 
   .wn-cards-panel {
-    padding: var(--s2-spacing-600) 20px 0 var(--s2-spacing-600);
+    padding: 0 20px 0 var(--s2-spacing-600);
   }
 }
