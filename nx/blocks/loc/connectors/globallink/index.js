@@ -1,4 +1,3 @@
-import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
 import { zipSync, strToU8 } from '../../../../../nx2/deps/fflate/dist/index.js';
@@ -6,6 +5,7 @@ import authReady, {
   getAccessToken as getCachedAccessToken, hasImsSession, imsAccessToken, imsAuthHeader,
 } from '../../utils/auth.js';
 import fetchWithRetry from '../../utils/fetchWithRetry.js';
+import downloadQueue from '../../utils/downloadQueue.js';
 
 export const dnt = { addDnt };
 
@@ -826,8 +826,6 @@ export async function saveItems({
   );
   const documentIdsByPath = getDocumentIdsByPath(service);
 
-  const deliveredTargetIds = [];
-
   const downloadCallback = async (url) => {
     const target = targets.find((entry) => matchUrl([url], entry, documentIdsByPath));
 
@@ -856,27 +854,25 @@ export async function saveItems({
       url.sourceContent = await removeDnt({ org, site, html: text, ext: url.ext });
 
       await saveFn(url);
-      if (url.status === 'success') deliveredTargetIds.push(targetId);
+      // Marked per-item (not batched) so an interrupted run only leaves not-yet-processed
+      // targets unmarked - already-saved ones won't be redundantly re-surfaced next time.
+      if (url.status === 'success') {
+        const delivered = await markTargetsDelivered(service, submissionId, [targetId]);
+        if (!delivered) {
+          url.status = 'error';
+          sendMessage({
+            text: `Saved ${url.daBasePath}, but failed to mark it delivered on GlobalLink.`,
+            type: 'error',
+          });
+        }
+      }
     } catch {
       url.status = 'error';
     }
   };
 
-  const queue = new Queue(downloadCallback, 5);
-
-  return new Promise((resolve) => {
-    const throttle = setInterval(async () => {
-      const nextUrl = urls.find((url) => !url.inProgress);
-      if (nextUrl) {
-        nextUrl.inProgress = true;
-        queue.push(nextUrl);
-      } else if (urls.every((url) => url.status)) {
-        clearInterval(throttle);
-        await markTargetsDelivered(service, submissionId, deliveredTargetIds);
-        resolve(urls);
-      }
-    }, 250);
-  });
+  await downloadQueue(urls, downloadCallback);
+  return urls;
 }
 
 /**

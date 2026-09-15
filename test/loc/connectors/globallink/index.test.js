@@ -742,6 +742,37 @@ describe('globallink connector', () => {
       expect(deliveredBody.targetIds).to.deep.equal(['target-1']);
     });
 
+    it('marks the url errored and surfaces an error when marking delivered fails', async () => {
+      installFetch((u) => {
+        if (u.includes('/rest/v0/targets')) {
+          return new Response(JSON.stringify({
+            targets: [{
+              targetId: 'target-1', documentId: 'doc-1', targetLanguage: 'fr-FR', targetStatus: 'PROCESSED',
+            }],
+          }), { status: 200 });
+        }
+        if (u.includes('/targets/delivered')) {
+          return new Response('', { status: 400 });
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService({
+        submissionId: { value: 'sub-1' },
+        documentIds: { value: JSON.stringify({ '/page': 'doc-1' }) },
+      });
+      const urls = [{ daBasePath: '/page', ext: 'html' }];
+      const saveFn = async (url) => { url.status = 'success'; };
+      const messages = [];
+
+      const result = await saveItems({
+        org, site, service, lang: { code: 'fr-FR', name: 'French' }, urls, saveFn, sendMessage: (m) => messages.push(m),
+      });
+
+      expect(result[0].status).to.equal('error');
+      const errorMessage = messages.find((m) => m.type === 'error');
+      expect(errorMessage.text).to.include('failed to mark it delivered');
+    });
+
     it('marks a url errored when it cannot be matched to any target', async () => {
       installFetch((u) => {
         if (u.includes('/rest/v0/targets')) {
