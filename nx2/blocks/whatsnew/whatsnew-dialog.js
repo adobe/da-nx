@@ -101,6 +101,11 @@ class NxWhatsNewDialog extends LitElement {
   _observeCards() {
     const cards = [...this.shadowRoot.querySelectorAll('.wn-card')];
     this._observer = new IntersectionObserver((observed) => {
+      // Ignore updates while a click-triggered scroll is still animating —
+      // short cards can both be partially visible mid-scroll, and this
+      // "most-visible card wins" logic can otherwise flip _activeId back
+      // to the wrong card before the scroll settles on the clicked one.
+      if (this._suppressObserver) return;
       const visible = observed.filter((entry) => entry.isIntersecting);
       if (visible.length === 0) return;
       visible.sort((a, b) => b.intersectionRatio - a.intersectionRatio);
@@ -139,6 +144,8 @@ class NxWhatsNewDialog extends LitElement {
     const container = this.shadowRoot.querySelector('.wn-cards');
     if (!card || !container) return;
     this._activeId = id;
+    this._suppressObserver = true;
+    container.addEventListener('scrollend', () => { this._suppressObserver = false; }, { once: true });
     const target = card.querySelector('.wn-card-image') ?? card;
     const offset = target.getBoundingClientRect().top
       - container.getBoundingClientRect().top + container.scrollTop - 40;
