@@ -93,19 +93,7 @@ Callers don't usually need to think about this — using a namespace method hand
 
 ### Embedding on a different origin (app, plugin dialog, iframe)
 
-`loadIms`/`handleSignIn` aren't defined in this file. They're resolved once, at module-load time:
-
-```js
-export const { loadIms, handleSignIn } = await (async () => {
-  try {
-    const { getNx } = await import(`${window.location.origin}/scripts/utils.js`);
-    return await import(`${getNx()}/utils/ims.js`);
-  } catch {
-    // Default to NX1 ims.js
-    return import('../../nx/utils/ims.js');
-  }
-})();
-```
+`loadIms`/`handleSignIn` aren't defined in this file. They're resolved once, at module-load time, by the `try`/`catch` at the top of [`api.js`](./api.js#L6-L14).
 
 By default (no `${origin}/scripts/utils.js` on your page's own origin), this falls back to `nx/utils/ims.js`, which bootstraps a real IMS session via `imslib`. That flow assumes it's running on da.live's own origin: the `da-web` IMS client isn't CORS-allow-listed for arbitrary domains.
 
@@ -116,29 +104,7 @@ Provide your own `${origin}/scripts/utils.js` to fix this. It must export a `get
 - `loadIms()` → `Promise<{ accessToken?: { token: string } }>`. Resolve with `{ accessToken: { token } }` when you already have a valid token (e.g. from a postMessage-based SDK your host page already authenticates with). Resolve with anything else (`{}`, `{ anonymous: true }`) when you don't.
 - `handleSignIn()` → called when `loadIms()` resolved without `accessToken`. Implement a real sign-in flow, or leave it a no-op if there's nothing sensible to do outside da.live's own origin.
 
-Minimal example: reuse a token your host page already has, falling through to da-nx's real IMS flow when you don't.
-
-```js
-// scripts/utils.js (project root, same origin as your app/plugin page)
-export function getNx() {
-  return `${window.location.origin}/scripts/nx-shim`;
-}
-```
-
-```js
-// scripts/nx-shim/utils/ims.js
-export async function loadIms() {
-  const token = getYourExistingToken(); // however your host page already authenticates
-  if (token) return { accessToken: { token } };
-  const { loadIms } = await import('https://da.live/nx/utils/ims.js');
-  return loadIms();
-}
-
-export async function handleSignIn() {
-  const { handleSignIn } = await import('https://da.live/nx/utils/ims.js');
-  handleSignIn();
-}
-```
+Working example: [`scripts/utils.js`](https://github.com/adobe-rnd/aem-apps/blob/18685c7474ff73bd365b4f2c2dfa57c787b1ac92/scripts/utils.js) and [`scripts/nx-shim/utils/ims.js`](https://github.com/adobe-rnd/aem-apps/blob/18685c7474ff73bd365b4f2c2dfa57c787b1ac92/scripts/nx-shim/utils/ims.js) in adobe-rnd/aem-apps. It reuses a token the host page already has and falls through to da-nx's real IMS flow when there isn't one.
 
 This only changes IMS resolution for pages served from your origin. da.live itself, and any other host that doesn't define `scripts/utils.js`, are unaffected.
 
