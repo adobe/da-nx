@@ -1,8 +1,7 @@
-import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
-import { daFetch } from '../../../../../nx2/utils/api.js';
 
 import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
+import { fetchWithMsmFallback } from '../../utils/msm.js';
 import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
 
 let CONNECTOR;
@@ -50,7 +49,8 @@ export async function getUrls(
     // Fetch the content and add DNT
     const fetchUrl = async (url) => {
       const opts = { headers: { 'Cache-Control': 'no-cache' } };
-      const resp = await daFetch({ url: `${DA_ADMIN}/source/${org}/${site}${url.daDestPath}`, opts });
+      // Resolve MSM inheritance so inherited pages translate from their source site.
+      const { resp } = await fetchWithMsmFallback({ org, site, daPath: url.daDestPath, opts });
       if (!resp.ok) {
         url.error = `Error fetching content from ${url.daDestPath} - ${resp.status}`;
         return;
