@@ -118,6 +118,23 @@ upload request, the host replies with the same `IMAGE_REPLACE` type, distinguish
 `payload.error` (failure) vs `payload.newSrc` (success). Both hosts implement the full
 round-trip.
 
+## Validation port
+
+`INIT` transfers a second `MessageChannel` port alongside the control port described
+above (`event.ports[1]`), established in the same `postMessage` transfer list. It is a
+separate, single-purpose port so that project code answering validation requests never
+gains the control port's capabilities (`NODE_UPDATE`, `HISTORY`, `IMAGE_REPLACE`, etc.)
+— the port itself is the capability boundary, not a runtime type-check.
+
+Its two message types (`run`, `result`) are intentionally **not** in `message-types.js`
+— they're local constants in `nx/public/plugins/quick-edit/validation.js`, which owns
+this port's whole vocabulary. Da-live-embedded only: `quick-edit.js`'s
+`setupParentController` hands `ports[1]` to `validation.js`'s registration function,
+which no-ops on `undefined` so an older da-live host (not yet sending this port) is
+harmless. `validation.js` is also the public surface project code imports directly
+(`onValidationRequest`, `VALIDATION_SEVERITY`) to register content-validation runners —
+see that file for the request/response protocol.
+
 ## Known gaps
 
 - **Several payload fields are sent but not read by any current receiver:**

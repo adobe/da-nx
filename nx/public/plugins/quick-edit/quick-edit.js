@@ -3,6 +3,8 @@ import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
+import { isAllowedDaLiveOrigin } from '../../../utils/allowed-da-live-origins.js';
+import { registerValidationPort } from './validation.js';
 import { restoreBlockIndices } from './src/dom-index.js';
 import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
 import {
@@ -89,10 +91,12 @@ function setupParentController(loadPage) {
   const listener = (e) => {
     const isInit = e.data?.type === MESSAGE_TYPES.INIT;
     if (e.source !== window.parent || !isInit || !e.ports?.length) return;
+    if (!isAllowedDaLiveOrigin(e.origin)) return;
 
     const port = e.ports[0];
     parentControllerPort = port;
     blockLinkNavigation();
+    registerValidationPort(e.ports[1]);
 
     const config = e.data?.payload?.config ?? e.data?.init;
 
