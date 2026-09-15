@@ -130,11 +130,15 @@ class NxWhatsNewDialog extends LitElement {
   }
 
   // Scrolls so the card's image sits 40px below the top of the scroll area,
-  // rather than flush against it.
+  // rather than flush against it. Sets _activeId directly rather than
+  // waiting on the scroll observer to infer it — cards can be short enough
+  // that the observer's visibility thresholds don't reliably cross during
+  // a click-triggered scroll.
   _scrollToEntry(id) {
     const card = this.shadowRoot.querySelector(`.wn-card[data-id="${id}"]`);
     const container = this.shadowRoot.querySelector('.wn-cards');
     if (!card || !container) return;
+    this._activeId = id;
     const target = card.querySelector('.wn-card-image') ?? card;
     const offset = target.getBoundingClientRect().top
       - container.getBoundingClientRect().top + container.scrollTop - 40;
