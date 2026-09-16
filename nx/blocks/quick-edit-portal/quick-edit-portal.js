@@ -71,6 +71,7 @@ export default async function decorate(el) {
 
   async function initPort(e) {
     const isInit = e.data?.type === MESSAGE_TYPES.INIT;
+    if (e.source !== window.parent) return;
     if (isInit) {
       const [port] = e.ports;
 
