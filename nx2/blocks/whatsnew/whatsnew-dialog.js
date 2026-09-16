@@ -143,12 +143,23 @@ class NxWhatsNewDialog extends LitElement {
     const container = this.shadowRoot.querySelector('.wn-cards');
     if (!card || !container) return;
     this._activeId = id;
-    this._suppressObserver = true;
-    container.addEventListener('scrollend', () => { this._suppressObserver = false; }, { once: true });
     const target = card.querySelector('.wn-card-image') ?? card;
     const offset = target.getBoundingClientRect().top
       - container.getBoundingClientRect().top + container.scrollTop - 40;
-    container.scrollTo({ top: offset, behavior: 'smooth' });
+    const maxScroll = container.scrollHeight - container.clientHeight;
+    const clamped = Math.max(0, Math.min(offset, maxScroll));
+    // scrollend never fires when the clamped target is where we already are
+    // (e.g. clicking the already-active entry) — suppressing the observer
+    // with nothing to clear it would leave scrollspy stuck off for good.
+    if (Math.abs(clamped - container.scrollTop) >= 1) {
+      this._suppressObserver = true;
+      const clear = () => { this._suppressObserver = false; };
+      container.addEventListener('scrollend', clear, { once: true });
+      // Backstop in case scrollend doesn't fire (unsupported browser, or the
+      // scroll gets interrupted in a way that never settles).
+      setTimeout(clear, 500);
+    }
+    container.scrollTo({ top: clamped, behavior: 'smooth' });
   }
 
   render() {
