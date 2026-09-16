@@ -45,7 +45,7 @@ dialog {
   max-height: min(var(--nx-dialog-max-height, 90vh), calc(100vh - 2 * var(--s2-spacing-500)));
   max-height: min(var(--nx-dialog-max-height, 90dvh), calc(100dvh - 2 * var(--s2-spacing-500)));
   padding: var(--nx-dialog-padding, var(--s2-spacing-500));
-  gap: var(--s2-spacing-300);
+  gap: var(--nx-dialog-gap, var(--s2-spacing-300));
   border: var(--nx-dialog-border, 1px solid var(--s2-gray-200));
   border-radius: var(--s2-corner-radius-500);
   background: var(--s2-gray-25);
@@ -71,7 +71,7 @@ dialog {
 .body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow: var(--nx-dialog-body-overflow, auto);
   font-size: var(--s2-component-m-medium-font-size, 14px);
   line-height: var(--s2-component-m-medium-line-height, 1.43);
   color: var(--s2-gray-800);
@@ -83,5 +83,5 @@ dialog {
   flex-flow: row wrap;
   justify-content: flex-end;
   gap: var(--s2-spacing-100);
-  padding-top: var(--s2-spacing-200);
+  padding-top: var(--nx-dialog-actions-padding-top, var(--s2-spacing-200));
 }

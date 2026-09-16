@@ -14,6 +14,9 @@
   --nx-dialog-max-height: 620px;
   --nx-dialog-padding: 0;
   --nx-dialog-border: none;
+  --nx-dialog-gap: 0;
+  --nx-dialog-actions-padding-top: 0;
+  --nx-dialog-body-overflow: hidden;
 }
 
 .wn-body {
