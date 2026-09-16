@@ -41,7 +41,44 @@ let parentControllerPort = null;
 async function setBody(body, ctx) {
   const anchor = captureScrollAnchor();
   const doc = new DOMParser().parseFromString(body, 'text/html');
-  document.body.innerHTML = doc.body.innerHTML;
+  if (ctx.reloadMode === 'decorateMain') {
+    // TODO script.js snippet to trigger this optimized version:
+    // ;(() => {
+    //   const params = new URLSearchParams(window.location.search);
+    //   if (!params.has('quick-edit')) return;
+
+    //   document.body.classList.add('quick-edit');
+
+    //   const payload = (() => {
+    //     try {
+    //       const q = params.get('quick-edit');
+    //       return q && q !== 'on' ? JSON.parse(decodeURIComponent(q)) : {};
+    //     } catch { return {}; }
+    //   })();
+
+    //   import('https://da.live/nx/public/plugins/quick-edit/quick-edit.js')
+    //     .then(({ default: loadQuickEdit }) =>
+    //        loadQuickEdit({ ...payload, reloadMode: 'decorateMain', }, (body) => {
+    //       const main = body.querySelector('main');
+    //       decorateMain(main);
+    //       loadSections(main);
+    //     }))
+    //     .catch((e) => { console.error('[quick-edit] failed to load plugin', e); });
+    // })();
+    const staleMain = document.body.querySelector('main');
+    staleMain.innerHTML = doc.body.querySelector('main').innerHTML;
+    // TODO optionally this supports *.preview.da.live/*?quick-edit=on&controller=parent
+    // to repond with an empty main like
+    // ...
+    // <body>
+    // <header></header>
+    // <main><div></div></main>
+    // <footer></footer>
+    // </body>
+    // ...
+  } else {
+    document.body.innerHTML = doc.body.innerHTML;
+  }
   await ctx.loadPage(document);
   restoreBlockIndices(doc, document);
   applyCommentMarkers(ctx);
@@ -96,7 +133,7 @@ function blockLinkNavigation() {
   }, true);
 }
 
-function setupParentController(loadPage) {
+function setupParentController(payload, loadPage) {
   const listener = (e) => {
     const isInit = e.data?.type === MESSAGE_TYPES.INIT;
     if (e.source !== window.parent || !isInit || !e.ports?.length) return;
@@ -112,6 +149,7 @@ function setupParentController(loadPage) {
       loadPage,
       port,
       readOnly: config?.canWrite !== true,
+      reloadMode: payload.reloadMode,
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
@@ -140,6 +178,7 @@ function setupIframeController(payload, loadPage) {
   const ctx = {
     initialized: false,
     loadPage,
+    reloadMode: payload.reloadMode,
   };
 
   const iframe = document.createElement('iframe');
@@ -246,7 +285,7 @@ export default async function loadQuickEdit(payload, loadPage) {
   const detail = payload?.detail ?? payload ?? {};
   const params = new URLSearchParams(window.location.search);
   if (params.get('controller') === 'parent') {
-    setupParentController(loadPage);
+    setupParentController(detail, loadPage);
   } else if (isStandaloneShell(window.location.href)) {
     setupStandaloneShell(detail);
   } else {
