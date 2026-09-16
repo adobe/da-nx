@@ -225,8 +225,10 @@ describe('globallink connector', () => {
       expect(calls.some((c) => c.url === `${proxyOrigin}/rest/v0/submissions/sub-1/upload/source`)).to.equal(true);
       expect(langs[0].translation.status).to.equal('created');
       expect(langs[0].translation.sent).to.equal(1);
-      expect(service.submissionId.value).to.equal('sub-1');
-      expect(JSON.parse(service.documentIds.value)).to.deep.equal({ '/page': 'doc-1' });
+      expect(JSON.parse(service.submissionIds.value)).to.deep.equal(['sub-1']);
+      expect(JSON.parse(service.documentIds.value)).to.deep.equal({
+        '/page': { documentId: 'doc-1', submissionId: 'sub-1' },
+      });
     });
 
     it('sends translation.service.custom.* options as submission-create customAttributes', async () => {
@@ -382,7 +384,7 @@ describe('globallink connector', () => {
       expect(calls.some((c) => c.url.endsWith('/save'))).to.equal(false);
     });
 
-    it('warns when GlobalLink splits the upload into an overflow submission', async () => {
+    it('tracks an overflow submission GlobalLink splits the upload into', async () => {
       installFetch((u) => {
         if (u.includes('/upload/source')) {
           return new Response(JSON.stringify({
@@ -391,6 +393,13 @@ describe('globallink connector', () => {
               { name: 'page-2.html', documentId: 'doc-2', submissionId: 'sub-2' },
             ],
           }), { status: 200 });
+        }
+        if (u.endsWith('/save')) {
+          const [, submissionId] = u.match(/submissions\/([^/]+)\/save/);
+          return new Response(
+            JSON.stringify({ startedSubmissionIds: [submissionId] }),
+            { status: 200 },
+          );
         }
         return defaultHandler(u);
       });
@@ -408,9 +417,19 @@ describe('globallink connector', () => {
         title: 't', service, options, langs, urls, actions,
       });
 
-      const errorMessage = messages.find((m) => m.type === 'error' && m.text.includes('split'));
-      expect(errorMessage.text).to.include('sub-2');
       expect(langs[0].translation.status).to.equal('created');
+      expect(JSON.parse(service.submissionIds.value)).to.deep.equal(['sub-1', 'sub-2']);
+      expect(JSON.parse(service.documentIds.value)).to.deep.equal({
+        '/page-1': { documentId: 'doc-1', submissionId: 'sub-1' },
+        '/page-2': { documentId: 'doc-2', submissionId: 'sub-2' },
+      });
+      // Both submissions must be waited-on and saved/started, not just the primary one.
+      expect(calls.some((c) => c.url === `${proxyOrigin}/rest/v0/submissions/sub-1/save`)).to.equal(true);
+      expect(calls.some((c) => c.url === `${proxyOrigin}/rest/v0/submissions/sub-2/save`)).to.equal(true);
+
+      // The multi-submission split is a GlobalLink-internal detail - no user-facing message.
+      expect(messages.every((m) => m?.type !== 'error')).to.equal(true);
+      expect(messages[messages.length - 1]).to.equal(undefined);
     });
 
     it('aborts and does not autostart when GlobalLink reports upload processing errored', async () => {
@@ -588,7 +607,7 @@ describe('globallink connector', () => {
 
     it('errors when not connected', async () => {
       installFetch(() => new Response('', { status: 401 }));
-      const service = baseService({ submissionId: { value: 'sub-1' } });
+      const service = baseService({ submissionIds: { value: JSON.stringify(['sub-1']) } });
       const langs = [{ code: 'fr-FR', translation: { status: 'created' } }];
       const messages = [];
       const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
@@ -611,8 +630,8 @@ describe('globallink connector', () => {
         return defaultHandler(u);
       });
       const service = baseService({
-        submissionId: { value: 'sub-1' },
-        documentIds: { value: JSON.stringify({ '/page': 'doc-1' }) },
+        submissionIds: { value: JSON.stringify(['sub-1']) },
+        documentIds: { value: JSON.stringify({ '/page': { documentId: 'doc-1', submissionId: 'sub-1' } }) },
       });
       const langs = [{ code: 'fr-FR', translation: { translated: 0 } }];
       const urls = [{ daBasePath: '/page' }];
@@ -636,8 +655,8 @@ describe('globallink connector', () => {
         return defaultHandler(u);
       });
       const service = baseService({
-        submissionId: { value: 'sub-1' },
-        documentIds: { value: JSON.stringify({ '/page': 'doc-1' }) },
+        submissionIds: { value: JSON.stringify(['sub-1']) },
+        documentIds: { value: JSON.stringify({ '/page': { documentId: 'doc-1', submissionId: 'sub-1' } }) },
       });
       const langs = [{ code: 'fr-FR', translation: { translated: 0 } }];
       const urls = [{ daBasePath: '/page' }];
@@ -661,8 +680,8 @@ describe('globallink connector', () => {
         return defaultHandler(u);
       });
       const service = baseService({
-        submissionId: { value: 'sub-1' },
-        documentIds: { value: JSON.stringify({ '/page': 'doc-1' }) },
+        submissionIds: { value: JSON.stringify(['sub-1']) },
+        documentIds: { value: JSON.stringify({ '/page': { documentId: 'doc-1', submissionId: 'sub-1' } }) },
       });
       const langs = [{ code: 'fr-FR', translation: { translated: 1, status: 'complete', saved: 1 } }];
       const urls = [{ daBasePath: '/page' }];
@@ -686,8 +705,8 @@ describe('globallink connector', () => {
         return defaultHandler(u);
       });
       const service = baseService({
-        submissionId: { value: 'sub-1' },
-        documentIds: { value: JSON.stringify({ '/page': 'doc-1' }) },
+        submissionIds: { value: JSON.stringify(['sub-1']) },
+        documentIds: { value: JSON.stringify({ '/page': { documentId: 'doc-1', submissionId: 'sub-1' } }) },
       });
       const langs = [{ code: 'fr-FR', translation: { translated: 0, status: 'cancelled' } }];
       const urls = [{ daBasePath: '/page' }];
@@ -711,8 +730,8 @@ describe('globallink connector', () => {
         return defaultHandler(u);
       });
       const service = baseService({
-        submissionId: { value: 'sub-1' },
-        documentIds: { value: JSON.stringify({ '/page': 'doc-1' }) },
+        submissionIds: { value: JSON.stringify(['sub-1']) },
+        documentIds: { value: JSON.stringify({ '/page': { documentId: 'doc-1', submissionId: 'sub-1' } }) },
       });
       const langs = [{ code: 'fr-FR', translation: { translated: 0 } }];
       const urls = [{ daBasePath: '/page' }];
@@ -731,7 +750,7 @@ describe('globallink connector', () => {
       const documentIdsByPath = {};
       const urls = [];
       for (let i = 0; i < totalTargets; i += 1) {
-        documentIdsByPath[`/page-${i}`] = `doc-${i}`;
+        documentIdsByPath[`/page-${i}`] = { documentId: `doc-${i}`, submissionId: 'sub-1' };
         urls.push({ daBasePath: `/page-${i}` });
       }
 
@@ -752,7 +771,7 @@ describe('globallink connector', () => {
       });
 
       const service = baseService({
-        submissionId: { value: 'sub-1' },
+        submissionIds: { value: JSON.stringify(['sub-1']) },
         documentIds: { value: JSON.stringify(documentIdsByPath) },
       });
       const langs = [{ code: 'fr-FR', translation: { translated: 0 } }];
@@ -764,6 +783,40 @@ describe('globallink connector', () => {
 
       expect(pageRequests).to.deep.equal([0, 1]);
       expect(langs[0].translation.translated).to.equal(totalTargets);
+      expect(langs[0].translation.status).to.equal('translated');
+    });
+
+    it('checks status across every submission a project spans, not just the primary one', async () => {
+      installFetch((u) => {
+        if (u.includes('/rest/v0/targets')) {
+          expect(new URL(u).searchParams.get('submissionIds')).to.equal('sub-1,sub-2');
+          return new Response(JSON.stringify({
+            targets: [
+              { documentId: 'doc-1', targetLanguage: 'fr-FR', targetStatus: 'PROCESSED' },
+              { documentId: 'doc-2', targetLanguage: 'fr-FR', targetStatus: 'PROCESSED' },
+            ],
+          }), { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService({
+        submissionIds: { value: JSON.stringify(['sub-1', 'sub-2']) },
+        documentIds: {
+          value: JSON.stringify({
+            '/page-1': { documentId: 'doc-1', submissionId: 'sub-1' },
+            '/page-2': { documentId: 'doc-2', submissionId: 'sub-2' },
+          }),
+        },
+      });
+      const langs = [{ code: 'fr-FR', translation: { translated: 0 } }];
+      const urls = [{ daBasePath: '/page-1' }, { daBasePath: '/page-2' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await getStatusAll({
+        service, langs, urls, actions,
+      });
+
+      expect(langs[0].translation.translated).to.equal(2);
       expect(langs[0].translation.status).to.equal('translated');
     });
   });
@@ -783,7 +836,7 @@ describe('globallink connector', () => {
 
     it('returns urls unchanged when not connected', async () => {
       installFetch(() => new Response('', { status: 401 }));
-      const service = baseService({ submissionId: { value: 'sub-1' } });
+      const service = baseService({ submissionIds: { value: JSON.stringify(['sub-1']) } });
       const urls = [{ daBasePath: '/page', ext: 'html' }];
 
       const result = await saveItems({
@@ -803,7 +856,7 @@ describe('globallink connector', () => {
         }
         return defaultHandler(u);
       });
-      const service = baseService({ submissionId: { value: 'sub-1' } });
+      const service = baseService({ submissionIds: { value: JSON.stringify(['sub-1']) } });
       const urls = [{ daBasePath: '/page', ext: 'html' }];
       const messages = [];
 
@@ -833,7 +886,7 @@ describe('globallink connector', () => {
         }
         return defaultHandler(u);
       });
-      const service = baseService({ submissionId: { value: 'sub-1' } });
+      const service = baseService({ submissionIds: { value: JSON.stringify(['sub-1']) } });
       const urls = [{ daBasePath: '/page', ext: 'html' }];
       const messages = [];
 
@@ -868,8 +921,8 @@ describe('globallink connector', () => {
         return defaultHandler(u);
       });
       const service = baseService({
-        submissionId: { value: 'sub-1' },
-        documentIds: { value: JSON.stringify({ '/page': 'doc-1' }) },
+        submissionIds: { value: JSON.stringify(['sub-1']) },
+        documentIds: { value: JSON.stringify({ '/page': { documentId: 'doc-1', submissionId: 'sub-1' } }) },
       });
       const urls = [{ daBasePath: '/page', ext: 'html' }];
       const saveFn = async (url) => { url.status = 'success'; };
@@ -891,7 +944,7 @@ describe('globallink connector', () => {
       const documentIdsByPath = {};
       const targets = [];
       for (let i = 0; i < total; i += 1) {
-        documentIdsByPath[`/page-${i}`] = `doc-${i}`;
+        documentIdsByPath[`/page-${i}`] = { documentId: `doc-${i}`, submissionId: 'sub-1' };
         targets.push({
           targetId: `target-${i}`, documentId: `doc-${i}`, targetLanguage: 'fr-FR', targetStatus: 'PROCESSED',
         });
@@ -908,7 +961,7 @@ describe('globallink connector', () => {
         return defaultHandler(u);
       });
       const service = baseService({
-        submissionId: { value: 'sub-1' },
+        submissionIds: { value: JSON.stringify(['sub-1']) },
         documentIds: { value: JSON.stringify(documentIdsByPath) },
       });
       const urls = Array.from({ length: total }, (_, i) => ({ daBasePath: `/page-${i}`, ext: 'html' }));
@@ -938,8 +991,8 @@ describe('globallink connector', () => {
         return defaultHandler(u);
       });
       const service = baseService({
-        submissionId: { value: 'sub-1' },
-        documentIds: { value: JSON.stringify({ '/page': 'doc-1' }) },
+        submissionIds: { value: JSON.stringify(['sub-1']) },
+        documentIds: { value: JSON.stringify({ '/page': { documentId: 'doc-1', submissionId: 'sub-1' } }) },
       });
       const urls = [{ daBasePath: '/page', ext: 'html' }];
       const saveFn = async (url) => { url.status = 'success'; };
@@ -965,8 +1018,8 @@ describe('globallink connector', () => {
         }
         return defaultHandler(u);
       });
-      // No documentIds map persisted on the service, so matchUrl can't resolve anything.
-      const service = baseService({ submissionId: { value: 'sub-1' } });
+      // No documentIds map persisted on the service, so the target can't be resolved.
+      const service = baseService({ submissionIds: { value: JSON.stringify(['sub-1']) } });
       const urls = [{ daBasePath: '/page', ext: 'html' }];
       const saveFn = async (url) => { url.status = 'success'; };
 
@@ -990,8 +1043,8 @@ describe('globallink connector', () => {
         return defaultHandler(u);
       });
       const service = baseService({
-        submissionId: { value: 'sub-1' },
-        documentIds: { value: JSON.stringify({ '/page': 'doc-1' }) },
+        submissionIds: { value: JSON.stringify(['sub-1']) },
+        documentIds: { value: JSON.stringify({ '/page': { documentId: 'doc-1', submissionId: 'sub-1' } }) },
       });
       const urls = [{ daBasePath: '/page', ext: 'html' }];
       const saveFn = async (url) => { url.status = 'success'; };
@@ -1001,6 +1054,58 @@ describe('globallink connector', () => {
       });
 
       expect(result[0].status).to.equal('error');
+    });
+
+    it('downloads and marks delivered against the correct submission when documents span more than one', async () => {
+      const deliveredCalls = [];
+      installFetch((u, opts) => {
+        if (u.includes('/rest/v0/targets')) {
+          expect(new URL(u).searchParams.get('submissionIds')).to.equal('sub-1,sub-2');
+          return new Response(JSON.stringify({
+            targets: [
+              {
+                targetId: 'target-1', documentId: 'doc-1', targetLanguage: 'fr-FR', targetStatus: 'PROCESSED',
+              },
+              {
+                targetId: 'target-2', documentId: 'doc-2', targetLanguage: 'fr-FR', targetStatus: 'PROCESSED',
+              },
+            ],
+          }), { status: 200 });
+        }
+        if (u.includes('/targets/delivered')) {
+          deliveredCalls.push({ url: u, body: JSON.parse(opts.body) });
+          return new Response('{}', { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService({
+        submissionIds: { value: JSON.stringify(['sub-1', 'sub-2']) },
+        documentIds: {
+          value: JSON.stringify({
+            '/page-1': { documentId: 'doc-1', submissionId: 'sub-1' },
+            '/page-2': { documentId: 'doc-2', submissionId: 'sub-2' },
+          }),
+        },
+      });
+      const urls = [
+        { daBasePath: '/page-1', ext: 'html' },
+        { daBasePath: '/page-2', ext: 'html' },
+      ];
+      const saveFn = async (url) => { url.status = 'success'; };
+
+      const result = await saveItems({
+        org, site, service, lang: { code: 'fr-FR', name: 'French' }, urls, saveFn, sendMessage: () => {},
+      });
+
+      expect(result.every((url) => url.status === 'success')).to.equal(true);
+      expect(calls.some(
+        (c) => c.url === `${proxyOrigin}/rest/v0/submissions/sub-1/targets/target-1/download/deliverable`,
+      )).to.equal(true);
+      expect(calls.some(
+        (c) => c.url === `${proxyOrigin}/rest/v0/submissions/sub-2/targets/target-2/download/deliverable`,
+      )).to.equal(true);
+      expect(deliveredCalls.find((c) => c.url.includes('sub-1')).body.targetIds).to.deep.equal(['target-1']);
+      expect(deliveredCalls.find((c) => c.url.includes('sub-2')).body.targetIds).to.deep.equal(['target-2']);
     });
   });
 
@@ -1019,7 +1124,7 @@ describe('globallink connector', () => {
 
     it('fails when not connected', async () => {
       installFetch(() => new Response('', { status: 401 }));
-      const service = baseService({ submissionId: { value: 'sub-1' } });
+      const service = baseService({ submissionIds: { value: JSON.stringify(['sub-1']) } });
       const messages = [];
 
       const result = await cancelTranslation({
@@ -1038,7 +1143,7 @@ describe('globallink connector', () => {
         }
         return defaultHandler(u);
       });
-      const service = baseService({ submissionId: { value: 'sub-1' } });
+      const service = baseService({ submissionIds: { value: JSON.stringify(['sub-1']) } });
       const messages = [];
 
       const result = await cancelTranslation({
@@ -1066,7 +1171,7 @@ describe('globallink connector', () => {
         }
         return defaultHandler(u);
       });
-      const service = baseService({ submissionId: { value: 'sub-1' } });
+      const service = baseService({ submissionIds: { value: JSON.stringify(['sub-1']) } });
 
       const result = await cancelTranslation({
         service, lang: { code: 'fr-FR', name: 'French' }, sendMessage: () => {},
@@ -1088,7 +1193,7 @@ describe('globallink connector', () => {
         }
         return defaultHandler(u);
       });
-      const service = baseService({ submissionId: { value: 'sub-1' } });
+      const service = baseService({ submissionIds: { value: JSON.stringify(['sub-1']) } });
       const messages = [];
 
       const result = await cancelTranslation({
@@ -1098,6 +1203,48 @@ describe('globallink connector', () => {
       expect(result).to.deep.equal({ ok: false });
       const errorMessage = messages.find((m) => m.type === 'error');
       expect(errorMessage.text).to.include('Targets already in progress');
+    });
+
+    it('cancels targets on every submission a project spans, skipping ones with no matching targets', async () => {
+      const cancelCalls = [];
+      installFetch((u, opts) => {
+        if (u.includes('/rest/v0/targets')) {
+          const submissionIds = new URL(u).searchParams.get('submissionIds');
+          if (submissionIds === 'sub-1') {
+            return new Response(JSON.stringify({
+              targets: [{ targetId: 'target-1', targetLanguage: 'fr-FR' }],
+            }), { status: 200 });
+          }
+          if (submissionIds === 'sub-2') {
+            return new Response(JSON.stringify({
+              targets: [
+                { targetId: 'target-2', targetLanguage: 'fr-FR' },
+                { targetId: 'target-3', targetLanguage: 'de-DE' },
+              ],
+            }), { status: 200 });
+          }
+          return new Response(JSON.stringify({ targets: [] }), { status: 200 });
+        }
+        if (u.includes('/submissions/cancel/')) {
+          cancelCalls.push({ url: u, body: JSON.parse(opts.body) });
+          return new Response('{}', { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService({
+        submissionIds: { value: JSON.stringify(['sub-1', 'sub-2']) },
+      });
+
+      const result = await cancelTranslation({
+        service, lang: { code: 'fr-FR', name: 'French' }, sendMessage: () => {},
+      });
+
+      expect(result).to.deep.equal({ ok: true });
+      expect(cancelCalls).to.have.length(2);
+      const sub1Call = cancelCalls.find((c) => c.url.endsWith('/cancel/sub-1'));
+      const sub2Call = cancelCalls.find((c) => c.url.endsWith('/cancel/sub-2'));
+      expect(sub1Call.body.targetIds).to.deep.equal(['target-1']);
+      expect(sub2Call.body.targetIds).to.deep.equal(['target-2']);
     });
   });
 });

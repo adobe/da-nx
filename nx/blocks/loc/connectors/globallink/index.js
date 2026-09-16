@@ -156,13 +156,14 @@ function documentIdOf(target) {
  * submission, not individual documents — and file-name matching is fuzzy, since two
  * documents' flattened names can overlap, so neither is used as a fallback.
  * @param {object[]} urls - The DA url entries to index.
- * @param {object} documentIdsByPath - The `daBasePath -> documentId` map from upload time.
+ * @param {object} documentsByPath - The `daBasePath -> {documentId, submissionId}` map from
+ * upload time (see {@link getDocumentsByPath}).
  * @returns {Map<string, object>} The `documentId -> url` map.
  */
-function indexUrlsByDocumentId(urls, documentIdsByPath) {
+function indexUrlsByDocumentId(urls, documentsByPath) {
   const map = new Map();
   urls.forEach((url) => {
-    const docId = documentIdsByPath[url.daBasePath];
+    const docId = documentsByPath[url.daBasePath]?.documentId;
     if (docId) map.set(docId, url);
   });
   return map;
@@ -185,20 +186,41 @@ function indexTargetsByDocumentId(targets) {
 }
 
 /**
- * Reads the `daBasePath -> documentId` map persisted by {@link sendAllLanguages}, used to
- * precisely match GlobalLink targets back to DA urls (see {@link indexUrlsByDocumentId}
- * and {@link indexTargetsByDocumentId}) instead of relying solely on fuzzy file-name
- * matching.
+ * Reads the `daBasePath -> {documentId, submissionId}` map persisted by
+ * {@link sendAllLanguages}, used to precisely match GlobalLink targets back to DA urls
+ * (see {@link indexUrlsByDocumentId} and {@link indexTargetsByDocumentId}) instead of
+ * relying solely on fuzzy file-name matching, and to know which submission a given
+ * document actually landed in (see {@link uploadSourceFiles} on why a project can span
+ * more than one submission).
  * @param {object} service - The flattened per-environment service config, including the
  * previously persisted `documentIds`.
  * @returns {object} The map, or an empty object if absent/unparsable (e.g. a submission
  * created before this map existed).
  */
-function getDocumentIdsByPath(service) {
+function getDocumentsByPath(service) {
   try {
     return JSON.parse(service.documentIds?.value || '{}');
   } catch {
     return {};
+  }
+}
+
+/**
+ * Reads every submission id a project's translation spans: the one {@link createSubmission}
+ * created, plus any additional submission(s) GlobalLink silently created when the upload
+ * exceeded its per-submission file limit (see {@link uploadSourceFiles}). Every
+ * submission-scoped call (status, targets, downloads, cancel) needs to be made once per id
+ * here and the results combined, rather than assuming a project only ever spans one.
+ * @param {object} service - The flattened per-environment service config, including the
+ * previously persisted `submissionIds`.
+ * @returns {string[]} Every known submission id for this project, or an empty array if
+ * none have been persisted yet.
+ */
+function getAllSubmissionIds(service) {
+  try {
+    return JSON.parse(service.submissionIds?.value || '[]');
+  } catch {
+    return [];
   }
 }
 
@@ -241,6 +263,21 @@ async function waitForSubmissionReady(service, submissionId) {
   }
   // Proceed to save even if status stays ambiguous — PD often finishes during save.
   return true;
+}
+
+/**
+ * Waits for every submission a project spans (see {@link uploadSourceFiles}) to finish
+ * processing its uploads, polling each concurrently rather than one after another.
+ * @param {object} service - The flattened per-environment service config.
+ * @param {string[]} submissionIds - Every submission id to wait on.
+ * @returns {Promise<boolean>} Whether every submission reported ready (see
+ * {@link waitForSubmissionReady}).
+ */
+async function waitForAllSubmissionsReady(service, submissionIds) {
+  const results = await Promise.all(
+    submissionIds.map((submissionId) => waitForSubmissionReady(service, submissionId)),
+  );
+  return results.every(Boolean);
 }
 
 /**
@@ -322,17 +359,20 @@ async function createSubmission({
  * "upload files zipped in a single call" guidance, instead of one call per file. If the
  * submission has hit GlobalLink's per-submission file limit, GlobalLink silently places
  * overflow documents in a new, separate submission instead — the response's
- * `documentIds[].submissionId` reveals this when it doesn't match `submissionId`.
+ * `documentIds[].submissionId` reveals this when it doesn't match `submissionId`, and is
+ * recorded per document (rather than discarded) so every later status/download/cancel call
+ * can be made against the right submission (see {@link getAllSubmissionIds}).
  * @param {object} service - The flattened per-environment service config.
  * @param {string} service.fileFormatName - The GlobalLink file format to upload as.
  * @param {string|number} submissionId - The target submission id.
  * @param {object[]} urls - The DA url entries to upload.
  * @param {string} batchName - The name of the batch these documents belong to, matching the
  * one passed to {@link createSubmission}.
- * @returns {Promise<{uploadedFileNames: Set<string>, overflowSubmissionIds: string[],
- * documentIdsByPath: object}>} The file names GlobalLink confirmed receiving, any other
- * submission id(s) it placed some of them under, and a `daBasePath -> documentId` map for
- * precise status/download matching later (see {@link indexUrlsByDocumentId}).
+ * @returns {Promise<{uploadedFileNames: Set<string>, submissionIds: string[],
+ * documentsByPath: object}>} The file names GlobalLink confirmed receiving, every
+ * submission id the upload actually spans (the requested one plus any it was split
+ * across), and a `daBasePath -> {documentId, submissionId}` map for precise
+ * status/download matching later (see {@link indexUrlsByDocumentId}).
  */
 async function uploadSourceFiles(service, submissionId, urls, batchName) {
   const files = {};
@@ -368,27 +408,33 @@ async function uploadSourceFiles(service, submissionId, urls, batchName) {
   };
   const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
   if (!resp.ok) {
-    return { uploadedFileNames: new Set(), overflowSubmissionIds: [], documentIdsByPath: {} };
+    return {
+      uploadedFileNames: new Set(), submissionIds: [String(submissionId)], documentsByPath: {},
+    };
   }
 
   // processId is returned asynchronously; submission-level status is polled after all uploads.
   const json = await resp.json().catch(() => null);
   const documentIds = json?.documentIds || [];
   const uploadedFileNames = new Set(documentIds.map((doc) => doc.name));
-  const overflowSubmissionIds = [...new Set(
-    documentIds
-      .map((doc) => String(doc.submissionId))
-      .filter((id) => id && id !== String(submissionId)),
-  )];
+  const submissionIds = [...new Set([
+    String(submissionId),
+    ...documentIds.map((doc) => String(doc.submissionId)),
+  ].filter(Boolean))];
 
-  const documentIdsByPath = documentIds.reduce((acc, doc) => {
+  const documentsByPath = documentIds.reduce((acc, doc) => {
     const daBasePath = pathByFileName.get(doc.name);
     const documentId = doc.documentId ?? doc.id;
-    if (daBasePath && documentId != null) acc[daBasePath] = String(documentId);
+    if (daBasePath && documentId != null) {
+      acc[daBasePath] = {
+        documentId: String(documentId),
+        submissionId: String(doc.submissionId ?? submissionId),
+      };
+    }
     return acc;
   }, {});
 
-  return { uploadedFileNames, overflowSubmissionIds, documentIdsByPath };
+  return { uploadedFileNames, submissionIds, documentsByPath };
 }
 
 /**
@@ -417,22 +463,43 @@ async function saveAndAutostart(service, submissionId) {
   return { started, messages: json?.messages ?? null };
 }
 
+/**
+ * Saves and auto-starts every submission a project spans (see {@link uploadSourceFiles}).
+ * `/save` is submission-scoped, so this issues one call per id (concurrently) rather than
+ * assuming a project only ever created a single submission.
+ * @param {object} service - The flattened per-environment service config.
+ * @param {string[]} submissionIds - Every submission id to save/start.
+ * @returns {Promise<{started: boolean, messages: string[]|null}>} Whether every submission
+ * started, plus every message any of them returned (e.g. explaining why one didn't).
+ */
+async function saveAndAutostartAll(service, submissionIds) {
+  const results = await Promise.all(
+    submissionIds.map((submissionId) => saveAndAutostart(service, submissionId)),
+  );
+  const started = results.every((result) => result.started);
+  const messages = results.flatMap((result) => result.messages || []);
+  return { started, messages: messages.length ? messages : null };
+}
+
 const TARGETS_PAGE_SIZE = 200;
 const TARGETS_PAGE_MAX = 50;
 
 /**
- * Fetches a single page of a submission's targets. Status/language filtering is done
- * client-side (see {@link listTargets}'s callers) rather than via query params — GlobalLink's
- * `targetStatus`/`targetLanguage` request params aren't confirmed valid for this endpoint,
- * and a status filter would also need to cover both `PROCESSED` and `DELIVERED`.
+ * Fetches a single page of one or more submissions' targets. `submissionIds` accepts a
+ * comma-delimited list, so a project spanning multiple submissions (see
+ * {@link uploadSourceFiles}) can be queried in one paginated sweep instead of one per
+ * submission. Status/language filtering is done client-side (see {@link listTargets}'s
+ * callers) rather than via query params — GlobalLink's `targetStatus`/`targetLanguage`
+ * request params aren't confirmed valid for this endpoint, and a status filter would also
+ * need to cover both `PROCESSED` and `DELIVERED`.
  * @param {object} service - The flattened per-environment service config.
- * @param {string|number} submissionId - The submission whose targets to list.
+ * @param {(string|number)[]} submissionIds - The submission(s) whose targets to list.
  * @param {number} pageNumber - The 0-based page number to fetch.
  * @returns {Promise<object[]|null>} The page's targets, or `null` on failure.
  */
-async function listTargetsPage(service, submissionId, pageNumber) {
+async function listTargetsPage(service, submissionIds, pageNumber) {
   const reqUrl = new URL(`${resolveOrigin(service)}/rest/v0/targets`);
-  reqUrl.searchParams.set('submissionIds', submissionId);
+  reqUrl.searchParams.set('submissionIds', submissionIds.join(','));
   // 200 is the API's maximum page size — a larger value is rejected outright.
   reqUrl.searchParams.set('pageSize', String(TARGETS_PAGE_SIZE));
   reqUrl.searchParams.set('pageNumber', String(pageNumber));
@@ -448,20 +515,23 @@ async function listTargetsPage(service, submissionId, pageNumber) {
 }
 
 /**
- * Lists all of a submission's targets (per-document, per-language translation records).
- * Pages through the full result set, stopping once a page comes back short of
- * `TARGETS_PAGE_SIZE` (or after `TARGETS_PAGE_MAX` pages, as a safety net against an
- * unexpected always-full-page response). Callers filter the result themselves (by status,
- * language, etc.) — see {@link isProcessed}, {@link isCancelled}, {@link targetLanguageOf}.
+ * Lists all targets (per-document, per-language translation records) across one or more
+ * submissions. Pages through the full combined result set, stopping once a page comes
+ * back short of `TARGETS_PAGE_SIZE` (or after `TARGETS_PAGE_MAX` pages, as a safety net
+ * against an unexpected always-full-page response). Callers filter the result themselves
+ * (by status, language, etc.) — see {@link isProcessed}, {@link isCancelled},
+ * {@link targetLanguageOf}.
  * @param {object} service - The flattened per-environment service config.
- * @param {string|number} submissionId - The submission whose targets to list.
- * @returns {Promise<object[]>} All of the submission's targets, or an empty array on failure.
+ * @param {(string|number)[]} submissionIds - The submission(s) whose targets to list.
+ * @returns {Promise<object[]>} Every submission's targets combined, or an empty array if
+ * there are no submissions or the request fails.
  */
-async function listTargets(service, submissionId) {
+async function listTargets(service, submissionIds) {
+  if (!submissionIds.length) return [];
   const targets = [];
   for (let pageNumber = 0; pageNumber < TARGETS_PAGE_MAX; pageNumber += 1) {
     // eslint-disable-next-line no-await-in-loop
-    const page = await listTargetsPage(service, submissionId, pageNumber);
+    const page = await listTargetsPage(service, submissionIds, pageNumber);
     if (!page) return pageNumber === 0 ? [] : targets;
     targets.push(...page);
     if (page.length < TARGETS_PAGE_SIZE) break;
@@ -618,7 +688,9 @@ export function connect(service) {
  * @param {object} conf - The translation-send configuration.
  * @param {string} conf.title - The localization project title.
  * @param {object} conf.service - The flattened per-environment service config (mutated
- * in place with the created `submissionId` and the `documentIds` daBasePath map).
+ * in place with the created `submissionIds` — every submission GlobalLink used to hold
+ * the project, including any it silently split the upload across — and the `documentIds`
+ * daBasePath map).
  * @param {object} conf.options - The full localization project options, including any
  * `translation.service.custom.*` fields required as GlobalLink submission custom attributes.
  * @param {object[]} conf.langs - The target languages to send (mutated in place with
@@ -659,27 +731,21 @@ export async function sendAllLanguages({
     return;
   }
 
-  // Persist for status / download
-  options.service.submissionId = { value: String(submissionId) };
-
   sendMessage({ text: `Uploading ${urls.length} items to GlobalLink.` });
-  const { uploadedFileNames, overflowSubmissionIds, documentIdsByPath } = await uploadSourceFiles(
+  const { uploadedFileNames, submissionIds, documentsByPath } = await uploadSourceFiles(
     service,
     submissionId,
     urls,
     batchName,
   );
-  if (Object.keys(documentIdsByPath).length) {
-    options.service.documentIds = { value: JSON.stringify(documentIdsByPath) };
+  if (Object.keys(documentsByPath).length) {
+    options.service.documentIds = { value: JSON.stringify(documentsByPath) };
   }
+  // GlobalLink may silently split the upload across additional submission(s) beyond the
+  // requested one - persist all of them so status/downloads/cancel can be checked against
+  // every submission the project actually spans (see getAllSubmissionIds).
+  options.service.submissionIds = { value: JSON.stringify(submissionIds) };
   const accepted = urls.filter((url) => uploadedFileNames.has(toFileName(url.daBasePath))).length;
-
-  if (overflowSubmissionIds.length) {
-    sendMessage({
-      text: `GlobalLink split this submission across additional submission(s) (${overflowSubmissionIds.join(', ')}) because it exceeded the per-submission file limit — only ${submissionId} is tracked, so status/downloads for files in the others will be incomplete.`,
-      type: 'error',
-    });
-  }
 
   if (accepted !== urls.length) {
     sendMessage({ text: `Uploaded ${accepted}/${urls.length} items — aborting save.`, type: 'error' });
@@ -693,7 +759,7 @@ export async function sendAllLanguages({
   }
 
   sendMessage({ text: 'Waiting for GlobalLink to finish processing uploads.' });
-  const uploadReady = await waitForSubmissionReady(service, submissionId);
+  const uploadReady = await waitForAllSubmissionsReady(service, submissionIds);
   if (!uploadReady) {
     sendMessage({ text: 'Failed to process GlobalLink submission uploads.', type: 'error' });
     langs.forEach((lang) => {
@@ -706,7 +772,7 @@ export async function sendAllLanguages({
   }
 
   sendMessage({ text: 'Starting GlobalLink submission.' });
-  const { started, messages } = await saveAndAutostart(service, submissionId);
+  const { started, messages } = await saveAndAutostartAll(service, submissionIds);
   if (!started) {
     const detail = messages?.length ? ` ${messages.join(' ')}` : '';
     sendMessage({ text: `Failed to save/start GlobalLink submission.${detail}`, type: 'error' });
@@ -736,7 +802,7 @@ export async function sendAllLanguages({
  * processed indefinitely.
  * @param {object} conf - The status-check configuration.
  * @param {object} conf.service - The flattened per-environment service config, including
- * the previously persisted `submissionId`.
+ * the previously persisted `submissionIds` (see {@link getAllSubmissionIds}).
  * @param {object[]} conf.langs - The target languages to check (mutated in place with
  * `translation.translated`/`translation.status`).
  * @param {object[]} conf.urls - The DA url entries being translated, used to match targets.
@@ -747,9 +813,9 @@ export async function sendAllLanguages({
  */
 export async function getStatusAll({ service, langs, urls, actions }) {
   const { sendMessage, saveState } = actions;
-  const submissionId = service.submissionId?.value;
+  const submissionIds = getAllSubmissionIds(service);
 
-  if (!submissionId) {
+  if (!submissionIds.length) {
     sendMessage({ text: 'No GlobalLink submissionId found for this project.', type: 'error' });
     return;
   }
@@ -767,11 +833,11 @@ export async function getStatusAll({ service, langs, urls, actions }) {
     return;
   }
 
-  sendMessage({ text: `Checking GlobalLink status for submission ${submissionId}.` });
+  sendMessage({ text: `Checking GlobalLink status for submission ${submissionIds.join(', ')}.` });
 
-  const targets = await listTargets(service, submissionId);
-  const documentIdsByPath = getDocumentIdsByPath(service);
-  const urlsByDocumentId = indexUrlsByDocumentId(urls, documentIdsByPath);
+  const targets = await listTargets(service, submissionIds);
+  const documentsByPath = getDocumentsByPath(service);
+  const urlsByDocumentId = indexUrlsByDocumentId(urls, documentsByPath);
   activeLangs.forEach((lang) => {
     lang.translation ??= {};
     lang.translation.translated = 0;
@@ -816,13 +882,14 @@ export async function getStatusAll({ service, langs, urls, actions }) {
  * Downloads the processed translation deliverables for a language and hands each
  * one to `saveFn` for writing back to DA, removing DNT markers first. Targets that save
  * successfully are marked delivered on GlobalLink so they aren't re-surfaced later.
- * Waits for GlobalLink to report the language's deliverables as fully prepared before
- * downloading any individual target (see {@link waitForDeliverablesReady}).
+ * Waits for GlobalLink to report the language's deliverables as fully prepared, on every
+ * submission the project spans (see {@link getAllSubmissionIds}), before downloading any
+ * individual target (see {@link waitForDeliverablesReady}).
  * @param {object} conf - The save configuration.
  * @param {string} conf.org - The DA org.
  * @param {string} conf.site - The DA site.
  * @param {object} conf.service - The flattened per-environment service config, including
- * the previously persisted `submissionId`.
+ * the previously persisted `submissionIds`.
  * @param {object} conf.lang - The language being saved, with a `code` (BCP-47 locale).
  * @param {object[]} conf.urls - The DA url entries to download and save.
  * @param {Function} conf.saveFn - Callback invoked with each downloaded url entry
@@ -834,31 +901,34 @@ export async function getStatusAll({ service, langs, urls, actions }) {
 export async function saveItems({
   org, site, service, lang, urls, saveFn, sendMessage,
 }) {
-  const submissionId = service.submissionId?.value;
-  if (!submissionId) return urls;
+  const submissionIds = getAllSubmissionIds(service);
+  if (!submissionIds.length) return urls;
 
   const connected = await isConnected(service);
   if (!connected) return urls;
 
   sendMessage({ text: `Waiting for GlobalLink to finish preparing ${lang.name} deliverables.` });
-  const ready = await waitForDeliverablesReady(service, submissionId, lang.code);
-  if (!ready) {
+  const readiness = await Promise.all(
+    submissionIds.map((submissionId) => waitForDeliverablesReady(service, submissionId, lang.code)),
+  );
+  if (readiness.some((ready) => !ready)) {
     sendMessage({ text: `GlobalLink deliverables for ${lang.name} are not ready yet.`, type: 'error' });
     return urls;
   }
 
-  const allTargets = await listTargets(service, submissionId);
+  const allTargets = await listTargets(service, submissionIds);
   const targets = allTargets.filter(
     (entry) => isProcessed(entry) && targetLanguageOf(entry) === lang.code,
   );
-  const documentIdsByPath = getDocumentIdsByPath(service);
+  const documentsByPath = getDocumentsByPath(service);
   const targetsByDocumentId = indexTargetsByDocumentId(targets);
 
   const downloadCallback = async (url) => {
-    const target = targetsByDocumentId.get(documentIdsByPath[url.daBasePath]);
+    const { documentId, submissionId } = documentsByPath[url.daBasePath] || {};
+    const target = documentId ? targetsByDocumentId.get(documentId) : undefined;
 
     const targetId = target?.targetId || target?.id;
-    if (!targetId) {
+    if (!targetId || !submissionId) {
       url.status = 'error';
       return;
     }
@@ -906,17 +976,20 @@ export async function saveItems({
 /**
  * Cancels GlobalLink translation for a single language, scoped to just that language's
  * targets via `targetIds` (the submission itself, and every other language in it, is left
- * untouched). Only works while those targets haven't started processing yet.
+ * untouched). Only works while those targets haven't started processing yet. Cancels
+ * against every submission the project spans (see {@link getAllSubmissionIds}) - the
+ * cancel endpoint is submission-scoped, so this issues one call per submission that
+ * actually has matching targets, rather than assuming a project only ever created one.
  * @param {object} conf - The cancel configuration.
  * @param {object} conf.service - The flattened per-environment service config, including
- * the previously persisted `submissionId`.
+ * the previously persisted `submissionIds`.
  * @param {object} conf.lang - The language to cancel, with a `code` (BCP-47 locale).
  * @param {Function} conf.sendMessage - Reports progress/status text to the UI.
  * @returns {Promise<{ok: boolean, skipped?: boolean}>} Whether the cancel succeeded.
  */
 export async function cancelTranslation({ service, lang, sendMessage }) {
-  const submissionId = service.submissionId?.value;
-  if (!submissionId) {
+  const submissionIds = getAllSubmissionIds(service);
+  if (!submissionIds.length) {
     sendMessage({ text: `Skipping ${lang.name}. No GlobalLink submission to cancel.` });
     return { ok: true, skipped: true };
   }
@@ -927,31 +1000,46 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
     return { ok: false };
   }
 
-  const allTargets = await listTargets(service, submissionId);
-  const targetIds = allTargets
-    .filter((target) => targetLanguageOf(target) === lang.code)
-    .map((target) => target.targetId ?? target.id)
-    .filter((id) => id != null);
+  // Targets are listed per-submission (rather than in one combined call) so each result
+  // set is known to belong to exactly that submission, without needing to trust a
+  // per-target submission field the API may or may not return.
+  const perSubmission = await Promise.all(submissionIds.map(async (submissionId) => {
+    const targets = await listTargets(service, [submissionId]);
+    const targetIds = targets
+      .filter((target) => targetLanguageOf(target) === lang.code)
+      .map((target) => target.targetId ?? target.id)
+      .filter((id) => id != null);
+    return { submissionId, targetIds };
+  }));
 
-  if (!targetIds.length) {
+  const withTargets = perSubmission.filter((entry) => entry.targetIds.length);
+  if (!withTargets.length) {
     sendMessage({ text: `Skipping ${lang.name}. No GlobalLink targets found to cancel.` });
     return { ok: true, skipped: true };
   }
 
   sendMessage({ text: `Cancelling GlobalLink translation for ${lang.name}.` });
 
-  const url = `${resolveOrigin(service)}/rest/v0/submissions/cancel/${submissionId}`;
-  const opts = {
-    method: 'POST',
-    headers: await authHeaders(service),
-    body: JSON.stringify({ targetIds }),
-  };
-  const resp = await fetchWithRetry(url, opts, retryConfig(service, opts));
-
-  if (!resp.ok) {
+  const results = await Promise.all(withTargets.map(async ({ submissionId, targetIds }) => {
+    const url = `${resolveOrigin(service)}/rest/v0/submissions/cancel/${submissionId}`;
+    const opts = {
+      method: 'POST',
+      headers: await authHeaders(service),
+      body: JSON.stringify({ targetIds }),
+    };
+    const resp = await fetchWithRetry(url, opts, retryConfig(service, opts));
+    if (resp.ok) return { ok: true };
     const json = await resp.json().catch(() => null);
-    const detail = json?.messages?.length ? ` ${json.messages.join(' ')}` : '';
-    sendMessage({ text: `Failed to cancel GlobalLink translation for ${lang.name}.${detail}`, type: 'error' });
+    return { ok: false, messages: json?.messages };
+  }));
+
+  const failed = results.filter((result) => !result.ok);
+  if (failed.length) {
+    const detail = failed.flatMap((result) => result.messages || []).join(' ');
+    sendMessage({
+      text: `Failed to cancel GlobalLink translation for ${lang.name}.${detail ? ` ${detail}` : ''}`,
+      type: 'error',
+    });
     return { ok: false };
   }
 
