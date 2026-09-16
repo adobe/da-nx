@@ -131,12 +131,18 @@ separate, single-purpose port so that project code answering validation requests
 gains the control port's capabilities (`NODE_UPDATE`, `HISTORY`, `IMAGE_REPLACE`, etc.)
 — the port itself is the capability boundary, not a runtime type-check.
 
-Its two message types (`run`, `result`) are intentionally **not** in `message-types.js`
-— they're local constants in `nx/public/plugins/quick-edit/validation.js`, which owns
-this port's whole vocabulary. Da-live-embedded only: `quick-edit.js`'s
-`setupParentController` hands `ports[1]` to `validation.js`'s registration function,
-which no-ops on `undefined` so an older da-live host (not yet sending this port) is
-harmless.
+Its three message types (`run`, `ack`, `result`) are intentionally **not** in
+`message-types.js` — they're local constants in
+`nx/public/plugins/quick-edit/validation.js`, which owns this port's whole vocabulary.
+Da-live-embedded only: `quick-edit.js`'s `setupParentController` hands `ports[1]` to
+`validation.js`'s registration function, which no-ops on `undefined` so an older
+da-live host (not yet sending this port) is harmless.
+
+`ack` is sent immediately on `run`, before running any checks, carrying the current
+`hasRunner`. It exists so the host (da-live's `createValidationRequester`) can tell
+"nothing on the other end understands this protocol" (no `ack` ever arrives — e.g. an
+older quick-edit.js) apart from "understood, but the check itself is slow/hung" (`ack`
+arrives, `result` doesn't). Without it both cases looked identical: a plain timeout.
 
 Project code never imports `validation.js` directly — it's an nx-internal file, and
 quick-edit.js is already force-injected onto the page rather than authored by the

@@ -11,6 +11,7 @@ export const VALIDATION_TITLE_MAX_LENGTH = 100;
 
 export const MESSAGE_TYPES = Object.freeze({
   RUN: 'run',
+  ACK: 'ack',
   RESULT: 'result',
 });
 
@@ -60,6 +61,9 @@ export function registerValidationPort(port) {
   port.onmessage = async (e) => {
     if (e.data?.type !== MESSAGE_TYPES.RUN) return;
     const { requestId } = e.data;
+    // Sent before collectItems() so the host can tell "no responder at all" (old
+    // host/no quick-edit here) apart from "responder alive, but the check is slow".
+    port.postMessage({ type: MESSAGE_TYPES.ACK, requestId, hasRunner: runner !== null });
     const items = await collectItems();
     port.postMessage({
       type: MESSAGE_TYPES.RESULT, requestId, items, hasRunner: runner !== null,

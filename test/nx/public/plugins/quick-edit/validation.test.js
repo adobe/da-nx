@@ -18,9 +18,13 @@ function validItem(overrides = {}) {
   };
 }
 
-function waitForMessage(port) {
+function collectMessages(port, count) {
+  const messages = [];
   return new Promise((resolve) => {
-    port.onmessage = (e) => resolve(e.data);
+    port.onmessage = (e) => {
+      messages.push(e.data);
+      if (messages.length === count) resolve(messages);
+    };
   });
 }
 
@@ -85,12 +89,14 @@ describe('registerValidationPort / onValidationRequest', () => {
     expect(() => registerValidationPort(undefined)).to.not.throw();
   });
 
-  it('reports hasRunner: false and no items when no runner is registered', async () => {
+  it('sends an ACK before the RESULT, both carrying hasRunner: false when unregistered', async () => {
     const { port1, port2 } = new MessageChannel();
     registerValidationPort(port2);
-    const resultPromise = waitForMessage(port1);
+    const messagesPromise = collectMessages(port1, 2);
     port1.postMessage({ type: MESSAGE_TYPES.RUN, requestId: 'r1' });
-    expect(await resultPromise).to.deep.equal({
+    const [ack, result] = await messagesPromise;
+    expect(ack).to.deep.equal({ type: MESSAGE_TYPES.ACK, requestId: 'r1', hasRunner: false });
+    expect(result).to.deep.equal({
       type: MESSAGE_TYPES.RESULT, requestId: 'r1', items: [], hasRunner: false,
     });
   });
@@ -100,9 +106,11 @@ describe('registerValidationPort / onValidationRequest', () => {
     const good = validItem();
     onValidationRequest(() => [good, { severity: 'bogus' }]);
     registerValidationPort(port2);
-    const resultPromise = waitForMessage(port1);
+    const messagesPromise = collectMessages(port1, 2);
     port1.postMessage({ type: MESSAGE_TYPES.RUN, requestId: 'r2' });
-    expect(await resultPromise).to.deep.equal({
+    const [ack, result] = await messagesPromise;
+    expect(ack).to.deep.equal({ type: MESSAGE_TYPES.ACK, requestId: 'r2', hasRunner: true });
+    expect(result).to.deep.equal({
       type: MESSAGE_TYPES.RESULT, requestId: 'r2', items: [good], hasRunner: true,
     });
   });
@@ -111,9 +119,10 @@ describe('registerValidationPort / onValidationRequest', () => {
     const { port1, port2 } = new MessageChannel();
     onValidationRequest(() => { throw new Error('boom'); });
     registerValidationPort(port2);
-    const resultPromise = waitForMessage(port1);
+    const messagesPromise = collectMessages(port1, 2);
     port1.postMessage({ type: MESSAGE_TYPES.RUN, requestId: 'r3' });
-    expect(await resultPromise).to.deep.equal({
+    const [, result] = await messagesPromise;
+    expect(result).to.deep.equal({
       type: MESSAGE_TYPES.RESULT, requestId: 'r3', items: [], hasRunner: true,
     });
   });
@@ -123,10 +132,10 @@ describe('registerValidationPort / onValidationRequest', () => {
     onValidationRequest(() => [validItem({ title: 'First' })]);
     onValidationRequest(() => [validItem({ title: 'Second' })]);
     registerValidationPort(port2);
-    const resultPromise = waitForMessage(port1);
+    const messagesPromise = collectMessages(port1, 2);
     port1.postMessage({ type: MESSAGE_TYPES.RUN, requestId: 'r4' });
-    const { items } = await resultPromise;
-    expect(items).to.deep.equal([validItem({ title: 'Second' })]);
+    const [, result] = await messagesPromise;
+    expect(result.items).to.deep.equal([validItem({ title: 'Second' })]);
   });
 
   it('ignores messages that are not RUN', async () => {
