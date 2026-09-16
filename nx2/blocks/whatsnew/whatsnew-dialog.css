@@ -10,12 +10,8 @@
 .wn-dialog {
   --nx-dialog-min-width: 848px;
   --nx-dialog-max-width: 848px;
-
-  /* +28px compensates for nx-dialog's own 16px gap + its always-present
-     empty .actions row (12px, from its own padding-top) between .body and
-     the panel's bottom edge — present even though we never use that slot.
-     Without it, .wn-body's explicit height below gets squeezed short. */
-  --nx-dialog-max-height: calc(620px + 28px);
+  --nx-dialog-min-height: 620px;
+  --nx-dialog-max-height: 620px;
   --nx-dialog-padding: 0;
   --nx-dialog-border: none;
 }
@@ -23,8 +19,7 @@
 .wn-body {
   box-sizing: border-box;
   display: flex;
-  height: min(620px, calc(100vh - 2 * var(--s2-spacing-500)));
-  height: min(620px, calc(100dvh - 2 * var(--s2-spacing-500)));
+  height: 100%;
   border-radius: var(--s2-corner-radius-800);
   overflow: hidden;
 }

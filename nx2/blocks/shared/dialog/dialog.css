@@ -40,6 +40,8 @@ dialog {
   flex-flow: column nowrap;
   min-width: min(var(--nx-dialog-min-width, 400px), calc(100vw - 2 * var(--s2-spacing-500)));
   max-width: min(var(--nx-dialog-max-width, 480px), calc(100vw - 2 * var(--s2-spacing-500)));
+  min-height: min(var(--nx-dialog-min-height, 0px), calc(100vh - 2 * var(--s2-spacing-500)));
+  min-height: min(var(--nx-dialog-min-height, 0px), calc(100dvh - 2 * var(--s2-spacing-500)));
   max-height: min(var(--nx-dialog-max-height, 90vh), calc(100vh - 2 * var(--s2-spacing-500)));
   max-height: min(var(--nx-dialog-max-height, 90dvh), calc(100dvh - 2 * var(--s2-spacing-500)));
   padding: var(--nx-dialog-padding, var(--s2-spacing-500));
