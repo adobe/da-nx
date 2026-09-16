@@ -1,5 +1,133 @@
 # Worklog
 
+## 2026-09-14
+
+### nx2/utils/api.js — cross-backend copy/move (#731)
+
+Copying a file between two sites on different backends (DA storage vs the hlx6
+source bus) silently failed — e.g. a PDF from a legacy DA site pasted into an
+hlx6 site. `source.copy`/`move` picked the backend from the *source* site
+(`withArgs` derives org/site from the first arg — the source path), so a
+legacy-source copy always POSTed to `admin.da.live` even when the destination
+was hlx6. The bytes never reached the hlx6 backend; da-list's optimistic UI
+showed the row (the DA copy returned ok), but it couldn't preview and vanished
+on reload.
+
+Fixed by routing on both ends: `copy` now also resolves the destination's
+org/site (`fromPath(destination)`) and its hlx6 status. Server-side copy only
+works within a single site (the hlx6 source-bus PUT is scoped to one site — its
+`?source=` can't reference another — and the DA `/copy` endpoint is keyed to one
+org/site), so a *cross-site* copy that touches hlx6 (a different hlx6 site, or
+across the DA/hlx6 backends) can't use it. In that case `copy` streams the bytes
+— `source.get` from the source, then `source.save` to the destination's source
+bus. Every tree file goes through `save`, docs and standalone assets alike
+(PDFs/images are served from their source path — the `/media` content-addressed
+store is only for images embedded *inside* documents, not standalone files; an
+earlier draft wrongly routed non-docs through `uploadMedia`, which is why PDFs
+landed in the wrong place).
+
+Because the write is a POST (not the server-side `?source=` PUT), the
+destination's ingestion re-imports embedded media — but only if it can fetch it.
+A doc's `media_` references are relative, so after the hop they'd resolve against
+the *destination* and 404. So for HTML, `copy` first rewrites relative `media_`
+refs (src/href/srcset) to absolute URLs on the *source's* content origin
+(`absolutizeMediaRefs`) — `DA_CONTENT` (content.da.live) for a DA source,
+`https://main--{site}--{org}.aem.page` for an hlx6 source — resolved against the
+source doc's URL; the destination POST then fetches and re-hosts them into its
+own media bus. Already-absolute URLs and non-`media_` links are left untouched.
+
+`move` emulates as copy + delete of the original whenever hlx6 is involved on
+either side (reusing copy's path), failing safe — the original is only deleted
+after a successful copy. Same-site copies/moves, and DA-to-DA cross-site (still
+server-side `/copy`), are unchanged.
+
+Relies on callers passing a full `/org/site/...` destination — verified for all
+da-live callers (paste, rename, trash-move), so no da-live change was needed.
+Not covered: cross-site *folder* copy (the source GET has no file body, so it
+fails non-ok rather than recursing) — a separate follow-up. Tests: cross-backend
+copy both directions, cross-site hlx6→hlx6 (asset + doc), media_ ref rewriting
+(DA + hlx6 source), the read-failure guard, and cross-backend move
+(copy-then-delete + fail-safe). ESLint still can't run (pre-existing v8/v9
+flat-config mismatch); full api.test.js suite (133) passes.
+
+## 2026-09-11
+
+### ci — Slack PR ticker uses the supported gh-hosted runner
+
+Org runners no longer allow `ubuntu-latest`; switched
+`.github/workflows/slack-pr-ticker.yml` to `runs-on: gh-hosted` (smallest
+supported label). Other workflows still on `ubuntu-latest` — separate change.
+
+## 2026-09-07
+
+### quick-edit — stop RELOAD storms from cross-block index drift
+
+Debugged via da-live's `ew-editor-doc` collab-diagnostics branch (multi-user
+test showed a collaborator's continuous edits pegging the main thread for
+5-6s at a stretch, blocking local typing). Root cause traced to
+`nx/public/plugins/quick-edit/src/prose.js`'s `createEditor`: it looked up
+its target block by an exact `data-prose-index` match, but that index is a
+global ProseMirror position — any edit *before* a block shifts it.
+`handleTransaction` already re-shifts every other block's index for edits
+inside an already-open mini-editor (`updateInstrumentation`), but
+`createEditor` — the path taken the first time a block is touched by a
+*remote* edit — never did, so the first remote edit to any not-yet-opened
+block left every later block's cached index stale. Eventually some block's
+`SET_EDITOR_STATE` arrived with a `cursorOffset` matching nothing, and the
+portal gave up and asked the host to `RELOAD` (full body resend), which the
+host answered unconditionally — no debounce — so a sustained editing burst
+from one collaborator could retrigger this indefinitely.
+
+Fixed `createEditor` to fall back to `findTextBlock`'s existing
+nearest-indexed-block lookup (`dom-index.js`) instead of giving up — the same
+drift-tolerant match `findImageAtProseIndex` already relies on for images.
+Added an `exclude` param to `findTextBlock`/`findNearestIndexed` so the
+fallback can't resolve to (and destructively replace) a *different* block's
+already-open `.prosemirror-editor`; the remote-cursor collaborator badge is
+now only copied across on an exact match, not the fallback, so it can't get
+misattributed to the wrong paragraph. Da-live also got a `quick-edit-controller.js`
+RELOAD-coalescing debounce (150ms) as a stopgap while this was tracked down;
+kept, since it's still a legitimate backstop.
+
+Verified via a two-browser test (da-nx files served through Chrome local
+overrides): the RELOAD storm is gone under sustained multi-user editing.
+
+Review follow-ups: normalized `cursorOffset` to `Number` in `createEditor` so
+the exact-match badge gate can't silently fail on a string, and added unit
+tests for `findTextBlock`'s exclude + nearest-block fallback.
+
+### nx2/blocks/editortoggle — stop implicit `nx2:ew-user-enabled` writes on navigation
+
+`connectedCallback` used to reconcile the persisted `nx2:ew-user-enabled` flag
+to whatever path the toggle happened to mount on (`/canvas` → true, `/edit` →
+false) any time the component loaded — not just on a genuine bookmark/typed-URL
+landing as the comment claimed. Since the flag is a single global localStorage
+key (not scoped per org/site), and `/edit` vs `/canvas` routing is actually
+decided per-site via `editor.path` config (`docs/workspace.md`), simply opening
+a doc on one EW-enabled site would silently opt the browser into New
+Authoring globally, on every other site, with no user interaction.
+
+Fixed: the flag is now written only by an explicit click on the toggle
+(`_toggle()`). Replaced the reconciliation block with
+`_redirectToCanvasIfNeeded()`: on `/canvas` it's a no-op (nothing read or
+written); on `/edit` it redirects to `/canvas` if either the site-level
+`ew.enabled` flag or the user flag is on (site flag wins/ignores the user
+flag, matching the "site config forces canvas" rule in `docs/workspace.md`),
+otherwise stays on `/edit`. Called once synchronously in `connectedCallback`
+(handles the user-flag case) and again from `_onHashState` once the async
+site-level check resolves (handles the site-forced case). This supersedes the
+2026-09-02 fix below: that one kept /edit from clearing the flag by hiding the
+toolbar switch instead, but left the user stranded on /edit despite having
+opted into canvas — now /edit redirects to canvas in that case instead, which
+also fixes adobe/da-live#1289. `render()` is back to the plain path-based
+visibility check (toolbar on /edit, menu on /canvas); the flag-based
+`showMenu`/`showToolbar` split from 2026-09-02 no longer applies. No test
+coverage existed for this component before or after — an end-to-end test
+covering the toggle-on/welcome-dialog/toggle-off/redirect flow (working title
+"usertoggle") is planned for a follow-up PR once e2e infra (Playwright, not
+yet on this branch — exists only on the unmerged `feat/e2e-setup` branch) is
+sorted out, including what site/page to run it against.
+
 ## 2026-09-02
 
 ### nx2 editortoggle — stop clearing the flag when Sidekick lands on /edit
@@ -10,6 +138,7 @@ even when Sidekick's Edit button (not the user) put you there. Now only the
 `/canvas` → on-sync remains; the toolbar switch hides itself on `/edit` when
 the flag is already on instead of clearing it, and the profile-menu switch
 renders anywhere the flag is on so there's still a way to turn it off.
+Superseded by the 2026-09-07 entry above.
 
 ## 2026-08-27
 
@@ -618,3 +747,9 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 - "Always approve" is conversation-scoped — resets on `clear()` only, not per message.
 - Conversation history keyed by `org--site--userId` — site-scoped, not path-scoped.
 - Agent stream contract and persistence model documented in `docs/chat-ui-component.md`.
+
+## 2026-09-15
+
+### Revert Slack PR ticker runner to `ubuntu-latest`
+
+- `.github/workflows/slack-pr-ticker.yml`: the `notify` job `runs-on` reverted from `gh-hosted` back to `ubuntu-latest`.
