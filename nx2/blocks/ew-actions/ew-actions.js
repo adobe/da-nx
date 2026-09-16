@@ -8,6 +8,7 @@ import {
 } from '../../utils/aem-preview-publish.js';
 import { versions, status } from '../../utils/api.js';
 import { sidekickCacheBust } from '../../utils/sidekick.js';
+import { formatRelativeDateTime } from '../../utils/format.js';
 import { getConfig } from '../../scripts/nx.js';
 import '../shared/popover/popover.js';
 
@@ -25,30 +26,6 @@ const CHECK_ICON = html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidde
 const CLOUD_ICON = html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><path d="M6.2 16a3.7 3.7 0 0 1-.5-7.36 4.6 4.6 0 0 1 8.86-.5A3.4 3.4 0 0 1 14 16H6.2Z"></path><path d="M10 13V7.4m0 0L8 9.4m2-2 2 2"></path></svg>`;
 
 const prepareModuleUrl = () => `${window.location.origin}/blocks/canvas/editor-utils/prepare-menu.js`;
-
-/**
- * Human-friendly timestamp for the Preview/Live cards.
- * Recent times read as "Today at 14:32" / "Yesterday at 14:32"; older ones as
- * "17 Jun, 16:02". Returns null for missing/unparseable values.
- * @param {string | number | undefined} value
- * @returns {string | null}
- */
-function formatStatusTime(value) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  const now = new Date();
-  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-  const sameDay = (a, b) => a.getFullYear() === b.getFullYear()
-    && a.getMonth() === b.getMonth()
-    && a.getDate() === b.getDate();
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (sameDay(date, now)) return `Today at ${time}`;
-  if (sameDay(date, yesterday)) return `Yesterday at ${time}`;
-  const day = date.toLocaleDateString([], { day: 'numeric', month: 'short' });
-  return `${day}, ${time}`;
-}
 
 /** @param {string} segment */
 const withHtmlExt = (segment) => {
@@ -378,7 +355,7 @@ class NXEwActions extends LitElement {
     const selected = this._target === kind;
     // "Publish" is the end-user label for the live environment.
     const title = isPreview ? 'Preview' : 'Publish';
-    const time = formatStatusTime(info.time);
+    const time = formatRelativeDateTime(info.time);
     let sub;
     if (this._statusLoading && !this._status) sub = 'Checking status…';
     else if (info.ok && time) sub = isPreview ? `Last updated ${time}` : `Last published ${time}`;
