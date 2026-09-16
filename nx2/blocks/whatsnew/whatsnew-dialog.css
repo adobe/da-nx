@@ -18,14 +18,14 @@
 .wn-body {
   box-sizing: border-box;
   display: flex;
-  height: min(620px, calc(100vh - 2 * var(--s2-spacing-500)));
-  height: min(620px, calc(100dvh - 2 * var(--s2-spacing-500)));
+  height: 100%;
   border-radius: var(--s2-corner-radius-800);
   overflow: hidden;
 }
 
 .wn-close {
   position: absolute;
+  z-index: 2;
   top: var(--s2-spacing-100);
   right: var(--s2-spacing-100);
   display: flex;
@@ -244,7 +244,6 @@
      behind its opaque background, instead of two independent scroll boxes
      side by side like on desktop. */
   .wn-body {
-    height: 100%;
     flex-direction: column;
     overflow-y: auto;
   }
