@@ -432,6 +432,32 @@ describe('globallink connector', () => {
       expect(messages[messages.length - 1]).to.equal(undefined);
     });
 
+    it('falls back to the requested submission id when a document omits its own', async () => {
+      installFetch((u) => {
+        if (u.includes('/upload/source')) {
+          return new Response(JSON.stringify({
+            documentIds: [{ name: 'page.html', documentId: 'doc-1' }],
+          }), { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService();
+      const options = { service };
+      const langs = [{ name: 'French', code: 'fr-FR' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 't', service, options, langs, urls, actions,
+      });
+
+      expect(langs[0].translation.status).to.equal('created');
+      expect(JSON.parse(service.submissionIds.value)).to.deep.equal(['sub-1']);
+      expect(JSON.parse(service.documentIds.value)).to.deep.equal({
+        '/page': { documentId: 'doc-1', submissionId: 'sub-1' },
+      });
+    });
+
     it('aborts and does not autostart when GlobalLink reports upload processing errored', async () => {
       installFetch((u) => {
         if (u.endsWith('/status')) {

@@ -419,7 +419,7 @@ async function uploadSourceFiles(service, submissionId, urls, batchName) {
   const uploadedFileNames = new Set(documentIds.map((doc) => doc.name));
   const submissionIds = [...new Set([
     String(submissionId),
-    ...documentIds.map((doc) => String(doc.submissionId)),
+    ...documentIds.map((doc) => String(doc.submissionId ?? submissionId)),
   ].filter(Boolean))];
 
   const documentsByPath = documentIds.reduce((acc, doc) => {
