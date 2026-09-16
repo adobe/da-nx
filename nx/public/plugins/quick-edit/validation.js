@@ -1,10 +1,3 @@
-// Implementation backing the public window.qe.validation API, for project code to answer
-// host-initiated content-validation runs. Imported internally by quick-edit.js (page-side
-// handshake owner), which is what actually exposes onValidationRequest/VALIDATION_SEVERITY
-// as window.qe.validation — this file must not do that itself, since da-live's host code
-// also imports it (for sanitizeValidationItems/MESSAGE_TYPES) from its own top window, not
-// the customer page.
-// SUCCESS: this check passed, nothing to report. INFO: neutral, no pass/fail judgment.
 export const VALIDATION_SEVERITY = Object.freeze({
   SUCCESS: 'success',
   INFO: 'info',
@@ -21,15 +14,10 @@ export const MESSAGE_TYPES = Object.freeze({
   RESULT: 'result',
 });
 
-// Single runner for now — revisit a multi-runner registry (keyed by caller-chosen id) if
-// a real need for independent scripts registering separately comes up.
 let runner = null;
 
-// Single source of truth for "is this a well-shaped validation item" — shared by this
-// module's own pre-send filter below and by da-live's independent host-side re-validation
-// (which must run this itself rather than trust that the sender did; see security notes).
-// `title` names the check the item came from (e.g. "Alt text") — da-live groups results
-// by it rather than dumping everything into one bucket.
+// Shared by this module's pre-send filter and da-live's independent host-side
+// re-validation, which must not trust that the sender already ran this.
 export function isValidValidationItem(item) {
   if (!item || typeof item !== 'object') return false;
   if (!VALIDATION_SEVERITIES.has(item.severity)) return false;
