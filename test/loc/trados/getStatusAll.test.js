@@ -221,9 +221,9 @@ describe('getStatusAll', () => {
         return new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), { status: 200 });
       }
       if (u.includes('/tasks')) {
-        const offset = Number(u.match(/offset=(\d+)/)?.[1] ?? 0);
-        const limit = Number(u.match(/limit=(\d+)/)?.[1] ?? 100);
-        const page = allTasks.slice(offset, offset + limit);
+        const skip = Number(u.match(/skip=(\d+)/)?.[1] ?? 0);
+        const top = Number(u.match(/top=(\d+)/)?.[1] ?? 100);
+        const page = allTasks.slice(skip, skip + top);
         const body = { items: page, itemCount: allTasks.length };
         return new Response(JSON.stringify(body), { status: 200 });
       }

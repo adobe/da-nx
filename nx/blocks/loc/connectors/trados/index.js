@@ -76,6 +76,50 @@ function ensureExtension(path) {
 
 // --- Project Operations ---
 
+// Trados's max page size (the `top` param) is 100 - see
+// https://developers.rws.com/languagecloud-api-docs/ ListProjectTasks.
+const LIST_PAGE_LIMIT = 100;
+
+/**
+ * Fetches every item from a paginated Trados list endpoint via its
+ * `skip`/`top` params, aggregating across pages instead of returning only
+ * the first page - Trados caps list endpoints at `LIST_PAGE_LIMIT` items
+ * per page by default, which would otherwise silently undercount a
+ * project with more items than one page (e.g. many files x languages x
+ * workflow steps of tasks, or many files x languages of target-files).
+ * @param {Object} service - The service configuration.
+ * @param {string} url - The endpoint url, including any query params
+ *  (e.g. `fields`) but not `skip`/`top`.
+ * @returns {Promise<Object[]|null>} All items, or null if any page fails.
+ */
+async function fetchAllPages(service, url) {
+  const items = [];
+  let skip = 0;
+  let itemCount = Infinity;
+  const separator = url.includes('?') ? '&' : '?';
+
+  while (skip < itemCount) {
+    // eslint-disable-next-line no-await-in-loop
+    const opts = await getOpts(service);
+    const pageUrl = `${url}${separator}skip=${skip}&top=${LIST_PAGE_LIMIT}`;
+    // eslint-disable-next-line no-await-in-loop
+    const resp = await corsFetch(pageUrl, opts);
+    if (!resp.ok) return null;
+
+    // eslint-disable-next-line no-await-in-loop
+    const json = await resp.json();
+    const pageItems = json.items || [];
+    items.push(...pageItems);
+    itemCount = json.itemCount ?? items.length;
+
+    // Guard against an infinite loop if itemCount is ever wrong.
+    if (!pageItems.length) break;
+    skip += pageItems.length;
+  }
+
+  return items;
+}
+
 /**
  * Fetches custom field definitions from Trados and builds a lookup map.
  * @param {Object} service - The service configuration
@@ -84,19 +128,13 @@ function ensureExtension(path) {
  */
 async function getCustomFieldDefinitions(service) {
   const { apiEndpoint } = service;
-  const opts = await getOpts(service, 'GET');
-  const resp = await corsFetch(
+  const definitions = await fetchAllPages(
+    service,
     `${apiEndpoint}/custom-field-definitions?fields=id,name,key,type,description,defaultValue,isMandatory`,
-    opts,
   );
 
-  if (!resp.ok) return new Map();
-
-  const json = await resp.json();
-  const definitions = json.items || [];
-
   // Build a lookup map: name -> definition
-  return new Map(definitions.map((def) => [def.name, def]));
+  return new Map((definitions || []).map((def) => [def.name, def]));
 }
 
 async function createProject(options, service, title, langs, sendMessage) {
@@ -319,8 +357,6 @@ export function getLangStatus(tasks, langCode, fileCount) {
   return { status: 'in progress', translated };
 }
 
-const TASKS_PAGE_LIMIT = 100;
-
 /**
  * Fetches every task for a project, paging through Trados's tasks list
  * rather than taking the first page as the complete set - a project with
@@ -330,33 +366,12 @@ const TASKS_PAGE_LIMIT = 100;
  * @param {string} projectId - The Trados project id.
  * @returns {Promise<Object[]|null>} All tasks, or null if any page fails.
  */
-async function fetchAllTasks(service, projectId) {
+function fetchAllTasks(service, projectId) {
   const { apiEndpoint } = service;
-  const tasks = [];
-  let offset = 0;
-  let itemCount = Infinity;
-
-  while (offset < itemCount) {
-    // eslint-disable-next-line no-await-in-loop
-    const opts = await getOpts(service);
-    const url = `${apiEndpoint}/projects/${projectId}/tasks`
-      + `?fields=taskType,status,input.targetFile&offset=${offset}&limit=${TASKS_PAGE_LIMIT}`;
-    // eslint-disable-next-line no-await-in-loop
-    const resp = await corsFetch(url, opts);
-    if (!resp.ok) return null;
-
-    // eslint-disable-next-line no-await-in-loop
-    const json = await resp.json();
-    const items = json.items || [];
-    tasks.push(...items);
-    itemCount = json.itemCount ?? tasks.length;
-
-    // Guard against an infinite loop if itemCount is ever wrong.
-    if (!items.length) break;
-    offset += items.length;
-  }
-
-  return tasks;
+  return fetchAllPages(
+    service,
+    `${apiEndpoint}/projects/${projectId}/tasks?fields=taskType,status,input.targetFile`,
+  );
 }
 
 /**
@@ -424,15 +439,11 @@ export async function saveItems({
   if (!projectId) return urls;
 
   // Get target files for this project
-  const opts = await getOpts(service);
-  const resp = await corsFetch(
+  const targetFiles = await fetchAllPages(
+    service,
     `${apiEndpoint}/projects/${projectId}/target-files?fields=latestVersion,languageDirection.targetLanguage,sourceFile`,
-    opts,
   );
-  if (!resp.ok) return urls;
-
-  const json = await resp.json();
-  const targetFiles = json.items || [];
+  if (!targetFiles) return urls;
 
   // Build lookup: source file ID → target file (filtered by language)
   const sourceIdToTarget = new Map();
