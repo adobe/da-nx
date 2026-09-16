@@ -9,7 +9,7 @@ export const LOGIN_ORIGIN = DA_ETC || 'https://da-etc.adobeaem.workers.dev';
 const TOKEN_BUFFER = 300000; // 5 min buffer before expiry
 
 /**
- * Builds the localStorage key a token is cached under.
+ * Builds the sessionStorage key a token is cached under.
  * @param {string} name - Cache-key prefix identifying the connector
  *  (e.g. 'trados', 'lionbridge').
  * @param {string} org - The DA org.
@@ -31,7 +31,7 @@ function tokenKey(name, org, site, env) {
  *  or `{}` if none are stored.
  */
 function getTokenDetails(name, org, site, env) {
-  const stored = localStorage.getItem(tokenKey(name, org, site, env));
+  const stored = sessionStorage.getItem(tokenKey(name, org, site, env));
   if (!stored) return {};
   try {
     return JSON.parse(stored);
@@ -52,7 +52,7 @@ function getTokenDetails(name, org, site, env) {
  * @returns {void}
  */
 function setTokenDetails(name, org, site, env, accessToken, expires) {
-  localStorage.setItem(
+  sessionStorage.setItem(
     tokenKey(name, org, site, env),
     JSON.stringify({ accessToken, expires }),
   );

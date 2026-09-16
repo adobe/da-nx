@@ -50,12 +50,12 @@ function createOptionsEl() {
 describe('NxLocOptions - loadConnectorServiceOptions', () => {
   beforeEach(() => {
     resetMockIms();
-    localStorage.clear();
+    sessionStorage.clear();
   });
 
   afterEach(() => {
     restoreFetch();
-    localStorage.clear();
+    sessionStorage.clear();
   });
 
   it('seeds projectId to the first fetched project when the config sheet left it unset', async () => {

@@ -83,12 +83,12 @@ function restoreFetch() {
 describe('globallink connector', () => {
   beforeEach(() => {
     resetMockIms();
-    localStorage.clear();
+    sessionStorage.clear();
     installFetch();
   });
   afterEach(() => {
     restoreFetch();
-    localStorage.clear();
+    sessionStorage.clear();
   });
 
   describe('isConnected / connect', () => {
