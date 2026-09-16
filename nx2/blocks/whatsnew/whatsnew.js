@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
 import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
 import { fetchPublishedDate } from './parse-whatsnew.js';
-import { getWhatsNewLastSeenDate } from '../../utils/whatsNewFlags.js';
+import { getWhatsNewLastSeenDate } from './whatsnew-flags.js';
 
 const style = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
@@ -22,7 +22,7 @@ const WHATSNEW_PATH = 'https://main--da-live--adobe.aem.page/nx/fragments/guides
  *
  * Shows a dot and auto-opens whatsnew-dialog.js once on connect if the
  * fragment's published-date is newer than what this user last saw (see
- * whatsNewFlags.js); also opens on click regardless. whatsnew-dialog.js
+ * whatsnew-flags.js); also opens on click regardless. whatsnew-dialog.js
  * marks content as seen as soon as it loads, but the dot only clears once
  * the dialog is actually closed (nx-whatsnew-closed), not the instant it
  * opens.

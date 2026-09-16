@@ -3,7 +3,7 @@ import { loadStyle } from '../../utils/utils.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
 import { parseWhatsNewEntries, fetchPublishedDate } from './parse-whatsnew.js';
-import { setWhatsNewLastSeenDate } from '../../utils/whatsNewFlags.js';
+import { setWhatsNewLastSeenDate } from './whatsnew-flags.js';
 
 const style = await loadStyle(import.meta.url);
 const closeIcon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_Close_20_N.svg`);

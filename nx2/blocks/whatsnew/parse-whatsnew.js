@@ -1,7 +1,7 @@
 /**
  * Reads the fragment page's own `published-date` meta tag — the freshness
  * signal used to decide whether to show the dot/auto-open (see
- * whatsNewFlags.js). loadFragment() strips <head> entirely (it only ever
+ * whatsnew-flags.js). loadFragment() strips <head> entirely (it only ever
  * returns `main > div` sections), so this does its own raw fetch rather
  * than reusing that.
  * @param {string} path absolute URL to the fragment
