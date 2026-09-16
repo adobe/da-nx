@@ -291,27 +291,32 @@ export function getSourceFileStatus(tasks) {
   return null;
 }
 
-// Trados project templates vary in which workflow steps they include (e.g.
-// TM-leverage-only projects have no 'file-delivery' task at all), so there's
-// no single task type reliable across templates to key completion off of.
-// Instead, a language is done once none of its tasks are still pending -
-// these are the terminal statuses a task can settle into.
-const TERMINAL_TASK_STATUSES = ['completed', 'failed', 'skipped', 'canceled'];
-
+/**
+ * Determines a language's translation status from its Trados tasks.
+ * `file-delivery` is the terminal step of Trados's workflow - other task
+ * types (e.g. translation-memory matching, machine translation) mark
+ * progression through the workflow, not completion of the language itself.
+ * @param {Object[]} tasks - All tasks for the project.
+ * @param {string} langCode - The target language code to check.
+ * @param {number} fileCount - The number of files expected for this lang.
+ * @returns {{status: string, translated: number}} The language's status
+ *  (`'error'`, `'translated'`, or `'in progress'`) and the number of files
+ *  delivered so far.
+ */
 export function getLangStatus(tasks, langCode, fileCount) {
   const langTasks = tasks.filter((task) => (
     task.input?.targetFile?.languageDirection?.targetLanguage?.languageCode === langCode
   ));
 
-  if (langTasks.some((t) => t.status === 'failed')) return { status: 'error', translated: 0 };
+  // Translated file count for this lang
+  const translated = langTasks.filter((t) => (
+    t.taskType?.key === 'file-delivery' && t.status === 'completed'
+  )).length;
 
-  // Empty langTasks is "no data yet", not "done" - every() is vacuously
-  // true on an empty array, so this must be checked explicitly.
-  const allTerminal = langTasks.length > 0
-    && langTasks.every((t) => TERMINAL_TASK_STATUSES.includes(t.status));
-  if (allTerminal) return { status: 'translated', translated: fileCount };
+  if (langTasks.some((t) => t.status === 'failed')) return { status: 'error', translated };
+  if (translated === fileCount) return { status: 'translated', translated };
 
-  return { status: 'in progress', translated: 0 };
+  return { status: 'in progress', translated };
 }
 
 const TASKS_PAGE_LIMIT = 100;

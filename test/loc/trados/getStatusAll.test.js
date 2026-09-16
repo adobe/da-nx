@@ -57,27 +57,26 @@ describe('getSourceFileStatus', () => {
 // --- getLangStatus ---
 
 describe('getLangStatus', () => {
-  it('should return translated when every task for the lang is terminal (de-DE)', () => {
+  it('should return translated when all file-delivery tasks completed (de-DE)', () => {
     const result = getLangStatus(allCompleted.items, 'de-DE', 1);
     expect(result.status).to.equal('translated');
     expect(result.translated).to.equal(1);
   });
 
-  it('should return translated when every task for the lang is terminal (fr-FR)', () => {
+  it('should return translated when all file-delivery tasks completed (fr-FR)', () => {
     const result = getLangStatus(allCompleted.items, 'fr-FR', 1);
     expect(result.status).to.equal('translated');
     expect(result.translated).to.equal(1);
   });
 
-  it('should return in progress when a lang task is still non-terminal', () => {
-    // lang-partial has de-DE fully terminal but fr-FR still has an
-    // in-progress generate-target task
+  it('should return in progress when delivery not complete for lang', () => {
+    // lang-partial has de-DE delivered but fr-FR only through machine-translation
     const result = getLangStatus(langPartial.items, 'fr-FR', 1);
     expect(result.status).to.equal('in progress');
     expect(result.translated).to.equal(0);
   });
 
-  it('should return translated for a lang whose tasks are all terminal', () => {
+  it('should return translated for lang that is fully delivered', () => {
     const result = getLangStatus(langPartial.items, 'de-DE', 1);
     expect(result.status).to.equal('translated');
     expect(result.translated).to.equal(1);
@@ -104,19 +103,16 @@ describe('getLangStatus', () => {
   });
 
   it('should return translated count even on error', () => {
-    // lang-failed has de-DE completed but fr-FR failed
+    // lang-failed has de-DE file-delivery completed but fr-FR failed
     const result = getLangStatus(langFailed.items, 'fr-FR', 1);
     expect(result.translated).to.equal(0);
   });
 
-  it('does not cross-check fileCount against actual task data - status only reflects whether known tasks are terminal', () => {
-    // Deliberate behavior: unlike the old file-delivery-counting approach,
-    // this can't detect "fewer files processed than expected" - only
-    // whether every task Trados has reported so far is terminal. A
-    // fileCount that doesn't match reality no longer forces 'in progress'.
+  it('should return in progress when fileCount exceeds delivered', () => {
+    // all-completed has 1 file-delivery per lang, but we say there are 5 files
     const result = getLangStatus(allCompleted.items, 'de-DE', 5);
-    expect(result.status).to.equal('translated');
-    expect(result.translated).to.equal(5);
+    expect(result.status).to.equal('in progress');
+    expect(result.translated).to.equal(1);
   });
 });
 
