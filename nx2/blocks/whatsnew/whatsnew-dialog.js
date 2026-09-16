@@ -45,10 +45,17 @@ class NxWhatsNewDialog extends LitElement {
   get _dialog() { return this.shadowRoot.querySelector('dialog'); }
 
   async _loadContent() {
-    const [fragment, publishedDate] = await Promise.all([
-      loadFragment(WHATSNEW_PATH),
-      fetchPublishedDate(WHATSNEW_PATH),
-    ]);
+    let fragment;
+    let publishedDate;
+    try {
+      [fragment, publishedDate] = await Promise.all([
+        loadFragment(WHATSNEW_PATH),
+        fetchPublishedDate(WHATSNEW_PATH),
+      ]);
+    } catch {
+      this.remove();
+      return;
+    }
     const entries = fragment ? parseWhatsNewEntries(fragment) : [];
     // No content, or content with no valid entries — nothing to show.
     if (entries.length === 0) {
