@@ -1,8 +1,9 @@
-// Public API for project code to answer host-initiated content-validation runs.
-// Imported internally by quick-edit.js (page-side handshake owner), which is what
-// actually exposes onValidationRequest/VALIDATION_SEVERITY as window.qe.validation — this
-// file must not do that itself, since da-live's host code also imports it (for
-// sanitizeValidationItems/MESSAGE_TYPES) from its own top window, not the customer page.
+// Implementation backing the public window.qe.validation API, for project code to answer
+// host-initiated content-validation runs. Imported internally by quick-edit.js (page-side
+// handshake owner), which is what actually exposes onValidationRequest/VALIDATION_SEVERITY
+// as window.qe.validation — this file must not do that itself, since da-live's host code
+// also imports it (for sanitizeValidationItems/MESSAGE_TYPES) from its own top window, not
+// the customer page.
 // SUCCESS: this check passed, nothing to report. INFO: neutral, no pass/fail judgment.
 export const VALIDATION_SEVERITY = Object.freeze({
   SUCCESS: 'success',
@@ -78,7 +79,6 @@ export function registerValidationPort(port) {
   };
 }
 
-// Registering again replaces the previous runner.
 export function onValidationRequest(fn) {
   runner = fn;
 }
