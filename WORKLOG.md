@@ -5,7 +5,7 @@
 ### nx/blocks/loc/connectors/trados/index.js — getStatusAll bug fixes (trados-connector-fixes)
 
 - Skip languages already `complete`/`cancelled` when polling status, so Trados's indefinitely-reported completed tasks no longer trigger a re-save or un-cancel
-- Paginate the tasks fetch (`fetchAllTasks`) — previously only read the first 100 tasks per project, undercounting completed work on larger projects
+- Paginate the tasks/target-files/custom-field-definitions list fetches (`fetchAllPages`) via the real API's `skip`/`top` params — an initial version used `offset`/`limit`, which Trados silently ignores, so it never actually paginated; caught via live validation against a real project
 
 ## 2026-09-15
 
