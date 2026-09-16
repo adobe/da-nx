@@ -4,7 +4,6 @@ import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
 import { parseWhatsNewEntries, fetchPublishedDate } from './parse-whatsnew.js';
 import { setWhatsNewLastSeenDate } from './whatsnew-flags.js';
-import '../shared/dialog/dialog.js';
 
 const style = await loadStyle(import.meta.url);
 const closeIcon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_Close_20_N.svg`);
@@ -20,12 +19,6 @@ const WHATSNEW_PATH = '/nx/fragments/guides/whats-new';
  * authored in the WHATSNEW_PATH fragment. Clicking a TOC item scrolls the
  * matching card into view; the active TOC item tracks whichever card is
  * currently in view via IntersectionObserver.
- *
- * Wraps the shared nx-dialog (see shared/dialog/dialog.js) rather than a
- * raw <dialog> — nx-dialog owns the backdrop, ESC/cancel handling, and
- * showModal() lifecycle; this component just slots its own two-pane body
- * and close button into it, with sizing/padding/border overridden via
- * nx-dialog's CSS custom properties.
  *
  * Opened two ways (see whatsnew.js): manually, by clicking the nav trigger,
  * or automatically when the fragment's published-date is newer than what
@@ -49,7 +42,7 @@ class NxWhatsNewDialog extends LitElement {
     this._observer?.disconnect();
   }
 
-  get _dialog() { return this.shadowRoot.querySelector('nx-dialog'); }
+  get _dialog() { return this.shadowRoot.querySelector('dialog'); }
 
   async _loadContent() {
     const [fragment, publishedDate] = await Promise.all([
@@ -68,7 +61,8 @@ class NxWhatsNewDialog extends LitElement {
   }
 
   updated(changed) {
-    if (changed.has('_entries') && this._entries) {
+    if (changed.has('_entries') && this._entries && !this._dialog.open) {
+      this._dialog.showModal();
       this._observeCards();
       this._ensureScrollRoom();
     }
@@ -117,7 +111,18 @@ class NxWhatsNewDialog extends LitElement {
   }
 
   close() {
-    this._dialog?.close();
+    if (!this._dialog?.open) return;
+    this._dialog.close();
+  }
+
+  _onCancel(e) {
+    e.preventDefault();
+    this.close();
+  }
+
+  _onBackdropClick(e) {
+    if (e.target !== e.currentTarget) return;
+    this.close();
   }
 
   _onClose() {
@@ -146,44 +151,46 @@ class NxWhatsNewDialog extends LitElement {
   render() {
     if (!this._entries) return nothing;
     return html`
-      <nx-dialog class="wn-dialog" @close=${this._onClose}>
-        <button type="button" class="wn-close" aria-label="Close" @click=${this.close}>
-          ${closeIcon}
-        </button>
-        <div class="wn-body">
-          <nav class="wn-toc" aria-label="What's new sections">
-            <div class="wn-toc-scroll">
-              <h2 class="wn-toc-title">What's new</h2>
-              <ul class="wn-toc-list">
-                <li class="wn-toc-indicator" aria-hidden="true"></li>
+      <dialog @cancel=${this._onCancel} @click=${this._onBackdropClick} @close=${this._onClose}>
+        <div class="wn-panel">
+          <button type="button" class="wn-close" aria-label="Close" @click=${this.close}>
+            ${closeIcon}
+          </button>
+          <div class="wn-body">
+            <nav class="wn-toc" aria-label="What's new sections">
+              <div class="wn-toc-scroll">
+                <h2 class="wn-toc-title">What's new</h2>
+                <ul class="wn-toc-list">
+                  <li class="wn-toc-indicator" aria-hidden="true"></li>
+                  ${this._entries.map((entry) => html`
+                    <li>
+                      <button
+                        type="button"
+                        class="wn-toc-item"
+                        aria-current=${this._activeId === entry.id ? 'true' : nothing}
+                        @click=${() => this._scrollToEntry(entry.id)}
+                      >
+                        <span class="wn-toc-label">${entry.title}</span>
+                      </button>
+                    </li>
+                  `)}
+                </ul>
+              </div>
+            </nav>
+            <div class="wn-cards-panel">
+              <div class="wn-cards">
                 ${this._entries.map((entry) => html`
-                  <li>
-                    <button
-                      type="button"
-                      class="wn-toc-item"
-                      aria-current=${this._activeId === entry.id ? 'true' : nothing}
-                      @click=${() => this._scrollToEntry(entry.id)}
-                    >
-                      <span class="wn-toc-label">${entry.title}</span>
-                    </button>
-                  </li>
+                  <article class="wn-card" data-id=${entry.id}>
+                    <div class="wn-card-image">${entry.picture}</div>
+                    <h3 class="wn-card-title">${entry.title}</h3>
+                    <p class="wn-card-body">${entry.body}</p>
+                  </article>
                 `)}
-              </ul>
-            </div>
-          </nav>
-          <div class="wn-cards-panel">
-            <div class="wn-cards">
-              ${this._entries.map((entry) => html`
-                <article class="wn-card" data-id=${entry.id}>
-                  <div class="wn-card-image">${entry.picture}</div>
-                  <h3 class="wn-card-title">${entry.title}</h3>
-                  <p class="wn-card-body">${entry.body}</p>
-                </article>
-              `)}
+              </div>
             </div>
           </div>
         </div>
-      </nx-dialog>
+      </dialog>
     `;
   }
 }
