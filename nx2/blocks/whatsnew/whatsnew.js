@@ -8,12 +8,10 @@ const style = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
 const icon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_Lightbulb_20_N.svg`);
 
-// Well-known, hardcoded fragment — same convention as welcome-dialog.js and
-// whatsnew-dialog.js, which reads from the same path.
-// TODO(new1140): temporarily .aem.page (preview, needs auth) instead of
-// .aem.live (published, public) — the real content isn't published yet.
-// Revert to .aem.live before merging; .page won't work for real end users.
-const WHATSNEW_PATH = 'https://main--da-live--adobe.aem.page/nx/fragments/guides/whats-new';
+// Well-known, hardcoded fragment path — relative so it resolves against
+// whatever host is actually serving the current page, same as any other
+// project reusing nx2 as its shell would get its own copy at this path.
+const WHATSNEW_PATH = '/nx/fragments/guides/whats-new';
 
 /**
  * Nav-bar "What's new" trigger. Rendered by nav.js's decorateActions() from a
