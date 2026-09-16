@@ -44,6 +44,7 @@ export async function loadFragment(path) {
   const fragment = document.createElement('div');
   fragment.classList.add('fragment-content');
   fragment.append(...sections);
+  fragment.publishedDate = doc.querySelector('meta[name="published-date"]')?.content ?? null;
 
   replaceDotMedia(path, doc);
 

@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
-import { parseWhatsNewEntries, fetchPublishedDate } from './parse-whatsnew.js';
+import { parseWhatsNewEntries } from './parse-whatsnew.js';
 import { setWhatsNewLastSeenDate } from './whatsnew-flags.js';
 
 const style = await loadStyle(import.meta.url);
@@ -46,12 +46,8 @@ class NxWhatsNewDialog extends LitElement {
 
   async _loadContent() {
     let fragment;
-    let publishedDate;
     try {
-      [fragment, publishedDate] = await Promise.all([
-        loadFragment(WHATSNEW_PATH),
-        fetchPublishedDate(WHATSNEW_PATH),
-      ]);
+      fragment = await loadFragment(WHATSNEW_PATH);
     } catch {
       this.remove();
       return;
@@ -64,7 +60,7 @@ class NxWhatsNewDialog extends LitElement {
     }
     this._entries = entries;
     this._activeId = entries[0].id;
-    if (publishedDate) setWhatsNewLastSeenDate(publishedDate);
+    if (fragment.publishedDate) setWhatsNewLastSeenDate(fragment.publishedDate);
   }
 
   updated(changed) {
