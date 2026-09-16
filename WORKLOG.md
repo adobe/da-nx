@@ -1,5 +1,12 @@
 # Worklog
 
+## 2026-09-16
+
+### nx/blocks/loc/connectors/trados/index.js — getStatusAll bug fixes (trados-connector-fixes)
+
+- Skip languages already `complete`/`cancelled` when polling status, so Trados's indefinitely-reported completed tasks no longer trigger a re-save or un-cancel
+- Paginate the tasks fetch (`fetchAllTasks`) — previously only read the first 100 tasks per project, undercounting completed work on larger projects
+
 ## 2026-09-15
 
 ### Revert Slack PR ticker runner to `ubuntu-latest`
