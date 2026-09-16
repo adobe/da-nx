@@ -1,5 +1,15 @@
 # Worklog
 
+## 2026-09-16
+
+### nx2/blocks/chat-ao — Experience Context rename
+
+Updated the Coworker chat dropdown label from **Manage Enterprise Context** to
+**Manage Experience Context** and changed its Experience Hub destination to
+`https://experience.adobe.com/#/experiencemanager/experience-context`. Internal
+constants and menu IDs remain unchanged for compatibility. Added focused
+coverage for the visible label and canonical URL.
+
 ## 2026-09-14
 
 ### nx2/utils/api.js — cross-backend copy/move (#731)
