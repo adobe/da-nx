@@ -113,6 +113,25 @@ describe('nx-ew-actions deploy popover', () => {
       expect(card.querySelector('.deploy-url-text').textContent).to.equal('https://preview.example/page');
       expect(card.querySelector('.deploy-copy')).to.not.equal(null);
     });
+
+    it('hides the URL for a not-published (404) environment even if a url is returned', async () => {
+      const el = await mount();
+      el._status = {
+        preview: { status: 404, url: 'https://preview.example/page' },
+        live: { status: 404, url: 'https://live.example/page' },
+      };
+      el._selectTarget('live');
+      await el.updateComplete;
+      const card = el.shadowRoot.querySelector('.deploy-card-live');
+      expect(card.querySelector('.deploy-url')).to.equal(null);
+    });
+
+    it('labels the live card "Publish" for end users', async () => {
+      const el = await mount();
+      const titles = [...el.shadowRoot.querySelectorAll('.deploy-card-title')]
+        .map((n) => n.textContent.trim());
+      expect(titles).to.deep.equal(['Preview', 'Publish']);
+    });
   });
 
   describe('_copyUrl', () => {

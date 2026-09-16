@@ -376,7 +376,8 @@ class NXEwActions extends LitElement {
     const isPreview = kind === 'preview';
     const info = isPreview ? this._previewInfo : this._liveInfo;
     const selected = this._target === kind;
-    const title = isPreview ? 'Preview' : 'Live';
+    // "Publish" is the end-user label for the live environment.
+    const title = isPreview ? 'Preview' : 'Publish';
     const time = formatStatusTime(info.time);
     let sub;
     if (this._statusLoading && !this._status) sub = 'Checking status…';
@@ -398,7 +399,7 @@ class NXEwActions extends LitElement {
           </span>
           ${selected ? html`<span class="deploy-card-check" aria-hidden="true">${CHECK_ICON}</span>` : nothing}
         </button>
-        ${selected && info.url ? html`
+        ${selected && info.ok && info.url ? html`
           <div class="deploy-url">
             <span class="deploy-url-text" title=${info.url}>${info.url}</span>
             <button
