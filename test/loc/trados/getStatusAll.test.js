@@ -242,4 +242,61 @@ describe('getStatusAll', () => {
     expect(langs[0].translation.status).to.equal('translated');
     expect(langs[0].translation.translated).to.equal(1);
   });
+
+  it('surfaces an error and does not clear it when the tasks fetch fails', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url) => {
+      const u = decodeURIComponent(url.toString());
+      if (u.includes('/integrations/trados/login')) {
+        return new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), { status: 200 });
+      }
+      if (u.includes('/tasks')) return new Response('', { status: 404 });
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = {
+      org: uniq('org'), site: uniq('site'), env: 'prod', tenantId: 'tenant-1', apiEndpoint: 'https://api.sdl.com',
+    };
+    const langs = [{ code: 'de-DE', translation: { projectId: 'proj-1', status: 'in progress', translated: 0 } }];
+    const urls = [{}];
+    const messages = [];
+    const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+    await getStatusAll({ service, langs, urls, actions });
+
+    expect(langs[0].translation.status).to.equal('in progress');
+    const lastMessage = messages[messages.length - 1];
+    expect(lastMessage?.type).to.equal('error');
+    expect(lastMessage?.text).to.equal('Checking status failed for Trados project.');
+  });
+
+  it('recovers from a 401 on the tasks fetch by forcing a fresh login and retrying', async () => {
+    let loginCalls = 0;
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = decodeURIComponent(url.toString());
+      if (u.includes('/integrations/trados/login')) {
+        loginCalls += 1;
+        return new Response(JSON.stringify({ access_token: `test-token-${loginCalls}`, expires_in: 3600 }), { status: 200 });
+      }
+      if (u.includes('/tasks')) {
+        if (opts.headers.Authorization !== 'Bearer test-token-2') return new Response('', { status: 401 });
+        const body = { items: allCompleted.items, itemCount: allCompleted.items.length };
+        return new Response(JSON.stringify(body), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = {
+      org: uniq('org'), site: uniq('site'), env: 'prod', tenantId: 'tenant-1', apiEndpoint: 'https://api.sdl.com',
+    };
+    const langs = [{ code: 'de-DE', translation: { projectId: 'proj-1', status: 'in progress', translated: 0 } }];
+    const urls = [{}];
+    const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+    await getStatusAll({ service, langs, urls, actions });
+
+    expect(loginCalls).to.equal(2); // initial login + forced re-login on 401
+    expect(langs[0].translation.status).to.equal('translated');
+  });
 });
