@@ -683,6 +683,47 @@ export function connect(service) {
 }
 
 /**
+ * Lists every enabled GlobalLink project available to this account, for populating the
+ * `projectId` {@link serviceOptions} entry instead of requiring it to be hand-typed into
+ * the site's config sheet.
+ * @param {object} service - The flattened per-environment service config.
+ * @returns {Promise<{projectId: string, name: string}[]>} Enabled projects, or an empty
+ * array if the request fails.
+ */
+export async function listProjects(service) {
+  const reqUrl = `${resolveOrigin(service)}/rest/v0/projects`;
+  const opts = { headers: await authHeaders(service) };
+  const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
+  if (!resp.ok) return [];
+  const json = await resp.json().catch(() => null);
+  const projects = Array.isArray(json) ? json : (json?.projects || []);
+  return projects
+    .filter((project) => project.enabled !== false)
+    .map((project) => ({ projectId: String(project.projectId), name: project.name }));
+}
+
+/**
+ * Service options the Options UI (`loc/views/options/options.js`) should render as a
+ * live-populated select rather than a hand-typed value, sourced from this connector's
+ * own API. Read generically - Options.js has no GlobalLink-specific knowledge; it just
+ * looks for this optional export on whichever connector is active, calls `connect`, and
+ * (once connected) each option's `fetch` to get its `{value, label}` choices. A connector
+ * that needs no dynamic service options simply omits this export.
+ * @type {{key: string, label: string, fetch: (service: object) =>
+ * Promise<{value: string, label: string}[]>}[]}
+ */
+export const serviceOptions = [
+  {
+    key: 'projectId',
+    label: 'Project',
+    fetch: async (service) => {
+      const projects = await listProjects(service);
+      return projects.map((project) => ({ value: project.projectId, label: project.name }));
+    },
+  },
+];
+
+/**
  * Creates a GlobalLink submission for a set of languages, uploads the source
  * documents, and starts the submission for translation.
  * @param {object} conf - The translation-send configuration.

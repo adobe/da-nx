@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import {
   connect, isConnected, sendAllLanguages, getStatusAll, saveItems, cancelTranslation,
+  listProjects, serviceOptions,
 } from '../../../../nx/blocks/loc/connectors/globallink/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 import { unzipSync } from '../../../../nx2/deps/fflate/dist/index.js';
@@ -113,6 +114,77 @@ describe('globallink connector', () => {
       setMockIms({ anonymous: true });
 
       expect(await isConnected(baseService())).to.equal(false);
+    });
+  });
+
+  describe('listProjects', () => {
+    it('maps enabled projects to projectId/name and drops disabled ones', async () => {
+      installFetch((u) => {
+        if (u.includes('/rest/v0/projects')) {
+          return new Response(JSON.stringify([
+            { projectId: 1, name: 'Marketing Site', enabled: true, organizationId: 9 },
+            { projectId: 2, name: 'Retired Project', enabled: false },
+          ]), { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+
+      const projects = await listProjects(baseService());
+
+      expect(projects).to.deep.equal([{ projectId: '1', name: 'Marketing Site' }]);
+    });
+
+    it('treats a project without an explicit enabled flag as enabled', async () => {
+      installFetch((u) => {
+        if (u.includes('/rest/v0/projects')) {
+          return new Response(JSON.stringify([{ projectId: 3, name: 'No Flag Project' }]), { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+
+      const projects = await listProjects(baseService());
+
+      expect(projects).to.deep.equal([{ projectId: '3', name: 'No Flag Project' }]);
+    });
+
+    it('falls back to a wrapped { projects } response shape', async () => {
+      installFetch((u) => {
+        if (u.includes('/rest/v0/projects')) {
+          return new Response(JSON.stringify({ projects: [{ projectId: 4, name: 'Wrapped', enabled: true }] }), { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+
+      const projects = await listProjects(baseService());
+
+      expect(projects).to.deep.equal([{ projectId: '4', name: 'Wrapped' }]);
+    });
+
+    it('resolves an empty array when the request fails', async () => {
+      // 400 (not 500) - a 500 would trigger fetchWithRetry's slow backoff/retry loop.
+      installFetch((u) => {
+        if (u.includes('/rest/v0/projects')) return new Response('', { status: 400 });
+        return defaultHandler(u);
+      });
+
+      expect(await listProjects(baseService())).to.deep.equal([]);
+    });
+  });
+
+  describe('serviceOptions', () => {
+    it('exposes a projectId option whose fetch maps listProjects to {value, label}', async () => {
+      installFetch((u) => {
+        if (u.includes('/rest/v0/projects')) {
+          return new Response(JSON.stringify([{ projectId: 1, name: 'Marketing Site', enabled: true }]), { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+
+      const option = serviceOptions.find((o) => o.key === 'projectId');
+      expect(option.label).to.equal('Project');
+
+      const items = await option.fetch(baseService());
+      expect(items).to.deep.equal([{ value: '1', label: 'Marketing Site' }]);
     });
   });
 
