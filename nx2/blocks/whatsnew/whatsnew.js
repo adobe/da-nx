@@ -52,7 +52,9 @@ class NxWhatsNew extends LitElement {
   }
 
   async _openDialog() {
+    if (document.querySelector('nx-whatsnew-dialog')) return;
     await import('./whatsnew-dialog.js');
+    if (document.querySelector('nx-whatsnew-dialog')) return;
     document.body.append(document.createElement('nx-whatsnew-dialog'));
   }
 
