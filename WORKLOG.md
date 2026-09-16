@@ -1,5 +1,18 @@
 # Worklog
 
+## 2026-09-15
+
+### nx/blocks/loc/connectors/globallink — GlobalLink translation connector (#689)
+
+- Added GlobalLink connector: `connect`/`sendAllLanguages`/`getStatusAll`/`saveItems`/`cancelTranslation`
+- Requests routed through the DA_TRANSLATE proxy; auth via shared `loc/utils/auth.js`
+- Source documents uploaded as a single zip; dynamic per-submission batch names
+- Targets matched to DA urls by `documentId`; paginated target listing
+- `saveItems` downloads bounded by a concurrency cap
+- Status checks skip already complete/cancelled languages; targets marked delivered after save
+- Tracks every submission id a project spans when GlobalLink splits an upload across multiple submissions; status, save, download, and cancel all act across every submission
+- Added full test coverage for the connector
+
 ## 2026-09-14
 
 ### nx2/utils/api.js — cross-backend copy/move (#731)
