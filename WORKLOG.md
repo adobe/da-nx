@@ -2,6 +2,13 @@
 
 ## 2026-09-16
 
+### nx/blocks/loc/connectors/trados — retry/401 recovery + error surfacing (trados-connector-resilience, stacked on trados-connector-fixes)
+
+- Route all Trados API calls through `fetchWithRetry` (shared with Smartling/Lionbridge) for backoff on transient failures and reactive re-auth on a 401
+- Surface a `sendMessage` error instead of failing silently: failed uploads, a failed status-check fetch, and failed downloads/missing target files in `saveItems`
+
+## 2026-09-16
+
 ### nx/blocks/loc/connectors/trados/index.js — getStatusAll bug fixes (trados-connector-fixes)
 
 - Skip languages already `complete`/`cancelled` when polling status, so Trados's indefinitely-reported completed tasks no longer trigger a re-save or un-cancel
