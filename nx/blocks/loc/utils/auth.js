@@ -1,4 +1,4 @@
-import { daFetch } from '../../../../nx2/utils/api.js';
+import { daFetch, loadIms, handleSignIn } from '../../../../nx2/utils/api.js';
 import { DA_ETC } from '../../../../nx2/utils/utils.js';
 
 // DA_ETC_ENVS has no 'stage' entry, so DA_ETC resolves to undefined in a
@@ -9,7 +9,7 @@ export const LOGIN_ORIGIN = DA_ETC || 'https://da-etc.adobeaem.workers.dev';
 const TOKEN_BUFFER = 300000; // 5 min buffer before expiry
 
 /**
- * Builds the localStorage key a token is cached under.
+ * Builds the sessionStorage key a token is cached under.
  * @param {string} name - Cache-key prefix identifying the connector
  *  (e.g. 'trados', 'lionbridge').
  * @param {string} org - The DA org.
@@ -31,7 +31,7 @@ function tokenKey(name, org, site, env) {
  *  or `{}` if none are stored.
  */
 function getTokenDetails(name, org, site, env) {
-  const stored = localStorage.getItem(tokenKey(name, org, site, env));
+  const stored = sessionStorage.getItem(tokenKey(name, org, site, env));
   if (!stored) return {};
   try {
     return JSON.parse(stored);
@@ -52,7 +52,7 @@ function getTokenDetails(name, org, site, env) {
  * @returns {void}
  */
 function setTokenDetails(name, org, site, env, accessToken, expires) {
-  localStorage.setItem(
+  sessionStorage.setItem(
     tokenKey(name, org, site, env),
     JSON.stringify({ accessToken, expires }),
   );
@@ -123,4 +123,42 @@ export async function getAccessToken(name, service, { force = false } = {}) {
 export default async function authReady(name, service) {
   const accessToken = await getAccessToken(name, service);
   return !!accessToken;
+}
+
+/**
+ * Checks whether an IMS session is currently available, without triggering the sign-in
+ * flow if not - unlike {@link imsAccessToken}, safe to call repeatedly (e.g. from inside a
+ * polling loop) without repeatedly invoking `handleSignIn()`.
+ * @returns {Promise<boolean>} Whether a usable IMS access token is available.
+ */
+export async function hasImsSession() {
+  const { accessToken } = await loadIms();
+  return !!accessToken;
+}
+
+/**
+ * Resolves the current IMS access token, mirroring how `daFetch` authenticates calls to
+ * DA_TRANSLATE elsewhere (e.g. the Google connector). Connectors whose DA_TRANSLATE proxy
+ * requires IMS auth (e.g. GlobalLink, DeepL) use this instead of building their own IMS
+ * session handling. Triggers the sign-in flow if no IMS session is available.
+ * @returns {Promise<string|null>} The token, or `null` if no IMS session is available.
+ */
+export async function imsAccessToken() {
+  const { accessToken } = await loadIms();
+  if (!accessToken) {
+    handleSignIn();
+    return null;
+  }
+  return accessToken.token;
+}
+
+/**
+ * Builds the Authorization header a DA_TRANSLATE proxy requires to gate access to a
+ * connector's endpoint.
+ * @returns {Promise<{Authorization?: string}>} The header to merge into the request, or
+ * `{}` if no IMS token could be obtained.
+ */
+export async function imsAuthHeader() {
+  const token = await imsAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }

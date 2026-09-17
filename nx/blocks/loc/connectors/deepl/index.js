@@ -1,27 +1,19 @@
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
-import { DA_ETC, DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
-import authReady, { getApiKey } from './auth.js';
+import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
+import { getAccessToken, imsAuthHeader } from '../../utils/auth.js';
+import authReady from './auth.js';
+
+const INTEGRATION_NAME = 'deepl';
 
 export const dnt = { addDnt };
 
 const STATUS_POLL_MS = 1000;
 const STATUS_POLL_MAX = 30;
-const ORIGIN_HEADER = 'x-deepl-origin';
-
-/**
- * Executes a fetch request routed through DA_ETC CORS proxy if needed.
- * @param {string} url - Target URL.
- * @param {object} opts - Fetch options.
- * @returns {Promise<Response>}
- */
-function corsFetch(url, opts = {}) {
-  if (url.startsWith(DA_TRANSLATE)) {
-    return fetch(url, opts);
-  }
-  const proxyUrl = `${DA_ETC}/cors?url=${encodeURIComponent(url)}`;
-  return fetch(proxyUrl, opts);
-}
+// Carries DeepL's own key. The Authorization header itself is reserved for the IMS token
+// DA_TRANSLATE requires to gate access to the proxy (see imsAuthHeader) - DeepL's
+// credential can't travel there too without colliding with it.
+const CREDENTIAL_HEADER = 'x-deepl-authorization';
 
 /**
  * Normalizes a locale code to DeepL's accepted format.
@@ -55,64 +47,36 @@ export function toDeepLLanguageCode(code, isTarget = true) {
 }
 
 /**
- * Resolves the DeepL API endpoint base URL.
- * Automatically chooses between Free (:fx key) and Pro endpoints,
- * or the DA_TRANSLATE proxy if configured.
- * @param {object} service - The service configuration.
- * @param {string} [apiKey] - The DeepL API key.
- * @returns {string} The resolved API base URL.
+ * Builds the DA_TRANSLATE proxy origin DeepL requests are routed through, so the browser
+ * never calls DeepL's API directly (avoids CORS and keeps a single, DA-controlled network
+ * path for the connector). DeepL has no self-hosted/enterprise-instance variant (unlike
+ * GlobalLink), so there's no per-site endpoint to resolve here - the proxy derives the
+ * free-vs-pro upstream host itself from the key's `:fx` suffix.
+ * @param {object} service - The flattened per-environment service config.
+ * @returns {string|null} The proxy origin, or `null` if org/site are missing.
  */
-function resolveOrigin(service = {}, apiKey = '') {
-  const cleanKey = (apiKey || '').trim();
-  const isFree = cleanKey.endsWith(':fx') || service.env === 'free' || service.tier === 'free';
-
-  if (service.endpoint) {
-    const ep = service.endpoint.replace(/\/+$/, '');
-    if (isFree && ep.includes('api.deepl.com')) {
-      return ep.replace('api.deepl.com', 'api-free.deepl.com');
-    }
-    if (!isFree && ep.includes('api-free.deepl.com')) {
-      return ep.replace('api-free.deepl.com', 'api.deepl.com');
-    }
-    return ep;
-  }
-  if (service.origin) {
-    const orig = service.origin.replace(/\/+$/, '');
-    if (isFree && orig.includes('api.deepl.com')) {
-      return orig.replace('api.deepl.com', 'api-free.deepl.com');
-    }
-    if (!isFree && orig.includes('api-free.deepl.com')) {
-      return orig.replace('api-free.deepl.com', 'api.deepl.com');
-    }
-    return orig;
-  }
-  if (service.org && service.site && service.useProxy) {
-    return `${DA_TRANSLATE}/translate/deepl/${service.org}/${service.site}`;
-  }
-  if (isFree) {
-    return 'https://api-free.deepl.com/v2';
-  }
-  return 'https://api.deepl.com/v2';
+function resolveOrigin(service = {}) {
+  const { org, site } = service;
+  if (!org || !site) return null;
+  return `${DA_TRANSLATE}/translate/deepl/${org}/${site}/v2`;
 }
 
 /**
- * Builds the Authorization and proxy headers for DeepL API requests.
+ * Builds the IMS-auth + DeepL-credential headers used for authenticated DeepL API calls
+ * routed through the DA_TRANSLATE proxy.
  * @param {object} service - The service configuration.
  * @returns {Promise<{headers: object, origin: string}|null>}
  */
 async function getApiContext(service) {
-  const apiKey = await getApiKey(service);
-  if (!apiKey) return null;
+  const apiKey = await getAccessToken(INTEGRATION_NAME, service);
+  const origin = resolveOrigin(service);
+  if (!apiKey || !origin) return null;
 
   const cleanKey = apiKey.trim();
-  const origin = resolveOrigin(service, cleanKey);
   const headers = {
-    Authorization: `${cleanKey}`,
+    ...(await imsAuthHeader()),
+    [CREDENTIAL_HEADER]: `DeepL-Auth-Key ${cleanKey}`,
   };
-
-  if (service.endpoint && origin.includes(DA_TRANSLATE)) {
-    headers[ORIGIN_HEADER] = service.endpoint;
-  }
 
   return { apiKey: cleanKey, origin, headers };
 }
@@ -166,7 +130,7 @@ async function uploadDocument(
     formData.append('glossary_id', glossaryId);
   }
 
-  const resp = await corsFetch(`${origin}/document`, {
+  const resp = await fetch(`${origin}/document`, {
     method: 'POST',
     headers,
     body: formData,
@@ -195,7 +159,7 @@ async function checkDocumentStatus(apiCtx, documentId, documentKey) {
   formData.append('auth_key', apiKey);
   formData.append('document_key', documentKey);
 
-  const resp = await corsFetch(`${origin}/document/${documentId}`, {
+  const resp = await fetch(`${origin}/document/${documentId}`, {
     method: 'POST',
     headers,
     body: formData,
@@ -218,7 +182,7 @@ async function downloadDocumentResult(apiCtx, documentId, documentKey) {
   formData.append('auth_key', apiKey);
   formData.append('document_key', documentKey);
 
-  const resp = await corsFetch(`${origin}/document/${documentId}`, {
+  const resp = await fetch(`${origin}/document/${documentId}/result`, {
     method: 'POST',
     headers,
     body: formData,
