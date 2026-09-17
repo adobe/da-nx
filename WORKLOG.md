@@ -1,5 +1,42 @@
 # Worklog
 
+## 2026-09-16
+
+### DeepL connector (PR #746) re-review against finalized da-etc/da-translate contracts
+
+- Re-reviewed `nx/blocks/loc/connectors/deepl/{auth.js,index.js}` (PR #746, branch
+  `deepl-translation-connector`) once da-etc PR #6 and da-translate's GlobalLink
+  (PR #9) + DeepL (PR #13, restacked after the fork/Stacks limitation below) PRs
+  clarified the actual contracts. Found the connector predated those contracts and
+  didn't match them: it sent DeepL's key via `Authorization` (collides with the IMS
+  bearer token DA_TRANSLATE needs to gate the proxy), had direct-mode branches DeepL
+  can't use (no self-hosted variant), was missing `/v2` in the proxied path (da-translate
+  strips only the `/deepl` segment and forwards the rest verbatim), and
+  `downloadDocumentResult` hit the same URL as `checkDocumentStatus` instead of
+  `/document/{id}/result`.
+- Fixed to mirror the (unmerged) `globallink-translation-connector` branch's pattern:
+  proxy-only via `DA_TRANSLATE`, DeepL key sent as `x-deepl-authorization`, IMS auth
+  header added via shared `imsAuthHeader()`, `auth.js` reduced to a thin wrapper over
+  the shared `loc/utils/auth.js` token cache (removed its own `localStorage`
+  read/write + `getApiKey`).
+- Shared `loc/utils/auth.js`: switched the token cache from `localStorage` to
+  `sessionStorage` and added `hasImsSession()` / `imsAccessToken()` / `imsAuthHeader()`
+  — same extension the GlobalLink branch independently makes to this file, so whichever
+  of the two PRs merges second will likely hit a small conflict here to reconcile.
+  `test/loc/lionbridge/index.test.js` updated (`localStorage.clear()` →
+  `sessionStorage.clear()`) since Lionbridge shares this cache.
+- No push access to PR #746's actual head repo (`Codeland-Org/deepl` — a fork neither
+  configured GitHub account can write to, only discovered after a push to `origin`
+  landed on the wrong repo and had to be deleted). Posted the fixes as inline
+  suggestion-block review comments instead, plus a branch `deepl-connector-fixes`
+  pushed to `adobe/da-nx` (based on the PR's head commit) so the author can diff/
+  cherry-pick directly: `git diff deepl-translation-connector...deepl-connector-fixes`.
+- Aside: GitHub's native PR "Stacks" feature rejects fork-based PRs ("Pull requests
+  from forks cannot be added to stacks") — distinct from just setting `base` via the
+  API/CLI, which works fine across forks for mergeability but doesn't enable Stacks.
+  da-translate's DeepL PR was moved off a fork and reopened same-repo (PR #13) to
+  work around this.
+
 ## 2026-09-14
 
 ### nx2/utils/api.js — cross-backend copy/move (#731)
