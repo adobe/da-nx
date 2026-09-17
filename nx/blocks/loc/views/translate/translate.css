@@ -2,6 +2,26 @@ svg {
   display: none;
 }
 
+.nx-loading-spinner {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentcolor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: da-spin 0.8s linear infinite;
+}
+
+@keyframes da-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nx-loading-spinner {
+    animation-duration: 1.5s;
+  }
+}
+
 p {
   margin: 0;
   line-height: 1;
