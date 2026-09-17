@@ -7,6 +7,16 @@
 - Skip languages already `complete`/`cancelled` when polling status, so Trados's indefinitely-reported completed tasks no longer trigger a re-save or un-cancel
 - Paginate the tasks/target-files/custom-field-definitions list fetches (`fetchAllPages`) via the real API's `skip`/`top` params — an initial version used `offset`/`limit`, which Trados silently ignores, so it never actually paginated; caught via live validation against a real project
 
+## 2026-09-16
+
+### nx2/blocks/chat-ao — Experience Context rename
+
+Updated the Coworker chat dropdown label from **Manage Enterprise Context** to
+**Manage Experience Context** and changed its Experience Hub destination to
+`https://experience.adobe.com/#/experiencemanager/experience-context`. Internal
+constants and menu IDs remain unchanged for compatibility. Added focused
+coverage for the visible label and canonical URL.
+
 ## 2026-09-15
 
 ### Revert Slack PR ticker runner to `ubuntu-latest`
