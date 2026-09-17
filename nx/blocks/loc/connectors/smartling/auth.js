@@ -77,10 +77,12 @@ function setTokenDetails(org, site, env, accessToken, refreshToken, expiresInSec
  * working. Persists the new token; leaves rescheduling the next proactive
  * refresh to the caller.
  * @returns {Promise<{accessToken: string, expiresIn: number}|null>} The
- *  new token details, or null if both the refresh and the fallback
- *  re-authentication failed.
+ *  new token details, or null if `authContext` hasn't been set yet, or if
+ *  both the refresh and the fallback re-authentication failed.
  */
 async function refreshOrReauthenticate() {
+  if (!authContext) return null;
+
   const { endpoint, org, site, env } = authContext;
   const { refreshToken: currRefreshToken } = getCachedToken(INTEGRATION_NAME, org, site, env);
 
