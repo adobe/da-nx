@@ -74,7 +74,7 @@ describe('smartling connector - legacy origin rewriting', () => {
   // test's isConnected() call), so 401-recovery tests pass regardless of
   // execution order or whether a single test runs in isolation.
   beforeEach(async () => {
-    localStorage.setItem(`smartling.${org}.${site}.prod.token`, JSON.stringify({
+    sessionStorage.setItem(`smartling.${org}.${site}.prod.token`, JSON.stringify({
       accessToken: 'seed-token',
       refreshToken: 'seed-refresh-token',
       expires: Date.now() + 60000,
@@ -85,7 +85,7 @@ describe('smartling connector - legacy origin rewriting', () => {
   });
 
   it('resolves the endpoint from origin/org/site in isConnected, not a nonexistent config key', async () => {
-    localStorage.setItem(`smartling.${org}.${site}.prod.token`, JSON.stringify({
+    sessionStorage.setItem(`smartling.${org}.${site}.prod.token`, JSON.stringify({
       accessToken: 'cached-token',
       refreshToken: 'cached-refresh-token',
       expires: Date.now() + 60000,

@@ -30,7 +30,7 @@ function tokenKey(name, org, site, env) {
  * @param {string} env - The environment key (e.g. 'prod').
  * @returns {Object} The parsed value, or `{}` if missing/invalid.
  */
-function getTokenDetails(name, org, site, env) {
+export function getCachedToken(name, org, site, env) {
   const stored = sessionStorage.getItem(tokenKey(name, org, site, env));
   if (!stored) return {};
   try {
@@ -41,7 +41,7 @@ function getTokenDetails(name, org, site, env) {
 }
 
 /**
- * JSON-serializes and persists a connector's token details to localStorage.
+ * JSON-serializes and persists a connector's token details to sessionStorage.
  * @param {string} name - The da-etc integration name (e.g. 'trados', 'smartling').
  * @param {string} org - The DA org.
  * @param {string} site - The DA site.
@@ -49,11 +49,8 @@ function getTokenDetails(name, org, site, env) {
  * @param {Object} value - The value to persist.
  * @returns {void}
  */
-function setTokenDetails(name, org, site, env, accessToken, expires) {
-  sessionStorage.setItem(
-    tokenKey(name, org, site, env),
-    JSON.stringify({ accessToken, expires }),
-  );
+export function setCachedToken(name, org, site, env, value) {
+  sessionStorage.setItem(tokenKey(name, org, site, env), JSON.stringify(value));
 }
 
 /**
