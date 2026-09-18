@@ -1,0 +1,319 @@
+:host {
+  display: contents;
+  font-family: var(--s2-font-family, adobe-clean, 'Source Sans Pro', system-ui, sans-serif);
+}
+
+dialog {
+  box-sizing: border-box;
+  margin: 0;
+  padding: var(--s2-spacing-500);
+  border: 0;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-width: none;
+  max-height: none;
+  background: none;
+  color: inherit;
+  overflow: auto;
+
+  &:focus-visible {
+    outline: none;
+  }
+
+  &[open] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &::backdrop {
+    background: light-dark(rgb(0 0 0 / 40%), rgb(0 0 0 / 60%));
+    backdrop-filter: blur(0.5px);
+  }
+}
+
+.wn-panel {
+  position: relative;
+  box-sizing: border-box;
+  width: min(848px, calc(100vw - 2 * var(--s2-spacing-500)));
+  height: min(620px, calc(100vh - 2 * var(--s2-spacing-500)));
+  height: min(620px, calc(100dvh - 2 * var(--s2-spacing-500)));
+  border-radius: var(--s2-corner-radius-800);
+  background: var(--s2-gray-25);
+  box-shadow: 0 8px 32px light-dark(rgb(0 0 0 / 18%), rgb(0 0 0 / 45%));
+  overflow: hidden;
+}
+
+.wn-body {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.wn-close {
+  position: absolute;
+  top: var(--s2-spacing-100);
+  right: var(--s2-spacing-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--s2-corner-radius-800);
+  background: transparent;
+  color: var(--s2-gray-700);
+  cursor: pointer;
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover {
+    background: var(--s2-gray-100);
+    color: var(--s2-gray-900);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-800);
+    outline-offset: 2px;
+  }
+}
+
+.wn-toc {
+  box-sizing: border-box;
+  display: flex;
+  flex-shrink: 0;
+  width: 256px;
+  padding: var(--s2-spacing-500) 0 var(--s2-spacing-500) var(--s2-spacing-600);
+  background: var(--s2-gray-50);
+  overflow: hidden;
+}
+
+.wn-toc-scroll {
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-right: 20px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--s2-gray-400) var(--s2-gray-100);
+}
+
+.wn-toc-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.wn-toc-scroll::-webkit-scrollbar-track {
+  background: var(--s2-gray-100);
+  border-radius: 999px;
+}
+
+.wn-toc-scroll::-webkit-scrollbar-thumb {
+  background: var(--s2-gray-400);
+  border-radius: 999px;
+}
+
+.wn-toc-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--s2-gray-500);
+}
+
+.wn-toc-title {
+  margin: 0 0 20px;
+  font-size: var(--s2-heading-size-m);
+  font-weight: var(--s2-component-xl-bold-font-weight);
+  line-height: var(--s2-heading-line-height);
+  color: var(--s2-gray-900);
+}
+
+.wn-toc-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-75);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wn-toc-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 14px 0 14px 16px;
+  border: none;
+  background: none;
+  color: var(--s2-gray-700);
+  font-size: var(--s2-component-l-regular-font-size);
+  font-weight: var(--s2-component-l-regular-font-weight);
+  line-height: var(--s2-component-l-regular-line-height);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--s2-gray-900);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-800);
+    outline-offset: 2px;
+  }
+}
+
+.wn-toc-item[aria-current='true'] {
+  color: var(--s2-gray-900);
+}
+
+.wn-toc-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  background: var(--s2-gray-800);
+  transition: transform 0.2s ease, height 0.2s ease;
+}
+
+.wn-cards-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  padding: var(--s2-spacing-600) 20px 0 var(--s2-spacing-600);
+  overflow: hidden;
+}
+
+.wn-cards {
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+  padding-right: 20px;
+  padding-bottom: 140px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--s2-gray-400) var(--s2-gray-100);
+}
+
+.wn-cards::-webkit-scrollbar {
+  width: 4px;
+}
+
+.wn-cards::-webkit-scrollbar-track {
+  background: var(--s2-gray-100);
+  border-radius: 999px;
+}
+
+.wn-cards::-webkit-scrollbar-thumb {
+  background: var(--s2-gray-400);
+  border-radius: 999px;
+}
+
+/* Neutralize the browser's default hover affordance (some engines widen
+   and/or darken a custom-styled scrollbar thumb on hover automatically) —
+   keep size and color identical to the resting state. */
+.wn-cards::-webkit-scrollbar-thumb:hover,
+.wn-cards::-webkit-scrollbar-thumb:active {
+  background: var(--s2-gray-400);
+}
+
+.wn-cards::-webkit-scrollbar:hover {
+  width: 4px;
+}
+
+.wn-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.wn-card-image {
+  margin-bottom: var(--s2-spacing-400);
+}
+
+.wn-card-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--s2-corner-radius-500);
+}
+
+.wn-card-title {
+  margin: 0 0 4px;
+  font-size: var(--s2-component-xl-bold-font-size);
+  font-weight: var(--s2-component-xl-bold-font-weight);
+  line-height: var(--s2-component-xl-bold-line-height);
+  color: var(--s2-gray-900);
+}
+
+.wn-card-body {
+  margin: 0;
+  font-size: var(--s2-body-size-m);
+  font-weight: var(--s2-body-font-weight);
+  line-height: var(--s2-body-line-height);
+  color: var(--s2-gray-800);
+}
+
+/* Mobile: toc collapses to just its gray heading strip across the top
+   (list hidden), cards stack full-width below on white, scrollable. */
+@media (width < 600px) {
+  .wn-panel {
+    width: calc(100vw - 2 * var(--s2-spacing-300));
+    height: calc(100vh - 2 * var(--s2-spacing-300));
+    height: calc(100dvh - 2 * var(--s2-spacing-300));
+  }
+
+  /* On mobile, .wn-body itself (not .wn-cards) owns scrolling, so the toc
+     heading can be position: sticky within it — cards scroll up and pass
+     behind its opaque background, instead of two independent scroll boxes
+     side by side like on desktop. */
+  .wn-body {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .wn-toc {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    flex-shrink: 0;
+    width: 100%;
+    padding: var(--s2-spacing-500) var(--s2-spacing-600);
+  }
+
+  .wn-toc-scroll {
+    flex: none;
+    padding-right: 0;
+    overflow: visible;
+  }
+
+  .wn-toc-title {
+    margin: 0;
+  }
+
+  .wn-toc-list {
+    display: none;
+  }
+
+  .wn-cards-panel {
+    flex: none;
+    padding: var(--s2-spacing-600);
+    padding-bottom: 0;
+    overflow: visible;
+  }
+
+  .wn-cards {
+    flex: none;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    padding-right: 0;
+  }
+}
