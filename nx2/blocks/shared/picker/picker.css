@@ -16,7 +16,7 @@
   list-style: none;
   font-size: var(--s2-component-s-bold-font-size);
   line-height: var(--s2-component-s-bold-line-height);
-  font-weight: 600;
+  font-weight: var(--nx-picker-section-font-weight, 600);
   letter-spacing: 0.02em;
   color: var(--nx-picker-section-color, var(--s2-gray-700));
   text-transform: none;
