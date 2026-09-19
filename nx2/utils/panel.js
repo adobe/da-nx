@@ -1,7 +1,7 @@
 import { getMetadata } from '../scripts/nx.js';
 
 const PANEL_WIDTH_MIN = 120;
-const PANEL_WIDTH_MAX = () => Math.min(1600, window.innerWidth * 0.4);
+const PANEL_WIDTH_MAX = () => Math.min(1600, window.innerWidth * 0.85);
 
 function parsePanelWidth(aside) {
   const w = aside.dataset.width?.trim();
