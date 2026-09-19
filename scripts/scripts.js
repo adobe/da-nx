@@ -28,3 +28,5 @@ const CONFIG = {
 decorateArea();
 setConfig(CONFIG);
 loadArea();
+
+// PoC
