@@ -49,6 +49,7 @@ Each entry in the `items` array is one of:
 | `items`     | `Array`               | List of item descriptors (see shapes above).                                       |
 | `value`     | `String`              | The currently selected item value. Drives the trigger label and the checkmark.     |
 | `placement` | `String`              | Default placement when opened: `below` (default), `above`, or `auto`.             |
+| `size`      | `String`              | Item density: `s` (default) or `m`. Reflected as a host attribute.                 |
 | `open`      | `Boolean` (read-only) | Whether the picker is currently open.                                              |
 
 ### Methods

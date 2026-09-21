@@ -7,6 +7,8 @@ import {
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
 import { versions } from '../../utils/api.js';
+import { fetchDaConfigs, getFirstSheet } from '../../utils/daConfig.js';
+import { sidekickCacheBust } from '../../utils/sidekick.js';
 import { getConfig } from '../../scripts/nx.js';
 import '../shared/menu/menu.js';
 
@@ -51,11 +53,27 @@ function buildPrepareDetails(state) {
   };
 }
 
+async function shouldHidePublish(hashState) {
+  const { org, site } = hashState || {};
+  const fullpath = buildPrepareDetails(hashState)?.fullpath;
+  if (!org || !site || !fullpath) return false;
+
+  try {
+    const configs = await Promise.all(fetchDaConfigs({ org, site }));
+    const configTab = configs.flatMap((config) => getFirstSheet(config) || []);
+    const publishConfigs = configTab.filter((c) => c.key === 'editor.hidePublish' && c.value);
+    return publishConfigs.some((c) => fullpath.startsWith(c.value));
+  } catch {
+    return false;
+  }
+}
+
 class NXEwActions extends LitElement {
   static properties = {
     _busy: { state: true },
     _hasError: { state: true },
     _hashState: { state: true },
+    _hidePublish: { state: true },
     _prepareReady: { state: true },
     // phase: 'error' | 'pending' | 'result'
     _dialog: { state: true },
@@ -95,6 +113,15 @@ class NXEwActions extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._unsubHash?.();
+  }
+
+  update(changed) {
+    super.update(changed);
+    if (changed.has('_hashState') && this._hashState) this._updateHidePublish();
+  }
+
+  async _updateHidePublish() {
+    this._hidePublish = await shouldHidePublish(this._hashState);
   }
 
   _togglePrepareMenu(e) {
@@ -176,6 +203,7 @@ class NXEwActions extends LitElement {
 
     this._hasError = false;
     const url = this._resolveOpenUrl(action, aemPath, result.url);
+    await sidekickCacheBust(url);
     window.open(url, url);
     this._saveVersion(action);
     this._busy = false;
@@ -269,7 +297,7 @@ class NXEwActions extends LitElement {
               size="m"
               .items=${[
         { id: 'preview', label: 'Preview' },
-        { id: 'publish', label: 'Publish' },
+        ...(this._hidePublish ? [] : [{ id: 'publish', label: 'Publish' }]),
       ]}
               @select=${(e) => this._pickAem(e.detail.id)}
             >

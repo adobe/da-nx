@@ -1,5 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import AoChatController from '../../../../nx2/blocks/chat-ao/ao-controller.js';
+import { AO_MANIFEST_ID, AO_HTTP_BASE } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
+import { setMockIms, resetMockIms } from '../../../../nx2/test/mocks/ims.js';
 
 const APPLICATION = {
   id: 'da.live',
@@ -14,6 +16,7 @@ function makeController() {
   const controller = new AoChatController({ onUpdate: (u) => updates.push(u) });
   controller._ensureSocket = async () => { };
   controller._fetchEpisodeContext = async () => null;
+  controller._resolveManifest = async () => ({ manifestId: AO_MANIFEST_ID, debugMode: false });
   controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
   return { controller, updates, sent };
 }
@@ -32,6 +35,8 @@ describe('ao-controller sendMessage', () => {
       {
         type: 'USER_INPUT',
         text: 'hello AO',
+        manifestId: AO_MANIFEST_ID,
+        debugMode: false,
         clientMessageId,
         client_context: { application: APPLICATION },
       },
@@ -77,6 +82,8 @@ describe('ao-controller sendMessage', () => {
       {
         type: 'USER_INPUT',
         text: 'looks good, go ahead',
+        manifestId: AO_MANIFEST_ID,
+        debugMode: false,
         clientMessageId: sent[0].clientMessageId,
         client_context: { application: APPLICATION },
       },
@@ -111,7 +118,6 @@ describe('ao-controller sendMessage', () => {
   it('carries the current document as a focused resource, with org/site spelled out rather than embedded in id', async () => {
     const { controller, sent } = makeController();
     controller.setContext({ org: 'adobe', site: 'da-live', path: '/docs/foo' });
-    controller._resolveManifest = async () => null;
 
     await controller.sendMessage('what does this do?');
 
@@ -130,7 +136,6 @@ describe('ao-controller sendMessage', () => {
   it('normalizes the id separator when path has no leading slash', async () => {
     const { controller, sent } = makeController();
     controller.setContext({ org: 'adobe', site: 'da-live', path: 'docs/foo' });
-    controller._resolveManifest = async () => null;
 
     await controller.sendMessage('what does this do?');
 
@@ -166,30 +171,120 @@ describe('ao-controller sendMessage', () => {
     expect(updates.at(-1).thinking).to.equal(false);
   });
 
+  describe('with attachments', () => {
+    // Real uploadAttachment()/aoContext() run against a stubbed fetch — only the
+    // network boundary is faked, so the actual upload sequencing and
+    // failed-uploads text building both get genuinely exercised.
+    function installUploadFetch(routes) {
+      const calls = [];
+      const origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        calls.push({ url: url.toString(), opts });
+        const route = routes.find((r) => r.match(url.toString(), opts));
+        if (!route) throw new Error(`unexpected fetch: ${url}`);
+        return new Response(JSON.stringify(route.body ?? {}), { status: route.status ?? 200 });
+      };
+      return { calls, restore: () => { window.fetch = origFetch; } };
+    }
+
+    beforeEach(() => setMockIms());
+    afterEach(() => resetMockIms());
+
+    it('uploads an attachment before sending, replacing it with an artifactId', async () => {
+      const { calls, restore } = installUploadFetch([
+        {
+          match: (url, opts) => url === `${AO_HTTP_BASE}/api/v1/files/upload` && opts.method === 'POST',
+          body: { file_id: 'file-1', upload_url: 'https://blob.example/upload-1' },
+        },
+        {
+          match: (url, opts) => url === 'https://blob.example/upload-1' && opts.method === 'PUT',
+        },
+        {
+          match: (url, opts) => url === `${AO_HTTP_BASE}/api/v1/files/file-1/finalize` && opts.method === 'POST',
+          body: { artifact_id: 'artifact-1' },
+        },
+      ]);
+      const { controller, sent } = makeController();
+
+      try {
+        await controller.sendMessage('here is the design', [], [
+          { id: 'a1', fileName: 'design.png', mediaType: 'image/png', dataBase64: btoa('image-bytes') },
+        ]);
+      } finally {
+        restore();
+      }
+
+      expect(sent[0].text).to.equal('here is the design');
+      expect(sent[0].attachments).to.deep.equal(['artifact-1']);
+      expect(calls[0].opts.headers.authorization).to.equal('Bearer test-token');
+      expect(JSON.parse(calls[0].opts.body)).to.deep.equal({
+        filename: 'design.png', content_type: 'image/png', scope: 'user',
+      });
+    });
+
+    it('prepends failed-upload text and omits the attachment when the upload fails — e.g. a .fig file', async () => {
+      const { restore } = installUploadFetch([
+        {
+          match: (url, opts) => url === `${AO_HTTP_BASE}/api/v1/files/upload` && opts.method === 'POST',
+          body: { file_id: 'file-2', upload_url: 'https://blob.example/upload-2' },
+        },
+        {
+          match: (url, opts) => url === 'https://blob.example/upload-2' && opts.method === 'PUT',
+          status: 500,
+        },
+      ]);
+      const { controller, sent } = makeController();
+
+      try {
+        await controller.sendMessage('here is the mockup', [], [
+          { id: 'f1', fileName: 'homepage.fig', mediaType: 'application/octet-stream', dataBase64: btoa('fig-bytes') },
+        ]);
+      } finally {
+        restore();
+      }
+
+      expect(sent[0].text).to.equal('[Attachments]\n- Attached file: homepage.fig — upload failed\nhere is the mockup');
+      expect(sent[0]).to.not.have.property('attachments');
+    });
+  });
+
+  // Tier coverage lives in manifest.test.js; bypasses makeController()'s default stub.
   describe('_resolveManifest', () => {
-    it('the ?nx-chat-ao-manifest=<name> query override returns that manifest id directly', async () => {
+    let origFetch;
+
+    afterEach(() => {
+      if (origFetch) window.fetch = origFetch;
+      origFetch = null;
+    });
+
+    it('the ?nx-chat-ao-manifest=<name> query override wins without any network', async () => {
       const { controller } = makeController();
+      delete controller._resolveManifest;
+      origFetch = window.fetch;
+      window.fetch = async () => { throw new Error('should not have been called'); };
 
       const result = await controller._resolveManifest('?nx-chat-ao-manifest=dev-manifest');
 
-      expect(result).to.equal('dev-manifest');
+      expect(result).to.deep.equal({ manifestId: 'dev-manifest', debugMode: true });
     });
 
-    it('returns null without looking anything up when no context and no query override are set', async () => {
+    it('falls back to the fixed default when nothing else resolves', async () => {
       const { controller } = makeController();
+      delete controller._resolveManifest;
+      origFetch = window.fetch;
+      window.fetch = async () => new Response(JSON.stringify({ manifest_id: null }), {
+        status: 200,
+      });
 
       const result = await controller._resolveManifest('');
 
-      expect(result).to.equal(null);
+      expect(result).to.deep.equal({ manifestId: AO_MANIFEST_ID, debugMode: false });
     });
-
-    // getManifestId's own flag-reading behavior (config value vs. unset) is
-    // covered directly in ewFlags.test.js — not re-verified here.
   });
 
   it('sends manifestId and debugMode together when _resolveManifest finds an override', async () => {
     const { controller, sent } = makeController();
-    controller._resolveManifest = async () => 'staging-manifest';
+    controller._resolveManifest = async () => ({ manifestId: 'staging-manifest', debugMode: true });
 
     await controller.sendMessage('hello AO');
 
@@ -197,14 +292,13 @@ describe('ao-controller sendMessage', () => {
     expect(sent[0].debugMode).to.equal(true);
   });
 
-  it('omits both manifestId and debugMode when _resolveManifest finds no override', async () => {
+  it('sends the fixed default manifestId with debugMode false on the default resolution path', async () => {
     const { controller, sent } = makeController();
-    controller._resolveManifest = async () => null;
 
     await controller.sendMessage('hello AO');
 
-    expect(sent[0]).to.not.have.property('manifestId');
-    expect(sent[0]).to.not.have.property('debugMode');
+    expect(sent[0].manifestId).to.equal(AO_MANIFEST_ID);
+    expect(sent[0].debugMode).to.equal(false);
   });
 });
 
@@ -308,6 +402,21 @@ describe('ao-controller turn lifecycle', () => {
     controller._handleServerEvent({ type: 'error', data: { message: 'not active' } });
 
     expect(controller._messages).to.deep.equal([]);
+    expect(updates).to.have.length(0);
+  });
+
+  it('swallows a session-level error while a turn is merely suspended on a pending question — AO legitimately reports the episode as idle while waiting on the user', () => {
+    const { controller, updates } = makeController();
+    controller._thinking = true;
+    controller._pendingQuestion = { turnId: 't1', context: null, questions: [] };
+
+    controller._handleServerEvent({
+      type: 'error',
+      data: { message: 'Cannot ATTACH to episode 1: not active (state=idle); send a message to start a turn.' },
+    });
+
+    expect(controller._messages).to.deep.equal([]);
+    expect(controller._pendingQuestion).to.not.equal(undefined);
     expect(updates).to.have.length(0);
   });
 });
@@ -1134,6 +1243,118 @@ describe('ao-controller user questions', () => {
     }]);
   });
 
+  it('answerQuestion replaces the question card with a questionResponse summary, optimistically', async () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+    controller._ws.readyState = WebSocket.OPEN;
+
+    await controller.answerQuestion([{ question_id: '1', selected_options: ['Approve'] }]);
+
+    expect(controller._messages).to.deep.equal([{
+      role: 'assistant',
+      questionResponse: {
+        context: 'This is an example of how I pause and ask for your approval.',
+        questions: sampleEvent.data.questions,
+        answers: [{ question_id: '1', selected_options: ['Approve'] }],
+        declined: false,
+      },
+    }]);
+  });
+
+  it('declineQuestion replaces the question card with a declined questionResponse summary', async () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+    controller._ws.readyState = WebSocket.OPEN;
+
+    await controller.declineQuestion();
+
+    expect(controller._messages[0].questionResponse.declined).to.equal(true);
+    expect(controller._messages[0].questionResponse.answers).to.deep.equal([]);
+  });
+
+  it('never renders a generic tool-call card for ask_user_question — it gets its own summary instead', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent({
+      type: 'tool_call_detected',
+      data: { tool_call_id: 'tooluse_1', tool_name: 'ask_user_question' },
+    });
+    controller._handleServerEvent({
+      type: 'tool_call_start',
+      data: { tool_call_id: 'tooluse_1', tool_name: 'ask_user_question', arguments: {} },
+    });
+    controller._handleServerEvent({
+      type: 'tool_call_end',
+      data: { tool_call_id: 'tooluse_1', result: 'User answers: ...', success: true },
+    });
+
+    expect(controller._messages).to.deep.equal([]);
+  });
+
+  it('a USER_QUESTION_RESPONSE event from another client replaces this client\'s own pending question card', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+
+    controller._handleServerEvent({
+      type: 'user_question_response',
+      turn_id: 't1',
+      data: { turn_id: 't1', answers: [{ question_id: '1', selected_options: ['Decline'] }] },
+    });
+
+    expect(controller._pendingQuestion).to.equal(undefined);
+    expect(controller._messages).to.deep.equal([{
+      role: 'assistant',
+      questionResponse: {
+        context: sampleEvent.data.context,
+        questions: sampleEvent.data.questions,
+        answers: [{ question_id: '1', selected_options: ['Decline'] }],
+        declined: false,
+      },
+    }]);
+  });
+
+  it('treats an empty answers list on USER_QUESTION_RESPONSE as declined, since the event carries no explicit flag', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+
+    controller._handleServerEvent({
+      type: 'user_question_response',
+      turn_id: 't1',
+      data: { turn_id: 't1', answers: [] },
+    });
+
+    expect(controller._messages[0].questionResponse.declined).to.equal(true);
+  });
+
+  it('ignores a USER_QUESTION_RESPONSE once this client already answered its own pendingQuestion', async () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+    controller._ws.readyState = WebSocket.OPEN;
+    await controller.answerQuestion([{ question_id: '1', selected_options: ['Approve'] }]);
+
+    controller._handleServerEvent({
+      type: 'user_question_response',
+      turn_id: 't1',
+      data: { turn_id: 't1', answers: [{ question_id: '1', selected_options: ['Approve'] }] },
+    });
+
+    // Still just the one optimistic summary — the echo didn't add a second.
+    expect(controller._messages).to.have.length(1);
+  });
+
+  it('ignores a USER_QUESTION_RESPONSE for a different turn than the one currently pending', () => {
+    const { controller } = makeController();
+    controller._handleServerEvent(sampleEvent);
+
+    controller._handleServerEvent({
+      type: 'user_question_response',
+      turn_id: 'some-other-turn',
+      data: { turn_id: 'some-other-turn', answers: [] },
+    });
+
+    expect(controller._pendingQuestion).to.not.equal(undefined);
+    expect(controller._messages).to.deep.equal([]);
+  });
+
   it('answerQuestion is a no-op when there is no pending question', async () => {
     const { controller, sent } = makeController();
 
@@ -1503,6 +1724,13 @@ describe('ao-controller connection recovery', () => {
 
     controller._thinking = true;
     controller._destroyed = true;
+    expect(controller._shouldReattachOnClose()).to.equal(false);
+  });
+
+  it('_shouldReattachOnClose is false while suspended on a pending question, even though _thinking is still true', () => {
+    const { controller } = makeController();
+    controller._thinking = true;
+    controller._pendingQuestion = { turnId: 't1', context: null, questions: [] };
     expect(controller._shouldReattachOnClose()).to.equal(false);
   });
 

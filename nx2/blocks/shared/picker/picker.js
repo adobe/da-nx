@@ -24,7 +24,13 @@ class NxPicker extends LitElement {
     labelOverride: { type: String },
     _active: { state: true },
     ignoreFocus: { attribute: true },
+    size: { type: String, reflect: true },
   };
+
+  constructor() {
+    super();
+    this.size = 's';
+  }
 
   get _popover() { return this.shadowRoot.querySelector('nx-popover'); }
 

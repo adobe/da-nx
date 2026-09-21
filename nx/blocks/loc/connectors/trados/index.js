@@ -1,16 +1,18 @@
-import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
-import authReady, { getAccessToken } from './auth.js';
+import downloadQueue from '../../utils/downloadQueue.js';
+import authReady, { getAccessToken as getCachedAccessToken } from '../../utils/auth.js';
 import { corsFetch } from './utils.js';
 
 export const dnt = { addDnt };
 
+const INTEGRATION_NAME = 'trados';
+
 export function isConnected(service) {
-  return authReady(service);
+  return authReady(INTEGRATION_NAME, service);
 }
 
 export function connect(service) {
-  return authReady(service);
+  return authReady(INTEGRATION_NAME, service);
 }
 
 // --- Helpers ---
@@ -43,7 +45,7 @@ function extractCustomFields(options) {
 
 async function getOpts(service, method = 'GET', body = null, contentType = 'application/json') {
   const { tenantId } = service;
-  const token = await getAccessToken(service);
+  const token = await getCachedAccessToken(INTEGRATION_NAME, service);
   if (!token) throw new Error('Trados authentication failed');
 
   const opts = {
@@ -64,6 +66,37 @@ async function getOpts(service, method = 'GET', body = null, contentType = 'appl
   return opts;
 }
 
+/**
+ * Builds a `fetchWithRetry` `onUnauthorized` callback: forces a fresh
+ * Trados login (bypassing the cached token, which the server can reject -
+ * e.g. revoked, or clock skew - even though the client's own expiry check
+ * still considered it valid) and rebuilds `opts` with the new bearer
+ * token, so a 401 triggers exactly one retry with a valid token instead
+ * of failing the request outright.
+ * @param {Object} service - The service configuration.
+ * @param {Object} opts - The fetch options to rebuild on success.
+ * @returns {() => Promise<Object|null>} Callback for `fetchWithRetry`'s
+ *  `onUnauthorized` config.
+ */
+function onUnauthorized(service, opts) {
+  return async () => {
+    const token = await getCachedAccessToken(INTEGRATION_NAME, service, { force: true });
+    if (!token) return null;
+    return { ...opts, headers: { ...opts.headers, Authorization: `Bearer ${token}` } };
+  };
+}
+
+/**
+ * Builds the `fetchWithRetry` config for a request: a per-request
+ * `onUnauthorized` callback for reactive re-auth on a 401.
+ * @param {Object} service - The service configuration.
+ * @param {Object} opts - The fetch options to rebuild on a 401.
+ * @returns {Object} The `fetchWithRetry` config.
+ */
+function retryConfig(service, opts) {
+  return { onUnauthorized: onUnauthorized(service, opts) };
+}
+
 function ensureExtension(path) {
   if (path.endsWith('.html')) return path;
 
@@ -74,6 +107,50 @@ function ensureExtension(path) {
 
 // --- Project Operations ---
 
+// Trados's max page size (the `top` param) is 100 - see
+// https://developers.rws.com/languagecloud-api-docs/ ListProjectTasks.
+const LIST_PAGE_LIMIT = 100;
+
+/**
+ * Fetches every item from a paginated Trados list endpoint via its
+ * `skip`/`top` params, aggregating across pages instead of returning only
+ * the first page - Trados caps list endpoints at `LIST_PAGE_LIMIT` items
+ * per page by default, which would otherwise silently undercount a
+ * project with more items than one page (e.g. many files x languages x
+ * workflow steps of tasks, or many files x languages of target-files).
+ * @param {Object} service - The service configuration.
+ * @param {string} url - The endpoint url, including any query params
+ *  (e.g. `fields`) but not `skip`/`top`.
+ * @returns {Promise<Object[]|null>} All items, or null if any page fails.
+ */
+async function fetchAllPages(service, url) {
+  const items = [];
+  let skip = 0;
+  let itemCount = Infinity;
+  const separator = url.includes('?') ? '&' : '?';
+
+  while (skip < itemCount) {
+    // eslint-disable-next-line no-await-in-loop
+    const opts = await getOpts(service);
+    const pageUrl = `${url}${separator}skip=${skip}&top=${LIST_PAGE_LIMIT}`;
+    // eslint-disable-next-line no-await-in-loop
+    const resp = await corsFetch(pageUrl, opts, retryConfig(service, opts));
+    if (!resp.ok) return null;
+
+    // eslint-disable-next-line no-await-in-loop
+    const json = await resp.json();
+    const pageItems = json.items || [];
+    items.push(...pageItems);
+    itemCount = json.itemCount ?? items.length;
+
+    // Guard against an infinite loop if itemCount is ever wrong.
+    if (!pageItems.length) break;
+    skip += pageItems.length;
+  }
+
+  return items;
+}
+
 /**
  * Fetches custom field definitions from Trados and builds a lookup map.
  * @param {Object} service - The service configuration
@@ -82,21 +159,27 @@ function ensureExtension(path) {
  */
 async function getCustomFieldDefinitions(service) {
   const { apiEndpoint } = service;
-  const opts = await getOpts(service, 'GET');
-  const resp = await corsFetch(
+  const definitions = await fetchAllPages(
+    service,
     `${apiEndpoint}/custom-field-definitions?fields=id,name,key,type,description,defaultValue,isMandatory`,
-    opts,
   );
 
-  if (!resp.ok) return new Map();
-
-  const json = await resp.json();
-  const definitions = json.items || [];
-
   // Build a lookup map: name -> definition
-  return new Map(definitions.map((def) => [def.name, def]));
+  return new Map((definitions || []).map((def) => [def.name, def]));
 }
 
+/**
+ * Creates a new Trados project for a translation request.
+ * @param {Object} options - Project options (e.g. `project.due`,
+ *  `source.language`, `translation.service.custom*` custom fields).
+ * @param {Object} service - The service configuration.
+ * @param {string} title - The project title.
+ * @param {Object[]} langs - Target languages; reads `trados location`/
+ *  `trados project template` off the first entry.
+ * @param {Function} sendMessage - Callback to surface a warning (unknown
+ *  custom field) or error (project creation failed) message.
+ * @returns {Promise<string|null>} The new project's id, or null on failure.
+ */
 async function createProject(options, service, title, langs, sendMessage) {
   const defaultDate = new Date();
   defaultDate.setDate(defaultDate.getDate() + 14);
@@ -165,7 +248,7 @@ async function createProject(options, service, title, langs, sendMessage) {
   const body = JSON.stringify(projectBody);
 
   const opts = await getOpts(service, 'POST', body);
-  const resp = await corsFetch(`${apiEndpoint}/projects`, opts);
+  const resp = await corsFetch(`${apiEndpoint}/projects`, opts, retryConfig(service, opts));
 
   if (!resp.ok) {
     // Log error details
@@ -183,7 +266,19 @@ async function createProject(options, service, title, langs, sendMessage) {
   return json.id;
 }
 
-async function uploadFiles(options, service, projectId, urls) {
+/**
+ * Uploads every source file to a Trados project.
+ * @param {Object} options - Project options; `source.language` sets the
+ *  source language.
+ * @param {Object} service - The service configuration.
+ * @param {string} projectId - The target project id.
+ * @param {Object[]} urls - The urls to upload; mutated in place with
+ *  `sourceFileId` on success.
+ * @param {Function} sendMessage - Callback to surface an error message
+ *  per url that fails to upload.
+ * @returns {Promise<number>} The number of files successfully uploaded.
+ */
+async function uploadFiles(options, service, projectId, urls, sendMessage) {
   const { apiEndpoint } = service;
   const sourceLanguage = options['source.language']?.code || 'en-US';
 
@@ -213,26 +308,50 @@ async function uploadFiles(options, service, projectId, urls) {
     formData.append('file', file, fileName);
 
     const opts = await getOpts(service, 'POST', formData, null);
-    const resp = await corsFetch(`${apiEndpoint}/projects/${projectId}/source-files`, opts);
+    const resp = await corsFetch(`${apiEndpoint}/projects/${projectId}/source-files`, opts, retryConfig(service, opts));
     if (resp.ok) {
       const json = await resp.json();
       url.sourceFileId = json.id;
       uploaded += 1;
+    } else {
+      sendMessage({ text: `Error uploading ${url.daBasePath} to Trados.`, type: 'error' });
     }
   }
 
   return uploaded;
 }
 
+/**
+ * Starts a Trados project, kicking off its workflow.
+ * @param {Object} service - The service configuration.
+ * @param {string} projectId - The project id to start.
+ * @returns {Promise<boolean>} Whether the project started (a 202 means
+ *  Trados accepted the request and is starting it asynchronously).
+ */
 async function startProject(service, projectId) {
   const { apiEndpoint } = service;
   const opts = await getOpts(service, 'PUT');
-  const resp = await corsFetch(`${apiEndpoint}/projects/${projectId}/start`, opts);
+  const resp = await corsFetch(`${apiEndpoint}/projects/${projectId}/start`, opts, retryConfig(service, opts));
   return resp.ok || resp.status === 202;
 }
 
 // --- Exports ---
 
+/**
+ * Sends a translation project's urls to Trados for every target language:
+ * creates a project, uploads all source files, then starts it.
+ * @param {Object} params
+ * @param {string} params.title - The project title.
+ * @param {Object} params.service - The service configuration; mutated
+ *  with `projectId` on success.
+ * @param {Object} params.options - Project options (e.g. `project.due`,
+ *  `source.language`).
+ * @param {Object[]} params.langs - Target languages; mutated in place with
+ *  `translation` status.
+ * @param {Object[]} params.urls - The urls to translate.
+ * @param {Object} params.actions - `{ sendMessage, saveState }` callbacks.
+ * @returns {Promise<void>}
+ */
 export async function sendAllLanguages({
   title, service, options, langs, urls, actions,
 }) {
@@ -253,7 +372,7 @@ export async function sendAllLanguages({
 
   // 2. Upload source files (adds sourceFileId to each url)
   sendMessage({ text: `Uploading ${urls.length} files to Trados.` });
-  const uploaded = await uploadFiles(options, service, projectId, urls);
+  const uploaded = await uploadFiles(options, service, projectId, urls, sendMessage);
 
   // 3. Start project
   sendMessage({ text: 'Starting Trados project.' });
@@ -289,6 +408,18 @@ export function getSourceFileStatus(tasks) {
   return null;
 }
 
+/**
+ * Determines a language's translation status from its Trados tasks.
+ * `file-delivery` is the terminal step of Trados's workflow - other task
+ * types (e.g. translation-memory matching, machine translation) mark
+ * progression through the workflow, not completion of the language itself.
+ * @param {Object[]} tasks - All tasks for the project.
+ * @param {string} langCode - The target language code to check.
+ * @param {number} fileCount - The number of files expected for this lang.
+ * @returns {{status: string, translated: number}} The language's status
+ *  (`'error'`, `'translated'`, or `'in progress'`) and the number of files
+ *  delivered so far.
+ */
 export function getLangStatus(tasks, langCode, fileCount) {
   const langTasks = tasks.filter((task) => (
     task.input?.targetFile?.languageDirection?.targetLanguage?.languageCode === langCode
@@ -305,9 +436,42 @@ export function getLangStatus(tasks, langCode, fileCount) {
   return { status: 'in progress', translated };
 }
 
+/**
+ * Fetches every task for a project, paging through Trados's tasks list
+ * rather than taking the first page as the complete set - a project with
+ * more tasks than one page (e.g. many files x languages x workflow steps)
+ * would otherwise silently undercount completed work.
+ * @param {Object} service - The service configuration.
+ * @param {string} projectId - The Trados project id.
+ * @returns {Promise<Object[]|null>} All tasks, or null if any page fails.
+ */
+function fetchAllTasks(service, projectId) {
+  const { apiEndpoint } = service;
+  return fetchAllPages(
+    service,
+    `${apiEndpoint}/projects/${projectId}/tasks?fields=taskType,status,input.targetFile`,
+  );
+}
+
+/**
+ * Refreshes translation status for every target language of a project by
+ * polling Trados's task list.
+ * @param {Object} params
+ * @param {Object} params.service - The service configuration.
+ * @param {Object[]} params.langs - Target languages; mutated in place with
+ *  `translation.status`/`translation.translated`. A lang already at
+ *  `'complete'` (saved to DA) or `'cancelled'` is left untouched - both
+ *  are terminal, and Trados keeps reporting completed file-delivery
+ *  tasks indefinitely, which would otherwise look "newly finished" (or
+ *  un-cancel a cancelled lang) on every subsequent check.
+ * @param {Object[]} params.urls - The urls in the project.
+ * @param {Object} params.actions - `{ sendMessage, saveState }` callbacks;
+ *  `sendMessage` surfaces an error if the tasks fetch fails, leaving langs
+ *  untouched rather than misreporting them.
+ * @returns {Promise<void>}
+ */
 export async function getStatusAll({ service, langs, urls, actions }) {
   const { sendMessage, saveState } = actions;
-  const { apiEndpoint } = service;
 
   const projectId = langs[0]?.translation?.projectId;
   if (!projectId) return;
@@ -315,20 +479,24 @@ export async function getStatusAll({ service, langs, urls, actions }) {
   const localesStr = langs.map((lang) => lang.code).join(', ');
   sendMessage({ text: `Getting status for ${localesStr}` });
 
-  const opts = await getOpts(service);
-  const resp = await corsFetch(
-    `${apiEndpoint}/projects/${projectId}/tasks?fields=taskType,status,input.targetFile`,
-    opts,
-  );
-  if (!resp.ok) return;
-
-  const json = await resp.json();
-  const tasks = json.items || [];
+  const tasks = await fetchAllTasks(service, projectId);
+  if (!tasks) {
+    sendMessage({ text: 'Checking status failed for Trados project.', type: 'error' });
+    return;
+  }
 
   const sourceError = getSourceFileStatus(tasks);
 
   langs.forEach((lang) => {
     lang.translation ??= {};
+
+    // 'complete'/'cancelled' are terminal - Trados keeps reporting
+    // completed file-delivery tasks indefinitely, so without this guard
+    // every subsequent status check would revert 'complete' back to
+    // 'translated' (triggering a re-save) or 'cancelled' back to
+    // 'translated' (undoing a cancel).
+    if (['complete', 'cancelled'].includes(lang.translation.status)) return;
+
     if (sourceError) {
       lang.translation.status = sourceError;
     } else {
@@ -342,6 +510,23 @@ export async function getStatusAll({ service, langs, urls, actions }) {
   await saveState();
 }
 
+/**
+ * Downloads and saves translated content for a completed language.
+ * @param {Object} params
+ * @param {string} params.org - The DA org.
+ * @param {string} params.site - The DA site.
+ * @param {Object} params.service - The service configuration.
+ * @param {Object} params.lang - The language to save; reads
+ *  `lang.translation.projectId`.
+ * @param {Object[]} params.urls - The urls to download; mutated in place
+ *  with `sourceContent`/`status`.
+ * @param {Function} params.saveFn - Called with each url once its
+ *  translated content is ready to persist.
+ * @param {Function} params.sendMessage - Callback to surface an error
+ *  message to the user - called if the target-files list fails to fetch,
+ *  or per url that fails to download.
+ * @returns {Promise<Object[]>} The same `urls`, once all have a `status`.
+ */
 export async function saveItems({
   org,
   site,
@@ -349,21 +534,21 @@ export async function saveItems({
   lang,
   urls,
   saveFn,
+  sendMessage,
 }) {
   const { apiEndpoint } = service;
   const projectId = lang?.translation?.projectId;
   if (!projectId) return urls;
 
   // Get target files for this project
-  const opts = await getOpts(service);
-  const resp = await corsFetch(
+  const targetFiles = await fetchAllPages(
+    service,
     `${apiEndpoint}/projects/${projectId}/target-files?fields=latestVersion,languageDirection.targetLanguage,sourceFile`,
-    opts,
   );
-  if (!resp.ok) return urls;
-
-  const json = await resp.json();
-  const targetFiles = json.items || [];
+  if (!targetFiles) {
+    sendMessage({ text: 'Fetching Trados target files failed.', type: 'error' });
+    return urls;
+  }
 
   // Build lookup: source file ID → target file (filtered by language)
   const sourceIdToTarget = new Map();
@@ -379,6 +564,7 @@ export async function saveItems({
     const tf = url.sourceFileId && sourceIdToTarget.get(url.sourceFileId);
 
     if (!tf) {
+      sendMessage({ text: `No Trados target file found for ${url.daBasePath}.`, type: 'error' });
       url.status = 'error';
       return;
     }
@@ -386,31 +572,19 @@ export async function saveItems({
     try {
       const dlUrl = `${apiEndpoint}/projects/${projectId}/target-files/${tf.id}/versions/${tf.latestVersion.id}/download`;
       const dlOpts = await getOpts(service);
-      const dlResp = await corsFetch(dlUrl, dlOpts);
-      if (!dlResp.ok) throw new Error(dlResp.status);
+      const dlResp = await corsFetch(dlUrl, dlOpts, retryConfig(service, dlOpts));
+      if (!dlResp.ok) throw new Error(`request failed with status ${dlResp.status}`);
 
       const text = await dlResp.text();
       const ext = url.daBasePath.includes('.json') ? 'json' : 'html';
       url.sourceContent = await removeDnt({ org, site, html: text, ext });
 
       await saveFn(url);
-    } catch {
+    } catch (error) {
+      sendMessage({ text: `Download failed for ${url.daBasePath}: ${error.message}`, type: 'error' });
       url.status = 'error';
     }
   };
 
-  const queue = new Queue(downloadCallback, 5);
-
-  return new Promise((resolve) => {
-    const throttle = setInterval(() => {
-      const nextUrl = urls.find((u) => !u.inProgress);
-      if (nextUrl) {
-        nextUrl.inProgress = true;
-        queue.push(nextUrl);
-      } else if (urls.every((u) => u.status)) {
-        clearInterval(throttle);
-        resolve(urls);
-      }
-    }, 250);
-  });
+  return downloadQueue(urls, downloadCallback);
 }

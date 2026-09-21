@@ -1,0 +1,28 @@
+[
+  {
+    "requestId": "req-fr-1",
+    "jobId": "job-1",
+    "statusCode": "SENT_TO_PROVIDER",
+    "hasError": false,
+    "targetNativeLanguageCode": "fr-FR",
+    "fileId": "file-1",
+    "fileType": "html",
+    "fileName": "page-1.html",
+    "requestName": "page-1.html",
+    "sourceNativeId": "/da-nx/test/page-1.html",
+    "sourceNativeLanguageCode": "en-US"
+  },
+  {
+    "requestId": "req-de-1",
+    "jobId": "job-1",
+    "statusCode": "REVIEW_TRANSLATION",
+    "hasError": false,
+    "targetNativeLanguageCode": "de-DE",
+    "fileId": "file-1",
+    "fileType": "html",
+    "fileName": "page-1.html",
+    "requestName": "page-1.html",
+    "sourceNativeId": "/da-nx/test/page-1.html",
+    "sourceNativeLanguageCode": "en-US"
+  }
+]

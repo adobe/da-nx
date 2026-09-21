@@ -14,10 +14,11 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
 import AoChatController from './ao-controller.js';
+import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
   AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES,
-  COWORKER_SKILLS_URL, COWORKER_CHAT_URL,
-  ADD_MENU_ITEMS, OPEN_COWORKER_ITEM,
+  COWORKER_SKILLS_URL, COWORKER_CHAT_URL, ENTERPRISE_CONTEXT_URL,
+  ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE,
 } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
@@ -25,7 +26,7 @@ import { PANEL_EVENT } from '../../utils/panel.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
-import { createVoiceInput, isVoiceInputSupported, appendTranscript } from '../shared/chat/voice-input.js';
+import { createVoiceInput, isVoiceInputSupported, appendTranscript } from './utils/voice-input.js';
 import { showToast } from '../shared/toast/toast.js';
 import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
@@ -71,7 +72,7 @@ export default class NxChatAo extends LitElement {
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
 
   // Tracks the last interim chunk inserted into .chat-input so the next
-  // chunk can replace it in place — see shared/chat/voice-input.js#appendTranscript.
+  // chunk can replace it in place — see utils/voice-input.js#appendTranscript.
   _voiceInterim = '';
 
   set context(value) {
@@ -163,6 +164,7 @@ export default class NxChatAo extends LitElement {
 
   _handleNewSession() {
     this._controller.startNewEpisode();
+    this.shadowRoot.querySelector('.chat-input')?.focus();
   }
 
   _handleEpisodeChange({ detail: { value } }) {
@@ -178,6 +180,7 @@ export default class NxChatAo extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    fetchResolvedManifestId();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, artifactStyle];
     this._controller = new AoChatController({
       onUpdate: ({
@@ -253,6 +256,10 @@ export default class NxChatAo extends LitElement {
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
       this.shadowRoot.querySelector('.chat-input')?.focus();
     }
+
+    if (changed.has('pendingPermission') && this.pendingPermission && !changed.get('pendingPermission')) {
+      this.shadowRoot.querySelector('.permission-approve-btn')?.focus();
+    }
   }
 
   _getSlashItems(filter) {
@@ -314,6 +321,7 @@ export default class NxChatAo extends LitElement {
     if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
     if (id === MENU_OPTIONS.MANAGE_SKILLS) window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
     if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) window.open(`${COWORKER_CHAT_URL}/${this.episodeId}`, '_blank', 'noopener,noreferrer');
+    if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) window.open(ENTERPRISE_CONTEXT_URL, '_blank', 'noopener,noreferrer');
   }
 
   _openConfigPage() {
@@ -361,6 +369,7 @@ export default class NxChatAo extends LitElement {
         ${this.episodes?.length ? html`
           <nx-picker
             class="session-picker"
+            size="m"
             .items=${this.episodes.map((ep) => ({ value: ep.id, label: this._episodeLabel(ep) }))}
             .value=${this.episodeId}
             .labelOverride=${this._sessionFallbackLabel()}
@@ -368,12 +377,12 @@ export default class NxChatAo extends LitElement {
             @change=${this._handleEpisodeChange}
           ></nx-picker>` : nothing}
         <div>
-          <button type="button" class="nx-action-btn-quiet nx-btn-sm" @click=${this._handleNewSession}>
+          <button type="button" class="nx-action-btn-quiet" @click=${this._handleNewSession}>
             ${icon('add')}
-            <span>New session</span>
+            <span>New chat</span>
           </button>
           <button
-            class="nx-action-btn-icon nx-btn-sm"
+            class="nx-action-btn-icon"
             aria-label="Close chat panel"
             @click=${this._closePanel}
           >${icon('close')}</button>
@@ -416,6 +425,7 @@ export default class NxChatAo extends LitElement {
       <div class="chat-form-wrap">
         <nx-menu
           class="slash-menu"
+          size="m"
           .ignoreFocus=${true}
           .scoped=${true}
           @select=${({ detail }) => this._onSlashSelect(detail.id)}
@@ -427,8 +437,8 @@ export default class NxChatAo extends LitElement {
           .onDecline=${() => this._controller.declineQuestion()}
         ></nx-question-card>
         ${renderPermissionCard(this.pendingPermission, {
-          onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
-        })}
+            onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
+          })}
         <form class="chat-form" @submit=${this._submit}
           @dragenter=${this._dnd.onDragEnter}
           @dragleave=${this._dnd.onDragLeave}
@@ -461,7 +471,7 @@ export default class NxChatAo extends LitElement {
             @blur=${this._slashMenu.onBlur}
           ></textarea>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
-            <nx-menu .items=${this.episodeId ? [...ADD_MENU_ITEMS, OPEN_COWORKER_ITEM] : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
+            <nx-menu size="m" .items=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
               <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>

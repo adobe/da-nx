@@ -1,8 +1,8 @@
-import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import {
   checkSession, createTask, addAssets, updateStatus, getTask, downloadAsset,
   prepareTargetPreview, getGlaasFilename, shouldLogGLaaSRequests,
 } from './api.js';
+import downloadQueue from '../../utils/downloadQueue.js';
 import {
   createMultimodalTask,
   uploadMultimodalPageAssets,
@@ -10,6 +10,7 @@ import {
   getMultimodalV2TaskStatus,
   prepareMultimodalPageForSave,
   logMultimodalRequest,
+  normalizeImages,
 } from './multimodalApi.js';
 import { getGlaasToken, connectToGlaas } from './auth.js';
 import { addDnt, removeDnt } from './dnt.js';
@@ -643,27 +644,12 @@ export async function saveItems({
     // loc-images marks are dropped here rather than carried onto the
     // regional page (see stripLocImages in dnt.js).
     url.sourceContent = await removeDnt(text, org, site, { fileType, stripLocImages: true });
+    url.normalizeImages = normalizeImages; // read by mergeCopy - GLaaS-only
 
     await saveFn(url);
   };
 
-  const queue = new Queue(downloadCallback, 5);
-
-  return new Promise((resolve) => {
-    const throttle = setInterval(() => {
-      const nextUrl = urls.find((url) => !url.inProgress);
-      if (nextUrl) {
-        nextUrl.inProgress = true;
-        queue.push(nextUrl);
-      } else {
-        const finished = urls.every((url) => url.status);
-        if (finished) {
-          clearInterval(throttle);
-          resolve(urls);
-        }
-      }
-    }, 250);
-  });
+  return downloadQueue(urls, downloadCallback);
 }
 
 async function canCancelLang({ lang }) {

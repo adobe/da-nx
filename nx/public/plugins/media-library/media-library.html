@@ -64,14 +64,14 @@
 
         setConfig({ imsClientId: 'da-web', env: 'prod' });
 
-        const { context } = await DA_SDK;
+        const { context, token } = await DA_SDK;
 
         // Import media library's ims-adapter BEFORE creating the element
         const { setImsDetails } = await import('https://da.live/nx/blocks/media-library/core/ims-adapter.js');
 
         // Inject token from DA_SDK into media library's ims-adapter
-        if (context?.token) {
-          setImsDetails(context.token);
+        if (token) {
+          setImsDetails(token);
         }
 
         await import('https://da.live/nx/blocks/media-library/media-library.js');
