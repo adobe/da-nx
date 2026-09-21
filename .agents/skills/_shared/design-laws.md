@@ -12,8 +12,8 @@ stronger citation than a generic law because the pattern already exists
 in this codebase, not just in general UX literature.
 
 For the actual numeric values behind any Proximity finding below, see
-[`ew-spacing-scale.md`](./spacing-scale.md) — the real `--spacing-*`
-ladder, fetched from the token package, plus the discipline for
+[`spacing-scale.md`](./spacing-scale.md) — the real `--s2-spacing-*`
+ladder, verified against this repo's own CSS, plus the discipline for
 assigning one semantic role per step so the same *kind* of gap doesn't
 drift to different values in different places.
 
@@ -35,7 +35,7 @@ lines *inside* one paragraph — a 16px section gap was still smaller than
 a plain line-wrap. Landed on `--spacing-400` (24px), which clears that
 line-height with room to spare. General rule: a "new section" gap must
 exceed the line-height of the text immediately above it, not just exceed
-the intra-block label gap. See [`ew-spacing-scale.md`](./spacing-scale.md)
+the intra-block label gap. See [`spacing-scale.md`](./spacing-scale.md)
 for the real token ladder these values come from.
 
 **Law of Common Region** (Gestalt) — a shared border/background reads as
@@ -104,7 +104,7 @@ adequate"; (2) a frozen snapshot is a starting point, not a permanent
 source of truth — before finalizing a reproduction, diff its spacing
 values against the most recently tuned real file, because manual
 tuning that happens after the freeze doesn't automatically carry forward.
-See [`ew-spacing-scale.md`](./spacing-scale.md) for the real token
+See [`spacing-scale.md`](./spacing-scale.md) for the real token
 ladder and the semantic-role-per-step discipline behind this.
 
 **Fourth corollary — narrative content and metadata are different kinds
@@ -116,16 +116,17 @@ it needs a gap that reads as a real boundary, not just "slightly more."
 NC hit: `.obs-name`→`.obs-description` gap is `--spacing-75` (6px);
 `.obs-description`→`.obs-sources` (the News/topic tag row) gap is
 `--spacing-150` (10px) — only 4px more, not a perceptible boundary, and
-`--spacing-150` isn't even a real token (see `ew-spacing-scale.md`'s open
-finding). Fix: tighten the title-to-body gap to the real `--spacing-75`
-value (4px, reinforcing "same unit"); the body-to-tags gap first moved to
-`--spacing-200` (12px) as a real, unambiguous step up, then tuned further
-to `--spacing-350` (20px, 5× the title gap) on explicit design review —
-the same "real token, not an eyeballed value" discipline still applies
-even when the exact step is a judgment call, not a computed minimum.
+`--spacing-150` isn't a real `--s2-spacing-*` token under any name (see
+`spacing-scale.md`'s resolved finding). Fix: tighten the title-to-body gap
+to the real `--s2-spacing-75` equivalent (4px, reinforcing "same unit");
+the body-to-tags gap first moved to `--spacing-200` (12px, matching the
+real `--s2-spacing-200` step) as a real, unambiguous step up, then tuned
+further to `--spacing-350` (20px) on explicit design review — the same
+"real token, not an eyeballed value" discipline still applies even when
+the exact step is a judgment call, not a computed minimum.
 General rule: when a text block is followed by a row of tags/pills/chips
 (a structurally different content type), treat that transition as its
-own boundary type — see `ew-spacing-scale.md`'s "Content-to-metadata" row.
+own boundary type — see `spacing-scale.md`'s "Content-to-metadata" row.
 
 **Implementation gotcha — two spacing mechanisms can silently stack.**
 `.nc-pill` had its own `margin-right: 6px`; its flex parent `.obs-meta`
