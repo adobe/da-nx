@@ -66,10 +66,11 @@ font stack.
   one (same shape, different hardcoded values) is drift, not a design
   choice — flag it even if it looks fine in isolation.
 - **Reuse a shared block before building a custom component**, not just a
-  style. Check `nx2/blocks/shared/*` first — `picker`, `menu`, `dialog`,
-  `popover`, `segmented-btn`, `pills`, `breadcrumb`, `toast` are all real,
-  documented components. A hand-rolled dropdown/menu/tag list duplicates
-  one of these as surely as a hand-rolled button duplicates `.nx-btn-accent`.
+  style. List whatever currently exists under `nx2/blocks/shared/*`
+  (don't hardcode names here — that folder grows) and check it before
+  building a dropdown, menu, dialog, tag list, etc. from scratch. A
+  hand-rolled version of one of these duplicates it as surely as a
+  hand-rolled button duplicates `.nx-btn-accent`.
 - **Prefer a native HTML/CSS primitive over a hand-built one**, if the
   native element already provides the needed behavior — `<select>`,
   `<dialog>`, `<details>`/`<summary>`, `<button>`. Generated code tends to
