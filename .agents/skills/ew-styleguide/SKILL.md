@@ -68,9 +68,7 @@ font stack.
 - **Reuse a shared block before building a custom component**, not just a
   style. List whatever currently exists under `nx2/blocks/shared/*`
   (don't hardcode names here — that folder grows) and check it before
-  building a dropdown, menu, dialog, tag list, etc. from scratch. A
-  hand-rolled version of one of these duplicates it as surely as a
-  hand-rolled button duplicates `.nx-btn-accent`.
+  building a dropdown, menu, dialog, tag list, etc. from scratch.
 - **Prefer a native HTML/CSS primitive over a hand-built one**, if the
   native element already provides the needed behavior — `<select>`,
   `<dialog>`, `<details>`/`<summary>`, `<button>`. Generated code tends to
