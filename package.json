@@ -59,6 +59,10 @@
     "globals": "^17.3.0",
     "husky": "9.1.7",
     "lint-staged": "^16.2.7",
+    "prosemirror-model": "1.25.4",
+    "prosemirror-state": "1.4.3",
+    "prosemirror-tables": "1.8.1",
+    "prosemirror-view": "1.41.4",
     "sinon": "13.0.2",
     "stylelint": "17.14.1",
     "stylelint-config-standard": "40.0.0"
