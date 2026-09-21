@@ -132,6 +132,23 @@ describe('nx-ew-actions deploy popover', () => {
         .map((n) => n.textContent.trim());
       expect(titles).to.deep.equal(['Preview', 'Publish']);
     });
+
+    it('hides the Publish card, badge, and publish action when publishing is disabled', async () => {
+      const el = await mount();
+      // Would normally show the badge (previewed, never published).
+      el._status = { preview: { status: 200 }, live: { status: 404 } };
+      el._hidePublish = true;
+      await el.updateComplete;
+      const titles = [...el.shadowRoot.querySelectorAll('.deploy-card-title')]
+        .map((n) => n.textContent.trim());
+      expect(titles).to.deep.equal(['Preview']);
+      expect(el.shadowRoot.querySelector('.deploy-card-live')).to.equal(null);
+      expect(el.shadowRoot.querySelector('.send-badge')).to.equal(null);
+      // Even if the target is forced to live, the action stays a preview "Update".
+      el._selectTarget('live');
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.deploy-action').textContent.trim()).to.equal('Update');
+    });
   });
 
   describe('_copyUrl', () => {

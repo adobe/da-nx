@@ -1,5 +1,48 @@
 # Worklog
 
+## 2026-09-17
+
+### nx/blocks/loc/connectors/globallink — GlobalLink translation connector (#689)
+
+- Added GlobalLink connector: `connect`/`sendAllLanguages`/`getStatusAll`/`saveItems`/`cancelTranslation`
+- Requests routed through the DA_TRANSLATE proxy; auth via shared `loc/utils/auth.js`
+- Source documents uploaded as a single zip; dynamic per-submission batch names
+- Targets matched to DA urls by `documentId`; paginated target listing
+- `saveItems` downloads bounded by a concurrency cap
+- Status checks skip already complete/cancelled languages; targets marked delivered after save
+- Tracks every submission id a project spans when GlobalLink splits an upload across multiple submissions; status, save, download, and cancel all act across every submission
+- Added full test coverage for the connector
+
+## 2026-09-16
+
+### nx/blocks/loc/connectors/trados — retry/401 recovery + error surfacing (trados-connector-resilience, stacked on trados-connector-fixes)
+
+- Route all Trados API calls through `fetchWithRetry` (shared with Smartling/Lionbridge) for backoff on transient failures and reactive re-auth on a 401
+- Surface a `sendMessage` error instead of failing silently: failed uploads, a failed status-check fetch, and failed downloads/missing target files in `saveItems`
+
+## 2026-09-16
+
+### nx/blocks/loc/connectors/trados/index.js — getStatusAll bug fixes (trados-connector-fixes)
+
+- Skip languages already `complete`/`cancelled` when polling status, so Trados's indefinitely-reported completed tasks no longer trigger a re-save or un-cancel
+- Paginate the tasks/target-files/custom-field-definitions list fetches (`fetchAllPages`) via the real API's `skip`/`top` params — an initial version used `offset`/`limit`, which Trados silently ignores, so it never actually paginated; caught via live validation against a real project
+
+## 2026-09-16
+
+### nx2/blocks/chat-ao — Experience Context rename
+
+Updated the Coworker chat dropdown label from **Manage Enterprise Context** to
+**Manage Experience Context** and changed its Experience Hub destination to
+`https://experience.adobe.com/#/experiencemanager/experience-context`. Internal
+constants and menu IDs remain unchanged for compatibility. Added focused
+coverage for the visible label and canonical URL.
+
+## 2026-09-15
+
+### Revert Slack PR ticker runner to `ubuntu-latest`
+
+- `.github/workflows/slack-pr-ticker.yml`: the `notify` job `runs-on` reverted from `gh-hosted` back to `ubuntu-latest`.
+
 ## 2026-09-14
 
 ### nx2/utils/api.js — cross-backend copy/move (#731)
@@ -747,9 +790,3 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 - "Always approve" is conversation-scoped — resets on `clear()` only, not per message.
 - Conversation history keyed by `org--site--userId` — site-scoped, not path-scoped.
 - Agent stream contract and persistence model documented in `docs/chat-ui-component.md`.
-
-## 2026-09-15
-
-### Revert Slack PR ticker runner to `ubuntu-latest`
-
-- `.github/workflows/slack-pr-ticker.yml`: the `notify` job `runs-on` reverted from `gh-hosted` back to `ubuntu-latest`.

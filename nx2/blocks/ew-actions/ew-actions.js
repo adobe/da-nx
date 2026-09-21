@@ -7,6 +7,7 @@ import {
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
 import { versions, status } from '../../utils/api.js';
+import { fetchDaConfigs, getFirstSheet } from '../../utils/daConfig.js';
 import { sidekickCacheBust } from '../../utils/sidekick.js';
 import { formatRelativeDateTime } from '../../utils/format.js';
 import { getConfig } from '../../scripts/nx.js';
@@ -58,11 +59,27 @@ function buildPrepareDetails(state) {
   };
 }
 
+async function shouldHidePublish(hashState) {
+  const { org, site } = hashState || {};
+  const fullpath = buildPrepareDetails(hashState)?.fullpath;
+  if (!org || !site || !fullpath) return false;
+
+  try {
+    const configs = await Promise.all(fetchDaConfigs({ org, site }));
+    const configTab = configs.flatMap((config) => getFirstSheet(config) || []);
+    const publishConfigs = configTab.filter((c) => c.key === 'editor.hidePublish' && c.value);
+    return publishConfigs.some((c) => fullpath.startsWith(c.value));
+  } catch {
+    return false;
+  }
+}
+
 class NXEwActions extends LitElement {
   static properties = {
     _busy: { state: true },
     _hasError: { state: true },
     _hashState: { state: true },
+    _hidePublish: { state: true },
     _prepareReady: { state: true },
     // phase: 'error' | 'pending' | 'result'
     _dialog: { state: true },
@@ -202,10 +219,19 @@ class NXEwActions extends LitElement {
 
   async _confirmAction() {
     if (this._busy) return;
-    const action = this._target === 'live' ? 'publish' : 'preview';
+    const action = this._target === 'live' && !this._hidePublish ? 'publish' : 'preview';
     await this._runAemAction(action);
     if (!this._hasError) this._popover?.close();
     await this._syncStatus({ force: true });
+  }
+
+  update(changed) {
+    super.update(changed);
+    if (changed.has('_hashState') && this._hashState) this._updateHidePublish();
+  }
+
+  async _updateHidePublish() {
+    this._hidePublish = await shouldHidePublish(this._hashState);
   }
 
   _togglePrepareMenu(e) {
@@ -392,14 +418,16 @@ class NXEwActions extends LitElement {
   }
 
   _renderDeployPopover() {
-    const isPublish = this._target === 'live';
+    // `editor.hidePublish` config removes the publish path entirely: no Publish
+    // card, and the action can only ever be a preview "Update".
+    const isPublish = this._target === 'live' && !this._hidePublish;
     return html`
       <nx-popover class="deploy-popover" placement="below-end" @close=${() => { this._copied = null; }}>
         <div class="deploy">
           <div class="deploy-head">${CLOUD_ICON}<span>Deploy</span></div>
           <div class="deploy-cards" role="radiogroup" aria-label="Deploy target">
             ${this._renderCard('preview')}
-            ${this._renderCard('live')}
+            ${this._hidePublish ? nothing : this._renderCard('live')}
           </div>
           <button
             type="button"
@@ -420,7 +448,8 @@ class NXEwActions extends LitElement {
     const hasDoc = Boolean(buildAemPathFromHashState(this._hashState));
     const disabled = !hasDoc || this._busy;
     const prepareDetails = this._prepareReady ? this._prepareDetails : null;
-    const unpublished = this._hasUnpublished;
+    // When publishing is hidden for this path, the unpublished-changes cue is moot.
+    const unpublished = this._hasUnpublished && !this._hidePublish;
     const sendLabel = `Preview and publish${unpublished ? ' — unpublished changes' : ''}`;
 
     return html`

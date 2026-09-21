@@ -47,12 +47,14 @@
 
   .session-picker {
     --nx-picker-max-width: 50%;
-    --nx-picker-height: 24px;
+    --nx-picker-height: 32px;
   }
 
   & > div {
     display: inline-flex;
+    flex-shrink: 0;
     margin-inline-start: auto;
+    white-space: nowrap;
   }
 }
 
@@ -487,6 +489,11 @@
 .question-response-answer-label {
   font-weight: var(--s2-component-s-medium-font-weight);
   color: var(--s2-gray-800);
+}
+
+.nx-action-btn-quiet,
+.nx-action-btn-icon:not(.nx-btn-sm) {
+  font-size: var(--s2-component-m-regular-font-size);
 }
 
 .chat-form-wrap {
