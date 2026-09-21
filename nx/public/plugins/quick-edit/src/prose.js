@@ -173,6 +173,16 @@ function createEditor(cursorOffset, state, ctx) {
   const offset = Number(cursorOffset);
   const schema = getSchema();
   const node = schema.nodeFromJSON(state);
+
+  // A node that is not valid top-level `doc` content (e.g. a `table_cell`, which
+  // only belongs inside a `table_row`) makes `schema.node('doc', ...)` throw and
+  // takes the whole editor down. The controller should never send one, but guard
+  // here so a malformed payload degrades to a reload instead of a hard crash.
+  if (!schema.nodes.doc.contentMatch.matchType(node.type)) {
+    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
+    return;
+  }
+
   const doc = schema.node('doc', null, [node]);
 
   const editorState = EditorState.create({
