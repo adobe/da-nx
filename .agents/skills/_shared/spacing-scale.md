@@ -1,9 +1,9 @@
 # EW spacing scale — shared reference
 
-Not a standalone skill. [`ew-design-laws.md`](./ew-design-laws.md)'s Law
+Not a standalone skill. [`design-laws.md`](./design-laws.md)'s Law
 of Proximity entry (and its corollaries) points here instead of
 re-deriving the scale per finding. Same discipline as
-[`ew-color-contrast`](./ew-color-contrast/SKILL.md) applies to color: fetch
+[`ew-color-contrast`](../ew-color-contrast/SKILL.md) applies to color: fetch
 the real token value, don't eyeball or invent one — same rule, applied to
 spacing.
 

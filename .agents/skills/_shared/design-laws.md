@@ -12,7 +12,7 @@ stronger citation than a generic law because the pattern already exists
 in this codebase, not just in general UX literature.
 
 For the actual numeric values behind any Proximity finding below, see
-[`ew-spacing-scale.md`](./ew-spacing-scale.md) — the real `--spacing-*`
+[`ew-spacing-scale.md`](./spacing-scale.md) — the real `--spacing-*`
 ladder, fetched from the token package, plus the discipline for
 assigning one semantic role per step so the same *kind* of gap doesn't
 drift to different values in different places.
@@ -35,7 +35,7 @@ lines *inside* one paragraph — a 16px section gap was still smaller than
 a plain line-wrap. Landed on `--spacing-400` (24px), which clears that
 line-height with room to spare. General rule: a "new section" gap must
 exceed the line-height of the text immediately above it, not just exceed
-the intra-block label gap. See [`ew-spacing-scale.md`](./ew-spacing-scale.md)
+the intra-block label gap. See [`ew-spacing-scale.md`](./spacing-scale.md)
 for the real token ladder these values come from.
 
 **Law of Common Region** (Gestalt) — a shared border/background reads as
@@ -104,7 +104,7 @@ adequate"; (2) a frozen snapshot is a starting point, not a permanent
 source of truth — before finalizing a reproduction, diff its spacing
 values against the most recently tuned real file, because manual
 tuning that happens after the freeze doesn't automatically carry forward.
-See [`ew-spacing-scale.md`](./ew-spacing-scale.md) for the real token
+See [`ew-spacing-scale.md`](./spacing-scale.md) for the real token
 ladder and the semantic-role-per-step discipline behind this.
 
 **Fourth corollary — narrative content and metadata are different kinds
