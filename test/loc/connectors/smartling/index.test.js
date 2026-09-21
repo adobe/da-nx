@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  isConnected, connect, saveItems, sendAllLanguages, getStatusAll,
+  isConnected, connect, saveItems, sendAllLanguages, getStatusAll, listProjects, serviceOptions,
 } from '../../../../nx/blocks/loc/connectors/smartling/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 
@@ -909,5 +909,130 @@ describe('smartling connector - legacy origin rewriting', () => {
 
     expect(refreshCalls).to.equal(1);
     expect(langs[0].translation).to.equal(undefined);
+  });
+
+  describe('listProjects', () => {
+    function projectDetailsResponse(accountUid) {
+      return new Response(JSON.stringify({ response: { data: { accountUid } } }), { status: 200 });
+    }
+
+    function projectListResponse(items) {
+      return new Response(JSON.stringify({ response: { data: { items } } }), { status: 200 });
+    }
+
+    it('resolves an empty array when neither accountId nor projectId is configured', async () => {
+      expect(await listProjects({
+        org, site, env: 'prod', origin: 'https://api.smartling.com',
+      })).to.deep.equal([]);
+    });
+
+    it('uses the configured accountId directly, without a projectId lookup', async () => {
+      origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+
+        if (u.includes('/accounts-api/v2/accounts/acct-direct/projects')) {
+          return projectListResponse([{ projectId: 'proj-1', projectName: 'Marketing Site', archived: false }]);
+        }
+        return new Response('{}', { status: 200 });
+      };
+
+      const projects = await listProjects({
+        org, site, env: 'prod', origin: 'https://api.smartling.com', accountId: 'acct-direct', projectId: 'proj-1',
+      });
+
+      expect(projects).to.deep.equal([{ projectId: 'proj-1', projectName: 'Marketing Site' }]);
+      expect(calls.some((c) => c.url.includes('/projects-api/v2/projects/'))).to.equal(false);
+      expect(calls.some((c) => c.url.includes('/accounts-api/v2/accounts/acct-direct/projects'))).to.equal(true);
+    });
+
+    it('falls back to discovering the accountUid via the deprecated projectId when accountId is absent', async () => {
+      origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+
+        if (u.includes('/projects-api/v2/projects/proj-1')) return projectDetailsResponse('acct-1');
+        if (u.includes('/accounts-api/v2/accounts/acct-1/projects')) {
+          return projectListResponse([
+            { projectId: 'proj-1', projectName: 'Marketing Site', archived: false },
+            { projectId: 'proj-2', projectName: 'Retired Project', archived: true },
+          ]);
+        }
+        return new Response('{}', { status: 200 });
+      };
+
+      const projects = await listProjects({
+        org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1',
+      });
+
+      expect(projects).to.deep.equal([{ projectId: 'proj-1', projectName: 'Marketing Site' }]);
+      expect(calls.some((c) => c.url.includes('/projects-api/v2/projects/proj-1'))).to.equal(true);
+      expect(calls.some((c) => c.url.includes('/accounts-api/v2/accounts/acct-1/projects'))).to.equal(true);
+    });
+
+    it('resolves an empty array when the configured project cannot be looked up', async () => {
+      origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+
+        if (u.includes('/projects-api/v2/projects/proj-missing')) return new Response('', { status: 404 });
+        return new Response('{}', { status: 200 });
+      };
+
+      const projects = await listProjects({
+        org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-missing',
+      });
+
+      expect(projects).to.deep.equal([]);
+    });
+
+    it('resolves an empty array when the account project list request fails', async () => {
+      origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+
+        if (u.includes('/projects-api/v2/projects/proj-1')) return projectDetailsResponse('acct-1');
+        if (u.includes('/accounts-api/v2/accounts/acct-1/projects')) return new Response('', { status: 400 });
+        return new Response('{}', { status: 200 });
+      };
+
+      const projects = await listProjects({
+        org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1',
+      });
+
+      expect(projects).to.deep.equal([]);
+    });
+  });
+
+  describe('serviceOptions', () => {
+    it('exposes a projectId option whose fetch maps listProjects to {value, label}', async () => {
+      origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+
+        if (u.includes('/projects-api/v2/projects/proj-1')) {
+          return new Response(JSON.stringify({ response: { data: { accountUid: 'acct-1' } } }), { status: 200 });
+        }
+        if (u.includes('/accounts-api/v2/accounts/acct-1/projects')) {
+          return new Response(JSON.stringify({
+            response: { data: { items: [{ projectId: 'proj-1', projectName: 'Marketing Site', archived: false }] } },
+          }), { status: 200 });
+        }
+        return new Response('{}', { status: 200 });
+      };
+
+      const option = serviceOptions.find((o) => o.key === 'projectId');
+      expect(option.label).to.equal('Project');
+
+      const items = await option.fetch({
+        org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1',
+      });
+      expect(items).to.deep.equal([{ value: 'proj-1', label: 'Marketing Site' }]);
+    });
   });
 });
