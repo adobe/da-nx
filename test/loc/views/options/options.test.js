@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import { render } from 'da-lit';
 import '../../../../nx/blocks/loc/views/options/options.js';
 
 // Dynamic-expression import (not a literal string) so @web/dev-server-import-maps
@@ -31,6 +32,46 @@ function globalLinkHandler(projects) {
     }
     return new Response('{}', { status: 200 });
   };
+}
+
+function smartlingHandler({ projects = [], workflows = [] } = {}) {
+  return (u) => {
+    if (u.includes('/integrations/smartling/login')) {
+      return new Response(JSON.stringify({
+        response: { data: { accessToken: 'sl-token', refreshToken: 'sl-refresh' } },
+      }), { status: 200 });
+    }
+    if (u.includes('/projects-api/v2/projects/proj-1')) {
+      return new Response(JSON.stringify({
+        response: { data: { accountUid: 'acct-1' } },
+      }), { status: 200 });
+    }
+    if (u.includes('/accounts-api/v2/accounts/acct-1/projects')) {
+      return new Response(JSON.stringify({
+        response: { data: { items: projects } },
+      }), { status: 200 });
+    }
+    if (u.includes('/workflows-api/v3/accounts/acct-1/workflows')) {
+      return new Response(JSON.stringify({
+        response: { data: { items: workflows } },
+      }), { status: 200 });
+    }
+    return new Response('{}', { status: 200 });
+  };
+}
+
+function createSmartlingOptionsEl() {
+  const el = document.createElement('nx-loc-options');
+  el.project = { org, site, urls: [] };
+  el._siteOptions = { 'translation.service.all.env': 'prod' };
+  el._siteLangs = [{ code: 'fr', activeAction: { value: 'translate' } }];
+  el._siteConfig = {
+    service: {
+      name: 'Smartling',
+      envs: { prod: { origin: 'https://api.smartling.com', projectId: 'proj-1' } },
+    },
+  };
+  return el;
 }
 
 function createOptionsEl() {
@@ -143,5 +184,111 @@ describe('NxLocOptions - loadConnectorServiceOptions', () => {
     await el.loadConnectorServiceOptions();
 
     expect(el._serviceOptions).to.equal(undefined);
+  });
+});
+
+describe('NxLocOptions - Smartling autoAuthorize default', () => {
+  beforeEach(() => {
+    resetMockIms();
+    sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    restoreFetch();
+    sessionStorage.clear();
+  });
+
+  it('preserves autoAuthorize=yes from the config sheet as the enabled selection', async () => {
+    installFetch(smartlingHandler({
+      projects: [{ projectId: 'proj-1', projectName: 'Marketing Site', archived: false }],
+    }));
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.autoAuthorize = 'yes';
+
+    await el.loadConnectorServiceOptions();
+
+    expect(el._siteConfig.service.envs.prod.autoAuthorize).to.equal('yes');
+    expect(el._options.service.autoAuthorize).to.equal('yes');
+  });
+
+  it('preserves autoAuthorize=no from the config sheet as the disabled selection', async () => {
+    installFetch(smartlingHandler({
+      projects: [{ projectId: 'proj-1', projectName: 'Marketing Site', archived: false }],
+    }));
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.autoAuthorize = 'no';
+
+    await el.loadConnectorServiceOptions();
+
+    expect(el._siteConfig.service.envs.prod.autoAuthorize).to.equal('no');
+    expect(el._options.service.autoAuthorize).to.equal('no');
+  });
+
+  it('defaults to disabled when the config sheet leaves autoAuthorize unset', async () => {
+    installFetch(smartlingHandler({
+      projects: [{ projectId: 'proj-1', projectName: 'Marketing Site', archived: false }],
+    }));
+    const el = createSmartlingOptionsEl();
+
+    await el.loadConnectorServiceOptions();
+
+    expect(el._siteConfig.service.envs.prod.autoAuthorize).to.equal('no');
+    expect(el._options.service.autoAuthorize).to.equal('no');
+  });
+});
+
+describe('NxLocOptions - renderServiceOption enabledWhen', () => {
+  function renderOption(el, option) {
+    const container = document.createElement('div');
+    render(el.renderServiceOption(option), container);
+    return container;
+  }
+
+  it('renders a disabled "Not applicable" select when enabledWhen returns false', () => {
+    const el = createOptionsEl();
+    el._siteConfig.service.envs.prod.autoAuthorize = 'no';
+    const option = {
+      key: 'workflowUid',
+      label: 'Workflow',
+      items: [{ value: 'wf-1', label: 'Default' }],
+      enabledWhen: (envConfig) => envConfig?.autoAuthorize === 'yes',
+    };
+
+    const container = renderOption(el, option);
+
+    const select = container.querySelector('sl-select');
+    expect(select.hasAttribute('disabled')).to.equal(true);
+    expect(select.textContent.trim()).to.equal('Not applicable');
+  });
+
+  it('renders the normal populated select when enabledWhen returns true', () => {
+    const el = createOptionsEl();
+    el._siteConfig.service.envs.prod.autoAuthorize = 'yes';
+    const option = {
+      key: 'workflowUid',
+      label: 'Workflow',
+      items: [{ value: 'wf-1', label: 'Default' }],
+      enabledWhen: (envConfig) => envConfig?.autoAuthorize === 'yes',
+    };
+
+    const container = renderOption(el, option);
+
+    const select = container.querySelector('sl-select');
+    expect(select.hasAttribute('disabled')).to.equal(false);
+    expect(select.querySelectorAll('option')).to.have.lengthOf(1);
+  });
+
+  it('ignores enabledWhen for options that do not define it', () => {
+    const el = createOptionsEl();
+    const option = {
+      key: 'projectId',
+      label: 'Project',
+      items: [{ value: '42', label: 'Marketing Site' }],
+    };
+
+    const container = renderOption(el, option);
+
+    const select = container.querySelector('sl-select');
+    expect(select.hasAttribute('disabled')).to.equal(false);
   });
 });

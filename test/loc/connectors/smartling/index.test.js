@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  isConnected, connect, saveItems, sendAllLanguages, getStatusAll, listProjects, serviceOptions,
+  isConnected, connect, saveItems, sendAllLanguages, getStatusAll, listProjects, listWorkflows,
+  serviceOptions,
 } from '../../../../nx/blocks/loc/connectors/smartling/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 
@@ -206,6 +207,70 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(calls.some((c) => c.url === `${base}/jobs-api/v3/projects/proj-1/jobs`)).to.equal(true);
     expect(calls.some((c) => c.url === `${base}/job-batches-api/v2/projects/proj-1/batches`)).to.equal(true);
     expect(calls.some((c) => c.url === `${base}/job-batches-api/v2/projects/proj-1/batches/batch-1/file`)).to.equal(true);
+  });
+
+  it('includes localeWorkflows in the batch body when autoAuthorize and workflowUid are set', async () => {
+    const options = {
+      service: {
+        origin: 'https://api.smartling.com', projectId: 'proj-1', autoAuthorize: 'yes', workflowUid: 'wf-1',
+      },
+    };
+    const langs = [
+      { name: 'French', code: 'fr-FR' },
+      { name: 'German', code: 'de-DE' },
+    ];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    const batchCall = calls.find((c) => c.url.includes('/job-batches-api/v2/projects') && !c.url.includes('/file'));
+    const body = JSON.parse(batchCall.body);
+    expect(body.authorize).to.equal(true);
+    expect(body.localeWorkflows).to.deep.equal([
+      { targetLocaleId: 'fr-FR', workflowUid: 'wf-1' },
+      { targetLocaleId: 'de-DE', workflowUid: 'wf-1' },
+    ]);
+  });
+
+  it('omits localeWorkflows from the batch body when autoAuthorize is disabled', async () => {
+    const options = {
+      service: {
+        origin: 'https://api.smartling.com', projectId: 'proj-1', autoAuthorize: 'no', workflowUid: 'wf-1',
+      },
+    };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    const batchCall = calls.find((c) => c.url.includes('/job-batches-api/v2/projects') && !c.url.includes('/file'));
+    const body = JSON.parse(batchCall.body);
+    expect(body.authorize).to.equal(false);
+    expect(body.localeWorkflows).to.equal(undefined);
+  });
+
+  it('omits localeWorkflows from the batch body when no workflowUid is selected', async () => {
+    const options = {
+      service: { origin: 'https://api.smartling.com', projectId: 'proj-1', autoAuthorize: 'yes' },
+    };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    const batchCall = calls.find((c) => c.url.includes('/job-batches-api/v2/projects') && !c.url.includes('/file'));
+    const body = JSON.parse(batchCall.body);
+    expect(body.authorize).to.equal(true);
+    expect(body.localeWorkflows).to.equal(undefined);
   });
 
   it('surfaces an error and stops when job creation fails', async () => {
@@ -1033,6 +1098,133 @@ describe('smartling connector - legacy origin rewriting', () => {
         org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1',
       });
       expect(items).to.deep.equal([{ value: 'proj-1', label: 'Marketing Site' }]);
+    });
+
+    it('exposes an autoAuthorize option with static Disabled/Enabled choices and no enabledWhen', async () => {
+      const option = serviceOptions.find((o) => o.key === 'autoAuthorize');
+      expect(option.label).to.equal('Auto-authorize');
+      expect(option.enabledWhen).to.equal(undefined);
+
+      const items = await option.fetch();
+      expect(items).to.deep.equal([
+        { value: 'no', label: 'Disabled' },
+        { value: 'yes', label: 'Enabled' },
+      ]);
+    });
+
+    it('exposes a workflowUid option whose fetch maps listWorkflows to {value, label}', async () => {
+      origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+
+        if (u.includes('/projects-api/v2/projects/proj-1')) {
+          return new Response(JSON.stringify({ response: { data: { accountUid: 'acct-1' } } }), { status: 200 });
+        }
+        if (u.includes('/workflows-api/v3/accounts/acct-1/workflows')) {
+          return new Response(JSON.stringify({
+            response: { data: { items: [{ workflowUid: 'wf-1', workflowName: 'Default', projectId: null }] } },
+          }), { status: 200 });
+        }
+        return new Response('{}', { status: 200 });
+      };
+
+      const option = serviceOptions.find((o) => o.key === 'workflowUid');
+      expect(option.label).to.equal('Workflow');
+
+      const items = await option.fetch({
+        org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1',
+      });
+      expect(items).to.deep.equal([{ value: 'wf-1', label: 'Default' }]);
+    });
+
+    it('only enables the workflowUid option when autoAuthorize is yes', () => {
+      const option = serviceOptions.find((o) => o.key === 'workflowUid');
+
+      expect(option.enabledWhen({ autoAuthorize: 'yes' })).to.equal(true);
+      expect(option.enabledWhen({ autoAuthorize: 'no' })).to.equal(false);
+      expect(option.enabledWhen({})).to.equal(false);
+      expect(option.enabledWhen(undefined)).to.equal(false);
+    });
+  });
+
+  describe('listWorkflows', () => {
+    function workflowsResponse(items) {
+      return new Response(JSON.stringify({ response: { data: { items } } }), { status: 200 });
+    }
+
+    it('resolves an empty array when neither accountId nor projectId is configured', async () => {
+      expect(await listWorkflows({
+        org, site, env: 'prod', origin: 'https://api.smartling.com',
+      })).to.deep.equal([]);
+    });
+
+    it('includes account-wide workflows and workflows scoped to the configured project', async () => {
+      origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+
+        if (u.includes('/workflows-api/v3/accounts/acct-direct/workflows')) {
+          return workflowsResponse([
+            { workflowUid: 'wf-account', workflowName: 'Account Default', projectId: null },
+            { workflowUid: 'wf-mine', workflowName: 'My Project', projectId: 'proj-1' },
+            { workflowUid: 'wf-other', workflowName: 'Other Project', projectId: 'proj-2' },
+          ]);
+        }
+        return new Response('{}', { status: 200 });
+      };
+
+      const workflows = await listWorkflows({
+        org, site, env: 'prod', origin: 'https://api.smartling.com', accountId: 'acct-direct', projectId: 'proj-1',
+      });
+
+      expect(workflows).to.deep.equal([
+        { workflowUid: 'wf-account', workflowName: 'Account Default' },
+        { workflowUid: 'wf-mine', workflowName: 'My Project' },
+      ]);
+      expect(calls.some((c) => c.url.includes('/projects-api/v2/projects/'))).to.equal(false);
+      expect(calls.some((c) => c.method === 'POST' && c.body === '{}')).to.equal(true);
+    });
+
+    it('falls back to discovering the accountUid via the deprecated projectId when accountId is absent', async () => {
+      origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+
+        if (u.includes('/projects-api/v2/projects/proj-1')) {
+          return new Response(JSON.stringify({ response: { data: { accountUid: 'acct-1' } } }), { status: 200 });
+        }
+        if (u.includes('/workflows-api/v3/accounts/acct-1/workflows')) {
+          return workflowsResponse([{ workflowUid: 'wf-1', workflowName: 'Default', projectId: null }]);
+        }
+        return new Response('{}', { status: 200 });
+      };
+
+      const workflows = await listWorkflows({
+        org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1',
+      });
+
+      expect(workflows).to.deep.equal([{ workflowUid: 'wf-1', workflowName: 'Default' }]);
+      expect(calls.some((c) => c.url.includes('/projects-api/v2/projects/proj-1'))).to.equal(true);
+    });
+
+    it('resolves an empty array when the workflows request fails', async () => {
+      origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method, body: opts.body });
+
+        if (u.includes('/workflows-api/v3/accounts/acct-direct/workflows')) return new Response('', { status: 400 });
+        return new Response('{}', { status: 200 });
+      };
+
+      const workflows = await listWorkflows({
+        org, site, env: 'prod', origin: 'https://api.smartling.com', accountId: 'acct-direct', projectId: 'proj-1',
+      });
+
+      expect(workflows).to.deep.equal([]);
     });
   });
 });
