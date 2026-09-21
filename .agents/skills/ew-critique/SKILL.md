@@ -111,8 +111,8 @@ This is the actual bug found and fixed live in this session — see
   file already uses elsewhere (grep for `--spacing-`/`--s2-` fallbacks in
   the same file before inventing a new one).
 - Do not conflate this skill with generation — if the finding needs a new
-  design direction, not just a spacing/color fix, that's `ui-brainstormer`'s
-  job, not this skill's.
+  design direction, not just a spacing/color fix, that's a separate
+  generation step, not this skill's job.
 - Do not skip the "first glance" step by jumping straight to the
   checklist — the naive read is the finding you lose once you start
   reading text closely.
