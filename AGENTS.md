@@ -50,6 +50,10 @@ A shell/framework for Adobe AEM Edge Delivery Services. Provides shared blocks, 
   - Functions and styles in the public SDK cannot be broken in any way, they must always maintain backwards compatibility or provide an in-place upgrade of existing functionality.
   - Any commits to `/nx/public` must be intentional as they may be used in the wild.
 
+## Pull request hygiene
+
+- Any time new commits are pushed to a branch with an open PR, validate that the PR description still accurately reflects the change set, and update it if not.
+
 ## Reuse before building
 
 - Before implementing a utility, parser, or helper, check whether an equivalent already exists in the codebase — search both `nx/` and `nx2/`. Common examples: markdown parsing (`nx/deps/mdast`), IMS auth (`nx2/utils/ims.js`), hash routing (`nx2/utils/utils.js`).
