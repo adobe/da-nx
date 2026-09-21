@@ -331,6 +331,10 @@ class NxLocTranslate extends LitElement {
     return !!(this._service?.connector?.cancelTranslation) && this.incompleteLangs;
   }
 
+  get incompleteCopyLangs() {
+    return this._copyLangs.filter((lang) => lang.copy?.status !== 'complete').length;
+  }
+
   renderBehavior() {
     return html`<p><strong>Conflict behavior:</strong> ${this._options['translate.conflict.behavior']}</p>`;
   }
@@ -473,9 +477,11 @@ class NxLocTranslate extends LitElement {
         <p class="nx-loc-list-actions-header">Copy (${this._options['source.language'].name})</p>
         <div class="actions">
           <p><strong>Conflict behavior:</strong> ${this._options['copy.conflict.behavior']}</p>
+          ${this.incompleteCopyLangs ? html`
           <sl-button @click=${this.handleCopyAll} class="accent" ?disabled=${this._copyAllBusy}>
             ${this._copyAllBusy ? this.renderSpinner() : nothing} Copy all
           </sl-button>
+          ` : nothing}
         </div>
       </div>
       <div class="nx-loc-list-header">
