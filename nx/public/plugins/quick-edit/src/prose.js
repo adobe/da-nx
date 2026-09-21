@@ -247,6 +247,13 @@ function updateEditor(editorEl, state, ctx) {
   const { schema } = view.state;
   const node = schema.nodeFromJSON(state);
 
+  // Same guard as createEditor: replacing the root with a node that is not
+  // valid `doc` content (e.g. a `table_cell`) throws and breaks the editor.
+  if (!schema.nodes.doc.contentMatch.matchType(node.type)) {
+    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
+    return;
+  }
+
   // Save selection to restore after the content replacement.
   // Marks don't change node structure, so positions are identical in the new doc.
   const { anchor, head } = view.state.selection;

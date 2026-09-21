@@ -115,6 +115,38 @@ describe('quick-edit-portal resolveEditableNode', () => {
     expect(node.textContent).to.equal(cellText);
   });
 
+  it('resolves each block of a multi-block cell (heading + paragraph) to itself', () => {
+    // Mirrors the crashing "cards" block: a table cell holding a heading and a
+    // paragraph. Each is separately instrumented; neither must resolve to the
+    // enclosing `table_cell(heading(...), paragraph(...))`.
+    const doc = schema.node('doc', null, [
+      schema.node('table', null, [
+        schema.node('table_row', null, [
+          schema.node('table_cell', null, [
+            schema.node('heading', null, [schema.text('Advantage Banking')]),
+            p('$11.95 monthly fee, waived with RBC Vantage.'),
+          ]),
+        ]),
+      ]),
+    ]);
+
+    const headingIndex = posBefore(doc, 'heading');
+    const headingResult = resolveEditableNode(doc, headingIndex);
+    expect(headingResult.node.type.name).to.equal('heading');
+    expect(headingResult.node.textContent).to.equal('Advantage Banking');
+
+    const paragraphIndex = posBefore(doc, 'paragraph');
+    const paragraphResult = resolveEditableNode(doc, paragraphIndex);
+    expect(paragraphResult.node.type.name).to.equal('paragraph');
+    expect(paragraphResult.node.textContent).to.equal('$11.95 monthly fee, waived with RBC Vantage.');
+
+    // Both are valid `doc` children and neither is the cell.
+    [headingResult, paragraphResult].forEach(({ node }) => {
+      expect(node.type.name).to.not.equal('table_cell');
+      expect(() => schema.node('doc', null, [node])).to.not.throw();
+    });
+  });
+
   it('still resolves a top-level paragraph to itself and preserves its index', () => {
     view = mountDoc(schema.node('doc', null, [p('a plain top-level paragraph')]));
     const el = view.dom.querySelector('p');
