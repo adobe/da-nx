@@ -1,9 +1,9 @@
 # EW design laws — shared reference
 
 Not a standalone skill. `ew-visual-hierarchy`, `ew-information-architecture`,
-`ui-brainstormer`, and `ew-critique` point here by name instead of
-re-explaining psychology inline. Source: Gestalt principles (visual
-perception) + Jon Yablonski's *Laws of UX* (lawsofux.com).
+and `ew-critique` point here by name instead of re-explaining psychology
+inline. Source: Gestalt principles (visual perception) + Jon Yablonski's
+*Laws of UX* (lawsofux.com).
 
 For buttons/inputs/interactive components specifically, see
 [`ew-styleguide`](./ew-styleguide/SKILL.md) instead — it checks against
