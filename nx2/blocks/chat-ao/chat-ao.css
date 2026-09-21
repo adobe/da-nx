@@ -370,7 +370,7 @@
 
   .tool-call-card,
   .tool-call-detail {
-    font-size: var(--s2-body-size-xs);
+    font-size: var(--s2-body-size-s);
     color: var(--s2-gray-600);
   }
 
@@ -421,7 +421,7 @@
       max-height: 120px;
       border-left: 2px solid var(--s2-gray-200);
       margin-left: var(--s2-spacing-200);
-      font-size: var(--s2-component-xs-regular-font-size);
+      font-size: var(--s2-body-size-s);
       margin-top: var(--s2-spacing-100);
       overflow-y: auto;
     }
