@@ -260,7 +260,16 @@ class NxLocOptions extends LitElement {
 
   renderServiceOption(option) {
     const env = this._siteOptions['translation.service.all.env'];
-    const value = this._siteConfig.service.envs[env]?.[option.key];
+    const envConfig = this._siteConfig.service.envs[env];
+    const value = envConfig?.[option.key];
+
+    if (option.enabledWhen && !option.enabledWhen(envConfig)) {
+      return html`
+        <div class="nx-loc-fieldgroup">
+          <p>${option.label}</p>
+          <sl-select disabled><option>Not applicable</option></sl-select>
+        </div>`;
+    }
 
     if (option.items === undefined) {
       return html`
