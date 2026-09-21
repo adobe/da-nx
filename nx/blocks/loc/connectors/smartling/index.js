@@ -24,6 +24,90 @@ export async function connect(service, sendMessage) {
 }
 
 /**
+ * Looks up the Smartling account that owns a project. Used only as a
+ * fallback for connectors still configured with a `projectId` but no
+ * `accountId` (see {@link listProjects}), since Smartling has no
+ * "list projects for the current user" endpoint - enumerating every
+ * project requires an `accountUid`, which this discovers via the
+ * single-project endpoint for whichever `projectId` is configured.
+ * @param {string} endpoint - The resolved Smartling API origin.
+ * @param {string} projectId - The Smartling project id to look up.
+ * @param {Object} opts - Fetch options, including the Authorization header.
+ * @returns {Promise<string|null>} The owning `accountUid`, or null if the
+ *  project is missing, inaccessible, or the request otherwise fails.
+ */
+async function fetchAccountUid(endpoint, projectId, opts) {
+  const url = `${endpoint}/projects-api/v2/projects/${projectId}`;
+  const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
+  if (!resp.ok) return null;
+  const { response } = await resp.json();
+  return response?.data?.accountUid || null;
+}
+
+/**
+ * Lists every non-archived Smartling project available to the configured
+ * account, for populating the `projectId` {@link serviceOptions} entry
+ * instead of requiring it to be hand-typed into the site's config sheet.
+ * Prefers the `accountId` config value directly. `projectId` is deprecated
+ * for this purpose (it required an extra lookup to discover the owning
+ * account) but is still supported so existing connector instances that
+ * only have `projectId` configured keep working until they're migrated to
+ * `accountId`.
+ * @param {Object} service - The flattened per-environment service config.
+ * @returns {Promise<{projectId: string, projectName: string}[]>} Enabled
+ *  projects, or an empty array if neither `accountId` nor `projectId` is
+ *  configured yet, or if the account/project can't be looked up (e.g. it's
+ *  since been deleted or the account no longer has access to it).
+ */
+export async function listProjects(service) {
+  const {
+    org, site, env, origin, accountId, projectId,
+  } = service;
+  if (!accountId && !projectId) return [];
+
+  const endpoint = resolveOrigin(origin, org, site);
+
+  let accountUid = accountId;
+  if (!accountUid) {
+    const lookupOpts = { headers: { Authorization: `Bearer ${await getToken(org, site, env)}` } };
+    accountUid = await fetchAccountUid(endpoint, projectId, lookupOpts);
+    if (!accountUid) return [];
+  }
+
+  const url = `${endpoint}/accounts-api/v2/accounts/${accountUid}/projects`;
+  const opts = { headers: { Authorization: `Bearer ${await getToken(org, site, env)}` } };
+  const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
+  if (!resp.ok) return [];
+
+  const { response } = await resp.json();
+  const items = response?.data?.items || [];
+  return items
+    .filter((project) => !project.archived)
+    .map((project) => ({ projectId: project.projectId, projectName: project.projectName }));
+}
+
+/**
+ * Service options the Options UI (`loc/views/options/options.js`) should render as a
+ * live-populated select rather than a hand-typed value, sourced from this connector's
+ * own API. Read generically - Options.js has no Smartling-specific knowledge; it just
+ * looks for this optional export on whichever connector is active, calls `connect`, and
+ * (once connected) each option's `fetch` to get its `{value, label}` choices. A connector
+ * that needs no dynamic service options simply omits this export.
+ * @type {{key: string, label: string, fetch: (service: object) =>
+ * Promise<{value: string, label: string}[]>}[]}
+ */
+export const serviceOptions = [
+  {
+    key: 'projectId',
+    label: 'Project',
+    fetch: async (service) => {
+      const projects = await listProjects(service);
+      return projects.map((project) => ({ value: project.projectId, label: project.projectName }));
+    },
+  },
+];
+
+/**
  * Extracts a human-readable message from Smartling's documented error
  * envelope. Per their Error Handling docs, every 4xx/5xx response on every
  * endpoint returns `{ response: { code, errors: [{ key, message,
