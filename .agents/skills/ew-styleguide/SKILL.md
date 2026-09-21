@@ -65,6 +65,17 @@ font stack.
   already covers it. A custom class that duplicates an existing shared
   one (same shape, different hardcoded values) is drift, not a design
   choice — flag it even if it looks fine in isolation.
+- **Reuse a shared block before building a custom component**, not just a
+  style. Check `nx2/blocks/shared/*` first — `picker`, `menu`, `dialog`,
+  `popover`, `segmented-btn`, `pills`, `breadcrumb`, `toast` are all real,
+  documented components. A hand-rolled dropdown/menu/tag list duplicates
+  one of these as surely as a hand-rolled button duplicates `.nx-btn-accent`.
+- **Prefer a native HTML/CSS primitive over a hand-built one**, if the
+  native element already provides the needed behavior — `<select>`,
+  `<dialog>`, `<details>`/`<summary>`, `<button>`. Generated code tends to
+  reach for a stack of `div`/`span` with custom JS when a native element
+  does the same job with less code and free built-in accessibility; flag
+  that pattern the same way as any other unnecessary custom-build.
 - **Token vs. hardcoded value — verify the number, don't assume it.**
   `border-radius: 999px` was assumed to be a harmless stand-in for
   `var(--s2-corner-radius-800)` — fetching the real token
