@@ -2,20 +2,33 @@ import { fetchDaConfigs } from './daConfig.js';
 
 // Experience Workspace flags live in the `flags` sheet of the DA config docs,
 // keyed `ew.*`. Site-level config overrides org-level (it is fetched last).
-export async function getEWFlags({ org, site }) {
+//
+// `incomplete` is true when a config layer could not be read (e.g. the user
+// lacks read access). When incomplete, the returned flags cannot be trusted
+// to be exhaustive.
+async function loadEWFlags({ org, site }) {
   try {
     const configs = await Promise.all(fetchDaConfigs({ org, site }));
     const flags = {};
+    let incomplete = false;
     for (const config of configs) {
-      for (const { key, value } of config?.flags?.data ?? []) {
-        if (key.startsWith('ew.')) flags[key] = value;
+      if (config?.error) {
+        incomplete = true;
+      } else {
+        for (const { key, value } of config?.flags?.data ?? []) {
+          if (key.startsWith('ew.')) flags[key] = value;
+        }
       }
     }
-    return flags;
+    return { flags, incomplete };
   } catch (e) {
     if (!(e instanceof TypeError) && !(e instanceof SyntaxError)) throw e;
   }
-  return {};
+  return { flags: {}, incomplete: true };
+}
+
+export async function getEWFlags({ org, site }) {
+  return (await loadEWFlags({ org, site })).flags;
 }
 
 // User-level opt-in to Experience Workspace, persisted in localStorage. Same
@@ -154,7 +167,8 @@ export async function isEWEnabled({ org, site }) {
 }
 
 export async function isEwChatDisabled({ org, site }) {
-  const flags = await getEWFlags({ org, site });
+  const { flags, incomplete } = await loadEWFlags({ org, site });
+  if (incomplete) return true;
   return flags['ew.disableChat'] === 'true';
 }
 
