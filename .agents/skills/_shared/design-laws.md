@@ -6,7 +6,7 @@ inline. Source: Gestalt principles (visual perception) + Jon Yablonski's
 *Laws of UX* (lawsofux.com).
 
 For buttons/inputs/interactive components specifically, see
-[`ew-styleguide`](./ew-styleguide/SKILL.md) instead — it checks against
+[`ew-styleguide`](../ew-styleguide/SKILL.md) instead — it checks against
 this product's own real, live style guide (shared `nx-*` classes), a
 stronger citation than a generic law because the pattern already exists
 in this codebase, not just in general UX literature.
