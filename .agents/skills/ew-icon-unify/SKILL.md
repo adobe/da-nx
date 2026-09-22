@@ -4,7 +4,11 @@ Sister skill to `ew-text-unify`, same purpose applied to icon buttons instead of
 
 ## Why this exists
 
-Example that prompted this skill: `chat-ao.css`'s `.nx-action-btn-icon` (a shared class, used for the chat panel's close button among others) and `tool-panel.css`'s `.tool-panel-close` (used for the tool panel's close button) both render a 32px close button in the same visual position (top-right of a panel header) — but `.tool-panel-close` is a hand-rolled reimplementation from scratch rather than reusing `.nx-action-btn-icon`, so nothing stops them from silently drifting apart in hover color, focus ring, active-state, or icon size.
+Example that prompted this skill: `nx2/styles/buttons.css`'s shared `.nx-action-btn-icon` (used by, among others, chat-ao's close-chat-panel button) and da-live's `tool-panel.css`'s `.tool-panel-close` (used for the tool panel's close button) both sit top-right of a panel header for the same "close this panel" role — but `.tool-panel-close` is a hand-rolled reimplementation from scratch rather than reusing `.nx-action-btn-icon`, so nothing stops them from silently drifting apart in box size, focus ring, active-state, or disabled styling.
+
+### Confirmed real instance (2026-09-22)
+
+Audited via live HTML pulled from a `da-live` canvas: `.nx-action-btn-icon.nx-btn-sm` (chat-ao's "Close chat panel", `nx2/blocks/chat-ao/chat-ao.js:383-387`) is a 24×24 box with a 16×16 icon, and ships `:focus-visible` (blue outline), `:active` (scale 0.97), and `:disabled` (opacity 0.4) states from the shared class (`nx2/styles/buttons.css:5-64,118-137`). da-live's `.tool-panel-close` ("Close panel", `blocks/canvas/ew-tool-panel/tool-panel.js:245`, styled at `blocks/canvas/ew-tool-panel/tool-panel.css:28-49`) is a 32×32 box around the same 16×16 icon size, and defines only `:hover` — no focus ring, no active-press, no disabled state. Root cause: `tool-panel.js` never imports `nx2/styles/buttons.css` at all (contrast `ew-canvas-header.js:12`, which does, and whose `.comments-toggle` correctly layers on top of `.nx-action-btn-icon` instead of reimplementing it).
 
 ## Scope: icon-button presentation only
 
