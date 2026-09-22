@@ -4,7 +4,7 @@
   overflow: hidden;
   height: 100%;
   font-family: var(--s2-font-family);
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-regular-font-size);
   gap: var(--s2-spacing-100);
 
   button {
@@ -35,7 +35,7 @@
   outline: none;
   background: none;
   font-family: inherit;
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-regular-font-size);
   color: var(--s2-gray-900);
   padding: 0;
 
