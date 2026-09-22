@@ -1,6 +1,5 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  VALIDATION_SEVERITY,
   MESSAGE_TYPES,
   isValidCustomValidationItem,
   sanitizeCustomValidationItems,
@@ -10,7 +9,7 @@ import {
 
 function validItem(overrides = {}) {
   return {
-    severity: VALIDATION_SEVERITY.WARN,
+    severity: 'warn',
     title: 'Alt text',
     message: 'Missing alt text',
     item: { proseIndex: 2 },
@@ -42,7 +41,7 @@ describe('isValidCustomValidationItem', () => {
     expect(isValidCustomValidationItem(validItem({ item: { blockIndex: 0 } }))).to.be.true;
   });
 
-  it('accepts a severity outside VALIDATION_SEVERITY (vocabulary is a preflight concern)', () => {
+  it('accepts any non-empty string severity (allowed vocabulary is a preflight concern)', () => {
     expect(isValidCustomValidationItem(validItem({ severity: 'critical' }))).to.be.true;
   });
 

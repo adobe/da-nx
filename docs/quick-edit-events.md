@@ -139,7 +139,7 @@ vocabulary. Da-live-embedded only: `quick-edit.js`'s `setupParentController` han
 `undefined` so an older da-live host (not yet sending this port) is harmless.
 
 `ack` is sent immediately on `run`, before running any checks, carrying the current
-`hasCustomValidation`. It exists so the host (da-live's `createValidationRequester`)
+`hasCustomValidation`. It exists so the host (da-live's `createCustomValidationRequester`)
 can tell "nothing on the other end understands this protocol" (no `ack` ever arrives —
 e.g. an older quick-edit.js) apart from "understood, but the check itself is
 slow/hung" (`ack` arrives, `result` doesn't). Without it both cases looked identical:
@@ -148,8 +148,8 @@ a plain timeout.
 Project code never imports `custom-validation.js` directly — it's an nx-internal file,
 and quick-edit.js is already force-injected onto the page rather than authored by the
 project. Instead, `quick-edit.js` itself sets `window.qe.customValidation =
-{ onCustomValidationRequest, VALIDATION_SEVERITY }` as one of its own module-level
-statements (synchronously, not gated on the port handshake, since registering a custom
+{ onCustomValidationRequest }` as one of its own module-level statements
+(synchronously, not gated on the port handshake, since registering a custom
 validation check doesn't need the port to exist yet). This lives in `quick-edit.js`,
 not `custom-validation.js` — `custom-validation.js` is also imported by da-live's own
 host code (for `sanitizeCustomValidationItems`/`MESSAGE_TYPES`) from da-live's own top

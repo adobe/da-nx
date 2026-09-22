@@ -1,10 +1,3 @@
-export const VALIDATION_SEVERITY = Object.freeze({
-  SUCCESS: 'success',
-  INFO: 'info',
-  WARN: 'warn',
-  ERROR: 'error',
-});
-
 export const VALIDATION_MESSAGE_MAX_LENGTH = 500;
 export const VALIDATION_TITLE_MAX_LENGTH = 100;
 

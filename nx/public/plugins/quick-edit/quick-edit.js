@@ -4,9 +4,7 @@ import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 import { isAllowedDaLiveOrigin } from '../../../utils/allowed-da-live-origins.js';
-import {
-  registerCustomValidationPort, onCustomValidationRequest, VALIDATION_SEVERITY,
-} from './custom-validation.js';
+import { registerCustomValidationPort, onCustomValidationRequest } from './custom-validation.js';
 import { restoreBlockIndices } from './src/dom-index.js';
 import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
 import {
@@ -41,7 +39,7 @@ const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
 // imports custom-validation.js directly for unrelated internal reuse
 // (sanitizeCustomValidationItems etc.).
 window.qe = window.qe || {};
-window.qe.customValidation = { onCustomValidationRequest, VALIDATION_SEVERITY };
+window.qe.customValidation = { onCustomValidationRequest };
 
 /**
  * When set, the preview page is using exp-workspace as controller;
