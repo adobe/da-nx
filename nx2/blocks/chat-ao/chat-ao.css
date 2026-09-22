@@ -87,14 +87,14 @@
   }
 
   h1 {
-    font-size: var(--s2-body-size-l);
+    font-size: var(--s2-component-xl-bold-font-size);
     font-weight: var(--s2-component-xl-bold-font-weight);
     line-height: var(--s2-component-xxl-regular-line-height);
     color: var(--s2-gray-800);
   }
 
   h2 {
-    font-size: var(--s2-body-size-m);
+    font-size: var(--s2-component-l-bold-font-size);
     font-weight: var(--s2-component-l-bold-font-weight);
     line-height: var(--s2-component-xl-regular-line-height);
     color: var(--s2-gray-800);
@@ -117,7 +117,7 @@
     border-radius: var(--s2-corner-radius-75);
     padding: var(--s2-spacing-50);
     margin: 0;
-    font-size: var(--s2-body-size-xs);
+    font-size: var(--s2-component-s-regular-font-size);
   }
 
   hr {
@@ -256,7 +256,7 @@
   padding: 6px var(--s2-spacing-200);
   border-radius: 12px;
   overflow-wrap: break-word;
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-regular-font-size);
 
   &.message-user {
     max-width: 80%;
@@ -370,7 +370,7 @@
 
   .tool-call-card,
   .tool-call-detail {
-    font-size: var(--s2-body-size-s);
+    font-size: var(--s2-component-m-regular-font-size);
     color: var(--s2-gray-600);
   }
 
@@ -421,7 +421,7 @@
       max-height: 120px;
       border-left: 2px solid var(--s2-gray-200);
       margin-left: var(--s2-spacing-200);
-      font-size: var(--s2-body-size-s);
+      font-size: var(--s2-component-m-regular-font-size);
       margin-top: var(--s2-spacing-100);
       overflow-y: auto;
     }
@@ -543,13 +543,13 @@
   box-sizing: border-box;
 
   .chat-drop-title {
-    font-size: var(--s2-body-size-s);
+    font-size: var(--s2-component-m-bold-font-size);
     font-weight: var(--s2-component-m-bold-font-weight);
     color: var(--s2-gray-900);
   }
 
   .chat-drop-hint {
-    font-size: var(--s2-body-size-xs);
+    font-size: var(--s2-component-s-regular-font-size);
     color: var(--s2-gray-600);
   }
 }
@@ -664,7 +664,7 @@
 
 .chat-thinking {
   padding: var(--s2-spacing-75) var(--s2-spacing-100);
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-regular-font-size);
   font-weight: var(--s2-component-m-regular-font-weight);
   letter-spacing: 0.02em;
 
