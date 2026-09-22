@@ -332,7 +332,7 @@
       align-items: center;
       gap: var(--s2-spacing-75);
       padding: var(--s2-spacing-50) 0;
-      font-size: var(--s2-body-size-xs);
+      font-size: var(--s2-component-s-regular-font-size);
       color: var(--s2-gray-700);
       min-width: 0;
 
@@ -354,9 +354,9 @@
       list-style: none;
       cursor: pointer;
       user-select: none;
-      font-size: var(--s2-body-size-xs);
+      font-size: var(--s2-component-s-regular-font-size);
       color: var(--s2-gray-700);
-      line-height: 24px;
+      line-height: var(--s2-component-xl-regular-line-height);
 
       &::-webkit-details-marker {
         display: none;
@@ -449,6 +449,7 @@
   display: flex;
   align-items: center;
   gap: var(--s2-spacing-100);
+  font-size: var(--s2-component-m-bold-font-size);
   font-weight: var(--s2-component-m-bold-font-weight);
   color: var(--s2-gray-800);
 }
@@ -633,8 +634,8 @@
   color: var(--s2-gray-900);
   min-height: 1lh;
   max-height: 2.5lh;
-  line-height: 1.5;
-  font-size: var(--s2-body-size-s);
+  line-height: var(--s2-component-m-regular-line-height);
+  font-size: var(--s2-component-m-regular-font-size);
   background: inherit;
 
   &:disabled {
@@ -698,14 +699,14 @@
 
   .plan-approval-header {
     font-weight: bold;
-    font-size: var(--s2-body-size-xs);
+    font-size: var(--s2-component-s-regular-font-size);
     text-transform: uppercase;
     color: var(--s2-gray-600);
   }
 
   .plan-approval-feedback {
     font-family: inherit;
-    font-size: var(--s2-body-size-s);
+    font-size: var(--s2-component-m-regular-font-size);
     color: var(--s2-gray-900);
     border: 1px solid var(--s2-gray-300);
     border-radius: var(--s2-corner-radius-400);
@@ -761,7 +762,7 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     font-weight: bold;
-    font-size: var(--s2-body-size-s);
+    font-size: var(--s2-component-m-regular-font-size);
     color: var(--s2-gray-800);
     padding: var(--s2-spacing-100);
     padding-bottom: 0;
@@ -769,7 +770,7 @@
 
   .permission-row-detail {
     display: block;
-    font-size: var(--s2-body-size-s);
+    font-size: var(--s2-component-m-regular-font-size);
     color: var(--s2-gray-600);
     overflow-wrap: break-word;
     white-space: pre-wrap;
@@ -790,7 +791,7 @@
   }
 
   .permission-row-status {
-    font-size: var(--s2-body-size-xs);
+    font-size: var(--s2-component-s-regular-font-size);
     text-transform: uppercase;
     color: var(--s2-gray-600);
 
@@ -805,9 +806,9 @@
   width: calc(100% - 2 * var(--s2-spacing-200));
   margin: 0;
   margin-top: var(--s2-spacing-300);
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-700);
-  line-height: 1.5;
+  line-height: var(--s2-component-s-regular-line-height);
   box-sizing: border-box;
 
   a {
