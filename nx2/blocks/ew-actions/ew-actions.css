@@ -2,7 +2,7 @@
   display: block;
   box-sizing: border-box;
   font-family: var(--s2-font-family);
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-regular-font-size);
   color: var(--s2-gray-800);
 }
 

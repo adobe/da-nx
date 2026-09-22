@@ -6,13 +6,13 @@
 
 .ui-artifact-title {
   font-weight: bold;
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-bold-font-size);
   color: var(--s2-gray-700);
 }
 
 .ui-artifact-fallback {
   margin: 0;
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-600);
   font-style: italic;
 }
@@ -53,7 +53,7 @@
 .ui-artifact-table {
   border-collapse: collapse;
   width: 100%;
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-regular-font-size);
 
   th,
   td {
@@ -77,7 +77,7 @@
 }
 
 .ui-artifact-metric-label {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-bold-font-size);
   font-weight: bold;
   color: var(--s2-gray-600);
 }
@@ -103,7 +103,7 @@
 }
 
 .ui-artifact-metric-trend {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-bold-font-size);
   font-weight: bold;
 }
 
@@ -157,7 +157,7 @@
 
 .ui-artifact-alert-details,
 .ui-artifact-alert-action {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-regular-font-size);
 }
 
 .ui-artifact-alert-info {

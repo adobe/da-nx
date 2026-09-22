@@ -2,7 +2,7 @@
   display: block;
   font-family: var(--s2-font-family);
   color: var(--s2-gray-800);
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-regular-font-size);
   line-height: normal;
 }
 
@@ -82,7 +82,7 @@
 }
 
 .ui-artifact-pe-tile-label {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-800);
 }
 
@@ -93,7 +93,7 @@
 }
 
 .ui-artifact-pe-tile-desc {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-600);
 }
 
@@ -140,13 +140,13 @@
 }
 
 .ui-artifact-pe-section-label {
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-bold-font-size);
   font-weight: bold;
   color: var(--s2-gray-900);
 }
 
 .ui-artifact-pe-section-sublabel {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-600);
 }
 
@@ -198,13 +198,13 @@
 }
 
 .ui-artifact-pe-item-title {
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-bold-font-size);
   font-weight: bold;
   color: var(--s2-gray-900);
 }
 
 .ui-artifact-pe-item-desc {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-600);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -214,7 +214,7 @@
 .ui-artifact-pe-item-action {
   flex-shrink: 0;
   align-self: center;
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-medium-font-size);
   font-weight: 500;
   color: var(--s2-gray-900);
   background: none;
@@ -240,7 +240,7 @@
 }
 
 .ui-artifact-pe-paging-label {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-bold-font-size);
   font-weight: bold;
   color: var(--s2-gray-800);
 }
@@ -298,7 +298,7 @@
 }
 
 .ui-artifact-pe-modal-asset-label {
-  font-size: var(--s2-body-size-l);
+  font-size: var(--s2-component-xl-bold-font-size);
   font-weight: bold;
   color: var(--s2-gray-900);
   margin: 0 0 var(--s2-spacing-300);
@@ -337,12 +337,12 @@
 
 .ui-artifact-pe-modal-heading-text {
   font-weight: bold;
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-bold-font-size);
   color: var(--s2-gray-900);
 }
 
 .ui-artifact-pe-modal-body {
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-regular-font-size);
   line-height: 1.6;
   color: var(--s2-gray-800);
   margin: 0;
@@ -377,7 +377,7 @@
 }
 
 .ui-artifact-pe-modal-context-title {
-  font-size: var(--s2-body-size-m);
+  font-size: var(--s2-component-l-bold-font-size);
   font-weight: bold;
   color: var(--s2-gray-900);
   margin: var(--s2-spacing-400) 0 var(--s2-spacing-200);
@@ -394,13 +394,13 @@
   background: var(--s2-gray-100);
   border-radius: var(--s2-corner-radius-100);
   padding: var(--s2-spacing-50) 10px;
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-800);
   margin-bottom: var(--s2-spacing-200);
 }
 
 .ui-artifact-pe-modal-context-desc {
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-regular-font-size);
   line-height: 1.6;
   color: var(--s2-gray-800);
   margin: 0;
