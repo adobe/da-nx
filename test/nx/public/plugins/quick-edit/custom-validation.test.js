@@ -151,4 +151,32 @@ describe('registerCustomValidationPort / onCustomValidationRequest', () => {
     await new Promise((resolve) => { setTimeout(resolve, 20); });
     expect(called).to.be.false;
   });
+
+  it('normalizes items to [] when the check returns a non-array', async () => {
+    const { port1, port2 } = new MessageChannel();
+    onCustomValidationRequest(() => undefined);
+    registerCustomValidationPort(port2);
+    const messagesPromise = collectMessages(port1, 2);
+    port1.postMessage({ type: MESSAGE_TYPES.RUN, requestId: 'r5' });
+    const [, result] = await messagesPromise;
+    expect(result).to.deep.equal({
+      type: MESSAGE_TYPES.RESULT, requestId: 'r5', items: [], hasCustomValidation: true,
+    });
+  });
+
+  it('keeps requestId/items/hasCustomValidation well-formed when RUN omits requestId', async () => {
+    const { port1, port2 } = new MessageChannel();
+    registerCustomValidationPort(port2);
+    const messagesPromise = collectMessages(port1, 2);
+    port1.postMessage({ type: MESSAGE_TYPES.RUN });
+    const [ack, result] = await messagesPromise;
+    expect(ack).to.deep.equal({
+      type: MESSAGE_TYPES.ACK, requestId: undefined, hasCustomValidation: false,
+    });
+    expect(result).to.deep.equal({
+      type: MESSAGE_TYPES.RESULT, requestId: undefined, items: [], hasCustomValidation: false,
+    });
+    expect(Array.isArray(result.items)).to.be.true;
+    expect(result.hasCustomValidation).to.be.a('boolean');
+  });
 });
