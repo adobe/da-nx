@@ -479,7 +479,13 @@ export const removeLocTags = (html) => {
   });
 };
 
-export async function regionalDiff(original, modified, acceptedHashes, rejectedHashes) {
+export async function regionalDiff(
+  original,
+  modified,
+  acceptedHashes,
+  rejectedHashes,
+  { normalizeImages } = {},
+) {
   const { org, site } = getPathDetails();
   const translateConfig = await fetchConfig(org, site);
   const hostnames = findConfigValue(translateConfig, 'source.fragment.hostnames')?.split?.(',') || [];
@@ -487,6 +493,8 @@ export async function regionalDiff(original, modified, acceptedHashes, rejectedH
 
   const normalizedOriginal = await normalizeLinks(original, site, equivalentSites);
   const normalizedModified = await normalizeLinks(modified, site, equivalentSites);
+  // optional connector hook
+  if (normalizeImages) normalizeImages(normalizedOriginal, normalizedModified);
   const diff = htmldiff(normalizedOriginal, normalizedModified);
   const output = buildHtmlFromDiff(diff, normalizedModified, acceptedHashes, rejectedHashes);
   return output.body.querySelector('main');
