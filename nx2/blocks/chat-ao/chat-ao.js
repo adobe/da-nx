@@ -80,6 +80,11 @@ export default class NxChatAo extends LitElement {
     this._applyContext(value);
   }
 
+  async setPrompt(text, { autoSend = false } = {}) {
+    await this.updateComplete;
+    this._sendPrompt(text, { autoSend });
+  }
+
   // See docs/chat-ao-component.md#plan-approval — a pending plan, unlike a
   // pending question, doesn't disable the input.
   get _blocked() {
@@ -369,6 +374,7 @@ export default class NxChatAo extends LitElement {
         ${this.episodes?.length ? html`
           <nx-picker
             class="session-picker"
+            size="m"
             .items=${this.episodes.map((ep) => ({ value: ep.id, label: this._episodeLabel(ep) }))}
             .value=${this.episodeId}
             .labelOverride=${this._sessionFallbackLabel()}
@@ -376,12 +382,12 @@ export default class NxChatAo extends LitElement {
             @change=${this._handleEpisodeChange}
           ></nx-picker>` : nothing}
         <div>
-          <button type="button" class="nx-action-btn-quiet nx-btn-sm" @click=${this._handleNewSession}>
+          <button type="button" class="nx-action-btn-quiet" @click=${this._handleNewSession}>
             ${icon('add')}
-            <span>New session</span>
+            <span>New chat</span>
           </button>
           <button
-            class="nx-action-btn-icon nx-btn-sm"
+            class="nx-action-btn-icon"
             aria-label="Close chat panel"
             @click=${this._closePanel}
           >${icon('close')}</button>
@@ -424,6 +430,7 @@ export default class NxChatAo extends LitElement {
       <div class="chat-form-wrap">
         <nx-menu
           class="slash-menu"
+          size="m"
           .ignoreFocus=${true}
           .scoped=${true}
           @select=${({ detail }) => this._onSlashSelect(detail.id)}
@@ -469,7 +476,7 @@ export default class NxChatAo extends LitElement {
             @blur=${this._slashMenu.onBlur}
           ></textarea>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
-            <nx-menu .items=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
+            <nx-menu size="m" .items=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
               <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>
