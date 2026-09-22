@@ -769,7 +769,7 @@
 
   .permission-row-detail {
     display: block;
-    font-size: var(--s2-body-size-xs);
+    font-size: var(--s2-body-size-s);
     color: var(--s2-gray-600);
     overflow-wrap: break-word;
     white-space: pre-wrap;
