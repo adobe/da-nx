@@ -36,6 +36,7 @@
   <nav class="sg-toc">
     <a href="#buttons">Buttons</a>
     <a href="#form">Form</a>
+    <a href="#elements">Elements</a>
     <a href="#shared-blocks">Shared Blocks</a>
   </nav>
 
@@ -253,6 +254,11 @@
 &lt;!-- --nx-checkbox-size overrides the checkbox's width/height (default 14px) --&gt;
 &lt;label class="nx-checkbox" style="--nx-checkbox-size: 20px;"&gt;&lt;input type="checkbox" checked/&gt; Large&lt;/label&gt;</code></pre>
       </article>
+    </section>
+
+    <section id="elements" class="sg-section">
+      <h2>Elements</h2>
+      <p>Source: <code>nx2/styles/spinner.css</code></p>
 
       <article class="sg-example">
         <h3>Loading spinner</h3>
@@ -260,7 +266,9 @@
           <span class="nx-loading-spinner" role="status" aria-label="Loading"></span>
         </div>
         <pre><code>&lt;span class="nx-loading-spinner" role="status" aria-label="Loading"&gt;&lt;/span&gt;</code></pre>
-        <p>Source: <code>nx2/styles/spinner.css</code></p>
+        <p>Override <code>--nx-spinner-track-color</code>/<code>--nx-spinner-active-color</code> for a
+          different color scheme (see <code>nx/blocks/loc/views/translate/translate.css</code> for an
+          example using <code>currentcolor</code>).</p>
       </article>
     </section>
 
