@@ -388,19 +388,21 @@ class NXEwActions extends LitElement {
 
     return html`
       <div class="deploy-card deploy-card-${kind}${selected ? ' is-selected' : ''}">
-        <button
-          type="button"
-          class="deploy-card-main"
-          role="radio"
-          aria-checked=${selected}
-          @click=${() => this._selectTarget(kind)}
-        >
+        <label class="deploy-card-main">
+          <input
+            type="radio"
+            class="deploy-card-radio"
+            name="deploy-target"
+            value=${kind}
+            .checked=${selected}
+            @change=${() => this._selectTarget(kind)}
+          />
           <span class="deploy-card-text">
             <span class="deploy-card-title">${title}</span>
             <span class="deploy-card-sub">${sub}</span>
           </span>
           ${selected ? html`<span class="deploy-card-check" aria-hidden="true">${CHECK_ICON}</span>` : nothing}
-        </button>
+        </label>
         ${selected && info.ok && info.url ? html`
           <div class="deploy-url">
             <span class="deploy-url-text" title=${info.url}>${info.url}</span>

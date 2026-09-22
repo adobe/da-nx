@@ -88,6 +88,20 @@ describe('nx-ew-actions deploy popover', () => {
       expect(el.shadowRoot.querySelector('.send-badge')).to.equal(null);
     });
 
+    it('selects the target via the native radio inputs', async () => {
+      const el = await mount();
+      const radios = el.shadowRoot.querySelectorAll('.deploy-card-radio');
+      expect(radios.length).to.equal(2);
+      expect([...radios].every((r) => r.type === 'radio')).to.equal(true);
+      expect(el._target).to.equal('preview');
+
+      const publishRadio = el.shadowRoot.querySelector('.deploy-card-live .deploy-card-radio');
+      publishRadio.checked = true;
+      publishRadio.dispatchEvent(new Event('change', { bubbles: true }));
+      await el.updateComplete;
+      expect(el._target).to.equal('live');
+    });
+
     it('labels the primary action "Update" for preview and "Publish" for live', async () => {
       const el = await mount();
       const label = () => el.shadowRoot.querySelector('.deploy-action').textContent.trim();
