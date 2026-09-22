@@ -41,24 +41,24 @@ by name per finding, same as the other three.
   and if the layout scatters them across the screen, the reader has to
   reassemble the relationship themselves. If two objects share meaning,
   origin, or description-type, check they're positioned near each other,
-  not just styled consistently. Real NC miss: "News" (a source-type
-  chip, shown top of card) and "Creative & design tools" (a
-  tracking-term/topic chip, shown at the bottom, only visible expanded)
-  are both provenance/categorization tags — same *kind* of information —
-  but sat at opposite ends of the card. Fix: render both in the same
-  always-visible chip row, not two different sections.
+  not just styled consistently. Example: a source-type chip shown at the
+  top of a card, and a topic/tracking-term chip shown at the bottom (only
+  visible expanded) can both be provenance/categorization tags — same
+  *kind* of information — while sitting at opposite ends of the card.
+  Fix: render both in the same always-visible chip row, not two different
+  sections. See [`../extensions/`](../extensions/) for a real case.
 - **Identify the primary CTA, and check it actually looks primary.**
   Every screen with an action has exactly one thing the reader is meant
   to *do* next (not just look at). Find it, then check its visual weight
   against everything else on screen — size, fill vs. outline, position.
   A CTA styled as the quietest, smallest, most outline-only element on
   the card is a real fail even if the rest of the hierarchy is correct.
-  Real NC miss: "Generate content" was a thin 13px outline button below
-  four denser text blocks — technically present, not actually the thing
-  that stood out. Fixed to a solid filled button — the *shape* of the fix
-  (solid, not outline; sized to be found, not just present) is the
-  reusable rule; exact px moved more than once after this and isn't worth
-  citing here — check the live file for current sizing, not this doc.
+  Example: a thin outline button below several denser text blocks —
+  technically present, not actually the thing that stood out. The
+  *shape* of the fix (solid, not outline; sized to be found, not just
+  present) is the reusable rule, not any specific px value — check the
+  live file for current sizing. See [`../extensions/`](../extensions/)
+  for a real case.
 
 ## Output format
 
@@ -69,21 +69,24 @@ by name per finding, same as the other three.
 |---|-------|-----|--------|
 ```
 
-## Real worked example (Nerve Center, 2026-08-26)
+## Real worked example
 
-Run against the Trend Identifier panel (toolbar + card list).
+Run against a panel's toolbar + card list.
 
 **Verdict: NEEDS CHANGES** (two real findings, three real passes)
 
 | # | Issue | Law | Detail |
 |---|-------|-----|--------|
-| 1 | Result count has no label word | "Labels before numbers" (rubric) | `nerve-center.js`: `` html`<p class="nc-count">${rows.length} of ${this._total}</p>` `` renders literally "1 of 1" — no word like "trends" or "results". Reads fine sighted, next to the "Trend Identifier" heading, but the line itself doesn't self-explain — fails for a screen reader landing directly on that text node. |
-| 2 | Active filter shown as a count only | Progressive disclosure | The Filters toggle shows a count badge (e.g. "1") when a filter is active, but not *which* filter — the value ("Watch" or a search term) is only visible after reopening the panel. Under-discloses state; a removable inline chip next to the toggle would show both. |
+| 1 | Result count has no label word | "Labels before numbers" (rubric) | A count element rendering literally "1 of 1" — no word like "results" or "items". Reads fine sighted, next to a heading, but the line itself doesn't self-explain — fails for a screen reader landing directly on that text node. |
+| 2 | Active filter shown as a count only | Progressive disclosure | A Filters toggle shows a count badge (e.g. "1") when a filter is active, but not *which* filter — the value is only visible after reopening the panel. Under-discloses state; a removable inline chip next to the toggle would show both. |
 
 **Passes, checked not assumed:**
-- Answer-first: badges + title + summary show collapsed; Business Impact / Recommended Action / Rationale need a click — correct verdict-before-detail ordering.
-- Resolved de-prioritization: `_visibleObservations()` filters out anything with a recorded outcome; acted/dismissed items render in separate labeled sections below the active list, not mixed in.
-- Nav depth: sidebar sections (Global / Trend Identifier / Management / utilities) stay well under the ~7±2 bar — see `design-laws.md`'s Miller's Law entry.
+- Answer-first: badges + title + summary show collapsed; detail sections need a click — correct verdict-before-detail ordering.
+- Resolved de-prioritization: a filter helper excludes anything with a recorded outcome; acted/dismissed items render in separate labeled sections below the active list, not mixed in.
+- Nav depth: sidebar sections stay well under the ~7±2 bar — see `design-laws.md`'s Miller's Law entry.
+
+See [`../extensions/`](../extensions/) for the real, dated case this
+example is based on, with actual class/file names.
 
 ## Do NOT
 

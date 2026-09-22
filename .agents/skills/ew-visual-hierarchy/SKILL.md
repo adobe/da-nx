@@ -61,10 +61,11 @@ skips it, it's doing its job.
   the priority position, not leftmost.)
 - **Boundary-token consistency (Proximity, third corollary).** Classify
   every structural boundary in the component against
-  [`spacing-scale.md`](../_shared/spacing-scale.md)'s 5 canonical boundary
+  [`spacing-scale.md`](../_shared/spacing-scale.md)'s 6 canonical boundary
   types, and confirm every instance of the same type resolves to that
   type's one token — never a value picked per-instance. Full reasoning
-  and the real NC drift case are in `design-laws.md`, not repeated here.
+  and a real drift case are in `design-laws.md` / `../extensions/`, not
+  repeated here.
 
 ## This skill proposes AND can apply the fix
 
@@ -88,24 +89,21 @@ finding without a proposed value isn't finished.
 Proposed fix per ✗: [file:line, exact rule, exact new value, why that value]
 ```
 
-## Real worked example (Nerve Center, 2026-08-26)
-
-Run against the Trend Identifier card, `_harness-after.html`, 16px
-section gap (before the same-day 24px fix):
+## Real worked example
 
 ```
-[✗] Squint test — eye lands on the red/tan badge row before the headline;
+[✗] Squint test — eye lands on a badge row before the headline;
     ambiguous whether that's intended, but see next line for why it fails.
-[✗] One focal point — "82 · Critical" and "Threat" are both red, same
+[✗] One focal point — two badges in the same row are the same color, same
     weight; nothing in the row clearly wins.
-[✗] Section rhythm — gap is 16px (--spacing-300); body text line-height
-    is 13px × 1.55 ≈ 20px. 16 < 20 — fails the "exceed the line-height"
-    bar even though it's bigger than the 3px label gap.
+[✗] Section rhythm — gap is smaller than the body text's own line-height,
+    even though it's bigger than the label gap above it.
 [ ] Grouping boundary — unverifiable, fixture has only 1 item.
 ```
 
-Same two real failures `ew-critique` found in its own run that day —
-this check would have caught both before the PR even opened.
+See [`../extensions/`](../extensions/) for the real, dated case this
+example is based on, with actual values and file references — this check
+would have caught both failures before the PR even opened.
 
 ## Do NOT
 

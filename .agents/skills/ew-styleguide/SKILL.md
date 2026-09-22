@@ -15,8 +15,8 @@ gzip-served):
 - `https://main--da-nx--adobe.aem.live/nx2/styles/form.css`
 
 This is different from [`design-laws.md`](../_shared/design-laws.md):
-that file is generic perception/psychology (Gestalt, Yablonski) grounded
-in NC examples. This skill is *this specific product's own* shared
+that file is generic perception/psychology (Gestalt, Yablonski). This
+skill is *this specific product's own* shared
 component system — a stronger, more binding citation than "users expect
 familiar patterns" in the abstract, because the familiar pattern already
 exists in the same codebase.
@@ -111,36 +111,31 @@ name being compared against:
 |---|-------|--------------------|--------|
 ```
 
-## Real worked example (Nerve Center, 2026-08-27)
+## Real worked example
 
-Grepped `tools/nerve-center/nerve-center.css` directly against the
-fetched style guide.
+Grepped an extension's CSS directly against the fetched style guide.
 
 **Verdict: NEEDS CHANGES → fixed for 3 of 4 findings**
 
 | # | Issue | Style guide class | Detail | Status |
 |---|-------|--------------------|--------|--------|
-| 1 | Zero `:focus-visible` rules in the whole file | every `.nx-*` interactive class | `nc-chip`, `nc-filter-toggle`, `obs-generate-btn`, `obs-outcome-btn`, `nc-active-filter-chip` are all real `<button>` elements with no keyboard-focus ring — the real style guide gives every button this for free. | **Fixed** — real `blue-800` outline added, all buttons. |
-| 1b | `.nc-search input` fully custom (1px `#d3d1c7` border, 34px height, 6px radius) instead of the real text field | `.nx-input` | Not a button — the one real `<input>` on the panel, and it wasn't built from the field spec at all. | **Fixed** — real height/border/radius/color/focus applied exactly. |
-| 2a | `.nc-filter-toggle` had a border where the real `.nx-action-btn` has **none** (uses `gray-100` fill instead) | `.nx-action-btn` | Not a color tweak — a structural difference (border vs. fill as the affordance). | **Fixed** — real height/padding/radius/no-border/`gray-100` applied. |
-| 2b | `.obs-generate-btn` was oversized past the real `.nx-btn-accent` spec (custom padding/font-size, `border: 1px solid`) | `.nx-btn-accent` | Solid fill at the correct system size (32px, real padding) already signals "primary" — oversizing past spec doesn't add clarity, just drift. | **Fixed** — real height/padding/radius/no-border applied. |
-| 2c | `.nc-chip` (the All/Act/Watch/Ignore and sort toggles) has no flat-CSS equivalent in the style guide at all | `nx-segmented-btn` | This exact pattern (single-select pill group) is a documented *component* (`nx-segmented-btn`), not a CSS class — swapping requires the real custom element + its JS API, not just CSS. | **Not fixed** — real fix is a component swap, out of scope for a CSS-only pass; left as a `nx-segmented-btn` migration candidate. |
+| 1 | Zero `:focus-visible` rules in the whole file | every `.nx-*` interactive class | Every button on the panel is a real `<button>` element with no keyboard-focus ring — the real style guide gives every button this for free. | **Fixed** — real `blue-800` outline added, all buttons. |
+| 1b | A search input fully custom-built instead of the real text field | `.nx-input` | Not a button — the one real `<input>` on the panel, and it wasn't built from the field spec at all. | **Fixed** — real height/border/radius/color/focus applied exactly. |
+| 2a | A filter-toggle button had a border where the real `.nx-action-btn` has **none** (uses `gray-100` fill instead) | `.nx-action-btn` | Not a color tweak — a structural difference (border vs. fill as the affordance). | **Fixed** — real height/padding/radius/no-border/`gray-100` applied. |
+| 2b | A primary CTA button was oversized past the real `.nx-btn-accent` spec (custom padding/font-size, `border: 1px solid`) | `.nx-btn-accent` | Solid fill at the correct system size (32px, real padding) already signals "primary" — oversizing past spec doesn't add clarity, just drift. | **Fixed** — real height/padding/radius/no-border applied. |
+| 2c | A single-select pill group (filter/sort toggles) has no flat-CSS equivalent in the style guide at all | `nx-segmented-btn` | This exact pattern is a documented *component* (`nx-segmented-btn`), not a CSS class — swapping requires the real custom element + its JS API, not just CSS. | **Not fixed** — real fix is a component swap, out of scope for a CSS-only pass; left as a `nx-segmented-btn` migration candidate. |
 | 3 | `border-radius: 999px` hardcoded, assumed equivalent to the token | `var(--s2-corner-radius-800)` | Real value is **16px**, not 999px — visually identical only because every element here is ≤32px tall. | **Fixed** — fallback corrected to the real 16px value everywhere. |
-| 4 | Root font stack diverges from shared components | `var(--s2-font-family)` | `nerve-center-app` sets its own `--body-font-family` chain — different token than every `nx-*` component inherits. Not visually broken today (no shared component is embedded), but a real gap the moment one is added. | **Documented, not fixed** — host-provided token, riskier to change blind. |
+| 4 | Root font stack diverges from shared components | `var(--s2-font-family)` | The extension's own root sets its own `--body-font-family` chain — different token than every `nx-*` component inherits. Not visually broken today (no shared component is embedded), but a real gap the moment one is added. | **Documented, not fixed** — host-provided token, riskier to change blind. |
 
-Two rounds of this same file: the first pass token-wrapped `999px` on
+Two rounds against the same file: the first pass token-wrapped `999px` on
 the (correct) assumption it matched the real token, without fetching the
 real value — the second pass actually fetched it and found the fallback
 number itself was wrong. Same lesson `ew-color-contrast` already states
 for colors, re-learned here for spacing/radius: **fetch the number, every
 time, don't reuse an old assumption because it "looks token-shaped."**
 
-**History:** the `obs-generate-btn` CTA fix (`ew-information-architecture`'s
-solid-fill fix) independently landed close to `.nx-btn-accent`'s real
-shape (solid blue, white text, pill radius) before this skill's exact
-values were applied — a coincidence worth confirming rather than
-assuming, which is exactly what finding #2b above did (and then
-tightened to the real spec).
+See [`../extensions/`](../extensions/) for the real, dated case this
+example is based on, with actual class names and diffs.
 
 ## Do NOT
 

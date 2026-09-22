@@ -38,7 +38,7 @@ carried over from the npm package by mistake — this repo's real ladder
 jumps 100 (8px) → 200 (12px) directly, with no step in between, and starts
 at 50 (2px), not 25.
 
-## Canonical role assignment — apply to every extension, not just NC
+## Canonical role assignment — apply to every extension
 
 Six boundary *types* recur in every EW panel (card, list, detail view).
 Each gets exactly one token, always, in every extension — this is the
@@ -64,28 +64,18 @@ here, tuned across 12px → 20px → 16px on design review — see
 `design-laws.md`'s fourth corollary) — a few px of difference reads
 as noise, not a boundary.
 
-**NC's current usage against this table** (2026-08-27): matches for
-content-to-metadata (`--s2-spacing-300`, 16px), item-to-item
-(`--s2-spacing-200`, 12px), label-group (`--s2-spacing-300`, 16px), and
-major divider (`--s2-spacing-400`, 24px). Icon-to-label is still
-unverified — see the resolved finding below.
-
 Once a step is assigned to a role, **every boundary of that role in the
 component must use that step** — `design-laws.md`'s Proximity "third
 corollary": the same kind of boundary must resolve to the same token
 everywhere it occurs, not just be individually "big enough."
 
-## Real worked example, resolved (Nerve Center, 2026-09-21)
-
-Grepped every `var(--spacing-*, Npx)` fallback in
-`tools/nerve-center/nerve-center.css` — note the **bare** `--spacing-*`,
-not `--s2-spacing-*`:
-
-| Finding | Detail |
-|---|---|
-| NC's CSS custom properties are named `--spacing-*`, not `--s2-spacing-*` | Confirmed by grepping `nx2/styles/styles.css`: the real token namespace is `--s2-spacing-*`. NC's file never uses the real token names at all — its `--spacing-75`/`--spacing-150`/etc. are locally-scoped variables with their own arbitrary fallback numbers, disconnected from the real system, not a stale reference to it. |
-| `--spacing-75` used with a `6px` fallback in 4 places | Since it isn't the real token, its value isn't wrong relative to a spec — it just was never grounded in one. If this should track the real system, it needs to become `--s2-spacing-75` (4px), the real closest step. |
-| `--spacing-150` used with a `10px` fallback in 3 places | Same story — not a real token under either name. Nearest real step under `--s2-spacing-*` is 200 (12px) or 100 (8px), whichever the actual boundary type calls for (see the role table above). |
+A common real-world finding when auditing an extension against this
+table: its CSS declares its own bare `--spacing-*` custom properties
+(not `--s2-spacing-*`) with arbitrary fallback numbers, disconnected from
+the real system — not a stale reference to it, a namespace that was never
+wired to it at all. Check which namespace a project's variables actually
+use before assuming a `--spacing-N` name maps to the real `--s2-spacing-N`
+value. See [`../extensions/`](../extensions/) for a real case of this.
 
 ## Do NOT
 

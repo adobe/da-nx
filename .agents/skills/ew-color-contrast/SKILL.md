@@ -62,23 +62,22 @@ the real package says today, the file has drifted from a package
 version bump; worth fixing the fallback too while you're in that line,
 not just the failing rule.
 
-## Real worked example (Nerve Center, 2026-08-26)
+## Real worked example
 
-Computed against `nerve-center.css`'s actual color pairs:
+Computed against a real extension's actual color pairs:
 
 | Pair | Ratio | AA (4.5) | Note |
 |---|---|---|---|
-| `.obs-detail-label` (11px) `#888780` on white | 3.61 | **FAIL** | small text, needs 4.5 |
-| `.nc-count` (12px) `#888780` on `#f9f9f7` | 3.42 | **FAIL** | same color, different bg, still fails |
+| a `.detail-label` (11px) muted gray on white | 3.61 | **FAIL** | small text, needs 4.5 |
+| the same gray (12px) on a slightly different background | 3.42 | **FAIL** | same color, different bg, still fails |
 | everything else checked (pills, body text, source link) | 3.42–14.55 | PASS | no action needed |
 
-Fix: needed a real `gray-600` value, not a guess. This file's *own*
-existing fallback (`.obs-description` used elsewhere: `var(--s2-gray-600,
-#767676)`) turned out to be stale — the real current package value is
-`rgb(113,113,113)` = `#717171`, which clears both backgrounds (4.88 and
-4.63). Applied `color: var(--s2-gray-600, #717171)` to both failing
-rules — real token, verified ratio, not the file's own slightly-outdated
-fallback either.
+Fix: needed a real `gray-600` value, not a guess. The file's *own*
+existing fallback used elsewhere for that same token had itself gone
+stale relative to the current package value — fetching fresh caught both
+problems at once: the failing rule, and the file's own outdated fallback
+for a passing one. See [`../extensions/`](../extensions/) for the real,
+dated case with actual class names and hex values.
 
 ## A FAIL can be knowingly overridden — document it when it is
 
@@ -86,10 +85,10 @@ Not every reported FAIL gets fixed. A product/design call can override
 a real contrast fail on purpose (readability traded for a stated visual
 goal). That's a legitimate outcome — but it must be written down as a
 deliberate override, not left silent, or the next person (or the next
-run of this skill) will think the check simply missed it. Real NC
-example: `tier-low`'s white text on `#fc7d00` measures **2.6**, well
-under the 4.5 bar — kept anyway on explicit request, with the real
-number left in a code comment rather than hidden. The skill's job is to
+run of this skill) will think the check simply missed it. See
+[`../extensions/`](../extensions/) for a real example (a status pill's
+white text at 2.6 contrast, kept on explicit product request, real
+number left in a code comment rather than hidden). The skill's job is to
 report the true number; overriding it is the requester's call, not this
 skill's to make quietly.
 

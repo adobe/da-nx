@@ -6,7 +6,7 @@ description: Use when reviewing a screenshot of an Experience Workspace (EW) ext
 # EW Critique
 
 Fork of Inky's View Review Rubric, rescoped to EW extension panels
-(Nerve Center, Skills Editor, and future extensions). Screenshot in,
+(Skills Editor, Nerve Center, and future extensions). Screenshot in,
 verdict + reasoning table out. This skill never touches code — it
 reports what's wrong and names the exact violated design law, citing
 [`design-laws.md`](../_shared/design-laws.md) per finding.
@@ -58,15 +58,12 @@ pattern" already exists as a shared class in this same codebase.
   Extends to the *field itself*, not just its display: before styling or
   citing a badge/pill/scale, check the field is actually computed by the
   backend for this entity — not a stand-in field left over from a
-  different, deprecated scale. Real NC hit: severity "tier" (`Critical`/
-  `High`/`Medium`/`Low`, computed client-side via `severityTier()` from
-  `boostedSeverity`) and a separate `impact` (`threat`/`opportunity`)
-  pill both looked authoritative but were never populated for
-  observations — that scale exists only for traffic/brand-presence
-  signals. The real field is `priority` (high/medium/low, only 3 levels,
-  no "critical") — a direct passthrough, nothing to compute. A pill
-  rendering cleanly is not evidence the field behind it is real; check
-  the backend model, not just whether the UI renders without a null.
+  different, deprecated scale. A pill can render cleanly off a field that
+  was never actually computed for this entity (e.g. a status scale built
+  for a different resource, reused here as a plausible-looking default).
+  A pill rendering without a null is not evidence the field behind it is
+  real; check the backend model, not just whether the UI renders. See
+  [`../extensions/`](../extensions/) for a real case.
 - **Copy** — is terminology consistent (same word for the same concept
   everywhere), and is body copy concise, not a wall of unbroken text?
 
@@ -91,19 +88,16 @@ pattern" already exists as a shared class in this same codebase.
 1. [Short imperative fix] — [why, one line]
 ```
 
-## Real worked example (Nerve Center, 2026-08-26)
-
-Screenshot: Trend Identifier card, expanded detail section (Business
-Impact / Recommended Action / Rationale).
+## Real worked example
 
 **Verdict: NEEDS CHANGES**
 
 | # | Issue | Law | Detail |
 |---|-------|-----|--------|
-| 1 | Sections don't read as separate | Proximity | `nerve-center.css` line 479, `.obs-detail { gap: 10px }` — smaller than `.obs-detail-label`'s own 3px-driven visual rhythm at a glance, and (after a first fix to 16px) still smaller than the ~20px line-height of the paragraph text above it. Landed on `--spacing-400` (24px). |
+| 1 | Sections don't read as separate | Proximity | A `.detail { gap: 10px }` (section-to-section) was smaller than the section label's own visual rhythm at a glance, and (after a first fix) still smaller than the line-height of the paragraph text above it. Landed on a token clearing that line-height with room to spare. |
 
-This is the actual bug found and fixed live in this session — see
-`design-laws.md` for the full history of both fix attempts.
+See [`../extensions/`](../extensions/) for a real, dated case of this
+exact bug found and fixed, with actual file/line/token values.
 
 ## Do NOT
 
