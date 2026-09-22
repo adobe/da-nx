@@ -205,11 +205,11 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card-preview.is-selected .deploy-url {
-  border-top-color: var(--s2-blue-900, #3b63fb);
+  border-top-color: #3b63fb99;
 }
 
 .deploy-card-live.is-selected .deploy-url {
-  border-top-color: #12b867;
+  border-top-color: #12b86799;
 }
 
 .deploy-url-text {
