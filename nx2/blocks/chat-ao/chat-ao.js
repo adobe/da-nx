@@ -80,6 +80,11 @@ export default class NxChatAo extends LitElement {
     this._applyContext(value);
   }
 
+  async setPrompt(text, { autoSend = false } = {}) {
+    await this.updateComplete;
+    this._sendPrompt(text, { autoSend });
+  }
+
   // See docs/chat-ao-component.md#plan-approval — a pending plan, unlike a
   // pending question, doesn't disable the input.
   get _blocked() {
