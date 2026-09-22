@@ -43,11 +43,14 @@ exists in the same codebase.
 | `.nx-checkbox` | `--nx-checkbox-size: 14px` custom property, checked state via `mask-image` |
 | all interactive form elements | same `:focus-visible { outline: 2px solid var(--s2-blue-800); outline-offset: 4px; }` |
 
-**Shared blocks** (`nx2/blocks/shared/`): `nx-menu`, `nx-dialog`,
-`nx-popover`, `nx-picker`, `nx-segmented-btn`, `nx-breadcrumb`, and
-`showToast()` (transient feedback with an optional CTA) — all documented
-with real props/events at `docs/<name>.md` linked from the style guide
-page itself.
+**Shared blocks** (`nx2/blocks/shared/`): `menu`, `dialog`, `popover`,
+`picker`, `segmented-btn`, `breadcrumb`, `pills`, `chat`, `toast`
+(exposing `showToast()`, transient feedback with an optional CTA) — all
+documented with real props/events at `docs/<name>.md` (bare names, e.g.
+`docs/menu.md`, not `docs/nx-menu.md`) linked from the style guide page
+itself. The custom-element *tag* each block registers may be `nx-`
+prefixed (e.g. `<nx-menu>`) — don't confuse the tag name with the
+folder/doc name when looking one up.
 
 Both button and form buttons use `var(--s2-font-family)`, not a local
 font stack.
