@@ -59,6 +59,10 @@ body {
   color: var(--s2-blue-900);
 }
 
+.sg-example > p {
+  padding-left: 10px;
+}
+
 .sg-note {
   margin: 0;
   padding: var(--s2-spacing-100) var(--s2-spacing-300);
