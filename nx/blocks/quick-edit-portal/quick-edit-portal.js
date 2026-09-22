@@ -71,6 +71,8 @@ export default async function decorate(el) {
 
   async function initPort(e) {
     const isInit = e.data?.type === MESSAGE_TYPES.INIT;
+    // window.parent is always the exact frame that created this iframe (quick-edit.js),
+    // so no origin check required.
     if (e.source !== window.parent) return;
     if (isInit) {
       const [port] = e.ports;
