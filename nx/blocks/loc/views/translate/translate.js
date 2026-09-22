@@ -278,9 +278,7 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleCancelLang(lang) {
-    this._cancelingLangs ??= new Set();
-    this._cancelingLangs.add(lang.code);
-    this.requestUpdate();
+    this._cancelingLangs = new Set(this._cancelingLangs).add(lang.code);
 
     try {
       const sendMessage = this.handleMessage.bind(this);
@@ -293,8 +291,9 @@ class NxLocTranslate extends LitElement {
         await this.handleGetStatus();
       }
     } finally {
-      this._cancelingLangs.delete(lang.code);
-      this.requestUpdate();
+      const next = new Set(this._cancelingLangs);
+      next.delete(lang.code);
+      this._cancelingLangs = next;
     }
   }
 
