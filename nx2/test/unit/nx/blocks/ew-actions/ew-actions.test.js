@@ -1,6 +1,7 @@
 /* eslint-disable no-underscore-dangle */
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
+import { status } from '../../../../../utils/api.js';
 
 const nextTick = () => new Promise((resolve) => { setTimeout(resolve, 0); });
 
@@ -206,6 +207,59 @@ describe('nx-ew-actions deploy popover', () => {
       expect(called).to.equal(false);
       expect(el._copied).to.equal(undefined);
     });
+  });
+});
+
+describe('nx-ew-actions status loading & confirm', () => {
+  afterEach(() => {
+    document.querySelectorAll('nx-ew-actions').forEach((el) => el.remove());
+  });
+
+  it('drops a stale _loadStatus result when a newer load supersedes it', async () => {
+    const el = await mount();
+    const origGet = status.get;
+    // Deferred, path-keyed responses so we control which resolves first.
+    const resolvers = {};
+    status.get = (aemPath) => new Promise((resolve) => {
+      const body = JSON.stringify({ preview: { status: 200, url: aemPath } });
+      resolvers[aemPath] = () => resolve(new Response(body, { status: 200 }));
+    });
+    try {
+      el._hashState = { org: 'o', site: 's', path: '/first' };
+      const stale = el._loadStatus();
+      // Supersede synchronously — _statusKey now points at the newer doc.
+      el._hashState = { org: 'o', site: 's', path: '/second' };
+      const fresh = el._loadStatus();
+
+      // Resolve the newer load first, then the stale one after it.
+      resolvers['/o/s/second']();
+      await fresh;
+      resolvers['/o/s/first']();
+      await stale;
+
+      // The stale (/first) response must not overwrite the current (/second) one.
+      expect(el._status.preview.url).to.equal('/o/s/second');
+    } finally {
+      status.get = origGet;
+    }
+  });
+
+  it('confirming runs the action, closes the popover, and re-syncs status', async () => {
+    const el = await mount();
+    el._hasError = false;
+    const calls = { action: null, resynced: false };
+    el._runAemAction = async (action) => { calls.action = action; };
+    el._loadStatus = async (opts) => { if (opts?.force) calls.resynced = true; };
+
+    el._toggleSend();
+    await el.updateComplete;
+    const popover = el._popover;
+    expect(popover.open).to.equal(true);
+
+    await el._confirmAction();
+    expect(calls.action).to.equal('preview');
+    expect(calls.resynced).to.equal(true);
+    expect(popover.open).to.equal(false);
   });
 });
 

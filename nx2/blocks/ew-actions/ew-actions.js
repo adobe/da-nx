@@ -128,7 +128,7 @@ class NXEwActions extends LitElement {
     this._unsubHash = hashChange.subscribe((state) => {
       const prevPath = this._prepareDetails?.fullpath;
       this._hashState = state;
-      this._syncStatus();
+      this._loadStatus();
       if (this._prepareDetails?.fullpath !== prevPath) {
         this._preflightPassed = false;
         this._checkEnforcePreflight();
@@ -210,7 +210,7 @@ class NXEwActions extends LitElement {
   // Fetch AEM admin status for the current doc. Keyed on the doc path so hash
   // updates that don't change the doc don't refetch; `force` refreshes after a
   // preview/publish so the cards and badge reflect the new state.
-  async _syncStatus({ force = false } = {}) {
+  async _loadStatus({ force = false } = {}) {
     const aemPath = buildAemPathFromHashState(this._hashState);
     if (!aemPath) {
       this._status = undefined;
@@ -264,7 +264,7 @@ class NXEwActions extends LitElement {
     this._target = 'preview';
     this._copied = null;
     popover.show({ anchor: this._sendBtn, placement: 'below-end' });
-    this._syncStatus();
+    this._loadStatus();
   }
 
   _selectTarget(target) {
@@ -287,7 +287,7 @@ class NXEwActions extends LitElement {
     const action = this._target === 'live' && !this._hidePublish ? 'publish' : 'preview';
     await this._runAemAction(action);
     if (!this._hasError) this._popover?.close();
-    await this._syncStatus({ force: true });
+    await this._loadStatus({ force: true });
   }
 
   update(changed) {
