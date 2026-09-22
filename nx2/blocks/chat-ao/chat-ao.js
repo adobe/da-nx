@@ -472,7 +472,7 @@ export default class NxChatAo extends LitElement {
           ></textarea>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
             <nx-menu size="m" .items=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-              <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
+              <button slot="trigger" class="chat-add nx-action-btn-icon" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>
               </button>
@@ -481,7 +481,7 @@ export default class NxChatAo extends LitElement {
               ${isVoiceInputSupported() ? html`
                 <button
                   type="button"
-                  class="chat-voice nx-action-btn-icon nx-btn-sm"
+                  class="chat-voice nx-action-btn-icon"
                   ?data-listening=${this._voiceListening}
                   ?disabled=${this._blocked}
                   aria-pressed=${this._voiceListening}
@@ -490,11 +490,11 @@ export default class NxChatAo extends LitElement {
                 >${icon('mic')}</button>
               ` : nothing}
               <button
-                class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
+                class="chat-stop nx-action-btn-icon is-active"
                 ?hidden=${!this._blocked}
                 @click=${this._submit}
               > ${icon('stop')}</button>
-              <button type="submit" class="chat-send nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this._blocked} aria-label="Send">
+              <button type="submit" class="chat-send nx-action-btn-icon is-active" ?hidden=${this._blocked} aria-label="Send">
                 ${icon('send')}
               </button>
             </div>

@@ -611,8 +611,7 @@
     }
   }
 
-  .nx-action-btn-icon.nx-btn-sm  {
-    padding: var(--s2-spacing-75);
+  .nx-action-btn-icon {
     border-radius: 20px;
   }
 }
