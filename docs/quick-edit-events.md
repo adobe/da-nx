@@ -123,37 +123,39 @@ upload request, the host replies with the same `IMAGE_REPLACE` type, distinguish
 `payload.error` (failure) vs `payload.newSrc` (success). Both hosts implement the full
 round-trip.
 
-## Validation port
+## Custom validation port
 
 `INIT` transfers a second `MessageChannel` port alongside the control port described
 above (`event.ports[1]`), established in the same `postMessage` transfer list. It is a
-separate, single-purpose port so that project code answering validation requests never
-gains the control port's capabilities (`NODE_UPDATE`, `HISTORY`, `IMAGE_REPLACE`, etc.)
-— the port itself is the capability boundary, not a runtime type-check.
+separate, single-purpose port so that project code answering custom validation requests
+never gains the control port's capabilities (`NODE_UPDATE`, `HISTORY`, `IMAGE_REPLACE`,
+etc.) — the port itself is the capability boundary, not a runtime type-check.
 
 Its three message types (`run`, `ack`, `result`) are intentionally **not** in
 `message-types.js` — they're local constants in
-`nx/public/plugins/quick-edit/validation.js`, which owns this port's whole vocabulary.
-Da-live-embedded only: `quick-edit.js`'s `setupParentController` hands `ports[1]` to
-`validation.js`'s registration function, which no-ops on `undefined` so an older
-da-live host (not yet sending this port) is harmless.
+`nx/public/plugins/quick-edit/custom-validation.js`, which owns this port's whole
+vocabulary. Da-live-embedded only: `quick-edit.js`'s `setupParentController` hands
+`ports[1]` to `custom-validation.js`'s registration function, which no-ops on
+`undefined` so an older da-live host (not yet sending this port) is harmless.
 
 `ack` is sent immediately on `run`, before running any checks, carrying the current
-`hasRunner`. It exists so the host (da-live's `createValidationRequester`) can tell
-"nothing on the other end understands this protocol" (no `ack` ever arrives — e.g. an
-older quick-edit.js) apart from "understood, but the check itself is slow/hung" (`ack`
-arrives, `result` doesn't). Without it both cases looked identical: a plain timeout.
+`hasCustomValidation`. It exists so the host (da-live's `createValidationRequester`)
+can tell "nothing on the other end understands this protocol" (no `ack` ever arrives —
+e.g. an older quick-edit.js) apart from "understood, but the check itself is
+slow/hung" (`ack` arrives, `result` doesn't). Without it both cases looked identical:
+a plain timeout.
 
-Project code never imports `validation.js` directly — it's an nx-internal file, and
-quick-edit.js is already force-injected onto the page rather than authored by the
-project. Instead, `quick-edit.js` itself sets `window.qe.validation =
-{ onValidationRequest, VALIDATION_SEVERITY }` as one of its own module-level statements
-(synchronously, not gated on the port handshake, since registering a runner doesn't need
-the port to exist yet). This lives in `quick-edit.js`, not `validation.js` — `validation.js`
-is also imported by da-live's own host code (for `sanitizeValidationItems`/`MESSAGE_TYPES`)
-from da-live's own top window, which must not get a `window.qe.validation` of its own.
-Project code checks for `window.qe?.validation` and calls `onValidationRequest`
-directly — see `validation.js` for the request/response protocol.
+Project code never imports `custom-validation.js` directly — it's an nx-internal file,
+and quick-edit.js is already force-injected onto the page rather than authored by the
+project. Instead, `quick-edit.js` itself sets `window.qe.customValidation =
+{ onCustomValidationRequest, VALIDATION_SEVERITY }` as one of its own module-level
+statements (synchronously, not gated on the port handshake, since registering a custom
+validation check doesn't need the port to exist yet). This lives in `quick-edit.js`,
+not `custom-validation.js` — `custom-validation.js` is also imported by da-live's own
+host code (for `sanitizeCustomValidationItems`/`MESSAGE_TYPES`) from da-live's own top
+window, which must not get a `window.qe.customValidation` of its own. Project code
+checks for `window.qe?.customValidation` and calls `onCustomValidationRequest`
+directly — see `custom-validation.js` for the request/response protocol.
 
 ### Comments (`SET_COMMENT_MARKERS` / `SCROLL_TO_POS` / `COMMENT_MARKER_CLICK` / `COMMENT_MARKER_CLEAR` / `COMMENT_SHORTCUT`)
 

@@ -4,7 +4,9 @@ import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 import { isAllowedDaLiveOrigin } from '../../../utils/allowed-da-live-origins.js';
-import { registerValidationPort, onValidationRequest, VALIDATION_SEVERITY } from './validation.js';
+import {
+  registerCustomValidationPort, onCustomValidationRequest, VALIDATION_SEVERITY,
+} from './custom-validation.js';
 import { restoreBlockIndices } from './src/dom-index.js';
 import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
 import {
@@ -34,11 +36,12 @@ await loadStyle(`${nx}/public/plugins/quick-edit/quick-edit.css`);
 const QUICK_EDIT_ID = 'quick-edit-iframe';
 const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
 
-// Exposed here (not in validation.js) since this module only ever runs in the actual
-// customer page/iframe window — never in da-live's own top window, which also imports
-// validation.js directly for unrelated internal reuse (sanitizeValidationItems etc.).
+// Exposed here (not in custom-validation.js) since this module only ever runs in the
+// actual customer page/iframe window — never in da-live's own top window, which also
+// imports custom-validation.js directly for unrelated internal reuse
+// (sanitizeCustomValidationItems etc.).
 window.qe = window.qe || {};
-window.qe.validation = { onValidationRequest, VALIDATION_SEVERITY };
+window.qe.customValidation = { onCustomValidationRequest, VALIDATION_SEVERITY };
 
 /**
  * When set, the preview page is using exp-workspace as controller;
@@ -113,7 +116,7 @@ function setupParentController(loadPage) {
     const port = e.ports[0];
     parentControllerPort = port;
     blockLinkNavigation();
-    registerValidationPort(e.ports[1]);
+    registerCustomValidationPort(e.ports[1]);
 
     const config = e.data?.payload?.config ?? e.data?.init;
 
