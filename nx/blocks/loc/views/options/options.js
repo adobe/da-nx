@@ -19,6 +19,10 @@ class NxLocOptions extends LitElement {
     _serviceOptions: { state: true },
   };
 
+  // Generation counter guarding loadConnectorServiceOptions against overlapping calls;
+  // not a reactive property, since it's an internal race guard, not render state.
+  _serviceOptionsGeneration = 0;
+
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
@@ -113,10 +117,16 @@ class NxLocOptions extends LitElement {
    * Re-triggered by `handleChangeOption` when the Environment field changes, and by
    * `handleChangeServiceOption` when an option flagged `reloadServiceOptionsOnChange`
    * changes, since either can affect which credentials/project - and therefore which
-   * choices - apply to the other options.
+   * choices - apply to the other options. Guards against overlapping calls (e.g. the
+   * user changing `projectId` twice in quick succession) with a generation counter, so
+   * a slower, now-stale call can never clobber a newer one's results.
    * @returns {Promise<void>}
    */
   async loadConnectorServiceOptions() {
+    const generation = this._serviceOptionsGeneration + 1;
+    this._serviceOptionsGeneration = generation;
+    const isStale = () => this._serviceOptionsGeneration !== generation;
+
     const serviceName = this._siteConfig.service.name?.toLowerCase().replaceAll(' ', '-');
     const env = this._siteOptions['translation.service.all.env'];
     const envConfig = this._siteConfig.service.envs[env];
@@ -126,6 +136,8 @@ class NxLocOptions extends LitElement {
     }
 
     const connector = await import(`../../connectors/${serviceName}/index.js`);
+    if (isStale()) return;
+
     const { serviceOptions } = connector;
     if (!serviceOptions?.length) {
       this._serviceOptions = undefined;
@@ -141,13 +153,11 @@ class NxLocOptions extends LitElement {
     let items;
     try {
       connected = await connector.connect(service);
-      // The env may have changed while this round-trip was in flight - only the latest
-      // env's fetch should win.
-      if (this._siteOptions['translation.service.all.env'] !== env) return;
+      if (isStale()) return;
 
       if (connected) {
         items = await Promise.all(serviceOptions.map((option) => option.fetch(service)));
-        if (this._siteOptions['translation.service.all.env'] !== env) return;
+        if (isStale()) return;
       }
     } catch {
       connected = false;
