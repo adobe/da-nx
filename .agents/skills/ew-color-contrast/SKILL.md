@@ -10,10 +10,10 @@ Two separable checks, run in this order:
 1. **WCAG contrast** — fully computable from whatever hex is already in
    the file, no Spectrum data needed. Compute real ratios, never eyeball.
 2. **Token correctness** — if a fix requires a *specific* Spectrum step
-   (e.g. "use gray-600"), get the real hex from the actual
-   `@adobe/spectrum-tokens` package. Never invent a plausible-looking hex
-   and call it a token — that's worse than leaving raw hex, because it
-   looks authoritative and isn't.
+   (e.g. "use gray-600"), get the real hex from this repo's own CSS
+   first, the public `@adobe/spectrum-tokens` package only as a fallback.
+   Never invent a plausible-looking hex and call it a token — that's
+   worse than leaving raw hex, because it looks authoritative and isn't.
 
 ## Step 1 — compute contrast, don't guess
 
@@ -47,9 +47,17 @@ parent card's real background color, not on "nothing").
 
 ## Step 2 — if a fix needs a specific token, fetch the real value
 
-Don't guess a token name + hex pair that "looks about right." Get the
-real value from the public `@adobe/spectrum-tokens` npm package —
-no local install needed:
+Don't guess a token name + hex pair that "looks about right." The public
+`@adobe/spectrum-tokens` npm package is a *different, broader* token set
+than what this repo actually defines — check this repo's own CSS first,
+same discipline `spacing-scale.md` applies to spacing tokens:
+
+```bash
+grep -n '\-\-s2-gray-600:' nx2/styles/styles.css
+```
+
+Only fall back to the npm package if the token genuinely isn't defined
+in this repo's own CSS:
 
 ```bash
 curl -sL "https://unpkg.com/@adobe/spectrum-tokens/src/color-palette.json" \
@@ -57,10 +65,9 @@ curl -sL "https://unpkg.com/@adobe/spectrum-tokens/src/color-palette.json" \
 ```
 
 Also check whether the file already has a `var(--s2-*, #fallback)` for
-that exact step elsewhere — if the existing fallback doesn't match what
-the real package says today, the file has drifted from a package
-version bump; worth fixing the fallback too while you're in that line,
-not just the failing rule.
+that exact step elsewhere — if the existing fallback doesn't match this
+repo's own real value, the file has drifted; worth fixing the fallback
+too while you're in that line, not just the failing rule.
 
 ## Real worked example
 

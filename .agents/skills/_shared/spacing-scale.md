@@ -58,11 +58,14 @@ Rule: identify which of these six types a boundary is *first*, then use
 the matching token — never pick a value because it "looks right" for
 that one spot. If a boundary doesn't fit any of them, that's a sign to
 name a new type explicitly (and add it to this table) rather than
-inventing an unlabeled one-off value. Title-to-body and content-to-
-metadata specifically must be clearly apart on the ladder (4px vs. 16px
-here, tuned across 12px → 20px → 16px on design review — see
-`design-laws.md`'s fourth corollary) — a few px of difference reads
-as noise, not a boundary.
+inventing an unlabeled one-off value. Icon-to-label, title-to-body, and
+tight-inline-gap intentionally share `--s2-spacing-75` — they're all "the
+tightest real boundary" cases, distinguished by *where* they apply, not
+by value; that's not an error to reconcile. Title-to-body and
+content-to-metadata, by contrast, specifically must be clearly apart on
+the ladder (4px vs. 16px here, tuned across 12px → 20px → 16px on design
+review — see `design-laws.md`'s fourth corollary) — a few px of
+difference between those two reads as noise, not a boundary.
 
 Once a step is assigned to a role, **every boundary of that role in the
 component must use that step** — `design-laws.md`'s Proximity "third

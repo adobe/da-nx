@@ -77,13 +77,13 @@ font stack.
   that pattern the same way as any other unnecessary custom-build.
 - **Token vs. hardcoded value — verify the number, don't assume it.**
   `border-radius: 999px` was assumed to be a harmless stand-in for
-  `var(--s2-corner-radius-800)` — fetching the real token
-  (`layout.json`) showed it's actually **16px**, not 999px. At the small
-  heights these controls use (≤32px) both render as a full pill, so the
-  visual result was accidentally right — but a taller element would
-  reveal the difference immediately. Fetch the real number before
-  calling a fallback "close enough." Same for hardcoded hex colors where
-  a `--s2-*` token already exists (cross-check with
+  `var(--s2-corner-radius-800)` — grepping this repo's own
+  `nx2/styles/styles.css` showed it's actually **16px**, not 999px. At
+  the small heights these controls use (≤32px) both render as a full
+  pill, so the visual result was accidentally right — but a taller
+  element would reveal the difference immediately. Grep the real repo
+  value before calling a fallback "close enough." Same for hardcoded hex
+  colors where a `--s2-*` token already exists (cross-check with
   [`ew-color-contrast`](../ew-color-contrast/SKILL.md) for the real
   value, don't guess it here).
 - **Font-family consistency.** Shared components inherit
