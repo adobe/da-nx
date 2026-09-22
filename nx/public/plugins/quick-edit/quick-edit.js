@@ -34,10 +34,9 @@ await loadStyle(`${nx}/public/plugins/quick-edit/quick-edit.css`);
 const QUICK_EDIT_ID = 'quick-edit-iframe';
 const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
 
-// Exposed here (not in custom-validation.js) since this module only ever runs in the
-// actual customer page/iframe window — never in da-live's own top window, which also
-// imports custom-validation.js directly for unrelated internal reuse
-// (sanitizeCustomValidationItems etc.).
+// Exposed here, not custom-validation.js, since only this module runs in the customer
+// page/iframe window — da-live's top window imports custom-validation.js directly for
+// unrelated reuse (sanitizeCustomValidationItems etc.).
 window.qe = window.qe || {};
 window.qe.customValidation = { onCustomValidationRequest };
 
