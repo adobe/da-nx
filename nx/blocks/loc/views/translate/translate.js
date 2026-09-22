@@ -11,6 +11,7 @@ import {
 } from './index.js';
 
 const style = await loadStyle(import.meta.url);
+const spinnerStyle = await loadStyle(new URL('../../../../../nx2/styles/spinner.css', import.meta.url).href);
 
 class NxLocTranslate extends LitElement {
   static properties = {
@@ -34,7 +35,7 @@ class NxLocTranslate extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style];
+    this.shadowRoot.adoptedStyleSheets = [spinnerStyle, style];
     this.setupService();
   }
 
