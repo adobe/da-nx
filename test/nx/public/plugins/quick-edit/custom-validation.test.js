@@ -42,8 +42,14 @@ describe('isValidCustomValidationItem', () => {
     expect(isValidCustomValidationItem(validItem({ item: { blockIndex: 0 } }))).to.be.true;
   });
 
-  it('rejects an unknown severity', () => {
-    expect(isValidCustomValidationItem(validItem({ severity: 'critical' }))).to.be.false;
+  it('accepts a severity outside VALIDATION_SEVERITY (vocabulary is a preflight concern)', () => {
+    expect(isValidCustomValidationItem(validItem({ severity: 'critical' }))).to.be.true;
+  });
+
+  it('rejects a missing or non-string severity', () => {
+    expect(isValidCustomValidationItem(validItem({ severity: '' }))).to.be.false;
+    expect(isValidCustomValidationItem(validItem({ severity: undefined }))).to.be.false;
+    expect(isValidCustomValidationItem(validItem({ severity: 3 }))).to.be.false;
   });
 
   it('rejects a message over the max length', () => {

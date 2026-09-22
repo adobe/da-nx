@@ -5,7 +5,6 @@ export const VALIDATION_SEVERITY = Object.freeze({
   ERROR: 'error',
 });
 
-const VALIDATION_SEVERITIES = new Set(Object.values(VALIDATION_SEVERITY));
 export const VALIDATION_MESSAGE_MAX_LENGTH = 500;
 export const VALIDATION_TITLE_MAX_LENGTH = 100;
 
@@ -18,10 +17,11 @@ export const MESSAGE_TYPES = Object.freeze({
 let customValidation = null;
 
 // Shared by this module's pre-send filter and da-live's independent host-side
-// re-validation, which must not trust that the sender already ran this.
+// re-validation, which must not trust that the sender already ran this. Only checks
+// wire shape — the allowed severity vocabulary is a preflight concern, validated there.
 export function isValidCustomValidationItem(item) {
   if (!item || typeof item !== 'object') return false;
-  if (!VALIDATION_SEVERITIES.has(item.severity)) return false;
+  if (typeof item.severity !== 'string' || !item.severity) return false;
   if (typeof item.message !== 'string' || item.message.length > VALIDATION_MESSAGE_MAX_LENGTH) return false;
   if (typeof item.title !== 'string' || !item.title || item.title.length > VALIDATION_TITLE_MAX_LENGTH) return false;
   const { blockIndex, proseIndex } = item.item ?? {};
