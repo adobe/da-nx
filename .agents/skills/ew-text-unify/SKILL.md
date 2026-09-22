@@ -16,18 +16,11 @@ Given one or more CSS files (plus their paired `.js` templates, to read each sel
 
 Any `font-size`/`line-height` value that is a literal number (e.g. `12px`, `0.875rem`) instead of `var(--s2-...)` is a violation, regardless of whether the number is "correct." Flag it even if the fix is a same-value token swap (e.g. `12px` → `var(--s2-component-s-regular-font-size)`, no visual change) — token-hygiene matters even without a size change.
 
-### 2. Right token *family* for the element's role
+### 2. Component family, always
 
-Two token families exist and are easy to swap by mistake because they overlap in value:
+EW uses the component token scale — `--s2-component-*-{regular,medium,bold}-font-size` (xs 11 / s 12 / m 14 / l 16 / xl 18) — as its text-sizing system, full stop. Per design guidance, this is not a "usually" or a default-when-ambiguous: **always propose component family.** `--s2-body-size-*` exists in the token file but is not what this product uses — never propose it as a fix, including for markdown output, message bodies, placeholder/empty-state/loading text, or inline code. If you find an element already using `--s2-body-size-*`, that itself is the violation to flag — propose the matching component tier, not a defense of body as "correct because it's prose."
 
-- `--s2-body-size-*` (xxs 11 / xs 12 / s 14 / m 16 / l 18 / xl 20 / xxl 22 / xxxl 25) — for **reading content**: paragraphs, chat messages, prose, comment bodies.
-- `--s2-component-*-{regular,medium,bold}-font-size` (xs 11 / s 12 / m 14 / l 16 / xl 18) — for **UI controls**: buttons, menu items, labels, pickers, tabs.
-
-To judge which family a selector should use, read its markup usage in the paired `.js` file: is it a `<button>`/menu item/picker/tab (→ component), or is it a `<p>`/message body/comment text/prose (→ body)? Flag any place using the wrong family, even if the numeric size happens to be correct — e.g. `--s2-component-s-regular-font-size` (12px) used on a `<p>` of chat message text should be `--s2-body-size-xs` (12px) instead, same number, wrong family.
-
-**Default bias: component, not body.** Per design guidance, EW mostly uses component style — the component family is the default for anything that isn't clearly reading content. Reserve `--s2-body-size-*` specifically for genuine prose/reading content: paragraphs, chat message bodies, comment bodies, rendered markdown. Everything else — status badges, labels, titles, hints, instructional/empty-state messages, anything sitting inside or next to a `<button>`/control — defaults to component family, even when it's not itself interactive. When a case is ambiguous (not clearly prose, not clearly a control), prefer component family rather than treating it as a coin flip.
-
-**When proposing a body → component swap, always name the exact component token** — don't just say "switch to component family." Component tops out at `xl` (18px): `body-size-xxs/xs/s/m/l` (11/12/14/16/18) map exactly to `component-xs/s/m/l/xl`; anything bigger (`body-size-xl/xxl/xxxl`, 20/22/25) has no exact match, so use `xl` (18px), the closest available.
+**Always name the exact component token** — don't just say "switch to component family." Component tops out at `xl` (18px). If the existing value is a body token or a raw px, map it by value to the nearest component tier: 11→`xs`, 12→`s`, 14→`m`, 16→`l`, 18 and above→`xl` (nothing bigger exists, so anything larger than 18px caps at `xl`).
 
 If the element has a semantic sibling relationship (e.g. `h1` vs `h2`, a primary label vs a secondary one), preserve their relative ranking in the mapped result rather than snapping each one independently — `h1` should still end up a tier above `h2` after the swap, the same way it was before.
 
@@ -49,7 +42,7 @@ Never edit files. Report findings as a table, most-important first:
 - **Actual text**: the real visible copy this selector renders, read from the paired `.js`/template (a literal string, or a short description if it's dynamic — e.g. "Markdown heading in AI response, varies per message"). This is what lets someone spot the finding in the running UI without reading code.
 - **Current**: the exact current declaration value.
 - **Issue**: which of the 3 checks failed, one short clause (e.g. "raw px, no token", "component family on prose text", "inconsistent with sibling `.foo-item` at line N").
-- **Proposed**: the exact token to use instead (e.g. `var(--s2-body-size-s)`).
+- **Proposed**: the exact token to use instead (e.g. `var(--s2-component-m-regular-font-size)`).
 - **How to see it**: concrete UI navigation steps to reproduce the element live — which panel/tab to open, what action to take (e.g. "Open chat, send any message and wait for the response to start streaming" or "Send a message that triggers a tool call, e.g. ask it to read the current page, then look at the collapsed summary line before expanding it"). Write it so someone with no code context can find the exact element by following the steps.
 
 If a file has zero violations, say so plainly — don't invent findings.
