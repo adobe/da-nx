@@ -24,7 +24,6 @@ const MENU_ICON_HREF = `${codeBase}/img/icons/s2-icon-more-20-n.svg#icon`;
 // Inlined so the popover never depends on the consuming app's icon set being present.
 const COPY_ICON = html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="9" height="9" rx="1.5"></rect><path d="M4 13V5a1.5 1.5 0 0 1 1.5-1.5H12"></path></svg>`;
 const CHECK_ICON = html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5 8 14.5 16 6"></path></svg>`;
-const CLOUD_ICON = html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><path d="M6.2 16a3.7 3.7 0 0 1-.5-7.36 4.6 4.6 0 0 1 8.86-.5A3.4 3.4 0 0 1 14 16H6.2Z"></path><path d="M10 13V7.4m0 0L8 9.4m2-2 2 2"></path></svg>`;
 
 const prepareModuleUrl = () => `${window.location.origin}/blocks/canvas/editor-utils/prepare-menu.js`;
 
@@ -424,7 +423,6 @@ class NXEwActions extends LitElement {
     return html`
       <nx-popover class="deploy-popover" placement="below-end" @close=${() => { this._copied = null; }}>
         <div class="deploy">
-          <div class="deploy-head">${CLOUD_ICON}<span>Deploy</span></div>
           <div class="deploy-cards" role="radiogroup" aria-label="Deploy target">
             ${this._renderCard('preview')}
             ${this._hidePublish ? nothing : this._renderCard('live')}
