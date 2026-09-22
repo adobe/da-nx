@@ -663,7 +663,7 @@
 
 .chat-thinking {
   padding: var(--s2-spacing-75) var(--s2-spacing-100);
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-body-size-s);
   font-weight: var(--s2-component-m-regular-font-weight);
   letter-spacing: 0.02em;
 
