@@ -228,3 +228,16 @@ describe('chat-controller _pageContextForAgent', () => {
     expect(controller._pageContextForAgent()).to.equal(undefined);
   });
 });
+
+describe('chat-controller loadInitialMessages', () => {
+  it('leaves an in-flight turn alone instead of clearing it', async () => {
+    const controller = makeController();
+    const inFlight = [{ role: 'user', content: 'Address this comment' }];
+    controller._messages = inFlight;
+    controller._thinking = true;
+
+    await controller.loadInitialMessages();
+
+    expect(controller._messages).to.deep.equal(inFlight);
+  });
+});

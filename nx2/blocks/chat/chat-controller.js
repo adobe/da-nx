@@ -124,11 +124,14 @@ export default class ChatController {
   }
 
   async loadInitialMessages() {
+    // A queued prompt can send the moment connect() flips `connected`, before this
+    // runs — never clobber a turn that's already in flight.
+    if (this._thinking) return;
     this._messages = [];
     const room = await this._getRoom();
     const { messages: cached, sessionId } = await loadMessages(room);
     this._sessionId = sessionId ?? this._sessionId;
-    if (!cached.length) return;
+    if (!cached.length || this._thinking) return;
     this._messages = migrateHistory(cached);
     // Anything decided-but-unexecuted was already submitted in a prior session;
     // don't auto-resend it on load.
