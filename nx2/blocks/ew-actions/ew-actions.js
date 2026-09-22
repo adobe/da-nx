@@ -6,8 +6,9 @@ import {
   requestAemRole,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
-import { versions, status } from '../../utils/api.js';
+import { versions, status as statusApi } from '../../utils/api.js';
 import { fetchDaConfigs, getFirstSheet } from '../../utils/daConfig.js';
+import { PREFLIGHT_EVENT, newPreflightRequestId } from '../../utils/preflight-events.js';
 import { sidekickCacheBust } from '../../utils/sidekick.js';
 import { formatRelativeDateTime } from '../../utils/format.js';
 import { getConfig } from '../../scripts/nx.js';
@@ -15,6 +16,8 @@ import '../shared/popover/popover.js';
 
 const style = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
+
+const PREFLIGHT_TIMEOUT = 60000;
 
 const { codeBase } = getConfig();
 const NX_BASE = new URL('../../', import.meta.url).href.replace(/\/$/, '');
@@ -80,6 +83,8 @@ class NXEwActions extends LitElement {
     _hashState: { state: true },
     _hidePublish: { state: true },
     _prepareReady: { state: true },
+    _enforcePreflight: { state: true },
+    _preflightPassed: { state: true },
     // phase: 'error' | 'pending' | 'result'
     _dialog: { state: true },
     // AEM admin status ({ preview, live, ... }) for the current doc, drives the
@@ -109,7 +114,12 @@ class NXEwActions extends LitElement {
   }
 
   get _prepareDetails() {
-    return buildPrepareDetails(this._hashState);
+    // Stable ref per hash-state: an unstable object makes <prepare-menu> reset() mid-run.
+    if (this._pdHashState !== this._hashState) {
+      this._pdHashState = this._hashState;
+      this._pdValue = buildPrepareDetails(this._hashState);
+    }
+    return this._pdValue;
   }
 
   connectedCallback() {
@@ -118,10 +128,66 @@ class NXEwActions extends LitElement {
     this._target = 'preview';
     this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];
     this._unsubHash = hashChange.subscribe((state) => {
+      const prevPath = this._prepareDetails?.fullpath;
       this._hashState = state;
       this._syncStatus();
+      if (this._prepareDetails?.fullpath !== prevPath) {
+        this._preflightPassed = false;
+        this._checkEnforcePreflight();
+      }
     });
+    document.addEventListener(PREFLIGHT_EVENT.STATUS, this._onPreflightStatus);
+    this._checkEnforcePreflight();
     this._loadPrepare();
+  }
+
+  _onPreflightStatus = (e) => {
+    const { path, status } = e.detail || {};
+    if (path !== this._prepareDetails?.fullpath) return;
+    this._preflightPassed = status === 'success';
+  };
+
+  async _checkEnforcePreflight() {
+    const { org, site } = this._hashState || {};
+    if (!org || !site) {
+      this._enforcePreflight = false;
+      return;
+    }
+    try {
+      const configs = await Promise.all(fetchDaConfigs({ org, site }));
+      const rows = configs.filter(Boolean).flatMap((c) => getFirstSheet(c) || []);
+      this._enforcePreflight = rows.some((r) => r.key === 'editor.enforcePreflight'
+        && `${r.value}`.toLowerCase() === 'true');
+    } catch (e) {
+      // Opt-in gate: without config we can't know a site enabled it, so leave
+      // publish ungated rather than block every site on a transient config error.
+      this._enforcePreflight = false;
+      // eslint-disable-next-line no-console
+      console.warn('Preflight enforcement config unavailable; leaving publish ungated.', e);
+    }
+  }
+
+  requestPreflight(fullpath) {
+    const requestId = newPreflightRequestId();
+    return new Promise((resolve) => {
+      let timer;
+      let onStatus;
+      const finish = (status) => {
+        document.removeEventListener(PREFLIGHT_EVENT.STATUS, onStatus);
+        clearTimeout(timer);
+        this._cancelPreflight = null;
+        resolve(status);
+      };
+      this._cancelPreflight = finish;
+      onStatus = (e) => {
+        const { path, status, requestId: rid } = e.detail || {};
+        if (rid === requestId && path === fullpath) finish(status);
+      };
+      timer = setTimeout(() => finish(undefined), PREFLIGHT_TIMEOUT);
+      document.addEventListener(PREFLIGHT_EVENT.STATUS, onStatus);
+      const detail = { paths: [fullpath], requestId };
+      document.dispatchEvent(new CustomEvent(PREFLIGHT_EVENT.RUN, { detail }));
+    });
   }
 
   async _loadPrepare() {
@@ -139,6 +205,8 @@ class NXEwActions extends LitElement {
     super.disconnectedCallback();
     this._unsubHash?.();
     clearTimeout(this._copyTimer);
+    document.removeEventListener(PREFLIGHT_EVENT.STATUS, this._onPreflightStatus);
+    this._cancelPreflight?.(undefined);
   }
 
   // Fetch AEM admin status for the current doc. Keyed on the doc path so hash
@@ -155,7 +223,7 @@ class NXEwActions extends LitElement {
     this._statusKey = aemPath;
     this._statusLoading = true;
     try {
-      const resp = await status.get(aemPath);
+      const resp = await statusApi.get(aemPath);
       if (this._statusKey !== aemPath) return; // navigated away mid-flight
       this._status = resp?.ok ? await resp.json() : undefined;
     } catch {
@@ -262,6 +330,16 @@ class NXEwActions extends LitElement {
     }
   }
 
+  async _showActionError(action, message) {
+    await Promise.all([
+      import('../shared/dialog/dialog.js'),
+      import(`${NX_BASE}/public/sl/components.js`),
+    ]);
+    this._busy = false;
+    this._hasError = true;
+    this._dialog = { phase: 'error', error: { action, type: 'error', message } };
+  }
+
   async _runAemAction(action) {
     const aemPath = buildAemPathFromHashState(this._hashState);
     if (!aemPath || this._busy) return;
@@ -275,20 +353,17 @@ class NXEwActions extends LitElement {
     if (editorDoc?.forceSave) {
       const flushResult = await editorDoc.forceSave();
       if (!flushResult?.ok) {
-        await Promise.all([
-          import('../shared/dialog/dialog.js'),
-          import(`${NX_BASE}/public/sl/components.js`),
-        ]);
-        this._busy = false;
-        this._hasError = true;
-        this._dialog = {
-          phase: 'error',
-          error: {
-            action,
-            type: 'error',
-            message: flushResult?.error || 'Unable to confirm save. Please retry or reload the editor.',
-          },
-        };
+        await this._showActionError(action, flushResult?.error || 'Unable to confirm save. Please retry or reload the editor.');
+        return;
+      }
+    }
+
+    if (action === 'publish' && this._enforcePreflight) {
+      const status = await this.requestPreflight(this._prepareDetails?.fullpath);
+      if (status !== 'success') {
+        await this._showActionError(action, status === undefined
+          ? 'Preflight did not finish in time. Please run Preflight again before publishing.'
+          : 'Preflight found issues. Resolve them in the Preflight panel, then publish again.');
         return;
       }
     }
