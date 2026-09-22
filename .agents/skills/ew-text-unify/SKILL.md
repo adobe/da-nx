@@ -27,20 +27,11 @@ To judge which family a selector should use, read its markup usage in the paired
 
 **Default bias: component, not body.** Per design guidance, EW mostly uses component style — the component family is the default for anything that isn't clearly reading content. Reserve `--s2-body-size-*` specifically for genuine prose/reading content: paragraphs, chat message bodies, comment bodies, rendered markdown. Everything else — status badges, labels, titles, hints, instructional/empty-state messages, anything sitting inside or next to a `<button>`/control — defaults to component family, even when it's not itself interactive. When a case is ambiguous (not clearly prose, not clearly a control), prefer component family rather than treating it as a coin flip.
 
-**When proposing a body → component swap, always name the matching component token by value** — don't just say "switch to component family," give the exact token. Use this correspondence (body size → nearest component tier, same px value where one exists):
+**When proposing a body → component swap, always name the exact component token** — don't just say "switch to component family." Component tops out at `xl` (18px): `body-size-xxs/xs/s/m/l` (11/12/14/16/18) map exactly to `component-xs/s/m/l/xl`; anything bigger (`body-size-xl/xxl/xxxl`, 20/22/25) has no exact match, so use `xl` (18px), the closest available.
 
-| Body token (px) | Nearest component tier (px) | Exact match? |
-|---|---|---|
-| `--s2-body-size-xxs` (11) | `xs` (11) | Yes |
-| `--s2-body-size-xs` (12) | `s` (12) | Yes |
-| `--s2-body-size-s` (14) | `m` (14) | Yes |
-| `--s2-body-size-m` (16) | `l` (16) | Yes |
-| `--s2-body-size-l` (18) | `xl` (18) | Yes |
-| `--s2-body-size-xl` (20) | `xl` (18) | No — 2px short, flag for visual confirmation rather than asserting it's a silent no-op |
-| `--s2-body-size-xxl` (22) | `xl` (18) | No — 4px short, flag for visual confirmation |
-| `--s2-body-size-xxxl` (25) | `xl` (18) | No — 7px short, flag for visual confirmation |
+If the element has a semantic sibling relationship (e.g. `h1` vs `h2`, a primary label vs a secondary one), preserve their relative ranking in the mapped result rather than snapping each one independently — `h1` should still end up a tier above `h2` after the swap, the same way it was before.
 
-Component family also needs a weight variant (`-regular-`, `-medium-`, `-bold-`) that body tokens don't carry — infer it from the existing `font-weight` on the same rule: bold text → `-bold-`, an explicit medium weight → `-medium-`, otherwise → `-regular-` (body family's implicit default). Don't change the `font-weight` declaration itself (see Scope above) — only use it to pick which component tier's font-size to reference.
+Component family also needs a weight variant (`-regular-`, `-medium-`, `-bold-`) that body tokens don't carry — infer it from the existing `font-weight` on the same rule: bold text → `-bold-`, an explicit medium weight → `-medium-`, otherwise → `-regular-`. Don't change the `font-weight` declaration itself (see Scope above) — only use it to pick which component tier's font-size to reference.
 
 ### 3. Sibling / same-level consistency
 
