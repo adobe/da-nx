@@ -29,6 +29,8 @@ To judge which family a selector should use, read its markup usage in the paired
 
 Elements that sit at the same logical level of a UI hierarchy — items within one list, buttons within one toolbar row, tabs within one tab bar, cards within one grid — must share the same font-size token. Read the markup to find these groups (usually siblings under a shared parent, or elements rendered from the same `.map()`/loop). Flag any sibling whose font-size differs from the rest of its group, even if each one individually looks "valid" (uses a real token, just a different one than its siblings).
 
+**Caveat — visual adjacency isn't the same as being peers.** Two elements can render at the same position/level in a list (e.g. both appear inline among chat messages) without serving the same *purpose*. A transient loading/status placeholder (a "Thinking..." shimmer, a spinner label) is not a peer of substantive, inspectable content (a tool-call card, a message) just because both can appear in the same stream — the placeholder is disposable UI chrome, closer in spirit to a hint/disclaimer than to real content, and is allowed to stay smaller on purpose. Before flagging a sibling mismatch, check whether one side is actually ephemeral/status chrome rather than content — if so, don't flag it.
+
 ## Output format
 
 Never edit files. Report findings as a table, most-important first:
