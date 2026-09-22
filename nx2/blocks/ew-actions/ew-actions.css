@@ -81,7 +81,7 @@
 
 /* Deploy popover */
 nx-popover.deploy-popover {
-  width: 344px;
+  width: 412px;
   padding: 0;
   border-radius: 16px;
 }
@@ -91,6 +91,13 @@ nx-popover.deploy-popover {
   flex-direction: column;
   gap: 14px;
   padding: 18px;
+}
+
+/* :host border-box doesn't cascade; without this the 100%-width label + padding
+   overflows the card and clips the right-aligned check icon. */
+.deploy,
+.deploy * {
+  box-sizing: border-box;
 }
 
 .deploy-glyph {
@@ -110,20 +117,20 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card {
-  border: 2px solid var(--s2-gray-300, #d5d5d5);
-  border-radius: 12px;
+  border: 2px solid #e1e1e1;
+  border-radius: 8px;
   background: var(--s2-gray-25, #fff);
   overflow: hidden;
 }
 
 .deploy-card-preview.is-selected {
   border-color: var(--s2-blue-900, #3b63fb);
-  background: var(--s2-blue-100, #eff2ff);
+  background: #cbe2fe;
 }
 
 .deploy-card-live.is-selected {
-  border-color: var(--s2-green-900, #177e46);
-  background: var(--s2-green-100, #ecf9f0);
+  border-color: #12b867;
+  background: #edfcf1;
 }
 
 .deploy-card-main {
@@ -132,7 +139,8 @@ nx-popover.deploy-popover {
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  padding: 16px 18px;
+  height: 56px;
+  padding: 0 18px;
   cursor: pointer;
 }
 
@@ -163,14 +171,13 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card-title {
-  font-size: 17px;
-  font-weight: 700;
-  line-height: 1.2;
+  font-size: var(--s2-component-m-bold-font-size);
+  font-weight: var(--s2-component-m-bold-font-weight);
   color: var(--s2-gray-900, #131313);
 }
 
 .deploy-card-sub {
-  font-size: 14px;
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-700, #464646);
 }
 
@@ -196,23 +203,24 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card-live .deploy-card-check {
-  background: var(--s2-green-900, #177e46);
+  background: #12b867;
 }
 
 .deploy-url {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 18px;
+  height: 47px;
+  padding: 0 18px;
   border-top: 1px solid var(--s2-gray-200, #e6e6e6);
 }
 
 .deploy-card-preview.is-selected .deploy-url {
-  border-top-color: var(--s2-blue-400, #adbdfc);
+  border-top-color: var(--s2-blue-900, #3b63fb);
 }
 
 .deploy-card-live.is-selected .deploy-url {
-  border-top-color: var(--s2-green-400, #a6d9b9);
+  border-top-color: #12b867;
 }
 
 .deploy-url-text {
@@ -221,7 +229,7 @@ nx-popover.deploy-popover {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 14px;
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-800, #292929);
 }
 
@@ -250,28 +258,24 @@ nx-popover.deploy-popover {
   color: var(--s2-gray-900);
 }
 
+/* Blue accent + hover come from .nx-btn-accent; only size/shape are set here. */
 .deploy .deploy-action {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 48px;
+  height: 32px;
   margin-top: 2px;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 700;
-  background: var(--s2-blue-900, #3b63fb);
-}
-
-.deploy .deploy-action:hover:not(:disabled) {
-  background: var(--s2-blue-1000, #2546e0);
+  border-radius: 8px;
+  font-size: var(--s2-component-m-bold-font-size);
+  font-weight: var(--s2-component-m-bold-font-weight);
 }
 
 .deploy .deploy-action.is-publish {
-  background: var(--s2-green-900, #177e46);
+  background: #12b867;
 }
 
 .deploy .deploy-action.is-publish:hover:not(:disabled) {
-  background: var(--s2-green-1000, #116a3a);
+  background: #0fa25b;
 }
 
