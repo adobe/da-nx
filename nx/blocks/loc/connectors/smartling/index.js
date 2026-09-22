@@ -152,6 +152,9 @@ export const serviceOptions = [
   {
     key: 'projectId',
     label: 'Project',
+    // workflowUid's choices are scoped to the selected project - reload all service
+    // options so it gets refetched/refiltered whenever this changes.
+    reloadServiceOptionsOnChange: true,
     fetch: async (service) => {
       const projects = await listProjects(service);
       return projects.map((project) => ({ value: project.projectId, label: project.projectName }));
