@@ -237,6 +237,113 @@ describe('NxLocOptions - Smartling autoAuthorize default', () => {
   });
 });
 
+describe('NxLocOptions - handleChangeServiceOption reload', () => {
+  beforeEach(() => {
+    resetMockIms();
+    sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    restoreFetch();
+    sessionStorage.clear();
+  });
+
+  function smartlingHandlerWithTwoProjects() {
+    return (u) => {
+      if (u.includes('/integrations/smartling/login')) {
+        return new Response(JSON.stringify({
+          response: { data: { accessToken: 'sl-token', refreshToken: 'sl-refresh' } },
+        }), { status: 200 });
+      }
+      if (u.includes('/projects-api/v2/projects/proj-1')) {
+        return new Response(JSON.stringify({ response: { data: { accountUid: 'acct-1' } } }), { status: 200 });
+      }
+      if (u.includes('/accounts-api/v2/accounts/acct-1/projects')) {
+        return new Response(JSON.stringify({
+          response: {
+            data: {
+              items: [
+                { projectId: 'proj-1', projectName: 'Project One', archived: false },
+                { projectId: 'proj-2', projectName: 'Project Two', archived: false },
+              ],
+            },
+          },
+        }), { status: 200 });
+      }
+      if (u.includes('/workflows-api/v3/accounts/acct-1/workflows')) {
+        return new Response(JSON.stringify({
+          response: {
+            data: {
+              items: [
+                { workflowUid: 'wf-1', workflowName: 'Project One Workflow', projectId: 'proj-1' },
+                { workflowUid: 'wf-2', workflowName: 'Project Two Workflow', projectId: 'proj-2' },
+                { workflowUid: 'wf-account', workflowName: 'Account Default', projectId: null },
+              ],
+            },
+          },
+        }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+  }
+
+  it('refetches and refilters workflowUid to the newly selected project when projectId changes', async () => {
+    installFetch(smartlingHandlerWithTwoProjects());
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.accountId = 'acct-1';
+    el._siteConfig.service.envs.prod.projectId = 'proj-1';
+    el._siteConfig.service.envs.prod.workflowUid = 'wf-1';
+
+    await el.loadConnectorServiceOptions();
+
+    const workflowOption = () => el._serviceOptions.find((o) => o.key === 'workflowUid');
+    expect(workflowOption().items).to.deep.equal([
+      { value: 'wf-1', label: 'Project One Workflow' },
+      { value: 'wf-account', label: 'Account Default' },
+    ]);
+
+    const reloaded = new Promise((resolve) => {
+      const original = el.loadConnectorServiceOptions.bind(el);
+      el.loadConnectorServiceOptions = async (...args) => {
+        const result = await original(...args);
+        resolve();
+        return result;
+      };
+    });
+    el.handleChangeServiceOption({ target: { dataset: { key: 'projectId' }, value: 'proj-2' } });
+    await reloaded;
+
+    expect(el._siteConfig.service.envs.prod.projectId).to.equal('proj-2');
+    expect(workflowOption().items).to.deep.equal([
+      { value: 'wf-2', label: 'Project Two Workflow' },
+      { value: 'wf-account', label: 'Account Default' },
+    ]);
+    // wf-1 is no longer valid for proj-2, so workflowUid is reseeded to the first
+    // choice among proj-2's own filtered options.
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-2');
+  });
+
+  it('does not reload service options when a key without reloadServiceOptionsOnChange changes', async () => {
+    installFetch(smartlingHandlerWithTwoProjects());
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.projectId = 'proj-1';
+
+    await el.loadConnectorServiceOptions();
+
+    let reloadCount = 0;
+    const original = el.loadConnectorServiceOptions.bind(el);
+    el.loadConnectorServiceOptions = async (...args) => {
+      reloadCount += 1;
+      return original(...args);
+    };
+
+    el.handleChangeServiceOption({ target: { dataset: { key: 'autoAuthorize' }, value: 'yes' } });
+
+    expect(reloadCount).to.equal(0);
+    expect(el._siteConfig.service.envs.prod.autoAuthorize).to.equal('yes');
+  });
+});
+
 describe('NxLocOptions - renderServiceOption enabledWhen', () => {
   function renderOption(el, option) {
     const container = document.createElement('div');

@@ -97,6 +97,12 @@ class NxLocOptions extends LitElement {
     const env = this._siteOptions['translation.service.all.env'];
     this._siteConfig.service.envs[env][target.dataset.key] = target.value;
     this.updateOptions();
+    // Some options can change which choices apply to other service options (e.g.
+    // Smartling's workflowUid is scoped to the current projectId) - a connector opts
+    // into this by flagging that option with `reloadServiceOptionsOnChange: true`, so
+    // no per-key wiring is needed here.
+    const changed = this._serviceOptions?.find((option) => option.key === target.dataset.key);
+    if (changed?.reloadServiceOptionsOnChange) this.loadConnectorServiceOptions();
   }
 
   /**
@@ -104,8 +110,10 @@ class NxLocOptions extends LitElement {
    * `serviceOptions` export (see e.g. `connectors/globallink/index.js`), so values like a
    * GlobalLink `projectId` can be picked from a live-fetched list instead of hand-typed
    * into the config sheet. A no-op for connectors that don't export `serviceOptions`.
-   * Re-triggered by `handleChangeOption` when the Environment field changes, since the
-   * env can affect which credentials/endpoint - and therefore which choices - apply.
+   * Re-triggered by `handleChangeOption` when the Environment field changes, and by
+   * `handleChangeServiceOption` when an option flagged `reloadServiceOptionsOnChange`
+   * changes, since either can affect which credentials/project - and therefore which
+   * choices - apply to the other options.
    * @returns {Promise<void>}
    */
   async loadConnectorServiceOptions() {
