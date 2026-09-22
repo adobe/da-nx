@@ -203,15 +203,6 @@
   color: var(--s2-gray-900);
 }
 
-.ui-artifact-pe-item-category {
-  align-self: flex-start;
-  padding: 0 var(--s2-spacing-100);
-  border-radius: var(--s2-corner-radius-200);
-  background: var(--s2-gray-200);
-  color: var(--s2-gray-700);
-  font-size: var(--s2-body-size-xs);
-}
-
 .ui-artifact-pe-item-desc {
   font-size: var(--s2-body-size-xs);
   color: var(--s2-gray-600);

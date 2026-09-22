@@ -174,7 +174,6 @@ class NxPageEval extends LitElement {
         <span class="ui-artifact-pe-item-chip">${toneIcon(tone)}</span>
         <div class="ui-artifact-pe-item-body">
           <span class="ui-artifact-pe-item-title">${item.title ?? ''}</span>
-          ${item.category ? html`<span class="ui-artifact-pe-item-category">${item.category}</span>` : nothing}
           ${item.description
     ? html`<span class="ui-artifact-pe-item-desc">${item.description}</span>`
     : nothing}
