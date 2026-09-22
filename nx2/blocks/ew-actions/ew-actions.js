@@ -23,10 +23,8 @@ const { codeBase } = getConfig();
 const NX_BASE = new URL('../../', import.meta.url).href.replace(/\/$/, '');
 const SEND_ICON_HREF = `${codeBase}/img/icons/s2-icon-send-20-n.svg#icon`;
 const MENU_ICON_HREF = `${codeBase}/img/icons/s2-icon-more-20-n.svg#icon`;
-
-// Inlined so the popover never depends on the consuming app's icon set being present.
-const COPY_ICON = html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="9" height="9" rx="1.5"></rect><path d="M4 13V5a1.5 1.5 0 0 1 1.5-1.5H12"></path></svg>`;
-const CHECK_ICON = html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10.5 8 14.5 16 6"></path></svg>`;
+const COPY_ICON_HREF = `${codeBase}/img/icons/s2-icon-copy-20-n.svg#icon`;
+const CHECK_ICON_HREF = `${codeBase}/img/icons/s2-icon-checkmarkcircle-20-n.svg#icon`;
 
 const prepareModuleUrl = () => `${window.location.origin}/blocks/canvas/editor-utils/prepare-menu.js`;
 
@@ -476,7 +474,7 @@ class NXEwActions extends LitElement {
             <span class="deploy-card-title">${title}</span>
             <span class="deploy-card-sub">${sub}</span>
           </span>
-          ${selected ? html`<span class="deploy-card-check" aria-hidden="true">${CHECK_ICON}</span>` : nothing}
+          ${selected ? html`<span class="deploy-card-check" aria-hidden="true"><svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${CHECK_ICON_HREF}></use></svg></span>` : nothing}
         </label>
         ${selected && info.ok && info.url ? html`
           <div class="deploy-url">
@@ -486,7 +484,9 @@ class NXEwActions extends LitElement {
               class="deploy-copy"
               aria-label=${`Copy ${title} URL`}
               @click=${() => this._copyUrl(info.url, kind)}
-            >${this._copied === kind ? CHECK_ICON : COPY_ICON}</button>
+            >${this._copied === kind
+        ? html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${CHECK_ICON_HREF}></use></svg>`
+        : html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${COPY_ICON_HREF}></use></svg>`}</button>
           </div>
         ` : nothing}
       </div>

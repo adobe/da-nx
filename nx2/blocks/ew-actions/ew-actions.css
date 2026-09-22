@@ -103,11 +103,7 @@ nx-popover.deploy-popover {
 .deploy-glyph {
   width: 16px;
   height: 16px;
-  fill: none;
-  stroke: currentcolor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  fill: currentcolor;
 }
 
 .deploy-cards {
@@ -183,27 +179,20 @@ nx-popover.deploy-popover {
 
 .deploy-card-check {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  color: #fff;
 }
 
 .deploy-card-check .deploy-glyph {
-  width: 15px;
-  height: 15px;
-  stroke-width: 2.2;
+  width: 24px;
+  height: 24px;
 }
 
 .deploy-card-preview .deploy-card-check {
-  background: var(--s2-blue-900, #3b63fb);
+  color: var(--s2-blue-900, #3b63fb);
 }
 
 .deploy-card-live .deploy-card-check {
-  background: #12b867;
+  color: #12b867;
 }
 
 .deploy-url {
