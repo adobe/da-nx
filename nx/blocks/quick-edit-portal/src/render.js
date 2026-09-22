@@ -1,5 +1,6 @@
 import { TextSelection, yUndo, yRedo } from 'da-y-wrapper';
 import { getInstrumentedHTML, extractCursors } from './prose2aem.js';
+import { resolveEditableNode } from './editable-node.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 
 export function updateDocument(ctx) {
@@ -39,15 +40,14 @@ export function getEditor(data, ctx) {
   if (ctx.suppressRerender) { return; }
   const { cursorOffset } = data;
 
-  const pos = window.view.state.doc.resolve(cursorOffset);
-  const before = pos.before(pos.depth);
-  const beforePos = window.view.state.doc.resolve(before);
-  const nodeAtBefore = beforePos.nodeAfter;
-  const editorState = nodeAtBefore.toJSON();
-  const newCursorOffset = before + 1;
+  const { node, cursorOffset: newCursorOffset } = resolveEditableNode(
+    window.view.state.doc,
+    cursorOffset,
+  );
+  if (!node) return;
   ctx.port.postMessage({
     type: MESSAGE_TYPES.SET_EDITOR_STATE,
-    payload: { editorState, cursorOffset: newCursorOffset },
+    payload: { editorState: node.toJSON(), cursorOffset: newCursorOffset },
   });
 }
 
