@@ -25,6 +25,8 @@ Two token families exist and are easy to swap by mistake because they overlap in
 
 To judge which family a selector should use, read its markup usage in the paired `.js` file: is it a `<button>`/menu item/picker/tab (→ component), or is it a `<p>`/message body/comment text/prose (→ body)? Flag any place using the wrong family, even if the numeric size happens to be correct — e.g. `--s2-component-s-regular-font-size` (12px) used on a `<p>` of chat message text should be `--s2-body-size-xs` (12px) instead, same number, wrong family.
 
+**Default bias: component, not body.** Per design guidance, EW mostly uses component style — the component family is the default for anything that isn't clearly reading content. Reserve `--s2-body-size-*` specifically for genuine prose/reading content: paragraphs, chat message bodies, comment bodies, rendered markdown. Everything else — status badges, labels, titles, hints, instructional/empty-state messages, anything sitting inside or next to a `<button>`/control — defaults to component family, even when it's not itself interactive. When a case is ambiguous (not clearly prose, not clearly a control), prefer component family rather than treating it as a coin flip.
+
 ### 3. Sibling / same-level consistency
 
 Elements that sit at the same logical level of a UI hierarchy — items within one list, buttons within one toolbar row, tabs within one tab bar, cards within one grid — must share the same font-size token. Read the markup to find these groups (usually siblings under a shared parent, or elements rendered from the same `.map()`/loop). Flag any sibling whose font-size differs from the rest of its group, even if each one individually looks "valid" (uses a real token, just a different one than its siblings).
