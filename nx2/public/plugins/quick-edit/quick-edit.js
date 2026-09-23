@@ -2,6 +2,7 @@ import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc,
 import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
+import { replaceChanges } from './src/reload.js';
 
 import { loadPageStyle } from '../../../utils/utils.js';
 
@@ -10,10 +11,60 @@ await loadPageStyle(`${nx}/public/plugins/quick-edit/quick-edit.css`);
 
 const QUICK_EDIT_ID = 'quick-edit-iframe';
 
+/**
+ * Example usage for the optimized reload flow:
+ *
+ * ```js
+ * ;(() => {
+ *   const params = new URLSearchParams(window.location.search);
+ *   if (!params.has('quick-edit')) return;
+ *
+ *   document.body.classList.add('quick-edit');
+ *
+ *   const payload = (() => {
+ *     try {
+ *       const q = params.get('quick-edit');
+ *       return q && q !== 'on' ? JSON.parse(decodeURIComponent(q)) : {};
+ *     } catch {
+ *       return {};
+ *     }
+ *   })();
+ *
+ *   import('https://da.live/nx/public/plugins/quick-edit/quick-edit.js')
+ *     .then(({ default: loadQuickEdit }) =>
+ *       loadQuickEdit({ ...payload, reloadScope: 'main' }, (body) => {
+ *         const main = body.querySelector('main');
+ *         decorateMain(main);
+ *         loadSections(main);
+ *       }),
+ *     )
+ *     .catch((e) => {
+ *       console.error('[quick-edit] failed to load plugin', e);
+ *     });
+ * })();
+ * ```
+ *
+ * The full-body reload flow is still supported:
+ *
+ * ```js
+ * import('https://da.live/nx/public/plugins/quick-edit/quick-edit.js')
+ *   .then(({ default: loadQuickEdit }) => loadQuickEdit(payload, loadPage));
+ * ```
+ *
+ * The optimized reload also supports an empty main element on initial load:
+ *
+ * ```html
+ * <body>
+ *   <header></header>
+ *   <main><div></div></main>
+ *   <footer></footer>
+ * </body>
+ * ```
+ */
 async function setBody(body, ctx) {
   const doc = new DOMParser().parseFromString(body, 'text/html');
-  document.body.innerHTML = doc.body.innerHTML;
-  await ctx.loadPage(document);
+  replaceChanges({ ctx, doc, targetDocument: document });
+  await ctx.reload(document);
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
   setupActions(ctx);
@@ -52,12 +103,12 @@ function getQuickEditSrc() {
   return `https://main--da-live--adobe.aem.live/plugins/quick-edit?nx=${ref}`;
 }
 
-export default async function loadQuickEdit({ detail: payload }, loadPage) {
+export default async function loadQuickEdit({ detail: payload }, reloadCallback) {
   if (document.getElementById(QUICK_EDIT_ID)) return;
 
   const ctx = {
     initialized: false,
-    loadPage,
+    loadPage: reloadCallback,
   };
 
   const iframe = document.createElement('iframe');
