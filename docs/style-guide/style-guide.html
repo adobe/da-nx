@@ -342,6 +342,7 @@ picker.addEventListener('change', (e) =&gt; console.log(e.detail.value));</code>
             rel="noopener">docs →</a></h3>
         <div class="sg-demo">
           <nx-segmented-btn id="demo-segmented"></nx-segmented-btn>
+          <nx-segmented-btn id="demo-segmented-icon-label"></nx-segmented-btn>
         </div>
         <pre><code>&lt;nx-segmented-btn id="view-toggle"&gt;&lt;/nx-segmented-btn&gt;
 
@@ -350,7 +351,13 @@ toggle.items = [
   { value: 'sitemap', label: 'Sitemap' },
   { value: 'structure', label: 'Structure' },
 ];
-toggle.value = 'sitemap';</code></pre>
+toggle.value = 'sitemap';
+
+// Icon + label segments
+toggle.items = [
+  { value: 'grid', icon: './icons/selected.svg', label: 'Grid' },
+  { value: 'list', icon: './icons/selected.svg', label: 'List' },
+];</code></pre>
       </article>
 
       <article class="sg-example">
@@ -456,6 +463,14 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
       { value: 'structure', label: 'Structure' },
     ];
     segmented.value = 'sitemap';
+
+    const segmentedIconLabel = document.querySelector('#demo-segmented-icon-label');
+    segmentedIconLabel.label = 'View';
+    segmentedIconLabel.items = [
+      { value: 'grid', icon: './icons/selected.svg', label: 'Grid' },
+      { value: 'list', icon: './icons/selected.svg', label: 'List' },
+    ];
+    segmentedIconLabel.value = 'grid';
 
     // showToast
     document.querySelector('#demo-toast-trigger').addEventListener('click', () => {

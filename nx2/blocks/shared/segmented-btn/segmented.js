@@ -1,9 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
-import { getConfig } from '../../../scripts/nx.js';
 
 const styles = await loadStyle(import.meta.url);
-const { codeBase } = getConfig();
 
 class NxSegmentedBtn extends LitElement {
   static properties = {
@@ -37,7 +35,7 @@ class NxSegmentedBtn extends LitElement {
             aria-label="${item.ariaLabel || nothing}"
             title="${item.title || nothing}"
             @click=${() => this._select(item.value)}>
-            ${item.icon ? html`<svg aria-hidden="true" class="icon" viewBox="0 0 20 20"><use href="${codeBase}/img/icons/s2-icon-${item.icon}-20-n.svg#icon"></use></svg>` : nothing}
+            ${item.icon ? html`<svg aria-hidden="true" class="icon" viewBox="0 0 20 20"><use href="${item.icon}#icon"></use></svg>` : nothing}
             ${item.label || nothing}
           </button>
         `)}

@@ -30,16 +30,16 @@ Each entry in the `items` array is one of:
 
 ```js
 // Icon + label segment
-{ value: "grid", icon: "gridcompare", label: "Grid" }
+{ value: "grid", icon: "/img/icons/s2-icon-gridcompare-20-n.svg", label: "Grid" }
 
 // Text segment
 { value: "layout", label: "Layout" }
 
 // Icon-only segment
-{ value: "split", icon: "gridcompare", ariaLabel: "Split view", title: "Split view" }
+{ value: "split", icon: "/img/icons/s2-icon-gridcompare-20-n.svg", ariaLabel: "Split view", title: "Split view" }
 ```
 
-`icon` is a Spectrum icon name (the middle part of `s2-icon-{name}-20-n.svg`). Provide `ariaLabel` whenever there is no visible label.
+`icon` is the path to the icon SVG (the sprite's `#icon` fragment is appended automatically). Provide `ariaLabel` whenever there is no visible label.
 
 ## API
 
