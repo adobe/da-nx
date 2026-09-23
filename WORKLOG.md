@@ -1,5 +1,125 @@
 # Worklog
 
+## 2026-09-17
+
+### nx/blocks/loc/connectors/globallink — GlobalLink translation connector (#689)
+
+- Added GlobalLink connector: `connect`/`sendAllLanguages`/`getStatusAll`/`saveItems`/`cancelTranslation`
+- Requests routed through the DA_TRANSLATE proxy; auth via shared `loc/utils/auth.js`
+- Source documents uploaded as a single zip; dynamic per-submission batch names
+- Targets matched to DA urls by `documentId`; paginated target listing
+- `saveItems` downloads bounded by a concurrency cap
+- Status checks skip already complete/cancelled languages; targets marked delivered after save
+- Tracks every submission id a project spans when GlobalLink splits an upload across multiple submissions; status, save, download, and cancel all act across every submission
+- Added full test coverage for the connector
+
+## 2026-09-16
+
+### ew-actions preflight gate — review feedback (#735) + merge with main
+
+Addressed mhaack's review on the enforce-preflight-before-publish PR, and
+merged main into `pflight`.
+
+- **Fail-open on config error stays** (`_checkEnforcePreflight`): `enforcePreflight`
+  is opt-in per site, so a transient DA config-read failure must not block
+  publish for every site that never enabled it. Kept fail-open but now
+  `console.warn`s instead of silently swallowing.
+- **Preflight failure/timeout now surfaces a dialog** instead of a silent
+  `_busy` reset. Extracted `_showActionError(action, message)` (shared with the
+  forceSave failure path); distinguishes timeout ("did not finish in time")
+  from failure ("found issues").
+- **`disconnectedCallback` cancels a pending `requestPreflight`** via a stashed
+  `_cancelPreflight`, so its document listener + 60s timer don't linger on a
+  detached instance.
+- **Merge conflict note:** main's #666 added `editor.hidePublish`. Folded it
+  into the `menuItems` builder (hide removes the Publish item; preflight
+  decorates it with a status dot — hide wins when both apply). **Dropped main's
+  cache-bust unit tests** — they exercise `_ensureCacheBust`/`_cacheBust`, which
+  don't exist on main (a static `sidekickCacheBust` import replaced them), so
+  those tests already fail on main.
+- Open: branch not yet pushed; da-live #1325 still depends on this landing on
+  da-nx `main` first (see PR description).
+
+## 2026-09-16
+
+### nx/blocks/loc/connectors/trados — retry/401 recovery + error surfacing (trados-connector-resilience, stacked on trados-connector-fixes)
+
+- Route all Trados API calls through `fetchWithRetry` (shared with Smartling/Lionbridge) for backoff on transient failures and reactive re-auth on a 401
+- Surface a `sendMessage` error instead of failing silently: failed uploads, a failed status-check fetch, and failed downloads/missing target files in `saveItems`
+
+## 2026-09-16
+
+### nx/blocks/loc/connectors/trados/index.js — getStatusAll bug fixes (trados-connector-fixes)
+
+- Skip languages already `complete`/`cancelled` when polling status, so Trados's indefinitely-reported completed tasks no longer trigger a re-save or un-cancel
+- Paginate the tasks/target-files/custom-field-definitions list fetches (`fetchAllPages`) via the real API's `skip`/`top` params — an initial version used `offset`/`limit`, which Trados silently ignores, so it never actually paginated; caught via live validation against a real project
+
+## 2026-09-16
+
+### nx2/blocks/chat-ao — Experience Context rename
+
+Updated the Coworker chat dropdown label from **Manage Enterprise Context** to
+**Manage Experience Context** and changed its Experience Hub destination to
+`https://experience.adobe.com/#/experiencemanager/experience-context`. Internal
+constants and menu IDs remain unchanged for compatibility. Added focused
+coverage for the visible label and canonical URL.
+
+## 2026-09-15
+
+### Revert Slack PR ticker runner to `ubuntu-latest`
+
+- `.github/workflows/slack-pr-ticker.yml`: the `notify` job `runs-on` reverted from `gh-hosted` back to `ubuntu-latest`.
+
+## 2026-09-14
+
+### nx2/utils/api.js — cross-backend copy/move (#731)
+
+Copying a file between two sites on different backends (DA storage vs the hlx6
+source bus) silently failed — e.g. a PDF from a legacy DA site pasted into an
+hlx6 site. `source.copy`/`move` picked the backend from the *source* site
+(`withArgs` derives org/site from the first arg — the source path), so a
+legacy-source copy always POSTed to `admin.da.live` even when the destination
+was hlx6. The bytes never reached the hlx6 backend; da-list's optimistic UI
+showed the row (the DA copy returned ok), but it couldn't preview and vanished
+on reload.
+
+Fixed by routing on both ends: `copy` now also resolves the destination's
+org/site (`fromPath(destination)`) and its hlx6 status. Server-side copy only
+works within a single site (the hlx6 source-bus PUT is scoped to one site — its
+`?source=` can't reference another — and the DA `/copy` endpoint is keyed to one
+org/site), so a *cross-site* copy that touches hlx6 (a different hlx6 site, or
+across the DA/hlx6 backends) can't use it. In that case `copy` streams the bytes
+— `source.get` from the source, then `source.save` to the destination's source
+bus. Every tree file goes through `save`, docs and standalone assets alike
+(PDFs/images are served from their source path — the `/media` content-addressed
+store is only for images embedded *inside* documents, not standalone files; an
+earlier draft wrongly routed non-docs through `uploadMedia`, which is why PDFs
+landed in the wrong place).
+
+Because the write is a POST (not the server-side `?source=` PUT), the
+destination's ingestion re-imports embedded media — but only if it can fetch it.
+A doc's `media_` references are relative, so after the hop they'd resolve against
+the *destination* and 404. So for HTML, `copy` first rewrites relative `media_`
+refs (src/href/srcset) to absolute URLs on the *source's* content origin
+(`absolutizeMediaRefs`) — `DA_CONTENT` (content.da.live) for a DA source,
+`https://main--{site}--{org}.aem.page` for an hlx6 source — resolved against the
+source doc's URL; the destination POST then fetches and re-hosts them into its
+own media bus. Already-absolute URLs and non-`media_` links are left untouched.
+
+`move` emulates as copy + delete of the original whenever hlx6 is involved on
+either side (reusing copy's path), failing safe — the original is only deleted
+after a successful copy. Same-site copies/moves, and DA-to-DA cross-site (still
+server-side `/copy`), are unchanged.
+
+Relies on callers passing a full `/org/site/...` destination — verified for all
+da-live callers (paste, rename, trash-move), so no da-live change was needed.
+Not covered: cross-site *folder* copy (the source GET has no file body, so it
+fails non-ok rather than recursing) — a separate follow-up. Tests: cross-backend
+copy both directions, cross-site hlx6→hlx6 (asset + doc), media_ ref rewriting
+(DA + hlx6 source), the read-failure guard, and cross-backend move
+(copy-then-delete + fail-safe). ESLint still can't run (pre-existing v8/v9
+flat-config mismatch); full api.test.js suite (133) passes.
+
 ## 2026-09-11
 
 ### ci — Slack PR ticker uses the supported gh-hosted runner

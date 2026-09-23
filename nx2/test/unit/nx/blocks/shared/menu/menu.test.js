@@ -47,4 +47,20 @@ describe('nx-menu description', () => {
     const el = await createMenu([{ id: 'files', label: 'Files or images' }]);
     expect(el.shadowRoot.querySelector('.menu-item-swatch')).to.be.null;
   });
+
+  it('renders a trailing status dot when item.statusDot is set', async () => {
+    const el = await createMenu([{ id: 'publish', label: 'Publish', statusDot: 'rgb(0, 128, 0)' }]);
+    const dot = el.shadowRoot.querySelector('.menu-item-status-dot');
+    expect(dot).to.not.be.null;
+    expect(dot.style.background).to.equal('rgb(0, 128, 0)');
+    const text = el.shadowRoot.querySelector('.menu-item-text');
+    // eslint-disable-next-line no-bitwise
+    const isAfter = text.compareDocumentPosition(dot) & Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(isAfter).to.be.greaterThan(0);
+  });
+
+  it('does not render a status dot when item.statusDot is absent', async () => {
+    const el = await createMenu([{ id: 'files', label: 'Files' }]);
+    expect(el.shadowRoot.querySelector('.menu-item-status-dot')).to.be.null;
+  });
 });
