@@ -227,6 +227,10 @@ export default class NxChatAo extends LitElement {
       if (document.visibilityState === 'visible') this._controller.reattachIfIdle();
     };
     document.addEventListener('visibilitychange', this._onVisibilityChange);
+    this._onSetPromptEvent = ({ detail }) => {
+      this.setPrompt(detail.text, { autoSend: detail.autoSend });
+    };
+    document.addEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
     this._voice = createVoiceInput({
       onStart: () => { this._voiceListening = true; },
       onEnd: () => { this._voiceListening = false; this._voiceInterim = ''; },
@@ -244,6 +248,7 @@ export default class NxChatAo extends LitElement {
     this._controller?.destroy();
     this._unsubscribeHash?.();
     document.removeEventListener('visibilitychange', this._onVisibilityChange);
+    document.removeEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
     this._voice?.stop();
   }
 
