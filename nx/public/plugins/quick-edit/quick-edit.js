@@ -23,6 +23,7 @@ import {
   setSelectedNode,
   getSelectedNode,
 } from './src/selection.js';
+import { replaceChanges } from './src/reload.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
 
@@ -38,11 +39,61 @@ const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
  */
 let parentControllerPort = null;
 
+/**
+ * Example usage for the optimized reload flow:
+ *
+ * ```js
+ * ;(() => {
+ *   const params = new URLSearchParams(window.location.search);
+ *   if (!params.has('quick-edit')) return;
+ *
+ *   document.body.classList.add('quick-edit');
+ *
+ *   const payload = (() => {
+ *     try {
+ *       const q = params.get('quick-edit');
+ *       return q && q !== 'on' ? JSON.parse(decodeURIComponent(q)) : {};
+ *     } catch {
+ *       return {};
+ *     }
+ *   })();
+ *
+ *   import('https://da.live/nx/public/plugins/quick-edit/quick-edit.js')
+ *     .then(({ default: loadQuickEdit }) =>
+ *       loadQuickEdit({ ...payload, reloadScope: 'main' }, (body) => {
+ *         const main = body.querySelector('main');
+ *         decorateMain(main);
+ *         loadSections(main);
+ *       }),
+ *     )
+ *     .catch((e) => {
+ *       console.error('[quick-edit] failed to load plugin', e);
+ *     });
+ * })();
+ * ```
+ *
+ * The full-body reload flow is still supported:
+ *
+ * ```js
+ * import('https://da.live/nx/public/plugins/quick-edit/quick-edit.js')
+ *   .then(({ default: loadQuickEdit }) => loadQuickEdit(payload, loadPage));
+ * ```
+ *
+ * The optimized reload also supports an empty main element on initial load:
+ *
+ * ```html
+ * <body>
+ *   <header></header>
+ *   <main><div></div></main>
+ *   <footer></footer>
+ * </body>
+ * ```
+ */
 async function setBody(body, ctx) {
   const anchor = captureScrollAnchor();
   const doc = new DOMParser().parseFromString(body, 'text/html');
-  document.body.innerHTML = doc.body.innerHTML;
-  await ctx.loadPage(document);
+  replaceChanges({ ctx, doc, targetDocument: document });
+  await ctx.reload(document);
   restoreBlockIndices(doc, document);
   applyCommentMarkers(ctx);
   setupNodeSelection(ctx);
@@ -96,7 +147,7 @@ function blockLinkNavigation() {
   }, true);
 }
 
-function setupParentController(loadPage) {
+function setupParentController(payload, reloadCallback) {
   const listener = (e) => {
     const isInit = e.data?.type === MESSAGE_TYPES.INIT;
     if (e.source !== window.parent || !isInit || !e.ports?.length) return;
@@ -109,9 +160,10 @@ function setupParentController(loadPage) {
 
     const ctx = {
       initialized: true,
-      loadPage,
+      reload: reloadCallback,
       port,
       readOnly: config?.canWrite !== true,
+      reloadScope: payload.reloadScope,
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
@@ -136,10 +188,11 @@ function handleLoad(target, config, location, ctx, handler = onMessage) {
   };
 }
 
-function setupIframeController(payload, loadPage) {
+function setupIframeController(payload, reloadCallback) {
   const ctx = {
     initialized: false,
-    loadPage,
+    reload: reloadCallback,
+    reloadScope: payload.reloadScope,
   };
 
   const iframe = document.createElement('iframe');
@@ -239,17 +292,17 @@ function setupStandaloneShell(payload) {
   });
 }
 
-export default async function loadQuickEdit(payload, loadPage) {
+export default async function loadQuickEdit(payload, reloadCallback) {
   if (document.getElementById(QUICK_EDIT_ID)) return;
   if (parentControllerPort != null) return;
 
   const detail = payload?.detail ?? payload ?? {};
   const params = new URLSearchParams(window.location.search);
   if (params.get('controller') === 'parent') {
-    setupParentController(loadPage);
+    setupParentController(detail, reloadCallback);
   } else if (isStandaloneShell(window.location.href)) {
     setupStandaloneShell(detail);
   } else {
-    setupIframeController(detail, loadPage);
+    setupIframeController(detail, reloadCallback);
   }
 }
