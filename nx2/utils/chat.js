@@ -8,6 +8,7 @@ export const CHAT_EVENT = {
 
   // document -> chat: commands other components dispatch for chat to act on.
   ADD_TO_CHAT: 'nx-add-to-chat',
+  SET_PROMPT: 'nx-set-prompt', // see docs/chat-ui-component.md#setting-a-prompt-programmatically
 };
 
 // Dev override, not persisted: ?nx-chat-ao=true forces AO for this load regardless
