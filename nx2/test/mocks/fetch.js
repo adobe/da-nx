@@ -24,7 +24,13 @@ export function installFetch({
   origFetch = window.fetch;
   window.fetch = async (url, opts = {}) => {
     const u = url.toString();
-    calls.push({ url: u, method: opts.method || 'GET', headers: opts.headers || {}, body: opts.body });
+    calls.push({
+      url: u,
+      method: opts.method || 'GET',
+      headers: opts.headers || {},
+      body: opts.body,
+      referrerPolicy: opts.referrerPolicy,
+    });
     if (u.includes(`${HLX_ADMIN}/ping/`)) {
       const respHeaders = pingHlx6 ? { 'x-api-upgrade-available': 'true' } : {};
       return new Response('', { status: 200, headers: respHeaders });
