@@ -12,7 +12,7 @@
 
 .ui-artifact-fallback {
   margin: 0;
-  font-size: var(--s2-component-s-regular-font-size);
+  font-size: var(--s2-component-m-regular-font-size);
   color: var(--s2-gray-600);
   font-style: italic;
 }
