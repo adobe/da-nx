@@ -21,14 +21,14 @@
   justify-content: center;
   box-sizing: border-box;
   margin: 0;
-  height: 24px;
+  height: 28px;
   padding: 0 9px;
   border: none;
   border-radius: var(--s2-corner-radius-400);
   font: inherit;
-  font-size: var(--s2-body-size-xs);
-  line-height: 16px;
-  font-weight: var(--s2-component-s-medium-font-weight);
+  font-size: var(--s2-component-m-regular-font-size);
+  line-height: var(--s2-component-m-regular-line-height);
+  font-weight: var(--s2-component-m-medium-font-weight);
   color: var(--s2-gray-700);
   background: transparent;
   cursor: pointer;
@@ -62,14 +62,15 @@
   }
 
   &.segment-icon {
-    padding: 0 6px;
+    height: 28px;
+    padding: 0 5px;
     min-width: 28px;
   }
 
   &.segment-icon svg.icon {
     display: block;
-    width: 16px;
-    height: 16px;
+    width: var(--s2-icon-size, 18px);
+    height: var(--s2-icon-size, 18px);
     flex-shrink: 0;
     overflow: hidden;
   }
