@@ -78,6 +78,14 @@ nx-popover {
   border-radius: var(--s2-corner-radius-75);
 }
 
+.menu-item-status-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-radius: 50%;
+}
+
 .menu-item-text {
   display: flex;
   flex-direction: column;

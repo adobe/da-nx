@@ -16,6 +16,7 @@ class NxLocOptions extends LitElement {
     _langs: { state: true },
     _actions: { state: true },
     _message: { state: true },
+    _serviceOptions: { state: true },
   };
 
   connectedCallback() {
@@ -53,6 +54,8 @@ class NxLocOptions extends LitElement {
     this._actions = getAllActions(this._siteLangs);
 
     this.updateOptions();
+    // Not awaited - service options fill in once the network round-trip resolves.
+    this.loadConnectorServiceOptions();
   }
 
   updateOptions() {
@@ -86,6 +89,81 @@ class NxLocOptions extends LitElement {
 
   handleChangeOption({ target }) {
     this._siteOptions[target.name] = target.value;
+    this.updateOptions();
+    if (target.name === 'translation.service.all.env') this.loadConnectorServiceOptions();
+  }
+
+  handleChangeServiceOption({ target }) {
+    const env = this._siteOptions['translation.service.all.env'];
+    this._siteConfig.service.envs[env][target.dataset.key] = target.value;
+    this.updateOptions();
+  }
+
+  /**
+   * Populates any dynamic service options the active connector exposes via its optional
+   * `serviceOptions` export (see e.g. `connectors/globallink/index.js`), so values like a
+   * GlobalLink `projectId` can be picked from a live-fetched list instead of hand-typed
+   * into the config sheet. A no-op for connectors that don't export `serviceOptions`.
+   * Re-triggered by `handleChangeOption` when the Environment field changes, since the
+   * env can affect which credentials/endpoint - and therefore which choices - apply.
+   * @returns {Promise<void>}
+   */
+  async loadConnectorServiceOptions() {
+    const serviceName = this._siteConfig.service.name?.toLowerCase().replaceAll(' ', '-');
+    const env = this._siteOptions['translation.service.all.env'];
+    const envConfig = this._siteConfig.service.envs[env];
+    if (!serviceName || !envConfig) {
+      this._serviceOptions = undefined;
+      return;
+    }
+
+    const connector = await import(`../../connectors/${serviceName}/index.js`);
+    const { serviceOptions } = connector;
+    if (!serviceOptions?.length) {
+      this._serviceOptions = undefined;
+      return;
+    }
+
+    this._serviceOptions = serviceOptions.map((option) => ({ ...option, items: undefined }));
+
+    const { org, site } = this.project;
+    const service = { name: this._siteConfig.service.name, ...envConfig, org, site, env };
+
+    let connected;
+    let items;
+    try {
+      connected = await connector.connect(service);
+      // The env may have changed while this round-trip was in flight - only the latest
+      // env's fetch should win.
+      if (this._siteOptions['translation.service.all.env'] !== env) return;
+
+      if (connected) {
+        items = await Promise.all(serviceOptions.map((option) => option.fetch(service)));
+        if (this._siteOptions['translation.service.all.env'] !== env) return;
+      }
+    } catch {
+      connected = false;
+    }
+
+    if (!connected) {
+      this._serviceOptions = serviceOptions.map((option) => ({ ...option, items: [] }));
+      return;
+    }
+
+    // A <sl-select> falls back to its first <option> the instant it renders, with no
+    // change event - so a service option left unset (or set to a value no longer among
+    // the fetched choices, e.g. a since-deleted project) must be seeded here to its first
+    // choice, or the visually-selected value would never reach _siteConfig (and therefore
+    // never get persisted) unless the user happened to touch the select.
+    serviceOptions.forEach((option, i) => {
+      const value = envConfig[option.key];
+      const known = items[i]?.some((item) => item.value === value);
+      if (!known) envConfig[option.key] = items[i]?.[0]?.value;
+    });
+
+    this._serviceOptions = serviceOptions.map(
+      (option, i) => ({ ...option, items: items[i] || [] }),
+    );
     this.updateOptions();
   }
 
@@ -176,6 +254,35 @@ class NxLocOptions extends LitElement {
         <p>${label}</p>
         <sl-select name="${property}" value="${values[0]}" @change=${this.handleChangeOption}>
           ${values.map((value) => html`<option>${value}</option>`)}
+        </sl-select>
+      </div>`;
+  }
+
+  renderServiceOption(option) {
+    const env = this._siteOptions['translation.service.all.env'];
+    const value = this._siteConfig.service.envs[env]?.[option.key];
+
+    if (option.items === undefined) {
+      return html`
+        <div class="nx-loc-fieldgroup">
+          <p>${option.label}</p>
+          <sl-select disabled><option>Loading…</option></sl-select>
+        </div>`;
+    }
+
+    if (!option.items.length) {
+      return html`
+        <div class="nx-loc-fieldgroup">
+          <p>${option.label}</p>
+          <sl-select disabled><option>No options found</option></sl-select>
+        </div>`;
+    }
+
+    return html`
+      <div class="nx-loc-fieldgroup">
+        <p>${option.label}</p>
+        <sl-select data-key="${option.key}" value="${value}" @change=${this.handleChangeServiceOption}>
+          ${option.items.map((item) => html`<option value="${item.value}">${item.label}</option>`)}
         </sl-select>
       </div>`;
   }
@@ -329,6 +436,7 @@ class NxLocOptions extends LitElement {
         <div class="nx-loc-options-panel">
           <div class="nx-loc-options-group">
             ${this.renderFieldgroup('Environment', 'translation.service.all.env')}
+            ${this._serviceOptions?.map((option) => this.renderServiceOption(option)) ?? nothing}
             ${this._siteConfig['translation.service.supports.duedate'] ? this.renderDateField('Due date', 'project.due') : nothing}
             ${this.renderCustomOptions()}
           </div>

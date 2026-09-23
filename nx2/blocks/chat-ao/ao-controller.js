@@ -26,6 +26,10 @@ import { buildSelectionContext, buildAttachmentsMeta } from '../chat/utils/chat-
 
 const EPISODE_LIST_LIMIT = 10;
 
+// See docs/chat-ao-component.md#episode-switching — beyond this, don't
+// auto-resume; offer it as an explicit choice from the welcome view instead.
+const STALE_EPISODE_MS = 24 * 60 * 60 * 1000;
+
 // Maps each server event to the AoChatController method that handles it —
 // looked up by name (not a bound function reference) so handlers stay plain
 // prototype methods with no per-instance binding step in the constructor.
@@ -73,6 +77,7 @@ export default class AoChatController {
       pendingPlanApproval: this._pendingPlanApproval,
       pendingPermission: this._pendingPermission,
       loadingEpisode: this._loadingEpisode,
+      staleEpisode: this._staleEpisode,
     });
   }
 
@@ -161,12 +166,18 @@ export default class AoChatController {
   async loadEpisodes() {
     this._episodes = await this._fetchEpisodes();
     const latest = this._episodes[0];
-    if (latest) await this._loadEpisode(latest.id);
-    else this._update();
+    const age = latest ? Date.now() - new Date(latest.updated_at).getTime() : NaN;
+    if (latest && !(age > STALE_EPISODE_MS)) {
+      await this._loadEpisode(latest.id);
+    } else {
+      this._staleEpisode = age > STALE_EPISODE_MS ? latest : undefined;
+      this._update();
+    }
   }
 
   async _loadEpisode(episodeId) {
     this._episodeId = episodeId;
+    this._staleEpisode = undefined;
     // Clear + show a spinner immediately rather than leaving stale messages up.
     this._messages = [];
     this._pendingQuestion = undefined;
@@ -226,6 +237,7 @@ export default class AoChatController {
     this._ws?.close();
     this._ws = null;
     this._episodeId = undefined;
+    this._staleEpisode = undefined;
     this._messages = [];
     this._streaming = '';
     this._streamingText = undefined;
