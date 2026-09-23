@@ -106,11 +106,7 @@ class NXNav extends LitElement {
 
   async decorateActions(section) {
     const ul = section.querySelector('ul');
-    // TODO(new1140): temporary, so testing isn't gated to one page/route —
-    // remove before merging in favor of real content authoring. Inserted as
-    // plain content (like the real "feedback" li) so it flows through the
-    // loop below exactly like a real nav-authored item, right after
-    // Feedback, rather than being force-injected separately.
+    // TODO(new1140): temporary force-injection for testing, remove before merging.
     if (![...ul.children].some((li) => li.textContent.trim().toLowerCase() === WHATSNEW_LABEL)) {
       const feedbackLi = [...ul.children].find((li) => li.textContent.trim().toLowerCase() === 'feedback');
       const li = document.createElement('li');

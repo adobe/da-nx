@@ -9,17 +9,10 @@ import '../shared/dialog/dialog.js';
 const style = await loadStyle(import.meta.url);
 const closeIcon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_Close_20_N.svg`);
 
-// Well-known, hardcoded fragment path — relative so it resolves against
-// whatever host is actually serving the current page, same as any other
-// project reusing nx2 as its shell would get its own copy at this path.
+// Relative path, resolves against whatever host serves the current page.
 const WHATSNEW_PATH = '/nx/fragments/guides/whats-new';
 
-// Browsers show a focus-visible ring on any script-driven .focus() call,
-// even one restoring focus after a plain mouse click closed the dialog —
-// they can't tell it apart from a keyboard/screen-reader interaction. Track
-// the last input type so a mouse-triggered close can restore real focus
-// (screen readers still announce it correctly) without the visible ring;
-// a genuine keyboard interaction still gets the ring as normal.
+// Tracks last input type, to skip the ring browsers show by default on any scripted .focus() call.
 let lastInputWasPointer = false;
 window.addEventListener('pointerdown', () => { lastInputWasPointer = true; }, true);
 window.addEventListener('keydown', () => { lastInputWasPointer = false; }, true);
@@ -33,23 +26,9 @@ function restoreFocusQuietly(el) {
 }
 
 /**
- * Two-pane "what's new" dialog: a left-hand table of contents and a
- * scrollable right-hand feed of cards (image, title, body), one per entry
- * authored in the WHATSNEW_PATH fragment. Clicking a TOC item scrolls the
- * matching card into view; the active TOC item tracks whichever card is
- * currently in view via IntersectionObserver.
- *
- * Wraps the shared nx-dialog (see shared/dialog/dialog.js) rather than a
- * raw <dialog> — nx-dialog owns the backdrop, ESC/cancel handling, and
- * showModal() lifecycle; this component just slots its own two-pane body
- * and close button into it, with sizing/padding/border overridden via
- * nx-dialog's CSS custom properties.
- *
- * Opened two ways (see whatsnew.js): manually, by clicking the nav trigger,
- * or automatically when the fragment's published-date is newer than what
- * the user last saw. Content only gets marked as seen (and
- * nx-whatsnew-all-seen fires) once every entry has actually been viewed —
- * scrolled to or clicked in the toc — not just on load or close.
+ * Two-pane "what's new" dialog (toc + scrollable cards), wrapping the
+ * shared nx-dialog. Opened from whatsnew.js; marks content seen and fires
+ * nx-whatsnew-all-seen once every entry has actually been viewed.
  */
 class NxWhatsNewDialog extends LitElement {
   static properties = {
@@ -93,10 +72,7 @@ class NxWhatsNewDialog extends LitElement {
 
   async updated(changed) {
     if (changed.has('_entries') && this._entries) {
-      // nx-dialog is a separate custom element that may not have rendered
-      // its own shadow DOM yet at this point — .wn-body is absolutely
-      // positioned against its .panel, so measuring anything here (toc
-      // item offsets, card heights) before it's ready reads as zero.
+      // nx-dialog's .panel (which .wn-body is positioned against) may not exist yet.
       await this._dialog?.updateComplete;
       this._observeCards();
       this._ensureScrollRoom();
@@ -110,12 +86,7 @@ class NxWhatsNewDialog extends LitElement {
     }
   }
 
-  // Marks an entry seen the first time it becomes active (scrolled to or
-  // clicked in the toc — see _observeCards/_scrollToEntry). Once every
-  // entry has been seen at least once, persist the published-date (so it
-  // won't auto-open again) and tell the nav trigger to clear its dot —
-  // closing early with entries still unseen leaves both untouched, so the
-  // dot and auto-open come back next time.
+  // Marks an entry seen once active; once all are seen, persists the date and clears the dot.
   _trackViewed(id) {
     if (!id || this._viewedIds.has(id)) return;
     this._viewedIds.add(id);
@@ -124,12 +95,7 @@ class NxWhatsNewDialog extends LitElement {
     window.dispatchEvent(new CustomEvent('nx-whatsnew-all-seen'));
   }
 
-  // A static trailing padding can't guarantee the last card can scroll all
-  // the way up to the 40px-from-top target _scrollToEntry aims for — the
-  // browser clamps scrollTop at scrollHeight - clientHeight, so without
-  // enough room after the last card, it clamps short and the last card
-  // never fully reaches that position. Compute exactly enough room instead
-  // of guessing a fixed px value.
+  // Computes trailing room so the last card can scroll to the 40px-from-top target.
   _ensureScrollRoom() {
     const container = this.shadowRoot.querySelector('.wn-cards');
     const cards = this.shadowRoot.querySelectorAll('.wn-card');
@@ -139,19 +105,14 @@ class NxWhatsNewDialog extends LitElement {
     container.style.paddingBottom = `${Math.max(60, needed)}px`;
   }
 
-  // The last card's real height can still change after this first runs —
-  // its image loads asynchronously and nx-dialog (a separate custom
-  // element) may not have finished its own first render/layout yet either
-  // — so keep recomputing whenever the last card's rendered size changes,
-  // instead of trusting a single measurement taken right after entries load.
+  // Recomputes scroll room when the last card's size changes (its image loads asynchronously).
   _watchLastCardSize(lastCard) {
     this._resizeObserver?.disconnect();
     this._resizeObserver = new ResizeObserver(() => this._ensureScrollRoom());
     this._resizeObserver.observe(lastCard);
   }
 
-  // Single shared indicator sliding between items, rather than each item
-  // toggling its own bar on/off (which reads as a blink, not a move).
+  // Single shared indicator that slides, rather than each item toggling its own bar.
   _positionIndicator() {
     const indicator = this.shadowRoot.querySelector('.wn-toc-indicator');
     const active = this.shadowRoot.querySelector('.wn-toc-item[aria-current="true"]');
@@ -163,10 +124,7 @@ class NxWhatsNewDialog extends LitElement {
   _observeCards() {
     const cards = [...this.shadowRoot.querySelectorAll('.wn-card')];
     this._observer = new IntersectionObserver((observed) => {
-      // Ignore updates while a click-triggered scroll is still animating —
-      // short cards can both be partially visible mid-scroll, and this
-      // "most-visible card wins" logic can otherwise flip _activeId back
-      // to the wrong card before the scroll settles on the clicked one.
+      // Skip while a click-triggered scroll is animating, avoids flipping _activeId back.
       if (this._suppressObserver) return;
       const visible = observed.filter((entry) => entry.isIntersecting);
       if (visible.length === 0) return;
@@ -186,11 +144,7 @@ class NxWhatsNewDialog extends LitElement {
     this.remove();
   }
 
-  // Scrolls so the card's image sits 40px below the top of the scroll area,
-  // rather than flush against it. Sets _activeId directly rather than
-  // waiting on the scroll observer to infer it — cards can be short enough
-  // that the observer's visibility thresholds don't reliably cross during
-  // a click-triggered scroll.
+  // Scrolls to 40px below the top; sets _activeId directly (short cards may skip the observer).
   _scrollToEntry(id) {
     const card = this.shadowRoot.querySelector(`.wn-card[data-id="${id}"]`);
     const container = this.shadowRoot.querySelector('.wn-cards');
@@ -201,15 +155,12 @@ class NxWhatsNewDialog extends LitElement {
       - container.getBoundingClientRect().top + container.scrollTop - 40;
     const maxScroll = container.scrollHeight - container.clientHeight;
     const clamped = Math.max(0, Math.min(offset, maxScroll));
-    // scrollend never fires when the clamped target is where we already are
-    // (e.g. clicking the already-active entry) — suppressing the observer
-    // with nothing to clear it would leave scrollspy stuck off for good.
+    // Skip suppressing when there's no real scroll delta — scrollend won't fire to clear it.
     if (Math.abs(clamped - container.scrollTop) >= 1) {
       this._suppressObserver = true;
       const clear = () => { this._suppressObserver = false; };
       container.addEventListener('scrollend', clear, { once: true });
-      // Backstop in case scrollend doesn't fire (unsupported browser, or the
-      // scroll gets interrupted in a way that never settles).
+      // Backstop in case scrollend never fires.
       setTimeout(clear, 500);
     }
     container.scrollTo({ top: clamped, behavior: 'smooth' });

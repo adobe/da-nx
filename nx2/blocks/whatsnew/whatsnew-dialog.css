@@ -3,10 +3,7 @@
   font-family: var(--s2-font-family, adobe-clean, 'Source Sans Pro', system-ui, sans-serif);
 }
 
-/* nx-dialog's own panel provides the backdrop, border, background, shadow,
-   and centering — sized/stripped to fit our two-pane layout via its CSS
-   custom-property overrides instead of the defaults meant for its usual
-   single-column title+body+actions content. */
+/* Sizes/strips nx-dialog's panel via its CSS custom-property overrides for our two-pane layout. */
 .wn-dialog {
   --nx-dialog-min-width: 848px;
   --nx-dialog-max-width: 848px;
@@ -19,12 +16,7 @@
   --nx-dialog-body-overflow: hidden;
 }
 
-/* Absolutely positioned against nx-dialog's .panel (position: relative)
-   instead of height: 100% — .wn-body is slotted light-DOM content whose
-   direct parent (nx-dialog's shared .body) gets its own height from flex
-   distribution rather than an explicit value, and percentage height on a
-   slotted child doesn't reliably resolve against that in practice, so it
-   grows to fit content instead of being capped (nothing to scroll). */
+/* Positioned against nx-dialog's .panel instead of height: 100%, which doesn't reliably resolve for slotted content. */
 .wn-body {
   position: absolute;
   inset: 0;
@@ -77,9 +69,7 @@
   overflow: hidden;
 }
 
-/* Not independently scrollable — the toc pane's gray background stretches
-   to match .wn-cards-panel's height (via .wn-body's default flex stretch),
-   but the item list itself just sits at its own natural height within it. */
+/* Not independently scrollable — its gray background just stretches to match .wn-cards-panel's height. */
 .wn-toc-scroll {
   box-sizing: border-box;
   flex: 1;
@@ -97,9 +87,7 @@
   line-height: var(--s2-heading-line-height);
   color: var(--s2-gray-900);
 
-  /* tabindex="-1" + autofocus, so this receives focus when the dialog
-     auto-opens (screen readers announce it) — it's not reachable via
-     normal Tab navigation, so a visible ring here serves no purpose. */
+  /* Receives autofocus on auto-open; tabindex="-1" so it's unreachable via Tab, no ring needed. */
   &:focus-visible {
     outline: none;
   }
@@ -189,9 +177,7 @@
   border-radius: 999px;
 }
 
-/* Neutralize the browser's default hover affordance (some engines widen
-   and/or darken a custom-styled scrollbar thumb on hover automatically) —
-   keep size and color identical to the resting state. */
+/* Neutralize the browser's default scrollbar-thumb hover widening/darkening. */
 .wn-cards::-webkit-scrollbar-thumb:hover,
 .wn-cards::-webkit-scrollbar-thumb:active {
   background: var(--s2-gray-400);
@@ -233,17 +219,11 @@
   color: var(--s2-gray-800);
 }
 
-/* Mobile: toc collapses to just its gray heading strip across the top
-   (list hidden), cards stack full-width below on white, scrollable. */
+/* Mobile: toc collapses to a gray heading strip, cards stack full-width below. */
 @media (width < 600px) {
-  /* Width/height don't need overriding here — nx-dialog's own
-     min()-based clamping against the viewport (in its shared CSS)
-     already shrinks the 848x620 desktop values to fit a small screen. */
+  /* No width/height override needed, nx-dialog's own viewport clamping already shrinks it. */
 
-  /* On mobile, .wn-body itself (not .wn-cards) owns scrolling, so the toc
-     heading can be position: sticky within it — cards scroll up and pass
-     behind its opaque background, instead of two independent scroll boxes
-     side by side like on desktop. */
+  /* .wn-body itself owns scrolling here, so the sticky toc heading can sit above passing cards. */
   .wn-body {
     flex-direction: column;
     overflow-y: auto;
