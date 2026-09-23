@@ -4,7 +4,7 @@
 
 ### cmpapi — acknowledged EW comparison SDK actions
 
-Added capability-gated `openComparison`, `closeComparison`, and separate `saveDocument` actions. The iframe host advertises support; replies are correlated on the existing MessagePort and time out without retries. Seven browser unit tests were committed red before implementation and pass; focused ESLint passes. Documentation describes only SDK capabilities and host acknowledgements.
+Added capability-gated `openComparison`, `closeComparison`, and separate `saveDocument` actions. The iframe host advertises support; replies are correlated on the existing MessagePort and time out without retries. Seven browser unit tests were committed red before implementation and pass; focused ESLint passes. Documentation describes only SDK capabilities and host acknowledgements. Merged `origin/main` through `e52a2ee5`; the seven SDK tests and focused ESLint still pass.
 
 ## 2026-09-17
 
