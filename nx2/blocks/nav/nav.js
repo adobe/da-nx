@@ -6,6 +6,7 @@ import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg } from '../../utils/svg.js';
 
 const DEFAULT_NAV_PATH = '/nx/fragments/nav';
+const WHATSNEW_LABEL = 'whatsnew';
 
 const style = await loadStyle(import.meta.url);
 
@@ -110,10 +111,10 @@ class NXNav extends LitElement {
     // plain content (like the real "feedback" li) so it flows through the
     // loop below exactly like a real nav-authored item, right after
     // Feedback, rather than being force-injected separately.
-    if (![...ul.children].some((li) => li.textContent.trim().toLowerCase() === 'whatsnew')) {
+    if (![...ul.children].some((li) => li.textContent.trim().toLowerCase() === WHATSNEW_LABEL)) {
       const feedbackLi = [...ul.children].find((li) => li.textContent.trim().toLowerCase() === 'feedback');
       const li = document.createElement('li');
-      li.textContent = 'whatsnew';
+      li.textContent = WHATSNEW_LABEL;
       if (feedbackLi) feedbackLi.insertAdjacentElement('afterend', li);
       else ul.append(li);
     }

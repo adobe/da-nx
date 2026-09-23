@@ -137,6 +137,7 @@ class NxWhatsNewDialog extends LitElement {
   }
 
   _onClose() {
+    this.returnFocusTo?.focus();
     this.remove();
     window.dispatchEvent(new CustomEvent('nx-whatsnew-closed'));
   }
