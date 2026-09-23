@@ -67,6 +67,7 @@ parallel one. If you do add a new key:
 | `IMAGE_REPLACE` | iframe ↔ host (request/reply) | both hosts |
 | `SET_COMMENT_MARKERS` | Host → iframe | da-live only |
 | `SCROLL_TO_POS` | Host → iframe | da-live only |
+| `METADATA_CHANGE` | Host → iframe | standalone (quick-edit-portal) only |
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
 | `COMMENT_MARKER_CLEAR` | iframe → host | da-live only |
 | `COMMENT_SHORTCUT` | iframe → host | da-live only |
@@ -115,6 +116,15 @@ the quick-edit iframe is only created when there's no `parentControllerPort` (i.
 embedded in da-live), so this message never appears on the da-live/WYSIWYG canvas path.
 This is intentional scoping, not a gap — da-live has its own preview mechanism outside
 this protocol.
+
+### `METADATA_CHANGE`
+
+Emitted from `updateDocument` (in `quick-edit-portal.js`'s `render.js`) whenever the
+document's `metadata` block gains, loses, or alters a key/value pair between rerenders —
+reordering rows is deliberately *not* a change. The portal keeps the last-seen metadata
+on `ctx.metadata` and diffs the block's rows order-insensitively; the first rerender only
+seeds the baseline and emits nothing. Payload is empty. Scoped to the standalone portal host; the
+da-live-embedded flow owns the real document and tracks metadata through its own path.
 
 ### `IMAGE_REPLACE`
 
