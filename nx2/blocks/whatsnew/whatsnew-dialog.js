@@ -225,7 +225,7 @@ class NxWhatsNewDialog extends LitElement {
         <div class="wn-body">
           <nav class="wn-toc" aria-label="What's new sections">
             <div class="wn-toc-scroll">
-              <h2 class="wn-toc-title">What's new</h2>
+              <h2 class="wn-toc-title" tabindex="-1" autofocus>What's new</h2>
               <ul class="wn-toc-list">
                 <li class="wn-toc-indicator" aria-hidden="true"></li>
                 ${this._entries.map((entry) => html`

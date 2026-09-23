@@ -96,6 +96,13 @@
   font-weight: var(--s2-component-xl-bold-font-weight);
   line-height: var(--s2-heading-line-height);
   color: var(--s2-gray-900);
+
+  /* tabindex="-1" + autofocus, so this receives focus when the dialog
+     auto-opens (screen readers announce it) — it's not reachable via
+     normal Tab navigation, so a visible ring here serves no purpose. */
+  &:focus-visible {
+    outline: none;
+  }
 }
 
 .wn-toc-list {
