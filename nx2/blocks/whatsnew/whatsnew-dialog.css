@@ -19,10 +19,17 @@
   --nx-dialog-body-overflow: hidden;
 }
 
+/* Absolutely positioned against nx-dialog's .panel (position: relative)
+   instead of height: 100% — .wn-body is slotted light-DOM content whose
+   direct parent (nx-dialog's shared .body) gets its own height from flex
+   distribution rather than an explicit value, and percentage height on a
+   slotted child doesn't reliably resolve against that in practice, so it
+   grows to fit content instead of being capped (nothing to scroll). */
 .wn-body {
+  position: absolute;
+  inset: 0;
   box-sizing: border-box;
   display: flex;
-  height: 100%;
   border-radius: var(--s2-corner-radius-800);
   overflow: hidden;
 }
