@@ -6,15 +6,17 @@ Sister skill to `ew-text-unify`, same purpose applied to icon buttons instead of
 
 Example that prompted this skill: `nx2/styles/buttons.css`'s shared `.nx-action-btn-icon` (used by, among others, chat-ao's close-chat-panel button) and da-live's `tool-panel.css`'s `.tool-panel-close` (used for the tool panel's close button) both sit top-right of a panel header for the same "close this panel" role — but `.tool-panel-close` is a hand-rolled reimplementation from scratch rather than reusing `.nx-action-btn-icon`, so nothing stops them from silently drifting apart in box size, focus ring, active-state, or disabled styling.
 
-### Confirmed real instance (2026-09-22)
+### Confirmed real instance (2026-09-22, since fixed)
 
-Audited via live HTML pulled from a `da-live` canvas: `.nx-action-btn-icon.nx-btn-sm` (chat-ao's "Close chat panel", `nx2/blocks/chat-ao/chat-ao.js:383-387`) is a 24×24 box with a 16×16 icon, and ships `:focus-visible` (blue outline), `:active` (scale 0.97), and `:disabled` (opacity 0.4) states from the shared class (`nx2/styles/buttons.css:5-64,118-137`). da-live's `.tool-panel-close` ("Close panel", `blocks/canvas/ew-tool-panel/tool-panel.js:245`, styled at `blocks/canvas/ew-tool-panel/tool-panel.css:28-49`) is a 32×32 box around the same 16×16 icon size, and defines only `:hover` — no focus ring, no active-press, no disabled state. Root cause: `tool-panel.js` never imports `nx2/styles/buttons.css` at all (contrast `ew-canvas-header.js:12`, which does, and whose `.comments-toggle` correctly layers on top of `.nx-action-btn-icon` instead of reimplementing it).
+Audited via live HTML pulled from a `da-live` canvas: chat-ao's "Close chat panel" (`nx2/blocks/chat-ao/chat-ao.js:383-387`) used base `.nx-action-btn-icon` — 32×32 box, 18×18 icon, `:focus-visible`/`:active`/`:disabled` states from the shared class (`nx2/styles/buttons.css`). da-live's `.tool-panel-close` ("Close panel", `blocks/canvas/ew-tool-panel/tool-panel.js:245`) was a bespoke 32×32 box around a 16×16 icon with only `:hover` defined — no focus ring, no active-press, no disabled state — because `tool-panel.js` never imported `nx2/styles/buttons.css` at all (contrast `ew-canvas-header.js:12`, which does, and whose `.comments-toggle` correctly layers on top of `.nx-action-btn-icon` instead of reimplementing it). Fixed by switching the button to `.nx-action-btn-icon` and importing `buttons.css`.
+
+That same audit found `.nx-btn-sm`'s icon size hardcoded to `16px` while the base variant hardcoded `18px` — every consumer of `nx-btn-sm` (block-library modal, panel-library, comments more-options/resolve, file-explorer) inherited the smaller size for no role-specific reason. Fixed by introducing `--s2-icon-size: 18px` in `nx2/styles/styles.css` and pointing both variants at it (see check 4).
 
 ## Scope: icon-button presentation only
 
 Only ever look at: icon-button box size (width/height/padding), the `<svg>`/icon size inside it, and interaction-state styling (`:hover`, `:focus-visible`, `:active`, `.is-active`, `&:disabled`). Do not propose changing which icon/glyph is used, its color for non-interactive reasons (e.g. semantic error/success coloring), or layout/positioning — this skill is about whether same-role controls *behave* identically, not about redesigning any of them.
 
-## The three checks
+## The four checks
 
 ### 1. Bespoke reimplementation of an existing shared class
 
@@ -30,6 +32,10 @@ Group icon buttons by their functional role, not by which component file they li
 
 Within a role group, `:hover`, `:focus-visible`, `:active`/`&.is-active`, and `:disabled` styling (background color, border, opacity, transform) must produce the same visual behavior. Flag a group member that's missing a state the others have (e.g. no focus-visible ring while its siblings have one), or that uses a different color/opacity for the same state.
 
+### 4. Hardcoded pixel size instead of a shared token
+
+An icon box or `<svg>` size written as a literal (`width: 18px`) instead of a design token (`width: var(--s2-icon-size)`) is itself a finding, even if the value happens to match everywhere today — a literal can't be bumped product-wide in one place, so it's exactly what let check 2's divergences happen silently in the first place. `nx2/styles/styles.css` defines `--s2-icon-size` (currently `18px`) as the canonical icon size token; flag any icon-button rule hardcoding a pixel value instead of referencing it, and propose switching to the token even when the literal value is already correct. When a rule lives in a different repo than the token (e.g. da-live consuming a da-nx token via `getNx2()`), propose `var(--s2-icon-size, <current-value>)` with a fallback, since the two repos don't always deploy in lockstep.
+
 ## Output format
 
 Never edit files. Report findings as a table, most-important first:
@@ -39,8 +45,8 @@ Never edit files. Report findings as a table, most-important first:
 
 - **Role group**: the shared purpose you grouped these buttons under (e.g. "Close panel button", "More options / overflow menu trigger"), plus the `aria-label`/`title` text(s) that identified it.
 - **Bespoke or shared?**: whether each member reuses a shared class or reimplements it — call out any bespoke ones per check 1.
-- **Divergence**: exactly what differs (e.g. "icon 20px vs sibling's 18px", "no `:focus-visible` state", "hover background `--s2-gray-100` vs sibling's `--s2-gray-200`").
-- **Proposed**: the concrete fix — ideally "switch to `.nx-action-btn-icon`" if a bespoke class is duplicating a shared one; otherwise the specific value/state to add or change to match the group.
+- **Divergence**: exactly what differs (e.g. "icon 20px vs sibling's 18px", "no `:focus-visible` state", "hover background `--s2-gray-100` vs sibling's `--s2-gray-200`", "hardcoded `16px` instead of `var(--s2-icon-size)`" per check 4).
+- **Proposed**: the concrete fix — ideally "switch to `.nx-action-btn-icon`" if a bespoke class is duplicating a shared one; "switch literal to `var(--s2-icon-size)`" if it's a hardcoded-size finding; otherwise the specific value/state to add or change to match the group.
 - **How to see it**: concrete UI navigation steps for *each* member of the group, so someone can hover/click through and see the difference live, not just read it in a diff.
 
 If a role group is fully consistent, don't report it — only report groups with a real divergence.
