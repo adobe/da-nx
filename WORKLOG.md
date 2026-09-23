@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-09-23
+
+### nx/public/plugins/quick-edit/selection.test.js — prose-editable click coverage
+
+- Added regression coverage for prose-editable clicks outside and inside a block
+- Kept image-click coverage alongside the new prose-editable cases
+- Full test suite passes; lint still reports the existing console warnings in `nx/blocks/loc/connectors/glaas/multimodalApi.js` and `nx/public/plugins/quick-edit/src/comments/render.js`
+
 ## 2026-09-17
 
 ### nx/blocks/loc/connectors/globallink — GlobalLink translation connector (#689)
