@@ -1,5 +1,45 @@
 # Worklog
 
+## 2026-09-17
+
+### nx/blocks/loc/connectors/globallink — GlobalLink translation connector (#689)
+
+- Added GlobalLink connector: `connect`/`sendAllLanguages`/`getStatusAll`/`saveItems`/`cancelTranslation`
+- Requests routed through the DA_TRANSLATE proxy; auth via shared `loc/utils/auth.js`
+- Source documents uploaded as a single zip; dynamic per-submission batch names
+- Targets matched to DA urls by `documentId`; paginated target listing
+- `saveItems` downloads bounded by a concurrency cap
+- Status checks skip already complete/cancelled languages; targets marked delivered after save
+- Tracks every submission id a project spans when GlobalLink splits an upload across multiple submissions; status, save, download, and cancel all act across every submission
+- Added full test coverage for the connector
+
+## 2026-09-16
+
+### ew-actions preflight gate — review feedback (#735) + merge with main
+
+Addressed mhaack's review on the enforce-preflight-before-publish PR, and
+merged main into `pflight`.
+
+- **Fail-open on config error stays** (`_checkEnforcePreflight`): `enforcePreflight`
+  is opt-in per site, so a transient DA config-read failure must not block
+  publish for every site that never enabled it. Kept fail-open but now
+  `console.warn`s instead of silently swallowing.
+- **Preflight failure/timeout now surfaces a dialog** instead of a silent
+  `_busy` reset. Extracted `_showActionError(action, message)` (shared with the
+  forceSave failure path); distinguishes timeout ("did not finish in time")
+  from failure ("found issues").
+- **`disconnectedCallback` cancels a pending `requestPreflight`** via a stashed
+  `_cancelPreflight`, so its document listener + 60s timer don't linger on a
+  detached instance.
+- **Merge conflict note:** main's #666 added `editor.hidePublish`. Folded it
+  into the `menuItems` builder (hide removes the Publish item; preflight
+  decorates it with a status dot — hide wins when both apply). **Dropped main's
+  cache-bust unit tests** — they exercise `_ensureCacheBust`/`_cacheBust`, which
+  don't exist on main (a static `sidekickCacheBust` import replaced them), so
+  those tests already fail on main.
+- Open: branch not yet pushed; da-live #1325 still depends on this landing on
+  da-nx `main` first (see PR description).
+
 ## 2026-09-16
 
 ### nx/blocks/loc/connectors/trados — retry/401 recovery + error surfacing (trados-connector-resilience, stacked on trados-connector-fixes)

@@ -1,34 +1,77 @@
+/* eslint-disable no-underscore-dangle */
 import { expect } from '@esm-bundle/chai';
-import '../../../../../blocks/ew-actions/ew-actions.js';
+import { setConfig } from '../../../../../scripts/nx.js';
 
-const create = () => document.createElement('nx-ew-actions');
+const nextTick = () => new Promise((resolve) => { setTimeout(resolve, 0); });
 
-describe('nx-ew-actions cache-bust', () => {
-  afterEach(() => {
-    document.querySelectorAll('nx-ew-actions').forEach((el) => el.remove());
+// ew-actions.js captures getConfig() at import time, so config must resolve first.
+await setConfig({ hostnames: [] });
+await import('../../../../../blocks/ew-actions/ew-actions.js');
+
+describe('nx-ew-actions preflight gate (Gate #1)', () => {
+  function make(hashState) {
+    const el = document.createElement('nx-ew-actions');
+    if (hashState) el._hashState = hashState;
+    return el;
+  }
+
+  it('requestPreflight dispatches nx-preflight-run and resolves with the matching status', async () => {
+    const el = make();
+    let runDetail;
+    document.addEventListener('nx-preflight-run', (e) => { runDetail = e.detail; }, { once: true });
+    const pending = el.requestPreflight('/org/site/page.html');
+    await nextTick();
+    expect(runDetail.paths).to.deep.equal(['/org/site/page.html']);
+    document.dispatchEvent(new CustomEvent('nx-preflight-status', {
+      detail: { path: '/org/site/page.html', status: 'success', requestId: runDetail.requestId },
+    }));
+    expect(await pending).to.equal('success');
   });
 
-  it('memoizes the cache-bust import so preload and call site share one promise', () => {
-    const el = create();
-    const first = el._ensureCacheBust();
-    const second = el._ensureCacheBust();
-    expect(first).to.equal(second);
+  it('requestPreflight ignores a status with a mismatched requestId', async () => {
+    const el = make();
+    let runDetail;
+    document.addEventListener('nx-preflight-run', (e) => { runDetail = e.detail; }, { once: true });
+    const pending = el.requestPreflight('/org/site/page.html');
+    await nextTick();
+    document.dispatchEvent(new CustomEvent('nx-preflight-status', {
+      detail: { path: '/org/site/page.html', status: 'success', requestId: 'other' },
+    }));
+    document.dispatchEvent(new CustomEvent('nx-preflight-status', {
+      detail: { path: '/org/site/page.html', status: 'fail', requestId: runDetail.requestId },
+    }));
+    expect(await pending).to.equal('fail');
   });
 
-  it('reuses an already-resolved cache-bust function without re-importing', async () => {
-    const el = create();
-    const sidekickCacheBust = () => {};
-    el._cacheBust = Promise.resolve(sidekickCacheBust);
-    const resolved = await el._ensureCacheBust();
-    expect(resolved).to.equal(sidekickCacheBust);
+  it('disconnectedCallback cancels a pending requestPreflight, resolving undefined', async () => {
+    const el = make();
+    document.body.append(el);
+    const pending = el.requestPreflight('/org/site/page.html');
+    el.remove();
+    expect(await pending).to.equal(undefined);
   });
 
-  it('resolves to null when the da-live sidekick module cannot be loaded', async () => {
-    // In the test env there is no da-live origin serving /blocks/shared/sidekick.js,
-    // so the dynamic import rejects and _ensureCacheBust must swallow it and yield
-    // null — the preview/publish call site relies on `bustCache?.(url)` no-opping.
-    const el = create();
-    const resolved = await el._ensureCacheBust();
-    expect(resolved).to.equal(null);
+  it('_onPreflightStatus tracks the verdict for the current document', () => {
+    const el = make({ org: 'org', site: 'site', path: '/page' });
+    const { fullpath } = el._prepareDetails;
+    el._onPreflightStatus({ detail: { path: fullpath, status: 'success' } });
+    expect(el._preflightPassed).to.equal(true);
+    el._onPreflightStatus({ detail: { path: fullpath, status: 'fail' } });
+    expect(el._preflightPassed).to.equal(false);
+  });
+
+  it('_onPreflightStatus ignores a status for a different path', () => {
+    const el = make({ org: 'org', site: 'site', path: '/page' });
+    el._preflightPassed = false;
+    el._onPreflightStatus({ detail: { path: '/other/doc', status: 'success' } });
+    expect(el._preflightPassed).to.equal(false);
+  });
+
+  it('_prepareDetails is a stable reference until the hash state changes', () => {
+    const el = make({ org: 'org', site: 'site', path: '/page' });
+    const first = el._prepareDetails;
+    expect(el._prepareDetails).to.equal(first);
+    el._hashState = { org: 'org', site: 'site', path: '/other' };
+    expect(el._prepareDetails).to.not.equal(first);
   });
 });

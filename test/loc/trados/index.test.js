@@ -72,13 +72,13 @@ function baseService(overrides = {}) {
 
 describe('trados connector', () => {
   beforeEach(() => {
-    localStorage.clear();
+    sessionStorage.clear();
     installFetch();
   });
 
   afterEach(() => {
     restoreFetch();
-    localStorage.clear();
+    sessionStorage.clear();
   });
 
   describe('sendAllLanguages', () => {
