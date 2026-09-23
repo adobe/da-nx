@@ -199,6 +199,13 @@
   /* icon */
   --s2-icon-size: 18px;
 
+  /* list item (nx-menu / nx-picker rows) */
+  --nx-list-item-radius: var(--s2-corner-radius-400);
+  --nx-list-item-hover-bg: var(--s2-gray-100);
+  --nx-list-item-active-bg: var(--s2-gray-200);
+  --nx-list-item-icon-size: 16px;
+  --nx-list-item-icon-size-m: 18px;
+
   /* corner radius */
   --s2-corner-radius-0: 0px;
   --s2-corner-radius-75: 3px;

@@ -29,7 +29,7 @@ nx-popover {
   width: 100%;
   padding: 7px var(--s2-spacing-200);
   border: none;
-  border-radius: var(--s2-corner-radius-400);
+  border-radius: var(--nx-list-item-radius);
   background: none;
   color: var(--s2-gray-900);
   font-family: inherit;
@@ -41,19 +41,19 @@ nx-popover {
 }
 
 .menu-item:hover {
-  background: var(--s2-gray-100);
+  background: var(--nx-list-item-hover-bg);
 }
 
 .menu-item-active {
-  background: var(--s2-gray-200);
+  background: var(--nx-list-item-active-bg);
 }
 
 .menu-item-icon {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
+  width: var(--nx-list-item-icon-size);
+  height: var(--nx-list-item-icon-size);
 
   svg {
     display: block;
@@ -115,8 +115,8 @@ nx-popover {
   }
 
   .menu-item-icon svg {
-    width: 18px;
-    height: 18px;
+    width: var(--nx-list-item-icon-size-m);
+    height: var(--nx-list-item-icon-size-m);
   }
 
   .menu-item-description {
