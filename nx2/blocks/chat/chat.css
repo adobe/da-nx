@@ -30,7 +30,7 @@
 
   kbd {
     font-family: inherit;
-    font-size: var(--s2-body-size-xs);
+    font-size: var(--s2-component-s-regular-font-size);
     color: var(--s2-gray-700);
     padding: var(--s2-spacing-75);
     border-radius: var(--s2-corner-radius-300);
@@ -98,7 +98,7 @@
     color: var(--s2-gray-800);
     cursor: pointer;
     font-family: inherit;
-    font-size: var(--s2-body-size-xs);
+    font-size: var(--s2-component-s-regular-font-size);
 
     &.clear-btn {
       padding: 0 var(--s2-spacing-100);
@@ -159,7 +159,7 @@
 }
 
 .tool-card {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-600);
 
   summary {
@@ -176,7 +176,7 @@
 
   .tool-card-status {
     margin-inline-start: var(--s2-spacing-75);
-    font-size: var(--s2-body-size-xs);
+    font-size: var(--s2-component-s-regular-font-size);
   }
 
   &.tool-card-output-error .tool-card-status,
@@ -295,7 +295,7 @@
   padding: 6px var(--s2-spacing-200);
   border-radius: 12px;
   overflow-wrap: break-word;
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-regular-font-size);
 
   &.message-user {
     max-width: 80%;
@@ -322,7 +322,7 @@
       padding: var(--s2-spacing-50);
       overflow-x: auto;
       margin: 0;
-      font-size: var(--s2-body-size-xs);
+      font-size: var(--s2-component-s-regular-font-size);
     }
 
     hr {
@@ -349,7 +349,7 @@
     padding: var(--s2-spacing-50);
     overflow-x: auto;
     margin: 0;
-    font-size: var(--s2-body-size-xs);
+    font-size: var(--s2-component-s-regular-font-size);
   }
 
   .message-action-copy {
@@ -406,7 +406,7 @@
       align-items: center;
       gap: var(--s2-spacing-75);
       padding: var(--s2-spacing-50) 0;
-      font-size: var(--s2-body-size-xs);
+      font-size: var(--s2-component-s-regular-font-size);
       color: var(--s2-gray-700);
       min-width: 0;
 
@@ -428,9 +428,9 @@
       list-style: none;
       cursor: pointer;
       user-select: none;
-      font-size: var(--s2-body-size-xs);
+      font-size: var(--s2-component-s-regular-font-size);
       color: var(--s2-gray-700);
-      line-height: 24px;
+      line-height: var(--s2-component-xl-regular-line-height);
 
       &::-webkit-details-marker {
         display: none;
@@ -480,13 +480,13 @@
   box-sizing: border-box;
 
   .chat-drop-title {
-    font-size: var(--s2-body-size-s);
+    font-size: var(--s2-component-m-regular-font-size);
     font-weight: var(--s2-component-m-bold-font-weight);
     color: var(--s2-gray-900);
   }
 
   .chat-drop-hint {
-    font-size: var(--s2-body-size-xs);
+    font-size: var(--s2-component-s-regular-font-size);
     color: var(--s2-gray-600);
   }
 }
@@ -544,8 +544,8 @@
   color: var(--s2-gray-900);
   min-height: 1lh;
   max-height: 2.5lh;
-  line-height: 1.5;
-  font-size: var(--s2-body-size-s);
+  line-height: var(--s2-component-m-regular-line-height);
+  font-size: var(--s2-component-m-regular-font-size);
   background: inherit;
 
   &:not(:placeholder-shown) + .chat-actions .chat-send,
@@ -562,7 +562,7 @@
 
 .chat-thinking {
   padding: var(--s2-spacing-75) var(--s2-spacing-100);
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-m-regular-font-size);
   font-weight: var(--s2-component-m-regular-font-weight);
   letter-spacing: 0.02em;
 
@@ -599,9 +599,9 @@
   max-width: 720px;
   width: calc(100% - 2 * var(--s2-spacing-200));
   margin: 0;
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-700);
-  line-height: 1.5;
+  line-height: var(--s2-component-s-regular-line-height);
   box-sizing: border-box;
 
   a {
