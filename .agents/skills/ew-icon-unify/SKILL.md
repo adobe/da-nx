@@ -6,11 +6,9 @@ Sister skill to `ew-text-unify`, same purpose applied to icon buttons instead of
 
 Example that prompted this skill: `nx2/styles/buttons.css`'s shared `.nx-action-btn-icon` (used by, among others, chat-ao's close-chat-panel button) and da-live's `tool-panel.css`'s `.tool-panel-close` (used for the tool panel's close button) both sit top-right of a panel header for the same "close this panel" role — but `.tool-panel-close` is a hand-rolled reimplementation from scratch rather than reusing `.nx-action-btn-icon`, so nothing stops them from silently drifting apart in box size, focus ring, active-state, or disabled styling.
 
-### Confirmed real instance (2026-09-22, since fixed)
+### Confirmed real instance (since fixed)
 
-Audited via live HTML pulled from a `da-live` canvas: chat-ao's "Close chat panel" (`nx2/blocks/chat-ao/chat-ao.js:383-387`) used base `.nx-action-btn-icon` — 32×32 box, 18×18 icon, `:focus-visible`/`:active`/`:disabled` states from the shared class (`nx2/styles/buttons.css`). da-live's `.tool-panel-close` ("Close panel", `blocks/canvas/ew-tool-panel/tool-panel.js:245`) was a bespoke 32×32 box around a 16×16 icon with only `:hover` defined — no focus ring, no active-press, no disabled state — because `tool-panel.js` never imported `nx2/styles/buttons.css` at all (contrast `ew-canvas-header.js:12`, which does, and whose `.comments-toggle` correctly layers on top of `.nx-action-btn-icon` instead of reimplementing it). Fixed by switching the button to `.nx-action-btn-icon` and importing `buttons.css`.
-
-That same audit found `.nx-btn-sm`'s icon size hardcoded to `16px` while the base variant hardcoded `18px` — every consumer of `nx-btn-sm` (block-library modal, panel-library, comments more-options/resolve, file-explorer) inherited the smaller size for no role-specific reason. Fixed by introducing `--s2-icon-size: 18px` in `nx2/styles/styles.css` and pointing both variants at it (see check 4).
+A live audit found exactly this: da-live's `.tool-panel-close` was a bespoke reimplementation missing states and running a 16px icon, while chat-ao's shared-class close button was 18px with full states — check 1 and check 4 both caught it. Now fixed: the button reuses `.nx-action-btn-icon`, and icon sizing across the product runs through the `--s2-icon-size` token instead of scattered literals.
 
 ## Scope: icon-button presentation only
 
