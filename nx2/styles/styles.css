@@ -198,6 +198,7 @@
 
   /* icon */
   --s2-icon-size: 18px;
+  --s2-icon-size-sm: 16px;
 
   /* list item (nx-menu / nx-picker rows) */
   --nx-list-item-radius: var(--s2-corner-radius-400);

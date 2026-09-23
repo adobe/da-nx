@@ -56,6 +56,11 @@ button {
     font-weight: var(--s2-component-s-medium-font-weight);
     gap: var(--s2-spacing-75);
     height: 24px;
+
+    svg {
+      width: var(--s2-icon-size-sm);
+      height: var(--s2-icon-size-sm);
+    }
   }
 }
 
