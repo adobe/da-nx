@@ -1,12 +1,24 @@
 # Worklog
 
-## 2026-09-21
+## 2026-09-23
 
 ### nx/blocks/loc/views/translate — loading spinners + Copy all visibility (smartling-split-6-loading-spinners, #709)
 
 - Added spinners to Connect/Translate all/Get status/Cancel project/Cancel lang/Copy all buttons, disabled while their action is in flight
 - Fixed pre-existing bug where `_sendAllBusy` wasn't declared reactive
 - Hide "Copy all" once every language has finished copying (new `incompleteCopyLangs` getter)
+
+## 2026-09-23
+
+### nx2/utils/api.js — scope `referrerPolicy: unsafe-url` to HLX_ADMIN/AEM_API
+
+`daFetch` set `opts.referrerPolicy = 'unsafe-url'` unconditionally on every
+request, leaking the full referrer URL (including path) to any origin it
+talks to. Scoped it to only fire for `HLX_ADMIN`/`AEM_API` origins — the same
+condition already used to decide whether to attach
+`x-content-source-authorization` — via a shared `isPrivilegedOrigin` check.
+Added fetch-mock + test coverage (`nx2/test/mocks/fetch.js` now records
+`referrerPolicy`; two new cases in `test/nx2/utils/api.test.js`).
 
 ## 2026-09-17
 

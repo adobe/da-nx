@@ -138,6 +138,11 @@ class NxChat extends LitElement {
       onDragging: (dragging) => { this._dragging = dragging; },
       onFiles: (files) => this._onFilesSelected(files),
     });
+
+    this._onSetPromptEvent = ({ detail }) => {
+      this.setPrompt(detail.text, { autoSend: detail.autoSend });
+    };
+    document.addEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
   }
 
   async _ensureController(context) {
@@ -183,6 +188,7 @@ class NxChat extends LitElement {
     cancelAnimationFrame(this._updateRaf);
     this._unsubscribeHash?.();
     this._controller?.destroy();
+    document.removeEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
   }
 
   willUpdate(changed) {
