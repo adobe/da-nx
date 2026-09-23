@@ -21,9 +21,8 @@ const WHATSNEW_PATH = '/nx/fragments/guides/whats-new';
  * Shows a dot and auto-opens whatsnew-dialog.js once on connect if the
  * fragment's published-date is newer than what this user last saw (see
  * whatsnew-flags.js); also opens on click regardless. The dot clears once
- * every entry has actually been viewed (scrolled to or clicked in the toc),
- * not just on close — whatsnew-dialog.js dispatches nx-whatsnew-all-seen
- * when that happens.
+ * every entry has actually been viewed, not just on close — see
+ * whatsnew-dialog.js's nx-whatsnew-all-seen event.
  */
 class NxWhatsNew extends LitElement {
   static properties = {

@@ -116,17 +116,26 @@ describe('nx-whatsnew-dialog', () => {
     expect(nxDialog.shadowRoot.querySelector('dialog').open).to.be.true;
   });
 
-  it('marks content seen and fires nx-whatsnew-all-seen only once every entry has been viewed', async () => {
+  it('does not mark content seen until scrolled all the way through', async () => {
     restoreFetch = mockWhatsNewFetch(WHATSNEW_HTML);
     const el = createDialog();
     await waitFor(() => el.shadowRoot.querySelectorAll('.wn-card').length > 0);
 
     // Only the first entry counts as viewed by default (it's already in view).
     expect(getWhatsNewLastSeenDate()).to.equal(null);
+  });
+
+  it('marks content seen and fires nx-whatsnew-all-seen once scrolled to the bottom', async () => {
+    restoreFetch = mockWhatsNewFetch(WHATSNEW_HTML);
+    const el = createDialog();
+    await waitFor(() => el.shadowRoot.querySelectorAll('.wn-card').length > 0);
 
     let allSeenFired = false;
     window.addEventListener('nx-whatsnew-all-seen', () => { allSeenFired = true; }, { once: true });
-    el.shadowRoot.querySelectorAll('.wn-toc-item')[1].click();
+
+    const container = el.shadowRoot.querySelector('.wn-cards');
+    container.scrollTop = container.scrollHeight;
+    container.dispatchEvent(new Event('scroll'));
 
     await waitFor(() => allSeenFired);
     expect(getWhatsNewLastSeenDate()).to.equal('2026-09-10');

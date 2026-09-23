@@ -70,19 +70,31 @@ class NxWhatsNewDialog extends LitElement {
     this._viewedIds = new Set();
   }
 
+  get _lastEntryId() { return this._entries[this._entries.length - 1]?.id; }
+
   async updated(changed) {
     if (changed.has('_entries') && this._entries) {
       // nx-dialog's .panel (which .wn-body is positioned against) may not exist yet.
       await this._dialog?.updateComplete;
       this._observeCards();
       this._ensureScrollRoom();
+      this._checkScrolledToBottom();
       this._positionIndicator();
-      this._trackViewed(this._activeId);
+      if (this._activeId !== this._lastEntryId) this._trackViewed(this._activeId);
       return;
     }
     if (changed.has('_activeId')) {
       this._positionIndicator();
-      this._trackViewed(this._activeId);
+      if (this._activeId !== this._lastEntryId) this._trackViewed(this._activeId);
+    }
+  }
+
+  // The last entry only counts as viewed once actually scrolled into full view, not just active.
+  _checkScrolledToBottom() {
+    const container = this.shadowRoot.querySelector('.wn-cards');
+    if (!container) return;
+    if (container.scrollTop + container.clientHeight >= container.scrollHeight - 1) {
+      this._trackViewed(this._lastEntryId);
     }
   }
 
@@ -108,7 +120,10 @@ class NxWhatsNewDialog extends LitElement {
   // Recomputes scroll room when the last card's size changes (its image loads asynchronously).
   _watchLastCardSize(lastCard) {
     this._resizeObserver?.disconnect();
-    this._resizeObserver = new ResizeObserver(() => this._ensureScrollRoom());
+    this._resizeObserver = new ResizeObserver(() => {
+      this._ensureScrollRoom();
+      this._checkScrolledToBottom();
+    });
     this._resizeObserver.observe(lastCard);
   }
 
@@ -133,6 +148,8 @@ class NxWhatsNewDialog extends LitElement {
     }, { root: this.shadowRoot.querySelector('.wn-cards'), threshold: [0.25, 0.5, 0.75, 1] });
     cards.forEach((card) => this._observer.observe(card));
     if (cards.length > 0) this._watchLastCardSize(cards[cards.length - 1]);
+    this.shadowRoot.querySelector('.wn-cards')
+      ?.addEventListener('scroll', () => this._checkScrolledToBottom());
   }
 
   close() {
@@ -164,6 +181,7 @@ class NxWhatsNewDialog extends LitElement {
       setTimeout(clear, 500);
     }
     container.scrollTo({ top: clamped, behavior: 'smooth' });
+    this._checkScrolledToBottom();
   }
 
   render() {
