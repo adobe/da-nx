@@ -32,14 +32,13 @@ class NxSegmentedBtn extends LitElement {
       <div class="segmented" role="group" aria-label="${this.label || nothing}">
         ${this.items?.map((item) => html`
           <button type="button"
-            class="segment${item.icon ? ' segment-icon' : ''}${this.value === item.value ? ' is-selected' : ''}"
+            class="segment${item.icon && !item.label ? ' segment-icon' : ''}${this.value === item.value ? ' is-selected' : ''}"
             aria-pressed="${this.value === item.value}"
             aria-label="${item.ariaLabel || nothing}"
             title="${item.title || nothing}"
             @click=${() => this._select(item.value)}>
-            ${item.icon
-        ? html`<svg aria-hidden="true" class="icon" viewBox="0 0 20 20"><use href="${codeBase}/img/icons/s2-icon-${item.icon}-20-n.svg#icon"></use></svg>`
-        : item.label}
+            ${item.icon ? html`<svg aria-hidden="true" class="icon" viewBox="0 0 20 20"><use href="${codeBase}/img/icons/s2-icon-${item.icon}-20-n.svg#icon"></use></svg>` : nothing}
+            ${item.label || nothing}
           </button>
         `)}
       </div>

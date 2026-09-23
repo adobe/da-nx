@@ -33,6 +33,7 @@
   background: transparent;
   cursor: pointer;
   white-space: nowrap;
+  gap: var(--s2-spacing-100);
   transition:
     transform 0.125s ease-out,
     color 0.12s ease,
@@ -66,7 +67,7 @@
     min-width: 28px;
   }
 
-  &.segment-icon svg.icon {
+  & svg.icon {
     display: block;
     width: 16px;
     height: 16px;

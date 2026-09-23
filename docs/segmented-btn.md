@@ -29,6 +29,9 @@ toggle.addEventListener("change", (e) => {
 Each entry in the `items` array is one of:
 
 ```js
+// Icon + label segment
+{ value: "grid", icon: "gridcompare", label: "Grid" }
+
 // Text segment
 { value: "layout", label: "Layout" }
 
@@ -42,11 +45,11 @@ Each entry in the `items` array is one of:
 
 ### Properties
 
-| Property | Type     | Description                                                              |
-| -------- | -------- | ------------------------------------------------------------------------ |
-| `items`  | `Array`  | List of segment descriptors (see shapes above).                          |
+| Property | Type     | Description                                                                            |
+| -------- | -------- | -------------------------------------------------------------------------------------- |
+| `items`  | `Array`  | List of segment descriptors (see shapes above).                                        |
 | `value`  | `String` | Value of the currently selected segment. Set to change the selection programmatically. |
-| `label`  | `String` | Accessible label for the control group (`aria-label`). Always provide one. |
+| `label`  | `String` | Accessible label for the control group (`aria-label`). Always provide one.             |
 
 ### Events
 
