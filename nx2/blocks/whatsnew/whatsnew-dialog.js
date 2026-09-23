@@ -14,6 +14,24 @@ const closeIcon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_Close_20_N.svg`);
 // project reusing nx2 as its shell would get its own copy at this path.
 const WHATSNEW_PATH = '/nx/fragments/guides/whats-new';
 
+// Browsers show a focus-visible ring on any script-driven .focus() call,
+// even one restoring focus after a plain mouse click closed the dialog —
+// they can't tell it apart from a keyboard/screen-reader interaction. Track
+// the last input type so a mouse-triggered close can restore real focus
+// (screen readers still announce it correctly) without the visible ring;
+// a genuine keyboard interaction still gets the ring as normal.
+let lastInputWasPointer = false;
+window.addEventListener('pointerdown', () => { lastInputWasPointer = true; }, true);
+window.addEventListener('keydown', () => { lastInputWasPointer = false; }, true);
+
+function restoreFocusQuietly(el) {
+  if (!el) return;
+  el.focus();
+  if (!lastInputWasPointer) return;
+  el.style.outline = 'none';
+  el.addEventListener('blur', () => { el.style.outline = ''; }, { once: true });
+}
+
 /**
  * Two-pane "what's new" dialog: a left-hand table of contents and a
  * scrollable right-hand feed of cards (image, title, body), one per entry
@@ -164,7 +182,7 @@ class NxWhatsNewDialog extends LitElement {
   }
 
   _onClose() {
-    this.returnFocusTo?.focus();
+    restoreFocusQuietly(this.returnFocusTo);
     this.remove();
   }
 
