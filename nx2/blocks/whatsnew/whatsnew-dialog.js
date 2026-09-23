@@ -71,10 +71,17 @@ class NxWhatsNewDialog extends LitElement {
     if (fragment.publishedDate) setWhatsNewLastSeenDate(fragment.publishedDate);
   }
 
-  updated(changed) {
+  async updated(changed) {
     if (changed.has('_entries') && this._entries) {
+      // nx-dialog is a separate custom element that may not have rendered
+      // its own shadow DOM yet at this point — .wn-body is absolutely
+      // positioned against its .panel, so measuring anything here (toc
+      // item offsets, card heights) before it's ready reads as zero.
+      await this._dialog?.updateComplete;
       this._observeCards();
       this._ensureScrollRoom();
+      this._positionIndicator();
+      return;
     }
     if (changed.has('_activeId')) this._positionIndicator();
   }
