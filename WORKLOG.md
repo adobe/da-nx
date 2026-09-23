@@ -4,7 +4,7 @@
 
 ### cmpapi — acknowledged EW comparison SDK actions
 
-Added capability-gated `openComparison`, `closeComparison`, and separate `saveDocument` actions. The iframe host advertises support; replies are correlated on the existing MessagePort and time out without retries. Seven browser unit tests were committed red before implementation and pass; focused ESLint passes. The matching da-live host and aem-apps consumer are independent local branches. No remote publication or backend operation was performed.
+Added capability-gated `openComparison`, `closeComparison`, and separate `saveDocument` actions. The iframe host advertises support; replies are correlated on the existing MessagePort and time out without retries. Seven browser unit tests were committed red before implementation and pass; focused ESLint passes. Documentation describes only SDK capabilities and host acknowledgements.
 
 ## 2026-09-17
 
