@@ -1,6 +1,7 @@
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { DA_ETC, DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
+import downloadQueue from '../../utils/downloadQueue.js';
 import authReady, { getApiKey } from './auth.js';
 
 export const dnt = { addDnt };
@@ -218,7 +219,7 @@ async function downloadDocumentResult(apiCtx, documentId, documentKey) {
   formData.append('auth_key', apiKey);
   formData.append('document_key', documentKey);
 
-  const resp = await corsFetch(`${origin}/document/${documentId}`, {
+  const resp = await corsFetch(`${origin}/document/${documentId}/result`, {
     method: 'POST',
     headers,
     body: formData,
@@ -489,20 +490,7 @@ export async function saveItems({
     }
   };
 
-  const queue = new Queue(downloadCallback, 5);
-
-  return new Promise((resolve) => {
-    const throttle = setInterval(() => {
-      const nextUrl = urls.find((url) => !url.inProgress);
-      if (nextUrl) {
-        nextUrl.inProgress = true;
-        queue.push(nextUrl);
-      } else if (urls.every((url) => url.status)) {
-        clearInterval(throttle);
-        resolve(urls);
-      }
-    }, 250);
-  });
+  return downloadQueue(urls, downloadCallback, 5);
 }
 
 /**
