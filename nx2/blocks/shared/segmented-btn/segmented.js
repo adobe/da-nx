@@ -8,7 +8,13 @@ class NxSegmentedBtn extends LitElement {
     items: { attribute: false },
     value: { type: String },
     label: { type: String },
+    size: { type: String, reflect: true },
   };
+
+  constructor() {
+    super();
+    this.size = 'sm';
+  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -30,13 +36,13 @@ class NxSegmentedBtn extends LitElement {
       <div class="segmented" role="group" aria-label="${this.label || nothing}">
         ${this.items?.map((item) => html`
           <button type="button"
-            class="segment${item.icon && !item.label ? ' segment-icon' : ''}${this.value === item.value ? ' is-selected' : ''}"
+            class="segment${item.icon && item.iconOnly ? ' segment-icon' : ''}${this.value === item.value ? ' is-selected' : ''}"
             aria-pressed="${this.value === item.value}"
-            aria-label="${item.ariaLabel || nothing}"
-            title="${item.title || nothing}"
+            aria-label="${item.iconOnly ? item.label : nothing}"
+            title="${item.iconOnly ? item.label : nothing}"
             @click=${() => this._select(item.value)}>
             ${item.icon ? html`<svg aria-hidden="true" class="icon" viewBox="0 0 20 20"><use href="${item.icon}#icon"></use></svg>` : nothing}
-            ${item.label || nothing}
+            ${item.iconOnly ? nothing : item.label}
           </button>
         `)}
       </div>

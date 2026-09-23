@@ -36,10 +36,10 @@ Each entry in the `items` array is one of:
 { value: "layout", label: "Layout" }
 
 // Icon-only segment
-{ value: "split", icon: "/img/icons/s2-icon-gridcompare-20-n.svg", ariaLabel: "Split view", title: "Split view" }
+{ value: "split", icon: "/img/icons/s2-icon-gridcompare-20-n.svg", label: "Split view", iconOnly: true }
 ```
 
-`icon` is the path to the icon SVG (the sprite's `#icon` fragment is appended automatically). Provide `ariaLabel` whenever there is no visible label.
+`icon` is the path to the icon SVG (the sprite's `#icon` fragment is appended automatically). `label` is always required — it's shown as the segment's visible text unless `iconOnly` is set, in which case it's used as the `aria-label`/`title` instead.
 
 ## API
 
@@ -50,6 +50,7 @@ Each entry in the `items` array is one of:
 | `items`  | `Array`  | List of segment descriptors (see shapes above).                                        |
 | `value`  | `String` | Value of the currently selected segment. Set to change the selection programmatically. |
 | `label`  | `String` | Accessible label for the control group (`aria-label`). Always provide one.             |
+| `size`   | `String` | `"sm"` (default) or `"m"`. Reflected as an attribute, e.g. `<nx-segmented-btn size="m">`. |
 
 ### Events
 
