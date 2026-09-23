@@ -1,5 +1,6 @@
 /* eslint-disable import/prefer-default-export */
 import prose2aem from 'https://da.live/blocks/shared/prose2aem.js';
+import { getImageDocumentVersion } from '../../../utils/image-document-version.js';
 
 const EDITABLES = [
   { selector: 'h1', nodeName: 'H1' },
@@ -72,6 +73,23 @@ export function getInstrumentedHTML(view) {
         // eslint-disable-next-line no-console
         console.warn('Could not find position for element:', e);
       }
+    }
+  });
+
+  const originalImages = view.dom.querySelectorAll('img');
+  const clonedImages = editorClone.querySelectorAll('img');
+  const imageVersion = getImageDocumentVersion(view.state.doc);
+  originalImages.forEach((img, index) => {
+    if (img.matches('.ProseMirror-separator, .ProseMirror-trailingBreak')) return;
+    const clonedImage = clonedImages[index];
+    if (!clonedImage) return;
+    try {
+      const pos = view.posAtDOM(img, 0);
+      clonedImage.setAttribute('data-image-index', pos);
+      clonedImage.setAttribute('data-image-version', imageVersion);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Could not index quick-edit image:', error);
     }
   });
 

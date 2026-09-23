@@ -11,7 +11,7 @@ export const MESSAGE_TYPES = Object.freeze({
 
   // Host -> iframe
   SET_BODY: 'set-body', // { body: string }
-  SET_EDITOR_STATE: 'set-editor-state', // { editorState: PM node JSON, cursorOffset: number }
+  SET_EDITOR_STATE: 'set-editor-state', // { editorState: PM node JSON, cursorOffset: number, imageVersion }
   SET_CURSORS: 'set-cursors', // { cursors: [{ proseIndex, remote, color }] }
   SET_SELECTED_NODE: 'set-selected-node', // { node: { anchorType, proseIndex, ... } | null, scrollIntoView }
   SET_COMMENT_MARKERS: 'set-comment-markers', // { markers: [...], selectedThreadId: string | null }
@@ -21,7 +21,7 @@ export const MESSAGE_TYPES = Object.freeze({
   CURSOR_MOVE: 'cursor-move', // { cursorOffset?, textCursorOffset? } — absent = clear remote cursor
   RELOAD: 'reload', // no payload
   GET_EDITOR: 'get-editor', // { cursorOffset: number }
-  NODE_UPDATE: 'node-update', // { node: PM node JSON, cursorOffset: number }
+  NODE_UPDATE: 'node-update', // iframe -> host: { node, cursorOffset }; host -> iframe: { imageVersion }
   NODE_SELECT: 'node-select', // { node: { anchorType, proseIndex, src?, blockIndex? } | null }
   HISTORY: 'history', // { action: 'undo' | 'redo' }
   NEW_VERSION: 'new-version', // no payload
@@ -32,7 +32,8 @@ export const MESSAGE_TYPES = Object.freeze({
   COMMENT_SHORTCUT: 'comment-shortcut', // no payload
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }
 
-  // Iframe -> host (request): { cursorOffset, imageData, fileName, mimeType, originalSrc }
-  // Host -> iframe (reply): { originalSrc, newSrc } | { originalSrc, error }
+  // Iframe -> host: { proseIndex, imageVersion, requestId, imageData, fileName,
+  //                  mimeType, originalSrc }
+  // Host -> iframe: { proseIndex, requestId, originalSrc, newSrc?, error? }
   IMAGE_REPLACE: 'image-replace',
 });

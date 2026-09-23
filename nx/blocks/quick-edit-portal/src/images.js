@@ -2,48 +2,49 @@
 import { daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
+import { getImageDocumentVersion } from '../../../utils/image-document-version.js';
 
-function updateImageInDocument(originalSrc, newSrc) {
-  if (!window.view) return false;
-
-  const { state } = window.view;
-  const { tr } = state;
-  let updated = false;
-
-  // Traverse the document to find image nodes
-  state.doc.descendants((node, pos) => {
-    if (node.type.name === 'image') {
-      const currentSrc = node.attrs.src;
-
-      // Check if this is the image we're looking for
-      // Compare by exact match or by pathname
-      let isMatch = currentSrc === originalSrc;
-
-      if (!isMatch) {
-        try {
-          const currentUrl = new URL(currentSrc, window.location.href);
-          const originalUrl = new URL(originalSrc, window.location.href);
-          isMatch = currentUrl.pathname === originalUrl.pathname;
-        } catch {
-          // If URL parsing fails, try simple includes check
-          isMatch = currentSrc.includes(originalSrc) || originalSrc.includes(currentSrc);
-        }
-      }
-
-      if (isMatch) {
-        // Update the image node with new src
-        const newAttrs = { ...node.attrs, src: newSrc };
-        tr.setNodeMarkup(pos, null, newAttrs);
-        updated = true;
-      }
+function resolveImagePosition(doc, {
+  proseIndex, originalSrc, requestId, imageVersion,
+}) {
+  if (proseIndex != null || requestId != null) {
+    if (imageVersion !== getImageDocumentVersion(doc)) {
+      throw new Error('Image position is out of date. Please refresh and try again.');
     }
-  });
-
-  if (updated) {
-    window.view.dispatch(tr);
+    if (!Number.isSafeInteger(proseIndex) || proseIndex < 0
+      || doc.nodeAt(proseIndex)?.type.name !== 'image') {
+      throw new Error('Image position is no longer valid. Please refresh and try again.');
+    }
+    return proseIndex;
   }
 
-  return updated;
+  // Older quick-edit iframes send only a URL; never pick one of several matches.
+  const name = originalSrc?.split(/[?#]/)[0].split('/').pop();
+  let found = null;
+  let ambiguous = false;
+  if (name) {
+    doc.descendants((node, pos) => {
+      if (node.type.name === 'image' && node.attrs.src?.split(/[?#]/)[0].split('/').pop() === name) {
+        if (found != null) ambiguous = true;
+        else found = pos;
+      }
+    });
+  }
+  if (found == null || ambiguous) {
+    throw new Error('Image position is missing or ambiguous. Please refresh and try again.');
+  }
+  return found;
+}
+
+function updateImageInDocument(view, proseIndex, newSrc, originalDoc) {
+  if (view.state.doc !== originalDoc) {
+    throw new Error('The page changed during the image upload. Please try again.');
+  }
+  const node = originalDoc.nodeAt(proseIndex);
+  if (node?.type.name !== 'image') {
+    throw new Error('The selected image is no longer available. Please try again.');
+  }
+  view.dispatch(view.state.tr.setNodeMarkup(proseIndex, null, { ...node.attrs, src: newSrc }));
 }
 
 function dataUrlToBlob(dataUrl) {
@@ -65,14 +66,18 @@ function getPageName(currentPath) {
   return currentPath.replace(/^\//, '').replace(/\.html$/, '');
 }
 
-export async function handleImageReplace({ imageData, fileName, originalSrc }, ctx) {
-  // Suppress rerender for the entire duration of image replacement
-  ctx.suppressRerender = true;
-
+export async function handleImageReplace(payload, ctx) {
+  const {
+    imageData, fileName, proseIndex, originalSrc, requestId,
+  } = payload;
+  const reply = (result) => ctx.port.postMessage({
+    type: MESSAGE_TYPES.IMAGE_REPLACE,
+    payload: { ...result, proseIndex, originalSrc, requestId },
+  });
   try {
-    // eslint-disable-next-line no-console
-    console.log('handleImageReplace', fileName, originalSrc);
-    // Convert base64 to Blob
+    if (!ctx.view) throw new Error('Image editor is unavailable. Please try again.');
+    const originalDoc = ctx.view.state.doc;
+    const imagePos = resolveImagePosition(originalDoc, payload);
     const blob = dataUrlToBlob(imageData);
 
     // Get the page name for the media folder
@@ -90,34 +95,18 @@ export async function handleImageReplace({ imageData, fileName, originalSrc }, c
     const resp = await daFetch(uploadUrl, opts);
 
     if (!resp.ok) {
-      const error = `Upload failed with status ${resp.status}`;
-      ctx.port.postMessage({
-        type: MESSAGE_TYPES.IMAGE_REPLACE, payload: { error, originalSrc },
-      });
+      reply({ error: `Upload failed with status ${resp.status}` });
       return;
     }
 
     // Construct the new image URL (AEM delivery URL)
     const newSrc = `https://content.da.live/${ctx.owner}/${ctx.repo}${uploadPath}`;
 
-    // Update the ProseMirror document with the new image src
-    updateImageInDocument(originalSrc, newSrc);
-
-    // Send back the new URL to update the quick-edit view
-    ctx.port.postMessage({
-      type: MESSAGE_TYPES.IMAGE_REPLACE, payload: { newSrc, originalSrc },
-    });
+    updateImageInDocument(ctx.view, imagePos, newSrc, originalDoc);
+    reply({ newSrc });
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Error replacing image:', error);
-    ctx.port.postMessage({
-      type: MESSAGE_TYPES.IMAGE_REPLACE,
-      payload: { error: error.message, originalSrc },
-    });
-  } finally {
-    // Reset the suppress flag after a delay to catch any async callbacks
-    setTimeout(() => {
-      ctx.suppressRerender = false;
-    }, 500);
+    reply({ error: error.message });
   }
 }

@@ -3,7 +3,7 @@ import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
-import { restoreBlockIndices } from './src/dom-index.js';
+import { restoreBlockIndices, restoreImageIndices, applyImageVersionAck } from './src/dom-index.js';
 import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
 import {
   getQuickEditPortalSrc,
@@ -44,6 +44,7 @@ async function setBody(body, ctx) {
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage(document);
   restoreBlockIndices(doc, document);
+  restoreImageIndices(doc, document);
   applyCommentMarkers(ctx);
   setupNodeSelection(ctx);
   setSelectedNode(getSelectedNode());
@@ -67,18 +68,20 @@ function onMessage(e, ctx) {
   if (type === MESSAGE_TYPES.READY) {
     handleReady(e, ctx);
   } else if (type === MESSAGE_TYPES.SET_BODY) {
+    ctx.pendingNodeUpdateId = null;
     setBody(payload.body, ctx);
   } else if (type === MESSAGE_TYPES.SET_EDITOR_STATE) {
-    const { editorState, cursorOffset } = payload;
-    setEditorState(cursorOffset, editorState, ctx);
+    const { editorState, cursorOffset, imageVersion } = payload;
+    setEditorState(cursorOffset, editorState, ctx, imageVersion);
+  } else if (type === MESSAGE_TYPES.NODE_UPDATE) {
+    applyImageVersionAck(payload, ctx);
   } else if (type === MESSAGE_TYPES.SET_CURSORS) {
     setCursors(payload.cursors, ctx);
   } else if (type === MESSAGE_TYPES.IMAGE_REPLACE) {
     if (payload.error) {
-      handleImageError(payload.error);
+      handleImageError(payload.error, payload.requestId, ctx);
     } else {
-      const { newSrc, originalSrc } = payload;
-      updateImageSrc(originalSrc, newSrc);
+      updateImageSrc(payload.requestId, payload.newSrc, ctx);
     }
   } else if (type === MESSAGE_TYPES.SET_COMMENT_MARKERS) {
     setCommentMarkers(payload, ctx);

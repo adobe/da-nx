@@ -1,6 +1,7 @@
 import { TextSelection, yUndo, yRedo } from 'da-y-wrapper';
 import { getInstrumentedHTML, extractCursors } from './prose2aem.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
+import { getImageDocumentVersion } from '../../../utils/image-document-version.js';
 
 export function updateDocument(ctx) {
   // Skip rerender if suppressed (e.g., during image updates)
@@ -31,8 +32,18 @@ export function updateState(data, ctx) {
   tr.setSelection(TextSelection.create(tr.doc, docPos));
 
   ctx.suppressRerender = true;
-  window.view.dispatch(tr);
-  ctx.suppressRerender = false;
+  try {
+    window.view.dispatch(tr);
+  } finally {
+    ctx.suppressRerender = false;
+  }
+  ctx.port.postMessage({
+    type: MESSAGE_TYPES.NODE_UPDATE,
+    payload: {
+      nodeUpdateId: data.nodeUpdateId,
+      imageVersion: getImageDocumentVersion(window.view.state.doc),
+    },
+  });
 }
 
 export function getEditor(data, ctx) {
@@ -47,7 +58,11 @@ export function getEditor(data, ctx) {
   const newCursorOffset = before + 1;
   ctx.port.postMessage({
     type: MESSAGE_TYPES.SET_EDITOR_STATE,
-    payload: { editorState, cursorOffset: newCursorOffset },
+    payload: {
+      editorState,
+      cursorOffset: newCursorOffset,
+      imageVersion: getImageDocumentVersion(window.view.state.doc),
+    },
   });
 }
 
