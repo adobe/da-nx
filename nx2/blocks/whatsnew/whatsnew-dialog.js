@@ -91,7 +91,7 @@ class NxWhatsNewDialog extends LitElement {
     const lastCard = cards[cards.length - 1];
     if (!container || !lastCard) return;
     const needed = container.clientHeight - 40 - lastCard.offsetHeight;
-    container.style.paddingBottom = `${Math.max(56, needed)}px`;
+    container.style.paddingBottom = `${Math.max(60, needed)}px`;
   }
 
   // The last card's real height can still change after this first runs —

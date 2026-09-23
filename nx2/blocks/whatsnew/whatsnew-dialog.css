@@ -150,11 +150,7 @@
   display: flex;
   flex: 1;
   min-width: 0;
-
-  /* Extra 20px beyond the top's framing padding so the last card, once
-     scrolled fully into view, has breathing room instead of sitting flush
-     against the bottom edge. */
-  padding: var(--s2-spacing-600) 20px calc(var(--s2-spacing-600) + 20px) var(--s2-spacing-600);
+  padding: var(--s2-spacing-600) 20px var(--s2-spacing-600) var(--s2-spacing-600);
   overflow: hidden;
 }
 
