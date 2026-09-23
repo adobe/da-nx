@@ -41,8 +41,8 @@
     color: var(--s2-gray-800);
 
     svg {
-      width: 18px;
-      height: 18px;
+      width: var(--s2-icon-size);
+      height: var(--s2-icon-size);
       display: block;
     }
   }
@@ -51,22 +51,22 @@
     color: var(--s2-blue-1000);
 
     svg {
-      width: 18px;
-      height: 18px;
+      width: var(--s2-icon-size);
+      height: var(--s2-icon-size);
     }
   }
 
   .pill-thumbnail {
-    width: 18px;
-    height: 18px;
+    width: var(--s2-icon-size);
+    height: var(--s2-icon-size);
     object-fit: cover;
     border-radius: 2px;
     flex-shrink: 0;
   }
 
   .pill-type-icon {
-    width: 18px;
-    height: 18px;
+    width: var(--s2-icon-size);
+    height: var(--s2-icon-size);
     flex-shrink: 0;
     color: var(--s2-blue-1000);
   }

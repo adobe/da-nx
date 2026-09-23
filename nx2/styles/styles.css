@@ -196,6 +196,9 @@
   --s2-spacing-900: 80px;
   --s2-spacing-1000: 96px;
 
+  /* icon */
+  --s2-icon-size: 18px;
+
   /* corner radius */
   --s2-corner-radius-0: 0px;
   --s2-corner-radius-75: 3px;

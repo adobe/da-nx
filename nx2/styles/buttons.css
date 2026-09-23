@@ -29,8 +29,8 @@ button {
   }
 
   svg {
-    width: 18px;
-    height: 18px;
+    width: var(--s2-icon-size);
+    height: var(--s2-icon-size);
   }
 
   kbd {
@@ -56,11 +56,6 @@ button {
     font-weight: var(--s2-component-s-medium-font-weight);
     gap: var(--s2-spacing-75);
     height: 24px;
-      
-    svg {
-      width: 16px;
-      height: 16px;
-    }
   }
 }
 
