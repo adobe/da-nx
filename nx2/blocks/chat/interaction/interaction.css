@@ -20,7 +20,7 @@
  * for the buttons this card renders. */
 kbd {
   font-family: inherit;
-  font-size: var(--s2-component-s-regular-font-size);
+  font-size: var(--s2-body-size-xs);
   color: var(--s2-gray-700);
   padding: var(--s2-spacing-75);
   border-radius: var(--s2-corner-radius-300);
@@ -71,12 +71,12 @@ button {
 
   .approval-tool-name {
     font-weight: bold;
-    font-size: var(--s2-component-m-bold-font-size);
+    font-size: var(--s2-body-size-s);
     color: var(--s2-gray-800);
   }
 
   .approval-summary {
-    font-size: var(--s2-component-s-regular-font-size);
+    font-size: var(--s2-body-size-xs);
     color: var(--s2-gray-600);
     overflow-wrap: break-word;
   }
@@ -94,7 +94,7 @@ button {
     align-items: center;
     gap: var(--s2-spacing-75);
     border-radius: var(--s2-corner-radius-400);
-    font-size: var(--s2-component-m-regular-font-size);
+    font-size: var(--s2-body-size-s);
     padding: var(--s2-spacing-75) var(--s2-spacing-75) var(--s2-spacing-75)
       var(--s2-spacing-100);
   }
