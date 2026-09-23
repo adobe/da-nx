@@ -2,6 +2,44 @@ import { setImsDetails, daFetch } from './daFetch.js';
 
 let port2;
 
+export function createHostActions({ port, capabilities = {} }) {
+  const request = (action, capability, details) => {
+    if (capabilities[capability] !== 1) return Promise.resolve({ ok: false, error: 'unsupported' });
+    return new Promise((resolve) => {
+      const requestId = crypto.randomUUID();
+      const pending = {};
+      const finish = (result) => {
+        clearTimeout(pending.timer);
+        port.removeEventListener('message', pending.listener);
+        resolve(result);
+      };
+      pending.listener = ({ data }) => {
+        if (data?.action !== 'sdkResponse' || data.requestId !== requestId) return;
+        finish(typeof data.result?.ok === 'boolean'
+          ? data.result : { ok: false, error: 'invalid-response' });
+      };
+      pending.timer = setTimeout(() => finish({ ok: false, error: 'timeout' }), 15000);
+      port.addEventListener('message', pending.listener);
+      port.start();
+      try {
+        port.postMessage({ action, details, requestId });
+      } catch {
+        finish({ ok: false, error: 'disconnected' });
+      }
+    });
+  };
+  return {
+    openComparison: ({ candidate, baseline } = {}) => {
+      if (!['document', 'preview'].includes(candidate) || baseline !== 'live') {
+        return Promise.resolve({ ok: false, error: 'invalid-comparison' });
+      }
+      return request('openComparison', 'comparison', { candidate, baseline });
+    },
+    closeComparison: () => request('closeComparison', 'comparison'),
+    saveDocument: () => request('saveDocument', 'saveDocument'),
+  };
+}
+
 function sendText(text) {
   port2.postMessage({ action: 'sendText', details: text });
 }
@@ -72,6 +110,7 @@ const DA_SDK = (() => new Promise((resolve) => {
       }
 
       const actions = {
+        ...createHostActions({ port: port2, capabilities: e.data.capabilities }),
         daFetch,
         sendText,
         sendHTML,

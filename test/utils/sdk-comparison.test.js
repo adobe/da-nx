@@ -49,7 +49,8 @@ describe('acknowledged workspace SDK actions', () => {
   it('correlates simultaneous requests and ignores unrelated responses', async () => {
     const comparison = actions.openComparison({ candidate: 'preview', baseline: 'live' });
     const save = actions.saveDocument();
-    expect(port.postMessage.firstCall.args[0].requestId).not.to.equal(port.postMessage.secondCall.args[0].requestId);
+    const firstId = port.postMessage.firstCall.args[0].requestId;
+    expect(firstId).not.to.equal(port.postMessage.secondCall.args[0].requestId);
     port.dispatchEvent(new MessageEvent('message', { data: { action: 'sdkResponse', requestId: 'unrelated', result: { ok: true } } }));
     reply({ ok: false, error: 'save-failed' }, 1);
     reply({ ok: true }, 0);
