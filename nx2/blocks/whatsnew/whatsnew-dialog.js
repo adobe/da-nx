@@ -47,6 +47,7 @@ class NxWhatsNewDialog extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._observer?.disconnect();
+    this._resizeObserver?.disconnect();
   }
 
   get _dialog() { return this.shadowRoot.querySelector('nx-dialog'); }
@@ -93,6 +94,17 @@ class NxWhatsNewDialog extends LitElement {
     container.style.paddingBottom = `${Math.max(56, needed)}px`;
   }
 
+  // The last card's real height can still change after this first runs —
+  // its image loads asynchronously and nx-dialog (a separate custom
+  // element) may not have finished its own first render/layout yet either
+  // — so keep recomputing whenever the last card's rendered size changes,
+  // instead of trusting a single measurement taken right after entries load.
+  _watchLastCardSize(lastCard) {
+    this._resizeObserver?.disconnect();
+    this._resizeObserver = new ResizeObserver(() => this._ensureScrollRoom());
+    this._resizeObserver.observe(lastCard);
+  }
+
   // Single shared indicator sliding between items, rather than each item
   // toggling its own bar on/off (which reads as a blink, not a move).
   _positionIndicator() {
@@ -117,6 +129,7 @@ class NxWhatsNewDialog extends LitElement {
       this._activeId = visible[0].target.dataset.id;
     }, { root: this.shadowRoot.querySelector('.wn-cards'), threshold: [0.25, 0.5, 0.75, 1] });
     cards.forEach((card) => this._observer.observe(card));
+    if (cards.length > 0) this._watchLastCardSize(cards[cards.length - 1]);
   }
 
   close() {
