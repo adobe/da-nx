@@ -112,7 +112,8 @@ describe('nx-whatsnew-dialog', () => {
 
     expect(el.shadowRoot.querySelectorAll('.wn-card')).to.have.lengthOf(2);
     expect(el.shadowRoot.querySelectorAll('.wn-toc-item')).to.have.lengthOf(2);
-    expect(el.shadowRoot.querySelector('dialog').open).to.be.true;
+    const nxDialog = el.shadowRoot.querySelector('nx-dialog');
+    expect(nxDialog.shadowRoot.querySelector('dialog').open).to.be.true;
     expect(getWhatsNewLastSeenDate()).to.equal('2026-09-10');
   });
 

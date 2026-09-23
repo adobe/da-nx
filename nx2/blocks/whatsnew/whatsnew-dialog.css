@@ -3,58 +3,33 @@
   font-family: var(--s2-font-family, adobe-clean, 'Source Sans Pro', system-ui, sans-serif);
 }
 
-dialog {
-  box-sizing: border-box;
-  margin: 0;
-  padding: var(--s2-spacing-500);
-  border: 0;
-  width: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  max-width: none;
-  max-height: none;
-  background: none;
-  color: inherit;
-  overflow: auto;
-
-  &:focus-visible {
-    outline: none;
-  }
-
-  &[open] {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  &::backdrop {
-    background: light-dark(rgb(0 0 0 / 40%), rgb(0 0 0 / 60%));
-    backdrop-filter: blur(0.5px);
-  }
-}
-
-.wn-panel {
-  position: relative;
-  box-sizing: border-box;
-  width: min(848px, calc(100vw - 2 * var(--s2-spacing-500)));
-  height: min(620px, calc(100vh - 2 * var(--s2-spacing-500)));
-  height: min(620px, calc(100dvh - 2 * var(--s2-spacing-500)));
-  border-radius: var(--s2-corner-radius-800);
-  background: var(--s2-gray-25);
-  box-shadow: 0 8px 32px light-dark(rgb(0 0 0 / 18%), rgb(0 0 0 / 45%));
-  overflow: hidden;
+/* nx-dialog's own panel provides the backdrop, border, background, shadow,
+   and centering — sized/stripped to fit our two-pane layout via its CSS
+   custom-property overrides instead of the defaults meant for its usual
+   single-column title+body+actions content. */
+.wn-dialog {
+  --nx-dialog-min-width: 848px;
+  --nx-dialog-max-width: 848px;
+  --nx-dialog-min-height: 620px;
+  --nx-dialog-max-height: 620px;
+  --nx-dialog-padding: 0;
+  --nx-dialog-border: none;
+  --nx-dialog-gap: 0;
+  --nx-dialog-actions-padding-top: 0;
+  --nx-dialog-body-overflow: hidden;
 }
 
 .wn-body {
   box-sizing: border-box;
   display: flex;
-  width: 100%;
   height: 100%;
+  border-radius: var(--s2-corner-radius-800);
   overflow: hidden;
 }
 
 .wn-close {
   position: absolute;
+  z-index: 2;
   top: var(--s2-spacing-100);
   right: var(--s2-spacing-100);
   display: flex;
@@ -95,6 +70,9 @@ dialog {
   overflow: hidden;
 }
 
+/* Not independently scrollable — the toc pane's gray background stretches
+   to match .wn-cards-panel's height (via .wn-body's default flex stretch),
+   but the item list itself just sits at its own natural height within it. */
 .wn-toc-scroll {
   box-sizing: border-box;
   flex: 1;
@@ -102,27 +80,7 @@ dialog {
   display: flex;
   flex-direction: column;
   padding-right: 20px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--s2-gray-400) var(--s2-gray-100);
-}
-
-.wn-toc-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-
-.wn-toc-scroll::-webkit-scrollbar-track {
-  background: var(--s2-gray-100);
-  border-radius: 999px;
-}
-
-.wn-toc-scroll::-webkit-scrollbar-thumb {
-  background: var(--s2-gray-400);
-  border-radius: 999px;
-}
-
-.wn-toc-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--s2-gray-500);
+  overflow: hidden;
 }
 
 .wn-toc-title {
@@ -264,11 +222,9 @@ dialog {
 /* Mobile: toc collapses to just its gray heading strip across the top
    (list hidden), cards stack full-width below on white, scrollable. */
 @media (width < 600px) {
-  .wn-panel {
-    width: calc(100vw - 2 * var(--s2-spacing-300));
-    height: calc(100vh - 2 * var(--s2-spacing-300));
-    height: calc(100dvh - 2 * var(--s2-spacing-300));
-  }
+  /* Width/height don't need overriding here — nx-dialog's own
+     min()-based clamping against the viewport (in its shared CSS)
+     already shrinks the 848x620 desktop values to fit a small screen. */
 
   /* On mobile, .wn-body itself (not .wn-cards) owns scrolling, so the toc
      heading can be position: sticky within it — cards scroll up and pass
