@@ -177,6 +177,16 @@ function createEditor(cursorOffset, state, ctx, imageVersion) {
   const offset = Number(cursorOffset);
   const schema = getSchema();
   const node = schema.nodeFromJSON(state);
+
+  // A node that is not valid top-level `doc` content (e.g. a `table_cell`, which
+  // only belongs inside a `table_row`) makes `schema.node('doc', ...)` throw and
+  // takes the whole editor down. The controller should never send one, but guard
+  // here so a malformed payload degrades to a reload instead of a hard crash.
+  if (!schema.nodes.doc.contentMatch.matchType(node.type)) {
+    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
+    return;
+  }
+
   const doc = schema.node('doc', null, [node]);
 
   const editorState = EditorState.create({
@@ -243,6 +253,13 @@ function updateEditor(editorEl, state, ctx, imageVersion) {
   if (imageVersion) view.dom.parentElement.setAttribute('data-image-version', imageVersion);
   const { schema } = view.state;
   const node = schema.nodeFromJSON(state);
+
+  // Same guard as createEditor: replacing the root with a node that is not
+  // valid `doc` content (e.g. a `table_cell`) throws and breaks the editor.
+  if (!schema.nodes.doc.contentMatch.matchType(node.type)) {
+    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
+    return;
+  }
 
   // Save selection to restore after the content replacement.
   // Marks don't change node structure, so positions are identical in the new doc.
