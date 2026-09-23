@@ -6,7 +6,7 @@ import { getWhatsNewLastSeenDate } from './whatsnew-flags.js';
 
 const style = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
-const icon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_Lightbulb_20_N.svg`);
+const icon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_Gift_20_N.svg`);
 
 // Well-known, hardcoded fragment path — relative so it resolves against
 // whatever host is actually serving the current page, same as any other
