@@ -320,43 +320,11 @@ export async function sendAllLanguages({
         type: 'error',
       });
     } else {
-      sendMessage({ text: `Waiting for DeepL to translate ${lang.name}...` });
-
-      let doneCount = 0;
-      const checkWorker = async (url) => {
-        const docRecord = lang.translation.documents[url.daBasePath];
-        if (!docRecord?.documentId || !docRecord?.documentKey) return;
-
-        for (let i = 0; i < STATUS_POLL_MAX; i += 1) {
-          const statusRes = await checkDocumentStatus(
-            apiCtx,
-            docRecord.documentId,
-            docRecord.documentKey,
-          );
-          if (statusRes?.status === 'done') {
-            docRecord.status = 'done';
-            doneCount += 1;
-            break;
-          }
-          if (statusRes?.status === 'error') {
-            docRecord.status = 'error';
-            docRecord.errorMessage = statusRes.error_message;
-            break;
-          }
-          // eslint-disable-next-line no-await-in-loop
-          await new Promise((resolve) => { setTimeout(resolve, STATUS_POLL_MS); });
-        }
-      };
-
-      const statusQueue = new Queue(checkWorker, 5);
-      await Promise.allSettled(urls.map((url) => statusQueue.push(url)));
-
-      lang.translation.translated = doneCount;
-      lang.translation.status = doneCount === urls.length ? 'translated' : 'error';
+      lang.translation.status = 'created';
     }
   }
 
-  sendMessage({ text: `DeepL translation completed for project: ${title}.` });
+  sendMessage({ text: `DeepL translation submitted for project: ${title}.` });
   await saveState({ options });
 }
 

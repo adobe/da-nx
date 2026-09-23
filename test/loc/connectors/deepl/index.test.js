@@ -139,7 +139,7 @@ describe('deepl connector', () => {
   });
 
   describe('sendAllLanguages', () => {
-    it('uploads documents and polls status until done', async () => {
+    it('uploads documents and sets status to created', async () => {
       const service = baseService();
       const langs = [{ name: 'Italian', code: 'it' }];
       const urls = [{ daBasePath: '/doc1', content: '<p>Hello</p>' }];
@@ -158,11 +158,10 @@ describe('deepl connector', () => {
         actions,
       });
 
-      expect(langs[0].translation.status).to.equal('translated');
+      expect(langs[0].translation.status).to.equal('created');
       expect(langs[0].translation.sent).to.equal(1);
-      expect(langs[0].translation.translated).to.equal(1);
       expect(langs[0].translation.documents['/doc1'].documentId).to.equal('doc-1');
-      expect(langs[0].translation.documents['/doc1'].status).to.equal('done');
+      expect(langs[0].translation.documents['/doc1'].status).to.equal('queued');
 
       const uploadCall = calls.find((c) => c.decodedUrl.includes('/document') && !c.decodedUrl.includes('/document/') && c.method === 'POST');
       expect(uploadCall).to.exist;
@@ -187,7 +186,7 @@ describe('deepl connector', () => {
         actions,
       });
 
-      expect(langs[0].translation.status).to.equal('translated');
+      expect(langs[0].translation.status).to.equal('created');
       expect(langs[0].translation.documents['/doc-opt'].documentId).to.equal('doc-1');
     });
 
@@ -238,35 +237,6 @@ describe('deepl connector', () => {
 
       expect(langs[0].translation.status).to.equal('error');
       expect(langs[0].translation.documents['/doc-fail'].status).to.equal('error');
-    });
-
-    it('sets status to error if polling returns error status', async () => {
-      restoreFetch();
-      installFetch((u) => {
-        if (u.includes('/document') && !u.includes('/document/')) {
-          return jsonResponse({ document_id: 'doc-err', document_key: 'key-err' });
-        }
-        if (u.includes('/document/doc-err')) {
-          return jsonResponse({ status: 'error', error_message: 'Quota exceeded' });
-        }
-        return null;
-      });
-
-      const langs = [{ name: 'Spanish', code: 'es' }];
-      const urls = [{ daBasePath: '/doc-err', content: '<p>Content</p>' }];
-      const actions = { sendMessage: () => {}, saveState: async () => {} };
-
-      await sendAllLanguages({
-        title: 'Poll Error',
-        service: baseService(),
-        langs,
-        urls,
-        actions,
-      });
-
-      expect(langs[0].translation.status).to.equal('error');
-      expect(langs[0].translation.documents['/doc-err'].status).to.equal('error');
-      expect(langs[0].translation.documents['/doc-err'].errorMessage).to.equal('Quota exceeded');
     });
   });
 
