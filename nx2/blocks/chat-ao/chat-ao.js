@@ -396,12 +396,18 @@ export default class NxChatAo extends LitElement {
       /* keep raw */
     }
     const isBridge = ws.includes('claudebridge') || ws.includes('localhost') || ws.includes('127.0.0.1');
+    let tag = 'BACKEND';
     let name = 'Backend';
-    if (ws.includes('agent-orchestrator')) name = 'Agent Orchestrator';
-    else if (isBridge) name = 'CMA via bridge';
+    if (ws.includes('agent-orchestrator')) {
+      tag = 'AO';
+      name = 'Agent Orchestrator (legacy path)';
+    } else if (isBridge) {
+      tag = 'CMA';
+      name = 'Claude Managed Agents via bridge';
+    }
     const bg = isBridge ? '#15803d' : '#b45309';
     return html`<div style="padding:4px 8px;font:600 11px/1.4 monospace;color:#fff;background:${bg};text-align:center;letter-spacing:.02em">
-      🔌 ${name} — ${host}
+      🔌 THIS IS ${tag} — ${name} — ${host}
     </div>`;
   }
 
