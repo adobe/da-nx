@@ -63,6 +63,7 @@ export default class NxChatAo extends LitElement {
     pendingPlanApproval: { type: Object },
     pendingPermission: { type: Object },
     loadingEpisode: { type: Boolean },
+    staleEpisode: { type: Object },
     _dragging: { state: true },
     _prompts: { state: true },
     _planFeedback: { state: true },
@@ -172,6 +173,11 @@ export default class NxChatAo extends LitElement {
     this.shadowRoot.querySelector('.chat-input')?.focus();
   }
 
+  _continueStaleEpisode() {
+    if (!this.staleEpisode) return;
+    this._controller.switchEpisode(this.staleEpisode.id);
+  }
+
   _handleEpisodeChange({ detail: { value } }) {
     this._controller.switchEpisode(value);
   }
@@ -190,7 +196,7 @@ export default class NxChatAo extends LitElement {
     this._controller = new AoChatController({
       onUpdate: ({
         messages, thinking, streamingText, episodes, episodeId,
-        pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode,
+        pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode, staleEpisode,
       }) => {
         this.messages = streamingText
           ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
@@ -202,6 +208,7 @@ export default class NxChatAo extends LitElement {
         this.pendingPlanApproval = pendingPlanApproval;
         this.pendingPermission = pendingPermission;
         this.loadingEpisode = loadingEpisode;
+        this.staleEpisode = staleEpisode;
       },
     });
     if (this._context) this._controller.setContext(this._context);
@@ -402,6 +409,11 @@ export default class NxChatAo extends LitElement {
           ? html`<nx-new-chat
               .prompts=${prompts}
               .onSend=${(p) => this._sendPrompt(p)}
+              .lastSession=${this.staleEpisode ? {
+                preview: this.staleEpisode.title || 'Your previous conversation',
+                updatedAt: this.staleEpisode.updated_at,
+              } : undefined}
+              .onContinue=${() => this._continueStaleEpisode()}
               @nx-show-prompts=${this._openPrompts}
             ></nx-new-chat>`
           : nothing}
