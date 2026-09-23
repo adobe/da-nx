@@ -111,6 +111,19 @@ describe('nx-whatsnew', () => {
     expect(el.shadowRoot.querySelector('.wn-trigger-dot')).to.not.exist;
   });
 
+  it('clears the dot when nx-whatsnew-all-seen fires', async () => {
+    setWhatsNewLastSeenDate('2026-01-01');
+    restoreFetch = mockWhatsNewFetch('2026-09-10');
+    const el = createTrigger();
+    await waitFor(() => el._hasUnseen !== undefined);
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.wn-trigger-dot')).to.exist;
+
+    window.dispatchEvent(new CustomEvent('nx-whatsnew-all-seen'));
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.wn-trigger-dot')).to.not.exist;
+  });
+
   it('does not create a second dialog when one is already open', async () => {
     restoreFetch = mockWhatsNewFetch('2026-09-10');
     document.body.append(document.createElement('nx-whatsnew-dialog'));

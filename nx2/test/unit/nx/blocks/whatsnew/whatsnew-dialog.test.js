@@ -105,7 +105,7 @@ describe('nx-whatsnew-dialog', () => {
     document.querySelectorAll('nx-whatsnew-dialog').forEach((el) => el.remove());
   });
 
-  it('renders each entry as a card and a toc item, opens the dialog, and marks the content seen', async () => {
+  it('renders each entry as a card and a toc item, opens the dialog', async () => {
     restoreFetch = mockWhatsNewFetch(WHATSNEW_HTML);
     const el = createDialog();
     await waitFor(() => el.shadowRoot.querySelectorAll('.wn-card').length > 0);
@@ -114,6 +114,21 @@ describe('nx-whatsnew-dialog', () => {
     expect(el.shadowRoot.querySelectorAll('.wn-toc-item')).to.have.lengthOf(2);
     const nxDialog = el.shadowRoot.querySelector('nx-dialog');
     expect(nxDialog.shadowRoot.querySelector('dialog').open).to.be.true;
+  });
+
+  it('marks content seen and fires nx-whatsnew-all-seen only once every entry has been viewed', async () => {
+    restoreFetch = mockWhatsNewFetch(WHATSNEW_HTML);
+    const el = createDialog();
+    await waitFor(() => el.shadowRoot.querySelectorAll('.wn-card').length > 0);
+
+    // Only the first entry counts as viewed by default (it's already in view).
+    expect(getWhatsNewLastSeenDate()).to.equal(null);
+
+    let allSeenFired = false;
+    window.addEventListener('nx-whatsnew-all-seen', () => { allSeenFired = true; }, { once: true });
+    el.shadowRoot.querySelectorAll('.wn-toc-item')[1].click();
+
+    await waitFor(() => allSeenFired);
     expect(getWhatsNewLastSeenDate()).to.equal('2026-09-10');
   });
 

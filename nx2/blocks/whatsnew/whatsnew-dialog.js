@@ -29,8 +29,9 @@ const WHATSNEW_PATH = '/nx/fragments/guides/whats-new';
  *
  * Opened two ways (see whatsnew.js): manually, by clicking the nav trigger,
  * or automatically when the fragment's published-date is newer than what
- * the user last saw. Either way, loading the content here marks it as seen
- * — this component is the single owner of that state.
+ * the user last saw. Content only gets marked as seen (and
+ * nx-whatsnew-all-seen fires) once every entry has actually been viewed —
+ * scrolled to or clicked in the toc — not just on load or close.
  */
 class NxWhatsNewDialog extends LitElement {
   static properties = {
@@ -68,7 +69,8 @@ class NxWhatsNewDialog extends LitElement {
     }
     this._entries = entries;
     this._activeId = entries[0].id;
-    if (fragment.publishedDate) setWhatsNewLastSeenDate(fragment.publishedDate);
+    this._publishedDate = fragment.publishedDate;
+    this._viewedIds = new Set();
   }
 
   async updated(changed) {
@@ -81,9 +83,27 @@ class NxWhatsNewDialog extends LitElement {
       this._observeCards();
       this._ensureScrollRoom();
       this._positionIndicator();
+      this._trackViewed(this._activeId);
       return;
     }
-    if (changed.has('_activeId')) this._positionIndicator();
+    if (changed.has('_activeId')) {
+      this._positionIndicator();
+      this._trackViewed(this._activeId);
+    }
+  }
+
+  // Marks an entry seen the first time it becomes active (scrolled to or
+  // clicked in the toc — see _observeCards/_scrollToEntry). Once every
+  // entry has been seen at least once, persist the published-date (so it
+  // won't auto-open again) and tell the nav trigger to clear its dot —
+  // closing early with entries still unseen leaves both untouched, so the
+  // dot and auto-open come back next time.
+  _trackViewed(id) {
+    if (!id || this._viewedIds.has(id)) return;
+    this._viewedIds.add(id);
+    if (this._viewedIds.size < this._entries.length) return;
+    if (this._publishedDate) setWhatsNewLastSeenDate(this._publishedDate);
+    window.dispatchEvent(new CustomEvent('nx-whatsnew-all-seen'));
   }
 
   // A static trailing padding can't guarantee the last card can scroll all
@@ -146,7 +166,6 @@ class NxWhatsNewDialog extends LitElement {
   _onClose() {
     this.returnFocusTo?.focus();
     this.remove();
-    window.dispatchEvent(new CustomEvent('nx-whatsnew-closed'));
   }
 
   // Scrolls so the card's image sits 40px below the top of the scroll area,

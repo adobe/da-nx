@@ -20,10 +20,10 @@ const WHATSNEW_PATH = '/nx/fragments/guides/whats-new';
  *
  * Shows a dot and auto-opens whatsnew-dialog.js once on connect if the
  * fragment's published-date is newer than what this user last saw (see
- * whatsnew-flags.js); also opens on click regardless. whatsnew-dialog.js
- * marks content as seen as soon as it loads, but the dot only clears once
- * the dialog is actually closed (nx-whatsnew-closed), not the instant it
- * opens.
+ * whatsnew-flags.js); also opens on click regardless. The dot clears once
+ * every entry has actually been viewed (scrolled to or clicked in the toc),
+ * not just on close — whatsnew-dialog.js dispatches nx-whatsnew-all-seen
+ * when that happens.
  */
 class NxWhatsNew extends LitElement {
   static properties = {
@@ -33,14 +33,14 @@ class NxWhatsNew extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];
-    this._onClosed = () => { this._hasUnseen = false; };
-    window.addEventListener('nx-whatsnew-closed', this._onClosed);
+    this._onAllSeen = () => { this._hasUnseen = false; };
+    window.addEventListener('nx-whatsnew-all-seen', this._onAllSeen);
     this._checkUnseen();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    window.removeEventListener('nx-whatsnew-closed', this._onClosed);
+    window.removeEventListener('nx-whatsnew-all-seen', this._onAllSeen);
   }
 
   async _checkUnseen() {
@@ -73,4 +73,4 @@ class NxWhatsNew extends LitElement {
   }
 }
 
-if (!customElements.get('nx-whatsnew')) customElements.define('nx-whatsnew', NxWhatsNew);
+customElements.define('nx-whatsnew', NxWhatsNew);
