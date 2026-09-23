@@ -370,7 +370,7 @@
 
   .tool-call-card,
   .tool-call-detail {
-    font-size: var(--s2-component-m-regular-font-size);
+    font-size: var(--s2-component-s-regular-font-size);
     color: var(--s2-gray-600);
   }
 
@@ -663,8 +663,8 @@
 
 .chat-thinking {
   padding: var(--s2-spacing-75) var(--s2-spacing-100);
-  font-size: var(--s2-component-m-regular-font-size);
-  font-weight: var(--s2-component-m-regular-font-weight);
+  font-size: var(--s2-component-s-regular-font-size);
+  font-weight: var(--s2-component-s-regular-font-weight);
   letter-spacing: 0.02em;
 
   /* Sweeping highlight: gray-600 base, gray-400 band (background-clip text) */
@@ -769,7 +769,7 @@
 
   .permission-row-detail {
     display: block;
-    font-size: var(--s2-component-m-regular-font-size);
+    font-size: var(--s2-component-s-regular-font-size);
     color: var(--s2-gray-600);
     overflow-wrap: break-word;
     white-space: pre-wrap;
