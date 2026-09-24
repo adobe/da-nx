@@ -57,7 +57,7 @@ parallel one. If you do add a new key:
 | `CURSOR_MOVE` | iframe → host | both hosts |
 | `RELOAD` | iframe → host | both hosts |
 | `GET_EDITOR` | iframe → host | both hosts |
-| `NODE_UPDATE` | iframe → host | both hosts |
+| `NODE_UPDATE` | iframe ↔ host (edit/ack) | both hosts |
 | `NODE_SELECT` | iframe → host | da-live only |
 | `HISTORY` | iframe → host | both hosts |
 | `NEW_VERSION` | iframe → host | da-live only |
@@ -121,7 +121,19 @@ this protocol.
 Image drag-drop upload flow, request/reply on the same type: the iframe sends the
 upload request, the host replies with the same `IMAGE_REPLACE` type, distinguished by
 `payload.error` (failure) vs `payload.newSrc` (success). Both hosts implement the full
-round-trip.
+round-trip. Hosts stamp every image in `SET_BODY` with its ProseMirror position
+(`data-image-index`) and the document snapshot (`data-image-version`); `SET_EDITOR_STATE`
+carries the same version for an active inline editor. The iframe sends both values with
+a per-upload `requestId`, and the host updates exactly that image only while the
+document snapshot is current. Replies echo `requestId` so the iframe updates or clears
+only the picture that started the upload. An out-of-date/missing index fails instead
+of choosing an image by URL. For older iframes, a URL-only request is accepted only
+when it identifies exactly one image.
+
+After an inline edit, the host acknowledges `NODE_UPDATE` with the new `imageVersion`
+and the edit's `nodeUpdateId`; the iframe has already shifted the affected image
+positions and applies that version without rebuilding the page or losing the active
+editor. A newer edit or full-body refresh invalidates older acknowledgements.
 
 ### Comments (`SET_COMMENT_MARKERS` / `SCROLL_TO_POS` / `COMMENT_MARKER_CLICK` / `COMMENT_MARKER_CLEAR` / `COMMENT_SHORTCUT`)
 
@@ -148,6 +160,6 @@ comments UI, so none are wired up there.
 ## Known gaps
 
 - **Several payload fields are sent but not read by any current receiver:**
-  `SELECTION_CHANGE.anchorX`/`anchorY`, `IMAGE_REPLACE` request's `cursorOffset`/`mimeType`,
+  `SELECTION_CHANGE.anchorX`/`anchorY`, `IMAGE_REPLACE` request's `mimeType`,
   `IMAGE_REPLACE` error reply's `originalSrc`. Not necessarily bugs — may be intended for a future
   consumer — but worth checking before assuming they're load-bearing.
