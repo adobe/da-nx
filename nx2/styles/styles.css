@@ -12,8 +12,12 @@
 
 /* --- Fonts --- */
 
+/* Registered under a name unique to nx2 (not the bare "adobe-clean"/"Adobe
+   Clean" names other font-loading paths on the host page may also use) so a
+   differently-subsetted font registered elsewhere under those names can't
+   win the family-name race and get used here instead. */
 @font-face {
-  font-family: adobe-clean;
+  font-family: "nx2-adobe-clean";
   src: url("fonts/adobe-clean-regular.woff2") format("woff2");
   font-display: swap;
   font-style: normal;
@@ -22,7 +26,7 @@
 }
 
 @font-face {
-  font-family: adobe-clean;
+  font-family: "nx2-adobe-clean";
   src: url("fonts/adobe-clean-italic.woff2") format("woff2");
   font-display: swap;
   font-style: italic;
@@ -31,7 +35,7 @@
 }
 
 @font-face {
-  font-family: adobe-clean;
+  font-family: "nx2-adobe-clean";
   src: url("fonts/adobe-clean-bold.woff2") format("woff2");
   font-display: swap;
   font-style: normal;
@@ -40,7 +44,7 @@
 }
 
 @font-face {
-  font-family: adobe-clean;
+  font-family: "nx2-adobe-clean";
   src: url("fonts/adobe-clean-bold-italic.woff2") format("woff2");
   font-display: swap;
   font-style: italic;
@@ -290,7 +294,7 @@
   /* --- End generated --- */
 
   /* fonts */
-  --s2-font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
+  --s2-font-family: nx2-adobe-clean, 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
 
   /* nav */
   --s2-nav-height: 56px;
