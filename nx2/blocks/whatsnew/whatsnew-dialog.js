@@ -115,6 +115,11 @@ class NxWhatsNewDialog extends LitElement {
     const cards = this.shadowRoot.querySelectorAll('.wn-card');
     const lastCard = cards[cards.length - 1];
     if (!container || !lastCard) return;
+    // On mobile .wn-body (not .wn-cards) owns scrolling, so this doesn't apply.
+    if (window.matchMedia('(width < 600px)').matches) {
+      container.style.paddingBottom = '';
+      return;
+    }
     const needed = container.clientHeight - 40 - lastCard.offsetHeight;
     container.style.paddingBottom = `${Math.max(60, needed)}px`;
   }
