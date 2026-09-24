@@ -12,9 +12,11 @@ per backend. Which client loads for a given org/site is decided by
 
 Because either element can be mounted for a given org/site, `nx-chat-ao`
 exposes `setPrompt(text, { autoSend? })` with the same signature as
-`nx-chat`'s (see [chat-ui-component.md](./chat-ui-component.md#L60)) so
-callers — including the `PANEL_EVENT.OPEN`/DA SDK `actions.setPrompt` paths
-documented there — don't need to know which one they got.
+`nx-chat`'s, and listens for the same `CHAT_EVENT.SET_PROMPT` document event
+(see [chat-ui-component.md § Setting a prompt programmatically](./chat-ui-component.md#setting-a-prompt-programmatically))
+so callers — including the `PANEL_EVENT.OPEN`/DA SDK `actions.setPrompt`
+paths documented there — don't need to know which element they got, and
+don't need to query for it either.
 
 ## Session warming
 

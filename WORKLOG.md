@@ -4,7 +4,17 @@
 
 ### cmpapi — acknowledged EW comparison SDK actions
 
-Added capability-gated `openComparison`, `closeComparison`, and separate `saveDocument` actions. The iframe host advertises support; replies are correlated on the existing MessagePort and time out without retries. Seven browser unit tests were committed red before implementation and pass; focused ESLint passes. Documentation describes only SDK capabilities and host acknowledgements. Merged `origin/main` through `e52a2ee5`; the seven SDK tests and focused ESLint still pass.
+Added capability-gated `openComparison`, `closeComparison`, and separate `saveDocument` actions. The iframe host advertises support; replies are correlated on the existing MessagePort and time out without retries. Seven browser unit tests were committed red before implementation and pass; focused ESLint passes. Documentation describes only SDK capabilities and host acknowledgements. Merged `origin/main` through `8057d948`.
+
+### nx2/utils/api.js — scope `referrerPolicy: unsafe-url` to HLX_ADMIN/AEM_API
+
+`daFetch` set `opts.referrerPolicy = 'unsafe-url'` unconditionally on every
+request, leaking the full referrer URL (including path) to any origin it
+talks to. Scoped it to only fire for `HLX_ADMIN`/`AEM_API` origins — the same
+condition already used to decide whether to attach
+`x-content-source-authorization` — via a shared `isPrivilegedOrigin` check.
+Added fetch-mock + test coverage (`nx2/test/mocks/fetch.js` now records
+`referrerPolicy`; two new cases in `test/nx2/utils/api.test.js`).
 
 ## 2026-09-17
 
