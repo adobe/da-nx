@@ -2,13 +2,7 @@ import sinon from 'sinon';
 import { expect } from '@esm-bundle/chai';
 import { regionalDiff } from '../../nx/blocks/loc/regional-diff/regional-diff.js';
 
-// Kept in its own file: loc/utils/utils.js's fetchConfig caches its result
-// in a module-level CONFIG_CACHE after the first call, so only the *first*
-// regionalDiff call on a page ever reaches the network. Isolating this test
-// in its own page keeps that first call observable. See
-// regional-diff-org-site-fallback.test.js for the getPathDetails() case,
-// isolated for the same reason.
-describe('regionalDiff - explicit org/site', () => {
+describe('regionalDiff - org/site resolution', () => {
   let fetchStub;
   const originalFetch = window.fetch;
   const originalHash = window.location.hash;
@@ -50,5 +44,14 @@ describe('regionalDiff - explicit org/site', () => {
 
     const configCall = fetchStub.args.find(([url]) => url.includes('/source/explicit-org/explicit-site/'));
     expect(configCall, 'expected fetchConfig to request the explicit org/site path').to.exist;
+  });
+
+  it('falls back to location.hash when org/site are not passed', async () => {
+    window.location.hash = '#/rollout/fallback-org/fallback-site';
+
+    await regionalDiff(makeDoc(), makeDoc());
+
+    const configCall = fetchStub.args.find(([url]) => url.includes('/source/fallback-org/fallback-site/'));
+    expect(configCall, 'expected fetchConfig to request the hash-derived org/site path').to.exist;
   });
 });
