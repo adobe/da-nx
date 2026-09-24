@@ -372,6 +372,25 @@ toggle.items = [
       </article>
 
       <article class="sg-example">
+        <h3>nx-switch <a href="https://github.com/adobe/da-nx/blob/main/docs/switch.md" target="_blank"
+            rel="noopener">docs →</a></h3>
+        <div class="sg-demo">
+          <nx-switch id="demo-switch" label="Auto-save"></nx-switch>
+          <nx-switch id="demo-switch-sm" label="Auto-save" size="sm"></nx-switch>
+          <nx-switch id="demo-switch-disabled" label="Auto-save" disabled></nx-switch>
+        </div>
+        <pre><code>&lt;nx-switch id="auto-save" label="Auto-save"&gt;&lt;/nx-switch&gt;
+
+autoSave.checked = true;
+autoSave.addEventListener('change', (e) =&gt; console.log(e.detail.checked));
+
+&lt;!-- size variant: "m" (default) or "sm" --&gt;
+&lt;nx-switch label="Auto-save" size="sm"&gt;&lt;/nx-switch&gt;
+
+&lt;nx-switch label="Auto-save" disabled&gt;&lt;/nx-switch&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
         <h3>showToast <a href="https://github.com/adobe/da-nx/blob/main/docs/toast.md" target="_blank"
             rel="noopener">docs →</a></h3>
         <div class="sg-demo">
@@ -416,6 +435,7 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
       import('/nx2/blocks/shared/picker/picker.js'),
       import('/nx2/blocks/shared/segmented-btn/segmented.js'),
       import('/nx2/blocks/shared/breadcrumb/breadcrumb.js'),
+      import('/nx2/blocks/shared/switch/switch.js'),
     ]);
 
     // nx-menu

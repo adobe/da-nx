@@ -1,0 +1,95 @@
+:host {
+  display: inline-block;
+}
+
+:host([hidden]) {
+  display: none !important;
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2-spacing-100);
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--s2-gray-800);
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.track {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 28px;
+  height: 16px;
+  padding: 2px;
+  border-radius: var(--s2-corner-radius-full, 999px);
+  background-color: var(--s2-gray-400);
+  transition: background-color 0.12s ease;
+}
+
+.handle {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--s2-gray-25);
+  transition: transform 0.12s ease;
+}
+
+button:focus-visible .track {
+  outline: 2px solid var(--s2-blue-900);
+  outline-offset: 2px;
+}
+
+:host([checked]) {
+  .track {
+    background-color: var(--s2-blue-900);
+  }
+
+  .handle {
+    transform: translateX(12px);
+  }
+}
+
+:host([size="sm"]) {
+  .track {
+    width: 24px;
+    height: 14px;
+  }
+
+  .handle {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+:host([size="sm"][checked]) .handle {
+  transform: translateX(10px);
+}
+
+button:hover:not(:disabled) .track {
+  background-color: var(--s2-gray-500);
+}
+
+:host([checked]) button:hover:not(:disabled) .track {
+  background-color: var(--s2-blue-1000);
+}
+
+.label {
+  font-size: var(--s2-component-m-regular-font-size);
+  line-height: var(--s2-component-m-regular-line-height);
+}
+
+:host([size="sm"]) .label {
+  font-size: var(--s2-component-s-regular-font-size);
+  line-height: var(--s2-component-s-regular-line-height);
+}
