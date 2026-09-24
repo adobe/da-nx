@@ -57,15 +57,23 @@ Components that want to add pills without holding a direct reference to the chat
 | `nx-add-to-chat` | `ADD_TO_CHAT` | `{ key?, id, label, ...contextFields }` | Adds or replaces a pill. If `key` is set, replaces any existing pill with the same key (use for selection-driven context that changes as the user moves focus). If `key` is omitted, appends a new pill regardless. Dispatching `{ key }` with no `id` removes the pill for that key. |
 Context fields on the detail (`blockName`, `innerText`, `proseIndex`) are forwarded to the agent as selection context on the next message. See [Selection context](#selection-context).
 
-**Setting a prompt programmatically:** Call `setPrompt(text, { autoSend? })` directly on the `nx-chat` element. Within DA Live, prefer dispatching `PANEL_EVENT.OPEN` (`nx2/utils/panel.js`) on `document` instead — this also ensures the chat panel is open before the prompt is set:
+### Setting a prompt programmatically
+
+Both `nx-chat` and `nx-chat-ao` expose `setPrompt(text, { autoSend? })` as an instance method, and both also listen for `CHAT_EVENT.SET_PROMPT` (`'nx-set-prompt'`, `nx2/utils/chat.js`) on `document` and call their own `setPrompt()` when it fires. Dispatch the event rather than calling the method directly — the caller doesn't need to know (or query for) which of the two elements is actually mounted:
+
+```js
+document.dispatchEvent(new CustomEvent(CHAT_EVENT.SET_PROMPT, { detail: { text, autoSend } }));
+```
+
+Within DA Live, prefer dispatching `PANEL_EVENT.OPEN` (`nx2/utils/panel.js`) instead of `CHAT_EVENT.SET_PROMPT` directly — this also ensures the chat panel is open before the prompt is set:
 
 ```js
 document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, { detail: { section: 'chat', options: { text, autoSend } } }));
 ```
 
-The registered `'chat'` section's `onShow` reads `options.text`/`options.autoSend` and calls `setPrompt()` on the mounted `nx-chat` element — see the host page's `registerPanelSection('chat', { onShow })`.
+The registered `'chat'` section's `onShow` reads `options.text`/`options.autoSend` and dispatches `CHAT_EVENT.SET_PROMPT` — see the host page's `registerPanelSection('chat', { onShow })`.
 
-**Extension iframe usage:** Extensions running in cross-origin iframes cannot dispatch document events directly. Use `actions.setPrompt(text)` or `actions.setPrompt(text, { autoSend: true })` from the DA SDK — the iframe protocol relays it to `PANEL_EVENT.OPEN` (`{ section: 'chat', options: { text, autoSend } }`) on the host document, which opens the panel and calls `setPrompt()` on the chat element. `actions.setPrompt` is available on the object resolved from `DA_SDK`.
+**Extension iframe usage:** Extensions running in cross-origin iframes cannot dispatch document events directly. Use `actions.setPrompt(text)` or `actions.setPrompt(text, { autoSend: true })` from the DA SDK — the iframe protocol relays it to `PANEL_EVENT.OPEN` (`{ section: 'chat', options: { text, autoSend } }`) on the host document, which opens the panel and (via its `onShow`) dispatches `CHAT_EVENT.SET_PROMPT` for whichever chat element is mounted. `actions.setPrompt` is available on the object resolved from `DA_SDK`.
 
 ## Selection context
 
