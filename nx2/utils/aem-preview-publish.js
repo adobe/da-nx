@@ -91,7 +91,10 @@ export async function runAemPreviewOrPublish({ aemPath, action }) {
   if (action === 'publish') {
     json = await saveToAem(aemPath, 'live');
     if (json.error) {
-      return { ok: false, error: json.error };
+      // saveToAem builds the error against the internal 'live' action; rewrite
+      // it to 'publish' so the dialog and role request reflect what the user asked for.
+      const message = json.error.message.replace(/live(?=\.?$)/, 'publish');
+      return { ok: false, error: { ...json.error, action: 'publish', message } };
     }
   }
 

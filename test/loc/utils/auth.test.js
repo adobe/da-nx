@@ -1,5 +1,12 @@
 import { expect } from '@esm-bundle/chai';
-import authReady, { getAccessToken } from '../../../nx/blocks/loc/utils/auth.js';
+import authReady, {
+  getAccessToken, hasImsSession, imsAccessToken, imsAuthHeader,
+} from '../../../nx/blocks/loc/utils/auth.js';
+
+// Dynamic-expression import (not a literal string) so @web/dev-server-import-maps
+// does not rewrite this to ...?wds-import-map=0. See test/nx2/utils/api.test.js.
+const imsPath = '../../../nx2/utils/ims.js';
+const { setMockIms, resetMockIms } = await import(imsPath);
 
 const LOGIN_ORIGIN = 'https://da-etc.adobeaem.workers.dev';
 
@@ -26,11 +33,14 @@ function tokenResponse(accessToken, expiresIn = 3600) {
 }
 
 describe('auth', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    resetMockIms();
+    sessionStorage.clear();
+  });
 
   afterEach(() => {
     restoreFetch();
-    localStorage.clear();
+    sessionStorage.clear();
   });
 
   describe('getAccessToken', () => {
@@ -43,7 +53,7 @@ describe('auth', () => {
       expect(calls).to.have.length(1);
       expect(calls[0].url).to.equal(`${LOGIN_ORIGIN}/acme/sites/site1/integrations/example/login?env=prod`);
       expect(calls[0].method).to.equal('POST');
-      expect(localStorage.getItem('example.acme.site1.prod.token')).to.not.equal(null);
+      expect(sessionStorage.getItem('example.acme.site1.prod.token')).to.not.equal(null);
     });
 
     it('reuses the cached token without refetching while unexpired', async () => {
@@ -66,8 +76,8 @@ describe('auth', () => {
       await getAccessToken('example', { org: 'acme', site: 'site3', env: 'prod' });
 
       const key = 'example.acme.site3.prod.token';
-      const stored = JSON.parse(localStorage.getItem(key));
-      localStorage.setItem(key, JSON.stringify({ ...stored, expires: Date.now() - 1000 }));
+      const stored = JSON.parse(sessionStorage.getItem(key));
+      sessionStorage.setItem(key, JSON.stringify({ ...stored, expires: Date.now() - 1000 }));
 
       const token = await getAccessToken('example', { org: 'acme', site: 'site3', env: 'prod' });
 
@@ -83,9 +93,9 @@ describe('auth', () => {
       await getAccessToken('trados', { org: 'acme', site: 'site4', env: 'stage' });
 
       expect(calls).to.have.length(3);
-      expect(localStorage.getItem('trados.acme.site4.prod.token')).to.not.equal(null);
-      expect(localStorage.getItem('lionbridge.acme.site4.prod.token')).to.not.equal(null);
-      expect(localStorage.getItem('trados.acme.site4.stage.token')).to.not.equal(null);
+      expect(sessionStorage.getItem('trados.acme.site4.prod.token')).to.not.equal(null);
+      expect(sessionStorage.getItem('lionbridge.acme.site4.prod.token')).to.not.equal(null);
+      expect(sessionStorage.getItem('trados.acme.site4.stage.token')).to.not.equal(null);
     });
 
     it('defaults env to prod when not specified', async () => {
@@ -94,7 +104,7 @@ describe('auth', () => {
       await getAccessToken('example', { org: 'acme', site: 'site5' });
 
       expect(calls[0].url).to.include('env=prod');
-      expect(localStorage.getItem('example.acme.site5.prod.token')).to.not.equal(null);
+      expect(sessionStorage.getItem('example.acme.site5.prod.token')).to.not.equal(null);
     });
 
     it('returns null when the login request fails', async () => {
@@ -144,6 +154,40 @@ describe('auth', () => {
       installFetch(async () => new Response('', { status: 500 }));
 
       expect(await authReady('example', { org: 'acme', site: 'site9', env: 'prod' })).to.equal(false);
+    });
+  });
+
+  describe('imsAccessToken / imsAuthHeader', () => {
+    it('resolves the token from the current IMS session', async () => {
+      expect(await imsAccessToken()).to.equal('test-token');
+    });
+
+    it('resolves null and does not throw when there is no IMS session', async () => {
+      setMockIms({ anonymous: true });
+
+      expect(await imsAccessToken()).to.equal(null);
+    });
+
+    it('builds an Authorization header from the IMS session', async () => {
+      expect(await imsAuthHeader()).to.deep.equal({ Authorization: 'Bearer test-token' });
+    });
+
+    it('returns an empty header when there is no IMS session', async () => {
+      setMockIms({ anonymous: true });
+
+      expect(await imsAuthHeader()).to.deep.equal({});
+    });
+  });
+
+  describe('hasImsSession', () => {
+    it('resolves true when there is a current IMS session', async () => {
+      expect(await hasImsSession()).to.equal(true);
+    });
+
+    it('resolves false without throwing or triggering sign-in when there is no IMS session', async () => {
+      setMockIms({ anonymous: true });
+
+      expect(await hasImsSession()).to.equal(false);
     });
   });
 });

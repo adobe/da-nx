@@ -47,12 +47,14 @@
 
   .session-picker {
     --nx-picker-max-width: 50%;
-    --nx-picker-height: 24px;
+    --nx-picker-height: 32px;
   }
 
   & > div {
     display: inline-flex;
+    flex-shrink: 0;
     margin-inline-start: auto;
+    white-space: nowrap;
   }
 }
 
@@ -489,6 +491,11 @@
   color: var(--s2-gray-800);
 }
 
+.nx-action-btn-quiet,
+.nx-action-btn-icon:not(.nx-btn-sm) {
+  font-size: var(--s2-component-m-regular-font-size);
+}
+
 .chat-form-wrap {
   max-width: 720px;
   width: calc(100% - 2 * var(--s2-spacing-200));
@@ -605,6 +612,9 @@
 
   .nx-action-btn-icon.nx-btn-sm  {
     padding: var(--s2-spacing-75);
+  }
+
+  .nx-action-btn-icon.chat-send {
     border-radius: 20px;
   }
 }

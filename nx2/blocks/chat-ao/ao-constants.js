@@ -35,7 +35,7 @@ export const COWORKER_SKILLS_URL = 'https://experience.adobe.com/#/coworker/cust
 
 export const COWORKER_CHAT_URL = 'https://experience.adobe.com/#/coworker';
 
-export const ENTERPRISE_CONTEXT_URL = 'https://experience.adobe.com/#/experiencemanager/enterprise-context';
+export const ENTERPRISE_CONTEXT_URL = 'https://experience.adobe.com/#/experiencemanager/experience-context';
 
 export const ADD_MENU_ITEMS = [
   { section: 'Add' },
@@ -45,7 +45,7 @@ export const ADD_MENU_ITEMS = [
   { divider: true },
   { id: MENU_OPTIONS.MANAGE_SKILLS, label: 'Manage Coworker' },
   { id: MENU_OPTIONS.MANAGE_PROMPT, label: 'Manage Prompts' },
-  { id: MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT, label: 'Manage Enterprise Context' },
+  { id: MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT, label: 'Manage Experience Context' },
 ];
 
 export const OPEN_COWORKER_ITEM = { id: 'coworker', label: 'Continue in Coworker' };

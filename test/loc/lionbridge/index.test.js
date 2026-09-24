@@ -82,13 +82,13 @@ function baseService(overrides = {}) {
 
 describe('lionbridge connector', () => {
   beforeEach(() => {
-    localStorage.clear();
+    sessionStorage.clear();
     installFetch();
   });
 
   afterEach(() => {
     restoreFetch();
-    localStorage.clear();
+    sessionStorage.clear();
   });
 
   describe('isConnected / connect', () => {

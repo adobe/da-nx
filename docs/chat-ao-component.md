@@ -10,6 +10,14 @@ per backend. Which client loads for a given org/site is decided by
 `loadChat()` in `nx2/utils/chat.js` (the `ew.coworker` flag, or the
 `?nx-chat-ao=true` dev override).
 
+Because either element can be mounted for a given org/site, `nx-chat-ao`
+exposes `setPrompt(text, { autoSend? })` with the same signature as
+`nx-chat`'s, and listens for the same `CHAT_EVENT.SET_PROMPT` document event
+(see [chat-ui-component.md § Setting a prompt programmatically](./chat-ui-component.md#setting-a-prompt-programmatically))
+so callers — including the `PANEL_EVENT.OPEN`/DA SDK `actions.setPrompt`
+paths documented there — don't need to know which element they got, and
+don't need to query for it either.
+
 ## Session warming
 
 `AoChatController.warmSession()` (`ao-controller.js`) kicks the current

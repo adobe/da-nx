@@ -334,7 +334,13 @@ export async function mergeCopy(
     const { acceptedHashes, rejectedHashes } = getPreviousHashes(daMetadata);
 
     // There are differences, upload the annotated loc file
-    const diffed = await regionalDiff(langstoreCopy, regionalCopy, acceptedHashes, rejectedHashes);
+    const diffed = await regionalDiff(
+      langstoreCopy,
+      regionalCopy,
+      acceptedHashes,
+      rejectedHashes,
+      { normalizeImages: url.normalizeImages },
+    );
 
     if (labelLocal) daMetadata['diff-label-local'] = labelLocal;
     if (labelUpstream) daMetadata['diff-label-upstream'] = labelUpstream;
