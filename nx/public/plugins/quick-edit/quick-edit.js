@@ -4,6 +4,7 @@ import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 import { restoreBlockIndices } from './src/dom-index.js';
+import { handleRemoteTableDrag, setupTableDropListeners } from './src/table-drop.js';
 import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
 import {
   getQuickEditPortalSrc,
@@ -50,6 +51,7 @@ async function setBody(body, ctx) {
   setupContentEditableListeners(ctx);
   if (!ctx.readOnly) {
     setupImageDropListeners(ctx, document.body.querySelector('main'));
+    if (parentControllerPort) setupTableDropListeners(ctx);
   }
   if (!parentControllerPort) {
     setupActions(ctx);
@@ -116,6 +118,11 @@ function setupParentController(loadPage) {
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
     setupCommentShortcut(ctx);
+    window.addEventListener('message', (message) => {
+      if (message.source === window.parent && message.data?.type === 'ew-table-drag-preview') {
+        handleRemoteTableDrag(message.data);
+      }
+    });
 
     window.removeEventListener('message', listener);
   };

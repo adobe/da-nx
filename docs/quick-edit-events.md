@@ -65,6 +65,7 @@ parallel one. If you do add a new key:
 | `STORED_MARKS` | iframe → host | da-live only |
 | `PREVIEW` | iframe ↔ host (request/reply) | standalone (quick-edit-portal) only |
 | `IMAGE_REPLACE` | iframe ↔ host (request/reply) | both hosts |
+| `TABLE_DROP` | iframe → host | da-live only |
 | `SET_COMMENT_MARKERS` | Host → iframe | da-live only |
 | `SCROLL_TO_POS` | Host → iframe | da-live only |
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
@@ -122,6 +123,21 @@ Image drag-drop upload flow, request/reply on the same type: the iframe sends th
 upload request, the host replies with the same `IMAGE_REPLACE` type, distinguished by
 `payload.error` (failure) vs `payload.newSrc` (success). Both hosts implement the full
 round-trip.
+
+### `TABLE_DROP`
+
+In the da-live-embedded layout view, a drag with `text/html` containing a table
+can be dropped before or after an indexed page element. The iframe displays an
+out-of-flow insertion line and sends the HTML plus the selected boundary to
+da-live. The host validates the anchor and write permission and inserts the
+parsed table into its ProseMirror document. The standalone portal does not
+consume this message, so its iframe does not enable this drop target.
+For sidebar iframes whose native drags cannot enter the preview iframe, da-live
+creates host-document drag handles over the visible sidebar variants and
+temporarily covers the preview with a drop surface. Its `ew-table-drag-preview`
+window message carries the pointer position (or HTML on drop) to the preview,
+which resolves the same indexed anchor and emits the same `TABLE_DROP` message.
+Other `text/html` drops still use the preview's native drag listeners.
 
 ### Comments (`SET_COMMENT_MARKERS` / `SCROLL_TO_POS` / `COMMENT_MARKER_CLICK` / `COMMENT_MARKER_CLEAR` / `COMMENT_SHORTCUT`)
 

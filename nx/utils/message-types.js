@@ -31,6 +31,7 @@ export const MESSAGE_TYPES = Object.freeze({
   COMMENT_MARKER_CLEAR: 'comment-marker-clear', // no payload
   COMMENT_SHORTCUT: 'comment-shortcut', // no payload
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }
+  TABLE_DROP: 'table-drop', // { html: string, anchor: { kind: 'block' | 'text' | 'image', index: number }, side: 'before' | 'after' }
 
   // Iframe -> host (request): { cursorOffset, imageData, fileName, mimeType, originalSrc }
   // Host -> iframe (reply): { originalSrc, newSrc } | { originalSrc, error }
