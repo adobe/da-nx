@@ -2,6 +2,7 @@ import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc,
 import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
+import { replaceChanges } from './src/reload.js';
 
 import { loadPageStyle } from '../../../utils/utils.js';
 
@@ -12,8 +13,8 @@ const QUICK_EDIT_ID = 'quick-edit-iframe';
 
 async function setBody(body, ctx) {
   const doc = new DOMParser().parseFromString(body, 'text/html');
-  document.body.innerHTML = doc.body.innerHTML;
-  await ctx.loadPage(document);
+  replaceChanges({ ctx, doc, targetDocument: document });
+  await ctx.reload(document);
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
   setupActions(ctx);
@@ -52,12 +53,12 @@ function getQuickEditSrc() {
   return `https://main--da-live--adobe.aem.live/plugins/quick-edit?nx=${ref}`;
 }
 
-export default async function loadQuickEdit({ detail: payload }, loadPage) {
+export default async function loadQuickEdit({ detail: payload }, reloadCallback) {
   if (document.getElementById(QUICK_EDIT_ID)) return;
 
   const ctx = {
     initialized: false,
-    loadPage,
+    loadPage: reloadCallback,
   };
 
   const iframe = document.createElement('iframe');
