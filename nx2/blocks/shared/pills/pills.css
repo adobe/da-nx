@@ -77,7 +77,7 @@
     white-space: nowrap;
     flex: 1;
     min-width: 0;
-    font-size: var(--s2-body-size-xs);
+    font-size: var(--s2-component-s-medium-font-size);
     color: var(--s2-blue-1000);
     line-height: var(--s2-component-s-medium-line-height);
   }
