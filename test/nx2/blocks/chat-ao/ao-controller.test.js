@@ -871,6 +871,49 @@ describe('ao-controller episodes', () => {
     expect(updates.at(-1).episodes).to.deep.equal([]);
   });
 
+  it('loadEpisodes leaves an episode more than 24h stale unloaded and surfaces it as staleEpisode', async () => {
+    const { controller, updates } = makeController();
+    const staleUpdatedAt = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    controller._fetchEpisodes = async () => [{ id: '2', title: 'Old chat', updated_at: staleUpdatedAt }];
+    const fetchMessages = () => { throw new Error('should not fetch messages for a stale episode'); };
+    controller._fetchEpisodeMessages = fetchMessages;
+
+    await controller.loadEpisodes();
+
+    expect(controller._episodeId).to.equal(undefined);
+    expect(controller._staleEpisode).to.deep.equal({ id: '2', title: 'Old chat', updated_at: staleUpdatedAt });
+    expect(updates.at(-1).staleEpisode).to.deep.equal(controller._staleEpisode);
+  });
+
+  it('loadEpisodes still auto-loads an episode updated less than 24h ago', async () => {
+    const { controller, updates } = makeController();
+    const freshUpdatedAt = new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString();
+    controller._fetchEpisodes = async () => [{ id: '2', title: 'Recent chat', updated_at: freshUpdatedAt }];
+    controller._fetchEpisodeMessages = async () => [];
+
+    await controller.loadEpisodes();
+
+    expect(controller._episodeId).to.equal('2');
+    expect(controller._staleEpisode).to.equal(undefined);
+    expect(updates.at(-1).staleEpisode).to.equal(undefined);
+  });
+
+  it('switchEpisode resumes a staleEpisode left over from loadEpisodes and clears it', async () => {
+    const { controller } = makeController();
+    controller._ws = { close: () => { controller._ws = null; } };
+    const staleUpdatedAt = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    controller._fetchEpisodes = async () => [{ id: '2', title: 'Old chat', updated_at: staleUpdatedAt }];
+    controller._fetchEpisodeMessages = async (id) => [{ role: 'assistant', content: `from ${id}` }];
+    await controller.loadEpisodes();
+    expect(controller._staleEpisode).to.not.equal(undefined);
+
+    await controller.switchEpisode('2');
+
+    expect(controller._episodeId).to.equal('2');
+    expect(controller._staleEpisode).to.equal(undefined);
+    expect(controller._messages).to.deep.equal([{ role: 'assistant', content: 'from 2' }]);
+  });
+
   it('switchEpisode hydrates the picked episode and resets the socket', async () => {
     const { controller, updates } = makeController();
     controller._episodeId = '1';

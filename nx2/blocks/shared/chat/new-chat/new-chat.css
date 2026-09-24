@@ -4,7 +4,6 @@
   flex: 1;
   font-family: var(--s2-font-family);
   font-size: var(--s2-body-size-s);
-  padding-bottom: var(--s2-spacing-300);
 
   button {
     cursor: pointer;
@@ -31,10 +30,14 @@
   }
 }
 
+.chat-welcome-message-compact {
+  flex: 0 0 auto;
+  justify-content: flex-start;
+}
+
 .prompt-cards {
+  margin-top: auto;
   gap: var(--s2-spacing-75);
-  margin-top: var(--s2-spacing-200);
-  padding: 0 var(--s2-spacing-75);
 }
 
 .prompt-card {
@@ -72,4 +75,46 @@
   text-align: left;
   width: fit-content;
   padding: var(--s2-spacing-75) var(--s2-spacing-200);
+}
+
+
+.continue-session-card {
+  margin-top: var(--s2-spacing-200);
+  border-color: var(--s2-blue-300);
+  background: var(--s2-blue-100);
+  width: 100%;
+
+  &:hover {
+    background: var(--s2-blue-200);
+    border-color: var(--s2-blue-300);
+  }
+
+  .prompt-card-icon {
+    color: var(--s2-blue-900);
+  }
+}
+
+.continue-session-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.continue-session-eyebrow {
+  font-size: var(--s2-component-xs-bold-font-size);
+  font-weight: var(--s2-component-xs-bold-font-weight);
+  color: var(--s2-gray-600);
+}
+
+.continue-session-preview {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.continue-session-time {
+  font-size: var(--s2-component-xs-regular-font-size);
+  color: var(--s2-gray-700);
 }
