@@ -606,11 +606,13 @@ export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false 
   }
 
   opts.headers = opts.headers || {};
+  const isPrivilegedOrigin = [HLX_ADMIN, AEM_API].some((origin) => new URL(url).origin === origin);
+  if (isPrivilegedOrigin) opts.referrerPolicy = 'unsafe-url';
 
   const canToken = ALLOWED_TOKEN.some((origin) => new URL(url).origin === origin);
   if (canToken) {
     opts.headers.Authorization = `Bearer ${accessToken.token}`;
-    if ([HLX_ADMIN, AEM_API].some((origin) => new URL(url).origin === origin)) {
+    if (isPrivilegedOrigin) {
       opts.headers['x-content-source-authorization'] = `Bearer ${accessToken.token}`;
       opts.headers.Authorization = `Bearer ${accessToken.token}`;
     }
