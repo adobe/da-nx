@@ -12,6 +12,32 @@ export function setupContentEditableListeners(ctx) {
   });
 }
 
+function replaceImageFromFile(ctx, img, file) {
+  if (!file?.type.startsWith('image/')) return;
+  const picture = img.closest('picture');
+  const dataCursor = img.getAttribute('data-prose-index');
+  const originalSrc = img.src;
+  picture?.classList.add('image-uploading');
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const cursorOffset = dataCursor ? parseInt(dataCursor, 10) : null;
+    const { name: fileName, type: mimeType } = file;
+    ctx.port.postMessage({
+      type: MESSAGE_TYPES.IMAGE_REPLACE,
+      payload: {
+        cursorOffset, imageData: reader.result, fileName, mimeType, originalSrc,
+      },
+    });
+  };
+  reader.onerror = () => {
+    picture?.classList.remove('image-uploading');
+    // eslint-disable-next-line no-console
+    console.error('Failed to read image file');
+  };
+  reader.readAsDataURL(file);
+}
+
 export function setupImageDropListeners(ctx, dom = document) {
   const images = dom.querySelectorAll('picture img');
 
@@ -46,40 +72,11 @@ export function setupImageDropListeners(ctx, dom = document) {
           picture?.classList.remove('image-drop-target');
         }
       },
-      drop: async (e) => {
+      drop: (e) => {
         e.preventDefault();
         e.stopPropagation();
         picture?.classList.remove('image-drop-target');
-
-        const file = e.dataTransfer.files[0];
-        if (!file?.type.startsWith('image/')) return;
-
-        // Get tracking attributes
-        const dataCursor = img.getAttribute('data-prose-index');
-        const originalSrc = img.src;
-
-        // Show loading state
-        picture?.classList.add('image-uploading');
-
-        // Read and send the image to DA editor for upload
-        const reader = new FileReader();
-        reader.onload = () => {
-          const cursorOffset = dataCursor ? parseInt(dataCursor, 10) : null;
-          const imageData = reader.result;
-          const { name: fileName, type: mimeType } = file;
-          ctx.port.postMessage({
-            type: MESSAGE_TYPES.IMAGE_REPLACE,
-            payload: {
-              cursorOffset, imageData, fileName, mimeType, originalSrc,
-            },
-          });
-        };
-        reader.onerror = () => {
-          picture?.classList.remove('image-uploading');
-          // eslint-disable-next-line no-console
-          console.error('Failed to read image file');
-        };
-        reader.readAsDataURL(file);
+        replaceImageFromFile(ctx, img, e.dataTransfer.files[0]);
       },
     };
 
@@ -88,6 +85,27 @@ export function setupImageDropListeners(ctx, dom = document) {
     img.addEventListener('dragleave', img.listeners.dragleave);
     img.addEventListener('drop', img.listeners.drop);
   });
+}
+
+let remoteDropPicture;
+
+export function handleRemoteImageDrag({ phase, x, y, file }, ctx, dom = document) {
+  remoteDropPicture?.classList.remove('image-drop-target');
+  remoteDropPicture = null;
+  if (phase === 'leave') return;
+  if (ctx.readOnly || !['over', 'drop'].includes(phase)
+    || !Number.isFinite(x) || !Number.isFinite(y)) return;
+  const target = dom.elementFromPoint(x, y);
+  const img = target?.closest('main picture img');
+  if (!img) return;
+  const picture = img.closest('picture');
+  if (phase === 'over') {
+    picture.classList.add('image-drop-target');
+    remoteDropPicture = picture;
+    return;
+  }
+  if (!(file instanceof File) || !file.type.startsWith('image/')) return;
+  replaceImageFromFile(ctx, img, file);
 }
 
 export function updateImageSrc(originalSrc, newSrc) {

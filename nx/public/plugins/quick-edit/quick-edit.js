@@ -1,4 +1,7 @@
-import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc, handleImageError } from './src/images.js';
+import {
+  setupContentEditableListeners, setupImageDropListeners, updateImageSrc,
+  handleImageError, handleRemoteImageDrag,
+} from './src/images.js';
 import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
@@ -121,6 +124,9 @@ function setupParentController(loadPage) {
     window.addEventListener('message', (message) => {
       if (message.source === window.parent && message.data?.type === 'ew-table-drag-preview') {
         handleRemoteTableDrag(message.data);
+      } else if (message.source === window.parent && message.data?.type === 'ew-asset-drag-preview'
+        && !ctx.readOnly) {
+        handleRemoteImageDrag(message.data, ctx);
       }
     });
 
