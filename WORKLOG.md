@@ -1,5 +1,14 @@
 # Worklog
 
+## 2026-09-24
+
+### Editor toggle in the header on both editor routes
+
+The nav-injected `nx-editortoggle` now renders on `/edit` and `/canvas`.
+Removed the duplicate profile-menu variant and its styles; the header
+instance still handles the one-time welcome and switch-back prompts.
+Added route-visibility tests.
+
 ## 2026-09-23
 
 ### nx2/utils/api.js — scope `referrerPolicy: unsafe-url` to HLX_ADMIN/AEM_API
