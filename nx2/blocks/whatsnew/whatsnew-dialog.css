@@ -196,7 +196,8 @@
   margin-bottom: var(--s2-spacing-400);
 }
 
-.wn-card-image img {
+.wn-card-image img,
+.wn-card-image video {
   display: block;
   width: 100%;
   height: auto;

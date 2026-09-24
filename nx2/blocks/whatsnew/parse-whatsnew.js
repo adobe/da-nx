@@ -19,10 +19,11 @@ export async function fetchPublishedDate(path) {
 /**
  * Turns a loaded what's-new fragment into card entries. Expects the fragment
  * markup authored in DA: one `main > div` section per entry, each containing
- * a `<picture>`, an `<h3 id="...">` title (the id is used as the anchor for
- * scrollspy), and a body `<p>`.
+ * either a `<picture>` or a link to an `.mp4` file, an `<h3 id="...">` title
+ * (the id is used as the anchor for scrollspy), and a body `<p>`.
  * @param {HTMLElement} fragment root element returned by loadFragment()
- * @returns {{id: string, title: string, picture: Element|null, body: string}[]}
+ * @returns {{id: string, title: string, picture: Element|null,
+ *   videoSrc: string|null, body: string}[]}
  */
 export function parseWhatsNewEntries(fragment) {
   return [...fragment.children].reduce((entries, section) => {
@@ -30,12 +31,16 @@ export function parseWhatsNewEntries(fragment) {
     if (!h3?.id) return entries;
 
     const picture = section.querySelector('picture');
-    const body = [...section.querySelectorAll('p')].find((p) => !p.querySelector('picture'));
+    const videoSrc = section.querySelector('a[href$=".mp4"]')?.getAttribute('href') ?? null;
+    const body = [...section.querySelectorAll('p')].find(
+      (p) => !p.querySelector('picture') && !p.querySelector('a[href$=".mp4"]'),
+    );
 
     entries.push({
       id: h3.id,
       title: h3.textContent.trim(),
       picture,
+      videoSrc,
       body: body?.textContent.trim() ?? '',
     });
     return entries;

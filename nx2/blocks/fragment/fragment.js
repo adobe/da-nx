@@ -10,6 +10,7 @@ function replaceDotMedia(path, doc) {
   };
   resetAttributeBase('img', 'src');
   resetAttributeBase('source', 'srcset');
+  resetAttributeBase('a', 'href');
 }
 
 /**
@@ -40,13 +41,15 @@ export async function loadFragment(path) {
   const html = await resp.text();
   const doc = new DOMParser().parseFromString(html, 'text/html');
 
+  // Must run before sections are moved out of doc below (append() moves,
+  // it doesn't clone), otherwise it queries an already-empty doc.
+  replaceDotMedia(path, doc);
+
   const sections = doc.body.querySelectorAll('main > div');
   const fragment = document.createElement('div');
   fragment.classList.add('fragment-content');
   fragment.append(...sections);
   fragment.publishedDate = doc.querySelector('meta[name="published-date"]')?.content ?? null;
-
-  replaceDotMedia(path, doc);
 
   const container = applyPageStyles(fragment);
 

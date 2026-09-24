@@ -54,6 +54,27 @@ describe('parseWhatsNewEntries', () => {
     const fragment = buildFragment('');
     expect(parseWhatsNewEntries(fragment)).to.deep.equal([]);
   });
+
+  it('extracts a videoSrc from a linked .mp4 and excludes it from the body', () => {
+    const fragment = buildFragment(`
+      <div>
+        <h3 id="entry-1">Feature</h3>
+        <p><a href="./media_1.mp4">https://example.com/media_1.mp4</a></p>
+        <p>Real body text</p>
+      </div>
+    `);
+    const entries = parseWhatsNewEntries(fragment);
+    expect(entries[0].picture).to.equal(null);
+    expect(entries[0].videoSrc).to.equal('./media_1.mp4');
+    expect(entries[0].body).to.equal('Real body text');
+  });
+
+  it('has a null videoSrc when there is no linked .mp4', () => {
+    const fragment = buildFragment(`
+      <div><h3 id="entry-1">Feature</h3><picture><img src="./media_1.png"></picture><p>Body</p></div>
+    `);
+    expect(parseWhatsNewEntries(fragment)[0].videoSrc).to.equal(null);
+  });
 });
 
 describe('fetchPublishedDate', () => {

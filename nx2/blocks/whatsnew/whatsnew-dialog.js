@@ -12,6 +12,8 @@ const closeIcon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_Close_20_N.svg`);
 // Relative path, resolves against whatever host serves the current page.
 const WHATSNEW_PATH = '/nx/fragments/guides/whats-new';
 
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 // Tracks last input type, to skip the ring browsers show by default on any scripted .focus() call.
 let lastInputWasPointer = false;
 window.addEventListener('pointerdown', () => { lastInputWasPointer = true; }, true);
@@ -139,6 +141,14 @@ class NxWhatsNewDialog extends LitElement {
   _observeCards() {
     const cards = [...this.shadowRoot.querySelectorAll('.wn-card')];
     this._observer = new IntersectionObserver((observed) => {
+      // Defer loading each card's video until it actually scrolls into view.
+      observed.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const video = entry.target.querySelector('video[data-src]');
+        if (!video) return;
+        video.src = video.dataset.src;
+        delete video.dataset.src;
+      });
       // Skip while a click-triggered scroll is animating, avoids flipping _activeId back.
       if (this._suppressObserver) return;
       const visible = observed.filter((entry) => entry.isIntersecting);
@@ -216,7 +226,17 @@ class NxWhatsNewDialog extends LitElement {
             <div class="wn-cards">
               ${this._entries.map((entry) => html`
                 <article class="wn-card" data-id=${entry.id}>
-                  <div class="wn-card-image">${entry.picture}</div>
+                  <div class="wn-card-image">
+                    ${entry.videoSrc ? html`
+                      <video
+                        data-src=${entry.videoSrc}
+                        ?autoplay=${!prefersReducedMotion}
+                        loop
+                        muted
+                        playsinline
+                      ></video>
+                    ` : entry.picture}
+                  </div>
                   <h3 class="wn-card-title">${entry.title}</h3>
                   <p class="wn-card-body">${entry.body}</p>
                 </article>
