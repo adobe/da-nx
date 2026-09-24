@@ -272,7 +272,14 @@ export async function rolloutCopy(
     const { acceptedHashes, rejectedHashes } = getPreviousHashes(daMetadata);
 
     // There are differences, upload the diffed regional file
-    const diffed = await regionalDiff(langstoreCopy, regionalCopy, acceptedHashes, rejectedHashes);
+    const { org, repo } = getDaUrl(url);
+    const diffed = await regionalDiff(
+      langstoreCopy,
+      regionalCopy,
+      acceptedHashes,
+      rejectedHashes,
+      { org, site: repo },
+    );
 
     if (labelLocal) daMetadata['diff-label-local'] = labelLocal;
     if (labelUpstream) daMetadata['diff-label-upstream'] = labelUpstream;
@@ -334,12 +341,13 @@ export async function mergeCopy(
     const { acceptedHashes, rejectedHashes } = getPreviousHashes(daMetadata);
 
     // There are differences, upload the annotated loc file
+    const { org, repo } = getDaUrl(url);
     const diffed = await regionalDiff(
       langstoreCopy,
       regionalCopy,
       acceptedHashes,
       rejectedHashes,
-      { normalizeImages: url.normalizeImages },
+      { normalizeImages: url.normalizeImages, org, site: repo },
     );
 
     if (labelLocal) daMetadata['diff-label-local'] = labelLocal;

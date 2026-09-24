@@ -598,8 +598,17 @@ export const asText = (promise) => unwrap(promise, 'text');
 // Low-level fetch + upgrade probe
 // ============================================================================
 
+// Lets an iframe-hosted caller (e.g. a DA_SDK plugin) hand daFetch a live
+// token instead of falling through to loadIms(), whose dynamic getNx()
+// lookup resolves against window.location.origin and can diverge
+// from the token the plugin's host frame actually issued.
+let overrideAccessToken;
+export function setAccessToken(getAccessToken) {
+  overrideAccessToken = getAccessToken;
+}
+
 export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false }) => {
-  const { accessToken } = await loadIms();
+  const accessToken = (await overrideAccessToken?.()) || (await loadIms()).accessToken;
   if (!accessToken) {
     handleSignIn();
     return {};

@@ -1,8 +1,10 @@
 import DA_SDK from 'https://da.live/nx/utils/sdk.js';
 import { LitElement, html, nothing } from 'https://da.live/nx/public/deps/lit/dist/index.js';
-import { mergeCopy, overwriteCopy } from 'https://da.live/nx/blocks/loc/project/index.js';
 import getStyle from 'https://da.live/nx/public/utils/styles.js';
 import getSvg from 'https://da.live/nx/public/utils/svg.js';
+import { mergeCopy, overwriteCopy } from '../../../../nx/blocks/loc/project/index.js';
+import { setAccessToken } from '../../../utils/api.js';
+import { initIms } from '../../../../nx/utils/daFetch.js';
 import getPrefixDetails from './index.js';
 
 const ICONS = [
@@ -143,6 +145,9 @@ customElements.define('da-rollout', DaRollout);
 
 (async function init() {
   const { context, token } = await DA_SDK;
+  // DA_SDK keeps nx1's daFetch.js token current on every postMessage
+  // refresh, so read it live on each request instead of snapshotting it.
+  setAccessToken(async () => (await initIms())?.accessToken);
 
   const daRollout = document.createElement('da-rollout');
   daRollout.path = context.path;
