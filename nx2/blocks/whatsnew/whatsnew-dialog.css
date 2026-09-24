@@ -227,7 +227,13 @@
 
 /* Mobile: toc collapses to a gray heading strip, cards stack full-width below. */
 @media (width < 600px) {
-  /* No width/height override needed, nx-dialog's own viewport clamping already shrinks it. */
+  /* Full-height and flush against the screen edges, otherwise it'd just float
+     centered with empty space above/below, undermining the sticky toc header. */
+  .wn-dialog {
+    --nx-dialog-outer-padding: 0;
+    --nx-dialog-min-height: 100dvh;
+    --nx-dialog-max-height: 100dvh;
+  }
 
   /* .wn-body itself owns scrolling here, so the sticky toc heading can sit above passing cards. */
   .wn-body {
