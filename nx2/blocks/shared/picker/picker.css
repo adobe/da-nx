@@ -136,10 +136,4 @@
     line-height: var(--s2-component-m-regular-line-height);
     color: var(--s2-gray-900);
   }
-
-  .picker-open-in-icon,
-  .picker-check {
-    width: var(--nx-list-item-icon-size-m);
-    height: var(--nx-list-item-icon-size-m);
-  }
 }
