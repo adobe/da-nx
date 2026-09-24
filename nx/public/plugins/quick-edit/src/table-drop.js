@@ -53,12 +53,6 @@ export function nearestTableDropAnchor(main, y, target) {
   return nearest;
 }
 
-export function containsTable(html) {
-  if (!html) return false;
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  return !!doc.body.querySelector('table');
-}
-
 let activeCtx = null;
 let activeAnchor = null;
 let listenersInstalled = false;
@@ -89,7 +83,7 @@ function isHtmlDrag(event) {
 }
 
 function sendTableDrop(html, anchor) {
-  if (!activeCtx || activeCtx.readOnly || !anchor || !containsTable(html)) return false;
+  if (!activeCtx || activeCtx.readOnly || !anchor || typeof html !== 'string' || !html.trim()) return false;
   const { kind, index, side } = anchor;
   activeCtx.port.postMessage({
     type: MESSAGE_TYPES.TABLE_DROP,
@@ -145,7 +139,7 @@ export function setupTableDropListeners(ctx) {
     removeIndicator();
     if (!activeCtx || activeCtx.readOnly || !anchor || !isHtmlDrag(event)) return;
     const html = event.dataTransfer.getData('text/html');
-    if (!containsTable(html)) return;
+    if (!html.trim()) return;
     event.preventDefault();
     event.stopPropagation();
     sendTableDrop(html, anchor);

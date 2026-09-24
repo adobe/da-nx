@@ -1,9 +1,9 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  containsTable, handleRemoteTableDrag, nearestTableDropAnchor, setupTableDropListeners,
+  handleRemoteTableDrag, nearestTableDropAnchor, setupTableDropListeners,
 } from '../../../../../nx/public/plugins/quick-edit/src/table-drop.js';
 
-describe('quick-edit table drop', () => {
+describe('quick-edit HTML drop', () => {
   let main;
   let block;
   let paragraph;
@@ -32,12 +32,6 @@ describe('quick-edit table drop', () => {
     setupTableDropListeners(null);
   });
 
-  it('accepts any table HTML, including a grouped wrapper', () => {
-    expect(containsTable('<table><tr><td>Hero</td></tr></table>')).to.equal(true);
-    expect(containsTable('<div><table></table><p>text</p></div>')).to.equal(true);
-    expect(containsTable('<p>No table</p>')).to.equal(false);
-  });
-
   it('chooses before/after boundaries and anchors nested content to the outer block', () => {
     expect(nearestTableDropAnchor(main, 20)).to.include({
       kind: 'block', index: 5, side: 'before',
@@ -54,7 +48,7 @@ describe('quick-edit table drop', () => {
     });
   });
 
-  it('shows a non-layout-shifting line and sends a generic table payload', () => {
+  it('shows a non-layout-shifting line and sends the HTML payload', () => {
     const transfer = new DataTransfer();
     transfer.setData('text/html', '<table><tr><td>Hero</td></tr></table>');
     const drag = new DragEvent('dragover', {
@@ -80,13 +74,23 @@ describe('quick-edit table drop', () => {
     }]);
   });
 
-  it('ignores non-table HTML, files, and read-only pages', () => {
+  it('accepts paragraph HTML and ignores empty HTML, files, and read-only pages', () => {
     const text = new DataTransfer();
     text.setData('text/html', '<p>Just text</p>');
     block.dispatchEvent(new DragEvent('drop', {
       bubbles: true, cancelable: true, clientY: 20, dataTransfer: text,
     }));
-    expect(sent).to.have.length(0);
+    expect(sent).to.deep.equal([{
+      type: 'table-drop',
+      payload: { html: '<p>Just text</p>', anchor: { kind: 'block', index: 5 }, side: 'before' },
+    }]);
+
+    const empty = new DataTransfer();
+    empty.setData('text/html', ' ');
+    block.dispatchEvent(new DragEvent('drop', {
+      bubbles: true, cancelable: true, clientY: 20, dataTransfer: empty,
+    }));
+    expect(sent).to.have.length(1);
 
     const files = new DataTransfer();
     files.setData('text/html', '<table><tr><td>Not a file drop</td></tr></table>');
@@ -118,7 +122,7 @@ describe('quick-edit table drop', () => {
     expect(document.querySelector('#qe-table-drop-indicator')).to.equal(null);
   });
 
-  it('uses the same insertion line and table transaction for a host-relayed drag', () => {
+  it('uses the same insertion line and HTML transaction for a host-relayed drag', () => {
     const { elementFromPoint } = document;
     document.elementFromPoint = () => paragraph;
     try {
@@ -131,8 +135,13 @@ describe('quick-edit table drop', () => {
         type: 'table-drop',
         payload: { html, anchor: { kind: 'text', index: 30 }, side: 'after' },
       }]);
-      handleRemoteTableDrag({ phase: 'drop', x: 20, y: 135, html: '<p>Not a table</p>' });
-      expect(sent).to.have.length(1);
+      handleRemoteTableDrag({ phase: 'drop', x: 20, y: 135, html: '<h2>Heading</h2>' });
+      expect(sent[1]).to.deep.equal({
+        type: 'table-drop',
+        payload: { html: '<h2>Heading</h2>', anchor: { kind: 'text', index: 30 }, side: 'after' },
+      });
+      handleRemoteTableDrag({ phase: 'drop', x: 20, y: 135, html: '' });
+      expect(sent).to.have.length(2);
       setupTableDropListeners({ readOnly: true, port: { postMessage: (msg) => sent.push(msg) } });
       handleRemoteTableDrag({ phase: 'over', x: 20, y: 135 });
       expect(document.querySelector('#qe-table-drop-indicator')).to.equal(null);

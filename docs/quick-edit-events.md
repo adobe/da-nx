@@ -65,7 +65,7 @@ parallel one. If you do add a new key:
 | `STORED_MARKS` | iframe → host | da-live only |
 | `PREVIEW` | iframe ↔ host (request/reply) | standalone (quick-edit-portal) only |
 | `IMAGE_REPLACE` | iframe ↔ host (request/reply) | both hosts |
-| `TABLE_DROP` | iframe → host | da-live only |
+| `TABLE_DROP` | iframe → host | da-live only (legacy name; accepts any HTML) |
 | `SET_COMMENT_MARKERS` | Host → iframe | da-live only |
 | `SCROLL_TO_POS` | Host → iframe | da-live only |
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
@@ -126,14 +126,16 @@ round-trip.
 
 ### `TABLE_DROP`
 
-In the da-live-embedded layout view, a drag with `text/html` containing a table
+In the da-live-embedded layout view, a drag with non-empty `text/html`
 can be dropped before or after an indexed page element. The iframe displays an
 out-of-flow insertion line and sends the HTML plus the selected boundary to
-da-live. The host validates the anchor and write permission and inserts the
-parsed table into its ProseMirror document. The standalone portal does not
-consume this message, so its iframe does not enable this drop target.
+da-live. The host validates the anchor and write permission and lets the
+ProseMirror schema parse and insert the HTML (including tables, headings, and
+paragraphs). The `TABLE_DROP` wire name remains for compatibility.
+The standalone portal does not consume this message, so its iframe does not
+enable this drop target.
 For sidebar iframes whose native drags cannot enter the preview iframe, da-live
-creates host-document drag handles over the visible sidebar variants and
+creates host-document drag handles over the visible sidebar items and
 temporarily covers the preview with a drop surface. Its `ew-table-drag-preview`
 window message carries the pointer position (or HTML on drop) to the preview,
 which resolves the same indexed anchor and emits the same `TABLE_DROP` message.
