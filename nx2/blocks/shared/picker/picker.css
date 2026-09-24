@@ -11,14 +11,14 @@
 }
 
 .picker-section {
-  padding: var(--s2-spacing-75) var(--s2-spacing-100) var(--s2-spacing-50);
+  padding: var(--s2-spacing-75) var(--s2-spacing-100) var(--s2-spacing-75);
   margin: 0;
   list-style: none;
   font-size: var(--s2-component-s-bold-font-size);
   line-height: var(--s2-component-s-bold-line-height);
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: var(--nx-picker-section-color, var(--s2-gray-700));
+  color: var(--s2-gray-700);
   text-transform: none;
 }
 
@@ -75,9 +75,9 @@
   width: 100%;
   padding: var(--s2-spacing-75) var(--s2-spacing-100);
   border: none;
-  border-radius: var(--s2-corner-radius-200);
+  border-radius: var(--nx-list-item-radius);
   background: none;
-  color: var(--nx-picker-item-color, var(--s2-gray-800));
+  color: var(--s2-gray-800);
   font-family: inherit;
   font-size: var(--s2-component-s-regular-font-size);
   line-height: var(--s2-component-s-regular-line-height);
@@ -86,29 +86,32 @@
   box-sizing: border-box;
   outline: none;
 
-  &:hover,
+  &:hover {
+    background: var(--nx-list-item-hover-bg);
+  }
+
   &.picker-item-active {
-    background: var(--s2-gray-200);
+    background: var(--nx-list-item-active-bg);
   }
 }
 
 .picker-open-in-icon {
-  width: 14px;
-  height: 14px;
+  width: var(--nx-list-item-icon-size);
+  height: var(--nx-list-item-icon-size);
   flex-shrink: 0;
   display: block;
   pointer-events: none;
 }
 
 .picker-check {
-  width: 14px;
-  height: 14px;
+  width: var(--nx-list-item-icon-size);
+  height: var(--nx-list-item-icon-size);
   flex-shrink: 0;
   color: var(--s2-gray-800);
 }
 
 .picker-divider {
-  margin: calc(var(--s2-spacing-100) - 2px) var(--s2-spacing-200)
+  margin: calc(var(--s2-spacing-100) - 2px) var(--s2-spacing-100)
     var(--s2-spacing-100);
   border: none;
   border-top: 1px solid var(--s2-gray-200);
@@ -117,8 +120,10 @@
 
 :host([size="m"]) {
   .picker-section {
-    font-size: var(--nx-picker-section-font-size, var(--s2-component-m-bold-font-size));
-    line-height: var(--nx-picker-section-line-height, var(--s2-component-m-bold-line-height));
+    font-size: var(--s2-component-s-regular-font-size);
+    line-height: var(--s2-component-s-regular-line-height);
+    font-weight: var(--s2-body-font-weight);
+    color: light-dark(var(--s2-gray-600), var(--s2-gray-700));
   }
 
   .picker-trigger {
@@ -129,11 +134,6 @@
   .picker-item {
     font-size: var(--s2-component-m-regular-font-size);
     line-height: var(--s2-component-m-regular-line-height);
-  }
-
-  .picker-open-in-icon,
-  .picker-check {
-    width: 16px;
-    height: 16px;
+    color: var(--s2-gray-900);
   }
 }
