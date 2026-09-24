@@ -134,6 +134,22 @@ describe('api.js', () => {
       const resp = await daFetch({ url: `${HLX_ADMIN}/ping/a/b` });
       expect(resp).to.deep.equal({});
     });
+
+    it('sets referrerPolicy to unsafe-url for HLX_ADMIN and AEM_API', async () => {
+      await daFetch({ url: `${HLX_ADMIN}/ping/x/y` });
+      expect(lastCall().referrerPolicy).to.equal('unsafe-url');
+
+      await daFetch({ url: `${AEM_API}/some/path` });
+      expect(lastCall().referrerPolicy).to.equal('unsafe-url');
+    });
+
+    it('does not set referrerPolicy for other origins', async () => {
+      await daFetch({ url: `${DA_ADMIN}/some/path` });
+      expect(lastCall().referrerPolicy).to.be.undefined;
+
+      await daFetch({ url: 'https://example.com/foo' });
+      expect(lastCall().referrerPolicy).to.be.undefined;
+    });
   });
 
   describe('isHlx6', () => {

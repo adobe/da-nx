@@ -1,41 +1,92 @@
 # Worklog
 
+## 2026-09-23
+
+### nx/public/plugins/quick-edit/selection.test.js — prose-editable click coverage
+
+- Added regression coverage for prose-editable clicks outside and inside a block
+- Kept image-click coverage alongside the new prose-editable cases
+- Full test suite passes; lint still reports the existing console warnings in `nx/blocks/loc/connectors/glaas/multimodalApi.js` and `nx/public/plugins/quick-edit/src/comments/render.js`
+
+### nx2/utils/api.js — scope `referrerPolicy: unsafe-url` to HLX_ADMIN/AEM_API
+
+`daFetch` set `opts.referrerPolicy = 'unsafe-url'` unconditionally on every
+request, leaking the full referrer URL (including path) to any origin it
+talks to. Scoped it to only fire for `HLX_ADMIN`/`AEM_API` origins — the same
+condition already used to decide whether to attach
+`x-content-source-authorization` — via a shared `isPrivilegedOrigin` check.
+Added fetch-mock + test coverage (`nx2/test/mocks/fetch.js` now records
+`referrerPolicy`; two new cases in `test/nx2/utils/api.test.js`).
+
+## 2026-09-17
+
+### nx/blocks/loc/connectors/globallink — GlobalLink translation connector (#689)
+
+- Added GlobalLink connector: `connect`/`sendAllLanguages`/`getStatusAll`/`saveItems`/`cancelTranslation`
+- Requests routed through the DA_TRANSLATE proxy; auth via shared `loc/utils/auth.js`
+- Source documents uploaded as a single zip; dynamic per-submission batch names
+- Targets matched to DA urls by `documentId`; paginated target listing
+- `saveItems` downloads bounded by a concurrency cap
+- Status checks skip already complete/cancelled languages; targets marked delivered after save
+- Tracks every submission id a project spans when GlobalLink splits an upload across multiple submissions; status, save, download, and cancel all act across every submission
+- Added full test coverage for the connector
+
 ## 2026-09-16
 
-### DeepL connector (PR #746) re-review against finalized da-etc/da-translate contracts
+### ew-actions preflight gate — review feedback (#735) + merge with main
 
-- Re-reviewed `nx/blocks/loc/connectors/deepl/{auth.js,index.js}` (PR #746, branch
-  `deepl-translation-connector`) once da-etc PR #6 and da-translate's GlobalLink
-  (PR #9) + DeepL (PR #13, restacked after the fork/Stacks limitation below) PRs
-  clarified the actual contracts. Found the connector predated those contracts and
-  didn't match them: it sent DeepL's key via `Authorization` (collides with the IMS
-  bearer token DA_TRANSLATE needs to gate the proxy), had direct-mode branches DeepL
-  can't use (no self-hosted variant), was missing `/v2` in the proxied path (da-translate
-  strips only the `/deepl` segment and forwards the rest verbatim), and
-  `downloadDocumentResult` hit the same URL as `checkDocumentStatus` instead of
-  `/document/{id}/result`.
-- Fixed to mirror the (unmerged) `globallink-translation-connector` branch's pattern:
-  proxy-only via `DA_TRANSLATE`, DeepL key sent as `x-deepl-authorization`, IMS auth
-  header added via shared `imsAuthHeader()`, `auth.js` reduced to a thin wrapper over
-  the shared `loc/utils/auth.js` token cache (removed its own `localStorage`
-  read/write + `getApiKey`).
-- Shared `loc/utils/auth.js`: switched the token cache from `localStorage` to
-  `sessionStorage` and added `hasImsSession()` / `imsAccessToken()` / `imsAuthHeader()`
-  — same extension the GlobalLink branch independently makes to this file, so whichever
-  of the two PRs merges second will likely hit a small conflict here to reconcile.
-  `test/loc/lionbridge/index.test.js` updated (`localStorage.clear()` →
-  `sessionStorage.clear()`) since Lionbridge shares this cache.
-- No push access to PR #746's actual head repo (`Codeland-Org/deepl` — a fork neither
-  configured GitHub account can write to, only discovered after a push to `origin`
-  landed on the wrong repo and had to be deleted). Posted the fixes as inline
-  suggestion-block review comments instead, plus a branch `deepl-connector-fixes`
-  pushed to `adobe/da-nx` (based on the PR's head commit) so the author can diff/
-  cherry-pick directly: `git diff deepl-translation-connector...deepl-connector-fixes`.
-- Aside: GitHub's native PR "Stacks" feature rejects fork-based PRs ("Pull requests
-  from forks cannot be added to stacks") — distinct from just setting `base` via the
-  API/CLI, which works fine across forks for mergeability but doesn't enable Stacks.
-  da-translate's DeepL PR was moved off a fork and reopened same-repo (PR #13) to
-  work around this.
+Addressed mhaack's review on the enforce-preflight-before-publish PR, and
+merged main into `pflight`.
+
+- **Fail-open on config error stays** (`_checkEnforcePreflight`): `enforcePreflight`
+  is opt-in per site, so a transient DA config-read failure must not block
+  publish for every site that never enabled it. Kept fail-open but now
+  `console.warn`s instead of silently swallowing.
+- **Preflight failure/timeout now surfaces a dialog** instead of a silent
+  `_busy` reset. Extracted `_showActionError(action, message)` (shared with the
+  forceSave failure path); distinguishes timeout ("did not finish in time")
+  from failure ("found issues").
+- **`disconnectedCallback` cancels a pending `requestPreflight`** via a stashed
+  `_cancelPreflight`, so its document listener + 60s timer don't linger on a
+  detached instance.
+- **Merge conflict note:** main's #666 added `editor.hidePublish`. Folded it
+  into the `menuItems` builder (hide removes the Publish item; preflight
+  decorates it with a status dot — hide wins when both apply). **Dropped main's
+  cache-bust unit tests** — they exercise `_ensureCacheBust`/`_cacheBust`, which
+  don't exist on main (a static `sidekickCacheBust` import replaced them), so
+  those tests already fail on main.
+- Open: branch not yet pushed; da-live #1325 still depends on this landing on
+  da-nx `main` first (see PR description).
+
+## 2026-09-16
+
+### nx/blocks/loc/connectors/trados — retry/401 recovery + error surfacing (trados-connector-resilience, stacked on trados-connector-fixes)
+
+- Route all Trados API calls through `fetchWithRetry` (shared with Smartling/Lionbridge) for backoff on transient failures and reactive re-auth on a 401
+- Surface a `sendMessage` error instead of failing silently: failed uploads, a failed status-check fetch, and failed downloads/missing target files in `saveItems`
+
+## 2026-09-16
+
+### nx/blocks/loc/connectors/trados/index.js — getStatusAll bug fixes (trados-connector-fixes)
+
+- Skip languages already `complete`/`cancelled` when polling status, so Trados's indefinitely-reported completed tasks no longer trigger a re-save or un-cancel
+- Paginate the tasks/target-files/custom-field-definitions list fetches (`fetchAllPages`) via the real API's `skip`/`top` params — an initial version used `offset`/`limit`, which Trados silently ignores, so it never actually paginated; caught via live validation against a real project
+
+## 2026-09-16
+
+### nx2/blocks/chat-ao — Experience Context rename
+
+Updated the Coworker chat dropdown label from **Manage Enterprise Context** to
+**Manage Experience Context** and changed its Experience Hub destination to
+`https://experience.adobe.com/#/experiencemanager/experience-context`. Internal
+constants and menu IDs remain unchanged for compatibility. Added focused
+coverage for the visible label and canonical URL.
+
+## 2026-09-15
+
+### Revert Slack PR ticker runner to `ubuntu-latest`
+
+- `.github/workflows/slack-pr-ticker.yml`: the `notify` job `runs-on` reverted from `gh-hosted` back to `ubuntu-latest`.
 
 ## 2026-09-14
 

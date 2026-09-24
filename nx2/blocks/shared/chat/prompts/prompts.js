@@ -103,6 +103,7 @@ class NxPrompts extends LitElement {
           <svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-close-20-n.svg#icon"></use></svg>
         </button>
         <nx-picker
+          size="m"
           .items=${this._categories}
           .value=${this._category}
           placement="below-end"

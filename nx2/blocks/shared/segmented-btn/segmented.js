@@ -1,16 +1,20 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
-import { getConfig } from '../../../scripts/nx.js';
 
 const styles = await loadStyle(import.meta.url);
-const { codeBase } = getConfig();
 
 class NxSegmentedBtn extends LitElement {
   static properties = {
     items: { attribute: false },
     value: { type: String },
     label: { type: String },
+    size: { type: String, reflect: true },
   };
+
+  constructor() {
+    super();
+    this.size = 'sm';
+  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -32,14 +36,13 @@ class NxSegmentedBtn extends LitElement {
       <div class="segmented" role="group" aria-label="${this.label || nothing}">
         ${this.items?.map((item) => html`
           <button type="button"
-            class="segment${item.icon ? ' segment-icon' : ''}${this.value === item.value ? ' is-selected' : ''}"
+            class="segment${item.icon && item.iconOnly ? ' segment-icon' : ''}${this.value === item.value ? ' is-selected' : ''}"
             aria-pressed="${this.value === item.value}"
-            aria-label="${item.ariaLabel || nothing}"
-            title="${item.title || nothing}"
+            aria-label="${item.iconOnly ? item.label : nothing}"
+            title="${item.iconOnly ? item.label : nothing}"
             @click=${() => this._select(item.value)}>
-            ${item.icon
-        ? html`<svg aria-hidden="true" class="icon" viewBox="0 0 20 20"><use href="${codeBase}/img/icons/s2-icon-${item.icon}-20-n.svg#icon"></use></svg>`
-        : item.label}
+            ${item.icon ? html`<svg aria-hidden="true" class="icon" viewBox="0 0 20 20"><use href="${item.icon}#icon"></use></svg>` : nothing}
+            ${item.iconOnly ? nothing : item.label}
           </button>
         `)}
       </div>
