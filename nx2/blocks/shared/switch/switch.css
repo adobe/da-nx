@@ -60,6 +60,22 @@ button:focus-visible .track {
   }
 }
 
+:host([size="sm"]) {
+  .track {
+    width: 24px;
+    height: 14px;
+  }
+
+  .handle {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+:host([size="sm"][checked]) .handle {
+  transform: translateX(10px);
+}
+
 button:hover:not(:disabled) .track {
   background-color: var(--s2-gray-500);
 }
@@ -69,6 +85,11 @@ button:hover:not(:disabled) .track {
 }
 
 .label {
-  font-size: var(--s2-component-s-medium-font-size);
-  line-height: var(--s2-component-s-medium-line-height);
+  font-size: var(--s2-component-m-regular-font-size);
+  line-height: var(--s2-component-m-regular-line-height);
+}
+
+:host([size="sm"]) .label {
+  font-size: var(--s2-component-s-regular-font-size);
+  line-height: var(--s2-component-s-regular-line-height);
 }

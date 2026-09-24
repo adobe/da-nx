@@ -28,6 +28,7 @@ autoSave.addEventListener("change", (e) => {
 | `checked`  | `Boolean` | Whether the switch is on. Reflected as an attribute.                  |
 | `disabled` | `Boolean` | Disables the switch. Reflected as an attribute.                      |
 | `label`    | `String`  | Visible label rendered next to the switch. Always provide one.       |
+| `size`     | `String`  | `"m"` (default) or `"sm"`. Reflected as an attribute, e.g. `<nx-switch size="sm">`. |
 
 ### Events
 

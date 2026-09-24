@@ -8,7 +8,13 @@ class NxSwitch extends LitElement {
     checked: { type: Boolean, reflect: true },
     disabled: { type: Boolean, reflect: true },
     label: { type: String },
+    size: { type: String, reflect: true },
   };
+
+  constructor() {
+    super();
+    this.size = 'm';
+  }
 
   connectedCallback() {
     super.connectedCallback();

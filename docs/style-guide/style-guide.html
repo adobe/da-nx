@@ -376,12 +376,16 @@ toggle.items = [
             rel="noopener">docs →</a></h3>
         <div class="sg-demo">
           <nx-switch id="demo-switch" label="Auto-save"></nx-switch>
+          <nx-switch id="demo-switch-sm" label="Auto-save" size="sm"></nx-switch>
           <nx-switch id="demo-switch-disabled" label="Auto-save" disabled></nx-switch>
         </div>
         <pre><code>&lt;nx-switch id="auto-save" label="Auto-save"&gt;&lt;/nx-switch&gt;
 
 autoSave.checked = true;
 autoSave.addEventListener('change', (e) =&gt; console.log(e.detail.checked));
+
+&lt;!-- size variant: "m" (default) or "sm" --&gt;
+&lt;nx-switch label="Auto-save" size="sm"&gt;&lt;/nx-switch&gt;
 
 &lt;nx-switch label="Auto-save" disabled&gt;&lt;/nx-switch&gt;</code></pre>
       </article>
