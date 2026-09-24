@@ -346,6 +346,111 @@ export async function sendAllLanguages({
   await saveState({ options });
 }
 
+const PROCESS_POLL_INTERVAL_MS = 2000;
+const MAX_PROCESS_POLL_ATTEMPTS = 30; // ~60s before giving up on an async process
+
+function wait(ms) {
+  return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
+/**
+ * Polls Smartling's job async-process endpoint until a submitted operation
+ * reports a terminal `processState`. Used for the 202 case of
+ * `removeLocaleFromJob`, whose removal isn't guaranteed complete until this
+ * reports `COMPLETED`.
+ * @param {Object} params
+ * @param {string} params.org - The DA org.
+ * @param {string} params.site - The DA site.
+ * @param {string} params.env - The environment key (e.g. 'prod').
+ * @param {string} params.endpoint - The resolved Smartling API origin.
+ * @param {string} params.projectId - The Smartling project id.
+ * @param {string} params.jobUid - The job the process belongs to.
+ * @param {string} params.processUid - The process to poll.
+ * @returns {Promise<string>} The final `processState` ('COMPLETED' or
+ *  'FAILED'); also resolves to 'FAILED' if a poll request errors or the
+ *  process doesn't finish within `MAX_PROCESS_POLL_ATTEMPTS`.
+ */
+async function pollJobProcess({
+  org, site, env, endpoint, projectId, jobUid, processUid,
+}) {
+  const url = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid}/processes/${processUid}`;
+
+  for (let attempt = 0; attempt < MAX_PROCESS_POLL_ATTEMPTS; attempt += 1) {
+    const opts = { headers: { Authorization: `Bearer ${await getToken(org, site, env)}` } };
+    // eslint-disable-next-line no-await-in-loop
+    const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
+    if (!resp.ok) return 'FAILED';
+    // eslint-disable-next-line no-await-in-loop
+    const json = await resp.json();
+    const { processState } = json?.response?.data || {};
+    if (processState === 'COMPLETED' || processState === 'FAILED') return processState;
+    // eslint-disable-next-line no-await-in-loop
+    await wait(PROCESS_POLL_INTERVAL_MS);
+  }
+
+  return 'FAILED';
+}
+
+/**
+ * Cancels a single target language by removing its locale from the shared
+ * translation job (`removeLocaleFromJob`) - not Smartling's job-level
+ * `cancelJob` endpoint, which would cancel every other language still
+ * sharing that job, since `sendAllLanguages` sends every target language
+ * as one job. Polls the returned process to completion when Smartling
+ * responds 202 (async removal).
+ * @param {Object} params
+ * @param {Object} params.service - The service configuration; reads
+ *  `org`/`site`/`env`/`origin`/`projectId`/`jobUid`.
+ * @param {Object} params.lang - The language to cancel; mutated in place
+ *  with `translation.status = 'cancelled'` on success.
+ * @param {Function} params.sendMessage - Callback to surface a
+ *  status/error message to the user.
+ * @returns {Promise<{ok: boolean, skipped?: boolean}>} Whether the
+ *  cancellation succeeded (or was skipped as a no-op).
+ */
+export async function cancelTranslation({ service, lang, sendMessage }) {
+  if (!lang.translation || !service.jobUid?.value) {
+    sendMessage({ text: `Skipping ${lang.name}. No translation information.` });
+    return { ok: true, skipped: true };
+  }
+
+  const {
+    org, site, env, origin, projectId, jobUid,
+  } = service;
+  const endpoint = resolveOrigin(origin, org, site);
+  const translationJobUid = jobUid.value;
+
+  sendMessage({ text: `Canceling ${lang.name}.` });
+
+  const url = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${translationJobUid}/locales/${lang.code}`;
+  const opts = { method: 'DELETE', headers: { Authorization: `Bearer ${await getToken(org, site, env)}` } };
+
+  const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
+  if (!resp.ok) {
+    const json = await resp.json();
+    sendMessage({ text: `Canceling ${lang.name} failed: ${extractErrorMessage(json)}`, type: 'error' });
+    return { ok: false };
+  }
+
+  if (resp.status === 202) {
+    const json = await resp.json();
+    const { processUid } = json?.response?.data || {};
+    const processState = processUid
+      ? await pollJobProcess({
+        org, site, env, endpoint, projectId, jobUid: translationJobUid, processUid,
+      })
+      : 'FAILED';
+
+    if (processState !== 'COMPLETED') {
+      sendMessage({ text: `Canceling ${lang.name} did not finish in time - check Smartling directly.`, type: 'error' });
+      return { ok: false };
+    }
+  }
+
+  lang.translation.status = 'cancelled';
+  return { ok: true };
+}
+
 /**
  * Fetches Smartling's per-locale progress for a job.
  * @param {Object} params
