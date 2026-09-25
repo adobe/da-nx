@@ -81,7 +81,7 @@
 
 .wn-toc-title {
   margin: 0 0 20px;
-  font-size: var(--s2-heading-size-m);
+  font-size: var(--s2-heading-size-xs);
   font-weight: var(--s2-component-xl-bold-font-weight);
   line-height: var(--s2-heading-line-height);
   color: var(--s2-gray-900);
