@@ -159,32 +159,6 @@
   padding-bottom: 100px;
   overflow-y: auto;
   scroll-behavior: smooth;
-  scrollbar-width: thin;
-  scrollbar-color: var(--s2-gray-400) var(--s2-gray-100);
-}
-
-.wn-cards::-webkit-scrollbar {
-  width: 4px;
-}
-
-.wn-cards::-webkit-scrollbar-track {
-  background: var(--s2-gray-100);
-  border-radius: 999px;
-}
-
-.wn-cards::-webkit-scrollbar-thumb {
-  background: var(--s2-gray-400);
-  border-radius: 999px;
-}
-
-/* Neutralize the browser's default scrollbar-thumb hover widening/darkening. */
-.wn-cards::-webkit-scrollbar-thumb:hover,
-.wn-cards::-webkit-scrollbar-thumb:active {
-  background: var(--s2-gray-400);
-}
-
-.wn-cards::-webkit-scrollbar:hover {
-  width: 4px;
 }
 
 .wn-card {
