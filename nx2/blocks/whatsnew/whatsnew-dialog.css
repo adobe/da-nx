@@ -157,7 +157,7 @@
   flex-direction: column;
   gap: 56px;
   padding-right: 20px;
-  padding-bottom: 140px;
+  padding-bottom: 240px;
   overflow-y: auto;
   scroll-behavior: smooth;
   scrollbar-width: thin;
@@ -273,5 +273,6 @@
     height: auto;
     overflow: visible;
     padding-right: 0;
+    padding-bottom: 0;
   }
 }

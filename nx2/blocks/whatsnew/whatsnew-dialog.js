@@ -44,7 +44,6 @@ class NxWhatsNewDialog extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._observer?.disconnect();
-    this._resizeObserver?.disconnect();
   }
 
   get _dialog() { return this.shadowRoot.querySelector('nx-dialog'); }
@@ -67,35 +66,10 @@ class NxWhatsNewDialog extends LitElement {
       // Wait for nx-dialog layout before measuring.
       await this._dialog?.updateComplete;
       this._observeCards();
-      this._ensureScrollRoom();
       this._positionIndicator();
       return;
     }
     if (changed.has('_activeId')) this._positionIndicator();
-  }
-
-  // Adds trailing room so the last card can align near the top.
-  _ensureScrollRoom() {
-    const container = this.shadowRoot.querySelector('.wn-cards');
-    const cards = this.shadowRoot.querySelectorAll('.wn-card');
-    const lastCard = cards[cards.length - 1];
-    if (!container || !lastCard) return;
-    // Mobile uses .wn-body for scrolling.
-    if (window.matchMedia('(width < 600px)').matches) {
-      container.style.paddingBottom = '';
-      return;
-    }
-    const needed = container.clientHeight - 40 - lastCard.offsetHeight;
-    container.style.paddingBottom = `${Math.max(60, needed)}px`;
-  }
-
-  // Recomputes scroll room when the last card changes size.
-  _watchLastCardSize(lastCard) {
-    this._resizeObserver?.disconnect();
-    this._resizeObserver = new ResizeObserver(() => {
-      this._ensureScrollRoom();
-    });
-    this._resizeObserver.observe(lastCard);
   }
 
   _positionIndicator() {
@@ -123,7 +97,6 @@ class NxWhatsNewDialog extends LitElement {
       this._activeId = visible[0].target.dataset.id;
     }, { root: this.shadowRoot.querySelector('.wn-cards'), threshold: [0.25, 0.5, 0.75, 1] });
     cards.forEach((card) => this._observer.observe(card));
-    if (cards.length > 0) this._watchLastCardSize(cards[cards.length - 1]);
   }
 
   close() {
