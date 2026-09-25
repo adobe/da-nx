@@ -15,19 +15,49 @@ const STATUS_POLL_MAX = 30;
 // credential can't travel there too without colliding with it.
 const CREDENTIAL_HEADER = 'x-deepl-authorization';
 
+// Only needed to disambiguate a locale's region when DeepL supports more than one variant
+// for that base language (e.g. EN-US vs EN-GB) - which variant is "right" for a given
+// region is a product decision DeepL's language list can't answer on its own. Any base
+// language DeepL supports with a single (or no) variant needs no entry here at all: it's
+// resolved directly from the live supported-language set in toDeepLLanguageCode.
+const TARGET_VARIANT_HINTS = {
+  EN: { GB: 'EN-GB', UK: 'EN-GB' }, // default: EN-US
+  PT: { PT: 'PT-PT' }, // default: PT-BR
+  ZH: { TW: 'ZH-HANT', HK: 'ZH-HANT', MO: 'ZH-HANT' }, // default: ZH-HANS
+};
+
 /**
  * Normalizes a locale code to DeepL's accepted format.
- * DeepL source languages use 2-letter codes (e.g. EN, DE, FR, IT, ES).
- * DeepL target languages allow specific variants (EN-US, EN-GB, PT-BR, PT-PT, ZH-HANS, ZH-HANT)
- * and 2-letter codes for others.
+ * When `supportedCodes` (from getSupportedLanguages) is available, the code is resolved
+ * against DeepL's live supported-language list instead of a hardcoded set, so newly added
+ * languages/variants work without a code change here. Falls back to a small static
+ * heuristic - 2-letter codes, with a handful of known region variants - when the live list
+ * couldn't be fetched (e.g. offline, proxy error).
  * @param {string} code - The BCP-47 or ISO locale code.
  * @param {boolean} [isTarget=true] - Whether this is a target language code.
+ * @param {Set<string>} [supportedCodes] - Live DeepL language codes (upper-cased) for this
+ * direction, from getSupportedLanguages().
  * @returns {string} The normalized DeepL language code.
  */
-export function toDeepLLanguageCode(code, isTarget = true) {
+export function toDeepLLanguageCode(code, isTarget = true, supportedCodes = null) {
   if (!code || typeof code !== 'string') return isTarget ? 'EN-US' : 'EN';
   const cleaned = code.trim().replace(/_/g, '-');
   const upper = cleaned.toUpperCase();
+  const [primary, region] = upper.split('-');
+
+  if (supportedCodes?.size) {
+    if (supportedCodes.has(upper)) return upper;
+
+    const preferredVariant = isTarget && region && TARGET_VARIANT_HINTS[primary]?.[region];
+    if (preferredVariant && supportedCodes.has(preferredVariant)) return preferredVariant;
+
+    if (supportedCodes.has(primary)) return primary;
+
+    // Base language supports variants DeepL didn't add above (e.g. a future region-locked
+    // language) - if there's exactly one, use it; otherwise fall through to a bare guess.
+    const variants = [...supportedCodes].filter((c) => c.startsWith(`${primary}-`));
+    if (variants.length === 1) return variants[0];
+  }
 
   if (isTarget) {
     if (upper === 'EN-US' || upper === 'EN-CA') return 'EN-US';
@@ -38,11 +68,9 @@ export function toDeepLLanguageCode(code, isTarget = true) {
     if (upper === 'ZH-HANS' || upper === 'ZH-CN' || upper === 'ZH-SG') return 'ZH-HANS';
     if (upper === 'ZH-HANT' || upper === 'ZH-TW' || upper === 'ZH-HK') return 'ZH-HANT';
     if (upper === 'ZH') return 'ZH';
-    const [primary] = upper.split('-');
     return primary;
   }
 
-  const [primary] = upper.split('-');
   return primary;
 }
 
@@ -79,6 +107,50 @@ async function getApiContext(service) {
   };
 
   return { apiKey: cleanKey, origin, headers };
+}
+
+// Per-origin cache of in-flight/resolved language lookups, so multiple languages in the
+// same translation run share one pair of requests instead of one per language.
+const languagesCache = new Map();
+
+/**
+ * Fetches DeepL's currently supported language codes for one direction (source or target),
+ * per https://developers.deepl.com/docs/languages/using-the-languages-api. Used to resolve
+ * locale codes against DeepL's live list rather than a hardcoded one, so newly added
+ * languages/variants (e.g. a future EN or ZH sibling) work without a code change.
+ * @param {object} apiCtx - The API context from getApiContext.
+ * @param {'source'|'target'} type - Which language list to fetch.
+ * @returns {Promise<Set<string>|null>} Upper-cased DeepL language codes, or `null` on failure.
+ */
+async function fetchLanguageCodes(apiCtx, type) {
+  const { origin, headers } = apiCtx;
+  try {
+    const resp = await fetch(`${origin}/languages?type=${type}`, { headers });
+    if (!resp.ok) return null;
+    const json = await resp.json().catch(() => null);
+    if (!Array.isArray(json)) return null;
+    return new Set(json.map((entry) => entry.language?.toUpperCase()).filter(Boolean));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Returns DeepL's live supported source/target language codes, memoized per proxy origin.
+ * Falls back to `null` per direction (rather than throwing) so callers can fall back to
+ * toDeepLLanguageCode's static heuristic when the live list isn't available.
+ * @param {object} apiCtx - The API context from getApiContext.
+ * @returns {Promise<{source: Set<string>|null, target: Set<string>|null}>}
+ */
+function getSupportedLanguages(apiCtx) {
+  const { origin } = apiCtx;
+  if (!languagesCache.has(origin)) {
+    languagesCache.set(origin, Promise.all([
+      fetchLanguageCodes(apiCtx, 'source'),
+      fetchLanguageCodes(apiCtx, 'target'),
+    ]).then(([source, target]) => ({ source, target })));
+  }
+  return languagesCache.get(origin);
 }
 
 /**
@@ -235,13 +307,17 @@ export async function sendAllLanguages({
     return;
   }
 
+  const { source: supportedSource, target: supportedTarget } = await getSupportedLanguages(
+    apiCtx,
+  );
+
   const rawSourceCode = options?.['source.language']?.code || service.sourceLanguage || 'en';
-  const sourceLang = toDeepLLanguageCode(rawSourceCode, false);
+  const sourceLang = toDeepLLanguageCode(rawSourceCode, false, supportedSource);
 
   sendMessage({ text: `Sending ${urls.length} items to DeepL for translation.` });
 
   for (const lang of langs) {
-    const targetLang = toDeepLLanguageCode(lang.code, true);
+    const targetLang = toDeepLLanguageCode(lang.code, true, supportedTarget);
     lang.translation ??= {};
     lang.translation.documents = {};
     let uploadedCount = 0;
