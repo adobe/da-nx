@@ -46,10 +46,6 @@ function mockWhatsNewFetchHtml(html) {
   return () => { window.fetch = originalFetch; };
 }
 
-function mockWhatsNewFetch(publishedDate) {
-  return mockWhatsNewFetchHtml(whatsNewHtml(publishedDate));
-}
-
 // Polls until async fetch/render work settles.
 async function waitFor(predicate, { attempts = 50, interval = 10 } = {}) {
   for (let i = 0; i < attempts; i += 1) {
@@ -101,7 +97,7 @@ describe('nx-whatsnew', () => {
 
   it('shows the dot when the published date is newer than last seen', async () => {
     setLastSeen('2026-01-01');
-    restoreFetch = mockWhatsNewFetch('2026-09-10');
+    restoreFetch = mockWhatsNewFetchHtml(whatsNewHtml('2026-09-10'));
     const el = createTrigger();
     await waitFor(() => el._hasUnseen !== undefined);
     await el.updateComplete;
@@ -119,7 +115,7 @@ describe('nx-whatsnew', () => {
 
   it('does not show the dot when the published date is not newer than last seen', async () => {
     setLastSeen('2026-09-10');
-    restoreFetch = mockWhatsNewFetch('2026-09-10');
+    restoreFetch = mockWhatsNewFetchHtml(whatsNewHtml('2026-09-10'));
     const el = createTrigger();
     await waitFor(() => el._hasUnseen !== undefined);
     await el.updateComplete;
@@ -145,7 +141,7 @@ describe('nx-whatsnew', () => {
   });
 
   it('does not create a second dialog when one is already open', async () => {
-    restoreFetch = mockWhatsNewFetch('2026-09-10');
+    restoreFetch = mockWhatsNewFetchHtml(whatsNewHtml('2026-09-10'));
     document.body.append(document.createElement('nx-whatsnew-dialog'));
     const countBeforeClick = document.querySelectorAll('nx-whatsnew-dialog').length;
     const el = createTrigger();

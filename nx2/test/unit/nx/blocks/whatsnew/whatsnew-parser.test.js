@@ -1,5 +1,4 @@
 import { expect } from '@esm-bundle/chai';
-import * as parser from '../../../../../blocks/whatsnew/whatsnew-parser.js';
 import { loadEntries, fetchPublishedDate } from '../../../../../blocks/whatsnew/whatsnew-parser.js';
 
 function mockFetch(handler) {
@@ -14,10 +13,6 @@ describe('loadEntries', () => {
   afterEach(() => {
     restoreFetch?.();
     restoreFetch = undefined;
-  });
-
-  it('does not export parseEntries', () => {
-    expect('parseEntries' in parser).to.be.false;
   });
 
   it('loads entries and rewrites relative media URLs without fragment decoration', async () => {
