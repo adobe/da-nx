@@ -6,12 +6,13 @@ import {
   requestAemRole,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
-import { versions } from '../../utils/api.js';
+import { versions, status as statusApi } from '../../utils/api.js';
 import { fetchDaConfigs, getFirstSheet } from '../../utils/daConfig.js';
 import { PREFLIGHT_EVENT, newPreflightRequestId } from '../../utils/preflight-events.js';
 import { sidekickCacheBust } from '../../utils/sidekick.js';
+import { formatRelativeDateTime } from '../../utils/format.js';
 import { getConfig } from '../../scripts/nx.js';
-import '../shared/menu/menu.js';
+import '../shared/popover/popover.js';
 
 const style = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
@@ -22,6 +23,8 @@ const { codeBase } = getConfig();
 const NX_BASE = new URL('../../', import.meta.url).href.replace(/\/$/, '');
 const SEND_ICON_HREF = `${codeBase}/img/icons/s2-icon-send-20-n.svg#icon`;
 const MENU_ICON_HREF = `${codeBase}/img/icons/s2-icon-more-20-n.svg#icon`;
+const COPY_ICON_HREF = `${codeBase}/img/icons/s2-icon-copy-20-n.svg#icon`;
+const CHECK_ICON_HREF = `${codeBase}/img/icons/s2-icon-checkmarkcircle-20-n.svg#icon`;
 
 const prepareModuleUrl = () => `${window.location.origin}/blocks/canvas/editor-utils/prepare-menu.js`;
 
@@ -82,6 +85,14 @@ class NXEwActions extends LitElement {
     _preflightPassed: { state: true },
     // phase: 'error' | 'pending' | 'result'
     _dialog: { state: true },
+    // AEM admin status ({ preview, live, ... }) for the current doc, drives the
+    // deploy popover cards and the "unpublished changes" badge on the Send button.
+    _status: { state: true },
+    _statusLoading: { state: true },
+    // Which environment the popover action targets: 'preview' | 'live'.
+    _target: { state: true },
+    // URL most recently copied ('preview' | 'live'), for copy-button feedback.
+    _copied: { state: true },
   };
 
   get _prepareMenu() {
@@ -90,6 +101,14 @@ class NXEwActions extends LitElement {
 
   get _prepareBtn() {
     return this.shadowRoot?.querySelector('.prepare-dropdown-btn');
+  }
+
+  get _popover() {
+    return this.shadowRoot?.querySelector('nx-popover.deploy-popover');
+  }
+
+  get _sendBtn() {
+    return this.shadowRoot?.querySelector('.send-btn');
   }
 
   get _prepareDetails() {
@@ -104,10 +123,12 @@ class NXEwActions extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._busy = false;
+    this._target = 'preview';
     this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];
     this._unsubHash = hashChange.subscribe((state) => {
       const prevPath = this._prepareDetails?.fullpath;
       this._hashState = state;
+      this._loadStatus();
       if (this._prepareDetails?.fullpath !== prevPath) {
         this._preflightPassed = false;
         this._checkEnforcePreflight();
@@ -181,8 +202,92 @@ class NXEwActions extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._unsubHash?.();
+    clearTimeout(this._copyTimer);
     document.removeEventListener(PREFLIGHT_EVENT.STATUS, this._onPreflightStatus);
     this._cancelPreflight?.(undefined);
+  }
+
+  // Fetch AEM admin status for the current doc. Keyed on the doc path so hash
+  // updates that don't change the doc don't refetch; `force` refreshes after a
+  // preview/publish so the cards and badge reflect the new state.
+  async _loadStatus({ force = false } = {}) {
+    const aemPath = buildAemPathFromHashState(this._hashState);
+    if (!aemPath) {
+      this._status = undefined;
+      this._statusKey = null;
+      return;
+    }
+    if (!force && aemPath === this._statusKey) return;
+    this._statusKey = aemPath;
+    this._statusLoading = true;
+    try {
+      const resp = await statusApi.get(aemPath);
+      if (this._statusKey !== aemPath) return; // navigated away mid-flight
+      this._status = resp?.ok ? await resp.json() : undefined;
+    } catch {
+      if (this._statusKey === aemPath) this._status = undefined;
+    } finally {
+      if (this._statusKey === aemPath) this._statusLoading = false;
+    }
+  }
+
+  _env(kind) {
+    const env = this._status?.[kind];
+    if (!env) return { ok: false, url: null, time: null };
+    return { ok: env.status === 200, url: env.url || null, time: env.lastModified || null };
+  }
+
+  get _previewInfo() { return this._env('preview'); }
+
+  get _liveInfo() { return this._env('live'); }
+
+  // True when there is previewed content that isn't (fully) on live yet — either
+  // never published, or the preview is newer than the last publish. Drives the
+  // "unpublished changes" badge (issue #1197's secondary indicator).
+  get _hasUnpublished() {
+    const preview = this._status?.preview;
+    if (preview?.status !== 200) return false;
+    const live = this._status?.live;
+    if (live?.status !== 200) return true;
+    const previewTime = Date.parse(preview.lastModified || '');
+    const liveTime = Date.parse(live.lastModified || '');
+    return Number.isFinite(previewTime) && Number.isFinite(liveTime) && previewTime > liveTime;
+  }
+
+  _toggleSend() {
+    const popover = this._popover;
+    if (!popover) return;
+    if (popover.open) {
+      popover.close();
+      return;
+    }
+    this._target = 'preview';
+    this._copied = null;
+    popover.show({ anchor: this._sendBtn, placement: 'below-end' });
+    this._loadStatus();
+  }
+
+  _selectTarget(target) {
+    this._target = target;
+    this._copied = null;
+  }
+
+  async _copyUrl(url, kind) {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      this._copied = kind;
+      clearTimeout(this._copyTimer);
+      this._copyTimer = setTimeout(() => { this._copied = null; }, 1500);
+    } catch { /* clipboard unavailable */ }
+  }
+
+  async _confirmAction() {
+    if (this._busy) return;
+    const action = this._target === 'live' && !this._hidePublish ? 'publish' : 'preview';
+    await this._runAemAction(action);
+    if (!this._hasError) this._popover?.close();
+    await this._loadStatus({ force: true });
   }
 
   update(changed) {
@@ -221,11 +326,6 @@ class NXEwActions extends LitElement {
     } catch {
       this._dialog = { phase: 'result', message: ['An error occurred.', 'Please try again.'] };
     }
-  }
-
-  _pickAem(action) {
-    if (action !== 'preview' && action !== 'publish') return;
-    this._runAemAction(action);
   }
 
   async _showActionError(action, message) {
@@ -347,19 +447,85 @@ class NXEwActions extends LitElement {
     `;
   }
 
+  _renderCard(kind) {
+    const isPreview = kind === 'preview';
+    const info = isPreview ? this._previewInfo : this._liveInfo;
+    const selected = this._target === kind;
+    // "Publish" is the end-user label for the live environment.
+    const title = isPreview ? 'Preview' : 'Publish';
+    const time = formatRelativeDateTime(info.time);
+    let sub;
+    if (this._statusLoading && !this._status) sub = 'Checking status…';
+    else if (info.ok && time) sub = isPreview ? `Last updated ${time}` : `Last published ${time}`;
+    else sub = isPreview ? 'Not previewed yet' : 'Not published yet';
+
+    return html`
+      <div class="deploy-card deploy-card-${kind}${selected ? ' is-selected' : ''}">
+        <label class="deploy-card-main">
+          <input
+            type="radio"
+            class="deploy-card-radio"
+            name="deploy-target"
+            value=${kind}
+            .checked=${selected}
+            @change=${() => this._selectTarget(kind)}
+          />
+          <span class="deploy-card-text">
+            <span class="deploy-card-title">${title}</span>
+            <span class="deploy-card-sub">${sub}</span>
+          </span>
+          ${selected ? html`<span class="deploy-card-check" aria-hidden="true"><svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${CHECK_ICON_HREF}></use></svg></span>` : nothing}
+        </label>
+        ${selected && info.ok && info.url ? html`
+          <div class="deploy-url">
+            <span class="deploy-url-text" title=${info.url}>${info.url}</span>
+            <button
+              type="button"
+              class="deploy-copy"
+              aria-label=${`Copy ${title} URL`}
+              @click=${() => this._copyUrl(info.url, kind)}
+            >${this._copied === kind
+        ? html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${CHECK_ICON_HREF}></use></svg>`
+        : html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${COPY_ICON_HREF}></use></svg>`}</button>
+          </div>
+        ` : nothing}
+      </div>
+    `;
+  }
+
+  _renderDeployPopover() {
+    // `editor.hidePublish` config removes the publish path entirely: no Publish
+    // card, and the action can only ever be a preview "Update".
+    const isPublish = this._target === 'live' && !this._hidePublish;
+    return html`
+      <nx-popover class="deploy-popover" placement="below-end" @close=${() => { this._copied = null; }}>
+        <div class="deploy">
+          <div class="deploy-cards" role="radiogroup" aria-label="Deploy target">
+            ${this._renderCard('preview')}
+            ${this._hidePublish ? nothing : this._renderCard('live')}
+          </div>
+          <button
+            type="button"
+            class="deploy-action nx-btn-accent${isPublish ? ' is-publish' : ''}"
+            ?disabled=${this._busy}
+            @click=${this._confirmAction}
+          >
+            ${this._busy
+        ? html`<span class="preview-dropdown-spinner" aria-hidden="true"></span>`
+        : html`<span>${isPublish ? 'Publish' : 'Update'}</span>`}
+          </button>
+        </div>
+      </nx-popover>
+    `;
+  }
+
   render() {
     const hasDoc = Boolean(buildAemPathFromHashState(this._hashState));
     const disabled = !hasDoc || this._busy;
     const prepareDetails = this._prepareReady ? this._prepareDetails : null;
-
-    const publishItem = { id: 'publish', label: 'Publish' };
-    if (this._enforcePreflight) {
-      publishItem.statusDot = this._preflightPassed ? 'var(--s2-green-700)' : 'var(--s2-orange-500)';
-    }
-    const menuItems = [
-      { id: 'preview', label: 'Preview' },
-      ...(this._hidePublish ? [] : [publishItem]),
-    ];
+    // When publishing is hidden for this path, the unpublished-changes cue is moot.
+    const unpublished = this._hasUnpublished && !this._hidePublish;
+    const sendLabel = `Preview and publish${unpublished ? ' — unpublished changes' : ''}`;
 
     return html`
       <div class="ew-actions">
@@ -378,25 +544,21 @@ class NXEwActions extends LitElement {
               </button>
               <prepare-menu .details=${prepareDetails} @close=${this._onPrepareMenuClose}></prepare-menu>
             ` : nothing}
-            <nx-menu
-              placement="below"
-              size="m"
-              .items=${menuItems}
-              @select=${(e) => this._pickAem(e.detail.id)}
+            <button
+              type="button"
+              class="nx-btn-accent send-btn${this._hasError ? ' is-error' : ''}${this._busy ? ' is-busy' : ''}"
+              aria-label=${sendLabel}
+              aria-haspopup="dialog"
+              ?disabled=${disabled}
+              @click=${this._toggleSend}
             >
-              <button
-                type="button"
-                slot="trigger"
-                class="nx-btn-accent preview-dropdown-btn${this._hasError ? ' is-error' : ''}${this._busy ? ' is-busy' : ''}"
-                aria-label="Preview and publish"
-                ?disabled=${disabled}
-              >
-                ${this._busy
+              ${this._busy
         ? html`<span class="preview-dropdown-spinner" aria-hidden="true"></span>`
         : html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href=${SEND_ICON_HREF}></use></svg>`}
-        <span>Send</span>
-              </button>
-            </nx-menu>
+              <span>Send</span>
+              ${unpublished ? html`<span class="send-badge" aria-hidden="true"></span>` : nothing}
+            </button>
+            ${this._renderDeployPopover()}
           </div>
         </div>
       </div>
