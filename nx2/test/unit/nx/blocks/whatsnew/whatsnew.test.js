@@ -2,20 +2,14 @@ import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
 import { getLastSeen, setLastSeen } from '../../../../../blocks/whatsnew/whatsnew-storage.js';
 
-// _openDialog() dynamically imports whatsnew-dialog.js, which transitively
-// depends on fragment.js's module-level getConfig() call — so setConfig()
-// must resolve before that import ever happens, same reasoning as
-// nav.test.js/profile.test.js. Also statically import whatsnew-dialog.js
-// here so the duplicate-guard test can create one directly.
+// fragment.js reads config at import time, so setConfig() must run first.
+// Import the dialog up front so the duplicate-guard test can create one.
 await setConfig({ hostnames: [] });
 await import('../../../../../blocks/whatsnew/whatsnew-dialog.js');
 await import('../../../../../blocks/whatsnew/whatsnew.js');
 
-// No valid entries in the body: these tests only care about the nav
-// trigger's own dot/guard logic, not the dialog's rendered content, and an
-// entry-less fragment means the auto-opened dialog removes itself without
-// ever calling setLastSeen — keeping this file from stomping on
-// the "last seen" localStorage key other test files also read/write.
+// These trigger tests only need a published date unless they explicitly
+// exercise dialog open/close behavior.
 function whatsNewHtml(publishedDate) {
   return `
     <html>
@@ -36,12 +30,12 @@ const WHATSNEW_WITH_ENTRIES_HTML = `
   </html>
 `;
 
-function mockWhatsNewFetch(publishedDate) {
+function mockWhatsNewFetchHtml(html) {
   const originalFetch = window.fetch;
   window.fetch = async (url, opts) => {
     const urlStr = typeof url === 'string' ? url : url.toString();
     if (urlStr.includes('/nx/fragments/guides/whats-new')) {
-      return new Response(whatsNewHtml(publishedDate), {
+      return new Response(html, {
         status: 200,
         headers: new Headers({ 'Content-Type': 'text/html' }),
       });
@@ -51,8 +45,11 @@ function mockWhatsNewFetch(publishedDate) {
   return () => { window.fetch = originalFetch; };
 }
 
-// Generic poller for _checkUnseen's async fetch settling — same pattern as
-// profile.test.js's waitFor.
+function mockWhatsNewFetch(publishedDate) {
+  return mockWhatsNewFetchHtml(whatsNewHtml(publishedDate));
+}
+
+// Polls until async fetch/render work settles.
 async function waitFor(predicate, { attempts = 50, interval = 10 } = {}) {
   for (let i = 0; i < attempts; i += 1) {
     if (predicate()) return true;
@@ -68,10 +65,7 @@ function createTrigger() {
   return el;
 }
 
-// whatsnew-dialog.test.js also reads/writes the same real localStorage key,
-// and wtr can run test files concurrently in the same browser origin — so
-// stub the storage methods with an isolated in-memory store per test,
-// instead of touching the real (shared, racy) localStorage.
+// Use an isolated in-memory store instead of shared localStorage.
 function mockStorage() {
   const store = new Map();
   const original = {
@@ -115,19 +109,7 @@ describe('nx-whatsnew', () => {
 
   it('does not auto-open the dialog on initial load when there is unseen content', async () => {
     setLastSeen('2026-01-01');
-    restoreFetch = mockWhatsNewFetch('2026-09-10');
-    const originalFetch = window.fetch;
-    window.fetch = async (url, opts) => {
-      const urlStr = typeof url === 'string' ? url : url.toString();
-      if (urlStr.includes('/nx/fragments/guides/whats-new')) {
-        return new Response(WHATSNEW_WITH_ENTRIES_HTML, {
-          status: 200,
-          headers: new Headers({ 'Content-Type': 'text/html' }),
-        });
-      }
-      return originalFetch.call(window, url, opts);
-    };
-    restoreFetch = () => { window.fetch = originalFetch; };
+    restoreFetch = mockWhatsNewFetchHtml(WHATSNEW_WITH_ENTRIES_HTML);
     const el = createTrigger();
     await waitFor(() => el._hasUnseen !== undefined);
     await new Promise((r) => { setTimeout(r, 20); });
@@ -145,18 +127,7 @@ describe('nx-whatsnew', () => {
 
   it('clears the dot when the dialog closes', async () => {
     setLastSeen('2026-01-01');
-    const originalFetch = window.fetch;
-    window.fetch = async (url, opts) => {
-      const urlStr = typeof url === 'string' ? url : url.toString();
-      if (urlStr.includes('/nx/fragments/guides/whats-new')) {
-        return new Response(WHATSNEW_WITH_ENTRIES_HTML, {
-          status: 200,
-          headers: new Headers({ 'Content-Type': 'text/html' }),
-        });
-      }
-      return originalFetch.call(window, url, opts);
-    };
-    restoreFetch = () => { window.fetch = originalFetch; };
+    restoreFetch = mockWhatsNewFetchHtml(WHATSNEW_WITH_ENTRIES_HTML);
     const el = createTrigger();
     await waitFor(() => el._hasUnseen !== undefined);
     await el.updateComplete;
@@ -180,10 +151,7 @@ describe('nx-whatsnew', () => {
     await waitFor(() => el._hasUnseen !== undefined);
     el.shadowRoot.querySelector('button').click();
     await new Promise((r) => { setTimeout(r, 20); });
-    // The pre-existing dialog may remove itself asynchronously (its fixture
-    // has no entries) — assert the guard never let the count grow past what
-    // it was before the click, rather than pinning to an exact count that
-    // races against that unrelated self-removal.
+    // The pre-existing dialog may remove itself asynchronously.
     expect(document.querySelectorAll('nx-whatsnew-dialog').length).to.be.at.most(countBeforeClick);
   });
 });
