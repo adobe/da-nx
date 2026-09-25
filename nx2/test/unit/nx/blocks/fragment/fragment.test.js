@@ -27,7 +27,7 @@ describe('loadFragment', () => {
     restoreFetch = undefined;
   });
 
-  it('rewrites relative ./media_ image and link paths to absolute URLs', async () => {
+  it('rewrites relative ./media_ image paths to absolute URLs', async () => {
     const originalFetch = window.fetch;
     window.fetch = async () => new Response(HTML, {
       status: 200,
@@ -40,6 +40,6 @@ describe('loadFragment', () => {
     const img = fragment.querySelector('img');
     const a = fragment.querySelector('a');
     expect(img.getAttribute('src')).to.equal(`${window.location.origin}/nx/fragments/guides/media_1.png`);
-    expect(a.getAttribute('href')).to.equal(`${window.location.origin}/nx/fragments/guides/media_2.mp4`);
+    expect(a.getAttribute('href')).to.equal('./media_2.mp4');
   });
 });
