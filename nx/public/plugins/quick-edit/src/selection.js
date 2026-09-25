@@ -1,5 +1,6 @@
 import {
-  findBlock, findImageAtProseIndex, findTextBlock, pictureSrc, srcPathsMatch, OVERLAY_SELECTOR,
+  editorImageIndex, findBlock, findImageAtProseIndex, findTextBlock, pictureSrc, srcPathsMatch,
+  OVERLAY_SELECTOR,
 } from './dom-index.js';
 import { parseIndex, positionBox } from './utils.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
@@ -39,7 +40,8 @@ export function imageSelectPayload(el) {
   const indexEl = host.matches?.('[data-image-index]')
     ? host
     : host.querySelector?.('[data-image-index]');
-  const proseIndex = parseIndex(indexEl?.getAttribute?.('data-image-index'));
+  const proseIndex = parseIndex(indexEl?.getAttribute?.('data-image-index'))
+    ?? editorImageIndex(host);
   const src = pictureSrc(host);
   const blockIndex = parseIndex(host.closest?.('[data-block-index]')?.getAttribute?.('data-block-index'));
   if (proseIndex == null && !src) return null;

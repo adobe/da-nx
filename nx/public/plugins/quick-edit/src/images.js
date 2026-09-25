@@ -1,4 +1,6 @@
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
+import { editorImageIndex } from './dom-index.js';
+import { parseIndex } from './utils.js';
 
 export function setupContentEditableListeners(ctx) {
   const editableElements = document.querySelectorAll('[data-prose-index]');
@@ -57,6 +59,8 @@ export function setupImageDropListeners(ctx, dom = document) {
         // Get tracking attributes
         const dataCursor = img.getAttribute('data-prose-index');
         const originalSrc = img.src;
+        // Lets the host replace exactly this image rather than every one sharing its src.
+        const imageIndex = parseIndex(img.getAttribute('data-image-index')) ?? editorImageIndex(img);
 
         // Show loading state
         picture?.classList.add('image-uploading');
@@ -70,7 +74,7 @@ export function setupImageDropListeners(ctx, dom = document) {
           ctx.port.postMessage({
             type: MESSAGE_TYPES.IMAGE_REPLACE,
             payload: {
-              cursorOffset, imageData, fileName, mimeType, originalSrc,
+              cursorOffset, imageData, fileName, mimeType, originalSrc, imageIndex,
             },
           });
         };

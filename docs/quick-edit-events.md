@@ -123,6 +123,12 @@ upload request, the host replies with the same `IMAGE_REPLACE` type, distinguish
 `payload.error` (failure) vs `payload.newSrc` (success). Both hosts implement the full
 round-trip.
 
+The request carries `originalSrc` and, when resolvable, `imageIndex` — the host prose
+position of the dropped image node (from `data-image-index`, or computed live for an
+image inside a mounted text-block editor). The da-live host replaces the node at
+`imageIndex` when it is an image, falling back to matching `originalSrc`; the standalone
+portal host still matches by `originalSrc` only.
+
 ### Comments (`SET_COMMENT_MARKERS` / `SCROLL_TO_POS` / `COMMENT_MARKER_CLICK` / `COMMENT_MARKER_CLEAR` / `COMMENT_SHORTCUT`)
 
 Drive the comments feature's overlay in layout/WYSIWYG mode. The comments UI (the panel,

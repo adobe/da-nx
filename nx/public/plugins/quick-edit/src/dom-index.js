@@ -35,6 +35,21 @@ export function findTextBlock(from, root = document, exclude = null) {
   return findNearestIndexed('data-prose-index', from, root, exclude);
 }
 
+// Host prose position of an image rendered inside a mounted text-block editor. Those
+// images have no data-image-index, so compute it live: the editor's data-prose-index
+// is the host position of its block's content start (local position 1).
+export function editorImageIndex(el) {
+  const editorEl = el?.closest?.('.prosemirror-editor');
+  const base = parseIndex(editorEl?.getAttribute?.('data-prose-index'));
+  const { view } = editorEl ?? {};
+  if (base == null || !view) return null;
+  try {
+    return base - 1 + view.posAtDOM(el, 0);
+  } catch {
+    return null;
+  }
+}
+
 export function findBlock(from, root = document) {
   return findNearestIndexed('data-block-index', from, root);
 }
