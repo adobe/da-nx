@@ -11,7 +11,10 @@ import {
 function buildBody() {
   document.body.innerHTML = '<main>'
     + '<div class="cards highlight decorated" data-block-variant="highlight" data-block-index="50">table block</div>'
-    + '<div class="hero" data-block-index="60">other block</div>'
+    + '<div class="hero" data-block-index="60">'
+    + '<p class="hero-copy" data-prose-index="62">other block</p>'
+    + '<picture><img data-image-index="61" src="/hero.png" alt="" style="width:100px;height:60px"></picture>'
+    + '</div>'
     + '<div class="no-index">unindexed</div>'
     + '<picture><img data-image-index="27" src="/img.png" alt="" style="width:100px;height:60px"></picture>'
     + '<p data-prose-index="71" style="width:100px;height:20px">a paragraph</p>'
@@ -54,7 +57,7 @@ describe('quick-edit selection payloads', () => {
   });
 
   it('imageSelectPayload reads data-image-index into an image payload', () => {
-    const pic = document.querySelector('picture');
+    const pic = document.querySelector('main > picture');
     expect(pic.hasAttribute('data-image-index')).to.equal(false);
     expect(imageSelectPayload(pic)).to.deep.equal({
       anchorType: 'image', proseIndex: 27, src: '/img.png', blockIndex: null,
@@ -62,7 +65,7 @@ describe('quick-edit selection payloads', () => {
   });
 
   it('imageSelectPayload resolves from a child img', () => {
-    const img = document.querySelector('picture img');
+    const img = document.querySelector('main > picture img');
     expect(imageSelectPayload(img)).to.deep.equal({
       anchorType: 'image', proseIndex: 27, src: '/img.png', blockIndex: null,
     });
@@ -223,13 +226,40 @@ describe('quick-edit selection gestures', () => {
     });
   });
 
-  it('posts node-select when an image is clicked', () => {
-    const img = document.querySelector('picture img');
+  it('posts node-select when an image is clicked outside a block', () => {
+    const img = document.querySelector('main > picture');
     img.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    const node = {
-      anchorType: 'image', proseIndex: 27, src: '/img.png', blockIndex: null,
-    };
-    expect(posted).to.deep.include({ type: 'node-select', payload: { node } });
+    expect(posted).to.deep.include({
+      type: 'node-select',
+      payload: {
+        node: {
+          anchorType: 'image', proseIndex: 27, src: '/img.png', blockIndex: null,
+        },
+      },
+    });
+
+    posted.length = 0;
+    document.querySelector('[data-prose-index="71"]')
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(posted.some((m) => m.type === 'node-select')).to.equal(false);
+  });
+
+  it('posts node-select when an image is clicked inside a block', () => {
+    const img = document.querySelector('.hero picture img');
+    img.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(posted).to.deep.include({
+      type: 'node-select',
+      payload: {
+        node: {
+          anchorType: 'image', proseIndex: 61, src: '/hero.png', blockIndex: 60,
+        },
+      },
+    });
+
+    posted.length = 0;
+    document.querySelector('.hero-copy')
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(posted.some((m) => m.type === 'node-select')).to.equal(false);
   });
 
   it('does NOT post node-select for an image drag', () => {
@@ -295,6 +325,15 @@ describe('quick-edit selection gestures', () => {
     expect(posted.some((m) => m.type === 'node-select' && m.payload?.node === null)).to.equal(false);
   });
 
+  it('posts node-select when clicking a non-editable area inside a block directly', () => {
+    const block = document.querySelector('[data-block-index="60"]');
+    block.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(posted).to.deep.include({
+      type: 'node-select',
+      payload: { node: { anchorType: 'table', proseIndex: 60 } },
+    });
+  });
+
   it('clears the selection when clicking outside it', () => {
     setSelectedNode({ anchorType: 'table', proseIndex: 50 });
     document.querySelector('.no-index')
@@ -315,6 +354,13 @@ describe('quick-edit selection gestures', () => {
     text.setAttribute('data-prose-index', '70');
     document.querySelector('main').appendChild(text);
     text.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(posted.some((m) => m.type === 'node-select' && m.payload?.node === null)).to.equal(false);
+  });
+
+  it('does not clear on a prose editable click inside a block', () => {
+    setSelectedNode({ anchorType: 'table', proseIndex: 50 });
+    document.querySelector('.hero-copy')
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     expect(posted.some((m) => m.type === 'node-select' && m.payload?.node === null)).to.equal(false);
   });
 
