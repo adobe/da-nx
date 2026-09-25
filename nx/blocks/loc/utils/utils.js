@@ -203,6 +203,8 @@ export function getPathDetails() {
 }
 
 export async function fetchConfig(org, site) {
+  if (!(org && site)) return { error: 'Options not available.' };
+
   // Keyed by org/site rather than a single flat cache — callers outside
   // loc's own app (e.g. mergeCopy invoked from another app's plugin) can
   // call this for different sites within one page's lifetime, and a flat
