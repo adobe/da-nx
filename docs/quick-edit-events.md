@@ -70,6 +70,7 @@ parallel one. If you do add a new key:
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
 | `COMMENT_MARKER_CLEAR` | iframe → host | da-live only |
 | `COMMENT_SHORTCUT` | iframe → host | da-live only |
+| `RUM_CLICK` | iframe → host | da-live only |
 
 ---
 
@@ -144,6 +145,18 @@ of marker bubbles and highlights on top of the previewed page (`nx/public/plugin
 
 All five are da-live-embedded only; the standalone `quick-edit-portal.js` host has no
 comments UI, so none are wired up there.
+
+### `RUM_CLICK`
+
+- **iframe → host**, payload `{ source: 'ew-wysiwyg-doc', target: string }`.
+- Clicks inside the preview iframe never bubble to the host document, so the host's RUM
+  enhancer can't see them — unlike `ew-editor-doc`, whose shadow-DOM clicks retarget to the
+  host element and are captured. Without this message the WYSIWYG/layout surface produces no
+  `ew-wysiwyg-doc` RUM click checkpoints.
+- The iframe (`src/rum-click.js`, installed from `quick-edit-portal.js`) captures every click,
+  derives `target` (link href → enclosing block name → tag), and forwards it. The da-live host
+  handler calls `sampleRUM('click', payload)` so events attribute to the editor session's RUM.
+  The standalone `quick-edit-portal.js` host does not consume it.
 
 ## Known gaps
 

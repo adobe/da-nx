@@ -30,6 +30,7 @@ export const MESSAGE_TYPES = Object.freeze({
   COMMENT_MARKER_CLICK: 'comment-marker-click', // { payload: { threadId: string } }
   COMMENT_MARKER_CLEAR: 'comment-marker-clear', // no payload
   COMMENT_SHORTCUT: 'comment-shortcut', // no payload
+  RUM_CLICK: 'rum-click', // { source: 'ew-wysiwyg-doc', target: string } — forward an in-iframe click so the host records a RUM click checkpoint
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }
 
   // Iframe -> host (request): { cursorOffset, imageData, fileName, mimeType, originalSrc }
