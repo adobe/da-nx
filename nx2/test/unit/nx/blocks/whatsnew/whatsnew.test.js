@@ -25,6 +25,17 @@ function whatsNewHtml(publishedDate) {
   `;
 }
 
+const WHATSNEW_WITH_ENTRIES_HTML = `
+  <html>
+    <head><meta name="published-date" content="2026-09-10"></head>
+    <body>
+      <main>
+        <div><h3 id="entry-1">Feature one</h3><picture><source srcset="./media_1.png?width=750"><img src="./media_1.png?width=750"></picture><p>Body one</p></div>
+      </main>
+    </body>
+  </html>
+`;
+
 function mockWhatsNewFetch(publishedDate) {
   const originalFetch = window.fetch;
   window.fetch = async (url, opts) => {
@@ -100,6 +111,27 @@ describe('nx-whatsnew', () => {
     await waitFor(() => el._hasUnseen !== undefined);
     await el.updateComplete;
     expect(el.shadowRoot.querySelector('.wn-trigger-dot')).to.exist;
+  });
+
+  it('does not auto-open the dialog on initial load when there is unseen content', async () => {
+    setWhatsNewLastSeenDate('2026-01-01');
+    restoreFetch = mockWhatsNewFetch('2026-09-10');
+    const originalFetch = window.fetch;
+    window.fetch = async (url, opts) => {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('/nx/fragments/guides/whats-new')) {
+        return new Response(WHATSNEW_WITH_ENTRIES_HTML, {
+          status: 200,
+          headers: new Headers({ 'Content-Type': 'text/html' }),
+        });
+      }
+      return originalFetch.call(window, url, opts);
+    };
+    restoreFetch = () => { window.fetch = originalFetch; };
+    const el = createTrigger();
+    await waitFor(() => el._hasUnseen !== undefined);
+    await new Promise((r) => { setTimeout(r, 20); });
+    expect(document.querySelector('nx-whatsnew-dialog')).to.not.exist;
   });
 
   it('does not show the dot when the published date is not newer than last seen', async () => {

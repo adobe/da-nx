@@ -9,11 +9,15 @@
  *   null if unavailable
  */
 export async function fetchPublishedDate(path) {
-  const resp = await fetch(path);
-  if (!resp.ok) return null;
-  const html = await resp.text();
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  return doc.querySelector('meta[name="published-date"]')?.content ?? null;
+  try {
+    const resp = await fetch(path);
+    if (!resp.ok) return null;
+    const html = await resp.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.querySelector('meta[name="published-date"]')?.content ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**

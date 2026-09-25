@@ -108,4 +108,12 @@ describe('fetchPublishedDate', () => {
     const date = await fetchPublishedDate('/nx/fragments/guides/whats-new');
     expect(date).to.equal(null);
   });
+
+  it('returns null when fetch throws', async () => {
+    restoreFetch = mockFetch(async () => {
+      throw new Error('network error');
+    });
+    const date = await fetchPublishedDate('/nx/fragments/guides/whats-new');
+    expect(date).to.equal(null);
+  });
 });
