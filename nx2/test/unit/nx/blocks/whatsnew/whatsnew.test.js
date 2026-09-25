@@ -2,8 +2,9 @@ import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
 import { getLastSeen, setLastSeen } from '../../../../../blocks/whatsnew/whatsnew-storage.js';
 
-// fragment.js reads config at import time, so setConfig() must run first.
-// Import the dialog up front so the duplicate-guard test can create one.
+// Some whatsnew dependencies read config at import time, so setConfig()
+// must run first. Import the dialog up front so the duplicate-guard test
+// can create one.
 await setConfig({ hostnames: [] });
 await import('../../../../../blocks/whatsnew/whatsnew-dialog.js');
 await import('../../../../../blocks/whatsnew/whatsnew.js');

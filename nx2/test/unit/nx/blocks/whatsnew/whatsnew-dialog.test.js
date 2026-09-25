@@ -2,10 +2,8 @@ import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
 import { getLastSeen } from '../../../../../blocks/whatsnew/whatsnew-storage.js';
 
-// fragment.js (a transitive dependency of whatsnew-dialog.js's loadFragment)
-// captures getConfig() into a module-level constant at import time, so
-// setConfig() must resolve before whatsnew-dialog.js is ever imported —
-// same pattern as nav.test.js and profile.test.js.
+// Some whatsnew dependencies read config at import time, so setConfig()
+// must resolve before whatsnew-dialog.js is imported.
 await setConfig({ hostnames: [] });
 await import('../../../../../blocks/whatsnew/whatsnew-dialog.js');
 
@@ -52,8 +50,7 @@ function mockWhatsNewFetchFailure() {
   return () => { window.fetch = originalFetch; };
 }
 
-// Generic poller for conditions that settle asynchronously (loadFragment,
-// then parsing, then a Lit re-render) — same pattern as profile.test.js.
+// Polls until async fetch/parse/render work settles.
 async function waitFor(predicate, { attempts = 50, interval = 10 } = {}) {
   for (let i = 0; i < attempts; i += 1) {
     if (predicate()) return true;
