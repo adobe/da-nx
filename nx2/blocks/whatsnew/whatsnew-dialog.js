@@ -12,19 +12,6 @@ const WHATSNEW_PATH = '/nx/fragments/guides/whats-new';
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// Tracks whether focus is being restored after pointer input.
-let lastInputWasPointer = false;
-window.addEventListener('pointerdown', () => { lastInputWasPointer = true; }, true);
-window.addEventListener('keydown', () => { lastInputWasPointer = false; }, true);
-
-function restoreFocusQuietly(el) {
-  if (!el) return;
-  el.focus();
-  if (!lastInputWasPointer) return;
-  el.style.outline = 'none';
-  el.addEventListener('blur', () => { el.style.outline = ''; }, { once: true });
-}
-
 /**
  * Two-pane "what's new" dialog.
  * Marks content seen on close.
@@ -39,11 +26,27 @@ class NxWhatsNewDialog extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this._loadContent();
+    // Tracks whether focus is being restored after pointer input.
+    this._lastInputWasPointer = false;
+    this._onPointerdown = () => { this._lastInputWasPointer = true; };
+    this._onKeydown = () => { this._lastInputWasPointer = false; };
+    window.addEventListener('pointerdown', this._onPointerdown, true);
+    window.addEventListener('keydown', this._onKeydown, true);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this._observer?.disconnect();
+    window.removeEventListener('pointerdown', this._onPointerdown, true);
+    window.removeEventListener('keydown', this._onKeydown, true);
+  }
+
+  _restoreFocusQuietly(el) {
+    if (!el) return;
+    el.focus();
+    if (!this._lastInputWasPointer) return;
+    el.style.outline = 'none';
+    el.addEventListener('blur', () => { el.style.outline = ''; }, { once: true });
   }
 
   get _dialog() { return this.shadowRoot.querySelector('nx-dialog'); }
@@ -105,7 +108,7 @@ class NxWhatsNewDialog extends LitElement {
 
   _onClose() {
     if (this._publishedDate) setLastSeen(this._publishedDate);
-    restoreFocusQuietly(this.returnFocusTo);
+    this._restoreFocusQuietly(this.returnFocusTo);
     this.remove();
   }
 
