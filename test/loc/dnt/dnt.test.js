@@ -502,3 +502,29 @@ describe('addDntInfoToHtml', () => {
     expect(removed).to.equal(metadataTable);
   });
 });
+
+describe('editable link-images', () => {
+  // No `:name:` segments: this connector's makeIconSpans would turn those into icons.
+  const src = 'https://delivery-p1.adobeaemcloud.com/adobe/assets/asset-1/as/a.jpg';
+  const html = `<body><main><div><p><a href="${src}" title="A red car" data-edit-as="image">${src}</a></p><p><a href="${src}">${src}</a></p></div></main></body>`;
+
+  it('protects the URL text but leaves the alt-bearing title translatable', async () => {
+    const result = await addDnt(html, {});
+    const doc = new DOMParser().parseFromString(result, 'text/html');
+    const [linkImage, plainLink] = doc.querySelectorAll('a');
+    expect(linkImage.hasAttribute('translate')).to.be.false;
+    expect(linkImage.querySelector('span.dnt-text[translate="no"]').textContent).to.equal(src);
+    // A plain URL link keeps the existing whole-anchor DNT.
+    expect(plainLink.getAttribute('translate')).to.equal('no');
+  });
+
+  it('round-trips a translated title with the marker intact', async () => {
+    const withDnt = (await addDnt(html, {})).replace('A red car', 'Un coche rojo');
+    const removed = await removeDnt({ html: withDnt, org: 'o', site: 's' });
+    const a = new DOMParser().parseFromString(removed, 'text/html').querySelector('a');
+    expect(a.getAttribute('data-edit-as')).to.equal('image');
+    expect(a.getAttribute('title')).to.equal('Un coche rojo');
+    expect(a.textContent).to.equal(src);
+    expect(a.querySelector('span')).to.be.null;
+  });
+});

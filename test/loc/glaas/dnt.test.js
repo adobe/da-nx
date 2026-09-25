@@ -239,4 +239,19 @@ describe('Glaas DNT', () => {
     expect(htmlWithoutDnt).to.include(`<img src="${markedSrc}" loading="lazy">`);
     expect(htmlWithoutDnt).to.not.include(LOC_SRC_ATTR);
   });
+
+  it('protects an editable link-image URL but keeps its alt-bearing title translatable', async () => {
+    const src = 'https://delivery-p1.adobeaemcloud.com/adobe/assets/urn:aaid:aem:1/as/a.jpg';
+    const html = `<body><main><div><p><a href="${src}" title="A red car" data-edit-as="image">${src}</a></p></div></main></body>`;
+    const withDnt = await addDnt(html, {}, { reset: true });
+    const a = new DOMParser().parseFromString(withDnt, 'text/html').querySelector('a');
+    expect(a.hasAttribute('translate')).to.be.false;
+    expect(a.querySelector('span.dnt-text[translate="no"]').textContent).to.equal(src);
+
+    const removed = await removeDnt(withDnt.replace('A red car', 'Un coche rojo'), 'org', 'site');
+    const out = new DOMParser().parseFromString(removed, 'text/html').querySelector('a');
+    expect(out.getAttribute('data-edit-as')).to.equal('image');
+    expect(out.getAttribute('title')).to.equal('Un coche rojo');
+    expect(out.textContent).to.equal(src);
+  });
 });
