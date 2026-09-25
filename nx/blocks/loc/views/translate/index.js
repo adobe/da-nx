@@ -149,8 +149,8 @@ export async function copySourceLangs(org, site, title, options, langs, urls, la
   const behavior = options['copy.conflict.behavior'];
   const sourceLocation = options['source.language']?.location || '/';
 
-  const copyUrl = async ({ lang, url }) => {
-    const destination = `/${org}/${site}${url.daDestPath.replace(sourceLocation, lang.location)}`;
+  const copyUrl = async (url) => {
+    const destination = `/${org}/${site}${url.daDestPath}`;
 
     // If has an ext (sheet), force overwrite
     const overwrite = behavior === 'overwrite' || url.hasExt;
@@ -178,7 +178,7 @@ export async function copySourceLangs(org, site, title, options, langs, urls, la
       };
     });
 
-    await Promise.allSettled(langUrls.map((url) => queue.push({ lang, url })));
+    await Promise.allSettled(langUrls.map((url) => queue.push(url)));
     const success = langUrls.filter((url) => url.status === 200).length;
     lang.copy = {
       saved: success,
