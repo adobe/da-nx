@@ -110,6 +110,7 @@
   border: none;
   background: none;
   color: var(--s2-gray-700);
+  font-family: var(--s2-font-family);
   font-size: var(--s2-component-l-regular-font-size);
   font-weight: var(--s2-component-l-regular-font-weight);
   line-height: var(--s2-component-l-regular-line-height);
@@ -184,6 +185,7 @@
 
 .wn-card-title {
   margin: 0 0 4px;
+  font-family: var(--s2-font-family);
   font-size: var(--s2-component-xl-bold-font-size);
   font-weight: var(--s2-component-xl-bold-font-weight);
   line-height: var(--s2-component-xl-bold-line-height);
@@ -192,6 +194,7 @@
 
 .wn-card-body {
   margin: 0;
+  font-family: var(--s2-font-family);
   font-size: var(--s2-component-l-regular-font-size);
   font-weight: var(--s2-component-l-regular-font-weight);
   line-height: var(--s2-component-l-regular-line-height);
