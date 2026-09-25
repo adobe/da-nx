@@ -1,5 +1,6 @@
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import downloadQueue from '../../utils/downloadQueue.js';
+import fetchWithRetry from '../../utils/fetchWithRetry.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
 import { getAccessToken, imsAuthHeader } from '../../utils/auth.js';
@@ -94,7 +95,7 @@ function resolveOrigin(service = {}) {
  * Builds the IMS-auth + DeepL-credential headers used for authenticated DeepL API calls
  * routed through the DA_TRANSLATE proxy.
  * @param {object} service - The service configuration.
- * @returns {Promise<{headers: object, origin: string}|null>}
+ * @returns {Promise<{apiKey: string, origin: string, headers: object}|null>}
  */
 async function getApiContext(service) {
   const apiKey = await getAccessToken(INTEGRATION_NAME, service);
@@ -108,6 +109,28 @@ async function getApiContext(service) {
   };
 
   return { apiKey: cleanKey, origin, headers };
+}
+
+/**
+ * `fetchWithRetry`'s `onUnauthorized` hook for DeepL. Unlike Trados/Lionbridge/GlobalLink,
+ * where the credential is a short-lived OAuth token da-etc can reissue on demand, DeepL's
+ * key is the static value entered in the config sheet - re-requesting it from the auth
+ * proxy just hands back the same key. A 401 here means the key itself is wrong (or was
+ * revoked in DeepL) and only fixing the config sheet resolves it, so there's nothing to
+ * recover automatically; this always declines the retry.
+ * @returns {Promise<null>} Always `null` - never recoverable.
+ */
+async function onUnauthorized() {
+  return null;
+}
+
+/**
+ * Builds the `fetchWithRetry` config for a DeepL request: default rate-limit/transient-
+ * failure backoff, plus the (non-recoverable) `onUnauthorized` hook.
+ * @returns {object} The `fetchWithRetry` config.
+ */
+function retryConfig() {
+  return { onUnauthorized };
 }
 
 // Per-origin cache of in-flight/resolved language lookups, so multiple languages in the
@@ -128,7 +151,12 @@ async function fetchSupportedLanguages(apiCtx) {
   const { origin, headers } = apiCtx;
   const v3Origin = origin.replace(/\/v2$/, '/v3');
   try {
-    const resp = await fetch(`${v3Origin}/languages?resource=translate_document`, { headers });
+    const opts = { headers };
+    const resp = await fetchWithRetry(
+      `${v3Origin}/languages?resource=translate_document`,
+      opts,
+      retryConfig(),
+    );
     if (!resp.ok) return { source: null, target: null };
     const json = await resp.json().catch(() => null);
     if (!Array.isArray(json)) return { source: null, target: null };
@@ -211,11 +239,8 @@ async function uploadDocument(
     formData.append('glossary_id', glossaryId);
   }
 
-  const resp = await fetch(`${origin}/document`, {
-    method: 'POST',
-    headers,
-    body: formData,
-  });
+  const opts = { method: 'POST', headers, body: formData };
+  const resp = await fetchWithRetry(`${origin}/document`, opts, retryConfig());
 
   if (!resp.ok) return null;
   const json = await resp.json().catch(() => null);
@@ -240,11 +265,12 @@ async function checkDocumentStatus(apiCtx, documentId, documentKey) {
   formData.append('auth_key', apiKey);
   formData.append('document_key', documentKey);
 
-  const resp = await fetch(`${origin}/document/${documentId}`, {
-    method: 'POST',
-    headers,
-    body: formData,
-  });
+  const opts = { method: 'POST', headers, body: formData };
+  const resp = await fetchWithRetry(
+    `${origin}/document/${documentId}`,
+    opts,
+    retryConfig(),
+  );
 
   if (!resp.ok) return null;
   return resp.json().catch(() => null);
@@ -263,11 +289,12 @@ async function downloadDocumentResult(apiCtx, documentId, documentKey) {
   formData.append('auth_key', apiKey);
   formData.append('document_key', documentKey);
 
-  const resp = await fetch(`${origin}/document/${documentId}/result`, {
-    method: 'POST',
-    headers,
-    body: formData,
-  });
+  const opts = { method: 'POST', headers, body: formData };
+  const resp = await fetchWithRetry(
+    `${origin}/document/${documentId}/result`,
+    opts,
+    retryConfig(),
+  );
 
   if (!resp.ok) return null;
   return resp.text();
