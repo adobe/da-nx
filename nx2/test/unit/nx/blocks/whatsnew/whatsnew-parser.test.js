@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { parseEntries, fetchPublishedDate } from '../../../../../blocks/whatsnew/whatsnew-parser.js';
+import { loadEntries, parseEntries, fetchPublishedDate } from '../../../../../blocks/whatsnew/whatsnew-parser.js';
 
 function buildFragment(html) {
   const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
@@ -74,6 +74,43 @@ describe('parseEntries', () => {
       <div><h3 id="entry-1">Feature</h3><picture><img src="./media_1.png"></picture><p>Body</p></div>
     `);
     expect(parseEntries(fragment)[0].videoSrc).to.equal(null);
+  });
+});
+
+describe('loadEntries', () => {
+  let restoreFetch;
+
+  afterEach(() => {
+    restoreFetch?.();
+    restoreFetch = undefined;
+  });
+
+  it('loads entries and rewrites relative media URLs without fragment decoration', async () => {
+    restoreFetch = mockFetch(async () => new Response(`
+      <html>
+        <head><meta name="published-date" content="2026-09-10"></head>
+        <body>
+          <main>
+            <div>
+              <h3 id="entry-1">Feature</h3>
+              <picture><img src="./media_1.png"></picture>
+              <p><a href="./media_1.mp4">Video</a></p>
+              <p>Body</p>
+            </div>
+          </main>
+        </body>
+      </html>
+    `, {
+      status: 200,
+      headers: new Headers({ 'Content-Type': 'text/html' }),
+    }));
+
+    const result = await loadEntries('/nx/fragments/guides/whats-new');
+
+    expect(result?.publishedDate).to.equal('2026-09-10');
+    expect(result?.entries).to.have.lengthOf(1);
+    expect(result?.entries[0].picture.querySelector('img').src).to.match(/\/nx\/fragments\/guides\/media_1\.png$/);
+    expect(result?.entries[0].videoSrc).to.match(/\/nx\/fragments\/guides\/media_1\.mp4$/);
   });
 });
 

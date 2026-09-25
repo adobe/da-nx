@@ -1,8 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
-import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg } from '../../utils/svg.js';
-import { parseEntries } from './whatsnew-parser.js';
+import { loadEntries } from './whatsnew-parser.js';
 import { setLastSeen } from './whatsnew-storage.js';
 import '../shared/dialog/dialog.js';
 
@@ -51,14 +50,8 @@ class NxWhatsNewDialog extends LitElement {
   get _dialog() { return this.shadowRoot.querySelector('nx-dialog'); }
 
   async _loadContent() {
-    let fragment;
-    try {
-      fragment = await loadFragment(WHATSNEW_PATH);
-    } catch {
-      this.remove();
-      return;
-    }
-    const entries = fragment ? parseEntries(fragment) : [];
+    const result = await loadEntries(WHATSNEW_PATH);
+    const entries = result?.entries ?? [];
     // Nothing to render.
     if (entries.length === 0) {
       this.remove();
@@ -66,7 +59,7 @@ class NxWhatsNewDialog extends LitElement {
     }
     this._entries = entries;
     this._activeId = entries[0].id;
-    this._publishedDate = fragment.publishedDate;
+    this._publishedDate = result.publishedDate;
   }
 
   async updated(changed) {
