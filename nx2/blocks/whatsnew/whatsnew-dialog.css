@@ -13,7 +13,6 @@
   --nx-dialog-border: none;
   --nx-dialog-gap: 0;
   --nx-dialog-actions-padding-top: 0;
-  --nx-dialog-body-overflow: hidden;
 }
 
 /* Positioned against nx-dialog's .panel instead of height: 100%, which doesn't reliably resolve for slotted content. */
