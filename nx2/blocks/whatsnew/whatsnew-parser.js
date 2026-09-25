@@ -26,6 +26,34 @@ export async function fetchPublishedDate(path) {
 }
 
 /**
+ * Parses a what's-new fragment into dialog entries.
+ * @param {HTMLElement} fragment root element containing entry sections
+ * @returns {{id: string, title: string, picture: Element|null,
+ *   videoSrc: string|null, body: string}[]}
+ */
+function parseEntries(fragment) {
+  return [...fragment.children].reduce((entries, section) => {
+    const h3 = section.querySelector('h3');
+    if (!h3?.id) return entries;
+
+    const picture = section.querySelector('picture');
+    const videoSrc = section.querySelector('a[href$=".mp4"]')?.getAttribute('href') ?? null;
+    const body = [...section.querySelectorAll('p')].find(
+      (p) => !p.querySelector('picture') && !p.querySelector('a[href$=".mp4"]'),
+    );
+
+    entries.push({
+      id: h3.id,
+      title: h3.textContent.trim(),
+      picture,
+      videoSrc,
+      body: body?.textContent.trim() ?? '',
+    });
+    return entries;
+  }, []);
+}
+
+/**
  * Loads a what's-new fragment and returns parsed dialog data.
  * @param {string} path absolute URL to the fragment
  * @returns {Promise<{entries: {id: string, title: string, picture: Element|null,
@@ -47,32 +75,4 @@ export async function loadEntries(path) {
   } catch {
     return null;
   }
-}
-
-/**
- * Parses a what's-new fragment into dialog entries.
- * @param {HTMLElement} fragment root element containing entry sections
- * @returns {{id: string, title: string, picture: Element|null,
- *   videoSrc: string|null, body: string}[]}
- */
-export function parseEntries(fragment) {
-  return [...fragment.children].reduce((entries, section) => {
-    const h3 = section.querySelector('h3');
-    if (!h3?.id) return entries;
-
-    const picture = section.querySelector('picture');
-    const videoSrc = section.querySelector('a[href$=".mp4"]')?.getAttribute('href') ?? null;
-    const body = [...section.querySelectorAll('p')].find(
-      (p) => !p.querySelector('picture') && !p.querySelector('a[href$=".mp4"]'),
-    );
-
-    entries.push({
-      id: h3.id,
-      title: h3.textContent.trim(),
-      picture,
-      videoSrc,
-      body: body?.textContent.trim() ?? '',
-    });
-    return entries;
-  }, []);
 }
