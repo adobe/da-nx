@@ -69,14 +69,14 @@ class NxEditorToggle extends LitElement {
   }
 
   _toggle() {
-    this._userEnabled = !this._userEnabled;
+    const { pathname, search, hash } = window.location;
+    this._userEnabled = pathname === '/edit';
     setEWUserEnabled(this._userEnabled);
     // Arm the matching one-time prompt (no-op after first showing).
     if (this._userEnabled) armEwWelcome();
     else armEwSwitchbackFeedback();
 
     // Hop to the matching editor if we're on the other one; otherwise reload.
-    const { pathname, search, hash } = window.location;
     const target = this._userEnabled ? '/canvas' : '/edit';
     const other = this._userEnabled ? '/edit' : '/canvas';
     if (pathname === other) {
@@ -88,12 +88,13 @@ class NxEditorToggle extends LitElement {
 
   render() {
     if (this._siteEwEnabled) return nothing;
-    if (!['/edit', '/canvas'].includes(window.location.pathname)) return nothing;
+    const { pathname } = window.location;
+    if (!['/edit', '/canvas'].includes(pathname)) return nothing;
     return html`
       <button
         type="button"
         role="switch"
-        aria-checked=${this._userEnabled ? 'true' : 'false'}
+        aria-checked=${pathname === '/canvas' ? 'true' : 'false'}
         class="editortoggle-switch"
         @click=${this._toggle}
       >

@@ -23,21 +23,33 @@ describe('nx-editortoggle', () => {
     });
   });
 
-  async function expectToolbarOn(path) {
+  async function expectToolbarOn(path, userEnabled, checked) {
     window.history.replaceState(null, '', path);
     toggle = document.createElement('nx-editortoggle');
     document.body.append(toggle);
     toggle._siteEwEnabled = false;
-    toggle._userEnabled = false;
+    toggle._userEnabled = userEnabled;
     await toggle.updateComplete;
 
     const button = toggle.shadowRoot.querySelector('button');
     expect(button?.getAttribute('role')).to.equal('switch');
-    expect(button?.getAttribute('aria-checked')).to.equal('false');
+    expect(button?.getAttribute('aria-checked')).to.equal(checked);
+    expect(localStorage.getItem(userKey)).to.be.null;
   }
 
-  it('renders the toolbar switch on /edit', () => expectToolbarOn('/edit'));
-  it('renders the toolbar switch on /canvas', () => expectToolbarOn('/canvas'));
+  it('renders the toolbar switch off on /edit regardless of the user flag', async () => {
+    await expectToolbarOn('/edit', false, 'false');
+    toggle._userEnabled = true;
+    await toggle.updateComplete;
+    expect(toggle.shadowRoot.querySelector('button').getAttribute('aria-checked')).to.equal('false');
+  });
+
+  it('renders the toolbar switch on on /canvas regardless of the user flag', async () => {
+    await expectToolbarOn('/canvas', false, 'true');
+    toggle._userEnabled = true;
+    await toggle.updateComplete;
+    expect(toggle.shadowRoot.querySelector('button').getAttribute('aria-checked')).to.equal('true');
+  });
 
   it('hides the switch outside the editor', async () => {
     window.history.replaceState(null, '', '/');
