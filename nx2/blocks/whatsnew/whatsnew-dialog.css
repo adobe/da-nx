@@ -188,8 +188,6 @@
 }
 
 .wn-card {
-  display: flex;
-  flex-direction: column;
   scroll-margin-top: 40px;
 }
 
