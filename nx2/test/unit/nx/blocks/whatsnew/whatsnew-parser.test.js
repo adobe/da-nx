@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { parseWhatsNewEntries, fetchPublishedDate } from '../../../../../blocks/whatsnew/parse-whatsnew.js';
+import { parseEntries, fetchPublishedDate } from '../../../../../blocks/whatsnew/whatsnew-parser.js';
 
 function buildFragment(html) {
   const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
@@ -12,13 +12,13 @@ function mockFetch(handler) {
   return () => { window.fetch = originalFetch; };
 }
 
-describe('parseWhatsNewEntries', () => {
+describe('parseEntries', () => {
   it('parses each section into an entry with id, title, picture, and body', () => {
     const fragment = buildFragment(`
       <div><h3 id="entry-1">First feature</h3><picture><img src="./media_1.png"></picture><p>Body one</p></div>
       <div><h3 id="entry-2">Second feature</h3><picture><img src="./media_2.png"></picture><p>Body two</p></div>
     `);
-    const entries = parseWhatsNewEntries(fragment);
+    const entries = parseEntries(fragment);
     expect(entries).to.have.lengthOf(2);
     expect(entries[0].id).to.equal('entry-1');
     expect(entries[0].title).to.equal('First feature');
@@ -33,7 +33,7 @@ describe('parseWhatsNewEntries', () => {
       <div><h3>No id here</h3><p>Ignored</p></div>
       <div><h3 id="entry-1">Kept</h3><p>Body</p></div>
     `);
-    const entries = parseWhatsNewEntries(fragment);
+    const entries = parseEntries(fragment);
     expect(entries).to.have.lengthOf(1);
     expect(entries[0].id).to.equal('entry-1');
   });
@@ -46,13 +46,13 @@ describe('parseWhatsNewEntries', () => {
         <p>Real body text</p>
       </div>
     `);
-    const entries = parseWhatsNewEntries(fragment);
+    const entries = parseEntries(fragment);
     expect(entries[0].body).to.equal('Real body text');
   });
 
   it('returns an empty array for a fragment with no sections', () => {
     const fragment = buildFragment('');
-    expect(parseWhatsNewEntries(fragment)).to.deep.equal([]);
+    expect(parseEntries(fragment)).to.deep.equal([]);
   });
 
   it('extracts a videoSrc from a linked .mp4 and excludes it from the body', () => {
@@ -63,7 +63,7 @@ describe('parseWhatsNewEntries', () => {
         <p>Real body text</p>
       </div>
     `);
-    const entries = parseWhatsNewEntries(fragment);
+    const entries = parseEntries(fragment);
     expect(entries[0].picture).to.equal(null);
     expect(entries[0].videoSrc).to.equal('./media_1.mp4');
     expect(entries[0].body).to.equal('Real body text');
@@ -73,7 +73,7 @@ describe('parseWhatsNewEntries', () => {
     const fragment = buildFragment(`
       <div><h3 id="entry-1">Feature</h3><picture><img src="./media_1.png"></picture><p>Body</p></div>
     `);
-    expect(parseWhatsNewEntries(fragment)[0].videoSrc).to.equal(null);
+    expect(parseEntries(fragment)[0].videoSrc).to.equal(null);
   });
 });
 

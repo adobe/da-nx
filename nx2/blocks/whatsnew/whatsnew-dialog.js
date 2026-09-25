@@ -2,8 +2,8 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg } from '../../utils/svg.js';
-import { parseWhatsNewEntries } from './parse-whatsnew.js';
-import { setWhatsNewLastSeenDate } from './whatsnew-flags.js';
+import { parseEntries } from './whatsnew-parser.js';
+import { setLastSeen } from './whatsnew-storage.js';
 import '../shared/dialog/dialog.js';
 
 const style = await loadStyle(import.meta.url);
@@ -13,7 +13,7 @@ const WHATSNEW_PATH = '/nx/fragments/guides/whats-new';
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// Tracks last input type, to skip the ring browsers show by default on any scripted .focus() call.
+// Tracks whether focus is being restored after pointer input.
 let lastInputWasPointer = false;
 window.addEventListener('pointerdown', () => { lastInputWasPointer = true; }, true);
 window.addEventListener('keydown', () => { lastInputWasPointer = false; }, true);
@@ -27,8 +27,8 @@ function restoreFocusQuietly(el) {
 }
 
 /**
- * Two-pane "what's new" dialog (toc + scrollable cards), wrapping the
- * shared nx-dialog. Opened from whatsnew.js; marks content seen on close.
+ * Two-pane "what's new" dialog.
+ * Marks content seen on close.
  */
 class NxWhatsNewDialog extends LitElement {
   static properties = {
@@ -58,8 +58,8 @@ class NxWhatsNewDialog extends LitElement {
       this.remove();
       return;
     }
-    const entries = fragment ? parseWhatsNewEntries(fragment) : [];
-    // No content, or content with no valid entries — nothing to show.
+    const entries = fragment ? parseEntries(fragment) : [];
+    // Nothing to render.
     if (entries.length === 0) {
       this.remove();
       return;
@@ -71,7 +71,7 @@ class NxWhatsNewDialog extends LitElement {
 
   async updated(changed) {
     if (changed.has('_entries') && this._entries) {
-      // nx-dialog's .panel (which .wn-body is positioned against) may not exist yet.
+      // Wait for nx-dialog layout before measuring.
       await this._dialog?.updateComplete;
       this._observeCards();
       this._ensureScrollRoom();
@@ -81,13 +81,13 @@ class NxWhatsNewDialog extends LitElement {
     if (changed.has('_activeId')) this._positionIndicator();
   }
 
-  // Computes trailing room so the last card can scroll to the 40px-from-top target.
+  // Adds trailing room so the last card can align near the top.
   _ensureScrollRoom() {
     const container = this.shadowRoot.querySelector('.wn-cards');
     const cards = this.shadowRoot.querySelectorAll('.wn-card');
     const lastCard = cards[cards.length - 1];
     if (!container || !lastCard) return;
-    // On mobile .wn-body (not .wn-cards) owns scrolling, so this doesn't apply.
+    // Mobile uses .wn-body for scrolling.
     if (window.matchMedia('(width < 600px)').matches) {
       container.style.paddingBottom = '';
       return;
@@ -96,7 +96,7 @@ class NxWhatsNewDialog extends LitElement {
     container.style.paddingBottom = `${Math.max(60, needed)}px`;
   }
 
-  // Recomputes scroll room when the last card's size changes (its image loads asynchronously).
+  // Recomputes scroll room when the last card changes size.
   _watchLastCardSize(lastCard) {
     this._resizeObserver?.disconnect();
     this._resizeObserver = new ResizeObserver(() => {
@@ -105,7 +105,7 @@ class NxWhatsNewDialog extends LitElement {
     this._resizeObserver.observe(lastCard);
   }
 
-  // Single shared indicator that slides, rather than each item toggling its own bar.
+  // Positions the active TOC indicator.
   _positionIndicator() {
     const indicator = this.shadowRoot.querySelector('.wn-toc-indicator');
     const active = this.shadowRoot.querySelector('.wn-toc-item[aria-current="true"]');
@@ -117,7 +117,7 @@ class NxWhatsNewDialog extends LitElement {
   _observeCards() {
     const cards = [...this.shadowRoot.querySelectorAll('.wn-card')];
     this._observer = new IntersectionObserver((observed) => {
-      // Defer loading each card's video until it actually scrolls into view.
+      // Lazy-load videos when their cards enter view.
       observed.forEach((entry) => {
         if (!entry.isIntersecting) return;
         const video = entry.target.querySelector('video[data-src]');
@@ -125,7 +125,7 @@ class NxWhatsNewDialog extends LitElement {
         video.src = video.dataset.src;
         delete video.dataset.src;
       });
-      // Skip while a click-triggered scroll is animating, avoids flipping _activeId back.
+      // Ignore observer updates during click-driven scrolling.
       if (this._suppressObserver) return;
       const visible = observed.filter((entry) => entry.isIntersecting);
       if (visible.length === 0) return;
@@ -141,12 +141,12 @@ class NxWhatsNewDialog extends LitElement {
   }
 
   _onClose() {
-    if (this._publishedDate) setWhatsNewLastSeenDate(this._publishedDate);
+    if (this._publishedDate) setLastSeen(this._publishedDate);
     restoreFocusQuietly(this.returnFocusTo);
     this.remove();
   }
 
-  // Scrolls to 40px below the top; sets _activeId directly (short cards may skip the observer).
+  // Scrolls the selected entry near the top and updates active state.
   _scrollToEntry(id) {
     const card = this.shadowRoot.querySelector(`.wn-card[data-id="${id}"]`);
     const container = this.shadowRoot.querySelector('.wn-cards');
@@ -157,12 +157,12 @@ class NxWhatsNewDialog extends LitElement {
       - container.getBoundingClientRect().top + container.scrollTop - 40;
     const maxScroll = container.scrollHeight - container.clientHeight;
     const clamped = Math.max(0, Math.min(offset, maxScroll));
-    // Skip suppressing when there's no real scroll delta — scrollend won't fire to clear it.
+    // Only suppress observer updates when a scroll will actually happen.
     if (Math.abs(clamped - container.scrollTop) >= 1) {
       this._suppressObserver = true;
       const clear = () => { this._suppressObserver = false; };
       container.addEventListener('scrollend', clear, { once: true });
-      // Backstop in case scrollend never fires.
+      // Fallback if scrollend does not fire.
       setTimeout(clear, 500);
     }
     container.scrollTo({ top: clamped, behavior: 'smooth' });

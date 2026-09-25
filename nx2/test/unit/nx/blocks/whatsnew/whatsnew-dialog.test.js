@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
-import { getWhatsNewLastSeenDate } from '../../../../../blocks/whatsnew/whatsnew-flags.js';
+import { getLastSeen } from '../../../../../blocks/whatsnew/whatsnew-storage.js';
 
 // fragment.js (a transitive dependency of whatsnew-dialog.js's loadFragment)
 // captures getConfig() into a module-level constant at import time, so
@@ -121,7 +121,7 @@ describe('nx-whatsnew-dialog', () => {
     const el = createDialog();
     await waitFor(() => el.shadowRoot.querySelectorAll('.wn-card').length > 0);
 
-    expect(getWhatsNewLastSeenDate()).to.equal(null);
+    expect(getLastSeen()).to.equal(null);
   });
 
   it('marks content seen when the dialog closes', async () => {
@@ -132,8 +132,8 @@ describe('nx-whatsnew-dialog', () => {
     el.shadowRoot.querySelector('.wn-close').click();
 
     await waitFor(() => !el.isConnected);
-    await waitFor(() => getWhatsNewLastSeenDate() === '2026-09-10');
-    expect(getWhatsNewLastSeenDate()).to.equal('2026-09-10');
+    await waitFor(() => getLastSeen() === '2026-09-10');
+    expect(getLastSeen()).to.equal('2026-09-10');
   });
 
   it('removes itself when the fragment has no valid entries', async () => {
@@ -148,6 +148,6 @@ describe('nx-whatsnew-dialog', () => {
     const el = createDialog();
     await waitFor(() => !el.isConnected);
     expect(el.isConnected).to.be.false;
-    expect(getWhatsNewLastSeenDate()).to.equal(null);
+    expect(getLastSeen()).to.equal(null);
   });
 });

@@ -5,7 +5,7 @@
 // plain string comparison, no date parsing needed.
 const WHATSNEW_LAST_SEEN_KEY = 'nx2:whatsnew-last-seen-date';
 
-export function getWhatsNewLastSeenDate() {
+export function getLastSeen() {
   try {
     return localStorage.getItem(WHATSNEW_LAST_SEEN_KEY);
   } catch {
@@ -13,7 +13,7 @@ export function getWhatsNewLastSeenDate() {
   }
 }
 
-export function setWhatsNewLastSeenDate(date) {
+export function setLastSeen(date) {
   try {
     localStorage.setItem(WHATSNEW_LAST_SEEN_KEY, date);
   } catch { /* storage disabled — no-op */ }

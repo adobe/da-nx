@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
-import { getWhatsNewLastSeenDate, setWhatsNewLastSeenDate } from '../../../../../blocks/whatsnew/whatsnew-flags.js';
+import { getLastSeen, setLastSeen } from '../../../../../blocks/whatsnew/whatsnew-storage.js';
 
 // _openDialog() dynamically imports whatsnew-dialog.js, which transitively
 // depends on fragment.js's module-level getConfig() call — so setConfig()
@@ -14,7 +14,7 @@ await import('../../../../../blocks/whatsnew/whatsnew.js');
 // No valid entries in the body: these tests only care about the nav
 // trigger's own dot/guard logic, not the dialog's rendered content, and an
 // entry-less fragment means the auto-opened dialog removes itself without
-// ever calling setWhatsNewLastSeenDate — keeping this file from stomping on
+// ever calling setLastSeen — keeping this file from stomping on
 // the "last seen" localStorage key other test files also read/write.
 function whatsNewHtml(publishedDate) {
   return `
@@ -105,7 +105,7 @@ describe('nx-whatsnew', () => {
   });
 
   it('shows the dot when the published date is newer than last seen', async () => {
-    setWhatsNewLastSeenDate('2026-01-01');
+    setLastSeen('2026-01-01');
     restoreFetch = mockWhatsNewFetch('2026-09-10');
     const el = createTrigger();
     await waitFor(() => el._hasUnseen !== undefined);
@@ -114,7 +114,7 @@ describe('nx-whatsnew', () => {
   });
 
   it('does not auto-open the dialog on initial load when there is unseen content', async () => {
-    setWhatsNewLastSeenDate('2026-01-01');
+    setLastSeen('2026-01-01');
     restoreFetch = mockWhatsNewFetch('2026-09-10');
     const originalFetch = window.fetch;
     window.fetch = async (url, opts) => {
@@ -135,7 +135,7 @@ describe('nx-whatsnew', () => {
   });
 
   it('does not show the dot when the published date is not newer than last seen', async () => {
-    setWhatsNewLastSeenDate('2026-09-10');
+    setLastSeen('2026-09-10');
     restoreFetch = mockWhatsNewFetch('2026-09-10');
     const el = createTrigger();
     await waitFor(() => el._hasUnseen !== undefined);
@@ -144,7 +144,7 @@ describe('nx-whatsnew', () => {
   });
 
   it('clears the dot when the dialog closes', async () => {
-    setWhatsNewLastSeenDate('2026-01-01');
+    setLastSeen('2026-01-01');
     const originalFetch = window.fetch;
     window.fetch = async (url, opts) => {
       const urlStr = typeof url === 'string' ? url : url.toString();
@@ -169,7 +169,7 @@ describe('nx-whatsnew', () => {
     await el.updateComplete;
 
     expect(el.shadowRoot.querySelector('.wn-trigger-dot')).to.not.exist;
-    expect(getWhatsNewLastSeenDate()).to.equal('2026-09-10');
+    expect(getLastSeen()).to.equal('2026-09-10');
   });
 
   it('does not create a second dialog when one is already open', async () => {
