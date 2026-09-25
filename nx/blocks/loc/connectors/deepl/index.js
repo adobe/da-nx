@@ -1,4 +1,5 @@
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
+import downloadQueue from '../../utils/downloadQueue.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
 import { getAccessToken, imsAuthHeader } from '../../utils/auth.js';
@@ -114,24 +115,35 @@ async function getApiContext(service) {
 const languagesCache = new Map();
 
 /**
- * Fetches DeepL's currently supported language codes for one direction (source or target),
- * per https://developers.deepl.com/docs/languages/using-the-languages-api. Used to resolve
- * locale codes against DeepL's live list rather than a hardcoded one, so newly added
- * languages/variants (e.g. a future EN or ZH sibling) work without a code change.
+ * Fetches DeepL's currently supported language codes for document translation via the
+ * v3 languages endpoint, per https://developers.deepl.com/docs/languages/using-the-languages-api
+ * (the v2 equivalent this replaces is deprecated). Used to resolve locale codes against
+ * DeepL's live list rather than a hardcoded one, so newly added languages/variants (e.g. a
+ * future EN or ZH sibling) work without a code change.
  * @param {object} apiCtx - The API context from getApiContext.
- * @param {'source'|'target'} type - Which language list to fetch.
- * @returns {Promise<Set<string>|null>} Upper-cased DeepL language codes, or `null` on failure.
+ * @returns {Promise<{source: Set<string>|null, target: Set<string>|null}>} Upper-cased
+ * DeepL language codes usable as a source/target, or `null` per direction on failure.
  */
-async function fetchLanguageCodes(apiCtx, type) {
+async function fetchSupportedLanguages(apiCtx) {
   const { origin, headers } = apiCtx;
+  const v3Origin = origin.replace(/\/v2$/, '/v3');
   try {
-    const resp = await fetch(`${origin}/languages?type=${type}`, { headers });
-    if (!resp.ok) return null;
+    const resp = await fetch(`${v3Origin}/languages?resource=translate_document`, { headers });
+    if (!resp.ok) return { source: null, target: null };
     const json = await resp.json().catch(() => null);
-    if (!Array.isArray(json)) return null;
-    return new Set(json.map((entry) => entry.language?.toUpperCase()).filter(Boolean));
+    if (!Array.isArray(json)) return { source: null, target: null };
+
+    const source = new Set();
+    const target = new Set();
+    json.forEach((entry) => {
+      const lang = entry.lang?.toUpperCase();
+      if (!lang) return;
+      if (entry.usable_as_source) source.add(lang);
+      if (entry.usable_as_target) target.add(lang);
+    });
+    return { source, target };
   } catch {
-    return null;
+    return { source: null, target: null };
   }
 }
 
@@ -145,10 +157,7 @@ async function fetchLanguageCodes(apiCtx, type) {
 function getSupportedLanguages(apiCtx) {
   const { origin } = apiCtx;
   if (!languagesCache.has(origin)) {
-    languagesCache.set(origin, Promise.all([
-      fetchLanguageCodes(apiCtx, 'source'),
-      fetchLanguageCodes(apiCtx, 'target'),
-    ]).then(([source, target]) => ({ source, target })));
+    languagesCache.set(origin, fetchSupportedLanguages(apiCtx));
   }
   return languagesCache.get(origin);
 }
@@ -300,10 +309,6 @@ export async function sendAllLanguages({
   const apiCtx = await getApiContext(service);
   if (!apiCtx) {
     sendMessage({ text: 'Not connected to DeepL. Check API key configuration.', type: 'error' });
-    langs.forEach((lang) => {
-      lang.translation ??= {};
-      lang.translation.status = 'error';
-    });
     return;
   }
 
@@ -352,46 +357,15 @@ export async function sendAllLanguages({
 
     lang.translation.sent = uploadedCount;
 
+    // Submission is complete once documents are queued on DeepL - actual
+    // translation progress is tracked separately by getStatusAll, matching
+    // the other connectors (they don't block sendAllLanguages on completion).
+    lang.translation.status = uploadedCount === urls.length ? 'created' : 'error';
     if (uploadedCount !== urls.length) {
-      lang.translation.status = 'error';
       sendMessage({
         text: `Uploaded ${uploadedCount}/${urls.length} documents for ${lang.name}.`,
         type: 'error',
       });
-    } else {
-      sendMessage({ text: `Waiting for DeepL to translate ${lang.name}...` });
-
-      let doneCount = 0;
-      const checkWorker = async (url) => {
-        const docRecord = lang.translation.documents[url.daBasePath];
-        if (!docRecord?.documentId || !docRecord?.documentKey) return;
-
-        for (let i = 0; i < STATUS_POLL_MAX; i += 1) {
-          const statusRes = await checkDocumentStatus(
-            apiCtx,
-            docRecord.documentId,
-            docRecord.documentKey,
-          );
-          if (statusRes?.status === 'done') {
-            docRecord.status = 'done';
-            doneCount += 1;
-            break;
-          }
-          if (statusRes?.status === 'error') {
-            docRecord.status = 'error';
-            docRecord.errorMessage = statusRes.error_message;
-            break;
-          }
-          // eslint-disable-next-line no-await-in-loop
-          await new Promise((resolve) => { setTimeout(resolve, STATUS_POLL_MS); });
-        }
-      };
-
-      const statusQueue = new Queue(checkWorker, 5);
-      await Promise.allSettled(urls.map((url) => statusQueue.push(url)));
-
-      lang.translation.translated = doneCount;
-      lang.translation.status = doneCount === urls.length ? 'translated' : 'error';
     }
   }
 
@@ -412,7 +386,13 @@ export async function getStatusAll({ service, langs, urls, actions }) {
     return;
   }
 
-  for (const lang of langs) {
+  // 'complete'/'cancelled' are terminal - DeepL keeps reporting documents
+  // as 'done' forever once finished, so without this guard every subsequent
+  // status check would revert 'complete' back to 'translated' (triggering
+  // a re-save) or 'cancelled' back to 'translated' (undoing the cancel).
+  const activeLangs = langs.filter((l) => !['complete', 'cancelled'].includes(l.translation?.status));
+
+  for (const lang of activeLangs) {
     const documents = lang.translation?.documents;
     if (documents) {
       let doneCount = 0;
@@ -529,27 +509,14 @@ export async function saveItems({
     }
   };
 
-  const queue = new Queue(downloadCallback, 5);
-
-  return new Promise((resolve) => {
-    const throttle = setInterval(() => {
-      const nextUrl = urls.find((url) => !url.inProgress);
-      if (nextUrl) {
-        nextUrl.inProgress = true;
-        queue.push(nextUrl);
-      } else if (urls.every((url) => url.status)) {
-        clearInterval(throttle);
-        resolve(urls);
-      }
-    }, 250);
-  });
+  return downloadQueue(urls, downloadCallback);
 }
 
 /**
  * Cancels or skips DeepL translation for a language.
  * DeepL document translation is typically near real-time, so this cleans up project state.
  * @param {object} conf - Cancel configuration.
- * @returns {Promise<{ok: boolean, skipped?: boolean}>}
+ * @returns {Promise<{ok: boolean}>}
  */
 export async function cancelTranslation({ lang, sendMessage }) {
   if (sendMessage) {
@@ -557,6 +524,7 @@ export async function cancelTranslation({ lang, sendMessage }) {
   }
   if (lang.translation) {
     lang.translation.status = 'cancelled';
+    delete lang.translation.documents;
   }
   return { ok: true };
 }
