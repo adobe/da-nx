@@ -31,8 +31,9 @@ function updateImageInDocument(originalSrc, newSrc) {
       }
 
       if (isMatch) {
-        // Update the image node with new src
-        const newAttrs = { ...node.attrs, src: newSrc };
+        // Update the image node with new src. The upload is DA media, not an AEM
+        // asset, so drop the editable-link marker (it would persist as a text link).
+        const newAttrs = { ...node.attrs, src: newSrc, editAs: null };
         tr.setNodeMarkup(pos, null, newAttrs);
         updated = true;
       }
