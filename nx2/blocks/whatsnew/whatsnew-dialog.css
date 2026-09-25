@@ -159,6 +159,7 @@
   padding-right: 20px;
   padding-bottom: 140px;
   overflow-y: auto;
+  scroll-behavior: smooth;
   scrollbar-width: thin;
   scrollbar-color: var(--s2-gray-400) var(--s2-gray-100);
 }
@@ -190,6 +191,7 @@
 .wn-card {
   display: flex;
   flex-direction: column;
+  scroll-margin-top: 40px;
 }
 
 .wn-card-image {

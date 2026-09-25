@@ -112,6 +112,8 @@ describe('nx-whatsnew-dialog', () => {
 
     expect(el.shadowRoot.querySelectorAll('.wn-card')).to.have.lengthOf(2);
     expect(el.shadowRoot.querySelectorAll('.wn-toc-item')).to.have.lengthOf(2);
+    expect(el.shadowRoot.querySelector('.wn-toc-indicator')).to.exist;
+    expect(el.shadowRoot.querySelector('.wn-toc-item')?.getAttribute('aria-current')).to.equal('true');
     const nxDialog = el.shadowRoot.querySelector('nx-dialog');
     expect(nxDialog.shadowRoot.querySelector('dialog').open).to.be.true;
   });

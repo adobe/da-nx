@@ -105,7 +105,6 @@ class NxWhatsNewDialog extends LitElement {
     this._resizeObserver.observe(lastCard);
   }
 
-  // Positions the active TOC indicator.
   _positionIndicator() {
     const indicator = this.shadowRoot.querySelector('.wn-toc-indicator');
     const active = this.shadowRoot.querySelector('.wn-toc-item[aria-current="true"]');
@@ -125,8 +124,6 @@ class NxWhatsNewDialog extends LitElement {
         video.src = video.dataset.src;
         delete video.dataset.src;
       });
-      // Ignore observer updates during click-driven scrolling.
-      if (this._suppressObserver) return;
       const visible = observed.filter((entry) => entry.isIntersecting);
       if (visible.length === 0) return;
       visible.sort((a, b) => b.intersectionRatio - a.intersectionRatio);
@@ -149,23 +146,9 @@ class NxWhatsNewDialog extends LitElement {
   // Scrolls the selected entry near the top and updates active state.
   _scrollToEntry(id) {
     const card = this.shadowRoot.querySelector(`.wn-card[data-id="${id}"]`);
-    const container = this.shadowRoot.querySelector('.wn-cards');
-    if (!card || !container) return;
+    if (!card) return;
     this._activeId = id;
-    const target = card.querySelector('.wn-card-image') ?? card;
-    const offset = target.getBoundingClientRect().top
-      - container.getBoundingClientRect().top + container.scrollTop - 40;
-    const maxScroll = container.scrollHeight - container.clientHeight;
-    const clamped = Math.max(0, Math.min(offset, maxScroll));
-    // Only suppress observer updates when a scroll will actually happen.
-    if (Math.abs(clamped - container.scrollTop) >= 1) {
-      this._suppressObserver = true;
-      const clear = () => { this._suppressObserver = false; };
-      container.addEventListener('scrollend', clear, { once: true });
-      // Fallback if scrollend does not fire.
-      setTimeout(clear, 500);
-    }
-    container.scrollTo({ top: clamped, behavior: 'smooth' });
+    card.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
 
   render() {
