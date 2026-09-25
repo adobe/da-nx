@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Mark stale, re-engage, and close
-        uses: actions/stale@v9
+        uses: actions/stale@v11
         with:
           ascending: true
           operations-per-run: 150
@@ -78,7 +78,7 @@ jobs:
           exempt-all-milestones: true
 
       - name: Post final notice before close
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const LEAD = Number(process.env.FINAL_NOTICE_LEAD_DAYS);
