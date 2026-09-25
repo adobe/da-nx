@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
-import { setWhatsNewLastSeenDate } from '../../../../../blocks/whatsnew/whatsnew-flags.js';
+import { getWhatsNewLastSeenDate, setWhatsNewLastSeenDate } from '../../../../../blocks/whatsnew/whatsnew-flags.js';
 
 // _openDialog() dynamically imports whatsnew-dialog.js, which transitively
 // depends on fragment.js's module-level getConfig() call — so setConfig()
@@ -143,17 +143,33 @@ describe('nx-whatsnew', () => {
     expect(el.shadowRoot.querySelector('.wn-trigger-dot')).to.not.exist;
   });
 
-  it('clears the dot when nx-whatsnew-all-seen fires', async () => {
+  it('clears the dot when the dialog closes', async () => {
     setWhatsNewLastSeenDate('2026-01-01');
-    restoreFetch = mockWhatsNewFetch('2026-09-10');
+    const originalFetch = window.fetch;
+    window.fetch = async (url, opts) => {
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (urlStr.includes('/nx/fragments/guides/whats-new')) {
+        return new Response(WHATSNEW_WITH_ENTRIES_HTML, {
+          status: 200,
+          headers: new Headers({ 'Content-Type': 'text/html' }),
+        });
+      }
+      return originalFetch.call(window, url, opts);
+    };
+    restoreFetch = () => { window.fetch = originalFetch; };
     const el = createTrigger();
     await waitFor(() => el._hasUnseen !== undefined);
     await el.updateComplete;
     expect(el.shadowRoot.querySelector('.wn-trigger-dot')).to.exist;
 
-    window.dispatchEvent(new CustomEvent('nx-whatsnew-all-seen'));
+    el.shadowRoot.querySelector('button').click();
+    await waitFor(() => document.querySelector('nx-whatsnew-dialog'));
+    document.querySelector('nx-whatsnew-dialog').close();
+    await waitFor(() => !document.querySelector('nx-whatsnew-dialog'));
     await el.updateComplete;
+
     expect(el.shadowRoot.querySelector('.wn-trigger-dot')).to.not.exist;
+    expect(getWhatsNewLastSeenDate()).to.equal('2026-09-10');
   });
 
   it('does not create a second dialog when one is already open', async () => {

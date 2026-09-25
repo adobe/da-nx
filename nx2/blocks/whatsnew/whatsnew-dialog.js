@@ -1,15 +1,14 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
 import { loadFragment } from '../fragment/fragment.js';
-import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
+import { loadHrefSvg } from '../../utils/svg.js';
 import { parseWhatsNewEntries } from './parse-whatsnew.js';
 import { setWhatsNewLastSeenDate } from './whatsnew-flags.js';
 import '../shared/dialog/dialog.js';
 
 const style = await loadStyle(import.meta.url);
-const closeIcon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_Close_20_N.svg`);
+const closeIcon = await loadHrefSvg('/img/icons/s2-icon-close-20-n.svg');
 
-// Relative path, resolves against whatever host serves the current page.
 const WHATSNEW_PATH = '/nx/fragments/guides/whats-new';
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -29,8 +28,7 @@ function restoreFocusQuietly(el) {
 
 /**
  * Two-pane "what's new" dialog (toc + scrollable cards), wrapping the
- * shared nx-dialog. Opened from whatsnew.js; marks content seen and fires
- * nx-whatsnew-all-seen once every entry has actually been viewed.
+ * shared nx-dialog. Opened from whatsnew.js; marks content seen on close.
  */
 class NxWhatsNewDialog extends LitElement {
   static properties = {
@@ -69,10 +67,7 @@ class NxWhatsNewDialog extends LitElement {
     this._entries = entries;
     this._activeId = entries[0].id;
     this._publishedDate = fragment.publishedDate;
-    this._viewedIds = new Set();
   }
-
-  get _lastEntryId() { return this._entries[this._entries.length - 1]?.id; }
 
   async updated(changed) {
     if (changed.has('_entries') && this._entries) {
@@ -80,33 +75,10 @@ class NxWhatsNewDialog extends LitElement {
       await this._dialog?.updateComplete;
       this._observeCards();
       this._ensureScrollRoom();
-      this._checkScrolledToBottom();
       this._positionIndicator();
-      if (this._activeId !== this._lastEntryId) this._trackViewed(this._activeId);
       return;
     }
-    if (changed.has('_activeId')) {
-      this._positionIndicator();
-      if (this._activeId !== this._lastEntryId) this._trackViewed(this._activeId);
-    }
-  }
-
-  // The last entry only counts as viewed once actually scrolled into full view, not just active.
-  _checkScrolledToBottom() {
-    const container = this.shadowRoot.querySelector('.wn-cards');
-    if (!container) return;
-    if (container.scrollTop + container.clientHeight >= container.scrollHeight - 1) {
-      this._trackViewed(this._lastEntryId);
-    }
-  }
-
-  // Marks an entry seen once active; once all are seen, persists the date and clears the dot.
-  _trackViewed(id) {
-    if (!id || this._viewedIds.has(id)) return;
-    this._viewedIds.add(id);
-    if (this._viewedIds.size < this._entries.length) return;
-    if (this._publishedDate) setWhatsNewLastSeenDate(this._publishedDate);
-    window.dispatchEvent(new CustomEvent('nx-whatsnew-all-seen'));
+    if (changed.has('_activeId')) this._positionIndicator();
   }
 
   // Computes trailing room so the last card can scroll to the 40px-from-top target.
@@ -129,7 +101,6 @@ class NxWhatsNewDialog extends LitElement {
     this._resizeObserver?.disconnect();
     this._resizeObserver = new ResizeObserver(() => {
       this._ensureScrollRoom();
-      this._checkScrolledToBottom();
     });
     this._resizeObserver.observe(lastCard);
   }
@@ -163,8 +134,6 @@ class NxWhatsNewDialog extends LitElement {
     }, { root: this.shadowRoot.querySelector('.wn-cards'), threshold: [0.25, 0.5, 0.75, 1] });
     cards.forEach((card) => this._observer.observe(card));
     if (cards.length > 0) this._watchLastCardSize(cards[cards.length - 1]);
-    this.shadowRoot.querySelector('.wn-cards')
-      ?.addEventListener('scroll', () => this._checkScrolledToBottom());
   }
 
   close() {
@@ -172,6 +141,7 @@ class NxWhatsNewDialog extends LitElement {
   }
 
   _onClose() {
+    if (this._publishedDate) setWhatsNewLastSeenDate(this._publishedDate);
     restoreFocusQuietly(this.returnFocusTo);
     this.remove();
   }
@@ -196,7 +166,6 @@ class NxWhatsNewDialog extends LitElement {
       setTimeout(clear, 500);
     }
     container.scrollTo({ top: clamped, behavior: 'smooth' });
-    this._checkScrolledToBottom();
   }
 
   render() {

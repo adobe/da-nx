@@ -116,28 +116,23 @@ describe('nx-whatsnew-dialog', () => {
     expect(nxDialog.shadowRoot.querySelector('dialog').open).to.be.true;
   });
 
-  it('does not mark content seen until scrolled all the way through', async () => {
+  it('does not mark content seen just by opening the dialog', async () => {
     restoreFetch = mockWhatsNewFetch(WHATSNEW_HTML);
     const el = createDialog();
     await waitFor(() => el.shadowRoot.querySelectorAll('.wn-card').length > 0);
 
-    // Only the first entry counts as viewed by default (it's already in view).
     expect(getWhatsNewLastSeenDate()).to.equal(null);
   });
 
-  it('marks content seen and fires nx-whatsnew-all-seen once scrolled to the bottom', async () => {
+  it('marks content seen when the dialog closes', async () => {
     restoreFetch = mockWhatsNewFetch(WHATSNEW_HTML);
     const el = createDialog();
     await waitFor(() => el.shadowRoot.querySelectorAll('.wn-card').length > 0);
 
-    let allSeenFired = false;
-    window.addEventListener('nx-whatsnew-all-seen', () => { allSeenFired = true; }, { once: true });
+    el.shadowRoot.querySelector('.wn-close').click();
 
-    const container = el.shadowRoot.querySelector('.wn-cards');
-    container.scrollTop = container.scrollHeight;
-    container.dispatchEvent(new Event('scroll'));
-
-    await waitFor(() => allSeenFired);
+    await waitFor(() => !el.isConnected);
+    await waitFor(() => getWhatsNewLastSeenDate() === '2026-09-10');
     expect(getWhatsNewLastSeenDate()).to.equal('2026-09-10');
   });
 

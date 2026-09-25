@@ -17,9 +17,7 @@ const WHATSNEW_PATH = '/nx/fragments/guides/whats-new';
  *
  * Shows a dot if the fragment's published-date is newer than what this user
  * last saw (see whatsnew-flags.js), and opens whatsnew-dialog.js on click.
- * The dot clears once
- * every entry has actually been viewed, not just on close — see
- * whatsnew-dialog.js's nx-whatsnew-all-seen event.
+ * The dot clears when the dialog closes.
  */
 class NxWhatsNew extends LitElement {
   static properties = {
@@ -29,14 +27,7 @@ class NxWhatsNew extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];
-    this._onAllSeen = () => { this._hasUnseen = false; };
-    window.addEventListener('nx-whatsnew-all-seen', this._onAllSeen);
     this._checkUnseen();
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    window.removeEventListener('nx-whatsnew-all-seen', this._onAllSeen);
   }
 
   async _checkUnseen() {
@@ -47,9 +38,14 @@ class NxWhatsNew extends LitElement {
   }
 
   async _openDialog() {
+    if (document.querySelector('nx-whatsnew-dialog')) return;
     await import('./whatsnew-dialog.js');
+    if (document.querySelector('nx-whatsnew-dialog')) return;
     const dialog = document.createElement('nx-whatsnew-dialog');
     dialog.returnFocusTo = this.shadowRoot.querySelector('button');
+    dialog.addEventListener('close', () => {
+      this._hasUnseen = false;
+    }, { once: true });
     document.body.append(dialog);
   }
 
