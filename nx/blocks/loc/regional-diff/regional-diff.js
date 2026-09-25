@@ -484,15 +484,18 @@ export async function regionalDiff(
   modified,
   acceptedHashes,
   rejectedHashes,
-  { normalizeImages } = {},
+  { normalizeImages, org, site } = {},
 ) {
-  const { org, site } = getPathDetails();
-  const translateConfig = await fetchConfig(org, site);
+  // Callers hosted outside loc's own app (e.g. mergeCopy invoked from another
+  // app's plugin) have no loc-shaped location.hash to read org/site from, so
+  // they pass org/site explicitly instead of relying on getPathDetails().
+  const pathDetails = org && site ? { org, site } : getPathDetails();
+  const translateConfig = await fetchConfig(pathDetails.org, pathDetails.site);
   const hostnames = findConfigValue(translateConfig, 'source.fragment.hostnames')?.split?.(',') || [];
   const equivalentSites = new Set(hostnames.map((hostname) => hostname.split('--')[1]));
 
-  const normalizedOriginal = await normalizeLinks(original, site, equivalentSites);
-  const normalizedModified = await normalizeLinks(modified, site, equivalentSites);
+  const normalizedOriginal = await normalizeLinks(original, pathDetails.site, equivalentSites);
+  const normalizedModified = await normalizeLinks(modified, pathDetails.site, equivalentSites);
   // optional connector hook
   if (normalizeImages) normalizeImages(normalizedOriginal, normalizedModified);
   const diff = htmldiff(normalizedOriginal, normalizedModified);

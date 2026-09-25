@@ -8,6 +8,7 @@ import {
 
 import {
   daFetch,
+  setAccessToken,
   isHlx6,
   signout,
   fromPath,
@@ -56,6 +57,7 @@ describe('api.js', () => {
 
   afterEach(() => {
     restoreFetch();
+    setAccessToken(undefined);
   });
 
   describe('daFetch', () => {
@@ -149,6 +151,43 @@ describe('api.js', () => {
 
       await daFetch({ url: 'https://example.com/foo' });
       expect(lastCall().referrerPolicy).to.be.undefined;
+    });
+  });
+
+  describe('setAccessToken', () => {
+    it('uses the override token instead of loadIms when set', async () => {
+      setAccessToken(() => ({ token: 'override-token' }));
+      await daFetch({ url: `${HLX_ADMIN}/ping/x/y` });
+      expect(lastCall().headers.Authorization).to.equal('Bearer override-token');
+    });
+
+    it('calls the getter fresh on every request rather than snapshotting it', async () => {
+      let current = 'first-token';
+      setAccessToken(() => ({ token: current }));
+
+      await daFetch({ url: `${HLX_ADMIN}/ping/x/y` });
+      expect(lastCall().headers.Authorization).to.equal('Bearer first-token');
+
+      current = 'second-token';
+      await daFetch({ url: `${HLX_ADMIN}/ping/x/y` });
+      expect(lastCall().headers.Authorization).to.equal('Bearer second-token');
+    });
+
+    it('falls back to loadIms when the getter resolves to nothing', async () => {
+      setAccessToken(() => undefined);
+      await daFetch({ url: `${HLX_ADMIN}/ping/x/y` });
+      expect(lastCall().headers.Authorization).to.equal('Bearer test-token');
+    });
+
+    it('falls back to loadIms when no override has been set', async () => {
+      await daFetch({ url: `${HLX_ADMIN}/ping/x/y` });
+      expect(lastCall().headers.Authorization).to.equal('Bearer test-token');
+    });
+
+    it('supports an async getter', async () => {
+      setAccessToken(async () => ({ token: 'async-override-token' }));
+      await daFetch({ url: `${HLX_ADMIN}/ping/x/y` });
+      expect(lastCall().headers.Authorization).to.equal('Bearer async-override-token');
     });
   });
 
