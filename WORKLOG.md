@@ -1,5 +1,23 @@
 # Worklog
 
+## 2026-09-25
+
+### Editor toggle follows the active editor route
+
+The header switch shows on for `/canvas` and off for `/edit`, regardless of
+the stored user flag. A click derives the next preference from the current
+route, so manually opening `/canvas` while opted out still switches directly
+back to `/edit`. Navigation alone does not change the stored preference.
+
+## 2026-09-24
+
+### Editor toggle in the header on both editor routes
+
+The nav-injected `nx-editortoggle` now renders on `/edit` and `/canvas`.
+Removed the duplicate profile-menu variant and its styles; the header
+instance still handles the one-time welcome and switch-back prompts.
+Added route-visibility tests.
+
 ## 2026-09-23
 
 ### nx/public/plugins/quick-edit/selection.test.js — prose-editable click coverage
