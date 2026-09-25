@@ -39,4 +39,11 @@ describe('fetchConfig', () => {
     expect(fetchStub.callCount, 'second call for the same org/site should not hit the network')
       .to.equal(callCountAfterFirst);
   });
+
+  it('returns an error without fetching when org or site is missing', async () => {
+    expect(await fetchConfig(undefined, 'site-d')).to.deep.equal({ error: 'Options not available.' });
+    expect(await fetchConfig('org-d', undefined)).to.deep.equal({ error: 'Options not available.' });
+    expect(await fetchConfig(undefined, undefined)).to.deep.equal({ error: 'Options not available.' });
+    expect(fetchStub.callCount, 'missing org/site should never hit the network').to.equal(0);
+  });
 });
