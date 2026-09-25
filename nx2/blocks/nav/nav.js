@@ -6,7 +6,6 @@ import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg } from '../../utils/svg.js';
 
 const DEFAULT_NAV_PATH = '/nx/fragments/nav';
-const WHATSNEW_LABEL = 'whatsnew';
 
 const style = await loadStyle(import.meta.url);
 
@@ -106,14 +105,6 @@ class NXNav extends LitElement {
 
   async decorateActions(section) {
     const ul = section.querySelector('ul');
-    // TODO(new1140): temporary force-injection for testing, remove before merging.
-    if (![...ul.children].some((li) => li.textContent.trim().toLowerCase() === WHATSNEW_LABEL)) {
-      const feedbackLi = [...ul.children].find((li) => li.textContent.trim().toLowerCase() === 'feedback');
-      const li = document.createElement('li');
-      li.textContent = WHATSNEW_LABEL;
-      if (feedbackLi) feedbackLi.insertAdjacentElement('afterend', li);
-      else ul.append(li);
-    }
     for (const child of ul.children) {
       const button = child.querySelector('button');
       if (!button) {
