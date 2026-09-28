@@ -1,5 +1,16 @@
 # Worklog
 
+## 2026-09-28
+
+### What's New dialog: native focus restore, capped size (PR #744)
+
+Dropped the manual focus-restore and pointer/keydown tracking. Native
+`<dialog>` close already returns focus to the trigger inside its shadow root.
+The earlier check that said otherwise read `document.activeElement`, which is
+retargeted to the host. A new test checks `shadowRoot.activeElement` instead.
+The dialog now sets only max width/height (848x620), so it is capped, not
+fixed.
+
 ## 2026-09-25
 
 ### Editor toggle follows the active editor route
