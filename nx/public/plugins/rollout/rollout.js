@@ -3,9 +3,12 @@ import { LitElement, html, nothing } from 'https://da.live/nx/public/deps/lit/di
 import getStyle from 'https://da.live/nx/public/utils/styles.js';
 import getSvg from 'https://da.live/nx/public/utils/svg.js';
 import { mergeCopy, overwriteCopy } from '../../../blocks/loc/project/index.js';
-import { setAccessToken } from '../../../../nx2/utils/api.js';
 import { initIms } from '../../../utils/daFetch.js';
 import getPrefixDetails from './index.js';
+
+// DA_SDK keeps nx1's daFetch.js token current on every postMessage refresh,
+// so read it live on each request instead of snapshotting it.
+const getAccessToken = async () => (await initIms())?.accessToken;
 
 const ICONS = [
   'https://da.live/nx/public/icons/Smock_Close_18_N.svg',
@@ -46,7 +49,7 @@ export default class DaRollout extends LitElement {
     this._active.map(async (prefix) => {
       prefix.status = 'none';
       const copyFn = behavior === 'overwrite' ? overwriteCopy : mergeCopy;
-      await copyFn(prefix, copyLabel);
+      await copyFn(prefix, copyLabel, { getAccessToken });
       this.requestUpdate();
     });
   }
@@ -145,9 +148,6 @@ customElements.define('da-rollout', DaRollout);
 
 (async function init() {
   const { context, token } = await DA_SDK;
-  // DA_SDK keeps nx1's daFetch.js token current on every postMessage
-  // refresh, so read it live on each request instead of snapshotting it.
-  setAccessToken(async () => (await initIms())?.accessToken);
 
   const daRollout = document.createElement('da-rollout');
   daRollout.path = context.path;

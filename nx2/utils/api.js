@@ -306,7 +306,9 @@ export const source = {
     return source._saveDA(opts);
   }),
 
-  _saveHlx6: withArgs(async ({ org, site, path, body }) => {
+  _saveHlx6: withArgs(async ({
+    org, site, path, body, getAccessToken,
+  }) => {
     const url = await getDaApiPath(SOURCE, org, site, path);
     const opts = {
       method: 'POST',
@@ -316,7 +318,7 @@ export const source = {
     if (contentType) {
       opts.headers = { 'Content-Type': contentType };
     }
-    const resp = await daFetch({ url, opts });
+    const resp = await daFetch({ url, opts, getAccessToken });
     // hlx6 source save returns an empty body, whereas DA returns
     // { source: { contentUrl } }. Normalize the success case to that shape
     // so callers can read source.contentUrl uniformly across hlx5/hlx6.
@@ -330,7 +332,9 @@ export const source = {
       : resp;
   }),
 
-  _saveDA: withArgs(async ({ org, site, path, body }) => {
+  _saveDA: withArgs(async ({
+    org, site, path, body, getAccessToken,
+  }) => {
     const url = await getDaApiPath(SOURCE, org, site, path);
     const formData = new FormData();
     formData.append('data', new Blob([body], { type: findContentType(path) }));
@@ -339,7 +343,7 @@ export const source = {
       body: formData,
     };
     opts.body = formData;
-    return daFetch({ url, opts });
+    return daFetch({ url, opts, getAccessToken });
   }),
 
   // special method to upload media. for hlx6, this will use the api service's '/media' route,
@@ -602,13 +606,10 @@ export const asText = (promise) => unwrap(promise, 'text');
 // token instead of falling through to loadIms(), whose dynamic getNx()
 // lookup resolves against window.location.origin and can diverge
 // from the token the plugin's host frame actually issued.
-let overrideAccessToken;
-export function setAccessToken(getAccessToken) {
-  overrideAccessToken = getAccessToken;
-}
-
-export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false }) => {
-  const accessToken = (await overrideAccessToken?.()) || (await loadIms()).accessToken;
+export const daFetch = async ({
+  url, opts = { method: 'GET' }, redirect = false, getAccessToken,
+}) => {
+  const accessToken = (await getAccessToken?.()) || (await loadIms()).accessToken;
   if (!accessToken) {
     handleSignIn();
     return {};
