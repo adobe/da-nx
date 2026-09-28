@@ -2,17 +2,19 @@
 
 ## 2026-09-28
 
-### What's New dialog: native focus restore (PR #744)
+### What's New dialog: native focus restore, responsive size (PR #744)
 
 Dropped the manual focus-restore and pointer/keydown tracking. Native
 `<dialog>` close already returns focus to the trigger inside its shadow root.
 The earlier check that said otherwise read `document.activeElement`, which is
 retargeted to the host. A new test checks `shadowRoot.activeElement` instead.
 
-Open: Sharanya asked not to force 848x620. Setting only max size collapses the
-dialog to zero height, because `.wn-body` is absolutely positioned and adds no
-height to the panel. The layout must give the panel real height before the min
-size can go.
+Sizing: `nx-dialog` has a new opt-in `size="large"` variant. It fills the
+width up to 848px, and the body becomes a flex column. whatsnew uses it,
+with `.wn-body` in normal flow instead of absolutely positioned. The dialog
+now sizes to its content, capped at 620px high. Removing only the min size
+before this change collapsed the dialog to zero height. `whatsnew-layout.test.js`
+guards against that at four viewport sizes. Default dialogs are unchanged.
 
 ## 2026-09-25
 
