@@ -465,6 +465,17 @@ describe('api.js', () => {
       expect(result.continuationToken).to.equal(null);
     });
 
+    it('source.save forwards getAccessToken to the isHlx6 ping request, not just the save', async () => {
+      const { org: o, site: s } = makeOrgSite();
+      const getAccessToken = () => ({ token: 'source-save-token' });
+      await source.save({
+        org: o, site: s, path: '/page.html', body: '<main></main>', getAccessToken,
+      });
+      const pingCall = calls.find((c) => c.url.includes(`${HLX_ADMIN}/ping/`));
+      expect(pingCall).to.exist;
+      expect(pingCall.headers.Authorization).to.equal('Bearer source-save-token');
+    });
+
     it('source.save DA wraps data in FormData', async () => {
       const { org: o, site: s } = makeOrgSite();
       const data = new Blob(['<html></html>'], { type: 'text/html' });

@@ -202,7 +202,7 @@ export function getPathDetails() {
   };
 }
 
-export async function fetchConfig(org, site) {
+export async function fetchConfig(org, site, getAccessToken) {
   if (!(org && site)) return { error: 'Options not available.' };
 
   // Keyed by org/site rather than a single flat cache — callers outside
@@ -214,7 +214,7 @@ export async function fetchConfig(org, site) {
 
   const fetchConf = async (path) => {
     try {
-      const resp = await daFetch({ url: path });
+      const resp = await daFetch({ url: path, getAccessToken });
       if (!resp.ok) return { error: 'Options not available.' };
       return resp.json();
     } catch {

@@ -54,4 +54,23 @@ describe('regionalDiff - org/site resolution', () => {
     const configCall = fetchStub.args.find(([url]) => url.includes('/source/fallback-org/fallback-site/'));
     expect(configCall, 'expected fetchConfig to request the hash-derived org/site path').to.exist;
   });
+
+  it('forwards getAccessToken to the fetchConfig request, not just the diffed save', async () => {
+    // Distinct org/site so this test's fetchConfig call isn't served from
+    // another test's CONFIG_CACHE entry.
+    const getAccessToken = sinon.stub().resolves({ token: 'caller-token' });
+
+    await regionalDiff(
+      makeDoc(),
+      makeDoc(),
+      [],
+      [],
+      { org: 'token-org', site: 'token-site', getAccessToken },
+    );
+
+    const configCall = fetchStub.args.find(([url]) => url.includes('/source/token-org/token-site/'));
+    expect(configCall, 'expected fetchConfig to request the org/site path').to.exist;
+    const [, opts] = configCall;
+    expect(opts.headers.Authorization.endsWith('caller-token')).to.be.true;
+  });
 });

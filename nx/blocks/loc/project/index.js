@@ -286,7 +286,7 @@ export async function rolloutCopy(
       regionalCopy,
       acceptedHashes,
       rejectedHashes,
-      { org, site: repo },
+      { org, site: repo, getAccessToken },
     );
 
     if (labelLocal) daMetadata['diff-label-local'] = labelLocal;
@@ -357,7 +357,9 @@ export async function mergeCopy(
       regionalCopy,
       acceptedHashes,
       rejectedHashes,
-      { normalizeImages: url.normalizeImages, org, site: repo },
+      {
+        normalizeImages: url.normalizeImages, org, site: repo, getAccessToken,
+      },
     );
 
     if (labelLocal) daMetadata['diff-label-local'] = labelLocal;
