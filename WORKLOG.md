@@ -2,14 +2,17 @@
 
 ## 2026-09-28
 
-### What's New dialog: native focus restore, capped size (PR #744)
+### What's New dialog: native focus restore (PR #744)
 
 Dropped the manual focus-restore and pointer/keydown tracking. Native
 `<dialog>` close already returns focus to the trigger inside its shadow root.
 The earlier check that said otherwise read `document.activeElement`, which is
 retargeted to the host. A new test checks `shadowRoot.activeElement` instead.
-The dialog now sets only max width/height (848x620), so it is capped, not
-fixed.
+
+Open: Sharanya asked not to force 848x620. Setting only max size collapses the
+dialog to zero height, because `.wn-body` is absolutely positioned and adds no
+height to the panel. The layout must give the panel real height before the min
+size can go.
 
 ## 2026-09-25
 
