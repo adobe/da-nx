@@ -140,6 +140,24 @@ describe('nx-whatsnew', () => {
     expect(getLastSeen()).to.equal('2026-09-10');
   });
 
+  it('returns focus to the trigger button when the dialog closes', async () => {
+    restoreFetch = mockWhatsNewFetchHtml(WHATSNEW_WITH_ENTRIES_HTML);
+    const el = createTrigger();
+    await waitFor(() => el._hasUnseen !== undefined);
+    await el.updateComplete;
+
+    const button = el.shadowRoot.querySelector('button');
+    button.focus();
+    button.click();
+    await waitFor(() => document.querySelector('nx-whatsnew-dialog')?.shadowRoot?.querySelector('nx-dialog'));
+    document.querySelector('nx-whatsnew-dialog').close();
+    await waitFor(() => !document.querySelector('nx-whatsnew-dialog'));
+
+    // document.activeElement is retargeted to the host, so check inside its shadow root.
+    expect(document.activeElement).to.equal(el);
+    expect(el.shadowRoot.activeElement).to.equal(button);
+  });
+
   it('does not create a second dialog when one is already open', async () => {
     restoreFetch = mockWhatsNewFetchHtml(whatsNewHtml('2026-09-10'));
     document.body.append(document.createElement('nx-whatsnew-dialog'));

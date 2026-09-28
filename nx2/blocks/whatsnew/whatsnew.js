@@ -38,7 +38,6 @@ class NxWhatsNew extends LitElement {
     await import('./whatsnew-dialog.js');
     if (document.querySelector('nx-whatsnew-dialog')) return;
     const dialog = document.createElement('nx-whatsnew-dialog');
-    dialog.returnFocusTo = this.shadowRoot.querySelector('button');
     dialog.addEventListener('close', () => {
       this._hasUnseen = false;
     }, { once: true });

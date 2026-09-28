@@ -5,9 +5,7 @@
 
 /* Sizes/strips nx-dialog's panel via its CSS custom-property overrides for our two-pane layout. */
 .wn-dialog {
-  --nx-dialog-min-width: 848px;
   --nx-dialog-max-width: 848px;
-  --nx-dialog-min-height: 620px;
   --nx-dialog-max-height: 620px;
   --nx-dialog-padding: 0;
   --nx-dialog-border: none;
