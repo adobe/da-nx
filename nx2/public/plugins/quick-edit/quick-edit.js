@@ -58,7 +58,8 @@ export default async function loadQuickEdit({ detail: payload }, reloadCallback)
 
   const ctx = {
     initialized: false,
-    loadPage: reloadCallback,
+    reload: reloadCallback,
+    reloadScope: payload?.reloadScope,
   };
 
   const iframe = document.createElement('iframe');

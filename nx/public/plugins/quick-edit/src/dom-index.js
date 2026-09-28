@@ -49,7 +49,8 @@ export function restoreBlockIndices(sourceRoot, liveRoot = document) {
     if (!index) return;
     let live = liveRoot.querySelector(`[data-block-index="${index}"]`);
     if (!live && name) {
-      live = safeQuerySelectorAll(liveRoot, `div.${CSS.escape(name)}`)
+      // Only blocks that lost their index in decoration; an indexed one belongs to another source.
+      live = safeQuerySelectorAll(liveRoot, `div.${CSS.escape(name)}:not([data-block-index])`)
         .find((el) => !claimed.has(el));
     }
     if (live) {

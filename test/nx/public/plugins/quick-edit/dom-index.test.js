@@ -136,4 +136,17 @@ describe('restoreBlockIndices', () => {
     expect(block.getAttribute('data-block-index')).to.equal('3');
     expect(block.hasAttribute('data-block-variant')).to.equal(false);
   });
+
+  it('only re-attaches indices to blocks that lost theirs', () => {
+    const source = document.createElement('div');
+    source.innerHTML = '<div class="cards" data-block-index="10">a</div>'
+      + '<div class="cards" data-block-index="30">b</div>';
+    const live = document.createElement('div');
+    live.innerHTML = '<div class="cards" data-block-index="30">b</div><div class="cards">a</div>';
+
+    restoreBlockIndices(source, live);
+
+    expect([...live.querySelectorAll('.cards')].map((el) => [el.textContent, el.dataset.blockIndex]))
+      .to.deep.equal([['b', '30'], ['a', '10']]);
+  });
 });
