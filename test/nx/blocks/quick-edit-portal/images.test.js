@@ -1,4 +1,6 @@
 import { expect } from '@esm-bundle/chai';
+import { Schema } from 'prosemirror-model';
+import { EditorState } from 'prosemirror-state';
 import { handleImageReplace } from '../../../../nx/blocks/quick-edit-portal/src/images.js';
 import { getImageDocumentVersion } from '../../../../nx/utils/image-document-version.js';
 
@@ -10,6 +12,7 @@ describe('standalone quick-edit image replacement', () => {
   let doc;
   let changed;
   let uploads;
+  let state;
 
   beforeEach(() => {
     savedFetch = window.fetch;
@@ -18,29 +21,31 @@ describe('standalone quick-edit image replacement', () => {
       uploads.push({ url, opts });
       return new Response('', { status: 201 });
     };
-    const images = new Map([
-      [2, { type: { name: 'image' }, attrs: { src: '/same.png', alt: 'First' } }],
-      [3, { type: { name: 'image' }, attrs: { src: '/same.png', alt: 'Second' } }],
-    ]);
-    doc = {
-      nodeAt: (pos) => images.get(pos),
-      descendants: (fn) => images.forEach((node, pos) => fn(node, pos)),
-    };
-    const tr = {
-      setNodeMarkup(pos, type, attrs) {
-        this.pos = pos;
-        this.attrs = attrs;
-        return this;
+    const schema = new Schema({
+      nodes: {
+        doc: { content: 'block+' },
+        paragraph: { content: 'inline*', group: 'block' },
+        text: { group: 'inline' },
+        image: { inline: true, group: 'inline', attrs: { src: {}, alt: { default: null } } },
       },
-    };
+    });
+    doc = schema.nodes.doc.create(null, schema.nodes.paragraph.create(null, [
+      schema.text('a'),
+      schema.nodes.image.create({ src: '/same.png', alt: 'First' }),
+      schema.nodes.image.create({ src: '/same.png', alt: 'Second' }),
+    ]));
+    state = EditorState.create({ schema, doc });
     posted = [];
     ctx = {
       owner: 'org',
       repo: 'site',
       path: '/page',
       view: {
-        state: { doc, tr },
-        dispatch(transaction) { changed = transaction; },
+        get state() { return state; },
+        dispatch(transaction) {
+          state = state.apply(transaction);
+          if (transaction.docChanged) changed = transaction;
+        },
       },
       port: { postMessage: (message) => posted.push(message) },
     };
@@ -55,28 +60,84 @@ describe('standalone quick-edit image replacement', () => {
     proseIndex: 3,
     requestId: 'upload-2',
     originalSrc: '/same.png',
-    imageVersion: getImageDocumentVersion(doc),
+    imageVersion: getImageDocumentVersion(ctx.view.state.doc),
   });
 
   it('updates only the indexed image when URLs match', async () => {
     await handleImageReplace(request(), ctx);
 
     expect(uploads).to.have.length(1);
-    expect(changed.pos).to.equal(3);
-    expect(changed.attrs.alt).to.equal('Second');
-    expect(changed.attrs.src).to.contain('/org/site/.page/pic.png');
-    expect(doc.nodeAt(2).attrs.src).to.equal('/same.png');
+    expect(changed).to.exist;
+    expect(state.doc.nodeAt(3).attrs.alt).to.equal('Second');
+    expect(state.doc.nodeAt(3).attrs.src).to.contain('/org/site/.page/pic.png');
+    expect(state.doc.nodeAt(2).attrs.src).to.equal('/same.png');
     expect(posted.at(-1).payload.requestId).to.equal('upload-2');
   });
 
   it('rejects a stale image version before upload', async () => {
     const stale = getImageDocumentVersion(doc);
-    ctx.view.state.doc = { ...doc };
+    ctx.view.dispatch(state.tr.insertText('new ', 2));
+    changed = null;
     await handleImageReplace({ ...request(), imageVersion: stale }, ctx);
 
     expect(uploads).to.have.length(0);
     expect(changed).to.equal(null);
     expect(posted.at(-1).payload.error).to.contain('out of date');
+  });
+
+  it('tracks the intended image past a concurrent edit and an identical URL', async () => {
+    window.fetch = async () => {
+      uploads.push(true);
+      ctx.view.dispatch(state.tr.insert(3, state.schema.nodes.image.create({
+        src: '/same.png', alt: 'New image',
+      })));
+      return new Response('', { status: 201 });
+    };
+    await handleImageReplace(request(), ctx);
+
+    expect(uploads).to.have.length(1);
+    expect(posted.at(-1).payload.newSrc).to.contain('/org/site/.page/pic.png');
+    expect(state.doc.nodeAt(3).attrs).to.include({ src: '/same.png', alt: 'New image' });
+    expect(state.doc.nodeAt(4).attrs.alt).to.equal('Second');
+    expect(state.doc.nodeAt(4).attrs.src).to.contain('/org/site/.page/pic.png');
+  });
+
+  it('accepts an unrelated text edit while the image uploads', async () => {
+    window.fetch = async () => {
+      uploads.push(true);
+      ctx.view.dispatch(state.tr.insertText('before ', 2));
+      return new Response('', { status: 201 });
+    };
+    await handleImageReplace(request(), ctx);
+
+    expect(posted.at(-1).payload.newSrc).to.contain('/org/site/.page/pic.png');
+    expect(state.doc.nodeAt(3 + 'before '.length).attrs.alt).to.equal('Second');
+    expect(state.doc.nodeAt(3 + 'before '.length).attrs.src).to.contain('/org/site/.page/pic.png');
+  });
+
+  it('rejects a removed target even when another image has the same URL', async () => {
+    window.fetch = async () => {
+      uploads.push(true);
+      ctx.view.dispatch(state.tr.delete(3, 4).insert(3, state.schema.nodes.image.create({
+        src: '/same.png', alt: 'Replacement',
+      })));
+      return new Response('', { status: 201 });
+    };
+    await handleImageReplace(request(), ctx);
+
+    expect(uploads).to.have.length(1);
+    expect(posted.at(-1).payload.error).to.contain('no longer available');
+    expect(state.doc.nodeAt(3).attrs).to.include({ src: '/same.png', alt: 'Replacement' });
+  });
+
+  it('refuses an image node reused in two positions', async () => {
+    ctx.view.dispatch(state.tr.insert(4, state.doc.nodeAt(3)));
+    await handleImageReplace(request(), ctx);
+
+    expect(uploads).to.have.length(1);
+    expect(posted.at(-1).payload.error).to.contain('no longer available');
+    expect(state.doc.nodeAt(3).attrs.src).to.equal('/same.png');
+    expect(state.doc.nodeAt(4).attrs.src).to.equal('/same.png');
   });
 
   it('rejects an ambiguous old URL-only request', async () => {
