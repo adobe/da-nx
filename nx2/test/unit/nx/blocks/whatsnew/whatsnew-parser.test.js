@@ -35,14 +35,14 @@ describe('loadEntries', () => {
       headers: new Headers({ 'Content-Type': 'text/html' }),
     }));
 
-    const result = await loadEntries('/nx/fragments/guides/whats-new');
+    const result = await loadEntries('/fragments/guides/whats-new');
 
     expect(result?.publishedDate).to.equal('2026-09-10');
     expect(result?.entries).to.have.lengthOf(1);
     expect(result?.entries[0].id).to.equal('entry-1');
     expect(result?.entries[0].title).to.equal('Feature');
-    expect(result?.entries[0].picture.querySelector('img').src).to.match(/\/nx\/fragments\/guides\/media_1\.png$/);
-    expect(result?.entries[0].videoSrc).to.match(/\/nx\/fragments\/guides\/media_1\.mp4$/);
+    expect(result?.entries[0].picture.querySelector('img').src).to.match(/\/fragments\/guides\/media_1\.png$/);
+    expect(result?.entries[0].videoSrc).to.match(/\/fragments\/guides\/media_1\.mp4$/);
     expect(result?.entries[0].body).to.equal('Body');
   });
 
@@ -54,7 +54,7 @@ describe('loadEntries', () => {
       </main></body></html>
     `, { status: 200, headers: new Headers({ 'Content-Type': 'text/html' }) }));
 
-    const result = await loadEntries('/nx/fragments/guides/whats-new');
+    const result = await loadEntries('/fragments/guides/whats-new');
 
     expect(result?.entries).to.have.lengthOf(1);
     expect(result?.entries[0].id).to.equal('entry-1');
@@ -76,7 +76,7 @@ describe('loadEntries', () => {
       </main></body></html>
     `, { status: 200, headers: new Headers({ 'Content-Type': 'text/html' }) }));
 
-    const result = await loadEntries('/nx/fragments/guides/whats-new');
+    const result = await loadEntries('/fragments/guides/whats-new');
 
     expect(result?.entries[0].body).to.equal('Real body text');
     expect(result?.entries[1].videoSrc).to.equal(null);
@@ -88,7 +88,7 @@ describe('loadEntries', () => {
       { status: 200, headers: new Headers({ 'Content-Type': 'text/html' }) },
     ));
 
-    const result = await loadEntries('/nx/fragments/guides/whats-new');
+    const result = await loadEntries('/fragments/guides/whats-new');
 
     expect(result?.entries).to.deep.equal([]);
   });
@@ -107,13 +107,13 @@ describe('fetchPublishedDate', () => {
       '<html><head><meta name="published-date" content="2026-09-10"></head><body></body></html>',
       { status: 200, headers: new Headers({ 'Content-Type': 'text/html' }) },
     ));
-    const date = await fetchPublishedDate('/nx/fragments/guides/whats-new');
+    const date = await fetchPublishedDate('/fragments/guides/whats-new');
     expect(date).to.equal('2026-09-10');
   });
 
   it('returns null on a non-ok response', async () => {
     restoreFetch = mockFetch(async () => new Response('', { status: 404 }));
-    const date = await fetchPublishedDate('/nx/fragments/guides/whats-new');
+    const date = await fetchPublishedDate('/fragments/guides/whats-new');
     expect(date).to.equal(null);
   });
 
@@ -122,7 +122,7 @@ describe('fetchPublishedDate', () => {
       '<html><head></head><body></body></html>',
       { status: 200, headers: new Headers({ 'Content-Type': 'text/html' }) },
     ));
-    const date = await fetchPublishedDate('/nx/fragments/guides/whats-new');
+    const date = await fetchPublishedDate('/fragments/guides/whats-new');
     expect(date).to.equal(null);
   });
 
@@ -130,7 +130,7 @@ describe('fetchPublishedDate', () => {
     restoreFetch = mockFetch(async () => {
       throw new Error('network error');
     });
-    const date = await fetchPublishedDate('/nx/fragments/guides/whats-new');
+    const date = await fetchPublishedDate('/fragments/guides/whats-new');
     expect(date).to.equal(null);
   });
 });

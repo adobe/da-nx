@@ -8,7 +8,7 @@ const style = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
 const icon = await loadHrefSvg('/img/icons/s2-icon-gift-20-n.svg');
 
-const WHATSNEW_PATH = '/nx/fragments/guides/whats-new';
+const WHATSNEW_PATH = '/fragments/guides/whats-new';
 
 /**
  * Nav-bar "What's new" trigger.

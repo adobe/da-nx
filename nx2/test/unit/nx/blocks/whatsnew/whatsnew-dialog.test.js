@@ -30,7 +30,7 @@ function mockWhatsNewFetch(html) {
   const originalFetch = window.fetch;
   window.fetch = async (url, opts) => {
     const urlStr = typeof url === 'string' ? url : url.toString();
-    if (urlStr.includes('/nx/fragments/guides/whats-new')) {
+    if (urlStr.includes('/fragments/guides/whats-new')) {
       return new Response(html, { status: 200, headers: new Headers({ 'Content-Type': 'text/html' }) });
     }
     return originalFetch.call(window, url, opts);
@@ -42,7 +42,7 @@ function mockWhatsNewFetchFailure() {
   const originalFetch = window.fetch;
   window.fetch = async (url, opts) => {
     const urlStr = typeof url === 'string' ? url : url.toString();
-    if (urlStr.includes('/nx/fragments/guides/whats-new')) {
+    if (urlStr.includes('/fragments/guides/whats-new')) {
       throw new Error('network error');
     }
     return originalFetch.call(window, url, opts);

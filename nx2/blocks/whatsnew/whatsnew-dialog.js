@@ -8,7 +8,7 @@ import '../shared/dialog/dialog.js';
 const style = await loadStyle(import.meta.url);
 const closeIcon = await loadHrefSvg('/img/icons/s2-icon-close-20-n.svg');
 
-const WHATSNEW_PATH = '/nx/fragments/guides/whats-new';
+const WHATSNEW_PATH = '/fragments/guides/whats-new';
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
