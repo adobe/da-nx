@@ -24,6 +24,27 @@ const CREDENTIAL_HEADER = 'x-deepl-authorization';
 // resolved directly from the live supported-language set in toDeepLLanguageCode.
 const TARGET_VARIANT_HINTS = {
   EN: { GB: 'EN-GB', UK: 'EN-GB' }, // default: EN-US
+  ES: {
+    MX: 'ES-419',
+    AR: 'ES-419',
+    CO: 'ES-419',
+    CL: 'ES-419',
+    PE: 'ES-419',
+    VE: 'ES-419',
+    EC: 'ES-419',
+    GT: 'ES-419',
+    CU: 'ES-419',
+    BO: 'ES-419',
+    DO: 'ES-419',
+    HN: 'ES-419',
+    PY: 'ES-419',
+    SV: 'ES-419',
+    NI: 'ES-419',
+    CR: 'ES-419',
+    PA: 'ES-419',
+    UY: 'ES-419',
+    PR: 'ES-419',
+  }, // default: ES
   PT: { PT: 'PT-PT' }, // default: PT-BR
   ZH: { TW: 'ZH-HANT', HK: 'ZH-HANT', MO: 'ZH-HANT' }, // default: ZH-HANS
 };
@@ -70,6 +91,8 @@ export function toDeepLLanguageCode(code, isTarget = true, supportedCodes = null
     if (upper === 'ZH-HANS' || upper === 'ZH-CN' || upper === 'ZH-SG') return 'ZH-HANS';
     if (upper === 'ZH-HANT' || upper === 'ZH-TW' || upper === 'ZH-HK') return 'ZH-HANT';
     if (upper === 'ZH') return 'ZH';
+    if (upper === 'ES-419' || upper === 'ES-LA') return 'ES-419';
+    if (upper === 'ES-ES') return 'ES';
     return primary;
   }
 

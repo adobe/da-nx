@@ -18,6 +18,13 @@ describe('deepl connector - toDeepLLanguageCode', () => {
     expect(toDeepLLanguageCode('fr-FR', false)).to.equal('FR');
   });
 
+  it('distinguishes es-419 from es-ES in the static heuristic', () => {
+    expect(toDeepLLanguageCode('es-419', true)).to.equal('ES-419');
+    expect(toDeepLLanguageCode('es-LA', true)).to.equal('ES-419');
+    expect(toDeepLLanguageCode('es-ES', true)).to.equal('ES');
+    expect(toDeepLLanguageCode('es', true)).to.equal('ES');
+  });
+
   it('resolves an exact match against the live supported set', () => {
     const supported = new Set(['EN-US', 'EN-GB', 'FR', 'DE']);
     expect(toDeepLLanguageCode('en-GB', true, supported)).to.equal('EN-GB');
@@ -38,8 +45,19 @@ describe('deepl connector - toDeepLLanguageCode', () => {
   });
 
   it('auto-selects a single live variant for a base with no hint entry', () => {
-    const supported = new Set(['NB', 'ES-419']);
+    const supported = new Set(['NB', 'FR-CA']);
+    expect(toDeepLLanguageCode('fr-BE', true, supported)).to.equal('FR-CA');
+  });
+
+  it('resolves Latin American Spanish country codes to ES-419 against a realistic live set', () => {
+    // Mirrors DeepL's real list: bare ES, ES-419 and ES-ES all exist as valid targets, so
+    // without the ES hint entry this would silently fall back to bare ES.
+    const supported = new Set(['ES', 'ES-419', 'ES-ES']);
     expect(toDeepLLanguageCode('es-MX', true, supported)).to.equal('ES-419');
+    expect(toDeepLLanguageCode('es-AR', true, supported)).to.equal('ES-419');
+    expect(toDeepLLanguageCode('es-PR', true, supported)).to.equal('ES-419');
+    expect(toDeepLLanguageCode('es-ES', true, supported)).to.equal('ES-ES');
+    expect(toDeepLLanguageCode('es', true, supported)).to.equal('ES');
   });
 
   it('falls through to the static heuristic when the live set is empty', () => {
