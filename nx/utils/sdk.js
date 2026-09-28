@@ -38,6 +38,7 @@ function getSelection() {
   return new Promise((resolve, reject) => {
     const listener = (e) => {
       window.removeEventListener('message', listener);
+      port2.removeEventListener('message', listener);
 
       if (e.data.action === 'sendSelection') {
         resolve(e.data.details);
@@ -48,6 +49,9 @@ function getSelection() {
       }
     };
     window.addEventListener('message', listener);
+    // The host replies with errors over the port, not the window.
+    port2.addEventListener('message', listener);
+    port2.start();
     port2.postMessage({ action: 'getSelection' });
   });
 }
