@@ -1,8 +1,9 @@
 name: Slack PR Ticker
 
-# Posts a one-line notice to Slack when a PR is opened / marked ready / reopened.
-# Core PRs go to one channel, external PRs to another. Core vs external is decided
-# from an explicit allowlist of core author usernames (CORE_AUTHORS below).
+# Posts a one-line notice to Slack across a PR's lifecycle: opened, marked
+# ready, reopened, merged, or closed without merging. Core PRs go to one
+# channel, external PRs to another. Core vs external is decided from an explicit
+# allowlist of core author usernames (CORE_AUTHORS below).
 #
 # Uses pull_request_target so the org secrets (webhook URLs) are available even
 # for PRs from forks. This job only reads event metadata and never checks out or
@@ -15,7 +16,7 @@ name: Slack PR Ticker
 
 on:
   pull_request_target:
-    types: [opened, ready_for_review, reopened]
+    types: [opened, ready_for_review, reopened, closed]
 
 permissions:
   contents: read
@@ -33,13 +34,28 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           PR_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+          ACTION: ${{ github.event.action }}
           REPO: ${{ github.repository }}
           # Core contributors (edit to keep in sync with the team).
           CORE_AUTHORS: 'svynod hannesolo mhaack anfibiacreativa'
         run: |
           set -euo pipefail
 
+          # Map the event to a human status. `closed` splits into merged vs
+          # closed-without-merge via the pull_request.merged flag.
+          case "$ACTION" in
+            opened)           STATUS='Opened' ;;
+            reopened)         STATUS='Reopened' ;;
+            ready_for_review) STATUS='Ready for review' ;;
+            closed)
+              if [ "$PR_MERGED" = "true" ]; then STATUS='Merged'; else STATUS='Closed'; fi
+              ;;
+            *) echo "Unhandled action=$ACTION; skipping."; exit 0 ;;
+          esac
+
           # Don't ticker drafts; the ready_for_review event covers them later.
+          # (A draft can't be merged, and a closed/abandoned draft is just noise.)
           if [ "$PR_DRAFT" = "true" ]; then
             echo "Draft PR; skipping."
             exit 0
@@ -58,8 +74,8 @@ jobs:
           fi
 
           # Send discrete fields so a Slack Workflow Builder webhook can map them
-          # to variables (repo, number, title, author, url, tier) and compose the
-          # message itself. Raw URLs auto-linkify in Slack.
+          # to variables (repo, number, title, author, url, tier, status) and
+          # compose the message itself. Raw URLs auto-linkify in Slack.
           PAYLOAD="$(jq -n \
             --arg repo "$REPO" \
             --arg number "$PR_NUMBER" \
@@ -67,5 +83,6 @@ jobs:
             --arg author "$PR_AUTHOR" \
             --arg url "$PR_URL" \
             --arg tier "$TIER" \
-            '{repo: $repo, number: $number, title: $title, author: $author, url: $url, tier: $tier}')"
+            --arg status "$STATUS" \
+            '{repo: $repo, number: $number, title: $title, author: $author, url: $url, tier: $tier, status: $status}')"
           curl -sS -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$WEBHOOK"
