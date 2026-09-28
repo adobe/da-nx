@@ -7,6 +7,7 @@ class NxDialog extends LitElement {
   static properties = {
     title: { type: String },
     busy: { type: Boolean },
+    size: { type: String, reflect: true },
   };
 
   get _dialog() { return this.shadowRoot.querySelector('dialog'); }

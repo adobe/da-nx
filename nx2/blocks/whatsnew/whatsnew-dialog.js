@@ -106,7 +106,7 @@ class NxWhatsNewDialog extends LitElement {
   render() {
     if (!this._entries) return nothing;
     return html`
-      <nx-dialog class="wn-dialog" @close=${this._onClose}>
+      <nx-dialog class="wn-dialog" size="large" @close=${this._onClose}>
         <button type="button" class="wn-close" aria-label="Close" @click=${this.close}>
           ${closeIcon}
         </button>

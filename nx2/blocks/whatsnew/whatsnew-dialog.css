@@ -3,11 +3,8 @@
   font-family: var(--s2-font-family, adobe-clean, 'Source Sans Pro', system-ui, sans-serif);
 }
 
-/* Sizes/strips nx-dialog's panel via its CSS custom-property overrides for our two-pane layout. */
+/* Two-pane layout: no panel padding, border, or gap; height capped to the design. */
 .wn-dialog {
-  --nx-dialog-min-width: 848px;
-  --nx-dialog-max-width: 848px;
-  --nx-dialog-min-height: 620px;
   --nx-dialog-max-height: 620px;
   --nx-dialog-padding: 0;
   --nx-dialog-border: none;
@@ -15,10 +12,9 @@
   --nx-dialog-actions-padding-top: 0;
 }
 
-/* Positioned against nx-dialog's .panel instead of height: 100%, which doesn't reliably resolve for slotted content. */
 .wn-body {
-  position: absolute;
-  inset: 0;
+  flex: 1 1 auto;
+  min-height: 0;
   box-sizing: border-box;
   display: flex;
   border-radius: var(--s2-corner-radius-800);
