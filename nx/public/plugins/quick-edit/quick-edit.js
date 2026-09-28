@@ -3,7 +3,7 @@ import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
-import { restoreBlockIndices } from './src/dom-index.js';
+import { restoreBlockIndices, restoreProseIndices } from './src/dom-index.js';
 import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
 import {
   getQuickEditPortalSrc,
@@ -39,11 +39,12 @@ const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
  */
 let parentControllerPort = null;
 
-async function setBody(body, ctx) {
+async function setBody(body, rerenderScope, ctx) {
   const anchor = captureScrollAnchor();
   const doc = new DOMParser().parseFromString(body, 'text/html');
-  replaceChanges({ ctx, doc, targetDocument: document });
-  await ctx.reload(document);
+  const replaced = replaceChanges({ ctx, doc, rerenderScope, targetDocument: document });
+  await ctx.reload(replaced);
+  restoreProseIndices(doc, document);
   restoreBlockIndices(doc, document);
   applyCommentMarkers(ctx);
   setupNodeSelection(ctx);
@@ -68,7 +69,7 @@ function onMessage(e, ctx) {
   if (type === MESSAGE_TYPES.READY) {
     handleReady(e, ctx);
   } else if (type === MESSAGE_TYPES.SET_BODY) {
-    setBody(payload.body, ctx);
+    setBody(payload.body, payload.rerenderScope, ctx);
   } else if (type === MESSAGE_TYPES.SET_EDITOR_STATE) {
     const { editorState, cursorOffset } = payload;
     setEditorState(cursorOffset, editorState, ctx);
@@ -242,7 +243,17 @@ function setupStandaloneShell(payload) {
   });
 }
 
+let initializing = false;
 export default async function loadQuickEdit(payload, reloadCallback) {
+  // surpress parallel execution when initialized via quick-editp-init.js
+  if (payload === 'INITIALIZING') {
+    initializing = true;
+    return;
+  }
+  if (initializing && !payload.reloadScope) {
+    return;
+  }
+
   if (document.getElementById(QUICK_EDIT_ID)) return;
   if (parentControllerPort != null) return;
 

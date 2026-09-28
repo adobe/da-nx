@@ -11,7 +11,10 @@ function customReporter() {
   return {
     async reportTestFileResults({ logger, sessionsForTestFile }) {
       sessionsForTestFile.forEach((session) => {
-        session.testResults.tests.forEach((test) => {
+        session.errors?.forEach((error) => {
+          logger.log(`${session.testFile}:`, error.stack || error.message);
+        });
+        session.testResults?.tests.forEach((test) => {
           if (!test.passed && !test.skipped) {
             logger.log(test);
           }

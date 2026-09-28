@@ -11,7 +11,7 @@ await loadPageStyle(`${nx}/public/plugins/quick-edit/quick-edit.css`);
 
 const QUICK_EDIT_ID = 'quick-edit-iframe';
 
-async function setBody(body, ctx) {
+async function setBody(body, rerenderScope, ctx) {
   const doc = new DOMParser().parseFromString(body, 'text/html');
   replaceChanges({ ctx, doc, targetDocument: document });
   await ctx.reload(document);
@@ -23,7 +23,7 @@ async function setBody(body, ctx) {
 function onMessage(e, ctx) {
   ctx.initialized = true;
   if (e.data.type === 'set-body') {
-    setBody(e.data.body, ctx);
+    setBody(e.data.body, e.data.rerenderScope, ctx);
   } else if (e.data.type === 'set-editor-state') {
     const { editorState, cursorOffset } = e.data;
     setEditorState(cursorOffset, editorState, ctx);
@@ -72,3 +72,5 @@ export default async function loadQuickEdit({ detail: payload }, reloadCallback)
   document.documentElement.append(iframe);
   iframe.style.visibility = 'hidden';
 }
+
+loadQuickEdit();

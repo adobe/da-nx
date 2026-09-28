@@ -39,6 +39,22 @@ export function findBlock(from, root = document) {
   return findNearestIndexed('data-block-index', from, root);
 }
 
+// A scoped reload only re-renders part of the page, but an edit shifts every prose
+// position after it — so the indices the untouched parts still carry are stale.
+// `sourceRoot` is always the full instrumented body, so re-key the live DOM from it.
+function restoreIndices(attr, sourceRoot, liveRoot) {
+  const source = safeQuerySelectorAll(sourceRoot, `[${attr}]`);
+  const live = safeQuerySelectorAll(liveRoot, `[${attr}]`)
+    .filter((el) => !el.closest(OVERLAY_SELECTOR));
+  if (!source.length || source.length !== live.length) return;
+  live.forEach((el, i) => el.setAttribute(attr, source[i].getAttribute(attr)));
+}
+
+export function restoreProseIndices(sourceRoot, liveRoot = document) {
+  restoreIndices('data-prose-index', sourceRoot, liveRoot);
+  restoreIndices('data-image-index', sourceRoot, liveRoot);
+}
+
 export function restoreBlockIndices(sourceRoot, liveRoot = document) {
   const sourceBlocks = [...sourceRoot.querySelectorAll('[data-block-index]')];
   if (!sourceBlocks.length) return;
