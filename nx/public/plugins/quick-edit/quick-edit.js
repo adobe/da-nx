@@ -23,7 +23,7 @@ import {
   setSelectedNode,
   getSelectedNode,
 } from './src/selection.js';
-import { installRumClickForwarding } from './src/rum-click.js';
+import { installClickForwarding } from './src/click-forwarding.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
 
@@ -117,7 +117,7 @@ function setupParentController(loadPage) {
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
     setupCommentShortcut(ctx);
-    installRumClickForwarding({ getPort: () => ctx.port });
+    installClickForwarding({ getPort: () => ctx.port });
 
     window.removeEventListener('message', listener);
   };
