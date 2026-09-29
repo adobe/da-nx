@@ -78,6 +78,44 @@ describe('nx-form', () => {
     expect(editor.state).to.equal(el._state);
   });
 
+  it('provides an upload callback and the document context to the image field renderer', async () => {
+    const el = await mountReady();
+    const editor = el.shadowRoot.querySelector('nx-editor');
+    expect(editor.assetContext.onSelectSource).to.be.a('function');
+    expect(editor.assetContext.previewOrigin).to.equal(undefined);
+    expect(editor.assetContext.aemAssetsAvailable).to.equal(false);
+  });
+
+  it('offers AEM Assets only when configured and a picker callback is provided', async () => {
+    const el = await mountReady();
+    el._aemAssetsAvailable = true;
+    await el.updateComplete;
+
+    const editor = el.shadowRoot.querySelector('nx-editor');
+    expect(editor.assetContext.aemAssetsAvailable).to.equal(false);
+
+    el.onSelectAemAsset = async () => ({ cancelled: true });
+    await el.updateComplete;
+    expect(editor.assetContext.aemAssetsAvailable).to.equal(true);
+
+    el._aemAssetsAvailable = false;
+    await el.updateComplete;
+    expect(editor.assetContext.aemAssetsAvailable).to.equal(false);
+  });
+
+  it('rejects a source the form cannot serve and names it in the error', async () => {
+    const el = await mountReady();
+    let picks = 0;
+    el.onSelectAemAsset = async () => { picks += 1; };
+    try {
+      await el._onSelectAsset({ source: 'aem-assets' });
+      throw new Error('Unconfigured AEM Assets should fail.');
+    } catch (error) {
+      expect(error.message).to.include('"aem-assets"');
+    }
+    expect(picks).to.equal(0);
+  });
+
   it('renders a blocked message for a missing schema', async () => {
     const el = makeForm();
     el._context = {

@@ -11,6 +11,7 @@ async function mountEditor(root) {
   const el = document.createElement('nx-editor');
   el.editor = {};
   el.onSelect = () => {};
+  el.assetContext = { onSelectSource: async () => ({ cancelled: true }) };
   el.state = { model: { root } };
   el.nav = {};
   document.body.append(el);
@@ -37,6 +38,85 @@ describe('nx-editor primitive controls', () => {
     const el = await mountEditor(root);
     expect(el.shadowRoot.querySelector('form-input')).to.exist;
     expect(el.shadowRoot.querySelector('form-textarea')).to.equal(null);
+  });
+
+  it('renders an image field for a string node annotated as media', async () => {
+    const root = objectRoot([
+      {
+        kind: 'string',
+        pointer: '/data/heroImage',
+        label: 'Hero image',
+        semanticType: 'media',
+        value: './media_example.png',
+      },
+    ]);
+    const el = await mountEditor(root);
+    const field = el.shadowRoot.querySelector('form-asset');
+    expect(field).to.exist;
+    expect(field.value).to.equal('./media_example.png');
+    expect(el.shadowRoot.querySelector('form-input')).to.equal(null);
+  });
+
+  it('previews a Media Bus image from the preview origin while keeping the stored value', async () => {
+    const root = objectRoot([
+      {
+        kind: 'string',
+        pointer: '/data/heroImage',
+        label: 'Hero image',
+        semanticType: 'media',
+        value: './media_example.png',
+      },
+    ]);
+    const el = await mountEditor(root);
+    el.assetContext = {
+      ...el.assetContext,
+      previewOrigin: 'https://main--site--example.preview.da.live',
+    };
+    await el.updateComplete;
+    const field = el.shadowRoot.querySelector('form-asset');
+    expect(field.value).to.equal('./media_example.png');
+    expect(field.previewHref).to.equal('https://main--site--example.preview.da.live/media_example.png');
+  });
+
+  it('previews a newly uploaded Media Bus image once the model stores it', async () => {
+    const previewOrigin = 'https://main--site--example.preview.da.live';
+    const imageNode = {
+      kind: 'string',
+      pointer: '/data/heroImage',
+      label: 'Hero image',
+      semanticType: 'media',
+    };
+    const el = await mountEditor(objectRoot([imageNode]));
+    el.editor = {
+      setField: (pointer, value) => {
+        el.state = { model: { root: objectRoot([{ ...imageNode, value }]) } };
+      },
+    };
+    el.assetContext = {
+      previewOrigin,
+      onSelectSource: async () => ({ href: './media_new.png', name: 'new.png' }),
+    };
+    await el.updateComplete;
+    const field = el.shadowRoot.querySelector('form-asset');
+    field.shadowRoot.querySelector('.asset-select').click();
+    field.shadowRoot.querySelector('.asset-source').click();
+    await new Promise((done) => { setTimeout(done, 0); });
+    await el.updateComplete;
+    await field.updateComplete;
+    expect(field.value).to.equal('./media_new.png');
+    expect(field.shadowRoot.querySelector('.asset-preview img').getAttribute('src'))
+      .to.equal(`${previewOrigin}/media_new.png`);
+  });
+
+  it('keeps an image URL editable as text until a selector is provided', async () => {
+    const root = objectRoot([
+      { kind: 'string', pointer: '/data/heroImage', label: 'Hero image', semanticType: 'media' },
+    ]);
+    const el = await mountEditor(root);
+    el.assetContext = undefined;
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('form-asset')).to.equal(null);
+    expect(el.shadowRoot.querySelector('form-input')).to.exist;
   });
 
   it('renders a date widget for a string node with format date', async () => {
