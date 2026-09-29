@@ -11,15 +11,19 @@ Sequence diagrams for each user action in the Lilt translation connector
 
 `DA Editor` is the connector code running in the browser
 (`nx/blocks/loc/connectors/lilt/{index,auth}.js`). `DA_TRANSLATE` is the proxy that
-injects the org/site-scoped Lilt API key server-side; the browser never sees it
-directly.
+resolves the org/site-scoped Lilt API key server-side, from `da-etc`, on the browser's
+behalf; the raw key never reaches the browser. Since the key is a static, non-expiring
+secret, `DA_TRANSLATE` caches it in-memory for 5 minutes per org/site/env after the first
+resolution, so it isn't re-fetched from `da-etc` on every proxied call (e.g. Lilt's
+polling loops below).
 
 ## Connect
 
-Connecting never calls Lilt's real API: `da-etc`'s `lilt` integration has no OAuth
-exchange, so its login endpoint just echoes back the configured API key as the
-`access_token`. "Connected" only means an IMS session exists *and* da-etc has a key
-configured for this org/site.
+Connecting never calls Lilt's real API, and the API key itself never reaches the
+browser: `da-etc`'s `/integrations/lilt/status` endpoint reports only whether a key is
+configured for this org/site, resolving it internally the same way `login` does but
+discarding the token before responding. "Connected" only means an IMS session exists
+*and* da-etc reports a configured key.
 
 ```mermaid
 sequenceDiagram
@@ -31,9 +35,9 @@ sequenceDiagram
     User->>Editor: Open Translate panel / click Connect
     Editor->>IMS: imsAccessToken()
     IMS-->>Editor: IMS access token (or triggers sign-in)
-    Editor->>Etc: POST /integrations/lilt/login?env=prod
-    Etc-->>Editor: { access_token: <configured apiKey> }
-    alt IMS token AND apiKey both present
+    Editor->>Etc: GET /integrations/lilt/status?env=prod
+    Etc-->>Editor: { connected: true|false }
+    alt IMS token present AND connected
         Editor-->>User: Connected
     else missing either
         Editor-->>User: "Connection to Lilt failed."
@@ -47,10 +51,12 @@ sequenceDiagram
     actor User
     participant Editor as DA Editor (lilt/index.js)
     participant Proxy as DA_TRANSLATE proxy
+    participant Etc as da-etc
     participant Lilt as Lilt API
 
     User->>Editor: Send for translation
     Editor->>Editor: isConnected(service)
+    Note over Proxy,Etc: Every Proxy->>Lilt call below first resolves the Lilt API key<br/>(Proxy->>Etc: POST /integrations/lilt/login), cached in-memory for 5 min<br/>per org/site/env - omitted from the remaining calls below for brevity
     loop each url
         Editor->>Proxy: POST /v2/files?name=...  (source content)
         Proxy->>Lilt: POST /v2/files
@@ -98,10 +104,12 @@ sequenceDiagram
     actor User
     participant Editor as DA Editor (lilt/index.js)
     participant Proxy as DA_TRANSLATE proxy
+    participant Etc as da-etc
     participant Lilt as Lilt API
 
     User->>Editor: Send for translation
     Editor->>Editor: isConnected(service)
+    Note over Proxy,Etc: Every Proxy->>Lilt call below first resolves the Lilt API key<br/>(Proxy->>Etc: POST /integrations/lilt/login), cached in-memory for 5 min<br/>per org/site/env - omitted from the remaining calls below for brevity
     loop each url
         Editor->>Proxy: POST /v2/files?name=...  (source content)
         Proxy->>Lilt: POST /v2/files
