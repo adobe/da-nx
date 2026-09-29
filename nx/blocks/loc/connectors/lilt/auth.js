@@ -1,10 +1,12 @@
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
-import authReady, {
-  getAccessToken as getCachedAccessToken, imsAccessToken, imsAuthHeader,
-} from '../../utils/auth.js';
+import { checkConnection, imsAccessToken, imsAuthHeader } from '../../utils/auth.js';
 
 const INTEGRATION_NAME = 'lilt';
-const CREDENTIAL_HEADER = 'x-lilt-authorization';
+// Tells the DA_TRANSLATE proxy which da-etc environment bucket to resolve the Lilt API
+// key from - the key itself is a static, non-expiring secret, so (unlike every other
+// connector here) it's resolved server-side per request rather than ever reaching the
+// browser. See docs/lilt-connector.md.
+const ENV_HEADER = 'x-translate-env';
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 /**
@@ -22,66 +24,45 @@ export function resolveOrigin(service) {
 }
 
 /**
- * Wraps a raw Lilt API key in the header Lilt expects (no `Bearer` prefix, unlike most
- * OAuth-style connectors).
- * @param {string} token - The raw Lilt API key.
- * @returns {Object} The header to merge into a request.
- */
-function credentialHeader(token) {
-  return { [CREDENTIAL_HEADER]: token };
-}
-
-/**
  * Builds the full header set for a Lilt request: the IMS header the DA_TRANSLATE proxy
- * requires, plus Lilt's own credential header, plus any request-specific headers.
+ * requires, the env header it uses to resolve the Lilt API key server-side, plus any
+ * request-specific headers.
  * @param {Object} service - The flattened per-environment service config.
  * @param {Object} [extraHeaders] - Additional headers to merge in (e.g. JSON vs octet-stream).
  * @returns {Promise<Object>} The merged headers.
  */
 export async function authHeaders(service, extraHeaders = JSON_HEADERS) {
-  const token = await getCachedAccessToken(INTEGRATION_NAME, service);
+  const { env = 'prod' } = service || {};
   return {
     ...(await imsAuthHeader()),
-    ...credentialHeader(token),
+    [ENV_HEADER]: env,
     ...extraHeaders,
   };
 }
 
 /**
- * Builds a `fetchWithRetry` `onUnauthorized` callback: force-refreshes the cached Lilt API
- * key and rebuilds `opts.headers` with it, so a 401 (e.g. a revoked key) is recovered from
- * once rather than repeating the same stale request.
- * @param {Object} service - The flattened per-environment service config.
- * @param {Object} opts - The fetch options to rebuild headers for.
- * @returns {() => Promise<Object|null>} The `onUnauthorized` callback.
- */
-export function onUnauthorized(service, opts) {
-  return async () => {
-    const token = await getCachedAccessToken(INTEGRATION_NAME, service, { force: true });
-    if (!token) return null;
-    return { ...opts, headers: { ...opts.headers, ...credentialHeader(token) } };
-  };
-}
-
-/**
- * Builds the `fetchWithRetry` config for a Lilt request.
- * @param {Object} service - The flattened per-environment service config.
- * @param {Object} opts - The fetch options for the request being retried.
+ * Builds the `fetchWithRetry` config for a Lilt request. There's nothing to recover from
+ * on a 401 here - the Lilt API key is resolved server-side by DA_TRANSLATE on every
+ * request, so the browser has no stale credential of its own to refresh - so this is a
+ * no-op, leaving 401s to pass through like any other non-retryable response.
  * @returns {Object} The `fetchWithRetry` config.
  */
-export function retryConfig(service, opts) {
-  return { onUnauthorized: onUnauthorized(service, opts) };
+export function retryConfig() {
+  return {};
 }
 
 /**
- * Checks whether Lilt is connected: the cached Lilt API key is ready, and the IMS access
- * token (required by the DA_TRANSLATE proxy) is present.
+ * Checks whether Lilt is connected: da-etc reports a working Lilt API key for this
+ * org/site/env, and the IMS access token (required by the DA_TRANSLATE proxy) is present.
  * @param {Object} service - The flattened per-environment service config.
  * @returns {Promise<boolean>} Whether Lilt is connected.
  */
 export async function isConnected(service) {
+  const { org, site, env = 'prod' } = service || {};
+  if (!org || !site) return false;
+
   const [liltReady, imsToken] = await Promise.all([
-    authReady(INTEGRATION_NAME, service),
+    checkConnection(INTEGRATION_NAME, org, site, env),
     imsAccessToken(),
   ]);
   return liltReady && !!imsToken;

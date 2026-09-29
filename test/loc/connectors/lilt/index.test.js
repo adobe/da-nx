@@ -14,7 +14,7 @@ const org = 'acme';
 const site = 'site1';
 const proxyOrigin = `${DA_TRANSLATE}/translate/lilt/${org}/${site}`;
 // DA_ETC resolves to undefined in this test env - auth.js falls back to this origin.
-const loginUrl = `https://da-etc.adobeaem.workers.dev/${org}/sites/${site}/integrations/lilt/login?env=prod`;
+const statusUrl = `https://da-etc.adobeaem.workers.dev/${org}/sites/${site}/integrations/lilt/status?env=prod`;
 
 let calls;
 let origFetch;
@@ -23,16 +23,14 @@ function baseService(overrides = {}) {
   return { org, site, ...overrides };
 }
 
-// expires_in omitted so the cached token is always treated as expired (see auth.js's
-// TOKEN_BUFFER subtraction) - forces a fresh login call on every test.
-function loginResponse(accessToken = 'lilt-key') {
-  return new Response(JSON.stringify({ access_token: accessToken }), { status: 200 });
+function statusResponse(connected = true) {
+  return new Response(JSON.stringify({ connected }), { status: 200 });
 }
 
 const memories = [{ id: 11, srclang: 'en', trglang: 'fr' }];
 
 function defaultHandler(u, opts) {
-  if (u.includes('/integrations/lilt/login')) return loginResponse();
+  if (u.includes('/integrations/lilt/status')) return statusResponse();
   if (u.includes('/v2/files') && opts.method === 'POST') {
     return new Response(JSON.stringify({ id: 1 }), { status: 200 });
   }
@@ -96,14 +94,20 @@ describe('lilt connector', () => {
   });
 
   describe('isConnected / connect', () => {
-    it('resolves true when the da-etc login succeeds and an IMS session is present', async () => {
+    it('resolves true when da-etc reports a working Lilt key and an IMS session is present', async () => {
       const connected = await isConnected(baseService());
 
       expect(connected).to.equal(true);
-      expect(calls.some((c) => c.url === loginUrl && c.method === 'POST')).to.equal(true);
+      expect(calls.some((c) => c.url === statusUrl)).to.equal(true);
     });
 
-    it('resolves false when the da-etc login fails', async () => {
+    it('resolves false when da-etc reports no working Lilt key', async () => {
+      installFetch(() => statusResponse(false));
+
+      expect(await isConnected(baseService())).to.equal(false);
+    });
+
+    it('resolves false when the da-etc status check fails', async () => {
       installFetch(() => new Response('', { status: 401 }));
 
       expect(await isConnected(baseService())).to.equal(false);
@@ -113,7 +117,7 @@ describe('lilt connector', () => {
       expect(await connect(baseService())).to.equal(true);
     });
 
-    it('resolves false when there is no IMS session, even with a valid Lilt login', async () => {
+    it('resolves false when there is no IMS session, even with a working Lilt key', async () => {
       setMockIms({ anonymous: true });
 
       expect(await isConnected(baseService())).to.equal(false);
