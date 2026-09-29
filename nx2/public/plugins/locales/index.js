@@ -1,3 +1,4 @@
+import { daFetch } from '../../../utils/api.js';
 import { DA_ORIGIN, AEM_ORIGIN } from '../../utils/constants.js';
 import { Queue } from '../../utils/tree.js';
 
@@ -8,8 +9,8 @@ export const [setContext, getContext] = (() => {
   return [
     (supplied) => {
       ctx = (() => {
-        const { org, repo: site, path, token } = supplied;
-        return { org, site, path, token };
+        const { org, repo: site, path } = supplied;
+        return { org, site, path };
       })();
       return ctx;
     },
@@ -18,9 +19,8 @@ export const [setContext, getContext] = (() => {
 })();
 
 export async function getLangsAndLocales() {
-  const { org, site, token } = getContext();
-  const opts = { headers: { Authorization: `Bearer ${token}` } };
-  const resp = await fetch(`${DA_ORIGIN}/source/${org}/${site}${LANG_CONF}`, opts);
+  const { org, site } = getContext();
+  const resp = await daFetch({ url: `${DA_ORIGIN}/source/${org}/${site}${LANG_CONF}` });
   if (!resp.ok) return { message: { text: 'There was an error fetching languages.', type: 'error' } };
   const sheet = await resp.json();
   const { data: langData } = sheet.languages;
@@ -44,28 +44,25 @@ export async function getLangsAndLocales() {
 }
 
 export async function getPage(fullpath) {
-  const { token } = getContext();
-  const opts = { headers: { Authorization: `Bearer ${token}` } };
-  const resp = await fetch(`${DA_ORIGIN}/source${fullpath}.html`, opts);
+  const resp = await daFetch({ url: `${DA_ORIGIN}/source${fullpath}.html` });
   return resp.status === 200;
 }
 
 export async function copyPage(sourcePath, destPath) {
-  const { token } = getContext();
   const body = new FormData();
   body.append('destination', `${destPath}.html`);
-  const opts = { method: 'POST', body, headers: { Authorization: `Bearer ${token}` } };
-  await fetch(`${DA_ORIGIN}/copy${sourcePath}.html`, opts);
+  const opts = { method: 'POST', body };
+  await daFetch({ url: `${DA_ORIGIN}/copy${sourcePath}.html`, opts });
 }
 
 export async function publishPages(pages) {
-  const { org, site, token } = getContext();
-  const opts = { method: 'POST', headers: { Authorization: `Bearer ${token}` } };
+  const { org, site } = getContext();
+  const opts = { method: 'POST' };
 
   const publish = async (url) => {
-    let resp = await fetch(`${AEM_ORIGIN}/preview/${org}/${site}/main${url.path}`, opts);
+    let resp = await daFetch({ url: `${AEM_ORIGIN}/preview/${org}/${site}/main${url.path}`, opts });
     if (resp.status === 200) {
-      resp = await fetch(`${AEM_ORIGIN}/live/${org}/${site}/main${url.path}`, opts);
+      resp = await daFetch({ url: `${AEM_ORIGIN}/live/${org}/${site}/main${url.path}`, opts });
     }
     url.status = resp.status;
   };

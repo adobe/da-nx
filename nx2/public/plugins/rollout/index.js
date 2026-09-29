@@ -1,12 +1,12 @@
+import { daFetch } from '../../../utils/api.js';
 import { DA_ORIGIN } from '../../utils/constants.js';
 
 const DA_TRANSLATE = '/.da/translate.json';
 const DA_SOURCE = `${DA_ORIGIN}/source/`;
 
-async function fetchConf(org, repo, token) {
-  const opts = { headers: { Authorization: `Bearer ${token}` } };
+async function fetchConf(org, repo) {
   try {
-    const resp = await fetch(`${DA_SOURCE}${org}/${repo}${DA_TRANSLATE}`, opts);
+    const resp = await daFetch({ url: `${DA_SOURCE}${org}/${repo}${DA_TRANSLATE}` });
     return resp.json();
   } catch {
     // eslint-disable-next-line no-console
@@ -42,8 +42,8 @@ function formatPrefixes(org, repo, currPrefix, locales, path) {
   });
 }
 
-export default async function getPrefixDetails(org, repo, token, path) {
-  const json = await fetchConf(org, repo, token);
+export default async function getPrefixDetails(org, repo, path) {
+  const json = await fetchConf(org, repo);
   if (!json) return null;
   const { config, languages } = json;
 

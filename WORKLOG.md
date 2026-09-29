@@ -1,5 +1,44 @@
 # Worklog
 
+## 2026-09-29
+
+### nx2 host-auth (branch `nx2-host-auth`)
+
+- **`nx2/utils/host-auth.js`**: postMessage handshake so an embedded nx2
+  app/plugin can request the host's (da.live shell's) IMS access token +
+  context instead of running its own standalone IMS session. `nx2/utils/api.js`
+  tries this first, falling back to standalone IMS only if no host responds.
+  Docs in `host-auth.md` / types in `host-auth.d.ts`; test mock + unit tests
+  under `nx2/test/`.
+- `locales`/`rollout` plugins updated to the new token-resolution path.
+- Session context: replaces the need for consumer-side CORS/IMS shims (e.g.
+  aem-apps's old `scripts/nx-shim/`) once this merges to `main` and deploys
+  to production `da.live/nx2` — see the matching aem-apps change below.
+- Not yet merged to `main`; single commit `5a3269c2` (`feat(nx2): add
+  host-auth module for embedded IMS token/context sharing`) on the branch
+  so far.
+
+### aem-apps: remove now-redundant IMS shim (branch `nx2-host-auth`, commit `52d7445`)
+
+- MSM's `mergeFromSource` was the only aem-apps caller that reaches nx2's
+  `daFetch` (via a dynamic import of da-nx's `loc/project` module). It fed
+  the fallback IMS path in `nx2/utils/api.js` a token from a local shim
+  (`scripts/utils.js`'s `getNx()` + `scripts/nx-shim/utils/ims.js`) as a
+  CORS workaround. With `host-auth.js` above, da.live's shell already hands
+  the token over directly, so the shim is dead code.
+- Deleted `scripts/utils.js` and `scripts/nx-shim/`; dropped their
+  "RESERVED" entries from `AGENTS.md`.
+- Also reverted an unrelated uncommitted debug leftover in
+  `tools/apps/msm/core/operations.js` (`NX` pointed at
+  `http://localhost:6456/nx`) back to `https://da.live/nx`.
+- Left `tools/plugins/msm/README.md` untouched — its `getNx()` mentions are
+  da-live's unrelated OOTB versioned/branch-aware NX resolution, not this
+  shim.
+- **Caveat**: this cleanup is only functionally correct once da-nx's
+  `nx2-host-auth` branch merges to `main` and deploys to production
+  `da.live/nx2`, since aem-apps's `NX` constant points at production, not a
+  pinned branch.
+
 ## 2026-09-25
 
 ### Editor toggle follows the active editor route

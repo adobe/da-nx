@@ -8,14 +8,23 @@ import diffReporter from './reporters/diffReporter.mjs';
 const GITHUB_ACTIONS = process.env.GITHUB_ACTIONS === 'true';
 
 function customReporter() {
+  // Suites can be nested (e.g. a describe() inside another describe()), so
+  // failing tests inside a nested suite must be walked recursively.
+  function walkSuite(suite, cb) {
+    (suite.tests || []).forEach(cb);
+    (suite.suites || []).forEach((s) => walkSuite(s, cb));
+  }
+
   return {
     async reportTestFileResults({ logger, sessionsForTestFile }) {
       sessionsForTestFile.forEach((session) => {
-        if (!session.testResults?.tests) return;
-        session.testResults.tests.forEach((test) => {
-          if (!test.passed && !test.skipped) {
-            logger.log(test);
-          }
+        if (!session.testResults?.suites) return;
+        session.testResults.suites.forEach((suite) => {
+          walkSuite(suite, (test) => {
+            if (!test.passed && !test.skipped) {
+              logger.log(test);
+            }
+          });
         });
       });
     },
@@ -50,7 +59,9 @@ export default {
           {
             "imports": {
               "da-lit": "/nx2/deps/lit/dist/index.js",
-              "/nx2/utils/ims.js": "/nx2/test/mocks/ims.js"
+              "/nx2/utils/ims.js": "/nx2/test/mocks/ims.js",
+              "/nx/utils/ims.js": "/nx2/test/mocks/ims.js",
+              "/nx2/utils/host-auth.js": "/nx2/test/mocks/host-auth.js"
             }
           }
         </script>
