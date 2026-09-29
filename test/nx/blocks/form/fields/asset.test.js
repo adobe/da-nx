@@ -177,7 +177,7 @@ describe('form-asset', () => {
     const dialog = field.shadowRoot.querySelector('.asset-remove-dialog');
     expect(dialog.open).to.be.true;
     expect(dialog.getAttribute('role')).to.equal('alertdialog');
-    expect(dialog.textContent).to.include('The image file is not deleted.');
+    expect(dialog.textContent).to.include('without deleting the original file');
     expect(dialog.querySelector('.asset-remove-confirm').getAttribute('variant')).to.equal('negative');
     expect(field.shadowRoot.querySelector('.asset-remove').getAttribute('variant')).to.equal('secondary');
     expect(focusTargets.at(-1)).to.equal('asset-remove-cancel');
