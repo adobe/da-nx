@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../nx2/utils/utils.js';
-import defaults from './defaults.js';
 import './button.js';
+import defaults from './defaults.js';
 
 const style = await loadStyle(import.meta.url);
 const IMAGE_ICON = html`
@@ -343,8 +343,8 @@ class FormAsset extends LitElement {
       >
         <div class="asset-dialog-header">
           <div>
-            <h2 id="asset-remove-title">Remove image?</h2>
-            <p id="asset-remove-description">The image is removed from this field only. The image file is not deleted.</p>
+            <h2 id="asset-remove-title">Remove asset?</h2>
+            <p id="asset-remove-description">This removes the asset from the editor without deleting the original file..</p>
           </div>
         </div>
         <div class="asset-dialog-footer">
