@@ -344,7 +344,7 @@ class FormAsset extends LitElement {
         <div class="asset-dialog-header">
           <div>
             <h2 id="asset-remove-title">Remove asset?</h2>
-            <p id="asset-remove-description">This removes the asset from the editor without deleting the original file..</p>
+            <p id="asset-remove-description">This removes the asset from the editor without deleting the original file.</p>
           </div>
         </div>
         <div class="asset-dialog-footer">
