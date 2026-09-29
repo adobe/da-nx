@@ -786,6 +786,17 @@ resolved by `_resolveManifest()`:
 - With neither set, `manifestId` is the default (`AO_MANIFEST_ID`,
   `experience-workspace`).
 
+## New chat icon
+
+The "New chat" button uses a distinct Coworker icon
+(`nx2/img/icons/S2_Icon_Coworker_20_N.svg`) instead of the shared `+` icon
+used elsewhere, so it's visually distinguishable as starting a fresh
+Coworker session rather than a generic add action. It's loaded via
+`loadHrefSvg` (`nx2/utils/svg.js`) rather than the CDN `icon()` helper
+because the asset isn't (yet) published to the shared icon CDN. If the
+fetch fails for any reason, the button falls back to the old `+` icon
+(`icon('add')`) rather than rendering blank.
+
 ## AO wire-protocol notes
 
 - **First-op restriction.** A fresh WebSocket connection's first substantive
