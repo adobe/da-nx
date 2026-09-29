@@ -32,7 +32,7 @@ const html = (count) => `
 function mockFetch(body) {
   const originalFetch = window.fetch;
   window.fetch = async (url, opts) => {
-    if (String(url).includes('/nx/fragments/guides/whats-new')) {
+    if (String(url).includes('/fragments/guides/whats-new')) {
       return new Response(body, { status: 200, headers: { 'Content-Type': 'text/html' } });
     }
     return originalFetch.call(window, url, opts);
@@ -110,5 +110,79 @@ describe('nx-whatsnew-dialog layout', () => {
     expect(panel.width).to.equal(375 - PANEL_MARGIN);
     expect(panel.height).to.equal(667 - PANEL_MARGIN);
     expect(body.scrollHeight).to.be.greaterThan(body.clientHeight);
+  });
+});
+
+describe('nx-whatsnew-dialog toc indicator', () => {
+  let restoreFetch;
+
+  beforeEach(async () => {
+    await setViewport({ width: 1280, height: 900 });
+  });
+
+  afterEach(async () => {
+    restoreFetch?.();
+    document.querySelectorAll('nx-whatsnew-dialog').forEach((el) => el.remove());
+    await setViewport({ width: 800, height: 600 });
+  });
+
+  const activeTitle = (el) => el.shadowRoot
+    .querySelector('.wn-toc-item[aria-current="true"]')?.textContent.trim();
+
+  // Records every entry that becomes active, to catch the indicator jumping around.
+  function recordActive(el) {
+    const seen = [];
+    const observer = new MutationObserver(() => { seen.push(activeTitle(el)); });
+    observer.observe(el.shadowRoot.querySelector('.wn-toc-list'), {
+      subtree: true, attributes: true, attributeFilter: ['aria-current'],
+    });
+    return () => {
+      observer.disconnect();
+      return seen;
+    };
+  }
+
+  const settle = () => new Promise((r) => { setTimeout(r, 150); });
+
+  it('keeps the indicator on the clicked entry while scrolling to it', async () => {
+    restoreFetch = mockFetch(html(6));
+    const { el, cards } = await openDialog(6);
+    await settle();
+    const stop = recordActive(el);
+
+    const scrolled = new Promise((r) => { cards.addEventListener('scrollend', r, { once: true }); });
+    el.shadowRoot.querySelectorAll('.wn-toc-item')[4].click();
+    await scrolled;
+    await settle();
+
+    expect([...new Set(stop())]).to.deep.equal(['Feature 5']);
+  });
+
+  it('moves the indicator to the last entry when scrolled to the bottom', async () => {
+    restoreFetch = mockFetch(html(6));
+    const { el, cards } = await openDialog(6);
+    await settle();
+
+    cards.scrollTo({ top: cards.scrollHeight, behavior: 'instant' });
+    await settle();
+
+    expect(activeTitle(el)).to.equal('Feature 6');
+  });
+
+  it('follows manual scrolling one entry at a time', async () => {
+    restoreFetch = mockFetch(html(6));
+    const { el, cards } = await openDialog(6);
+    await settle();
+    const stop = recordActive(el);
+
+    const step = el.shadowRoot.querySelectorAll('.wn-card')[1].offsetTop
+      - el.shadowRoot.querySelectorAll('.wn-card')[0].offsetTop;
+    for (let i = 1; i <= 3; i += 1) {
+      cards.scrollTo({ top: step * i, behavior: 'instant' });
+      // eslint-disable-next-line no-await-in-loop
+      await settle();
+    }
+
+    expect(stop()).to.deep.equal(['Feature 2', 'Feature 3', 'Feature 4']);
   });
 });

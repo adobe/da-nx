@@ -12,6 +12,17 @@ const WHATSNEW_PATH = '/fragments/guides/whats-new';
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+const THRESHOLDS = Array.from({ length: 11 }, (_, i) => i / 10);
+
+// Most visible card wins; ties go to the earlier card (Map keeps document order).
+export function pickMostVisible(visibleHeights) {
+  const [id] = [...visibleHeights].reduce(
+    (best, entry) => (entry[1] > best[1] ? entry : best),
+    [undefined, 0],
+  );
+  return id;
+}
+
 /**
  * Two-pane "what's new" dialog.
  * Marks content seen on close.
@@ -69,6 +80,7 @@ class NxWhatsNewDialog extends LitElement {
 
   _observeCards() {
     const cards = [...this.shadowRoot.querySelectorAll('.wn-card')];
+    this._visibleHeights = new Map(cards.map((card) => [card.dataset.id, 0]));
     this._observer = new IntersectionObserver((observed) => {
       // Lazy-load videos when their cards enter view.
       observed.forEach((entry) => {
@@ -78,12 +90,31 @@ class NxWhatsNewDialog extends LitElement {
         video.src = video.dataset.src;
         delete video.dataset.src;
       });
-      const visible = observed.filter((entry) => entry.isIntersecting);
-      if (visible.length === 0) return;
-      visible.sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-      this._activeId = visible[0].target.dataset.id;
-    }, { root: this.shadowRoot.querySelector('.wn-cards'), threshold: [0.25, 0.5, 0.75, 1] });
+      observed.forEach((entry) => {
+        const height = entry.isIntersecting ? entry.intersectionRect.height : 0;
+        this._visibleHeights.set(entry.target.dataset.id, height);
+      });
+      this._syncActiveToScroll();
+    }, { root: this.shadowRoot.querySelector('.wn-cards'), threshold: THRESHOLDS });
     cards.forEach((card) => this._observer.observe(card));
+  }
+
+  _syncActiveToScroll() {
+    // Hold the clicked entry until its smooth scroll ends.
+    if (this._scrollTargetId) return;
+    const scroller = this.shadowRoot.querySelector('.wn-cards');
+    const atBottom = scroller
+      && scroller.scrollTop > 0
+      && scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
+    const lastId = this._entries.at(-1).id;
+    const id = atBottom && this._visibleHeights.get(lastId) > 0
+      ? lastId
+      : pickMostVisible(this._visibleHeights);
+    if (id) this._activeId = id;
+  }
+
+  _releaseScrollTarget() {
+    this._scrollTargetId = undefined;
   }
 
   close() {
@@ -100,6 +131,7 @@ class NxWhatsNewDialog extends LitElement {
     const card = this.shadowRoot.querySelector(`.wn-card[data-id="${id}"]`);
     if (!card) return;
     this._activeId = id;
+    this._scrollTargetId = id;
     card.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
 
@@ -132,7 +164,14 @@ class NxWhatsNewDialog extends LitElement {
             </div>
           </nav>
           <div class="wn-cards-panel">
-            <div class="wn-cards">
+            <div
+              class="wn-cards"
+              @scrollend=${this._releaseScrollTarget}
+              @wheel=${{ handleEvent: () => this._releaseScrollTarget(), passive: true }}
+              @touchstart=${{ handleEvent: () => this._releaseScrollTarget(), passive: true }}
+              @pointerdown=${this._releaseScrollTarget}
+              @keydown=${this._releaseScrollTarget}
+            >
               ${this._entries.map((entry) => html`
                 <article class="wn-card" data-id=${entry.id}>
                   <div class="wn-card-image">

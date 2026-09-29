@@ -5,7 +5,7 @@ import { getLastSeen } from '../../../../../blocks/whatsnew/whatsnew-storage.js'
 // Some whatsnew dependencies read config at import time, so setConfig()
 // must resolve before whatsnew-dialog.js is imported.
 await setConfig({ hostnames: [] });
-await import('../../../../../blocks/whatsnew/whatsnew-dialog.js');
+const { pickMostVisible } = await import('../../../../../blocks/whatsnew/whatsnew-dialog.js');
 
 const WHATSNEW_HTML = `
   <html>
@@ -148,5 +148,19 @@ describe('nx-whatsnew-dialog', () => {
     await waitFor(() => !el.isConnected);
     expect(el.isConnected).to.be.false;
     expect(getLastSeen()).to.equal(null);
+  });
+});
+
+describe('pickMostVisible', () => {
+  it('picks the card with the most visible pixels', () => {
+    expect(pickMostVisible(new Map([['a', 40], ['b', 300], ['c', 120]]))).to.equal('b');
+  });
+
+  it('prefers the earlier card on a tie', () => {
+    expect(pickMostVisible(new Map([['a', 0], ['b', 200], ['c', 200]]))).to.equal('b');
+  });
+
+  it('returns undefined when nothing is visible', () => {
+    expect(pickMostVisible(new Map([['a', 0], ['b', 0]]))).to.be.undefined;
   });
 });
