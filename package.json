@@ -52,6 +52,8 @@
   "devDependencies": {
     "@adobe/eslint-config-helix": "^3.0.17",
     "@adobe/spectrum-tokens": "^14.2.2",
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
     "@esm-bundle/chai": "4.3.4-fix.0",
     "@semantic-release/changelog": "^7.0.0",
     "@semantic-release/commit-analyzer": "^13.0.1",
