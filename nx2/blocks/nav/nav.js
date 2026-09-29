@@ -120,10 +120,7 @@ class NXNav extends LitElement {
         button.addEventListener('click', () => openFragmentDialog(button.dataset.pathname));
       }
     }
-    // Exception to how header content is normally injected (via the nav fragment):
-    // editortoggle is force-injected here so the switch is visible without requiring
-    // a nav-fragment content change on every site. Consider replacing this with
-    // fragment-based loading in the future instead.
+    // Inject the toggle so every site has it without changing its nav fragment.
     if (!ul.querySelector('nx-editortoggle')) {
       await import('../editortoggle/editortoggle.js');
       const li = document.createElement('li');
