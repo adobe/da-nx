@@ -3,6 +3,8 @@ import { LitElement, html, nothing } from 'da-lit';
 import { createEngine } from '../../deps/da-sc-sdk/dist/index.js';
 import { loadFormContext } from './utils/context.js';
 import { attachPersistence } from './utils/persistence.js';
+import { openMediaPreview, selectImageSource } from './utils/assets.js';
+import { getAemAssetsAvailability } from './utils/aem-assets.js';
 import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
 
 import './views/editor.js';
@@ -48,6 +50,10 @@ class Form extends LitElement {
     _state: { state: true },
     _nav: { state: true },
     _pendingSchemaId: { state: true },
+    _aemAssetsAvailable: { state: true },
+    _aemAssetsError: { state: true },
+    _mediaPreviewOrigin: { state: true },
+    onSelectAemAsset: { attribute: false },
   };
 
   // Reactive properties (declared in static properties) must NOT have class-
@@ -79,6 +85,33 @@ class Form extends LitElement {
       origin,
       seq: (this._nav?.seq ?? 0) + 1,
     };
+  };
+
+  get _aemAssetsEnabled() {
+    return !!this._aemAssetsAvailable && typeof this.onSelectAemAsset === 'function';
+  }
+
+  _selectFromSource({ source, details, value }) {
+    if (source === 'upload') {
+      return selectImageSource({ details });
+    }
+    if (source === 'aem-assets' && this._aemAssetsEnabled) {
+      return this.onSelectAemAsset({ details, value });
+    }
+    throw new Error(`The "${source}" asset source is not available for this form.`);
+  }
+
+  _onSelectAsset = async ({ source, value }) => {
+    const { _details: details, _loadVersion: version } = this;
+    if (!details) {
+      throw new Error('The form document is not ready for asset selection.');
+    }
+
+    const result = await this._selectFromSource({ source, details, value });
+    if (version !== this._loadVersion) {
+      return { cancelled: true };
+    }
+    return result;
   };
 
   connectedCallback() {
@@ -142,6 +175,9 @@ class Form extends LitElement {
     this._loadVersion += 1;
     const version = this._loadVersion;
     this._pendingSchemaId = '';
+    this._aemAssetsAvailable = false;
+    this._aemAssetsError = undefined;
+    this._mediaPreviewOrigin = undefined;
     this._state = null;
     this._editor = null;
     this._persistence?.detach();
@@ -162,6 +198,20 @@ class Form extends LitElement {
 
     if (context.status === 'ready') {
       this._start({ schema: context.schema, json: context.json });
+    }
+
+    if (context.status === 'ready' || context.status === 'select-schema') {
+      const { owner, repo } = this._details;
+      const [availability, previewOrigin] = await Promise.all([
+        getAemAssetsAvailability({ org: owner, site: repo }),
+        openMediaPreview({ owner, repo }),
+      ]);
+      if (version !== this._loadVersion) {
+        return;
+      }
+      this._aemAssetsAvailable = availability.available;
+      this._aemAssetsError = availability.error;
+      this._mediaPreviewOrigin = previewOrigin;
     }
   }
 
@@ -359,6 +409,12 @@ class Form extends LitElement {
             .state=${this._state}
             .nav=${this._nav}
             .onSelect=${this._onSelect}
+            .assetContext=${{
+              onSelectSource: this._onSelectAsset,
+              previewOrigin: this._mediaPreviewOrigin,
+              aemAssetsAvailable: this._aemAssetsEnabled,
+              aemAssetsError: this._aemAssetsError,
+            }}
           ></nx-editor>
           <nx-preview .state=${this._state}></nx-preview>
         </div>
