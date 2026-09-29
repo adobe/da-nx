@@ -12,7 +12,7 @@
 
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
-import { loadHrefSvg } from '../../utils/svg.js';
+import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
 import AoChatController from './ao-controller.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
@@ -50,7 +50,10 @@ const { codeBase } = getConfig();
 const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
 // Fall back to the old '+' icon if the Coworker icon fails to fetch, so the
 // button never renders blank (see docs/chat-ao-component.md#new-chat-icon).
-const newChatIcon = (await loadHrefSvg(`${codeBase}/img/icons/S2_Icon_Coworker_20_N.svg`)) ?? icon('add');
+// Uses ICONS_BASE (nx2's own origin), not codeBase: codeBase is da-live's
+// origin (see da-live/scripts/scripts.js), so an icon not yet published to
+// da-live must be loaded from wherever this nx2 bundle itself is hosted.
+const newChatIcon = (await loadHrefSvg(`${ICONS_BASE}S2_Icon_Coworker_20_N.svg`)) ?? icon('add');
 
 function isAllowedFile(file) {
   const name = file.name?.toLowerCase() ?? '';

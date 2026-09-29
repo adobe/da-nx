@@ -797,6 +797,14 @@ because the asset isn't (yet) published to the shared icon CDN. If the
 fetch fails for any reason, the button falls back to the old `+` icon
 (`icon('add')`) rather than rendering blank.
 
+It's fetched from `ICONS_BASE` (`nx2/utils/svg.js`), not `codeBase`.
+`codeBase` is set by the host (e.g. da-live's `scripts/scripts.js`) to the
+*host's own* origin, independent of which nx2 branch is loaded via `?nx=`
+— existing CDN icons resolve through it only because they're already
+published on the host's side. `ICONS_BASE` instead resolves relative to
+wherever this nx2 bundle itself was loaded from, so it correctly follows
+an `?nx=` branch override for icons that only exist in this repo.
+
 ## AO wire-protocol notes
 
 - **First-op restriction.** A fresh WebSocket connection's first substantive
