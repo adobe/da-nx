@@ -148,12 +148,14 @@ comments UI, so none are wired up there.
 
 ### `RUM_CLICK`
 
-- **iframe → host**, payload `{ source: 'ew-wysiwyg-doc', target: string }`.
+- **iframe → host**, payload `{ source: 'ew-wysiwyg-doc', target?: string }` (`target` is
+  undefined when nothing can be derived from the clicked element).
 - Clicks inside the preview iframe never bubble to the host document, so the host's RUM
   enhancer can't see them — unlike `ew-editor-doc`, whose shadow-DOM clicks retarget to the
   host element and are captured. Without this message the WYSIWYG/layout surface produces no
   `ew-wysiwyg-doc` RUM click checkpoints.
-- The iframe (`src/rum-click.js`, installed from `quick-edit-portal.js`) captures every click,
+- The iframe (`src/rum-click.js`, installed by `setupParentController` in `quick-edit.js`, i.e.
+  the `controller=parent` path) captures every click,
   derives `target` (link href → enclosing block name → tag), and forwards it. The da-live host
   handler calls `sampleRUM('click', payload)` so events attribute to the editor session's RUM.
   The standalone `quick-edit-portal.js` host does not consume it.
