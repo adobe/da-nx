@@ -1,5 +1,5 @@
 import { html, LitElement } from 'da-lit';
-import DA_SDK from 'https://da.live/nx/utils/sdk.js';
+import { getHostContext, setHash } from '../../../utils/host-auth.js';
 import getStyle from '../../utils/styles.js';
 import { setContext, getLangsAndLocales, getPage, copyPage, publishPages } from './index.js';
 
@@ -63,7 +63,7 @@ class NxLocales extends LitElement {
     const newFullPath = `/${this.org}/${this.site}${newPath}`;
     const exists = await getPage(newFullPath);
     if (!exists) await copyPage(`/${this.org}/${this.site}${copyFromPath}`, newFullPath);
-    this.actions.setHash(newFullPath);
+    setHash(newFullPath);
   }
 
   async handlePublish(items) {
@@ -125,14 +125,13 @@ class NxLocales extends LitElement {
 customElements.define('nx-locales', NxLocales);
 
 (async function init() {
-  const { context, token, actions } = await DA_SDK;
-  setContext({ ...context, token });
+  const context = await getHostContext();
+  setContext(context);
 
   const nxLocales = document.createElement('nx-locales');
   nxLocales.org = context.org;
   nxLocales.site = context.repo;
   nxLocales.path = context.path;
-  nxLocales.actions = actions;
 
   document.body.append(nxLocales);
 }());

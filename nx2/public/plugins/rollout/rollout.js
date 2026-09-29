@@ -1,8 +1,8 @@
-import DA_SDK from 'https://da.live/nx/utils/sdk.js';
 import { LitElement, html, nothing } from 'https://da.live/nx/public/deps/lit/dist/index.js';
 import { mergeCopy, overwriteCopy } from 'https://da.live/nx/blocks/loc/project/index.js';
 import getStyle from 'https://da.live/nx/public/utils/styles.js';
 import getSvg from 'https://da.live/nx/public/utils/svg.js';
+import { getHostContext } from '../../../utils/host-auth.js';
 import getPrefixDetails from './index.js';
 
 const ICONS = [
@@ -29,8 +29,8 @@ export default class DaRollout extends LitElement {
   }
 
   async getRolloutInfo() {
-    const { org, repo, path, token } = this;
-    const { currPrefix, prefixes, isLocale } = await getPrefixDetails(org, repo, token, path);
+    const { org, repo, path } = this;
+    const { currPrefix, prefixes, isLocale } = await getPrefixDetails(org, repo, path);
     this._currPrefix = currPrefix;
     this._prefixes = prefixes;
     this._isLocale = isLocale;
@@ -142,11 +142,10 @@ export default class DaRollout extends LitElement {
 customElements.define('da-rollout', DaRollout);
 
 (async function init() {
-  const { context, token } = await DA_SDK;
+  const context = await getHostContext();
 
   const daRollout = document.createElement('da-rollout');
   daRollout.path = context.path;
-  daRollout.token = token;
   daRollout.repo = context.repo;
   daRollout.org = context.org;
   document.body.append(daRollout);

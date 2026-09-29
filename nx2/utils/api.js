@@ -2,6 +2,7 @@
 import {
   HLX_ADMIN, AEM_API, DA_ADMIN, DA_CONTENT, ALLOWED_TOKEN, sheet2object, object2sheet,
 } from './utils.js';
+import { getAccessToken as getHostAccessToken } from './host-auth.js';
 
 export const { loadIms, handleSignIn } = await (async () => {
   try {
@@ -599,7 +600,11 @@ export const asText = (promise) => unwrap(promise, 'text');
 // ============================================================================
 
 export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false }) => {
-  const { accessToken } = await loadIms();
+  // Prefer a host-supplied token (e.g. when embedded inside da.live's app
+  // shell) over standalone IMS. Falls back to loadIms() when this page
+  // isn't embedded, or the host hasn't supplied a token.
+  const hostAccessToken = await getHostAccessToken();
+  const accessToken = hostAccessToken || (await loadIms()).accessToken;
   if (!accessToken) {
     handleSignIn();
     return {};

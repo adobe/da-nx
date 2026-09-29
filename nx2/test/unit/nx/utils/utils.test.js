@@ -2,6 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { setConfig } from '../../../../scripts/nx.js';
 import { setMockIms, resetMockIms } from '../../../mocks/ims.js';
+import { setMockHostAuth, resetMockHostAuth } from '../../../mocks/host-auth.js';
 import {
   SUPPORTED_FILES,
   DA_ADMIN,
@@ -216,10 +217,12 @@ describe('api', () => {
     fetchStub = sinon.stub();
     window.fetch = fetchStub;
     resetMockIms();
+    resetMockHostAuth();
   });
 
   afterEach(() => {
     window.fetch = originalFetch;
+    resetMockHostAuth();
   });
 
   // ─── daFetch ──────────────────────────────────────────────────────────────
@@ -277,6 +280,23 @@ describe('api', () => {
       const [, opts] = fetchStub.firstCall.args;
       expect(opts.method).to.equal('POST');
       expect(opts.body).to.equal('data');
+    });
+
+    it('prefers a host-auth token over loadIms() when embedded', async () => {
+      setMockHostAuth({ isEmbedded: true, token: 'host-token' });
+      fetchStub.resolves(mockResp());
+      await daFetch({ url: `${DA_ADMIN}/some/path` });
+      const [, opts] = fetchStub.firstCall.args;
+      expect(opts.headers.Authorization).to.equal('Bearer host-token');
+    });
+
+    it('falls back to loadIms() when no host-auth token is present', async () => {
+      // resetMockHostAuth() in beforeEach already leaves host-auth reporting
+      // no token; loadIms()'s mocked default token should be used instead.
+      fetchStub.resolves(mockResp());
+      await daFetch({ url: `${DA_ADMIN}/some/path` });
+      const [, opts] = fetchStub.firstCall.args;
+      expect(opts.headers.Authorization).to.equal('Bearer test-token');
     });
   });
 
