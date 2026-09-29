@@ -2,9 +2,21 @@ import { expect } from '@esm-bundle/chai';
 import '../../../../../nx/blocks/form/fields/asset.js';
 
 const mounted = [];
+const nativeFocus = HTMLElement.prototype.focus;
 afterEach(() => {
+  HTMLElement.prototype.focus = nativeFocus;
   while (mounted.length) mounted.pop().remove();
 });
+
+// Records focus() targets by host class, since parallel test pages cannot all hold real focus.
+function recordFocusTargets() {
+  const targets = [];
+  HTMLElement.prototype.focus = function recordFocus(...args) {
+    targets.push(this.getRootNode().host?.className ?? this.className);
+    return nativeFocus.apply(this, args);
+  };
+  return targets;
+}
 
 async function mount(options = {}) {
   const field = document.createElement('form-asset');
@@ -25,6 +37,12 @@ async function mount(options = {}) {
 const button = (field, text) => [...field.shadowRoot.querySelectorAll('button, form-button')]
   .find((element) => (element.querySelector('.source-title')?.textContent
     ?? element.textContent).trim() === text);
+
+// Chromium fires dialog close on animation frames, which background test pages may not get.
+async function deliverClose(dialog) {
+  dialog.dispatchEvent(new Event('close'));
+  await Promise.resolve();
+}
 
 async function openSources(field, action = 'Select') {
   button(field, action).click();
@@ -149,19 +167,48 @@ describe('form-asset', () => {
     expect(field.value).to.equal(undefined);
   });
 
-  it('removes only the reference and offers Undo', async () => {
-    const field = await mount({ value: './media_abc.png' });
+  it('asks for confirmation before removing and keeps the value on Cancel', async () => {
+    const field = await mount({ value: './media_abc.png', displayName: 'abc.png' });
+    const focusTargets = recordFocusTargets();
     const changes = [];
     field.addEventListener('asset-change', (event) => changes.push(event.detail.value));
     button(field, 'Remove').click();
     await field.updateComplete;
-    expect(changes).to.deep.equal([undefined]);
-    expect(field.shadowRoot.querySelector('[role="status"]').textContent)
-      .to.include('Image removed from this field.');
-    expect(getComputedStyle(field.shadowRoot.querySelector('.asset-undo')).position).to.equal('fixed');
-    button(field, 'Undo').click();
+    const dialog = field.shadowRoot.querySelector('.asset-remove-dialog');
+    expect(dialog.open).to.be.true;
+    expect(dialog.getAttribute('role')).to.equal('alertdialog');
+    expect(dialog.textContent).to.include('The image file is not deleted.');
+    expect(dialog.querySelector('.asset-remove-confirm').getAttribute('variant')).to.equal('negative');
+    expect(field.shadowRoot.querySelector('.asset-remove').getAttribute('variant')).to.equal('secondary');
+    expect(focusTargets.at(-1)).to.equal('asset-remove-cancel');
+    expect(changes).to.have.lengthOf(0);
+
+    field.shadowRoot.querySelector('.asset-remove-cancel').click();
+    expect(dialog.open).to.be.false;
+    await deliverClose(dialog);
+    expect(changes).to.have.lengthOf(0);
+    expect(field.value).to.equal('./media_abc.png');
+    expect(focusTargets.at(-1)).to.equal('asset-remove');
+  });
+
+  it('removes only the field reference after confirmation without a notification', async () => {
+    const field = await mount({ value: './media_abc.png', displayName: 'abc.png' });
+    const focusTargets = recordFocusTargets();
+    const changes = [];
+    field.addEventListener('asset-change', (event) => changes.push(event.detail.value));
+    button(field, 'Remove').click();
     await field.updateComplete;
-    expect(changes).to.deep.equal([undefined, './media_abc.png']);
+    const dialog = field.shadowRoot.querySelector('.asset-remove-dialog');
+    field.shadowRoot.querySelector('.asset-remove-confirm').click();
+    await field.updateComplete;
+    expect(dialog.open).to.be.false;
+    await deliverClose(dialog);
+    expect(changes).to.deep.equal([undefined]);
+    expect(field.value).to.equal(undefined);
+    expect(field.displayName).to.equal(undefined);
+    expect(field.shadowRoot.querySelector('[role="status"]')).to.equal(null);
+    expect(field.shadowRoot.querySelector('.asset-empty').hidden).to.be.false;
+    expect(focusTargets.at(-1)).to.equal('asset-select');
   });
 
   it('disables changes but shows a saved value and validation message when readonly', async () => {

@@ -60,6 +60,27 @@
   }
 }
 
+/* Negative: red fill for destructive confirmations, static white label. */
+:host([variant="negative"]) .form-button {
+  background: var(--s2-red-900);
+  color: white;
+
+  &:hover,
+  &:focus-visible,
+  &:active {
+    background: var(--s2-red-1000);
+  }
+
+  &:focus-visible {
+    outline-color: var(--s2-red-900);
+  }
+
+  &:disabled {
+    background: var(--s2-gray-100);
+    color: var(--s2-gray-400);
+  }
+}
+
 /* Secondary: transparent at rest; neutral text with a gray wash on state. */
 :host([variant="secondary"]) .form-button {
   background: transparent;

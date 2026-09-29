@@ -102,8 +102,8 @@
 }
 
 .asset-actions form-button {
-  display: inline-block;
-  border-radius: var(--s2-corner-radius-500, 12px);
+  display: inline-flex;
+  border-radius: 16px;
   background: var(--s2-gray-25);
   box-shadow: 0 2px 9px rgb(0 0 0 / 20%);
 }
@@ -136,35 +136,6 @@
   line-height: 1.5;
 }
 
-.asset-undo {
-  position: fixed;
-  z-index: 20;
-  bottom: var(--s2-spacing-400, 20px);
-  left: 50%;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  width: min(420px, calc(100vw - 32px));
-  padding: 10px 14px;
-  border: 1px solid var(--s2-gray-300);
-  border-radius: var(--s2-corner-radius-400, 8px);
-  background: var(--s2-gray-25);
-  color: var(--s2-gray-900);
-  font-size: var(--s2-component-s-regular-font-size, 12px);
-  box-shadow: 0 4px 24px rgb(0 0 0 / 15%);
-  transform: translateX(-50%);
-}
-
-.asset-undo button {
-  border: none;
-  background: transparent;
-  color: var(--s2-blue-800);
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-
 dialog {
   box-sizing: border-box;
   width: min(var(--asset-dialog-max-width), calc(100vw - 32px));
@@ -179,7 +150,8 @@ dialog {
   font: inherit;
 }
 
-.asset-dialog-single {
+.asset-dialog-single,
+.asset-remove-dialog {
   width: min(var(--asset-dialog-single-width), calc(100vw - 32px));
 }
 
@@ -193,6 +165,10 @@ dialog::backdrop {
   justify-content: space-between;
   gap: 24px;
   padding: 24px 28px 12px;
+}
+
+.asset-remove-dialog .asset-dialog-header {
+  padding-bottom: 20px;
 }
 
 .asset-dialog-header h2 {
@@ -274,6 +250,7 @@ dialog::backdrop {
 .asset-dialog-footer {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   padding: 12px 28px 16px;
   border-top: 1px solid var(--s2-gray-300);
 }
