@@ -12,6 +12,7 @@
 
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
+import { loadHrefSvg } from '../../utils/svg.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
 import AoChatController from './ao-controller.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
@@ -47,6 +48,7 @@ const artifactStyle = await loadStyle(new URL('./artifacts/artifacts.css', impor
 const { codeBase } = getConfig();
 
 const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
+const newChatIcon = await loadHrefSvg(`${codeBase}/img/icons/S2_Icon_Coworker_20_N.svg`);
 
 function isAllowedFile(file) {
   const name = file.name?.toLowerCase() ?? '';
@@ -395,7 +397,7 @@ export default class NxChatAo extends LitElement {
           ></nx-picker>` : nothing}
         <div>
           <button type="button" class="nx-action-btn-quiet" @click=${this._handleNewSession}>
-            ${icon('add')}
+            ${newChatIcon}
             <span>New chat</span>
           </button>
           <button
