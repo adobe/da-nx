@@ -56,7 +56,6 @@ class FormAsset extends LitElement {
     onSelectSource: { attribute: false },
     _pending: { state: true },
     _selectionError: { state: true },
-    _undoVisible: { state: true },
     _previewBroken: { state: true },
   };
 
@@ -65,14 +64,12 @@ class FormAsset extends LitElement {
 
   _dialogTrigger;
 
-  _undoValue;
-
-  _undoName;
-
-  _undoPreviewHref;
-
   get _dialog() {
-    return this.shadowRoot.querySelector('dialog');
+    return this.shadowRoot.querySelector('.asset-source-dialog');
+  }
+
+  get _removeDialog() {
+    return this.shadowRoot.querySelector('.asset-remove-dialog');
   }
 
   connectedCallback() {
@@ -82,9 +79,9 @@ class FormAsset extends LitElement {
 
   disconnectedCallback() {
     this._requestGeneration += 1;
-    if (this._dialog?.open) {
-      this._dialog.close();
-    }
+    [this._dialog, this._removeDialog].forEach((dialog) => {
+      if (dialog?.open) dialog.close();
+    });
     super.disconnectedCallback();
   }
 
@@ -125,7 +122,7 @@ class FormAsset extends LitElement {
 
   _onDialogClick(event) {
     if (event.target === event.currentTarget) {
-      this._closeDialog();
+      event.currentTarget.close();
     }
   }
 
@@ -182,7 +179,6 @@ class FormAsset extends LitElement {
       this.value = result.href;
       this.displayName = result.name;
       this.previewHref = result.previewHref;
-      this._undoVisible = false;
       this._emit(result.href);
       await this.updateComplete;
       this.shadowRoot.querySelector('.asset-replace')?.shadowRoot?.querySelector('button')?.focus();
@@ -197,40 +193,46 @@ class FormAsset extends LitElement {
     }
   }
 
-  _remove() {
+  _openRemoveDialog() {
     if (this.disabled || this._pending || !this.value) {
+      return;
+    }
+
+    this._removeDialog.showModal();
+    this.shadowRoot.querySelector('.asset-remove-cancel')?.shadowRoot?.querySelector('button')?.focus();
+  }
+
+  _closeRemoveDialog() {
+    if (this._removeDialog.open) {
+      this._removeDialog.close();
+    }
+  }
+
+  _restoreRemoveFocus() {
+    queueMicrotask(() => {
+      if (!this.isConnected) {
+        return;
+      }
+      const target = this.shadowRoot.querySelector(this.value ? '.asset-remove' : '.asset-select');
+      target?.shadowRoot?.querySelector('button')?.focus();
+    });
+  }
+
+  async _remove() {
+    if (this.disabled || this._pending || !this.value) {
+      this._closeRemoveDialog();
       return;
     }
 
     // Clearing a form reference never deletes the image in its media store.
     this._requestGeneration += 1;
-    this._undoValue = this.value;
-    this._undoName = this.displayName;
-    this._undoPreviewHref = this.previewHref;
-    this._undoVisible = true;
     this._selectionError = undefined;
     this.value = undefined;
     this.displayName = undefined;
     this.previewHref = undefined;
     this._emit(undefined);
-    this.updateComplete.then(() => {
-      this.shadowRoot.querySelector('.asset-select')?.shadowRoot?.querySelector('button')?.focus();
-    });
-  }
-
-  _undo() {
-    if (this.disabled || !this._undoVisible) {
-      return;
-    }
-
-    this.value = this._undoValue;
-    this.displayName = this._undoName;
-    this.previewHref = this._undoPreviewHref;
-    this._undoVisible = false;
-    this._emit(this.value);
-    this.updateComplete.then(() => {
-      this.shadowRoot.querySelector('.asset-replace')?.shadowRoot?.querySelector('button')?.focus();
-    });
+    await this.updateComplete;
+    this._closeRemoveDialog();
   }
 
   get _name() {
@@ -283,7 +285,7 @@ class FormAsset extends LitElement {
               ` : html`<span class="asset-preview-placeholder" aria-hidden="true">${IMAGE_ICON}</span>`}
               <div class="asset-actions">
                 <form-button class="asset-replace" variant="secondary" ?disabled=${this.disabled || this._pending} @click=${this._openDialog}>Replace</form-button>
-                <form-button class="asset-remove" variant="secondary" ?disabled=${this.disabled || this._pending} @click=${this._remove}>Remove</form-button>
+                <form-button class="asset-remove" variant="secondary" ?disabled=${this.disabled || this._pending} @click=${this._openRemoveDialog}>Remove</form-button>
               </div>
             </div>
             <div class="asset-info">
@@ -296,15 +298,9 @@ class FormAsset extends LitElement {
         ${this._selectionError ? html`<p role="alert" class="form-field-error">${this._selectionError}</p>` : nothing}
         ${this.error ? html`<p class="form-field-error">${this.error}</p>` : nothing}
         ${!this.error && this.description ? html`<p class="form-field-description">${this.description}</p>` : nothing}
-        ${this._undoVisible ? html`
-          <div class="asset-undo" role="status">
-            Image removed from this field.
-            <button type="button" @click=${this._undo}>Undo</button>
-          </div>
-        ` : nothing}
       </div>
       <dialog
-        class=${this.aemAssetsAvailable ? '' : 'asset-dialog-single'}
+        class="asset-source-dialog${this.aemAssetsAvailable ? '' : ' asset-dialog-single'}"
         aria-labelledby="asset-dialog-title"
         @close=${this._restoreFocus}
         @click=${this._onDialogClick}
@@ -335,6 +331,25 @@ class FormAsset extends LitElement {
         ` : nothing}
         <div class="asset-dialog-footer">
           <form-button variant="secondary" @click=${this._closeDialog}>Cancel</form-button>
+        </div>
+      </dialog>
+      <dialog
+        class="asset-remove-dialog"
+        role="alertdialog"
+        aria-labelledby="asset-remove-title"
+        aria-describedby="asset-remove-description"
+        @close=${this._restoreRemoveFocus}
+        @click=${this._onDialogClick}
+      >
+        <div class="asset-dialog-header">
+          <div>
+            <h2 id="asset-remove-title">Remove image?</h2>
+            <p id="asset-remove-description">The image is removed from this field only. The image file is not deleted.</p>
+          </div>
+        </div>
+        <div class="asset-dialog-footer">
+          <form-button class="asset-remove-cancel" variant="secondary" @click=${this._closeRemoveDialog}>Cancel</form-button>
+          <form-button class="asset-remove-confirm" variant="negative" @click=${this._remove}>Remove</form-button>
         </div>
       </dialog>
     `;
