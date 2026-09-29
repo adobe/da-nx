@@ -2,6 +2,15 @@
 
 ## 2026-09-28
 
+### What's New dialog: TOC indicator bounce (PR #744)
+
+Clicking a TOC item smooth-scrolls the cards, and the IntersectionObserver
+used to move the indicator through every card passed on the way. The clicked
+entry is now held until `scrollend` or user input (wheel, touch, pointer, key)
+on the cards. The active card is picked by visible pixels across all cards
+(kept in a Map), not only from the entries in the latest callback. Safari
+without `scrollend` releases the hold on the next user input instead.
+
 ### What's New dialog: native focus restore, responsive size (PR #744)
 
 Dropped the manual focus-restore and pointer/keydown tracking. Native
