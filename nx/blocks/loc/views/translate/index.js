@@ -2,7 +2,13 @@ import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
 
-import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
+import {
+  convertPath,
+  createSnapshotPrefix,
+  fetchConfig,
+  findSourceLocation,
+  getSourceLocations,
+} from '../../utils/utils.js';
 import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
 
 let CONNECTOR;
@@ -22,6 +28,7 @@ export async function getUrls(
   urls,
   fetchContent,
   snapshot,
+  sourceLocations = [sourceLocation],
 ) {
   const { connector } = service;
   const snapshotPrefix = createSnapshotPrefix(snapshot);
@@ -30,7 +37,8 @@ export async function getUrls(
   const formattedUrls = urls.map((url) => {
     const converConf = {
       path: url.suppliedPath,
-      sourcePrefix: sourceLocation,
+      sourcePrefix: findSourceLocation({ path: url.suppliedPath, locations: sourceLocations })
+        || sourceLocation,
       destPrefix: destLocation,
       snapshotPrefix,
     };
@@ -148,6 +156,7 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
 export async function copySourceLangs(org, site, title, options, langs, urls, langsWithUrls) {
   const behavior = options['copy.conflict.behavior'];
   const sourceLocation = options['source.language']?.location || '/';
+  const sourceLocations = getSourceLocations({ options, langs });
 
   const copyUrl = async (url) => {
     const destination = `/${org}/${site}${url.daDestPath}`;
@@ -167,7 +176,8 @@ export async function copySourceLangs(org, site, title, options, langs, urls, la
     const langUrls = langsWithUrls[idx].urls.map((url) => {
       const conf = {
         path: url.suppliedPath,
-        sourcePrefix: sourceLocation,
+        sourcePrefix: findSourceLocation({ path: url.suppliedPath, locations: sourceLocations })
+          || sourceLocation,
         destPrefix: lang.location,
       };
       const converted = convertPath(conf);
