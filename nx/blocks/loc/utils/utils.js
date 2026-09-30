@@ -1,7 +1,9 @@
 import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
 import { daFetch, loadIms } from '../../../../nx2/utils/api.js';
 
-const CONFIG_PATH = '/.da/translate.json';
+// Branch-only: reading translate-brief.json instead of translate.json for testing
+// the new 'Campaign' custom option before it's safe to add to production translate.json.
+const CONFIG_PATH = '/.da/translate-brief.json';
 
 export const VIEWS = [
   'dashboard',

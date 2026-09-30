@@ -49,9 +49,24 @@ async function getSha256InHex(input) {
     .join('');
 }
 
+// Our brief values are always locale-specific, so langConfig holds everything and
+// the shared config array stays empty.
+function buildAiContextConfig(campaignBrief) {
+  if (!campaignBrief) return undefined;
+  const langConfig = Object.fromEntries(
+    Object.entries(campaignBrief).map(([locale, attrs]) => [
+      locale,
+      Object.entries(attrs).map(([key, value]) => ({ key, value })),
+    ]),
+  );
+  return { config: [], langConfig };
+}
+
 /** Shared callbackConfig + config for v1.2 and v2 multimodal task create. */
 export async function buildGlaasCreateMetadata({ task, service }) {
-  const { name, workflow, businessUnit, reviewerResync } = task;
+  const {
+    name, workflow, businessUnit, reviewerResync, campaignBrief,
+  } = task;
   const callbackConfig = [];
   const projectKeyKV = [];
   if (service?.preview) {
@@ -72,12 +87,16 @@ export async function buildGlaasCreateMetadata({ task, service }) {
   if (reviewerResync) {
     config.push({ key: 'isAutoTranscreationFixTask', value: 'true' });
   }
-  return { callbackConfig, config };
+  const aiContextConfig = buildAiContextConfig(campaignBrief);
+  return { callbackConfig, config, aiContextConfig };
 }
 
 export async function createTask({ origin, clientid, token, task, service }) {
   const { name, workflowName, workflow, targetLocales } = task;
-  const { callbackConfig, config } = await buildGlaasCreateMetadata({ task, service });
+  const { callbackConfig, config, aiContextConfig } = await buildGlaasCreateMetadata({
+    task,
+    service,
+  });
 
   const body = {
     name,
@@ -86,6 +105,7 @@ export async function createTask({ origin, clientid, token, task, service }) {
     contentSource: 'Adhoc',
     callbackConfig,
     config,
+    ...(aiContextConfig && { aiContextConfig }),
   };
 
   const opts = getOpts(clientid, token, JSON.stringify(body), 'application/json', 'POST');
