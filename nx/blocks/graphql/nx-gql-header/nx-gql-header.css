@@ -1,0 +1,112 @@
+:host {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2-spacing-200) var(--s2-spacing-300);
+}
+
+/* Sits in the top band reserved by the app's padding, at the card's right edge. */
+.site-context {
+  position: absolute;
+  top: 20px;
+  inset-inline-end: 20px;
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-50);
+  max-width: calc(100% - 40px);
+  font-size: var(--s2-component-m-regular-font-size);
+  color: var(--s2-gray-700);
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.crumb-trail {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  color: var(--s2-gray-700);
+
+  /* The sl-button height, so the trail doesn't move when Save appears. */
+  min-height: 32px;
+
+  nav {
+    min-width: 0;
+  }
+
+  ol {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--s2-component-l-regular-font-size);
+    line-height: var(--s2-component-m-regular-line-height);
+  }
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+
+  &:not(:first-child)::before {
+    position: relative;
+    top: 2px;
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    margin-inline: var(--s2-spacing-75);
+    background-color: currentcolor;
+    mask: url('/img/icons/s2-icon-chevronleft-10-n.svg') center / contain no-repeat;
+    content: '';
+  }
+}
+
+/* Same 2px optical offset as the chevron, so ⊕ centres on the text's x-height. */
+.add-endpoint {
+  position: relative;
+  top: 2px;
+}
+
+/* An 18px icon in a 24px button, like da-live browse's new button. */
+.nx-action-btn-icon.add-endpoint {
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.crumb-label {
+  overflow: hidden;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &[aria-current] {
+    color: var(--s2-gray-800);
+    font-weight: var(--s2-component-m-bold-font-weight);
+  }
+}
+
+a.crumb-label {
+  &:hover {
+    color: var(--s2-gray-800);
+  }
+
+  &:focus-visible {
+    border-radius: var(--s2-corner-radius-100);
+    outline: 2px solid var(--s2-blue-800);
+    outline-offset: 2px;
+  }
+}

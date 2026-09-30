@@ -1,0 +1,25 @@
+:host {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s2-spacing-400);
+}
+
+.intro {
+  margin: 0;
+  color: var(--s2-gray-700);
+  font-size: var(--s2-body-size-m);
+}
+
+.create-dialog {
+  --nx-dialog-min-width: 480px;
+}
+
+.nx-form-field p {
+  margin: 0;
+  font-size: var(--s2-body-size-xs);
+}
+
+.field-hint {
+  color: var(--s2-gray-700);
+}
