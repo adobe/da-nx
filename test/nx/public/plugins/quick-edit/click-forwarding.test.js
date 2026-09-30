@@ -11,19 +11,23 @@ describe('quick-edit click payload', () => {
   it('uses the link href as target', () => {
     document.body.innerHTML = '<div class="hero block"><a href="/about"><span>go</span></a></div>';
     const span = document.querySelector('span');
-    expect(clickPayload(span)).to.deep.equal({ target: '/about' });
+    expect(clickPayload(span)).to.deep.equal({ target: new URL('/about', window.location).href });
   });
 
-  it('uses the enclosing block name as target when there is no link', () => {
+  it('uses the media src as target', () => {
+    document.body.innerHTML = '<img src="/media_1.png">';
+    expect(clickPayload(document.querySelector('img')).target)
+      .to.equal(new URL('/media_1.png', window.location).href);
+  });
+
+  it('honours data-rum-target', () => {
+    document.body.innerHTML = '<p data-rum-target="https://example.com/x">x</p>';
+    expect(clickPayload(document.querySelector('p'))).to.deep.equal({ target: 'https://example.com/x' });
+  });
+
+  it('has no target for plain content, like RUM', () => {
     document.body.innerHTML = '<div class="hero block"><p>hello</p></div>';
-    const p = document.querySelector('p');
-    expect(clickPayload(p)).to.deep.equal({ target: 'hero' });
-  });
-
-  it('falls back to the element tag name for bare content', () => {
-    document.body.innerHTML = '<main><p>plain</p></main>';
-    const p = document.querySelector('p');
-    expect(clickPayload(p)).to.deep.equal({ target: 'p' });
+    expect(clickPayload(document.querySelector('p'))).to.deep.equal({ target: undefined });
   });
 
   it('stays defensive when given no element', () => {
@@ -50,7 +54,7 @@ describe('quick-edit click forwarding', () => {
     expect(posted).to.have.length(1);
     expect(posted[0].type).to.equal(MESSAGE_TYPES.IFRAME_CLICK);
     expect(posted[0].type).to.equal('iframe-click');
-    expect(posted[0].payload).to.deep.equal({ target: 'hero' });
+    expect(posted[0].payload).to.deep.equal({ target: undefined });
 
     cleanup();
     document.querySelector('button').click();

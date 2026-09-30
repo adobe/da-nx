@@ -1,5 +1,5 @@
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
-import { blockName } from './selection.js';
+import { targetSelector } from './rum-target.js';
 
 // Clicks inside the WYSIWYG preview iframe never bubble to the host document, so the
 // host can't observe them (e.g. its RUM enhancer, unlike `ew-editor-doc`, whose
@@ -7,15 +7,10 @@ import { blockName } from './selection.js';
 // quick-edit port and let the host decide what to do with it — da-live records an
 // `ew-wysiwyg-doc` RUM click checkpoint. See docs/quick-edit-events.md.
 
-// Best-effort descriptor of what was clicked: link destination, else the enclosing
-// block name, else the element's tag.
+// `target` uses the RUM enhancer's own format (absolute link/media/action URL or
+// `data-rum-target`), so these clicks are comparable with standard RUM click data.
 export function clickPayload(el) {
-  if (!el?.closest) return { target: undefined };
-  const link = el.closest('a[href]');
-  if (link) return { target: link.getAttribute('href') };
-  const block = el.closest('.block');
-  if (block) return { target: blockName(block) || block.tagName.toLowerCase() };
-  return { target: el.tagName?.toLowerCase() };
+  return { target: targetSelector(el) };
 }
 
 // Capture-phase so in-iframe dialogs/toolbars that `stopPropagation()` are still seen;
