@@ -152,6 +152,43 @@ describe('api.js', () => {
     });
   });
 
+  describe('daFetch getAccessToken param', () => {
+    it('uses the provided getAccessToken instead of loadIms when set', async () => {
+      const getAccessToken = () => ({ token: 'override-token' });
+      await daFetch({ url: `${HLX_ADMIN}/ping/x/y`, getAccessToken });
+      expect(lastCall().headers.Authorization).to.equal('Bearer override-token');
+    });
+
+    it('calls the getter fresh on every request rather than snapshotting it', async () => {
+      let current = 'first-token';
+      const getAccessToken = () => ({ token: current });
+
+      await daFetch({ url: `${HLX_ADMIN}/ping/x/y`, getAccessToken });
+      expect(lastCall().headers.Authorization).to.equal('Bearer first-token');
+
+      current = 'second-token';
+      await daFetch({ url: `${HLX_ADMIN}/ping/x/y`, getAccessToken });
+      expect(lastCall().headers.Authorization).to.equal('Bearer second-token');
+    });
+
+    it('falls back to loadIms when the getter resolves to nothing', async () => {
+      const getAccessToken = () => undefined;
+      await daFetch({ url: `${HLX_ADMIN}/ping/x/y`, getAccessToken });
+      expect(lastCall().headers.Authorization).to.equal('Bearer test-token');
+    });
+
+    it('falls back to loadIms when no getAccessToken is provided', async () => {
+      await daFetch({ url: `${HLX_ADMIN}/ping/x/y` });
+      expect(lastCall().headers.Authorization).to.equal('Bearer test-token');
+    });
+
+    it('supports an async getter', async () => {
+      const getAccessToken = async () => ({ token: 'async-override-token' });
+      await daFetch({ url: `${HLX_ADMIN}/ping/x/y`, getAccessToken });
+      expect(lastCall().headers.Authorization).to.equal('Bearer async-override-token');
+    });
+  });
+
   describe('isHlx6', () => {
     it('returns false when site is missing', async () => {
       const result = await isHlx6('myorg', null);
@@ -426,6 +463,17 @@ describe('api.js', () => {
       expect(result.ok).to.equal(false);
       expect(result.items).to.deep.equal([]);
       expect(result.continuationToken).to.equal(null);
+    });
+
+    it('source.save forwards getAccessToken to the isHlx6 ping request, not just the save', async () => {
+      const { org: o, site: s } = makeOrgSite();
+      const getAccessToken = () => ({ token: 'source-save-token' });
+      await source.save({
+        org: o, site: s, path: '/page.html', body: '<main></main>', getAccessToken,
+      });
+      const pingCall = calls.find((c) => c.url.includes(`${HLX_ADMIN}/ping/`));
+      expect(pingCall).to.exist;
+      expect(pingCall.headers.Authorization).to.equal('Bearer source-save-token');
     });
 
     it('source.save DA wraps data in FormData', async () => {

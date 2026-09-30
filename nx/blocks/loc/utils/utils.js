@@ -15,7 +15,7 @@ export const VIEWS = [
 ];
 
 const PROJECT_CACHE = {};
-let CONFIG_CACHE;
+const CONFIG_CACHE = {};
 
 /**
  * Has Extension
@@ -202,12 +202,19 @@ export function getPathDetails() {
   };
 }
 
-export async function fetchConfig(org, site) {
-  if (CONFIG_CACHE) return CONFIG_CACHE;
+export async function fetchConfig(org, site, getAccessToken) {
+  if (!(org && site)) return { error: 'Options not available.' };
+
+  // Keyed by org/site rather than a single flat cache — callers outside
+  // loc's own app (e.g. mergeCopy invoked from another app's plugin) can
+  // call this for different sites within one page's lifetime, and a flat
+  // cache would silently serve the first site's config to every other one.
+  const cacheKey = `${org}/${site}`;
+  if (CONFIG_CACHE[cacheKey]) return CONFIG_CACHE[cacheKey];
 
   const fetchConf = async (path) => {
     try {
-      const resp = await daFetch({ url: path });
+      const resp = await daFetch({ url: path, getAccessToken });
       if (!resp.ok) return { error: 'Options not available.' };
       return resp.json();
     } catch {
@@ -229,7 +236,7 @@ export async function fetchConfig(org, site) {
     options = await fetchConf(fallbackUrl);
   }
 
-  CONFIG_CACHE = options;
+  CONFIG_CACHE[cacheKey] = options;
 
   return options;
 }
