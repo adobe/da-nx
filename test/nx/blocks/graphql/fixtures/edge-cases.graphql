@@ -1,0 +1,69 @@
+"""Arbitrary JSON value."""
+scalar JSON
+
+"""Absolute instant in UTC: YYYY-MM-DDTHH:MM:00Z."""
+scalar DateTime
+
+"""Original JSON key when it differs from the GraphQL field name."""
+directive @source(key: String!) on FIELD_DEFINITION
+
+"""
+Structured Content schema id (document metadata.schemaName) backing a query field.
+"""
+directive @schema(id: String!) on FIELD_DEFINITION
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+  total: Int
+}
+
+type Query {
+  """List Menu documents."""
+  menuList(first: Int = 20, after: String): MenuConnection! @schema(id: "menu")
+  """Get a single Menu document by its DA path."""
+  menuByPath(path: String!): MenuItem @schema(id: "menu")
+}
+
+"""Menu entry"""
+type MenuEntry {
+  """First name"""
+  first_name: String @source(key: "first-name")
+  """Node"""
+  tree: MenuNode
+  """Extra"""
+  extra: JSON
+  missing: JSON
+  """Matrix"""
+  matrix: [[Float]]
+  """No type"""
+  unknown: JSON
+}
+
+"""Node"""
+type MenuNode {
+  """Label"""
+  label: String
+  """Children"""
+  children: [MenuNode]
+}
+
+"""A Menu document."""
+type MenuItem {
+  """DA path of the document."""
+  path: String!
+  """Document title."""
+  title: String
+  """Last modification time of the document."""
+  lastModified: DateTime
+  """Structured content of the document."""
+  data: [MenuEntry]
+  """Set when the document could not be read or parsed."""
+  error: String
+}
+
+"""A page of Menu documents."""
+type MenuConnection {
+  items: [MenuItem!]!
+  pageInfo: PageInfo!
+}

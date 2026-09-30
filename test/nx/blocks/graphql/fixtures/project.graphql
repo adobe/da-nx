@@ -1,0 +1,131 @@
+"""Floating calendar date: YYYY-MM-DD."""
+scalar Date
+
+"""Floating 24-hour wall-clock time: HH:MM or HH:MM:SS."""
+scalar Time
+
+"""Absolute instant in UTC: YYYY-MM-DDTHH:MM:00Z."""
+scalar DateTime
+
+"""Original JSON key when it differs from the GraphQL field name."""
+directive @source(key: String!) on FIELD_DEFINITION
+
+"""
+Structured Content schema id (document metadata.schemaName) backing a query field.
+"""
+directive @schema(id: String!) on FIELD_DEFINITION
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+  total: Int
+}
+
+type Query {
+  """List Project documents."""
+  projectList(first: Int = 20, after: String): ProjectConnection! @schema(id: "project")
+  """Get a single Project document by its DA path."""
+  projectByPath(path: String!): ProjectItem @schema(id: "project")
+}
+
+"""Project"""
+type Project {
+  """Title"""
+  title: String
+  """Slug"""
+  slug: String
+  """
+  Summary
+  
+  A short abstract shown in listings.
+  """
+  summary: String
+  """
+  Status
+  
+  Allowed values: "Planning", "Active", "Completed", "On Hold"
+  """
+  status: String
+  """Priority"""
+  priority: Int
+  """Score"""
+  score: Float
+  """Publish date"""
+  publishDate: Date
+  """Published at"""
+  publishedAt: DateTime
+  """Daily standup"""
+  dailyStandup: Time
+  """Archived"""
+  archived: Boolean
+  """Owner ID"""
+  ownerId: String
+  """Tags"""
+  tags: [String]
+  """Contact"""
+  owner: ProjectContact
+  """Collaborators"""
+  collaborators: [ProjectContact]
+  """Milestones"""
+  milestones: [ProjectMilestone]
+  """Links"""
+  links: [ProjectLink]
+}
+
+"""Contact"""
+type ProjectContact {
+  """Name"""
+  name: String
+  """Email"""
+  email: String
+  """Address"""
+  address: ProjectAddress
+}
+
+"""Address"""
+type ProjectAddress {
+  """Street"""
+  street: String
+  """City"""
+  city: String
+  """Country"""
+  country: String
+}
+
+"""Milestone"""
+type ProjectMilestone {
+  """Name"""
+  name: String
+  """Completed"""
+  completed: Boolean
+  """Contact"""
+  owner: ProjectContact
+}
+
+"""Link"""
+type ProjectLink {
+  """Label"""
+  label: String
+  """URL"""
+  url: String
+}
+
+"""A Project document."""
+type ProjectItem {
+  """DA path of the document."""
+  path: String!
+  """Document title."""
+  title: String
+  """Last modification time of the document."""
+  lastModified: DateTime
+  """Structured content of the document."""
+  data: Project
+  """Set when the document could not be read or parsed."""
+  error: String
+}
+
+"""A page of Project documents."""
+type ProjectConnection {
+  items: [ProjectItem!]!
+  pageInfo: PageInfo!
+}
