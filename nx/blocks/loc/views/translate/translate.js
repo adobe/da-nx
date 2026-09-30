@@ -9,6 +9,7 @@ import {
   sendAllForTranslation,
   removeWaitingLanguagesFromConf,
 } from './index.js';
+import { getSourceLocations } from '../../utils/utils.js';
 
 const style = await loadStyle(import.meta.url);
 const spinnerStyle = await loadStyle(new URL('../../../../../nx2/styles/spinner.css', import.meta.url).href);
@@ -112,6 +113,7 @@ class NxLocTranslate extends LitElement {
 
     // calculate the default source location
     const defSrcLocation = this._options['source.language']?.location || '/';
+    const sourceLocations = getSourceLocations({ options: this._options, langs });
 
     // Get the default source once for all langs that use the default location
     // TODO: In some rare cases (regional sites), it could be unneccessary
@@ -125,6 +127,7 @@ class NxLocTranslate extends LitElement {
       this._urls,
       fetchContent,
       snapshot,
+      sourceLocations,
     );
 
     // Check langs for custom source locations
@@ -140,6 +143,7 @@ class NxLocTranslate extends LitElement {
           this._urls,
           fetchContent,
           snapshot,
+          sourceLocations,
         );
         langUrl.urls = customSources.urls;
       } else {
