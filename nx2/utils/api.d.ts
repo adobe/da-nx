@@ -13,6 +13,11 @@
  * `{ ok, data, status, error }`. `data` is the parsed body (populated on
  * non-ok responses when parseable). For a plain boolean ok-check, destructure
  * directly: `const { ok } = await foo()`.
+ *
+ * Embedding this module on an origin other than da.live's own (a standalone
+ * app, plugin dialog, or iframe)? See "Embedding on a different origin" under
+ * Authentication in api.md — the default IMS bootstrap is CORS-blocked
+ * off-origin, and a `${origin}/scripts/utils.js` override avoids it.
  */
 
 /** A `Response` augmented with parsed permission hints from x-da-(child-)actions. */
