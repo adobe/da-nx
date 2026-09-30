@@ -155,7 +155,7 @@ function findMemoryId(memories, srcLang, trgLang) {
  */
 function getTranslationIdsByLang(service) {
   try {
-    return JSON.parse(service?.translationIds || '{}');
+    return JSON.parse(service?.translationIds?.value || '{}');
   } catch {
     return {};
   }
@@ -389,7 +389,7 @@ async function sendVerifiedTranslation({
  * @returns {Promise<void>}
  */
 async function getVerifiedStatus({ service, langs, urls }) {
-  const { jobId } = service;
+  const jobId = service.jobId?.value;
   if (!jobId) return;
 
   const activeLangs = langs.filter(
@@ -462,7 +462,7 @@ async function waitForJobExportReady(service, jobId) {
 async function saveVerifiedItems({
   org, site, service, lang, urls, saveFn, sendMessage,
 }) {
-  const { jobId } = service;
+  const jobId = service.jobId?.value;
   if (!jobId) return urls;
 
   sendMessage({ text: `Waiting for Lilt to export ${lang.name} deliverables.` });

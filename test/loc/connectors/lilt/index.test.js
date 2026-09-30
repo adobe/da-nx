@@ -260,7 +260,7 @@ describe('lilt connector', () => {
   describe('getStatusAll - AI Translation', () => {
     it('marks a language translated once every file is done', async () => {
       const service = baseService({
-        translationIds: JSON.stringify({ 'fr-FR': { '/page': 101 } }),
+        translationIds: { value: JSON.stringify({ 'fr-FR': { '/page': 101 } }) },
       });
       const langs = [{ code: 'fr-FR', translation: { status: 'created' } }];
       const urls = [{ daBasePath: '/page' }];
@@ -282,7 +282,7 @@ describe('lilt connector', () => {
         return defaultHandler(u, opts);
       });
       const service = baseService({
-        translationIds: JSON.stringify({ 'fr-FR': { '/page': 101 } }),
+        translationIds: { value: JSON.stringify({ 'fr-FR': { '/page': 101 } }) },
       });
       const langs = [{ code: 'fr-FR', translation: { status: 'created' } }];
       const urls = [{ daBasePath: '/page' }];
@@ -311,7 +311,7 @@ describe('lilt connector', () => {
 
   describe('getStatusAll - Verified Translation', () => {
     it('marks a language translated once its job project is complete', async () => {
-      const service = baseService({ translationMode: 'verified', jobId: 501 });
+      const service = baseService({ translationMode: 'verified', jobId: { value: '501' } });
       const langs = [{ code: 'fr-FR', translation: { status: 'created' } }];
       const urls = [{ daBasePath: '/page' }];
       const actions = { sendMessage: () => {}, saveState: async () => {} };
@@ -328,7 +328,7 @@ describe('lilt connector', () => {
   describe('saveItems - AI Translation', () => {
     it('downloads translated content per url and saves it', async () => {
       const service = baseService({
-        translationIds: JSON.stringify({ 'fr-FR': { '/page': 101 } }),
+        translationIds: { value: JSON.stringify({ 'fr-FR': { '/page': 101 } }) },
       });
       const urls = [{ daBasePath: '/page', ext: 'html' }];
       const saveFn = async (url) => { url.status = 'success'; };
@@ -342,7 +342,7 @@ describe('lilt connector', () => {
     });
 
     it('marks a url as errored when there is no translation id for it', async () => {
-      const service = baseService({ translationIds: JSON.stringify({ 'fr-FR': {} }) });
+      const service = baseService({ translationIds: { value: JSON.stringify({ 'fr-FR': {} }) } });
       const urls = [{ daBasePath: '/page', ext: 'html' }];
       const saveFn = async (url) => { url.status = 'success'; };
 
@@ -356,7 +356,7 @@ describe('lilt connector', () => {
 
   describe('saveItems - Verified Translation', () => {
     it('exports, waits for readiness, downloads the zip and saves each matched url', async () => {
-      const service = baseService({ translationMode: 'verified', jobId: 501 });
+      const service = baseService({ translationMode: 'verified', jobId: { value: '501' } });
       const urls = [{ daBasePath: '/page', ext: 'html' }];
       const saveFn = async (url) => { url.status = 'success'; };
 
@@ -377,7 +377,7 @@ describe('lilt connector', () => {
         }
         return defaultHandler(u, opts);
       });
-      const service = baseService({ translationMode: 'verified', jobId: 501 });
+      const service = baseService({ translationMode: 'verified', jobId: { value: '501' } });
       const urls = [{ daBasePath: '/page', ext: 'html' }];
       const saveFn = async (url) => { url.status = 'success'; };
 
