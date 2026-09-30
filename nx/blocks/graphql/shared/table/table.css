@@ -1,0 +1,145 @@
+.list-table {
+  --list-pad-inline: var(--s2-spacing-400);
+
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--s2-component-l-regular-font-size);
+
+  th,
+  td {
+    padding: var(--s2-spacing-300) var(--s2-spacing-200);
+    box-sizing: border-box;
+    text-align: start;
+    vertical-align: middle;
+
+    &:first-child {
+      padding-inline-start: var(--list-pad-inline);
+    }
+
+    &:last-child {
+      padding-inline-end: var(--list-pad-inline);
+    }
+  }
+
+  thead th {
+    padding-block: var(--s2-spacing-100) var(--s2-spacing-300);
+    color: var(--s2-gray-600);
+    font-size: var(--s2-component-m-regular-font-size);
+    font-weight: var(--s2-component-s-medium-font-weight);
+    line-height: var(--s2-component-m-regular-line-height);
+  }
+}
+
+.list-table .no-match td {
+  padding: var(--s2-spacing-500) var(--list-pad-inline);
+  border-top: 1px solid var(--s2-gray-300);
+  color: var(--s2-gray-700);
+  text-align: center;
+}
+
+/* Dividers sit on the cells because Chrome lays out tr pseudo-elements as extra cells. */
+.list-table tbody tr:not(.no-match) {
+  color: var(--s2-gray-900);
+
+  td {
+    position: relative;
+    height: 65px;
+    border-top: 1px solid var(--s2-gray-300);
+  }
+
+  td:first-child::before,
+  td:last-child::after {
+    position: absolute;
+    top: -1px;
+    width: 18px;
+    height: 1px;
+    background: var(--s2-gray-200);
+    content: '';
+  }
+
+  td:first-child::before {
+    inset-inline-start: 0;
+  }
+
+  td:last-child::after {
+    inset-inline-end: 0;
+  }
+
+  &.clickable {
+    cursor: pointer;
+  }
+
+  &.clickable:hover,
+  &.clickable:has(:focus-visible) {
+    td {
+      background: var(--s2-blue-100);
+    }
+
+    td::before,
+    td::after {
+      display: none;
+    }
+  }
+}
+
+.list-table .sort {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2-spacing-100);
+  max-width: 100%;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  border: none;
+  border-radius: var(--s2-corner-radius-75);
+  cursor: pointer;
+
+  &:hover::after {
+    position: absolute;
+    inset-inline: 0;
+    bottom: -3px;
+    height: 2px;
+    border-radius: 1.5px;
+    background: var(--s2-gray-200);
+    content: '';
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-900);
+    outline-offset: 2px;
+  }
+
+  &.ascending,
+  &.descending {
+    color: var(--s2-gray-700);
+  }
+
+  .sort-icon {
+    flex-shrink: 0;
+    opacity: 0;
+    transition: transform 0.2s ease-in-out;
+  }
+
+  &.ascending .sort-icon,
+  &.descending .sort-icon {
+    opacity: 1;
+  }
+
+  &.descending .sort-icon {
+    transform: rotate(180deg);
+  }
+}
+
+.list-table .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

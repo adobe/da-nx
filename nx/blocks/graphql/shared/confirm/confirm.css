@@ -1,0 +1,25 @@
+.dialog-text {
+  max-width: 560px;
+
+  p {
+    margin: 0;
+  }
+
+  ul {
+    margin: var(--s2-spacing-200) 0 0;
+    padding-inline-start: 20px;
+    overflow-wrap: anywhere;
+  }
+}
+
+.nx-form-btn-primary.negative {
+  background: var(--s2-red-900);
+
+  &:focus-visible {
+    outline-color: var(--s2-red-900);
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--s2-red-1000);
+  }
+}

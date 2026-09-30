@@ -1,0 +1,20 @@
+.message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  width: min(700px, 100%);
+  margin: var(--s2-spacing-600) auto 0;
+  padding: var(--s2-spacing-300);
+  background: var(--s2-gray-25);
+  border-radius: var(--s2-corner-radius-500);
+  text-align: center;
+
+  h2 {
+    margin: 0 0 var(--s2-spacing-100);
+  }
+
+  p {
+    margin: 0 0 var(--s2-spacing-200);
+  }
+}

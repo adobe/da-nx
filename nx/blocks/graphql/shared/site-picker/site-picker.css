@@ -1,0 +1,10 @@
+:host {
+  --nx-dialog-min-width: 480px;
+
+  display: block;
+}
+
+.site-form {
+  display: grid;
+  gap: var(--s2-spacing-300);
+}
