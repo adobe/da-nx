@@ -1,0 +1,25 @@
+:host {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-400);
+  box-sizing: border-box;
+  width: 100%;
+
+  /* Top: the browse header bar (64px) plus 20px; sides: keep content at the grid width. */
+  padding: 84px max(0px, (100% - var(--se-grid-container-width)) / 2) 20px;
+
+  @media (width >= 900px) {
+    height: calc(100vh - var(--s2-nav-height) - 2px);
+    min-height: 640px;
+  }
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2-spacing-200);
+  padding-block: var(--s2-spacing-800);
+  color: var(--s2-gray-700);
+}
