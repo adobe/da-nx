@@ -1,13 +1,17 @@
 import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
+import { getLivePreviewUrl } from '../../../../utils/utils.js';
 import { shouldLogGLaaSRequests } from './api.js';
-import { parseSelections } from './imageSelections.js';
+import { parseSelections, ensureLivePreviewLogin } from './imageSelections.js';
 
 const BLOCK_SCHEMA_PATH = '/.da/block-schema.json';
 const SEO_GLOSSARY_PATH = '/.da/seo/glossary.json';
+const CAMPAIGN_BRIEF_PATH = '/campaign_web_briefs/brief.json';
+const CAMPAIGN_BRIEF_NON_LOCALE_COLUMNS = ['Attribute', 'Description'];
 
 let blockSchemaCache;
 let seoGlossaryLookupCache;
+let campaignBriefCache;
 
 export function processSchemaKey(schemaKey) {
   const match = schemaKey.match(/^([\w-]+)\s*\((.*)\)$/);
@@ -530,6 +534,103 @@ export async function loadSeoGlossary(org, site, { reset = false } = {}) {
   if (seoGlossaryLookupCache !== undefined) return;
   const raw = await fetchJson(org, site, SEO_GLOSSARY_PATH);
   seoGlossaryLookupCache = raw ? buildSeoGlossaryLookup(raw) : null;
+}
+
+/**
+ * Loads the site's brief.json (campaign brief) through the same auth-gated
+ * preview.da.live route already used for multimodal images (see imageSelections.js /
+ * plugin/index.js): brief.json isn't DA-native content (it can come from a mixed
+ * content source, e.g. SharePoint, per the site's AEM Config Service content locations),
+ * so DA's own /source API can't see it - only AEM's preview edge can resolve it.
+ * Cached per site like loadSeoGlossary/fetchBlockSchema.
+ * @param {string} org - Organization name
+ * @param {string} site - Site name
+ * @param {object} [options]
+ * @param {boolean} [options.reset] - Bypass and refresh the cache
+ * @param {string} [options.ref] - Branch/ref to read from (defaults to 'main')
+ * @returns {Promise<object|null>} The raw multi-sheet JSON, or null if unavailable
+ */
+export async function loadCampaignBrief(org, site, { reset = false, ref = 'main' } = {}) {
+  if (reset) {
+    campaignBriefCache = undefined;
+  }
+  if (campaignBriefCache !== undefined) return campaignBriefCache;
+
+  const loggedIn = await ensureLivePreviewLogin({ org, repo: site, ref });
+  if (!loggedIn) {
+    campaignBriefCache = null;
+    return campaignBriefCache;
+  }
+
+  const url = `${getLivePreviewUrl(org, site, ref)}${CAMPAIGN_BRIEF_PATH}`;
+  try {
+    const resp = await fetch(url, { credentials: 'include' });
+    campaignBriefCache = resp.ok ? await resp.json() : null;
+  } catch {
+    campaignBriefCache = null;
+  }
+  return campaignBriefCache;
+}
+
+/**
+ * Finds the brief sheet whose name matches the given campaign value exactly
+ * (case-insensitive). No campaign selected means no brief should be attached.
+ * @param {object} raw - Raw multi-sheet brief.json
+ * @param {string} campaign - The task's campaign option value (e.g. "iswa")
+ * @returns {object|null} The matched sheet, or null if empty/no match
+ */
+export function findCampaignBriefSheet(raw, campaign) {
+  const trimmed = campaign?.trim();
+  if (!raw || !trimmed) return null;
+  const key = Object.keys(raw).find(
+    (name) => !name.startsWith(':') && name.toLowerCase() === trimmed.toLowerCase(),
+  );
+  return key ? raw[key] : null;
+}
+
+/**
+ * Flattens a brief sheet's rows into { [localeCode]: { [schemaKey]: value } },
+ * one entry per requested locale that has at least one non-empty attribute value.
+ * @param {object} sheet - A single brief.json sheet ({ data: [...], columns: [...] })
+ * @param {Array} targetLocales - Locale codes (e.g. ['fr', 'de']) to include
+ * @returns {object|null} Locale-keyed brief data, or null if nothing matched
+ */
+export function buildCampaignBriefForLocales(sheet, targetLocales) {
+  if (!sheet?.data || !Array.isArray(sheet.data) || !targetLocales?.length) return null;
+  const availableLocales = (sheet.columns ?? []).filter(
+    (col) => !CAMPAIGN_BRIEF_NON_LOCALE_COLUMNS.includes(col),
+  );
+  const brief = {};
+  targetLocales.forEach((locale) => {
+    if (!availableLocales.includes(locale)) return;
+    const attrs = {};
+    sheet.data.forEach((row) => {
+      const value = row[locale];
+      if (row.Attribute && value) attrs[row.Attribute] = value;
+    });
+    if (Object.keys(attrs).length > 0) brief[locale] = attrs;
+  });
+  return Object.keys(brief).length > 0 ? brief : null;
+}
+
+/**
+ * Builds the campaignBrief object for a task's target locales, keyed off the task's
+ * campaign option (empty/unset means do nothing - no fetch, no brief attached).
+ * Loads/caches the site's brief.json on demand and checks whether the campaign
+ * value matches one of its sheet names. Meant to be sent once as task-level
+ * metadata (not per-asset), since it's the same guidance for every URL in the task.
+ * @param {string} org - Organization name
+ * @param {string} site - Site name
+ * @param {string} campaign - The task's campaign option value
+ * @param {Array} targetLocales - Locale codes the task is translating into
+ * @returns {Promise<object|null>} Locale-keyed brief data, or null if unavailable
+ */
+export async function buildBriefForCampaign(org, site, campaign, targetLocales) {
+  if (!campaign?.trim()) return null;
+  const raw = await loadCampaignBrief(org, site);
+  const sheet = findCampaignBriefSheet(raw, campaign);
+  if (!sheet) return null;
+  return buildCampaignBriefForLocales(sheet, targetLocales);
 }
 
 export function addSeoGlossary(urls, langs) {

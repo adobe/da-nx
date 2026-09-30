@@ -16,7 +16,17 @@ import { getGlaasToken, connectToGlaas } from './auth.js';
 import { addDnt, removeDnt } from './dnt.js';
 import { groupUrlsByWorkflow } from './locPageRules.js';
 import { fetchConfig } from '../../utils/utils.js';
-import { addTranslationMetadata } from './translationMetadata.js';
+import { addTranslationMetadata, buildBriefForCampaign } from './translationMetadata.js';
+
+async function buildTaskWithCampaignBrief(suppliedTask, targetLocales, { org, site } = {}) {
+  const campaignBrief = await buildBriefForCampaign(
+    org,
+    site,
+    suppliedTask.campaign,
+    targetLocales,
+  );
+  return { ...suppliedTask, targetLocales, campaignBrief };
+}
 
 function determineStatus(translation) {
   if (translation.error > 0) return 'failed';
@@ -208,10 +218,7 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, s
   const taskUrls = suppliedTask.urlPaths
     ? urls.filter((url) => suppliedTask.urlPaths.includes(url.suppliedPath))
     : urls;
-  const task = {
-    ...suppliedTask,
-    targetLocales,
-  };
+  const task = await buildTaskWithCampaignBrief(suppliedTask, targetLocales, { org, site });
 
   if (task.status === 'not started' || task.status === 'draft' || task.status === 'uploading') {
     sendMessage({ text: `Sending multimodal task: ${localesString}.` });
@@ -301,17 +308,14 @@ async function sendTask(service, suppliedTask, urls, actions, { org, site } = {}
   const { sendMessage, saveState } = actions;
 
   const targetLocales = suppliedTask.langs.map((lang) => lang.code);
-  let task = {
-    ...suppliedTask,
-    targetLocales,
-  };
-
   const localesString = targetLocales.join(', ');
 
   // Filter content from original urls array using task.urlPaths
-  const taskUrls = task.urlPaths
-    ? urls.filter((url) => task.urlPaths.includes(url.suppliedPath))
+  const taskUrls = suppliedTask.urlPaths
+    ? urls.filter((url) => suppliedTask.urlPaths.includes(url.suppliedPath))
     : urls;
+
+  let task = await buildTaskWithCampaignBrief(suppliedTask, targetLocales, { org, site });
 
   // Only create a task if it has not been started
   if (task.status === 'not started') {
@@ -383,6 +387,7 @@ async function recreateTaskAndFetchSubtasks({
     workflowName: task.workflowName,
     businessUnit: workflowMeta?.businessUnit,
     reviewerResync: workflowMeta?.reviewerResync,
+    campaign: workflowMeta?.campaign,
     langs: task.langs,
     urlPaths: task.urlPaths,
   };
@@ -407,10 +412,17 @@ const getBusinessUnit = (siteName) => {
 };
 
 const REVIEWER_RESYNC_OPTION_KEY = 'translation.service.custom.option.Reviewer Resync';
+const CAMPAIGN_OPTION_KEY = 'translation.service.custom.option.Campaign';
 
 function isReviewerResync(options) {
   const value = options?.[REVIEWER_RESYNC_OPTION_KEY];
   return value === true || value === 'true';
+}
+
+// Empty/unset means no campaign brief should be looked up or attached.
+function getCampaignOption(options) {
+  const value = options?.[CAMPAIGN_OPTION_KEY];
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 function initializeLanguageWorkflowTasks(tasks) {
@@ -428,6 +440,7 @@ function initializeLanguageWorkflowTasks(tasks) {
         workflowName: task.workflowName,
         businessUnit: task.businessUnit,
         reviewerResync: task.reviewerResync,
+        campaign: task.campaign,
         name: task.name,
         urls: task.urlPaths || [],
         status: {
@@ -451,8 +464,10 @@ async function getTasks(org, site, title, langs, urls, timestamp, options) {
   const tasks = workflowGroups2tasks(title, workflowGroups, langs, timestamp);
   // Mark tasks as a reviewer resync (resend) before persisting workflow task state
   const reviewerResync = isReviewerResync(options);
+  const campaign = getCampaignOption(options);
   Object.values(tasks).forEach((task) => {
     task.reviewerResync = reviewerResync;
+    task.campaign = campaign;
   });
   // Pre-populate workflow task structure for each language
   initializeLanguageWorkflowTasks(tasks);

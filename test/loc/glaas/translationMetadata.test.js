@@ -11,6 +11,10 @@ import {
   fetchBlockSchema,
   loadSeoGlossary,
   addSeoGlossary,
+  loadCampaignBrief,
+  findCampaignBriefSheet,
+  buildCampaignBriefForLocales,
+  buildBriefForCampaign,
   addTranslationMetadata,
   isUpdatedColumn,
   parseUpdatedFlag,
@@ -1732,6 +1736,104 @@ describe('translationMetadata', () => {
       await primeGlossaryFromFetch();
       addSeoGlossary(urls, [{ code: 'de' }]);
       expect(urls[0].languageContext).to.equal(undefined);
+    });
+  });
+
+  describe('loadCampaignBrief', () => {
+    const org = 'test-org';
+    const site = 'test-site';
+
+    // brief.json can live outside DA-native storage (see AEM Config Service content
+    // locations), so this goes through the same gated preview.da.live route as multimodal
+    // images (ensureLivePreviewLogin), not the DA source API. That login exchanges the
+    // user's real IMS token via /gimme_cookie - there's no IMS session in this test
+    // environment (same limitation as the untested ensureLivePreviewLogin call sites in
+    // multimodalApi.js/plugin/index.js), so it always resolves to the logged-out branch here.
+    // Live verification of the authenticated-success path needs a real browser session
+    // (see manual testing steps).
+    it('resolves to null (not throws) when there is no live-preview session', async () => {
+      const brief = await loadCampaignBrief(org, site, { reset: true });
+      expect(brief).to.equal(null);
+    });
+
+    it('caches the null result and does not error on repeated calls without reset', async () => {
+      const first = await loadCampaignBrief(org, site, { reset: true });
+      const second = await loadCampaignBrief(org, site);
+      expect(first).to.equal(null);
+      expect(second).to.equal(null);
+    });
+  });
+
+  describe('campaignBrief sheet selection and flattening', () => {
+    // Mirrors the multi-sheet shape brief.json actually returns (see misc/brief.json):
+    // one sheet per campaign, each with Attribute/Description + one column per locale.
+    const makeSheet = (frText) => ({
+      total: 1,
+      data: [
+        {
+          Attribute: 'targetAudience',
+          Description: 'Who this campaign is speaking to.',
+          fr: frText,
+          de: '',
+          'es-001': '',
+        },
+        {
+          Attribute: 'toneAndRegister',
+          Description: 'Tone guidance.',
+          fr: '',
+          de: '',
+          'es-001': '',
+        },
+      ],
+      columns: ['Attribute', 'Description', 'fr', 'de', 'es-001'],
+    });
+    const raw = {
+      iswa: makeSheet('ISWA French guidance'),
+      campaign1: makeSheet('Campaign1 French guidance'),
+      ':version': 3,
+      ':names': ['iswa', 'campaign1'],
+      ':type': 'multi-sheet',
+    };
+
+    it('finds the sheet whose name matches the campaign value (case-insensitive)', () => {
+      const sheet = findCampaignBriefSheet(raw, 'Campaign1');
+      expect(sheet.data[0].fr).to.equal('Campaign1 French guidance');
+    });
+
+    it('returns null when the campaign value matches no sheet', () => {
+      expect(findCampaignBriefSheet(raw, 'unknown-campaign')).to.equal(null);
+    });
+
+    it('returns null when campaign is empty/whitespace - no lookup should happen', () => {
+      expect(findCampaignBriefSheet(raw, '')).to.equal(null);
+      expect(findCampaignBriefSheet(raw, '   ')).to.equal(null);
+      expect(findCampaignBriefSheet(raw, undefined)).to.equal(null);
+    });
+
+    it('flattens a sheet into locale-keyed attribute objects, skipping empty values', () => {
+      const brief = buildCampaignBriefForLocales(raw.iswa, ['fr', 'de']);
+      expect(brief).to.deep.equal({
+        fr: { targetAudience: 'ISWA French guidance' },
+      });
+    });
+
+    it('returns null when no requested locale has any non-empty attribute', () => {
+      expect(buildCampaignBriefForLocales(raw.iswa, ['de'])).to.equal(null);
+    });
+
+    it('ignores locales not present as columns in the sheet', () => {
+      expect(buildCampaignBriefForLocales(raw.iswa, ['ja'])).to.equal(null);
+    });
+
+    it('buildBriefForCampaign does nothing (no fetch) when campaign is empty', async () => {
+      const result = await buildBriefForCampaign('any-org', 'any-site', '', ['fr']);
+      expect(result).to.equal(null);
+    });
+
+    it('buildBriefForCampaign returns null when brief.json is unavailable', async () => {
+      await loadCampaignBrief('no-brief-org', 'no-brief-site', { reset: true });
+      const result = await buildBriefForCampaign('no-brief-org', 'no-brief-site', 'iswa', ['fr']);
+      expect(result).to.equal(null);
     });
   });
 
