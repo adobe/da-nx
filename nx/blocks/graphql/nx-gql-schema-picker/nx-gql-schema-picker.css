@@ -1,0 +1,125 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.picker-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2-spacing-200) var(--s2-spacing-400);
+  padding-bottom: var(--s2-spacing-300);
+}
+
+.count {
+  margin-inline-start: auto;
+  color: var(--s2-gray-700);
+  font-size: var(--s2-body-size-s);
+}
+
+.search {
+  display: block;
+  flex: 1 1 240px;
+  max-width: 480px;
+  padding: 0 var(--s2-spacing-200);
+  background: var(--s2-gray-50);
+  color: var(--s2-gray-900);
+  line-height: 28px;
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-m-regular-font-size);
+  border: 2px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-500);
+  outline-color: var(--s2-blue-900);
+  outline-offset: 0;
+  transition: outline-offset 0.2s;
+  box-sizing: border-box;
+
+  &:focus-visible {
+    outline-offset: 4px;
+  }
+}
+
+td.schema-title,
+td.schema-id {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+td.schema-title {
+  font-weight: var(--s2-component-s-bold-font-weight);
+}
+
+td.schema-id {
+  color: var(--s2-gray-700);
+}
+
+.state-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-100);
+}
+
+.table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  container-type: inline-size;
+}
+
+.schema-list {
+  .select {
+    width: calc(var(--list-pad-inline) + 22px);
+    padding-inline-end: var(--s2-spacing-100);
+  }
+
+  .state {
+    width: 200px;
+  }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--s2-gray-25);
+  }
+
+  .schema-title {
+    width: 45%;
+  }
+
+  .schema-option.disabled {
+    cursor: not-allowed;
+
+    .schema-title {
+      color: var(--s2-gray-600);
+    }
+  }
+}
+
+.empty {
+  margin: 0;
+  padding-block: var(--s2-spacing-400);
+  color: var(--s2-gray-700);
+
+  a {
+    color: var(--s2-blue-900);
+  }
+}
+
+@container (width < 560px) {
+  .schema-list {
+    .schema-id {
+      display: none;
+    }
+
+    .schema-title {
+      width: auto;
+    }
+
+    .state {
+      width: 130px;
+    }
+  }
+}

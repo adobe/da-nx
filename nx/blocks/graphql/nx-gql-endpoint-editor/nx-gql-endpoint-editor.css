@@ -1,0 +1,120 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-400);
+  min-height: 0;
+}
+
+p,
+ul {
+  margin: 0;
+}
+
+.tab-bar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--s2-spacing-200) var(--s2-spacing-400);
+}
+
+.tabs {
+  display: flex;
+  gap: 18px;
+
+  button {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--s2-spacing-100);
+    margin: 0;
+    padding: 0 0 6px;
+    border: none;
+    background: none;
+    color: var(--s2-gray-700);
+    font-family: inherit;
+    font-size: var(--s2-component-xl-bold-font-size);
+    font-weight: var(--s2-component-xl-bold-font-weight);
+    text-transform: uppercase;
+    cursor: pointer;
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset-inline: 0;
+      bottom: 0;
+      height: 3px;
+      border-radius: var(--s2-corner-radius-75);
+      background: var(--s2-gray-900);
+      opacity: 0;
+      transition: opacity 0.2s ease-in-out;
+    }
+
+    &:hover {
+      color: var(--s2-gray-900);
+    }
+
+    &[aria-selected="true"] {
+      color: var(--s2-gray-900);
+
+      &::after {
+        opacity: 1;
+      }
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--s2-blue-900);
+      outline-offset: 2px;
+    }
+  }
+}
+
+.panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  > * {
+    flex: 1;
+    min-height: 0;
+  }
+
+  > .no-schemas {
+    flex: 0 0 auto;
+    margin-block-end: var(--s2-spacing-400);
+  }
+
+  > .panel-header {
+    flex: 0 0 auto;
+    margin-block-end: var(--s2-spacing-400);
+    color: var(--s2-gray-700);
+    font-size: var(--s2-body-size-s);
+  }
+}
+
+.graphql-empty {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s2-spacing-200);
+  padding: var(--s2-spacing-800) var(--s2-spacing-400);
+  color: var(--s2-gray-700);
+  text-align: center;
+
+  .graphql-empty-title {
+    color: var(--s2-gray-900);
+    font-size: var(--s2-body-size-l);
+    font-weight: var(--s2-component-m-bold-font-weight);
+  }
+
+  sl-button {
+    margin-top: var(--s2-spacing-200);
+  }
+}
+
+@media (width < 900px) {
+  nx-gql-sdl-preview {
+    min-height: 480px;
+  }
+}
