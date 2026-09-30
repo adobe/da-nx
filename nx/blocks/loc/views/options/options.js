@@ -111,11 +111,17 @@ class NxLocOptions extends LitElement {
   async loadConnectorServiceOptions() {
     const serviceName = this._siteConfig.service.name?.toLowerCase().replaceAll(' ', '-');
     const env = this._siteOptions['translation.service.all.env'];
-    const envConfig = this._siteConfig.service.envs[env];
-    if (!serviceName || !envConfig) {
+    if (!serviceName) {
       this._serviceOptions = undefined;
       return;
     }
+    // A service may have no per-env config of its own (e.g. Lilt, which has a single
+    // fixed upstream and resolves its key server-side) - default to an empty object
+    // rather than bailing, so its static `serviceOptions` can still render. Set on
+    // `envs` directly (not a local default) so option values seeded below persist back
+    // into `_siteConfig` for saving.
+    this._siteConfig.service.envs[env] ??= {};
+    const envConfig = this._siteConfig.service.envs[env];
 
     const connector = await import(`../../connectors/${serviceName}/index.js`);
     const { serviceOptions } = connector;
