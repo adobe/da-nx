@@ -107,11 +107,16 @@ async function saveLang({
   langIndex,
   urls,
   sendMessage,
+  options,
+  langs,
 }) {
   const snapshotPrefix = createSnapshotPrefix(snapshot);
+  const sourceLocations = getSourceLocations({ options, langs });
 
   const urlsToSave = urls.map((url) => {
-    const { daDestPath } = convertPath({ path: url.basePath, sourcePrefix: '/', destPrefix: lang.location, snapshotPrefix });
+    const sourcePrefix = findSourceLocation({ path: url.suppliedPath, locations: sourceLocations });
+    const path = sourcePrefix ? url.suppliedPath : url.basePath;
+    const { daDestPath } = convertPath({ path, sourcePrefix: sourcePrefix || '/', destPrefix: lang.location, snapshotPrefix });
     return { ...url, destination: `/${org}/${site}${daDestPath}` };
   });
 
@@ -141,7 +146,7 @@ async function saveLang({
 export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   const behavior = options['translate.conflict.behavior'];
 
-  const saveLangConf = { ...conf, connector, behavior, sendMessage };
+  const saveLangConf = { ...conf, options, connector, behavior, sendMessage };
 
   for (const [langIndex, lang] of conf.langs.entries()) {
     if (lang.translation.status !== 'complete') {
