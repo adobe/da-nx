@@ -442,11 +442,13 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
       : 'FAILED';
 
     if (processState !== 'COMPLETED') {
-      sendMessage({ text: `Canceling ${lang.name} did not finish in time - check Smartling directly.`, type: 'error' });
+      lang.translation.cancelPending = true;
+      sendMessage({ text: `Canceling ${lang.name} did not finish in time. Status will update on the next check.`, type: 'warning' });
       return { ok: false };
     }
   }
 
+  delete lang.translation.cancelPending;
   lang.translation.status = 'cancelled';
   return { ok: true };
 }
@@ -538,6 +540,14 @@ export async function getStatusAll({
 
   for (const lang of activeLangs) {
     const entry = progressByLocale.find((p) => p.targetLocaleId === lang.code);
+
+    if (lang.translation.cancelPending && !entry) {
+      delete lang.translation.cancelPending;
+      lang.translation.translated = 0;
+      lang.translation.status = 'cancelled';
+      continue; // eslint-disable-line no-continue
+    }
+
     const percentComplete = entry?.percentComplete ?? 0;
 
     if (percentComplete === 100) {

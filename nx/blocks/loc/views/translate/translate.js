@@ -230,7 +230,7 @@ class NxLocTranslate extends LitElement {
     let shouldRefresh = false;
     for (const lang of this._translateLangs) {
       const result = await cancelTranslation({ service: this._service, lang, sendMessage });
-      if (result?.ok !== false) shouldRefresh = true;
+      if (result?.ok !== false || lang.translation?.cancelPending) shouldRefresh = true;
     }
 
     if (shouldRefresh) {
@@ -246,7 +246,7 @@ class NxLocTranslate extends LitElement {
 
     const result = await cancelTranslation({ service: this._service, lang, sendMessage });
 
-    if (result?.ok !== false) {
+    if (result?.ok !== false || lang.translation?.cancelPending) {
       await this.handleGetStatus();
     }
   }
