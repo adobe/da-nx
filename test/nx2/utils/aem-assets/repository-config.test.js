@@ -449,6 +449,21 @@ describe('getResponsiveImageConfig', () => {
     expect(result).to.be.null;
   });
 
+  it('returns false without fetching when owner is absent', async () => {
+    const orgFetch = window.fetch;
+    let called = false;
+    window.fetch = async () => {
+      called = true;
+      return new Response('{}');
+    };
+    try {
+      expect(await getResponsiveImageConfig(undefined, 'site')).to.be.false;
+      expect(called).to.be.false;
+    } finally {
+      window.fetch = orgFetch;
+    }
+  });
+
   it('returns false when config has no responsive-images sheet', async () => {
     const orgFetch = window.fetch;
     window.fetch = pingSafe(async () => ({ ok: true, json: async () => ({ data: [] }) }));
