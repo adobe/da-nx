@@ -59,6 +59,8 @@ async function openDialog(count) {
     el,
     panel: nxDialog.shadowRoot.querySelector('.panel').getBoundingClientRect(),
     cards: el.shadowRoot.querySelector('.wn-cards'),
+    cardsPanel: el.shadowRoot.querySelector('.wn-cards-panel').getBoundingClientRect(),
+    close: el.shadowRoot.querySelector('.wn-close').getBoundingClientRect(),
     body: el.shadowRoot.querySelector('.wn-body'),
     count,
   };
@@ -76,11 +78,14 @@ describe('nx-whatsnew-dialog layout', () => {
   it('fills the large width and caps height on desktop, scrolling only the cards', async () => {
     await setViewport({ width: 1280, height: 900 });
     restoreFetch = mockFetch(html(5));
-    const { panel, cards } = await openDialog(5);
+    const {
+      panel, cards, cardsPanel, close,
+    } = await openDialog(5);
 
     expect(panel.width).to.equal(848);
     expect(panel.height).to.equal(620);
     expect(cards.scrollHeight).to.be.greaterThan(cards.clientHeight);
+    expect(close.bottom).to.be.at.most(cardsPanel.top);
   });
 
   it('sizes to its content when the content is shorter than the cap', async () => {

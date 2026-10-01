@@ -3,62 +3,43 @@
   font-family: var(--s2-font-family, adobe-clean, 'Source Sans Pro', system-ui, sans-serif);
 }
 
-/* Two-pane layout: no panel padding, border, or gap; height capped to the design. */
+/* Two-pane layout: no panel chrome; height capped to the design. */
 .wn-dialog {
+  --nx-dialog-min-width: 848px;
+  --nx-dialog-max-width: 848px;
   --nx-dialog-max-height: 620px;
   --nx-dialog-padding: 0;
-  --nx-dialog-border: none;
-  --nx-dialog-gap: 0;
-  --nx-dialog-actions-padding-top: 0;
+}
+
+.wn-dialog::part(panel) {
+  border: 0;
+  border-radius: var(--s2-corner-radius-800);
 }
 
 .wn-body {
   flex: 1 1 auto;
   min-height: 0;
   box-sizing: border-box;
-  display: flex;
+  display: grid;
+  grid-template-columns: 256px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   border-radius: var(--s2-corner-radius-800);
   overflow: hidden;
 }
 
-.wn-close {
-  position: absolute;
-  z-index: 2;
-  top: var(--s2-spacing-100);
-  right: var(--s2-spacing-100);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
+.wn-close.nx-action-btn-icon {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  margin: var(--s2-spacing-100) var(--s2-spacing-100) 0 0;
   border-radius: var(--s2-corner-radius-800);
-  background: transparent;
-  color: var(--s2-gray-700);
-  cursor: pointer;
-
-  svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  &:hover {
-    background: var(--s2-gray-100);
-    color: var(--s2-gray-900);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--s2-blue-800);
-    outline-offset: 2px;
-  }
 }
 
 .wn-toc {
+  grid-column: 1;
+  grid-row: 1 / -1;
   box-sizing: border-box;
   display: flex;
-  flex-shrink: 0;
-  width: 256px;
   padding: var(--s2-spacing-500) 0 var(--s2-spacing-500) var(--s2-spacing-600);
   background: var(--s2-gray-50);
   overflow: hidden;
@@ -78,7 +59,6 @@
 .wn-toc-title {
   margin: 0 0 20px;
   font-size: var(--s2-heading-size-m);
-  font-weight: var(--s2-component-xl-bold-font-weight);
   line-height: var(--s2-heading-line-height);
   color: var(--s2-gray-900);
 
@@ -137,11 +117,13 @@
 }
 
 .wn-cards-panel {
+  grid-column: 2;
+  grid-row: 2;
   box-sizing: border-box;
   display: flex;
-  flex: 1;
   min-width: 0;
-  padding: var(--s2-spacing-600) 20px var(--s2-spacing-600) var(--s2-spacing-600);
+  min-height: 0;
+  padding: 0 20px var(--s2-spacing-600) var(--s2-spacing-600);
   overflow: hidden;
 }
 
@@ -203,7 +185,9 @@
 
   /* .wn-body itself owns scrolling here, so the sticky toc heading can sit above passing cards. */
   .wn-body {
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    background: var(--s2-gray-50);
     overflow-y: auto;
   }
 
@@ -211,9 +195,18 @@
     position: sticky;
     top: 0;
     z-index: 1;
-    flex-shrink: 0;
-    width: 100%;
+    grid-column: 1;
+    grid-row: 1;
     padding: var(--s2-spacing-500) var(--s2-spacing-600);
+  }
+
+  .wn-close {
+    position: sticky;
+    top: var(--s2-spacing-100);
+    z-index: 1;
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
   }
 
   .wn-toc-scroll {
@@ -231,9 +224,11 @@
   }
 
   .wn-cards-panel {
-    flex: none;
+    grid-column: 1 / -1;
+    grid-row: 2;
     padding: var(--s2-spacing-600);
     padding-bottom: 0;
+    background: var(--s2-gray-25);
     overflow: visible;
   }
 

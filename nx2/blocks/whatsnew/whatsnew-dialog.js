@@ -6,6 +6,7 @@ import { setLastSeen } from './whatsnew-storage.js';
 import '../shared/dialog/dialog.js';
 
 const style = await loadStyle(import.meta.url);
+const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
 const closeIcon = await loadHrefSvg('/img/icons/s2-icon-close-20-n.svg');
 
 const WHATSNEW_PATH = '/fragments/guides/whats-new';
@@ -35,7 +36,7 @@ class NxWhatsNewDialog extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style];
+    this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];
     this._loadContent();
   }
 
@@ -138,11 +139,11 @@ class NxWhatsNewDialog extends LitElement {
   render() {
     if (!this._entries) return nothing;
     return html`
-      <nx-dialog class="wn-dialog" size="large" @close=${this._onClose}>
-        <button type="button" class="wn-close" aria-label="Close" @click=${this.close}>
-          ${closeIcon}
-        </button>
+      <nx-dialog class="wn-dialog" @close=${this._onClose}>
         <div class="wn-body">
+          <button type="button" class="wn-close nx-action-btn-icon" aria-label="Close" @click=${this.close}>
+            ${closeIcon}
+          </button>
           <nav class="wn-toc" aria-label="What's new sections">
             <div class="wn-toc-scroll">
               <h2 class="wn-toc-title" tabindex="-1" autofocus>What's new</h2>

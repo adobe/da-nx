@@ -297,15 +297,12 @@ menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));</code></pre
             rel="noopener">docs →</a></h3>
         <div class="sg-demo" id="demo-dialog-container">
           <button class="nx-form-btn-secondary" id="demo-dialog-open">Open dialog</button>
-          <button class="nx-form-btn-secondary" id="demo-dialog-large-open">Open large dialog</button>
         </div>
         <pre><code>&lt;nx-dialog title="Delete item" @close=${onClose}&gt;
   &lt;p&gt;This action cannot be undone.&lt;/p&gt;
   &lt;button slot="actions" class="nx-form-btn-secondary"&gt;Cancel&lt;/button&gt;
   &lt;button slot="actions" class="nx-form-btn-primary"&gt;Delete&lt;/button&gt;
-&lt;/nx-dialog&gt;
-
-&lt;nx-dialog size="large" title="Release notes"&gt;…&lt;/nx-dialog&gt;</code></pre>
+&lt;/nx-dialog&gt;</code></pre>
       </article>
 
       <article class="sg-example">
@@ -446,20 +443,6 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
         dialog.close();
         showToast({ text: 'Item deleted.' });
       });
-      document.querySelector('#demo-dialog-container').append(dialog);
-    });
-
-    document.querySelector('#demo-dialog-large-open').addEventListener('click', () => {
-      const dialog = document.createElement('nx-dialog');
-      dialog.setAttribute('title', 'Release notes');
-      dialog.size = 'large';
-      dialog.innerHTML = `
-          <p>A large dialog fills the width up to 848px and shrinks with the viewport.
-          Its height follows the content.</p>
-          <button slot="actions" class="nx-form-btn-primary" id="demo-dialog-large-close">Close</button>
-        `;
-      dialog.addEventListener('close', () => dialog.remove());
-      dialog.querySelector('#demo-dialog-large-close').addEventListener('click', () => dialog.close());
       document.querySelector('#demo-dialog-container').append(dialog);
     });
 

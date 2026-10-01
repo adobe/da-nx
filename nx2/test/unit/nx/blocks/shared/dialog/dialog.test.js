@@ -11,18 +11,20 @@ await new Promise((resolve) => {
   document.head.append(link);
 });
 
-async function openDialog({ size } = {}) {
+async function openDialog(content = '<p>Short content.</p>') {
   const dialog = document.createElement('nx-dialog');
-  if (size) dialog.size = size;
-  dialog.innerHTML = '<p>Short content.</p>';
+  dialog.innerHTML = content;
   document.body.append(dialog);
   await dialog.updateComplete;
   const panel = dialog.shadowRoot.querySelector('.panel');
   const body = dialog.shadowRoot.querySelector('.body');
-  return { dialog, panel, body };
+  const actions = dialog.shadowRoot.querySelector('.actions');
+  return {
+    dialog, panel, body, actions,
+  };
 }
 
-describe('nx-dialog size', () => {
+describe('nx-dialog sizing', () => {
   beforeEach(async () => {
     await setViewport({ width: 1280, height: 900 });
   });
@@ -36,30 +38,44 @@ describe('nx-dialog size', () => {
     const { dialog, panel, body } = await openDialog();
 
     expect(dialog.hasAttribute('size')).to.be.false;
+    expect('size' in dialog).to.be.false;
     expect(panel.getBoundingClientRect().width).to.equal(400);
     expect(getComputedStyle(panel).position).to.equal('static');
-    expect(getComputedStyle(body).display).to.equal('block');
-  });
-
-  it('reflects size and fills the large max width', async () => {
-    const { dialog, panel, body } = await openDialog({ size: 'large' });
-
-    expect(dialog.getAttribute('size')).to.equal('large');
-    expect(panel.getBoundingClientRect().width).to.equal(848);
     expect(getComputedStyle(body).display).to.equal('flex');
+    expect(getComputedStyle(body).flexDirection).to.equal('column');
   });
 
-  it('lets consumers override the large max width', async () => {
-    const { dialog, panel } = await openDialog({ size: 'large' });
+  it('lets consumers override panel width', async () => {
+    const { dialog, panel } = await openDialog();
+    dialog.style.setProperty('--nx-dialog-min-width', '700px');
     dialog.style.setProperty('--nx-dialog-max-width', '700px');
 
     expect(panel.getBoundingClientRect().width).to.equal(700);
   });
 
-  it('clamps the large dialog to the viewport', async () => {
+  it('clamps consumer sizing to the viewport', async () => {
     await setViewport({ width: 600, height: 600 });
-    const { panel } = await openDialog({ size: 'large' });
+    const { dialog, panel } = await openDialog();
+    dialog.style.setProperty('--nx-dialog-min-width', '700px');
+    dialog.style.setProperty('--nx-dialog-max-width', '700px');
 
     expect(panel.getBoundingClientRect().width).to.equal(600 - 64);
+  });
+
+  it('hides the actions row when no actions are assigned', async () => {
+    const { actions } = await openDialog();
+
+    expect(actions.hidden).to.be.true;
+    expect(getComputedStyle(actions).display).to.equal('none');
+  });
+
+  it('shows the actions row when actions are assigned', async () => {
+    const { actions } = await openDialog(`
+      <p>Short content.</p>
+      <button slot="actions">Confirm</button>
+    `);
+
+    expect(actions.hidden).to.be.false;
+    expect(getComputedStyle(actions).display).to.equal('flex');
   });
 });
