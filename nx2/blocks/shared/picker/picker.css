@@ -67,6 +67,18 @@
   }
 }
 
+:host([variant='field']) .picker-trigger {
+  justify-content: space-between;
+  width: 100%;
+  height: var(--nx-picker-height, 32px);
+  border-radius: var(--nx-picker-radius, var(--s2-corner-radius-500));
+  background: var(--nx-picker-background, var(--s2-gray-100));
+
+  &:hover {
+    background: var(--nx-picker-background, var(--s2-gray-200));
+  }
+}
+
 .picker-item {
   display: flex;
   align-items: center;

@@ -25,6 +25,7 @@ class NxPicker extends LitElement {
     _active: { state: true },
     ignoreFocus: { attribute: true },
     size: { type: String, reflect: true },
+    variant: { type: String, reflect: true },
   };
 
   constructor() {
