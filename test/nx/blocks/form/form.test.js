@@ -86,34 +86,28 @@ describe('nx-form', () => {
     expect(editor.assetContext.aemAssetsAvailable).to.equal(false);
   });
 
-  it('offers AEM Assets only when configured and a picker callback is provided', async () => {
+  it('offers AEM Assets only when the repository has an AEM configuration', async () => {
     const el = await mountReady();
-    el._aemAssetsAvailable = true;
-    await el.updateComplete;
-
     const editor = el.shadowRoot.querySelector('nx-editor');
-    expect(editor.assetContext.aemAssetsAvailable).to.equal(false);
 
-    el.onSelectAemAsset = async () => ({ cancelled: true });
+    el._aemRepoConfig = { repositoryId: 'author-p1-e1.adobeaemcloud.com', tierType: 'author' };
     await el.updateComplete;
     expect(editor.assetContext.aemAssetsAvailable).to.equal(true);
 
-    el._aemAssetsAvailable = false;
+    el._aemRepoConfig = null;
     await el.updateComplete;
     expect(editor.assetContext.aemAssetsAvailable).to.equal(false);
   });
 
-  it('rejects a source the form cannot serve and names it in the error', async () => {
+  it('rejects AEM Assets without a repository configuration and names it in the error', async () => {
     const el = await mountReady();
-    let picks = 0;
-    el.onSelectAemAsset = async () => { picks += 1; };
     try {
       await el._onSelectAsset({ source: 'aem-assets' });
       throw new Error('Unconfigured AEM Assets should fail.');
     } catch (error) {
       expect(error.message).to.include('"aem-assets"');
     }
-    expect(picks).to.equal(0);
+    expect(document.querySelector('.nx-form-aem-dialog')).to.equal(null);
   });
 
   it('renders a blocked message for a missing schema', async () => {
