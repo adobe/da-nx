@@ -33,12 +33,13 @@ successful content write; don't automatically retry an overwrite.
 ## Private implementation and migration
 
 `nx/utils/loc.js` shares copy operations with internal loc and Rollout.
-Pure diffing and the unchanged hash bundle remain under
-`nx/blocks/loc/regional-diff/`. Original loc entrypoints remain adapters.
+Diffing stays in `nx/blocks/loc/regional-diff/regional-diff.js`, beside the
+unchanged hash bundle. It retains its positional signature; explicit config
+skips legacy page-context/config loading.
 Loc supplies its existing backend-aware `source.save`; `nx2/utils/api.js`
 and its DA/HLX6 routing are unchanged.
 
-NX2 migration touchpoints: loc's project/config adapters, the nx2 Rollout
+NX2 migration touchpoints: loc's project adapter, the nx2 Rollout
 plugin, and the private engine's pure `nx2/utils/getElementMetadata.js`
 dependency. That helper has no IMS/runtime dependency. External apps import
 only the stable public entrypoint.

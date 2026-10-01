@@ -1,5 +1,5 @@
 import getElementMetadata from '../../nx2/utils/getElementMetadata.js';
-import { regionalDiff, removeLocTags } from '../blocks/loc/regional-diff/diff.js';
+import { regionalDiff, removeLocTags } from '../blocks/loc/regional-diff/regional-diff.js';
 
 const DEFAULT_TIMEOUT = 20000;
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
@@ -151,11 +151,7 @@ export function createCopy({
     const [, org, site] = url.destination.split('/');
     const config = await loadConfig({ org, site });
     if (config?.error) throw new Error(config.error);
-    const diffed = await regionalDiff({
-      original: source,
-      modified: regional,
-      acceptedHashes,
-      rejectedHashes,
+    const diffed = await regionalDiff(source, regional, acceptedHashes, rejectedHashes, {
       site,
       config,
       normalizeImages,
