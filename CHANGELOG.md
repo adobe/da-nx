@@ -1,4 +1,57 @@
-# Worklog
+# [1.4.0](https://github.com/adobe/da-nx/compare/v1.3.0...v1.4.0) (2026-10-01)
+
+
+### Bug Fixes
+
+* **ew:** align deploy popover to Figma spec ([1bcaf44](https://github.com/adobe/da-nx/commit/1bcaf44f9f13164a3d42bc10063a813f165e1ea7)), closes [#e1e1e1](https://github.com/adobe/da-nx/issues/e1e1e1) [3b63fb/#cbe2fe](https://github.com/adobe/da-nx/issues/cbe2fe) [12b867/#edfcf1](https://github.com/adobe/da-nx/issues/edfcf1) [#749](https://github.com/adobe/da-nx/issues/749)
+* **ew:** drop the Deploy header/icon from the deploy popover ([3886686](https://github.com/adobe/da-nx/commit/3886686cf4374ad37a8f6fe2095ce502c1dbbc56)), closes [#749](https://github.com/adobe/da-nx/issues/749)
+* **ew:** label live as "Publish" and hide URL when not deployed ([32445b4](https://github.com/adobe/da-nx/commit/32445b4682046511e10ddc70a1887f16ee2bf13b))
+* **ew:** set selected card divider to 60% opacity ([62e6db6](https://github.com/adobe/da-nx/commit/62e6db6d0ffc91960e1b706f936fc8a63b014ecc))
+* **ew:** use a native radio input for deploy card selection ([8109980](https://github.com/adobe/da-nx/commit/8109980de9278db2fdf00934031e8eebc7fae267)), closes [#749](https://github.com/adobe/da-nx/issues/749)
+* icons ([1793837](https://github.com/adobe/da-nx/commit/1793837612505fc78a00bb9f2468d8844f569cba))
+
+
+### Features
+
+* **ew:** deploy popover with preview/publish status ([#1197](https://github.com/adobe/da-nx/issues/1197)) ([a914ea7](https://github.com/adobe/da-nx/commit/a914ea795eb7b7490ff3056c5ba29d504a1e1646))
+
+# Changelog
+
+## 2026-09-25
+
+### Editor toggle follows the active editor route
+
+The header switch shows on for `/canvas` and off for `/edit`, regardless of
+the stored user flag. A click derives the next preference from the current
+route, so manually opening `/canvas` while opted out still switches directly
+back to `/edit`. Navigation alone does not change the stored preference.
+
+## 2026-09-24
+
+### Editor toggle in the header on both editor routes
+
+The nav-injected `nx-editortoggle` now renders on `/edit` and `/canvas`.
+Removed the duplicate profile-menu variant and its styles; the header
+instance still handles the one-time welcome and switch-back prompts.
+Added route-visibility tests.
+
+## 2026-09-23
+
+### nx/public/plugins/quick-edit/selection.test.js — prose-editable click coverage
+
+- Added regression coverage for prose-editable clicks outside and inside a block
+- Kept image-click coverage alongside the new prose-editable cases
+- Full test suite passes; lint still reports the existing console warnings in `nx/blocks/loc/connectors/glaas/multimodalApi.js` and `nx/public/plugins/quick-edit/src/comments/render.js`
+
+### nx2/utils/api.js — scope `referrerPolicy: unsafe-url` to HLX_ADMIN/AEM_API
+
+`daFetch` set `opts.referrerPolicy = 'unsafe-url'` unconditionally on every
+request, leaking the full referrer URL (including path) to any origin it
+talks to. Scoped it to only fire for `HLX_ADMIN`/`AEM_API` origins — the same
+condition already used to decide whether to attach
+`x-content-source-authorization` — via a shared `isPrivilegedOrigin` check.
+Added fetch-mock + test coverage (`nx2/test/mocks/fetch.js` now records
+`referrerPolicy`; two new cases in `test/nx2/utils/api.test.js`).
 
 ## 2026-09-17
 

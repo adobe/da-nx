@@ -22,17 +22,18 @@
   box-sizing: border-box;
   margin: 0;
   height: 24px;
-  padding: 0 9px;
+  padding: var(--s2-spacing-75) 10px;
   border: none;
   border-radius: var(--s2-corner-radius-400);
   font: inherit;
-  font-size: var(--s2-body-size-xs);
-  line-height: 16px;
+  font-size: var(--s2-component-s-medium-font-size);
+  line-height: var(--s2-component-s-medium-line-height);
   font-weight: var(--s2-component-s-medium-font-weight);
   color: var(--s2-gray-700);
   background: transparent;
   cursor: pointer;
   white-space: nowrap;
+  gap: var(--s2-spacing-75);
   transition:
     transform 0.125s ease-out,
     color 0.12s ease,
@@ -62,15 +63,34 @@
   }
 
   &.segment-icon {
-    padding: 0 6px;
-    min-width: 28px;
+    width: 24px;
+    padding: var(--s2-spacing-75);
   }
 
-  &.segment-icon svg.icon {
+  & svg.icon {
     display: block;
     width: 16px;
     height: 16px;
     flex-shrink: 0;
     overflow: hidden;
+  }
+}
+
+:host([size="m"]) .segment {
+  height: 32px;
+  padding: 7px var(--s2-spacing-200);
+  font-size: var(--s2-component-m-medium-font-size);
+  line-height: var(--s2-component-m-medium-line-height);
+  font-weight: var(--s2-component-m-medium-font-weight);
+  gap: 6px;
+
+  &.segment-icon {
+    width: 32px;
+    padding: 7px;
+  }
+
+  & svg.icon {
+    width: 18px;
+    height: 18px;
   }
 }

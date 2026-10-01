@@ -93,7 +93,10 @@ describe('nx-ew-actions', () => {
   });
 
   describe('render', () => {
-    it('includes both preview and publish menu items when publish is not hidden', async () => {
+    const cardTitles = (element) => [...element.shadowRoot.querySelectorAll('.deploy-card-title')]
+      .map((n) => n.textContent.trim());
+
+    it('shows both Preview and Publish cards when publish is not hidden', async () => {
       const org = uniq('org');
       const site = uniq('site');
       restoreFetch = installFetch({
@@ -106,11 +109,10 @@ describe('nx-ew-actions', () => {
       await el._updateHidePublish();
       await el.updateComplete;
 
-      const ids = el.shadowRoot.querySelector('nx-menu').items.map((i) => i.id);
-      expect(ids).to.include.members(['preview', 'publish']);
+      expect(cardTitles(el)).to.deep.equal(['Preview', 'Publish']);
     });
 
-    it('omits the publish menu item (keeps preview) when publish is hidden', async () => {
+    it('omits the Publish card (keeps Preview) when publish is hidden', async () => {
       const org = uniq('org');
       const site = uniq('site');
       restoreFetch = installFetch({
@@ -123,9 +125,8 @@ describe('nx-ew-actions', () => {
       await el._updateHidePublish();
       await el.updateComplete;
 
-      const ids = el.shadowRoot.querySelector('nx-menu').items.map((i) => i.id);
-      expect(ids).to.include('preview');
-      expect(ids).to.not.include('publish');
+      expect(cardTitles(el)).to.deep.equal(['Preview']);
+      expect(el.shadowRoot.querySelector('.deploy-card-live')).to.equal(null);
     });
   });
 });
