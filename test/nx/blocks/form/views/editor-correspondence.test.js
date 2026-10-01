@@ -13,7 +13,7 @@ const settle = async (el) => {
   await el.updateComplete;
 };
 
-const CONTROL_TAGS = ['FORM-INPUT', 'FORM-TEXTAREA', 'FORM-NUMBER-FIELD', 'FORM-CHECKBOX', 'FORM-PICKER'];
+const CONTROL_TAGS = ['FORM-INPUT', 'FORM-TEXTAREA', 'FORM-NUMBER-FIELD', 'FORM-CHECKBOX', 'FORM-PICKER', 'FORM-ASSET'];
 
 const mounted = [];
 afterEach(() => { while (mounted.length) mounted.pop().remove(); });
@@ -28,6 +28,7 @@ async function mountEditor(schema, doc) {
   });
   el.editor = engine;
   el.onSelect = () => {};
+  el.assetContext = { onSelectSource: async () => ({ cancelled: true }) };
   el.nav = {};
   el.state = engine.getState();
   window.document.body.append(el);
@@ -47,6 +48,7 @@ function expectedTag(node) {
   if (node.kind === 'boolean') return 'FORM-CHECKBOX';
   if (node.kind === 'number' || node.kind === 'integer') return 'FORM-NUMBER-FIELD';
   if (node.kind === 'string' && node.semanticType === 'long-text') return 'FORM-TEXTAREA';
+  if (node.kind === 'string' && node.semanticType === 'media') return 'FORM-ASSET';
   return 'FORM-INPUT';
 }
 
@@ -59,6 +61,7 @@ const FEATURE_SCHEMA = {
     title: { type: 'string', title: 'Title', minLength: 3, maxLength: 255 },
     status: { type: 'string', title: 'Status', enum: ['draft', 'in-review', 'published', 'archived'], default: 'draft' },
     body: { type: 'string', title: 'Body', 'x-semantic-type': 'long-text' },
+    heroImage: { type: 'string', title: 'Hero image', 'x-semantic-type': 'media' },
     priority: { type: 'integer', title: 'Priority', minimum: 1, maximum: 10 },
     featured: { type: 'boolean', title: 'Featured', default: false },
     tags: { type: 'array', title: 'Tags', minItems: 1, items: { type: 'string', title: 'Tag' } },
@@ -91,6 +94,7 @@ const featureDoc = (data = {}) => ({
     title: 'Launch Announcement',
     status: 'published',
     body: 'Body copy.',
+    heroImage: './media_example.png',
     priority: 3,
     featured: true,
     tags: ['news', 'launch'],
