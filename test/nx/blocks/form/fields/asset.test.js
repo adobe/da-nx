@@ -100,18 +100,6 @@ describe('form-asset', () => {
     expect(getComputedStyle(sources).gridTemplateColumns.split(' ')).to.have.lengthOf(2);
   });
 
-  it('explains a repository configuration error while keeping Upload available', async () => {
-    const field = await mount({
-      aemAssetsAvailable: false,
-      aemAssetsError: 'Configuration request failed.',
-    });
-    await openSources(field);
-    expect(button(field, 'Upload')).to.exist;
-    expect(button(field, 'AEM Assets')).to.equal(undefined);
-    expect(field.shadowRoot.querySelector('.asset-config-error').textContent)
-      .to.include('Configuration request failed.');
-  });
-
   it('commits only a successful source URL, not a pending selection', async () => {
     let resolve;
     const select = ({ source }) => {

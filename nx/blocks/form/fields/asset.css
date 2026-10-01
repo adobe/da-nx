@@ -255,12 +255,6 @@ dialog::backdrop {
   border-top: 1px solid var(--s2-gray-300);
 }
 
-.asset-config-error {
-  margin: 0 28px 16px;
-  color: var(--s2-red-900);
-  font-size: var(--s2-body-size-s, 14px);
-}
-
 @media (width <= 550px) {
   .asset-sources {
     grid-template-columns: 1fr;
