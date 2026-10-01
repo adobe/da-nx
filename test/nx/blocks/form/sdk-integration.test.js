@@ -136,6 +136,45 @@ describe('SDK state shape', () => {
     expect(findByPointer(root, '/data/swatch').semanticType).to.equal(undefined);
   });
 
+  it('surfaces media semantics for an image while keeping a single URL string in the document', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        heroImage: { type: 'string', title: 'Hero image', 'x-semantic-type': 'media' },
+      },
+    };
+    const href = './media_example.png';
+    const engine = createEngine({ schema, document: validDoc({ heroImage: href }) });
+    const node = findByPointer(engine.getState().model.root, '/data/heroImage');
+    expect(node.semanticType).to.equal('media');
+    expect(node.value).to.equal(href);
+    expect(engine.getState().document.data.heroImage).to.equal(href);
+  });
+
+  it('round-trips EDS and AEM image references without turning them into HTML images', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        heroImage: { type: 'string', 'x-semantic-type': 'media' },
+      },
+    };
+    const engine = createEngine({ schema, document: validDoc() });
+    [
+      './media_example.png',
+      'https://delivery.example.com/assets/hero.avif?smartcrop=wide&width=1920',
+    ].forEach((href) => {
+      engine.setField('/data/heroImage', href);
+      const { html, error } = convertJsonToHtml({ json: engine.getState().document });
+      expect(error).to.equal(undefined);
+      expect(html).to.not.include('<img');
+      expect(convertHtmlToJson({ html }).json.data.heroImage).to.equal(href);
+    });
+
+    engine.setField('/data/heroImage', undefined);
+    const { html } = convertJsonToHtml({ json: engine.getState().document });
+    expect(convertHtmlToJson({ html }).json.data.heroImage).to.equal(undefined);
+  });
+
   it('validation.errors entries carry a .message field (read by editor.js)', () => {
     // Force a required-field error; the schema requires `name` and we omit it.
     const engine = createEngine({ schema: demoSchema, document: validDoc() });
