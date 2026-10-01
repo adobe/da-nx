@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/nx2/styles/styles.css" />
   <link rel="stylesheet" href="/nx2/styles/form.css" />
   <link rel="stylesheet" href="/nx2/styles/buttons.css" />
+  <link rel="stylesheet" href="/nx2/styles/spinner.css" />
   <link rel="stylesheet" href="style-guide.css" />
 </head>
 
@@ -23,7 +24,8 @@
     <h1>EW Style Guide</h1>
     <p>
       A living reference of reusable CSS patterns (<code>nx2/styles/form.css</code>,
-      <code>nx2/styles/buttons.css</code>) and shared UI components (<code>nx2/blocks/shared/</code>).
+      <code>nx2/styles/buttons.css</code>, <code>nx2/styles/spinner.css</code>) and shared UI
+      components (<code>nx2/blocks/shared/</code>).
       Each example is rendered live
       from the real stylesheets/components, so it can't drift out of sync — copy the snippet
       shown under each one. Full API docs for each component live under
@@ -34,6 +36,7 @@
   <nav class="sg-toc">
     <a href="#buttons">Buttons</a>
     <a href="#form">Form</a>
+    <a href="#elements">Elements</a>
     <a href="#shared-blocks">Shared Blocks</a>
   </nav>
 
@@ -251,6 +254,11 @@
 &lt;!-- --nx-checkbox-size overrides the checkbox's width/height (default 14px) --&gt;
 &lt;label class="nx-checkbox" style="--nx-checkbox-size: 20px;"&gt;&lt;input type="checkbox" checked/&gt; Large&lt;/label&gt;</code></pre>
       </article>
+    </section>
+
+    <section id="elements" class="sg-section">
+      <h2>Elements</h2>
+      <p>Source: <code>nx2/styles/spinner.css</code></p>
 
       <article class="sg-example">
         <h3>Loading spinner</h3>
@@ -258,6 +266,9 @@
           <span class="nx-loading-spinner" role="status" aria-label="Loading"></span>
         </div>
         <pre><code>&lt;span class="nx-loading-spinner" role="status" aria-label="Loading"&gt;&lt;/span&gt;</code></pre>
+        <p>Override <code>--nx-spinner-track-color</code>/<code>--nx-spinner-active-color</code> for a
+          different color scheme (see <code>nx/blocks/loc/views/translate/translate.css</code> for an
+          example using <code>currentcolor</code>).</p>
       </article>
     </section>
 
