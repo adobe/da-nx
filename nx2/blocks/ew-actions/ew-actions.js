@@ -452,7 +452,7 @@ class NXEwActions extends LitElement {
     const info = isPreview ? this._previewInfo : this._liveInfo;
     const selected = this._target === kind;
     // "Publish" is the end-user label for the live environment.
-    const title = isPreview ? 'Preview' : 'Publish';
+    const title = isPreview ? 'Preview' : 'Preview & Publish';
     const time = formatRelativeDateTime(info.time);
     let sub;
     if (this._statusLoading && !this._status) sub = 'Checking status…';
@@ -474,7 +474,6 @@ class NXEwActions extends LitElement {
             <span class="deploy-card-title">${title}</span>
             <span class="deploy-card-sub">${sub}</span>
           </span>
-          ${selected ? html`<span class="deploy-card-check" aria-hidden="true"><svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${CHECK_ICON_HREF}></use></svg></span>` : nothing}
         </label>
         ${selected && info.ok && info.url ? html`
           <div class="deploy-url">
@@ -485,8 +484,8 @@ class NXEwActions extends LitElement {
               aria-label=${`Copy ${title} URL`}
               @click=${() => this._copyUrl(info.url, kind)}
             >${this._copied === kind
-        ? html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${CHECK_ICON_HREF}></use></svg>`
-        : html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${COPY_ICON_HREF}></use></svg>`}</button>
+          ? html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${CHECK_ICON_HREF}></use></svg>`
+          : html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${COPY_ICON_HREF}></use></svg>`}</button>
           </div>
         ` : nothing}
       </div>
