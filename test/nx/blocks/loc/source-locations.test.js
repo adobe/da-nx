@@ -2,9 +2,12 @@ import { expect } from '@esm-bundle/chai';
 import {
   convertPath,
   findSourceLocation,
+  getProjectBasePath,
   getSourceLocations,
 } from '../../../../nx/blocks/loc/utils/utils.js';
 import { calculateView } from '../../../../nx/blocks/loc/utils/steps.js';
+import { getLangUrls } from '../../../../nx/blocks/loc/connectors/google/index.js';
+import { getSaveDestPath } from '../../../../nx/blocks/loc/views/translate/index.js';
 import { formatLangUrls } from '../../../../nx/blocks/loc/views/rollout/index.js';
 import { getSyncUrls } from '../../../../nx/blocks/loc/views/sync/index.js';
 
@@ -105,6 +108,53 @@ describe('loc source locations', () => {
 
     it('resolves default-location URLs as before', () => {
       expect(source('/us/en/about/page', langs[1])).to.equal('/org/site/emea/de/about/page.html');
+    });
+  });
+
+  describe('save destination', () => {
+    const locations = getSourceLocations({ options, langs });
+    const dest = (url) => getSaveDestPath({ url, lang: langs[1], sourceLocations: locations });
+
+    it('strips the per-row source location from the supplied path', () => {
+      expect(dest({ suppliedPath: '/emea/en/about/page', basePath: '/emea/en/about/page' }))
+        .to.equal('/emea/de/about/page.html');
+    });
+
+    it('strips the default location', () => {
+      expect(dest({ suppliedPath: '/us/en/about/page', basePath: '/about/page' }))
+        .to.equal('/emea/de/about/page.html');
+    });
+
+    it('falls back to basePath for unprefixed paths', () => {
+      expect(dest({ suppliedPath: '/about/page', basePath: '/about/page' }))
+        .to.equal('/emea/de/about/page.html');
+    });
+  });
+
+  describe('getProjectBasePath', () => {
+    it('strips per-row and default locations and keeps unmatched paths', () => {
+      const base = (path) => getProjectBasePath({ path, defaultLocation: '/us/en', langs });
+      expect(base('/emea/en/about/page')).to.equal('/about/page');
+      expect(base('/us/en/about/page')).to.equal('/about/page');
+      expect(base('/about/page')).to.equal('/about/page');
+    });
+  });
+
+  describe('google connector urls', () => {
+    const sourceLocations = getSourceLocations({ options, langs });
+    const run = (suppliedPath) => getLangUrls({
+      urls: [{ suppliedPath }],
+      lang: { ...langs[1], code: 'de' },
+      sourceLocations,
+      defaultLocation: '/us/en',
+    })[0];
+
+    it('writes per-row source pages to the language location without doubling', () => {
+      expect(run('/emea/en/about/page').daDestPath).to.equal('/emea/de/about/page.html');
+    });
+
+    it('handles default-location pages', () => {
+      expect(run('/us/en/about/page').daDestPath).to.equal('/emea/de/about/page.html');
     });
   });
 });
