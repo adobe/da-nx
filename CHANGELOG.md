@@ -1,29 +1,21 @@
-# Worklog
+# [1.4.0](https://github.com/adobe/da-nx/compare/v1.3.0...v1.4.0) (2026-10-01)
 
-## 2026-09-28
 
-### What's New dialog: TOC indicator bounce (PR #744)
+### Bug Fixes
 
-Clicking a TOC item smooth-scrolls the cards, and the IntersectionObserver
-used to move the indicator through every card passed on the way. The clicked
-entry is now held until `scrollend` or user input (wheel, touch, pointer, key)
-on the cards. The active card is picked by visible pixels across all cards
-(kept in a Map), not only from the entries in the latest callback. Safari
-without `scrollend` releases the hold on the next user input instead.
+* **ew:** align deploy popover to Figma spec ([1bcaf44](https://github.com/adobe/da-nx/commit/1bcaf44f9f13164a3d42bc10063a813f165e1ea7)), closes [#e1e1e1](https://github.com/adobe/da-nx/issues/e1e1e1) [3b63fb/#cbe2fe](https://github.com/adobe/da-nx/issues/cbe2fe) [12b867/#edfcf1](https://github.com/adobe/da-nx/issues/edfcf1) [#749](https://github.com/adobe/da-nx/issues/749)
+* **ew:** drop the Deploy header/icon from the deploy popover ([3886686](https://github.com/adobe/da-nx/commit/3886686cf4374ad37a8f6fe2095ce502c1dbbc56)), closes [#749](https://github.com/adobe/da-nx/issues/749)
+* **ew:** label live as "Publish" and hide URL when not deployed ([32445b4](https://github.com/adobe/da-nx/commit/32445b4682046511e10ddc70a1887f16ee2bf13b))
+* **ew:** set selected card divider to 60% opacity ([62e6db6](https://github.com/adobe/da-nx/commit/62e6db6d0ffc91960e1b706f936fc8a63b014ecc))
+* **ew:** use a native radio input for deploy card selection ([8109980](https://github.com/adobe/da-nx/commit/8109980de9278db2fdf00934031e8eebc7fae267)), closes [#749](https://github.com/adobe/da-nx/issues/749)
+* icons ([1793837](https://github.com/adobe/da-nx/commit/1793837612505fc78a00bb9f2468d8844f569cba))
 
-### What's New dialog: native focus restore, responsive size (PR #744)
 
-Dropped the manual focus-restore and pointer/keydown tracking. Native
-`<dialog>` close already returns focus to the trigger inside its shadow root.
-The earlier check that said otherwise read `document.activeElement`, which is
-retargeted to the host. A new test checks `shadowRoot.activeElement` instead.
+### Features
 
-Sizing: `nx-dialog` has a new opt-in `size="large"` variant. It fills the
-width up to 848px, and the body becomes a flex column. whatsnew uses it,
-with `.wn-body` in normal flow instead of absolutely positioned. The dialog
-now sizes to its content, capped at 620px high. Removing only the min size
-before this change collapsed the dialog to zero height. `whatsnew-layout.test.js`
-guards against that at four viewport sizes. Default dialogs are unchanged.
+* **ew:** deploy popover with preview/publish status ([#1197](https://github.com/adobe/da-nx/issues/1197)) ([a914ea7](https://github.com/adobe/da-nx/commit/a914ea795eb7b7490ff3056c5ba29d504a1e1646))
+
+# Changelog
 
 ## 2026-09-25
 
