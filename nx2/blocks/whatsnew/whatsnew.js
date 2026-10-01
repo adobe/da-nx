@@ -46,7 +46,7 @@ class NxWhatsNew extends LitElement {
 
   render() {
     return html`
-      <button type="button" class="nx-action-btn-icon" @click=${this._openDialog}>
+      <button aria-label="What's new"type="button" class="nx-action-btn-icon" @click=${this._openDialog}>
         <span class="wn-trigger-icon">
           ${icon}
           ${this._hasUnseen ? html`<span class="wn-trigger-dot" aria-hidden="true"></span>` : nothing}
