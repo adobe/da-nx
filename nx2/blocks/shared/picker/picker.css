@@ -102,6 +102,18 @@
   &.picker-item-active {
     background: var(--s2-gray-200);
   }
+
+  .picker-swatch + .picker-item-label {
+    margin-inline-end: auto;
+  }
+}
+
+.picker-swatch {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-75);
 }
 
 .picker-open-in-icon {

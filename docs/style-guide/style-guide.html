@@ -324,6 +324,8 @@ button.addEventListener('click', () =&gt; popover.show({ anchor: button }));</co
           <nx-picker id="demo-picker" placement="below"></nx-picker>
           <nx-picker id="demo-picker-m" size="m" placement="below"></nx-picker>
           <nx-picker id="demo-picker-field-m" variant="field" size="m" placeholder="Please select" placement="below"></nx-picker>
+          <nx-picker id="demo-picker-swatch" placement="below"></nx-picker>
+          <nx-picker id="demo-picker-swatch-m" size="m" placement="below"></nx-picker>
         </div>
         <pre><code>&lt;nx-picker id="my-picker"&gt;&lt;/nx-picker&gt;
 
@@ -338,7 +340,14 @@ picker.items = [
   { value: 'content', label: 'Content' },
 ];
 picker.value = 'all';
-picker.addEventListener('change', (e) =&gt; console.log(e.detail.value));</code></pre>
+picker.addEventListener('change', (e) =&gt; console.log(e.detail.value));
+
+// Color swatches: shown on items and on the trigger for the selected item
+picker.items = [
+  { value: '', label: 'Select' }, // no swatch
+  { value: 'blue', label: 'Blue', swatch: '#1473e6' },
+  { value: 'gradient', label: 'Gradient', swatch: 'linear-gradient(90deg, #ff6b6b, #845ef7)' },
+];</code></pre>
       </article>
 
       <article class="sg-example">
@@ -474,6 +483,18 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
     });
     const pickerField = document.querySelector('#demo-picker-field-m');
     pickerField.items = pickerItems;
+
+    const swatchItems = [
+      { value: '', label: 'Select' },
+      { value: 'blue', label: 'Blue', swatch: '#1473e6' },
+      { value: 'green', label: 'Green', swatch: '#2d9d78' },
+      { value: 'white', label: 'White', swatch: '#ffffff' },
+      { value: 'gradient', label: 'Gradient', swatch: 'linear-gradient(90deg, #ff6b6b, #845ef7)' },
+    ];
+    [document.querySelector('#demo-picker-swatch'), document.querySelector('#demo-picker-swatch-m')].forEach((picker) => {
+      picker.items = swatchItems;
+      picker.value = 'blue';
+    });
 
     // nx-segmented-btn
     const segmented = document.querySelector('#demo-segmented');

@@ -1,6 +1,6 @@
 # nx-picker
 
-A dropdown picker with a built-in trigger button, keyboard navigation, and a checkmark on the selected item. Supports dividers.
+A dropdown picker with a built-in trigger button, keyboard navigation, and a checkmark on the selected item. Supports dividers and color swatches.
 
 ## Usage
 
@@ -47,9 +47,14 @@ Each entry in the `items` array is one of:
 // Regular item
 { value: 'content', label: 'Content' }
 
+// Item with a color swatch (any CSS background value: hex, rgb(), gradient…)
+{ value: 'blue', label: 'Blue', swatch: '#1473e6' }
+
 // Visual divider
 { divider: true }
 ```
+
+When the selected item has a `swatch`, the trigger shows it before the label too. The swatch matches `nx-menu`'s `swatch` item property (16px rounded square), so both components share one item API.
 
 ## API
 

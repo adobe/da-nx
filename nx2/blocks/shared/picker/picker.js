@@ -142,6 +142,11 @@ class NxPicker extends LitElement {
     if (handled) e.preventDefault();
   }
 
+  _renderSwatch(swatch) {
+    if (!swatch) return nothing;
+    return html`<span class="picker-swatch" style="background:${swatch}" aria-hidden="true"></span>`;
+  }
+
   _renderItem(item) {
     if (item.section) {
       return html`<li class="picker-section" role="presentation"><span>${item.section}</span></li>`;
@@ -165,6 +170,7 @@ class NxPicker extends LitElement {
           @mouseenter=${() => { this._active = item.value; }}
           @focus=${() => { this._active = item.value; }}
         >
+          ${this._renderSwatch(item.swatch)}
           <span class="picker-item-label">${item.label}</span>
           ${item.trailingIcon ? html`
             <svg class="picker-open-in-icon" viewBox="0 0 20 20" aria-hidden="true">
@@ -186,6 +192,7 @@ class NxPicker extends LitElement {
         @click=${this._toggle}
         @keydown=${this._onTriggerKeydown}
       >
+        ${this._renderSwatch(this._selectedItem?.swatch)}
         <span class="picker-trigger-label">${this._triggerLabel}</span>
         <svg class="picker-chevron" viewBox="0 0 10 10" aria-hidden="true"><use href=${CHEVRON_HREF}></use></svg>
       </button>
