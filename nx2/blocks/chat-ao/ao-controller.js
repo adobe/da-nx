@@ -240,9 +240,6 @@ export default class AoChatController {
     const {
       accessToken, userId, tenantId, email, name, projectedProductContext,
     } = await loadIms();
-    // Bind the connection to the current site so the CMA bridge can scope the
-    // session to it and reject a reconnect that resolves to a different site's
-    // session (guards cross-site session bleed — see chat-ao-component.md).
     const { org, site } = this._context ?? {};
     const siteId = org && site ? `${org}/${site}` : undefined;
     return {
