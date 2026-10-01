@@ -301,7 +301,6 @@ class Editor extends LitElement {
           .value=${value ?? ''}
           .previewHref=${imagePreviewHref({ href: value, previewOrigin: this.assetContext.previewOrigin })}
           .aemAssetsAvailable=${this.assetContext.aemAssetsAvailable}
-          .aemAssetsError=${this.assetContext.aemAssetsError}
           .onSelectSource=${this.assetContext.onSelectSource}
           ?disabled=${readonly}
           @asset-change=${(event) => {
