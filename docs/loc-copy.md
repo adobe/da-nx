@@ -1,28 +1,27 @@
 # MSM merge boundary
 
-The only new public entrypoint is `nx/public/utils/loc.js`. It exports
-`createMergeCopy({ fetch, daOrigin })`, returning a reusable merge function.
+The only new public entrypoint is `nx/public/plugins/rollout/utils.js`. It exports
+`mergeCopy({ fetch, daOrigin, urlSource, urlTarget, msg })`.
 No public upload, configuration, metadata, hash, or general DA API.
 
 ```js
 import DA_SDK from 'https://da.live/nx/utils/sdk.js';
-import { createMergeCopy } from 'https://da.live/nx/public/utils/loc.js';
+import { mergeCopy } from 'https://da.live/nx/public/plugins/rollout/utils.js';
 
 const { actions } = await DA_SDK;
-const mergeCopy = createMergeCopy({
+const result = await mergeCopy({
   fetch: actions.daFetch,
   daOrigin: 'https://admin.da.live',
+  urlSource: '/org/source-site/en/page.html',
+  urlTarget: '/org/target-site/fr/page.html',
+  msg: 'MSM Merge',
 });
-const result = await mergeCopy({
-  source: '/org/source-site/en/page.html',
-  destination: '/org/target-site/fr/page.html',
-}, 'MSM Merge');
 ```
 
 `fetch(href, options)` supplies authentication and returns a `Response`.
 Paths include org/site. Translation config comes from the destination site,
 then its org on 404; no config means no equivalent hostnames. The private
-loader caches per org/site and reports other failures. Nothing discovers
+loader caches per fetch callback, DA origin, and org/site and reports other failures. Nothing discovers
 IMS, the host, or iframe location.
 
 Merge returns a `Response`, `{ ok: true }` for identical content, or

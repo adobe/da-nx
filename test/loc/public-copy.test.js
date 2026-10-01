@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { createCopy, createConfigLoader } from '../../nx/utils/loc.js';
-import * as loc from '../../nx/public/utils/loc.js';
+import * as loc from '../../nx/public/plugins/rollout/utils.js';
 
 const ORIGIN = 'https://admin.da.live';
 const SOURCE = '/source-org/source-site/en/page.html';
@@ -196,9 +196,9 @@ describe('Shared loc configuration loader', () => {
   });
 });
 
-describe('Public MSM merge factory', () => {
-  it('exports only the merge factory and requires only fetch and DA origin', async () => {
-    expect(Object.keys(loc)).to.deep.equal(['createMergeCopy']);
+describe('Public MSM merge', () => {
+  it('exports only mergeCopy and accepts explicit fetch, origin, paths, and message', async () => {
+    expect(Object.keys(loc)).to.deep.equal(['mergeCopy']);
     const fetch = sinon.stub().callsFake(async (href, opts) => {
       if (href.endsWith('/.da/translate.json')) {
         return new Response(JSON.stringify({ config: { data: [] } }));
@@ -206,11 +206,36 @@ describe('Public MSM merge factory', () => {
       if (opts?.method === 'POST') return new Response('{}');
       return new Response(html(href.endsWith(SOURCE) ? 'Upstream' : 'Regional'));
     });
-    const mergeCopy = loc.createMergeCopy({ fetch, daOrigin: ORIGIN });
-    const result = await mergeCopy({ source: SOURCE, destination: DESTINATION }, 'MSM Merge');
+    const result = await loc.mergeCopy({
+      fetch, daOrigin: ORIGIN, urlSource: SOURCE, urlTarget: DESTINATION, msg: 'MSM Merge',
+    });
     expect(result.ok).to.equal(true);
     expect(fetch.args.some(([href]) => (
       href === `${ORIGIN}/source/target-org/target-site/.da/translate.json`
     ))).to.equal(true);
+  });
+
+  it('reuses configuration and in-flight versions across concurrent direct calls', async () => {
+    const fetch = sinon.stub().callsFake(async (href, opts) => {
+      if (href.endsWith('/.da/translate.json')) {
+        return new Response(JSON.stringify({ config: { data: [] } }));
+      }
+      if (href.includes('/versionsource')) {
+        await new Promise((resolve) => { setTimeout(resolve, 0); });
+        return new Response('{}');
+      }
+      if (opts?.method === 'POST') return new Response('{}');
+      return new Response(html(href.endsWith(SOURCE) ? 'Upstream' : 'Regional'));
+    });
+    const results = await Promise.all(Array.from({ length: 3 }, () => loc.mergeCopy({
+      fetch, daOrigin: ORIGIN, urlSource: SOURCE, urlTarget: DESTINATION, msg: 'MSM Merge',
+    })));
+    expect(results.every((result) => result.ok)).to.equal(true);
+    expect(fetch.args.filter(([href]) => href.endsWith('/.da/translate.json'))).to.have.length(1);
+    expect(fetch.args.filter(([href]) => href.includes('/versionsource'))).to.have.length(1);
+    await loc.mergeCopy({
+      fetch, daOrigin: 'https://other.example', urlSource: SOURCE, urlTarget: DESTINATION, msg: 'Merge',
+    });
+    expect(fetch.args.filter(([href]) => href.endsWith('/.da/translate.json'))).to.have.length(2);
   });
 });
