@@ -2,7 +2,12 @@ import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
 import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
-import { convertPath, createSnapshotPrefix } from '../../utils/utils.js';
+import {
+  convertPath,
+  createSnapshotPrefix,
+  findSourceLocation,
+  getSourceLocations,
+} from '../../utils/utils.js';
 
 function getTitle(status) {
   const title = {
@@ -104,12 +109,12 @@ async function rolloutLangLocales(title, lang, urls, behavior) {
   return results;
 }
 
-function formatLangUrls(org, site, sourceLocation, lang, urls, snapshot) {
+export function formatLangUrls(org, site, sourceLocations, lang, urls, snapshot) {
   const snapshotPrefix = createSnapshotPrefix(snapshot);
   return urls.map((url) => {
     const convertConf = {
       path: url.suppliedPath,
-      sourcePrefix: sourceLocation,
+      sourcePrefix: findSourceLocation({ path: url.suppliedPath, locations: sourceLocations }),
       destPrefix: lang.location,
       snapshotPrefix,
     };
@@ -147,6 +152,7 @@ export async function rolloutLang({
   snapshot,
   title,
   options,
+  langs,
   lang,
   urls: projectUrls,
   actions,
@@ -154,11 +160,11 @@ export async function rolloutLang({
   lang.rollout.status = 'rolling out';
   actions.requestUpdate();
 
-  const sourceLocation = options['source.language']?.location || '/';
+  const sourceLocations = getSourceLocations({ options, langs });
   const behavior = options['rollout.conflict.behavior'];
 
   // Determine all sources are valid before continuing
-  const langUrls = formatLangUrls(org, site, sourceLocation, lang, projectUrls, snapshot);
+  const langUrls = formatLangUrls(org, site, sourceLocations, lang, projectUrls, snapshot);
   let { errors, message, urls } = await fetchLangSources(lang, langUrls);
   if (errors) return { errors, message };
 

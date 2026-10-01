@@ -5,6 +5,7 @@ import {
   getSourceLocations,
 } from '../../../../nx/blocks/loc/utils/utils.js';
 import { calculateView } from '../../../../nx/blocks/loc/utils/steps.js';
+import { formatLangUrls } from '../../../../nx/blocks/loc/views/rollout/index.js';
 import { getSyncUrls } from '../../../../nx/blocks/loc/views/sync/index.js';
 
 const options = { 'source.language': { name: 'English', location: '/us/en' } };
@@ -91,6 +92,19 @@ describe('loc source locations', () => {
 
     it('does not double the per-language source prefix', () => {
       expect(resolve('/emea/en/about/page', '/emea/en')).to.equal('/emea/en/about/page.html');
+    });
+  });
+
+  describe('rollout sources', () => {
+    const locations = getSourceLocations({ options, langs });
+    const source = (path, lang) => formatLangUrls('org', 'site', locations, lang, [{ suppliedPath: path }])[0].source;
+
+    it('reads translated content from the language location without doubling the prefix', () => {
+      expect(source('/emea/en/about/page', langs[1])).to.equal('/org/site/emea/de/about/page.html');
+    });
+
+    it('resolves default-location URLs as before', () => {
+      expect(source('/us/en/about/page', langs[1])).to.equal('/org/site/emea/de/about/page.html');
     });
   });
 });
