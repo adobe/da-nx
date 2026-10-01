@@ -90,7 +90,7 @@ body {
   padding-left: 10px;
 }
 
-.sg-picker-field {
+.sg-picker-container {
   width: min(100%, 240px);
 }
 
