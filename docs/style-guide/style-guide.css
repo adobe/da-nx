@@ -90,6 +90,10 @@ body {
   padding-left: 10px;
 }
 
+.sg-picker-field {
+  width: min(100%, 240px);
+}
+
 /* form.css references icons at a root-relative path that consuming sites are
    expected to serve; this repo doesn't ship them, so point this preview at a
    live consumer (da.live) that does, instead of a broken image. */
