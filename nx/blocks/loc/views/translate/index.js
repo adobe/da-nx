@@ -95,6 +95,27 @@ export async function getUrls(
   return { urls: formattedUrls };
 }
 
+/**
+ * Resolve the DA path a translated url is saved to for a language.
+ * @param {Object} config The config.
+ * @param {Object} config.url The project url (suppliedPath, basePath).
+ * @param {Object} config.lang The target language (location).
+ * @param {string[]} config.sourceLocations Configured source locations.
+ * @param {string} [config.snapshotPrefix] Optional snapshot prefix.
+ * @returns {string} The DA destination path.
+ */
+export function getSaveDestPath({ url, lang, sourceLocations, snapshotPrefix = '' }) {
+  const sourcePrefix = findSourceLocation({ path: url.suppliedPath, locations: sourceLocations });
+  const path = sourcePrefix ? url.suppliedPath : url.basePath;
+  const { daDestPath } = convertPath({
+    path,
+    sourcePrefix: sourcePrefix || '/',
+    destPrefix: lang.location,
+    snapshotPrefix,
+  });
+  return daDestPath;
+}
+
 async function saveLang({
   org,
   site,
@@ -114,9 +135,7 @@ async function saveLang({
   const sourceLocations = getSourceLocations({ options, langs });
 
   const urlsToSave = urls.map((url) => {
-    const sourcePrefix = findSourceLocation({ path: url.suppliedPath, locations: sourceLocations });
-    const path = sourcePrefix ? url.suppliedPath : url.basePath;
-    const { daDestPath } = convertPath({ path, sourcePrefix: sourcePrefix || '/', destPrefix: lang.location, snapshotPrefix });
+    const daDestPath = getSaveDestPath({ url, lang, sourceLocations, snapshotPrefix });
     return { ...url, destination: `/${org}/${site}${daDestPath}` };
   });
 

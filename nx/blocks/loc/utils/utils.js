@@ -138,6 +138,23 @@ export function convertPath({ path, sourcePrefix, destPrefix, snapshotPrefix = '
   return paths;
 }
 
+/**
+ * Compute the language-agnostic base path stored on a project url.
+ * @param {Object} config The config.
+ * @param {string} config.path The supplied AEM path.
+ * @param {string} [config.defaultLocation] The default source language location.
+ * @param {Object[]} [config.langs] Language rows, optionally with a `source`.
+ * @returns {string} The AEM base path.
+ */
+export function getProjectBasePath({ path, defaultLocation, langs }) {
+  const locations = getSourceLocations({
+    options: { 'source.language': { location: defaultLocation } },
+    langs,
+  });
+  const sourcePrefix = findSourceLocation({ path, locations }) || defaultLocation;
+  return convertPath({ path, sourcePrefix }).aemBasePath;
+}
+
 export function formatPath(org, site, sourceLocation, path) {
   const hasSourceLocaction = path.startsWith(sourceLocation)
     && path !== sourceLocation
