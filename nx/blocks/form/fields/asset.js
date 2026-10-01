@@ -52,7 +52,6 @@ class FormAsset extends LitElement {
     required: { type: Boolean },
     disabled: { type: Boolean, reflect: true },
     aemAssetsAvailable: { type: Boolean, attribute: false },
-    aemAssetsError: { attribute: false },
     onSelectSource: { attribute: false },
     _pending: { state: true },
     _selectionError: { state: true },
@@ -322,13 +321,10 @@ class FormAsset extends LitElement {
             <button type="button" class="asset-source" @click=${() => this._choose('aem-assets')}>
               <span class="asset-source-icon" aria-hidden="true">${LIBRARY_ICON}</span>
               <span class="source-title">AEM Assets</span>
-              <span class="source-description">Select an image from the connected asset repository.</span>
+              <span class="source-description">Select an image from AEM Assets.</span>
             </button>
           ` : nothing}
         </div>
-        ${this.aemAssetsError ? html`
-          <p class="asset-config-error" role="alert">${this.aemAssetsError} Upload remains available.</p>
-        ` : nothing}
         <div class="asset-dialog-footer">
           <form-button variant="secondary" @click=${this._closeDialog}>Cancel</form-button>
         </div>
