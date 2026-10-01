@@ -252,6 +252,8 @@ export default class AoChatController {
     const {
       accessToken, userId, tenantId, email, name, projectedProductContext,
     } = await loadIms();
+    const { org, site } = this._context ?? {};
+    const siteId = org && site ? `${org}/${site}` : undefined;
     return {
       authFrame: {
         type: AO_FRAME.AUTH,
@@ -261,6 +263,7 @@ export default class AoChatController {
         'x-user-email': email,
         'x-user-id': userId,
         'x-user-name': name,
+        ...(siteId ? { 'x-site': siteId } : {}),
       },
       wsBase: resolveAoWsBase(projectedProductContext),
     };
