@@ -52,7 +52,15 @@
     outline-offset: 2px;
   }
 
+  .picker-trigger-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+  }
+
   .picker-trigger-label {
+    min-width: 0;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;

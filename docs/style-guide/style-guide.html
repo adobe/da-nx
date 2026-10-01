@@ -318,37 +318,133 @@ button.addEventListener('click', () =&gt; popover.show({ anchor: button }));</co
       </article>
 
       <article class="sg-example">
-        <h3>nx-picker <a href="https://github.com/adobe/da-nx/blob/main/docs/picker.md" target="_blank"
+        <h3>nx-picker — default <a href="https://github.com/adobe/da-nx/blob/main/docs/picker.md" target="_blank"
             rel="noopener">docs →</a></h3>
         <div class="sg-demo sg-picker-container">
           <nx-picker id="demo-picker" placement="below"></nx-picker>
-          <nx-picker id="demo-picker-m" size="m" placement="below"></nx-picker>
-          <nx-picker id="demo-picker-field-m" variant="field" size="m" placeholder="Please select"
-            placement="below"></nx-picker>
-          <nx-picker id="demo-picker-swatch" placement="below"></nx-picker>
-          <nx-picker id="demo-picker-swatch-m" size="m" placement="below"></nx-picker>
         </div>
         <pre><code>&lt;nx-picker id="my-picker"&gt;&lt;/nx-picker&gt;
 
-&lt;!-- size variant: "s" (default) or "m" --&gt;
-&lt;nx-picker id="my-picker" size="m"&gt;&lt;/nx-picker&gt;
-
-&lt;!-- bordered field variant --&gt;
-&lt;nx-picker variant="field" placeholder="Please select" size="m"&gt;&lt;/nx-picker&gt;
-
+const picker = document.querySelector('#my-picker');
 picker.items = [
   { value: 'all', label: 'All' },
   { value: 'content', label: 'Content' },
 ];
 picker.value = 'all';
-picker.addEventListener('change', (e) =&gt; console.log(e.detail.value));
+</code></pre>
+      </article>
 
-// Color swatches: shown on items and on the trigger for the selected item
+      <article class="sg-example">
+        <h3>nx-picker — size m</h3>
+        <div class="sg-demo sg-picker-container">
+          <nx-picker id="demo-picker-m" size="m" placement="below"></nx-picker>
+        </div>
+        <pre><code>&lt;nx-picker id="picker-m" size="m"&gt;&lt;/nx-picker&gt;
+
+const picker = document.querySelector('#picker-m');
 picker.items = [
-  { value: '', label: 'Select' }, // no swatch
+  { value: 'all', label: 'All' },
+  { value: 'content', label: 'Content' },
+];
+picker.value = 'all';
+</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-picker — field</h3>
+        <div class="sg-demo sg-picker-container">
+          <nx-picker id="demo-picker-field-m" variant="field" size="m" placeholder="Please select"
+            placement="below"></nx-picker>
+        </div>
+        <pre><code>&lt;nx-picker id="field-picker" variant="field" size="m"
+  placeholder="Please select"&gt;&lt;/nx-picker&gt;
+
+document.querySelector('#field-picker').items = [
+  { value: 'all', label: 'All' },
+  { value: 'content', label: 'Content' },
+];
+</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-picker — swatches</h3>
+        <div class="sg-demo sg-picker-container">
+          <nx-picker id="demo-picker-swatch" placement="below"></nx-picker>
+        </div>
+        <pre><code>&lt;nx-picker id="swatch-picker"&gt;&lt;/nx-picker&gt;
+
+const picker = document.querySelector('#swatch-picker');
+picker.items = [
   { value: 'blue', label: 'Blue', swatch: '#1473e6' },
-  { value: 'gradient', label: 'Gradient', swatch: 'linear-gradient(90deg, #ff6b6b, #845ef7)' },
-];</code></pre>
+  { value: 'green', label: 'Green', swatch: '#2d9d78' },
+];
+picker.value = 'blue';
+</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-picker — swatches, size m</h3>
+        <div class="sg-demo sg-picker-container">
+          <nx-picker id="demo-picker-swatch-m" size="m" placement="below"></nx-picker>
+        </div>
+        <pre><code>&lt;nx-picker id="swatch-picker-m" size="m"&gt;&lt;/nx-picker&gt;
+
+const picker = document.querySelector('#swatch-picker-m');
+picker.items = [
+  { value: 'blue', label: 'Blue', swatch: '#1473e6' },
+  { value: 'gradient', label: 'Gradient',
+    swatch: 'linear-gradient(90deg, #ff6b6b, #845ef7)' },
+];
+picker.value = 'blue';
+</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-picker — swatches, field</h3>
+        <div class="sg-demo sg-picker-container">
+          <nx-picker id="demo-picker-swatch-field-m" variant="field" size="m" placeholder="Please select"
+            placement="below"></nx-picker>
+        </div>
+        <pre><code>&lt;nx-picker id="swatch-field" variant="field" size="m"
+  placeholder="Please select"&gt;&lt;/nx-picker&gt;
+
+document.querySelector('#swatch-field').items = [
+  { value: 'blue', label: 'Blue', swatch: '#1473e6' },
+  { value: 'green', label: 'Green', swatch: '#2d9d78' },
+];
+</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-picker — trailing icons</h3>
+        <div class="sg-demo sg-picker-container">
+          <nx-picker id="demo-picker-icons-m" size="m" placement="below"></nx-picker>
+        </div>
+        <pre><code>&lt;nx-picker id="icon-picker" size="m"&gt;&lt;/nx-picker&gt;
+
+const picker = document.querySelector('#icon-picker');
+picker.items = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'approved', label: 'Approved', trailingIcon: './icons/selected.svg' },
+];
+picker.value = 'draft';
+</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-picker — trailing icons, field</h3>
+        <div class="sg-demo sg-picker-container">
+          <nx-picker id="demo-picker-icons-field-m" variant="field" size="m" placeholder="Please select"
+            placement="below"></nx-picker>
+        </div>
+        <pre><code>&lt;nx-picker id="icon-field" variant="field" size="m"
+  placeholder="Please select"&gt;&lt;/nx-picker&gt;
+
+document.querySelector('#icon-field').items = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'approved', label: 'Approved', trailingIcon: './icons/selected.svg' },
+];
+</code></pre>
       </article>
 
       <article class="sg-example">
@@ -492,10 +588,26 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
       { value: 'white', label: 'White', swatch: '#ffffff' },
       { value: 'gradient', label: 'Gradient', swatch: 'linear-gradient(90deg, #ff6b6b, #845ef7)' },
     ];
-    [document.querySelector('#demo-picker-swatch'), document.querySelector('#demo-picker-swatch-m')].forEach((picker) => {
+    [
+      document.querySelector('#demo-picker-swatch'),
+      document.querySelector('#demo-picker-swatch-m'),
+    ].forEach((picker) => {
       picker.items = swatchItems;
       picker.value = 'blue';
     });
+    const pickerSwatchField = document.querySelector('#demo-picker-swatch-field-m');
+    pickerSwatchField.items = swatchItems.filter((item) => item.value);
+
+    const iconItems = [
+      { value: 'draft', label: 'Draft' },
+      { value: 'approved', label: 'Approved', trailingIcon: './icons/selected.svg' },
+    ];
+    const pickerIcons = document.querySelector('#demo-picker-icons-m');
+    const pickerIconsField = document.querySelector('#demo-picker-icons-field-m');
+    [pickerIcons, pickerIconsField].forEach((picker) => {
+      picker.items = iconItems;
+    });
+    pickerIcons.value = 'draft';
 
     // nx-segmented-btn
     const segmented = document.querySelector('#demo-segmented');
