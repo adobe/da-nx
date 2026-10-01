@@ -3,7 +3,7 @@
   flex-direction: column;
   flex: 1;
   font-family: var(--s2-font-family);
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-regular-font-size);
 
   button {
     cursor: pointer;
@@ -53,7 +53,7 @@
   text-align: left;
 
   span {
-    line-height: 20px;
+    line-height: var(--s2-component-l-regular-line-height);
   }
 
   &:hover {
