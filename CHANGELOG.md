@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/adobe/da-nx/compare/v1.5.0...v1.6.0) (2026-10-01)
+
+
+### Features
+
+* **picker:** support color swatches on items and trigger ([#796](https://github.com/adobe/da-nx/issues/796)) ([e258b4d](https://github.com/adobe/da-nx/commit/e258b4d555ab9b8c7ba0952d54fa32895abdf3cb))
+
 # [1.5.0](https://github.com/adobe/da-nx/compare/v1.4.1...v1.5.0) (2026-10-01)
 
 
