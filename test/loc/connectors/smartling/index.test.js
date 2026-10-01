@@ -1,8 +1,40 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import {
-  isConnected, connect, saveItems, sendAllLanguages, getStatusAll,
+  isConnected, connect, saveItems, sendAllLanguages, getStatusAll, cancelTranslation,
 } from '../../../../nx/blocks/loc/connectors/smartling/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
+
+// Mirrors the connector's internal PROCESS_POLL_INTERVAL_MS/MAX_PROCESS_POLL_ATTEMPTS,
+// used to drive sinon's fake clock through the cancelTranslation poll loop.
+const POLL_INTERVAL_MS = 2000;
+const MAX_POLL_ATTEMPTS = 30;
+
+/**
+ * Advances a sinon fake clock in POLL_INTERVAL_MS steps until `promise`
+ * settles. A single large tickAsync() races the promise chain: the code
+ * under test hasn't registered its next setTimeout yet when tickAsync
+ * evaluates which timers are due, so it can fast-forward past a timer
+ * that doesn't exist yet and leave the real one (now scheduled even
+ * further in the "future") never firing.
+ * @param {Object} clock - The sinon fake clock.
+ * @param {Promise} promise - The promise to wait for.
+ * @param {number} [maxSteps] - Safety cap on tick iterations.
+ * @returns {Promise<void>}
+ */
+async function tickUntilSettled(clock, promise, maxSteps = MAX_POLL_ATTEMPTS + 1) {
+  let settled = false;
+  promise.then(() => {
+    settled = true;
+  }, () => {
+    settled = true;
+  });
+
+  for (let i = 0; i < maxSteps && !settled; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await clock.tickAsync(POLL_INTERVAL_MS);
+  }
+}
 
 let calls;
 let origFetch;
@@ -312,6 +344,61 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(calls[0].url).to.equal(expectedUrl);
     expect(langs[0].translation.status).to.equal('translated');
     expect(langs[0].translation.translated).to.equal(1);
+  });
+
+  it('marks a pending-cancel lang cancelled once its locale is gone from job progress', async () => {
+    origFetch = window.fetch;
+    window.fetch = async () => new Response(JSON.stringify({
+      response: { data: { contentProgressReport: [{ targetLocaleId: 'de-DE', progress: { percentComplete: 50 } }] } },
+    }), { status: 200 });
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+    const langs = [
+      { code: 'fr-FR', translation: { status: 'translated', cancelPending: true } },
+      { code: 'de-DE', translation: { status: 'translated', cancelPending: true } },
+      { code: 'es-ES', translation: { status: 'translated' } },
+    ];
+    await getStatusAll({
+      org, site, service, langs, urls: [], actions: { saveState: async () => {} },
+    });
+
+    expect(langs[0].translation.status).to.equal('cancelled');
+    expect(langs[0].translation.cancelPending).to.equal(undefined);
+    expect(langs[1].translation.status).to.equal('50% translated');
+    expect(langs[1].translation.cancelPending).to.equal(true);
+    expect(langs[2].translation.status).to.equal('0% translated');
+  });
+
+  it('reconciles a cancelled locale against a real job progress payload that omits it', async () => {
+    const report = (id, percentComplete) => ({
+      targetLocaleId: id,
+      unauthorizedProgressReport: { stringCount: 0, wordCount: 0 },
+      workflowProgressReportList: [],
+      progress: { totalWordCount: 252, percentComplete },
+    });
+    origFetch = window.fetch;
+    window.fetch = async () => new Response(JSON.stringify({
+      response: {
+        code: 'SUCCESS',
+        data: {
+          contentProgressReport: [report('it-IT', 53), report('es-ES', 50), report('fr-FR', 53)],
+          progress: { totalWordCount: 756, percentComplete: 52 },
+        },
+      },
+    }), { status: 200 });
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+    const langs = ['de-DE', 'it-IT', 'es-ES', 'fr-FR'].map((code) => ({
+      code, translation: { status: '0% translated', translated: 0 },
+    }));
+    langs[0].translation.cancelPending = true;
+
+    await getStatusAll({
+      org, site, service, langs, urls: [], actions: { saveState: async () => {} },
+    });
+
+    expect(langs.map((l) => l.translation.status)).to.deep.equal([
+      'cancelled', '53% translated', '50% translated', '53% translated',
+    ]);
+    expect(langs[0].translation.cancelPending).to.equal(undefined);
   });
 
   it('surfaces an error and does nothing when the job has not been created yet (no jobUid)', async () => {
@@ -909,5 +996,176 @@ describe('smartling connector - legacy origin rewriting', () => {
 
     expect(refreshCalls).to.equal(1);
     expect(langs[0].translation).to.equal(undefined);
+  });
+
+  it('cancels a single locale via removeLocaleFromJob (not the job-level cancelJob endpoint), marking it cancelled', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method, body: opts.body });
+
+      if (u.includes('/jobs-api/v3/projects') && u.includes('/locales/fr-FR') && opts.method === 'DELETE') {
+        return new Response('{}', { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = {
+      org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' },
+    };
+    const lang = { name: 'French', code: 'fr-FR', translation: { status: 'translated' } };
+    const sendMessage = () => {};
+
+    const result = await cancelTranslation({ service, lang, sendMessage });
+
+    expect(result.ok).to.equal(true);
+    expect(lang.translation.status).to.equal('cancelled');
+    const deleteCall = calls.find((c) => c.method === 'DELETE');
+    expect(deleteCall.url).to.include(`/jobs-api/v3/projects/proj-1/jobs/job-1/locales/${lang.code}`);
+  });
+
+  it('skips cancellation as a no-op when the lang has no translation info yet', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      calls.push({ url: url.toString(), method: opts.method });
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = {
+      org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' },
+    };
+    const lang = { name: 'French', code: 'fr-FR' };
+    const sendMessage = () => {};
+
+    const result = await cancelTranslation({ service, lang, sendMessage });
+
+    expect(result).to.deep.equal({ ok: true, skipped: true });
+    expect(calls.length).to.equal(0);
+  });
+
+  it('skips cancellation as a no-op when no Smartling job has been created yet', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      calls.push({ url: url.toString(), method: opts.method });
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = {
+      org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1',
+    };
+    const lang = { name: 'French', code: 'fr-FR', translation: { status: 'translated' } };
+    const sendMessage = () => {};
+
+    const result = await cancelTranslation({ service, lang, sendMessage });
+
+    expect(result).to.deep.equal({ ok: true, skipped: true });
+    expect(calls.length).to.equal(0);
+  });
+
+  it('surfaces a cancellation failure as an error message instead of failing silently', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      calls.push({ url: u, method: opts.method });
+
+      if (u.includes('/locales/fr-FR') && opts.method === 'DELETE') {
+        return new Response(JSON.stringify({
+          response: { code: 'VALIDATION_ERROR', errors: [{ message: 'Locale not found on job.' }] },
+        }), { status: 400 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = {
+      org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' },
+    };
+    const lang = { name: 'French', code: 'fr-FR', translation: { status: 'translated' } };
+    const messages = [];
+
+    const result = await cancelTranslation({ service, lang, sendMessage: (m) => messages.push(m) });
+
+    expect(result.ok).to.equal(false);
+    expect(lang.translation.status).to.equal('translated');
+    expect(messages.some((m) => m.type === 'error' && m.text.includes('Locale not found on job.'))).to.equal(true);
+  });
+
+  it('polls the async process to completion on a 202 response before marking the lang cancelled', async () => {
+    const clock = sinon.useFakeTimers();
+    try {
+      let progressPolls = 0;
+      origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method });
+
+        if (u.includes('/locales/fr-FR') && opts.method === 'DELETE') {
+          return new Response(JSON.stringify({
+            response: { data: { processUid: 'process-1' } },
+          }), { status: 202 });
+        }
+        if (u.includes('/processes/process-1')) {
+          progressPolls += 1;
+          const processState = progressPolls < 2 ? 'PENDING' : 'COMPLETED';
+          return new Response(JSON.stringify({
+            response: { data: { processState } },
+          }), { status: 200 });
+        }
+        return new Response('{}', { status: 200 });
+      };
+
+      const service = {
+        org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' },
+      };
+      const lang = { name: 'French', code: 'fr-FR', translation: { status: 'translated' } };
+      const sendMessage = () => {};
+
+      const promise = cancelTranslation({ service, lang, sendMessage });
+      await tickUntilSettled(clock, promise);
+      const result = await promise;
+
+      expect(result.ok).to.equal(true);
+      expect(lang.translation.status).to.equal('cancelled');
+      expect(progressPolls).to.be.greaterThan(1);
+    } finally {
+      clock.restore();
+    }
+  });
+
+  it('surfaces an error when the async process never reaches a terminal state', async () => {
+    const clock = sinon.useFakeTimers();
+    try {
+      origFetch = window.fetch;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method });
+
+        if (u.includes('/locales/fr-FR') && opts.method === 'DELETE') {
+          return new Response(JSON.stringify({
+            response: { data: { processUid: 'process-1' } },
+          }), { status: 202 });
+        }
+        if (u.includes('/processes/process-1')) {
+          return new Response(JSON.stringify({ response: { data: { processState: 'PENDING' } } }), { status: 200 });
+        }
+        return new Response('{}', { status: 200 });
+      };
+
+      const service = {
+        org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' },
+      };
+      const lang = { name: 'French', code: 'fr-FR', translation: { status: 'translated' } };
+      const messages = [];
+
+      const promise = cancelTranslation({ service, lang, sendMessage: (m) => messages.push(m) });
+      await tickUntilSettled(clock, promise);
+      const result = await promise;
+
+      expect(result.ok).to.equal(false);
+      expect(lang.translation.status).to.equal('translated');
+      expect(lang.translation.cancelPending).to.equal(true);
+      expect(messages.some((m) => m.type === 'warning' && m.text.includes('did not finish in time'))).to.equal(true);
+    } finally {
+      clock.restore();
+    }
   });
 });
