@@ -55,6 +55,35 @@ export function getBasePath({ prefix, path }) {
 }
 
 /**
+ * Collect every configured source location: the default source language
+ * location plus any per-language `source` override.
+ * @param {Object} config The config.
+ * @param {Object} config.options The project options.
+ * @param {Object[]} [config.langs] The languages, optionally with a `source`.
+ * @returns {string[]} Unique source locations, excluding the root.
+ */
+export function getSourceLocations({ options, langs }) {
+  const defaultLocation = options?.['source.language']?.location;
+  const locations = [defaultLocation, ...(langs || []).map((lang) => lang.source)];
+  return [...new Set(locations.filter((location) => location && location !== '/'))];
+}
+
+/**
+ * Find the longest source location that contains a path.
+ * @param {Object} config The config.
+ * @param {string} config.path An AEM-formatted supplied path.
+ * @param {string[]} config.locations The candidate source locations.
+ * @returns {string|undefined} The matching location, if any.
+ */
+export function findSourceLocation({ path, locations }) {
+  const matches = locations.filter((location) => {
+    const base = location.replace(/\/$/, '');
+    return path === base || path.startsWith(`${base}/`);
+  });
+  return matches.sort((a, b) => b.length - a.length)[0];
+}
+
+/**
  * Joins a prefix and a path with exactly one separating slash, regardless
  * of whether `path` already has a leading slash.
  * @param {string} prefix - The path segment to prepend; any trailing slash
@@ -107,6 +136,23 @@ export function convertPath({ path, sourcePrefix, destPrefix, snapshotPrefix = '
   }
 
   return paths;
+}
+
+/**
+ * Compute the language-agnostic base path stored on a project url.
+ * @param {Object} config The config.
+ * @param {string} config.path The supplied AEM path.
+ * @param {string} [config.defaultLocation] The default source language location.
+ * @param {Object[]} [config.langs] Language rows, optionally with a `source`.
+ * @returns {string} The AEM base path.
+ */
+export function getProjectBasePath({ path, defaultLocation, langs }) {
+  const locations = getSourceLocations({
+    options: { 'source.language': { location: defaultLocation } },
+    langs,
+  });
+  const sourcePrefix = findSourceLocation({ path, locations }) || defaultLocation;
+  return convertPath({ path, sourcePrefix }).aemBasePath;
 }
 
 export function formatPath(org, site, sourceLocation, path) {
