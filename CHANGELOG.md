@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/adobe/da-nx/compare/v1.4.0...v1.4.1) (2026-10-01)
+
+
+### Bug Fixes
+
+* **chat-ao:** send x-site in AUTH so the CMA session is site-scoped ([#791](https://github.com/adobe/da-nx/issues/791)) ([d92748a](https://github.com/adobe/da-nx/commit/d92748a80ad430827a7ed271e60a3ad6b4feaf28))
+
 # [1.4.0](https://github.com/adobe/da-nx/compare/v1.3.0...v1.4.0) (2026-10-01)
 
 
