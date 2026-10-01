@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  getStructuredContentEditHref,
-  getStructuredContentHref,
+  getStructuredContentEditorUrl,
+  getStructuredContentDeliveryUrl,
   isStructuredContent,
 } from '../../../nx2/utils/structuredContent.js';
 
@@ -45,12 +45,12 @@ describe('isStructuredContent', () => {
   });
 });
 
-describe('structured content hrefs', () => {
-  it('builds the form editor and da-sc tier hrefs without .html', () => {
-    expect(getStructuredContentEditHref('/org/site/forms/contact.html')).to.equal('/form#/org/site/forms/contact');
-    expect(getStructuredContentHref({ path: '/org/site/forms/contact.html' }))
+describe('structured content urls', () => {
+  it('builds the form editor and da-sc delivery urls without .html', () => {
+    expect(getStructuredContentEditorUrl('/org/site/forms/contact.html')).to.equal('/form#/org/site/forms/contact');
+    expect(getStructuredContentDeliveryUrl({ path: '/org/site/forms/contact.html' }))
       .to.equal('https://da-sc.adobeaem.workers.dev/preview/org/site/forms/contact');
-    expect(getStructuredContentHref({ path: '/org/site/forms/contact', tier: 'publish' }))
+    expect(getStructuredContentDeliveryUrl({ path: '/org/site/forms/contact', tier: 'publish' }))
       .to.equal('https://da-sc.adobeaem.workers.dev/publish/org/site/forms/contact');
   });
 });
