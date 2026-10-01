@@ -1,3 +1,17 @@
+# [1.5.0](https://github.com/adobe/da-nx/compare/v1.4.1...v1.5.0) (2026-10-01)
+
+
+### Features
+
+* **whatsnew:** add what's new nav button and dialog ([#744](https://github.com/adobe/da-nx/issues/744)) ([b2bd965](https://github.com/adobe/da-nx/commit/b2bd9652b40134bac02c0f6323e6c0b67723ce30)), closes [#1140](https://github.com/adobe/da-nx/issues/1140) [#F8F8F8](https://github.com/adobe/da-nx/issues/F8F8F8)
+
+## [1.4.1](https://github.com/adobe/da-nx/compare/v1.4.0...v1.4.1) (2026-10-01)
+
+
+### Bug Fixes
+
+* **chat-ao:** send x-site in AUTH so the CMA session is site-scoped ([#791](https://github.com/adobe/da-nx/issues/791)) ([d92748a](https://github.com/adobe/da-nx/commit/d92748a80ad430827a7ed271e60a3ad6b4feaf28))
+
 # [1.4.0](https://github.com/adobe/da-nx/compare/v1.3.0...v1.4.0) (2026-10-01)
 
 
