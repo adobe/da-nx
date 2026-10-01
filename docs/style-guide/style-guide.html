@@ -323,8 +323,7 @@ button.addEventListener('click', () =&gt; popover.show({ anchor: button }));</co
         <div class="sg-demo sg-picker-container">
           <nx-picker id="demo-picker" placement="below"></nx-picker>
           <nx-picker id="demo-picker-m" size="m" placement="below"></nx-picker>
-          <nx-picker id="demo-picker-field" variant="field" placement="below"></nx-picker>
-          <nx-picker id="demo-picker-field-m" variant="field" size="m" placement="below"></nx-picker>
+          <nx-picker id="demo-picker-field-m" variant="field" size="m" placeholder="Please select" placement="below"></nx-picker>
         </div>
         <pre><code>&lt;nx-picker id="my-picker"&gt;&lt;/nx-picker&gt;
 
@@ -332,7 +331,7 @@ button.addEventListener('click', () =&gt; popover.show({ anchor: button }));</co
 &lt;nx-picker id="my-picker" size="m"&gt;&lt;/nx-picker&gt;
 
 &lt;!-- bordered field variant --&gt;
-&lt;nx-picker variant="field"&gt;&lt;/nx-picker&gt;
+&lt;nx-picker variant="field" placeholder="Please select"&gt;&lt;/nx-picker&gt;
 
 picker.items = [
   { value: 'all', label: 'All' },
@@ -469,12 +468,12 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
     [
       document.querySelector('#demo-picker'),
       document.querySelector('#demo-picker-m'),
-      document.querySelector('#demo-picker-field'),
-      document.querySelector('#demo-picker-field-m'),
     ].forEach((picker) => {
       picker.items = pickerItems;
       picker.value = 'all';
     });
+    const pickerField = document.querySelector('#demo-picker-field-m');
+    pickerField.items = pickerItems;
 
     // nx-segmented-btn
     const segmented = document.querySelector('#demo-segmented');

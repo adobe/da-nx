@@ -33,10 +33,11 @@ picker.addEventListener("change", (e) => {
 Use `variant="field"` for a bordered, form-style picker trigger.
 
 ```html
-<nx-picker variant="field" size="m"></nx-picker>
+<nx-picker variant="field" size="m" placeholder="Please select"></nx-picker>
 ```
 
 This variant is visual and interactive only. It does not provide a label or participate in native form submission, validation, or reset behavior.
+Its dropdown matches the rendered trigger width each time it opens.
 
 ## Item shapes
 
@@ -59,20 +60,23 @@ Each entry in the `items` array is one of:
 | `items`         | `Array`               | List of item descriptors (see shapes above).                                   |
 | `value`         | `String`              | The currently selected item value. Drives the trigger text and checkmark.      |
 | `labelOverride` | `String`              | Non-empty text that replaces the selected item text inside the trigger.        |
+| `placeholder`   | `String`              | Trigger fallback shown only when `value` does not match an item.               |
 | `placement`     | `String`              | Default placement when opened: `below` (default), `above`, or `auto`.         |
 | `size`          | `String`              | Item density: `s` (default) or `m`. Reflected as a host attribute.             |
-| `variant`       | `String`              | Set to `field` for the bordered, stacked-label presentation.                   |
+| `variant`       | `String`              | Set to `field` for the bordered form-style presentation.                       |
 | `open`          | `Boolean` (read-only) | Whether the picker is currently open.                                          |
+
+Trigger text precedence is: non-empty `labelOverride`, matching item label, `placeholder`, then blank. A placeholder is never added to the dropdown and does not change `value`.
 
 ## CSS custom properties
 
 | Property                 | Field default                         | Description               |
 | ------------------------ | ------------------------------------- | ------------------------- |
 | `--nx-picker-height`     | `32px`                                | Trigger height.           |
-| `--nx-picker-padding`    | `0 var(--s2-spacing-200)`             | Trigger padding.          |
-| `--nx-picker-border`     | `2px solid var(--s2-gray-300)`        | Trigger border.           |
+| `--nx-picker-padding`    | Size-dependent picker padding         | Trigger padding.          |
+| `--nx-picker-border`     | `none`                                | Trigger border.           |
 | `--nx-picker-radius`     | `var(--s2-corner-radius-500)`         | Trigger border radius.    |
-| `--nx-picker-background` | `var(--s2-gray-25)`                   | Trigger background.       |
+| `--nx-picker-background` | `var(--s2-gray-100)`                  | Trigger background.       |
 | `--nx-picker-max-width`  | `none`                                | Maximum component width.  |
 
 ### Methods

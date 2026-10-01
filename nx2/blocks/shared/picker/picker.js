@@ -22,6 +22,7 @@ class NxPicker extends LitElement {
      * Set to '' to use the normal label lookup again.
      */
     labelOverride: { type: String },
+    placeholder: { type: String },
     _active: { state: true },
     ignoreFocus: { attribute: true },
     size: { type: String, reflect: true },
@@ -42,19 +43,31 @@ class NxPicker extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [styles];
   }
 
+  updated(changed) {
+    if (changed.has('variant') && this.variant !== 'field') this._popover.style.width = '';
+  }
+
   get open() { return this._popover?.open ?? false; }
 
-  get _selectedLabel() {
-    return this.items?.find((i) => i.value === this.value)?.label ?? '';
+  get _selectedItem() {
+    return this.items?.find((i) => !i.divider && !i.section && i.value === this.value);
   }
 
   get _triggerLabel() {
     const o = this.labelOverride;
     if (typeof o === 'string' && o.length > 0) return o;
-    return this._selectedLabel;
+    if (this._selectedItem) return this._selectedItem.label ?? '';
+    return this.placeholder ?? '';
+  }
+
+  _syncPopoverWidth() {
+    this._popover.style.width = this.variant === 'field'
+      ? `${this._button.getBoundingClientRect().width}px`
+      : '';
   }
 
   show() {
+    this._syncPopoverWidth();
     this._popover?.show({
       anchor: this._button,
       placement: this.getAttribute('placement') ?? 'below',
