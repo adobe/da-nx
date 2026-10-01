@@ -15,7 +15,7 @@ export const VIEWS = [
 ];
 
 const PROJECT_CACHE = {};
-let CONFIG_CACHE;
+const CONFIG_CACHE = {};
 
 /**
  * Has Extension
@@ -203,7 +203,8 @@ export function getPathDetails() {
 }
 
 export async function fetchConfig(org, site) {
-  if (CONFIG_CACHE) return CONFIG_CACHE;
+  const key = org && site ? `${org}/${site}` : undefined;
+  if (key && CONFIG_CACHE[key]) return CONFIG_CACHE[key];
 
   const fetchConf = async (path) => {
     try {
@@ -229,7 +230,7 @@ export async function fetchConfig(org, site) {
     options = await fetchConf(fallbackUrl);
   }
 
-  CONFIG_CACHE = options;
+  if (key) CONFIG_CACHE[key] = options;
 
   return options;
 }

@@ -1,6 +1,4 @@
 /* global objectHash */
-import { getPathDetails, fetchConfig } from '../utils/utils.js';
-
 import './object_hash.js';
 
 const HASH_LENGTH = 12;
@@ -479,16 +477,16 @@ export const removeLocTags = (html) => {
   });
 };
 
-export async function regionalDiff(
+export async function regionalDiff({
   original,
   modified,
   acceptedHashes,
   rejectedHashes,
-  { normalizeImages } = {},
-) {
-  const { org, site } = getPathDetails();
-  const translateConfig = await fetchConfig(org, site);
-  const hostnames = findConfigValue(translateConfig, 'source.fragment.hostnames')?.split?.(',') || [];
+  site,
+  config,
+  normalizeImages,
+}) {
+  const hostnames = findConfigValue(config, 'source.fragment.hostnames')?.split?.(',') || [];
   const equivalentSites = new Set(hostnames.map((hostname) => hostname.split('--')[1]));
 
   const normalizedOriginal = await normalizeLinks(original, site, equivalentSites);
