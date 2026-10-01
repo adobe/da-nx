@@ -2,7 +2,7 @@ import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
-import { convertPath } from '../../utils/utils.js';
+import { convertPath, findSourceLocation, getSourceLocations } from '../../utils/utils.js';
 
 const MAX_LENGTH = 5000;
 const results = [];
@@ -48,11 +48,34 @@ export async function isConnected() {
   return true;
 }
 
+/**
+ * Build the per-language urls with resolved source and destination paths.
+ * @param {Object} config The config.
+ * @param {Object[]} config.urls The project urls (suppliedPath).
+ * @param {Object} config.lang The target language (code, location).
+ * @param {string[]} config.sourceLocations Configured source locations.
+ * @param {string} config.defaultLocation The default source location.
+ * @returns {Object[]} The urls with converted paths and the language code.
+ */
+export function getLangUrls({ urls, lang, sourceLocations, defaultLocation }) {
+  return urls.map((url) => {
+    const sourcePrefix = findSourceLocation({ path: url.suppliedPath, locations: sourceLocations })
+      || defaultLocation;
+    const converted = convertPath({
+      path: url.suppliedPath,
+      sourcePrefix,
+      destPrefix: lang.location,
+    });
+    return { ...url, ...converted, code: lang.code };
+  });
+}
+
 export async function sendAllLanguages({
   org, site, langs, langsWithUrls, options, actions,
 }) {
   const { sendMessage, saveState } = actions;
-  const sourceLanguage = options['source.language']?.location || '/';
+  const sourceLocations = getSourceLocations({ options, langs });
+  const defaultLocation = options['source.language']?.location || '/';
 
   results.length = 0;
 
@@ -65,18 +88,11 @@ export async function sendAllLanguages({
     const queue = new Queue(translateUrl, 50);
 
     // Find the URLs from the lang that has the URLs (custom source URLs)
-    const langUrls = langsWithUrls[idx].urls.map((url) => {
-      const conf = {
-        path: url.suppliedPath,
-        sourcePrefix: sourceLanguage,
-        destPrefix: lang.location,
-      };
-      const converted = convertPath(conf);
-      return {
-        ...url,
-        ...converted,
-        code: lang.code,
-      };
+    const langUrls = getLangUrls({
+      urls: langsWithUrls[idx].urls,
+      lang,
+      sourceLocations,
+      defaultLocation,
     });
 
     await Promise.all(langUrls.map((url) => queue.push(url)));

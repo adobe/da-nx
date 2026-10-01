@@ -5,11 +5,9 @@ import { daFetch } from '../../../../../nx2/utils/api.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 
 import {
-  convertPath,
   createSnapshotPrefix,
   fetchConfig,
-  findSourceLocation,
-  getSourceLocations,
+  getProjectBasePath,
 } from '../../utils/utils.js';
 import { getFragmentUrls } from './validate-utils.js';
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
@@ -157,14 +155,10 @@ class NxLocValidate extends LitElement {
       return { message: { type: 'error', text: 'Please select at least one URL.' } };
     }
 
-    const defaultPrefix = await this.getSourcePrefix();
-    const locations = getSourceLocations({
-      options: { 'source.language': { location: defaultPrefix } },
-      langs: this._configSheet?.languages?.data,
-    });
+    const defaultLocation = await this.getSourcePrefix();
+    const langs = this._configSheet?.languages?.data;
     const urls = checked.map((url) => {
-      const sourcePrefix = findSourceLocation({ path: url.pathname, locations }) || defaultPrefix;
-      const { aemBasePath } = convertPath({ path: url.pathname, sourcePrefix });
+      const aemBasePath = getProjectBasePath({ path: url.pathname, defaultLocation, langs });
       return {
         basePath: aemBasePath,
         suppliedPath: url.pathname,
