@@ -92,8 +92,9 @@ export function renderAssistantMessageBody(msg, { onExpandToolCall } = {}) {
   if (msg.uiArtifact) return renderUiArtifact(msg.uiArtifact);
   if (msg.questionResponse) return renderQuestionResponseCard(msg.questionResponse);
   return html`
-    <div class="message-content">${renderMarkdown(msg.content)}</div>
-    ${renderCopyButton(msg.content, { streaming: msg.streaming })}
+    ${msg.content ? html`<div class="message-content">${renderMarkdown(msg.content)}</div>` : nothing}
+    ${msg.content ? renderCopyButton(msg.content, { streaming: msg.streaming }) : nothing}
+    ${msg.stopped ? html`<div class="message-stopped">You stopped this response.</div>` : nothing}
   `;
 }
 

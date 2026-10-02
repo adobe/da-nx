@@ -433,7 +433,19 @@ export default class AoChatController {
   }
 
   _onTurnCompleted() {
+    const stoppedByUser = this._interrupting;
     this._interrupting = false;
+    if (stoppedByUser) {
+      // The user hit Stop mid-turn. Keep whatever was already streamed (it would
+      // otherwise be discarded by _done) and mark it so the chat shows the turn
+      // was stopped, rather than just silently halting.
+      const partial = this._streamingText;
+      this._messages = [...this._messages, {
+        role: 'assistant',
+        content: partial && partial.trim() ? partial : '',
+        stopped: true,
+      }];
+    }
     this._done();
   }
 

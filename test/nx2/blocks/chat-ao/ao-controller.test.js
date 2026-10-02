@@ -1862,3 +1862,31 @@ describe('ao-controller socket coalescing', () => {
     expect(connectCalls).to.equal(2);
   });
 });
+
+describe('ao-controller stop indication', () => {
+  it('commits the partial response and marks it stopped when the user interrupts', () => {
+    const controller = new AoChatController({ onUpdate: () => {} });
+    controller._interrupting = true;
+    controller._streamingText = 'partial answer so far';
+    controller._onTurnCompleted();
+    const last = controller._messages.at(-1);
+    expect(last).to.deep.equal({ role: 'assistant', content: 'partial answer so far', stopped: true });
+    expect(controller._thinking).to.equal(false);
+  });
+
+  it('marks stopped even with no streamed text yet', () => {
+    const controller = new AoChatController({ onUpdate: () => {} });
+    controller._interrupting = true;
+    controller._onTurnCompleted();
+    const last = controller._messages.at(-1);
+    expect(last).to.deep.equal({ role: 'assistant', content: '', stopped: true });
+  });
+
+  it('does not add a stopped marker on a normal turn completion', () => {
+    const controller = new AoChatController({ onUpdate: () => {} });
+    controller._interrupting = false;
+    controller._messages = [{ role: 'user', content: 'hi' }];
+    controller._onTurnCompleted();
+    expect(controller._messages.some((m) => m.stopped)).to.equal(false);
+  });
+});

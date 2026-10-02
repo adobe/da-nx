@@ -75,6 +75,13 @@
   box-sizing: border-box;
 }
 
+.message-stopped {
+  margin-top: 4px;
+  font-size: var(--s2-component-s-regular-font-size, 12px);
+  font-style: italic;
+  color: var(--s2-gray-600, #6e6e6e);
+}
+
 .message-content {
   a {
     color: var(--s2-blue-900);
