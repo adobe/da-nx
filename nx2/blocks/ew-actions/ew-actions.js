@@ -483,9 +483,9 @@ class NXEwActions extends LitElement {
               class="deploy-copy"
               aria-label=${`Copy ${title} URL`}
               @click=${() => this._copyUrl(info.url, kind)}
-            >${this._copied === kind
-          ? html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${CHECK_ICON_HREF}></use></svg>`
-          : html`<svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${COPY_ICON_HREF}></use></svg>`}</button>
+            >
+              <svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${this._copied === kind ? CHECK_ICON_HREF : COPY_ICON_HREF}></use></svg>
+            </button>
           </div>
         ` : nothing}
       </div>
