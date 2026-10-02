@@ -366,7 +366,7 @@ class Form extends LitElement {
             .nav=${this._nav}
             .onSelect=${this._onSelect}
           ></nx-editor>
-          ${this._previewEnabled === false ? nothing : html`<nx-preview .state=${this._state} open></nx-preview>`}
+          ${this._previewEnabled === false ? nothing : html`<nx-preview .state=${this._state}></nx-preview>`}
         </div>
         <nx-sidebar
           .state=${this._state}

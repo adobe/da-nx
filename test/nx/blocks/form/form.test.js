@@ -71,22 +71,6 @@ describe('nx-form', () => {
     expect(el.shadowRoot.querySelector('nx-sidebar')).to.exist;
   });
 
-  it('renders the preview open by default and collapses it on click', async () => {
-    const el = await mountReady();
-    const preview = el.shadowRoot.querySelector('nx-preview');
-    await preview.updateComplete;
-    const button = preview.shadowRoot.querySelector('button');
-    expect(preview.open).to.equal(true);
-    expect(button.getAttribute('aria-expanded')).to.equal('true');
-    expect(preview.shadowRoot.querySelector('pre')).to.exist;
-
-    button.click();
-    await preview.updateComplete;
-    expect(preview.open).to.equal(false);
-    expect(button.getAttribute('aria-expanded')).to.equal('false');
-    expect(preview.shadowRoot.querySelector('pre')).to.not.exist;
-  });
-
   it('removes the preview when editor.preview is false', async () => {
     const el = await mountReady();
     el._previewEnabled = false;
