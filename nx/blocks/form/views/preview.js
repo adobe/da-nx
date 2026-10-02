@@ -1,4 +1,4 @@
-import { LitElement, html, nothing } from 'da-lit';
+import { LitElement, html } from 'da-lit';
 import { loadStyle } from '../../../../nx2/utils/utils.js';
 
 const style = await loadStyle(import.meta.url);
@@ -22,7 +22,6 @@ async function loadPrism() {
 class Preview extends LitElement {
   static properties = {
     state: { attribute: false },
-    open: { type: Boolean, reflect: true },
   };
 
   _refreshTimer = null;
@@ -39,13 +38,6 @@ class Preview extends LitElement {
   }
 
   updated(changed) {
-    if (!this.open) return;
-
-    if (changed.has('open')) {
-      this._paint();
-      return;
-    }
-
     if (!changed.has('state')) return;
 
     // Render the first state synchronously so the preview is never blank.
@@ -73,23 +65,11 @@ class Preview extends LitElement {
     if (Prism) Prism.highlightElement(code);
   }
 
-  _toggle() {
-    this.open = !this.open;
-  }
-
   render() {
     return html`
       <div class="vis-wrapper is-visible">
-        <button
-          type="button"
-          class="nx-title"
-          aria-expanded=${this.open ? 'true' : 'false'}
-          @click=${this._toggle}
-        >
-          <svg class="nx-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Preview
-        </button>
-        ${this.open ? html`<pre><code class="language-json"></code></pre>` : nothing}
+        <p class="nx-title">Preview</p>
+        <pre><code class="language-json"></code></pre>
       </div>
     `;
   }
