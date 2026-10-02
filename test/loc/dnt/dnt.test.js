@@ -295,6 +295,57 @@ describe('code blocks', () => {
   });
 });
 
+describe('content rules', () => {
+  const configFor = (...content) => ({
+    'dnt-content-rules': {
+      data: content.map((value) => ({ content: value })),
+    },
+  });
+
+  it('wraps standalone and inline content', async () => {
+    const html = '<html><head></head><body><main><p>Example Product</p><p>Use Example Product today.</p></main></body></html>';
+    const result = await addDnt(html, configFor('Example Product'));
+
+    expect(result).to.equal('<html><head></head><body><main><p><span class="dnt-text" translate="no">Example Product</span></p><p>Use <span class="dnt-text" translate="no">Example Product</span> today.</p></main></body></html>');
+  });
+
+  it('wraps every occurrence in a text node', async () => {
+    const html = '<html><head></head><body><main><p>{Discount} plus {Discount}</p></main></body></html>';
+    const result = await addDnt(html, configFor('{Discount}'));
+
+    expect(result).to.equal('<html><head></head><body><main><p><span class="dnt-text" translate="no">{Discount}</span> plus <span class="dnt-text" translate="no">{Discount}</span></p></main></body></html>');
+  });
+
+  it('preserves markup-like and quoted rule content as text', async () => {
+    const html = '<html><head></head><body><main><p>Keep &lt;status-messages&gt; and "Example\'s Service" unchanged.</p></main></body></html>';
+    const result = await addDnt(html, configFor('<status-messages>', '"Example\'s Service"'));
+
+    expect(result).to.equal('<html><head></head><body><main><p>Keep <span class="dnt-text" translate="no">&lt;status-messages&gt;</span> and <span class="dnt-text" translate="no">"Example\'s Service"</span> unchanged.</p></main></body></html>');
+  });
+
+  it('does not nest wrappers inside existing non-translatable content', async () => {
+    const html = '<html><head></head><body><main><p><span translate="no">Example Product</span></p></main></body></html>';
+    const result = await addDnt(html, configFor('Example Product'));
+
+    expect(result).to.equal(html);
+  });
+
+  it('ignores empty content rules', async () => {
+    const html = '<html><head></head><body><main><p>Example Product</p></main></body></html>';
+    const result = await addDnt(html, configFor(''));
+
+    expect(result).to.equal(html);
+  });
+
+  it('restores wrapped content when DNT information is removed', async () => {
+    const html = '<html><head></head><body><main><p>Use Example Product with {Discount}.</p></main></body></html>';
+    const result = await addDnt(html, configFor('Example Product', '{Discount}'));
+    const removed = await removeDnt({ html: result, org: 'example', site: 'website' });
+
+    expect(removed).to.equal(html);
+  });
+});
+
 describe('addDntInfoToHtml', () => {
   it('adds dnt info to html', async () => {
     const metadataTable = `<html><head></head><body>
