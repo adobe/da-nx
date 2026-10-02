@@ -68,6 +68,26 @@ describe('form-asset', () => {
     expect(button(field, 'Remove')).to.exist;
   });
 
+  it('reveals a preview only after its own image has loaded', async () => {
+    const pixel = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='), (c) => c.charCodeAt(0));
+    const blobHref = () => URL.createObjectURL(new Blob([pixel], { type: 'image/png' }));
+    const loaded = (img) => new Promise((resolve) => { img.addEventListener('load', resolve, { once: true }); });
+
+    const field = await mount({ value: './media_a.png', previewHref: blobHref() });
+    const img = field.shadowRoot.querySelector('.asset-preview img');
+    expect(img.classList.contains('is-loaded')).to.be.false;
+    await loaded(img);
+    await field.updateComplete;
+    expect(img.classList.contains('is-loaded')).to.be.true;
+
+    field.previewHref = blobHref();
+    await field.updateComplete;
+    expect(img.classList.contains('is-loaded')).to.be.false;
+    await loaded(img);
+    await field.updateComplete;
+    expect(img.classList.contains('is-loaded')).to.be.true;
+  });
+
   it('opens a source dialog without preselecting Upload and closes on cancel', async () => {
     const field = await mount();
     const dialog = await openSources(field);
