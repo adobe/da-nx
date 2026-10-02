@@ -11,11 +11,6 @@ class NxSwitch extends LitElement {
     size: { type: String, reflect: true },
   };
 
-  constructor() {
-    super();
-    this.size = 'm';
-  }
-
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
