@@ -1,13 +1,93 @@
-# Worklog
+## [1.7.1](https://github.com/adobe/da-nx/compare/v1.7.0...v1.7.1) (2026-10-02)
 
-## 2026-10-02
 
-### quick-edit — shared image targeting (imgindex / da-live imgswap)
+### Bug Fixes
 
-- Extract image targeting, replacement, and snapshot versions into `nx2/public/utils/quick-edit-images.js`; keep uploads host-specific.
-- Retain version-module adapters so instrumentation, acknowledgements, and validation share one generator within each host.
-- Targeted lint passes; 19 shared/standalone tests and 43 da-live integration tests pass.
-- Deploy da-nx before the da-live consumer change in adobe/da-live#1377.
+* streamline prev/pub actions ([b0404f2](https://github.com/adobe/da-nx/commit/b0404f2b15f278ec883f43c4a6871bf22be29e5e))
+* streamline prev/pub actions ([a19f071](https://github.com/adobe/da-nx/commit/a19f0717c3aaf9c931ebf660e1597b9913e10c92))
+
+# [1.7.0](https://github.com/adobe/da-nx/compare/v1.6.0...v1.7.0) (2026-10-01)
+
+
+### Features
+
+* introduce field variant for picker ([#797](https://github.com/adobe/da-nx/issues/797)) ([58b4ac5](https://github.com/adobe/da-nx/commit/58b4ac5c751064da03f6c91aa5a50c55aac80407))
+
+# [1.6.0](https://github.com/adobe/da-nx/compare/v1.5.0...v1.6.0) (2026-10-01)
+
+
+### Features
+
+* **picker:** support color swatches on items and trigger ([#796](https://github.com/adobe/da-nx/issues/796)) ([e258b4d](https://github.com/adobe/da-nx/commit/e258b4d555ab9b8c7ba0952d54fa32895abdf3cb))
+
+# [1.5.0](https://github.com/adobe/da-nx/compare/v1.4.1...v1.5.0) (2026-10-01)
+
+
+### Features
+
+* **whatsnew:** add what's new nav button and dialog ([#744](https://github.com/adobe/da-nx/issues/744)) ([b2bd965](https://github.com/adobe/da-nx/commit/b2bd9652b40134bac02c0f6323e6c0b67723ce30)), closes [#1140](https://github.com/adobe/da-nx/issues/1140) [#F8F8F8](https://github.com/adobe/da-nx/issues/F8F8F8)
+
+## [1.4.1](https://github.com/adobe/da-nx/compare/v1.4.0...v1.4.1) (2026-10-01)
+
+
+### Bug Fixes
+
+* **chat-ao:** send x-site in AUTH so the CMA session is site-scoped ([#791](https://github.com/adobe/da-nx/issues/791)) ([d92748a](https://github.com/adobe/da-nx/commit/d92748a80ad430827a7ed271e60a3ad6b4feaf28))
+
+# [1.4.0](https://github.com/adobe/da-nx/compare/v1.3.0...v1.4.0) (2026-10-01)
+
+
+### Bug Fixes
+
+* **ew:** align deploy popover to Figma spec ([1bcaf44](https://github.com/adobe/da-nx/commit/1bcaf44f9f13164a3d42bc10063a813f165e1ea7)), closes [#e1e1e1](https://github.com/adobe/da-nx/issues/e1e1e1) [3b63fb/#cbe2fe](https://github.com/adobe/da-nx/issues/cbe2fe) [12b867/#edfcf1](https://github.com/adobe/da-nx/issues/edfcf1) [#749](https://github.com/adobe/da-nx/issues/749)
+* **ew:** drop the Deploy header/icon from the deploy popover ([3886686](https://github.com/adobe/da-nx/commit/3886686cf4374ad37a8f6fe2095ce502c1dbbc56)), closes [#749](https://github.com/adobe/da-nx/issues/749)
+* **ew:** label live as "Publish" and hide URL when not deployed ([32445b4](https://github.com/adobe/da-nx/commit/32445b4682046511e10ddc70a1887f16ee2bf13b))
+* **ew:** set selected card divider to 60% opacity ([62e6db6](https://github.com/adobe/da-nx/commit/62e6db6d0ffc91960e1b706f936fc8a63b014ecc))
+* **ew:** use a native radio input for deploy card selection ([8109980](https://github.com/adobe/da-nx/commit/8109980de9278db2fdf00934031e8eebc7fae267)), closes [#749](https://github.com/adobe/da-nx/issues/749)
+* icons ([1793837](https://github.com/adobe/da-nx/commit/1793837612505fc78a00bb9f2468d8844f569cba))
+
+
+### Features
+
+* **ew:** deploy popover with preview/publish status ([#1197](https://github.com/adobe/da-nx/issues/1197)) ([a914ea7](https://github.com/adobe/da-nx/commit/a914ea795eb7b7490ff3056c5ba29d504a1e1646))
+
+# Changelog
+
+## 2026-09-25
+
+### Editor toggle follows the active editor route
+
+The header switch shows on for `/canvas` and off for `/edit`, regardless of
+the stored user flag. A click derives the next preference from the current
+route, so manually opening `/canvas` while opted out still switches directly
+back to `/edit`. Navigation alone does not change the stored preference.
+
+## 2026-09-24
+
+### Editor toggle in the header on both editor routes
+
+The nav-injected `nx-editortoggle` now renders on `/edit` and `/canvas`.
+Removed the duplicate profile-menu variant and its styles; the header
+instance still handles the one-time welcome and switch-back prompts.
+Added route-visibility tests.
+
+## 2026-09-23
+
+### nx/public/plugins/quick-edit/selection.test.js — prose-editable click coverage
+
+- Added regression coverage for prose-editable clicks outside and inside a block
+- Kept image-click coverage alongside the new prose-editable cases
+- Full test suite passes; lint still reports the existing console warnings in `nx/blocks/loc/connectors/glaas/multimodalApi.js` and `nx/public/plugins/quick-edit/src/comments/render.js`
+
+### nx2/utils/api.js — scope `referrerPolicy: unsafe-url` to HLX_ADMIN/AEM_API
+
+`daFetch` set `opts.referrerPolicy = 'unsafe-url'` unconditionally on every
+request, leaking the full referrer URL (including path) to any origin it
+talks to. Scoped it to only fire for `HLX_ADMIN`/`AEM_API` origins — the same
+condition already used to decide whether to attach
+`x-content-source-authorization` — via a shared `isPrivilegedOrigin` check.
+Added fetch-mock + test coverage (`nx2/test/mocks/fetch.js` now records
+`referrerPolicy`; two new cases in `test/nx2/utils/api.test.js`).
 
 ## 2026-09-17
 

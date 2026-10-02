@@ -14,30 +14,11 @@ import {
 
 const style = await loadStyle(import.meta.url);
 
-/**
- * Nav-bar switch for opting into the new (canvas) editor before a site's
- * `ew.enabled` flag flips it on for everyone. Persisted per-user via
- * nx2/utils/ewFlags.js; only `_toggle()` writes the flag — landing on /edit
- * or /canvas never does. /edit redirects to /canvas when the site flag or
- * the user flag is on (site wins); /canvas never redirects back.
- *
- * Hidden when the site flag is on. Shown only on /edit and /canvas, via two
- * placements selected by `variant`: `toolbar` (default, nav-injected, shown
- * on /edit) and `menu` (profile popover, shown on /canvas). Both mount on
- * every editor route, so the one-time welcome/switch-back prompts fire from
- * the toolbar instance only, to avoid double-firing.
- */
 class NxEditorToggle extends LitElement {
   static properties = {
-    variant: { type: String, reflect: true },
     _siteEwEnabled: { state: true },
     _userEnabled: { state: true },
   };
-
-  constructor() {
-    super();
-    this.variant = 'toolbar';
-  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -58,18 +39,14 @@ class NxEditorToggle extends LitElement {
     return true;
   }
 
-  // One-time welcome guide after toggling on; toolbar-only so it doesn't fire twice.
   async _maybeShowWelcome() {
-    if (this.variant === 'menu') return;
     if (window.location.pathname !== '/canvas' || !isEwWelcomePending()) return;
     consumeEwWelcome();
     await import('./welcome-dialog.js');
     document.body.append(document.createElement('nx-ew-welcome-dialog'));
   }
 
-  // One-time switch-back prompt after toggling off; toolbar-only so it doesn't fire twice.
   async _maybeShowSwitchback() {
-    if (this.variant === 'menu') return;
     if (window.location.pathname !== '/edit' || !isEwSwitchbackPending()) return;
     consumeEwSwitchback();
     await import('./switchback-dialog.js');
@@ -92,14 +69,14 @@ class NxEditorToggle extends LitElement {
   }
 
   _toggle() {
-    this._userEnabled = !this._userEnabled;
+    const { pathname, search, hash } = window.location;
+    this._userEnabled = pathname === '/edit';
     setEWUserEnabled(this._userEnabled);
     // Arm the matching one-time prompt (no-op after first showing).
     if (this._userEnabled) armEwWelcome();
     else armEwSwitchbackFeedback();
 
     // Hop to the matching editor if we're on the other one; otherwise reload.
-    const { pathname, search, hash } = window.location;
     const target = this._userEnabled ? '/canvas' : '/edit';
     const other = this._userEnabled ? '/edit' : '/canvas';
     if (pathname === other) {
@@ -111,14 +88,13 @@ class NxEditorToggle extends LitElement {
 
   render() {
     if (this._siteEwEnabled) return nothing;
-    // Toolbar lives on /edit; on /canvas the switch moves into the profile menu.
-    const visiblePath = this.variant === 'menu' ? '/canvas' : '/edit';
-    if (window.location.pathname !== visiblePath) return nothing;
+    const { pathname } = window.location;
+    if (!['/edit', '/canvas'].includes(pathname)) return nothing;
     return html`
       <button
         type="button"
         role="switch"
-        aria-checked=${this._userEnabled ? 'true' : 'false'}
+        aria-checked=${pathname === '/canvas' ? 'true' : 'false'}
         class="editortoggle-switch"
         @click=${this._toggle}
       >
