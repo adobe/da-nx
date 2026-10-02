@@ -13,6 +13,7 @@ export const requiredAnyKeys = [['accountUid', 'projectId']];
 export const requiredCredentialKeys = ['userIdentifier', 'userSecret'];
 
 const MAX_CONCURRENT_STATUS = 5;
+const TERMINAL_STATUSES = ['complete', 'cancelled'];
 
 export const dnt = { addDnt };
 
@@ -816,7 +817,7 @@ export async function getStatusAll({
   // as translated forever once done, so without this guard every
   // subsequent status check would revert 'complete' back to 'translated'
   // (triggering a re-save) or 'cancelled' back to 'translated'.
-  const activeLangs = langs.filter((l) => !['complete', 'cancelled'].includes(l.translation.status));
+  const activeLangs = langs.filter((l) => !TERMINAL_STATUSES.includes(l.translation.status));
   if (!activeLangs.length) return;
 
   const fileStatuses = [];
@@ -833,7 +834,10 @@ export async function getStatusAll({
     return;
   }
 
-  for (const lang of activeLangs) {
+  // A save can finish while the requests are in flight; don't overwrite it.
+  const stillActive = activeLangs.filter((l) => !TERMINAL_STATUSES.includes(l.translation.status));
+
+  for (const lang of stillActive) {
     const progress = getLangProgress({ code: lang.code, fileStatuses });
     const translated = progress.filter((percent) => percent === 100).length;
     lang.translation.translated = translated;

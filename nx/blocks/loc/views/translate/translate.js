@@ -307,6 +307,7 @@ class NxLocTranslate extends LitElement {
    */
   async handleGetStatus() {
     if (this.supportsManagedStatus) return this.handleManagedStatus();
+    if (this._getStatusBusy) return undefined;
     this._getStatusBusy = true;
     try {
       const conf = await this.getBaseTranslationConf(false);
