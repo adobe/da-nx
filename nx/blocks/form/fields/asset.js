@@ -56,6 +56,7 @@ class FormAsset extends LitElement {
     _pending: { state: true },
     _selectionError: { state: true },
     _previewBroken: { state: true },
+    _loadedPreviewSrc: { state: true },
   };
 
   // Invalidates a pending result when the field is removed or disconnected.
@@ -127,6 +128,10 @@ class FormAsset extends LitElement {
 
   _onPreviewError() {
     this._previewBroken = true;
+  }
+
+  _onPreviewLoad(event) {
+    this._loadedPreviewSrc = event.currentTarget.getAttribute('src');
   }
 
   _restoreFocus() {
@@ -280,7 +285,12 @@ class FormAsset extends LitElement {
           <div class="asset-selected" ?hidden=${!this.value}>
             <div class="asset-preview">
               ${imageSrc ? html`
-                <img src=${imageSrc} alt="" @error=${this._onPreviewError}>
+                <img
+                  class=${imageSrc === this._loadedPreviewSrc ? 'is-loaded' : ''}
+                  src=${imageSrc}
+                  alt=""
+                  @load=${this._onPreviewLoad}
+                  @error=${this._onPreviewError}>
               ` : html`<span class="asset-preview-placeholder" aria-hidden="true">${IMAGE_ICON}</span>`}
               <div class="asset-actions">
                 <form-button class="asset-replace" variant="secondary" ?disabled=${this.disabled || this._pending} @click=${this._openDialog}>Replace</form-button>

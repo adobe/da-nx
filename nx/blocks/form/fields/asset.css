@@ -65,19 +65,29 @@
   align-items: center;
   justify-content: center;
   height: var(--asset-preview-height);
-  background: linear-gradient(
-    160deg,
-    light-dark(#bdcef1, #526580),
-    light-dark(#f7d1ad, #816555) 48%,
-    light-dark(#536f7e, #354554) 49%,
-    light-dark(#263f54, #1b2937)
-  );
+  background: var(--s2-gray-100);
 }
 
 .asset-preview img {
+  --transparency-grid-size: 8px;
+  --transparency-grid-color-a: light-dark(#fff, #3a3a3a);
+  --transparency-grid-color-b: light-dark(#ccc, #505050);
+
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 130ms ease-out;
+  background-color: var(--transparency-grid-color-a);
+  background-image: conic-gradient(
+    var(--transparency-grid-color-b) 90deg, transparent 90deg 180deg,
+    var(--transparency-grid-color-b) 180deg 270deg, transparent 270deg
+  );
+  background-size: var(--transparency-grid-size) var(--transparency-grid-size);
+}
+
+.asset-preview img.is-loaded {
+  opacity: 1;
 }
 
 .asset-preview img[hidden] {
@@ -85,7 +95,7 @@
 }
 
 .asset-preview-placeholder {
-  color: var(--s2-gray-25);
+  color: var(--s2-gray-600);
 }
 
 .asset-preview-placeholder svg {
