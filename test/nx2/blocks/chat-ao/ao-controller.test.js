@@ -1862,3 +1862,74 @@ describe('ao-controller socket coalescing', () => {
     expect(connectCalls).to.equal(2);
   });
 });
+
+describe('ao-controller per-site session resume (reload persistence)', () => {
+  const KEY = 'nx2:cma-episode:exp-workspace/cxcfrescopa';
+
+  function makeResumeController() {
+    const controller = new AoChatController({ onUpdate: () => {} });
+    controller.setContext({ org: 'exp-workspace', site: 'cxcfrescopa' });
+    return controller;
+  }
+
+  afterEach(() => {
+    try { sessionStorage.removeItem(KEY); } catch { /* no-op */ }
+  });
+
+  it('stores the episode id per-site on SESSION_READY', () => {
+    const controller = makeResumeController();
+    controller._onSessionReady({ episode_id: 'ep-1' });
+    expect(controller._episodeId).to.equal('ep-1');
+    expect(sessionStorage.getItem(KEY)).to.equal('ep-1');
+  });
+
+  it('resumes the stored episode when the orchestrator has no episode list (bridge path)', async () => {
+    sessionStorage.setItem(KEY, 'ep-stored');
+    const controller = makeResumeController();
+    controller._fetchEpisodes = async () => []; // WS-only bridge: no REST episodes
+    let loaded;
+    controller._loadEpisode = async (id) => { loaded = id; };
+    await controller.loadEpisodes();
+    expect(loaded).to.equal('ep-stored');
+    expect(controller._resuming).to.equal(true);
+  });
+
+  it('ignores the stored id when the orchestrator returns episodes (AO-direct unchanged)', async () => {
+    sessionStorage.setItem(KEY, 'ep-stored');
+    const controller = makeResumeController();
+    controller._fetchEpisodes = async () => [{ id: 'ep-latest', updated_at: new Date().toISOString() }];
+    let loaded;
+    controller._loadEpisode = async (id) => { loaded = id; };
+    await controller.loadEpisodes();
+    expect(loaded).to.equal('ep-latest');
+    expect(controller._resuming).to.not.equal(true);
+  });
+
+  it('starts fresh on the bridge path when nothing is stored', async () => {
+    const controller = makeResumeController();
+    controller._fetchEpisodes = async () => [];
+    let loaded;
+    controller._loadEpisode = async (id) => { loaded = id; };
+    await controller.loadEpisodes();
+    expect(loaded).to.equal(undefined);
+    expect(controller._resuming).to.not.equal(true);
+  });
+
+  it('clears the stored pointer on New session', () => {
+    sessionStorage.setItem(KEY, 'ep-1');
+    const controller = makeResumeController();
+    controller.startNewEpisode();
+    expect(sessionStorage.getItem(KEY)).to.equal(null);
+  });
+
+  it('drops a stale pointer and starts fresh when a resume is rejected', () => {
+    sessionStorage.setItem(KEY, 'ep-gone');
+    const controller = makeResumeController();
+    controller._resuming = true;
+    let started = false;
+    controller.startNewEpisode = () => { started = true; };
+    controller._onSessionError({ message: 'Session does not belong to the calling site' });
+    expect(sessionStorage.getItem(KEY)).to.equal(null);
+    expect(started).to.equal(true);
+  });
+});

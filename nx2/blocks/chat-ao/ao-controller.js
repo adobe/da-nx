@@ -66,6 +66,36 @@ export default class AoChatController {
     this._context = context;
   }
 
+  // Per-site resume pointer: the id of the session last active in THIS tab for
+  // the current site, so a page reload reconnects to it (the CMA bridge replays
+  // its history) instead of starting a new session. Keyed by site so it can't
+  // surface another site's conversation (and the bridge rejects a cross-site
+  // attach anyway — see the S12 site guard).
+  // sessionStorage: survives reload (same tab), clears when the tab closes.
+  _episodeStorageKey() {
+    const { org, site } = this._context ?? {};
+    return org && site ? `nx2:cma-episode:${org}/${site}` : null;
+  }
+
+  _storeEpisodeId(id) {
+    const key = this._episodeStorageKey();
+    if (!key) return;
+    try {
+      if (id) sessionStorage.setItem(key, id);
+      else sessionStorage.removeItem(key);
+    } catch { /* storage disabled — no-op */ }
+  }
+
+  _restoreEpisodeId() {
+    const key = this._episodeStorageKey();
+    if (!key) return undefined;
+    try {
+      return sessionStorage.getItem(key) || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   _update() {
     this._onUpdate({
       messages: this._messages,
@@ -166,11 +196,28 @@ export default class AoChatController {
   async loadEpisodes() {
     this._episodes = await this._fetchEpisodes();
     const latest = this._episodes[0];
-    const age = latest ? Date.now() - new Date(latest.updated_at).getTime() : NaN;
-    if (latest && !(age > STALE_EPISODE_MS)) {
-      await this._loadEpisode(latest.id);
+    if (latest) {
+      // The orchestrator returned an episode list (AO-direct / CX Coworker path):
+      // keep the existing latest/stale behavior exactly — do NOT use the stored
+      // resume pointer here, so this path is unchanged.
+      const age = Date.now() - new Date(latest.updated_at).getTime();
+      if (!(age > STALE_EPISODE_MS)) {
+        await this._loadEpisode(latest.id);
+      } else {
+        this._staleEpisode = latest;
+        this._update();
+      }
+      return;
+    }
+    // No REST episode list — the CMA bridge is WS-only. Resume the session last
+    // used in this tab for the current site so a page reload doesn't lose the
+    // conversation (the bridge replays its history). Only this bridge path sets
+    // _resuming, so the _onSessionError fallback never affects AO-direct.
+    const stored = this._restoreEpisodeId();
+    if (stored) {
+      this._resuming = true;
+      await this._loadEpisode(stored);
     } else {
-      this._staleEpisode = age > STALE_EPISODE_MS ? latest : undefined;
       this._update();
     }
   }
@@ -234,6 +281,8 @@ export default class AoChatController {
 
   startNewEpisode() {
     if (this._blockedByActiveTurn) return;
+    this._resuming = false;
+    this._storeEpisodeId(undefined); // drop the resume pointer for this site
     this._ws?.close();
     this._ws = null;
     this._episodeId = undefined;
@@ -350,6 +399,8 @@ export default class AoChatController {
   _onSessionReady(evt) {
     const isNewEpisode = evt.episode_id && evt.episode_id !== this._episodeId;
     this._episodeId = evt.episode_id ?? this._episodeId;
+    this._resuming = false; // resume (or new session) succeeded
+    this._storeEpisodeId(this._episodeId); // persist so a reload resumes this session
     if (isNewEpisode) this._refreshEpisodeList().catch(() => { });
   }
 
@@ -508,13 +559,23 @@ export default class AoChatController {
   }
 
   _onSessionError(evt) {
+    const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
+    // A resume attempt (page reload reconnecting to the stored session) can be
+    // rejected if that session is gone or isn't ours (e.g. the bridge's
+    // site/tenant/user guard). Drop the stale pointer and start fresh rather
+    // than leaving a dead session the user can't recover from.
+    if (this._resuming) {
+      this._resuming = false;
+      this._storeEpisodeId(undefined);
+      this.startNewEpisode();
+      return;
+    }
     // See docs/chat-ao-component.md#session-warming for why idle stays silent,
     // and #connection-recovery for why a suspended turn stays silent too — AO
     // legitimately reports the episode as idle while it's waiting on the user,
     // and the pending question/plan/permission popover already works without
     // a live socket.
     if (!this._blockedByActiveTurn) return;
-    const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
     this._messages = [...this._messages, { role: 'assistant', content: `Error: ${message}` }];
     this._done();
   }
