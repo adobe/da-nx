@@ -48,6 +48,54 @@ describe('quick-edit HTML drop', () => {
     });
   });
 
+  it('shows a line and accepts native HTML drops over a zero-height empty main', () => {
+    main.innerHTML = '<div class="section"></div>';
+    main.getBoundingClientRect = () => ({
+      top: 112, bottom: 112, left: 0, right: 200, width: 200, height: 0,
+    });
+    const transfer = new DataTransfer();
+    transfer.setData('text/html', '<h2>Heading</h2>');
+    const over = new DragEvent('dragover', {
+      bubbles: true, cancelable: true, clientX: 50, clientY: 160, dataTransfer: transfer,
+    });
+    document.body.dispatchEvent(over);
+    expect(over.defaultPrevented).to.equal(true);
+    expect(document.querySelector('#qe-table-drop-indicator').style.top).to.equal('112px');
+    document.body.dispatchEvent(new DragEvent('drop', {
+      bubbles: true, cancelable: true, clientX: 50, clientY: 160, dataTransfer: transfer,
+    }));
+    expect(sent).to.deep.equal([{
+      type: 'table-drop',
+      payload: {
+        html: '<h2>Heading</h2>',
+        anchor: { kind: 'main', index: 0 },
+        side: 'before',
+      },
+    }]);
+    expect(document.querySelector('#qe-table-drop-indicator')).to.equal(null);
+  });
+
+  it('resolves host-relayed drops over an empty main without claiming the header', () => {
+    main.innerHTML = '<div class="section"></div>';
+    main.getBoundingClientRect = () => ({
+      top: 112, bottom: 112, left: 0, right: 200, width: 200, height: 0,
+    });
+    const { elementFromPoint } = document;
+    document.elementFromPoint = () => document.body;
+    try {
+      handleRemoteTableDrag({ phase: 'over', x: 50, y: 160 });
+      expect(document.querySelector('#qe-table-drop-indicator').style.top).to.equal('112px');
+      handleRemoteTableDrag({ phase: 'drop', x: 50, y: 160, html: '<p>Paragraph</p>' });
+      expect(sent[0].payload.anchor).to.deep.equal({ kind: 'main', index: 0 });
+      handleRemoteTableDrag({ phase: 'over', x: 50, y: 50 });
+      expect(document.querySelector('#qe-table-drop-indicator')).to.equal(null);
+      handleRemoteTableDrag({ phase: 'drop', x: 50, y: 50, html: '<p>Outside</p>' });
+      expect(sent).to.have.length(1);
+    } finally {
+      document.elementFromPoint = elementFromPoint;
+    }
+  });
+
   it('shows a non-layout-shifting line and sends the HTML payload', () => {
     const transfer = new DataTransfer();
     transfer.setData('text/html', '<table><tr><td>Hero</td></tr></table>');

@@ -1,5 +1,8 @@
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
+const EMPTY_MAIN_DROP_HEIGHT = 240;
+const INDEXED_SELECTOR = '[data-block-index], [data-prose-index], [data-image-index]';
+
 function anchorFor(element) {
   const block = element.closest('[data-block-index]');
   if (block) {
@@ -23,7 +26,7 @@ function anchorFor(element) {
 }
 
 export function nearestTableDropAnchor(main, y, target) {
-  const hovered = target?.closest?.('[data-block-index], [data-prose-index], [data-image-index]');
+  const hovered = target?.closest?.(INDEXED_SELECTOR);
   const direct = hovered && main.contains(hovered) ? anchorFor(hovered) : null;
   if (direct) {
     const rect = direct.element.getBoundingClientRect();
@@ -32,9 +35,8 @@ export function nearestTableDropAnchor(main, y, target) {
     }
   }
 
-  const candidates = [...main.querySelectorAll(
-    '[data-block-index], [data-prose-index], [data-image-index]',
-  )];
+  const candidates = [...main.querySelectorAll(INDEXED_SELECTOR)];
+  if (!candidates.length) return { element: main, kind: 'main', index: 0, side: 'before' };
   let nearest = null;
   let distance = Infinity;
   candidates.forEach((element) => {
@@ -51,6 +53,18 @@ export function nearestTableDropAnchor(main, y, target) {
     }
   });
   return nearest;
+}
+
+function dropMain(target, x, y) {
+  const direct = target?.closest?.('main');
+  if (direct) return direct;
+  const main = document.querySelector('main');
+  if (!main || main.querySelector(INDEXED_SELECTOR)) return null;
+  const rect = main.getBoundingClientRect();
+  return rect.width && !rect.height
+    && x >= rect.left && x < rect.right
+    && y >= rect.top && y < Math.min(window.innerHeight, rect.top + EMPTY_MAIN_DROP_HEIGHT)
+    ? main : null;
 }
 
 let activeCtx = null;
@@ -100,7 +114,7 @@ export function handleRemoteTableDrag({ phase, x, y, html }) {
   if (!activeCtx || activeCtx.readOnly || !['over', 'drop'].includes(phase)
     || !Number.isFinite(x) || !Number.isFinite(y)) return;
   const target = document.elementFromPoint(x, y);
-  const main = target?.closest?.('main');
+  const main = dropMain(target, x, y);
   const anchor = main && nearestTableDropAnchor(main, y, target);
   if (phase === 'drop') {
     removeIndicator();
@@ -118,7 +132,7 @@ export function setupTableDropListeners(ctx) {
   listenersInstalled = true;
 
   document.addEventListener('dragover', (event) => {
-    const main = event.target.closest?.('main');
+    const main = dropMain(event.target, event.clientX, event.clientY);
     if (!activeCtx || activeCtx.readOnly || !main || !isHtmlDrag(event)) {
       removeIndicator();
       return;
@@ -134,7 +148,7 @@ export function setupTableDropListeners(ctx) {
   }, true);
 
   document.addEventListener('drop', (event) => {
-    const main = event.target.closest?.('main');
+    const main = dropMain(event.target, event.clientX, event.clientY);
     const anchor = main && nearestTableDropAnchor(main, event.clientY, event.target);
     removeIndicator();
     if (!activeCtx || activeCtx.readOnly || !anchor || !isHtmlDrag(event)) return;

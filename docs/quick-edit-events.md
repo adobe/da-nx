@@ -132,6 +132,9 @@ out-of-flow insertion line and sends the HTML plus the selected boundary to
 da-live. The host validates the anchor and write permission and lets the
 ProseMirror schema parse and insert the HTML (including tables, headings, and
 paragraphs). The `TABLE_DROP` wire name remains for compatibility.
+On a page without indexed content, the iframe provides a bounded drop zone
+over the otherwise zero-height main. Its `{ kind: 'main', index: 0 }` anchor
+inserts at the start of the document without shifting the layout.
 The standalone portal does not consume this message, so its iframe does not
 enable this drop target.
 For sidebar iframes whose native drags cannot enter the preview iframe, da-live
