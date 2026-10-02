@@ -78,16 +78,6 @@ export default defineConfig([
   source,
   test,
   {
-    files: ['.github/scripts/**/*.js'],
-    languageOptions: {
-      globals: globals.node,
-    },
-    rules: {
-      'no-console': 'off',
-      'import/no-extraneous-dependencies': ['error', { devDependencies: true }],
-    },
-  },
-  {
     // Allow console in test files
     files: ['test/**/*.js', 'nx2/test/**/*.js'],
     rules: {
@@ -98,3 +88,4 @@ export default defineConfig([
     },
   },
 ]);
+

@@ -7,7 +7,9 @@ on:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: read
+  contents: write # semantic-release-dry verifies the write permissions
+  issues: read # needed by semantic-release
+  pull-requests: write # needed by semantic-release
 
 jobs:
   test:
@@ -30,36 +32,34 @@ jobs:
   release-dry-run:
     name: Semantic Release (Dry Run)
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    # Fork branches and write credentials are unavailable in the upstream repository.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     needs: test
     env:
-      RELEASE_BASE_REF: ${{ github.event.pull_request.base.sha }}
+      CI_BRANCH: ${{ github.head_ref }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          persist-credentials: false
       - name: Use Node.js 24.x
         uses: actions/setup-node@v6
         with:
           node-version: '24.x'
       - name: Install dependencies
         run: npm ci
-      - name: Test release preview
-        run: npm run test:release-preview
-      - name: Preview release version and notes
-        run: npm run release-preview
+      - name: Semantic Release (Dry Run)
+        run: npm run semantic-release-dry
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release:
     name: Release
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

@@ -37,9 +37,7 @@
     "nx2:build:mdast": "esbuild --format=esm --minify ./nx2/deps/mdast/src/index.js --bundle --outfile=./nx2/deps/mdast/dist/index.js",
     "nx2:build:fflate": "esbuild --format=esm --minify ./nx2/deps/fflate/src/index.js --bundle --outfile=./nx2/deps/fflate/dist/index.js",
     "semantic-release": "semantic-release",
-    "semantic-release-dry": "npm run release-preview",
-    "release-preview": "node .github/scripts/release-preview.js",
-    "test:release-preview": "node --test .github/scripts/release-preview.test.js"
+    "semantic-release-dry": "semantic-release --dry-run --no-ci --branches $CI_BRANCH"
   },
   "repository": {
     "type": "git",
@@ -76,7 +74,6 @@
     "prosemirror-tables": "1.8.1",
     "prosemirror-view": "1.41.4",
     "semantic-release": "^25.0.9",
-    "semver": "^7.7.3",
     "sinon": "13.0.2",
     "stylelint": "17.14.1",
     "stylelint-config-standard": "40.0.0"
