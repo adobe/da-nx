@@ -78,6 +78,38 @@ describe('nx-form', () => {
     expect(editor.state).to.equal(el._state);
   });
 
+  it('provides an upload callback and the document context to the image field renderer', async () => {
+    const el = await mountReady();
+    const editor = el.shadowRoot.querySelector('nx-editor');
+    expect(editor.assetContext.onSelectSource).to.be.a('function');
+    expect(editor.assetContext.previewOrigin).to.equal(undefined);
+    expect(editor.assetContext.aemAssetsAvailable).to.equal(false);
+  });
+
+  it('offers AEM Assets only when the repository has an AEM configuration', async () => {
+    const el = await mountReady();
+    const editor = el.shadowRoot.querySelector('nx-editor');
+
+    el._aemRepoConfig = { repositoryId: 'author-p1-e1.adobeaemcloud.com', tierType: 'author' };
+    await el.updateComplete;
+    expect(editor.assetContext.aemAssetsAvailable).to.equal(true);
+
+    el._aemRepoConfig = null;
+    await el.updateComplete;
+    expect(editor.assetContext.aemAssetsAvailable).to.equal(false);
+  });
+
+  it('rejects AEM Assets without a repository configuration and names it in the error', async () => {
+    const el = await mountReady();
+    try {
+      await el._onSelectAsset({ source: 'aem-assets' });
+      throw new Error('Unconfigured AEM Assets should fail.');
+    } catch (error) {
+      expect(error.message).to.include('"aem-assets"');
+    }
+    expect(document.querySelector('.nx-form-aem-dialog')).to.equal(null);
+  });
+
   it('renders a blocked message for a missing schema', async () => {
     const el = makeForm();
     el._context = {

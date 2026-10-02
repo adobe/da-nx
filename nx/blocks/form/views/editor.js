@@ -7,6 +7,8 @@ import '../fields/checkbox.js';
 import '../fields/button.js';
 import '../fields/number.js';
 import '../fields/date.js';
+import '../fields/asset.js';
+import { imagePreviewHref } from '../utils/assets.js';
 import { icon } from '../icons.js';
 
 const style = await loadStyle(import.meta.url);
@@ -41,6 +43,7 @@ class Editor extends LitElement {
     state: { attribute: false },
     nav: { attribute: false },
     onSelect: { attribute: false },
+    assetContext: { attribute: false },
     _reorderPointer: { state: true },
     _reorderTargetIndex: { state: true },
     _reorderConfirmed: { state: true },
@@ -282,6 +285,28 @@ class Editor extends LitElement {
           ?disabled=${readonly}
           @input=${(e) => this._onTextInput(node, e)}
         ></form-textarea>
+      `;
+    }
+
+    if (node.kind === 'string'
+      && node.semanticType === 'media'
+      && typeof this.assetContext?.onSelectSource === 'function') {
+      return html`
+        <form-asset
+          data-pointer=${pointer}
+          .label=${label}
+          .required=${showRequired}
+          .error=${error}
+          .description=${description}
+          .value=${value ?? ''}
+          .previewHref=${imagePreviewHref({ href: value, previewOrigin: this.assetContext.previewOrigin })}
+          .aemAssetsAvailable=${this.assetContext.aemAssetsAvailable}
+          .onSelectSource=${this.assetContext.onSelectSource}
+          ?disabled=${readonly}
+          @asset-change=${(event) => {
+            this._mutate((editor) => editor.setField(node.pointer, event.detail.value));
+          }}
+        ></form-asset>
       `;
     }
 
