@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/adobe/da-nx/compare/v1.6.0...v1.7.0) (2026-10-01)
+
+
+### Features
+
+* introduce field variant for picker ([#797](https://github.com/adobe/da-nx/issues/797)) ([58b4ac5](https://github.com/adobe/da-nx/commit/58b4ac5c751064da03f6c91aa5a50c55aac80407))
+
 # [1.6.0](https://github.com/adobe/da-nx/compare/v1.5.0...v1.6.0) (2026-10-01)
 
 
