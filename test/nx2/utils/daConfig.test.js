@@ -3,7 +3,7 @@ import { AEM_API, DA_ADMIN, HLX_ADMIN } from '../../../nx2/utils/utils.js';
 import {
   calls, installFetch, restoreFetch, lastCall,
 } from '../../../nx2/test/mocks/fetch.js';
-import { getFirstSheet, fetchDaConfigs } from '../../../nx2/utils/daConfig.js';
+import { getFirstSheet, fetchDaConfigs, isEditorPreviewEnabled } from '../../../nx2/utils/daConfig.js';
 
 // fetchDaConfigs memoizes per `/{org}` and `/{org}/{site}` key for the
 // lifetime of the module, so every test uses a fresh org/site pair to avoid
@@ -104,5 +104,29 @@ describe('fetchDaConfigs', () => {
     expect(siteConfig[':type']).to.equal('sheet');
     expect(siteConfig[':sheetname']).to.equal('flags');
     expect(siteConfig.data).to.deep.equal([{ key: 'ew.enabled', value: 'true' }]);
+  });
+});
+
+describe('isEditorPreviewEnabled', () => {
+  afterEach(() => restoreFetch());
+
+  const sheet = (data) => JSON.stringify({ ':type': 'sheet', data });
+
+  it('returns false when editor.preview is "false"', async () => {
+    installFetch({ body: sheet([{ key: 'editor.preview', value: ' FALSE ' }]) });
+    expect(await isEditorPreviewEnabled({ org: uniq('org') })).to.equal(false);
+  });
+
+  it('returns true when the key is missing or not "false"', async () => {
+    installFetch({ body: sheet([{ key: 'editor.preview', value: 'true' }]) });
+    expect(await isEditorPreviewEnabled({ org: uniq('org') })).to.equal(true);
+    restoreFetch();
+    installFetch({ body: sheet([]) });
+    expect(await isEditorPreviewEnabled({ org: uniq('org') })).to.equal(true);
+  });
+
+  it('returns true when the config fails to load', async () => {
+    installFetch({ status: 404, body: '' });
+    expect(await isEditorPreviewEnabled({ org: uniq('org') })).to.equal(true);
   });
 });
