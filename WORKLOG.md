@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-10-02
+
+### quick-edit — empty-page drops (feat/quick-edit-table-drop)
+
+- Commit only the empty-main drop handling, protocol documentation, and regression tests.
+- Discard duplicate editor-toggle changes already merged to main; leave the standalone authentication plan and local tool files untouched.
+- Targeted ESLint and all seven table-drop tests pass.
+
 ## 2026-09-23
 
 ### nx2/utils/api.js — scope `referrerPolicy: unsafe-url` to HLX_ADMIN/AEM_API
