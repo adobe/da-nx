@@ -23,6 +23,7 @@ import {
   setSelectedNode,
   getSelectedNode,
 } from './src/selection.js';
+import { installClickForwarding } from './src/click-forwarding.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
 
@@ -116,6 +117,7 @@ function setupParentController(loadPage) {
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
     setupCommentShortcut(ctx);
+    installClickForwarding({ getPort: () => ctx.port });
 
     window.removeEventListener('message', listener);
   };
