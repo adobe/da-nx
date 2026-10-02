@@ -100,6 +100,27 @@ describe('isEwChatDisabled', () => {
     installFetch({ body: JSON.stringify({ flags: { data: [] } }) });
     expect(await isEwChatDisabled({ org: 'dc-org3', site: 'dc-site3' })).to.be.false;
   });
+
+  // see https://github.com/adobe/da-live/issues/1218
+  it('returns true (fail closed) when a config layer is unreadable', async () => {
+    restoreFetch();
+    calls.length = 0;
+    window.fetch = async (url) => {
+      const u = url.toString();
+      calls.push({ url: u, method: 'GET' });
+      if (u.includes(`${HLX_ADMIN}/ping/`)) return new Response('', { status: 200 });
+      // Site config is readable and enables EW but does not disable chat.
+      if (u.includes('/dc-site4')) {
+        return new Response(
+          JSON.stringify({ flags: { data: [{ key: 'ew.enabled', value: 'true' }] } }),
+          { status: 200 },
+        );
+      }
+      // Org config (which sets ew.disableChat=true) is forbidden.
+      return new Response('', { status: 403 });
+    };
+    expect(await isEwChatDisabled({ org: 'dc-org4', site: 'dc-site4' })).to.be.true;
+  });
 });
 
 describe('isCoworkerEnabled', () => {
