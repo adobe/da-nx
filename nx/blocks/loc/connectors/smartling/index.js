@@ -297,11 +297,8 @@ export async function sendAllLanguages({
     return;
   }
 
-  // Presist to the state for future reference
+  // Persist to the state for future reference
   options.service.jobUid = { value: jobUid };
-
-  // // Persist into the immediate config object - janktown, but ok for now
-  // config[`${env}.jobUid`] = jobUid;
 
   sendMessage({ text: `Creating a batch in Smartling for: ${title}.` });
   const batchUid = await createBatch({
