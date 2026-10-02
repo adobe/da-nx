@@ -153,7 +153,19 @@ For test details on the single-flight + re-queue contract, see [test/nx/blocks/f
 
 ---
 
-## 8. Rules
+## 8. Configuration
+
+The form reads these keys from the Experience Workspace config sheet. Site config overrides org config. See the public [Structured content](https://www.aem.live/docs/ew/administering/structured-content) and [Configs](https://www.aem.live/docs/ew/administering/configs) guides.
+
+| Key | Value | Effect |
+|---|---|---|
+| `editor.path` | `/<ORG>/<SITE>/<FOLDER>=https://da.live/form#` | Opens documents in that folder with the structured content editor. Read by da-live, not by this block. |
+| `ew.enabled` | `true` | Adds the canvas header and docked chat (`form.js`). |
+| `editor.preview` | `false` | Removes the JSON preview panel, which is shown by default (`editor.js`, `nx2/utils/daConfig.js`). |
+
+---
+
+## 9. Rules
 
 ### NEVER
 
