@@ -2,7 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import { Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { handleImageReplace } from '../../../../nx/blocks/quick-edit-portal/src/images.js';
-import { getImageDocumentVersion } from '../../../../nx/utils/image-document-version.js';
+import { getImageDocumentVersion } from '../../../../nx2/public/utils/quick-edit-images.js';
 
 describe('standalone quick-edit image replacement', () => {
   const imageData = 'data:image/png;base64,iVBORw0KGgo=';

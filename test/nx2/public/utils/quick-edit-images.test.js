@@ -4,7 +4,6 @@ import { EditorState } from 'prosemirror-state';
 import {
   getImageDocumentVersion, resolveImagePosition, updateImageInDocument,
 } from '../../../../nx2/public/utils/quick-edit-images.js';
-import { getImageDocumentVersion as getLegacyVersion } from '../../../../nx/utils/image-document-version.js';
 
 describe('shared quick-edit image utilities', () => {
   let schema;
@@ -48,11 +47,9 @@ describe('shared quick-edit image utilities', () => {
     ...overrides,
   });
 
-  it('reuses a snapshot version across the shared and legacy imports', () => {
-    expect(getLegacyVersion).to.equal(getImageDocumentVersion);
+  it('reuses a snapshot version until the document changes', () => {
     const version = getImageDocumentVersion(state.doc);
     expect(getImageDocumentVersion(state.doc)).to.equal(version);
-    expect(getLegacyVersion(state.doc)).to.equal(version);
     view.dispatch(state.tr.insertText('before ', 2));
     expect(getImageDocumentVersion(state.doc)).not.to.equal(version);
   });

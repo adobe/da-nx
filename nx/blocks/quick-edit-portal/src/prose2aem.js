@@ -1,6 +1,6 @@
 /* eslint-disable import/prefer-default-export */
 import prose2aem from 'https://da.live/blocks/shared/prose2aem.js';
-import { getImageDocumentVersion } from '../../../utils/image-document-version.js';
+import { getImageDocumentVersion } from '../../../../nx2/public/utils/quick-edit-images.js';
 
 const EDITABLES = [
   { selector: 'h1', nodeName: 'H1' },

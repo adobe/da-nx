@@ -2,7 +2,7 @@ import { TextSelection, yUndo, yRedo } from 'da-y-wrapper';
 import { getInstrumentedHTML, extractCursors } from './prose2aem.js';
 import { resolveEditableNode } from './editable-node.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
-import { getImageDocumentVersion } from '../../../utils/image-document-version.js';
+import { getImageDocumentVersion } from '../../../../nx2/public/utils/quick-edit-images.js';
 
 export function updateDocument(ctx) {
   // Skip rerender if suppressed (e.g., during image updates)
