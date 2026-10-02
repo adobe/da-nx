@@ -71,6 +71,15 @@ Removed the duplicate profile-menu variant and its styles; the header
 instance still handles the one-time welcome and switch-back prompts.
 Added route-visibility tests.
 
+## 2026-10-02
+
+### Chat message send RUM
+
+Record valid DA Agent and Coworker submissions as `click` checkpoints with
+`source: chat-submit` and harness-specific send-button targets. Coverage includes
+button and Enter submissions, excluding empty submissions and stop actions.
+Focused send-RUM tests and lint passed.
+
 ## 2026-09-23
 
 ### nx/public/plugins/quick-edit/selection.test.js — prose-editable click coverage
