@@ -1,12 +1,36 @@
 .vis-wrapper {
   display: block;
   margin-top: 12px;
+  padding: 0 48px 48px;
 }
 
 .nx-title {
-  font-weight: 700;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0 0 var(--s2-spacing-100);
+  border: 0;
+  background: none;
+  color: var(--s2-gray-900);
+  font: inherit;
+  font-size: var(--s2-body-size-m);
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: start;
   margin: 0 0 8px;
+  cursor: pointer;
+}
+
+.nx-chevron {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  transition: transform 0.15s ease;
+}
+
+.nx-title[aria-expanded="true"] .nx-chevron {
+  transform: rotate(90deg);
 }
 
 pre {
