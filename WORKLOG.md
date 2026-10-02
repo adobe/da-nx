@@ -1,5 +1,14 @@
 # Worklog
 
+## 2026-10-02
+
+### quick-edit — shared image targeting (imgindex / da-live imgswap)
+
+- Extract image targeting, replacement, and snapshot versions into `nx2/public/utils/quick-edit-images.js`; keep uploads host-specific.
+- Retain version-module adapters so instrumentation, acknowledgements, and validation share one generator within each host.
+- Targeted lint passes; 19 shared/standalone tests and 43 da-live integration tests pass.
+- Deploy da-nx before the da-live consumer change in adobe/da-live#1377.
+
 ## 2026-09-17
 
 ### nx/blocks/loc/connectors/globallink — GlobalLink translation connector (#689)
