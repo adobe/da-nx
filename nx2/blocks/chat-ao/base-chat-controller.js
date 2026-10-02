@@ -124,6 +124,35 @@ export default class BaseChatController {
     this._update();
   }
 
+  // Default session warm: attach the socket so cross-client updates arrive
+  // live. The Coworker harness overrides this to also hit the REST warm
+  // endpoint; the CMA bridge needs only the attach.
+  async warmSession() {
+    if (!this._episodeId || this._thinking || this._warmedEpisodeId === this._episodeId) return;
+    this._warmedEpisodeId = this._episodeId;
+    try {
+      await this._attach();
+    } catch {
+      // best-effort — sendMessage retries the connection normally on send
+    }
+  }
+
+  async _attach() {
+    await this._ensureSocket();
+    this._ws?.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
+  }
+
+  // See docs/chat-ao-component.md#connection-recovery for why this exists
+  // and isn't gated by _warmedEpisodeId like warmSession() is.
+  async reattachIfIdle() {
+    if (!this._episodeId || this._thinking || this._ws?.readyState === WebSocket.OPEN) return;
+    try {
+      await this._attach();
+    } catch {
+      // best-effort — the next visibility change, keystroke, or send retries
+    }
+  }
+
   async loadEpisodes() {
     // Overridden per harness (REST history vs reload-resume).
   }
