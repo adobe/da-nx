@@ -133,6 +133,12 @@ upload. An out-of-date/missing index fails instead of choosing an image by URL.
 For older iframes, a URL-only request is accepted only when it identifies
 exactly one image.
 
+Both hosts use `nx2/public/utils/quick-edit-images.js` for document versions,
+image-position resolution, and replacement after upload. It accepts the host's
+ProseMirror document/view without importing ProseMirror. Instrumentation and
+request validation must use the same version generator within each host;
+uploads and message replies remain host-specific.
+
 After an inline edit, the host acknowledges `NODE_UPDATE` with the new `imageVersion`
 and the edit's `nodeUpdateId`; the iframe has already shifted the affected image
 positions and applies that version without rebuilding the page or losing the active
