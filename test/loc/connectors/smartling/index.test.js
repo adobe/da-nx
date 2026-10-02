@@ -533,6 +533,26 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(messages.find((m) => m.type === 'error').text).to.include('no strings for /page');
   });
 
+  it('does not overwrite a lang that became complete while status requests were in flight', async () => {
+    const langs = [{ code: 'fr-FR', translation: { translated: 1, status: 'translated' } }];
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      calls.push({ url: url.toString(), method: opts.method, body: opts.body });
+      langs[0].translation.status = 'complete';
+      return fileStatusResponse(10, [localeCounts('fr-FR', 10)]);
+    };
+
+    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
+    const urls = [{ daBasePath: '/page' }];
+    const actions = { saveState: async () => {} };
+
+    await getStatusAll({
+      org, site, service, langs, urls, actions,
+    });
+
+    expect(langs[0].translation.status).to.equal('complete');
+  });
+
   it('does not revert a lang already saved to DA back to "translated"', async () => {
     origFetch = window.fetch;
     window.fetch = async (url, opts = {}) => {
