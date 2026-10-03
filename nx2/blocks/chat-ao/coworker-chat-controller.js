@@ -11,7 +11,6 @@
  */
 
 import BaseChatController from './base-chat-controller.js';
-import { AO_FRAME } from './ao-constants.js';
 import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession,
 } from './utils/episodes.js';
@@ -33,8 +32,8 @@ export default class CoworkerChatController extends BaseChatController {
 
   _fetchWarmSession(episodeId) { return warmSession(episodeId); }
 
-  // Pre-warms the current episode's AO session while the user types. Existing
-  // episodes only, at most once per episode — see docs/chat-ao-component.md#session-warming.
+  // Coworker warm also hits the REST warm endpoint before attaching (AO caches
+  // the rehydrated session); Base.warmSession covers the attach-only case.
   async warmSession() {
     if (!this._episodeId || this._thinking || this._warmedEpisodeId === this._episodeId) return;
     this._warmedEpisodeId = this._episodeId;
@@ -43,22 +42,6 @@ export default class CoworkerChatController extends BaseChatController {
       await this._attach();
     } catch {
       // best-effort — sendMessage retries the connection normally on send
-    }
-  }
-
-  async _attach() {
-    await this._ensureSocket();
-    this._ws?.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
-  }
-
-  // See docs/chat-ao-component.md#connection-recovery for why this exists
-  // and isn't gated by _warmedEpisodeId like warmSession() is.
-  async reattachIfIdle() {
-    if (!this._episodeId || this._thinking || this._ws?.readyState === WebSocket.OPEN) return;
-    try {
-      await this._attach();
-    } catch {
-      // best-effort — the next visibility change, keystroke, or send retries
     }
   }
 

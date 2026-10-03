@@ -13,7 +13,9 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
-import AoChatController from './ao-controller.js';
+import CoworkerChatController from './coworker-chat-controller.js';
+import CmaChatController from './cma-chat-controller.js';
+import { getEWFlags } from '../../utils/ewFlags.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
   AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES,
@@ -104,8 +106,55 @@ export default class NxChatAo extends LitElement {
     const key = `${org}/${site}`;
     if (this._configKey === key) return;
     this._configKey = key;
-    const { prompts } = await loadSiteConfig(org, site);
+    const [{ prompts }, flags] = await Promise.all([
+      loadSiteConfig(org, site),
+      getEWFlags({ org, site }),
+    ]);
     this._prompts = prompts ?? [];
+    // ew.altHarness selects the CMA bridge harness; its value is the activation
+    // key that authorizes/routes the chat socket to the bridge.
+    this._altHarness = !!flags['ew.altHarness'];
+    this._activationKey = flags['ew.altHarness'];
+    this._flagsReady = true;
+    this._initController();
+  }
+
+  _onControllerUpdate({
+    messages, thinking, streamingText, episodes, episodeId,
+    pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode, staleEpisode,
+  }) {
+    this.messages = streamingText
+      ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
+      : messages;
+    this.thinking = thinking;
+    this.episodes = episodes;
+    this.episodeId = episodeId;
+    this.pendingQuestion = pendingQuestion;
+    this.pendingPlanApproval = pendingPlanApproval;
+    this.pendingPermission = pendingPermission;
+    this.loadingEpisode = loadingEpisode;
+    this.staleEpisode = staleEpisode;
+  }
+
+  // The controller is created once the ew.altHarness flag is known, so the
+  // correct harness subclass (Coworker REST history vs CMA bridge) is chosen up
+  // front. Idempotent; recreates only if the harness actually changes. See
+  // docs/chat-ao-controller-decoupling.md.
+  _initController() {
+    if (!this.isConnected || !this._flagsReady) return;
+    const Controller = this._altHarness ? CmaChatController : CoworkerChatController;
+    if (this._controller instanceof Controller) {
+      this._controller.setActivationKey?.(this._activationKey);
+      return;
+    }
+    this._controller?.destroy();
+    this._controller = new Controller({
+      onUpdate: (state) => this._onControllerUpdate(state),
+      ...(this._altHarness ? { activationKey: this._activationKey } : {}),
+    });
+    if (this._context) this._controller.setContext(this._context);
+    this._controller.loadEpisodes();
+    this._controller.loadSkills();
   }
 
   _closePanel() {
@@ -193,27 +242,7 @@ export default class NxChatAo extends LitElement {
     super.connectedCallback();
     fetchResolvedManifestId();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, artifactStyle];
-    this._controller = new AoChatController({
-      onUpdate: ({
-        messages, thinking, streamingText, episodes, episodeId,
-        pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode, staleEpisode,
-      }) => {
-        this.messages = streamingText
-          ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
-          : messages;
-        this.thinking = thinking;
-        this.episodes = episodes;
-        this.episodeId = episodeId;
-        this.pendingQuestion = pendingQuestion;
-        this.pendingPlanApproval = pendingPlanApproval;
-        this.pendingPermission = pendingPermission;
-        this.loadingEpisode = loadingEpisode;
-        this.staleEpisode = staleEpisode;
-      },
-    });
-    if (this._context) this._controller.setContext(this._context);
-    this._controller.loadEpisodes();
-    this._controller.loadSkills();
+    this._initController();
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
       onDragging: (dragging) => { this._dragging = dragging; },
