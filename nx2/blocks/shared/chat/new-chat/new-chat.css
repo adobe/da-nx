@@ -3,7 +3,7 @@
   flex-direction: column;
   flex: 1;
   font-family: var(--s2-font-family);
-  font-size: var(--s2-body-size-s);
+  font-size: var(--nx-ui-text-body);
 
   button {
     cursor: pointer;

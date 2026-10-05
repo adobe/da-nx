@@ -293,6 +293,7 @@
      Toggled via body.ui-size-m, see utils/uiSize.js. */
   --nx-ui-text-body: var(--s2-body-size-s);
   --nx-ui-text-detail: var(--s2-body-size-xs);
+  --nx-ui-text-tool-detail: var(--s2-component-xs-regular-font-size);
 
   /* fonts */
   --s2-font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
@@ -315,6 +316,7 @@
 body.ui-size-m {
   --nx-ui-text-body: var(--s2-component-m-regular-font-size);
   --nx-ui-text-detail: var(--s2-component-s-regular-font-size);
+  --nx-ui-text-tool-detail: var(--s2-component-m-regular-font-size);
 }
 
 @media (width >= 1440px) {
