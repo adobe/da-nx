@@ -196,7 +196,9 @@ describe('Queue', () => {
     await queue.push('item2');
 
     const timeDiff = timestamps[1] - timestamps[0];
-    expect(timeDiff).to.be.at.least(100);
+    // Allow a small tolerance: browsers coarsen Date.now() (timer precision
+    // mitigations), so a real 100ms delay can read back a few ms short.
+    expect(timeDiff).to.be.at.least(95);
   });
 
   it('Processes items in FIFO order', async () => {
@@ -575,7 +577,9 @@ describe('crawl', () => {
     await results;
 
     const timeDiff = secondFetchTime - firstFetchTime;
-    expect(timeDiff).to.be.at.least(50);
+    // Allow a small tolerance: browsers coarsen Date.now() (timer precision
+    // mitigations), so a real 50ms delay can read back a few ms short.
+    expect(timeDiff).to.be.at.least(45);
   });
 
   it('Resolves results promise with all files', async () => {
