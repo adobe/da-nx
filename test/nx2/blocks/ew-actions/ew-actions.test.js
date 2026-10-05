@@ -109,7 +109,7 @@ describe('nx-ew-actions', () => {
       await el._updateHidePublish();
       await el.updateComplete;
 
-      expect(cardTitles(el)).to.deep.equal(['Preview', 'Publish']);
+      expect(cardTitles(el)).to.deep.equal(['Preview', 'Preview & Publish']);
     });
 
     it('omits the Publish card (keeps Preview) when publish is hidden', async () => {
