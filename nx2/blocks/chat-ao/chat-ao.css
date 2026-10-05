@@ -47,7 +47,7 @@
 
   .session-picker {
     --nx-picker-max-width: 50%;
-    --nx-picker-height: 32px;
+    --nx-picker-height: 24px;
   }
 
   & > div {
@@ -491,9 +491,15 @@
   color: var(--s2-gray-800);
 }
 
-.nx-action-btn-quiet,
-.nx-action-btn-icon:not(.nx-btn-sm) {
-  font-size: var(--s2-component-m-regular-font-size);
+:host([data-ui-size="m"]) {
+  .session-picker {
+    --nx-picker-height: 32px;
+  }
+
+  .nx-action-btn-quiet,
+  .nx-action-btn-icon:not(.nx-btn-sm) {
+    font-size: var(--s2-component-m-regular-font-size);
+  }
 }
 
 .chat-form-wrap {

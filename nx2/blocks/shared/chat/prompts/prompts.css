@@ -4,7 +4,7 @@
   overflow: hidden;
   height: 100%;
   font-family: var(--s2-font-family);
-  font-size: var(--nx-ui-text-body);
+  font-size: var(--nx-ui-text-component);
   gap: var(--s2-spacing-100);
 
   button {
@@ -22,8 +22,8 @@
 }
 
 .prompts-search-icon {
-  width: 18px;
-  height: 18px;
+  width: var(--nx-ui-icon-size);
+  height: var(--nx-ui-icon-size);
   flex-shrink: 0;
   color: var(--s2-gray-600);
 }
@@ -35,7 +35,7 @@
   outline: none;
   background: none;
   font-family: inherit;
-  font-size: var(--nx-ui-text-body);
+  font-size: var(--nx-ui-text-component);
   color: var(--s2-gray-900);
   padding: 0;
 
@@ -58,8 +58,8 @@
   color: var(--s2-gray-600);
 
   svg {
-    width: 18px;
-    height: 18px;
+    width: var(--nx-ui-icon-size);
+    height: var(--nx-ui-icon-size);
     display: block;
   }
 }
@@ -78,7 +78,7 @@
 
   li {
     border-top: 1px solid var(--s2-gray-100);
-    padding: var(--s2-spacing-100) 0;
+    padding: var(--s2-spacing-75) 0;
     margin: 0 var(--s2-spacing-100);
 
     &:first-child {
@@ -95,8 +95,8 @@
   border: none;
   border-radius: var(--s2-corner-radius-400);
   background: none;
-  padding: var(--s2-spacing-100) var(--s2-spacing-200);
-  gap: var(--s2-spacing-100);
+  padding: var(--s2-spacing-75) var(--s2-spacing-100);
+  gap: var(--s2-spacing-75);
   color: var(--s2-gray-800);
 
   &:hover,
@@ -111,8 +111,8 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--s2-spacing-200);
-  line-height: var(--s2-component-m-medium-line-height);
-  font-size: var(--s2-component-m-medium-font-size);
+  line-height: var(--s2-component-xs-medium-line-height);
+  font-size: var(--s2-component-xs-medium-font-size);
 
   .prompt-item-title {
     min-width: 0;
@@ -130,8 +130,8 @@
 
 .prompt-item-desc {
   color: var(--s2-gray-900);
-  font-size: var(--s2-component-m-regular-font-size);
-  line-height: var(--s2-component-m-regular-line-height);
+  font-size: var(--s2-component-s-regular-font-size);
+  line-height: var(--s2-component-s-regular-line-height);
   text-overflow: ellipsis;
 }
 
@@ -140,4 +140,25 @@
   padding: var(--s2-spacing-400) var(--s2-spacing-300);
   color: var(--s2-gray-600);
   text-align: center;
+}
+
+:host([data-ui-size="m"]) {
+  .prompts-list li {
+    padding: var(--s2-spacing-100) 0;
+  }
+
+  .prompt-item {
+    padding: var(--s2-spacing-100) var(--s2-spacing-200);
+    gap: var(--s2-spacing-100);
+  }
+
+  .prompt-item-header {
+    line-height: var(--s2-component-m-medium-line-height);
+    font-size: var(--s2-component-m-medium-font-size);
+  }
+
+  .prompt-item-desc {
+    font-size: var(--s2-component-m-regular-font-size);
+    line-height: var(--s2-component-m-regular-line-height);
+  }
 }

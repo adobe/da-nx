@@ -192,6 +192,7 @@ export default class NxChatAo extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this.dataset.uiSize = getUISize();
     fetchResolvedManifestId();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, artifactStyle];
     this._controller = new AoChatController({
