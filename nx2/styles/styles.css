@@ -299,6 +299,7 @@
   --nx-ui-icon-size: 16px;
   --nx-ui-text-comment: 15px;
   --nx-ui-text-component: var(--s2-component-s-regular-font-size);
+  --nx-ui-text-preview-title: 14px;
 
   /* fonts */
   --s2-font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
@@ -327,6 +328,7 @@ body.ui-size-m {
   --nx-ui-icon-size: 18px;
   --nx-ui-text-comment: var(--s2-component-m-regular-font-size);
   --nx-ui-text-component: var(--s2-component-m-regular-font-size);
+  --nx-ui-text-preview-title: var(--s2-component-l-bold-font-size);
 }
 
 @media (width >= 1440px) {
