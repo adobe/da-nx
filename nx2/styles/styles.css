@@ -308,6 +308,10 @@
   --nx-ui-text-title-l: var(--s2-component-xl-bold-font-size);
   --nx-ui-text-heading: var(--s2-heading-size-s);
   --nx-ui-text-heading-l: var(--s2-heading-size-m);
+  --nx-ui-text-field: 13.3333px;
+  --nx-ui-line-body: 1.5;
+  --nx-ui-line-description: 1.4;
+  --nx-ui-line-component: var(--s2-component-s-regular-line-height);
   --nx-ui-icon-micro: 12px;
   --nx-ui-icon-inline: 14px;
   --nx-ui-icon-indicator: 14px;
@@ -344,6 +348,11 @@ body.ui-size-m {
   --nx-ui-text-comment: var(--s2-component-m-regular-font-size);
   --nx-ui-text-component: var(--s2-component-m-regular-font-size);
   --nx-ui-text-preview-title: var(--s2-component-l-bold-font-size);
+  --nx-ui-text-badge: var(--s2-component-xs-regular-font-size);
+  --nx-ui-text-field: var(--s2-component-m-regular-font-size);
+  --nx-ui-line-body: var(--s2-component-m-regular-line-height);
+  --nx-ui-line-description: var(--s2-component-s-regular-line-height);
+  --nx-ui-line-component: var(--s2-component-m-regular-line-height);
   --nx-ui-icon-indicator: 16px;
   --nx-ui-icon-toolbar: 18px;
   --nx-picker-section-font-size: var(--s2-component-s-regular-font-size);
