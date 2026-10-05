@@ -107,4 +107,57 @@ describe('NxLoc handleSave', () => {
 
     expect(savedBody.urls[0].requestIds).to.deep.equal({ 'fr-CA': 'req-fr-ca', 'es-MX': 'req-es-mx' });
   });
+
+  it('keeps an existing error message visible through a save that persists its status', async () => {
+    const el = document.createElement('nx-loc');
+    el.path = '/project';
+    el._project = { org: 'org', site: 'site' };
+    el._message = { text: 'Failed to save/start GlobalLink submission.', type: 'error' };
+
+    await el.handleSave({ detail: { data: { langs: [] } } });
+
+    expect(el._message).to.deep.equal({ text: 'Failed to save/start GlobalLink submission.', type: 'error' });
+  });
+
+  it('still shows a new message from the save itself even when an error was showing', async () => {
+    window.fetch = async (input, opts = {}) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/source/') && opts.method === 'POST') {
+        return jsonResponse({}, 500);
+      }
+      return jsonResponse({});
+    };
+
+    const el = document.createElement('nx-loc');
+    el.path = '/project';
+    el._project = { org: 'org', site: 'site' };
+    el._message = { text: 'Failed to save/start GlobalLink submission.', type: 'error' };
+
+    await el.handleSave({ detail: { data: { langs: [] } } });
+
+    expect(el._message).to.deep.equal({ text: 'Unknown error for: /org/site/project.' });
+  });
+
+  it('still shows "Saving..." and clears it when there was no prior error', async () => {
+    window.fetch = async (input, opts = {}) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/source/') && opts.method === 'POST') {
+        await new Promise((resolve) => { setTimeout(resolve, 20); });
+        return jsonResponse({});
+      }
+      return jsonResponse({});
+    };
+
+    const el = document.createElement('nx-loc');
+    el.path = '/project';
+    el._project = { org: 'org', site: 'site' };
+
+    const savePromise = el.handleSave({ detail: { data: { langs: [] } } });
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+    expect(el._message).to.deep.equal({ text: 'Saving...' });
+
+    await savePromise;
+
+    expect(el._message).to.equal(undefined);
+  });
 });

@@ -40,8 +40,14 @@ class NxLocTranslate extends LitElement {
   }
 
   update(props) {
-    // Allow the parent to pass or clear a message
-    if (props.has('message')) this._message = this.message;
+    // Allow the parent to pass or clear a message, but don't let an
+    // incidental parent-side save (e.g. persisting an error's status)
+    // clobber a connector error already showing locally - only a newer
+    // error from the parent may replace it.
+    if (props.has('message')) {
+      const hadError = this._message?.type === 'error';
+      if (!hadError || this.message?.type === 'error') this._message = this.message;
+    }
     if (props.has('project')) this.setupProject();
     super.update();
   }
