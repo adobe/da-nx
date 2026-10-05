@@ -15,8 +15,8 @@
 .ui-artifact-pe-icon {
   display: inline-block;
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: var(--nx-ui-icon-feature);
+  height: var(--nx-ui-icon-feature);
   background-color: currentcolor;
   mask-size: contain;
   mask-repeat: no-repeat;
@@ -151,8 +151,8 @@
 }
 
 .ui-artifact-pe-chevron {
-  width: 16px;
-  height: 16px;
+  width: var(--nx-ui-icon-compact);
+  height: var(--nx-ui-icon-compact);
   flex-shrink: 0;
   background-color: var(--s2-gray-600);
   mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
@@ -270,8 +270,8 @@
   &::after {
     content: "";
     display: block;
-    width: 14px;
-    height: 14px;
+    width: var(--nx-ui-icon-inline);
+    height: var(--nx-ui-icon-inline);
     background-color: currentcolor;
     mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
     mask-size: contain;
@@ -316,8 +316,8 @@
 }
 
 .ui-artifact-pe-modal-heading-icon {
-  width: 20px;
-  height: 20px;
+  width: var(--nx-ui-icon-feature);
+  height: var(--nx-ui-icon-feature);
   flex-shrink: 0;
   background-color: currentcolor;
   mask-size: contain;
@@ -366,8 +366,8 @@
 }
 
 .ui-artifact-pe-modal-copy-icon {
-  width: 16px;
-  height: 16px;
+  width: var(--nx-ui-icon-compact);
+  height: var(--nx-ui-icon-compact);
   flex-shrink: 0;
   background-color: currentcolor;
   mask-image: url("/img/icons/s2-icon-copy-20-n.svg");
@@ -441,8 +441,8 @@
   &::after {
     content: "";
     display: block;
-    width: 16px;
-    height: 16px;
+    width: var(--nx-ui-icon-compact);
+    height: var(--nx-ui-icon-compact);
     background-color: currentcolor;
     mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
     mask-size: contain;

@@ -129,8 +129,8 @@
 }
 
 .ui-artifact-alert-icon {
-  width: 20px;
-  height: 20px;
+  width: var(--nx-ui-icon-feature);
+  height: var(--nx-ui-icon-feature);
 
   /* Nudges past line-height leading to match the first line's ink, not its
      box top — same fix as chat-ao.css's task-list-item checkbox. */

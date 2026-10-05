@@ -101,8 +101,8 @@ nx-popover.deploy-popover {
 }
 
 .deploy-glyph {
-  width: 16px;
-  height: 16px;
+  width: var(--nx-ui-icon-compact);
+  height: var(--nx-ui-icon-compact);
   fill: currentcolor;
 }
 
@@ -183,8 +183,8 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card-check .deploy-glyph {
-  width: 24px;
-  height: 24px;
+  width: var(--nx-ui-icon-status);
+  height: var(--nx-ui-icon-status);
 }
 
 .deploy-card-preview .deploy-card-check {
@@ -238,8 +238,8 @@ nx-popover.deploy-popover {
 }
 
 .deploy-copy .deploy-glyph {
-  width: 18px;
-  height: 18px;
+  width: var(--nx-ui-icon-regular);
+  height: var(--nx-ui-icon-regular);
 }
 
 .deploy-copy:hover {

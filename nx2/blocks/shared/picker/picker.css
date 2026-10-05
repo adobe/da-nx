@@ -125,16 +125,16 @@
 }
 
 .picker-open-in-icon {
-  width: 14px;
-  height: 14px;
+  width: var(--nx-ui-icon-indicator);
+  height: var(--nx-ui-icon-indicator);
   flex-shrink: 0;
   display: block;
   pointer-events: none;
 }
 
 .picker-check {
-  width: 14px;
-  height: 14px;
+  width: var(--nx-ui-icon-indicator);
+  height: var(--nx-ui-icon-indicator);
   flex-shrink: 0;
   color: var(--s2-gray-800);
 }
@@ -165,7 +165,7 @@
 
   .picker-open-in-icon,
   .picker-check {
-    width: 16px;
-    height: 16px;
+    width: var(--nx-ui-icon-compact);
+    height: var(--nx-ui-icon-compact);
   }
 }
