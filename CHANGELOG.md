@@ -1,3 +1,18 @@
+## [1.7.1](https://github.com/adobe/da-nx/compare/v1.7.0...v1.7.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* streamline prev/pub actions ([b0404f2](https://github.com/adobe/da-nx/commit/b0404f2b15f278ec883f43c4a6871bf22be29e5e))
+* streamline prev/pub actions ([a19f071](https://github.com/adobe/da-nx/commit/a19f0717c3aaf9c931ebf660e1597b9913e10c92))
+
+# [1.7.0](https://github.com/adobe/da-nx/compare/v1.6.0...v1.7.0) (2026-10-01)
+
+
+### Features
+
+* introduce field variant for picker ([#797](https://github.com/adobe/da-nx/issues/797)) ([58b4ac5](https://github.com/adobe/da-nx/commit/58b4ac5c751064da03f6c91aa5a50c55aac80407))
+
 # [1.6.0](https://github.com/adobe/da-nx/compare/v1.5.0...v1.6.0) (2026-10-01)
 
 
@@ -55,6 +70,15 @@ The nav-injected `nx-editortoggle` now renders on `/edit` and `/canvas`.
 Removed the duplicate profile-menu variant and its styles; the header
 instance still handles the one-time welcome and switch-back prompts.
 Added route-visibility tests.
+
+## 2026-10-02
+
+### Chat message send RUM
+
+Record valid DA Agent and Coworker submissions as `click` checkpoints with
+`source: chat-submit` and harness-specific send-button targets. Coverage includes
+button and Enter submissions, excluding empty submissions and stop actions.
+Focused send-RUM tests and lint passed.
 
 ## 2026-09-23
 
