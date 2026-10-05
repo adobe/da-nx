@@ -1,6 +1,6 @@
 # nx-menu
 
-A dropdown menu with keyboard navigation. Supports section headers, dividers, and optional icons per item.
+A dropdown menu with keyboard navigation. Supports section headers, dividers, and optional icons/descriptions per item.
 
 ## Usage
 
@@ -45,6 +45,9 @@ Each entry in the `items` array is one of:
 // Regular item
 { id: 'copy', label: 'Copy', icon: 'Copy' }   // icon is optional
 
+// With a secondary description line
+{ id: 'export', label: 'Export', description: 'Download as a .zip file' }
+
 // Section header (non-interactive label)
 { section: 'Actions' }
 
@@ -62,6 +65,7 @@ Each entry in the `items` array is one of:
 | ----------- | --------------------- | --------------------------------------------------------------------------------- |
 | `items`     | `Array`               | List of item descriptors (see shapes above).                                      |
 | `placement` | `String`              | Default placement when opened via trigger: `below` (default), `above`, or `auto`. |
+| `size`      | `String`              | Item density: `s` (default) or `m`. Reflected as a host attribute.                |
 | `open`      | `Boolean` (read-only) | Whether the menu is currently open.                                               |
 
 ### Methods

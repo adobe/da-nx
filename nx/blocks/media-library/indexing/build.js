@@ -79,7 +79,9 @@ async function runWorkerBuild(
   // When running with ?nx=local, files load from localhost but page is on da.live
   // Workers must be same-origin, so we create a blob URL
   const workerUrl = new URL('./worker/worker.js', import.meta.url).href;
-  const response = await fetch(workerUrl);
+  // Add cache-busting to ensure fresh worker code is loaded
+  const cacheBustedUrl = `${workerUrl}?t=${Date.now()}`;
+  const response = await fetch(cacheBustedUrl, { cache: 'no-store' });
   if (!response.ok) {
     throw new Error(`Failed to fetch worker code: ${response.status}`);
   }
@@ -87,13 +89,14 @@ async function runWorkerBuild(
   let workerCode = await response.text();
 
   // Replace ALL relative imports with absolute URLs so worker can fetch them
-  // This converts: import './foo.js' → import 'http://localhost:6456/.../foo.js'
+  // This converts: import './foo.js' → import 'http://localhost:6456/.../foo.js?t=...'
   const baseUrl = new URL('./worker/', import.meta.url).href;
+  const cacheBuster = Date.now();
   workerCode = workerCode.replace(
     /from\s+['"](\.\.[^'"]*|\.\/[^'"]*)['"]/g,
     (match, path) => {
       const absoluteUrl = new URL(path, baseUrl).href;
-      return `from '${absoluteUrl}'`;
+      return `from '${absoluteUrl}?t=${cacheBuster}'`;
     },
   );
 
@@ -121,11 +124,22 @@ async function runWorkerBuild(
     resetWatchdog();
 
     // Handle token refresh requests (async, but doesn't interfere with message ordering)
-    const handleTokenRefresh = async (requestId) => {
+    const handleTokenRefresh = async (requestId, tokenType = 'site') => {
       try {
-        clearCachedAemSiteToken(org, repo, ref);
-        const tokenResult = await getAemSiteToken({ org, site: repo, ref });
-        const freshToken = tokenResult?.siteToken || null;
+        let freshToken = null;
+
+        if (tokenType === 'ims') {
+          // Refresh IMS token for admin.hlx.page APIs
+          const { initIms } = await import('../core/ims-adapter.js');
+          const imsDetails = await initIms();
+          freshToken = imsDetails?.accessToken?.token || null;
+        } else {
+          // Refresh site token for .aem.page content fetches
+          clearCachedAemSiteToken(org, repo, ref);
+          const tokenResult = await getAemSiteToken({ org, site: repo, ref });
+          freshToken = tokenResult?.siteToken || null;
+        }
+
         worker.postMessage({ type: 'token-refresh-response', requestId, token: freshToken });
       } catch (err) {
         worker.postMessage({ type: 'token-refresh-response', requestId, token: null, error: err.message });
@@ -133,7 +147,9 @@ async function runWorkerBuild(
     };
 
     worker.onmessage = (event) => {
-      const { type, data, error, message, requestId } = event.data;
+      const {
+        type, data, error, message, requestId, tokenType,
+      } = event.data;
 
       if (type === 'progress') {
         resetWatchdog(); // Reset timeout on activity
@@ -148,13 +164,16 @@ async function runWorkerBuild(
         }
       } else if (type === 'token-refresh') {
         // Handle async token refresh without blocking message handler
-        handleTokenRefresh(requestId);
+        handleTokenRefresh(requestId, tokenType);
       } else if (type === 'success') {
         clearTimeout(watchdogTimer);
         resolve(data);
       } else if (type === 'error') {
         clearTimeout(watchdogTimer);
-        reject(new Error(error.message || 'Worker error'));
+        const err = new Error(error.message || 'Worker error');
+        err.code = error.code;
+        err.status = error.status;
+        reject(err);
       }
     };
 

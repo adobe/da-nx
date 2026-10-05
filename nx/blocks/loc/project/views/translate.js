@@ -1,10 +1,10 @@
 import { LitElement, html, nothing } from 'da-lit';
-import config from '../../../../../nx2/utils/nxToggle.js';
+import { getConfig } from '../../../../../nx2/scripts/nx.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
 import { DA_ADMIN, loadStyle } from '../../../../../nx2/utils/utils.js';
 import { detectService, saveLangItems, saveStatus, formatDate } from '../index.js';
 
-const { nxBase: nx } = config;
+const { nxBase: nx } = getConfig();
 const style = await loadStyle(import.meta.url);
 
 class NxLocTranslate extends LitElement {

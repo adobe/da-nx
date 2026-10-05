@@ -1,0 +1,202 @@
+.ui-artifact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+}
+
+.ui-artifact-title {
+  font-weight: bold;
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-700);
+}
+
+.ui-artifact-fallback {
+  margin: 0;
+  font-size: var(--s2-body-size-s);
+  color: var(--s2-gray-600);
+  font-style: italic;
+}
+
+.ui-artifact-markdown {
+  padding: var(--s2-spacing-200);
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-300);
+}
+
+.ui-artifact-row {
+  display: flex;
+  flex-direction: row;
+  gap: var(--s2-spacing-100);
+}
+
+.ui-artifact-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+}
+
+.ui-artifact-card {
+  padding: var(--s2-spacing-200);
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-300);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+}
+
+.ui-artifact-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-300);
+}
+
+.ui-artifact-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--s2-body-size-xs);
+
+  th,
+  td {
+    padding: var(--s2-spacing-75) var(--s2-spacing-100);
+    text-align: left;
+    border-bottom: 1px solid var(--s2-gray-200);
+    white-space: nowrap;
+  }
+
+  th {
+    color: var(--s2-gray-700);
+    font-weight: bold;
+  }
+}
+
+.ui-artifact-metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-50);
+  min-width: 0;
+}
+
+.ui-artifact-metric-label {
+  font-size: var(--s2-body-size-xs);
+  font-weight: bold;
+  color: var(--s2-gray-600);
+}
+
+.ui-artifact-metric-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2-spacing-100);
+}
+
+.ui-artifact-metric-value {
+  font-size: var(--s2-component-l-bold-font-size);
+  font-weight: var(--s2-component-l-bold-font-weight);
+  color: var(--s2-gray-900);
+}
+
+.ui-artifact-metric-negative .ui-artifact-metric-value {
+  color: var(--s2-red-900);
+}
+
+.ui-artifact-metric-positive .ui-artifact-metric-value {
+  color: var(--s2-green-900);
+}
+
+.ui-artifact-metric-trend {
+  font-size: var(--s2-body-size-xs);
+  font-weight: bold;
+}
+
+.ui-artifact-metric-trend-up {
+  color: var(--s2-green-900);
+}
+
+.ui-artifact-metric-trend-down {
+  color: var(--s2-red-900);
+}
+
+.ui-artifact-metric-trend-flat {
+  color: var(--s2-gray-600);
+}
+
+.ui-artifact-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2-spacing-100);
+  padding: var(--s2-spacing-200);
+  border: 1px solid;
+  border-radius: var(--s2-corner-radius-300);
+}
+
+.ui-artifact-alert-icon {
+  width: 20px;
+  height: 20px;
+
+  /* Nudges past line-height leading to match the first line's ink, not its
+     box top — same fix as chat-ao.css's task-list-item checkbox. */
+  margin-top: 2px;
+  flex-shrink: 0;
+  background-color: currentcolor;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+}
+
+.ui-artifact-alert-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-50);
+  min-width: 0;
+}
+
+.ui-artifact-alert-text,
+.ui-artifact-alert-details,
+.ui-artifact-alert-action {
+  margin: 0;
+}
+
+.ui-artifact-alert-details,
+.ui-artifact-alert-action {
+  font-size: var(--s2-body-size-xs);
+}
+
+.ui-artifact-alert-info {
+  background: var(--s2-blue-100);
+  border-color: var(--s2-blue-300);
+  color: var(--s2-blue-900);
+
+  .ui-artifact-alert-icon {
+    mask-image: url("/img/icons/s2-icon-infocircle-20-n.svg");
+  }
+}
+
+.ui-artifact-alert-success {
+  background: var(--s2-green-100);
+  border-color: var(--s2-green-300);
+  color: var(--s2-green-900);
+
+  .ui-artifact-alert-icon {
+    mask-image: url("/img/icons/s2-icon-checkmarkcircle-20-n.svg");
+  }
+}
+
+.ui-artifact-alert-warning {
+  background: var(--s2-orange-100);
+  border-color: var(--s2-orange-300);
+  color: var(--s2-orange-900);
+
+  .ui-artifact-alert-icon {
+    mask-image: url("/img/icons/s2-icon-alerttriangle-20-n.svg");
+  }
+}
+
+.ui-artifact-alert-error,
+.ui-artifact-alert-critical {
+  background: var(--s2-red-100);
+  border-color: var(--s2-red-300);
+  color: var(--s2-red-900);
+
+  .ui-artifact-alert-icon {
+    mask-image: url("/img/icons/s2-icon-alerttriangle-20-n.svg");
+  }
+}

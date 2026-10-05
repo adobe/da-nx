@@ -13,7 +13,7 @@ const QUICK_EDIT_ID = 'quick-edit-iframe';
 async function setBody(body, ctx) {
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
-  await ctx.loadPage();
+  await ctx.loadPage(document);
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
   setupActions(ctx);

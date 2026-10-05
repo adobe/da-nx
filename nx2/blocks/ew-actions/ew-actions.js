@@ -6,15 +6,25 @@ import {
   requestAemRole,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
-import { versions } from '../../utils/api.js';
+import { versions, status as statusApi } from '../../utils/api.js';
+import { fetchDaConfigs, getFirstSheet } from '../../utils/daConfig.js';
+import { PREFLIGHT_EVENT, newPreflightRequestId } from '../../utils/preflight-events.js';
+import { sidekickCacheBust } from '../../utils/sidekick.js';
+import { formatRelativeDateTime } from '../../utils/format.js';
 import { getConfig } from '../../scripts/nx.js';
 import '../shared/popover/popover.js';
 
 const style = await loadStyle(import.meta.url);
+const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
+
+const PREFLIGHT_TIMEOUT = 60000;
+
 const { codeBase } = getConfig();
 const NX_BASE = new URL('../../', import.meta.url).href.replace(/\/$/, '');
 const SEND_ICON_HREF = `${codeBase}/img/icons/s2-icon-send-20-n.svg#icon`;
-const PREPARE_ICON_HREF = `${codeBase}/img/icons/s2-icon-filetext-20-n.svg#icon`;
+const MENU_ICON_HREF = `${codeBase}/img/icons/s2-icon-more-20-n.svg#icon`;
+const COPY_ICON_HREF = `${codeBase}/img/icons/s2-icon-copy-20-n.svg#icon`;
+const CHECK_ICON_HREF = `${codeBase}/img/icons/s2-icon-checkmarkcircle-20-n.svg#icon`;
 
 const prepareModuleUrl = () => `${window.location.origin}/blocks/canvas/editor-utils/prepare-menu.js`;
 
@@ -49,23 +59,41 @@ function buildPrepareDetails(state) {
   };
 }
 
+async function shouldHidePublish(hashState) {
+  const { org, site } = hashState || {};
+  const fullpath = buildPrepareDetails(hashState)?.fullpath;
+  if (!org || !site || !fullpath) return false;
+
+  try {
+    const configs = await Promise.all(fetchDaConfigs({ org, site }));
+    const configTab = configs.flatMap((config) => getFirstSheet(config) || []);
+    const publishConfigs = configTab.filter((c) => c.key === 'editor.hidePublish' && c.value);
+    return publishConfigs.some((c) => fullpath.startsWith(c.value));
+  } catch {
+    return false;
+  }
+}
+
 class NXEwActions extends LitElement {
   static properties = {
     _busy: { state: true },
     _hasError: { state: true },
     _hashState: { state: true },
+    _hidePublish: { state: true },
     _prepareReady: { state: true },
+    _enforcePreflight: { state: true },
+    _preflightPassed: { state: true },
     // phase: 'error' | 'pending' | 'result'
     _dialog: { state: true },
+    // AEM admin status ({ preview, live, ... }) for the current doc, drives the
+    // deploy popover cards and the "unpublished changes" badge on the Send button.
+    _status: { state: true },
+    _statusLoading: { state: true },
+    // Which environment the popover action targets: 'preview' | 'live'.
+    _target: { state: true },
+    // URL most recently copied ('preview' | 'live'), for copy-button feedback.
+    _copied: { state: true },
   };
-
-  get _popover() {
-    return this.shadowRoot?.querySelector('nx-popover');
-  }
-
-  get _menuAnchor() {
-    return this.shadowRoot?.querySelector('.preview-dropdown-btn');
-  }
 
   get _prepareMenu() {
     return this.shadowRoot?.querySelector('prepare-menu');
@@ -75,16 +103,89 @@ class NXEwActions extends LitElement {
     return this.shadowRoot?.querySelector('.prepare-dropdown-btn');
   }
 
+  get _popover() {
+    return this.shadowRoot?.querySelector('nx-popover.deploy-popover');
+  }
+
+  get _sendBtn() {
+    return this.shadowRoot?.querySelector('.send-btn');
+  }
+
   get _prepareDetails() {
-    return buildPrepareDetails(this._hashState);
+    // Stable ref per hash-state: an unstable object makes <prepare-menu> reset() mid-run.
+    if (this._pdHashState !== this._hashState) {
+      this._pdHashState = this._hashState;
+      this._pdValue = buildPrepareDetails(this._hashState);
+    }
+    return this._pdValue;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this._busy = false;
-    this.shadowRoot.adoptedStyleSheets = [style];
-    this._unsubHash = hashChange.subscribe((state) => { this._hashState = state; });
+    this._target = 'preview';
+    this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];
+    this._unsubHash = hashChange.subscribe((state) => {
+      const prevPath = this._prepareDetails?.fullpath;
+      this._hashState = state;
+      this._loadStatus();
+      if (this._prepareDetails?.fullpath !== prevPath) {
+        this._preflightPassed = false;
+        this._checkEnforcePreflight();
+      }
+    });
+    document.addEventListener(PREFLIGHT_EVENT.STATUS, this._onPreflightStatus);
+    this._checkEnforcePreflight();
     this._loadPrepare();
+  }
+
+  _onPreflightStatus = (e) => {
+    const { path, status } = e.detail || {};
+    if (path !== this._prepareDetails?.fullpath) return;
+    this._preflightPassed = status === 'success';
+  };
+
+  async _checkEnforcePreflight() {
+    const { org, site } = this._hashState || {};
+    if (!org || !site) {
+      this._enforcePreflight = false;
+      return;
+    }
+    try {
+      const configs = await Promise.all(fetchDaConfigs({ org, site }));
+      const rows = configs.filter(Boolean).flatMap((c) => getFirstSheet(c) || []);
+      this._enforcePreflight = rows.some((r) => r.key === 'editor.enforcePreflight'
+        && `${r.value}`.toLowerCase() === 'true');
+    } catch (e) {
+      // Opt-in gate: without config we can't know a site enabled it, so leave
+      // publish ungated rather than block every site on a transient config error.
+      this._enforcePreflight = false;
+      // eslint-disable-next-line no-console
+      console.warn('Preflight enforcement config unavailable; leaving publish ungated.', e);
+    }
+  }
+
+  requestPreflight(fullpath) {
+    const requestId = newPreflightRequestId();
+    return new Promise((resolve) => {
+      let timer;
+      let onStatus;
+      const finish = (status) => {
+        document.removeEventListener(PREFLIGHT_EVENT.STATUS, onStatus);
+        clearTimeout(timer);
+        this._cancelPreflight = null;
+        resolve(status);
+      };
+      this._cancelPreflight = finish;
+      onStatus = (e) => {
+        const { path, status, requestId: rid } = e.detail || {};
+        if (rid === requestId && path === fullpath) finish(status);
+      };
+      timer = setTimeout(() => finish(undefined), PREFLIGHT_TIMEOUT);
+      document.addEventListener(PREFLIGHT_EVENT.STATUS, onStatus);
+      const detail = { paths: [fullpath], requestId };
+      document.dispatchEvent(new CustomEvent(PREFLIGHT_EVENT.RUN, { detail }));
+    });
   }
 
   async _loadPrepare() {
@@ -101,20 +202,101 @@ class NXEwActions extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._unsubHash?.();
+    clearTimeout(this._copyTimer);
+    document.removeEventListener(PREFLIGHT_EVENT.STATUS, this._onPreflightStatus);
+    this._cancelPreflight?.(undefined);
   }
 
-  _togglePreviewPopover(e) {
-    e.preventDefault();
-    if (!buildAemPathFromHashState(this._hashState) || this._busy) return;
-    const pop = this._popover;
-    const anchor = this._menuAnchor;
-    if (!pop || !anchor) return;
-    if (pop.open) {
-      pop.close();
-    } else {
-      pop.show({ anchor, placement: 'below' });
-      anchor.setAttribute('aria-expanded', 'true');
+  // Fetch AEM admin status for the current doc. Keyed on the doc path so hash
+  // updates that don't change the doc don't refetch; `force` refreshes after a
+  // preview/publish so the cards and badge reflect the new state.
+  async _loadStatus({ force = false } = {}) {
+    const aemPath = buildAemPathFromHashState(this._hashState);
+    if (!aemPath) {
+      this._status = undefined;
+      this._statusKey = null;
+      return;
     }
+    if (!force && aemPath === this._statusKey) return;
+    this._statusKey = aemPath;
+    this._statusLoading = true;
+    try {
+      const resp = await statusApi.get(aemPath);
+      if (this._statusKey !== aemPath) return; // navigated away mid-flight
+      this._status = resp?.ok ? await resp.json() : undefined;
+    } catch {
+      if (this._statusKey === aemPath) this._status = undefined;
+    } finally {
+      if (this._statusKey === aemPath) this._statusLoading = false;
+    }
+  }
+
+  _env(kind) {
+    const env = this._status?.[kind];
+    if (!env) return { ok: false, url: null, time: null };
+    return { ok: env.status === 200, url: env.url || null, time: env.lastModified || null };
+  }
+
+  get _previewInfo() { return this._env('preview'); }
+
+  get _liveInfo() { return this._env('live'); }
+
+  // True when there is previewed content that isn't (fully) on live yet — either
+  // never published, or the preview is newer than the last publish. Drives the
+  // "unpublished changes" badge (issue #1197's secondary indicator).
+  get _hasUnpublished() {
+    const preview = this._status?.preview;
+    if (preview?.status !== 200) return false;
+    const live = this._status?.live;
+    if (live?.status !== 200) return true;
+    const previewTime = Date.parse(preview.lastModified || '');
+    const liveTime = Date.parse(live.lastModified || '');
+    return Number.isFinite(previewTime) && Number.isFinite(liveTime) && previewTime > liveTime;
+  }
+
+  _toggleSend() {
+    const popover = this._popover;
+    if (!popover) return;
+    if (popover.open) {
+      popover.close();
+      return;
+    }
+    this._target = 'preview';
+    this._copied = null;
+    popover.show({ anchor: this._sendBtn, placement: 'below-end' });
+    this._loadStatus();
+  }
+
+  _selectTarget(target) {
+    this._target = target;
+    this._copied = null;
+  }
+
+  async _copyUrl(url, kind) {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      this._copied = kind;
+      clearTimeout(this._copyTimer);
+      this._copyTimer = setTimeout(() => { this._copied = null; }, 1500);
+    } catch { /* clipboard unavailable */ }
+  }
+
+  async _confirmAction() {
+    if (this._busy) return;
+    const action = this._target === 'live' && !this._hidePublish ? 'publish' : 'preview';
+    await this._runAemAction(action);
+    if (!this._hasError) this._popover?.close();
+    await this._loadStatus({ force: true });
+  }
+
+  update(changed) {
+    super.update(changed);
+    if (changed.has('_hashState') && this._hashState) this._updateHidePublish();
+  }
+
+  async _updateHidePublish() {
+    this._hidePublish = await shouldHidePublish(this._hashState);
   }
 
   _togglePrepareMenu(e) {
@@ -134,10 +316,6 @@ class NXEwActions extends LitElement {
     this._prepareBtn?.setAttribute('aria-expanded', 'false');
   }
 
-  _onSendPopoverClose() {
-    this._menuAnchor?.setAttribute('aria-expanded', 'false');
-  }
-
   async _handleRoleRequest() {
     const { org, site } = this._hashState || {};
     const { action } = this._dialog?.error || {};
@@ -150,10 +328,14 @@ class NXEwActions extends LitElement {
     }
   }
 
-  _pickAem(action) {
-    if (action !== 'preview' && action !== 'publish') return;
-    this._popover?.close();
-    this._runAemAction(action);
+  async _showActionError(action, message) {
+    await Promise.all([
+      import('../shared/dialog/dialog.js'),
+      import(`${NX_BASE}/public/sl/components.js`),
+    ]);
+    this._busy = false;
+    this._hasError = true;
+    this._dialog = { phase: 'error', error: { action, type: 'error', message } };
   }
 
   async _runAemAction(action) {
@@ -162,6 +344,27 @@ class NXEwActions extends LitElement {
 
     this._dialog = undefined;
     this._busy = true;
+
+    // Flush pending collab updates to da-admin before AEM reads it,
+    // otherwise the last ~2s of edits (held in da-collab's debounce) are missed.
+    const editorDoc = document.querySelector('ew-editor-doc');
+    if (editorDoc?.forceSave) {
+      const flushResult = await editorDoc.forceSave();
+      if (!flushResult?.ok) {
+        await this._showActionError(action, flushResult?.error || 'Unable to confirm save. Please retry or reload the editor.');
+        return;
+      }
+    }
+
+    if (action === 'publish' && this._enforcePreflight) {
+      const status = await this.requestPreflight(this._prepareDetails?.fullpath);
+      if (status !== 'success') {
+        await this._showActionError(action, status === undefined
+          ? 'Preflight did not finish in time. Please run Preflight again before publishing.'
+          : 'Preflight found issues. Resolve them in the Preflight panel, then publish again.');
+        return;
+      }
+    }
 
     const result = await runAemPreviewOrPublish({ aemPath, action });
     if (!result.ok) {
@@ -177,6 +380,7 @@ class NXEwActions extends LitElement {
 
     this._hasError = false;
     const url = this._resolveOpenUrl(action, aemPath, result.url);
+    await sidekickCacheBust(url);
     window.open(url, url);
     this._saveVersion(action);
     this._busy = false;
@@ -243,10 +447,84 @@ class NXEwActions extends LitElement {
     `;
   }
 
+  _renderCard(kind) {
+    const isPreview = kind === 'preview';
+    const info = isPreview ? this._previewInfo : this._liveInfo;
+    const selected = this._target === kind;
+    // "Publish" is the end-user label for the live environment.
+    const title = isPreview ? 'Preview' : 'Preview & Publish';
+    const time = formatRelativeDateTime(info.time);
+    let sub;
+    if (this._statusLoading && !this._status) sub = 'Checking status…';
+    else if (info.ok && time) sub = isPreview ? `Last updated ${time}` : `Last published ${time}`;
+    else sub = isPreview ? 'Not previewed yet' : 'Not published yet';
+
+    return html`
+      <div class="deploy-card deploy-card-${kind}${selected ? ' is-selected' : ''}">
+        <label class="deploy-card-main">
+          <input
+            type="radio"
+            class="deploy-card-radio"
+            name="deploy-target"
+            value=${kind}
+            .checked=${selected}
+            @change=${() => this._selectTarget(kind)}
+          />
+          <span class="deploy-card-text">
+            <span class="deploy-card-title">${title}</span>
+            <span class="deploy-card-sub">${sub}</span>
+          </span>
+        </label>
+        ${selected && info.ok && info.url ? html`
+          <div class="deploy-url">
+            <span class="deploy-url-text" title=${info.url}>${info.url}</span>
+            <button
+              type="button"
+              class="deploy-copy"
+              aria-label=${`Copy ${title} URL`}
+              @click=${() => this._copyUrl(info.url, kind)}
+            >
+              <svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${this._copied === kind ? CHECK_ICON_HREF : COPY_ICON_HREF}></use></svg>
+            </button>
+          </div>
+        ` : nothing}
+      </div>
+    `;
+  }
+
+  _renderDeployPopover() {
+    // `editor.hidePublish` config removes the publish path entirely: no Publish
+    // card, and the action can only ever be a preview "Update".
+    const isPublish = this._target === 'live' && !this._hidePublish;
+    return html`
+      <nx-popover class="deploy-popover" placement="below-end" @close=${() => { this._copied = null; }}>
+        <div class="deploy">
+          <div class="deploy-cards" role="radiogroup" aria-label="Deploy target">
+            ${this._renderCard('preview')}
+            ${this._hidePublish ? nothing : this._renderCard('live')}
+          </div>
+          <button
+            type="button"
+            class="deploy-action nx-btn-accent${isPublish ? ' is-publish' : ''}"
+            ?disabled=${this._busy}
+            @click=${this._confirmAction}
+          >
+            ${this._busy
+        ? html`<span class="preview-dropdown-spinner" aria-hidden="true"></span>`
+        : html`<span>${isPublish ? 'Publish' : 'Update'}</span>`}
+          </button>
+        </div>
+      </nx-popover>
+    `;
+  }
+
   render() {
     const hasDoc = Boolean(buildAemPathFromHashState(this._hashState));
     const disabled = !hasDoc || this._busy;
     const prepareDetails = this._prepareReady ? this._prepareDetails : null;
+    // When publishing is hidden for this path, the unpublished-changes cue is moot.
+    const unpublished = this._hasUnpublished && !this._hidePublish;
+    const sendLabel = `Preview and publish${unpublished ? ' — unpublished changes' : ''}`;
 
     return html`
       <div class="ew-actions">
@@ -255,39 +533,31 @@ class NXEwActions extends LitElement {
             ${prepareDetails ? html`
               <button
                 type="button"
-                class="prepare-dropdown-btn"
+                class="nx-action-btn-icon prepare-dropdown-btn"
                 aria-label="Open prepare menu"
                 aria-haspopup="menu"
                 aria-expanded="false"
                 @click=${this._togglePrepareMenu}
               >
-                <svg class="prepare-dropdown-btn-icon" viewBox="0 0 20 20" aria-hidden="true"><use href=${PREPARE_ICON_HREF}></use></svg>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><use href=${MENU_ICON_HREF}></use></svg>
               </button>
               <prepare-menu .details=${prepareDetails} @close=${this._onPrepareMenuClose}></prepare-menu>
             ` : nothing}
             <button
               type="button"
-              class="preview-dropdown-btn${this._hasError ? ' is-error' : ''}${this._busy ? ' is-busy' : ''}"
-              aria-label="Preview and publish"
-              aria-haspopup="menu"
-              aria-expanded="false"
+              class="nx-btn-accent send-btn${this._hasError ? ' is-error' : ''}${this._busy ? ' is-busy' : ''}"
+              aria-label=${sendLabel}
+              aria-haspopup="dialog"
               ?disabled=${disabled}
-              @click=${this._togglePreviewPopover}
+              @click=${this._toggleSend}
             >
               ${this._busy
-                ? html`<span class="preview-dropdown-spinner" aria-hidden="true"></span>`
-                : html`<svg class="preview-dropdown-icon" viewBox="0 0 20 20" aria-hidden="true"><use href=${SEND_ICON_HREF}></use></svg>`}
+        ? html`<span class="preview-dropdown-spinner" aria-hidden="true"></span>`
+        : html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href=${SEND_ICON_HREF}></use></svg>`}
+              <span>Send</span>
+              ${unpublished ? html`<span class="send-badge" aria-hidden="true"></span>` : nothing}
             </button>
-            <nx-popover placement="below" @close=${this._onSendPopoverClose}>
-              <div class="send-popover" role="menu">
-                <button type="button" class="send-popover-item" role="menuitem" @click=${() => this._pickAem('preview')}>
-                  Preview
-                </button>
-                <button type="button" class="send-popover-item" role="menuitem" @click=${() => this._pickAem('publish')}>
-                  Publish
-                </button>
-              </div>
-            </nx-popover>
+            ${this._renderDeployPopover()}
           </div>
         </div>
       </div>

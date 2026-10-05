@@ -1,3 +1,13 @@
-import { createEngine, convertJsonToHtml, convertHtmlToJson } from '@adobe/da-sc-sdk';
+import {
+  createEngine,
+  validateSchema,
+  convertJsonToHtml,
+  convertHtmlToJson,
+} from '@adobe/da-sc-sdk';
 
-export { createEngine, convertJsonToHtml, convertHtmlToJson };
+export {
+  createEngine,
+  validateSchema,
+  convertJsonToHtml,
+  convertHtmlToJson,
+};

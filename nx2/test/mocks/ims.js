@@ -5,9 +5,10 @@ let _displayName = 'Test User';
 let _email = 'test-user@adobe.com';
 let _io = { user: { avatar: 'https://example.com/avatar.png' } };
 let _orgs = { data: [] };
+let _projectedProductContext;
 
 export function setMockIms({
-  token, anonymous, userId, displayName, email, io, orgs,
+  token, anonymous, userId, displayName, email, io, orgs, projectedProductContext,
 } = {}) {
   if (token !== undefined) _accessToken = token;
   if (anonymous !== undefined) _anonymous = anonymous;
@@ -16,6 +17,7 @@ export function setMockIms({
   if (email !== undefined) _email = email;
   if (io !== undefined) _io = io;
   if (orgs !== undefined) _orgs = orgs;
+  if (projectedProductContext !== undefined) _projectedProductContext = projectedProductContext;
 }
 
 export function resetMockIms() {
@@ -26,6 +28,7 @@ export function resetMockIms() {
   _email = 'test-user@adobe.com';
   _io = { user: { avatar: 'https://example.com/avatar.png' } };
   _orgs = { data: [] };
+  _projectedProductContext = undefined;
 }
 
 export const loadIms = async () => {
@@ -36,6 +39,7 @@ export const loadIms = async () => {
     userId: _userId,
     displayName: _displayName,
     email: _email,
+    projectedProductContext: _projectedProductContext,
     getIo: async () => _io,
     getOrgs: async () => _orgs,
   };

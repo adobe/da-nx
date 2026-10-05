@@ -102,31 +102,6 @@ export const loc = ([first], ...values) => {
   return strings?.get(key) ?? key;
 };
 
-export const loadStyle = (() => {
-  const cache = {};
-
-  return (supplied) => {
-    // Convenience replacement for WCs
-    const path = supplied.replace('.js', '.css');
-
-    try {
-      cache[path] ??= new Promise((resolve) => {
-        (async () => {
-          const resp = await fetch(path);
-          const text = await resp.text();
-          const sheet = new CSSStyleSheet({ baseURL: path });
-          sheet.path = path;
-          sheet.replaceSync(text);
-          resolve(sheet);
-        })();
-      });
-    } catch {
-      getConfig().log(`Could not load ${path}`);
-    }
-    return cache[path];
-  };
-})();
-
 export async function loadBlock(block) {
   const { nxBase, codeBase, providers, log } = getConfig();
   const { classList } = block;
@@ -305,6 +280,23 @@ function loadSession() {
   document.body.classList.add('session');
 }
 
+// Load the header after the LCP section. Returns true when no further
+// sections should be loaded (parity with the original early returns).
+function loadHeader(isSession) {
+  const header = document.querySelector('nx-nav');
+  if (!header) return true;
+  import('../blocks/nav/nav.js');
+  const appFrame = document.body.classList.contains('app-frame');
+  if (!appFrame) return true;
+  const sidenav = document.querySelector('nx-sidenav');
+  if (sidenav) import('../blocks/sidenav/sidenav.js');
+
+  if (!isSession) loadSession();
+  import('../utils/favicon.js');
+  import('../utils/org-check.js');
+  return false;
+}
+
 async function decorateDoc() {
   // Fast track IMS if returning from sign in
   if (window.location.hash.startsWith('#old_hash')) {
@@ -339,23 +331,32 @@ export async function loadArea({ area } = { area: document }) {
     await Promise.all(section.linkBlocks.map((block) => loadBlock(block)));
     await Promise.all(section.blocks.map((block) => loadBlock(block)));
     delete section.dataset.status;
-    if (isDoc && idx === 0) {
-      const header = document.querySelector('nx-nav');
-      if (!header) return;
-      import('../blocks/nav/nav.js');
-      const appFrame = document.body.classList.contains('app-frame');
-      if (!appFrame) return;
-      const sidenav = document.querySelector('nx-sidenav');
-      if (sidenav) import('../blocks/sidenav/sidenav.js');
-
-      if (!isSession) loadSession();
-      import('../utils/favicon.js');
-      import('../utils/org-check.js');
-    }
+    if (isDoc && idx === 0 && loadHeader(isSession)) break;
   }
-
-  if (isDoc && localStorage.getItem('nx-panels')) {
-    const { restorePanels } = await import('../utils/panel.js');
-    await restorePanels();
-  }
+  if (isDoc) import('./lazy.js');
 }
+
+const cache = {};
+
+// eslint-disable-next-line import/prefer-default-export
+export const loadStyle = (supplied) => {
+  // Convenience replacement for WCs
+  const path = supplied.replace('.js', '.css');
+
+  try {
+    cache[path] ??= new Promise((resolve) => {
+      (async () => {
+        const resp = await fetch(path);
+        const text = await resp.text();
+        const sheet = new CSSStyleSheet({ baseURL: path });
+        sheet.path = path;
+        sheet.replaceSync(text);
+        resolve(sheet);
+      })();
+    });
+  } catch {
+    // eslint-disable-next-line no-console
+    console.warn(`Could not load ${path}`);
+  }
+  return cache[path];
+};

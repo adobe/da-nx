@@ -13,6 +13,8 @@ import { createSimpleKeymap } from './simple-keymap.js';
 import { createImageWrapperPlugin } from './image-wrapper.js';
 import { setupImageDropListeners } from './images.js';
 import { setRemoteCursors } from './cursors.js';
+import { findTextBlock } from './dom-index.js';
+import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
 function marksEqual(a, b) {
   if (!a && !b) return true;
@@ -34,6 +36,16 @@ function updateInstrumentation(lengthDiff, offset) {
       element.setAttribute('data-initial-length', element.textContent.length);
     }
   });
+  // An in-place edit shifts every prose position after it; shift the following blocks'
+  // data-block-index to match, or block selection breaks until the next SET_BODY re-index.
+  if (lengthDiff) {
+    document.querySelectorAll('[data-block-index]').forEach((element) => {
+      const value = parseInt(element.getAttribute('data-block-index'), 10);
+      if (Number.isFinite(value) && value > offset) {
+        element.setAttribute('data-block-index', value + lengthDiff);
+      }
+    });
+  }
 }
 
 function handleTransaction(tr, ctx, editorView, editorParent) {
@@ -50,10 +62,10 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
 
   if (numChanges > 0) {
     const editedEl = newState.doc.firstChild;
+    const node = editedEl.toJSON();
     ctx.port.postMessage({
-      type: 'node-update',
-      node: editedEl.toJSON(),
-      cursorOffset: currentCursorOffset,
+      type: MESSAGE_TYPES.NODE_UPDATE,
+      payload: { node, cursorOffset: currentCursorOffset },
     });
   }
 
@@ -62,18 +74,20 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
     const base = currentCursorOffset - 1;
     if (newSel.anchor !== newSel.head) {
       const coords = editorView.coordsAtPos(newSel.anchor);
+      const anchor = base + newSel.anchor;
+      const head = base + newSel.head;
+      const anchorX = coords.left;
+      const anchorY = coords.top;
       ctx.port.postMessage({
-        type: 'selection-change',
-        anchor: base + newSel.anchor,
-        head: base + newSel.head,
-        anchorX: coords.left,
-        anchorY: coords.top,
+        type: MESSAGE_TYPES.SELECTION_CHANGE,
+        payload: {
+          anchor, head, anchorX, anchorY,
+        },
       });
     } else {
       ctx.port.postMessage({
-        type: 'cursor-move',
-        cursorOffset: base,
-        textCursorOffset: newSel.from,
+        type: MESSAGE_TYPES.CURSOR_MOVE,
+        payload: { cursorOffset: base, textCursorOffset: newSel.from },
       });
     }
   }
@@ -82,10 +96,8 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   // This lets the da-nx toolbar reflect mark toggles immediately without waiting
   // for the next character to be typed.
   if (!marksEqual(oldStoredMarks, newState.storedMarks)) {
-    ctx.port.postMessage({
-      type: 'stored-marks',
-      marks: newState.storedMarks ? newState.storedMarks.map((m) => m.toJSON()) : [],
-    });
+    const marks = newState.storedMarks ? newState.storedMarks.map((m) => m.toJSON()) : [];
+    ctx.port.postMessage({ type: MESSAGE_TYPES.STORED_MARKS, payload: { marks } });
   }
 
   // Update toolbar button states and position
@@ -115,12 +127,15 @@ function initScrollListener(win, ctx) {
       const offset = parseInt(editorParent.getAttribute('data-prose-index'), 10);
       const base = offset - 1;
       const coords = view.coordsAtPos(selection.anchor);
+      const anchor = base + selection.anchor;
+      const head = base + selection.head;
+      const anchorX = coords.left;
+      const anchorY = coords.top;
       scrollCtx.port.postMessage({
-        type: 'selection-change',
-        anchor: base + selection.anchor,
-        head: base + selection.head,
-        anchorX: coords.left,
-        anchorY: coords.top,
+        type: MESSAGE_TYPES.SELECTION_CHANGE,
+        payload: {
+          anchor, head, anchorX, anchorY,
+        },
       });
     });
   }, { passive: true });
@@ -142,7 +157,7 @@ function blur(view, event, ctx) {
   hideToolbar(view);
   setCurrentEditorView(null);
   blurClearTimeout = setTimeout(() => {
-    ctx.port.postMessage({ type: 'cursor-move' });
+    ctx.port.postMessage({ type: MESSAGE_TYPES.CURSOR_MOVE });
     blurClearTimeout = null;
   }, 150);
   return false; // Let other handlers run
@@ -153,8 +168,21 @@ function keydown(view, event) {
 }
 
 function createEditor(cursorOffset, state, ctx) {
+  // Normalize once: the exact-match badge gate below is a strict === and would
+  // silently never match if cursorOffset arrived as a string.
+  const offset = Number(cursorOffset);
   const schema = getSchema();
   const node = schema.nodeFromJSON(state);
+
+  // A node that is not valid top-level `doc` content (e.g. a `table_cell`, which
+  // only belongs inside a `table_row`) makes `schema.node('doc', ...)` throw and
+  // takes the whole editor down. The controller should never send one, but guard
+  // here so a malformed payload degrades to a reload instead of a hard crash.
+  if (!schema.nodes.doc.contentMatch.matchType(node.type)) {
+    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
+    return;
+  }
+
   const doc = schema.node('doc', null, [node]);
 
   const editorState = EditorState.create({
@@ -164,23 +192,29 @@ function createEditor(cursorOffset, state, ctx) {
   });
 
   const editorParent = document.createElement('div');
-  editorParent.setAttribute('data-prose-index', cursorOffset);
+  editorParent.setAttribute('data-prose-index', offset);
   editorParent.classList.add('prosemirror-editor');
 
-  const element = document.querySelector(`[data-prose-index="${cursorOffset}"]`);
+  // Drift-tolerant lookup: an exact match can miss after another block's remote edit
+  // shifts positions. Exclude open editors so the fallback can't steal a live one.
+  const element = findTextBlock(offset, document, '.prosemirror-editor');
 
   if (!element) {
-    ctx.port.postMessage({ type: 'reload' });
+    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
     return;
   }
 
-  if (element.getAttribute('data-cursor-remote')) {
+  // Only trust the found element's remote-cursor badge on an exact match — on the
+  // nearest-block fallback it belongs to whatever block drift landed on, not this one.
+  const isExactMatch = parseInt(element.getAttribute('data-prose-index'), 10) === offset;
+  if (isExactMatch && element.getAttribute('data-cursor-remote')) {
     editorParent.setAttribute('data-cursor-remote', element.getAttribute('data-cursor-remote'));
     editorParent.setAttribute('data-cursor-remote-color', element.getAttribute('data-cursor-remote-color'));
   }
 
   const editorView = new EditorView(editorParent, {
     state: editorState,
+    editable: () => !ctx.readOnly,
     handleDOMEvents: {
       focus,
       keydown,
@@ -193,7 +227,7 @@ function createEditor(cursorOffset, state, ctx) {
 
   element.replaceWith(editorParent);
   editorParent.view = editorView;
-  setupImageDropListeners(ctx, editorParent);
+  if (!ctx.readOnly) setupImageDropListeners(ctx, editorParent);
   setRemoteCursors();
   initScrollListener(editorParent.ownerDocument.defaultView, ctx);
 
@@ -213,6 +247,13 @@ function updateEditor(editorEl, state, ctx) {
   const { schema } = view.state;
   const node = schema.nodeFromJSON(state);
 
+  // Same guard as createEditor: replacing the root with a node that is not
+  // valid `doc` content (e.g. a `table_cell`) throws and breaks the editor.
+  if (!schema.nodes.doc.contentMatch.matchType(node.type)) {
+    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
+    return;
+  }
+
   // Save selection to restore after the content replacement.
   // Marks don't change node structure, so positions are identical in the new doc.
   const { anchor, head } = view.state.selection;
@@ -230,7 +271,7 @@ function updateEditor(editorEl, state, ctx) {
   ctx.remoteUpdate = true;
   view.dispatch(tr);
   ctx.remoteUpdate = false;
-  setupImageDropListeners(ctx, editorEl.parentElement);
+  if (!ctx.readOnly) setupImageDropListeners(ctx, editorEl.parentElement);
 
   if (blurClearTimeout !== null) {
     clearTimeout(blurClearTimeout);

@@ -9,6 +9,7 @@ class FormPicker extends LitElement {
   static properties = {
     value: { type: String },
     label: { type: String },
+    description: { type: String },
     error: { type: String },
     placeholder: { type: String },
     name: { type: String },
@@ -52,6 +53,7 @@ class FormPicker extends LitElement {
   }
 
   render() {
+    const showHint = !this.error && this.description;
     return html`
       <slot hidden @slotchange=${this.handleSlotchange}></slot>
       <div class="form-field${this.error ? ' has-error' : ''}">
@@ -65,9 +67,8 @@ class FormPicker extends LitElement {
           ${this.error ? icon('alert', 'form-field-icon') : nothing}
           ${icon('chevronDown', 'form-picker-chevron')}
         </div>
-        ${this.error
-        ? html`<p class="form-field-error">${this.error}</p>`
-        : html`<slot name="description"></slot>`}
+        ${this.error ? html`<p class="form-field-error">${this.error}</p>` : nothing}
+        ${showHint ? html`<p class="form-field-description">${this.description}</p>` : nothing}
       </div>
     `;
   }

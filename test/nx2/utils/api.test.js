@@ -1,5 +1,10 @@
 import { expect } from '@esm-bundle/chai';
-import { HLX_ADMIN, AEM_API, DA_ADMIN } from '../../../nx2/utils/utils.js';
+import {
+  HLX_ADMIN, AEM_API, DA_ADMIN, DA_CONTENT,
+} from '../../../nx2/utils/utils.js';
+import {
+  calls, installFetch, restoreFetch, lastCall, callsTo,
+} from '../../../nx2/test/mocks/fetch.js';
 
 import {
   daFetch,
@@ -43,35 +48,9 @@ const makeOrgSite = ({ hlx6 = false } = {}) => {
   return { org: o, site: s };
 };
 
-let calls;
-let origFetch;
-
-const installFetch = ({ pingHlx6 = false, headers = {}, status: httpStatus = 200, body = '{}' } = {}) => {
-  calls = [];
-  origFetch = window.fetch;
-  window.fetch = async (url, opts = {}) => {
-    const u = url.toString();
-    calls.push({ url: u, method: opts.method || 'GET', headers: opts.headers || {}, body: opts.body });
-    if (u.includes(`${HLX_ADMIN}/ping/`)) {
-      const respHeaders = pingHlx6 ? { 'x-api-upgrade-available': 'true' } : {};
-      return new Response('', { status: 200, headers: respHeaders });
-    }
-    return new Response(body, { status: httpStatus, headers });
-  };
-};
-
-const restoreFetch = () => {
-  if (origFetch) window.fetch = origFetch;
-  origFetch = null;
-};
-
-const lastCall = () => calls[calls.length - 1];
-const callsTo = (origin) => calls.filter((c) => c.url.startsWith(origin));
-
 describe('api.js', () => {
   beforeEach(() => {
     resetMockIms();
-    localStorage.removeItem(STORAGE_KEY);
     installFetch();
   });
 
@@ -113,15 +92,63 @@ describe('api.js', () => {
       expect(resp.permissions).to.deep.equal(['read', 'write']);
     });
 
-    it('falls back to [read, write] when no permission headers', async () => {
+    it('falls back to [read, write] when no permission headers on AEM_API', async () => {
       const resp = await daFetch({ url: `${AEM_API}/some/path` });
       expect(resp.permissions).to.deep.equal(['read', 'write']);
+    });
+
+    it('does not fake permissions when no permission headers on non-AEM_API origins', async () => {
+      const respDaAdmin = await daFetch({ url: `${DA_ADMIN}/some/path` });
+      expect(respDaAdmin.permissions).to.be.undefined;
+
+      const respHlxAdmin = await daFetch({ url: `${HLX_ADMIN}/some/path` });
+      expect(respHlxAdmin.permissions).to.be.undefined;
+    });
+
+    it('does not fake permissions on AEM_API auth errors (401/403) or server errors (5xx)', async () => {
+      restoreFetch();
+      installFetch({ status: 401 });
+      const unauthorized = await daFetch({ url: `${AEM_API}/some/path` });
+      expect(unauthorized.permissions).to.be.undefined;
+
+      restoreFetch();
+      installFetch({ status: 403 });
+      const forbidden = await daFetch({ url: `${AEM_API}/some/path` });
+      expect(forbidden.permissions).to.be.undefined;
+
+      restoreFetch();
+      installFetch({ status: 500 });
+      const serverError = await daFetch({ url: `${AEM_API}/some/path` });
+      expect(serverError.permissions).to.be.undefined;
+    });
+
+    it('fakes [read, write] on AEM_API 404s - a new/unsaved doc, not a denied request', async () => {
+      restoreFetch();
+      installFetch({ status: 404 });
+      const notFound = await daFetch({ url: `${AEM_API}/some/path` });
+      expect(notFound.permissions).to.deep.equal(['read', 'write']);
     });
 
     it('returns {} and signs in when no access token', async () => {
       setMockIms({ token: null });
       const resp = await daFetch({ url: `${HLX_ADMIN}/ping/a/b` });
       expect(resp).to.deep.equal({});
+    });
+
+    it('sets referrerPolicy to unsafe-url for HLX_ADMIN and AEM_API', async () => {
+      await daFetch({ url: `${HLX_ADMIN}/ping/x/y` });
+      expect(lastCall().referrerPolicy).to.equal('unsafe-url');
+
+      await daFetch({ url: `${AEM_API}/some/path` });
+      expect(lastCall().referrerPolicy).to.equal('unsafe-url');
+    });
+
+    it('does not set referrerPolicy for other origins', async () => {
+      await daFetch({ url: `${DA_ADMIN}/some/path` });
+      expect(lastCall().referrerPolicy).to.be.undefined;
+
+      await daFetch({ url: 'https://example.com/foo' });
+      expect(lastCall().referrerPolicy).to.be.undefined;
     });
   });
 
@@ -186,10 +213,110 @@ describe('api.js', () => {
       expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/source/`);
     });
 
-    it('source.list org-only hits DA legacy /list/{org}', async () => {
+    it('source.list org-only hits both DA legacy /list/{org} and hlx6 org source-bus', async () => {
       const o = uniq('org');
       await source.list({ org: o });
-      expect(lastCall().url).to.equal(`${DA_ADMIN}/list/${o}`);
+      expect(calls.filter((c) => c.url === `${DA_ADMIN}/list/${o}`)).to.have.lengthOf(1);
+      expect(calls.filter((c) => c.url === `${AEM_API}/${o}/source/`)).to.have.lengthOf(1);
+    });
+
+    it('source.list org-level merges DA-legacy and hlx6 sites, deduping by name', async () => {
+      restoreFetch();
+      calls.length = 0;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method || 'GET', headers: opts.headers || {} });
+        if (u.includes(`${HLX_ADMIN}/ping/`)) return new Response('', { status: 200 });
+        if (u.endsWith('/source/')) {
+          return new Response(JSON.stringify([
+            { name: 'shared-site/', 'content-type': 'application/folder' },
+            { name: 'hlx6-only/', 'content-type': 'application/folder' },
+          ]), { status: 200 });
+        }
+        return new Response(JSON.stringify([
+          { path: '/o/shared-site', name: 'shared-site' },
+          { path: '/o/legacy-only', name: 'legacy-only' },
+        ]), { status: 200 });
+      };
+      const o = uniq('org');
+      const result = await source.list({ org: o });
+      expect(result.ok).to.equal(true);
+      expect(result.items.map((i) => i.name).sort()).to.deep.equal(
+        ['hlx6-only', 'legacy-only', 'shared-site'],
+      );
+      // Duplicate name: DA-legacy entry wins over the hlx6 one.
+      const shared = result.items.find((i) => i.name === 'shared-site');
+      expect(shared.path).to.equal('/o/shared-site');
+    });
+
+    it('source.list org-level returns hlx6 sites even when DA-legacy 404s', async () => {
+      restoreFetch();
+      calls.length = 0;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method || 'GET' });
+        if (u.includes(`${HLX_ADMIN}/ping/`)) return new Response('', { status: 200 });
+        if (u.endsWith('/source/')) {
+          return new Response(JSON.stringify([
+            { name: 'only-site/', 'content-type': 'application/folder' },
+          ]), { status: 200 });
+        }
+        return new Response('', { status: 404 });
+      };
+      const o = uniq('org');
+      const result = await source.list({ org: o });
+      expect(result.ok).to.equal(true);
+      expect(result.items).to.have.length(1);
+      expect(result.items[0].name).to.equal('only-site');
+    });
+
+    it('source.list org-level returns DA-legacy sites even when hlx6 source-bus 404s', async () => {
+      restoreFetch();
+      calls.length = 0;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method || 'GET' });
+        if (u.includes(`${HLX_ADMIN}/ping/`)) return new Response('', { status: 200 });
+        if (u.endsWith('/source/')) return new Response('', { status: 404 });
+        return new Response(JSON.stringify([
+          { path: '/o/legacy-site', name: 'legacy-site' },
+        ]), { status: 200 });
+      };
+      const o = uniq('org');
+      const result = await source.list({ org: o });
+      expect(result.ok).to.equal(true);
+      expect(result.items).to.deep.equal([{ path: '/o/legacy-site', name: 'legacy-site' }]);
+    });
+
+    it('source.list org-level returns ok:false when both DA-legacy and hlx6 fail', async () => {
+      restoreFetch();
+      installFetch({ status: 500, body: '' });
+      const o = uniq('org');
+      const result = await source.list({ org: o });
+      expect(result.ok).to.equal(false);
+      expect(result.items).to.deep.equal([]);
+    });
+
+    it('source.list org-level only fetches hlx6 sites on the first page (no continuationToken)', async () => {
+      restoreFetch();
+      calls.length = 0;
+      window.fetch = async (url, opts = {}) => {
+        const u = url.toString();
+        calls.push({ url: u, method: opts.method || 'GET', headers: opts.headers || {} });
+        if (u.includes(`${HLX_ADMIN}/ping/`)) return new Response('', { status: 200 });
+        if (u.endsWith('/source/')) {
+          return new Response(JSON.stringify([
+            { name: 'hlx6-site/', 'content-type': 'application/folder' },
+          ]), { status: 200 });
+        }
+        return new Response(JSON.stringify([{ path: '/o/legacy-site', name: 'legacy-site' }]), {
+          status: 200,
+        });
+      };
+      const o = uniq('org');
+      const result = await source.list({ org: o, continuationToken: 'tok-1' });
+      expect(calls.some((c) => c.url === `${AEM_API}/${o}/source/`)).to.equal(false);
+      expect(result.items).to.deep.equal([{ path: '/o/legacy-site', name: 'legacy-site' }]);
     });
 
     it('source.list forwards continuationToken as da-continuation-token header', async () => {
@@ -218,7 +345,7 @@ describe('api.js', () => {
         body: JSON.stringify([
           { path: '/o/s/folder/page.html', name: 'page', ext: 'html', lastModified: 1 },
         ]),
-        headers: { 'da-continuation-token': 'tok-next' },
+        headers: { 'da-continuation-token': 'tok-next', 'x-da-actions': 'role=read,write' },
       });
       const { org: o, site: s } = makeOrgSite();
       const result = await source.list({ org: o, site: s, path: '/folder' });
@@ -347,6 +474,151 @@ describe('api.js', () => {
       expect(last.body).to.equal(blob);
     });
 
+    it('source.save hlx6 normalizes empty body to { source: { contentUrl } }', async () => {
+      restoreFetch();
+      installFetch({ body: '' });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const blob = new Blob(['binary'], { type: 'image/png' });
+      const resp = await source.save({ org: o, site: s, path: '/docs/.foo/image.png', body: blob });
+      expect(resp.ok).to.equal(true);
+      const json = await resp.json();
+      expect(json.source.contentUrl).to.equal(`${AEM_API}/${o}/sites/${s}/source/docs/.foo/image.png`);
+    });
+
+    it('source.save hlx6 keeps permissions on the response', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.save({ org: o, site: s, path: '/page.html', body: '<main></main>' });
+      expect(resp.ok).to.equal(true);
+      expect(resp.permissions).to.deep.equal(['read', 'write']);
+    });
+
+    it('source.save hlx6 keeps permissions parsed from response headers', async () => {
+      restoreFetch();
+      installFetch({ headers: { 'x-da-actions': 'role=read,write,delete' } });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.save({ org: o, site: s, path: '/page.html', body: '<main></main>' });
+      expect(resp.permissions).to.deep.equal(['read', 'write', 'delete']);
+    });
+
+    it('source.save hlx6 uses the response location header for contentUrl when present', async () => {
+      restoreFetch();
+      installFetch({ body: '', headers: { location: '/docs/renamed.png' } });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const blob = new Blob(['binary'], { type: 'image/png' });
+      const resp = await source.save({ org: o, site: s, path: '/docs/image.png', body: blob });
+      expect(resp.ok).to.equal(true);
+      const json = await resp.json();
+      expect(json.source.contentUrl).to.equal(`${AEM_API}/docs/renamed.png`);
+      expect(json.source.contentUrl).to.be.a('string');
+    });
+
+    it('source.save hlx6 resolves an absolute location header as-is', async () => {
+      restoreFetch();
+      const absolute = 'https://example.com/other/path/image.png';
+      installFetch({ body: '', headers: { location: absolute } });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.save({ org: o, site: s, path: '/docs/image.png', body: new Blob(['x']) });
+      const json = await resp.json();
+      expect(json.source.contentUrl).to.equal(absolute);
+    });
+
+    it('source.save hlx6 does not normalize non-ok responses', async () => {
+      restoreFetch();
+      installFetch({ status: 403, body: '' });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.save({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
+      expect(resp.ok).to.equal(false);
+      expect(resp.status).to.equal(403);
+    });
+
+    it('source.uploadMedia legacy delegates to _saveDA as FormData with no double-fetch', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ source: { contentUrl: 'https://stage-content.da.live/o/s/img.png' } }),
+      });
+      const { org: o, site: s } = makeOrgSite();
+      const data = new Blob(['binary'], { type: 'image/png' });
+      await source.uploadMedia({ org: o, site: s, path: '/img.png', body: data });
+      const last = lastCall();
+      expect(last.method).to.equal('POST');
+      expect(last.body).to.be.instanceof(FormData);
+      const stored = last.body.get('data');
+      expect(stored).to.be.instanceof(Blob);
+      expect(stored.size).to.equal(data.size);
+      expect(calls.some((c) => c.url.includes('/media'))).to.equal(false);
+    });
+
+    it('source.uploadMedia hlx6 POSTs to the media route with content-type header and raw body', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ uri: `https://main--${s}--${o}.aem.page/media_1.png`, meta: {} }),
+      });
+      const blob = new Blob(['binary'], { type: 'image/png' });
+      await source.uploadMedia({ org: o, site: s, path: '/img.png', body: blob });
+      const last = lastCall();
+      expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/media/img.png`);
+      expect(last.method).to.equal('POST');
+      expect(last.headers['content-type']).to.equal('image/png');
+      expect(last.body).to.equal(blob);
+    });
+
+    it('source.uploadMedia hlx6 falls back to application/octet-stream for unknown extensions', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ uri: `https://main--${s}--${o}.aem.page/media_1`, meta: {} }),
+      });
+      await source.uploadMedia({ org: o, site: s, path: '/file.xyz', body: new Blob(['x']) });
+      expect(lastCall().headers['content-type']).to.equal('application/octet-stream');
+    });
+
+    it('source.uploadMedia hlx6 normalizes contentUrl by stripping the site aem.page prefix', async () => {
+      restoreFetch();
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      installFetch({
+        body: JSON.stringify({
+          uri: `https://main--${s}--${o}.aem.page/media_123.png`,
+          meta: { type: 'image/png', width: 640, height: 480 },
+        }),
+      });
+      const resp = await source.uploadMedia({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
+      const json = await resp.json();
+      expect(json.source.contentUrl).to.equal('./media_123.png');
+      expect(json.meta).to.deep.equal({ type: 'image/png', width: 640, height: 480 });
+    });
+
+    it('source.uploadMedia hlx6 leaves contentUrl unchanged when uri does not match the site prefix', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ uri: 'https://cdn.example.com/media_999.png', meta: {} }),
+      });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.uploadMedia({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
+      const json = await resp.json();
+      expect(json.source.contentUrl).to.equal('https://cdn.example.com/media_999.png');
+    });
+
+    it('source.uploadMedia hlx6 returns the raw response on non-ok status without parsing the body', async () => {
+      restoreFetch();
+      installFetch({ status: 404, body: '' });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const resp = await source.uploadMedia({ org: o, site: s, path: '/img.png', body: new Blob(['x']) });
+      expect(resp.ok).to.equal(false);
+      expect(resp.status).to.equal(404);
+    });
+
+    it('source.uploadMedia accepts a path string with extras', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ uri: `https://main--${s}--${o}.aem.page/media_1.png`, meta: {} }),
+      });
+      const blob = new Blob(['x'], { type: 'image/png' });
+      await source.uploadMedia(`/${o}/${s}/img.png`, { body: blob });
+      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/media/img.png`);
+    });
+
     it('source.getMetadata sends HEAD and returns { ok, status, headers }', async () => {
       restoreFetch();
       installFetch({ status: 200, headers: { 'last-modified': 'Mon, 01 Jan 2025 00:00:00 GMT' } });
@@ -380,7 +652,8 @@ describe('api.js', () => {
 
     it('source.copy hlx6 PUTs with source/collision query params', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.copy({ org: o, site: s, path: '/src.html', destination: '/dest.html', collision: 'overwrite' });
+      const destination = `/${o}/${s}/dest.html`;
+      await source.copy({ org: o, site: s, path: '/src.html', destination, collision: 'overwrite' });
       const last = lastCall();
       expect(last.method).to.equal('PUT');
       const u = new URL(last.url);
@@ -392,21 +665,43 @@ describe('api.js', () => {
 
     it('source.copy legacy POSTs to /copy/{org}/{site}{path} with destination form field', async () => {
       const { org: o, site: s } = makeOrgSite();
-      await source.copy({ org: o, site: s, path: '/src.html', destination: '/dest.html' });
+      const destination = `/${o}/${s}/dest.html`;
+      await source.copy({ org: o, site: s, path: '/src.html', destination });
       const last = lastCall();
       expect(last.url).to.equal(`${DA_ADMIN}/copy/${o}/${s}/src.html`);
       expect(last.method).to.equal('POST');
       expect(last.body).to.be.instanceof(FormData);
-      expect(last.body.get('destination')).to.equal('/dest.html');
+      expect(last.body.get('destination')).to.equal(destination);
     });
 
-    it('source.move hlx6 adds move=true', async () => {
+    it('source.move hlx6 emulates move via copy then delete of the original', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.move({ org: o, site: s, path: '/src.html', destination: '/dest.html' });
-      const u = new URL(lastCall().url);
-      expect(u.pathname).to.equal(`/${o}/sites/${s}/source/dest.html`);
-      expect(u.searchParams.get('move')).to.equal('true');
-      expect(u.searchParams.get('source')).to.equal('/src.html');
+      const destination = `/${o}/${s}/dest.html`;
+      await source.move({
+        org: o, site: s, path: '/src.html', destination, collision: 'overwrite',
+      });
+      const [copyCall, deleteCall] = calls;
+      // copy: PUT the destination source path with the original as ?source, no ?move
+      expect(copyCall.method).to.equal('PUT');
+      const copyUrl = new URL(copyCall.url);
+      expect(copyUrl.pathname).to.equal(`/${o}/sites/${s}/source/dest.html`);
+      expect(copyUrl.searchParams.get('source')).to.equal('/src.html');
+      expect(copyUrl.searchParams.get('collision')).to.equal('overwrite');
+      expect(copyUrl.searchParams.get('move')).to.be.null;
+      // delete: remove the original source path
+      expect(deleteCall.method).to.equal('DELETE');
+      expect(new URL(deleteCall.url).pathname).to.equal(`/${o}/sites/${s}/source/src.html`);
+    });
+
+    it('source.move hlx6 leaves the original in place when the copy fails', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({ status: 500 });
+      const resp = await source.move({
+        org: o, site: s, path: '/src.html', destination: `/${o}/${s}/dest.html`,
+      });
+      expect(resp.ok).to.be.false;
+      expect(calls.some((c) => c.method === 'DELETE')).to.be.false;
     });
 
     it('source.move legacy POSTs to /move/{org}/{site}{path} with destination form field', async () => {
@@ -416,6 +711,159 @@ describe('api.js', () => {
       expect(last.url).to.equal(`${DA_ADMIN}/move/${o}/${s}/src.html`);
       expect(last.method).to.equal('POST');
       expect(last.body.get('destination')).to.equal('/dest.html');
+    });
+
+    it('source.copy cross-backend (DA source -> hlx6 dest) streams asset bytes to the source bus', async () => {
+      const { org: so, site: ss } = makeOrgSite();
+      const { org: dorg, site: dsite } = makeOrgSite({ hlx6: true });
+      const resp = await source.copy({
+        org: so, site: ss, path: '/asset.pdf', destination: `/${dorg}/${dsite}/asset.pdf`,
+      });
+      // read the bytes from the legacy DA source
+      expect(calls.some((c) => c.method === 'GET'
+        && c.url === `${DA_ADMIN}/source/${so}/${ss}/asset.pdf`)).to.be.true;
+      // write them to the hlx6 destination's source bus (not the media store)
+      expect(calls.some((c) => c.method === 'POST'
+        && c.url === `${AEM_API}/${dorg}/sites/${dsite}/source/asset.pdf`)).to.be.true;
+      expect(calls.some((c) => c.url.includes('/media/'))).to.be.false;
+      expect(resp.ok).to.be.true;
+    });
+
+    it('source.copy cross-backend (hlx6 source -> DA dest) streams doc bytes via save', async () => {
+      const { org: so, site: ss } = makeOrgSite({ hlx6: true });
+      const { org: dorg, site: dsite } = makeOrgSite();
+      const resp = await source.copy({
+        org: so, site: ss, path: '/page.html', destination: `/${dorg}/${dsite}/page.html`,
+      });
+      // read the bytes from the hlx6 source bus
+      expect(calls.some((c) => c.method === 'GET'
+        && c.url === `${AEM_API}/${so}/sites/${ss}/source/page.html`)).to.be.true;
+      // write the doc to the legacy DA source as multipart form data
+      const saveCall = calls.find((c) => c.method === 'POST'
+        && c.url === `${DA_ADMIN}/source/${dorg}/${dsite}/page.html`);
+      expect(saveCall).to.exist;
+      expect(saveCall.body).to.be.instanceof(FormData);
+      expect(resp.ok).to.be.true;
+    });
+
+    it('source.copy cross-site hlx6 -> hlx6 streams asset bytes to the destination source bus', async () => {
+      const { org: so, site: ss } = makeOrgSite({ hlx6: true });
+      const { org: dorg, site: dsite } = makeOrgSite({ hlx6: true });
+      const resp = await source.copy({
+        org: so, site: ss, path: '/asset.pdf', destination: `/${dorg}/${dsite}/drafts/asset.pdf`,
+      });
+      // read from the source site's source bus
+      expect(calls.some((c) => c.method === 'GET'
+        && c.url === `${AEM_API}/${so}/sites/${ss}/source/asset.pdf`)).to.be.true;
+      // write to the destination site's source bus (not the source site, not /media)
+      expect(calls.some((c) => c.method === 'POST'
+        && c.url === `${AEM_API}/${dorg}/sites/${dsite}/source/drafts/asset.pdf`)).to.be.true;
+      expect(calls.some((c) => c.url.includes('/media/'))).to.be.false;
+      expect(resp.ok).to.be.true;
+    });
+
+    it('source.copy cross-site hlx6 -> hlx6 streams doc bytes via save', async () => {
+      const { org: so, site: ss } = makeOrgSite({ hlx6: true });
+      const { org: dorg, site: dsite } = makeOrgSite({ hlx6: true });
+      const resp = await source.copy({
+        org: so, site: ss, path: '/test-cards.html', destination: `/${dorg}/${dsite}/drafts/test-cards.html`,
+      });
+      expect(calls.some((c) => c.method === 'GET'
+        && c.url === `${AEM_API}/${so}/sites/${ss}/source/test-cards.html`)).to.be.true;
+      // write the doc to the destination site's source bus
+      expect(calls.some((c) => c.method === 'POST'
+        && c.url === `${AEM_API}/${dorg}/sites/${dsite}/source/drafts/test-cards.html`)).to.be.true;
+      expect(resp.ok).to.be.true;
+    });
+
+    it('source.copy cross-site rewrites relative media_ refs to source-absolute URLs (DA source)', async () => {
+      const { org: so, site: ss } = makeOrgSite();
+      const { org: dorg, site: dsite } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: '<main><img src="./media_abc.png"><img src="https://cdn.example.com/media_zzz.png"><a href="./other">x</a></main>',
+      });
+      await source.copy({
+        org: so, site: ss, path: '/folder/page.html', destination: `/${dorg}/${dsite}/folder/page.html`,
+      });
+      const saveCall = calls.find((c) => c.method === 'POST'
+        && c.url === `${AEM_API}/${dorg}/sites/${dsite}/source/folder/page.html`);
+      expect(saveCall).to.exist;
+      // relative media_ ref absolutized against the DA source content origin
+      expect(saveCall.body).to.include(`src="${DA_CONTENT}/${so}/${ss}/folder/media_abc.png"`);
+      // already-absolute media and ordinary relative links are left untouched
+      expect(saveCall.body).to.include('src="https://cdn.example.com/media_zzz.png"');
+      expect(saveCall.body).to.include('href="./other"');
+    });
+
+    it('source.copy cross-site absolutizes a srcset media_ ref (bare url with query)', async () => {
+      const { org: so, site: ss } = makeOrgSite();
+      const { org: dorg, site: dsite } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: '<main><source srcset="./media_abc.png?width=750&format=webply" media="(min-width: 600px)"></main>',
+      });
+      await source.copy({
+        org: so, site: ss, path: '/folder/page.html', destination: `/${dorg}/${dsite}/folder/page.html`,
+      });
+      const saveCall = calls.find((c) => c.method === 'POST'
+        && c.url === `${AEM_API}/${dorg}/sites/${dsite}/source/folder/page.html`);
+      expect(saveCall.body).to.include(`srcset="${DA_CONTENT}/${so}/${ss}/folder/media_abc.png?width=750&format=webply"`);
+      // sizing attributes on the source element are untouched
+      expect(saveCall.body).to.include('media="(min-width: 600px)"');
+    });
+
+    it('source.copy cross-site rewrites relative media_ refs to source-absolute URLs (hlx6 source)', async () => {
+      const { org: so, site: ss } = makeOrgSite({ hlx6: true });
+      const { org: dorg, site: dsite } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({ body: '<main><img src="./media_abc.png"></main>' });
+      await source.copy({
+        org: so, site: ss, path: '/folder/page.html', destination: `/${dorg}/${dsite}/folder/page.html`,
+      });
+      const saveCall = calls.find((c) => c.method === 'POST'
+        && c.url === `${AEM_API}/${dorg}/sites/${dsite}/source/folder/page.html`);
+      expect(saveCall.body).to.include(`src="https://main--${ss}--${so}.aem.page/folder/media_abc.png"`);
+    });
+
+    it('source.copy cross-backend returns the source response and writes nothing when the read fails', async () => {
+      const { org: so, site: ss } = makeOrgSite();
+      const { org: dorg, site: dsite } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({ status: 404 });
+      const resp = await source.copy({
+        org: so, site: ss, path: '/missing.pdf', destination: `/${dorg}/${dsite}/missing.pdf`,
+      });
+      expect(resp.ok).to.be.false;
+      expect(resp.status).to.equal(404);
+      // read failed, so nothing was written to the destination
+      expect(calls.some((c) => c.method === 'POST')).to.be.false;
+    });
+
+    it('source.move cross-backend (DA source -> hlx6 dest) copies then deletes the original', async () => {
+      const { org: so, site: ss } = makeOrgSite();
+      const { org: dorg, site: dsite } = makeOrgSite({ hlx6: true });
+      await source.move({
+        org: so, site: ss, path: '/asset.pdf', destination: `/${dorg}/${dsite}/asset.pdf`,
+      });
+      // wrote to the hlx6 destination's source bus
+      expect(calls.some((c) => c.method === 'POST'
+        && c.url === `${AEM_API}/${dorg}/sites/${dsite}/source/asset.pdf`)).to.be.true;
+      // deleted the original from the legacy DA source
+      const del = calls.find((c) => c.method === 'DELETE');
+      expect(del.url).to.equal(`${DA_ADMIN}/source/${so}/${ss}/asset.pdf`);
+    });
+
+    it('source.move cross-backend leaves the original in place when the copy fails', async () => {
+      const { org: so, site: ss } = makeOrgSite();
+      const { org: dorg, site: dsite } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({ status: 404 });
+      const resp = await source.move({
+        org: so, site: ss, path: '/asset.pdf', destination: `/${dorg}/${dsite}/asset.pdf`,
+      });
+      expect(resp.ok).to.be.false;
+      expect(calls.some((c) => c.method === 'DELETE')).to.be.false;
     });
 
     it('source.get accepts a full /org/site/path string', async () => {
@@ -435,7 +883,7 @@ describe('api.js', () => {
     it('source.copy accepts a path string with extras', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await source.copy(`/${o}/${s}/src.html`, {
-        destination: '/dest.html',
+        destination: `/${o}/${s}/dest.html`,
         collision: 'overwrite',
       });
       const u = new URL(lastCall().url);
@@ -579,10 +1027,10 @@ describe('api.js', () => {
   });
 
   describe('config', () => {
-    it('config.get site-level uses DA regardless of hlx6 status', async () => {
+    it('config.get site-level uses AEM_API editor config on hlx6', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await config.get({ org: o, site: s });
-      expect(lastCall().url).to.equal(`${DA_ADMIN}/config/${o}/${s}/`);
+      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/config/editor/da.json`);
     });
 
     it('config.get org-only legacy', async () => {
@@ -598,6 +1046,79 @@ describe('api.js', () => {
       expect(last.method).to.equal('PUT');
       expect(last.body).to.be.instanceof(FormData);
       expect(last.body.get('config')).to.equal('{"foo":"bar"}');
+    });
+
+    it('config.get on hlx6 converts the simple AEM_API response into sheet format', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({ body: JSON.stringify({ library: [{ title: 'Foo' }] }) });
+
+      const resp = await config.get({ org: o, site: s });
+
+      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/config/editor/da.json`);
+      expect(await resp.json()).to.deep.equal({
+        total: 1, limit: 1, offset: 0, data: [{ title: 'Foo' }], ':sheetname': 'library', ':type': 'sheet',
+      });
+    });
+
+    it('config.get on hlx6 converts a multi-key AEM_API response into a multi-sheet doc', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify({ library: [{ title: 'Foo' }], permissions: [{ email: 'a@b.com' }] }),
+      });
+
+      const resp = await config.get({ org: o, site: s });
+
+      expect(await resp.json()).to.deep.equal({
+        ':type': 'multi-sheet',
+        ':names': ['library', 'permissions'],
+        library: { total: 1, limit: 1, offset: 0, data: [{ title: 'Foo' }] },
+        permissions: { total: 1, limit: 1, offset: 0, data: [{ email: 'a@b.com' }] },
+      });
+    });
+
+    it('config.get on hlx6 leaves non-ok responses untransformed', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      restoreFetch();
+      installFetch({ status: 404, body: JSON.stringify({ error: 'not found' }) });
+
+      const resp = await config.get({ org: o, site: s });
+
+      expect(resp.ok).to.equal(false);
+      expect(await resp.json()).to.deep.equal({ error: 'not found' });
+    });
+
+    it('config.save on hlx6 converts a sheet-format body into simple JSON for AEM_API', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const sheetBody = JSON.stringify({
+        total: 1, limit: 1, offset: 0, data: [{ title: 'Foo' }], ':sheetname': 'library', ':type': 'sheet',
+      });
+
+      await config.save({ org: o, site: s, body: sheetBody });
+
+      const last = lastCall();
+      expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/config/editor/da.json`);
+      expect(last.method).to.equal('POST');
+      expect(last.headers['content-type']).to.equal('application/json');
+      expect(JSON.parse(last.body)).to.deep.equal({ library: [{ title: 'Foo' }] });
+    });
+
+    it('config.save on hlx6 converts a multi-sheet body into a multi-key simple object', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const sheetBody = JSON.stringify({
+        ':type': 'multi-sheet',
+        ':names': ['library', 'permissions'],
+        library: { total: 1, limit: 1, offset: 0, data: [{ title: 'Foo' }] },
+        permissions: { total: 1, limit: 1, offset: 0, data: [{ email: 'a@b.com' }] },
+      });
+
+      await config.save({ org: o, site: s, body: sheetBody });
+
+      expect(JSON.parse(lastCall().body)).to.deep.equal({
+        library: [{ title: 'Foo' }],
+        permissions: [{ email: 'a@b.com' }],
+      });
     });
 
     it('config.delete sends DELETE', async () => {
@@ -618,10 +1139,10 @@ describe('api.js', () => {
   });
 
   describe('org', () => {
-    it('org.listSites hits AEM_API', async () => {
+    it('org.listSites hits AEM_API source-bus endpoint', async () => {
       const o = uniq('org');
       await org.listSites({ org: o });
-      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites`);
+      expect(lastCall().url).to.equal(`${AEM_API}/${o}/source/`);
     });
   });
 

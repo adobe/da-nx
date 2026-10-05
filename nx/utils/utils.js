@@ -66,6 +66,46 @@ export const DA_ETC = getEnv('da-etc', DA_ETC_ENVS);
 export const HLX_ADMIN = 'https://admin.hlx.page';
 export const AEM_API = 'https://api.aem.live';
 
+/**
+ * Builds a live-preview URL for a site, e.g.
+ * https://main--repo--org.preview.da.live. Uses the env-aware DA_PREVIEW origin
+ * (respecting ?da-preview= / localStorage overrides) and swaps to .page hosts
+ * when running on da.page.
+ * @param {string} org - Organization name
+ * @param {string} repo - Repository name
+ * @param {string} [ref] - Branch/ref (defaults to 'main')
+ * @returns {string} The live-preview origin
+ */
+export function getLivePreviewUrl(org, repo, ref = 'main') {
+  let domain = DA_PREVIEW.replace(/^https?:\/\//, '');
+  if (window.location.origin === 'https://da.page') domain = domain.replace('.live', '.page');
+  const protocol = domain.startsWith('localhost') ? 'http' : 'https';
+  return `${protocol}://${ref}--${repo}--${org}.${domain}`;
+}
+
+/**
+ * Sets the live-preview session cookie by exchanging the IMS token via
+ * /gimme_cookie. Enables loading auth-gated content from preview.da.live.
+ * @param {string} org - Organization name
+ * @param {string} repo - Repository name
+ * @param {string} [ref] - Branch/ref (defaults to 'main')
+ * @returns {Promise<boolean>} True if the cookie was set, false when anonymous or on failure
+ */
+export async function livePreviewLogin(org, repo, ref) {
+  try {
+    const { loadIms } = await import('./ims.js');
+    const ims = await loadIms();
+    if (ims.anonymous || !ims.accessToken?.token) return false;
+    const resp = await fetch(`${getLivePreviewUrl(org, repo, ref)}/gimme_cookie`, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${ims.accessToken.token}` },
+    });
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
 export const ALLOWED_TOKEN = [
   DA_ADMIN,
   DA_COLLAB,

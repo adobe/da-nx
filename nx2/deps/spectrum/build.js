@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'fs';
 const TOKENS = new URL('../../../node_modules/@adobe/spectrum-tokens/src/', import.meta.url);
 
 const colors = JSON.parse(readFileSync(new URL('color-palette.json', TOKENS), 'utf8'));
+const colorAliases = JSON.parse(readFileSync(new URL('color-aliases.json', TOKENS), 'utf8'));
 const layout = JSON.parse(readFileSync(new URL('layout.json', TOKENS), 'utf8'));
 const typography = JSON.parse(readFileSync(new URL('typography.json', TOKENS), 'utf8'));
 
@@ -27,6 +28,7 @@ const COMPONENT_WEIGHTS = ['regular', 'medium', 'bold'];
 
 const SPACING = [50, 75, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
 const CORNER_RADIUS = [0, 75, 100, 200, 300, 400, 500, 600, 700, 800];
+const DROP_SHADOWS = ['elevated'];
 
 const FONT_WEIGHT_MAP = {
   'light': 300,
@@ -85,6 +87,23 @@ function normalizeRgb(value) {
   return value.replace(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/g, 'rgb($1 $2 $3)');
 }
 
+/** Normalize `rgba(r, g, b, a)` → `rgb(r g b / a%)` for modern CSS. */
+function normalizeRgba(value) {
+  return value.replace(
+    /rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/g,
+    (_, r, g, b, a) => `rgb(${r} ${g} ${b} / ${Math.round(parseFloat(a) * 100)}%)`,
+  );
+}
+
+function resolveShadowColor(alias) {
+  const tokenName = resolveAlias(alias);
+  const token = colorAliases[tokenName];
+  if (!token?.sets?.light || !token.sets.dark) throw new Error(`Cannot resolve drop-shadow color: ${alias}`);
+  const light = normalizeRgba(token.sets.light.value);
+  const dark = normalizeRgba(token.sets.dark.value);
+  return `light-dark(${light}, ${dark})`;
+}
+
 /* --- Build Colors --- */
 
 function buildColors() {
@@ -123,6 +142,23 @@ function buildCornerRadius() {
     const token = layout[`corner-radius-${stop}`];
     if (!token) throw new Error(`Missing corner-radius-${stop}`);
     lines.push(`  --s2-corner-radius-${stop}: ${token.value};`);
+  }
+  return lines.join('\n');
+}
+
+/* --- Build Drop Shadows --- */
+
+function buildDropShadow() {
+  const lines = ['  /* drop shadow */'];
+  for (const name of DROP_SHADOWS) {
+    const key = `drop-shadow-${name}`;
+    const token = colorAliases[key];
+    if (!token?.value) throw new Error(`Missing ${key}`);
+
+    const layers = token.value.map(
+      (layer) => `${layer.x} ${layer.y} ${layer.blur} ${resolveShadowColor(layer.color)}`,
+    );
+    lines.push(`  --s2-${key}: ${layers.join(',\n    ')};`);
   }
   return lines.join('\n');
 }
@@ -198,6 +234,8 @@ const tokens = [
   buildSpacing(),
   '',
   buildCornerRadius(),
+  '',
+  buildDropShadow(),
   '',
   buildHeading(),
   '',

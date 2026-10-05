@@ -1,9 +1,12 @@
 import { expect } from '@esm-bundle/chai';
 import '../../../../../nx/blocks/form/fields/input.js';
+import '../../../../../nx/blocks/form/fields/textarea.js';
 import '../../../../../nx/blocks/form/fields/picker.js';
 import '../../../../../nx/blocks/form/fields/checkbox.js';
 import '../../../../../nx/blocks/form/fields/button.js';
 import '../../../../../nx/blocks/form/fields/number.js';
+import '../../../../../nx/blocks/form/fields/date.js';
+import { localToUtc, utcToLocal } from '../../../../../nx/blocks/form/fields/datetime-zone.js';
 
 const tick = () => new Promise((resolve) => { requestAnimationFrame(resolve); });
 
@@ -49,6 +52,47 @@ describe('form-input', () => {
     expect(el.shadowRoot.querySelector('.form-field').classList.contains('has-error')).to.be.true;
   });
 
+  it('marks a required field with the red asterisk in its label', async () => {
+    const el = await mount('<form-input></form-input>');
+    el.label = 'Title';
+    el.required = true;
+    await el.updateComplete;
+    const star = el.shadowRoot.querySelector('label .form-required');
+    expect(star, 'required asterisk').to.exist;
+    expect(star.textContent).to.equal('*');
+    // .form-required is the class that colors it red (defaults.css).
+    expect(star.classList.contains('form-required')).to.be.true;
+  });
+
+  it('omits the asterisk when the field is not required', async () => {
+    const el = await mount('<form-input></form-input>');
+    el.label = 'Title';
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.form-required')).to.equal(null);
+  });
+
+  it('shows the description under the input when valid', async () => {
+    const el = await mount('<form-input></form-input>');
+    el.description = 'Lowercase and hyphens.';
+    await el.updateComplete;
+    const desc = el.shadowRoot.querySelector('.form-field-description');
+    const wrap = el.shadowRoot.querySelector('.form-input-wrap');
+    expect(desc.textContent).to.equal('Lowercase and hyphens.');
+    // Spectrum: help text renders under the field.
+    const order = [...el.shadowRoot.querySelector('.form-field').children];
+    expect(order.indexOf(wrap)).to.be.lessThan(order.indexOf(desc));
+  });
+
+  it('replaces the description with the error when invalid (Spectrum)', async () => {
+    const el = await mount('<form-input></form-input>');
+    el.description = 'Lowercase and hyphens.';
+    el.error = 'Invalid';
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.form-field-error').textContent).to.equal('Invalid');
+    // Error replaces the help text — description is not shown while invalid.
+    expect(el.shadowRoot.querySelector('.form-field-description')).to.equal(null);
+  });
+
   it('honors disabled', async () => {
     const el = await mount('<form-input disabled></form-input>');
     expect(el.shadowRoot.querySelector('input').disabled).to.be.true;
@@ -57,6 +101,42 @@ describe('form-input', () => {
   it('honors the type attribute', async () => {
     const el = await mount('<form-input type="number"></form-input>');
     expect(el.shadowRoot.querySelector('input').type).to.equal('number');
+  });
+});
+
+describe('form-textarea', () => {
+  it('reflects value onto the inner textarea', async () => {
+    const el = await mount('<form-textarea></form-textarea>');
+    el.value = 'hello\nworld';
+    await el.updateComplete;
+    const textarea = el.shadowRoot.querySelector('textarea');
+    expect(textarea.value).to.equal('hello\nworld');
+  });
+
+  it('fires an input event and updates value on user input', async () => {
+    const el = await mount('<form-textarea></form-textarea>');
+    let fired;
+    el.addEventListener('input', (e) => { fired = e.target.value; });
+    const textarea = el.shadowRoot.querySelector('textarea');
+    textarea.value = 'typed';
+    textarea.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    expect(el.value).to.equal('typed');
+    expect(fired).to.equal('typed');
+  });
+
+  it('renders the label and error message', async () => {
+    const el = await mount('<form-textarea></form-textarea>');
+    el.label = 'Summary';
+    el.error = 'Required';
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('label').textContent).to.equal('Summary');
+    expect(el.shadowRoot.querySelector('.form-field-error').textContent).to.equal('Required');
+    expect(el.shadowRoot.querySelector('.form-field').classList.contains('has-error')).to.be.true;
+  });
+
+  it('honors disabled', async () => {
+    const el = await mount('<form-textarea disabled></form-textarea>');
+    expect(el.shadowRoot.querySelector('textarea').disabled).to.be.true;
   });
 });
 
@@ -238,5 +318,117 @@ describe('form-button', () => {
     el.variant = 'accent';
     await el.updateComplete;
     expect(el.getAttribute('variant')).to.equal('accent');
+  });
+});
+
+describe('form-date (native)', () => {
+  const input = (el) => el.shadowRoot.querySelector('input');
+  const setInput = (el, v) => {
+    const i = input(el);
+    i.value = v;
+    i.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+  };
+
+  it('renders a native date input by default', async () => {
+    const el = await mount('<form-date></form-date>');
+    expect(input(el).type).to.equal('date');
+  });
+
+  it('reflects an external date value into the input', async () => {
+    const el = await mount('<form-date></form-date>');
+    el.value = '2026-08-14';
+    await el.updateComplete;
+    expect(input(el).value).to.equal('2026-08-14');
+  });
+
+  it('lets the native input event cross and syncs the value on the host', async () => {
+    const el = await mount('<form-date></form-date>');
+    let inputs = 0;
+    let changes = 0;
+    let target;
+    el.addEventListener('input', (e) => {
+      inputs += 1;
+      target = e.target;
+    });
+    el.addEventListener('change', () => { changes += 1; });
+    setInput(el, '2026-08-14');
+    expect(inputs).to.equal(1);
+    expect(changes).to.equal(0);
+    expect(target).to.equal(el);
+    expect(el.value).to.equal('2026-08-14');
+  });
+
+  it('exposes the UTC value on the host for a datetime input event', async () => {
+    const el = await mount('<form-date type="datetime"></form-date>');
+    let value;
+    el.addEventListener('input', (e) => { value = e.target.value; });
+    setInput(el, '2026-08-14T13:00');
+    const utc = localToUtc('2026-08-14T13:00');
+    expect(el.value).to.equal(utc);
+    expect(value).to.equal(utc);
+  });
+
+  it('renders a native time input for type=time', async () => {
+    const el = await mount('<form-date type="time"></form-date>');
+    expect(input(el).type).to.equal('time');
+    setInput(el, '09:30');
+    expect(el.value).to.equal('09:30');
+  });
+
+  it('renders a datetime-local input for type=datetime and stores UTC', async () => {
+    const el = await mount('<form-date type="datetime"></form-date>');
+    expect(input(el).type).to.equal('datetime-local');
+    setInput(el, '2026-08-14T13:00');
+    expect(el.value).to.equal(localToUtc('2026-08-14T13:00'));
+    expect(el.value).to.match(/Z$/);
+  });
+
+  it('reflects a stored UTC datetime as local in the input', async () => {
+    const el = await mount('<form-date type="datetime"></form-date>');
+    const iso = localToUtc('2026-08-14T13:00');
+    el.value = iso;
+    await el.updateComplete;
+    expect(input(el).value).to.equal(utcToLocal(iso));
+  });
+
+  // Ancient dates carry sub-minute offsets; the widget must still emit canonical `…:00Z`.
+  it('stores a canonical minute-precision UTC value for an ancient datetime', async () => {
+    const el = await mount('<form-date type="datetime"></form-date>');
+    setInput(el, '0001-01-01T01:00');
+    expect(el.value).to.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\.000Z$/);
+  });
+
+  it('leaves the value empty for a partial or cleared entry (no fabricated value)', async () => {
+    const el = await mount('<form-date></form-date>');
+    // A partial entry gives the native input no value; we do not invent one.
+    el._onInput({ target: { value: '' } });
+    expect(el.value).to.equal('');
+  });
+
+  it('surfaces the SDK error when the value is invalid', async () => {
+    const el = await mount('<form-date></form-date>');
+    el.error = 'Please enter a valid date.';
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.form-field-error')?.textContent)
+      .to.equal('Please enter a valid date.');
+    expect(el.shadowRoot.querySelector('.form-field.has-error')).to.exist;
+  });
+
+  it('sets a 4-digit-year max on the date input', async () => {
+    const el = await mount('<form-date></form-date>');
+    expect(input(el).getAttribute('max')).to.equal('9999-12-31');
+    expect(input(el).getAttribute('min')).to.equal('0001-01-01');
+  });
+
+  it('sets min/max on the datetime input but not on time', async () => {
+    const dt = await mount('<form-date type="datetime"></form-date>');
+    expect(input(dt).getAttribute('max')).to.equal('9999-12-31T23:59');
+    const t = await mount('<form-date type="time"></form-date>');
+    expect(input(t).getAttribute('max')).to.equal(null);
+  });
+
+  it('honors disabled', async () => {
+    const el = await mount('<form-date disabled></form-date>');
+    expect(input(el).disabled).to.be.true;
   });
 });

@@ -5,7 +5,7 @@ import { glaasSourcePreviewUrl } from '../../../nx/blocks/loc/connectors/glaas/a
 import {
   buildMultimodalPageAssetEntry,
   buildMultimodalTextAsset,
-  collectContentDaLiveImageUrls,
+  collectMultimodalImageUrls,
   collectMultimodalAssetNames,
   countMultimodalTranslatedPages,
   contentDaLiveToDaSourceUrl,
@@ -14,8 +14,10 @@ import {
   getPutUrlForFile,
   resetPutUrlRateLimitGateForTests,
   isV2AssetReady,
+  uploadMultimodalPageAssets,
   v2AssetStatusFromProbe,
 } from '../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
+import { LOC_SRC_ATTR } from '../../../nx/blocks/loc/connectors/glaas/dnt.js';
 
 describe('GLaaS multimodal getPutUrlForFile', () => {
   beforeEach(() => {
@@ -226,11 +228,14 @@ describe('GLaaS multimodal image source URLs', () => {
 });
 
 describe('GLaaS multimodal pageAssets', () => {
+  const selectionsFor = (...srcs) => new Set(srcs.map((src) => new URL(src).href));
+
   it('builds page asset entry with html glaas name and image metadata', () => {
+    const src = 'https://content.da.live/adobecom/foo/rectangle%20810724.png';
     const html = `
-      <img src="https://content.da.live/adobecom/foo/rectangle%20810724.png">
+      <img src="${src}">
     `;
-    const imageUrls = collectContentDaLiveImageUrls(html, { org: 'adobecom', site: 'foo' });
+    const imageUrls = collectMultimodalImageUrls(html, { imageSelections: selectionsFor(src) });
     const entry = buildMultimodalPageAssetEntry({
       htmlAssetName: '/drafts/demo/page.html',
       imageUrls,
@@ -241,26 +246,41 @@ describe('GLaaS multimodal pageAssets', () => {
     expect(entry.images[0].glaasName).to.equal('/rectangle 810724.png');
   });
 
-  it('collects only images under https://content.da.live/{org}/{site}', () => {
+  it('only collects images explicitly marked for translation (opt-in default)', () => {
+    const markedSrc = 'https://content.da.live/adobecom/foo/same-site.png';
+    const unmarkedSrc = 'https://content.da.live/adobecom/foo/unmarked.png';
+    const html = `
+      <img src="${markedSrc}">
+      <img src="${unmarkedSrc}">
+    `;
+    const result = collectMultimodalImageUrls(html, { imageSelections: selectionsFor(markedSrc) });
+    expect(result).to.deep.equal([markedSrc]);
+  });
+
+  it('excludes every image when nothing is marked, regardless of host', () => {
     const html = `
       <img src="https://content.da.live/adobecom/foo/same-site.png">
-      <img src="https://content.da.live/otherorg/foo/other-org.png">
-      <img src="https://content.da.live/adobecom/othersite/other-site.png">
+      <img src="https://main--site--org.aem.live/media_def.jpg">
     `;
-    expect(collectContentDaLiveImageUrls(html, { org: 'adobecom', site: 'foo' })).to.deep.equal([
-      'https://content.da.live/adobecom/foo/same-site.png',
-    ]);
+    expect(collectMultimodalImageUrls(html, {})).to.deep.equal([]);
+    expect(collectMultimodalImageUrls(html)).to.deep.equal([]);
   });
 
-  it('ignores relative ./media_ paths (DNT) that are not on content.da.live', () => {
-    const html = `
-      <img src="./media_13f28848e8da34fafe003ee7053bf2118fb26c78a.jpg">
-      <img src="https://main--dc--adobecom.aem.live/media_13f28848e8da34fafe003ee7053bf2118fb26c78a.jpg">
-    `;
-    expect(collectContentDaLiveImageUrls(html)).to.deep.equal([]);
+  it('ignores relative paths (DNT) even if somehow marked - only absolute http(s) is eligible', () => {
+    const relativeSrc = './media_13f28848e8da34fafe003ee7053bf2118fb26c78a.jpg';
+    const html = `<img src="${relativeSrc}">`;
+    const imageSelections = new Set([relativeSrc]);
+    expect(collectMultimodalImageUrls(html, { imageSelections })).to.deep.equal([]);
   });
 
-  it('collects comma-separated png and jpeg filenames from img[src] only', () => {
+  it('excludes svg even when marked', () => {
+    const svgSrc = 'https://content.da.live/adobecom/da-dc/drafts/demo/.hero/variant=default,%20width=full,%20content=blur%20bg.svg';
+    const html = `<img src="${svgSrc}">`;
+    const imageSelections = selectionsFor(svgSrc);
+    expect(collectMultimodalImageUrls(html, { imageSelections })).to.deep.equal([]);
+  });
+
+  it('collects comma-separated filenames from img[src] only, marked ones only, svg excluded', () => {
     const commaPng = 'https://content.da.live/adobecom/da-dc/drafts/demo/.hero/variant=default,%20width=full,%20content=feature%20image.png';
     const commaJpg = 'https://content.da.live/adobecom/da-dc/drafts/demo/.hero/breakpoint=small,%20width=full,%20content=hero%20photo.jpg';
     const commaSvg = 'https://content.da.live/adobecom/da-dc/drafts/demo/.hero/variant=default,%20width=full,%20content=blur%20bg.svg';
@@ -277,27 +297,64 @@ describe('GLaaS multimodal pageAssets', () => {
         <img src="${commaSvg}" loading="lazy">
       </picture>
     `;
-    expect(collectContentDaLiveImageUrls(html, { org: 'adobecom', site: 'da-dc' })).to.deep.equal([
+    const marked = selectionsFor(commaPng, commaJpg, commaSvg);
+    expect(collectMultimodalImageUrls(html, { imageSelections: marked })).to.deep.equal([
       commaPng,
       commaJpg,
     ]);
   });
 
-  it('collects only png and jpeg images (GLaaS multimodal format support)', () => {
+  it('collects only png/jpeg marked images (GLaaS multimodal format support)', () => {
+    const png = 'https://content.da.live/adobecom/foo/hero.png';
+    const jpg = 'https://content.da.live/adobecom/foo/photo.jpg';
+    const jpeg = 'https://content.da.live/adobecom/foo/photo.jpeg';
+    const svg = 'https://content.da.live/adobecom/foo/blur.svg';
+    const gif = 'https://content.da.live/adobecom/foo/anim.gif';
+    const webp = 'https://content.da.live/adobecom/foo/modern.webp';
     const html = `
-      <img src="https://content.da.live/adobecom/foo/hero.png">
-      <img src="https://content.da.live/adobecom/foo/photo.jpg">
-      <img src="https://content.da.live/adobecom/foo/photo.jpeg">
-      <img src="https://content.da.live/adobecom/foo/blur.svg">
-      <img src="https://content.da.live/adobecom/foo/anim.gif">
-      <img src="https://content.da.live/adobecom/foo/modern.webp">
-      <img src="https://content.da.live/adobecom/foo/next.avif">
+      <img src="${png}">
+      <img src="${jpg}">
+      <img src="${jpeg}">
+      <img src="${svg}">
+      <img src="${gif}">
+      <img src="${webp}">
     `;
-    expect(collectContentDaLiveImageUrls(html, { org: 'adobecom', site: 'foo' })).to.deep.equal([
-      'https://content.da.live/adobecom/foo/hero.png',
-      'https://content.da.live/adobecom/foo/photo.jpg',
-      'https://content.da.live/adobecom/foo/photo.jpeg',
+    const marked = selectionsFor(png, jpg, jpeg, svg, gif, webp);
+    expect(collectMultimodalImageUrls(html, { imageSelections: marked })).to.deep.equal([
+      png,
+      jpg,
+      jpeg,
     ]);
+  });
+
+  it('collects a marked image hosted on aem.live but excludes hosts outside the allowlist', () => {
+    const aemSrc = 'https://main--site--org.aem.live/media_def.jpg';
+    const externalSrc = 'https://example.com/photo.jpg';
+    const html = `
+      <img src="${aemSrc}">
+      <img src="${externalSrc}">
+    `;
+    const imageSelections = selectionsFor(aemSrc, externalSrc);
+    const result = collectMultimodalImageUrls(html, { imageSelections });
+    expect(result).to.deep.equal([aemSrc]);
+  });
+
+  it('collects a marked image via LOC_SRC_ATTR when DNT has relativized its src', () => {
+    // Regression: dnt.js relativizes AEM-hosted media_* srcs, stashing the original
+    // absolute href in LOC_SRC_ATTR for exactly this case - a relative src alone is
+    // ineligible (not absolute http(s)), so without reading the attribute this marked
+    // image would silently vanish from translation.
+    const originalSrc = 'https://main--site--org.aem.live/media_abc.png';
+    const html = `<img src="./media_abc.png" ${LOC_SRC_ATTR}="${originalSrc}">`;
+    const imageSelections = selectionsFor(originalSrc);
+    expect(collectMultimodalImageUrls(html, { imageSelections })).to.deep.equal([originalSrc]);
+  });
+
+  it('excludes a marked image if it is no longer present on the page', () => {
+    const src = 'https://content.da.live/adobecom/foo/deleted.png';
+    const html = '<p>No images here</p>';
+    const imageSelections = selectionsFor(src);
+    expect(collectMultimodalImageUrls(html, { imageSelections })).to.deep.equal([]);
   });
 
   it('returns empty images when page has no content.da.live assets', () => {
@@ -311,7 +368,7 @@ describe('GLaaS multimodal pageAssets', () => {
 });
 
 describe('GLaaS multimodal TEXT asset metadata', () => {
-  it('includes langMetadata and languageContext on TEXT assets (v1.2 parity)', () => {
+  it('does not include langMetadata or languageContext on TEXT assets (carried via assetMetadataUrl instead)', () => {
     const asset = buildMultimodalTextAsset({
       pagePath: '/drafts/demo/page.html',
       signedUrl: 'https://put.example/html',
@@ -333,25 +390,126 @@ describe('GLaaS multimodal TEXT asset metadata', () => {
       signedUrl: 'https://put.example/html',
       targetLocales: ['de', 'fr'],
       sourcePreviewUrlPage: 'https://main--site--org.aem.page/drafts/demo/page',
-      langMetadata: {
-        de: { 'keywords|block_1_title': 'keyword de' },
-      },
-      languageContext: {
-        de: {
-          keywords: [{ sourceKeyword: 'gif file', targetKeywords: [{ keyword: 'GIF-Datei' }] }],
-        },
-      },
     });
   });
 
-  it('omits empty langMetadata and languageContext', () => {
+  it('includes assetMetadataUrl when provided (GLaaS v2 requires it as its own file)', () => {
+    const asset = buildMultimodalTextAsset({
+      pagePath: '/drafts/demo/page.html',
+      signedUrl: 'https://put.example/html',
+      targetLocales: ['de'],
+      assetMetadataUrl: 'https://put.example/metadata',
+    });
+    expect(asset.assetMetadataUrl).to.equal('https://put.example/metadata');
+  });
+
+  it('omits assetMetadataUrl when not provided', () => {
     const asset = buildMultimodalTextAsset({
       pagePath: '/drafts/demo/page.html',
       signedUrl: 'https://put.example/html',
       targetLocales: ['de'],
     });
-    expect(asset.langMetadata).to.equal(undefined);
-    expect(asset.languageContext).to.equal(undefined);
+    expect(asset).to.not.have.property('assetMetadataUrl');
+  });
+});
+
+describe('GLaaS multimodal uploadMultimodalPageAssets', () => {
+  beforeEach(() => {
+    resetPutUrlRateLimitGateForTests();
+  });
+
+  afterEach(() => {
+    sinon.restore();
+    resetPutUrlRateLimitGateForTests();
+  });
+
+  it('uploads a metadata file and sets assetMetadataUrl on the TEXT asset', async () => {
+    // Mirrors putUrlAssetName() in multimodalApi.js: leading slash stripped, '/' -> '-'.
+    const putUrls = {
+      'drafts-demo-page.html': 'https://put.example/html',
+      'drafts-demo-page.metadata.json': 'https://put.example/metadata',
+    };
+    const putBodies = [];
+    sinon.stub(window, 'fetch').callsFake((url, opts) => {
+      if (typeof url === 'string' && url.includes('/getPutURLForFile/')) {
+        const wireName = url.split('/getPutURLForFile/')[1];
+        return Promise.resolve(new Response(
+          JSON.stringify({ putURL: putUrls[wireName] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ));
+      }
+      // PUT to a signed URL (html or metadata upload)
+      putBodies.push({ url, body: opts.body });
+      return Promise.resolve(new Response(null, { status: 200 }));
+    });
+
+    const result = await uploadMultimodalPageAssets({
+      origin: 'https://glaas.example',
+      clientid: 'client',
+      token: 'token',
+      htmlAssetName: '/drafts/demo/page.html',
+      htmlContent: '<p>hello</p>',
+      targetLocales: ['de'],
+    });
+
+    expect(result.error).to.equal(undefined);
+    expect(result.assets).to.have.length(1);
+    expect(result.assets[0].type).to.equal('TEXT');
+    expect(result.assets[0].signedUrl).to.equal('https://put.example/html');
+    expect(result.assets[0].assetMetadataUrl).to.equal('https://put.example/metadata');
+
+    const metadataPut = putBodies.find((call) => call.url === 'https://put.example/metadata');
+    expect(metadataPut).to.exist;
+    const metadataBody = JSON.parse(metadataPut.body);
+    expect(metadataBody.assetName).to.equal('/drafts/demo/page.html');
+    expect(metadataBody.assetType).to.equal('SOURCE');
+    expect(metadataBody.targetLocales).to.deep.equal(['de']);
+    expect(metadataBody).to.not.have.property('langMetadata');
+    expect(metadataBody).to.not.have.property('languageContext');
+  });
+
+  it('includes langMetadata and languageContext in the metadata file when provided (v1.2 parity)', async () => {
+    // Mirrors putUrlAssetName() in multimodalApi.js: leading slash stripped, '/' -> '-'.
+    const putUrls = {
+      'drafts-demo-page': 'https://put.example/html',
+      'drafts-demo-page.metadata.json': 'https://put.example/metadata',
+    };
+    const putBodies = [];
+    sinon.stub(window, 'fetch').callsFake((url, opts) => {
+      if (typeof url === 'string' && url.includes('/getPutURLForFile/')) {
+        const wireName = url.split('/getPutURLForFile/')[1];
+        return Promise.resolve(new Response(
+          JSON.stringify({ putURL: putUrls[wireName] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ));
+      }
+      putBodies.push({ url, body: opts.body });
+      return Promise.resolve(new Response(null, { status: 200 }));
+    });
+
+    await uploadMultimodalPageAssets({
+      origin: 'https://glaas.example',
+      clientid: 'client',
+      token: 'token',
+      htmlAssetName: '/drafts/demo/page',
+      htmlContent: '<p>hello</p>',
+      targetLocales: ['de', 'fr'],
+      translationMetadata: { de: { 'keywords|block_1_title': 'keyword de' } },
+      languageContext: { de: { keywords: [] } },
+    });
+
+    // No .html extension on the source asset, so the metadata asset name is simply suffixed.
+    const metadataPut = putBodies.find((call) => call.url === 'https://put.example/metadata');
+    expect(metadataPut).to.exist;
+    const metadataBody = JSON.parse(metadataPut.body);
+    expect(metadataBody).to.deep.equal({
+      assetName: '/drafts/demo/page',
+      metadata: {},
+      assetType: 'SOURCE',
+      targetLocales: ['de', 'fr'],
+      langMetadata: { de: { 'keywords|block_1_title': 'keyword de' } },
+      languageContext: { de: { keywords: [] } },
+    });
   });
 });
 

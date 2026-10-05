@@ -1,5 +1,7 @@
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
+import { daFetch } from '../../../../../nx2/utils/api.js';
+import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
 import { convertPath } from '../../utils/utils.js';
 
 const MAX_LENGTH = 5000;
@@ -24,7 +26,7 @@ async function sendForTranslation(org, site, url) {
     body.append('tolang', url.code);
 
     const opts = { method: 'POST', body };
-    const resp = await fetch('https://translate.da.live/google', opts);
+    const resp = await daFetch({ url: `${DA_TRANSLATE}/translate/google/${org}/${site}`, opts });
     if (!resp.ok) return;
 
     const { translated } = await resp.json();

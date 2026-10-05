@@ -143,7 +143,7 @@ class NxFeedbackDialog extends LitElement {
       <nx-dialog title=${this.label} @close=${this._handleClose}>
         <div class="feedback-body">
           <p class="feedback-intro">Describe what you tried, what you expected, and what actually happened. Do not share credentials or tokens!</p>
-          <div class="da-form-field">
+          <div class="nx-form-field">
             <label id="feedback-category-label">Category</label>
             <nx-picker
               .items=${CATEGORIES}
@@ -153,27 +153,27 @@ class NxFeedbackDialog extends LitElement {
               @change=${this._onCategoryChange}
             ></nx-picker>
           </div>
-          <div class="da-form-field ${this._messageError ? 'da-field-error' : ''}">
+          <div class="nx-form-field ${this._messageError ? 'nx-field-error' : ''}">
             <label for="feedback-message">Details</label>
             <textarea
               id="feedback-message"
-              class="feedback-textarea da-input"
+              class="feedback-textarea nx-input"
               autofocus
               placeholder="Tell us more..."
               aria-invalid=${this._messageError ? 'true' : 'false'}
               @input=${this._clearMessageError}
             ></textarea>
-            ${this._messageError ? html`<p class="da-input-error-msg">Please describe your feedback before submitting.</p>` : nothing}
+            ${this._messageError ? html`<p class="nx-input-error-msg">Please describe your feedback before submitting.</p>` : nothing}
           </div>
-          <label class="da-checkbox">
+          <label class="nx-checkbox">
             <input id="feedback-include-chat" type="checkbox" .checked=${this._linkChatSession} @change=${this._onLinkChatSessionChange} />
             Include assistant chat history?
           </label>
           <p class="feedback-intro"><span>Your name, email and current page will be shared with the team.</span></p>
-          ${this._submitError ? html`<p class="da-input-error-msg">${this._submitError}</p>` : nothing}
+          ${this._submitError ? html`<p class="nx-input-error-msg">${this._submitError}</p>` : nothing}
         </div>
-        <button type="button" class="da-btn-secondary" slot="actions" @click=${this.close}>Cancel</button>
-        <button type="button" class="da-btn-primary" slot="actions" ?disabled=${this._submitting} @click=${this._handleSubmit}>${this._submitting ? 'Submitting\u2026' : 'Submit'}</button>
+        <button type="button" class="nx-form-btn-secondary" slot="actions" @click=${this.close}>Cancel</button>
+        <button type="button" class="nx-form-btn-primary" slot="actions" ?disabled=${this._submitting} @click=${this._handleSubmit}>${this._submitting ? 'Submitting\u2026' : 'Submit'}</button>
       </nx-dialog>
     `;
   }

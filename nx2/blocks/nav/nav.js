@@ -120,6 +120,13 @@ class NXNav extends LitElement {
         button.addEventListener('click', () => openFragmentDialog(button.dataset.pathname));
       }
     }
+    // Inject the toggle so every site has it without changing its nav fragment.
+    if (!ul.querySelector('nx-editortoggle')) {
+      await import('../editortoggle/editortoggle.js');
+      const li = document.createElement('li');
+      li.append(document.createElement('nx-editortoggle'));
+      ul.prepend(li);
+    }
     return ul;
   }
 

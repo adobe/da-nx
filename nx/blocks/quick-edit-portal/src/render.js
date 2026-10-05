@@ -1,16 +1,18 @@
 import { TextSelection, yUndo, yRedo } from 'da-y-wrapper';
 import { getInstrumentedHTML, extractCursors } from './prose2aem.js';
+import { resolveEditableNode } from './editable-node.js';
+import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 
 export function updateDocument(ctx) {
   // Skip rerender if suppressed (e.g., during image updates)
   if (ctx.suppressRerender) return;
   const body = getInstrumentedHTML(window.view);
-  ctx.port.postMessage({ type: 'set-body', body });
+  ctx.port.postMessage({ type: MESSAGE_TYPES.SET_BODY, payload: { body } });
 }
 
 export function updateCursors(ctx) {
   const cursors = extractCursors(window.view);
-  ctx.port.postMessage({ type: 'set-cursors', cursors });
+  ctx.port.postMessage({ type: MESSAGE_TYPES.SET_CURSORS, payload: { cursors } });
 }
 
 export function updateState(data, ctx) {
@@ -38,11 +40,15 @@ export function getEditor(data, ctx) {
   if (ctx.suppressRerender) { return; }
   const { cursorOffset } = data;
 
-  const pos = window.view.state.doc.resolve(cursorOffset);
-  const before = pos.before(pos.depth);
-  const beforePos = window.view.state.doc.resolve(before);
-  const nodeAtBefore = beforePos.nodeAfter;
-  ctx.port.postMessage({ type: 'set-editor-state', editorState: nodeAtBefore.toJSON(), cursorOffset: before + 1 });
+  const { node, cursorOffset: newCursorOffset } = resolveEditableNode(
+    window.view.state.doc,
+    cursorOffset,
+  );
+  if (!node) return;
+  ctx.port.postMessage({
+    type: MESSAGE_TYPES.SET_EDITOR_STATE,
+    payload: { editorState: node.toJSON(), cursorOffset: newCursorOffset },
+  });
 }
 
 export function handleCursorMove({ cursorOffset, textCursorOffset }, ctx) {

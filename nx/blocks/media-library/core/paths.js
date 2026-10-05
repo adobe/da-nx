@@ -1,8 +1,8 @@
-import { daFetch } from '../../../utils/daFetch.js';
+import { daFetch } from './ims-adapter.js';
 import { DA_ADMIN } from '../../../utils/utils.js';
 import { Paths, Domains, DA_LIVE_EDIT_BASE } from './constants.js';
 import { ErrorCodes, logMediaLibraryError } from './errors.js';
-import { t } from './messages.js';
+import { getMessage } from './messages.js';
 import {
   normalizeSitePath as _normalizeSitePath,
   getContentPathFromSitePath as _getContentPathFromSitePath,
@@ -172,7 +172,7 @@ export function resolveAbsolutePath(path, isFolder = false) {
 export async function validateSitePath(sitePath) {
   if (!sitePath) {
     logMediaLibraryError(ErrorCodes.VALIDATION_SITE_PATH_MISSING, {});
-    return { valid: false, error: t('VALIDATION_ENTER_SITE_URL') };
+    return { valid: false, error: getMessage('VALIDATION_ENTER_SITE_URL') };
   }
 
   const parts = sitePath.split('/').filter(Boolean);
@@ -181,7 +181,7 @@ export async function validateSitePath(sitePath) {
     logMediaLibraryError(ErrorCodes.VALIDATION_SITE_PATH_MISSING, {});
     return {
       valid: false,
-      error: t('VALIDATION_ENTER_SITE_URL'),
+      error: getMessage('VALIDATION_ENTER_SITE_URL'),
     };
   }
 
@@ -200,7 +200,7 @@ export async function validateSitePath(sitePath) {
           logMediaLibraryError(ErrorCodes.VALIDATION_SITE_NOT_FOUND, { path: `/${org}/${repo}`, status: 404 });
           return {
             valid: false,
-            error: t('VALIDATION_SITE_NOT_FOUND', { path: `/${org}/${repo}` }),
+            error: getMessage('VALIDATION_SITE_NOT_FOUND', { path: `/${org}/${repo}` }),
           };
         }
 
@@ -209,16 +209,20 @@ export async function validateSitePath(sitePath) {
 
       if (resp.status === 404) {
         logMediaLibraryError(ErrorCodes.VALIDATION_SITE_NOT_FOUND, { path: `/${org}/${repo}`, status: 404 });
-        return { valid: false, error: t('VALIDATION_SITE_NOT_FOUND', { path: `/${org}/${repo}` }) };
+        return { valid: false, error: getMessage('VALIDATION_SITE_NOT_FOUND', { path: `/${org}/${repo}` }) };
       }
 
       if (resp.status === 401 || resp.status === 403) {
         logMediaLibraryError(ErrorCodes.DA_READ_DENIED, { path: `/${org}/${repo}`, status: resp.status });
         return {
           valid: false,
-          error: t('VALIDATION_SITE_403'),
-          suggestion: t('VALIDATION_SITE_403_SUGGESTION'),
+          error: getMessage('VALIDATION_SITE_403'),
+          suggestion: getMessage('VALIDATION_SITE_403_SUGGESTION'),
         };
+      }
+
+      if (resp.status >= 500) {
+        return { valid: false, error: getMessage('VALIDATION_SERVER_ERROR') };
       }
 
       return { valid: false, error: `Validation failed: ${resp.status}` };
@@ -246,7 +250,7 @@ export async function validateSitePath(sitePath) {
         });
         return {
           valid: false,
-          error: t('VALIDATION_PATH_NOT_FOUND', { path: parentPath }),
+          error: getMessage('VALIDATION_PATH_NOT_FOUND', { path: parentPath }),
         };
       }
 
@@ -257,9 +261,13 @@ export async function validateSitePath(sitePath) {
         );
         return {
           valid: false,
-          error: t('VALIDATION_PATH_403'),
-          suggestion: t('VALIDATION_PATH_403_SUGGESTION'),
+          error: getMessage('VALIDATION_PATH_403'),
+          suggestion: getMessage('VALIDATION_PATH_403_SUGGESTION'),
         };
+      }
+
+      if (resp.status >= 500) {
+        return { valid: false, error: getMessage('VALIDATION_SERVER_ERROR') };
       }
 
       return { valid: false, error: `Validation failed: ${resp.status}` };
@@ -271,7 +279,7 @@ export async function validateSitePath(sitePath) {
     if (!items || items.length === 0) {
       return {
         valid: false,
-        error: t('VALIDATION_PATH_EMPTY', { path: parentPath }),
+        error: getMessage('VALIDATION_PATH_EMPTY', { path: parentPath }),
       };
     }
 
@@ -284,15 +292,15 @@ export async function validateSitePath(sitePath) {
       logMediaLibraryError(ErrorCodes.VALIDATION_PATH_NOT_FOUND, { path: `${parentPath}/${lastSegment}`, status: 404 });
       return {
         valid: false,
-        error: t('VALIDATION_PATH_NOT_FOUND_CHILD', { path: `/${[org, repo, ...restPath].join('/')}` }),
-        suggestion: t('VALIDATION_PATH_NOT_FOUND_SUGGESTION', { segment: lastSegment, parentPath }),
+        error: getMessage('VALIDATION_PATH_NOT_FOUND_CHILD', { path: `/${[org, repo, ...restPath].join('/')}` }),
+        suggestion: getMessage('VALIDATION_PATH_NOT_FOUND_SUGGESTION', { segment: lastSegment, parentPath }),
       };
     }
 
     if (targetEntry.ext) {
       return {
         valid: false,
-        error: t('VALIDATION_SITE_PATH_FILE'),
+        error: getMessage('VALIDATION_SITE_PATH_FILE'),
         suggestion: parentPath,
         isFile: true,
         fileType: targetEntry.ext,

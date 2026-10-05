@@ -15,6 +15,7 @@ class ArrayMenu extends LitElement {
     itemCount: { attribute: false },
     minItems: { attribute: false },
     maxItems: { attribute: false },
+    required: { attribute: false },
     active: { attribute: false },
     open: { attribute: false },
     _confirmRemove: { state: true },
@@ -24,6 +25,7 @@ class ArrayMenu extends LitElement {
     super();
     this.active = false;
     this.open = false;
+    this.required = false;
     this._confirmRemove = false;
     this._confirmTimer = null;
   }
@@ -58,7 +60,9 @@ class ArrayMenu extends LitElement {
 
   _canRemove() {
     if (this.readonly) return false;
-    return this._count() > (this.minItems ?? 0);
+    // No minItems floor — mirrors the SDK's canRemove: below-min is flagged by
+    // validation, not blocked. Keep in sync with the SDK guard.
+    return this._count() > 0;
   }
 
   _clearConfirmTimer() {
