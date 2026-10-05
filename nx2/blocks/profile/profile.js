@@ -68,7 +68,7 @@ class NxProfile extends LitElement {
       config.log('Could not load IMS.');
     }
 
-    if (!this._ims.anonymous) {
+    if (this._ims && !this._ims.anonymous) {
       // Attempt to get avatar
       try {
         const { user } = await this._ims.getIo();
