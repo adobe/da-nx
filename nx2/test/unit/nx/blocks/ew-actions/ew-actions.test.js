@@ -79,6 +79,26 @@ describe('nx-ew-actions deploy popover', () => {
       el._status = {};
       expect(el._previewInfo).to.deep.equal({ ok: false, url: null, time: null });
     });
+
+    it('rewrites env URLs to the ?ref branch host', async () => {
+      const orig = window.location.href;
+      window.history.replaceState(null, '', `${window.location.pathname}?ref=feat-x`);
+      try {
+        const el = await mount();
+        el._hashState = { org: 'o', site: 's', path: '/page' };
+        await el.updateComplete;
+        await el._branchPromise;
+        el._status = {
+          webPath: '/page',
+          preview: { status: 200, url: 'https://main--s--o.aem.page/page' },
+          live: { status: 200, url: 'https://main--s--o.aem.live/page' },
+        };
+        expect(el._previewInfo.url).to.equal('https://feat-x--s--o.aem.page/page');
+        expect(el._liveInfo.url).to.equal('https://feat-x--s--o.aem.live/page');
+      } finally {
+        window.history.replaceState(null, '', orig);
+      }
+    });
   });
 
   describe('rendering', () => {

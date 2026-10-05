@@ -22,10 +22,11 @@ describe('getFirstSheet', () => {
 
   it('returns the first sheet\'s data for a multi-sheet doc', () => {
     const json = {
-      ':type': 'multi-sheet',
-      ':names': ['flags', 'prompts'],
       flags: { data: [{ key: 'a' }] },
       prompts: { data: [{ title: 'hi' }] },
+      ':names': ['flags', 'prompts'],
+      ':version': 3,
+      ':type': 'multi-sheet',
     };
     expect(getFirstSheet(json)).to.deep.equal([{ key: 'a' }]);
   });
