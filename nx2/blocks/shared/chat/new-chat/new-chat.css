@@ -22,7 +22,7 @@
 
   h3 {
     color: var(--s2-gray-900);
-    font-size: var(--s2-heading-size-m);
+    font-size: var(--nx-ui-text-heading-l);
   }
 
   p {
@@ -103,7 +103,7 @@
 }
 
 .continue-session-eyebrow {
-  font-size: var(--s2-component-xs-bold-font-size);
+  font-size: var(--nx-ui-text-label);
   font-weight: var(--s2-component-xs-bold-font-weight);
   color: var(--s2-gray-600);
 }
@@ -115,6 +115,6 @@
 }
 
 .continue-session-time {
-  font-size: var(--s2-component-xs-regular-font-size);
+  font-size: var(--nx-ui-text-label);
   color: var(--s2-gray-700);
 }

@@ -87,7 +87,7 @@
 }
 
 .ui-artifact-pe-tile-value {
-  font-size: var(--s2-heading-size-s);
+  font-size: var(--nx-ui-text-heading);
   font-weight: var(--s2-heading-font-weight);
   line-height: var(--s2-heading-line-height);
 }
@@ -140,7 +140,7 @@
 }
 
 .ui-artifact-pe-section-label {
-  font-size: var(--s2-component-m-bold-font-size);
+  font-size: var(--nx-ui-text-body);
   font-weight: bold;
   color: var(--s2-gray-900);
 }
@@ -198,7 +198,7 @@
 }
 
 .ui-artifact-pe-item-title {
-  font-size: var(--s2-component-m-bold-font-size);
+  font-size: var(--nx-ui-text-body);
   font-weight: bold;
   color: var(--s2-gray-900);
 }
@@ -214,7 +214,7 @@
 .ui-artifact-pe-item-action {
   flex-shrink: 0;
   align-self: center;
-  font-size: var(--s2-component-s-medium-font-size);
+  font-size: var(--nx-ui-text-detail);
   font-weight: 500;
   color: var(--s2-gray-900);
   background: none;
@@ -240,7 +240,7 @@
 }
 
 .ui-artifact-pe-paging-label {
-  font-size: var(--s2-component-s-bold-font-size);
+  font-size: var(--nx-ui-text-detail);
   font-weight: bold;
   color: var(--s2-gray-800);
 }
@@ -298,7 +298,7 @@
 }
 
 .ui-artifact-pe-modal-asset-label {
-  font-size: var(--s2-component-xl-bold-font-size);
+  font-size: var(--nx-ui-text-title-l);
   font-weight: bold;
   color: var(--s2-gray-900);
   margin: 0 0 var(--s2-spacing-300);
@@ -337,7 +337,7 @@
 
 .ui-artifact-pe-modal-heading-text {
   font-weight: bold;
-  font-size: var(--s2-component-m-bold-font-size);
+  font-size: var(--nx-ui-text-body);
   color: var(--s2-gray-900);
 }
 
@@ -352,7 +352,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--nx-ui-text-note);
   color: var(--s2-gray-800);
   background: none;
   border: none;
@@ -377,7 +377,7 @@
 }
 
 .ui-artifact-pe-modal-context-title {
-  font-size: var(--s2-component-l-bold-font-size);
+  font-size: var(--nx-ui-text-title);
   font-weight: bold;
   color: var(--s2-gray-900);
   margin: var(--s2-spacing-400) 0 var(--s2-spacing-200);
@@ -460,7 +460,7 @@
 }
 
 .ui-artifact-pe-modal-paging-label {
-  font-size: 13px;
+  font-size: var(--nx-ui-text-note);
   font-weight: bold;
   color: var(--s2-gray-800);
 }

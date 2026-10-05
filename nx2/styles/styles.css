@@ -300,6 +300,15 @@
   --nx-ui-text-comment: 15px;
   --nx-ui-text-component: var(--s2-component-s-regular-font-size);
   --nx-ui-text-preview-title: 14px;
+  --nx-ui-text-badge: 10px;
+  --nx-ui-text-label: var(--s2-component-xs-regular-font-size);
+  --nx-ui-text-code: 0.7rem;
+  --nx-ui-text-note: 13px;
+  --nx-ui-text-input: 15px;
+  --nx-ui-text-title: var(--s2-component-l-bold-font-size);
+  --nx-ui-text-title-l: var(--s2-component-xl-bold-font-size);
+  --nx-ui-text-heading: var(--s2-heading-size-s);
+  --nx-ui-text-heading-l: var(--s2-heading-size-m);
 
   /* fonts */
   --s2-font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;

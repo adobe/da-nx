@@ -6,7 +6,7 @@
 
 .ui-artifact-title {
   font-weight: bold;
-  font-size: var(--s2-component-s-bold-font-size);
+  font-size: var(--nx-ui-text-detail);
   color: var(--s2-gray-700);
 }
 
@@ -77,7 +77,7 @@
 }
 
 .ui-artifact-metric-label {
-  font-size: var(--s2-component-s-bold-font-size);
+  font-size: var(--nx-ui-text-detail);
   font-weight: bold;
   color: var(--s2-gray-600);
 }
@@ -89,7 +89,7 @@
 }
 
 .ui-artifact-metric-value {
-  font-size: var(--s2-component-l-bold-font-size);
+  font-size: var(--nx-ui-text-title);
   font-weight: var(--s2-component-l-bold-font-weight);
   color: var(--s2-gray-900);
 }
@@ -103,7 +103,7 @@
 }
 
 .ui-artifact-metric-trend {
-  font-size: var(--s2-component-s-bold-font-size);
+  font-size: var(--nx-ui-text-detail);
   font-weight: bold;
 }
 

@@ -112,7 +112,7 @@
   justify-content: space-between;
   gap: var(--s2-spacing-200);
   line-height: var(--s2-component-xs-medium-line-height);
-  font-size: var(--s2-component-xs-medium-font-size);
+  font-size: var(--nx-ui-text-tool-detail);
 
   .prompt-item-title {
     min-width: 0;
@@ -130,7 +130,7 @@
 
 .prompt-item-desc {
   color: var(--s2-gray-900);
-  font-size: var(--s2-component-s-regular-font-size);
+  font-size: var(--nx-ui-text-component);
   line-height: var(--s2-component-s-regular-line-height);
   text-overflow: ellipsis;
 }
@@ -154,11 +154,9 @@
 
   .prompt-item-header {
     line-height: var(--s2-component-m-medium-line-height);
-    font-size: var(--s2-component-m-medium-font-size);
   }
 
   .prompt-item-desc {
-    font-size: var(--s2-component-m-regular-font-size);
     line-height: var(--s2-component-m-regular-line-height);
   }
 }
