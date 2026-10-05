@@ -289,6 +289,11 @@
 
   /* --- End generated --- */
 
+  /* ui-size scale: "s" (default, current prod) vs "m" (#757/#1351 sizing).
+     Toggled via body.ui-size-m, see utils/uiSize.js. */
+  --nx-ui-text-body: var(--s2-body-size-s);
+  --nx-ui-text-detail: var(--s2-body-size-xs);
+
   /* fonts */
   --s2-font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
 
@@ -305,6 +310,11 @@
 
   /* color schemes */
   color-scheme: light;
+}
+
+body.ui-size-m {
+  --nx-ui-text-body: var(--s2-component-m-regular-font-size);
+  --nx-ui-text-detail: var(--s2-component-s-regular-font-size);
 }
 
 @media (width >= 1440px) {

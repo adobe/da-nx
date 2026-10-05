@@ -312,6 +312,9 @@ async function decorateDoc() {
   const scheme = localStorage.getItem('color-scheme');
   if (scheme) document.body.classList.add(scheme);
 
+  const { getUISize } = await import('../utils/uiSize.js');
+  if (getUISize() === 'm') document.body.classList.add('ui-size-m');
+
   const pageId = window.location.hash?.replace('#', '');
   if (pageId) localStorage.setItem('lazyhash', pageId);
 }

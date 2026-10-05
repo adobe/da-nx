@@ -21,6 +21,7 @@ import {
   ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE,
 } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
+import { getUISize } from '../../utils/uiSize.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
@@ -376,6 +377,8 @@ export default class NxChatAo extends LitElement {
     const { view } = this._context ?? {};
     const prompts = (this._prompts ?? [])
       .filter((p) => !p.area || p.area === 'all' || p.area === view);
+    const uiSize = getUISize();
+    const toolbarBtnClass = uiSize === 'm' ? '' : ' nx-btn-sm';
 
     return html`
       <nx-popover class="prompts-popover">
@@ -388,7 +391,7 @@ export default class NxChatAo extends LitElement {
         ${this.episodes?.length ? html`
           <nx-picker
             class="session-picker"
-            size="m"
+            size=${uiSize}
             .items=${this.episodes.map((ep) => ({ value: ep.id, label: this._episodeLabel(ep) }))}
             .value=${this.episodeId}
             .labelOverride=${this._sessionFallbackLabel()}
@@ -396,12 +399,12 @@ export default class NxChatAo extends LitElement {
             @change=${this._handleEpisodeChange}
           ></nx-picker>` : nothing}
         <div>
-          <button type="button" class="nx-action-btn-quiet" @click=${this._handleNewSession}>
+          <button type="button" class="nx-action-btn-quiet${toolbarBtnClass}" @click=${this._handleNewSession}>
             ${icon('add')}
             <span>New chat</span>
           </button>
           <button
-            class="nx-action-btn-icon"
+            class="nx-action-btn-icon${toolbarBtnClass}"
             aria-label="Close chat panel"
             @click=${this._closePanel}
           >${icon('close')}</button>
@@ -449,7 +452,7 @@ export default class NxChatAo extends LitElement {
       <div class="chat-form-wrap">
         <nx-menu
           class="slash-menu"
-          size="m"
+          size=${uiSize}
           .ignoreFocus=${true}
           .scoped=${true}
           @select=${({ detail }) => this._onSlashSelect(detail.id)}
@@ -495,8 +498,8 @@ export default class NxChatAo extends LitElement {
             @blur=${this._slashMenu.onBlur}
           ></textarea>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
-            <nx-menu size="m" .items=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-              <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
+            <nx-menu size=${uiSize} .items=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
+              <button slot="trigger" class="chat-add nx-action-btn-icon${toolbarBtnClass}" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>
               </button>
@@ -505,7 +508,7 @@ export default class NxChatAo extends LitElement {
               ${isVoiceInputSupported() ? html`
                 <button
                   type="button"
-                  class="chat-voice nx-action-btn-icon nx-btn-sm"
+                  class="chat-voice nx-action-btn-icon${toolbarBtnClass}"
                   ?data-listening=${this._voiceListening}
                   ?disabled=${this._blocked}
                   aria-pressed=${this._voiceListening}
@@ -514,11 +517,11 @@ export default class NxChatAo extends LitElement {
                 >${icon('mic')}</button>
               ` : nothing}
               <button
-                class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
+                class="chat-stop nx-action-btn-icon is-active${toolbarBtnClass}"
                 ?hidden=${!this._blocked}
                 @click=${this._submit}
               > ${icon('stop')}</button>
-              <button type="submit" class="chat-send harness-coworker nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this._blocked} aria-label="Send">
+              <button type="submit" class="chat-send harness-coworker nx-action-btn-icon is-active${toolbarBtnClass}" ?hidden=${this._blocked} aria-label="Send">
                 ${icon('send')}
               </button>
             </div>
