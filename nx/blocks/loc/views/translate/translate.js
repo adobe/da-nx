@@ -222,33 +222,39 @@ class NxLocTranslate extends LitElement {
     this.handleSaveLangs();
   }
 
-  async handleCancelAll() {
+  /**
+   * Cancels one language, showing a transient 'cancelling' status while the
+   * connector works and restoring the prior status if the cancel is rejected.
+   * @param {Object} lang - The language to cancel.
+   * @returns {Promise<boolean>} Whether a status refresh is warranted.
+   */
+  async cancelLang(lang) {
     const sendMessage = this.handleMessage.bind(this);
-
     const { cancelTranslation } = this._service.connector;
 
-    let shouldRefresh = false;
-    for (const lang of this._translateLangs) {
-      const result = await cancelTranslation({ service: this._service, lang, sendMessage });
-      if (result?.ok !== false || lang.translation?.cancelPending) shouldRefresh = true;
-    }
+    const previousStatus = lang.translation.status;
+    lang.translation.status = 'cancelling';
+    this.requestUpdate();
 
-    if (shouldRefresh) {
-      // Refresh locales GLaaS accepted; skip when every cancel was rejected.
-      await this.handleGetStatus();
-    }
+    const result = await cancelTranslation({ service: this._service, lang, sendMessage });
+    const pending = !!lang.translation?.cancelPending;
+
+    if (result?.ok === false && !pending) lang.translation.status = previousStatus;
+    this.requestUpdate();
+
+    return result?.ok !== false || pending;
+  }
+
+  async handleCancelAll() {
+    const langs = this._translateLangs.filter((lang) => this.canCancelLang(lang));
+    const results = await Promise.all(langs.map((lang) => this.cancelLang(lang)));
+
+    // Refresh locales accepted by the connector; skip when every cancel was rejected.
+    if (results.some(Boolean)) await this.handleGetStatus();
   }
 
   async handleCancelLang(lang) {
-    const sendMessage = this.handleMessage.bind(this);
-
-    const { cancelTranslation } = this._service.connector;
-
-    const result = await cancelTranslation({ service: this._service, lang, sendMessage });
-
-    if (result?.ok !== false || lang.translation?.cancelPending) {
-      await this.handleGetStatus();
-    }
+    if (await this.cancelLang(lang)) await this.handleGetStatus();
   }
 
   async handleCopyAll() {
@@ -290,6 +296,7 @@ class NxLocTranslate extends LitElement {
   canCancelLang(lang) {
     return !!lang.translation
       && lang.translation.status !== 'cancelled'
+      && lang.translation.status !== 'cancelling'
       && lang.translation.status !== 'complete';
   }
 
