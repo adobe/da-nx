@@ -6,7 +6,7 @@ const style = await loadStyle(import.meta.url);
 class FormButton extends LitElement {
   static properties = {
     disabled: { type: Boolean, reflect: true },
-    // Spectrum variant: 'accent' (default), 'negative', or 'secondary'.
+    // Spectrum variant: 'accent' (default) or 'secondary'.
     variant: { reflect: true },
   };
 
