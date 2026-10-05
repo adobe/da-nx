@@ -1,3 +1,11 @@
+# [1.8.0](https://github.com/adobe/da-nx/compare/v1.7.1...v1.8.0) (2026-10-05)
+
+
+### Features
+
+* **aem-assets:** add shared AEM Assets module ([d37e4a8](https://github.com/adobe/da-nx/commit/d37e4a8d356c1985c062622b7fca2dbaa0a31450))
+* shared switch ([#777](https://github.com/adobe/da-nx/issues/777)) ([d021843](https://github.com/adobe/da-nx/commit/d021843e189de76ff03b7854f1416dd694809024))
+
 ## [1.7.1](https://github.com/adobe/da-nx/compare/v1.7.0...v1.7.1) (2026-10-02)
 
 
