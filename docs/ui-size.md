@@ -40,7 +40,7 @@ then reload (with "Disable cache" ticked while testing branch previews).
 | `--nx-ui-text-comment` | Comment body | 15 | 14 |
 | `--nx-ui-text-component` | Component text (prompts, panel rows) | 12 | 14 |
 | `--nx-ui-text-preview-title` | Preview titles | 14 | 16 |
-| `--nx-ui-text-badge` | Count badges | 10 | 10 |
+| `--nx-ui-text-badge` | Count badges | 10 | 11 |
 | `--nx-ui-text-label` | Small labels | 11 | 11 |
 | `--nx-ui-text-code` | Inline code glyph in toolbars | 0.7rem | 0.7rem |
 | `--nx-ui-text-note` | Modal notes | 13 | 13 |
@@ -49,6 +49,15 @@ then reload (with "Disable cache" ticked while testing branch previews).
 | `--nx-ui-text-title-l` | Large titles | 18 | 18 |
 | `--nx-ui-text-heading` | Headings | 20 | 20 |
 | `--nx-ui-text-heading-l` | Large headings | 22 | 22 |
+| `--nx-ui-text-field` | Textareas without an explicit size (browser default in s) | 13.33 | 14 |
+
+## Line-height tokens
+
+| Token | Role | s | m |
+|---|---|---|---|
+| `--nx-ui-line-body` | Body/comment/menu-row text | 1.5 | 18px |
+| `--nx-ui-line-description` | Descriptions under items | 1.4 | 16px |
+| `--nx-ui-line-component` | Compact component text (block toolbar) | 16px | 18px |
 
 ## Icon tokens
 
