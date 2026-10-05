@@ -2,6 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import {
   getColorScheme,
+  getUISize,
   getMetadata,
   getLocale,
   env,
@@ -49,6 +50,37 @@ describe('getColorScheme', () => {
     localStorage.setItem('color-scheme', 'light-scheme');
     window.matchMedia = sinon.stub().returns({ matches: true });
     expect(getColorScheme()).to.equal('light-scheme');
+  });
+});
+
+// ─── getUISize ──────────────────────────────────────────────────────────────
+
+describe('getUISize', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('defaults to "s" when nothing is stored', () => {
+    expect(getUISize()).to.equal('s');
+  });
+
+  it('returns stored "m" from localStorage', () => {
+    localStorage.setItem('ui-size', 'm');
+    expect(getUISize()).to.equal('m');
+  });
+
+  it('returns stored "l" from localStorage', () => {
+    localStorage.setItem('ui-size', 'l');
+    expect(getUISize()).to.equal('l');
+  });
+
+  it('defaults to "s" for an invalid stored value', () => {
+    localStorage.setItem('ui-size', 'bogus');
+    expect(getUISize()).to.equal('s');
   });
 });
 

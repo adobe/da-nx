@@ -20,8 +20,7 @@ import {
   COWORKER_SKILLS_URL, COWORKER_CHAT_URL, ENTERPRISE_CONTEXT_URL,
   ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE,
 } from './ao-constants.js';
-import { getConfig } from '../../scripts/nx.js';
-import { getUISize } from '../../utils/uiSize.js';
+import { getConfig, getUISize } from '../../scripts/nx.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
