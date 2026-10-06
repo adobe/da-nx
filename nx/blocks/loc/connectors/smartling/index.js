@@ -366,9 +366,9 @@ function wait(ms) {
  * @param {string} params.projectId - The Smartling project id.
  * @param {string} params.jobUid - The job the process belongs to.
  * @param {string} params.processUid - The process to poll.
- * @returns {Promise<string>} The final `processState` ('COMPLETED' or
- *  'FAILED'); also resolves to 'FAILED' if a poll request errors or the
- *  process doesn't finish within `MAX_PROCESS_POLL_ATTEMPTS`.
+ * @returns {Promise<string>} 'COMPLETED' or 'FAILED' as reported by
+ *  Smartling, 'ERROR' if a poll request itself failed, or 'TIMEOUT' if the
+ *  process didn't finish within `MAX_PROCESS_POLL_ATTEMPTS`.
  */
 async function pollJobProcess({
   org, site, env, endpoint, projectId, jobUid, processUid,
@@ -379,7 +379,7 @@ async function pollJobProcess({
     const opts = { headers: { Authorization: `Bearer ${await getToken(org, site, env)}` } };
     // eslint-disable-next-line no-await-in-loop
     const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
-    if (!resp.ok) return 'FAILED';
+    if (!resp.ok) return 'ERROR';
     // eslint-disable-next-line no-await-in-loop
     const json = await resp.json();
     const { processState } = json?.response?.data || {};
@@ -388,7 +388,7 @@ async function pollJobProcess({
     await wait(PROCESS_POLL_INTERVAL_MS);
   }
 
-  return 'FAILED';
+  return 'TIMEOUT';
 }
 
 /**
@@ -435,15 +435,28 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
   if (resp.status === 202) {
     const json = await resp.json();
     const { processUid } = json?.response?.data || {};
-    const processState = processUid
-      ? await pollJobProcess({
-        org, site, env, endpoint, projectId, jobUid: translationJobUid, processUid,
-      })
-      : 'FAILED';
+
+    if (!processUid) {
+      lang.translation.cancelPending = true;
+      sendMessage({ text: `Canceling ${lang.name}: Smartling accepted the request but returned no process id to track it. Status will update on the next check.`, type: 'warning' });
+      return { ok: false };
+    }
+
+    const processState = await pollJobProcess({
+      org, site, env, endpoint, projectId, jobUid: translationJobUid, processUid,
+    });
+
+    if (processState === 'FAILED') {
+      sendMessage({ text: `Canceling ${lang.name} failed: Smartling reported the removal process failed.`, type: 'error' });
+      return { ok: false };
+    }
 
     if (processState !== 'COMPLETED') {
       lang.translation.cancelPending = true;
-      sendMessage({ text: `Canceling ${lang.name} did not finish in time. Status will update on the next check.`, type: 'warning' });
+      const reason = processState === 'ERROR'
+        ? 'could not check the cancellation progress'
+        : 'did not finish in time';
+      sendMessage({ text: `Canceling ${lang.name} ${reason}. Status will update on the next check.`, type: 'warning' });
       return { ok: false };
     }
   }

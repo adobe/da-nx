@@ -1168,4 +1168,53 @@ describe('smartling connector - legacy origin rewriting', () => {
       clock.restore();
     }
   });
+
+  it('reports a 202 without a processUid as an unexpected response, not a timeout', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      if (url.toString().includes('/locales/fr-FR') && opts.method === 'DELETE') {
+        return new Response(JSON.stringify({ response: { data: {} } }), { status: 202 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = {
+      org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' },
+    };
+    const lang = { name: 'French', code: 'fr-FR', translation: { status: 'translated' } };
+    const messages = [];
+
+    const result = await cancelTranslation({ service, lang, sendMessage: (m) => messages.push(m) });
+
+    expect(result.ok).to.equal(false);
+    expect(lang.translation.cancelPending).to.equal(true);
+    expect(messages.some((m) => m.text.includes('no process id'))).to.equal(true);
+    expect(messages.some((m) => m.text.includes('did not finish in time'))).to.equal(false);
+  });
+
+  it('surfaces an error and does not mark cancelPending when Smartling reports the process FAILED', async () => {
+    origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      const u = url.toString();
+      if (u.includes('/locales/fr-FR') && opts.method === 'DELETE') {
+        return new Response(JSON.stringify({ response: { data: { processUid: 'process-1' } } }), { status: 202 });
+      }
+      if (u.includes('/processes/process-1')) {
+        return new Response(JSON.stringify({ response: { data: { processState: 'FAILED' } } }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    };
+
+    const service = {
+      org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' },
+    };
+    const lang = { name: 'French', code: 'fr-FR', translation: { status: 'translated' } };
+    const messages = [];
+
+    const result = await cancelTranslation({ service, lang, sendMessage: (m) => messages.push(m) });
+
+    expect(result.ok).to.equal(false);
+    expect(lang.translation.cancelPending).to.equal(undefined);
+    expect(messages.some((m) => m.type === 'error' && m.text.includes('removal process failed'))).to.equal(true);
+  });
 });
