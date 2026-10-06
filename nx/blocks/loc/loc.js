@@ -130,12 +130,9 @@ class NxLoc extends LitElement {
       this._project.urls = updates.urls;
     }
 
-    // Don't clobber an error that's already being shown - this save may
-    // just be persisting that error's status (e.g. a lang marked
-    // 'error'), not a user-initiated action with its own progress to
-    // report.
+    // Keep an existing error visible; this save may only be persisting its status.
     const hadError = this._message?.type === 'error';
-    if (!hadError) this._message = { text: 'Saving...' };
+    if (!hadError) this._message = { text: 'Saving...', transient: true };
 
     const { message, hash, project } = await updateProject({ path: this.path, updates });
 
