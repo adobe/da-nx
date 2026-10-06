@@ -76,23 +76,26 @@ then reload (with "Disable cache" ticked while testing branch previews).
 
 | Token | Role | s | m |
 |---|---|---|---|
-| `--nx-ui-segment-height` | Segments in the canvas editor-view toggle | 24 | 32 |
-| `--nx-ui-segment-padding` | Horizontal padding of text segments | 9 | 16 |
 | `--nx-ui-toolbar-btn-size` | Block/selection toolbar buttons and variant picker | 24 | 32 |
-| `--nx-ui-icon-btn-size` | Standalone panel icon buttons (tool panel close, Create version) | 24 | 32 |
 | `--nx-ui-inline-btn-height` | Small inline buttons (version filters, compare actions) | 24 | 28 |
 | `--nx-ui-panel-field-height` | Inputs/buttons in panel forms (new version row) | 24 | 32 |
 | `--nx-ui-field-border-width` | Comment textarea border | 2 | 1 |
 | `--nx-ui-icon-btn-hover-bg` | Icon button hover background | gray-75 | gray-75 |
 | `--nx-ui-icon-btn-hover-color` | Icon button hover icon color | gray-800 | gray-800 |
 
-The hover tokens are the same in s and m: every icon button hovers like the tool panel close button.
+The hover tokens are the same in s and m: every icon button hovers pale gray.
 
 The 2px blue `:focus-visible` outline on canvas toolbar buttons is m-only, applied through
 `:host([data-ui-size="m"])` so s keeps the browser default ring.
 
-In m, chat toolbar buttons also switch from 24px (`nx-btn-sm`) to 32px, so their icons move from
-`compact` to `regular` through the button, not through the token.
+Icon buttons outside toolbars (chat close, tool panel close, Create version) use the shared
+`nx-action-btn-icon` class. They add `nx-btn-sm` in s (24px button, 16px icon) and drop it in m
+(32px button, 18px icon), so the size comes from the button class, not from a token.
+
+## Segmented buttons
+
+The canvas editor-view toggle uses the shared `nx-segmented-btn` and passes the current ui-size as
+its `size` attribute: the default sm styles in s, `size="m"` in m.
 
 ## Pickers and menus
 
