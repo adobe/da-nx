@@ -11,7 +11,7 @@ describe('quick-edit click payload', () => {
   it('uses the link href as target', () => {
     document.body.innerHTML = '<div class="hero block"><a href="/about"><span>go</span></a></div>';
     const span = document.querySelector('span');
-    expect(clickPayload(span)).to.deep.equal({ target: new URL('/about', window.location).href });
+    expect(clickPayload(span)).to.deep.equal({ target: new URL('/about', window.location).href, source: 'ew-wysiwyg-layout' });
   });
 
   it('uses the media src as target', () => {
@@ -22,21 +22,34 @@ describe('quick-edit click payload', () => {
 
   it('honours data-rum-target', () => {
     document.body.innerHTML = '<p data-rum-target="https://example.com/x">x</p>';
-    expect(clickPayload(document.querySelector('p'))).to.deep.equal({ target: 'https://example.com/x' });
+    expect(clickPayload(document.querySelector('p'))).to.deep.equal({ target: 'https://example.com/x', source: 'ew-wysiwyg-layout' });
   });
 
   it('has no target for plain content, like RUM', () => {
     document.body.innerHTML = '<div class="hero block"><p>hello</p></div>';
-    expect(clickPayload(document.querySelector('p'))).to.deep.equal({ target: undefined });
+    expect(clickPayload(document.querySelector('p'))).to.deep.equal({ target: undefined, source: 'ew-wysiwyg-layout' });
   });
 
   it('stays defensive when given no element', () => {
-    expect(clickPayload(null)).to.deep.equal({ target: undefined });
+    expect(clickPayload(null)).to.deep.equal({ target: undefined, source: 'ew-wysiwyg-layout' });
   });
 
   it('carries no host-specific (RUM) fields', () => {
     document.body.innerHTML = '<p>x</p>';
-    expect(Object.keys(clickPayload(document.querySelector('p')))).to.deep.equal(['target']);
+    expect(Object.keys(clickPayload(document.querySelector('p')))).to.deep.equal(['target', 'source']);
+  });
+
+  it('flags clicks in editable text as the doc source', () => {
+    document.body.innerHTML = '<div class="hero block"><p data-prose-index="3"><strong>hi</strong></p></div>';
+    expect(clickPayload(document.querySelector('strong')).source).to.equal('ew-wysiwyg-doc');
+  });
+
+  it('flags clicks on blocks, images and overlays as the layout source', () => {
+    document.body.innerHTML = `<div class="hero block" data-block-index="1"><p data-prose-index="3"><picture><img src="/a.png"></picture></p></div>
+      <div id="qe-selection-overlay"><div class="qe-selected-pill">hero</div></div>`;
+    expect(clickPayload(document.querySelector('.hero')).source).to.equal('ew-wysiwyg-layout');
+    expect(clickPayload(document.querySelector('img')).source).to.equal('ew-wysiwyg-layout');
+    expect(clickPayload(document.querySelector('.qe-selected-pill')).source).to.equal('ew-wysiwyg-layout');
   });
 });
 
@@ -54,7 +67,7 @@ describe('quick-edit click forwarding', () => {
     expect(posted).to.have.length(1);
     expect(posted[0].type).to.equal(MESSAGE_TYPES.IFRAME_CLICK);
     expect(posted[0].type).to.equal('iframe-click');
-    expect(posted[0].payload).to.deep.equal({ target: undefined });
+    expect(posted[0].payload).to.deep.equal({ target: undefined, source: 'ew-wysiwyg-layout' });
 
     cleanup();
     document.querySelector('button').click();

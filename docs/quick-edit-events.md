@@ -148,19 +148,20 @@ comments UI, so none are wired up there.
 
 ### `IFRAME_CLICK`
 
-- **iframe → host**, payload `{ target?: string }` (`target` is undefined when the clicked
-  element has no link / media / action URL or `data-rum-target`, as in RUM).
+- **iframe → host**, payload `{ target?: string, source: 'ew-wysiwyg-doc' | 'ew-wysiwyg-layout' }` (`target` is undefined when the clicked
+  element has no link / media / action URL or `data-rum-target`, as in RUM). `source` is `ew-wysiwyg-doc`
+  for clicks inside editable text content (`[data-prose-index]`) and `ew-wysiwyg-layout` for everything else
+  (blocks, images, selection/comment overlays, empty space).
 - Clicks inside the preview iframe never bubble to the host document, so the host can't observe
   them — e.g. its RUM enhancer, unlike `ew-editor-doc`, whose shadow-DOM clicks retarget to the
   host element and are captured.
 - The iframe (`src/click-forwarding.js`, installed by `setupParentController` in `quick-edit.js`,
   i.e. the `controller=parent` path) captures every click, derives `target` with the RUM
   enhancer's own `targetSelector` (vendored in `src/rum-target.js`: `data-rum-target`, else the
-  link / media / form-action URL resolved to absolute, else undefined), and forwards it. The
-  payload is deliberately host-agnostic: the
-  da-live host handler decides what to do with it and currently calls
-  `sampleRUM('click', { source: 'ew-wysiwyg-doc', target })` so the WYSIWYG/layout surface
-  produces RUM click checkpoints attributed to the editor session. The standalone
+  link / media / form-action URL resolved to absolute, else undefined), and forwards it
+  along with the RUM `source` for the editor it landed in. The da-live host handler currently
+  calls `sampleRUM('click', { source, target })` straight from the payload, so doc and layout
+  clicks produce separately attributed RUM checkpoints. The standalone
   `quick-edit-portal.js` host does not consume it.
 
 ## Known gaps

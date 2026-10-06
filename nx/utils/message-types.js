@@ -30,7 +30,7 @@ export const MESSAGE_TYPES = Object.freeze({
   COMMENT_MARKER_CLICK: 'comment-marker-click', // { payload: { threadId: string } }
   COMMENT_MARKER_CLEAR: 'comment-marker-clear', // no payload
   COMMENT_SHORTCUT: 'comment-shortcut', // no payload
-  IFRAME_CLICK: 'iframe-click', // { target?: string } — a user click inside the preview iframe; `target` in RUM enhancer format (da-live records it as a RUM click)
+  IFRAME_CLICK: 'iframe-click', // { target?: string, source: 'ew-wysiwyg-doc' | 'ew-wysiwyg-layout' } — a user click inside the preview iframe; `target` in RUM enhancer format, `source` is the RUM source for the editor it landed in (da-live records it as a RUM click)
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }
 
   // Iframe -> host (request): { cursorOffset, imageData, fileName, mimeType, originalSrc }
