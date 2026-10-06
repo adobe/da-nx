@@ -2,7 +2,7 @@ button {
   font-family: var(--s2-font-family);
 }
 
-.nx-action-btn, .nx-action-btn-icon, .nx-action-btn-quiet, .nx-btn-accent, .nx-btn-primary  {
+.nx-action-btn, .nx-action-btn-icon, .nx-action-btn-quiet, .nx-btn-accent, .nx-btn-primary, .nx-btn-ai  {
   display: flex;
   transition: transform 0.125s ease-out, background-color 0.125s ease-out, color 0.125s ease-out;
   padding: 7px var(--s2-spacing-200);
@@ -109,6 +109,15 @@ button {
 
 .nx-btn-sm kbd {
   font-size: var(--s2-component-xs-medium-font-size);
+}
+
+.nx-btn-ai {
+  background: linear-gradient(135deg, var(--s2-pink-100), var(--s2-orange-100), var(--s2-yellow-100));
+  border-radius: var(--s2-corner-radius-800);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--s2-pink-200), var(--s2-orange-200), var(--s2-yellow-200));
+  }
 }
 
 .nx-action-btn-quiet, .nx-action-btn-icon  {
