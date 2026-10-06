@@ -74,3 +74,10 @@ then reload (with "Disable cache" ticked while testing branch previews).
 
 In m, chat toolbar buttons also switch from 24px (`nx-btn-sm`) to 32px, so their icons move from
 `compact` to `regular` through the button, not through the token.
+
+## Pickers and menus
+
+`nx-picker` and `nx-menu` keep their own `size` attribute (`s`/`m`). EW call sites pass the current
+ui-size, so Spectrum `s` styling shows in s and Spectrum `m` styling in m. The picker's `size="m"` also
+carries the list-item states from #757 (corner-radius-400 rows, gray-100 hover, gray-200 active, gray-900 text),
+which already match `nx-menu`.

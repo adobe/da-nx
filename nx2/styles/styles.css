@@ -355,8 +355,6 @@ body.ui-size-m {
   --nx-ui-line-component: var(--s2-component-m-regular-line-height);
   --nx-ui-icon-indicator: 16px;
   --nx-ui-icon-toolbar: 18px;
-  --nx-picker-section-font-size: var(--s2-component-s-regular-font-size);
-  --nx-picker-section-line-height: var(--s2-component-s-regular-line-height);
 }
 
 @media (width >= 1440px) {
