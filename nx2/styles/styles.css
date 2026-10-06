@@ -324,6 +324,8 @@
   --nx-ui-segment-padding: 9px;
   --nx-ui-toolbar-btn-size: 24px;
   --nx-ui-icon-btn-size: 24px;
+  --nx-ui-icon-btn-hover-bg: var(--s2-gray-75);
+  --nx-ui-icon-btn-hover-color: var(--s2-gray-800);
   --nx-ui-inline-btn-height: 24px;
   --nx-ui-panel-field-height: 24px;
   --nx-ui-field-border-width: 2px;
@@ -369,8 +371,6 @@ body.ui-size-m {
   --nx-ui-inline-btn-height: 28px;
   --nx-ui-panel-field-height: 32px;
   --nx-ui-field-border-width: 1px;
-  --nx-ui-icon-btn-hover-bg: var(--s2-gray-75);
-  --nx-ui-icon-btn-hover-color: var(--s2-gray-800);
 }
 
 @media (width >= 1440px) {
