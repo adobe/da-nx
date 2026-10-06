@@ -176,7 +176,7 @@ class NxLocOptions extends LitElement {
     serviceOptions.forEach((option, i) => {
       const value = envConfig[option.key];
       const known = items[i]?.some((item) => item.value === value);
-      if (!known) envConfig[option.key] = items[i]?.[0]?.value;
+      if (!known && items[i]?.length) envConfig[option.key] = items[i][0].value;
     });
 
     this._serviceOptions = serviceOptions.map(

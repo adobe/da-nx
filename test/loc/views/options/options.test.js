@@ -130,6 +130,16 @@ describe('NxLocOptions - loadConnectorServiceOptions', () => {
     expect(el._options.service.projectId).to.equal('43');
   });
 
+  it('keeps a configured projectId when the project lookup returns nothing', async () => {
+    installFetch(smartlingHandler({ projects: [] }));
+    const el = createSmartlingOptionsEl();
+
+    await el.loadConnectorServiceOptions();
+
+    expect(el._siteConfig.service.envs.prod.projectId).to.equal('proj-1');
+    expect(el._options.service.projectId).to.equal('proj-1');
+  });
+
   it('overrides a projectId that no longer matches any fetched project', async () => {
     installFetch(globalLinkHandler([{ projectId: 42, name: 'Marketing Site', enabled: true }]));
     const el = createOptionsEl();
