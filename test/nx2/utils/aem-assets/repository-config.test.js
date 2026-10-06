@@ -44,6 +44,7 @@ describe('getRepositoryConfig', () => {
       expect(cfg.isDmEnabled).to.be.false;
       expect(cfg.isSmartCrop).to.be.false;
       expect(cfg.insertAsLink).to.be.false;
+      expect(cfg.imageType).to.be.null;
     } finally {
       window.fetch = orgFetch;
     }
@@ -128,9 +129,91 @@ describe('getRepositoryConfig', () => {
     try {
       const cfg = await getRepositoryConfig('rcfg', 'linktype');
       expect(cfg.insertAsLink).to.be.true;
+      expect(cfg.imageType).to.equal('link');
     } finally {
       window.fetch = orgFetch;
     }
+  });
+
+  [
+    ['editable-link', 'link', 'true', 'editable-link'],
+    ['disabled-flag', 'link', 'false', 'link'],
+    ['uppercase-flag', 'link', 'TRUE', 'link'],
+    ['flag-only', null, 'true', null],
+    ['unrecognized-type', 'editable-link', 'true', null],
+  ].forEach(([site, imageType, flag, expected]) => {
+    it(`resolves imageType for ${site} and retains insertAsLink compatibility`, async () => {
+      const savedFetch = window.fetch;
+      window.fetch = makeFetch({
+        [`/image-mode/${site}/`]: {
+          ok: true,
+          json: async () => ({
+            data: {
+              data: [
+                { key: 'aem.repositoryId', value: 'author-p61-e61.adobeaemcloud.com' },
+                { key: 'aem.assets.image.type', value: imageType },
+              ],
+            },
+            flags: { data: [{ key: 'aem.assets.editableExternalImages', value: flag }] },
+            ':names': ['data', 'flags'],
+            ':type': 'multi-sheet',
+          }),
+        },
+      });
+      try {
+        const config = await getRepositoryConfig('image-mode', site);
+        expect(config.imageType).to.equal(expected);
+        expect(config.insertAsLink).to.equal(imageType === 'link');
+      } finally {
+        window.fetch = savedFetch;
+      }
+    });
+  });
+
+  [
+    ['site-off', 'true', 'false', 'link'],
+    ['site-on', 'false', 'true', 'editable-link'],
+    ['org-fallback', 'true', undefined, 'editable-link'],
+  ].forEach(([site, orgFlag, siteFlag, expected]) => {
+    it(`cascades the editable-image flag for ${site}`, async () => {
+      const savedFetch = window.fetch;
+      window.fetch = makeFetch({
+        [`/image-cascade/${site}/`]: {
+          ok: true,
+          json: async () => ({
+            data: {
+              data: [
+                { key: 'aem.repositoryId', value: 'author-p62-e62.adobeaemcloud.com' },
+                { key: 'aem.assets.image.type', value: 'link' },
+              ],
+            },
+            flags: {
+              data: siteFlag === undefined ? [] : [
+                { key: 'aem.assets.editableExternalImages', value: siteFlag },
+              ],
+            },
+            ':names': ['data', 'flags'],
+            ':type': 'multi-sheet',
+          }),
+        },
+        '/image-cascade/': {
+          ok: true,
+          json: async () => ({
+            data: { data: [] },
+            flags: { data: [{ key: 'aem.assets.editableExternalImages', value: orgFlag }] },
+            ':names': ['data', 'flags'],
+            ':type': 'multi-sheet',
+          }),
+        },
+      });
+      try {
+        const config = await getRepositoryConfig('image-cascade', site);
+        expect(config.imageType).to.equal(expected);
+        expect(config.insertAsLink).to.be.true;
+      } finally {
+        window.fetch = savedFetch;
+      }
+    });
   });
 
   it('uses custom prod basepath when aem.assets.prod.basepath is set', async () => {

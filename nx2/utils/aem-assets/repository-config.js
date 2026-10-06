@@ -54,6 +54,8 @@ export async function getRepositoryConfig(owner, repo) {
   const configs = await Promise.all(fetchDaConfigs({ org: owner, site: repo }));
   const entries = configs.reverse().flatMap((config) => getFirstSheet(config) || []);
   const getValue = (key) => entries.find((conf) => conf.key === key)?.value || null;
+  const flagEntries = configs.flatMap((config) => config?.flags?.data || []);
+  const getFlag = (key) => flagEntries.find((conf) => conf.key === key)?.value || null;
 
   const repositoryId = getValue('aem.repositoryId');
   if (!repositoryId) return null;
@@ -67,6 +69,10 @@ export async function getRepositoryConfig(owner, repo) {
     dmDelivery: getValue('aem.asset.dm.delivery'),
     smartCrop,
   });
+  const insertAsLink = getValue('aem.assets.image.type') === 'link';
+  const isEditable = getFlag('aem.assets.editableExternalImages') === 'true';
+  let imageType = null;
+  if (insertAsLink) imageType = isEditable ? 'editable-link' : 'link';
 
   return {
     repositoryId,
@@ -80,7 +86,8 @@ export async function getRepositoryConfig(owner, repo) {
       isDmEnabled,
       configuredValue: getValue('aem.asset.dm.approvedonly'),
     }),
-    insertAsLink: getValue('aem.assets.image.type') === 'link',
+    insertAsLink,
+    imageType,
     mimeRenditionOverrides: parseMimeRenditions(getValue('aem.asset.mime.renditions')),
     siteImageModifiers: parseSiteImageModifiers(getValue('aem.asset.image.modifiers')),
   };
