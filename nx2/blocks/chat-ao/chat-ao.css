@@ -574,8 +574,7 @@
     display: flex;
     margin-inline-end: auto;
 
-    &[data-active],
-    &:hover {
+    &[data-active] {
       background-color: var(--s2-gray-200);
     }
 
@@ -618,8 +617,17 @@
     }
   }
 
-  .nx-action-btn-icon.nx-btn-sm  {
-    padding: var(--s2-spacing-75);
+  .nx-action-btn-icon {
+    --nx-ui-icon-regular: var(--nx-ui-icon-toolbar);
+
+    width: var(--nx-ui-icon-btn-size);
+    height: var(--nx-ui-icon-btn-size);
+    padding: 0;
+
+    &:hover:not(:disabled, .is-active, [data-active], [data-listening]) {
+      background: var(--nx-ui-icon-btn-hover-bg);
+      color: var(--nx-ui-icon-btn-hover-color);
+    }
   }
 
   .nx-action-btn-icon.chat-send {
