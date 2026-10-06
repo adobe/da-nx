@@ -112,19 +112,12 @@ button {
 }
 
 .nx-btn-ai {
-  background: var(--s2-gray-25);
+  background: linear-gradient(135deg, var(--s2-pink-100), var(--s2-orange-100), var(--s2-yellow-100));
   border-radius: var(--s2-corner-radius-800);
-  box-shadow:
-    0 0 10px 1px color-mix(in srgb, var(--s2-pink-400) 30%, transparent),
-    0 0 10px 1px color-mix(in srgb, var(--s2-orange-400) 25%, transparent),
-    0 0 10px 1px color-mix(in srgb, var(--s2-yellow-400) 20%, transparent);
+  font-weight: 700;
 
   &:hover:not(:disabled) {
-    background: var(--s2-gray-25);
-    box-shadow:
-      0 0 14px 2px color-mix(in srgb, var(--s2-pink-400) 40%, transparent),
-      0 0 14px 2px color-mix(in srgb, var(--s2-orange-400) 35%, transparent),
-      0 0 14px 2px color-mix(in srgb, var(--s2-yellow-400) 30%, transparent);
+    background: linear-gradient(135deg, var(--s2-pink-200), var(--s2-orange-200), var(--s2-yellow-200));
   }
 }
 
