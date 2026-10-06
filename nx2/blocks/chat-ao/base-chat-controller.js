@@ -139,6 +139,13 @@ export default class BaseChatController {
     // Overridden by the Coworker harness (REST episode navigation).
   }
 
+  // Overridden by the Coworker harness (REST episode list). No-op default so
+  // _onSessionReady's refresh-on-new-episode is safe for harnesses without a
+  // list (the WS-only CMA bridge). Returns a promise because callers use .catch().
+  _refreshEpisodeList() {
+    return Promise.resolve();
+  }
+
   startNewEpisode() {
     if (this._blockedByActiveTurn) return;
     this._ws?.close();
@@ -245,6 +252,26 @@ export default class BaseChatController {
     } catch (err) {
       this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
       this._done();
+    }
+  }
+
+  // Attach to the current episode's socket without starting a turn. Shared by
+  // both harnesses: Coworker's warmSession() wraps it with a REST warm call and
+  // the CMA bridge uses it directly for resume/warm. Base owns it because Base
+  // owns the reconnect path (_recoverFromClose) that depends on it.
+  async _attach() {
+    await this._ensureSocket();
+    this._ws?.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
+  }
+
+  // See docs/chat-ao-component.md#connection-recovery for why this exists
+  // and isn't gated by _warmedEpisodeId like warmSession() is.
+  async reattachIfIdle() {
+    if (!this._episodeId || this._thinking || this._ws?.readyState === WebSocket.OPEN) return;
+    try {
+      await this._attach();
+    } catch {
+      // best-effort — the next visibility change, keystroke, or send retries
     }
   }
 
