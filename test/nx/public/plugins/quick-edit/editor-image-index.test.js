@@ -2,7 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import { Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { editorImageIndex } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
+import { syncImageIndices } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
 import { imageSelectPayload } from '../../../../../nx/public/plugins/quick-edit/src/selection.js';
 
 const schema = new Schema({
@@ -41,10 +41,11 @@ function mountEditor(hostIndex, content) {
     },
   });
   parent.view = view;
+  syncImageIndices(view, parent, hostIndex);
   return { parent, view };
 }
 
-describe('editorImageIndex', () => {
+describe('mounted editor image indices', () => {
   let mounted;
   afterEach(() => {
     mounted?.view.destroy();
@@ -60,15 +61,8 @@ describe('editorImageIndex', () => {
     const [first, second] = mounted.parent.querySelectorAll('picture');
     // local: paragraph content starts at 1, "ab" is 1-2, images at 3 and 4.
     // host = data-prose-index - 1 + local.
-    expect(editorImageIndex(first)).to.equal(42);
-    expect(editorImageIndex(second.querySelector('img'))).to.equal(43);
-  });
-
-  it('returns null outside a mounted editor', () => {
-    const pic = document.createElement('picture');
-    document.body.append(pic);
-    expect(editorImageIndex(pic)).to.equal(null);
-    expect(editorImageIndex(null)).to.equal(null);
+    expect(imageSelectPayload(first).proseIndex).to.equal(42);
+    expect(imageSelectPayload(second.querySelector('img')).proseIndex).to.equal(43);
   });
 
   it('gives imageSelectPayload a proseIndex for editor-rendered images', () => {

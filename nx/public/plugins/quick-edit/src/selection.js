@@ -1,6 +1,5 @@
 import {
-  editorImageIndex, findBlock, findImageAtProseIndex, findTextBlock, pictureSrc, srcPathsMatch,
-  OVERLAY_SELECTOR,
+  findBlock, findTextBlock, pictureSrc, srcPathsMatch, OVERLAY_SELECTOR,
 } from './dom-index.js';
 import { parseIndex, positionBox } from './utils.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
@@ -40,8 +39,7 @@ export function imageSelectPayload(el) {
   const indexEl = host.matches?.('[data-image-index]')
     ? host
     : host.querySelector?.('[data-image-index]');
-  const proseIndex = parseIndex(indexEl?.getAttribute?.('data-image-index'))
-    ?? editorImageIndex(host);
+  const proseIndex = parseIndex(indexEl?.getAttribute?.('data-image-index'));
   const src = pictureSrc(host);
   const blockIndex = parseIndex(host.closest?.('[data-block-index]')?.getAttribute?.('data-block-index'));
   if (proseIndex == null && !src) return null;
@@ -77,8 +75,9 @@ function findImageByIndex(proseIndex, root = document) {
 function findPictureBySrc(src, proseIndex, root = document) {
   if (!src) return null;
   const scope = (proseIndex != null && findBlock(proseIndex, root)) || root;
-  return [...scope.querySelectorAll('picture')]
-    .find((pic) => srcPathsMatch(pictureSrc(pic), src)) || null;
+  const matches = [...scope.querySelectorAll('picture')]
+    .filter((pic) => srcPathsMatch(pictureSrc(pic), src));
+  return matches.length === 1 ? matches[0] : null;
 }
 
 function findContentByIndex(proseIndex, root = document) {
@@ -95,9 +94,8 @@ function resolveSelectionElement(node, root) {
     return blockIndex === node.proseIndex ? block : null;
   }
   if (node.anchorType === 'image') {
-    return findImageByIndex(node.proseIndex, root)
-      || findImageAtProseIndex(node.proseIndex, root)
-      || findPictureBySrc(node.src, node.proseIndex, root);
+    if (node.proseIndex != null) return findImageByIndex(node.proseIndex, root);
+    return findPictureBySrc(node.src, node.blockIndex, root);
   }
   if (node.anchorType === 'content') {
     return findContentByIndex(node.proseIndex, root);
