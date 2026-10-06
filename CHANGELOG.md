@@ -1,3 +1,11 @@
+## [1.8.2](https://github.com/adobe/da-nx/compare/v1.8.1...v1.8.2) (2026-10-06)
+
+
+### Bug Fixes
+
+* **quick-edit:** keep image uploads through concurrent edits ([e470eb9](https://github.com/adobe/da-nx/commit/e470eb96203a5a83f890dfd0ae9f6bffd2426b91))
+* **quick-edit:** replace indexed images reliably ([827f538](https://github.com/adobe/da-nx/commit/827f53834997ee9c1c42b2ee13e91dfc10271167))
+
 ## [1.8.1](https://github.com/adobe/da-nx/compare/v1.8.0...v1.8.1) (2026-10-06)
 
 
