@@ -28,7 +28,7 @@ async function mountEditor(schema, doc) {
   });
   el.editor = engine;
   el.onSelect = () => {};
-  el.assetContext = { onSelectSource: async () => ({ cancelled: true }) };
+  el.assetSources = [];
   el.nav = {};
   el.state = engine.getState();
   window.document.body.append(el);
