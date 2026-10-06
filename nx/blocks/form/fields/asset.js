@@ -1,129 +1,222 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../nx2/utils/utils.js';
-import './button.js';
+import '../../../../nx2/blocks/shared/menu/menu.js';
+import '../../../../nx2/blocks/shared/dialog/dialog.js';
+import { icon } from '../icons.js';
+import {
+  CANCELLED, acceptsOnlyImages, describeAsset, isAssetHref, previewHrefFor,
+} from '../utils/assets.js';
 import defaults from './defaults.js';
 
-const style = await loadStyle(import.meta.url);
-const IMAGE_ICON = html`
-  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-    <rect x="2" y="3" width="16" height="14" rx="2"></rect>
-    <circle cx="7" cy="8" r="1.5"></circle>
-    <path d="m3 15 5-5 3 3 2-2 4 4"></path>
-  </svg>
-`;
-const UPLOAD_ICON = html`
-  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-    <path d="M10 14V3m-4 4 4-4 4 4M3 13v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3"></path>
-  </svg>
-`;
-const LIBRARY_ICON = html`
-  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-    <rect x="2" y="3" width="7" height="7" rx="1"></rect>
-    <rect x="11" y="3" width="7" height="7" rx="1"></rect>
-    <rect x="2" y="12" width="7" height="6" rx="1"></rect>
-    <rect x="11" y="12" width="7" height="6" rx="1"></rect>
-  </svg>
-`;
+const [style, formStyle] = await Promise.all([
+  loadStyle(import.meta.url),
+  loadStyle(new URL('../../../../nx2/styles/form.css', import.meta.url).href),
+]);
 
-function isImageHref(href) {
-  if (typeof href !== 'string' || !href.trim()) {
-    return false;
-  }
+const LABELS = {
+  select: 'Select',
+  replace: 'Replace',
+  remove: 'Remove',
+  cancel: 'Cancel',
+  adding: (kind) => `Adding ${kind}`,
+  empty: (kind) => `No ${kind} selected`,
+  removeTitle: (kind) => `Remove ${kind}?`,
+  removeBody: (kind) => `This removes the ${kind} from the field without deleting the original file.`,
+};
 
-  if (href.startsWith('./media_')) {
-    return !/[\s<>"']/.test(href);
-  }
+const MESSAGES = {
+  failed: 'The file could not be added.',
+  noSource: 'No source is available for this field.',
+  typeNotAllowed: 'This file type is not allowed here.',
+  unusableResult: 'The selected file did not return a usable URL.',
+};
 
-  try {
-    return ['http:', 'https:'].includes(new URL(href).protocol);
-  } catch {
-    return false;
-  }
-}
-
+const MENU_PLACEMENT = 'below-end';
+const SELECTORS = {
+  fileInput: '.file-input',
+  removeButton: '.asset-remove',
+  sourceTrigger: '.asset-source-trigger',
+};
 class FormAsset extends LitElement {
   static properties = {
     value: { type: String },
     label: { type: String },
-    displayName: { type: String },
-    previewHref: { type: String },
     description: { type: String },
     error: { type: String },
     required: { type: Boolean },
     disabled: { type: Boolean, reflect: true },
-    aemAssetsAvailable: { type: Boolean, attribute: false },
-    onSelectSource: { attribute: false },
+
+    contentMediaType: { type: String },
+    sources: { attribute: false },
+    previewOrigin: { type: String },
+
+    _selection: { state: true },
     _pending: { state: true },
     _selectionError: { state: true },
+
     _previewBroken: { state: true },
     _loadedPreviewSrc: { state: true },
+
+    _confirmingRemove: { state: true },
   };
 
-  // Invalidates a pending result when the field is removed or disconnected.
-  _requestGeneration = 0;
-
-  _dialogTrigger;
-
-  get _dialog() {
-    return this.shadowRoot.querySelector('.asset-source-dialog');
-  }
-
-  get _removeDialog() {
-    return this.shadowRoot.querySelector('.asset-remove-dialog');
-  }
+  // Results of an older request are ignored once a newer one starts or the value changes.
+  _activeRequestId = 0;
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [defaults, style];
+    this.shadowRoot.adoptedStyleSheets = [defaults, formStyle, style];
   }
 
   disconnectedCallback() {
-    this._requestGeneration += 1;
-    [this._dialog, this._removeDialog].forEach((dialog) => {
-      if (dialog?.open) dialog.close();
-    });
+    this._forgetSelection();
+    this._confirmingRemove = false;
     super.disconnectedCallback();
   }
 
-  updated(changed) {
-    if (changed.has('value') || changed.has('previewHref')) {
-      this._previewBroken = false;
-    }
+  willUpdate(changed) {
+    if (changed.has('value') && this.value !== this._selection?.href) this._forgetSelection();
+    if (changed.has('value') || changed.has('previewOrigin')) this._previewBroken = false;
+    this._asset = describeAsset({
+      href: this.value,
+      name: this._selection?.name,
+      type: this._selection?.type,
+      contentMediaType: this.contentMediaType,
+    });
   }
 
-  _emit(value) {
-    this.dispatchEvent(new CustomEvent('asset-change', {
-      detail: { value },
-      bubbles: true,
-      composed: true,
-    }));
+  get _imageOnly() {
+    return acceptsOnlyImages({ contentMediaType: this.contentMediaType });
   }
 
-  _openDialog(event) {
-    if (this.disabled || this._pending) {
-      return;
-    }
+  get _kindLabel() {
+    return this._imageOnly ? 'image' : 'file';
+  }
 
-    if (!(event.currentTarget instanceof HTMLElement)) {
-      return;
-    }
+  get _typeMismatch() {
+    return !!this.value && !this._asset.isAllowed;
+  }
 
-    this._dialogTrigger = event.currentTarget;
+  get _availableSources() {
+    const { contentMediaType } = this;
+    return (this.sources ?? []).filter((source) => source.accepts({ contentMediaType }));
+  }
+
+  get _previewSrc() {
+    if (this._previewBroken || !this._asset.isImage) return undefined;
+    return previewHrefFor({ href: this.value, previewOrigin: this.previewOrigin });
+  }
+
+  get _canChange() {
+    return !this.disabled && !this._pending;
+  }
+
+  get _canRemove() {
+    return this._canChange && !!this.value;
+  }
+
+  _forgetSelection() {
+    this._activeRequestId += 1;
+    this._selection = undefined;
     this._selectionError = undefined;
-    this._dialog.showModal();
-    this.shadowRoot.getElementById('asset-dialog-title').focus();
+    this._pending = false;
   }
 
-  _closeDialog() {
-    if (this._dialog.open) {
-      this._dialog.close();
+  // Native `change` events are not composed, so the host emits its own.
+  _emitChange() {
+    this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+  }
+
+  async _focus(selector) {
+    await this.updateComplete;
+    if (this.isConnected) this.shadowRoot.querySelector(selector)?.focus();
+  }
+
+  _pickFile(types) {
+    const input = this.shadowRoot.querySelector(SELECTORS.fileInput);
+    input.accept = types.join(',');
+    input.value = '';
+    return new Promise((resolve) => {
+      const listening = new AbortController();
+      const finish = () => {
+        listening.abort();
+        resolve(input.files?.[0]);
+      };
+      input.addEventListener('change', finish, { signal: listening.signal });
+      input.addEventListener('cancel', finish, { signal: listening.signal });
+      input.click();
+    });
+  }
+
+  async _runSource(source) {
+    const { contentMediaType } = this;
+    try {
+      if (!source.localFileTypes) return await source.select({ contentMediaType });
+      const file = await this._pickFile(source.localFileTypes({ contentMediaType }));
+      return file ? await source.select({ contentMediaType, file }) : CANCELLED;
+    } catch (error) {
+      return { error: error?.message || MESSAGES.failed };
     }
   }
 
-  _onDialogClick(event) {
-    if (event.target === event.currentTarget) {
-      event.currentTarget.close();
+  _applyResult(result) {
+    if (result.cancelled) return;
+    if (result.error || !isAssetHref(result.href)) {
+      this._selectionError = result.error || MESSAGES.unusableResult;
+      return;
     }
+    this._selection = { href: result.href, name: result.name, type: result.type };
+    this.value = result.href;
+    this._emitChange();
+  }
+
+  async _selectFrom(source) {
+    if (!this._canChange || !source) {
+      return;
+    }
+
+    this._activeRequestId += 1;
+    const requestId = this._activeRequestId;
+    this._pending = true;
+    this._selectionError = undefined;
+
+    const result = await this._runSource(source);
+
+    // A newer selection or a cleared field superseded this request.
+    if (requestId !== this._activeRequestId) {
+      return;
+    }
+
+    this._pending = false;
+    this._applyResult(result);
+    this._focus(SELECTORS.sourceTrigger);
+  }
+
+  _onMenuSelect({ detail }) {
+    this._selectFrom(this._availableSources.find(({ id }) => id === detail.id));
+  }
+
+  _openRemoveDialog() {
+    if (this._canRemove) this._confirmingRemove = true;
+  }
+
+  _closeRemoveDialog() {
+    this.shadowRoot.querySelector('nx-dialog')?.close();
+  }
+
+  _onRemoveDialogClose() {
+    this._confirmingRemove = false;
+    this._focus(this.value ? SELECTORS.removeButton : SELECTORS.sourceTrigger);
+  }
+
+  // Clearing the field never deletes the file at its source.
+  _confirmRemove() {
+    if (this._canRemove) {
+      this._forgetSelection();
+      this.value = undefined;
+      this._emitChange();
+    }
+    this._closeRemoveDialog();
   }
 
   _onPreviewError() {
@@ -134,230 +227,100 @@ class FormAsset extends LitElement {
     this._loadedPreviewSrc = event.currentTarget.getAttribute('src');
   }
 
-  _restoreFocus() {
-    const trigger = this._dialogTrigger;
-    queueMicrotask(() => {
-      if (!this.isConnected) {
-        return;
-      }
-
-      const target = trigger?.getClientRects().length
-        ? trigger
-        : this.shadowRoot.querySelector(this.value ? '.asset-replace' : '.asset-select');
-      target?.shadowRoot?.querySelector('button')?.focus();
-    });
+  _renderSourceTrigger() {
+    const text = this.value ? LABELS.replace : LABELS.select;
+    const className = `asset-source-trigger ${this.value ? 'nx-form-btn-secondary' : 'nx-form-btn-primary'}`;
+    const sources = this._availableSources;
+    if (sources.length > 1) {
+      const items = sources.map(({ id, label }) => ({ id, label }));
+      return html`
+        <nx-menu placement=${MENU_PLACEMENT} .items=${items} @select=${this._onMenuSelect}>
+          <button slot="trigger" type="button" class=${className} ?disabled=${this.disabled}>
+            ${text}${icon('chevronDown', 'asset-menu-chevron')}
+          </button>
+        </nx-menu>
+      `;
+    }
+    const [source] = sources;
+    return html`<button type="button" class=${className} ?disabled=${this.disabled || !source}
+      @click=${() => this._selectFrom(source)}>${text}</button>`;
   }
 
-  async _choose(source) {
-    if (this.disabled || this._pending) {
-      return;
+  _renderActions() {
+    if (this._pending) {
+      return html`<span class="nx-loading-spinner" role="status" aria-label=${LABELS.adding(this._kindLabel)}></span>`;
     }
-
-    this._closeDialog();
-    const selectSource = this.onSelectSource;
-    if (typeof selectSource !== 'function') {
-      this._selectionError = 'Asset selection is unavailable.';
-      return;
-    }
-
-    this._requestGeneration += 1;
-    const request = this._requestGeneration;
-    this._pending = true;
-    this._selectionError = undefined;
-
-    try {
-      const result = await selectSource({ source, value: this.value });
-      if (!this.isConnected || request !== this._requestGeneration) {
-        return;
-      }
-
-      if (result?.cancelled) {
-        return;
-      }
-
-      if (!isImageHref(result?.href)) {
-        this._selectionError = 'The selected image did not return a usable URL.';
-        return;
-      }
-
-      this.value = result.href;
-      this.displayName = result.name;
-      this.previewHref = result.previewHref;
-      this._emit(result.href);
-      await this.updateComplete;
-      this.shadowRoot.querySelector('.asset-replace')?.shadowRoot?.querySelector('button')?.focus();
-    } catch (error) {
-      if (this.isConnected && request === this._requestGeneration) {
-        this._selectionError = error?.message || 'The image could not be selected.';
-      }
-    } finally {
-      if (this.isConnected && request === this._requestGeneration) {
-        this._pending = false;
-      }
-    }
+    return html`
+      ${this._renderSourceTrigger()}
+      ${this.value ? html`<button type="button" class="asset-remove nx-form-btn-secondary"
+        ?disabled=${this.disabled} @click=${this._openRemoveDialog}>${LABELS.remove}</button>` : nothing}
+    `;
   }
 
-  _openRemoveDialog() {
-    if (this.disabled || this._pending || !this.value) {
-      return;
-    }
-
-    this._removeDialog.showModal();
-    this.shadowRoot.querySelector('.asset-remove-cancel')?.shadowRoot?.querySelector('button')?.focus();
+  _renderPreview() {
+    const previewSrc = this._previewSrc;
+    return html`
+      <div class="asset-preview">
+        ${previewSrc ? html`<img class=${previewSrc === this._loadedPreviewSrc ? 'is-loaded' : ''}
+          src=${previewSrc} alt="" @load=${this._onPreviewLoad} @error=${this._onPreviewError}>` : nothing}
+      </div>
+    `;
   }
 
-  _closeRemoveDialog() {
-    if (this._removeDialog.open) {
-      this._removeDialog.close();
-    }
+  _renderRow() {
+    const { name } = this._asset;
+    return html`
+      <div class="asset-row">
+        ${this.value
+          ? html`<span class="asset-name" title=${name}>${name}</span>`
+          : html`<span class="asset-placeholder">${LABELS.empty(this._kindLabel)}</span>`}
+        <div class="asset-actions">${this._renderActions()}</div>
+      </div>
+    `;
   }
 
-  _restoreRemoveFocus() {
-    queueMicrotask(() => {
-      if (!this.isConnected) {
-        return;
-      }
-      const target = this.shadowRoot.querySelector(this.value ? '.asset-remove' : '.asset-select');
-      target?.shadowRoot?.querySelector('button')?.focus();
-    });
+  _renderRemoveDialog() {
+    if (!this._confirmingRemove) return nothing;
+    return html`
+      <nx-dialog title=${LABELS.removeTitle(this._kindLabel)} @close=${this._onRemoveDialogClose}>
+        <p>${LABELS.removeBody(this._kindLabel)}</p>
+        <button slot="actions" type="button" class="nx-form-btn-secondary" autofocus
+          @click=${this._closeRemoveDialog}>${LABELS.cancel}</button>
+        <button slot="actions" type="button" class="asset-remove-confirm nx-form-btn-primary"
+          @click=${this._confirmRemove}>${LABELS.remove}</button>
+      </nx-dialog>
+    `;
   }
 
-  async _remove() {
-    if (this.disabled || this._pending || !this.value) {
-      this._closeRemoveDialog();
-      return;
+  _renderMessage() {
+    if (this._selectionError) {
+      return html`<p role="alert" class="form-field-error">${this._selectionError}</p>`;
     }
-
-    // Clearing a form reference never deletes the image in its media store.
-    this._requestGeneration += 1;
-    this._selectionError = undefined;
-    this.value = undefined;
-    this.displayName = undefined;
-    this.previewHref = undefined;
-    this._emit(undefined);
-    await this.updateComplete;
-    this._closeRemoveDialog();
-  }
-
-  get _name() {
-    if (this.displayName) {
-      return this.displayName;
+    if (this.error) return html`<p class="form-field-error">${this.error}</p>`;
+    if (this._typeMismatch) return html`<p class="form-field-error">${MESSAGES.typeNotAllowed}</p>`;
+    if (this.sources && !this._availableSources.length && !this.disabled) {
+      return html`<p class="form-field-description">${MESSAGES.noSource}</p>`;
     }
-
-    if (!this.value) {
-      return '';
-    }
-
-    try {
-      return decodeURIComponent(new URL(this.value, document.baseURI).pathname.split('/').pop()) || 'Selected image';
-    } catch {
-      return 'Selected image';
-    }
-  }
-
-  get _imageSrc() {
-    const href = this.previewHref || (/^https?:\/\//.test(this.value ?? '') ? this.value : '');
-    if (!href || this._previewBroken) {
-      return '';
-    }
-
-    try {
-      const url = new URL(href, document.baseURI);
-      return ['http:', 'https:', 'blob:'].includes(url.protocol) ? url.href : '';
-    } catch {
-      return '';
-    }
+    if (this.description) return html`<p class="form-field-description">${this.description}</p>`;
+    return nothing;
   }
 
   render() {
-    const imageSrc = this._imageSrc;
+    const invalid = this.error || this._selectionError || this._typeMismatch;
     return html`
-      <div class="form-field${this.error ? ' has-error' : ''}">
+      <div class="form-field${invalid ? ' has-error' : ''}">
         ${this.label ? html`
           <label id="asset-label">${this.label}${this.required ? html`<span class="form-required">*</span>` : nothing}</label>
         ` : nothing}
-        <div class="asset" role="group" aria-labelledby=${this.label ? 'asset-label' : nothing}>
-          <div class="asset-empty" ?hidden=${!!this.value}>
-            <span class="asset-empty-icon" aria-hidden="true">${IMAGE_ICON}</span>
-            <p>No image selected</p>
-            <form-button class="asset-select" ?disabled=${this.disabled || this._pending} @click=${this._openDialog}>Select</form-button>
-          </div>
-          <div class="asset-selected" ?hidden=${!this.value}>
-            <div class="asset-preview">
-              ${imageSrc ? html`
-                <img
-                  class=${imageSrc === this._loadedPreviewSrc ? 'is-loaded' : ''}
-                  src=${imageSrc}
-                  alt=""
-                  @load=${this._onPreviewLoad}
-                  @error=${this._onPreviewError}>
-              ` : html`<span class="asset-preview-placeholder" aria-hidden="true">${IMAGE_ICON}</span>`}
-              <div class="asset-actions">
-                <form-button class="asset-replace" variant="secondary" ?disabled=${this.disabled || this._pending} @click=${this._openDialog}>Replace</form-button>
-                <form-button class="asset-remove" variant="secondary" ?disabled=${this.disabled || this._pending} @click=${this._openRemoveDialog}>Remove</form-button>
-              </div>
-            </div>
-            <div class="asset-info">
-              <span class="asset-file-icon" aria-hidden="true">${IMAGE_ICON}</span>
-              <span class="asset-name">${this._name}</span>
-            </div>
-          </div>
+        <div class="asset${this._imageOnly ? ' has-preview' : ''}" role="group"
+          aria-labelledby=${this.label ? 'asset-label' : nothing} aria-busy=${this._pending ? 'true' : 'false'}>
+          ${this._imageOnly ? this._renderPreview() : nothing}
+          ${this._renderRow()}
         </div>
-        ${this._pending ? html`<p role="status" class="asset-progress">Selecting image...</p>` : nothing}
-        ${this._selectionError ? html`<p role="alert" class="form-field-error">${this._selectionError}</p>` : nothing}
-        ${this.error ? html`<p class="form-field-error">${this.error}</p>` : nothing}
-        ${!this.error && this.description ? html`<p class="form-field-description">${this.description}</p>` : nothing}
+        ${this._renderMessage()}
       </div>
-      <dialog
-        class="asset-source-dialog${this.aemAssetsAvailable ? '' : ' asset-dialog-single'}"
-        aria-labelledby="asset-dialog-title"
-        @close=${this._restoreFocus}
-        @click=${this._onDialogClick}
-      >
-        <div class="asset-dialog-header">
-          <div>
-            <h2 id="asset-dialog-title" tabindex="-1">${this.value ? 'Replace image' : 'Select image'}</h2>
-            <p>Choose where to get the image for this field.</p>
-          </div>
-          <button type="button" class="asset-dialog-close" aria-label="Close" @click=${this._closeDialog}>&times;</button>
-        </div>
-        <div class="asset-sources">
-          <button type="button" class="asset-source" @click=${() => this._choose('upload')}>
-            <span class="asset-source-icon" aria-hidden="true">${UPLOAD_ICON}</span>
-            <span class="source-title">Upload</span>
-            <span class="source-description">Choose an image from your device.</span>
-          </button>
-          ${this.aemAssetsAvailable ? html`
-            <button type="button" class="asset-source" @click=${() => this._choose('aem-assets')}>
-              <span class="asset-source-icon" aria-hidden="true">${LIBRARY_ICON}</span>
-              <span class="source-title">AEM Assets</span>
-              <span class="source-description">Select an image from AEM Assets.</span>
-            </button>
-          ` : nothing}
-        </div>
-        <div class="asset-dialog-footer">
-          <form-button variant="secondary" @click=${this._closeDialog}>Cancel</form-button>
-        </div>
-      </dialog>
-      <dialog
-        class="asset-remove-dialog"
-        role="alertdialog"
-        aria-labelledby="asset-remove-title"
-        aria-describedby="asset-remove-description"
-        @close=${this._restoreRemoveFocus}
-        @click=${this._onDialogClick}
-      >
-        <div class="asset-dialog-header">
-          <div>
-            <h2 id="asset-remove-title">Remove asset?</h2>
-            <p id="asset-remove-description">This removes the asset from the editor without deleting the original file.</p>
-          </div>
-        </div>
-        <div class="asset-dialog-footer">
-          <form-button class="asset-remove-cancel" variant="secondary" @click=${this._closeRemoveDialog}>Cancel</form-button>
-          <form-button class="asset-remove-confirm" variant="negative" @click=${this._remove}>Remove</form-button>
-        </div>
-      </dialog>
+      <input class="file-input" type="file" hidden>
+      ${this._renderRemoveDialog()}
     `;
   }
 }

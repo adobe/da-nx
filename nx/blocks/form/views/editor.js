@@ -8,7 +8,6 @@ import '../fields/button.js';
 import '../fields/number.js';
 import '../fields/date.js';
 import '../fields/asset.js';
-import { imagePreviewHref } from '../utils/assets.js';
 import { icon } from '../icons.js';
 
 const style = await loadStyle(import.meta.url);
@@ -43,10 +42,14 @@ class Editor extends LitElement {
     state: { attribute: false },
     nav: { attribute: false },
     onSelect: { attribute: false },
-    assetContext: { attribute: false },
+
+    assetSources: { attribute: false },
+    previewOrigin: { attribute: false },
+
     _reorderPointer: { state: true },
     _reorderTargetIndex: { state: true },
     _reorderConfirmed: { state: true },
+
     _issuesOpen: { state: true },
     _openMenuPointer: { state: true },
   };
@@ -288,9 +291,7 @@ class Editor extends LitElement {
       `;
     }
 
-    if (node.kind === 'string'
-      && node.semanticType === 'media'
-      && typeof this.assetContext?.onSelectSource === 'function') {
+    if (node.semanticType === 'media') {
       return html`
         <form-asset
           data-pointer=${pointer}
@@ -298,14 +299,12 @@ class Editor extends LitElement {
           .required=${showRequired}
           .error=${error}
           .description=${description}
-          .value=${value ?? ''}
-          .previewHref=${imagePreviewHref({ href: value, previewOrigin: this.assetContext.previewOrigin })}
-          .aemAssetsAvailable=${this.assetContext.aemAssetsAvailable}
-          .onSelectSource=${this.assetContext.onSelectSource}
+          .value=${value}
+          .contentMediaType=${node.contentMediaType}
+          .sources=${this.assetSources}
+          .previewOrigin=${this.previewOrigin}
           ?disabled=${readonly}
-          @asset-change=${(event) => {
-            this._mutate((editor) => editor.setField(node.pointer, event.detail.value));
-          }}
+          @change=${(e) => this._onSelectInput(node, e)}
         ></form-asset>
       `;
     }

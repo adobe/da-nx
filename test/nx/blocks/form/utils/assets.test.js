@@ -1,204 +1,267 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  createMediaPath,
-  imagePreviewHref,
-  mediaPreviewOrigin,
-  openMediaPreview,
-  selectImageSource,
-  uploadImage,
+  acceptsOnlyImages,
+  createAssetSources,
+  describeAsset,
+  isAssetHref,
+  isImageType,
+  matchesMediaType,
+  previewHrefFor,
+  typeFromName,
+  uploadableTypes,
+  uploadFile,
 } from '../../../../../nx/blocks/form/utils/assets.js';
-import { DA_CONTENT } from '../../../../../nx2/utils/utils.js';
 
-const details = {
-  owner: 'example',
-  repo: 'site',
-  fullpath: '/example/site/forms/sample.html',
-};
+describe('form media types', () => {
+  it('accepts any type without a contentMediaType or with */*', () => {
+    expect(matchesMediaType({ type: 'audio/mpeg' })).to.be.true;
+    expect(matchesMediaType({ type: 'audio/mpeg', contentMediaType: ' */* ' })).to.be.true;
+  });
 
-const image = (type = 'image/png') => new File(
-  [new Uint8Array(12)],
-  'hero.png',
-  { type },
-);
+  it('matches exact types and type wildcards, case-insensitively', () => {
+    expect(matchesMediaType({ type: 'image/PNG', contentMediaType: 'image/*' })).to.be.true;
+    expect(matchesMediaType({ type: 'application/pdf', contentMediaType: 'image/*' })).to.be.false;
+    expect(matchesMediaType({ type: 'application/pdf', contentMediaType: 'Application/PDF' })).to.be.true;
+    expect(matchesMediaType({ type: '', contentMediaType: 'image/*' })).to.be.false;
+  });
 
-describe('form image preview URL', () => {
-  const previewOrigin = 'https://main--site--example.preview.da.live';
+  it('uploads only Canvas image types, narrowed by the field', () => {
+    expect(uploadableTypes()).to.deep.equal([
+      'image/svg+xml', 'image/png', 'image/jpeg', 'image/gif',
+    ]);
+    expect(uploadableTypes({ contentMediaType: 'image/png' })).to.deep.equal(['image/png']);
+    expect(uploadableTypes({ contentMediaType: 'video/*' })).to.deep.equal([]);
+    expect(uploadableTypes({ contentMediaType: 'audio/*' })).to.deep.equal([]);
+  });
+
+  it('derives known types from file names', () => {
+    expect(typeFromName('photo.JPG')).to.equal('image/jpeg');
+    expect(typeFromName('media_abc.png')).to.equal('image/png');
+    expect(typeFromName('play')).to.equal('');
+    expect(typeFromName(undefined)).to.equal('');
+  });
+
+  it('treats every image type as an image and only image types as image-only fields', () => {
+    expect(isImageType('image/webp')).to.be.true;
+    expect(isImageType('video/mp4')).to.be.false;
+    expect(acceptsOnlyImages({ contentMediaType: 'image/*' })).to.be.true;
+    expect(acceptsOnlyImages({ contentMediaType: '*/*' })).to.be.false;
+    expect(acceptsOnlyImages()).to.be.false;
+  });
+});
+
+const previewOrigin = 'https://main--site--example.preview.da.live';
+
+describe('form asset values', () => {
+  it('accepts Media Bus references and web URLs only', () => {
+    expect(isAssetHref('./media_abc.png')).to.be.true;
+    expect(isAssetHref('https://content.da.live/example/site/a.pdf')).to.be.true;
+    expect(isAssetHref('./media_a b.png')).to.be.false;
+    expect(isAssetHref('file:///private/image.png')).to.be.false;
+    expect(isAssetHref('data:text/html,example')).to.be.false;
+    expect(isAssetHref('../other-image.jpg')).to.be.false;
+    expect(isAssetHref('')).to.be.false;
+  });
 
   it('resolves Media Bus references against the site preview origin, as Canvas does', () => {
-    expect(imagePreviewHref({ href: './media_abc.png', previewOrigin }))
+    expect(previewHrefFor({ href: './media_abc.png', previewOrigin }))
       .to.equal(`${previewOrigin}/media_abc.png`);
+    expect(previewHrefFor({ href: './media_abc.png' })).to.equal(undefined);
   });
 
-  it('waits for the preview origin before resolving Media Bus references', () => {
-    expect(imagePreviewHref({ href: './media_abc.png' })).to.equal('');
+  it('keeps AEM Assets and legacy DA URLs as they are', () => {
+    const delivery = 'https://delivery.example.com/photo.png?smartcrop=wide&width=1920';
+    const legacy = 'https://content.da.live/example/site/forms/.sample/hero.png';
+    expect(previewHrefFor({ href: delivery, previewOrigin })).to.equal(delivery);
+    expect(previewHrefFor({ href: legacy, previewOrigin })).to.equal(legacy);
   });
 
-  it('keeps AEM Assets delivery URLs without rewriting them', () => {
-    const href = 'https://delivery.example.com/photo.png?smartcrop=wide&width=1920';
-    expect(imagePreviewHref({ href, previewOrigin })).to.equal(href);
+  it('refuses hrefs that are not file references', () => {
+    expect(previewHrefFor({ href: 'data:text/html,example', previewOrigin })).to.equal(undefined);
   });
 
-  it('previews legacy DA uploads from their stored content URL', () => {
-    const href = 'https://content.da.live/example/site/forms/.sample/hero.png';
-    expect(imagePreviewHref({ href, previewOrigin })).to.equal(href);
+  it('names a stored value after the decoded last path segment', () => {
+    expect(describeAsset({ href: 'https://x.test/a/data%20sheet.pdf?x=1' }).name).to.equal('data sheet.pdf');
+    expect(describeAsset({ href: './media_abc.png' }).name).to.equal('media_abc.png');
+    expect(describeAsset({ href: 'https://x.test/%E0%A4%A' }).name).to.equal('%E0%A4%A');
   });
 
-  it('refuses unsafe protocols or unrelated relative paths', () => {
-    expect(imagePreviewHref({ href: 'file:///private/image.png', previewOrigin })).to.equal('');
-    expect(imagePreviewHref({ href: 'data:text/html,example', previewOrigin })).to.equal('');
-    expect(imagePreviewHref({ href: '../other-image.jpg', previewOrigin })).to.equal('');
+  it('describes a stored value from its name and the field type', () => {
+    expect(describeAsset({ href: 'https://x.test/spec.pdf', contentMediaType: 'image/*' }))
+      .to.deep.equal({ name: 'spec.pdf', isAllowed: false, isImage: false });
+    expect(describeAsset({ href: 'https://x.test/photo.avif', contentMediaType: 'image/*' }))
+      .to.deep.equal({ name: 'photo.avif', isAllowed: true, isImage: true });
+  });
+
+  it('prefers the name and type of a file picked in this session', () => {
+    expect(describeAsset({
+      href: 'https://delivery.example.com/urn:aaid:aem:1/as/photo',
+      name: 'photo.webp',
+      type: 'image/webp',
+    })).to.deep.equal({ name: 'photo.webp', isAllowed: true, isImage: true });
   });
 });
 
-describe('form media preview login', () => {
-  it('logs into the preview and content origins once per site with the IMS token', async () => {
-    const calls = [];
-    const request = async (url, opts) => {
-      calls.push({ url, opts });
-      return { ok: true };
+const ERRORS = {
+  document: 'The form document path is unavailable for upload.',
+  fileName: 'The file name is invalid.',
+  fileType: 'This file type cannot be uploaded here.',
+  response: 'The upload did not return a usable file URL.',
+};
+
+const details = {
+  owner: 'example', repo: 'site', parent: '/example/site/forms', name: 'sample',
+};
+
+const fileOf = ({ name, type = '' }) => new File([new Uint8Array(4)], name, { type });
+
+const respondWith = (contentUrl) => async () => ({
+  ok: true,
+  json: async () => ({ source: { contentUrl } }),
+});
+
+describe('form file upload', () => {
+  it('uses the same document-scoped folder as Canvas, also for root documents', async () => {
+    const paths = [];
+    const upload = async (path) => {
+      paths.push(path);
+      return respondWith('./media_abc.png')();
     };
-    const getToken = async () => 'token';
-    const origin = await openMediaPreview({
-      owner: 'example', repo: 'login-once', getToken, request,
-    });
-    await openMediaPreview({
-      owner: 'example', repo: 'login-once', getToken, request,
-    });
-    expect(origin).to.equal(mediaPreviewOrigin({ owner: 'example', repo: 'login-once' }));
-    expect(calls.map(({ url }) => url)).to.deep.equal([
-      `${origin}/gimme_cookie`,
-      `${DA_CONTENT}/example/login-once/.gimme_cookie`,
+    const file = fileOf({ name: 'a.png' });
+    await uploadFile({ details, file, upload });
+    await uploadFile({ details: { ...details, parent: '/example/site', name: 'index' }, file, upload });
+    expect(paths).to.deep.equal(['/example/site/forms/.sample/a.png', '/example/site/.index/a.png']);
+  });
+
+  it('rejects malformed file names and document paths before uploading', async () => {
+    const upload = async () => { throw new Error('Should not upload.'); };
+    expect(await uploadFile({ details, file: fileOf({ name: 'a?b.png' }), upload }))
+      .to.deep.equal({ error: ERRORS.fileName });
+    expect(await uploadFile({ details, file: fileOf({ name: 'a#b.png' }), upload }))
+      .to.deep.equal({ error: ERRORS.fileName });
+    expect(await uploadFile({
+      details: { ...details, parent: undefined }, file: fileOf({ name: 'a.png' }), upload,
+    })).to.deep.equal({ error: ERRORS.document });
+  });
+
+  it('uploads to the document folder and keeps the returned Media Bus URL', async () => {
+    const calls = [];
+    const upload = async (path, { body }) => {
+      calls.push({ path, body });
+      return respondWith('./media_abc.png')();
+    };
+    const file = fileOf({ name: 'hero.png' });
+    const result = await uploadFile({ details, file, upload });
+    expect(calls).to.deep.equal([{ path: '/example/site/forms/.sample/hero.png', body: file }]);
+    expect(result).to.deep.equal({ href: './media_abc.png', name: 'hero.png', type: 'image/png' });
+  });
+
+  it('accepts both JPEG extensions', async () => {
+    const upload = respondWith('./media_abc.jpg');
+    const jpg = await uploadFile({ details, file: fileOf({ name: 'hero.jpg' }), upload });
+    const jpeg = await uploadFile({ details, file: fileOf({ name: 'hero.jpeg' }), upload });
+    expect(jpg.type).to.equal('image/jpeg');
+    expect(jpeg.type).to.equal('image/jpeg');
+  });
+
+  it('validates by extension, like the upload API, and rejects types the field does not take', async () => {
+    let uploads = 0;
+    const upload = async () => {
+      uploads += 1;
+      return respondWith('./media_abc.png')();
+    };
+    const rejected = [
+      { file: fileOf({ name: 'song.mp3', type: 'audio/mpeg' }) },
+      { file: fileOf({ name: 'clip.mp4', type: 'video/mp4' }) },
+      { file: fileOf({ name: 'spec.pdf', type: 'application/pdf' }) },
+      { file: fileOf({ name: 'photo.webp', type: 'image/webp' }) },
+      { file: fileOf({ name: 'photo.png', type: 'image/png' }), contentMediaType: 'application/pdf' },
+      { file: fileOf({ name: 'renamed.txt', type: 'image/png' }) },
+    ];
+    const results = await Promise.all(rejected.map(({ file, contentMediaType }) => uploadFile({
+      details, file, contentMediaType, upload,
+    })));
+    results.forEach((result) => expect(result).to.deep.equal({ error: ERRORS.fileType }));
+    expect(uploads).to.equal(0);
+  });
+
+  it('reports failed uploads and unusable URLs', async () => {
+    const file = fileOf({ name: 'hero.png' });
+    expect(await uploadFile({ details, file, upload: async () => ({ ok: false, status: 403 }) }))
+      .to.deep.equal({ error: 'Upload failed with status 403.' });
+    expect(await uploadFile({ details, file, upload: respondWith(undefined) }))
+      .to.deep.equal({ error: ERRORS.response });
+  });
+
+  it('applies the Canvas size limits before uploading', async () => {
+    const MB = 1_000_000;
+    const sized = (size) => ({ name: 'hero.png', size });
+    const upload = respondWith('./media_abc.png');
+    const probes = [];
+    const site = ({ hlx6 }) => async (org, repo) => {
+      probes.push({ org, repo });
+      return hlx6;
+    };
+    const legacy = site({ hlx6: false });
+
+    expect(await uploadFile({ details, file: sized(4.5 * MB), upload, checkHlx6: legacy }))
+      .to.have.property('href');
+    expect(probes).to.deep.equal([]);
+    expect(await uploadFile({ details, file: sized(5 * MB), upload, checkHlx6: legacy }))
+      .to.have.property('href');
+    expect(probes).to.deep.equal([{ org: 'example', repo: 'site' }]);
+    expect(await uploadFile({ details, file: sized(20 * MB + 1), upload, checkHlx6: legacy }))
+      .to.deep.equal({ error: 'Max image size allowed is 20 MB' });
+    expect(await uploadFile({
+      details, file: sized(5 * MB), upload, checkHlx6: site({ hlx6: true }),
+    })).to.deep.equal({ error: 'Max image size allowed is 4.5 MB' });
+    expect(await uploadFile({
+      details, file: sized(5 * MB), upload, checkHlx6: async () => { throw new Error('offline'); },
+    })).to.have.property('href');
+  });
+});
+
+const REPO_CONFIG = { repositoryId: 'author-p1-e1.adobeaemcloud.com', tierType: 'author' };
+
+const isCurrent = () => true;
+const labelsOf = (sources) => sources.map(({ id, label }) => ({ id, label }));
+
+describe('form asset sources', () => {
+  it('offers only Upload without an AEM repository', () => {
+    expect(labelsOf(createAssetSources({ details, isCurrent }))).to.deep.equal([
+      { id: 'upload', label: 'Upload' },
     ]);
-    expect(calls.every(({ opts }) => opts.credentials === 'include')).to.be.true;
   });
 
-  it('still returns the origin and retries later when either login fails', async () => {
-    let attempts = 0;
-    const request = async (url) => {
-      attempts += 1;
-      return { ok: !url.includes('/.gimme_cookie') };
-    };
-    const getToken = async () => 'token';
-    const options = {
-      owner: 'example', repo: 'login-retry', getToken, request,
-    };
-    expect(await openMediaPreview(options)).to.equal(mediaPreviewOrigin(options));
-    await openMediaPreview(options);
-    expect(attempts).to.equal(4);
+  it('adds AEM Assets when the site has a repository', () => {
+    const sources = createAssetSources({ details, repoConfig: REPO_CONFIG, isCurrent });
+    expect(labelsOf(sources)).to.deep.equal([
+      { id: 'upload', label: 'Upload' },
+      { id: 'aem-assets', label: 'AEM Assets' },
+    ]);
   });
 
-  it('skips the login for anonymous users', async () => {
-    let attempts = 0;
-    await openMediaPreview({
-      owner: 'example',
-      repo: 'anonymous',
-      getToken: async () => undefined,
-      request: async () => { attempts += 1; },
-    });
-    expect(attempts).to.equal(0);
-  });
-});
-
-describe('form image asset operations', () => {
-  it('does not upload when the file picker is canceled', async () => {
-    let uploadCalls = 0;
-    const result = await selectImageSource({
-      details,
-      chooseFile: async () => null,
-      upload: async () => { uploadCalls += 1; },
-    });
-    expect(result).to.deep.equal({ cancelled: true });
-    expect(uploadCalls).to.equal(0);
+  it('lets Upload accept only fields with an uploadable type', () => {
+    const [upload] = createAssetSources({ details, isCurrent });
+    expect(upload.accepts({ contentMediaType: 'image/*' })).to.be.true;
+    expect(upload.accepts({ contentMediaType: 'application/pdf' })).to.be.false;
+    expect(upload.accepts({ contentMediaType: 'audio/*' })).to.be.false;
+    expect(upload.localFileTypes({ contentMediaType: 'image/*' }))
+      .to.deep.equal(['image/svg+xml', 'image/png', 'image/jpeg', 'image/gif']);
   });
 
-  it('passes a chosen image into the same upload API boundary', async () => {
-    const file = image();
-    const result = await selectImageSource({
-      details,
-      chooseFile: async () => file,
-      upload: async ({ file: selectedFile }) => {
-        expect(selectedFile).to.equal(file);
-        return { href: './media_abc.png', name: file.name };
-      },
-    });
-    expect(result.href).to.equal('./media_abc.png');
+  it('lets AEM Assets accept any field', () => {
+    const [, aem] = createAssetSources({ details, repoConfig: REPO_CONFIG, isCurrent });
+    expect(aem.accepts({ contentMediaType: 'audio/*' })).to.be.true;
+    expect(aem.localFileTypes).to.equal(undefined);
   });
 
-  it('uses the same document-scoped media folder as canvas', () => {
-    expect(createMediaPath({ details, fileName: 'hero.png' }))
-      .to.equal('/forms/.sample/hero.png');
-  });
-
-  it('rejects malformed file names before constructing a source path', () => {
-    expect(() => createMediaPath({ details, fileName: '../other.png' })).to.throw();
-    expect(() => createMediaPath({ details, fileName: 'other/path.png' })).to.throw();
-  });
-
-  it('saves the returned Media Bus URL without rewriting it', async () => {
-    const calls = [];
-    const result = await uploadImage({
-      details,
-      file: image(),
-      upload: async (options) => {
-        calls.push(options);
-        return { ok: true, json: async () => ({ source: { contentUrl: './media_abc.png' } }) };
-      },
-    });
-    expect(calls).to.have.lengthOf(1);
-    expect(calls[0]).to.include({
-      org: 'example',
-      site: 'site',
-      path: '/forms/.sample/hero.png',
-    });
-    expect(calls[0].body).to.be.instanceOf(File);
-    expect(result).to.deep.equal({ href: './media_abc.png', name: 'hero.png' });
-  });
-
-  it('preserves legacy DA source URLs', async () => {
-    const href = 'https://content.da.live/example/site/forms/.sample/hero.png';
-    const result = await uploadImage({
-      details,
-      file: image(),
-      upload: async () => ({
-        ok: true,
-        json: async () => ({ source: { contentUrl: href } }),
-      }),
-    });
-    expect(result.href).to.equal(href);
-  });
-
-  it('rejects unsupported types before uploading', async () => {
-    let uploadCalls = 0;
-    const upload = async () => { uploadCalls += 1; };
-    try {
-      await uploadImage({ details, file: image('application/pdf'), upload });
-      throw new Error('Unsupported file should fail.');
-    } catch (error) {
-      expect(error.message).to.include('SVG, PNG, JPEG, or GIF');
-    }
-    expect(uploadCalls).to.equal(0);
-  });
-
-  it('surfaces failed uploads and missing content URLs', async () => {
-    try {
-      await uploadImage({
-        details,
-        file: image(),
-        upload: async () => ({ ok: false, status: 403 }),
-      });
-      throw new Error('Failed upload should not succeed.');
-    } catch (error) {
-      expect(error.message).to.include('403');
-    }
-    try {
-      await uploadImage({
-        details,
-        file: image(),
-        upload: async () => ({ ok: true, json: async () => ({ source: {} }) }),
-      });
-      throw new Error('Missing URL should not succeed.');
-    } catch (error) {
-      expect(error.message).to.include('image URL');
-    }
+  it('cancels a result that arrives after the document changed', async () => {
+    let current = true;
+    const [upload] = createAssetSources({ details, isCurrent: () => current });
+    const file = new File(['x'], 'song.mp3', { type: 'audio/mpeg' });
+    const pending = upload.select({ file });
+    current = false;
+    expect(await pending).to.deep.equal({ cancelled: true });
   });
 });

@@ -1,150 +1,180 @@
-import { source } from '../../../../nx2/utils/api.js';
-import { loadIms } from '../../../../nx2/utils/ims.js';
-import { DA_CONTENT, DA_PREVIEW } from '../../../../nx2/utils/utils.js';
+import { SUPPORTED_FILES } from '../../../../nx2/utils/utils.js';
+import {
+  SUPPORTED_IMAGE_TYPES,
+  getImageUploadLimit,
+  getMediaUploadPath,
+  imageTooLargeMessage,
+  uploadMedia,
+} from '../../../../nx2/utils/media-upload.js';
 
-const IMAGE_TYPES = new Set(['image/svg+xml', 'image/png', 'image/jpeg', 'image/gif']);
-const MEDIA_PREFIX = './media_';
+// A schema without a media type restriction. Uploads stay limited to SUPPORTED_IMAGE_TYPES.
+const ANY_TYPE = '*/*';
 
-const isWebHref = (href) => /^https?:\/\//i.test(href);
+const normalizeMediaType = (type) => (typeof type === 'string' ? type.trim().toLowerCase() : '');
 
-export function mediaPreviewOrigin({ owner, repo }) {
-  const { protocol, host } = new URL(DA_PREVIEW);
-  return `${protocol}//main--${repo}--${owner}.${host}`;
+function acceptsAnyType({ contentMediaType } = {}) {
+  const pattern = normalizeMediaType(contentMediaType);
+  return !pattern || pattern === ANY_TYPE;
 }
 
-async function loadAccessToken() {
-  const { accessToken } = await loadIms();
-  return accessToken?.token;
+export function matchesMediaType({ type, contentMediaType }) {
+  if (acceptsAnyType({ contentMediaType })) return true;
+  const pattern = normalizeMediaType(contentMediaType);
+  const value = normalizeMediaType(type);
+  if (!value) return false;
+  return pattern.endsWith('/*') ? value.startsWith(pattern.slice(0, -1)) : value === pattern;
 }
 
-// Uploaded images only display with an auth cookie from the origin that serves them.
-// Media Bus images come from the DA preview origin.
-// Legacy DA uploads come from the DA content origin.
-// Like Canvas, log into both origins once per site before showing a preview.
-// Public images still display when the login fails.
-export const openMediaPreview = (() => {
-  const logins = new Map();
+export const isImageType = (type) => normalizeMediaType(type).startsWith('image/');
 
-  const login = async ({ cookieHrefs, getToken, request }) => {
-    try {
-      const token = await getToken();
-      if (!token) return false;
-      const responses = await Promise.all(cookieHrefs.map((href) => request(href, {
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${token}` },
-      })));
-      return responses.every((response) => response.ok);
-    } catch {
-      return false;
-    }
-  };
+export const acceptsOnlyImages = ({ contentMediaType } = {}) => isImageType(contentMediaType);
 
-  return async ({
-    owner,
-    repo,
-    getToken = loadAccessToken,
-    request = fetch,
-  }) => {
-    const origin = mediaPreviewOrigin({ owner, repo });
-    if (!logins.has(origin)) {
-      const cookieHrefs = [`${origin}/gimme_cookie`, `${DA_CONTENT}/${owner}/${repo}/.gimme_cookie`];
-      logins.set(origin, login({ cookieHrefs, getToken, request }).then((ok) => {
-        if (!ok) logins.delete(origin);
-      }));
-    }
-    await logins.get(origin);
-    return origin;
-  };
-})();
+export function typeFromName(fileName) {
+  const extension = fileName?.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
+  return SUPPORTED_FILES[extension] ?? '';
+}
 
-export function imagePreviewHref({ href, previewOrigin }) {
-  if (typeof href !== 'string') {
-    return '';
-  }
+export function uploadableTypes({ contentMediaType } = {}) {
+  return SUPPORTED_IMAGE_TYPES.filter((type) => matchesMediaType({ type, contentMediaType }));
+}
 
+const MEDIA_BUS_PREFIX = './media_';
+const UNSAFE_MEDIA_BUS_CHARS = /[\s<>"']/;
+const WEB_PROTOCOLS = ['http:', 'https:'];
+
+function parseHref(href, base) {
   try {
-    if (isWebHref(href)) {
-      return new URL(href).href;
-    }
-    if (href.startsWith(MEDIA_PREFIX) && previewOrigin) {
-      return new URL(href, `${previewOrigin}/`).href;
-    }
+    return new URL(href, base);
   } catch {
-    return '';
+    return undefined;
   }
-  return '';
 }
 
-export function createMediaPath({ details, fileName }) {
-  const { owner, repo, fullpath } = details ?? {};
-  const prefix = `/${owner}/${repo}/`;
-  if (!owner || !repo || !fullpath?.startsWith(prefix) || !fullpath.endsWith('.html')) {
-    throw new Error('The form document path is unavailable for image upload.');
-  }
-  if (!fileName || /[/\\?#]/.test(fileName) || fileName === '.' || fileName === '..') {
-    throw new Error('The image file name is invalid.');
-  }
+const isWebHref = (href) => WEB_PROTOCOLS.includes(parseHref(href)?.protocol);
 
-  const directory = fullpath.slice(prefix.length - 1, fullpath.lastIndexOf('/'));
-  const documentName = fullpath.slice(fullpath.lastIndexOf('/') + 1, -'.html'.length);
-  return `${directory}/.${documentName}/${fileName}`;
+const isMediaBusHref = (href) => href.startsWith(MEDIA_BUS_PREFIX)
+  && !UNSAFE_MEDIA_BUS_CHARS.test(href);
+
+export function isAssetHref(href) {
+  if (typeof href !== 'string' || !href.trim()) return false;
+  return isMediaBusHref(href) || isWebHref(href);
 }
 
-export function chooseImageFile() {
-  return new Promise((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = [...IMAGE_TYPES].join(',');
-    input.hidden = true;
-
-    const finish = (file) => {
-      input.remove();
-      resolve(file);
-    };
-    input.addEventListener('change', () => finish(input.files?.[0] ?? null), { once: true });
-    input.addEventListener('cancel', () => finish(null), { once: true });
-    document.body.append(input);
-    input.click();
-  });
+export function previewHrefFor({ href, previewOrigin }) {
+  if (!isAssetHref(href)) return undefined;
+  if (isWebHref(href)) return href;
+  return previewOrigin ? parseHref(href, `${previewOrigin}/`)?.href : undefined;
 }
 
-export async function uploadImage({
-  details,
-  file,
-  upload = source.uploadMedia,
+function fileNameFromHref(href) {
+  const lastSegment = href.split(/[?#]/)[0].split('/').pop();
+  try {
+    return decodeURIComponent(lastSegment);
+  } catch {
+    return lastSegment;
+  }
+}
+
+// Types are only known for files picked in this session, so stored values fall back to the name.
+export function describeAsset({
+  href, name, type, contentMediaType,
 }) {
-  if (!IMAGE_TYPES.has(file?.type)) {
-    throw new Error('Choose an SVG, PNG, JPEG, or GIF image.');
-  }
-
-  const path = createMediaPath({ details, fileName: file.name });
-  const response = await upload({
-    org: details.owner,
-    site: details.repo,
-    path,
-    body: file,
-  });
-  if (!response?.ok) {
-    throw new Error(`Image upload failed with status ${response?.status ?? 'unknown'}.`);
-  }
-
-  const result = await response.json();
-  const href = result?.source?.contentUrl;
-  if (typeof href !== 'string' || !(href.startsWith(MEDIA_PREFIX) || isWebHref(href))) {
-    throw new Error('The upload did not return a usable image URL.');
-  }
-
-  return { href, name: file.name };
+  const fileName = name || (href ? fileNameFromHref(href) : '');
+  const fileType = type || typeFromName(fileName);
+  return {
+    name: fileName,
+    isAllowed: !fileType || matchesMediaType({ type: fileType, contentMediaType }),
+    isImage: !fileType || isImageType(fileType),
+  };
 }
 
-export async function selectImageSource({
-  details,
-  chooseFile = chooseImageFile,
-  upload = uploadImage,
+const INVALID_FILE_NAME = /[/\\?#]|^\.{1,2}$/;
+
+const UPLOAD_ERRORS = {
+  document: 'The form document path is unavailable for upload.',
+  fileName: 'The file name is invalid.',
+  fileType: 'This file type cannot be uploaded here.',
+  response: 'The upload did not return a usable file URL.',
+};
+
+const isValidFileName = (fileName) => !!fileName && !INVALID_FILE_NAME.test(fileName);
+
+// The upload API derives the content type from the extension, so validation does too.
+export async function uploadFile({
+  details, file, contentMediaType, upload, checkHlx6,
 }) {
-  const file = await chooseFile();
-  if (!file) {
-    return { cancelled: true };
+  const type = typeFromName(file?.name);
+  if (!uploadableTypes({ contentMediaType }).includes(type)) {
+    return { error: UPLOAD_ERRORS.fileType };
   }
-  return upload({ details, file });
+
+  const {
+    owner, repo, parent, name,
+  } = details ?? {};
+  if (!owner || !repo || !parent || !name) {
+    return { error: UPLOAD_ERRORS.document };
+  }
+  if (!isValidFileName(file.name)) {
+    return { error: UPLOAD_ERRORS.fileName };
+  }
+
+  const size = file.size ?? 0;
+  const limitBytes = await getImageUploadLimit({
+    org: owner, site: repo, size, checkHlx6,
+  });
+  if (size > limitBytes) return { error: imageTooLargeMessage({ limitBytes }) };
+
+  const path = getMediaUploadPath({ parent, name, fileName: file.name });
+  const { href, error } = await uploadMedia({ path, body: file, upload });
+  if (error) return { error };
+  if (!isAssetHref(href)) return { error: UPLOAD_ERRORS.response };
+  return { href, name: file.name, type };
+}
+
+export const CANCELLED = Object.freeze({ cancelled: true });
+
+const SOURCE_IDS = {
+  upload: 'upload',
+  aemAssets: 'aem-assets',
+};
+
+function uploadSource({ details }) {
+  const localFileTypes = ({ contentMediaType }) => uploadableTypes({ contentMediaType });
+  return {
+    id: SOURCE_IDS.upload,
+    label: 'Upload',
+    localFileTypes,
+    accepts: ({ contentMediaType }) => localFileTypes({ contentMediaType }).length > 0,
+    select: ({ file, contentMediaType }) => uploadFile({ details, file, contentMediaType }),
+  };
+}
+
+function aemAssetsSource({ repoConfig }) {
+  return {
+    id: SOURCE_IDS.aemAssets,
+    label: 'AEM Assets',
+    accepts: () => true,
+    select: async ({ contentMediaType }) => {
+      const { selectAemAsset } = await import('./aem-selector.js');
+      return selectAemAsset({ repoConfig, contentMediaType });
+    },
+  };
+}
+
+// A source whose result arrives after the document changed must not write into the new one.
+function ignoreStaleResults({ source, isCurrent }) {
+  return {
+    ...source,
+    select: async (request) => {
+      const result = await source.select(request);
+      return isCurrent() ? result : CANCELLED;
+    },
+  };
+}
+
+export function createAssetSources({ details, repoConfig, isCurrent }) {
+  return [
+    uploadSource({ details }),
+    ...(repoConfig ? [aemAssetsSource({ repoConfig })] : []),
+  ].map((source) => ignoreStaleResults({ source, isCurrent }));
 }

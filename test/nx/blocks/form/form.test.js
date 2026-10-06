@@ -46,7 +46,9 @@ async function mountReady() {
   const json = validDoc({ name: 'Ada' });
   const engine = createEngine({ schema: demoSchema, document: json });
 
-  el._details = { owner: 'adobe', repo: 'demo', name: 'page', fullpath: '/adobe/demo/page.html' };
+  el._details = {
+    owner: 'adobe', repo: 'demo', parent: '/adobe/demo', name: 'page', fullpath: '/adobe/demo/page.html',
+  };
   el._editor = engine;
   el._state = engine.getState();
   el._context = { status: 'ready', schemaName: 'demo', schema: demoSchema, json };
@@ -78,36 +80,18 @@ describe('nx-form', () => {
     expect(editor.state).to.equal(el._state);
   });
 
-  it('provides an upload callback and the document context to the image field renderer', async () => {
+  it('passes file sources and the preview origin to the editor once they are loaded', async () => {
     const el = await mountReady();
     const editor = el.shadowRoot.querySelector('nx-editor');
-    expect(editor.assetContext.onSelectSource).to.be.a('function');
-    expect(editor.assetContext.previewOrigin).to.equal(undefined);
-    expect(editor.assetContext.aemAssetsAvailable).to.equal(false);
-  });
+    expect(editor.assetSources).to.equal(undefined);
+    expect(editor.previewOrigin).to.equal(undefined);
 
-  it('offers AEM Assets only when the repository has an AEM configuration', async () => {
-    const el = await mountReady();
-    const editor = el.shadowRoot.querySelector('nx-editor');
-
-    el._aemRepoConfig = { repositoryId: 'author-p1-e1.adobeaemcloud.com', tierType: 'author' };
+    const sources = [{ id: 'upload', label: 'Upload' }];
+    el._assetSources = sources;
+    el._previewOrigin = 'https://main--site--example.preview.da.live';
     await el.updateComplete;
-    expect(editor.assetContext.aemAssetsAvailable).to.equal(true);
-
-    el._aemRepoConfig = null;
-    await el.updateComplete;
-    expect(editor.assetContext.aemAssetsAvailable).to.equal(false);
-  });
-
-  it('rejects AEM Assets without a repository configuration and names it in the error', async () => {
-    const el = await mountReady();
-    try {
-      await el._onSelectAsset({ source: 'aem-assets' });
-      throw new Error('Unconfigured AEM Assets should fail.');
-    } catch (error) {
-      expect(error.message).to.include('"aem-assets"');
-    }
-    expect(document.querySelector('.nx-form-aem-dialog')).to.equal(null);
+    expect(editor.assetSources).to.equal(sources);
+    expect(editor.previewOrigin).to.equal('https://main--site--example.preview.da.live');
   });
 
   it('renders a blocked message for a missing schema', async () => {

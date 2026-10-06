@@ -3,7 +3,8 @@ import { LitElement, html, nothing } from 'da-lit';
 import { createEngine } from '../../deps/da-sc-sdk/dist/index.js';
 import { loadFormContext } from './utils/context.js';
 import { attachPersistence } from './utils/persistence.js';
-import { openMediaPreview, selectImageSource } from './utils/assets.js';
+import { createAssetSources } from './utils/assets.js';
+import { ensureLivePreviewLogin, getLivePreviewUrl } from '../../utils/utils.js';
 import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
 
 import './views/editor.js';
@@ -20,16 +21,17 @@ const EL_NAME = 'nx-form';
 
 // Derive the legacy `details` shape the form utils expect from the EW-supplied
 // `ctx`. `ctx.path` is the full `org/site/path` locator; the DA source is the
-// `.html` document at that path.
+// `.html` document at that path. `parent` and `name` match the upload context Canvas uses.
 function detailsFromCtx(ctx) {
   if (!ctx?.org || !ctx?.repo || !ctx?.path) return null;
   const raw = `/${String(ctx.path).replace(/^\/+/, '')}`;
   const fullpath = raw.toLowerCase().endsWith('.html') ? raw : `${raw}.html`;
-  const name = fullpath.slice(fullpath.lastIndexOf('/') + 1, -'.html'.length);
+  const separator = fullpath.lastIndexOf('/');
   return {
     owner: ctx.org,
     repo: ctx.repo,
-    name,
+    parent: fullpath.slice(0, separator),
+    name: fullpath.slice(separator + 1, -'.html'.length),
     fullpath,
     sourceUrl: fullpath,
   };
@@ -45,21 +47,23 @@ function ctxFromHashState(state) {
 async function loadAemRepoConfig({ owner, repo }) {
   try {
     const { getRepositoryConfig } = await import('../../../nx2/utils/aem-assets/repository-config.js');
-    return await getRepositoryConfig(owner, repo);
-  } catch {
-    return null;
+    return { repoConfig: await getRepositoryConfig(owner, repo) };
+  } catch (error) {
+    return { error };
   }
 }
 
 class Form extends LitElement {
   static properties = {
     ctx: { attribute: false },
+
     _context: { state: true },
     _state: { state: true },
     _nav: { state: true },
     _pendingSchemaId: { state: true },
-    _aemRepoConfig: { state: true },
-    _mediaPreviewOrigin: { state: true },
+
+    _assetSources: { state: true },
+    _previewOrigin: { state: true },
   };
 
   // Reactive properties (declared in static properties) must NOT have class-
@@ -91,30 +95,6 @@ class Form extends LitElement {
       origin,
       seq: (this._nav?.seq ?? 0) + 1,
     };
-  };
-
-  async _selectFromSource({ source, details }) {
-    if (source === 'upload') {
-      return selectImageSource({ details });
-    }
-    if (source === 'aem-assets' && this._aemRepoConfig) {
-      const { selectAemAsset } = await import('./utils/aem-selector.js');
-      return selectAemAsset({ repoConfig: this._aemRepoConfig });
-    }
-    throw new Error(`The "${source}" asset source is not available for this form.`);
-  }
-
-  _onSelectAsset = async ({ source }) => {
-    const { _details: details, _loadVersion: version } = this;
-    if (!details) {
-      throw new Error('The form document is not ready for asset selection.');
-    }
-
-    const result = await this._selectFromSource({ source, details });
-    if (version !== this._loadVersion) {
-      return { cancelled: true };
-    }
-    return result;
   };
 
   connectedCallback() {
@@ -178,12 +158,14 @@ class Form extends LitElement {
     this._loadVersion += 1;
     const version = this._loadVersion;
     this._pendingSchemaId = '';
-    this._aemRepoConfig = null;
-    this._mediaPreviewOrigin = undefined;
     this._state = null;
     this._editor = null;
     this._persistence?.detach();
     this._persistence = null;
+
+    this._assetSources = undefined;
+    this._previewOrigin = undefined;
+
     this._details = detailsFromCtx(this.ctx);
 
     if (!this._details) {
@@ -203,17 +185,32 @@ class Form extends LitElement {
     }
 
     if (context.status === 'ready' || context.status === 'select-schema') {
-      const { owner, repo } = this._details;
-      const [repoConfig, previewOrigin] = await Promise.all([
-        loadAemRepoConfig({ owner, repo }),
-        openMediaPreview({ owner, repo }),
-      ]);
-      if (version !== this._loadVersion) {
-        return;
-      }
-      this._aemRepoConfig = repoConfig;
-      this._mediaPreviewOrigin = previewOrigin;
+      await this._loadAssetContext(version);
     }
+  }
+
+  // File sources and previews load independently, so a slow preview login never delays sources.
+  async _loadAssetContext(version) {
+    const { owner, repo } = this._details;
+    const isCurrent = () => version === this._loadVersion;
+
+    ensureLivePreviewLogin({ org: owner, repo }).then(() => {
+      if (isCurrent()) {
+        this._previewOrigin = getLivePreviewUrl(owner, repo);
+      }
+    });
+
+    const { repoConfig, error } = await loadAemRepoConfig({ owner, repo });
+    if (!isCurrent()) {
+      return;
+    }
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn('AEM Assets configuration unavailable; offering Upload only.', error);
+    }
+
+    this._assetSources = createAssetSources({ details: this._details, repoConfig, isCurrent });
   }
 
   _onPendingSchemaChange(e) {
@@ -410,11 +407,8 @@ class Form extends LitElement {
             .state=${this._state}
             .nav=${this._nav}
             .onSelect=${this._onSelect}
-            .assetContext=${{
-              onSelectSource: this._onSelectAsset,
-              previewOrigin: this._mediaPreviewOrigin,
-              aemAssetsAvailable: !!this._aemRepoConfig,
-            }}
+            .assetSources=${this._assetSources}
+            .previewOrigin=${this._previewOrigin}
           ></nx-editor>
           <nx-preview .state=${this._state}></nx-preview>
         </div>

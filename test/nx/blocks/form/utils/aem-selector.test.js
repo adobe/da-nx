@@ -1,10 +1,17 @@
 import { expect } from '@esm-bundle/chai';
 import { selectAemAsset } from '../../../../../nx/blocks/form/utils/aem-selector.js';
+
 import {
   DM_ERROR_MSG,
   MISSING_FORMAT_ERROR_MSG,
   PUBLISH_ERROR_MSG,
 } from '../../../../../nx2/utils/aem-assets/selection.js';
+
+const AEM_ERRORS = {
+  signIn: 'Sign in to select a file from AEM Assets.',
+  unavailable: 'The AEM Assets selector could not be loaded.',
+  fileType: 'The selected asset type is not allowed here.',
+};
 
 const METADATA_KEY = 'http://ns.adobe.com/adobecloud/rel/metadata/asset';
 
@@ -45,13 +52,15 @@ function stubSelector() {
   return { calls, loadSelector: async () => ({ selectors }) };
 }
 
-function start({ repoConfig = AUTHOR_PUBLISH_CONFIG, loadSelector, getToken } = {}) {
+function start({
+  repoConfig = AUTHOR_PUBLISH_CONFIG, loadSelector, getToken, contentMediaType,
+} = {}) {
   const selector = stubSelector();
   const pick = selectAemAsset({
     repoConfig,
+    contentMediaType,
     loadSelector: loadSelector ?? selector.loadSelector,
     getToken: getToken ?? (async () => 'ims-token'),
-    loadStyles: async () => {},
   });
   return { pick, calls: selector.calls };
 }
@@ -66,13 +75,8 @@ const waitForRender = async (calls) => {
 
 const openDialog = () => document.querySelector('.nx-form-aem-dialog');
 
-async function expectRejection(pick, message) {
-  try {
-    await pick;
-    throw new Error('Expected the selection to fail.');
-  } catch (error) {
-    expect(error.message).to.equal(message);
-  }
+async function expectError(pick, message) {
+  expect(await pick).to.deep.equal({ error: message });
 }
 
 describe('selectAemAsset', () => {
@@ -84,7 +88,10 @@ describe('selectAemAsset', () => {
     const { pick, calls } = start();
     const { panel, props } = await waitForRender(calls);
 
-    expect(openDialog().open).to.equal(true);
+    expect(openDialog().localName).to.equal('nx-dialog');
+    expect(openDialog().title).to.equal('AEM Assets');
+    await openDialog().updateComplete;
+    expect(openDialog().shadowRoot.querySelector('dialog').open).to.equal(true);
     expect(openDialog().contains(panel)).to.equal(true);
     expect(props.imsToken).to.equal('ims-token');
     expect(props.repositoryId).to.equal('author-p1-e1.adobeaemcloud.com');
@@ -100,9 +107,10 @@ describe('selectAemAsset', () => {
 
     props.handleSelection([IMAGE_ASSET]);
 
-    expect(await pick).to.deep.equal({
+    expect(await pick).to.deep.include({
       href: 'https://publish-p1-e1.adobeaemcloud.com/content/dam/photo.jpg',
       name: 'photo.jpg',
+      type: 'image/jpeg',
     });
     expect(openDialog()).to.equal(null);
   });
@@ -116,7 +124,7 @@ describe('selectAemAsset', () => {
       _embedded: { [METADATA_KEY]: { 'dam:assetStatus': 'draft' } },
     }]);
 
-    await expectRejection(pick, DM_ERROR_MSG);
+    await expectError(pick, DM_ERROR_MSG);
     expect(openDialog()).to.equal(null);
   });
 
@@ -126,7 +134,7 @@ describe('selectAemAsset', () => {
 
     props.handleSelection([{ ...IMAGE_ASSET, 'repo:scene7FileStatus': 'PublishIncomplete' }]);
 
-    await expectRejection(pick, PUBLISH_ERROR_MSG);
+    await expectError(pick, PUBLISH_ERROR_MSG);
   });
 
   it('rejects an asset without a format', async () => {
@@ -135,7 +143,7 @@ describe('selectAemAsset', () => {
 
     props.handleSelection([{ ...IMAGE_ASSET, 'aem:formatName': undefined }]);
 
-    await expectRejection(pick, MISSING_FORMAT_ERROR_MSG);
+    await expectError(pick, MISSING_FORMAT_ERROR_MSG);
   });
 
   it('cancels when the selector closes', async () => {
@@ -168,16 +176,16 @@ describe('selectAemAsset', () => {
   });
 
   it('fails without opening a dialog when the selector cannot load', async () => {
-    const { pick } = start({ loadSelector: async () => ({ error: 'The AEM Assets selector could not be loaded.' }) });
+    const { pick } = start({ loadSelector: async () => ({ error: AEM_ERRORS.unavailable }) });
 
-    await expectRejection(pick, 'The AEM Assets selector could not be loaded.');
+    await expectError(pick, AEM_ERRORS.unavailable);
     expect(openDialog()).to.equal(null);
   });
 
   it('fails when the loaded script does not provide a selector', async () => {
     const { pick } = start({ loadSelector: async () => ({ selectors: {} }) });
 
-    await expectRejection(pick, 'The AEM Assets selector could not be loaded.');
+    await expectError(pick, AEM_ERRORS.unavailable);
     expect(openDialog()).to.equal(null);
   });
 
@@ -188,8 +196,37 @@ describe('selectAemAsset', () => {
       loadSelector: async () => { loads += 1; return { selectors: {} }; },
     });
 
-    await expectRejection(pick, 'Sign in to select an image from AEM Assets.');
+    await expectError(pick, AEM_ERRORS.signIn);
     expect(loads).to.equal(0);
     expect(openDialog()).to.equal(null);
+  });
+
+  it('rejects selected assets of a type the field does not accept', async () => {
+    const { pick, calls } = start({ contentMediaType: 'application/pdf' });
+    const { props } = await waitForRender(calls);
+
+    props.handleSelection([IMAGE_ASSET]);
+
+    await expectError(pick, AEM_ERRORS.fileType);
+    expect(openDialog()).to.equal(null);
+  });
+
+  it('accepts any type without contentMediaType', async () => {
+    const { pick, calls } = start();
+    const { props } = await waitForRender(calls);
+
+    expect(props.filterSchema).to.equal(undefined);
+    props.handleSelection([{ ...IMAGE_ASSET, mimetype: 'application/zip', name: 'kit.zip' }]);
+
+    expect((await pick).type).to.equal('application/zip');
+  });
+
+  it('reads the type from dc:format when mimetype is missing', async () => {
+    const { pick, calls } = start({ contentMediaType: 'image/*' });
+    const { props } = await waitForRender(calls);
+
+    props.handleSelection([{ ...IMAGE_ASSET, mimetype: undefined, 'dc:format': 'Image/JPEG' }]);
+
+    expect((await pick).type).to.equal('image/jpeg');
   });
 });
