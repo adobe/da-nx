@@ -786,25 +786,6 @@ resolved by `_resolveManifest()`:
 - With neither set, `manifestId` is the default (`AO_MANIFEST_ID`,
   `experience-workspace`).
 
-## New chat icon
-
-The "New chat" button uses a distinct Coworker icon
-(`nx2/img/icons/S2_Icon_Coworker_20_N.svg`) instead of the shared `+` icon
-used elsewhere, so it's visually distinguishable as starting a fresh
-Coworker session rather than a generic add action. It's loaded via
-`loadHrefSvg` (`nx2/utils/svg.js`) rather than the CDN `icon()` helper
-because the asset isn't (yet) published to the shared icon CDN. If the
-fetch fails for any reason, the button falls back to the old `+` icon
-(`icon('add')`) rather than rendering blank.
-
-It's fetched from `ICONS_BASE` (`nx2/utils/svg.js`), not `codeBase`.
-`codeBase` is set by the host (e.g. da-live's `scripts/scripts.js`) to the
-*host's own* origin, independent of which nx2 branch is loaded via `?nx=`
-— existing CDN icons resolve through it only because they're already
-published on the host's side. `ICONS_BASE` instead resolves relative to
-wherever this nx2 bundle itself was loaded from, so it correctly follows
-an `?nx=` branch override for icons that only exist in this repo.
-
 ## AO wire-protocol notes
 
 - **First-op restriction.** A fresh WebSocket connection's first substantive

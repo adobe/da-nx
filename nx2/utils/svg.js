@@ -8,9 +8,7 @@ export const loadHrefSvg = (() => {
   const cache = {};
 
   return (href) => {
-    // Never reject: a caller awaiting this at module top level (e.g. a
-    // module-scope `const icon = await loadHrefSvg(...)`) would otherwise
-    // fail the whole module's evaluation on a network hiccup.
+    // Never reject, so a module-top-level await doesn't fail module evaluation.
     cache[href] ??= (async () => {
       try {
         const resp = await fetch(href);
