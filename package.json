@@ -1,7 +1,7 @@
 {
   "name": "nexter",
   "private": true,
-  "version": "1.7.0",
+  "version": "1.8.2",
   "description": "Next generation unified shell for Edge Delivery applications.",
   "type": "module",
   "scripts": {
@@ -72,7 +72,7 @@
     "prosemirror-model": "1.25.4",
     "prosemirror-state": "1.4.3",
     "prosemirror-tables": "1.8.1",
-    "prosemirror-view": "1.41.4",
+    "prosemirror-view": "1.42.3",
     "semantic-release": "^25.0.9",
     "sinon": "13.0.2",
     "stylelint": "17.14.1",
