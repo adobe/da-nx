@@ -207,6 +207,7 @@ URL builders per mode.
 Helpers.
 
 - `resolveRenditionType(mimetype, { mimeRenditionOverrides })` returns `avif`, `play`, or `original`.
+- `getMimetype(asset)` returns `mimetype`, then `dc:format`, or an empty string. It keeps the original case.
 - `getAssetAlt(asset)` prefers `Iptc4xmpExt:ExtDescrAccessibility`, then `dc:description`, `dc:title`, and the asset name.
 - `getDmApprovalStatus(asset)` returns `{ status, activationTarget }` from the asset metadata.
 - `getScene7PublishStatus(asset)` returns `repo:scene7FileStatus`.
