@@ -321,6 +321,12 @@
   --nx-ui-icon-status: 24px;
   --nx-ui-icon-toolbar: 16px;
   --nx-ui-segment-height: 24px;
+  --nx-ui-segment-padding: 9px;
+  --nx-ui-toolbar-btn-size: 24px;
+  --nx-ui-icon-btn-size: 24px;
+  --nx-ui-inline-btn-height: 24px;
+  --nx-ui-panel-field-height: 24px;
+  --nx-ui-field-border-width: 2px;
 
   /* fonts */
   --s2-font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
@@ -356,7 +362,13 @@ body.ui-size-m {
   --nx-ui-line-component: var(--s2-component-m-regular-line-height);
   --nx-ui-icon-indicator: 16px;
   --nx-ui-icon-toolbar: 18px;
-  --nx-ui-segment-height: 28px;
+  --nx-ui-segment-height: 32px;
+  --nx-ui-segment-padding: var(--s2-spacing-200);
+  --nx-ui-toolbar-btn-size: 32px;
+  --nx-ui-icon-btn-size: 32px;
+  --nx-ui-inline-btn-height: 28px;
+  --nx-ui-panel-field-height: 32px;
+  --nx-ui-field-border-width: 1px;
   --nx-ui-icon-btn-hover-bg: var(--s2-gray-75);
   --nx-ui-icon-btn-hover-color: var(--s2-gray-800);
 }
