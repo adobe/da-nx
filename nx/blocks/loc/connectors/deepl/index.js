@@ -396,7 +396,7 @@ export async function sendAllLanguages({
     }
   }
 
-  sendMessage({ text: `DeepL translation completed for project: ${title}.` });
+  sendMessage();
   await saveState({ options });
 }
 
