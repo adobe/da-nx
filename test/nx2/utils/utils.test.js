@@ -1,5 +1,15 @@
 import { expect } from '@esm-bundle/chai';
-import { sheet2object, object2sheet } from '../../../nx2/utils/utils.js';
+import { sheet2object, object2sheet, getScUrl, DA_SC } from '../../../nx2/utils/utils.js';
+
+describe('getScUrl', () => {
+  it('serves the page from the preview tier by default', () => {
+    expect(getScUrl({ path: '/org/site/forms/contact' })).to.equal(`${DA_SC}/preview/org/site/forms/contact`);
+  });
+
+  it('serves the page from the given tier', () => {
+    expect(getScUrl({ path: '/org/site/forms/contact', tier: 'live' })).to.equal(`${DA_SC}/live/org/site/forms/contact`);
+  });
+});
 
 describe('sheet2object', () => {
   it('converts a single-sheet doc to a simple object', () => {

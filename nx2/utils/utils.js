@@ -84,6 +84,11 @@ export const DA_FEEDBACK = getEnv('da-feedback', DA_FEEDBACK_ENVS);
 export const DA_TRANSLATE = getEnv('da-translate', DA_TRANSLATE_ENVS);
 export const DA_SC = getEnv('da-sc', DA_SC_ENVS);
 
+/** da-sc URL serving the page at `path` (e.g. `/org/site/forms/contact`) from an AEM `tier`. */
+export function getScUrl({ path, tier = 'preview' }) {
+  return `${DA_SC}/${tier}${path}`;
+}
+
 export const HLX_ADMIN = 'https://admin.hlx.page';
 export const AEM_API = 'https://api.aem.live';
 
