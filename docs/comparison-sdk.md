@@ -1,5 +1,7 @@
 # Workspace comparison actions
 
+See [SDK messaging](sdk-messaging.md) for the choice between fire-and-forget commands and acknowledged operations, and guidance for implementing responses in other hosts.
+
 The SDK exposes comparison actions for the EW host:
 
 ```js
