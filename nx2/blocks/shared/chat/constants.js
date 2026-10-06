@@ -12,7 +12,7 @@ export const MENU_OPTIONS = {
 
 export const ICON_NAMES = {
   add: 's2-icon-add-20-n',
-  assistant: 's2-icon-coworker-20-n',
+  sparkle: 's2-icon-coworker-20-n',
   clear: 's2-icon-removecircle-20-n',
   close: 's2-icon-splitleft-20-n',
   send: 's2-icon-arrowupsend-20-n',
