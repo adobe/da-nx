@@ -1,7 +1,7 @@
 import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { daFetch, source as daSource } from '../../../../../nx2/utils/api.js';
-import { DA_ETC } from '../../../../utils/utils.js';
+import { DA_ETC, ensureLivePreviewLogin } from '../../../../utils/utils.js';
 import {
   buildGlaasCreateMetadata,
   getOpts,
@@ -11,7 +11,6 @@ import {
 } from './api.js';
 import {
   isEligibleMultimodalImageUrl, toHref, parseAemPageHost, aemPageToPreviewDaLiveUrl,
-  ensureLivePreviewLogin,
 } from './imageSelections.js';
 import { LOC_SRC_ATTR } from './dnt.js';
 

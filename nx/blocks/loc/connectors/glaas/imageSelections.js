@@ -1,5 +1,5 @@
 import getElementMetadata from '../../../../../nx2/utils/getElementMetadata.js';
-import { getLivePreviewUrl, livePreviewLogin } from '../../../../utils/utils.js';
+import { getLivePreviewUrl } from '../../../../utils/utils.js';
 
 export const LOC_IMAGES_KEY = 'loc-images';
 export const DA_METADATA_SELECTOR = 'body > .da-metadata';
@@ -68,21 +68,6 @@ export function parseAemPageHost(href) {
 export function aemPageToPreviewDaLiveUrl(imageUrl, { ref, repo, org }) {
   const url = new URL(imageUrl);
   return `${getLivePreviewUrl(org, repo, ref)}${url.pathname}${url.search}`;
-}
-
-// Memoized per {org}/{repo}/{ref} so concurrent callers share one cookie exchange.
-const livePreviewLogins = new Map();
-export function ensureLivePreviewLogin({ org, repo, ref }) {
-  const key = `${org}/${repo}/${ref}`;
-  let login = livePreviewLogins.get(key);
-  if (!login) {
-    login = livePreviewLogin(org, repo, ref).then((ok) => {
-      if (!ok) livePreviewLogins.delete(key);
-      return ok;
-    });
-    livePreviewLogins.set(key, login);
-  }
-  return login;
 }
 
 // Accepts an HTML string or an already-parsed Document (skips re-parsing when the caller has one).
