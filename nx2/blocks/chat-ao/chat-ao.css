@@ -56,6 +56,14 @@
     margin-inline-start: auto;
     white-space: nowrap;
   }
+
+  .nx-action-btn-icon.chat-close {
+    --nx-ui-icon-regular: var(--nx-ui-icon-toolbar);
+
+    width: var(--nx-ui-icon-btn-size);
+    height: var(--nx-ui-icon-btn-size);
+    padding: 0;
+  }
 }
 
 .chat-scroll-container {

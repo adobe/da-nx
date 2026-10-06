@@ -77,6 +77,7 @@ then reload (with "Disable cache" ticked while testing branch previews).
 | Token | Role | s | m |
 |---|---|---|---|
 | `--nx-ui-toolbar-btn-size` | Block/selection toolbar buttons and variant picker | 24 | 32 |
+| `--nx-ui-icon-btn-size` | Standalone icon buttons (canvas header, chat close, tool panel close, Create version) | 28 | 32 |
 | `--nx-ui-inline-btn-height` | Small inline buttons (version filters, compare actions) | 24 | 28 |
 | `--nx-ui-panel-field-height` | Inputs/buttons in panel forms (new version row) | 24 | 32 |
 | `--nx-ui-field-border-width` | Comment textarea border | 2 | 1 |
@@ -88,9 +89,10 @@ The hover tokens are the same in s and m: every icon button hovers pale gray.
 The 2px blue `:focus-visible` outline on canvas toolbar buttons is m-only, applied through
 `:host([data-ui-size="m"])` so s keeps the browser default ring.
 
-Icon buttons outside toolbars (chat close, tool panel close, Create version) use the shared
-`nx-action-btn-icon` class. They add `nx-btn-sm` in s (24px button, 16px icon) and drop it in m
-(32px button, 18px icon), so the size comes from the button class, not from a token.
+Standalone icon buttons (canvas header, chat close, tool panel close, Create version) use the shared
+`nx-action-btn-icon` class, resized by the consumer with `--nx-ui-icon-btn-size` and
+`--nx-ui-icon-toolbar`: 28px button with a 16px icon in s, 32px with 18px in m. 28 rather than 24 in s
+keeps them easy to hit with a mouse. Chat input and canvas toolbar buttons keep their own sizes.
 
 ## Segmented buttons
 
