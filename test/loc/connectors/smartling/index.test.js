@@ -2,7 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import {
   isConnected, connect, saveItems, sendAllLanguages, getStatusAll, translationProgress,
-  listProjects, listWorkflows, serviceOptions, cancelTranslation
+  listProjects, listWorkflows, serviceOptions, cancelTranslation,
 } from '../../../../nx/blocks/loc/connectors/smartling/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 
@@ -410,11 +410,11 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(langs[0].translation.translated).to.equal(1);
   });
 
-  it('marks a pending-cancel lang cancelled once its locale is gone from job progress', async () => {
+  it('marks a pending-cancel lang cancelled once no file lists its locale', async () => {
     origFetch = window.fetch;
-    window.fetch = async () => new Response(JSON.stringify({
-      response: { data: { contentProgressReport: [{ targetLocaleId: 'de-DE', progress: { percentComplete: 50 } }] } },
-    }), { status: 200 });
+    window.fetch = async () => fileStatusResponse(10, [
+      localeCounts('de-DE', 5), localeCounts('es-ES', 5),
+    ]);
     const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
     const langs = [
       { code: 'fr-FR', translation: { status: 'translated', cancelPending: true } },
@@ -422,47 +422,15 @@ describe('smartling connector - legacy origin rewriting', () => {
       { code: 'es-ES', translation: { status: 'translated' } },
     ];
     await getStatusAll({
-      org, site, service, langs, urls: [], actions: { saveState: async () => {} },
+      org, site, service, langs, urls: [{ daBasePath: '/page' }], actions: { saveState: async () => {} },
     });
 
     expect(langs[0].translation.status).to.equal('cancelled');
+    expect(langs[0].translation.translated).to.equal(0);
     expect(langs[0].translation.cancelPending).to.equal(undefined);
     expect(langs[1].translation.status).to.equal('50% translated');
     expect(langs[1].translation.cancelPending).to.equal(true);
-    expect(langs[2].translation.status).to.equal('0% translated');
-  });
-
-  it('reconciles a cancelled locale against a real job progress payload that omits it', async () => {
-    const report = (id, percentComplete) => ({
-      targetLocaleId: id,
-      unauthorizedProgressReport: { stringCount: 0, wordCount: 0 },
-      workflowProgressReportList: [],
-      progress: { totalWordCount: 252, percentComplete },
-    });
-    origFetch = window.fetch;
-    window.fetch = async () => new Response(JSON.stringify({
-      response: {
-        code: 'SUCCESS',
-        data: {
-          contentProgressReport: [report('it-IT', 53), report('es-ES', 50), report('fr-FR', 53)],
-          progress: { totalWordCount: 756, percentComplete: 52 },
-        },
-      },
-    }), { status: 200 });
-    const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
-    const langs = ['de-DE', 'it-IT', 'es-ES', 'fr-FR'].map((code) => ({
-      code, translation: { status: '0% translated', translated: 0 },
-    }));
-    langs[0].translation.cancelPending = true;
-
-    await getStatusAll({
-      org, site, service, langs, urls: [], actions: { saveState: async () => {} },
-    });
-
-    expect(langs.map((l) => l.translation.status)).to.deep.equal([
-      'cancelled', '53% translated', '50% translated', '53% translated',
-    ]);
-    expect(langs[0].translation.cancelPending).to.equal(undefined);
+    expect(langs[2].translation.status).to.equal('50% translated');
   });
 
   it('surfaces an error and does nothing when the job has not been created yet (no jobUid)', async () => {
