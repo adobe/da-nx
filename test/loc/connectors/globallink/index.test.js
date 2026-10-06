@@ -450,10 +450,54 @@ describe('globallink connector', () => {
 
       const errorMessage = messages.find((m) => m.type === 'error' && m.text.includes('aborting save'));
       expect(errorMessage.text).to.equal('Uploaded 1/2 items — aborting save.');
-      expect(langs[0].translation.status).to.equal('error');
-      expect(langs[0].translation.sent).to.equal(1);
-      expect(saveStateCalled).to.equal(true);
+      expect(langs[0].translation).to.be.undefined;
+      expect(options.service.submissionIds).to.be.undefined;
+      expect(saveStateCalled).to.equal(false);
       expect(calls.some((c) => c.url.endsWith('/save'))).to.equal(false);
+    });
+
+    it('propagates GlobalLink\'s explanation when submission creation fails', async () => {
+      installFetch((u) => {
+        if (u.includes('/rest/v0/submissions/create')) {
+          return new Response(JSON.stringify({ messages: ['Invalid project.'] }), { status: 400 });
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService();
+      const langs = [{ name: 'French', code: 'fr-FR' }];
+      const messages = [];
+      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 't', service, options: { service }, langs, urls: [{ daBasePath: '/page', content: '<p>hi</p>' }], actions,
+      });
+
+      expect(messages.find((m) => m.type === 'error').text)
+        .to.equal('Failed to create GlobalLink submission. Invalid project.');
+      expect(langs[0].translation).to.be.undefined;
+    });
+
+    it('propagates GlobalLink\'s explanation when the upload request fails', async () => {
+      installFetch((u) => {
+        if (u.includes('/upload/source')) {
+          return new Response(JSON.stringify({ message: 'Unsupported file format.' }), { status: 400 });
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService();
+      const options = { service };
+      const langs = [{ name: 'French', code: 'fr-FR' }];
+      const messages = [];
+      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 't', service, options, langs, urls: [{ daBasePath: '/page', content: '<p>hi</p>' }], actions,
+      });
+
+      expect(messages.find((m) => m.type === 'error').text)
+        .to.equal('Uploaded 0/1 items — aborting save. Unsupported file format.');
+      expect(langs[0].translation).to.be.undefined;
+      expect(options.service.submissionIds).to.be.undefined;
     });
 
     it('tracks an overflow submission GlobalLink splits the upload into', async () => {
@@ -554,8 +598,8 @@ describe('globallink connector', () => {
 
       const errorMessage = messages.find((m) => m.type === 'error');
       expect(errorMessage.text).to.equal('Failed to process GlobalLink submission uploads.');
-      expect(langs[0].translation.status).to.equal('error');
-      expect(saveStateCalled).to.equal(true);
+      expect(langs[0].translation).to.be.undefined;
+      expect(saveStateCalled).to.equal(false);
       expect(calls.some((c) => c.url.endsWith('/save'))).to.equal(false);
     });
 
@@ -584,7 +628,7 @@ describe('globallink connector', () => {
       expect(errorMessage.text).to.equal(
         'Failed to save/start GlobalLink submission. Missing mandatory field Custom_Mandatory',
       );
-      expect(langs[0].translation.status).to.equal('error');
+      expect(langs[0].translation).to.be.undefined;
     });
 
     it('errors with no trailing detail when the /save request itself fails', async () => {
@@ -606,7 +650,7 @@ describe('globallink connector', () => {
 
       const errorMessage = messages.find((m) => m.type === 'error');
       expect(errorMessage.text).to.equal('Failed to save/start GlobalLink submission.');
-      expect(langs[0].translation.status).to.equal('error');
+      expect(langs[0].translation).to.be.undefined;
     });
 
     it('does not let two DA paths collide into the same uploaded file name', async () => {
