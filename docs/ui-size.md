@@ -77,7 +77,7 @@ then reload (with "Disable cache" ticked while testing branch previews).
 | Token | Role | s | m |
 |---|---|---|---|
 | `--nx-ui-toolbar-btn-size` | Block/selection toolbar buttons and variant picker | 24 | 32 |
-| `--nx-ui-icon-btn-size` | Standalone icon buttons (canvas header, chat close and input actions, tool panel close, Create version) | 28 | 32 |
+| `--nx-ui-icon-btn-size` | Standalone icon buttons (canvas header, Prepare menu, chat close and input actions, tool panel and dialog close, versions and file explorer actions) | 28 | 32 |
 | `--nx-ui-inline-btn-height` | Small inline buttons (version filters, compare actions) | 24 | 28 |
 | `--nx-ui-panel-field-height` | Inputs/buttons in panel forms (new version row) | 24 | 32 |
 | `--nx-ui-field-border-width` | Comment textarea border | 2 | 1 |
@@ -89,10 +89,10 @@ The hover tokens are the same in s and m. EW's standalone icon buttons use them 
 The 2px blue `:focus-visible` outline on canvas toolbar buttons is m-only, applied through
 `:host([data-ui-size="m"])` so s keeps the browser default ring.
 
-Standalone icon buttons (canvas header, chat close, chat input actions, tool panel close, Create version) use the shared
+Standalone icon buttons (canvas header, Prepare menu, chat close, chat input actions, tool panel close, Create version) use the shared
 `nx-action-btn-icon` class, resized by the consumer with `--nx-ui-icon-btn-size` and
 `--nx-ui-icon-toolbar`: 28px button with a 16px icon in s, 32px with 18px in m. 28 rather than 24 in s
-keeps them easy to hit with a mouse. Canvas block and selection toolbar buttons keep their own sizes.
+keeps them easy to hit with a mouse. da-live's `.da-icon-btn` (versions, compare, file explorer) and the tool panel dialog close use the same tokens. Canvas block and selection toolbar buttons keep their own sizes.
 
 ## Segmented buttons
 
