@@ -18,7 +18,7 @@ Actions use the MessagePort transferred in the `ready` handshake. Each acknowled
 { action: 'sdkResponse', requestId, result: { ok: false, error: 'save-failed' } }
 ```
 
-Reply after the operation finishes, including failures, not when it is queued. The host owns the page context and must reject requests from stale contexts.
+EW replies after the operation finishes, including failures, and rejects requests from stale page contexts.
 
 The private `handleSdkResponse` helper registers a listener before sending and accepts only `sdkResponse` replies with the matching request ID. Concurrent calls can finish in any order. Each call removes its listener and clears its timer when it settles; unrelated and late replies are ignored.
 
@@ -28,6 +28,6 @@ Results require a boolean `ok`. Malformed matching replies return `invalid-respo
 
 After 15 seconds without a reply, the SDK returns `{ ok: false, error: 'timeout' }`. The host may still complete the operation. Timeout does not cancel it, and the SDK does not retry. Do not automatically retry a mutation or continue work that needed a successful response. Request IDs correlate replies; they do not prevent duplicate execution.
 
-The SDK and host deploy independently, without capability negotiation. A method's presence does not prove host support: unsupported commands may be ignored, and acknowledged calls time out.
+The SDK and EW deploy independently, without capability negotiation. A method's presence does not prove EW support: unsupported commands may be ignored, and acknowledged calls time out.
 
-Add acknowledgements only when a caller needs completion. Define success and failure results, implement the host response, and test correlation, concurrent calls, malformed replies, timeout, and cleanup. Reuse the helper where it fits; leave older reply mechanisms such as `getSelection()` unchanged.
+Add acknowledgements only when a caller needs completion. Define success and failure results, implement the matching EW response, and test correlation, concurrent calls, malformed replies, timeout, and cleanup. Reuse the helper where it fits; leave older reply mechanisms such as `getSelection()` unchanged.
