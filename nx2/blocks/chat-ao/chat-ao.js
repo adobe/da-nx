@@ -397,7 +397,7 @@ export default class NxChatAo extends LitElement {
           ></nx-picker>` : nothing}
         <div>
           <button type="button" class="nx-action-btn-quiet" @click=${this._handleNewSession}>
-            ${icon('sparkle')}
+            ${icon('newChat')}
             <span>New chat</span>
           </button>
           <button
