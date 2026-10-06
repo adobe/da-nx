@@ -2,10 +2,17 @@ import { setImsDetails, daFetch } from './daFetch.js';
 
 let port2;
 
-export function createHostActions({ port, capabilities = {} }) {
-  const request = (action, capability, details) => {
-    if (capabilities[capability] !== 1) return Promise.resolve({ ok: false, error: 'unsupported' });
-    return new Promise((resolve) => {
+export function createHostActions({ port }) {
+  return {
+    openComparison: (options = {}) => {
+      const { candidate, baseline } = options ?? {};
+      if (!['document', 'preview'].includes(candidate) || baseline !== 'live') {
+        throw new TypeError('invalid-comparison');
+      }
+      port.postMessage({ action: 'openComparison', details: { candidate, baseline } });
+    },
+    closeComparison: () => { port.postMessage({ action: 'closeComparison' }); },
+    saveDocument: () => new Promise((resolve) => {
       const requestId = crypto.randomUUID();
       const pending = {};
       const finish = (result) => {
@@ -19,24 +26,14 @@ export function createHostActions({ port, capabilities = {} }) {
           ? data.result : { ok: false, error: 'invalid-response' });
       };
       pending.timer = setTimeout(() => finish({ ok: false, error: 'timeout' }), 15000);
-      port.addEventListener('message', pending.listener);
-      port.start();
       try {
-        port.postMessage({ action, details, requestId });
+        port.addEventListener('message', pending.listener);
+        port.start();
+        port.postMessage({ action: 'saveDocument', requestId });
       } catch {
         finish({ ok: false, error: 'disconnected' });
       }
-    });
-  };
-  return {
-    openComparison: ({ candidate, baseline } = {}) => {
-      if (!['document', 'preview'].includes(candidate) || baseline !== 'live') {
-        return Promise.resolve({ ok: false, error: 'invalid-comparison' });
-      }
-      return request('openComparison', 'comparison', { candidate, baseline });
-    },
-    closeComparison: () => request('closeComparison', 'comparison'),
-    saveDocument: () => request('saveDocument', 'saveDocument'),
+    }),
   };
 }
 
@@ -110,7 +107,7 @@ const DA_SDK = (() => new Promise((resolve) => {
       }
 
       const actions = {
-        ...createHostActions({ port: port2, capabilities: e.data.capabilities }),
+        ...createHostActions({ port: port2 }),
         daFetch,
         sendText,
         sendHTML,
