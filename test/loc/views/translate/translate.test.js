@@ -3,10 +3,7 @@ import '../../../../nx/blocks/loc/views/translate/translate.js';
 
 function createTranslateEl() {
   const el = document.createElement('nx-loc-translate');
-  // `renderRoot` is normally created by `connectedCallback()`, which also
-  // calls `setupService()` and needs a full project/connector setup we
-  // don't want for these tests - provide a plain container instead so
-  // `update()`'s real `super.update()` can render without connecting.
+  // Stand-in for renderRoot, avoiding connectedCallback's service setup.
   el.renderRoot = document.createElement('div');
   return el;
 }
@@ -20,6 +17,26 @@ describe('NxLocTranslate - update() message guard', () => {
     el.update(new Map([['message', { text: 'Saving...' }]]));
 
     expect(el._message).to.deep.equal({ text: 'Failed to save/start GlobalLink submission.', type: 'error' });
+  });
+
+  it('keeps a local error through the parent transient "Saving..." message', () => {
+    const el = createTranslateEl();
+    el._message = { text: 'Connector failed.', type: 'error' };
+    el.message = { text: 'Saving...', transient: true };
+
+    el.update(new Map([['message', undefined]]));
+
+    expect(el._message).to.deep.equal({ text: 'Connector failed.', type: 'error' });
+  });
+
+  it('replaces a local error with a non-error parent message', () => {
+    const el = createTranslateEl();
+    el._message = { text: 'Connector failed.', type: 'error' };
+    el.message = { text: 'Project loaded.' };
+
+    el.update(new Map([['message', undefined]]));
+
+    expect(el._message).to.deep.equal({ text: 'Project loaded.' });
   });
 
   it('still applies a newer error pushed down from the parent', () => {

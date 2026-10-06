@@ -154,7 +154,7 @@ describe('NxLoc handleSave', () => {
 
     const savePromise = el.handleSave({ detail: { data: { langs: [] } } });
     await new Promise((resolve) => { setTimeout(resolve, 0); });
-    expect(el._message).to.deep.equal({ text: 'Saving...' });
+    expect(el._message).to.deep.equal({ text: 'Saving...', transient: true });
 
     await savePromise;
 

@@ -40,13 +40,10 @@ class NxLocTranslate extends LitElement {
   }
 
   update(props) {
-    // Allow the parent to pass or clear a message, but don't let an
-    // incidental parent-side save (e.g. persisting an error's status)
-    // clobber a connector error already showing locally - only a newer
-    // error from the parent may replace it.
+    // Parent save progress (transient) or its clear must not wipe a local error.
     if (props.has('message')) {
-      const hadError = this._message?.type === 'error';
-      if (!hadError || this.message?.type === 'error') this._message = this.message;
+      const incidental = !this.message || this.message.transient;
+      if (this._message?.type !== 'error' || !incidental) this._message = this.message;
     }
     if (props.has('project')) this.setupProject();
     super.update();
@@ -187,6 +184,7 @@ class NxLocTranslate extends LitElement {
   async handleSendAll() {
     if (this._sendAllBusy) return;
     this._sendAllBusy = true;
+    this.handleMessage(undefined);
     try {
       const conf = await this.getBaseTranslationConf(true);
       const sendAll = await sendAllForTranslation(conf, this._service.connector);
