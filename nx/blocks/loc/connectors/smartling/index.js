@@ -724,7 +724,9 @@ function getLangProgress({ code, fileStatuses }) {
  *  `translation.status` ('translated' only once every file is at 100% for
  *  that locale, otherwise the lowest per-file progress, e.g. '62%
  *  translated') and `translation.translated` (number of files at 100%).
- *  A lang already at `'complete'` or `'cancelled'` is left untouched. If
+ *  A lang with a pending cancel (`translation.cancelPending`) that no file
+ *  lists any more becomes `'cancelled'`. A lang already at `'complete'` or
+ *  `'cancelled'` is left untouched. If
  *  every lang is already terminal, skips the API calls entirely.
  * @param {Object[]} params.urls - The urls in the project.
  * @param {Object} params.actions - `{ saveState, sendMessage }` callbacks;
@@ -771,6 +773,15 @@ export async function getStatusAll({
   const stillActive = activeLangs.filter((l) => !TERMINAL_STATUSES.includes(l.translation.status));
 
   for (const lang of stillActive) {
+    const listed = fileStatuses.some(({ items }) => (
+      items.some((item) => item.localeId === lang.code)));
+    if (lang.translation.cancelPending && !listed) {
+      delete lang.translation.cancelPending;
+      lang.translation.translated = 0;
+      lang.translation.status = 'cancelled';
+      continue; // eslint-disable-line no-continue
+    }
+
     const progress = getLangProgress({ code: lang.code, fileStatuses });
     const translated = progress.filter((percent) => percent === 100).length;
     lang.translation.translated = translated;
