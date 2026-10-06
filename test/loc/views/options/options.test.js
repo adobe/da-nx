@@ -302,6 +302,7 @@ describe('NxLocOptions - handleChangeServiceOption reload', () => {
     const el = createSmartlingOptionsEl();
     el._siteConfig.service.envs.prod.accountId = 'acct-1';
     el._siteConfig.service.envs.prod.projectId = 'proj-1';
+    el._siteConfig.service.envs.prod.autoAuthorize = 'yes';
     el._siteConfig.service.envs.prod.workflowUid = 'wf-1';
 
     await el.loadConnectorServiceOptions();
@@ -331,6 +332,19 @@ describe('NxLocOptions - handleChangeServiceOption reload', () => {
     // wf-1 is no longer valid for proj-2, so workflowUid is reseeded to the first
     // choice among proj-2's own filtered options.
     expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-2');
+  });
+
+  it('does not seed workflowUid while autoAuthorize is off', async () => {
+    installFetch(smartlingHandlerWithTwoProjects());
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.accountId = 'acct-1';
+    el._siteConfig.service.envs.prod.projectId = 'proj-1';
+
+    await el.loadConnectorServiceOptions();
+
+    expect(el._siteConfig.service.envs.prod.autoAuthorize).to.equal('no');
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.be.undefined;
+    expect(el._options.service.workflowUid).to.be.undefined;
   });
 
   it('does not reload service options when a key without reloadServiceOptionsOnChange changes', async () => {

@@ -174,6 +174,7 @@ class NxLocOptions extends LitElement {
     // choice, or the visually-selected value would never reach _siteConfig (and therefore
     // never get persisted) unless the user happened to touch the select.
     serviceOptions.forEach((option, i) => {
+      if (option.enabledWhen && !option.enabledWhen(envConfig)) return;
       const value = envConfig[option.key];
       const known = items[i]?.some((item) => item.value === value);
       if (!known && items[i]?.length) envConfig[option.key] = items[i][0].value;
