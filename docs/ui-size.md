@@ -72,6 +72,17 @@ then reload (with "Disable cache" ticked while testing branch previews).
 | `--nx-ui-icon-status` | Large status glyphs | 24 | 24 |
 | `--nx-ui-icon-toolbar` | Standalone canvas toolbar/panel icons | 16 | 18 |
 
+## Control tokens
+
+| Token | Role | s | m |
+|---|---|---|---|
+| `--nx-ui-segment-height` | Segments in the canvas editor-view toggle | 24 | 28 |
+| `--nx-ui-icon-btn-hover-bg` | Icon button hover background | each component's own | gray-75 |
+| `--nx-ui-icon-btn-hover-color` | Icon button hover icon color | each component's own | gray-800 |
+
+The two hover tokens are only set in m. Components use them with their old value as fallback, so s
+keeps each button's original hover; m makes every icon button hover like the tool panel close button.
+
 In m, chat toolbar buttons also switch from 24px (`nx-btn-sm`) to 32px, so their icons move from
 `compact` to `regular` through the button, not through the token.
 
