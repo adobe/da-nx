@@ -1,3 +1,33 @@
+# [1.8.0](https://github.com/adobe/da-nx/compare/v1.7.1...v1.8.0) (2026-10-05)
+
+
+### Features
+
+* **aem-assets:** add shared AEM Assets module ([d37e4a8](https://github.com/adobe/da-nx/commit/d37e4a8d356c1985c062622b7fca2dbaa0a31450))
+* shared switch ([#777](https://github.com/adobe/da-nx/issues/777)) ([d021843](https://github.com/adobe/da-nx/commit/d021843e189de76ff03b7854f1416dd694809024))
+
+## [1.7.1](https://github.com/adobe/da-nx/compare/v1.7.0...v1.7.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* streamline prev/pub actions ([b0404f2](https://github.com/adobe/da-nx/commit/b0404f2b15f278ec883f43c4a6871bf22be29e5e))
+* streamline prev/pub actions ([a19f071](https://github.com/adobe/da-nx/commit/a19f0717c3aaf9c931ebf660e1597b9913e10c92))
+
+# [1.7.0](https://github.com/adobe/da-nx/compare/v1.6.0...v1.7.0) (2026-10-01)
+
+
+### Features
+
+* introduce field variant for picker ([#797](https://github.com/adobe/da-nx/issues/797)) ([58b4ac5](https://github.com/adobe/da-nx/commit/58b4ac5c751064da03f6c91aa5a50c55aac80407))
+
+# [1.6.0](https://github.com/adobe/da-nx/compare/v1.5.0...v1.6.0) (2026-10-01)
+
+
+### Features
+
+* **picker:** support color swatches on items and trigger ([#796](https://github.com/adobe/da-nx/issues/796)) ([e258b4d](https://github.com/adobe/da-nx/commit/e258b4d555ab9b8c7ba0952d54fa32895abdf3cb))
+
 # [1.5.0](https://github.com/adobe/da-nx/compare/v1.4.1...v1.5.0) (2026-10-01)
 
 
@@ -48,6 +78,15 @@ The nav-injected `nx-editortoggle` now renders on `/edit` and `/canvas`.
 Removed the duplicate profile-menu variant and its styles; the header
 instance still handles the one-time welcome and switch-back prompts.
 Added route-visibility tests.
+
+## 2026-10-02
+
+### Chat message send RUM
+
+Record valid DA Agent and Coworker submissions as `click` checkpoints with
+`source: chat-submit` and harness-specific send-button targets. Coverage includes
+button and Enter submissions, excluding empty submissions and stop actions.
+Focused send-RUM tests and lint passed.
 
 ## 2026-09-23
 
