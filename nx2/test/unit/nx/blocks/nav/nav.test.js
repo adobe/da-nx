@@ -28,6 +28,84 @@ function mockFragmentFetch(html = '<div><p>Help content</p></div>') {
   return () => { window.fetch = originalFetch; };
 }
 
+describe('nav search slot', () => {
+  let nav;
+  let originalHref;
+
+  beforeEach(() => {
+    originalHref = window.location.href;
+    nav = document.createElement('nx-nav');
+    nav.loadNav = async () => { };
+  });
+
+  afterEach(() => {
+    nav.remove();
+    window.history.replaceState(null, '', originalHref);
+  });
+
+  async function mount(path) {
+    window.history.replaceState(null, '', path);
+    document.body.append(nav);
+    await nav.updateComplete;
+  }
+
+  it('provides an empty search slot without a fragment or loaded profile', async () => {
+    await mount('/');
+    const slot = nav.shadowRoot.querySelector('slot[name="search"]');
+    expect(slot).to.exist;
+    expect(slot.closest('.action-area')).to.be.null;
+    expect(slot.assignedElements()).to.deep.equal([]);
+    expect(nav.shadowRoot.querySelector('nx-search')).to.be.null;
+  });
+
+  it('renders independently of the page route', async () => {
+    await mount('/edit');
+    expect(nav.shadowRoot.querySelector('.nav-search')).to.exist;
+  });
+
+  it('keeps consumer-owned search content assigned across navigation', async () => {
+    await mount('/#/adobe/site/products');
+    const field = document.createElement('input');
+    field.type = 'search';
+    field.slot = 'search';
+    field.value = 'project plan';
+    nav.append(field);
+    const slot = nav.shadowRoot.querySelector('slot[name="search"]');
+    expect(slot.assignedElements()).to.deep.equal([field]);
+    window.history.replaceState(null, '', '/#/adobe/site/images');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await nav.updateComplete;
+    expect(field.value).to.equal('project plan');
+    expect(slot.assignedElements()).to.deep.equal([field]);
+  });
+
+  it('centers search with missing or unequal fragment areas at wide and narrow sizes', async () => {
+    await mount('/');
+    const brand = nav.shadowRoot.querySelector('.brand-cluster');
+    const actions = nav.shadowRoot.querySelector('.action-area');
+    const search = nav.shadowRoot.querySelector('.nav-search');
+    const field = document.createElement('input');
+    field.type = 'search';
+    field.slot = 'search';
+    nav.append(field);
+    brand.innerHTML = '<span style="width: 80px">Brand</span>';
+    actions.innerHTML = '<span style="width: 160px">Actions</span>';
+    nav.style.setProperty('--s2-spacing-100', '8px');
+    for (const width of [900, 480]) {
+      nav.style.width = `${width}px`;
+      for (const [left, right] of [[true, true], [false, true], [true, false], [false, false]]) {
+        brand.style.display = left ? 'flex' : 'none';
+        actions.style.display = right ? 'block' : 'none';
+        const hostRect = nav.getBoundingClientRect();
+        const searchRect = search.getBoundingClientRect();
+        expect(searchRect.width).to.be.greaterThan(0);
+        expect(searchRect.left + searchRect.width / 2)
+          .to.be.closeTo(hostRect.left + hostRect.width / 2, 1);
+      }
+    }
+  });
+});
+
 describe('nav decorateActions', () => {
   let restoreFetch;
   let nav;
