@@ -120,11 +120,6 @@ button {
   width: 32px;
   padding: 7px;
 
-  &:hover:not(:disabled) {
-    background: var(--nx-ui-icon-btn-hover-bg);
-    color: var(--nx-ui-icon-btn-hover-color);
-  }
-
   &.is-active {
     background: var(--s2-gray-900);
     color: var(--s2-gray-25);

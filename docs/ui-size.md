@@ -84,7 +84,7 @@ then reload (with "Disable cache" ticked while testing branch previews).
 | `--nx-ui-icon-btn-hover-bg` | Icon button hover background | gray-75 | gray-75 |
 | `--nx-ui-icon-btn-hover-color` | Icon button hover icon color | gray-800 | gray-800 |
 
-The hover tokens are the same in s and m: every icon button hovers pale gray.
+The hover tokens are the same in s and m. EW's standalone icon buttons use them for a pale gray hover; the shared `nx-action-btn-icon` hover in `buttons.css` is unchanged for other apps.
 
 The 2px blue `:focus-visible` outline on canvas toolbar buttons is m-only, applied through
 `:host([data-ui-size="m"])` so s keeps the browser default ring.
