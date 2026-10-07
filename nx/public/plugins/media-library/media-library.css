@@ -1,0 +1,102 @@
+/* Plugin iframe: :root tokens for vars missing from fetched sl/*.css + shell layout (no full nexter.css). */
+
+:root {
+  color-scheme: light dark;
+
+  --font-family: "Adobe Clean", adobe-clean, "Trebuchet MS", sans-serif;
+  --body-font-family: var(--font-family);
+  --spacing-50: 2px;
+  --spacing-75: 4px;
+  --spacing-100: 8px;
+  --spacing-200: 12px;
+  --spacing-300: 16px;
+  --spacing-400: 24px;
+  --spacing-500: 32px;
+  --spacing-600: 40px;
+  --spacing-700: 48px;
+  --spacing-800: 64px;
+  --spacing-900: 80px;
+  --spacing-1000: 96px;
+  --s2-radius-75: 4px;
+  --s2-radius-100: 8px;
+  --s2-radius-200: 10px;
+  --s2-radius-300: 16px;
+  --s2-font-size-100: 17px;
+  --s2-font-size-200: 19px;
+  --s2-font-size-300: 22px;
+  --s2-font-size-400: 24px;
+  --s2-font-size-600: 31px;
+  --s2-font-size-800: 39px;
+  --s2-gray-25: #fff;
+  --s2-gray-900: #131313;
+  --s2-blue-500: #8eb9fc;
+  --s2-blue-600: #729efd;
+  --s2-blue-800: #4b75ff;
+  --s2-white: #fff;
+  --s2-green: #009851;
+  --s2-red: #f73b26;
+  --s2-amber-800: #b45309;
+  --font-size-100: var(--s2-font-size-100);
+  --font-size-200: var(--s2-font-size-200);
+  --font-size-300: var(--s2-font-size-300);
+  --font-size-500: var(--s2-font-size-600);
+  --font-weight-600: 600;
+  --border-radius-100: var(--s2-radius-100);
+}
+
+@media (width >= 600px) {
+  :root {
+    --s2-font-size-100: 14px;
+    --s2-font-size-200: 16px;
+    --s2-font-size-300: 18px;
+    --s2-font-size-400: 20px;
+    --s2-font-size-600: 25px;
+    --s2-font-size-800: 32px;
+  }
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  display: block;
+  font-family: var(--font-family), system-ui, -apple-system, sans-serif;
+}
+
+.nx-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+}
+
+.nx-app > main {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+  background-color: light-dark(#fff, #1a1a1a);
+}
+
+#ml-container {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+nx-media-library {
+  display: block;
+  width: 100%;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}

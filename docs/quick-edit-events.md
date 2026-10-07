@@ -57,7 +57,7 @@ parallel one. If you do add a new key:
 | `CURSOR_MOVE` | iframe → host | both hosts |
 | `RELOAD` | iframe → host | both hosts |
 | `GET_EDITOR` | iframe → host | both hosts |
-| `NODE_UPDATE` | iframe → host | both hosts |
+| `NODE_UPDATE` | iframe ↔ host (edit/ack) | both hosts |
 | `NODE_SELECT` | iframe → host | da-live only |
 | `HISTORY` | iframe → host | both hosts |
 | `NEW_VERSION` | iframe → host | da-live only |
@@ -65,6 +65,11 @@ parallel one. If you do add a new key:
 | `STORED_MARKS` | iframe → host | da-live only |
 | `PREVIEW` | iframe ↔ host (request/reply) | standalone (quick-edit-portal) only |
 | `IMAGE_REPLACE` | iframe ↔ host (request/reply) | both hosts |
+| `SET_COMMENT_MARKERS` | Host → iframe | da-live only |
+| `SCROLL_TO_POS` | Host → iframe | da-live only |
+| `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
+| `COMMENT_MARKER_CLEAR` | iframe → host | da-live only |
+| `COMMENT_SHORTCUT` | iframe → host | da-live only |
 
 ---
 
@@ -116,11 +121,54 @@ this protocol.
 Image drag-drop upload flow, request/reply on the same type: the iframe sends the
 upload request, the host replies with the same `IMAGE_REPLACE` type, distinguished by
 `payload.error` (failure) vs `payload.newSrc` (success). Both hosts implement the full
-round-trip.
+round-trip. Hosts stamp every image in `SET_BODY` with its ProseMirror position
+(`data-image-index`) and the document snapshot (`data-image-version`); `SET_EDITOR_STATE`
+carries the same version for an active inline editor. The iframe sends both values with
+a per-upload `requestId`, and the host updates exactly that image only while the
+document snapshot is current when the request arrives. During upload, the host
+tracks that image through collaborative edits; unrelated edits do not cancel the
+replacement, but deleting or changing the target image does. Replies echo
+`requestId` so the iframe updates or clears only the picture that started the
+upload. An out-of-date/missing index fails instead of choosing an image by URL.
+For older iframes, a URL-only request is accepted only when it identifies
+exactly one image.
+
+Both hosts use `nx2/public/utils/quick-edit-images.js` for document versions,
+image-position resolution, and replacement after upload. It accepts the host's
+ProseMirror document/view without importing ProseMirror. Instrumentation and
+request validation must use the same version generator within each host;
+uploads and message replies remain host-specific.
+
+After an inline edit, the host acknowledges `NODE_UPDATE` with the new `imageVersion`
+and the edit's `nodeUpdateId`; the iframe has already shifted the affected image
+positions and applies that version without rebuilding the page or losing the active
+editor. A newer edit or full-body refresh invalidates older acknowledgements.
+
+### Comments (`SET_COMMENT_MARKERS` / `SCROLL_TO_POS` / `COMMENT_MARKER_CLICK` / `COMMENT_MARKER_CLEAR` / `COMMENT_SHORTCUT`)
+
+Drive the comments feature's overlay in layout/WYSIWYG mode. The comments UI (the panel,
+threads, and anchoring) lives host-side in da-live; the iframe only renders a DOM overlay
+of marker bubbles and highlights on top of the previewed page (`nx/public/plugins/quick-edit/src/comments.js`).
+
+- `SET_COMMENT_MARKERS` — host pushes the current marker set (and which thread is selected)
+  whenever comments change or panel visibility toggles; the iframe redraws the overlay from
+  it. An empty set clears the overlay.
+- `COMMENT_MARKER_CLICK` — the user clicked a marker/highlight in the overlay; the host
+  selects that thread, scrolls to it, and opens the comments panel.
+- `COMMENT_MARKER_CLEAR` — the user clicked empty space; the host clears the selected thread.
+- `COMMENT_SHORTCUT` — the user pressed the comment shortcut (Cmd/Ctrl+Alt+M) while focused
+  inside the iframe; the host opens the comments panel and starts a new comment on the
+  current selection. (The host page has its own keydown handler for the same shortcut when
+  focus is outside the iframe — see da-live's `canvas.js`.)
+- `SCROLL_TO_POS` — host asks the iframe to scroll a comment's anchor position into view in
+  layout mode (e.g. after selecting a thread in the panel).
+
+All five are da-live-embedded only; the standalone `quick-edit-portal.js` host has no
+comments UI, so none are wired up there.
 
 ## Known gaps
 
 - **Several payload fields are sent but not read by any current receiver:**
-  `SELECTION_CHANGE.anchorX`/`anchorY`, `IMAGE_REPLACE` request's `cursorOffset`/`mimeType`,
+  `SELECTION_CHANGE.anchorX`/`anchorY`, `IMAGE_REPLACE` request's `mimeType`,
   `IMAGE_REPLACE` error reply's `originalSrc`. Not necessarily bugs — may be intended for a future
   consumer — but worth checking before assuming they're load-bearing.

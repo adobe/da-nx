@@ -1,4 +1,342 @@
-# Worklog
+# [1.9.0](https://github.com/adobe/da-nx/compare/v1.8.2...v1.9.0) (2026-10-06)
+
+
+### Features
+
+* implement cancelTranslation for the Smartling connector ([#710](https://github.com/adobe/da-nx/issues/710)) ([bfdc2d7](https://github.com/adobe/da-nx/commit/bfdc2d795cc14738b93f08f90dd233fcb8ec5758))
+
+## [1.8.2](https://github.com/adobe/da-nx/compare/v1.8.1...v1.8.2) (2026-10-06)
+
+
+### Bug Fixes
+
+* **quick-edit:** keep image uploads through concurrent edits ([e470eb9](https://github.com/adobe/da-nx/commit/e470eb96203a5a83f890dfd0ae9f6bffd2426b91))
+* **quick-edit:** replace indexed images reliably ([827f538](https://github.com/adobe/da-nx/commit/827f53834997ee9c1c42b2ee13e91dfc10271167))
+
+## [1.8.1](https://github.com/adobe/da-nx/compare/v1.8.0...v1.8.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **form:** remove double vertical scrollbar ([#804](https://github.com/adobe/da-nx/issues/804)) ([e3b2d40](https://github.com/adobe/da-nx/commit/e3b2d405cc7657d32d370bb8a0ace259dc31ef27))
+
+# [1.8.0](https://github.com/adobe/da-nx/compare/v1.7.1...v1.8.0) (2026-10-05)
+
+
+### Features
+
+* **aem-assets:** add shared AEM Assets module ([d37e4a8](https://github.com/adobe/da-nx/commit/d37e4a8d356c1985c062622b7fca2dbaa0a31450))
+* shared switch ([#777](https://github.com/adobe/da-nx/issues/777)) ([d021843](https://github.com/adobe/da-nx/commit/d021843e189de76ff03b7854f1416dd694809024))
+
+## [1.7.1](https://github.com/adobe/da-nx/compare/v1.7.0...v1.7.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* streamline prev/pub actions ([b0404f2](https://github.com/adobe/da-nx/commit/b0404f2b15f278ec883f43c4a6871bf22be29e5e))
+* streamline prev/pub actions ([a19f071](https://github.com/adobe/da-nx/commit/a19f0717c3aaf9c931ebf660e1597b9913e10c92))
+
+# [1.7.0](https://github.com/adobe/da-nx/compare/v1.6.0...v1.7.0) (2026-10-01)
+
+
+### Features
+
+* introduce field variant for picker ([#797](https://github.com/adobe/da-nx/issues/797)) ([58b4ac5](https://github.com/adobe/da-nx/commit/58b4ac5c751064da03f6c91aa5a50c55aac80407))
+
+# [1.6.0](https://github.com/adobe/da-nx/compare/v1.5.0...v1.6.0) (2026-10-01)
+
+
+### Features
+
+* **picker:** support color swatches on items and trigger ([#796](https://github.com/adobe/da-nx/issues/796)) ([e258b4d](https://github.com/adobe/da-nx/commit/e258b4d555ab9b8c7ba0952d54fa32895abdf3cb))
+
+# [1.5.0](https://github.com/adobe/da-nx/compare/v1.4.1...v1.5.0) (2026-10-01)
+
+
+### Features
+
+* **whatsnew:** add what's new nav button and dialog ([#744](https://github.com/adobe/da-nx/issues/744)) ([b2bd965](https://github.com/adobe/da-nx/commit/b2bd9652b40134bac02c0f6323e6c0b67723ce30)), closes [#1140](https://github.com/adobe/da-nx/issues/1140) [#F8F8F8](https://github.com/adobe/da-nx/issues/F8F8F8)
+
+## [1.4.1](https://github.com/adobe/da-nx/compare/v1.4.0...v1.4.1) (2026-10-01)
+
+
+### Bug Fixes
+
+* **chat-ao:** send x-site in AUTH so the CMA session is site-scoped ([#791](https://github.com/adobe/da-nx/issues/791)) ([d92748a](https://github.com/adobe/da-nx/commit/d92748a80ad430827a7ed271e60a3ad6b4feaf28))
+
+# [1.4.0](https://github.com/adobe/da-nx/compare/v1.3.0...v1.4.0) (2026-10-01)
+
+
+### Bug Fixes
+
+* **ew:** align deploy popover to Figma spec ([1bcaf44](https://github.com/adobe/da-nx/commit/1bcaf44f9f13164a3d42bc10063a813f165e1ea7)), closes [#e1e1e1](https://github.com/adobe/da-nx/issues/e1e1e1) [3b63fb/#cbe2fe](https://github.com/adobe/da-nx/issues/cbe2fe) [12b867/#edfcf1](https://github.com/adobe/da-nx/issues/edfcf1) [#749](https://github.com/adobe/da-nx/issues/749)
+* **ew:** drop the Deploy header/icon from the deploy popover ([3886686](https://github.com/adobe/da-nx/commit/3886686cf4374ad37a8f6fe2095ce502c1dbbc56)), closes [#749](https://github.com/adobe/da-nx/issues/749)
+* **ew:** label live as "Publish" and hide URL when not deployed ([32445b4](https://github.com/adobe/da-nx/commit/32445b4682046511e10ddc70a1887f16ee2bf13b))
+* **ew:** set selected card divider to 60% opacity ([62e6db6](https://github.com/adobe/da-nx/commit/62e6db6d0ffc91960e1b706f936fc8a63b014ecc))
+* **ew:** use a native radio input for deploy card selection ([8109980](https://github.com/adobe/da-nx/commit/8109980de9278db2fdf00934031e8eebc7fae267)), closes [#749](https://github.com/adobe/da-nx/issues/749)
+* icons ([1793837](https://github.com/adobe/da-nx/commit/1793837612505fc78a00bb9f2468d8844f569cba))
+
+
+### Features
+
+* **ew:** deploy popover with preview/publish status ([#1197](https://github.com/adobe/da-nx/issues/1197)) ([a914ea7](https://github.com/adobe/da-nx/commit/a914ea795eb7b7490ff3056c5ba29d504a1e1646))
+
+# Changelog
+
+## 2026-09-25
+
+### Editor toggle follows the active editor route
+
+The header switch shows on for `/canvas` and off for `/edit`, regardless of
+the stored user flag. A click derives the next preference from the current
+route, so manually opening `/canvas` while opted out still switches directly
+back to `/edit`. Navigation alone does not change the stored preference.
+
+## 2026-09-24
+
+### Editor toggle in the header on both editor routes
+
+The nav-injected `nx-editortoggle` now renders on `/edit` and `/canvas`.
+Removed the duplicate profile-menu variant and its styles; the header
+instance still handles the one-time welcome and switch-back prompts.
+Added route-visibility tests.
+
+## 2026-10-02
+
+### Chat message send RUM
+
+Record valid DA Agent and Coworker submissions as `click` checkpoints with
+`source: chat-submit` and harness-specific send-button targets. Coverage includes
+button and Enter submissions, excluding empty submissions and stop actions.
+Focused send-RUM tests and lint passed.
+
+## 2026-09-23
+
+### nx/public/plugins/quick-edit/selection.test.js — prose-editable click coverage
+
+- Added regression coverage for prose-editable clicks outside and inside a block
+- Kept image-click coverage alongside the new prose-editable cases
+- Full test suite passes; lint still reports the existing console warnings in `nx/blocks/loc/connectors/glaas/multimodalApi.js` and `nx/public/plugins/quick-edit/src/comments/render.js`
+
+### nx2/utils/api.js — scope `referrerPolicy: unsafe-url` to HLX_ADMIN/AEM_API
+
+`daFetch` set `opts.referrerPolicy = 'unsafe-url'` unconditionally on every
+request, leaking the full referrer URL (including path) to any origin it
+talks to. Scoped it to only fire for `HLX_ADMIN`/`AEM_API` origins — the same
+condition already used to decide whether to attach
+`x-content-source-authorization` — via a shared `isPrivilegedOrigin` check.
+Added fetch-mock + test coverage (`nx2/test/mocks/fetch.js` now records
+`referrerPolicy`; two new cases in `test/nx2/utils/api.test.js`).
+
+## 2026-09-17
+
+### nx/blocks/loc/connectors/globallink — GlobalLink translation connector (#689)
+
+- Added GlobalLink connector: `connect`/`sendAllLanguages`/`getStatusAll`/`saveItems`/`cancelTranslation`
+- Requests routed through the DA_TRANSLATE proxy; auth via shared `loc/utils/auth.js`
+- Source documents uploaded as a single zip; dynamic per-submission batch names
+- Targets matched to DA urls by `documentId`; paginated target listing
+- `saveItems` downloads bounded by a concurrency cap
+- Status checks skip already complete/cancelled languages; targets marked delivered after save
+- Tracks every submission id a project spans when GlobalLink splits an upload across multiple submissions; status, save, download, and cancel all act across every submission
+- Added full test coverage for the connector
+
+## 2026-09-16
+
+### ew-actions preflight gate — review feedback (#735) + merge with main
+
+Addressed mhaack's review on the enforce-preflight-before-publish PR, and
+merged main into `pflight`.
+
+- **Fail-open on config error stays** (`_checkEnforcePreflight`): `enforcePreflight`
+  is opt-in per site, so a transient DA config-read failure must not block
+  publish for every site that never enabled it. Kept fail-open but now
+  `console.warn`s instead of silently swallowing.
+- **Preflight failure/timeout now surfaces a dialog** instead of a silent
+  `_busy` reset. Extracted `_showActionError(action, message)` (shared with the
+  forceSave failure path); distinguishes timeout ("did not finish in time")
+  from failure ("found issues").
+- **`disconnectedCallback` cancels a pending `requestPreflight`** via a stashed
+  `_cancelPreflight`, so its document listener + 60s timer don't linger on a
+  detached instance.
+- **Merge conflict note:** main's #666 added `editor.hidePublish`. Folded it
+  into the `menuItems` builder (hide removes the Publish item; preflight
+  decorates it with a status dot — hide wins when both apply). **Dropped main's
+  cache-bust unit tests** — they exercise `_ensureCacheBust`/`_cacheBust`, which
+  don't exist on main (a static `sidekickCacheBust` import replaced them), so
+  those tests already fail on main.
+- Open: branch not yet pushed; da-live #1325 still depends on this landing on
+  da-nx `main` first (see PR description).
+
+## 2026-09-16
+
+### nx/blocks/loc/connectors/trados — retry/401 recovery + error surfacing (trados-connector-resilience, stacked on trados-connector-fixes)
+
+- Route all Trados API calls through `fetchWithRetry` (shared with Smartling/Lionbridge) for backoff on transient failures and reactive re-auth on a 401
+- Surface a `sendMessage` error instead of failing silently: failed uploads, a failed status-check fetch, and failed downloads/missing target files in `saveItems`
+
+## 2026-09-16
+
+### nx/blocks/loc/connectors/trados/index.js — getStatusAll bug fixes (trados-connector-fixes)
+
+- Skip languages already `complete`/`cancelled` when polling status, so Trados's indefinitely-reported completed tasks no longer trigger a re-save or un-cancel
+- Paginate the tasks/target-files/custom-field-definitions list fetches (`fetchAllPages`) via the real API's `skip`/`top` params — an initial version used `offset`/`limit`, which Trados silently ignores, so it never actually paginated; caught via live validation against a real project
+
+## 2026-09-16
+
+### nx2/blocks/chat-ao — Experience Context rename
+
+Updated the Coworker chat dropdown label from **Manage Enterprise Context** to
+**Manage Experience Context** and changed its Experience Hub destination to
+`https://experience.adobe.com/#/experiencemanager/experience-context`. Internal
+constants and menu IDs remain unchanged for compatibility. Added focused
+coverage for the visible label and canonical URL.
+
+## 2026-09-15
+
+### Revert Slack PR ticker runner to `ubuntu-latest`
+
+- `.github/workflows/slack-pr-ticker.yml`: the `notify` job `runs-on` reverted from `gh-hosted` back to `ubuntu-latest`.
+
+## 2026-09-14
+
+### nx2/utils/api.js — cross-backend copy/move (#731)
+
+Copying a file between two sites on different backends (DA storage vs the hlx6
+source bus) silently failed — e.g. a PDF from a legacy DA site pasted into an
+hlx6 site. `source.copy`/`move` picked the backend from the *source* site
+(`withArgs` derives org/site from the first arg — the source path), so a
+legacy-source copy always POSTed to `admin.da.live` even when the destination
+was hlx6. The bytes never reached the hlx6 backend; da-list's optimistic UI
+showed the row (the DA copy returned ok), but it couldn't preview and vanished
+on reload.
+
+Fixed by routing on both ends: `copy` now also resolves the destination's
+org/site (`fromPath(destination)`) and its hlx6 status. Server-side copy only
+works within a single site (the hlx6 source-bus PUT is scoped to one site — its
+`?source=` can't reference another — and the DA `/copy` endpoint is keyed to one
+org/site), so a *cross-site* copy that touches hlx6 (a different hlx6 site, or
+across the DA/hlx6 backends) can't use it. In that case `copy` streams the bytes
+— `source.get` from the source, then `source.save` to the destination's source
+bus. Every tree file goes through `save`, docs and standalone assets alike
+(PDFs/images are served from their source path — the `/media` content-addressed
+store is only for images embedded *inside* documents, not standalone files; an
+earlier draft wrongly routed non-docs through `uploadMedia`, which is why PDFs
+landed in the wrong place).
+
+Because the write is a POST (not the server-side `?source=` PUT), the
+destination's ingestion re-imports embedded media — but only if it can fetch it.
+A doc's `media_` references are relative, so after the hop they'd resolve against
+the *destination* and 404. So for HTML, `copy` first rewrites relative `media_`
+refs (src/href/srcset) to absolute URLs on the *source's* content origin
+(`absolutizeMediaRefs`) — `DA_CONTENT` (content.da.live) for a DA source,
+`https://main--{site}--{org}.aem.page` for an hlx6 source — resolved against the
+source doc's URL; the destination POST then fetches and re-hosts them into its
+own media bus. Already-absolute URLs and non-`media_` links are left untouched.
+
+`move` emulates as copy + delete of the original whenever hlx6 is involved on
+either side (reusing copy's path), failing safe — the original is only deleted
+after a successful copy. Same-site copies/moves, and DA-to-DA cross-site (still
+server-side `/copy`), are unchanged.
+
+Relies on callers passing a full `/org/site/...` destination — verified for all
+da-live callers (paste, rename, trash-move), so no da-live change was needed.
+Not covered: cross-site *folder* copy (the source GET has no file body, so it
+fails non-ok rather than recursing) — a separate follow-up. Tests: cross-backend
+copy both directions, cross-site hlx6→hlx6 (asset + doc), media_ ref rewriting
+(DA + hlx6 source), the read-failure guard, and cross-backend move
+(copy-then-delete + fail-safe). ESLint still can't run (pre-existing v8/v9
+flat-config mismatch); full api.test.js suite (133) passes.
+
+## 2026-09-11
+
+### ci — Slack PR ticker uses the supported gh-hosted runner
+
+Org runners no longer allow `ubuntu-latest`; switched
+`.github/workflows/slack-pr-ticker.yml` to `runs-on: gh-hosted` (smallest
+supported label). Other workflows still on `ubuntu-latest` — separate change.
+
+## 2026-09-07
+
+### quick-edit — stop RELOAD storms from cross-block index drift
+
+Debugged via da-live's `ew-editor-doc` collab-diagnostics branch (multi-user
+test showed a collaborator's continuous edits pegging the main thread for
+5-6s at a stretch, blocking local typing). Root cause traced to
+`nx/public/plugins/quick-edit/src/prose.js`'s `createEditor`: it looked up
+its target block by an exact `data-prose-index` match, but that index is a
+global ProseMirror position — any edit *before* a block shifts it.
+`handleTransaction` already re-shifts every other block's index for edits
+inside an already-open mini-editor (`updateInstrumentation`), but
+`createEditor` — the path taken the first time a block is touched by a
+*remote* edit — never did, so the first remote edit to any not-yet-opened
+block left every later block's cached index stale. Eventually some block's
+`SET_EDITOR_STATE` arrived with a `cursorOffset` matching nothing, and the
+portal gave up and asked the host to `RELOAD` (full body resend), which the
+host answered unconditionally — no debounce — so a sustained editing burst
+from one collaborator could retrigger this indefinitely.
+
+Fixed `createEditor` to fall back to `findTextBlock`'s existing
+nearest-indexed-block lookup (`dom-index.js`) instead of giving up — the same
+drift-tolerant match `findImageAtProseIndex` already relies on for images.
+Added an `exclude` param to `findTextBlock`/`findNearestIndexed` so the
+fallback can't resolve to (and destructively replace) a *different* block's
+already-open `.prosemirror-editor`; the remote-cursor collaborator badge is
+now only copied across on an exact match, not the fallback, so it can't get
+misattributed to the wrong paragraph. Da-live also got a `quick-edit-controller.js`
+RELOAD-coalescing debounce (150ms) as a stopgap while this was tracked down;
+kept, since it's still a legitimate backstop.
+
+Verified via a two-browser test (da-nx files served through Chrome local
+overrides): the RELOAD storm is gone under sustained multi-user editing.
+
+Review follow-ups: normalized `cursorOffset` to `Number` in `createEditor` so
+the exact-match badge gate can't silently fail on a string, and added unit
+tests for `findTextBlock`'s exclude + nearest-block fallback.
+
+### nx2/blocks/editortoggle — stop implicit `nx2:ew-user-enabled` writes on navigation
+
+`connectedCallback` used to reconcile the persisted `nx2:ew-user-enabled` flag
+to whatever path the toggle happened to mount on (`/canvas` → true, `/edit` →
+false) any time the component loaded — not just on a genuine bookmark/typed-URL
+landing as the comment claimed. Since the flag is a single global localStorage
+key (not scoped per org/site), and `/edit` vs `/canvas` routing is actually
+decided per-site via `editor.path` config (`docs/workspace.md`), simply opening
+a doc on one EW-enabled site would silently opt the browser into New
+Authoring globally, on every other site, with no user interaction.
+
+Fixed: the flag is now written only by an explicit click on the toggle
+(`_toggle()`). Replaced the reconciliation block with
+`_redirectToCanvasIfNeeded()`: on `/canvas` it's a no-op (nothing read or
+written); on `/edit` it redirects to `/canvas` if either the site-level
+`ew.enabled` flag or the user flag is on (site flag wins/ignores the user
+flag, matching the "site config forces canvas" rule in `docs/workspace.md`),
+otherwise stays on `/edit`. Called once synchronously in `connectedCallback`
+(handles the user-flag case) and again from `_onHashState` once the async
+site-level check resolves (handles the site-forced case). This supersedes the
+2026-09-02 fix below: that one kept /edit from clearing the flag by hiding the
+toolbar switch instead, but left the user stranded on /edit despite having
+opted into canvas — now /edit redirects to canvas in that case instead, which
+also fixes adobe/da-live#1289. `render()` is back to the plain path-based
+visibility check (toolbar on /edit, menu on /canvas); the flag-based
+`showMenu`/`showToolbar` split from 2026-09-02 no longer applies. No test
+coverage existed for this component before or after — an end-to-end test
+covering the toggle-on/welcome-dialog/toggle-off/redirect flow (working title
+"usertoggle") is planned for a follow-up PR once e2e infra (Playwright, not
+yet on this branch — exists only on the unmerged `feat/e2e-setup` branch) is
+sorted out, including what site/page to run it against.
+
+## 2026-09-02
+
+### nx2 editortoggle — stop clearing the flag when Sidekick lands on /edit
+
+Fixes adobe/da-live#1289. `connectedCallback`'s implicit-choice sync treated
+any direct landing on `/edit` as opting out, clearing `nx2:ew-user-enabled`
+even when Sidekick's Edit button (not the user) put you there. Now only the
+`/canvas` → on-sync remains; the toolbar switch hides itself on `/edit` when
+the flag is already on instead of clearing it, and the profile-menu switch
+renders anywhere the flag is on so there's still a way to turn it off.
+Superseded by the 2026-09-07 entry above.
 
 ## 2026-09-12
 

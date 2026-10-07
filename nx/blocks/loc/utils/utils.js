@@ -55,6 +55,20 @@ export function getBasePath({ prefix, path }) {
 }
 
 /**
+ * Joins a prefix and a path with exactly one separating slash, regardless
+ * of whether `path` already has a leading slash.
+ * @param {string} prefix - The path segment to prepend; any trailing slash
+ *  is ignored.
+ * @param {string} path - The path segment to append.
+ * @returns {string} `prefix` and `path` joined by a single `/`.
+ */
+function joinPath(prefix, path) {
+  const normalizedPrefix = prefix.replace(/\/$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${normalizedPrefix}${normalizedPath}`;
+}
+
+/**
  * Create snapshot prefix path if snapshot is provided
  * @param {string|undefined} snapshot - The snapshot name
  * @returns {string} The snapshot prefix path
@@ -88,9 +102,8 @@ export function convertPath({ path, sourcePrefix, destPrefix, snapshotPrefix = '
   const paths = { daBasePath: `${snapshotPrefix}${daBasePath}`, aemBasePath: `${snapshotPrefix}${aemBasePath}`, ext };
 
   if (destPrefix) {
-    const normalizedDestPrefix = destPrefix.replace(/\/$/, '');
-    paths.daDestPath = `${snapshotPrefix}${normalizedDestPrefix}${daBasePath}`;
-    paths.aemDestPath = `${snapshotPrefix}${normalizedDestPrefix}${aemBasePath}`;
+    paths.daDestPath = `${snapshotPrefix}${joinPath(destPrefix, daBasePath)}`;
+    paths.aemDestPath = `${snapshotPrefix}${joinPath(destPrefix, aemBasePath)}`;
   }
 
   return paths;

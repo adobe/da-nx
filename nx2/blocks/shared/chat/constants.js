@@ -6,6 +6,7 @@ export const MENU_OPTIONS = {
   FILES: 'files',
   MANAGE_SKILLS: 'skills',
   MANAGE_PROMPT: 'prompts',
+  MANAGE_ENTERPRISE_CONTEXT: 'enterprise-context',
   OPEN_COWORKER: 'coworker',
 };
 

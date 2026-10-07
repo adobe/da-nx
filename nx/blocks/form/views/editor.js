@@ -6,6 +6,7 @@ import '../fields/picker.js';
 import '../fields/checkbox.js';
 import '../fields/button.js';
 import '../fields/number.js';
+import '../fields/date.js';
 import { icon } from '../icons.js';
 
 const style = await loadStyle(import.meta.url);
@@ -249,6 +250,23 @@ class Editor extends LitElement {
           ?disabled=${readonly}
           @input=${(e) => this._onNumberInput(node, e)}
         ></form-number-field>
+      `;
+    }
+
+    if (node.format === 'date' || node.format === 'time' || node.format === 'date-time') {
+      const widgetType = node.format === 'date-time' ? 'datetime' : node.format;
+      return html`
+        <form-date
+          data-pointer=${pointer}
+          .type=${widgetType}
+          .label=${label}
+          .required=${showRequired}
+          .error=${error}
+          .description=${description}
+          .value=${value ?? ''}
+          ?disabled=${readonly}
+          @input=${(e) => this._onTextInput(node, e)}
+        ></form-date>
       `;
     }
 

@@ -19,6 +19,7 @@ import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { createSlashMenu } from '../shared/chat/slash-menu.js';
 import { ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 import { ADD_MENU_ITEMS, ROLE } from './constants.js';
+import { sampleRUM } from '../../deps/rum.js';
 
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
@@ -138,6 +139,11 @@ class NxChat extends LitElement {
       onDragging: (dragging) => { this._dragging = dragging; },
       onFiles: (files) => this._onFilesSelected(files),
     });
+
+    this._onSetPromptEvent = ({ detail }) => {
+      this.setPrompt(detail.text, { autoSend: detail.autoSend });
+    };
+    document.addEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
   }
 
   async _ensureController(context) {
@@ -183,6 +189,7 @@ class NxChat extends LitElement {
     cancelAnimationFrame(this._updateRaf);
     this._unsubscribeHash?.();
     this._controller?.destroy();
+    document.removeEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
   }
 
   willUpdate(changed) {
@@ -248,6 +255,7 @@ class NxChat extends LitElement {
     const contextItems = items.filter((i) => !i.dataBase64);
     const message = text || (fileItems.length > 1 ? 'Attached files' : 'Attached file');
     const attachments = buildAttachmentPayload(items);
+    sampleRUM('click', { source: 'chat-submit', target: 'button.chat-send.harness-da-agent' });
     this._slashMenu.close();
     this._controller.sendMessage(message, contextItems, { attachments });
     input.value = '';
@@ -403,7 +411,7 @@ class NxChat extends LitElement {
             </button>
           </nx-menu>
           <button class="chat-stop action-btn" type="button" aria-label="Stop" @click=${this._submit}>${icon('stop')}</button>
-          <button class="chat-send action-btn" type="submit" aria-label="Send">${icon('send')}</button>
+          <button class="chat-send harness-da-agent action-btn" type="submit" aria-label="Send">${icon('send')}</button>
         </div>
         </form>
       </div>

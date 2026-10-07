@@ -272,6 +272,21 @@ describe('aem-preview-publish.js', () => {
       expect(result.error.details).to.equal('some detail');
     });
 
+    it('rewrites the live/publish error action and message when publish fails', async () => {
+      const org = uniq('org');
+      const site = uniq('site');
+      installFetch([
+        new Response(JSON.stringify({ preview: { url: 'https://legacy-preview.example/page' } }), { status: 200 }),
+        new Response('forbidden', { status: 403 }),
+      ]);
+
+      const result = await runAemPreviewOrPublish({ aemPath: `/${org}/${site}/page`, action: 'publish' });
+
+      expect(result.ok).to.equal(false);
+      expect(result.error.action).to.equal('publish');
+      expect(result.error.message).to.equal('Not authorized to publish.');
+    });
+
     it('returns ok:false when the response has no preview URL and no sidekick fallback resolves', async () => {
       const org = uniq('org');
       const site = uniq('site');

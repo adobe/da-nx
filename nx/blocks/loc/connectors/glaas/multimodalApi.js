@@ -199,6 +199,47 @@ export function buildTranslatedImageSourcePath({ langCode, glaasName }) {
   return locale ? `/translated-images/${locale}${base}` : `/translated-images${base}`;
 }
 
+// Inverse of buildTranslatedImageSourcePath: strips a leading /translated-images/{locale} segment.
+function canonicalImageKey(src) {
+  return siteRelativePathFromImageUrl(src).replace(/^\/translated-images\/[^/]+/, '');
+}
+
+function isTranslatedImagePath(src) {
+  return /^\/translated-images\//.test(siteRelativePathFromImageUrl(src));
+}
+
+function mirrorSrcset(img, src) {
+  img.closest('picture')?.querySelectorAll('source[srcset]')
+    .forEach((source) => source.setAttribute('srcset', src));
+}
+
+// Reconciles same-image src differences to avoid merge noise; a fresh translation on original
+// propagates onto modified instead of being reverted.
+export function normalizeImages(original, modified) {
+  const bySrc = new Map();
+  modified.querySelectorAll('img[src]').forEach((img) => {
+    bySrc.set(canonicalImageKey(img.src), img.src);
+  });
+
+  original.querySelectorAll('img[src]').forEach((img) => {
+    const key = canonicalImageKey(img.src);
+    const match = bySrc.get(key);
+    if (!match || match === img.src) return;
+
+    if (isTranslatedImagePath(img.src)) {
+      modified.querySelectorAll('img[src]').forEach((modifiedImg) => {
+        if (canonicalImageKey(modifiedImg.src) !== key) return;
+        modifiedImg.src = img.src;
+        mirrorSrcset(modifiedImg, img.src);
+      });
+      return;
+    }
+
+    img.src = match;
+    mirrorSrcset(img, match);
+  });
+}
+
 export function logMultimodalRequest(step, detail) {
   logMultimodalDebug(undefined, step, detail);
 }

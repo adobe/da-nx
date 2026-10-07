@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import {
   isVoiceInputSupported, appendTranscript, createVoiceInput,
-} from '../../../../../nx2/blocks/shared/chat/voice-input.js';
+} from '../../../../../nx2/blocks/chat-ao/utils/voice-input.js';
 
 class FakeRecognition {
   static instances = [];

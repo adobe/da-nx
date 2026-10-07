@@ -5,7 +5,7 @@ import { normalizeSitePath } from '../../../core/paths.js';
 import { loadHrefSvg } from '../../../../../../nx2/utils/svg.js';
 import { Storage } from '../../../core/constants.js';
 import { showNotification } from '../../../core/state.js';
-import { t } from '../../../core/messages.js';
+import { getMessage } from '../../../core/messages.js';
 import { ErrorCodes, logMediaLibraryError } from '../../../core/errors.js';
 
 const EL_NAME = 'nx-media-onboard';
@@ -167,7 +167,7 @@ class NxMediaOnboard extends LitElement {
     const shareUrl = `${baseUrl}${window.location.search}#${sitePath}`;
 
     navigator.clipboard.writeText(shareUrl).then(() => {
-      showNotification(t('NOTIFY_LINK_COPIED'), t('NOTIFY_LINK_COPIED_MSG'), 'success');
+      showNotification(getMessage('NOTIFY_LINK_COPIED'), getMessage('NOTIFY_LINK_COPIED_MSG'), 'success');
     });
   }
 

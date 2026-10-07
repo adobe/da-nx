@@ -12,12 +12,13 @@ export function safeQuerySelectorAll(root, selector) {
   }
 }
 
-function findNearestIndexed(attr, from, root) {
-  const exact = root.querySelector(`[${attr}="${from}"]`);
+function findNearestIndexed(attr, from, root, exclude) {
+  const suffix = exclude ? `:not(${exclude})` : '';
+  const exact = root.querySelector(`[${attr}="${from}"]${suffix}`);
   if (exact) return exact;
   let best = null;
   let bestIndex = -1;
-  root.querySelectorAll(`[${attr}]`).forEach((el) => {
+  root.querySelectorAll(`[${attr}]${suffix}`).forEach((el) => {
     const idx = parseIndex(el.getAttribute(attr));
     if (idx == null || idx > from) return;
     if (idx > bestIndex) {
@@ -28,8 +29,10 @@ function findNearestIndexed(attr, from, root) {
   return best;
 }
 
-export function findTextBlock(from, root = document) {
-  return findNearestIndexed('data-prose-index', from, root);
+// exclude keeps an already-open editor out of the nearest-match fallback, so a
+// drifted cursorOffset can't resolve to and replace a different block's editor.
+export function findTextBlock(from, root = document, exclude = null) {
+  return findNearestIndexed('data-prose-index', from, root, exclude);
 }
 
 export function findBlock(from, root = document) {
@@ -59,6 +62,86 @@ export function restoreBlockIndices(sourceRoot, liveRoot = document) {
       claimed.add(live);
     }
   });
+}
+
+export function restoreImageIndices(sourceRoot, liveRoot = document) {
+  const sourceImages = sourceRoot.querySelectorAll('main img[data-image-index]');
+  const scopes = new Set([...sourceImages]
+    .map((img) => img.parentElement?.closest('[data-prose-index], [data-block-index]'))
+    .filter(Boolean));
+
+  scopes.forEach((sourceScope) => {
+    const attr = sourceScope.hasAttribute('data-prose-index') ? 'data-prose-index' : 'data-block-index';
+    const index = sourceScope.getAttribute(attr);
+    if (parseIndex(index) == null) return;
+    const liveScope = liveRoot.querySelector(`[${attr}="${index}"]`);
+    if (!liveScope) return;
+    const inScope = (img, scope) => img.parentElement?.closest('[data-prose-index], [data-block-index]') === scope;
+    const originals = [...sourceScope.querySelectorAll('img[data-image-index]')]
+      .filter((img) => inScope(img, sourceScope));
+    const rendered = [...liveScope.querySelectorAll('img')]
+      .filter((img) => inScope(img, liveScope));
+    if (originals.length !== rendered.length) return;
+    if (rendered.some((img, i) => img.hasAttribute('data-image-index')
+      && img.getAttribute('data-image-index') !== originals[i].getAttribute('data-image-index'))) return;
+    if (rendered.some((img, i) => img.hasAttribute('data-image-version')
+      && img.getAttribute('data-image-version') !== originals[i].getAttribute('data-image-version'))) return;
+    originals.forEach((img, i) => {
+      rendered[i].setAttribute('data-image-index', img.getAttribute('data-image-index'));
+      const version = img.getAttribute('data-image-version');
+      if (version) rendered[i].setAttribute('data-image-version', version);
+      else rendered[i].removeAttribute('data-image-version');
+    });
+  });
+}
+
+export function syncImageIndices(view, editorParent, offset, oldSize = 0, lengthDiff = 0) {
+  const base = offset - 1;
+  if (lengthDiff) {
+    document.querySelectorAll('img[data-image-index]').forEach((img) => {
+      if (editorParent.contains(img)) return;
+      const index = parseIndex(img.getAttribute('data-image-index'));
+      if (index != null && index >= base + oldSize) {
+        img.setAttribute('data-image-index', index + lengthDiff);
+      }
+    });
+  }
+
+  view.dom.querySelectorAll('img').forEach((img) => {
+    try {
+      const pos = view.posAtDOM(img, 0);
+      if (view.state.doc.nodeAt(pos)?.type.name === 'image') {
+        img.setAttribute('data-image-index', base + pos);
+        const version = editorParent.getAttribute('data-image-version');
+        if (version) img.setAttribute('data-image-version', version);
+        else img.removeAttribute('data-image-version');
+      } else {
+        img.removeAttribute('data-image-index');
+        img.removeAttribute('data-image-version');
+      }
+    } catch (error) {
+      img.removeAttribute('data-image-index');
+      img.removeAttribute('data-image-version');
+      // eslint-disable-next-line no-console
+      console.warn('Could not index edited image:', error);
+    }
+  });
+}
+
+export function setImageVersion(version, root = document) {
+  if (typeof version !== 'string' || !version) {
+    throw new Error('Image document version is missing');
+  }
+  root.querySelectorAll('img[data-image-index], .prosemirror-editor').forEach((el) => {
+    el.setAttribute('data-image-version', version);
+  });
+}
+
+export function applyImageVersionAck({ imageVersion, nodeUpdateId }, ctx, root = document) {
+  if (nodeUpdateId == null || nodeUpdateId !== ctx.pendingNodeUpdateId) return false;
+  setImageVersion(imageVersion, root);
+  ctx.pendingNodeUpdateId = null;
+  return true;
 }
 
 export function pictureSrc(picture) {
@@ -95,7 +178,7 @@ function isAtomicInline(el) {
   return ATOMIC_TAGS.has(el.tagName.toLowerCase());
 }
 
-function walkProsePositions(root, startPos, callbacks) {
+export function walkProsePositions(root, startPos, callbacks) {
   let pos = startPos;
 
   function walk(node) {

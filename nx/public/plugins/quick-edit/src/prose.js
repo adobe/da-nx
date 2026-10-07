@@ -13,6 +13,7 @@ import { createSimpleKeymap } from './simple-keymap.js';
 import { createImageWrapperPlugin } from './image-wrapper.js';
 import { setupImageDropListeners } from './images.js';
 import { setRemoteCursors } from './cursors.js';
+import { findTextBlock, syncImageIndices } from './dom-index.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
 function marksEqual(a, b) {
@@ -55,16 +56,20 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   const oldStoredMarks = editorView.state.storedMarks;
   const newState = editorView.state.apply(tr);
   editorView.updateState(newState);
-  updateInstrumentation(newState.doc.firstChild.nodeSize - oldLength, currentCursorOffset);
+  const lengthDiff = newState.doc.firstChild.nodeSize - oldLength;
+  updateInstrumentation(lengthDiff, currentCursorOffset);
+  syncImageIndices(editorView, editorParent, currentCursorOffset, oldLength, lengthDiff);
 
   if (ctx.remoteUpdate) { return; }
 
   if (numChanges > 0) {
     const editedEl = newState.doc.firstChild;
     const node = editedEl.toJSON();
+    const nodeUpdateId = crypto.randomUUID();
+    ctx.pendingNodeUpdateId = nodeUpdateId;
     ctx.port.postMessage({
       type: MESSAGE_TYPES.NODE_UPDATE,
-      payload: { node, cursorOffset: currentCursorOffset },
+      payload: { node, cursorOffset: currentCursorOffset, nodeUpdateId },
     });
   }
 
@@ -166,9 +171,22 @@ function keydown(view, event) {
   return handleToolbarKeydown(event);
 }
 
-function createEditor(cursorOffset, state, ctx) {
+function createEditor(cursorOffset, state, ctx, imageVersion) {
+  // Normalize once: the exact-match badge gate below is a strict === and would
+  // silently never match if cursorOffset arrived as a string.
+  const offset = Number(cursorOffset);
   const schema = getSchema();
   const node = schema.nodeFromJSON(state);
+
+  // A node that is not valid top-level `doc` content (e.g. a `table_cell`, which
+  // only belongs inside a `table_row`) makes `schema.node('doc', ...)` throw and
+  // takes the whole editor down. The controller should never send one, but guard
+  // here so a malformed payload degrades to a reload instead of a hard crash.
+  if (!schema.nodes.doc.contentMatch.matchType(node.type)) {
+    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
+    return;
+  }
+
   const doc = schema.node('doc', null, [node]);
 
   const editorState = EditorState.create({
@@ -178,17 +196,23 @@ function createEditor(cursorOffset, state, ctx) {
   });
 
   const editorParent = document.createElement('div');
-  editorParent.setAttribute('data-prose-index', cursorOffset);
+  editorParent.setAttribute('data-prose-index', offset);
+  if (imageVersion) editorParent.setAttribute('data-image-version', imageVersion);
   editorParent.classList.add('prosemirror-editor');
 
-  const element = document.querySelector(`[data-prose-index="${cursorOffset}"]`);
+  // Drift-tolerant lookup: an exact match can miss after another block's remote edit
+  // shifts positions. Exclude open editors so the fallback can't steal a live one.
+  const element = findTextBlock(offset, document, '.prosemirror-editor');
 
   if (!element) {
     ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
     return;
   }
 
-  if (element.getAttribute('data-cursor-remote')) {
+  // Only trust the found element's remote-cursor badge on an exact match — on the
+  // nearest-block fallback it belongs to whatever block drift landed on, not this one.
+  const isExactMatch = parseInt(element.getAttribute('data-prose-index'), 10) === offset;
+  if (isExactMatch && element.getAttribute('data-cursor-remote')) {
     editorParent.setAttribute('data-cursor-remote', element.getAttribute('data-cursor-remote'));
     editorParent.setAttribute('data-cursor-remote-color', element.getAttribute('data-cursor-remote-color'));
   }
@@ -208,6 +232,7 @@ function createEditor(cursorOffset, state, ctx) {
 
   element.replaceWith(editorParent);
   editorParent.view = editorView;
+  syncImageIndices(editorView, editorParent, offset);
   if (!ctx.readOnly) setupImageDropListeners(ctx, editorParent);
   setRemoteCursors();
   initScrollListener(editorParent.ownerDocument.defaultView, ctx);
@@ -220,13 +245,21 @@ function createEditor(cursorOffset, state, ctx) {
   }
 }
 
-function updateEditor(editorEl, state, ctx) {
+function updateEditor(editorEl, state, ctx, imageVersion) {
   if (!editorEl) return;
 
   // Editor already exists, update it with a transaction
   const view = editorEl;
+  if (imageVersion) view.dom.parentElement.setAttribute('data-image-version', imageVersion);
   const { schema } = view.state;
   const node = schema.nodeFromJSON(state);
+
+  // Same guard as createEditor: replacing the root with a node that is not
+  // valid `doc` content (e.g. a `table_cell`) throws and breaks the editor.
+  if (!schema.nodes.doc.contentMatch.matchType(node.type)) {
+    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
+    return;
+  }
 
   // Save selection to restore after the content replacement.
   // Marks don't change node structure, so positions are identical in the new doc.
@@ -255,11 +288,11 @@ function updateEditor(editorEl, state, ctx) {
   }
 }
 
-export function setEditorState(cursorOffset, state, ctx) {
+export function setEditorState(cursorOffset, state, ctx, imageVersion) {
   const existingEditorParent = document.querySelector(`.prosemirror-editor[data-prose-index="${cursorOffset}"]`);
   if (existingEditorParent) {
-    updateEditor(existingEditorParent.view, state, ctx);
+    updateEditor(existingEditorParent.view, state, ctx, imageVersion);
     return;
   }
-  createEditor(cursorOffset, state, ctx);
+  createEditor(cursorOffset, state, ctx, imageVersion);
 }

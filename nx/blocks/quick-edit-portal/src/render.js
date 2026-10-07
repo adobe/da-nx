@@ -1,6 +1,8 @@
 import { TextSelection, yUndo, yRedo } from 'da-y-wrapper';
 import { getInstrumentedHTML, extractCursors } from './prose2aem.js';
+import { resolveEditableNode } from './editable-node.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
+import { getImageDocumentVersion } from '../../../../nx2/public/utils/quick-edit-images.js';
 
 export function updateDocument(ctx) {
   // Skip rerender if suppressed (e.g., during image updates)
@@ -31,23 +33,36 @@ export function updateState(data, ctx) {
   tr.setSelection(TextSelection.create(tr.doc, docPos));
 
   ctx.suppressRerender = true;
-  window.view.dispatch(tr);
-  ctx.suppressRerender = false;
+  try {
+    window.view.dispatch(tr);
+  } finally {
+    ctx.suppressRerender = false;
+  }
+  ctx.port.postMessage({
+    type: MESSAGE_TYPES.NODE_UPDATE,
+    payload: {
+      nodeUpdateId: data.nodeUpdateId,
+      imageVersion: getImageDocumentVersion(window.view.state.doc),
+    },
+  });
 }
 
 export function getEditor(data, ctx) {
   if (ctx.suppressRerender) { return; }
   const { cursorOffset } = data;
 
-  const pos = window.view.state.doc.resolve(cursorOffset);
-  const before = pos.before(pos.depth);
-  const beforePos = window.view.state.doc.resolve(before);
-  const nodeAtBefore = beforePos.nodeAfter;
-  const editorState = nodeAtBefore.toJSON();
-  const newCursorOffset = before + 1;
+  const { node, cursorOffset: newCursorOffset } = resolveEditableNode(
+    window.view.state.doc,
+    cursorOffset,
+  );
+  if (!node) return;
   ctx.port.postMessage({
     type: MESSAGE_TYPES.SET_EDITOR_STATE,
-    payload: { editorState, cursorOffset: newCursorOffset },
+    payload: {
+      editorState: node.toJSON(),
+      cursorOffset: newCursorOffset,
+      imageVersion: getImageDocumentVersion(window.view.state.doc),
+    },
   });
 }
 

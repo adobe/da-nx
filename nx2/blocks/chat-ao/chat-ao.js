@@ -15,9 +15,10 @@ import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
 import { getEWFlags } from '../../utils/ewFlags.js';
 import AoChatController from './ao-controller.js';
+import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
   AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES,
-  COWORKER_SKILLS_URL, COWORKER_CHAT_URL,
+  COWORKER_SKILLS_URL, COWORKER_CHAT_URL, ENTERPRISE_CONTEXT_URL,
   ADD_MENU_ITEMS, OPEN_COWORKER_ITEM,
 } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
@@ -26,7 +27,7 @@ import { PANEL_EVENT } from '../../utils/panel.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
-import { createVoiceInput, isVoiceInputSupported, appendTranscript } from '../shared/chat/voice-input.js';
+import { createVoiceInput, isVoiceInputSupported, appendTranscript } from './utils/voice-input.js';
 import { showToast } from '../shared/toast/toast.js';
 import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
@@ -39,6 +40,7 @@ import '../shared/chat/prompts/prompts.js';
 import '../shared/chat/new-chat/new-chat.js';
 import './question-card/question-card.js';
 import { ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
+import { sampleRUM } from '../../deps/rum.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
@@ -63,6 +65,7 @@ export default class NxChatAo extends LitElement {
     pendingPlanApproval: { type: Object },
     pendingPermission: { type: Object },
     loadingEpisode: { type: Boolean },
+    staleEpisode: { type: Object },
     _dragging: { state: true },
     _prompts: { state: true },
     _planFeedback: { state: true },
@@ -73,12 +76,17 @@ export default class NxChatAo extends LitElement {
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
 
   // Tracks the last interim chunk inserted into .chat-input so the next
-  // chunk can replace it in place — see shared/chat/voice-input.js#appendTranscript.
+  // chunk can replace it in place — see utils/voice-input.js#appendTranscript.
   _voiceInterim = '';
 
   set context(value) {
     this._explicitContext = true;
     this._applyContext(value);
+  }
+
+  async setPrompt(text, { autoSend = false } = {}) {
+    await this.updateComplete;
+    this._sendPrompt(text, { autoSend });
   }
 
   // See docs/chat-ao-component.md#plan-approval — a pending plan, unlike a
@@ -184,6 +192,12 @@ export default class NxChatAo extends LitElement {
 
   _handleNewSession() {
     this._controller.startNewEpisode();
+    this.shadowRoot.querySelector('.chat-input')?.focus();
+  }
+
+  _continueStaleEpisode() {
+    if (!this.staleEpisode) return;
+    this._controller.switchEpisode(this.staleEpisode.id);
   }
 
   _handleEpisodeChange({ detail: { value } }) {
@@ -199,11 +213,12 @@ export default class NxChatAo extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    fetchResolvedManifestId();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, artifactStyle];
     this._controller = new AoChatController({
       onUpdate: ({
         messages, thinking, streamingText, episodes, episodeId,
-        pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode,
+        pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode, staleEpisode,
         wsBase, // TEMP(backend-banner)
       }) => {
         this._backendWsBase = wsBase; // TEMP(backend-banner)
@@ -217,6 +232,7 @@ export default class NxChatAo extends LitElement {
         this.pendingPlanApproval = pendingPlanApproval;
         this.pendingPermission = pendingPermission;
         this.loadingEpisode = loadingEpisode;
+        this.staleEpisode = staleEpisode;
       },
     });
     if (this._context) this._controller.setContext(this._context);
@@ -235,6 +251,10 @@ export default class NxChatAo extends LitElement {
       if (document.visibilityState === 'visible') this._controller.reattachIfIdle();
     };
     document.addEventListener('visibilitychange', this._onVisibilityChange);
+    this._onSetPromptEvent = ({ detail }) => {
+      this.setPrompt(detail.text, { autoSend: detail.autoSend });
+    };
+    document.addEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
     this._voice = createVoiceInput({
       onStart: () => { this._voiceListening = true; },
       onEnd: () => { this._voiceListening = false; this._voiceInterim = ''; },
@@ -252,6 +272,7 @@ export default class NxChatAo extends LitElement {
     this._controller?.destroy();
     this._unsubscribeHash?.();
     document.removeEventListener('visibilitychange', this._onVisibilityChange);
+    document.removeEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
     this._voice?.stop();
   }
 
@@ -275,6 +296,10 @@ export default class NxChatAo extends LitElement {
     }
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
       this.shadowRoot.querySelector('.chat-input')?.focus();
+    }
+
+    if (changed.has('pendingPermission') && this.pendingPermission && !changed.get('pendingPermission')) {
+      this.shadowRoot.querySelector('.permission-approve-btn')?.focus();
     }
   }
 
@@ -311,6 +336,7 @@ export default class NxChatAo extends LitElement {
     const items = pills?.items ?? [];
     const attachments = items.filter((i) => i.dataBase64);
     const context = items.filter((i) => !i.dataBase64);
+    sampleRUM('click', { source: 'chat-submit', target: 'button.chat-send.harness-coworker' });
     this._slashMenu.close();
     this._controller.sendMessage(text, context, attachments);
     input.value = '';
@@ -349,6 +375,7 @@ export default class NxChatAo extends LitElement {
       }
     }
     if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) window.open(`${COWORKER_CHAT_URL}/${this.episodeId}`, '_blank', 'noopener,noreferrer');
+    if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) window.open(ENTERPRISE_CONTEXT_URL, '_blank', 'noopener,noreferrer');
   }
 
   _openConfigPage() {
@@ -428,6 +455,7 @@ export default class NxChatAo extends LitElement {
         ${this.episodes?.length ? html`
           <nx-picker
             class="session-picker"
+            size="m"
             .items=${this.episodes.map((ep) => ({ value: ep.id, label: this._episodeLabel(ep) }))}
             .value=${this.episodeId}
             .labelOverride=${this._sessionFallbackLabel()}
@@ -435,12 +463,12 @@ export default class NxChatAo extends LitElement {
             @change=${this._handleEpisodeChange}
           ></nx-picker>` : nothing}
         <div>
-          <button type="button" class="nx-action-btn-quiet nx-btn-sm" @click=${this._handleNewSession}>
+          <button type="button" class="nx-action-btn-quiet" @click=${this._handleNewSession}>
             ${icon('add')}
-            <span>New session</span>
+            <span>New chat</span>
           </button>
           <button
-            class="nx-action-btn-icon nx-btn-sm"
+            class="nx-action-btn-icon"
             aria-label="Close chat panel"
             @click=${this._closePanel}
           >${icon('close')}</button>
@@ -455,6 +483,11 @@ export default class NxChatAo extends LitElement {
           ? html`<nx-new-chat
               .prompts=${prompts}
               .onSend=${(p) => this._sendPrompt(p)}
+              .lastSession=${this.staleEpisode ? {
+                preview: this.staleEpisode.title || 'Your previous conversation',
+                updatedAt: this.staleEpisode.updated_at,
+              } : undefined}
+              .onContinue=${() => this._continueStaleEpisode()}
               @nx-show-prompts=${this._openPrompts}
             ></nx-new-chat>`
           : nothing}
@@ -483,6 +516,7 @@ export default class NxChatAo extends LitElement {
       <div class="chat-form-wrap">
         <nx-menu
           class="slash-menu"
+          size="m"
           .ignoreFocus=${true}
           .scoped=${true}
           @select=${({ detail }) => this._onSlashSelect(detail.id)}
@@ -494,8 +528,8 @@ export default class NxChatAo extends LitElement {
           .onDecline=${() => this._controller.declineQuestion()}
         ></nx-question-card>
         ${renderPermissionCard(this.pendingPermission, {
-          onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
-        })}
+            onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
+          })}
         <form class="chat-form" @submit=${this._submit}
           @dragenter=${this._dnd.onDragEnter}
           @dragleave=${this._dnd.onDragLeave}
@@ -528,7 +562,7 @@ export default class NxChatAo extends LitElement {
             @blur=${this._slashMenu.onBlur}
           ></textarea>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
-            <nx-menu .items=${this._menuItems} placement="above" @select=${this._handleMenuSelect}>
+            <nx-menu size="m" .items=${this._menuItems} placement="above" @select=${this._handleMenuSelect}>
               <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>
@@ -551,7 +585,7 @@ export default class NxChatAo extends LitElement {
                 ?hidden=${!this._blocked}
                 @click=${this._submit}
               > ${icon('stop')}</button>
-              <button type="submit" class="chat-send nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this._blocked} aria-label="Send">
+              <button type="submit" class="chat-send harness-coworker nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this._blocked} aria-label="Send">
                 ${icon('send')}
               </button>
             </div>

@@ -1,7 +1,7 @@
 import { etcFetch, resolveMediaUrl } from './urls.js';
 import { getMediaType, getSubtype } from './media.js';
 import { decodeDisplayName, getFileName } from './files.js';
-import { t } from './messages.js';
+import { getMessage } from './messages.js';
 import { isMediaLibraryPluginMode, withTimeout } from './utils.js';
 
 function escapeCsvCell(value) {
@@ -137,6 +137,12 @@ async function copyImageToClipboard(imageUrl, org, repo, usePreviewDaLive = fals
 
   response ||= await fetch(fetchUrl);
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('You need Author or higher permissions on EDS to copy this resource. You can still browse existing media.');
+    }
+    if (response.status === 401) {
+      throw new Error('Sign in to the site using Sidekick to copy this resource.');
+    }
     throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
   }
 
@@ -199,8 +205,8 @@ export async function copyMediaToClipboard(media, org, repo, usePreviewDaLive = 
         try {
           await copyNonImageLinkRichClipboard(media);
           return {
-            heading: t('NOTIFY_PLUGIN_FALLBACK_HEADING'),
-            message: t('NOTIFY_PLUGIN_FALLBACK_LINK_MSG'),
+            heading: getMessage('NOTIFY_PLUGIN_FALLBACK_HEADING'),
+            message: getMessage('NOTIFY_PLUGIN_FALLBACK_LINK_MSG'),
           };
         } catch {
           /* fall through to plain writeText */
@@ -214,23 +220,24 @@ export async function copyMediaToClipboard(media, org, repo, usePreviewDaLive = 
       await copyImageToClipboard(mediaUrl, org, repo, usePreviewDaLive);
       if (plugin) {
         return {
-          heading: t('NOTIFY_PLUGIN_FALLBACK_HEADING'),
-          message: t('NOTIFY_PLUGIN_FALLBACK_IMAGE_MSG'),
+          heading: getMessage('NOTIFY_PLUGIN_FALLBACK_HEADING'),
+          message: getMessage('NOTIFY_PLUGIN_FALLBACK_IMAGE_MSG'),
         };
       }
-      return { heading: t('NOTIFY_COPIED'), message: t('NOTIFY_COPIED_IMAGE') };
+      return { heading: getMessage('NOTIFY_COPIED'), message: getMessage('NOTIFY_COPIED_IMAGE') };
     }
     await navigator.clipboard.writeText(mediaUrl);
     if (plugin) {
       return {
-        heading: t('NOTIFY_PLUGIN_FALLBACK_HEADING'),
-        message: t('NOTIFY_PLUGIN_FALLBACK_PLAIN_MSG'),
+        heading: getMessage('NOTIFY_PLUGIN_FALLBACK_HEADING'),
+        message: getMessage('NOTIFY_PLUGIN_FALLBACK_PLAIN_MSG'),
       };
     }
-    return { heading: t('NOTIFY_COPIED'), message: t('NOTIFY_COPIED_URL') };
+    return { heading: getMessage('NOTIFY_COPIED'), message: getMessage('NOTIFY_COPIED_URL') };
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to copy to clipboard:', error);
-    return { heading: t('NOTIFY_ERROR'), message: t('NOTIFY_COPY_ERROR') };
+    const message = error?.message || getMessage('NOTIFY_COPY_ERROR');
+    return { heading: getMessage('NOTIFY_ERROR'), message };
   }
 }

@@ -1,6 +1,6 @@
 import { loadIms } from '../../../utils/ims.js';
-import { AO_MANIFEST_ID } from '../ao-constants.js';
 import { getOrgId, resolveSkillsHttpBase } from './uploads.js';
+import { resolveManifestId } from './manifest.js';
 
 const SKILLS_CACHE_PREFIX = 'da-chat-ao-skills';
 
@@ -45,7 +45,7 @@ function saveCachedSkills(skills, tenantId) {
 
 // Real catalog lookup. Best-effort: a network error or unexpected response shape
 // returns null, leaving the cache (or empty list) in place rather than throwing.
-export async function fetchSkills({ altHarnessKey } = {}) {
+export async function fetchSkills({ org, site, altHarnessKey } = {}) {
   try {
     const { accessToken, projectedProductContext, userId } = await loadIms();
     const tenantId = getOrgId(projectedProductContext);
@@ -57,7 +57,8 @@ export async function fetchSkills({ altHarnessKey } = {}) {
     // The bridge's REST plane requires an explicit x-user-id; AO derives the
     // caller from the token and ignores it.
     if (altHarnessKey && userId) headers['x-user-id'] = userId;
-    const resp = await fetch(`${base}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`, {
+    const { manifestId } = await resolveManifestId({ org, site });
+    const resp = await fetch(`${base}/api/v1/skills?manifest_id=${manifestId}`, {
       headers,
     });
     if (!resp.ok) return null;

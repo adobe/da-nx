@@ -10,6 +10,14 @@ per backend. Which client loads for a given org/site is decided by
 `loadChat()` in `nx2/utils/chat.js` (the `ew.coworker` flag, or the
 `?nx-chat-ao=true` dev override).
 
+Because either element can be mounted for a given org/site, `nx-chat-ao`
+exposes `setPrompt(text, { autoSend? })` with the same signature as
+`nx-chat`'s, and listens for the same `CHAT_EVENT.SET_PROMPT` document event
+(see [chat-ui-component.md § Setting a prompt programmatically](./chat-ui-component.md#setting-a-prompt-programmatically))
+so callers — including the `PANEL_EVENT.OPEN`/DA SDK `actions.setPrompt`
+paths documented there — don't need to know which element they got, and
+don't need to query for it either.
+
 ## Session warming
 
 `AoChatController.warmSession()` (`ao-controller.js`) kicks the current
@@ -35,10 +43,12 @@ once the user does something — see
   `RESUME`/`ATTACH`). `ATTACH` is the one built for exactly this: "join this
   episode, don't submit a turn."
 - **Failures stay silent.** If the backend session isn't actually live yet,
-  AO replies with an `ERROR` frame instead of `SESSION_READY`. `_handleServerEvent`
+  AO replies with an `ERROR` frame instead of `SESSION_READY`. `_onSessionError`
   only surfaces `ERROR_CONNECTION`/`ERROR_SESSION` to the user while
-  `_thinking` is true, so a failed *warm* attempt never shows up — `sendMessage`
-  just connects (and attaches) fresh when the user actually sends.
+  `_blockedByActiveTurn` is true (see [Connection recovery](#connection-recovery)
+  for why plain `_thinking` isn't enough), so a failed _warm_ attempt never
+  shows up — `sendMessage` just connects (and attaches) fresh when the user
+  actually sends.
 
 `_ensureSocket()` coalesces concurrent callers (warming opening the socket
 early, `sendMessage` needing it moments later) onto the same in-flight
@@ -70,18 +80,33 @@ mid-turn still ends the turn correctly: it surfaces via the normal
 `ERROR_CONNECTION`/`ERROR_SESSION` handling once reattached.
 
 **Only reconnects automatically while a turn is actually in flight
-(`_shouldReattachOnClose()`: `!_destroyed && _thinking`) — an idle close does
-nothing on its own.** This used to reattach unconditionally, mid-turn or
-idle, so a tab sitting on an ended/idle episode would retry forever: AO's
-`ATTACH` rejects a non-live episode only after running a billable liveness
-check, and the rejection itself closes the socket — an immediate,
-no-backoff retry loop against an episode that will never become attachable
-again (a real production incident: flat user traffic, but a runaway spike
-in that liveness check from idle tabs re-`ATTACH`ing roughly once a second,
-for hours, after their one real message). There's no "permanently idle"
-state for AO to signal either, since an episode is always reopenable — the
-fix is entirely client-side: stop treating a rejection as "retry
-immediately," and only reattach when there's an actual local reason to.
+(`_shouldReattachOnClose()`: `!_destroyed && _blockedByActiveTurn`) — an idle
+close does nothing on its own.** This used to reattach unconditionally,
+mid-turn or idle, so a tab sitting on an ended/idle episode would retry
+forever: AO's `ATTACH` rejects a non-live episode only after running a
+billable liveness check, and the rejection itself closes the socket — an
+immediate, no-backoff retry loop against an episode that will never become
+attachable again (a real production incident: flat user traffic, but a
+runaway spike in that liveness check from idle tabs re-`ATTACH`ing roughly
+once a second, for hours, after their one real message). There's no
+"permanently idle" state for AO to signal either, since an episode is always
+reopenable — the fix is entirely client-side: stop treating a rejection as
+"retry immediately," and only reattach when there's an actual local reason
+to.
+
+**A suspended turn (pending question/plan/permission) doesn't count as
+"in flight" here, even though `_thinking` is still true.** AO genuinely
+reports the episode as idle while it's paused waiting on the user — there is
+no active generation for a reattach to rejoin, so a socket drop during a
+pending question/plan/permission used to reattach anyway, get the same
+"not active (state=idle)" rejection as the idle-tab case above, and surface
+it as a scary `Error: Cannot ATTACH to episode ...` — even though the popover
+itself was working fine and needed no live socket (`answerQuestion`/
+`respondToPlanApproval`/`respondToPermission` all already reconnect via
+`RESUME` on demand when the user actually responds). `_shouldReattachOnClose()`
+and `_onSessionError()` both gate on the existing `_blockedByActiveTurn`
+getter (see [Episode switching](#episode-switching)) instead of bare
+`_thinking`, so this case is now silent, same as the idle-tab case.
 
 Those reasons are `warmSession()` (user starts typing, or an episode is
 loaded/switched to — see [Session warming](#session-warming)) and
@@ -90,7 +115,7 @@ loaded/switched to — see [Session warming](#session-warming)) and
 on there being no live socket already. This is what restores cross-client
 live updates (see below) without the background retry cost: AO fans out
 `SessionEvent`s to every WebSocket attached to an episode (not just the one
-that submitted a turn), so a turn submitted from a *different* client on the
+that submitted a turn), so a turn submitted from a _different_ client on the
 same episode (e.g. AO's own "coworker" UI, open in another tab) renders here
 too, live, as long as this client's socket stays attached — but only for as
 long as that socket lasts. A known, accepted gap: a tab that stays visible
@@ -106,7 +131,7 @@ Cross-client fanout alone would only get you the assistant's response
 appearing live (`TEXT_DELTA`/`TOOL_CALL_*` don't gate on origin); the human's
 own typed message needed its own event, and AO has one: `SessionEvent
 .user_message()` (`agents/events.py`) streams `{ text, attachments,
-client_message_id }` to *every* subscriber, confirmed to include the
+client_message_id }` to _every_ subscriber, confirmed to include the
 originating connection itself — AO does not exclude the sender, by design
 (its own docstring: "`client_message_id` lets the originating client dedup
 against its optimistic bubble while other tabs render fresh"). So
@@ -114,7 +139,7 @@ against its optimistic bubble while other tabs render fresh"). So
 (optimistically) rendered message as `clientMessageId`, and sends it on the
 wire as `clientMessageId` (camelCase — confirmed against `ws_handler.py`'s
 `_client_message_id()`, which reads exactly that key, distinct from the
-snake_case `client_message_id` the *event's* `data` payload uses).
+snake*case `client_message_id` the \_event's* `data` payload uses).
 `_handleServerEvent`'s `USER_MESSAGE` handler checks incoming
 `data.client_message_id` against already-rendered messages: a match means
 it's this client's own echo (skip, already shown); no match means it
@@ -127,7 +152,7 @@ matters, same as any other access to it.
 
 Not yet handled: a cross-client turn doesn't set `_thinking` locally (nothing
 currently does, for a turn we didn't submit), so no "Thinking..." indicator
-shows while waiting for the *first* token of a reply typed elsewhere — the
+shows while waiting for the _first_ token of a reply typed elsewhere — the
 response still streams in via `TEXT_DELTA` once AO starts producing it, just
 without that lead-in cue. Deliberately not built yet, pending real usage.
 
@@ -142,7 +167,7 @@ and pick back up later; `_loadEpisode` re-hydrates it via
 switching away.
 
 `_loadEpisode` clears messages and sets `_loadingEpisode = true` synchronously
-*before* fetching, so switching feels instant rather than leaving stale
+_before_ fetching, so switching feels instant rather than leaving stale
 messages on screen for however long the fetch takes.
 
 **`_refreshEpisodeList` never overwrites a known list with an empty one.**
@@ -153,7 +178,7 @@ right after `SESSION_READY` reports a new episode id, meaning at least one
 episode (the one that was just created) must exist — so an empty result
 there can only mean the fetch itself failed. Without the guard, one transient
 failure (a network blip, a token-refresh race) at exactly that moment would
-wipe the *entire* session picker, not just fail to add the new episode —
+wipe the _entire_ session picker, not just fail to add the new episode —
 confirmed as a real bug report (2026-08-25): starting a second new session
 made the first one disappear from the picker entirely, not just show
 untitled or out of order.
@@ -178,7 +203,7 @@ pause today; no separate permission-request concept has shown up in practice
 for this client.
 
 **Responding to a resumed question — cold vs. warm connection.** `_respondToQuestion`
-checks whether the socket was already open *before* sending:
+checks whether the socket was already open _before_ sending:
 
 - **Already open** (mid-session): send `QUESTION_RESPONSE` directly.
 - **Not open** (e.g. the episode was restored from REST and has no live
@@ -203,24 +228,66 @@ separate free-standing text field — this is what makes Tab/Arrow-keys/
 Space/Enter work identically for every option in the group, with no custom
 keyboard-nav code. The one thing the radio's own `@change` handler must
 **not** do is jump focus into its paired text field: arrow-key movement in a
-native radiogroup always both moves *and* selects, so auto-focusing the text
+native radiogroup always both moves _and_ selects, so auto-focusing the text
 field on selection meant arrowing onto "Other" (even just passing through)
 yanked focus out of the group entirely, trapping keyboard users there.
 Reaching the text field to actually type is one more Tab press, the same as
-moving between any two distinct native controls — and only *typing* in it
+moving between any two distinct native controls — and only _typing_ in it
 (never merely focusing/tabbing through) marks it as the chosen answer, so
 passing through on the way to Submit never clobbers a previously-picked fixed
 option.
 
 **Keyboard shortcuts:**
+
 - **Enter** on a fixed option mirrors Space (a native no-op on radio/checkbox)
   and also submits once that answer satisfies every required question.
 - **Enter** on "Other" does the same, but moves focus into the text field
   first when there's nothing typed yet to submit.
 - **Escape** mirrors clicking Skip, from anywhere in the card.
 
+**Once answered, the question card is replaced by a `questionResponse`
+summary message** (`renderQuestionResponseCard`) — not a plain `{role: 'user',
+content}` bubble, which would misrepresent a selection as something the user
+typed, and not left as no trace at all, which is what happened before this
+existed (the card just vanished; the only record was the answer buried
+inside `ask_user_question`'s own tool-call result, one expand-and-scroll
+away). Three paths build the same message shape:
+
+- **This client answers:** `_respondToQuestion` builds it immediately from
+  the `pendingQuestion` it's about to clear plus the `answers`/`declined`
+  being sent — optimistic, same principle as `sendMessage` rendering the
+  user's own typed text before the round trip completes.
+- **A different client answers first:** AO fans out `user_question_response`
+  (`{ turn_id, answers }`) to every client on the episode, sender included —
+  same pattern as `user_message`'s cross-client fanout. `_onUserQuestionResponse`
+  only acts if `pendingQuestion` is *still* set for that turn — if this client
+  already answered, it cleared its own `pendingQuestion` already, so the echo
+  is a no-op here. That field carries no `declined` flag, unlike the
+  optimistic path which knows the real value directly — an empty `answers`
+  array is treated as declined, true for a real decline and for a required
+  question somehow answered with nothing, which shouldn't happen in practice.
+- **Reload:** `turnsToMessages` (`utils/episodes.js`) finds `ask_user_question`
+  tool calls in a turn's events, matches each to its `tool_result` by
+  `tool_call_id`, and rebuilds the same shape from the call's own `arguments`
+  (`questions`/`context`) and the result's `metadata` (`answers`/`declined`) —
+  the same `_build_question_metadata` shape AO already writes for this
+  exact call, not a new field.
+
+**Live, `ask_user_question` never gets a generic tool-call card** —
+`_onToolCallDetected`/`_onToolCallStart` skip any tool name in
+`DEDICATED_SUMMARY_TOOLS` (`ao-constants.js`), and `turnsToMessages` routes it
+to `questionResponse` on reload too. The alternative (showing both) would mean
+answering a question left *two* records behind: a raw, unformatted tool-call
+card with the question JSON as `arguments` and "User answers: ..." as
+`result`, and the readable summary above it — worse than either alone.
+
+This suppression is deliberately *not* mirrored in `extractToolCalls`, used
+only when a reloaded turn's collapsed "Used N tools" row is expanded — that
+view already shows every other tool's raw args/result, so `ask_user_question`
+appearing there too is consistent rather than a special case.
+
 **Not yet implemented / open TODOs:** screen-reader verification, multi-question
-layout testing under real content, focus-ring polish, component test coverage.
+layout testing under real content, focus-ring polish.
 
 ## Plan approval
 
@@ -242,7 +309,7 @@ by `data.type` inside the generic `RESUME` op:
 { "type": "RESUME", "turn_id": "...", "data": { "type": "plan-response", "decision": "approve"|"reject", "feedback": "...", "edited_plan_content": null } }
 ```
 
-This is simpler than the question flow: `RESUME` is always a valid *first*
+This is simpler than the question flow: `RESUME` is always a valid _first_
 op (unlike a bare `QUESTION_RESPONSE`), so `respondToPlanApproval` never
 needs to check whether the socket was already open before sending.
 
@@ -256,7 +323,7 @@ a discriminated result now — `{ type: 'question', ... }` or
 hydrates whichever one AO reports into `_pendingQuestion`/`_pendingPlanApproval`.
 
 **Genuinely non-blocking — the input stays enabled.** Unlike a pending
-question, a pending plan approval does *not* disable the chat input.
+question, a pending plan approval does _not_ disable the chat input.
 `chat-ao.js`'s `_blocked` getter (`thinking && !pendingPlanApproval`) is what
 every input-disabling/send-blocking site checks instead of raw `thinking` —
 the textarea's `disabled` state, `_submit`'s stop-vs-send branch, `_sendPrompt`,
@@ -295,12 +362,12 @@ against AO's backend source (`agents/events.py`, `agents/ops.py`,
 `apps/a2a/ws_handler.py`, `agents/tool_executor/{suspend,suspensions}.py`):
 
 - **Response wire shape**: `{ type: 'PERMISSION_RESPONSE', turn_id, decisions:
-  { [pending_calls[].id]: { tool_call_id, approved } } }` — bare on an
+{ [pending_calls[].id]: { tool_call_id, approved } } }` — bare on an
   already-open connection, wrapped as `{ type: 'RESUME', turn_id, data: {
-  type: 'permission-response', decisions } }` on a cold one, identical
+type: 'permission-response', decisions } }` on a cold one, identical
   cold/warm split to `QUESTION_RESPONSE`.
 - **One-shot, not incremental.** Submitting `PERMISSION_RESPONSE` resolves
-  the *entire* gate for that turn immediately — any `pending_calls[].id` not
+  the _entire_ gate for that turn immediately — any `pending_calls[].id` not
   present in `decisions` at that moment is auto-denied server-side, not
   re-prompted. So `respondToPermission` collects one decision per call
   locally (`_pendingPermission.decisions`) and only sends once every call in
@@ -312,7 +379,7 @@ against AO's backend source (`agents/events.py`, `agents/ops.py`,
   actually appear anywhere in this code path). `PermissionDecision` has no
   `scope` field. The real "don't ask again" behavior is entirely automatic
   and server-side: approving a destructive tool once auto-approves repeats
-  of *that same tool by name* for the rest of the current turn only,
+  of _that same tool by name_ for the rest of the current turn only,
   resetting on the next turn (`PermissionGate`/`TurnContext.requires_permission`
   in `agents/session/.../turn.py`). There is nothing for a client to opt into
   — no "remember this" button is possible here, unlike nx-chat's old
@@ -325,10 +392,10 @@ against AO's backend source (`agents/events.py`, `agents/ops.py`,
   alternative to actually deciding.
 - **REST-hydrated on reload, same as question/plan** — via a field that
   turned out to already be there. `GET /api/v1/episodes/{id}/context`'s
-  `suspendedTurn.pendingCalls` is *always* present in the response (unlike
+  `suspendedTurn.pendingCalls` is _always_ present in the response (unlike
   `questionData`/`planData`, which are reason-specific), but only non-empty
   when the suspend reason is permission — same `{id, name, arguments,
-  needs_permission}` shape as the live event's `pending_calls`. An earlier
+needs_permission}` shape as the live event's `pending_calls`. An earlier
   version of this doc assumed no such field existed and shipped without
   rehydration; that assumption was never actually checked against AO's REST
   response and turned out to be wrong. `fetchEpisodeContext` now returns a
@@ -340,10 +407,10 @@ against AO's backend source (`agents/events.py`, `agents/ops.py`,
   deterministic AO behavior — not a timing issue, and not something to
   special-case.** Verified against `agents/tool_execution_request.py` and
   `agents/tool_executor/executor.py`: some tools are "blind deferred" (their
-  schema isn't preloaded). The permission check always runs *before* the
+  schema isn't preloaded). The permission check always runs _before_ the
   schema-load check, so a permission-gated tool suspends for permission
   first regardless of how long that takes; only once resumed does execution
-  reach the schema-load step, which — the *first* time only — returns this
+  reach the schema-load step, which — the _first_ time only — returns this
   message as a non-generic failure (`success: false`) and retries with a
   fresh `tool_call_id`. That retry then succeeds without asking permission
   again, purely because of the same-tool-name-for-the-rest-of-the-turn
@@ -396,8 +463,10 @@ receive them.
 
 `ao-controller.js` handles all three events, patching the same
 `{ role: 'assistant', toolCall: {...} }` entry in `_messages` in place by
-`toolCallId` (same entry-patching pattern as `hydrateToolCall`'s summary
-rows) — `tool_call_detected` appends the entry (`status: 'detected'`, name
+`toolCallId` — always looked up by id rather than array index, since
+`_messages` can be replaced out from under an in-flight patch (e.g. while
+`hydrateToolCall`'s own fetch is still pending) — `tool_call_detected`
+appends the entry (`status: 'detected'`, name
 only, no args yet); `tool_call_start` upgrades it to `status: 'running'` with
 `arguments`, appending fresh only if no `detected` row arrived first (AO
 doesn't guarantee `detected` fires before `start`); `tool_call_end` upgrades
@@ -409,13 +478,32 @@ surfaced as `toolCall.title` and preferred over the raw `tool_name` ("skill")
 in the card's summary line, so a skill invocation reads as e.g. "AEM Sites DA
 Page Update" instead of "skill".
 
+**No error badge, by design — `status` is never rendered as a visual
+distinction, only as a `tool-call-${status}` class hook.** `success: false`
+on the wire is a much noisier signal than "the user should worry about
+this": it also covers AO's blind-deferred-schema retry (a tool's schema
+isn't preloaded past `inline_schema_token_budget`; the first call in an
+episode comes back `success: false`, `result` starting with `"Loaded schema
+for "`, then retries and succeeds — normal, deterministic, not a failure)
+and a user's own permission denial (`result` starting with `"<system-info>
+User denied permission"` — the user's deliberate choice, not something gone
+wrong). An earlier version of this doc had `ao-controller.js`/`episodes.js`
+detect the deferred-schema case specifically (via `isDeferredSchemaResult`,
+matching that one string) and map it to a `'retrying'` status so no badge
+showed — but the permission-denial case proved that was one instance of a
+pattern, not a one-off: `success: false` doesn't reliably mean "alarm the
+user," and detecting each non-alarming case as it's discovered doesn't
+scale. Removed rather than extended — the assistant's own reply is already
+the channel a user reads for "did this work," and doesn't need a wire-level
+heuristic to get it right.
+
 `chat-ao.js`'s `renderToolCallCard` is a small collapsible `<details>` (styled
 after this file's own existing `.selection-context` chevron pattern, not
 copied from anywhere) — collapsed by default. **The summary label ("Using
-&lt;name&gt;") never changes across detected → running → done** — only the
-expandable detail (arguments while in progress, result once done) and an
-`error` badge change, so the line doesn't visibly jump/reflow once the user's
-eye is on it. Coworker's own production UI (`ao-collab`'s `tool-call-item.tsx`)
+&lt;name&gt;") never changes across detected → running → done**, and neither
+does its styling regardless of outcome — only the expandable detail
+(arguments while in progress, result once done) changes, so the line doesn't
+visibly jump/reflow once the user's eye is on it. Coworker's own production UI (`ao-collab`'s `tool-call-item.tsx`)
 does something visually similar (collapsible row, spinner while running) but
 this is an independent, from-scratch implementation, not a port —
 nx-chat-ao intentionally never shares controller or rendering code with
@@ -445,11 +533,14 @@ turn — coarser than per-call (no titles, no per-call detail, just a count),
 but real. `renderToolCallCard` renders that row as a plain expandable
 `<summary>` with no status badge; opening it (`@toggle`) calls
 `AoChatController#hydrateToolCall`, which fetches the turn's full event log
-once (cached per `turnId`), extracts every real `{tool_call_id, name,
-arguments}`/`{result, display_result, status, duration_s, metadata}` pair via
+(no caching — there's exactly one summary row per turn, and hydration is
+already guarded against re-entry via `loadingCalls`/`calls`, so a second
+fetch for the same turn never actually happens), extracts every real
+`{tool_call_id, name, arguments}`/`{result, display_result, status,
+duration_s, metadata}` pair via
 `extractToolCalls` (matching `assistant_message.tool_calls[]` against
 `tool_result` events by `tool_call_id`), and nests them as `toolCall.calls` on
-the *same* summary message — replacing it with sibling messages instead (the
+the _same_ summary message — replacing it with sibling messages instead (the
 first version of this) changed `_messages`' length and swapped the header out
 from under the user mid-expand, which read as broken. `summaryText` itself is
 deliberately left untouched by hydration, even though the real calls now
@@ -459,6 +550,23 @@ path already gets the right title from the start (`metadata.skill_title` on
 `tool_call_start`/`tool_call_end`), so this only ever mattered for reload.
 Each nested call renders through the same `renderToolCallCard` as the live
 path, just recursed into `.tool-call-children`.
+
+**`turnsToMessages` surfaces every `assistant_message` with real text in a
+turn, not just the last one.** The `/turns` summary's `final_response` field
+only ever carries the turn's last assistant text — a turn that narrates
+mid-turn (e.g. explaining a planned edit before pausing on
+`ask_user_question`, confirmed against a real trace) had that narration
+silently dropped on reload, even though it renders live and is right there in
+the network response. The fix doesn't need a new fetch: `turnEventsList` (the
+per-turn event log) is already pulled for every turn for
+`extractSelectionContext` above, so `turnsToMessages` now walks it and pushes
+a message for every `assistant_message` event with non-null `content`,
+dropping the separate `final_response` field entirely (the last such event's
+content *is* the final response). Ordering is an approximation, same as
+artifacts already were: the tool-call summary row and any artifacts still
+render before all of a turn's text, rather than interleaved at the exact
+point each occurred — precise interleaving would mean giving up the single
+aggregate summary row above, which is a cost tradeoff, not a bug.
 
 `hydrateToolCall` sets `toolCall.loadingCalls = true` synchronously, before
 the fetch, so `renderToolCallCard` can show `.nx-loading-spinner` in the
@@ -472,6 +580,26 @@ that deep-compares the object (this file's own tests included).
 (mirroring `nx-chat`'s own `chat.js`) rather than jumping unconditionally on
 every `messages` change — without it, expanding a tool-call row while
 scrolled up in history yanked the view back to the bottom.
+
+## Stop / interrupt
+
+`stop()` (`ao-controller.js`) sends `INTERRUPT` over an already-open socket
+and calls `_done()` immediately, client-side, without waiting for AO to
+confirm the abort — AO's own abort is asynchronous, so the turn can keep
+producing events for a beat after `INTERRUPT` is sent, until `TURN_ABORTED`
+actually lands. `_interrupting` (set by `stop()`, cleared by `sendMessage` or
+once `TURN_COMPLETED`/`TURN_ABORTED` arrives) gates `_handleServerEvent` via
+`IGNORED_WHILE_INTERRUPTING` — a fixed set of event types (`TEXT_DELTA`,
+`TEXT_DONE`, `UI_ARTIFACT_CREATED`, every `TOOL_CALL_*`, `USER_QUESTION`,
+`PLAN_APPROVAL_REQUEST`, `PERMISSION_REQUEST`) dropped outright while
+interrupting, so nothing already in flight for the interrupted turn (or
+generated in the gap before the abort actually lands server-side) can
+resurrect it client-side after `_done()` already cleared it.
+
+A suspended turn (question, plan approval, or permission request) that gets
+interrupted still reaches `_done()` via `TURN_ABORTED`, same as a normal
+completion — `_done()` unconditionally clears whichever card was pending, so
+it doesn't linger after the turn it belonged to is gone.
 
 ## Region resolution
 
@@ -505,7 +633,7 @@ message text (`buildFailedUploadsText`) rather than blocking the send.
 
 ## Voice input
 
-`shared/chat/voice-input.js` (`createVoiceInput`/`isVoiceInputSupported`/
+`utils/voice-input.js` (`createVoiceInput`/`isVoiceInputSupported`/
 `appendTranscript`) wraps the browser's Web Speech API — purely client-side
 dictation into `.chat-input`, no AO/backend involvement at all. It's a
 from-scratch port of coworker's own `use-voice-input.ts`/`chat-input.tsx`
@@ -551,7 +679,7 @@ flips state and detaches the old instance's `on*` handlers synchronously,
 then tells the browser to stop as a courtesy — so a second `start()` is
 never blocked by a session the browser itself failed to clean up. Every
 handler also guards with `inst !== recognition` (the closure-captured
-instance vs. whichever session is *currently* active) in case a browser
+instance vs. whichever session is _currently_ active) in case a browser
 fires an event for an instance that's already been superseded by a newer
 one — belt-and-suspenders alongside the handler-nulling, for a dispatch-
 timing edge case that's hard to rule out with certainty.
@@ -592,7 +720,7 @@ frame, per AO's native-protocol client-context schema
 inlining them into `text` as prose. This replaced an earlier prose-prefix
 approach (`[Current document — org: ..., site: ..., path: ...]` etc.) — AO
 treats `client_context` as an ephemeral, per-turn reminder that is never
-*replayed into a future turn's LLM context*, so it doesn't bloat the
+_replayed into a future turn's LLM context_, so it doesn't bloat the
 conversation the way a permanent text prefix resent on every message would.
 
 **"Ephemeral" is about the LLM context window, not about durable storage —
@@ -642,6 +770,21 @@ values as data, not instructions... higher-priority instructions take
 precedence" preamble by design (AO's own anti-prompt-injection guard), so it
 helps the model understand what it's operating within but can't be used to
 hard-restrict what it will answer.
+
+## Manifest override
+
+`sendMessage` (`ao-controller.js`) always sends `manifestId` on `USER_INPUT`,
+resolved by `_resolveManifest()`:
+
+- `?nx-chat-ao-manifest=<name>` in the URL uses that manifest id directly —
+  a dev override, not persisted, mirroring `?nx-chat-ao=true` in
+  `nx2/utils/chat.js#useAoChat`. Named for the manifest itself, since the
+  query value _is_ the manifest to use, not a boolean that could imply other
+  unrelated things.
+- Otherwise, a site-configured `ew.coworkerManifest` flag (`getManifestId`,
+  `nx2/utils/ewFlags.js`) is used as-is in place of the default.
+- With neither set, `manifestId` is the default (`AO_MANIFEST_ID`,
+  `experience-workspace`).
 
 ## AO wire-protocol notes
 
