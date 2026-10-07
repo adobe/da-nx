@@ -322,9 +322,8 @@ class NXEwActions extends LitElement {
       return branch;
     });
     this._branchPromise = pending;
-    pending.catch((error) => {
-      // eslint-disable-next-line no-console
-      console.error('Unable to resolve the preview branch.', error);
+    pending.catch(() => {
+      // Handle early rejection; _runAemAction surfaces the error from the original promise.
     });
   }
 

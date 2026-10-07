@@ -270,7 +270,7 @@ describe('nx-ew-actions status loading & confirm', () => {
     }
   });
 
-  it('logs branch resolution failures and stops the deploy with an action error', async () => {
+  it('handles early branch resolution failures without logging and stops deploy with an action error', async () => {
     const el = await mount();
     const origGet = config.get;
     const origError = console.error;
@@ -290,6 +290,7 @@ describe('nx-ew-actions status loading & confirm', () => {
       el._branch = 'previous-branch';
       el._hashState = { org: 'branch-error-org', site: 'branch-error-site', path: '/page' };
       await el.updateComplete;
+      await nextTick();
       let error;
       try {
         await el._branchPromise;
@@ -298,7 +299,7 @@ describe('nx-ew-actions status loading & confirm', () => {
       }
       expect(error).to.equal(failure);
       expect(el._branch).to.equal(null);
-      expect(logged).to.deep.equal([['Unable to resolve the preview branch.', failure]]);
+      expect(logged).to.deep.equal([]);
       await el._runAemAction('preview');
       expect(shown).to.deep.equal([{
         action: 'preview',
