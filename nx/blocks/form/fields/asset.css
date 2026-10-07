@@ -86,8 +86,20 @@
 }
 
 .asset-name {
+  display: flex;
   color: var(--s2-gray-900);
   font-weight: 600;
+}
+
+.asset-name-stem {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.asset-name-extension {
+  flex: none;
 }
 
 .asset-placeholder {

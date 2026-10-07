@@ -114,7 +114,7 @@ describe('form-asset', () => {
     const emptyPreview = heightOf(query(field, '.asset-preview'));
     expect(emptyBox).to.be.greaterThan(200);
     // eslint-disable-next-line no-restricted-syntax
-    for (const value of ['./media_abc.png', 'https://x.test/spec.pdf']) {
+    for (const value of ['./media_abc.png', 'https://x.test/spec.pdf', `https://x.test/${'long-name-'.repeat(30)}.pdf`]) {
       field.value = value;
       // eslint-disable-next-line no-await-in-loop
       await field.updateComplete;
@@ -150,6 +150,20 @@ describe('form-asset', () => {
     expect(query(field, '.asset-name').title).to.equal('data sheet.pdf');
     expect(menu(field).querySelector('[slot="trigger"]').textContent.trim()).to.equal('Replace');
     expect(button(field, 'Remove')).to.exist;
+  });
+
+  it('keeps the file extension visible when a long name is truncated', async () => {
+    const longName = `${'very-long-file-name-'.repeat(10)}final.pdf`;
+    const field = await mount({ value: `https://x.test/files/${longName}` });
+    const name = query(field, '.asset-name');
+    const stem = query(field, '.asset-name-stem');
+    const extension = query(field, '.asset-name-extension');
+    expect(name.textContent).to.equal(longName);
+    expect(name.title).to.equal(longName);
+    expect(stem.scrollWidth).to.be.greaterThan(stem.clientWidth);
+    expect(extension.textContent).to.equal('.pdf');
+    expect(extension.getBoundingClientRect().right)
+      .to.be.at.most(name.getBoundingClientRect().right);
   });
 
   it('previews an image only after it has loaded', async () => {

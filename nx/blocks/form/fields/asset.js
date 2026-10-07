@@ -248,12 +248,18 @@ class FormAsset extends LitElement {
     `;
   }
 
+  _renderName(name) {
+    const dot = name.lastIndexOf('.');
+    const [stem, extension] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
+    return html`<span class="asset-name" title=${name}><span class="asset-name-stem">${stem}</span><span class="asset-name-extension">${extension}</span></span>`;
+  }
+
   _renderRow() {
     const { name } = this._asset;
     return html`
       <div class="asset-row">
         ${this.value
-          ? html`<span class="asset-name" title=${name}>${name}</span>`
+          ? this._renderName(name)
           : html`<span class="asset-placeholder">${LABELS.empty(this._kindLabel)}</span>`}
         <div class="asset-actions">${this._renderActions()}</div>
       </div>
