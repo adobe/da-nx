@@ -7,35 +7,13 @@ import {
   uploadMedia,
 } from '../../../../nx2/utils/media-upload.js';
 
-// A schema without a media type restriction. Uploads stay limited to SUPPORTED_IMAGE_TYPES.
-const ANY_TYPE = '*/*';
-
 const normalizeMediaType = (type) => (typeof type === 'string' ? type.trim().toLowerCase() : '');
 
-function acceptsAnyType({ contentMediaType } = {}) {
-  const pattern = normalizeMediaType(contentMediaType);
-  return !pattern || pattern === ANY_TYPE;
-}
-
-export function matchesMediaType({ type, contentMediaType }) {
-  if (acceptsAnyType({ contentMediaType })) return true;
-  const pattern = normalizeMediaType(contentMediaType);
-  const value = normalizeMediaType(type);
-  if (!value) return false;
-  return pattern.endsWith('/*') ? value.startsWith(pattern.slice(0, -1)) : value === pattern;
-}
-
 export const isImageType = (type) => normalizeMediaType(type).startsWith('image/');
-
-export const acceptsOnlyImages = ({ contentMediaType } = {}) => isImageType(contentMediaType);
 
 export function typeFromName(fileName) {
   const extension = fileName?.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
   return SUPPORTED_FILES[extension] ?? '';
-}
-
-export function uploadableTypes({ contentMediaType } = {}) {
-  return SUPPORTED_IMAGE_TYPES.filter((type) => matchesMediaType({ type, contentMediaType }));
 }
 
 const MEDIA_BUS_PREFIX = './media_';
@@ -76,14 +54,11 @@ function fileNameFromHref(href) {
 }
 
 // Types are only known for files picked in this session, so stored values fall back to the name.
-export function describeAsset({
-  href, name, type, contentMediaType,
-}) {
+export function describeAsset({ href, name, type }) {
   const fileName = name || (href ? fileNameFromHref(href) : '');
   const fileType = type || typeFromName(fileName);
   return {
     name: fileName,
-    isAllowed: !fileType || matchesMediaType({ type: fileType, contentMediaType }),
     isImage: !fileType || isImageType(fileType),
   };
 }
@@ -101,10 +76,10 @@ const isValidFileName = (fileName) => !!fileName && !INVALID_FILE_NAME.test(file
 
 // The upload API derives the content type from the extension, so validation does too.
 export async function uploadFile({
-  details, file, contentMediaType, upload, checkHlx6,
+  details, file, upload, checkHlx6,
 }) {
   const type = typeFromName(file?.name);
-  if (!uploadableTypes({ contentMediaType }).includes(type)) {
+  if (!SUPPORTED_IMAGE_TYPES.includes(type)) {
     return { error: UPLOAD_ERRORS.fileType };
   }
 
@@ -139,13 +114,11 @@ const SOURCE_IDS = {
 };
 
 function uploadSource({ details }) {
-  const localFileTypes = ({ contentMediaType }) => uploadableTypes({ contentMediaType });
   return {
     id: SOURCE_IDS.upload,
     label: 'Upload',
-    localFileTypes,
-    accepts: ({ contentMediaType }) => localFileTypes({ contentMediaType }).length > 0,
-    select: ({ file, contentMediaType }) => uploadFile({ details, file, contentMediaType }),
+    fileTypes: SUPPORTED_IMAGE_TYPES,
+    select: ({ file }) => uploadFile({ details, file }),
   };
 }
 
@@ -153,10 +126,9 @@ function aemAssetsSource({ repoConfig }) {
   return {
     id: SOURCE_IDS.aemAssets,
     label: 'AEM Assets',
-    accepts: () => true,
-    select: async ({ contentMediaType }) => {
+    select: async () => {
       const { selectAemAsset } = await import('./aem-selector.js');
-      return selectAemAsset({ repoConfig, contentMediaType });
+      return selectAemAsset({ repoConfig });
     },
   };
 }
