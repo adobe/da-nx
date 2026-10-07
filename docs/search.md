@@ -60,6 +60,11 @@ and runs its existing content search. Search options uses the field's `actions`
 slot. Clearing the field restores the directory listing; leaving browse removes
 the injected field and its action.
 
+The exported `NxSearch` class allows DA's browse-owned `da-browse-search` to
+reuse the field without adding suggestions to ordinary `nx-search` instances.
+Browse owns its filename suggestions, pagination, and navigation. Its input
+and listbox share a shadow root so combobox ARIA references remain local.
+
 This integration belongs to DA's redesigned `blocks/browse/v2/` implementation,
 enabled with `?browse=2` before the URL hash. The stable browse entry point loads
 the legacy `blocks/browse/legacy/` implementation by default and selects only one

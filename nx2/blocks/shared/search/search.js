@@ -5,7 +5,7 @@ import { getConfig } from '../../../scripts/nx.js';
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
 
-class NxSearch extends LitElement {
+export class NxSearch extends LitElement {
   static properties = {
     value: { type: String },
     label: { type: String },
