@@ -4,7 +4,7 @@ import '../../../../nx2/blocks/shared/menu/menu.js';
 import '../../../../nx2/blocks/shared/dialog/dialog.js';
 import { icon } from '../icons.js';
 import {
-  CANCELLED, describeAsset, isAssetHref, previewHrefFor,
+  CANCELLED, describeAsset, extensionOf, isAssetHref, previewHrefFor,
 } from '../utils/assets.js';
 import defaults from './defaults.js';
 
@@ -48,18 +48,16 @@ class FormAsset extends LitElement {
     sources: { attribute: false },
     previewOrigin: { type: String },
 
-    _selection: { state: true },
     _pending: { state: true },
     _selectionError: { state: true },
-
-    _previewBroken: { state: true },
     _loadedPreviewSrc: { state: true },
-
     _confirmingRemove: { state: true },
   };
 
   // Results of an older request are ignored once a newer one starts or the value changes.
   _activeRequestId = 0;
+
+  _selection;
 
   connectedCallback() {
     super.connectedCallback();
@@ -74,7 +72,6 @@ class FormAsset extends LitElement {
 
   willUpdate(changed) {
     if (changed.has('value') && this.value !== this._selection?.href) this._forgetSelection();
-    if (changed.has('value') || changed.has('previewOrigin')) this._previewBroken = false;
     this._asset = describeAsset({
       href: this.value,
       name: this._selection?.name,
@@ -91,7 +88,7 @@ class FormAsset extends LitElement {
   }
 
   get _previewSrc() {
-    if (this._previewBroken || !this._asset.isImage) return undefined;
+    if (!this._asset.isImage) return undefined;
     return previewHrefFor({ href: this.value, previewOrigin: this.previewOrigin });
   }
 
@@ -206,10 +203,6 @@ class FormAsset extends LitElement {
     this._closeRemoveDialog();
   }
 
-  _onPreviewError() {
-    this._previewBroken = true;
-  }
-
   _onPreviewLoad(event) {
     this._loadedPreviewSrc = event.currentTarget.getAttribute('src');
   }
@@ -248,8 +241,9 @@ class FormAsset extends LitElement {
     const previewSrc = this._previewSrc;
     return html`
       <div class="asset-preview">
+        ${this.value ? html`<span class="asset-file-type">${extensionOf(this._asset.name) || 'file'}</span>` : nothing}
         ${previewSrc ? html`<img class=${previewSrc === this._loadedPreviewSrc ? 'is-loaded' : ''}
-          src=${previewSrc} alt="" @load=${this._onPreviewLoad} @error=${this._onPreviewError}>` : nothing}
+          src=${previewSrc} alt="" @load=${this._onPreviewLoad}>` : nothing}
       </div>
     `;
   }
