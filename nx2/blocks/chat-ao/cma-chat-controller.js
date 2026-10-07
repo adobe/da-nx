@@ -12,7 +12,7 @@
 
 import { loadIms } from '../../utils/ims.js';
 import BaseChatController from './base-chat-controller.js';
-import { AO_FRAME, CMA_BRIDGE_WS_BASE } from './ao-constants.js';
+import { AO_FRAME, CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE } from './ao-constants.js';
 import { getOrgId } from './utils/uploads.js';
 import { fetchSkills } from './utils/skills.js';
 
@@ -74,6 +74,31 @@ export default class CmaChatController extends BaseChatController {
 
   _fetchSkills() {
     return fetchSkills({ ...(this._context ?? {}), altHarnessKey: this._activationKey });
+  }
+
+  async _uploadAttachment({ fileName, mediaType, dataBase64 }) {
+    try {
+      const { accessToken, projectedProductContext } = await loadIms();
+      const tenantId = getOrgId(projectedProductContext);
+      const form = new FormData();
+      const bytes = Uint8Array.from(atob(dataBase64), (c) => c.charCodeAt(0));
+      form.append('file', new Blob([bytes], { type: mediaType }), fileName);
+
+      const resp = await fetch(`${CMA_BRIDGE_HTTP_BASE}/api/v1/files`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken?.token}`,
+          'x-tenant-id': tenantId,
+        },
+        body: form,
+      });
+      if (!resp.ok) return null;
+
+      const files = await resp.json();
+      return Array.isArray(files) ? files[0]?.id ?? null : null;
+    } catch {
+      return null;
+    }
   }
 
   // Per-site resume pointer: the id of the session last active in THIS tab for

@@ -81,6 +81,10 @@ export default class BaseChatController {
 
   _fetchSkills() { return fetchSkills(this._context ?? {}); }
 
+  async _uploadAttachment(attachment) {
+    return uploadAttachment(attachment);
+  }
+
   _loadCachedSkills() { return loadCachedSkills(); }
 
   getSkills() {
@@ -602,7 +606,7 @@ export default class BaseChatController {
 
     try {
       const uploaded = await Promise.all(attachments.map(async (a) => (
-        { ...a, artifactId: await uploadAttachment(a) }
+        { ...a, artifactId: await this._uploadAttachment(a) }
       )));
       const artifactIds = uploaded.map((a) => a.artifactId).filter(Boolean);
       const failed = uploaded.filter((a) => !a.artifactId);

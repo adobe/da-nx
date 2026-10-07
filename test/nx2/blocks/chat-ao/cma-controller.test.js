@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import CmaChatController from '../../../../nx2/blocks/chat-ao/cma-chat-controller.js';
-import { CMA_BRIDGE_WS_BASE } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
-import { resetMockIms } from '../../../../nx2/test/mocks/ims.js';
+import { CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
+import { resetMockIms, setMockIms } from '../../../../nx2/test/mocks/ims.js';
 
 function reset() {
   sessionStorage.clear();
@@ -98,6 +98,74 @@ describe('cma-controller reload resume', () => {
     const { controller } = makeController({ context: { org: 'o', site: 's' } });
     controller.startNewEpisode();
     expect(sessionStorage.getItem('nx2:cma-episode:o/s')).to.equal(null);
+  });
+});
+
+describe('cma-controller attachments', () => {
+  function installUploadFetch(routes) {
+    const calls = [];
+    const origFetch = window.fetch;
+    window.fetch = async (url, opts = {}) => {
+      calls.push({ url: url.toString(), opts });
+      const route = routes.find((r) => r.match(url.toString(), opts));
+      if (!route) throw new Error(`unexpected fetch: ${url}`);
+      return new Response(JSON.stringify(route.body ?? {}), { status: route.status ?? 200 });
+    };
+    return { calls, restore: () => { window.fetch = origFetch; } };
+  }
+
+  beforeEach(() => {
+    reset();
+    setMockIms({
+      projectedProductContext: [{ prodCtx: { owningEntity: 'tenant-123' } }],
+    });
+  });
+  afterEach(reset);
+
+  it('uploads an attachment to the CMA bridge files endpoint before sending', async () => {
+    const { calls, restore } = installUploadFetch([
+      {
+        match: (url, opts) => url === `${CMA_BRIDGE_HTTP_BASE}/api/v1/files` && opts.method === 'POST',
+        body: [{ id: 'file_1', filename: 'brief.pdf', mime_type: 'application/pdf' }],
+        status: 201,
+      },
+    ]);
+    const { controller, sent } = makeController();
+
+    try {
+      await controller.sendMessage('here is the brief', [], [
+        { id: 'b1', fileName: 'brief.pdf', mediaType: 'application/pdf', dataBase64: btoa('brief-bytes') },
+      ]);
+    } finally {
+      restore();
+    }
+
+    expect(sent[0].text).to.equal('here is the brief');
+    expect(sent[0].attachments).to.deep.equal(['file_1']);
+    expect(calls[0].opts.headers.authorization).to.equal('Bearer test-token');
+    expect(calls[0].opts.headers['x-tenant-id']).to.equal('tenant-123');
+  });
+
+  it('prepends failed-upload text and omits attachments when bridge upload fails', async () => {
+    const { restore } = installUploadFetch([
+      {
+        match: (url, opts) => url === `${CMA_BRIDGE_HTTP_BASE}/api/v1/files` && opts.method === 'POST',
+        status: 502,
+        body: { error: 'upload failed' },
+      },
+    ]);
+    const { controller, sent } = makeController();
+
+    try {
+      await controller.sendMessage('please review', [], [
+        { id: 'b2', fileName: 'brief.pdf', mediaType: 'application/pdf', dataBase64: btoa('brief-bytes') },
+      ]);
+    } finally {
+      restore();
+    }
+
+    expect(sent[0].text).to.equal('[Attachments]\n- Attached file: brief.pdf — upload failed\nplease review');
+    expect(sent[0]).to.not.have.property('attachments');
   });
 });
 
