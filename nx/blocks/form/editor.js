@@ -4,8 +4,9 @@ import { createEngine } from '../../deps/da-sc-sdk/dist/index.js';
 import { loadFormContext } from './utils/context.js';
 import { attachPersistence } from './utils/persistence.js';
 import { createAssetSources } from './utils/assets.js';
-import { ensureLivePreviewLogin, getLivePreviewUrl } from '../../utils/utils.js';
-import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
+import {
+  ensurePreviewLogin, getLivePreviewUrl, loadStyle, hashChange,
+} from '../../../nx2/utils/utils.js';
 
 import './views/editor.js';
 import './views/sidebar.js';
@@ -194,9 +195,9 @@ class Form extends LitElement {
     const { owner, repo } = this._details;
     const isCurrent = () => version === this._loadVersion;
 
-    ensureLivePreviewLogin({ org: owner, repo }).then(() => {
+    ensurePreviewLogin({ org: owner, repo }).then(() => {
       if (isCurrent()) {
-        this._previewOrigin = getLivePreviewUrl(owner, repo);
+        this._previewOrigin = getLivePreviewUrl({ org: owner, repo });
       }
     });
 
