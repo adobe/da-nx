@@ -39,8 +39,11 @@ class NxLocTranslate extends LitElement {
   }
 
   update(props) {
-    // Allow the parent to pass or clear a message
-    if (props.has('message')) this._message = this.message;
+    // Parent save progress (transient) or its clear must not wipe a local error.
+    if (props.has('message')) {
+      const incidental = !this.message || this.message.transient;
+      if (this._message?.type !== 'error' || !incidental) this._message = this.message;
+    }
     if (props.has('project')) this.setupProject();
     super.update();
   }
@@ -180,6 +183,7 @@ class NxLocTranslate extends LitElement {
   async handleSendAll() {
     if (this._sendAllBusy) return;
     this._sendAllBusy = true;
+    this.handleMessage(undefined);
     try {
       const conf = await this.getBaseTranslationConf(true);
       const sendAll = await sendAllForTranslation(conf, this._service.connector);
