@@ -15,9 +15,12 @@ const AEM_ERRORS = {
   unavailable: 'The AEM Assets selector could not be loaded.',
 };
 
+// The user asked for AEM Assets, so a sign-in redirect is expected here.
 async function getTokenOrSignIn() {
   const ims = await loadIms();
-  if (ims?.anonymous) handleSignIn();
+  if (ims?.anonymous) {
+    handleSignIn();
+  }
   return ims?.accessToken?.token;
 }
 
@@ -66,10 +69,9 @@ function waitForSelection({ selectors, ui, selection }) {
 
 export async function selectAemAsset({
   repoConfig,
-  getToken = getTokenOrSignIn,
   loadSelector = loadAssetSelector,
 }) {
-  const imsToken = await getToken();
+  const imsToken = await getTokenOrSignIn();
   if (!imsToken) {
     return { error: AEM_ERRORS.signIn };
   }
