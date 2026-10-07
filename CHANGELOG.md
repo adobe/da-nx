@@ -1,3 +1,25 @@
+# [1.9.0](https://github.com/adobe/da-nx/compare/v1.8.2...v1.9.0) (2026-10-06)
+
+
+### Features
+
+* implement cancelTranslation for the Smartling connector ([#710](https://github.com/adobe/da-nx/issues/710)) ([bfdc2d7](https://github.com/adobe/da-nx/commit/bfdc2d795cc14738b93f08f90dd233fcb8ec5758))
+
+## [1.8.2](https://github.com/adobe/da-nx/compare/v1.8.1...v1.8.2) (2026-10-06)
+
+
+### Bug Fixes
+
+* **quick-edit:** keep image uploads through concurrent edits ([e470eb9](https://github.com/adobe/da-nx/commit/e470eb96203a5a83f890dfd0ae9f6bffd2426b91))
+* **quick-edit:** replace indexed images reliably ([827f538](https://github.com/adobe/da-nx/commit/827f53834997ee9c1c42b2ee13e91dfc10271167))
+
+## [1.8.1](https://github.com/adobe/da-nx/compare/v1.8.0...v1.8.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **form:** remove double vertical scrollbar ([#804](https://github.com/adobe/da-nx/issues/804)) ([e3b2d40](https://github.com/adobe/da-nx/commit/e3b2d405cc7657d32d370bb8a0ace259dc31ef27))
+
 # [1.8.0](https://github.com/adobe/da-nx/compare/v1.7.1...v1.8.0) (2026-10-05)
 
 

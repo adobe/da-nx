@@ -36,7 +36,10 @@ function isTranslateComplete({ langs }) {
     const { action } = lang;
     if (action === 'translate' || action === 'copy') {
       const objName = action === 'translate' ? 'translation' : action;
-      if (!lang[objName] || lang[objName].status !== 'complete') acc.push(lang);
+      // A cancelled language is done, not pending - it's terminal and won't
+      // ever reach 'complete', so it can't block completing the project.
+      const status = lang[objName]?.status;
+      if (status !== 'complete' && status !== 'cancelled') acc.push(lang);
     }
     return acc;
   }, []);
@@ -47,7 +50,11 @@ function isRolloutComplete({ langs }) {
   if (!langs) return false;
   const notComplete = langs.reduce((acc, lang) => {
     const { action, rollout } = lang;
-    if (action === 'translate' || action === 'copy' || action === 'rollout') {
+    // A cancelled translate/copy lang never reaches rollout - it's terminal,
+    // so it can't block completing the project.
+    const cancelled = (action === 'translate' && lang.translation?.status === 'cancelled')
+      || (action === 'copy' && lang.copy?.status === 'cancelled');
+    if ((action === 'translate' || action === 'copy' || action === 'rollout') && !cancelled) {
       const { status } = rollout || {};
       if (status !== 'complete') acc.push(lang);
     }
