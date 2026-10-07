@@ -148,10 +148,10 @@ comments UI, so none are wired up there.
 
 ### `IFRAME_CLICK`
 
-- **iframe → host**, payload `{ target?: string, source: 'ew-wysiwyg-doc' | 'ew-wysiwyg-layout' }` (`target` is undefined when the clicked
-  element has no link / media / action URL or `data-rum-target`, as in RUM). `source` is `ew-wysiwyg-doc`
-  for clicks inside editable text content (`[data-prose-index]`) and `ew-wysiwyg-layout` for everything else
-  (blocks, images, selection/comment overlays, empty space).
+- **iframe → host**, payload `{ target?: string, source: 'ew-wysiwyg-layout' }` (`target` is
+  undefined when the clicked element has no link / media / action URL or `data-rum-target`,
+  as in RUM). All clicks inside this iframe belong to the layout editor, including editable
+  text, active inline editors, blocks, images, selection/comment overlays and empty space.
 - Clicks inside the preview iframe never bubble to the host document, so the host can't observe
   them — e.g. its RUM enhancer, unlike `ew-editor-doc`, whose shadow-DOM clicks retarget to the
   host element and are captured.
@@ -159,9 +159,10 @@ comments UI, so none are wired up there.
   i.e. the `controller=parent` path) captures every click, derives `target` with the RUM
   enhancer's own `targetSelector` (vendored in `src/rum-target.js`: `data-rum-target`, else the
   link / media / form-action URL resolved to absolute, else undefined), and forwards it
-  along with the RUM `source` for the editor it landed in. The da-live host handler currently
-  calls `sampleRUM('click', { source, target })` straight from the payload, so doc and layout
-  clicks produce separately attributed RUM checkpoints. The standalone
+  along with the layout RUM `source`. The da-live host handler attributes these messages to
+  `ew-wysiwyg-layout` based on the iframe boundary, even if an older sender omits `source` or
+  sends `ew-wysiwyg-doc`. The separate doc editor remains tracked by the host RUM enhancer.
+  This keeps attribution consistent when the two repos deploy in either order. The standalone
   `quick-edit-portal.js` host does not consume it.
 
 ## Known gaps

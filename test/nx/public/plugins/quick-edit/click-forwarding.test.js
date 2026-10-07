@@ -34,14 +34,24 @@ describe('quick-edit click payload', () => {
     expect(clickPayload(null)).to.deep.equal({ target: undefined, source: 'ew-wysiwyg-layout' });
   });
 
-  it('carries no host-specific (RUM) fields', () => {
+  it('carries only the target and layout source', () => {
     document.body.innerHTML = '<p>x</p>';
     expect(Object.keys(clickPayload(document.querySelector('p')))).to.deep.equal(['target', 'source']);
   });
 
-  it('flags clicks in editable text as the doc source', () => {
+  it('attributes nested editable text to the layout source', () => {
     document.body.innerHTML = '<div class="hero block"><p data-prose-index="3"><strong>hi</strong></p></div>';
-    expect(clickPayload(document.querySelector('strong')).source).to.equal('ew-wysiwyg-doc');
+    expect(clickPayload(document.querySelector('strong')).source).to.equal('ew-wysiwyg-layout');
+  });
+
+  it('attributes active inline text editors to the layout source', () => {
+    document.body.innerHTML = `<div class="prosemirror-editor" data-prose-index="3">
+      <div class="ProseMirror" contenteditable="true"><p><strong>hi</strong></p></div>
+    </div>`;
+    expect(clickPayload(document.querySelector('strong'))).to.deep.equal({
+      target: undefined,
+      source: 'ew-wysiwyg-layout',
+    });
   });
 
   it('flags clicks on blocks, images and overlays as the layout source', () => {
@@ -79,5 +89,25 @@ describe('quick-edit click forwarding', () => {
     const cleanup = installClickForwarding({ target: document, getPort: () => null });
     expect(() => document.querySelector('button').click()).to.not.throw();
     cleanup();
+  });
+
+  it('forwards editable text clicks as layout even when propagation is stopped', () => {
+    document.body.innerHTML = '<p data-prose-index="3"><strong>hi</strong></p>';
+    const posted = [];
+    const cleanup = installClickForwarding({
+      target: document,
+      getPort: () => ({ postMessage: (message) => posted.push(message) }),
+    });
+    try {
+      const text = document.querySelector('strong');
+      text.addEventListener('click', (event) => event.stopPropagation());
+      text.click();
+      expect(posted).to.deep.equal([{
+        type: MESSAGE_TYPES.IFRAME_CLICK,
+        payload: { target: undefined, source: 'ew-wysiwyg-layout' },
+      }]);
+    } finally {
+      cleanup();
+    }
   });
 });
