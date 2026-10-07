@@ -300,7 +300,6 @@ class Editor extends LitElement {
           .error=${error}
           .description=${description}
           .value=${value}
-          .contentMediaType=${node.contentMediaType}
           .sources=${this.assetSources}
           .previewOrigin=${this.previewOrigin}
           ?disabled=${readonly}

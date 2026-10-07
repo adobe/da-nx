@@ -11,13 +11,13 @@ afterEach(() => {
 });
 
 const source = ({
-  id, label = id, select = async () => CANCELLED, accepts = () => true, localFileTypes,
+  id, label = id, select = async () => CANCELLED, fileTypes,
 }) => ({
-  id, label, select, accepts, localFileTypes,
+  id, label, select, fileTypes,
 });
 
 const upload = (overrides = {}) => source({
-  id: 'upload', label: 'Upload', localFileTypes: () => ['image/png', 'application/pdf'], ...overrides,
+  id: 'upload', label: 'Upload', fileTypes: ['image/png', 'application/pdf'], ...overrides,
 });
 const aem = (overrides = {}) => source({ id: 'aem-assets', label: 'AEM Assets', ...overrides });
 
@@ -71,16 +71,11 @@ function answerFilePicker(field, file) {
 
 describe('form-asset', () => {
   it('shows the label, required marker and an empty row', async () => {
-    const field = await mount({ required: true, contentMediaType: 'image/*' });
+    const field = await mount({ required: true });
     expect(query(field, 'label').textContent).to.include('Hero image');
     expect(query(field, '.form-required')).to.exist;
-    expect(query(field, '.asset-placeholder').textContent).to.equal('No image selected');
-    expect(query(field, 'nx-dialog')).to.equal(null);
-  });
-
-  it('calls the field a file unless it only accepts images', async () => {
-    const field = await mount();
     expect(query(field, '.asset-placeholder').textContent).to.equal('No file selected');
+    expect(query(field, 'nx-dialog')).to.equal(null);
   });
 
   it('offers every available source in a menu anchored to the trigger end', async () => {
@@ -92,16 +87,13 @@ describe('form-asset', () => {
     expect(menu(field).getAttribute('placement')).to.equal('below-end');
   });
 
-  it('opens the only source that accepts the field directly', async () => {
+  it('opens a single source directly', async () => {
     const select = sinon.fake.resolves(CANCELLED);
-    const field = await mount({
-      contentMediaType: 'audio/*',
-      sources: [upload({ accepts: () => false }), aem({ select })],
-    });
+    const field = await mount({ sources: [aem({ select })] });
     expect(menu(field)).to.equal(null);
     button(field, 'Select').click();
     await settle(field);
-    expect(select.calledOnceWith({ contentMediaType: 'audio/*' })).to.be.true;
+    expect(select.calledOnceWith({})).to.be.true;
   });
 
   it('waits for sources to load without explaining anything yet', async () => {
@@ -110,34 +102,31 @@ describe('form-asset', () => {
     expect(message(field)).to.equal(null);
   });
 
-  it('disables Select and explains why when no source accepts the field', async () => {
-    const field = await mount({ sources: [upload({ accepts: () => false })] });
+  it('disables Select and explains why when no source is available', async () => {
+    const field = await mount({ sources: [] });
     expect(button(field, 'Select').disabled).to.be.true;
     expect(message(field).textContent).to.equal('No source is available for this field.');
   });
 
-  it('keeps an image field and its preview area the same size when empty or selected', async () => {
-    const field = await mount({ contentMediaType: 'image/*' });
+  it('keeps the field and its preview area the same size for any value', async () => {
+    const field = await mount();
     const emptyBox = heightOf(box(field));
     const emptyPreview = heightOf(query(field, '.asset-preview'));
-    field.value = './media_abc.png';
-    await field.updateComplete;
     expect(emptyBox).to.be.greaterThan(200);
-    expect(heightOf(box(field))).to.equal(emptyBox);
-    expect(heightOf(query(field, '.asset-preview'))).to.equal(emptyPreview);
+    // eslint-disable-next-line no-restricted-syntax
+    for (const value of ['./media_abc.png', 'https://x.test/spec.pdf']) {
+      field.value = value;
+      // eslint-disable-next-line no-await-in-loop
+      await field.updateComplete;
+      expect(heightOf(box(field))).to.equal(emptyBox);
+      expect(heightOf(query(field, '.asset-preview'))).to.equal(emptyPreview);
+    }
   });
 
-  it('uses one compact row for fields that are not image-only, even for image values', async () => {
-    const types = [undefined, '*/*', 'application/pdf', 'video/mp4'];
-    const fields = await Promise.all(types.map((contentMediaType) => mount({ contentMediaType })));
-    const emptyHeights = fields.map((field) => heightOf(box(field)));
-    fields.forEach((field) => { field.value = './media_abc.png'; });
-    await Promise.all(fields.map((field) => field.updateComplete));
-    fields.forEach((field, index) => {
-      expect(emptyHeights[index]).to.be.within(40, 80);
-      expect(heightOf(box(field))).to.equal(emptyHeights[index]);
-      expect(query(field, '.asset-preview')).to.equal(null);
-    });
+  it('leaves the preview area empty for files that are not images', async () => {
+    const field = await mount({ value: 'https://x.test/spec.pdf' });
+    expect(query(field, '.asset-preview')).to.exist;
+    expect(query(field, '.asset-preview img')).to.equal(null);
   });
 
   it('shows the stored file name with Replace and Remove', async () => {
@@ -148,16 +137,9 @@ describe('form-asset', () => {
     expect(button(field, 'Remove')).to.exist;
   });
 
-  it('flags a stored value whose type the field does not accept and previews nothing', async () => {
-    const field = await mount({ contentMediaType: 'image/*', value: 'https://x.test/spec.pdf' });
-    expect(query(field, '.form-field').classList.contains('has-error')).to.be.true;
-    expect(message(field).textContent).to.equal('This file type is not allowed here.');
-    expect(query(field, '.asset-preview img')).to.equal(null);
-  });
-
   it('previews an image only after it has loaded', async () => {
     const href = `${window.location.origin}/img/favicons/favicon-180.png`;
-    const field = await mount({ contentMediaType: 'image/*', value: href });
+    const field = await mount({ value: href });
     const img = query(field, '.asset-preview img');
     expect(img.getAttribute('src')).to.equal(href);
     expect(img.classList.contains('is-loaded')).to.be.false;
@@ -167,7 +149,7 @@ describe('form-asset', () => {
   });
 
   it('resolves Media Bus previews against the preview origin once it is known', async () => {
-    const field = await mount({ contentMediaType: 'image/*', value: './media_a.png' });
+    const field = await mount({ value: './media_a.png' });
     expect(query(field, '.asset-preview img')).to.equal(null);
     field.previewOrigin = 'https://main--site--example.preview.da.live';
     await field.updateComplete;
@@ -178,7 +160,7 @@ describe('form-asset', () => {
   it('uploads the picked file and announces the new value with a change event', async () => {
     const pdf = new File(['%PDF'], 'spec.pdf', { type: 'application/pdf' });
     const select = sinon.fake.resolves({ href: 'https://x.test/spec.pdf', name: 'spec.pdf', type: 'application/pdf' });
-    const field = await mount({ contentMediaType: 'application/pdf', sources: [upload({ select })] });
+    const field = await mount({ sources: [upload({ select })] });
     const input = answerFilePicker(field, pdf);
     const changes = recordChanges(field);
 
@@ -186,7 +168,7 @@ describe('form-asset', () => {
     await settle(field);
 
     expect(input.accept).to.equal('image/png,application/pdf');
-    expect(select.calledOnceWith({ contentMediaType: 'application/pdf', file: pdf })).to.be.true;
+    expect(select.calledOnceWith({ file: pdf })).to.be.true;
     expect(changes).to.deep.equal(['https://x.test/spec.pdf']);
     expect(query(field, '.asset-name').textContent).to.equal('spec.pdf');
   });
@@ -276,20 +258,27 @@ describe('form-asset', () => {
   });
 
   it('asks for confirmation and keeps the value on Cancel', async () => {
-    const field = await mount({ contentMediaType: 'image/*', value: './media_abc.png' });
+    const field = await mount({ value: './media_abc.png' });
     const focus = sinon.spy(query(field, '.asset-remove'), 'focus');
     const changes = recordChanges(field);
     button(field, 'Remove').click();
     await field.updateComplete;
     const dialog = query(field, 'nx-dialog');
     expect(dialog.title).to.equal('Remove image?');
-    expect(dialog.textContent).to.include('without deleting the original file');
+    expect(dialog.textContent).to.include('The image will be removed from this field.');
 
     button(field, 'Cancel').click();
     await field.updateComplete;
     expect(query(field, 'nx-dialog')).to.equal(null);
     expect(changes).to.deep.equal([]);
     expect(focus.calledOnce).to.be.true;
+  });
+
+  it('calls a selected file that is not an image a file when confirming removal', async () => {
+    const field = await mount({ value: 'https://x.test/spec.pdf' });
+    button(field, 'Remove').click();
+    await field.updateComplete;
+    expect(query(field, 'nx-dialog').title).to.equal('Remove file?');
   });
 
   it('removes only the field reference after confirmation', async () => {

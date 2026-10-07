@@ -4,7 +4,7 @@ import '../../../../nx2/blocks/shared/menu/menu.js';
 import '../../../../nx2/blocks/shared/dialog/dialog.js';
 import { icon } from '../icons.js';
 import {
-  CANCELLED, acceptsOnlyImages, describeAsset, isAssetHref, previewHrefFor,
+  CANCELLED, describeAsset, isAssetHref, previewHrefFor,
 } from '../utils/assets.js';
 import defaults from './defaults.js';
 
@@ -21,13 +21,12 @@ const LABELS = {
   adding: (kind) => `Adding ${kind}`,
   empty: (kind) => `No ${kind} selected`,
   removeTitle: (kind) => `Remove ${kind}?`,
-  removeBody: (kind) => `This removes the ${kind} from the field without deleting the original file.`,
+  removeBody: (kind) => `The ${kind} will be removed from this field.`,
 };
 
 const MESSAGES = {
   failed: 'The file could not be added.',
   noSource: 'No source is available for this field.',
-  typeNotAllowed: 'This file type is not allowed here.',
   unusableResult: 'The selected file did not return a usable URL.',
 };
 
@@ -46,7 +45,6 @@ class FormAsset extends LitElement {
     required: { type: Boolean },
     disabled: { type: Boolean, reflect: true },
 
-    contentMediaType: { type: String },
     sources: { attribute: false },
     previewOrigin: { type: String },
 
@@ -81,25 +79,15 @@ class FormAsset extends LitElement {
       href: this.value,
       name: this._selection?.name,
       type: this._selection?.type,
-      contentMediaType: this.contentMediaType,
     });
   }
 
-  get _imageOnly() {
-    return acceptsOnlyImages({ contentMediaType: this.contentMediaType });
-  }
-
   get _kindLabel() {
-    return this._imageOnly ? 'image' : 'file';
-  }
-
-  get _typeMismatch() {
-    return !!this.value && !this._asset.isAllowed;
+    return this.value && this._asset.isImage ? 'image' : 'file';
   }
 
   get _availableSources() {
-    const { contentMediaType } = this;
-    return (this.sources ?? []).filter((source) => source.accepts({ contentMediaType }));
+    return this.sources ?? [];
   }
 
   get _previewSrc() {
@@ -149,11 +137,10 @@ class FormAsset extends LitElement {
   }
 
   async _runSource(source) {
-    const { contentMediaType } = this;
     try {
-      if (!source.localFileTypes) return await source.select({ contentMediaType });
-      const file = await this._pickFile(source.localFileTypes({ contentMediaType }));
-      return file ? await source.select({ contentMediaType, file }) : CANCELLED;
+      if (!source.fileTypes) return await source.select({});
+      const file = await this._pickFile(source.fileTypes);
+      return file ? await source.select({ file }) : CANCELLED;
     } catch (error) {
       return { error: error?.message || MESSAGES.failed };
     }
@@ -252,7 +239,7 @@ class FormAsset extends LitElement {
     }
     return html`
       ${this._renderSourceTrigger()}
-      ${this.value ? html`<button type="button" class="asset-remove nx-form-btn-secondary"
+      ${this.value ? html`<button type="button" class="asset-remove nx-form-btn-primary"
         ?disabled=${this.disabled} @click=${this._openRemoveDialog}>${LABELS.remove}</button>` : nothing}
     `;
   }
@@ -297,7 +284,6 @@ class FormAsset extends LitElement {
       return html`<p role="alert" class="form-field-error">${this._selectionError}</p>`;
     }
     if (this.error) return html`<p class="form-field-error">${this.error}</p>`;
-    if (this._typeMismatch) return html`<p class="form-field-error">${MESSAGES.typeNotAllowed}</p>`;
     if (this.sources && !this._availableSources.length && !this.disabled) {
       return html`<p class="form-field-description">${MESSAGES.noSource}</p>`;
     }
@@ -306,15 +292,15 @@ class FormAsset extends LitElement {
   }
 
   render() {
-    const invalid = this.error || this._selectionError || this._typeMismatch;
+    const invalid = this.error || this._selectionError;
     return html`
       <div class="form-field${invalid ? ' has-error' : ''}">
         ${this.label ? html`
           <label id="asset-label">${this.label}${this.required ? html`<span class="form-required">*</span>` : nothing}</label>
         ` : nothing}
-        <div class="asset${this._imageOnly ? ' has-preview' : ''}" role="group"
+        <div class="asset" role="group"
           aria-labelledby=${this.label ? 'asset-label' : nothing} aria-busy=${this._pending ? 'true' : 'false'}>
-          ${this._imageOnly ? this._renderPreview() : nothing}
+          ${this._renderPreview()}
           ${this._renderRow()}
         </div>
         ${this._renderMessage()}

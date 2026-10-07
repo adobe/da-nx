@@ -10,7 +10,6 @@ import {
 const AEM_ERRORS = {
   signIn: 'Sign in to select a file from AEM Assets.',
   unavailable: 'The AEM Assets selector could not be loaded.',
-  fileType: 'The selected asset type is not allowed here.',
 };
 
 const METADATA_KEY = 'http://ns.adobe.com/adobecloud/rel/metadata/asset';
@@ -52,13 +51,10 @@ function stubSelector() {
   return { calls, loadSelector: async () => ({ selectors }) };
 }
 
-function start({
-  repoConfig = AUTHOR_PUBLISH_CONFIG, loadSelector, getToken, contentMediaType,
-} = {}) {
+function start({ repoConfig = AUTHOR_PUBLISH_CONFIG, loadSelector, getToken } = {}) {
   const selector = stubSelector();
   const pick = selectAemAsset({
     repoConfig,
-    contentMediaType,
     loadSelector: loadSelector ?? selector.loadSelector,
     getToken: getToken ?? (async () => 'ims-token'),
   });
@@ -201,17 +197,7 @@ describe('selectAemAsset', () => {
     expect(openDialog()).to.equal(null);
   });
 
-  it('rejects selected assets of a type the field does not accept', async () => {
-    const { pick, calls } = start({ contentMediaType: 'application/pdf' });
-    const { props } = await waitForRender(calls);
-
-    props.handleSelection([IMAGE_ASSET]);
-
-    await expectError(pick, AEM_ERRORS.fileType);
-    expect(openDialog()).to.equal(null);
-  });
-
-  it('accepts any type without contentMediaType', async () => {
+  it('accepts any asset type', async () => {
     const { pick, calls } = start();
     const { props } = await waitForRender(calls);
 
@@ -222,7 +208,7 @@ describe('selectAemAsset', () => {
   });
 
   it('reads the type from dc:format when mimetype is missing', async () => {
-    const { pick, calls } = start({ contentMediaType: 'image/*' });
+    const { pick, calls } = start();
     const { props } = await waitForRender(calls);
 
     props.handleSelection([{ ...IMAGE_ASSET, mimetype: undefined, 'dc:format': 'Image/JPEG' }]);
