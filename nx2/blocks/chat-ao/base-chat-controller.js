@@ -137,22 +137,6 @@ export default class BaseChatController {
     }
   }
 
-  async _attach() {
-    await this._ensureSocket();
-    this._ws?.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
-  }
-
-  // See docs/chat-ao-component.md#connection-recovery for why this exists
-  // and isn't gated by _warmedEpisodeId like warmSession() is.
-  async reattachIfIdle() {
-    if (!this._episodeId || this._thinking || this._ws?.readyState === WebSocket.OPEN) return;
-    try {
-      await this._attach();
-    } catch {
-      // best-effort — the next visibility change, keystroke, or send retries
-    }
-  }
-
   async loadEpisodes() {
     // Overridden per harness (REST history vs reload-resume).
   }
