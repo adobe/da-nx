@@ -313,6 +313,7 @@ class NXEwActions extends LitElement {
   }
 
   _updateBranch() {
+    this._branch = null;
     const { org, site, fullpath } = this._hashState || {};
     const path = fullpath?.slice(1);
     const pending = fetchWysiwygBranch({ org, site, path }).then((raw) => {
@@ -321,6 +322,10 @@ class NXEwActions extends LitElement {
       return branch;
     });
     this._branchPromise = pending;
+    pending.catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error('Unable to resolve the preview branch.', error);
+    });
   }
 
   async _updateHidePublish() {
@@ -394,7 +399,13 @@ class NXEwActions extends LitElement {
       }
     }
 
-    const branch = (await this._branchPromise) ?? null;
+    let branch;
+    try {
+      branch = (await this._branchPromise) ?? null;
+    } catch {
+      await this._showActionError(action, 'Unable to resolve the preview branch. Please retry or reload the editor.');
+      return;
+    }
     const result = await runAemPreviewOrPublish({ aemPath, action, branch });
     if (!result.ok) {
       await Promise.all([

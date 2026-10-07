@@ -1,7 +1,7 @@
 /* eslint-disable no-underscore-dangle */
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
-import { status } from '../../../../../utils/api.js';
+import { status, config } from '../../../../../utils/api.js';
 
 const nextTick = () => new Promise((resolve) => { setTimeout(resolve, 0); });
 
@@ -231,8 +231,14 @@ describe('nx-ew-actions deploy popover', () => {
 });
 
 describe('nx-ew-actions status loading & confirm', () => {
+  let origConfigGet;
+  beforeEach(() => {
+    origConfigGet = config.get;
+    config.get = async () => new Response(JSON.stringify({ data: [] }));
+  });
   afterEach(() => {
     document.querySelectorAll('nx-ew-actions').forEach((el) => el.remove());
+    config.get = origConfigGet;
   });
 
   it('drops a stale _loadStatus result when a newer load supersedes it', async () => {
@@ -261,6 +267,48 @@ describe('nx-ew-actions status loading & confirm', () => {
       expect(el._status.preview.url).to.equal('/o/s/second');
     } finally {
       status.get = origGet;
+    }
+  });
+
+  it('logs branch resolution failures and stops the deploy with an action error', async () => {
+    const el = await mount();
+    const origGet = config.get;
+    const origError = console.error;
+    const failure = new TypeError('Network request failed');
+    const logged = [];
+    const shown = [];
+    config.get = async () => { throw failure; };
+    console.error = (...args) => { logged.push(args); };
+    el._updateHidePublish = async () => {};
+    el._loadStatus = async () => {};
+    el._showActionError = async (action, message) => {
+      shown.push({ action, message });
+      el._busy = false;
+      el._hasError = true;
+    };
+    try {
+      el._branch = 'previous-branch';
+      el._hashState = { org: 'branch-error-org', site: 'branch-error-site', path: '/page' };
+      await el.updateComplete;
+      let error;
+      try {
+        await el._branchPromise;
+      } catch (e) {
+        error = e;
+      }
+      expect(error).to.equal(failure);
+      expect(el._branch).to.equal(null);
+      expect(logged).to.deep.equal([['Unable to resolve the preview branch.', failure]]);
+      await el._runAemAction('preview');
+      expect(shown).to.deep.equal([{
+        action: 'preview',
+        message: 'Unable to resolve the preview branch. Please retry or reload the editor.',
+      }]);
+      expect(el._busy).to.equal(false);
+      expect(el._hasError).to.equal(true);
+    } finally {
+      config.get = origGet;
+      console.error = origError;
     }
   });
 

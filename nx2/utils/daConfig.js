@@ -4,14 +4,7 @@ export const getSheetByIndex = (json, index = 0) => {
   if (json[':type'] !== 'multi-sheet') {
     return json.data;
   }
-  return json[Object.keys(json)[index]]?.data;
-};
-
-export const getSheetByName = (json, name) => {
-  if (json[':type'] !== 'multi-sheet') {
-    return json[':sheetname'] === name ? json.data : undefined;
-  }
-  return json[name]?.data;
+  return json[json[':names']?.[index]]?.data;
 };
 
 export const getFirstSheet = (json) => getSheetByIndex(json, 0);
@@ -38,10 +31,16 @@ export const fetchDaConfigs = (() => {
 
   // Unlike da-live, failed responses are evicted so the next call retries.
   const cacheConfig = (key, org, site) => {
-    configCache[key] = fetchConfig(org, site).then((result) => {
-      if (result.error) delete configCache[key];
-      return result;
-    });
+    configCache[key] = fetchConfig(org, site).then(
+      (result) => {
+        if (result.error) delete configCache[key];
+        return result;
+      },
+      (error) => {
+        delete configCache[key];
+        throw error;
+      },
+    );
     return configCache[key];
   };
 

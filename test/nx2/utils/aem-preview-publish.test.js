@@ -1,5 +1,7 @@
 import { expect } from '@esm-bundle/chai';
-import { AEM_API, DA_ADMIN, HLX_ADMIN } from '../../../nx2/utils/utils.js';
+import {
+  AEM_API, DA_ADMIN, HLX_ADMIN, object2sheet,
+} from '../../../nx2/utils/utils.js';
 import {
   calls as sharedCalls,
   installFetch as installFetchOnce,
@@ -343,6 +345,15 @@ describe('aem-preview-publish.js', () => {
   });
 
   describe('fetchWysiwygBranch', () => {
+    let origWarn;
+    let warnings;
+    beforeEach(() => {
+      origWarn = console.warn;
+      warnings = [];
+      console.warn = (...args) => { warnings.push(args); };
+    });
+    afterEach(() => { console.warn = origWarn; });
+
     const sheet = (data) => new Response(JSON.stringify({ data }), { status: 200 });
     const routeFetch = (routes) => {
       origFetch = window.fetch;
@@ -387,6 +398,126 @@ describe('aem-preview-publish.js', () => {
       });
       expect(await fetchWysiwygBranch({ org, site, path: `${org}/${site}/blog/a` })).to.equal('site-branch');
       expect(await fetchWysiwygBranch({ org, site, path: `${org}/${site}/docs/a` })).to.equal('develop');
+      expect(await fetchWysiwygBranch({ org, site, path: `${org}/${site}/docs` })).to.equal('develop');
+      expect(await fetchWysiwygBranch({ org, site, path: `${org}/${site}/docs-archive/a` })).to.equal('site-branch');
+      expect(await fetchWysiwygBranch({ org, site, path: `${org}/${site}-archive/a` })).to.equal('main');
+    });
+
+    it('reads a configured branch from object2sheet-shaped legacy config', async () => {
+      const org = uniq('org');
+      const site = uniq('site');
+      const rows = [{ key: 'ew.wysiwygBranch', value: `/${org}/${site}=develop` }];
+      routeFetch({
+        [`/config/${org}/`]: () => sheet([]),
+        [`/config/${org}/${site}/`]: () => new Response(JSON.stringify(object2sheet({
+          config: rows, flags: [],
+        }))),
+      });
+      expect(await fetchWysiwygBranch({ org, site, path: `${org}/${site}/a` })).to.equal('develop');
+    });
+
+    it('reads a configured branch through the hlx6 object2sheet conversion path', async () => {
+      const org = uniq('org');
+      const site = uniq('site');
+      flagHlx6(org, site);
+      routeFetch({
+        [`/config/${org}/`]: () => sheet([]),
+        [`/${org}/sites/${site}/config/editor/da.json`]: () => new Response(JSON.stringify({
+          config: [{ key: 'ew.wysiwygBranch', value: `/${org}/${site}=develop` }],
+          flags: [],
+        })),
+      });
+      expect(await fetchWysiwygBranch({ org, site, path: `${org}/${site}/a` })).to.equal('develop');
+    });
+
+    it('matches prefixes with trailing slashes and a root default', async () => {
+      const org = uniq('org');
+      const site = uniq('site');
+      routeFetch({
+        [`/config/${org}/`]: () => sheet([]),
+        [`/config/${org}/${site}/`]: () => sheet([
+          { key: 'ew.wysiwygBranch', value: '/=root-branch' },
+          { key: 'ew.wysiwygBranch', value: `/${org}/${site}/docs/=develop` },
+        ]),
+      });
+      expect(await fetchWysiwygBranch({ org, site, path: `${org}/${site}/docs` })).to.equal('develop');
+      expect(await fetchWysiwygBranch({ org, site, path: `${org}/${site}/docs/a` })).to.equal('develop');
+      expect(await fetchWysiwygBranch({ org, site, path: `${org}/${site}/docs-archive/a` })).to.equal('root-branch');
+    });
+
+    [404, 403].forEach((status) => {
+      it(`uses org config and logs the status when site config returns ${status}`, async () => {
+        const org = uniq('org');
+        const site = uniq('site');
+        routeFetch({
+          [`/config/${org}/`]: () => sheet([
+            { key: 'ew.wysiwygBranch', value: `/${org}/${site}=org-branch` },
+          ]),
+          [`/config/${org}/${site}/`]: () => new Response('', { status }),
+        });
+        expect(await fetchWysiwygBranch({ org, site })).to.equal('org-branch');
+        expect(warnings).to.deep.equal([[`Error loading /${org}/${site}`, status]]);
+      });
+    });
+
+    it('uses site config when org config is unavailable', async () => {
+      const org = uniq('org');
+      const site = uniq('site');
+      routeFetch({
+        [`/config/${org}/${site}/`]: () => sheet([
+          { key: 'ew.wysiwygBranch', value: `/${org}/${site}=site-branch` },
+        ]),
+      });
+      expect(await fetchWysiwygBranch({ org, site })).to.equal('site-branch');
+      expect(warnings).to.deep.equal([[`Error loading /${org}`, 404]]);
+    });
+
+    it('falls back to main and logs explicit errors when neither config is available', async () => {
+      const org = uniq('org');
+      const site = uniq('site');
+      routeFetch({});
+      expect(await fetchWysiwygBranch({ org, site })).to.equal('main');
+      expect(warnings).to.deep.equal([
+        [`Error loading /${org}`, 404],
+        [`Error loading /${org}/${site}`, 404],
+      ]);
+    });
+
+    it('propagates invalid config JSON and retries the rejected config fetch', async () => {
+      const org = uniq('org');
+      const site = uniq('site');
+      let invalid = true;
+      routeFetch({
+        [`/config/${org}/`]: () => sheet([]),
+        [`/config/${org}/${site}/`]: () => (invalid
+          ? new Response('{invalid json')
+          : sheet([{ key: 'ew.wysiwygBranch', value: `/${org}/${site}=develop` }])),
+      });
+      let error;
+      try {
+        await fetchWysiwygBranch({ org, site });
+      } catch (e) {
+        error = e;
+      }
+      expect(error).to.be.instanceOf(SyntaxError);
+      invalid = false;
+      expect(await fetchWysiwygBranch({ org, site })).to.equal('develop');
+    });
+
+    it('does not hide TypeErrors while processing malformed branch rows', async () => {
+      const org = uniq('org');
+      const site = uniq('site');
+      routeFetch({
+        [`/config/${org}/`]: () => sheet([]),
+        [`/config/${org}/${site}/`]: () => sheet([{ key: 'ew.wysiwygBranch', value: null }]),
+      });
+      let error;
+      try {
+        await fetchWysiwygBranch({ org, site });
+      } catch (e) {
+        error = e;
+      }
+      expect(error).to.be.instanceOf(TypeError);
     });
 
     it('returns main when no config row matches', async () => {
