@@ -123,10 +123,25 @@ describe('form-asset', () => {
     }
   });
 
-  it('leaves the preview area empty for files that are not images', async () => {
-    const field = await mount({ value: 'https://x.test/spec.pdf' });
-    expect(query(field, '.asset-preview')).to.exist;
+  it('shows the file extension instead of a preview for files that are not images', async () => {
+    const field = await mount({ value: 'https://x.test/files/spec.pdf' });
     expect(query(field, '.asset-preview img')).to.equal(null);
+    expect(query(field, '.asset-file-type').textContent).to.equal('pdf');
+  });
+
+  it('shows a generic file label when the name has no extension', async () => {
+    const field = await mount({ value: 'https://x.test/urn:aaid:aem:1/as/sheet' });
+    expect(query(field, '.asset-file-type').textContent).to.equal('file');
+  });
+
+  it('keeps the file extension visible when an image preview fails to load', async () => {
+    const field = await mount({ value: 'https://x.test/missing.png' });
+    const img = query(field, '.asset-preview img');
+    await new Promise((resolve) => { img.addEventListener('error', resolve, { once: true }); });
+    await field.updateComplete;
+    expect(img.classList.contains('is-loaded')).to.be.false;
+    expect(getComputedStyle(img).opacity).to.equal('0');
+    expect(query(field, '.asset-file-type').textContent).to.equal('png');
   });
 
   it('shows the stored file name with Replace and Remove', async () => {
@@ -146,6 +161,9 @@ describe('form-asset', () => {
     await new Promise((resolve) => { img.addEventListener('load', resolve, { once: true }); });
     await field.updateComplete;
     expect(img.classList.contains('is-loaded')).to.be.true;
+    const imgBox = img.getBoundingClientRect();
+    const previewBox = query(field, '.asset-preview').getBoundingClientRect();
+    expect([imgBox.width, imgBox.height]).to.deep.equal([previewBox.width, previewBox.height]);
   });
 
   it('resolves Media Bus previews against the preview origin once it is known', async () => {

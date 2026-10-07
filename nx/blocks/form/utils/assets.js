@@ -11,9 +11,10 @@ const normalizeMediaType = (type) => (typeof type === 'string' ? type.trim().toL
 
 export const isImageType = (type) => normalizeMediaType(type).startsWith('image/');
 
+export const extensionOf = (fileName) => (fileName?.includes('.') ? fileName.split('.').pop().toLowerCase() : '');
+
 export function typeFromName(fileName) {
-  const extension = fileName?.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
-  return SUPPORTED_FILES[extension] ?? '';
+  return SUPPORTED_FILES[extensionOf(fileName)] ?? '';
 }
 
 const MEDIA_BUS_PREFIX = './media_';
