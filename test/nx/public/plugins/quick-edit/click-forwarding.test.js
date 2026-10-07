@@ -66,7 +66,7 @@ describe('quick-edit click payload', () => {
 describe('quick-edit click forwarding', () => {
   afterEach(() => { document.body.innerHTML = ''; });
 
-  it('posts an IFRAME_CLICK message with the payload through the live port on click', () => {
+  it('posts a QUICK_EDIT_IFRAME_CLICK message with the payload through the live port on click', () => {
     document.body.innerHTML = '<div class="hero block"><button>save</button></div>';
     const posted = [];
     const port = { postMessage: (m) => posted.push(m) };
@@ -75,8 +75,8 @@ describe('quick-edit click forwarding', () => {
     document.querySelector('button').click();
 
     expect(posted).to.have.length(1);
-    expect(posted[0].type).to.equal(MESSAGE_TYPES.IFRAME_CLICK);
-    expect(posted[0].type).to.equal('iframe-click');
+    expect(posted[0].type).to.equal(MESSAGE_TYPES.QUICK_EDIT_IFRAME_CLICK);
+    expect(posted[0].type).to.equal('quick-edit-iframe-click');
     expect(posted[0].payload).to.deep.equal({ target: undefined, source: 'ew-wysiwyg-layout' });
 
     cleanup();
@@ -103,7 +103,7 @@ describe('quick-edit click forwarding', () => {
       text.addEventListener('click', (event) => event.stopPropagation());
       text.click();
       expect(posted).to.deep.equal([{
-        type: MESSAGE_TYPES.IFRAME_CLICK,
+        type: MESSAGE_TYPES.QUICK_EDIT_IFRAME_CLICK,
         payload: { target: undefined, source: 'ew-wysiwyg-layout' },
       }]);
     } finally {

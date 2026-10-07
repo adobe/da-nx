@@ -18,7 +18,10 @@ export function installClickForwarding({ target = document, getPort } = {}) {
   const onClick = (e) => {
     const port = getPort?.();
     if (!port) return;
-    port.postMessage({ type: MESSAGE_TYPES.IFRAME_CLICK, payload: clickPayload(e.target) });
+    port.postMessage({
+      type: MESSAGE_TYPES.QUICK_EDIT_IFRAME_CLICK,
+      payload: clickPayload(e.target),
+    });
   };
   target.addEventListener('click', onClick, { capture: true });
   return () => target.removeEventListener('click', onClick, { capture: true });

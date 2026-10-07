@@ -70,7 +70,7 @@ parallel one. If you do add a new key:
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
 | `COMMENT_MARKER_CLEAR` | iframe → host | da-live only |
 | `COMMENT_SHORTCUT` | iframe → host | da-live only |
-| `IFRAME_CLICK` | iframe → host | da-live only |
+| `QUICK_EDIT_IFRAME_CLICK` | iframe → host | da-live only |
 
 ---
 
@@ -146,7 +146,9 @@ of marker bubbles and highlights on top of the previewed page (`nx/public/plugin
 All five are da-live-embedded only; the standalone `quick-edit-portal.js` host has no
 comments UI, so none are wired up there.
 
-### `IFRAME_CLICK`
+### `QUICK_EDIT_IFRAME_CLICK`
+
+The name scopes clicks to the quick-edit preview iframe, not arbitrary iframes or host toolbars.
 
 - **iframe → host**, payload `{ target?: string, source: 'ew-wysiwyg-layout' }` (`target` is
   undefined when the clicked element has no link / media / action URL or `data-rum-target`,

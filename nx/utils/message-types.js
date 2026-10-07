@@ -30,7 +30,7 @@ export const MESSAGE_TYPES = Object.freeze({
   COMMENT_MARKER_CLICK: 'comment-marker-click', // { payload: { threadId: string } }
   COMMENT_MARKER_CLEAR: 'comment-marker-clear', // no payload
   COMMENT_SHORTCUT: 'comment-shortcut', // no payload
-  IFRAME_CLICK: 'iframe-click', // { target?: string, source: 'ew-wysiwyg-layout' } — iframe clicks; `target` in RUM format
+  QUICK_EDIT_IFRAME_CLICK: 'quick-edit-iframe-click', // { target?: string, source: 'ew-wysiwyg-layout' } — quick-edit iframe clicks; `target` in RUM format
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }
 
   // Iframe -> host (request): { cursorOffset, imageData, fileName, mimeType, originalSrc }
