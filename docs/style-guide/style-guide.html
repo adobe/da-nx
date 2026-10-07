@@ -360,6 +360,28 @@ field.addEventListener('search-submit', (event) =&gt; search(event.detail.value)
       </article>
 
       <article class="sg-example">
+        <h3>nx-search — in-field action</h3>
+        <p class="sg-note">The field border follows input and Clear focus; trailing actions have their own keyboard-focus outline.</p>
+        <div class="sg-demo">
+          <nx-search variant="field" label="Search files" placeholder="Search files">
+            <button slot="actions" type="button" aria-label="Search options" title="Search options">
+              <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" fill="currentColor">
+                <use href="/nx2/img/icons/s2-icon-properties-20-n.svg#icon"></use>
+              </svg>
+            </button>
+          </nx-search>
+        </div>
+        <pre><code>&lt;nx-search variant="field" label="Search files"&gt;
+  &lt;button slot="actions" type="button" aria-label="Search options"&gt;
+    ...
+  &lt;/button&gt;
+&lt;/nx-search&gt;
+
+// The field owns styling; the consumer supplies the icon and handles the action.
+// Keep independent category/filter controls alongside the field.</code></pre>
+      </article>
+
+      <article class="sg-example">
         <h3>nx-picker — default <a href="https://github.com/adobe/da-nx/blob/main/docs/picker.md" target="_blank"
             rel="noopener">docs →</a></h3>
         <div class="sg-demo sg-picker-container">
@@ -406,6 +428,33 @@ document.querySelector('#field-picker').items = [
   { value: 'content', label: 'Content' },
 ];
 </code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-picker — prefix</h3>
+        <p>The label CSS part allows consumer-owned compact layouts. Visually hide the text
+          rather than removing it to preserve the button's accessible name.</p>
+        <div class="sg-demo sg-picker-container">
+          <nx-picker id="demo-picker-prefix" size="m" placement="below">
+            <svg slot="prefix" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+              stroke-width="1.5" aria-hidden="true">
+              <path d="M6 3v14m-3-3 3 3 3-3M11 5h6m-6 5h4m-4 5h2"></path>
+            </svg>
+          </nx-picker>
+        </div>
+        <pre><code>&lt;nx-picker id="prefix-picker" size="m"&gt;
+  &lt;svg slot="prefix" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+    stroke-width="1.5" aria-hidden="true"&gt;
+    &lt;path d="M6 3v14m-3-3 3 3 3-3M11 5h6m-6 5h4m-4 5h2"&gt;&lt;/path&gt;
+  &lt;/svg&gt;
+&lt;/nx-picker&gt;
+
+const picker = document.querySelector('#prefix-picker');
+picker.items = [
+  { value: 'all', label: 'All' },
+  { value: 'content', label: 'Content' },
+];
+picker.value = 'all';</code></pre>
       </article>
 
       <article class="sg-example">
@@ -617,6 +666,7 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
     [
       document.querySelector('#demo-picker'),
       document.querySelector('#demo-picker-m'),
+      document.querySelector('#demo-picker-prefix'),
     ].forEach((picker) => {
       picker.items = pickerItems;
       picker.value = 'all';

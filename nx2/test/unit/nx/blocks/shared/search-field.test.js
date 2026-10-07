@@ -94,6 +94,51 @@ describe('nx-search', () => {
     expect(change.composed).to.be.true;
   });
 
+  it('slots a consumer action without submitting or changing the search value', async () => {
+    const action = document.createElement('button');
+    action.slot = 'actions';
+    action.type = 'button';
+    action.setAttribute('aria-label', 'Search options');
+    field.append(action);
+    field.value = 'plan';
+    await field.updateComplete;
+    expect(field.shadowRoot.querySelector('slot[name="actions"]').assignedElements())
+      .to.deep.equal([action]);
+    expect(getComputedStyle(action).width).to.equal('24px');
+    let clicks = 0;
+    let submissions = 0;
+    action.addEventListener('click', () => { clicks += 1; });
+    field.addEventListener('search-submit', () => { submissions += 1; });
+    action.click();
+    action.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(clicks).to.equal(1);
+    expect(submissions).to.equal(0);
+    expect(field.value).to.equal('plan');
+  });
+
+  it('highlights the field for input and clear focus, not trailing action focus', async () => {
+    field.variant = 'field';
+    field.value = 'plan';
+    field.style.setProperty('--s2-gray-300', '#ccc');
+    field.style.setProperty('--s2-gray-900', '#222');
+    const action = document.createElement('button');
+    action.slot = 'actions';
+    action.type = 'button';
+    field.append(action);
+    await field.updateComplete;
+    const container = field.shadowRoot.querySelector('.search-field');
+    const clear = field.shadowRoot.querySelector('button');
+    input.focus();
+    expect(getComputedStyle(container).borderTopColor).to.equal('rgb(34, 34, 34)');
+    clear.focus();
+    expect(getComputedStyle(container).borderTopColor).to.equal('rgb(34, 34, 34)');
+    action.focus();
+    expect(document.activeElement).to.equal(action);
+    expect(getComputedStyle(container).borderTopColor).to.equal('rgb(204, 204, 204)');
+    action.blur();
+    expect(getComputedStyle(container).borderTopColor).to.equal('rgb(204, 204, 204)');
+  });
+
   it('clears once with the button or Escape, restores focus, and ignores empty clears', async () => {
     let count = 0;
     field.addEventListener('input', () => { count += 1; });

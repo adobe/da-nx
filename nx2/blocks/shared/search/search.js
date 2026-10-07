@@ -77,6 +77,7 @@ class NxSearch extends LitElement {
             <use href="${codeBase}/img/icons/s2-icon-close-20-n.svg#icon"></use>
           </svg>
         </button>
+        <slot name="actions"></slot>
       </div>`;
   }
 }

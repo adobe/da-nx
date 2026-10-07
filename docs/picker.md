@@ -39,6 +39,24 @@ Use `variant="field"` for a bordered, form-style picker trigger.
 This variant is visual and interactive only. It does not provide a label or participate in native form submission, validation, or reset behavior.
 Its dropdown matches the rendered trigger width each time it opens.
 
+### Prefix icon
+
+Supply a decorative icon through `slot="prefix"` to place it inside the trigger,
+before the selected swatch and label. The picker supplies 20px sizing and spacing;
+the consumer supplies the icon. Keep the prefix non-interactive and use
+`aria-hidden="true"` so the trigger label remains its accessible name.
+
+```html
+<nx-picker id="sort-picker">
+  <svg slot="prefix" viewBox="0 0 20 20" fill="none" stroke="currentColor"
+    stroke-width="1.5" aria-hidden="true">
+    <path d="M6 3v14m-3-3 3 3 3-3M11 5h6m-6 5h4m-4 5h2"></path>
+  </svg>
+</nx-picker>
+```
+
+The prefix is optional and does not change selection or dropdown behavior.
+
 ## Item shapes
 
 Each entry in the `items` array is one of:
@@ -72,6 +90,13 @@ When the selected item has a `swatch`, the trigger shows it before the label too
 | `open`          | `Boolean` (read-only) | Whether the picker is currently open.                                          |
 
 Trigger text precedence is: non-empty `labelOverride`, matching item label, `placeholder`, then blank. A placeholder is never added to the dropdown and does not change `value`.
+
+## CSS parts
+
+`label` exposes the trigger text for consumer styling, including compact layouts.
+For icon-only controls, visually hide this part rather than using `display: none`
+or `visibility: hidden`, so the native button retains its accessible name.
+Responsive layout remains the consumer's responsibility.
 
 ## CSS custom properties
 

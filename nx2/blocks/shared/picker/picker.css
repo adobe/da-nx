@@ -87,6 +87,13 @@
   }
 }
 
+::slotted([slot='prefix']) {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
 .picker-item {
   display: flex;
   align-items: center;

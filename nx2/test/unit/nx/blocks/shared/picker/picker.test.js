@@ -64,4 +64,37 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelector('.picker-trigger-label').textContent).to.equal('Custom');
     expect(triggerSwatch(el)).to.not.be.null;
   });
+
+  it('leaves the prefix empty when no icon is supplied', async () => {
+    const el = await createPicker({ value: 'plain' });
+    const slot = el.shadowRoot.querySelector('slot[name="prefix"]');
+    expect(slot.assignedElements()).to.deep.equal([]);
+    expect(el.shadowRoot.querySelector('.picker-trigger-label').textContent).to.equal('Plain');
+    expect(el.shadowRoot.querySelector('.picker-trigger-label').part.contains('label')).to.be.true;
+  });
+
+  it('slots a decorative prefix into the trigger and preserves it across label changes', async () => {
+    const el = await createPicker({ value: 'red' });
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('slot', 'prefix');
+    icon.setAttribute('aria-hidden', 'true');
+    el.append(icon);
+    const slot = el.shadowRoot.querySelector('slot[name="prefix"]');
+    expect(slot.assignedElements()).to.deep.equal([icon]);
+    expect(slot.closest('button')).to.equal(el.shadowRoot.querySelector('.picker-trigger'));
+    expect(slot.nextElementSibling).to.equal(triggerSwatch(el));
+    expect(getComputedStyle(icon).width).to.equal('20px');
+    expect(getComputedStyle(icon).height).to.equal('20px');
+    expect(getComputedStyle(icon).flexShrink).to.equal('0');
+    el.labelOverride = 'Sorted by Name';
+    await el.updateComplete;
+    expect(slot.assignedElements()).to.deep.equal([icon]);
+    expect(el.shadowRoot.querySelector('.picker-trigger-label').textContent)
+      .to.equal('Sorted by Name');
+    expect(triggerSwatch(el)).to.not.be.null;
+    let anchor;
+    el.shadowRoot.querySelector('nx-popover').show = (options) => { anchor = options.anchor; };
+    icon.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    expect(anchor).to.equal(el.shadowRoot.querySelector('.picker-trigger'));
+  });
 });
