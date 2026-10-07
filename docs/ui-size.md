@@ -66,11 +66,10 @@ Fixed icon sizes for shared component variants (same in s and m): `--nx-icon-siz
 
 | Token | Role | s | m |
 |---|---|---|---|
-| `--nx-ui-toolbar-btn-size` | Block/selection toolbar buttons and variant picker | 24 | 32 |
+| `--nx-ui-control-height` | Default control height: toolbar buttons, toolbar picker, form inputs and buttons | 24 | 32 |
 | `--nx-ui-icon-btn-size` | Standalone icon buttons (canvas header, Prepare menu, chat close and input actions, tool panel and dialog close, versions and file explorer actions) | 28 | 32 |
-| `--nx-ui-inline-btn-height` | Small inline buttons (version filters, compare actions) | 24 | 28 |
-| `--nx-ui-panel-field-height` | Inputs/buttons in panel forms (new version row) | 24 | 32 |
-| `--nx-ui-field-border-width` | Comment textarea border | 2 | 1 |
+| `--nx-ui-control-height-compact` | Compact buttons inside lists (version filters, compare actions) | 24 | 28 |
+| `--nx-ui-field-border-width` | Text field border (comment textarea) | 2 | 1 |
 | `--nx-ui-icon-btn-hover-bg` | Icon button hover background | gray-75 | gray-75 |
 | `--nx-ui-icon-btn-hover-color` | Icon button hover icon color | gray-800 | gray-800 |
 

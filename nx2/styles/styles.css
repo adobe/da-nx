@@ -311,12 +311,11 @@
   --nx-ui-icon-l: 16px;
   --nx-ui-icon-xl: 18px;
   --nx-ui-icon-xxl: 20px;
-  --nx-ui-toolbar-btn-size: 24px;
+  --nx-ui-control-height: 24px;
   --nx-ui-icon-btn-size: 28px;
   --nx-ui-icon-btn-hover-bg: var(--s2-gray-75);
   --nx-ui-icon-btn-hover-color: var(--s2-gray-800);
-  --nx-ui-inline-btn-height: 24px;
-  --nx-ui-panel-field-height: 24px;
+  --nx-ui-control-height-compact: 24px;
   --nx-ui-field-border-width: 2px;
 
   /* fonts */
@@ -353,9 +352,8 @@ body.ui-size-m {
   --nx-ui-icon-l: 18px;
   --nx-ui-icon-xl: 20px;
   --nx-ui-icon-xxl: 24px;
-  --nx-ui-toolbar-btn-size: 32px;
-  --nx-ui-inline-btn-height: 28px;
-  --nx-ui-panel-field-height: 32px;
+  --nx-ui-control-height: 32px;
+  --nx-ui-control-height-compact: 28px;
   --nx-ui-field-border-width: 1px;
   --nx-ui-icon-btn-size: 32px;
 }
