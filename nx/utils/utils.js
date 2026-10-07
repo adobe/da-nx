@@ -106,23 +106,6 @@ export async function livePreviewLogin(org, repo, ref) {
   }
 }
 
-const livePreviewLogins = new Map();
-
-// Memoized per {org}/{repo}/{ref} so concurrent callers share one cookie exchange.
-export function ensureLivePreviewLogin({
-  org, repo, ref = 'main', login = livePreviewLogin,
-}) {
-  const key = `${org}/${repo}/${ref}`;
-  if (!livePreviewLogins.has(key)) {
-    const forget = () => {
-      livePreviewLogins.delete(key);
-      return false;
-    };
-    livePreviewLogins.set(key, login(org, repo, ref).then((ok) => ok || forget(), forget));
-  }
-  return livePreviewLogins.get(key);
-}
-
 export const ALLOWED_TOKEN = [
   DA_ADMIN,
   DA_COLLAB,

@@ -91,6 +91,60 @@ export const ALLOWED_TOKEN = [
   DA_TRANSLATE,
 ];
 
+export function getLivePreviewUrl({ org, repo, ref = 'main' }) {
+  let domain = DA_PREVIEW.replace(/^https?:\/\//, '');
+  if (window.location.origin === 'https://da.page') domain = domain.replace('.live', '.page');
+  const protocol = domain.startsWith('localhost') ? 'http' : 'https';
+  return `${protocol}://${ref}--${repo}--${org}.${domain}`;
+}
+
+// Media bus files are served by the live preview, legacy DA uploads by DA content.
+export function previewCookieHrefs({ org, repo }) {
+  return [
+    `${getLivePreviewUrl({ org, repo })}/gimme_cookie`,
+    `${DA_CONTENT}/${org}/${repo}/.gimme_cookie`,
+  ];
+}
+
+async function loadAccessToken() {
+  const { loadIms } = await import('./ims.js');
+  const { accessToken } = await loadIms();
+  return accessToken?.token;
+}
+
+export async function previewLogin({
+  org, repo, getToken = loadAccessToken, request = fetch,
+}) {
+  try {
+    const token = await getToken();
+    if (!token) {
+      return false;
+    }
+    const opts = { credentials: 'include', headers: { Authorization: `Bearer ${token}` } };
+    const hrefs = previewCookieHrefs({ org, repo });
+    const responses = await Promise.all(hrefs.map((href) => request(href, opts)));
+    return responses.every((response) => response.ok);
+  } catch {
+    return false;
+  }
+}
+
+// One login per site for concurrent callers.
+export const ensurePreviewLogin = (() => {
+  const logins = new Map();
+  return ({ org, repo, login = previewLogin }) => {
+    const key = `${org}/${repo}`;
+    if (!logins.has(key)) {
+      const forget = () => {
+        logins.delete(key);
+        return false;
+      };
+      logins.set(key, login({ org, repo }).then((ok) => ok || forget(), forget));
+    }
+    return logins.get(key);
+  };
+})();
+
 const IMS_HASH_KEYS = ['access_token', 'old_hash', 'ld_hash'];
 
 const stripImsHash = (hash) => {
