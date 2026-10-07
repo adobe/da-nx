@@ -9,11 +9,11 @@ const { actions } = await DA_SDK;
 actions.openComparison({ candidate: 'document', baseline: 'live' });
 ```
 
-`candidate` is `document` (current editor contents) or `preview` (current staged content). `baseline` is `live`. The host determines the page from its own context; arbitrary URLs, HTML, and other pages are not accepted. Opening comparison is read-only. `actions.closeComparison()` closes the surface without changing the editor or right-rail instance.
+`candidate` is `document` (current editor contents) or `preview` (current staged content). `baseline` is `live`. The host determines the page from its own context; arbitrary URLs, HTML, and other pages are not accepted. Opening comparison first attempts to save the current document. If the editor is read-only, comparison opens without saving; other save failures appear in the comparison surface. Opening comparison does not update preview or publish content. `actions.closeComparison()` closes the surface without changing the editor or right-rail instance.
 
 `openComparison()` and `closeComparison()` are synchronous, fire-and-forget actions. They return `undefined` and do not wait for a host response. They send `{ action: 'openComparison', details: { candidate, baseline } }` and `{ action: 'closeComparison' }` on the transferred MessagePort, without request IDs, response listeners, or timers. Invalid comparison options throw `TypeError('invalid-comparison')` before sending; MessagePort posting errors propagate synchronously.
 
-`actions.saveDocument()` asks the host to persist pending document changes. It remains awaitable so consumers can wait for saving before previewing or opening a preview comparison:
+`actions.saveDocument()` asks the host to persist pending document changes. Consumers that need a completed save before previewing must await this action, even if comparison was never opened:
 
 ```js
 const result = await actions.saveDocument();
