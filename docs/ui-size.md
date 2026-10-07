@@ -60,7 +60,7 @@ then reload (with "Disable cache" ticked while testing branch previews).
 | `--nx-ui-icon-xxl` | Large status glyphs | 20 | 24 |
 
 Fixed icon sizes for shared component variants (same in s and m): `--nx-icon-size-s` 14, `--nx-icon-size-m` 16, `--nx-icon-size-l` 18.
-`buttons.css` sizes button icons with `--nx-btn-icon-size` (falls back to the fixed variant size); EW buttons set it to `--nx-ui-icon-l`.
+`buttons.css` uses only these fixed sizes (18 default, 16 for `nx-btn-sm`). It has no ui-size variables.
 
 ## Control tokens
 
@@ -69,7 +69,6 @@ Fixed icon sizes for shared component variants (same in s and m): `--nx-icon-siz
 | `--nx-ui-control-height` | Default control height: toolbar buttons, toolbar picker, form inputs and buttons | 24 | 32 |
 | `--nx-ui-icon-btn-size` | Standalone icon buttons (canvas header, Prepare menu, chat close and input actions, tool panel and dialog close, versions and file explorer actions) | 28 | 32 |
 | `--nx-ui-control-height-compact` | Compact buttons inside lists (version filters, compare actions) | 24 | 28 |
-| `--nx-ui-field-border-width` | Text field border (comment textarea) | 2 | 1 |
 | `--nx-ui-icon-btn-hover-bg` | Icon button hover background | gray-75 | gray-75 |
 | `--nx-ui-icon-btn-hover-color` | Icon button hover icon color | gray-800 | gray-800 |
 
@@ -79,8 +78,8 @@ The 2px blue `:focus-visible` outline on canvas toolbar buttons is m-only, appli
 `:host([data-ui-size="m"])` so s keeps the browser default ring.
 
 Standalone icon buttons (canvas header, Prepare menu, chat close, chat input actions, tool panel close, Create version) use the shared
-`nx-action-btn-icon` class, resized by the consumer with `--nx-ui-icon-btn-size` and
-`--nx-btn-icon-size: var(--nx-ui-icon-l)`: 28px button with a 16px icon in s, 32px with 18px in m. 28 rather than 24 in s
+`nx-action-btn-icon` class, resized in the consumer's own CSS (button with `--nx-ui-icon-btn-size`, its svg with
+`--nx-ui-icon-l`): 28px button with a 16px icon in s, 32px with 18px in m. 28 rather than 24 in s
 keeps them easy to hit with a mouse. da-live's `.da-icon-btn` (versions, compare, file explorer) and the tool panel dialog close use the same tokens. Canvas block and selection toolbar buttons keep their own sizes.
 
 ## Segmented buttons

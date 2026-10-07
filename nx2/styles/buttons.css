@@ -29,8 +29,8 @@ button {
   }
 
   svg {
-    width: var(--nx-btn-icon-size, var(--nx-icon-size-l));
-    height: var(--nx-btn-icon-size, var(--nx-icon-size-l));
+    width: var(--nx-icon-size-l);
+    height: var(--nx-icon-size-l);
   }
 
   kbd {
@@ -58,8 +58,8 @@ button {
     height: 24px;
       
     svg {
-      width: var(--nx-btn-icon-size, var(--nx-icon-size-m));
-      height: var(--nx-btn-icon-size, var(--nx-icon-size-m));
+      width: var(--nx-icon-size-m);
+      height: var(--nx-icon-size-m);
     }
   }
 }
