@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { selectAemAsset } from '../../../../../nx/blocks/form/utils/aem-selector.js';
+import { setMockIms, resetMockIms } from '../../../../../nx2/test/mocks/ims.js';
 
 import {
   DM_ERROR_MSG,
@@ -51,12 +52,11 @@ function stubSelector() {
   return { calls, loadSelector: async () => ({ selectors }) };
 }
 
-function start({ repoConfig = AUTHOR_PUBLISH_CONFIG, loadSelector, getToken } = {}) {
+function start({ repoConfig = AUTHOR_PUBLISH_CONFIG, loadSelector } = {}) {
   const selector = stubSelector();
   const pick = selectAemAsset({
     repoConfig,
     loadSelector: loadSelector ?? selector.loadSelector,
-    getToken: getToken ?? (async () => 'ims-token'),
   });
   return { pick, calls: selector.calls };
 }
@@ -78,6 +78,7 @@ async function expectError(pick, message) {
 describe('selectAemAsset', () => {
   afterEach(() => {
     document.querySelectorAll('.nx-form-aem-dialog').forEach((dialog) => dialog.remove());
+    resetMockIms();
   });
 
   it('renders the hosted selector in a modal dialog with the IMS token and repository', async () => {
@@ -89,7 +90,7 @@ describe('selectAemAsset', () => {
     await openDialog().updateComplete;
     expect(openDialog().shadowRoot.querySelector('dialog').open).to.equal(true);
     expect(openDialog().contains(panel)).to.equal(true);
-    expect(props.imsToken).to.equal('ims-token');
+    expect(props.imsToken).to.equal('test-token');
     expect(props.repositoryId).to.equal('author-p1-e1.adobeaemcloud.com');
     expect(props.aemTierType).to.equal('author');
 
@@ -186,9 +187,9 @@ describe('selectAemAsset', () => {
   });
 
   it('asks the user to sign in without loading the selector when there is no IMS token', async () => {
+    setMockIms({ anonymous: true });
     let loads = 0;
     const { pick } = start({
-      getToken: async () => undefined,
       loadSelector: async () => { loads += 1; return { selectors: {} }; },
     });
 
