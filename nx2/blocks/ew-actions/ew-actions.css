@@ -2,7 +2,7 @@
   display: block;
   box-sizing: border-box;
   font-family: var(--s2-font-family);
-  font-size: var(--nx-ui-text-body);
+  font-size: var(--nx-ui-text-content);
   color: var(--s2-gray-800);
 }
 
@@ -101,8 +101,8 @@ nx-popover.deploy-popover {
 }
 
 .deploy-glyph {
-  width: var(--nx-ui-icon-compact);
-  height: var(--nx-ui-icon-compact);
+  width: var(--nx-ui-icon-m);
+  height: var(--nx-ui-icon-m);
   fill: currentcolor;
 }
 
@@ -167,13 +167,13 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card-title {
-  font-size: var(--nx-ui-text-body);
+  font-size: var(--nx-ui-text-content);
   font-weight: var(--s2-component-m-bold-font-weight);
   color: var(--s2-gray-900, #131313);
 }
 
 .deploy-card-sub {
-  font-size: var(--nx-ui-text-detail);
+  font-size: var(--nx-ui-text-caption);
   color: var(--s2-gray-700, #464646);
 }
 
@@ -183,8 +183,8 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card-check .deploy-glyph {
-  width: var(--nx-ui-icon-status);
-  height: var(--nx-ui-icon-status);
+  width: var(--nx-ui-icon-xxl);
+  height: var(--nx-ui-icon-xxl);
 }
 
 .deploy-card-preview .deploy-card-check {
@@ -218,7 +218,7 @@ nx-popover.deploy-popover {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: var(--nx-ui-text-detail);
+  font-size: var(--nx-ui-text-caption);
   color: var(--s2-gray-800, #292929);
 }
 
@@ -238,8 +238,8 @@ nx-popover.deploy-popover {
 }
 
 .deploy-copy .deploy-glyph {
-  width: var(--nx-ui-icon-regular);
-  height: var(--nx-ui-icon-regular);
+  width: var(--nx-ui-icon-l);
+  height: var(--nx-ui-icon-l);
 }
 
 .deploy-copy:hover {
@@ -256,7 +256,7 @@ nx-popover.deploy-popover {
   height: 32px;
   margin-top: 2px;
   border-radius: 8px;
-  font-size: var(--nx-ui-text-body);
+  font-size: var(--nx-ui-text-content);
   font-weight: var(--s2-component-m-bold-font-weight);
 }
 
@@ -270,7 +270,7 @@ nx-popover.deploy-popover {
 
 
 .nx-action-btn-icon.prepare-dropdown-btn {
-  --nx-ui-icon-regular: var(--nx-ui-icon-toolbar);
+  --nx-btn-icon-size: var(--nx-ui-icon-l);
 
   width: var(--nx-ui-icon-btn-size);
   height: var(--nx-ui-icon-btn-size);

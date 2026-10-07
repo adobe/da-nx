@@ -125,16 +125,16 @@
 }
 
 .picker-open-in-icon {
-  width: var(--nx-ui-icon-indicator);
-  height: var(--nx-ui-icon-indicator);
+  width: var(--nx-icon-size-s);
+  height: var(--nx-icon-size-s);
   flex-shrink: 0;
   display: block;
   pointer-events: none;
 }
 
 .picker-check {
-  width: var(--nx-ui-icon-indicator);
-  height: var(--nx-ui-icon-indicator);
+  width: var(--nx-icon-size-s);
+  height: var(--nx-icon-size-s);
   flex-shrink: 0;
   color: var(--s2-gray-800);
 }
@@ -182,7 +182,7 @@
 
   .picker-open-in-icon,
   .picker-check {
-    width: var(--nx-ui-icon-compact);
-    height: var(--nx-ui-icon-compact);
+    width: var(--nx-icon-size-m);
+    height: var(--nx-icon-size-m);
   }
 }

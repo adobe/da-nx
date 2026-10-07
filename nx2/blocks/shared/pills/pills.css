@@ -51,8 +51,8 @@
     color: var(--s2-blue-1000);
 
     svg {
-      width: var(--nx-ui-icon-inline);
-      height: var(--nx-ui-icon-inline);
+      width: var(--nx-ui-icon-s);
+      height: var(--nx-ui-icon-s);
     }
   }
 
@@ -65,8 +65,8 @@
   }
 
   .pill-type-icon {
-    width: var(--nx-ui-icon-inline);
-    height: var(--nx-ui-icon-inline);
+    width: var(--nx-ui-icon-s);
+    height: var(--nx-ui-icon-s);
     flex-shrink: 0;
     color: var(--s2-blue-1000);
   }

@@ -2,8 +2,8 @@
 
 A user-level text/icon scale for Experience Workspace (chat + canvas).
 
-- **s** — default. Exactly the sizes before the text-size work (pre da-nx#755).
-- **m** — the bigger sizing from da-nx#755/#757 and da-live#1351.
+- **s** — default. One S2 step smaller than m.
+- **m** — the sizing from da-nx#755/#757 and da-live#1351 (body, comment, title and input text one step bigger).
 - **l** — reserved. `getUISize()` accepts it, but no values exist yet.
 
 ## How it is switched
@@ -23,54 +23,44 @@ then reload (with "Disable cache" ticked while testing branch previews).
 ## Rules
 
 1. **Never use raw `px` for text or icon sizes** in EW surfaces. Use an `--nx-ui-text-*` or `--nx-ui-icon-*` token.
-2. **Pick tokens by role, not by size.** Names describe where the text/icon lives, so they stay true when m or l change the values. Size words (`s`/`m`/`l`) are reserved for the mode itself.
-3. **Icons follow their container** (Spectrum/S2 mocks): 24px button → 16px icon, 32px button → 18px icon.
-4. **New UI element?** Reuse the role token that matches. If none fits, add a new role token in `nx2/styles/styles.css` (`:root` = s value, `body.ui-size-m` = m value only if it differs) and list it below.
-5. Values that only change in m and aren't sizes on their own (line-heights, paddings, picker height) go in a `:host([data-ui-size="m"])` block in the component's CSS.
+2. **Keep the layer small.** Text has six roles (display, heading, title, content, description, caption). Pick the role that fits; don't add a token per surface.
+3. **s is always smaller than m.** Every token steps one size down the S2 scale in s. m keeps the #757/da-live#1351 sizes.
+4. **Only S2 sizes.** No in-between values like 13px or 15px.
+5. **Shared components with a size variant** (`nx-menu`, `nx-picker`, `buttons.css`) follow their own variant, not the page's ui-size. Inside them use the fixed `--nx-icon-size-*` tokens. EW call sites pass the ui-size as the variant (`size=${getUISize()}`).
+6. Values that only change in m and aren't sizes on their own (line-heights, paddings, picker height) go in a `:host([data-ui-size="m"])` block in the component's CSS.
 
 ## Text tokens
 
 | Token | Role | s | m |
 |---|---|---|---|
-| `--nx-ui-text-body` | Main body text | 14 | 14 |
-| `--nx-ui-text-detail` | Secondary/meta text | 12 | 12 |
-| `--nx-ui-text-tool-detail` | Nested tool-call text, prompt titles | 11 | 14 |
-| `--nx-ui-text-caption` | Captions | 11 | 12 |
-| `--nx-ui-text-emphasis` | Emphasised short labels | 13 | 14 |
-| `--nx-ui-text-comment` | Comment body | 15 | 14 |
-| `--nx-ui-text-component` | Component text (prompts, panel rows) | 12 | 14 |
-| `--nx-ui-text-preview-title` | Preview titles | 14 | 16 |
-| `--nx-ui-text-badge` | Count badges | 10 | 11 |
-| `--nx-ui-text-label` | Small labels | 11 | 11 |
-| `--nx-ui-text-code` | Inline code glyph in toolbars | 0.7rem | 0.7rem |
-| `--nx-ui-text-note` | Modal notes | 13 | 13 |
-| `--nx-ui-text-input` | Numeric inputs | 15 | 15 |
-| `--nx-ui-text-title` | Panel/modal titles | 16 | 16 |
-| `--nx-ui-text-title-l` | Large titles | 18 | 18 |
-| `--nx-ui-text-heading` | Headings | 20 | 20 |
-| `--nx-ui-text-heading-l` | Large headings | 22 | 22 |
-| `--nx-ui-text-field` | Textareas without an explicit size (browser default in s) | 13.33 | 14 |
+| `--nx-ui-text-display` | Large welcome headings | 20 | 22 |
+| `--nx-ui-text-heading` | Panel headings, large titles | 18 | 20 |
+| `--nx-ui-text-title` | Panel/modal/card titles | 16 | 18 |
+| `--nx-ui-text-content` | Reading text: chat messages, comments, outline, inputs, preview titles | 14 | 16 |
+| `--nx-ui-text-description` | Lists, menus, rows, tool-call detail, library rows | 12 | 14 |
+| `--nx-ui-text-caption` | Secondary/meta text, labels, badges, dates | 11 | 12 |
 
 ## Line-height tokens
 
 | Token | Role | s | m |
 |---|---|---|---|
-| `--nx-ui-line-body` | Body/comment/menu-row text | 1.5 | 18px |
-| `--nx-ui-line-description` | Descriptions under items | 1.4 | 16px |
-| `--nx-ui-line-component` | Compact component text (block toolbar) | 16px | 18px |
+| `--nx-ui-line-content` | Content text (comments, menu rows) | 1.5 | 20px |
+| `--nx-ui-line-description` | Compact description text (block toolbar) | 16px | 18px |
+| `--nx-ui-line-caption` | Captions under items | 1.4 | 16px |
 
 ## Icon tokens
 
 | Token | Role | s | m |
 |---|---|---|---|
-| `--nx-ui-icon-micro` | Tiny status glyphs | 12 | 12 |
-| `--nx-ui-icon-inline` | Icons inline with small text (pills, tiny actions) | 14 | 14 |
-| `--nx-ui-icon-indicator` | Checkmarks/arrows in picker rows | 14 | 16 |
-| `--nx-ui-icon-compact` | Icons in 24px controls (`.nx-btn-sm`, compact rows) | 16 | 16 |
-| `--nx-ui-icon-regular` | Icons in 32px controls (default buttons, `size="m"` rows) | 18 | 18 |
-| `--nx-ui-icon-feature` | Status/heading icons | 20 | 20 |
-| `--nx-ui-icon-status` | Large status glyphs | 24 | 24 |
-| `--nx-ui-icon-toolbar` | Standalone canvas toolbar/panel icons | 16 | 18 |
+| `--nx-ui-icon-xs` | Tiny status glyphs | 10 | 12 |
+| `--nx-ui-icon-s` | Icons inline with small text (pills, tool calls) | 12 | 14 |
+| `--nx-ui-icon-m` | Icons in compact rows (outline, versions, file explorer) | 14 | 16 |
+| `--nx-ui-icon-l` | Standalone icon buttons, dialog icons | 16 | 18 |
+| `--nx-ui-icon-xl` | Status/heading icons | 18 | 20 |
+| `--nx-ui-icon-xxl` | Large status glyphs | 20 | 24 |
+
+Fixed icon sizes for shared component variants (same in s and m): `--nx-icon-size-s` 14, `--nx-icon-size-m` 16, `--nx-icon-size-l` 18.
+`buttons.css` sizes button icons with `--nx-btn-icon-size` (falls back to the fixed variant size); EW buttons set it to `--nx-ui-icon-l`.
 
 ## Control tokens
 
@@ -91,7 +81,7 @@ The 2px blue `:focus-visible` outline on canvas toolbar buttons is m-only, appli
 
 Standalone icon buttons (canvas header, Prepare menu, chat close, chat input actions, tool panel close, Create version) use the shared
 `nx-action-btn-icon` class, resized by the consumer with `--nx-ui-icon-btn-size` and
-`--nx-ui-icon-toolbar`: 28px button with a 16px icon in s, 32px with 18px in m. 28 rather than 24 in s
+`--nx-btn-icon-size: var(--nx-ui-icon-l)`: 28px button with a 16px icon in s, 32px with 18px in m. 28 rather than 24 in s
 keeps them easy to hit with a mouse. da-live's `.da-icon-btn` (versions, compare, file explorer) and the tool panel dialog close use the same tokens. Canvas block and selection toolbar buttons keep their own sizes.
 
 ## Segmented buttons

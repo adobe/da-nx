@@ -4,7 +4,7 @@
   overflow: hidden;
   height: 100%;
   font-family: var(--s2-font-family);
-  font-size: var(--nx-ui-text-component);
+  font-size: var(--nx-ui-text-description);
   gap: var(--s2-spacing-100);
 
   button {
@@ -22,8 +22,8 @@
 }
 
 .prompts-search-icon {
-  width: var(--nx-ui-icon-toolbar);
-  height: var(--nx-ui-icon-toolbar);
+  width: var(--nx-ui-icon-l);
+  height: var(--nx-ui-icon-l);
   flex-shrink: 0;
   color: var(--s2-gray-600);
 }
@@ -35,7 +35,7 @@
   outline: none;
   background: none;
   font-family: inherit;
-  font-size: var(--nx-ui-text-component);
+  font-size: var(--nx-ui-text-description);
   color: var(--s2-gray-900);
   padding: 0;
 
@@ -58,8 +58,8 @@
   color: var(--s2-gray-600);
 
   svg {
-    width: var(--nx-ui-icon-toolbar);
-    height: var(--nx-ui-icon-toolbar);
+    width: var(--nx-ui-icon-l);
+    height: var(--nx-ui-icon-l);
     display: block;
   }
 }
@@ -112,7 +112,7 @@
   justify-content: space-between;
   gap: var(--s2-spacing-200);
   line-height: var(--s2-component-xs-medium-line-height);
-  font-size: var(--nx-ui-text-tool-detail);
+  font-size: var(--nx-ui-text-description);
 
   .prompt-item-title {
     min-width: 0;
@@ -130,7 +130,7 @@
 
 .prompt-item-desc {
   color: var(--s2-gray-900);
-  font-size: var(--nx-ui-text-component);
+  font-size: var(--nx-ui-text-description);
   line-height: var(--s2-component-s-regular-line-height);
   text-overflow: ellipsis;
 }

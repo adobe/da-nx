@@ -3,7 +3,7 @@
   flex-direction: column;
   flex: 1;
   font-family: var(--s2-font-family);
-  font-size: var(--nx-ui-text-body);
+  font-size: var(--nx-ui-text-content);
 
   button {
     cursor: pointer;
@@ -22,7 +22,7 @@
 
   h3 {
     color: var(--s2-gray-900);
-    font-size: var(--nx-ui-text-heading-l);
+    font-size: var(--nx-ui-text-display);
   }
 
   p {
@@ -62,8 +62,8 @@
   }
 
   .prompt-card-icon {
-    width: var(--nx-ui-icon-compact);
-    height: var(--nx-ui-icon-compact);
+    width: var(--nx-ui-icon-m);
+    height: var(--nx-ui-icon-m);
     flex-shrink: 0;
   }
 }
@@ -103,7 +103,7 @@
 }
 
 .continue-session-eyebrow {
-  font-size: var(--nx-ui-text-label);
+  font-size: var(--nx-ui-text-caption);
   font-weight: var(--s2-component-xs-bold-font-weight);
   color: var(--s2-gray-600);
 }
@@ -115,6 +115,6 @@
 }
 
 .continue-session-time {
-  font-size: var(--nx-ui-text-label);
+  font-size: var(--nx-ui-text-caption);
   color: var(--s2-gray-700);
 }
