@@ -73,7 +73,7 @@ describe('nx-editor primitive controls', () => {
 
   it('previews a newly selected Media Bus image once the model stores it', async () => {
     const previewOrigin = 'https://main--site--example.preview.da.live';
-    const imageNode = mediaNode({ contentMediaType: 'image/*' });
+    const imageNode = mediaNode();
     const el = await mountEditor(objectRoot([imageNode]));
     el.editor = {
       setField: (pointer, value) => {
@@ -84,7 +84,6 @@ describe('nx-editor primitive controls', () => {
     el.assetSources = [{
       id: 'test-source',
       label: 'Test source',
-      accepts: () => true,
       select: async () => ({ href: './media_new.png', name: 'new.png', type: 'image/png' }),
     }];
     await el.updateComplete;
@@ -98,22 +97,13 @@ describe('nx-editor primitive controls', () => {
       .to.equal(`${previewOrigin}/media_new.png`);
   });
 
-  it('still renders the file field and passes its type while sources load', async () => {
-    const root = objectRoot([
-      {
-        kind: 'string',
-        pointer: '/data/sheet',
-        label: 'Datasheet',
-        semanticType: 'media',
-        contentMediaType: 'application/pdf',
-      },
-    ]);
+  it('still renders the file field while sources load', async () => {
+    const root = objectRoot([mediaNode()]);
     const el = await mountEditor(root);
     el.assetSources = undefined;
     await el.updateComplete;
     const field = el.shadowRoot.querySelector('form-asset');
     expect(field).to.exist;
-    expect(field.contentMediaType).to.equal('application/pdf');
     expect(el.shadowRoot.querySelector('form-input')).to.equal(null);
     await field.updateComplete;
     expect(field.shadowRoot.querySelector('.asset-source-trigger').disabled).to.be.true;

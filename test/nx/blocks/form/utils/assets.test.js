@@ -1,39 +1,15 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  acceptsOnlyImages,
   createAssetSources,
   describeAsset,
   isAssetHref,
   isImageType,
-  matchesMediaType,
   previewHrefFor,
   typeFromName,
-  uploadableTypes,
   uploadFile,
 } from '../../../../../nx/blocks/form/utils/assets.js';
 
 describe('form media types', () => {
-  it('accepts any type without a contentMediaType or with */*', () => {
-    expect(matchesMediaType({ type: 'audio/mpeg' })).to.be.true;
-    expect(matchesMediaType({ type: 'audio/mpeg', contentMediaType: ' */* ' })).to.be.true;
-  });
-
-  it('matches exact types and type wildcards, case-insensitively', () => {
-    expect(matchesMediaType({ type: 'image/PNG', contentMediaType: 'image/*' })).to.be.true;
-    expect(matchesMediaType({ type: 'application/pdf', contentMediaType: 'image/*' })).to.be.false;
-    expect(matchesMediaType({ type: 'application/pdf', contentMediaType: 'Application/PDF' })).to.be.true;
-    expect(matchesMediaType({ type: '', contentMediaType: 'image/*' })).to.be.false;
-  });
-
-  it('uploads only Canvas image types, narrowed by the field', () => {
-    expect(uploadableTypes()).to.deep.equal([
-      'image/svg+xml', 'image/png', 'image/jpeg', 'image/gif',
-    ]);
-    expect(uploadableTypes({ contentMediaType: 'image/png' })).to.deep.equal(['image/png']);
-    expect(uploadableTypes({ contentMediaType: 'video/*' })).to.deep.equal([]);
-    expect(uploadableTypes({ contentMediaType: 'audio/*' })).to.deep.equal([]);
-  });
-
   it('derives known types from file names', () => {
     expect(typeFromName('photo.JPG')).to.equal('image/jpeg');
     expect(typeFromName('media_abc.png')).to.equal('image/png');
@@ -41,12 +17,11 @@ describe('form media types', () => {
     expect(typeFromName(undefined)).to.equal('');
   });
 
-  it('treats every image type as an image and only image types as image-only fields', () => {
+  it('treats every image type as an image, case-insensitively', () => {
     expect(isImageType('image/webp')).to.be.true;
+    expect(isImageType('Image/PNG')).to.be.true;
     expect(isImageType('video/mp4')).to.be.false;
-    expect(acceptsOnlyImages({ contentMediaType: 'image/*' })).to.be.true;
-    expect(acceptsOnlyImages({ contentMediaType: '*/*' })).to.be.false;
-    expect(acceptsOnlyImages()).to.be.false;
+    expect(isImageType(undefined)).to.be.false;
   });
 });
 
@@ -86,11 +61,11 @@ describe('form asset values', () => {
     expect(describeAsset({ href: 'https://x.test/%E0%A4%A' }).name).to.equal('%E0%A4%A');
   });
 
-  it('describes a stored value from its name and the field type', () => {
-    expect(describeAsset({ href: 'https://x.test/spec.pdf', contentMediaType: 'image/*' }))
-      .to.deep.equal({ name: 'spec.pdf', isAllowed: false, isImage: false });
-    expect(describeAsset({ href: 'https://x.test/photo.avif', contentMediaType: 'image/*' }))
-      .to.deep.equal({ name: 'photo.avif', isAllowed: true, isImage: true });
+  it('detects images from the stored file name', () => {
+    expect(describeAsset({ href: 'https://x.test/spec.pdf' }))
+      .to.deep.equal({ name: 'spec.pdf', isImage: false });
+    expect(describeAsset({ href: 'https://x.test/photo.png' }))
+      .to.deep.equal({ name: 'photo.png', isImage: true });
   });
 
   it('prefers the name and type of a file picked in this session', () => {
@@ -98,7 +73,7 @@ describe('form asset values', () => {
       href: 'https://delivery.example.com/urn:aaid:aem:1/as/photo',
       name: 'photo.webp',
       type: 'image/webp',
-    })).to.deep.equal({ name: 'photo.webp', isAllowed: true, isImage: true });
+    })).to.deep.equal({ name: 'photo.webp', isImage: true });
   });
 });
 
@@ -164,7 +139,7 @@ describe('form file upload', () => {
     expect(jpeg.type).to.equal('image/jpeg');
   });
 
-  it('validates by extension, like the upload API, and rejects types the field does not take', async () => {
+  it('validates by extension, like the upload API, and uploads only Canvas image types', async () => {
     let uploads = 0;
     const upload = async () => {
       uploads += 1;
@@ -175,11 +150,10 @@ describe('form file upload', () => {
       { file: fileOf({ name: 'clip.mp4', type: 'video/mp4' }) },
       { file: fileOf({ name: 'spec.pdf', type: 'application/pdf' }) },
       { file: fileOf({ name: 'photo.webp', type: 'image/webp' }) },
-      { file: fileOf({ name: 'photo.png', type: 'image/png' }), contentMediaType: 'application/pdf' },
       { file: fileOf({ name: 'renamed.txt', type: 'image/png' }) },
     ];
-    const results = await Promise.all(rejected.map(({ file, contentMediaType }) => uploadFile({
-      details, file, contentMediaType, upload,
+    const results = await Promise.all(rejected.map(({ file }) => uploadFile({
+      details, file, upload,
     })));
     results.forEach((result) => expect(result).to.deep.equal({ error: ERRORS.fileType }));
     expect(uploads).to.equal(0);
@@ -241,19 +215,10 @@ describe('form asset sources', () => {
     ]);
   });
 
-  it('lets Upload accept only fields with an uploadable type', () => {
-    const [upload] = createAssetSources({ details, isCurrent });
-    expect(upload.accepts({ contentMediaType: 'image/*' })).to.be.true;
-    expect(upload.accepts({ contentMediaType: 'application/pdf' })).to.be.false;
-    expect(upload.accepts({ contentMediaType: 'audio/*' })).to.be.false;
-    expect(upload.localFileTypes({ contentMediaType: 'image/*' }))
-      .to.deep.equal(['image/svg+xml', 'image/png', 'image/jpeg', 'image/gif']);
-  });
-
-  it('lets AEM Assets accept any field', () => {
-    const [, aem] = createAssetSources({ details, repoConfig: REPO_CONFIG, isCurrent });
-    expect(aem.accepts({ contentMediaType: 'audio/*' })).to.be.true;
-    expect(aem.localFileTypes).to.equal(undefined);
+  it('lets Upload pick only Canvas image types and AEM Assets pick in its own selector', () => {
+    const [upload, aem] = createAssetSources({ details, repoConfig: REPO_CONFIG, isCurrent });
+    expect(upload.fileTypes).to.deep.equal(['image/svg+xml', 'image/png', 'image/jpeg', 'image/gif']);
+    expect(aem.fileTypes).to.equal(undefined);
   });
 
   it('cancels a result that arrives after the document changed', async () => {

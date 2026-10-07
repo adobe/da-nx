@@ -12,15 +12,11 @@
 /* Fixed rows in every state, so selecting, replacing or removing never shifts the page. */
 .asset {
   display: grid;
-  grid-template-rows: var(--asset-row-height);
+  grid-template-rows: var(--asset-preview-height) var(--asset-row-height);
   overflow: hidden;
   border: 1px solid var(--s2-gray-300);
   border-radius: var(--s2-corner-radius-500);
   background: var(--s2-gray-25);
-}
-
-.asset.has-preview {
-  grid-template-rows: var(--asset-preview-height) var(--asset-row-height);
 }
 
 .has-error .asset {
@@ -57,9 +53,6 @@
   gap: var(--s2-spacing-200);
   min-width: 0;
   padding: 0 var(--s2-spacing-200) 0 var(--s2-spacing-300);
-}
-
-.has-preview .asset-row {
   border-top: 1px solid var(--s2-gray-200);
 }
 

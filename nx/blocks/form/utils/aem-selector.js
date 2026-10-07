@@ -4,7 +4,7 @@ import { loadAssetSelector } from '../../../../nx2/utils/aem-assets/selector.js'
 import { buildAssetSelectorProps } from '../../../../nx2/utils/aem-assets/selector-props.js';
 import { resolveAssetSelection } from '../../../../nx2/utils/aem-assets/selection.js';
 import { getMimetype } from '../../../../nx2/utils/aem-assets/urls.js';
-import { CANCELLED, matchesMediaType } from './assets.js';
+import { CANCELLED } from './assets.js';
 import '../../../../nx2/blocks/shared/dialog/dialog.js';
 
 const STYLE_HREF = new URL('./aem-selector.css', import.meta.url).href;
@@ -13,7 +13,6 @@ const DIALOG_TITLE = 'AEM Assets';
 const AEM_ERRORS = {
   signIn: 'Sign in to select a file from AEM Assets.',
   unavailable: 'The AEM Assets selector could not be loaded.',
-  fileType: 'The selected asset type is not allowed here.',
 };
 
 async function getTokenOrSignIn() {
@@ -22,7 +21,7 @@ async function getTokenOrSignIn() {
   return ims?.accessToken?.token;
 }
 
-function toAssetResult({ asset, repoConfig, contentMediaType }) {
+function toAssetResult({ asset, repoConfig }) {
   if (!asset) {
     return CANCELLED;
   }
@@ -33,10 +32,6 @@ function toAssetResult({ asset, repoConfig, contentMediaType }) {
   }
 
   const type = getMimetype(asset).toLowerCase();
-  if (!matchesMediaType({ type, contentMediaType })) {
-    return { error: AEM_ERRORS.fileType };
-  }
-
   const name = asset['repo:name'] ?? asset.name;
   return { href, name, type };
 }
@@ -55,7 +50,7 @@ function openSelectorDialog() {
 
 function waitForSelection({ selectors, ui, selection }) {
   const { dialog, container } = ui;
-  const { imsToken, repoConfig, contentMediaType } = selection;
+  const { imsToken, repoConfig } = selection;
   return new Promise((resolve) => {
     dialog.addEventListener('close', () => resolve(CANCELLED), { once: true });
     selectors.renderAssetSelector(container, buildAssetSelectorProps({
@@ -63,7 +58,7 @@ function waitForSelection({ selectors, ui, selection }) {
       repoConfig,
       onClose: () => resolve(CANCELLED),
       handleSelection: ([asset] = []) => {
-        resolve(toAssetResult({ asset, repoConfig, contentMediaType }));
+        resolve(toAssetResult({ asset, repoConfig }));
       },
     }));
   });
@@ -71,7 +66,6 @@ function waitForSelection({ selectors, ui, selection }) {
 
 export async function selectAemAsset({
   repoConfig,
-  contentMediaType,
   getToken = getTokenOrSignIn,
   loadSelector = loadAssetSelector,
 }) {
@@ -92,7 +86,7 @@ export async function selectAemAsset({
   }
 
   const ui = openSelectorDialog();
-  const selection = { imsToken, repoConfig, contentMediaType };
+  const selection = { imsToken, repoConfig };
   try {
     return await waitForSelection({ selectors, ui, selection });
   } finally {
