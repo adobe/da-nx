@@ -1,3 +1,10 @@
+## [1.9.1](https://github.com/adobe/da-nx/compare/v1.9.0...v1.9.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **loc:** skip glaas status polling for terminal languages ([#820](https://github.com/adobe/da-nx/issues/820)) ([3bd23db](https://github.com/adobe/da-nx/commit/3bd23db18643fa8b22d767346f28029f08d73970))
+
 # [1.9.0](https://github.com/adobe/da-nx/compare/v1.8.2...v1.9.0) (2026-10-06)
 
 
