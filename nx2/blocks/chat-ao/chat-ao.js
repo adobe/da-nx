@@ -13,13 +13,14 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
-import { getEWFlags } from '../../utils/ewFlags.js';
-import AoChatController from './ao-controller.js';
+import CoworkerChatController from './coworker-chat-controller.js';
+import CmaChatController from './cma-chat-controller.js';
+import { getCoworkerConfig } from '../../utils/ewFlags.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
   AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES,
   COWORKER_SKILLS_URL, COWORKER_CHAT_URL, ENTERPRISE_CONTEXT_URL,
-  ADD_MENU_ITEMS, OPEN_COWORKER_ITEM,
+  ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE,
 } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
@@ -70,7 +71,6 @@ export default class NxChatAo extends LitElement {
     _prompts: { state: true },
     _planFeedback: { state: true },
     _voiceListening: { state: true },
-    _backendWsBase: { state: true }, // TEMP(backend-banner)
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
@@ -82,6 +82,10 @@ export default class NxChatAo extends LitElement {
   set context(value) {
     this._explicitContext = true;
     this._applyContext(value);
+  }
+
+  set harnessConfig(value) {
+    this._applyHarnessConfig(value);
   }
 
   async setPrompt(text, { autoSend = false } = {}) {
@@ -101,33 +105,70 @@ export default class NxChatAo extends LitElement {
     this._loadConfig();
   }
 
+  _applyHarnessConfig({ key = null, altHarness = false, activationKey = null } = {}) {
+    this._harnessConfigKey = key;
+    this._altHarness = !!altHarness;
+    this._activationKey = activationKey;
+    this._flagsReady = true;
+    this._initController();
+  }
+
   async _loadConfig() {
     const { org, site } = this._context ?? {};
     if (!org || !site) return;
     const key = `${org}/${site}`;
     if (this._configKey === key) return;
     this._configKey = key;
-    const [{ prompts }, flags] = await Promise.all([
-      loadSiteConfig(org, site),
-      getEWFlags({ org, site }),
-    ]);
+    const { prompts } = await loadSiteConfig(org, site);
     this._prompts = prompts ?? [];
-    this._altHarness = !!flags['ew.altHarness'];
-    this._controller?.setActivationKey(flags['ew.altHarness']);
+    if (this._harnessConfigKey !== key) {
+      // ew.altHarness selects the CMA bridge harness; its value is the
+      // activation key that authorizes/routes the chat socket to the bridge.
+      const { altHarness, activationKey } = await getCoworkerConfig({ org, site });
+      this._applyHarnessConfig({ key, altHarness, activationKey });
+      return;
+    }
+    this._initController();
   }
 
-  get _addMenuItems() {
-    if (!this._altHarness) return ADD_MENU_ITEMS;
-    return ADD_MENU_ITEMS.map((item) => (
-      item.id === MENU_OPTIONS.MANAGE_SKILLS ? { ...item, label: 'Manage Skills' } : item
-    ));
+  _onControllerUpdate({
+    messages, thinking, streamingText, episodes, episodeId,
+    pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode, staleEpisode,
+  }) {
+    this.messages = streamingText
+      ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
+      : messages;
+    this.thinking = thinking;
+    this.episodes = episodes;
+    this.episodeId = episodeId;
+    this.pendingQuestion = pendingQuestion;
+    this.pendingPlanApproval = pendingPlanApproval;
+    this.pendingPermission = pendingPermission;
+    this.loadingEpisode = loadingEpisode;
+    this.staleEpisode = staleEpisode;
   }
 
-  // "Continue in Coworker" is hidden on the alt harness — CMA has no
-  // Coworker surface.
-  get _menuItems() {
-    if (this.episodeId && !this._altHarness) return [...this._addMenuItems, OPEN_COWORKER_ITEM];
-    return this._addMenuItems;
+  // The controller is created once the ew.altHarness flag is known, so the
+  // correct harness subclass (Coworker REST history vs CMA bridge) is chosen up
+  // front. Idempotent; recreates only if the harness actually changes. See
+  // docs/chat-ao-controller-decoupling.md.
+  _initController() {
+    if (!this.isConnected || !this._flagsReady || !this._context?.org || !this._context?.site) {
+      return;
+    }
+    const Controller = this._altHarness ? CmaChatController : CoworkerChatController;
+    if (this._controller instanceof Controller) {
+      this._controller.setActivationKey?.(this._activationKey);
+      return;
+    }
+    this._controller?.destroy();
+    this._controller = new Controller({
+      onUpdate: (state) => this._onControllerUpdate(state),
+      ...(this._altHarness ? { activationKey: this._activationKey } : {}),
+    });
+    if (this._context) this._controller.setContext(this._context);
+    this._controller.loadEpisodes();
+    this._controller.loadSkills();
   }
 
   _closePanel() {
@@ -215,29 +256,7 @@ export default class NxChatAo extends LitElement {
     super.connectedCallback();
     fetchResolvedManifestId();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, artifactStyle];
-    this._controller = new AoChatController({
-      onUpdate: ({
-        messages, thinking, streamingText, episodes, episodeId,
-        pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode, staleEpisode,
-        wsBase, // TEMP(backend-banner)
-      }) => {
-        this._backendWsBase = wsBase; // TEMP(backend-banner)
-        this.messages = streamingText
-          ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
-          : messages;
-        this.thinking = thinking;
-        this.episodes = episodes;
-        this.episodeId = episodeId;
-        this.pendingQuestion = pendingQuestion;
-        this.pendingPlanApproval = pendingPlanApproval;
-        this.pendingPermission = pendingPermission;
-        this.loadingEpisode = loadingEpisode;
-        this.staleEpisode = staleEpisode;
-      },
-    });
-    if (this._context) this._controller.setContext(this._context);
-    this._controller.loadEpisodes();
-    this._controller.loadSkills();
+    this._initController();
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
       onDragging: (dragging) => { this._dragging = dragging; },
@@ -361,19 +380,7 @@ export default class NxChatAo extends LitElement {
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._slashMenu.insertSlash();
     if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
-    if (id === MENU_OPTIONS.MANAGE_SKILLS) {
-      if (this._altHarness) {
-        const { org, site } = this._context ?? {};
-        if (!org || !site) return;
-        const url = new URL(window.location.href);
-        url.pathname = '/apps/skills';
-        url.search = '?tab=skills';
-        url.hash = `#/${org}/${site}`;
-        window.open(url.href, '_blank', 'noopener,noreferrer');
-      } else {
-        window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
-      }
-    }
+    if (id === MENU_OPTIONS.MANAGE_SKILLS) window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
     if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) window.open(`${COWORKER_CHAT_URL}/${this.episodeId}`, '_blank', 'noopener,noreferrer');
     if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) window.open(ENTERPRISE_CONTEXT_URL, '_blank', 'noopener,noreferrer');
   }
@@ -407,44 +414,12 @@ export default class NxChatAo extends LitElement {
     target.value = '';
   }
 
-  // TEMP(backend-banner): shows which backend the chat socket is hitting so we
-  // can confirm CMA-via-bridge vs Agent Orchestrator. Remove this method, its
-  // call in render(), the _backendWsBase state, the onUpdate wiring, and the
-  // controller's _wsBase/_update plumbing when done verifying.
-  _renderBackendBanner() {
-    const ws = this._backendWsBase;
-    if (!ws) {
-      return html`<div style="padding:4px 8px;font:600 11px/1.4 monospace;color:#fff;background:#6b7280;text-align:center">🔌 connecting…</div>`;
-    }
-    let host = ws;
-    try {
-      host = new URL(ws).host;
-    } catch {
-      /* keep raw */
-    }
-    const isBridge = ws.includes('claudebridge') || ws.includes('localhost') || ws.includes('127.0.0.1');
-    let tag = 'BACKEND';
-    let name = 'Backend';
-    if (ws.includes('agent-orchestrator')) {
-      tag = 'AO';
-      name = 'Agent Orchestrator (legacy path)';
-    } else if (isBridge) {
-      tag = 'CMA';
-      name = 'Claude Managed Agents via bridge';
-    }
-    const bg = isBridge ? '#15803d' : '#b45309';
-    return html`<div style="padding:4px 8px;font:600 11px/1.4 monospace;color:#fff;background:${bg};text-align:center;letter-spacing:.02em">
-      🔌 THIS IS ${tag} — ${name} — ${host}
-    </div>`;
-  }
-
   render() {
     const { view } = this._context ?? {};
     const prompts = (this._prompts ?? [])
       .filter((p) => !p.area || p.area === 'all' || p.area === view);
 
     return html`
-      ${this._renderBackendBanner()}
       <nx-popover class="prompts-popover">
         <nx-prompts
           .prompts=${prompts}
@@ -562,7 +537,7 @@ export default class NxChatAo extends LitElement {
             @blur=${this._slashMenu.onBlur}
           ></textarea>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
-            <nx-menu size="m" .items=${this._menuItems} placement="above" @select=${this._handleMenuSelect}>
+            <nx-menu size="m" .items=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
               <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>

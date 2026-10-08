@@ -1,6 +1,7 @@
 import { loadIms } from '../../../utils/ims.js';
-import { getOrgId, resolveSkillsHttpBase } from './uploads.js';
+import { getOrgId, aoContext } from './uploads.js';
 import { resolveManifestId } from './manifest.js';
+import { CMA_BRIDGE_HTTP_BASE } from '../ao-constants.js';
 
 const SKILLS_CACHE_PREFIX = 'da-chat-ao-skills';
 
@@ -45,22 +46,18 @@ function saveCachedSkills(skills, tenantId) {
 
 // Real catalog lookup. Best-effort: a network error or unexpected response shape
 // returns null, leaving the cache (or empty list) in place rather than throwing.
+// When an alt-harness activation key is present, the skills REST plane routes to
+// the CMA bridge instead of Agent Orchestrator (the bridge requires an explicit
+// x-user-id; AO derives the caller from the token). See docs/chat-ao-alt-harness.md.
 export async function fetchSkills({ org, site, altHarnessKey } = {}) {
   try {
-    const { accessToken, projectedProductContext, userId } = await loadIms();
-    const tenantId = getOrgId(projectedProductContext);
-    const base = resolveSkillsHttpBase(projectedProductContext, { altHarnessKey });
-    const headers = {
-      authorization: `Bearer ${accessToken?.token}`,
-      'x-tenant-id': tenantId,
-    };
-    // The bridge's REST plane requires an explicit x-user-id; AO derives the
-    // caller from the token and ignores it.
-    if (altHarnessKey && userId) headers['x-user-id'] = userId;
+    const {
+      base, headers, tenantId, userId,
+    } = await aoContext();
+    const skillsBase = altHarnessKey ? CMA_BRIDGE_HTTP_BASE : base;
+    const skillsHeaders = altHarnessKey && userId ? { ...headers, 'x-user-id': userId } : headers;
     const { manifestId } = await resolveManifestId({ org, site });
-    const resp = await fetch(`${base}/api/v1/skills?manifest_id=${manifestId}`, {
-      headers,
-    });
+    const resp = await fetch(`${skillsBase}/api/v1/skills?manifest_id=${manifestId}`, { headers: skillsHeaders });
     if (!resp.ok) return null;
     const skills = parseSkillsListResponse(await resp.json());
     if (skills) saveCachedSkills(skills, tenantId);

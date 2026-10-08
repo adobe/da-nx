@@ -16,14 +16,10 @@ export const AO_WS_BASE = 'wss://agent-orchestrator-prod-va7.adobe.io';
 
 export const AO_HTTP_BASE = 'https://agent-orchestrator-prod-va7.adobe.io';
 
-// Alternate harness: the claudebridge -> CMA deployment. Routed to only when a
-// valid `ew.altHarness` activation key is present in site config; the bridge
-// validates the key server-side. See docs/chat-ao-alt-harness.md.
+// The CMA bridge (aem-sites-claudebridge) hosts the WebSocket data plane and
+// the skills REST plane for the alternate harness. See docs/chat-ao-alt-harness.md.
 export const CMA_BRIDGE_WS_BASE = 'wss://aem-sites-claudebridge-va6.adobe.io';
 
-// The bridge's REST control plane (skills catalog + overrides). Used only for
-// skills management when an `ew.altHarness` key is present; AO stays the base
-// for uploads/episodes/history, which the bridge doesn't serve.
 export const CMA_BRIDGE_HTTP_BASE = 'https://aem-sites-claudebridge-va6.adobe.io';
 
 export const AO_MANIFEST_ID = 'experience-workspace';
