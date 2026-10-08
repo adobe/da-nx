@@ -473,7 +473,7 @@ export default class NxChatAo extends LitElement {
       tag = 'CMA';
       name = 'Claude Managed Agents via bridge';
     }
-    const bg = isBridge ? '#15803d' : '#b45309';
+    const bg = isBridge ? '#15803d' : '#1d4ed8';
     return html`<div style="padding:4px 8px;font:600 11px/1.4 monospace;color:#fff;background:${bg};text-align:center;letter-spacing:.02em">
       🔌 THIS IS ${tag} — ${name} — ${host}
     </div>`;
