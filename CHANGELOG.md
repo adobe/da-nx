@@ -1,3 +1,40 @@
+## [1.9.1](https://github.com/adobe/da-nx/compare/v1.9.0...v1.9.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **loc:** skip glaas status polling for terminal languages ([#820](https://github.com/adobe/da-nx/issues/820)) ([3bd23db](https://github.com/adobe/da-nx/commit/3bd23db18643fa8b22d767346f28029f08d73970))
+
+# [1.9.0](https://github.com/adobe/da-nx/compare/v1.8.2...v1.9.0) (2026-10-06)
+
+
+### Features
+
+* implement cancelTranslation for the Smartling connector ([#710](https://github.com/adobe/da-nx/issues/710)) ([bfdc2d7](https://github.com/adobe/da-nx/commit/bfdc2d795cc14738b93f08f90dd233fcb8ec5758))
+
+## [1.8.2](https://github.com/adobe/da-nx/compare/v1.8.1...v1.8.2) (2026-10-06)
+
+
+### Bug Fixes
+
+* **quick-edit:** keep image uploads through concurrent edits ([e470eb9](https://github.com/adobe/da-nx/commit/e470eb96203a5a83f890dfd0ae9f6bffd2426b91))
+* **quick-edit:** replace indexed images reliably ([827f538](https://github.com/adobe/da-nx/commit/827f53834997ee9c1c42b2ee13e91dfc10271167))
+
+## [1.8.1](https://github.com/adobe/da-nx/compare/v1.8.0...v1.8.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **form:** remove double vertical scrollbar ([#804](https://github.com/adobe/da-nx/issues/804)) ([e3b2d40](https://github.com/adobe/da-nx/commit/e3b2d405cc7657d32d370bb8a0ace259dc31ef27))
+
+# [1.8.0](https://github.com/adobe/da-nx/compare/v1.7.1...v1.8.0) (2026-10-05)
+
+
+### Features
+
+* **aem-assets:** add shared AEM Assets module ([d37e4a8](https://github.com/adobe/da-nx/commit/d37e4a8d356c1985c062622b7fca2dbaa0a31450))
+* shared switch ([#777](https://github.com/adobe/da-nx/issues/777)) ([d021843](https://github.com/adobe/da-nx/commit/d021843e189de76ff03b7854f1416dd694809024))
+
 ## [1.7.1](https://github.com/adobe/da-nx/compare/v1.7.0...v1.7.1) (2026-10-02)
 
 
