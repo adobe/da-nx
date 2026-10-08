@@ -22,8 +22,8 @@ export function handleImageError(error, requestId, ctx) {
   console.error('Image upload failed:', error);
 }
 
-export function setupContentEditableListeners(ctx) {
-  const editableElements = document.querySelectorAll('[data-prose-index]');
+export function setupContentEditableListeners(ctx, root = document) {
+  const editableElements = root.querySelectorAll('[data-prose-index]');
   editableElements.forEach((element) => {
     const dataCursor = parseInt(element.getAttribute('data-prose-index'), 10);
 

@@ -5,6 +5,7 @@ import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 import { restoreBlockIndices, restoreImageIndices, applyImageVersionAck } from './src/dom-index.js';
 import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
+import { whenSectionsLoaded } from './src/section-ready.js';
 import {
   getQuickEditPortalSrc,
   getQuickEditPreviewSrc,
@@ -39,19 +40,28 @@ const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
 let parentControllerPort = null;
 
 async function setBody(body, ctx) {
+  ctx.bodyGeneration = (ctx.bodyGeneration ?? 0) + 1;
+  const generation = ctx.bodyGeneration;
+  ctx.cancelSectionWait?.();
+  ctx.cancelSectionWait = null;
+
   const anchor = captureScrollAnchor();
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage(document);
+  // A newer SET_BODY replaced the DOM while this one was loading.
+  if (generation !== ctx.bodyGeneration) return;
   restoreBlockIndices(doc, document);
   restoreImageIndices(doc, document);
   applyCommentMarkers(ctx);
   setupNodeSelection(ctx);
   setSelectedNode(getSelectedNode());
-  setupContentEditableListeners(ctx);
-  if (!ctx.readOnly) {
-    setupImageDropListeners(ctx, document.body.querySelector('main'));
-  }
+  // Only attach editors once block code is done rewriting a section — see section-ready.js.
+  const main = document.body.querySelector('main') ?? document.body;
+  ctx.cancelSectionWait = whenSectionsLoaded(main, (section) => {
+    setupContentEditableListeners(ctx, section);
+    if (!ctx.readOnly) setupImageDropListeners(ctx, section);
+  });
   if (!parentControllerPort) {
     setupActions(ctx);
   }
