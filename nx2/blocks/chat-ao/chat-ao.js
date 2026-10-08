@@ -378,7 +378,7 @@ export default class NxChatAo extends LitElement {
     const prompts = (this._prompts ?? [])
       .filter((p) => !p.area || p.area === 'all' || p.area === view);
     const uiSize = getUISize();
-    const toolbarBtnClass = uiSize === 'm' ? '' : ' nx-btn-sm';
+    const btnSizeCls = uiSize === 'm' ? '' : 'nx-btn-sm';
 
     return html`
       <nx-popover class="prompts-popover">
@@ -399,12 +399,12 @@ export default class NxChatAo extends LitElement {
             @change=${this._handleEpisodeChange}
           ></nx-picker>` : nothing}
         <div>
-          <button type="button" class="nx-action-btn-quiet${toolbarBtnClass}" @click=${this._handleNewSession}>
+          <button type="button" class="nx-action-btn-quiet ${btnSizeCls}" @click=${this._handleNewSession}>
             ${icon('add')}
             <span>New chat</span>
           </button>
           <button
-            class="nx-action-btn-icon chat-close"
+            class="nx-action-btn-icon chat-close ${btnSizeCls}"
             aria-label="Close chat panel"
             @click=${this._closePanel}
           >${icon('close')}</button>
@@ -420,9 +420,9 @@ export default class NxChatAo extends LitElement {
               .prompts=${prompts}
               .onSend=${(p) => this._sendPrompt(p)}
               .lastSession=${this.staleEpisode ? {
-                preview: this.staleEpisode.title || 'Your previous conversation',
-                updatedAt: this.staleEpisode.updated_at,
-              } : undefined}
+              preview: this.staleEpisode.title || 'Your previous conversation',
+              updatedAt: this.staleEpisode.updated_at,
+            } : undefined}
               .onContinue=${() => this._continueStaleEpisode()}
               @nx-show-prompts=${this._openPrompts}
             ></nx-new-chat>`
@@ -500,7 +500,7 @@ export default class NxChatAo extends LitElement {
           ></textarea>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
             <nx-menu size=${uiSize} .items=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-              <button slot="trigger" class="chat-add nx-action-btn-icon" type="button" aria-label="Add" @click=${this._onAddClick}>
+              <button slot="trigger" class="chat-add nx-action-btn-icon ${btnSizeCls}" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>
               </button>
@@ -509,7 +509,7 @@ export default class NxChatAo extends LitElement {
               ${isVoiceInputSupported() ? html`
                 <button
                   type="button"
-                  class="chat-voice nx-action-btn-icon"
+                  class="chat-voice nx-action-btn-icon ${btnSizeCls}"
                   ?data-listening=${this._voiceListening}
                   ?disabled=${this._blocked}
                   aria-pressed=${this._voiceListening}
@@ -518,11 +518,11 @@ export default class NxChatAo extends LitElement {
                 >${icon('mic')}</button>
               ` : nothing}
               <button
-                class="chat-stop nx-action-btn-icon is-active"
+                class="chat-stop nx-action-btn-icon is-active ${btnSizeCls}"
                 ?hidden=${!this._blocked}
                 @click=${this._submit}
               > ${icon('stop')}</button>
-              <button type="submit" class="chat-send harness-coworker nx-action-btn-icon is-active" ?hidden=${this._blocked} aria-label="Send">
+              <button type="submit" class="chat-send harness-coworker nx-action-btn-icon is-active ${btnSizeCls}" ?hidden=${this._blocked} aria-label="Send">
                 ${icon('send')}
               </button>
             </div>

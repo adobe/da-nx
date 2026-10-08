@@ -882,9 +882,4 @@
   .session-picker {
     --nx-picker-height: 32px;
   }
-
-  .nx-action-btn-quiet,
-  .nx-action-btn-icon:not(.nx-btn-sm) {
-    font-size: var(--nx-ui-text-content);
-  }
 }
