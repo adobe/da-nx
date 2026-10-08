@@ -15,8 +15,8 @@
 .ui-artifact-pe-icon {
   display: inline-block;
   flex-shrink: 0;
-  width: var(--nx-ui-icon-xl);
-  height: var(--nx-ui-icon-xl);
+  width: calc(var(--nx-ui-icon) + 2px);
+  height: calc(var(--nx-ui-icon) + 2px);
   background-color: currentcolor;
   mask-size: contain;
   mask-repeat: no-repeat;
@@ -151,8 +151,8 @@
 }
 
 .ui-artifact-pe-chevron {
-  width: var(--nx-ui-icon-m);
-  height: var(--nx-ui-icon-m);
+  width: var(--nx-ui-icon);
+  height: var(--nx-ui-icon);
   flex-shrink: 0;
   background-color: var(--s2-gray-600);
   mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
@@ -270,8 +270,8 @@
   &::after {
     content: "";
     display: block;
-    width: var(--nx-ui-icon-s);
-    height: var(--nx-ui-icon-s);
+    width: calc(var(--nx-ui-icon) - 4px);
+    height: calc(var(--nx-ui-icon) - 4px);
     background-color: currentcolor;
     mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
     mask-size: contain;
@@ -316,8 +316,8 @@
 }
 
 .ui-artifact-pe-modal-heading-icon {
-  width: var(--nx-ui-icon-xl);
-  height: var(--nx-ui-icon-xl);
+  width: calc(var(--nx-ui-icon) + 2px);
+  height: calc(var(--nx-ui-icon) + 2px);
   flex-shrink: 0;
   background-color: currentcolor;
   mask-size: contain;
@@ -366,8 +366,8 @@
 }
 
 .ui-artifact-pe-modal-copy-icon {
-  width: var(--nx-ui-icon-m);
-  height: var(--nx-ui-icon-m);
+  width: var(--nx-ui-icon);
+  height: var(--nx-ui-icon);
   flex-shrink: 0;
   background-color: currentcolor;
   mask-image: url("/img/icons/s2-icon-copy-20-n.svg");
@@ -441,8 +441,8 @@
   &::after {
     content: "";
     display: block;
-    width: var(--nx-ui-icon-m);
-    height: var(--nx-ui-icon-m);
+    width: var(--nx-ui-icon);
+    height: var(--nx-ui-icon);
     background-color: currentcolor;
     mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
     mask-size: contain;

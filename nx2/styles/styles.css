@@ -289,11 +289,6 @@
 
   /* --- End generated --- */
 
-  /* fixed icon sizes, picked by a shared component's own size variant */
-  --nx-icon-size-s: 14px;
-  --nx-icon-size-m: 16px;
-  --nx-icon-size-l: 18px;
-
   /* ui-size scale: s (default) vs m, toggled via body.ui-size-m (getUISize() in scripts/nx.js).
      Pick tokens by role, never raw px; see docs/ui-size.md. */
   --nx-ui-text-display: var(--s2-heading-size-s);
@@ -305,12 +300,7 @@
   --nx-ui-line-content: 1.5;
   --nx-ui-line-description: var(--s2-component-s-regular-line-height);
   --nx-ui-line-caption: 1.4;
-  --nx-ui-icon-xs: 10px;
-  --nx-ui-icon-s: 12px;
-  --nx-ui-icon-m: 14px;
-  --nx-ui-icon-l: 16px;
-  --nx-ui-icon-xl: 18px;
-  --nx-ui-icon-xxl: 20px;
+  --nx-ui-icon: 16px;
   --nx-ui-control-height: 24px;
   --nx-ui-icon-btn-size: 28px;
   --nx-ui-icon-btn-hover-bg: var(--s2-gray-75);
@@ -345,12 +335,7 @@ body.ui-size-m {
   --nx-ui-line-content: var(--s2-component-l-regular-line-height);
   --nx-ui-line-description: var(--s2-component-m-regular-line-height);
   --nx-ui-line-caption: var(--s2-component-s-regular-line-height);
-  --nx-ui-icon-xs: 12px;
-  --nx-ui-icon-s: 14px;
-  --nx-ui-icon-m: 16px;
-  --nx-ui-icon-l: 18px;
-  --nx-ui-icon-xl: 20px;
-  --nx-ui-icon-xxl: 24px;
+  --nx-ui-icon: 18px;
   --nx-ui-control-height: 32px;
   --nx-ui-control-height-compact: 28px;
   --nx-ui-icon-btn-size: 32px;

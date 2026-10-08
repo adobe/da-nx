@@ -26,7 +26,7 @@ then reload (with "Disable cache" ticked while testing branch previews).
 2. **Keep the layer small.** Text has six roles (display, heading, title, content, description, caption). Pick the role that fits; don't add a token per surface.
 3. **s is always smaller than m.** Every token steps one size down the S2 scale in s. m keeps the #757/da-live#1351 sizes.
 4. **Only S2 sizes.** No in-between values like 13px or 15px.
-5. **Shared components with a size variant** (`nx-menu`, `nx-picker`, `buttons.css`) follow their own variant, not the page's ui-size. Inside them use the fixed `--nx-icon-size-*` tokens. EW call sites pass the ui-size as the variant (`size=${getUISize()}`).
+5. **Shared components with a size variant** (`nx-menu`, `nx-picker`, `buttons.css`) follow their own variant, not the page's ui-size. Inside them use plain px per variant, no `--nx-ui-*` vars. EW call sites pass the ui-size as the variant (`size=${getUISize()}`).
 6. Values that only change in m and aren't sizes on their own (line-heights, paddings, picker height) go in a `:host([data-ui-size="m"])` block in the component's CSS.
 
 ## Text tokens
@@ -52,15 +52,16 @@ then reload (with "Disable cache" ticked while testing branch previews).
 
 | Token | Role | s | m |
 |---|---|---|---|
-| `--nx-ui-icon-xs` | Tiny status glyphs | 10 | 12 |
-| `--nx-ui-icon-s` | Icons inline with small text (pills, tool calls) | 12 | 14 |
-| `--nx-ui-icon-m` | Icons in compact rows (outline, versions, file explorer) | 14 | 16 |
-| `--nx-ui-icon-l` | Standalone icon buttons, dialog icons | 16 | 18 |
-| `--nx-ui-icon-xl` | Status/heading icons | 18 | 20 |
-| `--nx-ui-icon-xxl` | Large status glyphs | 20 | 24 |
+| `--nx-ui-icon` | All EW icons and icon-button icons | 16 | 18 |
 
-Fixed icon sizes for shared component variants (same in s and m): `--nx-icon-size-s` 14, `--nx-icon-size-m` 16, `--nx-icon-size-l` 18.
-`buttons.css` uses only these fixed sizes (18 default, 16 for `nx-btn-sm`). It has no ui-size variables.
+One icon token. The few icons paired with smaller or bigger text use a local `calc()` from it, so they still switch with s/m:
+
+| Use | Value | s | m |
+|---|---|---|---|
+| Tiny status glyph (versions audit) | `calc(var(--nx-ui-icon) - 6px)` | 10 | 12 |
+| Icons next to small text (chat copy, selection icon, paging arrow) | `calc(var(--nx-ui-icon) - 4px)` | 12 | 14 |
+| Status/heading icons (page evaluation, chat alert, comments empty state) | `calc(var(--nx-ui-icon) + 2px)` | 18 | 20 |
+| Prepare done check | `calc(var(--nx-ui-icon) + 4px)` | 20 | 22 |
 
 ## Control tokens
 
@@ -79,7 +80,7 @@ The 2px blue `:focus-visible` outline on canvas toolbar buttons is m-only, appli
 
 Standalone icon buttons (canvas header, Prepare menu, chat close, chat input actions, tool panel close, Create version) use the shared
 `nx-action-btn-icon` class, resized in the consumer's own CSS (button with `--nx-ui-icon-btn-size`, its svg with
-`--nx-ui-icon-l`): 28px button with a 16px icon in s, 32px with 18px in m. 28 rather than 24 in s
+`--nx-ui-icon`): 28px button with a 16px icon in s, 32px with 18px in m. 28 rather than 24 in s
 keeps them easy to hit with a mouse. da-live's `.da-icon-btn` (versions, compare, file explorer) and the tool panel dialog close use the same tokens. Canvas block and selection toolbar buttons keep their own sizes.
 
 ## Segmented buttons

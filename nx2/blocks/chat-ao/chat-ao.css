@@ -58,8 +58,8 @@
   }
 
   .chat-close svg {
-    width: var(--nx-ui-icon-l);
-    height: var(--nx-ui-icon-l);
+    width: var(--nx-ui-icon);
+    height: var(--nx-ui-icon);
   }
 
   .nx-action-btn-icon.chat-close {
@@ -307,8 +307,8 @@
     background: none;
 
     svg {
-      width: var(--nx-ui-icon-s);
-      height: var(--nx-ui-icon-s);
+      width: calc(var(--nx-ui-icon) - 4px);
+      height: calc(var(--nx-ui-icon) - 4px);
       flex-shrink: 0;
       display: block;
     }
@@ -333,8 +333,8 @@
   }
 
   .selection-icon {
-    width: var(--nx-ui-icon-s);
-    height: var(--nx-ui-icon-s);
+    width: calc(var(--nx-ui-icon) - 4px);
+    height: calc(var(--nx-ui-icon) - 4px);
     flex-shrink: 0;
   }
 
@@ -626,8 +626,8 @@
     padding: 0;
 
     svg {
-      width: var(--nx-ui-icon-l);
-      height: var(--nx-ui-icon-l);
+      width: var(--nx-ui-icon);
+      height: var(--nx-ui-icon);
     }
 
     &:hover:not(:disabled, .is-active, [data-active], [data-listening]) {
