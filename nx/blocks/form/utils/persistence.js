@@ -7,7 +7,7 @@
 //
 // Usage:
 //   const editor = createEngine({ schema, document, onChange });
-//   const persistence = attachPersistence(editor, { path });
+//   const persistence = attachPersistence(editor, { path, schema });
 //   // ...in the shell's onChange handler:
 //   persistence.notify();
 //   persistence.detach();   // on teardown
@@ -15,11 +15,12 @@
 // `save` is injectable so the call is testable in isolation; default is the
 // form block's `saveSourceHtml`. A different consumer could swap in a
 // queue-backed save, an offline write, etc., without touching persistence.
+// `schema` lets the SDK write media fields as images so EDS ingests them.
 
 import { convertJsonToHtml } from '../../../deps/da-sc-sdk/dist/index.js';
 import { saveSourceHtml } from './da-api.js';
 
-export function attachPersistence(editor, { path, save = saveSourceHtml } = {}) {
+export function attachPersistence(editor, { path, schema, save = saveSourceHtml } = {}) {
   let inFlight = false;
   let pending = false;
   let lastValues = editor.getState()?.document;
@@ -34,7 +35,7 @@ export function attachPersistence(editor, { path, save = saveSourceHtml } = {}) 
     try {
       do {
         pending = false;
-        const { html, error } = convertJsonToHtml({ json: editor.getState().document });
+        const { html, error } = convertJsonToHtml({ json: editor.getState().document, schema });
         if (error) return;
         try {
           await save({ path, html });
