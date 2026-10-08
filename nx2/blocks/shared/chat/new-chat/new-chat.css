@@ -3,7 +3,7 @@
   flex-direction: column;
   flex: 1;
   font-family: var(--s2-font-family);
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-m-regular-font-size);
 
   button {
     cursor: pointer;
@@ -22,7 +22,7 @@
 
   h3 {
     color: var(--s2-gray-900);
-    font-size: var(--nx-ui-text-display);
+    font-size: var(--s2-heading-size-s);
   }
 
   p {
@@ -62,8 +62,8 @@
   }
 
   .prompt-card-icon {
-    width: var(--nx-ui-icon);
-    height: var(--nx-ui-icon);
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
   }
 }
@@ -103,7 +103,7 @@
 }
 
 .continue-session-eyebrow {
-  font-size: var(--nx-ui-text-caption);
+  font-size: var(--s2-component-xs-regular-font-size);
   font-weight: var(--s2-component-xs-bold-font-weight);
   color: var(--s2-gray-600);
 }
@@ -115,6 +115,24 @@
 }
 
 .continue-session-time {
-  font-size: var(--nx-ui-text-caption);
+  font-size: var(--s2-component-xs-regular-font-size);
   color: var(--s2-gray-700);
+}
+
+:host([size="m"]) {
+  font-size: var(--s2-component-l-regular-font-size);
+
+  .chat-welcome-message h3 {
+    font-size: var(--s2-heading-size-m);
+  }
+
+  .prompt-card .prompt-card-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .continue-session-eyebrow,
+  .continue-session-time {
+    font-size: var(--s2-component-s-regular-font-size);
+  }
 }

@@ -101,8 +101,8 @@ nx-popover.deploy-popover {
 }
 
 .deploy-glyph {
-  width: var(--nx-ui-icon);
-  height: var(--nx-ui-icon);
+  width: calc(var(--nx-ui-icon) - 2px);
+  height: calc(var(--nx-ui-icon) - 2px);
   fill: currentcolor;
 }
 

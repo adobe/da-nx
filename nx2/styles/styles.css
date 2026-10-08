@@ -291,7 +291,6 @@
 
   /* ui-size scale: s (default) vs m, toggled via body.ui-size-m (getUISize() in scripts/nx.js).
      Pick tokens by role, never raw px; see docs/ui-size.md. */
-  --nx-ui-text-display: var(--s2-heading-size-s);
   --nx-ui-text-heading: var(--s2-component-xl-bold-font-size);
   --nx-ui-text-title: var(--s2-component-l-bold-font-size);
   --nx-ui-text-content: var(--s2-component-m-regular-font-size);
@@ -326,7 +325,6 @@
 }
 
 body.ui-size-m {
-  --nx-ui-text-display: var(--s2-heading-size-m);
   --nx-ui-text-heading: var(--s2-heading-size-s);
   --nx-ui-text-title: var(--s2-component-xl-bold-font-size);
   --nx-ui-text-content: var(--s2-component-l-regular-font-size);

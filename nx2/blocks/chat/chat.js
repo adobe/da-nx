@@ -10,7 +10,7 @@ import '../shared/chat/prompts/prompts.js';
 import '../shared/pills/pills.js';
 import './interaction/interaction.js';
 import { loadSiteConfig } from './utils/api.js';
-import { getConfig } from '../../scripts/nx.js';
+import { getConfig, getUISize } from '../../scripts/nx.js';
 import { buildAttachmentPayload } from './utils/chat-helpers.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
@@ -322,6 +322,7 @@ class NxChat extends LitElement {
     return html`
       <nx-popover class="prompts-popover">
         <nx-prompts
+          size=${getUISize()}
           .prompts=${prompts}
           .onSend=${(p) => this._sendPrompt(p)}
         ></nx-prompts>
@@ -345,6 +346,7 @@ class NxChat extends LitElement {
         <div class="chat-messages-container" role="log" aria-live="polite">
           ${!this.messages?.length && !this.thinking
         ? html`<nx-new-chat
+              size=${getUISize()}
               .prompts=${prompts}
               .onSend=${(p) => this._sendPrompt(p)}
               @nx-show-prompts=${this._openPrompts}

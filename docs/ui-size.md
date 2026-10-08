@@ -22,18 +22,17 @@ then reload (with "Disable cache" ticked while testing branch previews).
 
 ## Rules
 
-1. **Never use raw `px` for text or icon sizes** in EW surfaces. Use an `--nx-ui-text-*` or `--nx-ui-icon-*` token.
-2. **Keep the layer small.** Text has six roles (display, heading, title, content, description, caption). Pick the role that fits; don't add a token per surface.
+1. **Never use raw `px` for text or icon sizes** in EW surfaces. Use an `--nx-ui-text-*` token or `--nx-ui-icon`.
+2. **Keep the layer small.** Text has five roles (heading, title, content, description, caption). Icons have one token. Pick the role that fits; don't add a token per surface.
 3. **s is always smaller than m.** Every token steps one size down the S2 scale in s. m keeps the #757/da-live#1351 sizes.
 4. **Only S2 sizes.** No in-between values like 13px or 15px.
-5. **Shared components with a size variant** (`nx-menu`, `nx-picker`, `buttons.css`) follow their own variant, not the page's ui-size. Inside them use plain px per variant, no `--nx-ui-*` vars. EW call sites pass the ui-size as the variant (`size=${getUISize()}`).
+5. **Shared components** (`nx-menu`, `nx-picker`, `nx-pills`, `nx-prompts`, `nx-new-chat`, `buttons.css`) follow their own variant, not the page's ui-size. Inside them use plain px per variant, no `--nx-ui-*` vars. EW call sites pass the ui-size as the variant (`size=${getUISize()}`).
 6. Values that only change in m and aren't sizes on their own (line-heights, paddings, picker height) go in a `:host([data-ui-size="m"])` block in the component's CSS.
 
 ## Text tokens
 
 | Token | Role | s | m |
 |---|---|---|---|
-| `--nx-ui-text-display` | Large welcome headings | 20 | 22 |
 | `--nx-ui-text-heading` | Panel headings, large titles | 18 | 20 |
 | `--nx-ui-text-title` | Panel/modal/card titles | 16 | 18 |
 | `--nx-ui-text-content` | Reading text: chat messages, comments, outline, inputs, preview titles | 14 | 16 |
@@ -60,7 +59,8 @@ One icon token. The few icons paired with smaller or bigger text use a local `ca
 |---|---|---|---|
 | Tiny status glyph (versions audit) | `calc(var(--nx-ui-icon) - 6px)` | 10 | 12 |
 | Icons next to small text (chat copy, selection icon, paging arrow) | `calc(var(--nx-ui-icon) - 4px)` | 12 | 14 |
-| Status/heading icons (page evaluation, chat alert, comments empty state) | `calc(var(--nx-ui-icon) + 2px)` | 18 | 20 |
+| Icons in compact rows (outline, versions, file explorer, panel header, block library modal, page evaluation, Prepare card glyph) | `calc(var(--nx-ui-icon) - 2px)` | 14 | 16 |
+| Status/heading icons (page evaluation, chat alert, comments empty state, Prepare dialog) | `calc(var(--nx-ui-icon) + 2px)` | 18 | 20 |
 | Prepare done check | `calc(var(--nx-ui-icon) + 4px)` | 20 | 22 |
 
 ## Control tokens

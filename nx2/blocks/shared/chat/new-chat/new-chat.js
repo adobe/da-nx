@@ -23,6 +23,7 @@ class NxNewChat extends LitElement {
   static properties = {
     prompts: { attribute: false },
     lastSession: { attribute: false },
+    size: { type: String, reflect: true },
   };
 
   connectedCallback() {

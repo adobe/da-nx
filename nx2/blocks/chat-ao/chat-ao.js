@@ -383,6 +383,7 @@ export default class NxChatAo extends LitElement {
     return html`
       <nx-popover class="prompts-popover">
         <nx-prompts
+          size=${uiSize}
           .prompts=${prompts}
           .onSend=${(p) => this._sendPrompt(p)}
         ></nx-prompts>
@@ -417,6 +418,7 @@ export default class NxChatAo extends LitElement {
           ` : html`
             ${!this.messages?.length && !this.thinking
           ? html`<nx-new-chat
+              size=${uiSize}
               .prompts=${prompts}
               .onSend=${(p) => this._sendPrompt(p)}
               .lastSession=${this.staleEpisode ? {
