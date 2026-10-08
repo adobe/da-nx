@@ -76,6 +76,7 @@ export default class BaseChatController {
       pendingPermission: this._pendingPermission,
       loadingEpisode: this._loadingEpisode,
       staleEpisode: this._staleEpisode,
+      wsBase: this._wsBase, // TEMP(backend-banner): resolved WS origin, remove with banner
     });
   }
 
@@ -218,6 +219,7 @@ export default class BaseChatController {
 
   async _connect() {
     const { authFrame, wsBase } = await this._connectionInfo();
+    this._wsBase = wsBase; // TEMP(backend-banner): expose resolved origin, remove with banner
 
     await new Promise((resolve, reject) => {
       const ws = new WebSocket(`${wsBase}/ws/sessions/${this._episodeId ?? 'new'}`);
