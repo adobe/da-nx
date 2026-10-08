@@ -29,11 +29,6 @@ class NxPicker extends LitElement {
     variant: { type: String, reflect: true },
   };
 
-  constructor() {
-    super();
-    this.size = 's';
-  }
-
   get _popover() { return this.shadowRoot.querySelector('nx-popover'); }
 
   get _button() { return this.shadowRoot.querySelector('.picker-trigger'); }

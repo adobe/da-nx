@@ -125,16 +125,16 @@
 }
 
 .picker-open-in-icon {
-  width: var(--nx-icon-size-s);
-  height: var(--nx-icon-size-s);
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   display: block;
   pointer-events: none;
 }
 
 .picker-check {
-  width: var(--nx-icon-size-s);
-  height: var(--nx-icon-size-s);
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   color: var(--s2-gray-800);
 }
@@ -150,9 +150,8 @@
 :host([size="m"]) {
   .picker-section {
     padding-bottom: var(--s2-spacing-75);
-    font-size: var(--nx-picker-section-font-size, var(--s2-component-s-regular-font-size));
-    line-height: var(--nx-picker-section-line-height, var(--s2-component-s-regular-line-height));
-    font-weight: var(--s2-body-font-weight);
+    font-size: var(--s2-component-m-bold-font-size);
+    line-height: var(--s2-component-m-bold-line-height);
     color: var(--nx-picker-section-color, light-dark(var(--s2-gray-600), var(--s2-gray-700)));
   }
 
@@ -162,18 +161,8 @@
   }
 
   .picker-item {
-    border-radius: var(--s2-corner-radius-400);
-    color: var(--nx-picker-item-color, var(--s2-gray-900));
     font-size: var(--s2-component-m-regular-font-size);
     line-height: var(--s2-component-m-regular-line-height);
-
-    &:hover {
-      background: var(--s2-gray-100);
-    }
-
-    &.picker-item-active {
-      background: var(--s2-gray-200);
-    }
   }
 
   .picker-divider {
@@ -182,7 +171,7 @@
 
   .picker-open-in-icon,
   .picker-check {
-    width: var(--nx-icon-size-m);
-    height: var(--nx-icon-size-m);
+    width: 16px;
+    height: 16px;
   }
 }

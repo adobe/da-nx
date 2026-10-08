@@ -52,8 +52,8 @@ nx-popover {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  width: var(--nx-icon-size-m);
-  height: var(--nx-icon-size-m);
+  width: 16px;
+  height: 16px;
 
   svg {
     display: block;
@@ -123,8 +123,8 @@ nx-popover {
   }
 
   .menu-item-icon svg {
-    width: var(--nx-icon-size-l);
-    height: var(--nx-icon-size-l);
+    width: 18px;
+    height: 18px;
   }
 
   .menu-item-description {

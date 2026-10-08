@@ -85,10 +85,11 @@ Pinnable items also carry `selFrom`/`selTo` (required for the pill to be clickab
 
 ### Properties
 
-| Property   | Type     | Description                                                                                     |
-| ---------- | -------- | ------------------------------------------------------------------------------------------------- |
-| `items`    | `Array`  | The list to render. Set by you in controlled mode; owned by nx-pills in self-managed mode.       |
-| `addEvent` | `String` | Document event name to self-manage from. Leave unset for controlled mode.                        |
+| Property   | Type     | Description                                                                                |
+| ---------- | -------- | ------------------------------------------------------------------------------------------ |
+| `items`    | `Array`  | The list to render. Set by you in controlled mode; owned by nx-pills in self-managed mode. |
+| `size`     | `String` | Item density: `s` (default) or `m`. Reflected as a host attribute.                         |
+| `addEvent` | `String` | Document event name to self-manage from. Leave unset for controlled mode.                  |
 
 ### Methods
 

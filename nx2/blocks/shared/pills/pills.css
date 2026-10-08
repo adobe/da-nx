@@ -13,7 +13,7 @@
 
   .pills-container {
     --pill-row-height: calc(
-      var(--s2-component-s-medium-line-height) + 2 * var(--s2-spacing-75)
+      var(--s2-component-s-regular-line-height) + 2 * var(--s2-spacing-75)
     );
 
     display: flex;
@@ -41,34 +41,28 @@
     color: var(--s2-gray-800);
 
     svg {
-      width: 12px;
-      height: 12px;
       display: block;
     }
   }
 
   .pill-pin {
     color: var(--s2-blue-1000);
-
-    svg {
-      width: var(--nx-ui-icon-s);
-      height: var(--nx-ui-icon-s);
-    }
   }
 
   .pill-thumbnail {
-    width: 16px;
-    height: 16px;
     object-fit: cover;
     border-radius: 2px;
     flex-shrink: 0;
   }
 
   .pill-type-icon {
-    width: var(--nx-ui-icon-s);
-    height: var(--nx-ui-icon-s);
     flex-shrink: 0;
     color: var(--s2-blue-1000);
+  }
+
+  .pill-type-icon, .pill-pin svg, .pill-icon svg {
+    width: 14px;
+    height: 14px;
   }
 
   .pill-label {
@@ -77,9 +71,9 @@
     white-space: nowrap;
     flex: 1;
     min-width: 0;
-    font-size: var(--s2-body-size-xs);
+    font-size: var(--s2-component-s-regular-font-size);
     color: var(--s2-blue-1000);
-    line-height: var(--s2-component-s-medium-line-height);
+    line-height: var(--s2-component-s-regular-line-height);
   }
 
   .pill-label-button {
@@ -91,5 +85,17 @@
   .pill-label-button:hover,
   .pill-label-button:focus-visible {
     text-decoration-color: currentcolor;
+  }
+}
+
+:host([size="m"]) {
+  .pill-type-icon, .pill-pin svg, .pill-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .pill-label {
+    font-size: var(--s2-component-m-regular-font-size);
+    line-height: var(--s2-component-m-regular-line-height);
   }
 }

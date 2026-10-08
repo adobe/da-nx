@@ -477,7 +477,8 @@ export default class NxChatAo extends LitElement {
               <span class="chat-drop-title">Drop a file to add context</span>
               <span class="chat-drop-hint">Supports documents, images, and code</span>
             </div>` : nothing}
-          <nx-pills
+          <nx-pills 
+            size=${uiSize}
             addEvent=${CHAT_EVENT.ADD_TO_CHAT}
             @nx-pill-activate=${this._handlePillActivate}
           ></nx-pills>
