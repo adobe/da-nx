@@ -81,6 +81,10 @@ export default class BaseChatController {
 
   _fetchSkills() { return fetchSkills(this._context ?? {}); }
 
+  async _uploadAttachment(attachment) {
+    return uploadAttachment(attachment);
+  }
+
   _loadCachedSkills() { return loadCachedSkills(); }
 
   getSkills() {
@@ -122,6 +126,19 @@ export default class BaseChatController {
       return { ...m, toolCall: { ...toolCall, ...(calls.length && { calls }) } };
     });
     this._update();
+  }
+
+  // Default session warm: attach the socket so cross-client updates arrive
+  // live. The Coworker harness overrides this to also hit the REST warm
+  // endpoint; the CMA bridge needs only the attach.
+  async warmSession() {
+    if (!this._episodeId || this._thinking || this._warmedEpisodeId === this._episodeId) return;
+    this._warmedEpisodeId = this._episodeId;
+    try {
+      await this._attach();
+    } catch {
+      // best-effort — sendMessage retries the connection normally on send
+    }
   }
 
   async loadEpisodes() {
@@ -589,7 +606,7 @@ export default class BaseChatController {
 
     try {
       const uploaded = await Promise.all(attachments.map(async (a) => (
-        { ...a, artifactId: await uploadAttachment(a) }
+        { ...a, artifactId: await this._uploadAttachment(a) }
       )));
       const artifactIds = uploaded.map((a) => a.artifactId).filter(Boolean);
       const failed = uploaded.filter((a) => !a.artifactId);

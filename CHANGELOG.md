@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/adobe/da-nx/compare/v1.9.1...v1.10.0) (2026-10-08)
+
+
+### Features
+
+* **chat-ao:** add CMA bridge controller subclass ([#811](https://github.com/adobe/da-nx/issues/811)) ([6b57821](https://github.com/adobe/da-nx/commit/6b578214f8bd7b5b4aec552235f6e60760f6655d))
+
 ## [1.9.1](https://github.com/adobe/da-nx/compare/v1.9.0...v1.9.1) (2026-10-07)
 
 
