@@ -52,6 +52,7 @@
 
   & > div {
     display: inline-flex;
+    align-items: center;
     flex-shrink: 0;
     margin-inline-start: auto;
     white-space: nowrap;
@@ -307,8 +308,8 @@
     background: none;
 
     svg {
-      width: calc(var(--nx-ui-icon) - 4px);
-      height: calc(var(--nx-ui-icon) - 4px);
+      width: calc(var(--nx-ui-icon) - 2px);
+      height: calc(var(--nx-ui-icon) - 2px);
       flex-shrink: 0;
       display: block;
     }

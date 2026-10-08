@@ -62,8 +62,8 @@
   }
 
   .prompt-card-icon {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     flex-shrink: 0;
   }
 }
@@ -127,8 +127,8 @@
   }
 
   .prompt-card .prompt-card-icon {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
   }
 
   .continue-session-eyebrow,
