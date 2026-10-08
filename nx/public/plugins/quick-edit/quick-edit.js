@@ -1,11 +1,16 @@
-import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc, handleImageError } from './src/images.js';
-import { setEditorState } from './src/prose.js';
+import {
+  requestEditor,
+  setupContentEditableListeners,
+  setupImageDropListeners,
+  updateImageSrc,
+  handleImageError,
+} from './src/images.js';
+import { setEditorState, captureFocusedEditor } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 import { restoreBlockIndices, restoreImageIndices, applyImageVersionAck } from './src/dom-index.js';
 import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
-import { whenSectionsLoaded } from './src/section-ready.js';
 import {
   getQuickEditPortalSrc,
   getQuickEditPreviewSrc,
@@ -42,10 +47,9 @@ let parentControllerPort = null;
 async function setBody(body, ctx) {
   ctx.bodyGeneration = (ctx.bodyGeneration ?? 0) + 1;
   const generation = ctx.bodyGeneration;
-  ctx.cancelSectionWait?.();
-  ctx.cancelSectionWait = null;
 
   const anchor = captureScrollAnchor();
+  const focused = captureFocusedEditor();
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage(document);
@@ -56,12 +60,13 @@ async function setBody(body, ctx) {
   applyCommentMarkers(ctx);
   setupNodeSelection(ctx);
   setSelectedNode(getSelectedNode());
-  // Only attach editors once block code is done rewriting a section — see section-ready.js.
-  const main = document.body.querySelector('main') ?? document.body;
-  ctx.cancelSectionWait = whenSectionsLoaded(main, (section) => {
-    setupContentEditableListeners(ctx, section);
-    if (!ctx.readOnly) setupImageDropListeners(ctx, section);
-  });
+  setupContentEditableListeners(ctx);
+  // Re-open the editor the user was in, since the body (and its editor) was replaced.
+  const refocus = focused && document.querySelector(`[data-prose-index="${focused.cursorOffset}"]:not(picture)`);
+  if (refocus) requestEditor(ctx, refocus, { selection: focused.selection });
+  if (!ctx.readOnly) {
+    setupImageDropListeners(ctx, document.body.querySelector('main'));
+  }
   if (!parentControllerPort) {
     setupActions(ctx);
   }
