@@ -27,6 +27,7 @@ then reload (with "Disable cache" ticked while testing branch previews).
 3. **s is always smaller than m.** Every token steps one size down the S2 scale in s. m keeps the #757/da-live#1351 sizes.
 4. **Only S2 sizes.** No in-between values like 13px or 15px.
 5. **Shared components** (`nx-menu`, `nx-picker`, `nx-pills`, `nx-prompts`, `nx-new-chat`, `buttons.css`) follow their own variant, not the page's ui-size. Inside them use plain px per variant, no `--nx-ui-*` vars. EW call sites pass the ui-size as the variant (`size=${getUISize()}`).
+   Row action buttons (file explorer, outline, block library, comments) stay `nx-btn-sm` (24px, 16px icon) in both sizes so rows keep their height.
 6. Values that only change in m and aren't sizes on their own (line-heights, paddings, picker height) go in a `:host([data-ui-size="m"])` block in the component's CSS.
 
 ## Text tokens
