@@ -220,6 +220,7 @@ export default class BaseChatController {
   async _connect() {
     const { authFrame, wsBase } = await this._connectionInfo();
     this._wsBase = wsBase; // TEMP(backend-banner): expose resolved origin, remove with banner
+    this._update(); // TEMP(backend-banner): reflect resolved backend pre-SESSION_READY
 
     await new Promise((resolve, reject) => {
       const ws = new WebSocket(`${wsBase}/ws/sessions/${this._episodeId ?? 'new'}`);
