@@ -468,7 +468,7 @@ export default class NxChatAo extends LitElement {
     let name = 'Backend';
     if (ws.includes('agent-orchestrator')) {
       tag = 'AO';
-      name = 'Agent Orchestrator (legacy path)';
+      name = 'Agent Orchestrator (alternative path)';
     } else if (isBridge) {
       tag = 'CMA';
       name = 'Claude Managed Agents via bridge';
