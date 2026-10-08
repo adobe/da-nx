@@ -69,7 +69,7 @@ One icon token. The few icons paired with smaller or bigger text use a local `ca
 | Token | Role | s | m |
 |---|---|---|---|
 | `--nx-ui-control-height` | Default control height: toolbar buttons, toolbar picker, form inputs and buttons | 24 | 32 |
-| `--nx-ui-icon-btn-size` | Standalone icon buttons (canvas header, Prepare menu, chat close and input actions, tool panel and dialog close, versions and file explorer actions) | 28 | 32 |
+| `--nx-ui-icon-btn-size` | Standalone icon buttons (canvas header, Prepare menu, chat close and input actions, tool panel and dialog close, versions and file explorer actions) | 24 | 32 |
 | `--nx-ui-control-height-compact` | Compact buttons inside lists (version filters, compare actions) | 24 | 28 |
 | `--nx-ui-icon-btn-hover-bg` | Icon button hover background | gray-75 | gray-75 |
 | `--nx-ui-icon-btn-hover-color` | Icon button hover icon color | gray-800 | gray-800 |
@@ -81,8 +81,8 @@ The 2px blue `:focus-visible` outline on canvas toolbar buttons is m-only, appli
 
 Standalone icon buttons (canvas header, Prepare menu, chat close, chat input actions, tool panel close, Create version) use the shared
 `nx-action-btn-icon` class, resized in the consumer's own CSS (button with `--nx-ui-icon-btn-size`, its svg with
-`--nx-ui-icon`): 28px button with a 16px icon in s, 32px with 18px in m. 28 rather than 24 in s
-keeps them easy to hit with a mouse. da-live's `.da-icon-btn` (versions, compare, file explorer) and the tool panel dialog close use the same tokens. Canvas block and selection toolbar buttons keep their own sizes.
+`--nx-ui-icon`): 24px button with a 16px icon in s, 32px with 18px in m, matching the Spectrum
+action button sizes. da-live's `.da-icon-btn` (versions, compare, file explorer) and the tool panel dialog close use the same tokens. Canvas block and selection toolbar buttons keep their own sizes.
 
 ## Segmented buttons
 
