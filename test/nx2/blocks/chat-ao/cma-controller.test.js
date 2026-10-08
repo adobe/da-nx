@@ -16,6 +16,7 @@ function makeController({ activationKey = 'act-key', context = { org: 'o', site:
   // Keep tests off the network/socket.
   controller._ensureSocket = async () => { };
   controller._attach = async () => { };
+  controller._resolveManifest = async () => ({ manifestId: 'experience-workspace', debugMode: false });
   controller._ws = { send: (msg) => sent.push(JSON.parse(msg)), close: () => { } };
   return { controller, updates, sent };
 }
