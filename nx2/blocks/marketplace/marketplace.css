@@ -1,34 +1,36 @@
+/*
+ * Columns and gap come from section metadata (e.g. grid-4, gap-600) on .nx-section-container.
+ * The host and list are display: contents so each card becomes a grid item of the section.
+ */
 :host {
-  display: block;
-  margin-block-start: var(--s2-spacing-600);
+  display: contents;
 }
 
 .grid,
 .loading {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--s2-spacing-600);
+  display: contents;
 }
 
+/* Card surface matches nx/blocks/card/card.css (.nx-card) */
 .card {
   display: flex;
   flex-direction: column;
-  border-radius: var(--s2-corner-radius-500);
+  box-shadow: 0 1px 6px 0 light-dark(rgb(0 0 0 / 12%), rgb(0 0 0 / 40%));
+  border-radius: var(--s2-corner-radius-700);
   overflow: hidden;
+  background-color: light-dark(#fff, var(--s2-gray-75));
+  border: 1px solid var(--s2-gray-200);
+  transition: all 0.25s ease-in-out;
+}
 
-  /* Border: gray-300 in dark mode (not gray-200) for a touch more contrast against the card bg. */
-  border: 1px solid light-dark(var(--s2-gray-200), var(--s2-gray-300));
-
-  /* Card bg: a single token (not a light-dark() of two tokens) since each token is already a pair. */
-  background: var(--s2-gray-25);
+.card:not(.skeleton):hover {
+  transform: scale(1.005);
+  box-shadow: 0 2px 8px 0 light-dark(rgb(0 0 0 / 16%), rgb(0 0 0 / 50%));
 }
 
 .card img,
 .placeholder {
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 5 / 3;
   width: 100%;
   object-fit: cover;
   display: block;
@@ -39,7 +41,7 @@
 }
 
 .content {
-  padding: var(--s2-spacing-400);
+  padding: var(--s2-spacing-400) var(--s2-spacing-400) var(--s2-spacing-200);
   flex: 1;
 }
 
@@ -74,10 +76,32 @@
   background: var(--s2-gray-100);
 }
 
+/* CTA matches .nx-card-cta-container a in nx/blocks/card/card.css */
 .cta {
   align-self: flex-start;
   margin: 0 var(--s2-spacing-400) var(--s2-spacing-400);
+  background-color: var(--s2-blue-900);
+  border: 2px solid var(--s2-blue-900);
+  border-radius: var(--s2-corner-radius-800);
+  color: #fff;
+  font-size: var(--s2-component-m-bold-font-size);
+  font-weight: var(--s2-component-m-bold-font-weight);
+  line-height: var(--s2-component-m-bold-line-height);
+  padding: 5px 14px;
   text-decoration: none;
+  outline-offset: 0;
+  outline-color: var(--s2-blue-900);
+  transition: outline-offset 0.2s;
+}
+
+.cta:hover {
+  background-color: var(--s2-blue-1000);
+  border-color: var(--s2-blue-1000);
+}
+
+.cta:focus-visible {
+  outline: 2px solid var(--s2-blue-900);
+  outline-offset: 4px;
 }
 
 .skeleton {

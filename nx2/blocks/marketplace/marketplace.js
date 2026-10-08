@@ -4,7 +4,6 @@ import { loadStyle } from '../../utils/utils.js';
 import { fetchMarketplace } from './marketplace-utils.js';
 
 const style = await loadStyle(import.meta.url);
-const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
 
 class NxMarketplace extends LitElement {
   static properties = {
@@ -14,7 +13,7 @@ class NxMarketplace extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [buttonStyle, style];
+    this.shadowRoot.adoptedStyleSheets = [style];
     this._failedImageHrefs ??= new Set();
     if (this._items === undefined && !this._error) {
       this._load().catch(() => { this._error = 'Could not load marketplace.'; });
@@ -61,7 +60,7 @@ class NxMarketplace extends LitElement {
           ` : nothing}
         </div>
         <a
-          class="cta nx-btn-primary"
+          class="cta"
           href=${href}
           target="_blank"
           rel="noopener noreferrer"
@@ -95,5 +94,7 @@ class NxMarketplace extends LitElement {
 customElements.define('nx-marketplace', NxMarketplace);
 
 export default function init(el) {
+  // Let cards flow into the section's grid (set via section metadata, e.g. grid-4).
+  el.style.display = 'contents';
   el.replaceChildren(document.createElement('nx-marketplace'));
 }

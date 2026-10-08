@@ -1,6 +1,11 @@
-import { getFirstSheet } from '../../utils/daConfig.js';
-
 export const MARKETPLACE_PATH = '/apps/marketplace.json';
+
+// Mirrors getFirstSheet in nx2/utils/daConfig.js, which is not imported because it
+// pulls in api.js and its IMS loading — unnecessary for this public, unauthenticated sheet.
+function getFirstSheet(json) {
+  if (json?.[':type'] !== 'multi-sheet') return json?.data;
+  return json[json[':names']?.[0]]?.data;
+}
 
 function toSafeHref({ value, origin }) {
   const trimmed = (value ?? '').trim();
