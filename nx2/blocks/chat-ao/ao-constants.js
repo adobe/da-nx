@@ -24,6 +24,11 @@ export const CMA_BRIDGE_HTTP_BASE = 'https://aem-sites-claudebridge-va6.adobe.io
 
 export const AO_MANIFEST_ID = 'experience-workspace';
 
+// Coworker UI's A2UI component catalog, advertised to AO when a session starts so
+// add_artifact can author against it. The filename is content-hashed by Coworker's
+// build, so this must be updated when Coworker publishes a new catalog.
+export const AO_COMPONENT_CATALOG_URL = 'https://experience.adobe.com/solutions/Adobe-dxue-coworker-ui-experience/assets/component-catalog.9d298bd1fdec9715.json';
+
 // Mirrors AO's own server-side allowlist
 export const AO_UPLOAD_EXTENSIONS = [
   '.pdf', '.txt', '.md', '.docx', '.pptx',
