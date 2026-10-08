@@ -48,7 +48,8 @@ describe('normalizeItem', () => {
   });
 
   it('returns null for non-http path', () => {
-    const row = { Title: 'MSM', Path: `${'javascript'}:alert(1)` };
+    // eslint-disable-next-line no-script-url
+    const row = { Title: 'MSM', Path: 'javascript:alert(1)' };
     expect(normalizeItem({ row, origin })).to.equal(null);
   });
 
@@ -64,7 +65,8 @@ describe('normalizeItem', () => {
     expect(normalizeItem({ row: { ...base, Image: '' }, origin }).imageHref).to.equal(undefined);
     expect(normalizeItem({ row: { ...base, Image: 'data:image/png;base64,AA' }, origin }).imageHref)
       .to.equal(undefined);
-    expect(normalizeItem({ row: { ...base, Image: `${'javascript'}:x` }, origin }).imageHref).to.equal(undefined);
+    // eslint-disable-next-line no-script-url
+    expect(normalizeItem({ row: { ...base, Image: 'javascript:x' }, origin }).imageHref).to.equal(undefined);
   });
 
   it('handles missing description and type', () => {
@@ -124,6 +126,21 @@ describe('fetchMarketplace', () => {
     const result = await fetchMarketplace({ origin });
 
     expect(result).to.deep.equal({ items: [] });
+  });
+
+  it('normalizes items from a multi-sheet doc, using the first sheet', async () => {
+    const validRow = { Title: 'MSM', Description: 'Manage msm', Path: 'https://da.live/app/x/msm' };
+    restoreFetch = installFetch(async () => new Response(JSON.stringify({
+      ':type': 'multi-sheet',
+      ':names': ['apps', 'other'],
+      apps: { data: [validRow] },
+      other: { data: [{ Title: 'Ignored', Path: 'https://da.live/other' }] },
+    }), { status: 200 }));
+
+    const result = await fetchMarketplace({ origin });
+
+    expect(result.items.length).to.equal(1);
+    expect(result.items[0].title).to.equal('MSM');
   });
 
   it('returns error with status on non-OK', async () => {

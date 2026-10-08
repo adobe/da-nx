@@ -18,11 +18,15 @@
   flex-direction: column;
   border-radius: var(--s2-corner-radius-500);
   overflow: hidden;
+
+  /* Border: gray-300 in dark mode (not gray-200) for a touch more contrast against the card bg. */
   border: 1px solid light-dark(var(--s2-gray-200), var(--s2-gray-300));
-  background: light-dark(#fff, var(--s2-gray-75));
+
+  /* Card bg: a single token (not a light-dark() of two tokens) since each token is already a pair. */
+  background: var(--s2-gray-25);
 }
 
-img,
+.card img,
 .placeholder {
   aspect-ratio: 16 / 9;
   width: 100%;
@@ -31,12 +35,30 @@ img,
 }
 
 .placeholder {
-  background: light-dark(var(--s2-gray-100), var(--s2-gray-200));
+  background: var(--s2-gray-100);
 }
 
 .content {
   padding: var(--s2-spacing-400);
   flex: 1;
+}
+
+.content h3 {
+  margin: 0 0 var(--s2-spacing-75);
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-heading-size-xs);
+  font-weight: var(--s2-component-l-bold-font-weight);
+  line-height: var(--s2-heading-line-height);
+  color: var(--s2-gray-900);
+}
+
+.content p {
+  margin: 0 0 var(--s2-spacing-200);
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-m-regular-font-size);
+  font-weight: var(--s2-component-m-regular-font-weight);
+  line-height: var(--s2-component-m-regular-line-height);
+  color: var(--s2-gray-700);
 }
 
 .badges {
@@ -49,7 +71,7 @@ img,
   border-radius: var(--s2-corner-radius-800);
   font-size: 12px;
   padding: 2px var(--s2-spacing-200);
-  background: light-dark(var(--s2-gray-100), var(--s2-gray-200));
+  background: var(--s2-gray-100);
 }
 
 .cta {
@@ -60,7 +82,7 @@ img,
 
 .skeleton {
   min-height: 280px;
-  background: light-dark(var(--s2-gray-100), var(--s2-gray-200));
+  background: var(--s2-gray-100);
 }
 
 .empty,
@@ -69,5 +91,5 @@ img,
 }
 
 .error {
-  color: light-dark(var(--s2-red-900), var(--s2-red-700));
+  color: var(--s2-red-900);
 }

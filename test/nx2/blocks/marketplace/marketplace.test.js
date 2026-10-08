@@ -4,7 +4,7 @@ import init from '../../../../nx2/blocks/marketplace/marketplace.js';
 function installFetch(handler) {
   const origFetch = window.fetch;
   window.fetch = async (url, opts) => {
-    if (url.includes('/apps/marketplace.json')) return handler(url, opts);
+    if (String(url).includes('/apps/marketplace.json')) return handler(url, opts);
     return origFetch(url, opts);
   };
   return () => { window.fetch = origFetch; };
@@ -34,7 +34,7 @@ describe('nx-marketplace', () => {
     restoreFetch?.();
   });
 
-  it('init mounts nx-marketplace', async () => {
+  it('init mounts nx-marketplace', () => {
     restoreFetch = installFetch(() => jsonResponse({ data: [] }));
     div = document.createElement('div');
     div.innerHTML = '<p>prior content</p>';
@@ -157,6 +157,32 @@ describe('nx-marketplace', () => {
 
     expect(cards[2].querySelector('img')).to.equal(null);
     expect(cards[2].querySelector('.placeholder')).to.not.equal(null);
+  });
+
+  it('falls back to placeholder when the image fails to load', async () => {
+    restoreFetch = installFetch(() => jsonResponse({
+      data: [
+        {
+          Title: 'Has Image', Description: 'd', Path: 'https://example.com/a', Image: 'https://example.com/t.png',
+        },
+      ],
+    }));
+    div = document.createElement('div');
+    document.body.append(div);
+    init(div);
+
+    const el = div.firstElementChild;
+    await waitForLoad(el);
+
+    const card = el.shadowRoot.querySelector('.card');
+    const img = card.querySelector('img');
+    expect(img).to.not.equal(null);
+
+    img.dispatchEvent(new Event('error'));
+    await el.updateComplete;
+
+    expect(card.querySelector('img')).to.equal(null);
+    expect(card.querySelector('.placeholder')).to.not.equal(null);
   });
 
   it('shows empty message', async () => {

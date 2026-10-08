@@ -15,7 +15,10 @@ class NxMarketplace extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [buttonStyle, style];
-    this._load();
+    this._failedImageHrefs ??= new Set();
+    if (this._items === undefined && !this._error) {
+      this._load().catch(() => { this._error = 'Could not load marketplace.'; });
+    }
   }
 
   async _load() {
@@ -27,16 +30,26 @@ class NxMarketplace extends LitElement {
     this._items = result.items;
   }
 
-  // eslint-disable-next-line class-methods-use-this
+  _onImageError(imageHref) {
+    this._failedImageHrefs.add(imageHref);
+    this.requestUpdate();
+  }
+
   _renderCard(item) {
     const {
       title, description, href, types, imageHref,
     } = item;
+    const showImage = imageHref && !this._failedImageHrefs.has(imageHref);
 
     return html`
       <li class="card">
-        ${imageHref
-    ? html`<img src=${imageHref} alt="" loading="lazy" />`
+        ${showImage
+    ? html`<img
+        src=${imageHref}
+        alt=""
+        loading="lazy"
+        @error=${() => this._onImageError(imageHref)}
+      />`
     : html`<div class="placeholder"></div>`}
         <div class="content">
           <h3>${title}</h3>
@@ -63,8 +76,8 @@ class NxMarketplace extends LitElement {
 
     if (this._items === undefined) {
       return html`
-        <ul class="loading">
-          ${[0, 1, 2, 3].map(() => html`<li class="card skeleton"></li>`)}
+        <ul class="loading" role="list" aria-busy="true">
+          ${[0, 1, 2, 3].map(() => html`<li class="card skeleton" aria-hidden="true"></li>`)}
         </ul>
       `;
     }
@@ -72,7 +85,7 @@ class NxMarketplace extends LitElement {
     if (!this._items.length) return html`<p class="empty">No extensions available.</p>`;
 
     return html`
-      <ul class="grid">
+      <ul class="grid" role="list">
         ${this._items.map((item) => this._renderCard(item))}
       </ul>
     `;

@@ -1,3 +1,5 @@
+import { getFirstSheet } from '../../utils/daConfig.js';
+
 export const MARKETPLACE_PATH = '/apps/marketplace.json';
 
 function toSafeHref({ value, origin }) {
@@ -28,11 +30,12 @@ export function normalizeItem({ row, origin }) {
 
 export async function fetchMarketplace({ origin }) {
   try {
-    const resp = await fetch(`${origin}${MARKETPLACE_PATH}`);
+    const resp = await fetch(new URL(MARKETPLACE_PATH, origin));
     if (!resp.ok) return { error: 'Could not load marketplace.', status: resp.status };
 
     const json = await resp.json();
-    const data = Array.isArray(json?.data) ? json.data : [];
+    const sheet = getFirstSheet(json);
+    const data = Array.isArray(sheet) ? sheet : [];
     const items = data.map((row) => normalizeItem({ row, origin })).filter(Boolean);
 
     return { items };
