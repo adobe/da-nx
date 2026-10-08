@@ -1,3 +1,32 @@
+# [1.10.0](https://github.com/adobe/da-nx/compare/v1.9.1...v1.10.0) (2026-10-08)
+
+
+### Features
+
+* **chat-ao:** add CMA bridge controller subclass ([#811](https://github.com/adobe/da-nx/issues/811)) ([6b57821](https://github.com/adobe/da-nx/commit/6b578214f8bd7b5b4aec552235f6e60760f6655d))
+
+## [1.9.1](https://github.com/adobe/da-nx/compare/v1.9.0...v1.9.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **loc:** skip glaas status polling for terminal languages ([#820](https://github.com/adobe/da-nx/issues/820)) ([3bd23db](https://github.com/adobe/da-nx/commit/3bd23db18643fa8b22d767346f28029f08d73970))
+
+# [1.9.0](https://github.com/adobe/da-nx/compare/v1.8.2...v1.9.0) (2026-10-06)
+
+
+### Features
+
+* implement cancelTranslation for the Smartling connector ([#710](https://github.com/adobe/da-nx/issues/710)) ([bfdc2d7](https://github.com/adobe/da-nx/commit/bfdc2d795cc14738b93f08f90dd233fcb8ec5758))
+
+## [1.8.2](https://github.com/adobe/da-nx/compare/v1.8.1...v1.8.2) (2026-10-06)
+
+
+### Bug Fixes
+
+* **quick-edit:** keep image uploads through concurrent edits ([e470eb9](https://github.com/adobe/da-nx/commit/e470eb96203a5a83f890dfd0ae9f6bffd2426b91))
+* **quick-edit:** replace indexed images reliably ([827f538](https://github.com/adobe/da-nx/commit/827f53834997ee9c1c42b2ee13e91dfc10271167))
+
 ## [1.8.1](https://github.com/adobe/da-nx/compare/v1.8.0...v1.8.1) (2026-10-06)
 
 
