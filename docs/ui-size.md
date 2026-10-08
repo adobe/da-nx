@@ -58,6 +58,7 @@ One icon token. The few icons paired with smaller or bigger text use a local `ca
 
 | Use | Value | s | m |
 |---|---|---|---|
+| Tree chevrons (outline, files) | `calc(var(--nx-ui-icon) - 8px)` | 8 | 10 |
 | Icons next to small text (selection icon, paging arrow, versions audit chevron) | `calc(var(--nx-ui-icon) - 4px)` | 12 | 14 |
 | Icons in compact rows (outline, versions, file explorer, panel header, block library modal, page evaluation, Prepare card glyph, chat copy) | `calc(var(--nx-ui-icon) - 2px)` | 14 | 16 |
 | Status/heading icons (page evaluation, chat alert, comments empty state, Prepare dialog) | `calc(var(--nx-ui-icon) + 2px)` | 18 | 20 |
