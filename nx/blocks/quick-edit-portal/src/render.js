@@ -3,12 +3,16 @@ import { getInstrumentedHTML, extractCursors } from './prose2aem.js';
 import { resolveEditableNode } from './editable-node.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 import { getImageDocumentVersion } from '../../../../nx2/public/utils/quick-edit-images.js';
+import { getRerenderScope } from './rerender-scope.js';
 
 export function updateDocument(ctx) {
   // Skip rerender if suppressed (e.g., during image updates)
   if (ctx.suppressRerender) return;
+  const { doc } = window.view.state;
   const body = getInstrumentedHTML(window.view);
-  ctx.port.postMessage({ type: MESSAGE_TYPES.SET_BODY, payload: { body } });
+  const rerenderScope = getRerenderScope({ previousDoc: ctx.syncedDoc, doc, body });
+  ctx.port.postMessage({ type: MESSAGE_TYPES.SET_BODY, payload: { body, rerenderScope } });
+  ctx.syncedDoc = doc;
 }
 
 export function updateCursors(ctx) {

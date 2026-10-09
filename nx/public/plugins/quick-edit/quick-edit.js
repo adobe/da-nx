@@ -23,6 +23,7 @@ import {
   setSelectedNode,
   getSelectedNode,
 } from './src/selection.js';
+import { replaceChanges } from './src/reload.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
 
@@ -38,11 +39,11 @@ const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
  */
 let parentControllerPort = null;
 
-async function setBody(body, ctx) {
+async function setBody(body, rerenderScope, ctx) {
   const anchor = captureScrollAnchor();
   const doc = new DOMParser().parseFromString(body, 'text/html');
-  document.body.innerHTML = doc.body.innerHTML;
-  await ctx.loadPage(document);
+  const replaced = replaceChanges({ ctx, doc, rerenderScope, targetDocument: document });
+  await ctx.reload(document, replaced);
   restoreBlockIndices(doc, document);
   restoreImageIndices(doc, document);
   applyCommentMarkers(ctx);
@@ -69,7 +70,13 @@ function onMessage(e, ctx) {
     handleReady(e, ctx);
   } else if (type === MESSAGE_TYPES.SET_BODY) {
     ctx.pendingNodeUpdateId = null;
-    setBody(payload.body, ctx);
+    // A partial reload decorates detached DOM; the next body must not land mid-decoration.
+    ctx.bodyQueue = (ctx.bodyQueue ?? Promise.resolve())
+      .then(() => setBody(payload.body, payload.rerenderScope, ctx))
+      .catch((error) => {
+        // eslint-disable-next-line no-console
+        console.error('[quick-edit] failed to set body', error);
+      });
   } else if (type === MESSAGE_TYPES.SET_EDITOR_STATE) {
     const { editorState, cursorOffset, imageVersion } = payload;
     setEditorState(cursorOffset, editorState, ctx, imageVersion);
@@ -99,7 +106,7 @@ function blockLinkNavigation() {
   }, true);
 }
 
-function setupParentController(loadPage) {
+function setupParentController(reloadCallback, partialReload) {
   const listener = (e) => {
     const isInit = e.data?.type === MESSAGE_TYPES.INIT;
     if (e.source !== window.parent || !isInit || !e.ports?.length) return;
@@ -112,9 +119,10 @@ function setupParentController(loadPage) {
 
     const ctx = {
       initialized: true,
-      loadPage,
+      reload: reloadCallback,
       port,
       readOnly: config?.canWrite !== true,
+      partialReload,
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
@@ -139,10 +147,11 @@ function handleLoad(target, config, location, ctx, handler = onMessage) {
   };
 }
 
-function setupIframeController(payload, loadPage) {
+function setupIframeController(payload, reloadCallback, partialReload) {
   const ctx = {
     initialized: false,
-    loadPage,
+    reload: reloadCallback,
+    partialReload,
   };
 
   const iframe = document.createElement('iframe');
@@ -242,17 +251,33 @@ function setupStandaloneShell(payload) {
   });
 }
 
-export default async function loadQuickEdit(payload, loadPage) {
+let bootstrapClaimed = false;
+
+// quick-edit-init.js owns loading; other loaders on the same page are ignored.
+export function claimBootstrap() {
+  bootstrapClaimed = true;
+}
+
+/**
+ * `reloadCallback(document, replaced)` re-decorates after each body update. Pass
+ * `partialReload` to preserve header/footer and decorate just `replaced.el`.
+ */
+export default async function loadQuickEdit(payload, reloadCallback, {
+  bootstrap = false,
+  partialReload = false,
+} = {}) {
+  if (bootstrapClaimed && !bootstrap) return;
+
   if (document.getElementById(QUICK_EDIT_ID)) return;
   if (parentControllerPort != null) return;
 
   const detail = payload?.detail ?? payload ?? {};
   const params = new URLSearchParams(window.location.search);
   if (params.get('controller') === 'parent') {
-    setupParentController(loadPage);
+    setupParentController(reloadCallback, partialReload);
   } else if (isStandaloneShell(window.location.href)) {
     setupStandaloneShell(detail);
   } else {
-    setupIframeController(detail, loadPage);
+    setupIframeController(detail, reloadCallback, partialReload);
   }
 }

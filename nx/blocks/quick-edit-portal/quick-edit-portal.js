@@ -132,6 +132,7 @@ export default async function decorate(el) {
 
       // Going forward, all messages will be sent via the port
       ctx.port = port;
+      ctx.syncedDoc = undefined;
       port.onmessage = (event) => onMessage(event, ctx);
 
       // Tell the other side we are ready
