@@ -111,13 +111,54 @@ button {
   font-size: var(--s2-component-xs-medium-font-size);
 }
 
+/* Recreates @react-spectrum/ai's AIButton glow: a blurred, hue-rotated bar sitting
+   behind the pill on a plain white fill, rather than a flat gradient fill. */
 .nx-btn-ai {
-  background: linear-gradient(135deg, var(--s2-pink-100), var(--s2-orange-100), var(--s2-yellow-100));
+  --nx-ai-brand: oklch(73.58% 0.2376 322.4deg);
+
+  position: relative;
+  overflow: clip;
   border-radius: var(--s2-corner-radius-800);
   font-weight: 700;
+  background-color: light-dark(#fff, #292929);
 
-  &:hover:not(:disabled) {
-    background: linear-gradient(135deg, var(--s2-pink-200), var(--s2-orange-200), var(--s2-yellow-200));
+  &::before {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    z-index: -1;
+    inset-block-start: 4px;
+    inset-inline: 2px;
+    height: 24px;
+    border-radius: 9999px;
+    opacity: 0.75;
+    filter: blur(4px);
+    background-image: light-dark(
+      linear-gradient(
+        to right,
+        oklch(from var(--nx-ai-brand) 95.52% 0.0222 calc(h - 294.6)) 0%,
+        oklch(from var(--nx-ai-brand) 91.32% 0.0721 calc(h + 0.1)) 12%,
+        oklch(from var(--nx-ai-brand) 95.08% 0.0433 calc(h - 243.9)) 77%
+      ),
+      linear-gradient(
+        to right,
+        oklch(from var(--nx-ai-brand) 25.8% 0.0855 calc(h - 290.4)) 0%,
+        oklch(from var(--nx-ai-brand) 23.18% 0.1116 calc(h - 3.1)) 28%,
+        oklch(from var(--nx-ai-brand) 23.87% 0.1407 calc(h - 38.8)) 98%
+      )
+    );
+  }
+
+  &:disabled {
+    background-color: light-dark(#f8f8f8, #292929);
+
+    &::before {
+      opacity: 0;
+    }
+  }
+
+  &:hover:not(:disabled)::before {
+    opacity: 0.95;
   }
 }
 
