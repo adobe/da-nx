@@ -81,12 +81,23 @@ export const serviceOptions = [
 ];
 
 /**
+ * Extracts a human-readable message from Lilt's error envelope (`{ message }`, per their
+ * OpenAPI spec), falling back to a generic message if absent.
+ * @param {Object} json - The parsed error response body.
+ * @returns {string} The error message, or a fallback if none was present.
+ */
+function extractErrorMessage(json) {
+  return json?.message || 'Unknown error';
+}
+
+/**
  * Uploads a single url's source content as a Lilt `SourceFile`.
  * @param {Object} service - The flattened per-environment service config.
  * @param {Object} url - The url to upload; reads `daBasePath` and `content`.
+ * @param {Function} sendMessage - Reports an error message to the UI on failure.
  * @returns {Promise<number|null>} The uploaded file's Lilt id, or null on failure.
  */
-async function uploadFile(service, url) {
+async function uploadFile(service, url, sendMessage) {
   const fileName = toFileName(url.daBasePath);
   const reqUrl = `${resolveOrigin(service)}/v2/files?name=${encodeURIComponent(fileName)}`;
   const opts = {
@@ -95,8 +106,11 @@ async function uploadFile(service, url) {
     body: url.content,
   };
   const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
-  if (!resp.ok) return null;
   const json = await resp.json().catch(() => null);
+  if (!resp.ok) {
+    sendMessage({ text: `Upload to Lilt failed for ${url.daBasePath}: ${extractErrorMessage(json)}`, type: 'error' });
+    return null;
+  }
   return json?.id ?? null;
 }
 
@@ -104,13 +118,14 @@ async function uploadFile(service, url) {
  * Uploads every url's source content to Lilt in parallel.
  * @param {Object} service - The flattened per-environment service config.
  * @param {Object[]} urls - The urls to upload.
+ * @param {Function} sendMessage - Reports an error message per failed upload.
  * @returns {Promise<Object>} A `daBasePath` -> Lilt file id map, omitting any upload
  *  that failed.
  */
-async function uploadAllFiles(service, urls) {
+async function uploadAllFiles(service, urls, sendMessage) {
   const fileIdsByPath = {};
   await Promise.all(urls.map(async (url) => {
-    const fileId = await uploadFile(service, url);
+    const fileId = await uploadFile(service, url, sendMessage);
     if (fileId != null) fileIdsByPath[url.daBasePath] = fileId;
   }));
   return fileIdsByPath;
@@ -185,11 +200,11 @@ async function sendAiTranslation({
   const translationIdsByLang = {};
 
   await Promise.all(langs.map(async (lang) => {
-    lang.translation ??= {};
+    // On any failure, leave `.translation` untouched - there's no translation in Lilt
+    // to check the status for, so the project stays retryable.
     const { lang: trgLang } = splitLocale(lang.code);
     const memoryId = findMemoryId(memories, srcLang, trgLang);
     if (!memoryId) {
-      lang.translation.status = 'error';
       sendMessage({ text: `No Lilt memory found for ${srcLang} -> ${trgLang}.`, type: 'error' });
       return;
     }
@@ -197,15 +212,15 @@ async function sendAiTranslation({
     const reqUrl = `${resolveOrigin(service)}/v2/translate/file?fileId=${fileIds.join(',')}&memoryId=${memoryId}`;
     const opts = { method: 'POST', headers: await authHeaders(service) };
     const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
-    if (!resp.ok) {
-      lang.translation.status = 'error';
-      return;
-    }
     const infos = await resp.json().catch(() => null);
-    if (!Array.isArray(infos)) {
-      lang.translation.status = 'error';
+    if (!resp.ok) {
+      sendMessage({
+        text: `Lilt translation request failed for ${lang.name}: ${extractErrorMessage(infos)}`,
+        type: 'error',
+      });
       return;
     }
+    if (!Array.isArray(infos)) return;
 
     const translationIdsByPath = {};
     urls.forEach((url) => {
@@ -213,8 +228,10 @@ async function sendAiTranslation({
       const info = infos.find((entry) => entry.fileId === fileId);
       if (info?.id != null) translationIdsByPath[url.daBasePath] = info.id;
     });
+    if (!Object.keys(translationIdsByPath).length) return;
     translationIdsByLang[lang.code] = translationIdsByPath;
 
+    lang.translation ??= {};
     lang.translation.sent = Object.keys(translationIdsByPath).length;
     lang.translation.status = lang.translation.sent === urls.length ? 'created' : 'error';
   }));
@@ -307,9 +324,9 @@ async function saveAiItems({
 }
 
 /**
- * Starts Verified Translation: resolves each language's memory, then creates a single Lilt
- * job covering every uploaded file across every language pair. Persists the resulting job id
- * so {@link getStatusAll} and {@link saveItems} can poll/download it later.
+ * Starts Verified Translation: creates one Lilt job covering every matched language, then
+ * persists the job id for {@link getStatusAll}/{@link saveItems}. On job-creation failure,
+ * matched langs keep no `.translation` so the project stays resendable.
  * @param {Object} conf
  * @param {string} conf.title - The project title, used as the Lilt job name.
  * @param {Object} conf.service - The flattened per-environment service config.
@@ -329,17 +346,19 @@ async function sendVerifiedTranslation({
 }) {
   const fileIds = Object.values(fileIdsByPath);
   const languagePairs = [];
+  const matchedLangs = [];
 
   langs.forEach((lang) => {
-    lang.translation ??= {};
     const { lang: trgLang, locale: trgLocale } = splitLocale(lang.code);
     const memoryId = findMemoryId(memories, srcLang, trgLang);
     if (!memoryId) {
-      lang.translation.status = 'error';
+      // Leave `.translation` untouched - there's no translation in Lilt to check
+      // the status for, so the project stays retryable.
       sendMessage({ text: `No Lilt memory found for ${srcLang} -> ${trgLang}.`, type: 'error' });
       return;
     }
     languagePairs.push({ trgLang, trgLocale, memoryId });
+    matchedLangs.push(lang);
   });
 
   if (!languagePairs.length) {
@@ -360,19 +379,17 @@ async function sendVerifiedTranslation({
   const reqUrl = `${resolveOrigin(service)}/v2/jobs`;
   const opts = { method: 'POST', headers: await authHeaders(service), body: JSON.stringify(body) };
   const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
-  const job = resp.ok ? await resp.json().catch(() => null) : null;
-  if (!job?.id) {
-    sendMessage({ text: 'Failed to create Lilt job.', type: 'error' });
-    langs.forEach((lang) => {
-      if (lang.translation.status !== 'error') lang.translation.status = 'error';
-    });
+  const job = await resp.json().catch(() => null);
+  if (!resp.ok || !job?.id) {
+    // Leave matched langs' `.translation` untouched so the project stays retryable.
+    sendMessage({ text: `Lilt job creation failed: ${extractErrorMessage(job)}`, type: 'error' });
     return;
   }
 
   options.service.jobId = { value: String(job.id) };
 
-  langs.forEach((lang) => {
-    if (lang.translation.status === 'error') return;
+  matchedLangs.forEach((lang) => {
+    lang.translation ??= {};
     lang.translation.sent = urls.length;
     lang.translation.status = 'created';
   });
@@ -471,7 +488,8 @@ async function saveVerifiedItems({
   const exportOpts = { headers: await authHeaders(service) };
   const exportResp = await fetchWithRetry(exportUrl, exportOpts, retryConfig(service, exportOpts));
   if (!exportResp.ok) {
-    sendMessage({ text: `Failed to export ${lang.name} deliverables from Lilt.`, type: 'error' });
+    const json = await exportResp.json().catch(() => null);
+    sendMessage({ text: `Lilt export failed for ${lang.name}: ${extractErrorMessage(json)}`, type: 'error' });
     urls.forEach((url) => { url.status = 'error'; });
     return urls;
   }
@@ -491,7 +509,8 @@ async function saveVerifiedItems({
     retryConfig(service, downloadOpts),
   );
   if (!downloadResp.ok) {
-    sendMessage({ text: `Failed to download ${lang.name} deliverables from Lilt.`, type: 'error' });
+    const json = await downloadResp.json().catch(() => null);
+    sendMessage({ text: `Lilt download failed for ${lang.name}: ${extractErrorMessage(json)}`, type: 'error' });
     urls.forEach((url) => { url.status = 'error'; });
     return urls;
   }
@@ -548,17 +567,13 @@ export async function sendAllLanguages({
   );
 
   sendMessage({ text: `Uploading ${urls.length} items to Lilt.` });
-  const fileIdsByPath = await uploadAllFiles(service, urls);
+  const fileIdsByPath = await uploadAllFiles(service, urls, sendMessage);
   if (Object.keys(fileIdsByPath).length !== urls.length) {
+    // Leave langs' `.translation` untouched so the project stays retryable.
     sendMessage({
       text: `Uploaded ${Object.keys(fileIdsByPath).length}/${urls.length} items to Lilt - aborting.`,
       type: 'error',
     });
-    langs.forEach((lang) => {
-      lang.translation ??= {};
-      lang.translation.status = 'error';
-    });
-    await saveState({ options });
     return;
   }
   options.service.fileIds = { value: JSON.stringify(fileIdsByPath) };

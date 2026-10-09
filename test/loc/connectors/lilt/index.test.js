@@ -161,7 +161,7 @@ describe('lilt connector', () => {
       expect(translationIds['fr-FR']['/page']).to.equal(101);
     });
 
-    it('marks a language as error when no memory matches its language pair', async () => {
+    it('leaves the language untouched when no memory matches its language pair', async () => {
       installFetch((u, opts) => {
         if (u.includes('/v2/memories')) return new Response(JSON.stringify([]), { status: 200 });
         return defaultHandler(u, opts);
@@ -177,26 +177,52 @@ describe('lilt connector', () => {
         title: 'My Project', service, options, langs, urls, actions,
       });
 
-      expect(langs[0].translation.status).to.equal('error');
+      expect(langs[0].translation).to.equal(undefined);
       expect(messages.some((m) => m?.type === 'error')).to.equal(true);
     });
 
-    it('aborts and marks every language as error when not every url uploads successfully', async () => {
+    it('leaves languages untouched when not every url uploads successfully', async () => {
       installFetch((u, opts) => {
-        if (u.includes('/v2/files') && opts.method === 'POST') return new Response('', { status: 400 });
+        if (u.includes('/v2/files') && opts.method === 'POST') {
+          return new Response(JSON.stringify({ message: 'Unsupported file type.' }), { status: 400 });
+        }
         return defaultHandler(u, opts);
       });
       const service = baseService();
       const options = { service };
       const langs = [{ code: 'fr-FR', name: 'French' }];
       const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
-      const actions = { sendMessage: () => {}, saveState: async () => {} };
+      const messages = [];
+      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
 
       await sendAllLanguages({
         title: 'My Project', service, options, langs, urls, actions,
       });
 
-      expect(langs[0].translation.status).to.equal('error');
+      expect(langs[0].translation).to.equal(undefined);
+      expect(messages.some((m) => m?.text?.includes('Unsupported file type.'))).to.equal(true);
+    });
+
+    it('leaves the language untouched with the Lilt detail surfaced when the translate request fails', async () => {
+      installFetch((u, opts) => {
+        if (u.includes('/v2/translate/file') && opts.method === 'POST') {
+          return new Response(JSON.stringify({ message: 'Memory is not ready.' }), { status: 400 });
+        }
+        return defaultHandler(u, opts);
+      });
+      const service = baseService();
+      const options = { service };
+      const langs = [{ code: 'fr-FR', name: 'French' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const messages = [];
+      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 'My Project', service, options, langs, urls, actions,
+      });
+
+      expect(langs[0].translation).to.equal(undefined);
+      expect(messages.some((m) => m?.text?.includes('Memory is not ready.'))).to.equal(true);
     });
 
     it('does not call Lilt when there is no IMS session', async () => {
@@ -253,7 +279,31 @@ describe('lilt connector', () => {
       });
 
       expect(calls.some((c) => c.url.endsWith('/v2/jobs') && c.method === 'POST')).to.equal(false);
+      expect(langs[0].translation).to.equal(undefined);
       expect(messages.some((m) => m?.type === 'error')).to.equal(true);
+    });
+
+    it('leaves matched languages unsent when job creation fails, so the project can be resent', async () => {
+      installFetch((u, opts) => {
+        if (u.includes('/v2/jobs') && opts.method === 'POST') {
+          return new Response(JSON.stringify({ message: 'Invalid due date.' }), { status: 400 });
+        }
+        return defaultHandler(u, opts);
+      });
+      const service = baseService({ translationMode: 'verified' });
+      const options = { service };
+      const langs = [{ code: 'fr-FR', name: 'French' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const messages = [];
+      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 'My Project', service, options, langs, urls, actions,
+      });
+
+      expect(langs[0].translation).to.equal(undefined);
+      expect(options.service.jobId).to.equal(undefined);
+      expect(messages.some((m) => m?.text?.includes('Invalid due date.'))).to.equal(true);
     });
   });
 
@@ -386,6 +436,58 @@ describe('lilt connector', () => {
       });
 
       expect(result[0].status).to.equal('error');
+    });
+
+    it('marks urls as errored with the Lilt detail when export fails', async () => {
+      installFetch((u, opts) => {
+        if (u.includes('/export?type=files')) {
+          return new Response(JSON.stringify({ message: 'Job is not yet complete.' }), { status: 400 });
+        }
+        return defaultHandler(u, opts);
+      });
+      const service = baseService({ translationMode: 'verified', jobId: { value: '501' } });
+      const urls = [{ daBasePath: '/page', ext: 'html' }];
+      const saveFn = async (url) => { url.status = 'success'; };
+      const messages = [];
+
+      const result = await saveItems({
+        org,
+        site,
+        service,
+        lang: { code: 'fr-FR', name: 'French' },
+        urls,
+        saveFn,
+        sendMessage: (m) => messages.push(m),
+      });
+
+      expect(result[0].status).to.equal('error');
+      expect(messages.some((m) => m?.text?.includes('Job is not yet complete.'))).to.equal(true);
+    });
+
+    it('marks urls as errored with the Lilt detail when download fails', async () => {
+      installFetch((u, opts) => {
+        if (u.endsWith('/download')) {
+          return new Response(JSON.stringify({ message: 'Export has expired.' }), { status: 400 });
+        }
+        return defaultHandler(u, opts);
+      });
+      const service = baseService({ translationMode: 'verified', jobId: { value: '501' } });
+      const urls = [{ daBasePath: '/page', ext: 'html' }];
+      const saveFn = async (url) => { url.status = 'success'; };
+      const messages = [];
+
+      const result = await saveItems({
+        org,
+        site,
+        service,
+        lang: { code: 'fr-FR', name: 'French' },
+        urls,
+        saveFn,
+        sendMessage: (m) => messages.push(m),
+      });
+
+      expect(result[0].status).to.equal('error');
+      expect(messages.some((m) => m?.text?.includes('Export has expired.'))).to.equal(true);
     });
 
     it('returns urls unchanged when there is no jobId', async () => {
