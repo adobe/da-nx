@@ -101,6 +101,12 @@ export default class CmaChatController extends BaseChatController {
     }
   }
 
+  // The CMA bridge requires attachments as [{ artifactId }] objects (it strips
+  // entries without an artifactId); Coworker/AO uses bare strings (the base).
+  _formatAttachments(artifactIds) {
+    return artifactIds.map((artifactId) => ({ artifactId }));
+  }
+
   // Per-site resume pointer: the id of the session last active in THIS tab for
   // the current site, so a page reload reconnects to it (the bridge replays its
   // history) instead of starting a new session. Keyed by site so it can't

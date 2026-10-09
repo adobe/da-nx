@@ -215,7 +215,7 @@ describe('ao-controller sendMessage', () => {
       }
 
       expect(sent[0].text).to.equal('here is the design');
-      expect(sent[0].attachments).to.deep.equal([{ artifactId: 'artifact-1' }]);
+      expect(sent[0].attachments).to.deep.equal(['artifact-1']);
       expect(calls[0].opts.headers.authorization).to.equal('Bearer test-token');
       expect(JSON.parse(calls[0].opts.body)).to.deep.equal({
         filename: 'design.png', content_type: 'image/png', scope: 'user',

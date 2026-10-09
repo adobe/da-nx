@@ -623,13 +623,19 @@ export default class BaseChatController {
         debugMode,
         clientMessageId,
         ...(artifactIds.length && {
-          attachments: artifactIds.map((artifactId) => ({ artifactId })),
+          attachments: this._formatAttachments(artifactIds),
         }),
         client_context: buildClientContext(this._context, items),
       }));
     } catch (err) {
       this._pushError(err);
     }
+  }
+
+  // Coworker (AO) accepts bare artifactId strings. The CMA bridge requires
+  // [{ artifactId }] objects and overrides this in CmaChatController.
+  _formatAttachments(artifactIds) {
+    return artifactIds;
   }
 
   destroy() {
