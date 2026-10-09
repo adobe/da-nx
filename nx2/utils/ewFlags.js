@@ -172,9 +172,18 @@ export async function isEwChatDisabled({ org, site }) {
   return flags['ew.disableChat'] === 'true';
 }
 
-export async function isCoworkerEnabled({ org, site }) {
+export async function getCoworkerConfig({ org, site }) {
   const flags = await getEWFlags({ org, site });
-  return flags['ew.coworker'] === 'true';
+  return {
+    enabled: flags['ew.coworker'] === 'true',
+    altHarness: !!flags['ew.altHarness'],
+    activationKey: flags['ew.altHarness'] ?? null,
+  };
+}
+
+export async function isCoworkerEnabled({ org, site }) {
+  const { enabled } = await getCoworkerConfig({ org, site });
+  return enabled;
 }
 
 // See docs/chat-ao-component.md#manifest-override.

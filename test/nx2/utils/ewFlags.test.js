@@ -4,7 +4,7 @@ import {
   calls, installFetch, restoreFetch,
 } from '../../../nx2/test/mocks/fetch.js';
 import {
-  getEWFlags, isEWEnabled, isEwChatDisabled, isCoworkerEnabled, getManifestId,
+  getEWFlags, isEWEnabled, isEwChatDisabled, getCoworkerConfig, isCoworkerEnabled, getManifestId,
 } from '../../../nx2/utils/ewFlags.js';
 
 // getEWFlags -> daConfig.fetchDaConfigs -> api.js's config.get(), which
@@ -120,6 +120,32 @@ describe('isEwChatDisabled', () => {
       return new Response('', { status: 403 });
     };
     expect(await isEwChatDisabled({ org: 'dc-org4', site: 'dc-site4' })).to.be.true;
+  });
+});
+
+describe('getCoworkerConfig', () => {
+  afterEach(() => restoreFetch());
+
+  it('returns the coworker enablement plus alternate harness details', async () => {
+    installFlagsByPath({
+      '/cw-site1/': JSON.stringify({
+        flags: { data: [{ key: 'ew.coworker', value: 'true' }, { key: 'ew.altHarness', value: 'act-key' }] },
+      }),
+    });
+    expect(await getCoworkerConfig({ org: 'cw-org1', site: 'cw-site1' })).to.deep.equal({
+      enabled: true,
+      altHarness: true,
+      activationKey: 'act-key',
+    });
+  });
+
+  it('returns false/null defaults when no coworker flags are set', async () => {
+    installFetch({ body: JSON.stringify({ flags: { data: [] } }) });
+    expect(await getCoworkerConfig({ org: 'cw-org2', site: 'cw-site2' })).to.deep.equal({
+      enabled: false,
+      altHarness: false,
+      activationKey: null,
+    });
   });
 });
 
