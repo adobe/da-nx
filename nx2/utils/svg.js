@@ -8,13 +8,18 @@ export const loadHrefSvg = (() => {
   const cache = {};
 
   return (href) => {
+    // Never reject, so a module-top-level await doesn't fail module evaluation.
     cache[href] ??= (async () => {
-      const resp = await fetch(href);
-      if (!resp.ok) return null;
-      const text = await resp.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, 'image/svg+xml');
-      return doc.querySelector('svg');
+      try {
+        const resp = await fetch(href);
+        if (!resp.ok) return null;
+        const text = await resp.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'image/svg+xml');
+        return doc.querySelector('svg');
+      } catch {
+        return null;
+      }
     })();
     return cache[href];
   };

@@ -2,7 +2,7 @@ button {
   font-family: var(--s2-font-family);
 }
 
-.nx-action-btn, .nx-action-btn-icon, .nx-action-btn-quiet, .nx-btn-accent, .nx-btn-primary  {
+.nx-action-btn, .nx-action-btn-icon, .nx-action-btn-quiet, .nx-btn-accent, .nx-btn-primary, .nx-btn-ai  {
   display: flex;
   transition: transform 0.125s ease-out, background-color 0.125s ease-out, color 0.125s ease-out;
   padding: 7px var(--s2-spacing-200);
@@ -109,6 +109,93 @@ button {
 
 .nx-btn-sm kbd {
   font-size: var(--s2-component-xs-medium-font-size);
+}
+
+/* Temporary hand-port of @react-spectrum/ai's AIButton recipe (confirmed via its
+   compiled CSS): a blurred, hue-rotated bar inset from the pill edges, topped with
+   a glossy inset-shadow highlight. Swap for Spectrum Web Components' AI Toolkit
+   button once released (framework-agnostic, confirmed in progress per Spectrum team). */
+.nx-btn-ai {
+  --nx-ai-brand: oklch(73.58% 0.2376 322.4deg);
+  --nx-ai-fill-x: 2px;
+  --nx-ai-fill-y: 4px;
+
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  border-radius: var(--s2-corner-radius-800);
+  font-weight: 700;
+  background-color: light-dark(#fff, #292929);
+
+  &::before, &::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    z-index: -1;
+    inset-block-end: 0;
+    border-radius: 9999px;
+  }
+
+  &::before {
+    inset-block-start: var(--nx-ai-fill-y);
+    inset-inline: var(--nx-ai-fill-x);
+    opacity: 0.75;
+    filter: blur(4px);
+    background-image: light-dark(
+      linear-gradient(
+        to right,
+        oklch(from var(--nx-ai-brand) 95.52% 0.0222 calc(h - 294.6)) 0%,
+        oklch(from var(--nx-ai-brand) 91.32% 0.0721 calc(h + 0.1)) 12%,
+        oklch(from var(--nx-ai-brand) 95.08% 0.0433 calc(h - 243.9)) 77%
+      ),
+      linear-gradient(
+        to right,
+        oklch(from var(--nx-ai-brand) 25.8% 0.0855 calc(h - 290.4)) 0%,
+        oklch(from var(--nx-ai-brand) 23.18% 0.1116 calc(h - 3.1)) 28%,
+        oklch(from var(--nx-ai-brand) 23.87% 0.1407 calc(h - 38.8)) 98%
+      )
+    );
+  }
+
+  /* Inner rim + glow + soft corner highlight, painted on top of the gradient bar. */
+  &::after {
+    inset: 0;
+    box-shadow:
+      inset 0 -0.5px 1px light-dark(
+        oklch(from var(--nx-ai-brand) 95.08% 0.0433 calc(h - 243.9)),
+        rgb(0 0 0 / 10%)
+      ),
+      inset 0.5px -1.5px 6px light-dark(
+        oklch(from var(--nx-ai-brand) 93.97% 0.027 calc(h - 319)),
+        rgb(0 0 0 / 5%)
+      ),
+      inset -7px -23px 9px -12px rgb(255 255 255 / 75%);
+  }
+
+  &:disabled {
+    background-color: light-dark(#f8f8f8, #292929);
+
+    &::before {
+      opacity: 0;
+    }
+
+    &::after {
+      box-shadow:
+        inset 0 -0.5px 1px rgb(0 0 0 / 10%),
+        inset 0.5px -1.5px 6px rgb(0 0 0 / 5%),
+        inset -7px -23px 9px -12px rgb(255 255 255 / 75%);
+    }
+  }
+
+  &:hover:not(:disabled)::before {
+    opacity: 0.95;
+  }
+
+  /* Repeated class bumps specificity above the shared 18px default and the .nx-btn-sm 16px rule. */
+  &.nx-btn-ai svg {
+    width: 16px;
+    height: 16px;
+  }
 }
 
 .nx-action-btn-quiet, .nx-action-btn-icon  {
