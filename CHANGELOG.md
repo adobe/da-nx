@@ -1,3 +1,23 @@
+# [1.12.0](https://github.com/adobe/da-nx/compare/v1.11.0...v1.12.0) (2026-10-09)
+
+
+### Features
+
+* **marketplace:** add marketplace block ([#840](https://github.com/adobe/da-nx/issues/840)) ([eac81c4](https://github.com/adobe/da-nx/commit/eac81c4dee2e3ff298bd1cb533d94d3bab1efc50))
+
+# [1.11.0](https://github.com/adobe/da-nx/compare/v1.10.0...v1.11.0) (2026-10-09)
+
+
+### Bug Fixes
+
+* **quick-edit:** attach editors only once a section has loaded ([b37fb12](https://github.com/adobe/da-nx/commit/b37fb12d25705cae7b32970fc0b6c80afc8f5fce))
+* **quick-edit:** create editors on demand instead of for every element ([11226b7](https://github.com/adobe/da-nx/commit/11226b78b875aceeef9061c6646df86f85db14f0))
+
+
+### Features
+
+* **aem-assets:** preserve last folder between asset picker openings ([2043c03](https://github.com/adobe/da-nx/commit/2043c037096fd04de53d9348cbaa167790893346)), closes [adobe/da-live#1346](https://github.com/adobe/da-live/issues/1346) [adobe/da-live#1400](https://github.com/adobe/da-live/issues/1400)
+
 # [1.10.0](https://github.com/adobe/da-nx/compare/v1.9.1...v1.10.0) (2026-10-08)
 
 

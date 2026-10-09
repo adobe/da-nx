@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { sheet2object, object2sheet } from '../../../nx2/utils/utils.js';
+import { sheet2object, object2sheet, getFirstSheet } from '../../../nx2/utils/utils.js';
 
 describe('sheet2object', () => {
   it('converts a single-sheet doc to a simple object', () => {
@@ -76,5 +76,26 @@ describe('object2sheet', () => {
   it('round-trips through sheet2object', () => {
     const obj = { library: [{ title: 'Foo' }], permissions: [{ email: 'a@b.com' }] };
     expect(sheet2object(object2sheet(obj))).to.deep.equal(obj);
+  });
+});
+
+describe('getFirstSheet', () => {
+  it('returns data for a single sheet', () => {
+    expect(getFirstSheet({ ':type': 'sheet', data: [{ key: 'a' }] })).to.deep.equal([{ key: 'a' }]);
+  });
+
+  it('returns the first named sheet for a multi-sheet', () => {
+    const json = {
+      ':type': 'multi-sheet',
+      ':names': ['first', 'second'],
+      first: { data: [{ key: 'a' }] },
+      second: { data: [{ key: 'b' }] },
+    };
+    expect(getFirstSheet(json)).to.deep.equal([{ key: 'a' }]);
+  });
+
+  it('returns undefined for null or empty input', () => {
+    expect(getFirstSheet(null)).to.equal(undefined);
+    expect(getFirstSheet({})).to.equal(undefined);
   });
 });
