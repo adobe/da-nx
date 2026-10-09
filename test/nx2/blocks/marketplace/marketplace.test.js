@@ -25,6 +25,13 @@ async function waitForLoad(el) {
   await el.updateComplete;
 }
 
+async function waitFor(check) {
+  for (let i = 0; i < 50 && !check(); i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((resolve) => { setTimeout(resolve, 10); });
+  }
+}
+
 describe('nx-marketplace', () => {
   let div;
   let restoreFetch;
@@ -55,8 +62,8 @@ describe('nx-marketplace', () => {
     const el = div.firstElementChild;
     await el.updateComplete;
 
-    expect(el.shadowRoot.querySelector('.loading')).to.not.equal(null);
-    expect(el.shadowRoot.querySelector('.grid')).to.equal(null);
+    expect(el.shadowRoot.querySelector('.loading') !== null).to.equal(true);
+    expect(el.shadowRoot.querySelector('.grid') === null).to.equal(true);
   });
 
   it('renders a card per valid row', async () => {
@@ -79,7 +86,7 @@ describe('nx-marketplace', () => {
     expect(cards[0].querySelector('h3').textContent).to.equal('DA Permissions');
   });
 
-  it('renders type badges', async () => {
+  it('renders type pills as read-only nx-pills', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         {
@@ -96,9 +103,41 @@ describe('nx-marketplace', () => {
     await waitForLoad(el);
 
     const cards = el.shadowRoot.querySelectorAll('.card');
-    const badges = [...cards[0].querySelectorAll('.badge')].map((b) => b.textContent.trim());
-    expect(badges).to.deep.equal(['App', 'Plugin']);
-    expect(cards[1].querySelectorAll('.badge').length).to.equal(0);
+    const pills = cards[0].querySelector('.media nx-pills');
+    expect(pills.label).to.equal('Type');
+    expect(pills.items.map(({ label, removable }) => ({ label, removable }))).to.deep.equal([
+      { label: 'App', removable: false },
+      { label: 'Plugin', removable: false },
+    ]);
+    expect(cards[1].querySelectorAll('nx-pills').length).to.equal(0);
+  });
+
+  it('shows the Adobe logo only for Adobe-owned items', async () => {
+    restoreFetch = installFetch(() => jsonResponse({
+      data: [
+        {
+          Title: 'Adobe Item', Description: 'd', 'Doc Url': 'https://example.com/a', Owner: 'Adobe',
+        },
+        {
+          Title: 'Partner Item', Description: 'd', 'Doc Url': 'https://example.com/b', Owner: 'Acme',
+        },
+        { Title: 'No Owner', Description: 'd', 'Doc Url': 'https://example.com/c' },
+      ],
+    }));
+    div = document.createElement('div');
+    document.body.append(div);
+    init(div);
+
+    const el = div.firstElementChild;
+    await waitForLoad(el);
+    await waitFor(() => el.shadowRoot.querySelector('.adobe-logo svg'));
+
+    const cards = [...el.shadowRoot.querySelectorAll('.card')];
+    const logo = cards[0].querySelector('.media .adobe-logo');
+    expect(logo.getAttribute('aria-label')).to.equal('Adobe');
+    expect(logo.querySelectorAll('svg').length).to.equal(1);
+    expect(cards[1].querySelectorAll('.adobe-logo').length).to.equal(0);
+    expect(cards[2].querySelectorAll('.adobe-logo').length).to.equal(0);
   });
 
   it('renders learn more and try out links', async () => {
@@ -146,10 +185,10 @@ describe('nx-marketplace', () => {
     await waitForLoad(el);
 
     const [docsOnly, tryOnly] = el.shadowRoot.querySelectorAll('.card');
-    expect(docsOnly.querySelector('a.cta-primary')).to.exist;
-    expect(docsOnly.querySelector('a.cta-secondary')).to.equal(null);
-    expect(tryOnly.querySelector('a.cta-primary')).to.equal(null);
-    expect(tryOnly.querySelector('a.cta-secondary')).to.exist;
+    expect(docsOnly.querySelector('a.cta-primary') !== null).to.equal(true);
+    expect(docsOnly.querySelector('a.cta-secondary') === null).to.equal(true);
+    expect(tryOnly.querySelector('a.cta-primary') === null).to.equal(true);
+    expect(tryOnly.querySelector('a.cta-secondary') !== null).to.equal(true);
   });
 
   it('renders image or placeholder', async () => {
@@ -180,13 +219,13 @@ describe('nx-marketplace', () => {
     expect(img0).to.not.equal(null);
     expect(img0.src).to.equal('https://example.com/t.png');
     expect(img0.loading).to.equal('lazy');
-    expect(cards[0].querySelector('.placeholder')).to.equal(null);
+    expect(cards[0].querySelector('.placeholder') === null).to.equal(true);
 
-    expect(cards[1].querySelector('img')).to.equal(null);
-    expect(cards[1].querySelector('.placeholder')).to.not.equal(null);
+    expect(cards[1].querySelector('img') === null).to.equal(true);
+    expect(cards[1].querySelector('.placeholder') !== null).to.equal(true);
 
-    expect(cards[2].querySelector('img')).to.equal(null);
-    expect(cards[2].querySelector('.placeholder')).to.not.equal(null);
+    expect(cards[2].querySelector('img') === null).to.equal(true);
+    expect(cards[2].querySelector('.placeholder') !== null).to.equal(true);
   });
 
   it('falls back to placeholder when the image fails to load', async () => {
@@ -211,8 +250,8 @@ describe('nx-marketplace', () => {
     img.dispatchEvent(new Event('error'));
     await el.updateComplete;
 
-    expect(card.querySelector('img')).to.equal(null);
-    expect(card.querySelector('.placeholder')).to.not.equal(null);
+    expect(card.querySelector('img') === null).to.equal(true);
+    expect(card.querySelector('.placeholder') !== null).to.equal(true);
   });
 
   it('shows empty message', async () => {
@@ -241,6 +280,6 @@ describe('nx-marketplace', () => {
     const error = el.shadowRoot.querySelector('.error');
     expect(error).to.not.equal(null);
     expect(error.textContent).to.equal('Could not load marketplace.');
-    expect(el.shadowRoot.querySelector('.grid')).to.equal(null);
+    expect(el.shadowRoot.querySelector('.grid') === null).to.equal(true);
   });
 });

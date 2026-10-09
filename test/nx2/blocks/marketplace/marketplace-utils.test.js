@@ -20,6 +20,7 @@ describe('normalizeItem', () => {
       Description: 'Manage msm',
       'Doc Url': 'https://github.com/adobe-rnd/aem-apps/tree/main/tools/apps/msm',
       'Try Url': 'https://da.live/app/x/msm',
+      Owner: ' Adobe ',
       Type: 'App & Plugin',
       Image: 'https://example.com/t.png',
     };
@@ -28,6 +29,7 @@ describe('normalizeItem', () => {
       description: 'Manage msm',
       docHref: 'https://github.com/adobe-rnd/aem-apps/tree/main/tools/apps/msm',
       tryHref: 'https://da.live/app/x/msm',
+      owner: 'Adobe',
       types: ['App', 'Plugin'],
       imageHref: 'https://example.com/t.png',
     });
@@ -84,10 +86,11 @@ describe('normalizeItem', () => {
     expect(normalizeItem({ row: { ...base, Image: 'javascript:x' }, origin }).imageHref).to.equal(undefined);
   });
 
-  it('handles missing description and type', () => {
+  it('handles missing description, owner and type', () => {
     const row = { Title: 'MSM', 'Doc Url': 'https://da.live/a' };
     const result = normalizeItem({ row, origin });
     expect(result.description).to.equal('');
+    expect(result.owner).to.equal('');
     expect(result.types).to.deep.equal([]);
   });
 

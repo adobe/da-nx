@@ -1,14 +1,18 @@
 import { LitElement, html, nothing } from 'da-lit';
 
 import { loadStyle } from '../../utils/utils.js';
-import { fetchMarketplace } from './marketplace-utils.js';
+import { loadHrefSvg } from '../../utils/svg.js';
+import { fetchMarketplace, isAdobeOwned } from './marketplace-utils.js';
 
 const style = await loadStyle(import.meta.url);
+
+const ADOBE_LOGO_HREF = new URL('../../../nx/img/logos/aec.svg', import.meta.url).href;
 
 class NxMarketplace extends LitElement {
   static properties = {
     _items: { state: true },
     _error: { state: true },
+    _adobeLogo: { state: true },
   };
 
   connectedCallback() {
@@ -27,6 +31,41 @@ class NxMarketplace extends LitElement {
       return;
     }
     this._items = result.items;
+    this._loadCardExtras(result.items);
+  }
+
+  // Non-critical card decorations are loaded only when an item needs them.
+  _loadCardExtras(items) {
+    if (items.some(({ types }) => types.length)) import('../shared/pills/pills.js');
+    if (items.some(isAdobeOwned)) {
+      loadHrefSvg(ADOBE_LOGO_HREF)
+        .then((svg) => { this._adobeLogo = svg; })
+        .catch(() => { /* card renders without the logo */ });
+    }
+  }
+
+  _renderMedia(item) {
+    const { types, imageHref } = item;
+    const showImage = imageHref && !this._failedImageHrefs.has(imageHref);
+    const showLogo = this._adobeLogo && isAdobeOwned(item);
+    const typePills = types.map((type) => ({ id: type, label: type, removable: false }));
+
+    return html`
+      <div class="media">
+        ${showImage
+    ? html`<img
+          src=${imageHref}
+          alt=""
+          loading="lazy"
+          @error=${() => this._onImageError(imageHref)}
+        />`
+    : html`<div class="placeholder"></div>`}
+        ${types.length ? html`<nx-pills .label=${'Type'} .items=${typePills}></nx-pills>` : nothing}
+        ${showLogo ? html`<span class="adobe-logo" role="img" aria-label="Adobe" title="Adobe">
+          ${this._adobeLogo.cloneNode(true)}
+        </span>` : nothing}
+      </div>
+    `;
   }
 
   _onImageError(imageHref) {
@@ -36,28 +75,15 @@ class NxMarketplace extends LitElement {
 
   _renderCard(item) {
     const {
-      title, description, docHref, tryHref, types, imageHref,
+      title, description, docHref, tryHref,
     } = item;
-    const showImage = imageHref && !this._failedImageHrefs.has(imageHref);
 
     return html`
       <li class="card">
-        ${showImage
-    ? html`<img
-        src=${imageHref}
-        alt=""
-        loading="lazy"
-        @error=${() => this._onImageError(imageHref)}
-      />`
-    : html`<div class="placeholder"></div>`}
+        ${this._renderMedia(item)}
         <div class="content">
           <h3>${title}</h3>
           <p>${description}</p>
-          ${types.length ? html`
-            <div class="badges">
-              ${types.map((type) => html`<span class="badge">${type}</span>`)}
-            </div>
-          ` : nothing}
         </div>
         <div class="actions">
           ${docHref ? html`<a

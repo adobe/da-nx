@@ -26,12 +26,17 @@ export function normalizeItem({ row, origin }) {
   if (!title || (!docHref && !tryHref)) return null;
 
   const description = (row.Description ?? '').trim();
+  const owner = (row.Owner ?? '').trim();
   const types = (row.Type ?? '').split('&').map((type) => type.trim()).filter(Boolean);
   const imageHref = toSafeHref({ value: row.Image, origin });
 
   return {
-    title, description, docHref, tryHref, types, imageHref,
+    title, description, docHref, tryHref, owner, types, imageHref,
   };
+}
+
+export function isAdobeOwned({ owner }) {
+  return owner?.toLowerCase() === 'adobe';
 }
 
 export async function fetchMarketplace({ origin }) {
