@@ -18,50 +18,65 @@ describe('normalizeItem', () => {
     const row = {
       Title: 'MSM',
       Description: 'Manage msm',
-      Path: 'https://da.live/app/x/msm',
+      'Doc Url': 'https://github.com/adobe-rnd/aem-apps/tree/main/tools/apps/msm',
+      'Try Url': 'https://da.live/app/x/msm',
       Type: 'App & Plugin',
       Image: 'https://example.com/t.png',
     };
     expect(normalizeItem({ row, origin })).to.deep.equal({
       title: 'MSM',
       description: 'Manage msm',
-      href: 'https://da.live/app/x/msm',
+      docHref: 'https://github.com/adobe-rnd/aem-apps/tree/main/tools/apps/msm',
+      tryHref: 'https://da.live/app/x/msm',
       types: ['App', 'Plugin'],
       imageHref: 'https://example.com/t.png',
     });
   });
 
   it('trims whitespace', () => {
-    const row = { Title: '  MSM  ', Path: ' https://da.live/a ' };
+    const row = { Title: '  MSM  ', 'Doc Url': ' https://da.live/a ' };
     const result = normalizeItem({ row, origin });
     expect(result.title).to.equal('MSM');
-    expect(result.href).to.equal('https://da.live/a');
+    expect(result.docHref).to.equal('https://da.live/a');
   });
 
   it('returns null without title', () => {
-    expect(normalizeItem({ row: { Title: '', Path: 'https://da.live/a' }, origin })).to.equal(null);
-    expect(normalizeItem({ row: { Title: '   ', Path: 'https://da.live/a' }, origin })).to.equal(null);
+    expect(normalizeItem({ row: { Title: '', 'Doc Url': 'https://da.live/a' }, origin })).to.equal(null);
+    expect(normalizeItem({ row: { Title: '   ', 'Doc Url': 'https://da.live/a' }, origin })).to.equal(null);
   });
 
-  it('returns null without path', () => {
-    expect(normalizeItem({ row: { Title: 'MSM', Path: '' }, origin })).to.equal(null);
+  it('returns null without doc url and try url', () => {
+    expect(normalizeItem({ row: { Title: 'MSM', 'Doc Url': '', 'Try Url': '' }, origin })).to.equal(null);
+  });
+
+  it('keeps a row with only a try url', () => {
+    const row = { Title: 'MSM', 'Try Url': 'https://da.live/app/x/msm' };
+    const result = normalizeItem({ row, origin });
+    expect(result.docHref).to.equal(undefined);
+    expect(result.tryHref).to.equal('https://da.live/app/x/msm');
+  });
+
+  it('drops an unsafe try url', () => {
+    // eslint-disable-next-line no-script-url
+    const row = { Title: 'MSM', 'Doc Url': 'https://da.live/a', 'Try Url': 'javascript:alert(1)' };
+    expect(normalizeItem({ row, origin }).tryHref).to.equal(undefined);
   });
 
   it('returns null for non-http path', () => {
     // eslint-disable-next-line no-script-url
-    const row = { Title: 'MSM', Path: 'javascript:alert(1)' };
+    const row = { Title: 'MSM', 'Doc Url': 'javascript:alert(1)' };
     expect(normalizeItem({ row, origin })).to.equal(null);
   });
 
   it('resolves relative path and image', () => {
-    const row = { Title: 'MSM', Path: '/tools/x.html', Image: '/media/t.png' };
+    const row = { Title: 'MSM', 'Doc Url': '/tools/x.html', Image: '/media/t.png' };
     const result = normalizeItem({ row, origin });
-    expect(result.href).to.equal(`${origin}/tools/x.html`);
+    expect(result.docHref).to.equal(`${origin}/tools/x.html`);
     expect(result.imageHref).to.equal(`${origin}/media/t.png`);
   });
 
   it('drops unsafe or empty image', () => {
-    const base = { Title: 'MSM', Path: 'https://da.live/a' };
+    const base = { Title: 'MSM', 'Doc Url': 'https://da.live/a' };
     expect(normalizeItem({ row: { ...base, Image: '' }, origin }).imageHref).to.equal(undefined);
     expect(normalizeItem({ row: { ...base, Image: 'data:image/png;base64,AA' }, origin }).imageHref)
       .to.equal(undefined);
@@ -70,14 +85,14 @@ describe('normalizeItem', () => {
   });
 
   it('handles missing description and type', () => {
-    const row = { Title: 'MSM', Path: 'https://da.live/a' };
+    const row = { Title: 'MSM', 'Doc Url': 'https://da.live/a' };
     const result = normalizeItem({ row, origin });
     expect(result.description).to.equal('');
     expect(result.types).to.deep.equal([]);
   });
 
   it('splits single type', () => {
-    const row = { Title: 'MSM', Path: 'https://da.live/a', Type: 'Plugin' };
+    const row = { Title: 'MSM', 'Doc Url': 'https://da.live/a', Type: 'Plugin' };
     expect(normalizeItem({ row, origin }).types).to.deep.equal(['Plugin']);
   });
 });
@@ -105,12 +120,12 @@ describe('fetchMarketplace', () => {
     const validRow = {
       Title: 'MSM',
       Description: 'Manage msm',
-      Path: 'https://da.live/app/x/msm',
+      'Doc Url': 'https://da.live/app/x/msm',
       Type: 'App',
       Image: 'https://example.com/t.png',
     };
     restoreFetch = installFetch(async () => new Response(
-      JSON.stringify({ data: [validRow, { Title: '', Path: 'x' }] }),
+      JSON.stringify({ data: [validRow, { Title: '', 'Doc Url': 'x' }] }),
       { status: 200 },
     ));
 
@@ -129,12 +144,12 @@ describe('fetchMarketplace', () => {
   });
 
   it('normalizes items from a multi-sheet doc, using the first sheet', async () => {
-    const validRow = { Title: 'MSM', Description: 'Manage msm', Path: 'https://da.live/app/x/msm' };
+    const validRow = { Title: 'MSM', Description: 'Manage msm', 'Doc Url': 'https://da.live/app/x/msm' };
     restoreFetch = installFetch(async () => new Response(JSON.stringify({
       ':type': 'multi-sheet',
       ':names': ['apps', 'other'],
       apps: { data: [validRow] },
-      other: { data: [{ Title: 'Ignored', Path: 'https://da.live/other' }] },
+      other: { data: [{ Title: 'Ignored', 'Doc Url': 'https://da.live/other' }] },
     }), { status: 200 }));
 
     const result = await fetchMarketplace({ origin });

@@ -62,9 +62,9 @@ describe('nx-marketplace', () => {
   it('renders a card per valid row', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
-        { Title: 'DA Permissions', Description: 'Manage permissions', Path: 'https://example.com/a' },
-        { Title: '', Description: 'No title', Path: 'https://example.com/b' },
-        { Title: 'Second Item', Description: 'Second', Path: 'https://example.com/c' },
+        { Title: 'DA Permissions', Description: 'Manage permissions', 'Doc Url': 'https://example.com/a' },
+        { Title: '', Description: 'No title', 'Doc Url': 'https://example.com/b' },
+        { Title: 'Second Item', Description: 'Second', 'Doc Url': 'https://example.com/c' },
       ],
     }));
     div = document.createElement('div');
@@ -83,9 +83,9 @@ describe('nx-marketplace', () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         {
-          Title: 'DA Permissions', Description: 'd', Path: 'https://example.com/a', Type: 'App & Plugin',
+          Title: 'DA Permissions', Description: 'd', 'Doc Url': 'https://example.com/a', Type: 'App & Plugin',
         },
-        { Title: 'No Type Item', Description: 'd', Path: 'https://example.com/b' },
+        { Title: 'No Type Item', Description: 'd', 'Doc Url': 'https://example.com/b' },
       ],
     }));
     div = document.createElement('div');
@@ -101,10 +101,12 @@ describe('nx-marketplace', () => {
     expect(cards[1].querySelectorAll('.badge').length).to.equal(0);
   });
 
-  it('renders learn more link', async () => {
+  it('renders learn more and try out links', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
-        { Title: 'DA Permissions', Description: 'd', Path: 'https://example.com/a' },
+        {
+          Title: 'DA Permissions', Description: 'd', 'Doc Url': 'https://example.com/a', 'Try Url': 'https://example.com/try',
+        },
       ],
     }));
     div = document.createElement('div');
@@ -114,26 +116,54 @@ describe('nx-marketplace', () => {
     const el = div.firstElementChild;
     await waitForLoad(el);
 
-    const cta = el.shadowRoot.querySelector('a.cta');
+    const cta = el.shadowRoot.querySelector('a.cta-primary');
     expect(cta.textContent.trim()).to.equal('Learn more');
     expect(cta.href).to.equal('https://example.com/a');
     expect(cta.target).to.equal('_blank');
     expect(cta.rel).to.equal('noopener noreferrer');
     expect(cta.getAttribute('aria-label')).to.equal('Learn more about DA Permissions');
+
+    const tryCta = el.shadowRoot.querySelector('a.cta-secondary');
+    expect(tryCta.textContent.trim()).to.equal('Try out');
+    expect(tryCta.href).to.equal('https://example.com/try');
+    expect(tryCta.target).to.equal('_blank');
+    expect(tryCta.rel).to.equal('noopener noreferrer');
+    expect(tryCta.getAttribute('aria-label')).to.equal('Try out DA Permissions');
+  });
+
+  it('omits a button when its url is missing', async () => {
+    restoreFetch = installFetch(() => jsonResponse({
+      data: [
+        { Title: 'Docs Only', Description: 'd', 'Doc Url': 'https://example.com/a' },
+        { Title: 'Try Only', Description: 'd', 'Try Url': 'https://example.com/try' },
+      ],
+    }));
+    div = document.createElement('div');
+    document.body.append(div);
+    init(div);
+
+    const el = div.firstElementChild;
+    await waitForLoad(el);
+
+    const [docsOnly, tryOnly] = el.shadowRoot.querySelectorAll('.card');
+    expect(docsOnly.querySelector('a.cta-primary')).to.exist;
+    expect(docsOnly.querySelector('a.cta-secondary')).to.equal(null);
+    expect(tryOnly.querySelector('a.cta-primary')).to.equal(null);
+    expect(tryOnly.querySelector('a.cta-secondary')).to.exist;
   });
 
   it('renders image or placeholder', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         {
-          Title: 'Has Image', Description: 'd', Path: 'https://example.com/a', Image: 'https://example.com/t.png',
+          Title: 'Has Image', Description: 'd', 'Doc Url': 'https://example.com/a', Image: 'https://example.com/t.png',
         },
         {
-          Title: 'No Image', Description: 'd', Path: 'https://example.com/b', Image: '',
+          Title: 'No Image', Description: 'd', 'Doc Url': 'https://example.com/b', Image: '',
         },
         {
           // eslint-disable-next-line no-script-url
-          Title: 'Unsafe Image', Description: 'd', Path: 'https://example.com/c', Image: 'javascript:x',
+          Title: 'Unsafe Image', Description: 'd', 'Doc Url': 'https://example.com/c', Image: 'javascript:x',
         },
       ],
     }));
@@ -163,7 +193,7 @@ describe('nx-marketplace', () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         {
-          Title: 'Has Image', Description: 'd', Path: 'https://example.com/a', Image: 'https://example.com/t.png',
+          Title: 'Has Image', Description: 'd', 'Doc Url': 'https://example.com/a', Image: 'https://example.com/t.png',
         },
       ],
     }));

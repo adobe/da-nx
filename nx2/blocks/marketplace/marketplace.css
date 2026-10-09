@@ -76,14 +76,17 @@
   background: var(--s2-gray-100);
 }
 
-/* CTA matches .nx-card-cta-container a in nx/blocks/card/card.css */
-.cta {
-  align-self: flex-start;
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2-spacing-200);
   margin: 0 var(--s2-spacing-400) var(--s2-spacing-400);
-  background-color: var(--s2-blue-900);
-  border: 2px solid var(--s2-blue-900);
+}
+
+/* CTA sizing matches .nx-card-cta-container a in nx/blocks/card/card.css */
+.cta {
+  border: 2px solid transparent;
   border-radius: var(--s2-corner-radius-800);
-  color: #fff;
   font-size: var(--s2-component-m-bold-font-size);
   font-weight: var(--s2-component-m-bold-font-weight);
   line-height: var(--s2-component-m-bold-line-height);
@@ -91,17 +94,36 @@
   text-decoration: none;
   outline-offset: 0;
   outline-color: var(--s2-blue-900);
-  transition: outline-offset 0.2s;
-}
-
-.cta:hover {
-  background-color: var(--s2-blue-1000);
-  border-color: var(--s2-blue-1000);
+  transition: outline-offset 0.2s, background-color 0.125s ease-out;
 }
 
 .cta:focus-visible {
   outline: 2px solid var(--s2-blue-900);
   outline-offset: 4px;
+}
+
+.cta-primary {
+  background-color: var(--s2-blue-900);
+  border-color: var(--s2-blue-900);
+  color: #fff;
+}
+
+.cta-primary:hover {
+  background-color: var(--s2-blue-1000);
+  border-color: var(--s2-blue-1000);
+}
+
+/* Spectrum 2 secondary (outline) button */
+.cta-secondary {
+  background-color: transparent;
+  border-color: var(--s2-gray-300);
+  color: var(--s2-gray-800);
+}
+
+.cta-secondary:hover {
+  background-color: var(--s2-gray-100);
+  border-color: var(--s2-gray-400);
+  color: var(--s2-gray-900);
 }
 
 .skeleton {

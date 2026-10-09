@@ -36,7 +36,7 @@ class NxMarketplace extends LitElement {
 
   _renderCard(item) {
     const {
-      title, description, href, types, imageHref,
+      title, description, docHref, tryHref, types, imageHref,
     } = item;
     const showImage = imageHref && !this._failedImageHrefs.has(imageHref);
 
@@ -59,13 +59,22 @@ class NxMarketplace extends LitElement {
             </div>
           ` : nothing}
         </div>
-        <a
-          class="cta"
-          href=${href}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label=${`Learn more about ${title}`}
-        >Learn more</a>
+        <div class="actions">
+          ${docHref ? html`<a
+            class="cta cta-primary"
+            href=${docHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label=${`Learn more about ${title}`}
+          >Learn more</a>` : nothing}
+          ${tryHref ? html`<a
+            class="cta cta-secondary"
+            href=${tryHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label=${`Try out ${title}`}
+          >Try out</a>` : nothing}
+        </div>
       </li>
     `;
   }

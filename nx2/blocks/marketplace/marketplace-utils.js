@@ -21,15 +21,16 @@ function toSafeHref({ value, origin }) {
 
 export function normalizeItem({ row, origin }) {
   const title = (row.Title ?? '').trim();
-  const href = toSafeHref({ value: row.Path, origin });
-  if (!title || !href) return null;
+  const docHref = toSafeHref({ value: row['Doc Url'], origin });
+  const tryHref = toSafeHref({ value: row['Try Url'], origin });
+  if (!title || (!docHref && !tryHref)) return null;
 
   const description = (row.Description ?? '').trim();
   const types = (row.Type ?? '').split('&').map((type) => type.trim()).filter(Boolean);
   const imageHref = toSafeHref({ value: row.Image, origin });
 
   return {
-    title, description, href, types, imageHref,
+    title, description, docHref, tryHref, types, imageHref,
   };
 }
 

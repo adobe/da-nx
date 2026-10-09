@@ -2,17 +2,17 @@
 
 ## Goal
 
-A new `marketplace` block that showcases DA and Experience Workspace extensions (apps and plugins) that projects can install. Visually similar to `nx/blocks/site-apps`: a grid of cards, one per extension, each with a "Learn more" link to the extension URL.
+A new `marketplace` block that showcases DA and Experience Workspace extensions (apps and plugins) that projects can install. Visually similar to `nx/blocks/site-apps`: a grid of cards, one per extension, each with a "Learn more" link to the extension docs and a "Try out" link to the extension itself.
 
 ## Requirements
 
 - Data source: fixed, origin-relative path `/apps/marketplace.json` (e.g. `https://main--da-live--adobe.aem.page/apps/marketplace.json`). Public EDS sheet, no auth.
-- Sheet shape (`:type: "sheet"`): `data[]` rows with `Title`, `Description`, `Path`, `Type`, `Image`, `Date`.
+- Sheet shape (`:type: "sheet"`): `data[]` rows with `Title`, `Description`, `Doc Url`, `Try Url`, `Status`, `Owner`, `Type`, `Image`, `Date` (`Status`, `Owner`, `Date` not yet rendered).
   - `Image` holds a thumbnail URL (absolute or relative); may be empty.
   - `Type` is `App`, `Plugin`, or `App & Plugin`.
   - `Date` is ignored.
-- Each card shows: thumbnail (or placeholder), title, description, type badge(s), "Learn more" link.
-- "Learn more" opens `Path` in a new tab.
+- Each card shows: thumbnail (or placeholder), title, description, type badge(s), "Learn more" (primary) and "Try out" (secondary) buttons.
+- "Learn more" opens `Doc Url`, "Try out" opens `Try Url`, both in a new tab; a button is omitted when its URL is missing or unsafe.
 - No filtering, search, or sorting — sheet order is preserved.
 - Lives in `nx2/blocks/marketplace/`.
 - Light and dark mode supported.
@@ -24,9 +24,9 @@ Lit web component plus companion util, following nx2 conventions (`ew-actions`, 
 ### `nx2/blocks/marketplace/marketplace-utils.js` (pure, no DOM)
 
 - `MARKETPLACE_PATH = '/apps/marketplace.json'`
-- `normalizeItem(row, { origin })` → `{ title, description, href, types, imageHref } | null`
-  - Returns `null` when `Title` or `Path` is missing/blank.
-  - `href`: `Path` resolved against `origin`; returns `null` unless protocol is `http:` or `https:`.
+- `normalizeItem({ row, origin })` → `{ title, description, docHref, tryHref, types, imageHref } | null`
+  - Returns `null` when `Title` is blank or both `Doc Url` and `Try Url` are missing/unsafe.
+  - `docHref` / `tryHref`: `Doc Url` / `Try Url` resolved against `origin`; `undefined` unless protocol is `http:` or `https:`.
   - `imageHref`: `Image` resolved against `origin` when non-empty and `http(s)`; otherwise `undefined`.
   - `types`: `Type` split on `&`, trimmed, empty entries removed (`"App & Plugin"` → `['App', 'Plugin']`).
   - `description`: trimmed `Description` or `''`.
@@ -52,7 +52,7 @@ Lit web component plus companion util, following nx2 conventions (`ew-actions`, 
   - Image area: `<img loading="lazy" src=imageHref alt="">` or a neutral placeholder `div`.
   - `<h3>` title, `<p>` description.
   - Badges: one `<span class="badge">` per entry in `types`.
-  - CTA: `<a class="nx-btn-primary" href target="_blank" rel="noopener noreferrer" aria-label="Learn more about {title}">Learn more</a>`.
+  - Actions: `<a class="cta cta-primary" … aria-label="Learn more about {title}">Learn more</a>` and `<a class="cta cta-secondary" … aria-label="Try out {title}">Try out</a>`, both `target="_blank" rel="noopener noreferrer"`.
 
 ### `nx2/blocks/marketplace/marketplace.css`
 
