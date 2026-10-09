@@ -57,6 +57,12 @@ const DA_TRANSLATE_ENVS = {
   prod: 'https://translate.da.live',
 };
 
+const DA_SC_ENVS = {
+  local: 'http://localhost:8787',
+  stage: 'https://da-sc.adobeaem.workers.dev',
+  prod: 'https://da-sc.adobeaem.workers.dev',
+};
+
 function getEnv(key, envs) {
   const params = new URLSearchParams(window.location.search);
   const query = params.get(key);
@@ -76,6 +82,12 @@ export const DA_PREVIEW = getEnv('da-preview', DA_LIVE_PREVIEW_ENVS);
 export const DA_ETC = getEnv('da-etc', DA_ETC_ENVS);
 export const DA_FEEDBACK = getEnv('da-feedback', DA_FEEDBACK_ENVS);
 export const DA_TRANSLATE = getEnv('da-translate', DA_TRANSLATE_ENVS);
+export const DA_SC = getEnv('da-sc', DA_SC_ENVS);
+
+/** da-sc URL serving the page at `path` (e.g. `/org/site/forms/contact`) from an AEM `tier`. */
+export function getScUrl({ path, tier = 'preview' }) {
+  return `${DA_SC}/${tier}${path}`;
+}
 
 export const HLX_ADMIN = 'https://admin.hlx.page';
 export const AEM_API = 'https://api.aem.live';
