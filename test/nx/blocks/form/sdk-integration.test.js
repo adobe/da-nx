@@ -136,6 +136,54 @@ describe('SDK state shape', () => {
     expect(findByPointer(root, '/data/swatch').semanticType).to.equal(undefined);
   });
 
+  it('surfaces media semantics for an image while keeping a single URL string in the document', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        heroImage: { type: 'string', title: 'Hero image', 'x-semantic-type': 'media' },
+      },
+    };
+    const href = './media_example.png';
+    const engine = createEngine({ schema, document: validDoc({ heroImage: href }) });
+    const node = findByPointer(engine.getState().model.root, '/data/heroImage');
+    expect(node.semanticType).to.equal('media');
+    expect(node.value).to.equal(href);
+    expect(engine.getState().document.data.heroImage).to.equal(href);
+  });
+
+  it('writes image fields as HTML images so EDS ingests them, and round-trips their URLs', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        heroImage: { type: 'string', 'x-semantic-type': 'media' },
+      },
+    };
+    const engine = createEngine({ schema, document: validDoc() });
+    [
+      './media_example.png',
+      'https://content.da.live/org/site/drafts/.page/hero.png',
+      'https://delivery.example.com/assets/hero.avif?smartcrop=wide&width=1920',
+    ].forEach((href) => {
+      engine.setField('/data/heroImage', href);
+      const { html, error } = convertJsonToHtml({ json: engine.getState().document, schema });
+      expect(error).to.equal(undefined);
+      const img = new DOMParser().parseFromString(html, 'text/html').querySelector('img');
+      expect(img?.getAttribute('src')).to.equal(href);
+      expect(convertHtmlToJson({ html }).json.data.heroImage).to.equal(href);
+    });
+
+    engine.setField('/data/heroImage', undefined);
+    const { html } = convertJsonToHtml({ json: engine.getState().document, schema });
+    expect(html).to.not.include('<img');
+    expect(convertHtmlToJson({ html }).json.data.heroImage).to.equal(undefined);
+  });
+
+  it('reads a delivered media bus image without its rendition parameters', () => {
+    const html = convertJsonToHtml({ json: validDoc({ heroImage: 'x' }) }).html
+      .replace('<p>x</p>', '<picture><img src="./media_1c0072.jpg?width=750&amp;format=jpg&amp;optimize=medium" alt=""></picture>');
+    expect(convertHtmlToJson({ html }).json.data.heroImage).to.equal('./media_1c0072.jpg');
+  });
+
   it('validation.errors entries carry a .message field (read by editor.js)', () => {
     // Force a required-field error; the schema requires `name` and we omit it.
     const engine = createEngine({ schema: demoSchema, document: validDoc() });
@@ -282,6 +330,25 @@ describe('SDK × attachPersistence (end-to-end)', () => {
     expect(calls).to.have.lengthOf(1);
     expect(calls[0].path).to.equal('/smoke');
     expect(calls[0].html).to.include('Alice');
+    p.detach();
+  });
+
+  it('saves image fields as HTML images when given the schema', async () => {
+    let p;
+    const calls = [];
+    const save = async ({ html }) => { calls.push(html); };
+    const schema = {
+      type: 'object',
+      properties: { heroImage: { type: 'string', 'x-semantic-type': 'media' } },
+    };
+
+    const editor = createEngine({ schema, document: validDoc(), onChange: () => p?.notify() });
+    p = attachPersistence(editor, { path: '/smoke', schema, save });
+
+    editor.setField('/data/heroImage', 'https://content.da.live/org/site/hero.png');
+    await new Promise((r) => { setTimeout(r, 0); });
+
+    expect(calls[0]).to.include('<img src="https://content.da.live/org/site/hero.png" alt="">');
     p.detach();
   });
 

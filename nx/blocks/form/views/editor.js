@@ -7,6 +7,7 @@ import '../fields/checkbox.js';
 import '../fields/button.js';
 import '../fields/number.js';
 import '../fields/date.js';
+import '../fields/asset.js';
 import { icon } from '../icons.js';
 
 const style = await loadStyle(import.meta.url);
@@ -41,9 +42,14 @@ class Editor extends LitElement {
     state: { attribute: false },
     nav: { attribute: false },
     onSelect: { attribute: false },
+
+    assetSources: { attribute: false },
+    previewOrigin: { attribute: false },
+
     _reorderPointer: { state: true },
     _reorderTargetIndex: { state: true },
     _reorderConfirmed: { state: true },
+
     _issuesOpen: { state: true },
     _openMenuPointer: { state: true },
   };
@@ -282,6 +288,23 @@ class Editor extends LitElement {
           ?disabled=${readonly}
           @input=${(e) => this._onTextInput(node, e)}
         ></form-textarea>
+      `;
+    }
+
+    if (node.semanticType === 'media') {
+      return html`
+        <form-asset
+          data-pointer=${pointer}
+          .label=${label}
+          .required=${showRequired}
+          .error=${error}
+          .description=${description}
+          .value=${value}
+          .sources=${this.assetSources}
+          .previewOrigin=${this.previewOrigin}
+          ?disabled=${readonly}
+          @change=${(e) => this._onSelectInput(node, e)}
+        ></form-asset>
       `;
     }
 
