@@ -4,7 +4,11 @@ import { loadStyle } from '../../../../../nx2/scripts/nx.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 
-import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
+import {
+  createSnapshotPrefix,
+  fetchConfig,
+  getProjectBasePath,
+} from '../../utils/utils.js';
 import { getFragmentUrls } from './validate-utils.js';
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
 
@@ -151,9 +155,10 @@ class NxLocValidate extends LitElement {
       return { message: { type: 'error', text: 'Please select at least one URL.' } };
     }
 
-    const sourcePrefix = await this.getSourcePrefix();
+    const defaultLocation = await this.getSourcePrefix();
+    const langs = this._configSheet?.languages?.data;
     const urls = checked.map((url) => {
-      const { aemBasePath } = convertPath({ path: url.pathname, sourcePrefix });
+      const aemBasePath = getProjectBasePath({ path: url.pathname, defaultLocation, langs });
       return {
         basePath: aemBasePath,
         suppliedPath: url.pathname,

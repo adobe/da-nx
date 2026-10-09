@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { getSyncUrls } from './index.js';
+import { getSourceLocations } from '../../utils/utils.js';
 import { MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
 
 const style = await loadStyle(import.meta.url);
@@ -28,9 +29,12 @@ class NxLocSync extends LitElement {
   }
 
   getSyncUrls() {
-    const { org, site, options, urls, snapshot } = this.project;
+    const {
+      org, site, options, urls, snapshot, langs,
+    } = this.project;
     const sendLocation = options['source.language']?.location || '/';
-    this._syncUrls = getSyncUrls(org, site, sendLocation, urls, snapshot);
+    const sourceLocations = getSourceLocations({ options, langs });
+    this._syncUrls = getSyncUrls(org, site, sendLocation, urls, snapshot, sourceLocations);
   }
 
   getPersistedUrls() {
@@ -51,6 +55,7 @@ class NxLocSync extends LitElement {
   }
 
   async syncUrl(url) {
+    if (url.skipSync) return;
     const { source, destination, ext } = url;
     const behavior = this.project.options['sync.conflict.behavior'];
 
@@ -67,7 +72,7 @@ class NxLocSync extends LitElement {
 
   async handleSyncAll(type) {
     // Forcefully drop the current sync status on the URLs
-    this._syncUrls.forEach((url) => { delete url.synced; });
+    this._syncUrls.forEach((url) => { if (!url.skipSync) delete url.synced; });
     this.requestUpdate();
 
     if (type === 'skip') {
