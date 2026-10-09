@@ -289,6 +289,23 @@
 
   /* --- End generated --- */
 
+  /* ui-size scale: s (default) vs m, toggled via body.ui-size-m (getUISize() in scripts/nx.js).
+     Pick tokens by role, never raw px; see docs/ui-size.md. */
+  --nx-ui-text-heading: var(--s2-component-xl-bold-font-size);
+  --nx-ui-text-title: var(--s2-component-l-bold-font-size);
+  --nx-ui-text-content: var(--s2-component-m-regular-font-size);
+  --nx-ui-text-description: var(--s2-component-s-regular-font-size);
+  --nx-ui-text-caption: var(--s2-component-xs-regular-font-size);
+  --nx-ui-line-content: 1.5;
+  --nx-ui-line-description: var(--s2-component-s-regular-line-height);
+  --nx-ui-line-caption: 1.4;
+  --nx-ui-icon: 16px;
+  --nx-ui-control-height: 24px;
+  --nx-ui-icon-btn-size: 24px;
+  --nx-ui-icon-btn-hover-bg: var(--s2-gray-75);
+  --nx-ui-icon-btn-hover-color: var(--s2-gray-800);
+  --nx-ui-control-height-compact: 24px;
+
   /* fonts */
   --s2-font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
 
@@ -305,6 +322,21 @@
 
   /* color schemes */
   color-scheme: light;
+}
+
+body.ui-size-m {
+  --nx-ui-text-heading: var(--s2-heading-size-s);
+  --nx-ui-text-title: var(--s2-component-xl-bold-font-size);
+  --nx-ui-text-content: var(--s2-component-l-regular-font-size);
+  --nx-ui-text-description: var(--s2-component-m-regular-font-size);
+  --nx-ui-text-caption: var(--s2-component-s-regular-font-size);
+  --nx-ui-line-content: var(--s2-component-l-regular-line-height);
+  --nx-ui-line-description: var(--s2-component-m-regular-line-height);
+  --nx-ui-line-caption: var(--s2-component-s-regular-line-height);
+  --nx-ui-icon: 18px;
+  --nx-ui-control-height: 32px;
+  --nx-ui-control-height-compact: 28px;
+  --nx-ui-icon-btn-size: 32px;
 }
 
 @media (width >= 1440px) {

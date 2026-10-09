@@ -6,13 +6,13 @@
 
 .ui-artifact-title {
   font-weight: bold;
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--nx-ui-text-caption);
   color: var(--s2-gray-700);
 }
 
 .ui-artifact-fallback {
   margin: 0;
-  font-size: var(--s2-body-size-s);
+  font-size: var(--nx-ui-text-content);
   color: var(--s2-gray-600);
   font-style: italic;
 }
@@ -53,7 +53,7 @@
 .ui-artifact-table {
   border-collapse: collapse;
   width: 100%;
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--nx-ui-text-caption);
 
   th,
   td {
@@ -77,7 +77,7 @@
 }
 
 .ui-artifact-metric-label {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--nx-ui-text-caption);
   font-weight: bold;
   color: var(--s2-gray-600);
 }
@@ -89,7 +89,7 @@
 }
 
 .ui-artifact-metric-value {
-  font-size: var(--s2-component-l-bold-font-size);
+  font-size: var(--nx-ui-text-title);
   font-weight: var(--s2-component-l-bold-font-weight);
   color: var(--s2-gray-900);
 }
@@ -103,7 +103,7 @@
 }
 
 .ui-artifact-metric-trend {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--nx-ui-text-caption);
   font-weight: bold;
 }
 
@@ -129,8 +129,8 @@
 }
 
 .ui-artifact-alert-icon {
-  width: 20px;
-  height: 20px;
+  width: calc(var(--nx-ui-icon) + 2px);
+  height: calc(var(--nx-ui-icon) + 2px);
 
   /* Nudges past line-height leading to match the first line's ink, not its
      box top — same fix as chat-ao.css's task-list-item checkbox. */
@@ -157,7 +157,7 @@
 
 .ui-artifact-alert-details,
 .ui-artifact-alert-action {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--nx-ui-text-caption);
 }
 
 .ui-artifact-alert-info {

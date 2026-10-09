@@ -2,7 +2,7 @@
   display: block;
   font-family: var(--s2-font-family);
   color: var(--s2-gray-800);
-  font-size: var(--s2-body-size-s);
+  font-size: var(--nx-ui-text-content);
   line-height: normal;
 }
 
@@ -15,8 +15,8 @@
 .ui-artifact-pe-icon {
   display: inline-block;
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: calc(var(--nx-ui-icon) + 2px);
+  height: calc(var(--nx-ui-icon) + 2px);
   background-color: currentcolor;
   mask-size: contain;
   mask-repeat: no-repeat;
@@ -82,18 +82,18 @@
 }
 
 .ui-artifact-pe-tile-label {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--nx-ui-text-caption);
   color: var(--s2-gray-800);
 }
 
 .ui-artifact-pe-tile-value {
-  font-size: var(--s2-heading-size-s);
+  font-size: var(--nx-ui-text-heading);
   font-weight: var(--s2-heading-font-weight);
   line-height: var(--s2-heading-line-height);
 }
 
 .ui-artifact-pe-tile-desc {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--nx-ui-text-caption);
   color: var(--s2-gray-600);
 }
 
@@ -140,19 +140,19 @@
 }
 
 .ui-artifact-pe-section-label {
-  font-size: var(--s2-body-size-s);
+  font-size: var(--nx-ui-text-content);
   font-weight: bold;
   color: var(--s2-gray-900);
 }
 
 .ui-artifact-pe-section-sublabel {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--nx-ui-text-caption);
   color: var(--s2-gray-600);
 }
 
 .ui-artifact-pe-chevron {
-  width: 16px;
-  height: 16px;
+  width: calc(var(--nx-ui-icon) - 2px);
+  height: calc(var(--nx-ui-icon) - 2px);
   flex-shrink: 0;
   background-color: var(--s2-gray-600);
   mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
@@ -198,13 +198,13 @@
 }
 
 .ui-artifact-pe-item-title {
-  font-size: var(--s2-body-size-s);
+  font-size: var(--nx-ui-text-content);
   font-weight: bold;
   color: var(--s2-gray-900);
 }
 
 .ui-artifact-pe-item-desc {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--nx-ui-text-caption);
   color: var(--s2-gray-600);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -214,7 +214,7 @@
 .ui-artifact-pe-item-action {
   flex-shrink: 0;
   align-self: center;
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--nx-ui-text-caption);
   font-weight: 500;
   color: var(--s2-gray-900);
   background: none;
@@ -240,7 +240,7 @@
 }
 
 .ui-artifact-pe-paging-label {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--nx-ui-text-caption);
   font-weight: bold;
   color: var(--s2-gray-800);
 }
@@ -270,8 +270,8 @@
   &::after {
     content: "";
     display: block;
-    width: 14px;
-    height: 14px;
+    width: calc(var(--nx-ui-icon) - 4px);
+    height: calc(var(--nx-ui-icon) - 4px);
     background-color: currentcolor;
     mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
     mask-size: contain;
@@ -298,7 +298,7 @@
 }
 
 .ui-artifact-pe-modal-asset-label {
-  font-size: var(--s2-body-size-l);
+  font-size: var(--nx-ui-text-heading);
   font-weight: bold;
   color: var(--s2-gray-900);
   margin: 0 0 var(--s2-spacing-300);
@@ -316,8 +316,8 @@
 }
 
 .ui-artifact-pe-modal-heading-icon {
-  width: 20px;
-  height: 20px;
+  width: calc(var(--nx-ui-icon) + 2px);
+  height: calc(var(--nx-ui-icon) + 2px);
   flex-shrink: 0;
   background-color: currentcolor;
   mask-size: contain;
@@ -337,12 +337,12 @@
 
 .ui-artifact-pe-modal-heading-text {
   font-weight: bold;
-  font-size: var(--s2-body-size-s);
+  font-size: var(--nx-ui-text-content);
   color: var(--s2-gray-900);
 }
 
 .ui-artifact-pe-modal-body {
-  font-size: var(--s2-body-size-s);
+  font-size: var(--nx-ui-text-content);
   line-height: 1.6;
   color: var(--s2-gray-800);
   margin: 0;
@@ -352,7 +352,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--nx-ui-text-description);
   color: var(--s2-gray-800);
   background: none;
   border: none;
@@ -366,8 +366,8 @@
 }
 
 .ui-artifact-pe-modal-copy-icon {
-  width: 16px;
-  height: 16px;
+  width: calc(var(--nx-ui-icon) - 2px);
+  height: calc(var(--nx-ui-icon) - 2px);
   flex-shrink: 0;
   background-color: currentcolor;
   mask-image: url("/img/icons/s2-icon-copy-20-n.svg");
@@ -377,7 +377,7 @@
 }
 
 .ui-artifact-pe-modal-context-title {
-  font-size: var(--s2-body-size-m);
+  font-size: var(--nx-ui-text-title);
   font-weight: bold;
   color: var(--s2-gray-900);
   margin: var(--s2-spacing-400) 0 var(--s2-spacing-200);
@@ -394,13 +394,13 @@
   background: var(--s2-gray-100);
   border-radius: var(--s2-corner-radius-100);
   padding: var(--s2-spacing-50) 10px;
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--nx-ui-text-caption);
   color: var(--s2-gray-800);
   margin-bottom: var(--s2-spacing-200);
 }
 
 .ui-artifact-pe-modal-context-desc {
-  font-size: var(--s2-body-size-s);
+  font-size: var(--nx-ui-text-content);
   line-height: 1.6;
   color: var(--s2-gray-800);
   margin: 0;
@@ -441,8 +441,8 @@
   &::after {
     content: "";
     display: block;
-    width: 16px;
-    height: 16px;
+    width: calc(var(--nx-ui-icon) - 2px);
+    height: calc(var(--nx-ui-icon) - 2px);
     background-color: currentcolor;
     mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
     mask-size: contain;
@@ -460,7 +460,7 @@
 }
 
 .ui-artifact-pe-modal-paging-label {
-  font-size: 13px;
+  font-size: var(--nx-ui-text-description);
   font-weight: bold;
   color: var(--s2-gray-800);
 }

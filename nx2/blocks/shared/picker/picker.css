@@ -14,11 +14,9 @@
   padding: var(--s2-spacing-75) var(--s2-spacing-100) var(--s2-spacing-50);
   margin: 0;
   list-style: none;
-  font-size: var(--s2-component-s-bold-font-size);
-  line-height: var(--s2-component-s-bold-line-height);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--nx-picker-section-color, var(--s2-gray-700));
+  font-size: var(--s2-component-xs-regular-font-size);
+  line-height: var(--s2-component-xs-regular-line-height);
+  color: var(--nx-picker-section-color, light-dark(var(--s2-gray-600), var(--s2-gray-700)));
   text-transform: none;
 }
 
@@ -149,8 +147,9 @@
 
 :host([size="m"]) {
   .picker-section {
-    font-size: var(--nx-picker-section-font-size, var(--s2-component-m-bold-font-size));
-    line-height: var(--nx-picker-section-line-height, var(--s2-component-m-bold-line-height));
+    padding-bottom: var(--s2-spacing-75);
+    font-size: var(--s2-component-s-regular-font-size);
+    line-height: var(--s2-component-s-regular-line-height);
   }
 
   .picker-trigger {
@@ -161,6 +160,10 @@
   .picker-item {
     font-size: var(--s2-component-m-regular-font-size);
     line-height: var(--s2-component-m-regular-line-height);
+  }
+
+  .picker-divider {
+    margin-inline: var(--s2-spacing-100);
   }
 
   .picker-open-in-icon,

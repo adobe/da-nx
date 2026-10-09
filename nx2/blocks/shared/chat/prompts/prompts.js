@@ -11,6 +11,7 @@ const ALL_CATEGORY = 'all';
 class NxPrompts extends LitElement {
   static properties = {
     prompts: { attribute: false },
+    size: { type: String, reflect: true },
     _search: { state: true },
     _category: { state: true },
   };
@@ -103,7 +104,7 @@ class NxPrompts extends LitElement {
           <svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-close-20-n.svg#icon"></use></svg>
         </button>
         <nx-picker
-          size="m"
+          size=${this.size}
           .items=${this._categories}
           .value=${this._category}
           placement="below-end"

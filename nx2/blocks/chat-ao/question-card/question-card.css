@@ -35,7 +35,7 @@
 
 .question-context {
   margin: 0;
-  font-size: var(--s2-component-s-regular-font-size);
+  font-size: var(--nx-ui-text-caption);
   color: var(--s2-gray-500);
 }
 
@@ -51,13 +51,13 @@
 .question-header {
   padding: 0;
   font-weight: var(--s2-component-m-bold-font-weight);
-  font-size: var(--s2-component-m-regular-font-size);
+  font-size: var(--nx-ui-text-content);
   color: var(--s2-gray-800);
 }
 
 .question-text {
   margin: 0;
-  font-size: var(--s2-body-size-s);
+  font-size: var(--nx-ui-text-content);
   color: var(--s2-gray-800);
 }
 
@@ -77,7 +77,7 @@
   width:100%;
   background-color: var(--s2-gray-25);
   cursor: pointer;
-  font-size: var(--s2-component-m-regular-font-size);
+  font-size: var(--nx-ui-text-content);
 
   &:hover, &:has(input:checked) {
     background-color: var(--s2-gray-75);
@@ -118,14 +118,14 @@
 }
 
 .question-option-desc {
-  font-size: var(--s2-component-s-regular-font-size);
+  font-size: var(--nx-ui-text-caption);
   color: var(--s2-gray-600);
 }
 
 .question-other-input {
   width: 100%;
   font-family: inherit;
-  font-size: var(--s2-component-m-regular-font-size);
+  font-size: var(--nx-ui-text-content);
   color: var(--s2-gray-900);
   padding: 0;
   border: none;

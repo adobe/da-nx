@@ -2,7 +2,7 @@
   display: block;
   box-sizing: border-box;
   font-family: var(--s2-font-family);
-  font-size: var(--s2-body-size-s);
+  font-size: var(--nx-ui-text-content);
   color: var(--s2-gray-800);
 }
 
@@ -101,8 +101,8 @@ nx-popover.deploy-popover {
 }
 
 .deploy-glyph {
-  width: 16px;
-  height: 16px;
+  width: calc(var(--nx-ui-icon) - 2px);
+  height: calc(var(--nx-ui-icon) - 2px);
   fill: currentcolor;
 }
 
@@ -167,13 +167,13 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card-title {
-  font-size: var(--s2-component-m-bold-font-size);
+  font-size: var(--nx-ui-text-content);
   font-weight: var(--s2-component-m-bold-font-weight);
   color: var(--s2-gray-900, #131313);
 }
 
 .deploy-card-sub {
-  font-size: var(--s2-component-s-regular-font-size);
+  font-size: var(--nx-ui-text-caption);
   color: var(--s2-gray-700, #464646);
 }
 
@@ -183,8 +183,8 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card-check .deploy-glyph {
-  width: 24px;
-  height: 24px;
+  width: calc(var(--nx-ui-icon) + 4px);
+  height: calc(var(--nx-ui-icon) + 4px);
 }
 
 .deploy-card-preview .deploy-card-check {
@@ -218,7 +218,7 @@ nx-popover.deploy-popover {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: var(--s2-component-s-regular-font-size);
+  font-size: var(--nx-ui-text-caption);
   color: var(--s2-gray-800, #292929);
 }
 
@@ -238,8 +238,8 @@ nx-popover.deploy-popover {
 }
 
 .deploy-copy .deploy-glyph {
-  width: 18px;
-  height: 18px;
+  width: var(--nx-ui-icon);
+  height: var(--nx-ui-icon);
 }
 
 .deploy-copy:hover {
@@ -256,7 +256,7 @@ nx-popover.deploy-popover {
   height: 32px;
   margin-top: 2px;
   border-radius: 8px;
-  font-size: var(--s2-component-m-bold-font-size);
+  font-size: var(--nx-ui-text-content);
   font-weight: var(--s2-component-m-bold-font-weight);
 }
 
@@ -268,3 +268,19 @@ nx-popover.deploy-popover {
   background: #0fa25b;
 }
 
+
+.nx-action-btn-icon.prepare-dropdown-btn {
+  width: var(--nx-ui-icon-btn-size);
+  height: var(--nx-ui-icon-btn-size);
+  padding: 0;
+
+  svg {
+    width: var(--nx-ui-icon);
+    height: var(--nx-ui-icon);
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--nx-ui-icon-btn-hover-bg);
+    color: var(--nx-ui-icon-btn-hover-color);
+  }
+}
