@@ -34,13 +34,12 @@ class NxMarketplace extends LitElement {
     this._loadCardExtras(result.items);
   }
 
-  // Non-critical card decorations are loaded only when an item needs them.
   _loadCardExtras(items) {
     if (items.some(({ type }) => type)) import('../shared/pills/pills.js');
     if (items.some(isAdobeOwned)) {
       loadHrefSvg(ADOBE_LOGO_HREF)
         .then((svg) => { this._adobeLogo = svg; })
-        .catch(() => { /* card renders without the logo */ });
+        .catch(() => {});
     }
   }
 
@@ -128,7 +127,6 @@ class NxMarketplace extends LitElement {
 customElements.define('nx-marketplace', NxMarketplace);
 
 export default function init(el) {
-  // Let cards flow into the section's grid (set via section metadata, e.g. grid-4).
   el.style.display = 'contents';
   el.replaceChildren(document.createElement('nx-marketplace'));
 }
