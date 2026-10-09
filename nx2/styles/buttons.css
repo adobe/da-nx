@@ -190,6 +190,12 @@ button {
   &:hover:not(:disabled)::before {
     opacity: 0.95;
   }
+
+  /* Repeated class bumps specificity above the shared 18px default and the .nx-btn-sm 16px rule. */
+  &.nx-btn-ai svg {
+    width: 16px;
+    height: 16px;
+  }
 }
 
 .nx-action-btn-quiet, .nx-action-btn-icon  {
