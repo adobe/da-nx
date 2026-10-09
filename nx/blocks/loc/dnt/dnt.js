@@ -86,10 +86,6 @@ const addDntWrapper = (root, dntContent) => {
   });
 };
 
-const findAndAddDntWrapper = (document, dntContent) => {
-  addDntWrapper(document, dntContent);
-};
-
 const unwrapDntContent = (document) => {
   document.querySelectorAll('.dnt-text').forEach((dntSpan) => {
     const spanParent = dntSpan.parentNode;
@@ -123,7 +119,7 @@ const addDntInfoToHtml = (html, dntRules) => {
   });
 
   dntRules.contentRules.forEach((dntContent) => {
-    findAndAddDntWrapper(document, dntContent);
+    addDntWrapper(document.body, dntContent);
   });
 
   DNT_ELEMENTS.forEach((dntElement) => {

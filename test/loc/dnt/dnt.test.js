@@ -330,6 +330,13 @@ describe('content rules', () => {
     expect(result).to.equal(html);
   });
 
+  it('does not wrap content outside the body', async () => {
+    const html = '<html><head><title>Example Product</title></head><body><main><p>Example Product</p></main></body></html>';
+    const result = await addDnt(html, configFor('Example Product'));
+
+    expect(result).to.equal('<html><head><title>Example Product</title></head><body><main><p><span class="dnt-text" translate="no">Example Product</span></p></main></body></html>');
+  });
+
   it('ignores empty content rules', async () => {
     const html = '<html><head></head><body><main><p>Example Product</p></main></body></html>';
     const result = await addDnt(html, configFor(''));
