@@ -111,9 +111,10 @@ button {
   font-size: var(--s2-component-xs-medium-font-size);
 }
 
-/* Ports @react-spectrum/ai's real AIButton recipe (confirmed via its compiled CSS):
-   a blurred, hue-rotated bar inset from the pill edges (not a fixed-height bar, it
-   runs from --nx-ai-fill-y to the bottom), topped with a glossy inset-shadow highlight. */
+/* Temporary hand-port of @react-spectrum/ai's AIButton recipe (confirmed via its
+   compiled CSS): a blurred, hue-rotated bar inset from the pill edges, topped with
+   a glossy inset-shadow highlight. Swap for Spectrum Web Components' AI Toolkit
+   button once released (framework-agnostic, confirmed in progress per Spectrum team). */
 .nx-btn-ai {
   --nx-ai-brand: oklch(73.58% 0.2376 322.4deg);
   --nx-ai-fill-x: 2px;
