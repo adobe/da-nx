@@ -30,7 +30,7 @@ describe('normalizeItem', () => {
       docHref: 'https://github.com/adobe-rnd/aem-apps/tree/main/tools/apps/msm',
       tryHref: 'https://da.live/app/x/msm',
       owner: 'Adobe',
-      types: ['App', 'Plugin'],
+      type: 'App & Plugin',
       imageHref: 'https://example.com/t.png',
     });
   });
@@ -91,12 +91,12 @@ describe('normalizeItem', () => {
     const result = normalizeItem({ row, origin });
     expect(result.description).to.equal('');
     expect(result.owner).to.equal('');
-    expect(result.types).to.deep.equal([]);
+    expect(result.type).to.equal('');
   });
 
-  it('splits single type', () => {
-    const row = { Title: 'MSM', 'Doc Url': 'https://da.live/a', Type: 'Plugin' };
-    expect(normalizeItem({ row, origin }).types).to.deep.equal(['Plugin']);
+  it('keeps the type text as written, trimmed', () => {
+    const row = { Title: 'MSM', 'Doc Url': 'https://da.live/a', Type: '  App & Plugin ' };
+    expect(normalizeItem({ row, origin }).type).to.equal('App & Plugin');
   });
 });
 

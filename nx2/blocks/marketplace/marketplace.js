@@ -36,7 +36,7 @@ class NxMarketplace extends LitElement {
 
   // Non-critical card decorations are loaded only when an item needs them.
   _loadCardExtras(items) {
-    if (items.some(({ types }) => types.length)) import('../shared/pills/pills.js');
+    if (items.some(({ type }) => type)) import('../shared/pills/pills.js');
     if (items.some(isAdobeOwned)) {
       loadHrefSvg(ADOBE_LOGO_HREF)
         .then((svg) => { this._adobeLogo = svg; })
@@ -45,10 +45,9 @@ class NxMarketplace extends LitElement {
   }
 
   _renderMedia(item) {
-    const { types, imageHref } = item;
+    const { type, imageHref } = item;
     const showImage = imageHref && !this._failedImageHrefs.has(imageHref);
     const showLogo = this._adobeLogo && isAdobeOwned(item);
-    const typePills = types.map((type) => ({ id: type, label: type, removable: false }));
 
     return html`
       <div class="media">
@@ -60,7 +59,7 @@ class NxMarketplace extends LitElement {
           @error=${() => this._onImageError(imageHref)}
         />`
     : html`<div class="placeholder"></div>`}
-        ${types.length ? html`<nx-pills .label=${'Type'} .items=${typePills}></nx-pills>` : nothing}
+        ${type ? html`<nx-pills .label=${'Type'} .items=${[{ id: type, label: type, removable: false }]}></nx-pills>` : nothing}
         ${showLogo ? html`<span class="adobe-logo" role="img" aria-label="Adobe" title="Adobe">
           ${this._adobeLogo.cloneNode(true)}
         </span>` : nothing}

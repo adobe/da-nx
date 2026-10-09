@@ -24,11 +24,11 @@ Lit web component plus companion util, following nx2 conventions (`ew-actions`, 
 ### `nx2/blocks/marketplace/marketplace-utils.js` (pure, no DOM)
 
 - `MARKETPLACE_PATH = '/apps/marketplace.json'`
-- `normalizeItem({ row, origin })` → `{ title, description, docHref, tryHref, types, imageHref } | null`
+- `normalizeItem({ row, origin })` → `{ title, description, docHref, tryHref, owner, type, imageHref } | null`
   - Returns `null` when `Title` is blank or both `Doc Url` and `Try Url` are missing/unsafe.
   - `docHref` / `tryHref`: `Doc Url` / `Try Url` resolved against `origin`; `undefined` unless protocol is `http:` or `https:`.
   - `imageHref`: `Image` resolved against `origin` when non-empty and `http(s)`; otherwise `undefined`.
-  - `types`: `Type` split on `&`, trimmed, empty entries removed (`"App & Plugin"` → `['App', 'Plugin']`).
+  - `type`: `Type` trimmed, kept as written (`"App & Plugin"` is one value).
   - `description`: trimmed `Description` or `''`.
 - `fetchMarketplace({ origin })` → `{ items }` on success, `{ error, status }` on failure.
   - `fetch(new URL(MARKETPLACE_PATH, origin))`.
@@ -51,7 +51,7 @@ Lit web component plus companion util, following nx2 conventions (`ew-actions`, 
 - Card template (Lit templating escapes all values):
   - Image area: `<img loading="lazy" src=imageHref alt="">` or a neutral placeholder `div`.
   - `<h3>` title, `<p>` description.
-  - Badges: one `<span class="badge">` per entry in `types`.
+  - Type: one read-only `nx-pills` pill with the `Type` text, on the thumbnail's top-right corner.
   - Actions: `<a class="cta cta-primary" … aria-label="Learn more about {title}">Learn more</a>` and `<a class="cta cta-secondary" … aria-label="Try out {title}">Try out</a>`, both `target="_blank" rel="noopener noreferrer"`.
 
 ### `nx2/blocks/marketplace/marketplace.css`

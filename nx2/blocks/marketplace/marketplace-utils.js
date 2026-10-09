@@ -27,11 +27,11 @@ export function normalizeItem({ row, origin }) {
 
   const description = (row.Description ?? '').trim();
   const owner = (row.Owner ?? '').trim();
-  const types = (row.Type ?? '').split('&').map((type) => type.trim()).filter(Boolean);
+  const type = (row.Type ?? '').trim();
   const imageHref = toSafeHref({ value: row.Image, origin });
 
   return {
-    title, description, docHref, tryHref, owner, types, imageHref,
+    title, description, docHref, tryHref, owner, type, imageHref,
   };
 }
 

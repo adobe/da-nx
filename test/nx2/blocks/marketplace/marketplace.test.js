@@ -86,7 +86,7 @@ describe('nx-marketplace', () => {
     expect(cards[0].querySelector('h3').textContent).to.equal('DA Permissions');
   });
 
-  it('renders type pills as read-only nx-pills', async () => {
+  it('renders the type as a single read-only pill', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         {
@@ -106,8 +106,7 @@ describe('nx-marketplace', () => {
     const pills = cards[0].querySelector('.media nx-pills');
     expect(pills.label).to.equal('Type');
     expect(pills.items.map(({ label, removable }) => ({ label, removable }))).to.deep.equal([
-      { label: 'App', removable: false },
-      { label: 'Plugin', removable: false },
+      { label: 'App & Plugin', removable: false },
     ]);
     expect(cards[1].querySelectorAll('nx-pills').length).to.equal(0);
   });
