@@ -11,6 +11,8 @@ import {
   isHlx6,
   signout,
   fromPath,
+  // eslint-disable-next-line import/named
+  getSourceUrl,
   source,
   versions,
   config,
@@ -1550,6 +1552,33 @@ describe('api.js', () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await jobs.stop({ org: o, site: s, topic: 'preview', name: 'j1' });
       expect(lastCall().method).to.equal('DELETE');
+    });
+  });
+
+  describe('getSourceUrl', () => {
+    it('returns the source bus url on hlx6', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const url = await getSourceUrl({ org: o, site: s, path: '/drafts/page.html' });
+      expect(url).to.equal(`${AEM_API}/${o}/sites/${s}/source/drafts/page.html`);
+    });
+
+    it('returns the da-admin source url on legacy', async () => {
+      const { org: o, site: s } = makeOrgSite();
+      const url = await getSourceUrl({ org: o, site: s, path: '/drafts/page.html' });
+      expect(url).to.equal(`${DA_ADMIN}/source/${o}/${s}/drafts/page.html`);
+    });
+
+    it('accepts the path-string form', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const url = await getSourceUrl(`/${o}/${s}/index.html`);
+      expect(url).to.equal(`${AEM_API}/${o}/sites/${s}/source/index.html`);
+    });
+
+    it('builds the url without requesting the document', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      await getSourceUrl({ org: o, site: s, path: '/page.html' });
+      expect(callsTo(AEM_API)).to.have.lengthOf(0);
+      expect(callsTo(DA_ADMIN)).to.have.lengthOf(0);
     });
   });
 
