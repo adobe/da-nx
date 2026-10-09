@@ -119,13 +119,13 @@ export async function saveStatus(json) {
 // the same destination path don't fire duplicate POSTs causing R2 412 audit conflicts.
 const versionSaving = new Set();
 
-async function saveVersion(path, label) {
+async function saveVersion(path, label, getAccessToken) {
   if (versionSaving.has(path)) return;
   versionSaving.add(path);
   try {
     const opts = { method: 'POST' };
     if (label) opts.body = JSON.stringify({ label });
-    await daFetch({ url: `${DA_ADMIN}/versionsource${path}`, opts });
+    await daFetch({ url: `${DA_ADMIN}/versionsource${path}`, opts, getAccessToken });
   } finally {
     versionSaving.delete(path);
   }
@@ -144,9 +144,9 @@ function collapseInnerTextSpaces(html) {
   });
 }
 
-const getHtml = async (path, html) => {
+const getHtml = async (path, html, getAccessToken) => {
   const fetchHtml = async () => {
-    const res = await daFetch({ url: `${DA_ADMIN}/source${path}` });
+    const res = await daFetch({ url: `${DA_ADMIN}/source${path}`, getAccessToken });
     if (!res.ok) return null;
     const str = await res.text();
     return str;
@@ -194,13 +194,17 @@ function replaceHtml(text, fromOrg, fromRepo, options = {}) {
   `;
 }
 
-function saveHtml(url, content, { daMetadata = {}, replaceRelative = false } = {}) {
+function saveHtml(url, content, {
+  daMetadata = {}, replaceRelative = false, getAccessToken,
+} = {}) {
   const { org, repo, pathname } = getDaUrl(url);
   const body = replaceHtml(content, org, repo, { daMetadata, replaceRelative });
-  return daSource.save({ org, site: repo, path: `${pathname}.html`, body });
+  return daSource.save({
+    org, site: repo, path: `${pathname}.html`, body, getAccessToken,
+  });
 }
 
-export async function overwriteCopy(url, title) {
+export async function overwriteCopy(url, title, { getAccessToken } = {}) {
   let resp;
   if (url.sourceContent) {
     const type = url.destination.includes('.json') ? 'application/json' : 'text/html';
@@ -210,15 +214,17 @@ export async function overwriteCopy(url, title) {
       body: new FormData(),
     };
     opts.body.append('data', blob);
-    resp = await daFetch({ url: `${DA_ADMIN}/source${url.destination}`, opts });
+    resp = await daFetch({ url: `${DA_ADMIN}/source${url.destination}`, opts, getAccessToken });
   } else {
-    const srcHtml = await getHtml(url.source);
+    const srcHtml = await getHtml(url.source, null, getAccessToken);
     if (srcHtml) {
       removeLocTags(srcHtml);
       const daMetadata = getElementMetadata(srcHtml.querySelector(DA_METADATA_SELECTOR));
       delete daMetadata?.acceptedhashes;
       delete daMetadata?.rejectedhashes;
-      resp = await saveHtml(url, srcHtml.querySelector('main').innerHTML, { daMetadata });
+      resp = await saveHtml(url, srcHtml.querySelector('main').innerHTML, {
+        daMetadata, getAccessToken,
+      });
     }
   }
 
@@ -229,7 +235,7 @@ export async function overwriteCopy(url, title) {
 
   url.status = 'success';
   if (shouldSaveVersion(url)) {
-    saveVersion(url.destination, `${title} - Rolled Out`);
+    saveVersion(url.destination, `${title} - Rolled Out`, getAccessToken);
   }
   return resp;
 }
@@ -243,17 +249,19 @@ function getPreviousHashes(metadata) {
 export async function rolloutCopy(
   url,
   projectTitle,
-  { labelLocal = null, labelUpstream = null } = {},
+  {
+    labelLocal = null, labelUpstream = null, getAccessToken,
+  } = {},
 ) {
   // if the regional folder has content that differs from langstore,
   // then a regional diff needs to be done
   try {
-    const regionalCopy = await getHtml(url.destination);
+    const regionalCopy = await getHtml(url.destination, null, getAccessToken);
     if (!regionalCopy) {
       throw new Error('No regional content or error fetching');
     }
 
-    const langstoreCopy = await getHtml(url.source);
+    const langstoreCopy = await getHtml(url.source, null, getAccessToken);
     if (!langstoreCopy) {
       throw new Error('No langstore content or error fetching');
     }
@@ -272,13 +280,20 @@ export async function rolloutCopy(
     const { acceptedHashes, rejectedHashes } = getPreviousHashes(daMetadata);
 
     // There are differences, upload the diffed regional file
-    const diffed = await regionalDiff(langstoreCopy, regionalCopy, acceptedHashes, rejectedHashes);
+    const { org, repo } = getDaUrl(url);
+    const diffed = await regionalDiff(
+      langstoreCopy,
+      regionalCopy,
+      acceptedHashes,
+      rejectedHashes,
+      { org, site: repo, getAccessToken },
+    );
 
     if (labelLocal) daMetadata['diff-label-local'] = labelLocal;
     if (labelUpstream) daMetadata['diff-label-upstream'] = labelUpstream;
 
     return new Promise((resolve) => {
-      const savePromise = saveHtml(url, diffed.innerHTML, { daMetadata });
+      const savePromise = saveHtml(url, diffed.innerHTML, { daMetadata, getAccessToken });
 
       const timedout = setTimeout(() => {
         url.status = 'timeout';
@@ -289,7 +304,7 @@ export async function rolloutCopy(
         clearTimeout(timedout);
         url.status = daResp.ok ? 'success' : 'error';
         if (daResp.ok) {
-          saveVersion(url.destination, `${projectTitle} - Rolled Out`);
+          saveVersion(url.destination, `${projectTitle} - Rolled Out`, getAccessToken);
         }
         resolve();
       }).catch(() => {
@@ -299,25 +314,27 @@ export async function rolloutCopy(
       });
     });
   } catch (e) {
-    return overwriteCopy(url, projectTitle);
+    return overwriteCopy(url, projectTitle, { getAccessToken });
   }
 }
 
 export async function mergeCopy(
   url,
   projectTitle,
-  { labelLocal = null, labelUpstream = null } = {},
+  {
+    labelLocal = null, labelUpstream = null, getAccessToken,
+  } = {},
 ) {
   try {
-    const regionalCopy = await getHtml(url.destination);
+    const regionalCopy = await getHtml(url.destination, null, getAccessToken);
     const regionalMain = regionalCopy?.querySelector('body > main').innerHTML;
     if (!regionalCopy || regionalMain === '' || regionalMain === '<div></div>') {
       throw new Error('No regional content or error fetching');
     }
 
     const langstoreCopy = url.sourceContent
-      ? await getHtml(null, url.sourceContent)
-      : await getHtml(url.source);
+      ? await getHtml(null, url.sourceContent, getAccessToken)
+      : await getHtml(url.source, null, getAccessToken);
     if (!langstoreCopy) throw new Error('No langstore content or error fetching');
 
     removeLocTags(regionalCopy);
@@ -334,25 +351,28 @@ export async function mergeCopy(
     const { acceptedHashes, rejectedHashes } = getPreviousHashes(daMetadata);
 
     // There are differences, upload the annotated loc file
+    const { org, repo } = getDaUrl(url);
     const diffed = await regionalDiff(
       langstoreCopy,
       regionalCopy,
       acceptedHashes,
       rejectedHashes,
-      { normalizeImages: url.normalizeImages },
+      {
+        normalizeImages: url.normalizeImages, org, site: repo, getAccessToken,
+      },
     );
 
     if (labelLocal) daMetadata['diff-label-local'] = labelLocal;
     if (labelUpstream) daMetadata['diff-label-upstream'] = labelUpstream;
 
-    const daResp = await saveHtml(url, diffed.innerHTML, { daMetadata });
+    const daResp = await saveHtml(url, diffed.innerHTML, { daMetadata, getAccessToken });
     if (daResp.ok) {
       url.status = 'success';
-      saveVersion(url.destination, `${projectTitle} - Rolled Out`);
+      saveVersion(url.destination, `${projectTitle} - Rolled Out`, getAccessToken);
     }
     return daResp;
   } catch (e) {
-    return overwriteCopy(url, projectTitle);
+    return overwriteCopy(url, projectTitle, { getAccessToken });
   }
 }
 
