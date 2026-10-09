@@ -34,6 +34,20 @@ Selecting a card reveals that environment's delivery URL with a copy-to-clipboar
 
 Timestamps use `formatRelativeDateTime` (`nx2/utils/format.js`) — "Today at 14:32" / "Yesterday at 14:32", falling back to a short date ("17 Jun, 16:02").
 
+## Selected branch
+
+The opened and copied URLs in the "Send" modal follow the selected site branch. The branch is resolved by `fetchWysiwygBranch` (`nx2/utils/aem-preview-publish.js`):
+
+1. The `?ref=<branch>` URL param, if present.
+2. Otherwise the longest-prefix match of the `ew.wysiwygBranch` config rows (value `/org/site/prefix=branch`); site config rows win over org config rows on equal prefixes. Prefixes match complete path segments: `/docs` matches `/docs` and `/docs/page`, but not `/docs-archive`. A trailing slash on a prefix is optional.
+3. Otherwise `main`. Config responses with an explicit HTTP error are logged and excluded, so a valid org config still applies if the site config is unavailable.
+
+Multi-sheet configs are read in the order declared by `:names`, independent of JSON key insertion order, including the metadata-first shape produced by `object2sheet`.
+
+`fetchWysiwygBranch` and the config helpers it uses (`fetchDaConfigs`, `getFirstSheet` in `nx2/utils/daConfig.js`) originated in da-live. This implementation additionally enforces path-segment boundaries and does not cache failed config fetches. Unexpected network or JSON parsing failures are propagated and logged rather than silently selecting `main`; a deploy awaiting that branch resolution shows an error dialog instead of proceeding.
+
+For a non-`main` branch the URLs are `https://{branch}--{site}--{org}.aem.page|live{webPath}`; for `main` they use the site's configured preview/production hosts. A `preview-url` / `live-url` meta template still takes precedence for the URL opened after a deploy.
+
 ## Deploy flow
 
 On confirm, the control:

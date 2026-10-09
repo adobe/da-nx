@@ -3,6 +3,9 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import {
   buildAemPathFromHashState,
+  fetchWysiwygBranch,
+  getAemBranch,
+  getAemBranchHref,
   requestAemRole,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
@@ -80,6 +83,7 @@ class NXEwActions extends LitElement {
     _hasError: { state: true },
     _hashState: { state: true },
     _hidePublish: { state: true },
+    _branch: { state: true },
     _prepareReady: { state: true },
     _enforcePreflight: { state: true },
     _preflightPassed: { state: true },
@@ -234,7 +238,17 @@ class NXEwActions extends LitElement {
   _env(kind) {
     const env = this._status?.[kind];
     if (!env) return { ok: false, url: null, time: null };
-    return { ok: env.status === 200, url: env.url || null, time: env.lastModified || null };
+    const branchUrl = getAemBranchHref({
+      aemPath: buildAemPathFromHashState(this._hashState),
+      branch: this._branch,
+      tier: kind,
+      webPath: this._status.webPath,
+    });
+    return {
+      ok: env.status === 200,
+      url: (env.url && branchUrl) || env.url || null,
+      time: env.lastModified || null,
+    };
   }
 
   get _previewInfo() { return this._env('preview'); }
@@ -292,7 +306,25 @@ class NXEwActions extends LitElement {
 
   update(changed) {
     super.update(changed);
-    if (changed.has('_hashState') && this._hashState) this._updateHidePublish();
+    if (changed.has('_hashState') && this._hashState) {
+      this._updateHidePublish();
+      this._updateBranch();
+    }
+  }
+
+  _updateBranch() {
+    this._branch = null;
+    const { org, site, fullpath } = this._hashState || {};
+    const path = fullpath?.slice(1);
+    const pending = fetchWysiwygBranch({ org, site, path }).then((raw) => {
+      const branch = getAemBranch(raw);
+      if (this._branchPromise === pending) this._branch = branch;
+      return branch;
+    });
+    this._branchPromise = pending;
+    pending.catch(() => {
+      // Handle early rejection; _runAemAction surfaces the error from the original promise.
+    });
   }
 
   async _updateHidePublish() {
@@ -366,7 +398,14 @@ class NXEwActions extends LitElement {
       }
     }
 
-    const result = await runAemPreviewOrPublish({ aemPath, action });
+    let branch;
+    try {
+      branch = (await this._branchPromise) ?? null;
+    } catch {
+      await this._showActionError(action, 'Unable to resolve the preview branch. Please retry or reload the editor.');
+      return;
+    }
+    const result = await runAemPreviewOrPublish({ aemPath, action, branch });
     if (!result.ok) {
       await Promise.all([
         import('../shared/dialog/dialog.js'),

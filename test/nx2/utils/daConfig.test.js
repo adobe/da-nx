@@ -1,9 +1,11 @@
 import { expect } from '@esm-bundle/chai';
-import { AEM_API, DA_ADMIN, HLX_ADMIN } from '../../../nx2/utils/utils.js';
+import {
+  AEM_API, DA_ADMIN, HLX_ADMIN, object2sheet,
+} from '../../../nx2/utils/utils.js';
 import {
   calls, installFetch, restoreFetch, lastCall,
 } from '../../../nx2/test/mocks/fetch.js';
-import { getFirstSheet, fetchDaConfigs } from '../../../nx2/utils/daConfig.js';
+import { getFirstSheet, getSheetByIndex, fetchDaConfigs } from '../../../nx2/utils/daConfig.js';
 
 // fetchDaConfigs memoizes per `/{org}` and `/{org}/{site}` key for the
 // lifetime of the module, so every test uses a fresh org/site pair to avoid
@@ -24,10 +26,31 @@ describe('getFirstSheet', () => {
     const json = {
       ':type': 'multi-sheet',
       ':names': ['flags', 'prompts'],
+      ':version': 3,
       flags: { data: [{ key: 'a' }] },
       prompts: { data: [{ title: 'hi' }] },
     };
     expect(getFirstSheet(json)).to.deep.equal([{ key: 'a' }]);
+  });
+
+  it('reads object2sheet output with metadata keys first', () => {
+    const rows = [{ key: 'ew.wysiwygBranch', value: '/org/site=develop' }];
+    const json = object2sheet({ config: rows, flags: [] });
+    expect(Object.keys(json).slice(0, 2)).to.deep.equal([':type', ':names']);
+    expect(getFirstSheet(json)).to.deep.equal(rows);
+    expect(getSheetByIndex(json, 1)).to.deep.equal([]);
+  });
+
+  it('uses the declared sheet order rather than the object key order', () => {
+    const json = {
+      ':type': 'multi-sheet',
+      ':names': ['config', 'flags'],
+      flags: { data: [{ key: 'flag' }] },
+      config: { data: [{ key: 'config' }] },
+    };
+    expect(getFirstSheet(json)).to.deep.equal([{ key: 'config' }]);
+    expect(getSheetByIndex(json, 1)).to.deep.equal([{ key: 'flag' }]);
+    expect(getSheetByIndex(json, 2)).to.equal(undefined);
   });
 });
 
@@ -104,5 +127,34 @@ describe('fetchDaConfigs', () => {
     expect(siteConfig[':type']).to.equal('sheet');
     expect(siteConfig[':sheetname']).to.equal('flags');
     expect(siteConfig.data).to.deep.equal([{ key: 'ew.enabled', value: 'true' }]);
+  });
+
+  it('hlx6: reads the primary config sheet after multi-sheet conversion', async () => {
+    const org = uniq('multi-sheet-org');
+    const site = uniq('multi-sheet-site');
+    const rows = [{ key: 'ew.wysiwygBranch', value: `/${org}/${site}=develop` }];
+    installFetch({ pingHlx6: true, body: JSON.stringify({ config: rows, flags: [] }) });
+
+    const [, siteConfig] = await Promise.all(fetchDaConfigs({ org, site }));
+
+    expect(Object.keys(siteConfig).slice(0, 2)).to.deep.equal([':type', ':names']);
+    expect(getFirstSheet(siteConfig)).to.deep.equal(rows);
+  });
+
+  it('evicts rejected config promises so a later call retries', async () => {
+    const org = uniq('retry-org');
+    installFetch({ body: '{invalid json' });
+    let error;
+    try {
+      await Promise.all(fetchDaConfigs({ org }));
+    } catch (e) {
+      error = e;
+    }
+    expect(error).to.be.instanceOf(SyntaxError);
+
+    restoreFetch();
+    installFetch({ body: JSON.stringify({ data: [{ key: 'retried' }] }) });
+    const [retried] = await Promise.all(fetchDaConfigs({ org }));
+    expect(getFirstSheet(retried)).to.deep.equal([{ key: 'retried' }]);
   });
 });
