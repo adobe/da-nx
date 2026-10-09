@@ -15,7 +15,7 @@ const TOKEN_BUFFER = 300000; // 5 min buffer before expiry
  * @param {string} org - The DA org.
  * @param {string} site - The DA site.
  * @param {string} env - The environment key (e.g. 'prod').
- * @returns {string} The localStorage key.
+ * @returns {string} The sessionStorage key.
  */
 function tokenKey(name, org, site, env) {
   return `${name}.${org}.${site}.${env}.token`;
@@ -153,8 +153,8 @@ export async function hasImsSession() {
 /**
  * Resolves the current IMS access token, mirroring how `daFetch` authenticates calls to
  * DA_TRANSLATE elsewhere (e.g. the Google connector). Connectors whose DA_TRANSLATE proxy
- * requires IMS auth (e.g. GlobalLink) use this instead of building their own IMS session
- * handling. Triggers the sign-in flow if no IMS session is available.
+ * requires IMS auth (e.g. GlobalLink, DeepL) use this instead of building their own IMS
+ * session handling. Triggers the sign-in flow if no IMS session is available.
  * @returns {Promise<string|null>} The token, or `null` if no IMS session is available.
  */
 export async function imsAccessToken() {
