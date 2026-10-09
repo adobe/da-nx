@@ -1,10 +1,12 @@
 import { expect } from '@esm-bundle/chai';
 import init from '../../../../nx2/blocks/marketplace/marketplace.js';
+import { MARKETPLACE_PATH } from '../../../../nx2/blocks/marketplace/marketplace-utils.js';
 
 function installFetch(handler) {
   const origFetch = window.fetch;
   window.fetch = async (url, opts) => {
-    if (String(url).includes('/apps/marketplace.json')) return handler(url, opts);
+    const { pathname } = new URL(String(url), window.location.origin);
+    if (pathname === MARKETPLACE_PATH) return handler(url, opts);
     return origFetch(url, opts);
   };
   return () => { window.fetch = origFetch; };

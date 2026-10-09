@@ -6,7 +6,7 @@ A new `marketplace` block that showcases DA and Experience Workspace extensions 
 
 ## Requirements
 
-- Data source: fixed, origin-relative path `/apps/marketplace.json` (e.g. `https://main--da-live--adobe.aem.page/apps/marketplace.json`). Public EDS sheet, no auth.
+- Data source: fixed, origin-relative path `/marketplace.json` (e.g. `https://main--da-live--adobe.aem.page/marketplace.json`). Public EDS sheet, no auth.
 - Sheet shape (`:type: "sheet"`): `data[]` rows with `Title`, `Description`, `Doc Url`, `Try Url`, `Status`, `Owner`, `Type`, `Image`, `Date` (`Status`, `Owner`, `Date` not yet rendered).
   - `Image` holds a thumbnail URL (absolute or relative); may be empty.
   - `Type` is `App`, `Plugin`, or `App & Plugin`.
@@ -23,7 +23,7 @@ Lit web component plus companion util, following nx2 conventions (`ew-actions`, 
 
 ### `nx2/blocks/marketplace/marketplace-utils.js` (pure, no DOM)
 
-- `MARKETPLACE_PATH = '/apps/marketplace.json'`
+- `MARKETPLACE_PATH = '/marketplace.json'`
 - `normalizeItem({ row, origin })` → `{ title, description, docHref, tryHref, owner, type, imageHref } | null`
   - Returns `null` when `Title` is blank or both `Doc Url` and `Try Url` are missing/unsafe.
   - `docHref` / `tryHref`: `Doc Url` / `Try Url` resolved against `origin`; `undefined` unless protocol is `http:` or `https:`.
