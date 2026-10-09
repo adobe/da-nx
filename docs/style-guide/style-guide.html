@@ -318,6 +318,48 @@ button.addEventListener('click', () =&gt; popover.show({ anchor: button }));</co
       </article>
 
       <article class="sg-example">
+        <h3>nx-search — default <a href="https://github.com/adobe/da-nx/blob/main/docs/search.md" target="_blank"
+            rel="noopener">docs →</a></h3>
+        <div class="sg-demo">
+          <nx-search id="demo-search" label="Search files" placeholder="Search files"></nx-search>
+        </div>
+        <pre><code>&lt;nx-search id="demo-search" label="Search files"
+  placeholder="Search files"&gt;&lt;/nx-search&gt;
+
+const field = document.querySelector('#demo-search');
+field.addEventListener('input', (event) =&gt; filter(event.target.value));
+field.addEventListener('search-submit', (event) =&gt; search(event.detail.value));
+// Consumers own debounce and search execution.</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-search — size m</h3>
+        <div class="sg-demo">
+          <nx-search size="m" label="Search files" placeholder="Search files"></nx-search>
+        </div>
+        <pre><code>&lt;nx-search size="m" label="Search files"
+  placeholder="Search files"&gt;&lt;/nx-search&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-search — field</h3>
+        <div class="sg-demo">
+          <nx-search variant="field" label="Search files" placeholder="Search files"></nx-search>
+        </div>
+        <pre><code>&lt;nx-search variant="field" label="Search files"
+  placeholder="Search files"&gt;&lt;/nx-search&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-search — disabled</h3>
+        <div class="sg-demo">
+          <nx-search disabled label="Search files" placeholder="Search files"></nx-search>
+        </div>
+        <pre><code>&lt;nx-search disabled label="Search files"
+  placeholder="Search files"&gt;&lt;/nx-search&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
         <h3>nx-picker — default <a href="https://github.com/adobe/da-nx/blob/main/docs/picker.md" target="_blank"
             rel="noopener">docs →</a></h3>
         <div class="sg-demo sg-picker-container">
@@ -542,6 +584,7 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
       import('/nx2/blocks/shared/dialog/dialog.js'),
       import('/nx2/blocks/shared/popover/popover.js'),
       import('/nx2/blocks/shared/picker/picker.js'),
+      import('/nx2/blocks/shared/search/search.js'),
       import('/nx2/blocks/shared/segmented-btn/segmented.js'),
       import('/nx2/blocks/shared/breadcrumb/breadcrumb.js'),
       import('/nx2/blocks/shared/switch/switch.js'),
