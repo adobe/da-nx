@@ -46,6 +46,16 @@ On confirm, the control:
 
 Errors surface in an [`nx-dialog`](./dialog.md); a `403` offers to request the missing role.
 
+After the auto-version request returns `201`, the control emits a bubbling, composed
+`nx-version-created` event with `{ path }`, the full document path including its extension.
+The event name is exported as `VERSION_EVENT.CREATED` from `nx2/utils/version-events.js`.
+DA Live translates this cross-repo event onto its canvas bus to refresh version history
+without reloading the editor. The path belongs to the document deployed, even if the
+author navigates while the action is running.
+
+Version creation does not block the deploy flow. If it fails, a warning distinguishes
+the missing history version from the successful preview/publish.
+
 ## Unpublished-changes badge
 
 A dot on the Send button flags that previewed content is not yet (fully) live. It shows when the page **has been previewed** (`preview.status === 200`) **and** either:

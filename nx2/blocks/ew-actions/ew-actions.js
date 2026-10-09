@@ -7,6 +7,7 @@ import {
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
 import { versions, status as statusApi } from '../../utils/api.js';
+import { VERSION_EVENT } from '../../utils/version-events.js';
 import { fetchDaConfigs, getFirstSheet } from '../../utils/daConfig.js';
 import { PREFLIGHT_EVENT, newPreflightRequestId } from '../../utils/preflight-events.js';
 import { sidekickCacheBust } from '../../utils/sidekick.js';
@@ -341,6 +342,7 @@ class NXEwActions extends LitElement {
   async _runAemAction(action) {
     const aemPath = buildAemPathFromHashState(this._hashState);
     if (!aemPath || this._busy) return;
+    const versionPath = this._prepareDetails?.fullpath;
 
     this._dialog = undefined;
     this._busy = true;
@@ -357,7 +359,7 @@ class NXEwActions extends LitElement {
     }
 
     if (action === 'publish' && this._enforcePreflight) {
-      const status = await this.requestPreflight(this._prepareDetails?.fullpath);
+      const status = await this.requestPreflight(versionPath);
       if (status !== 'success') {
         await this._showActionError(action, status === undefined
           ? 'Preflight did not finish in time. Please run Preflight again before publishing.'
@@ -382,16 +384,30 @@ class NXEwActions extends LitElement {
     const url = this._resolveOpenUrl(action, aemPath, result.url);
     await sidekickCacheBust(url);
     window.open(url, url);
-    this._saveVersion(action);
+    this._saveVersion({ action, path: versionPath });
     this._busy = false;
   }
 
-  _saveVersion(action) {
-    const fullpath = this._prepareDetails?.fullpath;
-    if (!fullpath) return;
+  async _saveVersion({ action, path }) {
+    if (!path) return;
     const comment = action === 'publish' ? 'Published' : 'Previewed';
-    // eslint-disable-next-line no-console
-    versions.create(fullpath, { comment }).catch(() => console.log(`Error creating auto version (${comment}).`));
+    try {
+      const resp = await versions.create(path, { comment });
+      if (resp.status !== 201) throw new Error(`Version creation failed (${resp.status}).`);
+    } catch {
+      const { showToast } = await import('../shared/toast/toast.js');
+      const result = action === 'publish' ? 'published' : 'previewed';
+      showToast({
+        text: `Page ${result}, but its history version could not be saved. Please try creating a version manually.`,
+        variant: 'warning',
+      });
+      return;
+    }
+    this.dispatchEvent(new CustomEvent(VERSION_EVENT.CREATED, {
+      detail: { path },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   // A page can override the EDS delivery URL with `preview-url` / `live-url`
