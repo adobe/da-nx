@@ -191,6 +191,7 @@ Config documents load through `nx2/utils/daConfig.js`, which caches them per pag
   isSmartCrop,            // Smart Crop selection is on
   approvedOnly,           // the Approved filter is locked on
   insertAsLink,           // insert images as links
+  imageType,              // 'link' | 'editable-link' | null
   mimeRenditionOverrides, // Record<string, string> from aem.asset.mime.renditions
   siteImageModifiers,     // query string from aem.asset.image.modifiers, or null
 }
