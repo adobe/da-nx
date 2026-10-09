@@ -13,7 +13,9 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
-import AoChatController from './ao-controller.js';
+import CoworkerChatController from './coworker-chat-controller.js';
+import CmaChatController from './cma-chat-controller.js';
+import { getCoworkerConfig } from '../../utils/ewFlags.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
   AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES,
@@ -39,6 +41,7 @@ import '../shared/chat/prompts/prompts.js';
 import '../shared/chat/new-chat/new-chat.js';
 import './question-card/question-card.js';
 import { ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
+import { sampleRUM } from '../../deps/rum.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
@@ -81,6 +84,10 @@ export default class NxChatAo extends LitElement {
     this._applyContext(value);
   }
 
+  set harnessConfig(value) {
+    this._applyHarnessConfig(value);
+  }
+
   async setPrompt(text, { autoSend = false } = {}) {
     await this.updateComplete;
     this._sendPrompt(text, { autoSend });
@@ -98,6 +105,14 @@ export default class NxChatAo extends LitElement {
     this._loadConfig();
   }
 
+  _applyHarnessConfig({ key = null, altHarness = false, activationKey = null } = {}) {
+    this._harnessConfigKey = key;
+    this._altHarness = !!altHarness;
+    this._activationKey = activationKey;
+    this._flagsReady = true;
+    this._initController();
+  }
+
   async _loadConfig() {
     const { org, site } = this._context ?? {};
     if (!org || !site) return;
@@ -106,6 +121,54 @@ export default class NxChatAo extends LitElement {
     this._configKey = key;
     const { prompts } = await loadSiteConfig(org, site);
     this._prompts = prompts ?? [];
+    if (this._harnessConfigKey !== key) {
+      // ew.altHarness selects the CMA bridge harness; its value is the
+      // activation key that authorizes/routes the chat socket to the bridge.
+      const { altHarness, activationKey } = await getCoworkerConfig({ org, site });
+      this._applyHarnessConfig({ key, altHarness, activationKey });
+      return;
+    }
+    this._initController();
+  }
+
+  _onControllerUpdate({
+    messages, thinking, streamingText, episodes, episodeId,
+    pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode, staleEpisode,
+  }) {
+    this.messages = streamingText
+      ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
+      : messages;
+    this.thinking = thinking;
+    this.episodes = episodes;
+    this.episodeId = episodeId;
+    this.pendingQuestion = pendingQuestion;
+    this.pendingPlanApproval = pendingPlanApproval;
+    this.pendingPermission = pendingPermission;
+    this.loadingEpisode = loadingEpisode;
+    this.staleEpisode = staleEpisode;
+  }
+
+  // The controller is created once the ew.altHarness flag is known, so the
+  // correct harness subclass (Coworker REST history vs CMA bridge) is chosen up
+  // front. Idempotent; recreates only if the harness actually changes. See
+  // docs/chat-ao-controller-decoupling.md.
+  _initController() {
+    if (!this.isConnected || !this._flagsReady || !this._context?.org || !this._context?.site) {
+      return;
+    }
+    const Controller = this._altHarness ? CmaChatController : CoworkerChatController;
+    if (this._controller instanceof Controller) {
+      this._controller.setActivationKey?.(this._activationKey);
+      return;
+    }
+    this._controller?.destroy();
+    this._controller = new Controller({
+      onUpdate: (state) => this._onControllerUpdate(state),
+      ...(this._altHarness ? { activationKey: this._activationKey } : {}),
+    });
+    if (this._context) this._controller.setContext(this._context);
+    this._controller.loadEpisodes();
+    this._controller.loadSkills();
   }
 
   _closePanel() {
@@ -193,27 +256,7 @@ export default class NxChatAo extends LitElement {
     super.connectedCallback();
     fetchResolvedManifestId();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, artifactStyle];
-    this._controller = new AoChatController({
-      onUpdate: ({
-        messages, thinking, streamingText, episodes, episodeId,
-        pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode, staleEpisode,
-      }) => {
-        this.messages = streamingText
-          ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
-          : messages;
-        this.thinking = thinking;
-        this.episodes = episodes;
-        this.episodeId = episodeId;
-        this.pendingQuestion = pendingQuestion;
-        this.pendingPlanApproval = pendingPlanApproval;
-        this.pendingPermission = pendingPermission;
-        this.loadingEpisode = loadingEpisode;
-        this.staleEpisode = staleEpisode;
-      },
-    });
-    if (this._context) this._controller.setContext(this._context);
-    this._controller.loadEpisodes();
-    this._controller.loadSkills();
+    this._initController();
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
       onDragging: (dragging) => { this._dragging = dragging; },
@@ -312,6 +355,7 @@ export default class NxChatAo extends LitElement {
     const items = pills?.items ?? [];
     const attachments = items.filter((i) => i.dataBase64);
     const context = items.filter((i) => !i.dataBase64);
+    sampleRUM('click', { source: 'chat-submit', target: 'button.chat-send.harness-coworker' });
     this._slashMenu.close();
     this._controller.sendMessage(text, context, attachments);
     input.value = '';
@@ -516,7 +560,7 @@ export default class NxChatAo extends LitElement {
                 ?hidden=${!this._blocked}
                 @click=${this._submit}
               > ${icon('stop')}</button>
-              <button type="submit" class="chat-send nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this._blocked} aria-label="Send">
+              <button type="submit" class="chat-send harness-coworker nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this._blocked} aria-label="Send">
                 ${icon('send')}
               </button>
             </div>

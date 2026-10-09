@@ -483,16 +483,11 @@ export async function getStatusAll({
   const { sendMessage, saveState } = actions;
 
   normalizeAllLanguages(langs, urls);
-  const tasks = langs2Tasks(langs);
-
-  // Filter out complete and canceled
-  const incompleteTasks = Object.values(tasks).filter((task) => {
-    const notAllCancelledOrComplete = task.langs.some((lang) => {
-      const langStatus = lang?.translation?.status;
-      return langStatus !== 'complete' || langStatus !== 'cancelled';
-    });
-    return notAllCancelledOrComplete;
+  const incompleteLangs = langs.filter((lang) => {
+    const langStatus = lang?.translation?.status;
+    return langStatus !== 'complete' && langStatus !== 'cancelled';
   });
+  const incompleteTasks = Object.values(langs2Tasks(incompleteLangs));
 
   if (incompleteTasks.length === 0) {
     sendMessage({ text: 'All languages complete or canceled.' });
@@ -537,7 +532,7 @@ export async function getStatusAll({
     }
 
     for (const subtask of subtasks.json) {
-      const subtaskLang = langs.find((lang) => lang.code === subtask.targetLocale);
+      const subtaskLang = task.langs.find((lang) => lang.code === subtask.targetLocale);
       if (subtaskLang?.translation?.workflowTasks?.[task.name]) {
         const workflowTask = subtaskLang.translation.workflowTasks[task.name];
         const workflowStatus = workflowTask.status;
@@ -562,7 +557,7 @@ export async function getStatusAll({
     sendMessage();
   }
   let hasUpdates = false;
-  for (const lang of langs) {
+  for (const lang of incompleteLangs) {
     if (lang.translation?.workflowTasks) {
       aggregateWorkflowStatus(lang);
       hasUpdates = true;

@@ -34,6 +34,11 @@ class NxPopover extends LitElement {
     requestAnimationFrame(() => { if (!document.hasFocus()) this.close(); });
   };
 
+  // Keep the popover pinned to its anchor when the viewport changes (resize) or
+  // the page/any container scrolls. Without this it stays at its open-time
+  // coordinates and drifts away from the anchor.
+  _onReposition = () => { this.reposition(); };
+
   _onToggle = (e) => {
     if (e.newState === 'closed') this.close();
   };
@@ -145,6 +150,11 @@ class NxPopover extends LitElement {
   }
 
   _addListeners() {
+    // Reposition on viewport changes regardless of dismissal behaviour, so even
+    // persistent popovers follow their anchor. `scroll` is captured so scrolls in
+    // any nested container (not just the window) are caught.
+    window.addEventListener('resize', this._onReposition);
+    document.addEventListener('scroll', this._onReposition, true);
     if (this.persistent) return;
     document.addEventListener('keydown', this._onKeydown);
     document.addEventListener('pointerdown', this._onOutsideClick);
@@ -152,6 +162,8 @@ class NxPopover extends LitElement {
   }
 
   _removeListeners() {
+    window.removeEventListener('resize', this._onReposition);
+    document.removeEventListener('scroll', this._onReposition, true);
     document.removeEventListener('keydown', this._onKeydown);
     document.removeEventListener('pointerdown', this._onOutsideClick);
     window.removeEventListener('blur', this._onWindowBlur);

@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle, hashChange } from '../../utils/utils.js';
+import { hashChange } from '../../utils/utils.js';
+import '../shared/switch/switch.js';
 import {
   isEWEnabledBySite,
   isEWUserEnabled,
@@ -12,8 +13,6 @@ import {
   consumeEwSwitchback,
 } from '../../utils/ewFlags.js';
 
-const style = await loadStyle(import.meta.url);
-
 class NxEditorToggle extends LitElement {
   static properties = {
     _siteEwEnabled: { state: true },
@@ -22,7 +21,6 @@ class NxEditorToggle extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style];
     this._userEnabled = isEWUserEnabled();
     if (this._redirectToCanvasIfNeeded()) return;
     this._maybeShowWelcome();
@@ -91,18 +89,11 @@ class NxEditorToggle extends LitElement {
     const { pathname } = window.location;
     if (!['/edit', '/canvas'].includes(pathname)) return nothing;
     return html`
-      <button
-        type="button"
-        role="switch"
-        aria-checked=${pathname === '/canvas' ? 'true' : 'false'}
-        class="editortoggle-switch"
-        @click=${this._toggle}
-      >
-        <span class="editortoggle-label">New Authoring</span>
-        <span class="editortoggle-track" aria-hidden="true">
-          <span class="editortoggle-handle"></span>
-        </span>
-      </button>
+      <nx-switch
+        label="New Authoring"
+        .checked=${pathname === '/canvas'}
+        @change=${this._toggle}
+      ></nx-switch>
     `;
   }
 }

@@ -65,50 +65,57 @@ dialog.busy = false;
 
 ### Properties / attributes
 
-| Property / attribute | Type      | Default | Description                                                             |
-| -------------------- | --------- | ------- | ----------------------------------------------------------------------- |
-| `title`              | `String`  | —       | Heading text rendered above the body. Omit for a headingless dialog.    |
-| `persistent`         | `Boolean` | `false` | Prevents closing on backdrop click or Escape.                           |
-| `busy`               | `Boolean` | `false` | Inerts the dialog body. Implicitly enables `persistent` behavior.       |
+| Property / attribute | Type      | Default | Description                                                          |
+| -------------------- | --------- | ------- | -------------------------------------------------------------------- |
+| `title`              | `String`  | —       | Heading text rendered above the body. Omit for a headingless dialog. |
+| `persistent`         | `Boolean` | `false` | Prevents closing on backdrop click or Escape.                        |
+| `busy`               | `Boolean` | `false` | Inerts the dialog body. Implicitly enables `persistent` behavior.    |
 
 ### Methods
 
-| Method  | Description                                          |
-| ------- | ---------------------------------------------------- |
-| `close` | Closes the dialog and fires a `close` event.         |
+| Method  | Description                                  |
+| ------- | -------------------------------------------- |
+| `close` | Closes the dialog and fires a `close` event. |
 
 ### Events
 
-| Event   | Description                                            |
-| ------- | ------------------------------------------------------ |
+| Event   | Description                                                                                    |
+| ------- | ---------------------------------------------------------------------------------------------- |
 | `close` | Fired when the user dismisses the dialog (backdrop click, Escape, or explicit `close()` call). |
 
 ## Slots
 
-| Slot        | Description                                                     |
-| ----------- | --------------------------------------------------------------- |
-| _(default)_ | Dialog body content                                             |
-| `actions`   | Action buttons rendered in the footer, right-aligned            |
+| Slot        | Description                                          |
+| ----------- | ---------------------------------------------------- |
+| _(default)_ | Dialog body content                                  |
+| `actions`   | Action buttons rendered in the footer, right-aligned |
 
 ## CSS custom properties
 
 The panel sizing and padding can be overridden from the consuming page. Each property has a sensible default — set it on the `nx-dialog` element (or any ancestor) only when you need to deviate. All values are still clamped to the viewport so a too-large value won't overflow.
 
-| Property                | Default                  | Description                                          |
-| ----------------------- | ------------------------ | ---------------------------------------------------- |
-| `--nx-dialog-min-width` | `400px`                  | Panel minimum width.                                 |
-| `--nx-dialog-max-width` | `480px`                  | Panel maximum width.                                 |
-| `--nx-dialog-max-height`| `90vh` (`90dvh` modern)  | Panel maximum height.                                |
-| `--nx-dialog-padding`   | `var(--s2-spacing-500)`  | Inner padding around heading, body, and actions.     |
+| Property                 | Default                 | Description                                      |
+| ------------------------ | ----------------------- | ------------------------------------------------ |
+| `--nx-dialog-min-width`  | `400px`                 | Panel minimum width.                             |
+| `--nx-dialog-max-width`  | `480px`                 | Panel maximum width.                             |
+| `--nx-dialog-max-height` | `90vh` (`90dvh` modern) | Panel maximum height.                            |
+| `--nx-dialog-padding`    | `var(--s2-spacing-500)` | Inner padding around heading, body, and actions. |
 
 ### Wide dialog
 
+To widen a default dialog without the large layout, raise the max width only.
+
 ```css
-nx-dialog.block-library {
-  --nx-dialog-max-width: 960px;
-  --nx-dialog-max-height: 640px;
+nx-dialog.wide {
+  --nx-dialog-max-width: 600px;
 }
 ```
+
+## CSS parts
+
+| Part    | Description                                |
+| ------- | ------------------------------------------ |
+| `panel` | Dialog panel containing all rendered slots. |
 
 ### Full-bleed body
 

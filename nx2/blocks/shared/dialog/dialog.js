@@ -7,6 +7,7 @@ class NxDialog extends LitElement {
   static properties = {
     title: { type: String },
     busy: { type: Boolean },
+    _hasActions: { state: true },
   };
 
   get _dialog() { return this.shadowRoot.querySelector('dialog'); }
@@ -42,8 +43,13 @@ class NxDialog extends LitElement {
     if (!this.busy) this.close();
   }
 
+  _onActionsSlotChange(e) {
+    this._hasActions = e.target.assignedElements({ flatten: true }).length > 0;
+  }
+
   render() {
     const titleText = this.title?.trim();
+    const hasActions = this._hasActions ?? Boolean(this.querySelector('[slot="actions"]'));
     return html`
       <dialog
         aria-labelledby=${titleText ? 'nx-dialog-title' : nothing}
@@ -51,14 +57,16 @@ class NxDialog extends LitElement {
         @cancel=${this._onCancel}
         @click=${this._onBackdropClick}
       >
-        <div class="panel" ?inert=${this.busy}>
+        <div class="panel" part="panel" ?inert=${this.busy}>
           ${titleText ? html`
             <div class="heading">
               <h2 class="title" id="nx-dialog-title">${titleText}</h2>
             </div>
           ` : nothing}
           <div class="body"><slot></slot></div>
-          <div class="actions"><slot name="actions"></slot></div>
+          <div class="actions" ?hidden=${!hasActions}>
+            <slot name="actions" @slotchange=${this._onActionsSlotChange}></slot>
+          </div>
         </div>
       </dialog>
     `;
