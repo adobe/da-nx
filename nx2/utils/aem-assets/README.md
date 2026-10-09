@@ -39,7 +39,7 @@ aem-assets/
 
 - The selector shows the full **folder hierarchy** from AEM DAM.
 - URLs point to the **publish** tier, `https://publish-p…/content/dam/…`.
-- An asset whose `repo:scene7FileStatus` is set to anything other than `PublishComplete` is rejected.
+- An asset whose `aem:published` is `false` is rejected. The flag only reflects the publish tier, so an asset that is only on preview is rejected too. A missing flag counts as published.
 
 ### 2. Author + Dynamic Media Delivery
 
@@ -209,7 +209,7 @@ Helpers.
 - `resolveRenditionType(mimetype, { mimeRenditionOverrides })` returns `avif`, `play`, or `original`.
 - `getAssetAlt(asset)` prefers `Iptc4xmpExt:ExtDescrAccessibility`, then `dc:description`, `dc:title`, and the asset name.
 - `getDmApprovalStatus(asset)` returns `{ status, activationTarget }` from the asset metadata.
-- `getScene7PublishStatus(asset)` returns `repo:scene7FileStatus`.
+- `getPublishedFlag(asset)` returns `aem:published`.
 
 ### `image-modifiers.js`
 
