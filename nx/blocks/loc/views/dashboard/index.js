@@ -1,5 +1,4 @@
-import { daFetch } from '../../../../../nx2/utils/api.js';
-import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
+import { getSource, moveSource, saveSource } from '../../utils/source.js';
 
 const TRANSLATION_PATH_ACTIVE = 'translation/active';
 const TRANSLATION_PATH_ARCHIVE = 'translation/archive';
@@ -11,7 +10,7 @@ const TRANSLATION_PATH_ARCHIVE = 'translation/archive';
  * @returns {Promise<{ok: boolean, status: number, data?: Object}>}
  */
 export async function fetchProject(projectPath, options = {}) {
-  const resp = await daFetch({ url: `${DA_ADMIN}/source${projectPath}`, opts: options });
+  const resp = await getSource(projectPath, { signal: options.signal });
 
   if (!resp.ok) {
     return { ok: false, status: resp.status, statusText: resp.statusText };
@@ -50,15 +49,11 @@ export async function copyProject(project, email) {
     langs: json.langs,
   };
 
-  const body = new FormData();
-  const data = new Blob([JSON.stringify(newProject)], { type: 'application/json' });
-  body.append('data', data);
-
   const newTimestamp = Date.now();
   // Replace the last path segment (timestamp) with the new timestamp
   const newPath = path.substring(0, path.lastIndexOf('/') + 1) + newTimestamp;
 
-  await daFetch({ url: `${DA_ADMIN}/source${newPath}.json`, opts: { body, method: 'POST' } });
+  await saveSource(`${newPath}.json`, JSON.stringify(newProject));
 
   // Return just the path and timestamp for the new project
   return { path: newPath, lastModified: newTimestamp, newProject };
@@ -67,10 +62,7 @@ export async function copyProject(project, email) {
 export async function archiveProject(project) {
   const { path } = project;
 
-  const formData = new FormData();
   const newPath = path.replace(TRANSLATION_PATH_ACTIVE, TRANSLATION_PATH_ARCHIVE);
-  formData.append('destination', `${newPath}.json`);
-  const opts = { body: formData, method: 'POST' };
-  await daFetch({ url: `${DA_ADMIN}/move${path}.json`, opts });
+  await moveSource(`${path}.json`, `${newPath}.json`);
   return newPath;
 }

@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../../../../nx2/scripts/nx.js';
-import { daFetch } from '../../../../../nx2/utils/api.js';
-import { DA_ADMIN, loadStyle } from '../../../../../nx2/utils/utils.js';
+import { loadStyle } from '../../../../../nx2/utils/utils.js';
+import { getSource } from '../../utils/source.js';
 import { detectService, saveLangItems, saveStatus, formatDate } from '../index.js';
 
 const { nxBase: nx } = getConfig();
@@ -142,7 +142,7 @@ class NxLocTranslate extends LitElement {
   }
 
   async getSiteConfig() {
-    let resp = await daFetch({ url: `${DA_ADMIN}/source/${this.state.org}/${this.state.site}/.da/translate.json` });
+    let resp = await getSource(`/${this.state.org}/${this.state.site}/.da/translate.json`);
     if (!resp.ok) {
       resp = await fetch(`${nx}/blocks/loc/setup/translate.json`);
     }
@@ -155,7 +155,7 @@ class NxLocTranslate extends LitElement {
     const siteConfig = await this.getSiteConfig();
 
     await Promise.all(this.urls.map(async (url) => {
-      const resp = await daFetch({ url: `${DA_ADMIN}/source${url.srcPath}` });
+      const resp = await getSource(url.srcPath);
       if (!resp.ok) {
         url.error = 'Error fetching document for DNT.';
         url.status = 520;

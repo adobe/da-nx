@@ -1,6 +1,5 @@
-import { daFetch } from '../../../../nx2/utils/api.js';
-import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../nx2/public/utils/tree.js';
+import { getSource, saveSource } from '../utils/source.js';
 
 // Max concurrent /source/ reads from da-admin. Prevents flooding da-admin
 // with OPTIONS+GET bursts during content scans (translate, rollout, validate).
@@ -15,7 +14,7 @@ let projPath;
 let projJson;
 
 async function fetchData(path) {
-  const resp = await daFetch({ url: path });
+  const resp = await getSource(path);
   if (!resp.ok) return null;
   return resp.json();
 }
@@ -75,7 +74,7 @@ export async function detectService(config, env = 'stage') {
 
 export async function getDetails() {
   projPath = window.location.hash.replace('#', '');
-  const data = await fetchData(`${DA_ADMIN}/source${projPath}.json`);
+  const data = await fetchData(`${projPath}.json`);
   return data;
 }
 
@@ -93,11 +92,7 @@ export async function saveStatus(json) {
   projJson = copy;
   const proj = JSON.parse(projJson);
   proj.urls.forEach((url) => { delete url.content; });
-  const body = new FormData();
-  const file = new Blob([JSON.stringify(proj)], { type: 'application/json' });
-  body.append('data', file);
-  const opts = { body, method: 'POST' };
-  const resp = await daFetch({ url: `${DA_ADMIN}/source${projPath}.json`, opts });
+  const resp = await saveSource(`${projPath}.json`, JSON.stringify(proj));
   if (!resp.ok) return { error: 'Could not update project' };
   return json;
 }
@@ -111,14 +106,9 @@ export async function saveLangItems(sitePath, items, lang, removeDnt) {
     const isJson = item.basePath.endsWith('.json');
     const htmlToSave = await removeDnt(html, org, repo, { fileType: isJson ? 'json' : 'html' });
 
-    const blob = new Blob([htmlToSave], { type: isJson ? 'application/json' : 'text/html' });
-
     const path = `${sitePath}${lang.location}${item.basePath}`;
-    const body = new FormData();
-    body.append('data', blob);
-    const opts = { body, method: 'POST' };
     try {
-      const resp = await daFetch({ url: `${DA_ADMIN}/source${path}`, opts });
+      const resp = await saveSource(path, htmlToSave);
       results[idx] = resp.ok
         ? { success: resp.status }
         : { error: 'Could not save item.', status: resp.status };

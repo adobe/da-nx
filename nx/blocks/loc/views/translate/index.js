@@ -1,6 +1,4 @@
-import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
-import { daFetch } from '../../../../../nx2/utils/api.js';
 
 import {
   copy,
@@ -10,6 +8,7 @@ import {
   findSourceLocation,
   getProjectSourceLocations,
 } from '../../utils/utils.js';
+import { getSource } from '../../utils/source.js';
 import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES } from '../../project/index.js';
 
 let CONNECTOR;
@@ -58,8 +57,7 @@ export async function getUrls(
 
     // Fetch the content and add DNT
     const fetchUrl = async (url) => {
-      const opts = { headers: { 'Cache-Control': 'no-cache' } };
-      const resp = await daFetch({ url: `${DA_ADMIN}/source/${org}/${site}${url.daDestPath}`, opts });
+      const resp = await getSource(`/${org}/${site}${url.daDestPath}`, { noCache: true });
       if (!resp.ok) {
         url.error = `Error fetching content from ${url.daDestPath} - ${resp.status}`;
         return;
@@ -269,7 +267,7 @@ export async function copySourceLangs(
 
     const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
     const resp = await copyFn({ sourceContent: url.content, destination }, title);
-    url.status = resp.status;
+    url.saved = !!resp?.ok;
   };
 
   for (const [idx, lang] of langs.entries()) {
@@ -292,7 +290,7 @@ export async function copySourceLangs(
     });
 
     await Promise.allSettled(langUrls.map((url) => queue.push(url)));
-    const success = langUrls.filter((url) => url.status === 200).length;
+    const success = langUrls.filter((url) => url.saved).length;
     lang.copy = {
       saved: success,
       status: success === langUrls.length ? 'complete' : 'error',

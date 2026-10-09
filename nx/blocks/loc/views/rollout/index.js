@@ -1,6 +1,4 @@
-import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
-import { daFetch } from '../../../../../nx2/utils/api.js';
 import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES } from '../../project/index.js';
 import {
   copy,
@@ -10,6 +8,7 @@ import {
   getProjectSourceLocations,
 } from '../../utils/utils.js';
 import { createRolloutResolver } from '../../utils/placeholders.js';
+import { getSource } from '../../utils/source.js';
 
 const COPY_FNS = new Map([['overwrite', copy.overwriteCopy], ['smart-overwrite', copy.smartOverwriteCopy]]);
 
@@ -39,7 +38,7 @@ function getRespStatusText(status) {
 
 async function fetchLangSources(lang, urls) {
   const fetchUrl = async (url) => {
-    const resp = await daFetch({ url: `${DA_ADMIN}/source${url.source}` });
+    const resp = await getSource(url.source);
     if (!resp.ok) {
       url.error = `Error fetching content from ${url.source} - ${getRespStatusText(resp.status)}`;
       return url;
@@ -186,7 +185,7 @@ async function prepareLangRollout({
 
   // Convert base lang urls to the full locale list
   const urlsToSave = formatRolloutUrls(org, site, lang, [...urls, ...sheets], snapshot);
-  const load = (path) => daFetch({ url: `${DA_ADMIN}/source${path}` });
+  const load = (path) => getSource(path);
   const resolver = createRolloutResolver({ load, sitePath: `/${org}/${site}` });
   return { urlsToSave, resolver };
 }

@@ -36,6 +36,8 @@ export interface ListResult {
   continuationToken: string | null;
   /** Same hint as `ApiResponse.permissions`. */
   permissions?: string[];
+  /** HTTP status of a failed site-level listing (e.g. 404 for a missing hlx6 folder). */
+  status?: number;
 }
 
 // ─── low-level ──────────────────────────────────────────────────────────────
@@ -84,12 +86,13 @@ export const source: {
   /**
    * Get a document. Accepts either calling style:
    *
-   * - **Object:** `get({ org, site, path? })`
-   * - **Path:** `get('/org/site/file/path')`
+   * - **Object:** `get({ org, site, path?, cachebust?, opts? })`
+   * - **Path:** `get('/org/site/file/path', { cachebust?, opts? })`
    *
+   * `opts` is passed to `fetch` (e.g. `signal`, extra headers).
    * Returns an augmented `Response` — use `resp.text()`, `resp.json()`, etc.
    *
-   * @param arg Path string (`/org/site/file/path`) or `{ org, site, path? }`
+   * @param arg Path string (`/org/site/file/path`) or `{ org, site, path?, cachebust?, opts? }`
    */
   get(arg: any): Promise<ApiResponse>;
 

@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { DA_ADMIN, loadStyle } from '../../../../../nx2/utils/utils.js';
+import { loadStyle } from '../../../../../nx2/utils/utils.js';
 import {
   calculateTime,
   formatDate,
@@ -9,8 +9,8 @@ import {
 } from '../index.js';
 import { copy } from '../../utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
-import { daFetch } from '../../../../../nx2/utils/api.js';
 import { createRolloutResolver } from '../../utils/placeholders.js';
+import { getSource } from '../../utils/source.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -43,7 +43,7 @@ class NxLocRollout extends LitElement {
     lang.rolloutTime = undefined;
     lang.rolledOut = 0;
     lang.errors = [];
-    const load = (path) => daFetch({ url: `${DA_ADMIN}/source${path}` });
+    const load = (path) => getSource(path);
     const resolver = createRolloutResolver({ load, sitePath: this.sitePath });
     const items = lang.locales.reduce((acc, locale) => {
       const localeItems = this.urls.map((url) => {
