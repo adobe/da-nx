@@ -33,3 +33,14 @@ export const fetchDaConfigs = (() => {
     return configs;
   };
 })();
+
+export async function isEditorPreviewEnabled({ org, site }) {
+  try {
+    const configs = await Promise.all(fetchDaConfigs({ org, site }));
+    const rows = configs.flatMap((json) => getFirstSheet(json) ?? []);
+    const row = rows.findLast((r) => r.key === 'editor.preview');
+    return String(row?.value ?? '').trim().toLowerCase() !== 'false';
+  } catch {
+    return true;
+  }
+}

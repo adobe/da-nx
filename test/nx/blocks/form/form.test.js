@@ -71,6 +71,13 @@ describe('nx-form', () => {
     expect(el.shadowRoot.querySelector('nx-sidebar')).to.exist;
   });
 
+  it('removes the preview when editor.preview is false', async () => {
+    const el = await mountReady();
+    el._previewEnabled = false;
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('nx-preview')).to.not.exist;
+  });
+
   it('passes the engine and state into the editor', async () => {
     const el = await mountReady();
     const editor = el.shadowRoot.querySelector('nx-editor');
