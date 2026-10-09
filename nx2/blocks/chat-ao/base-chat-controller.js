@@ -622,7 +622,9 @@ export default class BaseChatController {
         manifestId,
         debugMode,
         clientMessageId,
-        ...(artifactIds.length && { attachments: artifactIds }),
+        ...(artifactIds.length && {
+          attachments: artifactIds.map((artifactId) => ({ artifactId })),
+        }),
         client_context: buildClientContext(this._context, items),
       }));
     } catch (err) {

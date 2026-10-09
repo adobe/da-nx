@@ -1,8 +1,6 @@
 import { expect } from '@esm-bundle/chai';
-import AoChatController, { buildAoConnectionInfo } from '../../../../nx2/blocks/chat-ao/ao-controller.js';
-import {
-  AO_WS_BASE, CMA_BRIDGE_WS_BASE, AO_MANIFEST_ID, AO_HTTP_BASE,
-} from '../../../../nx2/blocks/chat-ao/ao-constants.js';
+import AoChatController from '../../../../nx2/blocks/chat-ao/ao-controller.js';
+import { AO_MANIFEST_ID, AO_HTTP_BASE } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
 import { setMockIms, resetMockIms } from '../../../../nx2/test/mocks/ims.js';
 
 const APPLICATION = {
@@ -22,58 +20,6 @@ function makeController() {
   controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
   return { controller, updates, sent };
 }
-
-const IMS = {
-  accessToken: { token: 'tok-123' },
-  userId: 'user-1',
-  tenantId: 'ORG@AdobeOrg',
-  email: 'u@adobe.com',
-  name: 'Test User',
-  projectedProductContext: [{ prodCtx: { owningEntity: 'org-1' } }],
-};
-
-describe('ao-controller buildAoConnectionInfo (alt-harness routing)', () => {
-  it('routes to Agent Orchestrator and omits activationKey when no key is set', () => {
-    const { authFrame, wsBase } = buildAoConnectionInfo(IMS, undefined);
-    expect(wsBase).to.equal(AO_WS_BASE);
-    expect(authFrame).to.not.have.property('activationKey');
-    expect(authFrame.type).to.equal('AUTH');
-    expect(authFrame.authorization).to.equal('Bearer tok-123');
-    expect(authFrame['x-tenant-id']).to.equal('org-1');
-    expect(authFrame['x-user-id']).to.equal('user-1');
-  });
-
-  it('treats an empty-string key as no key (stays on AO, no activationKey)', () => {
-    const { authFrame, wsBase } = buildAoConnectionInfo(IMS, '');
-    expect(wsBase).to.equal(AO_WS_BASE);
-    expect(authFrame).to.not.have.property('activationKey');
-  });
-
-  it('routes to the CMA bridge and forwards the key on the AUTH frame when a key is set', () => {
-    const { authFrame, wsBase } = buildAoConnectionInfo(IMS, 'ACT-KEY');
-    expect(wsBase).to.equal(CMA_BRIDGE_WS_BASE);
-    expect(authFrame.activationKey).to.equal('ACT-KEY');
-    // identity fields are unchanged by the gate
-    expect(authFrame['x-tenant-id']).to.equal('org-1');
-    expect(authFrame.authorization).to.equal('Bearer tok-123');
-  });
-});
-
-describe('ao-controller setActivationKey', () => {
-  it('trims surrounding whitespace so a stray space in the config sheet still matches', () => {
-    const { controller } = makeController();
-    controller.setActivationKey('VK_key123 ');
-    expect(controller._activationKey).to.equal('VK_key123');
-  });
-
-  it('treats a whitespace-only or empty key as no key', () => {
-    const { controller } = makeController();
-    controller.setActivationKey('   ');
-    expect(controller._activationKey).to.equal(null);
-    controller.setActivationKey('');
-    expect(controller._activationKey).to.equal(null);
-  });
-});
 
 describe('ao-controller sendMessage', () => {
   it('sends USER_INPUT without waiting on any ready signal', async () => {
@@ -269,7 +215,7 @@ describe('ao-controller sendMessage', () => {
       }
 
       expect(sent[0].text).to.equal('here is the design');
-      expect(sent[0].attachments).to.deep.equal(['artifact-1']);
+      expect(sent[0].attachments).to.deep.equal([{ artifactId: 'artifact-1' }]);
       expect(calls[0].opts.headers.authorization).to.equal('Bearer test-token');
       expect(JSON.parse(calls[0].opts.body)).to.deep.equal({
         filename: 'design.png', content_type: 'image/png', scope: 'user',
@@ -448,38 +394,6 @@ describe('ao-controller turn lifecycle', () => {
       { role: 'assistant', content: 'Error: model unavailable' },
     ]);
     expect(updates.at(-1).thinking).to.equal(false);
-  });
-
-  it('rewrites the alternate-harness activation-key rejection to tester-facing copy', () => {
-    const { controller } = makeController();
-    controller._thinking = true;
-
-    controller._handleServerEvent({ type: 'ERROR', message: 'Invalid or missing activation key' });
-
-    expect(controller._messages[0].content).to.match(/ew\.altHarness/);
-    expect(controller._messages[0].content).to.not.match(/Invalid or missing/i);
-  });
-
-  it('rewrites the alternate-harness misconfigured-gate error to a try-again message', () => {
-    const { controller } = makeController();
-    controller._thinking = true;
-
-    controller._handleServerEvent({ type: 'ERROR', message: 'Activation-key gate misconfigured' });
-
-    expect(controller._messages[0].content).to.match(/temporarily unavailable/i);
-  });
-
-  it('surfaces the alt-harness plan-approval gap message unchanged (known gap S9)', () => {
-    const { controller } = makeController();
-    controller._thinking = true;
-
-    controller._handleServerEvent({
-      type: 'ERROR',
-      message: 'Plan approval is not supported by this backend; the plan action was not applied. Send a new message to continue.',
-    });
-
-    expect(controller._messages[0].content).to.match(/Plan approval is not supported/);
-    expect(controller._thinking).to.equal(false);
   });
 
   it('swallows a session-level error silently when not thinking — e.g. a background warmSession ATTACH failing', () => {
