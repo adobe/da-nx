@@ -208,18 +208,19 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleGetStatus() {
-    // if (!this.incompleteLangs) {
-    //   this.handleMessage({ text: 'All languages complete or cancelled.' });
-    //   return;
-    // }
+    if (this._statusBusy) return;
+    this._statusBusy = true;
+    try {
+      const conf = await this.getBaseTranslationConf(false);
 
-    const conf = await this.getBaseTranslationConf(false);
+      await this._service.connector.getStatusAll(removeWaitingLanguagesFromConf(conf));
 
-    await this._service.connector.getStatusAll(removeWaitingLanguagesFromConf(conf));
+      await this.checkAndSaveLangs(conf);
 
-    await this.checkAndSaveLangs(conf);
-
-    this.handleSaveLangs();
+      this.handleSaveLangs();
+    } finally {
+      this._statusBusy = false;
+    }
   }
 
   /**
