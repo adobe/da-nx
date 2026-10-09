@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/adobe/da-nx/compare/v1.11.0...v1.12.0) (2026-10-09)
+
+
+### Features
+
+* **marketplace:** add marketplace block ([#840](https://github.com/adobe/da-nx/issues/840)) ([eac81c4](https://github.com/adobe/da-nx/commit/eac81c4dee2e3ff298bd1cb533d94d3bab1efc50))
+
 # [1.11.0](https://github.com/adobe/da-nx/compare/v1.10.0...v1.11.0) (2026-10-09)
 
 
