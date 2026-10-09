@@ -178,6 +178,12 @@ export function sheet2object(json) {
   return json;
 }
 
+// Primary data array of a sheet-format JSON response (first sheet of a multi-sheet).
+export function getFirstSheet(json) {
+  if (json?.[':type'] !== 'multi-sheet') return json?.data;
+  return json[json[':names']?.[0]]?.data;
+}
+
 // Simple object (as returned by `sheet2object`) -> sheet-format JSON.
 export function object2sheet(obj) {
   const names = Object.keys(obj);

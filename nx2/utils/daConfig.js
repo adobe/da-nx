@@ -1,10 +1,7 @@
 import { config } from './api.js';
 
-/** Returns the primary data array from a DA config JSON response (handles multi-sheet). */
-export function getFirstSheet(json) {
-  if (json[':type'] !== 'multi-sheet') return json.data;
-  return json[json[':names']?.[0]]?.data;
-}
+// Kept here for existing importers; lives in utils.js so callers can use it without api.js.
+export { getFirstSheet } from './utils.js';
 
 /** Memoized fetches for `/{org}` and optional `/{org}/{site}` config documents. */
 export const fetchDaConfigs = (() => {

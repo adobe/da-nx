@@ -1,0 +1,153 @@
+:host {
+  display: contents;
+}
+
+.grid,
+.loading {
+  display: contents;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 6px 0 light-dark(rgb(0 0 0 / 12%), rgb(0 0 0 / 40%));
+  border-radius: var(--s2-corner-radius-700);
+  overflow: hidden;
+  background-color: light-dark(#fff, var(--s2-gray-75));
+  border: 1px solid var(--s2-gray-200);
+  transition: all 0.25s ease-in-out;
+}
+
+.card:not(.skeleton):hover {
+  transform: scale(1.005);
+  box-shadow: 0 2px 8px 0 light-dark(rgb(0 0 0 / 16%), rgb(0 0 0 / 50%));
+}
+
+.card img,
+.placeholder {
+  aspect-ratio: 5 / 3;
+  width: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.placeholder {
+  background: var(--s2-gray-100);
+}
+
+/* Thumbnail overlays: type pills top-right, Adobe logo bottom-left */
+.media {
+  position: relative;
+}
+
+.media nx-pills {
+  /* Spectrum notice-300 */
+  --nx-pill-background: var(--s2-orange-300);
+  --nx-pill-color: var(--s2-orange-1100);
+
+  position: absolute;
+  top: var(--s2-spacing-200);
+  right: var(--s2-spacing-200);
+  max-width: calc(100% - 2 * var(--s2-spacing-200));
+}
+
+.adobe-logo {
+  position: absolute;
+  left: var(--s2-spacing-200);
+  bottom: var(--s2-spacing-200);
+  display: flex;
+  width: 32px;
+  height: 32px;
+  color: var(--adobe-corporate-color);
+  filter: drop-shadow(0 1px 4px rgb(0 0 0 / 25%));
+}
+
+.adobe-logo svg {
+  width: 100%;
+  height: 100%;
+}
+
+.content {
+  padding: var(--s2-spacing-400) var(--s2-spacing-400) var(--s2-spacing-200);
+  flex: 1;
+}
+
+.content h3 {
+  margin: 0 0 var(--s2-spacing-75);
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-heading-size-xs);
+  font-weight: var(--s2-component-l-bold-font-weight);
+  line-height: var(--s2-heading-line-height);
+  color: var(--s2-gray-900);
+}
+
+.content p {
+  margin: 0 0 var(--s2-spacing-200);
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-m-regular-font-size);
+  font-weight: var(--s2-component-m-regular-font-weight);
+  line-height: var(--s2-component-m-regular-line-height);
+  color: var(--s2-gray-700);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2-spacing-200);
+  margin: 0 var(--s2-spacing-400) var(--s2-spacing-400);
+}
+
+.cta {
+  border: 2px solid transparent;
+  border-radius: var(--s2-corner-radius-800);
+  font-size: var(--s2-component-m-bold-font-size);
+  font-weight: var(--s2-component-m-bold-font-weight);
+  line-height: var(--s2-component-m-bold-line-height);
+  padding: 5px 14px;
+  text-decoration: none;
+  outline-offset: 0;
+  outline-color: var(--s2-blue-900);
+  transition: outline-offset 0.2s, background-color 0.125s ease-out;
+}
+
+.cta:focus-visible {
+  outline: 2px solid var(--s2-blue-900);
+  outline-offset: 4px;
+}
+
+.cta-primary {
+  background-color: var(--s2-blue-900);
+  border-color: var(--s2-blue-900);
+  color: #fff;
+}
+
+.cta-primary:hover {
+  background-color: var(--s2-blue-1000);
+  border-color: var(--s2-blue-1000);
+}
+
+.cta-secondary {
+  background-color: transparent;
+  border-color: var(--s2-gray-300);
+  color: var(--s2-gray-800);
+}
+
+.cta-secondary:hover {
+  background-color: var(--s2-gray-100);
+  border-color: var(--s2-gray-400);
+  color: var(--s2-gray-900);
+}
+
+.skeleton {
+  min-height: 280px;
+  background: var(--s2-gray-100);
+}
+
+.empty,
+.error {
+  margin: 0;
+}
+
+.error {
+  color: var(--s2-red-900);
+}
