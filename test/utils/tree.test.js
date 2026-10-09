@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import { Queue, crawl } from '../../nx/public/utils/tree.js';
 
 // Mock data based on list-response.json
@@ -548,34 +549,42 @@ describe('crawl', () => {
   });
 
   it('Respects throttle parameter', async () => {
-    let firstFetchTime;
-    let secondFetchTime;
     let fetchCount = 0;
 
     window.fetch = async () => {
       fetchCount += 1;
       if (fetchCount === 1) {
-        firstFetchTime = Date.now();
         return { ok: true, json: async () => [{ path: '/test/folder1', name: 'folder1' }], headers: { get: () => null } };
       }
       if (fetchCount === 2) {
-        secondFetchTime = Date.now();
         return { ok: true, json: async () => mockFilesOnlyResponse, headers: { get: () => null } };
       }
       return { ok: true, json: async () => [], headers: { get: () => null } };
     };
 
-    const { results } = crawl({
-      path: '/test',
-      callback: null,
-      concurrent: 10,
-      throttle: 50,
-    });
+    const clock = sinon.useFakeTimers();
+    try {
+      const { results } = crawl({
+        path: '/test',
+        callback: null,
+        concurrent: 10,
+        throttle: 50,
+      });
 
-    await results;
+      await clock.tickAsync(49);
+      expect(fetchCount).to.equal(0);
+      await clock.tickAsync(1);
+      expect(fetchCount).to.equal(1);
+      await clock.tickAsync(49);
+      expect(fetchCount).to.equal(1);
+      await clock.tickAsync(1);
+      expect(fetchCount).to.equal(2);
 
-    const timeDiff = secondFetchTime - firstFetchTime;
-    expect(timeDiff).to.be.at.least(50);
+      const files = await results;
+      expect(files.length).to.equal(2);
+    } finally {
+      clock.restore();
+    }
   });
 
   it('Resolves results promise with all files', async () => {
