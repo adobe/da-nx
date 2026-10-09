@@ -140,6 +140,21 @@ export default class CmaChatController extends BaseChatController {
       await this._loadEpisode(stored);
     } else {
       this._update();
+      this._warmNewSession();
+    }
+  }
+
+  // Eagerly open the socket for a fresh session so the UI connects right away
+  // (banner goes green, ready to send) instead of sitting idle until the first
+  // message. The CMA bridge has no REST episode list to fetch, so without this a
+  // new session shows a stuck "connecting" banner and the New chat button looks
+  // dead until the user types and sends. ATTACH on /ws/sessions/new triggers
+  // session init -> SESSION_READY. Best-effort; sendMessage still retries.
+  async _warmNewSession() {
+    try {
+      await this._attach();
+    } catch {
+      // best-effort — the socket is retried on the first send
     }
   }
 
@@ -194,5 +209,6 @@ export default class CmaChatController extends BaseChatController {
     this._resuming = false;
     this._storeEpisodeId(undefined); // drop the resume pointer for this site
     super.startNewEpisode();
+    this._warmNewSession(); // reconnect immediately so New chat is usable, not stuck gray
   }
 }
