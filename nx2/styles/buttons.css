@@ -156,16 +156,19 @@ button {
     );
   }
 
-  /* Glossy top highlight / bottom shadow, painted on top of the gradient bar. */
+  /* Inner rim + glow + soft corner highlight, painted on top of the gradient bar. */
   &::after {
-    inset-block-start: 0;
-    inset-inline: 0;
+    inset: 0;
     box-shadow:
       inset 0 -0.5px 1px light-dark(
         oklch(from var(--nx-ai-brand) 95.08% 0.0433 calc(h - 243.9)),
-        rgb(0 0 0 / 40%)
+        rgb(0 0 0 / 10%)
       ),
-      inset 0 0.5px 0 0 light-dark(rgb(255 255 255 / 60%), rgb(255 255 255 / 10%));
+      inset 0.5px -1.5px 6px light-dark(
+        oklch(from var(--nx-ai-brand) 93.97% 0.027 calc(h - 319)),
+        rgb(0 0 0 / 5%)
+      ),
+      inset -7px -23px 9px -12px rgb(255 255 255 / 75%);
   }
 
   &:disabled {
@@ -173,6 +176,13 @@ button {
 
     &::before {
       opacity: 0;
+    }
+
+    &::after {
+      box-shadow:
+        inset 0 -0.5px 1px rgb(0 0 0 / 10%),
+        inset 0.5px -1.5px 6px rgb(0 0 0 / 5%),
+        inset -7px -23px 9px -12px rgb(255 255 255 / 75%);
     }
   }
 
