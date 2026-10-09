@@ -94,10 +94,10 @@ function extractErrorMessage(json) {
  * Uploads a single url's source content as a Lilt `SourceFile`.
  * @param {Object} service - The flattened per-environment service config.
  * @param {Object} url - The url to upload; reads `daBasePath` and `content`.
- * @param {Function} sendMessage - Reports an error message to the UI on failure.
- * @returns {Promise<number|null>} The uploaded file's Lilt id, or null on failure.
+ * @returns {Promise<{id: ?number, error: ?string}>} The uploaded file's Lilt id, or the
+ *  Lilt error detail on failure.
  */
-async function uploadFile(service, url, sendMessage) {
+async function uploadFile(service, url) {
   const fileName = toFileName(url.daBasePath);
   const reqUrl = `${resolveOrigin(service)}/v2/files?name=${encodeURIComponent(fileName)}`;
   const opts = {
@@ -107,27 +107,32 @@ async function uploadFile(service, url, sendMessage) {
   };
   const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
   const json = await resp.json().catch(() => null);
-  if (!resp.ok) {
-    sendMessage({ text: `Upload to Lilt failed for ${url.daBasePath}: ${extractErrorMessage(json)}`, type: 'error' });
-    return null;
-  }
-  return json?.id ?? null;
+  if (!resp.ok) return { id: null, error: extractErrorMessage(json) };
+  return { id: json?.id ?? null, error: null };
 }
 
 /**
- * Uploads every url's source content to Lilt in parallel.
+ * Uploads every url's source content to Lilt in parallel. Reports a single rolled-up
+ * error message if any upload fails, rather than one per file, so parallel failures
+ * don't clobber each other's message in the UI.
  * @param {Object} service - The flattened per-environment service config.
  * @param {Object[]} urls - The urls to upload.
- * @param {Function} sendMessage - Reports an error message per failed upload.
+ * @param {Function} sendMessage - Reports an error message, sourced from the first
+ *  failed upload, if any upload fails.
  * @returns {Promise<Object>} A `daBasePath` -> Lilt file id map, omitting any upload
  *  that failed.
  */
 async function uploadAllFiles(service, urls, sendMessage) {
   const fileIdsByPath = {};
+  const errors = [];
   await Promise.all(urls.map(async (url) => {
-    const fileId = await uploadFile(service, url, sendMessage);
-    if (fileId != null) fileIdsByPath[url.daBasePath] = fileId;
+    const { id, error } = await uploadFile(service, url);
+    if (error) errors.push(error);
+    else if (id != null) fileIdsByPath[url.daBasePath] = id;
   }));
+  if (errors.length) {
+    sendMessage({ text: `Upload to Lilt failed: ${errors[0]}`, type: 'error' });
+  }
   return fileIdsByPath;
 }
 
@@ -136,15 +141,17 @@ async function uploadAllFiles(service, urls, sendMessage) {
  * both a bare array response and one wrapped under a `memories` key, since `GET /v2/memories`
  * called with no `id` isn't fully documented either way.
  * @param {Object} service - The flattened per-environment service config.
- * @returns {Promise<Object[]>} The memories, or `[]` on failure.
+ * @returns {Promise<{memories: Object[], error: ?string}>} The memories (`[]` on failure),
+ *  and the Lilt error detail if the request itself failed (as opposed to genuinely
+ *  returning no memories).
  */
 async function fetchMemories(service) {
   const reqUrl = `${resolveOrigin(service)}/v2/memories`;
   const opts = { headers: await authHeaders(service) };
   const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
-  if (!resp.ok) return [];
   const json = await resp.json().catch(() => null);
-  return Array.isArray(json) ? json : (json?.memories || []);
+  if (!resp.ok) return { memories: [], error: extractErrorMessage(json) };
+  return { memories: Array.isArray(json) ? json : (json?.memories || []), error: null };
 }
 
 /**
@@ -190,14 +197,17 @@ function getTranslationIdsByLang(service) {
  * @param {Object} conf.fileIdsByPath - `daBasePath` -> uploaded Lilt file id.
  * @param {Object[]} conf.memories - The account's memories.
  * @param {string} conf.srcLang - The lowercase 2-letter source language.
- * @param {Function} conf.sendMessage - Reports progress/status text to the UI.
- * @returns {Promise<void>}
+ * @param {Function} conf.sendMessage - Reports a single rolled-up error, sourced from
+ *  the first language that failed, if any language fails.
+ * @returns {Promise<boolean>} True if an error was reported, so the caller should not
+ *  clear it with a follow-up {@link sendMessage} call.
  */
 async function sendAiTranslation({
   service, options, langs, urls, fileIdsByPath, memories, srcLang, sendMessage,
 }) {
   const fileIds = Object.values(fileIdsByPath);
   const translationIdsByLang = {};
+  const errors = [];
 
   await Promise.all(langs.map(async (lang) => {
     // On any failure, leave `.translation` untouched - there's no translation in Lilt
@@ -205,7 +215,7 @@ async function sendAiTranslation({
     const { lang: trgLang } = splitLocale(lang.code);
     const memoryId = findMemoryId(memories, srcLang, trgLang);
     if (!memoryId) {
-      sendMessage({ text: `No Lilt memory found for ${srcLang} -> ${trgLang}.`, type: 'error' });
+      errors.push(`No Lilt memory found for ${srcLang} -> ${trgLang}.`);
       return;
     }
 
@@ -214,10 +224,7 @@ async function sendAiTranslation({
     const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
     const infos = await resp.json().catch(() => null);
     if (!resp.ok) {
-      sendMessage({
-        text: `Lilt translation request failed for ${lang.name}: ${extractErrorMessage(infos)}`,
-        type: 'error',
-      });
+      errors.push(`Lilt translation request failed for ${lang.name}: ${extractErrorMessage(infos)}`);
       return;
     }
     if (!Array.isArray(infos)) return;
@@ -236,7 +243,10 @@ async function sendAiTranslation({
     lang.translation.status = lang.translation.sent === urls.length ? 'created' : 'error';
   }));
 
+  if (errors.length) sendMessage({ text: errors[0], type: 'error' });
+
   options.service.translationIds = { value: JSON.stringify(translationIdsByLang) };
+  return errors.length > 0;
 }
 
 /**
@@ -338,8 +348,10 @@ async function saveAiItems({
  * @param {Object[]} conf.memories - The account's memories.
  * @param {string} conf.srcLang - The lowercase 2-letter source language.
  * @param {string} [conf.srcLocale] - The uppercase source locale, if any.
- * @param {Function} conf.sendMessage - Reports progress/status text to the UI.
- * @returns {Promise<void>}
+ * @param {Function} conf.sendMessage - Reports a single rolled-up error, sourced from
+ *  the first language that failed to match a memory, if any language fails.
+ * @returns {Promise<boolean>} True if an error was reported, so the caller should not
+ *  clear it with a follow-up {@link sendMessage} call.
  */
 async function sendVerifiedTranslation({
   title, service, options, langs, urls, fileIdsByPath, memories, srcLang, srcLocale, sendMessage,
@@ -347,6 +359,7 @@ async function sendVerifiedTranslation({
   const fileIds = Object.values(fileIdsByPath);
   const languagePairs = [];
   const matchedLangs = [];
+  const errors = [];
 
   langs.forEach((lang) => {
     const { lang: trgLang, locale: trgLocale } = splitLocale(lang.code);
@@ -354,7 +367,7 @@ async function sendVerifiedTranslation({
     if (!memoryId) {
       // Leave `.translation` untouched - there's no translation in Lilt to check
       // the status for, so the project stays retryable.
-      sendMessage({ text: `No Lilt memory found for ${srcLang} -> ${trgLang}.`, type: 'error' });
+      errors.push(`No Lilt memory found for ${srcLang} -> ${trgLang}.`);
       return;
     }
     languagePairs.push({ trgLang, trgLocale, memoryId });
@@ -363,7 +376,7 @@ async function sendVerifiedTranslation({
 
   if (!languagePairs.length) {
     sendMessage({ text: 'No Lilt memories matched the requested languages.', type: 'error' });
-    return;
+    return true;
   }
 
   const dueDateDays = Number(service.dueDateDays) || DEFAULT_DUE_DATE_DAYS;
@@ -383,7 +396,7 @@ async function sendVerifiedTranslation({
   if (!resp.ok || !job?.id) {
     // Leave matched langs' `.translation` untouched so the project stays retryable.
     sendMessage({ text: `Lilt job creation failed: ${extractErrorMessage(job)}`, type: 'error' });
-    return;
+    return true;
   }
 
   options.service.jobId = { value: String(job.id) };
@@ -393,6 +406,9 @@ async function sendVerifiedTranslation({
     lang.translation.sent = urls.length;
     lang.translation.status = 'created';
   });
+
+  if (errors.length) sendMessage({ text: errors[0], type: 'error' });
+  return errors.length > 0;
 }
 
 /**
@@ -570,18 +586,20 @@ export async function sendAllLanguages({
   const fileIdsByPath = await uploadAllFiles(service, urls, sendMessage);
   if (Object.keys(fileIdsByPath).length !== urls.length) {
     // Leave langs' `.translation` untouched so the project stays retryable.
-    sendMessage({
-      text: `Uploaded ${Object.keys(fileIdsByPath).length}/${urls.length} items to Lilt - aborting.`,
-      type: 'error',
-    });
+    // uploadAllFiles already reported the rolled-up error via sendMessage.
     return;
   }
   options.service.fileIds = { value: JSON.stringify(fileIdsByPath) };
 
-  const memories = await fetchMemories(service);
+  const { memories, error: memoriesError } = await fetchMemories(service);
+  if (memoriesError) {
+    // Leave langs' `.translation` untouched so the project stays retryable.
+    sendMessage({ text: `Fetching Lilt memories failed: ${memoriesError}`, type: 'error' });
+    return;
+  }
 
-  if (mode === VERIFIED_MODE) {
-    await sendVerifiedTranslation({
+  const hadError = mode === VERIFIED_MODE
+    ? await sendVerifiedTranslation({
       title,
       service,
       options,
@@ -592,14 +610,14 @@ export async function sendAllLanguages({
       srcLang,
       srcLocale,
       sendMessage,
-    });
-  } else {
-    await sendAiTranslation({
+    })
+    : await sendAiTranslation({
       service, options, langs, urls, fileIdsByPath, memories, srcLang, sendMessage,
     });
-  }
 
-  sendMessage();
+  // Leave any per-language error visible - clearing it here would clobber it, since
+  // sendMessage is a single-slot UI field.
+  if (!hadError) sendMessage();
   await saveState({ options });
 }
 
