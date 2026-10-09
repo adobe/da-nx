@@ -321,7 +321,6 @@ export function connect(service) {
 /**
  * Sends all documents across all target languages to DeepL for document translation.
  * @param {object} conf - Configuration object.
- * @param {string} conf.title - Project title.
  * @param {object} conf.service - Service config.
  * @param {object} conf.options - Project options.
  * @param {object[]} conf.langs - Target languages.
@@ -329,7 +328,7 @@ export function connect(service) {
  * @param {object} conf.actions - UI action callbacks.
  */
 export async function sendAllLanguages({
-  title, service, options, langs, urls, actions,
+  service, options, langs, urls, actions,
 }) {
   const { sendMessage, saveState } = actions;
 
