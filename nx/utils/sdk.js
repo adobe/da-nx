@@ -1,4 +1,5 @@
 import { setImsDetails, daFetch } from './daFetch.js';
+import { createEditorActions } from './editor-sdk.js';
 
 let port2;
 
@@ -72,6 +73,7 @@ const DA_SDK = (() => new Promise((resolve) => {
       }
 
       const actions = {
+        ...createEditorActions(port2, e.data.capabilities),
         daFetch,
         sendText,
         sendHTML,
