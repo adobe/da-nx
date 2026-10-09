@@ -77,6 +77,17 @@ parallel one. If you do add a new key:
 
 ---
 
+### `INIT`
+
+`config.mountpoint` is the site's content source: the sidekick passes its
+`contentSourceUrl`, which is `https://content.da.live/{org}/{site}/` on DA sites and
+`https://api.aem.live/{org}/sites/{site}/source` on hlx6 (source bus) sites. Some
+sites build the DA shape themselves when there's no sidekick. The standalone portal reads
+org/site from either shape and asks nx2 `api.js` (`isHlx6`) where the document lives,
+so the payload shape doesn't decide the store. It names the collab room with
+`getSourceUrl`, the url the da-live editors use, so quick edit and the canvas join the
+same room.
+
 ### `DROP_TARGET`
 
 da-live owns drags that start in another iframe (extension SDK drags and the AEM
@@ -231,6 +242,10 @@ replacement, but deleting or changing the target image does. Replies echo
 upload. An out-of-date/missing index fails instead of choosing an image by URL.
 For older iframes, a URL-only request is accepted only when it identifies
 exactly one image.
+
+Both hosts upload through nx2 `source.uploadMedia` and reply with the url the upload
+returned: a `content.da.live` url on DA sites, a media bus url on hlx6 sites (usually
+relative, `./media_…`), which the iframe resolves against the page.
 
 Both hosts use `nx2/public/utils/quick-edit-images.js` for document versions,
 image-position resolution, and replacement after upload. It accepts the host's

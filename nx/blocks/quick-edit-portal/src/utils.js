@@ -1,5 +1,6 @@
 import { handleSignIn, loadIms } from '../../../utils/ims.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
+import { aem } from '../../../../nx2/utils/api.js';
 import { isRenderedBlock } from './rerender-scope.js';
 
 const DA_LIVE_PREVIEW_ENVS = {
@@ -221,39 +222,6 @@ export function generateColor(name, hRange = [0, 360], sRange = [60, 80], lRange
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
-export async function checkPermissions(sourceUrl) {
-  const token = await getToken();
-  const resp = await fetch(sourceUrl, {
-    method: 'HEAD',
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  // If child actions header is present, use it.
-  // This is a hint as to what can be done with the children.
-  if (resp.headers?.get('x-da-child-actions')) {
-    resp.permissions = resp.headers
-      .get('x-da-child-actions')
-      .split('=')
-      .pop()
-      .split(',');
-    return resp;
-  }
-
-  // Use the self actions hint if child actions are not present.
-  if (resp.headers?.get('x-da-actions')) {
-    resp.permissions = resp.headers
-      ?.get('x-da-actions')
-      ?.split('=')
-      .pop()
-      .split(',');
-    return resp;
-  }
-
-  // Support legacy admin.role.all
-  resp.permissions = ['read', 'write'];
-  return resp;
-}
-
 export async function signIn() {
   const token = await getToken();
   if (!token) {
@@ -276,9 +244,7 @@ export async function signIn() {
 
 export async function handlePreview(ctx) {
   const path = ctx.path.endsWith('/') ? `${ctx.path}index` : `${ctx.path}`;
-  const url = `https://admin.hlx.page/preview/${ctx.owner}/${ctx.repo}/main${path}`;
-  const token = await getToken();
-  const resp = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+  const resp = await aem.preview({ org: ctx.owner, site: ctx.repo, path });
   if (!resp.ok) {
     // eslint-disable-next-line no-console
     console.error('Failed to preview:', resp.statusText);

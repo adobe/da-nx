@@ -11,7 +11,6 @@ import {
   isHlx6,
   signout,
   fromPath,
-  // eslint-disable-next-line import/named
   getSourceUrl,
   source,
   versions,

@@ -1,4 +1,5 @@
-import { checkPermissions, signIn, handlePreview, getImageCookie } from './src/utils.js';
+import { signIn, handlePreview, getImageCookie } from './src/utils.js';
+import { getOrgSite, loadDocSource } from './src/source.js';
 import createProse from './src/prose.js';
 import {
   updateDocument, updateCursors, updateState, handleUndoRedo, getEditor, handleCursorMove,
@@ -27,14 +28,10 @@ function onMessage(e, ctx) {
 }
 
 async function initProse(owner, repo, path, el, ctx) {
-  const sourceUrl = `https://admin.da.live/source/${owner}/${repo}/${
-    path.endsWith('/') ? `${path.replace(/^\//, '')}index.html` : `${path.replace(/^\//, '')}.html`
-  }`;
-
-  const resp = await checkPermissions(sourceUrl);
-  if (!resp.ok) return;
-
-  const { permissions } = resp;
+  const { sourceUrl, permissions, error } = await loadDocSource({
+    org: owner, site: repo, pathname: path,
+  });
+  if (error) return;
 
   const { proseEl, wsProvider, view } = createProse({
     path: sourceUrl,
@@ -82,11 +79,7 @@ export default async function decorate(el) {
         return;
       }
 
-      // Parse the mountpoint URL to extract owner and repo
-      const url = new URL(mountPoint);
-      const pathSegments = url.pathname.split('/').filter(Boolean);
-      const owner = pathSegments[0];
-      const repo = pathSegments[1];
+      const { org: owner, site: repo } = getOrgSite(mountPoint);
 
       if (!owner || !repo) {
         return;

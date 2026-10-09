@@ -1,6 +1,5 @@
 /* eslint-disable import/prefer-default-export */
-import { daFetch } from '../../../utils/daFetch.js';
-import { DA_ORIGIN } from '../../../public/utils/constants.js';
+import { source } from '../../../../nx2/utils/api.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 import {
   resolveImagePosition, updateImageInDocument,
@@ -46,23 +45,18 @@ export async function handleImageReplace(payload, ctx) {
     const pageName = getPageName(ctx.path);
     const parentPath = ctx.path === '/' ? '' : ctx.path.replace(/\/[^/]+$/, '');
 
-    // Construct the upload URL: /source/{owner}/{repo}{parent}/.{pageName}/{fileName}
     const uploadPath = `${parentPath}/.${pageName}/${fileName}`;
-    const uploadUrl = `${DA_ORIGIN}/source/${ctx.owner}/${ctx.repo}${uploadPath}`;
-
-    // Upload the image
-    const formData = new FormData();
-    formData.append('data', blob, fileName);
-    const opts = { method: 'PUT', body: formData };
-    const resp = await daFetch(uploadUrl, opts);
+    const resp = await source.uploadMedia({
+      org: ctx.owner, site: ctx.repo, path: uploadPath, body: blob,
+    });
 
     if (!resp.ok) {
       reply({ error: `Upload failed with status ${resp.status}` });
       return;
     }
 
-    // Construct the new image URL (AEM delivery URL)
-    const newSrc = `https://content.da.live/${ctx.owner}/${ctx.repo}${uploadPath}`;
+    const { source: { contentUrl: newSrc } = {} } = await resp.json();
+    if (!newSrc) throw new Error('The upload did not return an image URL.');
 
     if (ctx.view !== view) throw new Error('Image editor changed during the upload. Please try again.');
     updateImageInDocument({ view, target, newSrc });

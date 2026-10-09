@@ -3,7 +3,6 @@ import { AEM_API, DA_ADMIN } from '../../../../nx2/utils/utils.js';
 import {
   calls, installFetch, restoreFetch, lastCall,
 } from '../../../nx2/mocks/fetch.js';
-// eslint-disable-next-line import/no-unresolved
 import { getOrgSite, loadDocSource } from '../../../../nx/blocks/quick-edit-portal/src/source.js';
 
 const STORAGE_KEY = 'hlx6-upgrade';

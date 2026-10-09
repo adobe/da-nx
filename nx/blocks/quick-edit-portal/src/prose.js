@@ -11,7 +11,7 @@ import {
   ySyncPluginKey,
 } from 'da-y-wrapper';
 import { getSchema } from 'https://da.live/deps/da-parser/dist/index.js';
-import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
+import { COLLAB_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import { findChangedNodes, generateColor, findCommonEditableAncestor } from './utils.js';
 
 function registerErrorHandler(ydoc) {
@@ -78,7 +78,7 @@ export default function initProse({ path, permissions, rerenderPage, updateCurso
   const ydoc = new Y.Doc();
 
   const server = COLLAB_ORIGIN;
-  const roomName = `${DA_ORIGIN}${new URL(path).pathname}`;
+  const roomName = path;
 
   const opts = {};
 

@@ -37,6 +37,7 @@ export { AEM_API };
 //   daFetch    authenticated fetch (used by everything above)
 //   isHlx6     Helix 6 upgrade-status probe (cached)
 //   fromPath   `/org/site/file/path` -> { org, site, path }
+//   getSourceUrl  document source url on DA or the hlx6 source bus
 //
 // All namespace methods return a raw `Response` (augmented with
 // `resp.permissions`) EXCEPT `source.list`, which merges body + header
@@ -700,6 +701,11 @@ export function fromPath(str) {
   const [, org, site, ...parts] = str.split('/');
   return { org, site, path: parts.length ? `/${parts.join('/')}` : '' };
 }
+
+// Document source url on DA or the hlx6 source bus; collab rooms are named after it.
+export const getSourceUrl = withArgs(
+  ({ org, site, path }) => getDaApiPath(SOURCE, org, site, path),
+);
 
 // Site token exchange for authenticated content access.
 // Uses IIFE pattern for memoized token retrieval.
