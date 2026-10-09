@@ -68,11 +68,11 @@ document.dispatchEvent(new CustomEvent("my-add-to-list-event", {
 
 ### Read-only tags
 
-Set `removable: false` on items that are just labels, and give the list a `label` that describes them:
+Set `removable: false` on items that are just labels. Optionally set the component's `label` to name the list for screen readers. It's announced instead of the default "Attached items" and isn't shown on screen. (Each item's own `label` is the text shown on that pill.)
 
 ```js
 const types = document.querySelector("#types");
-types.label = "Type";
+types.label = "Type"; // optional: accessible name for the list, not displayed
 types.items = [
   { id: "app", label: "App", removable: false },
   { id: "plugin", label: "Plugin", removable: false },
