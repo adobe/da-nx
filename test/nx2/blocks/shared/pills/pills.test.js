@@ -48,4 +48,14 @@ describe('nx-pills', () => {
     const list = el.shadowRoot.querySelector('.pills-container');
     expect(list.getAttribute('aria-label')).to.equal('Type');
   });
+
+  it('lets hosts recolor pills via custom properties', async () => {
+    el = await makePills({ items: [{ id: 'app', label: 'App', removable: false }] });
+    el.style.setProperty('--nx-pill-background', 'rgb(1, 2, 3)');
+    el.style.setProperty('--nx-pill-color', 'rgb(4, 5, 6)');
+    const pill = el.shadowRoot.querySelector('.pill');
+    const label = el.shadowRoot.querySelector('.pill-label');
+    expect(getComputedStyle(pill).backgroundColor).to.equal('rgb(1, 2, 3)');
+    expect(getComputedStyle(label).color).to.equal('rgb(4, 5, 6)');
+  });
 });

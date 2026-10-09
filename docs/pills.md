@@ -122,6 +122,22 @@ Self-managed mode only:
 | `nx-pill-pin`     | `{ id }`                                                                  | Controlled only          | User clicked pin — update your list and re-set `items`.           |
 | `nx-pill-activate`| `{ id, selFrom, selTo, selectionType, blockName, proseIndex }`            | Both modes               | User clicked a pinned item's label — decide what "activating" it means (e.g. highlight it elsewhere). |
 
+## Styling
+
+Pills are blue by default. Hosts can recolor them with CSS custom properties set on `nx-pills` (or any ancestor):
+
+| Custom property         | Default              | Applies to             |
+| ----------------------- | -------------------- | ---------------------- |
+| `--nx-pill-background`  | `var(--s2-blue-200)` | Pill background        |
+| `--nx-pill-color`       | `var(--s2-blue-1000)`| Label and type icon    |
+
+```css
+nx-pills {
+  --nx-pill-background: var(--s2-orange-300);
+  --nx-pill-color: var(--s2-orange-1100);
+}
+```
+
 ## Cleanup
 
 If an item has a `thumbnail` that's a blob URL (`URL.createObjectURL(...)`), nx-pills revokes it for you when that item is removed, cleared, or the component disconnects — in self-managed mode. In controlled mode, that's still on you, same as owning the list itself.

@@ -532,6 +532,8 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
         <div class="sg-demo">
           <nx-pills id="demo-pills"></nx-pills>
           <nx-pills id="demo-pills-readonly" label="Type"></nx-pills>
+          <nx-pills id="demo-pills-notice" label="Type"
+            style="--nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2-orange-1100);"></nx-pills>
         </div>
         <pre><code>&lt;nx-pills&gt;&lt;/nx-pills&gt;
 
@@ -541,7 +543,10 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));
 &lt;!-- Read-only tags: no remove button --&gt;
 &lt;nx-pills label="Type"&gt;&lt;/nx-pills&gt;
 
-tags.items = [{ id: 'app', label: 'App', removable: false }];</code></pre>
+tags.items = [{ id: 'app', label: 'App', removable: false }];
+
+&lt;!-- Recolor with custom properties --&gt;
+nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2-orange-1100); }</code></pre>
       </article>
     </section>
   </main>
@@ -702,10 +707,12 @@ tags.items = [{ id: 'app', label: 'App', removable: false }];</code></pre>
     pills.addEventListener('nx-pill-remove', (e) => {
       pills.items = pills.items.filter((item) => item.id !== e.detail.id);
     });
-    document.querySelector('#demo-pills-readonly').items = [
+    const readOnlyPills = [
       { id: 'app', label: 'App', removable: false },
       { id: 'plugin', label: 'Plugin', removable: false },
     ];
+    document.querySelector('#demo-pills-readonly').items = readOnlyPills;
+    document.querySelector('#demo-pills-notice').items = readOnlyPills;
   </script>
 </body>
 

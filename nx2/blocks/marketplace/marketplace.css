@@ -46,6 +46,10 @@
 }
 
 .media nx-pills {
+  /* Spectrum notice-300 */
+  --nx-pill-background: var(--s2-orange-300);
+  --nx-pill-color: var(--s2-orange-1100);
+
   position: absolute;
   top: var(--s2-spacing-200);
   right: var(--s2-spacing-200);
