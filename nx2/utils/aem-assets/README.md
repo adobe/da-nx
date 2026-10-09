@@ -76,12 +76,14 @@ Keys live in the DA config at `https://da.live/config#/<org>/` or `https://da.li
 | `aem.repositoryId` | Yes | `author-p1-e1.adobeaemcloud.com` or `delivery-p1-e1.adobeaemcloud.com` | Selects the repository mode by its prefix. Host only, without `https://`. |
 | `aem.assets.prod.origin` | No | e.g. `assets.example.com` | Overrides the derived URL host. A value starting with `delivery-` also enables DM delivery. |
 | `aem.assets.prod.basepath` | No | e.g. `/adobe/assets` | Overrides the default base path for DM and delivery URLs. |
-| `aem.assets.image.type` | No | `link` | Sets `insertAsLink` so consumers insert images as links. |
+| `aem.assets.image.type` | No | `link` | Sets `imageType` to `link` and retains `insertAsLink` for existing consumers. |
 | `aem.asset.dm.delivery` | No | `on` | Browses author but builds DM delivery URLs. Enables Author + DM. |
 | `aem.asset.dm.approvedonly` | No | absent, `on`, or `off` | Author + DM only. Absent or `on` locks the Approved filter. Exact `off` removes it. |
 | `aem.asset.smartcrop.select` | No | `on` | Sets `isSmartCrop`. Implies DM delivery. |
 | `aem.asset.mime.renditions` | No | e.g. `image/vnd.adobe.photoshop:avif, image/*:original` | Comma-separated `mimetype:rendition` overrides. See [Rendition resolution](#rendition-resolution). |
 | `aem.asset.image.modifiers` | No | e.g. `width=1200&quality=80` | Query parameters added to delivery image URLs. See [`image-modifiers.js`](#image-modifiersjs). |
+
+The `flags` sheet supports `aem.assets.editableExternalImages=true`. With `aem.assets.image.type=link`, it sets `imageType` to `editable-link`: edit as an image, persist as a link. Site flags override org flags. Other image types return `imageType: null`; the flag alone has no effect. `insertAsLink` stays true for both link modes.
 
 ---
 
@@ -189,6 +191,7 @@ Config documents load through `nx2/utils/daConfig.js`, which caches them per pag
   isSmartCrop,            // Smart Crop selection is on
   approvedOnly,           // the Approved filter is locked on
   insertAsLink,           // insert images as links
+  imageType,              // 'link' | 'editable-link' | null
   mimeRenditionOverrides, // Record<string, string> from aem.asset.mime.renditions
   siteImageModifiers,     // query string from aem.asset.image.modifiers, or null
 }
