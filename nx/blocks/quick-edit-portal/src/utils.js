@@ -34,6 +34,18 @@ function getLivePreviewUrl(owner, repo) {
   return `${protocol}://main--${repo}--${owner}.${domain}`;
 }
 
+// prose2aem sets <source srcset> to the resolved img.src; ./media_ must resolve against the page.
+export function keepMediaBusImagesRelative(html) {
+  if (!html.includes('src="./media_')) return html;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('picture').forEach((picture) => {
+    const src = picture.querySelector('img')?.getAttribute('src');
+    if (!src?.startsWith('./media_')) return;
+    picture.querySelectorAll('source').forEach((source) => source.setAttribute('srcset', src));
+  });
+  return doc.documentElement.outerHTML;
+}
+
 export async function getImageCookie(owner, repo) {
   const token = await getToken();
   if (token) {
