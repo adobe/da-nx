@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { AEM_API, HLX_ADMIN } from '../../../../nx2/utils/utils.js';
 import { installFetch, restoreFetch, lastCall } from '../../../nx2/mocks/fetch.js';
-import { handlePreview } from '../../../../nx/blocks/quick-edit-portal/src/utils.js';
+import { handlePreview, keepMediaBusImagesRelative } from '../../../../nx/blocks/quick-edit-portal/src/utils.js';
 import { MESSAGE_TYPES } from '../../../../nx/utils/message-types.js';
 
 let counter = 0;
@@ -61,5 +61,24 @@ describe('quick-edit portal preview', () => {
     expect(type).to.equal(MESSAGE_TYPES.PREVIEW);
     expect(payload.ok).to.equal(false);
     expect(payload.error).to.contain('Failed to preview');
+  });
+});
+
+describe('quick-edit portal media bus images', () => {
+  const ref = './media_123.png#width=320&height=160';
+  const picture = (src, srcset) => `<picture><source srcset="${srcset}"><source srcset="${srcset}" media="(min-width: 600px)"><img src="${src}"></picture>`;
+
+  it('keeps the picture sources of media bus images relative', () => {
+    const html = `<body><main><div>${picture(ref, 'https://da.live/plugins/media_123.png#width=320&height=160')}</div></main></body>`;
+    const doc = new DOMParser().parseFromString(keepMediaBusImagesRelative(html), 'text/html');
+    expect([...doc.querySelectorAll('source')].map((source) => source.getAttribute('srcset')))
+      .to.deep.equal([ref, ref]);
+    expect(doc.querySelector('img').getAttribute('src')).to.equal(ref);
+  });
+
+  it('leaves other pictures alone', () => {
+    const src = 'https://content.da.live/org/site/.page/pic.png';
+    const html = `<body><main>${picture(src, src)}</main></body>`;
+    expect(keepMediaBusImagesRelative(html)).to.equal(html);
   });
 });
