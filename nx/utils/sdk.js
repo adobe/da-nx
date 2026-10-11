@@ -1,6 +1,8 @@
 import { setImsDetails, daFetch } from './daFetch.js';
 
 let port2;
+let lastSelection;
+const selectionListeners = new Set();
 
 function sendText(text) {
   port2.postMessage({ action: 'sendText', details: text });
@@ -52,6 +54,28 @@ function getSelection() {
   });
 }
 
+function onSelectionChange(callback) {
+  selectionListeners.add(callback);
+  if (lastSelection) callback(lastSelection);
+  return () => selectionListeners.delete(callback);
+}
+
+function replaceLink(html, { href } = {}) {
+  return new Promise((resolve, reject) => {
+    const listener = (e) => {
+      if (e.source !== window.parent || e.data?.action !== 'replaceLinkResult') return;
+      window.removeEventListener('message', listener);
+      if (e.data.details?.ok) {
+        resolve();
+      } else {
+        reject(new Error(e.data.details?.error || 'The link was not replaced'));
+      }
+    };
+    window.addEventListener('message', listener);
+    port2.postMessage({ action: 'replaceLink', details: { html, href } });
+  });
+}
+
 const DA_SDK = (() => new Promise((resolve) => {
   let initialized = false;
   window.addEventListener('message', (e) => {
@@ -81,9 +105,17 @@ const DA_SDK = (() => new Promise((resolve) => {
         getSelection,
         setPrompt,
         showPanel,
+        onSelectionChange,
+        replaceLink,
       };
 
       resolve({ ...e.data, actions });
+      return;
+    }
+
+    if (initialized && e.data.action === 'selectionChange' && e.source === window.parent) {
+      lastSelection = e.data.details;
+      selectionListeners.forEach((callback) => callback(lastSelection));
       return;
     }
 
