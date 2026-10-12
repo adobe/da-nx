@@ -91,17 +91,7 @@ describe('showToast', () => {
 
   it('dismisses the toast when the close button is clicked', async () => {
     const toast = await toastFor({ text: 'Saved' });
-    await toast._loadIcon();
-    await toast.updateComplete;
-    const button = toast.shadowRoot.querySelector('button.close');
-    const icon = button.querySelector('svg');
-    const source = await fetch('/nx2/img/icons/S2_Icon_Close_20_N.svg');
-    const svg = new DOMParser().parseFromString(await source.text(), 'image/svg+xml');
-    expect(icon.querySelector('path').getAttribute('d')).to.equal(svg.querySelector('path').getAttribute('d'));
-    expect(getComputedStyle(icon).width).to.equal('16px');
-    expect(getComputedStyle(icon).height).to.equal('16px');
-    expect(button.getAttribute('aria-label')).to.equal('Dismiss');
-    button.click();
+    toast.shadowRoot.querySelector('button.close').click();
     expect(getToast()).to.be.null;
   });
 

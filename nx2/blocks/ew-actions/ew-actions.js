@@ -394,13 +394,9 @@ class NXEwActions extends LitElement {
     try {
       const resp = await versions.create(path, { comment });
       if (resp.status !== 201) throw new Error(`Version creation failed (${resp.status}).`);
-    } catch {
-      const { showToast } = await import('../shared/toast/toast.js');
-      const result = action === 'publish' ? 'Page published' : 'Preview updated';
-      showToast({
-        text: `${result}. Could not save a history version.`,
-        variant: 'warning',
-      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn(`Error creating auto version (${comment}).`, error);
       return;
     }
     this.dispatchEvent(new CustomEvent(VERSION_EVENT.CREATED, {

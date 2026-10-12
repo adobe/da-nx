@@ -1,7 +1,6 @@
 # showToast
 
 Displays a brief notification at the bottom of the screen. Auto-dismisses after a timeout. A close button lets the user dismiss it early.
-The close button uses the bundled Spectrum Close icon at 16 x 16 pixels.
 
 ## Usage
 

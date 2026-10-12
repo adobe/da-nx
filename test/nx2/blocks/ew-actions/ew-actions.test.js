@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { DA_ADMIN, loadStyle } from '../../../../nx2/utils/utils.js';
+import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
 import { versions, aem } from '../../../../nx2/utils/api.js';
 import { VERSION_EVENT } from '../../../../nx2/utils/version-events.js';
 import '../../../../nx2/blocks/ew-actions/ew-actions.js';
@@ -44,7 +44,6 @@ describe('nx-ew-actions', () => {
     el?.remove();
     restoreFetch?.();
     sinon.restore();
-    document.getElementById('nx-toast-host')?.remove();
   });
 
   describe('version creation', () => {
@@ -81,57 +80,33 @@ describe('nx-ew-actions', () => {
     });
 
     [500, 403].forEach((status) => {
-      it(`does not notify on HTTP ${status} and distinguishes version failure from deploy success`, async () => {
+      it(`logs HTTP ${status} without showing an alert or notifying history`, async () => {
         sinon.stub(versions, 'create').resolves(new Response('', { status }));
         el = await makeEl();
+        const warn = sinon.stub(console, 'warn');
         const notify = sinon.spy();
         el.addEventListener(VERSION_EVENT.CREATED, notify);
         await el._saveVersion({ action: 'preview', path });
         expect(notify.called).to.be.false;
-        const toast = document.querySelector('nx-toast');
-        expect(toast.message).to.equal('Preview updated. Could not save a history version.');
-        expect(toast.variant).to.equal('warning');
+        expect(warn.calledOnce).to.be.true;
+        expect(warn.firstCall.args[0]).to.equal('Error creating auto version (Previewed).');
+        expect(warn.firstCall.args[1].message).to.equal(`Version creation failed (${status}).`);
+        expect(document.querySelector('nx-toast')).to.be.null;
         expect(el._hasError).to.not.be.true;
       });
     });
 
-    it('reports network failure without emitting a success notification', async () => {
-      sinon.stub(versions, 'create').rejects(new Error('network down'));
+    it('logs network failure without showing an alert or emitting a success notification', async () => {
+      const error = new Error('network down');
+      sinon.stub(versions, 'create').rejects(error);
       el = await makeEl();
+      const warn = sinon.stub(console, 'warn');
       const notify = sinon.spy();
       el.addEventListener(VERSION_EVENT.CREATED, notify);
       await el._saveVersion({ action: 'publish', path });
       expect(notify.called).to.be.false;
-      expect(document.querySelector('nx-toast').message)
-        .to.equal('Page published. Could not save a history version.');
-    });
-
-    it('uses the shared compact warning toast with workspace styles in both themes', async () => {
-      const sheets = document.adoptedStyleSheets;
-      const scheme = document.documentElement.style.colorScheme;
-      const workspaceStyle = await loadStyle('/nx2/styles/styles.css');
-      document.adoptedStyleSheets = [...sheets, workspaceStyle];
-      try {
-        sinon.stub(versions, 'create').resolves(new Response('', { status: 403 }));
-        el = await makeEl();
-        await el._saveVersion({ action: 'preview', path });
-        const toast = document.querySelector('nx-toast');
-        await toast.updateComplete;
-        expect(toast.duration).to.equal(6000);
-        const inner = toast.shadowRoot.querySelector('.toast');
-        ['light', 'dark'].forEach((theme) => {
-          document.documentElement.style.colorScheme = theme;
-          const style = getComputedStyle(inner);
-          expect(style.padding).to.equal('8px 12px');
-          expect(style.backgroundColor).to.not.equal('rgba(0, 0, 0, 0)');
-          expect(style.borderRadius).to.not.equal('0px');
-          expect(getComputedStyle(toast.parentElement).bottom).to.equal('24px');
-          expect(toast.getBoundingClientRect().width).to.be.at.most(352);
-        });
-      } finally {
-        document.adoptedStyleSheets = sheets;
-        document.documentElement.style.colorScheme = scheme;
-      }
+      expect(warn.calledOnceWithExactly('Error creating auto version (Published).', error)).to.be.true;
+      expect(document.querySelector('nx-toast')).to.be.null;
     });
 
     it('keeps the original document path when navigating during preview', async () => {

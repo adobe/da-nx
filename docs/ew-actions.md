@@ -53,10 +53,8 @@ DA Live translates this cross-repo event onto its canvas bus to refresh version 
 without reloading the editor. The path belongs to the document deployed, even if the
 author navigates while the action is running.
 
-Version creation does not block the deploy flow. If it fails, a warning distinguishes
-the missing history version from the successful preview/publish. It uses the shared
-workspace toast with a six-second timeout and does not suggest retrying an action
-that permissions may forbid.
+Version creation does not block the deploy flow or show an additional alert.
+Failures are logged to the console and do not emit a version-created event.
 
 ## Unpublished-changes badge
 
