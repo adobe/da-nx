@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  AEM_API, DA_ADMIN, HLX_ADMIN, object2sheet,
+  AEM_API, DA_ADMIN, HLX_ADMIN, object2sheet, getFirstSheet as getSharedFirstSheet,
 } from '../../../nx2/utils/utils.js';
 import {
   calls, installFetch, restoreFetch, lastCall,
@@ -17,6 +17,12 @@ const uniq = (label) => {
 };
 
 describe('getFirstSheet', () => {
+  it('re-exports the shared helper, including its handling of missing data', () => {
+    expect(getFirstSheet).to.equal(getSharedFirstSheet);
+    expect(getFirstSheet(null)).to.equal(undefined);
+    expect(getFirstSheet({})).to.equal(undefined);
+  });
+
   it('returns .data for a single-sheet doc', () => {
     const json = { ':type': 'sheet', ':sheetname': 'flags', data: [{ key: 'a' }] };
     expect(getFirstSheet(json)).to.deep.equal([{ key: 'a' }]);

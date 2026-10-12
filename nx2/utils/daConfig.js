@@ -1,13 +1,14 @@
 import { config } from './api.js';
 
+// Kept here for existing importers; lives in utils.js so callers can use it without api.js.
+export { getFirstSheet } from './utils.js';
+
 export const getSheetByIndex = (json, index = 0) => {
   if (json[':type'] !== 'multi-sheet') {
     return json.data;
   }
   return json[json[':names']?.[index]]?.data;
 };
-
-export const getFirstSheet = (json) => getSheetByIndex(json, 0);
 
 /**
  * Fetches org and (optionally) site configs, caching the in-flight/resolved
