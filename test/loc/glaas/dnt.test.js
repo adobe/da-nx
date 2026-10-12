@@ -264,4 +264,48 @@ describe('Glaas DNT', () => {
     expect(out.textContent).to.equal(src);
     expect(out.querySelector('span')).to.be.null;
   });
+
+  describe('alt text', () => {
+    const parse = (h) => new DOMParser().parseFromString(h, 'text/html');
+
+    it('protects a URL-only anchor entirely', async () => {
+      const html = '<body><main><div><p><a href="https://a.com/x">https://a.com/x</a></p></div></main></body>';
+      const a = parse(await addDnt(html, {}, { reset: true })).querySelector('a');
+      expect(a.getAttribute('translate')).to.equal('no');
+    });
+
+    it('protects only the url parts of a "url | alt" anchor and restores it', async () => {
+      const html = '<body><main><div><p><a href="https://a.com/x">https://a.com/x | Click here | tail</a></p></div></main></body>';
+      const withDnt = await addDnt(html, {}, { reset: true });
+      const doc = parse(withDnt);
+      const spans = [...doc.querySelectorAll('a span.dnt-text[translate="no"]')];
+      expect(spans.map((sp) => sp.textContent)).to.deep.equal(['https://a.com/x | ', ' | tail']);
+      expect(doc.querySelector('a').hasAttribute('translate')).to.be.false;
+      const removed = parse(await removeDnt(withDnt.replace('Click here', 'Haz clic'), 'org', 'site')).querySelector('a');
+      expect(removed.textContent).to.equal('https://a.com/x | Haz clic | tail');
+      expect(removed.querySelector('span')).to.be.null;
+    });
+
+    it('protects a URL-only img alt via dnt-alt-content and restores it', async () => {
+      const html = '<body><main><div><p><img src="https://a.com/i.png" alt="https://a.com/link"></p></div></main></body>';
+      const withDnt = await addDnt(html, {}, { reset: true });
+      const img = parse(withDnt).querySelector('img');
+      expect(img.hasAttribute('alt')).to.be.false;
+      expect(img.getAttribute('dnt-alt-content')).to.equal('https://a.com/link');
+      const out = parse(await removeDnt(withDnt, 'org', 'site')).querySelector('img');
+      expect(out.getAttribute('alt')).to.equal('https://a.com/link');
+      expect(out.hasAttribute('dnt-alt-content')).to.be.false;
+    });
+
+    it('round-trips a "url | alt" img alt with a translated alt', async () => {
+      const html = '<body><main><div><p><img src="https://a.com/i.png" alt="https://a.com | Text here | tail"></p></div></main></body>';
+      const withDnt = await addDnt(html, {}, { reset: true });
+      const img = parse(withDnt).querySelector('img');
+      expect(img.getAttribute('alt')).to.equal('Text here');
+      expect(img.getAttribute('dnt-alt-content')).to.equal('https://a.com | *alt-placeholder* | tail');
+      const translated = withDnt.replace('alt="Text here"', 'alt="Texto aqui"');
+      const out = parse(await removeDnt(translated, 'org', 'site')).querySelector('img');
+      expect(out.getAttribute('alt')).to.equal('https://a.com | Texto aqui | tail');
+    });
+  });
 });

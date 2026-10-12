@@ -4,9 +4,7 @@ const setDntAttribute = (el) => {
   el.setAttribute('translate', 'no');
 };
 
-// An editable link-image (<a data-edit-as="image">src</a>) carries its alt text in
-// `title`. translate="no" on the anchor would also freeze that title, so protect only
-// the URL text.
+// translate="no" on the anchor would freeze its alt-bearing title, so protect only the URL text.
 const LINK_IMAGE_SELECTOR = 'a[data-edit-as="image"]';
 
 const protectLinkImageText = (document, element) => {
