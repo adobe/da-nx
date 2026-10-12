@@ -1,5 +1,11 @@
-import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc, handleImageError } from './src/images.js';
-import { setEditorState } from './src/prose.js';
+import {
+  requestEditor,
+  setupContentEditableListeners,
+  setupImageDropListeners,
+  updateImageSrc,
+  handleImageError,
+} from './src/images.js';
+import { setEditorState, captureFocusedEditor } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
@@ -39,16 +45,25 @@ const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
 let parentControllerPort = null;
 
 async function setBody(body, ctx) {
+  ctx.bodyGeneration = (ctx.bodyGeneration ?? 0) + 1;
+  const generation = ctx.bodyGeneration;
+
   const anchor = captureScrollAnchor();
+  const focused = captureFocusedEditor();
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage(document);
+  // A newer SET_BODY replaced the DOM while this one was loading.
+  if (generation !== ctx.bodyGeneration) return;
   restoreBlockIndices(doc, document);
   restoreImageIndices(doc, document);
   applyCommentMarkers(ctx);
   setupNodeSelection(ctx);
   setSelectedNode(getSelectedNode());
   setupContentEditableListeners(ctx);
+  // Re-open the editor the user was in, since the body (and its editor) was replaced.
+  const refocus = focused && document.querySelector(`[data-prose-index="${focused.cursorOffset}"]:not(picture)`);
+  if (refocus) requestEditor(ctx, refocus, { selection: focused.selection });
   if (!ctx.readOnly) {
     setupImageDropListeners(ctx, document.body.querySelector('main'));
   }
