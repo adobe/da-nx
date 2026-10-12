@@ -15,8 +15,8 @@
 .ui-artifact-pe-icon {
   display: inline-block;
   flex-shrink: 0;
-  width: calc(var(--nx-ui-icon) + 2px);
-  height: calc(var(--nx-ui-icon) + 2px);
+  width: 18px;
+  height: 18px;
   background-color: currentcolor;
   mask-size: contain;
   mask-repeat: no-repeat;
@@ -151,8 +151,8 @@
 }
 
 .ui-artifact-pe-chevron {
-  width: calc(var(--nx-ui-icon) - 2px);
-  height: calc(var(--nx-ui-icon) - 2px);
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   background-color: var(--s2-gray-600);
   mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
@@ -161,6 +161,11 @@
   mask-position: center;
   transform: rotate(180deg);
   transition: transform 0.15s ease;
+}
+
+:host([data-ui-size="m"]) .ui-artifact-pe-chevron {
+  width: 16px;
+  height: 16px;
 }
 
 .ui-artifact-pe-section[open] > .ui-artifact-pe-section-header > .ui-artifact-pe-chevron {
@@ -270,8 +275,8 @@
   &::after {
     content: "";
     display: block;
-    width: calc(var(--nx-ui-icon) - 4px);
-    height: calc(var(--nx-ui-icon) - 4px);
+    width: 12px;
+    height: 12px;
     background-color: currentcolor;
     mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
     mask-size: contain;
@@ -316,8 +321,8 @@
 }
 
 .ui-artifact-pe-modal-heading-icon {
-  width: calc(var(--nx-ui-icon) + 2px);
-  height: calc(var(--nx-ui-icon) + 2px);
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
   background-color: currentcolor;
   mask-size: contain;
@@ -366,8 +371,8 @@
 }
 
 .ui-artifact-pe-modal-copy-icon {
-  width: calc(var(--nx-ui-icon) - 2px);
-  height: calc(var(--nx-ui-icon) - 2px);
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   background-color: currentcolor;
   mask-image: url("/img/icons/s2-icon-copy-20-n.svg");
@@ -441,8 +446,8 @@
   &::after {
     content: "";
     display: block;
-    width: calc(var(--nx-ui-icon) - 2px);
-    height: calc(var(--nx-ui-icon) - 2px);
+    width: 14px;
+    height: 14px;
     background-color: currentcolor;
     mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
     mask-size: contain;
@@ -463,4 +468,22 @@
   font-size: var(--nx-ui-text-description);
   font-weight: bold;
   color: var(--s2-gray-800);
+}
+
+:host([data-ui-size="m"]) {
+  .ui-artifact-pe-icon, .ui-artifact-pe-modal-heading-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .ui-artifact-pe-modal-copy-icon,
+  .ui-artifact-pe-modal-paging-btn::after {
+    width: 16px;
+    height: 16px;
+  }
+
+  .ui-artifact-pe-paging-btn::after {
+    width: 14px;
+    height: 14px;
+  }
 }

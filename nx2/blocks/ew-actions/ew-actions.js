@@ -11,7 +11,7 @@ import { fetchDaConfigs, getFirstSheet } from '../../utils/daConfig.js';
 import { PREFLIGHT_EVENT, newPreflightRequestId } from '../../utils/preflight-events.js';
 import { sidekickCacheBust } from '../../utils/sidekick.js';
 import { formatRelativeDateTime } from '../../utils/format.js';
-import { getConfig } from '../../scripts/nx.js';
+import { getConfig, getUISize } from '../../scripts/nx.js';
 import '../shared/popover/popover.js';
 
 const style = await loadStyle(import.meta.url);
@@ -122,6 +122,7 @@ class NXEwActions extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this.dataset.uiSize = getUISize();
     this._busy = false;
     this._target = 'preview';
     this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];
@@ -493,6 +494,7 @@ class NXEwActions extends LitElement {
   }
 
   _renderDeployPopover() {
+    const btnSizeCls = getUISize() === 's' ? 'nx-btn-sm' : '';
     // `editor.hidePublish` config removes the publish path entirely: no Publish
     // card, and the action can only ever be a preview "Update".
     const isPublish = this._target === 'live' && !this._hidePublish;
@@ -505,7 +507,7 @@ class NXEwActions extends LitElement {
           </div>
           <button
             type="button"
-            class="deploy-action nx-btn-accent${isPublish ? ' is-publish' : ''}"
+            class="deploy-action nx-btn-accent ${btnSizeCls}${isPublish ? ' is-publish' : ''}"
             ?disabled=${this._busy}
             @click=${this._confirmAction}
           >
@@ -519,6 +521,7 @@ class NXEwActions extends LitElement {
   }
 
   render() {
+    const btnSizeCls = getUISize() === 's' ? 'nx-btn-sm' : '';
     const hasDoc = Boolean(buildAemPathFromHashState(this._hashState));
     const disabled = !hasDoc || this._busy;
     const prepareDetails = this._prepareReady ? this._prepareDetails : null;
@@ -533,7 +536,7 @@ class NXEwActions extends LitElement {
             ${prepareDetails ? html`
               <button
                 type="button"
-                class="nx-action-btn-icon prepare-dropdown-btn"
+                class="nx-action-btn-icon prepare-dropdown-btn ${btnSizeCls}"
                 aria-label="Open prepare menu"
                 aria-haspopup="menu"
                 aria-expanded="false"
@@ -545,7 +548,7 @@ class NXEwActions extends LitElement {
             ` : nothing}
             <button
               type="button"
-              class="nx-btn-accent send-btn${this._hasError ? ' is-error' : ''}${this._busy ? ' is-busy' : ''}"
+              class="nx-btn-accent send-btn ${btnSizeCls}${this._hasError ? ' is-error' : ''}${this._busy ? ' is-busy' : ''}"
               aria-label=${sendLabel}
               aria-haspopup="dialog"
               ?disabled=${disabled}

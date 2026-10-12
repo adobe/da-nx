@@ -129,8 +129,8 @@
 }
 
 .ui-artifact-alert-icon {
-  width: calc(var(--nx-ui-icon) + 2px);
-  height: calc(var(--nx-ui-icon) + 2px);
+  width: 18px;
+  height: 18px;
 
   /* Nudges past line-height leading to match the first line's ink, not its
      box top — same fix as chat-ao.css's task-list-item checkbox. */
@@ -199,4 +199,9 @@
   .ui-artifact-alert-icon {
     mask-image: url("/img/icons/s2-icon-alerttriangle-20-n.svg");
   }
+}
+
+:host([data-ui-size="m"]) .ui-artifact-alert-icon {
+  width: 20px;
+  height: 20px;
 }

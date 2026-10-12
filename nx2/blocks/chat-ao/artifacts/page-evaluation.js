@@ -12,6 +12,7 @@
 
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { getUISize } from '../../../scripts/nx.js';
 import { registerArtifact } from './registry.js';
 
 const styles = await loadStyle(import.meta.url);
@@ -131,6 +132,7 @@ class NxPageEval extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this.dataset.uiSize = getUISize();
     this.shadowRoot.adoptedStyleSheets = [styles];
   }
 

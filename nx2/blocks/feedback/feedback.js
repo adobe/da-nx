@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig } from '../../scripts/nx.js';
+import { getConfig, getUISize } from '../../scripts/nx.js';
 import { loadStyle } from '../../utils/utils.js';
 import '../shared/menu/menu.js';
 
@@ -112,10 +112,11 @@ class NxFeedback extends LitElement {
   }
 
   render() {
+    const size = getUISize();
     if (!this._items) return nothing;
     return html`
-      <nx-menu .items=${this._items} placement="below-end" @select=${this._handleSelect} size="m">
-        <button type="button" slot="trigger" class="nx-action-btn-quiet">
+      <nx-menu .items=${this._items} size=${size} placement="below-end" @select=${this._handleSelect} size="m">
+        <button type="button" slot="trigger" class="nx-action-btn-quiet ${size === 's' ? 'nx-btn-sm' : ''}">
           <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICON_HREF}"></use></svg>
           <span>Feedback</span>
         </button>

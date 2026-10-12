@@ -96,6 +96,55 @@ describe('nx-ew-actions', () => {
     const cardTitles = (element) => [...element.shadowRoot.querySelectorAll('.deploy-card-title')]
       .map((n) => n.textContent.trim());
 
+    describe('UI sizing', () => {
+      let originalSize;
+
+      beforeEach(() => {
+        originalSize = localStorage.getItem('ui-size');
+      });
+
+      afterEach(() => {
+        if (originalSize === null) localStorage.removeItem('ui-size');
+        else localStorage.setItem('ui-size', originalSize);
+      });
+
+      it('uses small buttons only for small sizing, including the default', async () => {
+        const org = uniq('org');
+        const site = uniq('site');
+        restoreFetch = installFetch({
+          [`${DA_ADMIN}/config/${org}/`]: { data: [] },
+          [`${DA_ADMIN}/config/${org}/${site}/`]: { data: [] },
+        });
+        el = await makeEl();
+        el._hashState = { org, site, path: '/test/page' };
+        el._prepareReady = true;
+        el._busy = true;
+        el._hasError = true;
+        el._target = 'live';
+
+        for (const size of [null, 's', 'm', 'l', 's']) {
+          if (size === null) localStorage.removeItem('ui-size');
+          else localStorage.setItem('ui-size', size);
+          el.requestUpdate();
+          await el.updateComplete;
+          const buttons = [...el.shadowRoot.querySelectorAll(
+            '.prepare-dropdown-btn, .send-btn, .deploy-action',
+          )];
+          expect(buttons.length).to.equal(3);
+          buttons.forEach((button) => {
+            expect(button.classList.contains('nx-btn-sm')).to.equal(size === null || size === 's');
+          });
+          const send = el.shadowRoot.querySelector('.send-btn');
+          expect(send.classList.contains('is-error')).to.be.true;
+          expect(send.classList.contains('is-busy')).to.be.true;
+          expect(send.disabled).to.be.true;
+          const deploy = el.shadowRoot.querySelector('.deploy-action');
+          expect(deploy.classList.contains('is-publish')).to.be.true;
+          expect(deploy.disabled).to.be.true;
+        }
+      });
+    });
+
     it('shows both Preview and Publish cards when publish is not hidden', async () => {
       const org = uniq('org');
       const site = uniq('site');

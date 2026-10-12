@@ -101,8 +101,8 @@ nx-popover.deploy-popover {
 }
 
 .deploy-glyph {
-  width: calc(var(--nx-ui-icon) - 2px);
-  height: calc(var(--nx-ui-icon) - 2px);
+  width: 14px;
+  height: 14px;
   fill: currentcolor;
 }
 
@@ -183,8 +183,8 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card-check .deploy-glyph {
-  width: calc(var(--nx-ui-icon) + 4px);
-  height: calc(var(--nx-ui-icon) + 4px);
+  width: 20px;
+  height: 20px;
 }
 
 .deploy-card-preview .deploy-card-check {
@@ -238,8 +238,25 @@ nx-popover.deploy-popover {
 }
 
 .deploy-copy .deploy-glyph {
-  width: var(--nx-ui-icon);
-  height: var(--nx-ui-icon);
+  width: 16px;
+  height: 16px;
+}
+
+:host([data-ui-size="m"]) {
+  .deploy-glyph {
+    width: 16px;
+    height: 16px;
+  }
+
+  .deploy-card-check .deploy-glyph {
+    width: 22px;
+    height: 22px;
+  }
+
+  .deploy-copy .deploy-glyph {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 .deploy-copy:hover {
@@ -266,21 +283,4 @@ nx-popover.deploy-popover {
 
 .deploy .deploy-action.is-publish:hover:not(:disabled) {
   background: #0fa25b;
-}
-
-
-.nx-action-btn-icon.prepare-dropdown-btn {
-  width: var(--nx-ui-icon-btn-size);
-  height: var(--nx-ui-icon-btn-size);
-  padding: 0;
-
-  svg {
-    width: var(--nx-ui-icon);
-    height: var(--nx-ui-icon);
-  }
-
-  &:hover:not(:disabled) {
-    background: var(--nx-ui-icon-btn-hover-bg);
-    color: var(--nx-ui-icon-btn-hover-color);
-  }
 }
