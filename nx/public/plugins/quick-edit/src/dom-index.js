@@ -182,7 +182,7 @@ export function srcPathsMatch(a, b) {
 
 function isAtomicInline(el) {
   if (!el?.tagName) return false;
-  return ATOMIC_TAGS.has(el.tagName.toLowerCase());
+  return ATOMIC_TAGS.has(el.tagName.toLowerCase()) || el.matches(LINK_IMAGE_SELECTOR);
 }
 
 export function walkProsePositions(root, startPos, callbacks) {

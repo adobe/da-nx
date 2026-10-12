@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import {
   restoreBlockIndices, restoreImageIndices, syncImageIndices, applyImageVersionAck, findTextBlock,
+  walkProsePositions, findImageAtProseIndex,
 } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
 
 describe('findTextBlock', () => {
@@ -208,5 +209,41 @@ describe('restoreBlockIndices', () => {
     const block = live.querySelector('.card');
     expect(block.getAttribute('data-block-index')).to.equal('3');
     expect(block.hasAttribute('data-block-variant')).to.equal(false);
+  });
+});
+
+describe('link-image prose positions', () => {
+  const URL_HREF = 'https://x.test/a.jpg';
+
+  function walk(html) {
+    const root = document.createElement('div');
+    root.innerHTML = html;
+    const calls = [];
+    const end = walkProsePositions(root.firstElementChild, 1, {
+      onText: (node, pos) => calls.push(['text', node.textContent, pos]),
+      onAtomic: (el, pos) => calls.push(['atomic', el.tagName, pos]),
+    });
+    return { calls, end };
+  }
+
+  it('counts a link-image as one atomic position', () => {
+    const { calls, end } = walk(`<p>Hi <a data-edit-as="image" href="${URL_HREF}">${URL_HREF}</a> there</p>`);
+
+    expect(calls).to.deep.equal([['text', 'Hi ', 1], ['atomic', 'A', 4], ['text', ' there', 5]]);
+    expect(end).to.equal(11);
+  });
+
+  it('resolves a link-image by prose index', () => {
+    const root = document.createElement('div');
+    root.innerHTML = `<main><p data-prose-index="1">Hi <a data-edit-as="image" href="${URL_HREF}">${URL_HREF}</a> there</p></main>`;
+
+    expect(findImageAtProseIndex(4, root) === root.querySelector('a')).to.equal(true);
+  });
+
+  it('still walks a plain link as text', () => {
+    const { calls, end } = walk('<p>Hi <a href="/y">link</a> there</p>');
+
+    expect(calls).to.deep.equal([['text', 'Hi ', 1], ['text', 'link', 4], ['text', ' there', 8]]);
+    expect(end).to.equal(14);
   });
 });
