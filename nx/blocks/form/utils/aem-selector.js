@@ -1,11 +1,12 @@
-import { loadIms, handleSignIn } from '../../../../nx2/utils/ims.js';
-import { loadPageStyle } from '../../../../nx2/utils/utils.js';
-import { loadAssetSelector } from '../../../../nx2/utils/aem-assets/selector.js';
-import { buildAssetSelectorProps } from '../../../../nx2/utils/aem-assets/selector-props.js';
-import { resolveAssetSelection } from '../../../../nx2/utils/aem-assets/selection.js';
-import { getMimetype } from '../../../../nx2/utils/aem-assets/urls.js';
-import { CANCELLED } from './assets.js';
 import '../../../../nx2/blocks/shared/dialog/dialog.js';
+import { createImagesOnlyFilterSchema } from '../../../../nx2/utils/aem-assets/filter-schema.js';
+import { resolveAssetSelection } from '../../../../nx2/utils/aem-assets/selection.js';
+import { buildAssetSelectorProps } from '../../../../nx2/utils/aem-assets/selector-props.js';
+import { loadAssetSelector } from '../../../../nx2/utils/aem-assets/selector.js';
+import { getMimetype } from '../../../../nx2/utils/aem-assets/urls.js';
+import { handleSignIn, loadIms } from '../../../../nx2/utils/ims.js';
+import { loadPageStyle } from '../../../../nx2/utils/utils.js';
+import { CANCELLED, isImageType } from './assets.js';
 
 const STYLE_HREF = new URL('./aem-selector.css', import.meta.url).href;
 const DIALOG_TITLE = 'AEM Assets';
@@ -13,6 +14,7 @@ const DIALOG_TITLE = 'AEM Assets';
 const AEM_ERRORS = {
   signIn: 'Sign in to select a file from AEM Assets.',
   unavailable: 'The AEM Assets selector could not be loaded.',
+  notImage: 'Only images can be selected.',
 };
 
 // The user asked for AEM Assets, so a sign-in redirect is expected here.
@@ -29,12 +31,17 @@ function toAssetResult({ asset, repoConfig }) {
     return CANCELLED;
   }
 
+  // Media fields are saved as images, so other files would not be delivered.
+  const type = getMimetype(asset).toLowerCase();
+  if (!isImageType(type)) {
+    return { error: AEM_ERRORS.notImage };
+  }
+
   const { href, error } = resolveAssetSelection({ asset, repoConfig });
   if (error) {
     return { error };
   }
 
-  const type = getMimetype(asset).toLowerCase();
   const name = asset['repo:name'] ?? asset.name;
   return { href, name, type };
 }
@@ -59,6 +66,7 @@ function waitForSelection({ selectors, ui, selection }) {
     selectors.renderAssetSelector(container, buildAssetSelectorProps({
       imsToken,
       repoConfig,
+      filterSchema: createImagesOnlyFilterSchema(),
       onClose: () => resolve(CANCELLED),
       handleSelection: ([asset] = []) => {
         resolve(toAssetResult({ asset, repoConfig }));

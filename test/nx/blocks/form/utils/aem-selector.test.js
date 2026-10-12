@@ -11,6 +11,7 @@ import {
 const AEM_ERRORS = {
   signIn: 'Sign in to select a file from AEM Assets.',
   unavailable: 'The AEM Assets selector could not be loaded.',
+  notImage: 'Only images can be selected.',
 };
 
 const METADATA_KEY = 'http://ns.adobe.com/adobecloud/rel/metadata/asset';
@@ -198,14 +199,41 @@ describe('selectAemAsset', () => {
     expect(openDialog()).to.equal(null);
   });
 
-  it('accepts any asset type', async () => {
+  it('locks the selector to images', async () => {
+    const { calls } = start();
+    const { props } = await waitForRender(calls);
+
+    expect(props.filterSchema.map(({ groupKey }) => groupKey)).to.deep.equal(['FileTypeGroup']);
+    expect(props.filterSchema[0].fields[0]).to.include({ name: 'type', readOnly: true });
+    expect(props.filterSchema[0].fields[0].defaultValue).to.deep.equal(['image/*']);
+    expect(props).to.include({ filterSchemaSource: 'hybrid-merge-deep' });
+  });
+
+  it('keeps the approved filter next to the image filter for Dynamic Media', async () => {
+    const { calls } = start({ repoConfig: { ...AUTHOR_DM_CONFIG, approvedOnly: true } });
+    const { props } = await waitForRender(calls);
+
+    expect(props.filterSchema.map(({ groupKey }) => groupKey))
+      .to.deep.equal(['AssetStatusGroup', 'FileTypeGroup']);
+  });
+
+  it('rejects a non-image asset if the selector does not apply the filter', async () => {
     const { pick, calls } = start();
     const { props } = await waitForRender(calls);
 
-    expect(props.filterSchema).to.equal(undefined);
-    props.handleSelection([{ ...IMAGE_ASSET, mimetype: 'application/zip', name: 'kit.zip' }]);
+    props.handleSelection([{ ...IMAGE_ASSET, mimetype: 'application/pdf', name: 'datasheet.pdf' }]);
 
-    expect((await pick).type).to.equal('application/zip');
+    await expectError(pick, AEM_ERRORS.notImage);
+    expect(openDialog()).to.equal(null);
+  });
+
+  it('rejects an asset without a type', async () => {
+    const { pick, calls } = start();
+    const { props } = await waitForRender(calls);
+
+    props.handleSelection([{ ...IMAGE_ASSET, mimetype: undefined, 'dc:format': undefined }]);
+
+    await expectError(pick, AEM_ERRORS.notImage);
   });
 
   it('reads the type from dc:format when mimetype is missing', async () => {
