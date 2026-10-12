@@ -57,7 +57,7 @@
 
 .question-text {
   margin: 0;
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-regular-font-size);
   color: var(--s2-gray-800);
 }
 
