@@ -393,7 +393,7 @@ class NxLocTranslate extends LitElement {
               <sl-button @click=${this.handleGetStatus} class="accent" ?disabled=${this._getStatusBusy}>
                 ${this._getStatusBusy ? this.renderSpinner() : nothing} Get status
               </sl-button>
-            ` : nothing}    
+            ` : nothing}
           `;
         }
 
