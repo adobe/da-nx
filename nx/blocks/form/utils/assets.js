@@ -1,4 +1,3 @@
-import { SUPPORTED_FILES } from '../../../../nx2/utils/utils.js';
 import {
   SUPPORTED_IMAGE_TYPES,
   getImageUploadLimit,
@@ -6,6 +5,7 @@ import {
   imageTooLargeMessage,
   uploadMedia,
 } from '../../../../nx2/utils/media-upload.js';
+import { SUPPORTED_FILES } from '../../../../nx2/utils/utils.js';
 import { extensionOf, isAssetHref } from './media.js';
 
 export function typeFromName(fileName) {

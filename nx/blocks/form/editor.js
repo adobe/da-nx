@@ -5,6 +5,7 @@ import { loadFormContext } from './utils/context.js';
 import { attachPersistence } from './utils/persistence.js';
 import { createAssetSources } from './utils/assets.js';
 import { isJsonPreviewEnabled } from './utils/config.js';
+import { isLinkedMedia } from './utils/media.js';
 import {
   ensurePreviewLogin, getLivePreviewUrl, loadStyle, hashChange,
 } from '../../../nx2/utils/utils.js';
@@ -46,12 +47,15 @@ function ctxFromHashState(state) {
   return { org: state.org, repo: state.site, path: state.fullpath.slice(1) };
 }
 
+// Without a usable configuration the form offers Upload only and saves no links.
 async function loadAemRepoConfig({ owner, repo }) {
   try {
     const { getRepositoryConfig } = await import('../../../nx2/utils/aem-assets/repository-config.js');
-    return { repoConfig: await getRepositoryConfig(owner, repo) };
+    return await getRepositoryConfig(owner, repo);
   } catch (error) {
-    return { error };
+    // eslint-disable-next-line no-console
+    console.warn('AEM Assets configuration unavailable. Offering Upload only.', error);
+    return null;
   }
 }
 
@@ -141,6 +145,7 @@ class Form extends LitElement {
     this._persistence = attachPersistence(this._editor, {
       path: this._details?.fullpath,
       schema,
+      media: { isLinked: (src) => isLinkedMedia({ src, repoConfig: this._repoConfig }) },
     });
     this._nav = { pointer: '/data', origin: null, seq: 0 };
   }
@@ -171,6 +176,7 @@ class Form extends LitElement {
 
     this._assetSources = undefined;
     this._previewOrigin = undefined;
+    this._repoConfig = undefined;
 
     this._details = detailsFromCtx(this.ctx);
 
@@ -181,13 +187,16 @@ class Form extends LitElement {
 
     this._context = { status: 'loading', schemas: {} };
 
-    const [context, previewEnabled] = await Promise.all([
+    // Saving needs the AEM Assets link mode setting, so it loads alongside the document.
+    const [context, previewEnabled, repoConfig] = await Promise.all([
       loadFormContext({ details: this._details }),
       isJsonPreviewEnabled({ org: this.ctx.org, site: this.ctx.repo }),
+      loadAemRepoConfig(this._details),
     ]);
     if (version !== this._loadVersion) return;
 
     this._previewEnabled = previewEnabled;
+    this._repoConfig = repoConfig;
     this._context = context;
 
     if (context.status === 'ready') {
@@ -195,12 +204,12 @@ class Form extends LitElement {
     }
 
     if (context.status === 'ready' || context.status === 'select-schema') {
-      await this._loadAssetContext(version);
+      this._loadAssetContext(version);
     }
   }
 
   // File sources and previews load independently, so a slow preview login never delays sources.
-  async _loadAssetContext(version) {
+  _loadAssetContext(version) {
     const { owner, repo } = this._details;
     const isCurrent = () => version === this._loadVersion;
 
@@ -210,17 +219,11 @@ class Form extends LitElement {
       }
     });
 
-    const { repoConfig, error } = await loadAemRepoConfig({ owner, repo });
-    if (!isCurrent()) {
-      return;
-    }
-
-    if (error) {
-      // eslint-disable-next-line no-console
-      console.warn('AEM Assets configuration unavailable; offering Upload only.', error);
-    }
-
-    this._assetSources = createAssetSources({ details: this._details, repoConfig, isCurrent });
+    this._assetSources = createAssetSources({
+      details: this._details,
+      repoConfig: this._repoConfig,
+      isCurrent,
+    });
   }
 
   _onPendingSchemaChange(e) {

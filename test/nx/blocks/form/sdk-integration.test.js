@@ -352,6 +352,42 @@ describe('SDK × attachPersistence (end-to-end)', () => {
     p.detach();
   });
 
+  it('saves files and linked images as links, and other images as images', async () => {
+    let p;
+    const calls = [];
+    const save = async ({ html }) => { calls.push(html); };
+    const media = { type: 'string', 'x-semantic-type': 'media' };
+    const schema = {
+      type: 'object',
+      properties: { datasheet: media, hero: media, logo: media },
+    };
+    const linkedHero = 'https://publish-p1-e1.adobeaemcloud.com/content/dam/hero.jpg';
+    const pdf = 'https://publish-p1-e1.adobeaemcloud.com/content/dam/datasheet.pdf';
+    const logo = 'https://content.da.live/org/site/logo.png';
+
+    const editor = createEngine({ schema, document: validDoc(), onChange: () => p?.notify() });
+    p = attachPersistence(editor, {
+      path: '/smoke',
+      schema,
+      media: { isLinked: (src) => src === linkedHero },
+      save,
+    });
+
+    editor.setField('/data/datasheet', pdf);
+    editor.setField('/data/hero', linkedHero);
+    editor.setField('/data/logo', logo);
+    await new Promise((r) => { setTimeout(r, 0); });
+
+    const html = calls.at(-1);
+    expect(html).to.include(`<a href="${pdf}">${pdf}</a>`);
+    expect(html).to.include(`<a href="${linkedHero}">${linkedHero}</a>`);
+    expect(html).to.include(`<img src="${logo}" alt="">`);
+    expect(convertHtmlToJson({ html }).json.data).to.deep.equal({
+      datasheet: pdf, hero: linkedHero, logo,
+    });
+    p.detach();
+  });
+
   it('does not save when no real mutation occurs', async () => {
     let p;
     const calls = [];
