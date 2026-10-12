@@ -7,6 +7,7 @@ import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { loadIms, handleSignIn, handleSignOut } from '../../utils/ims.js';
 
 const { nxBase } = getConfig();
+const DEFAULT_AVATAR = `${nxBase}/public/icons/S2_Icon_User_20_N.svg`;
 const style = await getStyle(import.meta.url);
 
 const ICONS = [
@@ -42,14 +43,7 @@ class NxProfile extends LitElement {
         this._signedIn = false;
         return;
       }
-      try {
-        const { user } = await this._details.getIo();
-        this._avatar = user.avatar;
-      } catch {
-        // eslint-disable-next-line no-console
-        console.log('Could not get avatar');
-        this._avatar = `${nxBase}/public/icons/S2_Icon_User_20_N.svg`;
-      }
+      this._avatar = this._details.user_image_url || DEFAULT_AVATAR;
       this._signedIn = true;
       this.getOrg();
       this.setIcons();
@@ -61,6 +55,10 @@ class NxProfile extends LitElement {
   async getOrg() {
     const orgs = await this._details.getOrgs();
     [this._org] = Object.keys(orgs);
+  }
+
+  handleAvatarError() {
+    if (this._avatar !== DEFAULT_AVATAR) this._avatar = DEFAULT_AVATAR;
   }
 
   async getAllOrgs() {
@@ -152,14 +150,14 @@ class NxProfile extends LitElement {
     return html`
       <div class="nx-profile">
         <button class="nx-btn-profile" aria-label="Open profile menu" popovertarget="nx-menu-profile">
-          <img src="${this._avatar}" alt="" />
+          <img src="${this._avatar}" alt="" @error=${this.handleAvatarError} />
         </button>
         <div id="nx-menu-profile" popover>
           <div class="nx-menu-details-wrapper">
             <p class="nx-menu-clipboard-notice">User ID copied to clipboard.</p>
             <button class="nx-menu-btn nx-menu-btn-details" @click=${this.handleCopyUser}>
               <picture>
-                <img src="${this._avatar}" alt="Profile photo" />
+                <img src="${this._avatar}" alt="Profile photo" @error=${this.handleAvatarError} />
               </picture>
               <div class="nx-menu-details-name">
                 <p class="nx-display-name">${this._details.displayName}</p>
