@@ -105,7 +105,7 @@ export function restoreImageIndices(sourceRoot, liveRoot = document) {
 export function syncImageIndices(view, editorParent, offset, oldSize = 0, lengthDiff = 0) {
   const base = offset - 1;
   if (lengthDiff) {
-    document.querySelectorAll('img[data-image-index]').forEach((img) => {
+    document.querySelectorAll(`img[data-image-index], ${LINK_IMAGE_SELECTOR}[data-image-index]`).forEach((img) => {
       if (editorParent.contains(img)) return;
       const index = parseIndex(img.getAttribute('data-image-index'));
       if (index != null && index >= base + oldSize) {

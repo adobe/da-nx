@@ -155,6 +155,29 @@ describe('restoreBlockIndices', () => {
       }
     });
 
+    it('shifts link-image indices that follow the edited block', () => {
+      const root = document.createElement('main');
+      root.innerHTML = '<a data-edit-as="image" data-image-index="100" href="/w.jpg">/w.jpg</a>'
+        + '<div class="prosemirror-editor"><img data-image-index="106"></div>'
+        + '<a data-edit-as="image" data-image-index="110" href="/x.jpg">/x.jpg</a>';
+      document.body.append(root);
+      const editorParent = root.querySelector('.prosemirror-editor');
+      const [before, after] = root.querySelectorAll('a');
+      const view = {
+        dom: editorParent,
+        posAtDOM: () => 7,
+        state: { doc: { nodeAt: () => ({ type: { name: 'image' } }) } },
+      };
+      try {
+        syncImageIndices(view, editorParent, 101, 10, 3);
+
+        expect(before.getAttribute('data-image-index')).to.equal('100');
+        expect(after.getAttribute('data-image-index')).to.equal('113');
+      } finally {
+        root.remove();
+      }
+    });
+
     it('applies the host version acknowledgement without rebuilding the editor', () => {
       const root = document.createElement('main');
       root.innerHTML = '<div class="prosemirror-editor" data-image-version="v1">'
