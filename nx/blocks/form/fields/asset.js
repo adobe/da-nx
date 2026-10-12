@@ -3,9 +3,10 @@ import { loadStyle } from '../../../../nx2/utils/utils.js';
 import '../../../../nx2/blocks/shared/menu/menu.js';
 import '../../../../nx2/blocks/shared/dialog/dialog.js';
 import { icon } from '../icons.js';
+import { CANCELLED } from '../utils/assets.js';
 import {
-  CANCELLED, describeAsset, extensionOf, isAssetHref, previewHrefFor,
-} from '../utils/assets.js';
+  MEDIA_KINDS, describeMedia, extensionOf, isAssetHref,
+} from '../utils/media.js';
 import defaults from './defaults.js';
 
 const [style, formStyle] = await Promise.all([
@@ -51,6 +52,7 @@ class FormAsset extends LitElement {
     _pending: { state: true },
     _selectionError: { state: true },
     _loadedPreviewSrc: { state: true },
+    _failedPreviewSrc: { state: true },
     _confirmingRemove: { state: true },
   };
 
@@ -72,24 +74,37 @@ class FormAsset extends LitElement {
 
   willUpdate(changed) {
     if (changed.has('value') && this.value !== this._selection?.href) this._forgetSelection();
-    this._asset = describeAsset({
+    this._media = describeMedia({
       href: this.value,
       name: this._selection?.name,
-      type: this._selection?.type,
+      previewOrigin: this.previewOrigin,
     });
   }
 
   get _kindLabel() {
-    return this.value && this._asset.isImage ? 'image' : 'file';
+    return this.value ? this._media.kind : MEDIA_KINDS.file;
   }
 
   get _availableSources() {
     return this.sources ?? [];
   }
 
+  get _previewFailed() {
+    const { previewHref } = this._media;
+    return !!previewHref && previewHref === this._failedPreviewSrc;
+  }
+
   get _previewSrc() {
-    if (!this._asset.isImage) return undefined;
-    return previewHrefFor({ href: this.value, previewOrigin: this.previewOrigin });
+    return this._previewFailed ? undefined : this._media.previewHref;
+  }
+
+  // Only images and videos expand to the preview panel. Empty fields, other
+  // files and images whose preview cannot load stay a single row.
+  get _hasPreviewPanel() {
+    if (!this.value) return false;
+    const { kind } = this._media;
+    if (kind === MEDIA_KINDS.video) return true;
+    return kind === MEDIA_KINDS.image && !this._previewFailed;
   }
 
   get _canChange() {
@@ -149,7 +164,7 @@ class FormAsset extends LitElement {
       this._selectionError = result.error || MESSAGES.unusableResult;
       return;
     }
-    this._selection = { href: result.href, name: result.name, type: result.type };
+    this._selection = { href: result.href, name: result.name };
     this.value = result.href;
     this._emitChange();
   }
@@ -207,6 +222,10 @@ class FormAsset extends LitElement {
     this._loadedPreviewSrc = event.currentTarget.getAttribute('src');
   }
 
+  _onPreviewError(event) {
+    this._failedPreviewSrc = event.currentTarget.getAttribute('src');
+  }
+
   _renderSourceTrigger() {
     const text = this.value ? LABELS.replace : LABELS.select;
     const className = `asset-source-trigger ${this.value ? 'nx-form-btn-secondary' : 'nx-form-btn-primary'}`;
@@ -237,13 +256,31 @@ class FormAsset extends LitElement {
     `;
   }
 
+  _renderPreviewImage(previewSrc) {
+    return html`<img class=${previewSrc === this._loadedPreviewSrc ? 'is-loaded' : ''}
+      src=${previewSrc} alt="" @load=${this._onPreviewLoad} @error=${this._onPreviewError}>`;
+  }
+
+  // The first frame covers the video icon once loaded, like images cover the file type badge.
+  _renderVideoPreview(previewSrc) {
+    return html`
+      ${icon('video', 'asset-preview-icon')}
+      ${previewSrc ? html`<video class=${previewSrc === this._loadedPreviewSrc ? 'is-loaded' : ''}
+        src=${previewSrc} preload="metadata" muted playsinline
+        @loadeddata=${this._onPreviewLoad} @error=${this._onPreviewError}></video>` : nothing}
+    `;
+  }
+
   _renderPreview() {
+    if (!this._hasPreviewPanel) return nothing;
     const previewSrc = this._previewSrc;
+    const isVideo = this._media.kind === MEDIA_KINDS.video;
     return html`
       <div class="asset-preview">
-        ${this.value ? html`<span class="asset-file-type">${extensionOf(this._asset.name) || 'file'}</span>` : nothing}
-        ${previewSrc ? html`<img class=${previewSrc === this._loadedPreviewSrc ? 'is-loaded' : ''}
-          src=${previewSrc} alt="" @load=${this._onPreviewLoad}>` : nothing}
+        ${isVideo ? this._renderVideoPreview(previewSrc) : html`
+          <span class="asset-file-type">${extensionOf(this._media.name) || MEDIA_KINDS.file}</span>
+          ${previewSrc ? this._renderPreviewImage(previewSrc) : nothing}
+        `}
       </div>
     `;
   }
@@ -255,9 +292,11 @@ class FormAsset extends LitElement {
   }
 
   _renderRow() {
-    const { name } = this._asset;
+    const { name } = this._media;
+    const showFileIcon = this.value && !this._hasPreviewPanel;
     return html`
       <div class="asset-row">
+        ${showFileIcon ? icon('file', 'asset-row-icon') : nothing}
         ${this.value
           ? this._renderName(name)
           : html`<span class="asset-placeholder">${LABELS.empty(this._kindLabel)}</span>`}
@@ -298,7 +337,7 @@ class FormAsset extends LitElement {
         ${this.label ? html`
           <label id="asset-label">${this.label}${this.required ? html`<span class="form-required">*</span>` : nothing}</label>
         ` : nothing}
-        <div class="asset" role="group"
+        <div class="asset${this._hasPreviewPanel ? ' has-preview' : ''}" role="group"
           aria-labelledby=${this.label ? 'asset-label' : nothing} aria-busy=${this._pending ? 'true' : 'false'}>
           ${this._renderPreview()}
           ${this._renderRow()}

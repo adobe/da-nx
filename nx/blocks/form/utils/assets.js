@@ -6,62 +6,10 @@ import {
   imageTooLargeMessage,
   uploadMedia,
 } from '../../../../nx2/utils/media-upload.js';
-
-const normalizeMediaType = (type) => (typeof type === 'string' ? type.trim().toLowerCase() : '');
-
-export const isImageType = (type) => normalizeMediaType(type).startsWith('image/');
-
-export const extensionOf = (fileName) => (fileName?.includes('.') ? fileName.split('.').pop().toLowerCase() : '');
+import { extensionOf, isAssetHref } from './media.js';
 
 export function typeFromName(fileName) {
   return SUPPORTED_FILES[extensionOf(fileName)] ?? '';
-}
-
-const MEDIA_BUS_PREFIX = './media_';
-const UNSAFE_MEDIA_BUS_CHARS = /[\s<>"']/;
-const WEB_PROTOCOLS = ['http:', 'https:'];
-
-function parseHref(href, base) {
-  try {
-    return new URL(href, base);
-  } catch {
-    return undefined;
-  }
-}
-
-const isWebHref = (href) => WEB_PROTOCOLS.includes(parseHref(href)?.protocol);
-
-const isMediaBusHref = (href) => href.startsWith(MEDIA_BUS_PREFIX)
-  && !UNSAFE_MEDIA_BUS_CHARS.test(href);
-
-export function isAssetHref(href) {
-  if (typeof href !== 'string' || !href.trim()) return false;
-  return isMediaBusHref(href) || isWebHref(href);
-}
-
-export function previewHrefFor({ href, previewOrigin }) {
-  if (!isAssetHref(href)) return undefined;
-  if (isWebHref(href)) return href;
-  return previewOrigin ? parseHref(href, `${previewOrigin}/`)?.href : undefined;
-}
-
-function fileNameFromHref(href) {
-  const lastSegment = href.split(/[?#]/)[0].split('/').pop();
-  try {
-    return decodeURIComponent(lastSegment);
-  } catch {
-    return lastSegment;
-  }
-}
-
-// Types are only known for files picked in this session, so stored values fall back to the name.
-export function describeAsset({ href, name, type }) {
-  const fileName = name || (href ? fileNameFromHref(href) : '');
-  const fileType = type || typeFromName(fileName);
-  return {
-    name: fileName,
-    isImage: !fileType || isImageType(fileType),
-  };
 }
 
 const INVALID_FILE_NAME = /[/\\?#]|^\.{1,2}$/;

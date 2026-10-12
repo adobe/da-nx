@@ -4,19 +4,25 @@
   --asset-transparency-grid-size: 8px;
   --asset-preview-fade: 130ms;
   --asset-menu-icon-size: 16px;
+  --asset-preview-icon-size: 32px;
+  --asset-row-icon-size: 20px;
 
   display: block;
   font-family: var(--s2-font-family, adobe-clean, "Source Sans Pro", system-ui, sans-serif);
 }
 
-/* Fixed rows in every state, so selecting, replacing or removing never shifts the page. */
+/* Fields start as a single row. Images and videos add the preview panel above it. */
 .asset {
   display: grid;
-  grid-template-rows: var(--asset-preview-height) var(--asset-row-height);
+  grid-template-rows: var(--asset-row-height);
   overflow: hidden;
   border: 1px solid var(--s2-gray-300);
   border-radius: var(--s2-corner-radius-500);
   background: var(--s2-gray-25);
+}
+
+.asset.has-preview {
+  grid-template-rows: var(--asset-preview-height) var(--asset-row-height);
 }
 
 .has-error .asset {
@@ -31,9 +37,15 @@
   background: var(--s2-gray-100);
 }
 
-/* The image covers the file type badge once it has loaded. */
+/* The image or first video frame covers the file type badge or video icon once it has loaded. */
 .asset-preview > * {
   grid-area: 1 / 1;
+}
+
+.asset-preview-icon {
+  width: var(--asset-preview-icon-size);
+  height: var(--asset-preview-icon-size);
+  color: var(--s2-gray-700);
 }
 
 .asset-file-type {
@@ -47,7 +59,8 @@
   text-transform: uppercase;
 }
 
-.asset-preview img {
+.asset-preview img,
+.asset-preview video {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -61,7 +74,8 @@
   background-size: var(--asset-transparency-grid-size) var(--asset-transparency-grid-size);
 }
 
-.asset-preview img.is-loaded {
+.asset-preview img.is-loaded,
+.asset-preview video.is-loaded {
   opacity: 1;
 }
 
@@ -72,7 +86,17 @@
   gap: var(--s2-spacing-200);
   min-width: 0;
   padding: 0 var(--s2-spacing-200) 0 var(--s2-spacing-300);
+}
+
+.has-preview .asset-row {
   border-top: 1px solid var(--s2-gray-200);
+}
+
+.asset-row-icon {
+  flex: none;
+  width: var(--asset-row-icon-size);
+  height: var(--asset-row-icon-size);
+  color: var(--s2-gray-700);
 }
 
 .asset-placeholder,
