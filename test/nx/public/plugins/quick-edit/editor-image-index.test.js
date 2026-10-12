@@ -13,7 +13,7 @@ const schema = new Schema({
     image: {
       group: 'inline',
       inline: true,
-      attrs: { src: { default: null } },
+      attrs: { src: { default: null }, editAs: { default: null } },
       toDOM: (node) => ['img', { src: node.attrs.src }],
     },
   },
@@ -65,9 +65,20 @@ describe('mounted editor image indices', () => {
     expect(imageSelectPayload(second.querySelector('img')).proseIndex).to.equal(43);
   });
 
-  it('gives imageSelectPayload a proseIndex for editor-rendered images', () => {
-    mounted = mountEditor(10, [schema.node('image', { src: '/a.png' })]);
-    const payload = imageSelectPayload(mounted.parent.querySelector('picture'));
-    expect(payload.proseIndex).to.equal(10);
+  it('indexes an editable link-image rendered as a picture in a mounted editor', () => {
+    mounted = mountEditor(20, [
+      schema.text('ab'),
+      schema.node('image', {
+        src: 'https://delivery-p1-e1.adobeaemcloud.com/adobe/assets/urn:aaid:aem:1/as/a.jpg',
+        editAs: 'image',
+      }),
+      schema.text('cd'),
+    ]);
+    const picture = mounted.parent.querySelector('picture');
+    const img = picture?.querySelector('img');
+    expect(picture?.tagName).to.equal('PICTURE');
+    expect(img?.tagName).to.equal('IMG');
+    expect(imageSelectPayload(picture).proseIndex).to.equal(22);
+    expect(img.getAttribute('data-image-index')).to.equal('22');
   });
 });
