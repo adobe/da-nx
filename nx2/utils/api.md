@@ -91,6 +91,23 @@ Auth is handled inside `daFetch`:
 
 Callers don't usually need to think about this — using a namespace method handles it transparently.
 
+### Embedding on a different origin (app, plugin dialog, iframe)
+
+`loadIms`/`handleSignIn` aren't defined in this file. They're resolved once, at module-load time, by the `try`/`catch` at the top of [`api.js`](./api.js#L6-L14).
+
+By default (no `${origin}/scripts/utils.js` on your page's own origin), this falls back to `nx/utils/ims.js`, which bootstraps a real IMS session via `imslib`. That flow assumes it's running on da.live's own origin: the `da-web` IMS client isn't CORS-allow-listed for arbitrary domains.
+
+If you embed this module in a page hosted on a different origin (a standalone app, a library-panel plugin dialog, an iframe pointed at your own repo), that IMS bootstrap gets CORS-blocked (`ims/check/v6/token` has no `Access-Control-Allow-Origin` for your domain). Symptoms: `Missing IMS Client ID`, or a hung, rejected token request with no way to pass in a token you already have.
+
+Provide your own `${origin}/scripts/utils.js` to fix this. It must export a `getNx()` returning a base path; `${getNx()}/utils/ims.js` must then export `loadIms()` and `handleSignIn()` matching the same contract `daFetch` expects:
+
+- `loadIms()` → `Promise<{ accessToken?: { token: string } }>`. Resolve with `{ accessToken: { token } }` when you already have a valid token (e.g. from a postMessage-based SDK your host page already authenticates with). Resolve with anything else (`{}`, `{ anonymous: true }`) when you don't.
+- `handleSignIn()` → called when `loadIms()` resolved without `accessToken`. Implement a real sign-in flow, or leave it a no-op if there's nothing sensible to do outside da.live's own origin.
+
+Working example: [`scripts/utils.js`](https://github.com/adobe-rnd/aem-apps/blob/18685c7474ff73bd365b4f2c2dfa57c787b1ac92/scripts/utils.js) and [`scripts/nx-shim/utils/ims.js`](https://github.com/adobe-rnd/aem-apps/blob/18685c7474ff73bd365b4f2c2dfa57c787b1ac92/scripts/nx-shim/utils/ims.js) in adobe-rnd/aem-apps. It reuses a token the host page already has and falls through to da-nx's real IMS flow when there isn't one.
+
+This only changes IMS resolution for pages served from your origin. da.live itself, and any other host that doesn't define `scripts/utils.js`, are unaffected.
+
 ---
 
 ## hlx6 (upgrade) detection
