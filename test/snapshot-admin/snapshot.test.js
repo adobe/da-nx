@@ -913,4 +913,45 @@ describe('NxSnapshot', () => {
       expect(pollCount).to.be.greaterThanOrEqual(2);
     });
   });
+
+  describe('Save re-copies pages that changed in preview', () => {
+    function recordBulkPosts(manifest = {}) {
+      const posts = [];
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method === 'POST' && urlStr.endsWith('/*')) {
+            posts.push(JSON.parse(opts.body).paths);
+            return new Response('{}', { status: 200, headers: new Headers({ 'x-da-actions': '' }) });
+          }
+          return mockManifestResponse(manifest);
+        },
+      });
+      return posts;
+    }
+
+    it('Sends pages already in the snapshot along with new ones', async () => {
+      const posts = recordBulkPosts();
+      const { updatePaths: updatePathsFn, setOrgSite } = await import('../../nx/blocks/snapshot-admin/utils/utils.js');
+      setOrgSite('org', 'site');
+      await updatePathsFn('test-snap', ['/page1'], [
+        'https://main--site--org.aem.page/page1',
+        'https://main--site--org.aem.page/page2',
+      ]);
+      expect(posts).to.deep.equal([['/page1', '/page2']]);
+    });
+
+    it('Saving an unlocked snapshot sends its pages without editing the URLs', async () => {
+      const posts = recordBulkPosts();
+      const el = await createElement({ startOpen: true });
+      await el.handleSave();
+      expect(posts).to.deep.equal([['/page1']]);
+    });
+
+    it('Saving a locked snapshot leaves its pages alone', async () => {
+      const posts = recordBulkPosts({ locked: '2026-01-01T00:00:00.000Z' });
+      const el = await createElement({ startOpen: true });
+      await el.handleSave(false);
+      expect(posts).to.deep.equal([]);
+    });
+  });
 });

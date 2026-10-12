@@ -158,7 +158,7 @@ export function setOrgSite(suppliedOrg, suppliedSite) {
 
 export async function updatePaths(name, currPaths, editedHrefs) {
   const paths = filterPaths(editedHrefs);
-  const { removed, added } = comparePaths(currPaths, paths);
+  const { removed } = comparePaths(currPaths, paths);
 
   // Handle deletes
   if (removed.length > 0) {
@@ -166,11 +166,11 @@ export async function updatePaths(name, currPaths, editedHrefs) {
     if (!deleteResult.success) return deleteResult;
   }
 
-  // Handle adds
-  if (added.length > 0) {
+  // Add new paths; existing ones are re-copied only if they changed in preview
+  if (paths.length > 0) {
     const opts = {
       method: 'POST',
-      body: JSON.stringify({ paths: added }),
+      body: JSON.stringify({ paths }),
       headers: { 'Content-Type': 'application/json' },
     };
 

@@ -123,13 +123,13 @@ class NxSnapshot extends LitElement {
 
   async handleEditUrls() {
     const textUrls = this.getValue('[name="edit-urls"]');
-    if (textUrls) {
-      const currPaths = this._manifest?.resources?.map((res) => res.path) || [];
-      const editedHrefs = textUrls?.split('\n') || [];
-      const result = await updatePaths(this.basics.name, currPaths, editedHrefs);
-      if (result.error) {
-        this._message = { heading: 'Note', message: result.error, open: true };
-      }
+    const { locked, resources = [] } = this._manifest || {};
+    const editedHrefs = textUrls?.split('\n') || (locked ? [] : resources.map((res) => res.aemPreview));
+    if (!editedHrefs.length) return;
+    const currPaths = resources.map((res) => res.path);
+    const result = await updatePaths(this.basics.name, currPaths, editedHrefs);
+    if (result.error) {
+      this._message = { heading: 'Note', message: result.error, open: true };
     }
   }
 
