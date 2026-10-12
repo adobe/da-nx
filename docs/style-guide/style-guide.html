@@ -524,6 +524,24 @@ toggle.items = [
       </article>
 
       <article class="sg-example">
+        <h3>nx-switch <a href="https://github.com/adobe/da-nx/blob/main/docs/switch.md" target="_blank"
+            rel="noopener">docs →</a></h3>
+        <div class="sg-demo">
+          <nx-switch id="demo-switch" label="Auto-save" checked></nx-switch>
+          <nx-switch id="demo-switch-sm" label="Auto-save" size="sm"></nx-switch>
+          <nx-switch id="demo-switch-disabled" label="Auto-save" disabled></nx-switch>
+        </div>
+        <pre><code>&lt;nx-switch id="auto-save" label="Auto-save" checked &gt;&lt;/nx-switch&gt;
+
+autoSave.addEventListener('change', (e) =&gt; console.log(e.detail.checked));
+
+&lt;!-- Unset size uses "m" sizing; use size="sm" for small. --&gt;
+&lt;nx-switch label="Auto-save" size="sm"&gt;&lt;/nx-switch&gt;
+
+&lt;nx-switch label="Auto-save" disabled&gt;&lt;/nx-switch&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
         <h3>showToast <a href="https://github.com/adobe/da-nx/blob/main/docs/toast.md" target="_blank"
             rel="noopener">docs →</a></h3>
         <div class="sg-demo">
@@ -550,6 +568,28 @@ showToast({
 
 breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pre>
       </article>
+      <article class="sg-example">
+        <h3>nx-pills <a href="https://github.com/adobe/da-nx/blob/main/docs/pills.md" target="_blank"
+            rel="noopener">docs →</a></h3>
+        <div class="sg-demo">
+          <nx-pills id="demo-pills"></nx-pills>
+          <nx-pills id="demo-pills-readonly" label="Type"></nx-pills>
+          <nx-pills id="demo-pills-notice" label="Type"
+            style="--nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2-orange-1100);"></nx-pills>
+        </div>
+        <pre><code>&lt;nx-pills&gt;&lt;/nx-pills&gt;
+
+pills.items = [{ id: '1', label: 'hero.png', type: 'image' }];
+pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));
+
+&lt;!-- Read-only tags: no remove button --&gt;
+&lt;nx-pills label="Type"&gt;&lt;/nx-pills&gt;
+
+tags.items = [{ id: 'app', label: 'App', removable: false }];
+
+&lt;!-- Recolor with custom properties --&gt;
+nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2-orange-1100); }</code></pre>
+      </article>
     </section>
   </main>
 
@@ -569,6 +609,8 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
       import('/nx2/blocks/shared/search/search.js'),
       import('/nx2/blocks/shared/segmented-btn/segmented.js'),
       import('/nx2/blocks/shared/breadcrumb/breadcrumb.js'),
+      import('/nx2/blocks/shared/switch/switch.js'),
+      import('/nx2/blocks/shared/pills/pills.js'),
     ]);
 
     // nx-menu
@@ -699,6 +741,21 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
 
     // nx-breadcrumb
     document.querySelector('#demo-breadcrumb').pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];
+    // nx-pills
+    const pills = document.querySelector('#demo-pills');
+    pills.items = [
+      { id: 'hero', label: 'hero.png', type: 'image' },
+      { id: 'notes', label: 'notes.pdf', type: 'file' },
+    ];
+    pills.addEventListener('nx-pill-remove', (e) => {
+      pills.items = pills.items.filter((item) => item.id !== e.detail.id);
+    });
+    const readOnlyPills = [
+      { id: 'app', label: 'App', removable: false },
+      { id: 'plugin', label: 'Plugin', removable: false },
+    ];
+    document.querySelector('#demo-pills-readonly').items = readOnlyPills;
+    document.querySelector('#demo-pills-notice').items = readOnlyPills;
   </script>
 </body>
 
