@@ -81,6 +81,56 @@ describe('restoreBlockIndices', () => {
       expect(live.querySelector('img[data-image-index]')).to.equal(null);
     });
 
+    const LINK_SOURCE = '<main><p data-prose-index="1">'
+      + '<img data-image-index="2" data-image-version="v1">'
+      + '<a href="/x.jpg" data-edit-as="image" data-image-index="3">/x.jpg</a></p></main>';
+
+    function restore(sourceHtml, liveHtml) {
+      const source = document.createElement('div');
+      source.innerHTML = sourceHtml;
+      const live = document.createElement('div');
+      live.innerHTML = liveHtml;
+      restoreImageIndices(source, live);
+      return live;
+    }
+
+    it('restores indices for a decorated link-image next to a regular image', () => {
+      const live = restore(LINK_SOURCE, '<main><p data-prose-index="1">'
+        + '<picture><img src="/a.png"></picture><picture><img src="/x.jpg"></picture></p></main>');
+
+      const imgs = [...live.querySelectorAll('img')];
+      expect(imgs.map((img) => img.getAttribute('data-image-index'))).to.deep.equal(['2', '3']);
+      expect(imgs.map((img) => img.getAttribute('data-image-version'))).to.deep.equal(['v1', null]);
+    });
+
+    it('restores the index for a link-image-only scope after decoration', () => {
+      const live = restore(
+        '<main><p data-prose-index="1">'
+        + '<a href="/x.jpg" data-edit-as="image" data-image-index="2">/x.jpg</a></p></main>',
+        '<main><p data-prose-index="1"><picture><img src="/x.jpg"></picture></p></main>',
+      );
+
+      expect(live.querySelector('img').getAttribute('data-image-index')).to.equal('2');
+    });
+
+    it('keeps link-images as links and indexes only the regular images', () => {
+      const live = restore(LINK_SOURCE, '<main><p data-prose-index="1">'
+        + '<picture><img src="/a.png"></picture>'
+        + '<a href="/x.jpg" data-edit-as="image" data-image-index="3">/x.jpg</a></p></main>');
+
+      const img = live.querySelector('img');
+      expect(img.getAttribute('data-image-index')).to.equal('2');
+      expect(img.getAttribute('data-image-version')).to.equal('v1');
+      expect(live.querySelector('a').getAttribute('data-image-index')).to.equal('3');
+    });
+
+    it('does not guess indices when link-image scope counts do not match', () => {
+      const live = restore(LINK_SOURCE, '<main><p data-prose-index="1">'
+        + '<img><img><img></p></main>');
+
+      expect(live.querySelector('img[data-image-index]')).to.equal(null);
+    });
+
     it('reindexes an edited image and shifts images following its editable block', () => {
       const root = document.createElement('main');
       root.innerHTML = '<div class="prosemirror-editor" data-image-version="v2"><img data-image-index="106"></div>'
