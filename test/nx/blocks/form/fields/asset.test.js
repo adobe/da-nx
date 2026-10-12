@@ -108,40 +108,74 @@ describe('form-asset', () => {
     expect(message(field).textContent).to.equal('No source is available for this field.');
   });
 
-  it('keeps the field and its preview area the same size for any value', async () => {
+  it('starts as a single row and expands to the preview panel for an image', async () => {
     const field = await mount();
     const emptyBox = heightOf(box(field));
-    const emptyPreview = heightOf(query(field, '.asset-preview'));
-    expect(emptyBox).to.be.greaterThan(200);
-    // eslint-disable-next-line no-restricted-syntax
-    for (const value of ['./media_abc.png', 'https://x.test/spec.pdf', `https://x.test/${'long-name-'.repeat(30)}.pdf`]) {
-      field.value = value;
-      // eslint-disable-next-line no-await-in-loop
-      await field.updateComplete;
-      expect(heightOf(box(field))).to.equal(emptyBox);
-      expect(heightOf(query(field, '.asset-preview'))).to.equal(emptyPreview);
-    }
+    expect(query(field, '.asset-preview')).to.equal(null);
+    expect(box(field).classList.contains('has-preview')).to.be.false;
+    expect(emptyBox).to.be.lessThan(100);
+    field.value = './media_abc.png';
+    await field.updateComplete;
+    expect(query(field, '.asset-preview')).to.exist;
+    expect(heightOf(box(field))).to.be.greaterThan(200);
   });
 
-  it('shows the file extension instead of a preview for files that are not images', async () => {
+  it('collapses to a single row with a file icon for files that are not images or videos', async () => {
     const field = await mount({ value: 'https://x.test/files/spec.pdf' });
-    expect(query(field, '.asset-preview img')).to.equal(null);
-    expect(query(field, '.asset-file-type').textContent).to.equal('pdf');
+    expect(query(field, '.asset-preview')).to.equal(null);
+    expect(box(field).classList.contains('has-preview')).to.be.false;
+    expect(heightOf(box(field))).to.be.lessThan(100);
+    expect(query(field, '.asset-name').textContent).to.equal('spec.pdf');
   });
 
-  it('shows a generic file label when the name has no extension', async () => {
-    const field = await mount({ value: 'https://x.test/urn:aaid:aem:1/as/sheet' });
+  it('expands again when a file is replaced with an image, and collapses on the way back', async () => {
+    const field = await mount({ value: 'https://x.test/files/spec.pdf' });
+    const rowHeight = heightOf(box(field));
+    field.value = './media_abc.png';
+    await field.updateComplete;
+    expect(query(field, '.asset-preview')).to.exist;
+    expect(heightOf(box(field))).to.be.greaterThan(rowHeight);
+    field.value = 'https://x.test/files/theme.mp3';
+    await field.updateComplete;
+    expect(query(field, '.asset-preview')).to.equal(null);
+    expect(heightOf(box(field))).to.equal(rowHeight);
+  });
+
+  it('previews a video with its first frame, without playing it', async () => {
+    const video = 'https://publish-p1-e1.adobeaemcloud.com/content/dam/site/clip.mp4';
+    const field = await mount({ value: video });
+    const preview = query(field, '.asset-preview video');
+    expect(box(field).classList.contains('has-preview')).to.be.true;
+    expect(preview.getAttribute('src')).to.equal(`${video}#t=0.1`);
+    expect(preview.getAttribute('preload')).to.equal('metadata');
+    expect(preview.muted).to.be.true;
+    expect(preview.autoplay).to.be.false;
+    expect(preview.controls).to.be.false;
+  });
+
+  it('shows a generic file label in the panel when the picked image name has no extension', async () => {
+    const select = sinon.fake.resolves({ href: 'https://x.test/hero.png', name: 'Hero' });
+    const field = await mount({ sources: [aem({ select })] });
+    button(field, 'Select').click();
+    await settle(field);
     expect(query(field, '.asset-file-type').textContent).to.equal('file');
   });
 
-  it('keeps the file extension visible when an image preview fails to load', async () => {
+  it('collapses to the file row when an image preview fails to load', async () => {
     const field = await mount({ value: 'https://x.test/missing.png' });
     const img = query(field, '.asset-preview img');
     await new Promise((resolve) => { img.addEventListener('error', resolve, { once: true }); });
     await field.updateComplete;
-    expect(img.classList.contains('is-loaded')).to.be.false;
-    expect(getComputedStyle(img).opacity).to.equal('0');
-    expect(query(field, '.asset-file-type').textContent).to.equal('png');
+    expect(query(field, '.asset-preview')).to.equal(null);
+    expect(query(field, '.asset-name').textContent).to.equal('missing.png');
+  });
+
+  it('keeps the video panel with its icon when the first frame fails to load', async () => {
+    const field = await mount({ value: 'https://x.test/missing.mp4' });
+    query(field, '.asset-preview video').dispatchEvent(new Event('error'));
+    await field.updateComplete;
+    expect(query(field, '.asset-preview')).to.exist;
+    expect(query(field, '.asset-preview video')).to.equal(null);
   });
 
   it('shows the stored file name with Replace and Remove', async () => {
@@ -311,6 +345,13 @@ describe('form-asset', () => {
     button(field, 'Remove').click();
     await field.updateComplete;
     expect(query(field, 'nx-dialog').title).to.equal('Remove file?');
+  });
+
+  it('calls a selected video a video when confirming removal', async () => {
+    const field = await mount({ value: 'https://cdn.example.com/clip.mp4' });
+    button(field, 'Remove').click();
+    await field.updateComplete;
+    expect(query(field, 'nx-dialog').title).to.equal('Remove video?');
   });
 
   it('removes only the field reference after confirmation', async () => {
