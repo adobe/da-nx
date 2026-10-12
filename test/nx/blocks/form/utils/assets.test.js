@@ -1,18 +1,8 @@
 import { expect } from '@esm-bundle/chai';
 import {
   createAssetSources,
-  typeFromName,
   uploadFile,
 } from '../../../../../nx/blocks/form/utils/assets.js';
-
-describe('form media types', () => {
-  it('derives known types from file names', () => {
-    expect(typeFromName('photo.JPG')).to.equal('image/jpeg');
-    expect(typeFromName('media_abc.png')).to.equal('image/png');
-    expect(typeFromName('play')).to.equal('');
-    expect(typeFromName(undefined)).to.equal('');
-  });
-});
 
 const ERRORS = {
   document: 'The form document path is unavailable for upload.',
@@ -65,15 +55,14 @@ describe('form file upload', () => {
     const file = fileOf({ name: 'hero.png' });
     const result = await uploadFile({ details, file, upload });
     expect(calls).to.deep.equal([{ path: '/example/site/forms/.sample/hero.png', body: file }]);
-    expect(result).to.deep.equal({ href: './media_abc.png', name: 'hero.png', type: 'image/png' });
+    expect(result).to.deep.equal({ href: './media_abc.png', name: 'hero.png' });
   });
 
-  it('accepts both JPEG extensions', async () => {
+  it('accepts both JPEG extensions in any case', async () => {
     const upload = respondWith('./media_abc.jpg');
-    const jpg = await uploadFile({ details, file: fileOf({ name: 'hero.jpg' }), upload });
-    const jpeg = await uploadFile({ details, file: fileOf({ name: 'hero.jpeg' }), upload });
-    expect(jpg.type).to.equal('image/jpeg');
-    expect(jpeg.type).to.equal('image/jpeg');
+    const results = await Promise.all(['hero.jpg', 'hero.jpeg', 'HERO.JPG']
+      .map((name) => uploadFile({ details, file: fileOf({ name }), upload })));
+    expect(results.map(({ href }) => href)).to.deep.equal(Array(3).fill('./media_abc.jpg'));
   });
 
   it('validates by extension, like the upload API, and uploads only Canvas image types', async () => {

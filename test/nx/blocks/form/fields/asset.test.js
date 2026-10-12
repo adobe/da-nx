@@ -225,7 +225,7 @@ describe('form-asset', () => {
 
   it('uploads the picked file and announces the new value with a change event', async () => {
     const pdf = new File(['%PDF'], 'spec.pdf', { type: 'application/pdf' });
-    const select = sinon.fake.resolves({ href: 'https://x.test/spec.pdf', name: 'spec.pdf', type: 'application/pdf' });
+    const select = sinon.fake.resolves({ href: 'https://x.test/spec.pdf', name: 'spec.pdf' });
     const field = await mount({ sources: [upload({ select })] });
     const input = answerFilePicker(field, pdf);
     const changes = recordChanges(field);
@@ -263,7 +263,7 @@ describe('form-asset', () => {
     expect(query(field, '.nx-loading-spinner[role="status"]')).to.exist;
     expect(button(field, 'Remove')).to.equal(undefined);
 
-    resolve({ href: 'https://x.test/new.pdf', name: 'new.pdf', type: 'application/pdf' });
+    resolve({ href: 'https://x.test/new.pdf', name: 'new.pdf' });
     await settle(field);
     expect(changes).to.deep.equal(['https://x.test/new.pdf']);
     expect(query(field, '.nx-loading-spinner')).to.equal(null);
@@ -314,7 +314,7 @@ describe('form-asset', () => {
 
     field.value = 'https://x.test/moved-item.pdf';
     await field.updateComplete;
-    resolve({ href: 'https://x.test/late.png', name: 'late.png', type: 'image/png' });
+    resolve({ href: 'https://x.test/late.png', name: 'late.png' });
     await settle(field);
 
     expect(changes).to.deep.equal([]);
