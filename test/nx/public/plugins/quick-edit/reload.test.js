@@ -28,7 +28,7 @@ describe('quick-edit reload', () => {
     }
   });
 
-  it('automatically scopes partial reloads to main and reloads the document', async function testReload() {
+  it('scopes partial reloads to main and reopens the focused editor', async function testReload() {
     this.timeout(5000);
     const originalBody = document.body.innerHTML;
     const originalUrl = new URL(window.location.href);
@@ -40,9 +40,15 @@ describe('quick-edit reload', () => {
       window.history.replaceState({}, '', originalUrl);
       document.body.innerHTML = `
         <header>keep this header</header>
-        <main><div></div></main>
+        <main><div class="prosemirror-editor" data-prose-index="1">
+          <input>
+        </div></main>
         <footer>keep this footer</footer>
       `;
+      document.querySelector('.prosemirror-editor').view = {
+        state: { selection: { anchor: 2, head: 4 } },
+      };
+      document.querySelector('input').focus();
 
       const reload = new Promise((resolve) => {
         loadQuickEdit({}, (doc, replaced) => {
@@ -63,12 +69,17 @@ describe('quick-edit reload', () => {
       Object.defineProperty(init, 'source', { value: window.parent });
       window.dispatchEvent(init);
       await ready;
+      const editorRequest = new Promise((resolve) => {
+        channel.port2.onmessage = (event) => {
+          if (event.data.type === MESSAGE_TYPES.GET_EDITOR) resolve(event.data);
+        };
+      });
       channel.port2.postMessage({
         type: MESSAGE_TYPES.SET_BODY,
         payload: {
           body: `
             <header>new header</header>
-            <main><p>new content</p></main>
+            <main><p data-prose-index="1">new content</p></main>
             <footer>new footer</footer>
           `,
         },
@@ -86,6 +97,10 @@ describe('quick-edit reload', () => {
       expect(reloads).to.have.length(1);
       expect(reloads[0].doc).to.equal(document);
       expect(reloads[0].replaced).to.equal(undefined);
+      expect(await editorRequest).to.deep.equal({
+        type: MESSAGE_TYPES.GET_EDITOR,
+        payload: { cursorOffset: 1 },
+      });
     } finally {
       channel.port1.close();
       channel.port2.close();
