@@ -3,7 +3,7 @@
   flex-direction: column;
   flex: 1;
   font-family: var(--s2-font-family);
-  font-size: var(--s2-component-m-regular-font-size);
+  font-size: var(--s2-component-s-regular-font-size);
 
   button {
     cursor: pointer;
@@ -120,7 +120,7 @@
 }
 
 :host([size="m"]) {
-  font-size: var(--s2-component-l-regular-font-size);
+  font-size: var(--s2-component-m-regular-font-size);
 
   .chat-welcome-message h3 {
     font-size: var(--s2-heading-size-m);

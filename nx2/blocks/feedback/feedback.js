@@ -115,7 +115,7 @@ class NxFeedback extends LitElement {
     const size = getUISize();
     if (!this._items) return nothing;
     return html`
-      <nx-menu .items=${this._items} size=${size} placement="below-end" @select=${this._handleSelect} size="m">
+      <nx-menu .items=${this._items} size=${size} placement="below-end" @select=${this._handleSelect}>
         <button type="button" slot="trigger" class="nx-action-btn-quiet ${size === 's' ? 'nx-btn-sm' : ''}">
           <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICON_HREF}"></use></svg>
           <span>Feedback</span>

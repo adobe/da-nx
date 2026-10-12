@@ -35,7 +35,7 @@
 
 .question-context {
   margin: 0;
-  font-size: var(--nx-ui-text-caption);
+  font-size: var(--nx-ui-text-description);
   color: var(--s2-gray-500);
 }
 
@@ -118,7 +118,7 @@
 }
 
 .question-option-desc {
-  font-size: var(--nx-ui-text-caption);
+  font-size: var(--nx-ui-text-description);
   color: var(--s2-gray-600);
 }
 

@@ -23,12 +23,13 @@ then reload (with "Disable cache" ticked while testing branch previews).
 ## Rules
 
 1. **Use text tokens and component-owned icon sizes.** Use an `--nx-ui-text-*` token for text. Set icon dimensions directly in the owning component, with an m override when needed.
-2. **Keep the layer small.** Text has five roles (heading, title, content, description, caption). Shared components own their icon sizing through their size variant; don't add a global icon scale.
+2. **Keep the layer small.** Text has four roles (heading, title, content, description). Shared components own their icon sizing through their size variant; don't add a global icon scale.
 3. **s is smaller than m where sizing changes.** Text tokens step one size down the S2 scale in s. Compact row controls can stay the same size.
 4. **Only S2 sizes.** No in-between values like 13px or 15px.
 5. **Shared components** (`nx-menu`, `nx-picker`, `nx-pills`, `nx-prompts`, `nx-new-chat`, `buttons.css`) follow their own variant, not the page's ui-size. Inside them use plain px per variant, no `--nx-ui-*` vars. EW call sites pass the ui-size as the variant (`size=${getUISize()}`).
    Row action buttons (file explorer, outline, block library, comments) stay `nx-btn-sm` (24px, 16px icon) in both sizes so rows keep their height.
    EW actions (Prepare, Send, and the deploy action) use `nx-btn-sm` in s and the default button size in m.
+   Every other button uses the shared `buttons.css` classes (`nx-action-btn`, `nx-action-btn-icon`, `nx-action-btn-quiet`) with `nx-btn-sm` in s and the default size in m. No button-size, icon-size or control-height tokens.
 6. Component-specific m overrides (icon dimensions, line-heights, paddings, picker height) go in a `:host([data-ui-size="m"])` block in the component's CSS.
 
 ## Text tokens
@@ -37,17 +38,15 @@ then reload (with "Disable cache" ticked while testing branch previews).
 | -------------------------- | ---------------------------------------------------------------------- | --- | --- |
 | `--nx-ui-text-heading`     | Panel headings, large titles                                           | 18  | 20  |
 | `--nx-ui-text-title`       | Panel/modal/card titles                                                | 16  | 18  |
-| `--nx-ui-text-content`     | Reading text: chat messages, comments, outline, inputs, preview titles | 14  | 16  |
-| `--nx-ui-text-description` | Lists, menus, rows, tool-call detail, library rows                     | 12  | 14  |
-| `--nx-ui-text-caption`     | Secondary/meta text, labels, badges, dates                             | 11  | 12  |
+| `--nx-ui-text-content`     | Reading and UI text: chat messages, comments, outline, inputs, lists, menus, rows | 12  | 14  |
+| `--nx-ui-text-description` | Secondary/meta text, labels, badges, dates                             | 11  | 12  |
 
 ## Line-height tokens
 
-| Token                      | Role                                     | s    | m    |
-| -------------------------- | ---------------------------------------- | ---- | ---- |
-| `--nx-ui-line-content`     | Content text (comments, menu rows)       | 1.5  | 20px |
-| `--nx-ui-line-description` | Compact description text (block toolbar) | 16px | 18px |
-| `--nx-ui-line-caption`     | Captions under items                     | 1.4  | 16px |
+| Token                      | Role                                | s    | m    |
+| -------------------------- | ----------------------------------- | ---- | ---- |
+| `--nx-ui-line-content`     | Content text (comments, menu rows)  | 16px | 18px |
+| `--nx-ui-line-description` | Description text under items        | 1.4  | 16px |
 
 ## Icon sizing
 
@@ -69,15 +68,11 @@ Standalone icons use explicit dimensions, with an m override on the component ho
 Components needing these overrides set `data-ui-size` from `getUISize()` when connected.
 The page's text tokens still inherit through shadow roots; icon dimensions do not depend on them.
 
-## Control tokens
+## Controls
 
-| Token                            | Role                                                                             | s   | m   |
-| -------------------------------- | -------------------------------------------------------------------------------- | --- | --- |
-| `--nx-ui-control-height`         | Default control height: toolbar buttons, toolbar picker, form inputs and buttons | 24  | 32  |
-| `--nx-ui-control-height-compact` | Compact buttons inside lists (version filters, compare actions)                  | 24  | 28  |
-
-The 2px blue `:focus-visible` outline on canvas toolbar buttons is m-only, applied through
-`:host([data-ui-size="m"])` so s keeps the browser default ring.
+There are no control-height tokens. Buttons get their height from the shared button classes
+(`nx-btn-sm` 24px in s, default 32px in m). Non-button controls (compare chips, inline inputs,
+the block toolbar picker) use explicit px with a `:host([data-ui-size="m"])` override.
 
 ## Segmented buttons
 
