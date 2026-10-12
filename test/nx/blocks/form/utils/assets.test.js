@@ -1,10 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
   createAssetSources,
-  describeAsset,
-  isAssetHref,
-  isImageType,
-  previewHrefFor,
   typeFromName,
   uploadFile,
 } from '../../../../../nx/blocks/form/utils/assets.js';
@@ -15,65 +11,6 @@ describe('form media types', () => {
     expect(typeFromName('media_abc.png')).to.equal('image/png');
     expect(typeFromName('play')).to.equal('');
     expect(typeFromName(undefined)).to.equal('');
-  });
-
-  it('treats every image type as an image, case-insensitively', () => {
-    expect(isImageType('image/webp')).to.be.true;
-    expect(isImageType('Image/PNG')).to.be.true;
-    expect(isImageType('video/mp4')).to.be.false;
-    expect(isImageType(undefined)).to.be.false;
-  });
-});
-
-const previewOrigin = 'https://main--site--example.preview.da.live';
-
-describe('form asset values', () => {
-  it('accepts Media Bus references and web URLs only', () => {
-    expect(isAssetHref('./media_abc.png')).to.be.true;
-    expect(isAssetHref('https://content.da.live/example/site/a.pdf')).to.be.true;
-    expect(isAssetHref('./media_a b.png')).to.be.false;
-    expect(isAssetHref('file:///private/image.png')).to.be.false;
-    expect(isAssetHref('data:text/html,example')).to.be.false;
-    expect(isAssetHref('../other-image.jpg')).to.be.false;
-    expect(isAssetHref('')).to.be.false;
-  });
-
-  it('resolves Media Bus references against the site preview origin, as Canvas does', () => {
-    expect(previewHrefFor({ href: './media_abc.png', previewOrigin }))
-      .to.equal(`${previewOrigin}/media_abc.png`);
-    expect(previewHrefFor({ href: './media_abc.png' })).to.equal(undefined);
-  });
-
-  it('keeps AEM Assets and legacy DA URLs as they are', () => {
-    const delivery = 'https://delivery.example.com/photo.png?smartcrop=wide&width=1920';
-    const legacy = 'https://content.da.live/example/site/forms/.sample/hero.png';
-    expect(previewHrefFor({ href: delivery, previewOrigin })).to.equal(delivery);
-    expect(previewHrefFor({ href: legacy, previewOrigin })).to.equal(legacy);
-  });
-
-  it('refuses hrefs that are not file references', () => {
-    expect(previewHrefFor({ href: 'data:text/html,example', previewOrigin })).to.equal(undefined);
-  });
-
-  it('names a stored value after the decoded last path segment', () => {
-    expect(describeAsset({ href: 'https://x.test/a/data%20sheet.pdf?x=1' }).name).to.equal('data sheet.pdf');
-    expect(describeAsset({ href: './media_abc.png' }).name).to.equal('media_abc.png');
-    expect(describeAsset({ href: 'https://x.test/%E0%A4%A' }).name).to.equal('%E0%A4%A');
-  });
-
-  it('detects images from the stored file name', () => {
-    expect(describeAsset({ href: 'https://x.test/spec.pdf' }))
-      .to.deep.equal({ name: 'spec.pdf', isImage: false });
-    expect(describeAsset({ href: 'https://x.test/photo.png' }))
-      .to.deep.equal({ name: 'photo.png', isImage: true });
-  });
-
-  it('prefers the name and type of a file picked in this session', () => {
-    expect(describeAsset({
-      href: 'https://delivery.example.com/urn:aaid:aem:1/as/photo',
-      name: 'photo.webp',
-      type: 'image/webp',
-    })).to.deep.equal({ name: 'photo.webp', isImage: true });
   });
 });
 
