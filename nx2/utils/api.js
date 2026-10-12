@@ -297,8 +297,8 @@ export const source = {
   }),
 
   save: withArgs(async (opts) => {
-    const { org, site } = opts;
-    if (await isHlx6(org, site)) {
+    const { org, site, getAccessToken } = opts;
+    if (await isHlx6(org, site, getAccessToken)) {
       // eslint-disable-next-line no-underscore-dangle
       return source._saveHlx6(opts);
     }
@@ -306,8 +306,10 @@ export const source = {
     return source._saveDA(opts);
   }),
 
-  _saveHlx6: withArgs(async ({ org, site, path, body }) => {
-    const url = await getDaApiPath(SOURCE, org, site, path);
+  _saveHlx6: withArgs(async ({
+    org, site, path, body, getAccessToken,
+  }) => {
+    const url = await getDaApiPath(SOURCE, org, site, path, getAccessToken);
     const opts = {
       method: 'POST',
       body,
@@ -316,7 +318,7 @@ export const source = {
     if (contentType) {
       opts.headers = { 'Content-Type': contentType };
     }
-    const resp = await daFetch({ url, opts });
+    const resp = await daFetch({ url, opts, getAccessToken });
     // hlx6 source save returns an empty body, whereas DA returns
     // { source: { contentUrl } }. Normalize the success case to that shape
     // so callers can read source.contentUrl uniformly across hlx5/hlx6.
@@ -330,8 +332,10 @@ export const source = {
       : resp;
   }),
 
-  _saveDA: withArgs(async ({ org, site, path, body }) => {
-    const url = await getDaApiPath(SOURCE, org, site, path);
+  _saveDA: withArgs(async ({
+    org, site, path, body, getAccessToken,
+  }) => {
+    const url = await getDaApiPath(SOURCE, org, site, path, getAccessToken);
     const formData = new FormData();
     formData.append('data', new Blob([body], { type: findContentType(path) }));
     const opts = {
@@ -339,7 +343,7 @@ export const source = {
       body: formData,
     };
     opts.body = formData;
-    return daFetch({ url, opts });
+    return daFetch({ url, opts, getAccessToken });
   }),
 
   // special method to upload media. for hlx6, this will use the api service's '/media' route,
@@ -598,8 +602,14 @@ export const asText = (promise) => unwrap(promise, 'text');
 // Low-level fetch + upgrade probe
 // ============================================================================
 
-export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false }) => {
-  const { accessToken } = await loadIms();
+// Lets an iframe-hosted caller (e.g. a DA_SDK plugin) hand daFetch a live
+// token instead of falling through to loadIms(), whose dynamic getNx()
+// lookup resolves against window.location.origin and can diverge
+// from the token the plugin's host frame actually issued.
+export const daFetch = async ({
+  url, opts = { method: 'GET' }, redirect = false, getAccessToken,
+}) => {
+  const accessToken = (await getAccessToken?.()) || (await loadIms()).accessToken;
   if (!accessToken) {
     handleSignIn();
     return {};
@@ -648,11 +658,11 @@ export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false 
 export const isHlx6 = (() => {
   const cache = {};
 
-  const fetchUpgradeStatus = async (path) => {
+  const fetchUpgradeStatus = async (path, getAccessToken) => {
     const lsCache = JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {};
     if (lsCache[path]) return true;
 
-    const resp = await daFetch({ url: `${HLX_ADMIN}/ping${path}` });
+    const resp = await daFetch({ url: `${HLX_ADMIN}/ping${path}`, getAccessToken });
     const upgraded = resp.headers.get('x-api-upgrade-available') !== null;
     if (upgraded) {
       lsCache[path] = true;
@@ -661,11 +671,11 @@ export const isHlx6 = (() => {
     return upgraded;
   };
 
-  return (org, site) => {
+  return (org, site, getAccessToken) => {
     if (!site) return false;
 
     const path = `/${org}/${site}`;
-    cache[path] ??= fetchUpgradeStatus(path);
+    cache[path] ??= fetchUpgradeStatus(path, getAccessToken);
     return cache[path];
   };
 })();
@@ -744,12 +754,13 @@ function absolutizeMediaRefs(html, base) {
 }
 
 // DA-owned endpoints proxied between DA_ADMIN and AEM_API.
-async function getDaApiPath(api, org, site, path = '') {
-  const hlx6 = await isHlx6(org, site);
+async function getDaApiPath(api, org, site, path, getAccessToken) {
+  const hlx6 = await isHlx6(org, site, getAccessToken);
+  const cleanPath = path || '';
 
   if (api === VERSIONS) {
-    if (hlx6) return `${AEM_API}/${org}/sites/${site}/source${path}/.versions`;
-    return `${DA_ADMIN}/versionsource/${org}/${site}${path}`;
+    if (hlx6) return `${AEM_API}/${org}/sites/${site}/source${cleanPath}/.versions`;
+    return `${DA_ADMIN}/versionsource/${org}/${site}${cleanPath}`;
   }
 
   if (api === CONFIG) {
@@ -765,12 +776,12 @@ async function getDaApiPath(api, org, site, path = '') {
   // HLX6 has no list api, so source formatting is used (with trailing slash).
   if (api === LIST) {
     if (!site) return `${DA_ADMIN}/list/${org}`;
-    return `${DA_ADMIN}/list/${org}/${site}${path}`;
+    return `${DA_ADMIN}/list/${org}/${site}${cleanPath}`;
   }
 
   // SOURCE
-  if (hlx6) return `${AEM_API}/${org}/sites/${site}/source${path}`;
-  return `${DA_ADMIN}/source/${org}/${site}${path}`;
+  if (hlx6) return `${AEM_API}/${org}/sites/${site}/source${cleanPath}`;
+  return `${DA_ADMIN}/source/${org}/${site}${cleanPath}`;
 }
 
 // AEM-only endpoints. New API origin or legacy admin.hlx.page with ref=main.
