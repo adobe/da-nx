@@ -54,7 +54,9 @@ without reloading the editor. The path belongs to the document deployed, even if
 author navigates while the action is running.
 
 Version creation does not block the deploy flow. If it fails, a warning distinguishes
-the missing history version from the successful preview/publish.
+the missing history version from the successful preview/publish. It uses the shared
+workspace toast with a six-second timeout and does not suggest retrying an action
+that permissions may forbid.
 
 ## Unpublished-changes badge
 

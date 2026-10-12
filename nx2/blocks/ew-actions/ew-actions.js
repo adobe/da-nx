@@ -396,9 +396,9 @@ class NXEwActions extends LitElement {
       if (resp.status !== 201) throw new Error(`Version creation failed (${resp.status}).`);
     } catch {
       const { showToast } = await import('../shared/toast/toast.js');
-      const result = action === 'publish' ? 'published' : 'previewed';
+      const result = action === 'publish' ? 'Page published' : 'Preview updated';
       showToast({
-        text: `Page ${result}, but its history version could not be saved. Please try creating a version manually.`,
+        text: `${result}. Could not save a history version.`,
         variant: 'warning',
       });
       return;

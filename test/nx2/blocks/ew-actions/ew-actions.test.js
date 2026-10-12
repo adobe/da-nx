@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
+import { DA_ADMIN, loadStyle } from '../../../../nx2/utils/utils.js';
 import { versions, aem } from '../../../../nx2/utils/api.js';
 import { VERSION_EVENT } from '../../../../nx2/utils/version-events.js';
 import '../../../../nx2/blocks/ew-actions/ew-actions.js';
@@ -89,7 +89,7 @@ describe('nx-ew-actions', () => {
         await el._saveVersion({ action: 'preview', path });
         expect(notify.called).to.be.false;
         const toast = document.querySelector('nx-toast');
-        expect(toast.message).to.include('Page previewed, but its history version could not be saved.');
+        expect(toast.message).to.equal('Preview updated. Could not save a history version.');
         expect(toast.variant).to.equal('warning');
         expect(el._hasError).to.not.be.true;
       });
@@ -103,7 +103,35 @@ describe('nx-ew-actions', () => {
       await el._saveVersion({ action: 'publish', path });
       expect(notify.called).to.be.false;
       expect(document.querySelector('nx-toast').message)
-        .to.include('Page published, but its history version could not be saved.');
+        .to.equal('Page published. Could not save a history version.');
+    });
+
+    it('uses the shared compact warning toast with workspace styles in both themes', async () => {
+      const sheets = document.adoptedStyleSheets;
+      const scheme = document.documentElement.style.colorScheme;
+      const workspaceStyle = await loadStyle('/nx2/styles/styles.css');
+      document.adoptedStyleSheets = [...sheets, workspaceStyle];
+      try {
+        sinon.stub(versions, 'create').resolves(new Response('', { status: 403 }));
+        el = await makeEl();
+        await el._saveVersion({ action: 'preview', path });
+        const toast = document.querySelector('nx-toast');
+        await toast.updateComplete;
+        expect(toast.duration).to.equal(6000);
+        const inner = toast.shadowRoot.querySelector('.toast');
+        ['light', 'dark'].forEach((theme) => {
+          document.documentElement.style.colorScheme = theme;
+          const style = getComputedStyle(inner);
+          expect(style.padding).to.equal('8px 12px');
+          expect(style.backgroundColor).to.not.equal('rgba(0, 0, 0, 0)');
+          expect(style.borderRadius).to.not.equal('0px');
+          expect(getComputedStyle(toast.parentElement).bottom).to.equal('24px');
+          expect(toast.getBoundingClientRect().width).to.be.at.most(352);
+        });
+      } finally {
+        document.adoptedStyleSheets = sheets;
+        document.documentElement.style.colorScheme = scheme;
+      }
     });
 
     it('keeps the original document path when navigating during preview', async () => {
