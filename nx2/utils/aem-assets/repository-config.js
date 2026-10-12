@@ -69,10 +69,9 @@ export async function getRepositoryConfig(owner, repo) {
     dmDelivery: getValue('aem.asset.dm.delivery'),
     smartCrop,
   });
-  const insertAsLink = getValue('aem.assets.image.type') === 'link';
+  const isLinkType = getValue('aem.assets.image.type') === 'link';
   const isEditable = getFlag('aem.assets.editableExternalImages') === 'true';
-  let imageType = null;
-  if (insertAsLink) imageType = isEditable ? 'editable-link' : 'link';
+  const linkImageType = isEditable ? 'editable-link' : 'link';
 
   return {
     repositoryId,
@@ -86,8 +85,7 @@ export async function getRepositoryConfig(owner, repo) {
       isDmEnabled,
       configuredValue: getValue('aem.asset.dm.approvedonly'),
     }),
-    insertAsLink,
-    imageType,
+    imageType: isLinkType ? linkImageType : null,
     mimeRenditionOverrides: parseMimeRenditions(getValue('aem.asset.mime.renditions')),
     siteImageModifiers: parseSiteImageModifiers(getValue('aem.asset.image.modifiers')),
   };

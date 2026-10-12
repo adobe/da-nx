@@ -43,7 +43,6 @@ describe('getRepositoryConfig', () => {
       expect(cfg.assetBasePath).to.equal('/adobe/assets');
       expect(cfg.isDmEnabled).to.be.false;
       expect(cfg.isSmartCrop).to.be.false;
-      expect(cfg.insertAsLink).to.be.false;
       expect(cfg.imageType).to.be.null;
     } finally {
       window.fetch = orgFetch;
@@ -118,7 +117,7 @@ describe('getRepositoryConfig', () => {
     }
   });
 
-  it('sets insertAsLink when aem.assets.image.type is link', async () => {
+  it('sets imageType to link when aem.assets.image.type is link', async () => {
     const orgFetch = window.fetch;
     window.fetch = makeFetch({
       '/rcfg/linktype/': makeSheet([
@@ -128,7 +127,6 @@ describe('getRepositoryConfig', () => {
     });
     try {
       const cfg = await getRepositoryConfig('rcfg', 'linktype');
-      expect(cfg.insertAsLink).to.be.true;
       expect(cfg.imageType).to.equal('link');
     } finally {
       window.fetch = orgFetch;
@@ -142,7 +140,7 @@ describe('getRepositoryConfig', () => {
     ['flag-only', null, 'true', null],
     ['unrecognized-type', 'editable-link', 'true', null],
   ].forEach(([site, imageType, flag, expected]) => {
-    it(`resolves imageType for ${site} and retains insertAsLink compatibility`, async () => {
+    it(`resolves imageType for ${site}`, async () => {
       const savedFetch = window.fetch;
       window.fetch = makeFetch({
         [`/image-mode/${site}/`]: {
@@ -163,7 +161,6 @@ describe('getRepositoryConfig', () => {
       try {
         const config = await getRepositoryConfig('image-mode', site);
         expect(config.imageType).to.equal(expected);
-        expect(config.insertAsLink).to.equal(imageType === 'link');
       } finally {
         window.fetch = savedFetch;
       }
@@ -209,7 +206,6 @@ describe('getRepositoryConfig', () => {
       try {
         const config = await getRepositoryConfig('image-cascade', site);
         expect(config.imageType).to.equal(expected);
-        expect(config.insertAsLink).to.be.true;
       } finally {
         window.fetch = savedFetch;
       }
