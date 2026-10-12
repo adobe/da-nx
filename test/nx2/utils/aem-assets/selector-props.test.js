@@ -17,6 +17,7 @@ import {
   buildAssetSelectorProps,
   rememberAssetFolder,
 } from '../../../../nx2/utils/aem-assets/selector-props.js';
+import { createImagesOnlyFilterSchema } from '../../../../nx2/utils/aem-assets/filter-schema.js';
 
 describe('shared AEM asset selector props', () => {
   const baseArgs = {
@@ -78,6 +79,25 @@ describe('shared AEM asset selector props', () => {
       });
       expect(props).to.not.have.property('filterSchema');
       expect(props).to.not.have.property('filterSchemaSource');
+    });
+
+    it('includes injected filter groups only when supplied', () => {
+      const props = buildAssetSelectorProps({
+        ...baseArgs,
+        filterSchema: createImagesOnlyFilterSchema(),
+      });
+      expect(props.filterSchema.map(({ groupKey }) => groupKey)).to.deep.equal(['FileTypeGroup']);
+      expect(buildAssetSelectorProps(baseArgs)).to.not.have.property('filterSchema');
+    });
+
+    it('merges injected filter groups with the approved-only filter', () => {
+      const props = buildAssetSelectorProps({
+        ...baseArgs,
+        filterSchema: createImagesOnlyFilterSchema(),
+        repoConfig: { ...baseArgs.repoConfig, approvedOnly: true },
+      });
+      expect(props.filterSchema.map(({ groupKey }) => groupKey))
+        .to.deep.equal(['AssetStatusGroup', 'FileTypeGroup']);
     });
 
     it('includes onClose when a function is supplied', () => {

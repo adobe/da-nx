@@ -18,7 +18,7 @@ UI stays with each consumer. That covers the dialog, the error panels, Smart Cro
 aem-assets/
   constants.js          Default asset base path
   config.js             Dynamic Media and approved-only rules
-  filter-schema.js      Approved-only Content Advisor filter props
+  filter-schema.js      Content Advisor filters
   selector-props.js     Asset Selector props and feature set
   repository-config.js  DA site config resolution into repoConfig
   urls.js               URL builders, rendition resolution, metadata readers
@@ -161,12 +161,15 @@ The default export is the base path `/adobe/assets`.
 ### `filter-schema.js`
 
 - `createApprovedOnlyFilterSchema()` returns the Content Advisor filter schema that locks the Approved status.
-- `getApprovedOnlyFilterProps(approvedOnly)` returns `{ filterSchema, filterSchemaSource }` when `approvedOnly` is true, else `{}`.
+- `createImagesOnlyFilterSchema()` returns the Content Advisor filter schema that locks the file type to images (`type` = `image/*`).
+- `toFilterProps(...filters)` combines filters, each a list of filter groups, into the selector's single `{ filterSchema, filterSchemaSource }`. Empty or missing filters add nothing, and no groups at all return `{}`.
+- `getApprovedOnlyFilterProps(approvedOnly)` returns the approved-only filter props when `approvedOnly` is true, else `{}`.
+- `getImagesOnlyFilterProps(imagesOnly)` returns the images-only filter props when `imagesOnly` is true, else `{}`.
 
 ### `selector-props.js`
 
 - `buildFeatureSet(isDmEnabled)` returns `upload`, `collections`, `detail-panel`, and `advisor`, plus `dynamic-media` when DM is enabled.
-- `buildAssetSelectorProps({ imsToken, repoConfig, externalBrief, onClose, handleSelection })` returns the props for `renderAssetSelector`, including the approved-only filter when enabled. For author-tier repos it also sets `path` to the last remembered folder of that repository.
+- `buildAssetSelectorProps({ imsToken, repoConfig, externalBrief, filterSchema, onClose, handleSelection })` returns the props for `renderAssetSelector`, including the approved-only filter when enabled. An optional `filterSchema` adds the caller's filter groups, for example `createImagesOnlyFilterSchema()`. For author-tier repos it also sets `path` to the last remembered folder of that repository.
 - `rememberAssetFolder(repoConfig, assetPath)` remembers the folder of a selected asset per repository, in memory, so the picker reopens there. Delivery-tier repos have no folder structure and are ignored.
 
 ### `repository-config.js`

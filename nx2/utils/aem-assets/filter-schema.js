@@ -31,9 +31,38 @@ export function createApprovedOnlyFilterSchema() {
   ];
 }
 
+// Same `type` value the selector's own File Type filter uses for images.
+export function createImagesOnlyFilterSchema() {
+  return [
+    {
+      fields: [{
+        element: 'checkbox',
+        name: 'type',
+        defaultValue: ['image/*'],
+        readOnly: true,
+        options: [
+          { label: 'Images', value: 'image/*', readOnly: true },
+        ],
+      }],
+      header: 'File Type',
+      groupKey: 'FileTypeGroup',
+    },
+  ];
+}
+
+// Each filter is a list of filter groups, and an empty list adds nothing. The
+// selector takes a single `filterSchema`, so every filter is combined here.
+export function toFilterProps(...filters) {
+  const groups = filters.flatMap((filter) => filter ?? []);
+  return groups.length
+    ? { filterSchema: groups, filterSchemaSource: HYBRID_FILTER_SCHEMA_SOURCE }
+    : {};
+}
+
 export function getApprovedOnlyFilterProps(approvedOnly) {
-  return approvedOnly ? {
-    filterSchema: createApprovedOnlyFilterSchema(),
-    filterSchemaSource: HYBRID_FILTER_SCHEMA_SOURCE,
-  } : {};
+  return toFilterProps(approvedOnly ? createApprovedOnlyFilterSchema() : []);
+}
+
+export function getImagesOnlyFilterProps(imagesOnly) {
+  return toFilterProps(imagesOnly ? createImagesOnlyFilterSchema() : []);
 }
