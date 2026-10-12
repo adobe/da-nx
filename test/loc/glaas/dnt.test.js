@@ -254,4 +254,14 @@ describe('Glaas DNT', () => {
     expect(out.getAttribute('title')).to.equal('Un coche rojo');
     expect(out.textContent).to.equal(src);
   });
+
+  it('keeps an icon-like segment inside an editable link-image URL text on round trip', async () => {
+    const src = 'https://example.com/a/:foo:/b.jpg';
+    const html = `<body><main><div><p><a href="${src}" title="A red car" data-edit-as="image">${src}</a></p></div></main></body>`;
+    const withDnt = await addDnt(html, {}, { reset: true });
+    const removed = await removeDnt(withDnt, 'org', 'site');
+    const out = new DOMParser().parseFromString(removed, 'text/html').querySelector('a');
+    expect(out.textContent).to.equal(src);
+    expect(out.querySelector('span')).to.be.null;
+  });
 });
