@@ -8,10 +8,6 @@ import {
 import { SUPPORTED_FILES } from '../../../../nx2/utils/utils.js';
 import { extensionOf, isAssetHref } from './media.js';
 
-export function typeFromName(fileName) {
-  return SUPPORTED_FILES[extensionOf(fileName)] ?? '';
-}
-
 const INVALID_FILE_NAME = /[/\\?#]|^\.{1,2}$/;
 
 const UPLOAD_ERRORS = {
@@ -27,7 +23,7 @@ const isValidFileName = (fileName) => !!fileName && !INVALID_FILE_NAME.test(file
 export async function uploadFile({
   details, file, upload, checkHlx6,
 }) {
-  const type = typeFromName(file?.name);
+  const type = SUPPORTED_FILES[extensionOf(file?.name)];
   if (!SUPPORTED_IMAGE_TYPES.includes(type)) {
     return { error: UPLOAD_ERRORS.fileType };
   }
@@ -52,7 +48,7 @@ export async function uploadFile({
   const { href, error } = await uploadMedia({ path, body: file, upload });
   if (error) return { error };
   if (!isAssetHref(href)) return { error: UPLOAD_ERRORS.response };
-  return { href, name: file.name, type };
+  return { href, name: file.name };
 }
 
 export const CANCELLED = Object.freeze({ cancelled: true });
