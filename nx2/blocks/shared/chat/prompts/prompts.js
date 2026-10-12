@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../utils/utils.js';
 import '../../picker/picker.js';
-import { getConfig, getUISize } from '../../../../scripts/nx.js';
+import { getConfig } from '../../../../scripts/nx.js';
 
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
@@ -11,6 +11,7 @@ const ALL_CATEGORY = 'all';
 class NxPrompts extends LitElement {
   static properties = {
     prompts: { attribute: false },
+    size: { type: String, reflect: true },
     _search: { state: true },
     _category: { state: true },
   };
@@ -23,7 +24,6 @@ class NxPrompts extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.dataset.uiSize = getUISize();
     this.shadowRoot.adoptedStyleSheets = [styles];
   }
 
@@ -104,7 +104,7 @@ class NxPrompts extends LitElement {
           <svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-close-20-n.svg#icon"></use></svg>
         </button>
         <nx-picker
-          size=${getUISize()}
+          size=${this.size}
           .items=${this._categories}
           .value=${this._category}
           placement="below-end"

@@ -15,7 +15,7 @@ nx-popover {
 
 .menu-section {
   display: block;
-  padding: var(--s2-spacing-75) var(--s2-spacing-100);
+  padding: var(--s2-spacing-75) var(--s2-spacing-200);
   color: light-dark(var(--s2-gray-600), var(--s2-gray-700));
   font-size: var(--s2-component-xs-regular-font-size);
   line-height: var(--s2-component-xs-regular-line-height);
