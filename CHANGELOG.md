@@ -1,3 +1,20 @@
+# [1.13.0](https://github.com/adobe/da-nx/compare/v1.12.2...v1.13.0) (2026-10-13)
+
+
+### Features
+
+* shared search field ([#823](https://github.com/adobe/da-nx/issues/823)) ([73b68eb](https://github.com/adobe/da-nx/commit/73b68eb67b5ff9fe272d2282bbc37847d8db6457))
+
+## [1.12.2](https://github.com/adobe/da-nx/compare/v1.12.1...v1.12.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **ew:** clarify history save warning ([542b03d](https://github.com/adobe/da-nx/commit/542b03da163744e257c784de5d98ee6505c774e9))
+* **ew:** notify history after version creation ([dfef8ff](https://github.com/adobe/da-nx/commit/dfef8ff20317134db638edefa81e8b5c02802776)), closes [adobe/da-live#1269](https://github.com/adobe/da-live/issues/1269)
+* **ew:** remove version save warning ([1c10a15](https://github.com/adobe/da-nx/commit/1c10a159c465962e1a972ee625be98e73b0f71e0))
+* **toast:** size dismiss icon to 16px ([0589269](https://github.com/adobe/da-nx/commit/058926983eeee863155fbd7feac4d71c3f95d543))
+
 ## [1.12.1](https://github.com/adobe/da-nx/compare/v1.12.0...v1.12.1) (2026-10-12)
 
 
