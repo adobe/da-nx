@@ -23,11 +23,12 @@ then reload (with "Disable cache" ticked while testing branch previews).
 ## Rules
 
 1. **Use text tokens and component-owned icon sizes.** Use an `--nx-ui-text-*` token for text. Set icon dimensions directly in the owning component, with an m override when needed.
-2. **Keep the layer small.** Text has three roles (heading, title, content). Secondary text (dates, hints, descriptions) uses content too; only tiny badges keep explicit 11px. Shared components own their icon sizing through their size variant; don't add a global icon scale.
+2. **Keep the layer small.** Text has three roles (heading, title, content). Secondary text (dates, hints, descriptions) uses content too. Only tiny badges and the small section titles in menus and pickers are 11px in s and 12px in m. Shared components own their icon sizing through their size variant; don't add a global icon scale.
 3. **s is smaller than m where sizing changes.** Text tokens step one size down the S2 scale in s. Compact row controls can stay the same size.
 4. **Only S2 sizes.** No in-between values like 13px or 15px.
 5. **Shared components** (`nx-menu`, `nx-picker`, `nx-pills`, `nx-search`, `nx-prompts`, `nx-new-chat`, `buttons.css`) follow their own variant, not the page's ui-size. Inside them use plain px per variant, no `--nx-ui-*` vars. EW call sites pass the ui-size as the variant (`size=${getUISize()}`).
-   Row action buttons (file explorer, outline, block library, comments) stay `nx-btn-sm` (24px, 16px icon) in both sizes so rows keep their height.
+   Row action buttons (file explorer, outline, extensions library, block library, comments) stay `nx-btn-sm` (24px, 16px icon) in both sizes so rows keep their height.
+   Exception: the versions row ⋯ follows the scale (24px in s, 32px in m).
    EW actions (Prepare, Send, and the deploy action) use `nx-btn-sm` in s and the default button size in m.
    Every other button uses the shared `buttons.css` classes (`nx-action-btn`, `nx-action-btn-icon`, `nx-action-btn-quiet`) with `nx-btn-sm` in s and the default size in m. No button-size, icon-size or control-height tokens.
 6. Component-specific m overrides (icon dimensions, line-heights, paddings, picker height) go in a `:host([data-ui-size="m"])` block in the component's CSS.
@@ -71,6 +72,11 @@ The page's text tokens still inherit through shadow roots; icon dimensions do no
 There are no control-height tokens. Buttons get their height from the shared button classes
 (`nx-btn-sm` 24px in s, default 32px in m). Non-button controls (compare chips, inline inputs,
 the block toolbar picker) use explicit px with a `:host([data-ui-size="m"])` override.
+
+## Key badges
+
+`kbd` badges inside shared buttons (Esc, ↵ in the chat permission, question and plan cards) follow the button size:
+20px tall with 12px text in `nx-btn-sm` (s), 14px text in the default size (m).
 
 ## Segmented buttons
 
