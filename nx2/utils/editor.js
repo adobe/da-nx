@@ -1,6 +1,5 @@
 import { getFirstSheet } from './daConfig.js';
 
-/** Editor URL that `editor.path` assigns to `path`; longest prefix wins, site beats org on ties. */
 export function getEditor({ path, configs, ewEnabled }) {
   const DEF_EDIT = ewEnabled ? '/canvas#' : '/edit#';
   const [match] = (configs ?? []).filter(Boolean).reverse()
