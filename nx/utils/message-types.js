@@ -10,7 +10,7 @@ export const MESSAGE_TYPES = Object.freeze({
   READY: 'ready', // no payload
 
   // Host -> iframe
-  SET_BODY: 'set-body', // { body: string }
+  SET_BODY: 'set-body', // { body: string, rerenderScope?: { type: 'page' } | { type: 'section' | 'section-added' | 'section-removed', sectionIndex: number } | { type: 'block', sectionIndex: number, blockIndex: number } }
   SET_EDITOR_STATE: 'set-editor-state', // { editorState: PM node JSON, cursorOffset: number, imageVersion }
   SET_CURSORS: 'set-cursors', // { cursors: [{ proseIndex, remote, color }] }
   SET_SELECTED_NODE: 'set-selected-node', // { node: { anchorType, proseIndex, ... } | null, scrollIntoView }
