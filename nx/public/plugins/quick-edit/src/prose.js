@@ -171,7 +171,26 @@ function keydown(view, event) {
   return handleToolbarKeydown(event);
 }
 
-function createEditor(cursorOffset, state, ctx, imageVersion) {
+function focusEditor(view, { x, y, selection }) {
+  const { doc } = view.state;
+  const max = doc.content.size;
+  const clicked = selection ? null : view.posAtCoords({ left: x, top: y })?.pos;
+  const anchor = Math.min(selection?.anchor ?? clicked ?? max, max);
+  const head = Math.min(selection?.head ?? clicked ?? max, max);
+  view.focus();
+  view.dispatch(view.state.tr.setSelection(
+    TextSelection.between(doc.resolve(anchor), doc.resolve(head)),
+  ));
+}
+
+export function captureFocusedEditor() {
+  const editorParent = document.activeElement?.closest?.('.prosemirror-editor');
+  if (!editorParent?.view) return null;
+  const { anchor, head } = editorParent.view.state.selection;
+  return { cursorOffset: editorParent.getAttribute('data-prose-index'), selection: { anchor, head } };
+}
+
+function createEditor(cursorOffset, state, ctx, imageVersion, lengthDiff = 0) {
   // Normalize once: the exact-match badge gate below is a strict === and would
   // silently never match if cursorOffset arrived as a string.
   const offset = Number(cursorOffset);
@@ -232,10 +251,21 @@ function createEditor(cursorOffset, state, ctx, imageVersion) {
 
   element.replaceWith(editorParent);
   editorParent.view = editorView;
-  syncImageIndices(editorView, editorParent, offset);
+  // The replaced element still had the pre-edit content, so later indices haven't moved yet.
+  if (lengthDiff) updateInstrumentation(lengthDiff, offset);
+  syncImageIndices(editorView, editorParent, offset, node.nodeSize - lengthDiff, lengthDiff);
   if (!ctx.readOnly) setupImageDropListeners(ctx, editorParent);
   setRemoteCursors();
   initScrollListener(editorParent.ownerDocument.defaultView, ctx);
+
+  if (ctx.pendingEditor?.element === element) {
+    const pending = ctx.pendingEditor;
+    ctx.pendingEditor = null;
+    clearTimeout(blurClearTimeout);
+    blurClearTimeout = null;
+    focusEditor(editorView, pending);
+    return;
+  }
 
   if (blurClearTimeout !== null) {
     clearTimeout(blurClearTimeout);
@@ -288,11 +318,11 @@ function updateEditor(editorEl, state, ctx, imageVersion) {
   }
 }
 
-export function setEditorState(cursorOffset, state, ctx, imageVersion) {
+export function setEditorState(cursorOffset, state, ctx, imageVersion, lengthDiff) {
   const existingEditorParent = document.querySelector(`.prosemirror-editor[data-prose-index="${cursorOffset}"]`);
   if (existingEditorParent) {
     updateEditor(existingEditorParent.view, state, ctx, imageVersion);
     return;
   }
-  createEditor(cursorOffset, state, ctx, imageVersion);
+  createEditor(cursorOffset, state, ctx, imageVersion, lengthDiff);
 }
