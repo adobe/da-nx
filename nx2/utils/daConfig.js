@@ -1,7 +1,8 @@
 import { config } from './api.js';
+import { getFirstSheet } from './utils.js';
 
 // Kept here for existing importers; lives in utils.js so callers can use it without api.js.
-export { getFirstSheet } from './utils.js';
+export { getFirstSheet };
 
 /** Memoized fetches for `/{org}` and optional `/{org}/{site}` config documents. */
 export const fetchDaConfigs = (() => {
