@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  describeMedia, isAssetHref, isLinkedMedia, splitHrefForDisplay,
+  describeMedia, isAssetHref, splitHrefForDisplay,
 } from '../../../../../nx/blocks/form/utils/media.js';
 
 const previewOrigin = 'https://main--site--example.preview.da.live';
@@ -99,25 +99,5 @@ describe('splitHrefForDisplay', () => {
   it('decodes the URL for reading and keeps malformed escapes', () => {
     expect(splitHrefForDisplay('https://x.test/data%20sheet.pdf').stem).to.equal('data sheet');
     expect(splitHrefForDisplay('https://x.test/%E0%A4%A.pdf').stem).to.equal('%E0%A4%A');
-  });
-});
-
-describe('AEM Assets link mode', () => {
-  const repoConfig = { insertAsLink: true, assetOrigin: 'publish-p1-e1.adobeaemcloud.com' };
-  const hero = 'https://publish-p1-e1.adobeaemcloud.com/content/dam/hero.jpg';
-
-  it('links media from the site AEM asset host when link mode is on', () => {
-    expect(isLinkedMedia({ src: hero, repoConfig })).to.be.true;
-    expect(isLinkedMedia({ src: hero.replace('publish-p1', 'PUBLISH-P1'), repoConfig })).to.be.true;
-  });
-
-  it('keeps everything else as images', () => {
-    const linkModeOff = { ...repoConfig, insertAsLink: false };
-    expect(isLinkedMedia({ src: hero, repoConfig: linkModeOff })).to.be.false;
-    expect(isLinkedMedia({ src: hero, repoConfig: undefined })).to.be.false;
-    expect(isLinkedMedia({ src: 'https://content.da.live/org/site/logo.png', repoConfig })).to.be.false;
-    expect(isLinkedMedia({ src: './media_abc.png', repoConfig })).to.be.false;
-    expect(isLinkedMedia({ src: 'https://publish-p1-e1.adobeaemcloud.com.evil.test/a.jpg', repoConfig }))
-      .to.be.false;
   });
 });

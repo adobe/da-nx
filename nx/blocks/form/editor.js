@@ -1,22 +1,21 @@
 import { LitElement, html, nothing } from 'da-lit';
 
+import {
+  ensurePreviewLogin, getLivePreviewUrl, hashChange, loadStyle,
+} from '../../../nx2/utils/utils.js';
 import { createEngine } from '../../deps/da-sc-sdk/dist/index.js';
+import { createAssetSources } from './utils/assets.js';
 import { loadFormContext } from './utils/context.js';
 import { attachPersistence } from './utils/persistence.js';
-import { createAssetSources } from './utils/assets.js';
 import { isJsonPreviewEnabled } from './utils/config.js';
-import { isLinkedMedia } from './utils/media.js';
-import {
-  ensurePreviewLogin, getLivePreviewUrl, loadStyle, hashChange,
-} from '../../../nx2/utils/utils.js';
 
 import './views/editor.js';
-import './views/sidebar.js';
 import './views/preview.js';
+import './views/sidebar.js';
 // Fields the shell renders directly (schema selector + messages); the editor
 // imports the rest.
-import './fields/picker.js';
 import './fields/button.js';
+import './fields/picker.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -47,15 +46,16 @@ function ctxFromHashState(state) {
   return { org: state.org, repo: state.site, path: state.fullpath.slice(1) };
 }
 
-// Without a usable configuration the form offers Upload only and saves no links.
-async function loadAemRepoConfig({ owner, repo }) {
+// Without a usable AEM Assets configuration the form offers Upload only.
+async function loadAssetSources({ details, isCurrent }) {
   try {
     const { getRepositoryConfig } = await import('../../../nx2/utils/aem-assets/repository-config.js');
-    return await getRepositoryConfig(owner, repo);
+    const repoConfig = await getRepositoryConfig(details.owner, details.repo);
+    return createAssetSources({ details, repoConfig, isCurrent });
   } catch (error) {
     // eslint-disable-next-line no-console
     console.warn('AEM Assets configuration unavailable. Offering Upload only.', error);
-    return null;
+    return createAssetSources({ details, isCurrent });
   }
 }
 
@@ -145,7 +145,6 @@ class Form extends LitElement {
     this._persistence = attachPersistence(this._editor, {
       path: this._details?.fullpath,
       schema,
-      media: { isLinked: (src) => isLinkedMedia({ src, repoConfig: this._repoConfig }) },
     });
     this._nav = { pointer: '/data', origin: null, seq: 0 };
   }
@@ -176,7 +175,6 @@ class Form extends LitElement {
 
     this._assetSources = undefined;
     this._previewOrigin = undefined;
-    this._repoConfig = undefined;
 
     this._details = detailsFromCtx(this.ctx);
 
@@ -187,29 +185,27 @@ class Form extends LitElement {
 
     this._context = { status: 'loading', schemas: {} };
 
-    // Saving needs the AEM Assets link mode setting, so it loads alongside the document.
-    const [context, previewEnabled, repoConfig] = await Promise.all([
+    const [context, previewEnabled] = await Promise.all([
       loadFormContext({ details: this._details }),
       isJsonPreviewEnabled({ org: this.ctx.org, site: this.ctx.repo }),
-      loadAemRepoConfig(this._details),
     ]);
-    if (version !== this._loadVersion) return;
+    if (version !== this._loadVersion) {
+      return;
+    }
 
     this._previewEnabled = previewEnabled;
-    this._repoConfig = repoConfig;
     this._context = context;
-
     if (context.status === 'ready') {
       this._start({ schema: context.schema, json: context.json });
     }
 
     if (context.status === 'ready' || context.status === 'select-schema') {
-      this._loadAssetContext(version);
+      await this._loadAssetContext(version);
     }
   }
 
   // File sources and previews load independently, so a slow preview login never delays sources.
-  _loadAssetContext(version) {
+  async _loadAssetContext(version) {
     const { owner, repo } = this._details;
     const isCurrent = () => version === this._loadVersion;
 
@@ -219,11 +215,10 @@ class Form extends LitElement {
       }
     });
 
-    this._assetSources = createAssetSources({
-      details: this._details,
-      repoConfig: this._repoConfig,
-      isCurrent,
-    });
+    const sources = await loadAssetSources({ details: this._details, isCurrent });
+    if (isCurrent()) {
+      this._assetSources = sources;
+    }
   }
 
   _onPendingSchemaChange(e) {
