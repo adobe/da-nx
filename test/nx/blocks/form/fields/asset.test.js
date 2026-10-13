@@ -382,6 +382,64 @@ describe('form-asset', () => {
     expect(focus.calledOnce).to.be.true;
   });
 
+  describe('copying the URL', () => {
+    const copyButton = (field) => query(field, '.asset-copy');
+
+    it('offers no copy button without a value', async () => {
+      const field = await mount();
+      expect(copyButton(field)).to.equal(null);
+    });
+
+    it('copies the stored URL and confirms it until the pointer leaves', async () => {
+      const writeText = sinon.stub(navigator.clipboard, 'writeText').resolves();
+      const field = await mount({ value: 'https://x.test/files/spec.pdf' });
+
+      copyButton(field).click();
+      await settle(field);
+      expect(writeText.calledOnceWith('https://x.test/files/spec.pdf')).to.be.true;
+      expect(copyButton(field).getAttribute('aria-label')).to.equal('URL copied');
+      expect(query(field, '.asset-status').textContent).to.equal('URL copied');
+
+      copyButton(field).dispatchEvent(new PointerEvent('pointerleave'));
+      await field.updateComplete;
+      expect(copyButton(field).getAttribute('aria-label')).to.equal('Copy URL');
+      expect(query(field, '.asset-status').textContent).to.equal('');
+    });
+
+    it('drops the confirmation when focus leaves the button', async () => {
+      sinon.stub(navigator.clipboard, 'writeText').resolves();
+      const field = await mount({ value: 'https://x.test/files/spec.pdf' });
+      copyButton(field).click();
+      await settle(field);
+      copyButton(field).dispatchEvent(new FocusEvent('blur'));
+      await field.updateComplete;
+      expect(copyButton(field).getAttribute('aria-label')).to.equal('Copy URL');
+    });
+
+    it('stays unconfirmed when the clipboard is unavailable', async () => {
+      sinon.stub(navigator.clipboard, 'writeText').rejects(new Error('denied'));
+      const field = await mount({ value: 'https://x.test/files/spec.pdf' });
+      copyButton(field).click();
+      await settle(field);
+      expect(copyButton(field).getAttribute('aria-label')).to.equal('Copy URL');
+    });
+
+    it('drops the confirmation when the value changes', async () => {
+      sinon.stub(navigator.clipboard, 'writeText').resolves();
+      const field = await mount({ value: 'https://x.test/files/spec.pdf' });
+      copyButton(field).click();
+      await settle(field);
+      field.value = 'https://x.test/files/other.pdf';
+      await field.updateComplete;
+      expect(copyButton(field).getAttribute('aria-label')).to.equal('Copy URL');
+    });
+
+    it('stays available in a read-only field', async () => {
+      const field = await mount({ value: './media_abc.png', disabled: true });
+      expect(copyButton(field).disabled).to.be.false;
+    });
+  });
+
   it('disables changes but shows a saved value and validation message when readonly', async () => {
     const field = await mount({ value: './media_abc.png', disabled: true, error: 'Required' });
     expect(menu(field).querySelector('[slot="trigger"]').disabled).to.be.true;
