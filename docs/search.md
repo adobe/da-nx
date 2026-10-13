@@ -18,6 +18,8 @@ and `size` (`s` or `m`, matching picker/menu naming).
 `variant` and `size` remain unset unless supplied; CSS uses small sizing when `size` is unset.
 Appearance and size are independent: either variant supports either size.
 Both sizes retain a 32px minimum field height; size adjusts typography and icons.
+The borderless appearance shows a 2px bottom focus line beneath the input only,
+without changing the control's dimensions. The `field` variant retains its bordered focus styling.
 `label` labels the native search input, independently of its placeholder.
 `focus(options)` focuses the input; `clear()` clears it and restores focus.
 

@@ -193,7 +193,6 @@ class NxPicker extends LitElement {
         @keydown=${this._onTriggerKeydown}
       >
         <span class="picker-trigger-content">
-          <slot name="prefix"></slot>
           ${this._renderSwatch(this._selectedItem?.swatch)}
           <span class="picker-trigger-label" part="label">${this._triggerLabel}</span>
         </span>

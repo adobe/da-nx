@@ -41,6 +41,10 @@ input {
   padding: 0;
 }
 
+:host(:not([variant="field"])) input:focus:not(:disabled) {
+  box-shadow: 0 2px 0 var(--s2-gray-900);
+}
+
 input::placeholder,
 .search-icon {
   color: var(--s2-gray-600);

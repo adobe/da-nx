@@ -79,6 +79,42 @@ describe('nx-search', () => {
     }
   });
 
+  [undefined, 'm'].forEach((size) => {
+    it(`shows only an input underline on quiet ${size ?? 'default'} focus`, async () => {
+      field.size = size;
+      field.value = 'plan';
+      field.style.setProperty('--s2-gray-900', '#222');
+      const action = document.createElement('button');
+      action.slot = 'actions';
+      action.type = 'button';
+      field.append(action);
+      await field.updateComplete;
+      const container = field.shadowRoot.querySelector('.search-field');
+      const clear = field.shadowRoot.querySelector('button');
+      const initialRect = container.getBoundingClientRect();
+      expect(getComputedStyle(input).boxShadow).to.equal('none');
+      input.focus();
+      expect(getComputedStyle(input).boxShadow).to.equal('rgb(34, 34, 34) 0px 2px 0px 0px');
+      expect(getComputedStyle(container).borderTopWidth).to.equal('0px');
+      expect(getComputedStyle(container).borderBottomWidth).to.equal('0px');
+      expect(container.getBoundingClientRect().width).to.equal(initialRect.width);
+      expect(container.getBoundingClientRect().height).to.equal(initialRect.height);
+      clear.focus();
+      expect(getComputedStyle(input).boxShadow).to.equal('none');
+      action.focus();
+      expect(getComputedStyle(input).boxShadow).to.equal('none');
+      input.focus();
+      field.variant = 'field';
+      await field.updateComplete;
+      expect(getComputedStyle(input).boxShadow).to.equal('none');
+      field.variant = undefined;
+      field.disabled = true;
+      await field.updateComplete;
+      input.focus();
+      expect(getComputedStyle(input).boxShadow).to.equal('none');
+    });
+  });
+
   it('exposes typing once with a retargeted host and forwards committed changes', () => {
     const events = [];
     field.addEventListener('input', (event) => events.push(event));
