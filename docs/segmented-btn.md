@@ -2,6 +2,9 @@
 
 A segmented control for switching between a small set of mutually exclusive options.
 
+Each segment is keyboard-focusable and exposes its selected state with `aria-pressed`.
+Keyboard focus has a visible outline in light and dark mode.
+
 ## Usage
 
 ```html

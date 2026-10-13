@@ -1,5 +1,7 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import { setConfig } from '../../../../../scripts/nx.js';
+import { setUISize } from '../../../../../utils/ui-size.js';
 import { setMockIms, resetMockIms } from '../../../../mocks/ims.js';
 
 // ims.js (imported by profile.js) is aliased to the test mock via
@@ -50,7 +52,7 @@ async function createProfile() {
 // component's internal state to settle before asserting on the DOM.
 async function waitForSignedIn(el) {
   for (let i = 0; i < 50; i += 1) {
-    if (el._ims) break;
+    if (el._ims?.anonymous || el._orgs) break;
     // eslint-disable-next-line no-await-in-loop
     await new Promise((r) => { setTimeout(r, 10); });
   }
@@ -71,12 +73,34 @@ async function waitFor(predicate, { attempts = 50, interval = 10 } = {}) {
 
 describe('nx-profile', () => {
   let restoreFetch;
+  let originalSize;
+  let originalClasses;
+  let originalStyles;
+
+  before(async () => {
+    originalStyles = document.adoptedStyleSheets;
+    const style = new CSSStyleSheet();
+    await style.replace(await (await fetch('/nx2/styles/styles.css')).text());
+    document.adoptedStyleSheets = [...originalStyles, style];
+  });
+
+  after(() => { document.adoptedStyleSheets = originalStyles; });
+
+  beforeEach(() => {
+    originalSize = localStorage.getItem('ui-size');
+    originalClasses = document.body.className;
+    setUISize({ size: 's' });
+  });
 
   afterEach(() => {
+    sinon.restore();
     restoreFetch?.();
     resetMockIms();
     document.querySelectorAll('nx-profile').forEach((el) => el.remove());
     document.querySelectorAll('nx-dialog').forEach((el) => el.remove());
+    if (originalSize === null) localStorage.removeItem('ui-size');
+    else localStorage.setItem('ui-size', originalSize);
+    document.body.className = originalClasses;
   });
 
   it('renders a sign-in button when the user is anonymous', async () => {
@@ -87,6 +111,79 @@ describe('nx-profile', () => {
     const signInBtn = el.shadowRoot.querySelector('.signin-btn');
     expect(signInBtn).to.not.be.null;
     expect(signInBtn.textContent.trim()).to.equal('Sign in');
+    expect(el.shadowRoot.querySelector('nx-segmented-btn')).to.be.null;
+  });
+
+  it('places UI size between Organization and Links, with no Large or theme control', async () => {
+    setMockIms({ orgs: { data: [{ userId: 'test-user@AdobeID', description: 'Test Organization' }] } });
+    const el = await createProfile();
+    await waitForSignedIn(el);
+    await customElements.whenDefined('nx-segmented-btn');
+    const section = el.shadowRoot.querySelector('.nx-menu-ui-size');
+    expect(section.previousElementSibling.classList.contains('nx-menu-btn-org')).to.be.true;
+    expect(section.nextElementSibling.classList.contains('nx-menu-links')).to.be.true;
+    const control = section.querySelector('nx-segmented-btn');
+    await control.updateComplete;
+    expect(control.label).to.equal('UI size');
+    expect(control.items).to.deep.equal([
+      { value: 's', label: 'Small' },
+      { value: 'm', label: 'Medium' },
+    ]);
+  });
+
+  it('switches S/M live, keeps the popover open, and uses existing segment dimensions', async () => {
+    const el = await createProfile();
+    await waitForSignedIn(el);
+    await customElements.whenDefined('nx-segmented-btn');
+    const menu = el.shadowRoot.querySelector('#nx-menu-profile');
+    menu.showPopover();
+    const control = el.shadowRoot.querySelector('nx-segmented-btn');
+    await control.updateComplete;
+    const buttons = control.shadowRoot.querySelectorAll('button');
+    expect(getComputedStyle(buttons[0]).height).to.equal('24px');
+    expect(getComputedStyle(buttons[0]).fontSize).to.equal('12px');
+    buttons[1].click();
+    await el.updateComplete;
+    await control.updateComplete;
+    expect(localStorage.getItem('ui-size')).to.equal('m');
+    expect(document.body.classList.contains('ui-size-m')).to.be.true;
+    expect(menu.matches(':popover-open')).to.be.true;
+    expect(buttons[1].getAttribute('aria-pressed')).to.equal('true');
+    expect(getComputedStyle(buttons[1]).height).to.equal('32px');
+    expect(getComputedStyle(buttons[1]).fontSize).to.equal('14px');
+    buttons[0].click();
+    await el.updateComplete;
+    await control.updateComplete;
+    expect(localStorage.getItem('ui-size')).to.equal('s');
+    expect(document.body.classList.contains('ui-size-m')).to.be.false;
+    expect(menu.matches(':popover-open')).to.be.true;
+    expect(getComputedStyle(buttons[0]).height).to.equal('24px');
+  });
+
+  it('initializes the selection from the saved preference', async () => {
+    setUISize({ size: 'm' });
+    const el = await createProfile();
+    await waitForSignedIn(el);
+    await customElements.whenDefined('nx-segmented-btn');
+    const control = el.shadowRoot.querySelector('nx-segmented-btn');
+    await control.updateComplete;
+    expect(control.value).to.equal('m');
+    expect(control.size).to.equal('m');
+  });
+
+  it('reports storage failures and restores the applied selection', async () => {
+    const el = await createProfile();
+    await waitForSignedIn(el);
+    await customElements.whenDefined('nx-segmented-btn');
+    const control = el.shadowRoot.querySelector('nx-segmented-btn');
+    await control.updateComplete;
+    sinon.stub(Storage.prototype, 'setItem').throws(new DOMException('Storage unavailable', 'QuotaExceededError'));
+    control.shadowRoot.querySelectorAll('button')[1].click();
+    await el.updateComplete;
+    await control.updateComplete;
+    expect(control.value).to.equal('s');
+    expect(document.body.classList.contains('ui-size-m')).to.be.false;
+    expect(el.shadowRoot.querySelector('[role="alert"]').textContent).to.include('Could not save UI size');
   });
 
   it('renders a "Legal notices" entry in the profile menu when signed in', async () => {

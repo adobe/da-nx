@@ -23,6 +23,7 @@ import {
   ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE,
 } from './ao-constants.js';
 import { getConfig, getUISize } from '../../scripts/nx.js';
+import { UISizeController } from '../../utils/ui-size.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
@@ -57,6 +58,8 @@ function isAllowedFile(file) {
 }
 
 export default class NxChatAo extends LitElement {
+  _uiSize = new UISizeController(this);
+
   static properties = {
     messages: { type: Array },
     thinking: { type: Boolean },
@@ -254,7 +257,6 @@ export default class NxChatAo extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.dataset.uiSize = getUISize();
     fetchResolvedManifestId();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, artifactStyle];
     this._initController();

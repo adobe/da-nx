@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { getConfig, getUISize } from '../../scripts/nx.js';
+import { UISizeController } from '../../utils/ui-size.js';
 import { loadStyle } from '../../utils/utils.js';
 import '../shared/menu/menu.js';
 
@@ -80,6 +81,8 @@ async function openFeedbackDialog(item) {
  * own menu content from the well-known FEEDBACK_PATH.
  */
 class NxFeedback extends LitElement {
+  _uiSize = new UISizeController(this);
+
   static properties = {
     _items: { state: true },
   };

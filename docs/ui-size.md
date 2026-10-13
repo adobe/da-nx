@@ -12,7 +12,19 @@ A user-level text/icon scale for Experience Workspace (chat + canvas).
 `decorateDoc()` adds `body.ui-size-{size}` for anything other than `s`. Components that need
 per-component overrides reflect it as `data-ui-size` on their host.
 
-There is no UI control yet. To test, in the devtools console with the context set to **top**:
+The profile popover contains a **UI size** segmented control below Organization and above Links.
+Select **Small** or **Medium** to apply the scale immediately, without reloading or resetting
+the document, chat, or selected panels. The preference persists in `localStorage`.
+Large remains reserved and is not offered in the control.
+
+Components using the global scale attach a `UISizeController` from `nx2/utils/ui-size.js`.
+The controller sets `data-ui-size` on connection and requests a Lit update on
+`UI_SIZE_EVENT` (`nx-ui-size-change`). It removes its listener on disconnection.
+Shared components still receive their own `size` property from their owning component.
+Use `setUISize({ size: 'm' })` to persist and broadcast a change. Changes from another
+tab are applied through the storage event. Storage failures leave the applied scale unchanged.
+
+To test the startup preference manually, in the devtools console with the context set to **top**:
 
 ```js
 localStorage.setItem("ui-size", "m"); // or 's', or localStorage.removeItem('ui-size')
@@ -64,7 +76,7 @@ Standalone icons use explicit dimensions, with an m override on the component ho
 | Page evaluation section chevron, modal copy and modal paging | 14 | 16 |
 | Page evaluation list paging                | 12 | 14 |
 
-Components needing these overrides set `data-ui-size` from `getUISize()` when connected.
+Components needing these overrides use `UISizeController` to keep `data-ui-size` current.
 The page's text tokens still inherit through shadow roots; icon dimensions do not depend on them.
 
 ## Controls

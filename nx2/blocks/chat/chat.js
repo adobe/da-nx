@@ -11,6 +11,7 @@ import '../shared/pills/pills.js';
 import './interaction/interaction.js';
 import { loadSiteConfig } from './utils/api.js';
 import { getConfig, getUISize } from '../../scripts/nx.js';
+import { UISizeController } from '../../utils/ui-size.js';
 import { buildAttachmentPayload } from './utils/chat-helpers.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
@@ -34,6 +35,8 @@ function isAllowedFile(file) {
 }
 
 class NxChat extends LitElement {
+  _uiSize = new UISizeController(this);
+
   static properties = {
     messages: { type: Array },
     thinking: { type: Boolean },

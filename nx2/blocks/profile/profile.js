@@ -3,6 +3,7 @@ import { getConfig, loc } from '../../scripts/nx.js';
 import { loadIms, handleSignOut, handleSignIn } from '../../utils/ims.js';
 import { loadStyle } from '../../utils/utils.js';
 import { signout } from '../../utils/api.js';
+import { getUISize, setUISize, UISizeController } from '../../utils/ui-size.js';
 
 const config = getConfig();
 
@@ -52,7 +53,14 @@ class NxProfile extends LitElement {
     _avatar: { state: true },
     _openOrgs: { state: true },
     _orgs: { state: true },
+    _uiSizeError: { state: true },
   };
+
+  _uiSize = new UISizeController(this);
+
+  async firstUpdated() {
+    await import('../shared/segmented-btn/segmented.js');
+  }
 
   async connectedCallback() {
     super.connectedCallback();
@@ -128,6 +136,18 @@ class NxProfile extends LitElement {
 
   handleLegalNotices() {
     openFragmentDialog(LEGAL_NOTICES_PATH);
+  }
+
+  handleUISize({ detail: { value }, currentTarget }) {
+    try {
+      setUISize({ size: value });
+      this._uiSizeError = undefined;
+    } catch (error) {
+      config.log(error);
+      currentTarget.value = getUISize();
+      this._uiSizeError = loc`Could not save UI size. Please try again.`;
+      this.requestUpdate();
+    }
   }
 
   handleScheme() {
@@ -209,6 +229,20 @@ class NxProfile extends LitElement {
           </div>
           ${this._org && !this._openOrgs ? this.renderOrg() : nothing}
           ${this._openOrgs ? this.renderOrgSwitcher() : nothing}
+          <div class="nx-menu-ui-size">
+            <p class="nx-menu-ui-size-title">${loc`UI size`}</p>
+            <nx-segmented-btn
+              label=${loc`UI size`}
+              size=${getUISize() === 'm' ? 'm' : 'sm'}
+              .items=${[
+                { value: 's', label: loc`Small` },
+                { value: 'm', label: loc`Medium` },
+              ]}
+              .value=${getUISize()}
+              @change=${this.handleUISize}
+            ></nx-segmented-btn>
+            ${this._uiSizeError ? html`<p class="nx-menu-ui-size-error" role="alert">${this._uiSizeError}</p>` : nothing}
+          </div>
           <div class="nx-menu-links">
             <p class="nx-menu-link-title">Links</p>
             <ul>

@@ -13,6 +13,7 @@ import { PREFLIGHT_EVENT, newPreflightRequestId } from '../../utils/preflight-ev
 import { sidekickCacheBust } from '../../utils/sidekick.js';
 import { formatRelativeDateTime } from '../../utils/format.js';
 import { getConfig, getUISize } from '../../scripts/nx.js';
+import { UISizeController } from '../../utils/ui-size.js';
 import '../shared/popover/popover.js';
 
 const style = await loadStyle(import.meta.url);
@@ -76,6 +77,8 @@ async function shouldHidePublish(hashState) {
 }
 
 class NXEwActions extends LitElement {
+  _uiSize = new UISizeController(this);
+
   static properties = {
     _busy: { state: true },
     _hasError: { state: true },
@@ -123,7 +126,6 @@ class NXEwActions extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.dataset.uiSize = getUISize();
     this._busy = false;
     this._target = 'preview';
     this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];

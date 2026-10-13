@@ -25,9 +25,6 @@ export function getColorScheme() {
     || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-scheme' : 'light-scheme');
 }
 
-// User-level UI text/icon size preference. "s" = current scale, "m" = the
-// larger scale from #757/#1351, "l" = reserved for a future density tier.
-// No toggle UI yet - set manually via `localStorage.setItem('ui-size', 'm')`.
 export function getUISize() {
   const size = localStorage.getItem('ui-size');
   return ['s', 'm', 'l'].includes(size) ? size : 's';

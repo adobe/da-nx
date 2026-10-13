@@ -252,6 +252,23 @@
   padding: 24px;
 }
 
+.nx-menu-ui-size {
+  padding: var(--s2-spacing-200) var(--s2-spacing-400);
+  border-bottom: 1px solid var(--s2-gray-100);
+  font-size: var(--nx-ui-text-content);
+  line-height: var(--nx-ui-line-content);
+}
+
+.nx-menu-ui-size-title {
+  margin: 0 0 var(--s2-spacing-100);
+  font-weight: var(--s2-component-m-medium-font-weight);
+}
+
+.nx-menu-ui-size-error {
+  margin: var(--s2-spacing-100) 0 0;
+  color: var(--s2-red-900);
+}
+
 .nx-menu-links ul {
   margin: 0;
   padding: 0;

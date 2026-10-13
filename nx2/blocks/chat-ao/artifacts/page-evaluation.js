@@ -12,7 +12,7 @@
 
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
-import { getUISize } from '../../../scripts/nx.js';
+import { UISizeController } from '../../../utils/ui-size.js';
 import { registerArtifact } from './registry.js';
 
 const styles = await loadStyle(import.meta.url);
@@ -119,6 +119,8 @@ function sectionLabelFromTone(tone) {
 }
 
 class NxPageEval extends LitElement {
+  _uiSize = new UISizeController(this);
+
   static properties = {
     data: { attribute: false },
     _pages: { state: true },
@@ -132,7 +134,6 @@ class NxPageEval extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.dataset.uiSize = getUISize();
     this.shadowRoot.adoptedStyleSheets = [styles];
   }
 
