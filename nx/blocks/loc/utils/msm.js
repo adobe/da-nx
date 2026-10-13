@@ -71,15 +71,12 @@ export async function fetchWithMsmFallback({ org, site, daPath, opts }) {
   });
 
   const selfResp = await fetchFrom(site);
-  if (selfResp.ok) return { resp: selfResp, resolvedSite: site, inherited: false };
-
-  if (selfResp.status !== 404) return { resp: selfResp, resolvedSite: site, inherited: false };
+  const selfResult = { resp: selfResp, resolvedSite: site, inherited: false };
+  if (selfResp.ok || selfResp.status !== 404) return selfResult;
 
   const { rows, error, status } = await fetchMsmRows(org);
-  if (error) {
-    return { resp: selfResp, resolvedSite: site, inherited: false, msmError: { error, status } };
-  }
-  if (!rows.length) return { resp: selfResp, resolvedSite: site, inherited: false };
+  if (error) return { ...selfResult, msmError: { error, status } };
+  if (!rows.length) return selfResult;
 
   // daPath keeps any /.snapshots/ prefix on ancestors, so snapshots don't inherit.
   const chain = getSourceChain({ rows, site });
@@ -87,8 +84,8 @@ export async function fetchWithMsmFallback({ org, site, daPath, opts }) {
     // eslint-disable-next-line no-await-in-loop
     const resp = await fetchFrom(ancestor);
     if (resp.ok) return { resp, resolvedSite: ancestor, inherited: true };
-    if (resp.status !== 404) return { resp, resolvedSite: site, inherited: false };
+    if (resp.status !== 404) return { ...selfResult, resp };
   }
 
-  return { resp: selfResp, resolvedSite: site, inherited: false };
+  return selfResult;
 }
