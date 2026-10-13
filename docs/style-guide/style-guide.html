@@ -272,6 +272,9 @@
           <nx-menu id="demo-menu" placement="below">
             <button slot="trigger" class="nx-form-btn-secondary" aria-label="Options">Options</button>
           </nx-menu>
+          <nx-menu id="demo-menu-s" size="s" placement="below">
+            <button slot="trigger" class="nx-form-btn-secondary" aria-label="Options">Options (s)</button>
+          </nx-menu>
           <nx-menu id="demo-menu-m" size="m" placement="below">
             <button slot="trigger" class="nx-form-btn-secondary" aria-label="Options">Options (m)</button>
           </nx-menu>
@@ -618,7 +621,7 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
       { id: 'edit', label: 'Edit' },
       { id: 'delete', label: 'Delete' },
     ];
-    [document.querySelector('#demo-menu'), document.querySelector('#demo-menu-m')].forEach((menu) => {
+    [document.querySelector('#demo-menu'), document.querySelector('#demo-menu-s'), document.querySelector('#demo-menu-m')].forEach((menu) => {
       menu.items = menuItems;
       menu.addEventListener('select', (e) => showToast({ text: `Selected: ${e.detail.id}` }));
     });

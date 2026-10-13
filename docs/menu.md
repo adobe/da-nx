@@ -65,7 +65,7 @@ Each entry in the `items` array is one of:
 | ----------- | --------------------- | --------------------------------------------------------------------------------- |
 | `items`     | `Array`               | List of item descriptors (see shapes above).                                      |
 | `placement` | `String`              | Default placement when opened via trigger: `below` (default), `above`, or `auto`. |
-| `size`      | `String`              | Item density: `s` (default) or `m`. Reflected as a host attribute.                |
+| `size`      | `String`              | Item density: `s` (default) or `m`. Explicit `size="s"` gives 24px items (Spectrum S); `m` gives 32px. Reflected as a host attribute. |
 | `open`      | `Boolean` (read-only) | Whether the menu is currently open.                                               |
 
 ### Methods
