@@ -20,7 +20,6 @@ const FILES = {
   settingsEdit: 's2-icon-settingsedit-20-n',
   confirm: 's2-icon-checkmarkcircle-20-n',
   cancel: 's2-icon-closecircle-20-n',
-  file: 's2-icon-file-20-n',
   video: 's2-icon-video-20-n',
 };
 

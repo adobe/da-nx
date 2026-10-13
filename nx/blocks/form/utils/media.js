@@ -95,3 +95,27 @@ export function describeMedia({ href, name, previewOrigin }) {
     previewHref: previewHrefOf({ href, kind, previewOrigin }),
   };
 }
+
+function decodeForDisplay(href) {
+  try {
+    return decodeURI(href);
+  } catch {
+    return href;
+  }
+}
+
+// Splits a URL for display into the path before its file name, the file name's stem and the
+// tail with its extension and query. Long URLs are cut in that order, so the extension stays.
+export function splitHrefForDisplay(href) {
+  const text = decodeForDisplay(href);
+  const queryStart = text.search(/[?#]/);
+  const pathEnd = queryStart === -1 ? text.length : queryStart;
+  const stemStart = text.lastIndexOf('/', pathEnd - 1) + 1;
+  const dot = text.lastIndexOf('.', pathEnd - 1);
+  const tailStart = dot > stemStart ? dot : pathEnd;
+  return {
+    base: text.slice(0, stemStart),
+    stem: text.slice(stemStart, tailStart),
+    tail: text.slice(tailStart),
+  };
+}
