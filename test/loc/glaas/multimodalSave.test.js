@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { DA_ADMIN } from '../../../nx2/utils/utils.js';
+import { source as daSource } from '../../../nx2/utils/api.js';
 import {
   blobContentTypeForDaSource,
   buildTranslatedImageSourcePath,
@@ -11,6 +12,7 @@ import {
   rewriteContentDaLiveImageUrls,
   fetchMultimodalImage,
   normalizeImages,
+  preserveTranslatedImagesForOverwrite,
 } from '../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
 import { LOC_SRC_ATTR } from '../../../nx/blocks/loc/connectors/glaas/dnt.js';
 import { DA_ETC } from '../../../nx/utils/utils.js';
@@ -107,6 +109,169 @@ describe('GLaaS multimodal save', () => {
 
     expect(buildTranslatedImageSourcePath({ langCode: '/fr-CA', glaasName }))
       .to.equal('/translated-images/fr-CA/acrobat/shared/hero.png');
+  });
+
+  describe('preserveTranslatedImagesForOverwrite', () => {
+    const destination = '/adobecom/da-dc/langstore/de/page.html';
+    const source = 'https://content.da.live/adobecom/da-dc/shared/hero%20one.png';
+    const translated = 'https://content.da.live/adobecom/da-dc/translated-images/de/shared/hero%20one.png';
+
+    it('preserves matching translated URLs but overwrites all other destination content', async () => {
+      const html = `<html><head><title>Incoming</title></head><body>
+        <main><h1>Incoming text</h1><picture>
+          <source srcset="${source} 1x" media="(min-width: 600px)">
+          <img src="${source}" alt="Incoming alt" width="640">
+        </picture><img src="${source}"></main>
+        <div class="da-metadata"><div><div>key</div><div>incoming</div></div></div>
+      </body></html>`;
+      const regional = `<main><h1>Regional text</h1><img src="${translated}" alt="Regional alt"></main>
+        <div class="da-metadata"><div><div>key</div><div>regional</div></div></div>`;
+      const get = sinon.stub(daSource, 'get').resolves(new Response(regional));
+
+      const result = await preserveTranslatedImagesForOverwrite({ html, destination });
+      const doc = new DOMParser().parseFromString(result.text, 'text/html');
+
+      expect(get.calledOnceWithExactly(destination)).to.be.true;
+      expect([...doc.querySelectorAll('img')].map((img) => img.src))
+        .to.deep.equal([translated, translated]);
+      expect(doc.querySelector('source').getAttribute('srcset')).to.equal(translated);
+      expect(doc.querySelector('source').getAttribute('media')).to.equal('(min-width: 600px)');
+      expect(doc.querySelector('img').alt).to.equal('Incoming alt');
+      expect(doc.querySelector('img').getAttribute('width')).to.equal('640');
+      expect(doc.title).to.equal('Incoming');
+      expect(result.text).to.include('Incoming text');
+      expect(result.text).to.include('incoming');
+      expect(result.text).not.to.include('Regional');
+      expect(result.text).not.to.include('regional');
+      expect(result.text).not.to.include('da-diff');
+    });
+
+    it('retains a fresh translation while preserving another image from the destination', async () => {
+      const fresh = 'https://content.da.live/adobecom/da-dc/translated-images/de/shared/fresh.png';
+      const old = 'https://content.da.live/adobecom/da-dc/translated-images/fr/shared/fresh.png';
+      const html = `<main><img src="${source}"><picture>
+        <source srcset="${fresh}"><img src="${fresh}">
+      </picture></main>`;
+      sinon.stub(daSource, 'get').resolves(new Response(
+        `<main><img src="${translated}"><img src="${old}"></main>`,
+      ));
+
+      const result = await preserveTranslatedImagesForOverwrite({ html, destination });
+      const doc = new DOMParser().parseFromString(result.text, 'text/html');
+
+      expect([...doc.querySelectorAll('img')].map((img) => img.src))
+        .to.deep.equal([translated, fresh]);
+      expect(doc.querySelector('source').getAttribute('srcset')).to.equal(fresh);
+    });
+
+    it('matches AEM and content.da.live images by their canonical path', async () => {
+      const html = '<img src="https://main--da-dc--adobecom.aem.live/shared/hero%20one.png">';
+      sinon.stub(daSource, 'get').resolves(new Response(`<img src="${translated}">`));
+
+      const result = await preserveTranslatedImagesForOverwrite({ html, destination });
+
+      expect(result.text).to.include(translated);
+    });
+
+    it('preserves translated filenames containing commas without splitting picture srcset', async () => {
+      const filename = 'variant=default,%20width=half,%20content=feature.png';
+      const originalSrc = `https://content.da.live/adobecom/da-dc/shared/${filename}`;
+      const translatedSrc = `https://content.da.live/adobecom/da-dc/translated-images/de/shared/${filename}`;
+      const html = `<picture><source srcset="${originalSrc}"><img src="${originalSrc}"></picture>`;
+      sinon.stub(daSource, 'get').resolves(new Response(`<img src="${translatedSrc}">`));
+
+      const result = await preserveTranslatedImagesForOverwrite({ html, destination });
+      const doc = new DOMParser().parseFromString(result.text, 'text/html');
+
+      expect(doc.querySelector('img').src).to.equal(translatedSrc);
+      expect(doc.querySelector('source').getAttribute('srcset')).to.equal(translatedSrc);
+    });
+
+    it('does not adopt non-translated destination URLs or unrelated translated images', async () => {
+      const html = `<img src="${source}">`;
+      sinon.stub(daSource, 'get').resolves(new Response(
+        `<img src="https://main--da-dc--adobecom.aem.page/shared/hero%20one.png">
+         <img src="https://content.da.live/adobecom/da-dc/translated-images/de/shared/other.png">`,
+      ));
+
+      const result = await preserveTranslatedImagesForOverwrite({ html, destination });
+
+      expect(result.text).to.equal(html);
+    });
+
+    [
+      '<main><p>No images</p></main>',
+      `<main><img src="${translated}"></main>`,
+    ].forEach((html) => {
+      it(`avoids reading the destination for ${html}`, async () => {
+        const get = sinon.stub(daSource, 'get');
+
+        const result = await preserveTranslatedImagesForOverwrite({ html, destination });
+
+        expect(result.text).to.equal(html);
+        expect(get.called).to.be.false;
+      });
+    });
+
+    it('proceeds unchanged when the destination does not exist', async () => {
+      const html = `<img src="${source}">`;
+      sinon.stub(daSource, 'get').resolves(new Response('', { status: 404 }));
+
+      const result = await preserveTranslatedImagesForOverwrite({ html, destination });
+
+      expect(result).to.deep.equal({ text: html });
+    });
+
+    [401, 403, 500].forEach((status) => {
+      it(`reports destination read status ${status} instead of returning overwrite content`, async () => {
+        sinon.stub(daSource, 'get').resolves(new Response('', { status }));
+
+        const result = await preserveTranslatedImagesForOverwrite({
+          html: `<img src="${source}">`, destination,
+        });
+
+        expect(result.error).to.include(destination);
+        expect(result.status).to.equal(status);
+        expect(result).not.to.have.property('text');
+      });
+    });
+
+    it('reports network failures instead of returning overwrite content', async () => {
+      sinon.stub(daSource, 'get').rejects(new Error('Network unavailable'));
+
+      const result = await preserveTranslatedImagesForOverwrite({
+        html: `<img src="${source}">`, destination,
+      });
+
+      expect(result.error).to.include('Network unavailable');
+      expect(result.error).to.include(destination);
+      expect(result).not.to.have.property('text');
+    });
+
+    it('reports a missing authenticated response instead of returning overwrite content', async () => {
+      sinon.stub(daSource, 'get').resolves({});
+
+      const result = await preserveTranslatedImagesForOverwrite({
+        html: `<img src="${source}">`, destination,
+      });
+
+      expect(result.error).to.include('no-response');
+      expect(result.status).to.equal(0);
+      expect(result).not.to.have.property('text');
+    });
+
+    it('reports an unreadable successful response instead of returning overwrite content', async () => {
+      const response = new Response('');
+      sinon.stub(response, 'text').rejects(new Error('Body read failed'));
+      sinon.stub(daSource, 'get').resolves(response);
+
+      const result = await preserveTranslatedImagesForOverwrite({
+        html: `<img src="${source}">`, destination,
+      });
+
+      expect(result.error).to.include('parse-failed');
+      expect(result).not.to.have.property('text');
+    });
   });
 
   describe('normalizeImages', () => {

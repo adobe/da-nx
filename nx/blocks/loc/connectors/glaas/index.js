@@ -11,6 +11,7 @@ import {
   prepareMultimodalPageForSave,
   logMultimodalRequest,
   normalizeImages,
+  preserveTranslatedImagesForOverwrite,
 } from './multimodalApi.js';
 import { getGlaasToken, connectToGlaas } from './auth.js';
 import { addDnt, removeDnt } from './dnt.js';
@@ -572,6 +573,7 @@ export async function saveItems({
   service,
   lang,
   urls,
+  behavior,
   saveFn,
   sendMessage,
 }) {
@@ -640,6 +642,22 @@ export async function saveItems({
     // regional page (see stripLocImages in dnt.js).
     url.sourceContent = await removeDnt(text, org, site, { fileType, stripLocImages: true });
     url.normalizeImages = normalizeImages; // read by mergeCopy - GLaaS-only
+
+    const overwrite = behavior === 'overwrite' || url.hasExt || url.ext !== 'html';
+    if (overwrite && url.ext === 'html' && fileType !== 'json') {
+      const preserved = await preserveTranslatedImagesForOverwrite({
+        html: url.sourceContent,
+        destination: url.destination,
+      });
+      if (preserved.error) {
+        delete url.sourceContent;
+        url.status = 'error';
+        url.error = preserved.error;
+        sendMessage?.({ text: preserved.error, type: 'error' });
+        return;
+      }
+      url.sourceContent = preserved.text;
+    }
 
     await saveFn(url);
   };
