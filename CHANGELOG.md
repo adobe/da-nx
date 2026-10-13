@@ -1,3 +1,97 @@
+## [1.12.2](https://github.com/adobe/da-nx/compare/v1.12.1...v1.12.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **ew:** clarify history save warning ([542b03d](https://github.com/adobe/da-nx/commit/542b03da163744e257c784de5d98ee6505c774e9))
+* **ew:** notify history after version creation ([dfef8ff](https://github.com/adobe/da-nx/commit/dfef8ff20317134db638edefa81e8b5c02802776)), closes [adobe/da-live#1269](https://github.com/adobe/da-live/issues/1269)
+* **ew:** remove version save warning ([1c10a15](https://github.com/adobe/da-nx/commit/1c10a159c465962e1a972ee625be98e73b0f71e0))
+* **toast:** size dismiss icon to 16px ([0589269](https://github.com/adobe/da-nx/commit/058926983eeee863155fbd7feac4d71c3f95d543))
+
+## [1.12.1](https://github.com/adobe/da-nx/compare/v1.12.0...v1.12.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **chat-ao:** add 4px spacing between New chat and close buttons ([6b71cbe](https://github.com/adobe/da-nx/commit/6b71cbeec75cede789712f36062698660a1625c4))
+* **chat-ao:** address review feedback on New chat button ([f76943c](https://github.com/adobe/da-nx/commit/f76943c64ce95a22a2dcedc75f1953ebcaa54d64))
+* **chat-ao:** bump New chat button border-radius to 16px ([1d2bde3](https://github.com/adobe/da-nx/commit/1d2bde342e5be58a44e9e5cc853323bcd3370aa7))
+* **chat-ao:** center-align header buttons, drop bold weight from New chat label ([6fad526](https://github.com/adobe/da-nx/commit/6fad526de3c76e8de83eb2d6316b0d05498e522a))
+* **chat-ao:** fall back to old icon if Coworker icon fetch fails ([8a54ce3](https://github.com/adobe/da-nx/commit/8a54ce349cc3d582fb73afd055ab9d290a2ebde0))
+* **chat-ao:** fetch new Coworker icon from nx2's own origin, not codeBase ([bc2794b](https://github.com/adobe/da-nx/commit/bc2794b966f96cb9d3447c242fbd29a3d9890750))
+* **chat-ao:** restore gray border on New chat button, 12px radius, 28px height ([024e63a](https://github.com/adobe/da-nx/commit/024e63aabc7e07ac515785cca1aadd115b7c56be))
+* **chat-ao:** size New chat button to compact 24px scale (12px text, 16px icon) ([94b962b](https://github.com/adobe/da-nx/commit/94b962b0430abe1cd26a27d81037c7f669a0133a))
+* **chat-ao:** swap New chat border for hover-only highlight ([0310d9a](https://github.com/adobe/da-nx/commit/0310d9aee595a7ab8dd5087e60c38bd4a295a5ea))
+* **chat-ao:** use distinct Coworker icon for New chat button ([c8dbcd4](https://github.com/adobe/da-nx/commit/c8dbcd4aaa3f4ef893130726a1cc384a8d23fc69)), closes [adobe/da-live#1355](https://github.com/adobe/da-live/issues/1355)
+* **chat-ao:** use published CDN icon for Coworker New chat button ([22a67e1](https://github.com/adobe/da-nx/commit/22a67e1a33c50b8b6a20598ef6db1257dad0fa96))
+* **chat-ao:** use secondary not primary variant colors for New chat button ([93a6e03](https://github.com/adobe/da-nx/commit/93a6e0381d18c8a8225d51bbb8df0b12460f32c8))
+* **chat-ao:** win specificity battle vs chat-ao.css :host button border:none ([c5a0a9d](https://github.com/adobe/da-nx/commit/c5a0a9d6c219a27e3c4a4c7540f708e458aa8e5f))
+* **svg:** loadHrefSvg should never reject on fetch failure ([e6dcc24](https://github.com/adobe/da-nx/commit/e6dcc24a34daf6d7c30752fb1dc446a6ddec16a3))
+
+# [1.12.0](https://github.com/adobe/da-nx/compare/v1.11.0...v1.12.0) (2026-10-09)
+
+
+### Features
+
+* **marketplace:** add marketplace block ([#840](https://github.com/adobe/da-nx/issues/840)) ([eac81c4](https://github.com/adobe/da-nx/commit/eac81c4dee2e3ff298bd1cb533d94d3bab1efc50))
+
+# [1.11.0](https://github.com/adobe/da-nx/compare/v1.10.0...v1.11.0) (2026-10-09)
+
+
+### Bug Fixes
+
+* **quick-edit:** attach editors only once a section has loaded ([b37fb12](https://github.com/adobe/da-nx/commit/b37fb12d25705cae7b32970fc0b6c80afc8f5fce))
+* **quick-edit:** create editors on demand instead of for every element ([11226b7](https://github.com/adobe/da-nx/commit/11226b78b875aceeef9061c6646df86f85db14f0))
+
+
+### Features
+
+* **aem-assets:** preserve last folder between asset picker openings ([2043c03](https://github.com/adobe/da-nx/commit/2043c037096fd04de53d9348cbaa167790893346)), closes [adobe/da-live#1346](https://github.com/adobe/da-live/issues/1346) [adobe/da-live#1400](https://github.com/adobe/da-live/issues/1400)
+
+# [1.10.0](https://github.com/adobe/da-nx/compare/v1.9.1...v1.10.0) (2026-10-08)
+
+
+### Features
+
+* **chat-ao:** add CMA bridge controller subclass ([#811](https://github.com/adobe/da-nx/issues/811)) ([6b57821](https://github.com/adobe/da-nx/commit/6b578214f8bd7b5b4aec552235f6e60760f6655d))
+
+## [1.9.1](https://github.com/adobe/da-nx/compare/v1.9.0...v1.9.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **loc:** skip glaas status polling for terminal languages ([#820](https://github.com/adobe/da-nx/issues/820)) ([3bd23db](https://github.com/adobe/da-nx/commit/3bd23db18643fa8b22d767346f28029f08d73970))
+
+# [1.9.0](https://github.com/adobe/da-nx/compare/v1.8.2...v1.9.0) (2026-10-06)
+
+
+### Features
+
+* implement cancelTranslation for the Smartling connector ([#710](https://github.com/adobe/da-nx/issues/710)) ([bfdc2d7](https://github.com/adobe/da-nx/commit/bfdc2d795cc14738b93f08f90dd233fcb8ec5758))
+
+## [1.8.2](https://github.com/adobe/da-nx/compare/v1.8.1...v1.8.2) (2026-10-06)
+
+
+### Bug Fixes
+
+* **quick-edit:** keep image uploads through concurrent edits ([e470eb9](https://github.com/adobe/da-nx/commit/e470eb96203a5a83f890dfd0ae9f6bffd2426b91))
+* **quick-edit:** replace indexed images reliably ([827f538](https://github.com/adobe/da-nx/commit/827f53834997ee9c1c42b2ee13e91dfc10271167))
+
+## [1.8.1](https://github.com/adobe/da-nx/compare/v1.8.0...v1.8.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **form:** remove double vertical scrollbar ([#804](https://github.com/adobe/da-nx/issues/804)) ([e3b2d40](https://github.com/adobe/da-nx/commit/e3b2d405cc7657d32d370bb8a0ace259dc31ef27))
+
+# [1.8.0](https://github.com/adobe/da-nx/compare/v1.7.1...v1.8.0) (2026-10-05)
+
+
+### Features
+
+* **aem-assets:** add shared AEM Assets module ([d37e4a8](https://github.com/adobe/da-nx/commit/d37e4a8d356c1985c062622b7fca2dbaa0a31450))
+* shared switch ([#777](https://github.com/adobe/da-nx/issues/777)) ([d021843](https://github.com/adobe/da-nx/commit/d021843e189de76ff03b7854f1416dd694809024))
+
 ## [1.7.1](https://github.com/adobe/da-nx/compare/v1.7.0...v1.7.1) (2026-10-02)
 
 
