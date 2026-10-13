@@ -38,7 +38,7 @@ input {
   font: inherit;
   font-size: var(--nx-search-font-size);
   line-height: var(--nx-search-line-height);
-  padding: 0;
+  padding: 1px 2px;
 }
 
 :host(:not([variant="field"])) input:focus:not(:disabled) {

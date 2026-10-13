@@ -2,7 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
 
 await setConfig({ hostnames: [] });
-await import('../../../../../blocks/shared/search/search.js');
+const searchModule = await import('../../../../../blocks/shared/search/search.js');
 await import('../../../../../blocks/shared/chat/prompts/prompts.js');
 
 describe('nx-search', () => {
@@ -18,6 +18,11 @@ describe('nx-search', () => {
   });
 
   afterEach(() => field.remove());
+
+  it('registers the component without exporting a subclassing API', () => {
+    expect(searchModule).not.to.have.property('NxSearch');
+    expect(field.constructor).to.equal(customElements.get('nx-search'));
+  });
 
   it('labels a native search input and updates programmatic values without events', async () => {
     expect(input.type).to.equal('search');

@@ -41,19 +41,11 @@ Its dropdown matches the rendered trigger width each time it opens.
 
 ### Fixed trigger label
 
-Set `labelOverride` when the trigger should name an action rather than repeat the
-selected item. The selected value and dropdown checkmark remain unchanged.
+Use `labelOverride` for a fixed trigger label. The dropdown still marks the selected item.
 
 ```js
 picker.labelOverride = "Sort";
-picker.items = [
-  { value: "name:ascending", label: "Name (A-Z)" },
-  { value: "name:descending", label: "Name (Z-A)" },
-];
-picker.value = "name:ascending";
 ```
-
-The closed trigger shows "Sort"; opening the picker shows the selected sort option.
 
 ## Item shapes
 
@@ -91,28 +83,7 @@ Trigger text precedence is: non-empty `labelOverride`, matching item label, `pla
 
 ## CSS parts
 
-`label` exposes the trigger text for consumer styling. Decorative icons and
-responsive layout belong to the consumer, not the picker. An empty-content
-`::before` pseudo-element can add an icon without changing the trigger's label:
-
-```css
-.sort-picker::part(label) {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.sort-picker::part(label)::before {
-  content: "";
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  background-color: currentcolor;
-  mask: url("/path/to/sort.svg") center / contain no-repeat;
-}
-```
-
-Keep the text visible so the trigger remains identifiable and retains its accessible name.
+Use `::part(label)` to style the trigger text, or `::part(label)::before` to add a decorative icon.
 
 ## CSS custom properties
 
