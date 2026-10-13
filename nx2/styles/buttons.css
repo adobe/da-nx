@@ -109,7 +109,6 @@ button {
 
 .nx-btn-sm kbd {
   padding: var(--s2-spacing-50) var(--s2-spacing-75);
-  font-size: var(--s2-component-xs-medium-font-size);
 }
 
 .nx-action-btn-quiet, .nx-action-btn-icon  {
