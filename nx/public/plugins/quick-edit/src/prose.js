@@ -13,7 +13,7 @@ import { createSimpleKeymap } from './simple-keymap.js';
 import { createImageWrapperPlugin } from './image-wrapper.js';
 import { setupImageDropListeners } from './images.js';
 import { setRemoteCursors } from './cursors.js';
-import { findTextBlock } from './dom-index.js';
+import { findTextBlock, syncImageIndices } from './dom-index.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
 function marksEqual(a, b) {
@@ -56,16 +56,20 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   const oldStoredMarks = editorView.state.storedMarks;
   const newState = editorView.state.apply(tr);
   editorView.updateState(newState);
-  updateInstrumentation(newState.doc.firstChild.nodeSize - oldLength, currentCursorOffset);
+  const lengthDiff = newState.doc.firstChild.nodeSize - oldLength;
+  updateInstrumentation(lengthDiff, currentCursorOffset);
+  syncImageIndices(editorView, editorParent, currentCursorOffset, oldLength, lengthDiff);
 
   if (ctx.remoteUpdate) { return; }
 
   if (numChanges > 0) {
     const editedEl = newState.doc.firstChild;
     const node = editedEl.toJSON();
+    const nodeUpdateId = crypto.randomUUID();
+    ctx.pendingNodeUpdateId = nodeUpdateId;
     ctx.port.postMessage({
       type: MESSAGE_TYPES.NODE_UPDATE,
-      payload: { node, cursorOffset: currentCursorOffset },
+      payload: { node, cursorOffset: currentCursorOffset, nodeUpdateId },
     });
   }
 
@@ -167,7 +171,26 @@ function keydown(view, event) {
   return handleToolbarKeydown(event);
 }
 
-function createEditor(cursorOffset, state, ctx) {
+function focusEditor(view, { x, y, selection }) {
+  const { doc } = view.state;
+  const max = doc.content.size;
+  const clicked = selection ? null : view.posAtCoords({ left: x, top: y })?.pos;
+  const anchor = Math.min(selection?.anchor ?? clicked ?? max, max);
+  const head = Math.min(selection?.head ?? clicked ?? max, max);
+  view.focus();
+  view.dispatch(view.state.tr.setSelection(
+    TextSelection.between(doc.resolve(anchor), doc.resolve(head)),
+  ));
+}
+
+export function captureFocusedEditor() {
+  const editorParent = document.activeElement?.closest?.('.prosemirror-editor');
+  if (!editorParent?.view) return null;
+  const { anchor, head } = editorParent.view.state.selection;
+  return { cursorOffset: editorParent.getAttribute('data-prose-index'), selection: { anchor, head } };
+}
+
+function createEditor(cursorOffset, state, ctx, imageVersion) {
   // Normalize once: the exact-match badge gate below is a strict === and would
   // silently never match if cursorOffset arrived as a string.
   const offset = Number(cursorOffset);
@@ -193,6 +216,7 @@ function createEditor(cursorOffset, state, ctx) {
 
   const editorParent = document.createElement('div');
   editorParent.setAttribute('data-prose-index', offset);
+  if (imageVersion) editorParent.setAttribute('data-image-version', imageVersion);
   editorParent.classList.add('prosemirror-editor');
 
   // Drift-tolerant lookup: an exact match can miss after another block's remote edit
@@ -227,9 +251,19 @@ function createEditor(cursorOffset, state, ctx) {
 
   element.replaceWith(editorParent);
   editorParent.view = editorView;
+  syncImageIndices(editorView, editorParent, offset);
   if (!ctx.readOnly) setupImageDropListeners(ctx, editorParent);
   setRemoteCursors();
   initScrollListener(editorParent.ownerDocument.defaultView, ctx);
+
+  if (ctx.pendingEditor?.element === element) {
+    const pending = ctx.pendingEditor;
+    ctx.pendingEditor = null;
+    clearTimeout(blurClearTimeout);
+    blurClearTimeout = null;
+    focusEditor(editorView, pending);
+    return;
+  }
 
   if (blurClearTimeout !== null) {
     clearTimeout(blurClearTimeout);
@@ -239,11 +273,12 @@ function createEditor(cursorOffset, state, ctx) {
   }
 }
 
-function updateEditor(editorEl, state, ctx) {
+function updateEditor(editorEl, state, ctx, imageVersion) {
   if (!editorEl) return;
 
   // Editor already exists, update it with a transaction
   const view = editorEl;
+  if (imageVersion) view.dom.parentElement.setAttribute('data-image-version', imageVersion);
   const { schema } = view.state;
   const node = schema.nodeFromJSON(state);
 
@@ -281,11 +316,11 @@ function updateEditor(editorEl, state, ctx) {
   }
 }
 
-export function setEditorState(cursorOffset, state, ctx) {
+export function setEditorState(cursorOffset, state, ctx, imageVersion) {
   const existingEditorParent = document.querySelector(`.prosemirror-editor[data-prose-index="${cursorOffset}"]`);
   if (existingEditorParent) {
-    updateEditor(existingEditorParent.view, state, ctx);
+    updateEditor(existingEditorParent.view, state, ctx, imageVersion);
     return;
   }
-  createEditor(cursorOffset, state, ctx);
+  createEditor(cursorOffset, state, ctx, imageVersion);
 }

@@ -17,6 +17,18 @@
   overflow-y: auto;
 }
 
+/* At this width main scrolls and has a border, so fill main instead of the viewport to avoid a second scrollbar. */
+@media (width >= 600px) {
+  main:has(.nx-form) > .section {
+    min-height: 0;
+  }
+
+  .block-content:has(> .nx-form),
+  .nx-form {
+    height: 100%;
+  }
+}
+
 /* Never override the chat's `display` here, or its flex layout collapses. */
 aside.panel[data-position='before'] nx-chat {
   height: 100%;

@@ -145,6 +145,7 @@ class NXNav extends LitElement {
         ${this._brand}
         ${this._breadcrumbs}
       </div>
+      <div class="nav-search"><slot name="search"></slot></div>
       <div class="action-area">
         ${this._actions}
       </div>

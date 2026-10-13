@@ -1,9 +1,15 @@
-import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc, handleImageError } from './src/images.js';
-import { setEditorState } from './src/prose.js';
+import {
+  requestEditor,
+  setupContentEditableListeners,
+  setupImageDropListeners,
+  updateImageSrc,
+  handleImageError,
+} from './src/images.js';
+import { setEditorState, captureFocusedEditor } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
-import { restoreBlockIndices } from './src/dom-index.js';
+import { restoreBlockIndices, restoreImageIndices, applyImageVersionAck } from './src/dom-index.js';
 import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
 import {
   getQuickEditPortalSrc,
@@ -39,15 +45,25 @@ const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
 let parentControllerPort = null;
 
 async function setBody(body, ctx) {
+  ctx.bodyGeneration = (ctx.bodyGeneration ?? 0) + 1;
+  const generation = ctx.bodyGeneration;
+
   const anchor = captureScrollAnchor();
+  const focused = captureFocusedEditor();
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage(document);
+  // A newer SET_BODY replaced the DOM while this one was loading.
+  if (generation !== ctx.bodyGeneration) return;
   restoreBlockIndices(doc, document);
+  restoreImageIndices(doc, document);
   applyCommentMarkers(ctx);
   setupNodeSelection(ctx);
   setSelectedNode(getSelectedNode());
   setupContentEditableListeners(ctx);
+  // Re-open the editor the user was in, since the body (and its editor) was replaced.
+  const refocus = focused && document.querySelector(`[data-prose-index="${focused.cursorOffset}"]:not(picture)`);
+  if (refocus) requestEditor(ctx, refocus, { selection: focused.selection });
   if (!ctx.readOnly) {
     setupImageDropListeners(ctx, document.body.querySelector('main'));
   }
@@ -67,18 +83,20 @@ function onMessage(e, ctx) {
   if (type === MESSAGE_TYPES.READY) {
     handleReady(e, ctx);
   } else if (type === MESSAGE_TYPES.SET_BODY) {
+    ctx.pendingNodeUpdateId = null;
     setBody(payload.body, ctx);
   } else if (type === MESSAGE_TYPES.SET_EDITOR_STATE) {
-    const { editorState, cursorOffset } = payload;
-    setEditorState(cursorOffset, editorState, ctx);
+    const { editorState, cursorOffset, imageVersion } = payload;
+    setEditorState(cursorOffset, editorState, ctx, imageVersion);
+  } else if (type === MESSAGE_TYPES.NODE_UPDATE) {
+    applyImageVersionAck(payload, ctx);
   } else if (type === MESSAGE_TYPES.SET_CURSORS) {
     setCursors(payload.cursors, ctx);
   } else if (type === MESSAGE_TYPES.IMAGE_REPLACE) {
     if (payload.error) {
-      handleImageError(payload.error);
+      handleImageError(payload.error, payload.requestId, ctx);
     } else {
-      const { newSrc, originalSrc } = payload;
-      updateImageSrc(originalSrc, newSrc);
+      updateImageSrc(payload.requestId, payload.newSrc, ctx);
     }
   } else if (type === MESSAGE_TYPES.SET_COMMENT_MARKERS) {
     setCommentMarkers(payload, ctx);
