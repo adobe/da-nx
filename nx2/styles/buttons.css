@@ -108,7 +108,13 @@ button {
 }
 
 .nx-btn-sm kbd {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 20px;
+  padding: 0 var(--s2-spacing-75);
   font-size: var(--s2-component-xs-medium-font-size);
+  line-height: 1;
 }
 
 .nx-action-btn-quiet, .nx-action-btn-icon  {
