@@ -153,9 +153,39 @@ describe('treegrid-nav', () => {
     expect(active().id).to.equal('s2');
   });
 
-  it('leaves text entry keys alone', () => {
+  it('moves out of checkbox and button inputs with arrow keys', () => {
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.tabIndex = -1;
+    $('s1').append(checkbox);
+    checkbox.focus();
+    expect(press('ArrowLeft').defaultPrevented).to.be.true;
+    expect(active().id).to.equal('s1-b');
+    checkbox.focus();
+    press('Escape');
+    expect(active().id).to.equal('s1');
+
+    const button = document.createElement('input');
+    button.type = 'button';
+    button.tabIndex = -1;
+    $('s1').append(button);
+    button.focus();
+    expect(press('ArrowDown').defaultPrevented).to.be.true;
+    expect(active().id).to.equal('b1');
+  });
+
+  it('leaves text entry and native input arrow keys alone', () => {
     $('c1-input').focus();
     expect(press('ArrowLeft').defaultPrevented).to.be.false;
     expect(active().id).to.equal('c1-input');
+
+    ['radio', 'number', 'range'].forEach((type) => {
+      const input = document.createElement('input');
+      input.type = type;
+      $('c1').append(input);
+      input.focus();
+      expect(press('ArrowRight').defaultPrevented).to.be.false;
+      expect(active()).to.equal(input);
+    });
   });
 });
