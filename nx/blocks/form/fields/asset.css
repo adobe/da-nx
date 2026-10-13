@@ -5,7 +5,6 @@
   --asset-preview-fade: 130ms;
   --asset-menu-icon-size: 16px;
   --asset-preview-icon-size: 32px;
-  --asset-row-icon-size: 20px;
 
   display: block;
   font-family: var(--s2-font-family, adobe-clean, "Source Sans Pro", system-ui, sans-serif);
@@ -92,15 +91,8 @@
   border-top: 1px solid var(--s2-gray-200);
 }
 
-.asset-row-icon {
-  flex: none;
-  width: var(--asset-row-icon-size);
-  height: var(--asset-row-icon-size);
-  color: var(--s2-gray-700);
-}
-
 .asset-placeholder,
-.asset-name {
+.asset-url {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -109,21 +101,26 @@
   text-overflow: ellipsis;
 }
 
-.asset-name {
+.asset-url {
   display: flex;
   color: var(--s2-gray-900);
   font-weight: 600;
 }
 
-.asset-name-stem {
+.asset-url > span {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.asset-name-extension {
-  flex: none;
+/* Long URLs shorten their path first and their file name second, so the extension stays. */
+.asset-url-base {
+  flex-shrink: 1000;
+}
+
+.asset-url-stem {
+  flex-shrink: 100;
 }
 
 .asset-placeholder {

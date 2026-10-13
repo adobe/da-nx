@@ -120,12 +120,12 @@ describe('form-asset', () => {
     expect(heightOf(box(field))).to.be.greaterThan(200);
   });
 
-  it('collapses to a single row with a file icon for files that are not images or videos', async () => {
+  it('collapses to a single row for files that are not images or videos', async () => {
     const field = await mount({ value: 'https://x.test/files/spec.pdf' });
     expect(query(field, '.asset-preview')).to.equal(null);
     expect(box(field).classList.contains('has-preview')).to.be.false;
     expect(heightOf(box(field))).to.be.lessThan(100);
-    expect(query(field, '.asset-name').textContent).to.equal('spec.pdf');
+    expect(query(field, '.asset-url').textContent).to.equal('https://x.test/files/spec.pdf');
   });
 
   it('expands again when a file is replaced with an image, and collapses on the way back', async () => {
@@ -167,7 +167,7 @@ describe('form-asset', () => {
     await new Promise((resolve) => { img.addEventListener('error', resolve, { once: true }); });
     await field.updateComplete;
     expect(query(field, '.asset-preview')).to.equal(null);
-    expect(query(field, '.asset-name').textContent).to.equal('missing.png');
+    expect(query(field, '.asset-url').textContent).to.equal('https://x.test/missing.png');
   });
 
   it('keeps the video panel with its icon when the first frame fails to load', async () => {
@@ -180,24 +180,38 @@ describe('form-asset', () => {
 
   it('shows the stored file name with Replace and Remove', async () => {
     const field = await mount({ value: 'https://x.test/files/data%20sheet.pdf' });
-    expect(query(field, '.asset-name').textContent).to.equal('data sheet.pdf');
-    expect(query(field, '.asset-name').title).to.equal('data sheet.pdf');
+    expect(query(field, '.asset-url').textContent).to.equal('https://x.test/files/data sheet.pdf');
+    expect(query(field, '.asset-url').title).to.equal('https://x.test/files/data sheet.pdf');
     expect(menu(field).querySelector('[slot="trigger"]').textContent.trim()).to.equal('Replace');
     expect(button(field, 'Remove')).to.exist;
   });
 
-  it('keeps the file extension visible when a long name is truncated', async () => {
+  it('cuts a long URL in its path and file name but keeps the extension visible', async () => {
     const longName = `${'very-long-file-name-'.repeat(10)}final.pdf`;
-    const field = await mount({ value: `https://x.test/files/${longName}` });
-    const name = query(field, '.asset-name');
-    const stem = query(field, '.asset-name-stem');
-    const extension = query(field, '.asset-name-extension');
-    expect(name.textContent).to.equal(longName);
-    expect(name.title).to.equal(longName);
+    const href = `https://x.test/${'folder/'.repeat(10)}${longName}`;
+    const field = await mount({ value: href });
+    const url = query(field, '.asset-url');
+    const stem = query(field, '.asset-url-stem');
+    const tail = query(field, '.asset-url-tail');
+    expect(url.textContent).to.equal(href);
+    expect(url.title).to.equal(href);
+    expect(query(field, '.asset-url-base').clientWidth).to.be.lessThan(40);
     expect(stem.scrollWidth).to.be.greaterThan(stem.clientWidth);
-    expect(extension.textContent).to.equal('.pdf');
-    expect(extension.getBoundingClientRect().right)
-      .to.be.at.most(name.getBoundingClientRect().right);
+    expect(tail.textContent).to.equal('.pdf');
+    expect(tail.getBoundingClientRect().right).to.be.at.most(url.getBoundingClientRect().right);
+    expect(url.getBoundingClientRect().right)
+      .to.be.at.most(query(field, '.asset-actions').getBoundingClientRect().left);
+  });
+
+  it('shows an AEM video player URL cut in its path, with the player name visible', async () => {
+    const player = `https://delivery-p1-e1.adobeaemcloud.com/adobe/assets/urn:aaid:aem:${'a1b2'.repeat(9)}/play`;
+    const field = await mount({ value: player });
+    const url = query(field, '.asset-url');
+    const stem = query(field, '.asset-url-stem');
+    expect(url.textContent).to.equal(player);
+    expect(url.title).to.equal(player);
+    expect(stem.textContent).to.equal('play');
+    expect(stem.getBoundingClientRect().right).to.be.at.most(url.getBoundingClientRect().right);
   });
 
   it('previews an image only after it has loaded', async () => {
@@ -236,7 +250,7 @@ describe('form-asset', () => {
     expect(input.accept).to.equal('image/png,application/pdf');
     expect(select.calledOnceWith({ file: pdf })).to.be.true;
     expect(changes).to.deep.equal(['https://x.test/spec.pdf']);
-    expect(query(field, '.asset-name').textContent).to.equal('spec.pdf');
+    expect(query(field, '.asset-url').textContent).to.equal('https://x.test/spec.pdf');
   });
 
   it('does nothing when the file picker is cancelled', async () => {
@@ -319,7 +333,7 @@ describe('form-asset', () => {
 
     expect(changes).to.deep.equal([]);
     expect(field.value).to.equal('https://x.test/moved-item.pdf');
-    expect(query(field, '.asset-name').textContent).to.equal('moved-item.pdf');
+    expect(query(field, '.asset-url').textContent).to.equal('https://x.test/moved-item.pdf');
     expect(query(field, '.nx-loading-spinner')).to.equal(null);
   });
 

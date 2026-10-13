@@ -1,5 +1,7 @@
 import { expect } from '@esm-bundle/chai';
-import { describeMedia, isAssetHref, isLinkedMedia } from '../../../../../nx/blocks/form/utils/media.js';
+import {
+  describeMedia, isAssetHref, isLinkedMedia, splitHrefForDisplay,
+} from '../../../../../nx/blocks/form/utils/media.js';
 
 const previewOrigin = 'https://main--site--example.preview.da.live';
 
@@ -74,6 +76,29 @@ describe('form media values', () => {
       href: 'https://delivery.example.com/urn:aaid:aem:1/as/photo',
       name: 'photo.webp',
     })).to.include({ name: 'photo.webp', kind: 'file' });
+  });
+});
+
+describe('splitHrefForDisplay', () => {
+  it('splits a URL into its path, file name stem and extension with query', () => {
+    expect(splitHrefForDisplay('https://x.test/a.b/hero.final.png?width=750')).to.deep.equal({
+      base: 'https://x.test/a.b/', stem: 'hero.final', tail: '.png?width=750',
+    });
+    expect(splitHrefForDisplay('./media_abc.png'))
+      .to.deep.equal({ base: './', stem: 'media_abc', tail: '.png' });
+  });
+
+  it('keeps file names without an extension whole', () => {
+    expect(splitHrefForDisplay('https://x.test/a.b/urn:aaid:aem:1/play?x=1.2')).to.deep.equal({
+      base: 'https://x.test/a.b/urn:aaid:aem:1/', stem: 'play', tail: '?x=1.2',
+    });
+    expect(splitHrefForDisplay('https://x.test/.env'))
+      .to.deep.equal({ base: 'https://x.test/', stem: '.env', tail: '' });
+  });
+
+  it('decodes the URL for reading and keeps malformed escapes', () => {
+    expect(splitHrefForDisplay('https://x.test/data%20sheet.pdf').stem).to.equal('data sheet');
+    expect(splitHrefForDisplay('https://x.test/%E0%A4%A.pdf').stem).to.equal('%E0%A4%A');
   });
 });
 
