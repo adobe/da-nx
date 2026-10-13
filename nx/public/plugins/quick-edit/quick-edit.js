@@ -93,8 +93,10 @@ function onMessage(e, ctx) {
         console.error('[quick-edit] failed to set body', error);
       });
   } else if (type === MESSAGE_TYPES.SET_EDITOR_STATE) {
-    const { editorState, cursorOffset, imageVersion } = payload;
-    setEditorState(cursorOffset, editorState, ctx, imageVersion);
+    const {
+      editorState, cursorOffset, imageVersion, lengthDiff,
+    } = payload;
+    setEditorState(cursorOffset, editorState, ctx, imageVersion, lengthDiff);
   } else if (type === MESSAGE_TYPES.NODE_UPDATE) {
     applyImageVersionAck(payload, ctx);
   } else if (type === MESSAGE_TYPES.SET_CURSORS) {
