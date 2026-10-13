@@ -1,3 +1,23 @@
+## [1.12.1](https://github.com/adobe/da-nx/compare/v1.12.0...v1.12.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **chat-ao:** add 4px spacing between New chat and close buttons ([6b71cbe](https://github.com/adobe/da-nx/commit/6b71cbeec75cede789712f36062698660a1625c4))
+* **chat-ao:** address review feedback on New chat button ([f76943c](https://github.com/adobe/da-nx/commit/f76943c64ce95a22a2dcedc75f1953ebcaa54d64))
+* **chat-ao:** bump New chat button border-radius to 16px ([1d2bde3](https://github.com/adobe/da-nx/commit/1d2bde342e5be58a44e9e5cc853323bcd3370aa7))
+* **chat-ao:** center-align header buttons, drop bold weight from New chat label ([6fad526](https://github.com/adobe/da-nx/commit/6fad526de3c76e8de83eb2d6316b0d05498e522a))
+* **chat-ao:** fall back to old icon if Coworker icon fetch fails ([8a54ce3](https://github.com/adobe/da-nx/commit/8a54ce349cc3d582fb73afd055ab9d290a2ebde0))
+* **chat-ao:** fetch new Coworker icon from nx2's own origin, not codeBase ([bc2794b](https://github.com/adobe/da-nx/commit/bc2794b966f96cb9d3447c242fbd29a3d9890750))
+* **chat-ao:** restore gray border on New chat button, 12px radius, 28px height ([024e63a](https://github.com/adobe/da-nx/commit/024e63aabc7e07ac515785cca1aadd115b7c56be))
+* **chat-ao:** size New chat button to compact 24px scale (12px text, 16px icon) ([94b962b](https://github.com/adobe/da-nx/commit/94b962b0430abe1cd26a27d81037c7f669a0133a))
+* **chat-ao:** swap New chat border for hover-only highlight ([0310d9a](https://github.com/adobe/da-nx/commit/0310d9aee595a7ab8dd5087e60c38bd4a295a5ea))
+* **chat-ao:** use distinct Coworker icon for New chat button ([c8dbcd4](https://github.com/adobe/da-nx/commit/c8dbcd4aaa3f4ef893130726a1cc384a8d23fc69)), closes [adobe/da-live#1355](https://github.com/adobe/da-live/issues/1355)
+* **chat-ao:** use published CDN icon for Coworker New chat button ([22a67e1](https://github.com/adobe/da-nx/commit/22a67e1a33c50b8b6a20598ef6db1257dad0fa96))
+* **chat-ao:** use secondary not primary variant colors for New chat button ([93a6e03](https://github.com/adobe/da-nx/commit/93a6e0381d18c8a8225d51bbb8df0b12460f32c8))
+* **chat-ao:** win specificity battle vs chat-ao.css :host button border:none ([c5a0a9d](https://github.com/adobe/da-nx/commit/c5a0a9d6c219a27e3c4a4c7540f708e458aa8e5f))
+* **svg:** loadHrefSvg should never reject on fetch failure ([e6dcc24](https://github.com/adobe/da-nx/commit/e6dcc24a34daf6d7c30752fb1dc446a6ddec16a3))
+
 # [1.12.0](https://github.com/adobe/da-nx/compare/v1.11.0...v1.12.0) (2026-10-09)
 
 
