@@ -80,6 +80,6 @@ its `size` attribute: the default sm styles in s, `size="m"` in m.
 ## Pickers and menus
 
 `nx-picker` and `nx-menu` keep their own `size` attribute (`s`/`m`). EW call sites pass the current
-ui-size, so Spectrum `s` styling shows in s and Spectrum `m` styling in m. The picker's `size="m"` also
-carries the list-item states from #757 (corner-radius-400 rows, gray-100 hover, gray-200 active, gray-900 text),
-which already match `nx-menu`.
+ui-size, so Spectrum `s` styling shows in s and Spectrum `m` styling in m. The picker list matches `nx-menu`
+in every size: 8px popover padding, 12px item inset, corner-radius-400 rows, gray-100 hover, gray-200 active,
+gray-900 text, 24px items in s and 32px in m.
