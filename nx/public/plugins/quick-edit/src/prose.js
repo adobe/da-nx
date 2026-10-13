@@ -190,7 +190,7 @@ export function captureFocusedEditor() {
   return { cursorOffset: editorParent.getAttribute('data-prose-index'), selection: { anchor, head } };
 }
 
-function createEditor(cursorOffset, state, ctx, imageVersion) {
+function createEditor(cursorOffset, state, ctx, imageVersion, lengthDiff = 0) {
   // Normalize once: the exact-match badge gate below is a strict === and would
   // silently never match if cursorOffset arrived as a string.
   const offset = Number(cursorOffset);
@@ -251,7 +251,9 @@ function createEditor(cursorOffset, state, ctx, imageVersion) {
 
   element.replaceWith(editorParent);
   editorParent.view = editorView;
-  syncImageIndices(editorView, editorParent, offset);
+  // The replaced element still had the pre-edit content, so later indices haven't moved yet.
+  if (lengthDiff) updateInstrumentation(lengthDiff, offset);
+  syncImageIndices(editorView, editorParent, offset, node.nodeSize - lengthDiff, lengthDiff);
   if (!ctx.readOnly) setupImageDropListeners(ctx, editorParent);
   setRemoteCursors();
   initScrollListener(editorParent.ownerDocument.defaultView, ctx);
@@ -316,11 +318,11 @@ function updateEditor(editorEl, state, ctx, imageVersion) {
   }
 }
 
-export function setEditorState(cursorOffset, state, ctx, imageVersion) {
+export function setEditorState(cursorOffset, state, ctx, imageVersion, lengthDiff) {
   const existingEditorParent = document.querySelector(`.prosemirror-editor[data-prose-index="${cursorOffset}"]`);
   if (existingEditorParent) {
     updateEditor(existingEditorParent.view, state, ctx, imageVersion);
     return;
   }
-  createEditor(cursorOffset, state, ctx, imageVersion);
+  createEditor(cursorOffset, state, ctx, imageVersion, lengthDiff);
 }
