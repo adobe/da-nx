@@ -1,6 +1,6 @@
 import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
-import { daFetch, source as daSource } from '../../../../../nx2/utils/api.js';
+import { asText, daFetch, source as daSource } from '../../../../../nx2/utils/api.js';
 import { DA_ETC } from '../../../../utils/utils.js';
 import {
   buildGlaasCreateMetadata,
@@ -213,13 +213,55 @@ function mirrorSrcset(img, src) {
     .forEach((source) => source.setAttribute('srcset', src));
 }
 
+function imageSourcesByKey({ document, translatedOnly = false }) {
+  const bySrc = new Map();
+  document.querySelectorAll('img[src]').forEach((img) => {
+    if (translatedOnly && !isTranslatedImagePath(img.src)) return;
+    bySrc.set(canonicalImageKey(img.src), img.src);
+  });
+  return bySrc;
+}
+
+export async function preserveTranslatedImagesForOverwrite({ html, destination }) {
+  const parser = new DOMParser();
+  const incoming = parser.parseFromString(html, 'text/html');
+  const images = [...incoming.querySelectorAll('img[src]')]
+    .filter((img) => !isTranslatedImagePath(img.src));
+  if (!images.length) return { text: html };
+
+  let destinationHtml;
+  try {
+    const {
+      ok, data, status, error,
+    } = await asText(daSource.get(destination));
+    if (status === 404) return { text: html };
+    if (!ok || error) {
+      return { error: `Error reading destination ${destination} (${status}: ${error}).`, status };
+    }
+    destinationHtml = data;
+  } catch (error) {
+    return { error: `Error reading destination ${destination}: ${error.message}` };
+  }
+
+  const destinationDocument = parser.parseFromString(destinationHtml, 'text/html');
+  const bySrc = imageSourcesByKey({ document: destinationDocument, translatedOnly: true });
+  const replacements = images.map((img) => ({
+    img,
+    src: bySrc.get(canonicalImageKey(img.src)),
+  })).filter(({ src }) => src);
+  if (!replacements.length) return { text: html };
+
+  replacements.forEach(({ img, src }) => {
+    img.src = src;
+    mirrorSrcset(img, src);
+  });
+  return { text: incoming.documentElement.outerHTML };
+}
+
 // Reconciles same-image src differences to avoid merge noise; a fresh translation on original
 // propagates onto modified instead of being reverted.
 export function normalizeImages(original, modified) {
-  const bySrc = new Map();
-  modified.querySelectorAll('img[src]').forEach((img) => {
-    bySrc.set(canonicalImageKey(img.src), img.src);
-  });
+  const bySrc = imageSourcesByKey({ document: modified });
 
   original.querySelectorAll('img[src]').forEach((img) => {
     const key = canonicalImageKey(img.src);

@@ -122,6 +122,7 @@ async function saveLang({
     lang,
     langIndex,
     urls: urlsToSave,
+    behavior,
     saveFn,
     sendMessage,
   });
