@@ -294,9 +294,7 @@
   --nx-ui-text-heading: var(--s2-component-xl-bold-font-size);
   --nx-ui-text-title: var(--s2-component-l-bold-font-size);
   --nx-ui-text-content: var(--s2-component-s-regular-font-size);
-  --nx-ui-text-description: var(--s2-component-xs-regular-font-size);
   --nx-ui-line-content: var(--s2-component-s-regular-line-height);
-  --nx-ui-line-description: 1.4;
 
   /* fonts */
   --s2-font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
@@ -320,9 +318,7 @@ body.ui-size-m {
   --nx-ui-text-heading: var(--s2-heading-size-s);
   --nx-ui-text-title: var(--s2-component-xl-bold-font-size);
   --nx-ui-text-content: var(--s2-component-m-regular-font-size);
-  --nx-ui-text-description: var(--s2-component-s-regular-font-size);
   --nx-ui-line-content: var(--s2-component-m-regular-line-height);
-  --nx-ui-line-description: var(--s2-component-s-regular-line-height);
 }
 
 @media (width >= 1440px) {

@@ -173,7 +173,7 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card-sub {
-  font-size: var(--nx-ui-text-description);
+  font-size: var(--nx-ui-text-content);
   color: var(--s2-gray-700, #464646);
 }
 
@@ -218,7 +218,7 @@ nx-popover.deploy-popover {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: var(--nx-ui-text-description);
+  font-size: var(--nx-ui-text-content);
   color: var(--s2-gray-800, #292929);
 }
 

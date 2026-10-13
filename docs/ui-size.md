@@ -23,7 +23,7 @@ then reload (with "Disable cache" ticked while testing branch previews).
 ## Rules
 
 1. **Use text tokens and component-owned icon sizes.** Use an `--nx-ui-text-*` token for text. Set icon dimensions directly in the owning component, with an m override when needed.
-2. **Keep the layer small.** Text has four roles (heading, title, content, description). Shared components own their icon sizing through their size variant; don't add a global icon scale.
+2. **Keep the layer small.** Text has three roles (heading, title, content). Secondary text (dates, hints, descriptions) uses content too; only tiny badges keep explicit 11px. Shared components own their icon sizing through their size variant; don't add a global icon scale.
 3. **s is smaller than m where sizing changes.** Text tokens step one size down the S2 scale in s. Compact row controls can stay the same size.
 4. **Only S2 sizes.** No in-between values like 13px or 15px.
 5. **Shared components** (`nx-menu`, `nx-picker`, `nx-pills`, `nx-search`, `nx-prompts`, `nx-new-chat`, `buttons.css`) follow their own variant, not the page's ui-size. Inside them use plain px per variant, no `--nx-ui-*` vars. EW call sites pass the ui-size as the variant (`size=${getUISize()}`).
@@ -38,15 +38,13 @@ then reload (with "Disable cache" ticked while testing branch previews).
 | -------------------------- | ---------------------------------------------------------------------- | --- | --- |
 | `--nx-ui-text-heading`     | Panel headings, large titles                                           | 18  | 20  |
 | `--nx-ui-text-title`       | Panel/modal/card titles                                                | 16  | 18  |
-| `--nx-ui-text-content`     | Reading and UI text: chat messages, comments, outline, inputs, lists, menus, rows | 12  | 14  |
-| `--nx-ui-text-description` | Secondary/meta text, labels, badges, dates                             | 11  | 12  |
+| `--nx-ui-text-content`     | All body and secondary text: messages, comments, outline, inputs, lists, rows, dates, hints, descriptions | 12  | 14  |
 
 ## Line-height tokens
 
 | Token                      | Role                                | s    | m    |
 | -------------------------- | ----------------------------------- | ---- | ---- |
-| `--nx-ui-line-content`     | Content text (comments, menu rows)  | 16px | 18px |
-| `--nx-ui-line-description` | Description text under items        | 1.4  | 16px |
+| `--nx-ui-line-content`     | All content and secondary text      | 16px | 18px |
 
 ## Icon sizing
 
