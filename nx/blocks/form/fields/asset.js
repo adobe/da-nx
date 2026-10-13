@@ -5,7 +5,7 @@ import '../../../../nx2/blocks/shared/dialog/dialog.js';
 import { icon } from '../icons.js';
 import { CANCELLED } from '../utils/assets.js';
 import {
-  MEDIA_KINDS, describeMedia, extensionOf, isAssetHref,
+  MEDIA_KINDS, describeMedia, extensionOf, isAssetHref, splitHrefForDisplay,
 } from '../utils/media.js';
 import defaults from './defaults.js';
 
@@ -285,20 +285,16 @@ class FormAsset extends LitElement {
     `;
   }
 
-  _renderName(name) {
-    const dot = name.lastIndexOf('.');
-    const [stem, extension] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
-    return html`<span class="asset-name" title=${name}><span class="asset-name-stem">${stem}</span><span class="asset-name-extension">${extension}</span></span>`;
+  _renderUrl() {
+    const { base, stem, tail } = splitHrefForDisplay(this.value);
+    return html`<span class="asset-url" title=${base + stem + tail}><span class="asset-url-base">${base}</span><span class="asset-url-stem">${stem}</span><span class="asset-url-tail">${tail}</span></span>`;
   }
 
   _renderRow() {
-    const { name } = this._media;
-    const showFileIcon = this.value && !this._hasPreviewPanel;
     return html`
       <div class="asset-row">
-        ${showFileIcon ? icon('file', 'asset-row-icon') : nothing}
         ${this.value
-          ? this._renderName(name)
+          ? this._renderUrl()
           : html`<span class="asset-placeholder">${LABELS.empty(this._kindLabel)}</span>`}
         <div class="asset-actions">${this._renderActions()}</div>
       </div>
