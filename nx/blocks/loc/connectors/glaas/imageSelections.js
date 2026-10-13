@@ -110,17 +110,10 @@ export function parseSelections(htmlOrDoc) {
   return selections;
 }
 
-// Accepts an HTML string or an already-parsed Document. Empty rows removes the row
-// (and block, if now empty) rather than writing a stale `[]`.
+// Persist [] explicitly: omitting metadata may leave previous selections on the server.
 export function writeSelections(htmlOrDoc, rows) {
   const doc = parseHtml(htmlOrDoc);
   let daMetadata = doc.querySelector(DA_METADATA_SELECTOR);
-
-  if (!rows.length) {
-    findMetadataRow(daMetadata)?.remove();
-    if (daMetadata && !daMetadata.children.length) daMetadata.remove();
-    return doc.documentElement.outerHTML;
-  }
 
   if (!daMetadata) {
     daMetadata = doc.createElement('div');
