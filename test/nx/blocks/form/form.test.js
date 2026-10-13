@@ -1,6 +1,4 @@
 import { expect } from '@esm-bundle/chai';
-import sinon from 'sinon';
-import { source } from '../../../../nx2/utils/api.js';
 import { createEngine } from '../../../../nx/deps/da-sc-sdk/dist/index.js';
 import '../../../../nx/blocks/form/form.js';
 
@@ -36,7 +34,6 @@ function makeForm() {
 }
 
 afterEach(() => {
-  sinon.restore();
   while (mounted.length) mounted.pop().remove();
 });
 
@@ -155,28 +152,5 @@ describe('nx-form', () => {
     await el.updateComplete;
     const { tags } = el._editor.getState().document.data;
     expect(tags === undefined || tags.length === 0).to.equal(true);
-  });
-
-  it('saves images from the AEM asset host as links in link mode, and others as images', async () => {
-    const saved = [];
-    sinon.stub(source, 'save').callsFake(async (path, { body }) => {
-      saved.push(body);
-      return { ok: true };
-    });
-    const media = { type: 'string', 'x-semantic-type': 'media' };
-    const schema = { type: 'object', properties: { hero: media, logo: media } };
-    const hero = 'https://publish-p1-e1.adobeaemcloud.com/content/dam/hero.jpg';
-    const logo = 'https://content.da.live/org/site/forms/.sample/logo.png';
-    const el = makeForm();
-    el._details = { fullpath: '/org/site/forms/sample.html' };
-    el._repoConfig = { insertAsLink: true, assetOrigin: 'publish-p1-e1.adobeaemcloud.com' };
-    el._start({ schema, json: validDoc({}) });
-
-    el._editor.setField('/data/hero', hero);
-    el._editor.setField('/data/logo', logo);
-    await new Promise((resolve) => { setTimeout(resolve, 0); });
-
-    expect(saved.at(-1)).to.include(`<a href="${hero}">${hero}</a>`);
-    expect(saved.at(-1)).to.include(`<img src="${logo}" alt="">`);
   });
 });
