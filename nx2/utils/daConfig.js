@@ -32,13 +32,13 @@ export const fetchDaConfigs = (() => {
   };
 })();
 
-export async function isEditorPreviewEnabled({ org, site }) {
+/** Config value for `key`, site overriding org. Undefined if missing or unloadable. */
+export async function getConfigValue({ org, site, key }) {
   try {
     const configs = await Promise.all(fetchDaConfigs({ org, site }));
     const rows = configs.flatMap((json) => getFirstSheet(json) ?? []);
-    const row = rows.findLast((r) => r.key === 'editor.preview');
-    return String(row?.value ?? '').trim().toLowerCase() !== 'false';
+    return rows.findLast((row) => row.key === key)?.value;
   } catch {
-    return true;
+    return undefined;
   }
 }

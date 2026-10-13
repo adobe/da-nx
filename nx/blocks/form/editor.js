@@ -4,7 +4,7 @@ import { createEngine } from '../../deps/da-sc-sdk/dist/index.js';
 import { loadFormContext } from './utils/context.js';
 import { attachPersistence } from './utils/persistence.js';
 import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
-import { isEditorPreviewEnabled } from '../../../nx2/utils/daConfig.js';
+import { isJsonPreviewEnabled } from './utils/config.js';
 
 import './views/editor.js';
 import './views/sidebar.js';
@@ -159,7 +159,7 @@ class Form extends LitElement {
 
     const [context, previewEnabled] = await Promise.all([
       loadFormContext({ details: this._details }),
-      isEditorPreviewEnabled({ org: this.ctx.org, site: this.ctx.repo }),
+      isJsonPreviewEnabled({ org: this.ctx.org, site: this.ctx.repo }),
     ]);
     if (version !== this._loadVersion) return;
 
