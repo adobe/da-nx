@@ -21,6 +21,8 @@ const FILES = {
   confirm: 's2-icon-checkmarkcircle-20-n',
   cancel: 's2-icon-closecircle-20-n',
   video: 's2-icon-video-20-n',
+  copy: 's2-icon-copy-20-n',
+  copied: 's2-icon-checkmark-20-n',
 };
 
 const NODES = Object.fromEntries(

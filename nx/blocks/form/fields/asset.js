@@ -19,6 +19,8 @@ const LABELS = {
   replace: 'Replace',
   remove: 'Remove',
   cancel: 'Cancel',
+  copy: 'Copy URL',
+  copied: 'URL copied',
   adding: (kind) => `Adding ${kind}`,
   empty: (kind) => `No ${kind} selected`,
   removeTitle: (kind) => `Remove ${kind}?`,
@@ -54,6 +56,7 @@ class FormAsset extends LitElement {
     _loadedPreviewSrc: { state: true },
     _failedPreviewSrc: { state: true },
     _confirmingRemove: { state: true },
+    _copied: { state: true },
   };
 
   // Results of an older request are ignored once a newer one starts or the value changes.
@@ -73,6 +76,7 @@ class FormAsset extends LitElement {
   }
 
   willUpdate(changed) {
+    if (changed.has('value')) this._resetCopied();
     if (changed.has('value') && this.value !== this._selection?.href) this._forgetSelection();
     this._media = describeMedia({
       href: this.value,
@@ -218,6 +222,21 @@ class FormAsset extends LitElement {
     this._closeRemoveDialog();
   }
 
+  // Long URLs show cut in the row, so authors copy the full stored value from here.
+  async _copyValue() {
+    try {
+      await navigator.clipboard.writeText(this.value);
+    } catch {
+      return;
+    }
+    this._copied = true;
+  }
+
+  // The confirmation stays until the pointer or focus leaves the button.
+  _resetCopied() {
+    this._copied = false;
+  }
+
   _onPreviewLoad(event) {
     this._loadedPreviewSrc = event.currentTarget.getAttribute('src');
   }
@@ -245,11 +264,23 @@ class FormAsset extends LitElement {
       @click=${() => this._selectFrom(source)}>${text}</button>`;
   }
 
+  // Copying only reads the value, so it stays available in read-only fields.
+  _renderCopyButton() {
+    const label = this._copied ? LABELS.copied : LABELS.copy;
+    return html`
+      <button type="button" class="asset-copy" title=${label} aria-label=${label}
+        @click=${this._copyValue} @pointerleave=${this._resetCopied} @blur=${this._resetCopied}
+        >${icon(this._copied ? 'copied' : 'copy')}</button>
+      <span class="asset-status" role="status">${this._copied ? LABELS.copied : ''}</span>
+    `;
+  }
+
   _renderActions() {
     if (this._pending) {
       return html`<span class="nx-loading-spinner" role="status" aria-label=${LABELS.adding(this._kindLabel)}></span>`;
     }
     return html`
+      ${this.value ? this._renderCopyButton() : nothing}
       ${this._renderSourceTrigger()}
       ${this.value ? html`<button type="button" class="asset-remove nx-form-btn-primary"
         ?disabled=${this.disabled} @click=${this._openRemoveDialog}>${LABELS.remove}</button>` : nothing}
