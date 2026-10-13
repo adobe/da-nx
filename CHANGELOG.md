@@ -1,3 +1,10 @@
+# [1.13.0](https://github.com/adobe/da-nx/compare/v1.12.2...v1.13.0) (2026-10-13)
+
+
+### Features
+
+* shared search field ([#823](https://github.com/adobe/da-nx/issues/823)) ([73b68eb](https://github.com/adobe/da-nx/commit/73b68eb67b5ff9fe272d2282bbc37847d8db6457))
+
 ## [1.12.2](https://github.com/adobe/da-nx/compare/v1.12.1...v1.12.2) (2026-10-13)
 
 
