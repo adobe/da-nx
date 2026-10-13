@@ -357,16 +357,18 @@ class Form extends LitElement {
       );
     }
 
+    const showPreview = this._previewEnabled !== false;
+
     return html`
       <div class="nx-form-wrapper">
-        <div class="nx-editor-pane">
+        <div class="nx-editor-pane ${showPreview ? 'nx-editor-pane-with-preview' : ''}">
           <nx-editor
             .editor=${this._editor}
             .state=${this._state}
             .nav=${this._nav}
             .onSelect=${this._onSelect}
           ></nx-editor>
-          ${this._previewEnabled === false ? nothing : html`<nx-preview .state=${this._state}></nx-preview>`}
+          ${showPreview ? html`<nx-preview .state=${this._state}></nx-preview>` : nothing}
         </div>
         <nx-sidebar
           .state=${this._state}

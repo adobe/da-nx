@@ -54,7 +54,7 @@
   max-width: 560px;
 }
 
-.nx-editor-pane nx-editor:has(+ nx-preview) {
+.nx-editor-pane-with-preview nx-editor {
   --nx-editor-padding-bottom: 16px;
 }
 
