@@ -12,6 +12,19 @@ export async function setupConnector(service) {
   return CONNECTOR;
 }
 
+/**
+ * Format the supplied URLs and, when requested, fetch their content (resolving MSM
+ * inheritance) and apply DNT through the connector.
+ * @param {string} org - Org name.
+ * @param {string} site - Project site.
+ * @param {object} service - Translation service with an optional `connector`.
+ * @param {string} sourceLocation - Source path prefix.
+ * @param {string} destLocation - Destination path prefix.
+ * @param {object[]} urls - URLs with `suppliedPath`.
+ * @param {boolean} fetchContent - Whether to fetch content.
+ * @param {string} [snapshot] - Snapshot name.
+ * @returns {Promise<{urls: object[]}>} Formatted URLs, with `content` or `error` when fetched.
+ */
 export async function getUrls(
   org,
   site,

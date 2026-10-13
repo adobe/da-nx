@@ -84,12 +84,26 @@ input[type="checkbox"] {
   height: 20px;
 }
 
+.path-wrapper {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
 .path {
   color: var(--s2-gray-800);
   text-decoration: none;
-  flex: 1 1 auto;
   word-break: break-all;
   line-height: 32px;
+}
+
+.note {
+  color: var(--s2-gray-700);
+  font-size: var(--s2-body-size-s);
+}
+
+.note-warning {
+  color: var(--s2-red-900);
 }
 
 .status {

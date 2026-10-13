@@ -4,7 +4,7 @@ import { Queue } from '../../../../../nx2/public/utils/tree.js';
 
 import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
 import { fetchWithMsmFallback } from '../../utils/msm.js';
-import { getFragmentUrls } from './validate-utils.js';
+import { getFragmentUrls, getMsmNote } from './validate-utils.js';
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
 
 const style = await loadStyle(import.meta.url);
@@ -94,6 +94,11 @@ class NxLocValidate extends LitElement {
     this._urls.push(...fragments);
   }
 
+  /**
+   * Check a URL's source (with MSM fallback), set its status and note, and queue its fragments.
+   * @param {object} url - URL entry; mutated in place.
+   * @returns {Promise<void>}
+   */
   async checkUrl(url) {
     let { pathname } = url;
     pathname = pathname.endsWith('/') ? `${pathname}index` : pathname;
@@ -101,7 +106,7 @@ class NxLocValidate extends LitElement {
     const extPath = isSheet ? pathname : `${pathname}.html`;
     const snapshotUrlFragment = createSnapshotPrefix(this._snapshot);
     const daPath = `${snapshotUrlFragment}${extPath}`;
-    const { resp, resolvedSite, inherited } = await fetchWithMsmFallback({
+    const { resp, resolvedSite, inherited, msmError } = await fetchWithMsmFallback({
       org: this._org,
       site: this._site,
       daPath,
@@ -110,7 +115,7 @@ class NxLocValidate extends LitElement {
     const ok = resp.status === 200;
     url.status = ok ? 'ready' : 'error - not found';
     url.checked = ok;
-    url.inherited = ok && inherited;
+    Object.assign(url, getMsmNote({ ok, inherited, resolvedSite, msmError }));
     url.sheet = isSheet;
     url.extPath = extPath;
     url.fragment = url.pathname.includes('/fragments/');
@@ -204,6 +209,22 @@ class NxLocValidate extends LitElement {
     return `${this.originPrefix}--${this.project.site}--${this.project.org}`;
   }
 
+  /**
+   * Render the MSM note (inherited source or config warning) for a URL.
+   * @param {object} url - Validated URL entry.
+   * @returns {import('lit').TemplateResult|typeof nothing} The note, or nothing.
+   */
+  renderNote(url) {
+    if (url.inheritedFrom) {
+      return html`<span class="note">Inherited from ${url.inheritedFrom}</span>`;
+    }
+    if (url.msmError) {
+      const { error, status } = url.msmError;
+      return html`<span class="note note-warning" title=${error}>MSM config unavailable${status ? ` (${status})` : ''}</span>`;
+    }
+    return nothing;
+  }
+
   render() {
     if (!this._urls) return nothing;
 
@@ -243,7 +264,10 @@ class NxLocValidate extends LitElement {
             <div class="checkbox-wrapper">
               <input type="checkbox" .checked=${url.checked} @change=${() => this.handleChanged(url)} />
             </div>
-            <a href=${url.daEdit} class="path" target="_blank">${url.pathname}</a>
+            <div class="path-wrapper">
+              <a href=${url.daEdit} class="path" target="_blank">${url.pathname}</a>
+              ${this.renderNote(url)}
+            </div>
             <div class="status status-${url.status}">${url.status}</div>
           </li>
         `) : nothing}
