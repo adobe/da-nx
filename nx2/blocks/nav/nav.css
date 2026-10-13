@@ -18,10 +18,15 @@
   }
 }
 
+:host(:not([data-has-search])) {
+  display: flex;
+}
+
 .brand-cluster {
   grid-column: 1;
   grid-row: 1;
   display: flex;
+  flex: 1;
   align-items: center;
   min-width: 0;
   height: 100%;
@@ -40,6 +45,8 @@
 
 .brand-area svg {
   height: 100%;
+  max-height: var(--s2-nav-height, 56px);
+  width: auto;
   flex-shrink: 0;
 }
 
@@ -53,6 +60,10 @@
   grid-row: 1;
   min-width: 0;
   margin: 0;
+}
+
+:host(:not([data-has-search])) .nav-search {
+  display: none;
 }
 
 ::slotted([slot="search"]) {
@@ -125,4 +136,9 @@
   &:has(nx-profile.is-loaded) {
     display: unset;
   }
+}
+
+:host(:not([data-has-search])) .action-area {
+  flex-shrink: 0;
+  max-width: none;
 }

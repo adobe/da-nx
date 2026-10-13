@@ -43,5 +43,3 @@ Supply an accessible label and click handler for each action.
   <button slot="actions" type="button" aria-label="Search options">...</button>
 </nx-search>
 ```
-
-Use `slot="search"` to place the control in `nx-nav`.
