@@ -98,6 +98,12 @@ describe('msm', () => {
       expect(configCalls().length).to.equal(1);
     });
 
+    it('shares one config fetch across concurrent callers', async () => {
+      stubFetch({ org: 'rows-concurrent', config: [{ source: 'source-site', linked: 'linked-site' }] });
+      await Promise.all([1, 2, 3].map(() => fetchMsmRows('rows-concurrent')));
+      expect(configCalls().length).to.equal(1);
+    });
+
     it('caches an absent config (404) so non-MSM orgs are not re-probed', async () => {
       stubFetch({ org: 'rows-404', config: 404 });
       expect(await fetchMsmRows('rows-404')).to.deep.equal({ rows: [] });
@@ -231,6 +237,15 @@ describe('msm', () => {
       const result = await fetchWithMsmFallback({ org: 'ancestor-404', site: 'linked-site', daPath: DA_PATH });
       expect(result.resolvedSite).to.equal('source-site');
       expect(result.inherited).to.equal(true);
+    });
+
+    it('returns the linked-site 404 without probing when the site has no MSM source', async () => {
+      stubFetch({ org: 'unlinked', config: [{ source: 'other-source', linked: 'other-site' }] });
+      const result = await fetchWithMsmFallback({ org: 'unlinked', site: 'linked-site', daPath: DA_PATH });
+      expect(result.resp.status).to.equal(404);
+      expect(result.inherited).to.equal(false);
+      const sourceCalls = globalThis.fetch.args.filter(([url]) => url.includes('/source/'));
+      expect(sourceCalls.length).to.equal(1);
     });
 
     it('probes ancestors with the snapshot-prefixed path so snapshots do not inherit live content', async () => {
