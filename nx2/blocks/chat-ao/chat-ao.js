@@ -487,6 +487,7 @@ export default class NxChatAo extends LitElement {
             onFeedbackText: (text) => { this._planFeedback = text; },
             onApprove: () => this._controller.respondToPlanApproval('approve'),
             onReject: () => this._controller.respondToPlanApproval('reject', this._planFeedback?.trim() ?? ''),
+            btnSizeCls,
           }) : nothing}
             ${this.thinking && !this.pendingPlanApproval && !this.messages?.at(-1)?.streaming
           ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
@@ -503,12 +504,14 @@ export default class NxChatAo extends LitElement {
           @mousedown=${(e) => e.preventDefault()}
         ></nx-menu>
         <nx-question-card
+          size=${uiSize}
           .pending=${this.pendingQuestion}
           .onSubmit=${(answers) => this._controller.answerQuestion(answers)}
           .onDecline=${() => this._controller.declineQuestion()}
         ></nx-question-card>
         ${renderPermissionCard(this.pendingPermission, {
             onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
+            btnSizeCls,
           })}
         <form class="chat-form" @submit=${this._submit}
           @dragenter=${this._dnd.onDragEnter}
