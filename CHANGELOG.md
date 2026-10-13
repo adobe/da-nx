@@ -1,3 +1,10 @@
+## [1.14.1](https://github.com/adobe/da-nx/compare/v1.14.0...v1.14.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **quick-edit:** shift later indices when creating an editor from a host edit ([875bfca](https://github.com/adobe/da-nx/commit/875bfca0b4e51a0b2ee2fbea3b6b44a6cd98767a))
+
 # [1.14.0](https://github.com/adobe/da-nx/compare/v1.13.0...v1.14.0) (2026-10-13)
 
 
