@@ -26,7 +26,7 @@ then reload (with "Disable cache" ticked while testing branch previews).
 2. **Keep the layer small.** Text has four roles (heading, title, content, description). Shared components own their icon sizing through their size variant; don't add a global icon scale.
 3. **s is smaller than m where sizing changes.** Text tokens step one size down the S2 scale in s. Compact row controls can stay the same size.
 4. **Only S2 sizes.** No in-between values like 13px or 15px.
-5. **Shared components** (`nx-menu`, `nx-picker`, `nx-pills`, `nx-prompts`, `nx-new-chat`, `buttons.css`) follow their own variant, not the page's ui-size. Inside them use plain px per variant, no `--nx-ui-*` vars. EW call sites pass the ui-size as the variant (`size=${getUISize()}`).
+5. **Shared components** (`nx-menu`, `nx-picker`, `nx-pills`, `nx-search`, `nx-prompts`, `nx-new-chat`, `buttons.css`) follow their own variant, not the page's ui-size. Inside them use plain px per variant, no `--nx-ui-*` vars. EW call sites pass the ui-size as the variant (`size=${getUISize()}`).
    Row action buttons (file explorer, outline, block library, comments) stay `nx-btn-sm` (24px, 16px icon) in both sizes so rows keep their height.
    EW actions (Prepare, Send, and the deploy action) use `nx-btn-sm` in s and the default button size in m.
    Every other button uses the shared `buttons.css` classes (`nx-action-btn`, `nx-action-btn-icon`, `nx-action-btn-quiet`) with `nx-btn-sm` in s and the default size in m. No button-size, icon-size or control-height tokens.
