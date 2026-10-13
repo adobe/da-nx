@@ -38,6 +38,13 @@ export function createHostActions({ port }) {
     },
     closeComparison: () => { port.postMessage({ action: 'closeComparison' }); },
     saveDocument: () => handleSdkResponse({ port, action: 'saveDocument' }),
+    getSelection: async () => {
+      const result = await handleSdkResponse({ port, action: 'getSelection' });
+      if (result.ok && typeof result.html === 'string') return result.html;
+      // Rejects with a string, as getSelection always has.
+      const reason = !result.ok && typeof result.error === 'string' ? result.error : 'invalid-response';
+      throw reason;
+    },
   };
 }
 
@@ -73,24 +80,6 @@ function showPanel(name) {
   port2.postMessage({ action: 'showPanel', details: name });
 }
 
-function getSelection() {
-  return new Promise((resolve, reject) => {
-    const listener = (e) => {
-      window.removeEventListener('message', listener);
-
-      if (e.data.action === 'sendSelection') {
-        resolve(e.data.details);
-      }
-
-      if (e.data.action === 'error') {
-        reject(e.data.details);
-      }
-    };
-    window.addEventListener('message', listener);
-    port2.postMessage({ action: 'getSelection' });
-  });
-}
-
 const DA_SDK = (() => new Promise((resolve) => {
   let initialized = false;
   window.addEventListener('message', (e) => {
@@ -118,7 +107,6 @@ const DA_SDK = (() => new Promise((resolve) => {
         setHref,
         setHash,
         closeLibrary,
-        getSelection,
         setPrompt,
         showPanel,
       };

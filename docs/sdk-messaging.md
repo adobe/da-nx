@@ -18,16 +18,26 @@ Actions use the MessagePort transferred in the `ready` handshake. Each acknowled
 { action: 'sdkResponse', requestId, result: { ok: false, error: 'save-failed' } }
 ```
 
+`getSelection()` uses the same request and reply. A successful result carries the selected HTML:
+
+```js
+{ action: 'getSelection', requestId }
+{ action: 'sdkResponse', requestId, result: { ok: true, html: '<p>Selected text</p>' } }
+{ action: 'sdkResponse', requestId, result: { ok: false, error: 'No selection found' } }
+```
+
+The SDK turns this result into the promise `getSelection()` has always returned: it resolves with the HTML string and rejects with a string, either the host's message (`No selection found`, `No editor view`) or one of the SDK errors below. Hosts still answer a `getSelection` request without a `requestId` the old way (a `sendSelection` window message, or an `error` message on the port), so plugins that bundle an older copy of the SDK keep working.
+
 EW replies after the operation finishes, including failures, and rejects requests from stale page contexts.
 
 The private `handleSdkResponse` helper registers a listener before sending and accepts only `sdkResponse` replies with the matching request ID. Concurrent calls can finish in any order. Each call removes its listener and clears its timer when it settles; unrelated and late replies are ignored.
 
-Results require a boolean `ok`. Malformed matching replies return `invalid-response`; port setup or posting failures return `disconnected`. These errors resolve as `{ ok: false, error }`.
+Results require a boolean `ok`. Malformed matching replies return `invalid-response`; port setup or posting failures return `disconnected`. For `saveDocument()` these errors resolve as `{ ok: false, error }`; `getSelection()` rejects with the error string, and also rejects with `invalid-response` when a successful result has no `html` string.
 
 ## Timeouts and host support
 
-After 15 seconds without a reply, the SDK returns `{ ok: false, error: 'timeout' }`. The host may still complete the operation. Timeout does not cancel it, and the SDK does not retry. Do not automatically retry a mutation or continue work that needed a successful response. Request IDs correlate replies; they do not prevent duplicate execution.
+After 15 seconds without a reply, the SDK returns `{ ok: false, error: 'timeout' }` (`getSelection()` rejects with `timeout`). The host may still complete the operation. Timeout does not cancel it, and the SDK does not retry. Do not automatically retry a mutation or continue work that needed a successful response. Request IDs correlate replies; they do not prevent duplicate execution.
 
-The SDK and EW deploy independently, without capability negotiation. A method's presence does not prove EW support: unsupported commands may be ignored, and acknowledged calls time out.
+The SDK and EW deploy independently, without capability negotiation. A method's presence does not prove EW support: unsupported commands may be ignored, and acknowledged calls time out. This includes `getSelection()`: against a host that only knows the old reply, it rejects with `timeout`, so the host change has to ship before this SDK.
 
-Add acknowledgements only when a caller needs completion. Define success and failure results, implement the matching EW response, and test correlation, concurrent calls, malformed replies, timeout, and cleanup. Reuse the helper where it fits; leave older reply mechanisms such as `getSelection()` unchanged.
+Add acknowledgements only when a caller needs completion. Define success and failure results, implement the matching EW response, and test correlation, concurrent calls, malformed replies, timeout, and cleanup. Reuse the helper for any action that waits for the host.
