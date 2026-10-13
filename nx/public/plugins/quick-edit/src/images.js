@@ -22,16 +22,29 @@ export function handleImageError(error, requestId, ctx) {
   console.error('Image upload failed:', error);
 }
 
-export function setupContentEditableListeners(ctx) {
-  const editableElements = document.querySelectorAll('[data-prose-index]');
-  editableElements.forEach((element) => {
-    const dataCursor = parseInt(element.getAttribute('data-prose-index'), 10);
-
-    ctx.port.postMessage({
-      type: MESSAGE_TYPES.GET_EDITOR,
-      payload: { cursorOffset: dataCursor },
-    });
+// `focus` is where to put the caret once the editor exists: click coords `{ x, y }`
+// or a previous `{ selection }`.
+export function requestEditor(ctx, element, focus) {
+  const cursorOffset = parseInt(element.getAttribute('data-prose-index'), 10);
+  if (Number.isNaN(cursorOffset)) return;
+  ctx.pendingEditor = { element, ...focus };
+  ctx.port.postMessage({
+    type: MESSAGE_TYPES.GET_EDITOR,
+    payload: { cursorOffset },
   });
+}
+
+// Editors are created only when the user clicks into an element. Block code may keep
+// rewriting the page after load, and an editor on an element it touches would send those
+// DOM changes back to the document as edits.
+export function setupContentEditableListeners(ctx) {
+  if (ctx.editorRequestListener) return;
+  ctx.editorRequestListener = (e) => {
+    if (e.button !== 0 || e.target.closest?.('picture, .prosemirror-editor')) return;
+    const element = e.target.closest?.('[data-prose-index]');
+    if (element) requestEditor(ctx, element, { x: e.clientX, y: e.clientY });
+  };
+  document.addEventListener('mousedown', ctx.editorRequestListener);
 }
 
 export function setupImageDropListeners(ctx, dom = document) {
