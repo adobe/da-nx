@@ -24,15 +24,6 @@ export function isAssetHref(href) {
   return isMediaBusHref(href) || isWebHref(href);
 }
 
-// In AEM Assets link mode, media from the site's AEM asset host is saved as a
-// link on every save, so documents follow the current site setting.
-export function isLinkedMedia({ src, repoConfig }) {
-  if (repoConfig?.insertAsLink && isWebHref(src)) {
-    return parseHref(src).host === repoConfig.assetOrigin?.toLowerCase();
-  }
-  return false;
-}
-
 function resolvePreviewHref({ href, previewOrigin }) {
   if (isWebHref(href)) return href;
   return previewOrigin ? parseHref(href, `${previewOrigin}/`)?.href : undefined;

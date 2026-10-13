@@ -22,7 +22,6 @@ decorate(block)                                  ← form.js (EW workspace wrapp
        └─ _loadContext()
             ├─ _details = detailsFromCtx(ctx); bail if none
             ├─ status = 'loading' → render nothing (no spinner, no message)
-            ├─ loadAemRepoConfig({ owner, repo })  ← DA config, in parallel with the context
             ├─ loadFormContext({ details })      ← network
             │    ├─ loadSchemas({ owner, repo })     ← DA list + N source GETs
             │    └─ fetchSourceHtml({ sourceUrl })    ← single GET
@@ -39,8 +38,7 @@ decorate(block)                                  ← form.js (EW workspace wrapp
                  │     onChange suppressed during init. See
                  │     [SDK lifecycle.md §1](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/lifecycle.md#1-createengine-lifecycle)
                  │     for the full call flow.)
-                 └─ attachPersistence(engine, { path, schema, media })  ← single-flight save layer
-                      (media.isLinked saves AEM Assets images as links in link mode)
+                 └─ attachPersistence(engine, { path })             ← single-flight save layer
        → render editor + sidebar + preview
 ```
 
