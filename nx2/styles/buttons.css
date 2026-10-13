@@ -35,7 +35,7 @@ button {
 
   kbd {
     font-family: inherit;
-    font-size: var(--s2-component-s-medium-font-size);
+    font-size: var(--s2-component-m-medium-font-size);
     padding: var(--s2-spacing-75);
     border-radius: var(--s2-corner-radius-300);
   }
@@ -109,6 +109,7 @@ button {
 
 .nx-btn-sm kbd {
   padding: var(--s2-spacing-50) var(--s2-spacing-75);
+  font-size: var(--s2-component-s-medium-font-size);
 }
 
 .nx-action-btn-quiet, .nx-action-btn-icon  {
