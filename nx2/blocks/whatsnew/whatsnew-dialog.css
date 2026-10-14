@@ -1,0 +1,242 @@
+:host {
+  display: contents;
+  font-family: var(--s2-font-family, adobe-clean, 'Source Sans Pro', system-ui, sans-serif);
+}
+
+/* Two-pane layout: no panel chrome; height capped to the design. */
+.wn-dialog {
+  --nx-dialog-min-width: 848px;
+  --nx-dialog-max-width: 848px;
+  --nx-dialog-max-height: 620px;
+  --nx-dialog-padding: 0;
+}
+
+.wn-dialog::part(panel) {
+  border: 0;
+  border-radius: var(--s2-corner-radius-800);
+}
+
+.wn-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 256px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  border-radius: var(--s2-corner-radius-800);
+  overflow: hidden;
+}
+
+.wn-close.nx-action-btn-icon {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  margin: var(--s2-spacing-100) var(--s2-spacing-100) 0 0;
+  border-radius: var(--s2-corner-radius-800);
+}
+
+.wn-toc {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  box-sizing: border-box;
+  display: flex;
+  padding: var(--s2-spacing-500) 0 var(--s2-spacing-500) var(--s2-spacing-600);
+  background: var(--s2-gray-50);
+  overflow: hidden;
+}
+
+/* Not independently scrollable — its gray background just stretches to match .wn-cards-panel's height. */
+.wn-toc-scroll {
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-right: 20px;
+  overflow: hidden;
+}
+
+.wn-toc-title {
+  margin: 0 0 20px;
+  font-size: var(--s2-heading-size-m);
+  line-height: var(--s2-heading-line-height);
+  color: var(--s2-gray-900);
+
+  /* Receives autofocus on auto-open; tabindex="-1" so it's unreachable via Tab, no ring needed. */
+  &:focus-visible {
+    outline: none;
+  }
+}
+
+.wn-toc-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-75);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wn-toc-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 14px 0 14px 16px;
+  border: none;
+  background: none;
+  color: var(--s2-gray-700);
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-l-regular-font-size);
+  font-weight: var(--s2-component-l-regular-font-weight);
+  line-height: var(--s2-component-l-regular-line-height);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--s2-gray-900);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-800);
+    outline-offset: 2px;
+  }
+}
+
+.wn-toc-item[aria-current='true'] {
+  color: var(--s2-gray-900);
+}
+
+.wn-toc-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  background: var(--s2-gray-800);
+  transition: transform 0.2s ease, height 0.2s ease;
+}
+
+.wn-cards-panel {
+  grid-column: 2;
+  grid-row: 2;
+  box-sizing: border-box;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 20px var(--s2-spacing-600) var(--s2-spacing-600);
+  overflow: hidden;
+}
+
+.wn-cards {
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+  padding-right: 20px;
+  padding-bottom: 100px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.wn-card {
+  scroll-margin-top: 40px;
+}
+
+.wn-card-image {
+  margin-bottom: var(--s2-spacing-400);
+}
+
+.wn-card-image img,
+.wn-card-image video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--s2-corner-radius-500);
+}
+
+/* Reserves the right space before the (lazy-loaded, dimension-less) video has any real size. */
+.wn-card-image video {
+  aspect-ratio: 16 / 9;
+}
+
+.wn-card-title {
+  margin: 0 0 4px;
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-xl-bold-font-size);
+  font-weight: var(--s2-component-xl-bold-font-weight);
+  line-height: var(--s2-component-xl-bold-line-height);
+  color: var(--s2-gray-900);
+}
+
+.wn-card-body {
+  margin: 0;
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-l-regular-font-size);
+  font-weight: var(--s2-component-l-regular-font-weight);
+  line-height: var(--s2-component-l-regular-line-height);
+  color: var(--s2-gray-800);
+}
+
+/* Mobile: toc collapses to a gray heading strip, cards stack full-width below. */
+@media (width < 600px) {
+  /* No width/height override needed, nx-dialog's own viewport clamping already shrinks it. */
+
+  /* .wn-body itself owns scrolling here, so the sticky toc heading can sit above passing cards. */
+  .wn-body {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    background: var(--s2-gray-50);
+    overflow-y: auto;
+  }
+
+  .wn-toc {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    grid-column: 1;
+    grid-row: 1;
+    padding: var(--s2-spacing-500) var(--s2-spacing-600);
+  }
+
+  .wn-close {
+    position: sticky;
+    top: var(--s2-spacing-100);
+    z-index: 1;
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .wn-toc-scroll {
+    flex: none;
+    padding-right: 0;
+    overflow: visible;
+  }
+
+  .wn-toc-title {
+    margin: 0;
+  }
+
+  .wn-toc-list {
+    display: none;
+  }
+
+  .wn-cards-panel {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding: var(--s2-spacing-600);
+    padding-bottom: 0;
+    background: var(--s2-gray-25);
+    overflow: visible;
+  }
+
+  .wn-cards {
+    flex: none;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    padding-right: 0;
+  }
+}

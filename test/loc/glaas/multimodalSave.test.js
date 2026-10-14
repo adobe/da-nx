@@ -151,6 +151,34 @@ describe('GLaaS multimodal save', () => {
         .to.equal('https://main--da-dc--adobecom.aem.live/media_bbb222.png');
     });
 
+    it('propagates a freshly translated image onto modified instead of reverting it', () => {
+      // Reproduces the production bug: modified still has the pre-translation src.
+      const translated = 'https://content.da.live/adobecom/da-dc/translated-images/de/dc-shared/hero.png';
+      const original = docWithMain(`<img src="${translated}">`);
+      const modified = docWithMain('<img src="https://content.da.live/adobecom/da-dc/dc-shared/hero.png">');
+
+      normalizeImages(original, modified);
+
+      expect(original.querySelector('img').src).to.equal(translated);
+      expect(modified.querySelector('img').src).to.equal(translated);
+    });
+
+    it('mirrors a propagated translated src onto modified\'s picture source[srcset] sibling', () => {
+      const translated = 'https://content.da.live/adobecom/da-dc/translated-images/de/dc-shared/hero.png';
+      const original = docWithMain(`<img src="${translated}">`);
+      const modified = docWithMain(`
+        <picture>
+          <source srcset="https://content.da.live/adobecom/da-dc/dc-shared/hero.png">
+          <img src="https://content.da.live/adobecom/da-dc/dc-shared/hero.png">
+        </picture>
+      `);
+
+      normalizeImages(original, modified);
+
+      expect(modified.querySelector('img').src).to.equal(translated);
+      expect(modified.querySelector('source').getAttribute('srcset')).to.equal(translated);
+    });
+
     it('mirrors the adopted src onto a picture source[srcset] sibling', () => {
       const original = docWithMain(`
         <picture>
