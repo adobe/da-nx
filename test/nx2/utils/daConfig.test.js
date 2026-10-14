@@ -5,7 +5,7 @@ import {
 import {
   calls, installFetch, restoreFetch, lastCall,
 } from '../../../nx2/test/mocks/fetch.js';
-import { getFirstSheet, getSheetByIndex, fetchDaConfigs } from '../../../nx2/utils/daConfig.js';
+import { getFirstSheet, fetchDaConfigs } from '../../../nx2/utils/daConfig.js';
 
 // fetchDaConfigs memoizes per `/{org}` and `/{org}/{site}` key for the
 // lifetime of the module, so every test uses a fresh org/site pair to avoid
@@ -44,7 +44,6 @@ describe('getFirstSheet', () => {
     const json = object2sheet({ config: rows, flags: [] });
     expect(Object.keys(json).slice(0, 2)).to.deep.equal([':type', ':names']);
     expect(getFirstSheet(json)).to.deep.equal(rows);
-    expect(getSheetByIndex(json, 1)).to.deep.equal([]);
   });
 
   it('uses the declared sheet order rather than the object key order', () => {
@@ -55,8 +54,6 @@ describe('getFirstSheet', () => {
       config: { data: [{ key: 'config' }] },
     };
     expect(getFirstSheet(json)).to.deep.equal([{ key: 'config' }]);
-    expect(getSheetByIndex(json, 1)).to.deep.equal([{ key: 'flag' }]);
-    expect(getSheetByIndex(json, 2)).to.equal(undefined);
   });
 });
 

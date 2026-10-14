@@ -4,7 +4,6 @@
  */
 import { HLX_ADMIN } from './utils.js';
 import { daFetch, aem, source } from './api.js';
-import { fetchDaConfigs, getFirstSheet } from './daConfig.js';
 
 const AEM_PERMISSION_TPL = '{"users":{"total":1,"limit":1,"offset":0,"data":[]},"data":{"total":1,"limit":1,"offset":0,"data":[{}]},":names":["users","data"],":version":3,":type":"multi-sheet"}';
 
@@ -72,47 +71,6 @@ export function getAemBranch(ref) {
   if (!ref) return null;
   const branch = ref.toLowerCase().replace(/[^a-z0-9-]/g, '-');
   return ['main', 'local'].includes(branch) ? null : branch;
-}
-
-/**
- * Code branch the EW editor renders: `?ref`, else the longest-prefix `ew.wysiwygBranch`
- * config match (`/org/site/prefix=branch`), else `main`. Copied from da-live's
- * `blocks/canvas/editor-utils/editor-utils.js`.
- * @param {{ org?: string, site?: string, path?: string }} params `path` is `org/site/...`
- * @returns {Promise<string>} Raw branch name.
- */
-export async function fetchWysiwygBranch({ org, site, path }) {
-  if (!org || !site) return 'main';
-  const branchParam = new URLSearchParams(window.location.search).get('ref');
-  if (branchParam) return branchParam;
-
-  const configs = await Promise.all(fetchDaConfigs({ org, site }));
-  const rows = configs.filter((c) => {
-    if (c?.error) {
-      // eslint-disable-next-line no-console
-      console.warn(c.error, c.status);
-      return false;
-    }
-    return Boolean(c);
-  }).reverse().flatMap((c) => getFirstSheet(c) || []);
-  const branchRows = rows.filter((r) => r.key === 'ew.wysiwygBranch');
-  if (!branchRows.length) return 'main';
-
-  const fullPath = path ? `/${path}` : `/${org}/${site}`;
-  const matched = branchRows
-    .map((row) => {
-      const eqIdx = row.value.indexOf('=');
-      if (eqIdx === -1) return null;
-      return {
-        prefix: row.value.slice(0, eqIdx).replace(/\/+$/, ''),
-        branch: row.value.slice(eqIdx + 1).trim(),
-      };
-    })
-    .filter((entry) => entry?.branch
-     && (fullPath === entry.prefix || fullPath.startsWith(`${entry.prefix}/`)))
-    .sort((a, b) => b.prefix.length - a.prefix.length)[0];
-
-  return matched?.branch || 'main';
 }
 
 /**

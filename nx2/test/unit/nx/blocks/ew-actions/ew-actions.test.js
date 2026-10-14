@@ -2,6 +2,17 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
 import { status, config } from '../../../../../utils/api.js';
+import { BRANCH_EVENT } from '../../../../../utils/branch-events.js';
+
+let branchState;
+const onBranchRequest = ({ detail }) => document.dispatchEvent(new CustomEvent(BRANCH_EVENT.STATE, {
+  detail: { ...detail, ...branchState },
+}));
+beforeEach(() => {
+  branchState = { status: 'ready', branch: 'main' };
+  document.addEventListener(BRANCH_EVENT.REQUEST, onBranchRequest);
+});
+afterEach(() => document.removeEventListener(BRANCH_EVENT.REQUEST, onBranchRequest));
 
 const nextTick = () => new Promise((resolve) => { setTimeout(resolve, 0); });
 
@@ -80,9 +91,10 @@ describe('nx-ew-actions deploy popover', () => {
       expect(el._previewInfo).to.deep.equal({ ok: false, url: null, time: null });
     });
 
-    it('rewrites env URLs to the ?ref branch host', async () => {
+    it('rewrites env URLs to the branch reported by canvas, not the query string', async () => {
       const orig = window.location.href;
-      window.history.replaceState(null, '', `${window.location.pathname}?ref=feat-x`);
+      window.history.replaceState(null, '', `${window.location.pathname}?ref=ignored`);
+      branchState = { status: 'ready', branch: 'feat-x' };
       try {
         const el = await mount();
         el._hashState = { org: 'o', site: 's', path: '/page' };
@@ -168,11 +180,11 @@ describe('nx-ew-actions deploy popover', () => {
       expect(card.querySelector('.deploy-url')).to.equal(null);
     });
 
-    it('labels the live card "Publish" for end users', async () => {
+    it('labels the live card "Preview & Publish" for end users', async () => {
       const el = await mount();
       const titles = [...el.shadowRoot.querySelectorAll('.deploy-card-title')]
         .map((n) => n.textContent.trim());
-      expect(titles).to.deep.equal(['Preview', 'Publish']);
+      expect(titles).to.deep.equal(['Preview', 'Preview & Publish']);
     });
 
     it('hides the Publish card, badge, and publish action when publishing is disabled', async () => {
@@ -272,12 +284,10 @@ describe('nx-ew-actions status loading & confirm', () => {
 
   it('handles early branch resolution failures without logging and stops deploy with an action error', async () => {
     const el = await mount();
-    const origGet = config.get;
     const origError = console.error;
-    const failure = new TypeError('Network request failed');
+    branchState = { status: 'error', error: 'Config unavailable' };
     const logged = [];
     const shown = [];
-    config.get = async () => { throw failure; };
     console.error = (...args) => { logged.push(args); };
     el._updateHidePublish = async () => {};
     el._loadStatus = async () => {};
@@ -297,8 +307,8 @@ describe('nx-ew-actions status loading & confirm', () => {
       } catch (e) {
         error = e;
       }
-      expect(error).to.equal(failure);
-      expect(el._branch).to.equal(null);
+      expect(error.message).to.equal('Config unavailable');
+      expect(el._branch).to.equal(undefined);
       expect(logged).to.deep.equal([]);
       await el._runAemAction('preview');
       expect(shown).to.deep.equal([{
@@ -308,7 +318,6 @@ describe('nx-ew-actions status loading & confirm', () => {
       expect(el._busy).to.equal(false);
       expect(el._hasError).to.equal(true);
     } finally {
-      config.get = origGet;
       console.error = origError;
     }
   });

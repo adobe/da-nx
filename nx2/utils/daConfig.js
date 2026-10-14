@@ -3,13 +3,6 @@ import { config } from './api.js';
 // Kept here for existing importers; lives in utils.js so callers can use it without api.js.
 export { getFirstSheet } from './utils.js';
 
-export const getSheetByIndex = (json, index = 0) => {
-  if (json[':type'] !== 'multi-sheet') {
-    return json.data;
-  }
-  return json[json[':names']?.[index]]?.data;
-};
-
 /**
  * Fetches org and (optionally) site configs, caching the in-flight/resolved
  * promises by path so repeated calls for the same org/site reuse one request
@@ -30,7 +23,7 @@ export const fetchDaConfigs = (() => {
     return resp.json();
   };
 
-  // Unlike da-live, failed responses are evicted so the next call retries.
+  // Failed responses are evicted so the next call retries.
   const cacheConfig = (key, org, site) => {
     configCache[key] = fetchConfig(org, site).then(
       (result) => {

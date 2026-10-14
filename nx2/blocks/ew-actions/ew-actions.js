@@ -3,7 +3,6 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import {
   buildAemPathFromHashState,
-  fetchWysiwygBranch,
   getAemBranch,
   getAemBranchHref,
   requestAemRole,
@@ -11,6 +10,7 @@ import {
 } from '../../utils/aem-preview-publish.js';
 import { versions, status as statusApi } from '../../utils/api.js';
 import { VERSION_EVENT } from '../../utils/version-events.js';
+import { BRANCH_EVENT, requestCanvasBranch } from '../../utils/branch-events.js';
 import { fetchDaConfigs, getFirstSheet } from '../../utils/daConfig.js';
 import { PREFLIGHT_EVENT, newPreflightRequestId } from '../../utils/preflight-events.js';
 import { sidekickCacheBust } from '../../utils/sidekick.js';
@@ -130,6 +130,7 @@ class NXEwActions extends LitElement {
     this._busy = false;
     this._target = 'preview';
     this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];
+    document.addEventListener(BRANCH_EVENT.STATE, this._onBranchState);
     this._unsubHash = hashChange.subscribe((state) => {
       const prevPath = this._prepareDetails?.fullpath;
       this._hashState = state;
@@ -210,6 +211,9 @@ class NXEwActions extends LitElement {
     clearTimeout(this._copyTimer);
     document.removeEventListener(PREFLIGHT_EVENT.STATUS, this._onPreflightStatus);
     this._cancelPreflight?.(undefined);
+    document.removeEventListener(BRANCH_EVENT.STATE, this._onBranchState);
+    this._branchAbort?.abort();
+    this._branchPromise = undefined;
   }
 
   // Fetch AEM admin status for the current doc. Keyed on the doc path so hash
@@ -247,7 +251,8 @@ class NXEwActions extends LitElement {
     });
     return {
       ok: env.status === 200,
-      url: (env.url && branchUrl) || env.url || null,
+      url: this._branchPath && this._branch === undefined
+        ? null : (env.url && branchUrl) || env.url || null,
       time: env.lastModified || null,
     };
   }
@@ -307,17 +312,25 @@ class NXEwActions extends LitElement {
 
   update(changed) {
     super.update(changed);
-    if (changed.has('_hashState') && this._hashState) {
+    if (changed.has('_hashState')) {
       this._updateHidePublish();
       this._updateBranch();
     }
   }
 
   _updateBranch() {
-    this._branch = null;
-    const { org, site, fullpath } = this._hashState || {};
-    const path = fullpath?.slice(1);
-    const pending = fetchWysiwygBranch({ org, site, path }).then((raw) => {
+    this._branchAbort?.abort();
+    this._branch = undefined;
+    this._branchRequestPath = this._branchPath;
+    if (!this._branchRequestPath) {
+      this._branchPromise = undefined;
+      return;
+    }
+    this._branchAbort = new AbortController();
+    const pending = requestCanvasBranch({
+      path: this._branchRequestPath,
+      signal: this._branchAbort.signal,
+    }).then((raw) => {
       const branch = getAemBranch(raw);
       if (this._branchPromise === pending) this._branch = branch;
       return branch;
@@ -327,6 +340,18 @@ class NXEwActions extends LitElement {
       // Handle early rejection; _runAemAction surfaces the error from the original promise.
     });
   }
+
+  get _branchPath() {
+    const { org, site, path } = this._hashState || {};
+    return org && site && path ? `/${org}/${site}/${path.replace(/^\/+/, '')}` : null;
+  }
+
+  _onBranchState = ({ detail }) => {
+    if (!detail || detail.path !== this._branchPath) return;
+    this._branch = detail.status === 'ready' && typeof detail.branch === 'string' && detail.branch
+      ? getAemBranch(detail.branch) : undefined;
+    this._branchPromise = this._branch === undefined ? undefined : Promise.resolve(this._branch);
+  };
 
   async _updateHidePublish() {
     this._hidePublish = await shouldHidePublish(this._hashState);
@@ -379,6 +404,19 @@ class NXEwActions extends LitElement {
     this._dialog = undefined;
     this._busy = true;
 
+    // Capture this document's branch before any save/preflight awaits or navigation.
+    if (!this._branchPromise || this._branchRequestPath !== this._branchPath) {
+      this._updateBranch();
+    }
+    let branch;
+    try {
+      branch = await this._branchPromise;
+      if (branch === undefined) throw new Error('Canvas branch unavailable.');
+    } catch {
+      await this._showActionError(action, 'Unable to resolve the preview branch. Please retry or reload the editor.');
+      return;
+    }
+
     // Flush pending collab updates to da-admin before AEM reads it,
     // otherwise the last ~2s of edits (held in da-collab's debounce) are missed.
     const editorDoc = document.querySelector('ew-editor-doc');
@@ -400,13 +438,6 @@ class NXEwActions extends LitElement {
       }
     }
 
-    let branch;
-    try {
-      branch = (await this._branchPromise) ?? null;
-    } catch {
-      await this._showActionError(action, 'Unable to resolve the preview branch. Please retry or reload the editor.');
-      return;
-    }
     const result = await runAemPreviewOrPublish({ aemPath, action, branch });
     if (!result.ok) {
       await Promise.all([

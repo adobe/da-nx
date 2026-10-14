@@ -3,6 +3,7 @@ import sinon from 'sinon';
 import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
 import { versions, aem } from '../../../../nx2/utils/api.js';
 import { VERSION_EVENT } from '../../../../nx2/utils/version-events.js';
+import { BRANCH_EVENT } from '../../../../nx2/utils/branch-events.js';
 import '../../../../nx2/blocks/ew-actions/ew-actions.js';
 
 let seq = 0;
@@ -39,11 +40,137 @@ async function makeEl() {
 describe('nx-ew-actions', () => {
   let el;
   let restoreFetch;
+  let branchState;
+  const reportBranch = (detail) => document.dispatchEvent(new CustomEvent(BRANCH_EVENT.STATE, {
+    detail,
+  }));
+  const onBranchRequest = ({ detail }) => {
+    if (branchState) reportBranch({ ...detail, ...branchState });
+  };
+
+  beforeEach(() => {
+    branchState = { status: 'ready', branch: 'main' };
+    document.addEventListener(BRANCH_EVENT.REQUEST, onBranchRequest);
+  });
 
   afterEach(() => {
     el?.remove();
     restoreFetch?.();
     sinon.restore();
+    document.removeEventListener(BRANCH_EVENT.REQUEST, onBranchRequest);
+  });
+
+  describe('canvas branch state', () => {
+    const state = { org: 'Org', site: 'Site', path: 'Docs/Page' };
+    const path = '/Org/Site/Docs/Page';
+
+    beforeEach(() => { restoreFetch = installFetch({}); });
+
+    it('uses replayed state for branch URLs and preserves the canvas context path', async () => {
+      branchState = { status: 'ready', branch: 'Feat/My_Branch' };
+      el = await makeEl();
+      el._hashState = state;
+      await el.updateComplete;
+      await el._branchPromise;
+      expect(el._branchPath).to.equal(path);
+      el._status = {
+        webPath: '/docs/page',
+        preview: { status: 200, url: 'https://custom.example/docs/page' },
+        live: { status: 200, url: 'https://live.example/docs/page' },
+      };
+      expect(el._previewInfo.url).to.equal('https://feat-my-branch--site--org.aem.page/docs/page');
+      expect(el._liveInfo.url).to.equal('https://feat-my-branch--site--org.aem.live/docs/page');
+    });
+
+    it('hides unknown URLs, ignores stale state, and accepts later ready state', async () => {
+      branchState = null;
+      el = await makeEl();
+      el._hashState = state;
+      await el.updateComplete;
+      el._status = { webPath: '/docs/page', preview: { status: 200, url: 'https://main.example/page' } };
+      expect(el._previewInfo.url).to.be.null;
+      reportBranch({ path: '/other/site/page', status: 'ready', branch: 'wrong' });
+      expect(el._branch).to.equal(undefined);
+      reportBranch({ path, status: 'ready', branch: 'right' });
+      expect(el._previewInfo.url).to.equal('https://right--site--org.aem.page/docs/page');
+      reportBranch({ path, status: 'pending' });
+      expect(el._previewInfo.url).to.be.null;
+      reportBranch({ path, status: 'ready', branch: 'main' });
+      expect(el._previewInfo.url).to.equal('https://main.example/page');
+    });
+
+    it('cancels navigation requests and stops listening when disconnected', async () => {
+      branchState = null;
+      el = await makeEl();
+      el._hashState = state;
+      await el.updateComplete;
+      const stale = el._branchPromise.catch((error) => error);
+      el._hashState = { ...state, path: 'Other' };
+      await el.updateComplete;
+      expect((await stale).name).to.equal('AbortError');
+      reportBranch({ path, status: 'ready', branch: 'stale' });
+      expect(el._branch).to.equal(undefined);
+      const current = el._branchPromise.catch((error) => error);
+      el.remove();
+      expect((await current).name).to.equal('AbortError');
+      reportBranch({ path: '/Org/Site/Other', status: 'ready', branch: 'disconnected' });
+      expect(el._branch).to.equal(undefined);
+    });
+
+    it('fails closed if the host bridge never answers, then recovers from later state', async () => {
+      branchState = null;
+      const clock = sinon.useFakeTimers();
+      const preview = sinon.spy(aem, 'preview');
+      el = await makeEl();
+      const showError = sinon.stub(el, '_showActionError').resolves();
+      el._hashState = state;
+      await el.updateComplete;
+      const deploying = el._runAemAction('preview');
+      await clock.tickAsync(3000);
+      await deploying;
+      expect(preview.called).to.be.false;
+      expect(showError.calledOnce).to.be.true;
+      reportBranch({ path, status: 'ready', branch: 'recovered' });
+      expect(await el._branchPromise).to.equal('recovered');
+    });
+
+    ['preview', 'publish'].forEach((action) => {
+      it(`opens the original canvas branch after ${action}, even if navigation occurs during save`, async () => {
+        branchState = { status: 'ready', branch: 'original-branch' };
+        const body = {
+          webPath: '/docs/page',
+          preview: { url: 'https://main.example/docs/page' },
+          live: { url: 'https://live.example/docs/page' },
+        };
+        const preview = sinon.stub(aem, 'preview').callsFake(async () => new Response(JSON.stringify(body)));
+        const publish = sinon.stub(aem, 'publish').callsFake(async () => new Response(JSON.stringify(body)));
+        const open = sinon.stub(window, 'open');
+        el = await makeEl();
+        sinon.stub(el, '_saveVersion').resolves();
+        el._hashState = state;
+        await el.updateComplete;
+        const editor = document.createElement('ew-editor-doc');
+        editor.forceSave = async () => {
+          branchState = { status: 'ready', branch: 'new-branch' };
+          el._hashState = { ...state, path: 'New' };
+          await el.updateComplete;
+          await el._branchPromise;
+          return { ok: true };
+        };
+        document.body.append(editor);
+        try {
+          await el._runAemAction(action);
+          const tld = action === 'publish' ? 'live' : 'page';
+          const href = `https://original-branch--site--org.aem.${tld}/docs/page`;
+          expect(open.calledOnceWithExactly(href, href)).to.be.true;
+          expect(preview.calledOnceWithExactly('/org/site/docs/page')).to.be.true;
+          expect(publish.called).to.equal(action === 'publish');
+          expect(el._branch).to.equal('new-branch');
+        } finally {
+          editor.remove();
+        }
+      });
+    });
   });
 
   describe('version creation', () => {

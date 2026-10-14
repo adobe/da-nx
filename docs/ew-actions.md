@@ -36,7 +36,9 @@ Timestamps use `formatRelativeDateTime` (`nx2/utils/format.js`) — "Today at 14
 
 ## Selected branch
 
-The opened and copied URLs in the "Send" modal follow the selected site branch. The branch is resolved by `fetchWysiwygBranch` (`nx2/utils/aem-preview-publish.js`):
+The opened and copied URLs in the "Send" modal follow the branch resolved by da-live's canvas. Nexter does not independently fetch config or interpret `?ref`. Canvas resolves once per document/context and shares the same promise with the WYSIWYG iframe and the same result with external consumers through its branch bridge.
+
+The authoritative resolver in da-live applies:
 
 1. The `?ref=<branch>` URL param, if present.
 2. Otherwise the longest-prefix match of the `ew.wysiwygBranch` config rows (value `/org/site/prefix=branch`); site config rows win over org config rows on equal prefixes. Prefixes match complete path segments: `/docs` matches `/docs` and `/docs/page`, but not `/docs-archive`. A trailing slash on a prefix is optional.
@@ -44,7 +46,11 @@ The opened and copied URLs in the "Send" modal follow the selected site branch. 
 
 Multi-sheet configs are read in the order declared by `:names`, independent of JSON key insertion order, including the metadata-first shape produced by `object2sheet`.
 
-`fetchWysiwygBranch` and the config helpers it uses (`fetchDaConfigs`, `getFirstSheet` in `nx2/utils/daConfig.js`) originated in da-live. This implementation additionally enforces path-segment boundaries and does not cache failed config fetches. Unexpected network or JSON parsing failures are propagated and logged rather than silently selecting `main`; a deploy awaiting that branch resolution shows an error dialog instead of proceeding.
+The cross-repo contract is defined in `nx2/utils/branch-events.js`. Canvas translates its internal replayable `branchState` channel into document-level `nx-branch-state` events. A late consumer sends `nx-branch-request` with `{ path }` to replay the current state. State includes `{ org, site, path, status, branch?, error? }`, where status is `pending`, `ready`, or `error`. Paths preserve the canvas context's case and extension; neither side adds `.html` for this contract.
+
+Send requests state on connection and navigation, retrying every 100 ms for up to 3 seconds to allow the bridge to load. It ignores other documents' state and cancels old requests on navigation/disconnection. Until the branch is ready, copied URLs are hidden. Missing/error state prevents deployment with an error dialog rather than silently selecting `main`; later valid state restores the URLs. The branch is captured before save/preflight awaits so navigation cannot retarget an in-progress action.
+
+This requires the companion da-live branch bridge. Ship/test both changes together. An older host without that bridge fails closed; there is intentionally no second resolver or main-branch fallback in Nexter.
 
 For a non-`main` branch the URLs are `https://{branch}--{site}--{org}.aem.page|live{webPath}`; for `main` they use the site's configured preview/production hosts. A `preview-url` / `live-url` meta template still takes precedence for the URL opened after a deploy.
 
