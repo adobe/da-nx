@@ -1,3 +1,10 @@
+# [1.15.0](https://github.com/adobe/da-nx/compare/v1.14.1...v1.15.0) (2026-10-14)
+
+
+### Features
+
+* **sdk:** add comparison and save actions ([#818](https://github.com/adobe/da-nx/issues/818)) ([2c70c3a](https://github.com/adobe/da-nx/commit/2c70c3a97c258d18f8d2fb20baa01bf6833f0d9d)), closes [adobe/da-live#1405](https://github.com/adobe/da-live/issues/1405)
+
 ## [1.14.1](https://github.com/adobe/da-nx/compare/v1.14.0...v1.14.1) (2026-10-13)
 
 
