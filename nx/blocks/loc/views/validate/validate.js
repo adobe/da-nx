@@ -232,6 +232,7 @@ class NxLocValidate extends LitElement {
       <nx-loc-actions
         .project=${this.project}
         .message=${this._message}
+        .nextDisabled=${this.notReady}
         @action=${this.handleAction}>
       </nx-loc-actions>
       ${this._urls ? html`
