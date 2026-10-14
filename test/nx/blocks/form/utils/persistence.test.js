@@ -72,6 +72,24 @@ describe('attachPersistence', () => {
     p.detach();
   });
 
+  it('serializes with the schema when one is provided', async () => {
+    const schema = {
+      type: 'object',
+      properties: { body: { type: 'string', 'x-semantic-type': 'rich-text' } },
+    };
+    const editor = makeEditor();
+    const { save, calls, release } = makeSave();
+    const p = attachPersistence(editor, { path: '/x', schema, save });
+
+    editor.setValues({ body: '<p>Hi</p>' });
+    p.notify();
+    await tick();
+    expect(calls).to.have.lengthOf(1);
+    expect(calls[0].html).to.include('Hi');
+    release();
+    p.detach();
+  });
+
   it('coalesces concurrent mutations during an in-flight save (single-flight + re-queue)', async () => {
     // Critical contract: mid-flight notifies don't fire concurrent saves;
     // they set `pending` so a SECOND save runs after the first settles, with
