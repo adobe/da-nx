@@ -167,8 +167,19 @@ export default class NxChatAo extends LitElement {
       ...(this._altHarness ? { activationKey: this._activationKey } : {}),
     });
     if (this._context) this._controller.setContext(this._context);
-    this._controller.loadEpisodes();
+    this._loadEpisodes(this._controller);
     this._controller.loadSkills();
+  }
+
+  // Dev-only: ?nx-eval-fixture=<name> appends a mocked evaluation artifact once
+  // loadEpisodes settles (it replaces the message list), even if it failed.
+  async _loadEpisodes(controller) {
+    if (!window.location.search.includes('nx-eval-fixture=')) {
+      await controller.loadEpisodes();
+      return;
+    }
+    const { loadEpisodesThenInject } = await import('./dev/eval-fixture.js');
+    await loadEpisodesThenInject(controller);
   }
 
   _closePanel() {

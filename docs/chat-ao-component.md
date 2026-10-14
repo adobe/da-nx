@@ -771,6 +771,9 @@ precedence" preamble by design (AO's own anti-prompt-injection guard), so it
 helps the model understand what it's operating within but can't be used to
 hard-restrict what it will answer.
 
+A pill of type `evaluation-finding` (a page-evaluation finding added from the canvas) follows the same path and also carries
+`description` — see [evaluation-findings.md](./evaluation-findings.md).
+
 ## Manifest override
 
 `sendMessage` (`ao-controller.js`) always sends `manifestId` on `USER_INPUT`,

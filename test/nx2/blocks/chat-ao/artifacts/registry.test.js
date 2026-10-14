@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { render, html } from 'da-lit';
 import {
-  registerArtifact, renderArtifactNode, renderChildren, renderFallback,
+  registerArtifact, renderArtifactNode, renderChildren, renderFallback, isFlatRecord,
 } from '../../../../../nx2/blocks/chat-ao/artifacts/registry.js';
 
 function mount(template) {
@@ -84,5 +84,55 @@ describe('artifacts registry renderArtifactNode', () => {
     }, 'inherited fallback'));
 
     expect(host.querySelector('.ui-artifact-fallback').textContent).to.equal('inherited fallback');
+  });
+});
+
+describe('artifacts registry flat A2UI records', () => {
+  it('detects flat records by their component name', () => {
+    expect(isFlatRecord({ id: 'root', component: 'Markdown' })).to.equal(true);
+    expect(isFlatRecord({ type: 'Markdown', props: {} })).to.equal(false);
+    expect(isFlatRecord(undefined)).to.equal(false);
+  });
+
+  it('dispatches on component and passes fields without structural keys', () => {
+    let received;
+    registerArtifact('TestFlat', (props) => {
+      received = props;
+      return renderFallback(`flat: ${props.label}`);
+    });
+
+    const host = mount(renderArtifactNode({ id: 'root', component: 'TestFlat', label: 'x' }));
+
+    expect(host.querySelector('.ui-artifact-fallback').textContent).to.equal('flat: x');
+    expect(received).to.deep.equal({ label: 'x', children: [] });
+  });
+
+  it('resolves child ids through ctx.recordsById, accepting child or children', () => {
+    registerArtifact('TestContainer', ({ children }, ctx) => html`<div class="test-container">${renderChildren(children, ctx)}</div>`);
+    registerArtifact('TestLeaf', ({ label }) => renderFallback(`leaf: ${label}`));
+    const records = [
+      { id: 'root', component: 'TestContainer', children: ['a', 'wrap'] },
+      { id: 'a', component: 'TestLeaf', label: 'a' },
+      { id: 'wrap', component: 'TestContainer', child: 'b' },
+      { id: 'b', component: 'TestLeaf', label: 'b' },
+    ];
+    const recordsById = new Map(records.map((r) => [r.id, r]));
+
+    const host = mount(renderArtifactNode(records[0], undefined, { recordsById }));
+
+    const leaves = [...host.querySelectorAll('.ui-artifact-fallback')].map((el) => el.textContent);
+    expect(leaves).to.deep.equal(['leaf: a', 'leaf: b']);
+  });
+
+  it('skips a child id that has no matching record', () => {
+    registerArtifact('TestContainer', ({ children }, ctx) => html`<div class="test-container">${renderChildren(children, ctx)}</div>`);
+
+    const host = mount(renderArtifactNode(
+      { id: 'root', component: 'TestContainer', children: ['missing'] },
+      'summary',
+      { recordsById: new Map() },
+    ));
+
+    expect(host.querySelector('.test-container').textContent.trim()).to.equal('');
   });
 });

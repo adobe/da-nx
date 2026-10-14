@@ -70,6 +70,9 @@ parallel one. If you do add a new key:
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
 | `COMMENT_MARKER_CLEAR` | iframe → host | da-live only |
 | `COMMENT_SHORTCUT` | iframe → host | da-live only |
+| `SET_FINDING_MARKERS` | Host → iframe | da-live only |
+| `FINDING_MARKER_CLICK` | iframe → host | da-live only |
+| `FINDING_MARKER_LAYOUT` | iframe → host | da-live only |
 
 ---
 
@@ -180,6 +183,28 @@ of marker bubbles and highlights on top of the previewed page (`nx/public/plugin
 
 All five are da-live-embedded only; the standalone `quick-edit-portal.js` host has no
 comments UI, so none are wired up there.
+
+### Evaluation findings (`SET_FINDING_MARKERS` / `FINDING_MARKER_CLICK` / `FINDING_MARKER_LAYOUT`)
+
+Show an evaluation finding (from the Coworker chat's page-evaluation results) on the previewed
+page. The finding card lives host-side in da-live; the iframe only draws the marker and tells
+the host where it is. Implemented in `nx/public/plugins/quick-edit/src/findings/`, on its own
+overlay (`#qe-finding-overlay`) stacked above the comment overlay and independent of it.
+
+- `SET_FINDING_MARKERS` — host pushes the markers and which one is selected; an empty list
+  clears. Only the selected marker is drawn (v1 sends 0 or 1 marker): a green outline around the
+  containing block element (text), the picture (image) or the block (table), with a badge at
+  the top-left and an ⓘ at the top-right. Positions use the same ProseMirror coordinates as
+  comment markers. `scrollIntoView` centers the element once. The outline is re-applied after
+  `SET_BODY`.
+- `FINDING_MARKER_CLICK` — the user clicked the outline border, the badge or the ⓘ; the host
+  re-opens the finding card. The outline body does not capture clicks, so the page stays editable.
+- `FINDING_MARKER_LAYOUT` — the selected marker's element rect in iframe-viewport px (`null` when
+  the element can't be found), so the host can anchor its floating card. Always sent in
+  response to a `SET_FINDING_MARKERS` (the host may open a new card for the same element); for
+  scroll/resize/layout re-renders (rAF-throttled) only when the rounded rect or id changed.
+
+All three are da-live-embedded only; the standalone `quick-edit-portal.js` host has no findings UI.
 
 ## Known gaps
 

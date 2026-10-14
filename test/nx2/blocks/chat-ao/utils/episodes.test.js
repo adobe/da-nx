@@ -671,6 +671,23 @@ describe('episodes.js', () => {
       ]);
     });
 
+    it('rebuilds an evaluation-finding pill with its description', () => {
+      const selectionContext = extractSelectionContext([{
+        type: 'user_message',
+        client_context: {
+          focused_resources: [
+            { type: 'evaluation-finding', id: 'eval-1', name: 'Header copy', description: 'Check: Header copy' },
+            { type: 'block', id: 'a', name: 'hero', description: 'ignored' },
+          ],
+        },
+      }]);
+
+      expect(selectionContext).to.deep.equal([
+        { type: 'evaluation-finding', blockName: 'Header copy', description: 'Check: Header copy' },
+        { type: 'block', blockName: 'hero' },
+      ]);
+    });
+
     it('returns [] when the turn carried no client_context, no focused_resources, or no events at all', () => {
       expect(extractSelectionContext([{ type: 'user_message' }])).to.deep.equal([]);
       expect(extractSelectionContext([{ type: 'user_message', client_context: {} }])).to.deep.equal([]);
