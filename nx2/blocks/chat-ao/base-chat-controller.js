@@ -64,6 +64,12 @@ export default class BaseChatController {
     this._context = context;
   }
 
+  appendMessage(message, { stopLoading = false } = {}) {
+    if (stopLoading) this._loadingEpisode = false;
+    this._messages = [...this._messages, message];
+    this._update();
+  }
+
   _update() {
     this._onUpdate({
       messages: this._messages,

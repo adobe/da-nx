@@ -139,8 +139,9 @@ class NxPills extends LitElement {
   }
 
   _renderAction({
-    id, label, pinnable, pinned, removable,
+    id, label: itemLabel, name, pinnable, pinned, removable,
   }) {
+    const label = itemLabel ?? name;
     if (pinnable && !pinned) {
       return html`<button
         class="pill-icon pill-pin"
@@ -161,8 +162,9 @@ class NxPills extends LitElement {
 
   _renderPill(item) {
     const {
-      id, label, thumbnail, type, pinnable,
+      id, label: itemLabel, name, thumbnail, type, pinnable,
     } = item;
+    const label = itemLabel ?? name;
     const action = this._renderAction(item);
     const labelEl = pinnable
       ? html`<button
@@ -172,7 +174,8 @@ class NxPills extends LitElement {
           @click=${() => this._activate(id)}
         >${label}</button>`
       : html`<span class="pill-label" title=${label}>${label}</span>`;
-    const showTypeIcon = type === 'image' || type === 'file' || type === 'folder' || type === 'block' || type === 'text';
+    const showTypeIcon = type === 'image' || type === 'file' || type === 'folder' || type === 'block' || type === 'text'
+      || type === 'evaluation-finding';
     return html`
       <li class="pill">
         ${action}

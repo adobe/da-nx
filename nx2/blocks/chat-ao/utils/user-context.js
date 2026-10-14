@@ -1,3 +1,5 @@
+import { EVALUATION_FINDING } from '../../chat/utils/chat-helpers.js';
+
 // See docs/chat-ao-component.md#client-context for why this stays in `text`.
 export function buildFailedUploadsText(failed) {
   if (!failed.length) return '';
@@ -8,6 +10,14 @@ export function buildFailedUploadsText(failed) {
 function selectionResource(item) {
   if (item.type === 'text' && item.innerHTML) {
     return { type: 'text-selection', name: item.innerHTML.replace(/<[^>]+>/g, '').trim() };
+  }
+  if (item.type === EVALUATION_FINDING) {
+    return {
+      type: EVALUATION_FINDING,
+      id: item.id,
+      name: item.name ?? item.label ?? 'Evaluation finding',
+      ...(item.description && { description: item.description }),
+    };
   }
   return { type: item.type ?? 'block', id: item.id, name: item.blockName ?? item.innerText ?? 'Selection' };
 }

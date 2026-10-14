@@ -1,4 +1,5 @@
 import { aoContext } from './uploads.js';
+import { EVALUATION_FINDING } from '../../chat/utils/chat-helpers.js';
 
 // AO owns episode history durably — nothing to persist client-side.
 export async function fetchEpisodes(limit) {
@@ -28,9 +29,15 @@ export function extractSelectionContext(events) {
   const resources = userMessage?.client_context?.focused_resources ?? [];
   return resources
     .filter((resource) => resource.type !== 'document')
-    .map((resource) => (resource.type === 'text-selection'
-      ? { type: 'text', innerHTML: resource.name }
-      : { type: resource.type, blockName: resource.name }));
+    .map((resource) => {
+      if (resource.type === 'text-selection') return { type: 'text', innerHTML: resource.name };
+      return {
+        type: resource.type,
+        blockName: resource.name,
+        ...(resource.type === EVALUATION_FINDING && resource.description
+          && { description: resource.description }),
+      };
+    });
 }
 
 function turnsToMessages(turns, artifacts = [], turnEventsList = []) {

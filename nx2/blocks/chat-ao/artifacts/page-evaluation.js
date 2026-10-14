@@ -12,6 +12,7 @@
 
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { EVAL_EVENT } from '../../../utils/evaluation-events.js';
 import { registerArtifact } from './registry.js';
 
 const styles = await loadStyle(import.meta.url);
@@ -109,6 +110,54 @@ function renderCheckBody(item) {
   `;
 }
 
+/* ---- findings (see docs/evaluation-findings.md) ---- */
+
+const findingId = (item, sectionIndex, itemIndex) => item.id ?? `${sectionIndex}-${itemIndex}`;
+
+function toEvalFinding(item, id) {
+  const { suggestion } = item;
+  return {
+    id,
+    title: item.title,
+    ...(item.description !== undefined && { description: item.description }),
+    ...(suggestion.label !== undefined && { label: suggestion.label }),
+    ...(suggestion.assetType !== undefined && { assetType: suggestion.assetType }),
+    ...(suggestion.issue !== undefined && { issue: suggestion.issue }),
+    ...(suggestion.suggested !== undefined && { suggested: suggestion.suggested }),
+    ...(suggestion.context !== undefined && { context: suggestion.context }),
+    evidence: suggestion.evidence ?? [],
+  };
+}
+
+function hasResolvableEvidence(finding) {
+  return (finding?.evidence ?? []).some((e) => (
+    (e?.anchorType === 'text' && e.anchorText)
+    || (e?.anchorType === 'image' && e.src)
+  ));
+}
+
+// One finding per item that has a `suggestion`, across all sections, in order.
+export function toEvalFindings(data) {
+  return (data?.sections ?? []).flatMap((section, sectionIndex) => (
+    (section.items ?? []).flatMap((item, itemIndex) => (
+      item.suggestion ? [toEvalFinding(item, findingId(item, sectionIndex, itemIndex))] : []
+    ))
+  ));
+}
+
+// Returns true when a host on the page (e.g. the canvas) claimed the finding.
+function focusFinding(data, id) {
+  const findings = toEvalFindings(data);
+  const finding = findings.find((f) => f.id === id);
+  if (!hasResolvableEvidence(finding)) return false;
+  const event = new CustomEvent(EVAL_EVENT.FOCUS_FINDING, {
+    cancelable: true,
+    detail: { findingId: id, findings },
+  });
+  document.dispatchEvent(event);
+  return event.defaultPrevented;
+}
+
 /* ---- section labels ---- */
 
 function sectionLabelFromTone(tone) {
@@ -139,7 +188,9 @@ class NxPageEval extends LitElement {
     this._pages = { ...this._pages, [sectionIndex]: page };
   }
 
-  async _openModal(item, items, tone, componentTitle) {
+  async _openModal(item, items, tone, componentTitle, sectionIndex) {
+    const id = findingId(item, sectionIndex, items.indexOf(item));
+    if (item.suggestion && focusFinding(this.data, id)) return;
     let kind;
     let filtered;
     if (item.suggestion) {
@@ -220,7 +271,7 @@ class NxPageEval extends LitElement {
     item,
     tone,
     i < start || i >= end,
-    () => this._openModal(item, items, tone, componentTitle),
+    () => this._openModal(item, items, tone, componentTitle, sectionIndex),
   ))}
         ${total > PAGE_SIZE ? this._renderPaging(sectionIndex, end, total) : nothing}
       </div>

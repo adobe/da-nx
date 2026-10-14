@@ -1,0 +1,260 @@
+{
+  "id": "frescopa-draft-evaluation",
+  "a2ui_surface": {
+    "components": [
+      {
+        "type": "PageEvaluationWithIcons",
+        "props": {
+          "title": "Page evaluation",
+          "summary": [
+            {
+              "label": "Failures",
+              "value": 7,
+              "description": "Checks that need attention",
+              "tone": "negative"
+            },
+            {
+              "label": "Passes",
+              "value": 5,
+              "description": "Checks aligned with the brand",
+              "tone": "positive"
+            },
+            {
+              "label": "Not applicable",
+              "value": 2,
+              "description": "Checks that do not apply",
+              "tone": "neutral"
+            }
+          ],
+          "sections": [
+            {
+              "key": "failures",
+              "label": "Failures",
+              "subLabel": "7 checks need attention",
+              "tone": "negative",
+              "defaultOpen": true,
+              "items": [
+                {
+                  "id": "fail-header_copy",
+                  "title": "Header copy",
+                  "description": "The headline is generic and could describe any coffee brand. Fréscopa headlines should lead with craft and precision, and keep to a short, confident sentence.",
+                  "suggestion": {
+                    "label": "Header copy",
+                    "assetType": "text",
+                    "assetLabel": "the element/section",
+                    "issue": "The headline is generic and could describe any coffee brand. Fréscopa headlines should lead with craft and precision, and keep to a short, confident sentence.",
+                    "suggested": "Rewrite the headline to lead with Fréscopa's craft-and-precision positioning, for example \"Crafted with care. Poured with precision.\"",
+                    "context": {
+                      "category": "Brand voice",
+                      "description": "Brand voice guideline: Header copy",
+                      "href": "https://main--frescopa--exp-workspace.aem.page/brand/guidelines#brand_voice"
+                    },
+                    "evidence": [
+                      {
+                        "anchorType": "text",
+                        "anchorText": "Born from a passion for exceptional coffee.",
+                        "replacement": "Crafted with care. Poured with precision."
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "fail-tone_of_voice",
+                  "title": "Tone of voice",
+                  "description": "The headline reads as a corporate origin story. The brand voice is warm, personal and conversational rather than formal.",
+                  "suggestion": {
+                    "label": "Tone of voice",
+                    "assetType": "text",
+                    "assetLabel": "the element/section",
+                    "issue": "The headline reads as a corporate origin story. The brand voice is warm, personal and conversational rather than formal.",
+                    "suggested": "Use a warmer, more personal phrasing such as \"Born from a love of exceptional coffee.\"",
+                    "context": {
+                      "category": "Brand voice",
+                      "description": "Brand voice guideline: Tone of voice",
+                      "href": "https://main--frescopa--exp-workspace.aem.page/brand/guidelines#brand_voice"
+                    },
+                    "evidence": [
+                      {
+                        "anchorType": "text",
+                        "anchorText": "Born from a passion for exceptional coffee.",
+                        "replacement": "Born from a love of exceptional coffee."
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "fail-body_copy",
+                  "title": "Body copy",
+                  "description": "The closing phrase of the paragraph relies on a vague, overused claim (\"something truly memorable\") instead of a concrete benefit.",
+                  "suggestion": {
+                    "label": "Body copy",
+                    "assetType": "text",
+                    "assetLabel": "the element/section",
+                    "issue": "The closing phrase of the paragraph relies on a vague, overused claim (\"something truly memorable\") instead of a concrete benefit.",
+                    "suggested": "Replace the vague closing with a concrete, sensory benefit.",
+                    "context": {
+                      "category": "Messaging",
+                      "description": "Messaging guideline: Body copy",
+                      "href": "https://main--frescopa--exp-workspace.aem.page/brand/guidelines#messaging"
+                    },
+                    "evidence": [
+                      {
+                        "anchorType": "text",
+                        "anchorText": "elevate everyday coffee into something truly memorable",
+                        "replacement": "turn every cup into a small ritual worth savoring"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "fail-eyebrow",
+                  "title": "Eyebrow",
+                  "description": "The eyebrow \"Our Story\" is a generic label. Eyebrows should name the content theme in the brand's own terms.",
+                  "suggestion": {
+                    "label": "Eyebrow",
+                    "assetType": "text",
+                    "assetLabel": "the element/section",
+                    "issue": "The eyebrow \"Our Story\" is a generic label. Eyebrows should name the content theme in the brand's own terms.",
+                    "suggested": "Use an eyebrow that names the theme of the section, e.g. \"The Fréscopa Craft\".",
+                    "context": {
+                      "category": "Messaging",
+                      "description": "Messaging guideline: Eyebrow",
+                      "href": "https://main--frescopa--exp-workspace.aem.page/brand/guidelines#messaging"
+                    },
+                    "evidence": [
+                      {
+                        "anchorType": "text",
+                        "anchorText": "Our Story"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "fail-superlative_claims",
+                  "title": "Unsubstantiated claims",
+                  "description": "The page makes an absolute superlative claim (\"the world's best coffee machines\") that is not substantiated and is not allowed by the claims policy.",
+                  "suggestion": {
+                    "label": "Unsubstantiated claims",
+                    "assetType": "text",
+                    "assetLabel": "the element/section",
+                    "issue": "The page makes an absolute superlative claim (\"the world's best coffee machines\") that is not substantiated and is not allowed by the claims policy.",
+                    "suggested": "Remove the superlative or support it with a verifiable, citable fact.",
+                    "context": {
+                      "category": "Legal and claims",
+                      "description": "Legal and claims guideline: Unsubstantiated claims",
+                      "href": "https://main--frescopa--exp-workspace.aem.page/brand/guidelines#legal"
+                    },
+                    "evidence": [
+                      {
+                        "anchorType": "text",
+                        "anchorText": "the world's best coffee machines"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "id": "fail-call_to_action",
+                  "title": "Call to action",
+                  "description": "The page does not offer a clear next step. Brand pages should end the hero section with one primary call to action.",
+                  "suggestion": {
+                    "label": "Call to action",
+                    "assetType": "text",
+                    "assetLabel": "the element/section",
+                    "issue": "The page does not offer a clear next step. Brand pages should end the hero section with one primary call to action.",
+                    "suggested": "Add a single primary call to action such as \"Explore our machines\" below the introduction.",
+                    "context": {
+                      "category": "Page structure",
+                      "description": "Page structure guideline: Call to action",
+                      "href": "https://main--frescopa--exp-workspace.aem.page/brand/guidelines#structure"
+                    }
+                  }
+                },
+                {
+                  "id": "fail-image_brand_alignment",
+                  "title": "Image",
+                  "description": "The hero image uses a cool, desaturated look that conflicts with the warm, natural photography style of the brand.",
+                  "suggestion": {
+                    "label": "Image",
+                    "assetType": "image",
+                    "assetLabel": "Hero image",
+                    "previewUrl": "https://main--frescopa--exp-workspace.stage-preview.da.live/drafts/ramirezc/media_179c2472c582176bc491cf55256cfd8e9635aa0f5.png?width=750&format=webply&optimize=medium",
+                    "issue": "The hero image uses a cool, desaturated look that conflicts with the warm, natural photography style of the brand.",
+                    "suggested": "Replace the hero image with a warm, natural-light photograph that shows coffee being prepared by hand.",
+                    "context": {
+                      "category": "Visual identity",
+                      "description": "Visual identity guideline: Image",
+                      "href": "https://main--frescopa--exp-workspace.aem.page/brand/guidelines#visual_identity"
+                    },
+                    "evidence": [
+                      {
+                        "anchorType": "image",
+                        "src": "https://main--frescopa--exp-workspace.stage-preview.da.live/drafts/ramirezc/media_179c2472c582176bc491cf55256cfd8e9635aa0f5.png?width=750&format=webply&optimize=medium"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "key": "passes",
+              "label": "Passes",
+              "subLabel": "5 checks passed",
+              "tone": "positive",
+              "defaultOpen": false,
+              "items": [
+                {
+                  "id": "pass-brand_name",
+                  "title": "Brand name usage",
+                  "description": "The brand name \"Fréscopa\" is written with the accented é in every occurrence."
+                },
+                {
+                  "id": "pass-spelling_grammar",
+                  "title": "Spelling and grammar",
+                  "description": "No spelling or grammar errors were found in the page copy."
+                },
+                {
+                  "id": "pass-inclusive_language",
+                  "title": "Inclusive language",
+                  "description": "The copy uses neutral, inclusive language throughout."
+                },
+                {
+                  "id": "pass-image_composition",
+                  "title": "Image composition",
+                  "description": "The subject is centered with enough negative space for overlaid text."
+                },
+                {
+                  "id": "pass-image_quality",
+                  "title": "Image quality",
+                  "description": "The image is sharp, well exposed and free of compression artifacts."
+                }
+              ]
+            },
+            {
+              "key": "not-applicable",
+              "label": "Not applicable",
+              "subLabel": "2 checks do not apply",
+              "tone": "neutral",
+              "defaultOpen": false,
+              "items": [
+                {
+                  "id": "na-legal_disclaimers",
+                  "title": "Legal disclaimers",
+                  "description": "The page does not make pricing or warranty statements, so no disclaimer is required."
+                },
+                {
+                  "id": "na-image_people",
+                  "title": "People representation",
+                  "description": "The image does not show people."
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "text_fallback": "Page evaluation for Fréscopa: 7 failures, 5 passes, 2 not applicable.",
+  "display_hints": {
+    "title": "Page evaluation"
+  }
+}
