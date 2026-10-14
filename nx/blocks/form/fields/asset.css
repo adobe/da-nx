@@ -108,20 +108,25 @@
   font-weight: 600;
 }
 
-.asset-url > span {
+/* Long URLs shorten only their path while the file name fits, so it stays readable. A file
+   name wider than the row shortens its stem and keeps the extension. */
+.asset-url-base,
+.asset-url-stem {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-/* Long URLs shorten their path first and their file name second, so the extension stays. */
-.asset-url-base {
-  flex-shrink: 1000;
+.asset-url-file {
+  display: flex;
+  flex: none;
+  max-width: 100%;
 }
 
-.asset-url-stem {
-  flex-shrink: 100;
+.asset-url-tail {
+  flex: none;
+  white-space: nowrap;
 }
 
 .asset-placeholder {

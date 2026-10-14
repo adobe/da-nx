@@ -186,6 +186,19 @@ describe('form-asset', () => {
     expect(button(field, 'Remove')).to.exist;
   });
 
+  it('cuts only the path of a long URL while the whole file name stays readable', async () => {
+    const href = `https://content.da.live/${'org/site/players/'.repeat(4)}.sample/racket.jpg`;
+    const field = await mount({ value: href });
+    const base = query(field, '.asset-url-base');
+    const stem = query(field, '.asset-url-stem');
+    const tail = query(field, '.asset-url-tail');
+    expect(base.scrollWidth).to.be.greaterThan(base.clientWidth);
+    expect(stem.textContent).to.equal('racket');
+    expect(stem.scrollWidth).to.equal(stem.clientWidth);
+    expect(tail.textContent).to.equal('.jpg');
+    expect(tail.scrollWidth).to.equal(tail.clientWidth);
+  });
+
   it('cuts a long URL in its path and file name but keeps the extension visible', async () => {
     const longName = `${'very-long-file-name-'.repeat(10)}final.pdf`;
     const href = `https://x.test/${'folder/'.repeat(10)}${longName}`;

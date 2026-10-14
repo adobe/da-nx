@@ -318,7 +318,7 @@ class FormAsset extends LitElement {
 
   _renderUrl() {
     const { base, stem, tail } = splitHrefForDisplay(this.value);
-    return html`<span class="asset-url" title=${base + stem + tail}><span class="asset-url-base">${base}</span><span class="asset-url-stem">${stem}</span><span class="asset-url-tail">${tail}</span></span>`;
+    return html`<span class="asset-url" title=${base + stem + tail}><span class="asset-url-base">${base}</span><span class="asset-url-file"><span class="asset-url-stem">${stem}</span><span class="asset-url-tail">${tail}</span></span></span>`;
   }
 
   _renderRow() {
