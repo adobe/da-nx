@@ -1,3 +1,10 @@
+## [1.15.1](https://github.com/adobe/da-nx/compare/v1.15.0...v1.15.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **quick-edit:** require exact preview update targets ([7d4b388](https://github.com/adobe/da-nx/commit/7d4b388913a041bfc15082518d1f84fd1bcde724))
+
 # [1.15.0](https://github.com/adobe/da-nx/compare/v1.14.1...v1.15.0) (2026-10-14)
 
 
