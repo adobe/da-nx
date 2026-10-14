@@ -109,6 +109,86 @@ describe('quick-edit reload', () => {
     }
   });
 
+  it('coalesces missing-target reloads and permits recovery again after SET_BODY', async function testRecovery() {
+    this.timeout(5000);
+    const originalBody = document.body.innerHTML;
+    const originalUrl = new URL(window.location.href);
+    const channel = new MessageChannel();
+    const messages = [];
+    const drain = () => new Promise((resolve) => {
+      channel.port2.onmessage = (event) => {
+        if (event.data === 'drained') resolve();
+        else messages.push(event.data);
+      };
+      channel.port1.postMessage('drained');
+    });
+    const update = (cursorOffset) => channel.port1.onmessage({
+      data: {
+        type: MESSAGE_TYPES.SET_EDITOR_STATE,
+        payload: {
+          cursorOffset,
+          editorState: {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'block title' }],
+          },
+        },
+      },
+    });
+
+    try {
+      originalUrl.searchParams.set('controller', 'parent');
+      window.history.replaceState({}, '', originalUrl);
+      document.body.innerHTML = '<main><div><p data-prose-index="1">text</p></div></main>';
+      const moduleUrl = new URL('../../../../../nx/public/plugins/quick-edit/quick-edit.js', import.meta.url);
+      moduleUrl.searchParams.set('test', 'recovery');
+      const { default: loadRecoveryQuickEdit } = await import(moduleUrl.href);
+      const reload = new Promise((resolve) => {
+        loadRecoveryQuickEdit({}, resolve, { partialReload: true });
+      });
+      const ready = new Promise((resolve) => {
+        channel.port2.onmessage = resolve;
+      });
+      const init = new MessageEvent('message', {
+        data: { type: MESSAGE_TYPES.INIT, payload: { config: { canWrite: false } } },
+        ports: [channel.port1],
+      });
+      Object.defineProperty(init, 'source', { value: window.parent });
+      window.dispatchEvent(init);
+      await ready;
+
+      [10, 11, 12].forEach(update);
+      await drain();
+
+      expect(messages).to.deep.equal([{ type: MESSAGE_TYPES.RELOAD }]);
+      expect(document.querySelector('p').textContent).to.equal('text');
+
+      channel.port1.onmessage({
+        data: {
+          type: MESSAGE_TYPES.SET_BODY,
+          payload: { body: '<main><div><p data-prose-index="1">fresh text</p></div></main>' },
+        },
+      });
+      await reload;
+
+      [10, 11, 12].forEach(update);
+      await drain();
+
+      expect(messages).to.deep.equal([
+        { type: MESSAGE_TYPES.RELOAD },
+        { type: MESSAGE_TYPES.RELOAD },
+      ]);
+      expect(document.querySelector('p').textContent).to.equal('fresh text');
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      });
+    } finally {
+      channel.port1.close();
+      channel.port2.close();
+      document.body.innerHTML = originalBody;
+      window.history.replaceState({}, '', originalUrl);
+    }
+  });
+
   implementations.forEach(([name, replaceChanges, ctx]) => {
     describe(name, () => {
       it('replaces main and preserves the rest of the document', () => {
