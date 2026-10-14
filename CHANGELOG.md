@@ -1,3 +1,48 @@
+## [1.15.1](https://github.com/adobe/da-nx/compare/v1.15.0...v1.15.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **quick-edit:** require exact preview update targets ([7d4b388](https://github.com/adobe/da-nx/commit/7d4b388913a041bfc15082518d1f84fd1bcde724))
+
+# [1.15.0](https://github.com/adobe/da-nx/compare/v1.14.1...v1.15.0) (2026-10-14)
+
+
+### Features
+
+* **sdk:** add comparison and save actions ([#818](https://github.com/adobe/da-nx/issues/818)) ([2c70c3a](https://github.com/adobe/da-nx/commit/2c70c3a97c258d18f8d2fb20baa01bf6833f0d9d)), closes [adobe/da-live#1405](https://github.com/adobe/da-live/issues/1405)
+
+## [1.14.1](https://github.com/adobe/da-nx/compare/v1.14.0...v1.14.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **quick-edit:** shift later indices when creating an editor from a host edit ([875bfca](https://github.com/adobe/da-nx/commit/875bfca0b4e51a0b2ee2fbea3b6b44a6cd98767a))
+
+# [1.14.0](https://github.com/adobe/da-nx/compare/v1.13.0...v1.14.0) (2026-10-13)
+
+
+### Features
+
+* use scopes to reload sections and blocks individually ([83d6138](https://github.com/adobe/da-nx/commit/83d613876ab41a33d0bf074f5389e01a40978040))
+
+# [1.13.0](https://github.com/adobe/da-nx/compare/v1.12.2...v1.13.0) (2026-10-13)
+
+
+### Features
+
+* shared search field ([#823](https://github.com/adobe/da-nx/issues/823)) ([73b68eb](https://github.com/adobe/da-nx/commit/73b68eb67b5ff9fe272d2282bbc37847d8db6457))
+
+## [1.12.2](https://github.com/adobe/da-nx/compare/v1.12.1...v1.12.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **ew:** clarify history save warning ([542b03d](https://github.com/adobe/da-nx/commit/542b03da163744e257c784de5d98ee6505c774e9))
+* **ew:** notify history after version creation ([dfef8ff](https://github.com/adobe/da-nx/commit/dfef8ff20317134db638edefa81e8b5c02802776)), closes [adobe/da-live#1269](https://github.com/adobe/da-live/issues/1269)
+* **ew:** remove version save warning ([1c10a15](https://github.com/adobe/da-nx/commit/1c10a159c465962e1a972ee625be98e73b0f71e0))
+* **toast:** size dismiss icon to 16px ([0589269](https://github.com/adobe/da-nx/commit/058926983eeee863155fbd7feac4d71c3f95d543))
+
 ## [1.12.1](https://github.com/adobe/da-nx/compare/v1.12.0...v1.12.1) (2026-10-12)
 
 
