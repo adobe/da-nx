@@ -39,6 +39,33 @@ describe('canvas branch contract', () => {
     expect(clock.countTimers()).to.equal(0);
   });
 
+  it('uses an observed legacy branch when the host has no bridge', async () => {
+    const getLegacyBranch = sinon.stub().returns('legacy-feature');
+    const pending = requestCanvasBranch({ path, getLegacyBranch });
+    await clock.tickAsync(100);
+    expect(await pending).to.equal('legacy-feature');
+    expect(clock.countTimers()).to.equal(0);
+  });
+
+  it('never replaces known pending bridge state with legacy iframe state', async () => {
+    const getLegacyBranch = sinon.stub().returns('stale-iframe');
+    const pending = requestCanvasBranch({ path, getLegacyBranch });
+    report({ path, status: 'pending' });
+    await clock.tickAsync(200);
+    expect(getLegacyBranch.called).to.be.false;
+    report({ path, status: 'ready', branch: 'resolved' });
+    expect(await pending).to.equal('resolved');
+  });
+
+  it('does not use a legacy fallback after an explicit bridge error', async () => {
+    const getLegacyBranch = sinon.stub().returns('stale-iframe');
+    const pending = requestCanvasBranch({ path, getLegacyBranch }).catch((error) => error);
+    report({ path, status: 'error', error: 'Invalid config' });
+    expect((await pending).message).to.equal('Invalid config');
+    await clock.tickAsync(200);
+    expect(getLegacyBranch.called).to.be.false;
+  });
+
   it('ignores other documents, pending state, and malformed ready state', async () => {
     let resolved = false;
     const pending = requestCanvasBranch({ path }).then((branch) => {

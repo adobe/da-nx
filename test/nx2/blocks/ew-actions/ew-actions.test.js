@@ -63,8 +63,77 @@ describe('nx-ew-actions', () => {
   describe('canvas branch state', () => {
     const state = { org: 'Org', site: 'Site', path: 'Docs/Page' };
     const path = '/Org/Site/Docs/Page';
+    let legacyEditor;
 
     beforeEach(() => { restoreFetch = installFetch({}); });
+    afterEach(() => legacyEditor?.remove());
+
+    it('observes an old host iframe without resolving config or guessing main', async () => {
+      branchState = null;
+      const clock = sinon.useFakeTimers();
+      legacyEditor = document.createElement('ew-editor-wysiwyg');
+      const shadow = legacyEditor.attachShadow({ mode: 'open' });
+      const iframe = document.createElement('iframe');
+      Object.defineProperty(iframe, 'src', {
+        configurable: true,
+        writable: true,
+        value: 'https://legacy-feature--site--org.preview.da.live/Docs/Page?controller=parent',
+      });
+      shadow.append(iframe);
+      document.body.append(legacyEditor);
+      el = await makeEl();
+      el._hashState = state;
+      await el.updateComplete;
+      await clock.tickAsync(100);
+      expect(await el._branchPromise).to.equal('legacy-feature');
+      iframe.src = 'https://main--site--org.stage-preview.da.live/Docs/Page';
+      expect(el._readLegacyBranch()).to.equal('main');
+      iframe.src = 'https://wrong--site--org.preview.da.live/old-document';
+      expect(el._readLegacyBranch()).to.equal(undefined);
+      iframe.src = 'https://wrong--other-site--org.preview.da.live/Docs/Page';
+      expect(el._readLegacyBranch()).to.equal(undefined);
+      iframe.src = 'https://wrong--site--org.preview.da.live.evil.example/Docs/Page';
+      expect(el._readLegacyBranch()).to.equal(undefined);
+      iframe.src = 'https://legacy-feature--site--org.preview.da.live/Docs/Page';
+      reportBranch({ path, status: 'error', error: 'Config unavailable' });
+      expect(el._readLegacyBranch()).to.equal(undefined);
+    });
+
+    ['navigate', 'disconnect'].forEach((reason) => {
+      it(`silently cancels a deploy waiting on branch resolution when users ${reason}`, async () => {
+        branchState = null;
+        el = await makeEl();
+        el._hashState = state;
+        await el.updateComplete;
+        const showError = sinon.spy(el, '_showActionError');
+        const preview = sinon.spy(aem, 'preview');
+        const deploying = el._runAemAction('preview');
+        if (reason === 'navigate') {
+          el._hashState = { ...state, path: 'destination' };
+          await el.updateComplete;
+        } else el.remove();
+        await deploying;
+        expect(showError.called).to.be.false;
+        expect(preview.called).to.be.false;
+        expect(el._busy).to.be.false;
+      });
+    });
+
+    it('does not deploy if navigation races an already-resolving branch response', async () => {
+      branchState = null;
+      el = await makeEl();
+      el._hashState = state;
+      await el.updateComplete;
+      const preview = sinon.spy(aem, 'preview');
+      const showError = sinon.spy(el, '_showActionError');
+      const deploying = el._runAemAction('preview');
+      el._hashState = { ...state, path: 'destination' };
+      reportBranch({ path, status: 'ready', branch: 'old-branch' });
+      await deploying;
+      expect(preview.called).to.be.false;
+      expect(showError.called).to.be.false;
+      expect(el._busy).to.be.false;
+    });
 
     it('uses replayed state for branch URLs and preserves the canvas context path', async () => {
       branchState = { status: 'ready', branch: 'Feat/My_Branch' };

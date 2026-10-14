@@ -7,12 +7,13 @@ export const BRANCH_EVENT = Object.freeze({
 });
 
 /** Wait for the authoritative canvas branch, including a bridge that loads later. */
-export function requestCanvasBranch({ path, signal, timeout = 3000 }) {
+export function requestCanvasBranch({ path, signal, getLegacyBranch, timeout = 3000 }) {
   return new Promise((resolve, reject) => {
     let timer;
     let interval;
     let onState;
     let onAbort;
+    let hasState = false;
     const finish = (error, branch) => {
       clearTimeout(timer);
       clearInterval(interval);
@@ -24,6 +25,7 @@ export function requestCanvasBranch({ path, signal, timeout = 3000 }) {
     onAbort = () => finish(new DOMException('Branch request cancelled.', 'AbortError'));
     onState = ({ detail }) => {
       if (detail?.path !== path) return;
+      hasState = true;
       if (detail.status === 'error') finish(new Error(detail.error || 'Canvas branch unavailable.'));
       if (detail.status === 'ready' && typeof detail.branch === 'string' && detail.branch) {
         finish(null, detail.branch);
@@ -39,7 +41,15 @@ export function requestCanvasBranch({ path, signal, timeout = 3000 }) {
     document.addEventListener(BRANCH_EVENT.STATE, onState);
     signal?.addEventListener('abort', onAbort, { once: true });
     timer = setTimeout(() => finish(new Error('Canvas branch unavailable.')), timeout);
-    interval = setInterval(request, 100);
+    interval = setInterval(() => {
+      request();
+      // Older hosts have no bridge. Observe their rendered branch rather than
+      // duplicating resolution or guessing main. Known pending/errors never fall back.
+      if (!hasState) {
+        const branch = getLegacyBranch?.();
+        if (typeof branch === 'string' && branch) finish(null, branch);
+      }
+    }, 100);
     request();
   });
 }

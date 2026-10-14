@@ -327,12 +327,17 @@ class NXEwActions extends LitElement {
       return;
     }
     this._branchAbort = new AbortController();
+    const requestPath = this._branchRequestPath;
     const pending = requestCanvasBranch({
-      path: this._branchRequestPath,
+      path: requestPath,
       signal: this._branchAbort.signal,
+      getLegacyBranch: () => (this._branchPath === requestPath
+        ? this._readLegacyBranch() : undefined),
     }).then((raw) => {
       const branch = getAemBranch(raw);
-      if (this._branchPromise === pending) this._branch = branch;
+      if (this._branchPromise === pending && this._branchPath === requestPath) {
+        this._branch = branch;
+      }
       return branch;
     });
     this._branchPromise = pending;
@@ -346,8 +351,30 @@ class NXEwActions extends LitElement {
     return org && site && path ? `/${org}/${site}/${path.replace(/^\/+/, '')}` : null;
   }
 
+  _readLegacyBranch() {
+    // Compatibility with canvas releases predating the bridge. Only trust the
+    // actual editor iframe for this document/site, never unrelated plugin frames.
+    if (this._hasBranchBridge) return undefined;
+    const { org, site, path } = this._hashState || {};
+    const iframe = document.querySelector('ew-editor-wysiwyg')?.shadowRoot?.querySelector('iframe');
+    if (!org || !site || !path || !iframe?.src) return undefined;
+    try {
+      const iframeUrl = new URL(iframe.src);
+      const pathname = `/${path.split('/').filter(Boolean).map(encodeURIComponent).join('/')}`;
+      if (iframeUrl.protocol !== 'https:' || iframeUrl.pathname !== pathname) return undefined;
+      const suffix = ['preview.da.live', 'stage-preview.da.live']
+        .map((domain) => `--${site}--${org}.${domain}`.toLowerCase())
+        .find((domain) => iframeUrl.hostname.endsWith(domain));
+      const branch = suffix && iframeUrl.hostname.slice(0, -suffix.length);
+      return branch && /^[a-z0-9-]+$/.test(branch) ? branch : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   _onBranchState = ({ detail }) => {
     if (!detail || detail.path !== this._branchPath) return;
+    this._hasBranchBridge = true;
     this._branch = detail.status === 'ready' && typeof detail.branch === 'string' && detail.branch
       ? getAemBranch(detail.branch) : undefined;
     this._branchPromise = this._branch === undefined ? undefined : Promise.resolve(this._branch);
@@ -400,6 +427,7 @@ class NXEwActions extends LitElement {
     const aemPath = buildAemPathFromHashState(this._hashState);
     if (!aemPath || this._busy) return;
     const versionPath = this._prepareDetails?.fullpath;
+    const branchPath = this._branchPath;
 
     this._dialog = undefined;
     this._busy = true;
@@ -412,8 +440,16 @@ class NXEwActions extends LitElement {
     try {
       branch = await this._branchPromise;
       if (branch === undefined) throw new Error('Canvas branch unavailable.');
-    } catch {
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        this._busy = false;
+        return;
+      }
       await this._showActionError(action, 'Unable to resolve the preview branch. Please retry or reload the editor.');
+      return;
+    }
+    if (!this.isConnected || this._branchPath !== branchPath) {
+      this._busy = false;
       return;
     }
 
