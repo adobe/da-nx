@@ -1,9 +1,10 @@
 import { LitElement, html } from 'da-lit';
-import { getMetadata } from '../../scripts/nx.js';
+import { getMetadata, getUISize } from '../../scripts/nx.js';
 
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg } from '../../utils/svg.js';
+import { UISizeController } from '../../utils/ui-size.js';
 
 const DEFAULT_NAV_PATH = '/nx/fragments/nav';
 
@@ -29,6 +30,8 @@ class NXNav extends LitElement {
   };
 
   _getSegments;
+
+  _uiSize = new UISizeController(this);
 
   connectedCallback() {
     super.connectedCallback();
@@ -136,6 +139,7 @@ class NXNav extends LitElement {
 
   updated() {
     if (!this._breadcrumbs) return;
+    this._breadcrumbs.size = getUISize();
     this._breadcrumbs.pathSegments = this._getSegments(this._hashState);
   }
 

@@ -19,6 +19,11 @@
   color: var(--s2-gray-700);
 }
 
+:host([size="s"]) .nx-breadcrumb ol {
+  font-size: var(--s2-component-s-regular-font-size);
+  line-height: var(--s2-component-s-regular-line-height);
+}
+
 .crumb {
   display: flex;
   align-items: center;

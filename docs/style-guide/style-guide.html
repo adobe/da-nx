@@ -567,8 +567,10 @@ showToast({
             rel="noopener">docs →</a></h3>
         <div class="sg-demo">
           <nx-breadcrumb id="demo-breadcrumb"></nx-breadcrumb>
+          <nx-breadcrumb id="demo-breadcrumb-s" size="s"></nx-breadcrumb>
         </div>
         <pre><code>&lt;nx-breadcrumb&gt;&lt;/nx-breadcrumb&gt;
+&lt;nx-breadcrumb size="s"&gt;&lt;/nx-breadcrumb&gt;
 
 breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pre>
       </article>
@@ -745,6 +747,7 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
 
     // nx-breadcrumb
     document.querySelector('#demo-breadcrumb').pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];
+    document.querySelector('#demo-breadcrumb-s').pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];
     // nx-pills
     const pills = document.querySelector('#demo-pills');
     pills.items = [

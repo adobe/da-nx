@@ -18,8 +18,8 @@
   right: 24px;
   transform: translateY(-50%);
   display: block;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
 }
 
 #profile-btn {
@@ -36,15 +36,15 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   border: none;
   cursor: pointer;
 }
 
 .nx-btn-profile img {
-  max-width: 24px;
-  border-radius: 12px;
+  max-width: 20px;
+  border-radius: 50%;
   pointer-events: none;
 }
 
@@ -60,6 +60,7 @@
   background-color: light-dark(#fff, #000);
   box-shadow: 0 0 2px 0 rgb(0 0 0 / 12%), 0 3px 6px 0 rgb(0 0 0 / 4%), 0 4px 8px 0 rgb(0 0 0 / 8%);
   overflow: hidden;
+  font-size: var(--nx-ui-text-content);
 }
 
 #nx-menu-profile:popover-open {
@@ -70,7 +71,7 @@
 
 .nx-menu-btn {
   margin: -1px 0 0;
-  font-size: 14px;
+  font-size: var(--nx-ui-text-content);
   cursor: pointer;
 }
 
@@ -144,7 +145,7 @@
 
 .nx-display-name {
   margin: 0 0 4px;
-  font-size: 22px;
+  font-size: var(--nx-ui-text-heading);
   font-weight: 700;
   line-height: 1;
   overflow-wrap: break-word;
@@ -188,7 +189,7 @@
 .nx-org-title,
 .nx-menu-link-title,
 .nx-all-orgs-title {
-  font-size: 14px;
+  font-size: var(--nx-ui-text-content);
   font-weight: 700;
   text-transform: uppercase;
   margin: 0 0 6px;
@@ -197,7 +198,7 @@
 
 .nx-org-name {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--nx-ui-text-content);
 }
 
 .nx-menu-all-orgs {
@@ -230,7 +231,7 @@
 .nx-orgs-btn-switch {
   display: block;
   text-align: left;
-  font-size: 16px;
+  font-size: var(--nx-ui-text-content);
   line-height: 24px;
   background: transparent;
   border: none;
@@ -306,7 +307,7 @@
 
 .nx-menu-btn-signout {
   text-align: left;
-  font-size: 16px;
+  font-size: var(--nx-ui-text-content);
   position: relative;
   background: transparent;
   border: none;
@@ -330,5 +331,21 @@
 
   &:hover {
     background-color: var(--s2-gray-100);
+  }
+}
+
+:host([data-ui-size="m"]) {
+  .icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .nx-btn-profile {
+    width: 32px;
+    height: 32px;
+  }
+
+  .nx-btn-profile img {
+    max-width: 24px;
   }
 }

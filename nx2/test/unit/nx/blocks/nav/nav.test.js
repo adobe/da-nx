@@ -140,3 +140,32 @@ describe('nav decorateActions', () => {
   // can't be exercised here without a false failure unrelated to app
   // behavior — verify manually instead (see nav.js's decorateActions).
 });
+
+describe('nav breadcrumb ui-size', () => {
+  let nav;
+
+  beforeEach(async () => {
+    await import('../../../../../blocks/shared/breadcrumb/breadcrumb.js');
+    nav = document.createElement('nx-nav');
+    nav.loadNav = async () => { };
+  });
+
+  afterEach(() => {
+    nav.remove();
+    localStorage.removeItem('ui-size');
+  });
+
+  it('passes the ui-size to the breadcrumb and follows changes', async () => {
+    const { setUISize } = await import('../../../../../utils/ui-size.js');
+    document.body.append(nav);
+    nav._getSegments = () => ['org', 'site'];
+    nav._breadcrumbs = document.createElement('nx-breadcrumb');
+    await nav.updateComplete;
+    expect(nav._breadcrumbs.size).to.equal('s');
+
+    setUISize({ size: 'm' });
+    await nav.updateComplete;
+    expect(nav._breadcrumbs.size).to.equal('m');
+    setUISize({ size: 's' });
+  });
+});

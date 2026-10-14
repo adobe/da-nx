@@ -8,6 +8,7 @@ export default class NxBreadcrumb extends LitElement {
   static properties = {
     pathSegments: { type: Array, attribute: false },
     baseUrl: { type: String, attribute: false },
+    size: { type: String, reflect: true },
   };
 
   connectedCallback() {

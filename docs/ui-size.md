@@ -38,7 +38,7 @@ then reload (with "Disable cache" ticked while testing branch previews).
 2. **Keep the layer small.** Text has three roles (heading, title, content). Secondary text (dates, hints, descriptions) uses content too. Only tiny badges and the small section titles in menus and pickers are 11px in s and 12px in m. Shared components own their icon sizing through their size variant; don't add a global icon scale.
 3. **s is smaller than m where sizing changes.** Text tokens step one size down the S2 scale in s. Compact row controls can stay the same size.
 4. **Only S2 sizes.** No in-between values like 13px or 15px.
-5. **Shared components** (`nx-menu`, `nx-picker`, `nx-pills`, `nx-search`, `nx-prompts`, `nx-new-chat`, `buttons.css`) follow their own variant, not the page's ui-size. Inside them use plain px per variant, no `--nx-ui-*` vars. EW call sites pass the ui-size as the variant (`size=${getUISize()}`).
+5. **Shared components** (`nx-menu`, `nx-picker`, `nx-pills`, `nx-search`, `nx-prompts`, `nx-new-chat`, `nx-breadcrumb`, `buttons.css`) follow their own variant, not the page's ui-size. Inside them use plain px per variant, no `--nx-ui-*` vars. EW call sites pass the ui-size as the variant (`size=${getUISize()}`).
    Row action buttons (file explorer, outline, extensions library, block library, comments) stay `nx-btn-sm` (24px, 16px icon) in both sizes so rows keep their height.
    Exception: the versions row ⋯ follows the scale (24px in s, 32px in m).
    EW actions (Prepare, Send, and the deploy action) use `nx-btn-sm` in s and the default button size in m.
@@ -75,6 +75,8 @@ Standalone icons use explicit dimensions, with an m override on the component ho
 | Page evaluation status and modal heading   | 18 | 20 |
 | Page evaluation section chevron, modal copy and modal paging | 14 | 16 |
 | Page evaluation list paging                | 12 | 14 |
+| Profile popover icons                      | 16 | 18 |
+| Profile avatar button (avatar)             | 24 (20) | 32 (24) |
 
 Components needing these overrides use `UISizeController` to keep `data-ui-size` current.
 The page's text tokens still inherit through shadow roots; icon dimensions do not depend on them.
