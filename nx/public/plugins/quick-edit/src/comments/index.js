@@ -1,5 +1,6 @@
 import { MESSAGE_TYPES } from '../../../../../utils/message-types.js';
 import { findTextBlock } from '../dom-index.js';
+import { runAfterLoad, watchLayout } from '../overlay.js';
 import { findPictureForImageMarker } from './geometry.js';
 import {
   clearOverlay,
@@ -22,19 +23,14 @@ function setupCommentClicks(ctx) {
   document.addEventListener('click', ctx.commentClickListener);
 }
 
-let repositionScheduled = false;
 const overlayListenerContexts = new WeakSet();
 
 function scheduleCommentMarkerLayout(ctx, root = document) {
   if (!ctx.commentMarkers?.length) return;
 
-  const run = () => {
+  runAfterLoad(() => {
     if (ctx.commentMarkers?.length) renderCommentMarkers(ctx, root);
-  };
-
-  if (document.readyState !== 'complete') {
-    window.addEventListener('load', run, { once: true });
-  }
+  });
 }
 
 export function applyCommentMarkers(ctx, root = document) {
@@ -45,24 +41,10 @@ export function applyCommentMarkers(ctx, root = document) {
   if (!overlayListenerContexts.has(ctx)) {
     overlayListenerContexts.add(ctx);
     setupCommentClicks(ctx);
-    const handler = () => {
-      if (repositionScheduled) return;
-      repositionScheduled = true;
-      requestAnimationFrame(() => {
-        repositionScheduled = false;
-        if (ctx.commentMarkers?.length) renderCommentMarkers(ctx, root);
-      });
-    };
-    window.addEventListener('scroll', handler, true);
-    window.addEventListener('resize', handler);
-    root.addEventListener('transitionend', handler);
-    root.addEventListener('animationend', handler);
-    if (typeof ResizeObserver !== 'undefined') {
-      ctx.commentResizeObserver = new ResizeObserver(handler);
-      ctx.commentResizeObserver.observe(root.documentElement);
-      const main = root.querySelector('main');
-      if (main) ctx.commentResizeObserver.observe(main);
-    }
+    const { resizeObserver } = watchLayout(() => {
+      if (ctx.commentMarkers?.length) renderCommentMarkers(ctx, root);
+    }, root);
+    if (resizeObserver) ctx.commentResizeObserver = resizeObserver;
   }
   renderCommentMarkers(ctx, root);
   scheduleCommentMarkerLayout(ctx, root);

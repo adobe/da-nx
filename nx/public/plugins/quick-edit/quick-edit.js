@@ -24,6 +24,7 @@ import {
   setupCommentShortcut,
   scrollToProseIndex,
 } from './src/comments/index.js';
+import { setFindingMarkers, applyFindingMarkers } from './src/findings/index.js';
 import {
   setupNodeSelection,
   setSelectedNode,
@@ -59,6 +60,7 @@ async function setBody(body, rerenderScope, ctx) {
   restoreBlockIndices(doc, document);
   restoreImageIndices(doc, document);
   applyCommentMarkers(ctx);
+  applyFindingMarkers(ctx);
   setupNodeSelection(ctx);
   setSelectedNode(getSelectedNode());
   setupContentEditableListeners(ctx);
@@ -109,6 +111,8 @@ function onMessage(e, ctx) {
     }
   } else if (type === MESSAGE_TYPES.SET_COMMENT_MARKERS) {
     setCommentMarkers(payload, ctx);
+  } else if (type === MESSAGE_TYPES.SET_FINDING_MARKERS) {
+    setFindingMarkers(payload, ctx);
   } else if (type === MESSAGE_TYPES.SCROLL_TO_POS) {
     scrollToProseIndex(payload.proseIndex);
   } else if (type === MESSAGE_TYPES.SET_SELECTED_NODE) {
