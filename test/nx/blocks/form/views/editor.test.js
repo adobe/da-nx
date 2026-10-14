@@ -1,5 +1,9 @@
 import { expect } from '@esm-bundle/chai';
 import '../../../../../nx/blocks/form/views/editor.js';
+import FormRichtext from '../../../../../nx/blocks/form/fields/richtext.js';
+import * as pm from '../fields/mocks/pm.js';
+
+FormRichtext.loadProseMirror = () => Promise.resolve(pm);
 
 const tick = () => new Promise((resolve) => { requestAnimationFrame(resolve); });
 
@@ -46,6 +50,64 @@ describe('nx-editor primitive controls', () => {
     const el = await mountEditor(root);
     expect(el.shadowRoot.querySelector('form-textarea')).to.exist;
     expect(el.shadowRoot.querySelector('form-input')).to.equal(null);
+  });
+
+  it('renders a rich-text editor for a rich-text string node', async () => {
+    const root = objectRoot([
+      { kind: 'string', pointer: '/data/body', label: 'Body', semanticType: 'rich-text', value: '<p>hi</p>' },
+    ]);
+    const el = await mountEditor(root);
+    const field = el.shadowRoot.querySelector('[data-pointer="/data/body"]');
+    expect(field.tagName).to.equal('FORM-RICHTEXT');
+    expect(field.value).to.equal('<p>hi</p>');
+    expect(el.shadowRoot.querySelector('form-textarea')).to.equal(null);
+  });
+
+  it('commits a rich-text value immediately on change', async () => {
+    const root = objectRoot([
+      { kind: 'string', pointer: '/data/body', label: 'Body', semanticType: 'rich-text', value: '<p>hi</p>' },
+    ]);
+    const el = await mountEditor(root);
+    const calls = [];
+    el.editor = { setField: (pointer, value) => calls.push([pointer, value]) };
+    const field = el.shadowRoot.querySelector('form-richtext');
+    field.value = '<p>bye</p>';
+    field.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    expect(el._inputTimers.has('/data/body')).to.equal(true);
+    field.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    expect(el._inputTimers.has('/data/body')).to.equal(false);
+    expect(calls).to.deep.equal([['/data/body', '<p>bye</p>']]);
+  });
+
+  it('clears an emptied rich-text value on change', async () => {
+    const root = objectRoot([
+      { kind: 'string', pointer: '/data/body', label: 'Body', semanticType: 'rich-text', value: '<p>hi</p>' },
+    ]);
+    const el = await mountEditor(root);
+    const calls = [];
+    el.editor = { setField: (pointer, value) => calls.push([pointer, value]) };
+    const field = el.shadowRoot.querySelector('form-richtext');
+    field.value = '';
+    field.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    expect(calls).to.deep.equal([['/data/body', undefined]]);
+  });
+
+  it('stretches a rich-text item to fill an array row', async () => {
+    const root = objectRoot([
+      {
+        kind: 'array',
+        pointer: '/data/notes',
+        label: 'Notes',
+        itemLabel: 'Note',
+        items: [
+          { kind: 'string', pointer: '/data/notes/0', label: 'Note', semanticType: 'rich-text', value: '<p>a</p>' },
+        ],
+      },
+    ]);
+    const el = await mountEditor(root);
+    const field = el.shadowRoot.querySelector('.form-array-item-input-row > form-richtext');
+    expect(field).to.exist;
+    expect(getComputedStyle(field).flexGrow).to.equal('1');
   });
 
   it('renders a single-line input for a plain string node', async () => {
