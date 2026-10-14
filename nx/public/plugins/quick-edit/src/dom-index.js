@@ -2,7 +2,7 @@ import { parseIndex } from './utils.js';
 
 const ATOMIC_TAGS = new Set(['br', 'img', 'picture']);
 
-export const OVERLAY_SELECTOR = '#qe-selection-overlay, #qe-comment-overlay';
+export const OVERLAY_SELECTOR = '#qe-selection-overlay, #qe-comment-overlay, #qe-finding-overlay';
 
 export function safeQuerySelectorAll(root, selector) {
   try {

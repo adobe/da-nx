@@ -16,6 +16,9 @@ export const MESSAGE_TYPES = Object.freeze({
   SET_SELECTED_NODE: 'set-selected-node', // { node: { anchorType, proseIndex, ... } | null, scrollIntoView }
   SET_COMMENT_MARKERS: 'set-comment-markers', // { markers: [...], selectedThreadId: string | null }
   SCROLL_TO_POS: 'scroll-to-pos', // { proseIndex: number } — scroll layout mode to a comment
+  // { markers: [{ id, anchorType: 'text'|'image'|'table', from, to, imageSrc?, badge? }],
+  //   selectedId: string | null, scrollIntoView?: boolean } — evaluation findings overlay
+  SET_FINDING_MARKERS: 'set-finding-markers',
 
   // Iframe -> host: ongoing
   CURSOR_MOVE: 'cursor-move', // { cursorOffset?, textCursorOffset? } — absent = clear remote cursor
@@ -31,6 +34,10 @@ export const MESSAGE_TYPES = Object.freeze({
   COMMENT_MARKER_CLEAR: 'comment-marker-clear', // no payload
   COMMENT_SHORTCUT: 'comment-shortcut', // no payload
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }
+  FINDING_MARKER_CLICK: 'finding-marker-click', // { id: string }
+  // { id: string, rect: { top, left, width, height } | null } — iframe-viewport coords of the
+  // marked element; sent after every marker render/reposition (null = not visible/unresolved)
+  FINDING_MARKER_LAYOUT: 'finding-marker-layout',
 
   // Iframe -> host: { proseIndex, imageVersion, requestId, imageData, fileName,
   //                  mimeType, originalSrc }
