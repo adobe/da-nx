@@ -10,6 +10,7 @@ class NxPills extends LitElement {
   static properties = {
     items: { type: Array },
     addEvent: { type: String },
+    label: { type: String },
   };
 
   _keyedItemIds = new Map();
@@ -137,23 +138,32 @@ class NxPills extends LitElement {
     return html`<svg class="pill-type-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${iconName}.svg#icon"></use></svg>`;
   }
 
-  _renderPill({
-    id, label, thumbnail, type, pinnable, pinned,
+  _renderAction({
+    id, label, pinnable, pinned, removable,
   }) {
-    const showPin = pinnable && !pinned;
-    const action = showPin
-      ? html`<button
-          class="pill-icon pill-pin"
-          type="button"
-          aria-label="Pin ${label}"
-          @click=${() => this._pin(id)}
-        ><svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-pinon-20-n.svg#icon"></use></svg></button>`
-      : html`<button
-          class="pill-icon"
-          type="button"
-          aria-label="Remove ${label}"
-          @click=${() => this._remove(id)}
-        ><svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-close-20-n.svg#icon"></use></svg></button>`;
+    if (pinnable && !pinned) {
+      return html`<button
+        class="pill-icon pill-pin"
+        type="button"
+        aria-label="Pin ${label}"
+        @click=${() => this._pin(id)}
+      ><svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-pinon-20-n.svg#icon"></use></svg></button>`;
+    }
+    // Display-only pills (e.g. read-only tags) opt out of the remove button.
+    if (removable === false) return nothing;
+    return html`<button
+      class="pill-icon"
+      type="button"
+      aria-label="Remove ${label}"
+      @click=${() => this._remove(id)}
+    ><svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-close-20-n.svg#icon"></use></svg></button>`;
+  }
+
+  _renderPill(item) {
+    const {
+      id, label, thumbnail, type, pinnable,
+    } = item;
+    const action = this._renderAction(item);
     const labelEl = pinnable
       ? html`<button
           class="pill-label pill-label-button"
@@ -175,7 +185,7 @@ class NxPills extends LitElement {
   render() {
     if (!this._list.length) return nothing;
     return html`
-      <ul class="pills-container" aria-label="Attached items" aria-live="polite">
+      <ul class="pills-container" aria-label=${this.label || 'Attached items'} aria-live="polite">
         ${this._list.map((item) => this._renderPill(item))}
       </ul>
     `;

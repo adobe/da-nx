@@ -1,6 +1,6 @@
 # nx-pills
 
-A row of removable, optionally pinnable "chips" for showing attached context (a selected block, a file, a folder, ...). Renders nothing when there's nothing to show.
+A row of removable, optionally pinnable "chips" for showing attached context (a selected block, a file, a folder, ...). Items can also opt out of the remove button to act as read-only tags (e.g. a type label on a card). Renders nothing when there's nothing to show.
 
 ## Usage
 
@@ -66,6 +66,19 @@ document.dispatchEvent(new CustomEvent("my-add-to-list-event", {
 // removes that key's pill entirely (e.g. selection was cleared).
 ```
 
+### Read-only tags
+
+Set `removable: false` on items that are just labels. Optionally set the component's `label` to name the list for screen readers. It's announced instead of the default "Attached items" and isn't shown on screen. (Each item's own `label` is the text shown on that pill.)
+
+```js
+const types = document.querySelector("#types");
+types.label = "Type"; // optional: accessible name for the list, not displayed
+types.items = [
+  { id: "app", label: "App", removable: false },
+  { id: "plugin", label: "Plugin", removable: false },
+];
+```
+
 ## Item shape
 
 ```js
@@ -76,6 +89,7 @@ document.dispatchEvent(new CustomEvent("my-add-to-list-event", {
   thumbnail: 'blob:...', // optional — shown instead of the type icon
   pinnable: true,        // optional — shows a pin button instead of remove; label becomes clickable
   pinned: true,          // optional — sourced/managed by you (controlled) or by nx-pills (self-managed)
+  removable: false,      // optional — hides the remove button for display-only pills (default: removable)
 }
 ```
 
@@ -89,6 +103,7 @@ Pinnable items also carry `selFrom`/`selTo` (required for the pill to be clickab
 | ---------- | -------- | ------------------------------------------------------------------------------------------------- |
 | `items`    | `Array`  | The list to render. Set by you in controlled mode; owned by nx-pills in self-managed mode.       |
 | `addEvent` | `String` | Document event name to self-manage from. Leave unset for controlled mode.                        |
+| `label`    | `String` | Accessible name for the list. Defaults to `"Attached items"`.                                   |
 
 ### Methods
 
@@ -106,6 +121,22 @@ Self-managed mode only:
 | `nx-pill-remove`  | `{ id }`                                                                  | Controlled only          | User clicked remove — update your list and re-set `items`.        |
 | `nx-pill-pin`     | `{ id }`                                                                  | Controlled only          | User clicked pin — update your list and re-set `items`.           |
 | `nx-pill-activate`| `{ id, selFrom, selTo, selectionType, blockName, proseIndex }`            | Both modes               | User clicked a pinned item's label — decide what "activating" it means (e.g. highlight it elsewhere). |
+
+## Styling
+
+Pills are blue by default. Hosts can recolor them with CSS custom properties set on `nx-pills` (or any ancestor):
+
+| Custom property         | Default              | Applies to             |
+| ----------------------- | -------------------- | ---------------------- |
+| `--nx-pill-background`  | `var(--s2-blue-200)` | Pill background        |
+| `--nx-pill-color`       | `var(--s2-blue-1000)`| Label and type icon    |
+
+```css
+nx-pills {
+  --nx-pill-background: var(--s2-orange-300);
+  --nx-pill-color: var(--s2-orange-1100);
+}
+```
 
 ## Cleanup
 

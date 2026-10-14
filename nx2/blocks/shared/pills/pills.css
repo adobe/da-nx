@@ -29,7 +29,7 @@
     align-items: center;
     gap: var(--s2-spacing-75);
     padding: var(--s2-spacing-75) var(--s2-spacing-100);
-    background-color: var(--s2-blue-200);
+    background-color: var(--nx-pill-background, var(--s2-blue-200));
     border-radius: var(--s2-corner-radius-400);
     max-width: 200px;
     min-width: 0;
@@ -68,7 +68,7 @@
     width: 14px;
     height: 14px;
     flex-shrink: 0;
-    color: var(--s2-blue-1000);
+    color: var(--nx-pill-color, var(--s2-blue-1000));
   }
 
   .pill-label {
@@ -78,7 +78,7 @@
     flex: 1;
     min-width: 0;
     font-size: var(--s2-body-size-xs);
-    color: var(--s2-blue-1000);
+    color: var(--nx-pill-color, var(--s2-blue-1000));
     line-height: var(--s2-component-s-medium-line-height);
   }
 

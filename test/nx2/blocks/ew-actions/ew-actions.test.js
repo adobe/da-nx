@@ -1,5 +1,8 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
+import { versions, aem } from '../../../../nx2/utils/api.js';
+import { VERSION_EVENT } from '../../../../nx2/utils/version-events.js';
 import '../../../../nx2/blocks/ew-actions/ew-actions.js';
 
 let seq = 0;
@@ -17,6 +20,10 @@ function installFetch(responsesByUrlSubstring) {
   window.fetch = async (url, opts) => {
     const match = entries.find(([key]) => url.includes(key));
     if (match) return new Response(JSON.stringify(match[1]), { status: 200 });
+    if (url.includes('/ping/')) return new Response('', { status: 200 });
+    if (url.startsWith(`${DA_ADMIN}/config/`)) {
+      return new Response(JSON.stringify({ data: [] }), { status: 200 });
+    }
     return origFetch(url, opts);
   };
   return () => { window.fetch = origFetch; };
@@ -36,6 +43,94 @@ describe('nx-ew-actions', () => {
   afterEach(() => {
     el?.remove();
     restoreFetch?.();
+    sinon.restore();
+  });
+
+  describe('version creation', () => {
+    const path = '/org/site/page.html';
+
+    it('notifies history only after the version is persisted', async () => {
+      let finish;
+      const create = sinon.stub(versions, 'create').returns(new Promise((resolve) => {
+        finish = resolve;
+      }));
+      el = await makeEl();
+      const notify = sinon.spy();
+      el.addEventListener(VERSION_EVENT.CREATED, notify);
+      const saving = el._saveVersion({ action: 'preview', path });
+      expect(notify.called).to.be.false;
+      finish(new Response('', { status: 201 }));
+      await saving;
+      expect(create.calledOnceWithExactly(path, { comment: 'Previewed' })).to.be.true;
+      expect(notify.calledOnce).to.be.true;
+      const event = notify.firstCall.args[0];
+      expect(event.detail).to.deep.equal({ path });
+      expect(event.bubbles).to.be.true;
+      expect(event.composed).to.be.true;
+    });
+
+    it('records published versions with the same success notification', async () => {
+      const create = sinon.stub(versions, 'create').resolves(new Response('', { status: 201 }));
+      el = await makeEl();
+      const notify = sinon.spy();
+      el.addEventListener(VERSION_EVENT.CREATED, notify);
+      await el._saveVersion({ action: 'publish', path });
+      expect(create.calledOnceWithExactly(path, { comment: 'Published' })).to.be.true;
+      expect(notify.calledOnce).to.be.true;
+    });
+
+    [500, 403].forEach((status) => {
+      it(`logs HTTP ${status} without showing an alert or notifying history`, async () => {
+        sinon.stub(versions, 'create').resolves(new Response('', { status }));
+        el = await makeEl();
+        const warn = sinon.stub(console, 'warn');
+        const notify = sinon.spy();
+        el.addEventListener(VERSION_EVENT.CREATED, notify);
+        await el._saveVersion({ action: 'preview', path });
+        expect(notify.called).to.be.false;
+        expect(warn.calledOnce).to.be.true;
+        expect(warn.firstCall.args[0]).to.equal('Error creating auto version (Previewed).');
+        expect(warn.firstCall.args[1].message).to.equal(`Version creation failed (${status}).`);
+        expect(document.querySelector('nx-toast')).to.be.null;
+        expect(el._hasError).to.not.be.true;
+      });
+    });
+
+    it('logs network failure without showing an alert or emitting a success notification', async () => {
+      const error = new Error('network down');
+      sinon.stub(versions, 'create').rejects(error);
+      el = await makeEl();
+      const warn = sinon.stub(console, 'warn');
+      const notify = sinon.spy();
+      el.addEventListener(VERSION_EVENT.CREATED, notify);
+      await el._saveVersion({ action: 'publish', path });
+      expect(notify.called).to.be.false;
+      expect(warn.calledOnceWithExactly('Error creating auto version (Published).', error)).to.be.true;
+      expect(document.querySelector('nx-toast')).to.be.null;
+    });
+
+    it('keeps the original document path when navigating during preview', async () => {
+      restoreFetch = installFetch({ '/sidekick/': {} });
+      sinon.stub(aem, 'preview').resolves(new Response(JSON.stringify({
+        preview: { url: 'https://example.com/page' },
+      }), { status: 200 }));
+      sinon.stub(window, 'open');
+      el = await makeEl();
+      el._hashState = { org: 'org', site: 'site', path: 'page' };
+      const editor = document.createElement('ew-editor-doc');
+      editor.forceSave = async () => {
+        el._hashState = { org: 'org', site: 'site', path: 'other' };
+        return { ok: true };
+      };
+      document.body.append(editor);
+      const save = sinon.stub(el, '_saveVersion').resolves();
+      try {
+        await el._runAemAction('preview');
+        expect(save.calledOnceWithExactly({ action: 'preview', path })).to.be.true;
+      } finally {
+        editor.remove();
+      }
+    });
   });
 
   describe('_updateHidePublish', () => {

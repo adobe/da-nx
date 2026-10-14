@@ -52,7 +52,9 @@
 
   & > div {
     display: inline-flex;
+    align-items: center;
     flex-shrink: 0;
+    gap: 4px;
     margin-inline-start: auto;
     white-space: nowrap;
   }
@@ -494,6 +496,16 @@
 .nx-action-btn-quiet,
 .nx-action-btn-icon:not(.nx-btn-sm) {
   font-size: var(--s2-component-m-regular-font-size);
+}
+
+.nx-new-chat.nx-new-chat {
+  border: 2px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-800);
+
+  &:hover:not(:disabled) {
+    background: var(--s2-gray-100);
+    border-color: var(--s2-gray-400);
+  }
 }
 
 .chat-form-wrap {
