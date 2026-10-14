@@ -43,7 +43,9 @@
 }
 
 .nx-btn-profile img {
-  max-width: 20px;
+  width: 24px;
+  height: 24px;
+  object-fit: cover;
   border-radius: 50%;
   pointer-events: none;
 }
@@ -125,14 +127,16 @@
 
 .nx-menu-btn-details picture {
   display: block;
+  flex-shrink: 0;
   border-radius: 38px;
   overflow: hidden;
 }
 
 .nx-menu-btn-details img {
   display: block;
-  width: 75px;
-  height: 75px;
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
 }
 
 .nx-menu-details-name {
@@ -346,6 +350,12 @@
   }
 
   .nx-btn-profile img {
-    max-width: 24px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .nx-menu-btn-details img {
+    width: 72px;
+    height: 72px;
   }
 }

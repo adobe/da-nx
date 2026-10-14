@@ -76,7 +76,8 @@ Standalone icons use explicit dimensions, with an m override on the component ho
 | Page evaluation section chevron, modal copy and modal paging | 14 | 16 |
 | Page evaluation list paging                | 12 | 14 |
 | Profile popover icons                      | 16 | 18 |
-| Profile avatar button (avatar)             | 24 (20) | 32 (24) |
+| Profile avatar button                      | 24 | 32 |
+| Profile popover photo                      | 60 | 72 |
 
 Components needing these overrides use `UISizeController` to keep `data-ui-size` current.
 The page's text tokens still inherit through shadow roots; icon dimensions do not depend on them.
