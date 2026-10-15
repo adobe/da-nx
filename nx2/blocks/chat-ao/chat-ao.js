@@ -450,7 +450,7 @@ export default class NxChatAo extends LitElement {
             <span>New chat</span>
           </button>
           <button
-            class="nx-action-btn-icon chat-close ${btnSizeCls}"
+            class="nx-action-btn-icon chat-close"
             aria-label="Close chat panel"
             @click=${this._closePanel}
           >${icon('close')}</button>
