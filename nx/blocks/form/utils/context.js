@@ -146,11 +146,14 @@ export async function loadFormContext({
     };
   }
 
+  // Re-read with the schema so schema-aware values (e.g. rich text) keep their markup.
+  const typed = convertHtmlToJson({ html, schema });
+
   return {
     status: 'ready',
     schemaName,
     schema,
-    json,
+    json: !typed.error && typed.json ? typed.json : json,
     ...withBase(details, schemas),
   };
 }
