@@ -50,6 +50,8 @@
   }
 
   .pill-thumbnail {
+    width: 16px;
+    height: 16px;
     object-fit: cover;
     border-radius: 2px;
     flex-shrink: 0;
@@ -92,6 +94,11 @@
   .pill-type-icon, .pill-pin svg, .pill-icon svg {
     width: 16px;
     height: 16px;
+  }
+
+  .pill-thumbnail {
+    width: 18px;
+    height: 18px;
   }
 
   .pill-label {
