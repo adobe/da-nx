@@ -21,10 +21,10 @@ const LABELS = {
   cancel: 'Cancel',
   copy: 'Copy URL',
   copied: 'URL copied',
-  adding: (kind) => `Adding ${kind}`,
-  empty: (kind) => `No ${kind} selected`,
-  removeTitle: (kind) => `Remove ${kind}?`,
-  removeBody: (kind) => `The ${kind} will be removed from this field.`,
+  adding: 'Adding asset',
+  empty: 'No asset selected',
+  removeTitle: 'Remove asset?',
+  removeBody: 'The asset will be removed from this field.',
 };
 
 const MESSAGES = {
@@ -83,10 +83,6 @@ class FormAsset extends LitElement {
       name: this._selection?.name,
       previewOrigin: this.previewOrigin,
     });
-  }
-
-  get _kindLabel() {
-    return this.value ? this._media.kind : MEDIA_KINDS.file;
   }
 
   get _availableSources() {
@@ -297,7 +293,7 @@ class FormAsset extends LitElement {
 
   _renderActions() {
     if (this._pending) {
-      return html`<span class="nx-loading-spinner" role="status" aria-label=${LABELS.adding(this._kindLabel)}></span>`;
+      return html`<span class="nx-loading-spinner" role="status" aria-label=${LABELS.adding}></span>`;
     }
     if (!this.value) {
       return this._renderSelectButton();
@@ -347,7 +343,7 @@ class FormAsset extends LitElement {
       <div class="asset-row">
         ${this.value
           ? this._renderUrl()
-          : html`<span class="asset-placeholder">${LABELS.empty(this._kindLabel)}</span>`}
+          : html`<span class="asset-placeholder">${LABELS.empty}</span>`}
         <div class="asset-actions">${this._renderActions()}</div>
       </div>
     `;
@@ -356,8 +352,8 @@ class FormAsset extends LitElement {
   _renderRemoveDialog() {
     if (!this._confirmingRemove) return nothing;
     return html`
-      <nx-dialog title=${LABELS.removeTitle(this._kindLabel)} @close=${this._onRemoveDialogClose}>
-        <p>${LABELS.removeBody(this._kindLabel)}</p>
+      <nx-dialog title=${LABELS.removeTitle} @close=${this._onRemoveDialogClose}>
+        <p>${LABELS.removeBody}</p>
         <button slot="actions" type="button" class="nx-form-btn-secondary" autofocus
           @click=${this._closeRemoveDialog}>${LABELS.cancel}</button>
         <button slot="actions" type="button" class="asset-remove-confirm nx-form-btn-primary"
