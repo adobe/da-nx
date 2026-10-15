@@ -15,8 +15,8 @@
 .ui-artifact-pe-icon {
   display: inline-block;
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   background-color: currentcolor;
   mask-size: contain;
   mask-repeat: no-repeat;
@@ -82,18 +82,18 @@
 }
 
 .ui-artifact-pe-tile-label {
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-800);
 }
 
 .ui-artifact-pe-tile-value {
-  font-size: var(--nx-ui-text-heading);
+  font-size: var(--s2-heading-size-s);
   font-weight: var(--s2-heading-font-weight);
   line-height: var(--s2-heading-line-height);
 }
 
 .ui-artifact-pe-tile-desc {
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-600);
 }
 
@@ -146,13 +146,13 @@
 }
 
 .ui-artifact-pe-section-sublabel {
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-600);
 }
 
 .ui-artifact-pe-chevron {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
   background-color: var(--s2-gray-600);
   mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
@@ -164,8 +164,8 @@
 }
 
 :host([data-ui-size="m"]) .ui-artifact-pe-chevron {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
 .ui-artifact-pe-section[open] > .ui-artifact-pe-section-header > .ui-artifact-pe-chevron {
@@ -209,7 +209,7 @@
 }
 
 .ui-artifact-pe-item-desc {
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-600);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -219,7 +219,7 @@
 .ui-artifact-pe-item-action {
   flex-shrink: 0;
   align-self: center;
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-s-regular-font-size);
   font-weight: 500;
   color: var(--s2-gray-900);
   background: none;
@@ -245,7 +245,7 @@
 }
 
 .ui-artifact-pe-paging-label {
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-s-regular-font-size);
   font-weight: bold;
   color: var(--s2-gray-800);
 }
@@ -275,8 +275,8 @@
   &::after {
     content: "";
     display: block;
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     background-color: currentcolor;
     mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
     mask-size: contain;
@@ -321,8 +321,8 @@
 }
 
 .ui-artifact-pe-modal-heading-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
   background-color: currentcolor;
   mask-size: contain;
@@ -357,7 +357,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-800);
   background: none;
   border: none;
@@ -371,8 +371,8 @@
 }
 
 .ui-artifact-pe-modal-copy-icon {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
   background-color: currentcolor;
   mask-image: url("/img/icons/s2-icon-copy-20-n.svg");
@@ -399,7 +399,7 @@
   background: var(--s2-gray-100);
   border-radius: var(--s2-corner-radius-100);
   padding: var(--s2-spacing-50) 10px;
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-800);
   margin-bottom: var(--s2-spacing-200);
 }
@@ -446,8 +446,8 @@
   &::after {
     content: "";
     display: block;
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     background-color: currentcolor;
     mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
     mask-size: contain;
@@ -465,25 +465,43 @@
 }
 
 .ui-artifact-pe-modal-paging-label {
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-s-regular-font-size);
   font-weight: bold;
   color: var(--s2-gray-800);
 }
 
 :host([data-ui-size="m"]) {
   .ui-artifact-pe-icon, .ui-artifact-pe-modal-heading-icon {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
   }
 
   .ui-artifact-pe-modal-copy-icon,
   .ui-artifact-pe-modal-paging-btn::after {
+    width: 18px;
+    height: 18px;
+  }
+
+  .ui-artifact-pe-paging-btn::after {
     width: 16px;
     height: 16px;
   }
 
-  .ui-artifact-pe-paging-btn::after {
-    width: 14px;
-    height: 14px;
+  .ui-artifact-pe-tile-value {
+    font-size: var(--s2-heading-size-m);
+  }
+
+  :is(
+    .ui-artifact-pe-tile-label,
+    .ui-artifact-pe-tile-desc,
+    .ui-artifact-pe-section-sublabel,
+    .ui-artifact-pe-item-desc,
+    .ui-artifact-pe-item-action,
+    .ui-artifact-pe-paging-label,
+    .ui-artifact-pe-modal-copy,
+    .ui-artifact-pe-modal-chip,
+    .ui-artifact-pe-modal-paging-label
+  ) {
+    font-size: var(--s2-component-m-regular-font-size);
   }
 }

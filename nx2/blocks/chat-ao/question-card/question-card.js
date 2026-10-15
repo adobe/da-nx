@@ -182,7 +182,7 @@ class NxQuestionCard extends LitElement {
   render() {
     if (!this.pending) return nothing;
     const { context, questions } = this.pending;
-    const btnSizeCls = this.size === 'm' ? '' : 'nx-btn-sm';
+    const btnSizeCls = this.size === 'm' ? 'nx-btn-lg' : '';
     return html`
       <form class="question-card" @submit=${this._submit} @keydown=${this._handleFormKeydown}>
         <div class="question-body">

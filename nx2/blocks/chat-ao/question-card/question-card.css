@@ -35,7 +35,7 @@
 
 .question-context {
   margin: 0;
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-500);
 }
 
@@ -118,7 +118,7 @@
 }
 
 .question-option-desc {
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-600);
 }
 
@@ -143,5 +143,14 @@
 
   .nx-btn-primary {
     border-radius: var(--s2-corner-radius-400);
+  }
+}
+
+:host([size="m"]) {
+  :is(
+    .question-context,
+    .question-option-desc
+  ) {
+    font-size: var(--s2-component-m-regular-font-size);
   }
 }

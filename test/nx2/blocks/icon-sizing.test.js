@@ -11,16 +11,16 @@ const cases = [
       <button class="deploy-copy"><svg class="deploy-glyph"></svg></button>
     `,
     icons: [
-      { selector: '.deploy-glyph', s: 14, m: 16 },
-      { selector: '.deploy-card-check .deploy-glyph', s: 20, m: 22 },
-      { selector: '.deploy-copy .deploy-glyph', s: 16, m: 18 },
+      { selector: '.deploy-glyph', s: 16, m: 18 },
+      { selector: '.deploy-card-check .deploy-glyph', s: 24, m: 26 },
+      { selector: '.deploy-copy .deploy-glyph', s: 18, m: 20 },
     ],
   },
   {
     name: 'chat alert icons',
     path: '/nx2/blocks/chat-ao/artifacts/artifacts.css',
     markup: '<div class="ui-artifact-alert-icon"></div>',
-    icons: [{ selector: '.ui-artifact-alert-icon', s: 18, m: 20 }],
+    icons: [{ selector: '.ui-artifact-alert-icon', s: 20, m: 22 }],
   },
   {
     name: 'page evaluation and modal icons',
@@ -34,15 +34,15 @@ const cases = [
       <button class="ui-artifact-pe-modal-paging-btn"></button>
     `,
     icons: [
-      { selector: '.ui-artifact-pe-icon', s: 18, m: 20 },
-      { selector: '.ui-artifact-pe-chevron', s: 14, m: 16 },
-      { selector: '.ui-artifact-pe-modal-heading-icon', s: 18, m: 20 },
-      { selector: '.ui-artifact-pe-modal-copy-icon', s: 14, m: 16 },
+      { selector: '.ui-artifact-pe-icon', s: 20, m: 22 },
+      { selector: '.ui-artifact-pe-chevron', s: 16, m: 18 },
+      { selector: '.ui-artifact-pe-modal-heading-icon', s: 20, m: 22 },
+      { selector: '.ui-artifact-pe-modal-copy-icon', s: 16, m: 18 },
       {
-        selector: '.ui-artifact-pe-paging-btn', pseudo: '::after', s: 12, m: 14,
+        selector: '.ui-artifact-pe-paging-btn', pseudo: '::after', s: 14, m: 16,
       },
       {
-        selector: '.ui-artifact-pe-modal-paging-btn', pseudo: '::after', s: 14, m: 16,
+        selector: '.ui-artifact-pe-modal-paging-btn', pseudo: '::after', s: 16, m: 18,
       },
     ],
   },
