@@ -242,6 +242,105 @@ describe('nx-ew-actions', () => {
     });
   });
 
+  describe('metadata destinations', () => {
+    const state = { org: 'org', site: 'site', path: 'docs/page' };
+    const aemPath = '/org/site/docs/page';
+    let meta;
+
+    beforeEach(() => { restoreFetch = installFetch({ '/sidekick/': {} }); });
+    afterEach(() => meta?.remove());
+
+    ['preview', 'publish'].forEach((action) => {
+      const kind = action === 'publish' ? 'live' : 'preview';
+      const otherKind = kind === 'live' ? 'preview' : 'live';
+      const href = `https://feature.example/${kind}${aemPath}`;
+
+      ['missing', 'pending', 'error'].forEach((status) => {
+        it(`uses the ${kind}-url destination for ${action} with ${status} branch state`, async () => {
+          branchState = status === 'missing' ? null : { status, error: 'Config unavailable' };
+          meta = document.createElement('meta');
+          meta.name = `${kind}-url`;
+          meta.content = `https://feature.example/${kind}/\${aemPath}`;
+          document.head.append(meta);
+          const body = {
+            webPath: '/docs/page',
+            preview: { url: 'https://main.example/docs/page' },
+            live: { url: 'https://live.example/docs/page' },
+          };
+          const preview = sinon.stub(aem, 'preview').callsFake(async () => new Response(JSON.stringify(body)));
+          const publish = sinon.stub(aem, 'publish').callsFake(async () => new Response(JSON.stringify(body)));
+          const open = sinon.stub(window, 'open');
+          el = await makeEl();
+          sinon.stub(el, '_saveVersion').resolves();
+          const showError = sinon.spy(el, '_showActionError');
+          el._hashState = state;
+          await el.updateComplete;
+          el._status = {
+            webPath: '/docs/page',
+            preview: { status: 200, url: body.preview.url },
+            live: { status: 200, url: body.live.url },
+          };
+          expect(el._env(kind).url).to.equal(href);
+          expect(el._env(otherKind).url).to.be.null;
+          await el._runAemAction(action);
+          expect(preview.calledOnceWithExactly(aemPath)).to.be.true;
+          expect(publish.called).to.equal(action === 'publish');
+          expect(open.calledOnceWithExactly(href, href)).to.be.true;
+          expect(showError.called).to.be.false;
+          expect(el._busy).to.be.false;
+        });
+      });
+
+      it(`does not let the ${kind}-url destination bypass the other action's branch requirement`, async () => {
+        branchState = { status: 'error', error: 'Config unavailable' };
+        meta = document.createElement('meta');
+        meta.name = `${kind}-url`;
+        meta.content = href;
+        document.head.append(meta);
+        const preview = sinon.spy(aem, 'preview');
+        el = await makeEl();
+        const showError = sinon.stub(el, '_showActionError').resolves();
+        el._hashState = state;
+        await el.updateComplete;
+        await el._runAemAction(action === 'publish' ? 'preview' : 'publish');
+        expect(preview.called).to.be.false;
+        expect(showError.calledOnce).to.be.true;
+      });
+    });
+
+    ['save', 'preflight'].forEach((failure) => {
+      it(`still blocks metadata deployment when ${failure} fails`, async () => {
+        branchState = null;
+        const action = failure === 'preflight' ? 'publish' : 'preview';
+        meta = document.createElement('meta');
+        meta.name = action === 'publish' ? 'live-url' : 'preview-url';
+        meta.content = 'https://feature.example/docs/page';
+        document.head.append(meta);
+        const preview = sinon.spy(aem, 'preview');
+        const open = sinon.stub(window, 'open');
+        el = await makeEl();
+        const showError = sinon.stub(el, '_showActionError').resolves();
+        el._hashState = state;
+        await el.updateComplete;
+        const editor = document.createElement('ew-editor-doc');
+        editor.forceSave = async () => ({ ok: failure !== 'save', error: 'Save failed' });
+        document.body.append(editor);
+        if (failure === 'preflight') {
+          el._enforcePreflight = true;
+          sinon.stub(el, 'requestPreflight').resolves('error');
+        }
+        try {
+          await el._runAemAction(action);
+          expect(preview.called).to.be.false;
+          expect(open.called).to.be.false;
+          expect(showError.calledOnce).to.be.true;
+        } finally {
+          editor.remove();
+        }
+      });
+    });
+  });
+
   describe('version creation', () => {
     const path = '/org/site/page.html';
 

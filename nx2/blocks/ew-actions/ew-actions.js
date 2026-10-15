@@ -243,16 +243,18 @@ class NXEwActions extends LitElement {
   _env(kind) {
     const env = this._status?.[kind];
     if (!env) return { ok: false, url: null, time: null };
+    const aemPath = buildAemPathFromHashState(this._hashState);
+    const metaUrl = aemPath && this._resolveOpenUrl(kind === 'live' ? 'publish' : 'preview', aemPath);
     const branchUrl = getAemBranchHref({
-      aemPath: buildAemPathFromHashState(this._hashState),
+      aemPath,
       branch: this._branch,
       tier: kind,
       webPath: this._status.webPath,
     });
     return {
       ok: env.status === 200,
-      url: this._branchPath && this._branch === undefined
-        ? null : (env.url && branchUrl) || env.url || null,
+      url: metaUrl || (this._branchPath && this._branch === undefined
+        ? null : (env.url && branchUrl) || env.url || null),
       time: env.lastModified || null,
     };
   }
@@ -428,25 +430,28 @@ class NXEwActions extends LitElement {
     if (!aemPath || this._busy) return;
     const versionPath = this._prepareDetails?.fullpath;
     const branchPath = this._branchPath;
+    const metaUrl = this._resolveOpenUrl(action, aemPath);
 
     this._dialog = undefined;
     this._busy = true;
 
     // Capture this document's branch before any save/preflight awaits or navigation.
-    if (!this._branchPromise || this._branchRequestPath !== this._branchPath) {
-      this._updateBranch();
-    }
     let branch;
-    try {
-      branch = await this._branchPromise;
-      if (branch === undefined) throw new Error('Canvas branch unavailable.');
-    } catch (error) {
-      if (error?.name === 'AbortError') {
-        this._busy = false;
+    if (!metaUrl) {
+      if (!this._branchPromise || this._branchRequestPath !== this._branchPath) {
+        this._updateBranch();
+      }
+      try {
+        branch = await this._branchPromise;
+        if (branch === undefined) throw new Error('Canvas branch unavailable.');
+      } catch (error) {
+        if (error?.name === 'AbortError') {
+          this._busy = false;
+          return;
+        }
+        await this._showActionError(action, 'Unable to resolve the preview branch. Please retry or reload the editor.');
         return;
       }
-      await this._showActionError(action, 'Unable to resolve the preview branch. Please retry or reload the editor.');
-      return;
     }
     if (!this.isConnected || this._branchPath !== branchPath) {
       this._busy = false;
@@ -487,7 +492,7 @@ class NXEwActions extends LitElement {
     }
 
     this._hasError = false;
-    const url = this._resolveOpenUrl(action, aemPath, result.url);
+    const url = metaUrl || result.url;
     await sidekickCacheBust(url);
     window.open(url, url);
     this._saveVersion({ action, path: versionPath });
