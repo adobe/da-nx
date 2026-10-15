@@ -1,3 +1,18 @@
+# [1.16.0](https://github.com/adobe/da-nx/compare/v1.15.1...v1.16.0) (2026-10-15)
+
+
+### Bug Fixes
+
+* branch resolution and fail early ([177c4fb](https://github.com/adobe/da-nx/commit/177c4fbcd1083237c21b6b183bfc9fef46e6b283))
+* **ew:** harden branch compatibility and cancellation ([350e872](https://github.com/adobe/da-nx/commit/350e87263b7c635ed3b5798c491640ae9fc349e3))
+* **ew:** use authoritative canvas branch state ([af8d777](https://github.com/adobe/da-nx/commit/af8d777dfa213524c00d701320ab1e0bc90ea2c6))
+* remove redundant preview branch error logging ([3823263](https://github.com/adobe/da-nx/commit/3823263806b84bcc944efd09c123801f97b528cc))
+
+
+### Features
+
+* fetch from config or query string the branch name and surface it into the sareable deploy URL ([6ca178d](https://github.com/adobe/da-nx/commit/6ca178d9a4c1162c404f1c29545895d6c1cb5d0d))
+
 ## [1.15.1](https://github.com/adobe/da-nx/compare/v1.15.0...v1.15.1) (2026-10-14)
 
 
