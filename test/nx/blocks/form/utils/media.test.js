@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { convertJsonToHtml } from '../../../../../nx/deps/da-sc-sdk/dist/index.js';
+import { convertJsonToHtml, createEngine } from '../../../../../nx/deps/da-sc-sdk/dist/index.js';
 import {
   describeAsset, isAssetHref, splitHrefForDisplay,
 } from '../../../../../nx/blocks/form/utils/media.js';
@@ -83,10 +83,11 @@ describe('form media values', () => {
 // The field keeps its own copy of the SDK's image rule, so this pins both to the same result.
 describe('image rule parity with the SDK', () => {
   const schema = { type: 'object', properties: { hero: { type: 'string', 'x-semantic-type': 'asset' } } };
-  const writesImage = (href) => convertJsonToHtml({
-    json: { metadata: { schemaName: 'page' }, data: { hero: href } },
-    schema,
-  }).html.includes('<img ');
+  const writesImage = (href) => {
+    const json = { metadata: { schemaName: 'page' }, data: { hero: href } };
+    const { model } = createEngine({ schema, document: json }).getState();
+    return convertJsonToHtml({ json, model }).html.includes('<img ');
+  };
 
   const hrefs = [
     './media_abc.png',

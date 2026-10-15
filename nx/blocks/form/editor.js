@@ -140,10 +140,7 @@ class Form extends LitElement {
     this._state = this._editor.getState();
     // Attach AFTER load so the loaded document is the persistence's baseline —
     // mutations after this point trigger saves; the load itself does not.
-    this._persistence = attachPersistence(this._editor, {
-      path: this._details?.fullpath,
-      schema,
-    });
+    this._persistence = attachPersistence(this._editor, { path: this._details?.fullpath });
     this._nav = { pointer: '/data', origin: null, seq: 0 };
   }
 
