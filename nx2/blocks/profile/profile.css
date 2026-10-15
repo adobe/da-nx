@@ -18,8 +18,8 @@
   right: 24px;
   transform: translateY(-50%);
   display: block;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
 }
 
 #profile-btn {
@@ -36,8 +36,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border: none;
   cursor: pointer;
 }
@@ -134,8 +134,8 @@
 
 .nx-menu-btn-details img {
   display: block;
-  width: 60px;
-  height: 60px;
+  width: 72px;
+  height: 72px;
   object-fit: cover;
 }
 
@@ -149,7 +149,7 @@
 
 .nx-display-name {
   margin: 0 0 4px;
-  font-size: var(--nx-ui-text-heading);
+  font-size: var(--s2-heading-size-s);
   font-weight: 700;
   line-height: 1;
   overflow-wrap: break-word;
@@ -202,7 +202,7 @@
 
 .nx-org-name {
   margin: 0;
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--nx-ui-text-title);
 }
 
 .nx-menu-all-orgs {
@@ -235,7 +235,7 @@
 .nx-orgs-btn-switch {
   display: block;
   text-align: left;
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--nx-ui-text-title);
   line-height: 24px;
   background: transparent;
   border: none;
@@ -258,6 +258,11 @@
 }
 
 .nx-menu-ui-size {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2-spacing-100);
   padding: var(--s2-spacing-200) var(--s2-spacing-400);
   border-bottom: 1px solid var(--s2-gray-100);
   font-size: var(--nx-ui-text-content);
@@ -265,12 +270,13 @@
 }
 
 .nx-menu-ui-size-title {
-  margin: 0 0 var(--s2-spacing-100);
+  margin: 0;
   font-weight: var(--s2-component-m-medium-font-weight);
 }
 
 .nx-menu-ui-size-error {
-  margin: var(--s2-spacing-100) 0 0;
+  flex-basis: 100%;
+  margin: 0;
   color: var(--s2-red-900);
 }
 
@@ -311,7 +317,7 @@
 
 .nx-menu-btn-signout {
   text-align: left;
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--nx-ui-text-title);
   position: relative;
   background: transparent;
   border: none;
@@ -340,22 +346,16 @@
 
 :host([data-ui-size="m"]) {
   .icon {
-    width: 18px;
-    height: 18px;
-  }
-
-  .nx-btn-profile {
-    width: 32px;
-    height: 32px;
-  }
-
-  .nx-btn-profile img {
-    width: 32px;
-    height: 32px;
+    width: 22px;
+    height: 22px;
   }
 
   .nx-menu-btn-details img {
-    width: 72px;
-    height: 72px;
+    width: 80px;
+    height: 80px;
+  }
+
+  .nx-display-name {
+    font-size: var(--s2-heading-size-m);
   }
 }

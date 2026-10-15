@@ -2,8 +2,8 @@
 
 A user-level text/icon scale for Experience Workspace (chat + canvas).
 
-- **s** — default. One S2 step smaller than m.
-- **m** — the sizing from da-nx#755/#757 and da-live#1351 (body, comment, title and input text one step bigger).
+- **s** — default. Same sizes as the UI before the scale existed (main), with off-scale values snapped to S2.
+- **m** — one S2 step bigger than s. Relative sizes (main text vs. secondary text vs. captions) stay the same.
 - **l** — reserved. `getUISize()` accepts it, but no values exist yet.
 
 ## How it is switched
@@ -13,7 +13,7 @@ A user-level text/icon scale for Experience Workspace (chat + canvas).
 per-component overrides reflect it as `data-ui-size` on their host.
 
 The profile popover contains a **UI size** segmented control below Organization and above Links.
-Select **Small** or **Medium** to apply the scale immediately, without reloading or resetting
+It is a compact, emphasized `nx-segmented-btn` on one line with **S** and **M** (aria labels Small and Medium). Select one to apply the scale immediately, without reloading or resetting
 the document, chat, or selected panels. The preference persists in `localStorage`.
 Large remains reserved and is not offered in the control.
 
@@ -34,64 +34,52 @@ then reload (with "Disable cache" ticked while testing branch previews).
 
 ## Rules
 
-1. **Use text tokens and component-owned icon sizes.** Use an `--nx-ui-text-*` token for text. Set icon dimensions directly in the owning component, with an m override when needed.
-2. **Keep the layer small.** Text has three roles (heading, title, content). Secondary text (dates, hints, descriptions) uses content too. Only tiny badges and the small section titles in menus and pickers are 11px in s and 12px in m. Shared components own their icon sizing through their size variant; don't add a global icon scale.
-3. **s is smaller than m where sizing changes.** Text tokens step one size down the S2 scale in s. Compact row controls can stay the same size.
-4. **Only S2 sizes.** No in-between values like 13px or 15px.
-5. **Shared components** (`nx-menu`, `nx-picker`, `nx-pills`, `nx-search`, `nx-prompts`, `nx-new-chat`, `nx-breadcrumb`, `buttons.css`) follow their own variant, not the page's ui-size. Inside them use plain px per variant, no `--nx-ui-*` vars. EW call sites pass the ui-size as the variant (`size=${getUISize()}`).
-   Row action buttons (file explorer, outline, extensions library, block library, comments) stay `nx-btn-sm` (24px, 16px icon) in both sizes so rows keep their height.
-   Exception: the versions row ⋯ follows the scale (24px in s, 32px in m).
-   EW actions (Prepare, Send, and the deploy action) use `nx-btn-sm` in s and the default button size in m.
-   Every other button uses the shared `buttons.css` classes (`nx-action-btn`, `nx-action-btn-icon`, `nx-action-btn-quiet`) with `nx-btn-sm` in s and the default size in m. No button-size, icon-size or control-height tokens.
-6. Component-specific m overrides (icon dimensions, line-heights, paddings, picker height) go in a `:host([data-ui-size="m"])` block in the component's CSS.
+1. **s = main.** Every element keeps the size it had before the scale. m is one S2 step up from that.
+2. **Main text uses tokens.** `--nx-ui-text-content` (14/16), `--nx-ui-text-title` (16/18), `--nx-ui-text-heading` (18/20).
+3. **Smaller text is set in the component.** Secondary text (12 in s, 14 in m) and captions (11 in s, 12 in m) use S2 component font sizes with one grouped m override per component, e.g. `:host([data-ui-size="m"]) :is(.a, .b) { font-size: var(--s2-component-m-regular-font-size); }`. No extra tokens.
+4. **Only S2 sizes.** Off-scale values snap to the closest step by role: 13 to 12, 15 to 14, 10 to 11, rem values to px.
+5. **Icons:** s = main px, m = main + 2, set in the owning component.
+6. **Buttons follow their size on main** and use only shared classes:
+   - 24 on main: `nx-btn-sm` in s, default (32) in m.
+   - 32 (or 28) on main: default in s, `nx-btn-lg` (40) in m.
+   - Top bar (breadcrumbs, Prepare/Publish and its card buttons, feedback, profile button) keeps main sizes in both.
+7. **Line height:** multi-line text inherits the body line height (`--s2-body-line-height`, 1.5). Don't override it.
+8. **Shared components** (`nx-menu`, `nx-picker`, `nx-pills`, `nx-search`, `nx-prompts`, `nx-new-chat`, `nx-segmented-btn`, `buttons.css`) follow their own `size` variant. Menus, pickers and searches that were `size="m"` on main stay `m` in both sizes.
+9. Component-specific m overrides go in one `:host([data-ui-size="m"])` block per component (or `body.ui-size-m` outside shadow DOM).
 
-## Text tokens
+## Text
 
-| Token                      | Role                                                                   | s   | m   |
-| -------------------------- | ---------------------------------------------------------------------- | --- | --- |
-| `--nx-ui-text-heading`     | Panel headings, large titles                                           | 18  | 20  |
-| `--nx-ui-text-title`       | Panel/modal/card titles                                                | 16  | 18  |
-| `--nx-ui-text-content`     | All body and secondary text: messages, comments, outline, inputs, lists, rows, dates, hints, descriptions | 12  | 14  |
+| Role                   | How                                                     | s   | m   |
+| ---------------------- | ------------------------------------------------------- | --- | --- |
+| Heading                | `--nx-ui-text-heading`                                  | 18  | 20  |
+| Title                  | `--nx-ui-text-title`                                    | 16  | 18  |
+| Main text              | `--nx-ui-text-content` (line `--nx-ui-line-content` for single-line rows) | 14  | 16  |
+| Secondary text         | `--s2-component-s-regular-font-size` + m override       | 12  | 14  |
+| Caption                | `--s2-component-xs-regular-font-size` + m override      | 11  | 12  |
+| Large values and names | `--s2-heading-size-s` + m override (page-eval tile value, profile name, welcome title) | 20  | 22  |
 
-## Line-height tokens
-
-| Token                      | Role                                | s    | m    |
-| -------------------------- | ----------------------------------- | ---- | ---- |
-| `--nx-ui-line-content`     | All content and secondary text      | 16px | 18px |
-
-## Icon sizing
-
-Icons are sized by their owning component, not by a global token or arithmetic offsets.
-Shared buttons use `nx-btn-sm` for 16px icons and their default variant for 18px icons.
-Standalone icons use explicit dimensions, with an m override on the component host where needed.
+## Icons
 
 | Component icons                            | s  | m  |
 | ------------------------------------------ | -- | -- |
 | Chat AO message-copy and selection         | 14 | 16 |
-| Chat AO alert                              | 18 | 20 |
-| Deploy glyph                               | 14 | 16 |
-| Deploy checkmark                           | 20 | 22 |
-| Deploy copy                                | 16 | 18 |
-| Page evaluation status and modal heading   | 18 | 20 |
-| Page evaluation section chevron, modal copy and modal paging | 14 | 16 |
-| Page evaluation list paging                | 12 | 14 |
-| Profile popover icons                      | 16 | 18 |
-| Profile avatar button                      | 24 | 32 |
-| Profile popover photo                      | 60 | 72 |
+| Chat AO alert                              | 20 | 22 |
+| Deploy glyph                               | 16 | 18 |
+| Deploy checkmark                           | 24 | 26 |
+| Deploy copy                                | 18 | 20 |
+| Page evaluation status and modal heading   | 20 | 22 |
+| Page evaluation section chevron, modal copy and modal paging | 16 | 18 |
+| Page evaluation list paging                | 14 | 16 |
+| Profile popover icons                      | 20 | 22 |
+| Profile avatar button (top bar)            | 32 (24 photo) | 32 (24 photo) |
+| Profile popover photo                      | 72 | 80 |
 
 Components needing these overrides use `UISizeController` to keep `data-ui-size` current.
-The page's text tokens still inherit through shadow roots; icon dimensions do not depend on them.
-
-## Controls
-
-There are no control-height tokens. Buttons get their height from the shared button classes
-(`nx-btn-sm` 24px in s, default 32px in m). Non-button controls (compare chips, inline inputs,
-the block toolbar picker) use explicit px with a `:host([data-ui-size="m"])` override.
 
 ## Key badges
 
 `kbd` badges inside shared buttons (Esc, ↵ in the chat permission, question and plan cards) follow the button size:
-20px tall with 12px text in `nx-btn-sm` (s), 14px text in the default size (m).
+20px tall with 12px text in `nx-btn-sm`, 14px text in the default and large sizes.
 
 ## Segmented buttons
 
@@ -101,6 +89,7 @@ its `size` attribute: the default sm styles in s, `size="m"` in m.
 ## Pickers and menus
 
 `nx-picker` and `nx-menu` keep their own `size` attribute (`s`/`m`). EW call sites pass the current
-ui-size, so Spectrum `s` styling shows in s and Spectrum `m` styling in m. The picker list matches `nx-menu`
+ui-size, except menus and pickers that were `size="m"` on main (chat session picker, slash and add menus,
+prompts search and category picker, page metadata picker), which stay `m` in both sizes. The picker list matches `nx-menu`
 in every size: 8px popover padding, 12px item inset, corner-radius-400 rows, gray-100 hover, gray-200 active,
 gray-900 text, 24px items in s and 32px in m.

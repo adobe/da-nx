@@ -234,9 +234,11 @@ class NxProfile extends LitElement {
             <nx-segmented-btn
               label=${loc`UI size`}
               size=${getUISize() === 'm' ? 'm' : 'sm'}
+              compact
+              emphasized
               .items=${[
-                { value: 's', label: loc`Small` },
-                { value: 'm', label: loc`Medium` },
+                { value: 's', label: 'S', ariaLabel: loc`Small` },
+                { value: 'm', label: 'M', ariaLabel: loc`Medium` },
               ]}
               .value=${getUISize()}
               @change=${this.handleUISize}

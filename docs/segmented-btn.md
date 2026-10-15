@@ -40,9 +40,12 @@ Each entry in the `items` array is one of:
 
 // Icon-only segment
 { value: "split", icon: "/img/icons/s2-icon-gridcompare-20-n.svg", label: "Split view", iconOnly: true }
+
+// Short text segment with a longer accessible name
+{ value: "s", label: "S", ariaLabel: "Small" }
 ```
 
-`icon` is the path to the icon SVG (the sprite's `#icon` fragment is appended automatically). `label` is always required — it's shown as the segment's visible text unless `iconOnly` is set, in which case it's used as the `aria-label`/`title` instead.
+`icon` is the path to the icon SVG (the sprite's `#icon` fragment is appended automatically). `label` is always required — it's shown as the segment's visible text unless `iconOnly` is set, in which case it's used as the `aria-label`/`title` instead. `ariaLabel` (optional) sets the `aria-label`/`title` of a text segment whose visible label is abbreviated.
 
 ## API
 
@@ -54,6 +57,8 @@ Each entry in the `items` array is one of:
 | `value`  | `String` | Value of the currently selected segment. Set to change the selection programmatically. |
 | `label`  | `String` | Accessible label for the control group (`aria-label`). Always provide one.             |
 | `size`   | `String` | `"sm"` (default) or `"m"`. Reflected as an attribute, e.g. `<nx-segmented-btn size="m">`. |
+| `compact` | `Boolean` | No track padding; segments are at least as wide as they are tall (24 in `sm`, 32 in `m`). For short labels like "S" / "M". |
+| `emphasized` | `Boolean` | Selected segment uses the accent (blue) background. |
 
 ### Events
 

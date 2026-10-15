@@ -99,3 +99,23 @@
     height: 18px;
   }
 }
+
+:host([compact]) .segmented {
+  padding: 0;
+  border-radius: var(--s2-corner-radius-400);
+}
+
+:host([compact]) .segment {
+  min-width: 24px;
+  padding-inline: var(--s2-spacing-75);
+}
+
+:host([compact][size="m"]) .segment {
+  min-width: 32px;
+  padding-inline: 7px;
+}
+
+:host([emphasized]) .segment.is-selected {
+  color: var(--s2-gray-25);
+  background-color: var(--s2-blue-900);
+}
