@@ -136,17 +136,17 @@ describe('SDK state shape', () => {
     expect(findByPointer(root, '/data/swatch').semanticType).to.equal(undefined);
   });
 
-  it('surfaces media semantics for an image while keeping a single URL string in the document', () => {
+  it('surfaces asset semantics for an image while keeping a single URL string in the document', () => {
     const schema = {
       type: 'object',
       properties: {
-        heroImage: { type: 'string', title: 'Hero image', 'x-semantic-type': 'media' },
+        heroImage: { type: 'string', title: 'Hero image', 'x-semantic-type': 'asset' },
       },
     };
     const href = './media_example.png';
     const engine = createEngine({ schema, document: validDoc({ heroImage: href }) });
     const node = findByPointer(engine.getState().model.root, '/data/heroImage');
-    expect(node.semanticType).to.equal('media');
+    expect(node.semanticType).to.equal('asset');
     expect(node.value).to.equal(href);
     expect(engine.getState().document.data.heroImage).to.equal(href);
   });
@@ -155,7 +155,7 @@ describe('SDK state shape', () => {
     const schema = {
       type: 'object',
       properties: {
-        heroImage: { type: 'string', 'x-semantic-type': 'media' },
+        heroImage: { type: 'string', 'x-semantic-type': 'asset' },
       },
     };
     const engine = createEngine({ schema, document: validDoc() });
@@ -339,7 +339,7 @@ describe('SDK × attachPersistence (end-to-end)', () => {
     const save = async ({ html }) => { calls.push(html); };
     const schema = {
       type: 'object',
-      properties: { heroImage: { type: 'string', 'x-semantic-type': 'media' } },
+      properties: { heroImage: { type: 'string', 'x-semantic-type': 'asset' } },
     };
 
     const editor = createEngine({ schema, document: validDoc(), onChange: () => p?.notify() });

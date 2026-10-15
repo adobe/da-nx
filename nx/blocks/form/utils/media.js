@@ -1,5 +1,3 @@
-import { media } from '../../../deps/da-sc-sdk/dist/index.js';
-
 export const extensionOf = (fileName) => (fileName?.includes('.') ? fileName.split('.').pop().toLowerCase() : '');
 
 const MEDIA_BUS_PREFIX = './media_';
@@ -31,6 +29,14 @@ function resolvePreviewHref({ href, previewOrigin }) {
 
 export const MEDIA_KINDS = Object.freeze({ image: 'image', video: 'video', file: 'file' });
 
+// The same extensions the SDK writes as `<img>`, so the field previews exactly what is
+// delivered as an image. Every other value is written as a link.
+const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg']);
+
+const isImageHref = (href) => IMAGE_EXTENSIONS.has(
+  extensionOf(href.trim().split(/[?#]/)[0].split('/').pop()),
+);
+
 const VIDEO_EXTENSIONS = new Set(['mp4', 'mov']);
 // Safari draws no frame for a video that only loads its metadata unless it starts past zero.
 const VIDEO_FIRST_FRAME = 't=0.1';
@@ -52,9 +58,8 @@ function fileNameFromHref(href) {
   }
 }
 
-// Images follow the SDK, so the field previews exactly what is delivered as an image.
 function mediaKindOf(href) {
-  if (media.isImage(href)) {
+  if (isImageHref(href)) {
     return MEDIA_KINDS.image;
   }
   if (VIDEO_EXTENSIONS.has(extensionOf(fileNameFromHref(href)))) {
