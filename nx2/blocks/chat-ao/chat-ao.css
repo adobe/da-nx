@@ -888,9 +888,7 @@
     font-size: var(--s2-component-m-regular-font-size);
   }
 
-  :is(
-    .message .tool-call-card .tool-call-detail
-  ) {
+  .message .tool-call-card .tool-call-detail {
     font-size: var(--s2-component-s-regular-font-size);
   }
 }
