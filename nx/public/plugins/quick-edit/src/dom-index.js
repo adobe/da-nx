@@ -39,6 +39,56 @@ export function findBlock(from, root = document) {
   return findNearestIndexed('data-block-index', from, root);
 }
 
+const WHITESPACE_RUN = /[\s\u00a0]+/g;
+const SINGLE_QUOTES = /[\u2018\u2019\u201A\u201B\u2032]/g;
+const DOUBLE_QUOTES = /[\u201C\u201D\u201E\u201F\u2033]/g;
+const SKIPPED_TAGS = new Set(['script', 'style', 'noscript', 'template']);
+
+// Mirrors the host's finding normalization so anchor text compares equal on both sides.
+export function normalizeAnchorText(text) {
+  return String(text ?? '')
+    .replace(SINGLE_QUOTES, "'")
+    .replace(DOUBLE_QUOTES, '"')
+    .replace(WHITESPACE_RUN, ' ')
+    .trim();
+}
+
+export function elementContainsAnchor(el, anchor) {
+  return !!el && !!anchor && normalizeAnchorText(el.textContent).includes(anchor);
+}
+
+// Smallest elements under scope whose text contains the anchor, in document order. Subtrees
+// that don't contain it are pruned, so only the path to the matching text is visited.
+function smallestAnchorElements(scope, anchor) {
+  const matches = [];
+  const walker = document.createTreeWalker(scope, NodeFilter.SHOW_ELEMENT, {
+    acceptNode(el) {
+      if (SKIPPED_TAGS.has(el.tagName.toLowerCase()) || el.closest(OVERLAY_SELECTOR)) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return elementContainsAnchor(el, anchor)
+        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    },
+  });
+  if (elementContainsAnchor(scope, anchor)) matches.push(scope);
+  while (walker.nextNode()) matches.push(walker.currentNode);
+  // A match is the smallest one when the next match (document order) isn't inside it.
+  return matches.filter((el, i) => !el.contains(matches[i + 1] ?? null));
+}
+
+// Finds the element holding anchorText: the first match after `after` in document order,
+// else the first match. Null when the scope has none.
+export function findElementByAnchorText({ anchorText, scope, after = null }) {
+  const anchor = normalizeAnchorText(anchorText);
+  if (!anchor || !scope) return null;
+  const matches = smallestAnchorElements(scope, anchor);
+  const following = after
+    ? matches.find((el) => el !== after && (after.contains(el)
+      || after.compareDocumentPosition(el) === Node.DOCUMENT_POSITION_FOLLOWING))
+    : null;
+  return following ?? matches[0] ?? null;
+}
+
 export function restoreBlockIndices(sourceRoot, liveRoot = document) {
   const sourceBlocks = [...sourceRoot.querySelectorAll('[data-block-index]')];
   if (!sourceBlocks.length) return;

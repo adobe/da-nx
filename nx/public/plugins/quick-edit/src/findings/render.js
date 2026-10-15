@@ -1,7 +1,13 @@
 import { MESSAGE_TYPES } from '../../../../../utils/message-types.js';
-import { findTextBlock } from '../dom-index.js';
+import {
+  elementContainsAnchor,
+  findBlock,
+  findElementByAnchorText,
+  findTextBlock,
+  normalizeAnchorText,
+} from '../dom-index.js';
 import { clearOverlayById, getOverlayById, visibleRect } from '../overlay.js';
-import { positionBox } from '../utils.js';
+import { parseIndex, positionBox } from '../utils.js';
 import {
   findBlockForMarker,
   findPictureForImageMarker,
@@ -26,13 +32,32 @@ export function clearFindingOverlay(root = document) {
   clearOverlayById(FINDING_OVERLAY_ID, root);
 }
 
+// Decorated EDS blocks drop data-prose-index from links/buttons, so the nearest-lower index
+// can be a neighbouring element. When the host sends anchorText, verify the candidate holds
+// that text and otherwise search for the element that does: block first, then the document.
+// A nearest-lower guess that can't be verified is dropped (null) rather than mis-highlighted.
+function findTextMarkerElement(marker, root) {
+  const candidate = findTextBlock(marker.from, root);
+  const anchor = normalizeAnchorText(marker.anchorText);
+  if (!anchor) return candidate;
+
+  const exact = !!candidate && parseIndex(candidate.getAttribute('data-prose-index')) === marker.from;
+  if (exact && elementContainsAnchor(candidate, anchor)) return candidate;
+
+  const block = findBlock(marker.from, root);
+  const scopes = [block, root.querySelector?.('main') ?? root.body ?? root];
+  const found = scopes.reduce((hit, scope) => hit
+    ?? findElementByAnchorText({ anchorText: anchor, scope, after: candidate }), null);
+  return found ?? (exact ? candidate : null);
+}
+
 export function findFindingElement(marker, root = document) {
   if (marker.anchorType === 'table') return findBlockForMarker(marker, root);
   if (marker.anchorType === 'image') {
     const picture = findPictureForImageMarker(marker, root);
     return picture ? imageHighlightElement(picture) : null;
   }
-  return findTextBlock(marker.from, root);
+  return findTextMarkerElement(marker, root);
 }
 
 function createSvg(content) {
