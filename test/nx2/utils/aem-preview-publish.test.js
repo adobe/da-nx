@@ -8,6 +8,8 @@ import {
 import {
   buildAemPathFromHashState,
   formatAemPreviewPublishError,
+  getAemBranch,
+  getAemBranchHref,
   requestAemRole,
   runAemPreviewOrPublish,
 } from '../../../nx2/utils/aem-preview-publish.js';
@@ -296,6 +298,59 @@ describe('aem-preview-publish.js', () => {
 
       expect(result.ok).to.equal(false);
       expect(result.error.message).to.equal('Preview URL missing from response.');
+    });
+
+    it('preview: targets the branch host when a branch is given', async () => {
+      const org = uniq('org');
+      const site = uniq('site');
+      installFetchOnce({ body: JSON.stringify({ webPath: '/page', preview: { url: `https://main--${site}--${org}.aem.page/page` } }) });
+
+      const result = await runAemPreviewOrPublish({ aemPath: `/${org}/${site}/page`, action: 'preview', branch: 'feat-x' });
+
+      expect(result.url).to.equal(`https://feat-x--${site}--${org}.aem.page/page`);
+      expect(sharedCalls.some((c) => c.url.includes('/sidekick/'))).to.equal(false);
+    });
+
+    it('publish: targets the branch live host when a branch is given', async () => {
+      const org = uniq('org');
+      const site = uniq('site');
+      installFetchOnce({
+        body: JSON.stringify({
+          webPath: '/page',
+          preview: { url: 'https://legacy-preview.example/page' },
+          live: { url: 'https://legacy-live.example/page' },
+        }),
+      });
+
+      const result = await runAemPreviewOrPublish({ aemPath: `/${org}/${site}/page`, action: 'publish', branch: 'feat-x' });
+
+      expect(result.url).to.equal(`https://feat-x--${site}--${org}.aem.live/page`);
+    });
+  });
+
+  describe('getAemBranch', () => {
+    it('returns null for empty, main, and local', () => {
+      expect(getAemBranch(null)).to.be.null;
+      expect(getAemBranch('')).to.be.null;
+      expect(getAemBranch('main')).to.be.null;
+      expect(getAemBranch('Local')).to.be.null;
+    });
+
+    it('normalizes a branch name to its hostname form', () => {
+      expect(getAemBranch('Feat/My_Branch')).to.equal('feat-my-branch');
+    });
+  });
+
+  describe('getAemBranchHref', () => {
+    it('builds preview and live branch URLs', () => {
+      const args = { aemPath: '/org/site/a/b', branch: 'dev', webPath: '/a/b' };
+      expect(getAemBranchHref({ ...args, tier: 'preview' })).to.equal('https://dev--site--org.aem.page/a/b');
+      expect(getAemBranchHref({ ...args, tier: 'live' })).to.equal('https://dev--site--org.aem.live/a/b');
+    });
+
+    it('returns null without a branch or webPath', () => {
+      expect(getAemBranchHref({ aemPath: '/org/site/a', branch: null, tier: 'preview', webPath: '/a' })).to.be.null;
+      expect(getAemBranchHref({ aemPath: '/org/site/a', branch: 'dev', tier: 'preview' })).to.be.null;
     });
   });
 });
