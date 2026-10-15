@@ -5,7 +5,7 @@ import '../../../../nx2/blocks/shared/dialog/dialog.js';
 import { icon } from '../icons.js';
 import { CANCELLED } from '../utils/assets.js';
 import {
-  MEDIA_KINDS, describeMedia, extensionOf, isAssetHref, splitHrefForDisplay,
+  ASSET_KINDS, describeAsset, extensionOf, isAssetHref, splitHrefForDisplay,
 } from '../utils/media.js';
 import defaults from './defaults.js';
 
@@ -78,7 +78,7 @@ class FormAsset extends LitElement {
   willUpdate(changed) {
     if (changed.has('value')) this._resetCopied();
     if (changed.has('value') && this.value !== this._selection?.href) this._forgetSelection();
-    this._media = describeMedia({
+    this._asset = describeAsset({
       href: this.value,
       name: this._selection?.name,
       previewOrigin: this.previewOrigin,
@@ -90,21 +90,21 @@ class FormAsset extends LitElement {
   }
 
   get _previewFailed() {
-    const { previewHref } = this._media;
+    const { previewHref } = this._asset;
     return !!previewHref && previewHref === this._failedPreviewSrc;
   }
 
   get _previewSrc() {
-    return this._previewFailed ? undefined : this._media.previewHref;
+    return this._previewFailed ? undefined : this._asset.previewHref;
   }
 
   // Only images and videos expand to the preview panel. Empty fields, other
   // files and images whose preview cannot load stay a single row.
   get _hasPreviewPanel() {
     if (!this.value) return false;
-    const { kind } = this._media;
-    if (kind === MEDIA_KINDS.video) return true;
-    return kind === MEDIA_KINDS.image && !this._previewFailed;
+    const { kind } = this._asset;
+    if (kind === ASSET_KINDS.video) return true;
+    return kind === ASSET_KINDS.image && !this._previewFailed;
   }
 
   get _canChange() {
@@ -322,11 +322,11 @@ class FormAsset extends LitElement {
   _renderPreview() {
     if (!this._hasPreviewPanel) return nothing;
     const previewSrc = this._previewSrc;
-    const isVideo = this._media.kind === MEDIA_KINDS.video;
+    const isVideo = this._asset.kind === ASSET_KINDS.video;
     return html`
       <div class="asset-preview">
         ${isVideo ? this._renderVideoPreview(previewSrc) : html`
-          <span class="asset-file-type">${extensionOf(this._media.name) || MEDIA_KINDS.file}</span>
+          <span class="asset-file-type">${extensionOf(this._asset.name) || ASSET_KINDS.file}</span>
           ${previewSrc ? this._renderPreviewImage(previewSrc) : nothing}
         `}
       </div>

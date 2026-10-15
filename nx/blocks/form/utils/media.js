@@ -27,7 +27,7 @@ function resolvePreviewHref({ href, previewOrigin }) {
   return previewOrigin ? parseHref(href, `${previewOrigin}/`)?.href : undefined;
 }
 
-export const MEDIA_KINDS = Object.freeze({ image: 'image', video: 'video', file: 'file' });
+export const ASSET_KINDS = Object.freeze({ image: 'image', video: 'video', file: 'file' });
 
 // The same extensions the SDK writes as `<img>`, so the field previews exactly what is
 // delivered as an image. Every other value is written as a link.
@@ -58,33 +58,33 @@ function fileNameFromHref(href) {
   }
 }
 
-function mediaKindOf(href) {
+function assetKindOf(href) {
   if (isImageHref(href)) {
-    return MEDIA_KINDS.image;
+    return ASSET_KINDS.image;
   }
   if (VIDEO_EXTENSIONS.has(extensionOf(fileNameFromHref(href)))) {
-    return MEDIA_KINDS.video;
+    return ASSET_KINDS.video;
   }
-  return MEDIA_KINDS.file;
+  return ASSET_KINDS.file;
 }
 
 // A video previews its own first frame, so no host needs to offer a thumbnail.
 function previewHrefOf({ href, kind, previewOrigin }) {
-  if (kind === MEDIA_KINDS.image) {
+  if (kind === ASSET_KINDS.image) {
     return resolvePreviewHref({ href, previewOrigin });
   }
-  if (kind === MEDIA_KINDS.video) {
+  if (kind === ASSET_KINDS.video) {
     return firstFrameHref(resolvePreviewHref({ href, previewOrigin }));
   }
   return undefined;
 }
 
-// Describes a stored media value for display, with its name, its kind and the URL to preview.
-export function describeMedia({ href, name, previewOrigin }) {
+// Describes a stored asset value for display, with its name, its kind and the URL to preview.
+export function describeAsset({ href, name, previewOrigin }) {
   if (!isAssetHref(href)) {
-    return { name: name || '', kind: MEDIA_KINDS.file, previewHref: undefined };
+    return { name: name || '', kind: ASSET_KINDS.file, previewHref: undefined };
   }
-  const kind = mediaKindOf(href);
+  const kind = assetKindOf(href);
   return {
     name: name || fileNameFromHref(href),
     kind,
