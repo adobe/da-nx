@@ -144,4 +144,26 @@ describe('NxLocOptions - loadConnectorServiceOptions', () => {
 
     expect(el._serviceOptions).to.equal(undefined);
   });
+
+  // Lilt has no per-env public config of its own (single fixed upstream, key resolved
+  // server-side), so its config sheet never populates `service.envs.prod` - regression
+  // test for the resulting bug where its static `serviceOptions` never rendered.
+  it('renders static serviceOptions for a connector with no per-env config', async () => {
+    installFetch((u) => {
+      if (u.includes('/integrations/lilt/status')) {
+        return new Response(JSON.stringify({ connected: true }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const el = createOptionsEl();
+    el._siteConfig.service = { name: 'Lilt', envs: {} };
+
+    await el.loadConnectorServiceOptions();
+
+    expect(el._siteConfig.service.envs.prod).to.deep.equal({ translationMode: 'ai' });
+    expect(el._serviceOptions[0].items).to.deep.equal([
+      { value: 'ai', label: 'AI Translation' },
+      { value: 'verified', label: 'Verified Translation' },
+    ]);
+  });
 });

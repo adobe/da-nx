@@ -70,6 +70,18 @@ function loginUrl(name, org, site, env) {
 }
 
 /**
+ * Builds the da-etc status URL for a connector integration.
+ * @param {string} name - The da-etc integration name (e.g. 'lilt').
+ * @param {string} org - The DA org.
+ * @param {string} site - The DA site.
+ * @param {string} env - The connector environment.
+ * @returns {string} The status URL.
+ */
+function statusUrl(name, org, site, env) {
+  return `${LOGIN_ORIGIN}/${org}/sites/${site}/integrations/${name}/status?env=${env}`;
+}
+
+/**
  * Exchanges a DA org/site's third-party service credentials - held
  * server-side by da-etc, never sent to the browser - for a fresh token via
  * da-etc's `/integrations/<name>/login` endpoint. The caller's own DA/IMS
@@ -137,6 +149,25 @@ export async function getAccessToken(name, service, { force = false } = {}) {
 export default async function authReady(name, service) {
   const accessToken = await getAccessToken(name, service);
   return !!accessToken;
+}
+
+/**
+ * Checks whether da-etc has a working credential configured for an integration, via its
+ * `/integrations/<name>/status` endpoint. Unlike `login`, this never resolves to the
+ * credential itself - it's a boolean connectivity check only, for connectors (e.g. Lilt,
+ * DeepL) whose real key is a static, non-expiring secret that's resolved server-side per
+ * request rather than ever cached in the browser.
+ * @param {string} name - The da-etc integration name (e.g. 'lilt', 'deepl').
+ * @param {string} org - The DA org.
+ * @param {string} site - The DA site.
+ * @param {string} env - The environment key (e.g. 'prod').
+ * @returns {Promise<boolean>} Whether da-etc reports a working credential.
+ */
+export async function checkConnection(name, org, site, env) {
+  const resp = await daFetch({ url: statusUrl(name, org, site, env) });
+  if (!resp.ok) return false;
+  const { connected } = await resp.json();
+  return !!connected;
 }
 
 /**
