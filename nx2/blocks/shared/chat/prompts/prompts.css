@@ -99,3 +99,17 @@
   color: var(--s2-gray-600);
   text-align: center;
 }
+
+:host([size="m"]) {
+  font-size: var(--s2-component-l-regular-font-size);
+
+  .prompt-item-header {
+    font-size: var(--s2-component-l-medium-font-size);
+    line-height: var(--s2-component-l-medium-line-height);
+  }
+
+  .prompt-item-desc {
+    font-size: var(--s2-component-l-regular-font-size);
+    line-height: var(--s2-component-l-regular-line-height);
+  }
+}

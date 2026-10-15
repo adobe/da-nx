@@ -81,14 +81,14 @@ class NxPrompts extends LitElement {
       : `Search in ${this._category}`;
     return html`
       <div class="prompts-header">
-        <nx-search variant="quiet" size=${this.size}
+        <nx-search variant="quiet" size="m"
           label=${placeholder}
           placeholder=${placeholder}
           .value=${this._search}
           @input=${this._onSearch}
         ></nx-search>
         <nx-picker
-          size=${this.size}
+          size="m"
           .items=${this._categories}
           .value=${this._category}
           placement="below-end"

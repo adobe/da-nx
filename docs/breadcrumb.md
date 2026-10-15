@@ -44,4 +44,4 @@ Returns `undefined` if `org` or `site` is missing.
 | -------------- | -------- | ---------------------------------------------------------------------------------------------- |
 | `pathSegments` | `Array`  | Ordered list of path segment labels. The last one renders as the current page.                |
 | `baseUrl`      | `String` | Optional base URL each link resolves against. Omit for hash-only links (`#/segment/segment`). The current page's query string is preserved on generated links. |
-| `size`         | `String` | Optional. `s` renders 12px text. Anything else (default) renders 14px. The nav passes the ui-size. |
+| `size`         | `String` | Optional. `s` renders 12px text. Anything else (default) renders 14px. |
