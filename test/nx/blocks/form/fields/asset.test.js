@@ -75,7 +75,7 @@ describe('form-asset', () => {
     const field = await mount({ required: true });
     expect(query(field, 'label').textContent).to.include('Hero image');
     expect(query(field, '.form-required')).to.exist;
-    expect(query(field, '.asset-placeholder').textContent).to.equal('No file selected');
+    expect(query(field, '.asset-placeholder').textContent).to.equal('No asset selected');
     expect(query(field, 'nx-dialog')).to.equal(null);
   });
 
@@ -378,8 +378,8 @@ describe('form-asset', () => {
     button(field, 'Remove').click();
     await field.updateComplete;
     const dialog = query(field, 'nx-dialog');
-    expect(dialog.title).to.equal('Remove image?');
-    expect(dialog.textContent).to.include('The image will be removed from this field.');
+    expect(dialog.title).to.equal('Remove asset?');
+    expect(dialog.textContent).to.include('The asset will be removed from this field.');
 
     button(field, 'Cancel').click();
     await field.updateComplete;
@@ -388,18 +388,15 @@ describe('form-asset', () => {
     expect(focus.calledOnce).to.be.true;
   });
 
-  it('calls a selected file that is not an image a file when confirming removal', async () => {
-    const field = await mount({ value: 'https://x.test/spec.pdf' });
-    button(field, 'Remove').click();
-    await field.updateComplete;
-    expect(query(field, 'nx-dialog').title).to.equal('Remove file?');
-  });
-
-  it('calls a selected video a video when confirming removal', async () => {
-    const field = await mount({ value: 'https://cdn.example.com/clip.mp4' });
-    button(field, 'Remove').click();
-    await field.updateComplete;
-    expect(query(field, 'nx-dialog').title).to.equal('Remove video?');
+  it('calls every selection an asset when confirming removal', async () => {
+    const values = ['https://x.test/spec.pdf', 'https://cdn.example.com/clip.mp4'];
+    const titles = await Promise.all(values.map(async (value) => {
+      const field = await mount({ value });
+      button(field, 'Remove').click();
+      await field.updateComplete;
+      return query(field, 'nx-dialog').title;
+    }));
+    expect(titles).to.deep.equal(['Remove asset?', 'Remove asset?']);
   });
 
   it('removes only the field reference after confirmation', async () => {
