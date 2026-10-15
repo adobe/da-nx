@@ -291,7 +291,7 @@ class Editor extends LitElement {
       `;
     }
 
-    if (node.semanticType === 'media') {
+    if (node.semanticType === 'asset') {
       return html`
         <form-asset
           data-pointer=${pointer}

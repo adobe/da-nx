@@ -15,7 +15,7 @@
 // `save` is injectable so the call is testable in isolation; default is the
 // form block's `saveSourceHtml`. A different consumer could swap in a
 // queue-backed save, an offline write, etc., without touching persistence.
-// `schema` lets the SDK write media fields as images so EDS ingests them, and
+// `schema` lets the SDK write asset fields as images so EDS ingests them, and
 // non-image files as links.
 
 import { convertJsonToHtml } from '../../../deps/da-sc-sdk/dist/index.js';

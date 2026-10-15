@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import { convertJsonToHtml } from '../../../../../nx/deps/da-sc-sdk/dist/index.js';
 import {
   describeMedia, isAssetHref, splitHrefForDisplay,
 } from '../../../../../nx/blocks/form/utils/media.js';
@@ -76,6 +77,38 @@ describe('form media values', () => {
       href: 'https://delivery.example.com/urn:aaid:aem:1/as/photo',
       name: 'photo.webp',
     })).to.include({ name: 'photo.webp', kind: 'file' });
+  });
+});
+
+// The field keeps its own copy of the SDK's image rule, so this pins both to the same result.
+describe('image rule parity with the SDK', () => {
+  const schema = { type: 'object', properties: { hero: { type: 'string', 'x-semantic-type': 'asset' } } };
+  const writesImage = (href) => convertJsonToHtml({
+    json: { metadata: { schemaName: 'page' }, data: { hero: href } },
+    schema,
+  }).html.includes('<img ');
+
+  const hrefs = [
+    './media_abc.png',
+    './media_abc.JPG?width=750&format=jpg',
+    'https://x.test/a/photo.jpeg#crop',
+    'https://x.test/icon.svg',
+    'https://x.test/anim.gif',
+    'https://x.test/photo.webp',
+    'https://delivery-p1-e1.adobeaemcloud.com/adobe/assets/urn:aaid:aem:1/as/hero.avif?smartcrop=wide',
+    'https://x.test/spec.pdf',
+    'https://x.test/clip.mp4',
+    'https://x.test/scan.tiff',
+    'https://delivery-p1-e1.adobeaemcloud.com/adobe/assets/urn:aaid:aem:1/play',
+    'https://images.example.com/photo-1?w=750',
+    'https://x.test/folder.png/readme',
+  ];
+
+  it('previews a value as an image exactly when the SDK writes it as an image', () => {
+    const mismatches = hrefs.filter(
+      (href) => (describeMedia({ href }).kind === 'image') !== writesImage(href),
+    );
+    expect(mismatches).to.deep.equal([]);
   });
 });
 
