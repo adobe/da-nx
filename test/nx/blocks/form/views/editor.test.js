@@ -7,7 +7,7 @@ const mediaNode = (extra = {}) => ({
   kind: 'string',
   pointer: '/data/heroImage',
   label: 'Hero image',
-  semanticType: 'media',
+  semanticType: 'asset',
   ...extra,
 });
 
