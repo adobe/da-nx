@@ -280,7 +280,19 @@ describe('nx-ew-actions preflight gate (Gate #1)', () => {
     document.dispatchEvent(new CustomEvent('nx-preflight-status', {
       detail: { path: '/org/site/page.html', status: 'success', requestId: runDetail.requestId },
     }));
-    expect(await pending).to.equal('success');
+    expect(await pending).to.deep.equal({ status: 'success', message: undefined });
+  });
+
+  it('requestPreflight resolves the error status with its message', async () => {
+    const el = make();
+    let runDetail;
+    document.addEventListener('nx-preflight-run', (e) => { runDetail = e.detail; }, { once: true });
+    const pending = el.requestPreflight('/org/site/page.html');
+    await nextTick();
+    document.dispatchEvent(new CustomEvent('nx-preflight-status', {
+      detail: { path: '/org/site/page.html', status: 'error', message: 'Forbidden', requestId: runDetail.requestId },
+    }));
+    expect(await pending).to.deep.equal({ status: 'error', message: 'Forbidden' });
   });
 
   it('requestPreflight ignores a status with a mismatched requestId', async () => {
@@ -295,7 +307,7 @@ describe('nx-ew-actions preflight gate (Gate #1)', () => {
     document.dispatchEvent(new CustomEvent('nx-preflight-status', {
       detail: { path: '/org/site/page.html', status: 'fail', requestId: runDetail.requestId },
     }));
-    expect(await pending).to.equal('fail');
+    expect((await pending).status).to.equal('fail');
   });
 
   it('disconnectedCallback cancels a pending requestPreflight, resolving undefined', async () => {
@@ -320,6 +332,38 @@ describe('nx-ew-actions preflight gate (Gate #1)', () => {
     el._preflightPassed = false;
     el._onPreflightStatus({ detail: { path: '/other/doc', status: 'success' } });
     expect(el._preflightPassed).to.equal(false);
+  });
+
+  describe('publish gate dialog', () => {
+    async function publishWith(result) {
+      const el = make({ org: 'org', site: 'site', path: '/page' });
+      el._enforcePreflight = true;
+      el.requestPreflight = async () => result;
+      let shown;
+      el._showActionError = async (action, message, details) => {
+        shown = { action, message, details };
+      };
+      await el._runAemAction('publish');
+      return shown;
+    }
+
+    it('says the checks could not run, with the cause, on an error status', async () => {
+      const shown = await publishWith({ status: 'error', message: 'Forbidden' });
+      expect(shown.action).to.equal('publish');
+      expect(shown.message).to.equal('Preflight couldn\'t check this page. Please try again later or contact your administrator if the problem persists.');
+      expect(shown.details).to.equal('Forbidden');
+    });
+
+    it('says preflight found issues on a fail status', async () => {
+      const shown = await publishWith({ status: 'fail' });
+      expect(shown.message).to.equal('Preflight found issues. Resolve them in the Preflight panel, then publish again.');
+      expect(shown.details).to.equal(undefined);
+    });
+
+    it('says preflight did not finish on a timeout', async () => {
+      const shown = await publishWith(undefined);
+      expect(shown.message).to.equal('Preflight did not finish in time. Please run Preflight again before publishing.');
+    });
   });
 
   it('_prepareDetails is a stable reference until the hash state changes', () => {

@@ -1,5 +1,7 @@
 // Cross-repo Preflight ↔ Publish contract (da.live imports via getNx2()).
-// RUN { paths, requestId } → STATUS { path, status, requestId } (one status per path).
+// RUN { paths, requestId } → STATUS { path, status, requestId, message? } (one status per path).
+// status: 'success' | 'fail' (checks found issues) | 'cancelled' |
+// 'error' (checks could not run; `message` carries the cause).
 export const PREFLIGHT_EVENT = Object.freeze({
   RUN: 'nx-preflight-run',
   STATUS: 'nx-preflight-status',
