@@ -15,7 +15,7 @@ nx-popover {
 }
 
 .picker-section {
-  padding: var(--s2-spacing-75) var(--s2-spacing-200);
+  padding: var(--s2-spacing-75) var(--s2-spacing-100);
   margin: 0;
   list-style: none;
   font-size: var(--s2-component-xs-regular-font-size);
