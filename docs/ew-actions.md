@@ -58,6 +58,10 @@ Canvas library/block previews and custom Prepare-menu previews use resolved bran
 
 For a non-`main` branch the URLs are `https://{branch}--{site}--{org}.aem.page|live{webPath}`; for `main` they use the site's configured preview/production hosts. A `preview-url` / `live-url` meta template still takes precedence for the URL opened after a deploy.
 
+An explicit `preview-url` (preview) or `live-url` (publish) template in the editor page's head also bypasses the Canvas branch requirement for that action. This lets standalone editors such as Forms deploy without a Canvas bridge. `${aemPath}` is replaced with the current document path, and the deployed environment's copy control uses the same destination. Each action uses only its matching template; save, preflight, and deployment errors remain blocking.
+
+On the standalone `/form` page, absent branch state falls back to `main` for both preview and publish. Metadata destinations still take precedence. Known pending/error bridge state does not fall back, and Canvas pages retain their existing branch requirements.
+
 ## Deploy flow
 
 On confirm, the control:
