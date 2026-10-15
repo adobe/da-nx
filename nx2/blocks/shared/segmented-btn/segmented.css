@@ -107,7 +107,7 @@
 
 :host([compact]) .segment {
   min-width: 24px;
-  padding-inline: var(--s2-spacing-75);
+  padding-inline: 6px;
 }
 
 :host([compact][size="m"]) .segment {

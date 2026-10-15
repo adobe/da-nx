@@ -110,7 +110,7 @@ nx-popover {
 }
 
 :host([size="s"]) .menu-item {
-  padding: var(--s2-spacing-75) var(--s2-spacing-200);
+  padding: 6px var(--s2-spacing-200);
 }
 
 :host([size="m"]) {
