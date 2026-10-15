@@ -203,7 +203,7 @@ describe('nx-ew-actions', () => {
         else localStorage.setItem('ui-size', originalSize);
       });
 
-      it('uses small buttons only for small sizing, including the default', async () => {
+      it('keeps main button sizes in every UI size', async () => {
         const org = uniq('org');
         const site = uniq('site');
         restoreFetch = installFetch({
@@ -227,7 +227,7 @@ describe('nx-ew-actions', () => {
           )];
           expect(buttons.length).to.equal(3);
           buttons.forEach((button) => {
-            expect(button.classList.contains('nx-btn-sm')).to.equal(size === null || size === 's');
+            expect(button.classList.contains('nx-btn-sm')).to.be.false;
           });
           const send = el.shadowRoot.querySelector('.send-btn');
           expect(send.classList.contains('is-error')).to.be.true;
