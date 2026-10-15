@@ -159,6 +159,8 @@ export function formatLangs(langs, config) {
         const code = value.trim();
         return { code, active: hasDefaultLocales ? defaultLocales?.includes(code) ?? false : true };
       });
+    } else {
+      delete lang.locales;
     }
 
     if (lang['source language']) {
