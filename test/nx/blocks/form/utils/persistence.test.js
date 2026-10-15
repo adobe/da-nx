@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { attachPersistence } from '../../../../../nx/blocks/form/utils/persistence.js';
 
-// Minimal editor stub. `setValues(next)` simulates a real mutation by
+// Minimal editor stub. `setValues(next, model)` simulates a real mutation by
 // replacing `state.document` with a NEW reference — persistence uses
 // reference equality on the document to detect mutations.
 function makeEditor(initial = {}) {
@@ -13,12 +13,13 @@ function makeEditor(initial = {}) {
   };
   return {
     getState: () => state,
-    setValues: (next) => {
+    setValues: (next, model) => {
       state = {
         document: {
           metadata: { schemaName: 'demo' },
           data: next,
         },
+        model,
       };
     },
   };
@@ -192,6 +193,29 @@ describe('attachPersistence', () => {
     p.notify();
     await tick();
     expect(calls).to.have.lengthOf(1);
+    p.detach();
+  });
+
+  it('writes asset fields as images from the model in the editor state', async () => {
+    const hero = 'https://content.da.live/org/site/hero.png';
+    const model = {
+      root: { key: 'data', kind: 'object', children: [{ key: 'hero', kind: 'string', semanticType: 'asset' }] },
+    };
+    const editor = makeEditor();
+    const { save, calls, release } = makeSave();
+    const p = attachPersistence(editor, { path: '/x', save });
+
+    editor.setValues({ hero });
+    p.notify();
+    await tick();
+    expect(calls[0].html).to.not.include('<img');
+    release();
+    await tick();
+
+    editor.setValues({ hero }, model);
+    p.notify();
+    await tick();
+    expect(calls[1].html).to.include(`<img src="${hero}" alt="">`);
     p.detach();
   });
 });

@@ -165,7 +165,8 @@ describe('SDK state shape', () => {
       'https://delivery.example.com/assets/hero.avif?smartcrop=wide&width=1920',
     ].forEach((href) => {
       engine.setField('/data/heroImage', href);
-      const { html, error } = convertJsonToHtml({ json: engine.getState().document, schema });
+      const { document, model } = engine.getState();
+      const { html, error } = convertJsonToHtml({ json: document, model });
       expect(error).to.equal(undefined);
       const img = new DOMParser().parseFromString(html, 'text/html').querySelector('img');
       expect(img?.getAttribute('src')).to.equal(href);
@@ -173,7 +174,8 @@ describe('SDK state shape', () => {
     });
 
     engine.setField('/data/heroImage', undefined);
-    const { html } = convertJsonToHtml({ json: engine.getState().document, schema });
+    const { document, model } = engine.getState();
+    const { html } = convertJsonToHtml({ json: document, model });
     expect(html).to.not.include('<img');
     expect(convertHtmlToJson({ html }).json.data.heroImage).to.equal(undefined);
   });
@@ -333,7 +335,7 @@ describe('SDK × attachPersistence (end-to-end)', () => {
     p.detach();
   });
 
-  it('saves image fields as HTML images when given the schema', async () => {
+  it('saves image fields as HTML images from the engine model', async () => {
     let p;
     const calls = [];
     const save = async ({ html }) => { calls.push(html); };
@@ -343,7 +345,7 @@ describe('SDK × attachPersistence (end-to-end)', () => {
     };
 
     const editor = createEngine({ schema, document: validDoc(), onChange: () => p?.notify() });
-    p = attachPersistence(editor, { path: '/smoke', schema, save });
+    p = attachPersistence(editor, { path: '/smoke', save });
 
     editor.setField('/data/heroImage', 'https://content.da.live/org/site/hero.png');
     await new Promise((r) => { setTimeout(r, 0); });
