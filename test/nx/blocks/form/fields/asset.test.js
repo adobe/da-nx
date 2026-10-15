@@ -36,8 +36,9 @@ const settle = async (field) => {
 };
 
 const query = (field, selector) => field.shadowRoot.querySelector(selector);
-const button = (field, text) => [...field.shadowRoot.querySelectorAll('button')]
-  .find((element) => element.textContent.trim() === text);
+// Finds a button by its text, or an icon button by its label.
+const button = (field, name) => [...field.shadowRoot.querySelectorAll('button')]
+  .find((element) => element.textContent.trim() === name || element.getAttribute('aria-label') === name);
 const menu = (field) => query(field, 'nx-menu');
 const box = (field) => query(field, '.asset');
 const heightOf = (element) => element.getBoundingClientRect().height;
@@ -178,12 +179,32 @@ describe('form-asset', () => {
     expect(query(field, '.asset-preview video')).to.equal(null);
   });
 
-  it('shows the stored file name with Replace and Remove', async () => {
+  it('shows the stored URL with Copy, Replace and Remove as icons in the row', async () => {
     const field = await mount({ value: 'https://x.test/files/data%20sheet.pdf' });
+    const row = query(field, '.asset-row');
     expect(query(field, '.asset-url').textContent).to.equal('https://x.test/files/data sheet.pdf');
     expect(query(field, '.asset-url').title).to.equal('https://x.test/files/data sheet.pdf');
-    expect(menu(field).querySelector('[slot="trigger"]').textContent.trim()).to.equal('Replace');
-    expect(button(field, 'Remove')).to.exist;
+    expect(menu(field).querySelector('[slot="trigger"]').getAttribute('aria-label')).to.equal('Replace');
+    expect(row.contains(menu(field))).to.be.true;
+    expect(row.contains(button(field, 'Remove'))).to.be.true;
+    expect(row.contains(query(field, '.asset-copy'))).to.be.true;
+  });
+
+  it('keeps the actions in the row below an image preview', async () => {
+    const field = await mount({ value: './media_abc.png' });
+    const row = query(field, '.asset-row');
+    expect(query(field, '.asset-preview')).to.exist;
+    expect(row.contains(menu(field))).to.be.true;
+    expect(row.contains(button(field, 'Remove'))).to.be.true;
+    expect(row.contains(query(field, '.asset-copy'))).to.be.true;
+  });
+
+  it('offers only a quiet Select button in an empty field', async () => {
+    const field = await mount();
+    expect(button(field, 'Select').classList.contains('asset-select')).to.be.true;
+    expect(button(field, 'Replace')).to.equal(undefined);
+    expect(button(field, 'Remove')).to.equal(undefined);
+    expect(query(field, '.asset-copy')).to.equal(null);
   });
 
   it('cuts only the path of a long URL while the whole file name stays readable', async () => {
@@ -383,16 +404,15 @@ describe('form-asset', () => {
 
   it('removes only the field reference after confirmation', async () => {
     const field = await mount({ value: './media_abc.png' });
-    const focus = sinon.spy(query(field, '.asset-source-trigger'), 'focus');
     const changes = recordChanges(field);
     button(field, 'Remove').click();
     await field.updateComplete;
     query(field, '.asset-remove-confirm').click();
-    await field.updateComplete;
+    await settle(field);
     expect(query(field, 'nx-dialog')).to.equal(null);
     expect(changes).to.deep.equal([undefined]);
     expect(query(field, '.asset-placeholder')).to.exist;
-    expect(focus.calledOnce).to.be.true;
+    expect(field.shadowRoot.activeElement).to.equal(button(field, 'Select'));
   });
 
   describe('copying the URL', () => {

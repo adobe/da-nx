@@ -245,30 +245,50 @@ class FormAsset extends LitElement {
     this._failedPreviewSrc = event.currentTarget.getAttribute('src');
   }
 
-  _renderSourceTrigger() {
-    const text = this.value ? LABELS.replace : LABELS.select;
-    const className = `asset-source-trigger ${this.value ? 'nx-form-btn-secondary' : 'nx-form-btn-primary'}`;
+  // Several sources open a menu, a single source starts right away.
+  _renderSourceTrigger({ className, content, label }) {
     const sources = this._availableSources;
     if (sources.length > 1) {
-      const items = sources.map(({ id, label }) => ({ id, label }));
+      const items = sources.map(({ id, label: sourceLabel }) => ({ id, label: sourceLabel }));
       return html`
         <nx-menu placement=${MENU_PLACEMENT} .items=${items} @select=${this._onMenuSelect}>
-          <button slot="trigger" type="button" class=${className} ?disabled=${this.disabled}>
-            ${text}${icon('chevronDown', 'asset-menu-chevron')}
-          </button>
+          <button slot="trigger" type="button" class=${className} title=${label ?? nothing}
+            aria-label=${label ?? nothing} ?disabled=${this.disabled}>${content}</button>
         </nx-menu>
       `;
     }
     const [source] = sources;
-    return html`<button type="button" class=${className} ?disabled=${this.disabled || !source}
-      @click=${() => this._selectFrom(source)}>${text}</button>`;
+    return html`<button type="button" class=${className} title=${label ?? nothing}
+      aria-label=${label ?? nothing} ?disabled=${this.disabled || !source}
+      @click=${() => this._selectFrom(source)}>${content}</button>`;
+  }
+
+  _renderSelectButton() {
+    const chevron = this._availableSources.length > 1 ? icon('chevronDown', 'asset-menu-chevron') : nothing;
+    return this._renderSourceTrigger({
+      className: 'asset-source-trigger asset-select',
+      content: html`${LABELS.select}${chevron}`,
+    });
+  }
+
+  _renderChangeButtons() {
+    return html`
+      ${this._renderSourceTrigger({
+        className: 'asset-source-trigger asset-icon-button',
+        content: icon('replace'),
+        label: LABELS.replace,
+      })}
+      <button type="button" class="asset-remove asset-icon-button" title=${LABELS.remove}
+        aria-label=${LABELS.remove} ?disabled=${this.disabled}
+        @click=${this._openRemoveDialog}>${icon('remove')}</button>
+    `;
   }
 
   // Copying only reads the value, so it stays available in read-only fields.
   _renderCopyButton() {
     const label = this._copied ? LABELS.copied : LABELS.copy;
     return html`
-      <button type="button" class="asset-copy" title=${label} aria-label=${label}
+      <button type="button" class="asset-copy asset-icon-button" title=${label} aria-label=${label}
         @click=${this._copyValue} @pointerleave=${this._resetCopied} @blur=${this._resetCopied}
         >${icon(this._copied ? 'copied' : 'copy')}</button>
       <span class="asset-status" role="status">${this._copied ? LABELS.copied : ''}</span>
@@ -279,11 +299,12 @@ class FormAsset extends LitElement {
     if (this._pending) {
       return html`<span class="nx-loading-spinner" role="status" aria-label=${LABELS.adding(this._kindLabel)}></span>`;
     }
+    if (!this.value) {
+      return this._renderSelectButton();
+    }
     return html`
-      ${this.value ? this._renderCopyButton() : nothing}
-      ${this._renderSourceTrigger()}
-      ${this.value ? html`<button type="button" class="asset-remove nx-form-btn-primary"
-        ?disabled=${this.disabled} @click=${this._openRemoveDialog}>${LABELS.remove}</button>` : nothing}
+      ${this._renderCopyButton()}
+      ${this._renderChangeButtons()}
     `;
   }
 
