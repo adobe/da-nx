@@ -88,7 +88,11 @@
     margin: 0 16px 0 0;
     padding: 0;
     list-style: none;
-    overflow-x: auto;
+    overflow: auto hidden;
+  }
+
+  li {
+    flex-shrink: 0;
   }
 
   button {
@@ -96,6 +100,7 @@
     justify-content: center;
     align-items: center;
     height: 32px;
+    white-space: nowrap;
     border-radius: var(--s2-corner-radius-500);
 
     .icon {

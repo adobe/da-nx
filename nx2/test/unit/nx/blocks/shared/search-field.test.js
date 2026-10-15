@@ -157,6 +157,23 @@ describe('nx-search', () => {
     expect(field.value).to.equal('plan');
   });
 
+  it('hides and restores a slotted action with the native hidden property', async () => {
+    const action = document.createElement('button');
+    action.slot = 'actions';
+    action.type = 'button';
+    action.hidden = true;
+    field.append(action);
+    await field.updateComplete;
+    expect(getComputedStyle(action).display).to.equal('none');
+    expect(action.getClientRects()).to.have.length(0);
+    action.hidden = false;
+    expect(getComputedStyle(action).display).to.equal('flex');
+    expect(action.getBoundingClientRect().width).to.equal(24);
+    action.hidden = true;
+    expect(getComputedStyle(action).display).to.equal('none');
+    expect(action.getClientRects()).to.have.length(0);
+  });
+
   it('highlights the field for input and clear focus, not trailing action focus', async () => {
     field.variant = 'field';
     field.value = 'plan';

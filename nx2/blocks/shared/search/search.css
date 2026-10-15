@@ -76,7 +76,8 @@ button,
   cursor: pointer;
 }
 
-button[hidden] {
+button[hidden],
+::slotted(button[hidden]) {
   display: none;
 }
 

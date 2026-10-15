@@ -37,6 +37,7 @@ be edited or cleared.
 Consumers handle filtering and search results.
 Use the `actions` slot for trailing controls such as Search options.
 Supply an accessible label and click handler for each action.
+Use `hidden` to hide an action.
 
 ```html
 <nx-search variant="field" label="Search files" placeholder="Search files">

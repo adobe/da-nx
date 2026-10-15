@@ -362,7 +362,7 @@ field.addEventListener('search-submit', (event) =&gt; search(event.detail.value)
 
       <article class="sg-example">
         <h3>nx-search — in-field action</h3>
-        <p class="sg-note">The field border follows input and Clear focus; trailing actions have their own keyboard-focus outline.</p>
+        <p class="sg-note">The field border follows input and Clear focus; trailing actions have their own keyboard-focus outline and respect <code>hidden</code>.</p>
         <div class="sg-demo">
           <nx-search variant="field" label="Search files" placeholder="Search files">
             <button slot="actions" type="button" aria-label="Search options" title="Search options">
