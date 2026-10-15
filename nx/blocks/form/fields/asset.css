@@ -223,6 +223,24 @@
   }
 }
 
+/* A busy trigger keeps its size: its content stays in the layout, hidden under the spinner. */
+.asset-source-trigger.is-pending {
+  position: relative;
+  opacity: 1;
+  cursor: progress;
+
+  .asset-trigger-content {
+    display: contents;
+    visibility: hidden;
+  }
+
+  .nx-loading-spinner {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+  }
+}
+
 .asset-menu-chevron {
   width: var(--asset-menu-icon-size);
   height: var(--asset-menu-icon-size);

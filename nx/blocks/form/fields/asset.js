@@ -241,22 +241,31 @@ class FormAsset extends LitElement {
     this._failedPreviewSrc = event.currentTarget.getAttribute('src');
   }
 
+  // The spinner is only visual: the status outside the buttons announces progress.
+  _renderTriggerContent(content) {
+    if (!this._pending) return content;
+    return html`<span class="asset-trigger-content">${content}</span>
+      <span class="nx-loading-spinner" aria-hidden="true"></span>`;
+  }
+
   // Several sources open a menu, a single source starts right away.
   _renderSourceTrigger({ className, content, label }) {
     const sources = this._availableSources;
+    const classes = this._pending ? `${className} is-pending` : className;
+    const body = this._renderTriggerContent(content);
     if (sources.length > 1) {
       const items = sources.map(({ id, label: sourceLabel }) => ({ id, label: sourceLabel }));
       return html`
         <nx-menu placement=${MENU_PLACEMENT} .items=${items} @select=${this._onMenuSelect}>
-          <button slot="trigger" type="button" class=${className} title=${label ?? nothing}
-            aria-label=${label ?? nothing} ?disabled=${this.disabled}>${content}</button>
+          <button slot="trigger" type="button" class=${classes} title=${label ?? nothing}
+            aria-label=${label ?? nothing} ?disabled=${!this._canChange}>${body}</button>
         </nx-menu>
       `;
     }
     const [source] = sources;
-    return html`<button type="button" class=${className} title=${label ?? nothing}
-      aria-label=${label ?? nothing} ?disabled=${this.disabled || !source}
-      @click=${() => this._selectFrom(source)}>${content}</button>`;
+    return html`<button type="button" class=${classes} title=${label ?? nothing}
+      aria-label=${label ?? nothing} ?disabled=${!this._canChange || !source}
+      @click=${() => this._selectFrom(source)}>${body}</button>`;
   }
 
   _renderSelectButton() {
@@ -275,7 +284,7 @@ class FormAsset extends LitElement {
         label: LABELS.replace,
       })}
       <button type="button" class="asset-remove asset-icon-button" title=${LABELS.remove}
-        aria-label=${LABELS.remove} ?disabled=${this.disabled}
+        aria-label=${LABELS.remove} ?disabled=${!this._canRemove}
         @click=${this._openRemoveDialog}>${icon('remove')}</button>
     `;
   }
@@ -287,14 +296,19 @@ class FormAsset extends LitElement {
       <button type="button" class="asset-copy asset-icon-button" title=${label} aria-label=${label}
         @click=${this._copyValue} @pointerleave=${this._resetCopied} @blur=${this._resetCopied}
         >${icon(this._copied ? 'copied' : 'copy')}</button>
-      <span class="asset-status" role="status">${this._copied ? LABELS.copied : ''}</span>
     `;
   }
 
+  // One status that is always rendered, so screen readers announce its changes. It
+  // stays outside the buttons and the busy group, which can both hide announcements.
+  _renderStatus() {
+    let text = '';
+    if (this._pending) text = LABELS.adding;
+    else if (this._copied) text = LABELS.copied;
+    return html`<span class="asset-status" role="status">${text}</span>`;
+  }
+
   _renderActions() {
-    if (this._pending) {
-      return html`<span class="nx-loading-spinner" role="status" aria-label=${LABELS.adding}></span>`;
-    }
     if (!this.value) {
       return this._renderSelectButton();
     }
@@ -386,6 +400,7 @@ class FormAsset extends LitElement {
           ${this._renderPreview()}
           ${this._renderRow()}
         </div>
+        ${this._renderStatus()}
         ${this._renderMessage()}
       </div>
       <input class="file-input" type="file" hidden>

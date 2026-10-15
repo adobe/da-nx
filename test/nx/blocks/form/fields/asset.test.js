@@ -308,13 +308,61 @@ describe('form-asset', () => {
     const changes = recordChanges(field);
     await pick(field, 'aem-assets');
     expect(field.value).to.equal('./media_old.png');
-    expect(query(field, '.nx-loading-spinner[role="status"]')).to.exist;
-    expect(button(field, 'Remove')).to.equal(undefined);
+    expect(query(field, '.asset-source-trigger .nx-loading-spinner[aria-hidden="true"]')).to.exist;
+    expect(button(field, 'Replace').disabled).to.be.true;
+    expect(button(field, 'Remove').disabled).to.be.true;
+    expect(button(field, 'Copy URL').disabled).to.be.false;
 
     resolve({ href: 'https://x.test/new.pdf', name: 'new.pdf' });
     await settle(field);
     expect(changes).to.deep.equal(['https://x.test/new.pdf']);
     expect(query(field, '.nx-loading-spinner')).to.equal(null);
+  });
+
+  it('announces progress from a status outside the buttons and the busy group', async () => {
+    let resolve;
+    const field = await mount({
+      sources: [upload(), aem({ select: () => new Promise((done) => { resolve = done; }) })],
+    });
+    const status = query(field, '[role="status"]');
+    expect(status.textContent).to.equal('');
+    await pick(field, 'aem-assets');
+
+    expect(field.shadowRoot.querySelectorAll('[role="status"]')).to.have.lengthOf(1);
+    expect(query(field, '[role="status"]')).to.equal(status);
+    expect(status.textContent).to.equal('Adding asset');
+    expect(status.closest('button, [aria-busy]')).to.equal(null);
+
+    resolve(CANCELLED);
+    await settle(field);
+    expect(status.textContent).to.equal('');
+  });
+
+  it('shows progress inside the Select button without moving it', async () => {
+    let resolve;
+    const field = await mount({
+      sources: [upload(), aem({ select: () => new Promise((done) => { resolve = done; }) })],
+    });
+    const select = query(field, '.asset-select');
+    const before = select.getBoundingClientRect();
+    await pick(field, 'aem-assets');
+
+    const pending = query(field, '.asset-select');
+    const after = pending.getBoundingClientRect();
+    const spinner = pending.querySelector('.nx-loading-spinner');
+    const center = ({ left, top, width, height }) => [left + width / 2, top + height / 2];
+    const [spinnerX, spinnerY] = center(spinner.getBoundingClientRect());
+    const [buttonX, buttonY] = center(after);
+    expect(pending.disabled).to.be.true;
+    expect([after.left, after.width, after.height])
+      .to.deep.equal([before.left, before.width, before.height]);
+    expect(Math.abs(spinnerX - buttonX)).to.be.below(1);
+    expect(Math.abs(spinnerY - buttonY)).to.be.below(1);
+
+    resolve(CANCELLED);
+    await settle(field);
+    expect(query(field, '.nx-loading-spinner')).to.equal(null);
+    expect(query(field, '.asset-select').disabled).to.be.false;
   });
 
   it('keeps the old value when a source cancels, reports an error or throws', async () => {
