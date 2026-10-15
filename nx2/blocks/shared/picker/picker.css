@@ -95,7 +95,7 @@ nx-popover {
   justify-content: space-between;
   gap: var(--s2-spacing-100);
   width: 100%;
-  padding: var(--s2-spacing-75) var(--s2-spacing-200);
+  padding: var(--s2-spacing-75) var(--s2-spacing-100);
   border: none;
   border-radius: var(--s2-corner-radius-400);
   background: none;

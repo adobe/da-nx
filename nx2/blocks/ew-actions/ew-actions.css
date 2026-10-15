@@ -291,3 +291,7 @@ nx-popover.deploy-popover {
 .deploy .deploy-action.is-publish:hover:not(:disabled) {
   background: #0fa25b;
 }
+
+:host([data-ui-size="m"]) .deploy .deploy-action {
+  height: 36px;
+}

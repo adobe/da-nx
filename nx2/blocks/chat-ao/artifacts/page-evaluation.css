@@ -357,7 +357,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--s2-component-s-regular-font-size);
+  font-size: var(--s2-component-m-regular-font-size);
   color: var(--s2-gray-800);
   background: none;
   border: none;
@@ -465,7 +465,7 @@
 }
 
 .ui-artifact-pe-modal-paging-label {
-  font-size: var(--s2-component-s-regular-font-size);
+  font-size: var(--s2-component-m-regular-font-size);
   font-weight: bold;
   color: var(--s2-gray-800);
 }
@@ -498,10 +498,13 @@
     .ui-artifact-pe-item-desc,
     .ui-artifact-pe-item-action,
     .ui-artifact-pe-paging-label,
-    .ui-artifact-pe-modal-copy,
-    .ui-artifact-pe-modal-chip,
-    .ui-artifact-pe-modal-paging-label
+    .ui-artifact-pe-modal-chip
   ) {
     font-size: var(--s2-component-m-regular-font-size);
+  }
+
+  .ui-artifact-pe-modal-copy,
+  .ui-artifact-pe-modal-paging-label {
+    font-size: var(--s2-component-l-regular-font-size);
   }
 }
