@@ -74,6 +74,36 @@ parallel one. If you do add a new key:
 
 ---
 
+### `SET_BODY` (`rerenderScope`)
+
+Both hosts diff the document against the last body the preview received and send the
+smallest part of `main` to re-render: a block, a section, an added/removed section, or the
+page (all of `main`). Loaders opt in with `partialReload`, which automatically limits updates
+to `main` and preserves header and footer. The reload callback must be able to decorate just
+`replaced.el`; the iframe re-keys the indices of the DOM it keeps and falls back to the whole
+of `main` whenever that mapping is ambiguous. Without `partialReload`, the whole body is
+replaced. If the page exposes no
+`decorateMain`/`loadSections`, `quick-edit-init.js` replaces the whole body and calls the page's
+`loadPage` (so header and footer re-render); without `loadPage` either, edits are shown
+undecorated in `main`.
+An iframe `RELOAD` makes da-live re-send
+everything not confirmed by the iframe itself, since it signals a failed `SET_EDITOR_STATE`.
+
+### `SET_EDITOR_STATE` / `RELOAD`
+
+Both hosts use `SET_EDITOR_STATE` for inline edits to rendered text. Creating a
+mini-editor replaces only the element with the exact document index; a missing
+target requests a resync, never replacement of the nearest preceding element.
+The iframe coalesces failed updates into one `RELOAD` until another `SET_BODY`
+arrives. Both hosts supply the document length change when an edit opens a
+mini-editor for the first time, so later text, block, and image indices stay in
+sync without guessed matches. Existing mini-editors calculate that change from
+their own transactions instead.
+
+Block-title rows and metadata tables have no inline counterpart in the preview.
+Both hosts route their edits through scoped `SET_BODY` rerendering rather than
+requesting mini-editors for text consumed or removed by serialization.
+
 ### `SET_SELECTED_NODE` / `NODE_SELECT`
 
 Drive the selection-overlay feature: when a user clicks a block or image in the
