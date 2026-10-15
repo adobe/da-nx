@@ -101,8 +101,8 @@ nx-popover.deploy-popover {
 }
 
 .deploy-glyph {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   fill: currentcolor;
 }
 
@@ -173,7 +173,7 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card-sub {
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-700, #464646);
 }
 
@@ -183,8 +183,8 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card-check .deploy-glyph {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 .deploy-card-preview .deploy-card-check {
@@ -199,7 +199,7 @@ nx-popover.deploy-popover {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 47px;
+  height: 48px;
   padding: 0 18px;
   border-top: 1px solid var(--s2-gray-200, #e6e6e6);
 }
@@ -218,7 +218,7 @@ nx-popover.deploy-popover {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-800, #292929);
 }
 
@@ -227,8 +227,8 @@ nx-popover.deploy-popover {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   background: transparent;
   border: 0;
@@ -238,24 +238,31 @@ nx-popover.deploy-popover {
 }
 
 .deploy-copy .deploy-glyph {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
 :host([data-ui-size="m"]) {
   .deploy-glyph {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
   }
 
   .deploy-card-check .deploy-glyph {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
   }
 
   .deploy-copy .deploy-glyph {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
+  }
+
+  :is(
+    .deploy-card-sub,
+    .deploy-url-text
+  ) {
+    font-size: var(--s2-component-m-regular-font-size);
   }
 }
 
@@ -270,15 +277,11 @@ nx-popover.deploy-popover {
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 24px;
+  height: 32px;
   margin-top: 2px;
   border-radius: 8px;
-  font-size: var(--nx-ui-text-content);
+  font-size: var(--s2-component-m-regular-font-size);
   font-weight: var(--s2-component-m-bold-font-weight);
-}
-
-:host([data-ui-size="m"]) .deploy .deploy-action {
-  height: 32px;
 }
 
 .deploy .deploy-action.is-publish {
