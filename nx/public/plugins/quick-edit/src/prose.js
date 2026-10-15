@@ -13,7 +13,7 @@ import { createSimpleKeymap } from './simple-keymap.js';
 import { createImageWrapperPlugin } from './image-wrapper.js';
 import { setupImageDropListeners } from './images.js';
 import { setRemoteCursors } from './cursors.js';
-import { findTextBlock, syncImageIndices } from './dom-index.js';
+import { syncImageIndices } from './dom-index.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
 function marksEqual(a, b) {
@@ -21,6 +21,12 @@ function marksEqual(a, b) {
   if (!a || !b) return false;
   if (a.length !== b.length) return false;
   return a.every((m, i) => m.eq(b[i]));
+}
+
+function requestReload(ctx) {
+  if (ctx.reloadRequested) return;
+  ctx.reloadRequested = true;
+  ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
 }
 
 function updateInstrumentation(lengthDiff, offset) {
@@ -190,10 +196,13 @@ export function captureFocusedEditor() {
   return { cursorOffset: editorParent.getAttribute('data-prose-index'), selection: { anchor, head } };
 }
 
-function createEditor(cursorOffset, state, ctx, imageVersion, lengthDiff = 0) {
-  // Normalize once: the exact-match badge gate below is a strict === and would
-  // silently never match if cursorOffset arrived as a string.
-  const offset = Number(cursorOffset);
+function createEditor(offset, state, ctx, imageVersion, lengthDiff = 0) {
+  const element = document.querySelector(`[data-prose-index="${offset}"]:not(.prosemirror-editor)`);
+  if (!element) {
+    requestReload(ctx);
+    return;
+  }
+
   const schema = getSchema();
   const node = schema.nodeFromJSON(state);
 
@@ -202,7 +211,7 @@ function createEditor(cursorOffset, state, ctx, imageVersion, lengthDiff = 0) {
   // takes the whole editor down. The controller should never send one, but guard
   // here so a malformed payload degrades to a reload instead of a hard crash.
   if (!schema.nodes.doc.contentMatch.matchType(node.type)) {
-    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
+    requestReload(ctx);
     return;
   }
 
@@ -219,19 +228,7 @@ function createEditor(cursorOffset, state, ctx, imageVersion, lengthDiff = 0) {
   if (imageVersion) editorParent.setAttribute('data-image-version', imageVersion);
   editorParent.classList.add('prosemirror-editor');
 
-  // Drift-tolerant lookup: an exact match can miss after another block's remote edit
-  // shifts positions. Exclude open editors so the fallback can't steal a live one.
-  const element = findTextBlock(offset, document, '.prosemirror-editor');
-
-  if (!element) {
-    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
-    return;
-  }
-
-  // Only trust the found element's remote-cursor badge on an exact match — on the
-  // nearest-block fallback it belongs to whatever block drift landed on, not this one.
-  const isExactMatch = parseInt(element.getAttribute('data-prose-index'), 10) === offset;
-  if (isExactMatch && element.getAttribute('data-cursor-remote')) {
+  if (element.getAttribute('data-cursor-remote')) {
     editorParent.setAttribute('data-cursor-remote', element.getAttribute('data-cursor-remote'));
     editorParent.setAttribute('data-cursor-remote-color', element.getAttribute('data-cursor-remote-color'));
   }
@@ -287,7 +284,7 @@ function updateEditor(editorEl, state, ctx, imageVersion) {
   // Same guard as createEditor: replacing the root with a node that is not
   // valid `doc` content (e.g. a `table_cell`) throws and breaks the editor.
   if (!schema.nodes.doc.contentMatch.matchType(node.type)) {
-    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
+    requestReload(ctx);
     return;
   }
 
@@ -319,10 +316,15 @@ function updateEditor(editorEl, state, ctx, imageVersion) {
 }
 
 export function setEditorState(cursorOffset, state, ctx, imageVersion, lengthDiff) {
-  const existingEditorParent = document.querySelector(`.prosemirror-editor[data-prose-index="${cursorOffset}"]`);
+  const offset = Number(cursorOffset);
+  if (!Number.isSafeInteger(offset) || offset < 0) {
+    requestReload(ctx);
+    return;
+  }
+  const existingEditorParent = document.querySelector(`.prosemirror-editor[data-prose-index="${offset}"]`);
   if (existingEditorParent) {
     updateEditor(existingEditorParent.view, state, ctx, imageVersion);
     return;
   }
-  createEditor(cursorOffset, state, ctx, imageVersion, lengthDiff);
+  createEditor(offset, state, ctx, imageVersion, lengthDiff);
 }
