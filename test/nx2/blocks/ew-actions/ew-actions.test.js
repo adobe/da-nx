@@ -242,6 +242,68 @@ describe('nx-ew-actions', () => {
     });
   });
 
+  describe('standalone Forms fallback', () => {
+    const state = { org: 'org', site: 'site', path: 'docs/page' };
+    let originalHref;
+
+    beforeEach(() => {
+      originalHref = window.location.href;
+      window.history.replaceState(null, '', '/form');
+      restoreFetch = installFetch({ '/sidekick/': {} });
+    });
+    afterEach(() => window.history.replaceState(null, '', originalHref));
+
+    ['preview', 'publish'].forEach((action) => {
+      it(`uses main for ${action} without metadata or branch state`, async () => {
+        branchState = null;
+        const clock = sinon.useFakeTimers();
+        const body = {
+          webPath: '/docs/page',
+          preview: { url: 'https://main.example/docs/page' },
+          live: { url: 'https://live.example/docs/page' },
+        };
+        const preview = sinon.stub(aem, 'preview').callsFake(async () => new Response(JSON.stringify(body)));
+        const publish = sinon.stub(aem, 'publish').callsFake(async () => new Response(JSON.stringify(body)));
+        const open = sinon.stub(window, 'open');
+        el = await makeEl();
+        sinon.stub(el, '_saveVersion').resolves();
+        el._hashState = state;
+        await el.updateComplete;
+        await clock.tickAsync(100);
+        expect(await el._branchPromise).to.be.null;
+        el._status = {
+          webPath: '/docs/page',
+          preview: { status: 200, url: body.preview.url },
+          live: { status: 200, url: body.live.url },
+        };
+        expect(el._previewInfo.url).to.equal(body.preview.url);
+        expect(el._liveInfo.url).to.equal(body.live.url);
+        await el._runAemAction(action);
+        const href = action === 'publish' ? body.live.url : body.preview.url;
+        expect(preview.calledOnceWithExactly('/org/site/docs/page')).to.be.true;
+        expect(publish.called).to.equal(action === 'publish');
+        expect(open.calledOnceWithExactly(href, href)).to.be.true;
+      });
+    });
+
+    ['pending', 'error'].forEach((status) => {
+      it(`does not replace known ${status} branch state with main`, async () => {
+        branchState = { status, error: 'Config unavailable' };
+        const clock = sinon.useFakeTimers();
+        const preview = sinon.spy(aem, 'preview');
+        el = await makeEl();
+        const showError = sinon.stub(el, '_showActionError').resolves();
+        el._hashState = state;
+        await el.updateComplete;
+        const deploying = el._runAemAction('preview');
+        await clock.tickAsync(3000);
+        await deploying;
+        expect(preview.called).to.be.false;
+        expect(showError.calledOnce).to.be.true;
+      });
+    });
+  });
+
   describe('metadata destinations', () => {
     const state = { org: 'org', site: 'site', path: 'docs/page' };
     const aemPath = '/org/site/docs/page';

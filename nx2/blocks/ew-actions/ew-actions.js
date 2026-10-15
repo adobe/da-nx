@@ -333,8 +333,11 @@ class NXEwActions extends LitElement {
     const pending = requestCanvasBranch({
       path: requestPath,
       signal: this._branchAbort.signal,
+      // Remove the Forms main fallback when https://github.com/adobe/da-live/issues/1445 is implemented.
       getLegacyBranch: () => (this._branchPath === requestPath
-        ? this._readLegacyBranch() : undefined),
+        ? this._readLegacyBranch() || (!this._hasBranchBridge
+          && window.location.pathname.replace(/\/$/, '') === '/form' ? 'main' : undefined)
+        : undefined),
     }).then((raw) => {
       const branch = getAemBranch(raw);
       if (this._branchPromise === pending && this._branchPath === requestPath) {
