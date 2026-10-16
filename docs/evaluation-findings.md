@@ -44,10 +44,50 @@ Both the flat A2UI and the legacy nested artifact shapes work.
 - The host anchors a located quote with the comments `encodeAnchor`/`decodeAnchor` helpers, so the marker follows edits.
   Findings are not persisted.
 
-## `FOCUS_FINDING`
+## `FOCUS_FINDING` and `SUGGEST_ELEMENT`
 
 `nx2/utils/evaluation-events.js`: `EVAL_EVENT.FOCUS_FINDING = 'nx-eval-focus-finding'`, `cancelable: true`,
 `detail: { findingId, findings }` where `findings` is every finding of that artifact.
+
+`EVAL_EVENT.SUGGEST_ELEMENT = 'nx-eval-suggest-element'`, `cancelable: true`, `detail: { group, evaluatedUrl? }`
+(see [Generate suggestion](#generate-suggestion)).
+
+## Generate suggestion
+
+Each failing element row of the card (not "Whole page", and only while the row is open) has a
+**Generate suggestion** button (blue `#274DEA`, AISparkles icon; `#292929` on hover and while running).
+Clicking it dispatches `EVAL_EVENT.SUGGEST_ELEMENT` (`'nx-eval-suggest-element'`), `cancelable: true`,
+`detail: { group, evaluatedUrl? }`:
+
+```js
+group = { key, label, name, findings }   // one failing element
+// key: section key ("el-<id>"), label: the outline label ("Section 1 › hero — Heading 1"),
+// name: short name for the chat bubble ("Hero heading 1"), findings: EvalFinding[] of the failing
+// checks (title, description, issue = explanation, suggested = the per-check suggestion, evidence)
+```
+
+- A host that can read the element claims it (`preventDefault()`), builds the full request itself (the
+  card only has a 120-character excerpt) and sends it to the chat. The da.live canvas does this:
+  full current text, kind, links, formatting, neighbours, failing checks with hints, constraints.
+- If nobody claims it, the card sends a plain request built from the artifact through
+  `CHAT_EVENT.SET_PROMPT { text, autoSend: true }` (`artifacts/suggest-element.js`).
+- Either way the message is an [action message](./chat-ao-component.md#action-messages): the bubble reads
+  "<name> failure: Generate suggestion", the body starts with `/aem-governance-element-suggestions`
+  so the skill loads. The skill answers with an `ask_user_question` options card; picking an option
+  applies it, and the skill then evaluates the page again.
+- While the request runs the button is disabled and reads "Generating suggestions…" (the chat is busy
+  with it). If the turn ends without a newer card (skipped, failed), or nothing was sent within 15 s,
+  the button is enabled again.
+
+## A newer evaluation replaces the old card
+
+A card can't tell which page it evaluated, so `nx-chat-ao` gives it the page from the user message that
+asked for it (an optional `url` on the artifact record wins when the agent sends one). Pages are
+compared by identity: the editor URL (`da.live/canvas#/org/site/path`), the preview/live/aem.page URL
+and `/index`/`.html` variants are the same page. When a later card in the same chat evaluates the same
+page, the earlier one collapses to one line, "Superseded by a newer evaluation" (click to expand), and
+its "Generating suggestions…" state is reset. Without any URL the card title is the key. There is no
+"applied" or "resolved" state; the new card is the result.
 
 ## Quick-edit messages
 

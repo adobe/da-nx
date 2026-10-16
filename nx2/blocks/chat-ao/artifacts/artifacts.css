@@ -10,6 +10,11 @@
   color: var(--s2-gray-700);
 }
 
+/* A superseded page evaluation shows one line; its title would be a second one. */
+.ui-artifact:has(nx-page-eval[superseded]) .ui-artifact-title {
+  display: none;
+}
+
 .ui-artifact-fallback {
   margin: 0;
   font-size: var(--s2-body-size-s);

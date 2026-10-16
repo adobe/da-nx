@@ -30,7 +30,10 @@ import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
 import { createVoiceInput, isVoiceInputSupported, appendTranscript } from './utils/voice-input.js';
 import { showToast } from '../shared/toast/toast.js';
-import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
+import {
+  renderAssistantMessageBody, renderUserMessageBody, renderPlanApprovalCard, renderPermissionCard,
+} from './renderers.js';
+import { evaluatedPages } from './utils/evaluated-page.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
 import { createSlashMenu } from '../shared/chat/slash-menu.js';
 import '../shared/pills/pills.js';
@@ -205,6 +208,24 @@ export default class NxChatAo extends LitElement {
     } else {
       input.focus();
     }
+  }
+
+  _renderMessages() {
+    // Page-evaluation cards need the page their request named, and whether the chat is busy.
+    const pages = evaluatedPages(this.messages);
+    return this.messages?.map((msg, i) => (msg.role === 'assistant' ? html`
+      <div class="message message-assistant">
+        ${renderAssistantMessageBody(msg, {
+    onExpandToolCall: (toolCallId) => this._controller.hydrateToolCall(toolCallId),
+    artifactCtx: { evaluatedUrl: pages[i]?.href, busy: !!this.thinking },
+  })}
+      </div>
+    ` : html`
+      <div class="message message-user">
+        ${renderSelectionPills(msg)}
+        ${renderUserMessageBody(msg)}
+      </div>
+    `));
   }
 
   _toggleVoiceInput() {
@@ -477,18 +498,7 @@ export default class NxChatAo extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-new-chat>`
           : nothing}
-            ${this.messages?.map((msg) => (msg.role === 'assistant' ? html`
-              <div class="message message-assistant">
-                ${renderAssistantMessageBody(msg, {
-            onExpandToolCall: (toolCallId) => this._controller.hydrateToolCall(toolCallId),
-          })}
-              </div>
-            ` : html`
-              <div class="message message-user">
-                ${renderSelectionPills(msg)}
-                <div class="message-content">${msg.content}</div>
-              </div>
-            `))}
+            ${this._renderMessages()}
             ${this.pendingPlanApproval ? renderPlanApprovalCard(this.pendingPlanApproval, this._planFeedback ?? '', {
             onFeedbackText: (text) => { this._planFeedback = text; },
             onApprove: () => this._controller.respondToPlanApproval('approve'),

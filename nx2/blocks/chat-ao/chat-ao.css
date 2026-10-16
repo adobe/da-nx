@@ -239,6 +239,30 @@
   white-space: pre;
 }
 
+/* Action message (see utils/action-message.js): the title looks like any user text; the instruction
+   behind it opens on click. */
+.action-message {
+  > summary {
+    list-style: none;
+    cursor: pointer;
+
+    &::marker,
+    &::-webkit-details-marker {
+      display: none;
+    }
+  }
+
+  .action-message-body {
+    margin-top: var(--s2-spacing-100);
+    padding-top: var(--s2-spacing-100);
+    border-top: 1px solid var(--s2-gray-200);
+    color: var(--s2-gray-700);
+    font-size: var(--s2-body-size-xs);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
 .message .selection-context > summary::before {
   content: "";
   display: inline-block;
@@ -263,6 +287,7 @@
   &.message-user {
     max-width: 80%;
     align-self: flex-end;
+    padding-inline: var(--s2-spacing-150);
     background-color: rgb(247 248 255);
   }
 

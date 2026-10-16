@@ -13,71 +13,82 @@
   font-family: var(--s2-font-family);
 }
 
+/* Options card, as in the Figma "One element with multiple failures" spec (1.10): 424 wide,
+   radius 10, 1px #DADADA border, the panel's 3-layer shadow, 36px rows with 24px number boxes,
+   a 90x32 Submit with an Enter key tile. Values off the spacing tokens stay raw to match it. */
 .question-card {
   max-height: 80vh;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  padding: var(--s2-spacing-200);
+  padding: 11px 15px 7px;
   background-color: var(--s2-gray-25);
-  border: 1px solid var(--s2-gray-200);
-  border-radius: var(--s2-corner-radius-500);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
+  border: 1px solid var(--s2-gray-300);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 8%), 0 2px 6px rgb(0 0 0 / 4%), 0 0 2px rgb(0 0 0 / 12%);
 }
 
 .question-body {
   display: flex;
   flex-direction: column;
-  gap: var(--s2-spacing-200);
+  gap: var(--s2-spacing-100);
   overflow-y: auto;
   min-height: 0;
 }
 
 .question-context {
   margin: 0;
-  font-size: var(--s2-component-s-regular-font-size);
-  color: var(--s2-gray-500);
+  font-size: var(--s2-component-xs-regular-font-size);
+  color: var(--s2-gray-700);
 }
 
 .question-fieldset {
   display: flex;
   flex-direction: column;
-  gap: var(--s2-spacing-75);
+  gap: 10px;
+  min-width: 0;
   margin: 0;
   padding: 0;
   border: none;
 }
 
+/* The design has no header; it stays in the DOM for screen readers. */
 .question-header {
+  position: absolute;
+  width: 1px;
+  height: 1px;
   padding: 0;
-  font-weight: var(--s2-component-m-bold-font-weight);
-  font-size: var(--s2-component-m-regular-font-size);
-  color: var(--s2-gray-800);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .question-text {
   margin: 0;
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-component-m-regular-font-size);
+  font-weight: bold;
+  line-height: 18px;
   color: var(--s2-gray-800);
 }
 
 .question-options {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--s2-spacing-75);
+  flex-direction: column;
 }
 
 .question-option {
   position: relative;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: var(--s2-spacing-75);
-  padding: var(--s2-spacing-75) var(--s2-spacing-100);
-  border-radius: var(--s2-corner-radius-500);
-  width:100%;
-  background-color: var(--s2-gray-25);
+  gap: 8px;
+  margin-left: -8px;
+  padding: 6px 4px;
+  border-radius: var(--s2-corner-radius-300);
+  background-color: transparent;
   cursor: pointer;
   font-size: var(--s2-component-m-regular-font-size);
+  line-height: 24px;
 
   &:hover, &:has(input:checked) {
     background-color: var(--s2-gray-75);
@@ -99,7 +110,11 @@
 .question-option-text {
   display: flex;
   flex-direction: column;
-  gap: var(--s2-spacing-50);
+  min-width: 0;
+}
+
+.question-option-label {
+  color: var(--s2-gray-800);
 }
 
 .question-option-number {
@@ -107,14 +122,18 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  margin-inline-end: var(--s2-spacing-100);
-  border-radius: var(--s2-corner-radius-100);
-  border: 1px solid var(--s2-gray-300);
+  box-sizing: border-box;
   width: 24px;
   height: 24px;
+  padding: 0;
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-100);
+  background: none;
   color: var(--s2-gray-600);
   font-family: inherit;
-  box-sizing: border-box;
+  font-size: var(--s2-component-m-regular-font-size);
+  font-weight: bold;
+  line-height: 1;
 }
 
 .question-option-desc {
@@ -122,26 +141,86 @@
   color: var(--s2-gray-600);
 }
 
+/* "Option 1" says nothing the number doesn't; the rewrite itself is the row (Figma 1.10). */
+.question-option-generic {
+  .question-option-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .question-option-desc {
+    font-size: var(--s2-component-m-regular-font-size);
+    line-height: 18px;
+    color: var(--s2-gray-800);
+  }
+}
+
 .question-other-input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   font-family: inherit;
   font-size: var(--s2-component-m-regular-font-size);
-  color: var(--s2-gray-900);
+  color: var(--s2-gray-800);
   padding: 0;
   border: none;
   background: none;
   outline: none;
+
+  &::placeholder {
+    color: var(--s2-gray-800);
+    opacity: 1;
+  }
 }
 
 .question-actions {
   display: flex;
   flex-shrink: 0;
+  align-items: center;
   justify-content: flex-end;
   gap: var(--s2-spacing-100);
-  margin-top: var(--s2-spacing-200);
-  padding-top: var(--s2-spacing-100);
+  margin: 12px -7px 0 0;
+
+  button {
+    box-sizing: border-box;
+    height: 32px;
+    border-radius: 7px;
+    font-size: var(--s2-component-m-regular-font-size);
+  }
 
   .nx-btn-primary {
-    border-radius: var(--s2-corner-radius-400);
+    min-width: 90px;
+    gap: 8px;
+    padding: 0 4px 0 12px;
+    background: var(--s2-gray-800);
+    color: var(--s2-gray-25);
+
+    kbd {
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      border-radius: 6px;
+      background-color: var(--s2-gray-700);
+      color: transparent;
+      font-size: 0;
+
+      &::before {
+        content: "";
+        width: 20px;
+        height: 20px;
+        background-color: #fff;
+        mask-image: var(--nx-qc-icon-enter);
+        mask-size: contain;
+        mask-repeat: no-repeat;
+        mask-position: center;
+      }
+    }
   }
 }

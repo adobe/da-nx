@@ -223,4 +223,70 @@ describe('nx-question-card', () => {
     expect(el.shadowRoot.querySelector('.question-header').textContent.trim()).to.equal('Second');
     expect([...el.shadowRoot.querySelectorAll('input[type="radio"]')].every((r) => !r.checked)).to.equal(true);
   });
+
+  describe('options card (Figma spec)', () => {
+    const rewrites = makeQuestion({
+      options: [
+        { label: 'Option 1', description: 'Where precision meets indulgence' },
+        { label: 'Option 2', description: 'Precision in every detail.' },
+      ],
+    });
+
+    it('shows the rewrite as the row for generic "Option n" labels and keeps the label for screen readers', async () => {
+      const el = await mount({ questions: [rewrites] });
+      const [first] = el.shadowRoot.querySelectorAll('.question-option');
+      expect(first.classList.contains('question-option-generic')).to.equal(true);
+      expect(first.querySelector('.question-option-number').textContent.trim()).to.equal('1');
+      expect(first.querySelector('.question-option-desc').textContent.trim()).to.equal('Where precision meets indulgence');
+      expect(first.querySelector('.question-option-label').textContent.trim()).to.equal('Option 1');
+      const label = getComputedStyle(first.querySelector('.question-option-label'));
+      expect(label.position).to.equal('absolute');
+      expect(label.width).to.equal('1px');
+    });
+
+    it('keeps normal labels visible and answers with the label, not the description', async () => {
+      const answers = [];
+      const el = await mount({ questions: [makeQuestion()] });
+      el.onSubmit = (a) => answers.push(a);
+      const [a, b] = el.shadowRoot.querySelectorAll('.question-option');
+      expect(a.classList.contains('question-option-generic')).to.equal(false);
+      expect(getComputedStyle(a.querySelector('.question-option-label')).position).to.not.equal('absolute');
+      b.querySelector('input').click();
+      await el.updateComplete;
+      el.shadowRoot.querySelector('button[type="submit"]').click();
+      expect(answers[0][0].selected_options).to.deep.equal(['B']);
+    });
+
+    it('answers a generic row with its label', async () => {
+      const answers = [];
+      const el = await mount({ questions: [rewrites] });
+      el.onSubmit = (a) => answers.push(a);
+      el.shadowRoot.querySelectorAll('input[type="radio"]')[1].click();
+      await el.updateComplete;
+      el.shadowRoot.querySelector('button[type="submit"]').click();
+      expect(answers[0][0].selected_options).to.deep.equal(['Option 2']);
+    });
+
+    // Colours and token-based radii come from styles.css, which unit tests don't load; the
+    // browser check against the Figma values covers those.
+    it('sizes the card, rows, number boxes and Submit with the spec values', async () => {
+      const el = await mount({ questions: [rewrites] });
+      const css = (sel) => getComputedStyle(el.shadowRoot.querySelector(sel));
+      const card = css('.question-card');
+      expect(card.borderRadius).to.equal('10px');
+      expect(card.boxShadow).to.contain('0px 4px 12px');
+      const box = css('.question-option-number');
+      expect([box.width, box.height, box.fontWeight]).to.deep.equal(['24px', '24px', '700']);
+      expect(el.shadowRoot.querySelector('.question-option').getBoundingClientRect().height).to.equal(36);
+      const sub = css('button[type="submit"]');
+      expect([sub.height, sub.borderRadius]).to.deep.equal(['32px', '7px']);
+      const key = css('button[type="submit"] kbd');
+      expect([key.width, key.height, key.borderRadius]).to.deep.equal(['24px', '24px', '6px']);
+    });
+
+    it('labels the free-text row "Something else…"', async () => {
+      const el = await mount({ questions: [rewrites] });
+      expect(el.shadowRoot.querySelector('.question-other-input').placeholder).to.equal('Something else…');
+    });
+  });
 });

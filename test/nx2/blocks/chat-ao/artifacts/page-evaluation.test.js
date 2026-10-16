@@ -297,3 +297,229 @@ describe('page evaluation layout', () => {
     }));
   });
 });
+
+describe('page evaluation "Generate suggestion"', () => {
+  const element = (key, label, suggestion = true) => ({
+    key,
+    label,
+    tone: 'negative',
+    defaultOpen: true,
+    items: [
+      {
+        id: `${key}-0`,
+        title: 'Brand Voice',
+        description: 'Too loud.',
+        ...(suggestion && {
+          suggestion: {
+            issue: 'Too loud.',
+            suggested: 'Calmer',
+            evidence: [{ anchorType: 'text', anchorText: 'LOUD HEADLINE' }],
+          },
+        }),
+      },
+    ],
+  });
+  const data = {
+    title: 'Frescopa page evaluation',
+    sections: [
+      element('el-page', 'Whole page'),
+      element('el-hero', 'Section 1 › hero — Heading 1'),
+      element('el-plain', 'Plain', false),
+    ],
+  };
+  const URL_A = 'https://main--frescopa--exp-workspace.preview.da.live/drafts/a';
+  const URL_B = 'https://main--frescopa--exp-workspace.preview.da.live/drafts/b';
+
+  let hosts;
+  let suggestEvents;
+  let prompts;
+  let claim;
+  let chatEvent;
+  const onSuggest = (e) => {
+    suggestEvents.push(e);
+    if (claim) e.preventDefault();
+  };
+  const onPrompt = (e) => prompts.push(e.detail);
+
+  before(async () => {
+    ({ CHAT_EVENT: chatEvent } = await import('../../../../../nx2/utils/chat.js'));
+  });
+
+  beforeEach(() => {
+    hosts = [];
+    suggestEvents = [];
+    prompts = [];
+    claim = false;
+    document.addEventListener(EVAL_EVENT.SUGGEST_ELEMENT, onSuggest);
+    document.addEventListener(chatEvent.SET_PROMPT, onPrompt);
+  });
+
+  afterEach(() => {
+    document.removeEventListener(EVAL_EVENT.SUGGEST_ELEMENT, onSuggest);
+    document.removeEventListener(chatEvent.SET_PROMPT, onPrompt);
+    hosts.forEach((h) => h.remove());
+  });
+
+  const mountCard = async (ctx = {}, props = data) => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    hosts.push(host);
+    render(renderUiArtifact({ components: [{ id: 'root', component: 'PageEvaluationWithIcons', ...props }] }, ctx), host);
+    const el = host.querySelector('nx-page-eval');
+    await el.updateComplete;
+    return el;
+  };
+  const buttons = (el) => [...el.shadowRoot.querySelectorAll('.ui-artifact-pe-generate')];
+  const waitFor = async (fn) => {
+    for (let i = 0; i < 50 && !fn(); i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => { setTimeout(r, 20); });
+    }
+  };
+
+  it('shows the button on failing elements with suggestions, not on "Whole page" or plain rows', async () => {
+    const el = await mountCard();
+    const rows = [...el.shadowRoot.querySelectorAll('.ui-artifact-pe-el')];
+    expect(rows.map((r) => !!r.querySelector('.ui-artifact-pe-generate'))).to.deep.equal([false, true, false]);
+    expect(buttons(el)[0].textContent.trim()).to.equal('Generate suggestion');
+    expect(buttons(el)[0].closest('summary')).to.not.equal(null);
+  });
+
+  it('dispatches a cancelable SUGGEST_ELEMENT with the element group and keeps the row open', async () => {
+    const el = await mountCard({ evaluatedUrl: URL_A });
+    claim = true;
+    buttons(el)[0].click();
+    await el.updateComplete;
+
+    expect(suggestEvents).to.have.length(1);
+    const [event] = suggestEvents;
+    expect(event.cancelable).to.equal(true);
+    expect(event.detail.evaluatedUrl).to.equal(URL_A);
+    expect(event.detail.group).to.include({ key: 'el-hero', label: 'Section 1 › hero — Heading 1', name: 'Hero heading 1' });
+    expect(event.detail.group.findings.map((f) => f.id)).to.deep.equal(['el-hero-0']);
+    expect(event.detail.group.findings[0]).to.include({ title: 'Brand Voice', issue: 'Too loud.', suggested: 'Calmer' });
+    expect(event.detail.group.findings[0].evidence).to.deep.equal([{ anchorType: 'text', anchorText: 'LOUD HEADLINE' }]);
+    expect(el.shadowRoot.querySelectorAll('.ui-artifact-pe-el')[1].open).to.equal(true);
+    expect(prompts).to.have.length(0);
+  });
+
+  it('disables the button as "Generating suggestions…" so it cannot be clicked twice', async () => {
+    const el = await mountCard();
+    claim = true;
+    buttons(el)[0].click();
+    await el.updateComplete;
+    const [btn] = buttons(el);
+    expect(btn.disabled).to.equal(true);
+    expect(btn.textContent.trim()).to.equal('Generating suggestions…');
+    btn.click();
+    expect(suggestEvents).to.have.length(1);
+  });
+
+  it('sends a plain action message through SET_PROMPT when no host claims the event', async () => {
+    const el = await mountCard({ evaluatedUrl: URL_A });
+    buttons(el)[0].click();
+    await waitFor(() => prompts.length);
+
+    expect(prompts).to.have.length(1);
+    expect(prompts[0].autoSend).to.equal(true);
+    const [title, marker, skill] = prompts[0].text.split('\n');
+    expect(title).to.equal('Hero heading 1 failure: Generate suggestion');
+    expect(marker).to.equal('<!--nx:details-->');
+    expect(skill).to.equal('/aem-governance-element-suggestions');
+    expect(prompts[0].text).to.contain(`Evaluated URL: ${URL_A}`);
+    expect(prompts[0].text).to.contain('Locate: text "LOUD HEADLINE", occurrence 1');
+  });
+
+  it('frees the button again when the turn it started ends without a newer card', async () => {
+    const el = await mountCard();
+    claim = true;
+    buttons(el)[0].click();
+    await el.updateComplete;
+    el.busy = true;
+    await el.updateComplete;
+    expect(buttons(el)[0].disabled).to.equal(true);
+    el.busy = false;
+    await el.updateComplete;
+    expect(buttons(el)[0].disabled).to.equal(false);
+    expect(buttons(el)[0].textContent.trim()).to.equal('Generate suggestion');
+  });
+
+  describe('a newer evaluation of the same page', () => {
+    const standIn = (el) => el.shadowRoot.querySelector('.ui-artifact-pe-superseded');
+
+    it('collapses the older card to one line and leaves the newest card as it is', async () => {
+      const older = await mountCard({ evaluatedUrl: URL_A });
+      expect(standIn(older)).to.equal(null);
+      const newer = await mountCard({ evaluatedUrl: URL_A });
+      await older.updateComplete;
+
+      expect(standIn(older).textContent.trim()).to.equal('Superseded by a newer evaluation');
+      expect(older.shadowRoot.querySelector('.ui-artifact-pe')).to.equal(null);
+      expect(older.hasAttribute('superseded')).to.equal(true);
+      expect(standIn(newer)).to.equal(null);
+      expect(newer.shadowRoot.querySelector('.ui-artifact-pe')).to.not.equal(null);
+    });
+
+    it('keeps cards of other pages and treats the editor and preview URL as the same page', async () => {
+      const a = await mountCard({ evaluatedUrl: URL_A });
+      await mountCard({ evaluatedUrl: URL_B });
+      await a.updateComplete;
+      expect(standIn(a)).to.equal(null);
+
+      await mountCard({ evaluatedUrl: 'https://da.live/canvas#/exp-workspace/frescopa/drafts/a' });
+      await a.updateComplete;
+      expect(standIn(a)).to.not.equal(null);
+    });
+
+    it('expands the old card on click and drops it back to a line on the next click', async () => {
+      const older = await mountCard({ evaluatedUrl: URL_A });
+      await mountCard({ evaluatedUrl: URL_A });
+      await older.updateComplete;
+      standIn(older).click();
+      await older.updateComplete;
+      expect(older.shadowRoot.querySelector('.ui-artifact-pe')).to.not.equal(null);
+      expect(standIn(older).getAttribute('aria-expanded')).to.equal('true');
+      standIn(older).click();
+      await older.updateComplete;
+      expect(older.shadowRoot.querySelector('.ui-artifact-pe')).to.equal(null);
+    });
+
+    it('resets the "Generating suggestions…" state of the card that was replaced', async () => {
+      const older = await mountCard({ evaluatedUrl: URL_A });
+      claim = true;
+      buttons(older)[0].click();
+      await older.updateComplete;
+      expect(buttons(older)[0].disabled).to.equal(true);
+
+      await mountCard({ evaluatedUrl: URL_A });
+      await older.updateComplete;
+      standIn(older).click();
+      await older.updateComplete;
+      expect(buttons(older)[0].disabled).to.equal(false);
+    });
+
+    it('lets the card\'s own url win and falls back to the title without any url', async () => {
+      const first = await mountCard({}, { ...data, url: URL_A });
+      await mountCard({ evaluatedUrl: URL_B }, { ...data, url: URL_A });
+      await first.updateComplete;
+      expect(standIn(first)).to.not.equal(null);
+
+      const x = await mountCard({}, { ...data, title: 'Other site evaluation' });
+      await mountCard({}, { ...data, title: 'Third site evaluation' });
+      await x.updateComplete;
+      expect(standIn(x)).to.equal(null);
+      await mountCard({}, { ...data, title: 'Other site evaluation' });
+      await x.updateComplete;
+      expect(standIn(x)).to.not.equal(null);
+    });
+
+    it('stops counting a replaced card once it leaves the page', async () => {
+      const older = await mountCard({ evaluatedUrl: URL_A });
+      const newer = await mountCard({ evaluatedUrl: URL_A });
+      await older.updateComplete;
+      newer.closest('div').remove();
+      await older.updateComplete;
+      expect(standIn(older)).to.equal(null);
+    });
+  });
+});

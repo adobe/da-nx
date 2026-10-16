@@ -14,6 +14,7 @@ import { html, nothing } from 'da-lit';
 import { renderMarkdown } from './utils/markdown.js';
 import { renderUiArtifact } from './artifacts/index.js';
 import { renderCopyButton } from '../shared/chat/copy-button.js';
+import { parseActionMessage } from './utils/action-message.js';
 
 // See docs/chat-ao-component.md#tool-call-activity for why this isn't truncated.
 function formatToolCallDetail(value) {
@@ -87,9 +88,24 @@ export function renderQuestionResponseCard({
   `;
 }
 
-export function renderAssistantMessageBody(msg, { onExpandToolCall } = {}) {
+// See docs/chat-ao-component.md#action-messages — the bubble shows the title only; the
+// instruction behind it expands on click.
+export function renderUserMessageBody(msg) {
+  const action = parseActionMessage(msg.content);
+  if (!action) return html`<div class="message-content">${msg.content}</div>`;
+  return html`
+    <details class="message-content action-message">
+      <summary title="Show details">${action.title}</summary>
+      <div class="action-message-body">${action.body}</div>
+    </details>
+  `;
+}
+
+// `artifactCtx` ({ evaluatedUrl, busy }) is handed to artifact renderers, see
+// docs/evaluation-findings.md#a-newer-evaluation-replaces-the-old-card.
+export function renderAssistantMessageBody(msg, { onExpandToolCall, artifactCtx } = {}) {
   if (msg.toolCall) return renderToolCallCard(msg.toolCall, { onExpand: onExpandToolCall });
-  if (msg.uiArtifact) return renderUiArtifact(msg.uiArtifact);
+  if (msg.uiArtifact) return renderUiArtifact(msg.uiArtifact, artifactCtx);
   if (msg.questionResponse) return renderQuestionResponseCard(msg.questionResponse);
   return html`
     <div class="message-content">${renderMarkdown(msg.content)}</div>

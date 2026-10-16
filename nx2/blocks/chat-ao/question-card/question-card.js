@@ -19,6 +19,13 @@ const renderQuestionText = (text) => renderMarkdown(unescapeLiteralNewlines(text
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href);
 
+// A relative url() in a constructed stylesheet resolves against the page, so the icon comes
+// in as a custom property.
+const ENTER_ICON = new URL('../../../public/icons/S2_Icon_Enter_20_N.svg', import.meta.url).href;
+
+// Generic labels carry no information the number doesn't; the description is the row then.
+const isGenericLabel = (opt) => !!opt.description && /^option \d+$/i.test(opt.label.trim());
+
 // Never sent over the wire — swapped for the typed text (see _answerFor).
 const OTHER = '__other__';
 
@@ -39,6 +46,7 @@ class NxQuestionCard extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
+    this.style.setProperty('--nx-qc-icon-enter', `url("${ENTER_ICON}")`);
   }
 
   willUpdate(changed) {
@@ -193,7 +201,7 @@ class NxQuestionCard extends LitElement {
             <div class="question-text">${renderQuestionText(q.question)}</div>
             <div class="question-options" @keydown=${(e) => this._handleOptionNumberKeydown(e, q)}>
               ${(q.options ?? []).map((opt, i) => html`
-                <label class="question-option">
+                <label class="question-option ${isGenericLabel(opt) ? 'question-option-generic' : ''}">
                   <input
                     type=${q.multi_select ? 'checkbox' : 'radio'}
                     name="question-${q.id}"
@@ -201,10 +209,9 @@ class NxQuestionCard extends LitElement {
                     @change=${() => this._toggle(q, opt.label)}
                     @keydown=${(e) => this._handleOptionKeydown(e, q, opt.label)}
                   />
+                  <kbd class="question-option-number">${i + 1}</kbd>
                   <span class="question-option-text">
-                    <span class="question-option-label">
-                      <kbd class="question-option-number">${i + 1}</kbd>${opt.label}
-                    </span>
+                    <span class="question-option-label">${opt.label}</span>
                     ${opt.description ? html`<span class="question-option-desc">${opt.description}</span>` : nothing}
                   </span>
                 </label>
@@ -223,7 +230,7 @@ class NxQuestionCard extends LitElement {
                   type="text"
                   class="question-other-input"
                   tabindex="-1"
-                  placeholder=${hasOptions ? 'Something else...' : 'Your answer'}
+                  placeholder=${hasOptions ? 'Something else…' : 'Your answer'}
                   .value=${this._otherTexts.get(q.id) ?? ''}
                   @input=${(e) => this._handleOtherText(q, e.target.value)}
                 />

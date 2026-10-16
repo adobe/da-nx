@@ -14,10 +14,14 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import { EVAL_EVENT } from '../../../utils/evaluation-events.js';
 import { registerArtifact } from './registry.js';
+import { canSuggest, toEvalGroup, buildFallbackMessage } from './suggest-element.js';
+import { pageIdentity } from '../utils/evaluated-page.js';
 
 const styles = await loadStyle(import.meta.url);
 
 const PAGE_SIZE = 5;
+// A request that never made the chat busy (nothing was sent) frees its button after this.
+const REQUEST_GRACE_MS = 15000;
 
 const PUBLIC_ICONS = new URL('../../../public/icons/', import.meta.url).href;
 const ICON_VARS = {
@@ -26,6 +30,7 @@ const ICON_VARS = {
   '--nx-pe-icon-info-circle': `${PUBLIC_ICONS}S2_Icon_InfoCircle_20_N.svg`,
   '--nx-pe-icon-chevron-down': `${PUBLIC_ICONS}S2_Icon_ChevronDown_20_N.svg`,
   '--nx-pe-icon-chevron-left': `${PUBLIC_ICONS}S2_Icon_ChevronLeft_20_N.svg`,
+  '--nx-pe-icon-ai-sparkles': `${PUBLIC_ICONS}S2_Icon_AISparkles_20_N.svg`,
   '--nx-pe-icon-copy': `${PUBLIC_ICONS}S2_Icon_Copy_20_N.svg`,
   '--nx-pe-icon-chevron-up': new URL('../../../img/icons/S2_Icon_ChevronUp_20_N.svg', import.meta.url).href,
 };
@@ -176,6 +181,47 @@ function focusFinding(data, id) {
   return event.defaultPrevented;
 }
 
+// One finding per failing check of an element section; ids match `toEvalFindings`.
+function sectionFindings(section, sectionIndex) {
+  return (section.items ?? []).flatMap((item, itemIndex) => (
+    item.suggestion ? [toEvalFinding(item, findingId(item, sectionIndex, itemIndex))] : []
+  ));
+}
+
+// "Generate suggestion": a host that can read the element claims the event and sends the
+// request itself; otherwise a plain request built from the artifact goes to the chat.
+async function suggestElement({ data, sectionIndex, evaluatedUrl }) {
+  const section = data.sections[sectionIndex];
+  const group = toEvalGroup({ section, findings: sectionFindings(section, sectionIndex) });
+  const event = new CustomEvent(EVAL_EVENT.SUGGEST_ELEMENT, {
+    cancelable: true,
+    detail: { group, ...(evaluatedUrl && { evaluatedUrl }) },
+  });
+  document.dispatchEvent(event);
+  if (event.defaultPrevented) return;
+  const { CHAT_EVENT } = await import('../../../utils/chat.js');
+  const text = buildFallbackMessage({ group, evaluatedUrl });
+  const detail = { text, autoSend: true };
+  document.dispatchEvent(new CustomEvent(CHAT_EVENT.SET_PROMPT, { detail }));
+}
+
+/* ---- newer evaluation replaces this card ---- */
+
+// Every mounted card, to find out whether a later card evaluates the same page.
+const mounted = new Set();
+const order = new WeakMap();
+let sequence = 0;
+
+function follows(later, earlier) {
+  const root = later.getRootNode();
+  if (root !== earlier.getRootNode()) return order.get(later) > order.get(earlier);
+  const cards = [...root.querySelectorAll('nx-page-eval')];
+  return cards.indexOf(later) > cards.indexOf(earlier);
+}
+
+const isSuperseded = (card) => !!card.evalKey && [...mounted]
+  .some((other) => other !== card && other.evalKey === card.evalKey && follows(other, card));
+
 /* ---- section labels ---- */
 
 function sectionLabelFromTone(tone) {
@@ -188,19 +234,72 @@ class NxPageEval extends LitElement {
   static properties = {
     data: { attribute: false },
     _pages: { state: true },
+    evalKey: { type: String },
+    evaluatedUrl: { type: String },
+    busy: { type: Boolean },
     _modal: { state: true },
     _selected: { state: true },
+    _requested: { state: true },
+    _showSuperseded: { state: true },
   };
+
+  _timers = new Map();
 
   constructor() {
     super();
     this._pages = {};
+    this._requested = {};
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     Object.entries(ICON_VARS).forEach(([name, href]) => this.style.setProperty(name, `url("${href}")`));
+    sequence += 1;
+    order.set(this, sequence);
+    mounted.add(this);
+    mounted.forEach((card) => card.requestUpdate());
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    mounted.delete(this);
+    this._timers.forEach((timer) => clearTimeout(timer));
+    this._timers.clear();
+    mounted.forEach((card) => card.requestUpdate());
+  }
+
+  willUpdate(changed) {
+    if (changed.has('evalKey')) mounted.forEach((card) => card.requestUpdate());
+    const superseded = isSuperseded(this);
+    // Lets artifacts.css hide the card title above the one-line stand-in.
+    this.toggleAttribute('superseded', superseded && !this._showSuperseded);
+    if (superseded) this._requested = {};
+    else if (changed.has('busy') && Object.keys(this._requested).length) this._trackBusy();
+  }
+
+  // A request keeps its button disabled for as long as the chat is busy with it. Once that turn
+  // ends without a newer card (skipped, failed) the button is available again.
+  _trackBusy() {
+    const next = {};
+    Object.entries(this._requested).forEach(([key, req]) => {
+      if (this.busy) next[key] = { sawBusy: true };
+      else if (!req.sawBusy) next[key] = req;
+    });
+    this._requested = next;
+  }
+
+  _requestSuggestion(section, sectionIndex) {
+    const { key } = section;
+    this._requested = { ...this._requested, [key]: { sawBusy: !!this.busy } };
+    clearTimeout(this._timers.get(key));
+    this._timers.set(key, setTimeout(() => {
+      if (!this._requested[key] || this._requested[key].sawBusy) return;
+      this._requested = Object.fromEntries(
+        Object.entries(this._requested).filter(([k]) => k !== key),
+      );
+    }, REQUEST_GRACE_MS));
+    suggestElement({ data: this.data, sectionIndex, evaluatedUrl: this.evaluatedUrl });
   }
 
   _setPage(sectionIndex, page, total) {
@@ -340,6 +439,25 @@ class NxPageEval extends LitElement {
     });
   }
 
+  _renderGenerate(section, sectionIndex) {
+    const generating = !!this._requested[section.key];
+    return html`
+      <button
+        type="button"
+        class="ui-artifact-pe-generate ${generating ? 'generating' : ''}"
+        ?disabled=${generating}
+        @click=${(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    this._requestSuggestion(section, sectionIndex);
+  }}
+      >
+        <span class="ui-artifact-pe-generate-icon"></span>
+        ${generating ? 'Generating suggestions…' : 'Generate suggestion'}
+      </button>
+    `;
+  }
+
   _renderElement({ section, sectionIndex }, componentTitle) {
     const {
       label = '', tone, defaultOpen = false, items = [],
@@ -355,6 +473,7 @@ class NxPageEval extends LitElement {
             </span>
             <span class="ui-artifact-pe-el-sub">${plural(items.length, 'check', 'checks')} failed</span>
           </div>
+          ${canSuggest(section) ? this._renderGenerate(section, sectionIndex) : nothing}
           <span class="ui-artifact-pe-el-chevron"></span>
         </summary>
         ${items.length ? this._renderItems(items, tone, sectionIndex, componentTitle) : nothing}
@@ -423,10 +542,27 @@ class NxPageEval extends LitElement {
     `;
   }
 
+  _renderSuperseded() {
+    return html`
+      <button
+        type="button"
+        class="ui-artifact-pe-superseded"
+        aria-expanded=${this._showSuperseded ? 'true' : 'false'}
+        @click=${() => { this._showSuperseded = !this._showSuperseded; }}
+      >
+        <span class="ui-artifact-pe-superseded-chevron"></span>
+        Superseded by a newer evaluation
+      </button>
+    `;
+  }
+
   render() {
     if (!this.data) return nothing;
     const { title = '', summary = [], sections = [] } = this.data;
+    const superseded = isSuperseded(this);
+    if (superseded && !this._showSuperseded) return this._renderSuperseded();
     return html`
+      ${superseded ? this._renderSuperseded() : nothing}
       <div class="ui-artifact-pe">
         ${summary.length ? renderSummary(summary) : nothing}
         ${this._renderSections(sections, title)}
@@ -438,6 +574,17 @@ class NxPageEval extends LitElement {
 
 if (!customElements.get('nx-page-eval')) customElements.define('nx-page-eval', NxPageEval);
 
-registerArtifact('PageEvaluationWithIcons', (props) => html`
-  <nx-page-eval .data=${props}></nx-page-eval>
-`);
+// `ctx.evaluatedUrl` is the page the user asked to evaluate (see chat-ao's `evaluatedPages`);
+// the card's own `url` wins when the agent provided one.
+registerArtifact('PageEvaluationWithIcons', (props, ctx = {}) => {
+  const evaluatedUrl = props.url ?? ctx.evaluatedUrl;
+  const evalKey = (evaluatedUrl && pageIdentity(evaluatedUrl)) || `title:${props.title ?? ''}`;
+  return html`
+    <nx-page-eval
+      .data=${props}
+      .evalKey=${evalKey}
+      .evaluatedUrl=${evaluatedUrl}
+      .busy=${!!ctx.busy}
+    ></nx-page-eval>
+  `;
+});

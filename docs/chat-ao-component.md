@@ -286,8 +286,43 @@ only when a reloaded turn's collapsed "Used N tools" row is expanded — that
 view already shows every other tool's raw args/result, so `ask_user_question`
 appearing there too is consistent rather than a special case.
 
+**Appearance.** The card follows the Figma "One element with multiple failures" options card:
+424px wide, radius 10, 1px `#DADADA` border, the panel's three-layer shadow, 36px rows with 24px
+number boxes, a free-text row ("Something else…"), and a 90×32 Submit (`#292929`) with an Enter key
+tile. Behaviour is unchanged: the same keyboard shortcuts, answers and decline. Two rendering rules
+come from the design: the `header` is only kept for screen readers, and an option labelled
+`Option <n>` that has a `description` shows the description as the row (the label stays in the DOM
+as screen-reader text, and is still what is sent as the answer).
+
 **Not yet implemented / open TODOs:** screen-reader verification, multi-question
 layout testing under real content, focus-ring polish.
+
+## Action messages
+
+A host or card can send a short visible message with a long instruction behind it (for example
+"Hero failure: Generate suggestion"). It is a normal user message whose text is
+
+```
+<title>
+<!--nx:details-->
+<body>
+```
+
+`utils/action-message.js` exports `DETAILS_MARKER` and `parseActionMessage`/`buildActionMessage`.
+`renderUserMessageBody` (`renderers.js`) renders such a message as `<details class="action-message">`:
+the bubble shows the title only, the body opens on click. The agent receives the whole text. The
+render is a pure function of the stored text, so live and restored (reloaded) messages look the
+same; clients that don't know the convention show the title, the marker line and the body. The
+marker must be alone on the second line (anything before the title, such as an attachments block,
+is ignored). Bubble padding is 12px to match the design.
+
+## Page-evaluation cards
+
+`chat-ao.js` hands every artifact renderer `{ evaluatedUrl, busy }`: the page named by the nearest
+earlier user message (`utils/evaluated-page.js`: its `Evaluated URL:` line, else its first URL) and
+whether the chat is busy. `nx-page-eval` uses them to show "Generating suggestions…" while a turn
+runs and to collapse an older card when a newer evaluation of the same page arrives; see
+[evaluation-findings.md](./evaluation-findings.md#generate-suggestion).
 
 ## Plan approval
 

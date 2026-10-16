@@ -14,16 +14,16 @@ import './alert.js';
 
 // Flat A2UI surfaces render from the `root` record, which reaches the rest by
 // id; legacy nested surfaces render every top-level node.
-function renderComponents(components, textFallback) {
+function renderComponents(components, textFallback, ctx) {
   if (!components.some(isFlatRecord)) {
-    return components.map((c) => renderArtifactNode(c, textFallback));
+    return components.map((c) => renderArtifactNode(c, textFallback, ctx));
   }
   const recordsById = new Map(components.map((c) => [c.id, c]));
   const root = recordsById.get('root') ?? components[0];
-  return renderArtifactNode(root, textFallback, { recordsById });
+  return renderArtifactNode(root, textFallback, { ...ctx, recordsById });
 }
 
-export function renderUiArtifact(uiArtifact) {
+export function renderUiArtifact(uiArtifact, ctx = {}) {
   if (!uiArtifact) return nothing;
   const { components, textFallback, title } = uiArtifact;
   if (!components?.length) {
@@ -32,7 +32,7 @@ export function renderUiArtifact(uiArtifact) {
   return html`
     <div class="ui-artifact">
       ${title ? html`<span class="ui-artifact-title">${title}</span>` : nothing}
-      ${renderComponents(components, textFallback)}
+      ${renderComponents(components, textFallback, ctx)}
     </div>
   `;
 }
