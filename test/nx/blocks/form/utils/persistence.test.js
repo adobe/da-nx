@@ -196,26 +196,33 @@ describe('attachPersistence', () => {
     p.detach();
   });
 
+  const assetNode = (key) => ({
+    key,
+    kind: 'object',
+    semanticType: 'asset',
+    children: [{ key: 'src', kind: 'string' }, { key: 'altText', kind: 'string' }],
+  });
+
   it('writes asset fields as images from the model in the editor state', async () => {
     const hero = 'https://content.da.live/org/site/hero.png';
     const model = {
-      root: { key: 'data', kind: 'object', children: [{ key: 'hero', kind: 'string', semanticType: 'asset' }] },
+      root: { key: 'data', kind: 'object', children: [assetNode('hero')] },
     };
     const editor = makeEditor();
     const { save, calls, release } = makeSave();
     const p = attachPersistence(editor, { path: '/x', save });
 
-    editor.setValues({ hero });
+    editor.setValues({ hero: { src: hero, altText: 'A hero' } });
     p.notify();
     await tick();
     expect(calls[0].html).to.not.include('<img');
     release();
     await tick();
 
-    editor.setValues({ hero }, model);
+    editor.setValues({ hero: { src: hero, altText: 'A hero' } }, model);
     p.notify();
     await tick();
-    expect(calls[1].html).to.include(`<img src="${hero}" alt="">`);
+    expect(calls[1].html).to.include(`<img src="${hero}" alt="A hero">`);
     p.detach();
   });
 
@@ -226,10 +233,7 @@ describe('attachPersistence', () => {
       root: {
         key: 'data',
         kind: 'object',
-        children: [
-          { key: 'hero', kind: 'string', semanticType: 'asset' },
-          { key: 'logo', kind: 'string', semanticType: 'asset' },
-        ],
+        children: [assetNode('hero'), assetNode('logo')],
       },
     };
     const editor = makeEditor();
@@ -238,7 +242,7 @@ describe('attachPersistence', () => {
     const getConfig = () => ({ externalImagesAsLinks: asLinks });
     const p = attachPersistence(editor, { path: '/x', save, getConfig });
 
-    editor.setValues({ hero: aem, logo: upload }, model);
+    editor.setValues({ hero: { src: aem }, logo: { src: upload } }, model);
     p.notify();
     await tick();
     expect(calls[0].html).to.include(`<img src="${aem}" alt="">`);
@@ -246,7 +250,7 @@ describe('attachPersistence', () => {
     await tick();
 
     asLinks = true;
-    editor.setValues({ hero: aem, logo: upload }, model);
+    editor.setValues({ hero: { src: aem }, logo: { src: upload } }, model);
     p.notify();
     await tick();
     expect(calls[1].html).to.include(`<a href="${aem}">${aem}</a>`);

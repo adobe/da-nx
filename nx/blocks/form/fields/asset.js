@@ -25,6 +25,7 @@ const LABELS = {
   empty: 'No asset selected',
   removeTitle: 'Remove asset?',
   removeBody: 'The asset will be removed from this field.',
+  altText: 'Alt text',
 };
 
 const MESSAGES = {
@@ -39,9 +40,16 @@ const SELECTORS = {
   removeButton: '.asset-remove',
   sourceTrigger: '.asset-source-trigger',
 };
+
+const ALT_TEXT_EVENT = 'alt-text-change';
+
 class FormAsset extends LitElement {
   static properties = {
     value: { type: String },
+    altText: { type: String },
+    assetType: { type: String },
+    altRequired: { type: Boolean },
+    altError: { type: String },
     label: { type: String },
     description: { type: String },
     error: { type: String },
@@ -125,6 +133,12 @@ class FormAsset extends LitElement {
   // Native `change` events are not composed, so the host emits its own.
   _emitChange() {
     this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+  }
+
+  // A separate event, so hosts can debounce typing apart from selecting a file.
+  _onAltTextInput(event) {
+    this.altText = event.target.value;
+    this.dispatchEvent(new Event(ALT_TEXT_EVENT, { bubbles: true, composed: true }));
   }
 
   async _focus(selector) {
@@ -213,6 +227,7 @@ class FormAsset extends LitElement {
     if (this._canRemove) {
       this._forgetSelection();
       this.value = undefined;
+      this.altText = undefined;
       this._emitChange();
     }
     this._closeRemoveDialog();
@@ -363,6 +378,27 @@ class FormAsset extends LitElement {
     `;
   }
 
+  // Alt text only describes images: an image field always offers it, a file
+  // field never does, and an untyped field offers it when the file is an image.
+  get _offersAltText() {
+    if (!this.value || this.assetType === 'file') return false;
+    return this.assetType === 'image' || this._asset.kind === ASSET_KINDS.image;
+  }
+
+  _renderAltText() {
+    if (!this._offersAltText) return nothing;
+    return html`
+      <div class="asset-alt${this.altError ? ' has-error' : ''}">
+        <label for="asset-alt">${LABELS.altText}${this.altRequired ? html`<span class="form-required">*</span>` : nothing}</label>
+        <input id="asset-alt" class="nx-input" type="text" .value=${this.altText ?? ''}
+          ?required=${this.altRequired} aria-invalid=${this.altError ? 'true' : 'false'}
+          aria-describedby=${this.altError ? 'asset-alt-error' : nothing}
+          ?disabled=${this.disabled} @input=${this._onAltTextInput}>
+        ${this.altError ? html`<p id="asset-alt-error" class="form-field-error">${this.altError}</p>` : nothing}
+      </div>
+    `;
+  }
+
   _renderRemoveDialog() {
     if (!this._confirmingRemove) return nothing;
     return html`
@@ -399,6 +435,7 @@ class FormAsset extends LitElement {
           aria-labelledby=${this.label ? 'asset-label' : nothing} aria-busy=${this._pending ? 'true' : 'false'}>
           ${this._renderPreview()}
           ${this._renderRow()}
+          ${this._renderAltText()}
         </div>
         ${this._renderStatus()}
         ${this._renderMessage()}

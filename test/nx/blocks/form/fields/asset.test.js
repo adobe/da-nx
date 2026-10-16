@@ -460,6 +460,63 @@ describe('form-asset', () => {
     expect(field.shadowRoot.activeElement).to.equal(button(field, 'Select'));
   });
 
+  describe('alt text', () => {
+    const altInput = (field) => query(field, '.asset-alt input');
+
+    it('offers an alt text input only for an image', async () => {
+      const empty = await mount();
+      const pdf = await mount({ value: 'https://x.test/spec.pdf' });
+      const image = await mount({ value: './media_abc.png', altText: 'A hero' });
+      expect(altInput(empty)).to.equal(null);
+      expect(altInput(pdf)).to.equal(null);
+      expect(altInput(image).value).to.equal('A hero');
+      expect(query(image, '.asset-alt label').textContent.trim()).to.equal('Alt text');
+    });
+
+    it('offers alt text on an image field whatever the file looks like', async () => {
+      const field = await mount({ assetType: 'image', value: 'https://x.test/render?id=1' });
+      expect(altInput(field)).to.exist;
+    });
+
+    it('never offers alt text on a file field', async () => {
+      const field = await mount({ assetType: 'file', value: './media_abc.png' });
+      expect(altInput(field)).to.equal(null);
+    });
+
+    it('marks a required alt text and shows its error', async () => {
+      const field = await mount({
+        assetType: 'image', value: './media_abc.png', altRequired: true, altError: 'Required',
+      });
+      expect(query(field, '.asset-alt .form-required')).to.exist;
+      expect(altInput(field).required).to.equal(true);
+      expect(altInput(field).getAttribute('aria-invalid')).to.equal('true');
+      expect(query(field, '#asset-alt-error').textContent).to.equal('Required');
+      expect(query(field, '.asset-alt').classList.contains('has-error')).to.equal(true);
+    });
+
+    it('reports alt text edits without a file change', async () => {
+      const field = await mount({ value: './media_abc.png' });
+      const changes = recordChanges(field);
+      const alts = [];
+      field.addEventListener('alt-text-change', (event) => alts.push(event.target.altText));
+      altInput(field).value = 'A hero';
+      altInput(field).dispatchEvent(new Event('input'));
+      expect(field.altText).to.equal('A hero');
+      expect(alts).to.deep.equal(['A hero']);
+      expect(changes).to.deep.equal([]);
+    });
+
+    it('clears the alt text when the asset is removed', async () => {
+      const field = await mount({ value: './media_abc.png', altText: 'A hero' });
+      button(field, 'Remove').click();
+      await field.updateComplete;
+      query(field, '.asset-remove-confirm').click();
+      await settle(field);
+      expect(field.altText ?? '').to.equal('');
+      expect(altInput(field)).to.equal(null);
+    });
+  });
+
   describe('copying the URL', () => {
     const copyButton = (field) => query(field, '.asset-copy');
 
