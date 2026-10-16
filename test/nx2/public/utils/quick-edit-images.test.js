@@ -19,7 +19,7 @@ describe('shared quick-edit image utilities', () => {
         image: {
           inline: true,
           group: 'inline',
-          attrs: { src: {}, alt: { default: null } },
+          attrs: { src: {}, alt: { default: null }, editAs: { default: null } },
         },
       },
       marks: { strong: {} },
@@ -97,7 +97,20 @@ describe('shared quick-edit image utilities', () => {
     const target = state.doc.nodeAt(3);
     updateImageInDocument({ view, target, newSrc: '/new.png' });
     expect(state.doc.nodeAt(2).attrs.src).to.equal('/same.png');
-    expect(state.doc.nodeAt(3).attrs).to.deep.equal({ src: '/new.png', alt: 'Second' });
+    expect(state.doc.nodeAt(3).attrs).to.deep.equal({ src: '/new.png', alt: 'Second', editAs: null });
+    expect(state.doc.nodeAt(3).marks).to.deep.equal(target.marks);
+  });
+
+  it('clears the editable-link marker when replacing an uploaded image', () => {
+    view.dispatch(state.tr.setNodeMarkup(3, null, {
+      ...state.doc.nodeAt(3).attrs, editAs: 'image',
+    }));
+    const target = state.doc.nodeAt(3);
+    updateImageInDocument({ view, target, newSrc: '/uploaded.png' });
+    expect(state.doc.nodeAt(2).attrs.src).to.equal('/same.png');
+    expect(state.doc.nodeAt(3).attrs).to.deep.equal({
+      src: '/uploaded.png', alt: 'Second', editAs: null,
+    });
     expect(state.doc.nodeAt(3).marks).to.deep.equal(target.marks);
   });
 
@@ -123,7 +136,7 @@ describe('shared quick-edit image utilities', () => {
     view.dispatch(state.tr.setNodeMarkup(3, null, { ...target.attrs, alt: 'Changed' }));
     expect(() => updateImageInDocument({ view, target, newSrc: '/new.png' }))
       .to.throw('no longer available');
-    expect(state.doc.nodeAt(3).attrs).to.deep.equal({ src: '/same.png', alt: 'Changed' });
+    expect(state.doc.nodeAt(3).attrs).to.deep.equal({ src: '/same.png', alt: 'Changed', editAs: null });
   });
 
   it('rejects the same image node reused at multiple positions without dispatching', () => {

@@ -1,0 +1,84 @@
+import { expect } from '@esm-bundle/chai';
+import { Schema } from 'prosemirror-model';
+import { EditorState } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
+import { syncImageIndices } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
+import { imageSelectPayload } from '../../../../../nx/public/plugins/quick-edit/src/selection.js';
+
+const schema = new Schema({
+  nodes: {
+    doc: { content: 'block+' },
+    paragraph: { group: 'block', content: 'inline*', toDOM: () => ['p', 0] },
+    text: { group: 'inline' },
+    image: {
+      group: 'inline',
+      inline: true,
+      attrs: { src: { default: null }, editAs: { default: null } },
+      toDOM: (node) => ['img', { src: node.attrs.src }],
+    },
+  },
+});
+
+// Same shape as createEditor in src/prose.js: a one-block doc mounted in a
+// `.prosemirror-editor` whose data-prose-index is the host block's content start,
+// with images rendered through a <picture> node view like image-wrapper.js.
+function mountEditor(hostIndex, content) {
+  const parent = document.createElement('div');
+  parent.className = 'prosemirror-editor';
+  parent.setAttribute('data-prose-index', hostIndex);
+  document.body.append(parent);
+  const doc = schema.node('doc', null, [schema.node('paragraph', null, content)]);
+  const view = new EditorView(parent, {
+    state: EditorState.create({ doc, schema }),
+    nodeViews: {
+      image: (node) => {
+        const picture = document.createElement('picture');
+        const img = document.createElement('img');
+        img.src = node.attrs.src;
+        picture.append(img);
+        return { dom: picture };
+      },
+    },
+  });
+  parent.view = view;
+  syncImageIndices(view, parent, hostIndex);
+  return { parent, view };
+}
+
+describe('mounted editor image indices', () => {
+  let mounted;
+  afterEach(() => {
+    mounted?.view.destroy();
+    document.body.innerHTML = '';
+  });
+
+  it('maps an image inside a mounted editor to its host prose position', () => {
+    mounted = mountEditor(40, [
+      schema.text('ab'),
+      schema.node('image', { src: '/a.png' }),
+      schema.node('image', { src: '/a.png' }),
+    ]);
+    const [first, second] = mounted.parent.querySelectorAll('picture');
+    // local: paragraph content starts at 1, "ab" is 1-2, images at 3 and 4.
+    // host = data-prose-index - 1 + local.
+    expect(imageSelectPayload(first).proseIndex).to.equal(42);
+    expect(imageSelectPayload(second.querySelector('img')).proseIndex).to.equal(43);
+  });
+
+  it('indexes an editable link-image rendered as a picture in a mounted editor', () => {
+    mounted = mountEditor(20, [
+      schema.text('ab'),
+      schema.node('image', {
+        src: 'https://delivery-p1-e1.adobeaemcloud.com/adobe/assets/urn:aaid:aem:1/as/a.jpg',
+        editAs: 'image',
+      }),
+      schema.text('cd'),
+    ]);
+    const picture = mounted.parent.querySelector('picture');
+    const img = picture?.querySelector('img');
+    expect(picture?.tagName).to.equal('PICTURE');
+    expect(img?.tagName).to.equal('IMG');
+    expect(imageSelectPayload(picture).proseIndex).to.equal(22);
+    expect(img.getAttribute('data-image-index')).to.equal('22');
+  });
+});

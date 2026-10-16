@@ -65,13 +65,9 @@ const findAndAddDntWrapper = (document, dntContent) => {
 
 const unwrapDntContent = (document) => {
   document.querySelectorAll('.dnt-text').forEach((dntSpan) => {
-    const spanParent = dntSpan.parentNode;
-    const textBefore = document.createTextNode(dntSpan.textContent);
-    const textAfter = document.createTextNode('');
-
-    spanParent.replaceChild(textAfter, dntSpan);
-    spanParent.insertBefore(textBefore, textAfter);
-    spanParent.normalize();
+    const parent = dntSpan.parentNode;
+    dntSpan.replaceWith(...dntSpan.childNodes);
+    parent.normalize();
   });
 };
 

@@ -4,6 +4,18 @@ const setDntAttribute = (el) => {
   el.setAttribute('translate', 'no');
 };
 
+// translate="no" on the anchor would freeze its alt-bearing title, so protect only the URL text.
+const LINK_IMAGE_SELECTOR = 'a[data-edit-as="image"]';
+
+const protectLinkImageText = (document, element) => {
+  if (!element.textContent) return;
+  const span = document.createElement('span');
+  span.setAttribute('translate', 'no');
+  span.className = 'dnt-text';
+  span.append(...element.childNodes);
+  element.append(span);
+};
+
 export const processAltText = (document, addDntWrapper) => {
   const hasPipe = (text) => text && text.includes('|');
   const hasUrl = (text) => text && ['http://', 'https://'].some((matchText) => text.startsWith(matchText));
@@ -26,6 +38,10 @@ export const processAltText = (document, addDntWrapper) => {
   };
 
   document.querySelectorAll('a').forEach((element) => {
+    if (element.matches(LINK_IMAGE_SELECTOR)) {
+      protectLinkImageText(document, element);
+      return;
+    }
     const elementText = element.textContent;
     const { alt, dnt } = getAltTextDntInfo(element.textContent);
     if (dnt) {

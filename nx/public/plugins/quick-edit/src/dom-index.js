@@ -1,5 +1,7 @@
 import { parseIndex } from './utils.js';
 
+const LINK_IMAGE_SELECTOR = 'a[data-edit-as="image"]';
+
 const ATOMIC_TAGS = new Set(['br', 'img', 'picture']);
 
 export const OVERLAY_SELECTOR = '#qe-selection-overlay, #qe-comment-overlay';
@@ -66,9 +68,10 @@ export function restoreBlockIndices(sourceRoot, liveRoot = document) {
 }
 
 export function restoreImageIndices(sourceRoot, liveRoot = document) {
-  const sourceImages = sourceRoot.querySelectorAll('main img[data-image-index]');
-  const scopes = new Set([...sourceImages]
-    .map((img) => img.parentElement?.closest('[data-prose-index], [data-block-index]'))
+  const slotSelector = `img[data-image-index], ${LINK_IMAGE_SELECTOR}[data-image-index]`;
+  const sourceSlots = sourceRoot.querySelectorAll(`main img[data-image-index], main ${LINK_IMAGE_SELECTOR}[data-image-index]`);
+  const scopes = new Set([...sourceSlots]
+    .map((slot) => slot.parentElement?.closest('[data-prose-index], [data-block-index]'))
     .filter(Boolean));
 
   scopes.forEach((sourceScope) => {
@@ -78,11 +81,15 @@ export function restoreImageIndices(sourceRoot, liveRoot = document) {
     const liveScope = liveRoot.querySelector(`[${attr}="${index}"]`);
     if (!liveScope) return;
     const inScope = (img, scope) => img.parentElement?.closest('[data-prose-index], [data-block-index]') === scope;
-    const originals = [...sourceScope.querySelectorAll('img[data-image-index]')]
-      .filter((img) => inScope(img, sourceScope));
+    const slots = [...sourceScope.querySelectorAll(slotSelector)]
+      .filter((slot) => inScope(slot, sourceScope));
     const rendered = [...liveScope.querySelectorAll('img')]
       .filter((img) => inScope(img, liveScope));
-    if (originals.length !== rendered.length) return;
+    const imgSlots = slots.filter((slot) => slot.tagName === 'IMG');
+    let originals;
+    if (rendered.length === slots.length) originals = slots;
+    else if (rendered.length === imgSlots.length) originals = imgSlots;
+    else return;
     if (rendered.some((img, i) => img.hasAttribute('data-image-index')
       && img.getAttribute('data-image-index') !== originals[i].getAttribute('data-image-index'))) return;
     if (rendered.some((img, i) => img.hasAttribute('data-image-version')
@@ -99,7 +106,7 @@ export function restoreImageIndices(sourceRoot, liveRoot = document) {
 export function syncImageIndices(view, editorParent, offset, oldSize = 0, lengthDiff = 0) {
   const base = offset - 1;
   if (lengthDiff) {
-    document.querySelectorAll('img[data-image-index]').forEach((img) => {
+    document.querySelectorAll(`img[data-image-index], ${LINK_IMAGE_SELECTOR}[data-image-index]`).forEach((img) => {
       if (editorParent.contains(img)) return;
       const index = parseIndex(img.getAttribute('data-image-index'));
       if (index != null && index >= base + oldSize) {
@@ -176,7 +183,7 @@ export function srcPathsMatch(a, b) {
 
 function isAtomicInline(el) {
   if (!el?.tagName) return false;
-  return ATOMIC_TAGS.has(el.tagName.toLowerCase());
+  return ATOMIC_TAGS.has(el.tagName.toLowerCase()) || el.matches(LINK_IMAGE_SELECTOR);
 }
 
 export function walkProsePositions(root, startPos, callbacks) {
