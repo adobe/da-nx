@@ -3,11 +3,14 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import {
   buildAemPathFromHashState,
+  getAemBranch,
+  getAemBranchHref,
   requestAemRole,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
 import { versions, status as statusApi } from '../../utils/api.js';
 import { VERSION_EVENT } from '../../utils/version-events.js';
+import { BRANCH_EVENT, requestCanvasBranch } from '../../utils/branch-events.js';
 import { fetchDaConfigs, getFirstSheet } from '../../utils/daConfig.js';
 import { PREFLIGHT_EVENT, newPreflightRequestId } from '../../utils/preflight-events.js';
 import { sidekickCacheBust } from '../../utils/sidekick.js';
@@ -91,6 +94,7 @@ class NXEwActions extends LitElement {
     _hasError: { state: true },
     _hashState: { state: true },
     _hidePublish: { state: true },
+    _branch: { state: true },
     _prepareReady: { state: true },
     _enforcePreflight: { state: true },
     _preflightPassed: { state: true },
@@ -136,6 +140,7 @@ class NXEwActions extends LitElement {
     this._busy = false;
     this._target = 'preview';
     this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];
+    document.addEventListener(BRANCH_EVENT.STATE, this._onBranchState);
     this._unsubHash = hashChange.subscribe((state) => {
       const prevPath = this._prepareDetails?.fullpath;
       this._hashState = state;
@@ -216,6 +221,9 @@ class NXEwActions extends LitElement {
     clearTimeout(this._copyTimer);
     document.removeEventListener(PREFLIGHT_EVENT.STATUS, this._onPreflightStatus);
     this._cancelPreflight?.(undefined);
+    document.removeEventListener(BRANCH_EVENT.STATE, this._onBranchState);
+    this._branchAbort?.abort();
+    this._branchPromise = undefined;
   }
 
   // Fetch AEM admin status for the current doc. Keyed on the doc path so hash
@@ -245,7 +253,20 @@ class NXEwActions extends LitElement {
   _env(kind) {
     const env = this._status?.[kind];
     if (!env) return { ok: false, url: null, time: null };
-    return { ok: env.status === 200, url: env.url || null, time: env.lastModified || null };
+    const aemPath = buildAemPathFromHashState(this._hashState);
+    const metaUrl = aemPath && this._resolveOpenUrl(kind === 'live' ? 'publish' : 'preview', aemPath);
+    const branchUrl = getAemBranchHref({
+      aemPath,
+      branch: this._branch,
+      tier: kind,
+      webPath: this._status.webPath,
+    });
+    return {
+      ok: env.status === 200,
+      url: metaUrl || (this._branchPath && this._branch === undefined
+        ? null : (env.url && branchUrl) || env.url || null),
+      time: env.lastModified || null,
+    };
   }
 
   get _previewInfo() { return this._env('preview'); }
@@ -303,8 +324,76 @@ class NXEwActions extends LitElement {
 
   update(changed) {
     super.update(changed);
-    if (changed.has('_hashState') && this._hashState) this._updateHidePublish();
+    if (changed.has('_hashState')) {
+      this._updateHidePublish();
+      this._updateBranch();
+    }
   }
+
+  _updateBranch() {
+    this._branchAbort?.abort();
+    this._branch = undefined;
+    this._branchRequestPath = this._branchPath;
+    if (!this._branchRequestPath) {
+      this._branchPromise = undefined;
+      return;
+    }
+    this._branchAbort = new AbortController();
+    const requestPath = this._branchRequestPath;
+    const pending = requestCanvasBranch({
+      path: requestPath,
+      signal: this._branchAbort.signal,
+      // Remove the Forms main fallback when https://github.com/adobe/da-live/issues/1445 is implemented.
+      getLegacyBranch: () => (this._branchPath === requestPath
+        ? this._readLegacyBranch() || (!this._hasBranchBridge
+          && window.location.pathname.replace(/\/$/, '') === '/form' ? 'main' : undefined)
+        : undefined),
+    }).then((raw) => {
+      const branch = getAemBranch(raw);
+      if (this._branchPromise === pending && this._branchPath === requestPath) {
+        this._branch = branch;
+      }
+      return branch;
+    });
+    this._branchPromise = pending;
+    pending.catch(() => {
+      // Handle early rejection; _runAemAction surfaces the error from the original promise.
+    });
+  }
+
+  get _branchPath() {
+    const { org, site, path } = this._hashState || {};
+    return org && site && path ? `/${org}/${site}/${path.replace(/^\/+/, '')}` : null;
+  }
+
+  _readLegacyBranch() {
+    // Compatibility with canvas releases predating the bridge. Only trust the
+    // actual editor iframe for this document/site, never unrelated plugin frames.
+    if (this._hasBranchBridge) return undefined;
+    const { org, site, path } = this._hashState || {};
+    const iframe = document.querySelector('ew-editor-wysiwyg')?.shadowRoot?.querySelector('iframe');
+    if (!org || !site || !path || !iframe?.src) return undefined;
+    try {
+      const iframeUrl = new URL(iframe.src);
+      const pathname = `/${path.split('/').filter(Boolean).map(encodeURIComponent).join('/')}`;
+      if (iframeUrl.protocol !== 'https:' || iframeUrl.pathname !== pathname) return undefined;
+      const suffix = ['preview.da.live', 'stage-preview.da.live']
+        .map((domain) => `--${site}--${org}.${domain}`.toLowerCase())
+        .find((domain) => iframeUrl.hostname.endsWith(domain));
+      const branch = suffix && iframeUrl.hostname.slice(0, -suffix.length);
+      return branch && /^[a-z0-9-]+$/.test(branch) ? branch : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  _onBranchState = ({ detail }) => {
+    if (!detail || detail.path !== this._branchPath) return;
+    this._hasBranchBridge = true;
+    this._branch = detail.status === 'ready' && typeof detail.branch === 'string' && detail.branch
+      ? getAemBranch(detail.branch) : undefined;
+    this._branchPromise = this._branch === undefined ? undefined : Promise.resolve(this._branch);
+  };
 
   async _updateHidePublish() {
     this._hidePublish = await shouldHidePublish(this._hashState);
@@ -353,9 +442,34 @@ class NXEwActions extends LitElement {
     const aemPath = buildAemPathFromHashState(this._hashState);
     if (!aemPath || this._busy) return;
     const versionPath = this._prepareDetails?.fullpath;
+    const branchPath = this._branchPath;
+    const metaUrl = this._resolveOpenUrl(action, aemPath);
 
     this._dialog = undefined;
     this._busy = true;
+
+    // Capture this document's branch before any save/preflight awaits or navigation.
+    let branch;
+    if (!metaUrl) {
+      if (!this._branchPromise || this._branchRequestPath !== this._branchPath) {
+        this._updateBranch();
+      }
+      try {
+        branch = await this._branchPromise;
+        if (branch === undefined) throw new Error('Canvas branch unavailable.');
+      } catch (error) {
+        if (error?.name === 'AbortError') {
+          this._busy = false;
+          return;
+        }
+        await this._showActionError(action, 'Unable to resolve the preview branch. Please retry or reload the editor.');
+        return;
+      }
+    }
+    if (!this.isConnected || this._branchPath !== branchPath) {
+      this._busy = false;
+      return;
+    }
 
     // Flush pending collab updates to da-admin before AEM reads it,
     // otherwise the last ~2s of edits (held in da-collab's debounce) are missed.
@@ -376,7 +490,7 @@ class NXEwActions extends LitElement {
       }
     }
 
-    const result = await runAemPreviewOrPublish({ aemPath, action });
+    const result = await runAemPreviewOrPublish({ aemPath, action, branch });
     if (!result.ok) {
       await Promise.all([
         import('../shared/dialog/dialog.js'),
@@ -389,7 +503,7 @@ class NXEwActions extends LitElement {
     }
 
     this._hasError = false;
-    const url = this._resolveOpenUrl(action, aemPath, result.url);
+    const url = metaUrl || result.url;
     await sidekickCacheBust(url);
     window.open(url, url);
     this._saveVersion({ action, path: versionPath });

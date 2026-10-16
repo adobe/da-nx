@@ -63,6 +63,30 @@ export function buildAemPathFromHashState(state) {
 }
 
 /**
+ * Normalizes a code branch name (e.g. the `?ref=` param) to its AEM hostname form.
+ * @param {string | null | undefined} ref
+ * @returns {string | null} Branch hostname segment, or null for none / `main` / `local`.
+ */
+export function getAemBranch(ref) {
+  if (!ref) return null;
+  const branch = ref.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  return ['main', 'local'].includes(branch) ? null : branch;
+}
+
+/**
+ * @param {{ aemPath: string, branch: string, tier: 'preview' | 'live', webPath: string }} params
+ * @returns {string | null} `https://{branch}--{site}--{org}.aem.{page|live}{webPath}`
+ */
+export function getAemBranchHref({
+  aemPath, branch, tier, webPath,
+}) {
+  const [org, site] = aemPath?.slice(1).split('/') || [];
+  if (!branch || !org || !site || !webPath) return null;
+  const tld = tier === 'live' ? 'live' : 'page';
+  return `https://${branch}--${site}--${org}.aem.${tld}${webPath}`;
+}
+
+/**
  * @param {{ message?: string, details?: string }} error
  * @returns {string}
  */
@@ -74,10 +98,11 @@ export function formatAemPreviewPublishError(error) {
 /**
  * Preview (admin `preview`) or publish (`live` after a successful preview),
  * then resolve the URL to open.
- * @param {{ aemPath: string, action: 'preview' | 'publish' }} params
+ * When `branch` is set, the URL targets that code branch instead of main / the CDN host.
+ * @param {{ aemPath: string, action: 'preview' | 'publish', branch?: string | null }} params
  * @returns {Promise<{ ok: true, url: string } | { ok: false, error: Record<string, unknown> }>}
  */
-export async function runAemPreviewOrPublish({ aemPath, action }) {
+export async function runAemPreviewOrPublish({ aemPath, action, branch }) {
   if (action !== 'preview' && action !== 'publish') {
     return { ok: false, error: { message: 'Invalid action', type: 'error' } };
   }
@@ -98,13 +123,16 @@ export async function runAemPreviewOrPublish({ aemPath, action }) {
     }
   }
 
-  const branch = action === 'publish' ? json.live : json.preview;
-  const href = branch?.url;
-  const aemHrefs = await getAemHrefs(aemPath);
+  const env = action === 'publish' ? json.live : json.preview;
+  const href = env?.url;
+  const branchHref = getAemBranchHref({
+    aemPath, branch, tier: action === 'publish' ? 'live' : 'preview', webPath: json.webPath,
+  });
+  const aemHrefs = branchHref ? null : await getAemHrefs(aemPath);
   const tier = action === 'publish' ? 'prod' : 'preview';
-  const url = (aemHrefs?.[tier] && json.webPath)
+  const url = branchHref || ((aemHrefs?.[tier] && json.webPath)
     ? `${aemHrefs[tier].origin}${json.webPath}`
-    : href;
+    : href);
 
   if (!url) {
     return { ok: false, error: { message: 'Preview URL missing from response.', type: 'error' } };
