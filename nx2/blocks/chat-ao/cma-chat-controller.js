@@ -110,6 +110,12 @@ export default class CmaChatController extends BaseChatController {
     }
   }
 
+  // The CMA bridge requires attachments as [{ artifactId }] objects (it strips
+  // entries without an artifactId); Coworker/AO uses bare strings (the base).
+  _formatAttachments(artifactIds) {
+    return artifactIds.map((artifactId) => ({ artifactId }));
+  }
+
   // Per-site resume pointer: the id of the session last active in THIS tab for
   // the current site, so a page reload reconnects to it (the bridge replays its
   // history) instead of starting a new session. Keyed by site so it can't
@@ -149,6 +155,21 @@ export default class CmaChatController extends BaseChatController {
       await this._loadEpisode(stored);
     } else {
       this._update();
+      this._warmNewSession();
+    }
+  }
+
+  // Eagerly open the socket for a fresh session so the UI connects right away
+  // (banner goes green, ready to send) instead of sitting idle until the first
+  // message. The CMA bridge has no REST episode list to fetch, so without this a
+  // new session shows a stuck "connecting" banner and the New chat button looks
+  // dead until the user types and sends. ATTACH on /ws/sessions/new triggers
+  // session init -> SESSION_READY. Best-effort; sendMessage still retries.
+  async _warmNewSession() {
+    try {
+      await this._attach();
+    } catch {
+      // best-effort — the socket is retried on the first send
     }
   }
 
@@ -203,5 +224,6 @@ export default class CmaChatController extends BaseChatController {
     this._resuming = false;
     this._storeEpisodeId(undefined); // drop the resume pointer for this site
     super.startNewEpisode();
+    this._warmNewSession(); // reconnect immediately so New chat is usable, not stuck gray
   }
 }

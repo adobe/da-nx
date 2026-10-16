@@ -76,6 +76,7 @@ export default class BaseChatController {
       pendingPermission: this._pendingPermission,
       loadingEpisode: this._loadingEpisode,
       staleEpisode: this._staleEpisode,
+      wsBase: this._wsBase, // TEMP(backend-banner): resolved WS origin, remove with banner
     });
   }
 
@@ -218,6 +219,8 @@ export default class BaseChatController {
 
   async _connect() {
     const { authFrame, wsBase } = await this._connectionInfo();
+    this._wsBase = wsBase; // TEMP(backend-banner): expose resolved origin, remove with banner
+    this._update(); // TEMP(backend-banner): reflect resolved backend pre-SESSION_READY
 
     await new Promise((resolve, reject) => {
       const ws = new WebSocket(`${wsBase}/ws/sessions/${this._episodeId ?? 'new'}`);
@@ -623,12 +626,20 @@ export default class BaseChatController {
         manifestId,
         debugMode,
         clientMessageId,
-        ...(artifactIds.length && { attachments: artifactIds }),
+        ...(artifactIds.length && {
+          attachments: this._formatAttachments(artifactIds),
+        }),
         client_context: buildClientContext(this._context, items),
       }));
     } catch (err) {
       this._pushError(err);
     }
+  }
+
+  // Coworker (AO) accepts bare artifactId strings. The CMA bridge requires
+  // [{ artifactId }] objects and overrides this in CmaChatController.
+  _formatAttachments(artifactIds) {
+    return artifactIds;
   }
 
   destroy() {

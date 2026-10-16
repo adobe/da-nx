@@ -20,7 +20,7 @@ import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
   AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES,
   COWORKER_SKILLS_URL, COWORKER_CHAT_URL, ENTERPRISE_CONTEXT_URL,
-  ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE,
+  ADD_MENU_ITEMS, OPEN_COWORKER_ITEM,
 } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
@@ -74,6 +74,7 @@ export default class NxChatAo extends LitElement {
     _voiceListening: { state: true },
     draftReview: { attribute: false },
     _draftBusy: { state: true },
+    _backendWsBase: { state: true }, // TEMP(backend-banner)
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
@@ -118,6 +119,22 @@ export default class NxChatAo extends LitElement {
     this._initController();
   }
 
+  // On the alt harness (CMA bridge) the skills item stays but is relabeled —
+  // "Manage Coworker" doesn't apply when there's no Coworker surface.
+  get _addMenuItems() {
+    if (!this._altHarness) return ADD_MENU_ITEMS;
+    return ADD_MENU_ITEMS.map((item) => (
+      item.id === MENU_OPTIONS.MANAGE_SKILLS ? { ...item, label: 'Manage Skills' } : item
+    ));
+  }
+
+  // "Continue in Coworker" is hidden on the alt harness — CMA has no
+  // Coworker surface to continue in.
+  get _menuItems() {
+    if (this.episodeId && !this._altHarness) return [...this._addMenuItems, OPEN_COWORKER_ITEM];
+    return this._addMenuItems;
+  }
+
   async _loadConfig() {
     const { org, site } = this._context ?? {};
     if (!org || !site) return;
@@ -139,7 +156,9 @@ export default class NxChatAo extends LitElement {
   _onControllerUpdate({
     messages, thinking, streamingText, episodes, episodeId,
     pendingQuestion, pendingPlanApproval, pendingPermission, loadingEpisode, staleEpisode,
+    wsBase, // TEMP(backend-banner)
   }) {
+    this._backendWsBase = wsBase; // TEMP(backend-banner)
     this.messages = streamingText
       ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
       : messages;
@@ -484,7 +503,22 @@ export default class NxChatAo extends LitElement {
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._slashMenu.insertSlash();
     if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
-    if (id === MENU_OPTIONS.MANAGE_SKILLS) window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
+    if (id === MENU_OPTIONS.MANAGE_SKILLS) {
+      if (this._altHarness) {
+        // Alt harness has no Coworker console — open the in-app Skills editor
+        // scoped to the current org/site instead of the Coworker customizations URL.
+        const { org, site } = this._context ?? {};
+        if (org && site) {
+          const url = new URL(window.location.href);
+          url.pathname = '/apps/skills';
+          url.search = '?tab=skills';
+          url.hash = `#/${org}/${site}`;
+          window.open(url.href, '_blank', 'noopener,noreferrer');
+        }
+      } else {
+        window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
+      }
+    }
     if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) window.open(`${COWORKER_CHAT_URL}/${this.episodeId}`, '_blank', 'noopener,noreferrer');
     if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) window.open(ENTERPRISE_CONTEXT_URL, '_blank', 'noopener,noreferrer');
   }
@@ -518,6 +552,37 @@ export default class NxChatAo extends LitElement {
     target.value = '';
   }
 
+  // TEMP(backend-banner): shows which backend the chat socket is hitting so we
+  // can confirm CMA-via-bridge vs Agent Orchestrator. Remove this method, its
+  // call in render(), the _backendWsBase state, the onUpdate wiring, and the
+  // controller's _wsBase/_update plumbing when done verifying.
+  _renderBackendBanner() {
+    const ws = this._backendWsBase;
+    if (!ws) {
+      return html`<div style="padding:4px 8px;font:600 11px/1.4 monospace;color:#fff;background:#6b7280;text-align:center">🔌 connecting…</div>`;
+    }
+    let host = ws;
+    try {
+      host = new URL(ws).host;
+    } catch {
+      /* keep raw */
+    }
+    const isBridge = ws.includes('claudebridge') || ws.includes('localhost') || ws.includes('127.0.0.1');
+    let tag = 'BACKEND';
+    let name = 'Backend';
+    if (ws.includes('agent-orchestrator')) {
+      tag = 'AO';
+      name = 'CX Coworker (AO authoritative protocol)';
+    } else if (isBridge) {
+      tag = 'CMA';
+      name = 'Claude Managed Agents via bridge';
+    }
+    const bg = isBridge ? '#15803d' : '#1d4ed8';
+    return html`<div style="padding:4px 8px;font:600 11px/1.4 monospace;color:#fff;background:${bg};text-align:center;letter-spacing:.02em">
+      🔌 THIS IS ${tag} — ${name} — ${host}
+    </div>`;
+  }
+
   render() {
     const { view } = this._context ?? {};
     const prompts = (this._prompts ?? [])
@@ -530,6 +595,7 @@ export default class NxChatAo extends LitElement {
           .onSend=${(p) => this._sendPrompt(p)}
         ></nx-prompts>
       </nx-popover>
+      ${this._renderBackendBanner()}
       <div class="chat-header">
         ${this.episodes?.length ? html`
           <nx-picker
@@ -640,7 +706,7 @@ export default class NxChatAo extends LitElement {
             ></textarea>
           </div>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
-            <nx-menu size="m" .items=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
+            <nx-menu size="m" .items=${this._menuItems} placement="above" @select=${this._handleMenuSelect}>
               <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>

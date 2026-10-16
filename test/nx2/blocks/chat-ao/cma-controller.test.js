@@ -142,7 +142,7 @@ describe('cma-controller attachments', () => {
     }
 
     expect(sent[0].text).to.equal('here is the brief');
-    expect(sent[0].attachments).to.deep.equal(['file_1']);
+    expect(sent[0].attachments).to.deep.equal([{ artifactId: 'file_1' }]);
     expect(calls[0].opts.headers.authorization).to.equal('Bearer test-token');
     expect(calls[0].opts.headers['x-tenant-id']).to.equal('tenant-123');
   });

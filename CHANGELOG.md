@@ -467,6 +467,95 @@ the flag is already on instead of clearing it, and the profile-menu switch
 renders anywhere the flag is on so there's still a way to turn it off.
 Superseded by the 2026-09-07 entry above.
 
+## 2026-09-12
+
+### nx2/blocks/chat-ao — real "Manage Skills" entry point on the alt harness
+
+Now that the Skills Editor is wired to the bridge, the + menu item is no longer
+hidden on the alt harness — it's kept and relabeled "Manage Skills", and its
+click opens the in-app Skills Editor (`/apps/skills?tab=skills#/<org>/<site>`,
+same-origin, matching the pattern in `nx2/blocks/chat/chat.js`) instead of the
+external Coworker customization URL. "Continue in Coworker" stays hidden.
+Open question: confirm the Skills Editor app parses `?tab=skills` as expected.
+
+## 2026-09-11
+
+### nx2/blocks/chat-ao — also hide "Continue in Coworker" on the alt harness
+
+The `+` menu appended `OPEN_COWORKER_ITEM` ("Continue in Coworker") whenever an
+episode existed, so it still showed on CMA even after "Customize Coworker" was
+hidden. Extracted a `_menuItems` getter (episode + not-altHarness → append the
+coworker item, else `_addMenuItems`) and used it in render, so both Coworker
+entry points are gated by `_altHarness`. Added tests.
+
+### nx2/blocks/chat-ao — route skills catalog to the bridge on the alt harness
+
+The skills catalog fetch (`utils/skills.js` `fetchSkills`) now routes to the
+CMA bridge's REST plane when an `ew.altHarness` key is present, instead of
+always hitting Agent Orchestrator. Additive: no key → unchanged AO base. Added
+`CMA_BRIDGE_HTTP_BASE` and `resolveSkillsHttpBase(ctx, {altHarnessKey})`
+(sibling to `resolveAoWsBase`; note uploads/episodes still stay on AO via
+`resolveAoHttpBase` — the bridge only implements the skills/overrides control
+plane). `fetchSkills` takes an optional `{altHarnessKey}` and adds the
+`x-user-id` header the bridge requires (AO derives it from the token); the
+controller passes `this._activationKey`. The bridge's GET /api/v1/skills emits
+`{skills:[{name,scope:"owner",description,display_name,lineCount}]}`, which the
+existing `parseSkillsListResponse` already consumes. Org/site (non-owner)
+catalog scopes are a follow-up (need the sync manifest).
+
+## 2026-09-10
+
+### nx2/blocks/chat-ao — trim the activation key
+
+`setActivationKey` now trims the `ew.altHarness` value before use. Config-sheet
+cells often carry a trailing space, and the bridge compares the AUTH frame's
+activationKey exactly (it only trims its own allowlist), so an untrimmed value
+was rejected with the "not enabled" copy. Whitespace-only now resolves to no key.
+
+### nx2/blocks/chat-ao — hide Customize Coworker on the alt harness
+
+The `+` menu's "Customize Coworker" item opens the Coworker customization
+surface, which doesn't exist on CMA. `chat-ao.js` now tracks
+`this._altHarness` (set alongside `setActivationKey` in `_loadConfig`) and a
+`_addMenuItems` getter derives a filtered copy of `ADD_MENU_ITEMS` — dropping
+`MENU_OPTIONS.MANAGE_SKILLS` and any divider left dangling as a result —
+whenever the alt harness is active. `ADD_MENU_ITEMS` itself is untouched, and
+the item still renders (with its click handler intact) on the normal AO path.
+
+### nx2/blocks/chat-ao — Tier-1 parity tests for the alt harness
+
+Extracted `buildAoConnectionInfo(ims, activationKey)` as a pure exported helper
+so alt-harness routing and AUTH-frame wiring are unit-testable without a live
+IMS. Added deterministic tests: routing (no key → AO, key → CMA bridge +
+activationKey on the frame, empty string treated as no key) and the S9
+plan-approval known-gap ERROR passthrough. See
+private-docs/altharness-parity-test-plan.md for the full parity plan/bugbash.
+
+### nx2/blocks/chat-ao — friendly UI copy for alt-harness auth rejections
+
+The CMA bridge rejects the AUTH frame with terse internal messages ("Invalid or
+missing activation key", "Activation-key gate misconfigured"). The controller
+now maps those to tester-facing copy before showing the assistant error bubble
+(points at the `ew.altHarness` config; "temporarily unavailable" for the
+fail-closed case). Other backend errors pass through unchanged. Errors still
+only surface during an active turn.
+
+## 2026-09-09
+
+### nx2/blocks/chat-ao — activation-key gate for the CMA bridge (alt harness)
+
+Replaced the `?bridge=` URL override with a config-sheet-driven activation key.
+`chat-ao.js` reads `ew.altHarness` from the site `flags` sheet via `getEWFlags`
+and hands it to the controller; when set, `resolveAoWsBase` routes the chat
+WebSocket to `CMA_BRIDGE_WS_BASE` and the key rides the AUTH frame as
+`activationKey` for server-side validation by the bridge (which holds the
+allowlist, injected from vault). WS-only, as before — REST stays on AO.
+
+This client wiring lives only on `ewoncma`, so `main` never routes to the bridge
+even if a config sheet carries `ew.altHarness`. Removed `resolveBridgeWsOverride`
+/`isAllowedBridgeHost`; replaced the `?bridge=` tests with alt-harness key tests;
+renamed the doc to `docs/chat-ao-alt-harness.md`.
+
 ## 2026-08-27
 
 ### Standalone quick-edit — authenticate before embedding preview
@@ -1074,3 +1163,20 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 - "Always approve" is conversation-scoped — resets on `clear()` only, not per message.
 - Conversation history keyed by `org--site--userId` — site-scoped, not path-scoped.
 - Agent stream contract and persistence model documented in `docs/chat-ui-component.md`.
+
+## 2026-08-31
+
+### chat-ao — bridge (CMA) WS override
+
+- `?ao=<origin>` override in `resolveAoWsBase`/`resolveAoHttpBase`
+  ([uploads.js](nx2/blocks/chat-ao/utils/uploads.js)) routes chat through the
+  claudebridge (CMA) instead of Agent Orchestrator. Origin allowlisted to
+  `localhost`/`*.adobe.io`/`*.adobe.net`/`*.corp.adobe.com` because the AUTH
+  frame carries the IMS bearer token; bare host defaults to `wss`/`https`.
+- Deployed bridge: `wss://aem-sites-claudebridge-dev-va6.adobe.io` (Ethos112
+  stage va6, corp/VPN only) → CMA workspace/agent/env `ew-dev` (us-east-1).
+- Team how-to: `docs/chat-ao-bridge-override.md`.
+- TEMP backend banner (`TEMP(backend-banner)` tags in chat-ao.js + ao-controller.js): shows the connected WS origin (CMA via bridge / local / Agent Orchestrator) at the top of the chat panel to confirm routing; remove after verification.
+- Fix: `?ao=` override is WS-only. The bridge has no REST control plane, so routing the HTTP base at it 404s loadEpisodes/history/uploads on panel load; HTTP base stays on AO. Use New session to test (no bridge history/resume yet).
+- Note: full pre-commit suite has a rare concurrency flake (1 test, not
+  reproducible in isolation, ~1 in several runs); unrelated to this change.

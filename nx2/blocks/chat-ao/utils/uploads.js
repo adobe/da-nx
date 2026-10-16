@@ -1,5 +1,7 @@
 import { loadIms } from '../../../utils/ims.js';
-import { AO_HTTP_BASE, AO_WS_BASE } from '../ao-constants.js';
+import {
+  AO_HTTP_BASE, AO_WS_BASE, CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE,
+} from '../ao-constants.js';
 
 export function getOrgId(projectedProductContext) {
   return projectedProductContext?.find((p) => p.prodCtx?.owningEntity)?.prodCtx.owningEntity;
@@ -24,9 +26,25 @@ export function resolveAoHttpBase(projectedProductContext) {
   return loc ? `https://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_HTTP_BASE;
 }
 
-export function resolveAoWsBase(projectedProductContext) {
+// When a valid `ew.altHarness` activation key is present the chat WebSocket is
+// routed through the claudebridge -> CMA deployment instead of Agent
+// Orchestrator. WS-only on purpose: the bridge implements only the WebSocket
+// data plane, not the REST control plane (episodes/history/uploads), so the
+// HTTP base stays on Agent Orchestrator. The key is a shared secret validated
+// server-side by the bridge. See docs/chat-ao-alt-harness.md.
+export function resolveAoWsBase(projectedProductContext, { altHarnessKey } = {}) {
+  if (altHarnessKey) return CMA_BRIDGE_WS_BASE;
   const loc = resolveAoLocation(projectedProductContext);
   return loc ? `wss://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_WS_BASE;
+}
+
+// Skills management (catalog + overrides) routes to the bridge's REST plane
+// when an `ew.altHarness` key is present, otherwise to Agent Orchestrator.
+// Unlike resolveAoHttpBase (uploads/episodes stay on AO), the bridge *does*
+// implement the skills control plane. Additive: no key => unchanged AO base.
+export function resolveSkillsHttpBase(projectedProductContext, { altHarnessKey } = {}) {
+  if (altHarnessKey) return CMA_BRIDGE_HTTP_BASE;
+  return resolveAoHttpBase(projectedProductContext);
 }
 
 // Shared IMS -> {base, headers} composition every AO REST call needs.
