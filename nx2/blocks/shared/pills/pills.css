@@ -62,9 +62,14 @@
     color: var(--nx-pill-color, var(--s2-blue-1000));
   }
 
-  .pill-type-icon, .pill-pin svg, .pill-icon svg {
+  .pill-type-icon, .pill-pin svg {
     width: 14px;
     height: 14px;
+  }
+
+  .pill-icon svg {
+    width: 12px;
+    height: 12px;
   }
 
   .pill-label {
@@ -91,9 +96,14 @@
 }
 
 :host([size="m"]) {
-  .pill-type-icon, .pill-pin svg, .pill-icon svg {
+  .pill-type-icon, .pill-pin svg {
     width: 16px;
     height: 16px;
+  }
+
+  .pill-icon svg {
+    width: 14px;
+    height: 14px;
   }
 
   .pill-thumbnail {
