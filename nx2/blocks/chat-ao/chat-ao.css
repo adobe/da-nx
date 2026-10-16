@@ -287,7 +287,8 @@
   &.message-user {
     max-width: 80%;
     align-self: flex-end;
-    padding-inline: var(--s2-spacing-150);
+    padding-inline: 12px;
+    line-height: 20px;
     background-color: rgb(247 248 255);
   }
 
