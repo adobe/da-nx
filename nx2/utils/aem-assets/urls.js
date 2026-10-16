@@ -20,7 +20,7 @@ function resolveAssetBasePath(basePath = DEFAULT_ASSET_BASE_PATH) {
   return normalized || DEFAULT_ASSET_BASE_PATH;
 }
 
-export function getMimetype(asset) {
+function getMimetype(asset) {
   return asset.mimetype || asset['dc:format'] || '';
 }
 
