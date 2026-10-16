@@ -27,19 +27,21 @@ describe('nx-pills', () => {
 
   it('uses small icons by default and for explicit small sizing', async () => {
     el = await makePills({ items: [{ id: '1', label: 'hero.png', type: 'image' }] });
-    const icons = [...el.shadowRoot.querySelectorAll('.pill svg')];
-    expect(icons.length).to.equal(2);
-    icons.forEach((icon) => {
-      expect(getComputedStyle(icon).width).to.equal('14px');
-      expect(getComputedStyle(icon).height).to.equal('14px');
-    });
+    const typeIcon = el.shadowRoot.querySelector('.pill-type-icon');
+    const removeIcon = el.shadowRoot.querySelector('.pill-icon svg');
+    const expectSizes = () => {
+      expect(getComputedStyle(typeIcon).width).to.equal('14px');
+      expect(getComputedStyle(removeIcon).width).to.equal('12px');
+      expect(getComputedStyle(removeIcon).height).to.equal('12px');
+    };
+    expectSizes();
     el.size = 's';
     await el.updateComplete;
     expect(el.getAttribute('size')).to.equal('s');
-    icons.forEach((icon) => {
-      expect(getComputedStyle(icon).width).to.equal('14px');
-      expect(getComputedStyle(icon).height).to.equal('14px');
-    });
+    expectSizes();
+    el.size = 'm';
+    await el.updateComplete;
+    expect(getComputedStyle(removeIcon).width).to.equal('14px');
   });
 
   it('updates medium sizing without losing read-only tags or the list label', async () => {
