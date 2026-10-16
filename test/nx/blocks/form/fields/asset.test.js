@@ -11,14 +11,15 @@ afterEach(() => {
 });
 
 const source = ({
-  id, label = id, select = async () => CANCELLED, fileTypes,
+  id, label = id, select = async () => CANCELLED, fileTypes, assetTypes,
 }) => ({
-  id, label, select, fileTypes,
+  id, label, select, fileTypes, assetTypes,
 });
 
 const upload = (overrides = {}) => source({
   id: 'upload', label: 'Upload', fileTypes: ['image/png', 'application/pdf'], ...overrides,
 });
+const imageUpload = () => upload({ assetTypes: ['image'] });
 const aem = (overrides = {}) => source({ id: 'aem-assets', label: 'AEM Assets', ...overrides });
 
 async function mount(options = {}) {
@@ -107,6 +108,27 @@ describe('form-asset', () => {
     const field = await mount({ sources: [] });
     expect(button(field, 'Select').disabled).to.be.true;
     expect(message(field).textContent).to.equal('No source is available for this field.');
+  });
+
+  it('keeps an image-only source on image fields', async () => {
+    const field = await mount({ assetType: 'image', sources: [imageUpload(), aem()] });
+    expect(menu(field).items.map(({ id }) => id)).to.deep.equal(['upload', 'aem-assets']);
+  });
+
+  it('hides an image-only source on file fields', async () => {
+    const select = sinon.fake.resolves(CANCELLED);
+    const field = await mount({ assetType: 'file', sources: [imageUpload(), aem({ select })] });
+    expect(menu(field)).to.equal(null);
+    button(field, 'Select').click();
+    await settle(field);
+    expect(select.calledOnce).to.be.true;
+  });
+
+  it('explains that files need AEM Assets when it is not set up', async () => {
+    const field = await mount({ assetType: 'file', sources: [imageUpload()] });
+    expect(button(field, 'Select').disabled).to.be.true;
+    expect(message(field).textContent)
+      .to.equal('Files can only be selected from AEM Assets, which is not set up for this site.');
   });
 
   it('starts as a single row and expands to the preview panel for an image', async () => {

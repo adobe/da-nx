@@ -31,6 +31,7 @@ const LABELS = {
 const MESSAGES = {
   failed: 'The file could not be added.',
   noSource: 'No source is available for this field.',
+  noFileSource: 'Files can only be selected from AEM Assets, which is not set up for this site.',
   unusableResult: 'The selected file did not return a usable URL.',
 };
 
@@ -93,8 +94,10 @@ class FormAsset extends LitElement {
     });
   }
 
+  // A source limited to some asset types is hidden on fields of other types.
   get _availableSources() {
-    return this.sources ?? [];
+    return (this.sources ?? []).filter(({ assetTypes }) => !assetTypes
+      || !this.assetType || assetTypes.includes(this.assetType));
   }
 
   get _previewFailed() {
@@ -418,7 +421,8 @@ class FormAsset extends LitElement {
     }
     if (this.error) return html`<p class="form-field-error">${this.error}</p>`;
     if (this.sources && !this._availableSources.length && !this.disabled) {
-      return html`<p class="form-field-description">${MESSAGES.noSource}</p>`;
+      const noSource = this.assetType === 'file' ? MESSAGES.noFileSource : MESSAGES.noSource;
+      return html`<p class="form-field-description">${noSource}</p>`;
     }
     if (this.description) return html`<p class="form-field-description">${this.description}</p>`;
     return nothing;
