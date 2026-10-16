@@ -1,8 +1,9 @@
 import DA_SDK from 'https://da.live/nx/utils/sdk.js';
 import { LitElement, html, nothing } from 'https://da.live/nx/public/deps/lit/dist/index.js';
-import { mergeCopy, overwriteCopy } from 'https://da.live/nx/blocks/loc/project/index.js';
 import getStyle from 'https://da.live/nx/public/utils/styles.js';
 import getSvg from 'https://da.live/nx/public/utils/svg.js';
+import { createCopy, createConfigLoader } from '../../../utils/loc.js';
+import { DA_ORIGIN } from '../../utils/constants.js';
 import getPrefixDetails from './index.js';
 
 const ICONS = [
@@ -43,7 +44,7 @@ export default class DaRollout extends LitElement {
     const copyLabel = label === '' ? 'Adhoc' : label;
     this._active.map(async (prefix) => {
       prefix.status = 'none';
-      const copyFn = behavior === 'overwrite' ? overwriteCopy : mergeCopy;
+      const copyFn = behavior === 'overwrite' ? this.copy.overwriteCopy : this.copy.mergeCopy;
       await copyFn(prefix, copyLabel);
       this.requestUpdate();
     });
@@ -142,9 +143,14 @@ export default class DaRollout extends LitElement {
 customElements.define('da-rollout', DaRollout);
 
 (async function init() {
-  const { context, token } = await DA_SDK;
+  const { context, token, actions } = await DA_SDK;
 
   const daRollout = document.createElement('da-rollout');
+  daRollout.copy = createCopy({
+    fetch: actions.daFetch,
+    loadConfig: createConfigLoader({ fetch: actions.daFetch, daOrigin: DA_ORIGIN }),
+    daOrigin: DA_ORIGIN,
+  });
   daRollout.path = context.path;
   daRollout.token = token;
   daRollout.repo = context.repo;

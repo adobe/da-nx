@@ -1,6 +1,4 @@
 /* global objectHash */
-import { getPathDetails, fetchConfig } from '../utils/utils.js';
-
 import './object_hash.js';
 
 const HASH_LENGTH = 12;
@@ -484,15 +482,21 @@ export async function regionalDiff(
   modified,
   acceptedHashes,
   rejectedHashes,
-  { normalizeImages } = {},
+  { normalizeImages, site, config } = {},
 ) {
-  const { org, site } = getPathDetails();
-  const translateConfig = await fetchConfig(org, site);
+  let targetSite = site;
+  let translateConfig = config;
+  if (translateConfig === undefined) {
+    const { getPathDetails, fetchConfig } = await import('../utils/utils.js');
+    const context = getPathDetails();
+    targetSite = context.site;
+    translateConfig = await fetchConfig(context.org, context.site);
+  }
   const hostnames = findConfigValue(translateConfig, 'source.fragment.hostnames')?.split?.(',') || [];
   const equivalentSites = new Set(hostnames.map((hostname) => hostname.split('--')[1]));
 
-  const normalizedOriginal = await normalizeLinks(original, site, equivalentSites);
-  const normalizedModified = await normalizeLinks(modified, site, equivalentSites);
+  const normalizedOriginal = await normalizeLinks(original, targetSite, equivalentSites);
+  const normalizedModified = await normalizeLinks(modified, targetSite, equivalentSites);
   // optional connector hook
   if (normalizeImages) normalizeImages(normalizedOriginal, normalizedModified);
   const diff = htmldiff(normalizedOriginal, normalizedModified);
