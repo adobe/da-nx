@@ -54,6 +54,30 @@ describe('quick-edit findings', () => {
     expect(overlay.querySelectorAll('.qe-finding-edge')).to.have.lengthOf(4);
   });
 
+  it('places the badge top-left and the info button top-right, 2.4px above the 4.8px outline', () => {
+    const { ctx } = setup();
+    setFindingMarkers({ markers: [textMarker], selectedId: 'f1' }, ctx);
+    const badge = document.querySelector('.qe-finding-badge');
+    const info = document.querySelector('.qe-finding-info');
+    const top = 40 - 4.8 - 2.4 - 28.8;
+    expect(parseFloat(badge.style.left)).to.be.closeTo(20 - 4.8, 0.01);
+    expect(parseFloat(badge.style.top)).to.be.closeTo(top, 0.01);
+    expect(parseFloat(info.style.left)).to.be.closeTo(20 + 300 + 4.8 - 28.8, 0.01);
+    expect(parseFloat(info.style.top)).to.be.closeTo(top, 0.01);
+    [badge, info].forEach((el) => {
+      const svg = el.querySelector('svg');
+      expect(svg.getAttribute('viewBox')).to.equal('0 0 20 20');
+      expect(svg.getAttribute('width')).to.equal('19.2');
+    });
+  });
+
+  it('keeps the buttons inside the viewport when the element is at the top edge', () => {
+    const { ctx, h1 } = setup();
+    h1.getBoundingClientRect = () => rectOf(20, 0, 300, 50);
+    setFindingMarkers({ markers: [textMarker], selectedId: 'f1' }, ctx);
+    expect(parseFloat(document.querySelector('.qe-finding-badge').style.top)).to.equal(2);
+  });
+
   it('shows the marker badge text instead of the icon when badge is a string', () => {
     const { ctx } = setup();
     setFindingMarkers({ markers: [{ ...textMarker, badge: 'B' }], selectedId: 'f1' }, ctx);
@@ -130,6 +154,38 @@ describe('quick-edit findings', () => {
     expect(style('.qe-finding-badge')).to.equal('auto');
     expect(style('.qe-finding-info')).to.equal('auto');
     expect(style('.qe-finding-edge')).to.equal('auto');
+    link.remove();
+  });
+
+  it('styles the failure highlight per the design (3px orange ring outside a 1.8px white ring, orange badge, dark info)', async () => {
+    const { ctx } = setup();
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/nx/public/plugins/quick-edit/quick-edit.css';
+    await new Promise((resolve, reject) => {
+      link.onload = resolve;
+      link.onerror = reject;
+      document.head.appendChild(link);
+    });
+    setFindingMarkers({ markers: [textMarker], selectedId: 'f1' }, ctx);
+    const cs = (sel) => getComputedStyle(document.querySelector(sel));
+    const box = cs('.qe-finding-box');
+    expect(box.boxShadow).to.equal(
+      'rgb(255, 255, 255) 0px 0px 0px 1.8px, rgb(252, 125, 0) 0px 0px 0px 4.8px',
+    );
+    expect(box.borderRadius).to.equal('2.4px');
+    expect(box.filter).to.equal('none');
+    const badge = cs('.qe-finding-badge');
+    expect(parseFloat(badge.width)).to.be.closeTo(28.8, 0.05);
+    expect(parseFloat(badge.height)).to.be.closeTo(28.8, 0.05);
+    expect(badge.borderRadius).to.equal('8.4px');
+    expect(badge.backgroundColor).to.equal('rgb(252, 125, 0)');
+    expect(badge.color).to.equal('rgb(255, 255, 255)');
+    const info = cs('.qe-finding-info');
+    expect(parseFloat(info.width)).to.be.closeTo(28.8, 0.05);
+    expect(info.borderRadius).to.equal('8.4px');
+    expect(info.backgroundColor).to.equal('rgb(19, 19, 19)');
+    expect(info.color).to.equal('rgb(255, 255, 255)');
     link.remove();
   });
 

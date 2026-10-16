@@ -192,9 +192,10 @@ the host where it is. Implemented in `nx/public/plugins/quick-edit/src/findings/
 overlay (`#qe-finding-overlay`) stacked above the comment overlay and independent of it.
 
 - `SET_FINDING_MARKERS` — host pushes the markers and which one is selected; an empty list
-  clears. Only the selected marker is drawn (v1 sends 0 or 1 marker): a green outline around the
-  containing block element (text), the picture (image) or the block (table), with a badge at
-  the top-left and an ⓘ at the top-right. Positions use the same ProseMirror coordinates as
+  clears. Only the selected marker is drawn (v1 sends 0 or 1 marker): an orange (`#FC7D00`) outline
+  with a white inner ring around the containing block element (text), the picture (image) or the
+  block (table), with a ✕ badge above the top-left corner and an ⓘ button above the top-right
+  (sizes and colours follow the Figma "One element with multiple failures" spec). Positions use the same ProseMirror coordinates as
   comment markers. `scrollIntoView` centers the element once. The outline is re-applied after
   `SET_BODY`.
 - `FINDING_MARKER_CLICK` — the user clicked the outline border, the badge or the ⓘ; the host

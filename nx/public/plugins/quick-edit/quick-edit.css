@@ -476,15 +476,15 @@ da-palette .da-palette-field {
   margin: 0;
   padding: 0;
   border: none;
-  border-radius: 4px;
-  outline: 2px solid var(--qe-finding-color, #2d9d78);
-  outline-offset: 3px;
+  border-radius: 2.4px;
   background: transparent;
   box-sizing: border-box;
+
+  /* Rings instead of outline: the browser snaps fractional outline offsets to whole pixels. */
+  box-shadow:
+    0 0 0 1.8px #fff,
+    0 0 0 4.8px var(--qe-finding-color, #fc7d00);
   pointer-events: none;
-  filter:
-    drop-shadow(0 0 2px rgb(255 255 255 / 70%))
-    drop-shadow(0 0 1px rgb(0 0 0 / 35%));
 }
 
 /* Thin hit areas over the outline so only the border is clickable, not the content. */
@@ -496,23 +496,23 @@ da-palette .da-palette-field {
 
 .qe-finding-edge-top,
 .qe-finding-edge-bottom {
-  left: -6px;
-  right: -6px;
-  height: 6px;
+  left: -4.8px;
+  right: -4.8px;
+  height: 4.8px;
 }
 
-.qe-finding-edge-top { top: -6px; }
-.qe-finding-edge-bottom { bottom: -6px; }
+.qe-finding-edge-top { top: -4.8px; }
+.qe-finding-edge-bottom { bottom: -4.8px; }
 
 .qe-finding-edge-left,
 .qe-finding-edge-right {
-  top: -6px;
-  bottom: -6px;
-  width: 6px;
+  top: -4.8px;
+  bottom: -4.8px;
+  width: 4.8px;
 }
 
-.qe-finding-edge-left { left: -6px; }
-.qe-finding-edge-right { right: -6px; }
+.qe-finding-edge-left { left: -4.8px; }
+.qe-finding-edge-right { right: -4.8px; }
 
 .qe-finding-badge,
 .qe-finding-info {
@@ -521,10 +521,12 @@ da-palette .da-palette-field {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 28.8px;
+  height: 28.8px;
   margin: 0;
   padding: 0;
+  border: none;
+  border-radius: 8.4px;
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -534,19 +536,13 @@ da-palette .da-palette-field {
 }
 
 .qe-finding-badge {
-  border: 1px solid #fff;
-  border-radius: 4px;
-  background: var(--qe-finding-bg, var(--qe-finding-color, #2d9d78));
+  background: var(--qe-finding-bg, var(--qe-finding-color, #fc7d00));
   color: #fff;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
 }
 
 .qe-finding-info {
-  border: 1px solid rgb(0 0 0 / 8%);
-  border-radius: 50%;
-  background: #fff;
-  color: var(--qe-finding-color, #2d9d78);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 30%);
+  background: #131313;
+  color: #fff;
 }
 
 .qe-finding-badge:hover,
