@@ -19,6 +19,17 @@ const styles = await loadStyle(import.meta.url);
 
 const PAGE_SIZE = 5;
 
+const PUBLIC_ICONS = new URL('../../../public/icons/', import.meta.url).href;
+const ICON_VARS = {
+  '--nx-pe-icon-close-circle': `${PUBLIC_ICONS}S2_Icon_CloseCircle_20_N.svg`,
+  '--nx-pe-icon-checkmark-circle': `${PUBLIC_ICONS}S2_Icon_CheckmarkCircle_20_N.svg`,
+  '--nx-pe-icon-info-circle': `${PUBLIC_ICONS}S2_Icon_InfoCircle_20_N.svg`,
+  '--nx-pe-icon-chevron-down': `${PUBLIC_ICONS}S2_Icon_ChevronDown_20_N.svg`,
+  '--nx-pe-icon-chevron-left': `${PUBLIC_ICONS}S2_Icon_ChevronLeft_20_N.svg`,
+  '--nx-pe-icon-copy': `${PUBLIC_ICONS}S2_Icon_Copy_20_N.svg`,
+  '--nx-pe-icon-chevron-up': new URL('../../../img/icons/S2_Icon_ChevronUp_20_N.svg', import.meta.url).href,
+};
+
 const TONE_MAP = {
   negative: { cls: 'negative' },
   positive: { cls: 'positive' },
@@ -27,6 +38,13 @@ const TONE_MAP = {
 const TONE_FALLBACK = { cls: 'informative' };
 
 const toneOf = (tone) => TONE_MAP[tone] ?? TONE_FALLBACK;
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+// Sections the skill emits per page element ("el-<element_id>"),
+// grouped under one Failures card.
+const isElementSection = (section) => section.tone === 'negative'
+  && typeof section.key === 'string' && section.key.startsWith('el-');
 
 const toneIcon = (tone) => {
   const { cls } = toneOf(tone);
@@ -171,6 +189,7 @@ class NxPageEval extends LitElement {
     data: { attribute: false },
     _pages: { state: true },
     _modal: { state: true },
+    _selected: { state: true },
   };
 
   constructor() {
@@ -181,6 +200,7 @@ class NxPageEval extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
+    Object.entries(ICON_VARS).forEach(([name, href]) => this.style.setProperty(name, `url("${href}")`));
   }
 
   _setPage(sectionIndex, page, total) {
@@ -190,7 +210,10 @@ class NxPageEval extends LitElement {
 
   async _openModal(item, items, tone, componentTitle, sectionIndex) {
     const id = findingId(item, sectionIndex, items.indexOf(item));
-    if (item.suggestion && focusFinding(this.data, id)) return;
+    if (item.suggestion && focusFinding(this.data, id)) {
+      this._selected = id;
+      return;
+    }
     let kind;
     let filtered;
     if (item.suggestion) {
@@ -219,10 +242,9 @@ class NxPageEval extends LitElement {
     this._modal = { ...this._modal, index };
   }
 
-  _renderItem(item, tone, hidden, onAction) {
+  _renderItem(item, hidden, onAction, selected) {
     return html`
       <div class="ui-artifact-pe-item" ?hidden=${hidden}>
-        <span class="ui-artifact-pe-item-chip">${toneIcon(tone)}</span>
         <div class="ui-artifact-pe-item-body">
           <span class="ui-artifact-pe-item-title">${item.title ?? ''}</span>
           ${item.description
@@ -230,7 +252,11 @@ class NxPageEval extends LitElement {
     : nothing}
         </div>
         ${item.suggestion ? html`
-          <button class="ui-artifact-pe-item-action" @click=${onAction}>View suggestions</button>
+          <button
+            class="ui-artifact-pe-item-action ${selected ? 'selected' : ''}"
+            aria-pressed=${selected ? 'true' : 'false'}
+            @click=${onAction}
+          >View failure</button>
         ` : nothing}
         ${!item.suggestion && item.check ? html`
           <button class="ui-artifact-pe-item-action" @click=${onAction}>View</button>
@@ -269,19 +295,18 @@ class NxPageEval extends LitElement {
       <div class="ui-artifact-pe-items">
         ${items.map((item, i) => this._renderItem(
     item,
-    tone,
     i < start || i >= end,
     () => this._openModal(item, items, tone, componentTitle, sectionIndex),
+    this._selected !== undefined && this._selected === findingId(item, sectionIndex, i),
   ))}
         ${total > PAGE_SIZE ? this._renderPaging(sectionIndex, end, total) : nothing}
       </div>
     `;
   }
 
-  _renderSection(section, sectionIndex, componentTitle) {
-    const {
-      label = '', subLabel = '', tone, defaultOpen = false, items = [],
-    } = section;
+  _renderCard({
+    tone, label, subLabel, defaultOpen, content,
+  }) {
     const { cls } = toneOf(tone);
     return html`
       <details class="ui-artifact-pe-section" ?open=${defaultOpen}>
@@ -295,9 +320,71 @@ class NxPageEval extends LitElement {
           </div>
           <span class="ui-artifact-pe-chevron"></span>
         </summary>
+        ${content}
+      </details>
+    `;
+  }
+
+  _renderSection(section, sectionIndex, componentTitle) {
+    const {
+      label = '', subLabel = '', tone, defaultOpen = false, items = [],
+    } = section;
+    return this._renderCard({
+      tone,
+      label,
+      subLabel,
+      defaultOpen,
+      content: items.length
+        ? this._renderItems(items, tone, sectionIndex, componentTitle)
+        : nothing,
+    });
+  }
+
+  _renderElement({ section, sectionIndex }, componentTitle) {
+    const {
+      label = '', tone, defaultOpen = false, items = [],
+    } = section;
+    return html`
+      <details class="ui-artifact-pe-el" ?open=${defaultOpen}>
+        <summary class="ui-artifact-pe-el-row">
+          ${toneIcon(tone)}
+          <div class="ui-artifact-pe-el-text">
+            <span class="ui-artifact-pe-el-line">
+              <span class="ui-artifact-pe-el-name">${label}</span>
+              <span class="ui-artifact-pe-badge">${plural(items.length, 'failure', 'failures')}</span>
+            </span>
+            <span class="ui-artifact-pe-el-sub">${plural(items.length, 'check', 'checks')} failed</span>
+          </div>
+          <span class="ui-artifact-pe-el-chevron"></span>
+        </summary>
         ${items.length ? this._renderItems(items, tone, sectionIndex, componentTitle) : nothing}
       </details>
     `;
+  }
+
+  _renderFailures(elements, componentTitle) {
+    return this._renderCard({
+      tone: 'negative',
+      label: 'Failures',
+      subLabel: `${plural(elements.length, 'element', 'elements')} failed`,
+      defaultOpen: elements.some(({ section }) => section.defaultOpen),
+      content: html`
+        <div class="ui-artifact-pe-elements">
+          ${elements.map((entry) => this._renderElement(entry, componentTitle))}
+        </div>
+      `,
+    });
+  }
+
+  _renderSections(sections, componentTitle) {
+    const entries = sections.map((section, sectionIndex) => ({ section, sectionIndex }));
+    const elements = entries.filter(({ section }) => isElementSection(section));
+    return entries.map((entry) => {
+      if (!isElementSection(entry.section)) {
+        return this._renderSection(entry.section, entry.sectionIndex, componentTitle);
+      }
+      return entry === elements[0] ? this._renderFailures(elements, componentTitle) : nothing;
+    });
   }
 
   _renderModal() {
@@ -342,7 +429,7 @@ class NxPageEval extends LitElement {
     return html`
       <div class="ui-artifact-pe">
         ${summary.length ? renderSummary(summary) : nothing}
-        ${sections.map((s, i) => this._renderSection(s, i, title))}
+        ${this._renderSections(sections, title)}
       </div>
       ${this._modal ? this._renderModal() : nothing}
     `;

@@ -1,15 +1,24 @@
+/* Icon masks come from --nx-pe-icon-* custom properties set by page-evaluation.js, because
+   relative url()s in a constructed stylesheet resolve against the page, not this file.
+   Sizes, colours and radii follow the Figma "One element with multiple failures" spec;
+   off-token values (12px radius, 22px gap, 2px dividers) stay raw to match it. */
+
 :host {
   display: block;
   font-family: var(--s2-font-family);
   color: var(--s2-gray-800);
   font-size: var(--s2-body-size-s);
   line-height: normal;
+
+  button {
+    font-family: inherit;
+  }
 }
 
 .ui-artifact-pe {
   display: flex;
   flex-direction: column;
-  gap: var(--s2-spacing-200);
+  gap: var(--s2-spacing-100);
 }
 
 .ui-artifact-pe-icon {
@@ -24,37 +33,37 @@
 }
 
 .ui-artifact-pe-icon.ui-artifact-pe-tone-negative {
-  mask-image: url("/img/icons/s2-icon-closecircle-20-n.svg");
+  mask-image: var(--nx-pe-icon-close-circle);
 }
 
 .ui-artifact-pe-icon.ui-artifact-pe-tone-positive {
-  mask-image: url("/img/icons/s2-icon-checkmarkcircle-20-n.svg");
+  mask-image: var(--nx-pe-icon-checkmark-circle);
 }
 
 .ui-artifact-pe-icon.ui-artifact-pe-tone-neutral {
-  mask-image: url("/img/icons/s2-icon-removecircle-20-n.svg");
+  mask-image: var(--nx-pe-icon-remove-circle);
 }
 
 .ui-artifact-pe-icon.ui-artifact-pe-tone-informative {
-  mask-image: url("/img/icons/s2-icon-infocircle-20-n.svg");
+  mask-image: var(--nx-pe-icon-info-circle);
 }
 
-/* --- tone text colors --- */
+/* --- tone colors --- */
 
-.ui-artifact-pe-tone-negative { color: var(--s2-orange-900); }
-.ui-artifact-pe-tone-positive { color: var(--s2-green-900); }
-.ui-artifact-pe-tone-neutral  { color: var(--s2-gray-800); }
+.ui-artifact-pe-tone-negative { color: var(--s2-orange-800); }
+.ui-artifact-pe-tone-positive { color: light-dark(#079355, var(--s2-green-900)); }
+.ui-artifact-pe-tone-neutral  { color: var(--s2-gray-1000); }
 
-/* --- tone chip backgrounds --- */
+/* --- tone chip backgrounds (40px tile) --- */
 
 .ui-artifact-pe-tone-negative-bg {
-  background: var(--s2-orange-100);
-  color: var(--s2-orange-900);
+  background: var(--s2-orange-200);
+  color: var(--s2-orange-800);
 }
 
 .ui-artifact-pe-tone-positive-bg {
-  background: var(--s2-green-100);
-  color: var(--s2-green-900);
+  background: var(--s2-green-200);
+  color: light-dark(#079355, var(--s2-green-900));
 }
 
 .ui-artifact-pe-tone-neutral-bg {
@@ -62,55 +71,74 @@
   color: var(--s2-gray-800);
 }
 
-/* --- summary tiles --- */
+/* --- summary metrics --- */
 
 .ui-artifact-pe-summary {
-  display: flex;
-  overflow: hidden;
+  display: grid;
+  grid-template-columns: 129.33fr 147.33fr 131.34fr;
+  margin-bottom: var(--s2-spacing-100);
+  padding: var(--s2-spacing-300) 0;
+  border-radius: 12px;
+  background: var(--s2-gray-25);
 }
 
 .ui-artifact-pe-tile {
-  flex: 1;
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--s2-spacing-75);
-  padding: var(--s2-spacing-300);
+  gap: var(--s2-spacing-50);
+  padding: 0 0 0 var(--s2-spacing-300);
 
   & + & {
-    border-left: 1px solid var(--s2-gray-200);
+    padding-left: 42px;
+
+    &::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 50%;
+      width: 2px;
+      height: 73px;
+      border-radius: 1px;
+      background: var(--s2-gray-200);
+      transform: translateY(-50%);
+    }
   }
 }
 
 .ui-artifact-pe-tile-label {
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--s2-body-size-s);
+  line-height: 18px;
   color: var(--s2-gray-800);
 }
 
 .ui-artifact-pe-tile-value {
-  font-size: var(--s2-heading-size-s);
-  font-weight: var(--s2-heading-font-weight);
-  line-height: var(--s2-heading-line-height);
+  font-size: var(--s2-body-size-xxxl);
+  font-weight: bold;
+  line-height: 25px;
 }
 
 .ui-artifact-pe-tile-desc {
   font-size: var(--s2-body-size-xs);
-  color: var(--s2-gray-600);
+  line-height: 16px;
+  margin-top: 10px;
+  color: var(--s2-gray-700);
 }
 
-/* --- collapsible sections --- */
+/* --- collapsible cards (Failures / Passes) --- */
 
 .ui-artifact-pe-section {
-  border: 1px solid var(--s2-gray-200);
-  border-radius: var(--s2-corner-radius-300);
-  overflow: hidden;
+  border: 2px solid var(--s2-gray-75);
+  border-radius: var(--s2-corner-radius-500);
+  padding: 0 14px;
   margin: 0;
 }
 
 .ui-artifact-pe-section-header {
   display: flex;
   align-items: center;
-  gap: var(--s2-spacing-200);
-  padding: var(--s2-spacing-200) var(--s2-spacing-300);
+  gap: var(--s2-spacing-300);
+  padding: 14px 0;
   cursor: pointer;
   user-select: none;
   list-style: none;
@@ -127,7 +155,7 @@
   justify-content: center;
   width: 40px;
   height: 40px;
-  border-radius: var(--s2-corner-radius-300);
+  border-radius: var(--s2-corner-radius-500);
   flex-shrink: 0;
 }
 
@@ -135,54 +163,137 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--s2-spacing-50);
+  gap: 3px;
   min-width: 0;
 }
 
 .ui-artifact-pe-section-label {
   font-size: var(--s2-body-size-s);
+  line-height: 18px;
   font-weight: bold;
-  color: var(--s2-gray-900);
+  color: var(--s2-gray-800);
 }
 
 .ui-artifact-pe-section-sublabel {
   font-size: var(--s2-body-size-xs);
-  color: var(--s2-gray-600);
+  line-height: 16px;
+  color: var(--s2-gray-700);
 }
 
-.ui-artifact-pe-chevron {
+/* Chevron direction is as drawn in the design: Down when expanded, Up when collapsed. */
+.ui-artifact-pe-chevron,
+.ui-artifact-pe-el-chevron {
   width: 16px;
   height: 16px;
+  margin: 0 4px;
   flex-shrink: 0;
-  background-color: var(--s2-gray-600);
-  mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
+  background-color: var(--s2-gray-800);
+  mask-image: var(--nx-pe-icon-chevron-up);
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;
-  transform: rotate(180deg);
-  transition: transform 0.15s ease;
 }
 
-.ui-artifact-pe-section[open] > .ui-artifact-pe-section-header > .ui-artifact-pe-chevron {
-  transform: rotate(0deg);
+.ui-artifact-pe-section[open] > .ui-artifact-pe-section-header > .ui-artifact-pe-chevron,
+.ui-artifact-pe-el-chevron {
+  mask-image: var(--nx-pe-icon-chevron-down);
 }
 
-/* --- item rows --- */
+/* --- element rows (Hero, Body) --- */
 
-.ui-artifact-pe-item-chip {
+.ui-artifact-pe-elements {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 0 12px;
+}
+
+.ui-artifact-pe-el + .ui-artifact-pe-el {
+  margin-top: 19px;
+  padding-top: 16px;
+  border-top: 1px solid var(--s2-gray-200);
+}
+
+.ui-artifact-pe-el-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
+  gap: var(--s2-spacing-100);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+
+  &::marker,
+  &::-webkit-details-marker {
+    display: none;
+  }
+}
+
+.ui-artifact-pe-el-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ui-artifact-pe-el-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ui-artifact-pe-el-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--s2-body-size-s);
+  line-height: 20px;
+  color: var(--s2-gray-800);
+}
+
+.ui-artifact-pe-el-sub {
+  font-size: var(--s2-body-size-xs);
+  line-height: 18px;
+  color: var(--s2-gray-700);
+}
+
+.ui-artifact-pe-badge {
   flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: var(--s2-corner-radius-100);
+  background: var(--s2-orange-200);
+  color: var(--s2-orange-800);
+  font-size: var(--s2-body-size-xxs);
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+/* The badge replaces the sub line while a row is collapsed. */
+.ui-artifact-pe-el[open] .ui-artifact-pe-badge,
+.ui-artifact-pe-el:not([open]) .ui-artifact-pe-el-sub {
+  display: none;
+}
+
+/* --- check rows --- */
+
+.ui-artifact-pe-items {
+  display: flex;
+  flex-direction: column;
+  gap: 21px;
+}
+
+.ui-artifact-pe-el > .ui-artifact-pe-items {
+  margin-top: 20px;
+}
+
+.ui-artifact-pe-section > .ui-artifact-pe-items {
+  padding-bottom: 12px;
 }
 
 .ui-artifact-pe-item {
   display: flex;
   align-items: flex-start;
-  gap: var(--s2-spacing-200);
-  padding: var(--s2-spacing-200) var(--s2-spacing-300);
+  gap: var(--s2-spacing-100);
 
   &[hidden] {
     display: none;
@@ -194,38 +305,43 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--s2-spacing-50);
+  gap: 3px;
 }
 
 .ui-artifact-pe-item-title {
   font-size: var(--s2-body-size-s);
-  font-weight: bold;
-  color: var(--s2-gray-900);
+  line-height: 20px;
+  color: var(--s2-gray-800);
 }
 
 .ui-artifact-pe-item-desc {
   font-size: var(--s2-body-size-xs);
-  color: var(--s2-gray-600);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 18px;
+  color: var(--s2-gray-700);
 }
 
 .ui-artifact-pe-item-action {
   flex-shrink: 0;
-  align-self: center;
-  font-size: var(--s2-body-size-xs);
-  font-weight: 500;
-  color: var(--s2-gray-900);
-  background: none;
-  border: 1px solid var(--s2-gray-300);
-  border-radius: var(--s2-corner-radius-200);
-  padding: var(--s2-spacing-50) var(--s2-spacing-100);
+  height: 20px;
+  padding: 0 var(--s2-spacing-100);
+  border: none;
+  border-radius: var(--s2-corner-radius-300);
+  background: var(--s2-gray-100);
+  color: var(--s2-gray-800);
+  font-size: var(--s2-body-size-xxs);
+  line-height: 20px;
   cursor: pointer;
   white-space: nowrap;
 
   &:hover {
-    background: var(--s2-gray-100);
+    background: var(--s2-gray-200);
+    color: var(--s2-gray-900);
+  }
+
+  &.selected,
+  &.selected:hover {
+    background: var(--s2-gray-900);
+    color: var(--s2-gray-25);
   }
 }
 
@@ -236,7 +352,6 @@
   align-items: center;
   justify-content: center;
   gap: var(--s2-spacing-100);
-  padding: var(--s2-spacing-100) var(--s2-spacing-300) var(--s2-spacing-200);
 }
 
 .ui-artifact-pe-paging-label {
@@ -273,19 +388,15 @@
     width: 14px;
     height: 14px;
     background-color: currentcolor;
-    mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
+    mask-image: var(--nx-pe-icon-chevron-left);
     mask-size: contain;
     mask-repeat: no-repeat;
     mask-position: center;
   }
 }
 
-.ui-artifact-pe-paging-prev::after {
-  transform: rotate(-90deg);
-}
-
 .ui-artifact-pe-paging-next::after {
-  transform: rotate(90deg);
+  transform: rotate(180deg);
 }
 
 /* --- modal --- */
@@ -327,12 +438,12 @@
 
 .ui-artifact-pe-modal-heading-icon.issue {
   color: var(--s2-orange-900);
-  mask-image: url("/img/icons/s2-icon-closecircle-20-n.svg");
+  mask-image: var(--nx-pe-icon-close-circle);
 }
 
 .ui-artifact-pe-modal-heading-icon.fix {
   color: var(--s2-green-900);
-  mask-image: url("/img/icons/s2-icon-checkmarkcircle-20-n.svg");
+  mask-image: var(--nx-pe-icon-checkmark-circle);
 }
 
 .ui-artifact-pe-modal-heading-text {
@@ -370,7 +481,7 @@
   height: 16px;
   flex-shrink: 0;
   background-color: currentcolor;
-  mask-image: url("/img/icons/s2-icon-copy-20-n.svg");
+  mask-image: var(--nx-pe-icon-copy);
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;
@@ -444,7 +555,7 @@
     width: 16px;
     height: 16px;
     background-color: currentcolor;
-    mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
+    mask-image: var(--nx-pe-icon-chevron-up);
     mask-size: contain;
     mask-repeat: no-repeat;
     mask-position: center;

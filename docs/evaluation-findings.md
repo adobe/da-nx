@@ -6,7 +6,7 @@ page itself, instead of in the widget's own dialog. da-nx owns the contract; the
 ## Flow
 
 1. The chat widget (`nx2/blocks/chat-ao/artifacts/page-evaluation.js`) turns every item with a `suggestion` into an `EvalFinding`.
-2. "View suggestions" dispatches `EVAL_EVENT.FOCUS_FINDING` on `document` only when that suggestion includes supported
+2. "View failure" dispatches `EVAL_EVENT.FOCUS_FINDING` on `document` only when that suggestion includes supported
    evidence. A host that can locate the finding calls `event.preventDefault()`. If nobody claims it, or the suggestion has
    no evidence, the widget opens its own dialog (unchanged behaviour). Items with only a `check` keep opening the check
    dialog.

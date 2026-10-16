@@ -102,7 +102,7 @@ describe('toEvalFindings', () => {
   });
 });
 
-describe('page evaluation "View suggestions"', () => {
+describe('page evaluation "View failure"', () => {
   const items = [
     {
       id: 'f1',
@@ -179,6 +179,28 @@ describe('page evaluation "View suggestions"', () => {
     expect(el.shadowRoot.querySelector('nx-dialog')).to.exist;
   });
 
+  it('labels the button "View failure" for findings and marks the claimed one as selected', async () => {
+    claim = true;
+    const el = await mountEval(withItems(items));
+    const buttons = [...el.shadowRoot.querySelectorAll('.ui-artifact-pe-item-action')];
+    expect(buttons.map((b) => b.textContent.trim())).to.deep.equal(['View failure', 'View failure']);
+    expect(buttons.every((b) => b.getAttribute('aria-pressed') === 'false')).to.equal(true);
+
+    clickItem(el, 0);
+    await el.updateComplete;
+    const after = [...el.shadowRoot.querySelectorAll('.ui-artifact-pe-item-action')];
+    expect(after[0].classList.contains('selected')).to.equal(true);
+    expect(after[0].getAttribute('aria-pressed')).to.equal('true');
+    expect(after[1].classList.contains('selected')).to.equal(false);
+  });
+
+  it('does not select a finding the host did not claim', async () => {
+    const el = await mountEval(withItems(items));
+    clickItem(el, 0);
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.ui-artifact-pe-item-action.selected')).to.equal(null);
+  });
+
   it('does nothing else when the host claims the event', async () => {
     claim = true;
     const el = await mountEval(withItems(items));
@@ -207,5 +229,71 @@ describe('page evaluation "View suggestions"', () => {
 
     expect(events).to.have.length(0);
     expect(el._modal.kind).to.equal('check');
+  });
+});
+
+describe('page evaluation layout', () => {
+  afterEach(() => {
+    document.body.querySelectorAll('div').forEach((d) => d.querySelector('nx-page-eval') && d.remove());
+  });
+
+  const mountEval = async (data) => {
+    const host = mount({ components: [{ id: 'root', component: 'PageEvaluationWithIcons', ...data }] });
+    const el = host.querySelector('nx-page-eval');
+    await el.updateComplete;
+    return el;
+  };
+
+  const suggestion = { issue: 'i' };
+  const elementSection = (key, label, count, defaultOpen = true) => ({
+    key,
+    label,
+    tone: 'negative',
+    defaultOpen,
+    items: Array.from({ length: count }, (_, i) => ({ id: `${key}-${i}`, title: `Check ${i}`, suggestion })),
+  });
+
+  it('groups element sections under one Failures card with a failures badge and a checks-failed line', async () => {
+    const el = await mountEval({
+      sections: [
+        elementSection('el-a', 'Hero', 3),
+        elementSection('el-b', 'Body', 1, false),
+        { key: 'passes', label: 'Passes', tone: 'positive', items: [{ title: 'ok' }] },
+      ],
+    });
+    const cards = el.shadowRoot.querySelectorAll('.ui-artifact-pe-section');
+    expect(cards).to.have.length(2);
+    expect(cards[0].querySelector('.ui-artifact-pe-section-label').textContent).to.equal('Failures');
+    expect(cards[0].querySelector('.ui-artifact-pe-section-sublabel').textContent).to.equal('2 elements failed');
+    expect(cards[0].open).to.equal(true);
+
+    const rows = cards[0].querySelectorAll('.ui-artifact-pe-el');
+    const text = (sel) => [...rows].map((r) => r.querySelector(sel).textContent);
+    expect(text('.ui-artifact-pe-el-name')).to.deep.equal(['Hero', 'Body']);
+    expect(text('.ui-artifact-pe-badge')).to.deep.equal(['3 failures', '1 failure']);
+    expect(text('.ui-artifact-pe-el-sub')).to.deep.equal(['3 checks failed', '1 check failed']);
+    expect(rows[0].open).to.equal(true);
+    expect(rows[1].open).to.equal(false);
+
+    expect(cards[1].querySelector('.ui-artifact-pe-section-label').textContent).to.equal('Passes');
+    expect(cards[1].querySelector('.ui-artifact-pe-el')).to.equal(null);
+  });
+
+  it('keeps sections without an el- key as standalone cards', async () => {
+    const el = await mountEval({ sections: [{ key: 'f', label: 'Failures', tone: 'negative', items: [{ title: 'x', suggestion }] }] });
+    expect(el.shadowRoot.querySelectorAll('.ui-artifact-pe-section')).to.have.length(1);
+    expect(el.shadowRoot.querySelector('.ui-artifact-pe-el')).to.equal(null);
+    expect(el.shadowRoot.querySelector('.ui-artifact-pe-item-action').textContent.trim()).to.equal('View failure');
+  });
+
+  it('points the icon masks at existing public icon files', async () => {
+    const el = await mountEval({ sections: [elementSection('el-a', 'Hero', 1)] });
+    const names = ['close-circle', 'checkmark-circle', 'chevron-down', 'chevron-left'];
+    await Promise.all(names.map(async (name) => {
+      const value = el.style.getPropertyValue(`--nx-pe-icon-${name}`);
+      const href = value.match(/url\("(.+)"\)/)?.[1];
+      expect(href, name).to.be.a('string');
+      expect((await fetch(href)).ok, href).to.equal(true);
+    }));
   });
 });
