@@ -34,6 +34,34 @@ Selecting a card reveals that environment's delivery URL with a copy-to-clipboar
 
 Timestamps use `formatRelativeDateTime` (`nx2/utils/format.js`) — "Today at 14:32" / "Yesterday at 14:32", falling back to a short date ("17 Jun, 16:02").
 
+## Selected branch
+
+The opened and copied URLs in the "Send" modal follow the branch resolved by da-live's canvas. Nexter does not independently fetch config or interpret `?ref`. Canvas resolves once per document/context and shares the same promise with the WYSIWYG iframe and the same result with external consumers through its branch bridge.
+
+The authoritative resolver in da-live applies:
+
+1. The `?ref=<branch>` URL param, if present, except `local` (which selects local extension development, not the site's code branch).
+2. Otherwise the longest-prefix match of the `ew.wysiwygBranch` config rows (value `/org/site/prefix=branch`); site config rows win over org config rows on equal prefixes. Prefixes match complete path segments: `/docs` matches `/docs` and `/docs/page`, but not `/docs-archive`. A trailing slash on a prefix is optional.
+3. Otherwise `main`. Config responses with an explicit HTTP error are logged and excluded, so a valid org config still applies if the site config is unavailable.
+
+Multi-sheet configs are read in the order declared by `:names`, independent of JSON key insertion order, including the metadata-first shape produced by `object2sheet`.
+
+Malformed branch rows (non-string values or missing `=`) are skipped so valid sibling rows still apply. Network/JSON failures remain errors. The chosen branch is normalized to its hostname form before publishing, so slash/mixed-case names produce the same branch in the editor and Send.
+
+The cross-repo contract is defined in `nx2/utils/branch-events.js`. Canvas translates its internal replayable `branchState` channel into document-level `nx-branch-state` events. A late consumer sends `nx-branch-request` with `{ path }` to replay the current state. State includes `{ org, site, path, status, branch?, error? }`, where status is `pending`, `ready`, or `error`. Paths preserve the canvas context's case and extension; neither side adds `.html` for this contract.
+
+Send requests state on connection and navigation, retrying every 100 ms for up to 3 seconds to allow the bridge to load. It ignores other documents' state and cancels old requests on navigation/disconnection without showing a failure dialog. Until the branch is ready, copied URLs are hidden. Missing/error state prevents deployment with an error dialog rather than silently selecting `main`; later valid state restores the URLs. The branch is captured before save/preflight awaits so navigation cannot retarget an in-progress action.
+
+The two repositories support rolling deployment. The da-live bridge uses stable wire names without importing a new Nexter module during canvas startup, so older/pinned Nexter can still load canvas. On older da-live hosts that never publish branch state, Send can observe the branch of the rendered WYSIWYG iframe, but only when its HTTPS preview-proxy origin, org/site, and encoded document path match the current document. It never re-fetches config, guesses `main`, or uses this fallback after known pending/error bridge state. Without a trustworthy iframe or bridge response it still fails closed.
+
+Canvas library/block previews and custom Prepare-menu previews use resolved branch state too. Plugin READY context includes the selected site `branch` separately from `ref`, which retains its plugin-development meaning (including `local`). Classic-editor `dapreview`/local-plugin loader parameters keep their existing meanings.
+
+For a non-`main` branch the URLs are `https://{branch}--{site}--{org}.aem.page|live{webPath}`; for `main` they use the site's configured preview/production hosts. A `preview-url` / `live-url` meta template still takes precedence for the URL opened after a deploy.
+
+An explicit `preview-url` (preview) or `live-url` (publish) template in the editor page's head also bypasses the Canvas branch requirement for that action. This lets standalone editors such as Forms deploy without a Canvas bridge. `${aemPath}` is replaced with the current document path, and the deployed environment's copy control uses the same destination. Each action uses only its matching template; save, preflight, and deployment errors remain blocking.
+
+On the standalone `/form` page, absent branch state falls back to `main` for both preview and publish. Metadata destinations still take precedence. Known pending/error bridge state does not fall back, and Canvas pages retain their existing branch requirements.
+
 ## Deploy flow
 
 On confirm, the control:

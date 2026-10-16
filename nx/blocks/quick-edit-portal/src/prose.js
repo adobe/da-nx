@@ -41,7 +41,10 @@ function trackCursorAndChanges(rerenderPage, updateCursors, getEditor) {
 
               if (commonEditable) {
                 // All changes are within a single editable element
-                getEditor?.({ cursorOffset: commonEditable.pos + 1 });
+                getEditor?.({
+                  cursorOffset: commonEditable.pos + 1,
+                  lengthDiff: view.state.doc.content.size - prevState.doc.content.size,
+                });
               } else {
                 // TODO don't force this, let the user decide when.
                 rerenderPage?.();

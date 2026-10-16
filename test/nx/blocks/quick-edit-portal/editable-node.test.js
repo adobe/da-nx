@@ -4,6 +4,7 @@ import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { tableNodes } from 'prosemirror-tables';
 import { resolveEditableNode } from '../../../../nx/blocks/quick-edit-portal/src/editable-node.js';
+import { findChangedNodes, findCommonEditableAncestor } from '../../../../nx/blocks/quick-edit-portal/src/utils.js';
 
 // A faithful subset of da-parser's schema: `doc` is `block+`, tables use the
 // same `tableNodes({ tableGroup: 'block', cellContent: 'block+' })` recipe.
@@ -63,6 +64,54 @@ function posBefore(doc, typeName) {
   });
   return found;
 }
+
+describe('quick-edit-portal rendered editable ancestors', () => {
+  const blockDoc = (name, text) => {
+    const row = (value) => schema.node('table_row', null, [
+      schema.node('table_cell', null, [p(value)]),
+    ]);
+    return schema.node('doc', null, [
+      p('text'),
+      schema.node('table', null, [row(name), row(text)]),
+    ]);
+  };
+
+  const ancestor = (previousDoc, doc) => findCommonEditableAncestor(
+    { state: { doc } },
+    findChangedNodes(previousDoc, doc),
+    { doc: previousDoc },
+  );
+
+  it('rerenders renamed block titles instead of targeting a paragraph in the preview', () => {
+    expect(ancestor(blockDoc('hero', 'before'), blockDoc('card', 'before'))).to.equal(null);
+  });
+
+  it('rerenders deleted block-title text', () => {
+    expect(ancestor(blockDoc('hero', 'before'), blockDoc('', 'before'))).to.equal(null);
+  });
+
+  ['Metadata', 'Section Metadata', 'Section Metadata (highlight)', 'Library Metadata'].forEach((name) => {
+    it(`rerenders edits inside the unrendered ${name} table`, () => {
+      expect(ancestor(blockDoc(name, 'before'), blockDoc(name, 'after'))).to.equal(null);
+    });
+  });
+
+  it('retains inline updates for paragraphs inside rendered block body cells', () => {
+    const result = ancestor(blockDoc('hero', 'before'), blockDoc('hero', 'after'));
+    expect(result.node.type.name).to.equal('paragraph');
+    expect(result.node.textContent).to.equal('after');
+  });
+
+  it('retains inline updates for ordinary paragraphs', () => {
+    const result = ancestor(
+      schema.node('doc', null, [p('before')]),
+      schema.node('doc', null, [p('after')]),
+    );
+    expect(result.node.type.name).to.equal('paragraph');
+    expect(result.node.textContent).to.equal('after');
+    expect(result.pos).to.equal(0);
+  });
+});
 
 describe('quick-edit-portal resolveEditableNode', () => {
   let view;

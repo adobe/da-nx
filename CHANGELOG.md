@@ -1,3 +1,61 @@
+## [1.16.1](https://github.com/adobe/da-nx/compare/v1.16.0...v1.16.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **forms:** fall back to main without canvas branch state ([3f523c8](https://github.com/adobe/da-nx/commit/3f523c82648e7f09bfdd1ae9a97accde522f1c6d))
+* **forms:** honor metadata preview URLs without canvas branch state ([15583b9](https://github.com/adobe/da-nx/commit/15583b90333f8331381f350521b03a872d8a18b7))
+
+# [1.16.0](https://github.com/adobe/da-nx/compare/v1.15.1...v1.16.0) (2026-10-15)
+
+
+### Bug Fixes
+
+* branch resolution and fail early ([177c4fb](https://github.com/adobe/da-nx/commit/177c4fbcd1083237c21b6b183bfc9fef46e6b283))
+* **ew:** harden branch compatibility and cancellation ([350e872](https://github.com/adobe/da-nx/commit/350e87263b7c635ed3b5798c491640ae9fc349e3))
+* **ew:** use authoritative canvas branch state ([af8d777](https://github.com/adobe/da-nx/commit/af8d777dfa213524c00d701320ab1e0bc90ea2c6))
+* remove redundant preview branch error logging ([3823263](https://github.com/adobe/da-nx/commit/3823263806b84bcc944efd09c123801f97b528cc))
+
+
+### Features
+
+* fetch from config or query string the branch name and surface it into the sareable deploy URL ([6ca178d](https://github.com/adobe/da-nx/commit/6ca178d9a4c1162c404f1c29545895d6c1cb5d0d))
+
+## [1.15.1](https://github.com/adobe/da-nx/compare/v1.15.0...v1.15.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **quick-edit:** require exact preview update targets ([7d4b388](https://github.com/adobe/da-nx/commit/7d4b388913a041bfc15082518d1f84fd1bcde724))
+
+# [1.15.0](https://github.com/adobe/da-nx/compare/v1.14.1...v1.15.0) (2026-10-14)
+
+
+### Features
+
+* **sdk:** add comparison and save actions ([#818](https://github.com/adobe/da-nx/issues/818)) ([2c70c3a](https://github.com/adobe/da-nx/commit/2c70c3a97c258d18f8d2fb20baa01bf6833f0d9d)), closes [adobe/da-live#1405](https://github.com/adobe/da-live/issues/1405)
+
+## [1.14.1](https://github.com/adobe/da-nx/compare/v1.14.0...v1.14.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **quick-edit:** shift later indices when creating an editor from a host edit ([875bfca](https://github.com/adobe/da-nx/commit/875bfca0b4e51a0b2ee2fbea3b6b44a6cd98767a))
+
+# [1.14.0](https://github.com/adobe/da-nx/compare/v1.13.0...v1.14.0) (2026-10-13)
+
+
+### Features
+
+* use scopes to reload sections and blocks individually ([83d6138](https://github.com/adobe/da-nx/commit/83d613876ab41a33d0bf074f5389e01a40978040))
+
+# [1.13.0](https://github.com/adobe/da-nx/compare/v1.12.2...v1.13.0) (2026-10-13)
+
+
+### Features
+
+* shared search field ([#823](https://github.com/adobe/da-nx/issues/823)) ([73b68eb](https://github.com/adobe/da-nx/commit/73b68eb67b5ff9fe272d2282bbc37847d8db6457))
+
 ## [1.12.2](https://github.com/adobe/da-nx/compare/v1.12.1...v1.12.2) (2026-10-13)
 
 
