@@ -18,6 +18,7 @@ and `size` (`s` or `m`, matching picker/menu naming).
 `variant` and `size` remain unset unless supplied; CSS uses small sizing when `size` is unset.
 Appearance and size are independent: either variant supports either size.
 Both sizes retain a 32px minimum field height; size adjusts typography and icons.
+Borderless search shows a bottom focus line; `field` uses a bordered box.
 `label` labels the native search input, independently of its placeholder.
 `focus(options)` focuses the input; `clear()` clears it and restores focus.
 
@@ -33,13 +34,13 @@ The clear button and Escape emit one `input` event when clearing a non-empty
 value. Enter/Escape are ignored during IME composition. Disabled fields cannot
 be edited or cleared.
 
-Consumers own filtering, debounce, crawling, search execution, and results.
-Keep category pickers and other scope controls alongside the field.
+Consumers handle filtering and search results.
+Use the `actions` slot for trailing controls such as Search options.
+Supply an accessible label and click handler for each action.
+Use `hidden` to hide an action.
 
-`nx-nav` provides a centered `search` slot. Consumers append their search control
-with `slot="search"` and own its labels, events, execution, and cleanup. Nav does
-not import a search implementation or dispatch search requests.
-
-DA browse injects its field into this slot, labels it `Search <folder name>`,
-and runs its existing content search. Clearing the field restores the directory
-listing; leaving browse removes the injected control.
+```html
+<nx-search variant="field" label="Search files" placeholder="Search files">
+  <button slot="actions" type="button" aria-label="Search options">...</button>
+</nx-search>
+```
