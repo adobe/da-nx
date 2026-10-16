@@ -9,6 +9,7 @@ import {
   DA_CONTENT,
   DA_PREVIEW,
   DA_ETC,
+  DA_SC,
   HLX_ADMIN,
   AEM_API,
   ALLOWED_TOKEN,
@@ -57,6 +58,10 @@ describe('DA environment constants', () => {
 
   it('DA_PREVIEW is an http(s) URL', () => {
     expect(DA_PREVIEW).to.match(/^https?:\/\//);
+  });
+
+  it('DA_SC is an http(s) URL', () => {
+    expect(DA_SC).to.match(/^https?:\/\//);
   });
 
   it('HLX_ADMIN is admin.hlx.page', () => {
