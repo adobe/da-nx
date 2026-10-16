@@ -1,6 +1,7 @@
 import { MESSAGE_TYPES } from '../../../../../utils/message-types.js';
 import { parseIndex, positionBox } from '../utils.js';
 import { findTextBlock } from '../dom-index.js';
+import { clearOverlayById, getOverlayById, visibleRect } from '../overlay.js';
 import {
   findBlockForMarker,
   findPictureForImageMarker,
@@ -16,20 +17,11 @@ const BUBBLE_SIZE = 36;
 const MARKER_RENDER_ORDER = { table: 0, image: 1, text: 2 };
 
 export function getOverlay(root = document) {
-  let overlay = root.getElementById(OVERLAY_ID);
-  if (!overlay) {
-    overlay = root.createElement('div');
-    overlay.id = OVERLAY_ID;
-    overlay.className = 'qe-comment-overlay';
-    overlay.setAttribute('aria-hidden', 'true');
-    root.body.append(overlay);
-  }
-  return overlay;
+  return getOverlayById({ id: OVERLAY_ID, className: 'qe-comment-overlay', root });
 }
 
 export function clearOverlay(root = document) {
-  const overlay = root.getElementById(OVERLAY_ID);
-  overlay?.replaceChildren();
+  clearOverlayById(OVERLAY_ID, root);
 }
 
 function attachMarkerClick(el, threadId, ctx) {
@@ -91,14 +83,7 @@ function createMarkerBubble({
 }
 
 function drawAnchorMarker({ marker, element, overlay, ctx, markerPlacement = 'top-left' }) {
-  let rect = element.getBoundingClientRect();
-  if (!rect.width && !rect.height) {
-    let parent = element.parentElement;
-    while (parent && !rect.width && !rect.height) {
-      rect = parent.getBoundingClientRect();
-      parent = parent.parentElement;
-    }
-  }
+  const rect = visibleRect(element);
   if (!rect.width && !rect.height) return;
   const isActive = marker.threadId === ctx.selectedThreadId;
 
