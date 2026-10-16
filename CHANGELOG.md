@@ -1,3 +1,10 @@
+## [1.16.2](https://github.com/adobe/da-nx/compare/v1.16.1...v1.16.2) (2026-10-16)
+
+
+### Bug Fixes
+
+* support for browse ui ([#853](https://github.com/adobe/da-nx/issues/853)) ([82e1b63](https://github.com/adobe/da-nx/commit/82e1b6367b5557990f13107aef76fdcfe052283a))
+
 ## [1.16.1](https://github.com/adobe/da-nx/compare/v1.16.0...v1.16.1) (2026-10-15)
 
 
