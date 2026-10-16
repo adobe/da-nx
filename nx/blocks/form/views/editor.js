@@ -43,7 +43,9 @@ function describeIssue(issue) {
     case 'missing-type':
       return 'is missing a "type" declaration';
     case 'external-ref':
-      return `uses external $ref "${ref}" (only same-document refs are supported)`;
+      return `uses external $ref "${ref}" (only same-document refs and the image and file definitions are supported)`;
+    case 'asset-ref-keywords':
+      return `sets ${(issue.details?.properties ?? []).map((k) => `"${k}"`).join(', ')} next to the asset $ref (only title, description, readOnly, default and, on an image, required: ["altText"] are allowed)`;
     case 'unresolved-ref':
       return `uses $ref "${ref}" which does not resolve in the document`;
     default:

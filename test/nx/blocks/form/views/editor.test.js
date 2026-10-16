@@ -284,3 +284,31 @@ describe('nx-editor primitive controls', () => {
     expect(getComputedStyle(textarea).flexGrow).to.equal('1');
   });
 });
+
+describe('nx-editor schema issues', () => {
+  async function issuesText(schemaIssues) {
+    const el = await mountEditor(objectRoot([]));
+    el.state = { model: { root: objectRoot([]) }, schemaIssues };
+    await el.updateComplete;
+    await tick();
+    await el.updateComplete;
+    return [...el.shadowRoot.querySelectorAll('.schema-issues-list li')].map((li) => li.textContent.replace(/\s+/g, ' ').trim());
+  }
+
+  it('describes an external $ref', async () => {
+    const ref = 'https://example.com/asset.json';
+    const text = await issuesText([
+      { reason: 'external-ref', pointer: '/data/logo', details: { ref } },
+    ]);
+    expect(text).to.deep.equal([`/data/logo — uses external $ref "${ref}" (only same-document refs and the image and file definitions are supported)`]);
+  });
+
+  it('describes keywords next to the asset $ref', async () => {
+    const text = await issuesText([{
+      reason: 'asset-ref-keywords',
+      pointer: '/data/hero',
+      details: { ref: 'https://example.com/asset.json', properties: ['required', 'properties'] },
+    }]);
+    expect(text).to.deep.equal(['/data/hero — sets "required", "properties" next to the asset $ref (only title, description, readOnly, default and, on an image, required: ["altText"] are allowed)']);
+  });
+});
