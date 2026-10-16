@@ -64,4 +64,29 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelector('.picker-trigger-label').textContent).to.equal('Custom');
     expect(triggerSwatch(el)).to.not.be.null;
   });
+
+  it('exposes the trigger label for consumer styling without a content slot', async () => {
+    const el = await createPicker({ value: 'plain' });
+    expect(el.shadowRoot.querySelector('slot')).to.be.null;
+    expect(el.shadowRoot.querySelector('.picker-trigger-label').textContent).to.equal('Plain');
+    expect(el.shadowRoot.querySelector('.picker-trigger-label').part.contains('label')).to.be.true;
+  });
+
+  it('keeps a fixed trigger label while updating the selected item and checkmark', async () => {
+    const el = await createPicker({ value: 'red' });
+    el.labelOverride = 'Sort';
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.picker-trigger-label').textContent).to.equal('Sort');
+    expect(el.shadowRoot.querySelector('[data-value="red"]').getAttribute('aria-selected'))
+      .to.equal('true');
+    el.value = 'blue';
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.picker-trigger-label').textContent).to.equal('Sort');
+    expect(el.shadowRoot.querySelector('[data-value="red"]').getAttribute('aria-selected'))
+      .to.equal('false');
+    expect(el.shadowRoot.querySelector('[data-value="blue"]').getAttribute('aria-selected'))
+      .to.equal('true');
+    expect(el.shadowRoot.querySelector('[data-value="blue"] svg')).to.not.be.null;
+    expect(el.shadowRoot.querySelector('[data-value="red"] svg')).to.be.null;
+  });
 });
