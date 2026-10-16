@@ -1,0 +1,270 @@
+import { expect } from '@esm-bundle/chai';
+import { setConfig } from '../../../../../scripts/nx.js';
+
+await setConfig({ hostnames: [] });
+const searchModule = await import('../../../../../blocks/shared/search/search.js');
+await import('../../../../../blocks/shared/chat/prompts/prompts.js');
+
+describe('nx-search', () => {
+  let field;
+  let input;
+
+  beforeEach(async () => {
+    field = document.createElement('nx-search');
+    field.label = 'Search files';
+    document.body.append(field);
+    await field.updateComplete;
+    input = field.shadowRoot.querySelector('input');
+  });
+
+  afterEach(() => field.remove());
+
+  it('registers the component without exporting a subclassing API', () => {
+    expect(searchModule).not.to.have.property('NxSearch');
+    expect(field.constructor).to.equal(customElements.get('nx-search'));
+  });
+
+  it('labels a native search input and updates programmatic values without events', async () => {
+    expect(input.type).to.equal('search');
+    expect(field.variant).to.be.undefined;
+    expect(field.size).to.be.undefined;
+    expect(field.hasAttribute('variant')).to.be.false;
+    expect(field.hasAttribute('size')).to.be.false;
+    expect(input.getAttribute('aria-label')).to.equal('Search files');
+    let count = 0;
+    field.addEventListener('input', () => { count += 1; });
+    field.value = 'plan';
+    await field.updateComplete;
+    expect(input.value).to.equal('plan');
+    expect(count).to.equal(0);
+  });
+
+  it('uses the field appearance only when explicitly requested', async () => {
+    field.style.setProperty('--s2-gray-300', '#ccc');
+    const container = field.shadowRoot.querySelector('.search-field');
+    const icon = field.shadowRoot.querySelector('.search-icon');
+    const smallWidth = icon.getBoundingClientRect().width;
+    expect(getComputedStyle(container).borderTopWidth).to.equal('0px');
+    expect(getComputedStyle(container).paddingLeft).to.equal('0px');
+    field.variant = 'field';
+    field.size = 'm';
+    await field.updateComplete;
+    expect(field.getAttribute('variant')).to.equal('field');
+    expect(field.getAttribute('size')).to.equal('m');
+    expect(getComputedStyle(container).borderTopWidth).to.equal('2px');
+    expect(parseFloat(getComputedStyle(container).paddingLeft)).to.be.greaterThan(0);
+    field.variant = undefined;
+    field.size = undefined;
+    await field.updateComplete;
+    expect(field.hasAttribute('variant')).to.be.false;
+    expect(field.hasAttribute('size')).to.be.false;
+    expect(getComputedStyle(container).borderTopWidth).to.equal('0px');
+    expect(getComputedStyle(container).paddingLeft).to.equal('0px');
+    expect(icon.getBoundingClientRect().width).to.equal(smallWidth);
+    field.remove();
+    document.body.append(field);
+    await field.updateComplete;
+    expect(field.variant).to.be.undefined;
+    expect(field.size).to.be.undefined;
+  });
+
+  it('supports sizes independently of appearance', async () => {
+    const smallIcon = field.shadowRoot.querySelector('.search-icon');
+    const smallWidth = smallIcon.getBoundingClientRect().width;
+    for (const variant of [undefined, 'field']) {
+      field.variant = variant;
+      field.size = 'm';
+      // eslint-disable-next-line no-await-in-loop
+      await field.updateComplete;
+      expect(field.getAttribute('variant')).to.equal(variant ?? null);
+      expect(field.getAttribute('size')).to.equal('m');
+      expect(smallIcon.getBoundingClientRect().width).to.be.greaterThan(smallWidth);
+      expect(field.shadowRoot.querySelector('.search-field').getBoundingClientRect().height)
+        .to.be.at.least(32);
+    }
+  });
+
+  [undefined, 'm'].forEach((size) => {
+    it(`shows only an input underline on quiet ${size ?? 'default'} focus`, async () => {
+      field.size = size;
+      field.value = 'plan';
+      field.style.setProperty('--s2-gray-900', '#222');
+      const action = document.createElement('button');
+      action.slot = 'actions';
+      action.type = 'button';
+      field.append(action);
+      await field.updateComplete;
+      const container = field.shadowRoot.querySelector('.search-field');
+      const clear = field.shadowRoot.querySelector('button');
+      const initialRect = container.getBoundingClientRect();
+      expect(getComputedStyle(input).boxShadow).to.equal('none');
+      input.focus();
+      expect(getComputedStyle(input).boxShadow).to.equal('rgb(34, 34, 34) 0px 2px 0px 0px');
+      expect(getComputedStyle(container).borderTopWidth).to.equal('0px');
+      expect(getComputedStyle(container).borderBottomWidth).to.equal('0px');
+      expect(container.getBoundingClientRect().width).to.equal(initialRect.width);
+      expect(container.getBoundingClientRect().height).to.equal(initialRect.height);
+      clear.focus();
+      expect(getComputedStyle(input).boxShadow).to.equal('none');
+      action.focus();
+      expect(getComputedStyle(input).boxShadow).to.equal('none');
+      input.focus();
+      field.variant = 'field';
+      await field.updateComplete;
+      expect(getComputedStyle(input).boxShadow).to.equal('none');
+      field.variant = undefined;
+      field.disabled = true;
+      await field.updateComplete;
+      input.focus();
+      expect(getComputedStyle(input).boxShadow).to.equal('none');
+    });
+  });
+
+  it('exposes typing once with a retargeted host and forwards committed changes', () => {
+    const events = [];
+    field.addEventListener('input', (event) => events.push(event));
+    input.value = 'new plan';
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+    expect(field.value).to.equal('new plan');
+    expect(events.length).to.equal(1);
+    expect(events[0].target).to.equal(field);
+    let change;
+    field.addEventListener('change', (event) => { change = event; });
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(change.target).to.equal(field);
+    expect(change.composed).to.be.true;
+  });
+
+  it('slots a consumer action without submitting or changing the search value', async () => {
+    const action = document.createElement('button');
+    action.slot = 'actions';
+    action.type = 'button';
+    action.setAttribute('aria-label', 'Search options');
+    field.append(action);
+    field.value = 'plan';
+    await field.updateComplete;
+    expect(field.shadowRoot.querySelector('slot[name="actions"]').assignedElements())
+      .to.deep.equal([action]);
+    expect(getComputedStyle(action).width).to.equal('24px');
+    let clicks = 0;
+    let submissions = 0;
+    action.addEventListener('click', () => { clicks += 1; });
+    field.addEventListener('search-submit', () => { submissions += 1; });
+    action.click();
+    action.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(clicks).to.equal(1);
+    expect(submissions).to.equal(0);
+    expect(field.value).to.equal('plan');
+  });
+
+  it('hides and restores a slotted action with the native hidden property', async () => {
+    const action = document.createElement('button');
+    action.slot = 'actions';
+    action.type = 'button';
+    action.hidden = true;
+    field.append(action);
+    await field.updateComplete;
+    expect(getComputedStyle(action).display).to.equal('none');
+    expect(action.getClientRects()).to.have.length(0);
+    action.hidden = false;
+    expect(getComputedStyle(action).display).to.equal('flex');
+    expect(action.getBoundingClientRect().width).to.equal(24);
+    action.hidden = true;
+    expect(getComputedStyle(action).display).to.equal('none');
+    expect(action.getClientRects()).to.have.length(0);
+  });
+
+  it('highlights the field for input and clear focus, not trailing action focus', async () => {
+    field.variant = 'field';
+    field.value = 'plan';
+    field.style.setProperty('--s2-gray-300', '#ccc');
+    field.style.setProperty('--s2-gray-900', '#222');
+    const action = document.createElement('button');
+    action.slot = 'actions';
+    action.type = 'button';
+    field.append(action);
+    await field.updateComplete;
+    const container = field.shadowRoot.querySelector('.search-field');
+    const clear = field.shadowRoot.querySelector('button');
+    input.focus();
+    expect(getComputedStyle(container).borderTopColor).to.equal('rgb(34, 34, 34)');
+    clear.focus();
+    expect(getComputedStyle(container).borderTopColor).to.equal('rgb(34, 34, 34)');
+    action.focus();
+    expect(document.activeElement).to.equal(action);
+    expect(getComputedStyle(container).borderTopColor).to.equal('rgb(204, 204, 204)');
+    action.blur();
+    expect(getComputedStyle(container).borderTopColor).to.equal('rgb(204, 204, 204)');
+  });
+
+  it('clears once with the button or Escape, restores focus, and ignores empty clears', async () => {
+    let count = 0;
+    field.addEventListener('input', () => { count += 1; });
+    field.value = 'plan';
+    await field.updateComplete;
+    field.shadowRoot.querySelector('button').click();
+    expect(field.value).to.equal('');
+    expect(input.value).to.equal('');
+    expect(field.shadowRoot.activeElement).to.equal(input);
+    expect(count).to.equal(1);
+    field.clear();
+    expect(count).to.equal(1);
+    field.value = 'other';
+    await field.updateComplete;
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(field.value).to.equal('');
+    expect(count).to.equal(2);
+  });
+
+  it('submits raw values on Enter without form navigation or IME submission', async () => {
+    field.value = ' plan ';
+    await field.updateComplete;
+    const events = [];
+    field.addEventListener('search-submit', (event) => events.push(event));
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', cancelable: true });
+    input.dispatchEvent(enter);
+    expect(enter.defaultPrevented).to.be.true;
+    expect(events[0].detail).to.deep.equal({ value: ' plan ' });
+    expect(events[0].bubbles && events[0].composed).to.be.true;
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true }));
+    expect(events.length).to.equal(1);
+  });
+
+  it('disables the input and clear control', async () => {
+    field.value = 'plan';
+    field.disabled = true;
+    await field.updateComplete;
+    expect(input.disabled).to.be.true;
+    expect(field.shadowRoot.querySelector('button').disabled).to.be.true;
+    field.clear();
+    expect(field.value).to.equal('plan');
+  });
+});
+
+describe('prompts search integration', () => {
+  it('filters and restores prompts through shared input and clear events', async () => {
+    const prompts = document.createElement('nx-prompts');
+    prompts.prompts = [
+      { title: 'First plan', prompt: 'First' },
+      { title: 'Second idea', prompt: 'Second' },
+    ];
+    document.body.append(prompts);
+    try {
+      await prompts.updateComplete;
+      const field = prompts.shadowRoot.querySelector('nx-search');
+      await field.updateComplete;
+      const input = field.shadowRoot.querySelector('input');
+      input.value = 'plan';
+      input.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+      await prompts.updateComplete;
+      expect(prompts.shadowRoot.querySelectorAll('.prompt-item').length).to.equal(1);
+      field.clear();
+      await prompts.updateComplete;
+      expect(prompts.shadowRoot.querySelectorAll('.prompt-item').length).to.equal(2);
+      prompts.focus();
+      expect(field.shadowRoot.activeElement).to.equal(input);
+    } finally {
+      prompts.remove();
+    }
+  });
+});

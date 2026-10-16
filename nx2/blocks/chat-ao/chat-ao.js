@@ -438,9 +438,8 @@ export default class NxChatAo extends LitElement {
             @change=${this._handleEpisodeChange}
           ></nx-picker>` : nothing}
         <div>
-          <button type="button" class="nx-action-btn-quiet nx-new-chat nx-btn-sm" @click=${this._handleNewSession}>
+          <button type="button" title="New chat" aria-label="New chat" class="nx-action-btn-icon" @click=${this._handleNewSession}>
             ${icon('newChat')}
-            <span>New chat</span>
           </button>
           <button
             class="nx-action-btn-icon"
@@ -459,9 +458,9 @@ export default class NxChatAo extends LitElement {
               .prompts=${prompts}
               .onSend=${(p) => this._sendPrompt(p)}
               .lastSession=${this.staleEpisode ? {
-                preview: this.staleEpisode.title || 'Your previous conversation',
-                updatedAt: this.staleEpisode.updated_at,
-              } : undefined}
+              preview: this.staleEpisode.title || 'Your previous conversation',
+              updatedAt: this.staleEpisode.updated_at,
+            } : undefined}
               .onContinue=${() => this._continueStaleEpisode()}
               @nx-show-prompts=${this._openPrompts}
             ></nx-new-chat>`
@@ -528,14 +527,16 @@ export default class NxChatAo extends LitElement {
             hidden
             @change=${this._onFileInputChange}
           />
-          <textarea
-            class="chat-input"
-            placeholder="Ask anything, or type / for skills..."
-            ?disabled=${this._blocked}
-            @input=${this._handleInput}
-            @keydown=${this._handleKeydown}
-            @blur=${this._slashMenu.onBlur}
-          ></textarea>
+          <div class="chat-input-wrap ${this._altHarness ? '' : 'coworker-chat'}">
+            <textarea
+              class="chat-input"
+              placeholder="Ask anything, or type / for skills..."
+              ?disabled=${this._blocked}
+              @input=${this._handleInput}
+              @keydown=${this._handleKeydown}
+              @blur=${this._slashMenu.onBlur}
+            ></textarea>
+          </div>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
             <nx-menu size="m" .items=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
               <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
