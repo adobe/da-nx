@@ -54,6 +54,7 @@
           </button>
           <button type="button" class="nx-action-btn" disabled>Label</button>
           <button type="button" class="nx-action-btn nx-btn-sm">Label</button>
+          <button type="button" class="nx-action-btn nx-btn-lg">Label</button>
           <button type="button" class="nx-action-btn nx-btn-sm">
             <svg viewBox="0 0 20 20" aria-hidden="true">
               <use href="./icons/selected.svg#icon"></use>
@@ -72,7 +73,10 @@
 &lt;/button&gt;
 
 &lt;!-- small variant --&gt;
-&lt;button type="button" class="nx-action-btn nx-btn-sm"&gt;Label&lt;/button&gt;</code></pre>
+&lt;button type="button" class="nx-action-btn nx-btn-sm"&gt;Label&lt;/button&gt;
+
+&lt;!-- large variant --&gt;
+&lt;button type="button" class="nx-action-btn nx-btn-lg"&gt;Label&lt;/button&gt;</code></pre>
       </article>
 
       <article class="sg-example">
@@ -87,6 +91,7 @@
           </button>
           <button type="button" class="nx-action-btn-quiet" disabled>Label</button>
           <button type="button" class="nx-action-btn-quiet nx-btn-sm">Label</button>
+          <button type="button" class="nx-action-btn-quiet nx-btn-lg">Label</button>
         </div>
         <pre><code>&lt;button type="button" class="nx-action-btn-quiet"&gt;Label&lt;/button&gt;
 
@@ -99,7 +104,10 @@
 &lt;/button&gt;
 
 &lt;!-- small variant --&gt;
-&lt;button type="button" class="nx-action-btn-quiet nx-btn-sm"&gt;Label&lt;/button&gt;</code></pre>
+&lt;button type="button" class="nx-action-btn-quiet nx-btn-sm"&gt;Label&lt;/button&gt;
+
+&lt;!-- large variant --&gt;
+&lt;button type="button" class="nx-action-btn-quiet nx-btn-lg"&gt;Label&lt;/button&gt;</code></pre>
       </article>
 
       <article class="sg-example">
@@ -125,6 +133,11 @@
               <use href="./icons/selected.svg#icon"></use>
             </svg>
           </button>
+          <button type="button" class="nx-action-btn-icon nx-btn-lg" aria-label="More actions">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <use href="./icons/selected.svg#icon"></use>
+            </svg>
+          </button>
         </div>
         <pre><code>&lt;button type="button" class="nx-action-btn-icon" aria-label="More actions"&gt;
   &lt;svg viewBox="0 0 20 20" aria-hidden="true"&gt;
@@ -136,7 +149,10 @@
 &lt;button type="button" class="nx-action-btn-icon is-active" aria-label="More actions"&gt;...&lt;/button&gt;
 
 &lt;!-- small variant --&gt;
-&lt;button type="button" class="nx-action-btn-icon nx-btn-sm" aria-label="More actions"&gt;...&lt;/button&gt;</code></pre>
+&lt;button type="button" class="nx-action-btn-icon nx-btn-sm" aria-label="More actions"&gt;...&lt;/button&gt;
+
+&lt;!-- large variant --&gt;
+&lt;button type="button" class="nx-action-btn-icon nx-btn-lg" aria-label="More actions"&gt;...&lt;/button&gt;</code></pre>
       </article>
 
       <article class="sg-example">
@@ -151,6 +167,7 @@
           </button>
           <button type="button" class="nx-btn-accent" disabled>Label</button>
           <button type="button" class="nx-btn-accent nx-btn-sm">Label</button>
+          <button type="button" class="nx-btn-accent nx-btn-lg">Label</button>
         </div>
         <pre><code>&lt;button type="button" class="nx-btn-accent"&gt;Label&lt;/button&gt;
 
@@ -163,7 +180,10 @@
 &lt;/button&gt;
 
 &lt;!-- small variant --&gt;
-&lt;button type="button" class="nx-btn-accent nx-btn-sm"&gt;Label&lt;/button&gt;</code></pre>
+&lt;button type="button" class="nx-btn-accent nx-btn-sm"&gt;Label&lt;/button&gt;
+
+&lt;!-- large variant --&gt;
+&lt;button type="button" class="nx-btn-accent nx-btn-lg"&gt;Label&lt;/button&gt;</code></pre>
       </article>
 
       <article class="sg-example">
@@ -178,6 +198,7 @@
           </button>
           <button type="button" class="nx-btn-primary" disabled>Label</button>
           <button type="button" class="nx-btn-primary nx-btn-sm">Label</button>
+          <button type="button" class="nx-btn-primary nx-btn-lg">Label</button>
         </div>
         <pre><code>&lt;button type="button" class="nx-btn-primary"&gt;Label&lt;/button&gt;
 
@@ -190,7 +211,10 @@
 &lt;/button&gt;
 
 &lt;!-- small variant --&gt;
-&lt;button type="button" class="nx-btn-primary nx-btn-sm"&gt;Label&lt;/button&gt;</code></pre>
+&lt;button type="button" class="nx-btn-primary nx-btn-sm"&gt;Label&lt;/button&gt;
+
+&lt;!-- large variant --&gt;
+&lt;button type="button" class="nx-btn-primary nx-btn-lg"&gt;Label&lt;/button&gt;</code></pre>
       </article>
     </section>
 
@@ -271,6 +295,9 @@
         <div class="sg-demo">
           <nx-menu id="demo-menu" placement="below">
             <button slot="trigger" class="nx-form-btn-secondary" aria-label="Options">Options</button>
+          </nx-menu>
+          <nx-menu id="demo-menu-s" size="s" placement="below">
+            <button slot="trigger" class="nx-form-btn-secondary" aria-label="Options">Options (s)</button>
           </nx-menu>
           <nx-menu id="demo-menu-m" size="m" placement="below">
             <button slot="trigger" class="nx-form-btn-secondary" aria-label="Options">Options (m)</button>
@@ -532,11 +559,14 @@ document.querySelector('#icon-field').items = [
       <article class="sg-example">
         <h3>nx-segmented-btn <a href="https://github.com/adobe/da-nx/blob/main/docs/segmented-btn.md" target="_blank"
             rel="noopener">docs →</a></h3>
+        <p>Use Tab to focus each segment and Enter or Space to select it. Keyboard focus has a visible outline.</p>
         <div class="sg-demo">
           <nx-segmented-btn id="demo-segmented"></nx-segmented-btn>
           <nx-segmented-btn id="demo-segmented-m" size="m"></nx-segmented-btn>
           <nx-segmented-btn id="demo-segmented-icon-label"></nx-segmented-btn>
           <nx-segmented-btn id="demo-segmented-icon-only"></nx-segmented-btn>
+          <nx-segmented-btn id="demo-segmented-compact" compact emphasized></nx-segmented-btn>
+          <nx-segmented-btn id="demo-segmented-compact-m" compact emphasized size="m"></nx-segmented-btn>
         </div>
         <pre><code>&lt;nx-segmented-btn id="view-toggle"&gt;&lt;/nx-segmented-btn&gt;
 
@@ -560,6 +590,13 @@ toggle.items = [
 toggle.items = [
   { value: 'grid', icon: './icons/selected.svg', label: 'Grid view', iconOnly: true },
   { value: 'list', icon: './icons/selected.svg', label: 'List view', iconOnly: true },
+];
+
+// Compact + emphasized (short labels, accent selection)
+&lt;nx-segmented-btn compact emphasized&gt;&lt;/nx-segmented-btn&gt;
+toggle.items = [
+  { value: 's', label: 'S', ariaLabel: 'Small' },
+  { value: 'm', label: 'M', ariaLabel: 'Medium' },
 ];</code></pre>
       </article>
 
@@ -613,7 +650,7 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
             rel="noopener">docs →</a></h3>
         <div class="sg-demo">
           <nx-pills id="demo-pills"></nx-pills>
-          <nx-pills id="demo-pills-readonly" label="Type"></nx-pills>
+          <nx-pills id="demo-pills-readonly" size="m" label="Type"></nx-pills>
           <nx-pills id="demo-pills-notice" label="Type"
             style="--nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2-orange-1100);"></nx-pills>
         </div>
@@ -622,8 +659,8 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
 pills.items = [{ id: '1', label: 'hero.png', type: 'image' }];
 pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));
 
-&lt;!-- Read-only tags: no remove button --&gt;
-&lt;nx-pills label="Type"&gt;&lt;/nx-pills&gt;
+&lt;!-- Medium read-only tags; size defaults to "s" --&gt;
+&lt;nx-pills size="m" label="Type"&gt;&lt;/nx-pills&gt;
 
 tags.items = [{ id: 'app', label: 'App', removable: false }];
 
@@ -658,7 +695,7 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
       { id: 'edit', label: 'Edit' },
       { id: 'delete', label: 'Delete' },
     ];
-    [document.querySelector('#demo-menu'), document.querySelector('#demo-menu-m')].forEach((menu) => {
+    [document.querySelector('#demo-menu'), document.querySelector('#demo-menu-s'), document.querySelector('#demo-menu-m')].forEach((menu) => {
       menu.items = menuItems;
       menu.addEventListener('select', (e) => showToast({ text: `Selected: ${e.detail.id}` }));
     });
@@ -773,6 +810,16 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
       { value: 'list', icon: './icons/selected.svg', label: 'List view', iconOnly: true },
     ];
     segmentedIconOnly.value = 'grid';
+
+    ['#demo-segmented-compact', '#demo-segmented-compact-m'].forEach((sel) => {
+      const compact = document.querySelector(sel);
+      compact.label = 'UI size';
+      compact.items = [
+        { value: 's', label: 'S', ariaLabel: 'Small' },
+        { value: 'm', label: 'M', ariaLabel: 'Medium' },
+      ];
+      compact.value = 's';
+    });
 
     // showToast
     document.querySelector('#demo-toast-trigger').addEventListener('click', () => {

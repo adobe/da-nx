@@ -10,6 +10,7 @@ const ALL_CATEGORY = 'all';
 class NxPrompts extends LitElement {
   static properties = {
     prompts: { attribute: false },
+    size: { type: String, reflect: true },
     _search: { state: true },
     _category: { state: true },
   };
@@ -80,7 +81,7 @@ class NxPrompts extends LitElement {
       : `Search in ${this._category}`;
     return html`
       <div class="prompts-header">
-        <nx-search variant="quiet" size="m"
+        <nx-search variant="quiet" size=${this.size ?? 's'}
           label=${placeholder}
           placeholder=${placeholder}
           .value=${this._search}

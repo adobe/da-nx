@@ -98,7 +98,7 @@ export function renderAssistantMessageBody(msg, { onExpandToolCall } = {}) {
 }
 
 // See docs/chat-ao-component.md#permission-requests for the nx-chat visual-parity rationale.
-function renderPermissionRow(call, decisions, onDecide) {
+function renderPermissionRow(call, decisions, onDecide, btnSizeCls) {
   const detail = formatToolCallDetail(call.arguments);
   const decided = call.toolCallId in decisions;
   return html`
@@ -118,8 +118,8 @@ function renderPermissionRow(call, decisions, onDecide) {
         onDecide(call.toolCallId, false);
       }}
         >
-          <button type="button" class="nx-action-btn" @click=${() => onDecide(call.toolCallId, false)}>Reject<kbd>Esc</kbd></button>
-          <button type="button" class="nx-btn-primary permission-approve-btn" @click=${() => onDecide(call.toolCallId, true)}>Approve<kbd>↵</kbd></button>
+          <button type="button" class="nx-action-btn ${btnSizeCls}" @click=${() => onDecide(call.toolCallId, false)}>Reject<kbd>Esc</kbd></button>
+          <button type="button" class="nx-btn-primary permission-approve-btn ${btnSizeCls}" @click=${() => onDecide(call.toolCallId, true)}>Approve<kbd>↵</kbd></button>
         </div>
       `}
     </div>
@@ -128,16 +128,18 @@ function renderPermissionRow(call, decisions, onDecide) {
 
 // See docs/chat-ao-component.md#permission-requests — decisions are
 // collected per row locally; nothing is sent until every row has one.
-export function renderPermissionCard(pending, { onDecide }) {
+export function renderPermissionCard(pending, { onDecide, btnSizeCls = '' }) {
   if (!pending) return nothing;
   return html`
     <div class="permission-card">
-      ${pending.calls.map((call) => renderPermissionRow(call, pending.decisions, onDecide))}
+      ${pending.calls.map((call) => renderPermissionRow(call, pending.decisions, onDecide, btnSizeCls))}
     </div>
   `;
 }
 
-export function renderPlanApprovalCard(pending, feedback, { onFeedbackText, onApprove, onReject }) {
+export function renderPlanApprovalCard(pending, feedback, {
+  onFeedbackText, onApprove, onReject, btnSizeCls = 'nx-btn-sm',
+}) {
   if (!pending) return nothing;
   return html`
     <div class="plan-approval-card">
@@ -151,8 +153,8 @@ export function renderPlanApprovalCard(pending, feedback, { onFeedbackText, onAp
         @input=${(e) => onFeedbackText(e.target.value)}
       />
       <div class="plan-approval-buttons">
-        <button type="button" class="nx-action-btn nx-btn-sm" @click=${onReject}>Reject</button>
-        <button type="button" class="nx-btn-primary nx-btn-sm" @click=${onApprove}>Approve</button>
+        <button type="button" class="nx-action-btn ${btnSizeCls}" @click=${onReject}>Reject</button>
+        <button type="button" class="nx-btn-primary ${btnSizeCls}" @click=${onApprove}>Approve</button>
       </div>
     </div>
   `;

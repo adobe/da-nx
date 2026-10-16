@@ -26,6 +26,7 @@ const OTHER = '__other__';
 class NxQuestionCard extends LitElement {
   static properties = {
     pending: { attribute: false },
+    size: { type: String },
     _selections: { state: true },
     _otherTexts: { state: true },
   };
@@ -181,6 +182,7 @@ class NxQuestionCard extends LitElement {
   render() {
     if (!this.pending) return nothing;
     const { context, questions } = this.pending;
+    const btnSizeCls = this.size === 'm' ? 'nx-btn-lg' : '';
     return html`
       <form class="question-card" @submit=${this._submit} @keydown=${this._handleFormKeydown}>
         <div class="question-body">
@@ -234,8 +236,8 @@ class NxQuestionCard extends LitElement {
     })}
         </div>
         <div class="question-actions">
-          <button type="button" class="nx-action-btn" @click=${this._decline}>Skip<kbd>Esc</kbd></button>
-          <button type="submit" class="nx-btn-primary" ?disabled=${!this._canSubmit}>Submit<kbd>↵</kbd></button>
+          <button type="button" class="nx-action-btn ${btnSizeCls}" @click=${this._decline}>Skip<kbd>Esc</kbd></button>
+          <button type="submit" class="nx-btn-primary ${btnSizeCls}" ?disabled=${!this._canSubmit}>Submit<kbd>↵</kbd></button>
         </div>
       </form>
     `;
