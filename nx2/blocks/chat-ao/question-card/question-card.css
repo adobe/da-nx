@@ -39,7 +39,14 @@
 .question-context {
   margin: 0;
   font-size: var(--s2-component-xs-regular-font-size);
+  line-height: 16px;
   color: var(--s2-gray-700);
+}
+
+/* The question and context are markdown; their paragraphs bring their own margins. */
+.question-context p,
+.question-text p {
+  margin: 0;
 }
 
 .question-fieldset {
@@ -182,7 +189,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--s2-spacing-100);
-  margin: 12px -7px 0 0;
+  margin: 6px -7px 0 0;
 
   button {
     box-sizing: border-box;

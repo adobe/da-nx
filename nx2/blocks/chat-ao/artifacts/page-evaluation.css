@@ -268,6 +268,13 @@
   white-space: nowrap;
 }
 
+/* An open row shares its line with the Generate suggestion button; the long outline labels of real
+   evaluations wrap instead of truncating to a few letters. */
+.ui-artifact-pe-el[open] .ui-artifact-pe-el-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 /* The badge replaces the sub line while a row is collapsed. */
 .ui-artifact-pe-el[open] .ui-artifact-pe-badge,
 .ui-artifact-pe-el:not([open]) .ui-artifact-pe-el-sub {
