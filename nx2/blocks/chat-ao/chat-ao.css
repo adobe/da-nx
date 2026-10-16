@@ -641,9 +641,9 @@
 
   &.coworker-chat::before {
     content: "";
-    flex: 0 0 20px;
-    height: 20px;
-    margin-block-start: calc(var(--s2-spacing-100) + (1.5em - 20px) / 2);
+    flex: 0 0 16px;
+    height: 16px;
+    margin-block-start: calc(var(--s2-spacing-100) + (1.5em - 16px) / 2);
     background-color: var(--s2-gray-600);
     mask: url('/img/icons/s2-icon-coworker-20-n.svg') center / contain no-repeat;
     pointer-events: none;
@@ -874,9 +874,9 @@
   }
 
   .chat-input-wrap.coworker-chat::before {
-    flex-basis: 22px;
-    height: 22px;
-    margin-block-start: calc(var(--s2-spacing-100) + (1.5em - 22px) / 2);
+    flex-basis: 18px;
+    height: 18px;
+    margin-block-start: calc(var(--s2-spacing-100) + (1.5em - 18px) / 2);
   }
 
   .message .selection-context > summary {

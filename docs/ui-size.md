@@ -66,7 +66,7 @@ then reload (with "Disable cache" ticked while testing branch previews).
 | ------------------------------------------ | -- | -- |
 | Chat AO message-copy and selection         | 14 | 16 |
 | Chat AO alert                              | 20 | 22 |
-| Chat AO coworker logo in the input        | 20 | 22 |
+| Chat AO coworker logo in the input        | 16 | 18 |
 | Pill remove (×)                            | 12 | 14 |
 | Deploy glyph                               | 16 | 18 |
 | Deploy checkmark                           | 24 | 26 |
