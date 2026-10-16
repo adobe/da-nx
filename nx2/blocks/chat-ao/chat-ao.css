@@ -876,7 +876,7 @@
   .chat-input-wrap.coworker-chat::before {
     flex-basis: 18px;
     height: 18px;
-    margin-block-start: calc(var(--s2-spacing-100) + (1.5em - 18px) / 2);
+    margin-block-start: calc(var(--s2-spacing-100) + (var(--s2-component-l-regular-line-height) - 18px) / 2);
   }
 
   .message .selection-context > summary {
