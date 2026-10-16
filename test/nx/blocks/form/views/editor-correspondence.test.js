@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { createEngine } from '../../../../../nx/deps/da-sc-sdk/dist/index.js';
+import { IMAGE_SCHEMA_URL, createEngine } from '../../../../../nx/deps/da-sc-sdk/dist/index.js';
 import '../../../../../nx/blocks/form/views/editor.js';
 
 // Component-level UI tests for nx-editor. The engine is the real bundled SDK
@@ -44,11 +44,11 @@ const groupAt = (el, ptr) => allAt(el, ptr)
   .find((n) => n.matches('fieldset.form-node, section.form-node, article.form-array-item'));
 
 function expectedTag(node) {
+  if (node.semanticType === 'asset') return 'FORM-ASSET';
   if (Array.isArray(node.enumValues)) return 'FORM-PICKER';
   if (node.kind === 'boolean') return 'FORM-CHECKBOX';
   if (node.kind === 'number' || node.kind === 'integer') return 'FORM-NUMBER-FIELD';
   if (node.kind === 'string' && node.semanticType === 'long-text') return 'FORM-TEXTAREA';
-  if (node.kind === 'string' && node.semanticType === 'asset') return 'FORM-ASSET';
   return 'FORM-INPUT';
 }
 
@@ -61,7 +61,7 @@ const FEATURE_SCHEMA = {
     title: { type: 'string', title: 'Title', minLength: 3, maxLength: 255 },
     status: { type: 'string', title: 'Status', enum: ['draft', 'in-review', 'published', 'archived'], default: 'draft' },
     body: { type: 'string', title: 'Body', 'x-semantic-type': 'long-text' },
-    heroImage: { type: 'string', title: 'Hero image', 'x-semantic-type': 'asset' },
+    heroImage: { $ref: IMAGE_SCHEMA_URL, title: 'Hero image' },
     priority: { type: 'integer', title: 'Priority', minimum: 1, maximum: 10 },
     featured: { type: 'boolean', title: 'Featured', default: false },
     tags: { type: 'array', title: 'Tags', minItems: 1, items: { type: 'string', title: 'Tag' } },
@@ -94,7 +94,7 @@ const featureDoc = (data = {}) => ({
     title: 'Launch Announcement',
     status: 'published',
     body: 'Body copy.',
-    heroImage: './media_example.png',
+    heroImage: { src: './media_example.png', altText: 'A hero' },
     priority: 3,
     featured: true,
     tags: ['news', 'launch'],
@@ -122,7 +122,7 @@ describe('nx-editor loads', () => {
 describe('nx-editor renders the model state', () => {
   function walk(el, node) {
     expect(allAt(el, node.pointer).length, `element for ${node.pointer}`).to.be.greaterThan(0);
-    if (node.kind === 'object') {
+    if (node.kind === 'object' && node.semanticType !== 'asset') {
       (node.children ?? []).forEach((child) => walk(el, child));
       return;
     }

@@ -4,10 +4,14 @@ import '../../../../../nx/blocks/form/views/editor.js';
 const tick = () => new Promise((resolve) => { requestAnimationFrame(resolve); });
 
 const mediaNode = (extra = {}) => ({
-  kind: 'string',
+  kind: 'object',
   pointer: '/data/heroImage',
   label: 'Hero image',
   semanticType: 'asset',
+  children: [
+    { kind: 'string', key: 'src', pointer: '/data/heroImage/src', label: 'Source' },
+    { kind: 'string', key: 'altText', pointer: '/data/heroImage/altText', label: 'Alt text' },
+  ],
   ...extra,
 });
 
@@ -48,20 +52,119 @@ describe('nx-editor primitive controls', () => {
     expect(el.shadowRoot.querySelector('form-textarea')).to.equal(null);
   });
 
-  it('renders a file field for a string node annotated as media', async () => {
+  it('renders an asset object as one file field with its src and alt text', async () => {
     const root = objectRoot([
-      mediaNode({ value: './media_example.png' }),
+      mediaNode({ value: { src: './media_example.png', altText: 'A hero' } }),
     ]);
     const el = await mountEditor(root);
-    const field = el.shadowRoot.querySelector('form-asset');
-    expect(field).to.exist;
-    expect(field.value).to.equal('./media_example.png');
+    const fields = el.shadowRoot.querySelectorAll('form-asset');
+    expect(fields.length).to.equal(1);
+    expect(fields[0].value).to.equal('./media_example.png');
+    expect(fields[0].altText).to.equal('A hero');
     expect(el.shadowRoot.querySelector('form-input')).to.equal(null);
+    expect(el.shadowRoot.querySelector('fieldset[data-pointer="/data/heroImage"]')).to.equal(null);
+  });
+
+  it('shows a missing-file error reported on the asset src', async () => {
+    const el = await mountEditor(objectRoot([mediaNode({ value: { altText: 'A hero' } })]));
+    el.state = {
+      model: { root: objectRoot([mediaNode({ value: { altText: 'A hero' } })]) },
+      validation: { errors: { '/data/heroImage/src': { message: 'Required' } } },
+    };
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('form-asset').error).to.equal('Required');
+  });
+
+  it('passes the asset type, a required alt text and its error to the field', async () => {
+    const node = mediaNode({ assetType: 'image', value: { src: './media_example.png' } });
+    node.children[1] = { ...node.children[1], required: true };
+    const el = await mountEditor(objectRoot([node]));
+    el.state = {
+      model: { root: objectRoot([node]) },
+      validation: { errors: { '/data/heroImage/altText': { message: 'Required' } } },
+    };
+    await el.updateComplete;
+    const field = el.shadowRoot.querySelector('form-asset');
+    expect(field.assetType).to.equal('image');
+    expect(field.altRequired).to.equal(true);
+    expect(field.altError).to.equal('Required');
+    expect(field.error ?? '').to.equal('');
+  });
+
+  it('passes a file type without a required alt text', async () => {
+    const node = mediaNode({
+      assetType: 'file',
+      value: { src: './spec.pdf' },
+      children: [{ kind: 'string', key: 'src', pointer: '/data/heroImage/src', label: 'Source' }],
+    });
+    const el = await mountEditor(objectRoot([node]));
+    const field = el.shadowRoot.querySelector('form-asset');
+    expect(field.assetType).to.equal('file');
+    expect(field.altRequired).to.equal(false);
+  });
+
+  it('saves the asset object when the file changes, keeping its alt text', async () => {
+    const calls = [];
+    const node = mediaNode({ value: { src: './old.png', altText: 'A hero' } });
+    const el = await mountEditor(objectRoot([node]));
+    el.editor = { setField: (pointer, value) => calls.push({ pointer, value }) };
+    const field = el.shadowRoot.querySelector('form-asset');
+    field.value = './new.png';
+    field.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    expect(calls).to.deep.equal([
+      { pointer: '/data/heroImage', value: { src: './new.png', altText: 'A hero' } },
+    ]);
+  });
+
+  it('clears the asset when its file is removed', async () => {
+    const calls = [];
+    const node = mediaNode({ value: { src: './old.png', altText: 'A hero' } });
+    const el = await mountEditor(objectRoot([node]));
+    el.editor = { setField: (pointer, value) => calls.push({ pointer, value }) };
+    const field = el.shadowRoot.querySelector('form-asset');
+    field.value = '';
+    field.altText = '';
+    field.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    expect(calls).to.deep.equal([{ pointer: '/data/heroImage', value: undefined }]);
+  });
+
+  it('saves alt text edits after a debounce', async () => {
+    const calls = [];
+    const node = mediaNode({ value: { src: './a.png' } });
+    const el = await mountEditor(objectRoot([node]));
+    el.editor = { setField: (pointer, value) => calls.push({ pointer, value }) };
+    const field = el.shadowRoot.querySelector('form-asset');
+    field.altText = 'A';
+    field.dispatchEvent(new Event('alt-text-change', { bubbles: true, composed: true }));
+    field.altText = 'A hero';
+    field.dispatchEvent(new Event('alt-text-change', { bubbles: true, composed: true }));
+    expect(calls).to.deep.equal([]);
+    await new Promise((done) => { setTimeout(done, 600); });
+    expect(calls).to.deep.equal([
+      { pointer: '/data/heroImage', value: { src: './a.png', altText: 'A hero' } },
+    ]);
+  });
+
+  it('renders an asset array item as a single file row', async () => {
+    const item = mediaNode({ pointer: '/data/gallery/0', value: { src: './a.png' } });
+    item.children = item.children.map((c) => ({ ...c, pointer: `/data/gallery/0/${c.key}` }));
+    const root = objectRoot([{
+      kind: 'array',
+      pointer: '/data/gallery',
+      label: 'Gallery',
+      itemLabel: 'Image',
+      items: [item],
+    }]);
+    const el = await mountEditor(root);
+    const fields = el.shadowRoot.querySelectorAll('form-asset');
+    expect(fields.length).to.equal(1);
+    expect(fields[0].dataset.pointer ?? fields[0].getAttribute('data-pointer')).to.equal('/data/gallery/0');
+    expect(fields[0].value).to.equal('./a.png');
   });
 
   it('passes the preview origin to the file field while keeping the stored value', async () => {
     const root = objectRoot([
-      mediaNode({ value: './media_example.png' }),
+      mediaNode({ value: { src: './media_example.png' } }),
     ]);
     const el = await mountEditor(root);
     el.previewOrigin = 'https://main--site--example.preview.da.live';
@@ -78,6 +181,7 @@ describe('nx-editor primitive controls', () => {
     el.editor = {
       setField: (pointer, value) => {
         el.state = { model: { root: objectRoot([{ ...imageNode, value }]) } };
+        expect(value).to.deep.equal({ src: './media_new.png' });
       },
     };
     el.previewOrigin = previewOrigin;
