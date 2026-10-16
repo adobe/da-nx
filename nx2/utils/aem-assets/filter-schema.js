@@ -31,15 +31,9 @@ export function createApprovedOnlyFilterSchema() {
   ];
 }
 
-// Each filter is a list of filter groups, and an empty list adds nothing. The
-// selector takes a single `filterSchema`, so every filter is combined here.
-export function toFilterProps(...filters) {
-  const groups = filters.flatMap((filter) => filter ?? []);
-  return groups.length
-    ? { filterSchema: groups, filterSchemaSource: HYBRID_FILTER_SCHEMA_SOURCE }
-    : {};
-}
-
 export function getApprovedOnlyFilterProps(approvedOnly) {
-  return toFilterProps(approvedOnly ? createApprovedOnlyFilterSchema() : []);
+  return approvedOnly ? {
+    filterSchema: createApprovedOnlyFilterSchema(),
+    filterSchemaSource: HYBRID_FILTER_SCHEMA_SOURCE,
+  } : {};
 }
