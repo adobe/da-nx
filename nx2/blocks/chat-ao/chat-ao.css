@@ -60,11 +60,6 @@
   }
 }
 
-.nx-action-btn-icon.chat-close svg {
-  width: 16px;
-  height: 16px;
-}
-
 .chat-scroll-container {
   overflow-y: auto;
   flex: 1 1 0;
@@ -853,17 +848,6 @@
 }
 
 :host([data-ui-size="m"]) {
-  .nx-action-btn-icon.chat-close {
-    width: 36px;
-    height: 36px;
-    padding: 9px;
-
-    svg {
-      width: 18px;
-      height: 18px;
-    }
-  }
-
   .message .message-action-copy svg, .message .selection-icon {
     width: 16px;
     height: 16px;

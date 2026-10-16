@@ -277,10 +277,8 @@ nx-popover.deploy-popover {
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 32px;
   margin-top: 2px;
   border-radius: 8px;
-  font-size: var(--s2-component-m-regular-font-size);
   font-weight: var(--s2-component-m-bold-font-weight);
 }
 
@@ -290,8 +288,4 @@ nx-popover.deploy-popover {
 
 .deploy .deploy-action.is-publish:hover:not(:disabled) {
   background: #0fa25b;
-}
-
-:host([data-ui-size="m"]) .deploy .deploy-action {
-  height: 36px;
 }

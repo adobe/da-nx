@@ -520,7 +520,7 @@ class NXEwActions extends LitElement {
           </div>
           <button
             type="button"
-            class="deploy-action nx-btn-accent${isPublish ? ' is-publish' : ''}"
+            class="deploy-action nx-btn-accent${this.dataset.uiSize === 'm' ? ' nx-btn-lg' : ''}${isPublish ? ' is-publish' : ''}"
             ?disabled=${this._busy}
             @click=${this._confirmAction}
           >
