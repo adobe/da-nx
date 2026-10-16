@@ -76,6 +76,15 @@ export default class CmaChatController extends BaseChatController {
     return fetchSkills({ ...(this._context ?? {}), altHarnessKey: this._activationKey });
   }
 
+  setDraftReviewContext(context) {
+    this._draftReviewContext = context;
+  }
+
+  _prepareMessage(message) {
+    if (!this._draftReviewContext) return message;
+    return `${message}\n\n[DA draft-review demo context]\n${JSON.stringify(this._draftReviewContext)}\nUse this draftRoot for the signed-in user. Follow the draft-review skill. For a new change request, emit a <da-review> plan and stop before any writes. On a scope-approved decision, edit only the approved draft copies and return the matching ready block. Never edit originals or preview/publish.`;
+  }
+
   async _uploadAttachment({ fileName, mediaType, dataBase64 }) {
     try {
       const { accessToken, projectedProductContext } = await loadIms();

@@ -42,6 +42,7 @@ import '../shared/chat/new-chat/new-chat.js';
 import './question-card/question-card.js';
 import { ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 import { sampleRUM } from '../../deps/rum.js';
+import { splitReviewMessage } from './draft-review/protocol.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
@@ -71,6 +72,8 @@ export default class NxChatAo extends LitElement {
     _prompts: { state: true },
     _planFeedback: { state: true },
     _voiceListening: { state: true },
+    draftReview: { attribute: false },
+    _draftBusy: { state: true },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
@@ -78,6 +81,8 @@ export default class NxChatAo extends LitElement {
   // Tracks the last interim chunk inserted into .chat-input so the next
   // chunk can replace it in place — see utils/voice-input.js#appendTranscript.
   _voiceInterim = '';
+
+  _reviewParts = new Map();
 
   set context(value) {
     this._explicitContext = true;
@@ -96,7 +101,7 @@ export default class NxChatAo extends LitElement {
   // See docs/chat-ao-component.md#plan-approval — a pending plan, unlike a
   // pending question, doesn't disable the input.
   get _blocked() {
-    return this.thinking && !this.pendingPlanApproval;
+    return this._draftBusy || (this.thinking && !this.pendingPlanApproval);
   }
 
   _applyContext(value) {
@@ -232,6 +237,7 @@ export default class NxChatAo extends LitElement {
   }
 
   _handleNewSession() {
+    if (this._draftBusy) return;
     this._controller.startNewEpisode();
     this.shadowRoot.querySelector('.chat-input')?.focus();
   }
@@ -337,13 +343,14 @@ export default class NxChatAo extends LitElement {
     const items = pills?.items ?? [];
     const attachments = items.filter((i) => i.dataBase64);
     const context = items.filter((i) => !i.dataBase64);
-    this._controller.sendMessage(message, context, attachments);
+    this._sendMessage(message, context, attachments);
     input.value = '';
     pills?.clear();
   }
 
   _submit(e) {
     e?.preventDefault();
+    if (this._draftBusy) return;
     if (this._blocked) {
       this._controller.stop();
       return;
@@ -357,9 +364,106 @@ export default class NxChatAo extends LitElement {
     const context = items.filter((i) => !i.dataBase64);
     sampleRUM('click', { source: 'chat-submit', target: 'button.chat-send.harness-coworker' });
     this._slashMenu.close();
-    this._controller.sendMessage(text, context, attachments);
+    this._sendMessage(text, context, attachments);
     input.value = '';
     pills?.clear();
+  }
+
+  async _sendMessage(text, context = [], attachments = []) {
+    if (this._draftBusy) return;
+    if (!this._altHarness || !this.draftReview) {
+      this._controller.sendMessage(text, context, attachments);
+      return;
+    }
+    this._draftBusy = true;
+    const controller = this._controller;
+    const { org, site } = this._context;
+    try {
+      const draftContext = await this.draftReview({ action: 'context', context: this._context });
+      if (controller !== this._controller || org !== this._context?.org
+        || site !== this._context?.site) {
+        throw new Error('The chat context changed. Send the request again in the intended site.');
+      }
+      controller.setDraftReviewContext(draftContext);
+      controller.sendMessage(text, context, attachments);
+    } catch (error) {
+      showToast({ text: error.message, variant: 'error' });
+      this.shadowRoot.querySelector('.chat-input').value = text;
+    } finally {
+      this._draftBusy = false;
+    }
+  }
+
+  async _reviewAction({ action, review, paths }, context, episodeId) {
+    if (action !== 'status' && (context.org !== this._context?.org
+      || context.site !== this._context?.site || episodeId !== this.episodeId)) {
+      throw new Error('This review belongs to another site or session.');
+    }
+    if (action !== 'status' && (this._draftBusy || this.thinking)) {
+      throw new Error('Wait for the current operation to finish.');
+    }
+    if (action !== 'status') this._draftBusy = true;
+    const controller = this._controller;
+    try {
+      const state = await this.draftReview({
+        action, review, paths, context, episodeId,
+      });
+      if (['approve-scope', 'continue-scope', 'reject-scope'].includes(action)) {
+        const draftContext = await this.draftReview({ action: 'context', context });
+        if (controller !== this._controller || episodeId !== this.episodeId
+          || context.org !== this._context?.org
+          || context.site !== this._context?.site) {
+          throw new Error('The chat context changed. Return to the original session to continue.');
+        }
+        controller.setDraftReviewContext(draftContext);
+        const decision = {
+          version: 1,
+          type: action === 'reject-scope' ? 'scope-rejected' : 'scope-approved',
+          id: review.id,
+          pages: state.approvedPaths,
+        };
+        controller.sendMessage(`DA review decision:\n${JSON.stringify(decision)}\n${action !== 'reject-scope'
+          ? 'Create and modify only the approved draft copies now. Return one ready block with the same id when all drafts are saved, then stop. Do not edit originals.'
+          : 'Do not make changes. Wait for a new request.'}`);
+      }
+      return state;
+    } finally {
+      if (action !== 'status') this._draftBusy = false;
+    }
+  }
+
+  _renderAssistant(msg) {
+    const options = {
+      onExpandToolCall: (toolCallId) => this._controller.hydrateToolCall(toolCallId),
+    };
+    if (!this._altHarness || !this.draftReview
+      || msg.toolCall || msg.uiArtifact || msg.questionResponse) {
+      return renderAssistantMessageBody(msg, options);
+    }
+    const key = `${msg.streaming ? 'stream:' : ''}${msg.content ?? ''}`;
+    if (!this._reviewParts.has(key)) {
+      this._reviewParts.set(key, splitReviewMessage(msg.content, { streaming: msg.streaming }));
+      if (this._reviewParts.size > 200) {
+        this._reviewParts.delete(this._reviewParts.keys().next().value);
+      }
+    }
+    const context = { ...this._context };
+    const { episodeId } = this;
+    return this._reviewParts.get(key).map((part) => {
+      if (part.text) return renderAssistantMessageBody({ ...msg, content: part.text }, options);
+      if (part.pending) return html`<p role="status">Preparing change review...</p>`;
+      if (part.error) return html`<p role="alert">${part.error}</p>`;
+      this._draftReviewModule ??= import('./draft-review/draft-review.js').catch((error) => {
+        showToast({ text: `Could not load draft review: ${error.message}`, variant: 'error' });
+        this._draftReviewModule = undefined;
+      });
+      return html`<nx-cma-draft-review
+        .review=${part.review}
+        .sessionKey=${`${context.org}/${context.site}/${episodeId}`}
+        .disabled=${this._blocked || this.thinking}
+        .onAction=${(request) => this._reviewAction(request, context, episodeId)}
+      ></nx-cma-draft-review>`;
+    });
   }
 
   _handleInput(e) {
@@ -438,7 +542,7 @@ export default class NxChatAo extends LitElement {
             @change=${this._handleEpisodeChange}
           ></nx-picker>` : nothing}
         <div>
-          <button type="button" title="New chat" aria-label="New chat" class="nx-action-btn-icon" @click=${this._handleNewSession}>
+          <button type="button" title="New chat" aria-label="New chat" class="nx-action-btn-icon" ?disabled=${this._draftBusy} @click=${this._handleNewSession}>
             ${icon('newChat')}
           </button>
           <button
@@ -467,9 +571,7 @@ export default class NxChatAo extends LitElement {
           : nothing}
             ${this.messages?.map((msg) => (msg.role === 'assistant' ? html`
               <div class="message message-assistant">
-                ${renderAssistantMessageBody(msg, {
-            onExpandToolCall: (toolCallId) => this._controller.hydrateToolCall(toolCallId),
-          })}
+                ${this._renderAssistant(msg)}
               </div>
             ` : html`
               <div class="message message-user">
@@ -558,6 +660,7 @@ export default class NxChatAo extends LitElement {
               ` : nothing}
               <button
                 class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
+                ?disabled=${this._draftBusy}
                 ?hidden=${!this._blocked}
                 @click=${this._submit}
               > ${icon('stop')}</button>

@@ -585,6 +585,10 @@ export default class BaseChatController {
     return resolveManifestId({ org, site, search });
   }
 
+  _prepareMessage(message) {
+    return message;
+  }
+
   async sendMessage(message, items = [], attachments = []) {
     if (!message || (this._thinking && !this._pendingPlanApproval)) return;
     this._interrupting = false;
@@ -615,7 +619,7 @@ export default class BaseChatController {
       await this._ensureSocket();
       this._ws.send(JSON.stringify({
         type: AO_FRAME.USER_INPUT,
-        text: `${buildFailedUploadsText(failed)}${message}`,
+        text: `${buildFailedUploadsText(failed)}${this._prepareMessage(message)}`,
         manifestId,
         debugMode,
         clientMessageId,

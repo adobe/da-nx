@@ -18,6 +18,40 @@ so callers — including the `PANEL_EVENT.OPEN`/DA SDK `actions.setPrompt`
 paths documented there — don't need to know which element they got, and
 don't need to query for it either.
 
+## CMA draft-review demo (`aidraft` branch)
+
+Only the CMA harness, and only hosts supplying an async `draftReview(request)`
+property on `nx-chat-ao`, render `<da-review>...</da-review>` JSON blocks as review
+cards. Coworker and classic chat rendering are unchanged. This is a frontend and
+prompt convention, not backend enforcement.
+
+Version 1 blocks have `type: "plan" | "ready"`, a unique `id`, `summary`, and
+`pages: [{ path, title, summary, draftPath? }]`. Paths are unique site-relative
+HTML paths (no hidden folders, traversal, encoding, query or fragment); `draftPath`
+is required for ready blocks. Maximum 50 pages. The `ready` block must exactly
+match the approved plan subset and use the same id. Invalid final blocks produce
+an error; unfinished streaming blocks remain non-interactive.
+
+The host adapter receives `{ action, review, paths, context, episodeId }`.
+Actions are `status`, `approve-scope`, `reject-scope`, `continue-scope`, `diff`,
+`apply`, `reject`, and `restore`. It returns
+`{ approvedPaths?, results: { [path]: { status, versionId?, appliedHash? } } }`.
+The separate `context` action returns `{ org, site, draftRoot }`; CMA appends it
+to outgoing wire text without adding it to the locally displayed user message.
+The draft root is `/.da/ai-drafts/<normalized IMS userId>`: lowercase, with each
+character outside `[a-z0-9-]` replaced by `-`. There is no anonymous fallback.
+
+Scope approval sends an ordinary explicit user turn with
+`{ version: 1, type: "scope-approved", id, pages: ["/page.html"] }`. The assistant
+must stop after its plan, then edit draft copies only after this turn. Final
+approvals and restores are host actions, not new AI instructions. The da-live
+adapter saves a version before applying, flushes an open canvas document through
+its existing comparison save API, and uses the existing comparison component.
+Receipts are isolated by site, user, episode and review id in tab session storage.
+Batch actions are sequential, not atomic; successful pages remain recorded when
+a later page fails. Unconfirmed writes are labeled explicitly and require checking
+version history. No action previews or publishes.
+
 ## Session warming
 
 `AoChatController.warmSession()` (`ao-controller.js`) kicks the current

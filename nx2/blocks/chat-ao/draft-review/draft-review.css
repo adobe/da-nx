@@ -1,0 +1,61 @@
+:host {
+  display: block;
+  margin: 12px 0;
+  color: light-dark(#292638, #eeeaf9);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+section {
+  padding: 16px;
+  border: 1px solid light-dark(#ddd5f4, #5b5077);
+  border-radius: 12px;
+  background: light-dark(#faf8ff, #292333);
+}
+
+header, .actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+header {
+  justify-content: space-between;
+}
+
+p {
+  margin: 8px 0;
+}
+
+.note, code, .status {
+  color: light-dark(#686075, #c7bed8);
+  font-size: 12px;
+}
+
+ul {
+  max-height: 360px;
+  overflow: auto;
+  padding: 0;
+  list-style: none;
+}
+
+li {
+  padding: 12px 0;
+  border-top: 1px solid light-dark(#e6dfef, #51465f);
+}
+
+li > strong, code {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.error {
+  color: light-dark(#ac2232, #ffabb5);
+}
