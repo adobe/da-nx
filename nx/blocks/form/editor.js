@@ -1,17 +1,20 @@
 import { LitElement, html, nothing } from 'da-lit';
 
+import {
+  ensurePreviewLogin, getLivePreviewUrl, hashChange, loadStyle,
+} from '../../../nx2/utils/utils.js';
 import { createEngine } from '../../deps/da-sc-sdk/dist/index.js';
+import { createAssetSources } from './utils/assets.js';
 import { loadFormContext } from './utils/context.js';
 import { attachPersistence } from './utils/persistence.js';
-import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
 
 import './views/editor.js';
-import './views/sidebar.js';
 import './views/preview.js';
+import './views/sidebar.js';
 // Fields the shell renders directly (schema selector + messages); the editor
 // imports the rest.
-import './fields/picker.js';
 import './fields/button.js';
+import './fields/picker.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -19,16 +22,17 @@ const EL_NAME = 'nx-form';
 
 // Derive the legacy `details` shape the form utils expect from the EW-supplied
 // `ctx`. `ctx.path` is the full `org/site/path` locator; the DA source is the
-// `.html` document at that path.
+// `.html` document at that path. `parent` and `name` match the upload context Canvas uses.
 function detailsFromCtx(ctx) {
   if (!ctx?.org || !ctx?.repo || !ctx?.path) return null;
   const raw = `/${String(ctx.path).replace(/^\/+/, '')}`;
   const fullpath = raw.toLowerCase().endsWith('.html') ? raw : `${raw}.html`;
-  const name = fullpath.slice(fullpath.lastIndexOf('/') + 1, -'.html'.length);
+  const separator = fullpath.lastIndexOf('/');
   return {
     owner: ctx.org,
     repo: ctx.repo,
-    name,
+    parent: fullpath.slice(0, separator),
+    name: fullpath.slice(separator + 1, -'.html'.length),
     fullpath,
     sourceUrl: fullpath,
   };
@@ -41,13 +45,30 @@ function ctxFromHashState(state) {
   return { org: state.org, repo: state.site, path: state.fullpath.slice(1) };
 }
 
+// Without a usable AEM Assets configuration the form offers Upload only.
+async function loadAssetSources({ details, isCurrent }) {
+  try {
+    const { getRepositoryConfig } = await import('../../../nx2/utils/aem-assets/repository-config.js');
+    const repoConfig = await getRepositoryConfig(details.owner, details.repo);
+    return createAssetSources({ details, repoConfig, isCurrent });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn('AEM Assets configuration unavailable. Offering Upload only.', error);
+    return createAssetSources({ details, isCurrent });
+  }
+}
+
 class Form extends LitElement {
   static properties = {
     ctx: { attribute: false },
+
     _context: { state: true },
     _state: { state: true },
     _nav: { state: true },
     _pendingSchemaId: { state: true },
+
+    _assetSources: { state: true },
+    _previewOrigin: { state: true },
   };
 
   // Reactive properties (declared in static properties) must NOT have class-
@@ -119,7 +140,10 @@ class Form extends LitElement {
     this._state = this._editor.getState();
     // Attach AFTER load so the loaded document is the persistence's baseline —
     // mutations after this point trigger saves; the load itself does not.
-    this._persistence = attachPersistence(this._editor, { path: this._details?.fullpath });
+    this._persistence = attachPersistence(this._editor, {
+      path: this._details?.fullpath,
+      schema,
+    });
     this._nav = { pointer: '/data', origin: null, seq: 0 };
   }
 
@@ -146,6 +170,10 @@ class Form extends LitElement {
     this._editor = null;
     this._persistence?.detach();
     this._persistence = null;
+
+    this._assetSources = undefined;
+    this._previewOrigin = undefined;
+
     this._details = detailsFromCtx(this.ctx);
 
     if (!this._details) {
@@ -156,12 +184,34 @@ class Form extends LitElement {
     this._context = { status: 'loading', schemas: {} };
 
     const context = await loadFormContext({ details: this._details });
-    if (version !== this._loadVersion) return;
+    if (version !== this._loadVersion) {
+      return;
+    }
 
     this._context = context;
-
     if (context.status === 'ready') {
       this._start({ schema: context.schema, json: context.json });
+    }
+
+    if (context.status === 'ready' || context.status === 'select-schema') {
+      await this._loadAssetContext(version);
+    }
+  }
+
+  // File sources and previews load independently, so a slow preview login never delays sources.
+  async _loadAssetContext(version) {
+    const { owner, repo } = this._details;
+    const isCurrent = () => version === this._loadVersion;
+
+    ensurePreviewLogin({ org: owner, repo }).then(() => {
+      if (isCurrent()) {
+        this._previewOrigin = getLivePreviewUrl({ org: owner, repo });
+      }
+    });
+
+    const sources = await loadAssetSources({ details: this._details, isCurrent });
+    if (isCurrent()) {
+      this._assetSources = sources;
     }
   }
 
@@ -359,6 +409,8 @@ class Form extends LitElement {
             .state=${this._state}
             .nav=${this._nav}
             .onSelect=${this._onSelect}
+            .assetSources=${this._assetSources}
+            .previewOrigin=${this._previewOrigin}
           ></nx-editor>
           <nx-preview .state=${this._state}></nx-preview>
         </div>

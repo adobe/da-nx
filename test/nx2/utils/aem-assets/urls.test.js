@@ -7,6 +7,7 @@ import {
   buildSmartCropUrl,
   buildSmartCropsListUrl,
   resolveRenditionType,
+  getMimetype,
   getAssetAlt,
   getDmApprovalStatus,
   getScene7PublishStatus,
@@ -405,6 +406,20 @@ describe('getAssetAlt', () => {
 
   it('falls back to the asset name when no title metadata is present', () => {
     expect(getAssetAlt({ name: 'photo.jpg' })).to.equal('photo.jpg');
+  });
+});
+
+describe('getMimetype', () => {
+  it('prefers mimetype over dc:format', () => {
+    expect(getMimetype({ mimetype: 'image/png', 'dc:format': 'image/jpeg' })).to.equal('image/png');
+  });
+
+  it('falls back to dc:format and keeps its case', () => {
+    expect(getMimetype({ 'dc:format': 'Image/JPEG' })).to.equal('Image/JPEG');
+  });
+
+  it('returns an empty string when neither is present', () => {
+    expect(getMimetype({})).to.equal('');
   });
 });
 
