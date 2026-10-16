@@ -637,7 +637,7 @@
   align-items: flex-start;
   gap: var(--s2-spacing-100);
   min-width: 0;
-  font-size: var(--s2-body-size-s);
+  font-size: var(--nx-ui-text-content);
 
   &.coworker-chat::before {
     content: "";
@@ -871,6 +871,12 @@
   .message .message-action-copy svg, .message .selection-icon {
     width: 16px;
     height: 16px;
+  }
+
+  .chat-input-wrap.coworker-chat::before {
+    flex-basis: 22px;
+    height: 22px;
+    margin-block-start: calc(var(--s2-spacing-100) + (1.5em - 22px) / 2);
   }
 
   .message .selection-context > summary {
