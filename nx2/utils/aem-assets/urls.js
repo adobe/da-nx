@@ -116,6 +116,6 @@ export function getDmApprovalStatus(asset) {
   };
 }
 
-export function getScene7PublishStatus(asset) {
-  return asset?.['repo:scene7FileStatus'];
+export function getPublishedFlag(asset) {
+  return asset?.['aem:published'];
 }

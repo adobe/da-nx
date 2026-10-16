@@ -9,7 +9,7 @@ import {
   resolveRenditionType,
   getAssetAlt,
   getDmApprovalStatus,
-  getScene7PublishStatus,
+  getPublishedFlag,
 } from '../../../../nx2/utils/aem-assets/urls.js';
 
 // ---------------------------------------------------------------------------
@@ -432,26 +432,24 @@ describe('getDmApprovalStatus', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getScene7PublishStatus
+// getPublishedFlag
 // ---------------------------------------------------------------------------
 
-describe('getScene7PublishStatus', () => {
-  it('returns repo:scene7FileStatus value from asset', () => {
-    const asset = { 'repo:scene7FileStatus': 'PublishComplete' };
-    expect(getScene7PublishStatus(asset)).to.equal('PublishComplete');
+describe('getPublishedFlag', () => {
+  it('returns true when the asset is published', () => {
+    expect(getPublishedFlag({ 'aem:published': true })).to.equal(true);
   });
 
-  it('returns PublishIncomplete when asset is not published', () => {
-    const asset = { 'repo:scene7FileStatus': 'PublishIncomplete' };
-    expect(getScene7PublishStatus(asset)).to.equal('PublishIncomplete');
+  it('returns false when the asset is not published', () => {
+    expect(getPublishedFlag({ 'aem:published': false })).to.equal(false);
   });
 
   it('returns undefined when property is absent', () => {
-    expect(getScene7PublishStatus({})).to.be.undefined;
+    expect(getPublishedFlag({})).to.be.undefined;
   });
 
   it('returns undefined for null/undefined asset', () => {
-    expect(getScene7PublishStatus(null)).to.be.undefined;
-    expect(getScene7PublishStatus(undefined)).to.be.undefined;
+    expect(getPublishedFlag(null)).to.be.undefined;
+    expect(getPublishedFlag(undefined)).to.be.undefined;
   });
 });

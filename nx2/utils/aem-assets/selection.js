@@ -13,7 +13,7 @@
 import { applySiteImageModifiers } from './image-modifiers.js';
 import {
   buildAuthorUrl, buildDeliveryUrl, buildDmUrl,
-  getAssetAlt, getDmApprovalStatus, getScene7PublishStatus,
+  getAssetAlt, getDmApprovalStatus, getPublishedFlag,
 } from './urls.js';
 
 export const MISSING_FORMAT_ERROR_MSG = 'The selected asset has no format and cannot be used.';
@@ -43,8 +43,7 @@ function isApprovedForDelivery(asset) {
 }
 
 function isPublished(asset) {
-  const scene7Status = getScene7PublishStatus(asset);
-  return !scene7Status || scene7Status === 'PublishComplete';
+  return getPublishedFlag(asset) !== false;
 }
 
 export function resolveAssetSelection({ asset, repoConfig }) {
