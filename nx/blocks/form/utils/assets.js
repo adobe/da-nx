@@ -62,6 +62,9 @@ function uploadSource({ details }) {
   return {
     id: SOURCE_IDS.upload,
     label: 'Upload',
+    // Uploaded files reach the site only through the image media bus, so file fields
+    // must reference published assets from AEM Assets instead.
+    assetTypes: ['image'],
     fileTypes: SUPPORTED_IMAGE_TYPES,
     select: ({ file }) => uploadFile({ details, file }),
   };

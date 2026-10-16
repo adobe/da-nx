@@ -147,6 +147,12 @@ describe('form asset sources', () => {
     expect(aem.fileTypes).to.equal(undefined);
   });
 
+  it('limits Upload to image fields and leaves AEM Assets open to every field', () => {
+    const [upload, aem] = createAssetSources({ details, repoConfig: REPO_CONFIG, isCurrent });
+    expect(upload.assetTypes).to.deep.equal(['image']);
+    expect(aem.assetTypes).to.equal(undefined);
+  });
+
   it('cancels a result that arrives after the document changed', async () => {
     let current = true;
     const [upload] = createAssetSources({ details, isCurrent: () => current });
