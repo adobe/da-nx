@@ -16,12 +16,18 @@
 // form block's `saveSourceHtml`. A different consumer could swap in a
 // queue-backed save, an offline write, etc., without touching persistence.
 // The engine's model is passed along so the SDK writes asset fields as images
-// that EDS ingests, and non-image files as links.
+// that EDS ingests, and non-image files as links. `getConfig` returns the
+// SDK writer `config`, such as `externalImagesAsLinks`; it is read on every
+// save.
 
 import { convertJsonToHtml } from '../../../deps/da-sc-sdk/dist/index.js';
 import { saveSourceHtml } from './da-api.js';
 
-export function attachPersistence(editor, { path, save = saveSourceHtml } = {}) {
+export function attachPersistence(editor, {
+  path,
+  save = saveSourceHtml,
+  getConfig = () => undefined,
+} = {}) {
   let inFlight = false;
   let pending = false;
   let lastValues = editor.getState()?.document;
@@ -37,7 +43,11 @@ export function attachPersistence(editor, { path, save = saveSourceHtml } = {}) 
       do {
         pending = false;
         const { document, model } = editor.getState();
-        const { html, error } = convertJsonToHtml({ json: document, model });
+        const { html, error } = convertJsonToHtml({
+          json: document,
+          model,
+          config: getConfig(),
+        });
         if (error) return;
         try {
           await save({ path, html });
