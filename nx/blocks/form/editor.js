@@ -51,11 +51,11 @@ async function loadAssetSources({ details, isCurrent }) {
   try {
     const { getRepositoryConfig } = await import('../../../nx2/utils/aem-assets/repository-config.js');
     const repoConfig = await getRepositoryConfig(details.owner, details.repo);
-    return createAssetSources({ details, repoConfig, isCurrent });
+    return { repoConfig, sources: createAssetSources({ details, repoConfig, isCurrent }) };
   } catch (error) {
     // eslint-disable-next-line no-console
     console.warn('AEM Assets configuration unavailable. Offering Upload only.', error);
-    return createAssetSources({ details, isCurrent });
+    return { repoConfig: null, sources: createAssetSources({ details, isCurrent }) };
   }
 }
 
@@ -79,6 +79,8 @@ class Form extends LitElement {
   _loadVersion = 0;
 
   _details = null;
+
+  _repoConfig = null;
 
   _editor = null;
 
@@ -142,7 +144,13 @@ class Form extends LitElement {
     this._state = this._editor.getState();
     // Attach AFTER load so the loaded document is the persistence's baseline —
     // mutations after this point trigger saves; the load itself does not.
-    this._persistence = attachPersistence(this._editor, { path: this._details?.fullpath });
+    // Like Canvas, AEM images are saved as links when the site sets
+    // `aem.assets.image.type` to `link`. Read on every save, because the
+    // configuration loads after the form starts.
+    this._persistence = attachPersistence(this._editor, {
+      path: this._details?.fullpath,
+      getConfig: () => ({ externalImagesAsLinks: this._repoConfig?.insertAsLink === true }),
+    });
     this._nav = { pointer: '/data', origin: null, seq: 0 };
   }
 
@@ -172,6 +180,7 @@ class Form extends LitElement {
 
     this._assetSources = undefined;
     this._previewOrigin = undefined;
+    this._repoConfig = null;
 
     this._details = detailsFromCtx(this.ctx);
 
@@ -212,8 +221,9 @@ class Form extends LitElement {
       }
     });
 
-    const sources = await loadAssetSources({ details: this._details, isCurrent });
+    const { repoConfig, sources } = await loadAssetSources({ details: this._details, isCurrent });
     if (isCurrent()) {
+      this._repoConfig = repoConfig;
       this._assetSources = sources;
     }
   }

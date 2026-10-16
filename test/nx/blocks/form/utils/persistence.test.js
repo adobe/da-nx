@@ -218,4 +218,39 @@ describe('attachPersistence', () => {
     expect(calls[1].html).to.include(`<img src="${hero}" alt="">`);
     p.detach();
   });
+
+  it('reads the config on every save to write images from other hosts as links', async () => {
+    const aem = 'https://delivery-p1-e1.adobeaemcloud.com/adobe/assets/urn:aaid:aem:1/as/hero.avif';
+    const upload = 'https://content.da.live/org/site/hero.png';
+    const model = {
+      root: {
+        key: 'data',
+        kind: 'object',
+        children: [
+          { key: 'hero', kind: 'string', semanticType: 'asset' },
+          { key: 'logo', kind: 'string', semanticType: 'asset' },
+        ],
+      },
+    };
+    const editor = makeEditor();
+    const { save, calls, release } = makeSave();
+    let asLinks = false;
+    const getConfig = () => ({ externalImagesAsLinks: asLinks });
+    const p = attachPersistence(editor, { path: '/x', save, getConfig });
+
+    editor.setValues({ hero: aem, logo: upload }, model);
+    p.notify();
+    await tick();
+    expect(calls[0].html).to.include(`<img src="${aem}" alt="">`);
+    release();
+    await tick();
+
+    asLinks = true;
+    editor.setValues({ hero: aem, logo: upload }, model);
+    p.notify();
+    await tick();
+    expect(calls[1].html).to.include(`<a href="${aem}">${aem}</a>`);
+    expect(calls[1].html).to.include(`<img src="${upload}" alt="">`);
+    p.detach();
+  });
 });
