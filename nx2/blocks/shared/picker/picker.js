@@ -189,7 +189,7 @@ class NxPicker extends LitElement {
       >
         <span class="picker-trigger-content">
           ${this._renderSwatch(this._selectedItem?.swatch)}
-          <span class="picker-trigger-label">${this._triggerLabel}</span>
+          <span class="picker-trigger-label" part="label">${this._triggerLabel}</span>
         </span>
         <svg class="picker-chevron" viewBox="0 0 10 10" aria-hidden="true"><use href=${CHEVRON_HREF}></use></svg>
       </button>
