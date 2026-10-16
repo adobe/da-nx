@@ -42,7 +42,9 @@ then reload (with "Disable cache" ticked while testing branch previews).
 6. **Buttons follow their size on main** and use only shared classes:
    - 24 on main: `nx-btn-sm` in s, default (32) in m.
    - 32 (or 28) on main: default in s, `nx-btn-lg` (40) in m.
-   - Top bar (breadcrumbs, Prepare/Publish and its card buttons, feedback, profile button) keeps main sizes in both.
+   - Panel closes (chat, tool panel) and the comments toggle are 32 on main, so default in s and `nx-btn-lg` in m.
+   - Top bar (breadcrumbs, Prepare/Publish and its card buttons, feedback, profile button) keeps main sizes in both, except the Update/Publish button inside the deploy card, which is `nx-btn-lg` in m.
+   - Exception: fullsize dialog closes stay 28 in s and 32 in m (28 on main, no shared 28 size).
 7. **Line height:** multi-line text inherits the body line height (`--s2-body-line-height`, 1.5). Don't override it.
 8. **Shared components** (`nx-menu`, `nx-picker`, `nx-pills`, `nx-search`, `nx-prompts`, `nx-new-chat`, `nx-segmented-btn`, `buttons.css`) follow their own `size` variant. Menus, pickers and searches that were `size="m"` on main stay `m` in both sizes.
 9. Component-specific m overrides go in one `:host([data-ui-size="m"])` block per component (or `body.ui-size-m` outside shadow DOM).
@@ -73,13 +75,15 @@ then reload (with "Disable cache" ticked while testing branch previews).
 | Profile popover icons                      | 20 | 22 |
 | Profile avatar button (top bar)            | 32 (24 photo) | 32 (24 photo) |
 | Profile popover photo                      | 72 | 80 |
+| Tree carets (file explorer, page outline)  | 10 | 12 |
+| Outline drag handle and row icons          | 16 | 18 |
 
 Components needing these overrides use `UISizeController` to keep `data-ui-size` current.
 
 ## Key badges
 
 `kbd` badges inside shared buttons (Esc, ↵ in the chat permission, question and plan cards) follow the button size:
-20px tall with 12px text in `nx-btn-sm`, 14px text in the default and large sizes.
+11px text in `nx-btn-sm`, 12px in the default size, 14px in `nx-btn-lg`.
 
 ## Segmented buttons
 
@@ -90,6 +94,7 @@ its `size` attribute: the default sm styles in s, `size="m"` in m.
 
 `nx-picker` and `nx-menu` keep their own `size` attribute (`s`/`m`). EW call sites pass the current
 ui-size, except menus and pickers that were `size="m"` on main (chat session picker, slash and add menus,
-prompts search and category picker, page metadata picker), which stay `m` in both sizes. The picker list matches `nx-menu`
-in every size: 8px popover padding, 12px item inset, corner-radius-400 rows, gray-100 hover, gray-200 active,
-gray-900 text, 24px items in s and 32px in m.
+prompts category picker, page metadata picker), which stay `m` in both sizes. The prompts search follows
+the `nx-prompts` size. The picker list matches `nx-menu` in every size: 8px popover padding, 12px item inset,
+corner-radius-400 rows, gray-100 hover, gray-200 active, gray-900 text. Rows are 28px in s and 32px in m.
+Section titles are 11px with an 8px inset in s, 12px with a 12px inset in m.
