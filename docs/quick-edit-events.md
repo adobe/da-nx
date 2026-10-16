@@ -115,6 +115,11 @@ editor). Both only exist in the da-live-embedded flow — the standalone
 `quick-edit-portal.js` host has no equivalent selection UI, so neither is wired up
 there.
 
+The block hover pill selects on `click`, not `mousedown`, so removing it cannot
+cancel the native click before click forwarding observes it. The host acknowledges
+iframe-originated selections without scrolling that same iframe; selections made
+in the outline or document editor can still request scrolling.
+
 ### `NEW_VERSION`
 
 Fired when the user presses the version-history shortcut (Cmd/Ctrl+Alt+S) while
