@@ -81,10 +81,19 @@ page (all of `main`). Loaders opt in with `partialReload`, which automatically l
 to `main` and preserves header and footer. The reload callback must be able to decorate just
 `replaced.el`; the iframe re-keys the indices of the DOM it keeps and falls back to the whole
 of `main` whenever that mapping is ambiguous. Without `partialReload`, the whole body is
-replaced. If the page exposes no
-`decorateMain`/`loadSections`, `quick-edit-init.js` replaces the whole body and calls the page's
+replaced. `quick-edit-init.js` uses an optional `reloadEditable(main)` export for custom
+reloading when present. It covers both decoration and loading, replacing `decorateMain` plus
+`loadSections`, which are the default when the hook is missing.
+It receives an undecorated `main` (live for a whole-main reload, detached for inline,
+section and block reloads), may be async, and modifies that `main` in place (including
+replacing or re-wrapping the nodes inside it); no return value is required. The default
+awaits `decorateMain(main)` then `loadSections(main)`; both exports are required.
+If neither pipeline is available, `quick-edit-init.js` replaces the whole body and calls the page's
 `loadPage` (so header and footer re-render); without `loadPage` either, edits are shown
 undecorated in `main`.
+All scopes use the same resolved `reloadEditable` function. `createReload` only handles
+preparing the scope and inserting the reloaded nodes; it does not select any additional
+page hooks or fallbacks.
 An iframe `RELOAD` makes da-live re-send
 everything not confirmed by the iframe itself, since it signals a failed `SET_EDITOR_STATE`.
 
@@ -102,6 +111,30 @@ their own transactions instead.
 Block-title rows and metadata tables have no inline counterpart in the preview.
 Both hosts route their edits through scoped `SET_BODY` rerendering rather than
 requesting mini-editors for text consumed or removed by serialization.
+
+### `SET_EDITOR_STATE` (inline editors)
+
+Text edits inside one editable element skip `SET_BODY`: the iframe mounts a ProseMirror
+editor in place of the element, which renders raw document markup (e.g. a
+`<strong><a>` instead of the page's `a.button`, `:icon:` text instead of `span.icon`).
+Once the editor is not focused (blur, or an edit made in the host), the iframe swaps
+it back for static markup, but only for loaders with `partialReload`: it passes the element,
+detached, to the reload callback as `replaced = { type: 'element', el }`; the callback may
+return a replacement element, and `data-prose-index` is carried over either way. Without
+`partialReload` (e.g. site loaders calling `loadQuickEdit(payload, loadPage)`, or the
+`loadPage` fallback above) a single element can't be decorated, so the editor stays open.
+
+Content is always applied immediately, since later prose indices shift with it; only the
+swap (and its decoration) waits. Leaving an iframe editor swaps it right away. Edits from the
+host are timed per editor by the payload's `origin`: `local` (the host user, including their
+undo/redo, and the default when missing) swaps 500 ms after the last local edit; `remote` (a
+collaborator via Yjs) swaps 3 s after the first pending remote edit and never postpones a
+pending swap, so continuous remote typing is still decorated every 3 s instead of on every
+keystroke.
+
+`quick-edit-init.js` handles that scope by putting the element into a detached `main`,
+running the shared `reloadEditable(main)` pipeline described above, and returning the
+indexed element. Without a shared reload pipeline, inline edits settle undecorated.
 
 ### `SET_SELECTED_NODE` / `NODE_SELECT`
 
