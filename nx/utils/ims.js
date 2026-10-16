@@ -5,6 +5,11 @@ const { imsClientId, imsScope, env } = getConfig();
 
 const IMS_URL = 'https://auth.services.adobe.com/imslib/imslib.min.js';
 const DEFAULT_SCOPE = 'AdobeID,openid,gnav';
+// Include the avatar scope even when a consuming app supplies its own scopes.
+const IMS_SCOPE = [...new Set([
+  ...(imsScope || DEFAULT_SCOPE).split(',').map((scope) => scope.trim()),
+  'additional_info.user_image_url',
+])].filter(Boolean).join(',');
 const IMS_TIMEOUT = 5000;
 const IMS_ENV = {
   dev: 'stg1',
@@ -16,12 +21,6 @@ const IMS_ENDPOINT = {
   dev: 'ims-na1-stg1.adobelogin.com',
   stage: 'ims-na1-stg1.adobelogin.com',
   prod: 'ims-na1.adobelogin.com',
-};
-
-const IO_ENV = {
-  dev: 'cc-collab-stage.adobe.io',
-  stage: 'cc-collab-stage.adobe.io',
-  prod: 'cc-collab.adobe.io',
 };
 
 export const IMS_ORIGIN = (() => `https://${IMS_ENDPOINT[env]}`)();
@@ -79,8 +78,9 @@ async function getOrgs() {
   return orgDetails;
 }
 
+// Deprecated: retained for avatar callers. Read user_image_url on the IMS profile instead.
 export async function getIo() {
-  return fetchWithToken(`https://${IO_ENV[env]}/profile`, imsProfile.accessToken);
+  return { user: { avatar: imsProfile.user_image_url } };
 }
 
 async function getProfileDetails(accessToken, resolve) {
@@ -98,7 +98,7 @@ export async function loadIms(loginPopup) {
     const timeout = setTimeout(() => reject(new Error('IMS timeout')), IMS_TIMEOUT);
     window.adobeid = {
       client_id: imsClientId,
-      scope: imsScope || DEFAULT_SCOPE,
+      scope: IMS_SCOPE,
       locale: document.documentElement.lang?.replace('-', '_') || 'en_US',
       autoValidateToken: true,
       environment: IMS_ENV[env],
