@@ -1,7 +1,7 @@
 {
   "name": "nexter",
   "private": true,
-  "version": "1.15.1",
+  "version": "1.16.3",
   "description": "Next generation unified shell for Edge Delivery applications.",
   "type": "module",
   "scripts": {
