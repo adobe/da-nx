@@ -1,3 +1,10 @@
+## [1.16.3](https://github.com/adobe/da-nx/compare/v1.16.2...v1.16.3) (2026-10-16)
+
+
+### Bug Fixes
+
+* raise preflight timeout to 5 min, to account for ai checks ([#852](https://github.com/adobe/da-nx/issues/852)) ([94326c2](https://github.com/adobe/da-nx/commit/94326c2c80b86a2b43d8c23d0cbaa7fb12371519))
+
 ## [1.16.2](https://github.com/adobe/da-nx/compare/v1.16.1...v1.16.2) (2026-10-16)
 
 
