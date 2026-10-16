@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { getImageAltFragmentUrls, getFragmentUrls } from '../../nx/blocks/loc/views/validate/validate-utils.js';
+import { getImageAltFragmentUrls, getFragmentUrls, getMsmNote } from '../../nx/blocks/loc/views/validate/validate-utils.js';
 
 describe('validate-utils', () => {
   describe('getImageAltFragmentUrls', () => {
@@ -53,6 +53,30 @@ describe('validate-utils', () => {
       const html = '<html><body><a href="/not-a-fragment">Not a fragment</a></body></html>';
       const urls = getFragmentUrls(html);
       expect(urls).to.have.length(0);
+    });
+  });
+
+  describe('getMsmNote', () => {
+    it('names the source site for an inherited page', () => {
+      expect(getMsmNote({ ok: true, inherited: true, resolvedSite: 'source-site' }))
+        .to.deep.equal({ inheritedFrom: 'source-site', msmError: undefined });
+    });
+
+    it('has no note for a page found on the project site', () => {
+      expect(getMsmNote({ ok: true, inherited: false, resolvedSite: 'linked-site' }))
+        .to.deep.equal({ inheritedFrom: undefined, msmError: undefined });
+    });
+
+    it('passes the MSM config error through for a page that was not found', () => {
+      const msmError = { error: 'Error fetching MSM config', status: 403 };
+      expect(getMsmNote({ ok: false, inherited: false, resolvedSite: 'linked-site', msmError }))
+        .to.deep.equal({ inheritedFrom: undefined, msmError });
+    });
+
+    it('drops the MSM config error once the page is found', () => {
+      const msmError = { error: 'Error fetching MSM config', status: 403 };
+      expect(getMsmNote({ ok: true, inherited: false, resolvedSite: 'linked-site', msmError }).msmError)
+        .to.equal(undefined);
     });
   });
 });
