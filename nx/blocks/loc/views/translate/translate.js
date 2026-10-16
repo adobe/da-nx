@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/scripts/nx.js';
+import { fetchConfig } from '../../utils/utils.js';
 import {
   setupConnector,
   getUrls,
@@ -97,6 +98,7 @@ class NxLocTranslate extends LitElement {
 
   async fetchUrls(service, fetchContent, langs) {
     const { org, site, snapshot } = this.project;
+    const config = fetchContent ? await fetchConfig(org, site, { refresh: true }) : undefined;
 
     // calculate the default source location
     const defSrcLocation = this._options['source.language']?.location || '/';
@@ -113,6 +115,7 @@ class NxLocTranslate extends LitElement {
       this._urls,
       fetchContent,
       snapshot,
+      config,
     );
 
     // Check langs for custom source locations
@@ -128,6 +131,7 @@ class NxLocTranslate extends LitElement {
           this._urls,
           fetchContent,
           snapshot,
+          config,
         );
         langUrl.urls = customSources.urls;
       } else {
