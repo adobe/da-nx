@@ -139,7 +139,10 @@ export function setSelectedNode(node, root = document, { scrollIntoView = false 
   }
 }
 
+let hoveredBlock = null;
+
 function clearHoverPill(root = document) {
+  hoveredBlock = null;
   const overlay = root.getElementById(SELECTION_OVERLAY_ID);
   if (!overlay) return;
   overlay.querySelector('.qe-hover-box')?.remove();
@@ -147,9 +150,18 @@ function clearHoverPill(root = document) {
 
 function drawHoverPill(block, root = document) {
   const overlay = getSelectionOverlay(root);
-  clearHoverPill(root);
   const rect = block.getBoundingClientRect();
-  if (!rect.width && !rect.height) return;
+  if (!block.isConnected || (!rect.width && !rect.height) || isSelectedBlock(block)) {
+    clearHoverPill(root);
+    return;
+  }
+  const existing = overlay.querySelector('.qe-hover-box');
+  if (hoveredBlock === block && existing) {
+    positionBox(existing, rect);
+    return;
+  }
+  clearHoverPill(root);
+  hoveredBlock = block;
   const box = root.createElement('div');
   box.className = 'qe-hover-box';
   box.setAttribute('aria-hidden', 'true');
@@ -161,6 +173,18 @@ function drawHoverPill(block, root = document) {
   fillPill(pill, root, blockLabel(block));
   pill.dataset.blockIndex = block.getAttribute('data-block-index');
   box.appendChild(pill);
+}
+
+function isInHoverRegion({ clientX, clientY }) {
+  const pill = document.querySelector('.qe-selected-pill.is-hover');
+  if (!hoveredBlock?.isConnected || !pill) return false;
+  const blockRect = hoveredBlock.getBoundingClientRect();
+  const pillRect = pill.getBoundingClientRect();
+  const padding = 4;
+  return clientX >= Math.min(blockRect.left, pillRect.left) - padding
+    && clientX <= Math.max(blockRect.right, pillRect.right) + padding
+    && clientY >= Math.min(blockRect.top, pillRect.top) - padding
+    && clientY <= Math.max(blockRect.bottom, pillRect.bottom) + padding;
 }
 
 function blurActiveEditor() {
@@ -180,14 +204,25 @@ export function setupNodeSelection(ctx) {
   document.addEventListener('mouseover', (e) => {
     const block = e.target.closest?.('[data-block-index]');
     if (!block || e.target.closest(OVERLAY_SELECTOR)) return;
-    if (isSelectedBlock(block)) return;
+    if (isSelectedBlock(block)) {
+      clearHoverPill();
+      return;
+    }
     drawHoverPill(block);
   });
   document.addEventListener('mouseout', (e) => {
+    if (!e.relatedTarget) {
+      clearHoverPill();
+      return;
+    }
     const toBlock = e.relatedTarget?.closest?.('[data-block-index]');
     const toPill = e.relatedTarget?.closest?.('.qe-selected-pill.is-hover');
-    if (!toBlock && !toPill) clearHoverPill();
+    if (!toBlock && !toPill && !isInHoverRegion(e)) clearHoverPill();
   });
+  document.addEventListener('mousemove', (e) => {
+    if (hoveredBlock && !isInHoverRegion(e)) clearHoverPill();
+  });
+  document.documentElement.addEventListener('mouseleave', () => clearHoverPill());
 
   document.addEventListener('mousedown', (e) => {
     const t = e.target;
@@ -258,6 +293,7 @@ export function setupNodeSelection(ctx) {
     requestAnimationFrame(() => {
       scheduled = false;
       if (currentSelectedNode) setSelectedNode(currentSelectedNode);
+      if (hoveredBlock) drawHoverPill(hoveredBlock);
     });
   };
   window.addEventListener('scroll', reposition, true);

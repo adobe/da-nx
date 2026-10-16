@@ -21,6 +21,19 @@ function buildBody() {
     + '</main>';
 }
 
+async function loadSelectionStyles() {
+  if (document.getElementById('qe-css-under-test')) return;
+  await new Promise((resolve, reject) => {
+    const link = document.createElement('link');
+    link.id = 'qe-css-under-test';
+    link.rel = 'stylesheet';
+    link.href = '/nx/public/plugins/quick-edit/quick-edit.css';
+    link.onload = resolve;
+    link.onerror = reject;
+    document.head.appendChild(link);
+  });
+}
+
 describe('quick-edit selection payloads', () => {
   beforeEach(buildBody);
   afterEach(() => { document.body.innerHTML = ''; });
@@ -214,6 +227,105 @@ describe('quick-edit selection gestures', () => {
     expect(document.querySelector('#qe-selection-overlay .qe-hover-box')).to.equal(null);
   });
 
+  it('keeps the selector reachable across an overlapping page header', async () => {
+    await loadSelectionStyles();
+    const block = document.querySelector('.hero');
+    block.style.cssText = 'position:fixed;left:100px;top:100px;width:300px;height:200px';
+    const header = document.createElement('header');
+    header.style.cssText = 'position:fixed;left:100px;top:100px;width:300px;height:80px;z-index:100';
+    document.body.append(header);
+    block.dispatchEvent(new MouseEvent('mouseover', {
+      bubbles: true, clientX: 200, clientY: 220,
+    }));
+    const pill = document.querySelector('.qe-selected-pill.is-hover');
+    expect(document.elementFromPoint(200, 150)).to.equal(header);
+    block.dispatchEvent(new MouseEvent('mouseout', {
+      bubbles: true, relatedTarget: header, clientX: 200, clientY: 150,
+    }));
+    header.dispatchEvent(new MouseEvent('mousemove', {
+      bubbles: true, clientX: 200, clientY: 150,
+    }));
+    expect(document.querySelector('.qe-selected-pill.is-hover')).to.equal(pill);
+    const target = document.elementFromPoint(110, 110);
+    expect(target.closest('.qe-selected-pill.is-hover')).to.equal(pill);
+    header.dispatchEvent(new MouseEvent('mouseout', {
+      bubbles: true, relatedTarget: target, clientX: 110, clientY: 110,
+    }));
+    target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(posted).to.deep.include({
+      type: 'node-select', payload: { node: { anchorType: 'table', proseIndex: 60 } },
+    });
+  });
+
+  it('retains the same pill when moving between block children', () => {
+    const block = document.querySelector('.hero');
+    block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const pill = document.querySelector('.qe-selected-pill.is-hover');
+    block.querySelector('p').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(document.querySelector('.qe-selected-pill.is-hover')).to.equal(pill);
+  });
+
+  it('bridges a small gap to the pill and clears beyond the padded region', () => {
+    const block = document.querySelector('.hero');
+    block.getBoundingClientRect = () => new DOMRect(100, 100, 300, 200);
+    block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const pill = document.querySelector('.qe-selected-pill.is-hover');
+    pill.getBoundingClientRect = () => new DOMRect(100, 76, 80, 20);
+    block.dispatchEvent(new MouseEvent('mouseout', {
+      bubbles: true, relatedTarget: document.body, clientX: 110, clientY: 98,
+    }));
+    document.body.dispatchEvent(new MouseEvent('mousemove', {
+      bubbles: true, clientX: 110, clientY: 74,
+    }));
+    expect(pill.isConnected).to.equal(true);
+    document.body.dispatchEvent(new MouseEvent('mousemove', {
+      bubbles: true, clientX: 110, clientY: 71,
+    }));
+    expect(pill.isConnected).to.equal(false);
+  });
+
+  it('clears the hover pill when leaving the preview, even inside the block rectangle', () => {
+    const block = document.querySelector('.hero');
+    block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 200);
+    block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    block.dispatchEvent(new MouseEvent('mouseout', {
+      bubbles: true, relatedTarget: null, clientX: 0, clientY: 100,
+    }));
+    expect(document.querySelector('.qe-hover-box')).to.equal(null);
+  });
+
+  it('switches hover targets and clears the previous pill over a selected block', () => {
+    const block = document.querySelector('.hero');
+    block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const other = document.querySelector('[data-block-index="50"]');
+    other.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(document.querySelector('.qe-selected-pill.is-hover').dataset.blockIndex).to.equal('50');
+    setSelectedNode({ anchorType: 'table', proseIndex: 60 });
+    block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(document.querySelector('.qe-hover-box')).to.equal(null);
+  });
+
+  it('repositions the same hover box on scroll and resize, and clears removed blocks', async () => {
+    const block = document.querySelector('.hero');
+    let rect = new DOMRect(100, 100, 300, 200);
+    block.getBoundingClientRect = () => rect;
+    block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const box = document.querySelector('.qe-hover-box');
+    for (const type of ['scroll', 'resize']) {
+      rect = new DOMRect(rect.left + 10, rect.top + 20, 250, 150);
+      window.dispatchEvent(new Event(type));
+      await new Promise(requestAnimationFrame);
+      expect(document.querySelector('.qe-hover-box')).to.equal(box);
+      expect(box.style.left).to.equal(`${rect.left + window.scrollX}px`);
+      expect(box.style.top).to.equal(`${rect.top + window.scrollY}px`);
+      expect(box.style.width).to.equal('250px');
+    }
+    block.remove();
+    window.dispatchEvent(new Event('resize'));
+    await new Promise(requestAnimationFrame);
+    expect(document.querySelector('.qe-hover-box')).to.equal(null);
+  });
+
   it('clears hover artifacts when the pill is clicked to select', () => {
     const block = document.querySelector('[data-block-index="50"]');
     block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
@@ -284,20 +396,7 @@ describe('quick-edit selection gestures', () => {
   });
 
   it('hover pill is clickable (pointer-events) but the static pill is not', async () => {
-    await new Promise((resolve, reject) => {
-      const existing = document.getElementById('qe-css-under-test');
-      if (existing) {
-        resolve();
-        return;
-      }
-      const link = document.createElement('link');
-      link.id = 'qe-css-under-test';
-      link.rel = 'stylesheet';
-      link.href = '/nx/public/plugins/quick-edit/quick-edit.css';
-      link.onload = resolve;
-      link.onerror = reject;
-      document.head.appendChild(link);
-    });
+    await loadSelectionStyles();
 
     setSelectedNode({ anchorType: 'table', proseIndex: 50 });
     const staticPill = document.querySelector('#qe-selection-overlay .qe-selected-pill:not(.is-hover)');
