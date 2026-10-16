@@ -1,8 +1,6 @@
 // ProseMirror is injected as `pm` (the da-y-wrapper namespace); the serializer
 // mirrors the SDK's canonical rich-text HTML, see ../docs/rich-text.md.
 
-export const PM_URL = 'https://da.live/deps/da-y-wrapper/dist/index.js';
-
 const SAFE_SCHEMES = new Set(['http', 'https', 'mailto', 'tel']);
 const LIST_NAMES = new Set(['bullet_list', 'ordered_list']);
 const MARK_TAGS = {

@@ -5,7 +5,6 @@ import { loadHrefSvg } from '../../../../nx2/utils/svg.js';
 import defaults from './defaults.js';
 import { icon } from '../icons.js';
 import {
-  PM_URL,
   SCHEMA_SPEC,
   parseRichText,
   serializeRichText,
@@ -69,7 +68,7 @@ const MOD = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl';
 const loadProseMirror = (() => {
   let promise;
   return () => {
-    promise ??= import(PM_URL);
+    promise ??= import('da-y-wrapper');
     return promise;
   };
 })();

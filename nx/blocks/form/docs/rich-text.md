@@ -51,9 +51,10 @@ keeps the schema-less result. Without a schema, both converters behave as before
 
 [`fields/richtext.js`](../fields/richtext.js):
 
-- **ProseMirror is not bundled in nexter.** It is lazily imported from da.live's
-  `deps/da-y-wrapper/dist/index.js` (`PM_URL`), the same bundle the canvas and
-  quick-edit use, so the browser shares one cached copy. Undo/redo require
+- **ProseMirror is not bundled in nexter.** It is lazily imported through the
+  bare `da-y-wrapper` specifier, which the host page's import map resolves. On
+  da.live that is the same bundle the canvas and quick-edit use, so the browser
+  shares one cached copy. Undo/redo require
   da-live to export `prosemirror-history` from that bundle; without it the
   field still works and only history shortcuts are skipped.
 - Toolbar, ordered by priority since the last tools overflow first: a
@@ -123,7 +124,7 @@ only shares ProseMirror itself.
 
 ## Testing
 
-Unit tests replace the da.live import with `test/nx/blocks/form/fields/mocks/pm.js`,
+Unit tests replace the `da-y-wrapper` import with `test/nx/blocks/form/fields/mocks/pm.js`,
 which re-exports the ProseMirror npm packages (dev dependencies only) under the
 da-y-wrapper names:
 
