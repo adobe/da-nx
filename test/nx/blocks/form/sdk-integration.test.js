@@ -151,7 +151,7 @@ describe('SDK state shape', () => {
     expect(engine.getState().document.data.heroImage).to.equal(href);
   });
 
-  it('writes image fields as HTML images so EDS ingests them, and round-trips their URLs', () => {
+  it('writes image fields as HTML images in asset blocks, and round-trips their URLs', () => {
     const schema = {
       type: 'object',
       properties: {
@@ -160,7 +160,7 @@ describe('SDK state shape', () => {
     };
     const engine = createEngine({ schema, document: validDoc() });
     [
-      './media_example.png',
+      './media_1a2b3c.png',
       'https://content.da.live/org/site/drafts/.page/hero.png',
       'https://delivery.example.com/assets/hero.avif?smartcrop=wide&width=1920',
     ].forEach((href) => {
@@ -170,6 +170,8 @@ describe('SDK state shape', () => {
       expect(error).to.equal(undefined);
       const img = new DOMParser().parseFromString(html, 'text/html').querySelector('img');
       expect(img?.getAttribute('src')).to.equal(href);
+      const id = img.closest('main > div > div').classList[1];
+      expect(html).to.include(`self://asset#${id}`);
       expect(convertHtmlToJson({ html }).json.data.heroImage).to.equal(href);
     });
 
