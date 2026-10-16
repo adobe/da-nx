@@ -10,8 +10,9 @@ page itself, instead of in the widget's own dialog. da-nx owns the contract; the
    evidence. A host that can locate the finding calls `event.preventDefault()`. If nobody claims it, or the suggestion has
    no evidence, the widget opens its own dialog (unchanged behaviour). Items with only a `check` keep opening the check
    dialog.
-3. The host resolves the evidence on the page, draws it through the quick-edit iframe (see below), and talks back to the chat
-   with the existing `CHAT_EVENT` / `PANEL_EVENT` events.
+3. The host resolves the evidence on the page, draws it through the quick-edit iframe (see below) and opens a popover that
+   only explains the failure (title, summary, context, previous/next failure on the same element). The da.live canvas popover
+   has no Apply or Add to chat actions; suggestions are generated from the chat card instead.
 
 ## `EvalFinding`
 
@@ -58,7 +59,7 @@ Suggestions without evidence fall back to their original dialog and are not clai
 
 ## Add to chat pill
 
-The host adds a finding to the chat input with `CHAT_EVENT.ADD_TO_CHAT`:
+A host can add a finding to the chat input with `CHAT_EVENT.ADD_TO_CHAT` (the da.live popover no longer does):
 
 ```js
 { key: 'eval-finding', id: 'eval-<finding.id>', type: 'evaluation-finding', name: <title>, description: <details> }
@@ -80,7 +81,7 @@ Other pill types are unchanged.
 
 ## Applying a finding
 
-The host doesn't edit the document. Apply sends a plain instruction (element, current text, replacement) to the chat, and the
-agent edits through its AEM/DA tools (`da_get_source` → confirm → `da_update_source`). That needs an AO manifest with authoring
+The host doesn't edit the document. A host that offers an apply action sends a plain instruction (element, current text,
+replacement) to the chat, and the agent edits through its AEM/DA tools (`da_get_source` → confirm → `da_update_source`). That needs an AO manifest with authoring
 tools, such as `experience-workspace`. A user whose default manifest is evaluation-only (for example `governance`) gets
 "no authoring capability"; select the manifest with the `ew.coworkerManifest` flag or `?nx-chat-ao-manifest=`.
