@@ -21,7 +21,7 @@ import '../shared/popover/popover.js';
 const style = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
 
-const PREFLIGHT_TIMEOUT = 60000;
+const PREFLIGHT_TIMEOUT = 5 * 60 * 1000;
 
 const { codeBase } = getConfig();
 const NX_BASE = new URL('../../', import.meta.url).href.replace(/\/$/, '');
