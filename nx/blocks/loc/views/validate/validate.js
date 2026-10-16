@@ -8,6 +8,8 @@ import {
   createSnapshotPrefix,
   fetchConfig,
   getProjectBasePath,
+  isSourceDetectEnabled,
+  resolveSourceLang,
 } from '../../utils/utils.js';
 import { getFragmentUrls } from './validate-utils.js';
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
@@ -136,9 +138,39 @@ class NxLocValidate extends LitElement {
 
       notChecked = this._urls.filter((url) => !url.status);
     }
+
+    await this.updateSourceMessage();
+  }
+
+  async detectSource() {
+    const enabled = isSourceDetectEnabled(await this.findConfigValue('source.language.detect'));
+    if (!enabled) return {};
+
+    const langs = this._configSheet.languages?.data || [];
+    const configured = await this.findConfigValue('source.language');
+    const found = langs.find((row) => row.name === configured);
+    const defaultSourceLang = found
+      && { name: found.name, code: found.code, location: found.location };
+    const urls = this._urls.filter((url) => url.checked).map((url) => url.pathname);
+
+    return resolveSourceLang({ langs, urls, defaultSourceLang });
+  }
+
+  async updateSourceMessage() {
+    const { error } = await this.detectSource();
+    if (error) {
+      this._sourceError = error;
+      this._message = { type: 'error', text: error };
+    } else if (this._sourceError) {
+      if (this._message?.text === this._sourceError) this._message = undefined;
+      this._sourceError = undefined;
+    }
   }
 
   async getSourcePrefix() {
+    const detected = await this.detectSource();
+    if (detected.detected) return detected.sourceLang.location;
+
     const sourceLang = await this.findConfigValue('source.language');
     if (!sourceLang) return undefined;
     const foundLang = this._configSheet.languages.data.find((row) => row.name === sourceLang);
@@ -154,6 +186,9 @@ class NxLocValidate extends LitElement {
     if (checked.length < 1) {
       return { message: { type: 'error', text: 'Please select at least one URL.' } };
     }
+
+    const { error } = await this.detectSource();
+    if (error) return { message: { type: 'error', text: error } };
 
     const defaultLocation = await this.getSourcePrefix();
     const langs = this._configSheet?.languages?.data;
@@ -185,6 +220,7 @@ class NxLocValidate extends LitElement {
   handleChanged(url) {
     url.checked = !url.checked;
     this._urls = [...this._urls];
+    this.updateSourceMessage();
   }
 
   get notReady() {

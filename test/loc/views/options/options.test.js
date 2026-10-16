@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import '../../../../nx/blocks/loc/views/options/options.js';
+import { filterLangsBySource, formatLangs, finalizeOptions } from '../../../../nx/blocks/loc/views/options/utils/utils.js';
 
 // Dynamic-expression import (not a literal string) so @web/dev-server-import-maps
 // does not rewrite this to ...?wds-import-map=0. See test/nx2/utils/api.test.js.
@@ -143,5 +144,86 @@ describe('NxLocOptions - loadConnectorServiceOptions', () => {
     await el.loadConnectorServiceOptions();
 
     expect(el._serviceOptions).to.equal(undefined);
+  });
+});
+
+describe('filterLangsBySource', () => {
+  const lang = (name, location, actions, extra = {}) => {
+    const orderedActions = actions.map((value) => ({ value, name: value }));
+    return { name, location, orderedActions, activeAction: orderedActions[0], ...extra };
+  };
+
+  const langs = () => [
+    lang('Global English', '/global', ['rollout', 'skip']),
+    lang('EU English', '/eu', ['rollout', 'skip']),
+    lang('Dutch', '/nl-nl', ['translate', 'skip'], { source: '/en-nl' }),
+    lang('German', '/de', ['translate', 'rollout', 'skip']),
+  ];
+  const names = (result) => result.map((row) => row.name);
+
+  it('keeps rollout only for the row whose location is the root', () => {
+    const result = filterLangsBySource({ langs: langs(), sourceLocation: '/eu', defaultLocation: '/global' });
+    expect(names(result)).to.deep.equal(['EU English']);
+  });
+
+  it('keeps translate for rows whose source is the root', () => {
+    const result = filterLangsBySource({ langs: langs(), sourceLocation: '/en-nl', defaultLocation: '/global' });
+    expect(names(result)).to.deep.equal(['Dutch']);
+    expect(result[0].orderedActions.map((a) => a.value)).to.deep.equal(['translate', 'skip']);
+  });
+
+  it('uses the default location for rows without a source', () => {
+    const result = filterLangsBySource({ langs: langs(), sourceLocation: '/global', defaultLocation: '/global' });
+    expect(names(result)).to.deep.equal(['Global English', 'German']);
+  });
+
+  it('keeps rollout on a row when translate is kept for it', () => {
+    const result = filterLangsBySource({ langs: langs(), sourceLocation: '/global', defaultLocation: '/global' });
+    const german = result.find((row) => row.name === 'German');
+    expect(german.orderedActions.map((a) => a.value)).to.deep.equal(['translate', 'rollout', 'skip']);
+  });
+
+  it('resets the active action to the first remaining action', () => {
+    const result = filterLangsBySource({
+      langs: [lang('German', '/de', ['translate', 'rollout', 'skip'])],
+      sourceLocation: '/de',
+      defaultLocation: '/global',
+    });
+    expect(result[0].orderedActions.map((a) => a.value)).to.deep.equal(['rollout', 'skip']);
+    expect(result[0].activeAction.value).to.equal('rollout');
+  });
+
+  it('does not mutate the supplied rows', () => {
+    const input = langs();
+    filterLangsBySource({ langs: input, sourceLocation: '/eu', defaultLocation: '/global' });
+    expect(input).to.have.length(4);
+    expect(input[0].orderedActions).to.have.length(2);
+  });
+});
+
+describe('blank locales cells', () => {
+  const rows = () => ([
+    {
+      name: 'Dutch', code: 'nl', source: '/en-nl', location: '/nl-nl', locales: '', actions: 'Translate, Skip',
+    },
+    { name: 'EU Rollout', code: 'en', location: '/eu', locales: '/en-nl, /en-de', actions: 'Rollout, Skip' },
+  ]);
+
+  it('formatLangs turns a blank locales cell into undefined and still splits real ones', () => {
+    const [dutch, eu] = formatLangs(rows(), {});
+    expect(dutch.locales).to.equal(undefined);
+    expect(eu.locales.map((l) => l.code)).to.deep.equal(['/en-nl', '/en-de']);
+  });
+
+  it('finalizeOptions does not throw for a translate row with a blank locales cell', () => {
+    const langs = formatLangs(rows(), {}).filter((lang) => lang.name === 'Dutch');
+    const config = { service: { name: 'Google', envs: { prod: {} } } };
+    const options = { 'translation.service.all.env': 'prod' };
+
+    const { langs: result } = finalizeOptions(config, options, langs, [{ suppliedPath: '/en-nl/a' }]);
+
+    expect(result).to.have.length(1);
+    expect(result[0].action).to.equal('translate');
+    expect(result[0].locales).to.equal(undefined);
   });
 });

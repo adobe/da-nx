@@ -1,7 +1,14 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
-import { fetchConfig } from '../../utils/utils.js';
-import { getAllActions, formatLangs, formatConfig, finalizeOptions, getCustomOptions } from './utils/utils.js';
+import { fetchConfig, isSourceDetectEnabled, resolveSourceLang } from '../../utils/utils.js';
+import {
+  getAllActions,
+  formatLangs,
+  formatConfig,
+  finalizeOptions,
+  getCustomOptions,
+  filterLangsBySource,
+} from './utils/utils.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -17,6 +24,7 @@ class NxLocOptions extends LitElement {
     _actions: { state: true },
     _message: { state: true },
     _serviceOptions: { state: true },
+    _detectedSource: { state: true },
   };
 
   connectedCallback() {
@@ -50,12 +58,39 @@ class NxLocOptions extends LitElement {
     // Langs have information inside them
     this._siteLangs = formatLangs(sheets.languages.data, config);
 
+    if (isSourceDetectEnabled(config['source.language.detect'])) {
+      this.detectSource(options);
+    }
+
     // Distill down available lang actions into a single list.
     this._actions = getAllActions(this._siteLangs);
 
     this.updateOptions();
     // Not awaited - service options fill in once the network round-trip resolves.
     this.loadConnectorServiceOptions();
+  }
+
+  detectSource(options) {
+    const defaultSourceLang = options['source.language'];
+    const { sourceLang, detected, error } = resolveSourceLang({
+      langs: this._siteLangs,
+      urls: this.project.urls,
+      defaultSourceLang,
+    });
+
+    if (error) {
+      this._message = { text: error, type: 'error' };
+      return;
+    }
+    if (!detected) return;
+
+    options['source.language'] = sourceLang;
+    this._detectedSource = sourceLang;
+    this._siteLangs = filterLangsBySource({
+      langs: this._siteLangs,
+      sourceLocation: sourceLang.location,
+      defaultLocation: defaultSourceLang?.location,
+    });
   }
 
   updateOptions() {
@@ -397,6 +432,12 @@ class NxLocOptions extends LitElement {
           <p class="detail-card-heading">Sources</p>
           <p>${this.project.urls.length}</p>
         </div>
+        ${this._detectedSource ? html`
+          <div class="detail-card detail-card-source">
+            <p class="detail-card-heading">Source</p>
+            <p>${this._detectedSource.location}</p>
+          </div>
+        ` : nothing}
         <div class="detail-card detail-card-languages">
           <p class="detail-card-heading">Languages</p>
           <p>${this.langCount}</p>

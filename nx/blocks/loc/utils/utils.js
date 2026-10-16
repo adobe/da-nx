@@ -280,6 +280,78 @@ export async function fetchConfig(org, site) {
   return options;
 }
 
+export function isSourceDetectEnabled(value) {
+  return String(value ?? '').trim().toLowerCase() === 'true';
+}
+
+export function normalizeLocation(location) {
+  const trimmed = String(location ?? '').trim().replace(/\/+$/, '');
+  return trimmed || '/';
+}
+
+function getLocaleList(locales) {
+  if (!locales) return [];
+  const list = typeof locales === 'string' ? locales.split(',') : locales;
+  return list
+    .map((locale) => (typeof locale === 'string' ? locale : locale.code))
+    .map((locale) => locale?.trim())
+    .filter(Boolean)
+    .map(normalizeLocation);
+}
+
+function buildSourceLang({ root, langs, defaultSourceLang }) {
+  const byLocation = langs.find((lang) => (
+    lang.location && normalizeLocation(lang.location) === root
+  ));
+  if (byLocation) return { name: byLocation.name, code: byLocation.code, location: root };
+
+  const byLocale = langs.find((lang) => getLocaleList(lang.locales).includes(root));
+  if (byLocale) return { name: `${byLocale.name} (${root})`, code: byLocale.code, location: root };
+
+  return { name: root, code: defaultSourceLang?.code, location: root };
+}
+
+/**
+ * Work out a project's source language from the folder its URLs live in.
+ *
+ * @param {Object} config
+ * @param {Object[]} config.langs the language rows (location, source, locales, name, code)
+ * @param {(string|Object)[]} config.urls paths, or objects with `suppliedPath` / `pathname`
+ * @param {Object} [config.defaultSourceLang] the configured source language
+ * @returns {{ sourceLang?: Object, detected?: boolean, error?: string }}
+ *  `detected` is false when no URL matches a root and the configured source is returned.
+ */
+export function resolveSourceLang({ langs = [], urls = [], defaultSourceLang }) {
+  const roots = [
+    ...langs.flatMap((lang) => [lang.location, lang.source]),
+    defaultSourceLang?.location,
+  ]
+    .filter(Boolean)
+    .map(normalizeLocation)
+    .filter((root) => root !== '/');
+  const uniqueRoots = [...new Set(roots)].sort((a, b) => b.length - a.length);
+
+  const matched = new Set();
+  urls.forEach((url) => {
+    const path = typeof url === 'string' ? url : (url.suppliedPath ?? url.pathname);
+    if (!path) return;
+    const root = findSourceLocation({
+      path: path.replace(/\.(html|json)$/, ''),
+      locations: uniqueRoots,
+    });
+    if (root) matched.add(root);
+  });
+
+  if (matched.size > 1) {
+    return { error: `URLs come from more than one source root (${[...matched].join(', ')}). Create a separate project for each root.` };
+  }
+
+  if (matched.size === 0) return { sourceLang: defaultSourceLang, detected: false };
+
+  const [root] = matched;
+  return { sourceLang: buildSourceLang({ root, langs, defaultSourceLang }), detected: true };
+}
+
 // BEFORE TIMES
 
 export function getHashDetails(hash) {
