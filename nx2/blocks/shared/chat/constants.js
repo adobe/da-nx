@@ -12,11 +12,12 @@ export const MENU_OPTIONS = {
 
 export const ICON_NAMES = {
   add: 's2-icon-add-20-n',
-  newChat: 's2-icon-coworker-20-n',
+  coworker: 's2-icon-coworker-20-n',
   clear: 's2-icon-removecircle-20-n',
   close: 's2-icon-splitleft-20-n',
   send: 's2-icon-arrowupsend-20-n',
   stop: 's2-icon-stop-20-n',
   up: 's2-icon-chevronup-20-n',
   mic: 's2-icon-microphone-20-n',
+  newChat: 's2-icon-chatnew-20-n',
 };
