@@ -92,6 +92,8 @@ function langs2Tasks(langs) {
 let token;
 
 export const dnt = { addDnt };
+export const saveLangConcurrency = 3;
+export const supportsManagedStatus = true;
 export { getGlaasFilename } from './api.js';
 
 export async function isConnected(service) {
@@ -218,7 +220,7 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, s
     sendMessage({ text: `Sending multimodal task: ${localesString}.` });
     task.status = 'uploading';
     updateLangTask(task, task.langs);
-    await saveState();
+    await saveState(undefined, { waitForSave: true });
 
     const logRequest = shouldLogGLaaSRequests() ? logMultimodalRequest : undefined;
     logRequest?.('translate-all-send', {
@@ -252,7 +254,7 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, s
         sendMessage({ text: `Multimodal upload failed: ${uploaded.error}`, type: 'error' });
         task.error = (task.error || 0) + 1;
         updateLangTask(task, task.langs);
-        await saveState();
+        await saveState(undefined, { waitForSave: true });
         return;
       }
       allAssets.push(...uploaded.assets);
@@ -275,20 +277,20 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, s
       sendMessage({ text: `Error creating multimodal task for: ${localesString}.`, type: 'error' });
       task.error = (task.error || 0) + 1;
       updateLangTask(task, task.langs);
-      await saveState();
+      await saveState(undefined, { waitForSave: true });
       return;
     }
 
     task.sent = taskUrls.length;
     task.status = 'created';
     updateLangTask(task, task.langs);
-    await saveState();
+    await saveState(undefined, { waitForSave: true });
     await prepareTargetPreview(task, taskUrls, service);
     sendMessage();
   } else if (task.status === 'uploaded') {
     task.status = 'created';
     updateLangTask(task, task.langs);
-    await saveState();
+    await saveState(undefined, { waitForSave: true });
     sendMessage();
   }
 }
@@ -324,7 +326,7 @@ async function sendTask(service, suppliedTask, urls, actions, { org, site } = {}
       return;
     }
     updateLangTask(task, task.langs);
-    await saveState();
+    await saveState(undefined, { waitForSave: true });
   }
 
   // Only add assets if task is not uploaded
@@ -335,7 +337,7 @@ async function sendTask(service, suppliedTask, urls, actions, { org, site } = {}
     await addTaskAssets(service, task, taskUrls, actions);
     await prepareTargetPreview(task, taskUrls, service);
     updateLangTask(task, task.langs);
-    await saveState();
+    await saveState(undefined, { waitForSave: true });
   }
 
   // Only wrap up task if everything is uploaded
@@ -343,13 +345,13 @@ async function sendTask(service, suppliedTask, urls, actions, { org, site } = {}
     sendMessage({ text: `Updating task for: ${localesString}.` });
     await updateStatus(service, token, task);
     updateLangTask(task, task.langs);
-    await saveState();
+    await saveState(undefined, { waitForSave: true });
     sendMessage();
   }
 }
 
 async function fetchTaskSubtasks({
-  service, glaasToken, taskConfig, task, langs, pageAssets,
+  service, glaasToken, taskConfig, task, langs, pageAssets, statusOptions,
 }) {
   return task.workflowName === 'MULTIMODAL'
     ? getMultimodalV2TaskStatus({
@@ -358,8 +360,11 @@ async function fetchTaskSubtasks({
       task: taskConfig,
       langs,
       pageAssets,
+      statusOptions,
     })
-    : getTask({ ...taskConfig, token: glaasToken, service });
+    : getTask({
+      ...taskConfig, token: glaasToken, service, signal: statusOptions?.signal,
+    });
 }
 
 async function recreateTaskAndFetchSubtasks({
@@ -373,6 +378,7 @@ async function recreateTaskAndFetchSubtasks({
   org,
   site,
   workflowMeta,
+  statusOptions,
 }) {
   const taskUrls = task.urlPaths
     ? urls.filter((url) => task.urlPaths.includes(url.suppliedPath))
@@ -396,6 +402,7 @@ async function recreateTaskAndFetchSubtasks({
     task,
     langs,
     pageAssets: pageAssetsFromTaskLangs(task),
+    statusOptions,
   });
 }
 
@@ -478,7 +485,7 @@ export async function sendAllLanguages({
 }
 
 export async function getStatusAll({
-  org, site, service, langs, urls, actions,
+  org, site, service, langs, urls, actions, signal: callerSignal,
 }) {
   const baseConf = { ...service, token };
   const { sendMessage, saveState } = actions;
@@ -486,19 +493,96 @@ export async function getStatusAll({
   normalizeAllLanguages(langs, urls);
   const incompleteLangs = langs.filter((lang) => {
     const langStatus = lang?.translation?.status;
-    return langStatus !== 'complete' && langStatus !== 'cancelled';
+    return !['translated', 'complete', 'cancelled'].includes(langStatus);
   });
   const incompleteTasks = Object.values(langs2Tasks(incompleteLangs));
 
   if (incompleteTasks.length === 0) {
-    sendMessage({ text: 'All languages complete or canceled.' });
-    return;
+    sendMessage({ text: 'All languages translated, complete or canceled.' });
+    return undefined;
   }
 
-  for (const task of incompleteTasks) {
+  const controller = new AbortController();
+  const { signal } = controller;
+  const cancel = () => controller.abort(callerSignal.reason);
+  callerSignal?.addEventListener('abort', cancel, { once: true });
+  if (callerSignal?.aborted) cancel();
+  let rateLimitedUntil;
+  const errors = new Map();
+  const progress = new Map();
+  const reportProgress = (task, update) => {
+    signal.throwIfAborted();
+    progress.set(task, { ...update, pausedUntil: Date.now() + update.waitMs });
+    const counts = [...progress.values()];
+    const done = counts.reduce((sum, item) => sum + item.done, 0);
+    const total = counts.reduce((sum, item) => sum + item.total, 0);
+    const waitMs = Math.max(0, ...counts.map((item) => item.pausedUntil - Date.now()));
+    const pause = waitMs > 0 ? `GLaaS rate limited; retrying in ${Math.ceil(waitMs / 1000)}s. ` : '';
+    sendMessage({ text: `${pause}Checking GLaaS assets: ${done}/${total}.` });
+  };
+  const onRateLimit = ({ waitMs }) => {
+    signal.throwIfAborted();
+    rateLimitedUntil = Date.now() + waitMs;
+    controller.abort();
+  };
+  const errorKey = (task, code) => JSON.stringify([task.workflow, task.name, code]);
+  const applySubtask = (task, subtask) => {
+    signal.throwIfAborted();
+    const key = errorKey(task, subtask.targetLocale);
+    const subtaskLang = task.langs.find((lang) => lang.code === subtask.targetLocale);
+    if (subtask.error) {
+      errors.set(key, {
+        text: `Could not check GLaaS status for ${subtask.targetLocale}: ${subtask.error}`,
+      });
+    } else if (subtaskLang?.translation?.workflowTasks?.[task.name]) {
+      errors.delete(key);
+      const workflowTask = subtaskLang.translation.workflowTasks[task.name];
+      const workflowStatus = workflowTask.status;
+      if (subtask.status === 'FAILED') {
+        workflowStatus.status = 'failed';
+      } else if (subtask.status === 'CANCEL_REQUESTED' || subtask.status === 'CANCELLED') {
+        workflowStatus.status = 'cancelled';
+      } else {
+        const completed = subtask.assets.filter((asset) => asset.status === 'COMPLETED');
+        const translated = workflowTask.workflowName === 'MULTIMODAL'
+          ? countMultimodalTranslatedPages(workflowTask.pageAssets, subtask.assets)
+          : completed.length;
+        workflowStatus.translated = translated;
+        if (workflowStatus.sent !== 0 && workflowStatus.status !== 'complete'
+          && translated === workflowStatus.sent) {
+          workflowStatus.status = 'translated';
+        }
+      }
+      aggregateWorkflowStatus(subtaskLang);
+    }
+  };
+  const getStatusOptions = (task) => ({
+    onProgress: (update) => reportProgress(task, update),
+    onRateLimit,
+    onLanguage: (subtask) => applySubtask(task, subtask),
+    signal,
+  });
+  const fetchStatuses = async (tasks) => {
+    const settled = await Promise.allSettled(tasks.map((task) => getMultimodalV2TaskStatus({
+      service,
+      token: baseConf.token,
+      task,
+      langs: task.langs,
+      pageAssets: pageAssetsFromTaskLangs(task),
+      statusOptions: getStatusOptions(task),
+    })));
+    const failed = settled.find((result) => result.status === 'rejected');
+    if (failed) throw failed.reason;
+    return new Map(tasks.map((task, index) => [task, settled[index].value]));
+  };
+  const checkTask = async (task, prefetched) => {
+    signal.throwIfAborted();
     const targetLocales = task.langs.map((lang) => lang.code);
     const localesString = targetLocales.join(', ');
-    sendMessage({ text: `Getting status for ${localesString}` });
+    if (task.workflowName !== 'MULTIMODAL') {
+      sendMessage({ text: `Getting status for ${localesString}` });
+    }
+    const statusOptions = getStatusOptions(task);
 
     const taskConfig = {
       ...baseConf,
@@ -509,13 +593,14 @@ export async function getStatusAll({
 
     const workflowMeta = task.langs[0]?.translation?.workflowTasks?.[task.name];
     const taskPageAssets = pageAssetsFromTaskLangs(task);
-    let subtasks = await fetchTaskSubtasks({
+    let subtasks = prefetched.get(task) || await fetchTaskSubtasks({
       service,
       glaasToken: baseConf.token,
       taskConfig,
       task,
       langs: task.langs,
       pageAssets: taskPageAssets,
+      statusOptions,
     });
     if (subtasks.status === 404) {
       subtasks = await recreateTaskAndFetchSubtasks({
@@ -529,42 +614,49 @@ export async function getStatusAll({
         org,
         site,
         workflowMeta,
+        statusOptions,
       });
     }
 
+    if (subtasks.error || !Array.isArray(subtasks.json)) {
+      errors.set(errorKey(task, localesString), {
+        text: `Could not check GLaaS status for ${localesString}: ${subtasks.error || `HTTP ${subtasks.status}`}.`,
+      });
+      return;
+    }
     for (const subtask of subtasks.json) {
-      const subtaskLang = task.langs.find((lang) => lang.code === subtask.targetLocale);
-      if (subtaskLang?.translation?.workflowTasks?.[task.name]) {
-        const workflowTask = subtaskLang.translation.workflowTasks[task.name];
-        const workflowStatus = workflowTask.status;
-
-        if (subtask.status === 'FAILED') {
-          workflowStatus.status = 'failed';
-        } else if (subtask.status === 'CANCEL_REQUESTED' || subtask.status === 'CANCELLED') {
-          workflowStatus.status = 'cancelled';
-        } else {
-          const completed = subtask.assets.filter((asset) => asset.status === 'COMPLETED');
-          const translated = workflowTask.workflowName === 'MULTIMODAL'
-            ? countMultimodalTranslatedPages(workflowTask.pageAssets, subtask.assets)
-            : completed.length;
-          workflowStatus.translated = translated;
-          if (workflowStatus.sent !== 0 && workflowStatus.status !== 'complete') {
-            const isTranslated = translated === workflowStatus.sent;
-            if (isTranslated) workflowStatus.status = 'translated';
-          }
-        }
-      }
+      applySubtask(task, subtask);
     }
+  };
+  try {
+    const multimodalTasks = incompleteTasks.filter((task) => task.workflowName === 'MULTIMODAL');
+    const prefetched = await fetchStatuses(multimodalTasks);
+    for (const task of incompleteTasks) {
+      await checkTask(task, prefetched);
+    }
+    signal.throwIfAborted();
+    if (incompleteLangs.some((lang) => lang.translation?.workflowTasks)) {
+      await saveState(undefined, { waitForSave: true });
+    }
+    if (errors.size) throw new Error([...errors.values()].map(({ text }) => text).join(' '));
     sendMessage();
-  }
-  let hasUpdates = false;
-  for (const lang of incompleteLangs) {
-    if (lang.translation?.workflowTasks) {
-      aggregateWorkflowStatus(lang);
-      hasUpdates = true;
+    return undefined;
+  } catch (error) {
+    if (rateLimitedUntil !== undefined && !callerSignal?.aborted) {
+      await saveState(undefined, { waitForSave: true });
+      callerSignal?.throwIfAborted();
+      if (errors.size) throw new Error([...errors.values()].map(({ text }) => text).join(' '));
+      return {
+        message: {
+          type: 'warning',
+          text: `GLaaS rate limit (HTTP 429). Use Get Status again after ${new Date(rateLimitedUntil).toLocaleString()}.`,
+        },
+      };
     }
+    throw error;
+  } finally {
+    callerSignal?.removeEventListener('abort', cancel);
   }
-  if (hasUpdates) await saveState();
 }
 
 export async function saveItems({

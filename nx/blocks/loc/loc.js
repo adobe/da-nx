@@ -104,7 +104,12 @@ class NxLoc extends LitElement {
    */
   async handleSave({ detail }) {
     const previous = this._saveQueue || Promise.resolve();
-    const current = previous.then(() => this.saveProject(detail));
+    const current = previous.then(() => {
+      if (detail.path !== undefined && `/${this.org}/${this.site}${this.path}` !== detail.path) {
+        throw new DOMException('The active project changed.', 'AbortError');
+      }
+      return this.saveProject(detail);
+    });
     this._saveQueue = current.catch(() => {});
     return current;
   }
@@ -117,6 +122,7 @@ class NxLoc extends LitElement {
    * @returns {Promise<void>}
    */
   async saveProject(detail) {
+    const { path, org, site } = this;
     const { mergeUrls, ...data } = detail.data;
 
     // Combine the cached project with the new data
@@ -132,10 +138,15 @@ class NxLoc extends LitElement {
 
     this._message = { text: 'Saving...' };
 
-    const { message, hash, project } = await updateProject({ path: this.path, updates });
+    const { message, hash, project } = await updateProject({ path, updates });
 
+    if (detail.path !== undefined
+      && (this.path !== path || this.org !== org || this.site !== site)) return;
     // Set a message even if its undefined
     this._message = message;
+    if (detail.waitUntil && !project) {
+      throw new Error(message?.text || 'Could not save translation progress.');
+    }
 
     // Cache new project details
     if (project) this._project = project;
@@ -151,7 +162,11 @@ class NxLoc extends LitElement {
 
     if (hash) window.location.hash = hash;
 
-    if (data) await this.handleSave({ detail });
+    if (data) {
+      const saved = this.handleSave({ detail });
+      if (detail.waitUntil) detail.waitUntil(saved);
+      else await saved;
+    }
   }
 
   renderView() {
@@ -176,7 +191,7 @@ class NxLoc extends LitElement {
     }
 
     if (this.view === 'translate') {
-      return html`<nx-loc-translate .project=${this._project} .message=${this._message} @action=${this.handleAction}></nx-loc-translate>`;
+      return html`<nx-loc-translate .path=${`/${this.org}/${this.site}${this.path}`} .project=${this._project} .message=${this._message} @action=${this.handleAction}></nx-loc-translate>`;
     }
 
     if (this.view === 'rollout') {

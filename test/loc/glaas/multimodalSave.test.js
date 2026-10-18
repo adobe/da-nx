@@ -13,6 +13,7 @@ import {
   fetchMultimodalImage,
   normalizeImages,
   preserveTranslatedImagesForOverwrite,
+  resetV2AssetCacheForTests,
 } from '../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
 import { LOC_SRC_ATTR } from '../../../nx/blocks/loc/connectors/glaas/dnt.js';
 import { DA_ETC } from '../../../nx/utils/utils.js';
@@ -24,6 +25,10 @@ function docWithMain(mainHtml) {
 }
 
 describe('GLaaS multimodal save', () => {
+  beforeEach(() => {
+    resetV2AssetCacheForTests();
+  });
+
   it('strips content.da.live org/site segments from image URL', () => {
     expect(siteRelativePathFromImageUrl(
       'https://content.da.live/adobecom/da-dc/acrobat/online/test/.acrobat-pro/report.png',
@@ -38,6 +43,7 @@ describe('GLaaS multimodal save', () => {
 
   afterEach(() => {
     sinon.restore();
+    resetV2AssetCacheForTests();
   });
 
   describe('DA source save path', () => {
