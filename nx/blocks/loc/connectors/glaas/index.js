@@ -96,6 +96,25 @@ export const saveLangConcurrency = 3;
 export const supportsManagedStatus = true;
 export { getGlaasFilename } from './api.js';
 
+export function startStatusTimer() {
+  if (!shouldLogGLaaSRequests()) return undefined;
+  const startedAt = new Date().toISOString();
+  const started = performance.now();
+  const scope = 'get-status-including-saves';
+  logMultimodalRequest('api-status-start', JSON.stringify({ startedAt, scope }));
+  return ({ aborted = false } = {}) => {
+    const elapsedMs = Math.round(performance.now() - started);
+    logMultimodalRequest('api-status-finished', JSON.stringify({
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      elapsedMs,
+      elapsedSeconds: elapsedMs / 1000,
+      scope,
+      aborted,
+    }));
+  };
+}
+
 export async function isConnected(service) {
   token = await getGlaasToken(service);
   if (token) {
