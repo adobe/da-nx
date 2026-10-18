@@ -27,7 +27,7 @@ function logMultimodalDebug(logRequest, step, detail, { level = 'info' } = {}) {
   // eslint-disable-next-line no-console -- dev GLaaS handoff (glaas.log)
   fn('[GLaaS multimodal]', step, detail);
 }
-const GLAAS_API_LIMIT_PER_MINUTE = 200;
+const GLAAS_API_LIMIT_PER_MINUTE = 300;
 const GLAAS_API_WINDOW_MS = 60_000;
 const GLAAS_API_MIN_INTERVAL_MS = Math.ceil(
   GLAAS_API_WINDOW_MS / GLAAS_API_LIMIT_PER_MINUTE,
