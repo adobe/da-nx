@@ -27,7 +27,7 @@ function logMultimodalDebug(logRequest, step, detail, { level = 'info' } = {}) {
   // eslint-disable-next-line no-console -- dev GLaaS handoff (glaas.log)
   fn('[GLaaS multimodal]', step, detail);
 }
-const GLAAS_API_LIMIT_PER_MINUTE = 300;
+const GLAAS_API_LIMIT_PER_MINUTE = 200;
 const GLAAS_API_WINDOW_MS = 60_000;
 const GLAAS_API_MIN_INTERVAL_MS = Math.ceil(
   GLAAS_API_WINDOW_MS / GLAAS_API_LIMIT_PER_MINUTE,
@@ -42,7 +42,7 @@ const PUT_URL_RETRY_WAIT_MS = 1000;
 const PUT_URL_429_FALLBACK_DELAY_MS = Math.ceil(GLAAS_API_WINDOW_MS / 2) + 250;
 const V2_ASSET_CACHE_TTL_MS = 30 * 60_000;
 const V2_ASSET_MAX_RETRIES = 4;
-const V2_ASSET_RETRY_WAIT_MS = 2000;
+const V2_ASSET_RETRY_WAIT_MS = 30_000;
 const V2_ASSET_RETRY_JITTER = 0.25;
 const v2AssetCache = new Map();
 
@@ -563,8 +563,7 @@ async function requestV2Asset(service, token, task, assetName, { onRetry, signal
         },
         retryDelay: (response) => {
           const serverWait = retryAfterMs(response);
-          const delay = serverWait > 0
-            ? serverWait + 250 : V2_ASSET_RETRY_WAIT_MS * (2 ** attempt);
+          const delay = (serverWait > 0 ? serverWait : V2_ASSET_RETRY_WAIT_MS) + 250;
           return delay + Math.floor(Math.random() * delay * V2_ASSET_RETRY_JITTER);
         },
       });
