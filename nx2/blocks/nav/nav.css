@@ -149,6 +149,10 @@
   display: flex;
 }
 
+:host([data-has-actions]) .action-area > ul > li:not(:has(nx-profile)) {
+  display: none;
+}
+
 slot[name="actions"] {
   display: contents;
 }

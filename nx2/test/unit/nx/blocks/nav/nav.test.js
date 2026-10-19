@@ -110,6 +110,23 @@ describe('nav search slot', () => {
     expect(slot.assignedElements()).to.deep.equal([field]);
   });
 
+  it('replaces fragment actions while retaining the profile and restoring the fallback', async () => {
+    await mount('/');
+    const fallback = document.createElement('ul');
+    fallback.innerHTML = '<li><button>Default action</button></li><li><nx-profile class="is-loaded"></nx-profile></li>';
+    nav._actions = fallback;
+    await nav.updateComplete;
+    const actions = document.createElement('button');
+    actions.slot = 'actions';
+    nav.append(actions);
+    await settleSlots();
+    expect(getComputedStyle(fallback.children[0]).display).to.equal('none');
+    expect(getComputedStyle(fallback.children[1]).display).not.to.equal('none');
+    actions.remove();
+    await settleSlots();
+    expect(getComputedStyle(fallback.children[0]).display).not.to.equal('none');
+  });
+
   it('reclaims empty search space and keeps actions at their natural width', async () => {
     await mount('/');
     const brand = nav.shadowRoot.querySelector('.brand-cluster');
