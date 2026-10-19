@@ -28,14 +28,14 @@ Each of these has caught a real bug or been requested in review.
 | Area | Cases |
 |---|---|
 | `isConnected` / `connect` | Connected, not connected, missing org/site, no IMS token |
-| `sendAllLanguages` | Happy path: uploads, creates, sets `created`, `sent`, persists ids via `saveState`; uses `options['source.language'].code`; not connected → error message and no mutation; upload failure → **one** rolled-up error and `lang.translation` untouched; job-creation failure (error or response without an id) leaves lang retryable, with no `lang.translation` and no persisted ids; per-language submissions: only the languages that succeeded get `translation`; file-name flattening escapes underscores and rejects duplicates; more than five urls |
+| `sendAllLanguages` | Happy path: uploads, creates, sets `created`, `sent`, persists ids via `saveState`; uses `options['source.language'].code` and defaults when the option is absent; not connected → error message and no mutation; upload failure → **one** rolled-up error and `lang.translation` untouched; job-creation failure (error or response without an id) leaves lang retryable, with no `lang.translation` and no persisted ids; per-language submissions: only the languages that succeeded get `translation`; file-name flattening escapes underscores and rejects duplicates; more than five urls |
 | `getStatusAll` | Each vendor state → host status; skips `complete`/`cancelled`; groups by job id for multi-job calls; **paginates** (more rows than one page; assert the real pagination param names); unknown state leaves status unchanged; non-2xx leaves state unchanged |
 | `saveItems` | Downloads, calls `removeDnt`, calls `saveFn`; **six or more urls** (beyond the concurrency cap); a failed download sets `url.status = 'error'`; approve/delivered only after `url.status === 'success'`; failure of approve surfaces; matches by id, not substring |
 | `cancelTranslation` (if exported) | Success → `cancelled`; vendor rejects → `{ ok: false }`; already done → `{ ok: true, skipped: true }`; `cancelPending` path |
 | `serviceOptions` (if exported) | Returns `{ value, label }` list; empty and error cases |
 | Config mapping | Any `translation.service.custom.*` / config → request mapping |
 | Retry | 429/5xx retried (use shared `fetchWithRetry`), 401 re-auth once (archetype A) |
-| Language-code mapping | Each mapped and unsupported code |
+| Language-code mapping | Each mapped and unsupported code; unsupported codes refuse the submission before any vendor write; a failed languages lookup does not block |
 | Persistence | Reload simulation: rebuild `service` from persisted `{ value }` strings and confirm status/save still work |
 
 For error paths, assert both the message (`type: 'error'`, includes the vendor message) and that state is what you intend (persisted `error` vs untouched).

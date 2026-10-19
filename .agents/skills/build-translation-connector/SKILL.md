@@ -126,7 +126,7 @@ These are the mistakes reviewers actually caught. Each cost a review round.
 - **Don't clear an error you just showed.** `sendMessage` is a single slot: `sendMessage()` after a failure erases it. Only clear on full success, and roll multiple per-language errors into one message.
 - **Skip `complete` and `cancelled` languages when polling.** Vendors keep reporting delivered work as done forever, which would flip a saved language back to `translated` and trigger a re-save.
 - **Only call vendor "approve/delivered" after the Experience Workspace save reports `url.status === 'success'`.** `saveFn` resolves even when the write failed. Check and surface the failure of the delivered/approve call.
-- **Group languages by job before computing status.** Dependent (`waitingFor`) languages are sent later as separate jobs, so `langs` can span several jobs. Send the language's own source code (`options['source.language'].code`), never a hardcoded default.
+- **Group languages by job before computing status.** Dependent (`waitingFor`) languages are sent later as separate jobs, so `langs` can span several jobs. Send the language's own source code (`options['source.language']?.code`, falling back to `en-US` only when the option is absent).
 - **Use two L's: `cancelled`.** The UI and `utils/steps.js` treat only `cancelled` as terminal. Lionbridge's `statusFor` emits `canceled`; do not copy that.
 - **Don't put the vendor credential in `Authorization`.** da-translate reserves it for the IMS token. Use `x-<name>-authorization` (archetype A) or let the proxy resolve the key (archetype B).
 - **Never store secrets in `localStorage`.** Cached tokens use `sessionStorage` through the shared `utils/auth.js`.

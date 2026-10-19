@@ -184,7 +184,8 @@ function checkDaNx(root, name) {
   if (/['"]Authorization['"]\s*:/.test(all) && /DA_TRANSLATE/.test(all)) {
     record('WARN', scope, 'Sets an Authorization header on proxied calls; it is reserved for the IMS token (use x-<name>-authorization)');
   }
-  if (/'en-US'/.test(all)) record('WARN', scope, "Hardcoded 'en-US'; use options['source.language'].code");
+  if (/'en-US'/.test(all) && !/source\.language/.test(all)) record('WARN', scope, "Hardcoded 'en-US'; use options['source.language']?.code");
+  if (/options\[\s*'source\.language'\s*\]\.code/.test(all)) record('WARN', scope, "Unguarded options['source.language'].code; the option is optional, use ?.code with an en-US fallback");
   if (!/\.\s*value\b/.test(all)) record('WARN', scope, 'Never reads a persisted { value }; confirm state is read as service.<key>?.value');
 
   const send = functionBody(indexSrc, 'sendAllLanguages');
