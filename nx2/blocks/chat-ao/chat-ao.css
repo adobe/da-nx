@@ -52,7 +52,9 @@
 
   & > div {
     display: inline-flex;
+    align-items: center;
     flex-shrink: 0;
+    gap: 4px;
     margin-inline-start: auto;
     white-space: nowrap;
   }
@@ -496,6 +498,16 @@
   font-size: var(--s2-component-m-regular-font-size);
 }
 
+.nx-new-chat.nx-new-chat {
+  border: 2px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-800);
+
+  &:hover:not(:disabled) {
+    background: var(--s2-gray-100);
+    border-color: var(--s2-gray-400);
+  }
+}
+
 .chat-form-wrap {
   max-width: 720px;
   width: calc(100% - 2 * var(--s2-spacing-200));
@@ -629,7 +641,37 @@
   }
 }
 
+.chat-input-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2-spacing-100);
+  min-width: 0;
+  font-size: var(--s2-body-size-s);
+
+  &.coworker-chat::before {
+    content: "";
+    flex: 0 0 20px;
+    height: 20px;
+    margin-block-start: calc(var(--s2-spacing-100) + (1.5em - 20px) / 2);
+    background-color: var(--s2-gray-600);
+    mask: url('/img/icons/s2-icon-coworker-20-n.svg') center / contain no-repeat;
+    pointer-events: none;
+  }
+
+  & + .chat-actions[data-has-items]:not([data-voice-listening]) .chat-send,
+  &:has(.chat-input:not(:placeholder-shown)) + .chat-actions:not([data-voice-listening]) .chat-send {
+    display: flex;
+  }
+
+  & + .chat-actions[data-has-items]:not([data-voice-listening]) .chat-voice,
+  &:has(.chat-input:not(:placeholder-shown)) + .chat-actions:not([data-voice-listening]) .chat-voice {
+    display: none;
+  }
+}
+
 .chat-input {
+  flex: 1;
+  min-width: 0;
   field-sizing: content;
   padding: var(--s2-spacing-100) 0;
   font-family: inherit;
@@ -644,16 +686,6 @@
     opacity: 0.5;
     cursor: not-allowed;
     background: inherit;
-  }
-
-  &:not(:placeholder-shown) + .chat-actions:not([data-voice-listening]) .chat-send,
-  & + .chat-actions[data-has-items]:not([data-voice-listening]) .chat-send {
-    display: flex;
-  }
-
-  &:not(:placeholder-shown) + .chat-actions:not([data-voice-listening]) .chat-voice,
-  & + .chat-actions[data-has-items]:not([data-voice-listening]) .chat-voice {
-    display: none;
   }
 }
 

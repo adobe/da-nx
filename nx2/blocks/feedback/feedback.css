@@ -1,0 +1,10 @@
+@media (width < 600px) {
+  .nx-action-btn-quiet {
+    width: 32px;
+    padding: 7px;
+  }
+
+  .feedback-label {
+    display: none;
+  }
+}
