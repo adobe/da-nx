@@ -3,7 +3,7 @@ import { loadStyle } from '../../../../nx2/utils/utils.js';
 import '../../../../nx2/blocks/shared/menu/menu.js';
 import '../../../../nx2/blocks/shared/dialog/dialog.js';
 import { icon } from '../icons.js';
-import { CANCELLED } from '../utils/assets.js';
+import { ASSET_TYPES, CANCELLED } from '../utils/assets.js';
 import {
   ASSET_KINDS, describeAsset, extensionOf, isAssetHref, splitHrefForDisplay,
 } from '../utils/media.js';
@@ -478,7 +478,9 @@ class FormAsset extends LitElement {
     if (this.error) return html`<p class="form-field-error">${this.error}</p>`;
     if (this._altTextError) return html`<p class="form-field-error">${this._altTextError}</p>`;
     if (this.sources && !this._availableSources.length && !this.disabled) {
-      const noSource = this.assetType === 'file' ? MESSAGES.noFileSource : MESSAGES.noSource;
+      const noSource = this.assetType === ASSET_TYPES.file
+        ? MESSAGES.noFileSource
+        : MESSAGES.noSource;
       return html`<p class="form-field-description">${noSource}</p>`;
     }
     if (this.description) return html`<p class="form-field-description">${this.description}</p>`;
