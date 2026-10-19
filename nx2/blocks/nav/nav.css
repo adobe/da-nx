@@ -79,8 +79,6 @@
   min-width: 0;
   max-width: 100%;
   display: none;
-  align-items: center;
-  gap: 4px;
 
   ul {
     height: 100%;
@@ -141,20 +139,8 @@
   }
 
   &:has(nx-profile.is-loaded) {
-    display: flex;
+    display: unset;
   }
-}
-
-:host([data-has-actions]) .action-area {
-  display: flex;
-}
-
-:host([data-has-actions]) .action-area > ul > li:not(:has(nx-profile)) {
-  display: none;
-}
-
-slot[name="actions"] {
-  display: contents;
 }
 
 :host(:not([data-has-search])) .action-area {
