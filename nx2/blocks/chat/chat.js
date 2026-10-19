@@ -276,6 +276,18 @@ class NxChat extends LitElement {
   }
 
   _handleMenuSelect({ detail: { id } }) {
+    return this.openAddAction(id);
+  }
+
+  async openAddAction(id) {
+    await this.updateComplete;
+    const input = this.shadowRoot.querySelector('.chat-input');
+    if (!input) throw new Error('The assistant composer is not ready.');
+    if (this._pendingPrompt && !this._pendingPrompt.autoSend) {
+      input.value = this._pendingPrompt.text;
+      input.setSelectionRange(input.value.length, input.value.length);
+      this._pendingPrompt = null;
+    }
     if (id === MENU_OPTIONS.FILES) this._openFilePicker();
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._slashMenu.insertSlash();

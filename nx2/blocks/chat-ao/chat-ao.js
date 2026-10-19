@@ -376,6 +376,11 @@ export default class NxChatAo extends LitElement {
   }
 
   _handleMenuSelect({ detail: { id } }) {
+    return this.openAddAction(id);
+  }
+
+  async openAddAction(id) {
+    await this.updateComplete;
     if (id === MENU_OPTIONS.FILES) this._openFilePicker();
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._slashMenu.insertSlash();
