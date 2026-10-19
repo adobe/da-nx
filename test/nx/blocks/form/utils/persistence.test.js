@@ -199,7 +199,8 @@ describe('attachPersistence', () => {
   const assetNode = (key) => ({
     key,
     kind: 'object',
-    semanticType: 'asset',
+    typeRef: 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.json',
+    typeName: 'image',
     children: [{ key: 'src', kind: 'string' }, { key: 'altText', kind: 'string' }],
   });
 

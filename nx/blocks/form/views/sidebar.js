@@ -43,9 +43,9 @@ class Sidebar extends LitElement {
     this.onSelect?.(pointer, 'sidebar');
   }
 
-  // Assets are objects too, but they are single fields and not groups.
+  // Values of a `$ref` type, such as assets, are objects but single fields, not groups.
   _canRender(node) {
-    if (node?.semanticType === 'asset') return false;
+    if (node?.typeRef !== undefined) return false;
     return node?.kind === 'object' || node?.kind === 'array';
   }
 

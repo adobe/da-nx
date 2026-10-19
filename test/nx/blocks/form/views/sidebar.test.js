@@ -3,7 +3,8 @@ import '../../../../../nx/blocks/form/views/sidebar.js';
 
 const asset = (pointer) => ({
   kind: 'object',
-  semanticType: 'asset',
+  typeRef: 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.json',
+  typeName: 'image',
   pointer,
   label: 'Image',
   children: [

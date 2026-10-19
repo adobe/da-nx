@@ -3,8 +3,6 @@ import {
   validateSchema,
   convertJsonToHtml,
   convertHtmlToJson,
-  FILE_SCHEMA_URL,
-  IMAGE_SCHEMA_URL,
 } from '@adobe/da-sc-sdk';
 
 export {
@@ -12,6 +10,4 @@ export {
   validateSchema,
   convertJsonToHtml,
   convertHtmlToJson,
-  FILE_SCHEMA_URL,
-  IMAGE_SCHEMA_URL,
 };

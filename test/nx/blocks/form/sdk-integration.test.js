@@ -3,9 +3,11 @@ import {
   createEngine,
   convertJsonToHtml,
   convertHtmlToJson,
-  IMAGE_SCHEMA_URL,
 } from '../../../../nx/deps/da-sc-sdk/dist/index.js';
 import { attachPersistence } from '../../../../nx/blocks/form/utils/persistence.js';
+
+// The SDK still accepts the GitHub URLs of its types until schemas.da.live serves them.
+const IMAGE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.json';
 
 // Integration tests for the form block ↔ da-sc-sdk contract, exercising
 // the REAL bundled SDK at `nx/deps/da-sc-sdk/dist/index.js`.
@@ -141,14 +143,14 @@ describe('SDK state shape', () => {
     const schema = {
       type: 'object',
       properties: {
-        heroImage: { $ref: IMAGE_SCHEMA_URL, title: 'Hero image' },
+        heroImage: { $ref: IMAGE_URL, title: 'Hero image' },
       },
     };
     const asset = { src: './media_example.png', altText: 'A hero' };
     const engine = createEngine({ schema, document: validDoc({ heroImage: asset }) });
     const node = findByPointer(engine.getState().model.root, '/data/heroImage');
     expect(node.kind).to.equal('object');
-    expect(node.semanticType).to.equal('asset');
+    expect(node.typeName).to.equal('image');
     expect(node.value).to.deep.equal(asset);
     expect(node.children.map((child) => child.key)).to.deep.equal(['src', 'altText']);
     expect(engine.getState().document.data.heroImage).to.deep.equal(asset);
@@ -157,7 +159,7 @@ describe('SDK state shape', () => {
   it('reports a filled asset without a file on its src (read by editor.js)', () => {
     const schema = {
       type: 'object',
-      properties: { heroImage: { $ref: IMAGE_SCHEMA_URL } },
+      properties: { heroImage: { $ref: IMAGE_URL } },
     };
     const engine = createEngine({ schema, document: validDoc({ heroImage: { altText: 'A hero' } }) });
     expect(engine.getState().validation.errors['/data/heroImage/src']?.message).to.be.a('string');
@@ -167,7 +169,7 @@ describe('SDK state shape', () => {
     const schema = {
       type: 'object',
       properties: {
-        heroImage: { $ref: IMAGE_SCHEMA_URL },
+        heroImage: { $ref: IMAGE_URL },
       },
     };
     const engine = createEngine({ schema, document: validDoc() });
@@ -355,7 +357,7 @@ describe('SDK × attachPersistence (end-to-end)', () => {
     const save = async ({ html }) => { calls.push(html); };
     const schema = {
       type: 'object',
-      properties: { heroImage: { $ref: IMAGE_SCHEMA_URL } },
+      properties: { heroImage: { $ref: IMAGE_URL } },
     };
 
     const editor = createEngine({ schema, document: validDoc(), onChange: () => p?.notify() });

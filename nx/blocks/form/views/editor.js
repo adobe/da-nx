@@ -10,13 +10,16 @@ import '../fields/date.js';
 import '../fields/asset.js';
 import { icon } from '../icons.js';
 
-// Assets are objects with a fixed `src` (and `altText` for images), edited as one field.
+// The SDK types edited as one asset field, an object with `src` (and `altText` for images).
+const ASSET_TYPE_NAMES = new Set(['image', 'file']);
+
 function isAsset(node) {
-  return node?.semanticType === 'asset';
+  return ASSET_TYPE_NAMES.has(node?.typeName);
 }
 
+// A value of a `$ref` type is one field even though it is an object.
 function isStructured(node) {
-  return !isAsset(node) && (node?.kind === 'object' || node?.kind === 'array');
+  return node?.typeRef === undefined && (node?.kind === 'object' || node?.kind === 'array');
 }
 
 // Removing the file clears the whole asset, alt text included.
@@ -44,7 +47,7 @@ function describeIssue(issue) {
       return 'is missing a "type" declaration';
     case 'external-ref':
       return `uses external $ref "${ref}" (only same-document refs and the image and file definitions are supported)`;
-    case 'asset-ref-keywords':
+    case 'type-ref-keywords':
       return `sets ${(issue.details?.properties ?? []).map((k) => `"${k}"`).join(', ')} next to the asset $ref (only title, description, readOnly, default and, on an image, required: ["altText"] are allowed)`;
     case 'unresolved-ref':
       return `uses $ref "${ref}" which does not resolve in the document`;
@@ -240,7 +243,7 @@ class Editor extends LitElement {
         .description=${hideLabel ? '' : (node.description ?? '')}
         .value=${src}
         .altText=${altText}
-        .assetType=${node.assetType}
+        .assetType=${node.typeName}
         .altRequired=${!!altNode?.required}
         .altError=${this._error(`${pointer}/altText`)}
         .sources=${this.assetSources}

@@ -3,11 +3,16 @@ import '../../../../../nx/blocks/form/views/editor.js';
 
 const tick = () => new Promise((resolve) => { requestAnimationFrame(resolve); });
 
+// The SDK still accepts the GitHub URLs of its types.
+const IMAGE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.json';
+const FILE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/file/v1.json';
+
 const mediaNode = (extra = {}) => ({
   kind: 'object',
   pointer: '/data/heroImage',
   label: 'Hero image',
-  semanticType: 'asset',
+  typeRef: IMAGE_URL,
+  typeName: 'image',
   children: [
     { kind: 'string', key: 'src', pointer: '/data/heroImage/src', label: 'Source' },
     { kind: 'string', key: 'altText', pointer: '/data/heroImage/altText', label: 'Alt text' },
@@ -76,7 +81,7 @@ describe('nx-editor primitive controls', () => {
   });
 
   it('passes the asset type, a required alt text and its error to the field', async () => {
-    const node = mediaNode({ assetType: 'image', value: { src: './media_example.png' } });
+    const node = mediaNode({ value: { src: './media_example.png' } });
     node.children[1] = { ...node.children[1], required: true };
     const el = await mountEditor(objectRoot([node]));
     el.state = {
@@ -93,7 +98,8 @@ describe('nx-editor primitive controls', () => {
 
   it('passes a file type without a required alt text', async () => {
     const node = mediaNode({
-      assetType: 'file',
+      typeRef: FILE_URL,
+      typeName: 'file',
       value: { src: './spec.pdf' },
       children: [{ kind: 'string', key: 'src', pointer: '/data/heroImage/src', label: 'Source' }],
     });
@@ -305,7 +311,7 @@ describe('nx-editor schema issues', () => {
 
   it('describes keywords next to the asset $ref', async () => {
     const text = await issuesText([{
-      reason: 'asset-ref-keywords',
+      reason: 'type-ref-keywords',
       pointer: '/data/hero',
       details: { ref: 'https://example.com/asset.json', properties: ['required', 'properties'] },
     }]);

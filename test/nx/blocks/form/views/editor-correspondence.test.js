@@ -1,6 +1,9 @@
 import { expect } from '@esm-bundle/chai';
-import { IMAGE_SCHEMA_URL, createEngine } from '../../../../../nx/deps/da-sc-sdk/dist/index.js';
+import { createEngine } from '../../../../../nx/deps/da-sc-sdk/dist/index.js';
 import '../../../../../nx/blocks/form/views/editor.js';
+
+// The SDK still accepts the GitHub URLs of its types until schemas.da.live serves them.
+const IMAGE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.json';
 
 // Component-level UI tests for nx-editor. The engine is the real bundled SDK
 // (same one the form block ships); we feed its getState() into the component
@@ -44,7 +47,7 @@ const groupAt = (el, ptr) => allAt(el, ptr)
   .find((n) => n.matches('fieldset.form-node, section.form-node, article.form-array-item'));
 
 function expectedTag(node) {
-  if (node.semanticType === 'asset') return 'FORM-ASSET';
+  if (node.typeName === 'image' || node.typeName === 'file') return 'FORM-ASSET';
   if (Array.isArray(node.enumValues)) return 'FORM-PICKER';
   if (node.kind === 'boolean') return 'FORM-CHECKBOX';
   if (node.kind === 'number' || node.kind === 'integer') return 'FORM-NUMBER-FIELD';
@@ -61,7 +64,7 @@ const FEATURE_SCHEMA = {
     title: { type: 'string', title: 'Title', minLength: 3, maxLength: 255 },
     status: { type: 'string', title: 'Status', enum: ['draft', 'in-review', 'published', 'archived'], default: 'draft' },
     body: { type: 'string', title: 'Body', 'x-semantic-type': 'long-text' },
-    heroImage: { $ref: IMAGE_SCHEMA_URL, title: 'Hero image' },
+    heroImage: { $ref: IMAGE_URL, title: 'Hero image' },
     priority: { type: 'integer', title: 'Priority', minimum: 1, maximum: 10 },
     featured: { type: 'boolean', title: 'Featured', default: false },
     tags: { type: 'array', title: 'Tags', minItems: 1, items: { type: 'string', title: 'Tag' } },
@@ -122,7 +125,7 @@ describe('nx-editor loads', () => {
 describe('nx-editor renders the model state', () => {
   function walk(el, node) {
     expect(allAt(el, node.pointer).length, `element for ${node.pointer}`).to.be.greaterThan(0);
-    if (node.kind === 'object' && node.semanticType !== 'asset') {
+    if (node.kind === 'object' && node.typeRef === undefined) {
       (node.children ?? []).forEach((child) => walk(el, child));
       return;
     }
