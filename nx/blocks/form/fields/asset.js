@@ -167,10 +167,18 @@ class FormAsset extends LitElement {
   }
 
   async _runSource(source) {
+    const request = { assetType: this.assetType };
     try {
-      if (!source.fileTypes) return await source.select({});
+      if (!source.fileTypes) {
+        return await source.select(request);
+      }
+
       const file = await this._pickFile(source.fileTypes);
-      return file ? await source.select({ file }) : CANCELLED;
+      if (!file) {
+        return CANCELLED;
+      }
+
+      return await source.select({ ...request, file });
     } catch (error) {
       return { error: error?.message || MESSAGES.failed };
     }

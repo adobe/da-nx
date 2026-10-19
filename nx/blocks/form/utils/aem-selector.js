@@ -1,4 +1,5 @@
 import '../../../../nx2/blocks/shared/dialog/dialog.js';
+import { createImagesOnlyFilterSchema } from '../../../../nx2/utils/aem-assets/filter-schema.js';
 import { resolveAssetSelection } from '../../../../nx2/utils/aem-assets/selection.js';
 import { buildAssetSelectorProps } from '../../../../nx2/utils/aem-assets/selector-props.js';
 import { loadAssetSelector } from '../../../../nx2/utils/aem-assets/selector.js';
@@ -12,6 +13,7 @@ const DIALOG_TITLE = 'AEM Assets';
 const AEM_ERRORS = {
   signIn: 'Sign in to select a file from AEM Assets.',
   unavailable: 'The AEM Assets selector could not be loaded.',
+  notImage: 'Only images can be selected here.',
 };
 
 // The user asked for AEM Assets, so a sign-in redirect is expected here.
@@ -23,14 +25,19 @@ async function getTokenOrSignIn() {
   return ims?.accessToken?.token;
 }
 
-function toAssetResult({ asset, repoConfig }) {
+function toAssetResult({ asset, repoConfig, imagesOnly }) {
   if (!asset) {
     return CANCELLED;
   }
 
-  const { href, alt, error } = resolveAssetSelection({ asset, repoConfig });
+  const {
+    href, alt, isImage, error,
+  } = resolveAssetSelection({ asset, repoConfig });
   if (error) {
     return { error };
+  }
+  if (imagesOnly && !isImage) {
+    return { error: AEM_ERRORS.notImage };
   }
 
   const name = asset['repo:name'] ?? asset.name;
@@ -51,15 +58,16 @@ function openSelectorDialog() {
 
 function waitForSelection({ selectors, ui, selection }) {
   const { dialog, container } = ui;
-  const { imsToken, repoConfig } = selection;
+  const { imsToken, repoConfig, imagesOnly } = selection;
   return new Promise((resolve) => {
     dialog.addEventListener('close', () => resolve(CANCELLED), { once: true });
     selectors.renderAssetSelector(container, buildAssetSelectorProps({
       imsToken,
       repoConfig,
+      filterSchema: imagesOnly ? createImagesOnlyFilterSchema() : undefined,
       onClose: () => resolve(CANCELLED),
       handleSelection: ([asset] = []) => {
-        resolve(toAssetResult({ asset, repoConfig }));
+        resolve(toAssetResult({ asset, repoConfig, imagesOnly }));
       },
     }));
   });
@@ -67,6 +75,7 @@ function waitForSelection({ selectors, ui, selection }) {
 
 export async function selectAemAsset({
   repoConfig,
+  imagesOnly = false,
   loadSelector = loadAssetSelector,
 }) {
   const imsToken = await getTokenOrSignIn();
@@ -86,7 +95,7 @@ export async function selectAemAsset({
   }
 
   const ui = openSelectorDialog();
-  const selection = { imsToken, repoConfig };
+  const selection = { imsToken, repoConfig, imagesOnly };
   try {
     return await waitForSelection({ selectors, ui, selection });
   } finally {

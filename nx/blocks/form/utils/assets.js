@@ -8,6 +8,9 @@ import {
 import { SUPPORTED_FILES } from '../../../../nx2/utils/utils.js';
 import { extensionOf, isAssetHref } from './media.js';
 
+// The SDK type names of asset fields.
+export const ASSET_TYPES = Object.freeze({ image: 'image', file: 'file' });
+
 const INVALID_FILE_NAME = /[/\\?#]|^\.{1,2}$/;
 
 const UPLOAD_ERRORS = {
@@ -64,7 +67,7 @@ function uploadSource({ details }) {
     label: 'Upload',
     // Uploaded files reach the site only through the image media bus, so file fields
     // must reference published assets from AEM Assets instead.
-    assetTypes: ['image'],
+    assetTypes: [ASSET_TYPES.image],
     fileTypes: SUPPORTED_IMAGE_TYPES,
     select: ({ file }) => uploadFile({ details, file }),
   };
@@ -74,9 +77,9 @@ function aemAssetsSource({ repoConfig }) {
   return {
     id: SOURCE_IDS.aemAssets,
     label: 'AEM Assets',
-    select: async () => {
+    select: async ({ assetType }) => {
       const { selectAemAsset } = await import('./aem-selector.js');
-      return selectAemAsset({ repoConfig });
+      return selectAemAsset({ repoConfig, imagesOnly: assetType === ASSET_TYPES.image });
     },
   };
 }

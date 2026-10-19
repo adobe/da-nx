@@ -11,6 +11,7 @@ import {
 const AEM_ERRORS = {
   signIn: 'Sign in to select a file from AEM Assets.',
   unavailable: 'The AEM Assets selector could not be loaded.',
+  notImage: 'Only images can be selected here.',
 };
 
 const METADATA_KEY = 'http://ns.adobe.com/adobecloud/rel/metadata/asset';
@@ -29,6 +30,8 @@ const AUTHOR_DM_CONFIG = {
   isDmEnabled: true,
 };
 
+const groupKeys = ({ filterSchema }) => filterSchema.map(({ groupKey }) => groupKey);
+
 const IMAGE_ASSET = {
   'aem:formatName': 'jpeg',
   mimetype: 'image/jpeg',
@@ -44,6 +47,14 @@ const IMAGE_ASSET = {
   },
 };
 
+const PDF_ASSET = {
+  ...IMAGE_ASSET,
+  mimetype: 'application/pdf',
+  name: 'datasheet.pdf',
+  'repo:name': 'datasheet.pdf',
+  path: '/content/dam/site/datasheet.pdf',
+};
+
 function stubSelector() {
   const calls = [];
   const selectors = {
@@ -52,10 +63,11 @@ function stubSelector() {
   return { calls, loadSelector: async () => ({ selectors }) };
 }
 
-function start({ repoConfig = AUTHOR_PUBLISH_CONFIG, loadSelector } = {}) {
+function start({ repoConfig = AUTHOR_PUBLISH_CONFIG, imagesOnly, loadSelector } = {}) {
   const selector = stubSelector();
   const pick = selectAemAsset({
     repoConfig,
+    imagesOnly,
     loadSelector: loadSelector ?? selector.loadSelector,
   });
   return { pick, calls: selector.calls };
@@ -212,18 +224,12 @@ describe('selectAemAsset', () => {
     expect(openDialog()).to.equal(null);
   });
 
-  it('offers all file types and returns a selected PDF', async () => {
+  it('offers all file types by default and returns a selected PDF', async () => {
     const { pick, calls } = start();
     const { props } = await waitForRender(calls);
 
     expect(props.filterSchema).to.equal(undefined);
-    props.handleSelection([{
-      ...IMAGE_ASSET,
-      mimetype: 'application/pdf',
-      name: 'datasheet.pdf',
-      'repo:name': 'datasheet.pdf',
-      path: '/content/dam/site/datasheet.pdf',
-    }]);
+    props.handleSelection([PDF_ASSET]);
 
     const result = await pick;
     expect(result.name).to.equal('datasheet.pdf');
@@ -235,6 +241,30 @@ describe('selectAemAsset', () => {
     const { calls } = start({ repoConfig: { ...AUTHOR_DM_CONFIG, approvedOnly: true } });
     const { props } = await waitForRender(calls);
 
-    expect(props.filterSchema.map(({ groupKey }) => groupKey)).to.deep.equal(['AssetStatusGroup']);
+    expect(groupKeys(props)).to.deep.equal(['AssetStatusGroup']);
+  });
+
+  it('offers only images when asked to', async () => {
+    const { calls } = start({ imagesOnly: true });
+    const { props } = await waitForRender(calls);
+
+    expect(groupKeys(props)).to.deep.equal(['FileTypeGroup']);
+  });
+
+  it('combines the images-only filter with the approved filter', async () => {
+    const repoConfig = { ...AUTHOR_DM_CONFIG, approvedOnly: true };
+    const { calls } = start({ repoConfig, imagesOnly: true });
+    const { props } = await waitForRender(calls);
+
+    expect(groupKeys(props)).to.deep.equal(['AssetStatusGroup', 'FileTypeGroup']);
+  });
+
+  it('refuses a file that is not an image when asked for images only', async () => {
+    const { pick, calls } = start({ imagesOnly: true });
+    const { props } = await waitForRender(calls);
+
+    props.handleSelection([PDF_ASSET]);
+
+    await expectError(pick, AEM_ERRORS.notImage);
   });
 });

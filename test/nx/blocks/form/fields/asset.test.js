@@ -95,7 +95,7 @@ describe('form-asset', () => {
     expect(menu(field)).to.equal(null);
     button(field, 'Select').click();
     await settle(field);
-    expect(select.calledOnceWith({})).to.be.true;
+    expect(select.calledOnce).to.be.true;
   });
 
   it('waits for sources to load without explaining anything yet', async () => {
@@ -122,6 +122,14 @@ describe('form-asset', () => {
     button(field, 'Select').click();
     await settle(field);
     expect(select.calledOnce).to.be.true;
+  });
+
+  it('tells the source which asset type the field takes', async () => {
+    const select = sinon.fake.resolves(CANCELLED);
+    const field = await mount({ assetType: 'image', sources: [aem({ select })] });
+    button(field, 'Select').click();
+    await settle(field);
+    expect(select.firstCall.args[0]).to.deep.equal({ assetType: 'image' });
   });
 
   it('explains that files need AEM Assets when it is not set up', async () => {
@@ -304,7 +312,7 @@ describe('form-asset', () => {
     await settle(field);
 
     expect(input.accept).to.equal('image/png,application/pdf');
-    expect(select.calledOnceWith({ file: pdf })).to.be.true;
+    expect(select.calledOnceWith(sinon.match({ file: pdf }))).to.be.true;
     expect(changes).to.deep.equal(['https://x.test/spec.pdf']);
     expect(query(field, '.asset-url').textContent).to.equal('https://x.test/spec.pdf');
   });
