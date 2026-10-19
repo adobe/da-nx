@@ -21,7 +21,17 @@ import '../shared/popover/popover.js';
 const style = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
 
-const PREFLIGHT_TIMEOUT = 60000;
+const PREFLIGHT_TIMEOUT = 5 * 60 * 1000;
+
+// Publish-gate dialog copy for a non-success Preflight result: [message, details].
+// `undefined` = timed out / cancelled; `error` = checks could not run (cause in `message`).
+function preflightGateError(result) {
+  if (!result) return ['Preflight did not finish in time. Please run Preflight again before publishing.'];
+  if (result.status === 'error') {
+    return ['Preflight couldn\'t check this page. Please try again later or contact your administrator if the problem persists.', result.message];
+  }
+  return ['Preflight found issues. Resolve them in the Preflight panel, then publish again.'];
+}
 
 const { codeBase } = getConfig();
 const NX_BASE = new URL('../../', import.meta.url).href.replace(/\/$/, '');
@@ -185,7 +195,7 @@ class NXEwActions extends LitElement {
       this._cancelPreflight = finish;
       onStatus = (e) => {
         const { path, status, requestId: rid } = e.detail || {};
-        if (rid === requestId && path === fullpath) finish(status);
+        if (rid === requestId && path === fullpath) finish({ status, message: e.detail.message });
       };
       timer = setTimeout(() => finish(undefined), PREFLIGHT_TIMEOUT);
       document.addEventListener(PREFLIGHT_EVENT.STATUS, onStatus);
@@ -243,16 +253,18 @@ class NXEwActions extends LitElement {
   _env(kind) {
     const env = this._status?.[kind];
     if (!env) return { ok: false, url: null, time: null };
+    const aemPath = buildAemPathFromHashState(this._hashState);
+    const metaUrl = aemPath && this._resolveOpenUrl(kind === 'live' ? 'publish' : 'preview', aemPath);
     const branchUrl = getAemBranchHref({
-      aemPath: buildAemPathFromHashState(this._hashState),
+      aemPath,
       branch: this._branch,
       tier: kind,
       webPath: this._status.webPath,
     });
     return {
       ok: env.status === 200,
-      url: this._branchPath && this._branch === undefined
-        ? null : (env.url && branchUrl) || env.url || null,
+      url: metaUrl || (this._branchPath && this._branch === undefined
+        ? null : (env.url && branchUrl) || env.url || null),
       time: env.lastModified || null,
     };
   }
@@ -331,8 +343,11 @@ class NXEwActions extends LitElement {
     const pending = requestCanvasBranch({
       path: requestPath,
       signal: this._branchAbort.signal,
+      // Remove the Forms main fallback when https://github.com/adobe/da-live/issues/1445 is implemented.
       getLegacyBranch: () => (this._branchPath === requestPath
-        ? this._readLegacyBranch() : undefined),
+        ? this._readLegacyBranch() || (!this._hasBranchBridge
+          && window.location.pathname.replace(/\/$/, '') === '/form' ? 'main' : undefined)
+        : undefined),
     }).then((raw) => {
       const branch = getAemBranch(raw);
       if (this._branchPromise === pending && this._branchPath === requestPath) {
@@ -413,14 +428,14 @@ class NXEwActions extends LitElement {
     }
   }
 
-  async _showActionError(action, message) {
+  async _showActionError(action, message, details) {
     await Promise.all([
       import('../shared/dialog/dialog.js'),
       import(`${NX_BASE}/public/sl/components.js`),
     ]);
     this._busy = false;
     this._hasError = true;
-    this._dialog = { phase: 'error', error: { action, type: 'error', message } };
+    this._dialog = { phase: 'error', error: { action, type: 'error', message, details } };
   }
 
   async _runAemAction(action) {
@@ -428,25 +443,28 @@ class NXEwActions extends LitElement {
     if (!aemPath || this._busy) return;
     const versionPath = this._prepareDetails?.fullpath;
     const branchPath = this._branchPath;
+    const metaUrl = this._resolveOpenUrl(action, aemPath);
 
     this._dialog = undefined;
     this._busy = true;
 
     // Capture this document's branch before any save/preflight awaits or navigation.
-    if (!this._branchPromise || this._branchRequestPath !== this._branchPath) {
-      this._updateBranch();
-    }
     let branch;
-    try {
-      branch = await this._branchPromise;
-      if (branch === undefined) throw new Error('Canvas branch unavailable.');
-    } catch (error) {
-      if (error?.name === 'AbortError') {
-        this._busy = false;
+    if (!metaUrl) {
+      if (!this._branchPromise || this._branchRequestPath !== this._branchPath) {
+        this._updateBranch();
+      }
+      try {
+        branch = await this._branchPromise;
+        if (branch === undefined) throw new Error('Canvas branch unavailable.');
+      } catch (error) {
+        if (error?.name === 'AbortError') {
+          this._busy = false;
+          return;
+        }
+        await this._showActionError(action, 'Unable to resolve the preview branch. Please retry or reload the editor.');
         return;
       }
-      await this._showActionError(action, 'Unable to resolve the preview branch. Please retry or reload the editor.');
-      return;
     }
     if (!this.isConnected || this._branchPath !== branchPath) {
       this._busy = false;
@@ -465,11 +483,9 @@ class NXEwActions extends LitElement {
     }
 
     if (action === 'publish' && this._enforcePreflight) {
-      const status = await this.requestPreflight(versionPath);
-      if (status !== 'success') {
-        await this._showActionError(action, status === undefined
-          ? 'Preflight did not finish in time. Please run Preflight again before publishing.'
-          : 'Preflight found issues. Resolve them in the Preflight panel, then publish again.');
+      const result = await this.requestPreflight(versionPath);
+      if (result?.status !== 'success') {
+        await this._showActionError(action, ...preflightGateError(result));
         return;
       }
     }
@@ -487,7 +503,7 @@ class NXEwActions extends LitElement {
     }
 
     this._hasError = false;
-    const url = this._resolveOpenUrl(action, aemPath, result.url);
+    const url = metaUrl || result.url;
     await sidekickCacheBust(url);
     window.open(url, url);
     this._saveVersion({ action, path: versionPath });

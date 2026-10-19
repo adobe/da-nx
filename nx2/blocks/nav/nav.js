@@ -134,6 +134,10 @@ class NXNav extends LitElement {
     return getMetadata('nav-path') || this.path || DEFAULT_NAV_PATH;
   }
 
+  onSearchSlotChange({ target }) {
+    this.toggleAttribute('data-has-search', target.assignedElements().length > 0);
+  }
+
   updated() {
     if (!this._breadcrumbs) return;
     this._breadcrumbs.pathSegments = this._getSegments(this._hashState);
@@ -145,7 +149,7 @@ class NXNav extends LitElement {
         ${this._brand}
         ${this._breadcrumbs}
       </div>
-      <div class="nav-search"><slot name="search"></slot></div>
+      <div class="nav-search"><slot name="search" @slotchange=${this.onSearchSlotChange}></slot></div>
       <div class="action-area">
         ${this._actions}
       </div>
