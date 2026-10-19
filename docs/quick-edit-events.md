@@ -104,6 +104,12 @@ Block-title rows and metadata tables have no inline counterpart in the preview.
 Both hosts route their edits through scoped `SET_BODY` rerendering rather than
 requesting mini-editors for text consumed or removed by serialization.
 
+Both hosts resolve nested text to the outermost instrumented editable element.
+For example, a heading inside a blockquote opens a mini-editor containing the
+whole blockquote, not just the heading. This preserves quote/list wrappers and
+their other children when the iframe sends the edited node back, and keeps
+host-originated edits targeting the same indexed element.
+
 ### `SET_SELECTED_NODE` / `NODE_SELECT`
 
 Drive the selection-overlay feature: when a user clicks a block or image in the

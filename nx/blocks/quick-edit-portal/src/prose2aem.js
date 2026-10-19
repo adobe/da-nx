@@ -1,19 +1,7 @@
 /* eslint-disable import/prefer-default-export */
 import prose2aem from 'https://da.live/blocks/shared/prose2aem.js';
 import { getImageDocumentVersion } from '../../../../nx2/public/utils/quick-edit-images.js';
-
-const EDITABLES = [
-  { selector: 'h1', nodeName: 'H1' },
-  { selector: 'h2', nodeName: 'H2' },
-  { selector: 'h3', nodeName: 'H3' },
-  { selector: 'h4', nodeName: 'H4' },
-  { selector: 'h5', nodeName: 'H5' },
-  { selector: 'h6', nodeName: 'H6' },
-  { selector: 'p', nodeName: 'P' },
-  { selector: 'ol', nodeName: 'OL' },
-  { selector: 'ul', nodeName: 'UL' },
-];
-const EDITABLE_SELECTORS = EDITABLES.map((edit) => edit.selector).join(', ');
+import { EDITABLE_SELECTORS } from './editable-elements.js';
 
 function isOutermostWysiwygEditable(el) {
   if (!el?.matches?.(EDITABLE_SELECTORS)) return false;
