@@ -25,7 +25,7 @@ The public description is the aem.live page. This file is the precise version ta
 
 **`options`** is the project options sheet, including `options['source.language']` (`{ code, name, location }`) and `options.service`.
 
-**`langs`** are target languages for this call: `{ code, name, location, translation?, waitingFor?, source? }`. Dependent languages (`waitingFor`) are held back, then sent later as separate jobs with `options['source.language']` overridden, so `langs` can span several jobs across calls. Treat `lang.translation` as possibly `undefined`: `lang.translation ??= {}` before writing.
+**`langs`** are target languages for this call: `{ code, name, location, translation?, waitingFor?, source? }`. Dependent languages (`waitingFor`) are held back, then sent later as separate jobs with `options['source.language']` overridden, so `langs` can span several jobs across calls. Treat `lang.translation` as possibly `undefined`: `lang.translation ??= {}` before writing. Dependent languages are the exception: the host pre-creates `translation: { status: 'not started' }` and deletes `waitingFor` before calling you. If the submission fails and you send an error message, the host reverts the language to `waiting` so the next status check retries (a thrown error is also caught and reported). `conf.langsWithUrls` is not refreshed for that call. Make `getStatusAll` skip entries that have no vendor id.
 
 **`urls`** are source pages: `{ daBasePath, daDestPath, ext, hasExt, content, suppliedPath, aemHref, … }`. `content` is already DNT-wrapped HTML (or JSON text when the path contains `.json`). Per-language alternate sources live in `langsWithUrls`; most connectors ignore them because the host passes the right `urls` for each call.
 
@@ -71,7 +71,7 @@ Counts (`lang.translation.sent`, `.translated`, `.saved`) drive the progress tex
 3. Upload sources; on any failure, `sendMessage({ type: 'error' })` **once** (roll up per-file errors) and return without touching `lang.translation`, so the user can retry.
 4. Create/submit the project. Only after the vendor returns a valid id for a language, set that language's `translation.status = 'created'` and `sent = urls.length`. If creation fails or returns no id, do not create `lang.translation` for it (and persist no ids): the object is what enables "Get Status", so a failed submission must not be pollable.
 5. Persist ids with `saveState({ options })` (and `urls` if per-url ids).
-6. Return. **Do not poll for completion here.** The host triggers a first status check unless the last message was an error. `getStatusAll` does the polling. Instant-MT vendors still set `created` and let `getStatusAll` advance it.
+6. Return. **Do not poll for completion here.** The host does not call `getStatusAll` after `sendAllLanguages`. It only saves languages already marked `translated` or `complete`, and `getStatusAll` runs when the user clicks Get status (or after a cancel). Async vendors set `created` and let `getStatusAll` advance it. Instant-MT vendors whose result is ready on return set `translated` (plus whatever `saveItems` needs to fetch it), as the Google connector does.
 
 **`getStatusAll`**
 - Filter to languages not in `['complete', 'cancelled']`. Return early if none.

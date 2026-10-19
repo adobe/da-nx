@@ -158,7 +158,7 @@ export async function sendAllLanguages({
     method: 'POST',
     body: JSON.stringify({
       name: title,
-      sourceLanguage: toVendorLang(options['source.language'].code),
+      sourceLanguage: toVendorLang(options['source.language']?.code || 'en-US'),
       targetLanguages: langs.map((lang) => toVendorLang(lang.code)),
       fileIds: Object.values(fileIds),
     }),

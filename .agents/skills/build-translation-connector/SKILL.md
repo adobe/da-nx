@@ -66,7 +66,7 @@ Fill the operation table in the intake report: for each of create project, uploa
 Read [references/auth-and-proxy.md](references/auth-and-proxy.md). Default for new connectors: **route every call through da-translate** and keep credentials server-side.
 
 - OAuth or token-exchange vendors → archetype A (GlobalLink pattern).
-- Static API key vendors → archetype B (Lilt pattern): the key never reaches the browser; da-etc exposes only a boolean `/status`.
+- Static API key vendors → archetype B (Lilt pattern): the key never reaches the browser; da-etc exposes only a boolean `/status`. The archetype B template imports `checkConnection` from `nx/blocks/loc/utils/auth.js`, which isn't on `main` until a connector PR adds it (Lilt #789, or the Translated connector #877). Check `main` first; if it's missing, branch from one of those PRs rather than re-implementing it.
 - Do not copy the direct-to-vendor pattern from Lionbridge, Trados or Smartling for a new connector; it predates the proxy.
 
 ### 4. Present the plan
@@ -116,8 +116,8 @@ One PR per repo, cross-linked. Conventional Commit titles. Details and the PR bo
 
 These are the mistakes reviewers actually caught. Each cost a review round.
 
-- **`sendAllLanguages` must return after upload with status `created`.** Don't poll for completion inside it (DeepL's first draft capped at 30 s and marked slow jobs `error`). `getStatusAll` does the polling.
-- **Only create `lang.translation` for a language whose vendor submission succeeded.** If any step of job/submission creation fails for a locale (upload, create, or an unusable response with no id), leave that language's `translation` untouched and persist no ids for it. A `translation` object makes "Get Status" available, so a user must never be able to poll a project the vendor never received. Vendors that submit per language: set `created` only after that language's own id is returned, and report failures in one rolled-up message.
+- **`sendAllLanguages` must return after upload with status `created`.** Don't poll for completion inside it (DeepL's first draft capped at 30 s and marked slow jobs `error`). `getStatusAll` does the polling, run by the user's Get status click. The host doesn't call it after sending, so an instant-MT vendor whose result is ready on return should set `translated` instead (see the contract).
+- **Only create `lang.translation` for a language whose vendor submission succeeded.** If any step of job/submission creation fails for a locale (upload, create, or an unusable response with no id), leave that language's `translation` untouched and persist no ids for it. A `translation` object makes "Get Status" available, so a user must never be able to poll a project the vendor never received. Vendors that submit per language: set `created` only after that language's own id is returned, and report failures in one rolled-up message. Dependent (`waitingFor`) languages arrive with a host-created `translation: { status: 'not started' }`; on failure send the error message and the host reverts them to `waiting` for a retry, and `getStatusAll` must skip entries with no vendor id.
 - **Paginate every list call and follow the API's own cursor/page params.** GlobalLink fetched one page of 200 targets; Trados's first version used `offset/limit` which the API silently ignored (it wanted `skip/top`). Confirm the param names from the schema, then test with more rows than one page.
 - **Never match a result to a source page by substring or file name.** `ba.html` contains `a.html`. Persist an identifier map (`daBasePath → documentId/requestId`) at upload time and look results up by identifier.
 - **Flattened upload names must be collision-free.** Escape the separator char before collapsing paths so `/a/b_c` and `/a_b/c` can't collide, and reject duplicates.
