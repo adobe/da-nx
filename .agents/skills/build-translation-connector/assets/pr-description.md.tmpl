@@ -1,0 +1,37 @@
+## __Vendor__ translation connector
+
+- Vendor: __Vendor__ (__mt | tms | hybrid__)
+- API docs: __link__
+- Related PRs: __adobe/da-nx#N, adobe/da-translate#N, da-sites/da-etc#N__
+
+### Public docs
+
+| Page | Change |
+|---|---|
+| [__page title__](__link to the drafted or edited page__) | __what was added or changed__ |
+
+### Admin setup
+
+- Config keys: `translation.service.name = __name__`, plus __other keys__
+- Credentials: __where the key lives (static key, OAuth, per-tenant sheet)__
+
+### Verification
+
+- Unit tests and `check-connector.mjs`: __result__
+- Live run: __environment, languages, what was exercised__
+
+### Limitations
+
+- __Unsupported or deferred behavior__
+
+### Rollout
+
+- Deploy da-etc first, then da-translate, then da-nx
+
+<!-- Only when they apply, add:
+### Open questions for the vendor
+- __Undocumented statuses, billing behavior of test modes, etc.__
+
+### Host changes
+- __One line per shared `nx/blocks/loc` change that affects other connectors__
+-->

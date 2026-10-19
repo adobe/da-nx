@@ -10,7 +10,7 @@ The public pages live in Experience Workspace at org `adobe`, repo `aem-website`
 
 These paths are inferred from the public URLs. Verify them with the Experience Workspace tools or ask the user before relying on them.
 
-Do not edit published Experience Workspace content without confirmation. Draft the changes in the PR description or a scratch file, and hand them over (or apply them after the user approves).
+Do not edit published Experience Workspace content without confirmation. Draft the changes in a scratch file or a draft docs PR, and hand them over (or apply them after the user approves). Link each drafted or edited page in the PR description's public docs table.
 
 What to document for each new connector, using [../assets/docs-config-section.md.tmpl](../assets/docs-config-section.md.tmpl):
 
@@ -38,13 +38,16 @@ One PR per repo; link them to each other in each description. Use the same `feat
 - Never hand-edit `CHANGELOG.md` in da-nx (semantic-release owns it).
 - Don't push, open PRs or post comments without the user's confirmation. Each push, each PR and each comment needs its own confirmation.
 
-**PR description**: a short bullet list of changes. No narration. Include:
+**PR description**: use [assets/pr-description.md.tmpl](../assets/pr-description.md.tmpl) in every repo's PR. Don't use the repo's own PR template (da-nx's asks for an issue and Test URLs, which don't apply to a connector). Keep it to the template's sections:
 
-- What the connector does (modes, options).
-- Companion PR links.
-- Config keys admins must set, linking to the docs draft.
-- How it was verified: unit tests, checker script output, and the live run against the vendor sandbox (what you ran).
-- Known limitations or deferred items.
+- Vendor, API docs link and related PRs.
+- A public docs table: one row per drafted or edited page, with a link and a summary of what was added or changed.
+- Admin setup: config keys and where the credential lives.
+- Verification: unit tests, checker output and the live run (what you ran).
+- Limitations and rollout order.
+- Only when they apply: open questions for the vendor, and one line per shared `nx/blocks/loc` host change that affects other connectors.
+
+Leave out per-function behavior, status mappings and validation internals; those belong in the connector's docs page or code comments.
 
 After each push, re-validate the description against the whole branch (`gh pr view`) and update it if stale; that update doesn't need confirmation.
 
