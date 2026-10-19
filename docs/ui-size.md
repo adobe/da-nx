@@ -21,7 +21,7 @@ Components using the global scale attach a `UISizeController` from `nx2/utils/ui
 The controller sets `data-ui-size` on connection and requests a Lit update on
 `UI_SIZE_EVENT` (`nx-ui-size-change`). It removes its listener on disconnection.
 Shared components still receive their own `size` property from their owning component.
-Use `setUISize({ size: 'm' })` to persist and broadcast a change. Changes from another
+Use `setUISize({ size: 'm' })` to persist and broadcast a change. The profile switcher passes `animate: true`, which crossfades the page over 0.2s with a view transition once all `UISizeController` hosts have re-rendered (skipped with reduced motion or without browser support). Changes from another
 tab are applied through the storage event. Storage failures leave the applied scale unchanged.
 
 To test the startup preference manually, in the devtools console with the context set to **top**:

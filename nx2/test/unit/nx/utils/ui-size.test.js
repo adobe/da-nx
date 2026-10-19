@@ -36,13 +36,12 @@ describe('live UI size', () => {
   });
 
   it('persists the preference, updates only size classes, and emits the applied size', () => {
-    document.body.classList.add('dark-scheme', 'ui-size-l');
+    document.body.classList.add('dark-scheme');
     const listener = sinon.spy();
     document.addEventListener(UI_SIZE_EVENT, listener, { once: true });
     setUISize({ size: 'm' });
     expect(getUISize()).to.equal('m');
     expect(document.body.classList.contains('ui-size-m')).to.be.true;
-    expect(document.body.classList.contains('ui-size-l')).to.be.false;
     expect(document.body.classList.contains('dark-scheme')).to.be.true;
     expect(listener.firstCall.args[0].detail).to.deep.equal({ size: 'm' });
     setUISize({ size: 's' });
@@ -78,6 +77,30 @@ describe('live UI size', () => {
     await host.updateComplete;
     expect(host.dataset.uiSize).to.equal('s');
     expect(input.value).to.equal('Unsaved text');
+  });
+
+  it('animates a user switch with a view transition that waits for hosts to re-render', async () => {
+    host = document.createElement('nx-ui-size-test');
+    document.body.append(host);
+    await host.updateComplete;
+    let update;
+    sinon.stub(window, 'matchMedia').returns({ matches: false });
+    const start = sinon.stub(document, 'startViewTransition').callsFake((cb) => { update = cb(); });
+    setUISize({ size: 'm', animate: true });
+    expect(start.calledOnce).to.be.true;
+    expect(document.body.classList.contains('ui-size-m')).to.be.true;
+    await update;
+    expect(host.shadowRoot.querySelector('span').textContent).to.equal('m');
+    setUISize({ size: 's' });
+    expect(start.calledOnce).to.be.true;
+  });
+
+  it('switches without a transition when reduced motion is preferred', () => {
+    sinon.stub(window, 'matchMedia').returns({ matches: true });
+    const start = sinon.stub(document, 'startViewTransition');
+    setUISize({ size: 'm', animate: true });
+    expect(start.called).to.be.false;
+    expect(document.body.classList.contains('ui-size-m')).to.be.true;
   });
 
   it('unsubscribes on disconnect and picks up the current size on reconnect', async () => {

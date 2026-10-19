@@ -89,6 +89,7 @@ describe('nx-profile', () => {
   beforeEach(() => {
     originalSize = localStorage.getItem('ui-size');
     originalClasses = document.body.className;
+    sinon.stub(document, 'startViewTransition').value(undefined);
     setUISize({ size: 's' });
   });
 
@@ -126,8 +127,8 @@ describe('nx-profile', () => {
     await control.updateComplete;
     expect(control.label).to.equal('UI size');
     expect(control.items).to.deep.equal([
-      { value: 's', label: 'Small' },
-      { value: 'm', label: 'Medium' },
+      { value: 's', label: 'S', ariaLabel: 'Small' },
+      { value: 'm', label: 'M', ariaLabel: 'Medium' },
     ]);
   });
 

@@ -73,9 +73,9 @@ describe('getUISize', () => {
     expect(getUISize()).to.equal('m');
   });
 
-  it('returns stored "l" from localStorage', () => {
+  it('treats stored "l" as "s" until it exists', () => {
     localStorage.setItem('ui-size', 'l');
-    expect(getUISize()).to.equal('l');
+    expect(getUISize()).to.equal('s');
   });
 
   it('defaults to "s" for an invalid stored value', () => {
