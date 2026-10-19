@@ -53,9 +53,9 @@ mocha with `node:assert/strict`; `npm test`. Cases: `fetchXToken` success, each 
 Mocks only prove your assumptions. Before opening PRs, run against the vendor's staging API:
 
 1. Run da-etc and da-translate (`wrangler dev`) locally or use stage. Point the connector at them (`?nx=<branch>` on a consuming page, with `DA_TRANSLATE`/`DA_ETC` overrides as the repo documents).
-2. Configure `.da/translate.json` for a test site (ask before editing anything remote).
+2. Create and configure a test site. Offer the user the guided flow in [test-site.md](test-site.md) (repo from the boilerplate, AEM Code Sync, `.da/translate.json`, test pages). Ask before editing anything remote.
 3. Walk through the Translate app: connect, options, send, status polling, save. Verify the saved page in Experience Workspace, including `translate="no"` content left untouched.
-4. Exercise: more than five pages; a dependent-language project; a vendor-side failure; a reload mid-job; cancel (if supported); a second project on the same site.
+4. Exercise the scenarios in [test-site.md](test-site.md): more than five pages; a dependent-language project; a vendor-side failure; a reload mid-job; cancel (if supported); a second project on the same site.
 5. Record observations in the PR (what you ran, what the vendor did). Capture any vendor behavior the docs didn't state and add it to the connector's docs.
 
 ## Checker script

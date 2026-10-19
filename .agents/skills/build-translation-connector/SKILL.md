@@ -102,6 +102,8 @@ node .agents/skills/build-translation-connector/scripts/check-connector.mjs <nam
 
 Fix every `FAIL`; read each `WARN` and justify or fix it. Then run a **live** end-to-end against the vendor sandbox through the real Translate UI: send, status, save, and cancel if supported. Record what you verified in the PR. Live runs have found bugs mocks never did (wrong pagination params that the API silently ignored, status values missing from the docs, mandatory custom attributes).
 
+**Offer a test site.** Ask the user whether to create a disposable Experience Workspace site with the new connector configured. If yes, follow [references/test-site.md](references/test-site.md): prompt for the org and site name, create the GitHub repo from `adobe/aem-boilerplate`, have the user install the AEM Code Sync app, write the `.da` translation config and a set of test pages through the DA MCP tools, and hand over a scenario plan. Every remote write needs the user's go-ahead; credentials never go through chat or into a commit.
+
 ### 10. Docs
 
 Read [references/docs-and-prs.md](references/docs-and-prs.md). Draft updates for the three aem.live pages and hand them to the user to publish; do not edit published Experience Workspace content yourself without confirmation.
