@@ -53,6 +53,12 @@ describe('SDK sendHTML replacement', () => {
     reply({ ok: true });
     expect(await pending).to.deep.equal({ ok: false, error: 'invalid-response' });
   });
+  it('preserves successful replacement acknowledgements when host serialization fails', async () => {
+    const pending = actions.sendHTML('<p>New</p>', { replace: true });
+    const result = { ok: true, html: null, selection: { blockIndex: 0 }, editable: true };
+    reply(result);
+    expect(await pending).to.deep.equal(result);
+  });
   it('times out without retrying a replacement', async () => {
     const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
@@ -342,6 +348,62 @@ describe('SDK subscribeLiveDocument', () => {
       'subscribeLiveDocument', 'unsubscribeLiveDocument',
       'subscribeLiveDocument', 'unsubscribeLiveDocument',
     ]);
+  });
+
+  it('rolls back a subscriber whose cached replay throws without leaking the host subscription', () => {
+    const received = sinon.spy();
+    const unsubscribe = actions.subscribeLiveDocument(received);
+    emit({ action: 'liveDocument', html: '<main>Cached</main>', selection: { blockIndex: 0 } });
+    const error = new Error('Replay failed');
+    const failing = sinon.stub().throws(error);
+    expect(() => actions.subscribeLiveDocument(failing)).to.throw(error);
+    emit({ action: 'liveSelection', selection: { blockIndex: null } });
+    expect(failing.calledOnce).to.equal(true);
+    expect(received.callCount).to.equal(2);
+    unsubscribe();
+    expect(port.removeEventListener.calledOnce).to.equal(true);
+    expect(port.postMessage.lastCall.args[0]).to.deep.equal({ action: 'unsubscribeLiveDocument' });
+    const fresh = sinon.spy();
+    const unsubscribeFresh = actions.subscribeLiveDocument(fresh);
+    expect(fresh.called).to.equal(false);
+    unsubscribeFresh();
+  });
+
+  it('cleans up the host when the last existing subscriber unsubscribes during a failing replay', () => {
+    const unsubscribe = actions.subscribeLiveDocument(sinon.spy());
+    emit({ action: 'liveDocument', html: '<main>Cached</main>', selection: { blockIndex: 0 } });
+    const error = new Error('Replay failed');
+    expect(() => actions.subscribeLiveDocument(() => {
+      unsubscribe();
+      throw error;
+    })).to.throw(error);
+    expect(port.removeEventListener.calledOnce).to.equal(true);
+    expect(port.postMessage.args.map(([message]) => message.action)).to.deep.equal([
+      'subscribeLiveDocument', 'unsubscribeLiveDocument',
+    ]);
+  });
+
+  it('logs notification errors without blocking other subscribers or future updates', () => {
+    const error = new Error('Subscriber failed');
+    const failing = sinon.stub().throws(error);
+    const received = sinon.spy();
+    const log = sinon.stub(console, 'error');
+    const unsubscribeFailing = actions.subscribeLiveDocument(failing);
+    const unsubscribeReceived = actions.subscribeLiveDocument(received);
+    emit({ action: 'liveDocument', html: '<main>First</main>', selection: { blockIndex: 0 } });
+    emit({ action: 'liveSelection', selection: { blockIndex: null } });
+    emit({ action: 'liveDocument', html: '<main>Second</main>', selection: { blockIndex: 1 } });
+    expect(failing.callCount).to.equal(3);
+    expect(log.callCount).to.equal(3);
+    expect(log.alwaysCalledWithExactly('Live document subscriber failed:', error)).to.equal(true);
+    expect(received.args).to.deep.equal([
+      [{ html: '<main>First</main>', selection: { blockIndex: 0 } }],
+      [{ html: '<main>First</main>', selection: { blockIndex: null } }],
+      [{ html: '<main>Second</main>', selection: { blockIndex: 1 } }],
+    ]);
+    unsubscribeFailing();
+    unsubscribeReceived();
+    expect(port.postMessage.lastCall.args[0]).to.deep.equal({ action: 'unsubscribeLiveDocument' });
   });
 
   it('does not intercept a concurrent getSelection response', async () => {

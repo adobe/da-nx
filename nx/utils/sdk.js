@@ -44,11 +44,18 @@ export function createHostActions({ port, capabilities = {} }) {
       lastEditable = typeof data.editable === 'boolean' ? data.editable : undefined;
     } else if (lastHtml === undefined) return;
     lastBlockIndex = selection.blockIndex;
-    subscribers.forEach(({ callback }) => callback({
-      html: lastHtml,
-      selection: { blockIndex: lastBlockIndex },
-      ...(lastEditable === undefined ? {} : { editable: lastEditable }),
-    }));
+    subscribers.forEach(({ callback }) => {
+      try {
+        callback({
+          html: lastHtml,
+          selection: { blockIndex: lastBlockIndex },
+          ...(lastEditable === undefined ? {} : { editable: lastEditable }),
+        });
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Live document subscriber failed:', error);
+      }
+    });
   };
 
   return {
@@ -72,7 +79,7 @@ export function createHostActions({ port, capabilities = {} }) {
           ...(options.expected === undefined ? {} : { expected: options.expected }),
         },
       }).then((result) => {
-        if (result.ok && (typeof result.html !== 'string' || !result.selection
+        if (result.ok && ((typeof result.html !== 'string' && result.html !== null) || !result.selection
           || (result.selection.blockIndex !== null
             && (!Number.isSafeInteger(result.selection.blockIndex)
               || result.selection.blockIndex < 0)))) {
@@ -111,14 +118,7 @@ export function createHostActions({ port, capabilities = {} }) {
         }
       }
       subscribers.add(subscriber);
-      if (lastHtml !== undefined) {
-        callback({
-          html: lastHtml,
-          selection: { blockIndex: lastBlockIndex },
-          ...(lastEditable === undefined ? {} : { editable: lastEditable }),
-        });
-      }
-      return () => {
+      const unsubscribe = () => {
         if (!subscribers.delete(subscriber) || subscribers.size) return;
         port.removeEventListener('message', onLiveMessage);
         lastHtml = undefined;
@@ -130,6 +130,19 @@ export function createHostActions({ port, capabilities = {} }) {
           // The host may have closed the port; local subscription state is already cleared.
         }
       };
+      if (lastHtml !== undefined) {
+        try {
+          callback({
+            html: lastHtml,
+            selection: { blockIndex: lastBlockIndex },
+            ...(lastEditable === undefined ? {} : { editable: lastEditable }),
+          });
+        } catch (error) {
+          unsubscribe();
+          throw error;
+        }
+      }
+      return unsubscribe;
     },
   };
 }

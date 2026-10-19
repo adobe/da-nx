@@ -66,6 +66,10 @@ updated live document, or `{ ok: false, error, message }`. Success confirms the
 editor transaction, **not** durable persistence, preview or publication. Normal
 collaboration, autosave and undo handle the change.
 
+If post-replacement serialization fails, the host still acknowledges the applied
+edit with `ok: true` and `html: null`. Do not retry the replacement; wait for a fresh
+live document snapshot before making another guarded edit.
+
 Unsupported hosts return `{ ok: false, error: 'unsupported' }` from the SDK
 without sending a command; replacement never degrades into insertion. Host errors
 include `READ_ONLY`, `NO_TARGET`, `CROSS_TARGET`, `INVALID_HTML`, `WRONG_SELECTION`
@@ -89,6 +93,10 @@ unsubscribe();
 The SDK sends `{ action: 'subscribeLiveDocument' }` on the transferred MessagePort for the first subscriber. The host replies with `{ action: 'liveDocument', html: '<main>...</main>', selection: { blockIndex: 0 } }` and sends further full snapshots when the document changes. Selection-only changes arrive as `{ action: 'liveSelection', selection: { blockIndex: null } }`. Both message types invoke subscribers with `{ html, selection }`: selection-only notifications retain the most recent full HTML. They are ignored until the first snapshot. Later subscribers immediately receive the most recent snapshot, if available. The last unsubscribe removes the SDK listener, sends `{ action: 'unsubscribeLiveDocument' }`, and discards cached HTML, so a new subscription waits for a fresh snapshot. Unsubscribe is safe to call more than once.
 
 Selection-only notifications retain the latest `editable` flag as well as HTML.
+If the immediate cached-snapshot callback throws, registration is rolled back and
+the error is rethrown. Errors in later notification callbacks are logged without
+interrupting other subscribers; the failing subscriber remains registered until
+its unsubscribe function is called.
 Subscription HTML and replacement acknowledgements preserve each image's original
 editor `src` and use that URL for its picture sources, including cross-site and
 external images. They do not apply the site preview's image URL rewriting.
