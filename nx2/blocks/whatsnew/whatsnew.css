@@ -13,3 +13,14 @@
   background: var(--s2-green-900);
   border: 1px solid var(--s2-gray-25);
 }
+
+@media (width < 600px) {
+  :host([label]) .nx-action-btn-quiet {
+    width: 32px;
+    padding: 7px;
+  }
+
+  .wn-trigger-label {
+    display: none;
+  }
+}

@@ -17,6 +17,7 @@ const WHATSNEW_PATH = '/fragments/guides/whats-new';
  */
 class NxWhatsNew extends LitElement {
   static properties = {
+    label: { type: Boolean, reflect: true },
     _hasUnseen: { state: true },
   };
 
@@ -46,11 +47,12 @@ class NxWhatsNew extends LitElement {
 
   render() {
     return html`
-      <button aria-label="What's new"type="button" class="nx-action-btn-icon" @click=${this._openDialog}>
+      <button aria-label="What's new" type="button" class=${this.label ? 'nx-action-btn-quiet' : 'nx-action-btn-icon'} @click=${this._openDialog}>
         <span class="wn-trigger-icon">
           ${icon}
           ${this._hasUnseen ? html`<span class="wn-trigger-dot" aria-hidden="true"></span>` : nothing}
         </span>
+        ${this.label ? html`<span class="wn-trigger-label">What's new</span>` : nothing}
       </button>
     `;
   }

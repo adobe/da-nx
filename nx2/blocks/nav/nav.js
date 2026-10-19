@@ -138,6 +138,10 @@ class NXNav extends LitElement {
     this.toggleAttribute('data-has-search', target.assignedElements().length > 0);
   }
 
+  onActionsSlotChange({ target }) {
+    this.toggleAttribute('data-has-actions', target.assignedElements().length > 0);
+  }
+
   updated() {
     if (!this._breadcrumbs) return;
     this._breadcrumbs.pathSegments = this._getSegments(this._hashState);
@@ -146,11 +150,12 @@ class NXNav extends LitElement {
   render() {
     return html`
       <div class="brand-cluster">
-        ${this._brand}
+        <slot name="brand">${this._brand}</slot>
         ${this._breadcrumbs}
       </div>
       <div class="nav-search"><slot name="search" @slotchange=${this.onSearchSlotChange}></slot></div>
       <div class="action-area">
+        <slot name="actions" @slotchange=${this.onActionsSlotChange}></slot>
         ${this._actions}
       </div>
     `;

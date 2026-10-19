@@ -104,6 +104,18 @@ describe('nx-whatsnew', () => {
     expect(el.shadowRoot.querySelector('.wn-trigger-dot')).to.exist;
   });
 
+  it('offers an opt-in text label while retaining the icon-only default', async () => {
+    restoreFetch = mockWhatsNewFetchHtml(whatsNewHtml('2026-09-10'));
+    const el = createTrigger();
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.wn-trigger-label')).to.not.exist;
+    expect(el.shadowRoot.querySelector('button').classList.contains('nx-action-btn-icon')).to.equal(true);
+    el.label = true;
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.wn-trigger-label').textContent).to.equal("What's new");
+    expect(el.shadowRoot.querySelector('button').classList.contains('nx-action-btn-quiet')).to.equal(true);
+  });
+
   it('does not auto-open the dialog on initial load when there is unseen content', async () => {
     setLastSeen('2026-01-01');
     restoreFetch = mockWhatsNewFetchHtml(WHATSNEW_WITH_ENTRIES_HTML);

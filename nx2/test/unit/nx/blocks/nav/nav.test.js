@@ -67,6 +67,33 @@ describe('nav search slot', () => {
     expect(nav.shadowRoot.querySelector('.nav-search')).to.exist;
   });
 
+  it('supports consumer branding without replacing the fragment fallback', async () => {
+    await mount('/');
+    const brand = document.createElement('a');
+    brand.slot = 'brand';
+    brand.textContent = 'Consumer brand';
+    nav.append(brand);
+    const slot = nav.shadowRoot.querySelector('slot[name="brand"]');
+    expect(slot.assignedElements()).to.deep.equal([brand]);
+    brand.remove();
+    expect(slot.assignedElements()).to.deep.equal([]);
+  });
+
+  it('adds consumer actions while preserving the existing action container', async () => {
+    await mount('/');
+    const actions = document.createElement('button');
+    actions.slot = 'actions';
+    nav.append(actions);
+    await settleSlots();
+    expect(nav.hasAttribute('data-has-actions')).to.equal(true);
+    expect(nav.shadowRoot.querySelector('slot[name="actions"]').assignedElements()).to.deep.equal([actions]);
+    expect(getComputedStyle(nav.shadowRoot.querySelector('.action-area')).display).to.equal('flex');
+    actions.remove();
+    await settleSlots();
+    expect(nav.hasAttribute('data-has-actions')).to.equal(false);
+    expect(getComputedStyle(nav.shadowRoot.querySelector('.action-area')).display).to.equal('none');
+  });
+
   it('keeps consumer-owned search content assigned across navigation', async () => {
     await mount('/#/adobe/site/products');
     const field = document.createElement('input');
