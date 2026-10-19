@@ -24,13 +24,13 @@ Longer rationale and wire-level quirks go in `docs/*.md` in da-nx, not inline co
 
 ## PRs
 
-One PR per repo; link them to each other in each description.
+One PR per repo; link them to each other in each description. Use the same `feat/<name>-connector` branch name in all three repos, and base each on the branch the user chose in step 4.
 
 | Repo | Branch | Title (Conventional Commits) |
 |---|---|---|
-| `adobe/da-nx` | `feat/<name>-translation-connector` | `feat(loc): add <Name> translation connector` |
-| `adobe/da-translate` | `<name>-connector` | `feat: add <Name> translation service` |
-| `da-sites/da-etc` | `<name>-connector` | `feat: add <Name> integration` |
+| `adobe/da-nx` | `feat/<name>-connector` | `feat(loc): add <Name> translation connector` |
+| `adobe/da-translate` | `feat/<name>-connector` | `feat: add <Name> translation service` |
+| `da-sites/da-etc` | `feat/<name>-connector` | `feat: add <Name> integration` |
 
 - Titles use Conventional Commits; in da-nx the squash title is what semantic-release reads. `feat` (minor) is right for a new connector; use `fix` for bug-only changes.
 - Run `git log --format="%s%n%b---" -20` in each repo before the first commit. da-nx enforces commitlint through husky; fix the message instead of `--no-verify`.

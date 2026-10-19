@@ -67,7 +67,7 @@ Endpoints (no new routing needed; `src/handlers/{post,get}.js` already dispatch 
    - Don't log request bodies or headers.
    - Binary and large bodies stream through `req.body`; the response is read with `resp.blob()`.
 5. Tests in `test/services/<name>.test.js` (mocha, chai, esmock; mirror `lilt.test.js`): routing through `postHandler`, header allowlist (cookie dropped, IMS not forwarded), missing/invalid headers, 403 on disallowed origin (A), key resolution params and failure statuses (B), timeout → 504, env validation.
-6. `npm test` and `npm run lint`. The repo may be on another feature branch with a dirty `wrangler.toml`; branch from up-to-date `main` and leave unrelated changes alone.
+6. `npm test` and `npm run lint`. The repo may be on another feature branch with a dirty `wrangler.toml`; use a worktree on a `feat/<name>-connector` branch off the base the user chose and leave unrelated changes alone.
 
 ## da-nx (`nx/blocks/loc/connectors/<name>/auth.js`)
 

@@ -24,6 +24,7 @@ A working connector spans **three repos plus docs**. Skipping any piece produces
 
 - **Ask before you assume.** Vendor behavior (what "done" means, how cancel works, what the file naming rules are) is rarely what the API docs imply. Use the questions in step 1 and raise every ambiguity before writing code.
 - **Read the vendor's API schema first** (OpenAPI/Swagger/Postman, not marketing docs) and confirm endpoints, request/response shapes and enum values from it. If you can't find a machine-readable schema, ask the user for one.
+- **Branch names and bases.** Name the branch `feat/<name>-connector` in all three repos (da-nx, da-translate, da-etc). Ask the user which base branch to use in each repo (usually `main`, but the Lilt-era da-translate work may live on another branch), and create each branch in a `git worktree` from that `origin/<base>` so dirty or unrelated local checkouts stay untouched. Unset the upstream (`git branch --unset-upstream`) so a push can't go to the base branch.
 - **Get confirmation before any write outside the working tree**: pushing, opening PRs, posting comments, deploying, or touching vendor accounts.
 - **Reuse, don't re-implement.** The shared utilities in `nx/blocks/loc/utils/` (`fetchWithRetry`, `downloadQueue`, `auth`) exist because earlier connectors each copy-pasted them and reviewers rejected it.
 
@@ -70,7 +71,7 @@ Read [references/auth-and-proxy.md](references/auth-and-proxy.md). Default for n
 
 ### 4. Present the plan
 
-Show the user: verdict, archetype, config keys the site admin will set, files to touch in each repo, persisted state, how status maps to `created / in progress / translated / error / cancelled`, and open questions. Wait for a go-ahead.
+Show the user: verdict, archetype, base branch per repo, config keys the site admin will set, files to touch in each repo, persisted state, how status maps to `created / in progress / translated / error / cancelled`, and open questions. Wait for a go-ahead.
 
 ### 5. da-etc
 
