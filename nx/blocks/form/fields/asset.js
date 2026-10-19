@@ -26,6 +26,9 @@ const LABELS = {
   removeTitle: 'Remove asset?',
   removeBody: 'The asset will be removed from this field.',
   altText: 'Alt text',
+  editAltText: 'Edit alt text',
+  altTextPlaceholder: 'Describe the image',
+  save: 'Save',
 };
 
 const MESSAGES = {
@@ -33,16 +36,16 @@ const MESSAGES = {
   noSource: 'No source is available for this field.',
   noFileSource: 'Files can only be selected from AEM Assets, which is not set up for this site.',
   unusableResult: 'The selected file did not return a usable URL.',
+  altTextRequired: 'Alt text is required. Add it with Edit alt text.',
 };
 
 const MENU_PLACEMENT = 'below-end';
 const SELECTORS = {
   fileInput: '.file-input',
   removeButton: '.asset-remove',
+  altTextButton: '.asset-alt-edit',
   sourceTrigger: '.asset-source-trigger',
 };
-
-const ALT_TEXT_EVENT = 'alt-text-change';
 
 class FormAsset extends LitElement {
   static properties = {
@@ -67,6 +70,7 @@ class FormAsset extends LitElement {
     _loadedPreviewSrc: { state: true },
     _failedPreviewSrc: { state: true },
     _confirmingRemove: { state: true },
+    _editingAltText: { state: true },
     _copied: { state: true },
   };
 
@@ -138,12 +142,6 @@ class FormAsset extends LitElement {
   // Native `change` events are not composed, so the host emits its own.
   _emitChange() {
     this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-  }
-
-  // A separate event, so hosts can debounce typing apart from selecting a file.
-  _onAltTextInput(event) {
-    this.altText = event.target.value;
-    this.dispatchEvent(new Event(ALT_TEXT_EVENT, { bubbles: true, composed: true }));
   }
 
   async _focus(selector) {
@@ -229,7 +227,7 @@ class FormAsset extends LitElement {
   }
 
   _closeRemoveDialog() {
-    this.shadowRoot.querySelector('nx-dialog')?.close();
+    this.shadowRoot.querySelector('.asset-remove-dialog')?.close();
   }
 
   _onRemoveDialogClose() {
@@ -246,6 +244,28 @@ class FormAsset extends LitElement {
       this._emitChange();
     }
     this._closeRemoveDialog();
+  }
+
+  _openAltTextDialog() {
+    if (this._canChange) {
+      this._editingAltText = true;
+    }
+  }
+
+  _closeAltTextDialog() {
+    this.shadowRoot.querySelector('.asset-alt-dialog')?.close();
+  }
+
+  _onAltTextDialogClose() {
+    this._editingAltText = false;
+    this._focus(SELECTORS.altTextButton);
+  }
+
+  _saveAltText(event) {
+    event.preventDefault();
+    this.altText = event.target.elements.altText.value.trim() || undefined;
+    this._emitChange();
+    this._closeAltTextDialog();
   }
 
   // Long URLs show cut in the row, so authors copy the full stored value from here.
@@ -344,6 +364,7 @@ class FormAsset extends LitElement {
     }
     return html`
       ${this._renderCopyButton()}
+      ${this._renderAltTextButton()}
       ${this._renderChangeButtons()}
     `;
   }
@@ -397,24 +418,50 @@ class FormAsset extends LitElement {
     return !!this.acceptsAltText && !!this.value;
   }
 
-  _renderAltText() {
+  _renderAltTextLabel() {
+    return html`${LABELS.altText}${this.altRequired ? html`<span class="form-required">*</span>` : nothing}`;
+  }
+
+  // The engine's required message names no field, so a missing alt text says what is missing.
+  get _altTextError() {
+    if (!this._offersAltText || !this.altError) {
+      return undefined;
+    }
+
+    return this.altRequired && !this.altText ? MESSAGES.altTextRequired : this.altError;
+  }
+
+  _renderAltTextButton() {
     if (!this._offersAltText) return nothing;
     return html`
-      <div class="asset-alt${this.altError ? ' has-error' : ''}">
-        <label for="asset-alt">${LABELS.altText}${this.altRequired ? html`<span class="form-required">*</span>` : nothing}</label>
-        <input id="asset-alt" class="nx-input" type="text" .value=${this.altText ?? ''}
-          ?required=${this.altRequired} aria-invalid=${this.altError ? 'true' : 'false'}
-          aria-describedby=${this.altError ? 'asset-alt-error' : nothing}
-          ?disabled=${this.disabled} @input=${this._onAltTextInput}>
-        ${this.altError ? html`<p id="asset-alt-error" class="form-field-error">${this.altError}</p>` : nothing}
-      </div>
+      <button type="button" class="asset-alt-edit asset-icon-button" title=${LABELS.editAltText}
+        aria-label=${LABELS.editAltText} ?disabled=${!this._canChange}
+        @click=${this._openAltTextDialog}>${icon('altText')}</button>
+    `;
+  }
+
+  _renderAltTextDialog() {
+    if (!this._editingAltText) return nothing;
+    return html`
+      <nx-dialog class="asset-alt-dialog" title=${LABELS.editAltText} @close=${this._onAltTextDialogClose}>
+        <form id="asset-alt-form" class="asset-alt-form" @submit=${this._saveAltText}>
+          <label for="asset-alt-input">${this._renderAltTextLabel()}</label>
+          <input id="asset-alt-input" name="altText" class="nx-input" type="text" autocomplete="off"
+            autofocus placeholder=${LABELS.altTextPlaceholder} .value=${this.altText ?? ''}>
+        </form>
+        <button slot="actions" type="button" class="nx-form-btn-secondary"
+          @click=${this._closeAltTextDialog}>${LABELS.cancel}</button>
+        <button slot="actions" type="submit" form="asset-alt-form"
+          class="asset-alt-save nx-form-btn-primary">${LABELS.save}</button>
+      </nx-dialog>
     `;
   }
 
   _renderRemoveDialog() {
     if (!this._confirmingRemove) return nothing;
     return html`
-      <nx-dialog title=${LABELS.removeTitle} @close=${this._onRemoveDialogClose}>
+      <nx-dialog class="asset-remove-dialog" title=${LABELS.removeTitle}
+        @close=${this._onRemoveDialogClose}>
         <p>${LABELS.removeBody}</p>
         <button slot="actions" type="button" class="nx-form-btn-secondary" autofocus
           @click=${this._closeRemoveDialog}>${LABELS.cancel}</button>
@@ -429,6 +476,7 @@ class FormAsset extends LitElement {
       return html`<p role="alert" class="form-field-error">${this._selectionError}</p>`;
     }
     if (this.error) return html`<p class="form-field-error">${this.error}</p>`;
+    if (this._altTextError) return html`<p class="form-field-error">${this._altTextError}</p>`;
     if (this.sources && !this._availableSources.length && !this.disabled) {
       const noSource = this.assetType === 'file' ? MESSAGES.noFileSource : MESSAGES.noSource;
       return html`<p class="form-field-description">${noSource}</p>`;
@@ -438,7 +486,7 @@ class FormAsset extends LitElement {
   }
 
   render() {
-    const invalid = this.error || this._selectionError;
+    const invalid = this.error || this._selectionError || this._altTextError;
     return html`
       <div class="form-field${invalid ? ' has-error' : ''}">
         ${this.label ? html`
@@ -448,13 +496,13 @@ class FormAsset extends LitElement {
           aria-labelledby=${this.label ? 'asset-label' : nothing} aria-busy=${this._pending ? 'true' : 'false'}>
           ${this._renderPreview()}
           ${this._renderRow()}
-          ${this._renderAltText()}
         </div>
         ${this._renderStatus()}
         ${this._renderMessage()}
       </div>
       <input class="file-input" type="file" hidden>
       ${this._renderRemoveDialog()}
+      ${this._renderAltTextDialog()}
     `;
   }
 }

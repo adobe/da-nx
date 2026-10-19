@@ -500,44 +500,90 @@ describe('form-asset', () => {
   });
 
   describe('alt text', () => {
-    const altInput = (field) => query(field, '.asset-alt input');
+    const altButton = (field) => button(field, 'Edit alt text');
+    const altDialog = (field) => query(field, '.asset-alt-dialog');
+    const altDialogInput = (field) => query(field, '#asset-alt-input');
 
-    it('offers an alt text input once an asset is set, if the field accepts alt text', async () => {
+    async function openAltDialog(field) {
+      altButton(field).click();
+      await field.updateComplete;
+      await altDialog(field).updateComplete;
+    }
+
+    it('offers an edit alt text button once an asset is set, if the field accepts alt text', async () => {
       const empty = await mount({ acceptsAltText: true });
       const without = await mount({ value: './media_abc.png' });
       const image = await mount({ acceptsAltText: true, value: './media_abc.png', altText: 'A hero' });
-      expect(altInput(empty)).to.equal(null);
-      expect(altInput(without)).to.equal(null);
-      expect(altInput(image).value).to.equal('A hero');
-      expect(query(image, '.asset-alt label').textContent.trim()).to.equal('Alt text');
+      expect(altButton(empty)).to.equal(undefined);
+      expect(altButton(without)).to.equal(undefined);
+      expect(altButton(image)).to.exist;
+      expect(altDialog(image)).to.equal(null);
     });
 
     it('offers alt text whatever the file looks like', async () => {
       const field = await mount({ acceptsAltText: true, value: 'https://x.test/render?id=1' });
-      expect(altInput(field)).to.exist;
+      expect(altButton(field)).to.exist;
     });
 
-    it('marks a required alt text and shows its error', async () => {
+    it('says that a required alt text is missing', async () => {
       const field = await mount({
-        acceptsAltText: true, value: './media_abc.png', altRequired: true, altError: 'Required',
+        acceptsAltText: true, value: './media_abc.png', altRequired: true, altError: 'This field is required.',
       });
-      expect(query(field, '.asset-alt .form-required')).to.exist;
-      expect(altInput(field).required).to.equal(true);
-      expect(altInput(field).getAttribute('aria-invalid')).to.equal('true');
-      expect(query(field, '#asset-alt-error').textContent).to.equal('Required');
-      expect(query(field, '.asset-alt').classList.contains('has-error')).to.equal(true);
+      expect(query(field, '.form-field-error').textContent)
+        .to.equal('Alt text is required. Add it with Edit alt text.');
+      expect(query(field, '.form-field').classList.contains('has-error')).to.equal(true);
+      await openAltDialog(field);
+      expect(query(field, '.asset-alt-form .form-required')).to.exist;
     });
 
-    it('reports alt text edits without a file change', async () => {
-      const field = await mount({ acceptsAltText: true, value: './media_abc.png' });
+    it('shows other alt text errors as they are', async () => {
+      const field = await mount({
+        acceptsAltText: true, value: './media_abc.png', altText: 'A hero', altError: 'Too long.',
+      });
+      expect(query(field, '.form-field-error').textContent).to.equal('Too long.');
+    });
+
+    it('edits the alt text in a dialog and saves it as a change', async () => {
+      const field = await mount({ acceptsAltText: true, value: './media_abc.png', altText: 'A hero' });
       const changes = recordChanges(field);
-      const alts = [];
-      field.addEventListener('alt-text-change', (event) => alts.push(event.target.altText));
-      altInput(field).value = 'A hero';
-      altInput(field).dispatchEvent(new Event('input'));
+      await openAltDialog(field);
+      expect(altDialog(field).title).to.equal('Edit alt text');
+      expect(altDialogInput(field).value).to.equal('A hero');
+      altDialogInput(field).value = '  A runner at dawn  ';
+      query(field, '.asset-alt-save').click();
+      await settle(field);
+      expect(field.altText).to.equal('A runner at dawn');
+      expect(changes).to.deep.equal(['./media_abc.png']);
+      expect(altDialog(field)).to.equal(null);
+      expect(field.shadowRoot.activeElement).to.equal(altButton(field));
+    });
+
+    it('keeps the alt text when the dialog is cancelled', async () => {
+      const field = await mount({ acceptsAltText: true, value: './media_abc.png', altText: 'A hero' });
+      const changes = recordChanges(field);
+      await openAltDialog(field);
+      altDialogInput(field).value = 'Something else';
+      button(field, 'Cancel').click();
+      await settle(field);
       expect(field.altText).to.equal('A hero');
-      expect(alts).to.deep.equal(['A hero']);
       expect(changes).to.deep.equal([]);
+      expect(altDialog(field)).to.equal(null);
+    });
+
+    it('clears the alt text when it is saved empty', async () => {
+      const field = await mount({ acceptsAltText: true, value: './media_abc.png', altText: 'A hero' });
+      await openAltDialog(field);
+      altDialogInput(field).value = '   ';
+      query(field, '.asset-alt-save').click();
+      await settle(field);
+      expect(field.altText).to.equal(undefined);
+    });
+
+    it('does not edit the alt text of a read-only field', async () => {
+      const field = await mount({
+        acceptsAltText: true, value: './media_abc.png', altText: 'A hero', disabled: true,
+      });
+      expect(altButton(field).disabled).to.equal(true);
     });
 
     it('takes the alt text of a selected image from its source', async () => {
@@ -546,7 +592,6 @@ describe('form-asset', () => {
       button(field, 'Select').click();
       await settle(field);
       expect(field.altText).to.equal('A runner');
-      expect(altInput(field).value).to.equal('A runner');
     });
 
     it('drops the old alt text when the image is replaced by one without', async () => {
@@ -576,7 +621,7 @@ describe('form-asset', () => {
       query(field, '.asset-remove-confirm').click();
       await settle(field);
       expect(field.altText ?? '').to.equal('');
-      expect(altInput(field)).to.equal(null);
+      expect(altButton(field)).to.equal(undefined);
     });
   });
 

@@ -217,20 +217,10 @@ class Editor extends LitElement {
     this._mutate((editor) => editor.setField(node.pointer, raw === '' ? undefined : raw));
   }
 
-  // Selecting or removing a file saves at once and drops pending alt text typing,
-  // which the new value already carries.
+  // Selecting, removing or describing an asset saves at once.
   _onAssetChange(node, e) {
     const field = e.target;
-    clearTimeout(this._inputTimers.get(node.pointer));
-    this._inputTimers.delete(node.pointer);
     this._mutate((editor) => editor.setField(node.pointer, assetValue(field)));
-  }
-
-  _onAssetAltText(node, e) {
-    const field = e.target;
-    this._mutateDebounced(node.pointer, (editor) => {
-      editor.setField(node.pointer, assetValue(field));
-    });
   }
 
   _renderAsset(node, { hideLabel = false } = {}) {
@@ -257,7 +247,6 @@ class Editor extends LitElement {
         .previewOrigin=${this.previewOrigin}
         ?disabled=${!!node.readonly}
         @change=${(e) => this._onAssetChange(node, e)}
-        @alt-text-change=${(e) => this._onAssetAltText(node, e)}
       ></form-asset>
     `;
   }

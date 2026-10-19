@@ -138,18 +138,14 @@ describe('nx-editor primitive controls', () => {
     expect(calls).to.deep.equal([{ pointer: '/data/heroImage', value: undefined }]);
   });
 
-  it('saves alt text edits after a debounce', async () => {
+  it('saves an alt text edit at once', async () => {
     const calls = [];
     const node = mediaNode({ value: { src: './a.png' } });
     const el = await mountEditor(objectRoot([node]));
     el.editor = { setField: (pointer, value) => calls.push({ pointer, value }) };
     const field = el.shadowRoot.querySelector('form-asset');
-    field.altText = 'A';
-    field.dispatchEvent(new Event('alt-text-change', { bubbles: true, composed: true }));
     field.altText = 'A hero';
-    field.dispatchEvent(new Event('alt-text-change', { bubbles: true, composed: true }));
-    expect(calls).to.deep.equal([]);
-    await new Promise((done) => { setTimeout(done, 600); });
+    field.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
     expect(calls).to.deep.equal([
       { pointer: '/data/heroImage', value: { src: './a.png', altText: 'A hero' } },
     ]);
