@@ -13,6 +13,8 @@ const TERMINAL_LANG_STATUSES = ['complete', 'cancelled'];
 const MAX_REQUESTS_PER_CALL = 5000;
 const STATUS_PAGE_SIZE = 1000;
 const MAX_CONTENT_ID_LENGTH = 255;
+const DEFAULT_SOURCE_LANGUAGE = 'en-US';
+const LANGUAGES_DOC_URL = 'https://api.translated.com/v2#tag/Symbol/operation/symbol-languages';
 const MAX_TITLE_LENGTH = 100;
 const CANCELLABLE_STATUSES = ['upload', 'wc raw', 'ingested', 'bucketing'];
 const PROGRESS = { created: 0, 'in progress': 1, translated: 2 };
@@ -102,6 +104,17 @@ function vendorPost(service, path, body, headers = {}) {
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
   });
+}
+
+/**
+ * Fetches the language codes Translated accepts for `/translate`.
+ * @param {Object} service - The service config.
+ * @returns {Promise<Set<string>|undefined>} The codes, or undefined if the lookup failed.
+ */
+async function fetchLanguageCodes(service) {
+  const { json } = await vendorFetch(service, '/v2/symbol/languages');
+  if (!Array.isArray(json)) return undefined;
+  return new Set(json.map((language) => language.key));
 }
 
 /**
@@ -226,6 +239,7 @@ export const serviceOptions = [
  * @param {string} conf.title - The project title.
  * @param {Object} conf.service - The service config; reads `serviceType`.
  * @param {Object} conf.options - The options sheet; `options.service` persists connector state.
+ *  `source.language` is optional and defaults to `en-US`.
  * @param {Object[]} conf.langs - Target languages, mutated (`.translation`) on success only.
  * @param {Object[]} conf.urls - Source urls (`daBasePath`, `content`, `ext`).
  * @param {Object} conf.actions - `{ sendMessage, saveState }`.
@@ -252,13 +266,24 @@ export async function sendAllLanguages({
     return;
   }
 
+  const sourceLanguage = options['source.language']?.code || DEFAULT_SOURCE_LANGUAGE;
+  const accepted = await fetchLanguageCodes(service);
+  const unsupported = accepted
+    ? [...new Set([sourceLanguage, ...langs.map((lang) => lang.code)])]
+      .filter((code) => !accepted.has(code))
+    : [];
+  if (unsupported.length) {
+    sendMessage({ text: `Translated does not support these language codes: ${unsupported.join(', ')}. See ${LANGUAGES_DOC_URL}.`, type: 'error' });
+    return;
+  }
+
   const orderId = `${title || 'project'}-${Date.now()}`.slice(0, 255);
   const orders = urls.map((url) => ({
     id_content: toContentId({ title, path: url.daBasePath }),
     id_order: orderId,
     content: url.content,
     content_type: url.ext === 'json' ? 'application/json' : 'text/html',
-    source_language: options['source.language'].code,
+    source_language: sourceLanguage,
     target_languages: langs.map((lang) => lang.code),
     service_type: serviceType,
   }));

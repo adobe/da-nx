@@ -108,36 +108,69 @@ describe('translated connector', () => {
       messages = [];
       saved = 0;
       actions = { sendMessage: (m) => messages.push(m), saveState: async () => { saved += 1; } };
-      options = { 'source.language': { code: 'en' }, service: {} };
-      langs = [{ code: 'fr', name: 'French' }, { code: 'de', name: 'German' }];
+      options = { 'source.language': { code: 'en-US' }, service: {} };
+      langs = [{ code: 'fr-FR', name: 'French' }, { code: 'de-DE', name: 'German' }];
     });
+
+    const submitHandler = (languages = ['en-US', 'fr-FR', 'de-DE']) => (url) => (
+      url.endsWith('/v2/symbol/languages')
+        ? json(languages.map((key) => ({ key, value: key })))
+        : json([{ id: 1 }])
+    );
 
     const send = (service = baseService(), urls = makeUrls(2)) => sendAllLanguages({
       title: 'Proj', service, options, langs, urls, actions,
     });
 
     it('submits one order per page for all languages and records the order id', async () => {
-      installFetch(() => json([{ id: 1 }]));
+      installFetch(submitHandler());
       await send();
 
       const call = lastCall('/v2/translate');
       expect(call.body).to.have.length(2);
       expect(call.body[0]).to.include({
-        id_content: 'Proj:/p0', source_language: 'en', service_type: 'test_connectors', content_type: 'text/html',
+        id_content: 'Proj:/p0', source_language: 'en-US', service_type: 'test_connectors', content_type: 'text/html',
       });
-      expect(call.body[0].target_languages).to.deep.equal(['fr', 'de']);
+      expect(call.body[0].target_languages).to.deep.equal(['fr-FR', 'de-DE']);
       expect(call.body[0].id_order).to.equal(call.body[1].id_order);
       expect(call.headers['x-idempotency-id']).to.be.a('string');
       expect(call.headers['x-api-key']).to.equal(undefined);
 
       const orderIds = JSON.parse(options.service.orderIds.value);
-      expect(orderIds.fr).to.equal(call.body[0].id_order);
-      expect(orderIds.de).to.equal(call.body[0].id_order);
+      expect(orderIds['fr-FR']).to.equal(call.body[0].id_order);
+      expect(orderIds['de-DE']).to.equal(call.body[0].id_order);
       expect(langs.map((l) => l.translation)).to.deep.equal([
         { status: 'created', sent: 2 }, { status: 'created', sent: 2 },
       ]);
       expect(saved).to.equal(1);
       expect(messages.at(-1)).to.equal(undefined);
+    });
+
+    it('defaults the source language to en-US when none is configured', async () => {
+      installFetch(submitHandler());
+      delete options['source.language'];
+      await send();
+
+      expect(lastCall('/v2/translate').body[0].source_language).to.equal('en-US');
+      expect(langs[0].translation.status).to.equal('created');
+    });
+
+    it('refuses unsupported language codes and makes no submission', async () => {
+      installFetch(submitHandler());
+      langs = [{ code: 'fr', name: 'French' }, { code: 'de-DE', name: 'German' }];
+      await send();
+
+      expect(calls.some((c) => c.url.endsWith('/v2/translate'))).to.equal(false);
+      expect(langs[0].translation).to.equal(undefined);
+      expect(messages.at(-1).type).to.equal('error');
+      expect(messages.at(-1).text).to.contain('fr');
+    });
+
+    it('still submits when the language lookup fails', async () => {
+      installFetch((url) => (url.endsWith('/v2/symbol/languages') ? json({ message: 'nope' }, 400) : json([{ id: 1 }])));
+      await send();
+
+      expect(lastCall('/v2/translate').body).to.have.length(2);
     });
 
     it('creates no translation objects when the submission fails', async () => {
@@ -167,7 +200,7 @@ describe('translated connector', () => {
     });
 
     it('replaces path separators in the title and prefixes every page', async () => {
-      installFetch(() => json([{ id: 1 }]));
+      installFetch(submitHandler());
       await sendAllLanguages({
         title: 'a:b/c', service: baseService(), options, langs, urls: makeUrls(2), actions,
       });
