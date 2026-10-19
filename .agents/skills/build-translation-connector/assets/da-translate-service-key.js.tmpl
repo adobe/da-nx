@@ -1,0 +1,71 @@
+// Archetype B (static key resolved via da-etc). Copy to da-translate/src/services/__name__.js
+// Replace __name__ / __Vendor__ / __UPSTREAM_ORIGIN__. If the vendor wants the key in a header
+// instead of the query string, replace the searchParams line with a buildForwardHeaders extra.
+import resolveServiceKey from '../utils/resolveServiceKey.js';
+import getServiceEnv from '../utils/serviceEnv.js';
+import buildForwardHeaders from '../utils/forwardHeaders.js';
+import { UPSTREAM_TIMEOUT_MS, isTimeoutError } from '../utils/timeouts.js';
+
+const UPSTREAM_ORIGIN = '__UPSTREAM_ORIGIN__';
+
+/**
+ * Proxies a request using a server-resolved __Vendor__ API key. The upstream host is fixed.
+ * @param {Request} req - The incoming request.
+ * @param {string} pathname - The pathname, still carrying the `/__name__` prefix.
+ * @param {string} search - The query string (including the leading `?`, if any).
+ * @param {object} env - The worker environment, providing `DA_ETC_ORIGIN`.
+ * @param {string} org - The Experience Workspace org.
+ * @param {string} site - The Experience Workspace site.
+ * @returns {Promise<{body?: Blob, headers: Headers|Object, status: number}>} The upstream
+ * response, a 400/403/502 if key resolution fails, or a 504 if the upstream times out.
+ */
+export default async function init(req, pathname, search, env, org, site) {
+  const path = pathname.replace(/^\/__name__(?=\/|$)/, '');
+
+  const serviceEnv = getServiceEnv(req);
+  if (!serviceEnv) {
+    return { status: 400, headers: { 'x-error': 'Invalid service environment.' } };
+  }
+
+  const keyResult = await resolveServiceKey({
+    service: '__name__',
+    org,
+    site,
+    serviceEnv,
+    authorization: req.headers.get('authorization'),
+    daEtcOrigin: env.DA_ETC_ORIGIN,
+  });
+  if (typeof keyResult !== 'string') {
+    const { status } = keyResult;
+    const messages = {
+      403: 'Not authorized to access the __Vendor__ integration',
+      502: 'Unable to resolve __Vendor__ API key',
+    };
+    return { status, headers: { 'x-error': messages[status] || 'Invalid __Vendor__ API key request' } };
+  }
+
+  const url = new URL(UPSTREAM_ORIGIN);
+  url.pathname = path || '/';
+  url.search = search;
+  // Never log this URL: it carries the key.
+  url.searchParams.set('key', keyResult);
+
+  const opts = {
+    headers: buildForwardHeaders(req.headers),
+    method: req.method,
+    body: req.body,
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  };
+
+  try {
+    const resp = await fetch(url.toString(), opts);
+    const { status, headers } = resp;
+    const body = await resp.blob();
+    return { body, headers, status };
+  } catch (error) {
+    if (!isTimeoutError(error)) throw error;
+    // eslint-disable-next-line no-console
+    console.error('__Vendor__ request timed out', { org, site, path });
+    return { status: 504, headers: { 'x-error': '__Vendor__ request timed out' } };
+  }
+}

@@ -1,0 +1,12 @@
+Edit src/handlers/postHandler.js:
+
+  import __name__ from '../services/__name__.js';
+
+  // routeToService:
+  if (path.startsWith('/__name__/')) return __name__(req, path, search, env, org, site);
+
+  // needsImsAuth (do not skip; otherwise the route is unauthenticated):
+  const needsImsAuth = ['google', 'globallink', 'deepl', 'lilt', '__name__'].includes(translateCtx.service);
+
+Test: copy test/services/lilt.test.js to test/services/__name__.test.js, update the service
+import, URLs ('/translate/__name__/acme/site1/...'), and assertions for your archetype.

@@ -1,0 +1,70 @@
+// Archetype A (browser holds a short-lived vendor token). Copy to da-translate/src/services/__name__.js
+// Replace __name__ / __Vendor__ / __NAME__. Delete the origin handling if the vendor host is fixed
+// and use a constant instead. Add __NAME___ALLOWED_ORIGINS to wrangler.toml (ask first).
+import buildForwardHeaders from '../utils/forwardHeaders.js';
+import { UPSTREAM_TIMEOUT_MS, isTimeoutError } from '../utils/timeouts.js';
+
+const ORIGIN_HEADER = 'x-__name__-origin';
+const CREDENTIAL_HEADER = 'x-__name__-authorization';
+
+/**
+ * Parses a comma-separated origin allowlist into a Set.
+ * @param {string} [allowlist] - Comma-separated origins (scheme + host).
+ * @returns {Set<string>} The allowed origins.
+ */
+function parseAllowedOrigins(allowlist) {
+  return new Set((allowlist || '').split(',').map((entry) => entry.trim()).filter(Boolean));
+}
+
+/**
+ * Proxies a request to __Vendor__. The caller's Authorization header carries the IMS token
+ * (validated by postHandler) and is never forwarded; the vendor credential travels in
+ * `x-__name__-authorization` and becomes the upstream Authorization.
+ * @param {Request} req - The incoming request.
+ * @param {string} pathname - The pathname, still carrying the `/__name__` prefix.
+ * @param {string} search - The query string (including the leading `?`, if any).
+ * @param {object} env - The worker environment, providing `__NAME___ALLOWED_ORIGINS`.
+ * @returns {Promise<{body?: Blob, headers: Headers|Object, status: number}>} The upstream
+ * response, a 400 for missing/invalid headers, a 403 for a disallowed origin, or a 504 on timeout.
+ */
+export default async function init(req, pathname, search, env) {
+  const path = pathname.replace(/^\/__name__(?=\/|$)/, '');
+
+  const upstream = req.headers.get(ORIGIN_HEADER);
+  if (!upstream) {
+    return { status: 400, headers: { 'x-error': `Missing ${ORIGIN_HEADER} header` } };
+  }
+
+  let upstreamOrigin;
+  try {
+    upstreamOrigin = new URL(upstream).origin;
+  } catch {
+    return { status: 400, headers: { 'x-error': `Invalid ${ORIGIN_HEADER} header` } };
+  }
+
+  if (!parseAllowedOrigins(env.__NAME___ALLOWED_ORIGINS).has(upstreamOrigin)) return { status: 403 };
+
+  const credential = req.headers.get(CREDENTIAL_HEADER);
+  if (!credential) {
+    return { status: 400, headers: { 'x-error': `Missing ${CREDENTIAL_HEADER} header` } };
+  }
+
+  const opts = {
+    headers: buildForwardHeaders(req.headers, { authorization: credential }),
+    method: req.method,
+    body: req.body,
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  };
+
+  try {
+    const resp = await fetch(`${upstreamOrigin}${path}${search}`, opts);
+    const { status, headers } = resp;
+    const body = await resp.blob();
+    return { body, headers, status };
+  } catch (error) {
+    if (!isTimeoutError(error)) throw error;
+    // eslint-disable-next-line no-console
+    console.error('__Vendor__ request timed out', { path });
+    return { status: 504, headers: { 'x-error': '__Vendor__ request timed out' } };
+  }
+}

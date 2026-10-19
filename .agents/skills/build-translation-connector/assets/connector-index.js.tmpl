@@ -1,0 +1,281 @@
+// Copy to nx/blocks/loc/connectors/__name__/index.js, replace __name__ / __Vendor__, resolve every
+// TODO(vendor) from the vendor's API schema, then delete this comment and the TODOs.
+import { addDnt, removeDnt } from '../../dnt/dnt.js';
+import fetchWithRetry from '../../utils/fetchWithRetry.js';
+import downloadQueue from '../../utils/downloadQueue.js';
+import {
+  resolveOrigin, authHeaders, retryConfig, isConnected,
+} from './auth.js';
+
+export const dnt = { addDnt };
+export { isConnected };
+
+const TERMINAL_LANG_STATUSES = ['complete', 'cancelled'];
+
+// TODO(vendor): map every documented vendor state. Unknown states leave status unchanged.
+const VENDOR_STATUS = {
+  QUEUED: 'created',
+  IN_PROGRESS: 'in progress',
+  COMPLETED: 'translated',
+  FAILED: 'error',
+  CANCELLED: 'cancelled',
+};
+
+/**
+ * Flattens an Experience Workspace path into a collision-free upload file name: literal
+ * underscores are doubled before separators collapse, and an extension is ensured.
+ * @param {string} daBasePath - The Experience Workspace base path (e.g. `/blog/post-1`).
+ * @returns {string} The flattened file name.
+ */
+export function toFileName(daBasePath) {
+  const trimmed = (daBasePath || '/document').replace(/^\//, '');
+  const escaped = trimmed.split(/[\\/]/).map((segment) => segment.replace(/_/g, '__')).join('_');
+  const name = escaped || 'document';
+  return /\.[a-z0-9]+$/i.test(name) ? name : `${name}.html`;
+}
+
+/**
+ * Maps an Experience Workspace locale code to the vendor's code.
+ * @param {string} code - The Experience Workspace locale code (e.g. `fr-FR`).
+ * @returns {string} The vendor language code.
+ */
+function toVendorLang(code) {
+  // TODO(vendor): map or validate against the vendor's supported-language list.
+  return code;
+}
+
+/**
+ * Reads a connector-persisted JSON map from the service, tolerating missing or bad data.
+ * @param {Object} service - The service config.
+ * @param {string} key - The persisted key (stored as `{ value: JSON-string }`).
+ * @returns {Object} The parsed map, or `{}`.
+ */
+function readMap(service, key) {
+  const raw = service?.[key];
+  const text = typeof raw === 'object' ? raw?.value : raw;
+  try {
+    return JSON.parse(text || '{}');
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Extracts a readable message from a vendor error body.
+ * @param {Object} json - The parsed error body.
+ * @returns {string} The message, or a fallback.
+ */
+function errorMessage(json) {
+  // TODO(vendor): use the vendor's real error envelope.
+  return json?.message || json?.error || 'Unknown error';
+}
+
+/**
+ * Calls the vendor through the proxy and parses JSON.
+ * @param {Object} service - The service config.
+ * @param {string} path - The vendor path (no origin).
+ * @param {Object} [opts] - Fetch options; headers are added here.
+ * @returns {Promise<{json?: Object, error?: string, status: number}>} Parsed result.
+ */
+async function vendorFetch(service, path, opts = {}) {
+  const reqOpts = { ...opts, headers: await authHeaders(service, opts.headers) };
+  const resp = await fetchWithRetry(
+    `${resolveOrigin(service)}${path}`,
+    reqOpts,
+    retryConfig(service, reqOpts),
+  );
+  const json = await resp.json().catch(() => null);
+  if (!resp.ok) return { error: errorMessage(json), status: resp.status };
+  return { json, status: resp.status };
+}
+
+/**
+ * Connects to the vendor, reporting failure to the user.
+ * @param {Object} service - The service config.
+ * @param {Function} [sendMessage] - Reports an error message.
+ * @returns {Promise<boolean>} Whether the connection works.
+ */
+export async function connect(service, sendMessage) {
+  const connected = await isConnected(service);
+  if (!connected) sendMessage?.({ text: 'Connection to __Vendor__ failed.', type: 'error' });
+  return connected;
+}
+
+/**
+ * Uploads every source file. Errors are rolled into one message.
+ * @param {Object} service - The service config.
+ * @param {Object[]} urls - The urls to upload (`daBasePath`, `content`).
+ * @param {Function} sendMessage - Reports the rolled-up error.
+ * @returns {Promise<Object|null>} `daBasePath -> vendor file id`, or null if any upload failed.
+ */
+async function uploadAll(service, urls, sendMessage) {
+  const idsByPath = {};
+  const errors = [];
+  await Promise.all(urls.map(async (url) => {
+    // TODO(vendor): endpoint, body format, and where the file id is in the response.
+    const { json, error } = await vendorFetch(service, '/files', {
+      method: 'POST',
+      body: JSON.stringify({ name: toFileName(url.daBasePath), content: url.content }),
+    });
+    if (error || !json?.id) errors.push(error || 'No file id returned');
+    else idsByPath[url.daBasePath] = json.id;
+  }));
+  if (errors.length) {
+    sendMessage({ text: `Upload to __Vendor__ failed: ${errors[0]}`, type: 'error' });
+    return null;
+  }
+  return idsByPath;
+}
+
+/**
+ * Sends the languages to the vendor and returns without polling for completion.
+ * @param {Object} conf
+ * @param {string} conf.title - The project title.
+ * @param {Object} conf.service - The service config.
+ * @param {Object} conf.options - The options sheet; `options.service` persists connector state.
+ * @param {Object[]} conf.langs - Target languages, mutated (`.translation`).
+ * @param {Object[]} conf.urls - Source urls.
+ * @param {Object} conf.actions - `{ sendMessage, saveState }`.
+ * @returns {Promise<void>}
+ */
+export async function sendAllLanguages({
+  title, service, options, langs, urls, actions,
+}) {
+  const { sendMessage, saveState } = actions;
+
+  if (!(await isConnected(service))) {
+    sendMessage({ text: 'Not connected to __Vendor__.', type: 'error' });
+    return;
+  }
+
+  sendMessage({ text: `Uploading ${urls.length} items to __Vendor__.` });
+  const fileIds = await uploadAll(service, urls, sendMessage);
+  // Leave lang.translation untouched so the project stays retryable.
+  if (!fileIds) return;
+
+  // TODO(vendor): create the job/project; some vendors want one job per language.
+  const { json: job, error } = await vendorFetch(service, '/jobs', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: title,
+      sourceLanguage: toVendorLang(options['source.language'].code),
+      targetLanguages: langs.map((lang) => toVendorLang(lang.code)),
+      fileIds: Object.values(fileIds),
+    }),
+  });
+  if (error || !job?.id) {
+    sendMessage({ text: `__Vendor__ job creation failed: ${error || 'No job id returned'}`, type: 'error' });
+    return;
+  }
+
+  const jobs = { ...readMap(service, 'jobIds') };
+  langs.forEach((lang) => {
+    jobs[lang.code] = job.id;
+    lang.translation ??= {};
+    lang.translation.status = 'created';
+    lang.translation.sent = urls.length;
+  });
+  options.service.jobIds = { value: JSON.stringify(jobs) };
+  options.service.fileIds = { value: JSON.stringify({ ...readMap(service, 'fileIds'), ...fileIds }) };
+
+  sendMessage();
+  await saveState({ options });
+}
+
+/**
+ * Polls vendor status for every language that is not terminal.
+ * @param {Object} conf
+ * @param {Object} conf.service - The service config.
+ * @param {Object[]} conf.langs - Languages to poll, mutated.
+ * @param {Object[]} conf.urls - Source urls (only `.length` is used).
+ * @param {Object} conf.actions - `{ sendMessage, saveState }`.
+ * @returns {Promise<void>}
+ */
+export async function getStatusAll({
+  service, langs, urls, actions,
+}) {
+  const { sendMessage, saveState } = actions;
+  const active = langs.filter((lang) => !TERMINAL_LANG_STATUSES.includes(lang.translation?.status));
+  if (!active.length) return;
+
+  if (!(await isConnected(service))) {
+    sendMessage({ text: 'Not connected to __Vendor__.', type: 'error' });
+    return;
+  }
+
+  sendMessage({ text: 'Checking __Vendor__ translation status.' });
+  const jobs = readMap(service, 'jobIds');
+  const jobIds = [...new Set(active.map((lang) => jobs[lang.code]).filter(Boolean))];
+
+  await Promise.all(jobIds.map(async (jobId) => {
+    // TODO(vendor): paginate with the API's real param names; confirm against the schema.
+    const { json, error } = await vendorFetch(service, `/jobs/${jobId}/targets`);
+    if (error) return;
+    active.filter((lang) => jobs[lang.code] === jobId).forEach((lang) => {
+      const target = json?.targets?.find((item) => item.language === toVendorLang(lang.code));
+      const status = VENDOR_STATUS[target?.status];
+      if (!status) return;
+      lang.translation ??= {};
+      lang.translation.status = status;
+      if (status === 'translated') lang.translation.translated = urls.length;
+    });
+  }));
+
+  sendMessage();
+  await saveState();
+}
+
+/**
+ * Downloads and saves translated content for one language.
+ * @param {Object} conf
+ * @param {string} conf.org - The Experience Workspace org.
+ * @param {string} conf.site - The Experience Workspace site.
+ * @param {Object} conf.service - The service config.
+ * @param {Object} conf.lang - The language being saved.
+ * @param {Object[]} conf.urls - Urls to save; each gets `.status`.
+ * @param {Function} conf.saveFn - Saves a url; sets `url.status = 'success'`.
+ * @returns {Promise<Object[]>} The same urls.
+ */
+export async function saveItems({
+  org, site, service, lang, urls, saveFn,
+}) {
+  const jobId = readMap(service, 'jobIds')[lang.code];
+  const fileIds = readMap(service, 'fileIds');
+  if (!jobId) return urls;
+
+  const download = async (url) => {
+    const fileId = fileIds[url.daBasePath];
+    if (!fileId) {
+      url.status = 'error';
+      return;
+    }
+    try {
+      // TODO(vendor): translated-output endpoint; vendors differ on id (source file vs output).
+      const reqOpts = { headers: await authHeaders(service, {}) };
+      const resp = await fetchWithRetry(
+        `${resolveOrigin(service)}/jobs/${jobId}/files/${fileId}/${toVendorLang(lang.code)}`,
+        reqOpts,
+        retryConfig(service, reqOpts),
+      );
+      if (!resp.ok) throw new Error(resp.status);
+      const html = await resp.text();
+      url.sourceContent = await removeDnt({ org, site, html, ext: url.ext });
+      await saveFn(url);
+    } catch {
+      url.status = 'error';
+    }
+  };
+
+  await downloadQueue(urls, download);
+  // TODO(vendor): mark delivered only when every url.status === 'success'; report failures.
+  return urls;
+}
+
+// Optional: export only if the vendor allows connector-initiated cancel.
+// Cancel the narrowest scope (this language), set lang.translation.status = 'cancelled' (two l's).
+// export async function cancelTranslation({ service, lang, sendMessage }) { ... }
+
+// Optional: Options-step dropdowns. fetch(service) returns [{ value, label }].
+// export const serviceOptions = [
+//   { key: 'project', label: 'Project', fetch: async (service) => [] },
+// ];
