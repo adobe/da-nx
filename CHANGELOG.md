@@ -1,3 +1,10 @@
+## [1.16.6](https://github.com/adobe/da-nx/compare/v1.16.5...v1.16.6) (2026-10-19)
+
+
+### Bug Fixes
+
+* use the coworker UI for Experience Context ([#876](https://github.com/adobe/da-nx/issues/876)) ([ae51965](https://github.com/adobe/da-nx/commit/ae51965092d49f7603e8dee4ea82bc5995c32c77))
+
 ## [1.16.5](https://github.com/adobe/da-nx/compare/v1.16.4...v1.16.5) (2026-10-19)
 
 
