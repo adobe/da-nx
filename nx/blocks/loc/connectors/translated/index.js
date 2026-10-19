@@ -24,7 +24,7 @@ const VENDOR_STATUS = {
   upload: 'created',
   'wc raw': 'created',
   ingested: 'created',
-  bucketing: 'created',
+  bucketing: 'in progress',
   unconfirmed: 'created',
   'machine translation': 'in progress',
   analyzing: 'in progress',
