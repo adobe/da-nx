@@ -19,7 +19,7 @@ const MAX_TITLE_LENGTH = 100;
 const CANCELLABLE_STATUSES = ['upload', 'wc raw', 'ingested', 'bucketing'];
 const PROGRESS = { created: 0, 'in progress': 1, translated: 2 };
 
-const VENDOR_STATUS = {
+const STATUS_MAP = {
   preprocessing: 'created',
   upload: 'created',
   'wc raw': 'created',
@@ -77,7 +77,7 @@ function errorMessage(json) {
  * @param {Object} [opts] - Fetch options; `headers` are merged with the auth headers.
  * @returns {Promise<{json?: *, error?: string, status: number}>} The parsed result.
  */
-async function vendorFetch(service, path, opts = {}) {
+async function apiFetch(service, path, opts = {}) {
   const { headers, ...rest } = opts;
   const reqOpts = { ...rest, headers: await authHeaders(service, headers) };
   const resp = await fetchWithRetry(
@@ -98,8 +98,8 @@ async function vendorFetch(service, path, opts = {}) {
  * @param {Object} [headers] - Extra headers, such as `x-idempotency-id`.
  * @returns {Promise<{json?: *, error?: string, status: number}>} The parsed result.
  */
-function vendorPost(service, path, body, headers = {}) {
-  return vendorFetch(service, path, {
+function apiPost(service, path, body, headers = {}) {
+  return apiFetch(service, path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
@@ -112,7 +112,7 @@ function vendorPost(service, path, body, headers = {}) {
  * @returns {Promise<Set<string>|undefined>} The codes, or undefined if the lookup failed.
  */
 async function fetchLanguageCodes(service) {
-  const { json } = await vendorFetch(service, '/v2/symbol/languages');
+  const { json } = await apiFetch(service, '/v2/symbol/languages');
   if (!Array.isArray(json)) return undefined;
   return new Set(json.map((language) => language.key));
 }
@@ -127,7 +127,7 @@ async function fetchRequests(service, filter) {
   const requests = [];
   for (let offset = 0; ; offset += STATUS_PAGE_SIZE) {
     // eslint-disable-next-line no-await-in-loop
-    const { json, error } = await vendorPost(service, '/v2/status', {
+    const { json, error } = await apiPost(service, '/v2/status', {
       ...filter, limit: STATUS_PAGE_SIZE, offset,
     });
     if (error) return { error };
@@ -192,7 +192,7 @@ function forLang(requests, code) {
  * @returns {{status: string, translated: number}} The language status and delivered count.
  */
 function rollUpStatus(requests, expected) {
-  const states = requests.map((r) => VENDOR_STATUS[r.status]);
+  const states = requests.map((r) => STATUS_MAP[r.status]);
   if (states.some((state) => state === 'error')) return { status: 'error', translated: 0 };
   const cancelled = states.filter((state) => state === 'cancelled').length;
   if (cancelled) {
@@ -223,7 +223,7 @@ export const serviceOptions = [
     key: 'serviceType',
     label: 'Service Type',
     fetch: async (service) => {
-      const { json } = await vendorFetch(service, '/v2/symbol/service-type-names');
+      const { json } = await apiFetch(service, '/v2/symbol/service-type-names');
       if (!Array.isArray(json)) return [];
       return json
         .filter((type) => type.human_enabled || type.machine_enabled)
@@ -295,7 +295,7 @@ export async function sendAllLanguages({
   }
 
   sendMessage({ text: `Sending ${urls.length} items to Translated.` });
-  const { json, error } = await vendorPost(service, '/v2/translate', orders, {
+  const { json, error } = await apiPost(service, '/v2/translate', orders, {
     'x-idempotency-id': crypto.randomUUID(),
   });
   if (error || !Array.isArray(json)) {
@@ -384,7 +384,7 @@ export async function saveItems({
 
   const download = async (url) => {
     const request = byContent[url.daBasePath];
-    if (VENDOR_STATUS[request?.status] !== 'translated' || !request.translated_content) {
+    if (STATUS_MAP[request?.status] !== 'translated' || !request.translated_content) {
       url.status = 'error';
       return;
     }
@@ -434,7 +434,7 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
     return { ok: false };
   }
 
-  const { error: cancelError } = await vendorPost(service, '/v2/translate/cancel', {
+  const { error: cancelError } = await apiPost(service, '/v2/translate/cancel', {
     id: latest.map((request) => request.id),
   });
   if (cancelError) {
