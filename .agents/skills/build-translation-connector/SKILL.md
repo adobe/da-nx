@@ -47,7 +47,7 @@ Copy this checklist and tick it as you go:
 
 ### 1. Intake and feasibility verdict
 
-Read [references/vendor-requirements.md](references/vendor-requirements.md). It holds the aem.live requirements as a go/no-go checklist. Re-fetch the live page first; the requirements change.
+Read [references/vendor-requirements.md](references/vendor-requirements.md). It points to the live aem.live requirements (the single source, deliberately not copied here) and adds the operations map, open questions and verdict values.
 
 Ask the user, one question at a time:
 - Vendor name, API docs link, and a sandbox or staging account (and whether credentials can be shared with the proxy's secret store).

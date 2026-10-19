@@ -5,17 +5,11 @@ Sandbox/staging account: <yes/no, how credentials are shared>
 
 ## 1. aem.live requirements (https://www.aem.live/docs/ew/administering/translation-service-connection)
 
-| # | Requirement | Pass / Fail / Unknown | Evidence (link or quote) |
-|---|---|---|---|
-| 1 | Cloud-hosted, public HTTPS | | |
-| 2 | Documented REST API; status and downloads reflect human review | | |
-| 3 | Non-interactive auth (OAuth client credentials / API key); no SSO/MFA | | |
-| 4 | Standard locale codes; source language per request | | |
-| 5 | Rate limits tolerate bursts (429/5xx retry; 5 concurrent downloads) | | |
-| 6 | Stable ids per uploaded file and per translated output | | |
-| 7 | Terminal states: finished, failed, canceled | | |
-| 8 | HTML round-trip; honors `translate="no"` | | |
-| 9 | CORS (if no, proxy is required; the proxy is the default anyway) | | |
+One row per requirement in the page's "Connector requests" section, copied fresh at intake time (the page changes).
+
+| Requirement (as written on the page) | Pass / Fail / Unknown | Evidence (link or quote) |
+|---|---|---|
+| | | |
 
 ## 2. Operation map
 

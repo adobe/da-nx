@@ -1,21 +1,23 @@
 # Vendor requirements (feasibility checklist)
 
-Source: https://www.aem.live/docs/ew/administering/translation-service-connection (sections "Connector requests" and "Implement your own connector"). Re-fetch it before every intake; this file is a working summary, not the source of truth.
+Source: https://www.aem.live/docs/ew/administering/translation-service-connection (sections "Connector requests" and "Implement your own connector"). Fetch it fresh for every intake. This file holds only what the page doesn't: the operations a connector needs, open questions and verdict values.
 
 ## Go/no-go requirements
 
-All must hold. Record evidence (doc link or quote) for each in the intake report.
+The aem.live page is the only source for the requirements. Do not copy them into this skill, the intake report or a PR.
 
-1. **Cloud-hosted, public HTTPS.** No self-hosted, on-prem, VPN-only or IP-allowlisted instances. (Per-tenant cloud hostnames are fine; GlobalLink's `endpoint` is one.)
-2. **Documented REST API** covering: create project, upload source files, start it, read status, download results. Translators and reviewers may work in the vendor's tools in between, but **status must reflect that work** and **downloads must return the latest reviewed content**.
-3. **Non-interactive auth.** OAuth 2.0 client credentials, API key or token. No per-user logins, SSO prompts or MFA challenges. Credentials stay server-side and are exchanged for a token on the user's behalf.
-4. **Standard language/locale codes** (for example `fr-FR`) and a **defined source language per request**. If the vendor uses its own codes (DeepL's `EN-US`, `ZH-HANS`), plan a mapping function and prefer resolving against the vendor's live supported-language list over a hardcoded table.
-5. **Rate limits tolerate bursts.** Connectors retry `429` and `5xx` with exponential backoff and download up to **five files at a time**.
-6. **Stable identifiers** for each uploaded file and each translated output, so a translation maps back to its source page.
-7. **Clear terminal states** for finished, failed and canceled work.
-8. **HTML in, HTML out.** The service must preserve markup and treat `translate="no"` as untranslatable. (DNT markers come from `addDnt`/`removeDnt` in `nx/blocks/loc/dnt`; confirm the vendor round-trips them.)
+1. Fetch the page and read the "Connector requests" section (and "Implement your own connector" for the connector interface).
+2. List each requirement as written there in the intake report's requirements table, one row per requirement.
+3. Mark each Pass, Fail or Unknown, with evidence (doc link or quote).
+4. Any Fail means No-go.
 
-CORS is not a no-go. If the vendor blocks cross-origin requests, calls go through the proxy. New connectors use the proxy anyway; see [auth-and-proxy.md](auth-and-proxy.md).
+Skill-specific notes for judging evidence. They add repo context and do not restate the requirements:
+
+- Per-tenant cloud hostnames are fine (GlobalLink's `endpoint` is one).
+- Vendor-specific locale codes (DeepL's `EN-US`, `ZH-HANS`) need a mapping function. Prefer the vendor's live supported-language list over a hardcoded table.
+- Connectors retry and download concurrently through shared utils; check how the vendor's rate limits fit (see [connector-contract.md](connector-contract.md)).
+- DNT markers come from `addDnt`/`removeDnt` in `nx/blocks/loc/dnt`. Confirm the vendor round-trips them.
+- CORS is never a No-go. If the vendor blocks cross-origin requests, calls go through the proxy. New connectors use the proxy anyway; see [auth-and-proxy.md](auth-and-proxy.md).
 
 ## Operations the API must support
 
