@@ -140,7 +140,7 @@ class NxProfile extends LitElement {
 
   handleUISize({ detail: { value }, currentTarget }) {
     try {
-      setUISize({ size: value, animate: true });
+      setUISize({ size: value });
       this._uiSizeError = undefined;
     } catch (error) {
       config.log(error);

@@ -10,28 +10,10 @@ function applyUISize() {
   document.dispatchEvent(new CustomEvent(UI_SIZE_EVENT, { detail: { size } }));
 }
 
-const sizedHosts = new Set();
-
-async function sizedHostsUpdated() {
-  const done = () => Promise.all([...sizedHosts].map((host) => host.updateComplete));
-  await done();
-  // Shared children (pickers, menus) re-render after their owners.
-  await new Promise((resolve) => { setTimeout(resolve); });
-  await done();
-}
-
-export function setUISize({ size, animate = false }) {
+export function setUISize({ size }) {
   if (!['s', 'm'].includes(size)) throw new RangeError(`Unsupported UI size: ${size}`);
   localStorage.setItem('ui-size', size);
-  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!animate || reduceMotion || !document.startViewTransition) {
-    applyUISize();
-    return;
-  }
-  document.startViewTransition(async () => {
-    applyUISize();
-    await sizedHostsUpdated();
-  });
+  applyUISize();
 }
 
 window.addEventListener('storage', (event) => {
@@ -55,13 +37,11 @@ export class UISizeController {
   };
 
   hostConnected() {
-    sizedHosts.add(this.host);
     this._update();
     document.addEventListener(UI_SIZE_EVENT, this._update);
   }
 
   hostDisconnected() {
-    sizedHosts.delete(this.host);
     document.removeEventListener(UI_SIZE_EVENT, this._update);
   }
 }

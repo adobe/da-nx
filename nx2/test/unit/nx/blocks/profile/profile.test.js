@@ -89,7 +89,6 @@ describe('nx-profile', () => {
   beforeEach(() => {
     originalSize = localStorage.getItem('ui-size');
     originalClasses = document.body.className;
-    sinon.stub(document, 'startViewTransition').value(undefined);
     setUISize({ size: 's' });
   });
 

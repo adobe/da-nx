@@ -85,7 +85,7 @@
   background: transparent;
   border: none;
   padding: 24px 44px 24px 24px;
-  transition: all 0.2s ease-in-out;
+  transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out;
   width: 100%;
 }
 
@@ -96,7 +96,7 @@
   content: "";
   height: 1px;
   background: var(--s2-gray-100);
-  transition: all 0.2s ease-in-out;
+  transition: inset 0.2s ease-in-out, background-color 0.2s ease-in-out;
 }
 
 .nx-menu-btn::after,
@@ -106,7 +106,7 @@
   content: "";
   height: 1px;
   background: var(--s2-gray-100);
-  transition: all 0.2s ease-in-out;
+  transition: inset 0.2s ease-in-out, background-color 0.2s ease-in-out;
 }
 
 .nx-menu-btn:hover {
@@ -322,7 +322,7 @@
   background: transparent;
   border: none;
   padding: 24px;
-  transition: all 0.2s ease-in-out;
+  transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out;
   margin: -1px 0;
 }
 
