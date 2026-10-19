@@ -30,6 +30,22 @@ describe('uploads.js getOrgId', () => {
 });
 
 describe('uploads.js resolveAoHttpBase/resolveAoWsBase', () => {
+  it('targets a local AO when ?nx-chat-ao-host=local', () => {
+    expect(resolveAoHttpBase(undefined, '?nx-chat-ao-host=local')).to.equal('http://localhost:8090');
+    expect(resolveAoWsBase(undefined, '?nx-chat-ao-host=local')).to.equal('ws://localhost:8090');
+  });
+
+  it('accepts an explicit loopback host:port for ?nx-chat-ao-host', () => {
+    expect(resolveAoHttpBase(undefined, '?nx-chat-ao-host=127.0.0.1:9000')).to.equal('http://127.0.0.1:9000');
+    expect(resolveAoWsBase(undefined, '?nx-chat-ao-host=localhost:8091')).to.equal('ws://localhost:8091');
+  });
+
+  it('ignores non-loopback ?nx-chat-ao-host values so tokens cannot be redirected', () => {
+    expect(resolveAoHttpBase(undefined, '?nx-chat-ao-host=evil.example.com')).to.equal(AO_HTTP_BASE);
+    expect(resolveAoWsBase(undefined, '?nx-chat-ao-host=localhost.evil.com')).to.equal(AO_WS_BASE);
+    expect(resolveAoHttpBase(undefined, '?nx-chat-ao-host=localhost:8090/x')).to.equal(AO_HTTP_BASE);
+  });
+
   it('falls back to the default base when there is no projectedProductContext', () => {
     expect(resolveAoHttpBase(undefined)).to.equal(AO_HTTP_BASE);
     expect(resolveAoWsBase(undefined)).to.equal(AO_WS_BASE);

@@ -19,12 +19,26 @@ function resolveAoLocation(projectedProductContext) {
   }
 }
 
-export function resolveAoHttpBase(projectedProductContext) {
+const AO_HOST_QUERY_PARAM = 'nx-chat-ao-host';
+
+// Dev override: `?nx-chat-ao-host=local` (or `localhost:<port>`) targets an AO on this machine.
+// Loopback only, so a crafted link can never send the user's IMS token to another host.
+function getLocalAoHost(search) {
+  const value = new URLSearchParams(search).get(AO_HOST_QUERY_PARAM);
+  const hostPort = value === 'local' ? 'localhost:8090' : value;
+  return /^(localhost|127\.0\.0\.1)(:\d{1,5})?$/.test(hostPort ?? '') ? hostPort : null;
+}
+
+export function resolveAoHttpBase(projectedProductContext, search = window.location.search) {
+  const localHost = getLocalAoHost(search);
+  if (localHost) return `http://${localHost}`;
   const loc = resolveAoLocation(projectedProductContext);
   return loc ? `https://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_HTTP_BASE;
 }
 
-export function resolveAoWsBase(projectedProductContext) {
+export function resolveAoWsBase(projectedProductContext, search = window.location.search) {
+  const localHost = getLocalAoHost(search);
+  if (localHost) return `ws://${localHost}`;
   const loc = resolveAoLocation(projectedProductContext);
   return loc ? `wss://agent-orchestrator-${loc.environment}-${loc.region}.adobe.io` : AO_WS_BASE;
 }

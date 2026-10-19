@@ -827,6 +827,16 @@ falls back to the default manifest mid-conversation. Both are resolved by
 - With neither set, `manifestId` is the default (`AO_MANIFEST_ID`,
   `experience-workspace`).
 
+## Local AO override
+
+`?nx-chat-ao-host=local` (or `?nx-chat-ao-host=localhost:<port>`) points every AO call
+(REST and WebSocket) at `http://localhost:8090` / `ws://localhost:8090` instead of the
+region-resolved hosted AO (`resolveAoHttpBase`/`resolveAoWsBase` in `utils/uploads.js`).
+Dev only, not persisted. Only `localhost`/`127.0.0.1` are accepted so a crafted link
+can never send the user's IMS token to another host. The local AO must allow the page's
+origin in `AGENT_CORS_ALLOWED_ORIGINS` and validate the same IMS environment as the page.
+Combine with `?nx-chat-ao-manifest=<id>` to select a manifest that only exists locally.
+
 ## AO wire-protocol notes
 
 - **First-op restriction.** A fresh WebSocket connection's first substantive
