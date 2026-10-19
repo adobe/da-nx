@@ -49,6 +49,7 @@ class FormAsset extends LitElement {
     value: { type: String },
     altText: { type: String },
     assetType: { type: String },
+    showsPreview: { type: Boolean },
     acceptsAltText: { type: Boolean },
     altRequired: { type: Boolean },
     altError: { type: String },
@@ -110,10 +111,10 @@ class FormAsset extends LitElement {
     return this._previewFailed ? undefined : this._asset.previewHref;
   }
 
-  // Only images and videos expand to the preview panel. Empty fields, other
-  // files and images whose preview cannot load stay a single row.
+  // Only images and videos expand to the preview panel, and only in fields that
+  // show previews. Everything else stays a single row.
   get _hasPreviewPanel() {
-    if (!this.value) return false;
+    if (!this.showsPreview || !this.value) return false;
     const { kind } = this._asset;
     if (kind === ASSET_KINDS.video) return true;
     return kind === ASSET_KINDS.image && !this._previewFailed;

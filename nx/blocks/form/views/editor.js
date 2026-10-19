@@ -9,12 +9,17 @@ import '../fields/number.js';
 import '../fields/date.js';
 import '../fields/asset.js';
 import { icon } from '../icons.js';
+import { ASSET_TYPES } from '../utils/assets.js';
 
 // The SDK types edited as one asset field, an object with `src` (and `altText` for images).
-const ASSET_TYPE_NAMES = new Set(['image', 'file']);
+// Only images are delivered as images, so only they preview. Files are delivered as links.
+const ASSET_FIELDS = new Map([
+  [ASSET_TYPES.image, { showsPreview: true }],
+  [ASSET_TYPES.file, { showsPreview: false }],
+]);
 
 function isAsset(node) {
-  return ASSET_TYPE_NAMES.has(node?.typeName);
+  return ASSET_FIELDS.has(node?.typeName);
 }
 
 // A value of a `$ref` type is one field even though it is an object.
@@ -244,6 +249,7 @@ class Editor extends LitElement {
         .value=${src}
         .altText=${altText}
         .assetType=${node.typeName}
+        .showsPreview=${ASSET_FIELDS.get(node.typeName).showsPreview}
         .acceptsAltText=${!!altNode}
         .altRequired=${!!altNode?.required}
         .altError=${this._error(`${pointer}/altText`)}

@@ -24,7 +24,9 @@ const aem = (overrides = {}) => source({ id: 'aem-assets', label: 'AEM Assets', 
 
 async function mount(options = {}) {
   const field = document.createElement('form-asset');
-  Object.assign(field, { label: 'Hero image', sources: [upload(), aem()], ...options });
+  Object.assign(field, {
+    label: 'Hero image', showsPreview: true, sources: [upload(), aem()], ...options,
+  });
   document.body.append(field);
   mounted.push(field);
   await field.updateComplete;
@@ -157,6 +159,13 @@ describe('form-asset', () => {
     expect(box(field).classList.contains('has-preview')).to.be.false;
     expect(heightOf(box(field))).to.be.lessThan(100);
     expect(query(field, '.asset-url').textContent).to.equal('https://x.test/files/spec.pdf');
+  });
+
+  it('keeps an image as a single row in a field without previews', async () => {
+    const field = await mount({ showsPreview: false, value: './media_abc.png' });
+    expect(query(field, '.asset-preview')).to.equal(null);
+    expect(box(field).classList.contains('has-preview')).to.be.false;
+    expect(query(field, '.asset-url').textContent).to.equal('./media_abc.png');
   });
 
   it('expands again when a file is replaced with an image, and collapses on the way back', async () => {
