@@ -27,7 +27,7 @@ export function getColorScheme() {
 
 export function getUISize() {
   const size = localStorage.getItem('ui-size');
-  return ['s', 'm', 'l'].includes(size) ? size : 's';
+  return size === 'm' ? 'm' : 's';
 }
 
 export function getMetadata(name) {

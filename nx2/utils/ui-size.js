@@ -6,8 +6,7 @@ export const UI_SIZE_EVENT = 'nx-ui-size-change';
 
 function applyUISize() {
   const size = getUISize();
-  document.body.classList.remove('ui-size-s', 'ui-size-m', 'ui-size-l');
-  if (size !== 's') document.body.classList.add(`ui-size-${size}`);
+  document.body.classList.toggle('ui-size-m', size === 'm');
   document.dispatchEvent(new CustomEvent(UI_SIZE_EVENT, { detail: { size } }));
 }
 

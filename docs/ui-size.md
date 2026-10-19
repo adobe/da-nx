@@ -4,12 +4,12 @@ A user-level text/icon scale for Experience Workspace (chat + canvas).
 
 - **s** — default. Same sizes as the UI before the scale existed (main), with off-scale values snapped to S2.
 - **m** — one S2 step bigger than s. Relative sizes (main text vs. secondary text vs. captions) stay the same.
-- **l** — reserved. `getUISize()` accepts it, but no values exist yet.
+- **l** — reserved for later. Not implemented: any stored value other than `m` is treated as `s`.
 
 ## How it is switched
 
 `getUISize()` in `nx2/scripts/nx.js` reads `localStorage['ui-size']` (same pattern as `color-scheme`).
-`decorateDoc()` adds `body.ui-size-{size}` for anything other than `s`. Components that need
+`decorateDoc()` adds `body.ui-size-m` when the size is `m`. Components that need
 per-component overrides reflect it as `data-ui-size` on their host.
 
 The profile popover contains a **UI size** segmented control below Organization and above Links.
