@@ -86,7 +86,8 @@ describe('__name__ connector', () => {
       expect(messages.filter((m) => m?.type === 'error')).to.have.length(1);
       expect(langs[0].translation).to.equal(undefined);
     });
-    // TODO(vendor): happy path (created, sent, ids), more than 5 urls, source language code.
+    // TODO(vendor): happy path (created, sent, ids), more than 5 urls, source language code,
+    // job creation failure or missing id leaves lang.translation undefined and persists no ids.
   });
 
   describe('getStatusAll', () => {

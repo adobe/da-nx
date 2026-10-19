@@ -69,7 +69,7 @@ Counts (`lang.translation.sent`, `.translated`, `.saved`) drive the progress tex
 1. Call `isConnected`; if false, `sendMessage` error and return.
 2. Take the source language from `options['source.language'].code`. Never hardcode `en-US`. Language-code mapping to vendor codes goes in one function.
 3. Upload sources; on any failure, `sendMessage({ type: 'error' })` **once** (roll up per-file errors) and return without touching `lang.translation`, so the user can retry.
-4. Create/submit the project. Set each language's `translation.status = 'created'` and `sent = urls.length`.
+4. Create/submit the project. Only after the vendor returns a valid id for a language, set that language's `translation.status = 'created'` and `sent = urls.length`. If creation fails or returns no id, do not create `lang.translation` for it (and persist no ids): the object is what enables "Get Status", so a failed submission must not be pollable.
 5. Persist ids with `saveState({ options })` (and `urls` if per-url ids).
 6. Return. **Do not poll for completion here.** The host triggers a first status check unless the last message was an error. `getStatusAll` does the polling. Instant-MT vendors still set `created` and let `getStatusAll` advance it.
 
