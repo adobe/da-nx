@@ -570,6 +570,9 @@ export async function getStatusAll({
         if (workflowStatus.sent !== 0 && workflowStatus.status !== 'complete'
           && translated === workflowStatus.sent) {
           workflowStatus.status = 'translated';
+          if (subtaskLang.translation.status === 'error') {
+            subtaskLang.translation.status = 'translated';
+          }
         }
       }
       aggregateWorkflowStatus(subtaskLang);
@@ -712,8 +715,27 @@ export async function saveItems({
   }
 
   const logRequest = shouldLogGLaaSRequests() ? logMultimodalRequest : undefined;
+  const multimodal = urls.some((url) => urlToTaskMap.get(url.suppliedPath).workflowName === 'MULTIMODAL');
+  const totalAssets = urls.reduce((total, url) => {
+    const task = urlToTaskMap.get(url.suppliedPath);
+    const images = task.workflowName === 'MULTIMODAL'
+      ? task.pageAssets?.[url.suppliedPath]?.images?.length || 0 : 0;
+    return total + images + 1;
+  }, 0);
+  let processedAssets = 0;
+  const reportProgress = () => {
+    if (multimodal) {
+      sendMessage?.({
+        text: `Saving assets for ${lang.name || code}: ${processedAssets}/${totalAssets}.`,
+      });
+    }
+  };
+  const advanceProgress = () => {
+    processedAssets += 1;
+    reportProgress();
+  };
 
-  const downloadCallback = async (url) => {
+  const downloadAndSave = async (url) => {
     const task = urlToTaskMap.get(url.suppliedPath);
     const glaasPath = getGlaasFilename(url.daBasePath);
     let text;
@@ -736,8 +758,12 @@ export async function saveItems({
         htmlAssetName: glaasPath,
         logRequest,
         onWarning: sendMessage,
+        onImageProcessed: advanceProgress,
       });
-      if (prepared.error) throw new Error(prepared.error);
+      if (prepared.error) {
+        const status = prepared.status ? ` (HTTP ${prepared.status})` : '';
+        throw new Error(`${prepared.error}${status}`);
+      }
       text = prepared.text;
     } else {
       text = await downloadAsset(service, token, { ...task, code }, glaasPath);
@@ -771,8 +797,24 @@ export async function saveItems({
     }
 
     await saveFn(url);
+    if (url.status === 'success') advanceProgress();
   };
 
+  const downloadCallback = async (url) => {
+    try {
+      await downloadAndSave(url);
+    } catch (error) {
+      delete url.sourceContent;
+      url.status = 'error';
+      url.error = error?.message || String(error);
+      sendMessage?.({
+        text: `Error saving ${lang.name || code} (${url.suppliedPath}): ${url.error}`,
+        type: 'error',
+      });
+    }
+  };
+
+  reportProgress();
   return downloadQueue(urls, downloadCallback);
 }
 

@@ -1354,6 +1354,7 @@ export async function prepareMultimodalPageForSave({
   htmlAssetName,
   logRequest,
   onWarning,
+  onImageProcessed,
 }) {
   const pathToNewUrl = new Map();
   const skippedImages = [];
@@ -1362,16 +1363,20 @@ export async function prepareMultimodalPageForSave({
   const { error: imageError, results: imageEntries } = await runImageQueue({
     items: pageAsset.images,
     pushIntervalMs: IMAGE_PUSH_INTERVAL_MS,
-    processItem: (image) => saveMultimodalTranslatedImage({
-      service,
-      token,
-      task,
-      org,
-      site,
-      langCode: locale,
-      image,
-      logRequest,
-    }),
+    processItem: async (image) => {
+      const result = await saveMultimodalTranslatedImage({
+        service,
+        token,
+        task,
+        org,
+        site,
+        langCode: locale,
+        image,
+        logRequest,
+      });
+      if (!result.error) onImageProcessed?.();
+      return result;
+    },
   });
   if (imageError) return imageError;
 
@@ -1388,7 +1393,7 @@ export async function prepareMultimodalPageForSave({
   });
 
   const htmlDownload = await downloadMultimodalAsset(service, token, task, htmlAssetName);
-  if (htmlDownload?.error) return { error: htmlDownload.error };
+  if (htmlDownload?.error) return htmlDownload;
 
   const text = pageAsset.images.length
     ? rewriteContentDaLiveImageUrls(htmlDownload, pathToNewUrl)
