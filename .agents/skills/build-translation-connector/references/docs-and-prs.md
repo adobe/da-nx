@@ -20,7 +20,7 @@ What to document for each new connector, using [../assets/docs-config-section.md
 4. Vendor-side prerequisites: account/sandbox, API user or key, permissions, any custom fields the vendor requires, supported languages and codes.
 5. Behavior notes the user would otherwise be surprised by: how long jobs take, what statuses mean, what cancel does, size and name limits.
 
-Longer rationale and wire-level quirks go in `docs/*.md` in da-nx, not inline comments (repo convention). Use it sparingly; a connector rarely needs more than one short page. Run `/avoid-ai-writing` over every generated doc.
+Longer rationale and wire-level quirks go in `docs/*.md` in da-nx, not inline comments (repo convention). Use it sparingly; a connector rarely needs more than one short page. Run [`/avoid-ai-writing`](https://github.com/cloudadoption/artoo/tree/main/skills/avoid-ai-writing) (Adobe-internal repo; request access if the link 404s) over every generated doc.
 
 ## PRs
 
@@ -48,7 +48,7 @@ One PR per repo; link them to each other in each description.
 
 Run `/avoid-ai-writing` on the description. After each push, re-validate the description against the whole branch (`gh pr view`) and update it if stale; that update doesn't need confirmation.
 
-After opening a da-nx PR, run `/docs-drift-check` and report the findings. Skip that step for repos where it's disabled in the user's global instructions.
+After opening a da-nx PR, run [`/docs-drift-check`](https://github.com/cloudadoption/artoo/tree/main/skills/docs-drift-check) and report the findings (Adobe-internal repo; request access if the link 404s). Skip that step for repos where it's disabled in the user's global instructions.
 
 **Rollout order**: da-etc first, da-translate second, da-nx last. The browser code assumes both endpoints exist. Deploying da-nx first leaves the connector failing with opaque 404s. State this order in the PR descriptions.
 
