@@ -48,6 +48,7 @@ then reload (with "Disable cache" ticked while testing branch previews).
 7. **Line height:** multi-line text inherits the body line height (`--s2-body-line-height`, 1.5). Don't override it.
 8. **Shared components** (`nx-menu`, `nx-picker`, `nx-pills`, `nx-search`, `nx-prompts`, `nx-new-chat`, `nx-segmented-btn`, `buttons.css`) follow their own `size` variant. Menus, pickers and searches that were `size="m"` on main stay `m` in both sizes.
 9. Component-specific m overrides go in one `:host([data-ui-size="m"])` block per component (or `body.ui-size-m` outside shadow DOM).
+10. **No size transitions.** The switch is instant. Animate only colors and transforms, never `transition: all`, so sizes don't animate on S/M.
 
 ## Text
 
