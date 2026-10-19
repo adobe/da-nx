@@ -1436,12 +1436,30 @@ describe('ao-controller user questions', () => {
     expect(sent).to.deep.equal([{
       type: 'RESUME',
       turn_id: 't1',
+      manifestId: AO_MANIFEST_ID,
+      debugMode: false,
       data: {
         type: 'question-response',
         answers: [{ question_id: '1', selected_options: ['Approve'] }],
         declined: false,
       },
     }]);
+  });
+
+  it('carries the overridden manifest on RESUME so a resumed turn keeps the same manifest', async () => {
+    const { controller, sent } = makeController();
+    controller._resolveManifest = async () => ({ manifestId: 'local-manifest', debugMode: true });
+    controller._pendingQuestion = { turnId: 't1', context: null, questions: [] };
+    controller._ws = null;
+    controller._ensureSocket = async () => {
+      controller._ws = { send: (msg) => sent.push(JSON.parse(msg)) };
+    };
+
+    await controller.answerQuestion([{ question_id: '1', selected_options: ['A'] }]);
+
+    expect(sent[0].type).to.equal('RESUME');
+    expect(sent[0].manifestId).to.equal('local-manifest');
+    expect(sent[0].debugMode).to.equal(true);
   });
 
   it('declineQuestion resumes via RESUME when a question was hydrated with no live socket', async () => {
@@ -1457,6 +1475,8 @@ describe('ao-controller user questions', () => {
     expect(sent).to.deep.equal([{
       type: 'RESUME',
       turn_id: 't1',
+      manifestId: AO_MANIFEST_ID,
+      debugMode: false,
       data: { type: 'question-response', answers: [], declined: true },
     }]);
   });
@@ -1495,6 +1515,8 @@ describe('ao-controller plan approval', () => {
     expect(sent).to.deep.equal([{
       type: 'RESUME',
       turn_id: 't1',
+      manifestId: AO_MANIFEST_ID,
+      debugMode: false,
       data: {
         type: 'plan-response', decision: 'reject', feedback: 'needs more detail', edited_plan_content: null,
       },
@@ -1523,6 +1545,8 @@ describe('ao-controller plan approval', () => {
     expect(sent).to.deep.equal([{
       type: 'RESUME',
       turn_id: 't1',
+      manifestId: AO_MANIFEST_ID,
+      debugMode: false,
       data: {
         type: 'plan-response', decision: 'approve', feedback: '', edited_plan_content: null,
       },
@@ -1603,6 +1627,8 @@ describe('ao-controller permission requests', () => {
     expect(sent).to.deep.equal([{
       type: 'RESUME',
       turn_id: 't1',
+      manifestId: AO_MANIFEST_ID,
+      debugMode: false,
       data: {
         type: 'permission-response',
         decisions: { tooluse_1: { tool_call_id: 'tooluse_1', approved: false } },

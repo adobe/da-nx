@@ -520,7 +520,7 @@ export default class BaseChatController {
       await this._ensureSocket();
       const frame = wasAlreadyOpen
         ? { type: AO_FRAME.QUESTION_RESPONSE, turn_id: turnId, answers, declined }
-        : { type: AO_FRAME.RESUME, turn_id: turnId, data: { type: 'question-response', answers, declined } };
+        : await this._resumeFrame(turnId, { type: 'question-response', answers, declined });
       this._ws.send(JSON.stringify(frame));
     } catch (err) {
       this._pushError(err);
@@ -544,13 +544,9 @@ export default class BaseChatController {
 
     try {
       await this._ensureSocket();
-      this._ws.send(JSON.stringify({
-        type: AO_FRAME.RESUME,
-        turn_id: turnId,
-        data: {
-          type: 'plan-response', decision, feedback, edited_plan_content: null,
-        },
-      }));
+      this._ws.send(JSON.stringify(await this._resumeFrame(turnId, {
+        type: 'plan-response', decision, feedback, edited_plan_content: null,
+      })));
     } catch (err) {
       this._pushError(err);
     }
@@ -579,15 +575,20 @@ export default class BaseChatController {
       await this._ensureSocket();
       const frame = wasAlreadyOpen
         ? { type: AO_FRAME.PERMISSION_RESPONSE, turn_id: turnId, decisions: decisionsPayload }
-        : {
-          type: AO_FRAME.RESUME,
-          turn_id: turnId,
-          data: { type: 'permission-response', decisions: decisionsPayload },
-        };
+        : await this._resumeFrame(turnId, { type: 'permission-response', decisions: decisionsPayload });
       this._ws.send(JSON.stringify(frame));
     } catch (err) {
       this._pushError(err);
     }
+  }
+
+  // RESUME is a first op, so AO re-resolves the manifest from it; without
+  // manifestId a resumed turn silently falls back to the default manifest.
+  async _resumeFrame(turnId, data) {
+    const { manifestId, debugMode } = await this._resolveManifest();
+    return {
+      type: AO_FRAME.RESUME, turn_id: turnId, manifestId, debugMode, data,
+    };
   }
 
   _resolveManifest(search = window.location.search) {

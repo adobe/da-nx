@@ -812,7 +812,10 @@ A pill of type `evaluation-finding` (a page-evaluation finding added from the ca
 ## Manifest override
 
 `sendMessage` (`ao-controller.js`) always sends `manifestId` on `USER_INPUT`,
-resolved by `_resolveManifest()`:
+and every `RESUME` (question/plan/permission responses on a cold socket) carries
+it too — AO re-resolves the manifest from any first op, so a `RESUME` without it
+falls back to the default manifest mid-conversation. Both are resolved by
+`_resolveManifest()`:
 
 - `?nx-chat-ao-manifest=<name>` in the URL uses that manifest id directly —
   a dev override, not persisted, mirroring `?nx-chat-ao=true` in
