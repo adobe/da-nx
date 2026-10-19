@@ -91,6 +91,7 @@ describe('nx-editor primitive controls', () => {
     await el.updateComplete;
     const field = el.shadowRoot.querySelector('form-asset');
     expect(field.assetType).to.equal('image');
+    expect(field.acceptsAltText).to.equal(true);
     expect(field.altRequired).to.equal(true);
     expect(field.altError).to.equal('Required');
     expect(field.error ?? '').to.equal('');
@@ -106,6 +107,7 @@ describe('nx-editor primitive controls', () => {
     const el = await mountEditor(objectRoot([node]));
     const field = el.shadowRoot.querySelector('form-asset');
     expect(field.assetType).to.equal('file');
+    expect(field.acceptsAltText).to.equal(false);
     expect(field.altRequired).to.equal(false);
   });
 

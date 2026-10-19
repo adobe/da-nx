@@ -244,6 +244,7 @@ class Editor extends LitElement {
         .value=${src}
         .altText=${altText}
         .assetType=${node.typeName}
+        .acceptsAltText=${!!altNode}
         .altRequired=${!!altNode?.required}
         .altError=${this._error(`${pointer}/altText`)}
         .sources=${this.assetSources}

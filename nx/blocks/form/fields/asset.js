@@ -49,6 +49,7 @@ class FormAsset extends LitElement {
     value: { type: String },
     altText: { type: String },
     assetType: { type: String },
+    acceptsAltText: { type: Boolean },
     altRequired: { type: Boolean },
     altError: { type: String },
     label: { type: String },
@@ -183,6 +184,8 @@ class FormAsset extends LitElement {
     }
     this._selection = { href: result.href, name: result.name };
     this.value = result.href;
+    // A new asset needs its own description, so the alt text comes from the source or starts empty.
+    this.altText = this.acceptsAltText ? result.alt : undefined;
     this._emitChange();
   }
 
@@ -381,11 +384,8 @@ class FormAsset extends LitElement {
     `;
   }
 
-  // Alt text only describes images: an image field always offers it, a file
-  // field never does, and an untyped field offers it when the file is an image.
   get _offersAltText() {
-    if (!this.value || this.assetType === 'file') return false;
-    return this.assetType === 'image' || this._asset.kind === ASSET_KINDS.image;
+    return !!this.acceptsAltText && !!this.value;
   }
 
   _renderAltText() {

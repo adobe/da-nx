@@ -28,13 +28,13 @@ function toAssetResult({ asset, repoConfig }) {
     return CANCELLED;
   }
 
-  const { href, error } = resolveAssetSelection({ asset, repoConfig });
+  const { href, alt, error } = resolveAssetSelection({ asset, repoConfig });
   if (error) {
     return { error };
   }
 
   const name = asset['repo:name'] ?? asset.name;
-  return { href, name };
+  return { href, name, alt };
 }
 
 // The hosted selector renders outside shadow roots, so its dialog lives in the document body.

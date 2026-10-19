@@ -107,8 +107,23 @@ describe('selectAemAsset', () => {
     expect(await pick).to.deep.equal({
       href: 'https://publish-p1-e1.adobeaemcloud.com/content/dam/photo.jpg',
       name: 'photo.jpg',
+      alt: 'photo.jpg',
     });
     expect(openDialog()).to.equal(null);
+  });
+
+  it('passes the alt text from the asset metadata, like Canvas', async () => {
+    const { pick, calls } = start();
+    const { props } = await waitForRender(calls);
+
+    props.handleSelection([{
+      ...IMAGE_ASSET,
+      _embedded: {
+        [METADATA_KEY]: { ...IMAGE_ASSET._embedded[METADATA_KEY], 'dc:description': 'A runner at dawn' },
+      },
+    }]);
+
+    expect((await pick).alt).to.equal('A runner at dawn');
   });
 
   it('rejects an asset that is not approved for delivery', async () => {

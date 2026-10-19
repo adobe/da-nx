@@ -485,29 +485,24 @@ describe('form-asset', () => {
   describe('alt text', () => {
     const altInput = (field) => query(field, '.asset-alt input');
 
-    it('offers an alt text input only for an image', async () => {
-      const empty = await mount();
-      const pdf = await mount({ value: 'https://x.test/spec.pdf' });
-      const image = await mount({ value: './media_abc.png', altText: 'A hero' });
+    it('offers an alt text input once an asset is set, if the field accepts alt text', async () => {
+      const empty = await mount({ acceptsAltText: true });
+      const without = await mount({ value: './media_abc.png' });
+      const image = await mount({ acceptsAltText: true, value: './media_abc.png', altText: 'A hero' });
       expect(altInput(empty)).to.equal(null);
-      expect(altInput(pdf)).to.equal(null);
+      expect(altInput(without)).to.equal(null);
       expect(altInput(image).value).to.equal('A hero');
       expect(query(image, '.asset-alt label').textContent.trim()).to.equal('Alt text');
     });
 
-    it('offers alt text on an image field whatever the file looks like', async () => {
-      const field = await mount({ assetType: 'image', value: 'https://x.test/render?id=1' });
+    it('offers alt text whatever the file looks like', async () => {
+      const field = await mount({ acceptsAltText: true, value: 'https://x.test/render?id=1' });
       expect(altInput(field)).to.exist;
-    });
-
-    it('never offers alt text on a file field', async () => {
-      const field = await mount({ assetType: 'file', value: './media_abc.png' });
-      expect(altInput(field)).to.equal(null);
     });
 
     it('marks a required alt text and shows its error', async () => {
       const field = await mount({
-        assetType: 'image', value: './media_abc.png', altRequired: true, altError: 'Required',
+        acceptsAltText: true, value: './media_abc.png', altRequired: true, altError: 'Required',
       });
       expect(query(field, '.asset-alt .form-required')).to.exist;
       expect(altInput(field).required).to.equal(true);
@@ -517,7 +512,7 @@ describe('form-asset', () => {
     });
 
     it('reports alt text edits without a file change', async () => {
-      const field = await mount({ value: './media_abc.png' });
+      const field = await mount({ acceptsAltText: true, value: './media_abc.png' });
       const changes = recordChanges(field);
       const alts = [];
       field.addEventListener('alt-text-change', (event) => alts.push(event.target.altText));
@@ -528,8 +523,37 @@ describe('form-asset', () => {
       expect(changes).to.deep.equal([]);
     });
 
+    it('takes the alt text of a selected image from its source', async () => {
+      const select = sinon.fake.resolves({ href: './media_new.png', name: 'new.png', alt: 'A runner' });
+      const field = await mount({ acceptsAltText: true, sources: [aem({ select })] });
+      button(field, 'Select').click();
+      await settle(field);
+      expect(field.altText).to.equal('A runner');
+      expect(altInput(field).value).to.equal('A runner');
+    });
+
+    it('drops the old alt text when the image is replaced by one without', async () => {
+      const select = sinon.fake.resolves({ href: './media_new.png', name: 'new.png' });
+      const field = await mount({
+        acceptsAltText: true, value: './media_old.png', altText: 'The old image', sources: [upload({ select })],
+      });
+      answerFilePicker(field, new File(['x'], 'new.png', { type: 'image/png' }));
+      button(field, 'Replace').click();
+      await settle(field);
+      expect(field.value).to.equal('./media_new.png');
+      expect(field.altText).to.equal(undefined);
+    });
+
+    it('takes no alt text on a field without it, such as a file field', async () => {
+      const select = sinon.fake.resolves({ href: './media_new.png', name: 'new.png', alt: 'A runner' });
+      const field = await mount({ sources: [aem({ select })] });
+      button(field, 'Select').click();
+      await settle(field);
+      expect(field.altText).to.equal(undefined);
+    });
+
     it('clears the alt text when the asset is removed', async () => {
-      const field = await mount({ value: './media_abc.png', altText: 'A hero' });
+      const field = await mount({ acceptsAltText: true, value: './media_abc.png', altText: 'A hero' });
       button(field, 'Remove').click();
       await field.updateComplete;
       query(field, '.asset-remove-confirm').click();
