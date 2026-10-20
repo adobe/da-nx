@@ -1,8 +1,6 @@
-# MSM merge boundary
+# Rollout merge copy
 
-The only new public entrypoint is `nx/public/plugins/rollout/utils.js`. It exports
-`mergeCopy({ fetch, daOrigin, urlSource, urlTarget, msg })`.
-No public upload, configuration, metadata, hash, or general DA API.
+`nx/public/plugins/rollout/utils.js` exports `mergeCopy`, which merges a source page into a target page the same way Rollout does: changes are diffed against the target and marked for review, preserving prior accept/reject decisions.
 
 ```js
 import DA_SDK from 'https://da.live/nx/utils/sdk.js';
@@ -18,32 +16,33 @@ const result = await mergeCopy({
 });
 ```
 
-`fetch(href, options)` supplies authentication and returns a `Response`.
-Paths include org/site. Translation config comes from the destination site,
-then its org on 404; no config means no equivalent hostnames. The private
-loader caches per fetch callback, DA origin, and org/site and reports other failures. Nothing discovers
-IMS, the host, or iframe location.
+## Parameters
 
-Merge returns a `Response`, `{ ok: true }` for identical content, or
-`{ ok: false, status, error }` for operation failures. Missing/empty
-destinations allow overwrite; auth/config failures do not. In-flight version
-saves are deduplicated and awaited. A failed version save can follow a
-successful content write; don't automatically retry an overwrite.
+| Name | Description |
+|---|---|
+| `fetch` | `(href, options) => Promise<Response>`. Supplies authentication; nothing else discovers IMS, host, or iframe context. |
+| `daOrigin` | DA admin origin, e.g. `https://admin.da.live`. |
+| `urlSource` | Source path including org and site. |
+| `urlTarget` | Target path including org and site. |
+| `msg` | Version label prefix; the saved version is labeled `<msg> - Rolled Out`. |
 
-## Private implementation and migration
+## Behavior
 
-`nx/utils/loc.js` shares copy operations with internal loc and Rollout.
-Diffing stays in `nx/blocks/loc/regional-diff/regional-diff.js`, beside the
-unchanged hash bundle. It retains its positional signature; explicit config
-skips legacy page-context/config loading.
-Loc supplies its existing backend-aware `source.save`; `nx2/utils/api.js`
-and its DA/HLX6 routing are unchanged.
+- Missing or empty target: source is copied as-is (overwrite).
+- Identical content: nothing is written.
+- Otherwise: the diffed result is written to the target, then a version is saved.
+- Translation config is read from the target site's `.da/translate.json`, falling back to the org's on 404. No config means no equivalent hostnames. Config is cached per `fetch`, `daOrigin`, and org/site; failed loads are not cached.
+- Concurrent version saves for the same path are deduplicated.
 
-NX2 migration touchpoints: loc's project adapter, the nx2 Rollout
-plugin, and the private engine's pure `nx2/utils/getElementMetadata.js`
-dependency. That helper has no IMS/runtime dependency. External apps import
-only the stable public entrypoint.
+## Return value
 
-Deploy this entrypoint before merging AEM Apps' migration/shim removal.
-AEM Apps remains DA-only. SDK auth-failure behavior is unchanged; broader
-SDK/HLX6 support is separate work.
+- `Response` from the content write; check `ok`.
+- `{ ok: true }` when content is identical.
+- `{ ok: false, status, error }` on read, config, missing-source, or version-save failure.
+
+A version-save failure can follow a successful content write. Don't automatically retry on failure; a retry may overwrite.
+
+## Implementation
+
+- `nx/utils/loc.js`: private copy engine (`createCopy`, `createConfigLoader`) shared by loc and Rollout. Not public API.
+- `nx/blocks/loc/regional-diff/regional-diff.js`: diff algorithm. Passing explicit config skips legacy page-context config loading.
