@@ -1,3 +1,15 @@
+# [1.17.0](https://github.com/adobe/da-nx/compare/v1.16.6...v1.17.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **sdk:** isolate live document subscriber failures ([92002c4](https://github.com/adobe/da-nx/commit/92002c436cafc9a645a312ff40d64e5d3d7e582b))
+
+
+### Features
+
+* add live document and HTML replacement SDK actions ([6caa671](https://github.com/adobe/da-nx/commit/6caa6719f3e970a6d74d1c60efa3fc31f5ffc392))
+
 ## [1.16.6](https://github.com/adobe/da-nx/compare/v1.16.5...v1.16.6) (2026-10-19)
 
 
