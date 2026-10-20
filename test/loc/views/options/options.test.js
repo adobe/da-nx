@@ -227,3 +227,71 @@ describe('blank locales cells', () => {
     expect(result[0].locales).to.equal(undefined);
   });
 });
+
+describe('finalizeOptions - project source locations', () => {
+  const config = { service: { name: 'Google', envs: { prod: {} } } };
+  const translateLang = () => ({
+    name: 'Dutch',
+    code: 'nl',
+    location: '/nl',
+    source: '/en-nl',
+    activeAction: { value: 'translate' },
+    locales: [],
+  });
+  const options = (location) => ({
+    'translation.service.all.env': 'prod',
+    'source.language': { name: 'EU English', code: 'en', location },
+  });
+
+  it('skips sync when the URL is under the detected root', () => {
+    const { view } = finalizeOptions(
+      config,
+      options('/eu'),
+      [translateLang()],
+      [{ suppliedPath: '/eu/a' }],
+      ['/eu'],
+    );
+    expect(view).to.equal('translate');
+  });
+
+  it('uses persisted locations over options and langs', () => {
+    const urls = [{ suppliedPath: '/en-nl/a' }];
+    const withRow = finalizeOptions(
+      config,
+      options('/eu'),
+      [translateLang()],
+      urls,
+      ['/eu', '/en-nl'],
+    );
+    const withoutRow = finalizeOptions(
+      config,
+      options('/eu'),
+      [translateLang()],
+      urls,
+      ['/eu'],
+    );
+    expect(withRow.view).to.equal('translate');
+    expect(withoutRow.view).to.equal('sync');
+  });
+
+  it('derives locations from options and langs when none are persisted', () => {
+    const { view } = finalizeOptions(
+      config,
+      options('/eu'),
+      [translateLang()],
+      [{ suppliedPath: '/en-nl/a' }],
+    );
+    expect(view).to.equal('translate');
+  });
+
+  it('does not treat a sibling prefix as inside the source location', () => {
+    const { view } = finalizeOptions(
+      config,
+      options('/en'),
+      [{ ...translateLang(), source: undefined }],
+      [{ suppliedPath: '/en-gb/a' }],
+      ['/en'],
+    );
+    expect(view).to.equal('sync');
+  });
+});
