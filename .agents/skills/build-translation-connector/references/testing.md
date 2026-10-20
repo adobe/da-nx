@@ -50,7 +50,7 @@ mocha with `node:assert/strict`; `npm test`. Cases: `fetchXToken` success, each 
 
 ## Live validation
 
-Mocks only prove your assumptions. Before opening PRs, run against the vendor's staging API:
+Mocks only prove your assumptions. The full procedure (probe before coding, then every function end-to-end with a coverage table) is in [live-api-verification.md](live-api-verification.md). Before opening PRs, run against the vendor's staging API:
 
 1. Run da-etc and da-translate (`wrangler dev`) locally or use stage. Point the connector at them (`?nx=<branch>` on a consuming page, with `DA_TRANSLATE`/`DA_ETC` overrides as the repo documents).
 2. Create and configure a test site. Offer the user the guided flow in [test-site.md](test-site.md) (repo from the boilerplate, AEM Code Sync, `.da/translate.json`, test pages). Ask before editing anything remote.

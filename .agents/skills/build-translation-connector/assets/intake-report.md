@@ -32,7 +32,15 @@ One row per requirement in the page's "Connector requests" section, copied fresh
 What "done" means (translated vs reviewed vs approved vs delivered): 
 Mandatory custom fields / metadata: 
 
-## 4. Plan
+## 4. Decision log and live probe results
+
+Every vendor-dependent decision needs evidence: a live call, the schema or developer docs, or the user's answer. No row may rest on an assumption.
+
+| Decision | Choice | Evidence (live call + response / doc link / user answer) | Differs from docs? |
+|---|---|---|---|
+| | | | |
+
+## 5. Plan
 
 - Verdict: Go / Go with proxy / No-go
 - Auth archetype: A (token exchange) / B (static key); upstream origin: fixed / per tenant (allowlist)

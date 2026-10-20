@@ -22,8 +22,9 @@ A working connector spans **three repos plus docs**. Skipping any piece produces
 
 ## Working rules
 
-- **Ask before you assume.** Vendor behavior (what "done" means, how cancel works, what the file naming rules are) is rarely what the API docs imply. Use the questions in step 1 and raise every ambiguity before writing code.
+- **Make no assumptions.** Verify every vendor-dependent decision against, in order: a live sandbox call, the vendor's API schema or developer documentation, or the user. If none answers it, ask; don't guess. Vendor behavior (what "done" means, how cancel works, file naming rules) is rarely what the docs imply. Log each decision and its evidence in the intake report. See [references/live-api-verification.md](references/live-api-verification.md).
 - **Read the vendor's API schema first** (OpenAPI/Swagger/Postman, not marketing docs) and confirm endpoints, request/response shapes and enum values from it. If you can't find a machine-readable schema, ask the user for one.
+- **Prove it live.** Probe each endpoint with a real call before writing code, and exercise every connector function and vendor call end-to-end against the sandbox before opening PRs. Passing mocks are not evidence.
 - **Branch names and bases.** Name the branch `feat/<name>-connector` in all three repos (da-nx, da-translate, da-etc). Ask the user which base branch to use in each repo (usually `main`, but the Lilt-era da-translate work may live on another branch), and create each branch in a `git worktree` from that `origin/<base>` so dirty or unrelated local checkouts stay untouched. Unset the upstream (`git branch --unset-upstream`) so a push can't go to the base branch.
 - **Get confirmation before any write outside the working tree**: pushing, opening PRs, posting comments, deploying, or touching vendor accounts.
 - **Reuse, don't re-implement.** The shared utilities in `nx/blocks/loc/utils/` (`fetchWithRetry`, `downloadQueue`, `auth`) exist because earlier connectors each copy-pasted them and reviewers rejected it.
@@ -35,15 +36,16 @@ Copy this checklist and tick it as you go:
 ```
 - [ ] 1. Intake and feasibility verdict
 - [ ] 2. Map the vendor API to the connector operations
-- [ ] 3. Choose the auth/transport archetype
-- [ ] 4. Present the cross-repo plan; get a go-ahead
-- [ ] 5. da-etc: credential endpoint
-- [ ] 6. da-translate: proxy service
-- [ ] 7. da-nx: connector (+ options, cancel if supported)
-- [ ] 8. Tests in all three repos
-- [ ] 9. Validate: lint, tests, checker script, live vendor run
-- [ ] 10. Docs
-- [ ] 11. PRs (companion PRs, cross-linked)
+- [ ] 3. Probe the vendor API live (every endpoint, before coding)
+- [ ] 4. Choose the auth/transport archetype
+- [ ] 5. Present the cross-repo plan; get a go-ahead
+- [ ] 6. da-etc: credential endpoint
+- [ ] 7. da-translate: proxy service
+- [ ] 8. da-nx: connector (+ options, cancel if supported)
+- [ ] 9. Tests in all three repos
+- [ ] 10. Validate: lint, tests, checker script, every function live end-to-end
+- [ ] 11. Docs
+- [ ] 12. PRs (companion PRs, cross-linked)
 ```
 
 ### 1. Intake and feasibility verdict
@@ -61,7 +63,11 @@ Produce a verdict with [assets/intake-report.md](assets/intake-report.md): **Go*
 
 Fill the operation table in the intake report: for each of create project, upload, start, status, list/download, cancel, list projects, record the vendor endpoint, its identifier, and its terminal states. Find where the vendor's identifiers live (per file, per language, per job) because that decides what you persist (see [references/connector-contract.md](references/connector-contract.md), "State and persistence").
 
-### 3. Choose the auth/transport archetype
+### 3. Probe the vendor API live
+
+Before writing any code, make a real call to every endpoint in the operation map against the sandbox and record the actual responses, including deliberate failures, status values, pagination and limits. Follow [references/live-api-verification.md](references/live-api-verification.md). Add the findings to the intake report's decision log and note every place the live behavior differs from the docs. If you have no sandbox credentials, ask the user; don't proceed on docs alone. Never paste credentials into chat or commit them.
+
+### 4. Choose the auth/transport archetype
 
 Read [references/auth-and-proxy.md](references/auth-and-proxy.md). Default for new connectors: **route every call through da-translate** and keep credentials server-side.
 
@@ -69,29 +75,29 @@ Read [references/auth-and-proxy.md](references/auth-and-proxy.md). Default for n
 - Static API key vendors → archetype B (Lilt pattern): the key never reaches the browser; da-etc exposes only a boolean `/status`. The archetype B template imports `checkConnection` from `nx/blocks/loc/utils/auth.js`, which isn't on `main` until a connector PR adds it (Lilt #789, or the Translated connector #877). Check `main` first; if it's missing, branch from one of those PRs rather than re-implementing it.
 - Do not copy the direct-to-vendor pattern from Lionbridge, Trados or Smartling for a new connector; it predates the proxy.
 
-### 4. Present the plan
+### 5. Present the plan
 
 Show the user: verdict, archetype, base branch per repo, config keys the site admin will set, files to touch in each repo, persisted state, how status maps to `created / in progress / translated / error / cancelled`, and open questions. Wait for a go-ahead.
 
-### 5. da-etc
+### 6. da-etc
 
 Add a token fetcher (archetype A) or key validator (archetype B) in `src/routes/ints.js`, register it in `TOKEN_FETCHERS` (and `STATIC_KEY_SERVICES` for B), and add tests in `test/routes/`. Templates and rules are in [references/auth-and-proxy.md](references/auth-and-proxy.md) and [assets/da-etc-fetcher.js.tmpl](assets/da-etc-fetcher.js.tmpl). Missing-config errors must name each missing key.
 
-### 6. da-translate
+### 7. da-translate
 
 Add `src/services/<name>.js`, route it in `src/handlers/postHandler.js`, add the service to the IMS-auth list there, and add tests. Templates: [archetype B](assets/da-translate-service-key.js.tmpl), [archetype A](assets/da-translate-service-token.js.tmpl), and the [wiring notes](assets/da-translate-wiring.md.tmpl). Forward only allowlisted headers, set an upstream timeout, never log URLs that carry keys, and validate any caller-supplied upstream origin against an env allowlist.
 
-### 7. da-nx connector
+### 8. da-nx connector
 
 Create `nx/blocks/loc/connectors/<name>/index.js` (plus `auth.js` if the pattern needs one) from [assets/connector-index.js.tmpl](assets/connector-index.js.tmpl) and the matching auth template ([B](assets/connector-auth-key.js.tmpl) or [A](assets/connector-auth-token.js.tmpl)). The exports, argument shapes, status vocabulary and persistence rules are in [references/connector-contract.md](references/connector-contract.md); read it before writing `sendAllLanguages`. For how the shipped connectors solved specific problems, see [references/reference-connectors.md](references/reference-connectors.md).
 
 Service names resolve dynamically: `translation.service.name` lower-cased with spaces replaced by `-` becomes the directory name, so the directory must match what admins type.
 
-### 8. Tests
+### 9. Tests
 
 Read [references/testing.md](references/testing.md). Reviewers have blocked connector PRs without tests and with specific gaps (pagination, more than five files, error persistence). Use [assets/connector.test.js.tmpl](assets/connector.test.js.tmpl).
 
-### 9. Validate
+### 10. Validate
 
 ```bash
 npm run lint
@@ -100,15 +106,15 @@ node .agents/skills/build-translation-connector/scripts/check-connector.mjs <nam
   [--translate ../da-translate] [--etc ../da-etc]
 ```
 
-Fix every `FAIL`; read each `WARN` and justify or fix it. Then run a **live** end-to-end against the vendor sandbox through the real Translate UI: send, status, save, and cancel if supported. Record what you verified in the PR. Live runs have found bugs mocks never did (wrong pagination params that the API silently ignored, status values missing from the docs, mandatory custom attributes).
+Fix every `FAIL`; read each `WARN` and justify or fix it. Then verify **every** connector function and vendor call live against the sandbox, first with a function harness and then through the real Translate UI: connect, send, status, save, and cancel if supported. Follow [references/live-api-verification.md](references/live-api-verification.md) and put its coverage table in the PR. A function with no live evidence is not done: run it, or tell the user which one you couldn't run and why. Live runs have found bugs mocks never did (wrong pagination params that the API silently ignored, status values missing from the docs, mandatory custom attributes). When a live result contradicts the code, fix it and add a test that captures the real behavior.
 
 **Offer a test site.** Ask the user whether to create a disposable Experience Workspace site with the new connector configured. If yes, follow [references/test-site.md](references/test-site.md): prompt for the org and site name, create the GitHub repo from `adobe/aem-boilerplate`, have the user install the AEM Code Sync app, write the `.da` translation config and a set of test pages through the DA MCP tools, and hand over a scenario plan. Every remote write needs the user's go-ahead; credentials never go through chat or into a commit.
 
-### 10. Docs
+### 11. Docs
 
 Read [references/docs-and-prs.md](references/docs-and-prs.md). Draft updates for the three aem.live pages and hand them to the user to publish; do not edit published Experience Workspace content yourself without confirmation.
 
-### 11. PRs
+### 12. PRs
 
 One PR per repo, cross-linked. Conventional Commit titles. Details and the PR body checklist are in [references/docs-and-prs.md](references/docs-and-prs.md). Never hand-edit `CHANGELOG.md`; semantic-release generates it.
 

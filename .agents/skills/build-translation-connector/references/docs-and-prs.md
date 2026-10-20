@@ -24,7 +24,7 @@ Longer rationale and wire-level quirks go in `docs/*.md` in da-nx, not inline co
 
 ## PRs
 
-One PR per repo; link them to each other in each description. Use the same `feat/<name>-connector` branch name in all three repos, and base each on the branch the user chose in step 4.
+One PR per repo; link them to each other in each description. Use the same `feat/<name>-connector` branch name in all three repos, and base each on the branch the user chose in step 5.
 
 | Repo | Branch | Title (Conventional Commits) |
 |---|---|---|
@@ -60,6 +60,8 @@ After each push, re-validate the description against the whole branch (`gh pr vi
 - [ ] da-translate service routed, IMS-gated, tested; env allowlist (if any) documented
 - [ ] da-nx connector under `nx/blocks/loc/connectors/<name>/` with tests; `npm run lint` clean
 - [ ] `check-connector.mjs` has no FAIL
-- [ ] Live run against vendor sandbox recorded
+- [ ] Every vendor-dependent decision has evidence in the intake report's decision log (no assumptions)
+- [ ] Every endpoint probed live before coding
+- [ ] Every connector function and vendor call exercised live end-to-end (coverage table in the PR)
 - [ ] Docs drafted for all three aem.live pages
 - [ ] Three cross-linked PRs with conventional titles
