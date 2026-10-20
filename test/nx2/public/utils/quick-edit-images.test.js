@@ -135,3 +135,63 @@ describe('shared quick-edit image utilities', () => {
     expect(state.doc).to.equal(doc);
   });
 });
+
+describe('updateImageInDocument with link-images', () => {
+  let schema;
+  let state;
+  let view;
+
+  beforeEach(() => {
+    schema = new Schema({
+      nodes: {
+        doc: { content: 'block+' },
+        paragraph: { content: 'inline*', group: 'block' },
+        text: { group: 'inline' },
+        image: {
+          inline: true,
+          group: 'inline',
+          attrs: { src: {}, alt: { default: null }, editAs: { default: null } },
+        },
+      },
+      marks: { strong: {} },
+    });
+    const link = schema.nodes.image.create({
+      src: 'https://cdn.example.com/assets/a.jpg', alt: 'Link alt', editAs: 'image',
+    });
+    const otherLink = schema.nodes.image.create({
+      src: 'https://cdn.example.com/assets/b.jpg', alt: 'Other link', editAs: 'image',
+    });
+    const regular = schema.nodes.image.create({ src: '/regular.png', alt: 'Regular' });
+    const doc = schema.nodes.doc.create(null, schema.nodes.paragraph.create(null, [
+      schema.text('a'), link, regular, otherLink,
+    ]));
+    state = EditorState.create({ schema, doc });
+    view = {
+      get state() { return state; },
+      dispatch(transaction) { state = state.apply(transaction); },
+    };
+  });
+
+  it('clears editAs when a link-image is replaced', () => {
+    const target = state.doc.nodeAt(2);
+    updateImageInDocument({ view, target, newSrc: 'https://content.da.live/o/s/media_1.png' });
+    expect(state.doc.nodeAt(2).attrs).to.deep.equal({
+      src: 'https://content.da.live/o/s/media_1.png', alt: 'Link alt', editAs: null,
+    });
+  });
+
+  it('keeps editAs on other link-images when one is replaced', () => {
+    const target = state.doc.nodeAt(2);
+    updateImageInDocument({ view, target, newSrc: '/new.png' });
+    expect(state.doc.nodeAt(3).attrs.editAs).to.equal(null);
+    expect(state.doc.nodeAt(4).attrs.editAs).to.equal('image');
+    expect(state.doc.nodeAt(4).attrs.src).to.equal('https://cdn.example.com/assets/b.jpg');
+  });
+
+  it('leaves a regular image unchanged apart from src', () => {
+    const target = state.doc.nodeAt(3);
+    updateImageInDocument({ view, target, newSrc: '/new.png' });
+    expect(state.doc.nodeAt(3).attrs).to.deep.equal({ src: '/new.png', alt: 'Regular', editAs: null });
+    expect(state.doc.nodeAt(2).attrs.editAs).to.equal('image');
+  });
+});

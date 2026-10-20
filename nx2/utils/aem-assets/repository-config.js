@@ -11,6 +11,7 @@
  */
 
 import { fetchDaConfigs, getFirstSheet } from '../daConfig.js';
+import { getEWFlags } from '../ewFlags.js';
 import { isDynamicMediaEnabled, shouldFilterApprovedAssets } from './config.js';
 import DEFAULT_ASSET_BASE_PATH from './constants.js';
 import { parseSiteImageModifiers } from './image-modifiers.js';
@@ -68,6 +69,20 @@ export async function getRepositoryConfig(owner, repo) {
     smartCrop,
   });
 
+  let imageType = getValue('aem.assets.image.type');
+  try {
+    if (imageType && imageType.toLowerCase() === 'link') {
+      const flags = await getEWFlags({ org: owner, site: repo });
+      if (flags?.['ew.assets.editableExternalImages']?.toLowerCase() === 'true') {
+        imageType = 'editable-link';
+      } else {
+        imageType = 'link';
+      }
+    }
+  } catch (e) {
+    imageType = null;
+  }
+
   return {
     repositoryId,
     tierType,
@@ -80,7 +95,7 @@ export async function getRepositoryConfig(owner, repo) {
       isDmEnabled,
       configuredValue: getValue('aem.asset.dm.approvedonly'),
     }),
-    insertAsLink: getValue('aem.assets.image.type') === 'link',
+    imageType,
     mimeRenditionOverrides: parseMimeRenditions(getValue('aem.asset.mime.renditions')),
     siteImageModifiers: parseSiteImageModifiers(getValue('aem.asset.image.modifiers')),
   };
