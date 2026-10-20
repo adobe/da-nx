@@ -135,6 +135,21 @@ describe('Shared loc copy', () => {
     expect(loadConfig.firstCall.args[0]).to.deep.equal({ org: 'target-org', site: 'target-site' });
   });
 
+  it('rolls out into an existing empty destination without overwriting its metadata', async () => {
+    fetch.callsFake(async (href, opts) => {
+      if (opts?.method === 'POST') return new Response('{}');
+      if (href.endsWith(SOURCE)) return new Response(html('Upstream'));
+      return new Response('<body><main><div></div></main><div class="da-metadata"><div><div>keep</div><div>me</div></div></div></body>');
+    });
+    const url = { source: SOURCE, destination: DESTINATION };
+    await copy.rolloutCopy(url, 'Rollout');
+    expect(url.status).to.equal('success');
+    expect(loadConfig.called).to.equal(true);
+    const saved = await fetch.args[2][1].body.get('data').text();
+    expect(saved).to.include('<da-diff-deleted><p>Upstream</p></da-diff-deleted>');
+    expect(saved).to.include('<div>keep</div>');
+  });
+
   it('retains the 20-second rollout save timeout', async () => {
     const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     let notifySaving;
@@ -209,10 +224,32 @@ describe('Public MSM merge', () => {
     const result = await loc.mergeCopy({
       fetch, daOrigin: ORIGIN, urlSource: SOURCE, urlTarget: DESTINATION, msg: 'MSM Merge',
     });
-    expect(result.ok).to.equal(true);
+    expect(result).to.deep.equal({ ok: true, status: 200 });
     expect(fetch.args.some(([href]) => (
       href === `${ORIGIN}/source/target-org/target-site/.da/translate.json`
     ))).to.equal(true);
+  });
+
+  it('returns a consistent result shape for no-op, failed write, and version failure', async () => {
+    const run = (fetch) => loc.mergeCopy({
+      fetch, daOrigin: 'https://shape.example', urlSource: SOURCE, urlTarget: DESTINATION, msg: 'Merge',
+    });
+    const reads = (body) => async (href, opts) => {
+      if (href.endsWith('/.da/translate.json')) return new Response(JSON.stringify({ config: { data: [] } }));
+      if (opts?.method === 'POST') return body(href);
+      return new Response(html(href.endsWith(SOURCE) ? 'Upstream' : 'Regional'));
+    };
+
+    const same = await run(sinon.stub().callsFake(async () => new Response(html('Same'))));
+    expect(same).to.deep.equal({ ok: true, status: 200 });
+
+    const failedWrite = await run(sinon.stub().callsFake(reads(() => new Response('', { status: 412 }))));
+    expect(failedWrite).to.deep.equal({ ok: false, status: 412, error: 'Save failed (412)' });
+
+    const failedVersion = await run(sinon.stub().callsFake(reads((href) => (
+      new Response('{}', { status: href.includes('/versionsource') ? 500 : 200 })
+    ))));
+    expect(failedVersion).to.deep.equal({ ok: false, status: 500, error: 'Version save failed (500)' });
   });
 
   it('reuses configuration and in-flight versions across concurrent direct calls', async () => {

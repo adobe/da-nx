@@ -136,10 +136,15 @@ export function createCopy({
     }
   };
 
-  const prepareDiff = async ({ url, useSourceContent, normalizeImages }) => {
+  const prepareDiff = async ({
+    url, useSourceContent, normalizeImages, emptyIsMissing,
+  }) => {
     const regional = await getHtml(url.destination);
-    const main = regional?.querySelector('body > main');
-    if (!main || main.innerHTML === '' || main.innerHTML === '<div></div>') return { missing: true };
+    if (!regional) return { missing: true };
+    const main = regional.querySelector('body > main');
+    if (emptyIsMissing && (!main || main.innerHTML === '' || main.innerHTML === '<div></div>')) {
+      return { missing: true };
+    }
     const source = await getHtml(url.source, useSourceContent ? url.sourceContent : undefined);
     if (!source) throw new Error('Source content not found');
     removeLocTags(regional);
@@ -167,7 +172,7 @@ export function createCopy({
   const mergeCopy = async (url, title, options = {}) => {
     try {
       const result = await prepareDiff({
-        url, useSourceContent: true, normalizeImages: url.normalizeImages,
+        url, useSourceContent: true, normalizeImages: url.normalizeImages, emptyIsMissing: true,
       });
       if (result.missing) return overwriteCopy(url, title);
       if (result.same) {

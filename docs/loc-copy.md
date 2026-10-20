@@ -28,17 +28,17 @@ const result = await mergeCopy({
 
 ## Behavior
 
-- Missing or empty target: source is copied as-is (overwrite).
+- Missing or empty target: the source is copied over the target. Loc diff tags and deleted content are removed, as are accepted/rejected hashes; the page is rebuilt from the source's main content and DA metadata.
 - Identical content: nothing is written.
 - Otherwise: the diffed result is written to the target, then a version is saved.
+- Reads, writes, versions, and translation config all go to `daOrigin`. Helix 6 sites are not supported yet.
 - Translation config is read from the target site's `.da/translate.json`, falling back to the org's on 404. No config means no equivalent hostnames. Config is cached per `fetch`, `daOrigin`, and org/site; failed loads are not cached.
 - Concurrent version saves for the same path are deduplicated.
 
 ## Return value
 
-- `Response` from the content write; check `ok`.
-- `{ ok: true }` when content is identical.
-- `{ ok: false, status, error }` on read, config, missing-source, or version-save failure.
+- `{ ok: true, status }` on success, including when content is identical (`status: 200`).
+- `{ ok: false, status, error }` on any failure: read, config, missing source, write, or version save.
 
 A version-save failure can follow a successful content write. Don't automatically retry on failure; a retry may overwrite.
 
