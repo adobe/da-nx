@@ -36,16 +36,19 @@ when it passes through the SDK sanitizer.
 
 ## Storage
 
-The SDK only treats a value as markup when it is given the schema:
+The SDK picks the rich-text codec from the field's semantic type. It only
+treats a value as markup when it knows that type.
 
-- `convertJsonToHtml({ json, schema })` writes the sanitized HTML into the
-  block cell instead of escaping it.
-- `convertHtmlToJson({ html, schema })` reads the cell's inner HTML back.
+- `convertJsonToHtml({ json, model })` writes the sanitized HTML into the
+  block cell instead of escaping it. The model carries the semantic type.
+- `convertHtmlToJson({ html, schema })` reads the cell's inner HTML back. No
+  model exists at load time, so the reader takes the schema.
 
-[`utils/persistence.js`](../utils/persistence.js) passes the schema on save.
-[`utils/context.js`](../utils/context.js) parses once without a schema (to find
-`x-schema-name`), then re-reads with the resolved schema; if that read fails it
-keeps the schema-less result. Without a schema, both converters behave as before.
+[`utils/persistence.js`](../utils/persistence.js) already passes the engine
+model on save. [`utils/context.js`](../utils/context.js) parses once without a
+schema to find `x-schema-name`, then re-reads with the resolved schema. If that
+read fails it keeps the schema-less result. Without a model or schema, both
+converters treat every value as plain text.
 
 ## Editor
 
@@ -116,9 +119,9 @@ only shares ProseMirror itself.
 
 ## Release order
 
-1. Release `@adobe/da-sc-sdk` with the rich-text semantic type and the
-   schema-aware codec, then bump it here and run `npm run build:da-sc-sdk`.
-   Until then the old dist ignores `schema` and stores values escaped.
+1. Release `@adobe/da-sc-sdk` with the rich-text semantic type and codec,
+   then bump it here and run `npm run build:da-sc-sdk`. Until then the old
+   dist stores rich-text values escaped.
 2. Deploy da-live's `da-y-wrapper` with `history`, `undo` and `redo` exports
    (optional; enables undo/redo).
 
