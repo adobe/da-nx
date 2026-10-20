@@ -1,3 +1,15 @@
+# [1.19.0](https://github.com/adobe/da-nx/compare/v1.18.0...v1.19.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **sl:** add select() and default type=text to sl-input ([#843](https://github.com/adobe/da-nx/issues/843)) ([a81d367](https://github.com/adobe/da-nx/commit/a81d367335cdb79e986d99117e201199727d0139))
+
+
+### Features
+
+* **shared:** add treegrid keyboard navigation util ([#838](https://github.com/adobe/da-nx/issues/838)) ([a459d5f](https://github.com/adobe/da-nx/commit/a459d5f70e10fc8d10ec896dae769c1cdb8f42c9))
+
 # [1.18.0](https://github.com/adobe/da-nx/compare/v1.17.0...v1.18.0) (2026-10-20)
 
 
