@@ -530,7 +530,7 @@ describe('form-asset', () => {
         acceptsAltText: true, value: './media_abc.png', altRequired: true, altError: 'This field is required.',
       });
       expect(query(field, '.form-field-error').textContent)
-        .to.equal('Alt text is required. Add it with Edit alt text.');
+        .to.equal('Alt text is required.');
       expect(query(field, '.form-field').classList.contains('has-error')).to.equal(true);
       await openAltDialog(field);
       expect(query(field, '.asset-alt-form .form-required')).to.exist;

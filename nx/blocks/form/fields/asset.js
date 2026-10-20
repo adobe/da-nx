@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle } from '../../../../nx2/utils/utils.js';
-import '../../../../nx2/blocks/shared/menu/menu.js';
 import '../../../../nx2/blocks/shared/dialog/dialog.js';
+import '../../../../nx2/blocks/shared/menu/menu.js';
+import { loadStyle } from '../../../../nx2/utils/utils.js';
 import { icon } from '../icons.js';
 import { ASSET_TYPES, CANCELLED } from '../utils/assets.js';
 import {
@@ -36,7 +36,7 @@ const MESSAGES = {
   noSource: 'No source is available for this field.',
   noFileSource: 'Files can only be selected from AEM Assets, which is not set up for this site.',
   unusableResult: 'The selected file did not return a usable URL.',
-  altTextRequired: 'Alt text is required. Add it with Edit alt text.',
+  altTextRequired: 'Alt text is required.',
 };
 
 const MENU_PLACEMENT = 'below-end';
