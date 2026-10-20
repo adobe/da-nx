@@ -88,6 +88,27 @@ undecorated in `main`.
 An iframe `RELOAD` makes da-live re-send
 everything not confirmed by the iframe itself, since it signals a failed `SET_EDITOR_STATE`.
 
+### `SET_EDITOR_STATE` / `RELOAD`
+
+Both hosts use `SET_EDITOR_STATE` for inline edits to rendered text. Creating a
+mini-editor replaces only the element with the exact document index; a missing
+target requests a resync, never replacement of the nearest preceding element.
+The iframe coalesces failed updates into one `RELOAD` until another `SET_BODY`
+arrives. Both hosts supply the document length change when an edit opens a
+mini-editor for the first time, so later text, block, and image indices stay in
+sync without guessed matches. Existing mini-editors calculate that change from
+their own transactions instead.
+
+Block-title rows and metadata tables have no inline counterpart in the preview.
+Both hosts route their edits through scoped `SET_BODY` rerendering rather than
+requesting mini-editors for text consumed or removed by serialization.
+
+Both hosts resolve nested text to the outermost instrumented editable element.
+For example, a heading inside a blockquote opens a mini-editor containing the
+whole blockquote, not just the heading. This preserves quote/list wrappers and
+their other children when the iframe sends the edited node back, and keeps
+host-originated edits targeting the same indexed element.
+
 ### `SET_SELECTED_NODE` / `NODE_SELECT`
 
 Drive the selection-overlay feature: when a user clicks a block or image in the
