@@ -24,6 +24,16 @@ describe('formatLangs - locales', () => {
     expect('locales' in lang).to.be.false;
   });
 
+  it('Keeps parsed locales when formatLangs runs again on the same rows', () => {
+    const langs = [{ name: 'German', actions: 'translate', locales: '/de, /at' }];
+    formatLangs(langs, config);
+    const [lang] = formatLangs(langs, config);
+    expect(lang.locales).to.deep.equal([
+      { code: '/de', active: true },
+      { code: '/at', active: true },
+    ]);
+  });
+
   it('Leaves locales undefined when the sheet has no locales column', () => {
     const [lang] = formatLangs([{ name: 'English', actions: 'rollout' }], config);
     expect(lang.locales).to.be.undefined;

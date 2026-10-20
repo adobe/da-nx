@@ -1,3 +1,5 @@
+import { findSourceLocation, getProjectSourceLocations } from '../../../utils/utils.js';
+
 const DEFAULT_PROPS = [
   { key: 'sync.conflict.behavior', value: 'overwrite, merge' },
   { key: 'translate.conflict.behavior', value: 'overwrite, merge' },
@@ -14,10 +16,14 @@ const DEFAULT_PROPS = [
  * @param {Object[]} urls the supplied URLs
  * @param {String} urls[].suppliedPath the originally supplied path
  * @param {Boolean} urls[].checked whether or not the URL was validated
+ * @param {String[]} sourceLocations all configured source locations
  * @returns the view
  */
-function calculateView(source, langs, urls) {
-  const needsSync = urls.some((url) => !url.suppliedPath.startsWith(source));
+function calculateView(source, langs, urls, sourceLocations) {
+  const needsSync = urls.some((url) => !findSourceLocation({
+    path: url.suppliedPath,
+    locations: sourceLocations,
+  }));
   if (needsSync && source !== '/') return 'sync';
 
   const needsCopy = langs.some((lang) => lang.action === 'copy');
@@ -159,7 +165,7 @@ export function formatLangs(langs, config) {
         const code = value.trim();
         return { code, active: hasDefaultLocales ? defaultLocales?.includes(code) ?? false : true };
       });
-    } else {
+    } else if (!Array.isArray(lang.locales)) {
       delete lang.locales;
     }
 
@@ -176,7 +182,13 @@ export function formatLangs(langs, config) {
   });
 }
 
-export function finalizeOptions(config, suppliedOptions, suppliedLangs, suppliedUrls) {
+export function finalizeOptions(
+  config,
+  suppliedOptions,
+  suppliedLangs,
+  suppliedUrls,
+  suppliedLocations,
+) {
   const options = { ...suppliedOptions };
   const serviceEnv = options['translation.service.all.env'];
 
@@ -221,7 +233,12 @@ export function finalizeOptions(config, suppliedOptions, suppliedLangs, supplied
 
   const sourceLocation = options['source.language']?.location || '/';
 
-  const view = calculateView(sourceLocation, langs, suppliedUrls);
+  const sourceLocations = getProjectSourceLocations({
+    sourceLocations: suppliedLocations,
+    options,
+    langs,
+  });
+  const view = calculateView(sourceLocation, langs, suppliedUrls, sourceLocations);
 
   return { view, options, langs };
 }

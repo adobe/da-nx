@@ -69,6 +69,19 @@ export function getSourceLocations({ options, langs }) {
 }
 
 /**
+ * Get a project's source locations: the set persisted at validate, or a
+ * derivation from options and langs for projects saved before it existed.
+ * @param {Object} project The project.
+ * @param {string[]} [project.sourceLocations] Locations persisted at validate.
+ * @param {Object} [project.options] The project options.
+ * @param {Object[]} [project.langs] The project languages.
+ * @returns {string[]} The source locations.
+ */
+export function getProjectSourceLocations({ sourceLocations, options, langs }) {
+  return sourceLocations ?? getSourceLocations({ options, langs });
+}
+
+/**
  * Find the longest source location that contains a path.
  * @param {Object} config The config.
  * @param {string} config.path An AEM-formatted supplied path.
@@ -143,15 +156,11 @@ export function convertPath({ path, sourcePrefix, destPrefix, snapshotPrefix = '
  * @param {Object} config The config.
  * @param {string} config.path The supplied AEM path.
  * @param {string} [config.defaultLocation] The default source language location.
- * @param {Object[]} [config.langs] Language rows, optionally with a `source`.
+ * @param {string[]} [config.sourceLocations] All configured source locations.
  * @returns {string} The AEM base path.
  */
-export function getProjectBasePath({ path, defaultLocation, langs }) {
-  const locations = getSourceLocations({
-    options: { 'source.language': { location: defaultLocation } },
-    langs,
-  });
-  const sourcePrefix = findSourceLocation({ path, locations }) || defaultLocation;
+export function getProjectBasePath({ path, defaultLocation, sourceLocations = [] }) {
+  const sourcePrefix = findSourceLocation({ path, locations: sourceLocations }) || defaultLocation;
   return convertPath({ path, sourcePrefix }).aemBasePath;
 }
 

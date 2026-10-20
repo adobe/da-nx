@@ -2,7 +2,7 @@ import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
-import { convertPath, findSourceLocation, getSourceLocations } from '../../utils/utils.js';
+import { convertPath, findSourceLocation, getProjectSourceLocations } from '../../utils/utils.js';
 
 const MAX_LENGTH = 5000;
 const results = [];
@@ -71,10 +71,10 @@ export function getLangUrls({ urls, lang, sourceLocations, defaultLocation }) {
 }
 
 export async function sendAllLanguages({
-  org, site, langs, langsWithUrls, options, actions,
+  org, site, langs, langsWithUrls, options, actions, ...project
 }) {
   const { sendMessage, saveState } = actions;
-  const sourceLocations = getSourceLocations({ options, langs });
+  const sourceLocations = getProjectSourceLocations({ ...project, options, langs });
   const defaultLocation = options['source.language']?.location || '/';
 
   results.length = 0;

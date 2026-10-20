@@ -7,7 +7,7 @@ import {
   createSnapshotPrefix,
   fetchConfig,
   findSourceLocation,
-  getSourceLocations,
+  getProjectSourceLocations,
 } from '../../utils/utils.js';
 import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
 
@@ -130,9 +130,14 @@ async function saveLang({
   sendMessage,
   options,
   langs,
+  sourceLocations: projectLocations,
 }) {
   const snapshotPrefix = createSnapshotPrefix(snapshot);
-  const sourceLocations = getSourceLocations({ options, langs });
+  const sourceLocations = getProjectSourceLocations({
+    sourceLocations: projectLocations,
+    options,
+    langs,
+  });
 
   const urlsToSave = urls.map((url) => {
     const daDestPath = getSaveDestPath({ url, lang, sourceLocations, snapshotPrefix });
@@ -177,10 +182,35 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   }
 }
 
-export async function copySourceLangs(org, site, title, options, langs, urls, langsWithUrls) {
+/**
+ * Copies source-language content to each copy-action language.
+ * @param {string} org The org.
+ * @param {string} site The site.
+ * @param {string} title The project title.
+ * @param {Object} options The project options.
+ * @param {Object[]} langs The copy languages.
+ * @param {Object[]} urls The project urls.
+ * @param {Object[]} langsWithUrls The languages with their fetched urls.
+ * @param {string[]} [projectLocations] Project source locations; derived if omitted.
+ * @returns {Promise<void>}
+ */
+export async function copySourceLangs(
+  org,
+  site,
+  title,
+  options,
+  langs,
+  urls,
+  langsWithUrls,
+  projectLocations,
+) {
   const behavior = options['copy.conflict.behavior'];
   const sourceLocation = options['source.language']?.location || '/';
-  const sourceLocations = getSourceLocations({ options, langs });
+  const sourceLocations = getProjectSourceLocations({
+    sourceLocations: projectLocations,
+    options,
+    langs,
+  });
 
   const copyUrl = async (url) => {
     const destination = `/${org}/${site}${url.daDestPath}`;
@@ -261,22 +291,22 @@ export async function sendAllForTranslation(conf, connector) {
  *  place (`translation.status`, and `waitingFor` is deleted).
  * @param {Object[]} originalUrls - The project's full supplied urls.
  * @param {string} [sourceLocation] - The project's default source
- *  location, used to de-prefix `originalUrls` before re-prefixing them
- *  with the dependent language's own source location.
+ *  location, the fallback prefix when a url is under no configured source.
+ *  Each url is de-prefixed by its own source location (`conf.sourceLocations`)
+ *  before re-prefixing with the dependent language's own source location.
  * @returns {Promise<void>}
  */
 async function sendLanguageForTranslation(conf, connector, lang, originalUrls, sourceLocation) {
   const { waitingFor } = lang;
   const newSourceLocation = waitingFor.location;
+  const sourceLocations = getProjectSourceLocations(conf);
 
-  // A root '/' has no prefix to strip - convertPath treats it the same way.
-  const hasSourceLocation = sourceLocation && sourceLocation !== '/';
-  const baseUrls = !hasSourceLocation ? originalUrls : originalUrls.map((url) => {
+  const baseUrls = originalUrls.map((url) => {
     const { suppliedPath: path } = url;
-    return {
-      ...url,
-      suppliedPath: path.startsWith(sourceLocation) ? path.slice(sourceLocation.length) : path,
-    };
+    const prefix = findSourceLocation({ path, locations: sourceLocations }) || sourceLocation;
+    // A root '/' has no prefix to strip - convertPath treats it the same way.
+    if (!prefix || prefix === '/') return url;
+    return { ...url, suppliedPath: path.startsWith(prefix) ? path.slice(prefix.length) : path };
   });
   const { org, site } = conf;
   const { urls } = await getUrls(

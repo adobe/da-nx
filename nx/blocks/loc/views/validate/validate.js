@@ -8,6 +8,7 @@ import {
   createSnapshotPrefix,
   fetchConfig,
   getProjectBasePath,
+  getSourceLocations,
 } from '../../utils/utils.js';
 import { getFragmentUrls } from './validate-utils.js';
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
@@ -156,9 +157,16 @@ class NxLocValidate extends LitElement {
     }
 
     const defaultLocation = await this.getSourcePrefix();
-    const langs = this._configSheet?.languages?.data;
+    const sourceLocations = getSourceLocations({
+      options: { 'source.language': { location: defaultLocation } },
+      langs: this._configSheet?.languages?.data,
+    });
     const urls = checked.map((url) => {
-      const aemBasePath = getProjectBasePath({ path: url.pathname, defaultLocation, langs });
+      const aemBasePath = getProjectBasePath({
+        path: url.pathname,
+        defaultLocation,
+        sourceLocations,
+      });
       return {
         basePath: aemBasePath,
         suppliedPath: url.pathname,
@@ -166,7 +174,7 @@ class NxLocValidate extends LitElement {
       };
     });
 
-    return { updates: { urls } };
+    return { updates: { urls, sourceLocations } };
   }
 
   async handleAction(e) {

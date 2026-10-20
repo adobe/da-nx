@@ -1,4 +1,4 @@
-import { findSourceLocation, getSourceLocations } from './utils.js';
+import { findSourceLocation, getProjectSourceLocations } from './utils.js';
 
 const VIEW_TYPES = {
   dashboard: 'none',
@@ -11,11 +11,12 @@ const VIEW_TYPES = {
   complete: 'none',
 };
 
-function hasSync({ urls, options, langs }) {
+function hasSync(project) {
+  const { urls, options } = project;
   if (!urls || !options) return false;
   const location = options['source.language']?.location || '/';
   if (location === '/') return false;
-  const locations = getSourceLocations({ options, langs });
+  const locations = getProjectSourceLocations(project);
   return urls.some((url) => !findSourceLocation({ path: url.suppliedPath, locations }));
 }
 
