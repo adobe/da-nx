@@ -17,6 +17,9 @@ const VERIFIED_MODE = 'verified';
 const DEFAULT_DUE_DATE_DAYS = 7;
 const EXPORT_POLL_MS = 2000;
 const EXPORT_POLL_MAX = 60;
+const UPLOAD_CONCURRENCY = 5;
+const MAX_IDS_PER_REQUEST = 50;
+const ZIP_CACHE_MAX = 5;
 const TERMINAL_LANG_STATUSES = ['complete', 'cancelled'];
 const AI_DONE_STATUSES = ['Completed', 'ReadyForDownload'];
 
@@ -112,9 +115,22 @@ async function uploadFile(service, url) {
 }
 
 /**
- * Uploads every url's source content to Lilt in parallel. Reports a single rolled-up
- * error message if any upload fails, rather than one per file, so parallel failures
- * don't clobber each other's message in the UI.
+ * Splits a list into consecutive groups of at most `size` items.
+ * @param {Array} items - The items to split.
+ * @param {number} size - The maximum group size.
+ * @returns {Array[]} The groups.
+ */
+function chunk(items, size) {
+  return Array.from(
+    { length: Math.ceil(items.length / size) },
+    (_, i) => items.slice(i * size, (i + 1) * size),
+  );
+}
+
+/**
+ * Uploads every url's source content to Lilt, at most {@link UPLOAD_CONCURRENCY} at a time.
+ * Reports a single rolled-up error message if any upload fails, rather than one per file,
+ * so failures don't clobber each other's message in the UI.
  * @param {Object} service - The flattened per-environment service config.
  * @param {Object[]} urls - The urls to upload.
  * @param {Function} sendMessage - Reports an error message, sourced from the first
@@ -125,11 +141,14 @@ async function uploadFile(service, url) {
 async function uploadAllFiles(service, urls, sendMessage) {
   const fileIdsByPath = {};
   const errors = [];
-  await Promise.all(urls.map(async (url) => {
-    const { id, error } = await uploadFile(service, url);
-    if (error) errors.push(error);
-    else if (id != null) fileIdsByPath[url.daBasePath] = id;
-  }));
+  for (const group of chunk(urls, UPLOAD_CONCURRENCY)) {
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.all(group.map(async (url) => {
+      const { id, error } = await uploadFile(service, url);
+      if (error) errors.push(error);
+      else if (id != null) fileIdsByPath[url.daBasePath] = id;
+    }));
+  }
   if (errors.length) {
     sendMessage({ text: `Upload to Lilt failed: ${errors[0]}`, type: 'error' });
   }
@@ -137,13 +156,40 @@ async function uploadAllFiles(service, urls, sendMessage) {
 }
 
 /**
- * Fetches every Lilt translation memory available to this account. Defensively handles
- * both a bare array response and one wrapped under a `memories` key, since `GET /v2/memories`
- * called with no `id` isn't fully documented either way.
+ * Calls a `/v2/translate/file` endpoint with the ids split across requests of at most
+ * {@link MAX_IDS_PER_REQUEST}, keeping the query string bounded, and merges the responses.
+ * Stops at the first failing request.
+ * @param {Object} params
+ * @param {Object} params.service - The flattened per-environment service config.
+ * @param {Array} params.ids - The ids to send.
+ * @param {Function} params.buildUrl - Builds the request url from a comma-joined id list.
+ * @param {string} [params.method] - The HTTP method; defaults to GET.
+ * @returns {Promise<{infos: Object[], error: ?string}>} The merged responses, and the
+ *  error detail if any request failed.
+ */
+async function requestInIdChunks({
+  service, ids, buildUrl, method,
+}) {
+  const infos = [];
+  const opts = { headers: await authHeaders(service) };
+  if (method) opts.method = method;
+  for (const group of chunk(ids, MAX_IDS_PER_REQUEST)) {
+    // eslint-disable-next-line no-await-in-loop
+    const resp = await fetchWithRetry(buildUrl(group.join(',')), opts, retryConfig(service, opts));
+    // eslint-disable-next-line no-await-in-loop
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok) return { infos, error: extractErrorMessage(json) };
+    if (!Array.isArray(json)) return { infos, error: 'unexpected response' };
+    infos.push(...json);
+  }
+  return { infos, error: null };
+}
+
+/**
+ * Fetches every Lilt memory for this account, accepting a bare array or a `memories` wrapper.
  * @param {Object} service - The flattened per-environment service config.
- * @returns {Promise<{memories: Object[], error: ?string}>} The memories (`[]` on failure),
- *  and the Lilt error detail if the request itself failed (as opposed to genuinely
- *  returning no memories).
+ * @returns {Promise<{memories: Object[], error: ?string}>} The memories (`[]` on failure)
+ *  and the Lilt error detail if the request failed.
  */
 async function fetchMemories(service) {
   const reqUrl = `${resolveOrigin(service)}/v2/memories`;
@@ -155,9 +201,7 @@ async function fetchMemories(service) {
 }
 
 /**
- * Finds the memory bound to a specific source/target language pair. Each Lilt `Memory` is
- * scoped to exactly one pair, so unlike a project id, there's no single memory that covers
- * every target language - one has to be resolved per language.
+ * Finds the memory bound to a source/target language pair (one memory per pair).
  * @param {Object[]} memories - The account's memories (see {@link fetchMemories}).
  * @param {string} srcLang - The lowercase 2-letter source language.
  * @param {string} trgLang - The lowercase 2-letter target language.
@@ -178,6 +222,19 @@ function findMemoryId(memories, srcLang, trgLang) {
 function getTranslationIdsByLang(service) {
   try {
     return JSON.parse(service?.translationIds?.value || '{}');
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Reads back the `lang.code` -> Lilt job id map persisted by {@link sendVerifiedTranslation}.
+ * @param {Object} service - The flattened per-environment service config.
+ * @returns {Object} The parsed map, or `{}` if missing/invalid.
+ */
+function getJobIdsByLang(service) {
+  try {
+    return JSON.parse(service?.jobIds?.value || '{}');
   } catch {
     return {};
   }
@@ -210,8 +267,7 @@ async function sendAiTranslation({
   const errors = [];
 
   await Promise.all(langs.map(async (lang) => {
-    // On any failure, leave `.translation` untouched - there's no translation in Lilt
-    // to check the status for, so the project stays retryable.
+    // On failure, leave `.translation` untouched so the project stays retryable.
     const { lang: trgLang } = splitLocale(lang.code);
     const memoryId = findMemoryId(memories, srcLang, trgLang);
     if (!memoryId) {
@@ -219,15 +275,14 @@ async function sendAiTranslation({
       return;
     }
 
-    const reqUrl = `${resolveOrigin(service)}/v2/translate/file?fileId=${fileIds.join(',')}&memoryId=${memoryId}`;
-    const opts = { method: 'POST', headers: await authHeaders(service) };
-    const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
-    const infos = await resp.json().catch(() => null);
-    if (!resp.ok) {
-      errors.push(`Lilt translation request failed for ${lang.name}: ${extractErrorMessage(infos)}`);
-      return;
-    }
-    if (!Array.isArray(infos)) return;
+    const { infos, error } = await requestInIdChunks({
+      service,
+      ids: fileIds,
+      method: 'POST',
+      buildUrl: (ids) => `${resolveOrigin(service)}/v2/translate/file?fileId=${ids}&memoryId=${memoryId}`,
+    });
+    if (error) errors.push(`Lilt translation request failed for ${lang.name}: ${error}`);
+    if (error && !infos.length) return;
 
     const translationIdsByPath = {};
     urls.forEach((url) => {
@@ -235,17 +290,25 @@ async function sendAiTranslation({
       const info = infos.find((entry) => entry.fileId === fileId);
       if (info?.id != null) translationIdsByPath[url.daBasePath] = info.id;
     });
-    if (!Object.keys(translationIdsByPath).length) return;
+    if (!Object.keys(translationIdsByPath).length) {
+      errors.push(`Lilt returned no translation ids for ${lang.name}.`);
+      return;
+    }
     translationIdsByLang[lang.code] = translationIdsByPath;
 
     lang.translation ??= {};
     lang.translation.sent = Object.keys(translationIdsByPath).length;
     lang.translation.status = lang.translation.sent === urls.length ? 'created' : 'error';
+    if (lang.translation.status === 'error') {
+      errors.push(`Lilt started only ${lang.translation.sent} of ${urls.length} files for ${lang.name}.`);
+    }
   }));
 
   if (errors.length) sendMessage({ text: errors[0], type: 'error' });
 
-  options.service.translationIds = { value: JSON.stringify(translationIdsByLang) };
+  options.service.translationIds = {
+    value: JSON.stringify({ ...getTranslationIdsByLang(options.service), ...translationIdsByLang }),
+  };
   return errors.length > 0;
 }
 
@@ -269,12 +332,12 @@ async function getAiStatus({ service, langs, urls }) {
     const ids = translationIdsByPath ? Object.values(translationIdsByPath) : [];
     if (!ids.length) return;
 
-    const reqUrl = `${resolveOrigin(service)}/v2/translate/file?translationIds=${ids.join(',')}`;
-    const opts = { headers: await authHeaders(service) };
-    const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
-    if (!resp.ok) return;
-    const infos = await resp.json().catch(() => null);
-    if (!Array.isArray(infos)) return;
+    const { infos, error } = await requestInIdChunks({
+      service,
+      ids,
+      buildUrl: (chunkIds) => `${resolveOrigin(service)}/v2/translate/file?translationIds=${chunkIds}`,
+    });
+    if (error) return;
 
     lang.translation ??= {};
     const failed = infos.some((info) => info.status === 'Failed');
@@ -365,8 +428,7 @@ async function sendVerifiedTranslation({
     const { lang: trgLang, locale: trgLocale } = splitLocale(lang.code);
     const memoryId = findMemoryId(memories, srcLang, trgLang);
     if (!memoryId) {
-      // Leave `.translation` untouched - there's no translation in Lilt to check
-      // the status for, so the project stays retryable.
+      // Leave `.translation` untouched so the project stays retryable.
       errors.push(`No Lilt memory found for ${srcLang} -> ${trgLang}.`);
       return;
     }
@@ -394,12 +456,14 @@ async function sendVerifiedTranslation({
   const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
   const job = await resp.json().catch(() => null);
   if (!resp.ok || !job?.id) {
-    // Leave matched langs' `.translation` untouched so the project stays retryable.
+    // Leave `.translation` untouched so the project stays retryable.
     sendMessage({ text: `Lilt job creation failed: ${extractErrorMessage(job)}`, type: 'error' });
     return true;
   }
 
-  options.service.jobId = { value: String(job.id) };
+  const jobIdsByLang = { ...getJobIdsByLang(options.service) };
+  matchedLangs.forEach((lang) => { jobIdsByLang[lang.code] = String(job.id); });
+  options.service.jobIds = { value: JSON.stringify(jobIdsByLang) };
 
   matchedLangs.forEach((lang) => {
     lang.translation ??= {};
@@ -416,40 +480,64 @@ async function sendVerifiedTranslation({
  * per-language-pair `stats.projects`. Lilt's `JobProject.isComplete` is the only granularity
  * available before export, so `.translated` is reported as all-or-nothing per language.
  * @param {Object} conf
- * @param {Object} conf.service - The flattened per-environment service config.
+ * @param {Object} conf.service - The flattened per-environment service config. Only languages
+ *  with an entry in `service.jobIds` are polled, so `waiting` dependent languages are never
+ *  matched to another language's project.
  * @param {Object[]} conf.langs - The target languages to poll, mutated in place.
  * @param {Object[]} conf.urls - The urls being translated (only its `.length` is used).
  * @returns {Promise<void>}
  */
 async function getVerifiedStatus({ service, langs, urls }) {
-  const jobId = service.jobId?.value;
-  if (!jobId) return;
+  const jobIdsByLang = getJobIdsByLang(service);
+  const activeLangs = langs.filter((lang) => (
+    !TERMINAL_LANG_STATUSES.includes(lang.translation?.status) && jobIdsByLang[lang.code]
+  ));
+  const langsByJobId = activeLangs.reduce((acc, lang) => {
+    const jobId = jobIdsByLang[lang.code];
+    return { ...acc, [jobId]: [...(acc[jobId] || []), lang] };
+  }, {});
 
-  const activeLangs = langs.filter(
-    (lang) => !TERMINAL_LANG_STATUSES.includes(lang.translation?.status),
-  );
-  if (!activeLangs.length) return;
+  await Promise.all(Object.entries(langsByJobId).map(async ([jobId, jobLangs]) => {
+    const reqUrl = `${resolveOrigin(service)}/v2/jobs/${jobId}`;
+    const opts = { headers: await authHeaders(service) };
+    const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
+    if (!resp.ok) return;
+    const job = await resp.json().catch(() => null);
+    const projects = job?.stats?.projects || [];
 
-  const reqUrl = `${resolveOrigin(service)}/v2/jobs/${jobId}`;
+    jobLangs.forEach((lang) => {
+      const { lang: trgLang } = splitLocale(lang.code);
+      const project = projects.find((entry) => entry.trgLang?.toLowerCase() === trgLang);
+      if (!project) return;
+
+      lang.translation ??= {};
+      if (project.isComplete) {
+        lang.translation.translated = urls.length;
+        lang.translation.status = 'translated';
+      } else {
+        lang.translation.translated = 0;
+      }
+    });
+  }));
+}
+
+const jobZipCache = new Map();
+
+/**
+ * Fetches a Lilt job.
+ * @param {Object} service - The flattened per-environment service config.
+ * @param {string} jobId - The Lilt job id.
+ * @returns {Promise<?Object>} The job, or null on failure.
+ */
+async function fetchJob(service, jobId) {
   const opts = { headers: await authHeaders(service) };
-  const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
-  if (!resp.ok) return;
-  const job = await resp.json().catch(() => null);
-  const projects = job?.stats?.projects || [];
-
-  activeLangs.forEach((lang) => {
-    const { lang: trgLang } = splitLocale(lang.code);
-    const project = projects.find((entry) => entry.trgLang?.toLowerCase() === trgLang);
-    if (!project) return;
-
-    lang.translation ??= {};
-    if (project.isComplete) {
-      lang.translation.translated = urls.length;
-      lang.translation.status = 'translated';
-    } else {
-      lang.translation.translated = 0;
-    }
-  });
+  const resp = await fetchWithRetry(
+    `${resolveOrigin(service)}/v2/jobs/${jobId}`,
+    opts,
+    retryConfig(service, opts),
+  );
+  if (!resp.ok) return null;
+  return resp.json().catch(() => null);
 }
 
 /**
@@ -457,31 +545,129 @@ async function getVerifiedStatus({ service, langs, urls }) {
  * `1` in progress, `0` idle/done, `-2` failed.
  * @param {Object} service - The flattened per-environment service config.
  * @param {string} jobId - The Lilt job id.
- * @returns {Promise<boolean>} Whether the export finished successfully.
+ * @returns {Promise<?Object>} The job once the export finished, or null on failure/timeout.
  */
 async function waitForJobExportReady(service, jobId) {
   for (let attempt = 0; attempt < EXPORT_POLL_MAX; attempt += 1) {
-    const reqUrl = `${resolveOrigin(service)}/v2/jobs/${jobId}`;
-    const opts = { headers: await authHeaders(service) };
     // eslint-disable-next-line no-await-in-loop
-    const resp = await fetchWithRetry(reqUrl, opts, retryConfig(service, opts));
-    if (!resp.ok) return false;
-    // eslint-disable-next-line no-await-in-loop
-    const job = await resp.json().catch(() => null);
-    if (job?.isProcessing === 0) return true;
-    if (job?.isProcessing === -2) return false;
+    const job = await fetchJob(service, jobId);
+    if (!job) return null;
+    if (job.isProcessing === 0) return job;
+    if (job.isProcessing === -2) return null;
     // eslint-disable-next-line no-await-in-loop
     await new Promise((resolve) => { setTimeout(resolve, EXPORT_POLL_MS); });
   }
-  return false;
+  return null;
+}
+
+/**
+ * Summarizes which of a job's projects are complete, so a cached zip is reused only while
+ * no project has changed completion state.
+ * @param {Object} job - The Lilt job.
+ * @returns {string} The signature.
+ */
+function jobSignature(job) {
+  return (job?.stats?.projects || []).map((p) => `${p.id}:${p.isComplete}`).join(',');
+}
+
+/**
+ * Finds a language's translated file in a job zip. Lilt lays it out as
+ * `Project_<id>_<src>_<trg>/<stem>.<trgLang><trgLocale><ext>`, one folder per language pair.
+ * @param {Object} conf
+ * @param {Array[]} conf.entries - The unzipped `[path, bytes]` entries.
+ * @param {Object} conf.lang - The language being saved.
+ * @param {string} conf.fileName - The upload filename.
+ * @returns {?Array} The matching entry, if any.
+ */
+function findLangEntry({ entries, lang, fileName }) {
+  const { lang: trgLang, locale } = splitLocale(lang.code);
+  const dot = fileName.lastIndexOf('.');
+  const localized = `${fileName.slice(0, dot)}.${trgLang}${locale || ''}${fileName.slice(dot)}`;
+  const wanted = [localized, fileName].map((name) => name.toLowerCase());
+
+  return entries.find(([path]) => {
+    const [folder, ...rest] = path.split('/');
+    if (!rest.length) return false;
+    const folderLang = folder.split('_').pop().toLowerCase();
+    const langMatches = locale
+      ? folderLang === `${trgLang}-${locale}`.toLowerCase()
+      : folderLang.split('-')[0] === trgLang;
+    return langMatches && wanted.includes(rest.pop().toLowerCase());
+  });
+}
+
+/**
+ * Exports, downloads and unzips a job, reusing the previous download while the job's
+ * project completion state is unchanged so a multi-language job downloads once.
+ * @param {Object} service - The flattened per-environment service config.
+ * @param {string} jobId - The Lilt job id.
+ * @returns {Promise<{entries: ?Array[], job: ?Object, error: ?string}>} The zip entries
+ *   and job, or the error.
+ */
+async function loadJobEntries(service, jobId) {
+  const current = await fetchJob(service, jobId);
+  const cached = jobZipCache.get(jobId);
+  if (current && cached?.signature === jobSignature(current)) {
+    return { entries: cached.entries, job: current, error: null };
+  }
+  jobZipCache.delete(jobId);
+
+  const exportUrl = `${resolveOrigin(service)}/v2/jobs/${jobId}/export?type=files`;
+  const exportOpts = { headers: await authHeaders(service) };
+  const exportResp = await fetchWithRetry(exportUrl, exportOpts, retryConfig(service, exportOpts));
+  if (!exportResp.ok) {
+    const json = await exportResp.json().catch(() => null);
+    return { entries: null, job: null, error: `export failed: ${extractErrorMessage(json)}` };
+  }
+
+  const job = await waitForJobExportReady(service, jobId);
+  if (!job) return { entries: null, job: null, error: 'export is not ready yet' };
+
+  const downloadUrl = `${resolveOrigin(service)}/v2/jobs/${jobId}/download`;
+  const opts = { headers: await authHeaders(service) };
+  const resp = await fetchWithRetry(downloadUrl, opts, retryConfig(service, opts));
+  if (!resp.ok) {
+    const json = await resp.json().catch(() => null);
+    return { entries: null, job: null, error: `download failed: ${extractErrorMessage(json)}` };
+  }
+
+  const entries = Object.entries(unzipSync(new Uint8Array(await resp.arrayBuffer())));
+  if (jobZipCache.size >= ZIP_CACHE_MAX) jobZipCache.delete(jobZipCache.keys().next().value);
+  jobZipCache.set(jobId, { signature: jobSignature(job), entries });
+  return { entries, job, error: null };
+}
+
+/**
+ * Archives a job once every one of its projects is complete. Best-effort: archived jobs
+ * stay downloadable, and a failure here must not fail the save.
+ * @param {Object} service - The flattened per-environment service config.
+ * @param {string} jobId - The Lilt job id.
+ * @param {Object} job - The job, as returned once its export finished.
+ * @returns {Promise<void>}
+ */
+async function archiveCompletedJob(service, jobId, job) {
+  const projects = job?.stats?.projects || [];
+  if (job?.status === 'archived' || !projects.length || !projects.every((p) => p.isComplete)) {
+    return;
+  }
+  try {
+    const opts = { method: 'POST', headers: await authHeaders(service) };
+    await fetchWithRetry(
+      `${resolveOrigin(service)}/v2/jobs/${jobId}/archive`,
+      opts,
+      retryConfig(service, opts),
+    );
+  } catch {
+    // Archiving is cosmetic; the translations are already saved.
+  }
 }
 
 /**
  * Downloads and saves Verified Translation output for a single language. Unlike AI
- * Translation, Lilt only exposes one zip download per job export, so this fetches it once
- * (re-exporting/re-downloading per language is accepted as a v1 simplification) and
- * best-effort matches each url to a zip entry by its upload filename, rather than using
- * {@link downloadQueue}'s one-network-call-per-url pattern.
+ * Translation, Lilt only exposes one zip download per job, so the zip is cached per job and
+ * each url is matched to the language's project folder and upload filename, rather than
+ * using {@link downloadQueue}'s one-network-call-per-url pattern. Archives the job once all
+ * of its projects are complete and this language saved in full.
  * @param {Object} conf
  * @param {string} conf.org - The DA org.
  * @param {string} conf.site - The DA site.
@@ -495,48 +681,20 @@ async function waitForJobExportReady(service, jobId) {
 async function saveVerifiedItems({
   org, site, service, lang, urls, saveFn, sendMessage,
 }) {
-  const jobId = service.jobId?.value;
+  const jobId = getJobIdsByLang(service)[lang.code];
   if (!jobId) return urls;
 
   sendMessage({ text: `Waiting for Lilt to export ${lang.name} deliverables.` });
 
-  const exportUrl = `${resolveOrigin(service)}/v2/jobs/${jobId}/export?type=files`;
-  const exportOpts = { headers: await authHeaders(service) };
-  const exportResp = await fetchWithRetry(exportUrl, exportOpts, retryConfig(service, exportOpts));
-  if (!exportResp.ok) {
-    const json = await exportResp.json().catch(() => null);
-    sendMessage({ text: `Lilt export failed for ${lang.name}: ${extractErrorMessage(json)}`, type: 'error' });
+  const { entries, job, error } = await loadJobEntries(service, jobId);
+  if (error) {
+    sendMessage({ text: `Lilt ${error} for ${lang.name}.`, type: 'error' });
     urls.forEach((url) => { url.status = 'error'; });
     return urls;
   }
-
-  const ready = await waitForJobExportReady(service, jobId);
-  if (!ready) {
-    sendMessage({ text: `Lilt export for ${lang.name} is not ready yet.`, type: 'error' });
-    urls.forEach((url) => { url.status = 'error'; });
-    return urls;
-  }
-
-  const downloadUrl = `${resolveOrigin(service)}/v2/jobs/${jobId}/download`;
-  const downloadOpts = { headers: await authHeaders(service) };
-  const downloadResp = await fetchWithRetry(
-    downloadUrl,
-    downloadOpts,
-    retryConfig(service, downloadOpts),
-  );
-  if (!downloadResp.ok) {
-    const json = await downloadResp.json().catch(() => null);
-    sendMessage({ text: `Lilt download failed for ${lang.name}: ${extractErrorMessage(json)}`, type: 'error' });
-    urls.forEach((url) => { url.status = 'error'; });
-    return urls;
-  }
-
-  const buffer = new Uint8Array(await downloadResp.arrayBuffer());
-  const entries = Object.entries(unzipSync(buffer));
 
   await Promise.all(urls.map(async (url) => {
-    const fileName = toFileName(url.daBasePath);
-    const entry = entries.find(([path]) => path.endsWith(fileName));
+    const entry = findLangEntry({ entries, lang, fileName: toFileName(url.daBasePath) });
     if (!entry) {
       url.status = 'error';
       return;
@@ -550,6 +708,10 @@ async function saveVerifiedItems({
       url.status = 'error';
     }
   }));
+
+  if (urls.every((url) => url.status === 'success')) {
+    await archiveCompletedJob(service, jobId, job);
+  }
 
   return urls;
 }
@@ -585,15 +747,13 @@ export async function sendAllLanguages({
   sendMessage({ text: `Uploading ${urls.length} items to Lilt.` });
   const fileIdsByPath = await uploadAllFiles(service, urls, sendMessage);
   if (Object.keys(fileIdsByPath).length !== urls.length) {
-    // Leave langs' `.translation` untouched so the project stays retryable.
-    // uploadAllFiles already reported the rolled-up error via sendMessage.
+    // Leave `.translation` untouched; uploadAllFiles already reported the error.
     return;
   }
   options.service.fileIds = { value: JSON.stringify(fileIdsByPath) };
 
   const { memories, error: memoriesError } = await fetchMemories(service);
   if (memoriesError) {
-    // Leave langs' `.translation` untouched so the project stays retryable.
     sendMessage({ text: `Fetching Lilt memories failed: ${memoriesError}`, type: 'error' });
     return;
   }
@@ -615,8 +775,7 @@ export async function sendAllLanguages({
       service, options, langs, urls, fileIdsByPath, memories, srcLang, sendMessage,
     });
 
-  // Leave any per-language error visible - clearing it here would clobber it, since
-  // sendMessage is a single-slot UI field.
+  // Don't clear: sendMessage is single-slot and would erase the reported error.
   if (!hadError) sendMessage();
   await saveState({ options });
 }

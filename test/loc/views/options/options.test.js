@@ -166,4 +166,20 @@ describe('NxLocOptions - loadConnectorServiceOptions', () => {
       { value: 'verified', label: 'Verified Translation' },
     ]);
   });
+
+  it('creates envs when the service config has none', async () => {
+    installFetch((u) => {
+      if (u.includes('/integrations/lilt/status')) {
+        return new Response(JSON.stringify({ connected: true }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const el = createOptionsEl();
+    el._siteConfig.service = { name: 'Lilt' };
+
+    await el.loadConnectorServiceOptions();
+
+    expect(el._siteConfig.service.envs.prod).to.deep.equal({ translationMode: 'ai' });
+    expect(el._serviceOptions[0].items).to.have.length(2);
+  });
 });

@@ -115,13 +115,11 @@ class NxLocOptions extends LitElement {
       this._serviceOptions = undefined;
       return;
     }
-    // A service may have no per-env config of its own (e.g. Lilt, which has a single
-    // fixed upstream and resolves its key server-side) - default to an empty object
-    // rather than bailing, so its static `serviceOptions` can still render. Set on
-    // `envs` directly (not a local default) so option values seeded below persist back
-    // into `_siteConfig` for saving.
-    this._siteConfig.service.envs[env] ??= {};
-    const envConfig = this._siteConfig.service.envs[env];
+    // Services without per-env config (e.g. Lilt) still render their static serviceOptions.
+    const { service: siteService } = this._siteConfig;
+    siteService.envs ??= {};
+    siteService.envs[env] ??= {};
+    const envConfig = siteService.envs[env];
 
     const connector = await import(`../../connectors/${serviceName}/index.js`);
     const { serviceOptions } = connector;

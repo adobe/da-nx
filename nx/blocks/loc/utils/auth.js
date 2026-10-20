@@ -166,8 +166,8 @@ export default async function authReady(name, service) {
 export async function checkConnection(name, org, site, env) {
   const resp = await daFetch({ url: statusUrl(name, org, site, env) });
   if (!resp.ok) return false;
-  const { connected } = await resp.json();
-  return !!connected;
+  const json = await resp.json().catch(() => ({}));
+  return !!json.connected;
 }
 
 /**

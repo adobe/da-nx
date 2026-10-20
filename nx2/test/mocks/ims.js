@@ -6,6 +6,7 @@ let _email = 'test-user@adobe.com';
 let _io = { user: { avatar: 'https://example.com/avatar.png' } };
 let _orgs = { data: [] };
 let _projectedProductContext;
+let _signInCount = 0;
 
 export function setMockIms({
   token, anonymous, userId, displayName, email, io, orgs, projectedProductContext,
@@ -29,6 +30,7 @@ export function resetMockIms() {
   _io = { user: { avatar: 'https://example.com/avatar.png' } };
   _orgs = { data: [] };
   _projectedProductContext = undefined;
+  _signInCount = 0;
 }
 
 export const loadIms = async () => {
@@ -45,6 +47,10 @@ export const loadIms = async () => {
   };
 };
 
-export function handleSignIn() {}
+export const getMockSignInCount = () => _signInCount;
+
+export function handleSignIn() {
+  _signInCount += 1;
+}
 
 export function handleSignOut() {}

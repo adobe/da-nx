@@ -175,6 +175,12 @@ describe('auth', () => {
 
       expect(await checkConnection('example', 'acme', 'site14', 'prod')).to.equal(false);
     });
+
+    it('resolves false when the response body is not JSON', async () => {
+      installFetch(async () => new Response('<html></html>', { status: 200 }));
+
+      expect(await checkConnection('example', 'acme', 'site15', 'prod')).to.equal(false);
+    });
   });
 
   describe('authReady (default export)', () => {
