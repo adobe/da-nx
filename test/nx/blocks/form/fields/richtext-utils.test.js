@@ -1,7 +1,7 @@
 /* eslint-disable no-script-url */
 import { expect } from '@esm-bundle/chai';
 import * as pm from './mocks/pm.js';
-import { convertJsonToHtml, convertHtmlToJson } from '../../../../../nx/deps/da-sc-sdk/dist/index.js';
+import { createEngine, convertJsonToHtml, convertHtmlToJson } from '../../../../../nx/deps/da-sc-sdk/dist/index.js';
 import {
   SCHEMA_SPEC,
   safeHref,
@@ -138,7 +138,8 @@ describe('richtext-utils', () => {
       values.forEach((value) => {
         const body = roundTrip(value);
         const json = { metadata: { schemaName: 'x' }, data: { body } };
-        const { html } = convertJsonToHtml({ json, schema: schemaJson });
+        const { model } = createEngine({ schema: schemaJson, document: json }).getState();
+        const { html } = convertJsonToHtml({ json, model });
         expect(convertHtmlToJson({ html, schema: schemaJson }).json.data.body).to.equal(body);
       });
     });

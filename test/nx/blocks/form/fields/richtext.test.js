@@ -251,7 +251,7 @@ describe('form-richtext', () => {
 
   it('disables the block type picker inside lists', async () => {
     const el = await mount({ value: '<ul><li>text</li></ul>' });
-    el.focus();
+    content(el).dispatchEvent(new FocusEvent('focusin', { bubbles: true, composed: true }));
     await el.updateComplete;
     const picker = el.shadowRoot.querySelector('nx-picker');
     expect(picker.inert).to.be.true;
