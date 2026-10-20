@@ -1,4 +1,9 @@
-import { env } from '../scripts/nexter.js';
+import { env, getConfig } from '../scripts/nexter.js';
+
+export function getHomeHref({ fallback = '/' } = {}) {
+  const { homeHref } = getConfig();
+  return (typeof homeHref === 'function' ? homeHref() : homeHref) || fallback;
+}
 
 export const SUPPORTED_FILES = {
   html: 'text/html',

@@ -1,6 +1,8 @@
 import { getConfig, loadArea, getMetadata } from '../../scripts/nexter.js';
 import loadStyle from '../../utils/styles.js';
 import { getSvg } from '../../utils/svg.js';
+import { getHomeHref } from '../../utils/utils.js';
+import createBrandLink from './brand.js';
 
 const { nxBase } = getConfig();
 
@@ -35,10 +37,19 @@ class Nav extends HTMLElement {
     const sections = doc.querySelectorAll('body > .section');
 
     // Grab the first link as it will be the main branding
-    const brandLink = doc.querySelector('a');
-    brandLink.innerHTML = `<span>${brandLink.innerHTML}</span>`;
+    const originalBrand = doc.querySelector('a');
+    const fallback = originalBrand.href;
+    const { brand } = getConfig();
+    const brandLink = brand ? createBrandLink(brand) : originalBrand;
+    if (brand) {
+      originalBrand.replaceWith(brandLink);
+    } else {
+      brandLink.innerHTML = `<span>${brandLink.innerHTML}</span>`;
+      brandLink.insertAdjacentHTML('afterbegin', '<svg class="icon"><use href="#spectrum-ExperienceCloud"/></svg>');
+    }
     brandLink.classList.add('nx-nav-brand');
-    brandLink.insertAdjacentHTML('afterbegin', '<svg class="icon"><use href="#spectrum-ExperienceCloud"/></svg>');
+    brandLink.href = getHomeHref({ fallback });
+    brandLink.addEventListener('click', () => { brandLink.href = getHomeHref({ fallback }); });
 
     const inner = document.createElement('div');
     inner.className = 'nx-nav-inner';

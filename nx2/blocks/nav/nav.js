@@ -4,6 +4,7 @@ import { getMetadata, getConfig } from '../../scripts/nx.js';
 import { loadStyle, hashChange, getHomeHref } from '../../utils/utils.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg } from '../../utils/svg.js';
+import createBrandLink from '../../../nx/blocks/nav/brand.js';
 
 const DEFAULT_NAV_PATH = '/nx/fragments/nav';
 
@@ -87,26 +88,10 @@ class NXNav extends LitElement {
 
   async decorateBrand(brandSection) {
     const { brand } = getConfig();
-    const brandLink = brand ? document.createElement('a') : brandSection.querySelector('a');
+    const brandLink = brand ? createBrandLink(brand) : brandSection.querySelector('a');
     if (!brandLink) return null;
     brandLink.classList.add('brand-area');
-    if (brand) {
-      const { title, logoHref, logoSize = 24 } = brand;
-      brandLink.classList.add('is-configured');
-      brandLink.setAttribute('aria-label', `${title} home`);
-      const mark = document.createElement('span');
-      mark.className = 'brand-logo';
-      const logo = document.createElement('img');
-      logo.src = logoHref;
-      logo.width = logoSize;
-      logo.height = logoSize;
-      logo.alt = '';
-      mark.append(logo);
-      const label = document.createElement('span');
-      label.className = 'brand-label';
-      label.textContent = title;
-      brandLink.append(mark, label);
-    } else {
+    if (!brand) {
       const { href, textContent } = brandLink;
       if (href.includes('.svg')) {
         brandLink.setAttribute('aria-label', textContent);
