@@ -4,8 +4,7 @@ import {
   describeAsset, isAssetHref, splitHrefForDisplay,
 } from '../../../../../nx/blocks/form/utils/media.js';
 
-// The SDK still accepts the GitHub URLs of its types until schemas.da.live serves them.
-const IMAGE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.json';
+const IMAGE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.0.0.json';
 
 const previewOrigin = 'https://main--site--example.preview.da.live';
 

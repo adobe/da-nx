@@ -2,8 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import { createEngine } from '../../../../../nx/deps/da-sc-sdk/dist/index.js';
 import '../../../../../nx/blocks/form/views/editor.js';
 
-// The SDK still accepts the GitHub URLs of its types until schemas.da.live serves them.
-const IMAGE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.json';
+const IMAGE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.0.0.json';
 
 // Component-level UI tests for nx-editor. The engine is the real bundled SDK
 // (same one the form block ships); we feed its getState() into the component

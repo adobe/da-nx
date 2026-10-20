@@ -6,8 +6,7 @@ import {
 } from '../../../../nx/deps/da-sc-sdk/dist/index.js';
 import { attachPersistence } from '../../../../nx/blocks/form/utils/persistence.js';
 
-// The SDK still accepts the GitHub URLs of its types until schemas.da.live serves them.
-const IMAGE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.json';
+const IMAGE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.0.0.json';
 
 // Integration tests for the form block ↔ da-sc-sdk contract, exercising
 // the REAL bundled SDK at `nx/deps/da-sc-sdk/dist/index.js`.

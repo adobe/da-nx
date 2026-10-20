@@ -4,8 +4,8 @@ import '../../../../../nx/blocks/form/views/editor.js';
 const tick = () => new Promise((resolve) => { requestAnimationFrame(resolve); });
 
 // The SDK still accepts the GitHub URLs of its types.
-const IMAGE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.json';
-const FILE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/file/v1.json';
+const IMAGE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.0.0.json';
+const FILE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/file/v1.0.0.json';
 
 const mediaNode = (extra = {}) => ({
   kind: 'object',
