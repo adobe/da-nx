@@ -1,7 +1,18 @@
 /* eslint-disable no-underscore-dangle */
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
-import { status } from '../../../../../utils/api.js';
+import { status, config } from '../../../../../utils/api.js';
+import { BRANCH_EVENT } from '../../../../../utils/branch-events.js';
+
+let branchState;
+const onBranchRequest = ({ detail }) => document.dispatchEvent(new CustomEvent(BRANCH_EVENT.STATE, {
+  detail: { ...detail, ...branchState },
+}));
+beforeEach(() => {
+  branchState = { status: 'ready', branch: 'main' };
+  document.addEventListener(BRANCH_EVENT.REQUEST, onBranchRequest);
+});
+afterEach(() => document.removeEventListener(BRANCH_EVENT.REQUEST, onBranchRequest));
 
 const nextTick = () => new Promise((resolve) => { setTimeout(resolve, 0); });
 
@@ -79,6 +90,27 @@ describe('nx-ew-actions deploy popover', () => {
       el._status = {};
       expect(el._previewInfo).to.deep.equal({ ok: false, url: null, time: null });
     });
+
+    it('rewrites env URLs to the branch reported by canvas, not the query string', async () => {
+      const orig = window.location.href;
+      window.history.replaceState(null, '', `${window.location.pathname}?ref=ignored`);
+      branchState = { status: 'ready', branch: 'feat-x' };
+      try {
+        const el = await mount();
+        el._hashState = { org: 'o', site: 's', path: '/page' };
+        await el.updateComplete;
+        await el._branchPromise;
+        el._status = {
+          webPath: '/page',
+          preview: { status: 200, url: 'https://main--s--o.aem.page/page' },
+          live: { status: 200, url: 'https://main--s--o.aem.live/page' },
+        };
+        expect(el._previewInfo.url).to.equal('https://feat-x--s--o.aem.page/page');
+        expect(el._liveInfo.url).to.equal('https://feat-x--s--o.aem.live/page');
+      } finally {
+        window.history.replaceState(null, '', orig);
+      }
+    });
   });
 
   describe('rendering', () => {
@@ -148,11 +180,11 @@ describe('nx-ew-actions deploy popover', () => {
       expect(card.querySelector('.deploy-url')).to.equal(null);
     });
 
-    it('labels the live card "Publish" for end users', async () => {
+    it('labels the live card "Preview & Publish" for end users', async () => {
       const el = await mount();
       const titles = [...el.shadowRoot.querySelectorAll('.deploy-card-title')]
         .map((n) => n.textContent.trim());
-      expect(titles).to.deep.equal(['Preview', 'Publish']);
+      expect(titles).to.deep.equal(['Preview', 'Preview & Publish']);
     });
 
     it('hides the Publish card, badge, and publish action when publishing is disabled', async () => {
@@ -211,8 +243,14 @@ describe('nx-ew-actions deploy popover', () => {
 });
 
 describe('nx-ew-actions status loading & confirm', () => {
+  let origConfigGet;
+  beforeEach(() => {
+    origConfigGet = config.get;
+    config.get = async () => new Response(JSON.stringify({ data: [] }));
+  });
   afterEach(() => {
     document.querySelectorAll('nx-ew-actions').forEach((el) => el.remove());
+    config.get = origConfigGet;
   });
 
   it('drops a stale _loadStatus result when a newer load supersedes it', async () => {
@@ -241,6 +279,46 @@ describe('nx-ew-actions status loading & confirm', () => {
       expect(el._status.preview.url).to.equal('/o/s/second');
     } finally {
       status.get = origGet;
+    }
+  });
+
+  it('handles early branch resolution failures without logging and stops deploy with an action error', async () => {
+    const el = await mount();
+    const origError = console.error;
+    branchState = { status: 'error', error: 'Config unavailable' };
+    const logged = [];
+    const shown = [];
+    console.error = (...args) => { logged.push(args); };
+    el._updateHidePublish = async () => {};
+    el._loadStatus = async () => {};
+    el._showActionError = async (action, message) => {
+      shown.push({ action, message });
+      el._busy = false;
+      el._hasError = true;
+    };
+    try {
+      el._branch = 'previous-branch';
+      el._hashState = { org: 'branch-error-org', site: 'branch-error-site', path: '/page' };
+      await el.updateComplete;
+      await nextTick();
+      let error;
+      try {
+        await el._branchPromise;
+      } catch (e) {
+        error = e;
+      }
+      expect(error.message).to.equal('Config unavailable');
+      expect(el._branch).to.equal(undefined);
+      expect(logged).to.deep.equal([]);
+      await el._runAemAction('preview');
+      expect(shown).to.deep.equal([{
+        action: 'preview',
+        message: 'Unable to resolve the preview branch. Please retry or reload the editor.',
+      }]);
+      expect(el._busy).to.equal(false);
+      expect(el._hasError).to.equal(true);
+    } finally {
+      console.error = origError;
     }
   });
 
@@ -280,7 +358,19 @@ describe('nx-ew-actions preflight gate (Gate #1)', () => {
     document.dispatchEvent(new CustomEvent('nx-preflight-status', {
       detail: { path: '/org/site/page.html', status: 'success', requestId: runDetail.requestId },
     }));
-    expect(await pending).to.equal('success');
+    expect(await pending).to.deep.equal({ status: 'success', message: undefined });
+  });
+
+  it('requestPreflight resolves the error status with its message', async () => {
+    const el = make();
+    let runDetail;
+    document.addEventListener('nx-preflight-run', (e) => { runDetail = e.detail; }, { once: true });
+    const pending = el.requestPreflight('/org/site/page.html');
+    await nextTick();
+    document.dispatchEvent(new CustomEvent('nx-preflight-status', {
+      detail: { path: '/org/site/page.html', status: 'error', message: 'Forbidden', requestId: runDetail.requestId },
+    }));
+    expect(await pending).to.deep.equal({ status: 'error', message: 'Forbidden' });
   });
 
   it('requestPreflight ignores a status with a mismatched requestId', async () => {
@@ -295,7 +385,7 @@ describe('nx-ew-actions preflight gate (Gate #1)', () => {
     document.dispatchEvent(new CustomEvent('nx-preflight-status', {
       detail: { path: '/org/site/page.html', status: 'fail', requestId: runDetail.requestId },
     }));
-    expect(await pending).to.equal('fail');
+    expect((await pending).status).to.equal('fail');
   });
 
   it('disconnectedCallback cancels a pending requestPreflight, resolving undefined', async () => {
@@ -320,6 +410,38 @@ describe('nx-ew-actions preflight gate (Gate #1)', () => {
     el._preflightPassed = false;
     el._onPreflightStatus({ detail: { path: '/other/doc', status: 'success' } });
     expect(el._preflightPassed).to.equal(false);
+  });
+
+  describe('publish gate dialog', () => {
+    async function publishWith(result) {
+      const el = make({ org: 'org', site: 'site', path: '/page' });
+      el._enforcePreflight = true;
+      el.requestPreflight = async () => result;
+      let shown;
+      el._showActionError = async (action, message, details) => {
+        shown = { action, message, details };
+      };
+      await el._runAemAction('publish');
+      return shown;
+    }
+
+    it('says the checks could not run, with the cause, on an error status', async () => {
+      const shown = await publishWith({ status: 'error', message: 'Forbidden' });
+      expect(shown.action).to.equal('publish');
+      expect(shown.message).to.equal('Preflight couldn\'t check this page. Please try again later or contact your administrator if the problem persists.');
+      expect(shown.details).to.equal('Forbidden');
+    });
+
+    it('says preflight found issues on a fail status', async () => {
+      const shown = await publishWith({ status: 'fail' });
+      expect(shown.message).to.equal('Preflight found issues. Resolve them in the Preflight panel, then publish again.');
+      expect(shown.details).to.equal(undefined);
+    });
+
+    it('says preflight did not finish on a timeout', async () => {
+      const shown = await publishWith(undefined);
+      expect(shown.message).to.equal('Preflight did not finish in time. Please run Preflight again before publishing.');
+    });
   });
 
   it('_prepareDetails is a stable reference until the hash state changes', () => {
