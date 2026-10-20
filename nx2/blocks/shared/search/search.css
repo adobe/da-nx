@@ -38,7 +38,11 @@ input {
   font: inherit;
   font-size: var(--nx-search-font-size);
   line-height: var(--nx-search-line-height);
-  padding: 0;
+  padding: 6px 2px;
+}
+
+:host(:not([variant="field"])) input:focus:not(:disabled) {
+  box-shadow: 0 2px 0 var(--s2-gray-900);
 }
 
 input::placeholder,
@@ -57,7 +61,8 @@ svg {
   flex-shrink: 0;
 }
 
-button {
+button,
+::slotted(button) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -71,15 +76,18 @@ button {
   cursor: pointer;
 }
 
-button[hidden] {
+button[hidden],
+::slotted(button[hidden]) {
   display: none;
 }
 
-button:focus-visible {
+button:focus-visible,
+::slotted(button:focus-visible) {
   outline: 2px solid var(--s2-blue-800);
 }
 
-button:hover:not(:disabled) {
+button:hover:not(:disabled),
+::slotted(button:hover:not(:disabled)) {
   background: var(--s2-gray-100);
 }
 
@@ -92,7 +100,7 @@ button:hover:not(:disabled) {
   background: var(--s2-gray-25);
   padding: 0 var(--s2-spacing-100, 8px);
 
-  &:focus-within {
+  &:has(input:focus, button:focus) {
     border-color: var(--s2-gray-900);
   }
 }
