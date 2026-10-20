@@ -52,6 +52,8 @@ describe('nav search slot', () => {
       section.innerHTML = '<a href="/">Brand</a>';
       const brand = await nav.decorateBrand(section);
       expect(brand.getAttribute('href')).to.equal('/?landing=true&nx=lp#/org/site');
+      expect(brand.textContent).to.equal('Brand');
+      expect(brand.querySelector('.brand-logo')).to.equal(null);
       expect(getHomeHref()).to.equal('/?landing=true&nx=lp#/org/site');
       await setConfig({ homeHref: '/custom-home' });
       expect(getHomeHref()).to.equal('/custom-home');
@@ -72,6 +74,57 @@ describe('nav search slot', () => {
   async function settleSlots() {
     await new Promise((resolve) => { setTimeout(resolve); });
   }
+
+  it('renders configured branding in the shell without a landing component or fragment brand', async () => {
+    try {
+      await setConfig({
+        brand: {
+          title: 'Example Product',
+          logoHref: '/nx2/img/favicons/favicon.ico',
+          logoSize: 24,
+        },
+        homeHref: '/custom-home',
+      });
+      nav._brand = await nav.decorateBrand(document.createElement('div'));
+      await mount('/canvas');
+      const brand = nav.shadowRoot.querySelector('.brand-area');
+      expect(brand.getAttribute('aria-label')).to.equal('Example Product home');
+      expect(brand.getAttribute('href')).to.equal('/custom-home');
+      expect(brand.querySelector('.brand-label').textContent).to.equal('Example Product');
+      const logo = brand.querySelector('img');
+      expect(logo.getAttribute('src')).to.equal('/nx2/img/favicons/favicon.ico');
+      expect([logo.width, logo.height, logo.alt]).to.deep.equal([24, 24, '']);
+      const style = getComputedStyle(brand);
+      expect([style.fontSize, style.fontWeight, style.lineHeight]).to.deep.equal([
+        '14px', '700', '18px',
+      ]);
+      const mark = brand.querySelector('.brand-logo').getBoundingClientRect();
+      expect([mark.width, mark.height]).to.deep.equal([32, 32]);
+    } finally {
+      await setConfig({ hostnames: [] });
+    }
+  });
+
+  it('keeps the configured title and logo size across page routes and fragment reloads', async () => {
+    try {
+      await setConfig({
+        brand: { title: 'Example Product', logoHref: '/nx2/img/favicons/favicon.ico' },
+      });
+      const section = document.createElement('div');
+      section.innerHTML = '<a href="/">Original author brand</a>';
+      for (const path of ['/', '/canvas', '/sheet', '/media', '/apps']) {
+        nav._brand = await nav.decorateBrand(section);
+        await mount(`${path}?nx=lp#/org/site`);
+        const brand = nav.shadowRoot.querySelector('.brand-area');
+        expect(brand.querySelector('.brand-label').textContent).to.equal('Example Product');
+        expect(brand.textContent).not.to.include('Original author brand');
+        expect(brand.querySelectorAll('img')).to.have.length(1);
+        expect(brand.querySelector('img').width).to.equal(24);
+      }
+    } finally {
+      await setConfig({ hostnames: [] });
+    }
+  });
 
   it('provides an empty search slot without a fragment or loaded profile', async () => {
     await mount('/');

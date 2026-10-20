@@ -50,6 +50,37 @@
   flex-shrink: 0;
 }
 
+.brand-area.is-configured {
+  gap: 12px;
+  min-width: 0;
+  padding-inline: 12px;
+  color: var(--s2-gray-800);
+  font-family: var(--s2-font-family);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 18px;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.brand-logo {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.brand-logo img {
+  display: block;
+}
+
+@media (width < 600px) {
+  .is-configured .brand-label {
+    display: none;
+  }
+}
+
 .nav-breadcrumb {
   flex: 1 1 auto;
   min-width: 0;
