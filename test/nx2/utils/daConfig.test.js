@@ -5,7 +5,7 @@ import {
 import {
   calls, installFetch, restoreFetch, lastCall,
 } from '../../../nx2/test/mocks/fetch.js';
-import { getFirstSheet, fetchDaConfigs } from '../../../nx2/utils/daConfig.js';
+import { getFirstSheet, fetchDaConfigs, getConfigValue } from '../../../nx2/utils/daConfig.js';
 
 // fetchDaConfigs memoizes per `/{org}` and `/{org}/{site}` key for the
 // lifetime of the module, so every test uses a fresh org/site pair to avoid
@@ -159,5 +159,54 @@ describe('fetchDaConfigs', () => {
     installFetch({ body: JSON.stringify({ data: [{ key: 'retried' }] }) });
     const [retried] = await Promise.all(fetchDaConfigs({ org }));
     expect(getFirstSheet(retried)).to.deep.equal([{ key: 'retried' }]);
+  });
+});
+
+describe('getConfigValue', () => {
+  afterEach(() => restoreFetch());
+
+  const sheet = (data) => JSON.stringify({ ':type': 'sheet', data });
+
+  it('returns the value for the key', async () => {
+    installFetch({ body: sheet([{ key: 'a', value: '1' }, { key: 'b', value: '2' }]) });
+    expect(await getConfigValue({ org: uniq('org'), key: 'b' })).to.equal('2');
+  });
+
+  it('returns undefined when the key is missing', async () => {
+    installFetch({ body: sheet([{ key: 'a', value: '1' }]) });
+    expect(await getConfigValue({ org: uniq('org'), key: 'b' })).to.equal(undefined);
+  });
+
+  it('returns undefined when the config fails to load', async () => {
+    installFetch({ status: 404, body: '' });
+    expect(await getConfigValue({ org: uniq('org'), key: 'a' })).to.equal(undefined);
+  });
+
+  it('site config overrides org config', async () => {
+    const org = uniq('org');
+    const site = uniq('site');
+    installFetch();
+    window.fetch = async (url) => {
+      const u = url.toString();
+      if (u.includes(`${HLX_ADMIN}/ping/`)) return new Response('', { status: 200 });
+      const value = u.includes(`/${org}/${site}/`) ? 'site' : 'org';
+      return new Response(sheet([{ key: 'a', value }]), { status: 200 });
+    };
+
+    expect(await getConfigValue({ org, site, key: 'a' })).to.equal('site');
+  });
+
+  it('falls back to org config when the site does not set the key', async () => {
+    const org = uniq('org');
+    const site = uniq('site');
+    installFetch();
+    window.fetch = async (url) => {
+      const u = url.toString();
+      if (u.includes(`${HLX_ADMIN}/ping/`)) return new Response('', { status: 200 });
+      const data = u.includes(`/${org}/${site}/`) ? [] : [{ key: 'a', value: 'org' }];
+      return new Response(sheet(data), { status: 200 });
+    };
+
+    expect(await getConfigValue({ org, site, key: 'a' })).to.equal('org');
   });
 });
