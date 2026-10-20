@@ -1,3 +1,36 @@
+# [1.17.0](https://github.com/adobe/da-nx/compare/v1.16.6...v1.17.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **sdk:** isolate live document subscriber failures ([92002c4](https://github.com/adobe/da-nx/commit/92002c436cafc9a645a312ff40d64e5d3d7e582b))
+
+
+### Features
+
+* add live document and HTML replacement SDK actions ([6caa671](https://github.com/adobe/da-nx/commit/6caa6719f3e970a6d74d1c60efa3fc31f5ffc392))
+
+## [1.16.6](https://github.com/adobe/da-nx/compare/v1.16.5...v1.16.6) (2026-10-19)
+
+
+### Bug Fixes
+
+* use the coworker UI for Experience Context ([#876](https://github.com/adobe/da-nx/issues/876)) ([ae51965](https://github.com/adobe/da-nx/commit/ae51965092d49f7603e8dee4ea82bc5995c32c77))
+
+## [1.16.5](https://github.com/adobe/da-nx/compare/v1.16.4...v1.16.5) (2026-10-19)
+
+
+### Bug Fixes
+
+* **quick-edit:** preserve wrappers when editing nested blocks ([e5d4806](https://github.com/adobe/da-nx/commit/e5d4806da0f029ad762b4871a013d79e038d16b5))
+
+## [1.16.4](https://github.com/adobe/da-nx/compare/v1.16.3...v1.16.4) (2026-10-16)
+
+
+### Bug Fixes
+
+* display the correct message when there is an error ([#862](https://github.com/adobe/da-nx/issues/862)) ([9c45996](https://github.com/adobe/da-nx/commit/9c45996d2fe85c02535aa898584a8494069fc1d3))
+
 ## [1.16.3](https://github.com/adobe/da-nx/compare/v1.16.2...v1.16.3) (2026-10-16)
 
 
