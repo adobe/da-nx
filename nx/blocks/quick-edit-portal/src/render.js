@@ -2,12 +2,17 @@ import { TextSelection, yUndo, yRedo } from 'da-y-wrapper';
 import { getInstrumentedHTML, extractCursors } from './prose2aem.js';
 import { resolveEditableNode } from './editable-node.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
+import { getImageDocumentVersion } from '../../../../nx2/public/utils/quick-edit-images.js';
+import { getRerenderScope } from './rerender-scope.js';
 
 export function updateDocument(ctx) {
   // Skip rerender if suppressed (e.g., during image updates)
   if (ctx.suppressRerender) return;
+  const { doc } = window.view.state;
   const body = getInstrumentedHTML(window.view);
-  ctx.port.postMessage({ type: MESSAGE_TYPES.SET_BODY, payload: { body } });
+  const rerenderScope = getRerenderScope({ previousDoc: ctx.syncedDoc, doc, body });
+  ctx.port.postMessage({ type: MESSAGE_TYPES.SET_BODY, payload: { body, rerenderScope } });
+  ctx.syncedDoc = doc;
 }
 
 export function updateCursors(ctx) {
@@ -32,13 +37,23 @@ export function updateState(data, ctx) {
   tr.setSelection(TextSelection.create(tr.doc, docPos));
 
   ctx.suppressRerender = true;
-  window.view.dispatch(tr);
-  ctx.suppressRerender = false;
+  try {
+    window.view.dispatch(tr);
+  } finally {
+    ctx.suppressRerender = false;
+  }
+  ctx.port.postMessage({
+    type: MESSAGE_TYPES.NODE_UPDATE,
+    payload: {
+      nodeUpdateId: data.nodeUpdateId,
+      imageVersion: getImageDocumentVersion(window.view.state.doc),
+    },
+  });
 }
 
 export function getEditor(data, ctx) {
   if (ctx.suppressRerender) { return; }
-  const { cursorOffset } = data;
+  const { cursorOffset, lengthDiff } = data;
 
   const { node, cursorOffset: newCursorOffset } = resolveEditableNode(
     window.view.state.doc,
@@ -47,7 +62,12 @@ export function getEditor(data, ctx) {
   if (!node) return;
   ctx.port.postMessage({
     type: MESSAGE_TYPES.SET_EDITOR_STATE,
-    payload: { editorState: node.toJSON(), cursorOffset: newCursorOffset },
+    payload: {
+      editorState: node.toJSON(),
+      cursorOffset: newCursorOffset,
+      imageVersion: getImageDocumentVersion(window.view.state.doc),
+      lengthDiff,
+    },
   });
 }
 
