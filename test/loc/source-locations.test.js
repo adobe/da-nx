@@ -3,13 +3,14 @@ import {
   convertPath,
   findSourceLocation,
   getProjectBasePath,
+  getProjectSourceLocations,
   getSourceLocations,
-} from '../../../../nx/blocks/loc/utils/utils.js';
-import { calculateView } from '../../../../nx/blocks/loc/utils/steps.js';
-import { getLangUrls } from '../../../../nx/blocks/loc/connectors/google/index.js';
-import { getSaveDestPath } from '../../../../nx/blocks/loc/views/translate/index.js';
-import { formatLangUrls } from '../../../../nx/blocks/loc/views/rollout/index.js';
-import { getSyncUrls } from '../../../../nx/blocks/loc/views/sync/index.js';
+} from '../../nx/blocks/loc/utils/utils.js';
+import { calculateView } from '../../nx/blocks/loc/utils/steps.js';
+import { getLangUrls } from '../../nx/blocks/loc/connectors/google/index.js';
+import { getSaveDestPath } from '../../nx/blocks/loc/views/translate/index.js';
+import { formatLangUrls } from '../../nx/blocks/loc/views/rollout/index.js';
+import { getSyncUrls } from '../../nx/blocks/loc/views/sync/index.js';
 
 const options = { 'source.language': { name: 'English', location: '/us/en' } };
 const langs = [
@@ -131,9 +132,53 @@ describe('loc source locations', () => {
     });
   });
 
+  describe('getProjectSourceLocations', () => {
+    it('prefers the locations persisted at validate', () => {
+      const sourceLocations = ['/us/en', '/emea/en'];
+      expect(getProjectSourceLocations({ sourceLocations, options, langs: [] }))
+        .to.deep.equal(sourceLocations);
+    });
+
+    it('derives locations for projects saved without them', () => {
+      expect(getProjectSourceLocations({ options, langs }))
+        .to.deep.equal(['/us/en', '/emea/en', '/apac/en']);
+    });
+  });
+
+  describe('subset of langs', () => {
+    const sourceLocations = ['/us/en', '/emea/en'];
+    const translateOnly = [langs[0]];
+
+    it('resolves a url under a source owned by another lang when persisted', () => {
+      const project = { options, langs: translateOnly, sourceLocations };
+      expect(getProjectSourceLocations(project)).to.include('/emea/en');
+      expect(getSaveDestPath({
+        url: { suppliedPath: '/emea/en/foo', basePath: '/foo' },
+        lang: { location: '/apac/hi' },
+        sourceLocations: getProjectSourceLocations(project),
+      })).to.equal('/apac/hi/foo.html');
+    });
+
+    it('does not sync a url under a persisted source whose lang is skipped', () => {
+      const { view } = calculateView({
+        project: {
+          view: 'options',
+          options,
+          langs: translateOnly.map((lang) => ({ ...lang, action: 'translate' })),
+          sourceLocations,
+          urls: [{ suppliedPath: '/emea/en/foo' }],
+        },
+        currentView: 'options',
+        direction: 'next',
+      });
+      expect(view).to.equal('translate');
+    });
+  });
+
   describe('getProjectBasePath', () => {
     it('strips per-row and default locations and keeps unmatched paths', () => {
-      const base = (path) => getProjectBasePath({ path, defaultLocation: '/us/en', langs });
+      const sourceLocations = getSourceLocations({ options, langs });
+      const base = (path) => getProjectBasePath({ path, defaultLocation: '/us/en', sourceLocations });
       expect(base('/emea/en/about/page')).to.equal('/about/page');
       expect(base('/us/en/about/page')).to.equal('/about/page');
       expect(base('/about/page')).to.equal('/about/page');

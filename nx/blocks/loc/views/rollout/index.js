@@ -6,7 +6,7 @@ import {
   convertPath,
   createSnapshotPrefix,
   findSourceLocation,
-  getSourceLocations,
+  getProjectSourceLocations,
 } from '../../utils/utils.js';
 
 function getTitle(status) {
@@ -155,12 +155,17 @@ export async function rolloutLang({
   langs,
   lang,
   urls: projectUrls,
+  sourceLocations: projectLocations,
   actions,
 }) {
   lang.rollout.status = 'rolling out';
   actions.requestUpdate();
 
-  const sourceLocations = getSourceLocations({ options, langs });
+  const sourceLocations = getProjectSourceLocations({
+    sourceLocations: projectLocations,
+    options,
+    langs,
+  });
   const behavior = options['rollout.conflict.behavior'];
 
   // Determine all sources are valid before continuing

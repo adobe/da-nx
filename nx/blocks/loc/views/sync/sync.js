@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { getSyncUrls } from './index.js';
-import { getSourceLocations } from '../../utils/utils.js';
+import { getProjectSourceLocations } from '../../utils/utils.js';
 import { MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
 
 const style = await loadStyle(import.meta.url);
@@ -29,11 +29,9 @@ class NxLocSync extends LitElement {
   }
 
   getSyncUrls() {
-    const {
-      org, site, options, urls, snapshot, langs,
-    } = this.project;
+    const { org, site, options, urls, snapshot } = this.project;
     const sendLocation = options['source.language']?.location || '/';
-    const sourceLocations = getSourceLocations({ options, langs });
+    const sourceLocations = getProjectSourceLocations(this.project);
     this._syncUrls = getSyncUrls(org, site, sendLocation, urls, snapshot, sourceLocations);
   }
 
