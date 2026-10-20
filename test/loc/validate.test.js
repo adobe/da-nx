@@ -104,6 +104,39 @@ describe('NxLocValidate - source root detection', () => {
     expect(updates.urls[0].basePath).to.equal('/shipping');
   });
 
+  it('persists the detected root, not the configured default, as sourceLocations', async () => {
+    const el = createEl({ paths: ['/eu/shipping'] });
+    const { updates } = await el.getUpdates();
+    expect(updates.sourceLocations).to.deep.equal(['/eu']);
+  });
+
+  it('persists the configured default and row sources when the flag is off', async () => {
+    const el = createEl({ detect: '', paths: ['/global/a'] });
+    el._configSheet.languages = {
+      data: [
+        { name: 'Global English', code: 'en', location: '/global' },
+        { name: 'Dutch', code: 'nl', location: '/nl', source: '/en-nl' },
+      ],
+    };
+    const { updates } = await el.getUpdates();
+    expect(updates.sourceLocations).to.deep.equal(['/global', '/en-nl']);
+  });
+
+  it('persists the detected root alongside row sources', async () => {
+    const el = createEl({ paths: ['/eu/a', '/eu/b'] });
+    el._configSheet.languages = {
+      data: [
+        { name: 'Global English', code: 'en', location: '/global' },
+        { name: 'EU English', code: 'en', location: '/eu' },
+        { name: 'Dutch', code: 'nl', location: '/nl', source: '/en-nl' },
+      ],
+    };
+    const { updates } = await el.getUpdates();
+    expect(updates.sourceLocations).to.include.members(['/eu', '/en-nl']);
+    expect(updates.sourceLocations).to.not.include('/global');
+    expect(updates.urls.map((url) => url.basePath)).to.deep.equal(['/a', '/b']);
+  });
+
   it('ignores URLs that match no root', async () => {
     const el = createEl({ paths: ['/eu/a', '/fragments/header'] });
     await el.updateSourceMessage();
