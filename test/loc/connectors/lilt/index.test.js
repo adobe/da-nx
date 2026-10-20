@@ -798,9 +798,9 @@ describe('lilt connector', () => {
       installFetch((u, opts) => {
         if (u.endsWith('/download')) {
           return new Response(zipSync({
-            'Project_1_en-US_de-DE/a_page.deDE.html': strToU8('<p>german</p>'),
-            'Project_2_en-US_fr-FR/x__a_page.frFR.html': strToU8('<p>other</p>'),
-            'Project_2_en-US_fr-FR/a_page.frFR.html': strToU8('<p>mine</p>'),
+            'Project_2_en-US_de-DE/a_page.deDE.html': strToU8('<p>german</p>'),
+            'Project_1_en-US_fr-FR/x__a_page.frFR.html': strToU8('<p>other</p>'),
+            'Project_1_en-US_fr-FR/a_page.frFR.html': strToU8('<p>mine</p>'),
           }), { status: 200 });
         }
         return defaultHandler(u, opts);
@@ -825,7 +825,7 @@ describe('lilt connector', () => {
       installFetch((u, opts) => {
         if (u.endsWith('/download')) {
           return new Response(zipSync({
-            'Project_1_en-US_de-DE/page.deDE.html': strToU8('<p>german</p>'),
+            'Project_2_en-US_de-DE/page.deDE.html': strToU8('<p>german</p>'),
           }), { status: 200 });
         }
         return defaultHandler(u, opts);
@@ -1075,6 +1075,156 @@ describe('lilt connector', () => {
 
       expect(result).to.equal(urls);
       expect(calls.some((c) => c.url.includes('/v2/jobs'))).to.equal(false);
+    });
+  });
+
+  describe('regional and Chinese variants', () => {
+    const mem = (id, trglang, trglocale, srclocale = null) => ({
+      id, srclang: 'en', srclocale, trglang, trglocale,
+    });
+    const regionalMemories = [
+      mem(1, 'pt', 'BR'), mem(2, 'pt', 'PT'), mem(3, 'zh', null), mem(4, 'zt', null),
+      mem(5, 'es', '419'), mem(6, 'es', 'MX'), mem(7, 'fr', 'FR'), mem(8, 'fr', 'CA'),
+      mem(9, 'ar', 'EG'),
+    ];
+    const memoryHandler = (list, extra) => (u, opts) => {
+      if (u.includes('/v2/memories')) return new Response(JSON.stringify(list), { status: 200 });
+      return extra?.(u, opts) || defaultHandler(u, opts);
+    };
+
+    async function createJob(codes, list = regionalMemories) {
+      installFetch(memoryHandler(list));
+      const service = baseService({ translationMode: 'verified' });
+      const langs = codes.map((code) => ({ code, name: code }));
+      const errors = [];
+      await sendAllLanguages({
+        title: 'P',
+        service,
+        options: { service },
+        langs,
+        urls: [{ daBasePath: '/page', content: '<p>hi</p>' }],
+        actions: { sendMessage: (m) => { if (m?.type === 'error') errors.push(m); }, saveState: async () => {} },
+      });
+      const body = JSON.parse(calls.find((c) => c.url.endsWith('/v2/jobs') && c.method === 'POST').body);
+      return { body, errors };
+    }
+
+    it('picks the memory matching the target region', async () => {
+      const { body } = await createJob(['pt-BR', 'pt-PT', 'es-419', 'es-MX', 'fr-CA', 'fr-FR']);
+
+      expect(body.languagePairs.map((p) => p.memoryId)).to.deep.equal([1, 2, 5, 6, 8, 7]);
+    });
+
+    it('maps Chinese scripts and regions to the zh and zt memories without a locale', async () => {
+      const { body } = await createJob(['zh-Hans', 'zh-CN', 'zh-Hant', 'zh-TW']);
+
+      expect(body.languagePairs).to.deep.equal([
+        { trgLang: 'zh', memoryId: 3 },
+        { trgLang: 'zh', memoryId: 3 },
+        { trgLang: 'zt', memoryId: 4 },
+        { trgLang: 'zt', memoryId: 4 },
+      ]);
+    });
+
+    it('falls back to the only memory for a language', async () => {
+      const { body } = await createJob(['ar-SA']);
+
+      expect(body.languagePairs[0].memoryId).to.equal(9);
+    });
+
+    it('errors instead of guessing when several regional memories exist', async () => {
+      const { body, errors } = await createJob(['pt-AO', 'pt-BR']);
+
+      expect(body.languagePairs.map((p) => p.memoryId)).to.deep.equal([1]);
+      expect(errors[0].text).to.include('pt-AO');
+    });
+
+    it('prefers a source-region match among memories for the same target', async () => {
+      const { body } = await createJob(['fr-FR'], [mem(21, 'fr', 'FR', 'GB'), mem(22, 'fr', 'FR', 'US')]);
+
+      expect(body.languagePairs[0].memoryId).to.equal(22);
+    });
+
+    describe('saving from a shared job', () => {
+      const zip = () => zipSync({
+        'Project_10_en-US_pt-BR/page.ptBR.html': strToU8('<p>brasil</p>'),
+        'Project_11_en-US_pt-PT/page.ptPT.html': strToU8('<p>portugal</p>'),
+        'Project_12_en-US_zh/page.zh.html': strToU8('<p>simplified</p>'),
+        'Project_13_en-US_zh-Hant/page.zhHant.html': strToU8('<p>traditional</p>'),
+      });
+      const projects = [
+        { id: 10, trgLang: 'pt', trgLocale: 'BR', isComplete: true },
+        { id: 11, trgLang: 'pt', trgLocale: 'PT', isComplete: true },
+        { id: 12, trgLang: 'zh', trgLocale: null, isComplete: true },
+        { id: 13, trgLang: 'zt', trgLocale: null, isComplete: true },
+      ];
+      const jobHandler = (u, opts) => {
+        if (u.endsWith('/download')) return new Response(zip(), { status: 200 });
+        if (u.includes('/v2/jobs/') && !u.includes('export') && !u.endsWith('/archive')) {
+          const job = { isProcessing: 0, stats: { projects } };
+          return new Response(JSON.stringify(job), { status: 200 });
+        }
+        return defaultHandler(u, opts);
+      };
+
+      async function saveCode(service, code) {
+        let saved;
+        const saveFn = async (url) => {
+          saved = url.sourceContent;
+          url.status = 'success';
+        };
+        const urls = [{ daBasePath: '/page', ext: 'html' }];
+        await saveItems({
+          org, site, service, lang: { code, name: code }, urls, saveFn, sendMessage: () => {},
+        });
+        return saved;
+      }
+
+      it('saves pt-BR, pt-PT, zh-Hans and zh-Hant each from their own project', async () => {
+        installFetch(jobHandler);
+        const ids = ['pt-BR', 'pt-PT', 'zh-Hans', 'zh-Hant'];
+        const service = verifiedService(Object.fromEntries(ids.map((id) => [id, 'shared-regional'])));
+
+        const saved = {};
+        for (const id of ids) {
+          // eslint-disable-next-line no-await-in-loop
+          saved[id] = await saveCode(service, id);
+        }
+
+        expect(saved['pt-BR']).to.include('brasil');
+        expect(saved['pt-PT']).to.include('portugal');
+        expect(saved['zh-Hans']).to.include('simplified');
+        expect(saved['zh-Hant']).to.include('traditional');
+      });
+
+      it('reports each regional project status separately', async () => {
+        installFetch((u, opts) => {
+          if (u.includes('/v2/jobs/') && !u.includes('export')) {
+            return new Response(JSON.stringify({
+              isProcessing: 0,
+              stats: {
+                projects: [
+                  { id: 10, trgLang: 'pt', trgLocale: 'BR', isComplete: true },
+                  { id: 11, trgLang: 'pt', trgLocale: 'PT', isComplete: false },
+                ],
+              },
+            }), { status: 200 });
+          }
+          return defaultHandler(u, opts);
+        });
+        const service = verifiedService({ 'pt-BR': 'status-regional', 'pt-PT': 'status-regional' });
+        const langs = ['pt-BR', 'pt-PT'].map((code) => ({
+          code, name: code, translation: { status: 'created' },
+        }));
+        const urls = [{ daBasePath: '/page', ext: 'html' }];
+
+        await getStatusAll({
+          service, langs, urls, actions: { sendMessage: () => {}, saveState: async () => {} },
+        });
+
+        expect(langs[0].translation.status).to.equal('translated');
+        expect(langs[1].translation.status).to.equal('created');
+      });
     });
   });
 });

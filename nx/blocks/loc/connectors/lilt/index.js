@@ -48,15 +48,31 @@ function dueDateIso(days) {
   return new Date(Date.now() + (days * 24 * 60 * 60 * 1000)).toISOString();
 }
 
+const TRADITIONAL_CHINESE_TAGS = ['HANT', 'TW', 'HK', 'MO'];
+
 /**
- * Splits a BCP-47 locale code (e.g. `en-US`) into Lilt's separate lowercase language and
- * uppercase locale fields.
- * @param {string} code - The BCP-47 locale code.
- * @returns {{lang: string, locale: string|undefined}} The split language/locale.
+ * Splits a BCP-47 code (e.g. `en-US`) into Lilt's lowercase language and uppercase region
+ * fields. Lilt has no region for Chinese: Simplified is `zh` and Traditional is `zt`.
+ * @param {string} code - The BCP-47 code.
+ * @returns {{lang: string, locale: string|undefined}} The Lilt language and region.
  */
 function splitLocale(code) {
-  const [lang, locale] = (code || '').split('-');
-  return { lang: (lang || '').toLowerCase(), locale: locale ? locale.toUpperCase() : undefined };
+  const [lang = '', ...subtags] = (code || '').split('-');
+  const tags = subtags.map((tag) => tag.toUpperCase());
+  if (lang.toLowerCase() === 'zh') {
+    return { lang: tags.some((tag) => TRADITIONAL_CHINESE_TAGS.includes(tag)) ? 'zt' : 'zh' };
+  }
+  return { lang: lang.toLowerCase(), locale: tags.find((tag) => /^([A-Z]{2}|\d{3})$/.test(tag)) };
+}
+
+/**
+ * Case-insensitively compares two optional language or region values.
+ * @param {string} [a] - The first value.
+ * @param {string} [b] - The second value.
+ * @returns {boolean} True if both are empty or equal.
+ */
+function sameTag(a, b) {
+  return (a || '').toLowerCase() === (b || '').toLowerCase();
 }
 
 /**
@@ -201,16 +217,43 @@ async function fetchMemories(service) {
 }
 
 /**
- * Finds the memory bound to a source/target language pair (one memory per pair).
+ * Finds the memory for a language pair. The target region must match; a memory without a
+ * target region, or the only memory for the language, is the fallback. Source region only
+ * breaks ties.
  * @param {Object[]} memories - The account's memories (see {@link fetchMemories}).
- * @param {string} srcLang - The lowercase 2-letter source language.
- * @param {string} trgLang - The lowercase 2-letter target language.
+ * @param {Object} pair
+ * @param {string} pair.srcLang - The Lilt source language.
+ * @param {string} [pair.srcLocale] - The source region.
+ * @param {string} pair.trgLang - The Lilt target language.
+ * @param {string} [pair.trgLocale] - The target region.
  * @returns {number|null} The matching memory's id, or null if none matched.
  */
-function findMemoryId(memories, srcLang, trgLang) {
-  const match = memories.find((memory) => memory.srclang?.toLowerCase() === srcLang
-    && memory.trglang?.toLowerCase() === trgLang);
+function findMemoryId(memories, {
+  srcLang, srcLocale, trgLang, trgLocale,
+}) {
+  const sameLangs = memories.filter((memory) => sameTag(memory.srclang, srcLang)
+    && sameTag(memory.trglang, trgLang));
+  const candidates = [
+    sameLangs.filter((memory) => sameTag(memory.trglocale, trgLocale)),
+    sameLangs.filter((memory) => !memory.trglocale),
+    sameLangs.length === 1 ? sameLangs : [],
+  ].find((list) => list.length) || [];
+  const match = candidates.find((memory) => sameTag(memory.srclocale, srcLocale)) || candidates[0];
   return match?.id ?? null;
+}
+
+/**
+ * Finds a job project by target language and region, falling back to the only project for
+ * the language.
+ * @param {Object[]} projects - The job's `stats.projects`.
+ * @param {string} code - The BCP-47 target code.
+ * @returns {?Object} The project, if found.
+ */
+function findProject(projects, code) {
+  const { lang, locale } = splitLocale(code);
+  const sameLang = projects.filter((project) => sameTag(project.trgLang, lang));
+  return sameLang.find((project) => sameTag(project.trgLocale, locale))
+    || (sameLang.length === 1 ? sameLang[0] : null);
 }
 
 /**
@@ -254,13 +297,14 @@ function getJobIdsByLang(service) {
  * @param {Object} conf.fileIdsByPath - `daBasePath` -> uploaded Lilt file id.
  * @param {Object[]} conf.memories - The account's memories.
  * @param {string} conf.srcLang - The lowercase 2-letter source language.
+ * @param {string} [conf.srcLocale] - The uppercase source locale, if any.
  * @param {Function} conf.sendMessage - Reports a single rolled-up error, sourced from
  *  the first language that failed, if any language fails.
  * @returns {Promise<boolean>} True if an error was reported, so the caller should not
  *  clear it with a follow-up {@link sendMessage} call.
  */
 async function sendAiTranslation({
-  service, options, langs, urls, fileIdsByPath, memories, srcLang, sendMessage,
+  service, options, langs, urls, fileIdsByPath, memories, srcLang, srcLocale, sendMessage,
 }) {
   const fileIds = Object.values(fileIdsByPath);
   const translationIdsByLang = {};
@@ -268,10 +312,12 @@ async function sendAiTranslation({
 
   await Promise.all(langs.map(async (lang) => {
     // On failure, leave `.translation` untouched so the project stays retryable.
-    const { lang: trgLang } = splitLocale(lang.code);
-    const memoryId = findMemoryId(memories, srcLang, trgLang);
+    const { lang: trgLang, locale: trgLocale } = splitLocale(lang.code);
+    const memoryId = findMemoryId(memories, {
+      srcLang, srcLocale, trgLang, trgLocale,
+    });
     if (!memoryId) {
-      errors.push(`No Lilt memory found for ${srcLang} -> ${trgLang}.`);
+      errors.push(`No Lilt memory found for ${srcLang} -> ${lang.code}.`);
       return;
     }
 
@@ -426,10 +472,12 @@ async function sendVerifiedTranslation({
 
   langs.forEach((lang) => {
     const { lang: trgLang, locale: trgLocale } = splitLocale(lang.code);
-    const memoryId = findMemoryId(memories, srcLang, trgLang);
+    const memoryId = findMemoryId(memories, {
+      srcLang, srcLocale, trgLang, trgLocale,
+    });
     if (!memoryId) {
       // Leave `.translation` untouched so the project stays retryable.
-      errors.push(`No Lilt memory found for ${srcLang} -> ${trgLang}.`);
+      errors.push(`No Lilt memory found for ${srcLang} -> ${lang.code}.`);
       return;
     }
     languagePairs.push({ trgLang, trgLocale, memoryId });
@@ -506,8 +554,7 @@ async function getVerifiedStatus({ service, langs, urls }) {
     const projects = job?.stats?.projects || [];
 
     jobLangs.forEach((lang) => {
-      const { lang: trgLang } = splitLocale(lang.code);
-      const project = projects.find((entry) => entry.trgLang?.toLowerCase() === trgLang);
+      const project = findProject(projects, lang.code);
       if (!project) return;
 
       lang.translation ??= {};
@@ -572,27 +619,26 @@ function jobSignature(job) {
 
 /**
  * Finds a language's translated file in a job zip. Lilt lays it out as
- * `Project_<id>_<src>_<trg>/<stem>.<trgLang><trgLocale><ext>`, one folder per language pair.
+ * `Project_<id>_<src>_<trg>/<stem>.<trg><ext>`, one folder per language pair, so the
+ * folder is picked by project id and the file by its upload stem.
  * @param {Object} conf
  * @param {Array[]} conf.entries - The unzipped `[path, bytes]` entries.
- * @param {Object} conf.lang - The language being saved.
+ * @param {Object} conf.project - The language's job project.
  * @param {string} conf.fileName - The upload filename.
  * @returns {?Array} The matching entry, if any.
  */
-function findLangEntry({ entries, lang, fileName }) {
-  const { lang: trgLang, locale } = splitLocale(lang.code);
+function findLangEntry({ entries, project, fileName }) {
   const dot = fileName.lastIndexOf('.');
-  const localized = `${fileName.slice(0, dot)}.${trgLang}${locale || ''}${fileName.slice(dot)}`;
-  const wanted = [localized, fileName].map((name) => name.toLowerCase());
+  const stem = `${fileName.slice(0, dot)}.`.toLowerCase();
+  const ext = fileName.slice(dot).toLowerCase();
 
   return entries.find(([path]) => {
     const [folder, ...rest] = path.split('/');
-    if (!rest.length) return false;
-    const folderLang = folder.split('_').pop().toLowerCase();
-    const langMatches = locale
-      ? folderLang === `${trgLang}-${locale}`.toLowerCase()
-      : folderLang.split('-')[0] === trgLang;
-    return langMatches && wanted.includes(rest.pop().toLowerCase());
+    if (!rest.length || !folder.startsWith(`Project_${project.id}_`)) return false;
+    const name = rest.pop().toLowerCase();
+    const middle = name.slice(stem.length, name.length - ext.length);
+    return name === fileName.toLowerCase()
+      || (name.startsWith(stem) && name.endsWith(ext) && middle && !middle.includes('.'));
   });
 }
 
@@ -693,8 +739,15 @@ async function saveVerifiedItems({
     return urls;
   }
 
+  const project = findProject(job?.stats?.projects || [], lang.code);
+  if (!project) {
+    sendMessage({ text: `Lilt has no project for ${lang.name}.`, type: 'error' });
+    urls.forEach((url) => { url.status = 'error'; });
+    return urls;
+  }
+
   await Promise.all(urls.map(async (url) => {
-    const entry = findLangEntry({ entries, lang, fileName: toFileName(url.daBasePath) });
+    const entry = findLangEntry({ entries, project, fileName: toFileName(url.daBasePath) });
     if (!entry) {
       url.status = 'error';
       return;
@@ -772,7 +825,7 @@ export async function sendAllLanguages({
       sendMessage,
     })
     : await sendAiTranslation({
-      service, options, langs, urls, fileIdsByPath, memories, srcLang, sendMessage,
+      service, options, langs, urls, fileIdsByPath, memories, srcLang, srcLocale, sendMessage,
     });
 
   // Don't clear: sendMessage is single-slot and would erase the reported error.
