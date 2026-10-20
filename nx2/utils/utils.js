@@ -1,4 +1,9 @@
-import { env, loadStyle } from '../scripts/nx.js';
+import { env, loadStyle, getConfig } from '../scripts/nx.js';
+
+export function getHomeHref({ fallback = '/' } = {}) {
+  const { homeHref } = getConfig();
+  return (typeof homeHref === 'function' ? homeHref() : homeHref) || fallback;
+}
 
 export const SUPPORTED_FILES = {
   html: 'text/html',

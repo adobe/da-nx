@@ -1,7 +1,7 @@
 import { LitElement, html } from 'da-lit';
 import { getMetadata } from '../../scripts/nx.js';
 
-import { loadStyle, hashChange } from '../../utils/utils.js';
+import { loadStyle, hashChange, getHomeHref } from '../../utils/utils.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg } from '../../utils/svg.js';
 
@@ -98,7 +98,7 @@ class NXNav extends LitElement {
       const lockup = await loadHrefSvg(href);
       brandLink.append(lockup);
     }
-    brandLink.href = '/';
+    brandLink.href = getHomeHref();
 
     return brandLink;
   }
@@ -139,6 +139,7 @@ class NXNav extends LitElement {
   }
 
   updated() {
+    if (this._brand) this._brand.href = getHomeHref();
     if (!this._breadcrumbs) return;
     this._breadcrumbs.pathSegments = this._getSegments(this._hashState);
   }
@@ -146,7 +147,7 @@ class NXNav extends LitElement {
   render() {
     return html`
       <div class="brand-cluster">
-        ${this._brand}
+        <slot name="brand">${this._brand}</slot>
         ${this._breadcrumbs}
       </div>
       <div class="nav-search"><slot name="search" @slotchange=${this.onSearchSlotChange}></slot></div>

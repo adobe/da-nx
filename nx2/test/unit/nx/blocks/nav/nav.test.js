@@ -1,11 +1,13 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
+import { getHomeHref } from '../../../../../utils/utils.js';
 
 // fragment.js (a transitive dependency of nav.js) captures getConfig() into a
 // module-level constant at import time, so setConfig() must resolve before
 // nav.js is ever imported — see the same pattern in feedback.test.js.
 await setConfig({ hostnames: [] });
 await import('../../../../../blocks/nav/nav.js');
+await import('../../../../../blocks/sidenav/sidenav.js');
 
 function buildActionsSection({ buttonHtml }) {
   const section = document.createElement('div');
@@ -43,6 +45,24 @@ describe('nav search slot', () => {
     window.history.replaceState(null, '', originalHref);
   });
 
+  it('shares a configurable Home destination and leaves other consumers unchanged', async () => {
+    try {
+      await setConfig({ homeHref: () => '/?landing=true&nx=lp#/org/site' });
+      const section = document.createElement('div');
+      section.innerHTML = '<a href="/">Brand</a>';
+      const brand = await nav.decorateBrand(section);
+      expect(brand.getAttribute('href')).to.equal('/?landing=true&nx=lp#/org/site');
+      expect(getHomeHref()).to.equal('/?landing=true&nx=lp#/org/site');
+      await setConfig({ homeHref: '/custom-home' });
+      expect(getHomeHref()).to.equal('/custom-home');
+      await setConfig({});
+      expect(getHomeHref()).to.equal('/');
+      expect(getHomeHref({ fallback: '/original-home' })).to.equal('/original-home');
+    } finally {
+      await setConfig({ hostnames: [] });
+    }
+  });
+
   async function mount(path) {
     window.history.replaceState(null, '', path);
     document.body.append(nav);
@@ -65,6 +85,52 @@ describe('nav search slot', () => {
   it('renders independently of the page route', async () => {
     await mount('/edit');
     expect(nav.shadowRoot.querySelector('.nav-search')).to.exist;
+  });
+
+  it('uses the configured Home for the sidebar without changing Apps or its click behavior', async () => {
+    await mount('/#/org/site/page');
+    const sidenav = document.createElement('nx-sidenav');
+    sidenav.loadNav = async () => {};
+    const home = { text: 'Home', href: `${window.location.origin}/` };
+    const apps = { text: 'Apps', href: `${window.location.origin}/apps` };
+    sidenav._navLinks = [home, apps];
+    try {
+      await setConfig({ homeHref: () => '/?landing=true&nx=lp#/org/site' });
+      document.body.append(sidenav);
+      await sidenav.updateComplete;
+      const [homeLink, appsLink] = sidenav.shadowRoot.querySelectorAll('a');
+      expect(homeLink.getAttribute('href')).to.equal('/?landing=true&nx=lp#/org/site');
+      expect(appsLink.href).to.equal(apps.href);
+      let prevented = false;
+      const event = { currentTarget: homeLink, preventDefault: () => { prevented = true; } };
+      sidenav.handleClick(event, home);
+      expect(prevented).to.equal(false);
+      expect(homeLink.search).to.equal('?landing=true&nx=lp');
+    } finally {
+      sidenav.remove();
+      await setConfig({ hostnames: [] });
+    }
+  });
+
+  it('uses consumer branding when supplied and restores the fragment brand when removed', async () => {
+    const fallback = document.createElement('a');
+    fallback.textContent = 'Default brand';
+    nav._brand = fallback;
+    await mount('/');
+    const slot = nav.shadowRoot.querySelector('slot[name="brand"]');
+    expect(slot.querySelector('a')).to.equal(fallback);
+    expect(slot.assignedElements()).to.deep.equal([]);
+    const custom = document.createElement('a');
+    custom.slot = 'brand';
+    custom.textContent = 'Consumer brand';
+    nav.append(custom);
+    await settleSlots();
+    expect(slot.assignedElements()).to.deep.equal([custom]);
+    expect(slot.querySelector('a')).to.equal(fallback);
+    custom.remove();
+    await settleSlots();
+    expect(slot.assignedElements()).to.deep.equal([]);
+    expect(slot.querySelector('a')).to.equal(fallback);
   });
 
   it('keeps consumer-owned search content assigned across navigation', async () => {
