@@ -40,12 +40,13 @@ export async function loadFragment(path) {
   const html = await resp.text();
   const doc = new DOMParser().parseFromString(html, 'text/html');
 
+  // Run before append() moves the section nodes out of doc.
+  replaceDotMedia(path, doc);
+
   const sections = doc.body.querySelectorAll('main > div');
   const fragment = document.createElement('div');
   fragment.classList.add('fragment-content');
   fragment.append(...sections);
-
-  replaceDotMedia(path, doc);
 
   const container = applyPageStyles(fragment);
 

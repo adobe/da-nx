@@ -3,25 +3,42 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import {
   buildAemPathFromHashState,
+  getAemBranch,
+  getAemBranchHref,
   requestAemRole,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
-import { versions } from '../../utils/api.js';
+import { versions, status as statusApi } from '../../utils/api.js';
+import { VERSION_EVENT } from '../../utils/version-events.js';
+import { BRANCH_EVENT, requestCanvasBranch } from '../../utils/branch-events.js';
 import { fetchDaConfigs, getFirstSheet } from '../../utils/daConfig.js';
 import { PREFLIGHT_EVENT, newPreflightRequestId } from '../../utils/preflight-events.js';
 import { sidekickCacheBust } from '../../utils/sidekick.js';
+import { formatRelativeDateTime } from '../../utils/format.js';
 import { getConfig } from '../../scripts/nx.js';
-import '../shared/menu/menu.js';
+import '../shared/popover/popover.js';
 
 const style = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
 
-const PREFLIGHT_TIMEOUT = 60000;
+const PREFLIGHT_TIMEOUT = 5 * 60 * 1000;
+
+// Publish-gate dialog copy for a non-success Preflight result: [message, details].
+// `undefined` = timed out / cancelled; `error` = checks could not run (cause in `message`).
+function preflightGateError(result) {
+  if (!result) return ['Preflight did not finish in time. Please run Preflight again before publishing.'];
+  if (result.status === 'error') {
+    return ['Preflight couldn\'t check this page. Please try again later or contact your administrator if the problem persists.', result.message];
+  }
+  return ['Preflight found issues. Resolve them in the Preflight panel, then publish again.'];
+}
 
 const { codeBase } = getConfig();
 const NX_BASE = new URL('../../', import.meta.url).href.replace(/\/$/, '');
 const SEND_ICON_HREF = `${codeBase}/img/icons/s2-icon-send-20-n.svg#icon`;
 const MENU_ICON_HREF = `${codeBase}/img/icons/s2-icon-more-20-n.svg#icon`;
+const COPY_ICON_HREF = `${codeBase}/img/icons/s2-icon-copy-20-n.svg#icon`;
+const CHECK_ICON_HREF = `${codeBase}/img/icons/s2-icon-checkmarkcircle-20-n.svg#icon`;
 
 const prepareModuleUrl = () => `${window.location.origin}/blocks/canvas/editor-utils/prepare-menu.js`;
 
@@ -77,11 +94,20 @@ class NXEwActions extends LitElement {
     _hasError: { state: true },
     _hashState: { state: true },
     _hidePublish: { state: true },
+    _branch: { state: true },
     _prepareReady: { state: true },
     _enforcePreflight: { state: true },
     _preflightPassed: { state: true },
     // phase: 'error' | 'pending' | 'result'
     _dialog: { state: true },
+    // AEM admin status ({ preview, live, ... }) for the current doc, drives the
+    // deploy popover cards and the "unpublished changes" badge on the Send button.
+    _status: { state: true },
+    _statusLoading: { state: true },
+    // Which environment the popover action targets: 'preview' | 'live'.
+    _target: { state: true },
+    // URL most recently copied ('preview' | 'live'), for copy-button feedback.
+    _copied: { state: true },
   };
 
   get _prepareMenu() {
@@ -90,6 +116,14 @@ class NXEwActions extends LitElement {
 
   get _prepareBtn() {
     return this.shadowRoot?.querySelector('.prepare-dropdown-btn');
+  }
+
+  get _popover() {
+    return this.shadowRoot?.querySelector('nx-popover.deploy-popover');
+  }
+
+  get _sendBtn() {
+    return this.shadowRoot?.querySelector('.send-btn');
   }
 
   get _prepareDetails() {
@@ -104,10 +138,13 @@ class NXEwActions extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._busy = false;
+    this._target = 'preview';
     this.shadowRoot.adoptedStyleSheets = [style, buttonStyle];
+    document.addEventListener(BRANCH_EVENT.STATE, this._onBranchState);
     this._unsubHash = hashChange.subscribe((state) => {
       const prevPath = this._prepareDetails?.fullpath;
       this._hashState = state;
+      this._loadStatus();
       if (this._prepareDetails?.fullpath !== prevPath) {
         this._preflightPassed = false;
         this._checkEnforcePreflight();
@@ -158,7 +195,7 @@ class NXEwActions extends LitElement {
       this._cancelPreflight = finish;
       onStatus = (e) => {
         const { path, status, requestId: rid } = e.detail || {};
-        if (rid === requestId && path === fullpath) finish(status);
+        if (rid === requestId && path === fullpath) finish({ status, message: e.detail.message });
       };
       timer = setTimeout(() => finish(undefined), PREFLIGHT_TIMEOUT);
       document.addEventListener(PREFLIGHT_EVENT.STATUS, onStatus);
@@ -181,14 +218,182 @@ class NXEwActions extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._unsubHash?.();
+    clearTimeout(this._copyTimer);
     document.removeEventListener(PREFLIGHT_EVENT.STATUS, this._onPreflightStatus);
     this._cancelPreflight?.(undefined);
+    document.removeEventListener(BRANCH_EVENT.STATE, this._onBranchState);
+    this._branchAbort?.abort();
+    this._branchPromise = undefined;
+  }
+
+  // Fetch AEM admin status for the current doc. Keyed on the doc path so hash
+  // updates that don't change the doc don't refetch; `force` refreshes after a
+  // preview/publish so the cards and badge reflect the new state.
+  async _loadStatus({ force = false } = {}) {
+    const aemPath = buildAemPathFromHashState(this._hashState);
+    if (!aemPath) {
+      this._status = undefined;
+      this._statusKey = null;
+      return;
+    }
+    if (!force && aemPath === this._statusKey) return;
+    this._statusKey = aemPath;
+    this._statusLoading = true;
+    try {
+      const resp = await statusApi.get(aemPath);
+      if (this._statusKey !== aemPath) return; // navigated away mid-flight
+      this._status = resp?.ok ? await resp.json() : undefined;
+    } catch {
+      if (this._statusKey === aemPath) this._status = undefined;
+    } finally {
+      if (this._statusKey === aemPath) this._statusLoading = false;
+    }
+  }
+
+  _env(kind) {
+    const env = this._status?.[kind];
+    if (!env) return { ok: false, url: null, time: null };
+    const aemPath = buildAemPathFromHashState(this._hashState);
+    const metaUrl = aemPath && this._resolveOpenUrl(kind === 'live' ? 'publish' : 'preview', aemPath);
+    const branchUrl = getAemBranchHref({
+      aemPath,
+      branch: this._branch,
+      tier: kind,
+      webPath: this._status.webPath,
+    });
+    return {
+      ok: env.status === 200,
+      url: metaUrl || (this._branchPath && this._branch === undefined
+        ? null : (env.url && branchUrl) || env.url || null),
+      time: env.lastModified || null,
+    };
+  }
+
+  get _previewInfo() { return this._env('preview'); }
+
+  get _liveInfo() { return this._env('live'); }
+
+  // True when there is previewed content that isn't (fully) on live yet — either
+  // never published, or the preview is newer than the last publish. Drives the
+  // "unpublished changes" badge (issue #1197's secondary indicator).
+  get _hasUnpublished() {
+    const preview = this._status?.preview;
+    if (preview?.status !== 200) return false;
+    const live = this._status?.live;
+    if (live?.status !== 200) return true;
+    const previewTime = Date.parse(preview.lastModified || '');
+    const liveTime = Date.parse(live.lastModified || '');
+    return Number.isFinite(previewTime) && Number.isFinite(liveTime) && previewTime > liveTime;
+  }
+
+  _toggleSend() {
+    const popover = this._popover;
+    if (!popover) return;
+    if (popover.open) {
+      popover.close();
+      return;
+    }
+    this._target = 'preview';
+    this._copied = null;
+    popover.show({ anchor: this._sendBtn, placement: 'below-end' });
+    this._loadStatus();
+  }
+
+  _selectTarget(target) {
+    this._target = target;
+    this._copied = null;
+  }
+
+  async _copyUrl(url, kind) {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      this._copied = kind;
+      clearTimeout(this._copyTimer);
+      this._copyTimer = setTimeout(() => { this._copied = null; }, 1500);
+    } catch { /* clipboard unavailable */ }
+  }
+
+  async _confirmAction() {
+    if (this._busy) return;
+    const action = this._target === 'live' && !this._hidePublish ? 'publish' : 'preview';
+    await this._runAemAction(action);
+    if (!this._hasError) this._popover?.close();
+    await this._loadStatus({ force: true });
   }
 
   update(changed) {
     super.update(changed);
-    if (changed.has('_hashState') && this._hashState) this._updateHidePublish();
+    if (changed.has('_hashState')) {
+      this._updateHidePublish();
+      this._updateBranch();
+    }
   }
+
+  _updateBranch() {
+    this._branchAbort?.abort();
+    this._branch = undefined;
+    this._branchRequestPath = this._branchPath;
+    if (!this._branchRequestPath) {
+      this._branchPromise = undefined;
+      return;
+    }
+    this._branchAbort = new AbortController();
+    const requestPath = this._branchRequestPath;
+    const pending = requestCanvasBranch({
+      path: requestPath,
+      signal: this._branchAbort.signal,
+      // Remove the Forms main fallback when https://github.com/adobe/da-live/issues/1445 is implemented.
+      getLegacyBranch: () => (this._branchPath === requestPath
+        ? this._readLegacyBranch() || (!this._hasBranchBridge
+          && window.location.pathname.replace(/\/$/, '') === '/form' ? 'main' : undefined)
+        : undefined),
+    }).then((raw) => {
+      const branch = getAemBranch(raw);
+      if (this._branchPromise === pending && this._branchPath === requestPath) {
+        this._branch = branch;
+      }
+      return branch;
+    });
+    this._branchPromise = pending;
+    pending.catch(() => {
+      // Handle early rejection; _runAemAction surfaces the error from the original promise.
+    });
+  }
+
+  get _branchPath() {
+    const { org, site, path } = this._hashState || {};
+    return org && site && path ? `/${org}/${site}/${path.replace(/^\/+/, '')}` : null;
+  }
+
+  _readLegacyBranch() {
+    // Compatibility with canvas releases predating the bridge. Only trust the
+    // actual editor iframe for this document/site, never unrelated plugin frames.
+    if (this._hasBranchBridge) return undefined;
+    const { org, site, path } = this._hashState || {};
+    const iframe = document.querySelector('ew-editor-wysiwyg')?.shadowRoot?.querySelector('iframe');
+    if (!org || !site || !path || !iframe?.src) return undefined;
+    try {
+      const iframeUrl = new URL(iframe.src);
+      const pathname = `/${path.split('/').filter(Boolean).map(encodeURIComponent).join('/')}`;
+      if (iframeUrl.protocol !== 'https:' || iframeUrl.pathname !== pathname) return undefined;
+      const suffix = ['preview.da.live', 'stage-preview.da.live']
+        .map((domain) => `--${site}--${org}.${domain}`.toLowerCase())
+        .find((domain) => iframeUrl.hostname.endsWith(domain));
+      const branch = suffix && iframeUrl.hostname.slice(0, -suffix.length);
+      return branch && /^[a-z0-9-]+$/.test(branch) ? branch : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  _onBranchState = ({ detail }) => {
+    if (!detail || detail.path !== this._branchPath) return;
+    this._hasBranchBridge = true;
+    this._branch = detail.status === 'ready' && typeof detail.branch === 'string' && detail.branch
+      ? getAemBranch(detail.branch) : undefined;
+    this._branchPromise = this._branch === undefined ? undefined : Promise.resolve(this._branch);
+  };
 
   async _updateHidePublish() {
     this._hidePublish = await shouldHidePublish(this._hashState);
@@ -223,27 +428,48 @@ class NXEwActions extends LitElement {
     }
   }
 
-  _pickAem(action) {
-    if (action !== 'preview' && action !== 'publish') return;
-    this._runAemAction(action);
-  }
-
-  async _showActionError(action, message) {
+  async _showActionError(action, message, details) {
     await Promise.all([
       import('../shared/dialog/dialog.js'),
       import(`${NX_BASE}/public/sl/components.js`),
     ]);
     this._busy = false;
     this._hasError = true;
-    this._dialog = { phase: 'error', error: { action, type: 'error', message } };
+    this._dialog = { phase: 'error', error: { action, type: 'error', message, details } };
   }
 
   async _runAemAction(action) {
     const aemPath = buildAemPathFromHashState(this._hashState);
     if (!aemPath || this._busy) return;
+    const versionPath = this._prepareDetails?.fullpath;
+    const branchPath = this._branchPath;
+    const metaUrl = this._resolveOpenUrl(action, aemPath);
 
     this._dialog = undefined;
     this._busy = true;
+
+    // Capture this document's branch before any save/preflight awaits or navigation.
+    let branch;
+    if (!metaUrl) {
+      if (!this._branchPromise || this._branchRequestPath !== this._branchPath) {
+        this._updateBranch();
+      }
+      try {
+        branch = await this._branchPromise;
+        if (branch === undefined) throw new Error('Canvas branch unavailable.');
+      } catch (error) {
+        if (error?.name === 'AbortError') {
+          this._busy = false;
+          return;
+        }
+        await this._showActionError(action, 'Unable to resolve the preview branch. Please retry or reload the editor.');
+        return;
+      }
+    }
+    if (!this.isConnected || this._branchPath !== branchPath) {
+      this._busy = false;
+      return;
+    }
 
     // Flush pending collab updates to da-admin before AEM reads it,
     // otherwise the last ~2s of edits (held in da-collab's debounce) are missed.
@@ -257,16 +483,14 @@ class NXEwActions extends LitElement {
     }
 
     if (action === 'publish' && this._enforcePreflight) {
-      const status = await this.requestPreflight(this._prepareDetails?.fullpath);
-      if (status !== 'success') {
-        await this._showActionError(action, status === undefined
-          ? 'Preflight did not finish in time. Please run Preflight again before publishing.'
-          : 'Preflight found issues. Resolve them in the Preflight panel, then publish again.');
+      const result = await this.requestPreflight(versionPath);
+      if (result?.status !== 'success') {
+        await this._showActionError(action, ...preflightGateError(result));
         return;
       }
     }
 
-    const result = await runAemPreviewOrPublish({ aemPath, action });
+    const result = await runAemPreviewOrPublish({ aemPath, action, branch });
     if (!result.ok) {
       await Promise.all([
         import('../shared/dialog/dialog.js'),
@@ -279,19 +503,29 @@ class NXEwActions extends LitElement {
     }
 
     this._hasError = false;
-    const url = this._resolveOpenUrl(action, aemPath, result.url);
+    const url = metaUrl || result.url;
     await sidekickCacheBust(url);
     window.open(url, url);
-    this._saveVersion(action);
+    this._saveVersion({ action, path: versionPath });
     this._busy = false;
   }
 
-  _saveVersion(action) {
-    const fullpath = this._prepareDetails?.fullpath;
-    if (!fullpath) return;
+  async _saveVersion({ action, path }) {
+    if (!path) return;
     const comment = action === 'publish' ? 'Published' : 'Previewed';
-    // eslint-disable-next-line no-console
-    versions.create(fullpath, { comment }).catch(() => console.log(`Error creating auto version (${comment}).`));
+    try {
+      const resp = await versions.create(path, { comment });
+      if (resp.status !== 201) throw new Error(`Version creation failed (${resp.status}).`);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn(`Error creating auto version (${comment}).`, error);
+      return;
+    }
+    this.dispatchEvent(new CustomEvent(VERSION_EVENT.CREATED, {
+      detail: { path },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   // A page can override the EDS delivery URL with `preview-url` / `live-url`
@@ -347,19 +581,84 @@ class NXEwActions extends LitElement {
     `;
   }
 
+  _renderCard(kind) {
+    const isPreview = kind === 'preview';
+    const info = isPreview ? this._previewInfo : this._liveInfo;
+    const selected = this._target === kind;
+    // "Publish" is the end-user label for the live environment.
+    const title = isPreview ? 'Preview' : 'Preview & Publish';
+    const time = formatRelativeDateTime(info.time);
+    let sub;
+    if (this._statusLoading && !this._status) sub = 'Checking status…';
+    else if (info.ok && time) sub = isPreview ? `Last updated ${time}` : `Last published ${time}`;
+    else sub = isPreview ? 'Not previewed yet' : 'Not published yet';
+
+    return html`
+      <div class="deploy-card deploy-card-${kind}${selected ? ' is-selected' : ''}">
+        <label class="deploy-card-main">
+          <input
+            type="radio"
+            class="deploy-card-radio"
+            name="deploy-target"
+            value=${kind}
+            .checked=${selected}
+            @change=${() => this._selectTarget(kind)}
+          />
+          <span class="deploy-card-text">
+            <span class="deploy-card-title">${title}</span>
+            <span class="deploy-card-sub">${sub}</span>
+          </span>
+        </label>
+        ${selected && info.ok && info.url ? html`
+          <div class="deploy-url">
+            <span class="deploy-url-text" title=${info.url}>${info.url}</span>
+            <button
+              type="button"
+              class="deploy-copy"
+              aria-label=${`Copy ${title} URL`}
+              @click=${() => this._copyUrl(info.url, kind)}
+            >
+              <svg class="deploy-glyph" viewBox="0 0 20 20" aria-hidden="true"><use href=${this._copied === kind ? CHECK_ICON_HREF : COPY_ICON_HREF}></use></svg>
+            </button>
+          </div>
+        ` : nothing}
+      </div>
+    `;
+  }
+
+  _renderDeployPopover() {
+    // `editor.hidePublish` config removes the publish path entirely: no Publish
+    // card, and the action can only ever be a preview "Update".
+    const isPublish = this._target === 'live' && !this._hidePublish;
+    return html`
+      <nx-popover class="deploy-popover" placement="below-end" @close=${() => { this._copied = null; }}>
+        <div class="deploy">
+          <div class="deploy-cards" role="radiogroup" aria-label="Deploy target">
+            ${this._renderCard('preview')}
+            ${this._hidePublish ? nothing : this._renderCard('live')}
+          </div>
+          <button
+            type="button"
+            class="deploy-action nx-btn-accent${isPublish ? ' is-publish' : ''}"
+            ?disabled=${this._busy}
+            @click=${this._confirmAction}
+          >
+            ${this._busy
+        ? html`<span class="preview-dropdown-spinner" aria-hidden="true"></span>`
+        : html`<span>${isPublish ? 'Publish' : 'Update'}</span>`}
+          </button>
+        </div>
+      </nx-popover>
+    `;
+  }
+
   render() {
     const hasDoc = Boolean(buildAemPathFromHashState(this._hashState));
     const disabled = !hasDoc || this._busy;
     const prepareDetails = this._prepareReady ? this._prepareDetails : null;
-
-    const publishItem = { id: 'publish', label: 'Publish' };
-    if (this._enforcePreflight) {
-      publishItem.statusDot = this._preflightPassed ? 'var(--s2-green-700)' : 'var(--s2-orange-500)';
-    }
-    const menuItems = [
-      { id: 'preview', label: 'Preview' },
-      ...(this._hidePublish ? [] : [publishItem]),
-    ];
+    // When publishing is hidden for this path, the unpublished-changes cue is moot.
+    const unpublished = this._hasUnpublished && !this._hidePublish;
+    const sendLabel = `Preview and publish${unpublished ? ' — unpublished changes' : ''}`;
 
     return html`
       <div class="ew-actions">
@@ -378,25 +677,21 @@ class NXEwActions extends LitElement {
               </button>
               <prepare-menu .details=${prepareDetails} @close=${this._onPrepareMenuClose}></prepare-menu>
             ` : nothing}
-            <nx-menu
-              placement="below"
-              size="m"
-              .items=${menuItems}
-              @select=${(e) => this._pickAem(e.detail.id)}
+            <button
+              type="button"
+              class="nx-btn-accent send-btn${this._hasError ? ' is-error' : ''}${this._busy ? ' is-busy' : ''}"
+              aria-label=${sendLabel}
+              aria-haspopup="dialog"
+              ?disabled=${disabled}
+              @click=${this._toggleSend}
             >
-              <button
-                type="button"
-                slot="trigger"
-                class="nx-btn-accent preview-dropdown-btn${this._hasError ? ' is-error' : ''}${this._busy ? ' is-busy' : ''}"
-                aria-label="Preview and publish"
-                ?disabled=${disabled}
-              >
-                ${this._busy
+              ${this._busy
         ? html`<span class="preview-dropdown-spinner" aria-hidden="true"></span>`
         : html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href=${SEND_ICON_HREF}></use></svg>`}
-        <span>Send</span>
-              </button>
-            </nx-menu>
+              <span>Send</span>
+              ${unpublished ? html`<span class="send-badge" aria-hidden="true"></span>` : nothing}
+            </button>
+            ${this._renderDeployPopover()}
           </div>
         </div>
       </div>
