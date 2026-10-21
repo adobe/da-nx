@@ -196,9 +196,9 @@ describe('SDK state shape', () => {
   });
 
   it('reads a delivered media bus image without its rendition parameters', () => {
-    const html = convertJsonToHtml({ json: validDoc({ heroImage: 'x' }) }).html
+    const html = convertJsonToHtml({ json: validDoc({ heroImage: { src: 'x' } }) }).html
       .replace('<p>x</p>', '<picture><img src="./media_1c0072.jpg?width=750&amp;format=jpg&amp;optimize=medium" alt=""></picture>');
-    expect(convertHtmlToJson({ html }).json.data.heroImage).to.equal('./media_1c0072.jpg');
+    expect(convertHtmlToJson({ html }).json.data.heroImage).to.deep.equal({ src: './media_1c0072.jpg' });
   });
 
   it('validation.errors entries carry a .message field (read by editor.js)', () => {

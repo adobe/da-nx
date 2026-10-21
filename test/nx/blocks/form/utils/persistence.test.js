@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { attachPersistence } from '../../../../../nx/blocks/form/utils/persistence.js';
+import { createEngine } from '../../../../../nx/deps/da-sc-sdk/dist/index.js';
 
 // Minimal editor stub. `setValues(next, model)` simulates a real mutation by
 // replacing `state.document` with a NEW reference — persistence uses
@@ -196,31 +197,32 @@ describe('attachPersistence', () => {
     p.detach();
   });
 
-  const assetNode = (key) => ({
-    key,
-    kind: 'object',
-    typeRef: 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.0.0.json',
-    typeName: 'image',
-    children: [{ key: 'src', kind: 'string' }, { key: 'altText', kind: 'string' }],
-  });
+  const IMAGE_URL = 'https://raw.githubusercontent.com/adobe/da-sc-sdk/main/schemas/image/v1.0.0.json';
+  const assetSchema = {
+    type: 'object',
+    properties: { hero: { $ref: IMAGE_URL }, logo: { $ref: IMAGE_URL } },
+  };
+  // The model the engine builds for `data`, as the editor state carries it.
+  const modelFor = (data) => createEngine({
+    schema: assetSchema,
+    document: { metadata: { schemaName: 'demo' }, data },
+  }).getState().model;
 
   it('writes asset fields as images from the model in the editor state', async () => {
     const hero = 'https://content.da.live/org/site/hero.png';
-    const model = {
-      root: { key: 'data', kind: 'object', children: [assetNode('hero')] },
-    };
+    const data = { hero: { src: hero, altText: 'A hero' } };
     const editor = makeEditor();
     const { save, calls, release } = makeSave();
     const p = attachPersistence(editor, { path: '/x', save });
 
-    editor.setValues({ hero: { src: hero, altText: 'A hero' } });
+    editor.setValues(data);
     p.notify();
     await tick();
     expect(calls[0].html).to.not.include('<img');
     release();
     await tick();
 
-    editor.setValues({ hero: { src: hero, altText: 'A hero' } }, model);
+    editor.setValues({ ...data }, modelFor(data));
     p.notify();
     await tick();
     expect(calls[1].html).to.include(`<img src="${hero}" alt="A hero">`);
@@ -230,20 +232,14 @@ describe('attachPersistence', () => {
   it('reads the config on every save to write images from other hosts as links', async () => {
     const aem = 'https://delivery-p1-e1.adobeaemcloud.com/adobe/assets/urn:aaid:aem:1/as/hero.avif';
     const upload = 'https://content.da.live/org/site/hero.png';
-    const model = {
-      root: {
-        key: 'data',
-        kind: 'object',
-        children: [assetNode('hero'), assetNode('logo')],
-      },
-    };
+    const data = { hero: { src: aem }, logo: { src: upload } };
     const editor = makeEditor();
     const { save, calls, release } = makeSave();
     let asLinks = false;
     const getConfig = () => ({ externalImagesAsLinks: asLinks });
     const p = attachPersistence(editor, { path: '/x', save, getConfig });
 
-    editor.setValues({ hero: { src: aem }, logo: { src: upload } }, model);
+    editor.setValues(data, modelFor(data));
     p.notify();
     await tick();
     expect(calls[0].html).to.include(`<img src="${aem}" alt="">`);
@@ -251,7 +247,7 @@ describe('attachPersistence', () => {
     await tick();
 
     asLinks = true;
-    editor.setValues({ hero: { src: aem }, logo: { src: upload } }, model);
+    editor.setValues({ ...data }, modelFor(data));
     p.notify();
     await tick();
     expect(calls[1].html).to.include(`<a href="${aem}">${aem}</a>`);
