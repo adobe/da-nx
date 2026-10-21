@@ -29,6 +29,20 @@ function handleSdkResponse({ port, action }) {
 
 export function createHostActions({ port }) {
   return {
+    showPanel: (name, options) => {
+      port.postMessage({
+        action: 'showPanel',
+        details: options === undefined ? name : { id: name, options },
+      });
+    },
+    onPanelOptions: (callback) => {
+      const listener = ({ data }) => {
+        if (data?.action === 'panelOptions') callback(data.details);
+      };
+      port.addEventListener('message', listener);
+      port.start();
+      return () => port.removeEventListener('message', listener);
+    },
     openComparison: (options = {}) => {
       const { candidate, baseline } = options ?? {};
       if (!['document', 'preview'].includes(candidate) || baseline !== 'live') {
@@ -76,10 +90,6 @@ function setPrompt(text, { autoSend = false } = {}) {
   port2.postMessage({ action: 'setPrompt', details: { text, autoSend } });
 }
 
-function showPanel(name) {
-  port2.postMessage({ action: 'showPanel', details: name });
-}
-
 const DA_SDK = (() => new Promise((resolve) => {
   let initialized = false;
   window.addEventListener('message', (e) => {
@@ -108,7 +118,6 @@ const DA_SDK = (() => new Promise((resolve) => {
         setHash,
         closeLibrary,
         setPrompt,
-        showPanel,
       };
 
       resolve({ ...e.data, actions });

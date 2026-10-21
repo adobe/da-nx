@@ -41,6 +41,36 @@ describe('workspace SDK actions', () => {
     timers.returnValues.forEach((timer) => expect(clearTimers.calledWith(timer)).to.equal(true));
   }
 
+  it('preserves legacy panel navigation and passes optional navigation context', () => {
+    actions.showPanel('block');
+    actions.showPanel('blocks', { blockPath: 'https://example.com/library/cards' });
+    actions.showPanel('quick-block', { tab: 'assets' });
+    expect(port.postMessage.getCalls().map(({ args }) => args[0])).to.deep.equal([
+      { action: 'showPanel', details: 'block' },
+      { action: 'showPanel', details: { id: 'blocks', options: { blockPath: 'https://example.com/library/cards' } } },
+      { action: 'showPanel', details: { id: 'quick-block', options: { tab: 'assets' } } },
+    ]);
+  });
+
+  it('subscribes to panel options on the connected port and supports cleanup', () => {
+    const received = [];
+    const unsubscribe = actions.onPanelOptions((options) => received.push(options));
+    expect(port.start.calledOnce).to.equal(true);
+    port.dispatchEvent(new MessageEvent('message', {
+      data: { action: 'other', details: { tab: 'blocks' } },
+    }));
+    port.dispatchEvent(new MessageEvent('message', {
+      data: { action: 'panelOptions', details: { tab: 'assets' } },
+    }));
+    expect(received).to.deep.equal([{ tab: 'assets' }]);
+    unsubscribe();
+    port.dispatchEvent(new MessageEvent('message', {
+      data: { action: 'panelOptions', details: { tab: 'blocks' } },
+    }));
+    expect(received).to.deep.equal([{ tab: 'assets' }]);
+    expect(port.removeEventListener.calledOnce).to.equal(true);
+  });
+
   ['document', 'preview'].forEach((candidate) => {
     it(`posts ${candidate} comparison synchronously without an acknowledgement`, () => {
       expect(actions.openComparison({ candidate, baseline: 'live' })).to.equal(undefined);
