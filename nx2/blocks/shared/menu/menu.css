@@ -109,6 +109,10 @@ nx-popover {
   border-radius: var(--s2-corner-radius-75);
 }
 
+:host([size="s"]) .menu-item {
+  padding: 6px var(--s2-spacing-200);
+}
+
 :host([size="m"]) {
   .menu-section {
     padding: 7px var(--s2-spacing-200);
