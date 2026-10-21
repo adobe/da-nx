@@ -1,3 +1,56 @@
+# [1.20.0](https://github.com/adobe/da-nx/compare/v1.19.0...v1.20.0) (2026-10-21)
+
+
+### Bug Fixes
+
+* **ew:** forward WYSIWYG iframe clicks for RUM (adobe/da-live[#1324](https://github.com/adobe/da-nx/issues/1324)) ([4bd6625](https://github.com/adobe/da-nx/commit/4bd6625d9d09fa5f6d438bdec5ca8d111a3f5c85))
+* **quick-edit:** align forwarded click target with RUM enhancer format ([0e7b39b](https://github.com/adobe/da-nx/commit/0e7b39bce56d6621b6518bac40e33ef12404c5ca))
+* **quick-edit:** attribute iframe text clicks to layout ([3f365f3](https://github.com/adobe/da-nx/commit/3f365f316a382f13d4c448e5b280e7196a4e8afa))
+* **quick-edit:** preserve native clicks on block selection labels ([a3d12f7](https://github.com/adobe/da-nx/commit/a3d12f75fb2815400515357953345d13780eea1f))
+
+
+### Features
+
+* identify editor as the source of rum clicks ([b61f2a8](https://github.com/adobe/da-nx/commit/b61f2a80b9c82bfc76f91da8af8ce8be96212244))
+
+# [1.19.0](https://github.com/adobe/da-nx/compare/v1.18.0...v1.19.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **sl:** add select() and default type=text to sl-input ([#843](https://github.com/adobe/da-nx/issues/843)) ([a81d367](https://github.com/adobe/da-nx/commit/a81d367335cdb79e986d99117e201199727d0139))
+
+
+### Features
+
+* **shared:** add treegrid keyboard navigation util ([#838](https://github.com/adobe/da-nx/issues/838)) ([a459d5f](https://github.com/adobe/da-nx/commit/a459d5f70e10fc8d10ec896dae769c1cdb8f42c9))
+
+# [1.18.0](https://github.com/adobe/da-nx/compare/v1.17.0...v1.18.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **form:** import getFirstSheet locally in daConfig ([eb40054](https://github.com/adobe/da-nx/commit/eb4005428b3813f0425564ef176cc5f4598bb929))
+* **quick-edit:** shift later indices when creating an editor from a host edit ([ccbb6d6](https://github.com/adobe/da-nx/commit/ccbb6d6359d97a15722fa6970ac6b38140d9a537))
+* **styles:** adjust padding for preview ([65d8ad7](https://github.com/adobe/da-nx/commit/65d8ad72d521e0d8e871cb4a5943b41e35b34c3b))
+
+
+### Features
+
+* **form:** add editor.preview config flag ([09b9e05](https://github.com/adobe/da-nx/commit/09b9e05e7407995269774aa1176fcb96d02370f7))
+
+# [1.17.0](https://github.com/adobe/da-nx/compare/v1.16.6...v1.17.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **sdk:** isolate live document subscriber failures ([92002c4](https://github.com/adobe/da-nx/commit/92002c436cafc9a645a312ff40d64e5d3d7e582b))
+
+
+### Features
+
+* add live document and HTML replacement SDK actions ([6caa671](https://github.com/adobe/da-nx/commit/6caa6719f3e970a6d74d1c60efa3fc31f5ffc392))
+
 ## [1.16.6](https://github.com/adobe/da-nx/compare/v1.16.5...v1.16.6) (2026-10-19)
 
 
