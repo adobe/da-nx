@@ -29,7 +29,7 @@ describe('nx-editortoggle', () => {
     window.history.replaceState(null, '', path);
     toggle = document.createElement('nx-editortoggle');
     document.body.append(toggle);
-    toggle._siteEwEnabled = false;
+    toggle._siteEwEnabled = undefined;
     toggle._userEnabled = userEnabled;
     await toggle.updateComplete;
 
@@ -91,6 +91,7 @@ describe('nx-editortoggle', () => {
       });
       await toggle._onHashState({ org: `toggle-disabled-${path.slice(1)}`, site: 'site' });
       await toggle.updateComplete;
+      expect(toggle._siteEwEnabled).to.be.false;
 
       for (const userEnabled of [false, true]) {
         toggle._userEnabled = userEnabled;
@@ -111,6 +112,7 @@ describe('nx-editortoggle', () => {
       await toggle._onHashState({ org: `toggle-unset-${path.slice(1)}`, site: 'site' });
       await toggle.updateComplete;
 
+      expect(toggle._siteEwEnabled).to.be.undefined;
       expect(toggle.shadowRoot.querySelector('nx-switch')).to.not.be.null;
     });
   });
@@ -123,6 +125,7 @@ describe('nx-editortoggle', () => {
     await toggle._onHashState({ org: 'toggle-enabled', site: 'site' });
     await toggle.updateComplete;
 
+    expect(toggle._siteEwEnabled).to.be.true;
     expect(toggle.shadowRoot.querySelector('nx-switch')).to.be.null;
   });
 
@@ -137,6 +140,7 @@ describe('nx-editortoggle', () => {
 
     await toggle._onHashState({ org: 'toggle-reset' });
     await toggle.updateComplete;
+    expect(toggle._siteEwEnabled).to.be.undefined;
     expect(toggle.shadowRoot.querySelector('nx-switch')).to.not.be.null;
   });
 });
