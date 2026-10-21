@@ -16,8 +16,6 @@ import {
   removeLink,
   safeHref,
   toggleList,
-  indentList,
-  outdentList,
   BLOCK_TYPES,
   getBlockType,
   setBlock,
@@ -28,38 +26,43 @@ import {
 
 const style = await loadStyle(import.meta.url);
 
-const TOOL_GROUPS = [
+const BAR_GROUPS = [
   [
     { id: 'strong', label: 'Bold', keys: 'Mod+B', icon: 'tagbold', text: 'B' },
     { id: 'em', label: 'Italic', keys: 'Mod+I', icon: 'tagitalic', text: 'I' },
-    { id: 'code', label: 'Inline code', keys: 'Mod+E', icon: 'code', text: '</>' },
     { id: 'u', label: 'Underline', keys: 'Mod+U', icon: 'tagunderline', text: 'U' },
     { id: 's', label: 'Strikethrough', keys: 'Mod+Shift+X', icon: 'tagstrikethrough', text: 'S' },
-    { id: 'sup', label: 'Superscript', keys: 'Mod+.', icon: 'textsuperscript', text: 'x²' },
-    { id: 'sub', label: 'Subscript', keys: 'Mod+,', icon: 'textsubscript', text: 'x₂' },
-  ],
-  [
-    { id: 'bullet_list', label: 'Bulleted list', keys: 'Mod+Shift+8', icon: 'listbulleted', text: '•' },
-    { id: 'ordered_list', label: 'Numbered list', keys: 'Mod+Shift+7', icon: 'listnumbered', text: '1.' },
   ],
   [
     { id: 'link', label: 'Link', keys: 'Mod+K', icon: 'link', text: 'Link' },
     { id: 'unlink', label: 'Remove link', keys: 'Mod+Shift+K', icon: 'unlink', text: 'Unlink' },
-  ],
-  [
-    { id: 'blockquote', label: 'Blockquote', keys: 'Mod+Shift+9', icon: 'blockquote', text: '❝' },
-    { id: 'indent', label: 'Indent list', keys: 'Tab', icon: 'textindentincrease', text: '→' },
-    { id: 'outdent', label: 'Outdent list', keys: 'Shift+Tab', icon: 'textindentdecrease', text: '←' },
+    { id: 'code', label: 'Inline code', keys: 'Mod+E', icon: 'code', text: '</>' },
   ],
 ];
 
-const TOOLS = TOOL_GROUPS.flat();
+const MENU_GROUPS = [
+  [
+    { id: 'ordered_list', label: 'Numbered list', keys: 'Mod+Shift+7', icon: 'listnumbered', text: '1.' },
+    { id: 'bullet_list', label: 'Bulleted list', keys: 'Mod+Shift+8', icon: 'listbulleted', text: '•' },
+  ],
+  [
+    { id: 'blockquote', label: 'Blockquote', keys: 'Mod+Shift+9', icon: 'blockquote', text: '❝' },
+  ],
+  [
+    { id: 'sup', label: 'Superscript', keys: 'Mod+.', icon: 'textsuperscript', text: 'x²' },
+    { id: 'sub', label: 'Subscript', keys: 'Mod+,', icon: 'textsubscript', text: 'x₂' },
+  ],
+];
+
+const BAR_TOOLS = BAR_GROUPS.flat();
+
+const TOOLS = [...BAR_TOOLS, ...MENU_GROUPS.flat()];
 
 const MORE = { id: 'more', label: 'More formatting', icon: 'more', text: '⋮' };
 
 const LISTS = new Set(['bullet_list', 'ordered_list']);
 
-const ACTIONS = new Set(['unlink', 'indent', 'outdent']);
+const ACTIONS = new Set(['unlink']);
 
 const BLOCK_ITEMS = [{ section: 'Change into' }, ...BLOCK_TYPES];
 
@@ -197,19 +200,14 @@ class FormRichtext extends LitElement {
     this._resizeObserver.observe(bar.querySelector('.form-richtext-block'));
   }
 
-  // Tools that wrap past the single visible line move into the more menu.
+  // Bar tools that wrap past the single visible line move into the more menu.
   _measureToolbar() {
     const bar = this.shadowRoot.querySelector('.form-richtext-toolbar');
     if (!bar) return;
     const tools = [...bar.querySelectorAll(':scope > [data-tool]')];
-    const lineTop = bar.firstElementChild.offsetTop;
-    const wrapsAt = (reserve) => {
-      bar.style.paddingInlineEnd = reserve ? 'var(--form-richtext-more-space)' : '';
-      return tools.findIndex((el) => el.offsetTop > lineTop);
-    };
-    const at = wrapsAt(false) === -1 ? -1 : wrapsAt(true);
-    const overflowAt = at === -1 ? TOOLS.length : at;
-    if (overflowAt === TOOLS.length) this._menuOpen = false;
+    const lineTop = bar.querySelector('.form-richtext-block').offsetTop;
+    const at = tools.findIndex((el) => el.offsetTop > lineTop);
+    const overflowAt = at === -1 ? BAR_TOOLS.length : at;
     if (overflowAt !== this._overflowAt) this._overflowAt = overflowAt;
   }
 
@@ -295,8 +293,6 @@ class FormRichtext extends LitElement {
       quote: isInBlockquote(state),
       link: getLinkAt(state)?.href,
       linked: removeLink(state),
-      indent: indentList({ pm: this._pm })(state),
-      outdent: outdentList({ pm: this._pm })(state),
       empty: doc.childCount === 1 && doc.firstChild.type.name === 'paragraph' && doc.firstChild.content.size === 0,
     };
   }
@@ -315,8 +311,6 @@ class FormRichtext extends LitElement {
       return;
     }
     if (id === 'unlink') this._run(removeLink);
-    else if (id === 'indent') this._run(indentList({ pm }));
-    else if (id === 'outdent') this._run(outdentList({ pm }));
     else if (id === 'blockquote') this._run(toggleBlockquote({ pm }));
     else if (LISTS.has(id)) this._run(toggleList({ pm, name: id }));
     else this._run(pm.toggleMark(this._schema.marks[id]));
@@ -383,7 +377,6 @@ class FormRichtext extends LitElement {
   _isToolDisabled(id) {
     if (this.disabled || this._status !== 'ready') return true;
     if (id === 'unlink') return !this._selection?.linked;
-    if (id === 'indent' || id === 'outdent') return !this._selection?.[id];
     return false;
   }
 
@@ -415,19 +408,19 @@ class FormRichtext extends LitElement {
   }
 
   _renderBar() {
-    const at = this._overflowAt ?? TOOLS.length;
-    return TOOL_GROUPS.map((group) => html`
-      <span class="form-richtext-sep ${TOOLS.indexOf(group[0]) >= at ? 'is-overflow' : ''}"></span>
-      ${group.map((tool) => this._renderTool(tool, { overflow: TOOLS.indexOf(tool) >= at }))}
+    const at = this._overflowAt ?? BAR_TOOLS.length;
+    return BAR_GROUPS.map((group) => html`
+      <span class="form-richtext-sep ${BAR_TOOLS.indexOf(group[0]) >= at ? 'is-overflow' : ''}"></span>
+      ${group.map((tool) => this._renderTool(tool, { overflow: BAR_TOOLS.indexOf(tool) >= at }))}
     `);
   }
 
   _renderMore() {
-    const at = this._overflowAt ?? TOOLS.length;
-    if (at >= TOOLS.length) return nothing;
-    const groups = TOOL_GROUPS
-      .map((group) => group.filter((tool) => TOOLS.indexOf(tool) >= at))
+    const at = this._overflowAt ?? BAR_TOOLS.length;
+    const overflowed = BAR_GROUPS
+      .map((group) => group.filter((tool) => BAR_TOOLS.indexOf(tool) >= at))
       .filter((group) => group.length);
+    const groups = [...overflowed, ...MENU_GROUPS];
     return html`
       <button
         type="button"

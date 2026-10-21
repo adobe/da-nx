@@ -23,6 +23,23 @@ async function mount({ value = '', loader = async () => pm, width, ...props } = 
 const content = (el) => el.shadowRoot.querySelector('.form-richtext-content');
 const tool = (el, id) => el.shadowRoot.querySelector(`[data-tool="${id}"]`);
 
+async function openMenu(el) {
+  const sr = el.shadowRoot;
+  sr.querySelector('.form-richtext-more').click();
+  await until(() => sr.querySelector('.form-richtext-menu [data-tool]'));
+  const menu = sr.querySelector('.form-richtext-menu');
+  // Concurrent test pages steal window focus, which would light-dismiss the menu.
+  window.removeEventListener('blur', menu._onWindowBlur);
+  await el.updateComplete;
+}
+
+// Concurrent test pages can blur the window, so re-assert focus before reading pressed state.
+async function pressed(el, id) {
+  content(el).dispatchEvent(new FocusEvent('focusin', { bubbles: true, composed: true }));
+  await el.updateComplete;
+  return tool(el, id).getAttribute('aria-pressed');
+}
+
 function selectAll(el) {
   const view = el._view;
   const { doc } = view.state;
@@ -69,7 +86,8 @@ describe('form-richtext', () => {
     tool(el, 'strong').click();
     expect(el.value).to.equal('<p><strong>text</strong></p>');
     await el.updateComplete;
-    expect(tool(el, 'strong').getAttribute('aria-pressed')).to.equal('true');
+    expect(await pressed(el, 'strong')).to.equal('true');
+    await openMenu(el);
     tool(el, 'ordered_list').click();
     expect(el.value).to.equal('<ol><li><strong>text</strong></li></ol>');
   });
@@ -80,32 +98,34 @@ describe('form-richtext', () => {
     };
     const el = await mount({ value: '<p>text</p>' });
     el.focus();
+    await openMenu(el);
     for (const [id, tag] of Object.entries(marks)) {
       selectAll(el);
       tool(el, id).click();
       expect(el.value, id).to.equal(`<p><${tag}>text</${tag}></p>`);
       await el.updateComplete; // eslint-disable-line no-await-in-loop
-      expect(tool(el, id).getAttribute('aria-pressed'), id).to.equal('true');
+      expect(await pressed(el, id), id).to.equal('true');
       tool(el, id).click();
       expect(el.value, id).to.equal('<p>text</p>');
       await el.updateComplete; // eslint-disable-line no-await-in-loop
-      expect(tool(el, id).getAttribute('aria-pressed'), id).to.equal('false');
+      expect(await pressed(el, id), id).to.equal('false');
     }
   });
 
   it('toggles and switches both list types from the toolbar', async () => {
     const el = await mount({ value: '<p>text</p>' });
     el.focus();
+    await openMenu(el);
     selectAll(el);
     tool(el, 'bullet_list').click();
     expect(el.value).to.equal('<ul><li>text</li></ul>');
     await el.updateComplete;
-    expect(tool(el, 'bullet_list').getAttribute('aria-pressed')).to.equal('true');
+    expect(await pressed(el, 'bullet_list')).to.equal('true');
     tool(el, 'ordered_list').click();
     expect(el.value).to.equal('<ol><li>text</li></ol>');
     await el.updateComplete;
-    expect(tool(el, 'bullet_list').getAttribute('aria-pressed')).to.equal('false');
-    expect(tool(el, 'ordered_list').getAttribute('aria-pressed')).to.equal('true');
+    expect(await pressed(el, 'bullet_list')).to.equal('false');
+    expect(await pressed(el, 'ordered_list')).to.equal('true');
     tool(el, 'ordered_list').click();
     expect(el.value).to.equal('<p>text</p>');
   });
@@ -208,6 +228,7 @@ describe('form-richtext', () => {
 
   it('applies code, superscript, subscript and blockquote from the toolbar', async () => {
     const el = await mount({ value: '<p>text</p>' });
+    await openMenu(el);
     selectAll(el);
     tool(el, 'code').click();
     expect(el.value).to.equal('<p><code>text</code></p>');
@@ -218,7 +239,7 @@ describe('form-richtext', () => {
     tool(el, 'blockquote').click();
     expect(el.value).to.equal('<blockquote><p><sub><code>text</code></sub></p></blockquote>');
     await el.updateComplete;
-    expect(tool(el, 'blockquote').getAttribute('aria-pressed')).to.equal('true');
+    expect(await pressed(el, 'blockquote')).to.equal('true');
     tool(el, 'blockquote').click();
     expect(el.value).to.equal('<p><sub><code>text</code></sub></p>');
   });
@@ -237,15 +258,16 @@ describe('form-richtext', () => {
   it('reflects the selection in the toolbar only while focused', async () => {
     const el = await mount({ value: '<h1><u>Title</u></h1><p><a href="/a">x</a></p>' });
     const picker = el.shadowRoot.querySelector('nx-picker');
-    expect(tool(el, 'u').getAttribute('aria-pressed')).to.equal('false');
+    const underline = () => tool(el, 'u').getAttribute('aria-pressed');
+    expect(underline()).to.equal('false');
     expect(picker.value).to.equal('paragraph');
     el.focus();
     await el.updateComplete;
-    expect(tool(el, 'u').getAttribute('aria-pressed')).to.equal('true');
+    expect(underline()).to.equal('true');
     expect(picker.value).to.equal('heading-1');
     el._view.dom.blur();
     await el.updateComplete;
-    expect(tool(el, 'u').getAttribute('aria-pressed')).to.equal('false');
+    expect(underline()).to.equal('false');
     expect(tool(el, 'unlink').classList.contains('is-hidden')).to.be.true;
   });
 
@@ -287,7 +309,7 @@ describe('form-richtext', () => {
     expect(field('link-href').value).to.equal('');
     expect(field('link-text').value).to.equal('site');
     expect(field('link-title').value).to.equal('');
-    expect(tool(el, 'link').getAttribute('aria-pressed')).to.equal('true');
+    expect(await pressed(el, 'link')).to.equal('true');
     field('link-href').value = 'https://example.com';
     field('link-title').value = 'Example';
     button('Save').click();
@@ -351,6 +373,7 @@ describe('form-richtext', () => {
 
   it('creates a list from several selected rows', async () => {
     const el = await mount({ value: '<p>a</p><p>b</p>' });
+    await openMenu(el);
     selectAll(el);
     tool(el, 'ordered_list').click();
     await el.updateComplete;
@@ -362,33 +385,18 @@ describe('form-richtext', () => {
     el.focus();
     const view = el._view;
     view.dispatch(view.state.tr.setSelection(pm.TextSelection.create(view.state.doc, 3, 9)));
-    await el.updateComplete;
-    expect(tool(el, 'bullet_list').getAttribute('aria-pressed')).to.equal('true');
+    await openMenu(el);
+    expect(await pressed(el, 'bullet_list')).to.equal('true');
     tool(el, 'bullet_list').click();
     await el.updateComplete;
     expect(el.value).to.equal('<p>a</p><p>b</p><ul><li>c</li></ul>');
   });
 
-  it('indents and outdents list items from the toolbar', async () => {
-    const el = await mount({ value: '<p>x</p><ul><li>a</li><li>b</li></ul>' });
-    el.focus();
-    expect(tool(el, 'indent').disabled).to.be.true;
-    expect(tool(el, 'outdent').disabled).to.be.true;
-    const view = el._view;
-    view.dispatch(view.state.tr.setSelection(pm.TextSelection.create(view.state.doc, 6)));
-    await el.updateComplete;
-    expect(tool(el, 'indent').disabled).to.be.true;
-    expect(tool(el, 'outdent').disabled).to.be.false;
-    expect(tool(el, 'indent').hasAttribute('aria-pressed')).to.be.false;
-    view.dispatch(view.state.tr.setSelection(pm.TextSelection.create(view.state.doc, 11)));
-    await el.updateComplete;
-    tool(el, 'indent').click();
-    await el.updateComplete;
-    expect(el.value).to.equal('<p>x</p><ul><li>a<ul><li>b</li></ul></li></ul>');
-    expect(tool(el, 'indent').disabled).to.be.true;
-    tool(el, 'outdent').click();
-    await el.updateComplete;
-    expect(el.value).to.equal('<p>x</p><ul><li>a</li><li>b</li></ul>');
+  it('has no indent buttons, since Tab nests list items', async () => {
+    const el = await mount({ value: '<ul><li>a</li></ul>' });
+    await openMenu(el);
+    expect(tool(el, 'indent')).to.equal(null);
+    expect(tool(el, 'outdent')).to.equal(null);
   });
 
   it('fires change when focus leaves after an edit', async () => {
@@ -434,24 +442,35 @@ describe('form-richtext', () => {
     expect(content(el).textContent).to.equal('a');
   });
 
-  it('moves tools that do not fit into a more menu', async () => {
+  it('orders the bar and keeps lists, quote and scripts in the more menu', async () => {
+    const el = await mount({ value: '<p>Hi</p>', width: '900px' });
+    const sr = el.shadowRoot;
+    await until(() => el._overflowAt === 7);
+    const barTools = [...sr.querySelectorAll('.form-richtext-toolbar > [data-tool]')].map((b) => b.dataset.tool);
+    expect(barTools).to.deep.equal(['strong', 'em', 'u', 's', 'link', 'unlink', 'code']);
+    expect(sr.querySelector('.form-richtext-toolbar > .form-richtext-block')).to.equal(sr.querySelector('.form-richtext-toolbar').firstElementChild);
+    await openMenu(el);
+    const menuTools = [...sr.querySelectorAll('.form-richtext-menu [data-tool]')].map((b) => b.dataset.tool);
+    expect(menuTools).to.deep.equal(['ordered_list', 'bullet_list', 'blockquote', 'sup', 'sub']);
+  });
+
+  it('moves bar tools that do not fit into the more menu', async () => {
     const el = await mount({ value: '<p>Hi</p>', width: '260px' });
     const sr = el.shadowRoot;
-    await until(() => sr.querySelector('.form-richtext-more'));
-    const at = el._overflowAt;
-    expect(at).to.be.above(0).and.below(14);
+    await until(() => el._overflowAt < 7);
+    expect(el._overflowAt).to.be.above(0);
     expect(tool(el, 'link').classList.contains('is-overflow')).to.be.true;
     expect(tool(el, 'strong').classList.contains('is-overflow')).to.be.false;
     const more = sr.querySelector('.form-richtext-more');
     expect(more.getAttribute('aria-expanded')).to.equal('false');
 
     el.focus();
-    more.click();
-    await until(() => sr.querySelector('.form-richtext-menu [data-tool]'));
+    await openMenu(el);
     const menu = sr.querySelector('.form-richtext-menu');
     expect(more.getAttribute('aria-expanded')).to.equal('true');
     const menuTools = [...menu.querySelectorAll('[data-tool]')].map((b) => b.dataset.tool);
     expect(menuTools).to.include('link');
+    expect(menuTools).to.include('ordered_list');
     expect(menuTools).to.not.include('strong');
 
     menu.querySelector('[data-tool="ordered_list"]').click();
@@ -464,16 +483,16 @@ describe('form-richtext', () => {
     expect(more.getAttribute('aria-expanded')).to.equal('false');
 
     el.style.width = '900px';
-    await until(() => !sr.querySelector('.form-richtext-more'));
+    await until(() => el._overflowAt === 7);
     await el.updateComplete;
-    expect(sr.querySelector('.form-richtext-more')).to.equal(null);
+    expect(sr.querySelector('.form-richtext-more')).to.not.equal(null);
     expect(tool(el, 'link').classList.contains('is-overflow')).to.be.false;
   });
 
   it('opens the link dialog from the more menu', async () => {
     const el = await mount({ value: '<p>site</p>', width: '260px' });
     const sr = el.shadowRoot;
-    await until(() => sr.querySelector('.form-richtext-more'));
+    await until(() => el._overflowAt < 7);
     el.focus();
     selectAll(el);
     sr.querySelector('.form-richtext-more').click();
