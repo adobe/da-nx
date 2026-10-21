@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import * as pm from './mocks/pm.js';
 import FormRichtext from '../../../../../nx/blocks/form/fields/richtext.js';
 
@@ -425,6 +426,39 @@ describe('form-richtext', () => {
     view.dispatch(view.state.tr.insertText('b', 2));
     content(el).dispatchEvent(new FocusEvent('focusout', { bubbles: true, composed: true }));
     expect(changes).to.equal(1);
+  });
+
+  describe('stored form', () => {
+    const blur = (el) => content(el).dispatchEvent(new FocusEvent('focusout', { bubbles: true, composed: true }));
+    const typeTransient = (el) => {
+      const view = el._view;
+      view.dispatch(view.state.tr.insertText('  b ', 2).split(6));
+      return view;
+    };
+
+    afterEach(() => sinon.restore());
+
+    it('shows the stored form once focus leaves', async () => {
+      sinon.stub(document, 'hasFocus').returns(true);
+      const el = await mount({ value: '<p>a</p>' });
+      const view = typeTransient(el);
+      expect(view.state.doc.childCount).to.equal(2);
+      expect(el.value).to.equal('<p>a b</p>');
+      blur(el);
+      expect(view.state.doc.childCount).to.equal(1);
+      expect(view.state.doc.textContent).to.equal('a b');
+      expect(el.value).to.equal('<p>a b</p>');
+      expect(el._pm.undo(view.state)).to.be.true;
+    });
+
+    it('keeps typing state when the window loses focus', async () => {
+      sinon.stub(document, 'hasFocus').returns(false);
+      const el = await mount({ value: '<p>a</p>' });
+      const view = typeTransient(el);
+      blur(el);
+      expect(view.state.doc.childCount).to.equal(2);
+      expect(view.state.doc.firstChild.textContent).to.equal('a  b ');
+    });
   });
 
   it('is read-only when disabled', async () => {

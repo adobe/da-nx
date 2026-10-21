@@ -31,9 +31,28 @@ The field value is a string of canonical HTML, owned by the SDK
 - Plain text without tags is read as paragraphs (blank lines) and `<br>`
   (single newlines), so a property switched from `long-text` keeps its content.
 
-The field's serializer ([`richtext-utils.js`](../fields/richtext-utils.js))
-emits the same canonical form, so a value produced in the editor is stable
-when it passes through the SDK sanitizer.
+The SDK keeps its sanitizer internal, so its public API stays small.
+[`html.js`](../utils/rich-text/html.js) serializes the editor document straight
+into canonical HTML. It applies the whitespace rules of HTML parsing, so both
+the SDK and the editor keep a saved value unchanged on reload. Parity tests run
+every case through the SDK converters and fail when the two drift apart. The
+editor schema lives in [`schema.js`](../utils/rich-text/schema.js), together
+with the `safeHref` link check that mirrors the SDK's. It also guards pasted
+markup. The commands and shortcuts live in
+[`commands.js`](../utils/rich-text/commands.js).
+
+Typing needs states the canonical form can't hold, such as a trailing space or
+a new empty paragraph. The emitted value is always canonical, and when focus
+leaves the field the editor replaces whatever differs with the stored form. The
+document on screen then matches the saved value exactly, so saving never loses
+content the author can still see. The replacement stays out of undo history.
+Switching to another window keeps the typing state, since the author has not
+left the field.
+
+The list item schema mirrors the SDK too. An item holds one paragraph followed
+by nested lists, because the SDK stores `<li>` as inline content plus lists.
+Stock ProseMirror list commands can't wrap or lift several blocks under that
+rule, so `commands.js` wraps and lifts them one block at a time.
 
 ## Storage
 
@@ -151,9 +170,14 @@ Unit tests replace the `da-y-wrapper` import with
 `test/nx/blocks/form/fields/mocks/pm.js`. It re-exports the ProseMirror npm
 packages (dev dependencies only) under the da-y-wrapper names.
 
-- `fields/richtext-utils.test.js` covers the schema, parsing, canonical
-  serialization, commands, floating toolbar placement and parity with the
-  bundled SDK codec.
+- `utils/rich-text/html.test.js` covers the schema, the link check, parsing,
+  canonical serialization, parity with the bundled SDK converters and the blur
+  replacement.
+  Its canonical cases assert that a document survives a save and reload
+  unchanged.
+- `utils/rich-text/commands.test.js` covers selection queries, commands and
+  the keymap.
+- `utils/rich-text/bubble.test.js` covers the floating toolbar placement.
 - `fields/richtext.test.js` covers component behavior, the toolbar, links and
   events.
 - `views/editor.test.js` covers rendering and the immediate commit on `change`.

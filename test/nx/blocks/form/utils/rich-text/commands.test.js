@@ -1,12 +1,9 @@
 /* eslint-disable no-script-url */
 import { expect } from '@esm-bundle/chai';
-import * as pm from './mocks/pm.js';
-import { createEngine, convertJsonToHtml, convertHtmlToJson } from '../../../../../nx/deps/da-sc-sdk/dist/index.js';
+import * as pm from '../../fields/mocks/pm.js';
+import { SCHEMA_SPEC } from '../../../../../../nx/blocks/form/utils/rich-text/schema.js';
+import { parseRichText, serializeRichText } from '../../../../../../nx/blocks/form/utils/rich-text/html.js';
 import {
-  SCHEMA_SPEC,
-  safeHref,
-  parseRichText,
-  serializeRichText,
   getActiveMarks,
   getListType,
   getLinkAt,
@@ -14,148 +11,35 @@ import {
   applyLink,
   removeLink,
   toggleList,
-  indentList,
-  outdentList,
   getBlockType,
   setBlock,
   isInBlockquote,
   toggleBlockquote,
   BLOCK_TYPES,
-  insertHardBreak,
   buildKeymap,
-  placeBubble,
-} from '../../../../../nx/blocks/form/fields/richtext-utils.js';
+} from '../../../../../../nx/blocks/form/utils/rich-text/commands.js';
 
 const schema = new pm.Schema(SCHEMA_SPEC);
-const parse = (value) => parseRichText({ pm, schema, value });
-const roundTrip = (value) => serializeRichText(parse(value));
 
 function stateFor(value, { from, to } = {}) {
-  const doc = parse(value);
+  const doc = parseRichText({ pm, schema, value });
   const state = pm.EditorState.create({ doc, schema });
-  if (from === undefined) return state;
+  if (from === undefined) {
+    return state;
+  }
+
   const selection = pm.TextSelection.create(doc, from, to ?? from);
   return state.apply(state.tr.setSelection(selection));
 }
 
 function run(command, state) {
-  let next = state;
-  const handled = command(state, (tr) => { next = state.apply(tr); });
-  return { handled, state: next, html: serializeRichText(next.doc) };
+  const transactions = [];
+  const handled = command(state, (tr) => transactions.push(tr));
+  const next = transactions.length ? state.apply(transactions[0]) : state;
+  return { handled, state: next, html: serializeRichText({ doc: next.doc }) };
 }
 
-describe('richtext-utils', () => {
-  describe('safeHref', () => {
-    it('allows relative and safe schemes', () => {
-      expect(safeHref(' /path ')).to.equal('/path');
-      expect(safeHref('https://example.com')).to.equal('https://example.com');
-      expect(safeHref('mailto:a@b.c')).to.equal('mailto:a@b.c');
-      expect(safeHref('tel:+1')).to.equal('tel:+1');
-      expect(safeHref('#top')).to.equal('#top');
-    });
-
-    it('rejects unsafe or empty values', () => {
-      expect(safeHref('javascript:alert(1)')).to.equal(null);
-      expect(safeHref(' java\nscript:alert(1)')).to.equal(null);
-      expect(safeHref('data:text/html,x')).to.equal(null);
-      expect(safeHref('')).to.equal(null);
-      expect(safeHref(undefined)).to.equal(null);
-    });
-  });
-
-  describe('parse and serialize', () => {
-    it('keeps the canonical subset unchanged', () => {
-      const html = '<p>A <strong>bold</strong>, <em>em</em>, <u>u</u>, <s>s</s> and <a href="https://x.y">link</a>.</p>'
-        + '<ul><li>one<ol><li>nested</li></ol></li><li>two</li></ul><p>a<br>b</p>';
-      expect(roundTrip(html)).to.equal(html);
-    });
-
-    it('normalizes equivalent tags', () => {
-      expect(roundTrip('<p><b>b</b><i>i</i><strike>s</strike><del>d</del></p>'))
-        .to.equal('<p><strong>b</strong><em>i</em><s>sd</s></p>');
-    });
-
-    it('keeps a trimmed link title', () => {
-      expect(roundTrip('<p><a href="/a" title="  A  &quot;b&quot;\n c ">x</a><a href="/b" title=" ">y</a></p>'))
-        .to.equal('<p><a href="/a" title="A &quot;b&quot; c">x</a><a href="/b">y</a></p>');
-      expect(roundTrip('<p><a href="/a" title="t">x</a><a href="/a">y</a></p>'))
-        .to.equal('<p><a href="/a" title="t">x</a><a href="/a">y</a></p>');
-    });
-
-    it('nests marks with links outermost', () => {
-      expect(roundTrip('<p><strong><a href="/a">x</a></strong></p>'))
-        .to.equal('<p><a href="/a"><strong>x</strong></a></p>');
-      expect(roundTrip('<p><strong>a<em>b</em></strong><em>c</em></p>'))
-        .to.equal('<p><strong>a<em>b</em></strong><em>c</em></p>');
-    });
-
-    it('drops unsafe links and active content', () => {
-      expect(roundTrip('<p><a href="javascript:x()">t</a><img src=x onerror="x()"><script>x()</script></p>'))
-        .to.equal('<p>t</p>');
-    });
-
-    it('flattens unsupported blocks into paragraphs', () => {
-      expect(roundTrip('<section>Title</section><div>Body</div><pre>x</pre>'))
-        .to.equal('<p>Title</p><p>Body</p><p>x</p>');
-    });
-
-    it('keeps headings and blockquotes', () => {
-      const html = '<h1>One</h1><h2>Two</h2><h3>Three</h3><h4>Four</h4><h5>Five</h5><h6>Six</h6>'
-        + '<blockquote><p>Quote</p><h2>Head</h2><ul><li>item</li></ul><blockquote><p>Nested</p></blockquote></blockquote>';
-      expect(roundTrip(html)).to.equal(html);
-    });
-
-    it('drops empty headings and blockquotes', () => {
-      expect(roundTrip('<h2> </h2><blockquote><p><br></p></blockquote><p>a</p>')).to.equal('<p>a</p>');
-    });
-
-    it('keeps inline code, superscript and subscript', () => {
-      const html = '<p><code>x()</code> E=mc<sup>2</sup> H<sub>2</sub>O <strong><code>b</code></strong></p>';
-      expect(roundTrip(html)).to.equal(html);
-    });
-
-    it('does not combine superscript and subscript', () => {
-      expect(roundTrip('<p><sup><sub>x</sub></sup></p>')).to.equal('<p><sub>x</sub></p>');
-    });
-
-    it('escapes text and attributes', () => {
-      expect(roundTrip('<p>a &amp; &lt;b&gt; <a href="/?a=1&amp;b=&quot;2&quot;">l</a></p>'))
-        .to.equal('<p>a &amp; &lt;b&gt; <a href="/?a=1&amp;b=&quot;2&quot;">l</a></p>');
-    });
-
-    it('converts plain text into paragraphs', () => {
-      expect(roundTrip('line 1\nline 2\n\npara 2')).to.equal('<p>line 1<br>line 2</p><p>para 2</p>');
-      expect(roundTrip('a < b')).to.equal('<p>a &lt; b</p>');
-    });
-
-    it('produces values the SDK keeps unchanged', () => {
-      const schemaJson = { type: 'object', properties: { body: { type: 'string', 'x-semantic-type': 'rich-text' } } };
-      const values = [
-        '<h2>Title</h2><p><a href="/a"><strong>b<em>i</em></strong></a> <u>u</u><s>s</s></p>',
-        '<blockquote><p>q<sup>1</sup></p><ol><li>a<ul><li>b</li></ul></li></ol></blockquote>',
-        '<p>H<sub>2</sub>O <code>c</code><br>next</p>',
-        '<p><a href="/a" title="A &quot;b&quot; &amp; &lt;c&gt;">l</a></p>',
-      ];
-      values.forEach((value) => {
-        const body = roundTrip(value);
-        const json = { metadata: { schemaName: 'x' }, data: { body } };
-        const { model } = createEngine({ schema: schemaJson, document: json }).getState();
-        const { html } = convertJsonToHtml({ json, model });
-        expect(convertHtmlToJson({ html, schema: schemaJson }).json.data.body).to.equal(body);
-      });
-    });
-
-    it('serializes empty content as an empty string', () => {
-      expect(roundTrip('')).to.equal('');
-      expect(roundTrip(undefined)).to.equal('');
-      expect(roundTrip('<p> </p><p><br></p><ul><li></li></ul>')).to.equal('');
-    });
-
-    it('trims edge whitespace and breaks', () => {
-      expect(roundTrip('<p><br> a  b <br></p>')).to.equal('<p>a b</p>');
-    });
-  });
-
+describe('rich-text commands', () => {
   describe('selection helpers', () => {
     it('reports marks across a range and at a caret', () => {
       const state = stateFor('<p><strong>ab</strong>cd</p>', { from: 1, to: 3 });
@@ -296,8 +180,7 @@ describe('richtext-utils', () => {
     });
 
     it('indents and outdents list items', () => {
-      const indent = indentList({ pm });
-      const outdent = outdentList({ pm });
+      const { Tab: indent, 'Shift-Tab': outdent } = buildKeymap({ pm, schema });
       const flat = '<ul><li>a</li><li>b</li></ul>';
       expect(indent(stateFor(flat, { from: 3 }))).to.be.false;
       expect(indent(stateFor('<p>a</p>', { from: 1 }))).to.be.false;
@@ -334,6 +217,7 @@ describe('richtext-utils', () => {
     });
 
     it('inserts a hard break', () => {
+      const { 'Shift-Enter': insertHardBreak } = buildKeymap({ pm, schema });
       expect(run(insertHardBreak, stateFor('<p>ab</p>', { from: 2 })).html).to.equal('<p>a<br>b</p>');
     });
 
@@ -348,58 +232,11 @@ describe('richtext-utils', () => {
     });
 
     it('calls onLink for Mod-k', () => {
-      let called = false;
-      const keys = buildKeymap({ pm, schema, onLink: () => { called = true; } });
+      const calls = [];
+      const keys = buildKeymap({ pm, schema, onLink: () => calls.push('link') });
       expect(keys['Mod-k']()).to.be.true;
-      expect(called).to.be.true;
+      expect(calls).to.deep.equal(['link']);
       expect(buildKeymap({ pm, schema })['Shift-Mod-k']).to.equal(removeLink);
     });
-  });
-});
-
-describe('placeBubble', () => {
-  const area = {
-    left: 100, right: 500, top: 100, bottom: 300, width: 400,
-  };
-  const size = { width: 120, height: 30 };
-  const line = (top, left) => ({ top, bottom: top + 20, left });
-
-  it('centers above a single-line selection', () => {
-    const place = placeBubble({
-      start: line(200, 200), end: line(200, 300), area, ...size,
-    });
-    expect(place).to.deep.equal({ left: 90, top: 60, hidden: false });
-  });
-
-  it('centers a multi-line selection on its first line', () => {
-    const { left } = placeBubble({
-      start: line(200, 300), end: line(220, 150), area, ...size,
-    });
-    expect(left).to.equal(240);
-  });
-
-  it('keeps the bubble inside the area', () => {
-    const start = placeBubble({
-      start: line(200, 100), end: line(200, 110), area, ...size,
-    });
-    const end = placeBubble({
-      start: line(200, 490), end: line(200, 500), area, ...size,
-    });
-    expect(start.left).to.equal(8);
-    expect(end.left).to.equal(272);
-  });
-
-  it('flips below the selection when there is no room above', () => {
-    const { top } = placeBubble({
-      start: line(110, 200), end: line(130, 300), area, ...size,
-    });
-    expect(top).to.equal(60);
-  });
-
-  it('hides when the selection starts outside the area', () => {
-    const { hidden } = placeBubble({
-      start: line(320, 200), end: line(320, 300), area, ...size,
-    });
-    expect(hidden).to.be.true;
   });
 });

@@ -4,17 +4,15 @@ import { getConfig } from '../../../../nx2/scripts/nx.js';
 import { loadHrefSvg } from '../../../../nx2/utils/svg.js';
 import defaults from './defaults.js';
 import { icon } from '../icons.js';
+import { SCHEMA_SPEC, safeHref } from '../utils/rich-text/schema.js';
+import { parseRichText, serializeRichText, getCanonicalChange } from '../utils/rich-text/html.js';
 import {
-  SCHEMA_SPEC,
-  parseRichText,
-  serializeRichText,
   getActiveMarks,
   getListType,
   getLinkAt,
   getLinkDraft,
   applyLink,
   removeLink,
-  safeHref,
   toggleList,
   BLOCK_TYPES,
   getBlockType,
@@ -22,8 +20,8 @@ import {
   isInBlockquote,
   toggleBlockquote,
   buildKeymap,
-  placeBubble,
-} from './richtext-utils.js';
+} from '../utils/rich-text/commands.js';
+import { placeBubble } from '../utils/rich-text/bubble.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -321,7 +319,7 @@ class FormRichtext extends LitElement {
     view.updateState(view.state.apply(tr));
     this._syncActive();
     if (!tr.docChanged) return;
-    const next = serializeRichText(view.state.doc);
+    const next = serializeRichText({ doc: view.state.doc });
     if (next === this._emitted) return;
     this._emitted = next;
     this._dirty = true;
@@ -397,6 +395,22 @@ class FormRichtext extends LitElement {
     this._view?.focus();
   }
 
+  // Typing needs transient states like trailing spaces, so this only runs on blur.
+  _showCanonical() {
+    if (!this._view) {
+      return;
+    }
+
+    const { state } = this._view;
+    const change = getCanonicalChange({ pm: this._pm, doc: state.doc });
+    if (!change) {
+      return;
+    }
+
+    const { from, to, slice } = change;
+    this._view.dispatch(state.tr.replace(from, to, slice).setMeta('addToHistory', false));
+  }
+
   _onFocusIn() {
     this._focused = true;
   }
@@ -404,6 +418,10 @@ class FormRichtext extends LitElement {
   _onFocusOut(e) {
     if (e.relatedTarget && this.shadowRoot.contains(e.relatedTarget)) return;
     this._focused = false;
+    // Switching windows blurs the editor too, but the author has not left the field.
+    if (document.hasFocus()) {
+      this._showCanonical();
+    }
     if (!this._dirty) return;
     this._dirty = false;
     this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
