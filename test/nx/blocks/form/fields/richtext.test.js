@@ -23,9 +23,9 @@ async function mount({ value = '', loader = async () => pm, width, ...props } = 
 const content = (el) => el.shadowRoot.querySelector('.form-richtext-content');
 const tool = (el, id) => el.shadowRoot.querySelector(`[data-tool="${id}"]`);
 
-async function openMenu(el) {
+async function openMenu(el, source = 'bar') {
   const sr = el.shadowRoot;
-  sr.querySelector('.form-richtext-more').click();
+  sr.querySelector(`[data-more="${source}"]`).click();
   await until(() => sr.querySelector('.form-richtext-menu [data-tool]'));
   const menu = sr.querySelector('.form-richtext-menu');
   // Concurrent test pages steal window focus, which would light-dismiss the menu.
@@ -33,12 +33,28 @@ async function openMenu(el) {
   await el.updateComplete;
 }
 
-// Concurrent test pages can blur the window, so re-assert focus before reading pressed state.
-async function pressed(el, id) {
+// Concurrent test pages can blur the window, so re-assert focus before reading focus state.
+async function refocus(el) {
   content(el).dispatchEvent(new FocusEvent('focusin', { bubbles: true, composed: true }));
   await el.updateComplete;
+}
+
+async function pressed(el, id) {
+  await refocus(el);
   return tool(el, id).getAttribute('aria-pressed');
 }
+
+// Pins the focused state for tests that wait across several frames.
+async function holdFocus(el) {
+  Object.defineProperty(el, '_focused', { get: () => true, set: () => {} });
+  el.requestUpdate();
+  await el.updateComplete;
+}
+
+const floating = (el) => el.shadowRoot.querySelector('.form-richtext-bubble');
+const floatingTool = (el, id) => floating(el).querySelector(`[data-tool="${id}"]`);
+const visibleIds = (root) => [...root.querySelectorAll('[data-tool]:not(.is-hidden)')]
+  .map((button) => button.dataset.tool);
 
 function selectAll(el) {
   const view = el._view;
@@ -508,7 +524,7 @@ describe('form-richtext', () => {
     menu.querySelector('[data-tool="ordered_list"]').click();
     await el.updateComplete;
     expect(el.value).to.equal('<ol><li>Hi</li></ol>');
-    expect(el._menuOpen).to.be.true;
+    expect(el._menuSource).to.equal('bar');
 
     menu.close();
     await el.updateComplete;
@@ -533,13 +549,107 @@ describe('form-richtext', () => {
       el,
       () => sr.querySelector('.form-richtext-menu [data-tool="link"]').click(),
     );
-    expect(el._menuOpen).to.be.false;
+    expect(el._menuSource).to.be.undefined;
     expect(field('link-text').value).to.equal('site');
     field('link-href').value = '/page';
     button('Save').click();
     await el.updateComplete;
     expect(el.value).to.equal('<p><a href="/page">site</a></p>');
     expect(dialog.isConnected).to.be.false;
+  });
+
+  it('shows the floating toolbar only for a focused, non-empty selection', async () => {
+    const el = await mount({ value: '<p>Some text</p>' });
+    await refocus(el);
+    expect(floating(el)).to.equal(null);
+    selectAll(el);
+    await refocus(el);
+    expect(floating(el)).to.not.equal(null);
+    content(el).dispatchEvent(new FocusEvent('focusout', { bubbles: true, composed: true }));
+    await el.updateComplete;
+    expect(floating(el)).to.equal(null);
+    const view = el._view;
+    view.dispatch(view.state.tr.setSelection(pm.TextSelection.create(view.state.doc, 2)));
+    await refocus(el);
+    expect(floating(el)).to.equal(null);
+  });
+
+  it('floats above the selection, or below it next to the toolbar', async () => {
+    const value = [1, 2, 3, 4, 5].map((n) => `<p>Line ${n}</p>`).join('');
+    const el = await mount({ value, width: '400px' });
+    await holdFocus(el);
+    const view = el._view;
+    const select = async (from, to) => {
+      view.dispatch(view.state.tr.setSelection(pm.TextSelection.create(view.state.doc, from, to)));
+      await el.updateComplete;
+      return floating(el).getBoundingClientRect();
+    };
+    const frame = el.shadowRoot.querySelector('.form-richtext').getBoundingClientRect();
+    const last = await select(33, 37);
+    expect(last.bottom).to.be.at.most(view.coordsAtPos(33).top);
+    expect(last.left).to.be.at.least(frame.left);
+    expect(last.right).to.be.at.most(frame.right);
+    const first = await select(1, 5);
+    const toolbar = el.shadowRoot.querySelector('.form-richtext-toolbar').getBoundingClientRect();
+    expect(first.top).to.be.at.least(view.coordsAtPos(5).bottom);
+    expect(first.top).to.be.at.least(toolbar.bottom);
+  });
+
+  it('formats from the floating toolbar without adding tab stops', async () => {
+    const el = await mount({ value: '<p>text</p>' });
+    await holdFocus(el);
+    selectAll(el);
+    await el.updateComplete;
+    expect(visibleIds(floating(el))).to.deep.equal(['strong', 'em', 'u', 's', 'link', 'code']);
+    expect([...floating(el).querySelectorAll('button')].every((b) => b.tabIndex === -1)).to.be.true;
+    floatingTool(el, 'strong').click();
+    expect(el.value).to.equal('<p><strong>text</strong></p>');
+    await el.updateComplete;
+    expect(floatingTool(el, 'strong').getAttribute('aria-pressed')).to.equal('true');
+  });
+
+  it('offers unlink in the floating toolbar only inside a link', async () => {
+    const el = await mount({ value: '<p><a href="/a">site</a></p>' });
+    await holdFocus(el);
+    selectAll(el);
+    await el.updateComplete;
+    expect(visibleIds(floating(el))).to.include('unlink');
+    floatingTool(el, 'unlink').click();
+    expect(el.value).to.equal('<p>site</p>');
+    await el.updateComplete;
+    expect(visibleIds(floating(el))).to.not.include('unlink');
+  });
+
+  it('hides the floating toolbar while the link dialog is open', async () => {
+    const el = await mount({ value: '<p>site</p>' });
+    await holdFocus(el);
+    selectAll(el);
+    await el.updateComplete;
+    const { button } = await openLinkDialog(el, () => floatingTool(el, 'link').click());
+    expect(floating(el)).to.equal(null);
+    button('Cancel').click();
+    await el.updateComplete;
+    expect(floating(el)).to.not.equal(null);
+  });
+
+  it('opens only the menu groups from the floating toolbar', async () => {
+    const el = await mount({ value: '<p>site</p>', width: '260px' });
+    await until(() => el._overflowAt < 9);
+    await holdFocus(el);
+    selectAll(el);
+    await el.updateComplete;
+    await openMenu(el, 'bubble');
+    const menu = el.shadowRoot.querySelector('.form-richtext-menu');
+    expect(el._menuSource).to.equal('bubble');
+    expect(floating(el).querySelector('[data-more]').getAttribute('aria-expanded')).to.equal('true');
+    expect(visibleIds(menu)).to.deep.equal(['ordered_list', 'bullet_list', 'blockquote', 'sup', 'sub']);
+    menu.querySelector('[data-tool="bullet_list"]').click();
+    expect(el.value).to.equal('<ul><li>site</li></ul>');
+    const view = el._view;
+    const { doc, selection } = view.state;
+    view.dispatch(view.state.tr.setSelection(pm.TextSelection.create(doc, selection.to)));
+    await until(() => el._menuSource === undefined);
+    expect(el._menuSource).to.be.undefined;
   });
 
   it('reports a load failure', async () => {

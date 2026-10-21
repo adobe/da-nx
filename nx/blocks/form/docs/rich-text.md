@@ -87,6 +87,15 @@ The editor lives in [`fields/richtext.js`](../fields/richtext.js).
   of the document) even when not focused.
   Icons are the S2 SVGs from `${codeBase}/img/icons`, loaded lazily with text
   fallbacks.
+- A floating toolbar appears next to a non-empty selection while the field has
+  focus, so long fields need no scrolling back to the top. It holds bold,
+  italic, underline, strikethrough, link, remove link and inline code, plus a
+  more button whose menu shows only the lists, blockquote and scripts. It sits
+  above the selection, or below it when it would cover the fixed toolbar. It is
+  centered on the first selected line and kept inside the field frame. It
+  hides when the selection collapses, the field loses focus, the link dialog
+  opens or the selection scrolls out of view. Its buttons duplicate the fixed
+  toolbar, so they are left out of the tab order.
 - The editor supports these shortcuts.
   - `Mod-B`, `Mod-I` and `Mod-U` for bold, italic and underline
   - `Mod-E` for inline code and `Shift-Mod-X` for strikethrough
@@ -143,7 +152,8 @@ Unit tests replace the `da-y-wrapper` import with
 packages (dev dependencies only) under the da-y-wrapper names.
 
 - `fields/richtext-utils.test.js` covers the schema, parsing, canonical
-  serialization, commands and parity with the bundled SDK codec.
+  serialization, commands, floating toolbar placement and parity with the
+  bundled SDK codec.
 - `fields/richtext.test.js` covers component behavior, the toolbar, links and
   events.
 - `views/editor.test.js` covers rendering and the immediate commit on `change`.

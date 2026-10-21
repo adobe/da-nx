@@ -22,6 +22,7 @@ import {
   isInBlockquote,
   toggleBlockquote,
   buildKeymap,
+  placeBubble,
 } from './richtext-utils.js';
 
 const style = await loadStyle(import.meta.url);
@@ -140,7 +141,7 @@ class FormRichtext extends LitElement {
     _icons: { state: true },
     _link: { state: true },
     _overflowAt: { state: true },
-    _menuOpen: { state: true },
+    _menuSource: { state: true },
   };
 
   static loadProseMirror = loadProseMirror;
@@ -182,7 +183,14 @@ class FormRichtext extends LitElement {
       this._hiddenTools = hidden;
       this._measureToolbar();
     }
-    if (this._menuOpen) this._menu?.reposition();
+    if (this._showBubble) {
+      this._positionBubble();
+    } else if (this._menuSource === 'bubble') {
+      this._menu?.close();
+    }
+    if (this._menuSource) {
+      this._menu?.reposition();
+    }
     if (!this._view) return;
     const next = this.value ?? '';
     if (changed.has('value') && next !== this._emitted) {
@@ -222,8 +230,8 @@ class FormRichtext extends LitElement {
     return this.shadowRoot.querySelector('.form-richtext-menu');
   }
 
-  async _onMore() {
-    if (this._menuOpen) {
+  async _onMore(source) {
+    if (this._menuSource) {
       this._menu?.close();
       return;
     }
@@ -232,14 +240,40 @@ class FormRichtext extends LitElement {
     } catch {
       return;
     }
-    this._menuOpen = true;
+    this._menuSource = source;
     await this.updateComplete;
-    this._menu?.show({ anchor: this.shadowRoot.querySelector('.form-richtext-more'), placement: 'below-end' });
+    const anchor = this.shadowRoot.querySelector(`[data-more="${source}"]`);
+    if (!anchor) {
+      this._menuSource = undefined;
+      return;
+    }
+    this._menu?.show({ anchor, placement: source === 'bubble' ? 'above' : 'below-end' });
   }
 
   _onMenuClose(e) {
     e.stopPropagation();
-    this._menuOpen = false;
+    this._menuSource = undefined;
+  }
+
+  get _showBubble() {
+    return !!(this._focused && this._active?.selected && !this._link && !this.disabled);
+  }
+
+  _positionBubble() {
+    const bubble = this.shadowRoot.querySelector('.form-richtext-bubble');
+    if (!bubble || !this._view) {
+      return;
+    }
+
+    const { from, to } = this._view.state.selection;
+    const { left, top, hidden } = placeBubble({
+      start: this._view.coordsAtPos(from),
+      end: this._view.coordsAtPos(to),
+      area: bubble.offsetParent.getBoundingClientRect(),
+      width: bubble.offsetWidth,
+      height: bubble.offsetHeight,
+    });
+    Object.assign(bubble.style, { left: `${left}px`, top: `${top}px`, visibility: hidden ? 'hidden' : '' });
   }
 
   _attributes() {
@@ -274,6 +308,11 @@ class FormRichtext extends LitElement {
       attributes: this._attributes(),
       dispatchTransaction: (tr) => this._dispatch(tr),
     });
+    this._view.dom.addEventListener('scroll', () => {
+      if (this._showBubble) {
+        this._positionBubble();
+      }
+    });
     this._syncActive();
   }
 
@@ -300,6 +339,7 @@ class FormRichtext extends LitElement {
       quote: isInBlockquote(state),
       link: getLinkAt(state)?.href,
       linked: removeLink(state),
+      selected: !state.selection.empty,
       undo: !!this._pm.undo?.(state),
       redo: !!this._pm.redo?.(state),
       empty: doc.childCount === 1 && doc.firstChild.type.name === 'paragraph' && doc.firstChild.content.size === 0,
@@ -401,7 +441,7 @@ class FormRichtext extends LitElement {
     return svg ? svg.cloneNode(true) : html`<span class="form-richtext-tool-text">${tool.text}</span>`;
   }
 
-  _renderTool(tool, { overflow } = {}) {
+  _renderTool(tool, { overflow, floating } = {}) {
     const title = `${tool.label} (${tool.keys.replace('Mod', MOD)})`;
     const classes = [overflow && 'is-overflow', this._isToolHidden(tool.id) && 'is-hidden'];
     return html`
@@ -411,6 +451,7 @@ class FormRichtext extends LitElement {
         data-tool=${tool.id}
         title=${title}
         aria-label=${tool.label}
+        tabindex=${floating ? '-1' : nothing}
         aria-pressed=${ACTIONS.has(tool.id) ? nothing : String(this._isPressed(tool.id))}
         ?disabled=${this._isToolDisabled(tool.id)}
         @mousedown=${(e) => e.preventDefault()}
@@ -435,26 +476,35 @@ class FormRichtext extends LitElement {
     `);
   }
 
-  _renderMore() {
-    const at = this._overflowAt ?? BAR_TOOLS.length;
+  _renderMoreButton(source) {
+    const floating = source === 'bubble';
+    return html`
+      <button
+        type="button"
+        class="form-richtext-tool${floating ? '' : ' form-richtext-more'}"
+        data-more=${source}
+        title=${MORE.label}
+        aria-label=${MORE.label}
+        aria-haspopup="true"
+        aria-expanded=${String(this._menuSource === source)}
+        tabindex=${floating ? '-1' : nothing}
+        ?disabled=${this.disabled || this._status !== 'ready'}
+        @mousedown=${(e) => e.preventDefault()}
+        @click=${() => this._onMore(source)}
+      >${this._renderIcon(MORE)}</button>
+    `;
+  }
+
+  // The bubble already shows every bar tool, so its menu only adds the menu groups.
+  _renderMenu() {
+    const at = this._menuSource === 'bubble' ? BAR_TOOLS.length : this._overflowAt ?? BAR_TOOLS.length;
     const overflowed = BAR_GROUPS
       .map((group) => group.filter((tool) => BAR_TOOLS.indexOf(tool) >= at))
       .filter((group) => group.length);
     const groups = [...overflowed, ...MENU_GROUPS];
     return html`
-      <button
-        type="button"
-        class="form-richtext-tool form-richtext-more"
-        title=${MORE.label}
-        aria-label=${MORE.label}
-        aria-haspopup="true"
-        aria-expanded=${String(!!this._menuOpen)}
-        ?disabled=${this.disabled || this._status !== 'ready'}
-        @mousedown=${(e) => e.preventDefault()}
-        @click=${this._onMore}
-      >${this._renderIcon(MORE)}</button>
       <nx-popover class="form-richtext-menu" @close=${this._onMenuClose}>
-        ${this._menuOpen ? html`
+        ${this._menuSource ? html`
           <div class="form-richtext-menu-row" role="group" aria-label=${MORE.label}>
             ${groups.map((group, i) => html`
               ${i ? html`<span class="form-richtext-sep"></span>` : nothing}
@@ -463,6 +513,23 @@ class FormRichtext extends LitElement {
           </div>
         ` : nothing}
       </nx-popover>
+    `;
+  }
+
+  _renderBubble() {
+    if (!this._showBubble) {
+      return nothing;
+    }
+
+    return html`
+      <div class="form-richtext-bubble" role="toolbar" aria-label="Selection formatting">
+        ${BAR_GROUPS.map((group, i) => html`
+          ${i ? html`<span class="form-richtext-sep"></span>` : nothing}
+          ${group.map((tool) => this._renderTool(tool, { floating: true }))}
+        `)}
+        <span class="form-richtext-sep"></span>
+        ${this._renderMoreButton('bubble')}
+      </div>
     `;
   }
 
@@ -510,11 +577,13 @@ class FormRichtext extends LitElement {
             ${this._renderHistory()}
             ${this._renderBlockPicker()}
             ${this._renderBar()}
-            ${this._renderMore()}
+            ${this._renderMoreButton('bar')}
           </div>
+          ${this._renderMenu()}
           ${this._renderLink()}
           <div class="form-input-wrap">
             <div class="form-richtext-editor" aria-busy=${this._status ? 'false' : 'true'}></div>
+            ${this._renderBubble()}
             ${showPlaceholder ? html`<span class="form-richtext-placeholder" aria-hidden="true">${this.placeholder}</span>` : nothing}
             ${this.error ? icon('alert', 'form-field-icon') : nothing}
           </div>
