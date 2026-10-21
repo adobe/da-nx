@@ -1,3 +1,10 @@
+## [1.20.1](https://github.com/adobe/da-nx/compare/v1.20.0...v1.20.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **editortoggle:** hide disabled editor toggle only on edit ([4325dca](https://github.com/adobe/da-nx/commit/4325dca2ba87aa582af46a13a413835ef66a2fad))
+
 # [1.20.0](https://github.com/adobe/da-nx/compare/v1.19.0...v1.20.0) (2026-10-21)
 
 
