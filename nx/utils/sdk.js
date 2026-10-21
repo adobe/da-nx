@@ -2,7 +2,7 @@ import { setImsDetails, daFetch } from './daFetch.js';
 
 let port2;
 
-function handleSdkResponse({ port, action }) {
+function handleSdkResponse({ port, action, details }) {
   return new Promise((resolve) => {
     const requestId = crypto.randomUUID();
     const pending = {};
@@ -20,15 +20,74 @@ function handleSdkResponse({ port, action }) {
     try {
       port.addEventListener('message', pending.listener);
       port.start();
-      port.postMessage({ action, requestId });
+      port.postMessage({ action, requestId, ...(details === undefined ? {} : { details }) });
     } catch {
       finish({ ok: false, error: 'disconnected' });
     }
   });
 }
 
-export function createHostActions({ port }) {
+export function createHostActions({ port, capabilities = {} }) {
+  const subscribers = new Set();
+  let lastHtml;
+  let lastBlockIndex;
+  let lastEditable;
+
+  const onLiveMessage = ({ data }) => {
+    if (data?.action !== 'liveDocument' && data?.action !== 'liveSelection') return;
+    const { selection } = data;
+    if (!selection || (selection.blockIndex !== null
+      && (!Number.isInteger(selection.blockIndex) || selection.blockIndex < 0))) return;
+    if (data.action === 'liveDocument') {
+      if (typeof data.html !== 'string') return;
+      lastHtml = data.html;
+      lastEditable = typeof data.editable === 'boolean' ? data.editable : undefined;
+    } else if (lastHtml === undefined) return;
+    lastBlockIndex = selection.blockIndex;
+    subscribers.forEach(({ callback }) => {
+      try {
+        callback({
+          html: lastHtml,
+          selection: { blockIndex: lastBlockIndex },
+          ...(lastEditable === undefined ? {} : { editable: lastEditable }),
+        });
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Live document subscriber failed:', error);
+      }
+    });
+  };
+
   return {
+    sendHTML: (html, options = {}) => {
+      if (typeof html !== 'string' || (options.replace !== undefined && typeof options.replace !== 'boolean')) {
+        throw new TypeError('invalid-html');
+      }
+      if (!options.replace) {
+        port.postMessage({ action: 'sendHTML', details: html });
+        return undefined;
+      }
+      if (capabilities.sendHTMLReplace !== 1) {
+        return Promise.resolve({ ok: false, error: 'unsupported' });
+      }
+      return handleSdkResponse({
+        port,
+        action: 'sendHTML',
+        details: {
+          html,
+          replace: true,
+          ...(options.expected === undefined ? {} : { expected: options.expected }),
+        },
+      }).then((result) => {
+        if (result.ok && ((typeof result.html !== 'string' && result.html !== null) || !result.selection
+          || (result.selection.blockIndex !== null
+            && (!Number.isSafeInteger(result.selection.blockIndex)
+              || result.selection.blockIndex < 0)))) {
+          return { ok: false, error: 'invalid-response' };
+        }
+        return result;
+      });
+    },
     openComparison: (options = {}) => {
       const { candidate, baseline } = options ?? {};
       if (!['document', 'preview'].includes(candidate) || baseline !== 'live') {
@@ -45,15 +104,51 @@ export function createHostActions({ port }) {
       const reason = !result.ok && typeof result.error === 'string' ? result.error : 'invalid-response';
       throw reason;
     },
+    subscribeLiveDocument: (callback) => {
+      if (typeof callback !== 'function') throw new TypeError('callback must be a function');
+      const subscriber = { callback };
+      if (!subscribers.size) {
+        port.addEventListener('message', onLiveMessage);
+        try {
+          port.start();
+          port.postMessage({ action: 'subscribeLiveDocument' });
+        } catch (error) {
+          port.removeEventListener('message', onLiveMessage);
+          throw error;
+        }
+      }
+      subscribers.add(subscriber);
+      const unsubscribe = () => {
+        if (!subscribers.delete(subscriber) || subscribers.size) return;
+        port.removeEventListener('message', onLiveMessage);
+        lastHtml = undefined;
+        lastBlockIndex = undefined;
+        lastEditable = undefined;
+        try {
+          port.postMessage({ action: 'unsubscribeLiveDocument' });
+        } catch {
+          // The host may have closed the port; local subscription state is already cleared.
+        }
+      };
+      if (lastHtml !== undefined) {
+        try {
+          callback({
+            html: lastHtml,
+            selection: { blockIndex: lastBlockIndex },
+            ...(lastEditable === undefined ? {} : { editable: lastEditable }),
+          });
+        } catch (error) {
+          unsubscribe();
+          throw error;
+        }
+      }
+      return unsubscribe;
+    },
   };
 }
 
 function sendText(text) {
   port2.postMessage({ action: 'sendText', details: text });
-}
-
-function sendHTML(text) {
-  port2.postMessage({ action: 'sendHTML', details: text });
 }
 
 function setTitle(text) {
@@ -100,10 +195,9 @@ const DA_SDK = (() => new Promise((resolve) => {
       }
 
       const actions = {
-        ...createHostActions({ port: port2 }),
+        ...createHostActions({ port: port2, capabilities: e.data.capabilities }),
         daFetch,
         sendText,
-        sendHTML,
         setHref,
         setHash,
         closeLibrary,
