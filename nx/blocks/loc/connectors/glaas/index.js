@@ -762,7 +762,8 @@ export async function saveItems({
       });
       if (prepared.error) {
         const status = prepared.status ? ` (HTTP ${prepared.status})` : '';
-        throw new Error(`${prepared.error}${status}`);
+        const asset = prepared.assetName || glaasPath;
+        throw new Error(`${prepared.error}${status}\nAsset: ${asset}\nGLaaS task: ${task.name}\n`);
       }
       text = prepared.text;
     } else {

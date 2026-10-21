@@ -1374,7 +1374,8 @@ export async function prepareMultimodalPageForSave({
         image,
         logRequest,
       });
-      if (!result.error) onImageProcessed?.();
+      if (result.error) return { ...result, assetName: image.glaasName };
+      onImageProcessed?.();
       return result;
     },
   });
@@ -1393,7 +1394,7 @@ export async function prepareMultimodalPageForSave({
   });
 
   const htmlDownload = await downloadMultimodalAsset(service, token, task, htmlAssetName);
-  if (htmlDownload?.error) return htmlDownload;
+  if (htmlDownload?.error) return { ...htmlDownload, assetName: htmlAssetName };
 
   const text = pageAsset.images.length
     ? rewriteContentDaLiveImageUrls(htmlDownload, pathToNewUrl)
