@@ -26,6 +26,11 @@ import {
 
 const style = await loadStyle(import.meta.url);
 
+const HISTORY_TOOLS = [
+  { id: 'undo', label: 'Undo', keys: 'Mod+Z', icon: 'undo', text: '↶' },
+  { id: 'redo', label: 'Redo', keys: 'Mod+Shift+Z', icon: 'redo', text: '↷' },
+];
+
 const BAR_GROUPS = [
   [
     { id: 'strong', label: 'Bold', keys: 'Mod+B', icon: 'tagbold', text: 'B' },
@@ -54,7 +59,7 @@ const MENU_GROUPS = [
   ],
 ];
 
-const BAR_TOOLS = BAR_GROUPS.flat();
+const BAR_TOOLS = [...HISTORY_TOOLS, ...BAR_GROUPS.flat()];
 
 const TOOLS = [...BAR_TOOLS, ...MENU_GROUPS.flat()];
 
@@ -62,7 +67,9 @@ const MORE = { id: 'more', label: 'More formatting', icon: 'more', text: '⋮' }
 
 const LISTS = new Set(['bullet_list', 'ordered_list']);
 
-const ACTIONS = new Set(['unlink']);
+const HISTORY = new Set(HISTORY_TOOLS.map((tool) => tool.id));
+
+const ACTIONS = new Set(['unlink', ...HISTORY]);
 
 const BLOCK_ITEMS = [{ section: 'Change into' }, ...BLOCK_TYPES];
 
@@ -170,9 +177,9 @@ class FormRichtext extends LitElement {
   }
 
   updated(changed) {
-    const unlinkShown = !this._isToolHidden('unlink');
-    if (changed.has('_icons') || unlinkShown !== this._unlinkShown) {
-      this._unlinkShown = unlinkShown;
+    const hidden = BAR_TOOLS.map((tool) => tool.id).filter((id) => this._isToolHidden(id)).join();
+    if (changed.has('_icons') || hidden !== this._hiddenTools) {
+      this._hiddenTools = hidden;
       this._measureToolbar();
     }
     if (this._menuOpen) this._menu?.reposition();
@@ -293,6 +300,8 @@ class FormRichtext extends LitElement {
       quote: isInBlockquote(state),
       link: getLinkAt(state)?.href,
       linked: removeLink(state),
+      undo: !!this._pm.undo?.(state),
+      redo: !!this._pm.redo?.(state),
       empty: doc.childCount === 1 && doc.firstChild.type.name === 'paragraph' && doc.firstChild.content.size === 0,
     };
   }
@@ -310,7 +319,8 @@ class FormRichtext extends LitElement {
       this._openLink();
       return;
     }
-    if (id === 'unlink') this._run(removeLink);
+    if (HISTORY.has(id)) this._run(pm[id]);
+    else if (id === 'unlink') this._run(removeLink);
     else if (id === 'blockquote') this._run(toggleBlockquote({ pm }));
     else if (LISTS.has(id)) this._run(toggleList({ pm, name: id }));
     else this._run(pm.toggleMark(this._schema.marks[id]));
@@ -376,11 +386,13 @@ class FormRichtext extends LitElement {
 
   _isToolDisabled(id) {
     if (this.disabled || this._status !== 'ready') return true;
+    if (HISTORY.has(id)) return !this._active?.[id];
     if (id === 'unlink') return !this._selection?.linked;
     return false;
   }
 
   _isToolHidden(id) {
+    if (HISTORY.has(id)) return !!this._pm && !this._pm.undo;
     return id === 'unlink' && !this._selection?.linked;
   }
 
@@ -404,6 +416,14 @@ class FormRichtext extends LitElement {
         @mousedown=${(e) => e.preventDefault()}
         @click=${() => this._onTool(tool.id)}
       >${this._renderIcon(tool)}</button>
+    `;
+  }
+
+  _renderHistory() {
+    const hidden = this._isToolHidden('undo');
+    return html`
+      ${HISTORY_TOOLS.map((tool) => this._renderTool(tool))}
+      <span class="form-richtext-sep${hidden ? ' is-hidden' : ''}"></span>
     `;
   }
 
@@ -487,6 +507,7 @@ class FormRichtext extends LitElement {
         ${this.label ? html`<label id="form-richtext-label" @click=${() => this.focus()}>${this.label}${this.required ? html`<span class="form-required">*</span>` : nothing}</label>` : nothing}
         <div class="form-richtext">
           <div class="form-richtext-toolbar" role="toolbar" aria-label="Formatting">
+            ${this._renderHistory()}
             ${this._renderBlockPicker()}
             ${this._renderBar()}
             ${this._renderMore()}

@@ -58,12 +58,14 @@ The editor lives in [`fields/richtext.js`](../fields/richtext.js).
 - **ProseMirror is not bundled in nexter.** It is lazily imported through the
   bare `da-y-wrapper` specifier, which the host page's import map resolves. On
   da.live that is the same bundle the canvas and quick-edit use, so the browser
-  shares one cached copy. Undo and redo require da-live to export
-  `prosemirror-history` from that bundle. Without it the field still works and
-  only the history shortcuts are skipped.
+  shares one cached copy. Undo and redo require da-live to export `history`,
+  `undo` and `redo` from `prosemirror-history` in that bundle. Without them the
+  field still works, the history shortcuts are skipped and the undo and redo
+  buttons are hidden.
 - The toolbar is ordered by priority, since the last tools overflow first. It
-  starts with a paragraph and heading picker (the shared `nx-picker`, lazily
-  imported and disabled inside lists). Then come bold, italic, underline and
+  starts with undo and redo, which are disabled while there is nothing to undo
+  or redo. A paragraph and heading picker follows (the shared `nx-picker`,
+  lazily imported and disabled inside lists). Then come bold, italic, underline and
   strikethrough, followed by link, remove link and inline code. Numbered and
   bulleted lists, blockquote, superscript and subscript always live in a "more"
   menu. That menu opens from the S2 `more` icon rotated to a vertical position,
@@ -131,8 +133,8 @@ only shares ProseMirror itself.
 1. Release `@adobe/da-sc-sdk` with the rich-text semantic type and codec,
    then bump it here and run `npm run build:da-sc-sdk`. Until then the old
    dist stores rich-text values escaped.
-2. Optionally deploy da-live's `da-y-wrapper` with `history`, `undo` and `redo`
-   exports. This enables undo and redo.
+2. Deploy da-live's `da-y-wrapper` with `history`, `undo` and `redo` exports.
+   Until then the undo and redo buttons stay hidden.
 
 ## Testing
 

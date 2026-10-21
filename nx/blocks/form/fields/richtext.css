@@ -59,6 +59,10 @@
   &.is-overflow {
     visibility: hidden;
   }
+
+  &.is-hidden {
+    display: none;
+  }
 }
 
 .form-richtext-more {

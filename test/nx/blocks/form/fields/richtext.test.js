@@ -442,13 +442,45 @@ describe('form-richtext', () => {
     expect(content(el).textContent).to.equal('a');
   });
 
+  it('undoes and redoes from the toolbar', async () => {
+    const el = await mount({ value: '<p>text</p>' });
+    expect(tool(el, 'undo').disabled).to.be.true;
+    expect(tool(el, 'redo').disabled).to.be.true;
+    expect(tool(el, 'undo').hasAttribute('aria-pressed')).to.be.false;
+    selectAll(el);
+    tool(el, 'strong').click();
+    await el.updateComplete;
+    expect(tool(el, 'undo').disabled).to.be.false;
+    tool(el, 'undo').click();
+    expect(el.value).to.equal('<p>text</p>');
+    await el.updateComplete;
+    expect(tool(el, 'undo').disabled).to.be.true;
+    expect(tool(el, 'redo').disabled).to.be.false;
+    tool(el, 'redo').click();
+    expect(el.value).to.equal('<p><strong>text</strong></p>');
+    await el.updateComplete;
+    expect(tool(el, 'redo').disabled).to.be.true;
+  });
+
+  it('hides undo and redo when the host has no history', async () => {
+    const { history, undo, redo, ...noHistory } = pm; // eslint-disable-line no-unused-vars
+    const el = await mount({ value: '<p>text</p>', loader: async () => noHistory, width: '900px' });
+    expect(tool(el, 'undo').classList.contains('is-hidden')).to.be.true;
+    expect(tool(el, 'redo').classList.contains('is-hidden')).to.be.true;
+    expect(tool(el, 'redo').nextElementSibling.classList.contains('is-hidden')).to.be.true;
+    await until(() => el._overflowAt === 9);
+    expect(tool(el, 'code').classList.contains('is-overflow')).to.be.false;
+  });
+
   it('orders the bar and keeps lists, quote and scripts in the more menu', async () => {
     const el = await mount({ value: '<p>Hi</p>', width: '900px' });
     const sr = el.shadowRoot;
-    await until(() => el._overflowAt === 7);
+    await until(() => el._overflowAt === 9);
     const barTools = [...sr.querySelectorAll('.form-richtext-toolbar > [data-tool]')].map((b) => b.dataset.tool);
-    expect(barTools).to.deep.equal(['strong', 'em', 'u', 's', 'link', 'unlink', 'code']);
-    expect(sr.querySelector('.form-richtext-toolbar > .form-richtext-block')).to.equal(sr.querySelector('.form-richtext-toolbar').firstElementChild);
+    expect(barTools).to.deep.equal(['undo', 'redo', 'strong', 'em', 'u', 's', 'link', 'unlink', 'code']);
+    const picker = sr.querySelector('.form-richtext-toolbar > .form-richtext-block');
+    expect(picker.previousElementSibling.classList.contains('form-richtext-sep')).to.be.true;
+    expect(picker.previousElementSibling.previousElementSibling).to.equal(tool(el, 'redo'));
     await openMenu(el);
     const menuTools = [...sr.querySelectorAll('.form-richtext-menu [data-tool]')].map((b) => b.dataset.tool);
     expect(menuTools).to.deep.equal(['ordered_list', 'bullet_list', 'blockquote', 'sup', 'sub']);
@@ -457,7 +489,7 @@ describe('form-richtext', () => {
   it('moves bar tools that do not fit into the more menu', async () => {
     const el = await mount({ value: '<p>Hi</p>', width: '260px' });
     const sr = el.shadowRoot;
-    await until(() => el._overflowAt < 7);
+    await until(() => el._overflowAt < 9);
     expect(el._overflowAt).to.be.above(0);
     expect(tool(el, 'link').classList.contains('is-overflow')).to.be.true;
     expect(tool(el, 'strong').classList.contains('is-overflow')).to.be.false;
@@ -483,7 +515,7 @@ describe('form-richtext', () => {
     expect(more.getAttribute('aria-expanded')).to.equal('false');
 
     el.style.width = '900px';
-    await until(() => el._overflowAt === 7);
+    await until(() => el._overflowAt === 9);
     await el.updateComplete;
     expect(sr.querySelector('.form-richtext-more')).to.not.equal(null);
     expect(tool(el, 'link').classList.contains('is-overflow')).to.be.false;
@@ -492,7 +524,7 @@ describe('form-richtext', () => {
   it('opens the link dialog from the more menu', async () => {
     const el = await mount({ value: '<p>site</p>', width: '260px' });
     const sr = el.shadowRoot;
-    await until(() => el._overflowAt < 7);
+    await until(() => el._overflowAt < 9);
     el.focus();
     selectAll(el);
     sr.querySelector('.form-richtext-more').click();
