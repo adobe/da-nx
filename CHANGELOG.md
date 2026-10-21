@@ -1,3 +1,18 @@
+# [1.20.0](https://github.com/adobe/da-nx/compare/v1.19.0...v1.20.0) (2026-10-21)
+
+
+### Bug Fixes
+
+* **ew:** forward WYSIWYG iframe clicks for RUM (adobe/da-live[#1324](https://github.com/adobe/da-nx/issues/1324)) ([4bd6625](https://github.com/adobe/da-nx/commit/4bd6625d9d09fa5f6d438bdec5ca8d111a3f5c85))
+* **quick-edit:** align forwarded click target with RUM enhancer format ([0e7b39b](https://github.com/adobe/da-nx/commit/0e7b39bce56d6621b6518bac40e33ef12404c5ca))
+* **quick-edit:** attribute iframe text clicks to layout ([3f365f3](https://github.com/adobe/da-nx/commit/3f365f316a382f13d4c448e5b280e7196a4e8afa))
+* **quick-edit:** preserve native clicks on block selection labels ([a3d12f7](https://github.com/adobe/da-nx/commit/a3d12f75fb2815400515357953345d13780eea1f))
+
+
+### Features
+
+* identify editor as the source of rum clicks ([b61f2a8](https://github.com/adobe/da-nx/commit/b61f2a80b9c82bfc76f91da8af8ce8be96212244))
+
 # [1.19.0](https://github.com/adobe/da-nx/compare/v1.18.0...v1.19.0) (2026-10-20)
 
 
