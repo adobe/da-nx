@@ -1,3 +1,114 @@
+# [1.20.0](https://github.com/adobe/da-nx/compare/v1.19.0...v1.20.0) (2026-10-21)
+
+
+### Bug Fixes
+
+* **ew:** forward WYSIWYG iframe clicks for RUM (adobe/da-live[#1324](https://github.com/adobe/da-nx/issues/1324)) ([4bd6625](https://github.com/adobe/da-nx/commit/4bd6625d9d09fa5f6d438bdec5ca8d111a3f5c85))
+* **quick-edit:** align forwarded click target with RUM enhancer format ([0e7b39b](https://github.com/adobe/da-nx/commit/0e7b39bce56d6621b6518bac40e33ef12404c5ca))
+* **quick-edit:** attribute iframe text clicks to layout ([3f365f3](https://github.com/adobe/da-nx/commit/3f365f316a382f13d4c448e5b280e7196a4e8afa))
+* **quick-edit:** preserve native clicks on block selection labels ([a3d12f7](https://github.com/adobe/da-nx/commit/a3d12f75fb2815400515357953345d13780eea1f))
+
+
+### Features
+
+* identify editor as the source of rum clicks ([b61f2a8](https://github.com/adobe/da-nx/commit/b61f2a80b9c82bfc76f91da8af8ce8be96212244))
+
+# [1.19.0](https://github.com/adobe/da-nx/compare/v1.18.0...v1.19.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **sl:** add select() and default type=text to sl-input ([#843](https://github.com/adobe/da-nx/issues/843)) ([a81d367](https://github.com/adobe/da-nx/commit/a81d367335cdb79e986d99117e201199727d0139))
+
+
+### Features
+
+* **shared:** add treegrid keyboard navigation util ([#838](https://github.com/adobe/da-nx/issues/838)) ([a459d5f](https://github.com/adobe/da-nx/commit/a459d5f70e10fc8d10ec896dae769c1cdb8f42c9))
+
+# [1.18.0](https://github.com/adobe/da-nx/compare/v1.17.0...v1.18.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **form:** import getFirstSheet locally in daConfig ([eb40054](https://github.com/adobe/da-nx/commit/eb4005428b3813f0425564ef176cc5f4598bb929))
+* **quick-edit:** shift later indices when creating an editor from a host edit ([ccbb6d6](https://github.com/adobe/da-nx/commit/ccbb6d6359d97a15722fa6970ac6b38140d9a537))
+* **styles:** adjust padding for preview ([65d8ad7](https://github.com/adobe/da-nx/commit/65d8ad72d521e0d8e871cb4a5943b41e35b34c3b))
+
+
+### Features
+
+* **form:** add editor.preview config flag ([09b9e05](https://github.com/adobe/da-nx/commit/09b9e05e7407995269774aa1176fcb96d02370f7))
+
+# [1.17.0](https://github.com/adobe/da-nx/compare/v1.16.6...v1.17.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **sdk:** isolate live document subscriber failures ([92002c4](https://github.com/adobe/da-nx/commit/92002c436cafc9a645a312ff40d64e5d3d7e582b))
+
+
+### Features
+
+* add live document and HTML replacement SDK actions ([6caa671](https://github.com/adobe/da-nx/commit/6caa6719f3e970a6d74d1c60efa3fc31f5ffc392))
+
+## [1.16.6](https://github.com/adobe/da-nx/compare/v1.16.5...v1.16.6) (2026-10-19)
+
+
+### Bug Fixes
+
+* use the coworker UI for Experience Context ([#876](https://github.com/adobe/da-nx/issues/876)) ([ae51965](https://github.com/adobe/da-nx/commit/ae51965092d49f7603e8dee4ea82bc5995c32c77))
+
+## [1.16.5](https://github.com/adobe/da-nx/compare/v1.16.4...v1.16.5) (2026-10-19)
+
+
+### Bug Fixes
+
+* **quick-edit:** preserve wrappers when editing nested blocks ([e5d4806](https://github.com/adobe/da-nx/commit/e5d4806da0f029ad762b4871a013d79e038d16b5))
+
+## [1.16.4](https://github.com/adobe/da-nx/compare/v1.16.3...v1.16.4) (2026-10-16)
+
+
+### Bug Fixes
+
+* display the correct message when there is an error ([#862](https://github.com/adobe/da-nx/issues/862)) ([9c45996](https://github.com/adobe/da-nx/commit/9c45996d2fe85c02535aa898584a8494069fc1d3))
+
+## [1.16.3](https://github.com/adobe/da-nx/compare/v1.16.2...v1.16.3) (2026-10-16)
+
+
+### Bug Fixes
+
+* raise preflight timeout to 5 min, to account for ai checks ([#852](https://github.com/adobe/da-nx/issues/852)) ([94326c2](https://github.com/adobe/da-nx/commit/94326c2c80b86a2b43d8c23d0cbaa7fb12371519))
+
+## [1.16.2](https://github.com/adobe/da-nx/compare/v1.16.1...v1.16.2) (2026-10-16)
+
+
+### Bug Fixes
+
+* support for browse ui ([#853](https://github.com/adobe/da-nx/issues/853)) ([82e1b63](https://github.com/adobe/da-nx/commit/82e1b6367b5557990f13107aef76fdcfe052283a))
+
+## [1.16.1](https://github.com/adobe/da-nx/compare/v1.16.0...v1.16.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **forms:** fall back to main without canvas branch state ([3f523c8](https://github.com/adobe/da-nx/commit/3f523c82648e7f09bfdd1ae9a97accde522f1c6d))
+* **forms:** honor metadata preview URLs without canvas branch state ([15583b9](https://github.com/adobe/da-nx/commit/15583b90333f8331381f350521b03a872d8a18b7))
+
+# [1.16.0](https://github.com/adobe/da-nx/compare/v1.15.1...v1.16.0) (2026-10-15)
+
+
+### Bug Fixes
+
+* branch resolution and fail early ([177c4fb](https://github.com/adobe/da-nx/commit/177c4fbcd1083237c21b6b183bfc9fef46e6b283))
+* **ew:** harden branch compatibility and cancellation ([350e872](https://github.com/adobe/da-nx/commit/350e87263b7c635ed3b5798c491640ae9fc349e3))
+* **ew:** use authoritative canvas branch state ([af8d777](https://github.com/adobe/da-nx/commit/af8d777dfa213524c00d701320ab1e0bc90ea2c6))
+* remove redundant preview branch error logging ([3823263](https://github.com/adobe/da-nx/commit/3823263806b84bcc944efd09c123801f97b528cc))
+
+
+### Features
+
+* fetch from config or query string the branch name and surface it into the sareable deploy URL ([6ca178d](https://github.com/adobe/da-nx/commit/6ca178d9a4c1162c404f1c29545895d6c1cb5d0d))
+
 ## [1.15.1](https://github.com/adobe/da-nx/compare/v1.15.0...v1.15.1) (2026-10-14)
 
 

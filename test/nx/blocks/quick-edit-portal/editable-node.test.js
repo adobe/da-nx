@@ -24,6 +24,12 @@ const schema = new Schema({
       parseDOM: [{ tag: 'h2' }],
       toDOM: () => ['h2', 0],
     },
+    blockquote: {
+      group: 'block',
+      content: 'block+',
+      parseDOM: [{ tag: 'blockquote' }],
+      toDOM: () => ['blockquote', 0],
+    },
     text: { group: 'inline' },
     ...tableNodes({ tableGroup: 'block', cellContent: 'block+' }),
   },
@@ -119,6 +125,23 @@ describe('quick-edit-portal resolveEditableNode', () => {
     view?.destroy();
     document.body.innerHTML = '';
     view = null;
+  });
+
+  it('preserves the outermost quote when opening a heading or syncing a nested edit', () => {
+    const quote = schema.node('blockquote', null, [
+      schema.node('blockquote', null, [
+        schema.node('heading', null, [schema.text('Quoted heading')]),
+        p('Keep this paragraph'),
+      ]),
+    ]);
+    view = mountDoc(schema.node('doc', null, [quote]));
+    const cursorOffset = view.posAtDOM(view.dom.querySelector('blockquote'), 0);
+    const headingOffset = view.posAtDOM(view.dom.querySelector('h2'), 0);
+    [cursorOffset, headingOffset].forEach((offset) => {
+      const result = resolveEditableNode(view.state.doc, offset);
+      expect(result.node === quote).to.equal(true);
+      expect(result.cursorOffset).to.equal(cursorOffset);
+    });
   });
 
   it('resolves to the paragraph, not the table_cell, at the cell-content boundary', () => {
