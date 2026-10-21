@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import { installFetch, restoreFetch } from '../../../../nx2/test/mocks/fetch.js';
 import '../../../../nx2/blocks/editortoggle/editortoggle.js';
 
 describe('nx-editortoggle', () => {
@@ -16,6 +17,7 @@ describe('nx-editortoggle', () => {
 
   afterEach(() => {
     toggle?.remove();
+    restoreFetch();
     window.history.replaceState(null, '', originalUrl);
     [userKey, welcomeKey, switchbackKey].forEach((key, index) => {
       if (storedFlags[index] === null) localStorage.removeItem(key);
@@ -79,5 +81,62 @@ describe('nx-editortoggle', () => {
     await toggle.updateComplete;
 
     expect(toggle.shadowRoot.querySelector('nx-switch')).to.be.null;
+  });
+
+  ['/edit', '/canvas'].forEach((path) => {
+    it(`${path === '/edit' ? 'hides' : 'shows'} the switch on ${path} when ew.enabled is explicitly false`, async () => {
+      await expectToolbarOn(path, false, path === '/canvas' ? 'true' : 'false');
+      installFetch({
+        body: JSON.stringify({ flags: { data: [{ key: 'ew.enabled', value: 'false' }] } }),
+      });
+      await toggle._onHashState({ org: `toggle-disabled-${path.slice(1)}`, site: 'site' });
+      await toggle.updateComplete;
+
+      for (const userEnabled of [false, true]) {
+        toggle._userEnabled = userEnabled;
+        await toggle.updateComplete;
+        const control = toggle.shadowRoot.querySelector('nx-switch');
+        if (path === '/edit') {
+          expect(control).to.be.null;
+        } else {
+          expect(control).to.not.be.null;
+          expect(control.checked).to.be.true;
+        }
+      }
+    });
+
+    it(`shows the switch on ${path} when ew.enabled is unset`, async () => {
+      await expectToolbarOn(path, false, path === '/canvas' ? 'true' : 'false');
+      installFetch({ body: JSON.stringify({ flags: { data: [] } }) });
+      await toggle._onHashState({ org: `toggle-unset-${path.slice(1)}`, site: 'site' });
+      await toggle.updateComplete;
+
+      expect(toggle.shadowRoot.querySelector('nx-switch')).to.not.be.null;
+    });
+  });
+
+  it('keeps the switch hidden when ew.enabled is true', async () => {
+    await expectToolbarOn('/canvas', false, 'true');
+    installFetch({
+      body: JSON.stringify({ flags: { data: [{ key: 'ew.enabled', value: 'true' }] } }),
+    });
+    await toggle._onHashState({ org: 'toggle-enabled', site: 'site' });
+    await toggle.updateComplete;
+
+    expect(toggle.shadowRoot.querySelector('nx-switch')).to.be.null;
+  });
+
+  it('shows the switch again after leaving a site where ew.enabled is false', async () => {
+    await expectToolbarOn('/edit', false, 'false');
+    installFetch({
+      body: JSON.stringify({ flags: { data: [{ key: 'ew.enabled', value: 'false' }] } }),
+    });
+    await toggle._onHashState({ org: 'toggle-reset', site: 'site' });
+    await toggle.updateComplete;
+    expect(toggle.shadowRoot.querySelector('nx-switch')).to.be.null;
+
+    await toggle._onHashState({ org: 'toggle-reset' });
+    await toggle.updateComplete;
+    expect(toggle.shadowRoot.querySelector('nx-switch')).to.not.be.null;
   });
 });
