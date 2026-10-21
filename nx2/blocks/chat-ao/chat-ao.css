@@ -3,7 +3,7 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  padding: var(--s2-spacing-200) 0;
+  padding: 0 0 var(--s2-spacing-200);
   font-family: var(--s2-font-family);
   color: var(--s2-gray-800);
   font-weight: var(--s2-body-font-weight);
@@ -36,12 +36,13 @@
 
 .chat-header {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   width: 100%;
-  max-width: 720px;
-  padding: 0 var(--s2-spacing-300);
+  height: 48px;
+  padding: 0 var(--s2-spacing-200);
+  border-bottom: 1px solid transparent;
   box-sizing: border-box;
-  justify-content: space-between;
   gap: var(--s2-spacing-100);
   margin-bottom: var(--s2-spacing-300);
 
@@ -50,13 +51,12 @@
     --nx-picker-height: 32px;
   }
 
-  & > div {
-    display: inline-flex;
-    align-items: center;
+  .nx-action-btn-icon {
     flex-shrink: 0;
-    gap: 4px;
+  }
+
+  .chat-new {
     margin-inline-start: auto;
-    white-space: nowrap;
   }
 }
 

@@ -427,6 +427,13 @@ export default class NxChatAo extends LitElement {
         ></nx-prompts>
       </nx-popover>
       <div class="chat-header">
+        <button
+          type="button"
+          class="nx-action-btn-icon"
+          title="Close chat panel"
+          aria-label="Close chat panel"
+          @click=${this._closePanel}
+        >${icon('close')}</button>
         ${this.episodes?.length ? html`
           <nx-picker
             class="session-picker"
@@ -437,16 +444,9 @@ export default class NxChatAo extends LitElement {
             placement="below"
             @change=${this._handleEpisodeChange}
           ></nx-picker>` : nothing}
-        <div>
-          <button type="button" title="New chat" aria-label="New chat" class="nx-action-btn-icon" @click=${this._handleNewSession}>
-            ${icon('newChat')}
-          </button>
-          <button
-            class="nx-action-btn-icon"
-            aria-label="Close chat panel"
-            @click=${this._closePanel}
-          >${icon('close')}</button>
-        </div>
+        <button type="button" title="New chat" aria-label="New chat" class="nx-action-btn-icon chat-new" @click=${this._handleNewSession}>
+          ${icon('newChat')}
+        </button>
       </div>
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">

@@ -329,17 +329,18 @@ class NxChat extends LitElement {
       <div class="chat-header">
         <button
           type="button"
+          class="chat-header-btn panel-toggle"
+          title="Close chat panel"
+          aria-label="Close chat panel"
+          @click=${this._closePanel}
+        >${icon('close')}</button>
+        <button
+          type="button"
           class="chat-header-btn clear-btn"
           aria-label="Clear chat"
           ?hidden=${!this.messages?.length}
           @click=${() => this.clear()}
         >${icon('clear')}<span>Clear</span></button>
-        <button
-          type="button"
-          class="chat-header-btn"
-          aria-label="Close chat panel"
-          @click=${this._closePanel}
-        >${icon('close')}</button>
       </div>
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">
