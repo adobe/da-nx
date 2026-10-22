@@ -317,6 +317,16 @@ menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));</code></pre
       </article>
 
       <article class="sg-example">
+        <h3>nx-link-dialog <a href="https://github.com/adobe/da-nx/blob/main/docs/link-dialog.md" target="_blank"
+            rel="noopener">docs →</a></h3>
+        <div class="sg-demo" id="demo-link-dialog-container">
+          <button class="nx-form-btn-secondary" id="demo-link-dialog-open">Edit link</button>
+        </div>
+        <pre><code>&lt;nx-link-dialog ?open=${open} .href=${href} .text=${text}
+  @nx-link-submit=${onSubmit} @close=${onClose}&gt;&lt;/nx-link-dialog&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
         <h3>nx-popover <a href="https://github.com/adobe/da-nx/blob/main/docs/popover.md" target="_blank"
             rel="noopener">docs →</a></h3>
         <div class="sg-demo" id="demo-popover-container">
@@ -655,6 +665,7 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
       import('/nx2/blocks/shared/toast/toast.js'),
       import('/nx2/blocks/shared/menu/menu.js'),
       import('/nx2/blocks/shared/dialog/dialog.js'),
+      import('/nx2/blocks/shared/link-dialog/link-dialog.js'),
       import('/nx2/blocks/shared/popover/popover.js'),
       import('/nx2/blocks/shared/picker/picker.js'),
       import('/nx2/blocks/shared/search/search.js'),
@@ -690,6 +701,18 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
         showToast({ text: 'Item deleted.' });
       });
       document.querySelector('#demo-dialog-container').append(dialog);
+    });
+
+    // nx-link-dialog
+    document.querySelector('#demo-link-dialog-open').addEventListener('click', () => {
+      const dialog = document.createElement('nx-link-dialog');
+      Object.assign(dialog, { open: true, href: 'https://da.live', text: 'DA' });
+      dialog.addEventListener('close', () => dialog.remove());
+      dialog.addEventListener('nx-link-submit', (e) => {
+        dialog.close();
+        showToast({ text: `Link: ${e.detail.href}` });
+      });
+      document.querySelector('#demo-link-dialog-container').append(dialog);
     });
 
     // nx-popover

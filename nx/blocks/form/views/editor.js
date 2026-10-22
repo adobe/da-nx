@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../nx2/utils/utils.js';
 import '../fields/input.js';
 import '../fields/textarea.js';
+import '../fields/richtext.js';
 import '../fields/picker.js';
 import '../fields/checkbox.js';
 import '../fields/button.js';
@@ -169,6 +170,13 @@ class Editor extends LitElement {
     });
   }
 
+  _onTextCommit(node, e) {
+    clearTimeout(this._inputTimers.get(node.pointer));
+    this._inputTimers.delete(node.pointer);
+    const raw = e.target.value;
+    this._mutate((editor) => editor.setField(node.pointer, raw === '' ? undefined : raw));
+  }
+
   _onNumberInput(node, e) {
     const raw = e.target.value;
     const value = raw === '' ? undefined : Number(raw);
@@ -267,6 +275,22 @@ class Editor extends LitElement {
           ?disabled=${readonly}
           @input=${(e) => this._onTextInput(node, e)}
         ></form-date>
+      `;
+    }
+
+    if (node.semanticType === 'rich-text') {
+      return html`
+        <form-richtext
+          data-pointer=${pointer}
+          .label=${label}
+          .required=${showRequired}
+          .error=${error}
+          .description=${description}
+          .value=${value ?? ''}
+          ?disabled=${readonly}
+          @input=${(e) => this._onTextInput(node, e)}
+          @change=${(e) => this._onTextCommit(node, e)}
+        ></form-richtext>
       `;
     }
 

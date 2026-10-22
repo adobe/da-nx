@@ -243,6 +243,24 @@ describe('loadFormContext', () => {
     });
   });
 
+  describe('schema-aware parsing', () => {
+    it('re-reads the document with the resolved schema object', async () => {
+      const schema = {
+        type: 'object',
+        properties: { name: { type: 'string', 'x-semantic-type': 'rich-text' } },
+      };
+      const result = await loadFormContext({
+        details: validDetails,
+        fetchHtml: htmlOk(scHtml({ schemaName: 'project' })),
+        fetchSchemas: schemasOk({ project: schema }),
+      });
+      expect(result.status).to.equal('ready');
+      expect(result.schema).to.equal(schema);
+      expect(result.json?.metadata?.schemaName).to.equal('project');
+      expect(result.json?.data?.name).to.include('Alice');
+    });
+  });
+
   describe('displayPath normalization', () => {
     it('strips a trailing .html from the display path on every result shape', async () => {
       const result = await loadFormContext({
