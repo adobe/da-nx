@@ -15,6 +15,7 @@ import BaseChatController from './base-chat-controller.js';
 import { AO_FRAME, CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE } from './ao-constants.js';
 import { getOrgId } from './utils/uploads.js';
 import { fetchSkills } from './utils/skills.js';
+import { loadSiteConfig } from '../chat/utils/api.js';
 
 // The alternate-harness (CMA bridge) rejects the AUTH frame with terse,
 // internal-sounding messages. Map those to tester-facing copy; leave any other
@@ -54,6 +55,20 @@ export default class CmaChatController extends BaseChatController {
     } = await loadIms();
     const { org, site } = this._context ?? {};
     const siteId = org && site ? `${org}/${site}` : undefined;
+    // The user's saved prompt library rides the AUTH frame so the bridge can
+    // surface it to the agent (injected into the system prompt at session
+    // creation). Approved only (status !== 'draft'), mapped to {title, body};
+    // non-fatal — prompts are an additive enhancement.
+    let promptLibrary;
+    try {
+      if (org && site) {
+        const { prompts } = await loadSiteConfig(org, site);
+        promptLibrary = (prompts ?? [])
+          .filter((p) => String(p.status ?? '').trim().toLowerCase() !== 'draft')
+          .map((p) => ({ title: String(p.title ?? ''), body: String(p.prompt ?? '') }))
+          .filter((p) => p.title || p.body);
+      }
+    } catch { /* non-fatal: prompt library is additive */ }
     return {
       authFrame: {
         type: AO_FRAME.AUTH,
@@ -67,6 +82,7 @@ export default class CmaChatController extends BaseChatController {
         // and routes to the bridge. Both ride the one AUTH frame.
         ...(siteId ? { 'x-site': siteId } : {}),
         ...(this._activationKey ? { activationKey: this._activationKey } : {}),
+        ...(promptLibrary?.length ? { promptLibrary } : {}),
       },
       wsBase: CMA_BRIDGE_WS_BASE,
     };
