@@ -11,13 +11,12 @@
  */
 
 /**
- * Builds the Content Advisor brief for the AEM Asset Selector from the
- * current page, so the advisor can recommend assets relevant to it.
+ * Finds the title of a ProseMirror document, which is the text of its first `h1`.
  *
  * @param {object} document - A ProseMirror document node.
- * @returns {string} The brief, or an empty string when the page has no text.
+ * @returns {string} The title, or an empty string when there is no `h1`.
  */
-export function formatExternalBrief(document) {
+function getTitleFromDocument(document) {
   let title = '';
   document.descendants((node) => {
     if (node.type.name === 'heading' && node.attrs.level === 1 && !title) {
@@ -25,15 +24,38 @@ export function formatExternalBrief(document) {
     }
     return !title;
   });
+  return title;
+}
 
-  const contentPlainText = document.textContent;
-  if (!contentPlainText) return '';
-
+/**
+ * Builds the Content Advisor prompt from a page title and its plain text.
+ *
+ * @param {object} options
+ * @param {string} options.title - The page title, or an empty string.
+ * @param {string} options.text - The plain text of the page.
+ * @returns {string} The prompt.
+ */
+function createPrompt({ title, text }) {
   return `The user is looking for assets that match a web page with the following content:
 
   ${title ? `Title: ${title}` : ''}
 
-  ${contentPlainText}
+  ${text}
 
   Please suggest Assets that are visually appealing and relevant to the subject.`;
+}
+
+/**
+ * Builds the Content Advisor brief for the AEM Asset Selector from the
+ * current page, so the advisor can recommend assets relevant to it.
+ *
+ * @param {object} document - A ProseMirror document node.
+ * @returns {string} The brief, or an empty string when the page has no text.
+ */
+export function formatExternalBrief(document) {
+  const contentPlainText = document.textContent;
+  if (!contentPlainText) return '';
+
+  const title = getTitleFromDocument(document);
+  return createPrompt({ title, text: contentPlainText });
 }
