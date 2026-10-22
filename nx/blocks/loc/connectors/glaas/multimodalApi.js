@@ -106,16 +106,6 @@ export function createPutUrlRollingLimiter({
       }
       return 0;
     },
-    snapshot() {
-      const now = Date.now();
-      return {
-        requestsInWindow: timestamps.filter((t) => now - t < windowMs).length,
-        limitPerWindow,
-        windowMs,
-        minIntervalMs,
-        cooldownRemainingMs: Math.max(0, pausedUntil - now),
-      };
-    },
     async acquire({ signal } = {}) {
       const previous = chain;
       let release;
@@ -155,7 +145,6 @@ export function createPutUrlRollingLimiter({
 }
 
 const glaasApiLimiter = createPutUrlRollingLimiter();
-let glaasRequestSequence = 0;
 
 function getRateLimitHeaders(resp) {
   return {
@@ -179,58 +168,11 @@ function retryAfterMs(resp) {
   return Math.max(getMillisToSleep(retryAfter), getMillisToSleep(xRateLimitRetryAfterSeconds));
 }
 
-async function fetchGlaas({
-  url, opts, signal, retryDelay, context,
-}) {
-  const logging = shouldLogGLaaSRequests();
-  const queuedAt = Date.now();
+async function fetchGlaas({ url, opts, signal, retryDelay }) {
   await glaasApiLimiter.acquire({ signal });
-  const startedAt = Date.now();
-  const request = logging ? {
-    ...context,
-    requestId: glaasRequestSequence + 1,
-    method: opts.method,
-    startedAt: new Date(startedAt).toISOString(),
-    queuedMs: startedAt - queuedAt,
-    scope: 'this-tab-multimodal-api',
-  } : undefined;
-  if (logging) {
-    glaasRequestSequence += 1;
-    logMultimodalDebug(undefined, 'api-request', JSON.stringify({
-      ...request, limiter: glaasApiLimiter.snapshot(),
-    }));
-  }
-  try {
-    const resp = await waitForGlaas(fetch(url, signal ? { ...opts, signal } : opts), signal);
-    const waitMs = resp.status === 429 ? glaasApiLimiter.pause(retryDelay(resp)) : 0;
-    if (logging) {
-      const retryDelaySource = retryAfterMs(resp) > 0 ? 'server-header' : 'fallback';
-      logMultimodalDebug(undefined, 'api-response', JSON.stringify({
-        ...request,
-        respondedAt: new Date().toISOString(),
-        durationMs: Date.now() - startedAt,
-        status: resp.status,
-        responseType: resp.type,
-        retryHeaders: getRateLimitHeaders(resp),
-        quotaRemaining: resp.headers.get('x-rate-limit-remaining'),
-        ...(resp.status === 429 && { retryDelaySource }),
-        waitMs,
-        limiter: glaasApiLimiter.snapshot(),
-      }), { level: resp.status === 429 ? 'warn' : 'info' });
-    }
-    return { resp, waitMs };
-  } catch (error) {
-    if (logging) {
-      logMultimodalDebug(undefined, 'api-request-failed', JSON.stringify({
-        ...request,
-        failedAt: new Date().toISOString(),
-        durationMs: Date.now() - startedAt,
-        errorName: error?.name,
-        aborted: signal?.aborted === true,
-      }), { level: 'warn' });
-    }
-    throw error;
-  }
+  const resp = await waitForGlaas(fetch(url, signal ? { ...opts, signal } : opts), signal);
+  const waitMs = resp.status === 429 ? glaasApiLimiter.pause(retryDelay(resp)) : 0;
+  return { resp, waitMs };
 }
 
 function putUrlOpaqueRetryDelayMs({ waitInterval }) {
@@ -248,7 +190,6 @@ function putUrlReactiveRetryDelayMs({ waitInterval }) {
 
 export function resetPutUrlRateLimitGateForTests() {
   glaasApiLimiter.reset();
-  glaasRequestSequence = 0;
 }
 
 function putUrl429RetryDelayMs({ resp, waitInterval }) {
@@ -418,7 +359,6 @@ export async function getPutUrlForFile({
         url,
         opts,
         retryDelay,
-        context: { requestType: 'upload-url', assetName, attempt: attempt + 1 },
       });
       if (resp.status === 429) {
         if (attempt < maxRetries) {
@@ -554,13 +494,6 @@ async function requestV2Asset(service, token, task, assetName, { onRetry, signal
         url: `${origin}/api/l10n/v2.0/tasks/${product}/${project}/${taskName}/assets/${lang}${path}`,
         opts,
         signal,
-        context: {
-          requestType: 'asset-metadata',
-          taskName,
-          locale: lang,
-          assetName: path,
-          attempt: attempt + 1,
-        },
         retryDelay: (response) => {
           const serverWait = retryAfterMs(response);
           const delay = (serverWait > 0 ? serverWait : V2_ASSET_RETRY_WAIT_MS) + 250;

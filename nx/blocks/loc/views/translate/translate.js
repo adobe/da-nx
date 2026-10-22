@@ -272,9 +272,7 @@ class NxLocTranslate extends LitElement {
     const controller = new AbortController();
     this._statusController = controller;
     this.requestUpdate();
-    let finishTiming;
     try {
-      finishTiming = this._service.connector.startStatusTimer?.();
       const conf = await this.getBaseTranslationConf(false);
       const result = await this._service.connector.getStatusAll(
         removeWaitingLanguagesFromConf(conf),
@@ -288,7 +286,6 @@ class NxLocTranslate extends LitElement {
       this._getStatusBusy = false;
       this._statusController = undefined;
       this.requestUpdate();
-      finishTiming?.({ aborted: controller.signal.aborted });
     }
   }
 
