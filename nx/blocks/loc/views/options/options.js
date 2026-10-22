@@ -119,9 +119,9 @@ class NxLocOptions extends LitElement {
    * changes, since either can affect which credentials/project - and therefore which
    * choices - apply to the other options. Guards against overlapping calls (e.g. the
    * user changing `projectId` twice in quick succession) with a generation counter, so
-   * a slower, now-stale call can never clobber a newer one's results. If seeding changes a
-   * `reloadServiceOptionsOnChange` option (e.g. `projectId`), reloads once so dependent
-   * options are fetched with the seeded value.
+   * a slower, now-stale call can never clobber a newer one's results. Options flagged
+   * `reloadServiceOptionsOnChange` (e.g. `projectId`) are fetched and seeded first, so the
+   * rest are fetched with the seeded values.
    * @returns {Promise<void>}
    */
   async loadConnectorServiceOptions() {
@@ -149,17 +149,45 @@ class NxLocOptions extends LitElement {
     this._serviceOptions = serviceOptions.map((option) => ({ ...option, items: undefined }));
 
     const { org, site } = this.project;
-    const service = { name: this._siteConfig.service.name, ...envConfig, org, site, env };
+    const { name } = this._siteConfig.service;
+    const buildService = () => ({ name, ...envConfig, org, site, env });
+    const resolved = serviceOptions.map(() => []);
 
+    /**
+     * Fetches one stage of options and seeds each unset or stale value to its first choice
+     * (<sl-select> shows it without firing change). Incomplete listings can't prove a saved
+     * value is gone, so it is kept as a choice instead.
+     * @param {boolean} flagged - true for `reloadServiceOptionsOnChange` options, else the rest
+     * @returns {Promise<boolean>} false if a newer call superseded this one
+     */
+    const loadStage = async (flagged) => {
+      const indexes = serviceOptions.flatMap(
+        (option, i) => (!!option.reloadServiceOptionsOnChange === flagged ? [i] : []),
+      );
+      const service = buildService();
+      const lists = await Promise.all(indexes.map((i) => serviceOptions[i].fetch(service)));
+      if (isStale()) return false;
+
+      indexes.forEach((i, n) => {
+        const option = serviceOptions[i];
+        const list = lists[n] || [];
+        const value = envConfig[option.key];
+        const known = list.some((item) => item.value === value);
+        const keepSaved = list.incomplete && value && !known;
+        resolved[i] = keepSaved ? [{ value, label: value }, ...list] : list;
+        const enabled = !option.enabledWhen || option.enabledWhen(envConfig);
+        if (enabled && !known && !keepSaved && list.length) envConfig[option.key] = list[0].value;
+      });
+      return true;
+    };
+
+    // Flagged options load first so dependents are fetched with their seeded value.
     let connected;
-    let items;
     try {
-      connected = await connector.connect(service);
+      connected = await connector.connect(buildService());
       if (isStale()) return;
-
       if (connected) {
-        items = await Promise.all(serviceOptions.map((option) => option.fetch(service)));
-        if (isStale()) return;
+        if (!await loadStage(true) || !await loadStage(false)) return;
       }
     } catch {
       connected = false;
@@ -170,36 +198,10 @@ class NxLocOptions extends LitElement {
       return;
     }
 
-    // <sl-select> shows its first option without firing change, so unset or stale values
-    // are seeded to the first choice here. Incomplete listings can't prove a saved value
-    // is gone, so it is kept as a choice instead.
-    const resolved = serviceOptions.map((option, i) => {
-      const list = items[i] || [];
-      const value = envConfig[option.key];
-      const keep = list.incomplete && value && !list.some((item) => item.value === value);
-      return keep ? [{ value, label: value }, ...list] : list;
-    });
-
-    const seed = (flagged) => serviceOptions.reduce((changed, option, i) => {
-      if (!!option.reloadServiceOptionsOnChange !== flagged) return changed;
-      if (option.enabledWhen && !option.enabledWhen(envConfig)) return changed;
-      const known = resolved[i].some((item) => item.value === envConfig[option.key]);
-      if (known || !resolved[i].length) return changed;
-      envConfig[option.key] = resolved[i][0].value;
-      return true;
-    }, false);
-
-    // Dependent options are seeded only after the reload, fetched with the seeded values.
-    const reseeded = seed(true);
-    if (!reseeded) seed(false);
-
     this._serviceOptions = serviceOptions.map(
       (option, i) => ({ ...option, items: resolved[i] }),
     );
     this.updateOptions();
-
-    // Dependent options were fetched with the pre-seed value, so refetch once with it.
-    if (reseeded) await this.loadConnectorServiceOptions();
   }
 
   handleChangeDate({ target }) {
