@@ -172,7 +172,7 @@ The default export is the base path `/adobe/assets`.
 
 ### `external-brief.js`
 
-- `formatExternalBrief(doc)` builds the Content Advisor brief from a ProseMirror doc. It uses the first `h1` as the title and the plain text of the doc as content. It returns an empty string when the doc has no text. Pass the result as `externalBrief` to `buildAssetSelectorProps` so the advisor recommends assets that match the page.
+- `formatExternalBrief(document)` builds the Content Advisor brief from a ProseMirror document. It uses the first `h1` as the title and the plain text of the document as content. It returns an empty string when the document has no text. Pass the result as `externalBrief` to `buildAssetSelectorProps` so the advisor recommends assets that match the page.
 
 ### `repository-config.js`
 

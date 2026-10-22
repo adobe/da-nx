@@ -14,19 +14,19 @@
  * Builds the Content Advisor brief for the AEM Asset Selector from the
  * current page, so the advisor can recommend assets relevant to it.
  *
- * @param {object} doc - A ProseMirror document node.
+ * @param {object} document - A ProseMirror document node.
  * @returns {string} The brief, or an empty string when the page has no text.
  */
-export function formatExternalBrief(doc) {
+export function formatExternalBrief(document) {
   let title = '';
-  doc.descendants((node) => {
+  document.descendants((node) => {
     if (node.type.name === 'heading' && node.attrs.level === 1 && !title) {
       title = node.textContent;
     }
     return !title;
   });
 
-  const contentPlainText = doc.textContent;
+  const contentPlainText = document.textContent;
   if (!contentPlainText) return '';
 
   return `The user is looking for assets that match a web page with the following content:
