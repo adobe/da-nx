@@ -427,6 +427,73 @@ describe('NxLocOptions - handleChangeServiceOption reload', () => {
     expect(el._options.service.workflowUid).to.equal('wf-1');
   });
 
+  it('refetches workflows with the seeded project when projectId is unset', async () => {
+    installFetch(smartlingHandlerWithTwoProjects());
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.accountId = 'acct-1';
+    el._siteConfig.service.envs.prod.autoAuthorize = 'yes';
+
+    await el.loadConnectorServiceOptions();
+
+    expect(el._siteConfig.service.envs.prod.projectId).to.equal('proj-1');
+    const workflowOption = el._serviceOptions.find((o) => o.key === 'workflowUid');
+    expect(workflowOption.items).to.deep.equal([
+      { value: 'wf-1', label: 'Project One Workflow' },
+      { value: 'wf-account', label: 'Account Default' },
+    ]);
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-1');
+  });
+
+  it('refetches workflows when a saved project is gone and reseeded', async () => {
+    installFetch(smartlingHandlerWithTwoProjects());
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.accountId = 'acct-1';
+    el._siteConfig.service.envs.prod.projectId = 'proj-gone';
+    el._siteConfig.service.envs.prod.autoAuthorize = 'yes';
+
+    await el.loadConnectorServiceOptions();
+
+    expect(el._siteConfig.service.envs.prod.projectId).to.equal('proj-1');
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-1');
+  });
+
+  it('does not refetch when the saved project is already known', async () => {
+    installFetch(smartlingHandlerWithTwoProjects());
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.accountId = 'acct-1';
+    el._siteConfig.service.envs.prod.projectId = 'proj-2';
+    el._siteConfig.service.envs.prod.autoAuthorize = 'no';
+
+    let calls = 0;
+    const original = el.loadConnectorServiceOptions.bind(el);
+    el.loadConnectorServiceOptions = async (...args) => {
+      calls += 1;
+      return original(...args);
+    };
+    await el.loadConnectorServiceOptions();
+
+    expect(calls).to.equal(1);
+  });
+
+  it('does not reload when only a non-flagged option is seeded', async () => {
+    installFetch(smartlingHandlerWithTwoProjects());
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.accountId = 'acct-1';
+    el._siteConfig.service.envs.prod.projectId = 'proj-1';
+    el._siteConfig.service.envs.prod.autoAuthorize = 'yes';
+
+    let calls = 0;
+    const original = el.loadConnectorServiceOptions.bind(el);
+    el.loadConnectorServiceOptions = async (...args) => {
+      calls += 1;
+      return original(...args);
+    };
+    await el.loadConnectorServiceOptions();
+
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-1');
+    expect(calls).to.equal(1);
+  });
+
   it('does not reload service options when a key without reloadServiceOptionsOnChange changes', async () => {
     installFetch(smartlingHandlerWithTwoProjects());
     const el = createSmartlingOptionsEl();

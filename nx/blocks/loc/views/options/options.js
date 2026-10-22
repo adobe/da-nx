@@ -126,7 +126,9 @@ class NxLocOptions extends LitElement {
    * changes, since either can affect which credentials/project - and therefore which
    * choices - apply to the other options. Guards against overlapping calls (e.g. the
    * user changing `projectId` twice in quick succession) with a generation counter, so
-   * a slower, now-stale call can never clobber a newer one's results.
+   * a slower, now-stale call can never clobber a newer one's results. If seeding changes a
+   * `reloadServiceOptionsOnChange` option (e.g. `projectId`), reloads once so dependent
+   * options are fetched with the seeded value.
    * @returns {Promise<void>}
    */
   async loadConnectorServiceOptions() {
@@ -185,17 +187,26 @@ class NxLocOptions extends LitElement {
       return keep ? [{ value, label: value }, ...list] : list;
     });
 
-    serviceOptions.forEach((option, i) => {
-      if (option.enabledWhen && !option.enabledWhen(envConfig)) return;
-      const value = envConfig[option.key];
-      const known = resolved[i].some((item) => item.value === value);
-      if (!known && resolved[i].length) envConfig[option.key] = resolved[i][0].value;
-    });
+    const seed = (flagged) => serviceOptions.reduce((changed, option, i) => {
+      if (!!option.reloadServiceOptionsOnChange !== flagged) return changed;
+      if (option.enabledWhen && !option.enabledWhen(envConfig)) return changed;
+      const known = resolved[i].some((item) => item.value === envConfig[option.key]);
+      if (known || !resolved[i].length) return changed;
+      envConfig[option.key] = resolved[i][0].value;
+      return true;
+    }, false);
+
+    // Dependent options are seeded only after the reload, fetched with the seeded values.
+    const reseeded = seed(true);
+    if (!reseeded) seed(false);
 
     this._serviceOptions = serviceOptions.map(
       (option, i) => ({ ...option, items: resolved[i] }),
     );
     this.updateOptions();
+
+    // Dependent options were fetched with the pre-seed value, so refetch once with it.
+    if (reseeded) await this.loadConnectorServiceOptions();
   }
 
   handleChangeDate({ target }) {
