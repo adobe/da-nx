@@ -1,3 +1,25 @@
+## [1.21.2](https://github.com/adobe/da-nx/compare/v1.21.1...v1.21.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* **ew:** fail closed on chat when a config layer is unreadable ([5f547f7](https://github.com/adobe/da-nx/commit/5f547f7293420e41a3f025416185a97f8b8f9d05))
+* **ew:** limit chat fail-closed policy to access errors ([2a1bb93](https://github.com/adobe/da-nx/commit/2a1bb93450533978b93c8d3885abbd0fd49867f3))
+
+## [1.21.1](https://github.com/adobe/da-nx/compare/v1.21.0...v1.21.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **quick-edit:** first native click forwarded to RUM ([efeb620](https://github.com/adobe/da-nx/commit/efeb6206229accff09459493137fb1e8d34d07f3))
+
+# [1.21.0](https://github.com/adobe/da-nx/compare/v1.20.1...v1.21.0) (2026-10-22)
+
+
+### Features
+
+* add loading spinners and Copy all visibility to translate view ([#709](https://github.com/adobe/da-nx/issues/709)) ([45f6ed8](https://github.com/adobe/da-nx/commit/45f6ed8f258883752f99ad6852dd6075ef137ba2))
+
 ## [1.20.1](https://github.com/adobe/da-nx/compare/v1.20.0...v1.20.1) (2026-10-21)
 
 
