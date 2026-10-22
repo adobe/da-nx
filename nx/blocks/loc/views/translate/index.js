@@ -1,8 +1,7 @@
-import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
-import { daFetch } from '../../../../../nx2/utils/api.js';
 
 import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
+import { fetchWithMsmFallback } from '../../utils/msm.js';
 import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
 
 let CONNECTOR;
@@ -13,6 +12,19 @@ export async function setupConnector(service) {
   return CONNECTOR;
 }
 
+/**
+ * Format the supplied URLs and, when requested, fetch their content (resolving MSM
+ * inheritance) and apply DNT through the connector.
+ * @param {string} org - Org name.
+ * @param {string} site - Project site.
+ * @param {object} service - Translation service with an optional `connector`.
+ * @param {string} sourceLocation - Source path prefix.
+ * @param {string} destLocation - Destination path prefix.
+ * @param {object[]} urls - URLs with `suppliedPath`.
+ * @param {boolean} fetchContent - Whether to fetch content.
+ * @param {string} [snapshot] - Snapshot name.
+ * @returns {Promise<{urls: object[]}>} Formatted URLs, with `content` or `error` when fetched.
+ */
 export async function getUrls(
   org,
   site,
@@ -50,7 +62,8 @@ export async function getUrls(
     // Fetch the content and add DNT
     const fetchUrl = async (url) => {
       const opts = { headers: { 'Cache-Control': 'no-cache' } };
-      const resp = await daFetch({ url: `${DA_ADMIN}/source/${org}/${site}${url.daDestPath}`, opts });
+      // Resolve MSM inheritance so inherited pages translate from their source site.
+      const { resp } = await fetchWithMsmFallback({ org, site, daPath: url.daDestPath, opts });
       if (!resp.ok) {
         url.error = `Error fetching content from ${url.daDestPath} - ${resp.status}`;
         return;
