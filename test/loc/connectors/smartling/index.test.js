@@ -1378,9 +1378,93 @@ describe('smartling connector - legacy origin rewriting', () => {
 
       expect(projects).to.deep.equal([]);
     });
+
+    describe('pagination', () => {
+      const makeItems = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => ({
+        projectId: `proj-${from + i}`, projectName: `Project ${from + i}`, archived: false,
+      }));
+      const pageResponse = (items, totalCount) => new Response(
+        JSON.stringify({ response: { data: { totalCount, items } } }),
+        { status: 200 },
+      );
+      const config = {
+        org, site, env: 'prod', origin: 'https://api.smartling.com', accountId: 'acct-direct',
+      };
+
+      it('fetches every page using offset and limit', async () => {
+        origFetch = window.fetch;
+        window.fetch = async (url) => {
+          const u = new URL(url.toString());
+          calls.push({ url: u.toString() });
+          const offset = Number(u.searchParams.get('offset'));
+          return offset === 0
+            ? pageResponse(makeItems(1, 500), 501)
+            : pageResponse(makeItems(501, 501), 501);
+        };
+
+        const projects = await listProjects(config);
+
+        expect(projects).to.have.length(501);
+        expect(projects[500].projectId).to.equal('proj-501');
+        expect(projects.incomplete).to.equal(undefined);
+        const params = calls.map((c) => new URL(c.url).searchParams);
+        expect(params.map((p) => p.get('offset'))).to.deep.equal(['0', '500']);
+        expect(params.every((p) => p.get('limit') === '500')).to.equal(true);
+      });
+
+      it('flags the listing incomplete when a later page fails', async () => {
+        origFetch = window.fetch;
+        window.fetch = async (url) => {
+          const offset = Number(new URL(url.toString()).searchParams.get('offset'));
+          return offset === 0 ? pageResponse(makeItems(1, 500), 501) : new Response('', { status: 400 });
+        };
+
+        const projects = await listProjects(config);
+
+        expect(projects).to.have.length(500);
+        expect(projects.incomplete).to.equal(true);
+      });
+
+      it('flags the listing incomplete when the page cap is reached', async () => {
+        origFetch = window.fetch;
+        window.fetch = async (url) => {
+          const offset = Number(new URL(url.toString()).searchParams.get('offset'));
+          return pageResponse(makeItems(offset + 1, offset + 500), 1000000);
+        };
+
+        const projects = await listProjects(config);
+
+        expect(projects.incomplete).to.equal(true);
+        expect(projects.length).to.equal(500 * 20);
+      });
+
+      it('flags a failed first page as incomplete', async () => {
+        origFetch = window.fetch;
+        window.fetch = async () => new Response('', { status: 400 });
+
+        const projects = await listProjects(config);
+
+        expect(projects).to.have.length(0);
+        expect(projects.incomplete).to.equal(true);
+      });
+    });
   });
 
   describe('serviceOptions', () => {
+    it('propagates the incomplete flag from listProjects and listWorkflows', async () => {
+      origFetch = window.fetch;
+      window.fetch = async () => new Response('', { status: 400 });
+      const service = {
+        org, site, env: 'prod', origin: 'https://api.smartling.com', accountId: 'acct-direct', projectId: 'p',
+      };
+
+      const projectItems = await serviceOptions.find((o) => o.key === 'projectId').fetch(service);
+      const workflowItems = await serviceOptions.find((o) => o.key === 'workflowUid').fetch(service);
+
+      expect(projectItems.incomplete).to.equal(true);
+      expect(workflowItems.incomplete).to.equal(true);
+    });
+
     it('exposes a projectId option whose fetch maps listProjects to {value, label}', async () => {
       origFetch = window.fetch;
       window.fetch = async (url, opts = {}) => {
@@ -1491,7 +1575,39 @@ describe('smartling connector - legacy origin rewriting', () => {
         { workflowUid: 'wf-mine', workflowName: 'My Project' },
       ]);
       expect(calls.some((c) => c.url.includes('/projects-api/v2/projects/'))).to.equal(false);
-      expect(calls.some((c) => c.method === 'POST' && c.body === '{}')).to.equal(true);
+      expect(calls.some((c) => c.method === 'POST' && c.body === '{"limit":500}')).to.equal(true);
+      expect(workflows.incomplete).to.equal(undefined);
+    });
+
+    it('flags the listing incomplete when totalCount exceeds the returned items', async () => {
+      origFetch = window.fetch;
+      window.fetch = async () => new Response(JSON.stringify({
+        response: {
+          data: {
+            totalCount: 501,
+            items: [{ workflowUid: 'wf-1', workflowName: 'Default', projectId: null }],
+          },
+        },
+      }), { status: 200 });
+
+      const workflows = await listWorkflows({
+        org, site, env: 'prod', origin: 'https://api.smartling.com', accountId: 'acct-direct', projectId: 'proj-1',
+      });
+
+      expect(workflows).to.have.length(1);
+      expect(workflows.incomplete).to.equal(true);
+    });
+
+    it('flags a failed workflows request as incomplete', async () => {
+      origFetch = window.fetch;
+      window.fetch = async () => new Response('', { status: 400 });
+
+      const workflows = await listWorkflows({
+        org, site, env: 'prod', origin: 'https://api.smartling.com', accountId: 'acct-direct', projectId: 'proj-1',
+      });
+
+      expect(workflows).to.have.length(0);
+      expect(workflows.incomplete).to.equal(true);
     });
 
     it('falls back to discovering the accountUid via the deprecated projectId when accountId is absent', async () => {
