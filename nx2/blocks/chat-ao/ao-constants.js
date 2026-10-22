@@ -18,9 +18,27 @@ export const AO_HTTP_BASE = 'https://agent-orchestrator-prod-va7.adobe.io';
 
 // The CMA bridge (aem-sites-claudebridge) hosts the WebSocket data plane and
 // the skills REST plane for the alternate harness. See docs/chat-ao-alt-harness.md.
-export const CMA_BRIDGE_WS_BASE = 'wss://aem-sites-claudebridge-va6.adobe.io';
+//
+// The deployment is selected by the `bridge` URL param (dev|prod), defaulting
+// to prod. `bridge=dev` targets the Dev CMA workspace/agent and pairs with the
+// staging IMS that localhost surfaces use; prod pairs with prod IMS (da.live).
+const CMA_BRIDGE_HOSTS = {
+  dev: 'aem-sites-claudebridge-dev-va6.adobe.io',
+  prod: 'aem-sites-claudebridge-va6.adobe.io',
+};
 
-export const CMA_BRIDGE_HTTP_BASE = 'https://aem-sites-claudebridge-va6.adobe.io';
+const CMA_BRIDGE_HOST = (() => {
+  try {
+    const env = new URLSearchParams(window.location.search).get('bridge');
+    return env === 'dev' ? CMA_BRIDGE_HOSTS.dev : CMA_BRIDGE_HOSTS.prod;
+  } catch {
+    return CMA_BRIDGE_HOSTS.prod;
+  }
+})();
+
+export const CMA_BRIDGE_WS_BASE = `wss://${CMA_BRIDGE_HOST}`;
+
+export const CMA_BRIDGE_HTTP_BASE = `https://${CMA_BRIDGE_HOST}`;
 
 export const AO_MANIFEST_ID = 'experience-workspace';
 
