@@ -1,11 +1,14 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
+import { sendMouse } from '@web/test-runner-commands';
 import { setupContentEditableListeners } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
 import { setEditorState } from '../../../../../nx/public/plugins/quick-edit/src/prose.js';
+import { installClickForwarding } from '../../../../../nx/public/plugins/quick-edit/src/click-forwarding.js';
 
 describe('quick-edit on-demand editors', () => {
   let ctx;
   let posted;
+  let cleanupClickForwarding;
 
   beforeEach(() => {
     document.body.innerHTML = '<main><div>'
@@ -13,17 +16,19 @@ describe('quick-edit on-demand editors', () => {
       + '<p data-prose-index="14"><picture data-prose-index="15"><img></picture></p>'
       + '</div></main>';
     posted = [];
+    cleanupClickForwarding = null;
     ctx = { port: { postMessage: (message) => posted.push(message) } };
     setupContentEditableListeners(ctx);
   });
 
   afterEach(() => {
-    document.removeEventListener('mousedown', ctx.editorRequestListener);
+    cleanupClickForwarding?.();
+    document.removeEventListener('click', ctx.editorRequestListener);
     document.querySelectorAll('.prosemirror-editor').forEach((el) => el.view?.destroy());
     document.body.innerHTML = '';
   });
 
-  const mousedown = (el, init = {}) => el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ...init }));
+  const click = (el, init = {}) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, ...init }));
   const editorRequests = () => posted.filter((m) => m.type === 'get-editor');
   const paragraph = (text) => ({
     type: 'paragraph',
@@ -35,20 +40,81 @@ describe('quick-edit on-demand editors', () => {
   });
 
   it('requests the editor for the element the user clicks', () => {
-    mousedown(document.querySelector('[data-prose-index="1"]'));
+    click(document.querySelector('[data-prose-index="1"]'), { clientX: 20, clientY: 30 });
     expect(editorRequests()).to.deep.equal([{ type: 'get-editor', payload: { cursorOffset: 1 } }]);
+    expect(ctx.pendingEditor).to.deep.equal({
+      element: document.querySelector('[data-prose-index="1"]'), x: 20, y: 30,
+    });
+  });
+
+  it('does not request an editor on mousedown', () => {
+    document.querySelector('[data-prose-index="1"]')
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(editorRequests()).to.have.length(0);
   });
 
   it('ignores image clicks and non-primary buttons', () => {
-    mousedown(document.querySelector('img'));
-    mousedown(document.querySelector('[data-prose-index="1"]'), { button: 2 });
+    click(document.querySelector('img'));
+    click(document.querySelector('[data-prose-index="1"]'), { button: 2 });
     expect(editorRequests()).to.have.length(0);
   });
 
   it('installs the listener only once per session', () => {
     setupContentEditableListeners(ctx);
-    mousedown(document.querySelector('[data-prose-index="1"]'));
+    click(document.querySelector('[data-prose-index="1"]'));
     expect(editorRequests()).to.have.length(1);
+  });
+
+  [
+    { html: 'Hello world', selector: 'p', target: undefined },
+    { html: '<strong>Hello world</strong>', selector: 'strong', target: undefined },
+    { html: '<a href="https://example.com/about">Hello world</a>', selector: 'a', target: 'https://example.com/about' },
+  ].forEach(({ html, selector, target }) => {
+    it(`forwards the first native ${selector} click before mounting an inline editor`, async () => {
+      const element = document.querySelector('[data-prose-index="1"]');
+      element.innerHTML = html;
+      // Prevent navigation without stopping the capture-phase forwarding listener.
+      element.addEventListener('click', (event) => event.preventDefault());
+      ctx.port.postMessage = (message) => {
+        posted.push(message);
+        // Model a fast host reply that replaces the original pressed element.
+        if (message.type === 'get-editor') {
+          setEditorState(message.payload.cursorOffset, paragraph('Hello world'), ctx);
+        }
+      };
+      cleanupClickForwarding = installClickForwarding({ getPort: () => ctx.port });
+      const rect = element.querySelector(selector)?.getBoundingClientRect()
+        ?? element.getBoundingClientRect();
+      const position = [Math.round(rect.x + 5), Math.round(rect.y + rect.height / 2)];
+      const presses = [];
+      document.addEventListener('mousedown', () => {
+        presses.push({ connected: element.isConnected, messages: [...posted] });
+      }, { once: true });
+
+      await sendMouse({ type: 'click', position });
+
+      expect(presses).to.deep.equal([{ connected: true, messages: [] }]);
+      const clicks = () => posted.filter((message) => message.type === 'quick-edit-iframe-click');
+      expect(clicks()).to.deep.equal([{
+        type: 'quick-edit-iframe-click',
+        payload: { target, source: 'ew-wysiwyg-layout' },
+      }]);
+      expect(posted[0]).to.equal(clicks()[0]);
+      expect(editorRequests()).to.have.length(1);
+      expect(element.isConnected).to.equal(false);
+      const editor = document.querySelector('.prosemirror-editor');
+      expect(editor.view.hasFocus()).to.equal(true);
+      expect(ctx.pendingEditor).to.equal(null);
+
+      // The mounted editor must forward clicks without requesting another editor.
+      const editorRect = editor.querySelector('p').getBoundingClientRect();
+      await sendMouse({
+        type: 'click',
+        position: [Math.round(editorRect.x + 5), Math.round(editorRect.y + editorRect.height / 2)],
+      });
+      expect(clicks()).to.have.length(2);
+      expect(editorRequests()).to.have.length(1);
+    });
   });
 
   it('does not replace preceding text when a block title has no exact preview target', () => {
@@ -191,7 +257,7 @@ describe('quick-edit on-demand editors', () => {
     document.querySelector('main > div').insertAdjacentHTML('beforeend', '<div class="prosemirror-editor"><div class="ProseMirror" contenteditable="true">x</div></div>');
     const editor = document.querySelector('.ProseMirror');
     editor.focus();
-    mousedown(document.querySelector('[data-prose-index="1"]'));
+    click(document.querySelector('[data-prose-index="1"]'));
     expect(document.activeElement).to.not.equal(editor);
   });
 });

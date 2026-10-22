@@ -70,6 +70,7 @@ parallel one. If you do add a new key:
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
 | `COMMENT_MARKER_CLEAR` | iframe → host | da-live only |
 | `COMMENT_SHORTCUT` | iframe → host | da-live only |
+| `QUICK_EDIT_IFRAME_CLICK` | iframe → host | da-live only |
 
 ---
 
@@ -112,6 +113,12 @@ Block-title rows and metadata tables have no inline counterpart in the preview.
 Both hosts route their edits through scoped `SET_BODY` rerendering rather than
 requesting mini-editors for text consumed or removed by serialization.
 
+Both hosts resolve nested text to the outermost instrumented editable element.
+For example, a heading inside a blockquote opens a mini-editor containing the
+whole blockquote, not just the heading. This preserves quote/list wrappers and
+their other children when the iframe sends the edited node back, and keeps
+host-originated edits targeting the same indexed element.
+
 ### `SET_EDITOR_STATE` (inline editors)
 
 Text edits inside one editable element skip `SET_BODY`: the iframe mounts a ProseMirror
@@ -146,6 +153,11 @@ because the user selected the block elsewhere, like the outline panel or the doc
 editor). Both only exist in the da-live-embedded flow — the standalone
 `quick-edit-portal.js` host has no equivalent selection UI, so neither is wired up
 there.
+
+The block hover pill selects on `click`, not `mousedown`, so removing it cannot
+cancel the native click before click forwarding observes it. The host acknowledges
+iframe-originated selections without scrolling that same iframe; selections made
+in the outline or document editor can still request scrolling.
 
 ### `NEW_VERSION`
 
@@ -228,6 +240,27 @@ of marker bubbles and highlights on top of the previewed page (`nx/public/plugin
 
 All five are da-live-embedded only; the standalone `quick-edit-portal.js` host has no
 comments UI, so none are wired up there.
+
+### `QUICK_EDIT_IFRAME_CLICK`
+
+The name scopes clicks to the quick-edit preview iframe, not arbitrary iframes or host toolbars.
+
+- **iframe → host**, payload `{ target?: string, source: 'ew-wysiwyg-layout' }` (`target` is
+  undefined when the clicked element has no link / media / action URL or `data-rum-target`,
+  as in RUM). All clicks inside this iframe belong to the layout editor, including editable
+  text, active inline editors, blocks, images, selection/comment overlays and empty space.
+- Clicks inside the preview iframe never bubble to the host document, so the host can't observe
+  them — e.g. its RUM enhancer, unlike `ew-editor-doc`, whose shadow-DOM clicks retarget to the
+  host element and are captured.
+- The iframe (`src/click-forwarding.js`, installed by `setupParentController` in `quick-edit.js`,
+  i.e. the `controller=parent` path) captures every click, derives `target` with the RUM
+  enhancer's own `targetSelector` (vendored in `src/rum-target.js`: `data-rum-target`, else the
+  link / media / form-action URL resolved to absolute, else undefined), and forwards it
+  along with the layout RUM `source`. The da-live host handler attributes these messages to
+  `ew-wysiwyg-layout` based on the iframe boundary, even if an older sender omits `source` or
+  sends `ew-wysiwyg-doc`. The separate doc editor remains tracked by the host RUM enhancer.
+  This keeps attribution consistent when the two repos deploy in either order. The standalone
+  `quick-edit-portal.js` host does not consume it.
 
 ## Known gaps
 

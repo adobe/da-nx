@@ -4,6 +4,7 @@ import { createEngine } from '../../deps/da-sc-sdk/dist/index.js';
 import { loadFormContext } from './utils/context.js';
 import { attachPersistence } from './utils/persistence.js';
 import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
+import { isJsonPreviewEnabled } from './utils/config.js';
 
 import './views/editor.js';
 import './views/sidebar.js';
@@ -48,6 +49,7 @@ class Form extends LitElement {
     _state: { state: true },
     _nav: { state: true },
     _pendingSchemaId: { state: true },
+    _previewEnabled: { state: true },
   };
 
   // Reactive properties (declared in static properties) must NOT have class-
@@ -155,9 +157,13 @@ class Form extends LitElement {
 
     this._context = { status: 'loading', schemas: {} };
 
-    const context = await loadFormContext({ details: this._details });
+    const [context, previewEnabled] = await Promise.all([
+      loadFormContext({ details: this._details }),
+      isJsonPreviewEnabled({ org: this.ctx.org, site: this.ctx.repo }),
+    ]);
     if (version !== this._loadVersion) return;
 
+    this._previewEnabled = previewEnabled;
     this._context = context;
 
     if (context.status === 'ready') {
@@ -351,16 +357,18 @@ class Form extends LitElement {
       );
     }
 
+    const showPreview = this._previewEnabled !== false;
+
     return html`
       <div class="nx-form-wrapper">
-        <div class="nx-editor-pane">
+        <div class="nx-editor-pane ${showPreview ? 'nx-editor-pane-with-preview' : ''}">
           <nx-editor
             .editor=${this._editor}
             .state=${this._state}
             .nav=${this._nav}
             .onSelect=${this._onSelect}
           ></nx-editor>
-          <nx-preview .state=${this._state}></nx-preview>
+          ${showPreview ? html`<nx-preview .state=${this._state}></nx-preview>` : nothing}
         </div>
         <nx-sidebar
           .state=${this._state}
