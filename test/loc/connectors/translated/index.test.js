@@ -146,6 +146,19 @@ describe('translated connector', () => {
       expect(messages.at(-1)).to.equal(undefined);
     });
 
+    it('accepts language codes in any case and sends Translated casing', async () => {
+      installFetch(submitHandler(['en-US', 'fr-CA', 'de-DE']));
+      options['source.language'] = { code: 'EN-us' };
+      langs = [{ code: 'fr-ca', name: 'French (Canada)' }, { code: 'de-DE', name: 'German' }];
+      await send();
+
+      const call = lastCall('/v2/translate');
+      expect(call.body[0].source_language).to.equal('en-US');
+      expect(call.body[0].target_languages).to.deep.equal(['fr-CA', 'de-DE']);
+      expect(Object.keys(JSON.parse(options.service.orderIds.value))).to.deep.equal(['fr-ca', 'de-DE']);
+      expect(langs[0].translation.status).to.equal('created');
+    });
+
     it('defaults the source language to en-US when none is configured', async () => {
       installFetch(submitHandler());
       delete options['source.language'];
@@ -355,6 +368,26 @@ describe('translated connector', () => {
       expect(calls.at(-1).body).to.deep.include({ id_order: 'o1', target_language: 'fr', fetch_content: true });
     });
 
+    it('queries /status with Translated casing for a differently cased code', async () => {
+      installFetch((url) => (url.endsWith('/v2/symbol/languages')
+        ? json([{ key: 'fr-CA', value: 'French (Canada)' }])
+        : json([request({
+          id_content: 'Proj:/p0', target_language: 'fr-CA', translated_content: '<main>salut</main>',
+        })])));
+      const urls = makeUrls(1);
+      await saveItems({
+        org,
+        site,
+        service: baseService({ orderIds: { value: JSON.stringify({ 'fr-ca': 'o1' }) } }),
+        lang: { code: 'fr-ca' },
+        urls,
+        saveFn: async (url) => { url.status = 'success'; },
+      });
+
+      expect(calls.at(-1).body.target_language).to.equal('fr-CA');
+      expect(urls[0].status).to.equal('success');
+    });
+
     it('flags urls as errors when the lookup fails', async () => {
       installFetch(() => json({ message: 'down' }, 400));
       const urls = makeUrls(1);
@@ -401,6 +434,20 @@ describe('translated connector', () => {
       expect(result).to.deep.equal({ ok: true });
       expect(l.translation.status).to.equal('cancelled');
       expect(lastCall('/v2/translate/cancel').body).to.deep.equal({ id: [7, 8] });
+    });
+
+    it('queries /status with Translated casing for a differently cased code', async () => {
+      installFetch((u) => {
+        if (u.endsWith('/v2/symbol/languages')) return json([{ key: 'fr-CA', value: 'French (Canada)' }]);
+        return json(u.endsWith('/v2/status') ? [request({ id: 7, target_language: 'fr-CA', status: 'bucketing' })] : {});
+      });
+      const l = { code: 'fr-ca', name: 'French', translation: { status: 'created' } };
+      const result = await cancelTranslation({
+        service: baseService({ orderIds: { value: JSON.stringify({ 'fr-ca': 'o1' }) } }), lang: l, sendMessage,
+      });
+
+      expect(result).to.deep.equal({ ok: true });
+      expect(calls.find((c) => c.url.endsWith('/v2/status')).body.target_language).to.equal('fr-CA');
     });
 
     it('refuses when translation already started and does not call cancel', async () => {

@@ -107,14 +107,24 @@ function apiPost(service, path, body, headers = {}) {
 }
 
 /**
- * Fetches the language codes Translated accepts for `/translate`.
+ * Fetches the language codes Translated accepts, keyed by lowercase code.
  * @param {Object} service - The service config.
- * @returns {Promise<Set<string>|undefined>} The codes, or undefined if the lookup failed.
+ * @returns {Promise<Map<string, string>|undefined>} `lower -> canonical`, or undefined.
  */
 async function fetchLanguageCodes(service) {
   const { json } = await apiFetch(service, '/v2/symbol/languages');
-  if (!Array.isArray(json)) return undefined;
-  return new Set(json.map((language) => language.key));
+  const keys = Array.isArray(json) ? json.map((language) => language.key).filter(Boolean) : [];
+  return keys.length ? new Map(keys.map((key) => [key.toLowerCase(), key])) : undefined;
+}
+
+/**
+ * Resolves a configured code to Translated's casing; unknown codes pass through.
+ * @param {Map<string, string>|undefined} accepted - From `fetchLanguageCodes`.
+ * @param {string} code - The configured language code.
+ * @returns {string} The canonical code.
+ */
+function canonicalCode(accepted, code) {
+  return accepted?.get(code.toLowerCase()) ?? code;
 }
 
 /**
@@ -270,7 +280,7 @@ export async function sendAllLanguages({
   const accepted = await fetchLanguageCodes(service);
   const unsupported = accepted
     ? [...new Set([sourceLanguage, ...langs.map((lang) => lang.code)])]
-      .filter((code) => !accepted.has(code))
+      .filter((code) => !accepted.has(code.toLowerCase()))
     : [];
   if (unsupported.length) {
     sendMessage({ text: `Translated does not support these language codes: ${unsupported.join(', ')}. See ${LANGUAGES_DOC_URL}.`, type: 'error' });
@@ -283,8 +293,8 @@ export async function sendAllLanguages({
     id_order: orderId,
     content: url.content,
     content_type: url.ext === 'json' ? 'application/json' : 'text/html',
-    source_language: sourceLanguage,
-    target_languages: langs.map((lang) => lang.code),
+    source_language: canonicalCode(accepted, sourceLanguage),
+    target_languages: langs.map((lang) => canonicalCode(accepted, lang.code)),
     service_type: serviceType,
   }));
 
@@ -375,9 +385,10 @@ export async function saveItems({
   const orderId = readMap(service, 'orderIds')[lang.code];
   if (!orderId) return urls;
 
+  const accepted = await fetchLanguageCodes(service);
   const { requests } = await fetchRequests(service, {
     id_order: orderId,
-    target_language: lang.code,
+    target_language: canonicalCode(accepted, lang.code),
     fetch_content: true,
   });
   const byContent = latestByContent(forLang(requests || [], lang.code));
@@ -419,9 +430,10 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
   }
 
   sendMessage({ text: `Canceling ${lang.name}.` });
+  const accepted = await fetchLanguageCodes(service);
   const { requests, error } = await fetchRequests(service, {
     id_order: orderId,
-    target_language: lang.code,
+    target_language: canonicalCode(accepted, lang.code),
   });
   if (error) {
     sendMessage({ text: `Canceling ${lang.name} failed: ${error}`, type: 'error' });
