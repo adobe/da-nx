@@ -86,7 +86,7 @@ Auth is handled inside `daFetch`:
 
 1. `await loadIms()` — pulls the IMS access token. If none, `handleSignIn()` fires and the call returns `{}`.
 2. If the URL's origin is in `ALLOWED_TOKEN` (DA, HLX_ADMIN, AEM_API, plus collab/content/preview/etc.), an `Authorization: Bearer …` header is attached.
-3. For `HLX_ADMIN` and `AEM_API` specifically, an additional `x-content-source-authorization` header carries the same token.
+3. `x-content-source-authorization` is not sent. The backend falls back to the `Authorization` IMS token for Adobe content sources.
 4. `401`/`403` responses with `redirect: true` redirect the page to `/not-found`.
 
 Callers don't usually need to think about this — using a namespace method handles it transparently.
