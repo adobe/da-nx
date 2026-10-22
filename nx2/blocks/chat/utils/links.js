@@ -12,6 +12,10 @@ const LINKIFY_SKIP = new Set(['a', 'code', 'pre']);
 
 const countChar = (str, char) => str.split(char).length - 1;
 
+export function isSafeHref(href) {
+  return typeof href === 'string' && SAFE_URL.test(href) && URL.canParse(href);
+}
+
 // Split a text node's value into text + anchor hast nodes for each bare URL.
 // Returns null when the value contains no URL, so callers can keep the original node.
 function splitUrlText(value) {
@@ -72,7 +76,7 @@ export function sanitizeLinks(node) {
     const href = node.properties?.href ?? '';
     node.properties = {
       ...node.properties,
-      href: SAFE_URL.test(href) ? href : '#',
+      href: isSafeHref(href) ? href : '#',
       target: '_blank',
       rel: ['noopener', 'noreferrer'],
     };

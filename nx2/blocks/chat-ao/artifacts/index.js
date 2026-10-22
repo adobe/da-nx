@@ -12,6 +12,9 @@ import './metric-card.js';
 import './page-evaluation.js';
 import './code-block.js';
 import './inline-alert.js';
+import './text.js';
+import './link.js';
+import './badge.js';
 
 // Flat A2UI surfaces render from the `root` record, which reaches the rest by
 // id; legacy nested surfaces render every top-level node.
