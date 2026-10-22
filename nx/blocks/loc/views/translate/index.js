@@ -219,7 +219,7 @@ export async function copySourceLangs(org, site, title, options, langs, urls, la
     const success = langUrls.filter((url) => url.status === 200).length;
     lang.copy = {
       saved: success,
-      status: 'complete',
+      status: success === langUrls.length ? 'complete' : 'error',
     };
   }
 }
