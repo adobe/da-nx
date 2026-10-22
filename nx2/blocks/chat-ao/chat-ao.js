@@ -293,6 +293,21 @@ export default class NxChatAo extends LitElement {
       this.setPrompt(detail.text, { autoSend: detail.autoSend });
     };
     document.addEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
+    // Prompts picked in the da-skills manager (a separate tab/app) are
+    // broadcast on the 'da-skills-editor' BroadcastChannel, not as a
+    // same-document nx-set-prompt event — so subscribe to the channel too.
+    // 'prompt-add' inserts into the composer; 'prompt-send' inserts + sends.
+    // Contract: da-skills blocks/skills/utils/skills-channel.js.
+    if (typeof BroadcastChannel !== 'undefined') {
+      this._skillsChannel = new BroadcastChannel('da-skills-editor');
+      this._skillsChannel.onmessage = ({ data }) => {
+        const { type, payload } = data ?? {};
+        const text = payload?.prompt;
+        if (typeof text !== 'string' || !text.trim()) return;
+        if (type === 'prompt-add') this.setPrompt(text, { autoSend: false });
+        else if (type === 'prompt-send') this.setPrompt(text, { autoSend: true });
+      };
+    }
     this._voice = createVoiceInput({
       onStart: () => { this._voiceListening = true; },
       onEnd: () => { this._voiceListening = false; this._voiceInterim = ''; },
@@ -311,6 +326,7 @@ export default class NxChatAo extends LitElement {
     this._unsubscribeHash?.();
     document.removeEventListener('visibilitychange', this._onVisibilityChange);
     document.removeEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
+    this._skillsChannel?.close();
     this._voice?.stop();
   }
 
