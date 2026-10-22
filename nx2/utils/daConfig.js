@@ -1,7 +1,8 @@
 import { config } from './api.js';
+import { getFirstSheet } from './utils.js';
 
 // Kept here for existing importers; lives in utils.js so callers can use it without api.js.
-export { getFirstSheet } from './utils.js';
+export { getFirstSheet };
 
 /**
  * Fetches org and (optionally) site configs, caching the in-flight/resolved
@@ -56,3 +57,14 @@ export const fetchDaConfigs = (() => {
     return configs;
   };
 })();
+
+/** Config value for `key`, site overriding org. Undefined if missing or unloadable. */
+export async function getConfigValue({ org, site, key }) {
+  try {
+    const configs = await Promise.all(fetchDaConfigs({ org, site }));
+    const rows = configs.flatMap((json) => getFirstSheet(json) ?? []);
+    return rows.findLast((row) => row.key === key)?.value;
+  } catch {
+    return undefined;
+  }
+}
