@@ -28,9 +28,6 @@ async function openMenu(el, source = 'bar') {
   const sr = el.shadowRoot;
   sr.querySelector(`[data-more="${source}"]`).click();
   await until(() => sr.querySelector('.form-richtext-menu [data-tool]'));
-  const menu = sr.querySelector('.form-richtext-menu');
-  // Concurrent test pages steal window focus, which would light-dismiss the menu.
-  window.removeEventListener('blur', menu._onWindowBlur);
   await el.updateComplete;
 }
 
@@ -64,7 +61,13 @@ function selectAll(el) {
 }
 
 describe('form-richtext', () => {
+  // Concurrent test pages steal window focus, which light-dismisses menus and resets the field.
+  beforeEach(() => {
+    sinon.stub(document, 'hasFocus').returns(true);
+  });
+
   afterEach(() => {
+    sinon.restore();
     document.body.querySelectorAll('form-richtext').forEach((el) => el.remove());
   });
 
@@ -267,7 +270,7 @@ describe('form-richtext', () => {
     expect(picker.value).to.equal('paragraph');
     picker.dispatchEvent(new CustomEvent('change', { detail: { value: 'heading-2' } }));
     expect(el.value).to.equal('<h2>text</h2>');
-    await el.updateComplete;
+    await refocus(el);
     expect(picker.value).to.equal('heading-2');
     expect(picker.inert).to.be.false;
   });
@@ -278,11 +281,10 @@ describe('form-richtext', () => {
     const underline = () => tool(el, 'u').getAttribute('aria-pressed');
     expect(underline()).to.equal('false');
     expect(picker.value).to.equal('paragraph');
-    el.focus();
-    await el.updateComplete;
+    await refocus(el);
     expect(underline()).to.equal('true');
     expect(picker.value).to.equal('heading-1');
-    el._view.dom.blur();
+    content(el).dispatchEvent(new FocusEvent('focusout', { bubbles: true, composed: true }));
     await el.updateComplete;
     expect(underline()).to.equal('false');
     expect(tool(el, 'unlink').classList.contains('is-hidden')).to.be.true;
@@ -436,10 +438,7 @@ describe('form-richtext', () => {
       return view;
     };
 
-    afterEach(() => sinon.restore());
-
     it('shows the stored form once focus leaves', async () => {
-      sinon.stub(document, 'hasFocus').returns(true);
       const el = await mount({ value: '<p>a</p>' });
       const view = typeTransient(el);
       expect(view.state.doc.childCount).to.equal(2);
@@ -452,7 +451,7 @@ describe('form-richtext', () => {
     });
 
     it('keeps typing state when the window loses focus', async () => {
-      sinon.stub(document, 'hasFocus').returns(false);
+      document.hasFocus.returns(false);
       const el = await mount({ value: '<p>a</p>' });
       const view = typeTransient(el);
       blur(el);
