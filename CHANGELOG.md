@@ -1,3 +1,10 @@
+## [1.21.1](https://github.com/adobe/da-nx/compare/v1.21.0...v1.21.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **quick-edit:** first native click forwarded to RUM ([efeb620](https://github.com/adobe/da-nx/commit/efeb6206229accff09459493137fb1e8d34d07f3))
+
 # [1.21.0](https://github.com/adobe/da-nx/compare/v1.20.1...v1.21.0) (2026-10-22)
 
 
