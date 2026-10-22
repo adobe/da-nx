@@ -211,6 +211,8 @@ export const serviceOptions = [
   {
     key: 'autoAuthorize',
     label: 'Auto-authorize',
+    // Reload so workflowUid is normalized once it becomes enabled.
+    reloadServiceOptionsOnChange: true,
     // Static choices - no API call needed, unlike the other service options.
     fetch: async () => ([
       { value: 'no', label: 'Disabled' },
