@@ -39,6 +39,14 @@ Use `variant="field"` for a bordered, form-style picker trigger.
 This variant is visual and interactive only. It does not provide a label or participate in native form submission, validation, or reset behavior.
 Its dropdown matches the rendered trigger width each time it opens.
 
+### Fixed trigger label
+
+Use `labelOverride` for a fixed trigger label. The dropdown still marks the selected item.
+
+```js
+picker.labelOverride = "Sort";
+```
+
 ## Item shapes
 
 Each entry in the `items` array is one of:
@@ -72,6 +80,10 @@ When the selected item has a `swatch`, the trigger shows it before the label too
 | `open`          | `Boolean` (read-only) | Whether the picker is currently open.                                          |
 
 Trigger text precedence is: non-empty `labelOverride`, matching item label, `placeholder`, then blank. A placeholder is never added to the dropdown and does not change `value`.
+
+## CSS parts
+
+Use `::part(label)` to style the trigger text, or `::part(label)::before` to add a decorative icon.
 
 ## CSS custom properties
 

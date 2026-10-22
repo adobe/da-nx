@@ -43,7 +43,7 @@ export const COWORKER_SKILLS_URL = 'https://experience.adobe.com/#/coworker/cust
 
 export const COWORKER_CHAT_URL = 'https://experience.adobe.com/#/coworker';
 
-export const ENTERPRISE_CONTEXT_URL = 'https://experience.adobe.com/#/experiencemanager/experience-context';
+export const ENTERPRISE_CONTEXT_URL = 'https://experience.adobe.com/#/coworker/experience-context';
 
 export const ADD_MENU_ITEMS = [
   { section: 'Add' },
