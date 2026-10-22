@@ -168,20 +168,25 @@ class NxLocOptions extends LitElement {
       return;
     }
 
-    // A <sl-select> falls back to its first <option> the instant it renders, with no
-    // change event - so a service option left unset (or set to a value no longer among
-    // the fetched choices, e.g. a since-deleted project) must be seeded here to its first
-    // choice, or the visually-selected value would never reach _siteConfig (and therefore
-    // never get persisted) unless the user happened to touch the select.
+    // <sl-select> shows its first option without firing change, so unset or stale values
+    // are seeded to the first choice here. Incomplete listings can't prove a saved value
+    // is gone, so it is kept as a choice instead.
+    const resolved = serviceOptions.map((option, i) => {
+      const list = items[i] || [];
+      const value = envConfig[option.key];
+      const keep = list.incomplete && value && !list.some((item) => item.value === value);
+      return keep ? [{ value, label: value }, ...list] : list;
+    });
+
     serviceOptions.forEach((option, i) => {
       if (option.enabledWhen && !option.enabledWhen(envConfig)) return;
       const value = envConfig[option.key];
-      const known = items[i]?.some((item) => item.value === value);
-      if (!known && items[i]?.length) envConfig[option.key] = items[i][0].value;
+      const known = resolved[i].some((item) => item.value === value);
+      if (!known && resolved[i].length) envConfig[option.key] = resolved[i][0].value;
     });
 
     this._serviceOptions = serviceOptions.map(
-      (option, i) => ({ ...option, items: items[i] || [] }),
+      (option, i) => ({ ...option, items: resolved[i] }),
     );
     this.updateOptions();
   }

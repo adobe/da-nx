@@ -140,6 +140,39 @@ describe('NxLocOptions - loadConnectorServiceOptions', () => {
     expect(el._options.service.projectId).to.equal('proj-1');
   });
 
+  it('keeps a saved projectId missing from an incomplete project listing', async () => {
+    const base = smartlingHandler({
+      projects: [{ projectId: 'proj-1', projectName: 'Marketing Site', archived: false }],
+    });
+    installFetch((u, opts) => {
+      if (u.includes('/projects-api/v2/projects/proj-501')) {
+        return new Response(JSON.stringify({
+          response: { data: { accountUid: 'acct-1' } },
+        }), { status: 200 });
+      }
+      if (u.includes('/accounts-api/v2/accounts/acct-1/projects')) {
+        const offset = new URL(u).searchParams.get('offset');
+        if (offset !== '0') return new Response('', { status: 400 });
+        return new Response(JSON.stringify({
+          response: {
+            data: {
+              totalCount: 501,
+              items: [{ projectId: 'proj-1', projectName: 'Marketing Site', archived: false }],
+            },
+          },
+        }), { status: 200 });
+      }
+      return base(u, opts);
+    });
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.projectId = 'proj-501';
+
+    await el.loadConnectorServiceOptions();
+
+    expect(el._siteConfig.service.envs.prod.projectId).to.equal('proj-501');
+    expect(el._serviceOptions[0].items.map((i) => i.value)).to.include('proj-501');
+  });
+
   it('overrides a projectId that no longer matches any fetched project', async () => {
     installFetch(globalLinkHandler([{ projectId: 42, name: 'Marketing Site', enabled: true }]));
     const el = createOptionsEl();
