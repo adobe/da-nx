@@ -4,6 +4,7 @@ import {
   setupConnector,
   getUrls,
   saveLangItemsToDa,
+  reDownloadLang,
   copySourceLangs,
   checkWaitingLanguages,
   sendAllForTranslation,
@@ -31,6 +32,7 @@ class NxLocTranslate extends LitElement {
     _cancelAllBusy: { state: true },
     _copyAllBusy: { state: true },
     _cancelingLangs: { state: true },
+    _reDownloadingLangs: { state: true },
   };
 
   connectedCallback() {
@@ -282,6 +284,38 @@ class NxLocTranslate extends LitElement {
     }
   }
 
+  /**
+   * Saves a complete language again after the vendor redelivered corrections.
+   * @param {Object} lang - The language to save again.
+   * @returns {Promise<void>}
+   */
+  async handleReDownloadLang(lang) {
+    const behavior = this._options['translate.conflict.behavior'];
+    const action = behavior === 'overwrite' ? 'overwrite' : 'merge into';
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Download ${lang.name} again and ${action} the existing pages?`)) return;
+
+    this._reDownloadingLangs = new Set(this._reDownloadingLangs).add(lang.code);
+
+    try {
+      const conf = await this.getBaseTranslationConf(false);
+      const sendMessage = this.handleMessage.bind(this);
+      await reDownloadLang({
+        options: this._options,
+        conf,
+        connector: this._service.connector,
+        lang,
+        sendMessage,
+      });
+      this.handleMessage(undefined);
+      this.handleSaveLangs();
+    } finally {
+      const next = new Set(this._reDownloadingLangs);
+      next.delete(lang.code);
+      this._reDownloadingLangs = next;
+    }
+  }
+
   async handleCopyAll() {
     this._copyAllBusy = true;
     try {
@@ -328,6 +362,16 @@ class NxLocTranslate extends LitElement {
       && lang.translation.status !== 'cancelled'
       && lang.translation.status !== 'cancelling'
       && lang.translation.status !== 'complete';
+  }
+
+  /**
+   * Whether the language can be downloaded again.
+   * @param {Object} lang - The language to check.
+   * @returns {boolean} True if the connector supports redelivery and the language is complete.
+   */
+  canReDownloadLang(lang) {
+    return !!this._service?.connector?.supportsReDownload
+      && lang.translation?.status === 'complete';
   }
 
   get incompleteLangs() {
@@ -416,6 +460,21 @@ class NxLocTranslate extends LitElement {
     `;
   }
 
+  /**
+   * Renders the Re-download button for a complete language.
+   * @param {Object} lang - The language row.
+   * @returns {import('lit').TemplateResult|symbol} The button, or `nothing`.
+   */
+  renderReDownloadLang(lang) {
+    const busy = this._reDownloadingLangs?.has(lang.code);
+    if (!this._connected || (!busy && !this.canReDownloadLang(lang))) return nothing;
+    return html`
+      <sl-button @click=${() => this.handleReDownloadLang(lang)} class="primary outline" ?disabled=${busy}>
+        ${busy ? this.renderSpinner() : nothing} Re-download
+      </sl-button>
+    `;
+  }
+
   renderUrlErrors() {
     if (!this._urlErrors) return nothing;
 
@@ -443,7 +502,10 @@ class NxLocTranslate extends LitElement {
 
   renderTranslate() {
     if (!this._translateLangs?.length) return nothing;
-    const withCancel = this.canCancel && this._connected && this._translateLangs.some((lang) => this.canCancelLang(lang)) ? ' with-cancel' : '';
+    const hasCancel = this.canCancel
+      && this._translateLangs.some((lang) => this.canCancelLang(lang));
+    const hasReDownload = this._translateLangs.some((lang) => this.canReDownloadLang(lang));
+    const withCancel = this._connected && (hasCancel || hasReDownload) ? ' with-cancel' : '';
 
     return html`
       <div class="nx-loc-list-actions">
@@ -469,6 +531,7 @@ class NxLocTranslate extends LitElement {
               <p class="lang-count">${lang.translation?.saved || 0}</p>
               ${this.renderLangStatus(lang)}
               ${this.renderCancelLang(lang)}
+              ${this.renderReDownloadLang(lang)}
             </div>
           </li>
         `)}

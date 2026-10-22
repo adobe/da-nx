@@ -130,6 +130,22 @@ async function saveLang({
   return { savedCount };
 }
 
+/**
+ * Saves one language's translated items to DA and records the outcome on the language.
+ * @param {Object} params
+ * @param {Object} params.saveLangConf - Project conf plus connector, behavior and sendMessage.
+ * @param {Object} params.lang - The language to save.
+ * @param {number} params.langIndex - Index of the language in the conf.
+ * @returns {Promise<void>}
+ */
+async function saveAndRecordLang({ saveLangConf, lang, langIndex }) {
+  const { sendMessage, urls } = saveLangConf;
+  sendMessage({ text: `Fetching ${urls.length} items for ${lang.name}` });
+  const { savedCount } = await saveLang({ ...saveLangConf, lang, langIndex });
+  lang.translation.saved = savedCount;
+  lang.translation.status = savedCount === urls.length ? 'complete' : 'error';
+}
+
 export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   const behavior = options['translate.conflict.behavior'];
 
@@ -137,12 +153,28 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
 
   for (const [langIndex, lang] of conf.langs.entries()) {
     if (lang.translation.status !== 'complete') {
-      sendMessage({ text: `Fetching ${conf.urls.length} items for ${lang.name}` });
-      const { savedCount } = await saveLang({ ...saveLangConf, lang, langIndex });
-      lang.translation.saved = savedCount;
-      lang.translation.status = savedCount === conf.urls.length ? 'complete' : 'error';
+      await saveAndRecordLang({ saveLangConf, lang, langIndex });
     }
   }
+}
+
+/**
+ * Saves a language again, including when it is already complete, so content
+ * the vendor redelivered after the first save replaces what was saved.
+ * @param {Object} params
+ * @param {Object} params.options - Project options.
+ * @param {Object} params.conf - Translation conf with the full `langs` list.
+ * @param {Object} params.connector - The service connector.
+ * @param {Object} params.lang - The language to save again.
+ * @param {Function} params.sendMessage - Status message callback.
+ * @returns {Promise<void>}
+ */
+export async function reDownloadLang({ options, conf, connector, lang, sendMessage }) {
+  const behavior = options['translate.conflict.behavior'];
+  const langIndex = conf.langs.indexOf(lang);
+  const saveLangConf = { ...conf, connector, behavior, sendMessage };
+
+  await saveAndRecordLang({ saveLangConf, lang, langIndex });
 }
 
 export async function copySourceLangs(org, site, title, options, langs, urls, langsWithUrls) {
