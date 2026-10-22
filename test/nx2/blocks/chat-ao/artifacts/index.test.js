@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { render } from 'da-lit';
 import { renderUiArtifact } from '../../../../../nx2/blocks/chat-ao/artifacts/index.js';
+import { renderAssistantMessageBody } from '../../../../../nx2/blocks/chat-ao/renderers.js';
 
 function mount(template) {
   const host = document.createElement('div');
@@ -9,6 +10,21 @@ function mount(template) {
 }
 
 describe('artifacts renderUiArtifact', () => {
+  it('routes flat and legacy assistant artifacts through the native renderers', () => {
+    [
+      [
+        { id: 'root', component: 'Column', children: ['metric'] },
+        { id: 'metric', component: 'MetricCard', label: 'Reviewed', value: 3 },
+      ],
+      [{ type: 'Column', props: { children: [{ type: 'MetricCard', props: { label: 'Reviewed', value: 3 } }] } }],
+    ].forEach((components) => {
+      const host = mount(renderAssistantMessageBody({ uiArtifact: { components } }));
+      expect(host.querySelector('.ui-artifact-column')).to.exist;
+      expect(host.querySelectorAll('.ui-artifact-metric')).to.have.length(1);
+      expect(host.querySelector('.ui-artifact-metric-value').textContent).to.equal('3');
+    });
+  });
+
   it('renders nothing for a missing artifact', () => {
     const host = mount(renderUiArtifact(undefined));
     expect(host.textContent.trim()).to.equal('');

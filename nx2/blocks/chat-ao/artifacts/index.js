@@ -6,11 +6,12 @@ import './markdown.js';
 import './row.js';
 import './column.js';
 import './card.js';
-import './data-table.js';
+import './card-view.js';
+import './table-view.js';
 import './metric-card.js';
 import './page-evaluation.js';
 import './code-block.js';
-import './alert.js';
+import './inline-alert.js';
 
 // Flat A2UI surfaces render from the `root` record, which reaches the rest by
 // id; legacy nested surfaces render every top-level node.
