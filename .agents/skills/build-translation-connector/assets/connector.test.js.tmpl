@@ -1,0 +1,119 @@
+// Copy to test/loc/connectors/__name__/index.test.js and replace __name__.
+import { expect } from '@esm-bundle/chai';
+import {
+  isConnected, sendAllLanguages, getStatusAll, saveItems, toFileName,
+} from '../../../../nx/blocks/loc/connectors/__name__/index.js';
+import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
+
+// Dynamic path stops @web/dev-server-import-maps from rewriting the import.
+const imsPath = '../../../../nx2/utils/ims.js';
+const { setMockIms, resetMockIms } = await import(imsPath);
+
+const org = 'acme';
+const site = 'site1';
+const proxyOrigin = `${DA_TRANSLATE}/translate/__name__/${org}/${site}`;
+// DA_ETC is undefined in tests, so utils/auth.js falls back to this origin.
+const statusUrl = `https://da-etc.adobeaem.workers.dev/${org}/sites/${site}/integrations/__name__/status?env=prod`;
+
+let calls;
+let origFetch;
+
+const baseService = (overrides = {}) => ({ org, site, env: 'prod', ...overrides });
+const makeUrls = (count) => Array.from({ length: count }, (_, i) => ({
+  daBasePath: `/page-${i}`, ext: 'html', content: '<p>hi</p>',
+}));
+const makeLang = (overrides = {}) => ({ code: 'fr-FR', name: 'French', ...overrides });
+
+function defaultHandler(u) {
+  if (u.startsWith(statusUrl.split('?')[0])) return new Response(JSON.stringify({ connected: true }), { status: 200 });
+  // TODO(vendor): add routes for upload, job creation, status, download.
+  return new Response('{}', { status: 200 });
+}
+
+function installFetch(handler = defaultHandler) {
+  calls = [];
+  origFetch = window.fetch;
+  window.fetch = async (url, opts = {}) => {
+    const u = url.toString();
+    calls.push({ url: u, method: opts.method, body: opts.body, headers: opts.headers });
+    return handler(u, opts);
+  };
+}
+
+describe('__name__ connector', () => {
+  beforeEach(() => {
+    resetMockIms();
+    sessionStorage.clear();
+    installFetch();
+  });
+  afterEach(() => {
+    window.fetch = origFetch;
+  });
+
+  describe('toFileName', () => {
+    it('escapes underscores so distinct paths cannot collide', () => {
+      expect(toFileName('/a/b_c')).to.not.equal(toFileName('/a_b/c'));
+    });
+  });
+
+  describe('isConnected', () => {
+    it('is false without org/site', async () => {
+      expect(await isConnected({})).to.equal(false);
+    });
+
+    it('is false without an IMS session', async () => {
+      setMockIms({ anonymous: true });
+      expect(await isConnected(baseService())).to.equal(false);
+    });
+  });
+
+  describe('sendAllLanguages', () => {
+    it('reports one rolled-up error and leaves langs untouched when uploads fail', async () => {
+      installFetch((u) => (u.startsWith(proxyOrigin)
+        ? new Response(JSON.stringify({ message: 'boom' }), { status: 400 })
+        : defaultHandler(u)));
+      const langs = [makeLang()];
+      const messages = [];
+      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+      await sendAllLanguages({
+        title: 't',
+        service: baseService(),
+        options: { 'source.language': { code: 'en-US' }, service: {} },
+        langs,
+        urls: makeUrls(3),
+        actions,
+      });
+      expect(messages.filter((m) => m?.type === 'error')).to.have.length(1);
+      expect(langs[0].translation).to.equal(undefined);
+    });
+    // TODO(vendor): happy path (created, sent, ids), more than 5 urls, source language code,
+    // job creation failure or missing id leaves lang.translation undefined and persists no ids.
+  });
+
+  describe('getStatusAll', () => {
+    it('skips complete and cancelled languages', async () => {
+      const langs = [makeLang({ translation: { status: 'complete' } })];
+      await getStatusAll({
+        service: baseService(),
+        langs,
+        urls: makeUrls(1),
+        actions: { sendMessage: () => {}, saveState: async () => {} },
+      });
+      expect(calls.filter((c) => c.url.startsWith(proxyOrigin))).to.have.length(0);
+    });
+    // TODO(vendor): each state mapping, pagination beyond one page, multi-job grouping.
+  });
+
+  describe('saveItems', () => {
+    it('sets error status on urls with no persisted id', async () => {
+      const urls = makeUrls(6);
+      const saveFn = async (url) => { url.status = 'success'; };
+      const service = baseService({ jobIds: { value: '{"fr-FR":"job-1"}' }, fileIds: { value: '{}' } });
+      await saveItems({
+        org, site, service, lang: makeLang(), urls, saveFn,
+      });
+      expect(urls.every((url) => url.status === 'error')).to.equal(true);
+    });
+    // TODO(vendor): happy path with >5 urls, failed download, approve only after success.
+  });
+});

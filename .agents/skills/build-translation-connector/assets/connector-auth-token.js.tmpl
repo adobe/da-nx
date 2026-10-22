@@ -1,0 +1,70 @@
+// Archetype A (token exchange via da-etc). Copy to connectors/__name__/auth.js
+// Replace __name__. Delete the x-__name__-origin lines if the vendor host is fixed.
+import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
+import authReady, {
+  getAccessToken, imsAccessToken, imsAuthHeader,
+} from '../../utils/auth.js';
+
+const INTEGRATION_NAME = '__name__';
+const ORIGIN_HEADER = 'x-__name__-origin';
+const CREDENTIAL_HEADER = 'x-__name__-authorization';
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
+
+/**
+ * Builds the da-translate proxy origin for this org/site.
+ * @param {Object} service - The flattened per-environment service config.
+ * @returns {string|null} The proxy origin, or null if org/site are unknown.
+ */
+export function resolveOrigin(service) {
+  const { org, site } = service || {};
+  if (!org || !site) return null;
+  return `${DA_TRANSLATE}/translate/${INTEGRATION_NAME}/${org}/${site}`;
+}
+
+/**
+ * Builds request headers. Authorization stays reserved for IMS; the vendor token and
+ * (for per-tenant hosts) the upstream origin travel in custom headers.
+ * @param {Object} service - The flattened per-environment service config; reads `endpoint`.
+ * @param {Object} [extraHeaders] - Headers to merge in (default JSON).
+ * @returns {Promise<Object>} The merged headers.
+ */
+export async function authHeaders(service, extraHeaders = JSON_HEADERS) {
+  const token = await getAccessToken(INTEGRATION_NAME, service);
+  return {
+    ...(await imsAuthHeader()),
+    [CREDENTIAL_HEADER]: `Bearer ${token}`,
+    [ORIGIN_HEADER]: service.endpoint,
+    ...extraHeaders,
+  };
+}
+
+/**
+ * Builds the `fetchWithRetry` config with a one-shot forced re-login on 401.
+ * @param {Object} service - The flattened per-environment service config.
+ * @param {Object} opts - The fetch options to rebuild on success.
+ * @returns {Object} The `fetchWithRetry` config.
+ */
+export function retryConfig(service, opts) {
+  return {
+    onUnauthorized: async () => {
+      const token = await getAccessToken(INTEGRATION_NAME, service, { force: true });
+      if (!token) return null;
+      return { ...opts, headers: { ...opts.headers, [CREDENTIAL_HEADER]: `Bearer ${token}` } };
+    },
+  };
+}
+
+/**
+ * Checks that a vendor token can be obtained and an IMS token exists.
+ * @param {Object} service - The flattened per-environment service config.
+ * @returns {Promise<boolean>} Whether the connector can make calls.
+ */
+export async function isConnected(service) {
+  const { org, site } = service || {};
+  if (!org || !site) return false;
+  const [ready, imsToken] = await Promise.all([
+    authReady(INTEGRATION_NAME, service),
+    imsAccessToken(),
+  ]);
+  return ready && !!imsToken;
+}

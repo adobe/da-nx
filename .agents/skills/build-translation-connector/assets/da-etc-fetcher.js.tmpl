@@ -1,0 +1,68 @@
+// Add to da-etc/src/routes/ints.js. Replace __name__ / __Vendor__.
+
+// --- Archetype A: OAuth / token exchange -------------------------------------------------
+/**
+ * Exchanges __Vendor__ credentials for an access token.
+ * @param {Object} service - Resolved env credentials (clientId, clientSecret, authEndpoint).
+ * @returns {Promise<Object>} `{ json, status }` on success, or `{ error, status }` on failure
+ */
+export async function fetch__Vendor__Token(service) {
+  const { clientId, clientSecret, authEndpoint } = service;
+  // Use missingConfigError('__Vendor__', { authEndpoint, clientId, clientSecret }) if present on main.
+  if (!authEndpoint || !clientId || !clientSecret) {
+    return { error: 'Missing __Vendor__ authEndpoint/clientId/clientSecret.', status: 400 };
+  }
+
+  // TODO(vendor): grant type, content type and body from the vendor's auth docs.
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    client_id: clientId,
+    client_secret: clientSecret,
+  });
+  const resp = await fetch(authEndpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+  if (!resp.ok) {
+    return { error: 'Could not get token', status: resp.status };
+  }
+  const json = await resp.json();
+  return { json, status: resp.status };
+}
+
+// --- Archetype B: static API key --------------------------------------------------------
+/**
+ * Resolves the site's configured __Vendor__ API key. No OAuth exchange: the key is the
+ * long-lived credential. Routing through da-etc keeps it out of the editable config sheet
+ * and the browser.
+ * @param {Object} service - Resolved env credentials (apiKey).
+ * @returns {Promise<Object>} `{ json, status }` on success, or `{ error, status }` on failure
+ */
+export async function fetch__Vendor__Token(service) {
+  const { apiKey } = service;
+  if (!apiKey) {
+    return { error: 'Missing __Vendor__ apiKey.', status: 400 };
+  }
+  return { json: { access_token: apiKey }, status: 200 };
+}
+
+// --- Registration (both archetypes) ------------------------------------------------------
+// const TOKEN_FETCHERS = { ..., __name__: fetch__Vendor__Token };
+// Archetype B only: const STATIC_KEY_SERVICES = new Set([..., '__name__']);
+
+// --- Test (test/routes/__name__.test.js, archetype B) -------------------------------------
+// import assert from 'node:assert/strict';
+// import { fetch__Vendor__Token } from '../../src/routes/ints.js';
+// describe('fetch__Vendor__Token', () => {
+//   it('returns the apiKey as the access token', async () => {
+//     const result = await fetch__Vendor__Token({ apiKey: 'k' });
+//     assert.equal(result.status, 200);
+//     assert.deepEqual(result.json, { access_token: 'k' });
+//   });
+//   it('returns 400 naming apiKey when missing', async () => {
+//     const result = await fetch__Vendor__Token({});
+//     assert.equal(result.status, 400);
+//     assert.match(result.error, /apiKey/);
+//   });
+// });

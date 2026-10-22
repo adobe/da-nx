@@ -1,0 +1,67 @@
+# Docs and PRs
+
+## Docs (aem.live, authored in Experience Workspace)
+
+The public pages live in Experience Workspace at org `adobe`, repo `aem-website` (https://da.live/#/adobe/aem-website). By URL, expected paths are:
+
+- `docs/ew/administering/translation-service-connection`: supported connectors and the "Connector requests" requirements.
+- `docs/ew/administering/translation-config`: config keys and the service section.
+- `docs/ew/administering/translation-config-samples`: copy-paste examples.
+
+These paths are inferred from the public URLs. Verify them with the Experience Workspace tools or ask the user before relying on them.
+
+Do not edit published Experience Workspace content without confirmation. Draft the changes in a scratch file or a draft docs PR, and hand them over (or apply them after the user approves). Link each drafted or edited page in the PR description's public docs table.
+
+What to document for each new connector, using [../assets/docs-config-section.md.tmpl](../assets/docs-config-section.md.tmpl):
+
+1. Add the vendor to the supported-services list on the connection page.
+2. A config section: `translation.service.name` value (exact, case-insensitive, spaces become `-` in the directory name), every `translation.service.<env>.<key>`, which keys belong in the credential sheet (`translation.service.key.path`) rather than the editable config, and `translation.service.all.env`.
+3. A config sample row set.
+4. Vendor-side prerequisites: account/sandbox, API user or key, permissions, any custom fields the vendor requires, supported languages and codes.
+5. Behavior notes the user would otherwise be surprised by: how long jobs take, what statuses mean, what cancel does, size and name limits.
+
+Longer rationale and wire-level quirks go in `docs/*.md` in da-nx, not inline comments (repo convention). Use it sparingly; a connector rarely needs more than one short page.
+
+## PRs
+
+One PR per repo; link them to each other in each description. Use the same `feat/<name>-connector` branch name in all three repos, and base each on the branch the user chose in step 5.
+
+| Repo | Branch | Title (Conventional Commits) |
+|---|---|---|
+| `adobe/da-nx` | `feat/<name>-connector` | `feat(loc): add <Name> translation connector` |
+| `adobe/da-translate` | `feat/<name>-connector` | `feat: add <Name> translation service` |
+| `da-sites/da-etc` | `feat/<name>-connector` | `feat: add <Name> integration` |
+
+- Titles use Conventional Commits; in da-nx the squash title is what semantic-release reads. `feat` (minor) is right for a new connector; use `fix` for bug-only changes.
+- Run `git log --format="%s%n%b---" -20` in each repo before the first commit. da-nx enforces commitlint through husky; fix the message instead of `--no-verify`.
+- Add the trailer `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>` to commits.
+- Never hand-edit `CHANGELOG.md` in da-nx (semantic-release owns it).
+- Don't push, open PRs or post comments without the user's confirmation. Each push, each PR and each comment needs its own confirmation.
+
+**PR description**: use [assets/pr-description.md.tmpl](../assets/pr-description.md.tmpl) in every repo's PR. Don't use the repo's own PR template (da-nx's asks for an issue and Test URLs, which don't apply to a connector). Keep it to the template's sections:
+
+- Vendor, API docs link and related PRs.
+- A public docs table: one row per drafted or edited page, with a link and a summary of what was added or changed.
+- Admin setup: config keys and where the credential lives.
+- Verification: unit tests, checker output and the live run (what you ran).
+- Limitations and rollout order.
+- Only when they apply: open questions for the vendor, and one line per shared `nx/blocks/loc` host change that affects other connectors.
+
+Leave out per-function behavior, status mappings and validation internals; those belong in the connector's docs page or code comments.
+
+After each push, re-validate the description against the whole branch (`gh pr view`) and update it if stale; that update doesn't need confirmation.
+
+**Rollout order**: da-etc first, da-translate second, da-nx last. The browser code assumes both endpoints exist. Deploying da-nx first leaves the connector failing with opaque 404s. State this order in the PR descriptions.
+
+## Done checklist
+
+- [ ] Vendor passes the aem.live requirements (intake report saved)
+- [ ] da-etc fetcher registered; tests pass; README updated
+- [ ] da-translate service routed, IMS-gated, tested; env allowlist (if any) documented
+- [ ] da-nx connector under `nx/blocks/loc/connectors/<name>/` with tests; `npm run lint` clean
+- [ ] `check-connector.mjs` has no FAIL
+- [ ] Every vendor-dependent decision has evidence in the intake report's decision log (no assumptions)
+- [ ] Every endpoint probed live before coding
+- [ ] Every connector function and vendor call exercised live end-to-end (coverage table in the PR)
+- [ ] Docs drafted for all three aem.live pages
+- [ ] Three cross-linked PRs with conventional titles

@@ -1,0 +1,32 @@
+## __Vendor__
+
+Set `translation.service.name` to `__Vendor__`.
+
+### Config keys
+
+| Key | Where | Description |
+|---|---|---|
+| `translation.service.name` | translate config | `__Vendor__` |
+| `translation.service.all.env` | translate config | Environments offered in the Options step, for example `stage, prod` |
+| `translation.service.<env>.__key__` | translate config | TODO |
+| `translation.service.<env>.__secret__` | credential sheet (`translation.service.key.path`) | TODO: never put secrets in the translate config |
+| `translation.service.supports.duedate` | translate config | `true` shows a due date field (only if the vendor supports it) |
+| `translation.service.custom.<type>.<name>` | translate config | TODO, only if the connector uses custom attributes |
+
+### Sample
+
+| key | value |
+|---|---|
+| translation.service.name | __Vendor__ |
+| translation.service.all.env | stage, prod |
+| translation.service.stage.TODO | TODO |
+| translation.service.prod.TODO | TODO |
+
+### Vendor prerequisites
+
+- TODO: account or sandbox, API user or key, required permissions.
+- TODO: supported language codes and any custom fields the vendor requires.
+
+### Behavior notes
+
+- TODO: typical turnaround, what each status means, what cancel does (or that it's unavailable), file size and name limits.
