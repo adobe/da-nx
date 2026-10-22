@@ -1,3 +1,10 @@
+# [1.21.0](https://github.com/adobe/da-nx/compare/v1.20.1...v1.21.0) (2026-10-22)
+
+
+### Features
+
+* add loading spinners and Copy all visibility to translate view ([#709](https://github.com/adobe/da-nx/issues/709)) ([45f6ed8](https://github.com/adobe/da-nx/commit/45f6ed8f258883752f99ad6852dd6075ef137ba2))
+
 ## [1.20.1](https://github.com/adobe/da-nx/compare/v1.20.0...v1.20.1) (2026-10-21)
 
 
