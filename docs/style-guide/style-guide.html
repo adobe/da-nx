@@ -300,7 +300,11 @@ menu.items = [
   { id: 'edit', label: 'Edit' },
   { id: 'delete', label: 'Delete' },
 ];
-menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));</code></pre>
+menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));
+
+/* per-instance styling via shadow parts:
+   section, item, item-text, item-label, item-description */
+.my-menu::part(item-label) { font-weight: 500; }</code></pre>
       </article>
 
       <article class="sg-example">

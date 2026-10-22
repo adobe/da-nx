@@ -84,3 +84,21 @@ Each entry in the `items` array is one of:
 ## Keyboard behaviour
 
 When the menu is open, arrow keys move focus between items and Enter selects the active item.
+
+## Styling
+
+Consumers can restyle a specific menu instance from their own stylesheet via CSS shadow parts:
+
+| Part               | Element                                           |
+| ------------------ | ------------------------------------------------- |
+| `section`          | Section header label.                             |
+| `item`             | Item button (hover/active backgrounds live here). |
+| `item-text`        | Wrapper around the label and description.         |
+| `item-label`       | Item label.                                       |
+| `item-description` | Secondary description line.                       |
+
+```css
+.my-menu::part(item-label) {
+  font-weight: var(--s2-component-m-medium-font-weight);
+}
+```
