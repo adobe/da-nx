@@ -69,13 +69,52 @@ async function resolveAccountUid(service, endpoint) {
   return fetchAccountUid(endpoint, projectId, opts);
 }
 
+const PROJECTS_PAGE_SIZE = 500;
+const PROJECTS_MAX_PAGES = 20;
+const WORKFLOWS_LIMIT = 500;
+
+/**
+ * Flags a listing as partial so consumers don't treat missing entries as deleted.
+ * @param {Array} list - The listing.
+ * @param {boolean} incomplete - Whether the listing is partial.
+ * @returns {Array} The same list, with an `incomplete` property when partial.
+ */
+function markIncomplete(list, incomplete) {
+  return incomplete ? Object.assign(list, { incomplete: true }) : list;
+}
+
+/**
+ * Walks offset-paginated project pages until `totalCount` is reached.
+ * @param {Object} params
+ * @param {(offset: number) => Promise<{items?: Object[], totalCount?: number,
+ *  error?: number}>} params.fetchPage - Fetches one page at the given offset.
+ * @param {number} [params.page] - Zero-based page index.
+ * @param {Object[]} [params.collected] - Items gathered from prior pages.
+ * @returns {Promise<{items: Object[], incomplete: boolean}>} All items gathered, and
+ *  whether a page failed or the page cap was hit before the end was reached.
+ */
+async function collectProjectPages({ fetchPage, page = 0, collected = [] }) {
+  const result = await fetchPage(collected.length);
+  if (result.error) return { items: collected, incomplete: true };
+
+  const items = [...collected, ...result.items];
+  const done = !result.items.length || (Number.isFinite(result.totalCount)
+    ? items.length >= result.totalCount
+    : result.items.length < PROJECTS_PAGE_SIZE);
+  if (done) return { items, incomplete: false };
+  if (page + 1 >= PROJECTS_MAX_PAGES) return { items, incomplete: true };
+  return collectProjectPages({ fetchPage, page: page + 1, collected: items });
+}
+
 /**
  * Lists every non-archived Smartling project available to the configured
  * account, for populating the `projectId` {@link serviceOptions} entry
  * instead of requiring it to be hand-typed into the site's config sheet.
+ * Pages through the full account listing.
  * @param {Object} service - The flattened per-environment service config.
  * @returns {Promise<{projectId: string, projectName: string}[]>} Enabled
- *  projects, or an empty array if the account can't be resolved (see
+ *  projects (with an `incomplete` property set if a page failed or the page cap
+ *  was hit), or an empty array if the account can't be resolved (see
  *  {@link resolveAccountUid}) or the request fails.
  */
 export async function listProjects(service) {
@@ -85,16 +124,21 @@ export async function listProjects(service) {
   const accountUid = await resolveAccountUid(service, endpoint);
   if (!accountUid) return [];
 
-  const url = `${endpoint}/accounts-api/v2/accounts/${accountUid}/projects`;
+  const baseUrl = `${endpoint}/accounts-api/v2/accounts/${accountUid}/projects`;
   const opts = { headers: { Authorization: `Bearer ${await getToken(org, site, env)}` } };
-  const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
-  if (!resp.ok) return [];
+  const fetchPage = async (offset) => {
+    const url = `${baseUrl}?offset=${offset}&limit=${PROJECTS_PAGE_SIZE}`;
+    const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
+    if (!resp.ok) return { error: resp.status };
+    const { response } = await resp.json();
+    return { items: response?.data?.items || [], totalCount: response?.data?.totalCount };
+  };
 
-  const { response } = await resp.json();
-  const items = response?.data?.items || [];
-  return items
+  const { items, incomplete } = await collectProjectPages({ fetchPage });
+  const projects = items
     .filter((project) => !project.archived)
     .map((project) => ({ projectId: project.projectId, projectName: project.projectName }));
+  return markIncomplete(projects, incomplete);
 }
 
 /**
@@ -120,19 +164,20 @@ export async function listWorkflows(service) {
   const opts = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await getToken(org, site, env)}` },
-    body: '{}',
+    body: JSON.stringify({ limit: WORKFLOWS_LIMIT }),
   };
   const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
-  if (!resp.ok) return [];
+  if (!resp.ok) return markIncomplete([], true);
 
   const { response } = await resp.json();
   const items = response?.data?.items || [];
-  return items
+  const workflows = items
     .filter((workflow) => !workflow.projectId || workflow.projectId === projectId)
     .map((workflow) => ({
       workflowUid: workflow.workflowUid,
       workflowName: workflow.workflowName,
     }));
+  return markIncomplete(workflows, response?.data?.totalCount > items.length);
 }
 
 /**
@@ -157,7 +202,10 @@ export const serviceOptions = [
     reloadServiceOptionsOnChange: true,
     fetch: async (service) => {
       const projects = await listProjects(service);
-      return projects.map((project) => ({ value: project.projectId, label: project.projectName }));
+      return markIncomplete(
+        projects.map((project) => ({ value: project.projectId, label: project.projectName })),
+        projects.incomplete,
+      );
     },
   },
   {
@@ -175,10 +223,13 @@ export const serviceOptions = [
     enabledWhen: (envConfig) => envConfig?.autoAuthorize === 'yes',
     fetch: async (service) => {
       const workflows = await listWorkflows(service);
-      return workflows.map((workflow) => ({
-        value: workflow.workflowUid,
-        label: workflow.workflowName,
-      }));
+      return markIncomplete(
+        workflows.map((workflow) => ({
+          value: workflow.workflowUid,
+          label: workflow.workflowName,
+        })),
+        workflows.incomplete,
+      );
     },
   },
 ];
