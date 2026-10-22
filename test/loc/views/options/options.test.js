@@ -380,6 +380,53 @@ describe('NxLocOptions - handleChangeServiceOption reload', () => {
     expect(el._options.service.workflowUid).to.be.undefined;
   });
 
+  function onNextReload(el) {
+    return new Promise((resolve) => {
+      const original = el.loadConnectorServiceOptions.bind(el);
+      el.loadConnectorServiceOptions = async (...args) => {
+        const result = await original(...args);
+        resolve();
+        return result;
+      };
+    });
+  }
+
+  it('replaces a stale workflowUid when autoAuthorize is enabled after a project change', async () => {
+    installFetch(smartlingHandlerWithTwoProjects());
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.accountId = 'acct-1';
+    el._siteConfig.service.envs.prod.projectId = 'proj-2';
+    el._siteConfig.service.envs.prod.workflowUid = 'wf-1';
+
+    await el.loadConnectorServiceOptions();
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-1');
+
+    const reloaded = onNextReload(el);
+    el.handleChangeServiceOption({ target: { dataset: { key: 'autoAuthorize' }, value: 'yes' } });
+    await reloaded;
+
+    expect(el._siteConfig.service.envs.prod.autoAuthorize).to.equal('yes');
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-2');
+    expect(el._options.service.workflowUid).to.equal('wf-2');
+  });
+
+  it('seeds an unset workflowUid when autoAuthorize is enabled', async () => {
+    installFetch(smartlingHandlerWithTwoProjects());
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.accountId = 'acct-1';
+    el._siteConfig.service.envs.prod.projectId = 'proj-1';
+
+    await el.loadConnectorServiceOptions();
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.be.undefined;
+
+    const reloaded = onNextReload(el);
+    el.handleChangeServiceOption({ target: { dataset: { key: 'autoAuthorize' }, value: 'yes' } });
+    await reloaded;
+
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-1');
+    expect(el._options.service.workflowUid).to.equal('wf-1');
+  });
+
   it('does not reload service options when a key without reloadServiceOptionsOnChange changes', async () => {
     installFetch(smartlingHandlerWithTwoProjects());
     const el = createSmartlingOptionsEl();
@@ -394,10 +441,10 @@ describe('NxLocOptions - handleChangeServiceOption reload', () => {
       return original(...args);
     };
 
-    el.handleChangeServiceOption({ target: { dataset: { key: 'autoAuthorize' }, value: 'yes' } });
+    el.handleChangeServiceOption({ target: { dataset: { key: 'workflowUid' }, value: 'wf-1' } });
 
     expect(reloadCount).to.equal(0);
-    expect(el._siteConfig.service.envs.prod.autoAuthorize).to.equal('yes');
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-1');
   });
 });
 
