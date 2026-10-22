@@ -115,7 +115,3 @@ export function getDmApprovalStatus(asset) {
     activationTarget: meta?.['dam:activationTarget'],
   };
 }
-
-export function getPublishedFlag(asset) {
-  return asset?.['aem:published'];
-}

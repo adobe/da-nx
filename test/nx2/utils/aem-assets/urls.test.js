@@ -9,7 +9,6 @@ import {
   resolveRenditionType,
   getAssetAlt,
   getDmApprovalStatus,
-  getPublishedFlag,
 } from '../../../../nx2/utils/aem-assets/urls.js';
 
 // ---------------------------------------------------------------------------
@@ -428,28 +427,5 @@ describe('getDmApprovalStatus', () => {
   it('returns draft status correctly', () => {
     const result = getDmApprovalStatus(AUTHOR_VIDEO);
     expect(result.status).to.equal('draft');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// getPublishedFlag
-// ---------------------------------------------------------------------------
-
-describe('getPublishedFlag', () => {
-  it('returns true when the asset is published', () => {
-    expect(getPublishedFlag({ 'aem:published': true })).to.equal(true);
-  });
-
-  it('returns false when the asset is not published', () => {
-    expect(getPublishedFlag({ 'aem:published': false })).to.equal(false);
-  });
-
-  it('returns undefined when property is absent', () => {
-    expect(getPublishedFlag({})).to.be.undefined;
-  });
-
-  it('returns undefined for null/undefined asset', () => {
-    expect(getPublishedFlag(null)).to.be.undefined;
-    expect(getPublishedFlag(undefined)).to.be.undefined;
   });
 });
