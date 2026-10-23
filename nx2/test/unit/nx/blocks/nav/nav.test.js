@@ -67,6 +67,41 @@ describe('nav search slot', () => {
     expect(nav.shadowRoot.querySelector('.nav-search')).to.exist;
   });
 
+  it('keeps consumer context on the left without moving centered search or replacing branding', async () => {
+    nav._brand = document.createElement('a');
+    nav._brand.className = 'brand-area';
+    nav._brand.textContent = 'Brand';
+    nav._breadcrumbs = document.createElement('span');
+    nav._breadcrumbs.textContent = 'Breadcrumbs';
+    nav._getSegments = () => [];
+    const context = document.createElement('button');
+    context.slot = 'context';
+    context.textContent = 'Context';
+    const field = document.createElement('input');
+    field.slot = 'search';
+    nav.append(context, field);
+    nav.style.width = '1200px';
+    await mount('/');
+    await settleSlots();
+    const contextSlot = nav.shadowRoot.querySelector('slot[name="context"]');
+    const searchSlot = nav.shadowRoot.querySelector('slot[name="search"]');
+    expect(contextSlot.closest('.brand-cluster')).to.exist;
+    expect(contextSlot.assignedElements()).to.deep.equal([context]);
+    expect(searchSlot.assignedElements()).to.deep.equal([field]);
+    expect(nav._brand.isConnected).to.be.true;
+    expect(nav._breadcrumbs.isConnected).to.be.true;
+    const navRect = nav.getBoundingClientRect();
+    const searchRect = nav.shadowRoot.querySelector('.nav-search').getBoundingClientRect();
+    expect(context.getBoundingClientRect().right).to.be.lessThan(searchRect.left);
+    expect(searchRect.left + searchRect.width / 2)
+      .to.be.closeTo(navRect.left + navRect.width / 2, 1);
+    context.remove();
+    await settleSlots();
+    expect(contextSlot.assignedElements()).to.deep.equal([]);
+    expect(searchSlot.assignedElements()).to.deep.equal([field]);
+    expect(nav.hasAttribute('data-has-search')).to.be.true;
+  });
+
   it('keeps consumer-owned search content assigned across navigation', async () => {
     await mount('/#/adobe/site/products');
     const field = document.createElement('input');

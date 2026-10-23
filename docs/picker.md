@@ -30,6 +30,10 @@ picker.addEventListener("change", (e) => {
 
 ### Form-style field
 
+When composing a picker with `nx-nav`, use `slot="context"` to place it after
+the brand in the left cluster. The independent `slot="search"` remains centered.
+Placement and navigation behavior belong to the consuming application.
+
 Use `variant="field"` for a bordered, form-style picker trigger.
 
 ```html
