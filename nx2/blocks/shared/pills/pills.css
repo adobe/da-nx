@@ -97,7 +97,7 @@
 :host([size="m"]) {
   .pills-container {
     --pill-row-height: calc(
-      var(--s2-component-m-regular-line-height) + 2 * var(--s2-spacing-100)
+      max(var(--s2-component-m-regular-line-height), 20px) + 2 * var(--s2-spacing-100)
     );
 
     gap: var(--s2-spacing-200);

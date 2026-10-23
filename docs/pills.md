@@ -125,7 +125,7 @@ Self-managed mode only:
 
 ## Styling
 
-Use `size="m"` for medium text and icons, matching menu and picker sizing. Medium pills also have more padding and spacing, larger corners and thumbnails, and a wider label limit (240px instead of 200px). The two-row scroll limit adapts to the larger pills. Omitting `size` (or setting `size="s"`) keeps the existing compact appearance.
+Use `size="m"` for medium text and icons, matching menu and picker sizing. Medium pills also have more padding and spacing, larger corners and thumbnails, and a wider label limit (240px instead of 200px). The two-row scroll limit accommodates full-size thumbnails without clipping. Omitting `size` (or setting `size="s"`) keeps the existing compact appearance.
 
 ```html
 <nx-pills size="m"></nx-pills>
