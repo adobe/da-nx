@@ -530,6 +530,24 @@ document.querySelector('#icon-field').items = [
       </article>
 
       <article class="sg-example">
+        <h3>nx-card <a href="../card.md">docs →</a></h3>
+        <div class="sg-demo">
+          <nx-card style="width: 200px; --nx-card-preview-height: 80px; --nx-card-preview-ratio: auto">
+            <span slot="preview">Document preview</span>
+            <a slot="title" href="#components">Document title</a>
+            <button slot="actions" type="button" class="nx-action-btn-icon" aria-label="More options">…</button>
+            <span slot="metadata">Modified at · Today</span>
+          </nx-card>
+        </div>
+        <pre><code>&lt;nx-card&gt;
+  &lt;a slot="preview" href="/document" tabindex="-1" aria-hidden="true"&gt;…&lt;/a&gt;
+  &lt;a slot="title" href="/document"&gt;Document title&lt;/a&gt;
+  &lt;button slot="actions" aria-label="More options"&gt;…&lt;/button&gt;
+  &lt;span slot="metadata"&gt;Modified at · Today&lt;/span&gt;
+&lt;/nx-card&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
         <h3>nx-segmented-btn <a href="https://github.com/adobe/da-nx/blob/main/docs/segmented-btn.md" target="_blank"
             rel="noopener">docs →</a></h3>
         <div class="sg-demo">
@@ -648,6 +666,7 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
       import('/nx2/blocks/shared/picker/picker.js'),
       import('/nx2/blocks/shared/search/search.js'),
       import('/nx2/blocks/shared/segmented-btn/segmented.js'),
+      import('/nx2/blocks/shared/card/card.js'),
       import('/nx2/blocks/shared/breadcrumb/breadcrumb.js'),
       import('/nx2/blocks/shared/switch/switch.js'),
       import('/nx2/blocks/shared/pills/pills.js'),

@@ -1,0 +1,76 @@
+:host {
+  display: block;
+  min-width: 0;
+  height: 100%;
+  color: var(--s2-gray-900);
+  font-family: var(--s2-font-family);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100, 4px);
+  box-sizing: border-box;
+  height: 100%;
+  padding: var(--s2-spacing-100, 4px);
+  border-radius: var(--s2-corner-radius-700, 16px);
+  background: var(--nx-card-background, var(--s2-gray-75, var(--s2-gray-50)));
+}
+
+.preview {
+  position: relative;
+  height: var(--nx-card-preview-height, auto);
+  aspect-ratio: var(--nx-card-preview-ratio, 1);
+  overflow: hidden;
+  border-radius: var(--s2-corner-radius-400, 8px);
+  background: var(--s2-gray-200);
+}
+
+::slotted([slot="preview"]) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.selection,
+.badge {
+  position: absolute;
+  top: var(--s2-spacing-100, 4px);
+}
+
+.selection {
+  left: var(--s2-spacing-100, 4px);
+}
+
+.badge {
+  right: var(--s2-spacing-100, 4px);
+  pointer-events: none;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-100, 4px);
+  min-width: 0;
+  padding-inline: var(--s2-spacing-100, 4px);
+}
+
+::slotted([slot="title"]) {
+  flex: 1;
+  min-width: 0;
+}
+
+::slotted([slot="actions"]) {
+  flex: none;
+}
+
+.metadata {
+  min-width: 0;
+  padding-inline: var(--s2-spacing-100, 4px);
+  padding-bottom: var(--s2-spacing-100, 4px);
+  color: var(--s2-gray-600);
+  font-size: var(--s2-component-s-regular-font-size, 12px);
+  line-height: var(--s2-component-s-regular-line-height, 18px);
+}
