@@ -2,6 +2,15 @@ import { setImsDetails, daFetch } from './daFetch.js';
 
 let port2;
 
+export const UI_SIZE_EVENT = 'nx-ui-size-change';
+
+// Mirrors the host's body.ui-size-m so extensions can style S/M with CSS alone.
+function applyUISize(size) {
+  if (!['s', 'm'].includes(size) || !document.body) return false;
+  document.body.classList.toggle('ui-size-m', size === 'm');
+  return true;
+}
+
 function handleSdkResponse({ port, action }) {
   return new Promise((resolve) => {
     const requestId = crypto.randomUUID();
@@ -99,6 +108,8 @@ const DA_SDK = (() => new Promise((resolve) => {
         setImsDetails(e.data.token);
       }
 
+      applyUISize(e.data.context?.uiSize);
+
       const actions = {
         ...createHostActions({ port: port2 }),
         daFetch,
@@ -112,6 +123,14 @@ const DA_SDK = (() => new Promise((resolve) => {
       };
 
       resolve({ ...e.data, actions });
+      return;
+    }
+
+    if (initialized && e.source === window.parent && e.data.action === 'uiSizeChange') {
+      const size = e.data.detail?.uiSize;
+      if (applyUISize(size)) {
+        document.dispatchEvent(new CustomEvent(UI_SIZE_EVENT, { detail: { size } }));
+      }
       return;
     }
 

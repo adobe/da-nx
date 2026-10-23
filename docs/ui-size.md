@@ -101,3 +101,7 @@ prompts category picker, page metadata picker), which stay `m` in both sizes. Th
 the `nx-prompts` size. The picker list matches `nx-menu` in every size: 8px popover padding, 12px item inset,
 corner-radius-400 rows, gray-100 hover, gray-200 active, gray-900 text. Rows are 28px in s and 32px in m.
 Section titles are 11px with an 8px inset in s, 12px with a 12px inset in m.
+
+## Extensions
+
+Iframe extensions get the size from the host and can follow it with the extension kit. See [extension-kit.md](extension-kit.md).
