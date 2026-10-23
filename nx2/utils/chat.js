@@ -15,12 +15,14 @@ export const CHAT_EVENT = {
 // of the org/site's `ew.coworker` flag. Anything else falls through to the flag.
 const AO_CHAT_KEY = 'nx-chat-ao';
 
-async function resolveAoChatConfig() {
+async function resolveAoChatConfig(context) {
   const query = new URLSearchParams(window.location.search).get(AO_CHAT_KEY);
 
-  let state;
-  const unsubscribe = hashChange.subscribe((s) => { state = s; });
-  unsubscribe();
+  let state = context;
+  if (!state) {
+    const unsubscribe = hashChange.subscribe((s) => { state = s; });
+    unsubscribe();
+  }
 
   const { org, site } = state ?? {};
   const key = org && site ? `${org}/${site}` : null;
@@ -47,13 +49,13 @@ export async function useAoChat() {
   return enabled;
 }
 
-export async function loadChat() {
+export async function loadChat({ context } = {}) {
   const {
     useAoChat: enabled,
     key,
     altHarness,
     activationKey,
-  } = await resolveAoChatConfig();
+  } = await resolveAoChatConfig(context);
   if (enabled) {
     await import('../blocks/chat-ao/chat-ao.js');
     const chat = document.createElement('nx-chat-ao');

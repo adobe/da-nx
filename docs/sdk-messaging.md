@@ -4,6 +4,35 @@ Use fire-and-forget when the caller does not need to wait for the host. `openCom
 
 Wait for a response when the next step depends on completion. Request Publish waits for `saveDocument()` to return `{ ok: true }` before previewing source content, even when comparison was never opened. Comparison also attempts a save, with a read-only fallback, but its fire-and-forget command does not confirm completion to the caller. Save success does not imply preview or publication success, or prevent later edits. See [Workspace comparison actions](comparison-sdk.md) for the API details.
 
+## Fullscreen app chat
+
+With `?nxver=2`, the existing `nx-shell` block can open a docked chat without
+migrating the iframe app or the rest of the block to nx2:
+
+```js
+const { actions } = await DA_SDK;
+actions.setPrompt('Hello from my app!', { autoSend: true });
+```
+
+The existing `setPrompt(text, { autoSend = false } = {})` posts
+`{ action: 'setPrompt', details: { text, autoSend } }` on the SDK port.
+The host opens chat lazily, waits for it to mount, then sets the prompt.
+Omit `autoSend` to prefill rather than submit. This is a fire-and-forget command,
+not confirmation that the agent accepted or completed the prompt.
+No SDK changes are required.
+
+Chat is available only on `/app/{org}/{site}/...` URLs whose org/site config does
+not disable it through `ew.disableChat`. Disabled chat requests (`setPrompt` and
+`showPanel('chat')`) are silent no-ops; other registered panels are unaffected.
+The configuration check uses the app URL, not an overriding target-site hash.
+
+Chat uses `#/org/site/path` from the parent URL when present; otherwise it uses
+the app URL's org/repo as its site, with browse context and no content path.
+The hosting app's `/tools/...` path is never used as a content-document path.
+`actions.showPanel('chat')` opens chat without setting a prompt; other panel names
+work when the host has registered them. The nx1 shell does not handle panel/chat
+commands.
+
 ## Requests and responses
 
 Actions use the MessagePort transferred in the `ready` handshake. Each acknowledged call gets a unique `requestId`; the host replies on the same port with that ID:
