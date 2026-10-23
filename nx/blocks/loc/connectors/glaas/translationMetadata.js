@@ -1,7 +1,7 @@
 import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
 import { getLivePreviewUrl } from '../../../../utils/utils.js';
-import { shouldLogGLaaSRequests } from './api.js';
+import { shouldLogGLaaSRequests, logGLaaSDebug } from './api.js';
 import { parseSelections, ensureLivePreviewLogin } from './imageSelections.js';
 
 const BLOCK_SCHEMA_PATH = '/.da/block-schema.json';
@@ -554,19 +554,29 @@ export async function loadCampaignBrief(org, site, { reset = false, ref = 'main'
   if (reset) {
     campaignBriefCache = undefined;
   }
-  if (campaignBriefCache !== undefined) return campaignBriefCache;
+  if (campaignBriefCache !== undefined) {
+    logGLaaSDebug({
+      step: 'brief-cache',
+      detail: { org, site, ref, available: campaignBriefCache !== null },
+    });
+    return campaignBriefCache;
+  }
 
   const loggedIn = await ensureLivePreviewLogin({ org, repo: site, ref });
   if (!loggedIn) {
+    logGLaaSDebug({ step: 'brief-omitted', detail: { org, site, ref, reason: 'preview-login-failed' } });
     campaignBriefCache = null;
     return campaignBriefCache;
   }
 
   const url = `${getLivePreviewUrl(org, site, ref)}${CAMPAIGN_BRIEF_PATH}`;
+  logGLaaSDebug({ step: 'brief-fetch', detail: { url } });
   try {
     const resp = await fetch(url, { credentials: 'include' });
+    logGLaaSDebug({ step: 'brief-fetch-response', detail: { url, status: resp.status, ok: resp.ok } });
     campaignBriefCache = resp.ok ? await resp.json() : null;
-  } catch {
+  } catch (error) {
+    logGLaaSDebug({ step: 'brief-fetch-error', detail: { url, error: String(error) } });
     campaignBriefCache = null;
   }
   return campaignBriefCache;
@@ -585,6 +595,14 @@ export function findCampaignBriefSheet(raw, campaign) {
   const key = Object.keys(raw).find(
     (name) => !name.startsWith(':') && name.toLowerCase() === trimmed.toLowerCase(),
   );
+  logGLaaSDebug({
+    step: 'brief-sheet',
+    detail: {
+      campaign: trimmed,
+      matchedSheet: key ?? null,
+      availableSheets: Object.keys(raw).filter((name) => !name.startsWith(':')),
+    },
+  });
   return key ? raw[key] : null;
 }
 
@@ -596,7 +614,13 @@ export function findCampaignBriefSheet(raw, campaign) {
  * @returns {object|null} Locale-keyed brief data, or null if nothing matched
  */
 export function buildCampaignBriefForLocales(sheet, targetLocales) {
-  if (!sheet?.data || !Array.isArray(sheet.data) || !targetLocales?.length) return null;
+  if (!sheet?.data || !Array.isArray(sheet.data) || !targetLocales?.length) {
+    logGLaaSDebug({
+      step: 'brief-omitted',
+      detail: { reason: 'invalid-sheet-or-no-target-locales', targetLocales },
+    });
+    return null;
+  }
   const availableLocales = (sheet.columns ?? []).filter(
     (col) => !CAMPAIGN_BRIEF_NON_LOCALE_COLUMNS.includes(col),
   );
@@ -610,7 +634,22 @@ export function buildCampaignBriefForLocales(sheet, targetLocales) {
     });
     if (Object.keys(attrs).length > 0) brief[locale] = attrs;
   });
-  return Object.keys(brief).length > 0 ? brief : null;
+  const includedLocales = Object.keys(brief);
+  logGLaaSDebug({
+    step: 'brief-locales',
+    detail: {
+      targetLocales,
+      availableLocales,
+      includedLocales,
+      missingLocales: targetLocales.filter((locale) => !includedLocales.includes(locale)),
+      attributeKeys: Object.fromEntries(
+        Object.entries(brief).map(([locale, attrs]) => [locale, Object.keys(attrs)]),
+      ),
+    },
+  });
+  if (includedLocales.length > 0) return brief;
+  logGLaaSDebug({ step: 'brief-omitted', detail: { reason: 'no-nonempty-locale-guidance' } });
+  return null;
 }
 
 /**
@@ -626,10 +665,20 @@ export function buildCampaignBriefForLocales(sheet, targetLocales) {
  * @returns {Promise<object|null>} Locale-keyed brief data, or null if unavailable
  */
 export async function buildBriefForCampaign(org, site, campaign, targetLocales) {
-  if (!campaign?.trim()) return null;
+  if (!campaign?.trim()) {
+    logGLaaSDebug({ step: 'brief-omitted', detail: { reason: 'no-campaign', org, site } });
+    return null;
+  }
+  logGLaaSDebug({ step: 'brief-build', detail: { org, site, campaign, targetLocales } });
   const raw = await loadCampaignBrief(org, site);
   const sheet = findCampaignBriefSheet(raw, campaign);
-  if (!sheet) return null;
+  if (!sheet) {
+    logGLaaSDebug({
+      step: 'brief-omitted',
+      detail: { campaign, reason: raw ? 'campaign-sheet-not-found' : 'brief-unavailable' },
+    });
+    return null;
+  }
   return buildCampaignBriefForLocales(sheet, targetLocales);
 }
 
