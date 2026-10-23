@@ -19,7 +19,10 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--s2-spacing-100);
-    max-height: calc(2 * var(--pill-row-height) + var(--s2-spacing-100));
+    max-height: var(
+      --nx-pills-max-height,
+      calc(2 * var(--pill-row-height) + var(--s2-spacing-100))
+    );
     overflow-y: auto;
     padding: var(--s2-spacing-75) 0;
   }
@@ -101,7 +104,10 @@
     );
 
     gap: var(--s2-spacing-200);
-    max-height: calc(2 * var(--pill-row-height) + var(--s2-spacing-200));
+    max-height: var(
+      --nx-pills-max-height,
+      calc(2 * var(--pill-row-height) + var(--s2-spacing-200))
+    );
     padding: var(--s2-spacing-100) 0;
   }
 

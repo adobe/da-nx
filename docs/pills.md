@@ -145,6 +145,18 @@ nx-pills {
 }
 ```
 
+At either size the list is capped at two rows and scrolls beyond that. Hosts that need every pill visible (for example a list the user explicitly expanded, or one already limited elsewhere) can lift or change the cap:
+
+| Custom property         | Default                  | Applies to                    |
+| ----------------------- | ------------------------ | ----------------------------- |
+| `--nx-pills-max-height` | two pill rows plus a gap | `max-height` of the pill list |
+
+```css
+nx-pills {
+  --nx-pills-max-height: none;
+}
+```
+
 ## Cleanup
 
 If an item has a `thumbnail` that's a blob URL (`URL.createObjectURL(...)`), nx-pills revokes it for you when that item is removed, cleared, or the component disconnects — in self-managed mode. In controlled mode, that's still on you, same as owning the list itself.

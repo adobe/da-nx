@@ -114,6 +114,22 @@ describe('nx-pills', () => {
       expect(rows()).to.equal(3);
       expect(list.scrollHeight).to.be.greaterThan(list.clientHeight);
     });
+
+    it(`lets hosts lift the two-row cap via --nx-pills-max-height at size ${size}`, async () => {
+      const items = ['first', 'second', 'third'].map((id) => ({
+        id,
+        label: id,
+        type: 'image',
+        thumbnail: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>',
+      }));
+      el = await makePills({ size, items });
+      el.style.display = 'block';
+      el.style.width = '100px';
+      el.style.setProperty('--nx-pills-max-height', 'none');
+      const list = el.shadowRoot.querySelector('.pills-container');
+      expect(getComputedStyle(list).maxHeight).to.equal('none');
+      expect(list.scrollHeight).to.equal(list.clientHeight);
+    });
   });
 
   it('renders a remove button by default', async () => {
