@@ -235,6 +235,26 @@
   gap: var(--s2-spacing-100);
 }
 
+.ui-artifact-tile-title {
+  margin: 0;
+  font-size: var(--s2-heading-size-xs);
+  font-weight: var(--s2-heading-font-weight);
+  line-height: var(--s2-heading-line-height);
+  color: var(--s2-gray-900);
+}
+
+.ui-artifact-tile-description {
+  margin: 0;
+  font-size: var(--s2-body-size-s);
+  line-height: var(--s2-body-line-height);
+  color: var(--s2-gray-700);
+}
+
+.ui-artifact-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .ui-artifact-card-view-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 6.5rem), 1fr));
@@ -255,6 +275,15 @@
   background: light-dark(var(--s2-gray-25), var(--s2-gray-100));
   box-shadow: var(--s2-drop-shadow-elevated);
   overflow-wrap: anywhere;
+}
+
+.ui-artifact-card-view-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--s2-corner-radius-300);
+  background: var(--s2-gray-100);
 }
 
 .ui-artifact-card-view-label,

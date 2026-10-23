@@ -6,6 +6,7 @@ import './markdown.js';
 import './row.js';
 import './column.js';
 import './card.js';
+import './tile.js';
 import './card-view.js';
 import './table-view.js';
 import './metric-card.js';
