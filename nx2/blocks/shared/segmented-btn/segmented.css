@@ -44,6 +44,11 @@
     outline: none;
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-800);
+    outline-offset: 2px;
+  }
+
   &:hover:not(.is-selected) {
     color: var(--s2-gray-900);
     background-color: var(--s2-gray-200);
@@ -92,5 +97,26 @@
   & svg.icon {
     width: 18px;
     height: 18px;
+  }
+}
+
+:host([variant="quiet"]) {
+  .segmented {
+    padding: 0;
+    gap: 0;
+    background: transparent;
+  }
+
+  .segment {
+    border-radius: var(--s2-corner-radius-500, 8px);
+  }
+
+  .segment.is-selected {
+    background: var(--s2-gray-100);
+  }
+
+  .segment svg.icon {
+    width: 20px;
+    height: 20px;
   }
 }

@@ -120,6 +120,7 @@ class NxPopover extends LitElement {
       const containerBottom = cb?.bottom ?? window.innerHeight;
       let { left } = rect;
       let placement = this._placement;
+      const side = placement === 'right';
       if (placement === 'auto') {
         const spaceBelow = containerBottom - rect.bottom - gap;
         const spaceAbove = rect.top - containerTop - gap;
@@ -127,7 +128,15 @@ class NxPopover extends LitElement {
         this._placement = placement;
       }
 
-      if (placement === 'below-end' || left + pop.width > (cb?.right ?? window.innerWidth)) left = rect.right - pop.width;
+      if (side) {
+        left = rect.right + gap;
+        if (left + pop.width > (cb?.right ?? window.innerWidth) - buffer) {
+          left = rect.left - gap - pop.width;
+        }
+        left = Math.max((cb?.left ?? 0) + buffer, left);
+      } else if (placement === 'below-end' || left + pop.width > (cb?.right ?? window.innerWidth)) {
+        left = rect.right - pop.width;
+      }
 
       this.style.left = `${left - (cb?.left ?? 0)}px`;
 
@@ -135,7 +144,12 @@ class NxPopover extends LitElement {
       // push the popover off-screen — the excess scrolls instead.
       let top;
       let maxHeight;
-      if (placement === 'above') {
+      if (side) {
+        const offset = parseFloat(getComputedStyle(this).getPropertyValue('--popover-block-offset')) || 0;
+        const lastTop = containerBottom - buffer - pop.height;
+        top = Math.max(containerTop + buffer, Math.min(rect.top + offset, lastTop));
+        maxHeight = containerBottom - buffer - top;
+      } else if (placement === 'above') {
         top = Math.max(containerTop + buffer, rect.top - gap - pop.height);
         maxHeight = rect.top - gap - top;
       } else {

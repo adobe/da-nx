@@ -27,6 +27,7 @@ class NxPicker extends LitElement {
     ignoreFocus: { attribute: true },
     size: { type: String, reflect: true },
     variant: { type: String, reflect: true },
+    menuVariant: { type: String, reflect: true, attribute: 'menu-variant' },
   };
 
   constructor() {
@@ -68,6 +69,7 @@ class NxPicker extends LitElement {
 
   show() {
     this._syncPopoverWidth();
+    this._button.setAttribute('aria-expanded', 'true');
     this._popover?.show({
       anchor: this._button,
       placement: this.getAttribute('placement') ?? 'below',
@@ -171,7 +173,12 @@ class NxPicker extends LitElement {
           @focus=${() => { this._active = item.value; }}
         >
           ${this._renderSwatch(item.swatch)}
-          <span class="picker-item-label">${item.label}</span>
+          ${item.leadingIcon ? html`<svg class="picker-leading-icon" viewBox="0 0 20 20" aria-hidden="true">
+            <use href="${item.leadingIcon}#icon"></use></svg>` : nothing}
+          <span class="picker-item-label">
+            <span>${item.label}</span>
+            ${item.description ? html`<span class="picker-item-description">${item.description}</span>` : nothing}
+          </span>
           ${item.trailingIcon ? html`
             <svg class="picker-open-in-icon" viewBox="0 0 20 20" aria-hidden="true">
               <use href="${item.trailingIcon}#icon"></use>

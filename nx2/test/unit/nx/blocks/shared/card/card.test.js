@@ -39,4 +39,16 @@ describe('nx-card', () => {
     expect(getComputedStyle(el.shadowRoot.querySelector('.preview')).height).to.equal('80px');
     expect(el.hasAttribute('data-ui-size')).to.equal(false);
   });
+
+  it('uses the four-pixel spacing token rather than its eight-pixel neighbor', () => {
+    el.style.setProperty('--s2-spacing-75', '4px');
+    el.style.setProperty('--s2-spacing-100', '8px');
+    el.style.setProperty('--s2-spacing-200', '12px');
+    const frame = getComputedStyle(el.shadowRoot.querySelector('.card'));
+    const content = getComputedStyle(el.shadowRoot.querySelector('.content'));
+    expect(frame.padding).to.equal('4px');
+    expect(frame.gap).to.equal('4px');
+    expect(frame.borderRadius).to.equal('12px');
+    expect(content.padding).to.equal('4px 12px');
+  });
 });

@@ -58,6 +58,10 @@ Each entry in the `items` array is one of:
 // Item with a color swatch (any CSS background value: hex, rgb(), gradient…)
 { value: 'blue', label: 'Blue', swatch: '#1473e6' }
 
+// Optional secondary text and a leading icon
+{ value: 'org/site', label: 'Site', description: 'org/site' }
+{ value: 'add', label: 'Add site', action: true, leadingIcon: '/icons/add.svg' }
+
 // Visual divider
 { divider: true }
 ```
@@ -77,9 +81,15 @@ When the selected item has a `swatch`, the trigger shows it before the label too
 | `placement`     | `String`              | Default placement when opened: `below` (default), `above`, or `auto`.         |
 | `size`          | `String`              | Item density: `s` (default) or `m`. Reflected as a host attribute.             |
 | `variant`       | `String`              | Set to `field` for the bordered form-style presentation.                       |
+| `menuVariant`   | `String`              | Set to `site` (`menu-variant="site"`) for a 240px, two-line menu with a leading checkmark. Default menus are unchanged. |
 | `open`          | `Boolean` (read-only) | Whether the picker is currently open.                                          |
 
 Trigger text precedence is: non-empty `labelOverride`, matching item label, `placeholder`, then blank. A placeholder is never added to the dropdown and does not change `value`.
+
+The site menu variant changes presentation, not discovery, permissions or site
+creation. Consumers supply real labels/descriptions and handle action items.
+An action emits `change` without replacing the selected value. Descriptions
+may be real identifiers when friendly names or domains are unavailable.
 
 ## CSS parts
 

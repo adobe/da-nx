@@ -17,11 +17,13 @@ export default class NxCard extends LitElement {
           <div class="selection"><slot name="selection"></slot></div>
           <div class="badge"><slot name="badge"></slot></div>
         </div>
-        <div class="heading">
-          <slot name="title"></slot>
-          <slot name="actions"></slot>
+        <div class="content">
+          <div class="heading">
+            <slot name="title"></slot>
+            <slot name="actions"></slot>
+          </div>
+          <div class="metadata"><slot name="metadata"></slot></div>
         </div>
-        <div class="metadata"><slot name="metadata"></slot></div>
       </div>`;
   }
 }

@@ -89,4 +89,32 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelector('[data-value="blue"] svg')).to.not.be.null;
     expect(el.shadowRoot.querySelector('[data-value="red"] svg')).to.be.null;
   });
+
+  it('supports optional descriptions and leading action icons in the site menu', async () => {
+    const el = await createPicker({
+      value: 'org/site',
+      items: [
+        { value: 'org/site', label: 'Site', description: 'org/site' },
+        { value: 'add', label: 'Add site', action: true, leadingIcon: '/icons/add.svg' },
+      ],
+    });
+    el.menuVariant = 'site';
+    await el.updateComplete;
+    expect(el.getAttribute('menu-variant')).to.equal('site');
+    expect(el.shadowRoot.querySelector('.picker-item-description').textContent).to.equal('org/site');
+    expect(el.shadowRoot.querySelector('.picker-leading-icon use').getAttribute('href')).to.equal('/icons/add.svg#icon');
+    const change = new Promise((resolve) => { el.addEventListener('change', resolve, { once: true }); });
+    el.shadowRoot.querySelector('[data-value="add"]').click();
+    expect((await change).detail.value).to.equal('add');
+    expect(el.value).to.equal('org/site');
+  });
+
+  it('updates the trigger expanded state when opened and closed', async () => {
+    const el = await createPicker();
+    el.show();
+    await el._popover.updateComplete;
+    expect(el._button.getAttribute('aria-expanded')).to.equal('true');
+    el.close();
+    expect(el._button.getAttribute('aria-expanded')).to.equal('false');
+  });
 });

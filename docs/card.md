@@ -22,6 +22,12 @@ Landing uses one compact layout by setting
 These properties control thumbnail geometry, not the global S/M UI scale.
 `--nx-card-background` can override the token-based surface for selection.
 
+The frame uses 4px padding/gaps and a 12px radius. The title/action row and
+metadata share a content area with 12px horizontal and 4px vertical padding.
+An 80px preview, 20px action row and 18px metadata line produce Landing's
+142px card. Spacing token 75 is 4px; token 100 is 8px and is reserved for
+the preview's badge/selection inset.
+
 Landing consumes the component on the paired `lp` preview branches. Browse
 retains its existing implementation until this shared component is available
 on its supported Nexter branches; an ordinary Browse visit must not start

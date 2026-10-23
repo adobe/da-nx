@@ -52,6 +52,11 @@ The `placement` option controls which side of the anchor the popover appears on.
 | `below-end`  | Below the anchor, right-aligned                        |
 | `above`      | Above the anchor                                       |
 | `auto`       | Picks above or below based on available viewport space |
+| `right`      | Beside the anchor; flips left near the right edge and stays within the vertical viewport |
+
+`--popover-gap` controls anchor separation (4px by default).
+For `right`, `--popover-block-offset` optionally shifts the aligned top edge
+(0px by default). Anchor-based placement continues to follow scrolling and resizing.
 
 ### Events
 

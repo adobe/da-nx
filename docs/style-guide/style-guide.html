@@ -310,11 +310,14 @@ menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));</code></pre
             rel="noopener">docs →</a></h3>
         <div class="sg-demo" id="demo-popover-container">
           <button class="nx-form-btn-secondary" id="demo-popover-trigger">Show popover</button>
+          <button class="nx-form-btn-secondary" id="demo-popover-right">Show beside anchor</button>
         </div>
         <pre><code>const popover = document.createElement('nx-popover');
 container.append(popover);
 popover.innerHTML = '&lt;p&gt;Popover content&lt;/p&gt;';
-button.addEventListener('click', () =&gt; popover.show({ anchor: button }));</code></pre>
+button.addEventListener('click', () =&gt; popover.show({ anchor: button }));
+// Sideways placement flips left near the viewport edge.
+popover.show({ anchor: button, placement: 'right' });</code></pre>
       </article>
 
       <article class="sg-example">
@@ -530,20 +533,35 @@ document.querySelector('#icon-field').items = [
       </article>
 
       <article class="sg-example">
+        <h3>nx-picker — site menu</h3>
+        <div class="sg-demo sg-picker-container">
+          <nx-picker id="demo-picker-site" variant="field" menu-variant="site" size="m"></nx-picker>
+        </div>
+        <pre><code>&lt;nx-picker variant="field" menu-variant="site" size="m"&gt;&lt;/nx-picker&gt;
+picker.items = [
+  { section: 'Your Sites' },
+  { value: 'org/site', label: 'Site', description: 'org/site' },
+  { divider: true },
+  { value: 'add', label: 'Add site', action: true, leadingIcon: './icons/selected.svg' },
+];</code></pre>
+      </article>
+
+      <article class="sg-example">
         <h3>nx-card <a href="../card.md">docs →</a></h3>
+        <p class="sg-note">4px frame and gaps, 12px corner radius and content inset. Compact preview geometry is independent of S/M sizing.</p>
         <div class="sg-demo">
           <nx-card style="width: 200px; --nx-card-preview-height: 80px; --nx-card-preview-ratio: auto">
             <span slot="preview">Document preview</span>
             <a slot="title" href="#components">Document title</a>
             <button slot="actions" type="button" class="nx-action-btn-icon" aria-label="More options">…</button>
-            <span slot="metadata">Modified at · Today</span>
+            <span slot="metadata">Modified at • Today</span>
           </nx-card>
         </div>
         <pre><code>&lt;nx-card&gt;
   &lt;a slot="preview" href="/document" tabindex="-1" aria-hidden="true"&gt;…&lt;/a&gt;
   &lt;a slot="title" href="/document"&gt;Document title&lt;/a&gt;
   &lt;button slot="actions" aria-label="More options"&gt;…&lt;/button&gt;
-  &lt;span slot="metadata"&gt;Modified at · Today&lt;/span&gt;
+  &lt;span slot="metadata"&gt;Modified at • Today&lt;/span&gt;
 &lt;/nx-card&gt;</code></pre>
       </article>
 
@@ -555,7 +573,9 @@ document.querySelector('#icon-field').items = [
           <nx-segmented-btn id="demo-segmented-m" size="m"></nx-segmented-btn>
           <nx-segmented-btn id="demo-segmented-icon-label"></nx-segmented-btn>
           <nx-segmented-btn id="demo-segmented-icon-only"></nx-segmented-btn>
+          <nx-segmented-btn id="demo-segmented-quiet" size="m" variant="quiet"></nx-segmented-btn>
         </div>
+        <p class="sg-note">The last example uses size="m" variant="quiet": two adjacent 32px icon buttons without a group pill.</p>
         <pre><code>&lt;nx-segmented-btn id="view-toggle"&gt;&lt;/nx-segmented-btn&gt;
 
 toggle.label = 'View';
@@ -706,6 +726,8 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
     popover.innerHTML = '<p>Popover content</p>';
     document.querySelector('#demo-popover-container').append(popover);
     popoverTrigger.addEventListener('click', () => popover.show({ anchor: popoverTrigger }));
+    const sideTrigger = document.querySelector('#demo-popover-right');
+    sideTrigger.addEventListener('click', () => popover.show({ anchor: sideTrigger, placement: 'right' }));
 
     // nx-picker
     const pickerItems = [
@@ -731,6 +753,14 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
     fixedLabelPicker.value = 'name:ascending';
     const pickerField = document.querySelector('#demo-picker-field-m');
     pickerField.items = pickerItems;
+    const sitePicker = document.querySelector('#demo-picker-site');
+    sitePicker.items = [
+      { section: 'Your Sites' },
+      { value: 'org/site', label: 'Site', description: 'org/site' },
+      { divider: true },
+      { value: 'add', label: 'Add site', action: true, leadingIcon: './icons/selected.svg' },
+    ];
+    sitePicker.value = 'org/site';
 
     const swatchItems = [
       { value: '', label: 'Select' },
@@ -792,6 +822,10 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
       { value: 'list', icon: './icons/selected.svg', label: 'List view', iconOnly: true },
     ];
     segmentedIconOnly.value = 'grid';
+    const quietView = document.querySelector('#demo-segmented-quiet');
+    quietView.label = 'Quiet view switcher';
+    quietView.items = segmentedIconOnly.items;
+    quietView.value = 'grid';
 
     // showToast
     document.querySelector('#demo-toast-trigger').addEventListener('click', () => {
