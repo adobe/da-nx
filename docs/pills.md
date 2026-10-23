@@ -104,6 +104,7 @@ Pinnable items also carry `selFrom`/`selTo` (required for the pill to be clickab
 | `items`    | `Array`  | The list to render. Set by you in controlled mode; owned by nx-pills in self-managed mode.       |
 | `addEvent` | `String` | Document event name to self-manage from. Leave unset for controlled mode.                        |
 | `label`    | `String` | Accessible name for the list. Defaults to `"Attached items"`.                                   |
+| `size`     | `String` | `"s"` (default) or `"m"`. Reflects to the `size` attribute.                                     |
 
 ### Methods
 
@@ -123,6 +124,12 @@ Self-managed mode only:
 | `nx-pill-activate`| `{ id, selFrom, selTo, selectionType, blockName, proseIndex }`            | Both modes               | User clicked a pinned item's label — decide what "activating" it means (e.g. highlight it elsewhere). |
 
 ## Styling
+
+Use `size="m"` for medium text and icons, matching menu and picker sizing. Medium pills also have more padding and spacing, larger corners and thumbnails, and a wider label limit (240px instead of 200px). The two-row scroll limit accommodates full-size thumbnails without clipping. Omitting `size` (or setting `size="s"`) keeps the existing compact appearance.
+
+```html
+<nx-pills size="m"></nx-pills>
+```
 
 Pills are blue by default. Hosts can recolor them with CSS custom properties set on `nx-pills` (or any ancestor):
 
