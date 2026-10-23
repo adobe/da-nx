@@ -174,7 +174,8 @@ describe('nx-pills', () => {
     expect(plain.classList.contains('highlighted')).to.be.false;
     expect(marked.classList.contains('highlighted')).to.be.true;
     expect(getComputedStyle(plain).backgroundColor).to.equal('rgb(1, 2, 3)');
-    expect(getComputedStyle(marked).backgroundColor).to.equal('rgb(255, 222, 44)');
+    expect(getComputedStyle(marked).backgroundColor).to.equal('rgb(255, 218, 158)');
+    expect(getComputedStyle(marked.querySelector('.pill-label')).color).to.equal('rgb(144, 51, 0)');
 
     el.style.setProperty('--nx-pill-highlight-background', 'rgb(7, 8, 9)');
     el.style.setProperty('--nx-pill-highlight-color', 'rgb(4, 5, 6)');
