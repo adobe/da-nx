@@ -150,6 +150,7 @@ class NXNav extends LitElement {
     return html`
       <div class="brand-cluster">
         <slot name="brand">${this._brand}</slot>
+        <slot name="context"></slot>
         ${this._breadcrumbs}
       </div>
       <div class="nav-search"><slot name="search" @slotchange=${this.onSearchSlotChange}></slot></div>
