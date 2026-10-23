@@ -23,11 +23,23 @@ export function normalizeItem({ row, origin }) {
   const description = (row.Description ?? '').trim();
   const owner = (row.Owner ?? '').trim();
   const type = (row.Type ?? '').trim();
+  const category = (row.Category ?? '').trim();
   const imageHref = toSafeHref({ value: row.Image, origin });
 
   return {
-    title, description, docHref, tryHref, owner, type, imageHref,
+    title, description, docHref, tryHref, owner, type, category, imageHref,
   };
+}
+
+// Block options: `Marketplace (core, extension)` -> class="marketplace core extension".
+// The first class is the (possibly prefixed) block name; the rest are categories.
+export function getCategories(el) {
+  return [...el.classList].slice(1).map((cls) => cls.toLowerCase());
+}
+
+export function filterByCategories({ items, categories = [] }) {
+  if (!categories.length) return items;
+  return items.filter(({ category }) => categories.includes(category?.toLowerCase()));
 }
 
 export function isAdobeOwned({ owner }) {
