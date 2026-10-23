@@ -1,0 +1,81 @@
+/* EW extension kit: S/M ui-size tokens and sizing for iframe extensions. See docs/extension-kit.md. */
+:root {
+  --nx-ui-text-heading: 18px;
+  --nx-ui-text-title: 16px;
+  --nx-ui-text-content: 14px;
+  --nx-ui-line-content: 18px;
+  --nx-ui-text-small: 12px;
+  --nx-ui-line-small: 16px;
+  --nx-ui-text-caption: 11px;
+  --nx-ui-icon: 16px;
+  --nx-ui-icon-sm: 14px;
+  --nx-ui-control-height: 24px;
+}
+
+body.ui-size-m {
+  --nx-ui-text-heading: 20px;
+  --nx-ui-text-title: 18px;
+  --nx-ui-text-content: 16px;
+  --nx-ui-line-content: 20px;
+  --nx-ui-text-small: 14px;
+  --nx-ui-line-small: 18px;
+  --nx-ui-text-caption: 12px;
+  --nx-ui-icon: 18px;
+  --nx-ui-icon-sm: 16px;
+  --nx-ui-control-height: 32px;
+}
+
+:where(body) {
+  font-size: var(--nx-ui-text-content);
+  line-height: var(--nx-ui-line-content);
+}
+
+:where(h1) { font-size: var(--nx-ui-text-heading); }
+:where(h2) { font-size: var(--nx-ui-text-title); }
+:where(h3) { font-size: var(--nx-ui-text-content); }
+
+:where(small, .nx-text-small) {
+  font-size: var(--nx-ui-text-small);
+  line-height: var(--nx-ui-line-small);
+}
+
+:where(.nx-text-caption) { font-size: var(--nx-ui-text-caption); }
+
+:where(.nx-icon) {
+  width: var(--nx-ui-icon);
+  height: var(--nx-ui-icon);
+}
+
+:where(.nx-btn, .nx-action-btn-icon, .nx-input) {
+  box-sizing: border-box;
+  height: var(--nx-ui-control-height);
+}
+
+:where(.nx-btn) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  font-size: var(--nx-ui-text-small);
+  line-height: var(--nx-ui-line-small);
+}
+
+:where(.ui-size-m .nx-btn) { padding: 0 12px; }
+
+:where(.nx-action-btn-icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--nx-ui-control-height);
+  padding: 0;
+}
+
+:where(.nx-btn, .nx-action-btn-icon) :where(svg, img) {
+  width: var(--nx-ui-icon);
+  height: var(--nx-ui-icon);
+}
+
+:where(.nx-input) {
+  padding: 0 8px;
+  font-size: var(--nx-ui-text-content);
+}
