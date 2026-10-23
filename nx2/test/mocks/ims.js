@@ -7,6 +7,8 @@ let _io = { user: { avatar: 'https://example.com/avatar.png' } };
 let _orgs = { data: [] };
 let _projectedProductContext;
 
+export const IMS_ORIGIN = 'https://ims-na1.adobelogin.com';
+
 export function setMockIms({
   token, anonymous, userId, displayName, email, io, orgs, projectedProductContext,
 } = {}) {

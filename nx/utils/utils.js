@@ -89,12 +89,12 @@ export function getLivePreviewUrl(org, repo, ref = 'main') {
  * @param {string} org - Organization name
  * @param {string} repo - Repository name
  * @param {string} [ref] - Branch/ref (defaults to 'main')
+ * @param {Object} [imsDetails] - Reuse the host's initialized identity
  * @returns {Promise<boolean>} True if the cookie was set, false when anonymous or on failure
  */
-export async function livePreviewLogin(org, repo, ref) {
+export async function livePreviewLogin(org, repo, ref, imsDetails) {
   try {
-    const { loadIms } = await import('./ims.js');
-    const ims = await loadIms();
+    const ims = imsDetails || await (await import('./ims.js')).loadIms();
     if (ims.anonymous || !ims.accessToken?.token) return false;
     const resp = await fetch(`${getLivePreviewUrl(org, repo, ref)}/gimme_cookie`, {
       credentials: 'include',
