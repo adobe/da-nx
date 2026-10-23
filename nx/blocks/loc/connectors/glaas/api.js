@@ -10,6 +10,12 @@ export function shouldLogGLaaSRequests() {
   }
 }
 
+export function logGLaaSDebug({ step, detail }) {
+  if (!shouldLogGLaaSRequests()) return;
+  // eslint-disable-next-line no-console -- opt-in GLaaS diagnostics (glaas.log)
+  console.info('[GLaaS]', step, detail);
+}
+
 export async function throttle(ms = 500) {
   return new Promise((resolve) => {
     setTimeout(() => { resolve(); }, ms);
@@ -91,6 +97,23 @@ export async function buildGlaasCreateMetadata({ task, service }) {
   return { callbackConfig, config, aiContextConfig };
 }
 
+async function readGlaasResponse(resp) {
+  const { status, statusText } = resp;
+  let body = '';
+  try {
+    body = await resp.text();
+  } catch (error) {
+    body = `[response read error: ${error?.message ?? error}]`;
+  }
+  let json;
+  try {
+    json = body ? JSON.parse(body) : undefined;
+  } catch {
+    json = undefined;
+  }
+  return { status, statusText, body, json };
+}
+
 export async function createTask({ origin, clientid, token, task, service }) {
   const { name, workflowName, workflow, targetLocales } = task;
   const { callbackConfig, config, aiContextConfig } = await buildGlaasCreateMetadata({
@@ -109,12 +132,19 @@ export async function createTask({ origin, clientid, token, task, service }) {
   };
 
   const opts = getOpts(clientid, token, JSON.stringify(body), 'application/json', 'POST');
+  const url = `${origin}/api/l10n/v1.2/tasks/${workflow}/create`;
+  logGLaaSDebug({ step: 'v1.2-create', detail: { method: 'POST', url } });
+  logGLaaSDebug({ step: 'v1.2-create-body-json', detail: opts.body });
 
   try {
-    const resp = await fetch(`${origin}/api/l10n/v1.2/tasks/${workflow}/create`, opts);
+    const resp = await fetch(url, opts);
+    if (shouldLogGLaaSRequests()) {
+      logGLaaSDebug({ step: 'v1.2-create-response', detail: await readGlaasResponse(resp) });
+    }
     if (!resp.ok) throw new Error(resp.status);
     return task;
   } catch (e) {
+    logGLaaSDebug({ step: 'v1.2-create-error', detail: { url, error: String(e) } });
     return { error: 'Error creating task.', status: e };
   }
 }
@@ -140,23 +170,6 @@ export const getGlaasFilename = (daBasePath) => (daBasePath.endsWith('.html') ? 
 export function glaasSourcePreviewUrl(aemHref) {
   if (!aemHref) return undefined;
   return aemHref.replace(/\/index$/, '/');
-}
-
-async function readGlaasResponse(resp) {
-  const { status, statusText } = resp;
-  let body = '';
-  try {
-    body = await resp.text();
-  } catch (error) {
-    body = `[response read error: ${error?.message ?? error}]`;
-  }
-  let json;
-  try {
-    json = body ? JSON.parse(body) : undefined;
-  } catch {
-    json = undefined;
-  }
-  return { status, statusText, body, json };
 }
 
 function logGlaasAddAssetsRequest({
