@@ -1,4 +1,8 @@
-import { findSourceLocation, getProjectSourceLocations } from '../../../utils/utils.js';
+import {
+  findSourceLocation,
+  getProjectSourceLocations,
+  normalizeLocation,
+} from '../../../utils/utils.js';
 
 const DEFAULT_PROPS = [
   { key: 'sync.conflict.behavior', value: 'overwrite, merge' },
@@ -137,6 +141,33 @@ export function getAllActions(langs) {
       if (b.value === 'skip') return -1;
       return 0;
     });
+}
+
+/**
+ * Narrow each language row to the actions that start from the project's source root.
+ * Rows left with only Skip are dropped. Returns new row objects.
+ */
+export function filterLangsBySource({ langs, sourceLocation, defaultLocation }) {
+  const root = normalizeLocation(sourceLocation);
+  const fallback = normalizeLocation(defaultLocation);
+
+  return langs.reduce((acc, lang) => {
+    const fromRoot = (lang.source ? normalizeLocation(lang.source) : fallback) === root;
+    const startsHere = fromRoot && lang.orderedActions.some(
+      ({ value }) => value === 'translate' || value === 'copy',
+    );
+
+    const orderedActions = lang.orderedActions.filter(({ value }) => {
+      if (value === 'translate' || value === 'copy') return fromRoot;
+      if (value === 'rollout') return startsHere || normalizeLocation(lang.location) === root;
+      return true;
+    });
+
+    if (orderedActions.some(({ value }) => value !== 'skip')) {
+      acc.push({ ...lang, orderedActions, activeAction: orderedActions[0] });
+    }
+    return acc;
+  }, []);
 }
 
 export function formatLangs(langs, config) {
