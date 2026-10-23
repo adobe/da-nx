@@ -162,6 +162,26 @@ describe('nx-pills', () => {
     expect(list.getAttribute('aria-label')).to.equal('Type');
   });
 
+  it('highlights items flagged as highlighted, on top of a host recolor', async () => {
+    el = await makePills({
+      items: [
+        { id: 'a', label: 'a@x.com', removable: false },
+        { id: 'b', label: 'b@x.com', removable: false, highlighted: true },
+      ],
+    });
+    el.style.setProperty('--nx-pill-background', 'rgb(1, 2, 3)');
+    const [plain, marked] = el.shadowRoot.querySelectorAll('.pill');
+    expect(plain.classList.contains('highlighted')).to.be.false;
+    expect(marked.classList.contains('highlighted')).to.be.true;
+    expect(getComputedStyle(plain).backgroundColor).to.equal('rgb(1, 2, 3)');
+    expect(getComputedStyle(marked).backgroundColor).to.equal('rgb(255, 222, 44)');
+
+    el.style.setProperty('--nx-pill-highlight-background', 'rgb(7, 8, 9)');
+    el.style.setProperty('--nx-pill-highlight-color', 'rgb(4, 5, 6)');
+    expect(getComputedStyle(marked).backgroundColor).to.equal('rgb(7, 8, 9)');
+    expect(getComputedStyle(marked.querySelector('.pill-label')).color).to.equal('rgb(4, 5, 6)');
+  });
+
   it('lets hosts recolor pills via custom properties', async () => {
     el = await makePills({ items: [{ id: 'app', label: 'App', removable: false }] });
     el.style.setProperty('--nx-pill-background', 'rgb(1, 2, 3)');

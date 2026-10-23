@@ -90,6 +90,7 @@ types.items = [
   pinnable: true,        // optional — shows a pin button instead of remove; label becomes clickable
   pinned: true,          // optional — sourced/managed by you (controlled) or by nx-pills (self-managed)
   removable: false,      // optional — hides the remove button for display-only pills (default: removable)
+  highlighted: true,     // optional — marks the pill as a match (e.g. a search hit), yellow by default
 }
 ```
 
@@ -137,6 +138,8 @@ Pills are blue by default. Hosts can recolor them with CSS custom properties set
 | ----------------------- | -------------------- | ---------------------- |
 | `--nx-pill-background`  | `var(--s2-blue-200)` | Pill background        |
 | `--nx-pill-color`       | `var(--s2-blue-1000)`| Label and type icon    |
+| `--nx-pill-highlight-background` | `var(--s2-yellow-300)` | Background of `highlighted` items |
+| `--nx-pill-highlight-color`      | `var(--s2-gray-900)`   | Label and icons of `highlighted` items |
 
 ```css
 nx-pills {

@@ -74,6 +74,12 @@
     color: var(--nx-pill-color, var(--s2-blue-1000));
   }
 
+  /* Marks a match (e.g. a search hit); wins over a host's --nx-pill-background/--nx-pill-color. */
+  .pill.highlighted {
+    --nx-pill-background: var(--nx-pill-highlight-background, var(--s2-yellow-300));
+    --nx-pill-color: var(--nx-pill-highlight-color, var(--s2-gray-900));
+  }
+
   .pill-label {
     overflow: hidden;
     text-overflow: ellipsis;
