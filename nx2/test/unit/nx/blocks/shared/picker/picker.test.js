@@ -89,4 +89,54 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelector('[data-value="blue"] svg')).to.not.be.null;
     expect(el.shadowRoot.querySelector('[data-value="red"] svg')).to.be.null;
   });
+
+  it('renders optional descriptions with an accessible name and generic styling parts', async () => {
+    const el = await createPicker({
+      items: [{ section: 'Status' }, { value: 'draft', label: 'Draft', description: 'Not published' }, { divider: true }],
+      value: 'draft',
+    });
+    expect(el.shadowRoot.querySelector('.picker-item-description').textContent).to.equal('Not published');
+    expect(el.shadowRoot.querySelector('[part="item"]').getAttribute('aria-label')).to.equal('Draft, Not published');
+    ['menu', 'section', 'divider', 'item-label', 'check'].forEach((part) => {
+      expect(el.shadowRoot.querySelector(`[part="${part}"]`), part).to.not.be.null;
+    });
+    expect(el.shadowRoot.querySelector('.picker-trigger-label').textContent).to.equal('Draft');
+  });
+
+  it('preserves explicit accessible names and does not treat an action as a selection', async () => {
+    const el = await createPicker({
+      items: [
+        { value: 'draft', label: 'Draft', description: 'Not published', ariaLabel: 'Current draft' },
+        { value: 'add', label: 'Add...', action: true, leadingIcon: '/img/icons/s2-icon-add-20-n.svg' },
+      ],
+      value: 'draft',
+    });
+    expect(el.shadowRoot.querySelector('[data-value="draft"]').getAttribute('aria-label')).to.equal('Current draft');
+    expect(el.shadowRoot.querySelector('[part="leading-icon"] use').getAttribute('href'))
+      .to.equal('/img/icons/s2-icon-add-20-n.svg#icon');
+    const changes = [];
+    el.addEventListener('change', ({ detail }) => changes.push(detail.value));
+    el.shadowRoot.querySelector('[data-value="add"]').click();
+    expect(changes).to.deep.equal(['add']);
+    expect(el.value).to.equal('draft');
+  });
+
+  it('keeps keyboard selection and expanded state working with described items', async () => {
+    const el = await createPicker({
+      items: [{ value: 'draft', label: 'Draft', description: 'Not published' }, { value: 'live', label: 'Live' }],
+      value: 'draft',
+    });
+    const toggled = new Promise((resolve) => {
+      el.shadowRoot.querySelector('nx-popover').addEventListener('toggle', resolve, { once: true });
+    });
+    el.shadowRoot.querySelector('.picker-trigger').click();
+    await toggled;
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.picker-trigger').getAttribute('aria-expanded')).to.equal('true');
+    el.handleKey('ArrowDown');
+    el.handleKey('Enter');
+    await el.updateComplete;
+    expect(el.value).to.equal('live');
+    expect(el.shadowRoot.querySelector('.picker-trigger').getAttribute('aria-expanded')).to.equal('false');
+  });
 });
