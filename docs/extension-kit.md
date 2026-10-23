@@ -5,7 +5,7 @@ and `nx2/styles` tokens don't reach them. The host sends the size and the extens
 
 ## How the size reaches the extension
 
-1. EW (`da-live/blocks/canvas/ew-panel-extensions/iframe-protocol.js`) adds `uiSize` (`'s'` or `'m'`) to `context` in the `ready` message.
+1. EW adds `uiSize` (`'s'` or `'m'`) to `context` in the `ready` message, for side panel extensions (`da-live/blocks/canvas/ew-panel-extensions/iframe-protocol.js`) and prepare menu iframes (`da-live/blocks/canvas/editor-utils/prepare-menu.js`).
 2. When the user switches size, EW posts `{ action: 'uiSizeChange', detail: { uiSize } }` to the iframe.
 3. `nx/utils/sdk.js` mirrors the size as `body.ui-size-m` on start and on every change, and dispatches
    `nx-ui-size-change` (`UI_SIZE_EVENT`, `detail: { size }`) on `document` after a change.
