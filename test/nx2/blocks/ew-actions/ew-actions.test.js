@@ -22,6 +22,7 @@ function installFetch(responsesByUrlSubstring) {
     const match = entries.find(([key]) => url.includes(key));
     if (match) return new Response(JSON.stringify(match[1]), { status: 200 });
     if (url.includes('/ping/')) return new Response('', { status: 200 });
+    if (url.includes('/sidekick/')) return new Response('{}', { status: 200 });
     if (url.startsWith(`${DA_ADMIN}/config/`)) {
       return new Response(JSON.stringify({ data: [] }), { status: 200 });
     }
