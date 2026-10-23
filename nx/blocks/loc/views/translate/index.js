@@ -122,12 +122,14 @@ async function saveLang({
     lang,
     langIndex,
     urls: urlsToSave,
+    behavior,
     saveFn,
     sendMessage,
   });
 
   const savedCount = saved.filter((url) => url.status === 'success').length;
-  return { savedCount };
+  const errors = saved.filter((url) => url.status !== 'success');
+  return { savedCount, errors };
 }
 
 export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
@@ -135,14 +137,49 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
 
   const saveLangConf = { ...conf, connector, behavior, sendMessage };
 
-  for (const [langIndex, lang] of conf.langs.entries()) {
+  const saveLanguage = async ({ lang, langIndex }) => {
     if (lang.translation.status !== 'complete') {
       sendMessage({ text: `Fetching ${conf.urls.length} items for ${lang.name}` });
-      const { savedCount } = await saveLang({ ...saveLangConf, lang, langIndex });
+      const { savedCount, errors } = await saveLang({ ...saveLangConf, lang, langIndex });
       lang.translation.saved = savedCount;
       lang.translation.status = savedCount === conf.urls.length ? 'complete' : 'error';
+      return errors;
     }
+    return [];
+  };
+
+  const concurrency = connector.saveLangConcurrency ?? 1;
+  if (concurrency === 1) {
+    for (const [langIndex, lang] of conf.langs.entries()) {
+      await saveLanguage({ lang, langIndex });
+    }
+    return undefined;
   }
+
+  const errors = [];
+  const collectError = (lang, result) => {
+    const path = result.suppliedPath ? ` (${result.suppliedPath})` : '';
+    const message = result.error?.message || result.error || 'Save failed; no error details were returned.';
+    const text = `Error saving ${lang.name}${path}: ${message}`;
+    errors.push({ ...result, code: lang.code, text });
+  };
+  const queue = new Queue(async ({ lang, langIndex }) => {
+    try {
+      const failed = await saveLanguage({ lang, langIndex });
+      failed.forEach((item) => collectError(lang, item));
+      if (lang.translation.status === 'error' && !failed.length) {
+        throw new Error('The connector returned incomplete save results.');
+      }
+    } catch (error) {
+      collectError(lang, { error });
+    }
+    await conf.actions?.saveState?.(undefined, { waitForSave: true });
+  }, concurrency, ({ lang }, error) => collectError(lang, { error }));
+
+  await Promise.all(conf.langs.map((lang, langIndex) => (
+    lang.translation.status === 'complete' ? undefined : queue.push({ lang, langIndex })
+  )));
+  return { errors };
 }
 
 export async function copySourceLangs(org, site, title, options, langs, urls, langsWithUrls) {

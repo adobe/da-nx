@@ -308,7 +308,7 @@ export async function updateProject({ path: suppliedPath, updates }) {
   const { message, project } = await fetchProject({ path, updates });
 
   // Only set a hash if the updates have a view
-  const hash = updates.view ? `/${project.view}${path}` : undefined;
+  const hash = project && updates.view ? `/${project.view}${path}` : undefined;
 
   return { message, hash, project };
 }
