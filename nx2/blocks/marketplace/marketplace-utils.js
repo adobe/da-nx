@@ -31,8 +31,6 @@ export function normalizeItem({ row, origin }) {
   };
 }
 
-// Block options: `Marketplace (core, extension)` -> class="marketplace core extension".
-// The first class is the (possibly prefixed) block name; the rest are categories.
 export function getCategories(el) {
   return [...el.classList].slice(1).map((cls) => cls.toLowerCase());
 }
