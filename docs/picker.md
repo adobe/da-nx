@@ -55,12 +55,15 @@ Each entry in the `items` array is one of:
 // Regular item
 { value: 'content', label: 'Content' }
 
+// Optional secondary text and decorative leading SVG
+{ value: 'draft', label: 'Draft', description: 'Not published',
+  leadingIcon: '/img/icons/s2-icon-add-20-n.svg' }
+
+// Action: emits change without replacing the current selection
+{ value: 'add', label: 'Add...', action: true }
+
 // Item with a color swatch (any CSS background value: hex, rgb(), gradient…)
 { value: 'blue', label: 'Blue', swatch: '#1473e6' }
-
-// Optional secondary text and a leading icon
-{ value: 'org/site', label: 'Site', description: 'org/site' }
-{ value: 'add', label: 'Add site', action: true, leadingIcon: '/icons/add.svg' }
 
 // Visual divider
 { divider: true }
@@ -81,19 +84,22 @@ When the selected item has a `swatch`, the trigger shows it before the label too
 | `placement`     | `String`              | Default placement when opened: `below` (default), `above`, or `auto`.         |
 | `size`          | `String`              | Item density: `s` (default) or `m`. Reflected as a host attribute.             |
 | `variant`       | `String`              | Set to `field` for the bordered form-style presentation.                       |
-| `menuVariant`   | `String`              | Set to `site` (`menu-variant="site"`) for a 240px, two-line menu with a leading checkmark. Default menus are unchanged. |
 | `open`          | `Boolean` (read-only) | Whether the picker is currently open.                                          |
 
 Trigger text precedence is: non-empty `labelOverride`, matching item label, `placeholder`, then blank. A placeholder is never added to the dropdown and does not change `value`.
 
-The site menu variant changes presentation, not discovery, permissions or site
-creation. Consumers supply real labels/descriptions and handle action items.
-An action emits `change` without replacing the selected value. Descriptions
-may be real identifiers when friendly names or domains are unavailable.
-
 ## CSS parts
 
 Use `::part(label)` to style the trigger text, or `::part(label)::before` to add a decorative icon.
+
+Menu presentation can be customized with `::part(menu)`, `::part(section)`,
+`::part(divider)`, `::part(item)`, `::part(item-label)`, `::part(check)` and
+`::part(leading-icon)`. Application-specific layouts belong in the consuming
+application rather than a domain-specific picker variant.
+
+`description` appears below the item label and is included in its accessible name
+unless `ariaLabel` supplies an explicit name. `leadingIcon` is a decorative SVG
+URL without the `#icon` fragment. Existing item shapes remain unchanged.
 
 ## CSS custom properties
 
