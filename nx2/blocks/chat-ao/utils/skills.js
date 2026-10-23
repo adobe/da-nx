@@ -9,16 +9,48 @@ function getSkillsCacheKey(tenantId) {
   return tenantId ? `${SKILLS_CACHE_PREFIX}--${tenantId}` : null;
 }
 
+const SKILL_NAME_RE = /^[a-z0-9][a-z0-9_-]{1,60}$/i;
+const DESCRIPTION_MAX_LENGTH = 50;
+
+// Display-only truncation for the slash menu; the full description is kept in data.
+export function truncateDescription(description = '') {
+  if (description.length <= DESCRIPTION_MAX_LENGTH) return description;
+  return `${description.slice(0, DESCRIPTION_MAX_LENGTH).trimEnd()}...`;
+}
+
+// Maps skills to nx-menu items for the slash menu, optionally filtered by name.
+export function toSlashMenuItems({ skills = [], filter } = {}) {
+  const items = skills
+    .filter(({ name }) => !filter || name.toLowerCase().includes(filter))
+    .map(({ name, description }) => ({
+      id: name,
+      label: `/${name}`,
+      description: truncateDescription(description),
+    }));
+  return items.length ? [{ section: 'Skills' }, ...items] : [];
+}
+
+const compareByName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+
+// Accepts API skill objects or legacy cached plain-name strings and returns
+// alphabetically sorted { name, description } entries, or null when empty.
+function normalizeSkills(list) {
+  const skills = list
+    .map((s) => (typeof s === 'string' ? { name: s } : s))
+    .filter((s) => typeof s?.name === 'string')
+    .map((s) => ({
+      name: s.name.trim(),
+      description: typeof s.description === 'string' ? s.description.trim() : '',
+    }))
+    .filter((s) => SKILL_NAME_RE.test(s.name))
+    .sort(compareByName);
+  return skills.length ? skills : null;
+}
+
 function parseSkillsListResponse(json) {
   const skills = Array.isArray(json?.skills) ? json.skills : null;
   if (!skills) return null;
-  const ids = skills
-    .filter((s) => !s?.hidden && s?.user_invocable !== false)
-    .map((s) => s?.name)
-    .filter((s) => typeof s === 'string')
-    .map((s) => s.trim())
-    .filter((s) => /^[a-z0-9][a-z0-9_-]{1,60}$/i.test(s));
-  return ids.length ? ids : null;
+  return normalizeSkills(skills.filter((s) => !s?.hidden && s?.user_invocable !== false));
 }
 
 // Last-known skill list, so the slash-menu isn't empty before fetchSkills() resolves.
@@ -29,7 +61,7 @@ export async function loadCachedSkills() {
     if (!key) return null;
     const raw = localStorage.getItem(key);
     const skills = raw ? JSON.parse(raw) : null;
-    return Array.isArray(skills) && skills.length ? skills : null;
+    return Array.isArray(skills) ? normalizeSkills(skills) : null;
   } catch {
     return null;
   }

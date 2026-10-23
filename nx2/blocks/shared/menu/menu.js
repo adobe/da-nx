@@ -115,7 +115,7 @@ class NxMenu extends LitElement {
 
   _renderItem(item) {
     if (item.divider) return html`<li role="separator"><hr class="menu-divider"></li>`;
-    if (item.section) return html`<li role="presentation"><span class="menu-section">${item.section}</span></li>`;
+    if (item.section) return html`<li role="presentation"><span class="menu-section" part="section">${item.section}</span></li>`;
     if (!item.label || !item.id) return nothing;
 
     return html`
@@ -124,6 +124,7 @@ class NxMenu extends LitElement {
           role="menuitem"
           data-id=${item.id}
           class="menu-item ${item.id === this._active ? 'menu-item-active' : ''}"
+          part="item"
           type="button"
           @click=${() => this._select(item)}
           @mouseenter=${() => { this._active = item.id; }}
@@ -131,9 +132,9 @@ class NxMenu extends LitElement {
         >
           ${item.icon ? html`<svg class="menu-item-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-${item.icon}-20-n.svg#icon"></use></svg>` : nothing}
           ${item.swatch ? html`<span class="menu-item-swatch" style="background:${item.swatch}"></span>` : nothing}
-          <span class="menu-item-text">
-            <span class="menu-item-label">${item.label}</span>
-            ${item.description ? html`<span class="menu-item-description">${item.description}</span>` : nothing}
+          <span class="menu-item-text" part="item-text">
+            <span class="menu-item-label" part="item-label">${item.label}</span>
+            ${item.description ? html`<span class="menu-item-description" part="item-description">${item.description}</span>` : nothing}
           </span>
           ${item.statusDot ? html`<span class="menu-item-status-dot" style="background:${item.statusDot}"></span>` : nothing}
         </button>

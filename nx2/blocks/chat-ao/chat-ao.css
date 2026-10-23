@@ -508,6 +508,39 @@
   }
 }
 
+/* Skill list in the slash menu — Coworker "Prompt Menu" design. */
+.slash-menu::part(section) {
+  padding: 7px var(--s2-spacing-200) 2px;
+  color: var(--s2-gray-700);
+  font-size: var(--s2-component-m-regular-font-size);
+  font-weight: var(--s2-component-m-medium-font-weight);
+  line-height: var(--s2-component-m-regular-line-height);
+}
+
+.slash-menu::part(item) {
+  align-items: flex-start;
+  color: var(--s2-gray-800);
+}
+
+.slash-menu::part(item):hover {
+  color: var(--s2-gray-900);
+}
+
+.slash-menu::part(item-text) {
+  gap: 1px;
+}
+
+.slash-menu::part(item-label) {
+  font-weight: var(--s2-component-m-medium-font-weight);
+}
+
+.slash-menu::part(item-description) {
+  color: var(--s2-gray-700);
+  font-size: var(--s2-component-s-regular-font-size);
+  font-weight: var(--s2-component-s-regular-font-weight);
+  line-height: var(--s2-component-s-regular-line-height);
+}
+
 .chat-form-wrap {
   max-width: 720px;
   width: calc(100% - 2 * var(--s2-spacing-200));
