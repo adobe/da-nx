@@ -146,6 +146,30 @@ describe('nx-picker swatch', () => {
     expect(el.value).to.equal('draft');
   });
 
+  it('focuses a visible item after popover positioning so keyboard events reach the menu', async () => {
+    const el = await createPicker({ value: 'red' });
+    const popover = el.shadowRoot.querySelector('nx-popover');
+    const toggled = new Promise((resolve) => {
+      popover.addEventListener('toggle', () => {
+        popover.style.visibility = 'hidden';
+        requestAnimationFrame(() => { popover.style.visibility = ''; });
+        resolve();
+      }, { once: true });
+    });
+    el.show();
+    await toggled;
+    await new Promise(requestAnimationFrame);
+    expect(el.shadowRoot.activeElement).to.equal(el.shadowRoot.querySelector('[data-value="red"]'));
+    el.shadowRoot.activeElement.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true }),
+    );
+    await el.updateComplete;
+    el.shadowRoot.activeElement.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }),
+    );
+    expect(el.value).to.equal('blue');
+  });
+
   it('keeps keyboard selection and expanded state working with described items', async () => {
     const el = await createPicker({
       items: [{ value: 'draft', label: 'Draft', description: 'Not published' }, { value: 'live', label: 'Live' }],

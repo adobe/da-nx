@@ -132,3 +132,6 @@ URL without the `#icon` fragment. Existing item shapes remain unchanged.
 ## Keyboard behaviour
 
 Arrow keys open the picker when focus is on the trigger. When open, arrow keys move focus between items, Enter selects the active item, and Escape closes the picker.
+
+Item focus waits for popover positioning so the target is visible. Closing or
+removing the picker before that frame cancels the pending focus.

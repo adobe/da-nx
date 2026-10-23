@@ -95,11 +95,12 @@ class NxPicker extends LitElement {
     const selectable = this.items?.filter((i) => !i.divider && !i.section) ?? [];
     const matched = selectable.some((i) => i.value === this.value);
     this._active = matched ? this.value : (selectable[0]?.value ?? this.value);
-    this.updateComplete.then(() => {
+    this.updateComplete.then(() => requestAnimationFrame(() => {
+      if (!this.open || !this.isConnected) return;
       const key = String(this._active ?? '');
       const esc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(key) : key.replace(/"/g, '\\"');
       if (!this.ignoreFocus) this.shadowRoot.querySelector(`[data-value="${esc}"]`)?.focus();
-    });
+    }));
   }
 
   _select(item) {
