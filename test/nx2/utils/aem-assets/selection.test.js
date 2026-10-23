@@ -149,6 +149,7 @@ describe('resolveAssetSelection', () => {
 
   const IMAGE_ASSET = {
     'aem:formatName': 'jpeg',
+    'aem:published': true,
     mimetype: 'image/jpeg',
     name: 'photo.jpg',
     path: '/content/dam/photo.jpg',
@@ -232,20 +233,53 @@ describe('resolveAssetSelection', () => {
   });
 
   it('returns the publish error for an unpublished asset in author+publish mode', () => {
-    const asset = { ...IMAGE_ASSET, 'repo:scene7FileStatus': 'PublishIncomplete' };
+    const asset = { ...IMAGE_ASSET, 'aem:published': false };
     const result = resolveAssetSelection({ asset, repoConfig: AUTHOR_PUBLISH_CONFIG });
     expect(result).to.deep.equal({ error: PUBLISH_ERROR_MSG });
     expect(result.error).to.include('not available on the publish tier');
   });
 
-  it('allows an asset whose scene7FileStatus is PublishComplete in author+publish mode', () => {
-    const asset = { ...IMAGE_ASSET, 'repo:scene7FileStatus': 'PublishComplete' };
+  it('returns the publish error for an unpublished non-image asset in author+publish mode', () => {
+    const asset = { ...PDF_ASSET, 'aem:published': false };
+    const result = resolveAssetSelection({ asset, repoConfig: AUTHOR_PUBLISH_CONFIG });
+    expect(result).to.deep.equal({ error: PUBLISH_ERROR_MSG });
+  });
+
+  it('allows a published asset in author+publish mode', () => {
+    const asset = { ...IMAGE_ASSET, 'aem:published': true };
     const result = resolveAssetSelection({ asset, repoConfig: AUTHOR_PUBLISH_CONFIG });
     expect(result.error).to.equal(undefined);
   });
 
-  it('does not check scene7FileStatus in author+DM mode', () => {
-    const asset = { ...IMAGE_ASSET, 'repo:scene7FileStatus': 'PublishIncomplete' };
+  it('returns the publish error when the publish state is missing in author+publish mode', () => {
+    const asset = { ...IMAGE_ASSET, 'aem:published': undefined };
+    const result = resolveAssetSelection({ asset, repoConfig: AUTHOR_PUBLISH_CONFIG });
+    expect(result).to.deep.equal({ error: PUBLISH_ERROR_MSG });
+  });
+
+  it('returns the publish error when aem:published is a timestamp in author+publish mode', () => {
+    const asset = { ...IMAGE_ASSET, 'aem:published': '2026-01-01T00:00:00.000Z' };
+    const result = resolveAssetSelection({ asset, repoConfig: AUTHOR_PUBLISH_CONFIG });
+    expect(result).to.deep.equal({ error: PUBLISH_ERROR_MSG });
+  });
+
+  it('prefers isPublishedToAemPublish over aem:published in author+publish mode', () => {
+    const published = { ...IMAGE_ASSET, isPublishedToAemPublish: true, 'aem:published': '2026-01-01T00:00:00.000Z' };
+    const unpublished = { ...IMAGE_ASSET, isPublishedToAemPublish: false, 'aem:published': true };
+    expect(resolveAssetSelection({ asset: published, repoConfig: AUTHOR_PUBLISH_CONFIG }).error)
+      .to.equal(undefined);
+    expect(resolveAssetSelection({ asset: unpublished, repoConfig: AUTHOR_PUBLISH_CONFIG }))
+      .to.deep.equal({ error: PUBLISH_ERROR_MSG });
+  });
+
+  it('ignores scene7FileStatus for a published asset in author+publish mode', () => {
+    const asset = { ...IMAGE_ASSET, 'aem:published': true, 'repo:scene7FileStatus': 'PublishIncomplete' };
+    const result = resolveAssetSelection({ asset, repoConfig: AUTHOR_PUBLISH_CONFIG });
+    expect(result.error).to.equal(undefined);
+  });
+
+  it('does not check aem:published in author+DM mode', () => {
+    const asset = { ...IMAGE_ASSET, 'aem:published': false };
     const result = resolveAssetSelection({ asset, repoConfig: AUTHOR_DM_CONFIG });
     expect(result.error).to.equal(undefined);
   });
