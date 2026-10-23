@@ -1,3 +1,47 @@
+## [1.21.2](https://github.com/adobe/da-nx/compare/v1.21.1...v1.21.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* **ew:** fail closed on chat when a config layer is unreadable ([5f547f7](https://github.com/adobe/da-nx/commit/5f547f7293420e41a3f025416185a97f8b8f9d05))
+* **ew:** limit chat fail-closed policy to access errors ([2a1bb93](https://github.com/adobe/da-nx/commit/2a1bb93450533978b93c8d3885abbd0fd49867f3))
+
+## [1.21.1](https://github.com/adobe/da-nx/compare/v1.21.0...v1.21.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **quick-edit:** first native click forwarded to RUM ([efeb620](https://github.com/adobe/da-nx/commit/efeb6206229accff09459493137fb1e8d34d07f3))
+
+# [1.21.0](https://github.com/adobe/da-nx/compare/v1.20.1...v1.21.0) (2026-10-22)
+
+
+### Features
+
+* add loading spinners and Copy all visibility to translate view ([#709](https://github.com/adobe/da-nx/issues/709)) ([45f6ed8](https://github.com/adobe/da-nx/commit/45f6ed8f258883752f99ad6852dd6075ef137ba2))
+
+## [1.20.1](https://github.com/adobe/da-nx/compare/v1.20.0...v1.20.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **editortoggle:** hide disabled editor toggle only on edit ([4325dca](https://github.com/adobe/da-nx/commit/4325dca2ba87aa582af46a13a413835ef66a2fad))
+
+# [1.20.0](https://github.com/adobe/da-nx/compare/v1.19.0...v1.20.0) (2026-10-21)
+
+
+### Bug Fixes
+
+* **ew:** forward WYSIWYG iframe clicks for RUM (adobe/da-live[#1324](https://github.com/adobe/da-nx/issues/1324)) ([4bd6625](https://github.com/adobe/da-nx/commit/4bd6625d9d09fa5f6d438bdec5ca8d111a3f5c85))
+* **quick-edit:** align forwarded click target with RUM enhancer format ([0e7b39b](https://github.com/adobe/da-nx/commit/0e7b39bce56d6621b6518bac40e33ef12404c5ca))
+* **quick-edit:** attribute iframe text clicks to layout ([3f365f3](https://github.com/adobe/da-nx/commit/3f365f316a382f13d4c448e5b280e7196a4e8afa))
+* **quick-edit:** preserve native clicks on block selection labels ([a3d12f7](https://github.com/adobe/da-nx/commit/a3d12f75fb2815400515357953345d13780eea1f))
+
+
+### Features
+
+* identify editor as the source of rum clicks ([b61f2a8](https://github.com/adobe/da-nx/commit/b61f2a80b9c82bfc76f91da8af8ce8be96212244))
+
 # [1.19.0](https://github.com/adobe/da-nx/compare/v1.18.0...v1.19.0) (2026-10-20)
 
 
@@ -322,6 +366,14 @@ condition already used to decide whether to attach
 `x-content-source-authorization` — via a shared `isPrivilegedOrigin` check.
 Added fetch-mock + test coverage (`nx2/test/mocks/fetch.js` now records
 `referrerPolicy`; two new cases in `test/nx2/utils/api.test.js`).
+
+## 2026-09-21
+
+### nx/blocks/loc/views/translate — loading spinners + Copy all visibility (smartling-split-6-loading-spinners, #709)
+
+- Added spinners to Connect/Translate all/Get status/Cancel project/Cancel lang/Copy all buttons, disabled while their action is in flight
+- Fixed pre-existing bug where `_sendAllBusy` wasn't declared reactive
+- Hide "Copy all" once every language has finished copying (new `incompleteCopyLangs` getter)
 
 ## 2026-09-17
 
