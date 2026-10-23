@@ -10,7 +10,7 @@
  * governing permissions and limitations under the License.
  */
 
-import { getApprovedOnlyFilterProps } from './filter-schema.js';
+import { createApprovedOnlyFilterSchema, toFilterProps } from './filter-schema.js';
 
 export function buildFeatureSet(isDmEnabled) {
   const features = ['upload', 'collections', 'detail-panel', 'advisor'];
@@ -37,6 +37,7 @@ export function buildAssetSelectorProps({
   imsToken,
   repoConfig,
   externalBrief,
+  filterSchema,
   onClose,
   handleSelection,
 }) {
@@ -49,7 +50,10 @@ export function buildAssetSelectorProps({
       && lastFolderPaths.has(repoConfig.repositoryId)
       && { path: lastFolderPaths.get(repoConfig.repositoryId) }),
     ...(externalBrief !== undefined && { externalBrief }),
-    ...getApprovedOnlyFilterProps(repoConfig.approvedOnly),
+    ...toFilterProps(
+      repoConfig.approvedOnly ? createApprovedOnlyFilterSchema() : [],
+      filterSchema,
+    ),
     ...(onClose && { onClose }),
     handleSelection,
   };
