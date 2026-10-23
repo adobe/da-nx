@@ -1,3 +1,10 @@
+# [1.22.0](https://github.com/adobe/da-nx/compare/v1.21.3...v1.22.0) (2026-10-23)
+
+
+### Features
+
+* **ew:** link send dialog urls and show the production host ([#897](https://github.com/adobe/da-nx/issues/897)) ([2e0ef1a](https://github.com/adobe/da-nx/commit/2e0ef1a55db5f6b5b3df567e5e07791399d1cdbd))
+
 ## [1.21.3](https://github.com/adobe/da-nx/compare/v1.21.2...v1.21.3) (2026-10-23)
 
 
