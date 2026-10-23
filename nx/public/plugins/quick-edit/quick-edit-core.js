@@ -1,0 +1,303 @@
+import {
+  requestEditor,
+  setupContentEditableListeners,
+  setupImageDropListeners,
+  updateImageSrc,
+  handleImageError,
+} from './src/images.js';
+import { setEditorState, captureFocusedEditor } from './src/prose.js';
+import { setCursors } from './src/cursors.js';
+import { pollConnection, setupActions } from './src/utils.js';
+import { MESSAGE_TYPES } from '../../../utils/message-types.js';
+import { restoreBlockIndices, restoreImageIndices, applyImageVersionAck } from './src/dom-index.js';
+import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
+import {
+  getQuickEditPortalSrc,
+  getQuickEditPreviewSrc,
+  getStandaloneConfig,
+  isStandaloneShell,
+  relayControllerMessage,
+} from './src/standalone.js';
+import {
+  setCommentMarkers,
+  applyCommentMarkers,
+  setupCommentShortcut,
+  scrollToProseIndex,
+} from './src/comments/index.js';
+import {
+  setupNodeSelection,
+  setSelectedNode,
+  getSelectedNode,
+} from './src/selection.js';
+import { installClickForwarding } from './src/click-forwarding.js';
+import { replaceChanges } from './src/reload.js';
+
+import { loadStyle } from '../../../scripts/nexter.js';
+
+const nx = `${new URL(import.meta.url).origin}/nx`;
+await loadStyle(`${nx}/public/plugins/quick-edit/quick-edit.css`);
+
+const QUICK_EDIT_ID = 'quick-edit-iframe';
+const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
+
+/**
+ * When set, the preview page is using exp-workspace as controller;
+ * do not create the portal iframe.
+ */
+let parentControllerPort = null;
+
+async function setBody(body, rerenderScope, ctx) {
+  ctx.reloadRequested = false;
+  ctx.bodyGeneration = (ctx.bodyGeneration ?? 0) + 1;
+  const generation = ctx.bodyGeneration;
+
+  const anchor = captureScrollAnchor();
+  const focused = captureFocusedEditor();
+  const doc = new DOMParser().parseFromString(body, 'text/html');
+  const replaced = replaceChanges({ ctx, doc, rerenderScope, targetDocument: document });
+  await ctx.reload(document, replaced);
+  // A newer SET_BODY replaced the DOM while this one was loading.
+  if (generation !== ctx.bodyGeneration) return;
+  restoreBlockIndices(doc, document);
+  restoreImageIndices(doc, document);
+  applyCommentMarkers(ctx);
+  setupNodeSelection(ctx);
+  setSelectedNode(getSelectedNode());
+  setupContentEditableListeners(ctx);
+  // Re-open the editor the user was in, since the body (and its editor) was replaced.
+  const refocus = focused && document.querySelector(`[data-prose-index="${focused.cursorOffset}"]:not(picture)`);
+  if (refocus) requestEditor(ctx, refocus, { selection: focused.selection });
+  if (!ctx.readOnly) {
+    setupImageDropListeners(ctx, document.body.querySelector('main'));
+  }
+  if (!parentControllerPort) {
+    setupActions(ctx);
+  }
+  restoreScrollAnchor(anchor);
+}
+
+function handleReady(e, ctx) {
+  ctx.initialized = true;
+}
+
+function onMessage(e, ctx) {
+  const { type, payload = {} } = e.data ?? {};
+
+  if (type === MESSAGE_TYPES.READY) {
+    handleReady(e, ctx);
+  } else if (type === MESSAGE_TYPES.SET_BODY) {
+    ctx.pendingNodeUpdateId = null;
+    // A partial reload decorates detached DOM; the next body must not land mid-decoration.
+    ctx.bodyQueue = (ctx.bodyQueue ?? Promise.resolve())
+      .then(() => setBody(payload.body, payload.rerenderScope, ctx))
+      .catch((error) => {
+        // eslint-disable-next-line no-console
+        console.error('[quick-edit] failed to set body', error);
+      });
+  } else if (type === MESSAGE_TYPES.SET_EDITOR_STATE) {
+    const {
+      editorState, cursorOffset, imageVersion, lengthDiff,
+    } = payload;
+    setEditorState(cursorOffset, editorState, ctx, imageVersion, lengthDiff);
+  } else if (type === MESSAGE_TYPES.NODE_UPDATE) {
+    applyImageVersionAck(payload, ctx);
+  } else if (type === MESSAGE_TYPES.SET_CURSORS) {
+    setCursors(payload.cursors, ctx);
+  } else if (type === MESSAGE_TYPES.IMAGE_REPLACE) {
+    if (payload.error) {
+      handleImageError(payload.error, payload.requestId, ctx);
+    } else {
+      updateImageSrc(payload.requestId, payload.newSrc, ctx);
+    }
+  } else if (type === MESSAGE_TYPES.SET_COMMENT_MARKERS) {
+    setCommentMarkers(payload, ctx);
+  } else if (type === MESSAGE_TYPES.SCROLL_TO_POS) {
+    scrollToProseIndex(payload.proseIndex);
+  } else if (type === MESSAGE_TYPES.SET_SELECTED_NODE) {
+    setSelectedNode(payload.node, document, { scrollIntoView: payload.scrollIntoView });
+  }
+}
+
+// Disables link clicks. When the page is embedded, it must not navigate away.
+function blockLinkNavigation() {
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('a')) e.preventDefault();
+  }, true);
+}
+
+function setupParentController(reloadCallback, partialReload) {
+  const listener = (e) => {
+    const isInit = e.data?.type === MESSAGE_TYPES.INIT;
+    if (e.source !== window.parent || !isInit || !e.ports?.length) return;
+
+    const port = e.ports[0];
+    parentControllerPort = port;
+    blockLinkNavigation();
+
+    const config = e.data?.payload?.config ?? e.data?.init;
+
+    const ctx = {
+      initialized: true,
+      reload: reloadCallback,
+      port,
+      readOnly: config?.canWrite !== true,
+      partialReload,
+    };
+    port.onmessage = (ev) => onMessage(ev, ctx);
+    port.postMessage({ type: MESSAGE_TYPES.READY });
+    setupCommentShortcut(ctx);
+    installClickForwarding({ getPort: () => ctx.port });
+
+    window.removeEventListener('message', listener);
+  };
+  window.addEventListener('message', listener);
+}
+
+function handleLoad(target, config, location, ctx, handler = onMessage) {
+  const CHANNEL = new MessageChannel();
+  const { port1, port2 } = CHANNEL;
+  ctx.port?.close();
+  ctx.port = port1;
+
+  target.contentWindow.postMessage({
+    type: MESSAGE_TYPES.INIT, payload: { config, location },
+  }, '*', [port2]);
+  port1.onmessage = (e) => {
+    if (ctx.port === port1) handler(e, ctx);
+  };
+}
+
+function setupIframeController(payload, reloadCallback, partialReload) {
+  const ctx = {
+    initialized: false,
+    reload: reloadCallback,
+    partialReload,
+  };
+
+  const iframe = document.createElement('iframe');
+  iframe.id = QUICK_EDIT_ID;
+  iframe.src = getQuickEditPortalSrc(window.location.href);
+  iframe.allow = 'local-network-access *; clipboard-write *';
+
+  pollConnection(ctx, () => {
+    handleLoad(iframe, payload.config, payload.location, ctx);
+  });
+  document.documentElement.append(iframe);
+  iframe.style.visibility = 'hidden';
+}
+
+function createPreviewIframe() {
+  const iframe = document.createElement('iframe');
+  iframe.id = QUICK_EDIT_PREVIEW_ID;
+  iframe.src = getQuickEditPreviewSrc(window.location.href);
+  iframe.allow = 'local-network-access *; clipboard-write *';
+  Object.assign(iframe.style, {
+    position: 'fixed',
+    inset: '0',
+    width: '100%',
+    height: '100%',
+    border: '0',
+    zIndex: '9998',
+  });
+  document.documentElement.append(iframe);
+  return iframe;
+}
+
+function setupStandaloneEditor(portal, payload) {
+  const preview = createPreviewIframe();
+  const config = getStandaloneConfig(payload.config);
+  const shellCtx = {
+    actionsReady: false,
+  };
+  const portalCtx = {
+    initialized: false,
+    queue: [],
+  };
+  const previewCtx = {
+    initialized: false,
+    queue: [],
+  };
+
+  const handleControllerMessage = (source, target) => (e) => {
+    relayControllerMessage({ data: e.data, source, target });
+    if (portalCtx.initialized && previewCtx.initialized && !shellCtx.actionsReady) {
+      shellCtx.actionsReady = true;
+      setupActions(portalCtx);
+    }
+  };
+
+  pollConnection(portalCtx, () => {
+    handleLoad(
+      portal,
+      config,
+      payload.location,
+      portalCtx,
+      handleControllerMessage(portalCtx, previewCtx),
+    );
+  });
+  pollConnection(previewCtx, () => {
+    handleLoad(
+      preview,
+      config,
+      payload.location,
+      previewCtx,
+      handleControllerMessage(previewCtx, portalCtx),
+    );
+  });
+}
+
+function setupStandaloneShell(payload) {
+  const ctx = {
+    initialized: false,
+    editorStarted: false,
+  };
+
+  const portal = document.createElement('iframe');
+  portal.id = QUICK_EDIT_ID;
+  portal.src = getQuickEditPortalSrc(window.location.href, { bootstrap: true });
+  portal.allow = 'local-network-access *; clipboard-write *';
+  portal.style.visibility = 'hidden';
+  document.documentElement.append(portal);
+
+  pollConnection(ctx, () => {
+    handleLoad(portal, payload.config, payload.location, ctx, (e, bootstrapCtx) => {
+      if (e.data?.type !== MESSAGE_TYPES.READY) return;
+      bootstrapCtx.initialized = true;
+      if (bootstrapCtx.editorStarted) return;
+      bootstrapCtx.editorStarted = true;
+      bootstrapCtx.port?.close();
+      setupStandaloneEditor(portal, payload);
+    });
+  });
+}
+
+let bootstrapClaimed = false;
+
+// quick-edit-init.js owns loading; other loaders on the same page are ignored.
+export function claimBootstrap() {
+  bootstrapClaimed = true;
+}
+
+/**
+ * `reloadCallback(document, replaced)` re-decorates after each body update. Pass
+ * `partialReload` to preserve header/footer and decorate just `replaced.el`.
+ */
+export default async function loadQuickEdit(payload, reloadCallback, {
+  bootstrap = false,
+  partialReload = false,
+} = {}) {
+  if (bootstrapClaimed && !bootstrap) return;
+
+  if (document.getElementById(QUICK_EDIT_ID)) return;
+  if (parentControllerPort != null) return;
+
+  const detail = payload?.detail ?? payload ?? {};
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('controller') === 'parent') {
+    setupParentController(reloadCallback, partialReload);
+  } else if (isStandaloneShell(window.location.href)) {
+    setupStandaloneShell(detail);
+  } else {
+    setupIframeController(detail, reloadCallback, partialReload);
+  }
+}

@@ -9,9 +9,13 @@ import {
   yCursorPlugin,
   yUndoPlugin,
 } from 'da-y-wrapper';
-import { getSchema } from 'https://da.live/deps/da-parser/dist/index.js';
-import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
+import { getDaOrigin, resolveDependency } from '../../../public/utils/dependencies.js';
 import { findChangedNodes, generateColor, findCommonEditableAncestor } from './utils.js';
+
+const [{ getSchema }, { COLLAB_ORIGIN, DA_ORIGIN }] = await Promise.all([
+  import(resolveDependency('da-parser')),
+  import(`${getDaOrigin()}/blocks/shared/constants.js`),
+]);
 
 function registerErrorHandler(ydoc) {
   ydoc.on('update', () => {

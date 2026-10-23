@@ -9,10 +9,13 @@ export function isStandaloneShell(href) {
 export function getQuickEditPortalSrc(href, { bootstrap = false } = {}) {
   const url = new URL(href);
   const ref = url.searchParams.get('quick-edit');
-  const portalUrl = new URL(!ref || ref === 'on'
+  const daOrigin = url.searchParams.get('da-origin');
+  const defaultHref = !ref || ref === 'on'
     ? 'https://da.live/plugins/quick-edit'
-    : 'https://main--da-live--adobe.aem.live/plugins/quick-edit');
+    : 'https://main--da-live--adobe.aem.live/plugins/quick-edit';
+  const portalUrl = new URL(daOrigin ? '/plugins/quick-edit' : defaultHref, daOrigin || undefined);
   if (ref && ref !== 'on') portalUrl.searchParams.set('nx', ref);
+  if (daOrigin) portalUrl.searchParams.set('da-origin', new URL(daOrigin).origin);
   if (bootstrap) portalUrl.searchParams.set('controller', 'bootstrap');
   return portalUrl.href;
 }
