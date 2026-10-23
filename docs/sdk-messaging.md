@@ -21,6 +21,11 @@ Omit `autoSend` to prefill rather than submit. This is a fire-and-forget command
 not confirmation that the agent accepted or completed the prompt.
 No SDK changes are required.
 
+Chat is available only on `/app/{org}/{site}/...` URLs whose org/site config does
+not disable it through `ew.disableChat`. Disabled chat requests (`setPrompt` and
+`showPanel('chat')`) are silent no-ops; other registered panels are unaffected.
+The configuration check uses the app URL, not an overriding target-site hash.
+
 Chat uses `#/org/site/path` from the parent URL when present; otherwise it uses
 the app URL's org/repo as its site, with browse context and no content path.
 The hosting app's `/tools/...` path is never used as a content-document path.

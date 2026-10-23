@@ -22,6 +22,7 @@ describe('nx2 fullscreen shell', () => {
   let block;
   let prompt;
   let log;
+  let configs;
   const ports = [];
 
   before(async () => {
@@ -39,6 +40,7 @@ describe('nx2 fullscreen shell', () => {
     sinon.stub(Chat.prototype, '_ensureController');
     sinon.stub(Chat.prototype, '_loadConfig');
     prompt = sinon.stub(Chat.prototype, 'setPrompt');
+    configs = new Map();
 
     const fetch = window.fetch.bind(window);
     sinon.stub(window, 'fetch').callsFake((resource, options) => {
@@ -46,7 +48,11 @@ describe('nx2 fullscreen shell', () => {
         return Promise.resolve(new Response(''));
       }
       if (String(resource).includes('/config/')) {
-        return Promise.resolve(new Response(JSON.stringify({ flags: { data: [] } })));
+        const config = configs.get(new URL(resource, window.location.origin).pathname);
+        return Promise.resolve(new Response(
+          JSON.stringify(config?.body ?? { flags: { data: [] } }),
+          { status: config?.status ?? 200 },
+        ));
       }
       return fetch(resource, options);
     });
@@ -162,18 +168,82 @@ describe('nx2 fullscreen shell', () => {
     expect(prompt.called).to.equal(false);
   });
 
-  it('reports malformed chat commands without opening a panel', () => {
-    const onMessage = setupPanels({ org: 'adobe', repo: 'demo' });
+  it('reports malformed chat commands without opening a panel', async () => {
+    const onMessage = await setupPanels({ org: 'adobe', repo: 'demo' });
     onMessage({ action: 'setPrompt', details: { text: 42 } });
     expect(log.calledOnce).to.equal(true);
     expect(document.querySelector('aside.panel')).to.equal(null);
   });
 
-  it('does not forward unrelated SDK commands as chat prompts', () => {
+  it('does not forward unrelated SDK commands as chat prompts', async () => {
     const listener = sinon.spy();
     document.addEventListener(CHAT_EVENT.SET_PROMPT, listener);
-    setupPanels({ org: 'adobe', repo: 'demo' })({ action: 'setTitle', details: 'Title' });
+    const onMessage = await setupPanels({ org: 'adobe', repo: 'demo' });
+    onMessage({ action: 'setTitle', details: 'Title' });
     document.removeEventListener(CHAT_EVENT.SET_PROMPT, listener);
     expect(listener.called).to.equal(false);
+  });
+
+  async function assertChatBlocked({ org, site }) {
+    const onMessage = await setupPanels({ org, repo: site });
+    const open = sinon.spy();
+    document.addEventListener(PANEL_EVENT.OPEN, open);
+    try {
+      onMessage({ action: 'setPrompt', details: { text: 'Blocked', autoSend: true } });
+      onMessage({ action: 'showPanel', details: 'chat' });
+      expect(open.called).to.equal(false);
+      expect(prompt.called).to.equal(false);
+      expect(log.called).to.equal(false);
+      expect(document.querySelector('aside.panel')).to.equal(null);
+    } finally {
+      document.removeEventListener(PANEL_EVENT.OPEN, open);
+    }
+    return onMessage;
+  }
+
+  it('silently blocks chat disabled in the app org config', async () => {
+    history.replaceState(null, '', '/app/chat-disabled-org/demo/tools/app');
+    configs.set('/config/chat-disabled-org/', {
+      body: { flags: { data: [{ key: 'ew.disableChat', value: 'true' }] } },
+    });
+    await assertChatBlocked({ org: 'chat-disabled-org', site: 'demo' });
+  });
+
+  it('silently blocks chat disabled in the app site config, even with a different hash', async () => {
+    history.replaceState(null, '', '/app/adobe/chat-disabled-site/tools/app#/adobe/demo');
+    configs.set('/config/adobe/chat-disabled-site/', {
+      body: { flags: { data: [{ key: 'ew.disableChat', value: 'true' }] } },
+    });
+    await assertChatBlocked({ org: 'adobe', site: 'chat-disabled-site' });
+  });
+
+  [401, 403].forEach((status) => {
+    it(`silently blocks chat when the app config returns ${status}`, async () => {
+      const site = `chat-denied-${status}`;
+      history.replaceState(null, '', `/app/adobe/${site}/tools/app`);
+      configs.set(`/config/adobe/${site}/`, { status });
+      await assertChatBlocked({ org: 'adobe', site });
+    });
+  });
+
+  ['/app', '/app/adobe', '/apps/adobe/demo'].forEach((path) => {
+    it(`silently blocks chat outside a site-app URL: ${path}`, async () => {
+      history.replaceState(null, '', path);
+      await assertChatBlocked({ org: 'adobe', site: 'demo' });
+    });
+  });
+
+  it('keeps other registered panels usable when chat is disabled', async () => {
+    history.replaceState(null, '', '/app/adobe/chat-disabled-tools/tools/app');
+    configs.set('/config/adobe/chat-disabled-tools/', {
+      body: { flags: { data: [{ key: 'ew.disableChat', value: 'true' }] } },
+    });
+    const onMessage = await assertChatBlocked({ org: 'adobe', site: 'chat-disabled-tools' });
+    registerPanelSection('allowed-tools', {
+      position: 'after',
+      getContent: async () => document.createElement('div'),
+    });
+    onMessage({ action: 'showPanel', details: 'allowed-tools' });
+    await waitFor(() => document.querySelector('aside.panel[data-section="allowed-tools"]'));
   });
 });

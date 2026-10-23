@@ -179,7 +179,7 @@ export default async function init(el) {
       document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
     }
     const { setupPanels } = await import('./panels.js');
-    onMessage = setupPanels({ org, repo });
+    onMessage = await setupPanels({ org, repo });
   }
 
   if (isAppTrusted(org, repo, ref)) {
