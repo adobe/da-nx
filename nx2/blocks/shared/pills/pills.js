@@ -11,6 +11,7 @@ class NxPills extends LitElement {
     items: { type: Array },
     addEvent: { type: String },
     label: { type: String },
+    size: { type: String, reflect: true },
   };
 
   _keyedItemIds = new Map();
