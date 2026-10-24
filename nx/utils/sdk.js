@@ -1,6 +1,22 @@
 import { setImsDetails, daFetch } from './daFetch.js';
+import { DA_ORIGIN } from '../public/utils/constants.js';
 
 let port2;
+
+export function createLocActions({ fetch, daOrigin }) {
+  const run = async (method, {
+    urlSource, urlTarget, msg, sourceContent, labelLocal, labelUpstream,
+  }) => {
+    const loc = await import('../public/loc/index.js');
+    return loc[method]({
+      fetch, daOrigin, urlSource, urlTarget, msg, sourceContent, labelLocal, labelUpstream,
+    });
+  };
+  return {
+    mergeCopy: (options) => run('mergeCopy', options),
+    overwriteCopy: (options) => run('overwriteCopy', options),
+  };
+}
 
 function handleSdkResponse({ port, action, details }) {
   return new Promise((resolve) => {
@@ -197,6 +213,7 @@ const DA_SDK = (() => new Promise((resolve) => {
       const actions = {
         ...createHostActions({ port: port2, capabilities: e.data.capabilities }),
         daFetch,
+        loc: createLocActions({ fetch: daFetch, daOrigin: DA_ORIGIN }),
         sendText,
         setHref,
         setHash,

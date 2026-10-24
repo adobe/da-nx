@@ -1,7 +1,7 @@
 import sinon from 'sinon';
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
-import { regionalDiff, normalizeLinks, removeLocTags } from '../../nx/blocks/loc/regional-diff/regional-diff.js';
+import { regionalDiff, normalizeLinks, removeLocTags } from '../../nx/public/loc/index.js';
 
 function cleanHtmlWhitespace(html) {
   return html.replace(/>\s+</g, '><').trim().replace(/\s+/g, ' ').trim();
@@ -25,6 +25,24 @@ describe('Regional diff', () => {
   afterEach(() => {
     // Do not build up any test state - reset window.fetch to it's original state
     window.fetch = originalFetch;
+  });
+
+  it('uses explicit destination configuration without legacy fetch or page context', async () => {
+    window.fetch = sinon.stub().throws(new Error('Unexpected legacy fetch'));
+    const original = document.implementation.createHTMLDocument();
+    original.body.innerHTML = '<main><div><p><a href="https://main--source--org.aem.live/page">Link</a></p></div></main>';
+    const modified = document.implementation.createHTMLDocument();
+    modified.body.innerHTML = '<main><div><p><a href="https://main--target--org.aem.live/page">Link</a></p></div></main>';
+    const main = await regionalDiff(original, modified, [], [], {
+      site: 'target',
+      config: {
+        config: { data: [{ key: 'source.fragment.hostnames', value: 'main--source--org.aem.live' }] },
+      },
+    });
+    expect(main.innerHTML).to.include('main--target--org.aem.live');
+    expect(main.innerHTML).not.to.include('da-diff-added');
+    expect(main.innerHTML).not.to.include('da-diff-deleted');
+    expect(window.fetch.called).to.equal(false);
   });
 
   it('Returns html with differences annotated when both have diffs', async () => {
