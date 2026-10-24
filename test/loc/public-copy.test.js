@@ -205,7 +205,7 @@ describe('Shared loc configuration loader', () => {
       await loadConfig({ org: 'org', site: 'site' });
       expect.fail('Expected an authorization error');
     } catch (error) {
-      expect(error.message).to.include('403');
+      expect(error.message).to.equal('Reading translation config /org/site/.da/translate.json failed (403)');
     }
     expect(fetch.callCount).to.equal(1);
   });
@@ -238,6 +238,33 @@ describe('Public localization core', () => {
     expect(fetch.args.some(([href]) => (
       href === `${ORIGIN}/source/target-org/target-site/.da/translate.json`
     ))).to.equal(true);
+  });
+
+  it('reports the unreadable org config after a missing site config without writing', async () => {
+    const fetch = sinon.stub().callsFake(async (href) => {
+      if (href === `${ORIGIN}/source/target-org/target-site/.da/translate.json`) {
+        return new Response('', { status: 404 });
+      }
+      if (href === `${ORIGIN}/source/target-org/.da/translate.json`) {
+        return new Response('', { status: 403 });
+      }
+      return new Response(html(href.endsWith(SOURCE) ? 'Upstream' : 'Regional'));
+    });
+    const result = await loc.mergeCopy({
+      fetch, daOrigin: ORIGIN, urlSource: SOURCE, urlTarget: DESTINATION, msg: 'MSM Merge',
+    });
+    expect(result).to.deep.equal({
+      ok: false,
+      status: 403,
+      error: 'Reading translation config /target-org/.da/translate.json failed (403)',
+    });
+    expect(fetch.args.map(([href]) => href)).to.deep.equal([
+      `${ORIGIN}/source${DESTINATION}`,
+      `${ORIGIN}/source${SOURCE}`,
+      `${ORIGIN}/source/target-org/target-site/.da/translate.json`,
+      `${ORIGIN}/source/target-org/.da/translate.json`,
+    ]);
+    expect(fetch.args.every(([, opts]) => !opts?.method)).to.equal(true);
   });
 
   it('exposes overwrite without loading merge configuration and clears review hashes', async () => {

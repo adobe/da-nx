@@ -43,6 +43,7 @@ The direct `mergeCopy` and `overwriteCopy` exports accept the same operation arg
 - Otherwise: the diffed result is written to the target, then a version is saved.
 - Reads, writes, versions, and translation config all go to `daOrigin`. Helix 6 sites are not supported yet.
 - Translation config is read from the target site's `.da/translate.json`, falling back to the org's on 404. No config means no equivalent hostnames. Config is cached per `fetch`, `daOrigin`, and org/site; failed loads are not cached.
+- Non-404 config failures stop the merge and report the config path and status. Without site config, the user needs read access to `/<org>/.da/translate.json`; site-only permissions may not include it.
 - Concurrent version saves for the same path are deduplicated.
 
 ## Return value
@@ -75,5 +76,3 @@ The loc app configures its engine in `nx/blocks/loc/utils/utils.js`. Snapshot Ad
 ## SDK boundary
 
 `fetch` is a caller-owned capability: a fetch-compatible function returning a `Response`. It may authenticate directly or proxy through a host. The core never receives a token, adds an authorization header, discovers IMS, or falls back to ambient fetch. Select the SDK and extract its transport in the consuming app, not here.
-
-Host policy must authorize source/target reads, HTML/JSON writes, version saves, site translation-config reads, and org-config fallback reads. Cross-site merges require explicit source/target permissions. The initial SDK2 policy in https://github.com/adobe/da-nx/pull/864 does not yet allow these operations. Denials are errors, not permission to overwrite or retry with a token. Expanding SDK policy is separate from this API.

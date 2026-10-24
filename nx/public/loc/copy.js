@@ -28,7 +28,7 @@ export function createConfigLoader({ fetch, daOrigin }) {
         for (const path of paths) {
           const response = await fetch(`${daOrigin}/source${path}`);
           if (response.ok) return response.json();
-          if (response.status !== 404) throw responseError(response, 'Translation configuration');
+          if (response.status !== 404) throw responseError(response, `Reading translation config ${path}`);
         }
         return { config: { data: [] } };
       })().catch((error) => {
