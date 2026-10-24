@@ -124,6 +124,21 @@
   border-radius: var(--s2-corner-radius-75);
 }
 
+.picker-item-description {
+  display: block;
+  color: var(--s2-gray-700);
+  font-size: var(--s2-component-s-regular-font-size);
+  line-height: var(--s2-component-s-regular-line-height);
+  font-weight: 400;
+}
+
+.picker-leading-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  fill: currentcolor;
+}
+
 .picker-open-in-icon {
   width: 14px;
   height: 14px;

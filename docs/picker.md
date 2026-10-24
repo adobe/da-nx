@@ -30,6 +30,10 @@ picker.addEventListener("change", (e) => {
 
 ### Form-style field
 
+When composing a picker with `nx-nav`, use `slot="context"` to place it after
+the brand in the left cluster. The independent `slot="search"` remains centered.
+Placement and navigation behavior belong to the consuming application.
+
 Use `variant="field"` for a bordered, form-style picker trigger.
 
 ```html
@@ -54,6 +58,13 @@ Each entry in the `items` array is one of:
 ```js
 // Regular item
 { value: 'content', label: 'Content' }
+
+// Optional secondary text and decorative leading SVG
+{ value: 'draft', label: 'Draft', description: 'Not published',
+  leadingIcon: '/img/icons/s2-icon-add-20-n.svg' }
+
+// Action: emits change without replacing the current selection
+{ value: 'add', label: 'Add...', action: true }
 
 // Item with a color swatch (any CSS background value: hex, rgb(), gradient…)
 { value: 'blue', label: 'Blue', swatch: '#1473e6' }
@@ -85,6 +96,15 @@ Trigger text precedence is: non-empty `labelOverride`, matching item label, `pla
 
 Use `::part(label)` to style the trigger text, or `::part(label)::before` to add a decorative icon.
 
+Menu presentation can be customized with `::part(menu)`, `::part(section)`,
+`::part(divider)`, `::part(item)`, `::part(item-label)`, `::part(check)` and
+`::part(leading-icon)`. Application-specific layouts belong in the consuming
+application rather than a domain-specific picker variant.
+
+`description` appears below the item label and is included in its accessible name
+unless `ariaLabel` supplies an explicit name. `leadingIcon` is a decorative SVG
+URL without the `#icon` fragment. Existing item shapes remain unchanged.
+
 ## CSS custom properties
 
 | Property                 | Field default                         | Description               |
@@ -112,3 +132,6 @@ Use `::part(label)` to style the trigger text, or `::part(label)::before` to add
 ## Keyboard behaviour
 
 Arrow keys open the picker when focus is on the trigger. When open, arrow keys move focus between items, Enter selects the active item, and Escape closes the picker.
+
+Item focus waits for popover positioning so the target is visible. Closing or
+removing the picker before that frame cancels the pending focus.

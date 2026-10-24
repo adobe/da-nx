@@ -444,6 +444,19 @@ document.querySelector('#field-picker').items = [
       </article>
 
       <article class="sg-example">
+        <h3>nx-picker — descriptions and leading icons</h3>
+        <p>Opening focuses the selected item after positioning; arrow keys move focus and Enter selects.</p>
+        <div class="sg-demo sg-picker-container">
+          <nx-picker id="demo-picker-description" size="m" placeholder="Choose a status"></nx-picker>
+        </div>
+        <pre><code>picker.items = [
+  { value: 'draft', label: 'Draft', description: 'Not published' },
+  { value: 'add', label: 'Add...', action: true,
+    leadingIcon: '/img/icons/s2-icon-add-20-n.svg' },
+];</code></pre>
+      </article>
+
+      <article class="sg-example">
         <h3>nx-picker — fixed label</h3>
         <p>A fixed trigger label with the selected option marked in the dropdown.</p>
         <div class="sg-demo sg-picker-container">
@@ -731,6 +744,10 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
       picker.value = 'all';
     });
     const fixedLabelPicker = document.querySelector('#demo-picker-fixed-label');
+    document.querySelector('#demo-picker-description').items = [
+      { value: 'draft', label: 'Draft', description: 'Not published' },
+      { value: 'add', label: 'Add...', action: true, leadingIcon: '/img/icons/s2-icon-add-20-n.svg' },
+    ];
     fixedLabelPicker.labelOverride = 'Sort';
     fixedLabelPicker.items = [
       { value: 'name:ascending', label: 'Name (A-Z)' },
