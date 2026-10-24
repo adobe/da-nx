@@ -156,6 +156,7 @@
   .picker-trigger {
     font-size: var(--s2-component-m-regular-font-size);
     line-height: var(--s2-component-m-regular-line-height);
+    height: var(--nx-picker-height, 32px);
   }
 
   .picker-item {
