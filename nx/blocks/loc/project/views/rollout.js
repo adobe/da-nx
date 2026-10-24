@@ -4,11 +4,10 @@ import {
   calculateTime,
   formatDate,
   MAX_CONCURRENT_WRITES,
-  mergeCopy,
-  overwriteCopy,
   saveStatus,
   timeoutWrapper,
 } from '../index.js';
+import { copy } from '../../utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 
 const style = await loadStyle(import.meta.url);
@@ -49,9 +48,9 @@ class NxLocRollout extends LitElement {
         return async () => {
           let resp;
           if (this.conflictBehavior === 'overwrite') {
-            resp = await overwriteCopy({ source, destination }, this.title);
+            resp = await copy.overwriteCopy({ source, destination }, this.title);
           } else {
-            resp = await mergeCopy({ source, destination }, this.title);
+            resp = await copy.mergeCopy({ source, destination }, this.title);
           }
           if (resp.ok || resp.error === 'timeout') {
             lang.rolledOut += 1;

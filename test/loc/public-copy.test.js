@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { createCopy, createConfigLoader } from '../../nx/utils/loc.js';
-import * as loc from '../../nx/public/plugins/rollout/utils.js';
+import { createCopy, createConfigLoader } from '../../nx/public/loc/index.js';
+import * as loc from '../../nx/public/loc/index.js';
 
 const ORIGIN = 'https://admin.da.live';
 const SOURCE = '/source-org/source-site/en/page.html';
@@ -211,9 +211,19 @@ describe('Shared loc configuration loader', () => {
   });
 });
 
-describe('Public MSM merge', () => {
-  it('exports only mergeCopy and accepts explicit fetch, origin, paths, and message', async () => {
-    expect(Object.keys(loc)).to.deep.equal(['mergeCopy']);
+describe('Public localization core', () => {
+  it('exports copy, diff, tag, and hash APIs without application context', async () => {
+    expect(Object.keys(loc).sort()).to.deep.equal([
+      'ACCEPTED_KEY', 'HASH_LENGTH', 'REJECTED_KEY', 'createConfigLoader', 'createCopy',
+      'getDiffHash', 'mergeCopy', 'normalizeLinks', 'overwriteCopy', 'regionalDiff', 'removeLocTags',
+    ].sort());
+    expect(loc.ACCEPTED_KEY).to.equal('acceptedHashes');
+    expect(loc.REJECTED_KEY).to.equal('rejectedHashes');
+    expect(loc.getDiffHash('<p>Content</p>')).to.equal(window.objectHash('<p>Content</p>').substring(0, 12));
+    expect(loc.HASH_LENGTH).to.equal(12);
+  });
+
+  it('accepts explicit fetch, origin, paths, and message', async () => {
     const fetch = sinon.stub().callsFake(async (href, opts) => {
       if (href.endsWith('/.da/translate.json')) {
         return new Response(JSON.stringify({ config: { data: [] } }));
@@ -228,6 +238,56 @@ describe('Public MSM merge', () => {
     expect(fetch.args.some(([href]) => (
       href === `${ORIGIN}/source/target-org/target-site/.da/translate.json`
     ))).to.equal(true);
+  });
+
+  it('exposes overwrite without loading merge configuration and clears review hashes', async () => {
+    const fetch = sinon.stub().callsFake(async (href, opts) => {
+      if (opts?.method === 'POST') return new Response('{}');
+      return new Response(`${html('<span da-diff-added>Keep</span><da-diff-deleted>Remove</da-diff-deleted>')}
+        <div class="da-metadata">
+          <div><div>acceptedHashes</div><div>abc</div></div>
+          <div><div>rejectedHashes</div><div>def</div></div>
+        </div>`);
+    });
+    const result = await loc.overwriteCopy({
+      fetch, daOrigin: ORIGIN, urlSource: SOURCE, urlTarget: DESTINATION, msg: 'Copy',
+    });
+    expect(result).to.deep.equal({ ok: true, status: 200 });
+    expect(fetch.callCount).to.equal(3);
+    const saved = await fetch.args[1][1].body.get('data').text();
+    expect(saved).to.include('Keep');
+    expect(saved).not.to.include('Remove');
+    expect(saved).not.to.include('da-diff-added');
+    expect(saved).not.to.include('acceptedhashes');
+    expect(saved).not.to.include('rejectedhashes');
+  });
+
+  it('passes translated content, connector image normalization, and review labels', async () => {
+    const fetch = sinon.stub().callsFake(async (href, opts) => {
+      if (href.endsWith('/.da/translate.json')) return new Response(JSON.stringify({ config: { data: [] } }));
+      if (opts?.method === 'POST') return new Response('{}');
+      return new Response(html('Regional'));
+    });
+    const normalizeImages = sinon.spy();
+    const result = await loc.mergeCopy({
+      fetch,
+      daOrigin: ORIGIN,
+      urlTarget: DESTINATION,
+      sourceContent: html('Translated'),
+      normalizeImages,
+      msg: 'Translate',
+      labelLocal: 'Regional',
+      labelUpstream: 'Translation',
+    });
+    expect(result.ok).to.equal(true);
+    expect(normalizeImages.calledOnce).to.equal(true);
+    expect(fetch.args.some(([href]) => href.endsWith(SOURCE))).to.equal(false);
+    const saved = await fetch.args.find(([href, opts]) => (
+      href === `${ORIGIN}/source${DESTINATION}` && opts?.method === 'POST'
+    ))[1].body.get('data').text();
+    expect(saved).to.include('Translated');
+    expect(saved).to.include('<div>diff-label-local</div><div>Regional</div>');
+    expect(saved).to.include('<div>diff-label-upstream</div><div>Translation</div>');
   });
 
   it('returns a consistent result shape for no-op, failed write, and version failure', async () => {
@@ -250,6 +310,42 @@ describe('Public MSM merge', () => {
       new Response('{}', { status: href.includes('/versionsource') ? 500 : 200 })
     ))));
     expect(failedVersion).to.deep.equal({ ok: false, status: 500, error: 'Version save failed (500)' });
+  });
+
+  it('preserves host transport denials without falling back to ambient fetch', async () => {
+    const ambientFetch = sinon.stub(window, 'fetch').throws(new Error('Unexpected ambient fetch'));
+    const fetch = sinon.stub().rejects(Object.assign(new Error('Outside permitted scope'), {
+      code: 'denied',
+    }));
+    try {
+      const result = await loc.mergeCopy({
+        fetch, daOrigin: ORIGIN, urlSource: SOURCE, urlTarget: DESTINATION, msg: 'Merge',
+      });
+      expect(result).to.deep.equal({
+        ok: false, status: 500, error: 'Outside permitted scope', code: 'denied',
+      });
+      expect(fetch.calledOnceWithExactly(`${ORIGIN}/source${DESTINATION}`)).to.equal(true);
+      expect(ambientFetch.called).to.equal(false);
+    } finally {
+      ambientFetch.restore();
+    }
+  });
+
+  it('preserves a host connection error after a successful write without retrying', async () => {
+    const fetch = sinon.stub().callsFake(async (href, opts) => {
+      if (href.includes('/versionsource')) {
+        throw Object.assign(new Error('Host connection closed'), { code: 'closed' });
+      }
+      if (opts?.method === 'POST') return new Response('{}');
+      return new Response(html('Source'));
+    });
+    const result = await loc.overwriteCopy({
+      fetch, daOrigin: ORIGIN, urlSource: SOURCE, urlTarget: DESTINATION, msg: 'Copy',
+    });
+    expect(result).to.deep.equal({
+      ok: false, status: 500, error: 'Host connection closed', code: 'closed',
+    });
+    expect(fetch.callCount).to.equal(3);
   });
 
   it('reuses configuration and in-flight versions across concurrent direct calls', async () => {

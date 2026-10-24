@@ -1,22 +1,27 @@
-# Rollout merge copy
+# Public localization core
 
-`nx/public/plugins/rollout/utils.js` exports `mergeCopy`, which merges a source page into a target page the same way Rollout does: changes are diffed against the target and marked for review, preserving prior accept/reject decisions.
+Import the core live from https://da.live/nx/public/loc/index.js. It owns copy, diff, loc tags, and review hashes; it does not import the SDK, IMS, connectors, or loc app.
+
+Extensions can use SDK1's lazy `actions.loc` wrappers instead:
 
 ```js
 import DA_SDK from 'https://da.live/nx/utils/sdk.js';
-import { mergeCopy } from 'https://da.live/nx/public/plugins/rollout/utils.js';
 
 const { actions } = await DA_SDK;
-const result = await mergeCopy({
-  fetch: actions.daFetch,
-  daOrigin: 'https://admin.da.live',
+const result = await actions.loc.mergeCopy({
   urlSource: '/org/source-site/en/page.html',
   urlTarget: '/org/target-site/fr/page.html',
   msg: 'MSM Merge',
 });
 ```
 
-## Parameters
+`actions.loc.mergeCopy` and `actions.loc.overwriteCopy` bind SDK fetch and the configured DA origin. They accept only `urlSource`, `urlTarget`, `msg`, `sourceContent`, `labelLocal`, and `labelUpstream`. Transport overrides and function hooks are not forwarded. The core loads on first use, not during SDK initialization.
+
+These wrappers do not change SDK1's token exposure or add host-side permission enforcement. They leave room for a future tokenless SDK to preserve the operation interface.
+
+## Direct core parameters
+
+The direct `mergeCopy` and `overwriteCopy` exports accept the same operation arguments plus explicit transport and the optional merge hook:
 
 | Name | Description |
 |---|---|
@@ -25,9 +30,14 @@ const result = await mergeCopy({
 | `urlSource` | Source path including org and site. |
 | `urlTarget` | Target path including org and site. |
 | `msg` | Version label prefix; the saved version is labeled `<msg> - Rolled Out`. |
+| `sourceContent` | Optional content supplied by the caller instead of reading `urlSource`. |
+| `normalizeImages` | Optional synchronous merge hook receiving normalized source and target documents. |
+| `labelLocal`, `labelUpstream` | Optional merge review labels stored in DA metadata. |
 
 ## Behavior
 
+- `mergeCopy(options)` diffs changes against the target and marks them for review, preserving prior accept/reject decisions.
+- `overwriteCopy(options)` replaces the target without loading merge configuration.
 - Missing or empty target: the source is copied over the target. Loc diff tags and deleted content are removed, as are accepted/rejected hashes; the page is rebuilt from the source's main content and DA metadata.
 - Identical content: nothing is written.
 - Otherwise: the diffed result is written to the target, then a version is saved.
@@ -39,10 +49,31 @@ const result = await mergeCopy({
 
 - `{ ok: true, status }` on success, including when content is identical (`status: 200`).
 - `{ ok: false, status, error }` on any failure: read, config, missing source, write, or version save.
+- Thrown transport errors retain their optional string `code`. Errors without an HTTP status use `status: 500`; this is not an HTTP response from the host.
 
 A version-save failure can follow a successful content write. Don't automatically retry on failure; a retry may overwrite.
 
-## Implementation
+## Diff, tags, and hashes
 
-- `nx/utils/loc.js`: private copy engine (`createCopy`, `createConfigLoader`) shared by loc and Rollout. Not public API.
-- `nx/blocks/loc/regional-diff/regional-diff.js`: diff algorithm. Passing explicit config skips legacy page-context config loading.
+- `regionalDiff(original, modified, acceptedHashes, rejectedHashes, { site, config, normalizeImages })` returns the annotated `<main>` element. Documents are mutated. Config is optional; without it, no equivalent-site mappings apply. No page-context discovery or network calls.
+- `normalizeLinks(doc, site, equivalentSites)` mutates links to canonical `.aem.live` URLs and maps equivalent sites.
+- `removeLocTags(doc)` removes upstream deletions and unwraps local additions, including legacy loc tags.
+- `getDiffHash(serializedContent)` returns the existing 12-character review hash. Input is the serialized content, not a DOM element. `HASH_LENGTH`, `ACCEPTED_KEY`, and `REJECTED_KEY` expose the existing format and metadata keys. Stored hashes are unchanged.
+
+## Configured copy engine
+
+`createCopy({ fetch, daOrigin, loadConfig, saveSource })` creates an isolated engine. `loadConfig({ org, site })` defaults to `createConfigLoader({ fetch, daOrigin })`; `saveSource({ org, site, path, body })` optionally supplies the caller's backend-aware HTML writer.
+
+Its methods accept `(url, title, options)`, where `url` contains `source`, `destination`, optional `sourceContent` and `normalizeImages`. `options` contains optional review labels. Methods update `url.status` and return the underlying write response or an error/no-op result:
+
+- `mergeCopy`: merge, treating an empty target as missing.
+- `overwriteCopy`: replace.
+- `rolloutCopy`: merge, preserving empty-target metadata and the old loc app's 20-second save timeout. Identical content returns `undefined`; timeout returns `'timeout'`.
+
+The loc app configures its engine in `nx/blocks/loc/utils/utils.js`. Snapshot Admin and both Rollout plugins configure their own engines. No compatibility exports remain at the old project, diff, or private engine paths.
+
+## SDK boundary
+
+`fetch` is a caller-owned capability: a fetch-compatible function returning a `Response`. It may authenticate directly or proxy through a host. The core never receives a token, adds an authorization header, discovers IMS, or falls back to ambient fetch. Select the SDK and extract its transport in the consuming app, not here.
+
+Host policy must authorize source/target reads, HTML/JSON writes, version saves, site translation-config reads, and org-config fallback reads. Cross-site merges require explicit source/target permissions. The initial SDK2 policy in https://github.com/adobe/da-nx/pull/864 does not yet allow these operations. Denials are errors, not permission to overwrite or retry with a token. Expanding SDK policy is separate from this API.

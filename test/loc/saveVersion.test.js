@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { setImsDetails } from '../../nx/utils/daFetch.js';
-import { overwriteCopy, mergeCopy } from '../../nx/blocks/loc/project/index.js';
+import { copy } from '../../nx/blocks/loc/utils/utils.js';
 
 // Regression tests for the parallel-saveVersion bug that caused R2 412 audit
 // conflicts in da-admin. When N items share the same destination path (e.g.
@@ -41,7 +41,7 @@ describe('saveVersion dedup - parallel copies to the same destination', () => {
   it('fires saveVersion exactly once when 6 overwriteCopy calls share the same destination', async () => {
     const calls = Array.from(
       { length: 6 },
-      () => overwriteCopy({ source: '/src', destination: DEST, sourceContent: '<p>hi</p>' }, 'resync'),
+      () => copy.overwriteCopy({ source: '/src', destination: DEST, sourceContent: '<p>hi</p>' }, 'resync'),
     );
     await Promise.all(calls);
 
@@ -61,7 +61,7 @@ describe('saveVersion dedup - parallel copies to the same destination', () => {
       return new Response(`<body><main><div><p>${href.includes('/source-site/') ? 'Source' : 'Local'}</p></div></main></body>`);
     });
     for (const site of ['first', 'second']) {
-      const result = await mergeCopy({
+      const result = await copy.mergeCopy({
         source: '/copy-test/source-site/page.html',
         destination: `/copy-test/${site}/page.html`,
       }, 'Merge');
@@ -81,7 +81,7 @@ describe('saveVersion dedup - parallel copies to the same destination', () => {
       '/test/org/repo/fr/page.html',
     ];
     const calls = dests.map(
-      (destination) => overwriteCopy({ source: '/src', destination, sourceContent: '<p>hi</p>' }, 'resync'),
+      (destination) => copy.overwriteCopy({ source: '/src', destination, sourceContent: '<p>hi</p>' }, 'resync'),
     );
     await Promise.all(calls);
 

@@ -1,10 +1,16 @@
 import { AEM_ORIGIN, DA_ORIGIN } from '../../../../nx2/public/utils/constants.js';
 import { daFetch, source } from '../../../../nx2/utils/api.js';
 import { loadIms } from '../../../../nx2/utils/ims.js';
-import { mergeCopy, overwriteCopy } from '../../loc/project/index.js';
+import { createCopy } from '../../../public/loc/index.js';
 import { Queue } from '../../../../nx2/public/utils/tree.js';
 
 const SNAPSHOT_SCHEDULER_URL = 'https://helix-snapshot-scheduler-prod.adobeaem.workers.dev';
+
+const copy = createCopy({
+  fetch: (url, opts) => daFetch({ url, opts }),
+  daOrigin: DA_ORIGIN,
+  saveSource: source.save,
+});
 
 let org;
 let site;
@@ -223,12 +229,12 @@ export async function copyManifest(name, resources, direction, mode = 'merge') {
       return;
     }
     if (mode === 'overwrite') {
-      await overwriteCopy(url, `Snapshot ${direction}`);
+      await copy.overwriteCopy(url, `Snapshot ${direction}`);
     } else {
       const labels = (direction === 'fork')
         ? { labelLocal: 'Snapshot', labelUpstream: 'Main' }
         : { labelLocal: 'Main', labelUpstream: 'Snapshot' };
-      await mergeCopy(url, `Snapshot ${direction}`, labels);
+      await copy.mergeCopy(url, `Snapshot ${direction}`, labels);
     }
   };
 

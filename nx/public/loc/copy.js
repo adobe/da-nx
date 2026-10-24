@@ -1,5 +1,5 @@
-import getElementMetadata from '../../nx2/utils/getElementMetadata.js';
-import { regionalDiff, removeLocTags } from '../blocks/loc/regional-diff/regional-diff.js';
+import getElementMetadata from '../../../nx2/utils/getElementMetadata.js';
+import { regionalDiff, removeLocTags } from './regional-diff.js';
 
 const DEFAULT_TIMEOUT = 20000;
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
@@ -42,7 +42,7 @@ export function createConfigLoader({ fetch, daOrigin }) {
 }
 
 export function createCopy({
-  fetch, loadConfig, daOrigin, saveSource,
+  fetch, daOrigin, loadConfig = createConfigLoader({ fetch, daOrigin }), saveSource,
 }) {
   if (typeof fetch !== 'function' || typeof loadConfig !== 'function' || !daOrigin) {
     throw new TypeError('Copy requires authenticated fetch, loadConfig, and daOrigin');
@@ -52,7 +52,12 @@ export function createCopy({
 
   const fail = (url, error) => {
     url.status = 'error';
-    return { ok: false, status: error.status || 500, error: error.message };
+    return {
+      ok: false,
+      status: error.status || 500,
+      error: error.message,
+      ...(typeof error.code === 'string' ? { code: error.code } : {}),
+    };
   };
 
   const saveVersion = (path, label) => {

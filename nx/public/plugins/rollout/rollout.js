@@ -2,7 +2,7 @@ import DA_SDK from 'https://da.live/nx/utils/sdk.js';
 import { LitElement, html, nothing } from 'https://da.live/nx/public/deps/lit/dist/index.js';
 import getStyle from 'https://da.live/nx/public/utils/styles.js';
 import getSvg from 'https://da.live/nx/public/utils/svg.js';
-import { createCopy, createConfigLoader } from '../../../utils/loc.js';
+import { createCopy } from '../../loc/index.js';
 import { DA_ORIGIN } from '../../utils/constants.js';
 import getPrefixDetails from './index.js';
 
@@ -148,7 +148,6 @@ customElements.define('da-rollout', DaRollout);
   const daRollout = document.createElement('da-rollout');
   daRollout.copy = createCopy({
     fetch: actions.daFetch,
-    loadConfig: createConfigLoader({ fetch: actions.daFetch, daOrigin: DA_ORIGIN }),
     daOrigin: DA_ORIGIN,
   });
   daRollout.path = context.path;

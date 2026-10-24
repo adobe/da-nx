@@ -11,7 +11,7 @@ export default defineConfig([
   globalIgnores([
     'eslint.config.js',
     '**/deps',
-    '**/nx/blocks/loc/regional-diff/object_hash.js',
+    '**/nx/public/loc/object_hash.js',
     '**/nx/blocks/loc/views/complete/confetti.js',
     '**/nx/blocks/loc/connectors/sample/index.js',
   ]),
@@ -88,4 +88,3 @@ export default defineConfig([
     },
   },
 ]);
-

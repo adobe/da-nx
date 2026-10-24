@@ -1,5 +1,4 @@
-import { createCopy, createConfigLoader } from '../../../utils/loc.js';
-import { daFetch, source as daSource } from '../../../../nx2/utils/api.js';
+import { daFetch } from '../../../../nx2/utils/api.js';
 import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../nx2/public/utils/tree.js';
 
@@ -12,14 +11,6 @@ export const MAX_CONCURRENT_READS = 10;
 export const MAX_CONCURRENT_WRITES = 8;
 
 const DEFAULT_TIMEOUT = 20000; // ms
-const fetchCopy = (url, opts) => daFetch({ url, opts });
-export const { overwriteCopy, rolloutCopy, mergeCopy } = createCopy({
-  fetch: fetchCopy,
-  loadConfig: createConfigLoader({ fetch: fetchCopy, daOrigin: DA_ADMIN }),
-  daOrigin: DA_ADMIN,
-  saveSource: daSource.save,
-});
-
 let projPath;
 let projJson;
 

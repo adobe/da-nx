@@ -1,7 +1,5 @@
-/* global objectHash */
-import './object_hash.js';
+import { hashContent, HASH_LENGTH } from './hashes.js';
 
-const HASH_LENGTH = 12;
 const MIN_LIST_ITEMS_IN_COMMON = 2;
 const ADDED = 'added';
 const ADDED_TAG = 'da-diff-added';
@@ -132,7 +130,7 @@ function getLists(result) {
 
 function getListHashes(list) {
   return [...list.children].map((child) => {
-    child.hash = objectHash(child.outerHTML);
+    child.hash = hashContent(child.outerHTML);
     return child.hash;
   });
 }
@@ -301,7 +299,7 @@ function getBlockMap(dom) {
     const stringToHash = Array.isArray(block)
       ? block.map(normalizeHTMLFromElement).join('')
       : normalizeHTMLFromElement(block);
-    const hash = objectHash(stringToHash);
+    const hash = hashContent(stringToHash);
     return { block, hash };
   });
 }
@@ -484,19 +482,11 @@ export async function regionalDiff(
   rejectedHashes,
   { normalizeImages, site, config } = {},
 ) {
-  let targetSite = site;
-  let translateConfig = config;
-  if (translateConfig === undefined) {
-    const { getPathDetails, fetchConfig } = await import('../utils/utils.js');
-    const context = getPathDetails();
-    targetSite = context.site;
-    translateConfig = await fetchConfig(context.org, context.site);
-  }
-  const hostnames = findConfigValue(translateConfig, 'source.fragment.hostnames')?.split?.(',') || [];
+  const hostnames = findConfigValue(config, 'source.fragment.hostnames')?.split?.(',') || [];
   const equivalentSites = new Set(hostnames.map((hostname) => hostname.split('--')[1]));
 
-  const normalizedOriginal = await normalizeLinks(original, targetSite, equivalentSites);
-  const normalizedModified = await normalizeLinks(modified, targetSite, equivalentSites);
+  const normalizedOriginal = await normalizeLinks(original, site, equivalentSites);
+  const normalizedModified = await normalizeLinks(modified, site, equivalentSites);
   // optional connector hook
   if (normalizeImages) normalizeImages(normalizedOriginal, normalizedModified);
   const diff = htmldiff(normalizedOriginal, normalizedModified);
