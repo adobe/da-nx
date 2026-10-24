@@ -5,6 +5,7 @@ import { loadStyle } from '../../utils/utils.js';
 import { signout } from '../../utils/api.js';
 
 const config = getConfig();
+const DEFAULT_AVATAR = `${config.nxBase}/public/icons/S2_Icon_User_20_N.svg`;
 
 // Well-known, hardcoded path (not configurable) for the legal notices
 const LEGAL_NOTICES_PATH = '/fragments/nav/help';
@@ -69,18 +70,15 @@ class NxProfile extends LitElement {
     }
 
     if (!this._ims.anonymous) {
-      // Attempt to get avatar
-      try {
-        const { user } = await this._ims.getIo();
-        this._avatar = user.avatar;
-      } catch {
-        config.log('Could not get avatar');
-        this._avatar = '/public/icons/S2_Icon_User_20_N.svg';
-      }
+      this._avatar = this._ims.user_image_url || DEFAULT_AVATAR;
 
       this._orgs = (await this._ims.getOrgs()).data;
     }
     this.handleLoaded();
+  }
+
+  handleAvatarError() {
+    if (this._avatar !== DEFAULT_AVATAR) this._avatar = DEFAULT_AVATAR;
   }
 
   handleLoaded() {
@@ -191,14 +189,14 @@ class NxProfile extends LitElement {
     return html`
       <div class="nx-profile">
         <button id="profile-btn" class="nx-btn-profile" aria-label="Open profile menu" popovertarget="nx-menu-profile">
-          <img src="${this._avatar}" alt="" />
+          <img src="${this._avatar}" alt="" @error=${this.handleAvatarError} />
         </button>
         <div id="nx-menu-profile" popover>
           <div class="nx-menu-details-wrapper">
             <p class="nx-menu-clipboard-notice">User ID copied to clipboard.</p>
             <button class="nx-menu-btn nx-menu-btn-details" @click=${this.handleCopyUser}>
               <picture>
-                <img src="${this._avatar}" alt="Profile photo" />
+                <img src="${this._avatar}" alt="Profile photo" @error=${this.handleAvatarError} />
               </picture>
               <div class="nx-menu-details-name">
                 <p class="nx-display-name">${this._ims.displayName}</p>

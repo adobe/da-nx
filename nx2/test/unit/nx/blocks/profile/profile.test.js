@@ -8,7 +8,8 @@ import { setMockIms, resetMockIms } from '../../../../mocks/ims.js';
 // module-level constant at import time, so setConfig() must resolve
 // before profile.js is ever imported — see the same pattern in
 // nav.test.js and feedback.test.js.
-await setConfig({ hostnames: [] });
+const config = await setConfig({ hostnames: [] });
+config.nxBase = `${window.location.origin}/nx2`;
 await import('../../../../../blocks/profile/profile.js');
 
 function mockFragmentFetch(html = '<div><p>Legal notice content</p></div>') {
@@ -87,6 +88,60 @@ describe('nx-profile', () => {
     const signInBtn = el.shadowRoot.querySelector('.signin-btn');
     expect(signInBtn).to.not.be.null;
     expect(signInBtn.textContent.trim()).to.equal('Sign in');
+    expect(el.shadowRoot.querySelector('img')).to.be.null;
+  });
+
+  it('uses the IMS avatar for both profile images without fetching CC Collab', async () => {
+    const avatar = '/nx2/img/favicons/favicon.ico';
+    setMockIms({ userImageUrl: avatar });
+    const originalFetch = window.fetch;
+    const requests = [];
+    window.fetch = async (url, opts) => {
+      requests.push(String(url));
+      return originalFetch.call(window, url, opts);
+    };
+    restoreFetch = () => { window.fetch = originalFetch; };
+
+    const el = await createProfile();
+    await waitForSignedIn(el);
+
+    const images = [...el.shadowRoot.querySelectorAll('img')];
+    expect(images).to.have.length(2);
+    images.forEach((img) => expect(img.getAttribute('src')).to.equal(avatar));
+    expect(requests.some((url) => url.includes('cc-collab'))).to.be.false;
+  });
+
+  [undefined, null, ''].forEach((userImageUrl) => {
+    it(`uses the default icon when the IMS avatar is ${String(userImageUrl)}`, async () => {
+      setMockIms({ userImageUrl });
+      const el = await createProfile();
+      await waitForSignedIn(el);
+
+      const images = [...el.shadowRoot.querySelectorAll('img')];
+      expect(images).to.have.length(2);
+      images.forEach((img) => {
+        expect(new URL(img.src).pathname).to.equal('/nx2/public/icons/S2_Icon_User_20_N.svg');
+      });
+    });
+  });
+
+  [0, 1].forEach((imageIndex) => {
+    it(`falls back for both images when profile image ${imageIndex} fails`, async () => {
+      setMockIms({ userImageUrl: '/nx2/img/favicons/favicon.ico' });
+      const el = await createProfile();
+      await waitForSignedIn(el);
+
+      el.shadowRoot.querySelectorAll('img')[imageIndex].dispatchEvent(new Event('error'));
+      await el.updateComplete;
+
+      el.shadowRoot.querySelectorAll('img').forEach((img) => {
+        expect(new URL(img.src).pathname).to.equal('/nx2/public/icons/S2_Icon_User_20_N.svg');
+      });
+
+      // Failure of the fallback itself must not trigger another render/retry loop.
+      el.shadowRoot.querySelectorAll('img')[imageIndex].dispatchEvent(new Event('error'));
+      expect(await el.updateComplete).to.be.true;
+    });
   });
 
   it('renders a "Legal notices" entry in the profile menu when signed in', async () => {

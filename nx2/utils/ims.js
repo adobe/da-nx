@@ -12,6 +12,11 @@ const { imsClientId, imsScope, imsEnv, env } = await (async () => {
 
 const IMS_URL = 'https://auth.services.adobe.com/imslib/imslib.min.js';
 const DEFAULT_SCOPE = 'AdobeID,openid,gnav';
+// Include the avatar scope even when a consuming app supplies its own scopes.
+const IMS_SCOPE = [...new Set([
+  ...(imsScope || DEFAULT_SCOPE).split(',').map((scope) => scope.trim()),
+  'additional_info.user_image_url',
+])].filter(Boolean).join(',');
 const IMS_TIMEOUT = 5000;
 const IMS_ENV = {
   dev: 'stg1',
@@ -23,12 +28,6 @@ const IMS_ENDPOINT = {
   dev: 'ims-na1-stg1.adobelogin.com',
   stage: 'ims-na1-stg1.adobelogin.com',
   prod: 'ims-na1.adobelogin.com',
-};
-
-const IO_ENV = {
-  dev: 'cc-collab-stage.adobe.io',
-  stage: 'cc-collab-stage.adobe.io',
-  prod: 'cc-collab.adobe.io',
 };
 
 export const IMS_ORIGIN = (() => `https://${IMS_ENDPOINT[imsEnv || env]}`)();
@@ -83,15 +82,6 @@ const getOrgsFactory = (accessToken) => {
   };
 };
 
-const getIoFactory = (accessToken) => {
-  let io;
-
-  return () => {
-    io ??= fetchWithToken(`https://${IO_ENV[env]}/profile`, accessToken);
-    return io;
-  };
-};
-
 const getTenantId = (profile) => {
   const found = profile.projectedProductContext?.find(
     (projected) => projected.prodCtx.serviceCode === 'dma_tartan',
@@ -102,7 +92,8 @@ const getTenantId = (profile) => {
 async function loadDetails(accessToken) {
   const profile = await window.adobeIMS.getProfile();
   const tenantId = getTenantId(profile);
-  const getIo = getIoFactory(accessToken);
+  // Deprecated: retained for avatar callers. Read user_image_url on the IMS profile instead.
+  const getIo = async () => ({ user: { avatar: profile.user_image_url } });
   const getOrgs = getOrgsFactory(accessToken);
   return { ...profile, tenantId, accessToken, getIo, getOrgs };
 }
@@ -123,7 +114,7 @@ export const loadIms = (() => {
 
     window.adobeid = {
       client_id: imsClientId,
-      scope: imsScope || DEFAULT_SCOPE,
+      scope: IMS_SCOPE,
       locale: document.documentElement.lang?.replace('-', '_') || 'en_US',
       autoValidateToken: true,
       environment: IMS_ENV[env],
