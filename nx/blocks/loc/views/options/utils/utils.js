@@ -159,7 +159,7 @@ export function formatLangs(langs, config) {
         const code = value.trim();
         return { code, active: hasDefaultLocales ? defaultLocales?.includes(code) ?? false : true };
       });
-    } else {
+    } else if (!Array.isArray(lang.locales)) {
       delete lang.locales;
     }
 
