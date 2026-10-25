@@ -1,7 +1,10 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 
-const styles = await loadStyle(import.meta.url);
+const [formStyles, styles] = await Promise.all([
+  loadStyle(new URL('../../../styles/form.css', import.meta.url).href),
+  loadStyle(import.meta.url),
+]);
 
 const SCALES = ['s', 'm', 'l'];
 
@@ -25,7 +28,7 @@ class NxCard extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [formStyles, styles];
   }
 
   willUpdate(changed) {
@@ -37,7 +40,7 @@ class NxCard extends LitElement {
     e.stopPropagation();
     const input = e.target;
     this.dispatchEvent(new CustomEvent('selectionchange', {
-      detail: { selected: input.checked },
+      detail: { selected: input.checked, shiftKey: e.shiftKey },
       bubbles: true,
       composed: true,
     }));
@@ -52,10 +55,12 @@ class NxCard extends LitElement {
         <div class="media">
           <slot name="media"></slot>
           ${this.selectable ? html`
-            <input type="checkbox" class="select"
-              aria-label=${this.selectionLabel}
-              .checked=${!!this.selected}
-              @click=${this._onSelectionClick}>` : nothing}
+            <label class="nx-checkbox select-target">
+              <input type="checkbox" class="select"
+                aria-label=${this.selectionLabel}
+                .checked=${!!this.selected}
+                @click=${this._onSelectionClick}>
+            </label>` : nothing}
           <div class="overlay-actions"><slot name="overlay-actions"></slot></div>
         </div>
         <div class="body">

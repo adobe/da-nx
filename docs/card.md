@@ -54,4 +54,4 @@ Override the footprint with `--nx-card-width` and `--nx-card-height`.
 
 | Event             | Detail         | Description                                                       |
 | ----------------- | -------------- | ----------------------------------------------------------------- |
-| `selectionchange` | `{ selected }` | Fired when the checkbox is toggled. Set `selected` in response.   |
+| `selectionchange` | `{ selected, shiftKey }` | Fired when the checkbox is toggled. Set `selected` in response; `shiftKey` supports range selection. |

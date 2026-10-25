@@ -80,8 +80,43 @@ describe('nx-card', () => {
     input.click();
     await card.updateComplete;
     await Promise.resolve();
-    expect(detail).to.deep.equal({ selected: true });
+    expect(detail).to.deep.equal({ selected: true, shiftKey: false });
     expect(input.checked).to.equal(false);
+  });
+
+  it('includes shift-click in selection changes for range selection', async () => {
+    card.selectable = true;
+    let detail;
+    card.addEventListener('selectionchange', (e) => { detail = e.detail; });
+    await card.updateComplete;
+    card.shadowRoot.querySelector('input')
+      .dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
+    expect(detail).to.deep.equal({ selected: true, shiftKey: true });
+  });
+
+  it('selects from the extra hit area without enlarging the checkbox', async () => {
+    card.selectable = true;
+    let changes = 0;
+    card.addEventListener('selectionchange', (e) => {
+      changes += 1;
+      card.selected = e.detail.selected;
+    });
+    await card.updateComplete;
+    const input = card.shadowRoot.querySelector('input');
+    expect(input.parentElement.classList.contains('nx-checkbox')).to.equal(true);
+    const bounds = input.getBoundingClientRect();
+    const target = card.shadowRoot.elementFromPoint(bounds.left - 4, bounds.top + 7);
+    expect(bounds.width).to.equal(14);
+    expect(bounds.height).to.equal(14);
+    expect(target).to.equal(input.parentElement);
+    const hitArea = target.getBoundingClientRect();
+    expect(hitArea.width).to.equal(26);
+    expect(hitArea.height).to.equal(26);
+    target.click();
+    await card.updateComplete;
+    expect(card.selected).to.equal(true);
+    expect(input.checked).to.equal(true);
+    expect(changes).to.equal(1);
   });
 
   it('keeps metadata outside the content slot so it survives replacement', () => {
