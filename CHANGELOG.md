@@ -1,3 +1,10 @@
+## [1.23.1](https://github.com/adobe/da-nx/compare/v1.23.0...v1.23.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **ew:** revert chat fail-closed changes from pr 760 ([f93eeab](https://github.com/adobe/da-nx/commit/f93eeab25096ee686d56c452f44de51017ed484d)), closes [#760](https://github.com/adobe/da-nx/issues/760)
+
 # [1.23.0](https://github.com/adobe/da-nx/compare/v1.22.0...v1.23.0) (2026-10-23)
 
 
