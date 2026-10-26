@@ -194,6 +194,7 @@ export default class BaseChatController {
         'x-user-email': email,
         'x-user-id': userId,
         'x-user-name': name,
+        'x-user-surface': 'experienceworkspace',
         ...(siteId ? { 'x-site': siteId } : {}),
       },
       wsBase: resolveAoWsBase(projectedProductContext),

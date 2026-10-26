@@ -269,6 +269,42 @@ describe('nx-marketplace', () => {
     expect(empty.textContent).to.equal('No extensions available.');
   });
 
+  it('shows only items of the block option categories', async () => {
+    restoreFetch = installFetch(() => jsonResponse({
+      data: [
+        { Title: 'Core App', Category: 'Core', 'Doc Url': 'https://example.com/a' },
+        { Title: 'Ext App', Category: 'Extension', 'Doc Url': 'https://example.com/b' },
+        { Title: 'Other App', Category: 'Other', 'Doc Url': 'https://example.com/c' },
+      ],
+    }));
+    div = document.createElement('div');
+    div.className = 'marketplace core extension';
+    document.body.append(div);
+    init(div);
+
+    const el = div.firstElementChild;
+    await waitForLoad(el);
+
+    const titles = [...el.shadowRoot.querySelectorAll('.card h3')].map((h) => h.textContent);
+    expect(titles).to.deep.equal(['Core App', 'Ext App']);
+  });
+
+  it('shows category empty message when nothing matches', async () => {
+    restoreFetch = installFetch(() => jsonResponse({
+      data: [{ Title: 'Ext App', Category: 'Extension', 'Doc Url': 'https://example.com/b' }],
+    }));
+    div = document.createElement('div');
+    div.className = 'marketplace core';
+    document.body.append(div);
+    init(div);
+
+    const el = div.firstElementChild;
+    await waitForLoad(el);
+
+    const empty = el.shadowRoot.querySelector('.empty');
+    expect(empty.textContent).to.equal('No extensions in this category.');
+  });
+
   it('shows error message', async () => {
     restoreFetch = installFetch(() => new Response('', { status: 500 }));
     div = document.createElement('div');
