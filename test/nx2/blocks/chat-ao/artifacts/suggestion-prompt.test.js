@@ -27,36 +27,36 @@ const item = {
 
 describe('suggestion-prompt', () => {
   it('builds the prompt from the available fields', () => {
-    expect(buildSuggestionPrompt({ item, aligned: false })).to.equal([
-      'Apply this brand guideline suggestion to the page I have open.',
-      'Check: Use feature module content pattern',
-      'Alignment: No',
-      'Asset: Image 3',
-      'Category: Imagery Content',
-      'Reason: Missing eyebrow and CTA.',
-      'Suggestion: Add an all-caps eyebrow and a CTA link.',
-      'Only change what this suggestion covers; leave the rest of the page unchanged.',
-    ].join('\n'));
+    expect(buildSuggestionPrompt({ item, aligned: false })).to.equal(
+      'Apply the following suggestion from preflight for the check that failed to the page I have open.\n'
+      + 'Check: Use feature module content pattern\n'
+      + 'Alignment: No\n'
+      + '\n\n'
+      + 'Reason: Missing eyebrow and CTA.\n'
+      + '\n\n'
+      + 'Suggestion: Add an all-caps eyebrow and a CTA link.\n'
+      + 'Asset: Image 3\n'
+      + '\n\n'
+      + 'Only change what this suggestion covers; leave the rest of the page unchanged.\n'
+      + 'If you need to re-run preflight, you can invoke the skill /aem-governance-evaluate-page',
+    );
   });
 
   it('skips missing fields and falls back to the item description as reason', () => {
     const text = buildSuggestionPrompt({
-      item: { title: 'Tone', description: 'Too casual.', suggestion: { suggested: 'Be formal.' } },
+      item: { title: 'Tone', description: 'Too casual.', suggestion: { label: 'Text', suggested: 'Be formal.' } },
     });
-    expect(text).to.equal([
-      'Apply this brand guideline suggestion to the page I have open.',
-      'Check: Tone',
-      'Reason: Too casual.',
-      'Suggestion: Be formal.',
-      'Only change what this suggestion covers; leave the rest of the page unchanged.',
-    ].join('\n'));
-  });
-
-  it('adds the context description when it differs from the reason', () => {
-    const text = buildSuggestionPrompt({
-      item: { ...item, suggestion: { ...item.suggestion, context: { description: 'Guideline 4.2' } } },
-    });
-    expect(text).to.include('Context: Guideline 4.2');
+    expect(text).to.equal(
+      'Apply the following suggestion from preflight for the check that failed to the page I have open.\n'
+      + 'Check: Tone\n'
+      + '\n\n'
+      + 'Reason: Too casual.\n'
+      + '\n\n'
+      + 'Suggestion: Be formal.\n'
+      + '\n\n'
+      + 'Only change what this suggestion covers; leave the rest of the page unchanged.\n'
+      + 'If you need to re-run preflight, you can invoke the skill /aem-governance-evaluate-page',
+    );
   });
 
   [false, true].forEach((autoSend) => {

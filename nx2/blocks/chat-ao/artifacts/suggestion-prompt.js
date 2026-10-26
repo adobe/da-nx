@@ -15,18 +15,19 @@ const line = (prefix, value) => (value ? [`${prefix}${value}`] : []);
 export function buildSuggestionPrompt({ item, aligned }) {
   const suggestion = item?.suggestion ?? {};
   const reason = suggestion.issue ?? item?.description;
-  const { category, description: contextDescription } = suggestion.context ?? {};
   const alignment = aligned === undefined ? undefined : (aligned && 'Yes') || 'No';
   return [
-    'Apply this brand guideline suggestion to the page I have open.',
+    'Apply the following suggestion from preflight for the check that failed to the page I have open.',
     ...line('Check: ', item?.title),
     ...line('Alignment: ', alignment),
-    ...line('Asset: ', suggestion.assetLabel ?? suggestion.label),
-    ...line('Category: ', category),
+    '\n',
     ...line('Reason: ', reason),
-    ...line('Context: ', contextDescription !== reason ? contextDescription : undefined),
+    '\n',
     ...line('Suggestion: ', suggestion.suggested),
+    ...(suggestion.assetLabel ? line('Asset: ', suggestion.assetLabel) : []),
+    '\n',
     'Only change what this suggestion covers; leave the rest of the page unchanged.',
+    'If you need to re-run preflight, you can invoke the skill /aem-governance-evaluate-page',
   ].join('\n');
 }
 
