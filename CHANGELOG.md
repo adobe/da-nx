@@ -1,3 +1,32 @@
+## [1.23.3](https://github.com/adobe/da-nx/compare/v1.23.2...v1.23.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **loc:** drop empty locales so locale count does not throw ([#901](https://github.com/adobe/da-nx/issues/901)) ([b9e80ea](https://github.com/adobe/da-nx/commit/b9e80eaa1bea61cf9e40c207bdb1c77892014a3e))
+
+## [1.23.2](https://github.com/adobe/da-nx/compare/v1.23.1...v1.23.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* extend nx-pills ([#903](https://github.com/adobe/da-nx/issues/903)) ([949be9d](https://github.com/adobe/da-nx/commit/949be9dc26652be9fb67bc6d2c45598b70c28b26))
+
+## [1.23.1](https://github.com/adobe/da-nx/compare/v1.23.0...v1.23.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **ew:** revert chat fail-closed changes from pr 760 ([f93eeab](https://github.com/adobe/da-nx/commit/f93eeab25096ee686d56c452f44de51017ed484d)), closes [#760](https://github.com/adobe/da-nx/issues/760)
+
+# [1.23.0](https://github.com/adobe/da-nx/compare/v1.22.0...v1.23.0) (2026-10-23)
+
+
+### Features
+
+* add m support for pills ([#898](https://github.com/adobe/da-nx/issues/898)) ([5dd6baf](https://github.com/adobe/da-nx/commit/5dd6baf3eadaceec3590789fd6c90eb5ed82239d))
+* **marketplace:** filter extensions by category via block options ([#900](https://github.com/adobe/da-nx/issues/900)) ([ba1ec37](https://github.com/adobe/da-nx/commit/ba1ec374baf821b5ca11c317fbc64a7e10ea607a))
+
 # [1.23.0](https://github.com/adobe/da-nx/compare/v1.22.0...v1.23.0) (2026-10-23)
 
 
