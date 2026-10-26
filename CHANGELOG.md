@@ -1,3 +1,10 @@
+## [1.23.3](https://github.com/adobe/da-nx/compare/v1.23.2...v1.23.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **loc:** drop empty locales so locale count does not throw ([#901](https://github.com/adobe/da-nx/issues/901)) ([b9e80ea](https://github.com/adobe/da-nx/commit/b9e80eaa1bea61cf9e40c207bdb1c77892014a3e))
+
 ## [1.23.2](https://github.com/adobe/da-nx/compare/v1.23.1...v1.23.2) (2026-10-26)
 
 
