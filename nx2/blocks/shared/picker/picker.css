@@ -178,6 +178,11 @@
     line-height: var(--s2-component-m-regular-line-height);
   }
 
+  .picker-item-description {
+    font-size: var(--s2-component-m-regular-font-size);
+    line-height: var(--s2-component-m-regular-line-height);
+  }
+
   .picker-open-in-icon,
   .picker-check {
     width: 16px;
