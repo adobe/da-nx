@@ -12,11 +12,15 @@
 
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { getConfig } from '../../../scripts/nx.js';
 import { registerArtifact } from './registry.js';
 import { buildSuggestionPrompt, sendSuggestionToChat } from './suggestion-prompt.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href);
+const { codeBase } = getConfig();
+
+const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${name}.svg#icon"></use></svg>`;
 
 const PAGE_SIZE = 5;
 
@@ -77,10 +81,12 @@ function renderSuggestionActions(item, tone) {
       </button>
       <div class="ui-artifact-pe-modal-chat-actions">
         <button type="button" class="nx-action-btn nx-btn-sm ui-artifact-pe-modal-add" @click=${() => send(false)}>
-          <span class="ui-artifact-pe-modal-btn-icon"></span>Add to chat
+          ${icon('s2-icon-aichat-20-n')}
+          <span>Add to chat</span>
         </button>
         <button type="button" class="nx-btn-accent nx-btn-sm ui-artifact-pe-modal-apply" @click=${() => send(true)}>
-          <span class="ui-artifact-pe-modal-btn-icon"></span>Apply change
+          ${icon('s2-icon-aisparkles-20-n')}
+          <span>Apply change</span>
         </button>
       </div>
     </div>

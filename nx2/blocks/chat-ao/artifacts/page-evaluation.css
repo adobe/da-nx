@@ -393,30 +393,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--s2-spacing-100);
-
-  button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-}
-
-.ui-artifact-pe-modal-btn-icon {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  background-color: currentcolor;
-  mask-size: contain;
-  mask-repeat: no-repeat;
-  mask-position: center;
-}
-
-.ui-artifact-pe-modal-add .ui-artifact-pe-modal-btn-icon {
-  mask-image: url("/img/icons/s2-icon-aichat-20-n.svg");
-}
-
-.ui-artifact-pe-modal-apply .ui-artifact-pe-modal-btn-icon {
-  mask-image: url("/img/icons/s2-icon-aisparkles-20-n.svg");
 }
 
 .ui-artifact-pe-modal-context-title {
