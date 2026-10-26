@@ -200,6 +200,13 @@ describe('quick-edit selection gestures', () => {
     expect(pill.textContent).to.equal('cards (highlight)');
   });
 
+  it('shows no hover pill over a block locked by a pending suggestion', () => {
+    const block = document.querySelector('[data-block-index="50"]');
+    block.setAttribute('data-suggestion-lock', 'hint');
+    block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')).to.equal(null);
+  });
+
   it('draws a persistent hover box alongside the pill', () => {
     const block = document.querySelector('[data-block-index="50"]');
     block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));

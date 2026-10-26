@@ -70,6 +70,7 @@ parallel one. If you do add a new key:
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
 | `COMMENT_MARKER_CLEAR` | iframe → host | da-live only |
 | `COMMENT_SHORTCUT` | iframe → host | da-live only |
+| `SUGGESTION_CLICK` | iframe → host | da-live only |
 | `QUICK_EDIT_IFRAME_CLICK` | iframe → host | da-live only |
 
 ---
@@ -207,6 +208,19 @@ of marker bubbles and highlights on top of the previewed page (`nx/public/plugin
 
 All five are da-live-embedded only; the standalone `quick-edit-portal.js` host has no
 comments UI, so none are wired up there.
+
+### `SUGGESTION_CLICK`
+
+da-live's suggested edits can't be edited in layout: the inline editor only gets a copy of
+the node without suggestion marks, so saving it would erase them. The host instead renders
+the "approved" page and marks every affected element (text, blocks, placeholders for
+proposed blocks/images) with `data-suggestion-lock` (hover hint) and `data-suggestion-pos`
+(the suggestion's doc position). The iframe (`src/suggestions.js`) turns a click on one into
+`SUGGESTION_CLICK`; like `COMMENT_MARKER_CLICK`, the host opens the comments panel on that
+suggestion's card, where it can be accepted or rejected without leaving layout. Locked blocks
+get no hover pill, so they can't be selected for
+block actions, and `restoreBlockIndices` carries both attributes over decoration.
+da-live-embedded only.
 
 ### `QUICK_EDIT_IFRAME_CLICK`
 

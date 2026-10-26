@@ -60,6 +60,11 @@ export function restoreBlockIndices(sourceRoot, liveRoot = document) {
       const variant = [...(src.classList || [])].slice(1).join(', ');
       if (variant) live.setAttribute('data-block-variant', variant);
       else live.removeAttribute('data-block-variant');
+      ['data-suggestion-lock', 'data-suggestion-pos'].forEach((attr) => {
+        const value = src.getAttribute(attr);
+        if (value == null) live.removeAttribute(attr);
+        else live.setAttribute(attr, value);
+      });
       claimed.add(live);
     }
   });

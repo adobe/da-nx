@@ -30,6 +30,7 @@ import {
   getSelectedNode,
 } from './src/selection.js';
 import { installClickForwarding } from './src/click-forwarding.js';
+import { setupSuggestionClicks } from './src/suggestions.js';
 import { replaceChanges } from './src/reload.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
@@ -146,6 +147,7 @@ function setupParentController(reloadCallback, partialReload) {
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
     setupCommentShortcut(ctx);
+    setupSuggestionClicks(ctx);
     installClickForwarding({ getPort: () => ctx.port });
 
     window.removeEventListener('message', listener);

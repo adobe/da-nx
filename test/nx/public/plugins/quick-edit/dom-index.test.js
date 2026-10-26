@@ -51,6 +51,23 @@ describe('restoreBlockIndices', () => {
     expect(block.getAttribute('data-block-variant')).to.equal('center');
   });
 
+  it('carries the suggestion lock onto the live block, and clears a stale one', () => {
+    const source = document.createElement('div');
+    source.innerHTML = '<div class="hero" data-block-index="2" data-suggestion-lock="hint" data-suggestion-pos="1">h</div>'
+      + '<div class="cards" data-block-index="9">c</div>';
+    const live = document.createElement('div');
+    live.innerHTML = '<div class="hero">h</div><div class="cards" data-suggestion-lock="old" data-suggestion-pos="8">c</div>';
+
+    restoreBlockIndices(source, live);
+
+    const hero = live.querySelector('.hero');
+    expect(hero.getAttribute('data-suggestion-lock')).to.equal('hint');
+    expect(hero.getAttribute('data-suggestion-pos')).to.equal('1');
+    const cards = live.querySelector('.cards');
+    expect(cards.hasAttribute('data-suggestion-lock')).to.be.false;
+    expect(cards.hasAttribute('data-suggestion-pos')).to.be.false;
+  });
+
   describe('image instrumentation', () => {
     it('restores per-image positions after picture decoration, including duplicate URLs', () => {
       const source = document.createElement('div');

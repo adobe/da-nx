@@ -180,6 +180,7 @@ export function setupNodeSelection(ctx) {
   document.addEventListener('mouseover', (e) => {
     const block = e.target.closest?.('[data-block-index]');
     if (!block || e.target.closest(OVERLAY_SELECTOR)) return;
+    if (block.hasAttribute('data-suggestion-lock')) return;
     if (isSelectedBlock(block)) return;
     drawHoverPill(block);
   });
