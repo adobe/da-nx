@@ -128,6 +128,31 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelector('.picker-trigger-label').textContent).to.equal('Draft');
   });
 
+  it('uses the matching description typography tokens when switching between S and M', async () => {
+    const el = await createPicker({
+      items: [{ value: 'draft', label: 'Draft', description: 'Not published' }],
+    });
+    el.style.setProperty('--s2-component-s-regular-font-size', '12px');
+    el.style.setProperty('--s2-component-s-regular-line-height', '18px');
+    el.style.setProperty('--s2-component-m-regular-font-size', '16px');
+    el.style.setProperty('--s2-component-m-regular-line-height', '24px');
+    for (const [size, fontSize, lineHeight] of [
+      ['s', '12px', '18px'],
+      ['m', '16px', '24px'],
+      ['s', '12px', '18px'],
+    ]) {
+      el.size = size;
+      await el.updateComplete;
+      const description = el.shadowRoot.querySelector('.picker-item-description');
+      const style = getComputedStyle(description);
+      expect(style.fontSize, `${size} description font size`).to.equal(fontSize);
+      expect(style.lineHeight, `${size} description line height`).to.equal(lineHeight);
+      expect(description.textContent).to.equal('Not published');
+      expect(el.shadowRoot.querySelector('[role="option"]').getAttribute('aria-label'))
+        .to.equal('Draft, Not published');
+    }
+  });
+
   it('preserves explicit accessible names and does not treat an action as a selection', async () => {
     const el = await createPicker({
       items: [

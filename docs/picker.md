@@ -105,6 +105,9 @@ application rather than a domain-specific picker variant.
 unless `ariaLabel` supplies an explicit name. `leadingIcon` is a decorative SVG
 URL without the `#icon` fragment. Existing item shapes remain unchanged.
 
+Description font size and line height use the matching S or M regular component
+tokens according to `size`, including when the picker size changes.
+
 ## CSS custom properties
 
 | Property                 | Field default                         | Description               |
