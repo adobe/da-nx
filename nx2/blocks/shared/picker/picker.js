@@ -166,7 +166,7 @@ class NxPicker extends LitElement {
           aria-selected=${selected}
           data-value=${item.value}
           class="picker-item ${active ? 'picker-item-active' : ''}"
-          part="item"
+          part=${item.action ? 'item action' : 'item'}
           type="button"
           aria-label=${item.ariaLabel ?? (item.description ? `${item.label}, ${item.description}` : item.label)}
           @click=${() => this._handleItemActivated(item)}

@@ -97,6 +97,8 @@ Use `::part(label)` to style the trigger text, or `::part(label)::before` to add
 
 Menu presentation can be customized with `::part(menu)`, `::part(section)`,
 `::part(divider)`, `::part(item)`, `::part(item-label)` and `::part(check)`.
+Action items also expose `::part(action)` so consumers can align them independently
+of selectable options while retaining shared `::part(item)` styles.
 Application-specific layouts belong in the consuming
 application rather than a domain-specific picker variant.
 

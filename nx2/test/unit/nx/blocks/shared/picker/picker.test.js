@@ -137,9 +137,13 @@ describe('nx-picker swatch', () => {
       value: 'draft',
     });
     expect(el.shadowRoot.querySelector('[data-value="draft"]').getAttribute('aria-label')).to.equal('Current draft');
+    const action = el.shadowRoot.querySelector('[data-value="add"]');
+    expect(action.part.contains('item')).to.be.true;
+    expect(action.part.contains('action')).to.be.true;
+    expect(el.shadowRoot.querySelector('[data-value="draft"]').part.contains('action')).to.be.false;
     const changes = [];
     el.addEventListener('change', ({ detail }) => changes.push(detail.value));
-    el.shadowRoot.querySelector('[data-value="add"]').click();
+    action.click();
     expect(changes).to.deep.equal(['add']);
     expect(el.value).to.equal('draft');
   });
