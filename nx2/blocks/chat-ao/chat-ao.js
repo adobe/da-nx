@@ -46,6 +46,7 @@ import { sampleRUM } from '../../deps/rum.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
+const spinnerStyle = await loadStyle(new URL('../../styles/spinner.css', import.meta.url).href);
 const artifactStyle = await loadStyle(new URL('./artifacts/artifacts.css', import.meta.url).href);
 
 const { codeBase } = getConfig();
@@ -258,7 +259,7 @@ export default class NxChatAo extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     fetchResolvedManifestId();
-    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, artifactStyle];
+    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, spinnerStyle, artifactStyle];
     this._initController();
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,

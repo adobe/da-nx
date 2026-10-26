@@ -5,6 +5,7 @@ import {
   buildAemPathFromHashState,
   getAemBranch,
   getAemBranchHref,
+  getAemHrefs,
   requestAemRole,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
@@ -111,6 +112,7 @@ class NXEwActions extends LitElement {
     _target: { state: true },
     // URL most recently copied ('preview' | 'live'), for copy-button feedback.
     _copied: { state: true },
+    _aemHrefs: { state: true },
   };
 
   get _prepareMenu() {
@@ -258,16 +260,19 @@ class NXEwActions extends LitElement {
     if (!env) return { ok: false, url: null, time: null };
     const aemPath = buildAemPathFromHashState(this._hashState);
     const metaUrl = aemPath && this._resolveOpenUrl(kind === 'live' ? 'publish' : 'preview', aemPath);
+    const { webPath } = this._status;
     const branchUrl = getAemBranchHref({
       aemPath,
       branch: this._branch,
       tier: kind,
-      webPath: this._status.webPath,
+      webPath,
     });
+    const hostOrigin = this._aemHrefs?.[kind === 'live' ? 'prod' : 'preview']?.origin;
+    const hostUrl = hostOrigin && webPath ? `${hostOrigin}${webPath}` : env.url;
     return {
       ok: env.status === 200,
       url: metaUrl || (this._branchPath && this._branch === undefined
-        ? null : (env.url && branchUrl) || env.url || null),
+        ? null : (env.url && (branchUrl || hostUrl)) || null),
       time: env.lastModified || null,
     };
   }
@@ -330,7 +335,23 @@ class NXEwActions extends LitElement {
     if (changed.has('_hashState')) {
       this._updateHidePublish();
       this._updateBranch();
+      this._updateAemHrefs();
     }
+  }
+
+  _updateAemHrefs() {
+    const { org, site } = this._hashState || {};
+    const sitePath = org && site ? `/${org}/${site}`.toLowerCase() : null;
+    if (sitePath !== this._aemHrefsPath) {
+      this._aemHrefsPath = sitePath;
+      this._aemHrefs = undefined;
+      this._aemHrefsPromise = sitePath && getAemHrefs(sitePath)
+        .catch(() => null)
+        .then((hrefs) => {
+          if (this._aemHrefsPath === sitePath) this._aemHrefs = hrefs;
+        });
+    }
+    return this._aemHrefsPromise;
   }
 
   _updateBranch() {
@@ -614,7 +635,13 @@ class NXEwActions extends LitElement {
         </label>
         ${selected && info.ok && info.url ? html`
           <div class="deploy-url">
-            <span class="deploy-url-text" title=${info.url}>${info.url}</span>
+            <a
+              class="deploy-url-text"
+              href=${info.url}
+              target="_blank"
+              rel="noopener"
+              title=${info.url}
+            >${info.url}</a>
             <button
               type="button"
               class="deploy-copy"
