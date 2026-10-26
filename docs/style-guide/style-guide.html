@@ -435,17 +435,17 @@ document.querySelector('#field-picker').items = [
       </article>
 
       <article class="sg-example">
-        <h3>nx-picker — descriptions and leading icons</h3>
+        <h3>nx-picker — descriptions and actions</h3>
         <p>Opening focuses the selected item after positioning; arrow keys move focus and Enter selects.</p>
         <p class="sg-note">Description typography follows the picker size: S on the left, M on the right.</p>
+        <p class="sg-note">Actions expose both <code>::part(item)</code> and <code>::part(action)</code> for independent alignment.</p>
         <div class="sg-demo sg-picker-container">
           <nx-picker id="demo-picker-description-s" size="s" placeholder="Small status"></nx-picker>
           <nx-picker id="demo-picker-description" size="m" placeholder="Medium status"></nx-picker>
         </div>
         <pre><code>picker.items = [
   { value: 'draft', label: 'Draft', description: 'Not published' },
-  { value: 'add', label: 'Add...', action: true,
-    leadingIcon: '/img/icons/s2-icon-add-20-n.svg' },
+  { value: 'add', label: 'Add...', action: true },
 ];</code></pre>
       </article>
 
@@ -748,7 +748,7 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
     const fixedLabelPicker = document.querySelector('#demo-picker-fixed-label');
     const descriptionPickerItems = [
       { value: 'draft', label: 'Draft', description: 'Not published' },
-      { value: 'add', label: 'Add...', action: true, leadingIcon: '/img/icons/s2-icon-add-20-n.svg' },
+      { value: 'add', label: 'Add...', action: true },
     ];
     ['#demo-picker-description-s', '#demo-picker-description'].forEach((selector) => {
       document.querySelector(selector).items = descriptionPickerItems;

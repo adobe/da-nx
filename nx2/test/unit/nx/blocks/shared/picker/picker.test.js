@@ -90,16 +90,16 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelector('[data-value="red"] svg')).to.be.null;
   });
 
-  it('supports optional descriptions and leading action icons', async () => {
+  it('supports optional descriptions and text-only actions', async () => {
     const el = await createPicker({
       value: 'org/site',
       items: [
         { value: 'org/site', label: 'Site', description: 'org/site' },
-        { value: 'add', label: 'Add site', action: true, leadingIcon: '/icons/add.svg' },
+        { value: 'add', label: 'Add site', action: true },
       ],
     });
     expect(el.shadowRoot.querySelector('.picker-item-description').textContent).to.equal('org/site');
-    expect(el.shadowRoot.querySelector('.picker-leading-icon use').getAttribute('href')).to.equal('/icons/add.svg#icon');
+    expect(el.shadowRoot.querySelector('[data-value="add"] svg')).to.be.null;
     const change = new Promise((resolve) => { el.addEventListener('change', resolve, { once: true }); });
     el.shadowRoot.querySelector('[data-value="add"]').click();
     expect((await change).detail.value).to.equal('add');
@@ -157,16 +157,18 @@ describe('nx-picker swatch', () => {
     const el = await createPicker({
       items: [
         { value: 'draft', label: 'Draft', description: 'Not published', ariaLabel: 'Current draft' },
-        { value: 'add', label: 'Add...', action: true, leadingIcon: '/img/icons/s2-icon-add-20-n.svg' },
+        { value: 'add', label: 'Add...', action: true },
       ],
       value: 'draft',
     });
     expect(el.shadowRoot.querySelector('[data-value="draft"]').getAttribute('aria-label')).to.equal('Current draft');
-    expect(el.shadowRoot.querySelector('[part="leading-icon"] use').getAttribute('href'))
-      .to.equal('/img/icons/s2-icon-add-20-n.svg#icon');
+    const action = el.shadowRoot.querySelector('[data-value="add"]');
+    expect(action.part.contains('item')).to.be.true;
+    expect(action.part.contains('action')).to.be.true;
+    expect(el.shadowRoot.querySelector('[data-value="draft"]').part.contains('action')).to.be.false;
     const changes = [];
     el.addEventListener('change', ({ detail }) => changes.push(detail.value));
-    el.shadowRoot.querySelector('[data-value="add"]').click();
+    action.click();
     expect(changes).to.deep.equal(['add']);
     expect(el.value).to.equal('draft');
   });

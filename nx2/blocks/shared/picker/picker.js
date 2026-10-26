@@ -166,7 +166,7 @@ class NxPicker extends LitElement {
           aria-selected=${selected}
           data-value=${item.value}
           class="picker-item ${active ? 'picker-item-active' : ''}"
-          part="item"
+          part=${item.action ? 'item action' : 'item'}
           type="button"
           aria-label=${item.ariaLabel ?? (item.description ? `${item.label}, ${item.description}` : item.label)}
           @click=${() => this._handleItemActivated(item)}
@@ -174,8 +174,6 @@ class NxPicker extends LitElement {
           @focus=${() => { this._active = item.value; }}
         >
           ${this._renderSwatch(item.swatch)}
-          ${item.leadingIcon ? html`<svg class="picker-leading-icon" part="leading-icon" viewBox="0 0 20 20" aria-hidden="true">
-            <use href="${item.leadingIcon}#icon"></use></svg>` : nothing}
           <span class="picker-item-label" part="item-label">
             ${item.label}
             ${item.description ? html`<span class="picker-item-description">${item.description}</span>` : nothing}
