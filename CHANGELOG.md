@@ -4,6 +4,14 @@
 ### Features
 
 * add m support for pills ([#898](https://github.com/adobe/da-nx/issues/898)) ([5dd6baf](https://github.com/adobe/da-nx/commit/5dd6baf3eadaceec3590789fd6c90eb5ed82239d))
+* **marketplace:** filter extensions by category via block options ([#900](https://github.com/adobe/da-nx/issues/900)) ([ba1ec37](https://github.com/adobe/da-nx/commit/ba1ec374baf821b5ca11c317fbc64a7e10ea607a))
+
+# [1.23.0](https://github.com/adobe/da-nx/compare/v1.22.0...v1.23.0) (2026-10-23)
+
+
+### Features
+
+* add m support for pills ([#898](https://github.com/adobe/da-nx/issues/898)) ([5dd6baf](https://github.com/adobe/da-nx/commit/5dd6baf3eadaceec3590789fd6c90eb5ed82239d))
 
 # [1.22.0](https://github.com/adobe/da-nx/compare/v1.21.3...v1.22.0) (2026-10-23)
 
