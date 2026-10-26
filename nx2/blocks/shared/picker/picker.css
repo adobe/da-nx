@@ -132,13 +132,6 @@
   font-weight: 400;
 }
 
-.picker-leading-icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  fill: currentcolor;
-}
-
 .picker-open-in-icon {
   width: 14px;
   height: 14px;

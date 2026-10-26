@@ -174,8 +174,6 @@ class NxPicker extends LitElement {
           @focus=${() => { this._active = item.value; }}
         >
           ${this._renderSwatch(item.swatch)}
-          ${item.leadingIcon ? html`<svg class="picker-leading-icon" part="leading-icon" viewBox="0 0 20 20" aria-hidden="true">
-            <use href="${item.leadingIcon}#icon"></use></svg>` : nothing}
           <span class="picker-item-label" part="item-label">
             ${item.label}
             ${item.description ? html`<span class="picker-item-description">${item.description}</span>` : nothing}
