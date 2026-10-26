@@ -43,9 +43,12 @@ Each entry in the `items` array is one of:
 
 // Short text segment with a longer accessible name
 { value: "s", label: "S", ariaLabel: "Small" }
+
+// Disabled segment with a tooltip explaining why
+{ value: "layout", label: "Layout", disabled: true, title: "Resolve conflicts to switch views" }
 ```
 
-`icon` is the path to the icon SVG (the sprite's `#icon` fragment is appended automatically). `label` is always required — it's shown as the segment's visible text unless `iconOnly` is set, in which case it's used as the `aria-label`/`title` instead. `ariaLabel` (optional) sets the `aria-label`/`title` of a text segment whose visible label is abbreviated.
+`icon` is the path to the icon SVG (the sprite's `#icon` fragment is appended automatically). `label` is always required — it's shown as the segment's visible text unless `iconOnly` is set, in which case it's used as the `aria-label`/`title` instead. `ariaLabel` (optional) sets the `aria-label`/`title` of a text segment whose visible label is abbreviated. `disabled` (optional) makes the segment unselectable. `title` (optional) overrides the segment's tooltip.
 
 ## API
 

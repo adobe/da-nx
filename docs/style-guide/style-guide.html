@@ -577,6 +577,7 @@ document.querySelector('#icon-field').items = [
           <nx-segmented-btn id="demo-segmented-m" size="m"></nx-segmented-btn>
           <nx-segmented-btn id="demo-segmented-icon-label"></nx-segmented-btn>
           <nx-segmented-btn id="demo-segmented-icon-only"></nx-segmented-btn>
+          <nx-segmented-btn id="demo-segmented-disabled"></nx-segmented-btn>
           <nx-segmented-btn id="demo-segmented-compact" compact emphasized></nx-segmented-btn>
           <nx-segmented-btn id="demo-segmented-compact-m" compact emphasized size="m"></nx-segmented-btn>
         </div>
@@ -602,6 +603,12 @@ toggle.items = [
 toggle.items = [
   { value: 'grid', icon: './icons/selected.svg', label: 'Grid view', iconOnly: true },
   { value: 'list', icon: './icons/selected.svg', label: 'List view', iconOnly: true },
+];
+
+// Disabled segment with a tooltip
+toggle.items = [
+  { value: 'layout', label: 'Layout', disabled: true, title: 'Resolve conflicts to switch views' },
+  { value: 'content', label: 'Content' },
 ];
 
 // Compact + emphasized (short labels, accent selection)
@@ -837,6 +844,14 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
       { value: 'list', icon: './icons/selected.svg', label: 'List view', iconOnly: true },
     ];
     segmentedIconOnly.value = 'grid';
+
+    const segmentedDisabled = document.querySelector('#demo-segmented-disabled');
+    segmentedDisabled.label = 'Editor view';
+    segmentedDisabled.items = [
+      { value: 'layout', label: 'Layout', disabled: true, title: 'Resolve conflicts to switch views' },
+      { value: 'content', label: 'Content' },
+    ];
+    segmentedDisabled.value = 'content';
 
     ['#demo-segmented-compact', '#demo-segmented-compact-m'].forEach((sel) => {
       const compact = document.querySelector(sel);

@@ -41,7 +41,8 @@ class NxSegmentedBtn extends LitElement {
             class="segment${item.icon && item.iconOnly ? ' segment-icon' : ''}${this.value === item.value ? ' is-selected' : ''}"
             aria-pressed="${this.value === item.value}"
             aria-label="${item.iconOnly ? item.label : item.ariaLabel || nothing}"
-            title="${item.iconOnly ? item.label : item.ariaLabel || nothing}"
+            title="${item.title ?? (item.iconOnly ? item.label : item.ariaLabel) ?? nothing}"
+            ?disabled=${!!item.disabled}
             @click=${() => this._select(item.value)}>
             ${item.icon ? html`<svg aria-hidden="true" class="icon" viewBox="0 0 20 20"><use href="${item.icon}#icon"></use></svg>` : nothing}
             ${item.iconOnly ? nothing : item.label}

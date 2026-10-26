@@ -49,7 +49,12 @@
     outline-offset: 2px;
   }
 
-  &:hover:not(.is-selected) {
+  &:disabled {
+    color: var(--s2-gray-400);
+    cursor: not-allowed;
+  }
+
+  &:hover:not(.is-selected, :disabled) {
     color: var(--s2-gray-900);
     background-color: var(--s2-gray-200);
   }
@@ -78,6 +83,10 @@
     height: 16px;
     flex-shrink: 0;
     overflow: hidden;
+  }
+
+  &:disabled svg.icon {
+    opacity: 0.45;
   }
 }
 
