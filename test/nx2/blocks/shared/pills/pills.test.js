@@ -138,6 +138,44 @@ describe('nx-pills', () => {
     expect(button.getAttribute('aria-label')).to.equal('Remove hero.png');
   });
 
+  it('uses small icons by default and for explicit small sizing', async () => {
+    el = await makePills({ items: [{ id: '1', label: 'hero.png', type: 'image' }] });
+    const typeIcon = el.shadowRoot.querySelector('.pill-type-icon');
+    const removeIcon = el.shadowRoot.querySelector('.pill-icon svg');
+    const expectSizes = () => {
+      expect(getComputedStyle(typeIcon).width).to.equal('14px');
+      expect(getComputedStyle(removeIcon).width).to.equal('12px');
+      expect(getComputedStyle(removeIcon).height).to.equal('12px');
+    };
+    expectSizes();
+    el.size = 's';
+    await el.updateComplete;
+    expect(el.getAttribute('size')).to.equal('s');
+    expectSizes();
+    el.size = 'm';
+    await el.updateComplete;
+    expect(getComputedStyle(removeIcon).width).to.equal('14px');
+  });
+
+  it('updates medium sizing without losing read-only tags or the list label', async () => {
+    el = await makePills({
+      size: 'm',
+      label: 'Type',
+      items: [{ id: 'app', label: 'App', type: 'file', removable: false }],
+    });
+    expect(el.getAttribute('size')).to.equal('m');
+    const icon = el.shadowRoot.querySelector('.pill-type-icon');
+    expect(getComputedStyle(icon).width).to.equal('18px');
+    expect(getComputedStyle(icon).height).to.equal('18px');
+    expect(el.shadowRoot.querySelector('.pills-container').getAttribute('aria-label')).to.equal('Type');
+    expect(el.shadowRoot.querySelector('.pill button')).to.equal(null);
+    el.size = 's';
+    await el.updateComplete;
+    expect(getComputedStyle(icon).width).to.equal('14px');
+    expect(getComputedStyle(icon).height).to.equal('14px');
+    expect(el.shadowRoot.querySelector('.pill button')).to.equal(null);
+  });
+
   it('omits the action button when an item is not removable', async () => {
     el = await makePills({
       items: [
@@ -189,6 +227,10 @@ describe('nx-pills', () => {
     el.style.setProperty('--nx-pill-color', 'rgb(4, 5, 6)');
     const pill = el.shadowRoot.querySelector('.pill');
     const label = el.shadowRoot.querySelector('.pill-label');
+    expect(getComputedStyle(pill).backgroundColor).to.equal('rgb(1, 2, 3)');
+    expect(getComputedStyle(label).color).to.equal('rgb(4, 5, 6)');
+    el.size = 'm';
+    await el.updateComplete;
     expect(getComputedStyle(pill).backgroundColor).to.equal('rgb(1, 2, 3)');
     expect(getComputedStyle(label).color).to.equal('rgb(4, 5, 6)');
   });

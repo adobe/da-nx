@@ -22,7 +22,8 @@ import {
   COWORKER_SKILLS_URL, COWORKER_CHAT_URL, ENTERPRISE_CONTEXT_URL,
   ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE,
 } from './ao-constants.js';
-import { getConfig } from '../../scripts/nx.js';
+import { getConfig, getUISize } from '../../scripts/nx.js';
+import { UISizeController } from '../../utils/ui-size.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
@@ -58,6 +59,8 @@ function isAllowedFile(file) {
 }
 
 export default class NxChatAo extends LitElement {
+  _uiSize = new UISizeController(this);
+
   static properties = {
     messages: { type: Array },
     thinking: { type: Boolean },
@@ -419,10 +422,14 @@ export default class NxChatAo extends LitElement {
     const { view } = this._context ?? {};
     const prompts = (this._prompts ?? [])
       .filter((p) => !p.area || p.area === 'all' || p.area === view);
+    const uiSize = getUISize();
+    const btnSizeCls = uiSize === 'm' ? '' : 'nx-btn-sm';
+    const lgBtnCls = uiSize === 'm' ? 'nx-btn-lg' : '';
 
     return html`
       <nx-popover class="prompts-popover">
         <nx-prompts
+          size=${uiSize}
           .prompts=${prompts}
           .onSend=${(p) => this._sendPrompt(p)}
         ></nx-prompts>
@@ -439,11 +446,11 @@ export default class NxChatAo extends LitElement {
             @change=${this._handleEpisodeChange}
           ></nx-picker>` : nothing}
         <div>
-          <button type="button" title="New chat" aria-label="New chat" class="nx-action-btn-icon" @click=${this._handleNewSession}>
+          <button type="button" title="New chat" aria-label="New chat" class="nx-action-btn-icon ${lgBtnCls}" @click=${this._handleNewSession}>
             ${icon('newChat')}
           </button>
           <button
-            class="nx-action-btn-icon"
+            class="nx-action-btn-icon chat-close ${lgBtnCls}"
             aria-label="Close chat panel"
             @click=${this._closePanel}
           >${icon('close')}</button>
@@ -456,6 +463,7 @@ export default class NxChatAo extends LitElement {
           ` : html`
             ${!this.messages?.length && !this.thinking
           ? html`<nx-new-chat
+              size=${uiSize}
               .prompts=${prompts}
               .onSend=${(p) => this._sendPrompt(p)}
               .lastSession=${this.staleEpisode ? {
@@ -482,6 +490,7 @@ export default class NxChatAo extends LitElement {
             onFeedbackText: (text) => { this._planFeedback = text; },
             onApprove: () => this._controller.respondToPlanApproval('approve'),
             onReject: () => this._controller.respondToPlanApproval('reject', this._planFeedback?.trim() ?? ''),
+            btnSizeCls,
           }) : nothing}
             ${this.thinking && !this.pendingPlanApproval && !this.messages?.at(-1)?.streaming
           ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
@@ -498,12 +507,14 @@ export default class NxChatAo extends LitElement {
           @mousedown=${(e) => e.preventDefault()}
         ></nx-menu>
         <nx-question-card
+          size=${uiSize}
           .pending=${this.pendingQuestion}
           .onSubmit=${(answers) => this._controller.answerQuestion(answers)}
           .onDecline=${() => this._controller.declineQuestion()}
         ></nx-question-card>
         ${renderPermissionCard(this.pendingPermission, {
             onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
+            btnSizeCls: lgBtnCls,
           })}
         <form class="chat-form" @submit=${this._submit}
           @dragenter=${this._dnd.onDragEnter}
@@ -516,7 +527,8 @@ export default class NxChatAo extends LitElement {
               <span class="chat-drop-title">Drop a file to add context</span>
               <span class="chat-drop-hint">Supports documents, images, and code</span>
             </div>` : nothing}
-          <nx-pills
+          <nx-pills 
+            size=${uiSize}
             addEvent=${CHAT_EVENT.ADD_TO_CHAT}
             @nx-pill-activate=${this._handlePillActivate}
           ></nx-pills>
@@ -540,7 +552,7 @@ export default class NxChatAo extends LitElement {
           </div>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
             <nx-menu size="m" .items=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-              <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
+              <button slot="trigger" class="chat-add nx-action-btn-icon ${btnSizeCls}" type="button" aria-label="Add" @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>
               </button>
@@ -549,7 +561,7 @@ export default class NxChatAo extends LitElement {
               ${isVoiceInputSupported() ? html`
                 <button
                   type="button"
-                  class="chat-voice nx-action-btn-icon nx-btn-sm"
+                  class="chat-voice nx-action-btn-icon ${btnSizeCls}"
                   ?data-listening=${this._voiceListening}
                   ?disabled=${this._blocked}
                   aria-pressed=${this._voiceListening}
@@ -558,11 +570,11 @@ export default class NxChatAo extends LitElement {
                 >${icon('mic')}</button>
               ` : nothing}
               <button
-                class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
+                class="chat-stop nx-action-btn-icon is-active ${btnSizeCls}"
                 ?hidden=${!this._blocked}
                 @click=${this._submit}
               > ${icon('stop')}</button>
-              <button type="submit" class="chat-send harness-coworker nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this._blocked} aria-label="Send">
+              <button type="submit" class="chat-send harness-coworker nx-action-btn-icon is-active ${btnSizeCls}" ?hidden=${this._blocked} aria-label="Send">
                 ${icon('send')}
               </button>
             </div>

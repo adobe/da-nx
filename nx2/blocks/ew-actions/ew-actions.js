@@ -17,6 +17,7 @@ import { PREFLIGHT_EVENT, newPreflightRequestId } from '../../utils/preflight-ev
 import { sidekickCacheBust } from '../../utils/sidekick.js';
 import { formatRelativeDateTime } from '../../utils/format.js';
 import { getConfig } from '../../scripts/nx.js';
+import { UISizeController } from '../../utils/ui-size.js';
 import '../shared/popover/popover.js';
 
 const style = await loadStyle(import.meta.url);
@@ -90,6 +91,8 @@ async function shouldHidePublish(hashState) {
 }
 
 class NXEwActions extends LitElement {
+  _uiSize = new UISizeController(this);
+
   static properties = {
     _busy: { state: true },
     _hasError: { state: true },
@@ -666,7 +669,7 @@ class NXEwActions extends LitElement {
           </div>
           <button
             type="button"
-            class="deploy-action nx-btn-accent${isPublish ? ' is-publish' : ''}"
+            class="deploy-action nx-btn-accent${this.dataset.uiSize === 'm' ? ' nx-btn-lg' : ''}${isPublish ? ' is-publish' : ''}"
             ?disabled=${this._busy}
             @click=${this._confirmAction}
           >

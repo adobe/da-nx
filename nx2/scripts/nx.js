@@ -25,6 +25,11 @@ export function getColorScheme() {
     || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-scheme' : 'light-scheme');
 }
 
+export function getUISize() {
+  const size = localStorage.getItem('ui-size');
+  return size === 'm' ? 'm' : 's';
+}
+
 export function getMetadata(name) {
   const attr = name && name.includes(':') ? 'property' : 'name';
   const meta = document.head.querySelector(`meta[${attr}="${name}"]`);
@@ -311,6 +316,9 @@ async function decorateDoc() {
 
   const scheme = localStorage.getItem('color-scheme');
   if (scheme) document.body.classList.add(scheme);
+
+  const uiSize = getUISize();
+  if (uiSize !== 's') document.body.classList.add(`ui-size-${uiSize}`);
 
   const pageId = window.location.hash?.replace('#', '');
   if (pageId) localStorage.setItem('lazyhash', pageId);

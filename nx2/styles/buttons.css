@@ -62,6 +62,18 @@ button {
       height: 16px;
     }
   }
+
+  &.nx-btn-lg {
+    padding: 9px 18px;
+    font-size: var(--s2-component-l-medium-font-size);
+    line-height: var(--s2-component-l-medium-line-height);
+    height: 40px;
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
 }
 
 .nx-btn-accent, .nx-btn-primary {
@@ -71,6 +83,11 @@ button {
   &.nx-btn-sm {
     border-radius: 12px;
     font-weight: var(--s2-component-s-bold-font-weight);
+  }
+
+  &.nx-btn-lg {
+    border-radius: 20px;
+    font-weight: var(--s2-component-l-bold-font-weight);
   }
 }
 
@@ -108,7 +125,12 @@ button {
 }
 
 .nx-btn-sm kbd {
+  padding: var(--s2-spacing-50) var(--s2-spacing-75);
   font-size: var(--s2-component-xs-medium-font-size);
+}
+
+.nx-btn-lg kbd {
+  font-size: var(--s2-component-m-medium-font-size);
 }
 
 .nx-action-btn-quiet, .nx-action-btn-icon  {
@@ -133,5 +155,10 @@ button {
   &.nx-btn-sm {
     width: 24px;
     padding: var(--s2-spacing-75);
+  }
+
+  &.nx-btn-lg {
+    width: 40px;
+    padding: 9px;
   }
 }
