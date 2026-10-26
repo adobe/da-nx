@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { render } from 'da-lit';
 import { renderUiArtifact } from '../../../../../nx2/blocks/chat-ao/artifacts/index.js';
-import { buildSuggestionPrompt, sendSuggestionToChat } from '../../../../../nx2/blocks/chat-ao/artifacts/suggestion-prompt.js';
+import { buildSuggestionPrompt } from '../../../../../nx2/blocks/chat-ao/artifacts/page-evaluation.js';
 import { CHAT_EVENT } from '../../../../../nx2/utils/chat.js';
 
 async function waitUntil(predicate, timeout = 2000) {
@@ -25,18 +25,18 @@ const item = {
   },
 };
 
-describe('suggestion-prompt', () => {
+describe('page evaluation suggestion actions', () => {
   it('builds the prompt from the available fields', () => {
     expect(buildSuggestionPrompt({ item, aligned: false })).to.equal(
       'Apply the following suggestion from preflight for the check that failed to the page I have open.\n'
       + 'Check: Use feature module content pattern\n'
       + 'Alignment: No\n'
-      + '\n\n'
+      + '\n'
       + 'Reason: Missing eyebrow and CTA.\n'
-      + '\n\n'
+      + '\n'
       + 'Suggestion: Add an all-caps eyebrow and a CTA link.\n'
       + 'Asset: Image 3\n'
-      + '\n\n'
+      + '\n'
       + 'Only change what this suggestion covers; leave the rest of the page unchanged.\n'
       + 'If you need to re-run preflight, you can invoke the skill /aem-governance-evaluate-page',
     );
@@ -49,25 +49,14 @@ describe('suggestion-prompt', () => {
     expect(text).to.equal(
       'Apply the following suggestion from preflight for the check that failed to the page I have open.\n'
       + 'Check: Tone\n'
-      + '\n\n'
+      + '\n'
       + 'Reason: Too casual.\n'
-      + '\n\n'
+      + '\n'
       + 'Suggestion: Be formal.\n'
-      + '\n\n'
+      + '\n'
       + 'Only change what this suggestion covers; leave the rest of the page unchanged.\n'
       + 'If you need to re-run preflight, you can invoke the skill /aem-governance-evaluate-page',
     );
-  });
-
-  [false, true].forEach((autoSend) => {
-    it(`dispatches SET_PROMPT with autoSend ${autoSend}`, async () => {
-      let detail;
-      const listener = (e) => { detail = e.detail; };
-      document.addEventListener(CHAT_EVENT.SET_PROMPT, listener);
-      await sendSuggestionToChat({ text: 'hello', autoSend });
-      document.removeEventListener(CHAT_EVENT.SET_PROMPT, listener);
-      expect(detail).to.deep.equal({ text: 'hello', autoSend });
-    });
   });
 
   it('wires Add to chat and Apply change in the page evaluation dialog', async () => {

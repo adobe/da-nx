@@ -13,8 +13,8 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import { getConfig } from '../../../scripts/nx.js';
+import { CHAT_EVENT } from '../../../utils/chat.js';
 import { registerArtifact } from './registry.js';
-import { buildSuggestionPrompt, sendSuggestionToChat } from './suggestion-prompt.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href);
@@ -69,11 +69,32 @@ function renderContextCard(context) {
   `;
 }
 
+const promptLine = (prefix, value) => (value ? [`${prefix}${value}`] : []);
+
+export function buildSuggestionPrompt({ item, aligned }) {
+  const suggestion = item?.suggestion ?? {};
+  const reason = suggestion.issue ?? item?.description;
+  const alignment = aligned === undefined ? undefined : (aligned && 'Yes') || 'No';
+  return [
+    'Apply the following suggestion from preflight for the check that failed to the page I have open.',
+    ...promptLine('Check: ', item?.title),
+    ...promptLine('Alignment: ', alignment),
+    '',
+    ...promptLine('Reason: ', reason),
+    '',
+    ...promptLine('Suggestion: ', suggestion.suggested),
+    ...promptLine('Asset: ', suggestion.assetLabel),
+    '',
+    'Only change what this suggestion covers; leave the rest of the page unchanged.',
+    'If you need to re-run preflight, you can invoke the skill /aem-governance-evaluate-page',
+  ].join('\n');
+}
+
 function renderSuggestionActions(item, tone) {
-  const send = (autoSend) => sendSuggestionToChat({
-    text: buildSuggestionPrompt({ item, aligned: tone === 'negative' ? false : undefined }),
-    autoSend,
-  });
+  const send = (autoSend) => {
+    const text = buildSuggestionPrompt({ item, aligned: tone === 'negative' ? false : undefined });
+    document.dispatchEvent(new CustomEvent(CHAT_EVENT.SET_PROMPT, { detail: { text, autoSend } }));
+  };
   return html`
     <div class="ui-artifact-pe-modal-actions">
       <button class="ui-artifact-pe-modal-copy" @click=${() => navigator.clipboard.writeText(item.suggestion.suggested ?? '')}>
