@@ -13,8 +13,10 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import { registerArtifact } from './registry.js';
+import { buildSuggestionPrompt, sendSuggestionToChat } from './suggestion-prompt.js';
 
 const styles = await loadStyle(import.meta.url);
+const buttonStyle = await loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href);
 
 const PAGE_SIZE = 5;
 
@@ -63,7 +65,29 @@ function renderContextCard(context) {
   `;
 }
 
-function renderSuggestionBody(item) {
+function renderSuggestionActions(item, tone) {
+  const send = (autoSend) => sendSuggestionToChat({
+    text: buildSuggestionPrompt({ item, aligned: tone === 'negative' ? false : undefined }),
+    autoSend,
+  });
+  return html`
+    <div class="ui-artifact-pe-modal-actions">
+      <button class="ui-artifact-pe-modal-copy" @click=${() => navigator.clipboard.writeText(item.suggestion.suggested ?? '')}>
+        <span class="ui-artifact-pe-modal-copy-icon"></span>Copy suggestion
+      </button>
+      <div class="ui-artifact-pe-modal-chat-actions">
+        <button type="button" class="nx-action-btn nx-btn-sm ui-artifact-pe-modal-add" @click=${() => send(false)}>
+          <span class="ui-artifact-pe-modal-btn-icon"></span>Add to chat
+        </button>
+        <button type="button" class="nx-btn-accent nx-btn-sm ui-artifact-pe-modal-apply" @click=${() => send(true)}>
+          <span class="ui-artifact-pe-modal-btn-icon"></span>Apply change
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderSuggestionBody(item, { tone } = {}) {
   const { suggestion } = item;
   if (!suggestion) return nothing;
   return html`
@@ -81,9 +105,7 @@ function renderSuggestionBody(item) {
         <span class="ui-artifact-pe-modal-heading-text">Suggested change</span>
       </div>
       ${suggestion.suggested ? html`<p class="ui-artifact-pe-modal-body">${suggestion.suggested}</p>` : nothing}
-      <button class="ui-artifact-pe-modal-copy" @click=${() => navigator.clipboard.writeText(suggestion.suggested ?? '')}>
-        <span class="ui-artifact-pe-modal-copy-icon"></span>Copy suggestion
-      </button>
+      ${renderSuggestionActions(item, tone)}
     </div>
     ${suggestion.context ? html`
       <div class="ui-artifact-pe-modal-context-title">Context</div>
@@ -131,7 +153,7 @@ class NxPageEval extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
   }
 
   _setPage(sectionIndex, page, total) {
@@ -158,6 +180,7 @@ class NxPageEval extends LitElement {
       kind,
       items: filtered,
       index: idx >= 0 ? idx : 0,
+      tone,
       sectionLabel: sectionLabelFromTone(tone),
       title: componentTitle || 'Page evaluation',
     };
@@ -251,7 +274,7 @@ class NxPageEval extends LitElement {
 
   _renderModal() {
     const {
-      kind, items, index, sectionLabel, title,
+      kind, items, index, tone, sectionLabel, title,
     } = this._modal;
     const total = items.length;
     const renderBody = kind === 'suggestion' ? renderSuggestionBody : renderCheckBody;
@@ -262,7 +285,7 @@ class NxPageEval extends LitElement {
         @close=${() => { this._modal = undefined; }}
       >
         <div class="ui-artifact-pe-modal-content">
-          ${renderBody(items[index])}
+          ${renderBody(items[index], { tone })}
           <div class="ui-artifact-pe-modal-paging">
             <button
               class="ui-artifact-pe-modal-paging-btn ui-artifact-pe-modal-paging-prev"
