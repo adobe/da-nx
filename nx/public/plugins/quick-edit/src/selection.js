@@ -1,5 +1,6 @@
 import {
-  findBlock, findTextBlock, pictureSrc, srcPathsMatch, OVERLAY_SELECTOR,
+  findBlock, findSection, findTextBlock, pictureSrc, srcPathsMatch,
+  OVERLAY_SELECTOR, safeQuerySelectorAll, sectionFromDescendant,
 } from './dom-index.js';
 import { parseIndex, positionBox } from './utils.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
@@ -44,6 +45,19 @@ export function imageSelectPayload(el) {
   const blockIndex = parseIndex(host.closest?.('[data-block-index]')?.getAttribute?.('data-block-index'));
   if (proseIndex == null && !src) return null;
   return { anchorType: 'image', proseIndex, src, blockIndex };
+}
+
+export function sectionLabel(el, sectionIndex) {
+  return el?.dataset?.sectionName || `Section ${sectionIndex + 1}`;
+}
+
+export function sectionSelectPayload(el) {
+  const container = el?.parentElement;
+  if (!container) return null;
+  const sections = safeQuerySelectorAll(container, ':scope > div');
+  const sectionIndex = sections.indexOf(el);
+  if (sectionIndex === -1) return null;
+  return { anchorType: 'section', sectionIndex };
 }
 
 const SELECTION_OVERLAY_ID = 'qe-selection-overlay';
@@ -100,6 +114,9 @@ function resolveSelectionElement(node, root) {
   if (node.anchorType === 'content') {
     return findContentByIndex(node.proseIndex, root);
   }
+  if (node.anchorType === 'section') {
+    return findSection(node.sectionIndex, root);
+  }
   return null;
 }
 
@@ -108,6 +125,17 @@ let currentSelectedNode = null;
 function isSelectedBlock(block) {
   if (currentSelectedNode?.anchorType !== 'table') return false;
   return parseIndex(block.getAttribute('data-block-index')) === currentSelectedNode.proseIndex;
+}
+
+function isSelectedSection(section) {
+  if (currentSelectedNode?.anchorType !== 'section') return false;
+  return sectionSelectPayload(section)?.sectionIndex === currentSelectedNode.sectionIndex;
+}
+
+function nodeLabel(node, el) {
+  if (node.anchorType === 'table') return blockLabel(el);
+  if (node.anchorType === 'section') return sectionLabel(el, node.sectionIndex);
+  return '';
 }
 
 export function getSelectedNode() {
@@ -131,36 +159,37 @@ export function setSelectedNode(node, root = document, { scrollIntoView = false 
   positionBox(box, rect);
   overlay.appendChild(box);
 
-  if (node.anchorType === 'table') {
-    const pill = root.createElement('div');
-    pill.className = 'qe-selected-pill';
-    fillPill(pill, root, blockLabel(element));
-    box.appendChild(pill);
-  }
+  const label = nodeLabel(node, element);
+  if (!label) return;
+  const pill = root.createElement('div');
+  pill.className = 'qe-selected-pill';
+  fillPill(pill, root, label);
+  box.appendChild(pill);
 }
 
-function clearHoverPill(root = document) {
-  const overlay = root.getElementById(SELECTION_OVERLAY_ID);
-  if (!overlay) return;
-  overlay.querySelector('.qe-hover-box')?.remove();
+let hovered = null;
+
+function clearHover(root = document) {
+  hovered = null;
+  root.getElementById(SELECTION_OVERLAY_ID)?.querySelector('.qe-hover-box')?.remove();
 }
 
-function drawHoverPill(block, root = document) {
-  const overlay = getSelectionOverlay(root);
-  clearHoverPill(root);
-  const rect = block.getBoundingClientRect();
+function drawHover(el, node, root = document) {
+  clearHover(root);
+  if (!node) return;
+  const rect = el.getBoundingClientRect();
   if (!rect.width && !rect.height) return;
   const box = root.createElement('div');
   box.className = 'qe-hover-box';
   box.setAttribute('aria-hidden', 'true');
   positionBox(box, rect);
-  overlay.appendChild(box);
+  getSelectionOverlay(root).appendChild(box);
   const pill = root.createElement('button');
   pill.type = 'button';
   pill.className = 'qe-selected-pill is-hover';
-  fillPill(pill, root, blockLabel(block));
-  pill.dataset.blockIndex = block.getAttribute('data-block-index');
+  fillPill(pill, root, nodeLabel(node, el));
   box.appendChild(pill);
+  hovered = { el, node };
 }
 
 function blurActiveEditor() {
@@ -178,15 +207,26 @@ export function setupNodeSelection(ctx) {
   selectionListenersBound = true;
 
   document.addEventListener('mouseover', (e) => {
+    if (e.target.closest?.(OVERLAY_SELECTOR)) return;
     const block = e.target.closest?.('[data-block-index]');
-    if (!block || e.target.closest(OVERLAY_SELECTOR)) return;
-    if (isSelectedBlock(block)) return;
-    drawHoverPill(block);
+    if (block) {
+      if (isSelectedBlock(block)) clearHover();
+      else drawHover(block, blockSelectPayload(block));
+      return;
+    }
+    // Content inside a section keeps hover priority over the section itself.
+    if (e.target.closest?.('picture') || e.target.closest?.('[data-prose-index]')) {
+      clearHover();
+      return;
+    }
+    const section = sectionFromDescendant(e.target);
+    if (!section || isSelectedSection(section)) clearHover();
+    else drawHover(section, sectionSelectPayload(section));
   });
   document.addEventListener('mouseout', (e) => {
-    const toBlock = e.relatedTarget?.closest?.('[data-block-index]');
-    const toPill = e.relatedTarget?.closest?.('.qe-selected-pill.is-hover');
-    if (!toBlock && !toPill) clearHoverPill();
+    const to = e.relatedTarget;
+    if (hovered?.el.contains(to) || to?.closest?.('.qe-selected-pill.is-hover')) return;
+    clearHover();
   });
 
   document.addEventListener('mousedown', (e) => {
@@ -210,7 +250,7 @@ export function setupNodeSelection(ctx) {
       if (currentSelectedNode?.anchorType === 'table'
         && currentSelectedNode.proseIndex === node.proseIndex) return;
       blurActiveEditor();
-      clearHoverPill();
+      clearHover();
       activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node } });
       return;
     }
@@ -236,10 +276,10 @@ export function setupNodeSelection(ctx) {
       if (e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
-      const node = blockSelectPayload(pill);
+      const node = hovered?.node;
       if (!node) return;
       blurActiveEditor();
-      clearHoverPill();
+      clearHover();
       activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node } });
       return;
     }
