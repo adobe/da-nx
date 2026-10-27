@@ -1,3 +1,10 @@
+# [1.25.0](https://github.com/adobe/da-nx/compare/v1.24.0...v1.25.0) (2026-10-27)
+
+
+### Features
+
+* **picker:** add multiple selection to nx-picker ([#902](https://github.com/adobe/da-nx/issues/902)) ([89b6c06](https://github.com/adobe/da-nx/commit/89b6c0620ae3eff424c7d83f7f1f6dda96c782f6))
+
 # [1.24.0](https://github.com/adobe/da-nx/compare/v1.23.4...v1.24.0) (2026-10-27)
 
 
