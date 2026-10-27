@@ -39,6 +39,7 @@ export function buildAssetSelectorProps({
   externalBrief,
   onClose,
   handleSelection,
+  rail,
 }) {
   return {
     imsToken,
@@ -51,6 +52,7 @@ export function buildAssetSelectorProps({
     ...(externalBrief !== undefined && { externalBrief }),
     ...getApprovedOnlyFilterProps(repoConfig.approvedOnly),
     ...(onClose && { onClose }),
-    handleSelection,
+    ...(handleSelection && { handleSelection }),
+    ...(rail === true && { rail: true }),
   };
 }
