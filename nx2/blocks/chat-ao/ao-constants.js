@@ -24,6 +24,8 @@ export const CMA_BRIDGE_HTTP_BASE = 'https://aem-sites-claudebridge-va6.adobe.io
 
 export const AO_MANIFEST_ID = 'experience-workspace';
 
+export const AO_COMPONENT_CATALOG_URL = 'https://experience.adobe.com/solutions/Adobe-dxue-coworker-ui-experience/assets/component-catalog.9d298bd1fdec9715.json';
+
 // Mirrors AO's own server-side allowlist
 export const AO_UPLOAD_EXTENSIONS = [
   '.pdf', '.txt', '.md', '.docx', '.pptx',

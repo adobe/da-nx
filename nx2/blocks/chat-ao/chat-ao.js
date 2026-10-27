@@ -591,7 +591,7 @@ export default class NxChatAo extends LitElement {
         </form>
       </div>
       <p class="chat-disclaimer">
-        Responses are generated using AI, and may be inaccurate.
+        Responses are generated using AI, and may be inaccurate. Check before using. 
         <a href="${ADOBE_AI_GUIDELINES_URL}" target="_blank" rel="noopener noreferrer">AI User Guidelines</a>
       </p>
     `;
