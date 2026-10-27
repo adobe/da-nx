@@ -162,7 +162,7 @@ class NxPills extends LitElement {
 
   _renderPill(item) {
     const {
-      id, label, thumbnail, type, pinnable,
+      id, label, thumbnail, type, pinnable, highlighted,
     } = item;
     const action = this._renderAction(item);
     const labelEl = pinnable
@@ -175,7 +175,7 @@ class NxPills extends LitElement {
       : html`<span class="pill-label" title=${label}>${label}</span>`;
     const showTypeIcon = type === 'image' || type === 'file' || type === 'folder' || type === 'block' || type === 'text';
     return html`
-      <li class="pill">
+      <li class="pill ${highlighted ? 'highlighted' : ''}">
         ${action}
         ${showTypeIcon ? this._pillTypeIcon(type, label, thumbnail) : nothing}
         ${labelEl}
