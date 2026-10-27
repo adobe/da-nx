@@ -265,6 +265,21 @@ describe('rollout placeholders - resolver', () => {
       expect(await prepareSource(url)).to.deep.equal({});
       expect(url.sourceHtml).to.be.undefined;
     });
+
+    it('fails closed when the source cannot be read', async () => {
+      const failing = sinon.stub().callsFake(async (path) => (
+        path.endsWith('.json') ? okResp(CONFIG) : { ok: false, status: 500 }));
+      const rejecting = sinon.stub().callsFake(async (path) => {
+        if (path.endsWith('.json')) return okResp(CONFIG);
+        throw new Error('network');
+      });
+      const failed = urlFor('/en-nl');
+      const rejected = urlFor('/en-nl');
+      const { error } = await createRolloutResolver({ load: failing, sitePath: '/org/site' }).prepareSource(failed);
+      expect(error).to.include('could not read /org/site/langstore/en/a.html (500)');
+      const { error: netError } = await createRolloutResolver({ load: rejecting, sitePath: '/org/site' }).prepareSource(rejected);
+      expect(netError).to.include('could not read /org/site/langstore/en/a.html');
+    });
   });
 });
 
@@ -336,15 +351,17 @@ describe('rolloutLang with placeholders', () => {
     expect(posted('/eu/page.html')).to.equal('Page title | Fedex {{country}}');
   });
 
-  it('skips invalid destinations and finishes valid ones', async () => {
+  it('skips invalid destinations, finishes valid ones and stays retryable', async () => {
     CONFIG['en-to'].data.push({ key: 'country', value: 'dup' });
-    const { result } = run([{ code: '/en-nl' }, { code: '/en-to' }]);
+    const { lang, result } = run([{ code: '/en-nl' }, { code: '/en-to' }]);
     const { errors } = await result;
     CONFIG['en-to'].data.pop();
     expect(errors).to.have.length(1);
     expect(errors[0].error).to.include('/org/site/en-to/page.html').and.include('duplicates key "country"');
     expect(posted('/en-nl/page.html')).to.equal('Page title | Fedex Netherlands');
     expect(posted('/en-to/page.html')).to.be.undefined;
+    expect(lang.rollout).to.deep.equal({ status: 'not started', saved: 1 });
+    expect(lang.locales.map((locale) => locale.saved)).to.deep.equal([1, 0]);
   });
 
   it('copy helpers use prepared source html for overwrite and merge fallback', async () => {

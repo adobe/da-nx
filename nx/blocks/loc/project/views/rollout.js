@@ -86,6 +86,7 @@ class NxLocRollout extends LitElement {
 
     const queue = new Queue(timeoutWrapper, MAX_CONCURRENT_WRITES);
     await Promise.all(items.map((item) => queue.push(item)));
+    if (lang.rollout.status === 'rolling out') lang.rollout.status = 'ready';
     await saveStatus(this.state);
     this.requestUpdate();
   }

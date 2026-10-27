@@ -184,18 +184,17 @@ export async function rolloutLang({
   // Perform the actual rollout
   const rollout = await rolloutLangLocales(title, lang, urlsToSave, behavior, resolver);
   ({ errors, message, urls } = rollout);
-  if (errors) return { errors, message };
 
-  // The presumption is that no errors means success
-  lang.rollout.status = 'complete';
-  lang.rollout.saved = urls.length;
+  const saved = urls.filter((url) => url.status === 'success');
+  lang.rollout.status = errors ? 'not started' : 'complete';
+  lang.rollout.saved = saved.length;
   lang.locales.forEach((locale) => {
-    locale.saved = projectUrls.length;
+    locale.saved = saved.filter((url) => url.root === locale.code).length;
   });
 
   actions.requestUpdate();
 
-  return { };
+  return errors ? { errors, message } : {};
 }
 
 function getRolloutDetails(lang) {
