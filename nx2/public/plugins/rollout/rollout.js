@@ -4,7 +4,6 @@ import getStyle from 'https://da.live/nx/public/utils/styles.js';
 import getSvg from 'https://da.live/nx/public/utils/svg.js';
 import { mergeCopy, overwriteCopy } from '../../../../nx/blocks/loc/project/index.js';
 import { createRolloutResolver } from '../../../../nx/blocks/loc/utils/placeholders.js';
-import { setSdkToken } from '../../../utils/api.js';
 import { DA_ORIGIN } from '../../utils/constants.js';
 import getPrefixDetails from './index.js';
 
@@ -159,7 +158,6 @@ customElements.define('da-rollout', DaRollout);
 
 (async function init() {
   const { context, token } = await DA_SDK;
-  setSdkToken(token);
 
   const daRollout = document.createElement('da-rollout');
   daRollout.path = context.path;
