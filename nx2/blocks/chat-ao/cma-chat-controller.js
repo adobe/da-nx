@@ -12,7 +12,9 @@
 
 import { loadIms } from '../../utils/ims.js';
 import BaseChatController from './base-chat-controller.js';
-import { AO_FRAME, CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE } from './ao-constants.js';
+import {
+  AO_FRAME, AO_COMPONENT_CATALOG_URL, CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE,
+} from './ao-constants.js';
 import { getOrgId } from './utils/uploads.js';
 import { fetchSkills } from './utils/skills.js';
 
@@ -39,6 +41,8 @@ export default class CmaChatController extends BaseChatController {
     super({ onUpdate });
     this.setActivationKey(activationKey);
   }
+
+  _catalogUrl() { return AO_COMPONENT_CATALOG_URL; }
 
   // Activation key from the `ew.altHarness` site-config flag — rides the AUTH
   // frame for server-side validation. Trim: config-sheet values often carry

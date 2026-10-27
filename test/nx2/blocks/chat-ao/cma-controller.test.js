@@ -1,6 +1,10 @@
 import { expect } from '@esm-bundle/chai';
+import { render } from 'da-lit';
 import CmaChatController from '../../../../nx2/blocks/chat-ao/cma-chat-controller.js';
-import { CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
+import {
+  AO_COMPONENT_CATALOG_URL, CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE,
+} from '../../../../nx2/blocks/chat-ao/ao-constants.js';
+import { renderAssistantMessageBody } from '../../../../nx2/blocks/chat-ao/renderers.js';
 import { resetMockIms, setMockIms } from '../../../../nx2/test/mocks/ims.js';
 
 function reset() {
@@ -43,13 +47,87 @@ describe('cma-controller connection', () => {
     expect(controller._activationKey).to.equal(null);
   });
 
-  it('does not advertise an A2UI component catalog on a new session', async () => {
+  it('advertises the shared A2UI catalog even when connecting assigns the new session id', async () => {
     const { controller, sent } = makeController();
+    controller._ensureSocket = async () => {
+      controller._onSessionReady({ episode_id: 'ep-new' });
+    };
 
     await controller.sendMessage('hello bridge');
 
     expect(sent[0].type).to.equal('USER_INPUT');
+    expect(sent[0].catalogUrl).to.equal(AO_COMPONENT_CATALOG_URL);
+  });
+
+  it('does not resend the catalog for an established session', async () => {
+    const { controller, sent } = makeController();
+    controller._onSessionReady({ episode_id: 'ep-existing' });
+
+    await controller.sendMessage('continue');
+
     expect(sent[0]).to.not.have.property('catalogUrl');
+  });
+
+  it('advertises the catalog again after starting a new session', async () => {
+    const { controller, sent } = makeController();
+    const socket = controller._ws;
+    controller._onSessionReady({ episode_id: 'ep-existing' });
+    controller.startNewEpisode();
+    controller._ensureSocket = async () => { controller._ws = socket; };
+
+    await controller.sendMessage('new conversation');
+
+    expect(sent[0].catalogUrl).to.equal(AO_COMPONENT_CATALOG_URL);
+  });
+});
+
+describe('cma-controller FileList artifacts', () => {
+  beforeEach(reset);
+  afterEach(reset);
+
+  it('renders a bridge artifact and opens a file through the editor hash', async () => {
+    const { controller } = makeController();
+    const { href } = window.location;
+    const host = document.createElement('div');
+    try {
+      window.history.replaceState(null, '', '#/acme/site/index');
+      controller._handleServerEvent({
+        type: 'ui_artifact_created',
+        data: {
+          artifact: {
+            id: 'files-1',
+            a2ui_surface: {
+              components: [{
+                id: 'root',
+                component: 'FileList',
+                title: 'Pages to update',
+                items: [{ title: 'About us', path: '/acme/site/about.html' }],
+              }],
+            },
+            text_fallback: 'About us: /acme/site/about.html',
+          },
+        },
+      });
+      document.body.append(host);
+      render(renderAssistantMessageBody(controller._messages.at(-1)), host);
+      const element = host.querySelector('nx-file-list');
+      await element.updateComplete;
+      expect(element.shadowRoot.querySelector('h3').textContent).to.contain('Pages to update');
+      const changed = new Promise((resolve) => {
+        window.addEventListener('hashchange', resolve, { once: true });
+      });
+
+      element.shadowRoot.querySelector('a').click();
+      await changed;
+      await element.updateComplete;
+
+      expect(window.location.hash).to.equal('#/acme/site/about');
+      expect(element.shadowRoot.querySelector('a').getAttribute('aria-current')).to.equal('page');
+    } finally {
+      host.remove();
+      window.history.replaceState(null, '', href);
+      controller.destroy();
+    }
   });
 });
 

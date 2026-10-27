@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "description": "A titled list of DA content files. Each file opens in the current editor by changing the URL hash. Use only in Experience Workspace; paths must include the organization and site.",
+  "properties": {
+    "id": { "type": "string" },
+    "component": { "const": "FileList" },
+    "title": {
+      "type": "string",
+      "pattern": "\\S",
+      "description": "Heading chosen by the agent, for example Pages to update."
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "pattern": "\\S" },
+          "path": {
+            "type": "string",
+            "pattern": "^/(?!\\.{1,2}(?:/|$))[^\\s\\\\?#%:\\u0000-\\u001f\\u007f/]+/(?!\\.{1,2}(?:/|$))[^\\s\\\\?#%:\\u0000-\\u001f\\u007f/]+/(?!\\.{1,2}(?:/|$))[^\\s\\\\?#%:\\u0000-\\u001f\\u007f/]+(?:/(?!\\.{1,2}(?:/|$))[^\\s\\\\?#%:\\u0000-\\u001f\\u007f/]+)*$",
+            "description": "Absolute DA content path /org/site/folder/page.html, not a preview URL or site-relative path. The editor hash omits the .html suffix."
+          }
+        },
+        "required": ["title", "path"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["id", "component", "title", "items"],
+  "additionalProperties": false
+}
