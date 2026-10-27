@@ -127,3 +127,53 @@ describe('rollout view: handleRolloutLang', () => {
     expect(langs[0].rollout).to.deep.equal({ status: 'not started', saved: 2 });
   });
 });
+
+describe('rollout view: errors list', () => {
+  let originalFetch;
+
+  const makeHost = (langs) => {
+    const host = {
+      project: makeProject(),
+      _langs: langs,
+      requestUpdate: () => {},
+      dispatchEvent: sinon.stub(),
+    };
+    host.handleRolloutLang = proto.handleRolloutLang.bind(host);
+    return host;
+  };
+
+  beforeEach(() => {
+    setImsDetails('test-token');
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    sinon.restore();
+  });
+
+  it('clears the errors of an earlier rollout once a retry succeeds', async () => {
+    globalThis.fetch = makeFetch();
+    const lang = makeLang();
+    const host = makeHost([lang]);
+    host._errors = [{ error: 'Error saving /org/site/en-gb/b.html - 500' }];
+
+    await proto.handleRolloutLang.call(host, lang);
+
+    expect(host._errors).to.equal(undefined);
+  });
+
+  it('keeps the errors of every language in a group rollout', async () => {
+    globalThis.fetch = makeFetch({ failSave: '/b.html' });
+    const en = makeLang();
+    const de = { ...makeLang(), name: 'German', code: 'de', location: '/de', locales: [{ code: '/de-ch' }] };
+    const host = makeHost([en, de]);
+
+    await proto.handleRolloutGroup.call(host, { langs: [en, de] });
+
+    expect(host._errors.map((url) => url.destination)).to.deep.equal([
+      '/org/site/en-gb/b.html',
+      '/org/site/de-ch/b.html',
+    ]);
+  });
+});
