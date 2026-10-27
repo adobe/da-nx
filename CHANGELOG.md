@@ -1,3 +1,10 @@
+# [1.26.0](https://github.com/adobe/da-nx/compare/v1.25.0...v1.26.0) (2026-10-27)
+
+
+### Features
+
+* retain org on redirect to coworker ([#914](https://github.com/adobe/da-nx/issues/914)) ([e79af62](https://github.com/adobe/da-nx/commit/e79af62ec1a23f9e245c62ba05890df8bbb3c17b))
+
 # [1.25.0](https://github.com/adobe/da-nx/compare/v1.24.0...v1.25.0) (2026-10-27)
 
 
