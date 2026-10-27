@@ -18,6 +18,37 @@ so callers — including the `PANEL_EVENT.OPEN`/DA SDK `actions.setPrompt`
 paths documented there — don't need to know which element they got, and
 don't need to query for it either.
 
+## Input ownership
+
+`nx-ao-input` (`input.js` and `input.css`, within `chat-ao`) is a
+controller-free Lit element owning the draft, pills/attachments, file picker and
+drop handling, slash menu, prompt chooser, and voice recognition (stopped on
+disconnect). It has no controller, session/socket/history lifecycle, rail
+navigation, or document `SET_PROMPT` listener.
+
+The host supplies `blocked`, `altHarness`, `prompts`, `menuItems`, and
+`getSkills()`. `onSubmit({ text, context, attachments })` is the single
+synchronous submission boundary for both normal and slash-selected prompts.
+The input clears its draft and pills immediately after that callback, as
+before; there is no acknowledgement or handoff protocol. `onStop()`,
+`onInput()` (session warming), and `onMenuSelect(id)` notify the host; manage-menu
+actions remain host-owned.
+
+Public methods are `setPrompt(text, { autoSend? })`, `focusInput()`,
+`openPrompts()`, and `addItem(item)`; `draft` and `items` expose current input
+state without shadow-DOM queries. The optional `addEvent` must be supplied
+before mounting: `nx-chat-ao` explicitly passes `CHAT_EVENT.ADD_TO_CHAT`, keeping
+the existing self-managed pills' keyed selection behavior and cleanup. A
+standalone input uses an instance-unique event name for self-managed pills
+by default, rather than subscribing to the application's global context event.
+Pill activation bubbles through the input, and `nx-chat-ao` translates it to
+the editor's `HIGHLIGHT_SELECTION` event.
+
+`nx-chat-ao` remains the sole conversation/controller owner, including pending
+questions, plan approvals, permissions, history, and session controls. It also
+remains the only document `SET_PROMPT` subscriber and delegates its unchanged
+public `setPrompt()` API to the input.
+
 ## Session warming
 
 `AoChatController.warmSession()` (`ao-controller.js`) kicks the current
