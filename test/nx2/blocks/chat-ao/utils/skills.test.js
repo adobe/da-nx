@@ -6,12 +6,12 @@ import { resetMockIms, setMockIms } from '../../../../../nx2/test/mocks/ims.js';
 const cacheKey = (tenantId) => `da-chat-ao-skills--${tenantId}`;
 // fetchSkills() -> resolveManifestId() also caches per tenant+user; clear it too.
 const resolvedManifestCacheKey = (tenantId, userId) => `da-chat-ao-resolved-manifest--${tenantId}--${userId}`;
-const projectedProductContext = (tenantId) => [{ prodCtx: { owningEntity: tenantId } }];
+const projectedProductContext = [{ prodCtx: { owningEntity: 'other-org' } }];
 
 describe('loadCachedSkills', () => {
   beforeEach(() => {
     resetMockIms();
-    setMockIms({ projectedProductContext: projectedProductContext('org1') });
+    setMockIms({ ownerOrg: 'org1', projectedProductContext });
   });
 
   afterEach(() => {
@@ -30,8 +30,14 @@ describe('loadCachedSkills', () => {
 
   it('does not return another tenant\'s cached list', async () => {
     localStorage.setItem(cacheKey('org1'), JSON.stringify(['writeBlog']));
-    setMockIms({ projectedProductContext: projectedProductContext('org2') });
+    setMockIms({ ownerOrg: 'org2' });
 
+    expect(await loadCachedSkills()).to.equal(null);
+  });
+
+  it('does not read a cached list when the active IMS organization is missing', async () => {
+    localStorage.setItem(cacheKey('org1'), JSON.stringify(['writeBlog']));
+    setMockIms({ ownerOrg: null });
     expect(await loadCachedSkills()).to.equal(null);
   });
 
@@ -70,7 +76,7 @@ describe('fetchSkills', () => {
 
   beforeEach(() => {
     resetMockIms();
-    setMockIms({ projectedProductContext: projectedProductContext('org1') });
+    setMockIms({ ownerOrg: 'org1', projectedProductContext });
     localStorage.removeItem(cacheKey('org1'));
     localStorage.removeItem(cacheKey('org2'));
     sessionStorage.removeItem(resolvedManifestCacheKey('org1', defaultUserId));
@@ -92,6 +98,7 @@ describe('fetchSkills', () => {
 
     expect(lastCall().url).to.equal(`${AO_HTTP_BASE}/api/v1/skills?manifest_id=${AO_MANIFEST_ID}`);
     expect(lastCall().headers.authorization).to.equal('Bearer test-token');
+    expect(lastCall().headers['x-tenant-id']).to.equal('org1');
   });
 
   it('filters out hidden and non-invocable skills, keeping valid names', async () => {
@@ -123,7 +130,7 @@ describe('fetchSkills', () => {
     await fetchSkills();
 
     expect(await loadCachedSkills()).to.deep.equal(['writeBlog', 'summarize']);
-    setMockIms({ projectedProductContext: projectedProductContext('org2') });
+    setMockIms({ ownerOrg: 'org2' });
     expect(await loadCachedSkills()).to.equal(null);
   });
 
@@ -131,6 +138,13 @@ describe('fetchSkills', () => {
     installFetch({ status: 500 });
 
     expect(await fetchSkills()).to.equal(null);
+  });
+
+  it('does not request skills without an active IMS organization', async () => {
+    installFetch();
+    setMockIms({ ownerOrg: null });
+    expect(await fetchSkills()).to.equal(null);
+    expect(calls).to.have.length(0);
   });
 
   it('returns null when the fetch itself throws', async () => {

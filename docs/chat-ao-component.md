@@ -601,11 +601,19 @@ interrupted still reaches `_done()` via `TURN_ABORTED`, same as a normal
 completion — `_done()` unconditionally clears whichever card was pending, so
 it doesn't linger after the turn it belonged to is gone.
 
-## Coworker navigation
+## IMS organization
+
+AO and CMA authentication and REST requests use the logged-in IMS profile's
+`ownerOrg` as `x-tenant-id`. Both da-live and Nexter request the
+`additional_info.ownerOrg` scope, and `loadIms()` preserves this profile field.
+Skills and resolved-manifest caches use the same organization ID. A missing
+organization is rejected rather than inferred from product contexts; personal
+profiles must switch to an organization account. The existing `tenantId` sent
+as `x-org-name` is a separate value and is unchanged.
 
 `utils/coworker-nav.js` loads the IMS profile and builds Coworker navigation
 using that IMS `tenantId` routing name (for example,
-`sitesinternal`), not the API organization ID or the DA content organization. Manage
+`sitesinternal`), not the `ownerOrg` ID or the DA content organization. Manage
 Coworker, Experience Context, and Continue in Coworker all use
 `https://experience.adobe.com/#/@{tenantId}/coworker/i/{destination}`. The profile
 is captured in a navigation resolver preloaded when chat connects, keeping IMS

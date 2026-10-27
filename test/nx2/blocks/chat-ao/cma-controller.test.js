@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import BaseChatController from '../../../../nx2/blocks/chat-ao/base-chat-controller.js';
 import CmaChatController from '../../../../nx2/blocks/chat-ao/cma-chat-controller.js';
 import { CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
 import { resetMockIms, setMockIms } from '../../../../nx2/test/mocks/ims.js';
@@ -20,6 +21,53 @@ function makeController({ activationKey = 'act-key', context = { org: 'o', site:
   controller._ws = { send: (msg) => sent.push(JSON.parse(msg)), close: () => { } };
   return { controller, updates, sent };
 }
+
+[
+  { Controller: BaseChatController, name: 'AO', wsBase: 'wss://agent-orchestrator-stage-eu1.adobe.io' },
+  { Controller: CmaChatController, name: 'CMA', wsBase: CMA_BRIDGE_WS_BASE },
+].forEach(({ Controller, name, wsBase: expectedWsBase }) => {
+  describe(`${name} connection IMS organization`, () => {
+    beforeEach(reset);
+    afterEach(reset);
+
+    it('authenticates with the active profile organization, independently of DA org and region', async () => {
+      setMockIms({
+        ownerOrg: 'active-org@AdobeOrg',
+        projectedProductContext: [{
+          prodCtx: {
+            owningEntity: 'other-org@AdobeOrg',
+            serviceCode: 'acp',
+            statusCode: 'ACTIVE',
+            fulfillable_data: JSON.stringify({ region: 'EU1', environment: 'STAGE' }),
+          },
+        }],
+      });
+      const controller = new Controller({ onUpdate: () => {} });
+      controller.setContext({ org: 'da-content-org', site: 'www' });
+
+      const { authFrame, wsBase } = await controller._connectionInfo();
+
+      expect(authFrame['x-tenant-id']).to.equal('active-org@AdobeOrg');
+      expect(authFrame['x-site']).to.equal('da-content-org/www');
+      expect(wsBase).to.equal(expectedWsBase);
+
+      setMockIms({ ownerOrg: 'switched-org@AdobeOrg' });
+      expect((await controller._connectionInfo()).authFrame['x-tenant-id'])
+        .to.equal('switched-org@AdobeOrg');
+    });
+
+    it('rejects authentication without an active IMS organization', async () => {
+      setMockIms({
+        ownerOrg: null,
+        projectedProductContext: [{ prodCtx: { owningEntity: 'other-org@AdobeOrg' } }],
+      });
+      const controller = new Controller({ onUpdate: () => {} });
+      const error = await controller._connectionInfo().catch((err) => err);
+      expect(error).to.be.instanceOf(Error);
+      expect(error.message).to.include('No active IMS organization.');
+    });
+  });
+});
 
 describe('cma-controller connection', () => {
   beforeEach(reset);
@@ -127,7 +175,8 @@ describe('cma-controller attachments', () => {
   beforeEach(() => {
     reset();
     setMockIms({
-      projectedProductContext: [{ prodCtx: { owningEntity: 'tenant-123' } }],
+      ownerOrg: 'tenant-123',
+      projectedProductContext: [{ prodCtx: { owningEntity: 'other-org' } }],
     });
   });
   afterEach(reset);
