@@ -169,6 +169,7 @@ The default export is the base path `/adobe/assets`.
 - `buildFeatureSet(isDmEnabled)` returns `upload`, `collections`, `detail-panel`, and `advisor`, plus `dynamic-media` when DM is enabled.
 - `buildAssetSelectorProps({ imsToken, repoConfig, externalBrief, onClose, handleSelection, rail })` returns the props for `renderAssetSelector`, including the approved-only filter when enabled. For author-tier repos it also sets `path` to the last remembered folder of that repository. `handleSelection` is omitted when not supplied, for a display-only selector.
 - `rail: true` renders the selector in rail (side-panel) layout instead of a modal. The caller chooses the mode; it is not a site config key.
+- `dragAndDrop: true` adds `acvConfig` with `dragOptions` (all asset types) and `selectionType: 'multiple'`, so assets can be dragged out of the selector. Drop targets read `JSON.parse(e.dataTransfer.getData(ASSET_DRAG_DATA_TYPE))`, an array of assets, where `ASSET_DRAG_DATA_TYPE` is `'collectionviewdata'`.
 - `rememberAssetFolder(repoConfig, assetPath)` remembers the folder of a selected asset per repository, in memory, so the picker reopens there. Delivery-tier repos have no folder structure and are ignored.
 
 ### `repository-config.js`
