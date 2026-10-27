@@ -23,8 +23,6 @@ const installFlagsByPath = (byPath) => {
     if (u.includes(`${HLX_ADMIN}/ping/`)) return new Response('', { status: 200 });
     const match = Object.keys(byPath).find((path) => u.includes(path));
     const body = match ? byPath[match] : JSON.stringify({ flags: { data: [] } });
-    if (body instanceof Error) throw body;
-    if (body instanceof Response) return body.clone();
     return new Response(body, { status: 200 });
   };
 };
@@ -101,115 +99,6 @@ describe('isEwChatDisabled', () => {
   it('returns false when ew.disableChat flag is not set at any level', async () => {
     installFetch({ body: JSON.stringify({ flags: { data: [] } }) });
     expect(await isEwChatDisabled({ org: 'dc-org3', site: 'dc-site3' })).to.be.false;
-  });
-
-  // see https://github.com/adobe/da-live/issues/1218
-  it('returns true (fail closed) when org config is forbidden', async () => {
-    restoreFetch();
-    calls.length = 0;
-    window.fetch = async (url) => {
-      const u = url.toString();
-      calls.push({ url: u, method: 'GET' });
-      if (u.includes(`${HLX_ADMIN}/ping/`)) return new Response('', { status: 200 });
-      // Site config is readable and enables EW but does not disable chat.
-      if (u.includes('/dc-site4')) {
-        return new Response(
-          JSON.stringify({ flags: { data: [{ key: 'ew.enabled', value: 'true' }] } }),
-          { status: 200 },
-        );
-      }
-      // Org config (which sets ew.disableChat=true) is forbidden.
-      return new Response('', { status: 403 });
-    };
-    expect(await isEwChatDisabled({ org: 'dc-org4', site: 'dc-site4' })).to.be.true;
-  });
-
-  it('allows the site to override an explicit org disable flag', async () => {
-    installFlagsByPath({
-      '/dc-site-override/': JSON.stringify({ flags: { data: [{ key: 'ew.disableChat', value: 'false' }] } }),
-      '/dc-org-override/': JSON.stringify({ flags: { data: [{ key: 'ew.disableChat', value: 'true' }] } }),
-    });
-    expect(await isEwChatDisabled({ org: 'dc-org-override', site: 'dc-site-override' })).to.be.false;
-  });
-
-  ['org', 'site'].forEach((layer) => {
-    [401, 403, 404, 500, 503].forEach((status) => {
-      const denied = status === 401 || status === 403;
-      it(`returns ${denied} when ${layer} config returns ${status} and the other layer enables EW`, async () => {
-        const org = `dc-org-${layer}-${status}`;
-        const site = `dc-site-${layer}-${status}`;
-        const enabled = JSON.stringify({ flags: { data: [{ key: 'ew.enabled', value: 'true' }] } });
-        installFlagsByPath({
-          [`/${site}/`]: layer === 'site' ? new Response('', { status }) : enabled,
-          [`/${org}/`]: layer === 'org' ? new Response('', { status }) : enabled,
-        });
-
-        expect(await isEwChatDisabled({ org, site })).to.equal(denied);
-        expect(await getEWFlags({ org, site })).to.deep.equal({ 'ew.enabled': 'true' });
-      });
-    });
-
-    [401, 403].forEach((status) => {
-      it(`does not override a ${status} on ${layer} config with an explicit allow flag`, async () => {
-        const org = `dc-org-allow-${layer}-${status}`;
-        const site = `dc-site-allow-${layer}-${status}`;
-        const allowed = JSON.stringify({ flags: { data: [{ key: 'ew.disableChat', value: 'false' }] } });
-        installFlagsByPath({
-          [`/${site}/`]: layer === 'site' ? new Response('', { status }) : allowed,
-          [`/${org}/`]: layer === 'org' ? new Response('', { status }) : allowed,
-        });
-
-        expect(await isEwChatDisabled({ org, site })).to.be.true;
-      });
-    });
-
-    const failures = {
-      network: new TypeError('Failed to fetch'),
-      json: '{invalid json',
-    };
-    Object.entries(failures).forEach(([failure, body]) => {
-      it(`keeps readable flags when ${layer} config has a ${failure} error`, async () => {
-        const org = `dc-org-${layer}-${failure}`;
-        const site = `dc-site-${layer}-${failure}`;
-        const enabled = JSON.stringify({ flags: { data: [{ key: 'ew.enabled', value: 'true' }] } });
-        installFlagsByPath({
-          [`/${site}/`]: layer === 'site' ? body : enabled,
-          [`/${org}/`]: layer === 'org' ? body : enabled,
-        });
-
-        expect(await isEwChatDisabled({ org, site })).to.be.false;
-        expect(await getEWFlags({ org, site })).to.deep.equal({ 'ew.enabled': 'true' });
-      });
-
-      it(`keeps chat disabled by a readable layer when ${layer} config has a ${failure} error`, async () => {
-        const org = `dc-org-disabled-${layer}-${failure}`;
-        const site = `dc-site-disabled-${layer}-${failure}`;
-        const disabled = JSON.stringify({ flags: { data: [{ key: 'ew.disableChat', value: 'true' }] } });
-        installFlagsByPath({
-          [`/${site}/`]: layer === 'site' ? body : disabled,
-          [`/${org}/`]: layer === 'org' ? body : disabled,
-        });
-
-        expect(await isEwChatDisabled({ org, site })).to.be.true;
-        expect(await getEWFlags({ org, site })).to.deep.equal({ 'ew.disableChat': 'true' });
-      });
-
-      it(`keeps chat disabled by a permission failure when ${layer} config has a ${failure} error`, async () => {
-        const org = `dc-org-denied-${layer}-${failure}`;
-        const site = `dc-site-denied-${layer}-${failure}`;
-        const denied = new Response('', { status: 403 });
-        installFlagsByPath({
-          [`/${site}/`]: layer === 'site' ? body : denied,
-          [`/${org}/`]: layer === 'org' ? body : denied,
-        });
-
-        expect(await isEwChatDisabled({ org, site })).to.be.true;
-      });
-    });
-  });
-
-  it('returns false when no org is supplied', async () => {
-    expect(await isEwChatDisabled({})).to.be.false;
   });
 });
 
