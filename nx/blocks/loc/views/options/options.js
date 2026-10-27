@@ -1,7 +1,15 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
 import { fetchConfig } from '../../utils/utils.js';
-import { getAllActions, formatLangs, formatConfig, finalizeOptions, getCustomOptions } from './utils/utils.js';
+import {
+  getAllActions,
+  formatLangs,
+  formatConfig,
+  finalizeOptions,
+  getCustomOptions,
+  restoreLangs,
+  restoreOptions,
+} from './utils/utils.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -45,10 +53,13 @@ class NxLocOptions extends LitElement {
     this._siteConfig = config;
 
     // Site options that can hold current selections
-    this._siteOptions = options;
+    this._siteOptions = restoreOptions({ options, savedOptions: this.project.options, config });
 
     // Langs have information inside them
-    this._siteLangs = formatLangs(sheets.languages.data, config);
+    this._siteLangs = restoreLangs({
+      langs: formatLangs(sheets.languages.data, config),
+      savedLangs: this.project.langs,
+    });
 
     // Distill down available lang actions into a single list.
     this._actions = getAllActions(this._siteLangs);
@@ -252,7 +263,7 @@ class NxLocOptions extends LitElement {
     return html`
       <div class="nx-loc-fieldgroup">
         <p>${label}</p>
-        <sl-select name="${property}" value="${values[0]}" @change=${this.handleChangeOption}>
+        <sl-select name="${property}" value="${this._siteOptions[property] ?? values[0]}" @change=${this.handleChangeOption}>
           ${values.map((value) => html`<option>${value}</option>`)}
         </sl-select>
       </div>`;

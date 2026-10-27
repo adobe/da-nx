@@ -48,8 +48,10 @@ async function renderOptions(project) {
 const selectValue = (el, name) => el.shadowRoot
   .querySelector(`sl-select[name="${name}"]`)
   .getAttribute('value');
-const activeLocales = (el) => [...el.shadowRoot.querySelectorAll('.locale-list li.active span')]
-  .map((span) => span.textContent);
+const activeLocales = (el, code) => {
+  const group = el.shadowRoot.querySelector(`sl-select[name="lang-${code}-action"]`).closest('.lang-group');
+  return [...group.querySelectorAll('.locale-list li.active span')].map((span) => span.textContent);
+};
 
 describe('nx-loc-options', () => {
   let originalFetch;
@@ -86,7 +88,7 @@ describe('nx-loc-options', () => {
 
     expect(selectValue(el, 'lang-en-action')).to.equal('skip');
     expect(selectValue(el, 'lang-de-action')).to.equal('rollout');
-    expect(activeLocales(el)).to.deep.equal(['ch/de']);
+    expect(activeLocales(el, 'de')).to.deep.equal(['ch/de']);
     expect(selectValue(el, 'rollout.conflict.behavior')).to.equal('merge');
     expect(selectValue(el, 'translation.service.all.env')).to.equal('stage');
   });
