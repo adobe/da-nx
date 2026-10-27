@@ -1,3 +1,10 @@
+# [1.24.0](https://github.com/adobe/da-nx/compare/v1.23.4...v1.24.0) (2026-10-27)
+
+
+### Features
+
+* shared card ([#899](https://github.com/adobe/da-nx/issues/899)) ([1fe9cce](https://github.com/adobe/da-nx/commit/1fe9cce4838651a55a2f50dab3e0b32246f66738))
+
 ## [1.23.4](https://github.com/adobe/da-nx/compare/v1.23.3...v1.23.4) (2026-10-27)
 
 
