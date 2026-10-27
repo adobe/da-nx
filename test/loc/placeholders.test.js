@@ -9,7 +9,6 @@ import {
   getLocaleValues,
   getTabName,
   hasTokens,
-  isSafeUrl,
   parseRolloutConfig,
 } from '../../nx/blocks/loc/utils/placeholders.js';
 import { rolloutLang } from '../../nx/blocks/loc/views/rollout/index.js';
@@ -22,7 +21,6 @@ const CONFIG = {
   ':type': 'multi-sheet',
   'nl-nl': sheet([
     { key: 'country', value: 'Nederland' },
-    { key: 'supportUrl', value: 'https://www.fedex.com/nl-nl/customer-support.html' },
     { key: 'countryCode', value: 'nl' },
   ]),
   'en-nl': sheet([{ key: 'country', value: 'Netherlands' }]),
@@ -65,10 +63,27 @@ describe('rollout placeholders - config', () => {
     expect(bad([{ key: '1a', value: 'x' }])).to.include('invalid key');
     expect(bad([{ key: 'a' }])).to.include('no value');
     expect(bad([{ key: 'a', value: 3 }])).to.include('must be text');
-    expect(bad([{ key: 'a', value: '{{b}}' }])).to.include('cannot contain placeholders');
     expect(bad([{ key: 'a', value: 'x' }], { total: 5 })).to.include('incomplete');
     expect(valuesFor('/x', { ':names': ['x'], x: { rows: [] } }).error).to.include('not a valid sheet');
     expect(valuesFor('/x', { data: [] }).error).to.include('one named tab per locale');
+  });
+
+  it('accepts names in any script with limited punctuation', () => {
+    const ok = ['Côte d\'Ivoire', 'Nederland', 'São Tomé', 'Ελλάδα', '日本', 'Saint-Martin, Fr.', 'Zone 3', ''];
+    ok.forEach((value) => {
+      expect(valuesFor('/x', { ':names': ['x'], x: sheet([{ key: 'a', value }]) }).values.get('a')).to.equal(value);
+    });
+  });
+
+  it('rejects values outside the grammar', () => {
+    const unsafe = [
+      '<b>x</b>', 'a"b', 'a&b', 'javascript:alert(1)', 'https://a.com', 'a/b', 'a\\b', 'a=b',
+      'a?b', 'a#b', '50%', '{{b}}', 'a}b', 'line\nbreak', 'tab\there', 'a\u0000', 'x'.repeat(101),
+    ];
+    unsafe.forEach((value) => {
+      const { error } = valuesFor('/x', { ':names': ['x'], x: sheet([{ key: 'a', value }]) });
+      expect(error, value).to.include('may only contain letters, digits, spaces');
+    });
   });
 
   it('allows empty values and skips blank rows', () => {
@@ -86,51 +101,51 @@ describe('rollout placeholders - HTML', () => {
     expect(content.startsWith('<body>')).to.be.true;
   });
 
-  it('resolves metadata, attributes, URLs and URL lists', () => {
-    const vals = values({ country: 'Nederland', supportUrl: 'https://www.fedex.com/nl/support.html', countryCode: 'nl nl/x' });
+  it('resolves text, metadata, alt, title and link segments', () => {
+    const vals = values({ country: 'Côte d\'Ivoire', countryCode: 'en-ci' });
     const html = doc(`
       <div class="metadata"><div><div>title</div><div>Fedex {{ country }}</div></div>
       <div><div>canonical</div><div>/shipping/{{countryCode}}</div></div></div>
-      <p><a href="{{supportUrl}}" title="{{country}}" aria-label="{{country}}" data-x="{{country}}">Help</a></p>
-      <p><a href="https://www.fedex.com/shipping/{{countryCode}}?c={{countryCode}}#{{countryCode}}">x</a></p>
-      <picture><source srcset="/img/{{countryCode}}.webp 1x, /img/b.webp 2x"><img src="/img/a.png" alt="{{country}} map"></picture>`);
+      <p><a href="https://www.fedex.com/shipping/{{countryCode}}/x.html?c={{countryCode}}#{{countryCode}}" title="{{country}}">Help</a></p>
+      <img src="/img/{{countryCode}}.png" alt="{{country}} map">`);
     const { content, errors } = expandHtml({ content: html, values: vals });
     expect(errors).to.be.undefined;
     const out = parse(content);
     const metaCells = out.querySelectorAll('.metadata > div > div:last-child');
-    expect(metaCells[0].textContent).to.equal('Fedex Nederland');
-    expect(metaCells[1].textContent).to.equal('/shipping/nl%20nl%2Fx');
-    const [support, link] = out.querySelectorAll('a');
-    expect(support.getAttribute('href')).to.equal('https://www.fedex.com/nl/support.html');
-    expect(support.getAttribute('title')).to.equal('Nederland');
-    expect(support.getAttribute('aria-label')).to.equal('Nederland');
-    expect(support.dataset.x).to.equal('Nederland');
-    expect(link.getAttribute('href')).to.equal('https://www.fedex.com/shipping/nl%20nl%2Fx?c=nl%20nl%2Fx#nl%20nl%2Fx');
-    expect(out.querySelector('source').getAttribute('srcset')).to.equal('/img/nl%20nl%2Fx.webp 1x, /img/b.webp 2x');
-    expect(out.querySelector('img').getAttribute('alt')).to.equal('Nederland map');
+    expect(metaCells[0].textContent).to.equal('Fedex Côte d\'Ivoire');
+    expect(metaCells[1].textContent).to.equal('/shipping/en-ci');
+    const link = out.querySelector('a');
+    expect(link.getAttribute('href')).to.equal('https://www.fedex.com/shipping/en-ci/x.html?c=en-ci#en-ci');
+    expect(link.getAttribute('title')).to.equal('Côte d\'Ivoire');
+    expect(out.querySelector('img').getAttribute('src')).to.equal('/img/en-ci.png');
+    expect(out.querySelector('img').getAttribute('alt')).to.equal('Côte d\'Ivoire map');
   });
 
-  it('treats spaced tokens as part of URLs in srcset and text', () => {
-    const vals = values({ code: 'nl', country: 'Trinidad & Tobago#info' });
+  it('leaves tokens in unsupported places unchanged', () => {
+    const vals = values({ country: 'Tonga', code: 'to' });
     const html = doc(`
-      <picture><source srcset="/img/{{ code }}.webp 1x, /img/{{ code }}@2x.webp 2x"></picture>
-      <p>/search?q={{ country }}</p>`);
+      <p aria-label="{{country}}" data-x="{{country}}" style="--c: {{code}}" onclick="{{code}}">x</p>
+      <picture><source srcset="/img/{{code}}.webp 1x"></picture>
+      <script>var c = '{{country}}';</script>
+      <template><p>{{country}}</p></template>`);
     const { content, errors } = expandHtml({ content: html, values: vals });
     expect(errors).to.be.undefined;
     const out = parse(content);
-    expect(out.querySelector('source').getAttribute('srcset')).to.equal('/img/nl.webp 1x, /img/nl@2x.webp 2x');
-    expect(out.querySelector('p').textContent).to.equal(`/search?q=${encodeURIComponent('Trinidad & Tobago#info')}`);
-    const missing = expandHtml({ content: doc('<img srcset="/img/{{ nope }}.webp 1x">'), values: vals });
-    expect(missing.errors.join(' ')).to.include('missing value for {{nope}}');
+    const p = out.querySelector('main > p');
+    ['aria-label', 'data-x'].forEach((name) => expect(p.getAttribute(name)).to.equal('{{country}}'));
+    expect(p.getAttribute('style')).to.equal('--c: {{code}}');
+    expect(p.getAttribute('onclick')).to.equal('{{code}}');
+    expect(out.querySelector('source').getAttribute('srcset')).to.equal('/img/{{code}}.webp 1x');
+    expect(out.querySelector('script').textContent).to.include('{{country}}');
+    expect(out.querySelector('template').innerHTML).to.include('{{country}}');
   });
 
-  it('keeps special characters literal', () => {
-    const tricky = '<b>"Q" & \'A\'</b> $& $1 / ü\nnext';
-    const { content } = expandHtml({ content: doc('<p title="{{v}}">{{v}}</p>'), values: values({ v: tricky }) });
+  it('keeps allowed punctuation literal', () => {
+    const v = 'Côte d\'Ivoire, St. Kitts-Nevis 2';
+    const { content } = expandHtml({ content: doc('<p title="{{v}}">{{v}}</p>'), values: values({ v }) });
     const p = parse(content).querySelector('p');
-    expect(p.textContent).to.equal(tricky);
-    expect(p.getAttribute('title')).to.equal(tricky);
-    expect(p.children.length).to.equal(0);
+    expect(p.textContent).to.equal(v);
+    expect(p.getAttribute('title')).to.equal(v);
   });
 
   it('leaves DA system metadata untouched', () => {
@@ -142,27 +157,20 @@ describe('rollout placeholders - HTML', () => {
     expect(out.querySelector('.da-metadata').textContent).to.include('{{country}}');
   });
 
-  it('reports missing values, unsafe URLs, unsafe contexts and split tokens', () => {
+  it('reports missing values, unsafe link use and split tokens', () => {
     const run = (main, vals = {}) => expandHtml({ content: doc(main), values: values(vals) }).errors?.join(' ');
     expect(run('<h1>{{country}}</h1>')).to.include('missing value for {{country}} (text in <h1>)');
-    expect(run('<a href="{{u}}">x</a>', { u: 'javascript:alert(1)' })).to.include('not a safe URL');
-    expect(run('<a href="{{u}}/x">x</a>', { u: 'https://a.com' })).to.include('must be the whole URL');
-    expect(run('<p style="color: {{c}}">x</p>', { c: 'red' })).to.include('not supported in style');
-    expect(run('<p onclick="{{c}}">x</p>', { c: 'a' })).to.include('not supported in onclick');
+    expect(run('<a href="{{u}}">x</a>', { u: 'to' })).to.include('{{u}} must come after the start of a link');
+    expect(run('<a href=" {{u}}/x">x</a>', { u: 'to' })).to.include('{{u}} must come after the start of a link');
+    expect(run('<a href="https://{{u}}.fedex.com/x">x</a>', { u: 'to' })).to.include('{{u}} must come after');
+    expect(run('<a href="https://fedex.com{{u}}">x</a>', { u: 'to' })).to.include('{{u}} must come after');
+    expect(run('<a href="mailto:{{u}}@fedex.com">x</a>', { u: 'to' })).to.include('{{u}} must come after');
+    expect(run('<a href="//{{u}}.fedex.com/x">x</a>', { u: 'to' })).to.include('{{u}} must come after');
+    expect(run('<a href="//fedex.com/{{u}}">x</a>', { u: 'to' })).to.be.undefined;
+    expect(run('<a href="https://fedex.com/{{u}}">x</a>', { u: 'to' })).to.be.undefined;
+    expect(run('<a href="/x/{{u}}">x</a>', { u: 'Côte d\'Ivoire' })).to.include('{{u}} in a link may only contain');
+    expect(run('<img src="/x/{{u}}.png">', { u: 'a.b' })).to.include('{{u}} in a link may only contain');
     expect(run('<p>{{<strong>country</strong>}}</p>', { country: 'Tonga' })).to.include('split by formatting (<p>)');
-    expect(run('<p>{{c}}</p>', { c: 'javascript:alert(1)' })).to.include('not a safe value');
-    expect(run('<template><p>{{missing}}</p></template>')).to.include('not supported in content of <template>');
-    expect(run('<template><template><a href="{{u}}">x</a></template></template>', { u: '/x' }))
-      .to.include('not supported in content of <template>');
-  });
-
-  it('validates whole URLs against the safe link policy', () => {
-    expect(isSafeUrl('https://a.com')).to.be.true;
-    expect(isSafeUrl('/relative')).to.be.true;
-    expect(isSafeUrl('mailto:a@b.com')).to.be.true;
-    expect(isSafeUrl('javascript:alert(1)')).to.be.false;
-    expect(isSafeUrl('data:text/html,x')).to.be.false;
-    expect(isSafeUrl('https://a.com/\nx')).to.be.false;
   });
 });
 
@@ -172,18 +180,15 @@ describe('rollout placeholders - JSON', () => {
       ':names': ['a', 'b'],
       ':type': 'multi-sheet',
       a: { total: 1, offset: 0, limit: 1, data: [{ title: 'Fedex {{country}}', n: 1, ok: true, empty: null }] },
-      b: { total: 1, offset: 0, limit: 1, data: [{ link: '{{supportUrl}}', path: '/x/{{country}}', spaced: '/search?q={{ country }}', q: 'say "{{country}}"' }] },
+      b: { total: 1, offset: 0, limit: 1, data: [{ path: '/x/{{code}}', q: 'say "{{country}}"' }] },
     };
-    const vals = values({ country: 'Côte "d\'Ivoire"/\n', supportUrl: 'https://fedex.com/ci' });
+    const vals = values({ country: 'Côte d\'Ivoire', code: 'en-ci' });
     const { content } = expandJson({ content: JSON.stringify(json), values: vals });
     const out = JSON.parse(content);
     expect(out[':names']).to.deep.equal(['a', 'b']);
     expect(out.a.total).to.equal(1);
-    expect(out.a.data[0]).to.deep.equal({ title: 'Fedex Côte "d\'Ivoire"/\n', n: 1, ok: true, empty: null });
-    expect(out.b.data[0].link).to.equal('https://fedex.com/ci');
-    expect(out.b.data[0].path).to.equal(`/x/${encodeURIComponent('Côte "d\'Ivoire"/\n')}`);
-    expect(out.b.data[0].spaced).to.equal(`/search?q=${encodeURIComponent('Côte "d\'Ivoire"/\n')}`);
-    expect(out.b.data[0].q).to.equal('say "Côte "d\'Ivoire"/\n"');
+    expect(out.a.data[0]).to.deep.equal({ title: 'Fedex Côte d\'Ivoire', n: 1, ok: true, empty: null });
+    expect(out.b.data[0]).to.deep.equal({ path: '/x/en-ci', q: 'say "Côte d\'Ivoire"' });
   });
 
   it('reports missing values with their location', () => {
