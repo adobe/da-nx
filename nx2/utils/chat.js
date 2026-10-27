@@ -4,6 +4,7 @@ import { getCoworkerConfig } from './ewFlags.js';
 export const CHAT_EVENT = {
   // Chat -> document: notifications chat dispatches when something happened.
   AGENT_CHANGE: 'nx-agent-change',
+  TURN_COMPLETED: 'nx-chat-turn-completed',
   HIGHLIGHT_SELECTION: 'nx-highlight-selection',
 
   // document -> chat: commands other components dispatch for chat to act on.

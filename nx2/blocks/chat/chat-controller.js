@@ -87,9 +87,10 @@ export function migrateHistory(messages) {
 }
 
 export default class ChatController {
-  constructor({ onUpdate, onToolDone }) {
+  constructor({ onUpdate, onToolDone, onTurnCompleted }) {
     this._onUpdate = onUpdate;
     this._onToolDone = onToolDone;
+    this._onTurnCompleted = onTurnCompleted;
     this._sessionId = crypto.randomUUID();
     this._currentTurnId = crypto.randomUUID();
     // toolCallIds already submitted to the server in a batch — prevents a
@@ -183,20 +184,29 @@ export default class ChatController {
     }
   }
 
-  _done() {
+  _finishTurn(status, turn = this._activeTurn) {
+    if (!turn || turn !== this._activeTurn) return;
+    if (status === 'completed' && this._awaitingParts().length) return;
+    this._activeTurn = undefined;
+    this._onTurnCompleted?.({ ...turn, status });
+  }
+
+  _done(status = 'completed', turn = this._activeTurn) {
+    if (turn && turn !== this._activeTurn) return;
     this._abortController = null;
     this._thinking = false;
     this._streamingText = undefined;
     this._update();
+    this._finishTurn(status, turn);
   }
 
   stop() {
     this._abortController?.abort();
-    this._done();
+    this._done('aborted');
   }
 
   async clear() {
-    if (this._thinking) this.stop();
+    if (this._activeTurn || this._thinking) this.stop();
     this._messages = undefined;
     this._streamingText = undefined;
     this._autoApprovedTools = new Set();
@@ -333,6 +343,14 @@ export default class ChatController {
   approveToolCall = async (toolCallId, approved, always = false) => {
     const part = this._findToolPart(toolCallId);
     if (!part || part.state !== TOOL_STATE.AWAITING_APPROVAL) return;
+    if (!this._activeTurn) {
+      const { org, site, path } = this._context ?? {};
+      const message = this._messages.find((m) => Array.isArray(m.content)
+        && m.content.some((p) => p.toolCallId === toolCallId));
+      this._activeTurn = {
+        org, site, path, sessionId: this._sessionId, turnId: message?.turnId ?? this._currentTurnId,
+      };
+    }
 
     if (always && approved) {
       this._autoApprovedTools ??= new Set();
@@ -364,14 +382,16 @@ export default class ChatController {
 
     this._thinking = true;
     this._update();
+    const turn = this._activeTurn;
     try {
       await this._stream(this._pageContextForAgent());
     } catch (err) {
       if (err.name !== 'AbortError') {
         this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
       }
+      this._done(err.name === 'AbortError' ? 'aborted' : 'error', turn);
     } finally {
-      this._done();
+      this._done('completed', turn);
     }
   };
 
@@ -456,7 +476,13 @@ export default class ChatController {
   async sendMessage(message, context = [], { requestedSkills = [], attachments = [] } = {}) {
     if (this._thinking || !this._connected) return;
 
+    this._finishTurn('aborted');
     this._currentTurnId = crypto.randomUUID();
+    const { org, site, path } = this._context ?? {};
+    const turn = {
+      org, site, path, sessionId: this._sessionId, turnId: this._currentTurnId,
+    };
+    this._activeTurn = turn;
     this._requestedSkills = requestedSkills;
     const selectionContext = context
       .filter((item) => {
@@ -511,8 +537,9 @@ export default class ChatController {
           { role: ROLE.ASSISTANT, content: `Error: ${err.message}` },
         ];
       }
+      this._done(err.name === 'AbortError' ? 'aborted' : 'error', turn);
     } finally {
-      this._done();
+      this._done('completed', turn);
     }
   }
 }
