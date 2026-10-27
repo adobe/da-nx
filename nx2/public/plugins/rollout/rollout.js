@@ -1,10 +1,10 @@
 import DA_SDK from 'https://da.live/nx/utils/sdk.js';
 import { LitElement, html, nothing } from 'https://da.live/nx/public/deps/lit/dist/index.js';
-import { mergeCopy, overwriteCopy } from 'https://da.live/nx/blocks/loc/project/index.js';
-import { createRolloutResolver } from 'https://da.live/nx/blocks/loc/utils/placeholders.js';
-import { setSdkToken } from 'https://da.live/nx2/utils/api.js';
 import getStyle from 'https://da.live/nx/public/utils/styles.js';
 import getSvg from 'https://da.live/nx/public/utils/svg.js';
+import { mergeCopy, overwriteCopy } from '../../../../nx/blocks/loc/project/index.js';
+import { createRolloutResolver } from '../../../../nx/blocks/loc/utils/placeholders.js';
+import { setSdkToken } from '../../../utils/api.js';
 import { DA_ORIGIN } from '../../utils/constants.js';
 import getPrefixDetails from './index.js';
 
