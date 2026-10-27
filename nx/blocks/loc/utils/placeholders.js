@@ -183,6 +183,12 @@ export function expandHtml({ content, values }) {
     });
   });
 
+  // Template content is a separate fragment; innerHTML serializes it, including nested templates.
+  doc.querySelectorAll('template').forEach((tpl) => {
+    if (systemMetadata?.contains(tpl) || !hasTokens(tpl.innerHTML)) return;
+    errors.push(`placeholders are not supported in content of ${describe(tpl)}`);
+  });
+
   const walker = doc.createTreeWalker(doc.documentElement, NodeFilter.SHOW_TEXT);
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     const parent = node.parentElement;

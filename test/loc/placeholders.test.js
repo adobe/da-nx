@@ -151,6 +151,9 @@ describe('rollout placeholders - HTML', () => {
     expect(run('<p onclick="{{c}}">x</p>', { c: 'a' })).to.include('not supported in onclick');
     expect(run('<p>{{<strong>country</strong>}}</p>', { country: 'Tonga' })).to.include('split by formatting (<p>)');
     expect(run('<p>{{c}}</p>', { c: 'javascript:alert(1)' })).to.include('not a safe value');
+    expect(run('<template><p>{{missing}}</p></template>')).to.include('not supported in content of <template>');
+    expect(run('<template><template><a href="{{u}}">x</a></template></template>', { u: '/x' }))
+      .to.include('not supported in content of <template>');
   });
 
   it('validates whole URLs against the safe link policy', () => {
