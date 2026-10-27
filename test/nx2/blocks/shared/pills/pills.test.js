@@ -114,6 +114,22 @@ describe('nx-pills', () => {
       expect(rows()).to.equal(3);
       expect(list.scrollHeight).to.be.greaterThan(list.clientHeight);
     });
+
+    it(`lets hosts lift the two-row cap via --nx-pills-max-height at size ${size}`, async () => {
+      const items = ['first', 'second', 'third'].map((id) => ({
+        id,
+        label: id,
+        type: 'image',
+        thumbnail: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>',
+      }));
+      el = await makePills({ size, items });
+      el.style.display = 'block';
+      el.style.width = '100px';
+      el.style.setProperty('--nx-pills-max-height', 'none');
+      const list = el.shadowRoot.querySelector('.pills-container');
+      expect(getComputedStyle(list).maxHeight).to.equal('none');
+      expect(list.scrollHeight).to.equal(list.clientHeight);
+    });
   });
 
   it('renders a remove button by default', async () => {
@@ -144,6 +160,27 @@ describe('nx-pills', () => {
     el = await makePills({ label: 'Type', items: [{ id: 'app', label: 'App', removable: false }] });
     const list = el.shadowRoot.querySelector('.pills-container');
     expect(list.getAttribute('aria-label')).to.equal('Type');
+  });
+
+  it('highlights items flagged as highlighted, on top of a host recolor', async () => {
+    el = await makePills({
+      items: [
+        { id: 'a', label: 'a@x.com', removable: false },
+        { id: 'b', label: 'b@x.com', removable: false, highlighted: true },
+      ],
+    });
+    el.style.setProperty('--nx-pill-background', 'rgb(1, 2, 3)');
+    const [plain, marked] = el.shadowRoot.querySelectorAll('.pill');
+    expect(plain.classList.contains('highlighted')).to.be.false;
+    expect(marked.classList.contains('highlighted')).to.be.true;
+    expect(getComputedStyle(plain).backgroundColor).to.equal('rgb(1, 2, 3)');
+    expect(getComputedStyle(marked).backgroundColor).to.equal('rgb(255, 218, 158)');
+    expect(getComputedStyle(marked.querySelector('.pill-label')).color).to.equal('rgb(144, 51, 0)');
+
+    el.style.setProperty('--nx-pill-highlight-background', 'rgb(7, 8, 9)');
+    el.style.setProperty('--nx-pill-highlight-color', 'rgb(4, 5, 6)');
+    expect(getComputedStyle(marked).backgroundColor).to.equal('rgb(7, 8, 9)');
+    expect(getComputedStyle(marked.querySelector('.pill-label')).color).to.equal('rgb(4, 5, 6)');
   });
 
   it('lets hosts recolor pills via custom properties', async () => {
