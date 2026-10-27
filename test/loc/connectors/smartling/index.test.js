@@ -410,27 +410,92 @@ describe('smartling connector - legacy origin rewriting', () => {
     expect(langs[0].translation.translated).to.equal(1);
   });
 
-  it('marks a pending-cancel lang cancelled once no file lists its locale', async () => {
-    origFetch = window.fetch;
-    window.fetch = async () => fileStatusResponse(10, [
-      localeCounts('de-DE', 5), localeCounts('es-ES', 5),
-    ]);
+  describe('pending cancellations', () => {
     const service = { origin: 'https://api.smartling.com', projectId: 'proj-1', jobUid: { value: 'job-1' } };
-    const langs = [
-      { code: 'fr-FR', translation: { status: 'translated', cancelPending: true } },
-      { code: 'de-DE', translation: { status: 'translated', cancelPending: true } },
-      { code: 'es-ES', translation: { status: 'translated' } },
-    ];
-    await getStatusAll({
-      org, site, service, langs, urls: [{ daBasePath: '/page' }], actions: { saveState: async () => {} },
+    const mockFetch = (states) => {
+      origFetch = window.fetch;
+      window.fetch = async (url) => {
+        const u = url.toString();
+        const uid = Object.keys(states).find((k) => u.includes(`/processes/${k}`));
+        if (uid) {
+          const body = { response: { data: { processState: states[uid] } } };
+          return new Response(JSON.stringify(body), { status: 200 });
+        }
+        return fileStatusResponse(10, [localeCounts('es-ES', 5), localeCounts('fr-FR', 10)]);
+      };
+    };
+    const pendingLang = (code, uid) => ({
+      code, name: code, translation: { status: 'translated', cancelPending: true, cancelProcessUid: uid },
+    });
+    const run = async (langs, messages = []) => {
+      let saves = 0;
+      await getStatusAll({
+        org, site, service, langs, urls: [{ daBasePath: '/page' }], actions: { saveState: async () => { saves += 1; }, sendMessage: (m) => messages.push(m) },
+      });
+      return saves;
+    };
+
+    it('marks a pending-cancel lang cancelled when its process COMPLETED', async () => {
+      mockFetch({ 'process-1': 'COMPLETED' });
+      const langs = [pendingLang('fr-FR', 'process-1'), { code: 'es-ES', translation: { status: 'translated' } }];
+      const saves = await run(langs);
+
+      expect(langs[0].translation.status).to.equal('cancelled');
+      expect(langs[0].translation.translated).to.equal(0);
+      expect(langs[0].translation.cancelPending).to.equal(undefined);
+      expect(langs[0].translation.cancelProcessUid).to.equal(undefined);
+      expect(langs[1].translation.status).to.equal('50% translated');
+      expect(saves).to.be.greaterThan(0);
     });
 
-    expect(langs[0].translation.status).to.equal('cancelled');
-    expect(langs[0].translation.translated).to.equal(0);
-    expect(langs[0].translation.cancelPending).to.equal(undefined);
-    expect(langs[1].translation.status).to.equal('50% translated');
-    expect(langs[1].translation.cancelPending).to.equal(true);
-    expect(langs[2].translation.status).to.equal('50% translated');
+    it('persists a COMPLETED cancel even when no other lang is active', async () => {
+      mockFetch({ 'process-1': 'COMPLETED' });
+      const langs = [pendingLang('fr-FR', 'process-1')];
+      const saves = await run(langs);
+
+      expect(langs[0].translation.status).to.equal('cancelled');
+      expect(saves).to.equal(1);
+    });
+
+    it('clears the pending flags and reports an error when the process FAILED', async () => {
+      mockFetch({ 'process-1': 'FAILED' });
+      const langs = [pendingLang('fr-FR', 'process-1')];
+      const messages = [];
+      await run(langs, messages);
+
+      expect(langs[0].translation.cancelPending).to.equal(undefined);
+      expect(langs[0].translation.cancelProcessUid).to.equal(undefined);
+      expect(langs[0].translation.status).to.equal('translated');
+      expect(messages.some((m) => m.type === 'error' && m.text.includes('cancel process failed'))).to.equal(true);
+    });
+
+    it('keeps the lang pending while the process is still running', async () => {
+      mockFetch({ 'process-1': 'IN_PROGRESS' });
+      const langs = [pendingLang('fr-FR', 'process-1')];
+      await run(langs);
+
+      expect(langs[0].translation.cancelPending).to.equal(true);
+      expect(langs[0].translation.cancelProcessUid).to.equal('process-1');
+      expect(langs[0].translation.status).to.equal('translated');
+    });
+
+    it('never marks a pending-cancel lang translated from file status', async () => {
+      mockFetch({ 'process-1': 'IN_PROGRESS' });
+      const langs = [pendingLang('fr-FR', 'process-1'), { code: 'es-ES', translation: { status: 'translated' } }];
+      await run(langs);
+
+      expect(langs[0].translation.status).to.equal('translated');
+      expect(langs[0].translation.cancelPending).to.equal(true);
+    });
+
+    it('leaves a legacy pending lang without a process uid pending', async () => {
+      mockFetch({});
+      const langs = [{ code: 'fr-FR', translation: { status: 'translated', cancelPending: true } }];
+      await run(langs);
+
+      expect(langs[0].translation.cancelPending).to.equal(true);
+      expect(langs[0].translation.status).to.equal('translated');
+    });
   });
 
   it('surfaces an error and does nothing when the job has not been created yet (no jobUid)', async () => {
@@ -1226,7 +1291,7 @@ describe('smartling connector - legacy origin rewriting', () => {
         }
         if (u.includes('/processes/process-1')) {
           progressPolls += 1;
-          const processState = progressPolls < 2 ? 'PENDING' : 'COMPLETED';
+          const processState = progressPolls < 2 ? 'IN_PROGRESS' : 'COMPLETED';
           return new Response(JSON.stringify({
             response: { data: { processState } },
           }), { status: 200 });
@@ -1266,7 +1331,7 @@ describe('smartling connector - legacy origin rewriting', () => {
           }), { status: 202 });
         }
         if (u.includes('/processes/process-1')) {
-          return new Response(JSON.stringify({ response: { data: { processState: 'PENDING' } } }), { status: 200 });
+          return new Response(JSON.stringify({ response: { data: { processState: 'IN_PROGRESS' } } }), { status: 200 });
         }
         return new Response('{}', { status: 200 });
       };
@@ -1284,13 +1349,14 @@ describe('smartling connector - legacy origin rewriting', () => {
       expect(result.ok).to.equal(false);
       expect(lang.translation.status).to.equal('translated');
       expect(lang.translation.cancelPending).to.equal(true);
+      expect(lang.translation.cancelProcessUid).to.equal('process-1');
       expect(messages.some((m) => m.type === 'warning' && m.text.includes('did not finish in time'))).to.equal(true);
     } finally {
       clock.restore();
     }
   });
 
-  it('reports a 202 without a processUid as an unexpected response, not a timeout', async () => {
+  it('treats a 202 without a processUid as an error, not a pending cancel', async () => {
     origFetch = window.fetch;
     window.fetch = async (url, opts = {}) => {
       if (url.toString().includes('/locales/fr-FR') && opts.method === 'DELETE') {
@@ -1308,8 +1374,9 @@ describe('smartling connector - legacy origin rewriting', () => {
     const result = await cancelTranslation({ service, lang, sendMessage: (m) => messages.push(m) });
 
     expect(result.ok).to.equal(false);
-    expect(lang.translation.cancelPending).to.equal(true);
-    expect(messages.some((m) => m.text.includes('no process id'))).to.equal(true);
+    expect(lang.translation.cancelPending).to.equal(undefined);
+    expect(lang.translation.cancelProcessUid).to.equal(undefined);
+    expect(messages.some((m) => m.type === 'error' && m.text.includes('no process id'))).to.equal(true);
     expect(messages.some((m) => m.text.includes('did not finish in time'))).to.equal(false);
   });
 
