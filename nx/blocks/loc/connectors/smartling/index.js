@@ -608,6 +608,30 @@ function wait(ms) {
 }
 
 /**
+ * Fetches the current state of a Smartling job async process once.
+ * @param {Object} params
+ * @param {string} params.org - The DA org.
+ * @param {string} params.site - The DA site.
+ * @param {string} params.env - The environment key (e.g. 'prod').
+ * @param {string} params.endpoint - The resolved Smartling API origin.
+ * @param {string} params.projectId - The Smartling project id.
+ * @param {string} params.jobUid - The job the process belongs to.
+ * @param {string} params.processUid - The process to look up.
+ * @returns {Promise<string>} The `processState` reported by Smartling
+ *  (IN_PROGRESS, COMPLETED, or FAILED), or 'ERROR' if the request failed.
+ */
+async function fetchProcessState({
+  org, site, env, endpoint, projectId, jobUid, processUid,
+}) {
+  const url = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid}/processes/${processUid}`;
+  const opts = { headers: { Authorization: `Bearer ${await getToken(org, site, env)}` } };
+  const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
+  if (!resp.ok) return 'ERROR';
+  const json = await resp.json();
+  return json.response.data.processState;
+}
+
+/**
  * Polls a job async process until it reaches a terminal `processState`.
  * @param {Object} params
  * @param {string} params.org - The DA org.
@@ -619,20 +643,11 @@ function wait(ms) {
  * @param {string} params.processUid - The process to poll.
  * @returns {Promise<string>} 'COMPLETED', 'FAILED', 'ERROR' (poll failed), or 'TIMEOUT'.
  */
-async function pollJobProcess({
-  org, site, env, endpoint, projectId, jobUid, processUid,
-}) {
-  const url = `${endpoint}/jobs-api/v3/projects/${projectId}/jobs/${jobUid}/processes/${processUid}`;
-
+async function pollJobProcess(params) {
   for (let attempt = 0; attempt < MAX_PROCESS_POLL_ATTEMPTS; attempt += 1) {
-    const opts = { headers: { Authorization: `Bearer ${await getToken(org, site, env)}` } };
     // eslint-disable-next-line no-await-in-loop
-    const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
-    if (!resp.ok) return 'ERROR';
-    // eslint-disable-next-line no-await-in-loop
-    const json = await resp.json();
-    const { processState } = json?.response?.data || {};
-    if (processState === 'COMPLETED' || processState === 'FAILED') return processState;
+    const processState = await fetchProcessState(params);
+    if (['COMPLETED', 'FAILED', 'ERROR'].includes(processState)) return processState;
     // eslint-disable-next-line no-await-in-loop
     await wait(PROCESS_POLL_INTERVAL_MS);
   }
@@ -642,7 +657,9 @@ async function pollJobProcess({
 
 /**
  * Cancels one language by removing its locale from the shared job (not
- * `cancelJob`, which would cancel every language). Polls async (202) removals.
+ * `cancelJob`, which would cancel every language). Polls async (202) removals;
+ * a 202 without a `processUid` is an error. If polling doesn't finish, the
+ * lang keeps `cancelPending`/`cancelProcessUid` for `getStatusAll` to resolve.
  * @param {Object} params
  * @param {Object} params.service - The service configuration.
  * @param {Object} params.lang - Set to `cancelled` on success.
@@ -678,8 +695,7 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
     const { processUid } = json?.response?.data || {};
 
     if (!processUid) {
-      lang.translation.cancelPending = true;
-      sendMessage({ text: `Canceling ${lang.name}: Smartling accepted the request but returned no process id to track it. Status will update on the next check.`, type: 'warning' });
+      sendMessage({ text: `Canceling ${lang.name} failed: Smartling accepted the request but returned no process id to track it.`, type: 'error' });
       return { ok: false };
     }
 
@@ -694,6 +710,7 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
 
     if (processState !== 'COMPLETED') {
       lang.translation.cancelPending = true;
+      lang.translation.cancelProcessUid = processUid;
       const reason = processState === 'ERROR'
         ? 'could not check the cancellation progress'
         : 'did not finish in time';
@@ -703,6 +720,7 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
   }
 
   delete lang.translation.cancelPending;
+  delete lang.translation.cancelProcessUid;
   lang.translation.status = 'cancelled';
   return { ok: true };
 }
@@ -776,6 +794,52 @@ function getLangProgress({ code, fileStatuses }) {
 }
 
 /**
+ * Resolves langs whose cancel (`translation.cancelPending`) outlived
+ * `cancelTranslation`'s polling by checking the persisted cancel process.
+ * COMPLETED marks the lang 'cancelled'; FAILED clears the pending flag so
+ * the lang reverts to normal progress tracking. Anything else, including a
+ * lang with no persisted process id, stays pending.
+ * @param {Object} params
+ * @param {string} params.org - The DA org.
+ * @param {string} params.site - The DA site.
+ * @param {string} params.env - The environment key (e.g. 'prod').
+ * @param {string} params.endpoint - The resolved Smartling API origin.
+ * @param {string} params.projectId - The Smartling project id.
+ * @param {string} params.jobUid - The job the cancels belong to.
+ * @param {Object[]} params.langs - Target languages; mutated in place.
+ * @param {Function} params.sendMessage - Surfaces a failed cancel.
+ * @returns {Promise<boolean>} Whether any lang was resolved.
+ */
+async function resolvePendingCancels({
+  org, site, env, endpoint, projectId, jobUid, langs, sendMessage,
+}) {
+  const pending = langs.filter((l) => l.translation.cancelPending
+    && l.translation.cancelProcessUid);
+  const results = await Promise.all(pending.map(async (lang) => {
+    const processState = await fetchProcessState({
+      org, site, env, endpoint, projectId, jobUid, processUid: lang.translation.cancelProcessUid,
+    });
+    // A save can finish while the request is in flight; don't overwrite it.
+    if (!lang.translation.cancelPending) return false;
+    if (processState === 'COMPLETED') {
+      delete lang.translation.cancelPending;
+      delete lang.translation.cancelProcessUid;
+      lang.translation.translated = 0;
+      lang.translation.status = 'cancelled';
+      return true;
+    }
+    if (processState === 'FAILED') {
+      delete lang.translation.cancelPending;
+      delete lang.translation.cancelProcessUid;
+      sendMessage({ text: `Canceling ${lang.name} failed: Smartling reported the cancel process failed.`, type: 'error' });
+      return true;
+    }
+    return false;
+  }));
+  return results.some(Boolean);
+}
+
+/**
  * Refreshes translation status for every target language of a job from
  * per-file, per-locale string counts (Smartling's
  * getFileTranslationStatusAllLocales), instead of the job-scoped
@@ -791,10 +855,12 @@ function getLangProgress({ code, fileStatuses }) {
  *  `translation.status` ('translated' only once every file is at 100% for
  *  that locale, otherwise the lowest per-file progress, e.g. '62%
  *  translated') and `translation.translated` (number of files at 100%).
- *  A lang with a pending cancel (`translation.cancelPending`) that no file
- *  lists any more becomes `'cancelled'`. A lang already at `'complete'` or
- *  `'cancelled'` is left untouched. If
- *  every lang is already terminal, skips the API calls entirely.
+ *  A lang with a pending cancel (`translation.cancelPending`) is resolved
+ *  from its cancel process (`translation.cancelProcessUid`): COMPLETED
+ *  becomes `'cancelled'`, FAILED reverts to normal tracking, anything else
+ *  stays pending and its file progress is ignored. A lang already at
+ *  `'complete'` or `'cancelled'` is left untouched. If no lang needs file
+ *  progress, skips the file status calls entirely.
  * @param {Object[]} params.urls - The urls in the project.
  * @param {Object} params.actions - `{ saveState, sendMessage }` callbacks;
  *  `sendMessage` surfaces an error if no job has been created yet, or if
@@ -819,8 +885,16 @@ export async function getStatusAll({
   // as translated forever once done, so without this guard every
   // subsequent status check would revert 'complete' back to 'translated'
   // (triggering a re-save) or 'cancelled' back to 'translated'.
-  const activeLangs = langs.filter((l) => !TERMINAL_STATUSES.includes(l.translation.status));
-  if (!activeLangs.length) return;
+  const resolved = await resolvePendingCancels({
+    org, site, env, endpoint, projectId, jobUid: jobUid.value, langs, sendMessage,
+  });
+  const isActive = (l) => !TERMINAL_STATUSES.includes(l.translation.status)
+    && !l.translation.cancelPending;
+  const activeLangs = langs.filter(isActive);
+  if (!activeLangs.length) {
+    if (resolved) await saveState();
+    return;
+  }
 
   const fileStatuses = [];
   const queue = new Queue(async (url) => {
@@ -833,22 +907,14 @@ export async function getStatusAll({
   const failed = fileStatuses.find((fileStatus) => fileStatus.error);
   if (failed) {
     sendMessage({ text: `Checking status failed: ${failed.error}.`, type: 'error' });
+    if (resolved) await saveState();
     return;
   }
 
-  // A save can finish while the requests are in flight; don't overwrite it.
-  const stillActive = activeLangs.filter((l) => !TERMINAL_STATUSES.includes(l.translation.status));
+  // A save or cancel can start while the requests are in flight; don't overwrite it.
+  const stillActive = activeLangs.filter(isActive);
 
   for (const lang of stillActive) {
-    const listed = fileStatuses.some(({ items }) => (
-      items.some((item) => item.localeId === lang.code)));
-    if (lang.translation.cancelPending && !listed) {
-      delete lang.translation.cancelPending;
-      lang.translation.translated = 0;
-      lang.translation.status = 'cancelled';
-      continue; // eslint-disable-line no-continue
-    }
-
     const progress = getLangProgress({ code: lang.code, fileStatuses });
     const translated = progress.filter((percent) => percent === 100).length;
     lang.translation.translated = translated;
