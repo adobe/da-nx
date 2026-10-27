@@ -86,7 +86,8 @@ export function buildSuggestionPrompt({ item, aligned }) {
     ...promptLine('Asset: ', suggestion.assetLabel),
     '',
     'Only change what this suggestion covers; leave the rest of the page unchanged.',
-    'If you need to re-run preflight, you can invoke the skill /aem-governance-evaluate-page',
+    'If you need to re-run preflight, you can invoke the skill /aem-governance-evaluate-page.',
+    'It is highly recommended to re-run after applying the suggestion to see if it resolves the issue, but you can also run it before, if there is not enough context.',
   ].join('\n');
 }
 
