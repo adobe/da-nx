@@ -35,3 +35,17 @@ export function getFragmentUrls(html) {
   const imgAltUrls = getImageAltFragmentUrls(dom);
   return [...fragmentUrls, ...imgAltUrls];
 }
+
+/**
+ * Derives the MSM note fields shown for a checked URL.
+ * @param {object} params
+ * @param {boolean} params.ok - Whether the page was found.
+ * @param {boolean} params.inherited - Whether it was read from a source site.
+ * @param {string} params.resolvedSite - Site the response came from.
+ * @param {{error: string, status?: number}} [params.msmError] - MSM config read failure.
+ * @returns {{inheritedFrom?: string, msmError?: object}} Fields to merge onto the URL.
+ */
+export function getMsmNote({ ok, inherited, resolvedSite, msmError }) {
+  if (ok) return { inheritedFrom: inherited ? resolvedSite : undefined, msmError: undefined };
+  return { inheritedFrom: undefined, msmError };
+}

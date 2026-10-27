@@ -8,6 +8,7 @@ class NxLocActions extends LitElement {
   static properties = {
     project: { attribute: false },
     message: { attribute: false },
+    nextDisabled: { type: Boolean },
     _prev: { state: true },
     _next: { state: false },
   };
@@ -48,7 +49,7 @@ class NxLocActions extends LitElement {
           <span>${this._prev.text}</span>
         </button>
         ${this.renderMessage()}
-        <button class="nx-next ${this._next.style}" @click=${() => this.handleAction(this._next)} ?disabled=${this._next.disabled}>
+        <button class="nx-next ${this._next.style}" @click=${() => this.handleAction(this._next)} ?disabled=${this._next.disabled || this.nextDisabled}>
             <span>${this._next.text}</span>
             <svg class="icon" viewBox="0 0 20 20"><use href="/img/icons/s2-icon-chevronright-20-n.svg#icon"/></svg>
         </button>

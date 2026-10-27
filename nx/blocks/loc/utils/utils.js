@@ -1,5 +1,6 @@
 import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
 import { daFetch, loadIms } from '../../../../nx2/utils/api.js';
+import { fetchMsmRows, getSourceChain } from './msm.js';
 
 const CONFIG_PATH = '/.da/translate.json';
 
@@ -202,9 +203,15 @@ export function getPathDetails() {
   };
 }
 
-export async function fetchConfig(org, site) {
-  if (CONFIG_CACHE) return CONFIG_CACHE;
-
+/**
+ * Load the translate config without caching: the site's own, then the nearest MSM
+ * source site that has one, then the org's, then the built-in defaults.
+ * @param {object} params
+ * @param {string} params.org - Org name.
+ * @param {string} params.site - Project site.
+ * @returns {Promise<object>} The config sheets.
+ */
+export async function loadConfig({ org, site }) {
   const fetchConf = async (path) => {
     try {
       const resp = await daFetch({ url: path });
@@ -218,6 +225,16 @@ export async function fetchConfig(org, site) {
   // Attempt a site based config
   let options = await fetchConf(`${DA_ADMIN}/source/${org}/${site}${CONFIG_PATH}`);
 
+  // Attempt the config of each MSM source site, nearest first
+  if (options.error) {
+    const { rows } = await fetchMsmRows(org);
+    for (const source of getSourceChain({ rows: rows || [], site })) {
+      // eslint-disable-next-line no-await-in-loop
+      options = await fetchConf(`${DA_ADMIN}/source/${org}/${source}${CONFIG_PATH}`);
+      if (!options.error) break;
+    }
+  }
+
   // Attempt an org based config
   if (options.error) {
     options = await fetchConf(`${DA_ADMIN}/source/${org}${CONFIG_PATH}`);
@@ -229,9 +246,19 @@ export async function fetchConfig(org, site) {
     options = await fetchConf(fallbackUrl);
   }
 
-  CONFIG_CACHE = options;
-
   return options;
+}
+
+/**
+ * Get the translate config, loaded once per page.
+ * @param {string} org - Org name.
+ * @param {string} site - Project site.
+ * @returns {Promise<object>} The config sheets.
+ */
+export async function fetchConfig(org, site) {
+  if (CONFIG_CACHE) return CONFIG_CACHE;
+  CONFIG_CACHE = await loadConfig({ org, site });
+  return CONFIG_CACHE;
 }
 
 // BEFORE TIMES

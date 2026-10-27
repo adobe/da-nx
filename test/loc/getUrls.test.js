@@ -121,6 +121,34 @@ describe('getUrls', () => {
     );
   });
 
+  it('fetches an inherited page from its MSM source site', async () => {
+    const org = 'msm-inherit';
+    const jsonResp = (json) => Promise.resolve({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => json,
+    });
+    globalThis.fetch = sinon.stub().callsFake((url) => {
+      if (url.includes('/.da/translate')) return jsonResp({ config: { data: [] } });
+      if (url.includes('/config/')) {
+        return jsonResp({ msm: { data: [{ source: 'source-site', linked: SITE }] } });
+      }
+      const found = url.includes(`/source/${org}/source-site/`);
+      return Promise.resolve({
+        ok: found,
+        status: found ? 200 : 404,
+        headers: new Headers(),
+        text: async () => (found ? '<p>inherited</p>' : ''),
+      });
+    });
+
+    const { urls: result } = await getUrls(org, SITE, makeService(), '/', '/', makeUrls(1), true);
+
+    expect(result[0].error).to.equal(undefined);
+    expect(result[0].content).to.equal('<p>inherited</p>');
+  });
+
   it('marks a URL with an error when the /source/ fetch fails', async () => {
     globalThis.fetch = sinon.stub().callsFake((url) => {
       if (url.includes('/.da/translate')) {
