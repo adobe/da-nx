@@ -52,6 +52,7 @@ export function createCopy({
 
   const fail = (url, error) => {
     url.status = 'error';
+    url.error = `${url.destination}: ${error.message}`;
     return {
       ok: false,
       status: error.status || 500,
@@ -78,7 +79,7 @@ export function createCopy({
     if (!text) {
       const response = await fetch(`${daOrigin}/source${path}`);
       if (response.status === 404) return null;
-      if (!response.ok) throw responseError(response, 'Source read');
+      if (!response.ok) throw responseError(response, `Reading ${path}`);
       text = await response.text();
     }
     if (!text) return null;
@@ -86,6 +87,11 @@ export function createCopy({
       value.trim() ? `>${value.replace(/\s+/g, ' ')}<` : match
     ));
     return parser.parseFromString(collapsed, 'text/html');
+  };
+
+  const setSaveStatus = (url, response) => {
+    url.status = response.ok ? 'success' : 'error';
+    if (!response.ok) url.error = `${url.destination}: Save failed (${response.status})`;
   };
 
   const saveHtml = (url, content, daMetadata = {}) => {
@@ -130,7 +136,7 @@ export function createCopy({
         response = await saveHtml(url, source.querySelector('main').innerHTML, metadata);
       }
       if (!response.ok) {
-        url.status = 'error';
+        setSaveStatus(url, response);
         return response;
       }
       await saveVersion(url.destination, `${title} - Rolled Out`);
@@ -187,7 +193,7 @@ export function createCopy({
       applyLabels(result.metadata, options);
       const response = await saveHtml(url, result.diffed.innerHTML, result.metadata);
       if (response.ok) await saveVersion(url.destination, `${title} - Rolled Out`);
-      url.status = response.ok ? 'success' : 'error';
+      setSaveStatus(url, response);
       return response;
     } catch (error) {
       return fail(url, error);
@@ -210,7 +216,7 @@ export function createCopy({
         }, DEFAULT_TIMEOUT);
         saveHtml(url, result.diffed.innerHTML, result.metadata).then(async (response) => {
           if (response.ok) await saveVersion(url.destination, `${title} - Rolled Out`);
-          url.status = response.ok ? 'success' : 'error';
+          setSaveStatus(url, response);
           clearTimeout(timeout);
           resolve(response);
         }).catch((error) => {
