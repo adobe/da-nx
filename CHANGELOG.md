@@ -1,3 +1,10 @@
+## [1.23.4](https://github.com/adobe/da-nx/compare/v1.23.3...v1.23.4) (2026-10-27)
+
+
+### Bug Fixes
+
+* bring back ao chat artifacts ([#883](https://github.com/adobe/da-nx/issues/883)) ([e9a0917](https://github.com/adobe/da-nx/commit/e9a091749dc65f8290f112c985e3219fb1e98e32))
+
 ## [1.23.3](https://github.com/adobe/da-nx/compare/v1.23.2...v1.23.3) (2026-10-26)
 
 
