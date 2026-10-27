@@ -6,9 +6,9 @@ Replacement only runs during rollout, and only on tokens already in the incoming
 
 ## Configuration
 
-This feature is opt-in. It only runs for sites that have a `/.da/rollout-translation.json` document. Without that document, rollouts work exactly as before and `{{key}}` tokens are copied unchanged.
+This feature is opt-in. It only runs for sites that have a `/.da/rollout-placeholders.json` document. Without that document, rollouts work exactly as before and `{{key}}` tokens are copied unchanged.
 
-Create a sheet at `/.da/rollout-translation.json` with one tab per destination locale. Each tab has `key` and `value` columns.
+Create a sheet at `/.da/rollout-placeholders.json` with one tab per destination locale. Each tab has `key` and `value` columns.
 
 `nl-nl` tab:
 
