@@ -55,6 +55,8 @@ describe('nx-card', () => {
 
   it('emits selectionchange and follows the consumer-controlled selected state', async () => {
     card.selectable = true;
+    let cardClicks = 0;
+    card.addEventListener('click', () => { cardClicks += 1; });
     card.addEventListener('selectionchange', (e) => { card.selected = e.detail.selected; });
     await card.updateComplete;
     const input = card.shadowRoot.querySelector('input');
@@ -68,6 +70,7 @@ describe('nx-card', () => {
     await card.updateComplete;
     expect(card.selected).to.equal(false);
     expect(input.checked).to.equal(false);
+    expect(cardClicks).to.equal(0);
   });
 
   it('reverts the checkbox when the consumer does not update selected', async () => {
@@ -94,9 +97,11 @@ describe('nx-card', () => {
     expect(detail).to.deep.equal({ selected: true, shiftKey: true });
   });
 
-  it('selects from the extra hit area without enlarging the checkbox', async () => {
+  it('selects from the extra hit area without triggering card clicks', async () => {
     card.selectable = true;
     let changes = 0;
+    let cardClicks = 0;
+    card.addEventListener('click', () => { cardClicks += 1; });
     card.addEventListener('selectionchange', (e) => {
       changes += 1;
       card.selected = e.detail.selected;
@@ -117,6 +122,10 @@ describe('nx-card', () => {
     expect(card.selected).to.equal(true);
     expect(input.checked).to.equal(true);
     expect(changes).to.equal(1);
+    expect(cardClicks).to.equal(0);
+
+    card.shadowRoot.querySelector('.body').click();
+    expect(cardClicks).to.equal(1);
   });
 
   it('keeps metadata outside the content slot so it survives replacement', () => {

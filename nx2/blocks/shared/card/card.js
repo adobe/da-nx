@@ -55,7 +55,7 @@ class NxCard extends LitElement {
         <div class="media">
           <slot name="media"></slot>
           ${this.selectable ? html`
-            <label class="nx-checkbox select-target">
+            <label class="nx-checkbox select-target" @click=${(e) => e.stopPropagation()}>
               <input type="checkbox" class="select"
                 aria-label=${this.selectionLabel}
                 .checked=${!!this.selected}
