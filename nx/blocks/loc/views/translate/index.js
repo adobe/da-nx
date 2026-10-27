@@ -22,6 +22,7 @@ export async function getUrls(
   urls,
   fetchContent,
   snapshot,
+  suppliedConfig,
 ) {
   const { connector } = service;
   const snapshotPrefix = createSnapshotPrefix(snapshot);
@@ -45,7 +46,7 @@ export async function getUrls(
 
   // Only fetch the content if needed
   if (fetchContent) {
-    const config = await fetchConfig(org, site);
+    const config = suppliedConfig ?? await fetchConfig(org, site, { refresh: true });
 
     // Fetch the content and add DNT
     const fetchUrl = async (url) => {

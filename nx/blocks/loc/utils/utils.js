@@ -202,8 +202,8 @@ export function getPathDetails() {
   };
 }
 
-export async function fetchConfig(org, site) {
-  if (CONFIG_CACHE) return CONFIG_CACHE;
+export async function fetchConfig(org, site, { refresh = false } = {}) {
+  if (!refresh && CONFIG_CACHE) return CONFIG_CACHE;
 
   const fetchConf = async (path) => {
     try {
