@@ -290,7 +290,7 @@
   /* --- End generated --- */
 
   /* ui-size scale: s (default) vs m, toggled via body.ui-size-m (getUISize() in scripts/nx.js).
-     Pick tokens by role, never raw px; see docs/ui-size.md. */
+     Pick tokens by role, never raw px; see docs/ew-preferred-requirements.md. */
   --nx-ui-text-heading: var(--s2-component-xl-bold-font-size);
   --nx-ui-text-title: var(--s2-component-l-bold-font-size);
   --nx-ui-text-content: var(--s2-component-m-regular-font-size);
