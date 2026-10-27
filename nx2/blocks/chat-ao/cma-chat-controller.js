@@ -35,8 +35,8 @@ function friendlyBackendError(message) {
 // pointer in sessionStorage rather than an orchestrator episode list.
 // See docs/chat-ao-controller-decoupling.md and docs/chat-ao-alt-harness.md.
 export default class CmaChatController extends BaseChatController {
-  constructor({ onUpdate, activationKey } = {}) {
-    super({ onUpdate });
+  constructor({ onUpdate, onTurnCompleted, activationKey } = {}) {
+    super({ onUpdate, onTurnCompleted });
     this.setActivationKey(activationKey);
   }
 
@@ -146,6 +146,8 @@ export default class CmaChatController extends BaseChatController {
   // Lean resume: point at the stored session and attach — the bridge replays
   // history over the socket. No REST messages/context fetch (there is none).
   async _loadEpisode(episodeId) {
+    this._activeTurn = undefined;
+    this._interruptedTurn = undefined;
     this._episodeId = episodeId;
     this._messages = [];
     this._pendingQuestion = undefined;
@@ -186,7 +188,7 @@ export default class CmaChatController extends BaseChatController {
     if (!this._blockedByActiveTurn) return;
     const message = friendlyBackendError(evt.data?.message ?? evt.message);
     this._messages = [...this._messages, { role: 'assistant', content: `Error: ${message}` }];
-    this._done();
+    this._done('error');
   }
 
   startNewEpisode() {

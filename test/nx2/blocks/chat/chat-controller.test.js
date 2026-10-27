@@ -19,6 +19,91 @@ const toolMsg = (part, turnId = TURN) => ({
   content: [{ type: 'tool', ...part }],
 });
 
+describe('chat-controller turn completion', () => {
+  function setup() {
+    const completed = [];
+    const controller = new ChatController({
+      onUpdate() {},
+      onTurnCompleted: (detail) => completed.push(detail),
+    });
+    controller._messages = [];
+    controller._connected = true;
+    controller.setContext({ org: 'org', site: 'site', path: 'page' });
+    return { controller, completed };
+  }
+
+  it('notifies once after the whole response and preserves the originating context', async () => {
+    const { controller, completed } = setup();
+    controller._stream = async () => {
+      expect(completed).to.have.lengthOf(0);
+      controller.setContext({ org: 'other', site: 'site', path: 'elsewhere' });
+    };
+    await controller.sendMessage('hello');
+    expect(completed).to.deep.equal([{
+      org: 'org',
+      site: 'site',
+      path: 'page',
+      sessionId: controller._sessionId,
+      turnId: controller._currentTurnId,
+      status: 'completed',
+    }]);
+    controller.destroy();
+    expect(completed).to.have.lengthOf(1);
+  });
+
+  it('does not finish at an approval pause, then finishes after the continuation', async () => {
+    const { controller, completed } = setup();
+    controller._stream = async () => {
+      controller._messages.push(toolMsg({
+        toolCallId: 'write',
+        toolName: 'content_create',
+        input: {},
+        state: TOOL_STATE.AWAITING_APPROVAL,
+      }, controller._currentTurnId));
+    };
+    await controller.sendMessage('write');
+    expect(completed).to.have.lengthOf(0);
+    controller._stream = async () => {};
+    await controller.approveToolCall('write', true);
+    expect(completed.map(({ status }) => status)).to.deep.equal(['completed']);
+  });
+
+  it('reports an error once rather than completing again in finally', async () => {
+    const { controller, completed } = setup();
+    controller._stream = async () => { throw new Error('offline'); };
+    await controller.sendMessage('hello');
+    expect(completed.map(({ status }) => status)).to.deep.equal(['error']);
+  });
+
+  it('notifies when a restored approval finishes, using its original turn ID', async () => {
+    const { controller, completed } = setup();
+    controller._messages = [toolMsg({
+      toolCallId: 'restored',
+      toolName: 'content_create',
+      input: {},
+      state: TOOL_STATE.AWAITING_APPROVAL,
+    }, OTHER_TURN)];
+    controller._stream = async () => {};
+    await controller.approveToolCall('restored', true);
+    expect(completed).to.have.lengthOf(1);
+    expect(completed[0].turnId).to.equal(OTHER_TURN);
+    expect(completed[0].status).to.equal('completed');
+  });
+
+  it('reports cancellation once even when the pending request settles later', async () => {
+    const { controller, completed } = setup();
+    let finish;
+    controller._stream = () => new Promise((resolve) => { finish = resolve; });
+    const pending = controller.sendMessage('hello');
+    controller.stop();
+    controller.stop();
+    expect(completed.map(({ status }) => status)).to.deep.equal(['aborted']);
+    finish();
+    await pending;
+    expect(completed).to.have.lengthOf(1);
+  });
+});
+
 describe('chat-controller _messagesForAgent', () => {
   function agentMessages(messages) {
     const controller = makeController();
