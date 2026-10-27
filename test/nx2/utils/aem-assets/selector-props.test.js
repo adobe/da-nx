@@ -95,6 +95,20 @@ describe('shared AEM asset selector props', () => {
       expect(props).to.not.have.property('onClose');
     });
 
+    it('sets rail when rail mode is requested', () => {
+      expect(buildAssetSelectorProps({ ...baseArgs, rail: true }).rail).to.equal(true);
+    });
+
+    it('omits rail by default', () => {
+      expect(buildAssetSelectorProps(baseArgs)).to.not.have.property('rail');
+    });
+
+    it('omits handleSelection when none is supplied (display-only rail)', () => {
+      const args = { ...baseArgs, rail: true };
+      delete args.handleSelection;
+      expect(buildAssetSelectorProps(args)).to.not.have.property('handleSelection');
+    });
+
     it('omits path when no folder has been remembered yet', () => {
       const props = buildAssetSelectorProps(baseArgs);
       expect(props).to.not.have.property('path');
