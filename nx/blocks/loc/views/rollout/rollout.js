@@ -49,7 +49,7 @@ class NxLocRollout extends LitElement {
     if (message || errors) {
       this._message = message;
       this._errors = errors;
-      return;
+      if (langToRollout.rollout.status === 'rolling out') return;
     }
 
     // Replace the lang from the main list

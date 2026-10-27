@@ -267,10 +267,12 @@ export function createRolloutResolver({ load, sitePath }) {
     url.sourceHtml = undefined;
     if ((await loadConfig()).disabled) return {};
     sources[url.source] ??= load(url.source)
-      .then((resp) => (resp.ok ? resp.text() : null))
-      .catch(() => null);
+      .then((resp) => (resp.ok ? resp.text() : { status: resp.status }))
+      .catch(() => ({}));
     const content = await sources[url.source];
-    if (content === null) return {};
+    if (typeof content !== 'string') {
+      return { error: `${url.destination}: could not read ${url.source}${content.status ? ` (${content.status})` : ''}` };
+    }
     const { root, destination: path } = url;
     const { content: prepared, error } = await expand({ content, root, path });
     if (error) return { error };

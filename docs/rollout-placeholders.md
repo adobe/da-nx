@@ -43,6 +43,8 @@ The values a document needs are checked before it is written. If anything is mis
 
 `/org/site/nl-nl/page.html: missing value for {{country}} (text in <h1>)`
 
+If the source page can't be read while the feature is on, that destination is also skipped with an error. After a rollout with errors, the language can be rolled out again, and the rolled-out counts include only successful destinations.
+
 ## Merge, overwrite and reruns
 
 Tokens are replaced in a fresh copy of the upstream content before the existing merge or overwrite runs. The language store and existing destination content are not modified.
