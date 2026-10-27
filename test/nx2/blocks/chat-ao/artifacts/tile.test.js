@@ -81,10 +81,31 @@ describe('artifacts Tile', () => {
   });
 
   [
+    { layout: { x: 0, y: 1, w: 4, h: 2 } },
+    { grow: true },
+    { grow: false, layout: { x: 0, y: 0, w: 2, h: 3 } },
+  ].forEach((fields) => {
+    it(`renders content while ignoring dashboard placement ${JSON.stringify(fields)}`, () => {
+      const host = mount({ title: 'Campaign', ...fields });
+      const tile = host.querySelector('.ui-artifact-tile');
+      expect(host.querySelector('.ui-artifact-fallback')).to.equal(null);
+      expect(tile.querySelector('h3').textContent).to.equal('Campaign');
+      expect(tile.querySelector('.ui-artifact-text').textContent).to.equal(BODY.text);
+      expect(tile.hasAttribute('style')).to.equal(false);
+    });
+  });
+
+  [
     { title: { path: '/title' } }, { title: 42 }, { description: null },
     { description: { call: 'formatString' } }, { visible: 'false' },
     { visible: { path: '/visible' } }, { child: undefined },
-    { children: ['body', 'other'] }, { layout: 'horizontal' }, { grow: true },
+    { children: ['body', 'other'] }, { layout: 'horizontal' }, { grow: 'true' },
+    { layout: null }, { layout: [] }, { layout: {} },
+    { layout: { x: 0, y: 0, w: 2 } },
+    { layout: { x: 0, y: 0, w: Infinity, h: 2 } },
+    { layout: { x: 0, y: 0, w: { path: '/width' }, h: 2 } },
+    { layout: { x: 0, y: 0, w: 2, h: 2, position: 'fixed' } },
+    { grow: { path: '/grow' } },
     { agentActions: [] }, { apiActions: {} }, { writablePaths: ['/draft'] },
     { computed: {} }, { loadOnMount: [] }, { onUnmount: [] }, { watches: [] },
     { onRetry: { call: 'retry' } }, { onRemove: { call: 'remove' } },

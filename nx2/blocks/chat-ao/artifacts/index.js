@@ -16,6 +16,7 @@ import './inline-alert.js';
 import './text.js';
 import './link.js';
 import './badge.js';
+import './image.js';
 
 // Flat A2UI surfaces render from the `root` record, which reaches the rest by
 // id; legacy nested surfaces render every top-level node.

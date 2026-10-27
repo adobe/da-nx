@@ -33,9 +33,10 @@ describe('artifacts CardView', () => {
     expect(host.querySelector('.ui-artifact-fallback')).to.equal(null);
   });
 
-  it('accepts supported upstream size values without rejecting the collection', () => {
+  it('preserves each supported upstream size for rendering', () => {
     ['XS', 'S', 'M', 'L', 'XL'].forEach((size) => {
       const host = mount({ size });
+      expect(host.querySelector('.ui-artifact-card-view').dataset.size).to.equal(size);
       expect(host.querySelectorAll('li')).to.have.length(ITEMS.length);
       expect(host.querySelector('.ui-artifact-fallback')).to.equal(null);
     });
@@ -43,9 +44,22 @@ describe('artifacts CardView', () => {
 
   it('defaults to read-only cards with no collection label', () => {
     const host = mount({});
+    expect(host.querySelector('.ui-artifact-card-view').dataset.size).to.equal('XS');
     expect(host.querySelectorAll('li')).to.have.length(ITEMS.length);
     expect(host.querySelector('.ui-artifact-card-view-label')).to.equal(null);
     expect(host.querySelector('ul').hasAttribute('aria-label')).to.be.false;
+  });
+
+  it('updates and resets the card size without losing content', () => {
+    const host = mount({ size: 'XL' });
+    const update = (fields) => render(renderUiArtifact({
+      components: [{ id: 'root', component: 'CardView', items: ITEMS, ...fields }],
+    }), host);
+    update({ size: 'M' });
+    expect(host.querySelector('.ui-artifact-card-view').dataset.size).to.equal('M');
+    update({});
+    expect(host.querySelector('.ui-artifact-card-view').dataset.size).to.equal('XS');
+    expect(host.querySelectorAll('li')).to.have.length(ITEMS.length);
   });
 
   it('supports empty collections and optional item descriptions', () => {
