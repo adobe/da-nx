@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { setImsDetails } from '../../nx/utils/daFetch.js';
-import { rolloutLang } from '../../nx/blocks/loc/views/rollout/index.js';
+import { rolloutLang, setSaveError } from '../../nx/blocks/loc/views/rollout/index.js';
 import '../../nx/blocks/loc/views/rollout/rollout.js';
 
 const proto = customElements.get('nx-loc-rollout').prototype;
@@ -175,5 +175,23 @@ describe('rollout view: errors list', () => {
       '/org/site/en-gb/b.html',
       '/org/site/de-ch/b.html',
     ]);
+  });
+});
+
+describe('setSaveError', () => {
+  it('names the page and the reason', () => {
+    const url = { destination: '/org/site/en-gb/b.html' };
+
+    setSaveError(url, 500);
+
+    expect(url.error).to.equal('Error saving /org/site/en-gb/b.html - 500');
+  });
+
+  it('keeps a message the copy helper already set', () => {
+    const url = { destination: '/org/site/en-gb/b.html', error: '/org/site/en-gb/b.html: Save failed (500)' };
+
+    setSaveError(url, 500);
+
+    expect(url.error).to.equal('/org/site/en-gb/b.html: Save failed (500)');
   });
 });

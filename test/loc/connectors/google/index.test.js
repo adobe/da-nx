@@ -188,6 +188,31 @@ describe('google connector - partial failures', () => {
     expect(savedTo(retrySave)).to.deep.equal(['/org/site/fr/page-1.html']);
   });
 
+  it('re-saves a translated page whose save failed without translating it again', async () => {
+    const langs = [{ name: 'French', code: 'fr', location: '/fr' }];
+    const langsWithUrls = makeLangsWithUrls(['<p>one</p>', '<p>two</p>']);
+    await sendAllLanguages({
+      org: 'org', site: 'site', langs, langsWithUrls, options: {}, actions,
+    });
+    const failingSave = sinon.stub().callsFake(async (url) => {
+      const ok = !url.destination.endsWith('page-1.html');
+      url.status = ok ? 'success' : 'error';
+      if (!ok) url.error = `${url.destination}: Save failed (500)`;
+    });
+    await saveItems({ lang: langs[0], langIndex: 0, saveFn: failingSave });
+    langs[0].translation.status = 'error';
+    translateCalls = [];
+
+    const status = await getStatusAll({ org: 'org', site: 'site', langs, actions });
+
+    expect(translateCalls).to.have.length(0);
+    expect(status).to.deep.equal({ errors: [] });
+
+    const retrySave = saveFn();
+    await saveItems({ lang: langs[0], langIndex: 0, saveFn: retrySave });
+    expect(savedTo(retrySave)).to.deep.equal(['/org/site/fr/page-1.html']);
+  });
+
   it('saves each language from its own translations', async () => {
     const langs = [
       { name: 'French', code: 'fr', location: '/fr' },
