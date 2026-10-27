@@ -73,18 +73,20 @@ async function fetchLangSources(lang, urls) {
   return results;
 }
 
+export function setSaveError(url, reason) {
+  url.error ??= `Error saving ${url.destination} - ${reason}`;
+}
+
 async function rolloutLangLocales(title, lang, urls, behavior) {
   const rolloutUrl = async (url) => {
     const overwrite = behavior === 'overwrite' || url.hasExt;
     const copyFn = overwrite ? overwriteCopy : mergeCopy;
     try {
       const resp = await copyFn(url, title);
-      if (url.status !== 'success') {
-        url.error = `Error saving ${url.destination} - ${resp?.status || 'no response'}`;
-      }
+      if (url.status !== 'success') setSaveError(url, resp?.status || 'no response');
     } catch (e) {
       url.status = 'error';
-      url.error = `Error saving ${url.destination} - ${e.message}`;
+      setSaveError(url, e.message);
     }
   };
 

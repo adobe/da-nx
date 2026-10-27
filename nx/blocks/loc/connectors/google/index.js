@@ -115,8 +115,8 @@ export async function getStatusAll({ org, site, langs }) {
   const errors = [];
   for (const lang of retryLangs) {
     const langUrls = results.get(lang.code);
-    const failed = langUrls.filter((url) => url.error);
-    failed.forEach((url) => { delete url.error; });
+    langUrls.filter((url) => url.error).forEach((url) => { delete url.error; });
+    const failed = langUrls.filter((url) => !url.sourceContent);
 
     const queue = new Queue((url) => translateUrl(org, site, url), 50);
     await Promise.all(failed.map((url) => queue.push(url)));
