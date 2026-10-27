@@ -12,6 +12,9 @@
 
 import { getApprovedOnlyFilterProps } from './filter-schema.js';
 
+/** dataTransfer type that carries the dragged assets (a JSON array) on drop. */
+export const ASSET_DRAG_DATA_TYPE = 'collectionviewdata';
+
 export function buildFeatureSet(isDmEnabled) {
   const features = ['upload', 'collections', 'detail-panel', 'advisor'];
   if (isDmEnabled) features.push('dynamic-media');
@@ -40,6 +43,7 @@ export function buildAssetSelectorProps({
   onClose,
   handleSelection,
   rail,
+  dragAndDrop,
 }) {
   return {
     imsToken,
@@ -54,5 +58,11 @@ export function buildAssetSelectorProps({
     ...(onClose && { onClose }),
     ...(handleSelection && { handleSelection }),
     ...(rail === true && { rail: true }),
+    ...(dragAndDrop === true && {
+      acvConfig: {
+        dragOptions: { allowList: { '*': true } },
+        selectionType: 'multiple',
+      },
+    }),
   };
 }
