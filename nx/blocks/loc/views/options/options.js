@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
-import { fetchConfig, isSourceDetectEnabled, resolveSourceLang } from '../../utils/utils.js';
+import { fetchConfig, isSourceDetectEnabled } from '../../utils/utils.js';
 import {
   getAllActions,
   formatLangs,
@@ -8,6 +8,7 @@ import {
   finalizeOptions,
   getCustomOptions,
   filterLangsBySource,
+  getProjectSource,
 } from './utils/utils.js';
 
 const style = await loadStyle(import.meta.url);
@@ -58,9 +59,7 @@ class NxLocOptions extends LitElement {
     // Langs have information inside them
     this._siteLangs = formatLangs(sheets.languages.data, config);
 
-    if (isSourceDetectEnabled(config['source.language.detect'])) {
-      this.detectSource(options);
-    }
+    this.detectSource({ options, enabled: isSourceDetectEnabled(config['source.language.detect']) });
 
     // Distill down available lang actions into a single list.
     this._actions = getAllActions(this._siteLangs);
@@ -70,11 +69,12 @@ class NxLocOptions extends LitElement {
     this.loadConnectorServiceOptions();
   }
 
-  detectSource(options) {
+  detectSource({ options, enabled }) {
     const defaultSourceLang = options['source.language'];
-    const { sourceLang, detected, error } = resolveSourceLang({
+    const { sourceLang, detected, error } = getProjectSource({
+      project: this.project,
+      enabled,
       langs: this._siteLangs,
-      urls: this.project.urls,
       defaultSourceLang,
     });
 

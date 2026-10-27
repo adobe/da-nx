@@ -169,8 +169,7 @@ class NxLocValidate extends LitElement {
     }
   }
 
-  async getSourcePrefix() {
-    const detected = await this.detectSource();
+  async getSourcePrefix(detected = {}) {
     if (detected.detected) return detected.sourceLang.location;
 
     const sourceLang = await this.findConfigValue('source.language');
@@ -189,10 +188,10 @@ class NxLocValidate extends LitElement {
       return { message: { type: 'error', text: 'Please select at least one URL.' } };
     }
 
-    const { error } = await this.detectSource();
-    if (error) return { message: { type: 'error', text: error } };
+    const detected = await this.detectSource();
+    if (detected.error) return { message: { type: 'error', text: detected.error } };
 
-    const defaultLocation = await this.getSourcePrefix();
+    const defaultLocation = await this.getSourcePrefix(detected);
     const sourceLocations = getSourceLocations({
       options: { 'source.language': { location: defaultLocation } },
       langs: this._configSheet?.languages?.data,
@@ -216,7 +215,9 @@ class NxLocValidate extends LitElement {
       return { message: { type: 'error', text: `Multiple URLs resolve to the same base path. Remove one: ${conflicts}` } };
     }
 
-    return { updates: { urls, sourceLocations } };
+    const detectedSource = detected.detected ? detected.sourceLang : null;
+
+    return { updates: { urls, sourceLocations, detectedSource } };
   }
 
   async handleAction(e) {

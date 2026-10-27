@@ -1,6 +1,11 @@
 import { expect } from '@esm-bundle/chai';
 import '../../../../nx/blocks/loc/views/options/options.js';
-import { filterLangsBySource, formatLangs, finalizeOptions } from '../../../../nx/blocks/loc/views/options/utils/utils.js';
+import {
+  filterLangsBySource,
+  formatLangs,
+  finalizeOptions,
+  getProjectSource,
+} from '../../../../nx/blocks/loc/views/options/utils/utils.js';
 
 // Dynamic-expression import (not a literal string) so @web/dev-server-import-maps
 // does not rewrite this to ...?wds-import-map=0. See test/nx2/utils/api.test.js.
@@ -293,5 +298,39 @@ describe('finalizeOptions - project source locations', () => {
       ['/en'],
     );
     expect(view).to.equal('sync');
+  });
+});
+
+describe('getProjectSource', () => {
+  const langs = [
+    { name: 'Global English', code: 'en', location: '/global' },
+    { name: 'EU English', code: 'en', location: '/eu' },
+  ];
+  const defaultSourceLang = { name: 'Global English', code: 'en', location: '/global' };
+  const persisted = { name: 'EU English', code: 'en', location: '/eu' };
+
+  it('uses the persisted source even if the URLs or config now say otherwise', () => {
+    const project = { detectedSource: persisted, urls: [{ suppliedPath: '/global/a' }] };
+    const result = getProjectSource({ project, enabled: false, langs, defaultSourceLang });
+    expect(result).to.deep.equal({ sourceLang: persisted, detected: true });
+  });
+
+  it('keeps the configured source when validate persisted null', () => {
+    const project = { detectedSource: null, urls: [{ suppliedPath: '/eu/a' }] };
+    const result = getProjectSource({ project, enabled: true, langs, defaultSourceLang });
+    expect(result).to.deep.equal({ sourceLang: defaultSourceLang, detected: false });
+  });
+
+  it('resolves from URLs for projects without a persisted source', () => {
+    const project = { urls: [{ suppliedPath: '/eu/a' }] };
+    const result = getProjectSource({ project, enabled: true, langs, defaultSourceLang });
+    expect(result.detected).to.equal(true);
+    expect(result.sourceLang.location).to.equal('/eu');
+  });
+
+  it('does not detect for projects without a persisted source when the flag is off', () => {
+    const project = { urls: [{ suppliedPath: '/eu/a' }] };
+    const result = getProjectSource({ project, enabled: false, langs, defaultSourceLang });
+    expect(result.detected).to.equal(false);
   });
 });

@@ -137,6 +137,30 @@ describe('NxLocValidate - source root detection', () => {
     expect(updates.urls.map((url) => url.basePath)).to.deep.equal(['/a', '/b']);
   });
 
+  it('persists the detected source for later steps', async () => {
+    const el = createEl({ paths: ['/eu/shipping'] });
+    const { updates } = await el.getUpdates();
+    expect(updates.detectedSource).to.deep.equal({ name: 'EU English', code: 'en', location: '/eu' });
+  });
+
+  it('persists a null detected source when nothing is detected', async () => {
+    const el = createEl({ paths: ['/fragments/header'] });
+    const { updates } = await el.getUpdates();
+    expect(updates.detectedSource).to.equal(null);
+  });
+
+  it('persists a null detected source when the flag is off', async () => {
+    const el = createEl({ detect: '', paths: ['/eu/shipping'] });
+    const { updates } = await el.getUpdates();
+    expect(updates.detectedSource).to.equal(null);
+  });
+
+  it('names the URL to uncheck when roots are mixed', async () => {
+    const el = createEl({ paths: ['/eu/a', '/eu/b', '/global/fragments/x'] });
+    await el.updateSourceMessage();
+    expect(el._message.text).to.include('uncheck: /global/fragments/x');
+  });
+
   it('ignores URLs that match no root', async () => {
     const el = createEl({ paths: ['/eu/a', '/fragments/header'] });
     await el.updateSourceMessage();

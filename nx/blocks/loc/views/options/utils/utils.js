@@ -2,6 +2,7 @@ import {
   findSourceLocation,
   getProjectSourceLocations,
   normalizeLocation,
+  resolveSourceLang,
 } from '../../../utils/utils.js';
 
 const DEFAULT_PROPS = [
@@ -141,6 +142,22 @@ export function getAllActions(langs) {
       if (b.value === 'skip') return -1;
       return 0;
     });
+}
+
+/**
+ * Get the project's detected source. Validate persists `detectedSource` (null when
+ * nothing was detected); older projects without it are resolved from config.
+ * @returns {{ sourceLang?: Object, detected?: boolean, error?: string }}
+ */
+export function getProjectSource({ project, enabled, langs, defaultSourceLang }) {
+  const { detectedSource, urls } = project;
+  if (detectedSource !== undefined) {
+    return detectedSource
+      ? { sourceLang: detectedSource, detected: true }
+      : { sourceLang: defaultSourceLang, detected: false };
+  }
+  if (!enabled) return { sourceLang: defaultSourceLang, detected: false };
+  return resolveSourceLang({ langs, urls, defaultSourceLang });
 }
 
 /**

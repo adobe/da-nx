@@ -335,6 +335,20 @@ function buildSourceLang({ root, langs, defaultSourceLang }) {
   return { name: root, code: defaultSourceLang?.code, location: root };
 }
 
+const MAX_LISTED_URLS = 5;
+
+function formatMixedRootsError(pathsByRoot) {
+  const roots = [...pathsByRoot.keys()];
+  const [mainRoot] = [...pathsByRoot.entries()]
+    .reduce((best, entry) => (entry[1].length > best[1].length ? entry : best));
+  const outside = roots
+    .filter((root) => root !== mainRoot)
+    .flatMap((root) => pathsByRoot.get(root));
+  const listed = outside.slice(0, MAX_LISTED_URLS).join(', ');
+  const more = outside.length > MAX_LISTED_URLS ? ` and ${outside.length - MAX_LISTED_URLS} more` : '';
+  return `URLs come from more than one source root (${roots.join(', ')}). To keep ${mainRoot}, uncheck: ${listed}${more}. Otherwise create a separate project for each root.`;
+}
+
 /**
  * Work out a project's source language from the folder its URLs live in.
  *
@@ -355,24 +369,22 @@ export function resolveSourceLang({ langs = [], urls = [], defaultSourceLang }) 
     .filter((root) => root !== '/');
   const uniqueRoots = [...new Set(roots)].sort((a, b) => b.length - a.length);
 
-  const matched = new Set();
-  urls.forEach((url) => {
+  const pathsByRoot = urls.reduce((acc, url) => {
     const path = typeof url === 'string' ? url : (url.suppliedPath ?? url.pathname);
-    if (!path) return;
+    if (!path) return acc;
     const root = findSourceLocation({
       path: path.replace(/\.(html|json)$/, ''),
       locations: uniqueRoots,
     });
-    if (root) matched.add(root);
-  });
+    if (root) acc.set(root, [...(acc.get(root) || []), path]);
+    return acc;
+  }, new Map());
 
-  if (matched.size > 1) {
-    return { error: `URLs come from more than one source root (${[...matched].join(', ')}). Create a separate project for each root.` };
-  }
+  if (pathsByRoot.size > 1) return { error: formatMixedRootsError(pathsByRoot) };
 
-  if (matched.size === 0) return { sourceLang: defaultSourceLang, detected: false };
+  if (pathsByRoot.size === 0) return { sourceLang: defaultSourceLang, detected: false };
 
-  const [root] = matched;
+  const [root] = pathsByRoot.keys();
   return { sourceLang: buildSourceLang({ root, langs, defaultSourceLang }), detected: true };
 }
 

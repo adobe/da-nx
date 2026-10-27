@@ -56,6 +56,28 @@ describe('resolveSourceLang', () => {
     expect(error).to.include('/eu');
   });
 
+  it('names the URLs outside the most common root in the mixed-root error', () => {
+    const { error } = resolveSourceLang({
+      langs,
+      urls: ['/eu/a', '/eu/b', '/global/fragments/x', '/fragments/shared'],
+      defaultSourceLang,
+    });
+    expect(error).to.include('To keep /eu, uncheck: /global/fragments/x.');
+    expect(error).to.not.include('/eu/a,');
+    expect(error).to.not.include('/fragments/shared');
+  });
+
+  it('caps the listed URLs in the mixed-root error', () => {
+    const others = ['/global/1', '/global/2', '/global/3', '/global/4', '/global/5', '/global/6', '/global/7'];
+    const { error } = resolveSourceLang({
+      langs,
+      urls: [...Array(8).keys()].map((i) => `/eu/${i}`).concat(others),
+      defaultSourceLang,
+    });
+    expect(error).to.include('/global/5 and 2 more.');
+    expect(error).to.not.include('/global/6');
+  });
+
   it('falls back to the configured source when nothing matches', () => {
     const result = resolveSourceLang({ langs, urls: ['/unrelated/page'], defaultSourceLang });
     expect(result).to.deep.equal({ sourceLang: defaultSourceLang, detected: false });
