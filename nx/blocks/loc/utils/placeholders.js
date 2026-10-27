@@ -1,4 +1,4 @@
-export const ROLLOUT_CONFIG_PATH = '/.da/rollout-translation.json';
+export const ROLLOUT_CONFIG_PATH = '/.da/rollout-placeholders.json';
 
 const TOKEN = /\{\{\s*([A-Za-z][\w.-]*)\s*\}\}/g;
 const WHOLE_TOKEN = /^\{\{\s*([A-Za-z][\w.-]*)\s*\}\}$/;

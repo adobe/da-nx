@@ -199,7 +199,7 @@ describe('rollout placeholders - resolver', () => {
     ]);
     expect(parse(nl.content).querySelector('h1').textContent).to.equal('Page title | Fedex Netherlands');
     expect(parse(to.content).querySelector('h1').textContent).to.equal('Page title | Fedex Tonga');
-    expect(load.calledOnceWith('/org/site/.da/rollout-translation.json')).to.be.true;
+    expect(load.calledOnceWith('/org/site/.da/rollout-placeholders.json')).to.be.true;
   });
 
   it('leaves content untouched when no configuration exists', async () => {
@@ -207,14 +207,14 @@ describe('rollout placeholders - resolver', () => {
     const { expand } = createRolloutResolver({ load, sitePath: '/org/site' });
     const content = '<p>{{country}}</p>';
     expect(await expand({ content, root: '/nl-nl', path: '/org/site/nl-nl/a.html' })).to.deep.equal({ content });
-    expect(load.calledOnceWith('/org/site/.da/rollout-translation.json')).to.be.true;
+    expect(load.calledOnceWith('/org/site/.da/rollout-placeholders.json')).to.be.true;
   });
 
   it('reports an unreadable configuration document', async () => {
     const load = sinon.stub().resolves({ ok: false, status: 500 });
     const { expand } = createRolloutResolver({ load, sitePath: '/org/site' });
     const { error } = await expand({ content: '<p>{{country}}</p>', root: '/nl-nl', path: '/org/site/nl-nl/a.html' });
-    expect(error).to.include('/org/site/nl-nl/a.html').and.include('could not read /.da/rollout-translation.json (500)');
+    expect(error).to.include('/org/site/nl-nl/a.html').and.include('could not read /.da/rollout-placeholders.json (500)');
   });
 
   it('detects tokens split by formatting before skipping configuration', async () => {
@@ -248,7 +248,7 @@ describe('rollout placeholders - resolver', () => {
       const url = urlFor('/en-nl');
       expect(await prepareSource(url)).to.deep.equal({});
       expect(url.sourceHtml).to.be.undefined;
-      expect(load.calledOnceWith('/org/site/.da/rollout-translation.json')).to.be.true;
+      expect(load.calledOnceWith('/org/site/.da/rollout-placeholders.json')).to.be.true;
     });
 
     it('leaves token-free sources to the copy helpers', async () => {
@@ -288,7 +288,7 @@ describe('rolloutLang with placeholders', () => {
         if (opts.body instanceof FormData) posts[url] = await opts.body.get('data').text();
         return { ok: true, status: 200, headers, text: async () => '' };
       }
-      if (url.endsWith('/.da/rollout-translation.json') && hasConfig) {
+      if (url.endsWith('/.da/rollout-placeholders.json') && hasConfig) {
         return { ok: true, status: 200, headers, json: async () => CONFIG };
       }
       if (url.includes('/langstore/en/')) return { ok: true, status: 200, headers, text: async () => SOURCE };
