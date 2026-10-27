@@ -15,6 +15,10 @@ export const { loadIms, handleSignIn } = await (async () => {
 
 export { AEM_API };
 
+let sdkToken;
+export const setSdkToken = (token) => { sdkToken = token; };
+const getIms = () => (sdkToken ? { accessToken: { token: sdkToken } } : loadIms());
+
 // ============================================================================
 // Public API
 // ----------------------------------------------------------------------------
@@ -599,7 +603,7 @@ export const asText = (promise) => unwrap(promise, 'text');
 // ============================================================================
 
 export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false }) => {
-  const { accessToken } = await loadIms();
+  const { accessToken } = await getIms();
   if (!accessToken) {
     handleSignIn();
     return {};
@@ -682,7 +686,7 @@ export const getAemSiteToken = (() => {
   const tokenCache = {};
 
   const fetchToken = async (org, site) => {
-    const { accessToken } = await loadIms();
+    const { accessToken } = await getIms();
     const { token } = accessToken;
 
     const body = JSON.stringify({ org, site, accessToken: token });

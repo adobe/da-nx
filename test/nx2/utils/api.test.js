@@ -9,6 +9,7 @@ import {
 import {
   daFetch,
   isHlx6,
+  setSdkToken,
   signout,
   fromPath,
   source,
@@ -70,6 +71,13 @@ describe('api.js', () => {
 
       await daFetch({ url: `${AEM_API}/some/path` });
       expect(lastCall().headers['x-content-source-authorization']).to.equal('Bearer test-token');
+    });
+
+    it('uses an SDK-provided token instead of IMS when set', async () => {
+      setSdkToken('sdk-token');
+      await daFetch({ url: `${DA_ADMIN}/source/x/y.html` });
+      setSdkToken(undefined);
+      expect(lastCall().headers.Authorization).to.equal('Bearer sdk-token');
     });
 
     it('does not attach auth for unknown origins', async () => {
