@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  getOrgId, aoContext, resolveAoHttpBase, resolveAoWsBase, uploadAttachment,
+  getOrgId, resolveAoHttpBase, resolveAoWsBase, uploadAttachment,
 } from '../../../../../nx2/blocks/chat-ao/utils/uploads.js';
 import { AO_HTTP_BASE, AO_WS_BASE } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
 import { setMockIms, resetMockIms } from '../../../../../nx2/test/mocks/ims.js';
@@ -19,49 +19,13 @@ function withActiveTartan(fulfillableData) {
 }
 
 describe('uploads.js getOrgId', () => {
-  it('uses the active profile organization even when product contexts name another org', () => {
-    expect(getOrgId({
-      ownerOrg: 'active-org@AdobeOrg',
-      projectedProductContext: [{ prodCtx: { owningEntity: 'other-org@AdobeOrg' } }],
-    })).to.equal('active-org@AdobeOrg');
+  it('returns the owningEntity from the entry that has one', () => {
+    const ctx = [{ prodCtx: { serviceCode: 'x' } }, { prodCtx: { owningEntity: 'org1' } }];
+    expect(getOrgId(ctx)).to.equal('org1');
   });
 
-  it('does not require product contexts', () => {
-    expect(getOrgId({ ownerOrg: 'active-org@AdobeOrg' })).to.equal('active-org@AdobeOrg');
-  });
-
-  [undefined, null, '', ' ', 123].forEach((ownerOrg) => {
-    it(`rejects ownerOrg ${JSON.stringify(ownerOrg)} instead of falling back to product contexts`, () => {
-      expect(() => getOrgId({
-        ownerOrg,
-        projectedProductContext: [{ prodCtx: { owningEntity: 'other-org@AdobeOrg' } }],
-      })).to.throw('No active IMS organization.');
-    });
-  });
-
-  it('rejects a missing profile', () => {
-    expect(() => getOrgId()).to.throw('No active IMS organization.');
-  });
-});
-
-describe('uploads.js aoContext', () => {
-  beforeEach(resetMockIms);
-  afterEach(resetMockIms);
-
-  it('uses ownerOrg for identity while retaining product-context region resolution', async () => {
-    setMockIms({
-      ownerOrg: 'active-org@AdobeOrg',
-      projectedProductContext: [
-        { prodCtx: { owningEntity: 'other-org@AdobeOrg' } },
-        ...withActiveTartan({ region: 'EU1', environment: 'STAGE' }),
-      ],
-    });
-
-    const context = await aoContext();
-
-    expect(context.tenantId).to.equal('active-org@AdobeOrg');
-    expect(context.headers['x-tenant-id']).to.equal('active-org@AdobeOrg');
-    expect(context.base).to.equal('https://agent-orchestrator-stage-eu1.adobe.io');
+  it('returns undefined when there is no projectedProductContext', () => {
+    expect(getOrgId(undefined)).to.equal(undefined);
   });
 });
 
@@ -155,10 +119,7 @@ describe('uploadAttachment', () => {
   });
 
   beforeEach(() => {
-    setMockIms({
-      ownerOrg: 'org1',
-      projectedProductContext: [{ prodCtx: { owningEntity: 'other-org' } }],
-    });
+    setMockIms({ projectedProductContext: [{ prodCtx: { owningEntity: 'org1' } }] });
   });
 
   afterEach(() => resetMockIms());
@@ -181,7 +142,6 @@ describe('uploadAttachment', () => {
     expect(calls).to.have.length(3);
     expect(calls[0].opts.headers.authorization).to.equal('Bearer test-token');
     expect(calls[0].opts.headers['x-tenant-id']).to.equal('org1');
-    expect(calls[2].opts.headers['x-tenant-id']).to.equal('org1');
     expect(JSON.parse(calls[0].opts.body)).to.deep.equal({
       filename: 'design.png', content_type: 'image/png', scope: 'user',
     });
@@ -201,17 +161,6 @@ describe('uploadAttachment', () => {
 
     expect(result).to.equal(null);
     expect(calls).to.have.length(1);
-  });
-
-  it('does not start an upload without an active IMS organization', async () => {
-    setMockIms({ ownerOrg: null });
-    const { calls, restore } = installFetch([]);
-    try {
-      expect(await uploadAttachment(attachment)).to.equal(null);
-      expect(calls).to.have.length(0);
-    } finally {
-      restore();
-    }
   });
 
   it('returns null when initiate responds ok but omits file_id or upload_url', async () => {

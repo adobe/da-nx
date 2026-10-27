@@ -1,11 +1,8 @@
 import { loadIms } from '../../../utils/ims.js';
 import { AO_HTTP_BASE, AO_WS_BASE } from '../ao-constants.js';
 
-export function getOrgId({ ownerOrg } = {}) {
-  if (typeof ownerOrg !== 'string' || !ownerOrg.trim()) {
-    throw new Error('No active IMS organization. Sign in with an organization account.');
-  }
-  return ownerOrg;
+export function getOrgId(projectedProductContext) {
+  return projectedProductContext?.find((p) => p.prodCtx?.owningEntity)?.prodCtx.owningEntity;
 }
 
 // Resolves the AO region from the IMS profile; null falls back to the default
@@ -34,9 +31,8 @@ export function resolveAoWsBase(projectedProductContext) {
 
 // Shared IMS -> {base, headers} composition every AO REST call needs.
 export async function aoContext() {
-  const profile = await loadIms();
-  const { accessToken, userId, projectedProductContext } = profile;
-  const tenantId = getOrgId(profile);
+  const { accessToken, userId, projectedProductContext } = await loadIms();
+  const tenantId = getOrgId(projectedProductContext);
   return {
     base: resolveAoHttpBase(projectedProductContext),
     tenantId,

@@ -3,7 +3,7 @@ import { fetchResolvedManifestId, resolveManifestId } from '../../../../../nx2/b
 import { AO_MANIFEST_ID, AO_HTTP_BASE } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
 import { resetMockIms, setMockIms } from '../../../../../nx2/test/mocks/ims.js';
 
-const projectedProductContext = [{ prodCtx: { owningEntity: 'other-org' } }];
+const projectedProductContext = (tenantId) => [{ prodCtx: { owningEntity: tenantId } }];
 const cacheKey = (tenantId, userId) => `da-chat-ao-resolved-manifest--${tenantId}--${userId}`;
 
 describe('fetchResolvedManifestId', () => {
@@ -28,7 +28,7 @@ describe('fetchResolvedManifestId', () => {
 
   beforeEach(() => {
     resetMockIms();
-    setMockIms({ userId: 'user1', ownerOrg: 'org1', projectedProductContext });
+    setMockIms({ userId: 'user1', projectedProductContext: projectedProductContext('org1') });
   });
 
   afterEach(() => {
@@ -73,7 +73,7 @@ describe('fetchResolvedManifestId', () => {
     installFetch({ body: JSON.stringify({ manifest_id: 'aem-aia' }) });
     await fetchResolvedManifestId();
 
-    setMockIms({ ownerOrg: 'org2' });
+    setMockIms({ projectedProductContext: projectedProductContext('org2') });
     installFetch({ body: JSON.stringify({ manifest_id: 'ajo' }) });
 
     expect(await fetchResolvedManifestId()).to.equal('ajo');
@@ -93,17 +93,8 @@ describe('fetchResolvedManifestId', () => {
     expect(await fetchResolvedManifestId()).to.equal(null);
   });
 
-  it('does not request a manifest without an active IMS organization', async () => {
-    setMockIms({ ownerOrg: null });
-    installFetch();
-
-    expect(await fetchResolvedManifestId()).to.equal(null);
-    expect(calls).to.have.length(0);
-    expect(sessionStorage.getItem(cacheKey('org1', 'user1'))).to.equal(null);
-  });
-
-  it('does not cache and still fetches when the user id is missing', async () => {
-    setMockIms({ userId: null });
+  it('does not cache and still fetches when tenant or user id is missing', async () => {
+    resetMockIms(); // default projectedProductContext is undefined, so getOrgId() has no tenantId
     installFetch({ body: JSON.stringify({ manifest_id: 'aem-aia' }) });
 
     expect(await fetchResolvedManifestId()).to.equal('aem-aia');
@@ -133,7 +124,7 @@ describe('resolveManifestId', () => {
 
   beforeEach(() => {
     resetMockIms();
-    setMockIms({ userId: 'user1', ownerOrg: 'org1', projectedProductContext });
+    setMockIms({ userId: 'user1', projectedProductContext: projectedProductContext('org1') });
   });
 
   afterEach(() => {

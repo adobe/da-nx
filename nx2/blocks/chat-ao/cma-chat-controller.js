@@ -49,10 +49,9 @@ export default class CmaChatController extends BaseChatController {
   }
 
   async _connectionInfo() {
-    const profile = await loadIms();
     const {
-      accessToken, userId, tenantId, email, name,
-    } = profile;
+      accessToken, userId, tenantId, email, name, projectedProductContext,
+    } = await loadIms();
     const { org, site } = this._context ?? {};
     const siteId = org && site ? `${org}/${site}` : undefined;
     return {
@@ -60,7 +59,7 @@ export default class CmaChatController extends BaseChatController {
         type: AO_FRAME.AUTH,
         authorization: `Bearer ${accessToken?.token}`,
         'x-org-name': tenantId,
-        'x-tenant-id': getOrgId(profile),
+        'x-tenant-id': getOrgId(projectedProductContext),
         'x-user-email': email,
         'x-user-id': userId,
         'x-user-name': name,
@@ -79,9 +78,8 @@ export default class CmaChatController extends BaseChatController {
 
   async _uploadAttachment({ fileName, mediaType, dataBase64 }) {
     try {
-      const profile = await loadIms();
-      const { accessToken } = profile;
-      const tenantId = getOrgId(profile);
+      const { accessToken, projectedProductContext } = await loadIms();
+      const tenantId = getOrgId(projectedProductContext);
       const form = new FormData();
       const bytes = Uint8Array.from(atob(dataBase64), (c) => c.charCodeAt(0));
       form.append('file', new Blob([bytes], { type: mediaType }), fileName);

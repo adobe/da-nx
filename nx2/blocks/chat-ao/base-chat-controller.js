@@ -181,17 +181,16 @@ export default class BaseChatController {
 
   async _connectionInfo() {
     const {
-      accessToken, userId, tenantId, email, name, projectedProductContext, ownerOrg,
+      accessToken, userId, tenantId, email, name, projectedProductContext,
     } = await loadIms();
     const { org, site } = this._context ?? {};
     const siteId = org && site ? `${org}/${site}` : undefined;
-
     return {
       authFrame: {
         type: AO_FRAME.AUTH,
         authorization: `Bearer ${accessToken?.token}`,
         'x-org-name': tenantId,
-        'x-tenant-id': getOrgId({ ownerOrg }),
+        'x-tenant-id': getOrgId(projectedProductContext),
         'x-user-email': email,
         'x-user-id': userId,
         'x-user-name': name,

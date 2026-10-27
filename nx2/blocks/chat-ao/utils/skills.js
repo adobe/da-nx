@@ -24,8 +24,8 @@ function parseSkillsListResponse(json) {
 // Last-known skill list, so the slash-menu isn't empty before fetchSkills() resolves.
 export async function loadCachedSkills() {
   try {
-    const profile = await loadIms();
-    const key = getSkillsCacheKey(getOrgId(profile));
+    const { projectedProductContext } = await loadIms();
+    const key = getSkillsCacheKey(getOrgId(projectedProductContext));
     if (!key) return null;
     const raw = localStorage.getItem(key);
     const skills = raw ? JSON.parse(raw) : null;
