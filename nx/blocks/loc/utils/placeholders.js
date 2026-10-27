@@ -7,7 +7,9 @@ const NESTED = /\{\{|\}\}/;
 const SCHEME = /^([a-z][a-z0-9+.-]*):/i;
 const SAFE_SCHEMES = new Set(['http', 'https', 'mailto', 'tel']);
 const UNSAFE_TEXT_SCHEME = /^\s*(javascript|vbscript|data|file|blob):/i;
-const URL_TEMPLATE = /^(https?:\/\/|mailto:|tel:|\/|\.{1,2}\/)\S*$/i;
+const URL_CHUNK = String.raw`(?:\{\{\s*[A-Za-z][\w.-]*\s*\}\}|\S)`;
+const URL_TEMPLATE = new RegExp(String.raw`^(https?:\/\/|mailto:|tel:|\/|\.{1,2}\/)${URL_CHUNK}*$`, 'i');
+const SRCSET_URL = new RegExp(`^${URL_CHUNK}+`);
 const CONTROL_CHARS = /[\u0000-\u001F\u007F]/; // eslint-disable-line no-control-regex
 const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'poster', 'cite', 'data', 'background', 'xlink:href']);
 const SRCSET_ATTRS = new Set(['srcset', 'imagesrcset']);
@@ -117,7 +119,7 @@ function createReplacer({ values, errors }) {
 
   const expandSrcset = (template, location) => template.split(',')
     .map((candidate) => {
-      const [url] = candidate.trim().split(/\s+/);
+      const [url] = candidate.trim().match(SRCSET_URL) || [];
       if (!url || !hasTokens(url)) return candidate;
       return candidate.replace(url, () => expandUrl(url, location));
     })
