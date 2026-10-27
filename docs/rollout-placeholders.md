@@ -20,6 +20,7 @@ Create a sheet at `/.da/rollout-translation.json` with one tab per destination l
 `en-nl` tab: `country | Netherlands`. `en-to` tab: `country | Tonga`.
 
 - Tab names are the rollout locale roots without the leading slash: `/nl-nl` uses `nl-nl` and `/eu/nl-nl` uses `eu/nl-nl`. A root (`/`) destination uses a tab named `/`. Matching is exact and there is no fallback to another locale or language.
+- A destination without a tab keeps its tokens unchanged. Use this for intermediate stores in multi-step rollouts (for example global → `/eu` → `/en-nl`): leave out an `eu` tab so `/eu` keeps `{{country}}`, and add an `en-nl` tab so the final rollout fills it in.
 - Keys are case-sensitive, must start with a letter, and may contain letters, digits, `_`, `.` and `-`. `{{country}}` and `{{ country }}` are equivalent.
 - Values are literal text. Empty values are allowed. Values cannot contain `{{` or `}}`, and replacement is never recursive.
 - Duplicate keys within a tab, a missing `value`, non-text values and incomplete (paginated) tabs are errors for that locale only.
@@ -39,8 +40,6 @@ The configuration is read through the DA Source API at most once per rollout (se
 ## Errors
 
 The values a document needs are checked before it is written. If anything is missing or invalid, that destination is skipped. Nothing is written and no version is saved. Other destinations continue. Errors name the destination, the token or tab, and the location, for example:
-
-`/org/site/de-de/page.html: /.da/rollout-translation.json has no "de-de" tab`
 
 `/org/site/nl-nl/page.html: missing value for {{country}} (text in <h1>)`
 

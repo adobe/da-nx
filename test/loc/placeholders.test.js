@@ -54,9 +54,9 @@ describe('rollout placeholders - config', () => {
     expect(valuesFor('/').values.get('country')).to.equal('Root');
   });
 
-  it('reports a missing locale tab instead of falling back', () => {
-    expect(valuesFor('/de-de').error).to.include('no "de-de" tab');
-    expect(valuesFor('/nl').error).to.include('no "nl" tab');
+  it('passes through locales without a tab instead of falling back', () => {
+    expect(valuesFor('/de-de')).to.deep.equal({ passthrough: true });
+    expect(valuesFor('/nl')).to.deep.equal({ passthrough: true });
   });
 
   it('rejects malformed tabs and rows', () => {
@@ -259,11 +259,10 @@ describe('rollout placeholders - resolver', () => {
       expect(url.sourceHtml).to.be.undefined;
     });
 
-    it('returns errors for missing locale values', async () => {
+    it('keeps tokens for locales without a tab', async () => {
       const { prepareSource } = createRolloutResolver({ load: makeLoad(okResp(CONFIG)), sitePath: '/org/site' });
       const url = urlFor('/de-de');
-      const { error } = await prepareSource(url);
-      expect(error).to.include('/org/site/de-de/a.html').and.include('no "de-de" tab');
+      expect(await prepareSource(url)).to.deep.equal({});
       expect(url.sourceHtml).to.be.undefined;
     });
   });
@@ -330,13 +329,22 @@ describe('rolloutLang with placeholders', () => {
     expect(lang.rollout).to.deep.equal({ status: 'complete', saved: 2 });
   });
 
-  it('skips invalid destinations and finishes valid ones', async () => {
-    const { result } = run([{ code: '/en-nl' }, { code: '/de-de' }]);
-    const { errors } = await result;
-    expect(errors).to.have.length(1);
-    expect(errors[0].error).to.include('/org/site/de-de/page.html').and.include('no "de-de" tab');
+  it('keeps tokens for intermediate destinations without a tab', async () => {
+    const { result } = run([{ code: '/en-nl' }, { code: '/eu' }]);
+    expect(await result).to.deep.equal({});
     expect(posted('/en-nl/page.html')).to.equal('Page title | Fedex Netherlands');
-    expect(posted('/de-de/page.html')).to.be.undefined;
+    expect(posted('/eu/page.html')).to.equal('Page title | Fedex {{country}}');
+  });
+
+  it('skips invalid destinations and finishes valid ones', async () => {
+    CONFIG['en-to'].data.push({ key: 'country', value: 'dup' });
+    const { result } = run([{ code: '/en-nl' }, { code: '/en-to' }]);
+    const { errors } = await result;
+    CONFIG['en-to'].data.pop();
+    expect(errors).to.have.length(1);
+    expect(errors[0].error).to.include('/org/site/en-to/page.html').and.include('duplicates key "country"');
+    expect(posted('/en-nl/page.html')).to.equal('Page title | Fedex Netherlands');
+    expect(posted('/en-to/page.html')).to.be.undefined;
   });
 
   it('copy helpers use prepared source html for overwrite and merge fallback', async () => {
