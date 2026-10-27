@@ -110,6 +110,20 @@ describe('rollout placeholders - HTML', () => {
     expect(out.querySelector('img').getAttribute('alt')).to.equal('Nederland map');
   });
 
+  it('treats spaced tokens as part of URLs in srcset and text', () => {
+    const vals = values({ code: 'nl', country: 'Trinidad & Tobago#info' });
+    const html = doc(`
+      <picture><source srcset="/img/{{ code }}.webp 1x, /img/{{ code }}@2x.webp 2x"></picture>
+      <p>/search?q={{ country }}</p>`);
+    const { content, errors } = expandHtml({ content: html, values: vals });
+    expect(errors).to.be.undefined;
+    const out = parse(content);
+    expect(out.querySelector('source').getAttribute('srcset')).to.equal('/img/nl.webp 1x, /img/nl@2x.webp 2x');
+    expect(out.querySelector('p').textContent).to.equal(`/search?q=${encodeURIComponent('Trinidad & Tobago#info')}`);
+    const missing = expandHtml({ content: doc('<img srcset="/img/{{ nope }}.webp 1x">'), values: vals });
+    expect(missing.errors.join(' ')).to.include('missing value for {{nope}}');
+  });
+
   it('keeps special characters literal', () => {
     const tricky = '<b>"Q" & \'A\'</b> $& $1 / ü\nnext';
     const { content } = expandHtml({ content: doc('<p title="{{v}}">{{v}}</p>'), values: values({ v: tricky }) });
@@ -155,7 +169,7 @@ describe('rollout placeholders - JSON', () => {
       ':names': ['a', 'b'],
       ':type': 'multi-sheet',
       a: { total: 1, offset: 0, limit: 1, data: [{ title: 'Fedex {{country}}', n: 1, ok: true, empty: null }] },
-      b: { total: 1, offset: 0, limit: 1, data: [{ link: '{{supportUrl}}', path: '/x/{{country}}', q: 'say "{{country}}"' }] },
+      b: { total: 1, offset: 0, limit: 1, data: [{ link: '{{supportUrl}}', path: '/x/{{country}}', spaced: '/search?q={{ country }}', q: 'say "{{country}}"' }] },
     };
     const vals = values({ country: 'Côte "d\'Ivoire"/\n', supportUrl: 'https://fedex.com/ci' });
     const { content } = expandJson({ content: JSON.stringify(json), values: vals });
@@ -165,6 +179,7 @@ describe('rollout placeholders - JSON', () => {
     expect(out.a.data[0]).to.deep.equal({ title: 'Fedex Côte "d\'Ivoire"/\n', n: 1, ok: true, empty: null });
     expect(out.b.data[0].link).to.equal('https://fedex.com/ci');
     expect(out.b.data[0].path).to.equal(`/x/${encodeURIComponent('Côte "d\'Ivoire"/\n')}`);
+    expect(out.b.data[0].spaced).to.equal(`/search?q=${encodeURIComponent('Côte "d\'Ivoire"/\n')}`);
     expect(out.b.data[0].q).to.equal('say "Côte "d\'Ivoire"/\n"');
   });
 
