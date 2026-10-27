@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/nx2/styles/styles.css" />
   <link rel="stylesheet" href="/nx2/styles/form.css" />
   <link rel="stylesheet" href="/nx2/styles/buttons.css" />
+  <link rel="stylesheet" href="/nx2/styles/spinner.css" />
   <link rel="stylesheet" href="style-guide.css" />
 </head>
 
@@ -23,7 +24,8 @@
     <h1>EW Style Guide</h1>
     <p>
       A living reference of reusable CSS patterns (<code>nx2/styles/form.css</code>,
-      <code>nx2/styles/buttons.css</code>) and shared UI components (<code>nx2/blocks/shared/</code>).
+      <code>nx2/styles/buttons.css</code>, <code>nx2/styles/spinner.css</code>) and shared UI
+      components (<code>nx2/blocks/shared/</code>).
       Each example is rendered live
       from the real stylesheets/components, so it can't drift out of sync — copy the snippet
       shown under each one. Full API docs for each component live under
@@ -34,6 +36,7 @@
   <nav class="sg-toc">
     <a href="#buttons">Buttons</a>
     <a href="#form">Form</a>
+    <a href="#elements">Elements</a>
     <a href="#shared-blocks">Shared Blocks</a>
   </nav>
 
@@ -251,6 +254,11 @@
 &lt;!-- --nx-checkbox-size overrides the checkbox's width/height (default 14px) --&gt;
 &lt;label class="nx-checkbox" style="--nx-checkbox-size: 20px;"&gt;&lt;input type="checkbox" checked/&gt; Large&lt;/label&gt;</code></pre>
       </article>
+    </section>
+
+    <section id="elements" class="sg-section">
+      <h2>Elements</h2>
+      <p>Source: <code>nx2/styles/spinner.css</code></p>
 
       <article class="sg-example">
         <h3>Loading spinner</h3>
@@ -258,6 +266,9 @@
           <span class="nx-loading-spinner" role="status" aria-label="Loading"></span>
         </div>
         <pre><code>&lt;span class="nx-loading-spinner" role="status" aria-label="Loading"&gt;&lt;/span&gt;</code></pre>
+        <p>Override <code>--nx-spinner-track-color</code>/<code>--nx-spinner-active-color</code> for a
+          different color scheme (see <code>nx/blocks/loc/views/translate/translate.css</code> for an
+          example using <code>currentcolor</code>).</p>
       </article>
     </section>
 
@@ -362,7 +373,8 @@ field.addEventListener('search-submit', (event) =&gt; search(event.detail.value)
 
       <article class="sg-example">
         <h3>nx-search — in-field action</h3>
-        <p class="sg-note">The field border follows input and Clear focus; trailing actions have their own keyboard-focus outline and respect <code>hidden</code>.</p>
+        <p class="sg-note">The field border follows input and Clear focus; trailing actions have their own
+          keyboard-focus outline and respect <code>hidden</code>.</p>
         <div class="sg-demo">
           <nx-search variant="field" label="Search files" placeholder="Search files">
             <button slot="actions" type="button" aria-label="Search options" title="Search options">
@@ -630,6 +642,21 @@ tags.items = [{ id: 'app', label: 'App', removable: false }];
 &lt;!-- Recolor with custom properties --&gt;
 nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2-orange-1100); }</code></pre>
       </article>
+      <article class="sg-example">
+        <h3>nx-pills — size m</h3>
+        <p class="sg-note">Larger text, icons, padding, spacing, and corners, with a wider label limit.
+          Fits two rows, including thumbnails, before scrolling.</p>
+        <div class="sg-demo">
+          <nx-pills id="demo-pills-medium" size="m"></nx-pills>
+        </div>
+        <pre><code>&lt;nx-pills size="m"&gt;&lt;/nx-pills&gt;
+
+pills.items = [
+  { id: 'hero', label: 'hero.png' },
+  { id: 'notes', label: 'notes.pdf' },
+];
+pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</code></pre>
+      </article>
     </section>
   </main>
 
@@ -791,11 +818,16 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
     // nx-pills
     const pills = document.querySelector('#demo-pills');
     pills.items = [
-      { id: 'hero', label: 'hero.png', type: 'image' },
-      { id: 'notes', label: 'notes.pdf', type: 'file' },
+      { id: 'hero', label: 'hero.png' },
+      { id: 'notes', label: 'notes.pdf' },
     ];
     pills.addEventListener('nx-pill-remove', (e) => {
       pills.items = pills.items.filter((item) => item.id !== e.detail.id);
+    });
+    const mediumPills = document.querySelector('#demo-pills-medium');
+    mediumPills.items = [...pills.items];
+    mediumPills.addEventListener('nx-pill-remove', (e) => {
+      mediumPills.items = mediumPills.items.filter((item) => item.id !== e.detail.id);
     });
     const readOnlyPills = [
       { id: 'app', label: 'App', removable: false },
