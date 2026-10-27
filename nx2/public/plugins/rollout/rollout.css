@@ -94,6 +94,12 @@ select {
   background: rgb(255 214 209);
 }
 
+.prefix-error {
+  margin: 0 0 var(--spacing-100);
+  color: rgb(215 50 32);
+  font-size: 14px;
+}
+
 .da-prefix span {
   display: block;
   margin: 0 4px 0 12px;

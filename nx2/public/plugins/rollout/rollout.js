@@ -134,6 +134,7 @@ export default class DaRollout extends LitElement {
             ${this.renderList('Exclude', this._inactive)}
             ` : nothing}
           </div>
+        ${this._prefixes?.filter((prefix) => prefix.error).map((prefix) => html`<p class="prefix-error">${prefix.error}</p>`)}
         <div class="da-form-row da-form-actions">
           <button class="accent" ?disabled=${this._disabled}>Rollout</button>
         </div>
