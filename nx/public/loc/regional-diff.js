@@ -427,11 +427,8 @@ function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes =
       continue;
     }
 
+    // Rejected hashes only skip incoming blocks, never the target's own (ADDED) blocks
     if (item.type === ADDED) {
-      if (rejectedHashes.includes(hash)) {
-        // eslint-disable-next-line no-continue
-        continue;
-      }
       if (!acceptedHashes.includes(hash)) {
         modifiedBlock.setAttribute(ADDED_TAG, '');
       }
