@@ -69,7 +69,7 @@ export function parseRolloutConfig(json) {
 export function getLocaleValues({ config, root }) {
   if (config.error) return config;
   const name = getTabName(root);
-  if (!config.tabs.has(name)) return { error: `${ROLLOUT_CONFIG_PATH} has no "${name}" tab` };
+  if (!config.tabs.has(name)) return { passthrough: true };
   return validateTab(name, config.tabs.get(name));
 }
 
@@ -253,7 +253,8 @@ export function createRolloutResolver({ load, sitePath }) {
 
     const config = await loadConfig();
     if (config.disabled) return { content };
-    const { values, error } = getLocaleValues({ config, root });
+    const { values, error, passthrough } = getLocaleValues({ config, root });
+    if (passthrough) return { content };
     if (error) return { error: `${path}: ${error}` };
 
     const expandFn = isJson ? expandJson : expandHtml;
