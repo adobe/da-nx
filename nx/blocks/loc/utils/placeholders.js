@@ -1,20 +1,14 @@
 export const ROLLOUT_CONFIG_PATH = '/.da/rollout-placeholders.json';
 
 const TOKEN = /\{\{\s*([A-Za-z][\w.-]*)\s*\}\}/g;
-const WHOLE_TOKEN = /^\{\{\s*([A-Za-z][\w.-]*)\s*\}\}$/;
 const KEY = /^[A-Za-z][\w.-]*$/;
-const NESTED = /\{\{|\}\}/;
-const SCHEME = /^([a-z][a-z0-9+.-]*):/i;
-const SAFE_SCHEMES = new Set(['http', 'https', 'mailto', 'tel']);
-const UNSAFE_TEXT_SCHEME = /^\s*(javascript|vbscript|data|file|blob):/i;
-const URL_CHUNK = String.raw`(?:\{\{\s*[A-Za-z][\w.-]*\s*\}\}|\S)`;
-const URL_TEMPLATE = new RegExp(String.raw`^(https?:\/\/|mailto:|tel:|\/|\.{1,2}\/)${URL_CHUNK}*$`, 'i');
-const SRCSET_URL = new RegExp(`^${URL_CHUNK}+`);
-const CONTROL_CHARS = /[\u0000-\u001F\u007F]/; // eslint-disable-line no-control-regex
-const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'poster', 'cite', 'data', 'background', 'xlink:href']);
-const SRCSET_ATTRS = new Set(['srcset', 'imagesrcset']);
-const UNSAFE_ATTRS = new Set(['style', 'srcdoc']);
-const UNSAFE_ELEMENTS = 'script, style, noscript, template, iframe, object, embed';
+const VALUE = /^[\p{L}\p{M}\p{N} .,'-]{0,100}$/u;
+const SLUG = /^[A-Za-z0-9-]+$/;
+const HAS_HOST = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
+const AFTER_HOST = /^(https?:)?\/\/[^/?#]+[/?#]/i;
+const TEXT_ATTRS = new Set(['alt', 'title']);
+const LINK_ATTRS = new Set(['href', 'src']);
+const SKIPPED_ELEMENTS = 'script, style, noscript, template, iframe, object, embed';
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
 
 const countTokens = (str) => [...(str || '').matchAll(TOKEN)].length;
@@ -27,12 +21,6 @@ export function hasTokens(content) {
 export function getTabName(root) {
   const trimmed = (root || '').trim().replace(/^\/+|\/+$/g, '');
   return trimmed || '/';
-}
-
-export function isSafeUrl(href) {
-  if (typeof href !== 'string' || CONTROL_CHARS.test(href)) return false;
-  const scheme = href.trim().match(SCHEME)?.[1].toLowerCase();
-  return !scheme || SAFE_SCHEMES.has(scheme);
 }
 
 function validateTab(name, sheet) {
@@ -52,7 +40,9 @@ function validateTab(name, sheet) {
     if (values.has(key)) return [...acc, `${line} duplicates key "${key}"`];
     if (value === undefined) return [...acc, `${line} has no value for "${key}"`];
     if (typeof value !== 'string') return [...acc, `${line} value for "${key}" must be text`];
-    if (NESTED.test(value)) return [...acc, `${line} value for "${key}" cannot contain placeholders`];
+    if (!VALUE.test(value)) {
+      return [...acc, `${line} value for "${key}" may only contain letters, digits, spaces and . , ' - (up to 100 characters)`];
+    }
     values.set(key, value);
     return acc;
   }, []);
@@ -82,64 +72,23 @@ function createReplacer({ values, errors }) {
     return undefined;
   };
 
-  const expandUrl = (template, location) => {
-    const trimmed = template.trim();
-    const whole = trimmed.match(WHOLE_TOKEN);
-    if (whole) {
-      const value = lookup(whole[1], location);
-      if (value === undefined) return template;
-      if (!isSafeUrl(value)) {
-        errors.push(`{{${whole[1]}}} is not a safe URL (${location})`);
-        return template;
-      }
-      return template.replace(trimmed, () => value);
-    }
-    const before = errors.length;
-    const result = template.replace(TOKEN, (match, key, offset) => {
-      const prefix = template.slice(0, offset);
-      if (!prefix.trim()) {
-        errors.push(`{{${key}}} must be the whole URL or follow a scheme or path (${location})`);
-        return match;
-      }
-      const value = lookup(key, location);
-      if (value === undefined) return match;
-      if (/^\s*[a-z][a-z0-9+.-]*:\/\/[^/?#]*$/i.test(prefix)) {
-        if (/^[a-z0-9.-]+$/i.test(value)) return value;
-        errors.push(`{{${key}}} is not a valid host name (${location})`);
-        return match;
-      }
-      return encodeURIComponent(value);
-    });
-    if (errors.length === before && !isSafeUrl(result)) {
-      errors.push(`resolved URL is not safe (${location})`);
-      return template;
-    }
-    return result;
-  };
+  const expandText = (template, location) => template
+    .replace(TOKEN, (match, key) => lookup(key, location) ?? match);
 
-  const expandSrcset = (template, location) => template.split(',')
-    .map((candidate) => {
-      const [url] = candidate.trim().match(SRCSET_URL) || [];
-      if (!url || !hasTokens(url)) return candidate;
-      return candidate.replace(url, () => expandUrl(url, location));
-    })
-    .join(',');
-
-  const expandText = (template, location) => {
-    const trimmed = template.trim();
-    if (URL_TEMPLATE.test(trimmed)) return expandUrl(template, location);
-    const whole = trimmed.match(WHOLE_TOKEN);
-    if (whole) {
-      const value = values.get(whole[1]);
-      if (value !== undefined && UNSAFE_TEXT_SCHEME.test(value)) {
-        errors.push(`{{${whole[1]}}} is not a safe value (${location})`);
-        return template;
-      }
+  const expandLink = (template, location) => template.replace(TOKEN, (match, key, offset) => {
+    const prefix = template.slice(0, offset).trim();
+    if (!prefix || (HAS_HOST.test(prefix) && !AFTER_HOST.test(prefix))) {
+      errors.push(`{{${key}}} must come after the start of a link and its host, such as /path/{{${key}}} (${location})`);
+      return match;
     }
-    return template.replace(TOKEN, (match, key) => lookup(key, location) ?? match);
-  };
+    const value = lookup(key, location);
+    if (value === undefined) return match;
+    if (SLUG.test(value)) return value;
+    errors.push(`{{${key}}} in a link may only contain A-Z, a-z, 0-9 and - (${location})`);
+    return match;
+  });
 
-  return { expandUrl, expandSrcset, expandText };
+  return { expandText, expandLink };
 }
 
 function describe(el) {
@@ -162,43 +111,25 @@ function findSplitTokens(doc) {
 export function expandHtml({ content, values }) {
   const doc = new DOMParser().parseFromString(content, 'text/html');
   const errors = findSplitTokens(doc);
-  const { expandUrl, expandSrcset, expandText } = createReplacer({ values, errors });
+  const { expandText, expandLink } = createReplacer({ values, errors });
   const systemMetadata = doc.querySelector(DA_METADATA_SELECTOR);
+  const isSkipped = (el) => systemMetadata?.contains(el) || el.closest(SKIPPED_ELEMENTS);
 
-  [...doc.documentElement.querySelectorAll('*')].forEach((el) => {
-    if (systemMetadata?.contains(el)) return;
+  doc.body.querySelectorAll('*').forEach((el) => {
+    if (isSkipped(el)) return;
     [...el.attributes].forEach((attr) => {
       if (!hasTokens(attr.value)) return;
-      const location = `${attr.name} on ${describe(el)}`;
       const name = attr.name.toLowerCase();
-      if (name.startsWith('on') || UNSAFE_ATTRS.has(name) || el.matches(UNSAFE_ELEMENTS)) {
-        errors.push(`placeholders are not supported in ${location}`);
-      } else if (URL_ATTRS.has(name)) {
-        attr.value = expandUrl(attr.value, location);
-      } else if (SRCSET_ATTRS.has(name)) {
-        attr.value = expandSrcset(attr.value, location);
-      } else {
-        attr.value = expandText(attr.value, location);
-      }
+      const location = `${name} on ${describe(el)}`;
+      if (TEXT_ATTRS.has(name)) attr.value = expandText(attr.value, location);
+      if (LINK_ATTRS.has(name)) attr.value = expandLink(attr.value, location);
     });
   });
 
-  // Template content is a separate fragment; innerHTML serializes it, including nested templates.
-  doc.querySelectorAll('template').forEach((tpl) => {
-    if (systemMetadata?.contains(tpl) || !hasTokens(tpl.innerHTML)) return;
-    errors.push(`placeholders are not supported in content of ${describe(tpl)}`);
-  });
-
-  const walker = doc.createTreeWalker(doc.documentElement, NodeFilter.SHOW_TEXT);
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    const parent = node.parentElement;
-    if (hasTokens(node.data) && !systemMetadata?.contains(node)) {
-      const location = `text in ${describe(parent)}`;
-      if (parent.closest(UNSAFE_ELEMENTS)) {
-        errors.push(`placeholders are not supported in ${location}`);
-      } else {
-        node.data = expandText(node.data, location);
-      }
+    if (hasTokens(node.data) && !isSkipped(node.parentElement)) {
+      node.data = expandText(node.data, `text in ${describe(node.parentElement)}`);
     }
   }
 
