@@ -1,6 +1,8 @@
 import { expect } from '@esm-bundle/chai';
 import AoChatController from '../../../../nx2/blocks/chat-ao/ao-controller.js';
-import { AO_MANIFEST_ID, AO_HTTP_BASE } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
+import {
+  AO_MANIFEST_ID, AO_HTTP_BASE, AO_COMPONENT_CATALOG_URL,
+} from '../../../../nx2/blocks/chat-ao/ao-constants.js';
 import { setMockIms, resetMockIms } from '../../../../nx2/test/mocks/ims.js';
 
 const APPLICATION = {
@@ -38,9 +40,20 @@ describe('ao-controller sendMessage', () => {
         manifestId: AO_MANIFEST_ID,
         debugMode: false,
         clientMessageId,
+        catalogUrl: AO_COMPONENT_CATALOG_URL,
         client_context: { application: APPLICATION },
       },
     ]);
+  });
+
+  it('advertises the component catalog only on a new session\'s first USER_INPUT', async () => {
+    const { controller, sent } = makeController();
+    controller._episodeId = 'existing-episode';
+
+    await controller.sendMessage('hello again');
+
+    expect(sent[0].type).to.equal('USER_INPUT');
+    expect(sent[0]).to.not.have.property('catalogUrl');
   });
 
   it('never sends AUTH itself — that is _ensureSocket\'s job, once per connection, not per message', async () => {
@@ -75,6 +88,7 @@ describe('ao-controller sendMessage', () => {
     const { controller, sent } = makeController();
     controller._thinking = true;
     controller._pendingPlanApproval = { turnId: 't1', planContent: '# Plan', planFilePath: null };
+    controller._episodeId = 'e1';
 
     await controller.sendMessage('looks good, go ahead');
 
