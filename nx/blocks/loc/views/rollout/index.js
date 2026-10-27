@@ -77,7 +77,15 @@ async function rolloutLangLocales(title, lang, urls, behavior) {
   const rolloutUrl = async (url) => {
     const overwrite = behavior === 'overwrite' || url.hasExt;
     const copyFn = overwrite ? overwriteCopy : mergeCopy;
-    await copyFn(url, title);
+    try {
+      const resp = await copyFn(url, title);
+      if (url.status !== 'success') {
+        url.error = `Error saving ${url.destination} - ${resp?.status || 'no response'}`;
+      }
+    } catch (e) {
+      url.status = 'error';
+      url.error = `Error saving ${url.destination} - ${e.message}`;
+    }
   };
 
   const queue = new Queue(rolloutUrl, MAX_CONCURRENT_WRITES);
@@ -131,6 +139,7 @@ function formatRolloutUrls(org, site, lang, urls, snapshot) {
       });
       return {
         hasExt: langUrl.ext === 'json',
+        root: locale.code,
         sourceContent: langUrl.content,
         source: `/${org}/${site}${langUrl.aemBasePath}`,
         destination: `/${org}/${site}${daDestPath}`,
@@ -167,18 +176,17 @@ export async function rolloutLang({
 
   // Perform the actual rollout
   ({ errors, message, urls } = await rolloutLangLocales(title, lang, urlsToSave, behavior));
-  if (errors) return { errors, message };
 
-  // The presumption is that no errors means success
-  lang.rollout.status = 'complete';
-  lang.rollout.saved = urls.length;
+  const saved = urls.filter((url) => url.status === 'success');
+  lang.rollout.status = errors ? 'not started' : 'complete';
+  lang.rollout.saved = saved.length;
   lang.locales.forEach((locale) => {
-    locale.saved = projectUrls.length;
+    locale.saved = saved.filter((url) => url.root === locale.code).length;
   });
 
   actions.requestUpdate();
 
-  return { };
+  return errors ? { errors, message } : {};
 }
 
 function getRolloutDetails(lang) {
