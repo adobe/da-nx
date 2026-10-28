@@ -684,6 +684,45 @@ describe('globallink connector', () => {
       expect(JSON.parse(options.service.submissionIds.value)).to.deep.equal(['sub-1']);
     });
 
+    it('reports which submissions started and which failed on a partial start', async () => {
+      installFetch((u) => {
+        if (u.includes('/upload/source')) {
+          return new Response(JSON.stringify({
+            documentIds: [
+              { name: 'page-1.html', documentId: 'doc-1', submissionId: 'sub-1' },
+              { name: 'page-2.html', documentId: 'doc-2', submissionId: 'sub-2' },
+            ],
+          }), { status: 200 });
+        }
+        if (u.endsWith('/save')) {
+          const [, submissionId] = u.match(/submissions\/([^/]+)\/save/);
+          if (submissionId === 'sub-2') return new Response('', { status: 400 });
+          return new Response(JSON.stringify({ startedSubmissionIds: ['sub-1'] }), { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService();
+      const options = { service };
+      const langs = [{ name: 'French', code: 'fr-FR' }];
+      const urls = [
+        { daBasePath: '/page-1', content: '<p>1</p>' },
+        { daBasePath: '/page-2', content: '<p>2</p>' },
+      ];
+      const messages = [];
+      const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 't', service, options, langs, urls, actions,
+      });
+
+      const errorMessage = messages.find((m) => m.type === 'error');
+      expect(errorMessage.text).to.equal(
+        'Failed to save/start GlobalLink submission. Started: sub-1. Failed: sub-2.',
+      );
+      expect(langs[0].translation).to.deep.equal({ status: 'error' });
+      expect(JSON.parse(service.submissionIds.value)).to.deep.equal(['sub-1', 'sub-2']);
+    });
+
     it('does not let two DA paths collide into the same uploaded file name', async () => {
       let uploadedFiles;
       installFetch(async (u, opts) => {

@@ -506,16 +506,23 @@ async function saveAndAutostart(service, submissionId) {
  * assuming a project only ever created a single submission.
  * @param {object} service - The flattened per-environment service config.
  * @param {string[]} submissionIds - Every submission id to save/start.
- * @returns {Promise<{started: boolean, messages: string[]|null}>} Whether every submission
- * started, plus every message any of them returned (e.g. explaining why one didn't).
+ * @returns {Promise<{started: boolean, startedIds: string[], failedIds: string[],
+ * messages: string[]|null}>} Whether every submission started, which ids started and
+ * which didn't, plus every message any of them returned.
  */
 async function saveAndAutostartAll(service, submissionIds) {
   const results = await Promise.all(
     submissionIds.map((submissionId) => saveAndAutostart(service, submissionId)),
   );
-  const started = results.every((result) => result.started);
+  const startedIds = submissionIds.filter((_, i) => results[i].started);
+  const failedIds = submissionIds.filter((_, i) => !results[i].started);
   const messages = results.flatMap((result) => result.messages || []);
-  return { started, messages: messages.length ? messages : null };
+  return {
+    started: failedIds.length === 0,
+    startedIds,
+    failedIds,
+    messages: messages.length ? messages : null,
+  };
 }
 
 const TARGETS_PAGE_SIZE = 200;
@@ -895,11 +902,16 @@ export async function sendAllLanguages({
     }
 
     sendMessage({ text: 'Starting GlobalLink submission.' });
-    const { started, messages } = await saveAndAutostartAll(service, submissionIds);
+    const {
+      started, startedIds, failedIds, messages,
+    } = await saveAndAutostartAll(service, submissionIds);
     if (!started) {
       await failSubmission();
+      const partial = startedIds.length
+        ? ` Started: ${startedIds.join(', ')}. Failed: ${failedIds.join(', ')}.`
+        : '';
       sendMessage({
-        text: withDetail('Failed to save/start GlobalLink submission.', messages?.join(' ')),
+        text: `${withDetail('Failed to save/start GlobalLink submission.', messages?.join(' '))}${partial}`,
         type: 'error',
       });
       return undefined;
