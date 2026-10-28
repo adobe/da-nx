@@ -103,28 +103,72 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelector('.picker-trigger-label').textContent).to.equal('Draft');
   });
 
-  it('uses the matching description typography tokens when switching between S and M', async () => {
+  it('uses matching component typography for all picker text when switching between S and M', async () => {
     const el = await createPicker({
-      items: [{ value: 'draft', label: 'Draft', description: 'Not published' }],
+      items: [
+        { section: 'Status' },
+        { value: 'draft', label: 'Draft', description: 'Not published' },
+        { value: 'add', label: 'Add...', action: true },
+      ],
+      value: 'draft',
     });
     el.style.setProperty('--s2-component-s-regular-font-size', '12px');
     el.style.setProperty('--s2-component-s-regular-line-height', '18px');
+    el.style.setProperty('--s2-component-s-regular-font-weight', '300');
+    el.style.setProperty('--s2-component-s-bold-font-size', '13px');
+    el.style.setProperty('--s2-component-s-bold-line-height', '20px');
+    el.style.setProperty('--s2-component-s-bold-font-weight', '600');
     el.style.setProperty('--s2-component-m-regular-font-size', '16px');
     el.style.setProperty('--s2-component-m-regular-line-height', '24px');
-    for (const [size, fontSize, lineHeight] of [
-      ['s', '12px', '18px'],
-      ['m', '16px', '24px'],
-      ['s', '12px', '18px'],
-    ]) {
+    el.style.setProperty('--s2-component-m-regular-font-weight', '450');
+    el.style.setProperty('--s2-component-m-bold-font-size', '17px');
+    el.style.setProperty('--s2-component-m-bold-line-height', '26px');
+    el.style.setProperty('--s2-component-m-bold-font-weight', '750');
+    for (const size of ['s', 'm', 's']) {
       el.size = size;
       await el.updateComplete;
+      const regular = [
+        '.picker-trigger-label',
+        '[data-value="draft"] .picker-item-label',
+        '.picker-item-description',
+        '[data-value="add"] .picker-item-label',
+      ];
+      for (const selector of [...regular, '.picker-section']) {
+        const weight = selector === '.picker-section' ? 'bold' : 'regular';
+        const style = getComputedStyle(el.shadowRoot.querySelector(selector));
+        for (const property of ['font-size', 'line-height', 'font-weight']) {
+          expect(style.getPropertyValue(property), `${size} ${selector} ${property}`)
+            .to.equal(el.style.getPropertyValue(`--s2-component-${size}-${weight}-${property}`));
+        }
+      }
       const description = el.shadowRoot.querySelector('.picker-item-description');
-      const style = getComputedStyle(description);
-      expect(style.fontSize, `${size} description font size`).to.equal(fontSize);
-      expect(style.lineHeight, `${size} description line height`).to.equal(lineHeight);
       expect(description.textContent).to.equal('Not published');
       expect(el.shadowRoot.querySelector('[role="option"]').getAttribute('aria-label'))
         .to.equal('Draft, Not published');
+    }
+  });
+
+  it('inherits description size and line height from consumer-styled items in S and M', async () => {
+    const el = await createPicker({
+      items: [{ value: 'draft', label: 'Draft', description: 'Not published' }],
+    });
+    const override = document.createElement('style');
+    override.textContent = 'nx-picker::part(item) { font-size: 21px; line-height: 29px; font-weight: 500; }';
+    document.head.append(override);
+    try {
+      for (const size of ['s', 'm']) {
+        el.size = size;
+        el.style.setProperty(`--s2-component-${size}-regular-font-size`, '12px');
+        el.style.setProperty(`--s2-component-${size}-regular-line-height`, '18px');
+        el.style.setProperty(`--s2-component-${size}-regular-font-weight`, '350');
+        await el.updateComplete;
+        const style = getComputedStyle(el.shadowRoot.querySelector('.picker-item-description'));
+        expect(style.fontSize, `${size} inherited font size`).to.equal('21px');
+        expect(style.lineHeight, `${size} inherited line height`).to.equal('29px');
+        expect(style.fontWeight, `${size} regular description weight`).to.equal('350');
+      }
+    } finally {
+      override.remove();
     }
   });
 

@@ -105,8 +105,10 @@ application rather than a domain-specific picker variant.
 `description` appears below the item label and is included in its accessible name
 unless `ariaLabel` supplies an explicit name. Existing item shapes remain unchanged.
 
-Description font size and line height use the matching S or M regular component
-tokens according to `size`, including when the picker size changes.
+Trigger, item and section typography uses the matching S or M component tokens,
+including font weight and dynamic size changes. Descriptions inherit the item's
+font size and line height, including consumer `::part(item)` overrides, while
+keeping the matching regular component font-weight token.
 
 ## CSS custom properties
 
