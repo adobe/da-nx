@@ -75,6 +75,12 @@ Skills Lab — external app at da.live/apps/skills, linked from Chat
 
 ### Two panel types
 
+Section configuration also accepts an optional `signal` and `onError(error)`.
+Aborting a workspace's signal prevents a late `getContent` result from mounting
+or invoking `onShow`. The host still closes/removes an already mounted panel.
+Concurrent opens share the section's in-flight content load. A failed load is
+reported to `onError`, when supplied, and the next open retries it.
+
 The distinction between panel types is a **caller convention**, not a framework concept.
 
 **Headless** — `getContent` returns a component that owns its entire layout: header, actions, close button. Used when a single, known first-party component permanently occupies the panel

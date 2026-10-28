@@ -1,0 +1,108 @@
+import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
+import '../../../../nx2/blocks/chat/chat.js';
+import '../../../../nx2/blocks/chat-ao/chat-ao.js';
+import { CHAT_EVENT } from '../../../../nx2/utils/chat.js';
+
+describe('chat input coordination', () => {
+  let chat;
+
+  afterEach(() => {
+    chat?.remove();
+    sinon.restore();
+  });
+
+  async function mount(tag) {
+    sinon.stub(window, 'fetch').resolves(new Response('{}'));
+    chat = document.createElement(tag);
+    chat.attachShadow({ mode: 'open' });
+    chat._controller = {
+      setContext() {}, destroy() {}, getSkills: () => [], reattachIfIdle() {},
+    };
+    chat.context = {};
+    chat.showInputStatus = true;
+    document.body.append(chat);
+    await chat.updateComplete;
+    return chat.shadowRoot.querySelector('.chat-input');
+  }
+
+  ['nx-chat', 'nx-chat-ao'].forEach((tag) => {
+    it(`${tag} broadcasts processing state and preserves the disabled draft until completion`, async () => {
+      const input = await mount(tag);
+      chat.connected = true;
+      await chat.updateComplete;
+      input.value = 'Unsent draft';
+      const states = [];
+      chat.addEventListener(CHAT_EVENT.INPUT_STATE_CHANGE, ({ detail }) => states.push(detail));
+      chat.thinking = true;
+      await chat.updateComplete;
+      expect(chat.inputState).to.deep.equal({ busy: true, disabled: true });
+      expect(states.at(-1)).to.deep.equal(chat.inputState);
+      expect(input.disabled).to.equal(true);
+      expect(input.hidden).to.equal(true);
+      expect(chat.shadowRoot.querySelector('.chat-working').textContent).to.include('Working on your question, please wait...');
+      expect(chat.shadowRoot.querySelector('.chat-add').disabled).to.equal(true);
+      const add = sinon.spy(chat.shadowRoot.querySelector('nx-pills'), 'add');
+      await chat._onFilesSelected([new File(['draft'], 'draft.md', { type: 'text/markdown' })]);
+      expect(add.called).to.equal(false);
+      expect(await chat.setPrompt('Lost update', { replace: false })).to.equal(false);
+      expect(input.value).to.equal('Unsent draft');
+      chat.thinking = false;
+      await chat.updateComplete;
+      expect(states.at(-1)).to.deep.equal({ busy: false, disabled: false });
+      expect(input.hidden).to.equal(false);
+      expect(input.disabled).to.equal(false);
+      expect(input.value).to.equal('Unsent draft');
+      expect(chat.shadowRoot.querySelector('.chat-working')).to.equal(null);
+    });
+
+    it(`${tag} accepts a draft without sending and refuses to replace another draft`, async () => {
+      const input = await mount(tag);
+      chat.connected = true;
+      await chat.updateComplete;
+      expect(await chat.setPrompt('Landing draft', { replace: false })).to.equal(true);
+      expect(input.value).to.equal('Landing draft');
+      expect(await chat.setPrompt('Another draft', { replace: false })).to.equal(false);
+      expect(input.value).to.equal('Landing draft');
+      expect(await chat.setPrompt('Landing draft', { replace: false })).to.equal(true);
+      expect(await chat.setPrompt('Explicit replacement')).to.equal(true);
+      expect(input.value).to.equal('Explicit replacement');
+    });
+
+    it(`${tag} leaves the existing processing UI unchanged unless input status is requested`, async () => {
+      const input = await mount(tag);
+      chat.showInputStatus = false;
+      chat.thinking = true;
+      await chat.updateComplete;
+      expect(input.disabled).to.equal(true);
+      expect(input.hidden).to.equal(false);
+      expect(chat.shadowRoot.querySelector('.chat-working')).to.equal(null);
+    });
+  });
+
+  it('keeps AO plan feedback available, but blocks handoff while switching episodes', async () => {
+    await mount('nx-chat-ao');
+    chat.thinking = true;
+    chat.pendingPlanApproval = { turnId: 'turn' };
+    await chat.updateComplete;
+    expect(chat.inputState).to.deep.equal({ busy: false, disabled: false });
+    chat.loadingEpisode = true;
+    await chat.updateComplete;
+    expect(chat.inputState).to.deep.equal({ busy: false, disabled: true });
+    expect(await chat.setPrompt('Wrong episode')).to.equal(false);
+    chat.shadowRoot.querySelector('.chat-input').value = 'Wrong episode';
+    chat._submit();
+    expect(chat.shadowRoot.querySelector('.chat-input').value).to.equal('Wrong episode');
+  });
+
+  it('accepts one disconnected legacy draft and delivers it when the connection is ready', async () => {
+    const input = await mount('nx-chat');
+    expect(chat.inputState).to.deep.equal({ busy: false, disabled: true });
+    expect(chat.setPrompt('Pending', { replace: false })).to.equal(true);
+    expect(chat.setPrompt('Another', { replace: false })).to.equal(false);
+    chat.connected = true;
+    await chat.updateComplete;
+    expect(input.value).to.equal('Pending');
+    expect(chat.inputState.disabled).to.equal(false);
+  });
+});

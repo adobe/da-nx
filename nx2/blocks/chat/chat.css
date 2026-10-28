@@ -76,6 +76,18 @@
   }
 }
 
+.chat-working {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-200);
+  color: var(--s2-gray-700);
+  font-size: var(--nx-ui-text-content, var(--s2-component-m-regular-font-size));
+}
+
+.chat-working .nx-loading-spinner {
+  flex-shrink: 0;
+}
+
 .chat-header {
   display: flex;
   align-items: center;

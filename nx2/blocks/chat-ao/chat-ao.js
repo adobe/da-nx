@@ -40,7 +40,7 @@ import '../shared/picker/picker.js';
 import '../shared/chat/prompts/prompts.js';
 import '../shared/chat/new-chat/new-chat.js';
 import './question-card/question-card.js';
-import { ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
+import { ADOBE_AI_GUIDELINES_URL, CHAT_WORKING_MESSAGE, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 import { sampleRUM } from '../../deps/rum.js';
 
 const styles = await loadStyle(import.meta.url);
@@ -71,6 +71,7 @@ export default class NxChatAo extends LitElement {
     _prompts: { state: true },
     _planFeedback: { state: true },
     _voiceListening: { state: true },
+    showInputStatus: { type: Boolean },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
@@ -88,9 +89,15 @@ export default class NxChatAo extends LitElement {
     this._applyHarnessConfig(value);
   }
 
-  async setPrompt(text, { autoSend = false } = {}) {
+  get inputState() {
+    return { busy: !!this._blocked, disabled: !!this._blocked || !!this.loadingEpisode };
+  }
+
+  async setPrompt(text, { autoSend = false, replace = true } = {}) {
     await this.updateComplete;
-    this._sendPrompt(text, { autoSend });
+    const draft = this.shadowRoot.querySelector('.chat-input')?.value;
+    if (!replace && draft?.trim() && draft !== text) return false;
+    return this._sendPrompt(text, { autoSend });
   }
 
   // See docs/chat-ao-component.md#plan-approval — a pending plan, unlike a
@@ -184,16 +191,17 @@ export default class NxChatAo extends LitElement {
   }
 
   _sendPrompt(prompt, { autoSend = false } = {}) {
-    if (!prompt || this._blocked) return;
+    if (!prompt || this.inputState.disabled) return false;
     this.shadowRoot.querySelector('.prompts-popover')?.close();
     const input = this.shadowRoot.querySelector('.chat-input');
-    if (!input) return;
+    if (!input) return false;
     input.value = prompt;
     if (autoSend) {
       input.closest('form')?.requestSubmit();
     } else {
       input.focus();
     }
+    return true;
   }
 
   _toggleVoiceInput() {
@@ -259,7 +267,7 @@ export default class NxChatAo extends LitElement {
     this._initController();
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
-      onDragging: (dragging) => { this._dragging = dragging; },
+      onDragging: (dragging) => { this._dragging = dragging && !this.inputState.disabled; },
       onFiles: (files) => this._onFilesSelected(files),
     });
     this._unsubscribeHash = hashChange.subscribe((state) => {
@@ -306,6 +314,11 @@ export default class NxChatAo extends LitElement {
   }
 
   updated(changed) {
+    if (['thinking', 'pendingPlanApproval', 'loadingEpisode'].some((key) => changed.has(key))) {
+      this.dispatchEvent(new CustomEvent(CHAT_EVENT.INPUT_STATE_CHANGE, {
+        bubbles: true, composed: true, detail: this.inputState,
+      }));
+    }
     if (changed.has('messages')) {
       const log = this.shadowRoot.querySelector('.chat-scroll-container');
       if (log && this._wasNearBottom) {
@@ -344,6 +357,7 @@ export default class NxChatAo extends LitElement {
 
   _submit(e) {
     e?.preventDefault();
+    if (this.loadingEpisode) return;
     if (this._blocked) {
       this._controller.stop();
       return;
@@ -405,6 +419,7 @@ export default class NxChatAo extends LitElement {
   }
 
   async _onFilesSelected(fileList) {
+    if (this.inputState.disabled) return;
     const pills = this.shadowRoot.querySelector('nx-pills');
     const currentCount = (pills?.items ?? []).filter((i) => i.dataBase64).length;
     const items = await buildAttachmentItems(fileList, {
@@ -533,10 +548,14 @@ export default class NxChatAo extends LitElement {
             @change=${this._onFileInputChange}
           />
           <div class="chat-input-wrap ${this._altHarness ? '' : 'coworker-chat'}">
+            ${this.showInputStatus && this.inputState.busy ? html`<div class="chat-working" role="status">
+              <span class="nx-loading-spinner" aria-hidden="true"></span>${CHAT_WORKING_MESSAGE}
+            </div>` : nothing}
             <textarea
               class="chat-input"
               placeholder="Ask anything, or type / for skills..."
-              ?disabled=${this._blocked}
+              ?disabled=${this.inputState.disabled}
+              ?hidden=${this.showInputStatus && this.inputState.busy}
               @input=${this._handleInput}
               @keydown=${this._handleKeydown}
               @blur=${this._slashMenu.onBlur}
@@ -544,7 +563,7 @@ export default class NxChatAo extends LitElement {
           </div>
           <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
             <nx-menu size="m" .items=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-              <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
+              <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" ?disabled=${this.inputState.disabled} @click=${this._onAddClick}>
                 <span class="icon-add">${icon('add')}</span>
                 <span class="icon-up">${icon('up')}</span>
               </button>
@@ -566,7 +585,8 @@ export default class NxChatAo extends LitElement {
                 ?hidden=${!this._blocked}
                 @click=${this._submit}
               > ${icon('stop')}</button>
-              <button type="submit" class="chat-send harness-coworker nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this._blocked} aria-label="Send">
+              <button type="submit" class="chat-send harness-coworker nx-action-btn-icon is-active nx-btn-sm"
+                ?hidden=${this._blocked} ?disabled=${this.loadingEpisode} aria-label="Send">
                 ${icon('send')}
               </button>
             </div>

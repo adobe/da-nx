@@ -59,6 +59,22 @@ Context fields on the detail (`blockName`, `innerText`, `proseIndex`) are forwar
 
 ### Setting a prompt programmatically
 
+For a draft handoff, call `await chat.setPrompt(text, { replace: false })`.
+It returns `true` when the draft is accepted, or `false` when processing,
+loading an AO episode, or preserving a different unsent draft prevents it.
+An identical draft is safe to retry. The default `replace: true` retains
+programmatic replacement; `autoSend` remains opt-in.
+
+Both chat elements expose `inputState` as `{ busy, disabled }` and emit
+`CHAT_EVENT.INPUT_STATE_CHANGE` with that snapshot when it changes. The event
+bubbles from its owning chat; hosts listen on that element, read the initial
+snapshot after `updateComplete`, and remove their listener when releasing it.
+`busy` tracks processing, not just panel loading. AO plan feedback remains
+available during plan approval; episode loading disables input independently.
+Legacy input is disabled until connected. Hosts can opt into a spinner and
+working message in the left composer with `chat.showInputStatus = true`.
+This presentation is off by default. Stop and approval controls remain available.
+
 Both `nx-chat` and `nx-chat-ao` expose `setPrompt(text, { autoSend? })` as an instance method, and both also listen for `CHAT_EVENT.SET_PROMPT` (`'nx-set-prompt'`, `nx2/utils/chat.js`) on `document` and call their own `setPrompt()` when it fires. Dispatch the event rather than calling the method directly — the caller doesn't need to know (or query for) which of the two elements is actually mounted:
 
 ```js
