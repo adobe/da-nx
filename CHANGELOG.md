@@ -1,3 +1,10 @@
+# [1.27.0](https://github.com/adobe/da-nx/compare/v1.26.0...v1.27.0) (2026-10-28)
+
+
+### Features
+
+* extract chat input ([#925](https://github.com/adobe/da-nx/issues/925)) ([fb4a402](https://github.com/adobe/da-nx/commit/fb4a4026856bec0a0a63dcc325c02395ae227ea2))
+
 # [1.26.0](https://github.com/adobe/da-nx/compare/v1.25.0...v1.26.0) (2026-10-27)
 
 
