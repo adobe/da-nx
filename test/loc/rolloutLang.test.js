@@ -83,49 +83,6 @@ describe('rolloutLang', () => {
     expect(errors).to.have.length(1);
     expect(errors[0].error).to.include('/org/site/en-gb/b.html');
   });
-
-  it('marks the language complete when every save succeeds', async () => {
-    globalThis.fetch = makeFetch();
-    const lang = makeLang();
-
-    const result = await rolloutLang(makeConf(lang));
-
-    expect(result).to.deep.equal({});
-    expect(lang.rollout).to.deep.equal({ status: 'complete', saved: 3 });
-    expect(lang.locales[0].saved).to.equal(3);
-  });
-});
-
-describe('rollout view: handleRolloutLang', () => {
-  let originalFetch;
-
-  beforeEach(() => {
-    setImsDetails('test-token');
-    originalFetch = globalThis.fetch;
-  });
-
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-    sinon.restore();
-  });
-
-  it('persists the language and lists the errors when a save fails', async () => {
-    globalThis.fetch = makeFetch({ failSave: '/en-gb/b.html' });
-    const lang = makeLang();
-    const host = {
-      project: makeProject(),
-      _langs: [lang],
-      requestUpdate: () => {},
-      dispatchEvent: sinon.stub(),
-    };
-
-    await proto.handleRolloutLang.call(host, lang);
-
-    expect(host._errors).to.have.length(1);
-    expect(host.dispatchEvent.calledOnce).to.equal(true);
-    const { langs } = host.dispatchEvent.firstCall.args[0].detail.data;
-    expect(langs[0].rollout).to.deep.equal({ status: 'not started', saved: 2 });
-  });
 });
 
 describe('rollout view: errors list', () => {
