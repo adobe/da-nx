@@ -321,8 +321,8 @@ describe('regionalDiff with hashes from an earlier review', () => {
     const incoming = toDoc('<h1 id="welcome">Welcome</h1><p>Check the options online.</p>');
     const target = toDoc('<h1>Welcome</h1><p>Check the options.</p>');
     const main = await regionalDiff(incoming, target, [], [getDiffHash('<h1>Welcome</h1>')]);
-    expect(ownHeadings(main)).to.deep.equal(['<h1 da-diff-added="">Welcome</h1>']);
-    expect(main.querySelector('da-diff-deleted > h1#welcome')).to.exist;
+    expect([...main.querySelectorAll('h1')].map((h1) => h1.textContent)).to.deep.equal(['Welcome']);
+    expect(main.querySelectorAll('h1[da-diff-added], da-diff-deleted > h1').length).to.equal(0);
   });
 
   it('keeps an own block whose hash is in the rejected hashes', async () => {
@@ -333,19 +333,91 @@ describe('regionalDiff with hashes from an earlier review', () => {
     expect(main.querySelector('da-diff-deleted > h1').outerHTML).to.equal('<h1>Hello</h1>');
   });
 
-  it('marks both blocks when there are no hashes from an earlier review', async () => {
-    const incoming = toDoc('<h1 id="welcome">Welcome</h1><p>Check the options online.</p>');
-    const target = toDoc('<h1>Welcome</h1><p>Check the options.</p>');
-    const main = await regionalDiff(incoming, target, [], []);
-    expect(ownHeadings(main)).to.deep.equal(['<h1 da-diff-added="">Welcome</h1>']);
-    expect(main.querySelector('da-diff-deleted > h1#welcome')).to.exist;
-  });
-
   it('leaves out an incoming block whose hash is in the rejected hashes', async () => {
     const incoming = toDoc('<h1>Hello</h1>');
     const target = toDoc('<h1>Welcome</h1>');
     const main = await regionalDiff(incoming, target, [], [getDiffHash('<h1>Hello</h1>')]);
     expect(ownHeadings(main)).to.deep.equal(['<h1 da-diff-added="">Welcome</h1>']);
     expect(main.querySelector('da-diff-deleted')).to.be.null;
+  });
+});
+
+describe('regionalDiff with content written outside the editor', () => {
+  const IMG = 'https://example.com/media/a.png';
+  const editorPicture = (alt, src = IMG) => `<picture><source srcset="${src}"><source srcset="${src}" media="(min-width: 600px)"><img src="${src}" alt="${alt}" loading="lazy"></picture>`;
+  const toDoc = (mainHtml) => {
+    const doc = document.implementation.createHTMLDocument();
+    doc.body.innerHTML = `<main><div>${mainHtml}</div></main>`;
+    return doc;
+  };
+  const marks = (main) => [
+    ...[...main.querySelectorAll('da-diff-deleted > *')].map((el) => `-${el.textContent || el.querySelector('img')?.alt}`),
+    ...[...main.querySelectorAll('[da-diff-added]')].map((el) => `+${el.textContent || el.querySelector('img')?.alt}`),
+  ];
+
+  beforeEach(() => {
+    window.fetch = sinon.stub().callsFake(() => mockRes(''));
+  });
+
+  afterEach(() => {
+    window.fetch = originalFetch;
+  });
+
+  it('does not mark headings that differ only in their id', async () => {
+    const incoming = toDoc('<h1 id="welcome">Welcome</h1><h2 id="news">News</h2><p>Text</p>');
+    const target = toDoc('<h1>Welcome</h1><h2>News</h2><p>Text</p>');
+    const main = await regionalDiff(incoming, target, [], []);
+    expect(marks(main)).to.deep.equal([]);
+  });
+
+  it('leaves out an incoming heading with an id that the review rejected', async () => {
+    const incoming = toDoc('<h1 id="welcome">Welcome</h1>');
+    const target = toDoc('<h1>Willkommen</h1>');
+    const main = await regionalDiff(incoming, target, [], [getDiffHash('<h1>Welcome</h1>')]);
+    expect(marks(main)).to.deep.equal(['+Willkommen']);
+  });
+
+  it('does not mark a block whose cells differ only in the paragraphs the editor adds', async () => {
+    const incoming = toDoc('<div class="cards"><div><div>Card</div><div>Read <a href="https://example.com/">more</a></div></div></div>');
+    const target = toDoc('<div class="cards"><div><div><p>Card</p></div><div><p>Read <a href="https://example.com/">more</a></p></div></div></div>');
+    const main = await regionalDiff(incoming, target, [], []);
+    expect(marks(main)).to.deep.equal([]);
+  });
+
+  it('leaves out an incoming block that the review rejected as the editor saves it', async () => {
+    const incoming = toDoc('<div class="cards"><div><div>Card</div></div></div>');
+    const target = toDoc('<div class="cards"><div><div><p>Karte</p></div></div></div>');
+    const rejected = getDiffHash('<div class="cards"><div><div><p>Card</p></div></div></div>');
+    const main = await regionalDiff(incoming, target, [], [rejected]);
+    expect(marks(main)).to.deep.equal(['+Karte']);
+  });
+
+  it('does not mark an image that differs only in how the editor saves it', async () => {
+    const incoming = toDoc(`<p><picture><img src="${IMG}" alt="Logo"></picture></p>`);
+    const target = toDoc(editorPicture('Logo'));
+    const main = await regionalDiff(incoming, target, [], []);
+    expect(marks(main)).to.deep.equal([]);
+  });
+
+  it('does not mark a linked image that differs only in how the editor saves it', async () => {
+    const incoming = toDoc(`<p><a href="https://example.com/page"><picture><img src="${IMG}" alt="Logo"></picture></a></p>`);
+    const target = toDoc(`<a href="https://example.com/page"><picture><source srcset="${IMG}"><source srcset="${IMG}" media="(min-width: 600px)"><img src="${IMG}" alt="Logo"></picture></a>`);
+    const main = await regionalDiff(incoming, target, [], []);
+    expect(marks(main)).to.deep.equal([]);
+  });
+
+  it('leaves out an incoming image that the review rejected as the editor saves it', async () => {
+    const incoming = toDoc(`<p><picture><img src="${IMG}" alt="Logo"></picture></p>`);
+    const target = toDoc(editorPicture('Logo', 'https://example.com/media/b.png'));
+    const rejected = getDiffHash(`<picture><source srcset="${IMG}"><source media="(min-width: 600px)" srcset="${IMG}"><img alt="Logo" loading="lazy" src="${IMG}"></picture>`);
+    const main = await regionalDiff(incoming, target, [], [rejected]);
+    expect(marks(main)).to.deep.equal(['+Logo']);
+  });
+
+  it('still marks blocks with a different text', async () => {
+    const incoming = toDoc('<h2 id="old">Old</h2><div class="cards"><div><div>Card</div></div></div>');
+    const target = toDoc('<h2>New</h2><div class="cards"><div><div><p>Karte</p></div></div></div>');
+    const main = await regionalDiff(incoming, target, [], []);
+    expect(marks(main)).to.deep.equal(['-Old', '-Card', '+New', '+Karte']);
   });
 });
