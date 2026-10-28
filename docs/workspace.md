@@ -28,6 +28,11 @@ The following sections highlight some principles in more detail.
 - Components add event listeners to their children to receive data
 - Communicating with a component further outside of the parent/child relationship is also done via props and events, obtaining the component using document.querySelector(...).
 
+`nx-sidenav.actions` optionally accepts host-owned `{ label, icon, disabled,
+onClick }` descriptors. They render as accessible 32px buttons before the
+fragment's navigation links. Hosts update `actions` to change availability and
+remove their descriptors on disconnection; other menus have no added actions.
+
 ### Backend communication
 - Use `daFetch` from `nx2/utils/daFetch.js` to fetch data from the backend
 - Da Admin documentation: https://opensource.adobe.com/da-admin/

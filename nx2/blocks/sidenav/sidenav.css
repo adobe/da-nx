@@ -22,6 +22,19 @@
   }
 }
 
+.nav-action {
+  display: flex;
+  justify-content: center;
+
+  button {
+    padding: 0;
+  }
+
+  img {
+    flex-shrink: 0;
+  }
+}
+
 .nav-link {
   .icon {
     position: relative;

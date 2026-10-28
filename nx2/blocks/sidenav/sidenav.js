@@ -6,17 +6,21 @@ import { loadStyle, getHomeHref } from '../../utils/utils.js';
 const DEFAULT_NAV_PATH = '/nx/fragments/sidenav';
 const HASH_AWARE = ['Home', 'Apps'];
 
-const style = await loadStyle(import.meta.url);
+const styles = await Promise.all([
+  loadStyle(import.meta.url),
+  loadStyle(new URL('../../styles/buttons.css', import.meta.url).href),
+]);
 
 class NXSidenav extends LitElement {
   static properties = {
     path: { attribute: false },
+    actions: { attribute: false },
     _navLinks: { state: true },
   };
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style];
+    this.shadowRoot.adoptedStyleSheets = styles;
     this.loadNav();
   }
 
@@ -71,6 +75,15 @@ class NXSidenav extends LitElement {
 
     return html`
       <ul>
+        ${this.actions?.map((action) => html`
+          <li class="nav-action">
+            <button type="button" class="nx-action-btn-icon"
+              aria-label=${action.label} title=${action.label}
+              ?disabled=${action.disabled} @click=${action.onClick}>
+              <img src=${action.icon} width="32" height="32" alt="">
+            </button>
+          </li>
+        `)}
         ${this._navLinks.map((a) => html`
           <li class="nav-link ${this.getActiveClass(a)}"><a href="${a.text === 'Home' ? getHomeHref({ fallback: a.href }) : a.href}" @click=${(e) => this.handleClick(e, a)}>${a.icon}${a.text}</a></li>
         `)}

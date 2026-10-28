@@ -17,7 +17,11 @@ describe('chat input coordination', () => {
     chat = document.createElement(tag);
     chat.attachShadow({ mode: 'open' });
     chat._controller = {
-      setContext() {}, destroy() {}, getSkills: () => [], reattachIfIdle() {},
+      setContext() {},
+      destroy() {},
+      getSkills: () => [],
+      reattachIfIdle() {},
+      sendMessage: sinon.spy(),
     };
     chat.context = {};
     chat.showInputStatus = true;
@@ -78,6 +82,23 @@ describe('chat input coordination', () => {
       expect(input.hidden).to.equal(false);
       expect(chat.shadowRoot.querySelector('.chat-working')).to.equal(null);
     });
+
+    it(`${tag} submits one staged prompt with attachments through the public autoSend API`, async () => {
+      const input = await mount(tag);
+      chat.connected = true;
+      await chat.updateComplete;
+      expect(await chat.setPrompt('Use this draft', { replace: false })).to.equal(true);
+      const attachment = { id: 'file', label: 'draft.md', mimeType: 'text/markdown', dataBase64: 'ZmlsZQ==' };
+      document.dispatchEvent(new CustomEvent(CHAT_EVENT.ADD_TO_CHAT, { detail: attachment }));
+      await chat.updateComplete;
+      expect(await chat.setPrompt('Use this draft', { replace: false, autoSend: true })).to.equal(true);
+      const send = chat._controller.sendMessage;
+      expect(send.calledOnce).to.equal(true);
+      expect(send.firstCall.args[0]).to.equal('Use this draft');
+      expect(JSON.stringify(send.firstCall.args[2])).to.include('ZmlsZQ==');
+      expect(input.value).to.equal('');
+      expect(chat.shadowRoot.querySelector('nx-pills').items).to.have.length(0);
+    });
   });
 
   it('keeps AO plan feedback available, but blocks handoff while switching episodes', async () => {
@@ -104,5 +125,23 @@ describe('chat input coordination', () => {
     await chat.updateComplete;
     expect(input.value).to.equal('Pending');
     expect(chat.inputState.disabled).to.equal(false);
+  });
+
+  it('waits for the legacy connection before sending a staged prompt once with its files', async () => {
+    await mount('nx-chat');
+    expect(chat.setPrompt('Pending', { replace: false })).to.equal(true);
+    const attachment = { id: 'file', label: 'draft.md', mimeType: 'text/markdown', dataBase64: 'ZmlsZQ==' };
+    document.dispatchEvent(new CustomEvent(CHAT_EVENT.ADD_TO_CHAT, { detail: attachment }));
+    expect(chat.setPrompt('Pending', { replace: false, autoSend: true })).to.equal(true);
+    expect(chat._controller.sendMessage.called).to.equal(false);
+    chat.connected = true;
+    await chat.updateComplete;
+    expect(chat._controller.sendMessage.calledOnce).to.equal(true);
+    expect(JSON.stringify(chat._controller.sendMessage.firstCall.args[2])).to.include('ZmlsZQ==');
+    chat.connected = false;
+    await chat.updateComplete;
+    chat.connected = true;
+    await chat.updateComplete;
+    expect(chat._controller.sendMessage.calledOnce).to.equal(true);
   });
 });
