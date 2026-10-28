@@ -45,7 +45,7 @@ class NxChat extends LitElement {
     _prompts: { state: true },
     _hasItems: { state: true },
     _dragging: { state: true },
-    showInputStatus: { type: Boolean },
+    showInputStatus: { type: Boolean, reflect: true },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });

@@ -123,7 +123,7 @@ describe('chat input coordination', () => {
         expect(getComputedStyle(form, '::after').content).to.equal('none');
         expect(leftStop.getBoundingClientRect().width).to.equal(24);
         expect(leftStop.getBoundingClientRect().height).to.equal(24);
-        expect(getComputedStyle(leftStop).borderRadius).to.equal('16px');
+        expect(getComputedStyle(leftStop).borderRadius).to.equal('50%');
         const spinner = form.querySelector('.nx-loading-spinner');
         const spinnerStyle = getComputedStyle(spinner);
         expect(spinnerStyle.width).to.equal('16px');
@@ -148,6 +148,30 @@ describe('chat input coordination', () => {
       await chat.updateComplete;
       expect(input.value).to.equal('Keep this draft');
       expect(chat._controller.sendMessage.called).to.equal(false);
+    });
+
+    it(`${tag} keeps the Stop circle and blue progress arc without host theme tokens`, async () => {
+      await mount(tag);
+      ['--s2-blue-900', '--s2-gray-300', '--s2-corner-radius-800'].forEach((token) => {
+        chat.style.setProperty(token, 'initial');
+      });
+      const stop = chat.shadowRoot.querySelector('.chat-stop');
+      expect(getComputedStyle(stop).borderRadius).to.equal('50%');
+      chat.connected = true;
+      chat.thinking = true;
+      await chat.updateComplete;
+      for (const scheme of ['light', 'dark']) {
+        chat.style.colorScheme = scheme;
+        const stopStyle = getComputedStyle(stop);
+        expect(stop.getBoundingClientRect().width).to.equal(24);
+        expect(stop.getBoundingClientRect().height).to.equal(24);
+        expect(stopStyle.borderRadius).to.equal('50%');
+        expect(stopStyle.padding).to.equal('0px');
+        const spinner = getComputedStyle(chat.shadowRoot.querySelector('.nx-loading-spinner'));
+        expect(spinner.borderTopWidth).to.equal('2px');
+        expect(spinner.borderTopColor).to.equal(scheme === 'light' ? 'rgb(59, 99, 251)' : 'rgb(86, 129, 255)');
+        expect(spinner.borderRightColor).to.equal(scheme === 'light' ? 'rgb(218, 218, 218)' : 'rgb(57, 57, 57)');
+      }
     });
 
     it(`${tag} submits one staged prompt with attachments through the public autoSend API`, async () => {

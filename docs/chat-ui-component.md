@@ -79,9 +79,10 @@ that instance is busy, uses the same cancellation path as its own Stop button,
 and does not submit or clear an unsent draft. Hosts wait for the next input-state
 snapshot instead of clearing busy state themselves. With `showInputStatus`,
 the compact working state uses a neutral translucent surface, a subtle border,
-and secondary text without a colored ring. Its Stop button is circular, and its
-16px progress spinner uses a blue arc on a neutral gray track. Other consumers
-keep their existing presentation.
+and secondary text without a colored ring. Its Stop button has a fixed 24px
+circular background, including while hidden. Progress spinners use a blue arc
+on a neutral gray track, with theme-safe colors even without host tokens; the
+composer spinner is 16px. Other consumers keep their existing presentation.
 
 Both `nx-chat` and `nx-chat-ao` expose `setPrompt(text, { autoSend? })` as an instance method, and both also listen for `CHAT_EVENT.SET_PROMPT` (`'nx-set-prompt'`, `nx2/utils/chat.js`) on `document` and call their own `setPrompt()` when it fires. Dispatch the event rather than calling the method directly — the caller doesn't need to know (or query for) which of the two elements is actually mounted:
 

@@ -71,7 +71,7 @@ export default class NxChatAo extends LitElement {
     _prompts: { state: true },
     _planFeedback: { state: true },
     _voiceListening: { state: true },
-    showInputStatus: { type: Boolean },
+    showInputStatus: { type: Boolean, reflect: true },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });

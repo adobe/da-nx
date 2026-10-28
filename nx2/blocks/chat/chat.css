@@ -89,7 +89,6 @@
   box-sizing: border-box;
   width: 16px;
   height: 16px;
-  border-top-color: var(--s2-blue-900);
 }
 
 .chat-form.is-processing {
@@ -646,6 +645,20 @@
       color: var(--s2-gray-900);
     }
   }
+}
+
+:host([showinputstatus]) .nx-loading-spinner {
+  border: 2px solid var(--s2-gray-300, light-dark(#dadada, #393939));
+  border-top-color: var(--s2-blue-900, light-dark(#3b63fb, #5681ff));
+}
+
+:host([showinputstatus]) .chat-actions .chat-stop {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 50%;
 }
 
 @keyframes chat-thinking-shimmer {
