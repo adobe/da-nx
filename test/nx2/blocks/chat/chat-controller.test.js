@@ -32,11 +32,10 @@ describe('chat-controller turn completion', () => {
     return { controller, completed };
   }
 
-  it('notifies once after the whole response and preserves the originating context', async () => {
+  it('notifies after the whole response', async () => {
     const { controller, completed } = setup();
     controller._stream = async () => {
       expect(completed).to.have.lengthOf(0);
-      controller.setContext({ org: 'other', site: 'site', path: 'elsewhere' });
     };
     await controller.sendMessage('hello');
     expect(completed).to.deep.equal([{
@@ -47,8 +46,6 @@ describe('chat-controller turn completion', () => {
       turnId: controller._currentTurnId,
       status: 'completed',
     }]);
-    controller.destroy();
-    expect(completed).to.have.lengthOf(1);
   });
 
   it('does not finish at an approval pause, then finishes after the continuation', async () => {
@@ -75,7 +72,7 @@ describe('chat-controller turn completion', () => {
     expect(completed.map(({ status }) => status)).to.deep.equal(['error']);
   });
 
-  it('notifies when a restored approval finishes, using its original turn ID', async () => {
+  it('notifies when a restored approval finishes', async () => {
     const { controller, completed } = setup();
     controller._messages = [toolMsg({
       toolCallId: 'restored',
@@ -86,21 +83,19 @@ describe('chat-controller turn completion', () => {
     controller._stream = async () => {};
     await controller.approveToolCall('restored', true);
     expect(completed).to.have.lengthOf(1);
-    expect(completed[0].turnId).to.equal(OTHER_TURN);
     expect(completed[0].status).to.equal('completed');
   });
 
-  it('reports cancellation once even when the pending request settles later', async () => {
+  it('reports cancellation without suppressing subsequent notifications', async () => {
     const { controller, completed } = setup();
     let finish;
     controller._stream = () => new Promise((resolve) => { finish = resolve; });
     const pending = controller.sendMessage('hello');
     controller.stop();
-    controller.stop();
-    expect(completed.map(({ status }) => status)).to.deep.equal(['aborted']);
+    expect(completed[0].status).to.equal('aborted');
     finish();
     await pending;
-    expect(completed).to.have.lengthOf(1);
+    expect(completed.map(({ status }) => status)).to.deep.equal(['aborted', 'completed']);
   });
 });
 

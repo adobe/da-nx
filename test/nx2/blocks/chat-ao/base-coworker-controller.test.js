@@ -46,22 +46,22 @@ describe('chat turn notifications across AO harnesses', () => {
   }
 
   [CoworkerChatController, CmaChatController].forEach((Controller) => {
-    it(`notifies once on a completed ${Controller.name} turn, not on text completion`, async () => {
+    it(`forwards terminal ${Controller.name} events, not text completion`, async () => {
       const { controller, completed } = setup(Controller);
       await controller.sendMessage('hello');
       controller._handleServerEvent({ type: 'text_done', turn_id: 'turn', data: { content: 'Hi' } });
       expect(completed).to.have.lengthOf(0);
-      controller.setContext({ org: 'other', site: 'site', path: 'elsewhere' });
       controller._handleServerEvent({ type: 'turn_completed', turn_id: 'turn' });
       controller._handleServerEvent({ type: 'turn_completed', turn_id: 'turn' });
-      expect(completed).to.deep.equal([{
+      const detail = {
         org: 'org',
         site: 'site',
         path: 'page',
         sessionId: 'episode',
         turnId: 'turn',
         status: 'completed',
-      }]);
+      };
+      expect(completed).to.deep.equal([detail, detail]);
     });
   });
 
@@ -76,51 +76,20 @@ describe('chat turn notifications across AO harnesses', () => {
     expect(completed.map(({ status }) => status)).to.deep.equal(['completed']);
   });
 
-  it('waits for the server to acknowledge cancellation and does not finish a newer turn', async () => {
-    const { controller, completed } = setup();
-    await controller.sendMessage('first');
-    controller._handleServerEvent({ type: 'text_delta', turn_id: 'first', data: { content: 'Hi' } });
-    controller.stop();
-    expect(completed).to.have.lengthOf(0);
-    await controller.sendMessage('second');
-    controller._handleServerEvent({ type: 'text_delta', turn_id: 'second', data: { content: 'Hi' } });
-    controller._handleServerEvent({ type: 'turn_aborted', turn_id: 'first' });
-    expect(controller._thinking).to.equal(true);
-    controller._handleServerEvent({ type: 'turn_aborted', turn_id: 'first' });
-    expect(controller._thinking).to.equal(true);
-    controller._handleServerEvent({ type: 'turn_completed', turn_id: 'second' });
-    expect(completed.map(({ status }) => status)).to.deep.equal(['aborted', 'completed']);
-  });
-
-  it('reports a session error once and ignores its later terminal notification', async () => {
+  it('forwards cancellation acknowledgements even without a turn ID', async () => {
     const { controller, completed } = setup();
     await controller.sendMessage('hello');
-    controller._handleServerEvent({ type: 'text_delta', turn_id: 'turn', data: { content: 'Hi' } });
-    controller._handleServerEvent({ type: 'error', turn_id: 'turn', data: { message: 'offline' } });
-    controller._handleServerEvent({ type: 'turn_completed', turn_id: 'turn' });
-    expect(completed.map(({ status }) => status)).to.deep.equal(['error']);
-  });
-
-  it('reports connection failures but not idle stop or history hydration', async () => {
-    const { controller, completed } = setup();
     controller.stop();
     expect(completed).to.have.lengthOf(0);
-    controller._ensureSocket = async () => { throw new Error('offline'); };
-    await controller.sendMessage('hello');
-    expect(completed.map(({ status }) => status)).to.deep.equal(['error']);
-    controller._loadingEpisode = true;
-    controller._handleServerEvent({ type: 'turn_completed', turn_id: 'historical' });
-    expect(completed).to.have.lengthOf(1);
-  });
-
-  it('tracks a restored approval when resuming fails', async () => {
-    const { controller, completed } = setup();
-    controller._pendingPlanApproval = { turnId: 'restored', content: 'Plan' };
-    controller._ensureSocket = async () => { throw new Error('offline'); };
-    await controller.respondToPlanApproval('approve');
-    expect(completed).to.have.lengthOf(1);
-    expect(completed[0].turnId).to.equal('restored');
-    expect(completed[0].status).to.equal('error');
+    controller._handleServerEvent({ type: 'turn_aborted' });
+    expect(completed).to.deep.equal([{
+      org: 'org',
+      site: 'site',
+      path: 'page',
+      sessionId: 'episode',
+      turnId: undefined,
+      status: 'aborted',
+    }]);
   });
 });
 

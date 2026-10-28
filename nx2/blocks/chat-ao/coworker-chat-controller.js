@@ -61,8 +61,6 @@ export default class CoworkerChatController extends BaseChatController {
   }
 
   async _loadEpisode(episodeId) {
-    this._activeTurn = undefined;
-    this._interruptedTurn = undefined;
     this._episodeId = episodeId;
     this._staleEpisode = undefined;
     // Clear + show a spinner immediately rather than leaving stale messages up.
