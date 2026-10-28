@@ -89,9 +89,4 @@ When the menu is open, arrow keys move focus between items and Enter selects the
 
 ## Styling
 
-| Custom property       | Default                                | Description                                        |
-| --------------------- | -------------------------------------- | -------------------------------------------------- |
-| `--nx-menu-max-width` | `320px`                                | Max width of menus that contain item descriptions. |
-| `--nx-menu-font-size` | `s2-component-{s,m}-regular-font-size` | Item font size.                                    |
-
-The visual treatment — including the two-line label/description layout used when items have descriptions — is owned by the component, so every host renders menus the same way. Hosts can only tune the custom properties above; there are no shadow parts for restyling individual elements.
+The visual treatment — including the two-line label/description layout used when items have descriptions — is owned by the component, so every host renders menus the same way. Use `size` (`s` or `m`) for density. The only tunable is `--nx-menu-max-width` (default `320px`), the max width of menus that contain item descriptions; there are no shadow parts for restyling individual elements.

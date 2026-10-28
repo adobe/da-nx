@@ -37,7 +37,7 @@ nx-popover:has(.menu-item-description) {
   background: none;
   color: var(--s2-gray-900);
   font-family: inherit;
-  font-size: var(--nx-menu-font-size, var(--s2-component-s-regular-font-size));
+  font-size: var(--s2-component-s-regular-font-size);
   line-height: var(--s2-component-s-regular-line-height);
   cursor: pointer;
   box-sizing: border-box;
@@ -151,7 +151,7 @@ ul:has(.menu-item-description) {
 
   .menu-item {
     padding: 7px var(--s2-spacing-200);
-    font-size: var(--nx-menu-font-size, var(--s2-component-m-regular-font-size));
+    font-size: var(--s2-component-m-regular-font-size);
     line-height: var(--s2-component-m-regular-line-height);
   }
 
