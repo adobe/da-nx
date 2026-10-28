@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import loadQuickEdit from '../../../../../nx/public/plugins/quick-edit/quick-edit.js';
 import { MESSAGE_TYPES } from '../../../../../nx/utils/message-types.js';
 import { replaceChanges as replaceNxChanges } from '../../../../../nx/public/plugins/quick-edit/src/reload.js';
@@ -45,8 +46,10 @@ describe('quick-edit reload', () => {
         </div></main>
         <footer>keep this footer</footer>
       `;
-      document.querySelector('.prosemirror-editor').view = {
+      const replacedEditor = document.querySelector('.prosemirror-editor');
+      replacedEditor.view = {
         state: { selection: { anchor: 2, head: 4 } },
+        destroy: sinon.spy(),
       };
       document.querySelector('input').focus();
 
@@ -97,6 +100,8 @@ describe('quick-edit reload', () => {
       expect(reloads).to.have.length(1);
       expect(reloads[0].doc).to.equal(document);
       expect(reloads[0].replaced).to.equal(undefined);
+      // The replaced editor's view is torn down; the focused one is reopened below.
+      expect(replacedEditor.view.destroy.calledOnce).to.equal(true);
       expect(await editorRequest).to.deep.equal({
         type: MESSAGE_TYPES.GET_EDITOR,
         payload: { cursorOffset: 1 },

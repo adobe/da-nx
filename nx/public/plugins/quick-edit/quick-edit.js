@@ -53,8 +53,15 @@ async function setBody(body, rerenderScope, ctx) {
 
   const anchor = captureScrollAnchor();
   const focused = captureFocusedEditor();
+  const editors = [...document.querySelectorAll('.prosemirror-editor')];
   const doc = new DOMParser().parseFromString(body, 'text/html');
   const replaced = replaceChanges({ ctx, doc, rerenderScope, targetDocument: document });
+  // Editors inside a replaced scope (e.g. a block reloaded after a text edit) are gone.
+  editors.forEach((editorParent) => {
+    if (editorParent.isConnected) return;
+    clearTimeout(editorParent.settleTimer);
+    editorParent.view?.destroy();
+  });
   await ctx.reload(document, replaced);
   // A newer SET_BODY replaced the DOM while this one was loading.
   if (generation !== ctx.bodyGeneration) return;
@@ -125,7 +132,7 @@ function blockLinkNavigation() {
   }, true);
 }
 
-function setupParentController(reloadCallback, { partialReload }) {
+function setupParentController(reloadCallback, { partialReload, reloadBlocks }) {
   const listener = (e) => {
     const isInit = e.data?.type === MESSAGE_TYPES.INIT;
     if (e.source !== window.parent || !isInit || !e.ports?.length) return;
@@ -142,6 +149,7 @@ function setupParentController(reloadCallback, { partialReload }) {
       port,
       readOnly: config?.canWrite !== true,
       partialReload,
+      reloadBlocks,
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
@@ -167,11 +175,12 @@ function handleLoad(target, config, location, ctx, handler = onMessage) {
   };
 }
 
-function setupIframeController(payload, reloadCallback, { partialReload }) {
+function setupIframeController(payload, reloadCallback, { partialReload, reloadBlocks }) {
   const ctx = {
     initialized: false,
     reload: reloadCallback,
     partialReload,
+    reloadBlocks,
   };
 
   const iframe = document.createElement('iframe');
@@ -283,10 +292,13 @@ export function claimBootstrap() {
  * `partialReload` to preserve header/footer and decorate just `replaced.el`.
  * With `partialReload`, it is also called with `{ type: 'element', el }` for a detached
  * inline-edited element once its editor is closed, and may return a replacement element.
+ * `reloadBlocks` (block names, or a predicate receiving the block element) re-renders the
+ * whole block instead, for blocks whose decoration depends on their text.
  */
 export default async function loadQuickEdit(payload, reloadCallback, {
   bootstrap = false,
   partialReload = false,
+  reloadBlocks,
 } = {}) {
   if (bootstrapClaimed && !bootstrap) return;
 
@@ -296,10 +308,10 @@ export default async function loadQuickEdit(payload, reloadCallback, {
   const detail = payload?.detail ?? payload ?? {};
   const params = new URLSearchParams(window.location.search);
   if (params.get('controller') === 'parent') {
-    setupParentController(reloadCallback, { partialReload });
+    setupParentController(reloadCallback, { partialReload, reloadBlocks });
   } else if (isStandaloneShell(window.location.href)) {
     setupStandaloneShell(detail);
   } else {
-    setupIframeController(detail, reloadCallback, { partialReload });
+    setupIframeController(detail, reloadCallback, { partialReload, reloadBlocks });
   }
 }

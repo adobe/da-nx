@@ -1,6 +1,7 @@
 import { parseIcons, removeEditorArtifacts } from 'https://da.live/blocks/shared/prose-cleanup.js';
 import { setRemoteCursors } from './cursors.js';
 import { setupImageDropListeners } from './images.js';
+import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
 const COPIED_ATTRS = ['data-prose-index', 'data-cursor-remote', 'data-cursor-remote-color'];
 const INDEX_ATTRS = ['data-prose-index', 'data-image-index', 'data-block-index'];
@@ -63,6 +64,25 @@ function cancelScheduledSettle(editorParent) {
   editorParent.settleTimer = null;
 }
 
+// The site's `reloadBlocks` opt-in: block names, or a predicate receiving the block element.
+export function getReloadBlock(editorParent, { reloadBlocks } = {}) {
+  if (!reloadBlocks) return null;
+  const block = editorParent.closest('[data-block-index]');
+  if (!block) return null;
+  const matches = typeof reloadBlocks === 'function'
+    ? reloadBlocks(block)
+    : [...reloadBlocks].includes(block.classList[0]);
+  return matches ? block : null;
+}
+
+// The block's undecorated source lives in the host, which answers with a block-scoped SET_BODY.
+function requestBlockReload(block, ctx) {
+  const blockIndex = Number(block.getAttribute('data-block-index'));
+  if (!Number.isSafeInteger(blockIndex) || !ctx.port) return false;
+  ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD, payload: { blockIndex } });
+  return true;
+}
+
 // Swaps an inactive inline editor for page-decorated static DOM (buttons, icons, ...).
 export async function settleEditor(editorParent, ctx) {
   // Without partialReload (e.g. a site loader calling loadPage) a single element can't be
@@ -71,6 +91,8 @@ export async function settleEditor(editorParent, ctx) {
   cancelScheduledSettle(editorParent);
   const { view } = editorParent;
   if (!view || isActive(view)) return;
+  const block = getReloadBlock(editorParent, ctx);
+  if (block && requestBlockReload(block, ctx)) return;
   const token = {};
   editorParent.settleToken = token;
   const { doc } = view.state;

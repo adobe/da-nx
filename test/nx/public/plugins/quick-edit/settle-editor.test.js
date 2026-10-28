@@ -99,6 +99,68 @@ describe('settle-editor', () => {
     expect(editorParent.textContent).to.equal('Go :arrow:');
   });
 
+  describe('reloadBlocks', () => {
+    const mountInBlock = (name) => {
+      const editorParent = mountEditor('<p><strong><a href="/a">Buy</a></strong></p>');
+      const blockEl = document.createElement('div');
+      blockEl.className = `${name} block`;
+      blockEl.setAttribute('data-block-index', '42');
+      editorParent.replaceWith(blockEl);
+      blockEl.append(editorParent);
+      return editorParent;
+    };
+    const blockCtx = (reloadBlocks) => {
+      const reload = sinon.spy();
+      return partialCtx({ reloadBlocks, reload, port: { postMessage: sinon.spy() } });
+    };
+
+    it('asks the host to re-render an opted-in block instead of decorating the element', async () => {
+      const editorParent = mountInBlock('cards');
+      const ctx = blockCtx(['cards']);
+      await settleEditor(editorParent, ctx);
+      expect(ctx.port.postMessage.calledOnceWith({ type: 'reload', payload: { blockIndex: 42 } }))
+        .to.equal(true);
+      expect(ctx.reload.called).to.equal(false);
+      // The block-scoped SET_BODY replaces the editor; until then it stays.
+      expect(editorParent.isConnected).to.equal(true);
+      expect(editorParent.view.destroyed).to.equal(false);
+    });
+
+    it('accepts a predicate receiving the block element', async () => {
+      const editorParent = mountInBlock('teaser');
+      const reloadBlocks = sinon.spy((el) => el.classList.contains('teaser'));
+      const ctx = blockCtx(reloadBlocks);
+      await settleEditor(editorParent, ctx);
+      expect(reloadBlocks.firstCall.args[0]).to.equal(editorParent.parentElement);
+      expect(ctx.port.postMessage.calledOnce).to.equal(true);
+    });
+
+    it('decorates just the element for other blocks and default content', async () => {
+      const inBlock = mountInBlock('hero');
+      const ctx = blockCtx(['cards']);
+      await settleEditor(inBlock, ctx);
+      const outside = mountEditor('<p>Plain</p>');
+      await settleEditor(outside, ctx);
+      expect(ctx.port.postMessage.called).to.equal(false);
+      expect(ctx.reload.calledTwice).to.equal(true);
+      expect(document.querySelector('.prosemirror-editor')).to.equal(null);
+    });
+
+    it('does not ask for an opted-in block while the editor is active', async () => {
+      const editorParent = mountInBlock('cards');
+      editorParent.view.hasFocus = () => true;
+      const ctx = blockCtx(['cards']);
+      const realHasFocus = document.hasFocus;
+      document.hasFocus = () => true;
+      try {
+        await settleEditor(editorParent, ctx);
+      } finally {
+        document.hasFocus = realHasFocus;
+      }
+      expect(ctx.port.postMessage.called).to.equal(false);
+    });
+  });
+
   it('drops a settle when the editor changed during decoration', async () => {
     const editorParent = mountEditor('<p>Hi</p>');
     const ctx = {

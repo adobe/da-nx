@@ -19,7 +19,7 @@ export const MESSAGE_TYPES = Object.freeze({
 
   // Iframe -> host: ongoing
   CURSOR_MOVE: 'cursor-move', // { cursorOffset?, textCursorOffset? } — absent = clear remote cursor
-  RELOAD: 'reload', // no payload
+  RELOAD: 'reload', // { blockIndex?: number } — absent: resync everything; blockIndex (a block's data-block-index): re-render that whole block
   GET_EDITOR: 'get-editor', // { cursorOffset: number }
   NODE_UPDATE: 'node-update', // iframe -> host: { node, cursorOffset }; host -> iframe: { imageVersion }
   NODE_SELECT: 'node-select', // { node: { anchorType, proseIndex, src?, blockIndex? } | null }

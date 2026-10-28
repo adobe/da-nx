@@ -145,6 +145,15 @@ keystroke.
 running the shared `reloadEditable(main)` pipeline described above, and returning the
 indexed element. Without a shared reload pipeline, inline edits settle undecorated.
 
+Some blocks decorate differently depending on their text, so re-decorating just the edited
+element is not enough. Sites opt them in with a `reloadBlocks` export from `scripts.js` (or
+`aem.js`): an array of block names, or a predicate receiving the block element. When an
+editor inside such a block settles, the iframe sends `RELOAD` with `{ blockIndex }` (the
+block's `data-block-index`) instead of decorating the element. da-live answers with a
+block-scoped `SET_BODY`, widened to the page when anything else is unsynced; the standalone
+portal ignores `blockIndex` and runs its regular resync. Editors inside a replaced scope are
+destroyed. Loaders calling `loadQuickEdit` directly pass the same `reloadBlocks` option.
+
 ### `SET_SELECTED_NODE` / `NODE_SELECT`
 
 Drive the selection-overlay feature: when a user clicks a block or image in the

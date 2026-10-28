@@ -106,7 +106,7 @@ export function createReload(reloadEditable) {
   const reloadEditable = getReloadEditable(utils);
   if (reloadEditable) {
     loadQuickEdit(payload, createReload(reloadEditable), {
-      bootstrap: true, partialReload: true,
+      bootstrap: true, partialReload: true, reloadBlocks: utils.reloadBlocks,
     });
     return;
   }
