@@ -104,9 +104,13 @@ describe('chat input coordination', () => {
       expect(form.classList.contains('is-processing')).to.equal(true);
       for (const scheme of ['light', 'dark']) {
         chat.style.colorScheme = scheme;
-        expect(getComputedStyle(form).backgroundImage).to.include('radial-gradient');
-        expect(getComputedStyle(form, '::after').backgroundImage).to.include('conic-gradient');
-        expect(getComputedStyle(form, '::after').pointerEvents).to.equal('none');
+        const color = scheme === 'light' ? '0, 0, 0' : '255, 255, 255';
+        const background = scheme === 'light' ? '255, 255, 255' : '34, 34, 34';
+        expect(getComputedStyle(form).backgroundImage).to.equal('none');
+        expect(getComputedStyle(form).backgroundColor).to.equal(`rgba(${background}, 0.8)`);
+        expect(getComputedStyle(form).borderColor).to.equal(`rgba(${color}, 0.06)`);
+        expect(getComputedStyle(form.querySelector('.chat-working')).color).to.equal(`rgba(${color}, 0.56)`);
+        expect(getComputedStyle(form, '::after').content).to.equal('none');
       }
       chat.stop();
       leftStop.click();

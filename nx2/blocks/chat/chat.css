@@ -89,26 +89,13 @@
 }
 
 .chat-form.is-processing {
-  border-color: #ec69ff1a;
-  background:
-    linear-gradient(to bottom, light-dark(#ffffffa3, #222222a3), transparent),
-    radial-gradient(ellipse at bottom right,
-      #d8deff33, #fde9ff33 34.964%, #ffeccf33 81.972%, #f7b5ff33),
-    light-dark(#fffc, #222c);
-  box-shadow: 0 3px 10px 1px #ec69ff0d;
+  border-color: light-dark(rgb(0 0 0 / 6%), rgb(255 255 255 / 6%));
+  background: light-dark(#fffc, #222c);
+  box-shadow: 0 8px 32px #0000000f, inset 0 24px 32px #ffffff0a, inset 0 -5px 21.6px #ffffff0a;
 }
 
-.chat-form.is-processing::after {
-  content: "";
-  position: absolute;
-  inset: 2px;
-  border: 2px solid transparent;
-  border-radius: inherit;
-  background: conic-gradient(from 90deg, #fef6ff, #fde9ff 12.409%, #f7b5ff 31.026%, transparent 60.61%, transparent 89.095%) border-box;
-  mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  filter: blur(4px);
-  pointer-events: none;
+.chat-form.is-processing .chat-working {
+  color: light-dark(rgb(0 0 0 / 56%), rgb(255 255 255 / 56%));
 }
 
 @media (forced-colors: active) {

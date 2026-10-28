@@ -78,8 +78,9 @@ Both elements expose `chat.stop()` for host Stop controls. It cancels only when
 that instance is busy, uses the same cancellation path as its own Stop button,
 and does not submit or clear an unsent draft. Hosts wait for the next input-state
 snapshot instead of clearing busy state themselves. With `showInputStatus`,
-processing also shows the generating highlight; other consumers keep their
-existing presentation.
+the compact working state uses a neutral translucent surface, a subtle border,
+and secondary text without a colored ring. Other consumers keep their existing
+presentation.
 
 Both `nx-chat` and `nx-chat-ao` expose `setPrompt(text, { autoSend? })` as an instance method, and both also listen for `CHAT_EVENT.SET_PROMPT` (`'nx-set-prompt'`, `nx2/utils/chat.js`) on `document` and call their own `setPrompt()` when it fires. Dispatch the event rather than calling the method directly — the caller doesn't need to know (or query for) which of the two elements is actually mounted:
 
