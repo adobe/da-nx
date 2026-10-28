@@ -115,14 +115,14 @@ The editor lives in [`fields/richtext.js`](../fields/richtext.js).
   hides when the selection collapses, the field loses focus, the link dialog
   opens or the selection scrolls out of view. Its buttons duplicate the fixed
   toolbar, so they are left out of the tab order.
-- The editor supports these shortcuts.
-  - `Mod-B`, `Mod-I` and `Mod-U` for bold, italic and underline
-  - `Mod-E` for inline code and `Shift-Mod-X` for strikethrough
-  - `Mod-.` and `Mod-,` for superscript and subscript
-  - `Mod-Alt-0` for a paragraph and `Mod-Alt-1` to `Mod-Alt-6` for headings,
-    as in da-live
-  - `Shift-Mod-9` for blockquote, `Shift-Mod-8` and `Shift-Mod-7` for lists
-  - `Mod-K` to add a link and `Shift-Mod-K` to remove it
+- The editor supports the formatting shortcuts of the da-live Canvas editor.
+  Formats without a Canvas shortcut have none here either.
+  - `Mod-B` and `Mod-I` for bold and italic, ``Mod-` `` for inline code
+  - `Shift-Ctrl-0` for a paragraph and `Shift-Ctrl-1` to `Shift-Ctrl-6` for
+    headings
+  - `Ctrl->` for blockquote, `Shift-Ctrl-8` and `Shift-Ctrl-9` for bulleted
+    and numbered lists
+  - `Mod-K` to add or edit a link
   - `Tab` and `Shift-Tab` to indent and outdent list items
   - `Shift-Enter` for a line break
   - `Mod-Z`, `Shift-Mod-Z` and `Mod-Y` for history

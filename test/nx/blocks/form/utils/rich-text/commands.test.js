@@ -225,8 +225,10 @@ describe('rich-text commands', () => {
       const keys = buildKeymap({ pm, schema });
       expect(keys['Mod-z']).to.equal(pm.undo);
       expect(keys['Mod-b']).to.be.a('function');
-      ['Mod-e', 'Mod-.', 'Mod-,', 'Mod-Alt-0', 'Mod-Alt-6', 'Shift-Mod-9']
+      ['Mod-`', 'Shift-Ctrl-0', 'Shift-Ctrl-6', 'Ctrl->', 'Shift-Ctrl-8', 'Shift-Ctrl-9']
         .forEach((key) => expect(keys[key], key).to.be.a('function'));
+      ['Mod-u', 'Shift-Mod-x', 'Mod-.', 'Mod-,', 'Shift-Mod-k']
+        .forEach((key) => expect(keys[key], key).to.equal(undefined));
       const noHistory = { ...pm, undo: undefined, redo: undefined };
       expect(buildKeymap({ pm: noHistory, schema })['Mod-z']).to.equal(undefined);
     });
@@ -236,7 +238,6 @@ describe('rich-text commands', () => {
       const keys = buildKeymap({ pm, schema, onLink: () => calls.push('link') });
       expect(keys['Mod-k']()).to.be.true;
       expect(calls).to.deep.equal(['link']);
-      expect(buildKeymap({ pm, schema })['Shift-Mod-k']).to.equal(removeLink);
     });
   });
 });

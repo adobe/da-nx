@@ -34,27 +34,27 @@ const BAR_GROUPS = [
   [
     { id: 'strong', label: 'Bold', keys: 'Mod+B', icon: 'tagbold', text: 'B' },
     { id: 'em', label: 'Italic', keys: 'Mod+I', icon: 'tagitalic', text: 'I' },
-    { id: 'u', label: 'Underline', keys: 'Mod+U', icon: 'tagunderline', text: 'U' },
-    { id: 's', label: 'Strikethrough', keys: 'Mod+Shift+X', icon: 'tagstrikethrough', text: 'S' },
+    { id: 'u', label: 'Underline', icon: 'tagunderline', text: 'U' },
+    { id: 's', label: 'Strikethrough', icon: 'tagstrikethrough', text: 'S' },
   ],
   [
     { id: 'link', label: 'Link', keys: 'Mod+K', icon: 'link', text: 'Link' },
-    { id: 'unlink', label: 'Remove link', keys: 'Mod+Shift+K', icon: 'unlink', text: 'Unlink' },
-    { id: 'code', label: 'Inline code', keys: 'Mod+E', icon: 'code', text: '</>' },
+    { id: 'unlink', label: 'Remove link', icon: 'unlink', text: 'Unlink' },
+    { id: 'code', label: 'Inline code', keys: 'Mod+`', icon: 'code', text: '</>' },
   ],
 ];
 
 const MENU_GROUPS = [
   [
-    { id: 'ordered_list', label: 'Numbered list', keys: 'Mod+Shift+7', icon: 'listnumbered', text: '1.' },
-    { id: 'bullet_list', label: 'Bulleted list', keys: 'Mod+Shift+8', icon: 'listbulleted', text: '•' },
+    { id: 'ordered_list', label: 'Numbered list', keys: 'Ctrl+Shift+9', icon: 'listnumbered', text: '1.' },
+    { id: 'bullet_list', label: 'Bulleted list', keys: 'Ctrl+Shift+8', icon: 'listbulleted', text: '•' },
   ],
   [
-    { id: 'blockquote', label: 'Blockquote', keys: 'Mod+Shift+9', icon: 'blockquote', text: '❝' },
+    { id: 'blockquote', label: 'Blockquote', keys: 'Ctrl+>', icon: 'blockquote', text: '❝' },
   ],
   [
-    { id: 'sup', label: 'Superscript', keys: 'Mod+.', icon: 'textsuperscript', text: 'x²' },
-    { id: 'sub', label: 'Subscript', keys: 'Mod+,', icon: 'textsubscript', text: 'x₂' },
+    { id: 'sup', label: 'Superscript', icon: 'textsuperscript', text: 'x²' },
+    { id: 'sub', label: 'Subscript', icon: 'textsubscript', text: 'x₂' },
   ],
 ];
 
@@ -460,7 +460,7 @@ class FormRichtext extends LitElement {
   }
 
   _renderTool(tool, { overflow, floating } = {}) {
-    const title = `${tool.label} (${tool.keys.replace('Mod', MOD)})`;
+    const title = tool.keys ? `${tool.label} (${tool.keys.replace('Mod', MOD)})` : tool.label;
     const classes = [overflow && 'is-overflow', this._isToolHidden(tool.id) && 'is-hidden'];
     return html`
       <button

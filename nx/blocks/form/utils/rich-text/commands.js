@@ -305,7 +305,7 @@ export function buildKeymap({ pm, schema, onLink }) {
     ? { 'Mod-z': pm.undo, 'Shift-Mod-z': pm.redo, 'Mod-y': pm.redo }
     : {};
   const blockKeys = BLOCK_TYPES.map(({ value, attrs }) => [
-    `Mod-Alt-${attrs?.level ?? 0}`, setBlock({ pm, value }),
+    `Shift-Ctrl-${attrs?.level ?? 0}`, setBlock({ pm, value }),
   ]);
   const openLink = () => {
     onLink?.();
@@ -315,17 +315,12 @@ export function buildKeymap({ pm, schema, onLink }) {
     ...historyKeys,
     'Mod-b': pm.toggleMark(marks.strong),
     'Mod-i': pm.toggleMark(marks.em),
-    'Mod-u': pm.toggleMark(marks.u),
-    'Shift-Mod-x': pm.toggleMark(marks.s),
-    'Mod-e': pm.toggleMark(marks.code),
-    'Mod-.': pm.toggleMark(marks.sup),
-    'Mod-,': pm.toggleMark(marks.sub),
+    'Mod-`': pm.toggleMark(marks.code),
     ...Object.fromEntries(blockKeys),
-    'Shift-Mod-9': toggleBlockquote({ pm }),
+    'Ctrl->': toggleBlockquote({ pm }),
     'Mod-k': openLink,
-    'Shift-Mod-k': removeLink,
-    'Shift-Mod-8': toggleList({ pm, name: 'bullet_list' }),
-    'Shift-Mod-7': toggleList({ pm, name: 'ordered_list' }),
+    'Shift-Ctrl-8': toggleList({ pm, name: 'bullet_list' }),
+    'Shift-Ctrl-9': toggleList({ pm, name: 'ordered_list' }),
     Enter: pm.splitListItem(nodes.list_item),
     'Shift-Enter': insertHardBreak,
     'Mod-Enter': insertHardBreak,

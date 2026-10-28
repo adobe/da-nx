@@ -164,12 +164,11 @@ describe('form-richtext', () => {
 
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 
-  function press(el, key, { shift = false, alt = false, mod = true } = {}) {
+  function press(el, key, { shift = false, ctrl = false, mod = !ctrl } = {}) {
     const event = new KeyboardEvent('keydown', {
       key,
       shiftKey: shift,
-      altKey: alt,
-      ctrlKey: mod && !isMac,
+      ctrlKey: ctrl || (mod && !isMac),
       metaKey: mod && isMac,
       bubbles: true,
       cancelable: true,
@@ -179,16 +178,13 @@ describe('form-richtext', () => {
   }
 
   it('applies marks from keyboard shortcuts', async () => {
-    const shortcuts = [
-      ['b', 'strong'], ['i', 'em'], ['u', 'u'], ['e', 'code'], ['x', 's', { shift: true }],
-      ['.', 'sup'], [',', 'sub'],
-    ];
+    const shortcuts = [['b', 'strong'], ['i', 'em'], ['`', 'code']];
     const el = await mount({ value: '<p>text</p>' });
-    shortcuts.forEach(([key, tag, opts]) => {
+    shortcuts.forEach(([key, tag]) => {
       selectAll(el);
-      expect(press(el, key, opts), key).to.be.true;
+      expect(press(el, key), key).to.be.true;
       expect(el.value, key).to.equal(`<p><${tag}>text</${tag}></p>`);
-      press(el, key, opts);
+      press(el, key);
       expect(el.value, key).to.equal('<p>text</p>');
     });
   });
@@ -196,19 +192,20 @@ describe('form-richtext', () => {
   it('changes blocks, lists and quotes from keyboard shortcuts', async () => {
     const el = await mount({ value: '<p>text</p>' });
     selectAll(el);
-    press(el, '3', { alt: true });
+    const ctrlShift = { ctrl: true, shift: true };
+    press(el, '3', ctrlShift);
     expect(el.value).to.equal('<h3>text</h3>');
-    press(el, '0', { alt: true });
+    press(el, '0', ctrlShift);
     expect(el.value).to.equal('<p>text</p>');
-    press(el, '9', { shift: true });
+    press(el, '>', ctrlShift);
     expect(el.value).to.equal('<blockquote><p>text</p></blockquote>');
-    press(el, '9', { shift: true });
+    press(el, '>', ctrlShift);
     expect(el.value).to.equal('<p>text</p>');
-    press(el, '8', { shift: true });
+    press(el, '8', ctrlShift);
     expect(el.value).to.equal('<ul><li>text</li></ul>');
-    press(el, '7', { shift: true });
+    press(el, '9', ctrlShift);
     expect(el.value).to.equal('<ol><li>text</li></ol>');
-    press(el, '7', { shift: true });
+    press(el, '9', ctrlShift);
     expect(el.value).to.equal('<p>text</p>');
   });
 
@@ -222,12 +219,10 @@ describe('form-richtext', () => {
     expect(el.value).to.equal('<ul><li>a</li><li>b</li></ul>');
   });
 
-  it('removes a link and inserts a line break from the keyboard', async () => {
-    const el = await mount({ value: '<p><a href="/a">site</a></p>' });
+  it('inserts a line break from the keyboard', async () => {
+    const el = await mount({ value: '<p>site</p>' });
     const view = el._view;
     view.dispatch(view.state.tr.setSelection(pm.TextSelection.create(view.state.doc, 3)));
-    press(el, 'k', { shift: true });
-    expect(el.value).to.equal('<p>site</p>');
     press(el, 'Enter', { shift: true, mod: false });
     expect(el.value).to.equal('<p>si<br>te</p>');
   });
