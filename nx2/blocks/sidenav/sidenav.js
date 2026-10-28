@@ -66,11 +66,20 @@ class NXSidenav extends LitElement {
       this._chatEnabled = false;
       return;
     }
-    const { isEwChatEnabled } = await import('../../utils/ewFlags.js');
-    const chatEnabled = await isEwChatEnabled(context);
-    if (this._chatSite !== context || !this.isConnected) return;
-    this._chatEnabled = chatEnabled;
-    this._chatChecking = false;
+    try {
+      const { isEwChatEnabled } = await import('../../utils/ewFlags.js');
+      const chatEnabled = await isEwChatEnabled(context);
+      if (this._chatSite !== context || !this.isConnected) return;
+      this._chatEnabled = chatEnabled;
+      this._chatChecking = false;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to check chat availability', error);
+      if (this._chatSite !== context || !this.isConnected) return;
+      this._chatEnabled = false;
+      this._chatChecking = false;
+      this._chatSite = undefined;
+    }
   }
 
   async loadNav() {

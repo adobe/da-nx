@@ -12,7 +12,6 @@
 
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
-import { PANEL_EVENT } from '../../utils/panel.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
 import CoworkerChatController from './coworker-chat-controller.js';
 import CmaChatController from './cma-chat-controller.js';
@@ -27,6 +26,7 @@ import {
 } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
+import { PANEL_EVENT } from '../../utils/panel.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';

@@ -407,6 +407,113 @@ describe('sidenav chat action', () => {
     expect(sidenav.shadowRoot.querySelector('button')).not.to.equal(null);
   });
 
+  describe('flag check failures', () => {
+    let originalConsoleError;
+    let errors;
+
+    const failedResponse = (error) => {
+      const response = new Response('{}');
+      response.json = async () => { throw error; };
+      return response;
+    };
+
+    beforeEach(() => {
+      originalConsoleError = console.error;
+      errors = [];
+      console.error = (...args) => errors.push(args);
+    });
+
+    afterEach(() => {
+      console.error = originalConsoleError;
+    });
+
+    it('reports the failure, clears checking, hides Chat and allows a same-site retry', async () => {
+      const error = new Error('Flag check failed');
+      const fetchDefault = window.fetch;
+      window.fetch = (url, options) => {
+        const href = url.toString();
+        if (href.includes('/failing/') && !href.includes('/ping/')) {
+          return Promise.resolve(failedResponse(error));
+        }
+        return fetchDefault(url, options);
+      };
+
+      await navigate(`#/${org}/failing`);
+      expect(sidenav._chatChecking).to.equal(false);
+      expect(sidenav._chatEnabled).to.equal(false);
+      expect(sidenav._chatSite).to.equal(undefined);
+      expect(sidenav.shadowRoot.querySelector('button')).to.equal(null);
+      expect(errors).to.deep.equal([['Failed to check chat availability', error]]);
+
+      window.fetch = fetchDefault;
+      await navigate(`#/${org}/failing/retry.html`);
+      expect(sidenav._chatChecking).to.equal(false);
+      expect(sidenav.shadowRoot.querySelector('button')).not.to.equal(null);
+    });
+
+    it('does not let an older rejection clear or disable a newer pending check', async () => {
+      const error = new Error('Stale flag check failed');
+      const fetchDefault = window.fetch;
+      let releaseStale;
+      let releaseCurrent;
+      const staleResponse = new Promise((resolve) => { releaseStale = resolve; });
+      const currentResponse = new Promise((resolve) => { releaseCurrent = resolve; });
+      window.fetch = (url, options) => {
+        const href = url.toString();
+        if (!href.includes('/ping/')) {
+          if (href.includes('/stale/')) return staleResponse;
+          if (href.includes('/current/')) return currentResponse;
+        }
+        return fetchDefault(url, options);
+      };
+
+      const stale = navigate(`#/${org}/stale`);
+      const current = navigate(`#/${org}/current`);
+      try {
+        releaseStale(failedResponse(error));
+        await stale;
+        expect(sidenav._chatChecking).to.equal(true);
+        expect(sidenav._chatEnabled).to.equal(true);
+        expect(sidenav._chatSite.site).to.equal('current');
+        expect(sidenav.shadowRoot.querySelector('button').getAttribute('aria-disabled')).to.equal('true');
+        expect(errors).to.deep.equal([['Failed to check chat availability', error]]);
+      } finally {
+        releaseCurrent(new Response(JSON.stringify({
+          flags: { data: [{ key: 'ew.enabled', value: 'true' }] },
+        })));
+        await current;
+      }
+      expect(sidenav._chatChecking).to.equal(false);
+      expect(sidenav.shadowRoot.querySelector('button').getAttribute('aria-disabled')).to.equal('false');
+    });
+
+    it('does not restore disconnected state after a rejection and can recheck on reconnect', async () => {
+      const error = new Error('Disconnected flag check failed');
+      const fetchDefault = window.fetch;
+      let release;
+      const delayed = new Promise((resolve) => { release = resolve; });
+      window.fetch = (url, options) => {
+        const href = url.toString();
+        if (href.includes('/disconnected/') && !href.includes('/ping/')) return delayed;
+        return fetchDefault(url, options);
+      };
+      const pending = navigate(`#/${org}/disconnected`);
+      sidenav.remove();
+      release(failedResponse(error));
+      await pending;
+      expect(sidenav._chatChecking).to.equal(false);
+      expect(sidenav._chatEnabled).to.equal(false);
+      expect(sidenav._chatSite).to.equal(undefined);
+      expect(errors).to.deep.equal([['Failed to check chat availability', error]]);
+
+      window.fetch = fetchDefault;
+      document.body.append(sidenav);
+      await checks.at(-1);
+      await sidenav.updateComplete;
+      expect(sidenav.shadowRoot.querySelector('button')).not.to.equal(null);
+    });
+  });
+
   it('unsubscribes on disconnect and resolves the current org or site on reconnect', async () => {
     sidenav.remove();
     const checkCount = checks.length;
