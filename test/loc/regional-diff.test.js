@@ -80,7 +80,7 @@ describe('Regional diff', () => {
     const modified = document.implementation.createHTMLDocument();
     modified.body.innerHTML = await readFile({ path: './mocks/regional-content-metadata.html' });
     const acceptedHashes = ['9cf95b80d46d'];
-    const rejectedHashes = ['66962da704a6', '89071ca4be97'];
+    const rejectedHashes = ['66962da704a6', '21c95c2c1f8f'];
     const mainEl = await regionalDiff(original, modified, acceptedHashes, rejectedHashes);
     const expectedDiffedMain = await readFile({ path: './mocks/diffedMain-metadata.html' });
     expect(cleanHtmlWhitespace(mainEl.outerHTML))

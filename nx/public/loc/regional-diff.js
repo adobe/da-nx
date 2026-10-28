@@ -75,6 +75,59 @@ function getOuterHTMLWithSortedAttributes(element) {
   return `<${tagName}${attrs ? ` ${attrs}` : ''}>${inner}</${tagName}>`;
 }
 
+const EDITOR_BLOCK_TAGS = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'DIV', 'TABLE', 'PRE', 'BLOCKQUOTE', 'HR'];
+const EDITOR_IMG_ATTRS = ['src', 'alt', 'title', 'data-focal-x', 'data-focal-y', 'data-edit-as', 'data-id'];
+
+const isBlankText = (node) => node.nodeType === Node.TEXT_NODE && !node.textContent.trim();
+const contentNodes = (el) => [...el.childNodes].filter((node) => !isBlankText(node));
+const isOnlyPictures = (nodes) => nodes.length > 0 && nodes.every((node) => node.nodeName === 'PICTURE'
+  || (node.nodeName === 'A' && isOnlyPictures(contentNodes(node))));
+
+function toEditorPicture(picture) {
+  const img = picture.querySelector('img');
+  const src = img?.getAttribute('src');
+  if (!src) return;
+  [...img.attributes]
+    .filter(({ name }) => !EDITOR_IMG_ATTRS.includes(name))
+    .forEach(({ name }) => img.removeAttribute(name));
+  // The editor writes loading="lazy" only on images without a link
+  if (picture.parentElement?.nodeName !== 'A') img.setAttribute('loading', 'lazy');
+  const sources = [{}, { media: '(min-width: 600px)' }].map((attrs) => {
+    const source = picture.ownerDocument.createElement('source');
+    source.setAttribute('srcset', src);
+    if (attrs.media) source.setAttribute('media', attrs.media);
+    return source;
+  });
+  picture.replaceChildren(...sources, img);
+}
+
+function wrapCellContent(cell) {
+  const nodes = contentNodes(cell);
+  if (!nodes.length || isOnlyPictures(nodes)) return;
+  if (nodes.some((node) => EDITOR_BLOCK_TAGS.includes(node.nodeName))) return;
+  const p = cell.ownerDocument.createElement('p');
+  p.append(...cell.childNodes);
+  cell.append(p);
+}
+
+/**
+ * Returns a copy of the block in the markup the editor saves, which is what review hashes are
+ * computed from: no heading ids, cell content in paragraphs, the editor's picture markup.
+ * @param {Element} element
+ * @returns {Element} - Wrapper holding the converted block
+ */
+function toEditorMarkup(element) {
+  const wrapper = element.ownerDocument.createElement('div');
+  wrapper.append(element.cloneNode(true));
+  wrapper.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((heading) => heading.removeAttribute('id'));
+  wrapper.querySelectorAll('picture').forEach(toEditorPicture);
+  wrapper.querySelectorAll(':scope > div > div > div').forEach(wrapCellContent);
+  wrapper.querySelectorAll('p').forEach((p) => {
+    if (isOnlyPictures(contentNodes(p))) p.replaceWith(...p.childNodes);
+  });
+  return wrapper;
+}
+
 /**
  * Normalizes HTML by trimming whitespace in text nodes and removing whitespace between tags.
  * @param {Element} element - DOM element to normalize
@@ -84,11 +137,10 @@ function normalizeHTMLFromElement(element) {
   if (element.outerHTML === 'spoofedSectionHtml') {
     return element.outerHTML;
   }
-  // Clone to avoid mutating the original
-  const clone = element.cloneNode(true);
-  trimTextNodes(clone);
+  const wrapper = toEditorMarkup(element);
+  trimTextNodes(wrapper);
   // Remove whitespace between tags
-  let html = getOuterHTMLWithSortedAttributes(clone).replace(/>\s+</g, '><');
+  let html = [...wrapper.children].map(getOuterHTMLWithSortedAttributes).join('').replace(/>\s+</g, '><');
   // Remove all line breaks and tabs
   html = html.replace(/[\n\r\t]/g, '');
   // Optionally, collapse multiple spaces
