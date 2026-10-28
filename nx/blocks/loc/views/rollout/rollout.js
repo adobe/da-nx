@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
-import { sortLangs, rolloutLang, getFilteredLangs, getSummaryCards } from './index.js';
+import { sortLangs, rolloutLang, getFilteredLangs, getSummaryCards, mergeErrors } from './index.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -49,7 +49,7 @@ class NxLocRollout extends LitElement {
     const { message, errors } = await rolloutLang(rolloutConf);
     if (message || errors) {
       this._message = message;
-      this._errors = [...(this._errors || []), ...(errors || [])];
+      this._errors = mergeErrors(this._errors, errors);
       if (langToRollout.rollout.status === 'rolling out') return;
     }
 

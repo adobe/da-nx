@@ -78,6 +78,11 @@ export function setSaveError(url, reason) {
   url.error ??= `Error saving ${url.destination} - ${reason}`;
 }
 
+export function mergeErrors(current, incoming) {
+  const errors = [...(current || []), ...(incoming || [])];
+  return errors.length ? errors : undefined;
+}
+
 async function rolloutLangLocales(title, lang, urls, behavior, resolver) {
   const rolloutUrl = async (url) => {
     const { content, error } = await resolver.expand({
