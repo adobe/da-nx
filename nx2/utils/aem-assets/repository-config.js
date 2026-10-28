@@ -11,7 +11,6 @@
  */
 
 import { fetchDaConfigs, getFirstSheet } from '../daConfig.js';
-import { getEWFlags } from '../ewFlags.js';
 import { isDynamicMediaEnabled, shouldFilterApprovedAssets } from './config.js';
 import DEFAULT_ASSET_BASE_PATH from './constants.js';
 import { parseSiteImageModifiers } from './image-modifiers.js';
@@ -55,6 +54,8 @@ export async function getRepositoryConfig(owner, repo) {
   const configs = await Promise.all(fetchDaConfigs({ org: owner, site: repo }));
   const entries = configs.reverse().flatMap((config) => getFirstSheet(config) || []);
   const getValue = (key) => entries.find((conf) => conf.key === key)?.value || null;
+  const flags = configs.flatMap((config) => config?.flags?.data).filter(Boolean);
+  const getFlag = (key) => flags.find((flag) => flag?.key === key)?.value || null;
 
   const repositoryId = getValue('aem.repositoryId');
   if (!repositoryId) return null;
@@ -69,19 +70,10 @@ export async function getRepositoryConfig(owner, repo) {
     smartCrop,
   });
 
-  let imageType = getValue('aem.assets.image.type');
-  try {
-    if (imageType && imageType.toLowerCase() === 'link') {
-      const flags = await getEWFlags({ org: owner, site: repo });
-      if (flags?.['ew.assets.editableExternalImages']?.toLowerCase() === 'true') {
-        imageType = 'editable-link';
-      } else {
-        imageType = 'link';
-      }
-    }
-  } catch (e) {
-    imageType = null;
-  }
+  const isLinkType = getValue('aem.assets.image.type')?.toLowerCase() === 'link';
+  const isLinkAsImage = getFlag('aem.assets.image.linkAsImage')?.toLowerCase() === 'true';
+  const linkType = isLinkAsImage ? 'editable-link' : 'link';
+  const imageType = isLinkType ? linkType : null;
 
   return {
     repositoryId,

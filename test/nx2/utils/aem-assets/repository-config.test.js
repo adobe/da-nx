@@ -523,7 +523,8 @@ describe('getResponsiveImageConfig', () => {
 describe('getRepositoryConfig imageType', () => {
   const REPO_ID = { key: 'aem.repositoryId', value: 'author-p60-e60.adobeaemcloud.com' };
   const TYPE_LINK = { key: 'aem.assets.image.type', value: 'link' };
-  const FLAG_ON = { key: 'ew.assets.editableExternalImages', value: 'true' };
+  const FLAG_ON = { key: 'aem.assets.image.linkAsImage', value: 'true' };
+  const FLAG_OFF = { key: 'aem.assets.image.linkAsImage', value: 'false' };
 
   const multiSheet = ({ data = [], flags } = {}) => {
     const names = flags ? ['data', 'flags'] : ['data'];
@@ -566,7 +567,7 @@ describe('getRepositoryConfig imageType', () => {
     const cfg = await resolve('imgt3', 'a', {
       siteSheets: {
         data: [REPO_ID, TYPE_LINK],
-        flags: [{ key: 'ew.assets.editableExternalImages', value: 'false' }],
+        flags: [FLAG_OFF],
       },
     });
     expect(cfg.imageType).to.equal('link');
@@ -599,7 +600,7 @@ describe('getRepositoryConfig imageType', () => {
     const cfg = await resolve('imgt8', 'a', {
       siteSheets: {
         data: [REPO_ID, TYPE_LINK],
-        flags: [{ key: 'ew.assets.editableExternalImages', value: 'false' }],
+        flags: [FLAG_OFF],
       },
       orgSheets: { flags: [FLAG_ON] },
     });
@@ -616,11 +617,11 @@ describe('getRepositoryConfig imageType', () => {
     expect(editable.imageType).to.equal('editable-link');
   });
 
-  it('falls back to link when a flags row is malformed', async () => {
+  it('skips a malformed flags row', async () => {
     const cfg = await resolve('imgt14', 'a', {
       siteSheets: { data: [REPO_ID, TYPE_LINK], flags: [{ value: 'true' }, FLAG_ON] },
     });
-    expect(cfg.imageType).to.equal('link');
+    expect(cfg.imageType).to.equal('editable-link');
   });
 
   it('falls back to link when the flags sheet is not a list', async () => {
