@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script type="module">
+    const params = new URLSearchParams(location.search);
+    const variant = params.get('variant');
+    const moduleOrigin = params.get('module-origin') || location.origin;
+    const names = ['da-lit', 'da-y-wrapper', 'da-parser'];
+    const paths = ['/deps/lit/dist/index.js', '/deps/da-y-wrapper/dist/index.js', '/deps/da-parser/dist/index.js'];
+    try {
+      if (params.has('mapped')) {
+        const script = document.createElement('script');
+        script.type = 'importmap';
+        script.textContent = JSON.stringify({
+          imports: Object.fromEntries(names.map((name, index) => [
+            params.get('mapped') === 'legacy' ? `https://da.live${paths[index]}` : name,
+            new URL(`./dependency.js?name=${name}`, location.href).href,
+          ])),
+        });
+        document.head.append(script);
+      }
+      const { resolveDependency, getDaOrigin, setupDependencies } = await import(
+        `${moduleOrigin}/${variant}/public/utils/dependencies.js`
+      );
+      const before = names.map(resolveDependency);
+      const daOrigin = getDaOrigin();
+      setupDependencies();
+      const after = names.map(resolveDependency);
+      const legacy = paths.map((path) => import.meta.resolve(`https://da.live${path}`));
+      let sameModules;
+      let sharedLit;
+      if (params.has('mapped')) {
+        sameModules = await Promise.all(names.map(async (name, index) => (
+          await import(name) === await import(`https://da.live${paths[index]}`)
+        )));
+        const { LitElement } = await import(names[0]);
+        await import(`${moduleOrigin}/${variant}/public/sl/components.js`);
+        sharedLit = document.createElement('sl-input') instanceof LitElement;
+        document.body.append(document.createElement('sl-input'));
+        await document.querySelector('sl-input').updateComplete;
+      }
+      parent.postMessage({ before, after, legacy, daOrigin, sameModules, sharedLit }, location.origin);
+    } catch (error) {
+      parent.postMessage({ error: error.stack }, location.origin);
+    }
+  </script>
+</head>
+<body></body>
+</html>

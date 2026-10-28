@@ -42,6 +42,18 @@ describe('standalone quick-edit shell', () => {
     );
   });
 
+  it('uses the configured DA deployment for the portal and forwards its origin', () => {
+    const href = 'https://main--site--org.aem.page/path?quick-edit=feature&da-origin=https%3A%2F%2Fauthor.example';
+    const portalUrl = new URL(getQuickEditPortalSrc(href, { bootstrap: true }));
+    expect(portalUrl.origin).to.equal('https://author.example');
+    expect(portalUrl.pathname).to.equal('/plugins/quick-edit');
+    expect(portalUrl.searchParams.get('nx')).to.equal('feature');
+    expect(portalUrl.searchParams.get('da-origin')).to.equal('https://author.example');
+    expect(portalUrl.searchParams.get('controller')).to.equal('bootstrap');
+    const previewUrl = new URL(getQuickEditPreviewSrc(href));
+    expect(previewUrl.searchParams.get('da-origin')).to.equal('https://author.example');
+  });
+
   it('preserves standalone write behavior without changing explicit permissions', () => {
     expect(getStandaloneConfig({ mountpoint: '/org/site' })).to.deep.equal({
       mountpoint: '/org/site',

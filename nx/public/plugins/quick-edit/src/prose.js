@@ -1,6 +1,6 @@
 /* eslint-disable import/prefer-default-export */
-import { getSchema } from 'https://da.live/deps/da-parser/dist/index.js';
-import { EditorState, EditorView, TextSelection } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
+import { getSchema } from 'da-parser';
+import { EditorState, EditorView, TextSelection } from 'da-y-wrapper';
 import {
   // showToolbar,
   hideToolbar,

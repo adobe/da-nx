@@ -1,7 +1,9 @@
 /* eslint-disable max-classes-per-file */
 
-import { LitElement, html, nothing, spread } from 'https://da.live/deps/lit/dist/index.js';
+import { resolveDependency } from '../utils/dependencies.js';
 import { loadStyle } from '../../utils/utils.js';
+
+const { LitElement, html, nothing, spread } = await import(resolveDependency('da-lit'));
 
 const style = await loadStyle(import.meta.url);
 

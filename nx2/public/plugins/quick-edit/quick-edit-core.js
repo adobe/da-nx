@@ -1,0 +1,82 @@
+import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc, handleImageError } from './src/images.js';
+import { setEditorState } from './src/prose.js';
+import { setCursors } from './src/cursors.js';
+import { pollConnection, setupActions } from './src/utils.js';
+import { replaceChanges } from './src/reload.js';
+
+import { loadPageStyle } from '../../../utils/utils.js';
+
+const nx = `${new URL(import.meta.url).origin}/nx`;
+await loadPageStyle(`${nx}/public/plugins/quick-edit/quick-edit.css`);
+
+const QUICK_EDIT_ID = 'quick-edit-iframe';
+
+async function setBody(body, ctx) {
+  const doc = new DOMParser().parseFromString(body, 'text/html');
+  replaceChanges({ ctx, doc, targetDocument: document });
+  await ctx.reload(document);
+  setupContentEditableListeners(ctx);
+  setupImageDropListeners(ctx, document.body.querySelector('main'));
+  setupActions(ctx);
+}
+
+function onMessage(e, ctx) {
+  ctx.initialized = true;
+  if (e.data.type === 'set-body') {
+    setBody(e.data.body, ctx);
+  } else if (e.data.type === 'set-editor-state') {
+    const { editorState, cursorOffset } = e.data;
+    setEditorState(cursorOffset, editorState, ctx);
+  } else if (e.data.type === 'set-cursors') {
+    setCursors(e.data.cursors, ctx);
+  } else if (e.data.type === 'update-image-src') {
+    const { newSrc, originalSrc } = e.data;
+    updateImageSrc(originalSrc, newSrc);
+  } else if (e.data.type === 'image-error') {
+    handleImageError(e.data.error);
+  }
+}
+
+function handleLoad(target, config, location, ctx) {
+  const CHANNEL = new MessageChannel();
+  const { port1, port2 } = CHANNEL;
+  ctx.port = port1;
+
+  target.contentWindow.postMessage({ init: config, location }, '*', [port2]);
+  ctx.port.onmessage = (e) => onMessage(e, ctx);
+}
+
+function getQuickEditSrc() {
+  const { search } = window.location;
+  const params = new URLSearchParams(search);
+  const ref = params.get('quick-edit');
+  const daOrigin = params.get('da-origin');
+  const defaultHref = !ref || ref === 'on'
+    ? 'https://da.live/plugins/quick-edit'
+    : 'https://main--da-live--adobe.aem.live/plugins/quick-edit';
+  const portalUrl = new URL(daOrigin ? '/plugins/quick-edit' : defaultHref, daOrigin || undefined);
+  if (ref && ref !== 'on') portalUrl.searchParams.set('nx', ref);
+  if (daOrigin) portalUrl.searchParams.set('da-origin', new URL(daOrigin).origin);
+  return portalUrl.href;
+}
+
+export default async function loadQuickEdit({ detail: payload }, reloadCallback) {
+  if (document.getElementById(QUICK_EDIT_ID)) return;
+
+  const ctx = {
+    initialized: false,
+    reload: reloadCallback,
+    reloadScope: payload?.reloadScope,
+  };
+
+  const iframe = document.createElement('iframe');
+  iframe.id = QUICK_EDIT_ID;
+  iframe.src = getQuickEditSrc();
+  iframe.allow = 'local-network-access *; clipboard-write *';
+
+  pollConnection(ctx, () => {
+    handleLoad(iframe, payload.config, payload.location, ctx);
+  });
+  document.documentElement.append(iframe);
+  iframe.style.visibility = 'hidden';
+}

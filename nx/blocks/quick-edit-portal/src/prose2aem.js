@@ -1,7 +1,9 @@
 /* eslint-disable import/prefer-default-export */
-import prose2aem from 'https://da.live/blocks/shared/prose2aem.js';
 import { getImageDocumentVersion } from '../../../../nx2/public/utils/quick-edit-images.js';
+import { getDaOrigin } from '../../../public/utils/dependencies.js';
 import { EDITABLE_SELECTORS } from './editable-elements.js';
+
+const { default: prose2aem } = await import(`${getDaOrigin()}/blocks/shared/prose2aem.js`);
 
 function isOutermostWysiwygEditable(el) {
   if (!el?.matches?.(EDITABLE_SELECTORS)) return false;

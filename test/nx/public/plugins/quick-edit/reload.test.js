@@ -139,9 +139,8 @@ describe('quick-edit reload', () => {
       originalUrl.searchParams.set('controller', 'parent');
       window.history.replaceState({}, '', originalUrl);
       document.body.innerHTML = '<main><div><p data-prose-index="1">text</p></div></main>';
-      const moduleUrl = new URL('../../../../../nx/public/plugins/quick-edit/quick-edit.js', import.meta.url);
-      moduleUrl.searchParams.set('test', 'recovery');
-      const { default: loadRecoveryQuickEdit } = await import(moduleUrl.href);
+      // eslint-disable-next-line import/no-unresolved
+      const { default: loadRecoveryQuickEdit } = await import('../../../../../nx/public/plugins/quick-edit/quick-edit-core.js?test=recovery');
       const reload = new Promise((resolve) => {
         loadRecoveryQuickEdit({}, resolve, { partialReload: true });
       });

@@ -1,5 +1,8 @@
-import { linkItem, removeLinkItem } from 'https://da.live/blocks/edit/prose/plugins/menu/linkItem.js';
-import { renderGrouped } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
+import { renderGrouped } from 'da-y-wrapper';
+import { getDaOrigin } from '../../../utils/dependencies.js';
+
+const daOrigin = getDaOrigin();
+const { linkItem, removeLinkItem } = await import(`${daOrigin}/blocks/edit/prose/plugins/menu/linkItem.js`);
 
 let floatingToolbar = null;
 let currentEditorView = null;
@@ -10,7 +13,7 @@ let updateLinkMenu = null;
 let linkStylesheet = null;
 async function loadLinkStylesheet() {
   if (linkStylesheet) return linkStylesheet;
-  const resp = await fetch('https://da.live/blocks/edit/da-palette/da-palette.css');
+  const resp = await fetch(`${daOrigin}/blocks/edit/da-palette/da-palette.css`);
   const text = await resp.text();
   const sheet = new CSSStyleSheet();
   sheet.replace(`${text} .da-palette-field { color: black; }`);

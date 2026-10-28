@@ -28,7 +28,7 @@ export default defineConfig([
       },
     },
     settings: {
-      'import/core-modules': ['da-lit', 'da-y-wrapper'],
+      'import/core-modules': ['da-lit', 'da-y-wrapper', 'da-parser'],
     },
     rules: {
       'class-methods-use-this': 0,
@@ -88,4 +88,3 @@ export default defineConfig([
     },
   },
 ]);
-
