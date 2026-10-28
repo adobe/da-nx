@@ -1,3 +1,24 @@
+# [1.26.0](https://github.com/adobe/da-nx/compare/v1.25.0...v1.26.0) (2026-10-27)
+
+
+### Features
+
+* retain org on redirect to coworker ([#914](https://github.com/adobe/da-nx/issues/914)) ([e79af62](https://github.com/adobe/da-nx/commit/e79af62ec1a23f9e245c62ba05890df8bbb3c17b))
+
+# [1.25.0](https://github.com/adobe/da-nx/compare/v1.24.0...v1.25.0) (2026-10-27)
+
+
+### Features
+
+* **picker:** add multiple selection to nx-picker ([#902](https://github.com/adobe/da-nx/issues/902)) ([89b6c06](https://github.com/adobe/da-nx/commit/89b6c0620ae3eff424c7d83f7f1f6dda96c782f6))
+
+# [1.24.0](https://github.com/adobe/da-nx/compare/v1.23.4...v1.24.0) (2026-10-27)
+
+
+### Features
+
+* shared card ([#899](https://github.com/adobe/da-nx/issues/899)) ([1fe9cce](https://github.com/adobe/da-nx/commit/1fe9cce4838651a55a2f50dab3e0b32246f66738))
+
 ## [1.23.4](https://github.com/adobe/da-nx/compare/v1.23.3...v1.23.4) (2026-10-27)
 
 
