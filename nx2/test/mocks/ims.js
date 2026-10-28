@@ -5,11 +5,14 @@ let _displayName = 'Test User';
 let _email = 'test-user@adobe.com';
 let _io = { user: { avatar: 'https://example.com/avatar.png' } };
 let _orgs = { data: [] };
+let _ownerOrg;
+let _tenantId;
 let _projectedProductContext;
 let _signInCount = 0;
 
 export function setMockIms({
-  token, anonymous, userId, displayName, email, io, orgs, projectedProductContext,
+  token, anonymous, userId, displayName, email, io, orgs,
+  ownerOrg, tenantId, projectedProductContext,
 } = {}) {
   if (token !== undefined) _accessToken = token;
   if (anonymous !== undefined) _anonymous = anonymous;
@@ -18,6 +21,8 @@ export function setMockIms({
   if (email !== undefined) _email = email;
   if (io !== undefined) _io = io;
   if (orgs !== undefined) _orgs = orgs;
+  if (ownerOrg !== undefined) _ownerOrg = ownerOrg;
+  if (tenantId !== undefined) _tenantId = tenantId;
   if (projectedProductContext !== undefined) _projectedProductContext = projectedProductContext;
 }
 
@@ -29,6 +34,8 @@ export function resetMockIms() {
   _email = 'test-user@adobe.com';
   _io = { user: { avatar: 'https://example.com/avatar.png' } };
   _orgs = { data: [] };
+  _ownerOrg = undefined;
+  _tenantId = undefined;
   _projectedProductContext = undefined;
   _signInCount = 0;
 }
@@ -41,6 +48,8 @@ export const loadIms = async () => {
     userId: _userId,
     displayName: _displayName,
     email: _email,
+    ownerOrg: _ownerOrg,
+    tenantId: _tenantId,
     projectedProductContext: _projectedProductContext,
     getIo: async () => _io,
     getOrgs: async () => _orgs,
