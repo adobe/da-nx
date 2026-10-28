@@ -2,8 +2,8 @@ import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
 
-import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
-import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
+import { copy, convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
+import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES } from '../../project/index.js';
 
 let CONNECTOR;
 
@@ -109,7 +109,7 @@ async function saveLang({
 
   const saveFn = async (url) => {
     const overwrite = behavior === 'overwrite' || url.hasExt || url.ext !== 'html';
-    const copyFn = overwrite ? overwriteCopy : mergeCopy;
+    const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
     await copyFn(url, title);
     const remaining = urlsToSave.filter((urlToSave) => !urlToSave.sourceContent).length;
     sendMessage({ text: `${remaining} items left to save for ${lang.name}.` });
@@ -155,7 +155,7 @@ export async function copySourceLangs(org, site, title, options, langs, urls, la
     // If has an ext (sheet), force overwrite
     const overwrite = behavior === 'overwrite' || url.hasExt;
 
-    const copyFn = overwrite ? overwriteCopy : mergeCopy;
+    const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
     const resp = await copyFn({ sourceContent: url.content, destination }, title);
     url.status = resp.status;
   };

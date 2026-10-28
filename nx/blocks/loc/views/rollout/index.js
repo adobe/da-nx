@@ -1,8 +1,8 @@
 import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
-import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
-import { convertPath, createSnapshotPrefix } from '../../utils/utils.js';
+import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES } from '../../project/index.js';
+import { copy, convertPath, createSnapshotPrefix } from '../../utils/utils.js';
 
 function getTitle(status) {
   const title = {
@@ -76,7 +76,7 @@ async function fetchLangSources(lang, urls) {
 async function rolloutLangLocales(title, lang, urls, behavior) {
   const rolloutUrl = async (url) => {
     const overwrite = behavior === 'overwrite' || url.hasExt;
-    const copyFn = overwrite ? overwriteCopy : mergeCopy;
+    const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
     await copyFn(url, title);
   };
 

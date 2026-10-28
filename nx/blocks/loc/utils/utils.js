@@ -1,5 +1,12 @@
 import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
-import { daFetch, loadIms } from '../../../../nx2/utils/api.js';
+import { daFetch, loadIms, source } from '../../../../nx2/utils/api.js';
+import { createCopy } from '../../../public/loc/index.js';
+
+export const copy = createCopy({
+  fetch: (url, opts) => daFetch({ url, opts }),
+  daOrigin: DA_ADMIN,
+  saveSource: source.save,
+});
 
 const CONFIG_PATH = '/.da/translate.json';
 

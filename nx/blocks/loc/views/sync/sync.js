@@ -2,7 +2,8 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { getSyncUrls } from './index.js';
-import { MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
+import { MAX_CONCURRENT_WRITES } from '../../project/index.js';
+import { copy } from '../../utils/utils.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -57,7 +58,7 @@ class NxLocSync extends LitElement {
     // If its JSON, force overwrite
     const overwrite = behavior === 'overwrite' || ext === 'json';
 
-    const copyFn = overwrite ? overwriteCopy : mergeCopy;
+    const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
     const resp = await copyFn({ source, destination }, this.title);
 
     url.synced = resp.ok ? 'synced' : 'error';

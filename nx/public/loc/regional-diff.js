@@ -1,9 +1,5 @@
-/* global objectHash */
-import { getPathDetails, fetchConfig } from '../utils/utils.js';
+import { hashContent, HASH_LENGTH } from './hashes.js';
 
-import './object_hash.js';
-
-const HASH_LENGTH = 12;
 const MIN_LIST_ITEMS_IN_COMMON = 2;
 const ADDED = 'added';
 const ADDED_TAG = 'da-diff-added';
@@ -134,7 +130,7 @@ function getLists(result) {
 
 function getListHashes(list) {
   return [...list.children].map((child) => {
-    child.hash = objectHash(child.outerHTML);
+    child.hash = hashContent(child.outerHTML);
     return child.hash;
   });
 }
@@ -303,7 +299,7 @@ function getBlockMap(dom) {
     const stringToHash = Array.isArray(block)
       ? block.map(normalizeHTMLFromElement).join('')
       : normalizeHTMLFromElement(block);
-    const hash = objectHash(stringToHash);
+    const hash = hashContent(stringToHash);
     return { block, hash };
   });
 }
@@ -431,11 +427,8 @@ function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes =
       continue;
     }
 
+    // Rejected hashes only skip incoming blocks, never the target's own (ADDED) blocks
     if (item.type === ADDED) {
-      if (rejectedHashes.includes(hash)) {
-        // eslint-disable-next-line no-continue
-        continue;
-      }
       if (!acceptedHashes.includes(hash)) {
         modifiedBlock.setAttribute(ADDED_TAG, '');
       }
@@ -484,11 +477,9 @@ export async function regionalDiff(
   modified,
   acceptedHashes,
   rejectedHashes,
-  { normalizeImages } = {},
+  { normalizeImages, site, config } = {},
 ) {
-  const { org, site } = getPathDetails();
-  const translateConfig = await fetchConfig(org, site);
-  const hostnames = findConfigValue(translateConfig, 'source.fragment.hostnames')?.split?.(',') || [];
+  const hostnames = findConfigValue(config, 'source.fragment.hostnames')?.split?.(',') || [];
   const equivalentSites = new Set(hostnames.map((hostname) => hostname.split('--')[1]));
 
   const normalizedOriginal = await normalizeLinks(original, site, equivalentSites);
