@@ -11,9 +11,6 @@ function getSkillsCacheKey(tenantId) {
 
 const SKILL_NAME_RE = /^[a-z0-9][a-z0-9_-]{1,60}$/i;
 
-// Maps skills to nx-menu items for the slash menu, optionally filtered by name.
-// Descriptions are passed in full; nx-menu truncates them visually (ellipsis +
-// hover title) so the complete text stays available to screen readers.
 export function toSlashMenuItems({ skills = [], filter } = {}) {
   const items = skills
     .filter(({ name }) => !filter || name.toLowerCase().includes(filter))
@@ -27,8 +24,7 @@ export function toSlashMenuItems({ skills = [], filter } = {}) {
 
 const compareByName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
 
-// Accepts API skill objects or legacy cached plain-name strings and returns
-// alphabetically sorted { name, description } entries, or null when empty.
+// Also accepts legacy cached plain-name strings.
 function normalizeSkills(list) {
   const skills = list
     .map((s) => (typeof s === 'string' ? { name: s } : s))
@@ -42,9 +38,7 @@ function normalizeSkills(list) {
   return skills.length ? skills : null;
 }
 
-// Prefer the user-facing `display_description`; fall back to the API's
-// `description` when it is missing or blank. Kept as `description` for the
-// slash menu and cache.
+// Prefer display_description; fall back to description when missing or blank.
 const pickDescription = ({ display_description: display, description } = {}) => (
   typeof display === 'string' && display.trim() ? display : description
 );
@@ -57,7 +51,6 @@ function parseSkillsListResponse(json) {
     .map((s) => ({ name: s?.name, description: pickDescription(s ?? {}) })));
 }
 
-// Last-known skill list, so the slash-menu isn't empty before fetchSkills() resolves.
 export async function loadCachedSkills() {
   try {
     const { projectedProductContext } = await loadIms();
@@ -76,15 +69,12 @@ function saveCachedSkills(skills, tenantId) {
     const key = getSkillsCacheKey(tenantId);
     if (key) localStorage.setItem(key, JSON.stringify(skills));
   } catch {
-    // best-effort — localStorage can throw (quota, private mode); safe to ignore
+    // localStorage can throw (quota, private mode)
   }
 }
 
-// Real catalog lookup. Best-effort: a network error or unexpected response shape
-// returns null, leaving the cache (or empty list) in place rather than throwing.
-// When an alt-harness activation key is present, the skills REST plane routes to
-// the CMA bridge instead of Agent Orchestrator (the bridge requires an explicit
-// x-user-id; AO derives the caller from the token). See docs/chat-ao-alt-harness.md.
+// Alt-harness routes to the CMA bridge, which needs an explicit x-user-id.
+// See docs/chat-ao-alt-harness.md.
 export async function fetchSkills({ org, site, altHarnessKey } = {}) {
   try {
     const {

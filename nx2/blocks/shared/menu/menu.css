@@ -13,9 +13,6 @@ nx-popover {
   padding: var(--s2-spacing-100);
 }
 
-/* Descriptions are single-line with an ellipsis, so the menu needs a width cap
-   or it would grow to fit the longest description. Menus without descriptions
-   keep sizing to their content. */
 nx-popover:has(.menu-item-description) {
   max-width: var(--nx-menu-max-width, 320px);
 }
@@ -121,9 +118,6 @@ nx-popover:has(.menu-item-description) {
   border-radius: var(--s2-corner-radius-75);
 }
 
-/* Menus with item descriptions (e.g. the chat slash menu) get a two-line
-   treatment: emphasized labels with secondary descriptions underneath. Owned
-   here so every host renders it the same way. */
 ul:has(.menu-item-description) {
   .menu-section {
     color: var(--s2-gray-700);
@@ -135,7 +129,6 @@ ul:has(.menu-item-description) {
     color: var(--s2-gray-800);
   }
 
-  /* hover also sets the active item (see mouseenter in menu.js) */
   .menu-item-active {
     color: var(--s2-gray-900);
   }
