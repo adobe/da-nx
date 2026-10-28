@@ -249,6 +249,7 @@ describe('nav site navigation', () => {
     { name: 'existing breadcrumb elements', breadcrumb: '<li><nx-breadcrumb></nx-breadcrumb></li>' },
     { name: 'empty middle lists', middle: '<ul><li><br></li></ul>', breadcrumb: '<li class="breadcrumbs">Browse</li>' },
     { name: 'legacy-only middle sections', middle: '<ul><li>breadcrumbs</li></ul>' },
+    { name: 'classed legacy-only middle sections', middle: '<ul><li class="breadcrumbs">Browse</li></ul>' },
   ].forEach(({ name, ...fragment }) => {
     it(`keeps route-aware breadcrumbs for ${name}`, async () => {
       window.history.replaceState(null, '', '/?preview=true#/adobe/site/docs');

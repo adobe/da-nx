@@ -10,16 +10,6 @@ const DEFAULT_NAV_PATH = '/nx/fragments/nav';
 
 const style = await loadStyle(import.meta.url);
 
-function getBreadcrumbPlaceholder(fragment, siteNavSection) {
-  const breadcrumb = [...fragment.querySelectorAll('nx-breadcrumb')]
-    .find((el) => !siteNavSection?.contains(el));
-  const items = [...fragment.querySelectorAll('ul > li')]
-    .filter((el) => !siteNavSection?.contains(el.querySelector('nx-breadcrumb')));
-  return breadcrumb?.closest('li') ?? breadcrumb
-    ?? items.find((el) => el.classList.contains('breadcrumbs'))
-    ?? items.find((el) => el.textContent.trim().toLowerCase() === 'breadcrumbs');
-}
-
 async function openFragmentDialog(path) {
   await import('../shared/dialog/dialog.js');
   const fragment = await loadFragment(path);
@@ -72,18 +62,18 @@ class NXNav extends LitElement {
 
     const siteNavSection = sections.length > 2 ? sections[1] : null;
     const siteNavList = siteNavSection?.querySelector('ul');
-    const breadcrumbPlaceholder = getBreadcrumbPlaceholder(fragment, siteNavSection);
     const hasSiteNav = [...(siteNavList?.children ?? [])]
-      .some((child) => child !== breadcrumbPlaceholder && (
-        child.textContent.trim()
-        || child.querySelector('button')
-        || child.firstElementChild?.localName.startsWith('nx-')
-      ));
+      .some((child) => {
+        if (child.firstElementChild?.localName.startsWith('nx-') || child.querySelector('button')) {
+          return true;
+        }
+        const name = child.textContent.trim().toLowerCase();
+        return name && name !== 'breadcrumbs' && !child.classList.contains('breadcrumbs');
+      });
 
     this._siteNav = null;
     this._breadcrumbs = null;
     if (hasSiteNav) {
-      breadcrumbPlaceholder?.remove();
       this._siteNav = await this.decorateNavItems(siteNavSection);
     } else {
       this._breadcrumbs = await this.decorateBreadcrumbs(fragment).catch((error) => {
@@ -96,11 +86,14 @@ class NXNav extends LitElement {
   }
 
   async decorateBreadcrumbs(fragment) {
-    const placeholder = getBreadcrumbPlaceholder(fragment);
+    const existing = fragment.querySelector('nx-breadcrumb');
+    const placeholder = existing?.closest('li') ?? existing
+      ?? fragment.querySelector('ul > li.breadcrumbs')
+      ?? [...fragment.querySelectorAll('ul > li')].find(
+        (el) => el.textContent.trim().toLowerCase() === 'breadcrumbs',
+      );
     if (!placeholder) return null;
 
-    const existing = placeholder.matches('nx-breadcrumb')
-      ? placeholder : placeholder.querySelector('nx-breadcrumb');
     const href = placeholder.querySelector('a')?.getAttribute('href');
     const baseUrl = href ? new URL(href, window.location.href).href : undefined;
     placeholder.remove();
