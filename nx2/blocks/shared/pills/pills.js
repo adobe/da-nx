@@ -24,15 +24,24 @@ class NxPills extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     this._selfManaged = !!this.addEvent && this.items === undefined;
-    if (this._selfManaged) document.addEventListener(this.addEvent, this._onAdd);
+    this._listeningEvent = this._selfManaged ? this.addEvent : undefined;
+    if (this._listeningEvent) document.addEventListener(this._listeningEvent, this._onAdd);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     if (this._selfManaged) {
-      document.removeEventListener(this.addEvent, this._onAdd);
+      document.removeEventListener(this._listeningEvent, this._onAdd);
+      this._listeningEvent = undefined;
       this._revoke(this._list);
     }
+  }
+
+  updated(changed) {
+    if (!this.isConnected || !this._selfManaged || !changed.has('addEvent')) return;
+    if (this._listeningEvent) document.removeEventListener(this._listeningEvent, this._onAdd);
+    this._listeningEvent = this.addEvent;
+    if (this._listeningEvent) document.addEventListener(this._listeningEvent, this._onAdd);
   }
 
   _revoke(items) {

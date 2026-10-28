@@ -22,6 +22,34 @@ describe('standalone AO input', () => {
 
   afterEach(() => chatInput.remove());
 
+  it('switches context events after mount without losing existing pills', async () => {
+    const originalEvent = chatInput.addEvent;
+    chatInput.addItem({ id: 'existing', label: 'Existing' });
+    chatInput.addEvent = 'ao-input-test-context';
+    await chatInput.updateComplete;
+    await chatInput.shadowRoot.querySelector('nx-pills').updateComplete;
+    document.dispatchEvent(new CustomEvent(originalEvent, {
+      detail: { id: 'ignored', label: 'Ignored' },
+    }));
+    document.dispatchEvent(new CustomEvent(chatInput.addEvent, {
+      detail: { id: 'new', label: 'New' },
+    }));
+    expect(chatInput.items.map((item) => item.id)).to.deep.equal(['existing', 'new']);
+  });
+
+  it('preserves a context event supplied before connection', async () => {
+    chatInput.remove();
+    chatInput = document.createElement('nx-ao-input');
+    chatInput.addEvent = 'ao-input-host-context';
+    document.body.append(chatInput);
+    await chatInput.updateComplete;
+    expect(chatInput.addEvent).to.equal('ao-input-host-context');
+    document.dispatchEvent(new CustomEvent(chatInput.addEvent, {
+      detail: { id: 'context', label: 'Context' },
+    }));
+    expect(chatInput.items.map((item) => item.id)).to.deep.equal(['context']);
+  });
+
   it('edits a draft, focuses through its public API, and splits the submit payload', async () => {
     const context = { id: 'selection', label: 'Selection', type: 'text' };
     const attachment = { id: 'file', label: 'File', dataBase64: 'ZmlsZQ==' };

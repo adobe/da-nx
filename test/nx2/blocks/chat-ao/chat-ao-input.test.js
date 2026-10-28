@@ -143,4 +143,43 @@ describe('chat AO input', () => {
     expect(chatInput.getSkills()).to.deep.equal(['writeBlog']);
     expect(chatInput.shadowRoot.querySelector('.coworker-chat')).to.equal(null);
   });
+
+  it('does not re-render the composer for streamed message chunks', async () => {
+    chat.thinking = true;
+    await chat.updateComplete;
+    await chatInput.updateComplete;
+    const render = chatInput.render.bind(chatInput);
+    let renders = 0;
+    chatInput.render = () => {
+      renders += 1;
+      return render();
+    };
+    for (const streamingText of ['First', 'First second', 'First second third']) {
+      chat._onControllerUpdate({ messages: [], thinking: true, streamingText });
+      await chat.updateComplete;
+      await chatInput.updateComplete;
+    }
+    expect(renders).to.equal(0);
+    expect(chat.shadowRoot.querySelector('.message-assistant').textContent)
+      .to.include('First second third');
+  });
+
+  it('refreshes filtered prompts when the source or view changes', async () => {
+    chat._context = { view: 'edit' };
+    chat._prompts = [{ title: 'Edit', area: 'edit' }, { title: 'Browse', area: 'browse' }];
+    await chat.updateComplete;
+    await chatInput.updateComplete;
+    expect(chatInput.prompts.map((prompt) => prompt.title)).to.deep.equal(['Edit']);
+
+    chat._context = { view: 'browse' };
+    chat.requestUpdate();
+    await chat.updateComplete;
+    await chatInput.updateComplete;
+    expect(chatInput.prompts.map((prompt) => prompt.title)).to.deep.equal(['Browse']);
+
+    chat._prompts = [{ title: 'All', area: 'all' }];
+    await chat.updateComplete;
+    await chatInput.updateComplete;
+    expect(chatInput.prompts.map((prompt) => prompt.title)).to.deep.equal(['All']);
+  });
 });

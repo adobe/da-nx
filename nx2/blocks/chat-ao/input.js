@@ -42,8 +42,6 @@ export default class NxAoInput extends LitElement {
 
   _voiceInterim = '';
 
-  addEvent = `nx-ao-input-${crypto.randomUUID()}`;
-
   get draft() {
     return this.shadowRoot.querySelector('.chat-input')?.value ?? '';
   }
@@ -80,6 +78,7 @@ export default class NxAoInput extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this.addEvent ??= `nx-ao-input-${crypto.randomUUID()}`;
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
@@ -153,7 +152,8 @@ export default class NxAoInput extends LitElement {
     }
     const text = this.draft.trim();
     if (!text) return;
-    sampleRUM('click', { source: 'chat-submit', target: 'button.chat-send.harness-coworker' });
+    const harness = this.altHarness ? 'cma' : 'coworker';
+    sampleRUM('click', { source: 'chat-submit', target: `button.chat-send.harness-${harness}` });
     this._slashMenu.close();
     this._send(text);
   }
@@ -259,7 +259,7 @@ export default class NxAoInput extends LitElement {
               ?hidden=${!this.blocked}
               @click=${this._submit}
             > ${icon('stop')}</button>
-            <button type="submit" class="chat-send harness-coworker nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} aria-label="Send">
+            <button type="submit" class="chat-send harness-${this.altHarness ? 'cma' : 'coworker'} nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} aria-label="Send">
               ${icon('send')}
             </button>
           </div>

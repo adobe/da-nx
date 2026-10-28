@@ -83,6 +83,20 @@ export default class NxChatAo extends LitElement {
     return this.thinking && !this.pendingPlanApproval;
   }
 
+  get _visiblePrompts() {
+    const { view } = this._context ?? {};
+    if (!this._promptCache
+      || this._promptCache.source !== this._prompts
+      || this._promptCache.view !== view) {
+      this._promptCache = {
+        source: this._prompts,
+        view,
+        items: (this._prompts ?? []).filter((p) => !p.area || p.area === 'all' || p.area === view),
+      };
+    }
+    return this._promptCache.items;
+  }
+
   _applyContext(value) {
     this._context = value;
     this._controller?.setContext(value);
@@ -254,16 +268,22 @@ export default class NxChatAo extends LitElement {
     }
   }
 
-  _submit({ text, context, attachments }) {
-    this._controller.sendMessage(text, context, attachments);
-  }
+  _getSkills = () => this._controller?.getSkills() ?? [];
 
-  _handleMenuSelect(id) {
+  _stop = () => this._controller.stop();
+
+  _warmSession = () => this._controller.warmSession();
+
+  _submit = ({ text, context, attachments }) => {
+    this._controller.sendMessage(text, context, attachments);
+  };
+
+  _handleMenuSelect = (id) => {
     if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
     if (id === MENU_OPTIONS.MANAGE_SKILLS) this._openCoworker(COWORKER_SKILLS_PATH);
     if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) this._openCoworker(this.episodeId);
     if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) this._openCoworker(ENTERPRISE_CONTEXT_PATH);
-  }
+  };
 
   async _loadCoworkerNav() {
     this._coworkerNav = undefined;
@@ -294,9 +314,7 @@ export default class NxChatAo extends LitElement {
   }
 
   render() {
-    const { view } = this._context ?? {};
-    const prompts = (this._prompts ?? [])
-      .filter((p) => !p.area || p.area === 'all' || p.area === view);
+    const prompts = this._visiblePrompts;
 
     return html`
       <div class="chat-header">
@@ -375,11 +393,11 @@ export default class NxChatAo extends LitElement {
           .prompts=${prompts}
           .menuItems=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS}
           .addEvent=${CHAT_EVENT.ADD_TO_CHAT}
-          .getSkills=${() => this._controller?.getSkills() ?? []}
-          .onSubmit=${(payload) => this._submit(payload)}
-          .onStop=${() => this._controller.stop()}
-          .onInput=${() => this._controller.warmSession()}
-          .onMenuSelect=${(id) => this._handleMenuSelect(id)}
+          .getSkills=${this._getSkills}
+          .onSubmit=${this._submit}
+          .onStop=${this._stop}
+          .onInput=${this._warmSession}
+          .onMenuSelect=${this._handleMenuSelect}
           @nx-pill-activate=${this._handlePillActivate}
         ></nx-ao-input>
       </div>
