@@ -3,14 +3,15 @@ import { setRemoteCursors } from './cursors.js';
 import { setupImageDropListeners } from './images.js';
 
 const COPIED_ATTRS = ['data-prose-index', 'data-cursor-remote', 'data-cursor-remote-color'];
+const INDEX_ATTRS = ['data-prose-index', 'data-image-index', 'data-block-index'];
 const TRANSIENT_CLASSES = ['ProseMirror-selectednode', 'image-uploading', 'image-drop-target'];
 
 const isActive = (view) => view.hasFocus() && document.hasFocus();
 
 // Mirrors the attributes, so ones removed while decorating (e.g. a remote cursor that
 // moved away) don't survive on the detached copy.
-function copyAttrs(from, to) {
-  COPIED_ATTRS.forEach((attr) => {
+function copyAttrs(from, to, attrs = COPIED_ATTRS) {
+  attrs.forEach((attr) => {
     if (from.hasAttribute(attr)) to.setAttribute(attr, from.getAttribute(attr));
     else to.removeAttribute(attr);
   });
@@ -75,10 +76,25 @@ export async function settleEditor(editorParent, ctx) {
   const { doc } = view.state;
   const el = toStaticElement(editorParent);
   if (!el) return;
+  // Keep the live nodes keyed by their pre-decoration indices, even if those indices shift.
+  const indexedDescendants = INDEX_ATTRS.map((attr) => ({
+    attr,
+    nodes: new Map([...view.dom.querySelectorAll(`[${attr}]`)]
+      .map((node) => [node.getAttribute(attr), node])),
+  }));
   const decorated = await decorate(el, ctx);
   const stale = editorParent.settleToken !== token || view.state.doc !== doc;
   if (stale || !editorParent.isConnected || isActive(view)) return;
   copyAttrs(editorParent, decorated);
+  indexedDescendants.forEach(({ attr, nodes }) => {
+    decorated.querySelectorAll(`[${attr}]`).forEach((node) => {
+      const live = nodes.get(node.getAttribute(attr));
+      if (live) {
+        copyAttrs(live, node, attr === 'data-image-index'
+          ? [attr, 'data-image-version'] : [attr]);
+      }
+    });
+  });
   adoptPendingUploads(editorParent, decorated, ctx);
   editorParent.replaceWith(decorated);
   view.destroy();

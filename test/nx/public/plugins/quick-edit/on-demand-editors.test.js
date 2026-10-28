@@ -3,6 +3,8 @@ import sinon from 'sinon';
 import { sendMouse } from '@web/test-runner-commands';
 import { setupContentEditableListeners } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
 import { setEditorState } from '../../../../../nx/public/plugins/quick-edit/src/prose.js';
+import { settleEditor } from '../../../../../nx/public/plugins/quick-edit/src/settle-editor.js';
+import { setImageVersion } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
 import { installClickForwarding } from '../../../../../nx/public/plugins/quick-edit/src/click-forwarding.js';
 
 describe('quick-edit on-demand editors', () => {
@@ -24,7 +26,10 @@ describe('quick-edit on-demand editors', () => {
   afterEach(() => {
     cleanupClickForwarding?.();
     document.removeEventListener('click', ctx.editorRequestListener);
-    document.querySelectorAll('.prosemirror-editor').forEach((el) => el.view?.destroy());
+    document.querySelectorAll('.prosemirror-editor').forEach((el) => {
+      clearTimeout(el.settleTimer);
+      el.view?.destroy();
+    });
     document.body.innerHTML = '';
   });
 
@@ -227,6 +232,37 @@ describe('quick-edit on-demand editors', () => {
     expect(first.isConnected).to.equal(false);
     expect(document.querySelector('p[data-prose-index="1"]').textContent).to.equal('Hello world');
     expect(second.isConnected).to.equal(true);
+  });
+
+  it('keeps settled image metadata current when an earlier editor changes during decoration', async () => {
+    setEditorState(14, {
+      type: 'paragraph',
+      content: [{ type: 'image', attrs: { src: '/a.png' } }],
+    }, ctx, { imageVersion: 'v1' });
+    const editor = document.querySelector('.prosemirror-editor[data-prose-index="14"]');
+    const oldIndex = Number(editor.querySelector('img').getAttribute('data-image-index'));
+    let finishReload;
+    const reloading = new Promise((resolve) => { finishReload = resolve; });
+    Object.assign(ctx, {
+      partialReload: true,
+      reload: async (doc, { el }) => {
+        await reloading;
+        return el;
+      },
+    });
+    const settling = settleEditor(editor, ctx);
+
+    // The earlier paragraph grows by five; the settling editor's document is unchanged.
+    setEditorState(1, paragraph('Hello world!!!!!'), ctx, { lengthDiff: 5, imageVersion: 'v2' });
+    setImageVersion('v2');
+    finishReload();
+    await settling;
+
+    const p = document.querySelector('p[data-prose-index="19"]');
+    expect(p).to.exist;
+    expect(p.querySelector('img').getAttribute('data-image-index')).to.equal(String(oldIndex + 5));
+    expect(p.querySelector('img').getAttribute('data-image-version')).to.equal('v2');
+    expect(editor.view.isDestroyed).to.equal(true);
   });
 
   it('decorates host edits after a pause and collaborator edits later', async () => {

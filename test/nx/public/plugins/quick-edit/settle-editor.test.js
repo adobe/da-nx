@@ -4,6 +4,7 @@ import {
   scheduleSettle, settleEditor, settleOtherEditors, toStaticElement,
 } from '../../../../../nx/public/plugins/quick-edit/src/settle-editor.js';
 import { updateImageSrc } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
+import { setImageVersion } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
 
 function mountEditor(html, { focused = false } = {}) {
   const editorParent = document.createElement('div');
@@ -111,6 +112,62 @@ describe('settle-editor', () => {
     expect(editorParent.isConnected).to.equal(true);
   });
 
+  [5, -5].forEach((shift) => {
+    it(`refreshes descendant indices and image versions after an async shift of ${shift}`, async () => {
+      const editorParent = mountEditor('<p>Text <picture data-prose-index="110">'
+        + '<img data-image-index="110" data-image-version="v1" src="/same.png"></picture>'
+        + '<picture data-prose-index="115"><img data-image-index="115" data-image-version="v1" src="/same.png"></picture></p>');
+      editorParent.setAttribute('data-prose-index', '100');
+      let finishReload;
+      const reloading = new Promise((resolve) => { finishReload = resolve; });
+      const settling = settleEditor(editorParent, partialCtx({
+        reload: async (doc, { el }) => {
+          await reloading;
+          // Decoration can replace nodes; their old indices still identify them.
+          return el.cloneNode(true);
+        },
+      }));
+
+      editorParent.setAttribute('data-prose-index', 100 + shift);
+      editorParent.querySelectorAll('[data-prose-index], [data-image-index]').forEach((node) => {
+        ['data-prose-index', 'data-image-index'].forEach((attr) => {
+          if (node.hasAttribute(attr)) {
+            node.setAttribute(attr, Number(node.getAttribute(attr)) + shift);
+          }
+        });
+      });
+      setImageVersion('v2');
+      finishReload();
+      await settling;
+
+      const p = document.querySelector('main p');
+      expect(p.getAttribute('data-prose-index')).to.equal(String(100 + shift));
+      expect([...p.querySelectorAll('picture')].map((node) => node.getAttribute('data-prose-index')))
+        .to.deep.equal([String(110 + shift), String(115 + shift)]);
+      const images = [...p.querySelectorAll('img')];
+      expect(images.map((img) => img.getAttribute('data-image-index')))
+        .to.deep.equal([String(110 + shift), String(115 + shift)]);
+      expect(images.map((img) => img.getAttribute('data-image-version'))).to.deep.equal(['v2', 'v2']);
+      expect(images.every((img) => typeof img.listeners?.drop === 'function')).to.equal(true);
+      expect(editorParent.view.destroyed).to.equal(true);
+    });
+  });
+
+  it('removes descendant image metadata cleared while decorating', async () => {
+    const editorParent = mountEditor('<p><picture><img data-image-index="6" data-image-version="v1" src="/a.png"></picture></p>');
+    await settleEditor(editorParent, partialCtx({
+      reload: async (doc, { el }) => {
+        const img = editorParent.querySelector('img');
+        img.removeAttribute('data-image-index');
+        img.removeAttribute('data-image-version');
+        return el;
+      },
+    }));
+    const img = document.querySelector('main img');
+    expect(img.hasAttribute('data-image-index')).to.equal(false);
+    expect(img.hasAttribute('data-image-version')).to.equal(false);
+  });
+
   it('settles every editor except the current one', async () => {
     const current = mountEditor('<p>Current</p>');
     const other = mountEditor('<p>Other</p>');
@@ -177,9 +234,10 @@ describe('settle-editor', () => {
   });
 
   it('moves a pending upload to the static image so it finishes there', async () => {
-    const editorParent = mountEditor('<p><picture class="image-uploading"><img data-image-index="6" src="/a.png"></picture></p>');
+    const editorParent = mountEditor('<p><picture class="image-uploading"><img data-image-index="6" data-image-version="v1" src="/a.png"></picture></p>');
     const oldImg = editorParent.querySelector('img');
     const ctx = partialCtx({
+      reload: async () => { setImageVersion('v2'); },
       pendingImageReplacements: new Map([
         ['r1', { img: oldImg, picture: oldImg.closest('picture'), proseIndex: 6 }],
       ]),
@@ -188,6 +246,7 @@ describe('settle-editor', () => {
 
     const img = document.querySelector('main img[data-image-index="6"]');
     expect(img).to.not.equal(oldImg);
+    expect(img.getAttribute('data-image-version')).to.equal('v2');
     expect(img.closest('picture').classList.contains('image-uploading')).to.equal(true);
 
     updateImageSrc('r1', '/b.png', ctx);

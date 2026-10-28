@@ -127,7 +127,9 @@ editor in place of the element, which renders raw document markup (e.g. a
 Once the editor is not focused (blur, or an edit made in the host), the iframe swaps
 it back for static markup, but only for loaders with `partialReload`: it passes the element,
 detached, to the reload callback as `replaced = { type: 'element', el }`; the callback may
-return a replacement element, and `data-prose-index` is carried over either way. Without
+return a replacement element. Before the swap, root and descendant indices and descendant
+image versions are refreshed from the live editor, including updates made while decoration
+was pending. Without
 `partialReload` (e.g. site loaders calling `loadQuickEdit(payload, loadPage)`, or the
 `loadPage` fallback above) a single element can't be decorated, so the editor stays open.
 
