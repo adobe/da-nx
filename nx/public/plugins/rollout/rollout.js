@@ -1,8 +1,10 @@
 import DA_SDK from 'https://da.live/nx/utils/sdk.js';
 import { LitElement, html, nothing } from 'https://da.live/nx/public/deps/lit/dist/index.js';
-import { mergeCopy, overwriteCopy } from 'https://da.live/nx/blocks/loc/project/index.js';
 import getStyle from 'https://da.live/nx/public/utils/styles.js';
 import getSvg from 'https://da.live/nx/public/utils/svg.js';
+import { mergeCopy, overwriteCopy } from '../../../blocks/loc/project/index.js';
+import { createRolloutResolver } from '../../../blocks/loc/utils/placeholders.js';
+import { DA_ORIGIN } from '../../utils/constants.js';
 import getPrefixDetails from './index.js';
 
 const ICONS = [
@@ -41,10 +43,22 @@ export default class DaRollout extends LitElement {
     const formData = new FormData(e.target);
     const { behavior, label } = Object.fromEntries(formData);
     const copyLabel = label === '' ? 'Adhoc' : label;
+    const { org, repo, token } = this;
+    const resolver = this._currPrefix !== '/' && createRolloutResolver({
+      load: (path) => fetch(`${DA_ORIGIN}/source${path}`, { headers: { Authorization: `Bearer ${token}` } }),
+      sitePath: `/${org}/${repo}`,
+    });
     this._active.map(async (prefix) => {
       prefix.status = 'none';
-      const copyFn = behavior === 'overwrite' ? overwriteCopy : mergeCopy;
-      await copyFn(prefix, copyLabel);
+      prefix.root = prefix.path;
+      const { error } = resolver ? await resolver.prepareSource(prefix) : {};
+      prefix.error = error;
+      if (error) {
+        prefix.status = 'error';
+      } else {
+        const copyFn = behavior === 'overwrite' ? overwriteCopy : mergeCopy;
+        await copyFn(prefix, copyLabel);
+      }
       this.requestUpdate();
     });
   }
@@ -77,7 +91,7 @@ export default class DaRollout extends LitElement {
           <label>${title}</label>
           <ul class="prefix-list">
             ${items.map((prefix) => html`
-              <li class="da-prefix ${prefix.active ? 'is-active' : ''} status-${prefix.status || 'none'}">
+              <li class="da-prefix ${prefix.active ? 'is-active' : ''} status-${prefix.status || 'none'}" title=${prefix.error || nothing}>
                 <span>${prefix.path.replace('/', '')}</span>
                 <div class="prefix-actions">
                   <button type="button" @click=${() => this.open(prefix)}>
@@ -119,6 +133,7 @@ export default class DaRollout extends LitElement {
             ${this.renderList('Exclude', this._inactive)}
             ` : nothing}
           </div>
+        ${this._prefixes?.filter((prefix) => prefix.error).map((prefix) => html`<p class="prefix-error">${prefix.error}</p>`)}
         <div class="da-form-row da-form-actions">
           <button class="accent" ?disabled=${this._disabled}>Rollout</button>
         </div>

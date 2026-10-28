@@ -212,7 +212,7 @@ export async function overwriteCopy(url, title) {
     opts.body.append('data', blob);
     resp = await daFetch({ url: `${DA_ADMIN}/source${url.destination}`, opts });
   } else {
-    const srcHtml = await getHtml(url.source);
+    const srcHtml = await getHtml(url.source, url.sourceHtml);
     if (srcHtml) {
       removeLocTags(srcHtml);
       const daMetadata = getElementMetadata(srcHtml.querySelector(DA_METADATA_SELECTOR));
@@ -317,7 +317,7 @@ export async function mergeCopy(
 
     const langstoreCopy = url.sourceContent
       ? await getHtml(null, url.sourceContent)
-      : await getHtml(url.source);
+      : await getHtml(url.source, url.sourceHtml);
     if (!langstoreCopy) throw new Error('No langstore content or error fetching');
 
     removeLocTags(regionalCopy);
