@@ -57,6 +57,8 @@ Each entry in the `items` array is one of:
 
 `icon` values map to S2 icon names (e.g. `'Edit'`, `'Delete'`, `'Copy'`).
 
+When any item has a description, the menu switches to a two-line layout: emphasized labels with a secondary description line underneath. Pass descriptions in full — don't truncate them in JS. The menu renders them on a single line and truncates visually with an ellipsis, shows the full text as a tooltip when hovering the item, and keeps the complete text in the DOM for screen readers. Menus that contain descriptions are capped at `--nx-menu-max-width` (default `320px`) so the ellipsis can take effect; menus without descriptions size to their content.
+
 ## API
 
 ### Properties
@@ -84,3 +86,7 @@ Each entry in the `items` array is one of:
 ## Keyboard behaviour
 
 When the menu is open, arrow keys move focus between items and Enter selects the active item.
+
+## Styling
+
+The visual treatment — including the two-line label/description layout used when items have descriptions — is owned by the component, so every host renders menus the same way. Use `size` (`s` or `m`) for density. The only tunable is `--nx-menu-max-width` (default `320px`), the max width of menus that contain item descriptions; there are no shadow parts for restyling individual elements.

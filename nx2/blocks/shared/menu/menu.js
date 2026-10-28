@@ -124,6 +124,7 @@ class NxMenu extends LitElement {
           role="menuitem"
           data-id=${item.id}
           class="menu-item ${item.id === this._active ? 'menu-item-active' : ''}"
+          title=${item.description || nothing}
           type="button"
           @click=${() => this._select(item)}
           @mouseenter=${() => { this._active = item.id; }}

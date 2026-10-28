@@ -17,6 +17,7 @@ import CoworkerChatController from './coworker-chat-controller.js';
 import CmaChatController from './cma-chat-controller.js';
 import { getCoworkerConfig } from '../../utils/ewFlags.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
+import { toSlashMenuItems } from './utils/skills.js';
 import {
   COWORKER_SKILLS_PATH, ENTERPRISE_CONTEXT_PATH, getCoworkerHref, loadCoworkerNav,
 } from './utils/coworker-nav.js';
@@ -327,12 +328,7 @@ export default class NxChatAo extends LitElement {
   }
 
   _getSlashItems(filter) {
-    const skills = this._controller.getSkills().map((id) => ({ id, label: id }));
-    const filtered = filter
-      ? skills.filter((item) => item.id.toLowerCase().includes(filter))
-      : skills;
-    if (!filtered.length) return [];
-    return [{ section: 'Skills' }, ...filtered];
+    return toSlashMenuItems({ skills: this._controller.getSkills(), filter });
   }
 
   _onSlashSelect(skillId) {
