@@ -18,8 +18,10 @@ import CmaChatController from './cma-chat-controller.js';
 import { getCoworkerConfig } from '../../utils/ewFlags.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
+  COWORKER_SKILLS_PATH, ENTERPRISE_CONTEXT_PATH, getCoworkerHref, loadCoworkerNav,
+} from './utils/coworker-nav.js';
+import {
   AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES,
-  COWORKER_SKILLS_URL, COWORKER_CHAT_URL, ENTERPRISE_CONTEXT_URL,
   ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE,
 } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
@@ -165,6 +167,11 @@ export default class NxChatAo extends LitElement {
     this._controller?.destroy();
     this._controller = new Controller({
       onUpdate: (state) => this._onControllerUpdate(state),
+      onTurnCompleted: (detail) => {
+        this.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, {
+          bubbles: true, composed: true, detail,
+        }));
+      },
       ...(this._altHarness ? { activationKey: this._activationKey } : {}),
     });
     if (this._context) this._controller.setContext(this._context);
@@ -256,6 +263,7 @@ export default class NxChatAo extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     fetchResolvedManifestId();
+    this._loadCoworkerNav();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, spinnerStyle, artifactStyle];
     this._initController();
     this._dnd = createFileDropHandlers({
@@ -381,9 +389,27 @@ export default class NxChatAo extends LitElement {
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._slashMenu.insertSlash();
     if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
-    if (id === MENU_OPTIONS.MANAGE_SKILLS) window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
-    if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) window.open(`${COWORKER_CHAT_URL}/${this.episodeId}`, '_blank', 'noopener,noreferrer');
-    if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) window.open(ENTERPRISE_CONTEXT_URL, '_blank', 'noopener,noreferrer');
+    if (id === MENU_OPTIONS.MANAGE_SKILLS) this._openCoworker(COWORKER_SKILLS_PATH);
+    if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) this._openCoworker(this.episodeId);
+    if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) this._openCoworker(ENTERPRISE_CONTEXT_PATH);
+  }
+
+  async _loadCoworkerNav() {
+    this._coworkerNav = undefined;
+    try {
+      this._coworkerNav = await loadCoworkerNav();
+    } catch (error) {
+      showToast({ text: error.message, variant: 'error' });
+    }
+  }
+
+  _openCoworker(path) {
+    try {
+      const href = this._coworkerNav?.(path) ?? getCoworkerHref({ path });
+      window.open(href, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      showToast({ text: error.message, variant: 'error' });
+    }
   }
 
   _openConfigPage() {
@@ -570,7 +596,7 @@ export default class NxChatAo extends LitElement {
         </form>
       </div>
       <p class="chat-disclaimer">
-        Responses are generated using AI, and may be inaccurate.
+        Responses are generated using AI, and may be inaccurate. Check before using. 
         <a href="${ADOBE_AI_GUIDELINES_URL}" target="_blank" rel="noopener noreferrer">AI User Guidelines</a>
       </p>
     `;

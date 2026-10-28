@@ -33,7 +33,7 @@ export async function setupPanels({ org, repo }) {
     });
   }
 
-  return ({ action, details }) => {
+  const onMessage = ({ action, details }) => {
     if (action === 'setPrompt') {
       if (!chatEnabled) return;
       if (typeof details?.text !== 'string') {
@@ -49,5 +49,29 @@ export async function setupPanels({ org, repo }) {
         detail: { section: details },
       }));
     }
+  };
+
+  return {
+    capabilities: chatEnabled ? { chatTurnCompleted: 1 } : {},
+    connect(port) {
+      const onTurnCompleted = ({ detail }) => {
+        port.postMessage({ action: 'chatTurnCompleted', detail });
+      };
+      const destroy = () => {
+        document.removeEventListener(CHAT_EVENT.TURN_COMPLETED, onTurnCompleted);
+      };
+      return {
+        onMessage(message) {
+          if (message.action === 'subscribeChatTurnCompleted' && chatEnabled) {
+            document.addEventListener(CHAT_EVENT.TURN_COMPLETED, onTurnCompleted);
+          } else if (message.action === 'unsubscribeChatTurnCompleted') {
+            destroy();
+          } else {
+            onMessage(message);
+          }
+        },
+        destroy,
+      };
+    },
   };
 }

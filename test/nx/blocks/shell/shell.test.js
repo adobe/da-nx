@@ -5,6 +5,7 @@ import { registerPanelSection, PANEL_EVENT } from '../../../../nx2/utils/panel.j
 import { CHAT_EVENT } from '../../../../nx2/utils/chat.js';
 import { setupPanels } from '../../../../nx/blocks/shell/panels.js';
 import decorate from '../../../../nx/blocks/shell/shell.js';
+import { createHostActions } from '../../../../nx/utils/sdk.js';
 
 const pause = () => new Promise((resolve) => { setTimeout(resolve, 10); });
 
@@ -24,6 +25,7 @@ describe('nx2 fullscreen shell', () => {
   let log;
   let configs;
   const ports = [];
+  const connections = [];
 
   before(async () => {
     await setConfig();
@@ -72,6 +74,8 @@ describe('nx2 fullscreen shell', () => {
   });
 
   afterEach(() => {
+    connections.forEach((connection) => connection.destroy());
+    connections.length = 0;
     ports.forEach((port) => port.close());
     ports.length = 0;
     document.querySelectorAll('[data-shell-test], aside.panel, .disclaimer').forEach((el) => el.remove());
@@ -82,6 +86,13 @@ describe('nx2 fullscreen shell', () => {
     document.title = originalTitle;
     sinon.restore();
   });
+
+  async function connectPanels(context) {
+    const panels = await setupPanels(context);
+    const connection = panels.connect({ postMessage() {} });
+    connections.push(connection);
+    return connection.onMessage;
+  }
 
   async function connectApp() {
     const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
@@ -105,6 +116,7 @@ describe('nx2 fullscreen shell', () => {
     expect(message.context.org).to.equal('adobe');
     expect(message.context.repo).to.equal('demo');
     expect(message.context.path).to.equal('tools/open-chat/open-chat');
+    expect(message.capabilities).to.deep.equal({ chatTurnCompleted: 1 });
     expect(document.querySelector('aside.panel')).to.equal(null);
     port.postMessage({ action: 'setTitle', details: 'Fullscreen demo' });
     await waitFor(() => document.title === 'Fullscreen demo');
@@ -122,6 +134,51 @@ describe('nx2 fullscreen shell', () => {
       org: 'adobe', site: 'demo', path: null, view: 'browse',
     });
     expect(document.body.style.getPropertyValue('--app-frame-columns')).to.contain('400px');
+  });
+
+  it('delivers turn completion through the fullscreen SDK subscription', async () => {
+    const { port, message } = await connectApp();
+    const actions = createHostActions({ port, capabilities: message.capabilities });
+    const received = sinon.spy();
+    const unsubscribe = actions.subscribeChatTurnCompleted(received);
+    try {
+      await pause();
+      const detail = {
+        org: 'target-org', site: 'target-site', path: 'page', status: 'completed',
+      };
+      document.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, { detail }));
+      await waitFor(() => received.called);
+      expect(received.firstCall.args).to.deep.equal([detail]);
+      unsubscribe();
+      await pause();
+      document.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, { detail }));
+      await pause();
+      expect(received.calledOnce).to.equal(true);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it('cleans up subscriptions when an app connection is replaced', async () => {
+    const panels = await setupPanels({ org: 'adobe', repo: 'demo' });
+    const oldPort = { postMessage: sinon.spy() };
+    const oldConnection = panels.connect(oldPort);
+    connections.push(oldConnection);
+    oldConnection.onMessage({ action: 'subscribeChatTurnCompleted' });
+    oldConnection.onMessage({ action: 'subscribeChatTurnCompleted' });
+    const detail = { status: 'aborted' };
+    document.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, { detail }));
+    expect(oldPort.postMessage.calledOnce).to.equal(true);
+    oldConnection.destroy();
+    const nextPort = { postMessage: sinon.spy() };
+    const nextConnection = panels.connect(nextPort);
+    connections.push(nextConnection);
+    nextConnection.onMessage({ action: 'subscribeChatTurnCompleted' });
+    document.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, { detail }));
+    expect(oldPort.postMessage.calledOnce).to.equal(true);
+    expect(nextPort.postMessage.calledOnceWithExactly({
+      action: 'chatTurnCompleted', detail,
+    })).to.equal(true);
   });
 
   it('uses the target-site hash instead of the app hosting repository', async () => {
@@ -169,7 +226,7 @@ describe('nx2 fullscreen shell', () => {
   });
 
   it('reports malformed chat commands without opening a panel', async () => {
-    const onMessage = await setupPanels({ org: 'adobe', repo: 'demo' });
+    const onMessage = await connectPanels({ org: 'adobe', repo: 'demo' });
     onMessage({ action: 'setPrompt', details: { text: 42 } });
     expect(log.calledOnce).to.equal(true);
     expect(document.querySelector('aside.panel')).to.equal(null);
@@ -178,14 +235,24 @@ describe('nx2 fullscreen shell', () => {
   it('does not forward unrelated SDK commands as chat prompts', async () => {
     const listener = sinon.spy();
     document.addEventListener(CHAT_EVENT.SET_PROMPT, listener);
-    const onMessage = await setupPanels({ org: 'adobe', repo: 'demo' });
+    const onMessage = await connectPanels({ org: 'adobe', repo: 'demo' });
     onMessage({ action: 'setTitle', details: 'Title' });
     document.removeEventListener(CHAT_EVENT.SET_PROMPT, listener);
     expect(listener.called).to.equal(false);
   });
 
   async function assertChatBlocked({ org, site }) {
-    const onMessage = await setupPanels({ org, repo: site });
+    const panels = await setupPanels({ org, repo: site });
+    expect(panels.capabilities).to.deep.equal({});
+    const port = { postMessage: sinon.spy() };
+    const connection = panels.connect(port);
+    connections.push(connection);
+    const { onMessage } = connection;
+    onMessage({ action: 'subscribeChatTurnCompleted' });
+    document.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, {
+      detail: { status: 'completed' },
+    }));
+    expect(port.postMessage.called).to.equal(false);
     const open = sinon.spy();
     document.addEventListener(PANEL_EVENT.OPEN, open);
     try {
@@ -218,11 +285,16 @@ describe('nx2 fullscreen shell', () => {
   });
 
   [401, 403].forEach((status) => {
-    it(`silently blocks chat when the app config returns ${status}`, async () => {
+    it(`uses the shared flag defaults when the app config returns ${status}`, async () => {
       const site = `chat-denied-${status}`;
       history.replaceState(null, '', `/app/adobe/${site}/tools/app`);
       configs.set(`/config/adobe/${site}/`, { status });
-      await assertChatBlocked({ org: 'adobe', site });
+      const panels = await setupPanels({ org: 'adobe', repo: site });
+      expect(panels.capabilities).to.deep.equal({ chatTurnCompleted: 1 });
+      const connection = panels.connect({ postMessage() {} });
+      connections.push(connection);
+      connection.onMessage({ action: 'setPrompt', details: { text: 'Hello' } });
+      await waitFor(() => prompt.called);
     });
   });
 

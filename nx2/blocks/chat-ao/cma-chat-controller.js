@@ -35,8 +35,8 @@ function friendlyBackendError(message) {
 // pointer in sessionStorage rather than an orchestrator episode list.
 // See docs/chat-ao-controller-decoupling.md and docs/chat-ao-alt-harness.md.
 export default class CmaChatController extends BaseChatController {
-  constructor({ onUpdate, activationKey } = {}) {
-    super({ onUpdate });
+  constructor({ onUpdate, onTurnCompleted, activationKey } = {}) {
+    super({ onUpdate, onTurnCompleted });
     this.setActivationKey(activationKey);
   }
 

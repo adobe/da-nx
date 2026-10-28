@@ -33,6 +33,14 @@ The hosting app's `/tools/...` path is never used as a content-document path.
 work when the host has registered them. The nx1 shell does not handle panel/chat
 commands.
 
+Fullscreen nx2 apps also support `actions.subscribeChatTurnCompleted(callback)`
+when the handshake advertises `capabilities.chatTurnCompleted === 1`. The shell
+forwards chat completion events over the existing SDK port, including chat opened
+against a target-site hash. Unlike canvas extensions, fullscreen apps are not bound
+to a content document, so notifications are not filtered by document path.
+Unsubscribe stops forwarding; reloading the iframe removes the old subscription.
+See [Chat turn subscriptions](#chat-turn-subscriptions) for the payload and API.
+
 ## Requests and responses
 
 Actions use the MessagePort transferred in the `ready` handshake. Each acknowledged call gets a unique `requestId`; the host replies on the same port with that ID:
@@ -132,12 +140,44 @@ external images. They do not apply the site preview's image URL rewriting.
 Extensions can round-trip unchanged images without reconstructing their origin.
 These notifications are not `sdkResponse` replies and have no `requestId`; they do not settle pending `getSelection()`, replacement or `saveDocument()` calls. `getSelection()` remains a one-shot request for selected HTML, independent of this live-document stream.
 
+## Chat turn subscriptions
+
+Canvas and fullscreen nx2 hosts advertising `capabilities.chatTurnCompleted === 1` expose
+`actions.subscribeChatTurnCompleted(callback)`. Check both the capability and
+the method before calling; unsupported hosts throw without subscribing.
+
+```js
+const unsubscribe = actions.subscribeChatTurnCompleted(({ status, org, site, path }) => {
+  // Invalidate or refetch app data for this document, including partial edits
+  // from an aborted or failed turn.
+});
+// When the extension no longer needs notifications:
+unsubscribe();
+```
+
+The callback receives `{ org, site, path, sessionId, turnId, status }`, with
+identifiers when available and `status: 'completed' | 'aborted' | 'error'`.
+No conversation contents or credentials are sent. Notifications do not replay,
+and canvas extensions receive only turns for their org, site, and document.
+This API does not expose arbitrary canvas bus channels.
+
+The first subscriber sends `{ action: 'subscribeChatTurnCompleted' }` over the
+transferred MessagePort. The host forwards
+`{ action: 'chatTurnCompleted', detail }` from `canvasBus.chatTurnCompleted`.
+The last unsubscribe removes the SDK listener and sends
+`{ action: 'unsubscribeChatTurnCompleted' }`; repeated unsubscribe calls are
+safe. The host also removes subscriptions when the iframe channel is destroyed.
+Callback failures do not interrupt other subscribers.
+
+These are invalidation signals, not save, preview, or publish acknowledgements.
+They are independent of live-document subscriptions and request/response calls.
+
 ## Timeouts and host support
 
 After 15 seconds without a reply, the SDK returns `{ ok: false, error: 'timeout' }` (`getSelection()` rejects with `timeout`). The host may still complete the operation. Timeout does not cancel it, and the SDK does not retry. Do not automatically retry a mutation or continue work that needed a successful response. Request IDs correlate replies; they do not prevent duplicate execution.
 
-The SDK and EW deploy independently. The `liveDocument` and `sendHTMLReplace`
-capabilities are advertised in the ready handshake; other actions do not negotiate
+The SDK and EW deploy independently. The `liveDocument`, `sendHTMLReplace`, and
+`chatTurnCompleted` capabilities are advertised in the ready handshake; other actions do not negotiate
 host support. An action's presence does not prove EW support. Unsupported commands
 may be ignored, and acknowledged calls time out. This includes `getSelection()`:
 against a host that only knows the old reply, it rejects with `timeout`, so the host

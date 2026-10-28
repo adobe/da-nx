@@ -152,6 +152,11 @@ class NxChat extends LitElement {
     if (!org || !site) return;
 
     this._controller = new ChatBackend({
+      onTurnCompleted: (detail) => {
+        this.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, {
+          bubbles: true, composed: true, detail,
+        }));
+      },
       onToolDone: (scope, paths) => {
         this.dispatchEvent(new CustomEvent(CHAT_EVENT.AGENT_CHANGE, {
           bubbles: true,
