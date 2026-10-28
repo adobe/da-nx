@@ -176,6 +176,34 @@ export function formatLangs(langs, config) {
   });
 }
 
+function restoreLocales(locales, savedLocales) {
+  if (!locales || !Array.isArray(savedLocales)) return locales?.map((locale) => ({ ...locale }));
+  return locales.map((locale) => ({
+    ...locale,
+    active: savedLocales.some((saved) => saved.code === locale.code),
+  }));
+}
+
+export function restoreLangs({ langs, savedLangs }) {
+  if (!savedLangs) return langs;
+  return langs.map((lang) => {
+    const saved = savedLangs.find((savedLang) => savedLang.code === lang.code);
+    const activeAction = lang.orderedActions.find((action) => action.value === saved?.action)
+      || lang.orderedActions.find((action) => action.value === 'skip');
+    return { ...lang, activeAction, locales: restoreLocales(lang.locales, saved?.locales) };
+  });
+}
+
+export function restoreOptions({ options, savedOptions, config }) {
+  if (!savedOptions) return options;
+  return DEFAULT_PROPS.reduce((acc, prop) => {
+    const offered = (config[prop.key] || prop.value).split(',').map((value) => value.trim());
+    const saved = savedOptions[prop.key];
+    if (offered.includes(saved)) acc[prop.key] = saved;
+    return acc;
+  }, { ...options });
+}
+
 export function finalizeOptions(config, suppliedOptions, suppliedLangs, suppliedUrls) {
   const options = { ...suppliedOptions };
   const serviceEnv = options['translation.service.all.env'];
