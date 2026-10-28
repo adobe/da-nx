@@ -305,16 +305,13 @@ menu.items = [
 ];
 menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));
 
-// descriptions: pass the full text; the menu truncates with an ellipsis,
-// shows the full value on hover, and caps width at --nx-menu-max-width
+// descriptions: the menu switches to a two-line label/description layout.
+// Pass the full text; it truncates with an ellipsis, shows the full value
+// on hover, and caps width at --nx-menu-max-width
 menu.items = [
   { section: 'Skills' },
   { id: 'summarize', label: '/summarize', description: 'Summarize the current page' },
-];
-
-/* per-instance styling via shadow parts:
-   section, item, item-text, item-label, item-description */
-.my-menu::part(item-label) { font-weight: 500; }</code></pre>
+];</code></pre>
       </article>
 
       <article class="sg-example">

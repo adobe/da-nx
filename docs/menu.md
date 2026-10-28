@@ -57,7 +57,7 @@ Each entry in the `items` array is one of:
 
 `icon` values map to S2 icon names (e.g. `'Edit'`, `'Delete'`, `'Copy'`).
 
-Pass descriptions in full — don't truncate them in JS. The menu renders them on a single line and truncates visually with an ellipsis, shows the full text as a hover tooltip, and keeps the complete text in the DOM for screen readers. Menus that contain descriptions are capped at `--nx-menu-max-width` (default `320px`) so the ellipsis can take effect; menus without descriptions size to their content.
+When any item has a description, the menu switches to a two-line layout: emphasized labels with a secondary description line underneath. Pass descriptions in full — don't truncate them in JS. The menu renders them on a single line and truncates visually with an ellipsis, shows the full text as a hover tooltip, and keeps the complete text in the DOM for screen readers. Menus that contain descriptions are capped at `--nx-menu-max-width` (default `320px`) so the ellipsis can take effect; menus without descriptions size to their content.
 
 ## API
 
@@ -94,18 +94,4 @@ When the menu is open, arrow keys move focus between items and Enter selects the
 | `--nx-menu-max-width` | `320px`                                | Max width of menus that contain item descriptions. |
 | `--nx-menu-font-size` | `s2-component-{s,m}-regular-font-size` | Item font size.                                    |
 
-Consumers can restyle a specific menu instance from their own stylesheet via CSS shadow parts:
-
-| Part               | Element                                           |
-| ------------------ | ------------------------------------------------- |
-| `section`          | Section header label.                             |
-| `item`             | Item button (hover/active backgrounds live here). |
-| `item-text`        | Wrapper around the label and description.         |
-| `item-label`       | Item label.                                       |
-| `item-description` | Secondary description line.                       |
-
-```css
-.my-menu::part(item-label) {
-  font-weight: var(--s2-component-m-medium-font-weight);
-}
-```
+The visual treatment — including the two-line label/description layout used when items have descriptions — is owned by the component, so every host renders menus the same way. Hosts can only tune the custom properties above; there are no shadow parts for restyling individual elements.

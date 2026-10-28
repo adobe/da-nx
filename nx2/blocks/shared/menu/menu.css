@@ -121,6 +121,34 @@ nx-popover:has(.menu-item-description) {
   border-radius: var(--s2-corner-radius-75);
 }
 
+/* Menus with item descriptions (e.g. the chat slash menu) get a two-line
+   treatment: emphasized labels with secondary descriptions underneath. Owned
+   here so every host renders it the same way. */
+ul:has(.menu-item-description) {
+  .menu-section {
+    color: var(--s2-gray-700);
+    font-weight: var(--s2-component-s-medium-font-weight);
+  }
+
+  .menu-item {
+    align-items: flex-start;
+    color: var(--s2-gray-800);
+  }
+
+  /* hover also sets the active item (see mouseenter in menu.js) */
+  .menu-item-active {
+    color: var(--s2-gray-900);
+  }
+
+  .menu-item-text {
+    gap: 1px;
+  }
+
+  .menu-item-label {
+    font-weight: var(--s2-component-s-medium-font-weight);
+  }
+}
+
 :host([size="m"]) {
   .menu-section {
     padding: 7px var(--s2-spacing-200);
@@ -142,5 +170,18 @@ nx-popover:has(.menu-item-description) {
   .menu-item-description {
     font-size: var(--s2-component-s-regular-font-size);
     line-height: var(--s2-component-s-regular-line-height);
+  }
+}
+
+:host([size="m"]) ul:has(.menu-item-description) {
+  .menu-section {
+    padding-bottom: 2px;
+    font-size: var(--s2-component-m-regular-font-size);
+    font-weight: var(--s2-component-m-medium-font-weight);
+    line-height: var(--s2-component-m-regular-line-height);
+  }
+
+  .menu-item-label {
+    font-weight: var(--s2-component-m-medium-font-weight);
   }
 }
