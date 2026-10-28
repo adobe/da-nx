@@ -124,6 +124,7 @@ class NxMenu extends LitElement {
           role="menuitem"
           data-id=${item.id}
           class="menu-item ${item.id === this._active ? 'menu-item-active' : ''}"
+          title=${item.description || nothing}
           type="button"
           @click=${() => this._select(item)}
           @mouseenter=${() => { this._active = item.id; }}
@@ -133,7 +134,7 @@ class NxMenu extends LitElement {
           ${item.swatch ? html`<span class="menu-item-swatch" style="background:${item.swatch}"></span>` : nothing}
           <span class="menu-item-text">
             <span class="menu-item-label">${item.label}</span>
-            ${item.description ? html`<span class="menu-item-description" title=${item.description}>${item.description}</span>` : nothing}
+            ${item.description ? html`<span class="menu-item-description">${item.description}</span>` : nothing}
           </span>
           ${item.statusDot ? html`<span class="menu-item-status-dot" style="background:${item.statusDot}"></span>` : nothing}
         </button>

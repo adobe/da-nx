@@ -57,7 +57,7 @@ Each entry in the `items` array is one of:
 
 `icon` values map to S2 icon names (e.g. `'Edit'`, `'Delete'`, `'Copy'`).
 
-When any item has a description, the menu switches to a two-line layout: emphasized labels with a secondary description line underneath. Pass descriptions in full — don't truncate them in JS. The menu renders them on a single line and truncates visually with an ellipsis, shows the full text as a hover tooltip, and keeps the complete text in the DOM for screen readers. Menus that contain descriptions are capped at `--nx-menu-max-width` (default `320px`) so the ellipsis can take effect; menus without descriptions size to their content.
+When any item has a description, the menu switches to a two-line layout: emphasized labels with a secondary description line underneath. Pass descriptions in full — don't truncate them in JS. The menu renders them on a single line and truncates visually with an ellipsis, shows the full text as a tooltip when hovering the item, and keeps the complete text in the DOM for screen readers. Menus that contain descriptions are capped at `--nx-menu-max-width` (default `320px`) so the ellipsis can take effect; menus without descriptions size to their content.
 
 ## API
 
