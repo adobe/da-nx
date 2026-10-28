@@ -12,10 +12,13 @@
 
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
-import { UISizeController } from '../../../utils/ui-size.js';
+import { getUISize, UISizeController } from '../../../utils/ui-size.js';
 import { registerArtifact } from './registry.js';
 
-const styles = await loadStyle(import.meta.url);
+const [styles, buttons] = await Promise.all([
+  loadStyle(import.meta.url),
+  loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href),
+]);
 
 const PAGE_SIZE = 5;
 
@@ -82,7 +85,7 @@ function renderSuggestionBody(item) {
         <span class="ui-artifact-pe-modal-heading-text">Suggested change</span>
       </div>
       ${suggestion.suggested ? html`<p class="ui-artifact-pe-modal-body">${suggestion.suggested}</p>` : nothing}
-      <button class="ui-artifact-pe-modal-copy" @click=${() => navigator.clipboard.writeText(suggestion.suggested ?? '')}>
+      <button class="nx-action-btn-quiet ui-artifact-pe-modal-copy ${getUISize() === 'm' ? 'nx-btn-lg' : ''}" @click=${() => navigator.clipboard.writeText(suggestion.suggested ?? '')}>
         <span class="ui-artifact-pe-modal-copy-icon"></span>Copy suggestion
       </button>
     </div>
@@ -134,7 +137,7 @@ class NxPageEval extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [buttons, styles];
   }
 
   _setPage(sectionIndex, page, total) {
@@ -182,10 +185,10 @@ class NxPageEval extends LitElement {
     : nothing}
         </div>
         ${item.suggestion ? html`
-          <button class="ui-artifact-pe-item-action" @click=${onAction}>View suggestions</button>
+          <button class="nx-action-btn ui-artifact-pe-item-action ${getUISize() === 's' ? 'nx-btn-sm' : ''}" @click=${onAction}>View suggestions</button>
         ` : nothing}
         ${!item.suggestion && item.check ? html`
-          <button class="ui-artifact-pe-item-action" @click=${onAction}>View</button>
+          <button class="nx-action-btn ui-artifact-pe-item-action ${getUISize() === 's' ? 'nx-btn-sm' : ''}" @click=${onAction}>View</button>
         ` : nothing}
       </div>
     `;
@@ -196,14 +199,14 @@ class NxPageEval extends LitElement {
     return html`
       <div class="ui-artifact-pe-paging">
         <button
-          class="ui-artifact-pe-paging-btn ui-artifact-pe-paging-prev"
+          class="nx-action-btn-icon ui-artifact-pe-paging-btn ui-artifact-pe-paging-prev ${getUISize() === 's' ? 'nx-btn-sm' : ''}"
           aria-label="Previous checks"
           ?disabled=${page === 0}
           @click=${() => this._setPage(sectionIndex, page - 1, total)}
         ></button>
         <span class="ui-artifact-pe-paging-label">${end} of ${total} checks</span>
         <button
-          class="ui-artifact-pe-paging-btn ui-artifact-pe-paging-next"
+          class="nx-action-btn-icon ui-artifact-pe-paging-btn ui-artifact-pe-paging-next ${getUISize() === 's' ? 'nx-btn-sm' : ''}"
           aria-label="Next checks"
           ?disabled=${end >= total}
           @click=${() => this._setPage(sectionIndex, page + 1, total)}
@@ -268,7 +271,7 @@ class NxPageEval extends LitElement {
           ${renderBody(items[index])}
           <div class="ui-artifact-pe-modal-paging">
             <button
-              class="ui-artifact-pe-modal-paging-btn ui-artifact-pe-modal-paging-prev"
+              class="nx-action-btn-icon ui-artifact-pe-modal-paging-btn ui-artifact-pe-modal-paging-prev ${getUISize() === 'm' ? 'nx-btn-lg' : ''}"
               aria-label="Previous"
               ?disabled=${index === 0}
               @click=${() => this._setModalIndex(index - 1)}
@@ -277,7 +280,7 @@ class NxPageEval extends LitElement {
               ${index + 1} of ${total} ${sectionLabel}
             </span>
             <button
-              class="ui-artifact-pe-modal-paging-btn ui-artifact-pe-modal-paging-next"
+              class="nx-action-btn-icon ui-artifact-pe-modal-paging-btn ui-artifact-pe-modal-paging-next ${getUISize() === 'm' ? 'nx-btn-lg' : ''}"
               aria-label="Next"
               ?disabled=${index >= total - 1}
               @click=${() => this._setModalIndex(index + 1)}

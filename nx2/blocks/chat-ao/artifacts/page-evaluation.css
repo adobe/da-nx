@@ -3,7 +3,6 @@
   font-family: var(--s2-font-family);
   color: var(--s2-gray-800);
   font-size: var(--nx-ui-text-content);
-  line-height: normal;
 }
 
 .ui-artifact-pe {
@@ -219,14 +218,10 @@
 .ui-artifact-pe-item-action {
   flex-shrink: 0;
   align-self: center;
-  font-size: var(--s2-component-s-regular-font-size);
-  font-weight: 500;
   color: var(--s2-gray-900);
   background: none;
   border: 1px solid var(--s2-gray-300);
   border-radius: var(--s2-corner-radius-200);
-  padding: var(--s2-spacing-50) var(--s2-spacing-100);
-  cursor: pointer;
   white-space: nowrap;
 
   &:hover {
@@ -251,26 +246,8 @@
 }
 
 .ui-artifact-pe-paging-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
   border-radius: var(--s2-corner-radius-200);
-  background: none;
-  cursor: pointer;
   color: var(--s2-gray-600);
-  padding: 0;
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-
-  &:hover:not(:disabled) {
-    background: var(--s2-gray-100);
-  }
 
   &::after {
     content: "";
@@ -294,9 +271,6 @@
 }
 
 /* --- modal --- */
-
-/* The modal spec carries several off-token-scale values (13px, 20px, 28px, 6px
-   gap, 10px, 12px radius, 1.6 line-height); those stay raw to match the design. */
 
 .ui-artifact-pe-modal-content {
   font-family: var(--s2-font-family, 'Adobe Clean', adobe-clean, sans-serif);
@@ -348,26 +322,13 @@
 
 .ui-artifact-pe-modal-body {
   font-size: var(--nx-ui-text-content);
-  line-height: 1.6;
   color: var(--s2-gray-800);
   margin: 0;
 }
 
 .ui-artifact-pe-modal-copy {
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--s2-component-m-regular-font-size);
-  color: var(--s2-gray-800);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: var(--s2-spacing-75) 0;
   margin-top: var(--s2-spacing-75);
-
-  &:hover {
-    color: var(--s2-gray-900);
-  }
 }
 
 .ui-artifact-pe-modal-copy-icon {
@@ -406,7 +367,6 @@
 
 .ui-artifact-pe-modal-context-desc {
   font-size: var(--nx-ui-text-content);
-  line-height: 1.6;
   color: var(--s2-gray-800);
   margin: 0;
 }
@@ -422,26 +382,8 @@
 }
 
 .ui-artifact-pe-modal-paging-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
   border-radius: var(--s2-corner-radius-300);
-  background: none;
-  cursor: pointer;
   color: var(--s2-gray-600);
-  padding: 0;
-
-  &:disabled {
-    opacity: 0.3;
-    cursor: default;
-  }
-
-  &:hover:not(:disabled) {
-    background: var(--s2-gray-100);
-  }
 
   &::after {
     content: "";
@@ -496,14 +438,12 @@
     .ui-artifact-pe-tile-desc,
     .ui-artifact-pe-section-sublabel,
     .ui-artifact-pe-item-desc,
-    .ui-artifact-pe-item-action,
     .ui-artifact-pe-paging-label,
     .ui-artifact-pe-modal-chip
   ) {
     font-size: var(--s2-component-m-regular-font-size);
   }
 
-  .ui-artifact-pe-modal-copy,
   .ui-artifact-pe-modal-paging-label {
     font-size: var(--s2-component-l-regular-font-size);
   }
