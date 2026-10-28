@@ -134,7 +134,7 @@ class NxMenu extends LitElement {
           ${item.swatch ? html`<span class="menu-item-swatch" style="background:${item.swatch}"></span>` : nothing}
           <span class="menu-item-text" part="item-text">
             <span class="menu-item-label" part="item-label">${item.label}</span>
-            ${item.description ? html`<span class="menu-item-description" part="item-description">${item.description}</span>` : nothing}
+            ${item.description ? html`<span class="menu-item-description" part="item-description" title=${item.description}>${item.description}</span>` : nothing}
           </span>
           ${item.statusDot ? html`<span class="menu-item-status-dot" style="background:${item.statusDot}"></span>` : nothing}
         </button>

@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  loadCachedSkills, fetchSkills, truncateDescription, toSlashMenuItems,
+  loadCachedSkills, fetchSkills, toSlashMenuItems,
 } from '../../../../../nx2/blocks/chat-ao/utils/skills.js';
 import { AO_HTTP_BASE, AO_MANIFEST_ID } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
 import { resetMockIms, setMockIms } from '../../../../../nx2/test/mocks/ims.js';
@@ -202,43 +202,22 @@ describe('fetchSkills', () => {
   });
 });
 
-describe('truncateDescription', () => {
-  it('leaves descriptions of 50 characters or fewer untouched', () => {
-    const fifty = 'a'.repeat(50);
-    expect(truncateDescription(fifty)).to.equal(fifty);
-    expect(truncateDescription('Short')).to.equal('Short');
-  });
-
-  it('cuts longer descriptions at 50 characters and appends an ellipsis', () => {
-    expect(truncateDescription('b'.repeat(80))).to.equal(`${'b'.repeat(50)}...`);
-  });
-
-  it('drops trailing whitespace before the ellipsis', () => {
-    const text = `${'c'.repeat(48)}  and then much more text`;
-    expect(truncateDescription(text)).to.equal(`${'c'.repeat(48)}...`);
-  });
-
-  it('returns an empty string for missing descriptions', () => {
-    expect(truncateDescription()).to.equal('');
-    expect(truncateDescription('')).to.equal('');
-  });
-});
-
 describe('toSlashMenuItems', () => {
+  const longDescription = `Check a web page against brand rules ${'x'.repeat(40)}`;
   const skills = [
     { name: 'account-research', description: 'Deep company and account research' },
-    { name: 'aem-governance-evaluate-page', description: `Check a web page against brand rules ${'x'.repeat(40)}` },
+    { name: 'aem-governance-evaluate-page', description: longDescription },
     { name: 'summarize', description: '' },
   ];
 
-  it('renders a section header followed by slash-prefixed skills with truncated descriptions', () => {
+  it('renders a section header followed by slash-prefixed skills with full descriptions', () => {
     expect(toSlashMenuItems({ skills })).to.deep.equal([
       { section: 'Skills' },
       { id: 'account-research', label: '/account-research', description: 'Deep company and account research' },
       {
         id: 'aem-governance-evaluate-page',
         label: '/aem-governance-evaluate-page',
-        description: truncateDescription(skills[1].description),
+        description: longDescription,
       },
       { id: 'summarize', label: '/summarize', description: '' },
     ]);

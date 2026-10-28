@@ -13,6 +13,13 @@ nx-popover {
   padding: var(--s2-spacing-100);
 }
 
+/* Descriptions are single-line with an ellipsis, so the menu needs a width cap
+   or it would grow to fit the longest description. Menus without descriptions
+   keep sizing to their content. */
+nx-popover:has(.menu-item-description) {
+  max-width: var(--nx-menu-max-width, 320px);
+}
+
 .menu-section {
   display: block;
   padding: var(--s2-spacing-75) var(--s2-spacing-100);
@@ -92,9 +99,14 @@ nx-popover {
   align-items: flex-start;
   gap: 2px;
   min-width: 0;
+  max-width: 100%;
 }
 
 .menu-item-description {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: light-dark(var(--s2-gray-600), var(--s2-gray-700));
   font-size: var(--s2-component-xs-regular-font-size);
   line-height: var(--s2-component-xs-regular-line-height);

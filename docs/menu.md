@@ -57,6 +57,8 @@ Each entry in the `items` array is one of:
 
 `icon` values map to S2 icon names (e.g. `'Edit'`, `'Delete'`, `'Copy'`).
 
+Pass descriptions in full — don't truncate them in JS. The menu renders them on a single line and truncates visually with an ellipsis, shows the full text as a hover tooltip, and keeps the complete text in the DOM for screen readers. Menus that contain descriptions are capped at `--nx-menu-max-width` (default `320px`) so the ellipsis can take effect; menus without descriptions size to their content.
+
 ## API
 
 ### Properties
@@ -86,6 +88,11 @@ Each entry in the `items` array is one of:
 When the menu is open, arrow keys move focus between items and Enter selects the active item.
 
 ## Styling
+
+| Custom property       | Default                                | Description                                        |
+| --------------------- | -------------------------------------- | -------------------------------------------------- |
+| `--nx-menu-max-width` | `320px`                                | Max width of menus that contain item descriptions. |
+| `--nx-menu-font-size` | `s2-component-{s,m}-regular-font-size` | Item font size.                                    |
 
 Consumers can restyle a specific menu instance from their own stylesheet via CSS shadow parts:
 

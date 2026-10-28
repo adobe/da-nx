@@ -10,22 +10,17 @@ function getSkillsCacheKey(tenantId) {
 }
 
 const SKILL_NAME_RE = /^[a-z0-9][a-z0-9_-]{1,60}$/i;
-const DESCRIPTION_MAX_LENGTH = 50;
-
-// Display-only truncation for the slash menu; the full description is kept in data.
-export function truncateDescription(description = '') {
-  if (description.length <= DESCRIPTION_MAX_LENGTH) return description;
-  return `${description.slice(0, DESCRIPTION_MAX_LENGTH).trimEnd()}...`;
-}
 
 // Maps skills to nx-menu items for the slash menu, optionally filtered by name.
+// Descriptions are passed in full; nx-menu truncates them visually (ellipsis +
+// hover title) so the complete text stays available to screen readers.
 export function toSlashMenuItems({ skills = [], filter } = {}) {
   const items = skills
     .filter(({ name }) => !filter || name.toLowerCase().includes(filter))
     .map(({ name, description }) => ({
       id: name,
       label: `/${name}`,
-      description: truncateDescription(description),
+      description,
     }));
   return items.length ? [{ section: 'Skills' }, ...items] : [];
 }
