@@ -184,20 +184,16 @@ export default class ChatController {
     }
   }
 
-  _finishTurn(status, turn = this._activeTurn) {
-    if (!turn || turn !== this._activeTurn) return;
-    if (status === 'completed' && this._awaitingParts().length) return;
-    this._activeTurn = undefined;
-    this._onTurnCompleted?.({ ...turn, status });
-  }
-
-  _done(status = 'completed', turn = this._activeTurn) {
-    if (turn && turn !== this._activeTurn) return;
+  _done(status = 'completed') {
     this._abortController = null;
     this._thinking = false;
     this._streamingText = undefined;
     this._update();
-    this._finishTurn(status, turn);
+    if (status === 'completed' && this._awaitingParts().length) return;
+    const { org, site, path } = this._context ?? {};
+    this._onTurnCompleted?.({
+      org, site, path, sessionId: this._sessionId, turnId: this._currentTurnId, status,
+    });
   }
 
   stop() {
@@ -206,7 +202,7 @@ export default class ChatController {
   }
 
   async clear() {
-    if (this._activeTurn || this._thinking) this.stop();
+    if (this._thinking) this.stop();
     this._messages = undefined;
     this._streamingText = undefined;
     this._autoApprovedTools = new Set();
@@ -343,14 +339,6 @@ export default class ChatController {
   approveToolCall = async (toolCallId, approved, always = false) => {
     const part = this._findToolPart(toolCallId);
     if (!part || part.state !== TOOL_STATE.AWAITING_APPROVAL) return;
-    if (!this._activeTurn) {
-      const { org, site, path } = this._context ?? {};
-      const message = this._messages.find((m) => Array.isArray(m.content)
-        && m.content.some((p) => p.toolCallId === toolCallId));
-      this._activeTurn = {
-        org, site, path, sessionId: this._sessionId, turnId: message?.turnId ?? this._currentTurnId,
-      };
-    }
 
     if (always && approved) {
       this._autoApprovedTools ??= new Set();
@@ -382,16 +370,16 @@ export default class ChatController {
 
     this._thinking = true;
     this._update();
-    const turn = this._activeTurn;
+    let status = 'completed';
     try {
       await this._stream(this._pageContextForAgent());
     } catch (err) {
       if (err.name !== 'AbortError') {
         this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
       }
-      this._done(err.name === 'AbortError' ? 'aborted' : 'error', turn);
+      status = err.name === 'AbortError' ? 'aborted' : 'error';
     } finally {
-      this._done('completed', turn);
+      this._done(status);
     }
   };
 
@@ -476,13 +464,7 @@ export default class ChatController {
   async sendMessage(message, context = [], { requestedSkills = [], attachments = [] } = {}) {
     if (this._thinking || !this._connected) return;
 
-    this._finishTurn('aborted');
     this._currentTurnId = crypto.randomUUID();
-    const { org, site, path } = this._context ?? {};
-    const turn = {
-      org, site, path, sessionId: this._sessionId, turnId: this._currentTurnId,
-    };
-    this._activeTurn = turn;
     this._requestedSkills = requestedSkills;
     const selectionContext = context
       .filter((item) => {
@@ -528,6 +510,7 @@ export default class ChatController {
     this._thinking = true;
     this._update();
 
+    let status = 'completed';
     try {
       await this._stream(this._pageContextForAgent());
     } catch (err) {
@@ -537,9 +520,9 @@ export default class ChatController {
           { role: ROLE.ASSISTANT, content: `Error: ${err.message}` },
         ];
       }
-      this._done(err.name === 'AbortError' ? 'aborted' : 'error', turn);
+      status = err.name === 'AbortError' ? 'aborted' : 'error';
     } finally {
-      this._done('completed', turn);
+      this._done(status);
     }
   }
 }

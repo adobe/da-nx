@@ -55,7 +55,6 @@ export default class BaseChatController {
   constructor({ onUpdate, onTurnCompleted }) {
     this._onUpdate = onUpdate;
     this._onTurnCompletedCallback = onTurnCompleted;
-    this._completedTurns = new Set();
     this._messages = [];
     this._streaming = '';
     this._episodes = [];
@@ -64,12 +63,6 @@ export default class BaseChatController {
 
   setContext(context) {
     this._context = context;
-  }
-
-  _trackTurn(turnId) {
-    if (this._activeTurn) return;
-    const { org, site, path } = this._context ?? {};
-    this._activeTurn = { org, site, path, turnId };
   }
 
   _update() {
@@ -177,8 +170,6 @@ export default class BaseChatController {
 
   startNewEpisode() {
     if (this._blockedByActiveTurn) return;
-    this._notifyTurnCompleted('aborted');
-    this._interruptedTurn = undefined;
     this._ws?.close();
     this._ws = null;
     this._episodeId = undefined;
@@ -283,7 +274,7 @@ export default class BaseChatController {
       await this._attach();
     } catch (err) {
       this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
-      this._done('error');
+      this._done();
     }
   }
 
@@ -309,13 +300,6 @@ export default class BaseChatController {
 
   _handleServerEvent(evt) {
     if (this._interrupting && IGNORED_WHILE_INTERRUPTING.has(evt.type)) return;
-    const turnId = evt.turn_id ?? evt.data?.turn_id;
-    const key = turnId && JSON.stringify([evt.episode_id ?? this._episodeId, turnId]);
-    if (key && this._completedTurns.has(key)) return;
-    const isTerminal = evt.type === AO_EVENT.TURN_COMPLETED || evt.type === AO_EVENT.TURN_ABORTED;
-    if (this._activeTurn && turnId && !isTerminal) {
-      this._activeTurn = { ...this._activeTurn, turnId };
-    }
     const handlerName = EVENT_HANDLERS.get(evt.type);
     if (handlerName) this[handlerName](evt);
   }
@@ -332,7 +316,6 @@ export default class BaseChatController {
     const isOwnEcho = clientMessageId
       && this._messages.some((m) => m.clientMessageId === clientMessageId);
     if (isOwnEcho) return;
-    if (!this._loadingEpisode) this._trackTurn(evt.turn_id ?? evt.data?.turn_id);
     this._messages = [...this._messages, { role: 'user', content: text }];
     this._update();
   }
@@ -407,31 +390,16 @@ export default class BaseChatController {
   }
 
   _onTurnCompleted(evt = {}) {
-    const status = evt.type === AO_EVENT.TURN_ABORTED ? 'aborted' : 'completed';
-    const turnId = evt.turn_id ?? evt.data?.turn_id;
-    const interrupted = this._interruptedTurn;
-    if (interrupted && (!turnId || !interrupted.turnId || interrupted.turnId === turnId)) {
-      this._interruptedTurn = undefined;
-      if (this._activeTurn !== interrupted) {
-        this._notifyTurnCompleted(status, evt, interrupted);
-        return;
-      }
-    }
     this._interrupting = false;
-    this._done(status, evt);
-  }
-
-  _notifyTurnCompleted(status, evt = {}, turn = this._activeTurn) {
-    const turnId = evt.turn_id ?? evt.data?.turn_id ?? turn?.turnId;
-    const sessionId = evt.episode_id ?? this._episodeId;
-    const key = turnId && JSON.stringify([sessionId, turnId]);
-    if (this._loadingEpisode || (key && this._completedTurns.has(key))) return;
-    if (!turn && !turnId) return;
-    if (key) this._completedTurns.add(key);
-    const { org, site, path } = turn ?? this._context ?? {};
-    if (this._activeTurn === turn) this._activeTurn = undefined;
+    this._done();
+    const { org, site, path } = this._context ?? {};
     this._onTurnCompletedCallback?.({
-      org, site, path, sessionId, turnId, status,
+      org,
+      site,
+      path,
+      sessionId: evt.episode_id ?? this._episodeId,
+      turnId: evt.turn_id ?? evt.data?.turn_id,
+      status: evt.type === AO_EVENT.TURN_ABORTED ? 'aborted' : 'completed',
     });
   }
 
@@ -514,27 +482,25 @@ export default class BaseChatController {
     if (!this._blockedByActiveTurn) return;
     const message = evt.data?.message ?? evt.message ?? 'Something went wrong.';
     this._messages = [...this._messages, { role: 'assistant', content: `Error: ${message}` }];
-    this._done('error');
+    this._done();
   }
 
   // See docs/chat-ao-component.md#stop--interrupt for why this also fires on TURN_ABORTED.
-  _done(status, evt) {
+  _done() {
     this._thinking = false;
     this._streamingText = undefined;
     this._pendingQuestion = undefined;
     this._pendingPlanApproval = undefined;
     this._pendingPermission = undefined;
     this._update();
-    if (status) this._notifyTurnCompleted(status, evt);
   }
 
   _pushError(err) {
     this._messages = [...this._messages, { role: 'assistant', content: `Error: ${err.message}` }];
-    this._done('error');
+    this._done();
   }
 
   stop() {
-    this._interruptedTurn = this._activeTurn;
     this._interrupting = true;
     if (this._ws?.readyState === WebSocket.OPEN) {
       this._ws.send(JSON.stringify({ type: AO_FRAME.INTERRUPT }));
@@ -547,7 +513,6 @@ export default class BaseChatController {
   async _respondToQuestion(answers, declined) {
     if (!this._pendingQuestion) return;
     const { turnId } = this._pendingQuestion;
-    this._trackTurn(turnId);
     const wasAlreadyOpen = this._ws?.readyState === WebSocket.OPEN;
     this._messages = [
       ...this._messages,
@@ -579,7 +544,6 @@ export default class BaseChatController {
   async respondToPlanApproval(decision, feedback = '') {
     if (!this._pendingPlanApproval) return;
     const { turnId } = this._pendingPlanApproval;
-    this._trackTurn(turnId);
     this._pendingPlanApproval = undefined;
     this._update();
 
@@ -609,7 +573,6 @@ export default class BaseChatController {
     }
 
     const { turnId } = this._pendingPermission;
-    this._trackTurn(turnId);
     const wasAlreadyOpen = this._ws?.readyState === WebSocket.OPEN;
     this._pendingPermission = undefined;
     this._update();
@@ -639,14 +602,12 @@ export default class BaseChatController {
 
   async sendMessage(message, items = [], attachments = []) {
     if (!message || (this._thinking && !this._pendingPlanApproval)) return;
-    if (this._interrupting) this._activeTurn = undefined;
     this._interrupting = false;
 
     const selectionContext = buildSelectionContext(items);
     const attachmentsMeta = buildAttachmentsMeta(attachments);
     // See docs/chat-ao-component.md#connection-recovery for the clientMessageId dedup.
     const clientMessageId = crypto.randomUUID();
-    this._trackTurn();
 
     this._messages = [...this._messages, {
       role: 'user',
