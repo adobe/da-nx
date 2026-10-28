@@ -83,6 +83,50 @@ describe('PANEL_EVENT wiring', () => {
     expect(calls[0].aside).to.exist;
   });
 
+  it('shares a pending open without duplicating content or losing per-request options', async () => {
+    let release;
+    let loaded = 0;
+    const content = document.createElement('div');
+    const pending = new Promise((resolve) => { release = resolve; });
+    const calls = [];
+    registerPanelSection('event-concurrent', {
+      position: 'before',
+      getContent: () => {
+        loaded += 1;
+        return pending;
+      },
+      onShow: (aside, id) => calls.push({ aside, id }),
+    });
+
+    ['first', 'second'].forEach((id) => {
+      document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, {
+        detail: { section: 'event-concurrent', id },
+      }));
+    });
+    expect(loaded).to.equal(1);
+    expect(document.querySelector('aside.panel')).to.equal(null);
+    release(content);
+    await flush();
+
+    const panels = document.querySelectorAll('aside.panel');
+    expect(panels).to.have.length(1);
+    expect(panels[0].querySelector('.panel-body').firstElementChild).to.equal(content);
+    expect(calls.map(({ id }) => id)).to.have.members(['first', 'second']);
+    expect(calls.every(({ aside }) => aside === panels[0])).to.equal(true);
+
+    document.dispatchEvent(new CustomEvent(PANEL_EVENT.CLOSE, {
+      detail: { section: 'event-concurrent' },
+    }));
+    expect(panels[0].hidden).to.equal(true);
+    document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, {
+      detail: { section: 'event-concurrent', id: 'reopen' },
+    }));
+    await flush();
+    expect(panels[0].hidden).to.equal(false);
+    expect(calls.at(-1)).to.deep.equal({ aside: panels[0], id: 'reopen' });
+    expect(loaded).to.equal(1);
+  });
+
   it('is a no-op when the section name is not registered', async () => {
     // No throw expected — just confirming an unknown section is silently ignored.
     document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, {

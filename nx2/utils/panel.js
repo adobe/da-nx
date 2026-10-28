@@ -2,6 +2,7 @@ import { getMetadata } from '../scripts/nx.js';
 
 const panelVisibilitySubscribers = new Set();
 const restoringPanelSections = new Set();
+const pendingPanelOpens = new Map();
 
 function getVisiblePanelSections() {
   return [...document.querySelectorAll('aside.panel[data-section]:not([hidden])')]
@@ -230,6 +231,7 @@ async function openPanel({
     showPanel(existing);
     return existing;
   }
+  if (pendingPanelOpens.has(position)) return pendingPanelOpens.get(position);
 
   const beforeMain = position === 'before';
   const restoring = wasPanelOpen(section);
@@ -238,11 +240,13 @@ async function openPanel({
     notifyPanelVisibility();
   }
   try {
-    const content = await getContent?.();
-    return mountPanel({
+    const opening = Promise.resolve(getContent?.()).then((content) => mountPanel({
       width, beforeMain, content, section,
-    });
+    }));
+    pendingPanelOpens.set(position, opening);
+    return await opening;
   } finally {
+    pendingPanelOpens.delete(position);
     if (restoring) {
       restoringPanelSections.delete(section);
       notifyPanelVisibility();

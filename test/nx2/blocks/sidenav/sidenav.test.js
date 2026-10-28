@@ -121,6 +121,7 @@ describe('sidenav chat action', () => {
     const home = sidenav.shadowRoot.querySelector('a').closest('li');
     expect(home.classList.contains('is-active')).to.equal(true);
     expect(button.getAttribute('aria-expanded')).to.equal('false');
+    expect(sidenav._chatPanelState).to.equal('closed');
     const hrefBeforeOpen = window.location.href;
     const onOpen = (event) => events.push(event.detail);
     document.addEventListener(PANEL_EVENT.OPEN, onOpen);
@@ -166,19 +167,25 @@ describe('sidenav chat action', () => {
     }
   });
 
-  it('waits for the panel to open before marking Chat active', async () => {
+  it('coalesces rapid clicks and waits for the panel to open before marking Chat active', async () => {
     let release;
     let shown;
+    let loaded = 0;
     const content = new Promise((resolve) => { release = resolve; });
     const opened = new Promise((resolve) => { shown = resolve; });
     registerPanelSection('chat', {
       position: 'before',
-      getContent: () => content,
+      getContent: () => {
+        loaded += 1;
+        return content;
+      },
       onShow: shown,
     });
     await sidenav.updateComplete;
     const button = sidenav.shadowRoot.querySelector('button');
     button.click();
+    button.click();
+    expect(loaded).to.equal(1);
     await sidenav.updateComplete;
     expect(button.getAttribute('aria-expanded')).to.equal('false');
     expect(getComputedStyle(button.closest('li')).visibility).to.equal('visible');
@@ -187,6 +194,11 @@ describe('sidenav chat action', () => {
     await opened;
     await sidenav.updateComplete;
     expect(button.getAttribute('aria-expanded')).to.equal('true');
+    expect(document.querySelectorAll('aside.panel[data-section="chat"]')).to.have.length(1);
+    button.click();
+    await sidenav.updateComplete;
+    expect(document.querySelector('aside.panel[data-section="chat"]').hidden).to.equal(true);
+    expect(button.getAttribute('aria-expanded')).to.equal('false');
   });
 
   it('reveals restored Chat directly in its active style without collapsing its rail slot', async () => {
@@ -208,6 +220,7 @@ describe('sidenav chat action', () => {
 
     const button = sidenav.shadowRoot.querySelector('button');
     const item = button.closest('li');
+    expect(sidenav._chatPanelState).to.equal('restoring');
     expect(getComputedStyle(item).visibility).to.equal('hidden');
     expect(item.getBoundingClientRect().height).to.be.greaterThan(0);
     expect(button.getAttribute('aria-expanded')).to.equal('false');
@@ -235,7 +248,7 @@ describe('sidenav chat action', () => {
 
     sidenav.remove();
     document.dispatchEvent(new CustomEvent(PANEL_EVENT.CLOSE, { detail: { section: 'chat' } }));
-    expect(sidenav._chatOpen).to.equal(true);
+    expect(sidenav._chatPanelState).to.equal('open');
     document.body.append(sidenav);
     await checks.at(-1);
     await sidenav.updateComplete;
@@ -264,6 +277,58 @@ describe('sidenav chat action', () => {
 
     await navigate(`#/${org}/enabled`);
     expect(sidenav.shadowRoot.querySelector('button')).not.to.equal(null);
+  });
+
+  [true, false].forEach((allowed) => {
+    it(`preserves the rail slot and focus while checking an ${allowed ? 'enabled' : 'disabled'} site`, async () => {
+      const button = sidenav.shadowRoot.querySelector('button');
+      const home = sidenav.shadowRoot.querySelector('a');
+      const homeTop = home.getBoundingClientRect().top;
+      button.focus();
+      const fetchDefault = window.fetch;
+      let release;
+      const delayed = new Promise((resolve) => { release = resolve; });
+      window.fetch = (url, options) => {
+        const href = url.toString();
+        if (href.includes('/checking/') && !href.includes('/ping/')) return delayed;
+        return fetchDefault(url, options);
+      };
+      const opens = [];
+      const onOpen = (event) => opens.push(event);
+      document.addEventListener(PANEL_EVENT.OPEN, onOpen);
+      const pending = navigate(`#/${org}/checking`);
+      try {
+        await sidenav.updateComplete;
+        expect(sidenav.shadowRoot.querySelector('button')).to.equal(button);
+        expect(getComputedStyle(button.closest('li')).visibility).to.equal('visible');
+        expect(home.getBoundingClientRect().top).to.equal(homeTop);
+        expect(sidenav.shadowRoot.activeElement).to.equal(button);
+        expect(button.getAttribute('aria-disabled')).to.equal('true');
+        button.click();
+        expect(opens).to.have.length(0);
+
+        release(new Response(JSON.stringify({
+          flags: {
+            data: [
+              { key: 'ew.enabled', value: 'true' },
+              { key: 'ew.disableChat', value: allowed ? 'false' : 'true' },
+            ],
+          },
+        })));
+        await pending;
+        if (allowed) {
+          expect(sidenav.shadowRoot.querySelector('button')).to.equal(button);
+          expect(sidenav.shadowRoot.activeElement).to.equal(button);
+          expect(button.getAttribute('aria-disabled')).to.equal('false');
+        } else {
+          expect(sidenav.shadowRoot.querySelector('button')).to.equal(null);
+        }
+      } finally {
+        release(new Response('{}'));
+        await pending;
+        document.removeEventListener(PANEL_EVENT.OPEN, onOpen);
+      }
+    });
   });
 
   it('hides chat on disabled sites even when the host registration persists', async () => {
@@ -328,7 +393,7 @@ describe('sidenav chat action', () => {
       return fetchDefault(url, options);
     };
     const pending = navigate(`#/${org}/slow`);
-    expect(sidenav._chatEnabled).to.equal(false);
+    expect(sidenav._chatEnabled).to.equal(true);
     await navigate(`#/${org}`);
     release(new Response(JSON.stringify({
       flags: {
