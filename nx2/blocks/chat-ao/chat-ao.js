@@ -18,7 +18,9 @@ import CmaChatController from './cma-chat-controller.js';
 import { getCoworkerConfig } from '../../utils/ewFlags.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
-  COWORKER_SKILLS_URL, COWORKER_CHAT_URL, ENTERPRISE_CONTEXT_URL,
+  COWORKER_SKILLS_PATH, ENTERPRISE_CONTEXT_PATH, getCoworkerHref, loadCoworkerNav,
+} from './utils/coworker-nav.js';
+import {
   ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE,
 } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
@@ -26,6 +28,7 @@ import { CHAT_EVENT } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
+import { showToast } from '../shared/toast/toast.js';
 import '../shared/picker/picker.js';
 import '../shared/chat/new-chat/new-chat.js';
 import './question-card/question-card.js';
@@ -199,6 +202,7 @@ export default class NxChatAo extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     fetchResolvedManifestId();
+    this._loadCoworkerNav();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, spinnerStyle, artifactStyle];
     this._initController();
     this._unsubscribeHash = hashChange.subscribe((state) => {
@@ -256,9 +260,27 @@ export default class NxChatAo extends LitElement {
 
   _handleMenuSelect(id) {
     if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
-    if (id === MENU_OPTIONS.MANAGE_SKILLS) window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
-    if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) window.open(`${COWORKER_CHAT_URL}/${this.episodeId}`, '_blank', 'noopener,noreferrer');
-    if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) window.open(ENTERPRISE_CONTEXT_URL, '_blank', 'noopener,noreferrer');
+    if (id === MENU_OPTIONS.MANAGE_SKILLS) this._openCoworker(COWORKER_SKILLS_PATH);
+    if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) this._openCoworker(this.episodeId);
+    if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) this._openCoworker(ENTERPRISE_CONTEXT_PATH);
+  }
+
+  async _loadCoworkerNav() {
+    this._coworkerNav = undefined;
+    try {
+      this._coworkerNav = await loadCoworkerNav();
+    } catch (error) {
+      showToast({ text: error.message, variant: 'error' });
+    }
+  }
+
+  _openCoworker(path) {
+    try {
+      const href = this._coworkerNav?.(path) ?? getCoworkerHref({ path });
+      window.open(href, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      showToast({ text: error.message, variant: 'error' });
+    }
   }
 
   _openConfigPage() {
