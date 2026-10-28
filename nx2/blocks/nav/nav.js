@@ -49,11 +49,14 @@ class NXNav extends LitElement {
   }
 
   async loadNav() {
-    const fragment = await loadFragment(this._path).catch((error) => {
-      getConfig().log(`Unable to load nav fragment: ${this._path}`, error);
+    const loadId = Symbol('nav-load');
+    this._navLoadId = loadId;
+    const path = this._path;
+    const fragment = await loadFragment(path).catch((error) => {
+      getConfig().log(`Unable to load nav fragment: ${path}`, error);
       return null;
     });
-    if (!fragment) return;
+    if (!fragment || this._navLoadId !== loadId) return;
     let sections = [...fragment.querySelectorAll(':scope > .section')];
     if (sections.length === 0) {
       sections = [...fragment.querySelectorAll(':scope > div')];
@@ -71,18 +74,20 @@ class NXNav extends LitElement {
         return name && name !== 'breadcrumbs' && !child.classList.contains('breadcrumbs');
       });
 
-    this._siteNav = null;
-    this._breadcrumbs = null;
-    if (hasSiteNav) {
-      this._siteNav = await this.decorateNavItems(siteNavSection);
-    } else {
-      this._breadcrumbs = await this.decorateBreadcrumbs(fragment).catch((error) => {
+    const [siteNav, breadcrumbs, brand, actions] = await Promise.all([
+      hasSiteNav ? this.decorateNavItems(siteNavSection) : null,
+      hasSiteNav ? null : this.decorateBreadcrumbs(fragment).catch((error) => {
         getConfig().log('Unable to load nav breadcrumbs', error);
         return null;
-      });
-    }
-    this._brand = await this.decorateBrand(sections[0]);
-    this._actions = await this.decorateActions(sections[sections.length - 1]);
+      }),
+      this.decorateBrand(sections[0]),
+      this.decorateActions(sections[sections.length - 1]),
+    ]);
+    if (this._navLoadId !== loadId) return;
+    this._siteNav = siteNav;
+    this._breadcrumbs = breadcrumbs;
+    this._brand = brand;
+    this._actions = actions;
   }
 
   async decorateBreadcrumbs(fragment) {
@@ -136,7 +141,12 @@ class NXNav extends LitElement {
         if (name) {
           try {
             if (!customElements.get(`nx-${name}`)) await import(`../${name}/${name}.js`);
-            if (!isComponent) child.replaceChildren(document.createElement(`nx-${name}`));
+            if (!isComponent) {
+              const component = document.createElement(`nx-${name}`);
+              const href = child.querySelector('a')?.getAttribute('href');
+              if (href) component.baseUrl = new URL(href, window.location.href).href;
+              child.replaceChildren(component);
+            }
           } catch (error) {
             getConfig().log(`Unable to load nav component: ${name}`, error);
             child.remove();

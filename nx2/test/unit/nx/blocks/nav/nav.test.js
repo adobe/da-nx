@@ -285,6 +285,26 @@ describe('nav site navigation', () => {
     expect(breadcrumb.pathSegments).to.deep.equal(['adobe', 'site', 'images']);
   });
 
+  [
+    { href: 'https://da.live/', baseUrl: 'https://da.live/' },
+    { href: '/browse', baseUrl: `${window.location.origin}/browse` },
+  ].forEach(({ href, baseUrl }) => {
+    it(`preserves ${href} as the site-nav breadcrumb destination from canvas`, async () => {
+      window.history.replaceState(null, '', '/canvas?nx=nxnav#/adobe/site/docs');
+      await mountFragment({
+        middle: `<ul><li><a href="${href}">breadcrumb</a></li></ul>`,
+      });
+      const breadcrumb = nav._siteNav.querySelector('nx-breadcrumb');
+      await breadcrumb.updateComplete;
+      expect(breadcrumb.baseUrl).to.equal(baseUrl);
+      expect([...breadcrumb.shadowRoot.querySelectorAll('a')].map((link) => link.href))
+        .to.deep.equal([
+          `${baseUrl}?nx=nxnav#/adobe`,
+          `${baseUrl}?nx=nxnav#/adobe/site`,
+        ]);
+    });
+  });
+
   it('keeps an authored site-nav breadcrumb alongside other components without legacy decoration', async () => {
     nav.decorateBreadcrumbs = () => { throw new Error('Legacy decoration should not run'); };
     window.history.replaceState(null, '', '/#/adobe/site/docs');
@@ -337,6 +357,110 @@ describe('nav site navigation', () => {
     expect(nav._brand).to.equal(_brand);
     expect(nav._siteNav).to.equal(_siteNav);
     expect(nav._actions).to.equal(_actions);
+  });
+
+  it('starts all areas together and retains the current nav until the reload completes', async () => {
+    const loadNav = nav.loadNav.bind(nav);
+    await mountFragment({ breadcrumb: '<li>breadcrumbs</li>' });
+    const { _brand, _siteNav, _breadcrumbs, _actions } = nav;
+    const started = [];
+    const siteStarted = Promise.withResolvers();
+    const siteReady = Promise.withResolvers();
+    const decorateNavItems = nav.decorateNavItems.bind(nav);
+    const decorateBrand = nav.decorateBrand.bind(nav);
+    const decorateActions = nav.decorateActions.bind(nav);
+    nav.decorateNavItems = async (section) => {
+      if (section.querySelector('button')?.textContent === 'New site') {
+        started.push('site');
+        siteStarted.resolve();
+        await siteReady.promise;
+      }
+      return decorateNavItems(section);
+    };
+    nav.decorateBrand = (section) => {
+      started.push('brand');
+      return decorateBrand(section);
+    };
+    nav.decorateActions = (section) => {
+      started.push('actions');
+      return decorateActions(section);
+    };
+    window.fetch = async () => new Response(`
+      <main>
+        <div><p><a href="/">New brand</a></p></div>
+        <div><ul><li><button>New site</button></li></ul></div>
+        <div><ul><li><button>New action</button></li></ul></div>
+      </main>
+    `);
+    const pending = loadNav();
+    try {
+      await siteStarted.promise;
+      expect(started).to.deep.equal(['site', 'brand', 'actions']);
+      expect(nav._brand).to.equal(_brand);
+      expect(nav._siteNav).to.equal(_siteNav);
+      expect(nav._breadcrumbs).to.equal(_breadcrumbs);
+      expect(nav._actions).to.equal(_actions);
+      expect(nav.shadowRoot.querySelector('.site-nav nx-breadcrumb')).to.equal(_breadcrumbs);
+    } finally {
+      siteReady.resolve();
+      await pending;
+    }
+    await nav.updateComplete;
+    expect(nav._brand.textContent).to.equal('New brand');
+    expect(nav._siteNav.querySelector('button').textContent).to.equal('New site');
+    expect(nav._breadcrumbs).to.be.null;
+    expect(nav._actions.querySelector('button').textContent).to.equal('New action');
+  });
+
+  ['fetch', 'decoration'].forEach((stage) => {
+    it(`ignores an older load that finishes ${stage} after a newer nav is applied`, async () => {
+      const loadNav = nav.loadNav.bind(nav);
+      await mountFragment({ middle: '<ul><li>nav-test</li></ul>' });
+      const olderStarted = Promise.withResolvers();
+      const olderReady = Promise.withResolvers();
+      const decorateBrand = nav.decorateBrand.bind(nav);
+      nav.decorateBrand = async (section) => {
+        if (stage === 'decoration' && section.textContent.includes('Older')) {
+          olderStarted.resolve();
+          await olderReady.promise;
+        }
+        return decorateBrand(section);
+      };
+      window.fetch = async (path) => {
+        const older = String(path).endsWith('/older');
+        if (stage === 'fetch' && older) {
+          olderStarted.resolve();
+          await olderReady.promise;
+        }
+        const name = older ? 'Older' : 'Newer';
+        return new Response(`
+          <main>
+            <div><p><a href="/">${name}</a></p>${older ? '' : '<ul><li>breadcrumbs</li></ul>'}</div>
+            ${older ? '<div><ul><li>nav-test</li></ul></div>' : ''}
+            <div><ul><li><button>${name} action</button></li></ul></div>
+          </main>
+        `);
+      };
+      nav.path = '/fragments/nav/older';
+      const olderLoad = loadNav();
+      let latest;
+      try {
+        await olderStarted.promise;
+        nav.path = '/fragments/nav/newer';
+        await loadNav();
+        expect(nav._brand.textContent).to.equal('Newer');
+        expect(nav._siteNav).to.be.null;
+        expect(nav._breadcrumbs).to.exist;
+        expect(nav._actions.querySelector('button').textContent).to.equal('Newer action');
+        latest = [nav._brand, nav._siteNav, nav._breadcrumbs, nav._actions];
+      } finally {
+        olderReady.resolve();
+        await olderLoad;
+      }
+      [nav._brand, nav._siteNav, nav._breadcrumbs, nav._actions].forEach((value, index) => {
+        expect(value).to.equal(latest[index]);
+      });
+    });
   });
 
   it('still loads the brand and actions if breadcrumb loading rejects', async () => {
