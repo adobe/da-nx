@@ -1,5 +1,19 @@
 import { getMetadata } from '../scripts/nx.js';
 
+const panelVisibilitySubscribers = new Set();
+const restoringPanelSections = new Set();
+
+function getVisiblePanelSections() {
+  return [...document.querySelectorAll('aside.panel[data-section]:not([hidden])')]
+    .map(({ dataset }) => dataset.section);
+}
+
+function notifyPanelVisibility() {
+  const sections = getVisiblePanelSections();
+  const restoring = [...restoringPanelSections];
+  panelVisibilitySubscribers.forEach((callback) => callback([...sections], [...restoring]));
+}
+
 const PANEL_WIDTH_MIN = 120;
 const PANEL_WIDTH_MAX = () => Math.min(1600, window.innerWidth * 0.4);
 
@@ -119,6 +133,7 @@ function hidePanel(aside) {
   removePanelState(aside.dataset.section);
   aside.hidden = true;
   setPanelsGrid();
+  notifyPanelVisibility();
 }
 
 export const PANEL_EVENT = Object.freeze({
@@ -188,11 +203,13 @@ function showPanel(aside) {
   aside.hidden = false;
   savePanelState(aside.dataset.section, { width: aside.dataset.width });
   setPanelsGrid();
+  notifyPanelVisibility();
 }
 
 function mountPanel(opts) {
   const aside = createPanel(opts);
   setPanelsGrid();
+  notifyPanelVisibility();
   return aside;
 }
 
@@ -215,18 +232,44 @@ async function openPanel({
   }
 
   const beforeMain = position === 'before';
-  const content = await getContent?.();
-  return mountPanel({
-    width, beforeMain, content, section,
-  });
+  const restoring = wasPanelOpen(section);
+  if (restoring) {
+    restoringPanelSections.add(section);
+    notifyPanelVisibility();
+  }
+  try {
+    const content = await getContent?.();
+    return mountPanel({
+      width, beforeMain, content, section,
+    });
+  } finally {
+    if (restoring) {
+      restoringPanelSections.delete(section);
+      notifyPanelVisibility();
+    }
+  }
 }
 
 const panelSections = new Map();
+const panelSectionSubscribers = new Set();
+
+export function subscribePanelVisibility(callback) {
+  panelVisibilitySubscribers.add(callback);
+  callback(getVisiblePanelSections(), [...restoringPanelSections]);
+  return () => panelVisibilitySubscribers.delete(callback);
+}
 
 // Called once per host page to declare a section it owns — see docs/workspace.md
 // ("Side panels") for the full config contract.
 export function registerPanelSection(name, config) {
   panelSections.set(name, config);
+  panelSectionSubscribers.forEach((callback) => callback([...panelSections.keys()]));
+}
+
+export function subscribePanelSections(callback) {
+  panelSectionSubscribers.add(callback);
+  callback([...panelSections.keys()]);
+  return () => panelSectionSubscribers.delete(callback);
 }
 
 export function getSectionAtPosition(position) {

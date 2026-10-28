@@ -20,4 +20,5 @@ export const ICON_NAMES = {
   up: 's2-icon-chevronup-20-n',
   mic: 's2-icon-microphone-20-n',
   newChat: 's2-icon-chatnew-20-n',
+  closechat: 's2-icon-close-20-n',
 };

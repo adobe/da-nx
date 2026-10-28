@@ -1,6 +1,8 @@
 import { expect } from '@esm-bundle/chai';
 import { createEngine } from '../../../../nx/deps/da-sc-sdk/dist/index.js';
-import '../../../../nx/blocks/form/form.js';
+import decorate from '../../../../nx/blocks/form/form.js';
+import { PANEL_EVENT, subscribePanelSections } from '../../../../nx2/utils/panel.js';
+import { installFetch, restoreFetch } from '../../../../nx2/test/mocks/fetch.js';
 
 // nx-preview lazy-imports the (heavy) Prism bundle on its first paint. Stub it
 // so the render smoke tests stay light and don't starve other test files that
@@ -136,5 +138,85 @@ describe('nx-form', () => {
     await el.updateComplete;
     const { tags } = el._editor.getState().document.data;
     expect(tags === undefined || tags.length === 0).to.equal(true);
+  });
+});
+
+describe('form chat availability', () => {
+  let originalHref;
+  let originalRouting;
+  let originalStorage;
+  let originalMetas;
+  const metaSelector = 'meta[name="template"], meta[name="nav-path"]';
+
+  beforeEach(() => {
+    originalHref = window.location.href;
+    originalRouting = customElements.get('nx-form').prototype.startRouting;
+    customElements.get('nx-form').prototype.startRouting = () => {};
+    originalStorage = ['nx2:ew-user-enabled', 'nx-panels']
+      .map((key) => ({ key, value: localStorage.getItem(key) }));
+    originalStorage.forEach(({ key }) => localStorage.removeItem(key));
+    originalMetas = [...document.head.querySelectorAll(metaSelector)]
+      .map((meta) => ({ meta, content: meta.getAttribute('content') }));
+  });
+
+  afterEach(() => {
+    customElements.get('nx-form').prototype.startRouting = originalRouting;
+    history.replaceState(null, '', originalHref);
+    originalStorage.forEach(({ key, value }) => {
+      if (value === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, value);
+    });
+    document.head.querySelectorAll(metaSelector).forEach((meta) => {
+      const original = originalMetas.find((entry) => entry.meta === meta);
+      if (original) {
+        if (original.content === null) meta.removeAttribute('content');
+        else meta.setAttribute('content', original.content);
+      } else meta.remove();
+    });
+    restoreFetch();
+  });
+
+  [
+    { flags: { 'ew.enabled': 'true' }, allowed: true, restore: true },
+    { flags: {}, optIn: true, allowed: true },
+    { flags: { 'ew.enabled': 'false' }, allowed: false },
+    { flags: { 'ew.enabled': 'true', 'ew.disableChat': 'true' }, allowed: false },
+    { flags: { 'ew.disableChat': 'true' }, optIn: true, allowed: false },
+  ].forEach(({
+    flags, optIn, allowed, restore,
+  }, index) => {
+    it(`${allowed ? 'offers' : 'hides'} chat for flag configuration ${index}`, async () => {
+      history.replaceState(null, '', `${originalHref.split('#')[0]}#/form-chat-${index}/site`);
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+      if (optIn) localStorage.setItem('nx2:ew-user-enabled', 'true');
+      if (!allowed || restore) localStorage.setItem('nx-panels', JSON.stringify({ chat: { width: '400px' } }));
+      installFetch({
+        body: JSON.stringify({
+          flags: { data: Object.entries(flags).map(([key, value]) => ({ key, value })) },
+        }),
+      });
+      const wrapper = document.createElement('div');
+      const block = document.createElement('div');
+      wrapper.append(block);
+      const registrations = [];
+      const unsubscribe = subscribePanelSections((sections) => registrations.push(sections));
+      const initialCount = registrations.length;
+      const opens = [];
+      const onOpen = (event) => {
+        opens.push(event);
+        event.stopImmediatePropagation();
+      };
+      document.addEventListener(PANEL_EVENT.OPEN, onOpen, true);
+      try {
+        await decorate(block);
+        expect(!!wrapper.querySelector('.form-chat-toggle')).to.equal(allowed);
+        expect(registrations.length - initialCount).to.equal(allowed ? 1 : 0);
+        expect(opens).to.have.length(allowed && restore ? 1 : 0);
+        if (opens.length) expect(opens[0].detail).to.deep.equal({ section: 'chat' });
+      } finally {
+        unsubscribe();
+        document.removeEventListener(PANEL_EVENT.OPEN, onOpen, true);
+      }
+    });
   });
 });
