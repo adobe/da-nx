@@ -15,7 +15,7 @@ const AUTHOR_PUBLISH_CONFIG = {
   assetBasePath: '/adobe/assets',
   isDmEnabled: false,
   isSmartCrop: false,
-  insertAsLink: false,
+  imageType: null,
 };
 
 const AUTHOR_DM_CONFIG = {
@@ -25,7 +25,7 @@ const AUTHOR_DM_CONFIG = {
   assetBasePath: '/adobe/assets',
   isDmEnabled: true,
   isSmartCrop: false,
-  insertAsLink: false,
+  imageType: null,
 };
 
 const DELIVERY_CONFIG = {
@@ -35,7 +35,7 @@ const DELIVERY_CONFIG = {
   assetBasePath: '/adobe/assets',
   isDmEnabled: true,
   isSmartCrop: false,
-  insertAsLink: false,
+  imageType: null,
 };
 
 describe('resolveAssetUrl', () => {
