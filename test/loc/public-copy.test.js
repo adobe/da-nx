@@ -135,6 +135,25 @@ describe('Shared loc copy', () => {
     expect(loadConfig.firstCall.args[0]).to.deep.equal({ org: 'target-org', site: 'target-site' });
   });
 
+  it('keeps review hashes from every key spelling and saves them under the keys the editor reads', async () => {
+    const own = loc.getDiffHash('<p>Regional</p>');
+    fetch.callsFake(async (href, opts) => {
+      if (opts?.method === 'POST') return new Response('{}');
+      if (href.endsWith(SOURCE)) return new Response(html('Upstream'));
+      return new Response(`${html('Regional')}<div class="da-metadata">
+        <div><div>acceptedhashes</div><div>${own}</div></div>
+        <div><div>acceptedHashes</div><div>0123456789ab</div></div>
+        <div><div>rejectedhashes</div><div>ba9876543210</div></div>
+      </div>`);
+    });
+    await copy.mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Merge');
+    const saved = await fetch.args[2][1].body.get('data').text();
+    expect(saved).not.to.include('<p da-diff-added="">Regional</p>');
+    expect(saved).to.include(`<div><div>acceptedHashes</div><div>${own},0123456789ab</div></div>`);
+    expect(saved).to.include('<div><div>rejectedHashes</div><div>ba9876543210</div></div>');
+    expect(saved).not.to.match(/acceptedhashes|rejectedhashes/);
+  });
+
   it('rolls out into an existing empty destination without overwriting its metadata', async () => {
     fetch.callsFake(async (href, opts) => {
       if (opts?.method === 'POST') return new Response('{}');
