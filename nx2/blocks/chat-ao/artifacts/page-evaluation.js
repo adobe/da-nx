@@ -12,9 +12,15 @@
 
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { getConfig } from '../../../scripts/nx.js';
+import { CHAT_EVENT } from '../../../utils/chat.js';
 import { registerArtifact } from './registry.js';
 
 const styles = await loadStyle(import.meta.url);
+const buttonStyle = await loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href);
+const { codeBase } = getConfig();
+
+const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${name}.svg#icon"></use></svg>`;
 
 const PAGE_SIZE = 5;
 
@@ -63,7 +69,53 @@ function renderContextCard(context) {
   `;
 }
 
-function renderSuggestionBody(item) {
+const promptLine = (prefix, value) => (value ? [`${prefix}${value}`] : []);
+
+export function buildSuggestionPrompt({ item, aligned }) {
+  const suggestion = item?.suggestion ?? {};
+  const reason = suggestion.issue ?? item?.description;
+  const alignment = aligned === undefined ? undefined : (aligned && 'Yes') || 'No';
+  return [
+    'Apply the following suggestion from preflight for the check that failed to the page I have open.',
+    ...promptLine('Check: ', item?.title),
+    ...promptLine('Alignment: ', alignment),
+    '',
+    ...promptLine('Reason: ', reason),
+    '',
+    ...promptLine('Suggestion: ', suggestion.suggested),
+    ...promptLine('Asset: ', suggestion.assetLabel),
+    '',
+    'Only change what this suggestion covers; leave the rest of the page unchanged.',
+    'If you need to re-run preflight, you can invoke the skill /aem-governance-evaluate-page.',
+    'It is highly recommended to re-run after applying the suggestion to see if it resolves the issue, but you can also run it before, if there is not enough context.',
+  ].join('\n');
+}
+
+function renderSuggestionActions(item, tone) {
+  const send = (autoSend) => {
+    const text = buildSuggestionPrompt({ item, aligned: tone === 'negative' ? false : undefined });
+    document.dispatchEvent(new CustomEvent(CHAT_EVENT.SET_PROMPT, { detail: { text, autoSend } }));
+  };
+  return html`
+    <div class="ui-artifact-pe-modal-actions">
+      <button class="ui-artifact-pe-modal-copy" @click=${() => navigator.clipboard.writeText(item.suggestion.suggested ?? '')}>
+        <span class="ui-artifact-pe-modal-copy-icon"></span>Copy suggestion
+      </button>
+      <div class="ui-artifact-pe-modal-chat-actions">
+        <button type="button" class="nx-action-btn nx-btn-sm ui-artifact-pe-modal-add" @click=${() => send(false)}>
+          ${icon('s2-icon-aichat-20-n')}
+          <span>Add to chat</span>
+        </button>
+        <button type="button" class="nx-btn-accent nx-btn-sm ui-artifact-pe-modal-apply" @click=${() => send(true)}>
+          ${icon('s2-icon-aisparkles-20-n')}
+          <span>Apply change</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderSuggestionBody(item, { tone } = {}) {
   const { suggestion } = item;
   if (!suggestion) return nothing;
   return html`
@@ -81,9 +133,7 @@ function renderSuggestionBody(item) {
         <span class="ui-artifact-pe-modal-heading-text">Suggested change</span>
       </div>
       ${suggestion.suggested ? html`<p class="ui-artifact-pe-modal-body">${suggestion.suggested}</p>` : nothing}
-      <button class="ui-artifact-pe-modal-copy" @click=${() => navigator.clipboard.writeText(suggestion.suggested ?? '')}>
-        <span class="ui-artifact-pe-modal-copy-icon"></span>Copy suggestion
-      </button>
+      ${renderSuggestionActions(item, tone)}
     </div>
     ${suggestion.context ? html`
       <div class="ui-artifact-pe-modal-context-title">Context</div>
@@ -131,7 +181,7 @@ class NxPageEval extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
   }
 
   _setPage(sectionIndex, page, total) {
@@ -158,6 +208,7 @@ class NxPageEval extends LitElement {
       kind,
       items: filtered,
       index: idx >= 0 ? idx : 0,
+      tone,
       sectionLabel: sectionLabelFromTone(tone),
       title: componentTitle || 'Page evaluation',
     };
@@ -251,7 +302,7 @@ class NxPageEval extends LitElement {
 
   _renderModal() {
     const {
-      kind, items, index, sectionLabel, title,
+      kind, items, index, tone, sectionLabel, title,
     } = this._modal;
     const total = items.length;
     const renderBody = kind === 'suggestion' ? renderSuggestionBody : renderCheckBody;
@@ -262,7 +313,7 @@ class NxPageEval extends LitElement {
         @close=${() => { this._modal = undefined; }}
       >
         <div class="ui-artifact-pe-modal-content">
-          ${renderBody(items[index])}
+          ${renderBody(items[index], { tone })}
           <div class="ui-artifact-pe-modal-paging">
             <button
               class="ui-artifact-pe-modal-paging-btn ui-artifact-pe-modal-paging-prev"
