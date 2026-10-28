@@ -47,10 +47,19 @@ function normalizeSkills(list) {
   return skills.length ? skills : null;
 }
 
+// Prefer the user-facing `display_description`; fall back to the API's
+// `description` when it is missing or blank. Kept as `description` for the
+// slash menu and cache.
+const pickDescription = ({ display_description: display, description } = {}) => (
+  typeof display === 'string' && display.trim() ? display : description
+);
+
 function parseSkillsListResponse(json) {
   const skills = Array.isArray(json?.skills) ? json.skills : null;
   if (!skills) return null;
-  return normalizeSkills(skills.filter((s) => !s?.hidden && s?.user_invocable !== false));
+  return normalizeSkills(skills
+    .filter((s) => !s?.hidden && s?.user_invocable !== false)
+    .map((s) => ({ name: s?.name, description: pickDescription(s ?? {}) })));
 }
 
 // Last-known skill list, so the slash-menu isn't empty before fetchSkills() resolves.

@@ -130,9 +130,9 @@ describe('fetchSkills', () => {
     installFetch({
       body: JSON.stringify({
         skills: [
-          { name: 'writeBlog', description: '  Write a blog post ' },
-          { name: 'Audit', description: 'Audit a page' },
-          { name: 'summarize', description: 42 },
+          { name: 'writeBlog', display_description: '  Write a blog post ' },
+          { name: 'Audit', display_description: 'Audit a page' },
+          { name: 'summarize', display_description: 42 },
         ],
       }),
     });
@@ -140,6 +140,26 @@ describe('fetchSkills', () => {
     expect(await fetchSkills()).to.deep.equal([
       { name: 'Audit', description: 'Audit a page' },
       { name: 'summarize', description: '' },
+      { name: 'writeBlog', description: 'Write a blog post' },
+    ]);
+  });
+
+  it('prefers display_description and falls back to description when it is missing', async () => {
+    installFetch({
+      body: JSON.stringify({
+        skills: [
+          { name: 'writeBlog', description: 'Model instructions', display_description: 'Write a blog post' },
+          { name: 'summarize', description: 'Summarize a page' },
+          { name: 'audit', description: 'Audit a page', display_description: '   ' },
+          { name: 'translate' },
+        ],
+      }),
+    });
+
+    expect(await fetchSkills()).to.deep.equal([
+      { name: 'audit', description: 'Audit a page' },
+      { name: 'summarize', description: 'Summarize a page' },
+      { name: 'translate', description: '' },
       { name: 'writeBlog', description: 'Write a blog post' },
     ]);
   });
@@ -154,7 +174,7 @@ describe('fetchSkills', () => {
   it('caches the fetched list for the active tenant', async () => {
     installFetch({
       body: JSON.stringify({
-        skills: [{ name: 'writeBlog', description: 'Write' }, { name: 'summarize', description: 'Sum' }],
+        skills: [{ name: 'writeBlog', display_description: 'Write' }, { name: 'summarize', display_description: 'Sum' }],
       }),
     });
 
