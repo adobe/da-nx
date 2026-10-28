@@ -6,6 +6,16 @@ import { CHAT_EVENT } from '../../../../nx2/utils/chat.js';
 
 describe('chat input coordination', () => {
   let chat;
+  const tokens = new CSSStyleSheet();
+
+  before(async () => {
+    tokens.replaceSync(await (await fetch('/nx2/styles/styles.css')).text());
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, tokens];
+  });
+
+  after(() => {
+    document.adoptedStyleSheets = document.adoptedStyleSheets.filter((sheet) => sheet !== tokens);
+  });
 
   afterEach(() => {
     chat?.remove();
@@ -111,6 +121,16 @@ describe('chat input coordination', () => {
         expect(getComputedStyle(form).borderColor).to.equal(`rgba(${color}, 0.06)`);
         expect(getComputedStyle(form.querySelector('.chat-working')).color).to.equal(`rgba(${color}, 0.56)`);
         expect(getComputedStyle(form, '::after').content).to.equal('none');
+        expect(leftStop.getBoundingClientRect().width).to.equal(24);
+        expect(leftStop.getBoundingClientRect().height).to.equal(24);
+        expect(getComputedStyle(leftStop).borderRadius).to.equal('16px');
+        const spinner = form.querySelector('.nx-loading-spinner');
+        const spinnerStyle = getComputedStyle(spinner);
+        expect(spinnerStyle.width).to.equal('16px');
+        expect(spinnerStyle.height).to.equal('16px');
+        expect(spinnerStyle.borderTopWidth).to.equal('2px');
+        expect(spinnerStyle.borderTopColor).to.equal(scheme === 'light' ? 'rgb(59, 99, 251)' : 'rgb(86, 129, 255)');
+        expect(spinnerStyle.borderRightColor).to.equal(scheme === 'light' ? 'rgb(218, 218, 218)' : 'rgb(57, 57, 57)');
       }
       chat.stop();
       leftStop.click();

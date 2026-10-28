@@ -37,6 +37,10 @@
 
 .chat-working .nx-loading-spinner {
   flex-shrink: 0;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border-top-color: var(--s2-blue-900);
 }
 
 .chat-form.is-processing {
@@ -62,6 +66,10 @@
 
 .chat-form.is-processing .chat-working {
   color: light-dark(rgb(0 0 0 / 56%), rgb(255 255 255 / 56%));
+}
+
+.chat-form.is-processing .chat-stop {
+  border-radius: var(--s2-corner-radius-800);
 }
 
 .prompts-popover {
