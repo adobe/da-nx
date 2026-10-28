@@ -20,6 +20,7 @@ aem-assets/
   config.js             Dynamic Media and approved-only rules
   filter-schema.js      Approved-only Content Advisor filter props
   selector-props.js     Asset Selector props and feature set
+  external-brief.js     Content Advisor brief from the page content
   repository-config.js  DA site config resolution into repoConfig
   urls.js               URL builders, rendition resolution, metadata readers
   image-modifiers.js    Site-wide query modifiers for delivery image URLs
@@ -168,6 +169,10 @@ The default export is the base path `/adobe/assets`.
 - `buildFeatureSet(isDmEnabled)` returns `upload`, `collections`, `detail-panel`, and `advisor`, plus `dynamic-media` when DM is enabled.
 - `buildAssetSelectorProps({ imsToken, repoConfig, externalBrief, onClose, handleSelection })` returns the props for `renderAssetSelector`, including the approved-only filter when enabled. For author-tier repos it also sets `path` to the last remembered folder of that repository.
 - `rememberAssetFolder(repoConfig, assetPath)` remembers the folder of a selected asset per repository, in memory, so the picker reopens there. Delivery-tier repos have no folder structure and are ignored.
+
+### `external-brief.js`
+
+- `formatExternalBrief(document)` builds the Content Advisor brief from a ProseMirror document. It uses the first `h1` as the title and the plain text of the document as content. It returns an empty string when the document has no text. Pass the result as `externalBrief` to `buildAssetSelectorProps` so the advisor recommends assets that match the page.
 
 ### `repository-config.js`
 
