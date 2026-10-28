@@ -3,7 +3,7 @@ import loadQuickEdit from '../../../../../nx/public/plugins/quick-edit/quick-edi
 import { MESSAGE_TYPES } from '../../../../../nx/utils/message-types.js';
 import { replaceChanges as replaceNxChanges } from '../../../../../nx/public/plugins/quick-edit/src/reload.js';
 import { replaceChanges as replaceNx2Changes } from '../../../../../nx2/public/plugins/quick-edit/src/reload.js';
-import { restoreBlockIndices } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
+import { restoreBlockIndices, stampSectionIndices } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
 
 const implementations = [
   ['nx', replaceNxChanges, { partialReload: true }],
@@ -239,13 +239,14 @@ describe('quick-edit reload', () => {
 
   describe('section count changes', () => {
     const live = (texts) => texts
-      .map((t) => `<div class="section" data-section-status="loaded"><p>${t}</p></div>`).join('');
+      .map((t, i) => `<div class="section" data-section-status="loaded" data-section-index="${i}"><p>${t}</p></div>`).join('');
     const raw = (texts) => texts.map((t) => `<div><p>${t}</p></div>`).join('');
     const run = ({ before, after, type, sectionIndex }) => {
       const targetDocument = document.implementation.createHTMLDocument();
       targetDocument.body.innerHTML = `<main>${live(before)}</main>`;
       const doc = document.implementation.createHTMLDocument();
       doc.body.innerHTML = `<main>${raw(after)}</main>`;
+      stampSectionIndices(doc);
       replaceNxChanges({
         ctx: { partialReload: true },
         doc,
@@ -256,6 +257,7 @@ describe('quick-edit reload', () => {
       return {
         texts: sections.map((s) => s.textContent),
         untouched: sections.map((s) => s.dataset.sectionStatus === 'loaded'),
+        stamps: sections.map((s) => s.dataset.sectionIndex),
       };
     };
 
@@ -263,15 +265,21 @@ describe('quick-edit reload', () => {
       it(`removes only the section at index ${sectionIndex}`, () => {
         const before = ['a', 'b', 'c', 'd'];
         const after = before.filter((_, i) => i !== sectionIndex);
-        const { texts, untouched } = run({ before, after, type: 'section-removed', sectionIndex });
+        const {
+          texts, untouched, stamps,
+        } = run({ before, after, type: 'section-removed', sectionIndex });
         expect(texts).to.deep.equal(after);
+        expect(stamps).to.deep.equal(['0', '1', '2']);
         expect(untouched.every(Boolean)).to.be.true;
       });
     });
 
     it('inserts only the added section', () => {
-      const { texts, untouched } = run({ before: ['a', 'c'], after: ['a', 'b', 'c'], type: 'section-added', sectionIndex: 1 });
+      const {
+        texts, untouched, stamps,
+      } = run({ before: ['a', 'c'], after: ['a', 'b', 'c'], type: 'section-added', sectionIndex: 1 });
       expect(texts).to.deep.equal(['a', 'b', 'c']);
+      expect(stamps).to.deep.equal(['0', '1', '2']);
       expect(untouched).to.deep.equal([true, false, true]);
     });
 

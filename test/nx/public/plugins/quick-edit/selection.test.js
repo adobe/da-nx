@@ -8,7 +8,7 @@ import {
   setSelectedNode,
   setupNodeSelection,
 } from '../../../../../nx/public/plugins/quick-edit/src/selection.js';
-import { findSection } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
+import { findSection, stampSectionIndices } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
 
 function buildBody() {
   document.body.innerHTML = '<main>'
@@ -185,11 +185,21 @@ function buildSections() {
     + '<div><p data-prose-index="20">section 2 text</p></div>'
     + '<div><div class="cards" data-block-index="30">section 3 block</div></div>'
     + '</main>';
+  stampSectionIndices(document);
 }
 
 describe('quick-edit section selection', () => {
   beforeEach(buildSections);
   afterEach(() => { document.body.innerHTML = ''; });
+
+  it('ignores sections the site added during decoration', () => {
+    const main = document.querySelector('main');
+    const authored = [...main.children];
+    main.prepend(document.createElement('div'));
+    expect(findSection(0, document)).to.equal(authored[0]);
+    expect(sectionSelectPayload(main.children[0])).to.equal(null);
+    expect(sectionSelectPayload(authored[1])).to.deep.equal({ anchorType: 'section', sectionIndex: 1 });
+  });
 
   it('findSection returns the nth section in DOM order', () => {
     const main = document.querySelector('main');

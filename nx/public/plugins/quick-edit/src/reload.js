@@ -74,6 +74,13 @@ function rekeyKept({
   return true;
 }
 
+function shiftSectionIndices(live, from, by) {
+  live.querySelectorAll('[data-section-index]').forEach((el) => {
+    const index = Number(el.getAttribute('data-section-index'));
+    if (index >= from) el.setAttribute('data-section-index', index + by);
+  });
+}
+
 function replaceSection({ source, live, type, sectionIndex }) {
   const sourceSections = getSourceSections(source);
   const liveSections = getLiveSections(live);
@@ -87,6 +94,7 @@ function replaceSection({ source, live, type, sectionIndex }) {
       live, source, liveRef: prev, sourceRef: next, sourceInsideIsAfter: true,
     })) return undefined;
     prev.remove();
+    shiftSectionIndices(live, sectionIndex + 1, -1);
     return { type: 'section-removed' };
   }
   if (type === 'section-added') {
@@ -95,6 +103,7 @@ function replaceSection({ source, live, type, sectionIndex }) {
     if (!rekeyKept({
       live, source, liveRef: prev, liveInsideIsAfter: true, sourceRef: next,
     })) return undefined;
+    shiftSectionIndices(live, sectionIndex, 1);
     const el = next.cloneNode(true);
     if (prev) prev.before(el);
     else anchor.after(el);

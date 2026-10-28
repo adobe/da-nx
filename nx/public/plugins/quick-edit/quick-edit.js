@@ -9,7 +9,9 @@ import { setEditorState, captureFocusedEditor } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
-import { restoreBlockIndices, restoreImageIndices, applyImageVersionAck } from './src/dom-index.js';
+import {
+  restoreBlockIndices, restoreImageIndices, applyImageVersionAck, stampSectionIndices,
+} from './src/dom-index.js';
 import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
 import {
   getQuickEditPortalSrc,
@@ -54,6 +56,7 @@ async function setBody(body, rerenderScope, ctx) {
   const anchor = captureScrollAnchor();
   const focused = captureFocusedEditor();
   const doc = new DOMParser().parseFromString(body, 'text/html');
+  stampSectionIndices(doc);
   const replaced = replaceChanges({ ctx, doc, rerenderScope, targetDocument: document });
   await ctx.reload(document, replaced);
   // A newer SET_BODY replaced the DOM while this one was loading.
