@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { setImsDetails } from '../../nx/utils/daFetch.js';
-import { rolloutLang, setSaveError } from '../../nx/blocks/loc/views/rollout/index.js';
+import { rolloutLang, setSaveError, mergeErrors } from '../../nx/blocks/loc/views/rollout/index.js';
 import '../../nx/blocks/loc/views/rollout/rollout.js';
 
 const proto = customElements.get('nx-loc-rollout').prototype;
@@ -150,5 +150,20 @@ describe('setSaveError', () => {
     setSaveError(url, 500);
 
     expect(url.error).to.equal('/org/site/en-gb/b.html: Save failed (500)');
+  });
+});
+
+describe('mergeErrors', () => {
+  it('stays undefined when a rollout returns a message but no errors', () => {
+    expect(mergeErrors(undefined, undefined)).to.equal(undefined);
+    expect(mergeErrors(undefined, [])).to.equal(undefined);
+  });
+
+  it('keeps earlier errors and adds new ones', () => {
+    const a = { error: 'Error saving /org/site/en-gb/a.html - 500' };
+    const b = { error: 'Error saving /org/site/de-ch/b.html - 500' };
+
+    expect(mergeErrors([a], undefined)).to.deep.equal([a]);
+    expect(mergeErrors([a], [b])).to.deep.equal([a, b]);
   });
 });
