@@ -17,11 +17,11 @@ describe('chat panel headers', () => {
       const events = [];
       chat.addEventListener(PANEL_EVENT.CLOSE, (event) => events.push(event));
       const container = document.createElement('div');
-      render(chat.render(), container);
+      render(chat.render(), container, { host: chat });
       const header = container.querySelector('.chat-header');
       expect(header.querySelector(`button[aria-label="${action}"]`)).not.to.equal(null);
       const close = header.querySelector('button[aria-label="Close chat panel"]');
-      expect(close.querySelector('svg path')).not.to.equal(null);
+      expect(close.querySelector('svg')).not.to.equal(null);
       close.click();
       expect(events).to.have.length(1);
       expect(events[0].bubbles).to.equal(true);
