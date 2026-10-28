@@ -11,6 +11,7 @@ import {
 } from './index.js';
 
 const style = await loadStyle(import.meta.url);
+const spinnerStyle = await loadStyle(new URL('../../../../../nx2/styles/spinner.css', import.meta.url).href);
 
 class NxLocTranslate extends LitElement {
   static properties = {
@@ -24,11 +25,17 @@ class NxLocTranslate extends LitElement {
     _translateLangs: { state: true },
     _copyLangs: { state: true },
     _message: { state: true },
+    _connectBusy: { state: true },
+    _sendAllBusy: { state: true },
+    _getStatusBusy: { state: true },
+    _cancelAllBusy: { state: true },
+    _copyAllBusy: { state: true },
+    _cancelingLangs: { state: true },
   };
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style];
+    this.shadowRoot.adoptedStyleSheets = [spinnerStyle, style];
     this.setupService();
   }
 
@@ -91,8 +98,13 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleConnect() {
-    const sendMessage = this.handleMessage.bind(this);
-    this._connected = await this._service.connector.connect(this._service, sendMessage);
+    this._connectBusy = true;
+    try {
+      const sendMessage = this.handleMessage.bind(this);
+      this._connected = await this._service.connector.connect(this._service, sendMessage);
+    } finally {
+      this._connectBusy = false;
+    }
   }
 
   async fetchUrls(service, fetchContent, langs) {
@@ -208,18 +220,18 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleGetStatus() {
-    // if (!this.incompleteLangs) {
-    //   this.handleMessage({ text: 'All languages complete or cancelled.' });
-    //   return;
-    // }
+    this._getStatusBusy = true;
+    try {
+      const conf = await this.getBaseTranslationConf(false);
 
-    const conf = await this.getBaseTranslationConf(false);
+      await this._service.connector.getStatusAll(removeWaitingLanguagesFromConf(conf));
 
-    await this._service.connector.getStatusAll(removeWaitingLanguagesFromConf(conf));
+      await this.checkAndSaveLangs(conf);
 
-    await this.checkAndSaveLangs(conf);
-
-    this.handleSaveLangs();
+      this.handleSaveLangs();
+    } finally {
+      this._getStatusBusy = false;
+    }
   }
 
   /**
@@ -246,40 +258,58 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleCancelAll() {
-    const langs = this._translateLangs.filter((lang) => this.canCancelLang(lang));
-    const results = await Promise.all(langs.map((lang) => this.cancelLang(lang)));
+    this._cancelAllBusy = true;
+    try {
+      const langs = this._translateLangs.filter((lang) => this.canCancelLang(lang));
+      const results = await Promise.all(langs.map((lang) => this.cancelLang(lang)));
 
-    // Refresh locales accepted by the connector; skip when every cancel was rejected.
-    if (results.some(Boolean)) await this.handleGetStatus();
+      // Refresh locales accepted by the connector; skip when every cancel was rejected.
+      if (results.some(Boolean)) await this.handleGetStatus();
+    } finally {
+      this._cancelAllBusy = false;
+    }
   }
 
   async handleCancelLang(lang) {
-    if (await this.cancelLang(lang)) await this.handleGetStatus();
+    this._cancelingLangs = new Set(this._cancelingLangs).add(lang.code);
+
+    try {
+      if (await this.cancelLang(lang)) await this.handleGetStatus();
+    } finally {
+      const next = new Set(this._cancelingLangs);
+      next.delete(lang.code);
+      this._cancelingLangs = next;
+    }
   }
 
   async handleCopyAll() {
-    const { _copyLangs: langs } = this;
+    this._copyAllBusy = true;
+    try {
+      const { _copyLangs: langs } = this;
 
-    // langsWithUrls is an in-memory object that contains all URL fetches.
-    const { langsWithUrls, urls } = await this.fetchUrls({}, true, langs);
+      // langsWithUrls is an in-memory object that contains all URL fetches.
+      const { langsWithUrls, urls } = await this.fetchUrls({}, true, langs);
 
-    langsWithUrls.forEach((lang) => {
-      const errors = lang.urls.filter((url) => url.error);
-      if (errors.length) {
-        // Create an errors array if it doesn't exist
-        this._urlErrors ??= [];
-        this._urlErrors.push(...errors);
-      }
-    });
+      langsWithUrls.forEach((lang) => {
+        const errors = lang.urls.filter((url) => url.error);
+        if (errors.length) {
+          // Create an errors array if it doesn't exist
+          this._urlErrors ??= [];
+          this._urlErrors.push(...errors);
+        }
+      });
 
-    // Do not continue if any errors
-    if (this._urlErrors?.length) return;
+      // Do not continue if any errors
+      if (this._urlErrors?.length) return;
 
-    const { org, site, title, options } = this.project;
+      const { org, site, title, options } = this.project;
 
-    await copySourceLangs(org, site, title, options, this._copyLangs, urls, langsWithUrls);
-    this.handleSaveLangs();
-    this.requestUpdate();
+      await copySourceLangs(org, site, title, options, this._copyLangs, urls, langsWithUrls);
+      this.handleSaveLangs();
+      this.requestUpdate();
+    } finally {
+      this._copyAllBusy = false;
+    }
   }
 
   get _project() {
@@ -308,15 +338,25 @@ class NxLocTranslate extends LitElement {
     return !!(this._service?.connector?.cancelTranslation) && this.incompleteLangs;
   }
 
+  get incompleteCopyLangs() {
+    return this._copyLangs.filter((lang) => lang.copy?.status !== 'complete').length;
+  }
+
   renderBehavior() {
     return html`<p><strong>Conflict behavior:</strong> ${this._options['translate.conflict.behavior']}</p>`;
+  }
+
+  renderSpinner() {
+    return html`<span class="nx-loading-spinner" aria-hidden="true"></span>`;
   }
 
   renderTranslateAction() {
     if (this._connected === false) {
       return html`
         ${this.renderBehavior()}
-        <sl-button @click=${this.handleConnect} class="accent">Connect</sl-button>
+        <sl-button @click=${this.handleConnect} class="accent" ?disabled=${this._connectBusy}>
+          ${this._connectBusy ? this.renderSpinner() : nothing} Connect
+        </sl-button>
       `;
     }
 
@@ -329,14 +369,24 @@ class NxLocTranslate extends LitElement {
         if (sent) {
           return html`
             ${this.renderBehavior()}
-            ${this.canCancel ? html`<sl-button @click=${this.handleCancelAll} class="primary outline">Cancel project</sl-button>` : nothing}
-            ${this.incompleteLangs ? html`<sl-button @click=${this.handleGetStatus} class="accent">Get status</sl-button>` : nothing}
+            ${this.canCancel ? html`
+              <sl-button @click=${this.handleCancelAll} class="primary outline" ?disabled=${this._cancelAllBusy}>
+                ${this._cancelAllBusy ? this.renderSpinner() : nothing} Cancel project
+              </sl-button>
+            ` : nothing}
+            ${this.incompleteLangs ? html`
+              <sl-button @click=${this.handleGetStatus} class="accent" ?disabled=${this._getStatusBusy}>
+                ${this._getStatusBusy ? this.renderSpinner() : nothing} Get status
+              </sl-button>
+            ` : nothing}
           `;
         }
 
         return html`
           ${this.renderBehavior()}
-          <sl-button @click=${this.handleSendAll} class="accent">Translate all</sl-button>
+          <sl-button @click=${this.handleSendAll} class="accent" ?disabled=${this._sendAllBusy}>
+            ${this._sendAllBusy ? this.renderSpinner() : nothing} Translate all
+          </sl-button>
         `;
       }
     }
@@ -357,8 +407,13 @@ class NxLocTranslate extends LitElement {
   }
 
   renderCancelLang(lang) {
-    if (!this.canCancel || !this._connected || !this.canCancelLang(lang)) return nothing;
-    return html`<sl-button @click=${() => this.handleCancelLang(lang)} class="primary outline">Cancel</sl-button>`;
+    const busy = this._cancelingLangs?.has(lang.code);
+    if (!this.canCancel || !this._connected || (!busy && !this.canCancelLang(lang))) return nothing;
+    return html`
+      <sl-button @click=${() => this.handleCancelLang(lang)} class="primary outline" ?disabled=${busy}>
+        ${busy ? this.renderSpinner() : nothing} Cancel
+      </sl-button>
+    `;
   }
 
   renderUrlErrors() {
@@ -429,7 +484,11 @@ class NxLocTranslate extends LitElement {
         <p class="nx-loc-list-actions-header">Copy (${this._options['source.language'].name})</p>
         <div class="actions">
           <p><strong>Conflict behavior:</strong> ${this._options['copy.conflict.behavior']}</p>
-          <sl-button @click=${this.handleCopyAll} class="accent">Copy all</sl-button>
+          ${this.incompleteCopyLangs ? html`
+          <sl-button @click=${this.handleCopyAll} class="accent" ?disabled=${this._copyAllBusy}>
+            ${this._copyAllBusy ? this.renderSpinner() : nothing} Copy all
+          </sl-button>
+          ` : nothing}
         </div>
       </div>
       <div class="nx-loc-list-header">
