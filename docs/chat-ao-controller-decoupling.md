@@ -37,6 +37,7 @@ Proposed classes: `BaseChatController`, `CoworkerChatController extends Base`,
 | `constructor`, `setContext`, `_update`, `destroy` | ✅ | | |
 | `_resolveManifest`, `getSkills`, `loadSkills`, `_loadCachedSkills`, `_fetchSkills` | ✅ | | |
 | `sendMessage` | ✅ | | |
+| `_catalogUrl` | ⟐ `undefined` | ✅ Coworker's A2UI component catalog | (inherits `undefined`) |
 
 ## WebSocket connection (Base)
 | Method | Base | Coworker | CMA | Note |
