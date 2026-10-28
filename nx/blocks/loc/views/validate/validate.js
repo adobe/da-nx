@@ -7,6 +7,7 @@ import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import {
   createSnapshotPrefix,
   fetchConfig,
+  findDuplicateBasePaths,
   getProjectBasePath,
   getSourceLocations,
 } from '../../utils/utils.js';
@@ -173,6 +174,12 @@ class NxLocValidate extends LitElement {
         checked: url.checked,
       };
     });
+
+    const duplicates = findDuplicateBasePaths({ urls });
+    if (duplicates.length) {
+      const conflicts = duplicates.map((paths) => paths.join(' and ')).join('; ');
+      return { message: { type: 'error', text: `Multiple URLs resolve to the same base path. Remove one: ${conflicts}` } };
+    }
 
     return { updates: { urls, sourceLocations } };
   }

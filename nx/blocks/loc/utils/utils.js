@@ -164,6 +164,21 @@ export function getProjectBasePath({ path, defaultLocation, sourceLocations = []
   return convertPath({ path, sourcePrefix }).aemBasePath;
 }
 
+/**
+ * Find distinct supplied paths that resolve to the same base path.
+ * @param {Object} config The config.
+ * @param {Object[]} config.urls Project urls with `basePath` and `suppliedPath`.
+ * @returns {string[][]} Groups of conflicting supplied paths.
+ */
+export function findDuplicateBasePaths({ urls }) {
+  const groups = urls.reduce((acc, { basePath, suppliedPath }) => {
+    const paths = acc.get(basePath) ?? new Set();
+    acc.set(basePath, paths.add(suppliedPath));
+    return acc;
+  }, new Map());
+  return [...groups.values()].filter((paths) => paths.size > 1).map((paths) => [...paths]);
+}
+
 export function formatPath(org, site, sourceLocation, path) {
   const hasSourceLocaction = path.startsWith(sourceLocation)
     && path !== sourceLocation

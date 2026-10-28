@@ -2,6 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import {
   convertPath,
   findSourceLocation,
+  findDuplicateBasePaths,
   getProjectBasePath,
   getProjectSourceLocations,
   getSourceLocations,
@@ -182,6 +183,26 @@ describe('loc source locations', () => {
       expect(base('/emea/en/about/page')).to.equal('/about/page');
       expect(base('/us/en/about/page')).to.equal('/about/page');
       expect(base('/about/page')).to.equal('/about/page');
+    });
+  });
+
+  describe('findDuplicateBasePaths', () => {
+    it('groups distinct supplied paths that share a base path', () => {
+      const urls = [
+        { basePath: '/x', suppliedPath: '/us/en/x' },
+        { basePath: '/x', suppliedPath: '/emea/en/x' },
+        { basePath: '/y', suppliedPath: '/us/en/y' },
+      ];
+      expect(findDuplicateBasePaths({ urls })).to.deep.equal([['/us/en/x', '/emea/en/x']]);
+    });
+
+    it('ignores unique base paths and repeated identical supplied paths', () => {
+      const urls = [
+        { basePath: '/x', suppliedPath: '/us/en/x' },
+        { basePath: '/x', suppliedPath: '/us/en/x' },
+        { basePath: '/y', suppliedPath: '/emea/en/y' },
+      ];
+      expect(findDuplicateBasePaths({ urls })).to.deep.equal([]);
     });
   });
 
