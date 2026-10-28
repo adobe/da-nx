@@ -24,7 +24,9 @@ No SDK changes are required.
 Chat is available only on `/app/{org}/{site}/...` URLs whose org/site config does
 not disable it through `ew.disableChat`. Disabled chat requests (`setPrompt` and
 `showPanel('chat')`) are silent no-ops; other registered panels are unaffected.
-The configuration check uses the app URL, not an overriding target-site hash.
+The configuration check uses the target org/site from a valid `#/org/site` hash,
+falling back to the app URL's org/site when there is no target-site hash. The same
+target site is passed as chat context.
 
 Chat uses `#/org/site/path` from the parent URL when present; otherwise it uses
 the app URL's org/repo as its site, with browse context and no content path.

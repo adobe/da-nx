@@ -276,12 +276,42 @@ describe('nx2 fullscreen shell', () => {
     await assertChatBlocked({ org: 'chat-disabled-org', site: 'demo' });
   });
 
-  it('silently blocks chat disabled in the app site config, even with a different hash', async () => {
-    history.replaceState(null, '', '/app/adobe/chat-disabled-site/tools/app#/adobe/demo');
+  it('silently blocks chat disabled in the app site config without a target hash', async () => {
+    history.replaceState(null, '', '/app/adobe/chat-disabled-site/tools/app');
     configs.set('/config/adobe/chat-disabled-site/', {
       body: { flags: { data: [{ key: 'ew.disableChat', value: 'true' }] } },
     });
     await assertChatBlocked({ org: 'adobe', site: 'chat-disabled-site' });
+  });
+
+  it('enables chat for a hash site even when the app hosting site disables it', async () => {
+    history.replaceState(null, '', '/app/adobe/disabled-host/tools/app?ref=local#/exp-workspace/frescopa');
+    configs.set('/config/adobe/disabled-host/', {
+      body: { flags: { data: [{ key: 'ew.disableChat', value: 'true' }] } },
+    });
+    const { port, message } = await connectApp();
+    expect(message.capabilities).to.deep.equal({ chatTurnCompleted: 1 });
+    port.postMessage({ action: 'setPrompt', details: { text: 'Target site' } });
+    await waitFor(() => prompt.called);
+    expect(document.querySelector('aside.panel nx-chat')._context).to.include({
+      org: 'exp-workspace', site: 'frescopa', path: null, view: 'browse',
+    });
+  });
+
+  it('blocks chat when the hash site disables it even though the app host enables it', async () => {
+    history.replaceState(null, '', '/app/adobe/demo/tools/app#/target-org/disabled-target');
+    configs.set('/config/target-org/disabled-target/', {
+      body: { flags: { data: [{ key: 'ew.disableChat', value: 'true' }] } },
+    });
+    await assertChatBlocked({ org: 'adobe', site: 'demo' });
+  });
+
+  it('honors the hash org flag when targeting a document', async () => {
+    history.replaceState(null, '', '/app/adobe/demo/tools/app#/disabled-target-org/site/page');
+    configs.set('/config/disabled-target-org/', {
+      body: { flags: { data: [{ key: 'ew.disableChat', value: 'true' }] } },
+    });
+    await assertChatBlocked({ org: 'adobe', site: 'demo' });
   });
 
   [401, 403].forEach((status) => {

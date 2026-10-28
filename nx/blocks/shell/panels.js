@@ -7,7 +7,6 @@ import { isEwChatDisabled } from '../../../nx2/utils/ewFlags.js';
 export async function setupPanels({ org, repo }) {
   const [, view, appOrg, appSite] = window.location.pathname.split('/');
   const isSiteApp = Boolean(org && repo && view === 'app' && appOrg === org && appSite === repo);
-  const chatEnabled = isSiteApp && !await isEwChatDisabled({ org, site: repo });
   const getContext = () => {
     let context;
     const unsubscribe = hashChange.subscribe((state) => { context = state; });
@@ -15,6 +14,8 @@ export async function setupPanels({ org, repo }) {
     return context?.site
       ? { ...context, view: 'browse' } : { org, site: repo, path: null, view: 'browse' };
   };
+  const { org: chatOrg, site: chatSite } = getContext();
+  const chatEnabled = isSiteApp && !await isEwChatDisabled({ org: chatOrg, site: chatSite });
 
   if (chatEnabled) {
     registerPanelSection('chat', {
