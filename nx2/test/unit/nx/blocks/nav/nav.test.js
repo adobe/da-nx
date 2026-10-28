@@ -5,6 +5,12 @@ import { setConfig } from '../../../../../scripts/nx.js';
 // module-level constant at import time, so setConfig() must resolve before
 // nav.js is ever imported — see the same pattern in feedback.test.js.
 await setConfig({ hostnames: [] });
+await import('../../../../../blocks/breadcrumb/breadcrumb.js');
+const { default: NxBreadcrumb } = await import('../../../../../blocks/shared/breadcrumb/breadcrumb.js');
+// Isolate nav composition from the components' auth and lifecycle behavior.
+['nx-nav-test', 'nx-editortoggle'].forEach((tag) => {
+  customElements.define(tag, class extends HTMLElement {});
+});
 await import('../../../../../blocks/nav/nav.js');
 
 function buildActionsSection({ buttonHtml }) {
@@ -176,6 +182,212 @@ describe('nav search slot', () => {
   });
 });
 
+describe('nav site navigation', () => {
+  let nav;
+  let restoreFetch;
+  let originalHref;
+
+  beforeEach(() => {
+    originalHref = window.location.href;
+    nav = document.createElement('nx-nav');
+  });
+
+  afterEach(() => {
+    nav.remove();
+    restoreFetch?.();
+    window.history.replaceState(null, '', originalHref);
+    document.querySelectorAll('nx-dialog').forEach((el) => el.remove());
+  });
+
+  async function mountFragment({
+    middle, breadcrumb = '', actions = '<li><button type="button">Action</button></li>',
+  } = {}) {
+    restoreFetch = mockFragmentFetch(`
+      <div><p><a href="/">Brand</a></p>${breadcrumb ? `<ul>${breadcrumb}</ul>` : ''}</div>
+      ${middle === undefined ? '' : `<div>${middle}</div>`}
+      <div><ul>${actions}</ul></div>
+    `);
+    nav.path = '/fragments/nav/site-navigation';
+    await nav.loadNav();
+    nav.loadNav = async () => {};
+    document.body.append(nav);
+    await nav.updateComplete;
+  }
+
+  it('populates the middle section directly after the brand, using action decoration instead of legacy breadcrumbs', async () => {
+    await mountFragment({
+      middle: `<ul>
+        <li>nav-test</li>
+        <li><nx-nav-test data-test="authored"></nx-nav-test></li>
+        <li><button data-pathname="/fragments/nav/help">Site help</button></li>
+      </ul>`,
+      breadcrumb: '<li>breadcrumbs</li>',
+    });
+
+    const cluster = nav.shadowRoot.querySelector('.brand-cluster');
+    const siteNav = cluster.querySelector('.site-nav');
+    const actions = nav.shadowRoot.querySelector('.action-area');
+    expect(cluster.firstElementChild).to.equal(nav._brand);
+    expect(nav._brand.nextElementSibling).to.equal(siteNav);
+    expect(siteNav.querySelector('ul')).to.equal(nav._siteNav);
+    expect(siteNav.querySelectorAll('nx-nav-test')).to.have.length(2);
+    expect(siteNav.querySelector('[data-test="authored"]')).to.exist;
+    expect(siteNav.querySelector('nx-editortoggle')).to.be.null;
+    expect(siteNav.querySelector('nx-breadcrumb')).to.be.null;
+    expect(actions.querySelectorAll('nx-editortoggle')).to.have.length(1);
+    expect(getComputedStyle(actions.querySelector('ul')).marginRight).to.equal('16px');
+
+    const button = siteNav.querySelector('button');
+    expect(button.classList.contains('has-label')).to.be.true;
+    button.click();
+    await new Promise((resolve) => { setTimeout(resolve, 50); });
+    expect(document.querySelector('nx-dialog')).to.exist;
+  });
+
+  [
+    { name: 'two-section breadcrumb markers', breadcrumb: '<li><a href="/browse">breadcrumbs</a></li>' },
+    { name: 'existing breadcrumb elements', breadcrumb: '<li><nx-breadcrumb></nx-breadcrumb></li>' },
+    { name: 'empty middle lists', middle: '<ul><li><br></li></ul>', breadcrumb: '<li class="breadcrumbs">Browse</li>' },
+    { name: 'legacy-only middle sections', middle: '<ul><li>breadcrumbs</li></ul>' },
+  ].forEach(({ name, ...fragment }) => {
+    it(`keeps route-aware breadcrumbs for ${name}`, async () => {
+      window.history.replaceState(null, '', '/?preview=true#/adobe/site/docs');
+      await mountFragment(fragment);
+      const breadcrumb = nav.shadowRoot.querySelector('.site-nav nx-breadcrumb');
+      expect(breadcrumb).to.exist;
+      expect(nav._siteNav).to.be.null;
+      expect(breadcrumb.pathSegments).to.deep.equal(['adobe', 'site', 'docs']);
+
+      window.history.replaceState(null, '', '/?preview=true#/adobe/site/images');
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+      await nav.updateComplete;
+      expect(breadcrumb.pathSegments).to.deep.equal(['adobe', 'site', 'images']);
+      if (fragment.breadcrumb?.includes('href="/browse"')) {
+        await breadcrumb.updateComplete;
+        const { href } = breadcrumb.shadowRoot.querySelector('a');
+        expect(href).to.equal(`${window.location.origin}/browse?preview=true#/adobe`);
+      }
+    });
+  });
+
+  it('loads named breadcrumbs through the block wrapper and updates their route', async () => {
+    nav.decorateBreadcrumbs = () => { throw new Error('Legacy decoration should not run'); };
+    window.history.replaceState(null, '', '/#/adobe/site/docs');
+    await mountFragment({ middle: '<ul><li>breadcrumb</li></ul>' });
+    const breadcrumb = nav.shadowRoot.querySelector('.site-nav nx-breadcrumb');
+    expect(breadcrumb).to.be.instanceOf(NxBreadcrumb);
+    expect(breadcrumb.pathSegments).to.deep.equal(['adobe', 'site', 'docs']);
+
+    window.history.replaceState(null, '', '/#/adobe/site/images');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await nav.updateComplete;
+    expect(breadcrumb.pathSegments).to.deep.equal(['adobe', 'site', 'images']);
+  });
+
+  it('keeps an authored site-nav breadcrumb alongside other components without legacy decoration', async () => {
+    nav.decorateBreadcrumbs = () => { throw new Error('Legacy decoration should not run'); };
+    window.history.replaceState(null, '', '/#/adobe/site/docs');
+    await mountFragment({
+      middle: `<ul>
+        <li><nx-breadcrumb data-test="authored"></nx-breadcrumb></li>
+        <li>nav-test</li>
+      </ul>`,
+      breadcrumb: '<li><a href="/browse">breadcrumbs</a></li>',
+    });
+    const breadcrumb = nav._siteNav.querySelector('nx-breadcrumb');
+    expect(nav._breadcrumbs).to.be.null;
+    expect(breadcrumb.dataset.test).to.equal('authored');
+    expect(breadcrumb.pathSegments).to.deep.equal(['adobe', 'site', 'docs']);
+    expect(nav._siteNav.querySelector('nx-nav-test')).to.exist;
+    expect(nav._siteNav.children).to.have.length(2);
+  });
+
+  it('treats a lone authored breadcrumb inside site-nav as a normal component', async () => {
+    nav.decorateBreadcrumbs = () => { throw new Error('Legacy decoration should not run'); };
+    window.history.replaceState(null, '', '/#/adobe/site/docs');
+    await mountFragment({
+      middle: '<ul><li class="breadcrumbs"><nx-breadcrumb></nx-breadcrumb></li></ul>',
+    });
+    expect(nav._breadcrumbs).to.be.null;
+    expect(nav._siteNav.querySelector('nx-breadcrumb').pathSegments)
+      .to.deep.equal(['adobe', 'site', 'docs']);
+  });
+
+  it('skips failed components without losing later siblings, the brand, or either nav area', async () => {
+    await mountFragment({
+      middle: '<ul><li>nav-missing-component</li><li>nav-test</li></ul>',
+      actions: '<li>nav-missing-action</li><li>nav-test</li><li><button>Action</button></li>',
+    });
+    expect(nav._brand.textContent).to.equal('Brand');
+    expect(nav._siteNav.children).to.have.length(1);
+    expect(nav._siteNav.querySelector('nx-nav-test')).to.exist;
+    expect(nav._actions.querySelector('nx-nav-test')).to.exist;
+    expect(nav._actions.querySelector('button').textContent).to.equal('Action');
+    expect(nav._actions.querySelector('nx-editortoggle')).to.exist;
+    expect(nav._actions.children).to.have.length(3);
+  });
+
+  it('preserves the current nav when reloading its fragment fails', async () => {
+    const loadNav = nav.loadNav.bind(nav);
+    await mountFragment({ middle: '<ul><li>nav-test</li></ul>' });
+    const { _brand, _siteNav, _actions } = nav;
+    window.fetch = async () => { throw new TypeError('Network unavailable'); };
+    await loadNav();
+    expect(nav._brand).to.equal(_brand);
+    expect(nav._siteNav).to.equal(_siteNav);
+    expect(nav._actions).to.equal(_actions);
+  });
+
+  it('still loads the brand and actions if breadcrumb loading rejects', async () => {
+    nav.decorateBreadcrumbs = async () => { throw new TypeError('Breadcrumb unavailable'); };
+    await mountFragment({ breadcrumb: '<li>breadcrumbs</li>' });
+    expect(nav._breadcrumbs).to.be.null;
+    expect(nav._brand.textContent).to.equal('Brand');
+    expect(nav._actions.querySelector('button').textContent).to.equal('Action');
+  });
+
+  it('keeps brand text and actions when the brand SVG fetch rejects', async () => {
+    restoreFetch = mockFragmentFetch(`
+      <div><p><a href="/missing-brand.svg">Brand</a></p></div>
+      <div><ul><li>nav-test</li></ul></div>
+      <div><ul><li><button>Action</button></li></ul></div>
+    `);
+    const fragmentFetch = window.fetch;
+    window.fetch = async (url, opts) => {
+      if (String(url).endsWith('/missing-brand.svg')) throw new TypeError('SVG unavailable');
+      return fragmentFetch(url, opts);
+    };
+    nav.path = '/fragments/nav/site-navigation';
+    await nav.loadNav();
+    expect(nav._brand.textContent).to.equal('Brand');
+    expect(nav._brand.getAttribute('href')).to.equal('/');
+    expect(nav._siteNav.querySelector('nx-nav-test')).to.exist;
+    expect(nav._actions.querySelector('button')).to.exist;
+  });
+
+  it('keeps the site nav against the brand without overlapping right actions at narrow widths', async () => {
+    await mountFragment({
+      middle: '<ul><li><button style="width: 160px">Site navigation</button></li></ul>',
+    });
+    const brand = nav.shadowRoot.querySelector('.brand-area');
+    const cluster = nav.shadowRoot.querySelector('.brand-cluster');
+    const siteNav = nav.shadowRoot.querySelector('.site-nav');
+    const actions = nav.shadowRoot.querySelector('.action-area');
+    actions.innerHTML = '<span style="display: block; width: 240px">Actions</span>';
+    actions.style.display = 'block';
+    nav.style.setProperty('--s2-spacing-100', '8px');
+    for (const width of [900, 480, 320]) {
+      nav.style.width = `${width}px`;
+      const siteRect = siteNav.getBoundingClientRect();
+      const actionsRect = actions.getBoundingClientRect();
+      expect(siteRect.left).to.be.closeTo(brand.getBoundingClientRect().right + 8, 1);
+      expect(siteRect.right).to.be.closeTo(cluster.getBoundingClientRect().right, 1);
+      expect(siteRect.right + 8).to.be.closeTo(actionsRect.left, 1);
+      expect(actionsRect.width).to.equal(240);
+    }
+  });
+});
+
 describe('nav decorateActions', () => {
   let restoreFetch;
   let nav;
@@ -203,10 +415,22 @@ describe('nav decorateActions', () => {
     expect(document.querySelector('nx-dialog')).to.not.be.null;
   });
 
-  // The plain-label <li> path (no button; e.g. "profile" and now "feedback")
-  // dynamically imports `../${name}/${name}.js` with a runtime-computed
-  // specifier. This harness's dev-server transform only rewrites bare
-  // specifiers (like da-lit) for statically-discoverable imports, so it
-  // can't be exercised here without a false failure unrelated to app
-  // behavior — verify manually instead (see nav.js's decorateActions).
+  it('handles a failed dialog fetch and lets a later click succeed', async () => {
+    restoreFetch = mockFragmentFetch();
+    const fragmentFetch = window.fetch;
+    window.fetch = async () => { throw new TypeError('Dialog unavailable'); };
+    const section = buildActionsSection({
+      buttonHtml: '<button data-pathname="/fragments/nav/help">Help</button>',
+    });
+    await nav.decorateActions(section);
+    const button = section.querySelector('button');
+    button.click();
+    await new Promise((resolve) => { setTimeout(resolve, 50); });
+    expect(document.querySelector('nx-dialog')).to.be.null;
+
+    window.fetch = fragmentFetch;
+    button.click();
+    await new Promise((resolve) => { setTimeout(resolve, 50); });
+    expect(document.querySelector('nx-dialog')).to.exist;
+  });
 });
