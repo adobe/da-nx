@@ -16,7 +16,7 @@
   list-style: none;
   font-size: var(--s2-component-s-bold-font-size);
   line-height: var(--s2-component-s-bold-line-height);
-  font-weight: 600;
+  font-weight: var(--s2-component-s-bold-font-weight);
   letter-spacing: 0.02em;
   color: var(--nx-picker-section-color, var(--s2-gray-700));
   text-transform: none;
@@ -35,6 +35,7 @@
   color: var(--s2-gray-800);
   font-family: inherit;
   font-size: var(--s2-component-s-regular-font-size);
+  font-weight: var(--s2-component-s-regular-font-weight);
   cursor: pointer;
   outline: none;
   width: fit-content;
@@ -101,6 +102,7 @@
   font-family: inherit;
   font-size: var(--s2-component-s-regular-font-size);
   line-height: var(--s2-component-s-regular-line-height);
+  font-weight: var(--s2-component-s-regular-font-weight);
   margin-bottom: 2px;
   cursor: pointer;
   box-sizing: border-box;
@@ -127,9 +129,7 @@
 .picker-item-description {
   display: block;
   color: var(--s2-gray-700);
-  font-size: var(--s2-component-s-regular-font-size);
-  line-height: var(--s2-component-s-regular-line-height);
-  font-weight: 400;
+  font-weight: var(--s2-component-s-regular-font-weight);
 }
 
 .picker-open-in-icon {
@@ -159,21 +159,23 @@
   .picker-section {
     font-size: var(--nx-picker-section-font-size, var(--s2-component-m-bold-font-size));
     line-height: var(--nx-picker-section-line-height, var(--s2-component-m-bold-line-height));
+    font-weight: var(--s2-component-m-bold-font-weight);
   }
 
   .picker-trigger {
     font-size: var(--s2-component-m-regular-font-size);
     line-height: var(--s2-component-m-regular-line-height);
+    font-weight: var(--s2-component-m-regular-font-weight);
   }
 
   .picker-item {
     font-size: var(--s2-component-m-regular-font-size);
     line-height: var(--s2-component-m-regular-line-height);
+    font-weight: var(--s2-component-m-regular-font-weight);
   }
 
   .picker-item-description {
-    font-size: var(--s2-component-m-regular-font-size);
-    line-height: var(--s2-component-m-regular-line-height);
+    font-weight: var(--s2-component-m-regular-font-weight);
   }
 
   .picker-open-in-icon,
