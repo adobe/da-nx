@@ -88,6 +88,10 @@ export default class BaseChatController {
 
   _loadCachedSkills() { return loadCachedSkills(); }
 
+  // A2UI component catalog advertised on a new session's first USER_INPUT.
+  // Harnesses that don't render AO artifacts leave it undefined.
+  _catalogUrl() { return undefined; }
+
   getSkills() {
     return this._skills;
   }
@@ -195,6 +199,7 @@ export default class BaseChatController {
         'x-user-email': email,
         'x-user-id': userId,
         'x-user-name': name,
+        'x-user-surface': 'experienceworkspace',
         ...(siteId ? { 'x-site': siteId } : {}),
       },
       wsBase: resolveAoWsBase(projectedProductContext),
@@ -614,6 +619,9 @@ export default class BaseChatController {
       const artifactIds = uploaded.map((a) => a.artifactId).filter(Boolean);
       const failed = uploaded.filter((a) => !a.artifactId);
       const { manifestId, debugMode } = await this._resolveManifest();
+      // AO reads catalogUrl only from a new session's first frame; resolve it
+      // before _ensureSocket, since the episode id is assigned once the session starts.
+      const catalogUrl = this._episodeId ? undefined : this._catalogUrl();
 
       await this._ensureSocket();
       this._ws.send(JSON.stringify({
@@ -625,6 +633,7 @@ export default class BaseChatController {
         ...(artifactIds.length && {
           attachments: this._formatAttachments(artifactIds),
         }),
+        ...(catalogUrl && { catalogUrl }),
         client_context: buildClientContext(this._context, items),
       }));
     } catch (err) {

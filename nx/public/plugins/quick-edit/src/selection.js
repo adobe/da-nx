@@ -193,13 +193,9 @@ export function setupNodeSelection(ctx) {
     const t = e.target;
     const pill = t.closest?.('.qe-selected-pill.is-hover');
     if (pill) {
+      // Keep the pressed target alive until click, including for click forwarding.
       e.preventDefault();
       e.stopPropagation();
-      const node = blockSelectPayload(pill);
-      if (!node) return;
-      blurActiveEditor();
-      clearHoverPill();
-      activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node } });
       return;
     }
 
@@ -235,6 +231,19 @@ export function setupNodeSelection(ctx) {
   }, true);
 
   document.addEventListener('click', (e) => {
+    const pill = e.target.closest?.('.qe-selected-pill.is-hover');
+    if (pill) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const node = blockSelectPayload(pill);
+      if (!node) return;
+      blurActiveEditor();
+      clearHoverPill();
+      activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node } });
+      return;
+    }
+
     const picture = e.target.closest?.('picture');
     if (!picture || activeCtx?.nodeSelectDragging) return;
     const node = imageSelectPayload(picture);

@@ -11,7 +11,10 @@ function customReporter() {
   return {
     async reportTestFileResults({ logger, sessionsForTestFile }) {
       sessionsForTestFile.forEach((session) => {
-        session.testResults.tests.forEach((test) => {
+        session.errors?.forEach((error) => {
+          logger.log(`${session.testFile}:`, error.stack || error.message);
+        });
+        session.testResults?.tests.forEach((test) => {
           if (!test.passed && !test.skipped) {
             logger.log(test);
           }
@@ -50,6 +53,7 @@ export default {
           {
             "imports": {
               "da-lit": "/deps/lit/dist/index.js",
+              "da-y-wrapper": "https://da.live/deps/da-y-wrapper/dist/index.js",
               "/nx/public/sl/components.js": "/test/mocks/sl-components.js",
               "/nx2/utils/ims.js": "/nx2/test/mocks/ims.js",
               "/scripts/utils.js": "/nx2/test/mocks/scripts-utils.js"

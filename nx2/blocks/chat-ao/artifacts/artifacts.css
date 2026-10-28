@@ -44,16 +44,97 @@
   gap: var(--s2-spacing-100);
 }
 
+.ui-artifact-card-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+}
+
+.ui-artifact-card-view-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 6.5rem), 1fr));
+  gap: var(--s2-spacing-100);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+}
+
+.ui-artifact-card-view-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-50);
+  min-width: 0;
+  padding: var(--s2-spacing-100);
+  border-radius: var(--s2-corner-radius-500);
+  background: light-dark(var(--s2-gray-25), var(--s2-gray-100));
+  box-shadow: var(--s2-drop-shadow-elevated);
+  overflow-wrap: anywhere;
+}
+
+.ui-artifact-card-view-label,
+.ui-artifact-card-view-title,
+.ui-artifact-card-view-description {
+  margin: 0;
+}
+
+.ui-artifact-card-view-label,
+.ui-artifact-card-view-title {
+  font-size: var(--s2-body-size-xs);
+  font-weight: 700;
+  line-height: 1.3333;
+  color: var(--s2-gray-900);
+}
+
+.ui-artifact-card-view-title,
+.ui-artifact-card-view-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.ui-artifact-card-view-description {
+  font-size: var(--s2-body-size-xxs);
+  line-height: var(--s2-body-line-height);
+  color: var(--s2-gray-700);
+}
+
+.ui-artifact-table-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+  min-width: 0;
+}
+
+.ui-artifact-table-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .ui-artifact-table-wrapper {
   overflow-x: auto;
+  max-width: 100%;
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-corner-radius-300);
+
+  &:focus-visible {
+    outline: 2px solid var(--s2-gray-900);
+    outline-offset: 2px;
+  }
 }
 
 .ui-artifact-table {
   border-collapse: collapse;
   width: 100%;
   font-size: var(--s2-body-size-xs);
+
+  caption {
+    padding: var(--s2-spacing-100);
+    text-align: left;
+    font-weight: bold;
+    color: var(--s2-gray-900);
+  }
 
   th,
   td {
@@ -119,6 +200,52 @@
   color: var(--s2-gray-600);
 }
 
+.code-block {
+  .code {
+    font-size: var(--s2-component-s-regular-font-size);
+  }
+  
+  .token.comment,
+  .token.prolog,
+  .token.doctype,
+  .token.cdata {
+    color: var(--s2-gray-600);
+  }
+
+  .token.keyword,
+  .token.atrule,
+  .token.attr-value {
+    color: var(--s2-blue-1100);
+  }
+
+  .token.string,
+  .token.char,
+  .token.attr-name,
+  .token.selector {
+    color: var(--s2-green-1100);
+  }
+
+  .token.number,
+  .token.boolean,
+  .token.constant,
+  .token.builtin {
+    color: var(--s2-orange-1100);
+  }
+
+  .token.function,
+  .token.class-name,
+  .token.tag,
+  .token.property {
+    color: var(--s2-red-1100);
+  }
+
+  .token.interpolation,
+  .token.punctuation,
+  .token.operator {
+    color: var(--s2-gray-800);
+  }
+}
+
 .ui-artifact-alert {
   display: flex;
   align-items: flex-start;
@@ -149,18 +276,11 @@
   min-width: 0;
 }
 
-.ui-artifact-alert-text,
-.ui-artifact-alert-details,
-.ui-artifact-alert-action {
+.ui-artifact-alert-text {
   margin: 0;
 }
 
-.ui-artifact-alert-details,
-.ui-artifact-alert-action {
-  font-size: var(--s2-body-size-xs);
-}
-
-.ui-artifact-alert-info {
+.ui-artifact-alert-informative {
   background: var(--s2-blue-100);
   border-color: var(--s2-blue-300);
   color: var(--s2-blue-900);
@@ -170,7 +290,7 @@
   }
 }
 
-.ui-artifact-alert-success {
+.ui-artifact-alert-positive {
   background: var(--s2-green-100);
   border-color: var(--s2-green-300);
   color: var(--s2-green-900);
@@ -180,7 +300,7 @@
   }
 }
 
-.ui-artifact-alert-warning {
+.ui-artifact-alert-notice {
   background: var(--s2-orange-100);
   border-color: var(--s2-orange-300);
   color: var(--s2-orange-900);
@@ -190,13 +310,22 @@
   }
 }
 
-.ui-artifact-alert-error,
-.ui-artifact-alert-critical {
+.ui-artifact-alert-negative {
   background: var(--s2-red-100);
   border-color: var(--s2-red-300);
   color: var(--s2-red-900);
 
   .ui-artifact-alert-icon {
     mask-image: url("/img/icons/s2-icon-alerttriangle-20-n.svg");
+  }
+}
+
+.ui-artifact-alert-neutral {
+  background: var(--s2-gray-100);
+  border-color: var(--s2-gray-300);
+  color: var(--s2-gray-900);
+
+  .ui-artifact-alert-icon {
+    mask-image: url("/img/icons/s2-icon-infocircle-20-n.svg");
   }
 }

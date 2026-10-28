@@ -42,6 +42,15 @@ describe('cma-controller connection', () => {
     controller.setActivationKey('');
     expect(controller._activationKey).to.equal(null);
   });
+
+  it('does not advertise an A2UI component catalog on a new session', async () => {
+    const { controller, sent } = makeController();
+
+    await controller.sendMessage('hello bridge');
+
+    expect(sent[0].type).to.equal('USER_INPUT');
+    expect(sent[0]).to.not.have.property('catalogUrl');
+  });
 });
 
 describe('cma-controller reload resume', () => {

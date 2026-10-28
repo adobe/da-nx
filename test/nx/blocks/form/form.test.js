@@ -71,6 +71,20 @@ describe('nx-form', () => {
     expect(el.shadowRoot.querySelector('nx-sidebar')).to.exist;
   });
 
+  it('shows the preview by default', async () => {
+    const el = await mountReady();
+    expect(el.shadowRoot.querySelector('nx-preview')).to.exist;
+    expect(el.shadowRoot.querySelector('.nx-editor-pane-with-preview')).to.exist;
+  });
+
+  it('removes the preview when the JSON preview is disabled', async () => {
+    const el = await mountReady();
+    el._previewEnabled = false;
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('nx-preview')).to.not.exist;
+    expect(el.shadowRoot.querySelector('.nx-editor-pane-with-preview')).to.not.exist;
+  });
+
   it('passes the engine and state into the editor', async () => {
     const el = await mountReady();
     const editor = el.shadowRoot.querySelector('nx-editor');

@@ -11,6 +11,7 @@
  */
 
 import BaseChatController from './base-chat-controller.js';
+import { AO_COMPONENT_CATALOG_URL } from './ao-constants.js';
 import {
   fetchEpisodes, fetchEpisodeMessages, fetchEpisodeContext, warmSession,
 } from './utils/episodes.js';
@@ -31,6 +32,8 @@ export default class CoworkerChatController extends BaseChatController {
   _fetchEpisodeContext(episodeId) { return fetchEpisodeContext(episodeId); }
 
   _fetchWarmSession(episodeId) { return warmSession(episodeId); }
+
+  _catalogUrl() { return AO_COMPONENT_CATALOG_URL; }
 
   // Coworker warm also hits the REST warm endpoint before attaching (AO caches
   // the rehydrated session); Base.warmSession covers the attach-only case.

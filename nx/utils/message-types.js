@@ -10,8 +10,8 @@ export const MESSAGE_TYPES = Object.freeze({
   READY: 'ready', // no payload
 
   // Host -> iframe
-  SET_BODY: 'set-body', // { body: string }
-  SET_EDITOR_STATE: 'set-editor-state', // { editorState: PM node JSON, cursorOffset: number, imageVersion }
+  SET_BODY: 'set-body', // { body: string, rerenderScope?: { type: 'page' } | { type: 'section' | 'section-added' | 'section-removed', sectionIndex: number } | { type: 'block', sectionIndex: number, blockIndex: number } }
+  SET_EDITOR_STATE: 'set-editor-state', // { editorState: PM node JSON, cursorOffset: number, imageVersion, lengthDiff?: number (host doc size change from the edit that produced this state) }
   SET_CURSORS: 'set-cursors', // { cursors: [{ proseIndex, remote, color }] }
   SET_SELECTED_NODE: 'set-selected-node', // { node: { anchorType, proseIndex, ... } | null, scrollIntoView }
   SET_COMMENT_MARKERS: 'set-comment-markers', // { markers: [...], selectedThreadId: string | null }
@@ -30,6 +30,7 @@ export const MESSAGE_TYPES = Object.freeze({
   COMMENT_MARKER_CLICK: 'comment-marker-click', // { payload: { threadId: string } }
   COMMENT_MARKER_CLEAR: 'comment-marker-clear', // no payload
   COMMENT_SHORTCUT: 'comment-shortcut', // no payload
+  QUICK_EDIT_IFRAME_CLICK: 'quick-edit-iframe-click', // { target?: string, source: 'ew-wysiwyg-layout' } — quick-edit iframe clicks; `target` in RUM format
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }
 
   // Iframe -> host: { proseIndex, imageVersion, requestId, imageData, fileName,
