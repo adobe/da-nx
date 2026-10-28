@@ -761,6 +761,47 @@ export const serviceOptions = [
 ];
 
 /**
+ * Persists the created submission IDs and document map on the project options so the
+ * GlobalLink project can be found (status, cancel, cleanup) after a send.
+ * @param {object} conf - The persistence configuration.
+ * @param {object} conf.options - The localization project options (mutated in place).
+ * @param {string[]} conf.submissionIds - Every GlobalLink submission ID the send created.
+ * @param {object} conf.documentsByPath - The daBasePath-to-documentId map.
+ * @returns {void}
+ */
+function persistSubmission({ options, submissionIds, documentsByPath }) {
+  if (Object.keys(documentsByPath).length) {
+    options.service.documentIds = { value: JSON.stringify(documentsByPath) };
+  }
+  // GlobalLink may silently split the upload across additional submission(s) beyond the
+  // requested one - persist all of them so status/downloads/cancel can be checked against
+  // every submission the project actually spans (see getAllSubmissionIds).
+  options.service.submissionIds = { value: JSON.stringify(submissionIds) };
+}
+
+/**
+ * Records a send that failed after the submission was created: persists the submission IDs
+ * and marks every language `error`, so it cannot be retried within this project.
+ * @param {object} conf - The failure configuration.
+ * @param {object} conf.options - The localization project options (mutated in place).
+ * @param {object[]} conf.langs - The target languages to mark `error` (mutated in place).
+ * @param {string[]} conf.submissionIds - Every GlobalLink submission ID the send created.
+ * @param {object} conf.documentsByPath - The daBasePath-to-documentId map.
+ * @param {Function} conf.saveState - Persists the project state.
+ * @returns {Promise<void>}
+ */
+async function recordFailedSubmission({
+  options, langs, submissionIds, documentsByPath, saveState,
+}) {
+  persistSubmission({ options, submissionIds, documentsByPath });
+  langs.forEach((lang) => {
+    lang.translation ??= {};
+    lang.translation.status = 'error';
+  });
+  await saveState({ options });
+}
+
+/**
  * Creates a GlobalLink submission for a set of languages, uploads the source
  * documents, and starts the submission for translation.
  * @param {object} conf - The translation-send configuration.
@@ -772,8 +813,9 @@ export const serviceOptions = [
  * @param {object} conf.options - The full localization project options, including any
  * `translation.service.custom.*` fields required as GlobalLink submission custom attributes.
  * @param {object[]} conf.langs - The target languages to send (mutated in place with
- * `translation.sent`/`translation.status` only once the submission has started; a failure
- * leaves them untouched and reports GlobalLink's explanation via `sendMessage`).
+ * `translation.sent`/`translation.status` `created` once the submission has started). A
+ * failure after the submission was created persists its IDs and marks them `error`;
+ * GlobalLink's explanation is reported via `sendMessage`.
  * @param {object[]} conf.urls - The DA url entries (with content) to upload.
  * @param {object} conf.actions - UI callback actions.
  * @param {Function} conf.actions.sendMessage - Reports progress/status text to the UI.
@@ -810,54 +852,74 @@ export async function sendAllLanguages({
     return;
   }
 
-  sendMessage({ text: `Uploading ${urls.length} items to GlobalLink.` });
-  const {
-    uploadedFileNames, submissionIds, documentsByPath, error: uploadError,
-  } = await uploadSourceFiles(service, submissionId, urls, batchName);
-  const accepted = urls.filter((url) => uploadedFileNames.has(toFileName(url.daBasePath))).length;
+  const known = { submissionIds: [String(submissionId)], documentsByPath: {} };
+  const failSubmission = () => recordFailedSubmission({
+    options, langs, ...known, saveState,
+  });
 
-  if (accepted !== urls.length) {
-    sendMessage({
-      text: withDetail(`Uploaded ${accepted}/${urls.length} items — aborting save.`, uploadError),
-      type: 'error',
-    });
-    return;
-  }
+  /**
+   * Uploads, waits for processing and starts the created submission.
+   * @returns {Promise<{ accepted: number }|undefined>} The accepted count, or undefined
+   * after a reported failure.
+   */
+  const startSubmission = async () => {
+    sendMessage({ text: `Uploading ${urls.length} items to GlobalLink.` });
+    const {
+      uploadedFileNames, submissionIds, documentsByPath, error: uploadError,
+    } = await uploadSourceFiles(service, submissionId, urls, batchName);
+    known.submissionIds = submissionIds;
+    known.documentsByPath = documentsByPath;
+    const accepted = urls.filter((url) => uploadedFileNames.has(toFileName(url.daBasePath))).length;
 
-  sendMessage({ text: 'Waiting for GlobalLink to finish processing uploads.' });
-  const { ready, detail: processDetail } = await waitForAllSubmissionsReady(
-    service,
-    submissionIds,
-  );
-  if (!ready) {
-    sendMessage({
-      text: withDetail('Failed to process GlobalLink submission uploads.', processDetail),
-      type: 'error',
-    });
-    return;
-  }
+    if (accepted !== urls.length) {
+      await failSubmission();
+      sendMessage({
+        text: withDetail(`Uploaded ${accepted}/${urls.length} items — aborting save.`, uploadError),
+        type: 'error',
+      });
+      return undefined;
+    }
 
-  sendMessage({ text: 'Starting GlobalLink submission.' });
-  const { started, messages } = await saveAndAutostartAll(service, submissionIds);
-  if (!started) {
-    sendMessage({
-      text: withDetail('Failed to save/start GlobalLink submission.', messages?.join(' ')),
-      type: 'error',
-    });
-    return;
-  }
+    sendMessage({ text: 'Waiting for GlobalLink to finish processing uploads.' });
+    const { ready, detail: processDetail } = await waitForAllSubmissionsReady(
+      service,
+      submissionIds,
+    );
+    if (!ready) {
+      await failSubmission();
+      sendMessage({
+        text: withDetail('Failed to process GlobalLink submission uploads.', processDetail),
+        type: 'error',
+      });
+      return undefined;
+    }
 
-  if (Object.keys(documentsByPath).length) {
-    options.service.documentIds = { value: JSON.stringify(documentsByPath) };
-  }
-  // GlobalLink may silently split the upload across additional submission(s) beyond the
-  // requested one - persist all of them so status/downloads/cancel can be checked against
-  // every submission the project actually spans (see getAllSubmissionIds).
-  options.service.submissionIds = { value: JSON.stringify(submissionIds) };
+    sendMessage({ text: 'Starting GlobalLink submission.' });
+    const { started, messages } = await saveAndAutostartAll(service, submissionIds);
+    if (!started) {
+      await failSubmission();
+      sendMessage({
+        text: withDetail('Failed to save/start GlobalLink submission.', messages?.join(' ')),
+        type: 'error',
+      });
+      return undefined;
+    }
+
+    return { accepted };
+  };
+
+  const result = await startSubmission().catch(async (e) => {
+    await failSubmission();
+    sendMessage({ text: withDetail('Failed to send to GlobalLink.', e.message), type: 'error' });
+    return undefined;
+  });
+  if (!result) return;
+
+  persistSubmission({ options, ...known });
 
   langs.forEach((lang) => {
     lang.translation ??= {};
-    lang.translation.sent = accepted;
+    lang.translation.sent = result.accepted;
     lang.translation.status = 'created';
   });
 
@@ -867,9 +929,9 @@ export async function sendAllLanguages({
 
 /**
  * Refreshes translation progress for a submission, marking languages as
- * `translated` once every document has a processed target. Languages already `complete`
- * or `cancelled` are skipped, since GlobalLink keeps reporting delivered targets as
- * processed indefinitely.
+ * `translated` once every document has a processed target. Languages already `complete`,
+ * `cancelled` or `error` are skipped (GlobalLink keeps reporting delivered targets as
+ * processed indefinitely, and a failed send must stay failed).
  * @param {object} conf - The status-check configuration.
  * @param {object} conf.service - The flattened per-environment service config, including
  * the previously persisted `submissionIds` (see {@link getAllSubmissionIds}).
@@ -890,11 +952,9 @@ export async function getStatusAll({ service, langs, urls, actions }) {
     return;
   }
 
-  // 'complete'/'cancelled' are terminal - GlobalLink keeps reporting a delivered target as
-  // processed forever, so without this guard every subsequent status check would revert
-  // 'complete' back to 'translated' (triggering a re-save) or 'cancelled' back to 'translated'
-  // (undoing the cancel).
-  const activeLangs = langs.filter((lang) => !['complete', 'cancelled'].includes(lang.translation?.status));
+  // 'complete'/'cancelled'/'error' are terminal - GlobalLink keeps reporting a delivered target
+  // as processed forever, so without this guard a status check would revert them to 'translated'.
+  const activeLangs = langs.filter((lang) => !['complete', 'cancelled', 'error'].includes(lang.translation?.status));
   if (!activeLangs.length) return;
 
   const connected = await isConnected(service);
