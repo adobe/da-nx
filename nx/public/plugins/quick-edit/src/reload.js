@@ -7,8 +7,7 @@ const getSourceSections = (root) => [...root.querySelectorAll(':scope > div')];
 const getSourceBlocks = (sections) => sections
   .flatMap((section) => [...section.querySelectorAll(':scope > div[data-block-index]')]);
 
-const getLiveSections = (root) => [...root.querySelectorAll('div.section')]
-  .filter((section) => !section.parentElement.closest('.block'));
+const getLiveSections = (root) => [...root.querySelectorAll('[data-section-index]')];
 
 const getLiveBlocks = (sections) => sections
   .flatMap((section) => [...section.querySelectorAll(':scope > div > .block')]);
