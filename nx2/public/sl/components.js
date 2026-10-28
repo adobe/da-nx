@@ -31,6 +31,10 @@ class SlInput extends LitElement {
     this.shadowRoot.querySelector('input').focus();
   }
 
+  select() {
+    this.shadowRoot.querySelector('input').select();
+  }
+
   handleEvent(event) {
     this.value = event.target.value;
     this._internals.setFormValue(this.value);
@@ -59,7 +63,7 @@ class SlInput extends LitElement {
       if ((name === 'class' || name === 'label' || name === 'value' || name === 'error')) return acc;
       acc[name] = this.getAttribute(name);
       return acc;
-    }, {});
+    }, { type: 'text' });
   }
 
   get form() { return this._internals.form; }
