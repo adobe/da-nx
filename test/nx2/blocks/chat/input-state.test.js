@@ -81,6 +81,49 @@ describe('chat input coordination', () => {
       expect(input.disabled).to.equal(true);
       expect(input.hidden).to.equal(false);
       expect(chat.shadowRoot.querySelector('.chat-working')).to.equal(null);
+      expect(chat.shadowRoot.querySelector('.chat-form').classList.contains('is-processing')).to.equal(false);
+    });
+
+    it(`${tag} shares guarded Stop between host and left controls without sending or losing a draft`, async () => {
+      const input = await mount(tag);
+      chat.connected = true;
+      await chat.updateComplete;
+      input.value = 'Keep this draft';
+      const states = [];
+      chat.addEventListener(CHAT_EVENT.INPUT_STATE_CHANGE, ({ detail }) => states.push(detail));
+      const stop = sinon.spy(() => { chat.thinking = false; });
+      chat._controller.stop = stop;
+      chat.stop();
+      expect(stop.called).to.equal(false);
+      chat.thinking = true;
+      await chat.updateComplete;
+      const form = chat.shadowRoot.querySelector('.chat-form');
+      const leftStop = form.querySelector('.chat-stop');
+      expect(leftStop.type).to.equal('button');
+      expect(leftStop.getAttribute('aria-label')).to.equal('Stop');
+      expect(form.classList.contains('is-processing')).to.equal(true);
+      for (const scheme of ['light', 'dark']) {
+        chat.style.colorScheme = scheme;
+        expect(getComputedStyle(form).backgroundImage).to.include('radial-gradient');
+        expect(getComputedStyle(form, '::after').backgroundImage).to.include('conic-gradient');
+        expect(getComputedStyle(form, '::after').pointerEvents).to.equal('none');
+      }
+      chat.stop();
+      leftStop.click();
+      expect(stop.calledOnce).to.equal(true);
+      await chat.updateComplete;
+      expect(states.at(-1)).to.deep.equal({ busy: false, disabled: false });
+      expect(input.disabled).to.equal(false);
+      expect(input.value).to.equal('Keep this draft');
+      expect(form.classList.contains('is-processing')).to.equal(false);
+      chat.thinking = true;
+      await chat.updateComplete;
+      leftStop.click();
+      chat.stop();
+      expect(stop.callCount).to.equal(2);
+      await chat.updateComplete;
+      expect(input.value).to.equal('Keep this draft');
+      expect(chat._controller.sendMessage.called).to.equal(false);
     });
 
     it(`${tag} submits one staged prompt with attachments through the public autoSend API`, async () => {

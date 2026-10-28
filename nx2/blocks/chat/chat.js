@@ -59,6 +59,11 @@ class NxChat extends LitElement {
     return { busy: !!this.thinking, disabled: !!this.thinking || !this.connected };
   }
 
+  stop() {
+    if (!this.inputState.busy) return;
+    this._controller?.stop();
+  }
+
   setPrompt(text, { autoSend = false, replace = true } = {}) {
     if (!text || this.thinking) return false;
     const draft = this._pendingPrompt?.text || this.shadowRoot?.querySelector('.chat-input')?.value;
@@ -257,7 +262,7 @@ class NxChat extends LitElement {
   _submit(e) {
     e?.preventDefault();
     if (this.thinking) {
-      this._controller.stop();
+      this.stop();
       return;
     }
     const input = this.shadowRoot.querySelector('.chat-input');
@@ -398,7 +403,7 @@ class NxChat extends LitElement {
           .pending=${this.pendingInteraction}
           .onApprove=${(toolCallId, approved, always) => this._controller.approveToolCall(toolCallId, approved, always)}
         ></nx-chat-interaction>
-        <form class="chat-form" autocomplete="off" @submit=${this._submit}
+        <form class="chat-form ${this.showInputStatus && this.inputState.busy ? 'is-processing' : ''}" autocomplete="off" @submit=${this._submit}
           @dragenter=${this._dnd.onDragEnter}
           @dragleave=${this._dnd.onDragLeave}
           @dragover=${this._dnd.onDragOver}
@@ -442,7 +447,7 @@ class NxChat extends LitElement {
               <span class="icon-up">${icon('up')}</span>
             </button>
           </nx-menu>
-          <button class="chat-stop action-btn" type="button" aria-label="Stop" @click=${this._submit}>${icon('stop')}</button>
+          <button class="chat-stop action-btn" type="button" aria-label="Stop" @click=${this.stop}>${icon(this.showInputStatus ? 'stopProcessing' : 'stop')}</button>
           <button class="chat-send harness-da-agent action-btn" type="submit" aria-label="Send">${icon('send')}</button>
         </div>
         </form>

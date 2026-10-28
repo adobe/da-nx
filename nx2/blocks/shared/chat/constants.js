@@ -18,6 +18,7 @@ export const ICON_NAMES = {
   close: 's2-icon-splitleft-20-n',
   send: 's2-icon-arrowupsend-20-n',
   stop: 's2-icon-stop-20-n',
+  stopProcessing: 's2-icon-stopprocessing-20-n',
   up: 's2-icon-chevronup-20-n',
   mic: 's2-icon-microphone-20-n',
   newChat: 's2-icon-chatnew-20-n',

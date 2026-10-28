@@ -93,6 +93,11 @@ export default class NxChatAo extends LitElement {
     return { busy: !!this._blocked, disabled: !!this._blocked || !!this.loadingEpisode };
   }
 
+  stop() {
+    if (!this.inputState.busy) return;
+    this._controller?.stop();
+  }
+
   async setPrompt(text, { autoSend = false, replace = true } = {}) {
     await this.updateComplete;
     const draft = this.shadowRoot.querySelector('.chat-input')?.value;
@@ -359,7 +364,7 @@ export default class NxChatAo extends LitElement {
     e?.preventDefault();
     if (this.loadingEpisode) return;
     if (this._blocked) {
-      this._controller.stop();
+      this.stop();
       return;
     }
     const input = this.shadowRoot.querySelector('.chat-input');
@@ -524,7 +529,7 @@ export default class NxChatAo extends LitElement {
         ${renderPermissionCard(this.pendingPermission, {
             onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
           })}
-        <form class="chat-form" @submit=${this._submit}
+        <form class="chat-form ${this.showInputStatus && this.inputState.busy ? 'is-processing' : ''}" @submit=${this._submit}
           @dragenter=${this._dnd.onDragEnter}
           @dragleave=${this._dnd.onDragLeave}
           @dragover=${this._dnd.onDragOver}
@@ -581,10 +586,12 @@ export default class NxChatAo extends LitElement {
                 >${icon('mic')}</button>
               ` : nothing}
               <button
+                type="button"
                 class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
+                aria-label="Stop"
                 ?hidden=${!this._blocked}
-                @click=${this._submit}
-              > ${icon('stop')}</button>
+                @click=${this.stop}
+              > ${icon(this.showInputStatus ? 'stopProcessing' : 'stop')}</button>
               <button type="submit" class="chat-send harness-coworker nx-action-btn-icon is-active nx-btn-sm"
                 ?hidden=${this._blocked} ?disabled=${this.loadingEpisode} aria-label="Send">
                 ${icon('send')}
