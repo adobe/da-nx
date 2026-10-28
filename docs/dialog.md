@@ -2,6 +2,9 @@
 
 A modal dialog. Blocks interaction with the rest of the page until dismissed. Closes on backdrop click or Escape unless marked `persistent` or `busy`.
 
+The dialog follows the global S/M UI size live, without reopening or resetting its content.
+Heading text is 18px/20px and default body text is 14px/16px. Multiline text inherits the body line height.
+
 ## Usage
 
 Render `<nx-dialog>` conditionally — it opens itself when connected to the DOM. Remove it (or re-render with `nothing`) when the `close` event fires.

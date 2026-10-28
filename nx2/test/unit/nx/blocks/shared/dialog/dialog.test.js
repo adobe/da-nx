@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { setViewport } from '@web/test-runner-commands';
+import { setUISize } from '../../../../../../utils/ui-size.js';
 
 import '../../../../../../blocks/shared/dialog/dialog.js';
 
@@ -25,12 +26,19 @@ async function openDialog(content = '<p>Short content.</p>') {
 }
 
 describe('nx-dialog sizing', () => {
+  let savedSize;
+
   beforeEach(async () => {
+    savedSize = localStorage.getItem('ui-size');
+    setUISize({ size: 's' });
     await setViewport({ width: 1280, height: 900 });
   });
 
   afterEach(async () => {
     document.querySelectorAll('nx-dialog').forEach((el) => el.remove());
+    setUISize({ size: savedSize === 'm' ? 'm' : 's' });
+    if (savedSize === null) localStorage.removeItem('ui-size');
+    else localStorage.setItem('ui-size', savedSize);
     await setViewport({ width: 800, height: 600 });
   });
 
@@ -77,5 +85,45 @@ describe('nx-dialog sizing', () => {
 
     expect(actions.hidden).to.be.false;
     expect(getComputedStyle(actions).display).to.equal('flex');
+  });
+
+  it('scales an open dialog without resetting its content or focus', async () => {
+    const { dialog, body } = await openDialog('<input autofocus><p>Unsaved content.</p>');
+    dialog.title = 'Preflight';
+    await dialog.updateComplete;
+    const title = dialog.shadowRoot.querySelector('.title');
+    const modal = dialog.shadowRoot.querySelector('dialog');
+    const input = dialog.querySelector('input');
+    input.value = 'Keep this draft';
+    input.focus();
+    expect(getComputedStyle(title).fontSize).to.equal('18px');
+    expect(getComputedStyle(body).fontSize).to.equal('14px');
+
+    setUISize({ size: 'm' });
+    await dialog.updateComplete;
+    expect(dialog.dataset.uiSize).to.equal('m');
+    expect(getComputedStyle(title).fontSize).to.equal('20px');
+    expect(getComputedStyle(body).fontSize).to.equal('16px');
+    expect(getComputedStyle(dialog.querySelector('p')).lineHeight).to.equal('24px');
+    expect(dialog.shadowRoot.querySelector('dialog')).to.equal(modal);
+    expect(modal.open).to.be.true;
+    expect(input.value).to.equal('Keep this draft');
+    expect(document.activeElement).to.equal(input);
+
+    setUISize({ size: 's' });
+    await dialog.updateComplete;
+    expect(getComputedStyle(title).fontSize).to.equal('18px');
+    expect(getComputedStyle(body).fontSize).to.equal('14px');
+    expect(getComputedStyle(dialog.querySelector('p')).lineHeight).to.equal('21px');
+  });
+
+  it('starts in M and releases its size listener on disconnect', async () => {
+    setUISize({ size: 'm' });
+    const { dialog, body } = await openDialog();
+    expect(dialog.dataset.uiSize).to.equal('m');
+    expect(getComputedStyle(body).fontSize).to.equal('16px');
+    dialog.remove();
+    setUISize({ size: 's' });
+    expect(dialog.dataset.uiSize).to.equal('m');
   });
 });

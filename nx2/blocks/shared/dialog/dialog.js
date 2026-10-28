@@ -1,9 +1,12 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { UISizeController } from '../../../utils/ui-size.js';
 
 const styles = await loadStyle(import.meta.url);
 
 class NxDialog extends LitElement {
+  _uiSize = new UISizeController(this);
+
   static properties = {
     title: { type: String },
     busy: { type: Boolean },
