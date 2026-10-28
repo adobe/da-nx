@@ -177,7 +177,7 @@ class NxLocValidate extends LitElement {
 
     const duplicates = findDuplicateBasePaths({ urls });
     if (duplicates.length) {
-      const conflicts = duplicates.map((paths) => paths.join(' and ')).join('; ');
+      const conflicts = duplicates.map((paths) => paths.join(', ')).join('; ');
       return { message: { type: 'error', text: `Multiple URLs resolve to the same base path. Remove one: ${conflicts}` } };
     }
 
