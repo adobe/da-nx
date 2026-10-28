@@ -33,7 +33,7 @@ describe('Coworker menu navigation', () => {
       chat.episodeId = 'episode-123';
       await chat._loadCoworkerNav();
 
-      chat._handleMenuSelect({ detail: { id } });
+      chat._handleMenuSelect(id);
 
       expect(calls).to.deep.equal([[
         `https://experience.adobe.com/#/@sitesinternal/coworker/i/${destination}`,
@@ -45,7 +45,7 @@ describe('Coworker menu navigation', () => {
     it(`opens the previous ${id} route synchronously before navigation is ready`, () => {
       chat.episodeId = 'episode-123';
 
-      chat._handleMenuSelect({ detail: { id } });
+      chat._handleMenuSelect(id);
 
       expect(calls).to.deep.equal([[
         `https://experience.adobe.com/#/coworker/${destination}`,
@@ -60,7 +60,7 @@ describe('Coworker menu navigation', () => {
     setMockIms({ ownerOrg: 'other-org@AdobeOrg', tenantId: 'other-tenant' });
     await chat._loadCoworkerNav();
 
-    chat._handleMenuSelect({ detail: { id: MENU_OPTIONS.MANAGE_SKILLS } });
+    chat._handleMenuSelect(MENU_OPTIONS.MANAGE_SKILLS);
 
     expect(calls[0][0]).to.equal(
       'https://experience.adobe.com/#/@other-tenant/coworker/i/customizations',
@@ -69,7 +69,7 @@ describe('Coworker menu navigation', () => {
 
   it('does not offer an episode redirect without an active episode', async () => {
     await chat._loadCoworkerNav();
-    chat._handleMenuSelect({ detail: { id: MENU_OPTIONS.OPEN_COWORKER } });
+    chat._handleMenuSelect(MENU_OPTIONS.OPEN_COWORKER);
     expect(calls).to.have.length(0);
   });
 
@@ -78,11 +78,11 @@ describe('Coworker menu navigation', () => {
     setMockIms({ tenantId: 'other-tenant' });
     const loading = chat._loadCoworkerNav();
 
-    chat._handleMenuSelect({ detail: { id: MENU_OPTIONS.MANAGE_SKILLS } });
+    chat._handleMenuSelect(MENU_OPTIONS.MANAGE_SKILLS);
     expect(calls[0][0]).to.equal('https://experience.adobe.com/#/coworker/customizations');
 
     await loading;
-    chat._handleMenuSelect({ detail: { id: MENU_OPTIONS.MANAGE_SKILLS } });
+    chat._handleMenuSelect(MENU_OPTIONS.MANAGE_SKILLS);
     expect(calls[1][0]).to.equal(
       'https://experience.adobe.com/#/@other-tenant/coworker/i/customizations',
     );
@@ -92,7 +92,7 @@ describe('Coworker menu navigation', () => {
     setMockIms({ tenantId: null });
     await chat._loadCoworkerNav();
 
-    chat._handleMenuSelect({ detail: { id: MENU_OPTIONS.MANAGE_SKILLS } });
+    chat._handleMenuSelect(MENU_OPTIONS.MANAGE_SKILLS);
 
     expect(calls[0][0]).to.equal('https://experience.adobe.com/#/coworker/customizations');
     expect(document.getElementById('nx-toast-host')).not.to.exist;
@@ -102,7 +102,7 @@ describe('Coworker menu navigation', () => {
     let configOpened = false;
     chat._openConfigPage = () => { configOpened = true; };
 
-    chat._handleMenuSelect({ detail: { id: MENU_OPTIONS.MANAGE_PROMPT } });
+    chat._handleMenuSelect(MENU_OPTIONS.MANAGE_PROMPT);
 
     expect(configOpened).to.equal(true);
     expect(calls).to.have.length(0);
