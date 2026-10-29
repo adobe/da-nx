@@ -29,8 +29,11 @@ The following sections highlight some principles in more detail.
 - Communicating with a component further outside of the parent/child relationship is also done via props and events, obtaining the component using document.querySelector(...).
 
 `nx-sidenav.actions` optionally accepts host-owned `{ label, icon, disabled,
-onClick }` descriptors. They render as accessible 32px buttons before the
-fragment's navigation links. Hosts update `actions` to change availability and
+onClick, active, activeIcon }` descriptors. They render as accessible 32px buttons
+before the fragment's navigation links. An `icon` URL with a fragment renders
+as overflowing SVG artwork; other URLs render as images. Optional `active`
+sets the selected circle and pressed state; `activeIcon` supplies its 18px SVG
+glyph. Hosts update `actions` to reflect availability and panel visibility and
 remove their descriptors on disconnection; other menus have no added actions.
 
 ### Backend communication

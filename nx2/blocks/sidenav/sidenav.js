@@ -70,6 +70,18 @@ class NXSidenav extends LitElement {
     return this.path || DEFAULT_NAV_PATH;
   }
 
+  _renderActionIcon(action) {
+    if (action.active && action.activeIcon) {
+      return html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href=${action.activeIcon}></use></svg>`;
+    }
+    if (action.icon?.includes('#')) {
+      return html`<svg class="nav-action-artwork" aria-hidden="true">
+        <use href=${action.icon} width="100%" height="100%"></use>
+      </svg>`;
+    }
+    return html`<img src=${action.icon} alt="">`;
+  }
+
   render() {
     if (!this._navLinks) return nothing;
 
@@ -77,10 +89,11 @@ class NXSidenav extends LitElement {
       <ul>
         ${this.actions?.map((action) => html`
           <li class="nav-action">
-            <button type="button" class="nx-action-btn-icon"
+            <button type="button" class="nx-action-btn-icon ${action.active ? 'is-active' : ''}"
               aria-label=${action.label} title=${action.label}
+              aria-pressed=${action.active ?? nothing}
               ?disabled=${action.disabled} @click=${action.onClick}>
-              <img src=${action.icon} alt="">
+              ${this._renderActionIcon(action)}
             </button>
           </li>
         `)}

@@ -25,17 +25,34 @@
 }
 
 .nav-action {
+  position: relative;
+  z-index: 1;
   display: flex;
   justify-content: center;
 
   button {
     padding: 0;
+    border-radius: 50%;
+    overflow: visible;
+
+    &.is-active {
+      background: var(--s2-gray-800);
+      color: var(--s2-gray-25);
+
+      &:hover:not(:disabled) {
+        background: var(--s2-gray-900);
+      }
+    }
   }
 
-  img {
+  img, .nav-action-artwork {
     width: var(--nx-sidenav-action-icon-size);
     height: var(--nx-sidenav-action-icon-size);
     flex-shrink: 0;
+  }
+
+  .nav-action-artwork {
+    overflow: visible;
   }
 }
 

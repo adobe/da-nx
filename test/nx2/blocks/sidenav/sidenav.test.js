@@ -53,4 +53,39 @@ describe('sidenav actions', () => {
     expect(image.getBoundingClientRect().width).to.equal(40);
     expect(image.getBoundingClientRect().height).to.equal(40);
   });
+
+  it('lets SVG artwork overflow and switches to an accessible selected glyph', async () => {
+    nav.style.setProperty('--s2-gray-800', 'rgb(41 41 41)');
+    nav.style.setProperty('--s2-gray-25', 'rgb(255 255 255)');
+    nav.actions = [{
+      label: 'Open chat',
+      icon: '/assistant.svg#icon',
+      activeIcon: '/coworker.svg#icon',
+      active: false,
+    }];
+    await nav.updateComplete;
+    const button = nav.shadowRoot.querySelector('button');
+    const artwork = button.querySelector('svg');
+    button.style.transition = 'none';
+    expect(artwork.getBoundingClientRect().width).to.equal(32);
+    expect(artwork.getBoundingClientRect().height).to.equal(32);
+    expect(getComputedStyle(artwork).overflow).to.equal('visible');
+    expect(getComputedStyle(button).overflow).to.equal('visible');
+    expect(button.getAttribute('aria-pressed')).to.equal('false');
+    nav.actions = [{ ...nav.actions[0], active: true }];
+    await nav.updateComplete;
+    expect(button.getAttribute('aria-pressed')).to.equal('true');
+    expect(button.querySelector('.nav-action-artwork')).to.equal(null);
+    expect(button.querySelector('use').getAttribute('href')).to.equal('/coworker.svg#icon');
+    expect(button.querySelector('svg').getBoundingClientRect().width).to.equal(18);
+    expect(button.getBoundingClientRect().width).to.equal(32);
+    expect(button.getBoundingClientRect().height).to.equal(32);
+    expect(getComputedStyle(button).borderRadius).to.equal('50%');
+    expect(getComputedStyle(button).backgroundColor).to.equal('rgb(41, 41, 41)');
+    expect(getComputedStyle(button).color).to.equal('rgb(255, 255, 255)');
+    nav.actions = [{ ...nav.actions[0], active: false }];
+    await nav.updateComplete;
+    expect(button.querySelector('.nav-action-artwork')).not.to.equal(null);
+    expect(button.getAttribute('aria-pressed')).to.equal('false');
+  });
 });

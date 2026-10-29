@@ -168,7 +168,7 @@
     flex: 0 0 var(--nx-chat-input-logo-size);
     height: var(--nx-chat-input-logo-size);
     margin-block-start: calc(var(--s2-spacing-100) + (1.5em - var(--nx-chat-input-logo-size)) / 2);
-    background-color: var(--s2-gray-600);
+    background-color: var(--s2-gray-800);
     mask: url('/img/icons/s2-icon-coworker-20-n.svg') center / contain no-repeat;
     pointer-events: none;
   }

@@ -262,6 +262,20 @@ describe('chat input coordination', () => {
     }
   });
 
+  it('uses gray-800 for the coworker mark in both input variants and themes', async () => {
+    await mount('nx-chat-ao');
+    const input = chat.shadowRoot.querySelector('nx-ao-input');
+    for (const variant of ['compact', 'expanded']) {
+      input.variant = variant;
+      await input.updateComplete;
+      for (const scheme of ['light', 'dark']) {
+        input.style.colorScheme = scheme;
+        const mark = getComputedStyle(input.shadowRoot.querySelector('.coworker-chat'), '::before');
+        expect(mark.backgroundColor).to.equal(scheme === 'light' ? 'rgb(41, 41, 41)' : 'rgb(219, 219, 219)');
+      }
+    }
+  });
+
   it('keeps AO plan feedback available, but blocks handoff while switching episodes', async () => {
     await mount('nx-chat-ao');
     chat.thinking = true;
