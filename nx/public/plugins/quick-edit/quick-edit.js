@@ -4,6 +4,7 @@ import {
   setupImageDropListeners,
   updateImageSrc,
   handleImageError,
+  handleAssetImageDrop,
 } from './src/images.js';
 import { setEditorState, captureFocusedEditor } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
@@ -106,7 +107,9 @@ function onMessage(e, ctx) {
   } else if (type === MESSAGE_TYPES.SET_CURSORS) {
     setCursors(payload.cursors, ctx);
   } else if (type === MESSAGE_TYPES.IMAGE_REPLACE) {
-    if (payload.error) {
+    if (payload.assets) {
+      handleAssetImageDrop(payload, ctx);
+    } else if (payload.error) {
       handleImageError(payload.error, payload.requestId, ctx);
     } else {
       updateImageSrc(payload.requestId, payload.newSrc, ctx);
