@@ -6,6 +6,8 @@ The block runs inside the Experience Workspace (EW): it is kept under `nx/blocks
 
 For engine internals — schema compilation, model build, validation, defaults policy, persistence semantics — see the SDK's [architecture.md](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/architecture.md). This document only covers the nexter shell and what it adds on top.
 
+For rich-text string fields (`x-semantic-type: rich-text`), see [rich-text.md](./rich-text.md).
+
 ---
 
 ## 1. Layout
