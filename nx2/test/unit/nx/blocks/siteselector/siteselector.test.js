@@ -47,7 +47,8 @@ describe('nx-siteselector', () => {
     selector.sites = [];
     document.body.append(selector);
     let picker = await settle();
-    expect(picker.placeholder).to.equal('Choose a site');
+    expect(picker.placeholder).to.equal('Your recent sites');
+    expect(picker.shadowRoot.querySelector('[part="label"]').textContent).to.equal('Your recent sites');
     expect(picker.items.at(-1)).to.include({ value: 'add-site', action: true });
     selector.sites = [
       { value: 'aemsites/devlive', label: 'devlive (aemsites)' },
@@ -74,7 +75,7 @@ describe('nx-siteselector', () => {
     selector.sites = [];
     picker = await settle();
     expect(picker.inert).to.be.false;
-    expect(picker.placeholder).to.equal('Choose a site');
+    expect(picker.placeholder).to.equal('Your recent sites');
   });
 
   it('shows the heading until a site is selected and restores it when selection is cleared', async () => {
