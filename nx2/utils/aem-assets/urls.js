@@ -115,7 +115,3 @@ export function getDmApprovalStatus(asset) {
     activationTarget: meta?.['dam:activationTarget'],
   };
 }
-
-export function getScene7PublishStatus(asset) {
-  return asset?.['repo:scene7FileStatus'];
-}

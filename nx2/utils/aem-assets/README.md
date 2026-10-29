@@ -39,7 +39,7 @@ aem-assets/
 
 - The selector shows the full **folder hierarchy** from AEM DAM.
 - URLs point to the **publish** tier, `https://publish-p…/content/dam/…`.
-- An asset whose `repo:scene7FileStatus` is set to anything other than `PublishComplete` is rejected.
+- An asset is only accepted when it is published to AEM Publish. The check reads `isPublishedToAemPublish` from the [Assets Author API `RepositoryMetadata` schema](https://developer.adobe.com/experience-cloud/experience-manager-apis/api/stable/assets/author/) and falls back to `aem:published`, which the selector sends today but the API marks as deprecated. Only `true` passes. A missing or non-boolean value is rejected, and so is an asset that is only on preview.
 
 ### 2. Author + Dynamic Media Delivery
 
@@ -209,7 +209,6 @@ Helpers.
 - `resolveRenditionType(mimetype, { mimeRenditionOverrides })` returns `avif`, `play`, or `original`.
 - `getAssetAlt(asset)` prefers `Iptc4xmpExt:ExtDescrAccessibility`, then `dc:description`, `dc:title`, and the asset name.
 - `getDmApprovalStatus(asset)` returns `{ status, activationTarget }` from the asset metadata.
-- `getScene7PublishStatus(asset)` returns `repo:scene7FileStatus`.
 
 ### `image-modifiers.js`
 
