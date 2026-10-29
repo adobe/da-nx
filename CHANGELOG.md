@@ -1,3 +1,10 @@
+# [1.28.0](https://github.com/adobe/da-nx/compare/v1.27.3...v1.28.0) (2026-10-29)
+
+
+### Features
+
+* expose site nav actions area ([#927](https://github.com/adobe/da-nx/issues/927)) ([4ecb564](https://github.com/adobe/da-nx/commit/4ecb5648c15a0aa09445dd40313ca9fae0214f80))
+
 ## [1.27.3](https://github.com/adobe/da-nx/compare/v1.27.2...v1.27.3) (2026-10-29)
 
 
