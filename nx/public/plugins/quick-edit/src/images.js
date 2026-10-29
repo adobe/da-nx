@@ -44,7 +44,9 @@ export function setupContentEditableListeners(ctx) {
     const element = e.target.closest?.('[data-prose-index]');
     if (element) requestEditor(ctx, element, { x: e.clientX, y: e.clientY });
   };
-  document.addEventListener('mousedown', ctx.editorRequestListener);
+  // Replacing the pressed element before mouseup can suppress the native click,
+  // so let click forwarding observe it before requesting the inline editor.
+  document.addEventListener('click', ctx.editorRequestListener);
 }
 
 export function setupImageDropListeners(ctx, dom = document) {
