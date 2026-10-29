@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
-import { sortLangs, rolloutLang, getFilteredLangs, getSummaryCards } from './index.js';
+import { sortLangs, rolloutLang, getFilteredLangs, getSummaryCards, mergeErrors } from './index.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -31,7 +31,8 @@ class NxLocRollout extends LitElement {
     super.update();
   }
 
-  async handleRolloutLang(langToRollout) {
+  async handleRolloutLang(langToRollout, { keepErrors = false } = {}) {
+    if (!keepErrors) this._errors = undefined;
     this._message = { text: `Rolling out ${langToRollout.name}.` };
 
     const actions = {
@@ -48,7 +49,7 @@ class NxLocRollout extends LitElement {
     const { message, errors } = await rolloutLang(rolloutConf);
     if (message || errors) {
       this._message = message;
-      this._errors = errors;
+      this._errors = mergeErrors(this._errors, errors);
       if (langToRollout.rollout.status === 'rolling out') return;
     }
 
@@ -63,8 +64,9 @@ class NxLocRollout extends LitElement {
   }
 
   async handleRolloutGroup(group) {
+    this._errors = undefined;
     for (const lang of group.langs) {
-      await this.handleRolloutLang(lang);
+      await this.handleRolloutLang(lang, { keepErrors: true });
     }
   }
 

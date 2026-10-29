@@ -5,7 +5,9 @@ import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
 import { convertPath, findSourceLocation, getProjectSourceLocations } from '../../utils/utils.js';
 
 const MAX_LENGTH = 5000;
-const results = [];
+const results = new Map();
+
+const translateError = (url, reason) => `Error translating ${url.daBasePath} to ${url.code} - ${reason}`;
 
 async function sendForTranslation(org, site, url) {
   let chunks = [url.content];
@@ -27,10 +29,16 @@ async function sendForTranslation(org, site, url) {
 
     const opts = { method: 'POST', body };
     const resp = await daFetch({ url: `${DA_TRANSLATE}/translate/google/${org}/${site}`, opts });
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      url.error = translateError(url, resp.status || 'no response');
+      return;
+    }
 
     const { translated } = await resp.json();
-    if (!translated) return;
+    if (!translated) {
+      url.error = translateError(url, 'no translation returned');
+      return;
+    }
     translatedParts.push(translated);
   }
 
@@ -39,6 +47,14 @@ async function sendForTranslation(org, site, url) {
   if (html) {
     url.sourceContent = await removeDnt({ html, org, site, ext: url.ext });
     url.destination = `/${org}/${site}${url.daDestPath}`;
+  }
+}
+
+async function translateUrl(org, site, url) {
+  try {
+    await sendForTranslation(org, site, url);
+  } catch (e) {
+    url.error = translateError(url, e.message);
   }
 }
 
@@ -77,15 +93,11 @@ export async function sendAllLanguages({
   const sourceLocations = getProjectSourceLocations({ ...project, options, langs });
   const defaultLocation = options['source.language']?.location || '/';
 
-  results.length = 0;
-
-  const translateUrl = async (url) => {
-    await sendForTranslation(org, site, url);
-  };
+  const errors = [];
 
   for (const [idx, lang] of langs.entries()) {
     sendMessage({ text: `Sending ${lang.name} for translation.` });
-    const queue = new Queue(translateUrl, 50);
+    const queue = new Queue((url) => translateUrl(org, site, url), 50);
 
     // Find the URLs from the lang that has the URLs (custom source URLs)
     const langUrls = getLangUrls({
@@ -97,27 +109,53 @@ export async function sendAllLanguages({
 
     await Promise.all(langUrls.map((url) => queue.push(url)));
 
+    const failed = langUrls.filter((url) => url.error);
     lang.translation = {
       sent: langUrls.length,
-      translated: langUrls.length,
+      translated: langUrls.length - failed.length,
       status: 'translated',
     };
-    results.push(langUrls);
+    results.set(lang.code, langUrls);
+    errors.push(...failed);
     sendMessage();
     await saveState();
   }
+
+  return errors.length ? { errors } : undefined;
 }
 
-export async function getStatusAll() {
-  // Empty
+export async function getStatusAll({ org, site, langs }) {
+  const retryLangs = langs.filter((lang) => lang.translation?.status === 'error' && results.has(lang.code));
+  if (!retryLangs.length) return undefined;
+
+  const errors = [];
+  for (const lang of retryLangs) {
+    const langUrls = results.get(lang.code);
+    langUrls.filter((url) => url.error).forEach((url) => { delete url.error; });
+    const failed = langUrls.filter((url) => !url.sourceContent);
+
+    const queue = new Queue((url) => translateUrl(org, site, url), 50);
+    await Promise.all(failed.map((url) => queue.push(url)));
+
+    const stillFailed = langUrls.filter((url) => url.error);
+    lang.translation.translated = langUrls.length - stillFailed.length;
+    lang.translation.status = 'translated';
+    errors.push(...stillFailed);
+  }
+  return { errors };
 }
 
-export async function saveItems({ langIndex, saveFn }) {
+export async function saveItems({ lang, saveFn }) {
   const downloadCallback = async (url) => {
+    if (url.status === 'success') return;
+    if (url.error) {
+      url.status = 'error';
+      return;
+    }
     await saveFn(url);
   };
 
-  const langUrls = results[langIndex];
+  const langUrls = results.get(lang.code);
 
   const queue = new Queue(downloadCallback, 5);
   await Promise.all(langUrls.map((url) => queue.push(url)));

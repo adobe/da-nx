@@ -79,6 +79,15 @@ async function fetchLangSources(lang, urls) {
   return results;
 }
 
+export function setSaveError(url, reason) {
+  url.error ??= `Error saving ${url.destination} - ${reason}`;
+}
+
+export function mergeErrors(current, incoming) {
+  const errors = [...(current || []), ...(incoming || [])];
+  return errors.length ? errors : undefined;
+}
+
 async function rolloutLangLocales(title, lang, urls, behavior, resolver) {
   const rolloutUrl = async (url) => {
     const { content, error } = await resolver.expand({
@@ -94,7 +103,13 @@ async function rolloutLangLocales(title, lang, urls, behavior, resolver) {
     url.sourceContent = content;
     const overwrite = behavior === 'overwrite' || url.hasExt;
     const copyFn = overwrite ? overwriteCopy : mergeCopy;
-    await copyFn(url, title);
+    try {
+      const resp = await copyFn(url, title);
+      if (url.status !== 'success') setSaveError(url, resp?.status || 'no response');
+    } catch (e) {
+      url.status = 'error';
+      setSaveError(url, e.message);
+    }
   };
 
   const queue = new Queue(rolloutUrl, MAX_CONCURRENT_WRITES);
