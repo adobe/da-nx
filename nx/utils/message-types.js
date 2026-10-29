@@ -32,9 +32,11 @@ export const MESSAGE_TYPES = Object.freeze({
   COMMENT_SHORTCUT: 'comment-shortcut', // no payload
   QUICK_EDIT_IFRAME_CLICK: 'quick-edit-iframe-click', // { target?: string, source: 'ew-wysiwyg-layout' } — quick-edit iframe clicks; `target` in RUM format
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }
+  HTML_DROP: 'html-drop', // { html: string, anchor: { kind: 'block' | 'text' | 'image' | 'main', index: number }, side: 'before' | 'after' }
 
   // Iframe -> host: { proseIndex, imageVersion, requestId, imageData, fileName,
-  //                  mimeType, originalSrc }
+  //                  mimeType, originalSrc } or { proseIndex, imageVersion,
+  //                  requestId, assets: object[], originalSrc } (da-live only)
   // Host -> iframe: { proseIndex, requestId, originalSrc, newSrc?, error? }
   IMAGE_REPLACE: 'image-replace',
 });

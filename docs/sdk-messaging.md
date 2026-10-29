@@ -45,6 +45,36 @@ to a content document, so notifications are not filtered by document path.
 Unsubscribe stops forwarding; reloading the iframe removes the old subscription.
 See [Chat turn subscriptions](#chat-turn-subscriptions) for the payload and API.
 
+## Extension drag and drop
+
+Canvas extensions use native browser drag and drop, not SDK actions or a new
+MessagePort. Set `text/html` for content or add an image `File` to `dataTransfer`:
+
+```js
+element.draggable = true;
+element.addEventListener('dragstart', (event) => {
+  event.dataTransfer.setData('text/html', '<h2>Heading</h2><p>Content</p>');
+  // For an image instead: event.dataTransfer.items.add(imageFile);
+});
+```
+
+This must be a real user drag; dispatching a synthetic `DragEvent` does not start
+one. Fetch or construct image files before `dragstart`, since the data transfer
+must be populated synchronously. An `<img>` or URL alone is not an image File.
+When both files and HTML are present, files take precedence.
+
+The document editor parses HTML using its schema at the drop coordinates; image
+files use its normal upload flow. In layout/WYSIWYG mode, HTML shows an insertion
+line before or after editable content, while files use the existing image
+replacement targets and upload flow. Arbitrary HTML has the same schema parsing
+semantics as `sendHTML`, not unrestricted DOM insertion.
+
+The AEM Assets selector's private `collectionviewdata` format has a separate
+adapter using the site's existing asset configuration. Other extensions should
+use HTML or Files, not depend on that format. WYSIWYG replacement requires an
+indexed, authored image; images generated entirely by block code are not targets.
+Cross-origin File transfer still needs validation in supported browsers.
+
 ## Requests and responses
 
 Actions use the MessagePort transferred in the `ready` handshake. Each acknowledged call gets a unique `requestId`; the host replies on the same port with that ID:
