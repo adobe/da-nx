@@ -134,6 +134,8 @@ describe('chat input coordination', () => {
         const spinnerStyle = getComputedStyle(spinner);
         expect(spinnerStyle.width).to.equal('16px');
         expect(spinnerStyle.height).to.equal('16px');
+        expect(spinnerStyle.animationName).to.equal('da-spin');
+        expect(spinnerStyle.borderRadius).to.equal('50%');
         expect(spinnerStyle.borderTopWidth).to.equal('2px');
         expect(spinnerStyle.borderTopColor).to.equal(scheme === 'light' ? 'rgb(59, 99, 251)' : 'rgb(86, 129, 255)');
         expect(spinnerStyle.borderRightColor).to.equal(scheme === 'light' ? 'rgb(218, 218, 218)' : 'rgb(57, 57, 57)');

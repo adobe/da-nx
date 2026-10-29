@@ -22,6 +22,7 @@ function installFetch(responsesByUrlSubstring) {
     const match = entries.find(([key]) => url.includes(key));
     if (match) return new Response(JSON.stringify(match[1]), { status: 200 });
     if (url.includes('/ping/')) return new Response('', { status: 200 });
+    if (url.includes('/sidekick/')) return new Response('{}', { status: 200 });
     if (url.startsWith(`${DA_ADMIN}/config/`)) {
       return new Response(JSON.stringify({ data: [] }), { status: 200 });
     }
@@ -541,6 +542,56 @@ describe('nx-ew-actions', () => {
       await el._updateHidePublish();
 
       expect(el._hidePublish).to.be.true;
+    });
+  });
+
+  describe('deploy URLs', () => {
+    const urlLink = (element, kind) => element.shadowRoot.querySelector(`.deploy-card-${kind} .deploy-url-text`);
+
+    it('links the selected environment URL to the page in a new tab', async () => {
+      restoreFetch = installFetch({ '/sidekick/': {} });
+      el = await makeEl();
+      el._status = {
+        webPath: '/docs/page',
+        preview: { status: 200, url: 'https://main--site--org.aem.page/docs/page' },
+        live: { status: 404 },
+      };
+      await el.updateComplete;
+
+      const link = urlLink(el, 'preview');
+      expect(link.tagName).to.equal('A');
+      expect(link.getAttribute('href')).to.equal('https://main--site--org.aem.page/docs/page');
+      expect(link.textContent).to.equal('https://main--site--org.aem.page/docs/page');
+      expect(link.target).to.equal('_blank');
+      expect(link.rel).to.include('noopener');
+    });
+
+    it('shows the production host instead of aem.live when one is configured', async () => {
+      const org = uniq('org');
+      const site = uniq('site');
+      restoreFetch = installFetch({
+        [`/sidekick/${org}/${site}/main/config.json`]: {
+          host: 'www.example.com',
+          previewHost: `main--${site}--${org}.aem.page`,
+          liveHost: `main--${site}--${org}.aem.live`,
+        },
+      });
+      el = await makeEl();
+      el._hashState = { org, site, path: 'docs/page' };
+      await el.updateComplete;
+      expect(await el._branchPromise).to.be.null;
+      await el._updateAemHrefs();
+      el._status = {
+        webPath: '/docs/page',
+        preview: { status: 200, url: `https://main--${site}--${org}.aem.page/docs/page` },
+        live: { status: 200, url: `https://main--${site}--${org}.aem.live/docs/page` },
+      };
+      el._selectTarget('live');
+      await el.updateComplete;
+
+      expect(el._previewInfo.url).to.equal(`https://main--${site}--${org}.aem.page/docs/page`);
+      expect(el._liveInfo.url).to.equal('https://www.example.com/docs/page');
+      expect(urlLink(el, 'live').getAttribute('href')).to.equal('https://www.example.com/docs/page');
     });
   });
 

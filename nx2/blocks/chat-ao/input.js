@@ -15,10 +15,11 @@ import '../shared/menu/menu.js';
 import '../shared/popover/popover.js';
 import '../shared/chat/prompts/prompts.js';
 
-const [inputTokens, styles, buttonStyle] = await Promise.all([
+const [inputTokens, styles, buttonStyle, spinnerStyle] = await Promise.all([
   loadStyle(new URL('../shared/chat/input.css', import.meta.url).href),
   loadStyle(import.meta.url),
   loadStyle(new URL('../../styles/buttons.css', import.meta.url).href),
+  loadStyle(new URL('../../styles/spinner.css', import.meta.url).href),
 ]);
 const { codeBase } = getConfig();
 const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
@@ -93,10 +94,15 @@ export default class NxAoInput extends LitElement {
     );
   }
 
+  async openAddAction(id) {
+    await this.updateComplete;
+    this._handleMenuSelect({ detail: { id } });
+  }
+
   connectedCallback() {
     super.connectedCallback();
     this.addEvent ??= `nx-ao-input-${crypto.randomUUID()}`;
-    this.shadowRoot.adoptedStyleSheets = [inputTokens, styles, buttonStyle];
+    this.shadowRoot.adoptedStyleSheets = [inputTokens, styles, buttonStyle, spinnerStyle];
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
       onDragging: (dragging) => { this._dragging = dragging && !this._disabled; },
@@ -216,10 +222,6 @@ export default class NxAoInput extends LitElement {
   }
 
   _handleMenuSelect({ detail: { id } }) {
-    this.openAddAction(id);
-  }
-
-  openAddAction(id) {
     if (this._disabled) return;
     if (id === MENU_OPTIONS.FILES) this.shadowRoot.querySelector('.chat-file-input')?.click();
     else if (id === MENU_OPTIONS.PROMPT) this.openPrompts();

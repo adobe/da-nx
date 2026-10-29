@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../nx2/scripts/nx.js';
 import { CHAT_EVENT } from '../../../../nx2/utils/chat.js';
+import { MENU_OPTIONS } from '../../../../nx2/blocks/shared/chat/constants.js';
 
 await setConfig({ hostnames: [] });
 await import('../../../../nx2/blocks/chat-ao/chat-ao.js');
@@ -70,6 +71,23 @@ describe('chat AO input', () => {
     expect(sent).to.deep.equal([['Hello world', [context], [attachment]]]);
     expect(chatInput.draft).to.equal('');
     expect(chatInput.items).to.deep.equal([]);
+  });
+
+  it('preserves Landing Add actions through the extracted input', async () => {
+    const picker = chatInput.shadowRoot.querySelector('.chat-file-input');
+    let clicked = 0;
+    picker.click = () => { clicked += 1; };
+    await chat.openAddAction(MENU_OPTIONS.FILES);
+    expect(clicked).to.equal(1);
+
+    await chat.openAddAction(MENU_OPTIONS.COMMAND);
+    expect(chatInput.draft).to.equal('/');
+    expect(sent).to.have.length(0);
+
+    const actions = [];
+    chat._openConfigPage = () => actions.push('config');
+    await chat.openAddAction(MENU_OPTIONS.MANAGE_PROMPT);
+    expect(actions).to.deep.equal(['config']);
   });
 
   it('retains sole ownership of document prompts and ignores them after disconnect', async () => {

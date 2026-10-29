@@ -92,6 +92,7 @@ types.items = [
   pinnable: true,        // optional — shows a pin button instead of remove; label becomes clickable
   pinned: true,          // optional — sourced/managed by you (controlled) or by nx-pills (self-managed)
   removable: false,      // optional — hides the remove button for display-only pills (default: removable)
+  highlighted: true,     // optional — marks the pill as a match (e.g. a search hit), Spectrum notice (orange) by default
 }
 ```
 
@@ -106,6 +107,7 @@ Pinnable items also carry `selFrom`/`selTo` (required for the pill to be clickab
 | `items`    | `Array`  | The list to render. Set by you in controlled mode; owned by nx-pills in self-managed mode.       |
 | `addEvent` | `String` | Document event name to self-manage from. Leave unset for controlled mode.                        |
 | `label`    | `String` | Accessible name for the list. Defaults to `"Attached items"`.                                   |
+| `size`     | `String` | `"s"` (default) or `"m"`. Reflects to the `size` attribute.                                     |
 
 ### Methods
 
@@ -127,17 +129,37 @@ Self-managed mode only:
 
 ## Styling
 
+Use `size="m"` for medium text and icons, matching menu and picker sizing. Medium pills also have more padding and spacing, larger corners and thumbnails, and a wider label limit (240px instead of 200px). The two-row scroll limit accommodates full-size thumbnails without clipping. Omitting `size` (or setting `size="s"`) keeps the existing compact appearance.
+
+```html
+<nx-pills size="m"></nx-pills>
+```
+
 Pills are blue by default. Hosts can recolor them with CSS custom properties set on `nx-pills` (or any ancestor):
 
 | Custom property         | Default              | Applies to             |
 | ----------------------- | -------------------- | ---------------------- |
 | `--nx-pill-background`  | `var(--s2-blue-200)` | Pill background        |
 | `--nx-pill-color`       | `var(--s2-blue-1000)`| Label and type icon    |
+| `--nx-pill-highlight-background` | `var(--s2-orange-300)` | Background of `highlighted` items (Spectrum notice) |
+| `--nx-pill-highlight-color`      | `var(--s2-orange-1100)` | Label and icons of `highlighted` items |
 
 ```css
 nx-pills {
   --nx-pill-background: var(--s2-orange-300);
   --nx-pill-color: var(--s2-orange-1100);
+}
+```
+
+At either size the list is capped at two rows and scrolls beyond that. Hosts that need every pill visible (for example a list the user explicitly expanded, or one already limited elsewhere) can lift or change the cap:
+
+| Custom property         | Default                  | Applies to                    |
+| ----------------------- | ------------------------ | ----------------------------- |
+| `--nx-pills-max-height` | two pill rows plus a gap | `max-height` of the pill list |
+
+```css
+nx-pills {
+  --nx-pills-max-height: none;
 }
 ```
 

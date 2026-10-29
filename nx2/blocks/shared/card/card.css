@@ -1,29 +1,184 @@
 :host {
+  --nx-card-title-size: var(--s2-component-m-bold-font-size);
+  --nx-card-meta-size: var(--s2-component-s-regular-font-size);
+  --nx-card-meta-line-height: var(--s2-component-s-regular-line-height);
+
   display: block;
-  min-width: 0;
-  height: 100%;
-  color: var(--s2-gray-900);
+  width: var(--nx-card-width, var(--nx-card-default-width));
+  max-width: 100%;
   font-family: var(--s2-font-family);
 }
 
+:host([hidden]) {
+  display: none !important;
+}
+
+:host([dimensions="s"]) {
+  --nx-card-default-width: 151px;
+  --nx-card-default-height: 200px;
+}
+
+:host([dimensions="m"]) {
+  --nx-card-default-width: 226px;
+  --nx-card-default-height: 300px;
+}
+
+:host([dimensions="l"]) {
+  --nx-card-default-width: 301px;
+  --nx-card-default-height: 400px;
+}
+
+/* UI scale only changes type; it never selects a dimension preset. */
+:host([size="m"]) {
+  --nx-card-title-size: var(--s2-component-l-bold-font-size);
+  --nx-card-meta-size: var(--s2-component-m-regular-font-size);
+  --nx-card-meta-line-height: var(--s2-component-m-regular-line-height);
+}
+
+:host([size="l"]) {
+  --nx-card-title-size: var(--s2-component-xl-bold-font-size);
+  --nx-card-meta-size: var(--s2-component-l-regular-font-size);
+  --nx-card-meta-line-height: var(--s2-component-l-regular-line-height);
+}
+
 .card {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--s2-spacing-50, 4px);
+  box-sizing: border-box;
+  height: var(--nx-card-height, var(--nx-card-default-height));
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--s2-gray-75, var(--s2-gray-50));
+  transition: background-color 0.12s ease;
+}
+
+:host([selected]) .card {
+  background: var(--s2-blue-100);
+  outline: 2px solid var(--s2-blue-800, currentColor);
+}
+
+.media {
+  position: relative;
+  min-height: 0;
+  border-radius: var(--s2-corner-radius-400, 8px);
+  background: var(--s2-gray-200);
+  overflow: hidden;
+}
+
+::slotted([slot="media"]) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.select-target {
+  position: absolute;
+  top: calc(var(--s2-spacing-100, 8px) - 6px);
+  left: calc(var(--s2-spacing-100, 8px) - 6px);
+  padding: 6px;
+}
+
+.select {
+  box-sizing: border-box;
+  padding: 0;
+  outline: 3px solid var(--s2-gray-25);
+  outline-offset: 0;
+
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-900);
+    outline-offset: 2px;
+  }
+}
+
+.overlay-actions {
+  position: absolute;
+  top: var(--s2-spacing-100);
+  right: var(--s2-spacing-100);
+  display: flex;
+  gap: var(--s2-spacing-75);
+}
+
+/* Reserve room for a title and two metadata lines so previews stay equal. */
+.body {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: calc(32px + var(--nx-card-meta-line-height) * 2 + 8px);
+  padding: var(--s2-spacing-50, 4px) var(--s2-spacing-150, 12px);
+}
+
+.heading {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2-spacing-100);
+  min-width: 0;
+}
+
+::slotted([slot="heading"]) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--s2-gray-900);
+  font-size: var(--nx-card-title-size);
+  font-weight: var(--s2-component-m-bold-font-weight, 700);
+  text-decoration: none;
+}
+
+::slotted([slot="content"]) {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+::slotted([slot="actions"]) {
+  flex-shrink: 0;
+}
+
+.overlay-actions ::slotted(*) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 50%;
+  background: var(--s2-gray-25);
+  color: var(--s2-gray-600);
+}
+
+.metadata {
+  display: grid;
+  gap: var(--s2-spacing-75);
+  color: var(--s2-gray-600);
+  font-size: var(--nx-card-meta-size);
+  line-height: var(--nx-card-meta-line-height);
+}
+
+:host([data-legacy-layout]) {
+  width: auto;
+  min-width: 0;
+  height: 100%;
+  color: var(--s2-gray-900);
+}
+
+:host([data-legacy-layout]) .card {
   display: flex;
   flex-direction: column;
   gap: var(--s2-spacing-75, 4px);
-  box-sizing: border-box;
   height: 100%;
   padding: var(--s2-spacing-75, 4px);
-  border-radius: 12px;
   background: var(--nx-card-background, var(--s2-gray-75, var(--s2-gray-50)));
 }
 
-.preview {
-  position: relative;
+:host([data-legacy-layout]) .preview {
   height: var(--nx-card-preview-height, auto);
   aspect-ratio: var(--nx-card-preview-ratio, 1);
-  overflow: hidden;
   border-radius: var(--s2-corner-radius-500, 8px);
-  background: var(--s2-gray-200);
 }
 
 ::slotted([slot="preview"]) {
@@ -49,19 +204,18 @@
   pointer-events: none;
 }
 
-.content {
+:host([data-legacy-layout]) .content {
   display: flex;
   flex-direction: column;
   gap: var(--s2-spacing-75, 4px);
-  min-width: 0;
+  min-height: 0;
   padding: var(--s2-spacing-75, 4px) var(--s2-spacing-200, 12px);
 }
 
-.heading {
-  display: flex;
-  align-items: center;
+:host([data-legacy-layout]) .heading {
+  min-height: 0;
+  justify-content: normal;
   gap: var(--s2-spacing-100, 8px);
-  min-width: 0;
 }
 
 ::slotted([slot="title"]) {
@@ -69,14 +223,14 @@
   min-width: 0;
 }
 
-::slotted([slot="actions"]) {
+:host([data-legacy-layout]) ::slotted([slot="actions"]) {
   flex: none;
   display: flex;
 }
 
-.metadata {
+:host([data-legacy-layout]) .metadata {
+  display: block;
   min-width: 0;
-  color: var(--s2-gray-600);
   font-size: var(--s2-component-s-regular-font-size, 12px);
   line-height: 1.5;
 }

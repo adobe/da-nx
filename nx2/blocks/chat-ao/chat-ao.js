@@ -18,7 +18,9 @@ import CmaChatController from './cma-chat-controller.js';
 import { getCoworkerConfig } from '../../utils/ewFlags.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
-  COWORKER_SKILLS_URL, COWORKER_CHAT_URL, ENTERPRISE_CONTEXT_URL,
+  COWORKER_SKILLS_PATH, ENTERPRISE_CONTEXT_PATH, getCoworkerHref, loadCoworkerNav,
+} from './utils/coworker-nav.js';
+import {
   ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE,
 } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
@@ -26,16 +28,18 @@ import { CHAT_EVENT } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
+import { showToast } from '../shared/toast/toast.js';
 import '../shared/picker/picker.js';
 import '../shared/chat/new-chat/new-chat.js';
 import './question-card/question-card.js';
 import './input.js';
 import { ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 
-const [inputTokens, styles, buttonStyle, artifactStyle] = await Promise.all([
+const [inputTokens, styles, buttonStyle, spinnerStyle, artifactStyle] = await Promise.all([
   loadStyle(new URL('../shared/chat/input.css', import.meta.url).href),
   loadStyle(import.meta.url),
   loadStyle(new URL('../../styles/buttons.css', import.meta.url).href),
+  loadStyle(new URL('../../styles/spinner.css', import.meta.url).href),
   loadStyle(new URL('./artifacts/artifacts.css', import.meta.url).href),
 ]);
 
@@ -227,7 +231,10 @@ export default class NxChatAo extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     fetchResolvedManifestId();
-    this.shadowRoot.adoptedStyleSheets = [inputTokens, styles, buttonStyle, artifactStyle];
+    this._loadCoworkerNav();
+    this.shadowRoot.adoptedStyleSheets = [
+      inputTokens, styles, buttonStyle, spinnerStyle, artifactStyle,
+    ];
     this._initController();
     this._unsubscribeHash = hashChange.subscribe((state) => {
       if (!this._explicitContext) this._applyContext(state);
@@ -297,14 +304,32 @@ export default class NxChatAo extends LitElement {
 
   _handleMenuSelect = (id) => {
     if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
-    if (id === MENU_OPTIONS.MANAGE_SKILLS) window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
-    if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) window.open(`${COWORKER_CHAT_URL}/${this.episodeId}`, '_blank', 'noopener,noreferrer');
-    if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) window.open(ENTERPRISE_CONTEXT_URL, '_blank', 'noopener,noreferrer');
+    if (id === MENU_OPTIONS.MANAGE_SKILLS) this._openCoworker(COWORKER_SKILLS_PATH);
+    if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) this._openCoworker(this.episodeId);
+    if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) this._openCoworker(ENTERPRISE_CONTEXT_PATH);
   };
+
+  async _loadCoworkerNav() {
+    this._coworkerNav = undefined;
+    try {
+      this._coworkerNav = await loadCoworkerNav();
+    } catch (error) {
+      showToast({ text: error.message, variant: 'error' });
+    }
+  }
 
   async openAddAction(id) {
     await this.updateComplete;
     return this._input?.openAddAction(id);
+  }
+
+  _openCoworker(path) {
+    try {
+      const href = this._coworkerNav?.(path) ?? getCoworkerHref({ path });
+      window.open(href, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      showToast({ text: error.message, variant: 'error' });
+    }
   }
 
   _openConfigPage() {
@@ -409,7 +434,7 @@ export default class NxChatAo extends LitElement {
         ></nx-ao-input>
       </div>
       <p class="chat-disclaimer">
-        Responses are generated using AI, and may be inaccurate.
+        Responses are generated using AI, and may be inaccurate. Check before using.
         <a href="${ADOBE_AI_GUIDELINES_URL}" target="_blank" rel="noopener noreferrer">AI User Guidelines</a>
       </p>
     `;
