@@ -1,3 +1,10 @@
+## [1.27.1](https://github.com/adobe/da-nx/compare/v1.27.0...v1.27.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **loc:** resolve URLs under per-row source locations ([#793](https://github.com/adobe/da-nx/issues/793)) ([fb5d3d3](https://github.com/adobe/da-nx/commit/fb5d3d342c49743c009eacde97dc0f435aaeddb6)), closes [#792](https://github.com/adobe/da-nx/issues/792)
+
 # [1.27.0](https://github.com/adobe/da-nx/compare/v1.26.0...v1.27.0) (2026-10-28)
 
 
