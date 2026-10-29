@@ -3,10 +3,11 @@ import { setImsDetails, daFetch } from './daFetch.js';
 let port2;
 
 export const UI_SIZE_EVENT = 'nx-ui-size-change';
+const UI_SIZES = ['s', 'm'];
 
 // Mirrors the host's body.ui-size-m so extensions can style S/M with CSS alone.
 function applyUISize(size) {
-  if (!['s', 'm'].includes(size) || !document.body) return false;
+  if (!UI_SIZES.includes(size) || !document.body) return false;
   document.body.classList.toggle('ui-size-m', size === 'm');
   return true;
 }
