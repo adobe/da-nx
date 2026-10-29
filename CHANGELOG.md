@@ -1,3 +1,25 @@
+## [1.27.2](https://github.com/adobe/da-nx/compare/v1.27.1...v1.27.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* **quick-edit:** decorate buttons and icons after inline edits ([a667fb2](https://github.com/adobe/da-nx/commit/a667fb2fe1709c03926857ac1015e9acaa58e24c))
+* refresh descendant indices when settling quick-edit editors ([a04f115](https://github.com/adobe/da-nx/commit/a04f115439b5adc5b407928978591dd84c00ed65))
+
+## [1.27.1](https://github.com/adobe/da-nx/compare/v1.27.0...v1.27.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **loc:** resolve URLs under per-row source locations ([#793](https://github.com/adobe/da-nx/issues/793)) ([fb5d3d3](https://github.com/adobe/da-nx/commit/fb5d3d342c49743c009eacde97dc0f435aaeddb6)), closes [#792](https://github.com/adobe/da-nx/issues/792)
+
+# [1.27.0](https://github.com/adobe/da-nx/compare/v1.26.0...v1.27.0) (2026-10-28)
+
+
+### Features
+
+* extract chat input ([#925](https://github.com/adobe/da-nx/issues/925)) ([fb4a402](https://github.com/adobe/da-nx/commit/fb4a4026856bec0a0a63dcc325c02395ae227ea2))
+
 # [1.26.0](https://github.com/adobe/da-nx/compare/v1.25.0...v1.26.0) (2026-10-27)
 
 
