@@ -10,7 +10,7 @@ Open the one closest to the new vendor's shape; don't read them all. Sources: `n
 | OAuth, TMS submissions, project picker, zip upload, custom attributes, cancel | **GlobalLink** (`connectors/globallink/`) | `main` |
 | OAuth, jobs with human review, no cancel allowed | **Lionbridge** (`connectors/lionbridge/`) | `main` |
 | Shared job per language set, per-locale cancel | **Smartling** (`connectors/smartling/`, its `cancelTranslation`) | `main` |
-| Instant MT with per-language-pair endpoints | **DeepL** (`connectors/deepl/`, PR #746) | feature branch `deepl-translation-connector`; learn from the review thread, not the key handling |
+| Instant MT with per-language-pair endpoints | **DeepL** (`connectors/deepl/`, PR #746) | feature branch `deepl-translation-connector`; per-document ids, partial-failure handling |
 | Empty stubs | `connectors/sample/index.js` | `main` (lint-ignored) |
 
 Trados and GLaaS are older direct-to-vendor connectors; use them only for vendor-specific behavior.

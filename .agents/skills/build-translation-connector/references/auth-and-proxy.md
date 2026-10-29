@@ -29,7 +29,7 @@ da-etc reads `.da/translate.json` in the site (via the Experience Workspace admi
 | da-nx `auth.js` | `getAccessToken(name, service)` and `fetchWithRetry`'s `onUnauthorized` | `checkConnection(name, org, site, env)` and `x-translate-env` header |
 | Use when | Vendor tokens expire and are OAuth | Key never expires |
 
-DeepL (PR #746) still ships the key to the browser via da-etc `/login`. It was written before the Lilt pattern and is superseded by archetype B: don't copy it.
+DeepL follows archetype B too: the da-translate proxy resolves the key and drops any client `x-deepl-authorization` header, so the connector sends only IMS auth and `x-translate-env`, and gates on `checkConnection`.
 
 `checkConnection` in `nx/blocks/loc/utils/auth.js` landed with the Lilt PR (#789). If it's not on `main` when you start, branch from that PR or wait; don't re-implement it.
 
