@@ -9,6 +9,7 @@ class NxSegmentedBtn extends LitElement {
     value: { type: String },
     label: { type: String },
     size: { type: String, reflect: true },
+    variant: { type: String, reflect: true },
   };
 
   constructor() {

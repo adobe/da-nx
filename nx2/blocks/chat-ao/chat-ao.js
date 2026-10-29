@@ -294,6 +294,11 @@ export default class NxChatAo extends LitElement {
     }
   }
 
+  async openAddAction(id) {
+    await this.updateComplete;
+    await this._input.openAddAction(id);
+  }
+
   _openCoworker(path) {
     try {
       const href = this._coworkerNav?.(path) ?? getCoworkerHref({ path });
@@ -402,7 +407,7 @@ export default class NxChatAo extends LitElement {
         ></nx-ao-input>
       </div>
       <p class="chat-disclaimer">
-        Responses are generated using AI, and may be inaccurate. Check before using. 
+        Responses are generated using AI, and may be inaccurate. Check before using.
         <a href="${ADOBE_AI_GUIDELINES_URL}" target="_blank" rel="noopener noreferrer">AI User Guidelines</a>
       </p>
     `;

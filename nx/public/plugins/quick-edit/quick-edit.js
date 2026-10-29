@@ -4,12 +4,14 @@ import {
   setupImageDropListeners,
   updateImageSrc,
   handleImageError,
+  handleRemoteImageDrag,
 } from './src/images.js';
 import { setEditorState, captureFocusedEditor } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
 import { restoreBlockIndices, restoreImageIndices, applyImageVersionAck } from './src/dom-index.js';
+import { handleRemoteTableDrag, setupTableDropListeners } from './src/table-drop.js';
 import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
 import {
   getQuickEditPortalSrc,
@@ -69,6 +71,7 @@ async function setBody(body, rerenderScope, ctx) {
   if (refocus) requestEditor(ctx, refocus, { selection: focused.selection });
   if (!ctx.readOnly) {
     setupImageDropListeners(ctx, document.body.querySelector('main'));
+    if (parentControllerPort) setupTableDropListeners(ctx);
   }
   if (!parentControllerPort) {
     setupActions(ctx);
@@ -146,6 +149,14 @@ function setupParentController(reloadCallback, { partialReload }) {
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
     setupCommentShortcut(ctx);
+    window.addEventListener('message', (message) => {
+      if (message.source === window.parent && message.data?.type === 'ew-table-drag-preview') {
+        handleRemoteTableDrag(message.data);
+      } else if (message.source === window.parent && message.data?.type === 'ew-asset-drag-preview'
+        && !ctx.readOnly) {
+        handleRemoteImageDrag(message.data, ctx);
+      }
+    });
     installClickForwarding({ getPort: () => ctx.port });
 
     window.removeEventListener('message', listener);

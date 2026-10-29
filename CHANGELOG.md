@@ -1,3 +1,10 @@
+## [1.28.1](https://github.com/adobe/da-nx/compare/v1.28.0...v1.28.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **loc:** keep the target's own blocks when their hash was rejected ([#930](https://github.com/adobe/da-nx/issues/930)) ([2d9eaa9](https://github.com/adobe/da-nx/commit/2d9eaa91cf72f54f83d4d7ff82bcfc53bc3c9ca8))
+
 # [1.28.0](https://github.com/adobe/da-nx/compare/v1.27.3...v1.28.0) (2026-10-29)
 
 
@@ -462,6 +469,14 @@ Record valid DA Agent and Coworker submissions as `click` checkpoints with
 `source: chat-submit` and harness-specific send-button targets. Coverage includes
 button and Enter submissions, excluding empty submissions and stop actions.
 Focused send-RUM tests and lint passed.
+
+## 2026-10-02
+
+### quick-edit — empty-page drops (feat/quick-edit-table-drop)
+
+- Commit only the empty-main drop handling, protocol documentation, and regression tests.
+- Discard duplicate editor-toggle changes already merged to main; leave the standalone authentication plan and local tool files untouched.
+- Targeted ESLint and all seven table-drop tests pass.
 
 ## 2026-09-23
 

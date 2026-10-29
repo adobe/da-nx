@@ -76,6 +76,11 @@ export default class NxAoInput extends LitElement {
     );
   }
 
+  async openAddAction(id) {
+    await this.updateComplete;
+    this._handleMenuSelect({ detail: { id } });
+  }
+
   connectedCallback() {
     super.connectedCallback();
     this.addEvent ??= `nx-ao-input-${crypto.randomUUID()}`;

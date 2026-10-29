@@ -92,6 +92,31 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelector('[data-value="red"] svg')).to.be.null;
   });
 
+  it('supports optional descriptions and text-only actions', async () => {
+    const el = await createPicker({
+      value: 'org/site',
+      items: [
+        { value: 'org/site', label: 'Site', description: 'org/site' },
+        { value: 'add', label: 'Add site', action: true },
+      ],
+    });
+    expect(el.shadowRoot.querySelector('.picker-item-description').textContent).to.equal('org/site');
+    expect(el.shadowRoot.querySelector('[data-value="add"] svg')).to.be.null;
+    const change = new Promise((resolve) => { el.addEventListener('change', resolve, { once: true }); });
+    el.shadowRoot.querySelector('[data-value="add"]').click();
+    expect((await change).detail.value).to.equal('add');
+    expect(el.value).to.equal('org/site');
+  });
+
+  it('updates the trigger expanded state when opened and closed', async () => {
+    const el = await createPicker();
+    el.show();
+    await el._popover.updateComplete;
+    expect(el._button.getAttribute('aria-expanded')).to.equal('true');
+    el.close();
+    expect(el._button.getAttribute('aria-expanded')).to.equal('false');
+  });
+
   it('owns description layout without exposing menu layout parts', async () => {
     const el = await createPicker({
       items: [{ section: 'Status' }, { value: 'draft', label: 'Draft', description: 'Not published' }, { divider: true }],

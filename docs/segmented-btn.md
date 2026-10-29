@@ -51,6 +51,11 @@ Each entry in the `items` array is one of:
 | `value`  | `String` | Value of the currently selected segment. Set to change the selection programmatically. |
 | `label`  | `String` | Accessible label for the control group (`aria-label`). Always provide one.             |
 | `size`   | `String` | `"sm"` (default) or `"m"`. Reflected as an attribute, e.g. `<nx-segmented-btn size="m">`. |
+| `variant` | `String` | Optional `"quiet"` removes the group pill and uses a neutral selected button. The default appearance is unchanged. |
+
+For a compact view switcher, combine `variant="quiet"`, `size="m"` and two
+icon-only items. This produces two adjacent 32px buttons with 20px icons.
+Selection events and keyboard focus indicators are preserved.
 
 ### Events
 

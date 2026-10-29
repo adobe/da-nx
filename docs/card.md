@@ -63,3 +63,13 @@ Consumers should use this API rather than querying the card's shadow DOM.
 | Event             | Detail         | Description                                                       |
 | ----------------- | -------------- | ----------------------------------------------------------------- |
 | `nx-card-selection-change` | `{ selected, shiftKey }` | Fired when the checkbox is toggled. Set `selected` in response; `shiftKey` supports range selection. |
+
+## Existing compact consumers
+
+The earlier `preview`, `title`, `selection` and `badge` slots remain supported.
+Their presence selects the fill-cell compact layout used by Landing, with
+application-owned selection and badges. Its 4px frame/gaps and 12px content
+inset are preserved. `--nx-card-preview-height`, `--nx-card-preview-ratio` and
+`--nx-card-background` continue to control its preview geometry and surface.
+Using `media` and `heading` retains the dimension presets and controlled
+selection API documented above.

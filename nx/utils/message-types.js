@@ -32,6 +32,7 @@ export const MESSAGE_TYPES = Object.freeze({
   COMMENT_SHORTCUT: 'comment-shortcut', // no payload
   QUICK_EDIT_IFRAME_CLICK: 'quick-edit-iframe-click', // { target?: string, source: 'ew-wysiwyg-layout' } — quick-edit iframe clicks; `target` in RUM format
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }
+  TABLE_DROP: 'table-drop', // { html: string, anchor: { kind: 'block' | 'text' | 'image' | 'main', index: number }, side: 'before' | 'after' }
 
   // Iframe -> host: { proseIndex, imageVersion, requestId, imageData, fileName,
   //                  mimeType, originalSrc }

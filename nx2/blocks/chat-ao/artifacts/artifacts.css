@@ -204,7 +204,7 @@
   .code {
     font-size: var(--s2-component-s-regular-font-size);
   }
-  
+
   .token.comment,
   .token.prolog,
   .token.doctype,

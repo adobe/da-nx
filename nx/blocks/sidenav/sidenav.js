@@ -1,6 +1,7 @@
 import { loadArea, getMetadata, getConfig } from '../../scripts/nexter.js';
 import loadStyle from '../../utils/styles.js';
 import { link2svg } from '../../utils/svg.js';
+import { getHomeHref } from '../../utils/utils.js';
 
 const HASH_AWARE = ['Home', 'Apps'];
 
@@ -39,9 +40,16 @@ class SideNav extends HTMLElement {
 
     const anchors = doc.querySelectorAll('a');
     anchors.forEach((a) => {
+      const fallback = a.href;
+      if (a.title === 'Home') a.href = getHomeHref({ fallback });
       const hashAware = HASH_AWARE.some((name) => name === a.title);
       if (!hashAware) return;
       a.addEventListener('click', (e) => {
+        if (a.title === 'Home') {
+          const href = getHomeHref({ fallback });
+          a.href = href;
+          if (href !== fallback) return;
+        }
         if (window.location.hash?.startsWith('#/')) {
           e.preventDefault();
           const [org, repo] = window.location.hash.slice(2).split('/');

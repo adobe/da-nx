@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  setupImageDropListeners, updateImageSrc, handleImageError,
+  setupImageDropListeners, updateImageSrc, handleImageError, handleRemoteImageDrag,
 } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
 
 describe('quick-edit image replacement', () => {
@@ -76,6 +76,54 @@ describe('quick-edit image replacement', () => {
 
     expect(first.getAttribute('src')).to.equal('/first.png');
     expect(second.getAttribute('src')).to.equal('/second.png');
+    expect(ctx.pendingImageReplacements.size).to.equal(0);
+  });
+
+  it('correlates relayed image drops with the exact image and document version', () => {
+    drop(first);
+    handleRemoteImageDrag({
+      phase: 'drop',
+      x: 10,
+      y: 10,
+      file: new File(['image'], 'remote.png', { type: 'image/png' }),
+    }, ctx, { elementFromPoint: () => second });
+
+    expect(posted).to.have.length(2);
+    const { payload } = posted[1];
+    expect(payload.proseIndex).to.equal(3);
+    expect(payload.imageVersion).to.equal('v1');
+    expect(payload).to.not.have.property('cursorOffset');
+    updateImageSrc(payload.requestId, '/remote.png', ctx);
+
+    expect(first.getAttribute('src')).to.equal('/same.png');
+    expect(first.closest('picture').classList.contains('image-uploading')).to.be.true;
+    expect(second.getAttribute('src')).to.equal('/remote.png');
+    expect(ctx.pendingImageReplacements.size).to.equal(1);
+  });
+
+  it('refuses relayed image drops without a document version', () => {
+    second.removeAttribute('data-image-version');
+    handleRemoteImageDrag({
+      phase: 'drop',
+      x: 10,
+      y: 10,
+      file: new File(['image'], 'remote.png', { type: 'image/png' }),
+    }, ctx, { elementFromPoint: () => second });
+
+    expect(posted).to.have.length(0);
+    expect(ctx.pendingImageReplacements.size).to.equal(0);
+  });
+
+  it('refuses relayed image drops in read-only mode', () => {
+    ctx.readOnly = true;
+    handleRemoteImageDrag({
+      phase: 'drop',
+      x: 10,
+      y: 10,
+      file: new File(['image'], 'remote.png', { type: 'image/png' }),
+    }, ctx, { elementFromPoint: () => second });
+
+    expect(posted).to.have.length(0);
     expect(ctx.pendingImageReplacements.size).to.equal(0);
   });
 

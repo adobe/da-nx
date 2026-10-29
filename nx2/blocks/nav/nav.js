@@ -1,9 +1,10 @@
 import { LitElement, html } from 'da-lit';
-import { getConfig, getMetadata } from '../../scripts/nx.js';
+import { getMetadata, getConfig } from '../../scripts/nx.js';
 
-import { loadStyle, hashChange } from '../../utils/utils.js';
+import { loadStyle, hashChange, getHomeHref } from '../../utils/utils.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg } from '../../utils/svg.js';
+import createBrandLink from '../../../nx/blocks/nav/brand.js';
 import { hashStateToPathSegments } from '../shared/breadcrumb/utils.js';
 
 const DEFAULT_NAV_PATH = '/nx/fragments/nav';
@@ -112,18 +113,19 @@ class NXNav extends LitElement {
   }
 
   async decorateBrand(brandSection) {
-    const brandLink = brandSection.querySelector('a');
+    const { brand } = getConfig();
+    const brandLink = brand ? createBrandLink(brand) : brandSection.querySelector('a');
     if (!brandLink) return null;
     brandLink.classList.add('brand-area');
-    const { href, textContent } = brandLink;
-
-    const hasLockup = href.includes('.svg');
-    if (hasLockup) {
-      brandLink.setAttribute('aria-label', textContent);
-      const lockup = await loadHrefSvg(href);
-      if (lockup) brandLink.replaceChildren(lockup);
+    if (!brand) {
+      const { href, textContent } = brandLink;
+      if (href.includes('.svg')) {
+        brandLink.setAttribute('aria-label', textContent);
+        const lockup = await loadHrefSvg(href);
+        if (lockup) brandLink.replaceChildren(lockup);
+      }
     }
-    brandLink.href = '/';
+    brandLink.href = getHomeHref();
 
     return brandLink;
   }
@@ -193,6 +195,7 @@ class NXNav extends LitElement {
   }
 
   updated() {
+    if (this._brand) this._brand.href = getHomeHref();
     const breadcrumbs = this._siteNav
       ? [...this._siteNav.querySelectorAll('nx-breadcrumb')] : [this._breadcrumbs].filter(Boolean);
     if (!breadcrumbs.length) return;
@@ -203,7 +206,7 @@ class NXNav extends LitElement {
   render() {
     return html`
       <div class="brand-cluster">
-        ${this._brand}
+        <slot name="brand">${this._brand}</slot>
         <div class="site-nav">${this._siteNav ?? this._breadcrumbs}</div>
       </div>
       <div class="nav-search"><slot name="search" @slotchange=${this.onSearchSlotChange}></slot></div>

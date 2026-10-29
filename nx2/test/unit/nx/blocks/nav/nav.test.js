@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../../scripts/nx.js';
+import { getHomeHref } from '../../../../../utils/utils.js';
 
 // fragment.js (a transitive dependency of nav.js) captures getConfig() into a
 // module-level constant at import time, so setConfig() must resolve before
@@ -12,6 +13,7 @@ const { default: NxBreadcrumb } = await import('../../../../../blocks/shared/bre
   customElements.define(tag, class extends HTMLElement {});
 });
 await import('../../../../../blocks/nav/nav.js');
+await import('../../../../../blocks/sidenav/sidenav.js');
 
 function buildActionsSection({ buttonHtml }) {
   const section = document.createElement('div');
@@ -49,6 +51,26 @@ describe('nav search slot', () => {
     window.history.replaceState(null, '', originalHref);
   });
 
+  it('shares a configurable Home destination and leaves other consumers unchanged', async () => {
+    try {
+      await setConfig({ homeHref: () => '/?landing=true&nx=lp#/org/site' });
+      const section = document.createElement('div');
+      section.innerHTML = '<a href="/">Brand</a>';
+      const brand = await nav.decorateBrand(section);
+      expect(brand.getAttribute('href')).to.equal('/?landing=true&nx=lp#/org/site');
+      expect(brand.textContent).to.equal('Brand');
+      expect(brand.querySelector('.brand-logo')).to.equal(null);
+      expect(getHomeHref()).to.equal('/?landing=true&nx=lp#/org/site');
+      await setConfig({ homeHref: '/custom-home' });
+      expect(getHomeHref()).to.equal('/custom-home');
+      await setConfig({});
+      expect(getHomeHref()).to.equal('/');
+      expect(getHomeHref({ fallback: '/original-home' })).to.equal('/original-home');
+    } finally {
+      await setConfig({ hostnames: [] });
+    }
+  });
+
   async function mount(path) {
     window.history.replaceState(null, '', path);
     document.body.append(nav);
@@ -58,6 +80,57 @@ describe('nav search slot', () => {
   async function settleSlots() {
     await new Promise((resolve) => { setTimeout(resolve); });
   }
+
+  it('renders configured branding in the shell without a landing component or fragment brand', async () => {
+    try {
+      await setConfig({
+        brand: {
+          title: 'Example Product',
+          logoHref: '/nx2/img/favicons/favicon.ico',
+          logoSize: 24,
+        },
+        homeHref: '/custom-home',
+      });
+      nav._brand = await nav.decorateBrand(document.createElement('div'));
+      await mount('/canvas');
+      const brand = nav.shadowRoot.querySelector('.brand-area');
+      expect(brand.getAttribute('aria-label')).to.equal('Example Product home');
+      expect(brand.getAttribute('href')).to.equal('/custom-home');
+      expect(brand.querySelector('.brand-label').textContent).to.equal('Example Product');
+      const logo = brand.querySelector('img');
+      expect(logo.getAttribute('src')).to.equal('/nx2/img/favicons/favicon.ico');
+      expect([logo.width, logo.height, logo.alt]).to.deep.equal([24, 24, '']);
+      const style = getComputedStyle(brand);
+      expect([style.fontSize, style.fontWeight, style.lineHeight]).to.deep.equal([
+        '14px', '700', '18px',
+      ]);
+      const mark = brand.querySelector('.brand-logo').getBoundingClientRect();
+      expect([mark.width, mark.height]).to.deep.equal([32, 32]);
+    } finally {
+      await setConfig({ hostnames: [] });
+    }
+  });
+
+  it('keeps the configured title and logo size across page routes and fragment reloads', async () => {
+    try {
+      await setConfig({
+        brand: { title: 'Example Product', logoHref: '/nx2/img/favicons/favicon.ico' },
+      });
+      const section = document.createElement('div');
+      section.innerHTML = '<a href="/">Original author brand</a>';
+      for (const path of ['/', '/canvas', '/sheet', '/media', '/apps']) {
+        nav._brand = await nav.decorateBrand(section);
+        await mount(`${path}?nx=lp#/org/site`);
+        const brand = nav.shadowRoot.querySelector('.brand-area');
+        expect(brand.querySelector('.brand-label').textContent).to.equal('Example Product');
+        expect(brand.textContent).not.to.include('Original author brand');
+        expect(brand.querySelectorAll('img')).to.have.length(1);
+        expect(brand.querySelector('img').width).to.equal(24);
+      }
+    } finally {
+      await setConfig({ hostnames: [] });
+    }
+  });
 
   it('provides an empty search slot without a fragment or loaded profile', async () => {
     await mount('/');
@@ -104,6 +177,52 @@ describe('nav search slot', () => {
     expect(context.isConnected).to.be.false;
     expect(searchSlot.assignedElements()).to.deep.equal([field]);
     expect(nav.hasAttribute('data-has-search')).to.be.true;
+  });
+
+  it('uses the configured Home for the sidebar without changing Apps or its click behavior', async () => {
+    await mount('/#/org/site/page');
+    const sidenav = document.createElement('nx-sidenav');
+    sidenav.loadNav = async () => {};
+    const home = { text: 'Home', href: `${window.location.origin}/` };
+    const apps = { text: 'Apps', href: `${window.location.origin}/apps` };
+    sidenav._navLinks = [home, apps];
+    try {
+      await setConfig({ homeHref: () => '/?landing=true&nx=lp#/org/site' });
+      document.body.append(sidenav);
+      await sidenav.updateComplete;
+      const [homeLink, appsLink] = sidenav.shadowRoot.querySelectorAll('a');
+      expect(homeLink.getAttribute('href')).to.equal('/?landing=true&nx=lp#/org/site');
+      expect(appsLink.href).to.equal(apps.href);
+      let prevented = false;
+      const event = { currentTarget: homeLink, preventDefault: () => { prevented = true; } };
+      sidenav.handleClick(event, home);
+      expect(prevented).to.equal(false);
+      expect(homeLink.search).to.equal('?landing=true&nx=lp');
+    } finally {
+      sidenav.remove();
+      await setConfig({ hostnames: [] });
+    }
+  });
+
+  it('uses consumer branding when supplied and restores the fragment brand when removed', async () => {
+    const fallback = document.createElement('a');
+    fallback.textContent = 'Default brand';
+    nav._brand = fallback;
+    await mount('/');
+    const slot = nav.shadowRoot.querySelector('slot[name="brand"]');
+    expect(slot.querySelector('a')).to.equal(fallback);
+    expect(slot.assignedElements()).to.deep.equal([]);
+    const custom = document.createElement('a');
+    custom.slot = 'brand';
+    custom.textContent = 'Consumer brand';
+    nav.append(custom);
+    await settleSlots();
+    expect(slot.assignedElements()).to.deep.equal([custom]);
+    expect(slot.querySelector('a')).to.equal(fallback);
+    custom.remove();
+    await settleSlots();
+    expect(slot.assignedElements()).to.deep.equal([]);
+    expect(slot.querySelector('a')).to.equal(fallback);
   });
 
   it('keeps consumer-owned search content assigned across navigation', async () => {
@@ -295,8 +414,9 @@ describe('nav site navigation', () => {
     const cluster = nav.shadowRoot.querySelector('.brand-cluster');
     const siteNav = cluster.querySelector('.site-nav');
     const actions = nav.shadowRoot.querySelector('.action-area');
-    expect(cluster.firstElementChild).to.equal(nav._brand);
-    expect(nav._brand.nextElementSibling).to.equal(siteNav);
+    const brandSlot = cluster.querySelector('slot[name="brand"]');
+    expect(brandSlot.firstElementChild).to.equal(nav._brand);
+    expect(brandSlot.nextElementSibling).to.equal(siteNav);
     expect(siteNav.querySelector('ul')).to.equal(nav._siteNav);
     expect(siteNav.querySelectorAll('nx-nav-test')).to.have.length(2);
     expect(siteNav.querySelector('[data-test="authored"]')).to.exist;

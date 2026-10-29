@@ -65,6 +65,7 @@ parallel one. If you do add a new key:
 | `STORED_MARKS` | iframe → host | da-live only |
 | `PREVIEW` | iframe ↔ host (request/reply) | standalone (quick-edit-portal) only |
 | `IMAGE_REPLACE` | iframe ↔ host (request/reply) | both hosts |
+| `TABLE_DROP` | iframe → host | da-live only (legacy name; accepts any HTML) |
 | `SET_COMMENT_MARKERS` | Host → iframe | da-live only |
 | `SCROLL_TO_POS` | Host → iframe | da-live only |
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
@@ -220,6 +221,26 @@ After an inline edit, the host acknowledges `NODE_UPDATE` with the new `imageVer
 and the edit's `nodeUpdateId`; the iframe has already shifted the affected image
 positions and applies that version without rebuilding the page or losing the active
 editor. A newer edit or full-body refresh invalidates older acknowledgements.
+
+### `TABLE_DROP`
+
+In the da-live-embedded layout view, a drag with non-empty `text/html`
+can be dropped before or after an indexed page element. The iframe displays an
+out-of-flow insertion line and sends the HTML plus the selected boundary to
+da-live. The host validates the anchor and write permission and lets the
+ProseMirror schema parse and insert the HTML (including tables, headings, and
+paragraphs). The `TABLE_DROP` wire name remains for compatibility.
+On a page without indexed content, the iframe provides a bounded drop zone
+over the otherwise zero-height main. Its `{ kind: 'main', index: 0 }` anchor
+inserts at the start of the document without shifting the layout.
+The standalone portal does not consume this message, so its iframe does not
+enable this drop target.
+For sidebar iframes whose native drags cannot enter the preview iframe, da-live
+creates host-document drag handles over the visible sidebar items and
+temporarily covers the preview with a drop surface. Its `ew-table-drag-preview`
+window message carries the pointer position (or HTML on drop) to the preview,
+which resolves the same indexed anchor and emits the same `TABLE_DROP` message.
+Other `text/html` drops still use the preview's native drag listeners.
 
 ### Comments (`SET_COMMENT_MARKERS` / `SCROLL_TO_POS` / `COMMENT_MARKER_CLICK` / `COMMENT_MARKER_CLEAR` / `COMMENT_SHORTCUT`)
 

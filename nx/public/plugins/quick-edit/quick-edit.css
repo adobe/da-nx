@@ -462,3 +462,14 @@ da-palette .da-palette-field {
     drop-shadow(0 2px 6px rgb(0 0 0 / 4%))
     drop-shadow(0 0 2px rgb(0 0 0 / 12%));
 }
+
+#qe-table-drop-indicator {
+  position: fixed;
+  z-index: 9999;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--s2-blue-900, #1473e6);
+  box-shadow: 0 0 0 1px #fff;
+  pointer-events: none;
+  transform: translateY(-50%);
+}

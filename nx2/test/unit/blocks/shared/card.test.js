@@ -190,7 +190,35 @@ describe('nx-card', () => {
   it('exposes the documented slots', () => {
     const names = [...card.shadowRoot.querySelectorAll('slot')].map((s) => s.name);
     expect(names).to.have.members([
-      'media', 'overlay-actions', 'content', 'heading', 'actions', 'metadata',
+      'media', 'preview', 'overlay-actions', 'selection', 'badge',
+      'content', 'heading', 'title', 'actions', 'metadata',
     ]);
+  });
+
+  it('keeps modern cards on their dimension preset', () => {
+    expect(card.hasAttribute('data-legacy-layout')).to.equal(false);
+    expect(getComputedStyle(card).width).to.equal('226px');
+    expect(getComputedStyle(card.shadowRoot.querySelector('.card')).display).to.equal('grid');
+  });
+
+  it('switches layout when legacy slots are added and removed after mounting', async () => {
+    const preview = document.createElement('span');
+    preview.slot = 'preview';
+    const changed = () => new Promise((resolve) => {
+      card.shadowRoot.addEventListener('slotchange', resolve, { once: true });
+    });
+    const added = changed();
+    card.append(preview);
+    await added;
+    await card.updateComplete;
+    expect(card.hasAttribute('data-legacy-layout')).to.equal(true);
+    expect(getComputedStyle(card.shadowRoot.querySelector('.card')).display).to.equal('flex');
+
+    const removed = changed();
+    preview.remove();
+    await removed;
+    await card.updateComplete;
+    expect(card.hasAttribute('data-legacy-layout')).to.equal(false);
+    expect(getComputedStyle(card.shadowRoot.querySelector('.card')).display).to.equal('grid');
   });
 });

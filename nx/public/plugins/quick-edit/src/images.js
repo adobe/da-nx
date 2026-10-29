@@ -34,6 +34,55 @@ export function requestEditor(ctx, element, focus) {
   });
 }
 
+function replaceImageFromFile(ctx, img, file) {
+  if (!file?.type.startsWith('image/')) return;
+  const picture = img.closest('picture');
+  const proseIndex = imageSelectPayload(img)?.proseIndex;
+  const imageVersion = img.getAttribute('data-image-version');
+  if (!Number.isSafeInteger(proseIndex) || !imageVersion) {
+    handleImageError('Image position is unavailable or out of date. Please refresh and try again.');
+    return;
+  }
+  const requestId = crypto.randomUUID();
+  ctx.pendingImageReplacements ??= new Map();
+  ctx.pendingImageReplacements.set(requestId, { img, picture, proseIndex });
+  picture?.classList.add('image-uploading');
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const currentIndex = imageSelectPayload(img)?.proseIndex;
+    if (!img.isConnected || !Number.isSafeInteger(currentIndex)
+      || img.getAttribute('data-image-version') !== imageVersion) {
+      handleImageError('Image position changed. Please try again.', requestId, ctx);
+      return;
+    }
+    const pending = ctx.pendingImageReplacements.get(requestId);
+    if (!pending) {
+      handleImageError('Image upload was cancelled.');
+      return;
+    }
+    pending.proseIndex = currentIndex;
+    const imageData = reader.result;
+    const { name: fileName, type: mimeType } = file;
+    ctx.port.postMessage({
+      type: MESSAGE_TYPES.IMAGE_REPLACE,
+      payload: {
+        proseIndex: currentIndex,
+        requestId,
+        imageVersion,
+        imageData,
+        fileName,
+        mimeType,
+        originalSrc: img.src,
+      },
+    });
+  };
+  reader.onerror = () => {
+    handleImageError('Failed to read image file', requestId, ctx);
+  };
+  reader.readAsDataURL(file);
+}
+
 // Editors are created only when the user clicks into an element. Block code may keep
 // rewriting the page after load, and an editor on an element it touches would send those
 // DOM changes back to the document as edits.
@@ -87,58 +136,11 @@ export function setupImageDropListeners(ctx, dom = document) {
           picture?.classList.remove('image-drop-target');
         }
       },
-      drop: async (e) => {
+      drop: (e) => {
         e.preventDefault();
         e.stopPropagation();
         picture?.classList.remove('image-drop-target');
-
-        const file = e.dataTransfer.files[0];
-        if (!file?.type.startsWith('image/')) return;
-
-        const proseIndex = imageSelectPayload(img)?.proseIndex;
-        const imageVersion = img.getAttribute('data-image-version');
-        if (!Number.isSafeInteger(proseIndex) || !imageVersion) {
-          handleImageError('Image position is unavailable or out of date. Please refresh and try again.');
-          return;
-        }
-        const requestId = crypto.randomUUID();
-        ctx.pendingImageReplacements.set(requestId, { img, picture, proseIndex });
-
-        picture?.classList.add('image-uploading');
-
-        const reader = new FileReader();
-        reader.onload = () => {
-          const currentIndex = imageSelectPayload(img)?.proseIndex;
-          if (!img.isConnected || !Number.isSafeInteger(currentIndex)
-            || img.getAttribute('data-image-version') !== imageVersion) {
-            handleImageError('Image position changed. Please try again.', requestId, ctx);
-            return;
-          }
-          const pending = ctx.pendingImageReplacements.get(requestId);
-          if (!pending) {
-            handleImageError('Image upload was cancelled.');
-            return;
-          }
-          pending.proseIndex = currentIndex;
-          const imageData = reader.result;
-          const { name: fileName, type: mimeType } = file;
-          ctx.port.postMessage({
-            type: MESSAGE_TYPES.IMAGE_REPLACE,
-            payload: {
-              proseIndex: currentIndex,
-              requestId,
-              imageVersion,
-              imageData,
-              fileName,
-              mimeType,
-              originalSrc: img.src,
-            },
-          });
-        };
-        reader.onerror = () => {
-          handleImageError('Failed to read image file', requestId, ctx);
-        };
-        reader.readAsDataURL(file);
+        replaceImageFromFile(ctx, img, e.dataTransfer.files[0]);
       },
     };
 
@@ -147,6 +149,27 @@ export function setupImageDropListeners(ctx, dom = document) {
     img.addEventListener('dragleave', img.listeners.dragleave);
     img.addEventListener('drop', img.listeners.drop);
   });
+}
+
+let remoteDropPicture;
+
+export function handleRemoteImageDrag({ phase, x, y, file }, ctx, dom = document) {
+  remoteDropPicture?.classList.remove('image-drop-target');
+  remoteDropPicture = null;
+  if (phase === 'leave') return;
+  if (ctx.readOnly || !['over', 'drop'].includes(phase)
+    || !Number.isFinite(x) || !Number.isFinite(y)) return;
+  const target = dom.elementFromPoint(x, y);
+  const img = target?.closest('main picture img');
+  if (!img) return;
+  const picture = img.closest('picture');
+  if (phase === 'over') {
+    picture.classList.add('image-drop-target');
+    remoteDropPicture = picture;
+    return;
+  }
+  if (!(file instanceof File) || !file.type.startsWith('image/')) return;
+  replaceImageFromFile(ctx, img, file);
 }
 
 export function updateImageSrc(requestId, newSrc, ctx) {

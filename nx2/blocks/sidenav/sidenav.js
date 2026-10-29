@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 
 import { loadFragment } from '../fragment/fragment.js';
-import { loadStyle } from '../../utils/utils.js';
+import { loadStyle, getHomeHref } from '../../utils/utils.js';
 
 const DEFAULT_NAV_PATH = '/nx/fragments/sidenav';
 const HASH_AWARE = ['Home', 'Apps'];
@@ -51,6 +51,10 @@ class NXSidenav extends LitElement {
 
   handleClick(e, a) {
     if (!HASH_AWARE.includes(a.text)) return;
+    if (a.text === 'Home') {
+      e.currentTarget.href = getHomeHref({ fallback: a.href });
+      if (e.currentTarget.href !== a.href) return;
+    }
     if (!window.location.hash?.startsWith('#/')) return;
     e.preventDefault();
     const [org, repo] = window.location.hash.slice(2).split('/');
@@ -68,7 +72,7 @@ class NXSidenav extends LitElement {
     return html`
       <ul>
         ${this._navLinks.map((a) => html`
-          <li class="nav-link ${this.getActiveClass(a)}"><a href="${a.href}" @click=${(e) => this.handleClick(e, a)}>${a.icon}${a.text}</a></li>
+          <li class="nav-link ${this.getActiveClass(a)}"><a href="${a.text === 'Home' ? getHomeHref({ fallback: a.href }) : a.href}" @click=${(e) => this.handleClick(e, a)}>${a.icon}${a.text}</a></li>
         `)}
       </ul>
     `;
