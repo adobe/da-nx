@@ -19,6 +19,10 @@ class NxLocOptions extends LitElement {
     _serviceOptions: { state: true },
   };
 
+  // Generation counter guarding loadConnectorServiceOptions against overlapping calls;
+  // not a reactive property, since it's an internal race guard, not render state.
+  _serviceOptionsGeneration = 0;
+
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
@@ -104,6 +108,12 @@ class NxLocOptions extends LitElement {
     const env = this._siteOptions['translation.service.all.env'];
     this._siteConfig.service.envs[env][target.dataset.key] = target.value;
     this.updateOptions();
+    // Some options can change which choices apply to other service options (e.g.
+    // Smartling's workflowUid is scoped to the current projectId) - a connector opts
+    // into this by flagging that option with `reloadServiceOptionsOnChange: true`, so
+    // no per-key wiring is needed here.
+    const changed = this._serviceOptions?.find((option) => option.key === target.dataset.key);
+    if (changed?.reloadServiceOptionsOnChange) this.loadConnectorServiceOptions();
   }
 
   /**
@@ -111,11 +121,21 @@ class NxLocOptions extends LitElement {
    * `serviceOptions` export (see e.g. `connectors/globallink/index.js`), so values like a
    * GlobalLink `projectId` can be picked from a live-fetched list instead of hand-typed
    * into the config sheet. A no-op for connectors that don't export `serviceOptions`.
-   * Re-triggered by `handleChangeOption` when the Environment field changes, since the
-   * env can affect which credentials/endpoint - and therefore which choices - apply.
+   * Re-triggered by `handleChangeOption` when the Environment field changes, and by
+   * `handleChangeServiceOption` when an option flagged `reloadServiceOptionsOnChange`
+   * changes, since either can affect which credentials/project - and therefore which
+   * choices - apply to the other options. Guards against overlapping calls (e.g. the
+   * user changing `projectId` twice in quick succession) with a generation counter, so
+   * a slower, now-stale call can never clobber a newer one's results. Options flagged
+   * `reloadServiceOptionsOnChange` (e.g. `projectId`) are fetched and seeded first, so the
+   * rest are fetched with the seeded values.
    * @returns {Promise<void>}
    */
   async loadConnectorServiceOptions() {
+    const generation = this._serviceOptionsGeneration + 1;
+    this._serviceOptionsGeneration = generation;
+    const isStale = () => this._serviceOptionsGeneration !== generation;
+
     const serviceName = this._siteConfig.service.name?.toLowerCase().replaceAll(' ', '-');
     const env = this._siteOptions['translation.service.all.env'];
     const envConfig = this._siteConfig.service.envs[env];
@@ -125,6 +145,8 @@ class NxLocOptions extends LitElement {
     }
 
     const connector = await import(`../../connectors/${serviceName}/index.js`);
+    if (isStale()) return;
+
     const { serviceOptions } = connector;
     if (!serviceOptions?.length) {
       this._serviceOptions = undefined;
@@ -134,19 +156,45 @@ class NxLocOptions extends LitElement {
     this._serviceOptions = serviceOptions.map((option) => ({ ...option, items: undefined }));
 
     const { org, site } = this.project;
-    const service = { name: this._siteConfig.service.name, ...envConfig, org, site, env };
+    const { name } = this._siteConfig.service;
+    const buildService = () => ({ name, ...envConfig, org, site, env });
+    const resolved = serviceOptions.map(() => []);
 
+    /**
+     * Fetches one stage of options and seeds each unset or stale value to its first choice
+     * (<sl-select> shows it without firing change). Incomplete listings can't prove a saved
+     * value is gone, so it is kept as a choice instead.
+     * @param {boolean} flagged - true for `reloadServiceOptionsOnChange` options, else the rest
+     * @returns {Promise<boolean>} false if a newer call superseded this one
+     */
+    const loadStage = async (flagged) => {
+      const indexes = serviceOptions.flatMap(
+        (option, i) => (!!option.reloadServiceOptionsOnChange === flagged ? [i] : []),
+      );
+      const service = buildService();
+      const lists = await Promise.all(indexes.map((i) => serviceOptions[i].fetch(service)));
+      if (isStale()) return false;
+
+      indexes.forEach((i, n) => {
+        const option = serviceOptions[i];
+        const list = lists[n] || [];
+        const value = envConfig[option.key];
+        const known = list.some((item) => item.value === value);
+        const keepSaved = list.incomplete && value && !known;
+        resolved[i] = keepSaved ? [{ value, label: value }, ...list] : list;
+        const enabled = !option.enabledWhen || option.enabledWhen(envConfig);
+        if (enabled && !known && !keepSaved && list.length) envConfig[option.key] = list[0].value;
+      });
+      return true;
+    };
+
+    // Flagged options load first so dependents are fetched with their seeded value.
     let connected;
-    let items;
     try {
-      connected = await connector.connect(service);
-      // The env may have changed while this round-trip was in flight - only the latest
-      // env's fetch should win.
-      if (this._siteOptions['translation.service.all.env'] !== env) return;
-
+      connected = await connector.connect(buildService());
+      if (isStale()) return;
       if (connected) {
-        items = await Promise.all(serviceOptions.map((option) => option.fetch(service)));
-        if (this._siteOptions['translation.service.all.env'] !== env) return;
+        if (!await loadStage(true) || !await loadStage(false)) return;
       }
     } catch {
       connected = false;
@@ -157,19 +205,8 @@ class NxLocOptions extends LitElement {
       return;
     }
 
-    // A <sl-select> falls back to its first <option> the instant it renders, with no
-    // change event - so a service option left unset (or set to a value no longer among
-    // the fetched choices, e.g. a since-deleted project) must be seeded here to its first
-    // choice, or the visually-selected value would never reach _siteConfig (and therefore
-    // never get persisted) unless the user happened to touch the select.
-    serviceOptions.forEach((option, i) => {
-      const value = envConfig[option.key];
-      const known = items[i]?.some((item) => item.value === value);
-      if (!known) envConfig[option.key] = items[i]?.[0]?.value;
-    });
-
     this._serviceOptions = serviceOptions.map(
-      (option, i) => ({ ...option, items: items[i] || [] }),
+      (option, i) => ({ ...option, items: resolved[i] }),
     );
     this.updateOptions();
   }
@@ -267,7 +304,16 @@ class NxLocOptions extends LitElement {
 
   renderServiceOption(option) {
     const env = this._siteOptions['translation.service.all.env'];
-    const value = this._siteConfig.service.envs[env]?.[option.key];
+    const envConfig = this._siteConfig.service.envs[env];
+    const value = envConfig?.[option.key];
+
+    if (option.enabledWhen && !option.enabledWhen(envConfig)) {
+      return html`
+        <div class="nx-loc-fieldgroup">
+          <p>${option.label}</p>
+          <sl-select disabled><option>Not applicable</option></sl-select>
+        </div>`;
+    }
 
     if (option.items === undefined) {
       return html`
