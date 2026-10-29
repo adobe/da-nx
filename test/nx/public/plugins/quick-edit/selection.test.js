@@ -4,9 +4,11 @@ import {
   blockLabel,
   blockSelectPayload,
   imageSelectPayload,
+  sectionSelectPayload,
   setSelectedNode,
   setupNodeSelection,
 } from '../../../../../nx/public/plugins/quick-edit/src/selection.js';
+import { findSection } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
 
 function buildBody() {
   document.body.innerHTML = '<main>'
@@ -174,6 +176,35 @@ describe('quick-edit selection overlay', () => {
     block.scrollIntoView = () => { scrolled = true; };
     setSelectedNode({ anchorType: 'table', proseIndex: 50 });
     expect(scrolled).to.equal(false);
+  });
+});
+
+function buildSections() {
+  document.body.innerHTML = '<main>'
+    + '<div><div class="hero" data-block-index="10">section 1 block</div></div>'
+    + '<div><p data-prose-index="20">section 2 text</p></div>'
+    + '<div><div class="cards" data-block-index="30">section 3 block</div></div>'
+    + '</main>';
+}
+
+describe('quick-edit section selection', () => {
+  beforeEach(buildSections);
+  afterEach(() => { document.body.innerHTML = ''; });
+
+  it('findSection returns the nth section in DOM order', () => {
+    const main = document.querySelector('main');
+    expect(findSection(1, document)).to.equal(main.children[1]);
+  });
+
+  it('findSection returns null when the index is out of range', () => {
+    expect(findSection(9, document)).to.equal(null);
+  });
+
+  it('sectionSelectPayload reads the section ordinal', () => {
+    const main = document.querySelector('main');
+    expect(sectionSelectPayload(main.children[1])).to.deep.equal({
+      anchorType: 'section', sectionIndex: 1,
+    });
   });
 });
 
@@ -397,5 +428,103 @@ describe('quick-edit selection gestures', () => {
     expect(document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')).to.not.equal(null);
     setSelectedNode({ anchorType: 'image', proseIndex: 27 });
     expect(document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')).to.not.equal(null);
+  });
+});
+
+describe('quick-edit section selection gestures', () => {
+  let posted;
+  let ctx;
+
+  beforeEach(() => {
+    buildSections();
+    posted = [];
+    ctx = { port: { postMessage: (m) => posted.push(m) } };
+    setupNodeSelection(ctx);
+  });
+  afterEach(() => {
+    setSelectedNode(null);
+    document.body.innerHTML = '';
+  });
+
+  it('shows a section hover pill on bare section whitespace', () => {
+    const section = document.querySelector('main').children[2];
+    section.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const pill = document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover');
+    expect(pill).to.not.equal(null);
+    expect(pill.textContent).to.equal('Section 3');
+    expect(document.querySelector('#qe-selection-overlay .qe-hover-box')).to.not.equal(null);
+  });
+
+  it('posts node-select with the section payload when the section pill is clicked', () => {
+    const section = document.querySelector('main').children[2];
+    section.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover').click();
+    expect(posted).to.deep.include({
+      type: 'node-select',
+      payload: { node: { anchorType: 'section', sectionIndex: 2 } },
+    });
+    expect(document.querySelector('#qe-selection-overlay .qe-hover-box')).to.equal(null);
+  });
+
+  it('gives block hover priority over the section hover inside a section', () => {
+    const block = document.querySelector('[data-block-index="10"]');
+    block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const pills = document.querySelectorAll('#qe-selection-overlay .qe-selected-pill.is-hover');
+    expect(pills.length).to.equal(1);
+    expect(pills[0].textContent).to.not.match(/^Section/);
+  });
+
+  it('does not draw a section hover pill over prose content', () => {
+    const text = document.querySelector('[data-prose-index="20"]');
+    text.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')).to.equal(null);
+  });
+
+  it('draws a selected section box + pill for a section anchor', () => {
+    setSelectedNode({ anchorType: 'section', sectionIndex: 1 });
+    const overlay = document.getElementById('qe-selection-overlay');
+    expect(overlay.querySelector('.qe-selected-box')).to.not.equal(null);
+    const pill = overlay.querySelector('.qe-selected-pill');
+    expect(pill.textContent).to.equal('Section 2');
+  });
+
+  it('swaps the section hover for the block hover when moving onto a block inside it', () => {
+    const section = document.querySelector('main').children[2];
+    section.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const block = section.querySelector('[data-block-index]');
+    section.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: block }));
+    block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    const pills = document.querySelectorAll('#qe-selection-overlay .qe-selected-pill.is-hover');
+    expect(pills.length).to.equal(1);
+    expect(pills[0].textContent).to.equal(block.classList[0]);
+  });
+
+  it('labels section pills with the section name when one is set', () => {
+    const section = document.querySelector('main').children[1];
+    section.dataset.sectionName = 'Hero';
+    section.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover').textContent).to.equal('Hero');
+    setSelectedNode({ anchorType: 'section', sectionIndex: 1 });
+    expect(document.querySelector('#qe-selection-overlay .qe-selected-pill').textContent).to.equal('Hero');
+  });
+
+  it('does not draw a section hover pill on the already-selected section', () => {
+    setSelectedNode({ anchorType: 'section', sectionIndex: 2 });
+    const section = document.querySelector('main').children[2];
+    section.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')).to.equal(null);
+  });
+
+  it('clears the section selection when clicking outside it', () => {
+    setSelectedNode({ anchorType: 'section', sectionIndex: 2 });
+    document.querySelector('main').children[0]
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(posted).to.deep.include({ type: 'node-select', payload: { node: null } });
+  });
+
+  it('posts node-select null on Escape when a section is selected', () => {
+    setSelectedNode({ anchorType: 'section', sectionIndex: 2 });
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(posted).to.deep.include({ type: 'node-select', payload: { node: null } });
   });
 });
