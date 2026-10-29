@@ -726,6 +726,12 @@ autoSave.addEventListener('change', (e) =&gt; console.log(e.detail.checked));
             <span slot="metadata">Page</span>
             <span slot="metadata">Metadata stays</span>
           </nx-card>
+          <nx-card dimensions="m" layout="compact" style="--nx-card-width: 198px">
+            <div slot="media">Preview</div>
+            <a slot="heading" href="#">compact-page</a>
+            <button slot="actions" class="nx-action-btn-icon nx-btn-sm" aria-label="More">⋯</button>
+            <span slot="metadata">Modified yesterday</span>
+          </nx-card>
         </div>
         <pre><code>&lt;nx-card dimensions="m" size="s" selectable selected&gt;
   &lt;img slot="media" src="..." alt=""&gt;
@@ -737,6 +743,9 @@ autoSave.addEventListener('change', (e) =&gt; console.log(e.detail.checked));
 
 &lt;!-- Replace only the heading row, e.g. inline rename. --&gt;
 &lt;input slot="content" class="nx-input" aria-label="Rename"&gt;
+
+&lt;!-- Compact presentation; dimensions and UI scale remain independent. --&gt;
+&lt;nx-card dimensions="m" layout="compact" size="s"&gt;...&lt;/nx-card&gt;
 
 card.addEventListener('nx-card-selection-change', (e) =&gt; { card.selected = e.detail.selected; });
 

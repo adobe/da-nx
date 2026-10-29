@@ -29,6 +29,13 @@ describe('nx-card', () => {
     await card.updateComplete;
     expect(card.dimensions).to.equal('s');
     expect(card.size).to.equal('l');
+
+    for (const [dimensions, width, height] of [['s', 151, 200], ['m', 226, 300], ['l', 301, 400]]) {
+      card.dimensions = dimensions;
+      await card.updateComplete;
+      expect(getComputedStyle(card).width).to.equal(`${width}px`);
+      expect(getComputedStyle(card.shadowRoot.querySelector('.card')).height).to.equal(`${height}px`);
+    }
   });
 
   it('falls back to defaults for unsupported values', async () => {
@@ -220,5 +227,29 @@ describe('nx-card', () => {
     await card.updateComplete;
     expect(card.hasAttribute('data-legacy-layout')).to.equal(false);
     expect(getComputedStyle(card.shadowRoot.querySelector('.card')).display).to.equal('grid');
+  });
+
+  it('uses compact geometry without changing the dimension preset or portrait defaults', async () => {
+    card.layout = 'compact';
+    card.style.setProperty('--nx-card-width', '198px');
+    card.innerHTML = '<span slot="heading">Page</span><span slot="metadata">Modified</span>';
+    await card.updateComplete;
+    const media = card.shadowRoot.querySelector('.media');
+    const heading = card.shadowRoot.querySelector('.heading');
+    expect(card.dimensions).to.equal('m');
+    expect(getComputedStyle(media).height).to.equal('80px');
+    expect(getComputedStyle(heading).minHeight).to.equal('24px');
+    card.layout = undefined;
+    await card.updateComplete;
+    expect(getComputedStyle(card.shadowRoot.querySelector('.card')).height).to.equal('300px');
+    expect(getComputedStyle(heading).minHeight).to.equal('32px');
+  });
+
+  it('retains the compact preview height while text scale changes', async () => {
+    card.layout = 'compact';
+    card.size = 'm';
+    await card.updateComplete;
+    expect(getComputedStyle(card.shadowRoot.querySelector('.media')).height).to.equal('80px');
+    expect(card.dimensions).to.equal('m');
   });
 });

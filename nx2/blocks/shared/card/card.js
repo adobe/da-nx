@@ -12,6 +12,7 @@ class NxCard extends LitElement {
   static properties = {
     dimensions: { type: String, reflect: true },
     size: { type: String, reflect: true },
+    layout: { type: String, reflect: true },
     selectable: { type: Boolean, reflect: true },
     selected: { type: Boolean, reflect: true },
     selectionLabel: { type: String, attribute: 'selection-label' },

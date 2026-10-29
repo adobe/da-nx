@@ -106,7 +106,7 @@
   box-sizing: border-box;
   min-width: 0;
   min-height: calc(32px + var(--nx-card-meta-line-height) * 2 + 8px);
-  padding: var(--s2-spacing-50, 4px) var(--s2-spacing-150, 12px);
+  padding: var(--s2-spacing-50, 4px) var(--s2-spacing-200);
 }
 
 .heading {
@@ -233,4 +233,26 @@
   min-width: 0;
   font-size: var(--s2-component-s-regular-font-size, 12px);
   line-height: 1.5;
+}
+
+:host([layout="compact"]) {
+  .card {
+    height: auto;
+    grid-template-rows: var(--nx-card-preview-height, 80px) auto;
+    gap: var(--s2-spacing-75);
+    padding: var(--s2-spacing-75);
+  }
+
+  .body {
+    min-height: 0;
+    padding: var(--s2-spacing-75) var(--s2-spacing-200);
+  }
+
+  .heading {
+    min-height: 24px;
+  }
+
+  .metadata {
+    line-height: var(--s2-body-line-height);
+  }
 }

@@ -33,11 +33,16 @@ card.addEventListener("nx-card-selection-change", (e) => {
 | ---------------- | --------- | ----------------------------------------------------------------------------- |
 | `dimensions`     | `String`  | Card footprint: `"s"` (151×200), `"m"` (226×300, default) or `"l"` (301×400). |
 | `size`           | `String`  | Text and control scale: `"s"` (default), `"m"` or `"l"`. Independent of `dimensions`. |
+| `layout`         | `String`  | Opt-in `"compact"` presentation: 80px media, shorter heading and one metadata line. Unset preserves the portrait presets. |
 | `selectable`     | `Boolean` | Shows the selection checkbox.                                                 |
 | `selected`       | `Boolean` | Selected state. Controlled by the consumer.                                   |
 | `selectionLabel` | `String`  | Accessible name of the checkbox (`selection-label`). Default `"Select item"`. |
 
 Override the footprint with `--nx-card-width` and `--nx-card-height`.
+Compact layout uses content-driven height and `--nx-card-preview-height`
+(80px by default). It is a presentation of the same card, not a fourth
+dimension preset. Consumers can use one preset without exposing a size selector;
+`size` remains independent.
 
 ### Methods
 
