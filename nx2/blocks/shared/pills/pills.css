@@ -19,7 +19,10 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--s2-spacing-100);
-    max-height: calc(2 * var(--pill-row-height) + var(--s2-spacing-100));
+    max-height: var(
+      --nx-pills-max-height,
+      calc(2 * var(--pill-row-height) + var(--s2-spacing-100))
+    );
     overflow-y: auto;
     padding: var(--s2-spacing-75) 0;
   }
@@ -71,6 +74,13 @@
     color: var(--nx-pill-color, var(--s2-blue-1000));
   }
 
+  /* Marks a match (e.g. a search hit) in Spectrum's notice color (orange);
+     wins over a host's --nx-pill-background/--nx-pill-color. */
+  .pill.highlighted {
+    --nx-pill-background: var(--nx-pill-highlight-background, var(--s2-orange-300));
+    --nx-pill-color: var(--nx-pill-highlight-color, var(--s2-orange-1100));
+  }
+
   .pill-label {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -91,5 +101,53 @@
   .pill-label-button:hover,
   .pill-label-button:focus-visible {
     text-decoration-color: currentcolor;
+  }
+}
+
+:host([size="m"]) {
+  .pills-container {
+    --pill-row-height: calc(
+      max(var(--s2-component-m-regular-line-height), 20px) + 2 * var(--s2-spacing-100)
+    );
+
+    gap: var(--s2-spacing-200);
+    max-height: var(
+      --nx-pills-max-height,
+      calc(2 * var(--pill-row-height) + var(--s2-spacing-200))
+    );
+    padding: var(--s2-spacing-100) 0;
+  }
+
+  .pill {
+    gap: var(--s2-spacing-100);
+    padding: var(--s2-spacing-100) var(--s2-spacing-200);
+    border-radius: var(--s2-corner-radius-500);
+    max-width: 240px;
+  }
+
+  .pill-label {
+    font-size: var(--s2-component-m-regular-font-size);
+    line-height: var(--s2-component-m-regular-line-height);
+  }
+
+  .pill-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .pill-pin svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .pill-type-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .pill-thumbnail {
+    width: 20px;
+    height: 20px;
+    border-radius: var(--s2-corner-radius-75);
   }
 }

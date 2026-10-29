@@ -4,7 +4,13 @@ import { loadStyle } from '../../../../../nx2/scripts/nx.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 
-import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
+import {
+  createSnapshotPrefix,
+  fetchConfig,
+  findDuplicateBasePaths,
+  getProjectBasePath,
+  getSourceLocations,
+} from '../../utils/utils.js';
 import { getFragmentUrls } from './validate-utils.js';
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
 
@@ -151,9 +157,17 @@ class NxLocValidate extends LitElement {
       return { message: { type: 'error', text: 'Please select at least one URL.' } };
     }
 
-    const sourcePrefix = await this.getSourcePrefix();
+    const defaultLocation = await this.getSourcePrefix();
+    const sourceLocations = getSourceLocations({
+      options: { 'source.language': { location: defaultLocation } },
+      langs: this._configSheet?.languages?.data,
+    });
     const urls = checked.map((url) => {
-      const { aemBasePath } = convertPath({ path: url.pathname, sourcePrefix });
+      const aemBasePath = getProjectBasePath({
+        path: url.pathname,
+        defaultLocation,
+        sourceLocations,
+      });
       return {
         basePath: aemBasePath,
         suppliedPath: url.pathname,
@@ -161,7 +175,13 @@ class NxLocValidate extends LitElement {
       };
     });
 
-    return { updates: { urls } };
+    const duplicates = findDuplicateBasePaths({ urls });
+    if (duplicates.length) {
+      const conflicts = duplicates.map((paths) => paths.join(', ')).join('; ');
+      return { message: { type: 'error', text: `Multiple URLs resolve to the same base path. Remove one: ${conflicts}` } };
+    }
+
+    return { updates: { urls, sourceLocations } };
   }
 
   async handleAction(e) {

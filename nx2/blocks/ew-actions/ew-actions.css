@@ -220,6 +220,12 @@ nx-popover.deploy-popover {
   text-overflow: ellipsis;
   font-size: var(--s2-component-s-regular-font-size);
   color: var(--s2-gray-800, #292929);
+  text-decoration: none;
+}
+
+.deploy-url-text:hover {
+  color: var(--s2-gray-900);
+  text-decoration: underline;
 }
 
 .deploy-copy {

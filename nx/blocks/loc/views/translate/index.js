@@ -2,7 +2,13 @@ import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
 
-import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
+import {
+  convertPath,
+  createSnapshotPrefix,
+  fetchConfig,
+  findSourceLocation,
+  getProjectSourceLocations,
+} from '../../utils/utils.js';
 import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
 
 let CONNECTOR;
@@ -22,6 +28,7 @@ export async function getUrls(
   urls,
   fetchContent,
   snapshot,
+  sourceLocations = [sourceLocation],
 ) {
   const { connector } = service;
   const snapshotPrefix = createSnapshotPrefix(snapshot);
@@ -30,7 +37,8 @@ export async function getUrls(
   const formattedUrls = urls.map((url) => {
     const converConf = {
       path: url.suppliedPath,
-      sourcePrefix: sourceLocation,
+      sourcePrefix: findSourceLocation({ path: url.suppliedPath, locations: sourceLocations })
+        || sourceLocation,
       destPrefix: destLocation,
       snapshotPrefix,
     };
@@ -87,6 +95,27 @@ export async function getUrls(
   return { urls: formattedUrls };
 }
 
+/**
+ * Resolve the DA path a translated url is saved to for a language.
+ * @param {Object} config The config.
+ * @param {Object} config.url The project url (suppliedPath, basePath).
+ * @param {Object} config.lang The target language (location).
+ * @param {string[]} config.sourceLocations Configured source locations.
+ * @param {string} [config.snapshotPrefix] Optional snapshot prefix.
+ * @returns {string} The DA destination path.
+ */
+export function getSaveDestPath({ url, lang, sourceLocations, snapshotPrefix = '' }) {
+  const sourcePrefix = findSourceLocation({ path: url.suppliedPath, locations: sourceLocations });
+  const path = sourcePrefix ? url.suppliedPath : url.basePath;
+  const { daDestPath } = convertPath({
+    path,
+    sourcePrefix: sourcePrefix || '/',
+    destPrefix: lang.location,
+    snapshotPrefix,
+  });
+  return daDestPath;
+}
+
 async function saveLang({
   org,
   site,
@@ -99,11 +128,19 @@ async function saveLang({
   langIndex,
   urls,
   sendMessage,
+  options,
+  langs,
+  sourceLocations: projectLocations,
 }) {
   const snapshotPrefix = createSnapshotPrefix(snapshot);
+  const sourceLocations = getProjectSourceLocations({
+    sourceLocations: projectLocations,
+    options,
+    langs,
+  });
 
   const urlsToSave = urls.map((url) => {
-    const { daDestPath } = convertPath({ path: url.basePath, sourcePrefix: '/', destPrefix: lang.location, snapshotPrefix });
+    const daDestPath = getSaveDestPath({ url, lang, sourceLocations, snapshotPrefix });
     return { ...url, destination: `/${org}/${site}${daDestPath}` };
   });
 
@@ -133,7 +170,7 @@ async function saveLang({
 export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   const behavior = options['translate.conflict.behavior'];
 
-  const saveLangConf = { ...conf, connector, behavior, sendMessage };
+  const saveLangConf = { ...conf, options, connector, behavior, sendMessage };
 
   for (const [langIndex, lang] of conf.langs.entries()) {
     if (lang.translation.status !== 'complete') {
@@ -145,9 +182,35 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   }
 }
 
-export async function copySourceLangs(org, site, title, options, langs, urls, langsWithUrls) {
+/**
+ * Copies source-language content to each copy-action language.
+ * @param {string} org The org.
+ * @param {string} site The site.
+ * @param {string} title The project title.
+ * @param {Object} options The project options.
+ * @param {Object[]} langs The copy languages.
+ * @param {Object[]} urls The project urls.
+ * @param {Object[]} langsWithUrls The languages with their fetched urls.
+ * @param {string[]} [projectLocations] Project source locations; derived if omitted.
+ * @returns {Promise<void>}
+ */
+export async function copySourceLangs(
+  org,
+  site,
+  title,
+  options,
+  langs,
+  urls,
+  langsWithUrls,
+  projectLocations,
+) {
   const behavior = options['copy.conflict.behavior'];
   const sourceLocation = options['source.language']?.location || '/';
+  const sourceLocations = getProjectSourceLocations({
+    sourceLocations: projectLocations,
+    options,
+    langs,
+  });
 
   const copyUrl = async (url) => {
     const destination = `/${org}/${site}${url.daDestPath}`;
@@ -167,7 +230,8 @@ export async function copySourceLangs(org, site, title, options, langs, urls, la
     const langUrls = langsWithUrls[idx].urls.map((url) => {
       const conf = {
         path: url.suppliedPath,
-        sourcePrefix: sourceLocation,
+        sourcePrefix: findSourceLocation({ path: url.suppliedPath, locations: sourceLocations })
+          || sourceLocation,
         destPrefix: lang.location,
       };
       const converted = convertPath(conf);
@@ -182,7 +246,7 @@ export async function copySourceLangs(org, site, title, options, langs, urls, la
     const success = langUrls.filter((url) => url.status === 200).length;
     lang.copy = {
       saved: success,
-      status: 'complete',
+      status: success === langUrls.length ? 'complete' : 'error',
     };
   }
 }
@@ -227,22 +291,22 @@ export async function sendAllForTranslation(conf, connector) {
  *  place (`translation.status`, and `waitingFor` is deleted).
  * @param {Object[]} originalUrls - The project's full supplied urls.
  * @param {string} [sourceLocation] - The project's default source
- *  location, used to de-prefix `originalUrls` before re-prefixing them
- *  with the dependent language's own source location.
+ *  location, the fallback prefix when a url is under no configured source.
+ *  Each url is de-prefixed by its own source location (`conf.sourceLocations`)
+ *  before re-prefixing with the dependent language's own source location.
  * @returns {Promise<void>}
  */
 async function sendLanguageForTranslation(conf, connector, lang, originalUrls, sourceLocation) {
   const { waitingFor } = lang;
   const newSourceLocation = waitingFor.location;
+  const sourceLocations = getProjectSourceLocations(conf);
 
-  // A root '/' has no prefix to strip - convertPath treats it the same way.
-  const hasSourceLocation = sourceLocation && sourceLocation !== '/';
-  const baseUrls = !hasSourceLocation ? originalUrls : originalUrls.map((url) => {
+  const baseUrls = originalUrls.map((url) => {
     const { suppliedPath: path } = url;
-    return {
-      ...url,
-      suppliedPath: path.startsWith(sourceLocation) ? path.slice(sourceLocation.length) : path,
-    };
+    const prefix = findSourceLocation({ path, locations: sourceLocations }) || sourceLocation;
+    // A root '/' has no prefix to strip - convertPath treats it the same way.
+    if (!prefix || prefix === '/') return url;
+    return { ...url, suppliedPath: path.startsWith(prefix) ? path.slice(prefix.length) : path };
   });
   const { org, site } = conf;
   const { urls } = await getUrls(

@@ -1,6 +1,8 @@
 :host {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, min(360px, 40%)) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s2-spacing-100);
   height: 100%;
 
   p {
@@ -16,8 +18,15 @@
   }
 }
 
-.brand-cluster {
+:host(:not([data-has-search])) {
   display: flex;
+}
+
+.brand-cluster {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex: 1;
   align-items: center;
   min-width: 0;
   height: 100%;
@@ -36,7 +45,17 @@
 
 .brand-area svg {
   height: 100%;
+  max-height: var(--s2-nav-height, 56px);
+  width: auto;
   flex-shrink: 0;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .nav-breadcrumb {
@@ -44,17 +63,51 @@
   min-width: 0;
 }
 
+.nav-search {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+:host(:not([data-has-search])) .nav-search {
+  display: none;
+}
+
+::slotted([slot="search"]) {
+  display: block;
+  min-width: 0;
+  width: 100%;
+}
+
 .action-area {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  min-width: 0;
+  max-width: 100%;
   display: none;
 
+  &:has(nx-profile.is-loaded) {
+    display: unset;
+  }
+}
+
+.site-nav,
+.action-area {
   ul {
     height: 100%;
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0 16px 0 0;
+    margin: 0;
     padding: 0;
     list-style: none;
+    overflow: auto hidden;
+  }
+
+  li {
+    flex-shrink: 0;
   }
 
   button {
@@ -62,6 +115,7 @@
     justify-content: center;
     align-items: center;
     height: 32px;
+    white-space: nowrap;
     border-radius: var(--s2-corner-radius-500);
 
     .icon {
@@ -98,8 +152,13 @@
     width: 20px;
     height: 20px;
   }
+}
 
-  &:has(nx-profile.is-loaded) {
-    display: unset;
-  }
+.action-area ul {
+  margin-right: 16px;
+}
+
+:host(:not([data-has-search])) .action-area {
+  flex-shrink: 0;
+  max-width: none;
 }

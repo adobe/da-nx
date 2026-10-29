@@ -2,6 +2,11 @@ svg {
   display: none;
 }
 
+.nx-loading-spinner {
+  --nx-spinner-track-color: currentcolor;
+  --nx-spinner-active-color: transparent;
+}
+
 p {
   margin: 0;
   line-height: 1;

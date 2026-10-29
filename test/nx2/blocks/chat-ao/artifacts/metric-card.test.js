@@ -20,6 +20,87 @@ describe('artifacts MetricCard', () => {
     expect(host.querySelector('.ui-artifact-metric-value').textContent).to.equal('12,847');
   });
 
+  it('formats the upstream monthly revenue artifact without changing its trend', () => {
+    const host = mount(renderUiArtifact({
+      title: 'Monthly Revenue',
+      components: [{
+        id: 'root',
+        component: 'MetricCard',
+        label: 'Monthly Revenue (USD)',
+        value: {
+          call: 'formatCurrency',
+          args: { value: 128450, currency: 'USD', decimals: 0 },
+        },
+        trend: 'up',
+        change: '+12.4% vs. last month',
+      }],
+    }));
+
+    expect(host.querySelector('.ui-artifact-title').textContent).to.equal('Monthly Revenue');
+    expect(host.querySelector('.ui-artifact-metric-label').textContent).to.equal('Monthly Revenue (USD)');
+    expect(host.querySelector('.ui-artifact-metric-value').textContent).to.equal('$128,450');
+    expect(host.querySelector('.ui-artifact-metric-trend-up').textContent.trim())
+      .to.equal('↑ +12.4% vs. last month');
+    expect(host.querySelector('.ui-artifact-fallback')).to.equal(null);
+  });
+
+  [
+    { amount: 0, currency: 'USD', expected: '$0.00' },
+    { amount: -12.5, currency: 'USD', decimals: 2, expected: '-$12.50' },
+    { amount: 1234, currency: 'JPY', expected: '¥1,234' },
+    { amount: 1.234, currency: 'USD', decimals: 1, expected: '$1.2' },
+  ].forEach(({
+    amount, currency, decimals, expected,
+  }) => {
+    it(`formats a legacy currency value as ${expected}`, () => {
+      const host = mount(metricArtifact({
+        value: { call: 'formatCurrency', args: { value: amount, currency, decimals } },
+      }));
+      expect(host.querySelector('.ui-artifact-metric-value').textContent).to.equal(expected);
+    });
+  });
+
+  [0, -12.5, ''].forEach((value) => {
+    it(`preserves literal metric value ${JSON.stringify(value)}`, () => {
+      const host = mount(metricArtifact({ value }));
+      expect(host.querySelector('.ui-artifact-metric-value').textContent).to.equal(String(value));
+    });
+  });
+
+  [
+    { call: 'unknownFunction', args: {} },
+    { path: '/revenue' },
+    { call: 'formatCurrency' },
+    { call: 'formatCurrency', args: [] },
+    { call: 'formatCurrency', args: { value: '128450', currency: 'USD' } },
+    { call: 'formatCurrency', args: { value: { path: '/revenue' }, currency: 'USD' } },
+    { call: 'formatCurrency', args: { value: Infinity, currency: 'USD' } },
+    { call: 'formatCurrency', args: { value: 128450, currency: 'invalid' } },
+    { call: 'formatCurrency', args: { value: 128450, currency: 123 } },
+    { call: 'formatCurrency', args: { value: 128450, currency: 'USD', decimals: -1 } },
+    { call: 'formatCurrency', args: { value: 128450, currency: 'USD', decimals: 1.5 } },
+    { call: 'formatCurrency', args: { value: 128450, currency: 'USD', decimals: 21 } },
+    { call: 'formatCurrency', args: { value: 128450, currency: 'USD', decimals: '0' } },
+    null,
+    [],
+  ].forEach((value) => {
+    it(`uses the artifact fallback for unsupported value ${JSON.stringify(value)}`, () => {
+      const host = mount(renderUiArtifact({
+        textFallback: 'Monthly Revenue: $128,450.',
+        components: [{ id: 'root', component: 'MetricCard', value }],
+      }));
+      expect(host.querySelector('.ui-artifact-metric')).to.equal(null);
+      expect(host.querySelector('.ui-artifact-fallback').textContent)
+        .to.equal('Monthly Revenue: $128,450.');
+      expect(host.textContent).not.to.contain('[object Object]');
+    });
+  });
+
+  it('shows the standard unsupported-content message when no fallback is supplied', () => {
+    const host = mount(metricArtifact({ value: { call: 'unknownFunction' } }));
+    expect(host.querySelector('.ui-artifact-fallback').textContent).to.equal('Unsupported content.');
+  });
+
   it('renders the trend and change when both are given', () => {
     const host = mount(metricArtifact({
       label: 'Total Users', value: '12,847', trend: 'up', change: '+340',

@@ -59,11 +59,18 @@ class NxLocOptions extends LitElement {
   }
 
   updateOptions() {
+    const { urls, sourceLocations } = this.project;
     const {
       options,
       langs,
       message,
-    } = finalizeOptions(this._siteConfig, this._siteOptions, this._siteLangs, this.project.urls);
+    } = finalizeOptions(
+      this._siteConfig,
+      this._siteOptions,
+      this._siteLangs,
+      urls,
+      sourceLocations,
+    );
 
     if (message) return { message };
 

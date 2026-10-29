@@ -13,7 +13,8 @@ import { createSimpleKeymap } from './simple-keymap.js';
 import { createImageWrapperPlugin } from './image-wrapper.js';
 import { setupImageDropListeners } from './images.js';
 import { setRemoteCursors } from './cursors.js';
-import { findTextBlock, syncImageIndices } from './dom-index.js';
+import { syncImageIndices } from './dom-index.js';
+import { scheduleSettle, settleEditor, settleOtherEditors } from './settle-editor.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
 function marksEqual(a, b) {
@@ -21,6 +22,12 @@ function marksEqual(a, b) {
   if (!a || !b) return false;
   if (a.length !== b.length) return false;
   return a.every((m, i) => m.eq(b[i]));
+}
+
+function requestReload(ctx) {
+  if (ctx.reloadRequested) return;
+  ctx.reloadRequested = true;
+  ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
 }
 
 function updateInstrumentation(lengthDiff, offset) {
@@ -147,12 +154,14 @@ function initScrollListener(win, ctx) {
 
 let blurClearTimeout = null;
 
-function focus(view) {
+function focus(view, ctx) {
   if (blurClearTimeout !== null) {
     clearTimeout(blurClearTimeout);
     blurClearTimeout = null;
   }
   setCurrentEditorView(view);
+  // The cleared timer may have belonged to another editor; settle that one now.
+  settleOtherEditors(view.dom.parentElement, ctx);
   // showToolbar(view);
   return false;
 }
@@ -163,6 +172,7 @@ function blur(view, event, ctx) {
   blurClearTimeout = setTimeout(() => {
     ctx.port.postMessage({ type: MESSAGE_TYPES.CURSOR_MOVE });
     blurClearTimeout = null;
+    settleEditor(view.dom.parentElement, ctx);
   }, 150);
   return false; // Let other handlers run
 }
@@ -190,10 +200,13 @@ export function captureFocusedEditor() {
   return { cursorOffset: editorParent.getAttribute('data-prose-index'), selection: { anchor, head } };
 }
 
-function createEditor(cursorOffset, state, ctx, imageVersion) {
-  // Normalize once: the exact-match badge gate below is a strict === and would
-  // silently never match if cursorOffset arrived as a string.
-  const offset = Number(cursorOffset);
+function createEditor(offset, state, ctx, { imageVersion, lengthDiff = 0, origin } = {}) {
+  const element = document.querySelector(`[data-prose-index="${offset}"]:not(.prosemirror-editor)`);
+  if (!element) {
+    requestReload(ctx);
+    return;
+  }
+
   const schema = getSchema();
   const node = schema.nodeFromJSON(state);
 
@@ -202,7 +215,7 @@ function createEditor(cursorOffset, state, ctx, imageVersion) {
   // takes the whole editor down. The controller should never send one, but guard
   // here so a malformed payload degrades to a reload instead of a hard crash.
   if (!schema.nodes.doc.contentMatch.matchType(node.type)) {
-    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
+    requestReload(ctx);
     return;
   }
 
@@ -219,19 +232,7 @@ function createEditor(cursorOffset, state, ctx, imageVersion) {
   if (imageVersion) editorParent.setAttribute('data-image-version', imageVersion);
   editorParent.classList.add('prosemirror-editor');
 
-  // Drift-tolerant lookup: an exact match can miss after another block's remote edit
-  // shifts positions. Exclude open editors so the fallback can't steal a live one.
-  const element = findTextBlock(offset, document, '.prosemirror-editor');
-
-  if (!element) {
-    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
-    return;
-  }
-
-  // Only trust the found element's remote-cursor badge on an exact match — on the
-  // nearest-block fallback it belongs to whatever block drift landed on, not this one.
-  const isExactMatch = parseInt(element.getAttribute('data-prose-index'), 10) === offset;
-  if (isExactMatch && element.getAttribute('data-cursor-remote')) {
+  if (element.getAttribute('data-cursor-remote')) {
     editorParent.setAttribute('data-cursor-remote', element.getAttribute('data-cursor-remote'));
     editorParent.setAttribute('data-cursor-remote-color', element.getAttribute('data-cursor-remote-color'));
   }
@@ -240,7 +241,7 @@ function createEditor(cursorOffset, state, ctx, imageVersion) {
     state: editorState,
     editable: () => !ctx.readOnly,
     handleDOMEvents: {
-      focus,
+      focus: (view) => focus(view, ctx),
       keydown,
       blur: (view, event) => blur(view, event, ctx),
     },
@@ -251,7 +252,9 @@ function createEditor(cursorOffset, state, ctx, imageVersion) {
 
   element.replaceWith(editorParent);
   editorParent.view = editorView;
-  syncImageIndices(editorView, editorParent, offset);
+  // The replaced element still had the pre-edit content, so later indices haven't moved yet.
+  if (lengthDiff) updateInstrumentation(lengthDiff, offset);
+  syncImageIndices(editorView, editorParent, offset, node.nodeSize - lengthDiff, lengthDiff);
   if (!ctx.readOnly) setupImageDropListeners(ctx, editorParent);
   setRemoteCursors();
   initScrollListener(editorParent.ownerDocument.defaultView, ctx);
@@ -262,18 +265,22 @@ function createEditor(cursorOffset, state, ctx, imageVersion) {
     clearTimeout(blurClearTimeout);
     blurClearTimeout = null;
     focusEditor(editorView, pending);
+    settleOtherEditors(editorParent, ctx);
     return;
   }
 
-  if (blurClearTimeout !== null) {
-    clearTimeout(blurClearTimeout);
-    blurClearTimeout = null;
-    setCurrentEditorView(editorView);
-    editorView.focus();
+  if (blurClearTimeout === null) {
+    scheduleSettle(editorParent, ctx, origin);
+    return;
   }
+  clearTimeout(blurClearTimeout);
+  blurClearTimeout = null;
+  setCurrentEditorView(editorView);
+  editorView.focus();
+  settleOtherEditors(editorParent, ctx);
 }
 
-function updateEditor(editorEl, state, ctx, imageVersion) {
+function updateEditor(editorEl, state, ctx, { imageVersion, origin } = {}) {
   if (!editorEl) return;
 
   // Editor already exists, update it with a transaction
@@ -285,7 +292,7 @@ function updateEditor(editorEl, state, ctx, imageVersion) {
   // Same guard as createEditor: replacing the root with a node that is not
   // valid `doc` content (e.g. a `table_cell`) throws and breaks the editor.
   if (!schema.nodes.doc.contentMatch.matchType(node.type)) {
-    ctx.port.postMessage({ type: MESSAGE_TYPES.RELOAD });
+    requestReload(ctx);
     return;
   }
 
@@ -308,19 +315,28 @@ function updateEditor(editorEl, state, ctx, imageVersion) {
   ctx.remoteUpdate = false;
   if (!ctx.readOnly) setupImageDropListeners(ctx, editorEl.parentElement);
 
-  if (blurClearTimeout !== null) {
-    clearTimeout(blurClearTimeout);
-    blurClearTimeout = null;
-    setCurrentEditorView(view);
-    view.focus();
-  }
-}
-
-export function setEditorState(cursorOffset, state, ctx, imageVersion) {
-  const existingEditorParent = document.querySelector(`.prosemirror-editor[data-prose-index="${cursorOffset}"]`);
-  if (existingEditorParent) {
-    updateEditor(existingEditorParent.view, state, ctx, imageVersion);
+  if (blurClearTimeout === null) {
+    scheduleSettle(view.dom.parentElement, ctx, origin);
     return;
   }
-  createEditor(cursorOffset, state, ctx, imageVersion);
+  clearTimeout(blurClearTimeout);
+  blurClearTimeout = null;
+  setCurrentEditorView(view);
+  view.focus();
+  settleOtherEditors(view.dom.parentElement, ctx);
+}
+
+// `options` are the optional SET_EDITOR_STATE fields: `imageVersion`, `lengthDiff`, `origin`.
+export function setEditorState(cursorOffset, state, ctx, options = {}) {
+  const offset = Number(cursorOffset);
+  if (!Number.isSafeInteger(offset) || offset < 0) {
+    requestReload(ctx);
+    return;
+  }
+  const existingEditorParent = document.querySelector(`.prosemirror-editor[data-prose-index="${offset}"]`);
+  if (existingEditorParent) {
+    updateEditor(existingEditorParent.view, state, ctx, options);
+    return;
+  }
+  createEditor(offset, state, ctx, options);
 }

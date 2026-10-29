@@ -218,7 +218,7 @@ describe('quick-edit selection gestures', () => {
     const block = document.querySelector('[data-block-index="50"]');
     block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')
-      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      .click();
     expect(document.querySelector('#qe-selection-overlay .qe-hover-box')).to.equal(null);
     expect(document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')).to.equal(null);
   });
@@ -227,7 +227,7 @@ describe('quick-edit selection gestures', () => {
     const block = document.querySelector('[data-block-index="50"]');
     block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     const pill = document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover');
-    pill.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    pill.click();
     expect(posted).to.deep.include({
       type: 'node-select',
       payload: { node: { anchorType: 'table', proseIndex: 50 } },
@@ -325,7 +325,7 @@ describe('quick-edit selection gestures', () => {
     const blockB = document.querySelector('[data-block-index="60"]');
     blockB.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')
-      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      .click();
     expect(posted).to.deep.include({
       type: 'node-select',
       payload: { node: { anchorType: 'table', proseIndex: 60 } },
@@ -387,7 +387,7 @@ describe('quick-edit selection gestures', () => {
     const block = document.querySelector('[data-block-index="50"]');
     block.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')
-      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      .click();
     expect(document.activeElement).to.not.equal(pm);
   });
 
