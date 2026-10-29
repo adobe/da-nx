@@ -39,6 +39,26 @@ describe('quick-edit native drop channel integration', () => {
         + '<img src="/old.png" data-image-index="3" data-image-version="v1"></picture>';
       const img = document.querySelector('img');
       sinon.stub(document, 'elementFromPoint').returns(img);
+      const picture = img.closest('picture');
+      const highlightChange = (highlighted) => new Promise((resolve) => {
+        const observer = new MutationObserver(() => {
+          if (picture.classList.contains('image-drop-target') !== highlighted) return;
+          observer.disconnect();
+          resolve();
+        });
+        observer.observe(picture, { attributes: true, attributeFilter: ['class'] });
+      });
+      const highlighted = highlightChange(true);
+      channel.port1.postMessage({
+        type: 'image-replace', payload: { assets: [], phase: 'hover', x: 15, y: 25 },
+      });
+      await highlighted;
+      expect(picture.classList.contains('image-uploading')).to.equal(false);
+      const cleared = highlightChange(false);
+      channel.port1.postMessage({
+        type: 'image-replace', payload: { assets: [], phase: 'leave' },
+      });
+      await cleared;
       const replacement = response('image-replace');
       const assets = [{ 'repo:id': 'asset' }];
       channel.port1.postMessage({
@@ -48,6 +68,16 @@ describe('quick-edit native drop channel integration', () => {
       expect(request.payload).to.include({ proseIndex: 3, imageVersion: 'v1' });
       expect(request.payload.assets).to.deep.equal(assets);
       expect(request.payload.requestId).to.be.a('string');
+      const hoveredAgain = highlightChange(true);
+      channel.port1.postMessage({
+        type: 'image-replace', payload: { assets: [], phase: 'hover', x: 15, y: 25 },
+      });
+      await hoveredAgain;
+      const bodyCleared = highlightChange(false);
+      channel.port1.postMessage({
+        type: 'set-body', payload: { body: '<main><p>Updated</p></main>' },
+      });
+      await bodyCleared;
     } finally {
       channel.port1.close();
       channel.port2.close();

@@ -97,6 +97,11 @@ iframe drag callbacks. The preview hit-tests the drop coordinates and sends the
 usual versioned replacement request back for the image under the pointer. This
 avoids depending on native drag metadata being readable outside the selector's
 iframe, and preserves image replacement when the rail uses bridged dragging.
+The host also forwards hover and leave updates so the preview can show its
+existing image drop-target highlight while a transparent host shield captures
+the drag. Leaving the preview, cancelling, or dropping clears that highlight;
+hovering does not request a replacement. SDK asset metadata crosses the same
+JSON boundary as document drops, so selector callbacks are not sent over the port.
 The standalone portal does not initiate this flow. Native image/file drops and
 replacement acknowledgements are unchanged.
 

@@ -50,6 +50,7 @@ let parentControllerPort = null;
 
 async function setBody(body, rerenderScope, ctx) {
   ctx.clearDrop?.();
+  handleAssetImageDrop({ phase: 'leave' }, ctx);
   ctx.reloadRequested = false;
   ctx.bodyGeneration = (ctx.bodyGeneration ?? 0) + 1;
   const generation = ctx.bodyGeneration;
@@ -107,7 +108,7 @@ function onMessage(e, ctx) {
   } else if (type === MESSAGE_TYPES.SET_CURSORS) {
     setCursors(payload.cursors, ctx);
   } else if (type === MESSAGE_TYPES.IMAGE_REPLACE) {
-    if (payload.assets) {
+    if (payload.assets || payload.phase) {
       handleAssetImageDrop(payload, ctx);
     } else if (payload.error) {
       handleImageError(payload.error, payload.requestId, ctx);

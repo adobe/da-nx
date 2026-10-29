@@ -98,11 +98,22 @@ function replaceImage({ ctx, img, file, assets }) {
   reader.readAsDataURL(file);
 }
 
-export function handleAssetImageDrop({ assets, x, y }, ctx) {
-  if (ctx.readOnly || !Array.isArray(assets) || !assets.length
+export function handleAssetImageDrop({ assets, x, y, phase = 'drop' }, ctx) {
+  ctx.assetDropTarget?.classList.remove('image-drop-target');
+  ctx.assetDropTarget = undefined;
+  const hover = phase === 'hover';
+  if (ctx.readOnly || (!hover && phase !== 'drop')
     || !Number.isFinite(x) || !Number.isFinite(y)) return;
+  if (!hover && (!Array.isArray(assets) || !assets.length)) return;
   const img = document.elementFromPoint(x, y)?.closest('picture')?.querySelector('img');
   if (!img?.closest('main')) return;
+  if (hover) {
+    if (!Number.isSafeInteger(imageSelectPayload(img)?.proseIndex)
+      || !img.getAttribute('data-image-version')) return;
+    ctx.assetDropTarget = img.closest('picture');
+    ctx.assetDropTarget.classList.add('image-drop-target');
+    return;
+  }
   if (assets.length !== 1) {
     handleImageError('Drop a single image asset to replace this image.');
     return;
