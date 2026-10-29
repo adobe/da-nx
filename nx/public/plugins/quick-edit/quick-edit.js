@@ -32,7 +32,7 @@ import {
 } from './src/selection.js';
 import { installClickForwarding } from './src/click-forwarding.js';
 import { replaceChanges } from './src/reload.js';
-import { setupDropListeners } from './src/drop.js';
+import { setupDropListeners, handleDropTarget } from './src/drop.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
 
@@ -91,9 +91,13 @@ function onMessage(e, ctx) {
     handleReady(e, ctx);
   } else if (type === MESSAGE_TYPES.SET_BODY) {
     ctx.pendingNodeUpdateId = null;
+    ctx.documentVersion = undefined;
     // A partial reload decorates detached DOM; the next body must not land mid-decoration.
     ctx.bodyQueue = (ctx.bodyQueue ?? Promise.resolve())
-      .then(() => setBody(payload.body, payload.rerenderScope, ctx))
+      .then(async () => {
+        await setBody(payload.body, payload.rerenderScope, ctx);
+        ctx.documentVersion = payload.documentVersion;
+      })
       .catch((error) => {
         // eslint-disable-next-line no-console
         console.error('[quick-edit] failed to set body', error);
@@ -103,8 +107,11 @@ function onMessage(e, ctx) {
       editorState, cursorOffset, imageVersion, lengthDiff,
     } = payload;
     setEditorState(cursorOffset, editorState, ctx, imageVersion, lengthDiff);
+    ctx.documentVersion = imageVersion;
   } else if (type === MESSAGE_TYPES.NODE_UPDATE) {
-    applyImageVersionAck(payload, ctx);
+    if (applyImageVersionAck(payload, ctx)) ctx.documentVersion = payload.imageVersion;
+  } else if (type === MESSAGE_TYPES.DROP_TARGET) {
+    Promise.resolve(ctx.bodyQueue).then(() => handleDropTarget(payload, ctx));
   } else if (type === MESSAGE_TYPES.SET_CURSORS) {
     setCursors(payload.cursors, ctx);
   } else if (type === MESSAGE_TYPES.IMAGE_REPLACE) {

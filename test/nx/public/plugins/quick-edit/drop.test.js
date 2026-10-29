@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { setupDropListeners } from '../../../../../nx/public/plugins/quick-edit/src/drop.js';
+import { setupDropListeners, handleDropTarget } from '../../../../../nx/public/plugins/quick-edit/src/drop.js';
 import { setupImageDropListeners } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
 
 describe('quick-edit native drop targets', () => {
@@ -99,5 +99,45 @@ describe('quick-edit native drop targets', () => {
     target = document.querySelector('main');
     drag('drop', { html: '<p>First</p>' });
     expect(sent[0].payload.anchor).to.deep.equal({ kind: 'main', index: 0 });
+  });
+  it('resolves bridged HTML and image targets without mutating content', () => {
+    ctx.documentVersion = 'document-v1';
+    const hit = sinon.stub(document, 'elementFromPoint').returns(target);
+    handleDropTarget({ phase: 'hover', kind: 'html', x: 20, y: 100 }, ctx);
+    expect(document.querySelector('#qe-drop-indicator')).not.to.equal(null);
+    handleDropTarget({
+      phase: 'resolve', kind: 'html', x: 20, y: 100, requestId: 'html',
+    }, ctx);
+    expect(sent[0]).to.deep.equal({
+      type: 'drop-target',
+      payload: {
+        requestId: 'html',
+        documentVersion: 'document-v1',
+        target: { anchor: { kind: 'block', index: 5 }, side: 'after' },
+      },
+    });
+    hit.returns(document.querySelector('img'));
+    handleDropTarget({
+      phase: 'resolve', kind: 'image', x: 20, y: 100, requestId: 'image',
+    }, ctx);
+    expect(sent[1].payload.target).to.include({ proseIndex: 40, imageVersion: 'v1' });
+    ctx.readOnly = true;
+    handleDropTarget({
+      phase: 'resolve', kind: 'html', x: 20, y: 100, requestId: 'readonly',
+    }, ctx);
+    expect(sent[2].payload.target).to.equal(null);
+    ctx.readOnly = false;
+    ctx.pendingNodeUpdateId = 'unacknowledged-edit';
+    handleDropTarget({
+      phase: 'resolve', kind: 'html', x: 20, y: 100, requestId: 'pending',
+    }, ctx);
+    expect(sent[3].payload.target).to.equal(null);
+    ctx.pendingNodeUpdateId = null;
+    ctx.reloadRequested = true;
+    handleDropTarget({
+      phase: 'resolve', kind: 'html', x: 20, y: 100, requestId: 'resync',
+    }, ctx);
+    expect(sent[4].payload.target).to.equal(null);
+    expect(document.querySelectorAll('main p')).to.have.length(2);
   });
 });
