@@ -1,9 +1,19 @@
 import getElementMetadata from '../../../nx2/utils/getElementMetadata.js';
 import { regionalDiff, removeLocTags } from './regional-diff.js';
+import { ACCEPTED_KEY, REJECTED_KEY } from './hashes.js';
 
 const DEFAULT_TIMEOUT = 20000;
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
 const VERSION_SAVE_EXTS = new Set(['json', 'html']);
+
+// Rows can be spelled acceptedHashes (editor) or acceptedhashes (earlier merges); keep all of them
+function getReviewHashes(metadataEl, key) {
+  const hashes = [...(metadataEl?.children || [])]
+    .filter((row) => row.children[0]?.textContent.trim().toLowerCase() === key.toLowerCase())
+    .flatMap((row) => row.children[1]?.textContent.trim().split(',') || [])
+    .filter(Boolean);
+  return [...new Set(hashes)];
+}
 
 function saveDaSource({
   url, body, contentType, fetch,
@@ -161,9 +171,14 @@ export function createCopy({
     removeLocTags(regional);
     removeLocTags(source);
     if (source.body.outerHTML === regional.body.outerHTML) return { same: true };
-    const metadata = getElementMetadata(regional.querySelector(DA_METADATA_SELECTOR));
-    const acceptedHashes = metadata.acceptedhashes?.text?.split(',') || [];
-    const rejectedHashes = metadata.rejectedhashes?.text?.split(',') || [];
+    const metadataEl = regional.querySelector(DA_METADATA_SELECTOR);
+    const metadata = getElementMetadata(metadataEl);
+    const acceptedHashes = getReviewHashes(metadataEl, ACCEPTED_KEY);
+    const rejectedHashes = getReviewHashes(metadataEl, REJECTED_KEY);
+    delete metadata.acceptedhashes;
+    delete metadata.rejectedhashes;
+    if (acceptedHashes.length) metadata[ACCEPTED_KEY] = acceptedHashes.join(',');
+    if (rejectedHashes.length) metadata[REJECTED_KEY] = rejectedHashes.join(',');
     const [, org, site] = url.destination.split('/');
     const config = await loadConfig({ org, site });
     if (config?.error) throw new Error(config.error);
