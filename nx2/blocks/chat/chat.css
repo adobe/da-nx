@@ -1,7 +1,7 @@
 .chat-actions svg.chat-icon {
   display: block;
-  width: 16px;
-  height: 16px;
+  width: var(--nx-btn-icon-size);
+  height: var(--nx-btn-icon-size);
 }
 
 .chat-header .chat-header-btn svg.chat-icon {
@@ -122,8 +122,8 @@
     align-items: center;
     justify-content: center;
     gap: var(--s2-spacing-75);
-    min-width: 24px;
-    min-height: 24px;
+    min-width: var(--s2-spacing-400, 24px);
+    min-height: var(--s2-spacing-400, 24px);
     border: none;
     border-radius: var(--s2-corner-radius-400);
     background: transparent;
@@ -148,7 +148,7 @@
 
 .chat-messages-container,
 .chat-form {
-  max-width: 720px;
+  max-width: var(--nx-chat-input-max-width);
   box-sizing: border-box;
 }
 
@@ -476,7 +476,7 @@
 }
 
 .chat-form-wrap {
-  max-width: 720px;
+  max-width: var(--nx-chat-input-max-width);
   width: calc(100% - 2 * var(--s2-spacing-200));
   box-sizing: border-box;
   position: relative;
@@ -529,8 +529,6 @@
   gap: var(--s2-spacing-100);
 
   button {
-    width: 24px;
-    height: 24px;
     border-radius: var(--s2-corner-radius-800);
     justify-content: center;
     align-items: center;
@@ -576,7 +574,7 @@
   color: var(--s2-gray-900);
   min-height: 1lh;
   max-height: 2.5lh;
-  line-height: 1.5;
+  line-height: var(--s2-body-line-height, 1.5);
   font-size: var(--s2-body-size-s);
   background: inherit;
 
@@ -586,7 +584,7 @@
   }
 
   &:disabled {
-    opacity: 0.5;
+    opacity: var(--nx-chat-input-disabled-opacity);
     cursor: not-allowed;
     background: inherit;
   }
@@ -628,7 +626,7 @@
 }
 
 .chat-disclaimer {
-  max-width: 720px;
+  max-width: var(--nx-chat-input-max-width);
   width: calc(100% - 2 * var(--s2-spacing-200));
   margin: 0;
   font-size: var(--s2-body-size-xs);
@@ -655,10 +653,14 @@
 :host([showinputstatus]) .chat-actions .chat-stop {
   box-sizing: border-box;
   flex-shrink: 0;
-  width: var(--nx-chat-input-stop-size);
-  height: var(--nx-chat-input-stop-size);
+  width: var(--nx-chat-input-stop-size, var(--nx-btn-height));
+  height: var(--nx-chat-input-stop-size, var(--nx-btn-height));
   padding: 0;
   border-radius: 50%;
+}
+
+:host([size="m"]) :is(.chat-input, .chat-working) {
+  font-size: var(--s2-component-l-regular-font-size);
 }
 
 @keyframes chat-thinking-shimmer {

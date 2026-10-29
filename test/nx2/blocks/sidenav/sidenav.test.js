@@ -43,4 +43,14 @@ describe('sidenav actions', () => {
     await nav.updateComplete;
     expect(nav.shadowRoot.querySelector('.nav-action')).to.equal(null);
   });
+
+  it('sizes host action graphics through their component property', async () => {
+    nav.actions = [{ label: 'Open chat', icon: '/assistant.svg', onClick() {} }];
+    await nav.updateComplete;
+    const image = nav.shadowRoot.querySelector('.nav-action img');
+    expect(image.getBoundingClientRect().width).to.equal(32);
+    nav.style.setProperty('--nx-sidenav-action-icon-size', '40px');
+    expect(image.getBoundingClientRect().width).to.equal(40);
+    expect(image.getBoundingClientRect().height).to.equal(40);
+  });
 });

@@ -180,6 +180,35 @@ describe('chat input coordination', () => {
       }
     });
 
+    it(`${tag} scales all compact actions together and retains its draft`, async () => {
+      const textarea = await mount(tag);
+      textarea.value = 'Keep this draft';
+      chat.connected = true;
+      chat.size = 'm';
+      await chat.updateComplete;
+      await chat.shadowRoot.querySelector('nx-ao-input')?.updateComplete;
+      for (const selector of ['.chat-add', '.chat-send']) {
+        const button = inputRoot().querySelector(selector);
+        expect(button.getBoundingClientRect().width).to.equal(32);
+        expect(button.getBoundingClientRect().height).to.equal(32);
+        expect(getComputedStyle(button.querySelector('svg')).width).to.equal('18px');
+      }
+      expect(getComputedStyle(textarea).fontSize).to.equal('16px');
+      chat.thinking = true;
+      await chat.updateComplete;
+      await chat.shadowRoot.querySelector('nx-ao-input')?.updateComplete;
+      const stop = inputRoot().querySelector('.chat-stop');
+      expect(stop.getBoundingClientRect().width).to.equal(32);
+      expect(stop.getBoundingClientRect().height).to.equal(32);
+      expect(getComputedStyle(stop).borderRadius).to.equal('50%');
+      expect(inputRoot().querySelector('.nx-loading-spinner').getBoundingClientRect().width).to.equal(18);
+      chat.size = 's';
+      await chat.updateComplete;
+      await chat.shadowRoot.querySelector('nx-ao-input')?.updateComplete;
+      expect(stop.getBoundingClientRect().width).to.equal(24);
+      expect(textarea.value).to.equal('Keep this draft');
+    });
+
     it(`${tag} applies shared input token overrides without replacing the draft`, async () => {
       const textarea = await mount(tag);
       textarea.value = 'Keep this draft';
@@ -218,6 +247,21 @@ describe('chat input coordination', () => {
     });
   });
 
+  it('does not recolor the episode-loading spinner when input status is enabled', async () => {
+    await mount('nx-chat-ao');
+    chat.loadingEpisode = true;
+    for (const scheme of ['light', 'dark']) {
+      chat.style.colorScheme = scheme;
+      chat.showInputStatus = false;
+      await chat.updateComplete;
+      const spinner = chat.shadowRoot.querySelector('.chat-loading .nx-loading-spinner');
+      const color = getComputedStyle(spinner).borderTopColor;
+      chat.showInputStatus = true;
+      await chat.updateComplete;
+      expect(getComputedStyle(spinner).borderTopColor).to.equal(color);
+    }
+  });
+
   it('keeps AO plan feedback available, but blocks handoff while switching episodes', async () => {
     await mount('nx-chat-ao');
     chat.thinking = true;
@@ -252,10 +296,23 @@ describe('chat input coordination', () => {
     expect(stop.getBoundingClientRect().width).to.equal(32);
     expect(getComputedStyle(stop).borderRadius).to.equal('50%');
     expect(getComputedStyle(form).backgroundColor).to.equal('rgba(0, 0, 0, 0)');
-    input.size = 'm';
+    chat.size = 'm';
+    await chat.updateComplete;
     await input.updateComplete;
     expect(stop.getBoundingClientRect().width).to.equal(40);
     expect(getComputedStyle(textarea).fontSize).to.equal('18px');
+    expect(getComputedStyle(textarea).lineHeight).to.equal('27px');
+    expect(form.getBoundingClientRect().height).to.equal(91);
+    expect(inputRoot().querySelector('.nx-loading-spinner').getBoundingClientRect().width).to.equal(18);
+    chat.thinking = false;
+    await chat.updateComplete;
+    await input.updateComplete;
+    for (const button of [send, inputRoot().querySelector('.chat-add')]) {
+      expect(button.getBoundingClientRect().width).to.equal(40);
+      expect(button.getBoundingClientRect().height).to.equal(40);
+      expect(getComputedStyle(button.querySelector('svg')).width).to.equal('20px');
+    }
+    expect(getComputedStyle(inputRoot().querySelector('.chat-input-wrap'), '::before').height).to.equal('22px');
     expect(textarea.value).to.equal('Keep this draft');
   });
 

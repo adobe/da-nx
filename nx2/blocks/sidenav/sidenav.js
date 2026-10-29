@@ -80,7 +80,7 @@ class NXSidenav extends LitElement {
             <button type="button" class="nx-action-btn-icon"
               aria-label=${action.label} title=${action.label}
               ?disabled=${action.disabled} @click=${action.onClick}>
-              <img src=${action.icon} width="32" height="32" alt="">
+              <img src=${action.icon} alt="">
             </button>
           </li>
         `)}

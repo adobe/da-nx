@@ -111,11 +111,19 @@ conversation messages or install global S2 tokens.
 | `working-background`, `working-border`, `working-color` | Neutral working surface: 80% fill, 6% border, 56% text, preserving the light/dark palette. |
 | `working-shadow` | Compact working-state shadow; landing keeps its own state-specific artwork. |
 | `spinner-size`, `spinner-track`, `spinner-arc`, `stroke-width` | 16px progress indicator with a 2px gray track and blue arc. Palette colors use existing S2 tokens with theme-safe fallbacks. |
-| `logo-size`, `stop-size` | 20px logo and 24px compact Stop. Expanded Stop is 32px; M advances Stop to 32/40px. Circle geometry stays `50%`. |
-| `expanded-inset`, `row-height`, `max-height`, `max-width` | 6px inset, 21px expanded row, 240px height cap and 720px prompts-popover width. |
+| `logo-size` | 20px logo, 22px in M. The spinner advances from 16px to 18px. |
+| `expanded-inset`, `row-height`, `expanded-line-height`, `max-height`, `max-width` | 6px inset, 21px expanded S row/line, 240px height cap and 720px chat column/popover limit. M uses 18px text with the 1.5 body line height (27px). |
+| `disabled-opacity` | 0.5 for disabled textareas, separate from shared buttons' disabled treatment. |
+
+Both chat elements accept `size="m"` and retain their drafts on size changes.
+The shared button classes own all action dimensions through `--nx-btn-height`
+and `--nx-btn-icon-size`: compact uses small/default (24/32px), expanded uses
+default/large (32/40px). `stop-size` remains an optional circle-size override;
+without it Stop follows the same button class as Add, Send and voice.
 
 Override these properties on the actual input host (`nx-chat` or `nx-ao-input`).
 AO-only focus properties live in `chat-ao/input.css` under `--nx-ao-input-*`.
+That namespace also owns `voice-pulse-duration` and `voice-pulse-opacity`.
 Expanded layout remains distinct from the compact sidebar; naming its metrics
 does not make the two surfaces the same size.
 

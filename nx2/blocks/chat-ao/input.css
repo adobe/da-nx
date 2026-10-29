@@ -1,6 +1,8 @@
 :host {
   --nx-ao-input-focus-border: rgb(167 178 255);
   --nx-ao-input-focus-shadow: 0 0 0 var(--s2-spacing-75, 4px) rgb(59 99 251 / 4%);
+  --nx-ao-input-voice-pulse-duration: 1.2s;
+  --nx-ao-input-voice-pulse-opacity: 0.4;
 
   display: block;
   position: relative;
@@ -116,7 +118,7 @@
 
     &[data-listening] {
       color: var(--s2-red-700);
-      animation: chat-voice-pulse 1.2s ease-in-out infinite;
+      animation: chat-voice-pulse var(--nx-ao-input-voice-pulse-duration) ease-in-out infinite;
     }
   }
 
@@ -191,12 +193,12 @@
   color: var(--s2-gray-900);
   min-height: 1lh;
   max-height: 2.5lh;
-  line-height: 1.5;
+  line-height: var(--s2-body-line-height, 1.5);
   font-size: var(--s2-body-size-s);
   background: inherit;
 
   &:disabled {
-    opacity: 0.5;
+    opacity: var(--nx-chat-input-disabled-opacity);
     cursor: not-allowed;
     background: inherit;
   }
@@ -208,7 +210,7 @@
   }
 
   50% {
-    opacity: 0.4;
+    opacity: var(--nx-ao-input-voice-pulse-opacity);
   }
 }
 
@@ -243,15 +245,13 @@
 :host([showinputstatus]) .chat-actions .chat-stop {
   box-sizing: border-box;
   flex-shrink: 0;
-  width: var(--nx-chat-input-stop-size);
-  height: var(--nx-chat-input-stop-size);
+  width: var(--nx-chat-input-stop-size, var(--nx-btn-height));
+  height: var(--nx-chat-input-stop-size, var(--nx-btn-height));
   padding: 0;
   border-radius: 50%;
 }
 
 :host([variant="expanded"]) {
-  --nx-chat-input-stop-size: var(--s2-spacing-500, 32px);
-
   .chat-form {
     padding: 0;
     gap: var(--s2-spacing-400);
@@ -276,7 +276,7 @@
     min-height: var(--nx-chat-input-row-height);
     max-height: var(--nx-chat-input-max-height);
     font-size: var(--s2-body-size-m);
-    line-height: var(--nx-chat-input-row-height);
+    line-height: var(--nx-chat-input-expanded-line-height);
   }
 
   .chat-input::placeholder {
@@ -290,14 +290,8 @@
 }
 
 :host([size="m"]) {
-  --nx-chat-input-stop-size: var(--s2-spacing-500, 32px);
-
   .chat-input, .chat-working {
     font-size: var(--s2-component-l-regular-font-size);
-  }
-
-  &:host([variant="expanded"]) {
-    --nx-chat-input-stop-size: var(--s2-spacing-600, 40px);
   }
 
   &:host([variant="expanded"]) :is(.chat-input, .chat-working) {

@@ -43,6 +43,23 @@
       <p>Source: <code>nx2/styles/buttons.css</code></p>
 
       <article class="sg-example">
+        <h3>Button size variants</h3>
+        <p><code>nx-btn-sm</code> is 24px with a 16px glyph, default is 32px/18px,
+          and <code>nx-btn-lg</code> is 40px/20px. Shared rules own
+          <code>--nx-btn-height</code> and <code>--nx-btn-icon-size</code>;
+          consumers choose a class rather than overriding dimensions.
+          Compact chat advances 24→32px; expanded chat advances 32→40px.</p>
+        <div class="sg-demo">
+          <button type="button" class="nx-action-btn nx-btn-sm">24px</button>
+          <button type="button" class="nx-action-btn">32px</button>
+          <button type="button" class="nx-action-btn nx-btn-lg">40px</button>
+        </div>
+        <pre><code>&lt;button class="nx-action-btn nx-btn-sm"&gt;Small&lt;/button&gt;
+&lt;button class="nx-action-btn"&gt;Default&lt;/button&gt;
+&lt;button class="nx-action-btn nx-btn-lg"&gt;Large&lt;/button&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
         <h3>Action button (small)</h3>
         <div class="sg-demo">
           <button type="button" class="nx-action-btn">Label</button>

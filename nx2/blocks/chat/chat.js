@@ -49,6 +49,7 @@ class NxChat extends LitElement {
     _hasItems: { state: true },
     _dragging: { state: true },
     showInputStatus: { type: Boolean, reflect: true },
+    size: { type: String, reflect: true },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
@@ -351,6 +352,7 @@ class NxChat extends LitElement {
   }
 
   render() {
+    const buttonSize = this.size === 'm' ? '' : 'nx-btn-sm';
     const { view } = this._context ?? {};
     const prompts = (this._prompts ?? [])
       .filter((p) => !p.area || p.area === 'all' || p.area === view);
@@ -445,13 +447,13 @@ class NxChat extends LitElement {
         ></textarea>
         <div class="chat-actions" ?data-thinking=${this.thinking} ?data-has-items=${this._hasItems}>
           <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-            <button slot="trigger" class="chat-add" type="button" aria-label="Add" ?disabled=${this.inputState.disabled} @click=${this._onAddClick}>
+            <button slot="trigger" class="chat-add nx-action-btn-icon ${buttonSize}" type="button" aria-label="Add" ?disabled=${this.inputState.disabled} @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>
               <span class="icon-up">${icon('up')}</span>
             </button>
           </nx-menu>
-          <button class="chat-stop action-btn" type="button" aria-label="Stop" @click=${this.stop}>${icon(this.showInputStatus ? 'stopProcessing' : 'stop')}</button>
-          <button class="chat-send harness-da-agent action-btn" type="submit" aria-label="Send">${icon('send')}</button>
+          <button class="chat-stop action-btn nx-action-btn-icon is-active ${buttonSize}" type="button" aria-label="Stop" @click=${this.stop}>${icon(this.showInputStatus ? 'stopProcessing' : 'stop')}</button>
+          <button class="chat-send harness-da-agent action-btn nx-action-btn-icon is-active ${buttonSize}" type="submit" aria-label="Send">${icon('send')}</button>
         </div>
         </form>
       </div>

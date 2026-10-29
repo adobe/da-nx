@@ -1,4 +1,6 @@
 :host {
+  --nx-sidenav-action-icon-size: var(--s2-spacing-500, 32px);
+
   a {
     display: flex;
     justify-content: center;
@@ -31,6 +33,8 @@
   }
 
   img {
+    width: var(--nx-sidenav-action-icon-size);
+    height: var(--nx-sidenav-action-icon-size);
     flex-shrink: 0;
   }
 }
