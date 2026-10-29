@@ -334,13 +334,21 @@ function groupBlocks(blocks) {
 
 const isNotEmptyParagraphEl = (el) => !(el.nodeName === 'P' && !el.childNodes.length && el.textContent === '');
 
+// The editor saves each picture of a paragraph that holds only pictures as a block of its own
+const splitPictures = (el) => {
+  if (el.nodeName !== 'P') return [el];
+  const nodes = contentNodes(el);
+  return nodes.length > 1 && isOnlyPictures(nodes) ? nodes : [el];
+};
+
 function getBlockMap(dom) {
   const sections = [...dom.querySelectorAll('main > div')];
 
   // flatten sections so that they are just dividers between blocks
   let blocks = sections.reduce((acc, section) => {
     const sectionBlocks = [...section.children]
-      .filter(isNotEmptyParagraphEl);
+      .filter(isNotEmptyParagraphEl)
+      .flatMap(splitPictures);
     const sectionArr = acc.length ? [sectionBlock] : [];
     return [...acc, ...sectionArr, ...sectionBlocks];
   }, []);

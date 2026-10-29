@@ -60,7 +60,7 @@ A version-save failure can follow a successful content write. Don't automaticall
 - `normalizeLinks(doc, site, equivalentSites)` mutates links to canonical `.aem.live` URLs and maps equivalent sites.
 - `removeLocTags(doc)` removes upstream deletions and unwraps local additions, including legacy loc tags.
 - `getDiffHash(serializedContent)` returns the existing 12-character review hash. Input is the serialized content, not a DOM element. `HASH_LENGTH`, `ACCEPTED_KEY`, and `REJECTED_KEY` expose the existing format and metadata keys. Stored hashes are unchanged.
-- `regionalDiff` hashes each block in the markup the editor saves: no heading ids, cell content in paragraphs, and the editor's picture markup. Content written through the API therefore gets the same hash as the editor's copy of it, and the hashes the editor stores for review decisions match. Merges read the review hashes from rows of any key casing and save them back as `acceptedHashes` and `rejectedHashes`, the keys the editor reads.
+- `regionalDiff` hashes each block in the markup the editor saves: no heading ids, cell content in paragraphs, the editor's picture markup, and each picture of a paragraph that holds only pictures as a block of its own. Content written through the API therefore gets the same hash as the editor's copy of it, and the hashes the editor stores for review decisions match. Merges read the review hashes from rows of any key casing and save them back as `acceptedHashes` and `rejectedHashes`, the keys the editor reads.
 
 ## Configured copy engine
 
