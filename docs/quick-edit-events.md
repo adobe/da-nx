@@ -186,6 +186,41 @@ and the edit's `nodeUpdateId`; the iframe has already shifted the affected image
 positions and applies that version without rebuilding the page or losing the active
 editor. A newer edit or full-body refresh invalidates older acknowledgements.
 
+### Link-images and project decoration
+
+A link-image (`editAs: 'image'`) is an editable image that publishes as
+`<a href="…" title="alt" data-edit-as="image">…</a>`. The host stamps it in `SET_BODY`
+with the same `data-image-index` and `data-image-version` as any image, but on the
+anchor. Display and text edits always work. Image select and replace in layout mode
+work only when the project's decoration keeps those attributes.
+
+Project contract, for select and replace:
+
+- Copy every `data-image-*` attribute from the source element (`img`, or
+  `a[data-edit-as="image"]`) onto the rendered `img`, and render it as `picture img`.
+  Both index and version are needed.
+- Index restore and drop-listener setup run once after decoration (`setBody`). Images
+  decorated later aren't droppable. This applies to all images.
+
+What the iframe and host do when the contract isn't met:
+
+- In a paragraph or block whose source contains a link-image, the iframe skips
+  count-based index restore. Indices that survived decoration are kept. Elsewhere,
+  restore is unchanged.
+- If the document contains any link-image, the host refuses a selection that carries
+  only a `src` (no index). Without a link-image, file-name matching is unchanged.
+- `IMAGE_REPLACE` refuses without index and version, as for any image. Replacing a
+  link-image with an upload clears `editAs`: the upload is a DA media file, so the
+  result is a regular image.
+
+So in a document with link-images, any image without its own `data-image-*`
+attributes, regular or link, can't be selected or replaced in layout mode. Content
+mode, saved HTML and text editing stay correct either way.
+
+The iframe imports its parser from `https://da.live/deps/da-parser`. It must be
+da-parser ≥ 2.2.0 to keep `editAs` through `NODE_UPDATE`; older iframes silently turn
+the link-image into a regular image on the next text edit.
+
 ### Comments (`SET_COMMENT_MARKERS` / `SCROLL_TO_POS` / `COMMENT_MARKER_CLICK` / `COMMENT_MARKER_CLEAR` / `COMMENT_SHORTCUT`)
 
 Drive the comments feature's overlay in layout/WYSIWYG mode. The comments UI (the panel,
