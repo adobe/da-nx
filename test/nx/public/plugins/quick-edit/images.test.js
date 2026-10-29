@@ -35,10 +35,9 @@ describe('quick-edit image replacement', () => {
   });
 
   function drop(img) {
-    const e = new Event('drop', { bubbles: true, cancelable: true });
-    Object.defineProperty(e, 'dataTransfer', {
-      value: { files: [new File(['image'], 'new.png', { type: 'image/png' })] },
-    });
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(new File(['image'], 'new.png', { type: 'image/png' }));
+    const e = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer });
     img.dispatchEvent(e);
   }
 

@@ -65,6 +65,7 @@ parallel one. If you do add a new key:
 | `STORED_MARKS` | iframe → host | da-live only |
 | `PREVIEW` | iframe ↔ host (request/reply) | standalone (quick-edit-portal) only |
 | `IMAGE_REPLACE` | iframe ↔ host (request/reply) | both hosts |
+| `HTML_DROP` | iframe → host | da-live only |
 | `SET_COMMENT_MARKERS` | Host → iframe | da-live only |
 | `SCROLL_TO_POS` | Host → iframe | da-live only |
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
@@ -73,6 +74,21 @@ parallel one. If you do add a new key:
 | `QUICK_EDIT_IFRAME_CLICK` | iframe → host | da-live only |
 
 ---
+
+### `HTML_DROP`
+
+Extensions drag native HTML or image Files directly into the preview iframe.
+Quick-edit shows before/after insertion lines for HTML and sends the selected
+boundary through the existing port. No host overlay or drag-lifecycle messaging
+is involved.
+
+On an HTML drop, quick-edit returns the HTML and the indexed boundary to da-live,
+which parses it with the document schema and applies the editor transaction.
+Images continue through `IMAGE_REPLACE`; an HTML `<img>` remains HTML rather than
+implicitly requesting an upload. The embedded host also resolves the Assets
+selector's `collectionviewdata` through `IMAGE_REPLACE`, using the existing site
+asset configuration instead of uploading the selector's thumbnail.
+The standalone portal does not consume `HTML_DROP` or asset-metadata replacements.
 
 ### `SET_BODY` (`rerenderScope`)
 

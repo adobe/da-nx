@@ -31,6 +31,7 @@ import {
 } from './src/selection.js';
 import { installClickForwarding } from './src/click-forwarding.js';
 import { replaceChanges } from './src/reload.js';
+import { setupDropListeners } from './src/drop.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
 
@@ -47,6 +48,7 @@ const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
 let parentControllerPort = null;
 
 async function setBody(body, rerenderScope, ctx) {
+  ctx.clearDrop?.();
   ctx.reloadRequested = false;
   ctx.bodyGeneration = (ctx.bodyGeneration ?? 0) + 1;
   const generation = ctx.bodyGeneration;
@@ -143,6 +145,7 @@ function setupParentController(reloadCallback, partialReload) {
       readOnly: config?.canWrite !== true,
       partialReload,
     };
+    setupDropListeners(ctx);
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
     setupCommentShortcut(ctx);
