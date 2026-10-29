@@ -664,7 +664,10 @@ autoSave.addEventListener('change', (e) =&gt; console.log(e.detail.checked));
 &lt;!-- Replace only the heading row, e.g. inline rename. --&gt;
 &lt;input slot="content" class="nx-input" aria-label="Rename"&gt;
 
-card.addEventListener('selectionchange', (e) =&gt; { card.selected = e.detail.selected; });</code></pre>
+card.addEventListener('nx-card-selection-change', (e) =&gt; { card.selected = e.detail.selected; });
+
+await card.updateComplete;
+card.focus({ preventScroll: true });</code></pre>
       </article>
 
       <article class="sg-example">
@@ -757,7 +760,7 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
 
     // nx-card
     document.querySelectorAll('.demo-card').forEach((card) => {
-      card.addEventListener('selectionchange', (e) => { card.selected = e.detail.selected; });
+      card.addEventListener('nx-card-selection-change', (e) => { card.selected = e.detail.selected; });
     });
 
     // nx-menu

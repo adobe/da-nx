@@ -55,6 +55,48 @@ export function getBasePath({ prefix, path }) {
 }
 
 /**
+ * Collect every configured source location: the default source language
+ * location plus any per-language `source` override.
+ * @param {Object} config The config.
+ * @param {Object} config.options The project options.
+ * @param {Object[]} [config.langs] The languages, optionally with a `source`.
+ * @returns {string[]} Unique source locations, excluding the root.
+ */
+export function getSourceLocations({ options, langs }) {
+  const defaultLocation = options?.['source.language']?.location;
+  const locations = [defaultLocation, ...(langs || []).map((lang) => lang.source)];
+  return [...new Set(locations.filter((location) => location && location !== '/'))];
+}
+
+/**
+ * Get a project's source locations: the set persisted at validate, or a
+ * derivation from options and langs for projects saved before it existed.
+ * @param {Object} project The project.
+ * @param {string[]} [project.sourceLocations] Locations persisted at validate.
+ * @param {Object} [project.options] The project options.
+ * @param {Object[]} [project.langs] The project languages.
+ * @returns {string[]} The source locations.
+ */
+export function getProjectSourceLocations({ sourceLocations, options, langs }) {
+  return sourceLocations ?? getSourceLocations({ options, langs });
+}
+
+/**
+ * Find the longest source location that contains a path.
+ * @param {Object} config The config.
+ * @param {string} config.path An AEM-formatted supplied path.
+ * @param {string[]} config.locations The candidate source locations.
+ * @returns {string|undefined} The matching location, if any.
+ */
+export function findSourceLocation({ path, locations }) {
+  const matches = locations.filter((location) => {
+    const base = location.replace(/\/$/, '');
+    return path === base || path.startsWith(`${base}/`);
+  });
+  return matches.sort((a, b) => b.length - a.length)[0];
+}
+
+/**
  * Joins a prefix and a path with exactly one separating slash, regardless
  * of whether `path` already has a leading slash.
  * @param {string} prefix - The path segment to prepend; any trailing slash
@@ -107,6 +149,34 @@ export function convertPath({ path, sourcePrefix, destPrefix, snapshotPrefix = '
   }
 
   return paths;
+}
+
+/**
+ * Compute the language-agnostic base path stored on a project url.
+ * @param {Object} config The config.
+ * @param {string} config.path The supplied AEM path.
+ * @param {string} [config.defaultLocation] The default source language location.
+ * @param {string[]} [config.sourceLocations] All configured source locations.
+ * @returns {string} The AEM base path.
+ */
+export function getProjectBasePath({ path, defaultLocation, sourceLocations = [] }) {
+  const sourcePrefix = findSourceLocation({ path, locations: sourceLocations }) || defaultLocation;
+  return convertPath({ path, sourcePrefix }).aemBasePath;
+}
+
+/**
+ * Find distinct supplied paths that resolve to the same base path.
+ * @param {Object} config The config.
+ * @param {Object[]} config.urls Project urls with `basePath` and `suppliedPath`.
+ * @returns {string[][]} Groups of conflicting supplied paths.
+ */
+export function findDuplicateBasePaths({ urls }) {
+  const groups = urls.reduce((acc, { basePath, suppliedPath }) => {
+    const paths = acc.get(basePath) ?? new Set();
+    acc.set(basePath, paths.add(suppliedPath));
+    return acc;
+  }, new Map());
+  return [...groups.values()].filter((paths) => paths.size > 1).map((paths) => [...paths]);
 }
 
 export function formatPath(org, site, sourceLocation, path) {
