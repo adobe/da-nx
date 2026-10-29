@@ -186,6 +186,7 @@ The block owns presentation only. Set `sites` to `{ value: 'org/site', label: 's
 entries and `value` to the current identifier. Optional `heading`, `size` (`s` or `m`,
 default `m`) and `error` customize content and density without replacing menu layout.
 Landing pages can set `heading` to `Your recent sites`.
+Without a custom heading, the loaded, unselected trigger also defaults to `Your recent sites`.
 With no selected `value`, the loaded trigger shows this heading rather than
 choosing a site from history. After selection it shows the host-supplied site
 label. Clearing `value` restores the heading; routed deep links can still supply
