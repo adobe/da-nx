@@ -693,7 +693,7 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
             target="_blank" rel="noopener">docs →</a></h3>
         <p><code>nx2/blocks/shared/chat/input.css</code> shares neutral working colors,
           compact shadows, spinner/logo sizes and expanded input metrics between chat surfaces.
-          Landing keeps its gradient artwork and frame geometry locally.
+          The expanded composer skin owns gradient artwork and frame geometry separately.
           Override properties on the actual input host, not its conversation wrapper.</p>
         <pre><code>nx-ao-input {
   --nx-chat-input-spinner-arc: var(--s2-blue-900);
@@ -703,11 +703,29 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
 /* Expanded inputs retain their own layout and 32/40px Stop variant. */
 &lt;nx-ao-input variant="expanded" size="m"&gt;&lt;/nx-ao-input&gt;</code></pre>
       </article>
+      <article class="sg-example">
+        <h3>Expanded chat composer <a href="https://github.com/adobe/da-nx/blob/main/docs/chat-ui-component.md#expanded-composer-skin"
+            target="_blank" rel="noopener">docs →</a></h3>
+        <p><code>nx2/blocks/shared/chat/composer.css</code> owns the frame, glow and
+          state-specific shadows. Adopt it alongside <code>chat/input.css</code>.
+          Page width and input S/M metrics stay with their respective owners.</p>
+        <div class="sg-demo">
+          <div id="demo-chat-composer" style="width: 100%;"></div>
+        </div>
+        <pre><code>&lt;div class="nx-chat-composer is-enabled"&gt;
+  &lt;div class="nx-chat-composer-surface" aria-hidden="true"&gt;&lt;/div&gt;
+  &lt;nx-ao-input variant="expanded"&gt;&lt;/nx-ao-input&gt;
+&lt;/div&gt;
+
+/* Override on the containing shadow host. */
+:host { --nx-chat-composer-working-shadow: none; }</code></pre>
+      </article>
     </section>
   </main>
 
   <script type="module">
     import { setConfig } from '/nx2/scripts/nx.js';
+    import { loadStyle } from '/nx2/utils/utils.js';
 
     await setConfig({});
 
@@ -725,7 +743,22 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
       import('/nx2/blocks/shared/breadcrumb/breadcrumb.js'),
       import('/nx2/blocks/shared/switch/switch.js'),
       import('/nx2/blocks/shared/pills/pills.js'),
+      import('/nx2/blocks/chat-ao/input.js'),
     ]);
+
+    const composerDemo = document.querySelector('#demo-chat-composer').attachShadow({ mode: 'open' });
+    composerDemo.adoptedStyleSheets = await Promise.all([
+      '/nx2/blocks/shared/chat/input.css',
+      '/nx2/blocks/shared/chat/composer.css',
+    ].map((href) => loadStyle(href)));
+    composerDemo.innerHTML = `<div class="nx-chat-composer is-enabled">
+      <div class="nx-chat-composer-surface" aria-hidden="true"></div>
+      <nx-ao-input variant="expanded" placeholder="Ask a question"></nx-ao-input>
+    </div>`;
+    composerDemo.querySelector('nx-ao-input').onSubmit = () => {
+      showToast({ text: 'Demo message submitted.' });
+      return true;
+    };
 
     // nx-menu
     const menuItems = [
