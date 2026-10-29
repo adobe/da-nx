@@ -92,15 +92,15 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelector('[data-value="red"] svg')).to.be.null;
   });
 
-  it('renders optional descriptions with an accessible name and generic styling parts', async () => {
+  it('owns description layout without exposing menu layout parts', async () => {
     const el = await createPicker({
       items: [{ section: 'Status' }, { value: 'draft', label: 'Draft', description: 'Not published' }, { divider: true }],
       value: 'draft',
     });
     expect(el.shadowRoot.querySelector('.picker-item-description').textContent).to.equal('Not published');
-    expect(el.shadowRoot.querySelector('[part="item"]').getAttribute('aria-label')).to.equal('Draft, Not published');
+    expect(el.shadowRoot.querySelector('[role="option"]').getAttribute('aria-label')).to.equal('Draft, Not published');
     ['menu', 'section', 'divider', 'item-label', 'check'].forEach((part) => {
-      expect(el.shadowRoot.querySelector(`[part="${part}"]`), part).to.not.be.null;
+      expect(el.shadowRoot.querySelector(`[part="${part}"]`), part).to.be.null;
     });
     expect(el.shadowRoot.querySelector('.picker-trigger-label').textContent).to.equal('Draft');
   });
@@ -150,27 +150,21 @@ describe('nx-picker swatch', () => {
     }
   });
 
-  it('inherits description size and line height from consumer-styled items in S and M', async () => {
+  it('inherits description size and line height from its item in S and M', async () => {
     const el = await createPicker({
       items: [{ value: 'draft', label: 'Draft', description: 'Not published' }],
     });
-    const override = document.createElement('style');
-    override.textContent = 'nx-picker::part(item) { font-size: 21px; line-height: 29px; font-weight: 500; }';
-    document.head.append(override);
-    try {
-      for (const size of ['s', 'm']) {
-        el.size = size;
-        el.style.setProperty(`--s2-component-${size}-regular-font-size`, '12px');
-        el.style.setProperty(`--s2-component-${size}-regular-line-height`, '18px');
-        el.style.setProperty(`--s2-component-${size}-regular-font-weight`, '350');
-        await el.updateComplete;
-        const style = getComputedStyle(el.shadowRoot.querySelector('.picker-item-description'));
-        expect(style.fontSize, `${size} inherited font size`).to.equal('21px');
-        expect(style.lineHeight, `${size} inherited line height`).to.equal('29px');
-        expect(style.fontWeight, `${size} regular description weight`).to.equal('350');
-      }
-    } finally {
-      override.remove();
+    el.shadowRoot.querySelector('[role="option"]').style.cssText = 'font-size: 21px; line-height: 29px; font-weight: 500;';
+    for (const size of ['s', 'm']) {
+      el.size = size;
+      el.style.setProperty(`--s2-component-${size}-regular-font-size`, '12px');
+      el.style.setProperty(`--s2-component-${size}-regular-line-height`, '18px');
+      el.style.setProperty(`--s2-component-${size}-regular-font-weight`, '350');
+      await el.updateComplete;
+      const style = getComputedStyle(el.shadowRoot.querySelector('.picker-item-description'));
+      expect(style.fontSize, `${size} inherited font size`).to.equal('21px');
+      expect(style.lineHeight, `${size} inherited line height`).to.equal('29px');
+      expect(style.fontWeight, `${size} regular description weight`).to.equal('350');
     }
   });
 
@@ -184,14 +178,47 @@ describe('nx-picker swatch', () => {
     });
     expect(el.shadowRoot.querySelector('[data-value="draft"]').getAttribute('aria-label')).to.equal('Current draft');
     const action = el.shadowRoot.querySelector('[data-value="add"]');
-    expect(action.part.contains('item')).to.be.true;
-    expect(action.part.contains('action')).to.be.true;
-    expect(el.shadowRoot.querySelector('[data-value="draft"]').part.contains('action')).to.be.false;
+    expect(action.hasAttribute('part')).to.be.false;
     const changes = [];
     el.addEventListener('change', ({ detail }) => changes.push(detail.value));
     action.click();
     expect(changes).to.deep.equal(['add']);
     expect(el.value).to.equal('draft');
+  });
+
+  it('keeps end checks by default and reserves leading space only for selectable start-check rows', async () => {
+    const el = await createPicker({
+      items: [...ITEMS, { value: 'add', label: 'Add...', action: true }],
+      value: 'red',
+    });
+    const row = () => el.shadowRoot.querySelector('[data-value="red"]');
+    expect(row().lastElementChild.classList.contains('picker-check')).to.be.true;
+    el.checkPosition = 'start';
+    await el.updateComplete;
+    expect(row().firstElementChild.classList.contains('picker-check-slot')).to.be.true;
+    expect(row().querySelectorAll('.picker-check')).to.have.length(1);
+    expect(el.shadowRoot.querySelector('[data-value="plain"] .picker-check-slot')).to.exist;
+    expect(el.shadowRoot.querySelector('[data-value="add"] .picker-check-slot')).to.be.null;
+    el.multiple = true;
+    el.values = ['red', 'blue'];
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelectorAll('.picker-check-slot .picker-check')).to.have.length(2);
+  });
+
+  it('accepts one menu-width property without changing field-width defaults', async () => {
+    const el = await createPicker();
+    el.style.setProperty('--nx-picker-menu-width', '280px');
+    el.show();
+    expect(el.shadowRoot.querySelector('nx-popover').style.width).to.equal('280px');
+    el.close();
+    el.style.removeProperty('--nx-picker-menu-width');
+    el.variant = 'field';
+    await el.updateComplete;
+    el.show();
+    expect(el.shadowRoot.querySelector('nx-popover').style.width)
+      .to.equal(`${el.shadowRoot.querySelector('.picker-trigger').getBoundingClientRect().width}px`);
+    el.focus();
+    expect(el.shadowRoot.activeElement).to.equal(el.shadowRoot.querySelector('.picker-trigger'));
   });
 
   it('focuses a visible item after popover positioning so keyboard events reach the menu', async () => {

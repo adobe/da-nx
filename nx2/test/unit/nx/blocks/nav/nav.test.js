@@ -73,7 +73,7 @@ describe('nav search slot', () => {
     expect(nav.shadowRoot.querySelector('.nav-search')).to.exist;
   });
 
-  it('keeps consumer context on the left without moving centered search or replacing branding', async () => {
+  it('keeps site navigation on the left without moving centered search or replacing branding', async () => {
     nav._brand = document.createElement('a');
     nav._brand.className = 'brand-area';
     nav._brand.textContent = 'Brand';
@@ -81,21 +81,19 @@ describe('nav search slot', () => {
     nav._breadcrumbs.textContent = 'Breadcrumbs';
     nav._getSegments = () => [];
     const context = document.createElement('button');
-    context.slot = 'context';
     context.textContent = 'Context';
+    nav._siteNav = context;
     const field = document.createElement('input');
     field.slot = 'search';
-    nav.append(context, field);
+    nav.append(field);
     nav.style.width = '1200px';
     await mount('/');
     await settleSlots();
-    const contextSlot = nav.shadowRoot.querySelector('slot[name="context"]');
     const searchSlot = nav.shadowRoot.querySelector('slot[name="search"]');
-    expect(contextSlot.closest('.brand-cluster')).to.exist;
-    expect(contextSlot.assignedElements()).to.deep.equal([context]);
+    expect(nav.shadowRoot.querySelector('slot[name="context"]')).to.be.null;
+    expect(context.closest('.site-nav')).to.exist;
     expect(searchSlot.assignedElements()).to.deep.equal([field]);
     expect(nav._brand.isConnected).to.be.true;
-    expect(nav._breadcrumbs.isConnected).to.be.true;
     const navRect = nav.getBoundingClientRect();
     const searchRect = nav.shadowRoot.querySelector('.nav-search').getBoundingClientRect();
     expect(context.getBoundingClientRect().right).to.be.lessThan(searchRect.left);
@@ -103,7 +101,7 @@ describe('nav search slot', () => {
       .to.be.closeTo(navRect.left + navRect.width / 2, 1);
     context.remove();
     await settleSlots();
-    expect(contextSlot.assignedElements()).to.deep.equal([]);
+    expect(context.isConnected).to.be.false;
     expect(searchSlot.assignedElements()).to.deep.equal([field]);
     expect(nav.hasAttribute('data-has-search')).to.be.true;
   });
