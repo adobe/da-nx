@@ -176,5 +176,6 @@ The signal aborts on removal; use it to release listeners, pending requests and 
 Each reconnection emits a fresh signal.
 
 `site-select` carries `{ value }`; `site-add` requests the host's Add flow.
-Both bubble across the navigation shadow root. The host owns history, permission
+An error displays a Try again button that emits `site-retry`.
+These events bubble across the navigation shadow root. The host owns history, permission
 checks, dialogs and routing. No DA application modules are imported by Nexter.

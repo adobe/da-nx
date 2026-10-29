@@ -81,11 +81,33 @@ describe('nx-siteselector', () => {
     selector.error = 'Could not load sites.';
     document.body.append(selector);
     const picker = await settle();
-    expect(selector.shadowRoot.querySelector('[role="alert"]').textContent).to.equal(selector.error);
+    expect(selector.shadowRoot.querySelector('[role="alert"]').textContent).to.include(selector.error);
+    let retries = 0;
+    selector.addEventListener('site-retry', () => { retries += 1; });
+    selector.shadowRoot.querySelector('button').click();
+    expect(retries).to.equal(1);
     selector.focus();
     expect(picker.shadowRoot.activeElement).to.equal(picker.shadowRoot.querySelector('button'));
     selector.error = undefined;
     await settle();
     expect(selector.shadowRoot.querySelector('[role="alert"]')).to.be.null;
+  });
+
+  it('uses matching component typography for error and retry text in S and M', async () => {
+    selector.error = 'Could not load sites.';
+    document.body.append(selector);
+    for (const size of ['s', 'm']) {
+      selector.size = size;
+      selector.style.setProperty(`--s2-component-${size}-regular-font-size`, '13px');
+      selector.style.setProperty(`--s2-component-${size}-regular-line-height`, '21px');
+      selector.style.setProperty(`--s2-component-${size}-regular-font-weight`, '350');
+      await settle();
+      for (const element of selector.shadowRoot.querySelectorAll('p, button')) {
+        const style = getComputedStyle(element);
+        expect(style.fontSize).to.equal('13px');
+        expect(style.lineHeight).to.equal('21px');
+        expect(style.fontWeight).to.equal('350');
+      }
+    }
   });
 });

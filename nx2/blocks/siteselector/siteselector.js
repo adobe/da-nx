@@ -41,6 +41,10 @@ class NxSiteselector extends LitElement {
     }));
   }
 
+  onRetry() {
+    this.dispatchEvent(new CustomEvent('site-retry', { bubbles: true, composed: true }));
+  }
+
   render() {
     const sites = this.sites ?? [];
     const items = [
@@ -65,7 +69,8 @@ class NxSiteselector extends LitElement {
         check-position="start"
         @change=${this.onChange}
       ></nx-picker>
-      ${this.error ? html`<p role="alert">${this.error}</p>` : nothing}
+      ${this.error ? html`<p role="alert">${this.error}
+        <button type="button" @click=${this.onRetry}>Try again</button></p>` : nothing}
     `;
   }
 }
