@@ -192,11 +192,14 @@ choosing a site from history. After selection it shows the host-supplied site
 label. Clearing `value` restores the heading; routed deep links can still supply
 an explicit selection.
 
-The selector retains its outlined, pill-shaped trigger, light/dark surface and
-bold S/M component-token label. These trigger styles belong to the standalone block
+The selector retains its outlined, pill-shaped trigger and light/dark surface.
+Its title label uses S at 14px/18px and M (the default) at 16px/20px, both bold
+(700), with normal font style and zero letter spacing. These map to existing
+component M-bold and L-bold tokens respectively; shared component sizing is unchanged.
+These trigger styles belong to the standalone block
 and use existing picker trigger properties and the label part. Its menu has a 240px
 minimum and follows wider triggers. It uses
-the shared navigation presentation, including medium labels, regular descriptions,
+the shared navigation presentation with matching S/M component tokens, including medium labels, regular descriptions,
 blue leading checks and an unindented Add action.
 The trigger grows with its label between 220px and 280px on desktop, and shrinks
 to its content up to 176px on mobile. The nav's site-nav container supplies compact

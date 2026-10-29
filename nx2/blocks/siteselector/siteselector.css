@@ -21,11 +21,18 @@ nx-picker:hover {
 }
 
 nx-picker::part(label) {
-  font-weight: var(--s2-component-m-bold-font-weight);
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-l-bold-font-size);
+  font-style: normal;
+  font-weight: var(--s2-component-l-bold-font-weight);
+  line-height: var(--s2-component-l-bold-line-height);
+  letter-spacing: 0;
 }
 
 :host([size='s']) nx-picker::part(label) {
-  font-weight: var(--s2-component-s-bold-font-weight);
+  font-size: var(--s2-component-m-bold-font-size);
+  font-weight: var(--s2-component-m-bold-font-weight);
+  line-height: var(--s2-component-m-bold-line-height);
 }
 
 p {
