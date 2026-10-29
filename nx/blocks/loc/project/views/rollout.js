@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle } from '../../../../../nx2/utils/utils.js';
+import { DA_ADMIN, loadStyle } from '../../../../../nx2/utils/utils.js';
 import {
   calculateTime,
   formatDate,
@@ -10,6 +10,8 @@ import {
   timeoutWrapper,
 } from '../index.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
+import { daFetch } from '../../../../../nx2/utils/api.js';
+import { createRolloutResolver } from '../../utils/placeholders.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -42,16 +44,24 @@ class NxLocRollout extends LitElement {
     lang.rolloutTime = undefined;
     lang.rolledOut = 0;
     lang.errors = [];
+    const load = (path) => daFetch({ url: `${DA_ADMIN}/source${path}` });
+    const resolver = createRolloutResolver({ load, sitePath: this.sitePath });
     const items = lang.locales.reduce((acc, locale) => {
       const localeItems = this.urls.map((url) => {
         const source = `${this.sitePath}${lang.location}${url.basePath}`;
         const destination = `${this.sitePath}${locale.code}${url.basePath}`;
         return async () => {
+          const copyUrl = { source, destination, root: locale.code };
+          const { error } = await resolver.prepareSource(copyUrl);
+          if (error) {
+            lang.errors.push({ source, destination, error });
+            return;
+          }
           let resp;
           if (this.conflictBehavior === 'overwrite') {
-            resp = await overwriteCopy({ source, destination }, this.title);
+            resp = await overwriteCopy(copyUrl, this.title);
           } else {
-            resp = await mergeCopy({ source, destination }, this.title);
+            resp = await mergeCopy(copyUrl, this.title);
           }
           if (resp.ok || resp.error === 'timeout') {
             lang.rolledOut += 1;
@@ -76,6 +86,7 @@ class NxLocRollout extends LitElement {
 
     const queue = new Queue(timeoutWrapper, MAX_CONCURRENT_WRITES);
     await Promise.all(items.map((item) => queue.push(item)));
+    if (lang.rollout.status === 'rolling out') lang.rollout.status = 'ready';
     await saveStatus(this.state);
     this.requestUpdate();
   }
@@ -158,6 +169,7 @@ class NxLocRollout extends LitElement {
                   <div class="da-card-locales">
                     ${lang.locales.map((locale) => html`<button class="action">${locale.code.replace('/', '')}</button>`)}
                   </div>
+                  ${lang.errors?.map((err) => (err.error ? html`<p class="da-card-error">${err.error}</p>` : nothing))}
                 </div>
                 <div class="da-card-actions">
                   <div>${this.renderRolloutDate(lang)}</div>
