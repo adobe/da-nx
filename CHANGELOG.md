@@ -1,3 +1,15 @@
+# [1.29.0](https://github.com/adobe/da-nx/compare/v1.28.1...v1.29.0) (2026-10-29)
+
+
+### Bug Fixes
+
+* **loc:** keep save/connector error messages visible ([#821](https://github.com/adobe/da-nx/issues/821)) ([e83573f](https://github.com/adobe/da-nx/commit/e83573f96c4549e26c2a2fbe32bbd96b4c3c1098))
+
+
+### Features
+
+* **loc:** detect each project's source root from its URLs ([#870](https://github.com/adobe/da-nx/issues/870)) ([347926d](https://github.com/adobe/da-nx/commit/347926d88d08a8afc33cd8b0c0263cd979863fea))
+
 ## [1.28.1](https://github.com/adobe/da-nx/compare/v1.28.0...v1.28.1) (2026-10-29)
 
 
