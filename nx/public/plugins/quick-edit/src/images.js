@@ -98,6 +98,18 @@ function replaceImage({ ctx, img, file, assets }) {
   reader.readAsDataURL(file);
 }
 
+export function handleAssetImageDrop({ assets, x, y }, ctx) {
+  if (ctx.readOnly || !Array.isArray(assets) || !assets.length
+    || !Number.isFinite(x) || !Number.isFinite(y)) return;
+  const img = document.elementFromPoint(x, y)?.closest('picture')?.querySelector('img');
+  if (!img?.closest('main')) return;
+  if (assets.length !== 1) {
+    handleImageError('Drop a single image asset to replace this image.');
+    return;
+  }
+  replaceImage({ ctx, img, assets });
+}
+
 export function setupImageDropListeners(ctx, dom = document) {
   const images = dom.querySelectorAll('picture img');
   ctx.pendingImageReplacements ??= new Map();

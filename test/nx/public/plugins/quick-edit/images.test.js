@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import {
-  setupImageDropListeners, updateImageSrc, handleImageError,
+  setupImageDropListeners, updateImageSrc, handleImageError, handleAssetImageDrop,
 } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
 
 describe('quick-edit image replacement', () => {
@@ -30,6 +31,7 @@ describe('quick-edit image replacement', () => {
   });
 
   afterEach(() => {
+    sinon.restore();
     window.FileReader = originalReader;
     document.body.innerHTML = '';
   });
@@ -129,5 +131,36 @@ describe('quick-edit image replacement', () => {
     expect(first.getAttribute('src')).to.equal('/same.png');
     expect(second.getAttribute('src')).to.equal('/same.png');
     expect(ctx.pendingImageReplacements.size).to.equal(0);
+  });
+
+  it('uses the image under bridged drop coordinates for a versioned asset replacement', () => {
+    const hit = sinon.stub(document, 'elementFromPoint').returns(second);
+    const assets = [{ 'repo:id': 'asset' }];
+
+    handleAssetImageDrop({ assets, x: 15, y: 25 }, ctx);
+
+    expect(hit.calledWithExactly(15, 25)).to.equal(true);
+    expect(posted).to.have.length(1);
+    expect(posted[0].type).to.equal('image-replace');
+    expect(posted[0].payload).to.include({
+      proseIndex: 3, imageVersion: 'v1', assets,
+    });
+    expect(posted[0].payload.requestId).to.be.a('string');
+    expect(posted[0].payload).to.not.have.property('imageData');
+    expect(second.closest('picture').classList.contains('image-uploading')).to.equal(true);
+  });
+
+  it('does not replace images for read-only, non-image, or multiple-asset bridge drops', () => {
+    const hit = sinon.stub(document, 'elementFromPoint').returns(second);
+    const payload = { assets: [{ 'repo:id': 'asset' }], x: 15, y: 25 };
+    ctx.readOnly = true;
+    handleAssetImageDrop(payload, ctx);
+    expect(hit.called).to.equal(false);
+    ctx.readOnly = false;
+    hit.returns(document.querySelector('main'));
+    handleAssetImageDrop(payload, ctx);
+    hit.returns(second);
+    handleAssetImageDrop({ ...payload, assets: [...payload.assets, ...payload.assets] }, ctx);
+    expect(posted).to.have.length(0);
   });
 });

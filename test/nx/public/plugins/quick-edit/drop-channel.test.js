@@ -3,7 +3,7 @@ import sinon from 'sinon';
 import loadQuickEdit from '../../../../../nx/public/plugins/quick-edit/quick-edit.js';
 
 describe('quick-edit native drop channel integration', () => {
-  it('sends a native HTML drop to the host through the existing INIT port', async () => {
+  it('sends native HTML and bridged asset drops through the existing INIT port', async () => {
     const url = window.location.href;
     const channel = new MessageChannel();
     window.history.replaceState(null, '', '?controller=parent');
@@ -34,6 +34,20 @@ describe('quick-edit native drop channel integration', () => {
         type: 'html-drop',
         payload: { html: '<h2>Drop</h2>', anchor: { kind: 'text', index: 1 }, side: 'after' },
       });
+
+      document.querySelector('main').innerHTML = '<picture>'
+        + '<img src="/old.png" data-image-index="3" data-image-version="v1"></picture>';
+      const img = document.querySelector('img');
+      sinon.stub(document, 'elementFromPoint').returns(img);
+      const replacement = response('image-replace');
+      const assets = [{ 'repo:id': 'asset' }];
+      channel.port1.postMessage({
+        type: 'image-replace', payload: { assets, x: 15, y: 25 },
+      });
+      const request = await replacement;
+      expect(request.payload).to.include({ proseIndex: 3, imageVersion: 'v1' });
+      expect(request.payload.assets).to.deep.equal(assets);
+      expect(request.payload.requestId).to.be.a('string');
     } finally {
       channel.port1.close();
       channel.port2.close();

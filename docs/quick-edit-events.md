@@ -90,6 +90,16 @@ selector's `collectionviewdata` through `IMAGE_REPLACE`, using the existing site
 asset configuration instead of uploading the selector's thumbnail.
 The standalone portal does not consume `HTML_DROP` or asset-metadata replacements.
 
+### `IMAGE_REPLACE` (AEM Assets rail)
+
+The embedded host can also initiate an asset replacement using the selector's
+iframe drag callbacks. The preview hit-tests the drop coordinates and sends the
+usual versioned replacement request back for the image under the pointer. This
+avoids depending on native drag metadata being readable outside the selector's
+iframe, and preserves image replacement when the rail uses bridged dragging.
+The standalone portal does not initiate this flow. Native image/file drops and
+replacement acknowledgements are unchanged.
+
 ### `SET_BODY` (`rerenderScope`)
 
 Both hosts diff the document against the last body the preview received and send the
