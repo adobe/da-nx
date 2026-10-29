@@ -77,6 +77,32 @@ describe('nx-siteselector', () => {
     expect(picker.placeholder).to.equal('Choose a site');
   });
 
+  it('shows the heading until a site is selected and restores it when selection is cleared', async () => {
+    selector.heading = 'Your recent sites';
+    document.body.append(selector);
+    let picker = await settle();
+    expect(picker.placeholder).to.equal('Loading sites...');
+    selector.sites = [
+      { value: 'org/site', label: '(org, site)' },
+      { value: 'other/site', label: '(other, site)' },
+    ];
+    picker = await settle();
+    const trigger = () => picker.shadowRoot.querySelector('[part="label"]').textContent;
+    expect(trigger()).to.equal('Your recent sites');
+    expect(picker.value).to.equal('');
+    expect(picker.shadowRoot.querySelector('[aria-selected="true"]')).to.be.null;
+    selector.value = 'org/site';
+    picker = await settle();
+    expect(trigger()).to.equal('(org, site)');
+    selector.value = '';
+    picker = await settle();
+    expect(trigger()).to.equal('Your recent sites');
+    selector.sites = [];
+    picker = await settle();
+    expect(trigger()).to.equal('Your recent sites');
+    expect(picker.items.at(-1)).to.include({ value: 'add-site', action: true });
+  });
+
   it('emits selection and Add requests without owning navigation or changing current selection', async () => {
     document.body.append(selector);
     const picker = await settle();
