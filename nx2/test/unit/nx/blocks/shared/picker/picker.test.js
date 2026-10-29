@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import { sendKeys } from '@web/test-runner-commands';
 import { setConfig } from '../../../../../../scripts/nx.js';
 
 // picker.js reads getConfig() at import time.
@@ -273,6 +274,42 @@ describe('nx-picker swatch', () => {
     el.variant = 'field';
     await el.updateComplete;
     expect(getComputedStyle(el.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal('350');
+  });
+
+  it('uses blue keyboard focus in every variant and theme while honoring focus-ring overrides', async () => {
+    const el = await createPicker();
+    el.style.cssText = `
+      --s2-blue-800: light-dark(#4b75ff, #4069fd);
+      --s2-gray-800: light-dark(#292929, #dbdbdb);
+    `;
+    const before = document.createElement('button');
+    before.textContent = 'Before picker';
+    el.before(before);
+    const trigger = el.shadowRoot.querySelector('.picker-trigger');
+    const focus = async () => {
+      before.focus();
+      await sendKeys({ press: 'Tab' });
+      expect(el.shadowRoot.activeElement).to.equal(trigger);
+      expect(trigger.matches(':focus-visible')).to.be.true;
+      return getComputedStyle(trigger);
+    };
+    try {
+      for (const variant of [undefined, 'field', 'navigation']) {
+        el.variant = variant;
+        await el.updateComplete;
+        for (const [scheme, color] of [['light', 'rgb(75, 117, 255)'], ['dark', 'rgb(64, 105, 253)']]) {
+          el.style.colorScheme = scheme;
+          const style = await focus();
+          expect(style.outlineColor).to.equal(color);
+          expect(style.outlineStyle).to.equal('solid');
+          expect(style.outlineWidth).to.equal('2px');
+        }
+      }
+      el.style.setProperty('--s2-focus-ring-color', '#c44500');
+      expect((await focus()).outlineColor).to.equal('rgb(196, 69, 0)');
+    } finally {
+      before.remove();
+    }
   });
 
   it('accepts one menu-width property without changing field-width defaults', async () => {

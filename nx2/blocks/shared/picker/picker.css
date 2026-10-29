@@ -48,7 +48,7 @@
   }
 
   &:focus-visible {
-    outline: 2px solid var(--s2-focus-ring-color, currentColor);
+    outline: 2px solid var(--s2-focus-ring-color, var(--s2-blue-800));
     outline-offset: 2px;
   }
 
