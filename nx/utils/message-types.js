@@ -39,5 +39,7 @@ export const MESSAGE_TYPES = Object.freeze({
   //                  requestId, assets: object[], originalSrc } (da-live only)
   // Host -> iframe: { proseIndex, requestId, originalSrc, newSrc?, error? }
   // Host -> iframe (da-live rail): { assets: object[], x: number, y: number }
+  // Host -> iframe (da-live rail feedback): { assets: [], phase: 'hover', x: number, y: number }
+  //                                       or { assets: [], phase: 'leave' }
   IMAGE_REPLACE: 'image-replace',
 });
