@@ -65,6 +65,8 @@ parallel one. If you do add a new key:
 | `STORED_MARKS` | iframe → host | da-live only |
 | `PREVIEW` | iframe ↔ host (request/reply) | standalone (quick-edit-portal) only |
 | `IMAGE_REPLACE` | iframe ↔ host (request/reply) | both hosts |
+| `HTML_DROP` | iframe → host | da-live only |
+| `DROP_TARGET` | Host ↔ iframe (request/reply) | da-live only |
 | `SET_COMMENT_MARKERS` | Host → iframe | da-live only |
 | `SCROLL_TO_POS` | Host → iframe | da-live only |
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
@@ -73,6 +75,46 @@ parallel one. If you do add a new key:
 | `QUICK_EDIT_IFRAME_CLICK` | iframe → host | da-live only |
 
 ---
+
+### `HTML_DROP`
+
+Extensions using native dragging send HTML or image Files into the preview iframe.
+Quick-edit shows before/after insertion lines for HTML and sends the selected
+boundary through the existing port. No host overlay or drag-lifecycle messaging
+is involved.
+
+On an HTML drop, quick-edit returns the HTML and the indexed boundary to da-live,
+which parses it with the document schema and applies the editor transaction.
+Images continue through `IMAGE_REPLACE`; an HTML `<img>` remains HTML rather than
+implicitly requesting an upload. The embedded host also resolves the Assets
+selector's `collectionviewdata` through `IMAGE_REPLACE`, using the existing site
+asset configuration instead of uploading the selector's thumbnail.
+The standalone portal does not consume `HTML_DROP` or asset-metadata replacements.
+
+### `DROP_TARGET`
+
+The generic extension drag SDK lets da-live capture the pointer above iframe
+boundaries. da-live asks quick-edit to highlight or resolve a preview insertion
+boundary or authored image without sending the extension's content into the
+preview. The reply carries the rendered document version so the host can reject
+stale coordinates before applying an editor transaction. Leaving, cancellation
+and completion clear the highlight. Only da-live initiates this flow; the
+standalone portal does not consume it.
+
+### `IMAGE_REPLACE` (AEM Assets rail)
+
+The embedded host can also initiate an asset replacement using the selector's
+iframe drag callbacks. The preview hit-tests the drop coordinates and sends the
+usual versioned replacement request back for the image under the pointer. This
+avoids depending on native drag metadata being readable outside the selector's
+iframe, and preserves image replacement when the rail uses bridged dragging.
+The host also forwards hover and leave updates so the preview can show its
+existing image drop-target highlight while a transparent host shield captures
+the drag. Leaving the preview, cancelling, or dropping clears that highlight;
+hovering does not request a replacement. SDK asset metadata crosses the same
+JSON boundary as document drops, so selector callbacks are not sent over the port.
+The standalone portal does not initiate this flow. Native image/file drops and
+replacement acknowledgements are unchanged.
 
 ### `SET_BODY` (`rerenderScope`)
 

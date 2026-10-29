@@ -4,6 +4,7 @@ import {
   setupImageDropListeners,
   updateImageSrc,
   handleImageError,
+  handleAssetImageDrop,
 } from './src/images.js';
 import { setEditorState, captureFocusedEditor } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
@@ -31,6 +32,7 @@ import {
 } from './src/selection.js';
 import { installClickForwarding } from './src/click-forwarding.js';
 import { replaceChanges } from './src/reload.js';
+import { setupDropListeners, handleDropTarget } from './src/drop.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
 
@@ -47,6 +49,8 @@ const QUICK_EDIT_PREVIEW_ID = 'quick-edit-preview-iframe';
 let parentControllerPort = null;
 
 async function setBody(body, rerenderScope, ctx) {
+  ctx.clearDrop?.();
+  handleAssetImageDrop({ phase: 'leave' }, ctx);
   ctx.reloadRequested = false;
   ctx.bodyGeneration = (ctx.bodyGeneration ?? 0) + 1;
   const generation = ctx.bodyGeneration;
@@ -87,9 +91,13 @@ function onMessage(e, ctx) {
     handleReady(e, ctx);
   } else if (type === MESSAGE_TYPES.SET_BODY) {
     ctx.pendingNodeUpdateId = null;
+    ctx.documentVersion = undefined;
     // A partial reload decorates detached DOM; the next body must not land mid-decoration.
     ctx.bodyQueue = (ctx.bodyQueue ?? Promise.resolve())
-      .then(() => setBody(payload.body, payload.rerenderScope, ctx))
+      .then(async () => {
+        await setBody(payload.body, payload.rerenderScope, ctx);
+        ctx.documentVersion = payload.documentVersion;
+      })
       .catch((error) => {
         // eslint-disable-next-line no-console
         console.error('[quick-edit] failed to set body', error);
@@ -99,12 +107,17 @@ function onMessage(e, ctx) {
       editorState, cursorOffset, imageVersion, lengthDiff,
     } = payload;
     setEditorState(cursorOffset, editorState, ctx, imageVersion, lengthDiff);
+    ctx.documentVersion = imageVersion;
   } else if (type === MESSAGE_TYPES.NODE_UPDATE) {
-    applyImageVersionAck(payload, ctx);
+    if (applyImageVersionAck(payload, ctx)) ctx.documentVersion = payload.imageVersion;
+  } else if (type === MESSAGE_TYPES.DROP_TARGET) {
+    Promise.resolve(ctx.bodyQueue).then(() => handleDropTarget(payload, ctx));
   } else if (type === MESSAGE_TYPES.SET_CURSORS) {
     setCursors(payload.cursors, ctx);
   } else if (type === MESSAGE_TYPES.IMAGE_REPLACE) {
-    if (payload.error) {
+    if (payload.assets || payload.phase) {
+      handleAssetImageDrop(payload, ctx);
+    } else if (payload.error) {
       handleImageError(payload.error, payload.requestId, ctx);
     } else {
       updateImageSrc(payload.requestId, payload.newSrc, ctx);
@@ -143,6 +156,7 @@ function setupParentController(reloadCallback, partialReload) {
       readOnly: config?.canWrite !== true,
       partialReload,
     };
+    setupDropListeners(ctx);
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ type: MESSAGE_TYPES.READY });
     setupCommentShortcut(ctx);

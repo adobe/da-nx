@@ -10,7 +10,7 @@ export const MESSAGE_TYPES = Object.freeze({
   READY: 'ready', // no payload
 
   // Host -> iframe
-  SET_BODY: 'set-body', // { body: string, rerenderScope?: { type: 'page' } | { type: 'section' | 'section-added' | 'section-removed', sectionIndex: number } | { type: 'block', sectionIndex: number, blockIndex: number } }
+  SET_BODY: 'set-body', // { body: string, documentVersion?: string, rerenderScope?: { type: 'page' } | { type: 'section' | 'section-added' | 'section-removed', sectionIndex: number } | { type: 'block', sectionIndex: number, blockIndex: number } }
   SET_EDITOR_STATE: 'set-editor-state', // { editorState: PM node JSON, cursorOffset: number, imageVersion, lengthDiff?: number (host doc size change from the edit that produced this state) }
   SET_CURSORS: 'set-cursors', // { cursors: [{ proseIndex, remote, color }] }
   SET_SELECTED_NODE: 'set-selected-node', // { node: { anchorType, proseIndex, ... } | null, scrollIntoView }
@@ -32,9 +32,15 @@ export const MESSAGE_TYPES = Object.freeze({
   COMMENT_SHORTCUT: 'comment-shortcut', // no payload
   QUICK_EDIT_IFRAME_CLICK: 'quick-edit-iframe-click', // { target?: string, source: 'ew-wysiwyg-layout' } — quick-edit iframe clicks; `target` in RUM format
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }
+  HTML_DROP: 'html-drop', // { html: string, anchor: { kind: 'block' | 'text' | 'image' | 'main', index: number }, side: 'before' | 'after' }
+  DROP_TARGET: 'drop-target', // Host -> iframe: { phase: 'hover' | 'resolve' | 'leave', kind: 'html' | 'image', x?, y?, requestId? }; reply: { requestId, documentVersion, target: { anchor, side } | { proseIndex, imageVersion, originalSrc } | null }
 
   // Iframe -> host: { proseIndex, imageVersion, requestId, imageData, fileName,
-  //                  mimeType, originalSrc }
+  //                  mimeType, originalSrc } or { proseIndex, imageVersion,
+  //                  requestId, assets: object[], originalSrc } (da-live only)
   // Host -> iframe: { proseIndex, requestId, originalSrc, newSrc?, error? }
+  // Host -> iframe (da-live rail): { assets: object[], x: number, y: number }
+  // Host -> iframe (da-live rail feedback): { assets: [], phase: 'hover', x: number, y: number }
+  //                                       or { assets: [], phase: 'leave' }
   IMAGE_REPLACE: 'image-replace',
 });

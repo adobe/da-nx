@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import {
-  setupImageDropListeners, updateImageSrc, handleImageError,
+  setupImageDropListeners, updateImageSrc, handleImageError, handleAssetImageDrop,
 } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
 
 describe('quick-edit image replacement', () => {
@@ -30,15 +31,15 @@ describe('quick-edit image replacement', () => {
   });
 
   afterEach(() => {
+    sinon.restore();
     window.FileReader = originalReader;
     document.body.innerHTML = '';
   });
 
   function drop(img) {
-    const e = new Event('drop', { bubbles: true, cancelable: true });
-    Object.defineProperty(e, 'dataTransfer', {
-      value: { files: [new File(['image'], 'new.png', { type: 'image/png' })] },
-    });
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(new File(['image'], 'new.png', { type: 'image/png' }));
+    const e = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer });
     img.dispatchEvent(e);
   }
 
@@ -130,5 +131,86 @@ describe('quick-edit image replacement', () => {
     expect(first.getAttribute('src')).to.equal('/same.png');
     expect(second.getAttribute('src')).to.equal('/same.png');
     expect(ctx.pendingImageReplacements.size).to.equal(0);
+  });
+
+  it('uses the image under bridged drop coordinates for a versioned asset replacement', () => {
+    const hit = sinon.stub(document, 'elementFromPoint').returns(second);
+    const assets = [{ 'repo:id': 'asset' }];
+
+    handleAssetImageDrop({ assets, x: 15, y: 25 }, ctx);
+
+    expect(hit.calledWithExactly(15, 25)).to.equal(true);
+    expect(posted).to.have.length(1);
+    expect(posted[0].type).to.equal('image-replace');
+    expect(posted[0].payload).to.include({
+      proseIndex: 3, imageVersion: 'v1', assets,
+    });
+    expect(posted[0].payload.requestId).to.be.a('string');
+    expect(posted[0].payload).to.not.have.property('imageData');
+    expect(second.closest('picture').classList.contains('image-uploading')).to.equal(true);
+  });
+
+  it('does not replace images for read-only, non-image, or multiple-asset bridge drops', () => {
+    const hit = sinon.stub(document, 'elementFromPoint').returns(second);
+    const payload = { assets: [{ 'repo:id': 'asset' }], x: 15, y: 25 };
+    ctx.readOnly = true;
+    handleAssetImageDrop(payload, ctx);
+    expect(hit.called).to.equal(false);
+    ctx.readOnly = false;
+    hit.returns(document.querySelector('main'));
+    handleAssetImageDrop(payload, ctx);
+    hit.returns(second);
+    handleAssetImageDrop({ ...payload, assets: [...payload.assets, ...payload.assets] }, ctx);
+    expect(posted).to.have.length(0);
+  });
+
+  it('moves and clears the bridged hover target without starting a replacement', () => {
+    const hit = sinon.stub(document, 'elementFromPoint').returns(first);
+    const picture = first.closest('picture');
+    const otherPicture = second.closest('picture');
+    handleAssetImageDrop({ phase: 'hover', x: 15, y: 25 }, ctx);
+    expect(picture.classList.contains('image-drop-target')).to.equal(true);
+    hit.returns(second);
+    handleAssetImageDrop({ phase: 'hover', x: 25, y: 35 }, ctx);
+    expect(picture.classList.contains('image-drop-target')).to.equal(false);
+    expect(otherPicture.classList.contains('image-drop-target')).to.equal(true);
+    handleAssetImageDrop({ phase: 'leave' }, ctx);
+    expect(otherPicture.classList.contains('image-drop-target')).to.equal(false);
+    expect(posted).to.have.length(0);
+    expect(ctx.pendingImageReplacements.size).to.equal(0);
+  });
+
+  it('clears bridged highlighting on non-images, invalid positions, or permission loss', () => {
+    const hit = sinon.stub(document, 'elementFromPoint').returns(first);
+    const picture = first.closest('picture');
+    const hover = { phase: 'hover', x: 15, y: 25 };
+    handleAssetImageDrop(hover, ctx);
+    hit.returns(document.querySelector('main'));
+    handleAssetImageDrop(hover, ctx);
+    expect(picture.classList.contains('image-drop-target')).to.equal(false);
+    hit.returns(first);
+    handleAssetImageDrop(hover, ctx);
+    handleAssetImageDrop({ ...hover, x: NaN }, ctx);
+    expect(picture.classList.contains('image-drop-target')).to.equal(false);
+    handleAssetImageDrop(hover, ctx);
+    ctx.readOnly = true;
+    handleAssetImageDrop(hover, ctx);
+    expect(picture.classList.contains('image-drop-target')).to.equal(false);
+    ctx.readOnly = false;
+    first.removeAttribute('data-image-version');
+    handleAssetImageDrop(hover, ctx);
+    expect(picture.classList.contains('image-drop-target')).to.equal(false);
+    expect(posted).to.have.length(0);
+  });
+
+  it('clears the bridged hover target before starting an asset replacement', () => {
+    sinon.stub(document, 'elementFromPoint').returns(first);
+    const picture = first.closest('picture');
+    handleAssetImageDrop({ phase: 'hover', x: 15, y: 25 }, ctx);
+    expect(picture.classList.contains('image-drop-target')).to.equal(true);
+    handleAssetImageDrop({ assets: [{ 'repo:id': 'asset' }], x: 15, y: 25 }, ctx);
+    expect(picture.classList.contains('image-drop-target')).to.equal(false);
+    expect(picture.classList.contains('image-uploading')).to.equal(true);
+    expect(posted).to.have.length(1);
   });
 });

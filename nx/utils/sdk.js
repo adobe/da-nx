@@ -59,6 +59,15 @@ export function createHostActions({ port, capabilities = {} }) {
   };
 
   return {
+    makeDraggable: async (options) => {
+      const { makeDraggable } = await import('./sdk/drag.js');
+      return makeDraggable({
+        ...options,
+        port,
+        supported: capabilities.dragDrop === 1,
+        request: (action, details) => handleSdkResponse({ port, action, details }),
+      });
+    },
     sendHTML: (html, options = {}) => {
       if (typeof html !== 'string' || (options.replace !== undefined && typeof options.replace !== 'boolean')) {
         throw new TypeError('invalid-html');
