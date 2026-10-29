@@ -48,6 +48,15 @@ export async function useAoChat() {
   return enabled;
 }
 
+export async function loadChatInput() {
+  const { useAoChat: enabled, altHarness } = await resolveAoChatConfig();
+  if (!enabled) return undefined;
+  await import('../blocks/chat-ao/input.js');
+  const input = document.createElement('nx-ao-input');
+  input.altHarness = altHarness;
+  return input;
+}
+
 export async function loadChat() {
   const {
     useAoChat: enabled,

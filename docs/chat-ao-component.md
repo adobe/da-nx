@@ -18,6 +18,43 @@ so callers — including the `PANEL_EVENT.OPEN`/DA SDK `actions.setPrompt`
 paths documented there — don't need to know which element they got, and
 don't need to query for it either.
 
+## Input ownership
+
+`nx-ao-input` (`input.js` / `input.css`) owns the draft, pills/attachments,
+file selection/drop, slash menu, prompts, and voice input. `nx-chat-ao` retains
+conversation, session, approval, history, and document-event handling, delegating
+`setPrompt()` to the input.
+
+Hosts supply `blocked`, `altHarness`, `prompts`, `menuItems`, and `getSkills()`.
+`disabled` prevents editing/submission without showing Stop; `blocked` represents
+an active turn and exposes Stop. `showInputStatus` opts into the working message,
+blue progress indicator and circular Stop. `statusMessage` announces non-turn
+loading, such as opening the conversation.
+
+`onSubmit({ text, context, attachments })` may return synchronously or return a
+promise. Returning/resolving `false` retains the draft and pills. Acceptance
+clears them; pending submission prevents duplicate sends. Other callbacks are
+`onStop()`, `onInput()` (session warming), and `onMenuSelect(id)`.
+
+Public APIs: `setPrompt(text, { autoSend?, replace? })`, `focusInput()`,
+`openPrompts()`, `openAddAction(id)`, `addItem(item)`, and read-only `draft` / `items`.
+`setPrompt` resolves to an acceptance boolean; `replace: false` protects a
+different existing draft. File-only submissions supply an attachment label.
+
+The default presentation remains compact. `variant="expanded"` supplies the
+larger input/action layout without page artwork; `placeholder` can be supplied
+by the host. Hosts pass `size="m"` for the next text/button step; the default is S.
+This input does not install a global sizing runtime.
+
+`loadChatInput()` in `nx2/utils/chat.js` creates a standalone input only when the
+configured backend is AO, preserving CMA appearance without creating a
+conversation or controller. It returns `undefined` for legacy chat. Hosts retain
+their legacy input path, availability checks, layout and asynchronous handoff.
+
+Set optional `addEvent` before mounting; standalone instances default to a
+unique event name. `nx-chat-ao` supplies `CHAT_EVENT.ADD_TO_CHAT` and translates
+bubbled pill activation into `HIGHLIGHT_SELECTION`.
+
 ## Session warming
 
 `AoChatController.warmSession()` (`ao-controller.js`) kicks the current

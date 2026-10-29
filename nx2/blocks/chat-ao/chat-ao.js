@@ -18,30 +18,19 @@ import CmaChatController from './cma-chat-controller.js';
 import { getCoworkerConfig } from '../../utils/ewFlags.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
-  AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES,
   COWORKER_SKILLS_URL, COWORKER_CHAT_URL, ENTERPRISE_CONTEXT_URL,
   ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE,
 } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
-import { createFileDropHandlers } from '../shared/chat/dnd.js';
-import { openPopoverAbove } from '../shared/chat/positioning.js';
-import { buildAttachmentItems } from '../shared/chat/files.js';
-import { createVoiceInput, isVoiceInputSupported, appendTranscript } from './utils/voice-input.js';
-import { showToast } from '../shared/toast/toast.js';
 import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
-import { createSlashMenu } from '../shared/chat/slash-menu.js';
-import '../shared/pills/pills.js';
-import '../shared/menu/menu.js';
-import '../shared/popover/popover.js';
 import '../shared/picker/picker.js';
-import '../shared/chat/prompts/prompts.js';
 import '../shared/chat/new-chat/new-chat.js';
 import './question-card/question-card.js';
-import { ADOBE_AI_GUIDELINES_URL, CHAT_WORKING_MESSAGE, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
-import { sampleRUM } from '../../deps/rum.js';
+import './input.js';
+import { ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 
 const styles = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
@@ -50,11 +39,6 @@ const artifactStyle = await loadStyle(new URL('./artifacts/artifacts.css', impor
 const { codeBase } = getConfig();
 
 const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
-
-function isAllowedFile(file) {
-  const name = file.name?.toLowerCase() ?? '';
-  return AO_UPLOAD_EXTENSIONS.some((ext) => name.endsWith(ext));
-}
 
 export default class NxChatAo extends LitElement {
   static properties = {
@@ -67,18 +51,10 @@ export default class NxChatAo extends LitElement {
     pendingPermission: { type: Object },
     loadingEpisode: { type: Boolean },
     staleEpisode: { type: Object },
-    _dragging: { state: true },
     _prompts: { state: true },
     _planFeedback: { state: true },
-    _voiceListening: { state: true },
     showInputStatus: { type: Boolean, reflect: true },
   };
-
-  _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
-
-  // Tracks the last interim chunk inserted into .chat-input so the next
-  // chunk can replace it in place — see utils/voice-input.js#appendTranscript.
-  _voiceInterim = '';
 
   set context(value) {
     this._explicitContext = true;
@@ -100,15 +76,32 @@ export default class NxChatAo extends LitElement {
 
   async setPrompt(text, { autoSend = false, replace = true } = {}) {
     await this.updateComplete;
-    const draft = this.shadowRoot.querySelector('.chat-input')?.value;
-    if (!replace && draft?.trim() && draft !== text) return false;
-    return this._sendPrompt(text, { autoSend });
+    if (this.inputState.disabled) return false;
+    return this._input?.setPrompt(text, { autoSend, replace }) ?? false;
+  }
+
+  get _input() {
+    return this.shadowRoot.querySelector('nx-ao-input');
   }
 
   // See docs/chat-ao-component.md#plan-approval — a pending plan, unlike a
   // pending question, doesn't disable the input.
   get _blocked() {
     return this.thinking && !this.pendingPlanApproval;
+  }
+
+  get _visiblePrompts() {
+    const { view } = this._context ?? {};
+    if (!this._promptCache
+      || this._promptCache.source !== this._prompts
+      || this._promptCache.view !== view) {
+      this._promptCache = {
+        source: this._prompts,
+        view,
+        items: (this._prompts ?? []).filter((p) => !p.area || p.area === 'all' || p.area === view),
+      };
+    }
+    return this._promptCache.items;
   }
 
   _applyContext(value) {
@@ -188,45 +181,7 @@ export default class NxChatAo extends LitElement {
   }
 
   _openPrompts() {
-    const popover = this.shadowRoot.querySelector('.prompts-popover');
-    const form = this.shadowRoot.querySelector('.chat-form');
-    openPopoverAbove(popover, form, {
-      onOpen: () => this.shadowRoot.querySelector('nx-prompts')?.focus(),
-    });
-  }
-
-  _sendPrompt(prompt, { autoSend = false } = {}) {
-    if (!prompt || this.inputState.disabled) return false;
-    this.shadowRoot.querySelector('.prompts-popover')?.close();
-    const input = this.shadowRoot.querySelector('.chat-input');
-    if (!input) return false;
-    input.value = prompt;
-    if (autoSend) {
-      input.closest('form')?.requestSubmit();
-    } else {
-      input.focus();
-    }
-    return true;
-  }
-
-  _toggleVoiceInput() {
-    if (this._voiceListening) this._voice.stop();
-    else this._voice.start();
-  }
-
-  _handleVoiceText(text, isInterim) {
-    const input = this.shadowRoot.querySelector('.chat-input');
-    if (!input) return;
-    const { value, interim } = appendTranscript(input.value, this._voiceInterim, text, isInterim);
-    input.value = value;
-    this._voiceInterim = interim;
-  }
-
-  _onAddClick(e) {
-    const popover = this.shadowRoot.querySelector('.prompts-popover');
-    if (!popover?.open) return;
-    e.stopImmediatePropagation();
-    popover.close();
+    this._input?.openPrompts();
   }
 
   _episodeLabel(episode) {
@@ -246,7 +201,7 @@ export default class NxChatAo extends LitElement {
 
   _handleNewSession() {
     this._controller.startNewEpisode();
-    this.shadowRoot.querySelector('.chat-input')?.focus();
+    this._input?.focusInput();
   }
 
   _continueStaleEpisode() {
@@ -270,11 +225,6 @@ export default class NxChatAo extends LitElement {
     fetchResolvedManifestId();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, artifactStyle];
     this._initController();
-    this._dnd = createFileDropHandlers({
-      isAllowed: isAllowedFile,
-      onDragging: (dragging) => { this._dragging = dragging && !this.inputState.disabled; },
-      onFiles: (files) => this._onFilesSelected(files),
-    });
     this._unsubscribeHash = hashChange.subscribe((state) => {
       if (!this._explicitContext) this._applyContext(state);
     });
@@ -287,16 +237,6 @@ export default class NxChatAo extends LitElement {
       this.setPrompt(detail.text, { autoSend: detail.autoSend });
     };
     document.addEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
-    this._voice = createVoiceInput({
-      onStart: () => { this._voiceListening = true; },
-      onEnd: () => { this._voiceListening = false; this._voiceInterim = ''; },
-      onInterimText: (text) => this._handleVoiceText(text, true),
-      onFinalText: (text) => {
-        this._handleVoiceText(text, false);
-        this.shadowRoot.querySelector('.chat-input')?.focus();
-      },
-      onError: (message) => showToast({ text: message, variant: 'error' }),
-    });
   }
 
   disconnectedCallback() {
@@ -305,7 +245,6 @@ export default class NxChatAo extends LitElement {
     this._unsubscribeHash?.();
     document.removeEventListener('visibilitychange', this._onVisibilityChange);
     document.removeEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
-    this._voice?.stop();
   }
 
   willUpdate(changed) {
@@ -332,7 +271,7 @@ export default class NxChatAo extends LitElement {
       }
     }
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
-      this.shadowRoot.querySelector('.chat-input')?.focus();
+      this._input?.focusInput();
     }
 
     if (changed.has('pendingPermission') && this.pendingPermission && !changed.get('pendingPermission')) {
@@ -340,73 +279,28 @@ export default class NxChatAo extends LitElement {
     }
   }
 
-  _getSlashItems(filter) {
-    const skills = this._controller.getSkills().map((id) => ({ id, label: id }));
-    const filtered = filter
-      ? skills.filter((item) => item.id.toLowerCase().includes(filter))
-      : skills;
-    if (!filtered.length) return [];
-    return [{ section: 'Skills' }, ...filtered];
-  }
+  _getSkills = () => this._controller?.getSkills() ?? [];
 
-  _onSlashSelect(skillId) {
-    const { message, input } = this._slashMenu.resolveSelection(skillId);
-    const pills = this.shadowRoot.querySelector('nx-pills');
-    const items = pills?.items ?? [];
-    const attachments = items.filter((i) => i.dataBase64);
-    const context = items.filter((i) => !i.dataBase64);
-    this._controller.sendMessage(message, context, attachments);
-    input.value = '';
-    pills?.clear();
-  }
+  _stop = () => this.stop();
 
-  _submit(e) {
-    e?.preventDefault();
-    if (this.loadingEpisode) return;
-    if (this._blocked) {
-      this.stop();
-      return;
-    }
-    const input = this.shadowRoot.querySelector('.chat-input');
-    const text = input.value.trim();
-    if (!text) return;
-    const pills = this.shadowRoot.querySelector('nx-pills');
-    const items = pills?.items ?? [];
-    const attachments = items.filter((i) => i.dataBase64);
-    const context = items.filter((i) => !i.dataBase64);
-    sampleRUM('click', { source: 'chat-submit', target: 'button.chat-send.harness-coworker' });
-    this._slashMenu.close();
+  _warmSession = () => this._controller.warmSession();
+
+  _submit = ({ text, context, attachments }) => {
+    if (this.inputState.disabled) return false;
     this._controller.sendMessage(text, context, attachments);
-    input.value = '';
-    pills?.clear();
-  }
+    return true;
+  };
 
-  _handleInput(e) {
-    this._slashMenu.onInput(e);
-    this._controller.warmSession();
-  }
-
-  _handleKeydown(e) {
-    if (this._slashMenu.onKeydown(e)) return;
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      this._submit();
-    }
-  }
-
-  _handleMenuSelect({ detail: { id } }) {
-    return this.openAddAction(id);
-  }
-
-  async openAddAction(id) {
-    await this.updateComplete;
-    if (id === MENU_OPTIONS.FILES) this._openFilePicker();
-    if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
-    if (id === MENU_OPTIONS.COMMAND) this._slashMenu.insertSlash();
+  _handleMenuSelect = (id) => {
     if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
     if (id === MENU_OPTIONS.MANAGE_SKILLS) window.open(COWORKER_SKILLS_URL, '_blank', 'noopener,noreferrer');
     if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) window.open(`${COWORKER_CHAT_URL}/${this.episodeId}`, '_blank', 'noopener,noreferrer');
     if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) window.open(ENTERPRISE_CONTEXT_URL, '_blank', 'noopener,noreferrer');
+  };
+
+  async openAddAction(id) {
+    await this.updateComplete;
+    return this._input?.openAddAction(id);
   }
 
   _openConfigPage() {
@@ -419,38 +313,10 @@ export default class NxChatAo extends LitElement {
     window.open(url.href, '_blank', 'noopener,noreferrer');
   }
 
-  _openFilePicker() {
-    this.shadowRoot.querySelector('.chat-file-input')?.click();
-  }
-
-  async _onFilesSelected(fileList) {
-    if (this.inputState.disabled) return;
-    const pills = this.shadowRoot.querySelector('nx-pills');
-    const currentCount = (pills?.items ?? []).filter((i) => i.dataBase64).length;
-    const items = await buildAttachmentItems(fileList, {
-      currentCount, maxFileSize: AO_MAX_FILE_SIZE_BYTES,
-    });
-    items.forEach((item) => pills?.add(item));
-  }
-
-  async _onFileInputChange(e) {
-    const { target } = e;
-    await this._onFilesSelected(target.files);
-    target.value = '';
-  }
-
   render() {
-    const { view } = this._context ?? {};
-    const prompts = (this._prompts ?? [])
-      .filter((p) => !p.area || p.area === 'all' || p.area === view);
+    const prompts = this._visiblePrompts;
 
     return html`
-      <nx-popover class="prompts-popover">
-        <nx-prompts
-          .prompts=${prompts}
-          .onSend=${(p) => this._sendPrompt(p)}
-        ></nx-prompts>
-      </nx-popover>
       <div class="chat-header">
         ${this.episodes?.length ? html`
           <nx-picker
@@ -481,7 +347,7 @@ export default class NxChatAo extends LitElement {
             ${!this.messages?.length && !this.thinking
           ? html`<nx-new-chat
               .prompts=${prompts}
-              .onSend=${(p) => this._sendPrompt(p)}
+              .onSend=${(p) => this.setPrompt(p)}
               .lastSession=${this.staleEpisode ? {
               preview: this.staleEpisode.title || 'Your previous conversation',
               updatedAt: this.staleEpisode.updated_at,
@@ -513,14 +379,6 @@ export default class NxChatAo extends LitElement {
         </div>
       </div>
       <div class="chat-form-wrap">
-        <nx-menu
-          class="slash-menu"
-          size="m"
-          .ignoreFocus=${true}
-          .scoped=${true}
-          @select=${({ detail }) => this._onSlashSelect(detail.id)}
-          @mousedown=${(e) => e.preventDefault()}
-        ></nx-menu>
         <nx-question-card
           .pending=${this.pendingQuestion}
           .onSubmit=${(answers) => this._controller.answerQuestion(answers)}
@@ -529,76 +387,21 @@ export default class NxChatAo extends LitElement {
         ${renderPermissionCard(this.pendingPermission, {
             onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
           })}
-        <form class="chat-form ${this.showInputStatus && this.inputState.busy ? 'is-processing' : ''}" @submit=${this._submit}
-          @dragenter=${this._dnd.onDragEnter}
-          @dragleave=${this._dnd.onDragLeave}
-          @dragover=${this._dnd.onDragOver}
-          @drop=${this._dnd.onDrop}
-        >
-          ${this._dragging ? html`
-            <div class="chat-drop-zone" aria-hidden="true">
-              <span class="chat-drop-title">Drop a file to add context</span>
-              <span class="chat-drop-hint">Supports documents, images, and code</span>
-            </div>` : nothing}
-          <nx-pills
-            addEvent=${CHAT_EVENT.ADD_TO_CHAT}
-            @nx-pill-activate=${this._handlePillActivate}
-          ></nx-pills>
-          <input
-            class="chat-file-input"
-            type="file"
-            accept=${AO_UPLOAD_EXTENSIONS.join(',')}
-            multiple
-            hidden
-            @change=${this._onFileInputChange}
-          />
-          <div class="chat-input-wrap ${this._altHarness ? '' : 'coworker-chat'}">
-            ${this.showInputStatus && this.inputState.busy ? html`<div class="chat-working" role="status">
-              <span class="nx-loading-spinner" aria-hidden="true"></span>${CHAT_WORKING_MESSAGE}
-            </div>` : nothing}
-            <textarea
-              class="chat-input"
-              placeholder="Ask anything, or type / for skills..."
-              ?disabled=${this.inputState.disabled}
-              ?hidden=${this.showInputStatus && this.inputState.busy}
-              @input=${this._handleInput}
-              @keydown=${this._handleKeydown}
-              @blur=${this._slashMenu.onBlur}
-            ></textarea>
-          </div>
-          <div class="chat-actions" ?data-thinking=${this._blocked} ?data-voice-listening=${this._voiceListening}>
-            <nx-menu size="m" .items=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-              <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" ?disabled=${this.inputState.disabled} @click=${this._onAddClick}>
-                <span class="icon-add">${icon('add')}</span>
-                <span class="icon-up">${icon('up')}</span>
-              </button>
-            </nx-menu>
-            <div class="chat-primary-action">
-              ${isVoiceInputSupported() ? html`
-                <button
-                  type="button"
-                  class="chat-voice nx-action-btn-icon nx-btn-sm"
-                  ?data-listening=${this._voiceListening}
-                  ?disabled=${this._blocked}
-                  aria-pressed=${this._voiceListening}
-                  aria-label=${this._voiceListening ? 'Stop recording' : 'Use voice input'}
-                  @click=${this._toggleVoiceInput}
-                >${icon('mic')}</button>
-              ` : nothing}
-              <button
-                type="button"
-                class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
-                aria-label="Stop"
-                ?hidden=${!this._blocked}
-                @click=${this.stop}
-              > ${icon(this.showInputStatus ? 'stopProcessing' : 'stop')}</button>
-              <button type="submit" class="chat-send harness-coworker nx-action-btn-icon is-active nx-btn-sm"
-                ?hidden=${this._blocked} ?disabled=${this.loadingEpisode} aria-label="Send">
-                ${icon('send')}
-              </button>
-            </div>
-          </div>
-        </form>
+        <nx-ao-input
+          .blocked=${this._blocked}
+          .disabled=${!!this.loadingEpisode}
+          .showInputStatus=${this.showInputStatus}
+          .altHarness=${this._altHarness}
+          .prompts=${prompts}
+          .menuItems=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS}
+          .addEvent=${CHAT_EVENT.ADD_TO_CHAT}
+          .getSkills=${this._getSkills}
+          .onSubmit=${this._submit}
+          .onStop=${this._stop}
+          .onInput=${this._warmSession}
+          .onMenuSelect=${this._handleMenuSelect}
+          @nx-pill-activate=${this._handlePillActivate}
+        ></nx-ao-input>
       </div>
       <p class="chat-disclaimer">
         Responses are generated using AI, and may be inaccurate.

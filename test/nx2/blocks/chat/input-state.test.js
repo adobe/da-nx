@@ -22,6 +22,10 @@ describe('chat input coordination', () => {
     sinon.restore();
   });
 
+  function inputRoot() {
+    return chat.shadowRoot.querySelector('nx-ao-input')?.shadowRoot ?? chat.shadowRoot;
+  }
+
   async function mount(tag) {
     sinon.stub(window, 'fetch').resolves(new Response('{}'));
     chat = document.createElement(tag);
@@ -37,7 +41,8 @@ describe('chat input coordination', () => {
     chat.showInputStatus = true;
     document.body.append(chat);
     await chat.updateComplete;
-    return chat.shadowRoot.querySelector('.chat-input');
+    await chat.shadowRoot.querySelector('nx-ao-input')?.updateComplete;
+    return inputRoot().querySelector('.chat-input');
   }
 
   ['nx-chat', 'nx-chat-ao'].forEach((tag) => {
@@ -54,10 +59,11 @@ describe('chat input coordination', () => {
       expect(states.at(-1)).to.deep.equal(chat.inputState);
       expect(input.disabled).to.equal(true);
       expect(input.hidden).to.equal(true);
-      expect(chat.shadowRoot.querySelector('.chat-working').textContent).to.include('Working on your question, please wait...');
-      expect(chat.shadowRoot.querySelector('.chat-add').disabled).to.equal(true);
-      const add = sinon.spy(chat.shadowRoot.querySelector('nx-pills'), 'add');
-      await chat._onFilesSelected([new File(['draft'], 'draft.md', { type: 'text/markdown' })]);
+      expect(inputRoot().querySelector('.chat-working').textContent).to.include('Working on your question, please wait...');
+      expect(inputRoot().querySelector('.chat-add').disabled).to.equal(true);
+      const add = sinon.spy(inputRoot().querySelector('nx-pills'), 'add');
+      const owner = chat.shadowRoot.querySelector('nx-ao-input') ?? chat;
+      await owner._onFilesSelected([new File(['draft'], 'draft.md', { type: 'text/markdown' })]);
       expect(add.called).to.equal(false);
       expect(await chat.setPrompt('Lost update', { replace: false })).to.equal(false);
       expect(input.value).to.equal('Unsent draft');
@@ -67,7 +73,7 @@ describe('chat input coordination', () => {
       expect(input.hidden).to.equal(false);
       expect(input.disabled).to.equal(false);
       expect(input.value).to.equal('Unsent draft');
-      expect(chat.shadowRoot.querySelector('.chat-working')).to.equal(null);
+      expect(inputRoot().querySelector('.chat-working')).to.equal(null);
     });
 
     it(`${tag} accepts a draft without sending and refuses to replace another draft`, async () => {
@@ -90,8 +96,8 @@ describe('chat input coordination', () => {
       await chat.updateComplete;
       expect(input.disabled).to.equal(true);
       expect(input.hidden).to.equal(false);
-      expect(chat.shadowRoot.querySelector('.chat-working')).to.equal(null);
-      expect(chat.shadowRoot.querySelector('.chat-form').classList.contains('is-processing')).to.equal(false);
+      expect(inputRoot().querySelector('.chat-working')).to.equal(null);
+      expect(inputRoot().querySelector('.chat-form').classList.contains('is-processing')).to.equal(false);
     });
 
     it(`${tag} shares guarded Stop between host and left controls without sending or losing a draft`, async () => {
@@ -107,7 +113,7 @@ describe('chat input coordination', () => {
       expect(stop.called).to.equal(false);
       chat.thinking = true;
       await chat.updateComplete;
-      const form = chat.shadowRoot.querySelector('.chat-form');
+      const form = inputRoot().querySelector('.chat-form');
       const leftStop = form.querySelector('.chat-stop');
       expect(leftStop.type).to.equal('button');
       expect(leftStop.getAttribute('aria-label')).to.equal('Stop');
@@ -155,7 +161,7 @@ describe('chat input coordination', () => {
       ['--s2-blue-900', '--s2-gray-300', '--s2-corner-radius-800'].forEach((token) => {
         chat.style.setProperty(token, 'initial');
       });
-      const stop = chat.shadowRoot.querySelector('.chat-stop');
+      const stop = inputRoot().querySelector('.chat-stop');
       expect(getComputedStyle(stop).borderRadius).to.equal('50%');
       chat.connected = true;
       chat.thinking = true;
@@ -167,7 +173,7 @@ describe('chat input coordination', () => {
         expect(stop.getBoundingClientRect().height).to.equal(24);
         expect(stopStyle.borderRadius).to.equal('50%');
         expect(stopStyle.padding).to.equal('0px');
-        const spinner = getComputedStyle(chat.shadowRoot.querySelector('.nx-loading-spinner'));
+        const spinner = getComputedStyle(inputRoot().querySelector('.nx-loading-spinner'));
         expect(spinner.borderTopWidth).to.equal('2px');
         expect(spinner.borderTopColor).to.equal(scheme === 'light' ? 'rgb(59, 99, 251)' : 'rgb(86, 129, 255)');
         expect(spinner.borderRightColor).to.equal(scheme === 'light' ? 'rgb(218, 218, 218)' : 'rgb(57, 57, 57)');
@@ -188,7 +194,7 @@ describe('chat input coordination', () => {
       expect(send.firstCall.args[0]).to.equal('Use this draft');
       expect(JSON.stringify(send.firstCall.args[2])).to.include('ZmlsZQ==');
       expect(input.value).to.equal('');
-      expect(chat.shadowRoot.querySelector('nx-pills').items).to.have.length(0);
+      expect(inputRoot().querySelector('nx-pills').items).to.have.length(0);
     });
   });
 
@@ -202,9 +208,35 @@ describe('chat input coordination', () => {
     await chat.updateComplete;
     expect(chat.inputState).to.deep.equal({ busy: false, disabled: true });
     expect(await chat.setPrompt('Wrong episode')).to.equal(false);
-    chat.shadowRoot.querySelector('.chat-input').value = 'Wrong episode';
-    chat._submit();
-    expect(chat.shadowRoot.querySelector('.chat-input').value).to.equal('Wrong episode');
+    inputRoot().querySelector('.chat-input').value = 'Wrong episode';
+    chat.shadowRoot.querySelector('nx-ao-input')._submit();
+    expect(inputRoot().querySelector('.chat-input').value).to.equal('Wrong episode');
+  });
+
+  it('keeps expanded AO controls in the Figma frame and scales without replacing the draft', async () => {
+    const textarea = await mount('nx-chat-ao');
+    const input = chat.shadowRoot.querySelector('nx-ao-input');
+    input.variant = 'expanded';
+    await input.updateComplete;
+    textarea.value = 'Keep this draft';
+    const form = inputRoot().querySelector('form');
+    const send = inputRoot().querySelector('.chat-send');
+    expect(form.getBoundingClientRect().height).to.equal(77);
+    expect(send.getBoundingClientRect().width).to.equal(32);
+    expect(getComputedStyle(textarea).fontSize).to.equal('16px');
+    chat.thinking = true;
+    await chat.updateComplete;
+    await input.updateComplete;
+    const stop = inputRoot().querySelector('.chat-stop');
+    expect(form.getBoundingClientRect().height).to.equal(77);
+    expect(stop.getBoundingClientRect().width).to.equal(32);
+    expect(getComputedStyle(stop).borderRadius).to.equal('50%');
+    expect(getComputedStyle(form).backgroundColor).to.equal('rgba(0, 0, 0, 0)');
+    input.size = 'm';
+    await input.updateComplete;
+    expect(stop.getBoundingClientRect().width).to.equal(40);
+    expect(getComputedStyle(textarea).fontSize).to.equal('18px');
+    expect(textarea.value).to.equal('Keep this draft');
   });
 
   it('accepts one disconnected legacy draft and delivers it when the connection is ready', async () => {
