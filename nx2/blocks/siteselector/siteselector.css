@@ -1,14 +1,33 @@
 :host {
   position: relative;
   display: block;
-  width: calc(3 * var(--s2-spacing-900));
-  max-width: 100%;
+  box-sizing: border-box;
+  width: 220px;
   min-width: 0;
+  max-width: 100%;
+  container-type: inline-size;
 }
 
 nx-picker {
+  --nx-picker-height: var(--s2-spacing-500);
+  --nx-picker-padding: var(--s2-spacing-75) var(--s2-spacing-300);
+  --nx-picker-border: 1px solid var(--s2-gray-300);
+  --nx-picker-radius: var(--s2-corner-radius-800);
+  --nx-picker-background: var(--s2-gray-25);
   --nx-picker-menu-width: calc(3 * var(--s2-spacing-1000));
   --nx-picker-max-width: 100%;
+}
+
+nx-picker:hover {
+  --nx-picker-border: 1px solid var(--s2-gray-500);
+}
+
+nx-picker::part(label) {
+  font-weight: var(--s2-component-m-bold-font-weight);
+}
+
+:host([size='s']) nx-picker::part(label) {
+  font-weight: var(--s2-component-s-bold-font-weight);
 }
 
 p {
@@ -48,6 +67,17 @@ button {
 
 @media (width < 600px) {
   :host {
-    max-width: 40vw;
+    min-width: min(32px, 100%);
+    max-width: min(100%, 176px);
+  }
+
+  nx-picker {
+    --nx-picker-padding: var(--s2-spacing-75) var(--s2-spacing-100);
+  }
+}
+
+@container (width < 220px) {
+  nx-picker {
+    --nx-picker-padding: var(--s2-spacing-75) var(--s2-spacing-100);
   }
 }

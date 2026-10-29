@@ -476,6 +476,20 @@ picker.value = 'name:ascending';</code></pre>
       </article>
 
       <article class="sg-example">
+        <h3>nx-siteselector — navigation</h3>
+        <p class="sg-note">Standalone nav block: outlined pill, bold component-token label and shared picker menu defaults. S on the left, M on the right.</p>
+        <div class="sg-demo sg-picker-container">
+          <nx-siteselector id="demo-siteselector-s" size="s" heading="Your recent sites"></nx-siteselector>
+          <nx-siteselector id="demo-siteselector-m" size="m" heading="Your recent sites"></nx-siteselector>
+        </div>
+        <pre><code>&lt;!-- Navigation fragment, site-nav list --&gt;
+&lt;ul&gt;&lt;li&gt;siteselector&lt;/li&gt;&lt;/ul&gt;
+
+selector.sites = [{ value: 'org/site', label: 'site (org)' }];
+selector.value = 'org/site';</code></pre>
+      </article>
+
+      <article class="sg-example">
         <h3>nx-picker — multiple</h3>
         <p>Toggle several items; the popover stays open. Action items close it.</p>
         <div class="sg-demo sg-picker-container">
@@ -765,6 +779,7 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
       import('/nx2/blocks/shared/dialog/dialog.js'),
       import('/nx2/blocks/shared/popover/popover.js'),
       import('/nx2/blocks/shared/picker/picker.js'),
+      import('/nx2/blocks/siteselector/siteselector.js'),
       import('/nx2/blocks/shared/search/search.js'),
       import('/nx2/blocks/shared/segmented-btn/segmented.js'),
       import('/nx2/blocks/shared/breadcrumb/breadcrumb.js'),
@@ -856,6 +871,17 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
     });
     const pickerField = document.querySelector('#demo-picker-field-m');
     pickerField.items = pickerItems;
+
+    ['#demo-siteselector-s', '#demo-siteselector-m'].forEach((id) => {
+      const selector = document.querySelector(id);
+      selector.sites = [
+        { value: 'aemsites/devlive', label: 'devlive (aemsites)' },
+        { value: 'exp-workspace/frescopaco', label: 'frescopaco (exp-workspace)' },
+      ];
+      selector.value = 'aemsites/devlive';
+      selector.addEventListener('site-select', ({ detail: { value } }) => { selector.value = value; });
+      selector.addEventListener('site-add', () => showToast({ text: 'Add site requested.' }));
+    });
 
     const swatchItems = [
       { value: '', label: 'Select' },

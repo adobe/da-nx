@@ -122,6 +122,41 @@ describe('nav search slot', () => {
     expect(slot.assignedElements()).to.deep.equal([field]);
   });
 
+  it('keeps the complete selector trigger inside site-nav beside a wide brand and centered search', async () => {
+    await import('../../../../../blocks/siteselector/siteselector.js');
+    nav._brand = document.createElement('a');
+    nav._brand.className = 'brand-area';
+    nav._brand.innerHTML = '<svg viewBox="0 0 125 56" width="125" height="56"></svg>';
+    nav._siteNav = document.createElement('ul');
+    const item = document.createElement('li');
+    const selector = document.createElement('nx-siteselector');
+    selector.sites = [{ value: 'org/site', label: 'site (org)' }];
+    selector.value = 'org/site';
+    selector.style.cssText = '--s2-spacing-500: 40px; --s2-spacing-75: 6px; --s2-spacing-300: 24px';
+    item.append(selector);
+    nav._siteNav.append(item);
+    const field = document.createElement('input');
+    field.slot = 'search';
+    nav.append(field);
+    nav.style.cssText = 'height:56px; --s2-spacing-100:8px';
+    await mount('/');
+    await settleSlots();
+    await selector.updateComplete;
+    const picker = selector.shadowRoot.querySelector('nx-picker');
+    await picker.updateComplete;
+    for (const width of [1440, 768, 375]) {
+      nav.style.width = `${width}px`;
+      const bounds = nav.shadowRoot.querySelector('.site-nav').getBoundingClientRect();
+      const trigger = picker.shadowRoot.querySelector('button').getBoundingClientRect();
+      expect(trigger.width).to.be.greaterThan(30);
+      expect(trigger.left).to.be.at.least(bounds.left - 1);
+      expect(trigger.right).to.be.at.most(bounds.right + 1);
+      const search = nav.shadowRoot.querySelector('.nav-search').getBoundingClientRect();
+      expect(search.left + search.width / 2)
+        .to.be.closeTo(nav.getBoundingClientRect().left + width / 2, 1);
+    }
+  });
+
   it('reclaims empty search space and keeps actions at their natural width', async () => {
     await mount('/');
     const brand = nav.shadowRoot.querySelector('.brand-cluster');

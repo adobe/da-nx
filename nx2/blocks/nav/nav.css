@@ -50,6 +50,13 @@
   flex-shrink: 0;
 }
 
+.brand-cluster:has(nx-siteselector) .brand-area {
+  box-sizing: border-box;
+  flex-shrink: 1;
+  min-width: var(--s2-nav-height, 56px);
+  overflow: hidden;
+}
+
 .site-nav {
   display: flex;
   align-items: center;
@@ -156,6 +163,11 @@
 
 .action-area ul {
   margin-right: 16px;
+}
+
+.site-nav li:has(nx-siteselector) {
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 :host(:not([data-has-search])) .action-area {

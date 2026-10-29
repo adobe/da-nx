@@ -123,4 +123,32 @@ describe('nx-siteselector', () => {
       }
     }
   });
+
+  it('keeps the outlined pill and bold trigger without changing shared menu typography', async () => {
+    selector.sites = [{ value: 'org/site', label: 'site (org)' }];
+    selector.value = 'org/site';
+    selector.style.cssText = `
+      --s2-spacing-500: 40px;
+      --s2-spacing-75: 6px;
+      --s2-spacing-300: 24px;
+      --s2-corner-radius-800: 24px;
+      --s2-gray-25: #fafafa;
+      --s2-gray-300: #ccc;
+    `;
+    document.body.append(selector);
+    for (const [size, regular, bold] of [['s', '350', '650'], ['m', '360', '660']]) {
+      selector.size = size;
+      selector.style.setProperty(`--s2-component-${size}-regular-font-weight`, regular);
+      selector.style.setProperty(`--s2-component-${size}-bold-font-weight`, bold);
+      const picker = await settle();
+      const trigger = getComputedStyle(picker.shadowRoot.querySelector('.picker-trigger'));
+      expect(trigger.height).to.equal('40px');
+      expect(trigger.borderWidth).to.equal('1px');
+      expect(trigger.borderRadius).to.equal('24px');
+      expect(trigger.backgroundColor).to.equal('rgb(250, 250, 250)');
+      expect(getComputedStyle(picker.shadowRoot.querySelector('[part="label"]')).fontWeight).to.equal(bold);
+      expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal(regular);
+      expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item-description')).fontWeight).to.equal(regular);
+    }
+  });
 });
