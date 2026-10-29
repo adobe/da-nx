@@ -1,3 +1,10 @@
+## [1.29.1](https://github.com/adobe/da-nx/compare/v1.29.0...v1.29.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **glaas:** preserve translated images and improve multimodal saves ([#888](https://github.com/adobe/da-nx/issues/888)) ([5f0bc5c](https://github.com/adobe/da-nx/commit/5f0bc5cb774f6700e85f9a2dd70e88da66f1836b))
+
 # [1.29.0](https://github.com/adobe/da-nx/compare/v1.28.1...v1.29.0) (2026-10-29)
 
 
