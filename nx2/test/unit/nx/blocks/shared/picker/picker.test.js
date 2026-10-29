@@ -230,6 +230,51 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelectorAll('.picker-check-slot .picker-check')).to.have.length(2);
   });
 
+  it('restores navigation menu spacing and matching S/M medium labels without changing field defaults', async () => {
+    const el = await createPicker({
+      items: [
+        { section: 'Your sites' },
+        { value: 'site', label: 'Site', description: 'org/site' },
+        { divider: true },
+        { value: 'add', label: 'Add site...', action: true },
+      ],
+      value: 'site',
+    });
+    el.variant = 'navigation';
+    el.checkPosition = 'start';
+    el.style.cssText = '--s2-spacing-100: 8px; --s2-spacing-200: 16px; --s2-blue-900: #123456;';
+    for (const [size, fontSize, lineHeight, weight] of [['s', '13px', '19px', '450'], ['m', '15px', '23px', '550']]) {
+      el.size = size;
+      el.style.setProperty(`--s2-component-${size}-medium-font-size`, fontSize);
+      el.style.setProperty(`--s2-component-${size}-medium-line-height`, lineHeight);
+      el.style.setProperty(`--s2-component-${size}-medium-font-weight`, weight);
+      el.style.setProperty(`--s2-component-${size}-regular-font-weight`, '350');
+      await el.updateComplete;
+      for (const query of ['[data-value="site"]', '[data-value="add"]']) {
+        const row = getComputedStyle(el.shadowRoot.querySelector(query));
+        expect(row.fontSize).to.equal(fontSize);
+        expect(row.lineHeight).to.equal(lineHeight);
+        expect(row.fontWeight).to.equal(weight);
+        expect(row.padding).to.equal('7px 16px');
+        expect(row.margin).to.equal('0px');
+        expect(row.gap).to.equal('6px');
+      }
+      const description = getComputedStyle(el.shadowRoot.querySelector('.picker-item-description'));
+      expect(description.fontSize).to.equal(fontSize);
+      expect(description.lineHeight).to.equal(lineHeight);
+      expect(description.fontWeight).to.equal('350');
+      expect(getComputedStyle(el.shadowRoot.querySelector('.picker-section')).padding).to.equal('7px 16px');
+      expect(getComputedStyle(el.shadowRoot.querySelector('.picker-divider')).margin).to.equal('8px 0px');
+      expect(getComputedStyle(el.shadowRoot.querySelector('nx-popover')).padding).to.equal('8px');
+      expect(getComputedStyle(el.shadowRoot.querySelector('.picker-check')).color).to.equal('rgb(18, 52, 86)');
+      expect(getComputedStyle(el.shadowRoot.querySelector('.picker-check-slot')).alignSelf).to.equal('start');
+      expect(el.shadowRoot.querySelector('[data-value="add"] .picker-check-slot')).to.be.null;
+    }
+    el.variant = 'field';
+    await el.updateComplete;
+    expect(getComputedStyle(el.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal('350');
+  });
+
   it('accepts one menu-width property without changing field-width defaults', async () => {
     const el = await createPicker();
     el.style.setProperty('--nx-picker-menu-width', '280px');
@@ -237,11 +282,14 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelector('nx-popover').style.width).to.equal('280px');
     el.close();
     el.style.removeProperty('--nx-picker-menu-width');
-    el.variant = 'field';
-    await el.updateComplete;
-    el.show();
-    expect(el.shadowRoot.querySelector('nx-popover').style.width)
-      .to.equal(`${el.shadowRoot.querySelector('.picker-trigger').getBoundingClientRect().width}px`);
+    for (const variant of ['field', 'navigation']) {
+      el.variant = variant;
+      await el.updateComplete;
+      el.show();
+      expect(el.shadowRoot.querySelector('nx-popover').style.width)
+        .to.equal(`${el.shadowRoot.querySelector('.picker-trigger').getBoundingClientRect().width}px`);
+      el.close();
+    }
     el.focus();
     expect(el.shadowRoot.activeElement).to.equal(el.shadowRoot.querySelector('.picker-trigger'));
   });

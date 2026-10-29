@@ -43,6 +43,22 @@ This variant is visual and interactive only. It does not provide a label or part
 Its dropdown matches the rendered trigger width each time it opens unless
 `--nx-picker-menu-width` is set.
 
+### Navigation presentation
+
+Use `variant="navigation"` with `check-position="start"` for a navigation menu
+with medium-weight labels, regular descriptions, a top-aligned blue check,
+compact row spacing and full-width dividers. Sections retain bold typography.
+All text uses matching S/M component tokens.
+
+```html
+<nx-picker variant="navigation" check-position="start" size="m"></nx-picker>
+```
+
+Like `field`, its trigger fills the available width. The menu matches the trigger,
+with a 240px minimum constrained to the viewport, unless `--nx-picker-menu-width`
+specifies a width. This deliberate shared presentation restores the site selector's
+original menu without exposing individual menu parts or changing other pickers.
+
 ### Fixed trigger label
 
 Use `labelOverride` for a fixed trigger label. The dropdown still marks the selected item.
@@ -106,7 +122,7 @@ When the selected item has a `swatch`, the trigger shows it before the label too
 | `placeholder`   | `String`              | Trigger fallback shown only when `value` does not match an item.               |
 | `placement`     | `String`              | Default placement when opened: `below` (default), `above`, or `auto`.         |
 | `size`          | `String`              | Item density: `s` (default) or `m`. Reflected as a host attribute.             |
-| `variant`       | `String`              | Set to `field` for the bordered form-style presentation.                       |
+| `variant`       | `String`              | `field` for a form-style trigger; `navigation` also provides the navigation menu presentation. |
 | `checkPosition` | `String`              | `start` reserves leading check space on selectable rows. Default: end. Attribute: `check-position`. |
 | `open`          | `Boolean` (read-only) | Whether the picker is currently open.                                          |
 
@@ -116,7 +132,8 @@ Trigger text precedence is: non-empty `labelOverride`, matching item label, `pla
 
 Use `::part(label)` to style the trigger text, or `::part(label)::before` to add a decorative icon.
 
-Menu sections, dividers, descriptions, actions and checkmarks use shared defaults.
+Menu sections, dividers, descriptions, actions and checkmarks use the shared
+presentation selected by `variant`; default and field menus remain unchanged.
 Use `check-position="start"` for leading checks rather than rearranging menu internals.
 
 `description` appears below the item label and is included in its accessible name
@@ -171,9 +188,14 @@ default `m`) and `error` customize content and density without replacing menu la
 Landing pages can set `heading` to `Your recent sites`.
 
 The selector retains its outlined, pill-shaped trigger, light/dark surface and
-bold S/M component-token label. These styles belong to the standalone block and
-use existing picker trigger properties and the label part. The shared menu keeps
-its default typography, sections, dividers and action layout.
+bold S/M component-token label. These trigger styles belong to the standalone block
+and use existing picker trigger properties and the label part. Its menu has a 240px
+minimum and follows wider triggers. It uses
+the shared navigation presentation, including medium labels, regular descriptions,
+blue leading checks and an unindented Add action.
+The trigger grows with its label between 220px and 280px on desktop, and shrinks
+to its content up to 176px on mobile. The nav's site-nav container supplies compact
+padding when space is constrained, without removing the trigger's intrinsic width.
 
 On connection it emits bubbling, composed `site-selector-ready` with
 `{ selector, signal }`. Register the host listener before loading the navigation.

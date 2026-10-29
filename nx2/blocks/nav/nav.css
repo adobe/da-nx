@@ -101,6 +101,11 @@
   min-width: 0;
 }
 
+.site-nav:has(nx-siteselector) {
+  container-type: inline-size;
+  flex-basis: 220px;
+}
+
 .nav-search {
   grid-column: 2;
   grid-row: 1;
