@@ -671,6 +671,21 @@ tags.items = [{ id: 'app', label: 'App', removable: false }];
 &lt;!-- Recolor with custom properties --&gt;
 nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2-orange-1100); }</code></pre>
       </article>
+      <article class="sg-example">
+        <h3>Chat input tokens <a href="https://github.com/adobe/da-nx/blob/main/docs/chat-ui-component.md#shared-input-tokens"
+            target="_blank" rel="noopener">docs →</a></h3>
+        <p><code>nx2/blocks/shared/chat/input.css</code> shares neutral working colors,
+          compact shadows, spinner/logo sizes and expanded input metrics between chat surfaces.
+          Landing keeps its gradient artwork and frame geometry locally.
+          Override properties on the actual input host, not its conversation wrapper.</p>
+        <pre><code>nx-ao-input {
+  --nx-chat-input-spinner-arc: var(--s2-blue-900);
+  --nx-chat-input-working-shadow: none;
+}
+
+/* Expanded inputs retain their own layout and 32/40px Stop variant. */
+&lt;nx-ao-input variant="expanded" size="m"&gt;&lt;/nx-ao-input&gt;</code></pre>
+      </article>
     </section>
   </main>
 

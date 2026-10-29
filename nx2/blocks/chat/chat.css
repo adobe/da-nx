@@ -87,24 +87,24 @@
 .chat-working .nx-loading-spinner {
   flex-shrink: 0;
   box-sizing: border-box;
-  width: 16px;
-  height: 16px;
+  width: var(--nx-chat-input-spinner-size);
+  height: var(--nx-chat-input-spinner-size);
 }
 
 .chat-form.is-processing {
-  border-color: light-dark(rgb(0 0 0 / 6%), rgb(255 255 255 / 6%));
-  background: light-dark(#fffc, #222c);
-  box-shadow: 0 8px 32px #0000000f, inset 0 24px 32px #ffffff0a, inset 0 -5px 21.6px #ffffff0a;
+  border-color: var(--nx-chat-input-working-border);
+  background: var(--nx-chat-input-working-background);
+  box-shadow: var(--nx-chat-input-working-shadow);
 }
 
 .chat-form.is-processing .chat-working {
-  color: light-dark(rgb(0 0 0 / 56%), rgb(255 255 255 / 56%));
+  color: var(--nx-chat-input-working-color);
 }
 
 @media (forced-colors: active) {
   .chat-form.is-processing {
-    outline: 2px solid Highlight;
-    outline-offset: -2px;
+    outline: var(--nx-chat-input-stroke-width) solid Highlight;
+    outline-offset: calc(-1 * var(--nx-chat-input-stroke-width));
   }
 }
 
@@ -153,7 +153,7 @@
 }
 
 .prompts-popover {
-  max-width: 720px;
+  max-width: var(--nx-chat-input-max-width);
   box-sizing: border-box;
   top: auto;
   padding: 0;
@@ -648,15 +648,15 @@
 }
 
 :host([showinputstatus]) .nx-loading-spinner {
-  border: 2px solid var(--s2-gray-300, light-dark(#dadada, #393939));
-  border-top-color: var(--s2-blue-900, light-dark(#3b63fb, #5681ff));
+  border: var(--nx-chat-input-stroke-width) solid var(--nx-chat-input-spinner-track);
+  border-top-color: var(--nx-chat-input-spinner-arc);
 }
 
 :host([showinputstatus]) .chat-actions .chat-stop {
   box-sizing: border-box;
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: var(--nx-chat-input-stop-size);
+  height: var(--nx-chat-input-stop-size);
   padding: 0;
   border-radius: 50%;
 }

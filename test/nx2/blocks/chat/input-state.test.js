@@ -180,6 +180,26 @@ describe('chat input coordination', () => {
       }
     });
 
+    it(`${tag} applies shared input token overrides without replacing the draft`, async () => {
+      const textarea = await mount(tag);
+      textarea.value = 'Keep this draft';
+      const host = chat.shadowRoot.querySelector('nx-ao-input') ?? chat;
+      host.style.setProperty('--nx-chat-input-working-background', 'rgb(12 34 56)');
+      host.style.setProperty('--nx-chat-input-working-shadow', 'none');
+      host.style.setProperty('--nx-chat-input-spinner-size', '18px');
+      host.style.setProperty('--nx-chat-input-stop-size', '32px');
+      chat.connected = true;
+      chat.thinking = true;
+      await chat.updateComplete;
+      await host.updateComplete;
+      const form = inputRoot().querySelector('.chat-form');
+      expect(getComputedStyle(form).backgroundColor).to.equal('rgb(12, 34, 56)');
+      expect(getComputedStyle(form).boxShadow).to.equal('none');
+      expect(form.querySelector('.nx-loading-spinner').getBoundingClientRect().width).to.equal(18);
+      expect(form.querySelector('.chat-stop').getBoundingClientRect().width).to.equal(32);
+      expect(textarea.value).to.equal('Keep this draft');
+    });
+
     it(`${tag} submits one staged prompt with attachments through the public autoSend API`, async () => {
       const input = await mount(tag);
       chat.connected = true;

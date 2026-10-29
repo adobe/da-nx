@@ -21,8 +21,11 @@ import { ADOBE_AI_GUIDELINES_URL, CHAT_WORKING_MESSAGE, ICON_NAMES, MENU_OPTIONS
 import { ADD_MENU_ITEMS, ROLE } from './constants.js';
 import { sampleRUM } from '../../deps/rum.js';
 
-const styles = await loadStyle(import.meta.url);
-const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
+const [inputTokens, styles, buttonStyle] = await Promise.all([
+  loadStyle(new URL('../shared/chat/input.css', import.meta.url).href),
+  loadStyle(import.meta.url),
+  loadStyle(new URL('../../styles/buttons.css', import.meta.url).href),
+]);
 const { codeBase } = getConfig();
 
 const icon = (name) => html`<svg class="chat-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
@@ -140,7 +143,7 @@ class NxChat extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [buttonStyle, styles];
+    this.shadowRoot.adoptedStyleSheets = [inputTokens, buttonStyle, styles];
 
     if (this._context) this._ensureController(this._context);
 

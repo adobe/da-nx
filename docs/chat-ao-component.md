@@ -46,6 +46,10 @@ larger input/action layout without page artwork; `placeholder` can be supplied
 by the host. Hosts pass `size="m"` for the next text/button step; the default is S.
 This input does not install a global sizing runtime.
 
+Input state colors, spinner/logo dimensions and expanded metrics use the
+[shared chat input tokens](./chat-ui-component.md#shared-input-tokens).
+Its focus border and ring remain AO-local `--nx-ao-input-focus-*` properties.
+
 `loadChatInput()` in `nx2/utils/chat.js` creates a standalone input only when the
 configured backend is AO, preserving CMA appearance without creating a
 conversation or controller. It returns `undefined` for legacy chat. Hosts retain

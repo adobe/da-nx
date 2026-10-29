@@ -79,7 +79,7 @@ that instance is busy, uses the same cancellation path as its own Stop button,
 and does not submit or clear an unsent draft. Hosts wait for the next input-state
 snapshot instead of clearing busy state themselves. With `showInputStatus`,
 the compact working state uses a neutral translucent surface, a subtle border,
-and secondary text without a colored ring. Its Stop button has a fixed 24px
+and secondary text without a colored ring. Its Stop button has a default 24px
 circular background, including while hidden. Progress spinners use a blue arc
 on a neutral gray track, with theme-safe colors even without host tokens; the
 composer spinner is 16px. Other consumers keep their existing presentation.
@@ -99,6 +99,25 @@ document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, { detail: { section: 'c
 The registered `'chat'` section's `onShow` reads `options.text`/`options.autoSend` and dispatches `CHAT_EVENT.SET_PROMPT` — see the host page's `registerPanelSection('chat', { onShow })`.
 
 **Extension iframe usage:** Extensions running in cross-origin iframes cannot dispatch document events directly. Use `actions.setPrompt(text)` or `actions.setPrompt(text, { autoSend: true })` from the DA SDK — the iframe protocol relays it to `PANEL_EVENT.OPEN` (`{ section: 'chat', options: { text, autoSend } }`) on the host document, which opens the panel and (via its `onShow`) dispatches `CHAT_EVENT.SET_PROMPT` for whichever chat element is mounted. `actions.setPrompt` is available on the object resolved from `DA_SDK`.
+
+## Shared input tokens
+
+`nx2/blocks/shared/chat/input.css` supplies chat-family defaults, adopted by
+`nx-chat`, `nx-ao-input`, and landing's legacy composer. It does not style
+conversation messages or install global S2 tokens.
+
+| Properties (`--nx-chat-input-` prefix) | Purpose |
+|---|---|
+| `working-background`, `working-border`, `working-color` | Neutral working surface: 80% fill, 6% border, 56% text, preserving the light/dark palette. |
+| `working-shadow` | Compact working-state shadow; landing keeps its own state-specific artwork. |
+| `spinner-size`, `spinner-track`, `spinner-arc`, `stroke-width` | 16px progress indicator with a 2px gray track and blue arc. Palette colors use existing S2 tokens with theme-safe fallbacks. |
+| `logo-size`, `stop-size` | 20px logo and 24px compact Stop. Expanded Stop is 32px; M advances Stop to 32/40px. Circle geometry stays `50%`. |
+| `expanded-inset`, `row-height`, `max-height`, `max-width` | 6px inset, 21px expanded row, 240px height cap and 720px prompts-popover width. |
+
+Override these properties on the actual input host (`nx-chat` or `nx-ao-input`).
+AO-only focus properties live in `chat-ao/input.css` under `--nx-ao-input-*`.
+Expanded layout remains distinct from the compact sidebar; naming its metrics
+does not make the two surfaces the same size.
 
 ## Selection context
 
