@@ -29,6 +29,13 @@ describe('nx-card', () => {
     await card.updateComplete;
     expect(card.dimensions).to.equal('s');
     expect(card.size).to.equal('l');
+
+    for (const [dimensions, width, height] of [['s', 151, 200], ['m', 226, 300], ['l', 301, 400]]) {
+      card.dimensions = dimensions;
+      await card.updateComplete;
+      expect(getComputedStyle(card).width).to.equal(`${width}px`);
+      expect(getComputedStyle(card.shadowRoot.querySelector('.card')).height).to.equal(`${height}px`);
+    }
   });
 
   it('falls back to defaults for unsupported values', async () => {
@@ -53,7 +60,40 @@ describe('nx-card', () => {
     expect(card.shadowRoot.querySelector('input').getAttribute('aria-label')).to.equal('Select about-us');
   });
 
-  it('emits selectionchange and follows the consumer-controlled selected state', async () => {
+  it('focuses the selection control through the card API without changing selection', async () => {
+    card.selectable = true;
+    await card.updateComplete;
+
+    card.focus();
+
+    expect(document.activeElement).to.equal(card);
+    expect(card.shadowRoot.activeElement).to.equal(card.shadowRoot.querySelector('input'));
+    expect(card.selected).to.equal(false);
+  });
+
+  it('forwards focus options to the selection control', async () => {
+    card.selectable = true;
+    await card.updateComplete;
+    const input = card.shadowRoot.querySelector('input');
+    const options = { preventScroll: true };
+    let receivedOptions;
+    input.focus = (value) => { receivedOptions = value; };
+
+    card.focus(options);
+
+    expect(receivedOptions).to.equal(options);
+  });
+
+  it('preserves host focus when the card is not selectable', () => {
+    card.tabIndex = -1;
+
+    card.focus();
+
+    expect(document.activeElement).to.equal(card);
+    expect(card.shadowRoot.activeElement).to.equal(null);
+  });
+
+  it('emits nx-card-selection-change and follows the consumer-controlled selected state', async () => {
     card.selectable = true;
     let cardClicks = 0;
     card.addEventListener('click', () => { cardClicks += 1; });
@@ -135,33 +175,81 @@ describe('nx-card', () => {
     expect(content.querySelector('slot[name="metadata"]')).to.equal(null);
   });
 
+  it('bubbles card selection without dispatching the native selectionchange event name', async () => {
+    card.selectable = true;
+    await card.updateComplete;
+    let detail;
+    let nativeNameEvents = 0;
+    card.addEventListener('selectionchange', () => { nativeNameEvents += 1; });
+    const onSelection = (event) => {
+      if (event.target === card) detail = event.detail;
+    };
+    document.addEventListener('nx-card-selection-change', onSelection);
+    try {
+      card.shadowRoot.querySelector('input').click();
+      expect(detail).to.deep.equal({ selected: true, shiftKey: false });
+      expect(nativeNameEvents).to.equal(0);
+    } finally {
+      document.removeEventListener('nx-card-selection-change', onSelection);
+    }
+  });
+
   it('exposes the documented slots', () => {
     const names = [...card.shadowRoot.querySelectorAll('slot')].map((s) => s.name);
     expect(names).to.have.members([
-      'media', 'overlay-actions', 'content', 'heading', 'actions', 'metadata',
-      'preview', 'title', 'selection', 'badge',
+      'media', 'preview', 'overlay-actions', 'selection', 'badge',
+      'content', 'heading', 'title', 'actions', 'metadata',
     ]);
   });
 
-  it('keeps portrait presets unchanged and opts into a shorter compact body', async () => {
-    card.style.setProperty('--s2-component-s-regular-line-height', '18px');
-    card.style.setProperty('--s2-component-s-regular-font-size', '12px');
-    const frame = card.shadowRoot.querySelector('.card');
-    expect(frame.getBoundingClientRect().height).to.equal(300);
-    card.innerHTML = '<a slot="heading">Page</a><span slot="metadata">Modified today</span>';
+  it('keeps modern cards on their dimension preset', () => {
+    expect(card.hasAttribute('data-legacy-layout')).to.equal(false);
+    expect(getComputedStyle(card).width).to.equal('226px');
+    expect(getComputedStyle(card.shadowRoot.querySelector('.card')).display).to.equal('grid');
+  });
+
+  it('switches layout when legacy slots are added and removed after mounting', async () => {
+    const preview = document.createElement('span');
+    preview.slot = 'preview';
+    const changed = () => new Promise((resolve) => {
+      card.shadowRoot.addEventListener('slotchange', resolve, { once: true });
+    });
+    const added = changed();
+    card.append(preview);
+    await added;
+    await card.updateComplete;
+    expect(card.hasAttribute('data-legacy-layout')).to.equal(true);
+    expect(getComputedStyle(card.shadowRoot.querySelector('.card')).display).to.equal('flex');
+
+    const removed = changed();
+    preview.remove();
+    await removed;
+    await card.updateComplete;
+    expect(card.hasAttribute('data-legacy-layout')).to.equal(false);
+    expect(getComputedStyle(card.shadowRoot.querySelector('.card')).display).to.equal('grid');
+  });
+
+  it('uses compact geometry without changing the dimension preset or portrait defaults', async () => {
     card.layout = 'compact';
     card.style.setProperty('--nx-card-width', '198px');
+    card.innerHTML = '<span slot="heading">Page</span><span slot="metadata">Modified</span>';
     await card.updateComplete;
-    expect(card.getBoundingClientRect().width).to.equal(198);
-    expect(frame.getBoundingClientRect().height).to.equal(142);
-    expect(card.shadowRoot.querySelector('.media').getBoundingClientRect().height).to.equal(80);
-    card.size = 'm';
-    card.style.setProperty('--s2-component-m-regular-font-size', '14px');
-    await card.updateComplete;
-    expect(card.shadowRoot.querySelector('.media').getBoundingClientRect().height).to.equal(80);
-    expect(frame.getBoundingClientRect().height).to.be.greaterThan(142);
+    const media = card.shadowRoot.querySelector('.media');
+    const heading = card.shadowRoot.querySelector('.heading');
+    expect(card.dimensions).to.equal('m');
+    expect(getComputedStyle(media).height).to.equal('80px');
+    expect(getComputedStyle(heading).minHeight).to.equal('24px');
     card.layout = undefined;
     await card.updateComplete;
-    expect(frame.getBoundingClientRect().height).to.equal(300);
+    expect(getComputedStyle(card.shadowRoot.querySelector('.card')).height).to.equal('300px');
+    expect(getComputedStyle(heading).minHeight).to.equal('32px');
+  });
+
+  it('retains the compact preview height while text scale changes', async () => {
+    card.layout = 'compact';
+    card.size = 'm';
+    await card.updateComplete;
+    expect(getComputedStyle(card.shadowRoot.querySelector('.media')).height).to.equal('80px');
+    expect(card.dimensions).to.equal('m');
   });
 });

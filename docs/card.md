@@ -33,18 +33,16 @@ card.addEventListener("nx-card-selection-change", (e) => {
 | ---------------- | --------- | ----------------------------------------------------------------------------- |
 | `dimensions`     | `String`  | Card footprint: `"s"` (151×200), `"m"` (226×300, default) or `"l"` (301×400). |
 | `size`           | `String`  | Text and control scale: `"s"` (default), `"m"` or `"l"`. Independent of `dimensions`. |
-| `layout`         | `String`  | Opt-in `"compact"` presentation with an 80px preview, shorter heading and one metadata line. Omit for unchanged portrait presets. |
+| `layout`         | `String`  | Opt-in `"compact"` presentation: 80px media, shorter heading and one metadata line. Unset preserves the portrait presets. |
 | `selectable`     | `Boolean` | Shows the selection checkbox.                                                 |
 | `selected`       | `Boolean` | Selected state. Controlled by the consumer.                                   |
 | `selectionLabel` | `String`  | Accessible name of the checkbox (`selection-label`). Default `"Select item"`. |
 
 Override the footprint with `--nx-card-width` and `--nx-card-height`.
-
-Compact cards use content height instead of the portrait height preset.
-`--nx-card-preview-height` changes their preview height. With a 24px heading,
-18px metadata line and a 4px frame/gap, the S card is 142px tall. M text and
-controls may grow the body without shrinking the preview. Set width independently
-using `--nx-card-width`; `size` never chooses dimensions.
+Compact layout uses content-driven height and `--nx-card-preview-height`
+(80px by default). It is a presentation of the same card, not a fourth
+dimension preset. Consumers can use one preset without exposing a size selector;
+`size` remains independent.
 
 ### Methods
 
@@ -65,12 +63,18 @@ Consumers should use this API rather than querying the card's shadow DOM.
 | `overlay-actions` | Controls over the top-right of the media, shown in a round light chip.     |
 | `content`         | Replaces the heading and actions row, keeping metadata (for example inline rename). |
 
-Existing `preview`, `title`, `selection` and `badge` slots remain supported.
-They retain the fluid layout and `--nx-card-preview-height` /
-`--nx-card-preview-ratio` overrides until the consumer migrates to the slots above.
-
 ### Events
 
 | Event             | Detail         | Description                                                       |
 | ----------------- | -------------- | ----------------------------------------------------------------- |
 | `nx-card-selection-change` | `{ selected, shiftKey }` | Fired when the checkbox is toggled. Set `selected` in response; `shiftKey` supports range selection. |
+
+## Existing compact consumers
+
+The earlier `preview`, `title`, `selection` and `badge` slots remain supported.
+Their presence selects the fill-cell compact layout used by Landing, with
+application-owned selection and badges. Its 4px frame/gaps and 12px content
+inset are preserved. `--nx-card-preview-height`, `--nx-card-preview-ratio` and
+`--nx-card-background` continue to control its preview geometry and surface.
+Using `media` and `heading` retains the dimension presets and controlled
+selection API documented above.
