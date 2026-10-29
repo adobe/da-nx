@@ -51,4 +51,25 @@ describe('nx-card', () => {
     expect(frame.borderRadius).to.equal('12px');
     expect(content.padding).to.equal('4px 12px');
   });
+
+  it('preserves existing LP slots and preview sizing before consumers migrate', async () => {
+    el.removeAttribute('layout');
+    el.style.cssText = '--nx-card-preview-height: 80px; --nx-card-preview-ratio: auto; --s2-spacing-75: 4px; --s2-spacing-200: 12px;';
+    el.innerHTML = `<a slot="preview" href="#file">Preview</a>
+      <a slot="title" href="#file">File title</a>
+      <span slot="badge">Favorite</span>
+      <button slot="actions" type="button">More</button>
+      <span slot="metadata">Modified today</span>`;
+    await new Promise((resolve) => { requestAnimationFrame(resolve); });
+    ['preview', 'title', 'badge', 'actions', 'metadata'].forEach((name) => {
+      expect(el.shadowRoot.querySelector(`slot[name="${name}"]`).assignedElements()).to.have.length(1);
+    });
+    expect(getComputedStyle(el.shadowRoot.querySelector('.card')).display).to.equal('flex');
+    expect(getComputedStyle(el.shadowRoot.querySelector('.media')).height).to.equal('80px');
+    expect(getComputedStyle(el.shadowRoot.querySelector('.body')).minHeight).to.equal('0px');
+    el.innerHTML = '<span slot="heading">Migrated</span>';
+    await new Promise((resolve) => { requestAnimationFrame(resolve); });
+    expect(el.hasAttribute('data-legacy-layout')).to.equal(false);
+    expect(getComputedStyle(el.shadowRoot.querySelector('.card')).display).to.equal('grid');
+  });
 });

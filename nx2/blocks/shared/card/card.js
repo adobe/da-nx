@@ -30,6 +30,13 @@ class NxCard extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [formStyles, styles];
+    this._onLegacySlotChange();
+  }
+
+  _onLegacySlotChange() {
+    this.toggleAttribute('data-legacy-layout', Boolean(this.querySelector(
+      ':scope > [slot="preview"], :scope > [slot="title"], :scope > [slot="selection"], :scope > [slot="badge"]',
+    )));
   }
 
   willUpdate(changed) {
@@ -60,7 +67,7 @@ class NxCard extends LitElement {
     return html`
       <div class="card">
         <div class="media">
-          <slot name="media"></slot>
+          <slot name="media"><slot name="preview" @slotchange=${this._onLegacySlotChange}></slot></slot>
           ${this.selectable ? html`
             <label class="nx-checkbox select-target" @click=${(e) => e.stopPropagation()}>
               <input type="checkbox" class="select"
@@ -68,12 +75,13 @@ class NxCard extends LitElement {
                 .checked=${!!this.selected}
                 @click=${this._onSelectionClick}>
             </label>` : nothing}
-          <div class="overlay-actions"><slot name="overlay-actions"></slot></div>
+          <div class="legacy-selection"><slot name="selection" @slotchange=${this._onLegacySlotChange}></slot></div>
+          <div class="overlay-actions"><slot name="overlay-actions"><slot name="badge" @slotchange=${this._onLegacySlotChange}></slot></slot></div>
         </div>
         <div class="body">
           <div class="heading">
             <slot name="content">
-              <slot name="heading"></slot>
+              <slot name="heading"><slot name="title" @slotchange=${this._onLegacySlotChange}></slot></slot>
               <slot name="actions"></slot>
             </slot>
           </div>

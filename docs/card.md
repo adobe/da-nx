@@ -65,6 +65,10 @@ Consumers should use this API rather than querying the card's shadow DOM.
 | `overlay-actions` | Controls over the top-right of the media, shown in a round light chip.     |
 | `content`         | Replaces the heading and actions row, keeping metadata (for example inline rename). |
 
+Existing `preview`, `title`, `selection` and `badge` slots remain supported.
+They retain the fluid layout and `--nx-card-preview-height` /
+`--nx-card-preview-ratio` overrides until the consumer migrates to the slots above.
+
 ### Events
 
 | Event             | Detail         | Description                                                       |

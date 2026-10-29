@@ -139,6 +139,7 @@ describe('nx-card', () => {
     const names = [...card.shadowRoot.querySelectorAll('slot')].map((s) => s.name);
     expect(names).to.have.members([
       'media', 'overlay-actions', 'content', 'heading', 'actions', 'metadata',
+      'preview', 'title', 'selection', 'badge',
     ]);
   });
 
