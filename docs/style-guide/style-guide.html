@@ -32,12 +32,31 @@
   </header>
 
   <nav class="sg-toc">
+    <a href="#tokens">Design Tokens</a>
     <a href="#buttons">Buttons</a>
     <a href="#form">Form</a>
     <a href="#shared-blocks">Shared Blocks</a>
   </nav>
 
   <main>
+    <section id="tokens" class="sg-section">
+      <h2>Design Tokens</h2>
+      <p>
+        Source: <code>nx2/styles/styles.css</code>. Palette stops are explicitly selected in
+        <code>nx2/deps/spectrum/build.js</code> and generated from Spectrum's light/dark values
+        with <code>npm run nx2:build:spectrum</code>; do not edit the generated CSS by hand.
+      </p>
+      <article class="sg-example">
+        <h3>Turquoise and purple surfaces</h3>
+        <div class="sg-demo">
+          <span style="background: var(--s2-turquoise-200); padding: var(--s2-spacing-200); border-radius: var(--s2-corner-radius-500)">Turquoise 200</span>
+          <span style="background: var(--s2-purple-200); padding: var(--s2-spacing-200); border-radius: var(--s2-corner-radius-500)">Purple 200</span>
+        </div>
+        <pre><code>background: var(--s2-turquoise-200);
+background: var(--s2-purple-200);</code></pre>
+      </article>
+    </section>
+
     <section id="buttons" class="sg-section">
       <h2>Buttons</h2>
       <p>Source: <code>nx2/styles/buttons.css</code></p>
