@@ -92,6 +92,24 @@ describe('standalone AO input', () => {
     expect(chatInput.items).to.have.length(1);
   });
 
+  it('keeps Stop circular and the same size as Send', async () => {
+    await chatInput.setPrompt('draft');
+    const send = chatInput.shadowRoot.querySelector('.chat-send');
+    const sendBounds = send.getBoundingClientRect();
+    const sendRadius = getComputedStyle(send).borderTopLeftRadius;
+    expect(sendBounds.width).to.be.greaterThan(0);
+    chatInput.blocked = true;
+    await chatInput.updateComplete;
+    const stop = chatInput.shadowRoot.querySelector('.chat-stop');
+    const stopBounds = stop.getBoundingClientRect();
+    const stopRadius = getComputedStyle(stop).borderTopLeftRadius;
+    expect(stopBounds.width).to.equal(sendBounds.width);
+    expect(stopBounds.height).to.equal(sendBounds.height);
+    expect(stopBounds.width).to.equal(stopBounds.height);
+    expect(stopRadius).to.equal(sendRadius);
+    expect(parseFloat(stopRadius)).to.be.at.least(stopBounds.width / 2);
+  });
+
   it('submits a slash-selected skill through the same payload boundary', async () => {
     chatInput.getSkills = () => ['writeBlog'];
     chatInput.addItem({ id: 'context', label: 'Context' });
