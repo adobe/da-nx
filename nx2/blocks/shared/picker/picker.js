@@ -47,7 +47,7 @@ class NxPicker extends LitElement {
   }
 
   updated(changed) {
-    if (changed.has('variant') && this.variant !== 'field') this._popover.style.width = '';
+    if (changed.has('variant') && !['field', 'navigation'].includes(this.variant)) this._popover.style.width = '';
   }
 
   get open() { return this._popover?.open ?? false; }
@@ -77,7 +77,7 @@ class NxPicker extends LitElement {
 
   _syncPopoverWidth() {
     const width = getComputedStyle(this).getPropertyValue('--nx-picker-menu-width').trim();
-    this._popover.style.width = width || (this.variant === 'field'
+    this._popover.style.width = width || (['field', 'navigation'].includes(this.variant)
       ? `${this._button.getBoundingClientRect().width}px`
       : '');
   }

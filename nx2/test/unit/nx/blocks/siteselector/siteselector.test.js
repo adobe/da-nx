@@ -124,7 +124,19 @@ describe('nx-siteselector', () => {
     }
   });
 
-  it('keeps the outlined pill and bold trigger without changing shared menu typography', async () => {
+  it('sizes the pill to its content within its desktop minimum and maximum', async () => {
+    selector.sites = [{ value: 'org/site', label: 'Site' }];
+    selector.value = 'org/site';
+    document.body.append(selector);
+    await settle();
+    expect(selector.getBoundingClientRect().width).to.equal(220);
+    selector.sites = [{ value: 'org/site', label: 'A very long site name inside an organization with a very long name' }];
+    const picker = await settle();
+    expect(selector.getBoundingClientRect().width).to.equal(280);
+    expect(picker.shadowRoot.querySelector('.picker-trigger').getBoundingClientRect().width).to.equal(280);
+  });
+
+  it('keeps the outlined pill, bold trigger and medium menu labels in both sizes', async () => {
     selector.sites = [{ value: 'org/site', label: 'site (org)' }];
     selector.value = 'org/site';
     selector.style.cssText = `
@@ -136,9 +148,10 @@ describe('nx-siteselector', () => {
       --s2-gray-300: #ccc;
     `;
     document.body.append(selector);
-    for (const [size, regular, bold] of [['s', '350', '650'], ['m', '360', '660']]) {
+    for (const [size, regular, medium, bold] of [['s', '350', '450', '650'], ['m', '360', '460', '660']]) {
       selector.size = size;
       selector.style.setProperty(`--s2-component-${size}-regular-font-weight`, regular);
+      selector.style.setProperty(`--s2-component-${size}-medium-font-weight`, medium);
       selector.style.setProperty(`--s2-component-${size}-bold-font-weight`, bold);
       const picker = await settle();
       const trigger = getComputedStyle(picker.shadowRoot.querySelector('.picker-trigger'));
@@ -147,7 +160,8 @@ describe('nx-siteselector', () => {
       expect(trigger.borderRadius).to.equal('24px');
       expect(trigger.backgroundColor).to.equal('rgb(250, 250, 250)');
       expect(getComputedStyle(picker.shadowRoot.querySelector('[part="label"]')).fontWeight).to.equal(bold);
-      expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal(regular);
+      expect(picker.variant).to.equal('navigation');
+      expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal(medium);
       expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item-description')).fontWeight).to.equal(regular);
     }
   });
