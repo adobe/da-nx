@@ -182,7 +182,7 @@ removing the picker before that frame cancels the pending focus.
 Add `siteselector` to a navigation fragment's site-nav list, alongside breadcrumbs
 if both are needed. Nexter lazy-loads `nx2/blocks/siteselector/siteselector.js`.
 
-The block owns presentation only. Set `sites` to `{ value: 'org/site', label: 'site (org)' }`
+The block owns presentation only. Set `sites` to `{ value: 'org/site', label: 'Site, org/site' }`
 entries and `value` to the current identifier. Optional `heading`, `size` (`s` or `m`,
 default `m`) and `error` customize content and density without replacing menu layout.
 Landing pages can set `heading` to `Your recent sites`.
