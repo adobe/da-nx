@@ -66,6 +66,7 @@ parallel one. If you do add a new key:
 | `PREVIEW` | iframe ↔ host (request/reply) | standalone (quick-edit-portal) only |
 | `IMAGE_REPLACE` | iframe ↔ host (request/reply) | both hosts |
 | `HTML_DROP` | iframe → host | da-live only |
+| `DROP_TARGET` | Host ↔ iframe (request/reply) | da-live only |
 | `SET_COMMENT_MARKERS` | Host → iframe | da-live only |
 | `SCROLL_TO_POS` | Host → iframe | da-live only |
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
@@ -77,7 +78,7 @@ parallel one. If you do add a new key:
 
 ### `HTML_DROP`
 
-Extensions drag native HTML or image Files directly into the preview iframe.
+Extensions using native dragging send HTML or image Files into the preview iframe.
 Quick-edit shows before/after insertion lines for HTML and sends the selected
 boundary through the existing port. No host overlay or drag-lifecycle messaging
 is involved.
@@ -89,6 +90,16 @@ implicitly requesting an upload. The embedded host also resolves the Assets
 selector's `collectionviewdata` through `IMAGE_REPLACE`, using the existing site
 asset configuration instead of uploading the selector's thumbnail.
 The standalone portal does not consume `HTML_DROP` or asset-metadata replacements.
+
+### `DROP_TARGET`
+
+The generic extension drag SDK lets da-live capture the pointer above iframe
+boundaries. da-live asks quick-edit to highlight or resolve a preview insertion
+boundary or authored image without sending the extension's content into the
+preview. The reply carries the rendered document version so the host can reject
+stale coordinates before applying an editor transaction. Leaving, cancellation
+and completion clear the highlight. Only da-live initiates this flow; the
+standalone portal does not consume it.
 
 ### `IMAGE_REPLACE` (AEM Assets rail)
 

@@ -35,10 +35,36 @@ describe('quick-edit native drop channel integration', () => {
         payload: { html: '<h2>Drop</h2>', anchor: { kind: 'text', index: 1 }, side: 'after' },
       });
 
+      const hit = sinon.stub(document, 'elementFromPoint')
+        .callsFake(() => document.querySelector('main p'));
+      channel.port1.postMessage({
+        type: 'set-body',
+        payload: {
+          body: '<main><p data-prose-index="1">Existing</p></main>',
+          documentVersion: 'document-v1',
+        },
+      });
+      for (const requestId of ['after-body', 'after-unmatched-ack']) {
+        const resolved = response('drop-target');
+        channel.port1.postMessage({
+          type: 'drop-target',
+          payload: { phase: 'resolve', kind: 'html', x: 15, y: 29, requestId },
+        });
+        const result = await resolved;
+        expect(result.payload).to.deep.equal({
+          requestId,
+          documentVersion: 'document-v1',
+          target: { anchor: { kind: 'text', index: 1 }, side: 'after' },
+        });
+        channel.port1.postMessage({
+          type: 'node-update', payload: { nodeUpdateId: 'old', imageVersion: 'stale' },
+        });
+      }
+
       document.querySelector('main').innerHTML = '<picture>'
         + '<img src="/old.png" data-image-index="3" data-image-version="v1"></picture>';
       const img = document.querySelector('img');
-      sinon.stub(document, 'elementFromPoint').returns(img);
+      hit.returns(img);
       const picture = img.closest('picture');
       const highlightChange = (highlighted) => new Promise((resolve) => {
         const observer = new MutationObserver(() => {

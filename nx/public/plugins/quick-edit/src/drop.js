@@ -1,4 +1,5 @@
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
+import { imageSelectPayload } from './selection.js';
 
 const INDEXED = '[data-block-index], [data-prose-index], [data-image-index]';
 
@@ -29,6 +30,44 @@ export function findDropAnchor({ main, target, y }) {
   }, null);
 }
 
+export function handleDropTarget(payload, ctx) {
+  ctx.clearDrop?.();
+  ctx.bridgeDropTarget?.classList.remove('image-drop-target');
+  ctx.bridgeDropTarget = undefined;
+  const { phase, kind, x, y, requestId } = payload;
+  let target = null;
+  const main = document.querySelector('main');
+  const element = Number.isFinite(x) && Number.isFinite(y) && document.elementFromPoint(x, y);
+  if (!ctx.readOnly && !ctx.reloadRequested && ctx.pendingNodeUpdateId == null
+    && ['hover', 'resolve'].includes(phase) && element && main?.contains(element)) {
+    if (kind === 'image') {
+      const picture = element.closest('picture');
+      const img = picture?.querySelector('img');
+      const proseIndex = img && imageSelectPayload(img)?.proseIndex;
+      const imageVersion = img?.getAttribute('data-image-version');
+      if (Number.isSafeInteger(proseIndex) && imageVersion) {
+        target = { proseIndex, imageVersion, originalSrc: img.src };
+        if (phase === 'hover') {
+          ctx.bridgeDropTarget = picture;
+          picture.classList.add('image-drop-target');
+        }
+      }
+    } else if (kind === 'html') {
+      const anchor = findDropAnchor({ main, target: element, y });
+      if (anchor) {
+        target = { anchor: { kind: anchor.kind, index: anchor.index }, side: anchor.side };
+        if (phase === 'hover') ctx.showDrop?.(anchor);
+      }
+    }
+  }
+  if (phase === 'resolve' && typeof requestId === 'string') {
+    ctx.port.postMessage({
+      type: MESSAGE_TYPES.DROP_TARGET,
+      payload: { requestId, documentVersion: ctx.documentVersion, target },
+    });
+  }
+}
+
 export function setupDropListeners(ctx) {
   let indicator;
   const clear = () => {
@@ -36,6 +75,19 @@ export function setupDropListeners(ctx) {
     indicator = undefined;
   };
   ctx.clearDrop = clear;
+  ctx.showDrop = (anchor) => {
+    clear();
+    const bounds = anchor.element.getBoundingClientRect();
+    indicator = document.createElement('div');
+    indicator.id = 'qe-drop-indicator';
+    indicator.setAttribute('aria-hidden', 'true');
+    Object.assign(indicator.style, {
+      left: `${bounds.left}px`,
+      top: `${anchor.side === 'before' ? bounds.top : bounds.bottom}px`,
+      width: `${bounds.width}px`,
+    });
+    document.body.append(indicator);
+  };
   const onDrag = (event) => {
     clear();
     const types = event.dataTransfer?.types;
@@ -59,16 +111,7 @@ export function setupDropListeners(ctx) {
       });
       return;
     }
-    const bounds = anchor.element.getBoundingClientRect();
-    indicator = document.createElement('div');
-    indicator.id = 'qe-drop-indicator';
-    indicator.setAttribute('aria-hidden', 'true');
-    Object.assign(indicator.style, {
-      left: `${bounds.left}px`,
-      top: `${anchor.side === 'before' ? bounds.top : bounds.bottom}px`,
-      width: `${bounds.width}px`,
-    });
-    document.body.append(indicator);
+    ctx.showDrop(anchor);
   };
   const onLeave = (event) => {
     if (!event.relatedTarget || !document.querySelector('main')?.contains(event.relatedTarget)) clear();
@@ -86,6 +129,7 @@ export function setupDropListeners(ctx) {
   });
   ctx.destroyDrop = () => {
     clear();
+    ctx.bridgeDropTarget?.classList.remove('image-drop-target');
     listeners.forEach(([target, type, listener, capture]) => {
       target.removeEventListener(type, listener, capture);
     });
