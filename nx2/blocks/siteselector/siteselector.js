@@ -64,7 +64,7 @@ class NxSiteselector extends LitElement {
         .value=${this.value ?? ''}
         .labelOverride=${sites.find((site) => site.value === this.value)?.label ?? ''}
         .size=${this.size ?? 'm'}
-        placeholder=${this.sites === undefined ? 'Loading sites...' : 'Choose a site'}
+        placeholder=${this.sites === undefined ? 'Loading sites...' : this.heading ?? 'Choose a site'}
         aria-busy=${this.sites === undefined}
         ?inert=${this.sites === undefined}
         variant="navigation"
