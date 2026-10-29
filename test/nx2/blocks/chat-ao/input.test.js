@@ -76,6 +76,82 @@ describe('standalone AO input', () => {
     expect(sent).to.have.length(0);
   });
 
+  it('retains the draft and attachments until asynchronous handoff is accepted', async () => {
+    let finish;
+    chatInput.onSubmit = (payload) => {
+      sent.push(payload);
+      return new Promise((resolve) => { finish = resolve; });
+    };
+    const attachment = { id: 'file', label: 'File', dataBase64: 'ZmlsZQ==' };
+    chatInput.addItem(attachment);
+    await chatInput.setPrompt('Keep until accepted');
+    const submit = chatInput.setPrompt('Keep until accepted', { autoSend: true });
+    await chatInput.updateComplete;
+    await Promise.resolve();
+    expect(chatInput.draft).to.equal('Keep until accepted');
+    expect(chatInput.items).to.deep.equal([attachment]);
+    expect(await chatInput.setPrompt('Duplicate', { autoSend: true })).to.equal(false);
+    expect(sent).to.have.length(1);
+    finish(false);
+    expect(await submit).to.equal(false);
+    expect(chatInput.draft).to.equal('Keep until accepted');
+    expect(chatInput.items).to.deep.equal([attachment]);
+    const retry = chatInput.setPrompt('Keep until accepted', { autoSend: true });
+    await chatInput.updateComplete;
+    await Promise.resolve();
+    finish(true);
+    expect(await retry).to.equal(true);
+    expect(sent).to.have.length(2);
+    expect(chatInput.draft).to.equal('');
+    expect(chatInput.items).to.deep.equal([]);
+  });
+
+  it('does not replace another draft or stop a merely disabled input', async () => {
+    await chatInput.setPrompt('Existing draft');
+    expect(await chatInput.setPrompt('Landing draft', { replace: false })).to.equal(false);
+    chatInput.disabled = true;
+    let stopped = 0;
+    chatInput.onStop = () => { stopped += 1; };
+    await chatInput.updateComplete;
+    expect(await chatInput.setPrompt('Existing draft', { autoSend: true })).to.equal(false);
+    chatInput.shadowRoot.querySelector('form').requestSubmit();
+    expect(chatInput.draft).to.equal('Existing draft');
+    expect(sent).to.deep.equal([]);
+    expect(stopped).to.equal(0);
+  });
+
+  it('keeps standalone drafts and context isolated from the conversation input', async () => {
+    const other = document.createElement('nx-ao-input');
+    other.addEvent = CHAT_EVENT.ADD_TO_CHAT;
+    document.body.append(other);
+    try {
+      await other.updateComplete;
+      await chatInput.setPrompt('Landing');
+      await other.setPrompt('Panel');
+      document.dispatchEvent(new CustomEvent(CHAT_EVENT.ADD_TO_CHAT, {
+        detail: { id: 'panel-only', label: 'Panel only' },
+      }));
+      expect(chatInput.items).to.deep.equal([]);
+      expect(other.items).to.have.length(1);
+      await chatInput.setPrompt('Landing', { autoSend: true });
+      expect(other.draft).to.equal('Panel');
+      expect(other.items).to.have.length(1);
+    } finally {
+      other.remove();
+    }
+  });
+
+  it('submits file-only input once with a visible Send action', async () => {
+    chatInput.addItem({ id: 'file', label: 'File', dataBase64: 'ZmlsZQ==' });
+    await chatInput.updateComplete;
+    expect(chatInput.shadowRoot.querySelector('.chat-actions').hasAttribute('data-has-items')).to.equal(true);
+    chatInput.shadowRoot.querySelector('.chat-send').click();
+    expect(sent).to.have.length(1);
+    expect(sent[0].text).to.equal('Attached file');
+    expect(sent[0].attachments).to.have.length(1);
+    expect(chatInput.items).to.deep.equal([]);
+  });
+
   it('preserves the draft and pills when blocked and stops exactly once', async () => {
     await chatInput.setPrompt('draft');
     chatInput.addItem({ id: 'context', label: 'Context' });

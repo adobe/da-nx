@@ -205,8 +205,9 @@ function mountPanel(opts) {
  * }} opts
  */
 async function openPanel({
-  position, width = '400px', getContent, section,
+  position, width = '400px', getContent, section, signal,
 } = {}) {
+  if (signal?.aborted) return undefined;
   const existing = document.querySelector(`aside.panel[data-position="${position}"]`);
   if (existing && !existing.hidden) return existing;
   if (existing?.hidden) {
@@ -216,12 +217,14 @@ async function openPanel({
 
   const beforeMain = position === 'before';
   const content = await getContent?.();
+  if (signal?.aborted) return undefined;
   return mountPanel({
     width, beforeMain, content, section,
   });
 }
 
 const panelSections = new Map();
+const pendingPanels = new WeakMap();
 
 // Called once per host page to declare a section it owns — see docs/workspace.md
 // ("Side panels") for the full config contract.
@@ -240,11 +243,28 @@ async function showPanelSection(name, id, options) {
   const config = panelSections.get(name);
   if (!config) return undefined;
   const width = getPanelStore()[name]?.width ?? config.width;
-  const aside = await openPanel({
-    position: config.position, width, getContent: config.getContent, section: name,
-  });
-  await config.onShow?.(aside, id, options);
-  return aside;
+  try {
+    if (!pendingPanels.has(config)) {
+      pendingPanels.set(config, openPanel({
+        position: config.position,
+        width,
+        getContent: config.getContent,
+        section: name,
+        signal: config.signal,
+      }));
+    }
+    const aside = await pendingPanels.get(config);
+    if (!aside || config.signal?.aborted) return undefined;
+    await config.onShow?.(aside, id, options);
+    return aside;
+  } catch (error) {
+    if (config.signal?.aborted) return undefined;
+    if (!config.onError) throw error;
+    config.onError(error);
+    return undefined;
+  } finally {
+    pendingPanels.delete(config);
+  }
 }
 
 function closePanelSection(name) {

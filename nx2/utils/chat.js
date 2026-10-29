@@ -5,6 +5,7 @@ export const CHAT_EVENT = {
   // Chat -> document: notifications chat dispatches when something happened.
   AGENT_CHANGE: 'nx-agent-change',
   HIGHLIGHT_SELECTION: 'nx-highlight-selection',
+  INPUT_STATE_CHANGE: 'nx-chat-input-state-change', // { busy, disabled } — bubbles from the owning chat
 
   // document -> chat: commands other components dispatch for chat to act on.
   ADD_TO_CHAT: 'nx-add-to-chat',
@@ -45,6 +46,15 @@ async function resolveAoChatConfig() {
 export async function useAoChat() {
   const { useAoChat: enabled } = await resolveAoChatConfig();
   return enabled;
+}
+
+export async function loadChatInput() {
+  const { useAoChat: enabled, altHarness } = await resolveAoChatConfig();
+  if (!enabled) return undefined;
+  await import('../blocks/chat-ao/input.js');
+  const input = document.createElement('nx-ao-input');
+  input.altHarness = altHarness;
+  return input;
 }
 
 export async function loadChat() {

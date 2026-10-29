@@ -34,6 +34,8 @@ pills.addEventListener("nx-pill-pin", (e) => {
 ### Self-managed
 
 Give it a document-level event name and it manages the list itself — you only read it back when you need it (e.g. on submit).
+Changing `addEvent` after mounting switches the listener without clearing items.
+The listener is removed on disconnect.
 
 ```html
 <nx-pills id="my-pills" addEvent="my-add-to-list-event"></nx-pills>
@@ -123,6 +125,7 @@ Self-managed mode only:
 | `nx-pill-remove`  | `{ id }`                                                                  | Controlled only          | User clicked remove — update your list and re-set `items`.        |
 | `nx-pill-pin`     | `{ id }`                                                                  | Controlled only          | User clicked pin — update your list and re-set `items`.           |
 | `nx-pill-activate`| `{ id, selFrom, selTo, selectionType, blockName, proseIndex }`            | Both modes               | User clicked a pinned item's label — decide what "activating" it means (e.g. highlight it elsewhere). |
+| `nx-pills-change` | `{ items }` | Self-managed only | The owned list changed; subscribe directly to update surrounding controls. |
 
 ## Styling
 

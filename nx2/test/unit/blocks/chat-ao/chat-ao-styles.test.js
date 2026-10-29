@@ -1,13 +1,14 @@
 import { expect } from '@esm-bundle/chai';
 
-describe('chat AO Stop button', () => {
+describe('chat AO input Stop button', () => {
   let host;
   let styles;
 
   before(async () => {
     styles = await Promise.all([
       '/nx2/styles/buttons.css',
-      '/nx2/blocks/chat-ao/chat-ao.css',
+      '/nx2/blocks/shared/chat/input.css',
+      '/nx2/blocks/chat-ao/input.css',
     ].map(async (href) => {
       const response = await fetch(href);
       expect(response.ok).to.equal(true);

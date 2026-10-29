@@ -6,17 +6,21 @@ import { loadStyle, getHomeHref } from '../../utils/utils.js';
 const DEFAULT_NAV_PATH = '/nx/fragments/sidenav';
 const HASH_AWARE = ['Home', 'Apps'];
 
-const style = await loadStyle(import.meta.url);
+const styles = await Promise.all([
+  loadStyle(import.meta.url),
+  loadStyle(new URL('../../styles/buttons.css', import.meta.url).href),
+]);
 
 class NXSidenav extends LitElement {
   static properties = {
     path: { attribute: false },
+    actions: { attribute: false },
     _navLinks: { state: true },
   };
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style];
+    this.shadowRoot.adoptedStyleSheets = styles;
     this.loadNav();
   }
 
@@ -66,11 +70,33 @@ class NXSidenav extends LitElement {
     return this.path || DEFAULT_NAV_PATH;
   }
 
+  _renderActionIcon(action) {
+    if (action.active && action.activeIcon) {
+      return html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href=${action.activeIcon}></use></svg>`;
+    }
+    if (action.icon?.includes('#')) {
+      return html`<svg class="nav-action-artwork" aria-hidden="true">
+        <use href=${action.icon} width="100%" height="100%"></use>
+      </svg>`;
+    }
+    return html`<img src=${action.icon} alt="">`;
+  }
+
   render() {
     if (!this._navLinks) return nothing;
 
     return html`
       <ul>
+        ${this.actions?.map((action) => html`
+          <li class="nav-action">
+            <button type="button" class="nx-action-btn-icon ${action.active ? 'is-active' : ''}"
+              aria-label=${action.label} title=${action.label}
+              aria-pressed=${action.active ?? nothing}
+              ?disabled=${action.disabled} @click=${action.onClick}>
+              ${this._renderActionIcon(action)}
+            </button>
+          </li>
+        `)}
         ${this._navLinks.map((a) => html`
           <li class="nav-link ${this.getActiveClass(a)}"><a href="${a.text === 'Home' ? getHomeHref({ fallback: a.href }) : a.href}" @click=${(e) => this.handleClick(e, a)}>${a.icon}${a.text}</a></li>
         `)}

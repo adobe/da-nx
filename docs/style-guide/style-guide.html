@@ -65,6 +65,23 @@ background: var(--s2-purple-200);</code></pre>
       <p>Source: <code>nx2/styles/buttons.css</code></p>
 
       <article class="sg-example">
+        <h3>Button size variants</h3>
+        <p><code>nx-btn-sm</code> is 24px with a 16px glyph, default is 32px/18px,
+          and <code>nx-btn-lg</code> is 40px/20px. Shared rules own
+          <code>--nx-btn-height</code> and <code>--nx-btn-icon-size</code>;
+          consumers choose a class rather than overriding dimensions.
+          Compact chat advances 24→32px; expanded chat advances 32→40px.</p>
+        <div class="sg-demo">
+          <button type="button" class="nx-action-btn nx-btn-sm">24px</button>
+          <button type="button" class="nx-action-btn">32px</button>
+          <button type="button" class="nx-action-btn nx-btn-lg">40px</button>
+        </div>
+        <pre><code>&lt;button class="nx-action-btn nx-btn-sm"&gt;Small&lt;/button&gt;
+&lt;button class="nx-action-btn"&gt;Default&lt;/button&gt;
+&lt;button class="nx-action-btn nx-btn-lg"&gt;Large&lt;/button&gt;</code></pre>
+      </article>
+
+      <article class="sg-example">
         <h3>Action button (small)</h3>
         <div class="sg-demo">
           <button type="button" class="nx-action-btn">Label</button>
@@ -774,6 +791,8 @@ breadcrumb.pathSegments = ['myorg', 'mysite', 'docs', 'style-guide'];</code></pr
       <article class="sg-example">
         <h3>nx-pills <a href="https://github.com/adobe/da-nx/blob/main/docs/pills.md" target="_blank"
             rel="noopener">docs →</a></h3>
+        <p>Self-managed instances can change <code>addEvent</code> without clearing their items.
+          Listen directly for <code>nx-pills-change</code> to update surrounding controls.</p>
         <div class="sg-demo">
           <nx-pills id="demo-pills"></nx-pills>
           <nx-pills id="demo-pills-readonly" label="Type"></nx-pills>
@@ -792,6 +811,38 @@ tags.items = [{ id: 'app', label: 'App', removable: false }];
 
 &lt;!-- Recolor with custom properties --&gt;
 nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2-orange-1100); }</code></pre>
+      </article>
+      <article class="sg-example">
+        <h3>Chat input tokens <a href="https://github.com/adobe/da-nx/blob/main/docs/chat-ui-component.md#shared-input-tokens"
+            target="_blank" rel="noopener">docs →</a></h3>
+        <p><code>nx2/blocks/shared/chat/input.css</code> shares neutral working colors,
+          compact shadows, spinner/logo sizes and expanded input metrics between chat surfaces.
+          The expanded composer skin owns gradient artwork and frame geometry separately.
+          Override properties on the actual input host, not its conversation wrapper.</p>
+        <pre><code>nx-ao-input {
+  --nx-chat-input-spinner-arc: var(--s2-blue-900);
+  --nx-chat-input-working-shadow: none;
+}
+
+/* Expanded inputs retain their own layout and 32/40px Stop variant. */
+&lt;nx-ao-input variant="expanded" size="m"&gt;&lt;/nx-ao-input&gt;</code></pre>
+      </article>
+      <article class="sg-example">
+        <h3>Expanded chat composer <a href="https://github.com/adobe/da-nx/blob/main/docs/chat-ui-component.md#expanded-composer-skin"
+            target="_blank" rel="noopener">docs →</a></h3>
+        <p><code>nx2/blocks/shared/chat/composer.css</code> owns the frame, glow and
+          state-specific shadows. Adopt it alongside <code>chat/input.css</code>.
+          Page width and input S/M metrics stay with their respective owners.</p>
+        <div class="sg-demo">
+          <div id="demo-chat-composer" style="width: 100%;"></div>
+        </div>
+        <pre><code>&lt;div class="nx-chat-composer is-enabled"&gt;
+  &lt;div class="nx-chat-composer-surface" aria-hidden="true"&gt;&lt;/div&gt;
+  &lt;nx-ao-input variant="expanded"&gt;&lt;/nx-ao-input&gt;
+&lt;/div&gt;
+
+/* Override on the containing shadow host. */
+:host { --nx-chat-composer-working-shadow: none; }</code></pre>
       </article>
       <article class="sg-example">
         <h3>nx-pills — size m</h3>
@@ -813,6 +864,7 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
 
   <script type="module">
     import { setConfig } from '/nx2/scripts/nx.js';
+    import { loadStyle } from '/nx2/utils/utils.js';
 
     await setConfig({});
 
@@ -831,9 +883,22 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
       import('/nx2/blocks/shared/breadcrumb/breadcrumb.js'),
       import('/nx2/blocks/shared/switch/switch.js'),
       import('/nx2/blocks/shared/pills/pills.js'),
-      import('/nx2/blocks/shared/card/card.js'),
+      import('/nx2/blocks/chat-ao/input.js'),
     ]);
 
+    const composerDemo = document.querySelector('#demo-chat-composer').attachShadow({ mode: 'open' });
+    composerDemo.adoptedStyleSheets = await Promise.all([
+      '/nx2/blocks/shared/chat/input.css',
+      '/nx2/blocks/shared/chat/composer.css',
+    ].map((href) => loadStyle(href)));
+    composerDemo.innerHTML = `<div class="nx-chat-composer is-enabled">
+      <div class="nx-chat-composer-surface" aria-hidden="true"></div>
+      <nx-ao-input variant="expanded" placeholder="Ask a question"></nx-ao-input>
+    </div>`;
+    composerDemo.querySelector('nx-ao-input').onSubmit = () => {
+      showToast({ text: 'Demo message submitted.' });
+      return true;
+    };
     // nx-card
     document.querySelectorAll('.demo-card').forEach((card) => {
       card.addEventListener('nx-card-selection-change', (e) => { card.selected = e.detail.selected; });
