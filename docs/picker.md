@@ -170,6 +170,11 @@ entries and `value` to the current identifier. Optional `heading`, `size` (`s` o
 default `m`) and `error` customize content and density without replacing menu layout.
 Landing pages can set `heading` to `Your recent sites`.
 
+The selector retains its outlined, pill-shaped trigger, light/dark surface and
+bold S/M component-token label. These styles belong to the standalone block and
+use existing picker trigger properties and the label part. The shared menu keeps
+its default typography, sections, dividers and action layout.
+
 On connection it emits bubbling, composed `site-selector-ready` with
 `{ selector, signal }`. Register the host listener before loading the navigation.
 The trigger stays inert until `sites` is assigned; use an empty array for loaded, empty history.
