@@ -1,0 +1,81 @@
+:host {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: min(220px, 100%);
+  max-width: min(100%, 280px);
+}
+
+nx-picker {
+  --nx-picker-height: var(--s2-spacing-500);
+  --nx-picker-padding: var(--s2-spacing-75) var(--s2-spacing-300);
+  --nx-picker-border: 1px solid var(--s2-gray-300);
+  --nx-picker-radius: var(--s2-corner-radius-800);
+  --nx-picker-background: var(--s2-gray-25);
+  --nx-picker-max-width: 100%;
+}
+
+nx-picker:hover {
+  --nx-picker-border: 1px solid var(--s2-gray-500);
+}
+
+nx-picker::part(label) {
+  font-weight: var(--s2-component-m-bold-font-weight);
+}
+
+:host([size='s']) nx-picker::part(label) {
+  font-weight: var(--s2-component-s-bold-font-weight);
+}
+
+p {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  box-sizing: border-box;
+  width: 100%;
+  margin: var(--s2-spacing-50) 0 0;
+  padding: var(--s2-spacing-100);
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-200);
+  background: var(--s2-gray-50);
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-m-regular-font-size);
+  line-height: var(--s2-component-m-regular-line-height);
+  font-weight: var(--s2-component-m-regular-font-weight);
+  color: var(--s2-red-900);
+}
+
+:host([size='s']) p {
+  font-size: var(--s2-component-s-regular-font-size);
+  line-height: var(--s2-component-s-regular-line-height);
+  font-weight: var(--s2-component-s-regular-font-weight);
+}
+
+button {
+  margin-inline-start: var(--s2-spacing-100);
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (width < 600px) {
+  :host {
+    min-width: min(32px, 100%);
+    max-width: min(100%, 176px);
+  }
+
+  nx-picker {
+    --nx-picker-padding: var(--s2-spacing-75) var(--s2-spacing-100);
+  }
+}
+
+@container (width < 220px) {
+  nx-picker {
+    --nx-picker-padding: var(--s2-spacing-75) var(--s2-spacing-100);
+  }
+}

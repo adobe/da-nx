@@ -63,6 +63,13 @@
   white-space: nowrap;
 }
 
+.brand-cluster:has(nx-siteselector) .brand-area {
+  box-sizing: border-box;
+  flex-shrink: 1;
+  min-width: var(--s2-nav-height, 56px);
+  overflow: hidden;
+}
+
 .brand-logo {
   display: grid;
   flex-shrink: 0;
@@ -81,9 +88,22 @@
   }
 }
 
+.site-nav {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .nav-breadcrumb {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.site-nav:has(nx-siteselector) {
+  container-type: inline-size;
+  flex-basis: 220px;
 }
 
 .nav-search {
@@ -111,12 +131,19 @@
   max-width: 100%;
   display: none;
 
+  &:has(nx-profile.is-loaded) {
+    display: unset;
+  }
+}
+
+.site-nav,
+.action-area {
   ul {
     height: 100%;
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0 16px 0 0;
+    margin: 0;
     padding: 0;
     list-style: none;
     overflow: auto hidden;
@@ -168,10 +195,15 @@
     width: 20px;
     height: 20px;
   }
+}
 
-  &:has(nx-profile.is-loaded) {
-    display: unset;
-  }
+.action-area ul {
+  margin-right: 16px;
+}
+
+.site-nav li:has(nx-siteselector) {
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 :host(:not([data-has-search])) .action-area {

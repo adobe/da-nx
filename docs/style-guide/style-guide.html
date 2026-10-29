@@ -32,12 +32,31 @@
   </header>
 
   <nav class="sg-toc">
+    <a href="#tokens">Design Tokens</a>
     <a href="#buttons">Buttons</a>
     <a href="#form">Form</a>
     <a href="#shared-blocks">Shared Blocks</a>
   </nav>
 
   <main>
+    <section id="tokens" class="sg-section">
+      <h2>Design Tokens</h2>
+      <p>
+        Source: <code>nx2/styles/styles.css</code>. Palette stops are explicitly selected in
+        <code>nx2/deps/spectrum/build.js</code> and generated from Spectrum's light/dark values
+        with <code>npm run nx2:build:spectrum</code>; do not edit the generated CSS by hand.
+      </p>
+      <article class="sg-example">
+        <h3>Turquoise and purple surfaces</h3>
+        <div class="sg-demo">
+          <span style="background: var(--s2-turquoise-200); padding: var(--s2-spacing-200); border-radius: var(--s2-corner-radius-500)">Turquoise 200</span>
+          <span style="background: var(--s2-purple-200); padding: var(--s2-spacing-200); border-radius: var(--s2-corner-radius-500)">Purple 200</span>
+        </div>
+        <pre><code>background: var(--s2-turquoise-200);
+background: var(--s2-purple-200);</code></pre>
+      </article>
+    </section>
+
     <section id="buttons" class="sg-section">
       <h2>Buttons</h2>
       <p>Source: <code>nx2/styles/buttons.css</code></p>
@@ -455,10 +474,10 @@ document.querySelector('#field-picker').items = [
         <h3>nx-picker — descriptions and actions</h3>
         <p>Opening focuses the selected item after positioning; arrow keys move focus and Enter selects.</p>
         <p class="sg-note">All picker text uses S/M component typography tokens. Descriptions inherit item size and line height, retaining regular token weight: S on the left, M on the right.</p>
-        <p class="sg-note">Actions expose both <code>::part(item)</code> and <code>::part(action)</code> for independent alignment.</p>
+        <p class="sg-note">Menu layout stays inside the picker. Use <code>check-position="start"</code> for leading checks and <code>--nx-picker-menu-width</code> for width. Sections, descriptions, dividers and Add actions use shared defaults.</p>
         <div class="sg-demo sg-picker-container">
           <nx-picker id="demo-picker-description-s" size="s" placeholder="Small status"></nx-picker>
-          <nx-picker id="demo-picker-description" size="m" placeholder="Medium status"></nx-picker>
+          <nx-picker id="demo-picker-description" size="m" check-position="start" placeholder="Medium status"></nx-picker>
         </div>
         <pre><code>picker.items = [
   { value: 'draft', label: 'Draft', description: 'Not published' },
@@ -481,6 +500,44 @@ picker.items = [
   { value: 'name:descending', label: 'Name (Z-A)' },
 ];
 picker.value = 'name:ascending';</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-siteselector — navigation</h3>
+        <p class="sg-note">Outlined pill trigger and navigation menu with a 240px minimum. Medium labels, regular descriptions, bold heading and blue leading check use matching S/M component tokens. Menu styling stays inside Nexter; other picker variants remain unchanged.</p>
+        <p class="sg-note">S on the left starts with “Your recent sites” and no selection. M on the right shows the site name followed by its full org/site path, without parentheses. Choosing a site replaces the heading; remembered sites alone never select one.</p>
+        <div class="sg-demo sg-picker-container">
+          <nx-siteselector id="demo-siteselector-s" size="s" heading="Your recent sites"></nx-siteselector>
+          <nx-siteselector id="demo-siteselector-m" size="m" heading="Your recent sites"></nx-siteselector>
+        </div>
+        <pre><code>&lt;!-- Navigation fragment, site-nav list --&gt;
+&lt;ul&gt;&lt;li&gt;siteselector&lt;/li&gt;&lt;/ul&gt;
+
+selector.heading = 'Your recent sites';
+selector.sites = [{ value: 'org/site', label: 'Site, org/site' }];
+selector.value = ''; // No selection on Landing.</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-picker — multiple</h3>
+        <p>Toggle several items; the popover stays open. Action items close it.</p>
+        <div class="sg-demo sg-picker-container">
+          <nx-picker id="demo-picker-multiple" size="m" multiple placeholder="Select categories"
+            placement="below"></nx-picker>
+        </div>
+        <pre><code>&lt;nx-picker id="multi-picker" size="m" multiple&gt;&lt;/nx-picker&gt;
+
+const picker = document.querySelector('#multi-picker');
+picker.items = [
+  { value: 'content', label: 'Content' },
+  { value: 'seo', label: 'SEO' },
+  { divider: true },
+  { value: 'clear', label: 'Clear all', action: true },
+];
+picker.values = ['content'];
+picker.addEventListener('change', (e) => {
+  if (e.detail.value === 'clear') picker.values = [];
+});</code></pre>
       </article>
 
       <article class="sg-example">
@@ -737,6 +794,7 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
       import('/nx2/blocks/shared/dialog/dialog.js'),
       import('/nx2/blocks/shared/popover/popover.js'),
       import('/nx2/blocks/shared/picker/picker.js'),
+      import('/nx2/blocks/siteselector/siteselector.js'),
       import('/nx2/blocks/shared/search/search.js'),
       import('/nx2/blocks/shared/segmented-btn/segmented.js'),
       import('/nx2/blocks/shared/card/card.js'),
@@ -826,8 +884,31 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
       { value: 'name:descending', label: 'Name (Z-A)' },
     ];
     fixedLabelPicker.value = 'name:ascending';
+    const multiplePicker = document.querySelector('#demo-picker-multiple');
+    multiplePicker.items = [
+      { value: 'content', label: 'Content' },
+      { value: 'seo', label: 'SEO' },
+      { value: 'review', label: 'Review' },
+      { divider: true },
+      { value: 'clear', label: 'Clear all', action: true },
+    ];
+    multiplePicker.values = ['content'];
+    multiplePicker.addEventListener('change', (e) => {
+      if (e.detail.value === 'clear') multiplePicker.values = [];
+    });
     const pickerField = document.querySelector('#demo-picker-field-m');
     pickerField.items = pickerItems;
+
+    ['#demo-siteselector-s', '#demo-siteselector-m'].forEach((id) => {
+      const selector = document.querySelector(id);
+      selector.sites = [
+        { value: 'aemsites/devlive', label: 'Devlive, aemsites/devlive' },
+        { value: 'exp-workspace/frescopaco', label: 'Frescopaco, exp-workspace/frescopaco' },
+      ];
+      selector.value = id === '#demo-siteselector-m' ? 'aemsites/devlive' : '';
+      selector.addEventListener('site-select', ({ detail: { value } }) => { selector.value = value; });
+      selector.addEventListener('site-add', () => showToast({ text: 'Add site requested.' }));
+    });
 
     const swatchItems = [
       { value: '', label: 'Select' },
