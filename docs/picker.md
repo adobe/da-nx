@@ -174,6 +174,11 @@ keeping the matching regular component font-weight token.
 
 Arrow keys open the picker when focus is on the trigger. When open, arrow keys move focus between items, Enter selects the active item, and Escape closes the picker.
 
+Keyboard-focused triggers use a 2px blue focus ring (`--s2-blue-800`) in every
+variant and theme, matching navigation-menu rows and other Nexter controls.
+An explicit `--s2-focus-ring-color` still overrides the trigger ring.
+Pointer hover and the selected-item checkmark are unchanged.
+
 Item focus waits for popover positioning so the target is visible. Closing or
 removing the picker before that frame cancels the pending focus.
 
