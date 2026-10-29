@@ -5,6 +5,7 @@ import { loadStyle, hashChange, getHomeHref } from '../../utils/utils.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg } from '../../utils/svg.js';
 import createBrandLink from '../../../nx/blocks/nav/brand.js';
+import { hashStateToPathSegments } from '../shared/breadcrumb/utils.js';
 
 const DEFAULT_NAV_PATH = '/nx/fragments/nav';
 
@@ -24,12 +25,11 @@ class NXNav extends LitElement {
   static properties = {
     path: { attribute: false },
     _brand: { state: true },
+    _siteNav: { state: true },
     _actions: { state: true },
     _breadcrumbs: { state: true },
     _hashState: { state: true },
   };
-
-  _getSegments;
 
   connectedCallback() {
     super.connectedCallback();
@@ -50,39 +50,65 @@ class NXNav extends LitElement {
   }
 
   async loadNav() {
-    const fragment = await loadFragment(this._path);
-    if (!fragment) return;
+    const loadId = Symbol('nav-load');
+    this._navLoadId = loadId;
+    const path = this._path;
+    const fragment = await loadFragment(path).catch((error) => {
+      getConfig().log(`Unable to load nav fragment: ${path}`, error);
+      return null;
+    });
+    if (!fragment || this._navLoadId !== loadId) return;
     let sections = [...fragment.querySelectorAll(':scope > .section')];
     if (sections.length === 0) {
       sections = [...fragment.querySelectorAll(':scope > div')];
     }
     if (sections.length === 0) return;
 
-    this._breadcrumbs = await this.decorateBreadcrumbs(fragment);
-    this._brand = await this.decorateBrand(sections[0]);
-    this._actions = await this.decorateActions(sections[sections.length - 1]);
+    const siteNavSection = sections.length > 2 ? sections[1] : null;
+    const siteNavList = siteNavSection?.querySelector('ul');
+    const hasSiteNav = [...(siteNavList?.children ?? [])]
+      .some((child) => {
+        if (child.firstElementChild?.localName.startsWith('nx-') || child.querySelector('button')) {
+          return true;
+        }
+        const name = child.textContent.trim().toLowerCase();
+        return name && name !== 'breadcrumbs' && !child.classList.contains('breadcrumbs');
+      });
+
+    const [siteNav, breadcrumbs, brand, actions] = await Promise.all([
+      hasSiteNav ? this.decorateNavItems(siteNavSection) : null,
+      hasSiteNav ? null : this.decorateBreadcrumbs(fragment).catch((error) => {
+        getConfig().log('Unable to load nav breadcrumbs', error);
+        return null;
+      }),
+      this.decorateBrand(sections[0]),
+      this.decorateActions(sections[sections.length - 1]),
+    ]);
+    if (this._navLoadId !== loadId) return;
+    this._siteNav = siteNav;
+    this._breadcrumbs = breadcrumbs;
+    this._brand = brand;
+    this._actions = actions;
   }
 
   async decorateBreadcrumbs(fragment) {
-    const li = fragment.querySelector('ul > li.breadcrumbs')
+    const existing = fragment.querySelector('nx-breadcrumb');
+    const placeholder = existing?.closest('li') ?? existing
+      ?? fragment.querySelector('ul > li.breadcrumbs')
       ?? [...fragment.querySelectorAll('ul > li')].find(
         (el) => el.textContent.trim().toLowerCase() === 'breadcrumbs',
       );
-    if (!li) return null;
+    if (!placeholder) return null;
 
-    const href = li.querySelector('a')?.getAttribute('href');
+    const href = placeholder.querySelector('a')?.getAttribute('href');
     const baseUrl = href ? new URL(href, window.location.href).href : undefined;
-    li.remove();
+    placeholder.remove();
 
-    const [{ hashStateToPathSegments }] = await Promise.all([
-      import('../shared/breadcrumb/utils.js'),
-      import('../shared/breadcrumb/breadcrumb.js'),
-    ]);
-    this._getSegments = hashStateToPathSegments;
+    await import('../breadcrumb/breadcrumb.js');
 
-    const el = document.createElement('nx-breadcrumb');
+    const el = existing ?? document.createElement('nx-breadcrumb');
     el.classList.add('nav-breadcrumb');
-    el.baseUrl = baseUrl;
+    if (baseUrl) el.baseUrl = baseUrl;
     return el;
   }
 
@@ -95,9 +121,8 @@ class NXNav extends LitElement {
       const { href, textContent } = brandLink;
       if (href.includes('.svg')) {
         brandLink.setAttribute('aria-label', textContent);
-        brandLink.textContent = '';
         const lockup = await loadHrefSvg(href);
-        brandLink.append(lockup);
+        if (lockup) brandLink.replaceChildren(lockup);
       }
     }
     brandLink.href = getHomeHref();
@@ -105,29 +130,58 @@ class NXNav extends LitElement {
     return brandLink;
   }
 
-  async decorateActions(section) {
-    const ul = section.querySelector('ul');
-    for (const child of ul.children) {
+  async decorateNavItems(section) {
+    const ul = section?.querySelector('ul');
+    if (!ul) return null;
+    for (const child of [...ul.children]) {
       const button = child.querySelector('button');
       if (!button) {
-        const name = child.textContent.trim().toLowerCase();
-        await import(`../${name}/${name}.js`);
-        const cmp = document.createElement(`nx-${name}`);
-        child.replaceChildren(cmp);
+        const existing = child.firstElementChild;
+        const isComponent = existing?.localName.startsWith('nx-');
+        const name = isComponent
+          ? existing.localName.slice(3) : child.textContent.trim().toLowerCase();
+        if (name) {
+          try {
+            if (!customElements.get(`nx-${name}`)) await import(`../${name}/${name}.js`);
+            if (!isComponent) {
+              const component = document.createElement(`nx-${name}`);
+              const href = child.querySelector('a')?.getAttribute('href');
+              if (href) component.baseUrl = new URL(href, window.location.href).href;
+              child.replaceChildren(component);
+            }
+          } catch (error) {
+            getConfig().log(`Unable to load nav component: ${name}`, error);
+            child.remove();
+          }
+        }
       } else if (button.dataset.pathname) {
         const hasLabel = [...button.childNodes].some(
           (n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim(),
         );
         if (hasLabel) button.classList.add('has-label');
-        button.addEventListener('click', () => openFragmentDialog(button.dataset.pathname));
+        button.addEventListener('click', () => {
+          openFragmentDialog(button.dataset.pathname).catch((error) => {
+            getConfig().log(`Unable to open nav dialog: ${button.dataset.pathname}`, error);
+          });
+        });
       }
     }
+    return ul;
+  }
+
+  async decorateActions(section) {
+    const ul = await this.decorateNavItems(section);
+    if (!ul) return null;
     // Inject the toggle so every site has it without changing its nav fragment.
     if (!ul.querySelector('nx-editortoggle')) {
-      await import('../editortoggle/editortoggle.js');
-      const li = document.createElement('li');
-      li.append(document.createElement('nx-editortoggle'));
-      ul.prepend(li);
+      try {
+        if (!customElements.get('nx-editortoggle')) await import('../editortoggle/editortoggle.js');
+        const li = document.createElement('li');
+        li.append(document.createElement('nx-editortoggle'));
+        ul.prepend(li);
+      } catch (error) {
+        getConfig().log('Unable to load nav editor toggle', error);
+      }
     }
     return ul;
   }
@@ -142,16 +196,18 @@ class NXNav extends LitElement {
 
   updated() {
     if (this._brand) this._brand.href = getHomeHref();
-    if (!this._breadcrumbs) return;
-    this._breadcrumbs.pathSegments = this._getSegments(this._hashState);
+    const breadcrumbs = this._siteNav
+      ? [...this._siteNav.querySelectorAll('nx-breadcrumb')] : [this._breadcrumbs].filter(Boolean);
+    if (!breadcrumbs.length) return;
+    const pathSegments = hashStateToPathSegments(this._hashState);
+    breadcrumbs.forEach((breadcrumb) => { breadcrumb.pathSegments = pathSegments; });
   }
 
   render() {
     return html`
       <div class="brand-cluster">
         <slot name="brand">${this._brand}</slot>
-        <slot name="context"></slot>
-        ${this._breadcrumbs}
+        <div class="site-nav">${this._siteNav ?? this._breadcrumbs}</div>
       </div>
       <div class="nav-search"><slot name="search" @slotchange=${this.onSearchSlotChange}></slot></div>
       <div class="action-area">
