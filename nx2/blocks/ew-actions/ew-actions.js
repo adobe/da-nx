@@ -5,6 +5,7 @@ import {
   buildAemPathFromHashState,
   getAemBranch,
   getAemBranchHref,
+  getAemHrefs,
   requestAemRole,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
@@ -21,7 +22,17 @@ import '../shared/popover/popover.js';
 const style = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
 
-const PREFLIGHT_TIMEOUT = 60000;
+const PREFLIGHT_TIMEOUT = 5 * 60 * 1000;
+
+// Publish-gate dialog copy for a non-success Preflight result: [message, details].
+// `undefined` = timed out / cancelled; `error` = checks could not run (cause in `message`).
+function preflightGateError(result) {
+  if (!result) return ['Preflight did not finish in time. Please run Preflight again before publishing.'];
+  if (result.status === 'error') {
+    return ['Preflight couldn\'t check this page. Please try again later or contact your administrator if the problem persists.', result.message];
+  }
+  return ['Preflight found issues. Resolve them in the Preflight panel, then publish again.'];
+}
 
 const { codeBase } = getConfig();
 const NX_BASE = new URL('../../', import.meta.url).href.replace(/\/$/, '');
@@ -98,6 +109,7 @@ class NXEwActions extends LitElement {
     _target: { state: true },
     // URL most recently copied ('preview' | 'live'), for copy-button feedback.
     _copied: { state: true },
+    _aemHrefs: { state: true },
   };
 
   get _prepareMenu() {
@@ -185,7 +197,7 @@ class NXEwActions extends LitElement {
       this._cancelPreflight = finish;
       onStatus = (e) => {
         const { path, status, requestId: rid } = e.detail || {};
-        if (rid === requestId && path === fullpath) finish(status);
+        if (rid === requestId && path === fullpath) finish({ status, message: e.detail.message });
       };
       timer = setTimeout(() => finish(undefined), PREFLIGHT_TIMEOUT);
       document.addEventListener(PREFLIGHT_EVENT.STATUS, onStatus);
@@ -245,16 +257,19 @@ class NXEwActions extends LitElement {
     if (!env) return { ok: false, url: null, time: null };
     const aemPath = buildAemPathFromHashState(this._hashState);
     const metaUrl = aemPath && this._resolveOpenUrl(kind === 'live' ? 'publish' : 'preview', aemPath);
+    const { webPath } = this._status;
     const branchUrl = getAemBranchHref({
       aemPath,
       branch: this._branch,
       tier: kind,
-      webPath: this._status.webPath,
+      webPath,
     });
+    const hostOrigin = this._aemHrefs?.[kind === 'live' ? 'prod' : 'preview']?.origin;
+    const hostUrl = hostOrigin && webPath ? `${hostOrigin}${webPath}` : env.url;
     return {
       ok: env.status === 200,
       url: metaUrl || (this._branchPath && this._branch === undefined
-        ? null : (env.url && branchUrl) || env.url || null),
+        ? null : (env.url && (branchUrl || hostUrl)) || null),
       time: env.lastModified || null,
     };
   }
@@ -317,7 +332,23 @@ class NXEwActions extends LitElement {
     if (changed.has('_hashState')) {
       this._updateHidePublish();
       this._updateBranch();
+      this._updateAemHrefs();
     }
+  }
+
+  _updateAemHrefs() {
+    const { org, site } = this._hashState || {};
+    const sitePath = org && site ? `/${org}/${site}`.toLowerCase() : null;
+    if (sitePath !== this._aemHrefsPath) {
+      this._aemHrefsPath = sitePath;
+      this._aemHrefs = undefined;
+      this._aemHrefsPromise = sitePath && getAemHrefs(sitePath)
+        .catch(() => null)
+        .then((hrefs) => {
+          if (this._aemHrefsPath === sitePath) this._aemHrefs = hrefs;
+        });
+    }
+    return this._aemHrefsPromise;
   }
 
   _updateBranch() {
@@ -418,14 +449,14 @@ class NXEwActions extends LitElement {
     }
   }
 
-  async _showActionError(action, message) {
+  async _showActionError(action, message, details) {
     await Promise.all([
       import('../shared/dialog/dialog.js'),
       import(`${NX_BASE}/public/sl/components.js`),
     ]);
     this._busy = false;
     this._hasError = true;
-    this._dialog = { phase: 'error', error: { action, type: 'error', message } };
+    this._dialog = { phase: 'error', error: { action, type: 'error', message, details } };
   }
 
   async _runAemAction(action) {
@@ -473,11 +504,9 @@ class NXEwActions extends LitElement {
     }
 
     if (action === 'publish' && this._enforcePreflight) {
-      const status = await this.requestPreflight(versionPath);
-      if (status !== 'success') {
-        await this._showActionError(action, status === undefined
-          ? 'Preflight did not finish in time. Please run Preflight again before publishing.'
-          : 'Preflight found issues. Resolve them in the Preflight panel, then publish again.');
+      const result = await this.requestPreflight(versionPath);
+      if (result?.status !== 'success') {
+        await this._showActionError(action, ...preflightGateError(result));
         return;
       }
     }
@@ -603,7 +632,13 @@ class NXEwActions extends LitElement {
         </label>
         ${selected && info.ok && info.url ? html`
           <div class="deploy-url">
-            <span class="deploy-url-text" title=${info.url}>${info.url}</span>
+            <a
+              class="deploy-url-text"
+              href=${info.url}
+              target="_blank"
+              rel="noopener"
+              title=${info.url}
+            >${info.url}</a>
             <button
               type="button"
               class="deploy-copy"
