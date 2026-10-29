@@ -55,6 +55,48 @@ export function getBasePath({ prefix, path }) {
 }
 
 /**
+ * Collect every configured source location: the default source language
+ * location plus any per-language `source` override.
+ * @param {Object} config The config.
+ * @param {Object} config.options The project options.
+ * @param {Object[]} [config.langs] The languages, optionally with a `source`.
+ * @returns {string[]} Unique source locations, excluding the root.
+ */
+export function getSourceLocations({ options, langs }) {
+  const defaultLocation = options?.['source.language']?.location;
+  const locations = [defaultLocation, ...(langs || []).map((lang) => lang.source)];
+  return [...new Set(locations.filter((location) => location && location !== '/'))];
+}
+
+/**
+ * Get a project's source locations: the set persisted at validate, or a
+ * derivation from options and langs for projects saved before it existed.
+ * @param {Object} project The project.
+ * @param {string[]} [project.sourceLocations] Locations persisted at validate.
+ * @param {Object} [project.options] The project options.
+ * @param {Object[]} [project.langs] The project languages.
+ * @returns {string[]} The source locations.
+ */
+export function getProjectSourceLocations({ sourceLocations, options, langs }) {
+  return sourceLocations ?? getSourceLocations({ options, langs });
+}
+
+/**
+ * Find the longest source location that contains a path.
+ * @param {Object} config The config.
+ * @param {string} config.path An AEM-formatted supplied path.
+ * @param {string[]} config.locations The candidate source locations.
+ * @returns {string|undefined} The matching location, if any.
+ */
+export function findSourceLocation({ path, locations }) {
+  const matches = locations.filter((location) => {
+    const base = location.replace(/\/$/, '');
+    return path === base || path.startsWith(`${base}/`);
+  });
+  return matches.sort((a, b) => b.length - a.length)[0];
+}
+
+/**
  * Joins a prefix and a path with exactly one separating slash, regardless
  * of whether `path` already has a leading slash.
  * @param {string} prefix - The path segment to prepend; any trailing slash
@@ -107,6 +149,34 @@ export function convertPath({ path, sourcePrefix, destPrefix, snapshotPrefix = '
   }
 
   return paths;
+}
+
+/**
+ * Compute the language-agnostic base path stored on a project url.
+ * @param {Object} config The config.
+ * @param {string} config.path The supplied AEM path.
+ * @param {string} [config.defaultLocation] The default source language location.
+ * @param {string[]} [config.sourceLocations] All configured source locations.
+ * @returns {string} The AEM base path.
+ */
+export function getProjectBasePath({ path, defaultLocation, sourceLocations = [] }) {
+  const sourcePrefix = findSourceLocation({ path, locations: sourceLocations }) || defaultLocation;
+  return convertPath({ path, sourcePrefix }).aemBasePath;
+}
+
+/**
+ * Find distinct supplied paths that resolve to the same base path.
+ * @param {Object} config The config.
+ * @param {Object[]} config.urls Project urls with `basePath` and `suppliedPath`.
+ * @returns {string[][]} Groups of conflicting supplied paths.
+ */
+export function findDuplicateBasePaths({ urls }) {
+  const groups = urls.reduce((acc, { basePath, suppliedPath }) => {
+    const paths = acc.get(basePath) ?? new Set();
+    acc.set(basePath, paths.add(suppliedPath));
+    return acc;
+  }, new Map());
+  return [...groups.values()].filter((paths) => paths.size > 1).map((paths) => [...paths]);
 }
 
 export function formatPath(org, site, sourceLocation, path) {
@@ -232,6 +302,90 @@ export async function fetchConfig(org, site) {
   CONFIG_CACHE = options;
 
   return options;
+}
+
+export function isSourceDetectEnabled(value) {
+  return String(value ?? '').trim().toLowerCase() === 'true';
+}
+
+export function normalizeLocation(location) {
+  const trimmed = String(location ?? '').trim().replace(/\/+$/, '');
+  return trimmed || '/';
+}
+
+function getLocaleList(locales) {
+  if (!locales) return [];
+  const list = typeof locales === 'string' ? locales.split(',') : locales;
+  return list
+    .map((locale) => (typeof locale === 'string' ? locale : locale.code))
+    .map((locale) => locale?.trim())
+    .filter(Boolean)
+    .map(normalizeLocation);
+}
+
+function buildSourceLang({ root, langs, defaultSourceLang }) {
+  const byLocation = langs.find((lang) => (
+    lang.location && normalizeLocation(lang.location) === root
+  ));
+  if (byLocation) return { name: byLocation.name, code: byLocation.code, location: root };
+
+  const byLocale = langs.find((lang) => getLocaleList(lang.locales).includes(root));
+  if (byLocale) return { name: `${byLocale.name} (${root})`, code: byLocale.code, location: root };
+
+  return { name: root, code: defaultSourceLang?.code, location: root };
+}
+
+const MAX_LISTED_URLS = 5;
+
+function formatMixedRootsError(pathsByRoot) {
+  const roots = [...pathsByRoot.keys()];
+  const [mainRoot] = [...pathsByRoot.entries()]
+    .reduce((best, entry) => (entry[1].length > best[1].length ? entry : best));
+  const outside = roots
+    .filter((root) => root !== mainRoot)
+    .flatMap((root) => pathsByRoot.get(root));
+  const listed = outside.slice(0, MAX_LISTED_URLS).join(', ');
+  const more = outside.length > MAX_LISTED_URLS ? ` and ${outside.length - MAX_LISTED_URLS} more` : '';
+  return `URLs come from more than one source root (${roots.join(', ')}). To keep ${mainRoot}, uncheck: ${listed}${more}. Otherwise create a separate project for each root.`;
+}
+
+/**
+ * Work out a project's source language from the folder its URLs live in.
+ *
+ * @param {Object} config
+ * @param {Object[]} config.langs the language rows (location, source, locales, name, code)
+ * @param {(string|Object)[]} config.urls paths, or objects with `suppliedPath` / `pathname`
+ * @param {Object} [config.defaultSourceLang] the configured source language
+ * @returns {{ sourceLang?: Object, detected?: boolean, error?: string }}
+ *  `detected` is false when no URL matches a root and the configured source is returned.
+ */
+export function resolveSourceLang({ langs = [], urls = [], defaultSourceLang }) {
+  const roots = [
+    ...langs.flatMap((lang) => [lang.location, lang.source]),
+    defaultSourceLang?.location,
+  ]
+    .filter(Boolean)
+    .map(normalizeLocation)
+    .filter((root) => root !== '/');
+  const uniqueRoots = [...new Set(roots)].sort((a, b) => b.length - a.length);
+
+  const pathsByRoot = urls.reduce((acc, url) => {
+    const path = typeof url === 'string' ? url : (url.suppliedPath ?? url.pathname);
+    if (!path) return acc;
+    const root = findSourceLocation({
+      path: path.replace(/\.(html|json)$/, ''),
+      locations: uniqueRoots,
+    });
+    if (root) acc.set(root, [...(acc.get(root) || []), path]);
+    return acc;
+  }, new Map());
+
+  if (pathsByRoot.size > 1) return { error: formatMixedRootsError(pathsByRoot) };
+
+  if (pathsByRoot.size === 0) return { sourceLang: defaultSourceLang, detected: false };
+
+  const [root] = pathsByRoot.keys();
+  return { sourceLang: buildSourceLang({ root, langs, defaultSourceLang }), detected: true };
 }
 
 // BEFORE TIMES

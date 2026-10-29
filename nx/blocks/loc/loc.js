@@ -136,14 +136,16 @@ class NxLoc extends LitElement {
       this._project.urls = updates.urls;
     }
 
-    this._message = { text: 'Saving...' };
+    // Keep an existing error visible; this save may only be persisting its status.
+    const hadError = this._message?.type === 'error';
+    if (!hadError) this._message = { text: 'Saving...', transient: true };
 
     const { message, hash, project } = await updateProject({ path, updates });
 
     if (detail.path !== undefined
       && (this.path !== path || this.org !== org || this.site !== site)) return;
-    // Set a message even if its undefined
-    this._message = message;
+    // Keep an existing error unless this save has a message of its own.
+    if (message || !hadError) this._message = message;
     if (detail.waitUntil && !project) {
       throw new Error(message?.text || 'Could not save translation progress.');
     }

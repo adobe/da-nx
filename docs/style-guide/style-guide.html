@@ -373,7 +373,8 @@ field.addEventListener('search-submit', (event) =&gt; search(event.detail.value)
 
       <article class="sg-example">
         <h3>nx-search — in-field action</h3>
-        <p class="sg-note">The field border follows input and Clear focus; trailing actions have their own keyboard-focus outline and respect <code>hidden</code>.</p>
+        <p class="sg-note">The field border follows input and Clear focus; trailing actions have their own
+          keyboard-focus outline and respect <code>hidden</code>.</p>
         <div class="sg-demo">
           <nx-search variant="field" label="Search files" placeholder="Search files">
             <button slot="actions" type="button" aria-label="Search options" title="Search options">
@@ -457,6 +458,28 @@ picker.items = [
   { value: 'name:descending', label: 'Name (Z-A)' },
 ];
 picker.value = 'name:ascending';</code></pre>
+      </article>
+
+      <article class="sg-example">
+        <h3>nx-picker — multiple</h3>
+        <p>Toggle several items; the popover stays open. Action items close it.</p>
+        <div class="sg-demo sg-picker-container">
+          <nx-picker id="demo-picker-multiple" size="m" multiple placeholder="Select categories"
+            placement="below"></nx-picker>
+        </div>
+        <pre><code>&lt;nx-picker id="multi-picker" size="m" multiple&gt;&lt;/nx-picker&gt;
+
+const picker = document.querySelector('#multi-picker');
+picker.items = [
+  { value: 'content', label: 'Content' },
+  { value: 'seo', label: 'SEO' },
+  { divider: true },
+  { value: 'clear', label: 'Clear all', action: true },
+];
+picker.values = ['content'];
+picker.addEventListener('change', (e) => {
+  if (e.detail.value === 'clear') picker.values = [];
+});</code></pre>
       </article>
 
       <article class="sg-example">
@@ -593,6 +616,61 @@ autoSave.addEventListener('change', (e) =&gt; console.log(e.detail.checked));
       </article>
 
       <article class="sg-example">
+        <h3>nx-card <a href="https://github.com/adobe/da-nx/blob/main/docs/card.md" target="_blank" rel="noopener">docs
+            →</a></h3>
+        <div class="sg-demo">
+          <nx-card class="demo-card" dimensions="s" selectable selection-label="Select about-us">
+            <div slot="media">Preview</div>
+            <a slot="heading" href="#">about-us</a>
+            <button slot="actions" type="button" class="nx-action-btn-icon" aria-label="More">⋯</button>
+            <span slot="metadata">Page</span>
+            <span slot="metadata">Modified yesterday</span>
+          </nx-card>
+          <nx-card class="demo-card" dimensions="m" selectable selection-label="Select about-us">
+            <div slot="media">Preview</div>
+            <a slot="heading" href="#">about-us</a>
+            <button slot="actions" type="button" class="nx-action-btn-icon" aria-label="More">⋯</button>
+            <span slot="metadata">Page</span>
+            <span slot="metadata">Modified yesterday</span>
+          </nx-card>
+          <nx-card class="demo-card" dimensions="l" selectable selected selection-label="Select pricing">
+            <div slot="media">Preview</div>
+            <button slot="overlay-actions" type="button" class="nx-action-btn-icon" aria-label="Favorite">★</button>
+            <a slot="heading" href="#">pricing</a>
+            <button slot="actions" type="button" class="nx-action-btn-icon" aria-label="More">⋯</button>
+            <span slot="metadata">Page</span>
+          </nx-card>
+          <nx-card dimensions="s" size="l">
+            <div slot="media">Preview</div>
+            <a slot="heading" href="#">large-text</a>
+            <span slot="metadata">Page</span>
+            <span slot="metadata">Size l, dimensions s</span>
+          </nx-card>
+          <nx-card dimensions="s">
+            <div slot="media">Preview</div>
+            <input slot="content" class="nx-input" value="renaming" aria-label="Rename">
+            <span slot="metadata">Page</span>
+            <span slot="metadata">Metadata stays</span>
+          </nx-card>
+        </div>
+        <pre><code>&lt;nx-card dimensions="m" size="s" selectable selected&gt;
+  &lt;img slot="media" src="..." alt=""&gt;
+  &lt;button slot="overlay-actions" aria-label="Favorite"&gt;&lt;/button&gt;
+  &lt;a slot="heading" href="/about-us"&gt;about-us&lt;/a&gt;
+  &lt;button slot="actions" aria-label="More"&gt;&lt;/button&gt;
+  &lt;span slot="metadata"&gt;Page&lt;/span&gt;
+&lt;/nx-card&gt;
+
+&lt;!-- Replace only the heading row, e.g. inline rename. --&gt;
+&lt;input slot="content" class="nx-input" aria-label="Rename"&gt;
+
+card.addEventListener('nx-card-selection-change', (e) =&gt; { card.selected = e.detail.selected; });
+
+await card.updateComplete;
+card.focus({ preventScroll: true });</code></pre>
+      </article>
+
+      <article class="sg-example">
         <h3>showToast <a href="https://github.com/adobe/da-nx/blob/main/docs/toast.md" target="_blank"
             rel="noopener">docs →</a></h3>
         <div class="sg-demo">
@@ -641,6 +719,21 @@ tags.items = [{ id: 'app', label: 'App', removable: false }];
 &lt;!-- Recolor with custom properties --&gt;
 nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2-orange-1100); }</code></pre>
       </article>
+      <article class="sg-example">
+        <h3>nx-pills — size m</h3>
+        <p class="sg-note">Larger text, icons, padding, spacing, and corners, with a wider label limit.
+          Fits two rows, including thumbnails, before scrolling.</p>
+        <div class="sg-demo">
+          <nx-pills id="demo-pills-medium" size="m"></nx-pills>
+        </div>
+        <pre><code>&lt;nx-pills size="m"&gt;&lt;/nx-pills&gt;
+
+pills.items = [
+  { id: 'hero', label: 'hero.png' },
+  { id: 'notes', label: 'notes.pdf' },
+];
+pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</code></pre>
+      </article>
     </section>
   </main>
 
@@ -662,7 +755,13 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
       import('/nx2/blocks/shared/breadcrumb/breadcrumb.js'),
       import('/nx2/blocks/shared/switch/switch.js'),
       import('/nx2/blocks/shared/pills/pills.js'),
+      import('/nx2/blocks/shared/card/card.js'),
     ]);
+
+    // nx-card
+    document.querySelectorAll('.demo-card').forEach((card) => {
+      card.addEventListener('nx-card-selection-change', (e) => { card.selected = e.detail.selected; });
+    });
 
     // nx-menu
     const menuItems = [
@@ -721,6 +820,18 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
       { value: 'name:descending', label: 'Name (Z-A)' },
     ];
     fixedLabelPicker.value = 'name:ascending';
+    const multiplePicker = document.querySelector('#demo-picker-multiple');
+    multiplePicker.items = [
+      { value: 'content', label: 'Content' },
+      { value: 'seo', label: 'SEO' },
+      { value: 'review', label: 'Review' },
+      { divider: true },
+      { value: 'clear', label: 'Clear all', action: true },
+    ];
+    multiplePicker.values = ['content'];
+    multiplePicker.addEventListener('change', (e) => {
+      if (e.detail.value === 'clear') multiplePicker.values = [];
+    });
     const pickerField = document.querySelector('#demo-picker-field-m');
     pickerField.items = pickerItems;
 
@@ -802,11 +913,16 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
     // nx-pills
     const pills = document.querySelector('#demo-pills');
     pills.items = [
-      { id: 'hero', label: 'hero.png', type: 'image' },
-      { id: 'notes', label: 'notes.pdf', type: 'file' },
+      { id: 'hero', label: 'hero.png' },
+      { id: 'notes', label: 'notes.pdf' },
     ];
     pills.addEventListener('nx-pill-remove', (e) => {
       pills.items = pills.items.filter((item) => item.id !== e.detail.id);
+    });
+    const mediumPills = document.querySelector('#demo-pills-medium');
+    mediumPills.items = [...pills.items];
+    mediumPills.addEventListener('nx-pill-remove', (e) => {
+      mediumPills.items = mediumPills.items.filter((item) => item.id !== e.detail.id);
     });
     const readOnlyPills = [
       { id: 'app', label: 'App', removable: false },

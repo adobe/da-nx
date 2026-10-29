@@ -9,6 +9,7 @@ import {
   sendAllForTranslation,
   removeWaitingLanguagesFromConf,
 } from './index.js';
+import { getProjectSourceLocations } from '../../utils/utils.js';
 
 const style = await loadStyle(import.meta.url);
 const spinnerStyle = await loadStyle(new URL('../../../../../nx2/styles/spinner.css', import.meta.url).href);
@@ -54,8 +55,11 @@ class NxLocTranslate extends LitElement {
   }
 
   update(props) {
-    // Allow the parent to pass or clear a message
-    if (props.has('message')) this._message = this.message;
+    // Parent save progress (transient) or its clear must not wipe a local error.
+    if (props.has('message')) {
+      const incidental = !this.message || this.message.transient;
+      if (this._message?.type !== 'error' || !incidental) this._message = this.message;
+    }
     if (props.has('project')) this.setupProject();
     super.update();
   }
@@ -137,6 +141,7 @@ class NxLocTranslate extends LitElement {
 
     // calculate the default source location
     const defSrcLocation = this._options['source.language']?.location || '/';
+    const sourceLocations = getProjectSourceLocations(this.project);
 
     // Get the default source once for all langs that use the default location
     // TODO: In some rare cases (regional sites), it could be unneccessary
@@ -150,6 +155,7 @@ class NxLocTranslate extends LitElement {
       this._urls,
       fetchContent,
       snapshot,
+      sourceLocations,
     );
 
     // Check langs for custom source locations
@@ -165,6 +171,7 @@ class NxLocTranslate extends LitElement {
           this._urls,
           fetchContent,
           snapshot,
+          sourceLocations,
         );
         langUrl.urls = customSources.urls;
       } else {
@@ -182,6 +189,7 @@ class NxLocTranslate extends LitElement {
     const signal = this._statusController?.signal;
     const { path } = this;
     const { org, site, title, options, snapshot } = this.project;
+    const sourceLocations = getProjectSourceLocations(this.project);
     const { _service: service, _translateLangs: langs } = this;
     const actions = {
       saveState: managed
@@ -199,6 +207,7 @@ class NxLocTranslate extends LitElement {
       options,
       langs,
       urls,
+      sourceLocations,
       langsWithUrls,
       ...(managed ? { signal } : {}),
       actions,
@@ -209,6 +218,7 @@ class NxLocTranslate extends LitElement {
     if (this._sendAllBusy || this.isBusy) return;
     const managed = this.supportsManagedStatus;
     this._sendAllBusy = true;
+    this.handleMessage(undefined);
     if (managed) this.requestUpdate();
     try {
       const conf = await this.getBaseTranslationConf(true);
@@ -358,8 +368,18 @@ class NxLocTranslate extends LitElement {
       if (this._urlErrors?.length) return;
 
       const { org, site, title, options } = this.project;
+      const sourceLocations = getProjectSourceLocations(this.project);
 
-      await copySourceLangs(org, site, title, options, this._copyLangs, urls, langsWithUrls);
+      await copySourceLangs(
+        org,
+        site,
+        title,
+        options,
+        this._copyLangs,
+        urls,
+        langsWithUrls,
+        sourceLocations,
+      );
       this.handleSaveLangs();
       this.requestUpdate();
     } finally {

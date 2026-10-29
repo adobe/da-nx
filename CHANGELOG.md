@@ -1,3 +1,136 @@
+# [1.29.0](https://github.com/adobe/da-nx/compare/v1.28.1...v1.29.0) (2026-10-29)
+
+
+### Bug Fixes
+
+* **loc:** keep save/connector error messages visible ([#821](https://github.com/adobe/da-nx/issues/821)) ([e83573f](https://github.com/adobe/da-nx/commit/e83573f96c4549e26c2a2fbe32bbd96b4c3c1098))
+
+
+### Features
+
+* **loc:** detect each project's source root from its URLs ([#870](https://github.com/adobe/da-nx/issues/870)) ([347926d](https://github.com/adobe/da-nx/commit/347926d88d08a8afc33cd8b0c0263cd979863fea))
+
+## [1.28.1](https://github.com/adobe/da-nx/compare/v1.28.0...v1.28.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **loc:** keep the target's own blocks when their hash was rejected ([#930](https://github.com/adobe/da-nx/issues/930)) ([2d9eaa9](https://github.com/adobe/da-nx/commit/2d9eaa91cf72f54f83d4d7ff82bcfc53bc3c9ca8))
+
+# [1.28.0](https://github.com/adobe/da-nx/compare/v1.27.3...v1.28.0) (2026-10-29)
+
+
+### Features
+
+* expose site nav actions area ([#927](https://github.com/adobe/da-nx/issues/927)) ([4ecb564](https://github.com/adobe/da-nx/commit/4ecb5648c15a0aa09445dd40313ca9fae0214f80))
+
+## [1.27.3](https://github.com/adobe/da-nx/compare/v1.27.2...v1.27.3) (2026-10-29)
+
+
+### Bug Fixes
+
+* improve card ([#929](https://github.com/adobe/da-nx/issues/929)) ([cc6052f](https://github.com/adobe/da-nx/commit/cc6052f014be0eb8c684970a8ddd51a6908c8462))
+
+## [1.27.2](https://github.com/adobe/da-nx/compare/v1.27.1...v1.27.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* **quick-edit:** decorate buttons and icons after inline edits ([a667fb2](https://github.com/adobe/da-nx/commit/a667fb2fe1709c03926857ac1015e9acaa58e24c))
+* refresh descendant indices when settling quick-edit editors ([a04f115](https://github.com/adobe/da-nx/commit/a04f115439b5adc5b407928978591dd84c00ed65))
+
+## [1.27.1](https://github.com/adobe/da-nx/compare/v1.27.0...v1.27.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **loc:** resolve URLs under per-row source locations ([#793](https://github.com/adobe/da-nx/issues/793)) ([fb5d3d3](https://github.com/adobe/da-nx/commit/fb5d3d342c49743c009eacde97dc0f435aaeddb6)), closes [#792](https://github.com/adobe/da-nx/issues/792)
+
+# [1.27.0](https://github.com/adobe/da-nx/compare/v1.26.0...v1.27.0) (2026-10-28)
+
+
+### Features
+
+* extract chat input ([#925](https://github.com/adobe/da-nx/issues/925)) ([fb4a402](https://github.com/adobe/da-nx/commit/fb4a4026856bec0a0a63dcc325c02395ae227ea2))
+
+# [1.26.0](https://github.com/adobe/da-nx/compare/v1.25.0...v1.26.0) (2026-10-27)
+
+
+### Features
+
+* retain org on redirect to coworker ([#914](https://github.com/adobe/da-nx/issues/914)) ([e79af62](https://github.com/adobe/da-nx/commit/e79af62ec1a23f9e245c62ba05890df8bbb3c17b))
+
+# [1.25.0](https://github.com/adobe/da-nx/compare/v1.24.0...v1.25.0) (2026-10-27)
+
+
+### Features
+
+* **picker:** add multiple selection to nx-picker ([#902](https://github.com/adobe/da-nx/issues/902)) ([89b6c06](https://github.com/adobe/da-nx/commit/89b6c0620ae3eff424c7d83f7f1f6dda96c782f6))
+
+# [1.24.0](https://github.com/adobe/da-nx/compare/v1.23.4...v1.24.0) (2026-10-27)
+
+
+### Features
+
+* shared card ([#899](https://github.com/adobe/da-nx/issues/899)) ([1fe9cce](https://github.com/adobe/da-nx/commit/1fe9cce4838651a55a2f50dab3e0b32246f66738))
+
+## [1.23.4](https://github.com/adobe/da-nx/compare/v1.23.3...v1.23.4) (2026-10-27)
+
+
+### Bug Fixes
+
+* bring back ao chat artifacts ([#883](https://github.com/adobe/da-nx/issues/883)) ([e9a0917](https://github.com/adobe/da-nx/commit/e9a091749dc65f8290f112c985e3219fb1e98e32))
+
+## [1.23.3](https://github.com/adobe/da-nx/compare/v1.23.2...v1.23.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **loc:** drop empty locales so locale count does not throw ([#901](https://github.com/adobe/da-nx/issues/901)) ([b9e80ea](https://github.com/adobe/da-nx/commit/b9e80eaa1bea61cf9e40c207bdb1c77892014a3e))
+
+## [1.23.2](https://github.com/adobe/da-nx/compare/v1.23.1...v1.23.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* extend nx-pills ([#903](https://github.com/adobe/da-nx/issues/903)) ([949be9d](https://github.com/adobe/da-nx/commit/949be9dc26652be9fb67bc6d2c45598b70c28b26))
+
+## [1.23.1](https://github.com/adobe/da-nx/compare/v1.23.0...v1.23.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **ew:** revert chat fail-closed changes from pr 760 ([f93eeab](https://github.com/adobe/da-nx/commit/f93eeab25096ee686d56c452f44de51017ed484d)), closes [#760](https://github.com/adobe/da-nx/issues/760)
+
+# [1.23.0](https://github.com/adobe/da-nx/compare/v1.22.0...v1.23.0) (2026-10-23)
+
+
+### Features
+
+* add m support for pills ([#898](https://github.com/adobe/da-nx/issues/898)) ([5dd6baf](https://github.com/adobe/da-nx/commit/5dd6baf3eadaceec3590789fd6c90eb5ed82239d))
+* **marketplace:** filter extensions by category via block options ([#900](https://github.com/adobe/da-nx/issues/900)) ([ba1ec37](https://github.com/adobe/da-nx/commit/ba1ec374baf821b5ca11c317fbc64a7e10ea607a))
+
+# [1.23.0](https://github.com/adobe/da-nx/compare/v1.22.0...v1.23.0) (2026-10-23)
+
+
+### Features
+
+* add m support for pills ([#898](https://github.com/adobe/da-nx/issues/898)) ([5dd6baf](https://github.com/adobe/da-nx/commit/5dd6baf3eadaceec3590789fd6c90eb5ed82239d))
+
+# [1.22.0](https://github.com/adobe/da-nx/compare/v1.21.3...v1.22.0) (2026-10-23)
+
+
+### Features
+
+* **ew:** link send dialog urls and show the production host ([#897](https://github.com/adobe/da-nx/issues/897)) ([2e0ef1a](https://github.com/adobe/da-nx/commit/2e0ef1a55db5f6b5b3df567e5e07791399d1cdbd))
+
+## [1.21.3](https://github.com/adobe/da-nx/compare/v1.21.2...v1.21.3) (2026-10-23)
+
+
+### Bug Fixes
+
+* expose user surface to ao ([#890](https://github.com/adobe/da-nx/issues/890)) ([f7c1d25](https://github.com/adobe/da-nx/commit/f7c1d25795a11411dda42a96dde2fdfd50b19517))
+
 ## [1.21.2](https://github.com/adobe/da-nx/compare/v1.21.1...v1.21.2) (2026-10-22)
 
 
