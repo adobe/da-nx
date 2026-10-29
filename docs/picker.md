@@ -30,9 +30,8 @@ picker.addEventListener("change", (e) => {
 
 ### Form-style field
 
-When composing a picker with `nx-nav`, use `slot="context"` to place it after
-the brand in the left cluster. The independent `slot="search"` remains centered.
-Placement and navigation behavior belong to the consuming application.
+Navigation fragments can include `siteselector` in the site-nav area.
+This standalone block composes the picker without occupying the centered search slot.
 
 Use `variant="field"` for a bordered, form-style picker trigger.
 
@@ -41,7 +40,8 @@ Use `variant="field"` for a bordered, form-style picker trigger.
 ```
 
 This variant is visual and interactive only. It does not provide a label or participate in native form submission, validation, or reset behavior.
-Its dropdown matches the rendered trigger width each time it opens.
+Its dropdown matches the rendered trigger width each time it opens unless
+`--nx-picker-menu-width` is set.
 
 ### Fixed trigger label
 
@@ -87,6 +87,7 @@ When the selected item has a `swatch`, the trigger shows it before the label too
 | `placement`     | `String`              | Default placement when opened: `below` (default), `above`, or `auto`.         |
 | `size`          | `String`              | Item density: `s` (default) or `m`. Reflected as a host attribute.             |
 | `variant`       | `String`              | Set to `field` for the bordered form-style presentation.                       |
+| `checkPosition` | `String`              | `start` reserves leading check space on selectable rows. Default: end. Attribute: `check-position`. |
 | `open`          | `Boolean` (read-only) | Whether the picker is currently open.                                          |
 
 Trigger text precedence is: non-empty `labelOverride`, matching item label, `placeholder`, then blank. A placeholder is never added to the dropdown and does not change `value`.
@@ -95,19 +96,15 @@ Trigger text precedence is: non-empty `labelOverride`, matching item label, `pla
 
 Use `::part(label)` to style the trigger text, or `::part(label)::before` to add a decorative icon.
 
-Menu presentation can be customized with `::part(menu)`, `::part(section)`,
-`::part(divider)`, `::part(item)`, `::part(item-label)` and `::part(check)`.
-Action items also expose `::part(action)` so consumers can align them independently
-of selectable options while retaining shared `::part(item)` styles.
-Application-specific layouts belong in the consuming
-application rather than a domain-specific picker variant.
+Menu sections, dividers, descriptions, actions and checkmarks use shared defaults.
+Use `check-position="start"` for leading checks rather than rearranging menu internals.
 
 `description` appears below the item label and is included in its accessible name
 unless `ariaLabel` supplies an explicit name. Existing item shapes remain unchanged.
 
 Trigger, item and section typography uses the matching S or M component tokens,
 including font weight and dynamic size changes. Descriptions inherit the item's
-font size and line height, including consumer `::part(item)` overrides, while
+font size and line height while
 keeping the matching regular component font-weight token.
 
 ## CSS custom properties
@@ -120,6 +117,7 @@ keeping the matching regular component font-weight token.
 | `--nx-picker-radius`     | `var(--s2-corner-radius-500)`         | Trigger border radius.    |
 | `--nx-picker-background` | `var(--s2-gray-100)`                  | Trigger background.       |
 | `--nx-picker-max-width`  | `none`                                | Maximum component width.  |
+| `--nx-picker-menu-width` | Rendered field width, or automatic    | Menu width, constrained to the viewport. |
 
 ### Methods
 
@@ -127,6 +125,7 @@ keeping the matching regular component font-weight token.
 | ------- | --------- | ---------------------------------- |
 | `show`  | `()`      | Opens the picker.                  |
 | `close` | `()`      | Closes the picker.                 |
+| `focus` | `(options)` | Focuses the trigger.              |
 
 ### Events
 
@@ -140,3 +139,22 @@ Arrow keys open the picker when focus is on the trigger. When open, arrow keys m
 
 Item focus waits for popover positioning so the target is visible. Closing or
 removing the picker before that frame cancels the pending focus.
+
+## Standalone site selector
+
+Add `siteselector` to a navigation fragment's site-nav list, alongside breadcrumbs
+if both are needed. Nexter lazy-loads `nx2/blocks/siteselector/siteselector.js`.
+
+The block owns presentation only. Set `sites` to `{ value: 'org/site', label: 'site (org)' }`
+entries and `value` to the current identifier. Optional `heading`, `size` (`s` or `m`,
+default `m`) and `error` customize content and density without replacing menu layout.
+Landing pages can set `heading` to `Your recent sites`.
+
+On connection it emits bubbling, composed `site-selector-ready` with
+`{ selector, signal }`. Register the host listener before loading the navigation.
+The signal aborts on removal; use it to release listeners, pending requests and dialogs.
+Each reconnection emits a fresh signal.
+
+`site-select` carries `{ value }`; `site-add` requests the host's Add flow.
+Both bubble across the navigation shadow root. The host owns history, permission
+checks, dialogs and routing. No DA application modules are imported by Nexter.

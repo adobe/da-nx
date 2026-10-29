@@ -17,8 +17,7 @@
   font-size: var(--s2-component-s-bold-font-size);
   line-height: var(--s2-component-s-bold-line-height);
   font-weight: var(--s2-component-s-bold-font-weight);
-  letter-spacing: 0.02em;
-  color: var(--nx-picker-section-color, var(--s2-gray-700));
+  color: var(--s2-gray-700);
   text-transform: none;
 }
 
@@ -98,7 +97,7 @@
   border: none;
   border-radius: var(--s2-corner-radius-200);
   background: none;
-  color: var(--nx-picker-item-color, var(--s2-gray-800));
+  color: var(--s2-gray-800);
   font-family: inherit;
   font-size: var(--s2-component-s-regular-font-size);
   line-height: var(--s2-component-s-regular-line-height);
@@ -132,6 +131,28 @@
   font-weight: var(--s2-component-s-regular-font-weight);
 }
 
+nx-popover {
+  max-width: calc(100vw - 2 * var(--s2-spacing-200));
+}
+
+.picker-check-slot {
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--s2-spacing-200);
+}
+
+:host([check-position='start']) .picker-item {
+  justify-content: flex-start;
+
+  .picker-item-label {
+    flex: 1;
+    min-width: 0;
+    text-align: start;
+    overflow-wrap: anywhere;
+  }
+}
+
 .picker-open-in-icon {
   width: 14px;
   height: 14px;
@@ -157,8 +178,8 @@
 
 :host([size="m"]) {
   .picker-section {
-    font-size: var(--nx-picker-section-font-size, var(--s2-component-m-bold-font-size));
-    line-height: var(--nx-picker-section-line-height, var(--s2-component-m-bold-line-height));
+    font-size: var(--s2-component-m-bold-font-size);
+    line-height: var(--s2-component-m-bold-line-height);
     font-weight: var(--s2-component-m-bold-font-weight);
   }
 

@@ -457,10 +457,10 @@ document.querySelector('#field-picker').items = [
         <h3>nx-picker — descriptions and actions</h3>
         <p>Opening focuses the selected item after positioning; arrow keys move focus and Enter selects.</p>
         <p class="sg-note">All picker text uses S/M component typography tokens. Descriptions inherit item size and line height, retaining regular token weight: S on the left, M on the right.</p>
-        <p class="sg-note">Actions expose both <code>::part(item)</code> and <code>::part(action)</code> for independent alignment.</p>
+        <p class="sg-note">Menu layout stays inside the picker. Use <code>check-position="start"</code> for leading checks and <code>--nx-picker-menu-width</code> for width. Sections, descriptions, dividers and Add actions use shared defaults.</p>
         <div class="sg-demo sg-picker-container">
           <nx-picker id="demo-picker-description-s" size="s" placeholder="Small status"></nx-picker>
-          <nx-picker id="demo-picker-description" size="m" placeholder="Medium status"></nx-picker>
+          <nx-picker id="demo-picker-description" size="m" check-position="start" placeholder="Medium status"></nx-picker>
         </div>
         <pre><code>picker.items = [
   { value: 'draft', label: 'Draft', description: 'Not published' },

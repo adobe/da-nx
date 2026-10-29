@@ -9,7 +9,7 @@ const { codeBase } = getConfig();
 const CHEVRON_HREF = `${codeBase}/img/icons/s2-icon-chevronleft-10-n.svg#icon`;
 
 // todo: replace with s2 icon once tools PR is merged
-const CHECKMARK = html`<svg class="picker-check" part="check" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+const CHECKMARK = html`<svg class="picker-check" viewBox="0 0 20 20" fill="none" aria-hidden="true">
   <path d="M4 10l4.5 4.5L16 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
@@ -27,6 +27,7 @@ class NxPicker extends LitElement {
     ignoreFocus: { attribute: true },
     size: { type: String, reflect: true },
     variant: { type: String, reflect: true },
+    checkPosition: { type: String, attribute: 'check-position', reflect: true },
   };
 
   constructor() {
@@ -61,10 +62,13 @@ class NxPicker extends LitElement {
   }
 
   _syncPopoverWidth() {
-    this._popover.style.width = this.variant === 'field'
+    const width = getComputedStyle(this).getPropertyValue('--nx-picker-menu-width').trim();
+    this._popover.style.width = width || (this.variant === 'field'
       ? `${this._button.getBoundingClientRect().width}px`
-      : '';
+      : '');
   }
+
+  focus(options) { this._button?.focus(options); }
 
   show() {
     this._syncPopoverWidth();
@@ -151,9 +155,9 @@ class NxPicker extends LitElement {
 
   _renderItem(item) {
     if (item.section) {
-      return html`<li class="picker-section" part="section" role="presentation"><span>${item.section}</span></li>`;
+      return html`<li class="picker-section" role="presentation"><span>${item.section}</span></li>`;
     }
-    if (item.divider) return html`<li role="separator"><hr class="picker-divider" part="divider"></li>`;
+    if (item.divider) return html`<li role="separator"><hr class="picker-divider"></li>`;
     if (!item.label || item.value === undefined) return nothing;
 
     const selected = item.value === this.value;
@@ -166,15 +170,16 @@ class NxPicker extends LitElement {
           aria-selected=${selected}
           data-value=${item.value}
           class="picker-item ${active ? 'picker-item-active' : ''}"
-          part=${item.action ? 'item action' : 'item'}
           type="button"
           aria-label=${item.ariaLabel ?? (item.description ? `${item.label}, ${item.description}` : item.label)}
           @click=${() => this._handleItemActivated(item)}
           @mouseenter=${() => { this._active = item.value; }}
           @focus=${() => { this._active = item.value; }}
         >
+          ${this.checkPosition === 'start' && !item.action ? html`
+            <span class="picker-check-slot" aria-hidden="true">${selected ? CHECKMARK : nothing}</span>` : nothing}
           ${this._renderSwatch(item.swatch)}
-          <span class="picker-item-label" part="item-label">
+          <span class="picker-item-label">
             ${item.label}
             ${item.description ? html`<span class="picker-item-description">${item.description}</span>` : nothing}
           </span>
@@ -182,7 +187,7 @@ class NxPicker extends LitElement {
             <svg class="picker-open-in-icon" viewBox="0 0 20 20" aria-hidden="true">
               <use href="${item.trailingIcon}#icon"></use>
             </svg>` : nothing}
-          ${selected ? CHECKMARK : nothing}
+          ${selected && this.checkPosition !== 'start' ? CHECKMARK : nothing}
         </button>
       </li>
     `;
@@ -205,7 +210,6 @@ class NxPicker extends LitElement {
         <svg class="picker-chevron" viewBox="0 0 10 10" aria-hidden="true"><use href=${CHEVRON_HREF}></use></svg>
       </button>
       <nx-popover
-        part="menu"
         @toggle=${this._onPopoverToggle}
         @keydown=${this._onKeydown}
         @close=${this._onClose}
