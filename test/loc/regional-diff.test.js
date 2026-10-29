@@ -414,6 +414,24 @@ describe('regionalDiff with content written outside the editor', () => {
     expect(marks(main)).to.deep.equal(['+Logo']);
   });
 
+  it('does not mark pictures of one paragraph that the editor saves one by one', async () => {
+    const IMG_B = 'https://example.com/media/b.png';
+    const incoming = toDoc(`<p><picture><img src="${IMG}" alt="A"></picture><picture><img src="${IMG_B}" alt="B"></picture></p>`);
+    const target = toDoc(`${editorPicture('A')}${editorPicture('B', IMG_B)}`);
+    const main = await regionalDiff(incoming, target, [], []);
+    expect(marks(main)).to.deep.equal([]);
+    expect([...main.querySelectorAll('img')].map((img) => img.alt)).to.deep.equal(['A', 'B']);
+  });
+
+  it('leaves out incoming pictures of one paragraph that the review rejected one by one', async () => {
+    const IMG_B = 'https://example.com/media/b.png';
+    const incoming = toDoc(`<p><picture><img src="${IMG}" alt="A"></picture><picture><img src="${IMG_B}" alt="B"></picture></p>`);
+    const target = toDoc('<p>Eigener Text</p>');
+    const editorHash = (alt, src) => getDiffHash(`<picture><source srcset="${src}"><source media="(min-width: 600px)" srcset="${src}"><img alt="${alt}" loading="lazy" src="${src}"></picture>`);
+    const main = await regionalDiff(incoming, target, [], [editorHash('A', IMG), editorHash('B', IMG_B)]);
+    expect(marks(main)).to.deep.equal(['+Eigener Text']);
+  });
+
   it('still marks blocks with a different text', async () => {
     const incoming = toDoc('<h2 id="old">Old</h2><div class="cards"><div><div>Card</div></div></div>');
     const target = toDoc('<h2>New</h2><div class="cards"><div><div><p>Karte</p></div></div></div>');
