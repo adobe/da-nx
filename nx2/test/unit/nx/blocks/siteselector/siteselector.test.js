@@ -44,6 +44,7 @@ describe('nx-siteselector', () => {
   });
 
   it('renders current site, shared descriptions, heading and Add with no remembered sites', async () => {
+    selector.sites = [];
     document.body.append(selector);
     let picker = await settle();
     expect(picker.placeholder).to.equal('Choose a site');
@@ -65,6 +66,17 @@ describe('nx-siteselector', () => {
     expect(picker.size).to.equal('s');
   });
 
+  it('does not accept input before the host attaches its adapter', async () => {
+    document.body.append(selector);
+    let picker = await settle();
+    expect(picker.inert).to.be.true;
+    expect(picker.placeholder).to.equal('Loading sites...');
+    selector.sites = [];
+    picker = await settle();
+    expect(picker.inert).to.be.false;
+    expect(picker.placeholder).to.equal('Choose a site');
+  });
+
   it('emits selection and Add requests without owning navigation or changing current selection', async () => {
     document.body.append(selector);
     const picker = await settle();
@@ -78,6 +90,7 @@ describe('nx-siteselector', () => {
   });
 
   it('shows host errors and delegates focus to its trigger', async () => {
+    selector.sites = [];
     selector.error = 'Could not load sites.';
     document.body.append(selector);
     const picker = await settle();

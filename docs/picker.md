@@ -172,6 +172,7 @@ Landing pages can set `heading` to `Your recent sites`.
 
 On connection it emits bubbling, composed `site-selector-ready` with
 `{ selector, signal }`. Register the host listener before loading the navigation.
+The trigger stays inert until `sites` is assigned; use an empty array for loaded, empty history.
 The signal aborts on removal; use it to release listeners, pending requests and dialogs.
 Each reconnection emits a fresh signal.
 
