@@ -525,11 +525,36 @@ describe('quick-edit section selection gestures', () => {
     expect(document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')).to.equal(null);
   });
 
-  it('clears the section selection when clicking outside it', () => {
+  it('clears the section selection when clicking outside any section', () => {
+    setSelectedNode({ anchorType: 'section', sectionIndex: 2 });
+    document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(posted).to.deep.include({ type: 'node-select', payload: { node: null } });
+  });
+
+  it('selects a section when clicking its non-editable area', () => {
     setSelectedNode({ anchorType: 'section', sectionIndex: 2 });
     document.querySelector('main').children[0]
       .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    expect(posted).to.deep.include({ type: 'node-select', payload: { node: null } });
+    expect(posted).to.deep.include({
+      type: 'node-select',
+      payload: { node: { anchorType: 'section', sectionIndex: 0 } },
+    });
+  });
+
+  it('does not re-select the already-selected section on click', () => {
+    setSelectedNode({ anchorType: 'section', sectionIndex: 2 });
+    document.querySelector('main').children[2]
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(posted.some((m) => m.type === 'node-select')).to.equal(false);
+  });
+
+  it('keeps block and prose clicks ahead of the section', () => {
+    document.querySelector('[data-block-index="10"]')
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    document.querySelector('[data-prose-index="20"]')
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(posted.filter((m) => m.type === 'node-select').map((m) => m.payload.node))
+      .to.deep.equal([{ anchorType: 'table', proseIndex: 10 }]);
   });
 
   it('posts node-select null on Escape when a section is selected', () => {

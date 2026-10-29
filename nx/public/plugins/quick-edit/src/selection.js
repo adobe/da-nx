@@ -251,6 +251,16 @@ export function setupNodeSelection(ctx) {
       return;
     }
 
+    const section = t.closest?.('[data-section-index]');
+    if (section) {
+      const node = sectionSelectPayload(section);
+      if (!node || isSelectedSection(section)) return;
+      blurActiveEditor();
+      clearHover();
+      activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node } });
+      return;
+    }
+
     if (!currentSelectedNode) return;
     const selectedEl = resolveSelectionElement(currentSelectedNode, document);
     if (selectedEl?.contains?.(t)) return;
