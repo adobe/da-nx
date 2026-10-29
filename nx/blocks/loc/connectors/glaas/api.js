@@ -100,15 +100,16 @@ export async function createTask({ origin, clientid, token, task, service }) {
 }
 
 export async function getTask({
-  origin, clientid, token, workflow, name, service,
+  origin, clientid, token, workflow, name, service, signal,
 }) {
   const apiOrigin = service?.origin ?? origin;
   const opts = getOpts(clientid, token);
   try {
-    const resp = await fetch(`${apiOrigin}/api/l10n/v1.2/tasks/${workflow}/${name}`, opts);
+    const resp = await fetch(`${apiOrigin}/api/l10n/v1.2/tasks/${workflow}/${name}`, { ...opts, signal });
     const json = await resp.json();
     return { status: resp.status, json };
   } catch {
+    signal?.throwIfAborted();
     return { error: 'Error getting task.' };
   }
 }

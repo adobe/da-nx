@@ -1,5 +1,11 @@
 import { expect } from '@esm-bundle/chai';
 import '../../../../nx/blocks/loc/views/options/options.js';
+import {
+  filterLangsBySource,
+  formatLangs,
+  finalizeOptions,
+  getProjectSource,
+} from '../../../../nx/blocks/loc/views/options/utils/utils.js';
 
 // Dynamic-expression import (not a literal string) so @web/dev-server-import-maps
 // does not rewrite this to ...?wds-import-map=0. See test/nx2/utils/api.test.js.
@@ -143,5 +149,188 @@ describe('NxLocOptions - loadConnectorServiceOptions', () => {
     await el.loadConnectorServiceOptions();
 
     expect(el._serviceOptions).to.equal(undefined);
+  });
+});
+
+describe('filterLangsBySource', () => {
+  const lang = (name, location, actions, extra = {}) => {
+    const orderedActions = actions.map((value) => ({ value, name: value }));
+    return { name, location, orderedActions, activeAction: orderedActions[0], ...extra };
+  };
+
+  const langs = () => [
+    lang('Global English', '/global', ['rollout', 'skip']),
+    lang('EU English', '/eu', ['rollout', 'skip']),
+    lang('Dutch', '/nl-nl', ['translate', 'skip'], { source: '/en-nl' }),
+    lang('German', '/de', ['translate', 'rollout', 'skip']),
+  ];
+  const names = (result) => result.map((row) => row.name);
+
+  it('keeps rollout only for the row whose location is the root', () => {
+    const result = filterLangsBySource({ langs: langs(), sourceLocation: '/eu', defaultLocation: '/global' });
+    expect(names(result)).to.deep.equal(['EU English']);
+  });
+
+  it('keeps translate for rows whose source is the root', () => {
+    const result = filterLangsBySource({ langs: langs(), sourceLocation: '/en-nl', defaultLocation: '/global' });
+    expect(names(result)).to.deep.equal(['Dutch']);
+    expect(result[0].orderedActions.map((a) => a.value)).to.deep.equal(['translate', 'skip']);
+  });
+
+  it('uses the default location for rows without a source', () => {
+    const result = filterLangsBySource({ langs: langs(), sourceLocation: '/global', defaultLocation: '/global' });
+    expect(names(result)).to.deep.equal(['Global English', 'German']);
+  });
+
+  it('keeps rollout on a row when translate is kept for it', () => {
+    const result = filterLangsBySource({ langs: langs(), sourceLocation: '/global', defaultLocation: '/global' });
+    const german = result.find((row) => row.name === 'German');
+    expect(german.orderedActions.map((a) => a.value)).to.deep.equal(['translate', 'rollout', 'skip']);
+  });
+
+  it('resets the active action to the first remaining action', () => {
+    const result = filterLangsBySource({
+      langs: [lang('German', '/de', ['translate', 'rollout', 'skip'])],
+      sourceLocation: '/de',
+      defaultLocation: '/global',
+    });
+    expect(result[0].orderedActions.map((a) => a.value)).to.deep.equal(['rollout', 'skip']);
+    expect(result[0].activeAction.value).to.equal('rollout');
+  });
+
+  it('does not mutate the supplied rows', () => {
+    const input = langs();
+    filterLangsBySource({ langs: input, sourceLocation: '/eu', defaultLocation: '/global' });
+    expect(input).to.have.length(4);
+    expect(input[0].orderedActions).to.have.length(2);
+  });
+});
+
+describe('blank locales cells', () => {
+  const rows = () => ([
+    {
+      name: 'Dutch', code: 'nl', source: '/en-nl', location: '/nl-nl', locales: '', actions: 'Translate, Skip',
+    },
+    { name: 'EU Rollout', code: 'en', location: '/eu', locales: '/en-nl, /en-de', actions: 'Rollout, Skip' },
+  ]);
+
+  it('formatLangs turns a blank locales cell into undefined and still splits real ones', () => {
+    const [dutch, eu] = formatLangs(rows(), {});
+    expect(dutch.locales).to.equal(undefined);
+    expect(eu.locales.map((l) => l.code)).to.deep.equal(['/en-nl', '/en-de']);
+  });
+
+  it('finalizeOptions does not throw for a translate row with a blank locales cell', () => {
+    const langs = formatLangs(rows(), {}).filter((lang) => lang.name === 'Dutch');
+    const config = { service: { name: 'Google', envs: { prod: {} } } };
+    const options = { 'translation.service.all.env': 'prod' };
+
+    const { langs: result } = finalizeOptions(config, options, langs, [{ suppliedPath: '/en-nl/a' }]);
+
+    expect(result).to.have.length(1);
+    expect(result[0].action).to.equal('translate');
+    expect(result[0].locales).to.equal(undefined);
+  });
+});
+
+describe('finalizeOptions - project source locations', () => {
+  const config = { service: { name: 'Google', envs: { prod: {} } } };
+  const translateLang = () => ({
+    name: 'Dutch',
+    code: 'nl',
+    location: '/nl',
+    source: '/en-nl',
+    activeAction: { value: 'translate' },
+    locales: [],
+  });
+  const options = (location) => ({
+    'translation.service.all.env': 'prod',
+    'source.language': { name: 'EU English', code: 'en', location },
+  });
+
+  it('skips sync when the URL is under the detected root', () => {
+    const { view } = finalizeOptions(
+      config,
+      options('/eu'),
+      [translateLang()],
+      [{ suppliedPath: '/eu/a' }],
+      ['/eu'],
+    );
+    expect(view).to.equal('translate');
+  });
+
+  it('uses persisted locations over options and langs', () => {
+    const urls = [{ suppliedPath: '/en-nl/a' }];
+    const withRow = finalizeOptions(
+      config,
+      options('/eu'),
+      [translateLang()],
+      urls,
+      ['/eu', '/en-nl'],
+    );
+    const withoutRow = finalizeOptions(
+      config,
+      options('/eu'),
+      [translateLang()],
+      urls,
+      ['/eu'],
+    );
+    expect(withRow.view).to.equal('translate');
+    expect(withoutRow.view).to.equal('sync');
+  });
+
+  it('derives locations from options and langs when none are persisted', () => {
+    const { view } = finalizeOptions(
+      config,
+      options('/eu'),
+      [translateLang()],
+      [{ suppliedPath: '/en-nl/a' }],
+    );
+    expect(view).to.equal('translate');
+  });
+
+  it('does not treat a sibling prefix as inside the source location', () => {
+    const { view } = finalizeOptions(
+      config,
+      options('/en'),
+      [{ ...translateLang(), source: undefined }],
+      [{ suppliedPath: '/en-gb/a' }],
+      ['/en'],
+    );
+    expect(view).to.equal('sync');
+  });
+});
+
+describe('getProjectSource', () => {
+  const langs = [
+    { name: 'Global English', code: 'en', location: '/global' },
+    { name: 'EU English', code: 'en', location: '/eu' },
+  ];
+  const defaultSourceLang = { name: 'Global English', code: 'en', location: '/global' };
+  const persisted = { name: 'EU English', code: 'en', location: '/eu' };
+
+  it('uses the persisted source even if the URLs or config now say otherwise', () => {
+    const project = { detectedSource: persisted, urls: [{ suppliedPath: '/global/a' }] };
+    const result = getProjectSource({ project, enabled: false, langs, defaultSourceLang });
+    expect(result).to.deep.equal({ sourceLang: persisted, detected: true });
+  });
+
+  it('keeps the configured source when validate persisted null', () => {
+    const project = { detectedSource: null, urls: [{ suppliedPath: '/eu/a' }] };
+    const result = getProjectSource({ project, enabled: true, langs, defaultSourceLang });
+    expect(result).to.deep.equal({ sourceLang: defaultSourceLang, detected: false });
+  });
+
+  it('resolves from URLs for projects without a persisted source', () => {
+    const project = { urls: [{ suppliedPath: '/eu/a' }] };
+    const result = getProjectSource({ project, enabled: true, langs, defaultSourceLang });
+    expect(result.detected).to.equal(true);
+    expect(result.sourceLang.location).to.equal('/eu');
+  });
+
+  it('does not detect for projects without a persisted source when the flag is off', () => {
+    const project = { urls: [{ suppliedPath: '/eu/a' }] };
+    const result = getProjectSource({ project, enabled: false, langs, defaultSourceLang });
+    expect(result.detected).to.equal(false);
   });
 });
