@@ -3,25 +3,16 @@ import downloadQueue from '../../utils/downloadQueue.js';
 import fetchWithRetry from '../../utils/fetchWithRetry.js';
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { DA_TRANSLATE } from '../../../../../nx2/utils/utils.js';
-import { getAccessToken, imsAuthHeader } from '../../utils/auth.js';
-import authReady from './auth.js';
+import { imsAuthHeader } from '../../utils/auth.js';
 
-const INTEGRATION_NAME = 'deepl';
+export { isConnected, connect } from './auth.js';
 
 export const dnt = { addDnt };
 
-const STATUS_POLL_MS = 1000;
-const STATUS_POLL_MAX = 30;
-// Carries DeepL's own key. The Authorization header itself is reserved for the IMS token
-// DA_TRANSLATE requires to gate access to the proxy (see imsAuthHeader) - DeepL's
-// credential can't travel there too without colliding with it.
-const CREDENTIAL_HEADER = 'x-deepl-authorization';
+// Tells the proxy which da-etc env to resolve the DeepL key from; it never reaches the browser.
+const ENV_HEADER = 'x-translate-env';
 
-// Only needed to disambiguate a locale's region when DeepL supports more than one variant
-// for that base language (e.g. EN-US vs EN-GB) - which variant is "right" for a given
-// region is a product decision DeepL's language list can't answer on its own. Any base
-// language DeepL supports with a single (or no) variant needs no entry here at all: it's
-// resolved directly from the live supported-language set in toDeepLLanguageCode.
+// Region preferences for base languages with several DeepL variants (e.g. EN-US vs EN-GB).
 const TARGET_VARIANT_HINTS = {
   EN: { GB: 'EN-GB', UK: 'EN-GB' }, // default: EN-US
   ES: {
@@ -100,11 +91,7 @@ export function toDeepLLanguageCode(code, isTarget = true, supportedCodes = null
 }
 
 /**
- * Builds the DA_TRANSLATE proxy origin DeepL requests are routed through, so the browser
- * never calls DeepL's API directly (avoids CORS and keeps a single, DA-controlled network
- * path for the connector). DeepL has no self-hosted/enterprise-instance variant (unlike
- * GlobalLink), so there's no per-site endpoint to resolve here - the proxy derives the
- * free-vs-pro upstream host itself from the key's `:fx` suffix.
+ * Builds the DA_TRANSLATE proxy origin that DeepL requests are routed through.
  * @param {object} service - The flattened per-environment service config.
  * @returns {string|null} The proxy origin, or `null` if org/site are missing.
  */
@@ -115,57 +102,26 @@ function resolveOrigin(service = {}) {
 }
 
 /**
- * Builds the IMS-auth + DeepL-credential headers used for authenticated DeepL API calls
- * routed through the DA_TRANSLATE proxy.
+ * Builds the proxy origin and IMS + env headers. The proxy resolves the DeepL key
+ * server-side, so no credential is sent from the browser.
  * @param {object} service - The service configuration.
- * @returns {Promise<{apiKey: string, origin: string, headers: object}|null>}
+ * @returns {Promise<{error: string}|{origin: string, headers: object}>} Error or context.
  */
 async function getApiContext(service) {
-  const apiKey = await getAccessToken(INTEGRATION_NAME, service);
   const origin = resolveOrigin(service);
-  if (!apiKey || !origin) return null;
+  if (!origin) return { error: 'DeepL is missing an org or site configuration.' };
 
-  const cleanKey = apiKey.trim();
-  const headers = {
-    ...(await imsAuthHeader()),
-    [CREDENTIAL_HEADER]: `DeepL-Auth-Key ${cleanKey}`,
-  };
+  const ims = await imsAuthHeader();
+  if (!ims.Authorization) return { error: 'Your Adobe session has expired. Sign in again to continue.' };
 
-  return { apiKey: cleanKey, origin, headers };
+  return { origin, headers: { ...ims, [ENV_HEADER]: service.env ?? 'prod' } };
 }
 
-/**
- * `fetchWithRetry`'s `onUnauthorized` hook for DeepL. Unlike Trados/Lionbridge/GlobalLink,
- * where the credential is a short-lived OAuth token da-etc can reissue on demand, DeepL's
- * key is the static value entered in the config sheet - re-requesting it from the auth
- * proxy just hands back the same key. A 401 here means the key itself is wrong (or was
- * revoked in DeepL) and only fixing the config sheet resolves it, so there's nothing to
- * recover automatically; this always declines the retry.
- * @returns {Promise<null>} Always `null` - never recoverable.
- */
-async function onUnauthorized() {
-  return null;
-}
-
-/**
- * Builds the `fetchWithRetry` config for a DeepL request: default rate-limit/transient-
- * failure backoff, plus the (non-recoverable) `onUnauthorized` hook.
- * @returns {object} The `fetchWithRetry` config.
- */
-function retryConfig() {
-  return { onUnauthorized };
-}
-
-// Per-origin cache of in-flight/resolved language lookups, so multiple languages in the
-// same translation run share one pair of requests instead of one per language.
+// Per-origin language lookups, shared across languages in one run.
 const languagesCache = new Map();
 
 /**
- * Fetches DeepL's currently supported language codes for document translation via the
- * v3 languages endpoint, per https://developers.deepl.com/docs/languages/using-the-languages-api
- * (the v2 equivalent this replaces is deprecated). Used to resolve locale codes against
- * DeepL's live list rather than a hardcoded one, so newly added languages/variants (e.g. a
- * future EN or ZH sibling) work without a code change.
+ * Fetches DeepL's supported document-translation language codes (v3 languages endpoint).
  * @param {object} apiCtx - The API context from getApiContext.
  * @returns {Promise<{source: Set<string>|null, target: Set<string>|null}>} Upper-cased
  * DeepL language codes usable as a source/target, or `null` per direction on failure.
@@ -175,11 +131,7 @@ async function fetchSupportedLanguages(apiCtx) {
   const v3Origin = origin.replace(/\/v2$/, '/v3');
   try {
     const opts = { headers };
-    const resp = await fetchWithRetry(
-      `${v3Origin}/languages?resource=translate_document`,
-      opts,
-      retryConfig(),
-    );
+    const resp = await fetchWithRetry(`${v3Origin}/languages?resource=translate_document`, opts);
     if (!resp.ok) return { source: null, target: null };
     const json = await resp.json().catch(() => null);
     if (!Array.isArray(json)) return { source: null, target: null };
@@ -200,46 +152,61 @@ async function fetchSupportedLanguages(apiCtx) {
 
 /**
  * Returns DeepL's live supported source/target language codes, memoized per proxy origin.
- * Falls back to `null` per direction (rather than throwing) so callers can fall back to
- * toDeepLLanguageCode's static heuristic when the live list isn't available.
+ * Failed lookups resolve to `null` per direction and are evicted so the next call retries.
  * @param {object} apiCtx - The API context from getApiContext.
  * @returns {Promise<{source: Set<string>|null, target: Set<string>|null}>}
  */
 function getSupportedLanguages(apiCtx) {
   const { origin } = apiCtx;
   if (!languagesCache.has(origin)) {
-    languagesCache.set(origin, fetchSupportedLanguages(apiCtx));
+    const lookup = fetchSupportedLanguages(apiCtx).then((langs) => {
+      if (!langs.source || !langs.target) languagesCache.delete(origin);
+      return langs;
+    });
+    languagesCache.set(origin, lookup);
   }
   return languagesCache.get(origin);
 }
 
+const FORMALITY_VALUES = new Set(['more', 'less', 'prefer_more', 'prefer_less']);
+
 /**
- * Derives a clean file name for DeepL document translation.
- * @param {string} daBasePath - The DA base path.
- * @returns {string} Safe file name.
+ * Normalizes a formality option to a value DeepL accepts.
+ * @param {*} value - Raw option value.
+ * @returns {string|undefined} The value, or undefined for `default`/unknown values.
+ */
+function toFormality(value) {
+  const normalized = value?.toString().trim().toLowerCase();
+  return FORMALITY_VALUES.has(normalized) ? normalized : undefined;
+}
+
+/**
+ * Derives a DeepL upload file name from a DA base path. Underscores are doubled before
+ * folders are flattened to `_`, so distinct paths can't collide. Always ends in `.html`.
+ * @param {string} daBasePath - The DA base path (e.g. "/blog/post-1").
+ * @returns {string} The file name (e.g. "blog_post-1.html").
  */
 function toFileName(daBasePath) {
   const trimmed = (daBasePath || '/document').replace(/^\//, '');
-  const safe = trimmed.replace(/[\\/]/g, '__') || 'document';
-  return /\.[a-z0-9]+$/i.test(safe) ? safe : `${safe}.html`;
+  const flat = trimmed.split(/[\\/]/).map((s) => s.replace(/_/g, '__')).join('_') || 'document';
+  return /\.html$/i.test(flat) ? flat : `${flat}.html`;
 }
 
 /**
  * Uploads a document to DeepL Document Translation API.
- * @param {object} apiCtx - The API context containing origin, apiKey and headers.
+ * @param {object} apiCtx - The API context containing origin and headers.
  * @param {object} conf - Upload parameters.
- * @returns {Promise<{documentId: string, documentKey: string}|null>}
+ * @returns {Promise<{documentId: string, documentKey: string}|{error: string, status: number}>}
  */
 async function uploadDocument(
   apiCtx,
   { content, daBasePath, sourceLang, targetLang, options = {} },
 ) {
-  const { origin, apiKey, headers } = apiCtx;
+  const { origin, headers } = apiCtx;
   const formData = new FormData();
   const fileName = toFileName(daBasePath);
   const blob = new Blob([content], { type: 'text/html' });
 
-  formData.append('auth_key', apiKey);
   formData.append('file', blob, fileName);
   formData.append('target_lang', targetLang);
   if (sourceLang) {
@@ -248,10 +215,10 @@ async function uploadDocument(
   formData.append('tag_handling', 'html');
   formData.append('outline_detection', '0');
 
-  const formality = options['translation.service.custom.option.formality']
+  const formality = toFormality(options['translation.service.custom.option.formality']
     || options.formality
-    || options.service?.formality;
-  if (formality && formality !== 'default') {
+    || options.service?.formality);
+  if (formality) {
     formData.append('formality', formality);
   }
 
@@ -263,11 +230,15 @@ async function uploadDocument(
   }
 
   const opts = { method: 'POST', headers, body: formData };
-  const resp = await fetchWithRetry(`${origin}/document`, opts, retryConfig());
+  const resp = await fetchWithRetry(`${origin}/document`, opts);
 
-  if (!resp.ok) return null;
   const json = await resp.json().catch(() => null);
-  if (!json?.document_id || !json?.document_key) return null;
+  if (!resp.ok) {
+    return { error: json?.message || json?.detail, status: resp.status };
+  }
+  if (!json?.document_id || !json?.document_key) {
+    return { error: 'Missing document id or key in response', status: resp.status };
+  }
 
   return {
     documentId: json.document_id,
@@ -276,69 +247,57 @@ async function uploadDocument(
 }
 
 /**
- * Checks the status of a DeepL document translation.
- * @param {object} apiCtx - The API context.
- * @param {string} documentId - The DeepL document ID.
- * @param {string} documentKey - The DeepL document key.
- * @returns {Promise<{status: string, secondsRemaining?: number, errorMessage?: string}|null>}
+ * POSTs the document key to a DeepL document endpoint and parses the response.
+ * @param {object} params
+ * @param {object} params.apiCtx - The API context.
+ * @param {string} params.path - Endpoint path under the API origin.
+ * @param {string} params.documentKey - The DeepL document key.
+ * @param {'json'|'text'} params.as - Response body format.
+ * @returns {Promise<{json?: object, text?: string, error?: string, status?: number}>}
  */
-async function checkDocumentStatus(apiCtx, documentId, documentKey) {
-  const { origin, apiKey, headers } = apiCtx;
+async function postDocumentKey({ apiCtx, path, documentKey, as }) {
+  const { origin, headers } = apiCtx;
   const formData = new FormData();
-  formData.append('auth_key', apiKey);
   formData.append('document_key', documentKey);
 
-  const opts = { method: 'POST', headers, body: formData };
-  const resp = await fetchWithRetry(
-    `${origin}/document/${documentId}`,
-    opts,
-    retryConfig(),
-  );
+  try {
+    const opts = { method: 'POST', headers, body: formData };
+    const resp = await fetchWithRetry(`${origin}${path}`, opts);
+    if (!resp.ok) return { error: `DeepL returned ${resp.status}`, status: resp.status };
+    if (as === 'text') return { text: await resp.text() };
+    const json = await resp.json().catch(() => null);
+    return json ? { json } : { error: 'Invalid response from DeepL', status: resp.status };
+  } catch (e) {
+    return { error: e.message || 'Request to DeepL failed' };
+  }
+}
 
-  if (!resp.ok) return null;
-  return resp.json().catch(() => null);
+/**
+ * Checks the status of a DeepL document translation.
+ * @param {object} params
+ * @param {object} params.apiCtx - The API context.
+ * @param {string} params.documentId - The DeepL document ID.
+ * @param {string} params.documentKey - The DeepL document key.
+ * @returns {Promise<{json?: {status: string, errorMessage?: string}, error?: string}>}
+ */
+function checkDocumentStatus({ apiCtx, documentId, documentKey }) {
+  return postDocumentKey({
+    apiCtx, path: `/document/${documentId}`, documentKey, as: 'json',
+  });
 }
 
 /**
  * Downloads the completed document from DeepL.
- * @param {object} apiCtx - The API context.
- * @param {string} documentId - The DeepL document ID.
- * @param {string} documentKey - The DeepL document key.
- * @returns {Promise<string|null>} The translated HTML content.
+ * @param {object} params
+ * @param {object} params.apiCtx - The API context.
+ * @param {string} params.documentId - The DeepL document ID.
+ * @param {string} params.documentKey - The DeepL document key.
+ * @returns {Promise<{text?: string, error?: string}>} The translated HTML content.
  */
-async function downloadDocumentResult(apiCtx, documentId, documentKey) {
-  const { origin, apiKey, headers } = apiCtx;
-  const formData = new FormData();
-  formData.append('auth_key', apiKey);
-  formData.append('document_key', documentKey);
-
-  const opts = { method: 'POST', headers, body: formData };
-  const resp = await fetchWithRetry(
-    `${origin}/document/${documentId}/result`,
-    opts,
-    retryConfig(),
-  );
-
-  if (!resp.ok) return null;
-  return resp.text();
-}
-
-/**
- * Checks whether DeepL authentication is ready.
- * @param {object} service - The service config.
- * @returns {Promise<boolean>}
- */
-export function isConnected(service) {
-  return authReady(service);
-}
-
-/**
- * Connects to DeepL.
- * @param {object} service - The service config.
- * @returns {Promise<boolean>}
- */
-export function connect(service) {
-  return authReady(service);
+function downloadDocumentResult({ apiCtx, documentId, documentKey }) {
+  return postDocumentKey({
+    apiCtx, path: `/document/${documentId}/result`, documentKey, as: 'text',
+  });
 }
 
 /**
@@ -356,8 +315,8 @@ export async function sendAllLanguages({
   const { sendMessage, saveState } = actions;
 
   const apiCtx = await getApiContext(service);
-  if (!apiCtx) {
-    sendMessage({ text: 'Not connected to DeepL. Check API key configuration.', type: 'error' });
+  if (apiCtx.error) {
+    sendMessage({ text: apiCtx.error, type: 'error' });
     return;
   }
 
@@ -368,57 +327,65 @@ export async function sendAllLanguages({
   const rawSourceCode = options?.['source.language']?.code || service.sourceLanguage || 'en';
   const sourceLang = toDeepLLanguageCode(rawSourceCode, false, supportedSource);
 
+  const unsupported = [
+    supportedSource && !supportedSource.has(sourceLang) && `source ${rawSourceCode}`,
+    ...langs
+      .filter((l) => supportedTarget
+        && !supportedTarget.has(toDeepLLanguageCode(l.code, true, supportedTarget)))
+      .map((l) => `${l.name} (${l.code})`),
+  ].filter(Boolean);
+  if (unsupported.length) {
+    sendMessage({ text: `DeepL does not support: ${unsupported.join(', ')}.`, type: 'error' });
+    return;
+  }
+
   sendMessage({ text: `Sending ${urls.length} items to DeepL for translation.` });
 
   for (const lang of langs) {
     const targetLang = toDeepLLanguageCode(lang.code, true, supportedTarget);
     lang.translation ??= {};
-    lang.translation.documents = {};
-    let uploadedCount = 0;
+    lang.translation.documents ??= {};
+    const { documents } = lang.translation;
 
     sendMessage({ text: `Uploading documents for ${lang.name} (${targetLang})...` });
 
     const uploadWorker = async (url) => {
+      if (documents[url.daBasePath]?.documentId) return;
+
       const doc = await uploadDocument(apiCtx, {
         content: url.content,
         daBasePath: url.daBasePath,
         sourceLang,
         targetLang,
         options,
-      });
+      }).catch((e) => ({ error: e.message, status: 0 }));
 
-      if (doc) {
-        lang.translation.documents[url.daBasePath] = {
-          documentId: doc.documentId,
-          documentKey: doc.documentKey,
-          status: 'queued',
-        };
-        uploadedCount += 1;
-      } else {
-        lang.translation.documents[url.daBasePath] = {
-          status: 'error',
-        };
-      }
+      documents[url.daBasePath] = doc.documentId
+        ? { documentId: doc.documentId, documentKey: doc.documentKey, status: 'queued' }
+        : { status: 'error', error: doc.error, httpStatus: doc.status };
     };
 
     const queue = new Queue(uploadWorker, 5);
     await Promise.allSettled(urls.map((url) => queue.push(url)));
 
-    lang.translation.sent = uploadedCount;
+    const failed = urls.filter((url) => !documents[url.daBasePath]?.documentId);
+    lang.translation.sent = urls.length - failed.length;
+    lang.translation.status = failed.length ? 'error' : 'created';
 
-    // Submission is complete once documents are queued on DeepL - actual
-    // translation progress is tracked separately by getStatusAll, matching
-    // the other connectors (they don't block sendAllLanguages on completion).
-    lang.translation.status = uploadedCount === urls.length ? 'created' : 'error';
-    if (uploadedCount !== urls.length) {
+    if (failed.length) {
+      const details = failed.map((url) => {
+        const { error, httpStatus } = documents[url.daBasePath] || {};
+        const reason = [httpStatus && `HTTP ${httpStatus}`, error].filter(Boolean).join(' ');
+        return `${url.daBasePath} (${reason || 'upload failed'})`;
+      }).join(', ');
       sendMessage({
-        text: `Uploaded ${uploadedCount}/${urls.length} documents for ${lang.name}.`,
+        text: `Failed to upload ${failed.length}/${urls.length} documents for ${lang.name}: ${details}.`,
         type: 'error',
       });
     }
   }
 
-  sendMessage();
+  if (!langs.some((l) => l.translation.status === 'error')) sendMessage();
   await saveState({ options });
 }
 
@@ -430,65 +397,68 @@ export async function getStatusAll({ service, langs, urls, actions }) {
   const { sendMessage, saveState } = actions;
 
   const apiCtx = await getApiContext(service);
-  if (!apiCtx) {
-    sendMessage({ text: 'Not connected to DeepL.', type: 'error' });
+  if (apiCtx.error) {
+    sendMessage({ text: apiCtx.error, type: 'error' });
     return;
   }
 
-  // 'complete'/'cancelled' are terminal - DeepL keeps reporting documents
-  // as 'done' forever once finished, so without this guard every subsequent
-  // status check would revert 'complete' back to 'translated' (triggering
-  // a re-save) or 'cancelled' back to 'translated' (undoing the cancel).
+  // 'complete'/'cancelled' are terminal; DeepL keeps reporting 'done', which would revert them.
   const activeLangs = langs.filter((l) => !['complete', 'cancelled'].includes(l.translation?.status));
+  const failures = [];
 
   for (const lang of activeLangs) {
     const documents = lang.translation?.documents;
     if (documents) {
-      let doneCount = 0;
-      let errorCount = 0;
-
       const checkWorker = async (url) => {
         const docRecord = documents[url.daBasePath];
-        if (!docRecord?.documentId || !docRecord?.documentKey) {
-          if (docRecord?.status === 'done') doneCount += 1;
-          return;
-        }
+        if (!docRecord?.documentId || !docRecord?.documentKey) return;
+        if (['done', 'error'].includes(docRecord.status)) return;
 
-        if (docRecord.status === 'done') {
-          doneCount += 1;
-          return;
-        }
-
-        const statusRes = await checkDocumentStatus(
-          apiCtx,
-          docRecord.documentId,
-          docRecord.documentKey,
-        );
-        if (statusRes) {
-          docRecord.status = statusRes.status;
-          if (statusRes.status === 'done') {
-            doneCount += 1;
-          } else if (statusRes.status === 'error') {
-            errorCount += 1;
-            docRecord.errorMessage = statusRes.error_message;
-          }
-        }
+        const { documentId, documentKey } = docRecord;
+        const { json } = await checkDocumentStatus({ apiCtx, documentId, documentKey });
+        if (!json) return;
+        docRecord.status = json.status;
+        if (json.status === 'error') docRecord.errorMessage = json.error_message;
       };
 
       const queue = new Queue(checkWorker, 5);
       await Promise.allSettled(urls.map((url) => queue.push(url)));
 
+      const countWithStatus = (status) => urls
+        .filter((url) => documents[url.daBasePath]?.status === status).length;
+      const doneCount = countWithStatus('done');
+      const errorCount = countWithStatus('error');
+
       lang.translation.translated = doneCount;
+
+      const hasStarted = doneCount > 0
+        || Object.values(documents).some((d) => d.status === 'translating');
 
       if (errorCount > 0) {
         lang.translation.status = 'error';
       } else if (doneCount === urls.length) {
         lang.translation.status = 'translated';
+      } else if (hasStarted && ['created', 'in progress'].includes(lang.translation.status)) {
+        lang.translation.status = 'in progress';
+      }
+
+      const failedDocs = urls
+        .map((url) => ({ path: url.daBasePath, ...documents[url.daBasePath] }))
+        .filter((d) => d.status === 'error');
+      if (failedDocs.length) {
+        const details = failedDocs
+          .map((d) => `${d.path} (${d.errorMessage || 'translation failed'})`)
+          .join(', ');
+        failures.push(`${lang.name || lang.code}: ${details}`);
       }
     }
   }
 
-  sendMessage();
+  if (failures.length) {
+    sendMessage({ text: `DeepL failed to translate: ${failures.join('; ')}.`, type: 'error' });
+  } else {
+    sendMessage();
+  }
   await saveState();
 }
 
@@ -500,80 +470,90 @@ export async function getStatusAll({ service, langs, urls, actions }) {
 export async function saveItems({
   org, site, service, lang, urls, saveFn, sendMessage,
 }) {
+  const fail = (url, reason) => {
+    url.status = 'error';
+    url.error = reason;
+  };
+
   const apiCtx = await getApiContext(service);
-  if (!apiCtx) return urls;
+  if (apiCtx.error) {
+    sendMessage?.({ text: apiCtx.error, type: 'error' });
+    urls.forEach((url) => fail(url, apiCtx.error));
+    return urls;
+  }
 
   const documents = lang.translation?.documents || {};
 
   const downloadCallback = async (url) => {
     const docRecord = documents[url.daBasePath];
     if (!docRecord?.documentId || !docRecord?.documentKey) {
-      url.status = 'error';
+      fail(url, 'no DeepL document');
       return;
     }
 
     try {
-      let isDone = docRecord.status === 'done';
-      if (!isDone) {
-        for (let i = 0; i < STATUS_POLL_MAX; i += 1) {
-          const statusRes = await checkDocumentStatus(
-            apiCtx,
-            docRecord.documentId,
-            docRecord.documentKey,
-          );
-          if (statusRes?.status === 'done') {
-            isDone = true;
-            break;
-          }
-          if (statusRes?.status === 'error') break;
-          // eslint-disable-next-line no-await-in-loop
-          await new Promise((resolve) => { setTimeout(resolve, STATUS_POLL_MS); });
-        }
-      }
+      const { documentId, documentKey } = docRecord;
+      const isDone = docRecord.status === 'done'
+        || (await checkDocumentStatus({ apiCtx, documentId, documentKey })).json?.status === 'done';
 
       if (!isDone) {
-        url.status = 'error';
+        fail(url, 'translation not finished');
         return;
       }
 
-      const translatedHtml = await downloadDocumentResult(
-        apiCtx,
-        docRecord.documentId,
-        docRecord.documentKey,
-      );
+      const { text: translatedHtml } = await downloadDocumentResult({
+        apiCtx, documentId, documentKey,
+      });
       if (!translatedHtml) {
-        url.status = 'error';
+        fail(url, 'download failed');
         return;
       }
 
       url.sourceContent = await removeDnt({ org, site, html: translatedHtml, ext: url.ext });
       await saveFn(url);
-      url.status = 'success';
+      if (url.status !== 'success') {
+        fail(url, 'save failed');
+        return;
+      }
       if (sendMessage) {
         const remaining = urls.filter((u) => !u.status).length;
         sendMessage({ text: `${remaining} items left to save for ${lang.name}.` });
       }
-    } catch {
-      url.status = 'error';
+    } catch (e) {
+      fail(url, e.message || 'unexpected error');
     }
   };
 
-  return downloadQueue(urls, downloadCallback);
+  const saved = await downloadQueue(urls, downloadCallback);
+  const failed = saved.filter((u) => u.status === 'error');
+  if (failed.length) {
+    const list = failed.map((u) => `${u.daBasePath} (${u.error || 'unknown error'})`).join('; ');
+    sendMessage?.({
+      text: `Failed to save ${failed.length}/${saved.length} items for ${lang.name}: ${list}.`,
+      type: 'error',
+    });
+  }
+  return saved;
 }
 
+const FINISHED_STATUSES = new Set(['translated', 'complete']);
+
 /**
- * Cancels or skips DeepL translation for a language.
- * DeepL document translation is typically near real-time, so this cleans up project state.
+ * Abandons a language's translation locally. DeepL has no document cancel API,
+ * so in-flight documents keep running (and may bill) but their results are discarded.
  * @param {object} conf - Cancel configuration.
- * @returns {Promise<{ok: boolean}>}
+ * @param {object} conf.lang - Language entry.
+ * @param {Function} [conf.sendMessage] - Host message callback.
+ * @returns {Promise<{ok: boolean, skipped?: boolean}>}
  */
 export async function cancelTranslation({ lang, sendMessage }) {
-  if (sendMessage) {
-    sendMessage({ text: `Resetting DeepL translation state for ${lang.name}.` });
+  if (!lang.translation || FINISHED_STATUSES.has(lang.translation.status)) {
+    return { ok: true, skipped: true };
   }
-  if (lang.translation) {
-    lang.translation.status = 'cancelled';
-    delete lang.translation.documents;
-  }
+  sendMessage?.({
+    text: `DeepL can't cancel in-flight documents. Abandoning ${lang.name}; results will be discarded.`,
+  });
+  lang.translation.status = 'cancelled';
+  delete lang.translation.documents;
   return { ok: true };
 }

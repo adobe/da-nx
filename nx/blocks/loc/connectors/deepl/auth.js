@@ -1,26 +1,25 @@
-import { getAccessToken, imsAccessToken } from '../../utils/auth.js';
+import { checkConnection, hasImsSession, imsAccessToken } from '../../utils/auth.js';
 
 const INTEGRATION_NAME = 'deepl';
 
 /**
- * Checks whether there is a currently valid DeepL credential (fetching one via da-etc if
- * needed) and a valid IMS session (DA_TRANSLATE requires both - every call routes through
- * its proxy).
+ * Checks that an IMS session exists and da-etc reports a working DeepL key. Never triggers
+ * sign-in, so it is safe to call from polling loops.
  * @param {object} service - The service config.
- * @returns {Promise<boolean>}
+ * @returns {Promise<boolean>} Whether the connector is ready.
  */
-export default async function authReady(service) {
-  const [apiKey, imsToken] = await Promise.all([
-    getAccessToken(INTEGRATION_NAME, service),
-    imsAccessToken(),
-  ]);
-  return !!apiKey && !!imsToken;
+export async function isConnected(service) {
+  const { org, site, env = 'prod' } = service || {};
+  if (!org || !site || !(await hasImsSession())) return false;
+  return checkConnection(INTEGRATION_NAME, org, site, env);
 }
 
-export function isConnected(service) {
-  return authReady(service);
-}
-
-export function connect(service) {
-  return authReady(service);
+/**
+ * User-initiated connect: prompts IMS sign-in if needed, then checks the connection.
+ * @param {object} service - The service config.
+ * @returns {Promise<boolean>} Whether the connector is ready.
+ */
+export async function connect(service) {
+  await imsAccessToken();
+  return isConnected(service);
 }
