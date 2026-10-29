@@ -51,6 +51,24 @@ Use `labelOverride` for a fixed trigger label. The dropdown still marks the sele
 picker.labelOverride = "Sort";
 ```
 
+### Multiple selection
+
+Set `multiple` to let users toggle several items. Selection lives in `values` (a new array on each change); `value` is ignored.
+
+```js
+picker.multiple = true;
+picker.values = ["content", "seo"];
+picker.addEventListener("change", (e) => {
+  const { value, values, selected } = e.detail; // value: toggled item
+});
+```
+
+- Clicking or pressing Enter toggles an item; the popover stays open.
+- Items with `action: true` still close the popover and fire `change` with `{ value }` (e.g. a "Clear all" entry; reset `values` in the handler).
+- Trigger shows `labelOverride`, else selected labels joined with `, `, else `placeholder`. No swatch is shown.
+- The listbox gets `aria-multiselectable="true"`.
+- On open, the first selected item is active.
+
 ## Item shapes
 
 Each entry in the `items` array is one of:
@@ -82,6 +100,8 @@ When the selected item has a `swatch`, the trigger shows it before the label too
 | --------------- | --------------------- | ------------------------------------------------------------------------------ |
 | `items`         | `Array`               | List of item descriptors (see shapes above).                                   |
 | `value`         | `String`              | The currently selected item value. Drives the trigger text and checkmark.      |
+| `multiple`      | `Boolean`             | Enables multiple selection. Reflected as an attribute. Default `false`.        |
+| `values`        | `Array`               | Selected item values when `multiple` is set.                                   |
 | `labelOverride` | `String`              | Non-empty text that replaces the selected item text inside the trigger.        |
 | `placeholder`   | `String`              | Trigger fallback shown only when `value` does not match an item.               |
 | `placement`     | `String`              | Default placement when opened: `below` (default), `above`, or `auto`.         |
@@ -131,7 +151,7 @@ keeping the matching regular component font-weight token.
 
 | Event    | Detail      | Description                                                                              |
 | -------- | ----------- | ---------------------------------------------------------------------------------------- |
-| `change` | `{ value }` | Fired when the user clicks or keyboard-confirms an item. `value` matches the item field. |
+| `change` | `{ value }` | Fired when the user clicks or keyboard-confirms an item. `value` matches the item field. In `multiple` mode: `{ value, values, selected }`. |
 
 ## Keyboard behaviour
 

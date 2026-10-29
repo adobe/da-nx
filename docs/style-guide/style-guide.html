@@ -486,6 +486,28 @@ picker.value = 'name:ascending';</code></pre>
       </article>
 
       <article class="sg-example">
+        <h3>nx-picker — multiple</h3>
+        <p>Toggle several items; the popover stays open. Action items close it.</p>
+        <div class="sg-demo sg-picker-container">
+          <nx-picker id="demo-picker-multiple" size="m" multiple placeholder="Select categories"
+            placement="below"></nx-picker>
+        </div>
+        <pre><code>&lt;nx-picker id="multi-picker" size="m" multiple&gt;&lt;/nx-picker&gt;
+
+const picker = document.querySelector('#multi-picker');
+picker.items = [
+  { value: 'content', label: 'Content' },
+  { value: 'seo', label: 'SEO' },
+  { divider: true },
+  { value: 'clear', label: 'Clear all', action: true },
+];
+picker.values = ['content'];
+picker.addEventListener('change', (e) => {
+  if (e.detail.value === 'clear') picker.values = [];
+});</code></pre>
+      </article>
+
+      <article class="sg-example">
         <h3>nx-picker — swatches</h3>
         <div class="sg-demo sg-picker-container">
           <nx-picker id="demo-picker-swatch" placement="below"></nx-picker>
@@ -778,6 +800,18 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
       { value: 'name:descending', label: 'Name (Z-A)' },
     ];
     fixedLabelPicker.value = 'name:ascending';
+    const multiplePicker = document.querySelector('#demo-picker-multiple');
+    multiplePicker.items = [
+      { value: 'content', label: 'Content' },
+      { value: 'seo', label: 'SEO' },
+      { value: 'review', label: 'Review' },
+      { divider: true },
+      { value: 'clear', label: 'Clear all', action: true },
+    ];
+    multiplePicker.values = ['content'];
+    multiplePicker.addEventListener('change', (e) => {
+      if (e.detail.value === 'clear') multiplePicker.values = [];
+    });
     const pickerField = document.querySelector('#demo-picker-field-m');
     pickerField.items = pickerItems;
 

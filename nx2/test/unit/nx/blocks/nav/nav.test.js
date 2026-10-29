@@ -379,8 +379,9 @@ describe('nav site navigation', () => {
     const cluster = nav.shadowRoot.querySelector('.brand-cluster');
     const siteNav = cluster.querySelector('.site-nav');
     const actions = nav.shadowRoot.querySelector('.action-area');
-    expect(cluster.firstElementChild).to.equal(nav._brand);
-    expect(nav._brand.nextElementSibling).to.equal(siteNav);
+    const brandSlot = cluster.querySelector('slot[name="brand"]');
+    expect(brandSlot.firstElementChild).to.equal(nav._brand);
+    expect(brandSlot.nextElementSibling).to.equal(siteNav);
     expect(siteNav.querySelector('ul')).to.equal(nav._siteNav);
     expect(siteNav.querySelectorAll('nx-nav-test')).to.have.length(2);
     expect(siteNav.querySelector('[data-test="authored"]')).to.exist;
