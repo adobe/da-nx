@@ -35,6 +35,17 @@ p {
   font-weight: var(--s2-component-s-regular-font-weight);
 }
 
+button {
+  margin-inline-start: var(--s2-spacing-100);
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 @media (width < 600px) {
   :host {
     max-width: 40vw;
