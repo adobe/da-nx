@@ -27,13 +27,6 @@
   }
 }
 
-.prompts-popover {
-  max-width: 720px;
-  box-sizing: border-box;
-  top: auto;
-  padding: 0;
-}
-
 .chat-header {
   display: flex;
   align-items: center;
@@ -863,15 +856,5 @@
 
   100% {
     background-position: 0% 50%;
-  }
-}
-
-@keyframes chat-voice-pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.4;
   }
 }

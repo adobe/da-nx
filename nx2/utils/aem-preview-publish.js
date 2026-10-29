@@ -22,7 +22,7 @@ async function fetchSidekickHosts(org, site) {
   }
 }
 
-async function getAemHrefs(fullPath) {
+export async function getAemHrefs(fullPath) {
   const [org, site, ...pathParts] = fullPath.slice(1).split('/');
   const pathname = `/${pathParts.join('/')}`;
   const { host, liveHost, previewHost: preview } = await fetchSidekickHosts(org, site);

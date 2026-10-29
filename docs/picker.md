@@ -85,6 +85,32 @@ picker.addEventListener("change", (e) => {
 - The listbox gets `aria-multiselectable="true"`.
 - On open, the first selected item is active.
 
+### Fixed trigger label
+
+Use `labelOverride` for a fixed trigger label. The dropdown still marks the selected item.
+
+```js
+picker.labelOverride = "Sort";
+```
+
+### Multiple selection
+
+Set `multiple` to let users toggle several items. Selection lives in `values` (a new array on each change); `value` is ignored.
+
+```js
+picker.multiple = true;
+picker.values = ["content", "seo"];
+picker.addEventListener("change", (e) => {
+  const { value, values, selected } = e.detail; // value: toggled item
+});
+```
+
+- Clicking or pressing Enter toggles an item; the popover stays open.
+- Items with `action: true` still close the popover and fire `change` with `{ value }` (e.g. a "Clear all" entry; reset `values` in the handler).
+- Trigger shows `labelOverride`, else selected labels joined with `, `, else `placeholder`. No swatch is shown.
+- The listbox gets `aria-multiselectable="true"`.
+- On open, the first selected item is active.
+
 ## Item shapes
 
 Each entry in the `items` array is one of:
