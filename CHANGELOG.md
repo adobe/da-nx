@@ -1,3 +1,10 @@
+## [1.27.3](https://github.com/adobe/da-nx/compare/v1.27.2...v1.27.3) (2026-10-29)
+
+
+### Bug Fixes
+
+* improve card ([#929](https://github.com/adobe/da-nx/issues/929)) ([cc6052f](https://github.com/adobe/da-nx/commit/cc6052f014be0eb8c684970a8ddd51a6908c8462))
+
 ## [1.27.2](https://github.com/adobe/da-nx/compare/v1.27.1...v1.27.2) (2026-10-29)
 
 
