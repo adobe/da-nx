@@ -3,13 +3,12 @@
  * @module shell
  */
 
-import { IMS_ORIGIN, loadIms } from '../../utils/ims.js';
+import { IMS_ORIGIN, loadIms } from '../../../nx2/utils/ims.js';
+import { getConfig, loadStyle } from '../../../nx2/scripts/nx.js';
 import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { getLivePreviewUrl, livePreviewLogin } from '../../utils/utils.js';
 
 const IMS_DETAILS = await loadIms();
-
-await import('../../public/sl/components.js');
 
 const TRUSTED_ORGS = ['adobe'];
 // Trusted apps keyed by `org/repo`.
@@ -69,14 +68,16 @@ function getUrl(usePreview) {
  * @param {Object} event - Load event object
  * @param {HTMLIFrameElement} event.target - The loaded iframe element
  */
-function handleLoad({ target }) {
+function handleLoad({ target }, panels) {
   const channel = new MessageChannel();
   const { port1, port2 } = channel;
+  const connection = panels?.connect(port1);
 
   port1.onmessage = (e) => {
     if (e.data.action === 'setTitle') {
       document.title = e.data.details;
     }
+    connection?.onMessage(e.data);
   };
 
   const message = {
@@ -84,22 +85,33 @@ function handleLoad({ target }) {
     token: IMS_DETAILS.accessToken?.token,
     email: IMS_DETAILS.email,
     context: getParts(),
+    ...(panels && { capabilities: panels.capabilities }),
   };
 
-  setTimeout(() => {
+  const timer = setTimeout(() => {
     target.contentWindow.postMessage(message, '*', [port2]);
   }, 750);
+  return () => {
+    clearTimeout(timer);
+    connection?.destroy();
+    port1.close();
+    port2.close();
+  };
 }
 
-async function createIframe(el) {
+async function createIframe(el, panels) {
   if (!document.querySelector('header')) document.body.classList.add('no-shell');
   const { org, repo, ref } = getParts();
   // Prefer authenticated preview.da.live; fall back to public aem.live when the
   // user is anonymous or the login handshake fails.
-  const usePreview = ref !== 'local' && await livePreviewLogin(org, repo, ref);
+  const usePreview = ref !== 'local' && await livePreviewLogin(org, repo, ref, IMS_DETAILS);
   const iframe = document.createElement('iframe');
   iframe.setAttribute('allow', 'clipboard-write *');
-  iframe.addEventListener('load', handleLoad);
+  let disconnect;
+  iframe.addEventListener('load', (event) => {
+    disconnect?.();
+    disconnect = handleLoad(event, panels);
+  });
   iframe.src = getUrl(usePreview);
   el.append(iframe);
 }
@@ -120,7 +132,12 @@ function trustApp(org, repo, ref) {
   localStorage.setItem('trustedApps', JSON.stringify(trustedApps));
 }
 
-function showDisclaimer(el) {
+async function showDisclaimer(el, panels) {
+  if (getConfig().nxBase) {
+    await import('../../../nx2/public/sl/components.js');
+  } else {
+    await import('../../public/sl/components.js');
+  }
   const { org, repo, ref, path } = getParts();
   const appName = path.split('/').pop();
   const devWarning = ref !== 'main'
@@ -148,7 +165,7 @@ function showDisclaimer(el) {
   document.body.appendChild(disclaimer);
   disclaimer.querySelector('sl-button[name="continue"]').addEventListener('click', () => {
     trustApp(org, repo, ref);
-    createIframe(el);
+    createIframe(el, panels);
     disclaimer.remove();
   });
   disclaimer.querySelector('sl-button[name="cancel"]').addEventListener('click', () => {
@@ -165,12 +182,21 @@ function showDisclaimer(el) {
  * Initializes the shell by showing a disclaimer, and if approved, creating an iframe
  * @param {HTMLElement} el - The container element for the iframe
  */
-export default function init(el) {
+export default async function init(el) {
   const { org, repo, ref } = getParts();
+  let panels;
+  if (getConfig().nxBase) {
+    const style = await loadStyle(import.meta.url);
+    if (!document.adoptedStyleSheets.includes(style)) {
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
+    }
+    const { setupPanels } = await import('./panels.js');
+    panels = await setupPanels({ org, repo });
+  }
 
   if (isAppTrusted(org, repo, ref)) {
-    createIframe(el);
+    await createIframe(el, panels);
   } else {
-    showDisclaimer(el);
+    await showDisclaimer(el, panels);
   }
 }
