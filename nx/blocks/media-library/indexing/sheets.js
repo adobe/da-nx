@@ -32,6 +32,7 @@ export function buildMediaSheet(flatIndex) {
       modifiedTimestamp: (entry.modifiedTimestamp !== null && entry.modifiedTimestamp !== undefined && entry.modifiedTimestamp !== '')
         ? normalizeTimestamp(entry.modifiedTimestamp)
         : null,
+      ...(entry.stage && { stage: entry.stage }),
     };
   });
 }
