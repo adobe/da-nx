@@ -32,10 +32,12 @@ describe('formatRelativeDateTime', () => {
     // A fixed past date well outside the today/yesterday window. The exact
     // day/month order is locale-dependent (e.g. "17 Jun" vs "Jun 17"), so assert
     // on the parts rather than a fixed string.
-    const out = formatRelativeDateTime(new Date('2024-06-17T16:02:00'));
+    const date = new Date('2024-06-17T16:02:00');
+    const month = date.toLocaleDateString([], { month: 'short' });
+    const out = formatRelativeDateTime(date);
     expect(out).to.match(/^(?!Today|Yesterday)/);
     expect(out).to.contain('16:02');
-    expect(out).to.contain('Jun');
+    expect(out).to.contain(month);
     expect(out).to.contain('17');
   });
 
