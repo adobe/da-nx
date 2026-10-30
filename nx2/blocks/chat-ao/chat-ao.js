@@ -162,6 +162,11 @@ export default class NxChatAo extends LitElement {
     this._controller?.destroy();
     this._controller = new Controller({
       onUpdate: (state) => this._onControllerUpdate(state),
+      onTurnCompleted: (detail) => {
+        this.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, {
+          bubbles: true, composed: true, detail,
+        }));
+      },
       ...(this._altHarness ? { activationKey: this._activationKey } : {}),
     });
     if (this._context) this._controller.setContext(this._context);
