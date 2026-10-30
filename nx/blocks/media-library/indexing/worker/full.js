@@ -20,8 +20,10 @@ import { buildUsageMap } from './parse.js';
 import {
   buildCanonicalTimestampMap,
   buildPageMediaFromMedialog,
+  isSourcePageEntry,
   mergeMedialogChunkIntoMap,
   pageMediaToEntryMap,
+  processSourceMediaUpdates,
   removeOrOrphanMedia,
 } from '../medialog.js';
 import {
@@ -202,6 +204,7 @@ export async function buildFullIndex(
         contentType: m.contentType,
         modifiedTimestamp: m.modifiedTimestamp,
         originalPath: m.originalPath,
+        stage: m.stage,
       });
     });
     totalMedialogEntries += chunk.length;
@@ -359,6 +362,10 @@ export async function buildFullIndex(
   }
 
   const canonicalTimestamps = buildCanonicalTimestampMap(medialogEntries);
+  const sourcePages = new Set(medialogEntries.filter(isSourcePageEntry)
+    .map((m) => normalizePath(m.resourcePath)));
+  const sourcePageMedialog = medialogEntries
+    .filter((m) => m.resourcePath && sourcePages.has(normalizePath(m.resourcePath)));
 
   const { pageMediaMap, standaloneBuffer } = buildPageMediaFromMedialog(
     medialogEntries,
@@ -558,6 +565,14 @@ export async function buildFullIndex(
 
   // Release image-to-pages map after truthing (~5-10MB)
   imageToPages.clear();
+
+  processSourceMediaUpdates({
+    index,
+    medialog: sourcePageMedialog,
+    org,
+    repo,
+    canonicalTimestamps,
+  });
 
   const files = Array.from(filesByPath.values());
   // Release filesByPath after converting to array (~2-5MB)
