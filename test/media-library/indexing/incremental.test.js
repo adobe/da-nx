@@ -10,14 +10,11 @@ const noop = () => {};
 const json = (body) => new Response(JSON.stringify(body), { status: 200 });
 
 describe('buildIncrementalIndex', () => {
-  let originalFetch;
-  let requests;
+  let fetchStub;
 
-  function stubFetch({ index, auditlog, medialog }) {
-    requests = [];
-    globalThis.fetch = sinon.stub().callsFake(async (url, opts = {}) => {
+  function stubFetch({ index, auditlog }) {
+    fetchStub = sinon.stub(globalThis, 'fetch').callsFake(async (url, opts = {}) => {
       const method = opts.method || 'GET';
-      requests.push({ method, url: String(url) });
       const { pathname } = new URL(url);
       if (method !== 'GET') return new Response('', { status: 201 });
       if (String(url) === `${FOLDER}/index-meta.json`) {
@@ -29,17 +26,12 @@ describe('buildIncrementalIndex', () => {
       }
       if (String(url) === `${FOLDER}/index-000.json`) return json({ media: { data: index } });
       if (pathname.startsWith('/log/')) return json({ entries: auditlog });
-      if (pathname.startsWith('/medialog/')) return json({ entries: medialog });
+      if (pathname.startsWith('/medialog/')) return json({ entries: [] });
       return new Response('', { status: 404 });
     });
   }
 
-  beforeEach(() => {
-    originalFetch = globalThis.fetch;
-  });
-
   afterEach(() => {
-    globalThis.fetch = originalFetch;
     sinon.restore();
   });
 
@@ -56,13 +48,12 @@ describe('buildIncrementalIndex', () => {
       auditlog: [{
         path: '/a', route: 'preview', method: 'DELETE', timestamp: 2000,
       }],
-      medialog: [],
     });
 
     const index = await buildIncrementalIndex('/org/site', 'org', 'site', 'main', noop, noop, null, context);
 
     expect(index.filter((row) => row.doc === '/a.md')).to.have.lengthOf(0);
-    expect(requests.some(({ method, url }) => method === 'POST' && url === `${FOLDER}/index-meta.json`)).to.equal(true);
+    expect(fetchStub.calledWith(`${FOLDER}/index-meta.json`, sinon.match({ method: 'POST' }))).to.equal(true);
   });
 
   it('applies a PDF unpreview when it is the only activity since the last build', async () => {
@@ -78,11 +69,10 @@ describe('buildIncrementalIndex', () => {
       auditlog: [{
         path: '/docs/a.pdf', route: 'preview', method: 'DELETE', timestamp: 2000,
       }],
-      medialog: [],
     });
 
     const index = await buildIncrementalIndex('/org/site', 'org', 'site', 'main', noop, noop, null, context);
 
-    expect(index.filter((row) => row.hash === '/docs/a.pdf')).to.have.lengthOf(0);
+    expect(index).to.have.lengthOf(0);
   });
 });
