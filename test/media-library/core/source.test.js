@@ -186,7 +186,8 @@ describe('media library source access', () => {
       const { data } = await loadMediaSheet(`/${org}/site`);
 
       expect(data).to.have.length(1);
-      expect(data[0].url).to.equal(url);
+      expect(data[0].doc).to.equal('/index');
+      expect(new URL(data[0].url).pathname).to.equal('/media_1.png');
     });
   });
 

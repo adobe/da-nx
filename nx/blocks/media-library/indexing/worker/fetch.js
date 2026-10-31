@@ -5,6 +5,12 @@
  * relying on window, localStorage, or global state.
  */
 
+import { AEM_API_ORIGIN } from '../../core/constants.js';
+import { getSourceUrl, toSaveOptions } from '../../core/source-api.js';
+import { createPacedFetch } from '../../core/rate-limit.js';
+
+const aemApiFetch = createPacedFetch({ fetchFn: (url, opts) => fetch(url, opts) });
+
 // Counter for generating unique request IDs for token refresh messages
 let tokenRefreshRequestId = 0;
 
@@ -85,6 +91,7 @@ export function etcFetch(href, api, daEtcOrigin, options) {
  */
 export async function workerDaFetch(url, imsToken, opts = {}) {
   opts.headers ||= {};
+  const isAemApi = url.startsWith(AEM_API_ORIGIN);
 
   if (imsToken) {
     opts.headers.Authorization = `Bearer ${imsToken}`;
@@ -98,7 +105,7 @@ export async function workerDaFetch(url, imsToken, opts = {}) {
 
   let resp;
   try {
-    resp = await fetch(url, opts);
+    resp = await (isAemApi ? aemApiFetch(url, opts) : fetch(url, opts));
   } catch (err) {
     resp = new Response(null, { status: 500, statusText: err.message });
   }
@@ -138,12 +145,12 @@ export async function workerFetchWithAuth(url, imsToken, opts = {}) {
 }
 
 /**
- * Create sheet FormData for DA storage
+ * Create sheet JSON for source storage
  * Same as createSheet from admin-api.js
  *
  * @param {Array} data - Sheet data
  * @param {string} type - Sheet type (default: 'sheet')
- * @returns {FormData}
+ * @returns {string}
  */
 export function createSheet(data, type = 'sheet') {
   const sheetMeta = {
@@ -153,18 +160,15 @@ export function createSheet(data, type = 'sheet') {
     data,
     ':type': type,
   };
-  const blob = new Blob([JSON.stringify(sheetMeta, null, 2)], { type: 'application/json' });
-  const formData = new FormData();
-  formData.append('data', blob);
-  return formData;
+  return JSON.stringify(sheetMeta, null, 2);
 }
 
 /**
- * Create multi-sheet FormData for DA storage
+ * Create multi-sheet JSON for source storage
  * Same as createMultiSheet from admin-api.js
  *
  * @param {object} sheets - Object with sheet names as keys, data arrays as values
- * @returns {FormData}
+ * @returns {string}
  */
 export function createMultiSheet(sheets) {
   const sheetNames = Object.keys(sheets);
@@ -184,10 +188,7 @@ export function createMultiSheet(sheets) {
     };
   });
 
-  const blob = new Blob([JSON.stringify(multiSheetData, null, 2)], { type: 'application/json' });
-  const formData = new FormData();
-  formData.append('data', blob);
-  return formData;
+  return JSON.stringify(multiSheetData, null, 2);
 }
 
 /**
@@ -201,7 +202,7 @@ export function createMultiSheet(sheets) {
  */
 export async function loadSheet(path, sourceOrigin, imsToken) {
   try {
-    const resp = await workerDaFetch(`${sourceOrigin}/source${path}`, imsToken);
+    const resp = await workerDaFetch(getSourceUrl({ sourceOrigin, path }), imsToken);
 
     if (resp.ok) {
       const data = await resp.json();
@@ -224,11 +225,12 @@ export async function loadSheet(path, sourceOrigin, imsToken) {
  * @returns {Promise<Response>}
  */
 export async function saveSheet(data, path, sourceOrigin, imsToken) {
-  const formData = createSheet(data);
-  return workerDaFetch(`${sourceOrigin}/source${path}`, imsToken, {
-    method: 'PUT',
-    body: formData,
-  });
+  const json = createSheet(data);
+  return workerDaFetch(
+    getSourceUrl({ sourceOrigin, path }),
+    imsToken,
+    toSaveOptions({ sourceOrigin, json, method: 'PUT', formData: true }),
+  );
 }
 
 /**
@@ -242,7 +244,7 @@ export async function saveSheet(data, path, sourceOrigin, imsToken) {
  */
 export async function loadSheetMeta(path, sourceOrigin, imsToken) {
   try {
-    const resp = await workerDaFetch(`${sourceOrigin}/source${path}`, imsToken);
+    const resp = await workerDaFetch(getSourceUrl({ sourceOrigin, path }), imsToken);
     if (resp.ok) {
       const data = await resp.json();
       const metaData = data.data || data || null;
@@ -269,12 +271,7 @@ export async function loadSheetMeta(path, sourceOrigin, imsToken) {
  */
 export async function saveSheetMeta(meta, path, sourceOrigin, imsToken) {
   const metaArray = Array.isArray(meta) ? meta : [meta];
-  const formData = createSheet(metaArray);
-
-  return workerDaFetch(`${sourceOrigin}/source${path}`, imsToken, {
-    method: 'PUT',
-    body: formData,
-  });
+  return saveSheet(metaArray, path, sourceOrigin, imsToken);
 }
 
 const DEFAULT_TIMEFRAME_DAYS = 3650; /* 10 years */
@@ -821,11 +818,12 @@ export async function saveIndexChunks(
       const chunkPath = `${basePath}/${chunkFileName}`;
       const sheets = { media: chunk };
 
-      const formData = await createMultiSheet(sheets);
-      return workerDaFetch(`${sourceOrigin}/source${chunkPath}`, imsToken, {
-        method: 'PUT',
-        body: formData,
-      });
+      const json = createMultiSheet(sheets);
+      return workerDaFetch(
+        getSourceUrl({ sourceOrigin, path: chunkPath }),
+        imsToken,
+        toSaveOptions({ sourceOrigin, json, method: 'PUT', formData: true }),
+      );
     });
 
     const responses = await Promise.all(batchPromises);
@@ -860,11 +858,12 @@ export async function saveIndexChunks(
  * @returns {Promise<Response>}
  */
 export async function saveIndexMeta(meta, path, sourceOrigin, imsToken) {
-  const formData = await createSheet([meta]);
-  return workerDaFetch(`${sourceOrigin}/source${path}`, imsToken, {
-    method: 'POST',
-    body: formData,
-  });
+  const json = createSheet([meta]);
+  return workerDaFetch(
+    getSourceUrl({ sourceOrigin, path }),
+    imsToken,
+    toSaveOptions({ sourceOrigin, json, method: 'POST', formData: true }),
+  );
 }
 
 /**
@@ -881,7 +880,7 @@ export async function loadMultiSheet(path, sheetName, sourceOrigin, imsToken, op
   const { allowMissing = false } = options;
 
   try {
-    const resp = await workerDaFetch(`${sourceOrigin}/source${path}`, imsToken);
+    const resp = await workerDaFetch(getSourceUrl({ sourceOrigin, path }), imsToken);
 
     if (resp.ok) {
       const data = await resp.json();
