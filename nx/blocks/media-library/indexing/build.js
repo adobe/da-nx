@@ -70,7 +70,7 @@ async function runWorkerBuild(
 
   // Resolve origins on main thread (has access to localStorage) and pass resolved values
   // Worker doesn't have localStorage access, so resolve here instead of in worker
-  const daOrigin = resolveDaOrigin(window.location);
+  const sourceOrigin = resolveDaOrigin(window.location);
   const daEtcOrigin = resolveDaEtcOrigin(window.location);
   const aemOrigin = resolveAemOrigin();
   const perfEnabled = isPerfEnabled();
@@ -203,7 +203,7 @@ async function runWorkerBuild(
     ref,
     imsToken,
     siteToken,
-    daOrigin,
+    sourceOrigin,
     daEtcOrigin,
     aemOrigin,
     isPerfEnabled: perfEnabled,

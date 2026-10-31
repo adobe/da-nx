@@ -195,13 +195,13 @@ export function createMultiSheet(sheets) {
  * Worker-safe version of loadSheet from admin-api.js
  *
  * @param {string} path - Path to sheet
- * @param {string} daOrigin - DA origin (e.g., 'https://admin.da.live')
+ * @param {string} sourceOrigin - Source origin (DA admin, or the AEM API for Helix 6 sites)
  * @param {string} imsToken - IMS access token
  * @returns {Promise<Array>}
  */
-export async function loadSheet(path, daOrigin, imsToken) {
+export async function loadSheet(path, sourceOrigin, imsToken) {
   try {
-    const resp = await workerDaFetch(`${daOrigin}/source${path}`, imsToken);
+    const resp = await workerDaFetch(`${sourceOrigin}/source${path}`, imsToken);
 
     if (resp.ok) {
       const data = await resp.json();
@@ -219,13 +219,13 @@ export async function loadSheet(path, daOrigin, imsToken) {
  *
  * @param {Array} data - Sheet data
  * @param {string} path - Path to save to
- * @param {string} daOrigin - DA origin
+ * @param {string} sourceOrigin - Source origin (DA admin, or the AEM API for Helix 6 sites)
  * @param {string} imsToken - IMS access token
  * @returns {Promise<Response>}
  */
-export async function saveSheet(data, path, daOrigin, imsToken) {
+export async function saveSheet(data, path, sourceOrigin, imsToken) {
   const formData = createSheet(data);
-  return workerDaFetch(`${daOrigin}/source${path}`, imsToken, {
+  return workerDaFetch(`${sourceOrigin}/source${path}`, imsToken, {
     method: 'PUT',
     body: formData,
   });
@@ -236,13 +236,13 @@ export async function saveSheet(data, path, daOrigin, imsToken) {
  * Worker-safe version of loadSheetMeta from admin-api.js
  *
  * @param {string} path - Path to meta file
- * @param {string} daOrigin - DA origin
+ * @param {string} sourceOrigin - Source origin (DA admin, or the AEM API for Helix 6 sites)
  * @param {string} imsToken - IMS access token
  * @returns {Promise<object|null>}
  */
-export async function loadSheetMeta(path, daOrigin, imsToken) {
+export async function loadSheetMeta(path, sourceOrigin, imsToken) {
   try {
-    const resp = await workerDaFetch(`${daOrigin}/source${path}`, imsToken);
+    const resp = await workerDaFetch(`${sourceOrigin}/source${path}`, imsToken);
     if (resp.ok) {
       const data = await resp.json();
       const metaData = data.data || data || null;
@@ -263,15 +263,15 @@ export async function loadSheetMeta(path, daOrigin, imsToken) {
  *
  * @param {object} meta - Metadata object
  * @param {string} path - Path to save to
- * @param {string} daOrigin - DA origin
+ * @param {string} sourceOrigin - Source origin (DA admin, or the AEM API for Helix 6 sites)
  * @param {string} imsToken - IMS access token
  * @returns {Promise<Response>}
  */
-export async function saveSheetMeta(meta, path, daOrigin, imsToken) {
+export async function saveSheetMeta(meta, path, sourceOrigin, imsToken) {
   const metaArray = Array.isArray(meta) ? meta : [meta];
   const formData = createSheet(metaArray);
 
-  return workerDaFetch(`${daOrigin}/source${path}`, imsToken, {
+  return workerDaFetch(`${sourceOrigin}/source${path}`, imsToken, {
     method: 'PUT',
     body: formData,
   });
@@ -790,7 +790,7 @@ export function getAdaptiveChunkSize(totalEntries) {
  * @param {string} basePath - Base path without filename (e.g., '/site/.da/media-insights')
  * @param {Array} mediaData - Media sheet data (must be pre-sorted)
  * @param {number} chunkSize - Entries per chunk (from getAdaptiveChunkSize)
- * @param {string} daOrigin - DA origin (e.g., 'https://admin.da.live')
+ * @param {string} sourceOrigin - Source origin (DA admin, or the AEM API for Helix 6 sites)
  * @param {string} imsToken - IMS access token
  * @param {string} indexFilesChunkPrefix - Chunk filename prefix (e.g., 'index-')
  * @returns {Promise<number>} Number of chunks created
@@ -799,7 +799,7 @@ export async function saveIndexChunks(
   basePath,
   mediaData,
   chunkSize,
-  daOrigin,
+  sourceOrigin,
   imsToken,
   indexFilesChunkPrefix,
 ) {
@@ -822,7 +822,7 @@ export async function saveIndexChunks(
       const sheets = { media: chunk };
 
       const formData = await createMultiSheet(sheets);
-      return workerDaFetch(`${daOrigin}/source${chunkPath}`, imsToken, {
+      return workerDaFetch(`${sourceOrigin}/source${chunkPath}`, imsToken, {
         method: 'PUT',
         body: formData,
       });
@@ -855,13 +855,13 @@ export async function saveIndexChunks(
  *
  * @param {object} meta - Metadata object containing indexType, timestamp, chunkCount, etc.
  * @param {string} path - Full path to meta file (e.g., '/site/.da/media-insights/index-meta.json')
- * @param {string} daOrigin - DA origin (e.g., 'https://admin.da.live')
+ * @param {string} sourceOrigin - Source origin (DA admin, or the AEM API for Helix 6 sites)
  * @param {string} imsToken - IMS access token
  * @returns {Promise<Response>}
  */
-export async function saveIndexMeta(meta, path, daOrigin, imsToken) {
+export async function saveIndexMeta(meta, path, sourceOrigin, imsToken) {
   const formData = await createSheet([meta]);
-  return workerDaFetch(`${daOrigin}/source${path}`, imsToken, {
+  return workerDaFetch(`${sourceOrigin}/source${path}`, imsToken, {
     method: 'POST',
     body: formData,
   });
@@ -872,16 +872,16 @@ export async function saveIndexMeta(meta, path, daOrigin, imsToken) {
  *
  * @param {string} path - Full path to multi-sheet file
  * @param {string} sheetName - Sheet name to load
- * @param {string} daOrigin - DA origin (e.g., https://admin.da.live)
+ * @param {string} sourceOrigin - Source origin (DA admin, or the AEM API for Helix 6 sites)
  * @param {string} imsToken - IMS access token
  * @param {object} options - Options { allowMissing: boolean }
  * @returns {Promise<Array>} Sheet data array
  */
-export async function loadMultiSheet(path, sheetName, daOrigin, imsToken, options = {}) {
+export async function loadMultiSheet(path, sheetName, sourceOrigin, imsToken, options = {}) {
   const { allowMissing = false } = options;
 
   try {
-    const resp = await workerDaFetch(`${daOrigin}/source${path}`, imsToken);
+    const resp = await workerDaFetch(`${sourceOrigin}/source${path}`, imsToken);
 
     if (resp.ok) {
       const data = await resp.json();
@@ -920,17 +920,17 @@ export async function loadMultiSheet(path, sheetName, daOrigin, imsToken, option
  * @param {string} basePath - Base path for chunks
  * @param {number} chunkCount - Number of chunks
  * @param {string} sheetName - Sheet name to load
- * @param {string} daOrigin - DA origin (e.g., https://admin.da.live)
+ * @param {string} sourceOrigin - Source origin (DA admin, or the AEM API for Helix 6 sites)
  * @param {string} imsToken - IMS access token
  * @param {Function} onProgressiveChunk - Optional progressive callback
  * @param {string} indexFilesChunkPrefix - Chunk file prefix (default: 'index-')
  * @returns {Promise<Array>} Flattened array of all sheet data
  */
-export async function loadIndexChunks(basePath, chunkCount, sheetName, daOrigin, imsToken, onProgressiveChunk, indexFilesChunkPrefix = 'index-') {
+export async function loadIndexChunks(basePath, chunkCount, sheetName, sourceOrigin, imsToken, onProgressiveChunk, indexFilesChunkPrefix = 'index-') {
   // If progressive callback provided, load chunk 0 first for immediate display
   if (onProgressiveChunk && chunkCount > 0) {
     const chunk0Path = `${basePath}/${getChunkFileName(0, indexFilesChunkPrefix)}`;
-    const chunk0Data = await loadMultiSheet(chunk0Path, sheetName, daOrigin, imsToken);
+    const chunk0Data = await loadMultiSheet(chunk0Path, sheetName, sourceOrigin, imsToken);
 
     // Show chunk 0 immediately
     onProgressiveChunk(chunk0Data, 0, chunkCount);
@@ -942,7 +942,7 @@ export async function loadIndexChunks(basePath, chunkCount, sheetName, daOrigin,
         const chunkFileName = getChunkFileName(i, indexFilesChunkPrefix);
         const chunkPath = `${basePath}/${chunkFileName}`;
         remainingPromises.push(
-          loadMultiSheet(chunkPath, sheetName, daOrigin, imsToken)
+          loadMultiSheet(chunkPath, sheetName, sourceOrigin, imsToken)
             .then((data) => {
               // Progressive update for each chunk
               onProgressiveChunk(data, i, chunkCount);
@@ -972,7 +972,7 @@ export async function loadIndexChunks(basePath, chunkCount, sheetName, daOrigin,
     const chunkFileName = getChunkFileName(i, indexFilesChunkPrefix);
     const chunkPath = `${basePath}/${chunkFileName}`;
     chunkPromises.push(
-      loadMultiSheet(chunkPath, sheetName, daOrigin, imsToken)
+      loadMultiSheet(chunkPath, sheetName, sourceOrigin, imsToken)
         .then((data) => ({ success: true, chunk: i, data, count: data.length }))
         .catch((error) => ({ success: false, chunk: i, error: error.message, count: 0 })),
     );
