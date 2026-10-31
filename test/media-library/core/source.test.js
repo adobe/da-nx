@@ -30,13 +30,13 @@ function stubFetch(routes) {
   globalThis.fetch = async (url, opts = {}) => {
     calls.push({ url: String(url), opts });
     const href = String(url);
+    const route = routes.find(([match]) => (typeof match === 'string' ? href === match : match.test(href)));
+    if (route) return route[1](href, opts);
     if (href.startsWith(`${HLX_ADMIN}/ping/`)) {
       const hlx6 = href.includes('/hlx6');
       return new Response('', { headers: hlx6 ? { 'x-api-upgrade-available': 'true' } : {} });
     }
-    const route = routes.find(([match]) => (typeof match === 'string' ? href === match : match.test(href)));
-    if (!route) return new Response('', { status: 404 });
-    return route[1](href, opts);
+    return new Response('', { status: 404 });
   };
   return calls;
 }
@@ -73,6 +73,33 @@ describe('media library source access', () => {
       stubFetch([]);
       expect(await isHlx6(uniqueOrg('legacy'), 'site')).to.be.false;
       expect(await isHlx6(uniqueOrg('hlx6'), undefined)).to.be.false;
+    });
+
+    const pingAfterFailures = (failures) => () => (failures.length
+      ? failures.shift()()
+      : new Response('', { headers: { 'x-api-upgrade-available': 'true' } }));
+
+    it('retries a ping that fails with 429, 5xx or a network error', async () => {
+      const org = uniqueOrg('hlx6');
+      const calls = stubFetch([[`${HLX_ADMIN}/ping/${org}/site`, pingAfterFailures([
+        () => new Response('', { status: 429 }),
+        () => { throw new TypeError('Failed to fetch'); },
+      ])]]);
+
+      expect(await isHlx6(org, 'site')).to.be.true;
+      expect(calls).to.have.length(3);
+    });
+
+    it('does not remember a ping that kept failing', async () => {
+      const org = uniqueOrg('hlx6');
+      const unavailable = () => new Response('', { status: 503 });
+      const calls = stubFetch([[`${HLX_ADMIN}/ping/${org}/site`, pingAfterFailures([
+        unavailable, unavailable, unavailable,
+      ])]]);
+
+      expect(await isHlx6(org, 'site')).to.be.false;
+      expect(await isHlx6(org, 'site')).to.be.true;
+      expect(calls).to.have.length(4);
     });
 
     it('resolves the source origin from a site path', async () => {
