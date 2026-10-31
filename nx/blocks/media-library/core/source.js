@@ -12,19 +12,24 @@ import {
 export const isHlx6 = (() => {
   const cache = {};
 
-  const probe = async (org, site) => {
-    try {
-      const resp = await daFetch(`${HLX_ADMIN}/ping/${org}/${site}`);
-      return resp.headers.get('x-api-upgrade-available') !== null;
-    } catch {
-      return false;
-    }
+  const isTransient = ({ status }) => status === 429 || status >= 500;
+
+  const probe = async (org, site, retryDelaysMs = [250, 500]) => {
+    const resp = await daFetch(`${HLX_ADMIN}/ping/${org}/${site}`);
+    if (!isTransient(resp)) return resp.headers.get('x-api-upgrade-available') !== null;
+    if (!retryDelaysMs.length) return undefined;
+    const [delayMs, ...rest] = retryDelaysMs;
+    await new Promise((resolve) => { setTimeout(resolve, delayMs); });
+    return probe(org, site, rest);
   };
 
   return (org, site) => {
     if (!org || !site) return Promise.resolve(false);
     const key = `/${org}/${site}`;
-    cache[key] ??= probe(org, site);
+    cache[key] ??= probe(org, site).then((hlx6) => {
+      if (hlx6 === undefined) delete cache[key];
+      return hlx6 ?? false;
+    });
     return cache[key];
   };
 })();
