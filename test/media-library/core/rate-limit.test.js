@@ -3,11 +3,14 @@ import { createPacedFetch } from '../../../nx/blocks/media-library/core/rate-lim
 
 function recordingDelay() {
   const calls = [];
+  const clock = { t: 0 };
+  const now = () => clock.t;
   const delay = (ms) => {
     calls.push(ms);
+    clock.t += ms;
     return Promise.resolve();
   };
-  return { calls, delay };
+  return { calls, delay, now, clock };
 }
 
 function response(status, headers = {}) {
@@ -16,7 +19,7 @@ function response(status, headers = {}) {
 
 describe('createPacedFetch', () => {
   it('keeps at most maxConcurrent requests in flight', async () => {
-    const { delay } = recordingDelay();
+    const { delay, now } = recordingDelay();
     let active = 0;
     let maxActive = 0;
     const fetchFn = async () => {
@@ -26,7 +29,7 @@ describe('createPacedFetch', () => {
       active -= 1;
       return response(200);
     };
-    const pacedFetch = createPacedFetch({ fetchFn, maxConcurrent: 4, delay });
+    const pacedFetch = createPacedFetch({ fetchFn, maxConcurrent: 4, delay, now });
 
     const results = await Promise.all(Array.from({ length: 10 }, (_, i) => pacedFetch(`/r/${i}`)));
 
@@ -35,16 +38,31 @@ describe('createPacedFetch', () => {
   });
 
   it('spaces request starts by 1000 / rate ms', async () => {
-    const { calls, delay } = recordingDelay();
-    const pacedFetch = createPacedFetch({ fetchFn: async () => response(200), rate: 8, delay });
+    const { calls, delay, now } = recordingDelay();
+    const fetchFn = async () => response(200);
+    const pacedFetch = createPacedFetch({ fetchFn, rate: 8, delay, now });
 
     await Promise.all([pacedFetch('/a'), pacedFetch('/b'), pacedFetch('/c')]);
 
     expect(calls.filter((ms) => ms === 125).length).to.be.at.least(2);
   });
 
+  it('starts a request without a timer when the last start is older than the interval', async () => {
+    const { calls, delay, now, clock } = recordingDelay();
+    const fetchFn = async () => response(200);
+    const pacedFetch = createPacedFetch({ fetchFn, rate: 8, delay, now });
+
+    await pacedFetch('/a');
+    clock.t += 1000;
+    await pacedFetch('/b');
+    clock.t += 5000;
+    await pacedFetch('/c');
+
+    expect(calls).to.deep.equal([]);
+  });
+
   it('retries a 429 after x-retry-after seconds', async () => {
-    const { calls, delay } = recordingDelay();
+    const { calls, delay, now } = recordingDelay();
     const statuses = [429, 200];
     let count = 0;
     const fetchFn = async () => {
@@ -52,7 +70,7 @@ describe('createPacedFetch', () => {
       count += 1;
       return response(status, status === 429 ? { 'x-retry-after': '3' } : {});
     };
-    const pacedFetch = createPacedFetch({ fetchFn, delay });
+    const pacedFetch = createPacedFetch({ fetchFn, delay, now });
 
     const resp = await pacedFetch('/a');
 
@@ -62,14 +80,14 @@ describe('createPacedFetch', () => {
   });
 
   it('retries a network error, which is how a 429 without CORS headers shows up', async () => {
-    const { calls, delay } = recordingDelay();
+    const { calls, delay, now } = recordingDelay();
     let count = 0;
     const fetchFn = async () => {
       count += 1;
       if (count === 1) throw new TypeError('Failed to fetch');
       return response(200);
     };
-    const pacedFetch = createPacedFetch({ fetchFn, retryDelaysMs: [1000, 2000], delay });
+    const pacedFetch = createPacedFetch({ fetchFn, retryDelaysMs: [1000, 2000], delay, now });
 
     const resp = await pacedFetch('/a');
 
@@ -79,7 +97,7 @@ describe('createPacedFetch', () => {
   });
 
   it('retries a 503 with backoff', async () => {
-    const { calls, delay } = recordingDelay();
+    const { calls, delay, now } = recordingDelay();
     const statuses = [503, 503, 200];
     let count = 0;
     const fetchFn = async () => {
@@ -87,7 +105,7 @@ describe('createPacedFetch', () => {
       count += 1;
       return response(status);
     };
-    const pacedFetch = createPacedFetch({ fetchFn, retryDelaysMs: [1000, 2000], delay });
+    const pacedFetch = createPacedFetch({ fetchFn, retryDelaysMs: [1000, 2000], delay, now });
 
     const resp = await pacedFetch('/a');
 
@@ -97,13 +115,13 @@ describe('createPacedFetch', () => {
   });
 
   it('returns the last 429 once the retries are used up', async () => {
-    const { delay } = recordingDelay();
+    const { delay, now } = recordingDelay();
     let count = 0;
     const fetchFn = async () => {
       count += 1;
       return response(429);
     };
-    const pacedFetch = createPacedFetch({ fetchFn, retryDelaysMs: [10, 20], delay });
+    const pacedFetch = createPacedFetch({ fetchFn, retryDelaysMs: [10, 20], delay, now });
 
     const resp = await pacedFetch('/a');
 
@@ -112,9 +130,9 @@ describe('createPacedFetch', () => {
   });
 
   it('rethrows a network error once the retries are used up', async () => {
-    const { delay } = recordingDelay();
+    const { delay, now } = recordingDelay();
     const fetchFn = async () => { throw new TypeError('Failed to fetch'); };
-    const pacedFetch = createPacedFetch({ fetchFn, retryDelaysMs: [10], delay });
+    const pacedFetch = createPacedFetch({ fetchFn, retryDelaysMs: [10], delay, now });
 
     let error;
     try {
@@ -127,13 +145,13 @@ describe('createPacedFetch', () => {
   });
 
   it('does not retry other statuses', async () => {
-    const { delay } = recordingDelay();
+    const { delay, now } = recordingDelay();
     let count = 0;
     const fetchFn = async () => {
       count += 1;
       return response(404);
     };
-    const pacedFetch = createPacedFetch({ fetchFn, delay });
+    const pacedFetch = createPacedFetch({ fetchFn, delay, now });
 
     const resp = await pacedFetch('/a');
 
@@ -142,13 +160,13 @@ describe('createPacedFetch', () => {
   });
 
   it('passes url and options through to fetchFn', async () => {
-    const { delay } = recordingDelay();
+    const { delay, now } = recordingDelay();
     const seen = [];
     const fetchFn = async (url, opts) => {
       seen.push({ url, opts });
       return response(204);
     };
-    const pacedFetch = createPacedFetch({ fetchFn, delay });
+    const pacedFetch = createPacedFetch({ fetchFn, delay, now });
     const opts = { method: 'POST', body: '{}' };
 
     await pacedFetch('https://api.aem.live/o/sites/s/source/a.json', opts);
