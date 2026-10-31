@@ -1,24 +1,26 @@
 const defaultDelay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
-export function createRateLimiter(initialRate, { delay = defaultDelay } = {}) {
+// No timer when idle: chained timers in a hidden tab are throttled to ~1/min.
+export function createRateLimiter(initialRate, { delay = defaultDelay, now = Date.now } = {}) {
   let intervalMs = Math.ceil(1000 / initialRate);
-  let queue = Promise.resolve();
+  let nextStart = 0;
 
   return {
     async acquire() {
-      const gate = queue;
-      queue = queue.then(() => delay(intervalMs));
-      return gate;
+      const t = now();
+      const start = Math.max(t, nextStart);
+      nextStart = start + intervalMs;
+      if (start > t) await delay(start - t);
     },
     handleResponse(res) {
       const rate = parseFloat(res.headers.get('x-ratelimit-rate'));
       if (rate > 0) intervalMs = Math.ceil(1000 / rate);
     },
     backoff(seconds) {
-      queue = queue.then(() => delay(seconds * 1000));
+      nextStart = Math.max(nextStart, now() + seconds * 1000);
     },
     reset() {
-      queue = Promise.resolve();
+      nextStart = 0;
       intervalMs = Math.ceil(1000 / initialRate);
     },
   };
@@ -37,8 +39,9 @@ export function createPacedFetch({
   rate = 8,
   retryDelaysMs = [1000, 2000, 4000],
   delay = defaultDelay,
+  now = Date.now,
 }) {
-  const limiter = createRateLimiter(rate, { delay });
+  const limiter = createRateLimiter(rate, { delay, now });
   const waiting = [];
   let active = 0;
 
