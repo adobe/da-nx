@@ -5,6 +5,8 @@ import {
   createMedialogEntry,
   detectMediaType,
   computeCanonicalMetadata,
+  extractBestFilename,
+  isHashLikeName,
 } from './parse.js';
 import { normalizePath } from './parse-utils.js';
 import { canonicalizeMediaUrl } from '../core/urls.js';
@@ -43,6 +45,24 @@ export function buildCanonicalTimestampMap(medialogEntries) {
 }
 
 /**
+ * Returns the names of the first standalone uploads by dedupe key. On hlx6, the preview
+ * entries of a page have no name, only the upload of the image has one.
+ */
+function getUploadNames(medialogEntries, org, repo) {
+  const uploads = new Map();
+  medialogEntries.forEach((media) => {
+    if (!media.originalFilename || media.resourcePath) return;
+    const name = extractBestFilename(media);
+    const key = getDedupeKey(canonicalizeMediaUrl(media.path, org, repo));
+    const known = uploads.get(key);
+    if (!isHashLikeName(name) && (!known || media.timestamp < known.timestamp)) {
+      uploads.set(key, { name, timestamp: media.timestamp });
+    }
+  });
+  return uploads;
+}
+
+/**
  * Groups medialog entries by page path and separates standalone uploads.
  * Returns a map of page paths to their media entries, and a buffer of standalone uploads.
  */
@@ -55,6 +75,7 @@ export function buildPageMediaFromMedialog(
 ) {
   const pageMediaMap = new Map();
   const standaloneBuffer = [];
+  const uploadNames = getUploadNames(medialogEntries, org, repo);
 
   medialogEntries.forEach((media) => {
     if (media.originalFilename && !media.resourcePath) {
@@ -92,6 +113,10 @@ export function buildPageMediaFromMedialog(
       repo,
       canonicalModifiedTimestamp,
     });
+    const upload = uploadNames.get(dedupeKey);
+    if (upload && isHashLikeName(entry.displayName)) {
+      entry.displayName = upload.name;
+    }
 
     const existing = pageMediaMap.get(normPath);
     if (!existing) {
@@ -399,6 +424,12 @@ export function processStandaloneUploads(
   const standaloneUploads = medialogEntries.filter((m) => !m.resourcePath && m.originalFilename);
 
   standaloneUploads.forEach((media) => {
+    const name = extractBestFilename(media);
+    if (!isHashLikeName(name)) {
+      updatedIndex
+        .filter((e) => e.hash === media.mediaHash && isHashLikeName(e.displayName))
+        .forEach((e) => { e.displayName = name; });
+    }
     if (!referencedHashes.has(media.mediaHash)) {
       const exists = updatedIndex.some((e) => e.hash === media.mediaHash && !e.doc);
       if (!exists) {
