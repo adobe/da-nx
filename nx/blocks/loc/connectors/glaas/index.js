@@ -18,6 +18,9 @@ import { addDnt, removeDnt } from './dnt.js';
 import { groupUrlsByWorkflow } from './locPageRules.js';
 import { fetchConfig } from '../../utils/utils.js';
 import { addTranslationMetadata } from './translationMetadata.js';
+import { createVideoResolver } from './videoAssets.js';
+import { buildMultimodalVideoAssets } from './videoPayload.js';
+import deliverVideos, { hasPendingVideoCaptions } from './videoDelivery.js';
 
 function determineStatus(translation) {
   if (translation.error > 0) return 'failed';
@@ -232,6 +235,9 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, s
     });
 
     const allAssets = [];
+    const videoPages = [];
+    const videoErrors = [];
+    const resolveVideos = createVideoResolver();
     const pageAssets = {};
     const urlsWithContent = taskUrls.filter((url) => url.content);
     for (const url of urlsWithContent) {
@@ -247,6 +253,7 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, s
         translationMetadata: url.translationMetadata,
         languageContext: url.languageContext,
         imageSelections: url.imageSelections,
+        resolveVideos,
         org,
         site,
       });
@@ -255,21 +262,34 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, s
         task.error = (task.error || 0) + 1;
         updateLangTask(task, task.langs);
         await saveState(undefined, { waitForSave: true });
-        return;
+        return videoErrors;
       }
       allAssets.push(...uploaded.assets);
+      videoPages.push(uploaded.videoPage);
+      videoErrors.push(...uploaded.videoErrors);
       pageAssets[url.suppliedPath] = {
         daBasePath: url.daBasePath,
         ...uploaded.pageAsset,
       };
     }
     task.pageAssets = pageAssets;
+    const videoPayload = buildMultimodalVideoAssets({ pages: videoPages, targetLocales });
+    const videoMapping = videoPayload.mapping;
+    Object.values(pageAssets).forEach((page) => {
+      page.videos = videoPayload.assets
+        .filter((asset) => asset.parentAsset === page.htmlGlaasName)
+        .map((asset) => ({ glaasName: asset.name, ...videoMapping[asset.name] }));
+    });
 
     const created = await createMultimodalTask({
       origin,
       clientid,
       token,
-      task: { ...task, assets: allAssets },
+      task: {
+        ...task,
+        targetLocales,
+        assets: [...allAssets, ...videoPayload.assets],
+      },
       service,
       logRequest,
     });
@@ -278,7 +298,7 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, s
       task.error = (task.error || 0) + 1;
       updateLangTask(task, task.langs);
       await saveState(undefined, { waitForSave: true });
-      return;
+      return videoErrors;
     }
 
     task.sent = taskUrls.length;
@@ -287,18 +307,19 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, s
     await saveState(undefined, { waitForSave: true });
     await prepareTargetPreview(task, taskUrls, service);
     sendMessage();
+    return videoErrors;
   } else if (task.status === 'uploaded') {
     task.status = 'created';
     updateLangTask(task, task.langs);
     await saveState(undefined, { waitForSave: true });
     sendMessage();
   }
+  return [];
 }
 
 async function sendTask(service, suppliedTask, urls, actions, { org, site } = {}) {
   if (suppliedTask.workflowName === 'MULTIMODAL') {
-    await sendMultimodalTask(service, suppliedTask, urls, actions, { org, site });
-    return;
+    return sendMultimodalTask(service, suppliedTask, urls, actions, { org, site });
   }
 
   const { sendMessage, saveState } = actions;
@@ -323,7 +344,7 @@ async function sendTask(service, suppliedTask, urls, actions, { org, site } = {}
     if (task.error) {
       const text = `Error creating task for: ${localesString}.`;
       sendMessage({ text, type: 'error' });
-      return;
+      return [];
     }
     updateLangTask(task, task.langs);
     await saveState(undefined, { waitForSave: true });
@@ -348,6 +369,7 @@ async function sendTask(service, suppliedTask, urls, actions, { org, site } = {}
     await saveState(undefined, { waitForSave: true });
     sendMessage();
   }
+  return [];
 }
 
 async function fetchTaskSubtasks({
@@ -479,8 +501,30 @@ export async function sendAllLanguages({
   const timestamp = Date.now();
   const tasks = await getTasks(org, site, title, langs, urls, timestamp, options);
   await addTranslationMetadata(org, site, langs, urls);
+  const videoErrors = [];
+  const submissionErrors = [];
+  const taskActions = {
+    ...actions,
+    sendMessage: (message) => {
+      if (message?.type === 'error') submissionErrors.push(message.text);
+      actions.sendMessage(message);
+    },
+  };
   for (const key of Object.keys(tasks)) {
-    await sendTask(service, tasks[key], urls, actions, { org, site });
+    const errors = await sendTask(service, tasks[key], urls, taskActions, { org, site });
+    videoErrors.push(...errors);
+  }
+  if (videoErrors.length) {
+    const failures = [...new Map(videoErrors.map((error) => [error.url, error])).values()];
+    const warningText = `Could not resolve ${failures.length} selected video(s); they were skipped. ${
+      failures.map(({ url, error }) => `${url}: ${error}`).join('; ')
+    }`;
+    actions.sendMessage({
+      text: `${submissionErrors.length ? `${submissionErrors.join(' ')} ` : ''}${warningText}`,
+      type: submissionErrors.length ? 'error' : 'warning',
+    });
+    const { showToast } = await import('../../../../../nx2/blocks/shared/toast/toast.js');
+    showToast({ text: warningText, variant: 'warning', timeout: null, maxWidth: '42rem' });
   }
 }
 
@@ -493,13 +537,48 @@ export async function getStatusAll({
   normalizeAllLanguages(langs, urls);
   const incompleteLangs = langs.filter((lang) => {
     const langStatus = lang?.translation?.status;
-    return !['translated', 'complete', 'cancelled'].includes(langStatus);
+    const hasVideos = Object.values(lang.translation?.workflowTasks ?? {}).some((task) => (
+      Object.values(task.pageAssets ?? {}).some((page) => page.videos?.length)
+    ));
+    return !['translated', 'complete', 'cancelled'].includes(langStatus)
+      || (langStatus === 'translated' && hasVideos);
   });
-  const incompleteTasks = Object.values(langs2Tasks(incompleteLangs));
-
+  const statusTasks = Object.values(langs2Tasks(incompleteLangs));
+  let videoMessage;
+  let videoError;
+  try {
+    videoMessage = await deliverVideos({
+      service,
+      token: baseConf.token,
+      langs,
+      signal: callerSignal,
+      onProgress: sendMessage,
+      saveState: () => saveState(undefined, { waitForSave: true }),
+    });
+  } catch (error) {
+    callerSignal?.throwIfAborted();
+    videoError = error;
+  }
+  const incompleteTasks = statusTasks.map((task) => ({
+    ...task,
+    langs: task.langs.filter((lang) => {
+      const workflowTask = lang.translation.workflowTasks[task.name];
+      if (!hasPendingVideoCaptions(workflowTask, lang.code)) return true;
+      if (workflowTask.status.status !== 'complete') {
+        workflowTask.status.translated = 0;
+        if (workflowTask.status.status === 'translated') workflowTask.status.status = 'created';
+        aggregateWorkflowStatus(lang);
+      }
+      return false;
+    }),
+  })).filter((task) => task.langs.length);
   if (incompleteTasks.length === 0) {
-    sendMessage({ text: 'All languages translated, complete or canceled.' });
-    return undefined;
+    if (langs.some((lang) => Object.values(lang.translation?.workflowTasks ?? {}).some((task) => (
+      Object.values(task.pageAssets ?? {}).some((page) => page.videos?.length)
+    )))) await saveState(undefined, { waitForSave: true });
+    if (videoError) throw videoError;
+    sendMessage(videoMessage || { text: 'All languages translated, complete or canceled.' });
+    return videoMessage ? { message: videoMessage } : undefined;
   }
 
   const controller = new AbortController();
@@ -509,6 +588,7 @@ export async function getStatusAll({
   if (callerSignal?.aborted) cancel();
   let rateLimitedUntil;
   const errors = new Map();
+  if (videoError) errors.set('video-delivery', { text: videoError.message });
   const progress = new Map();
   const reportProgress = (task, update) => {
     signal.throwIfAborted();
@@ -545,9 +625,12 @@ export async function getStatusAll({
       } else {
         const completed = subtask.assets.filter((asset) => asset.status === 'COMPLETED');
         const translated = workflowTask.workflowName === 'MULTIMODAL'
-          ? countMultimodalTranslatedPages(workflowTask.pageAssets, subtask.assets)
+          ? countMultimodalTranslatedPages(workflowTask.pageAssets, subtask.assets, workflowTask)
           : completed.length;
         workflowStatus.translated = translated;
+        if (translated < workflowStatus.sent && workflowStatus.status === 'translated') {
+          workflowStatus.status = 'created';
+        }
         if (workflowStatus.sent !== 0 && workflowStatus.status !== 'complete'
           && translated === workflowStatus.sent) {
           workflowStatus.status = 'translated';
@@ -643,7 +726,7 @@ export async function getStatusAll({
     }
     if (errors.size) throw new Error([...errors.values()].map(({ text }) => text).join(' '));
     sendMessage();
-    return undefined;
+    return videoMessage ? { message: videoMessage } : undefined;
   } catch (error) {
     if (rateLimitedUntil !== undefined && !callerSignal?.aborted) {
       await saveState(undefined, { waitForSave: true });
@@ -756,10 +839,7 @@ export async function saveItems({
     // Use the path to determine if this should be treated as a JSON file.
     const fileType = url.daBasePath.includes('.json') ? 'json' : undefined;
 
-    // This is the only removeDnt call on the translate save-back path, so
-    // loc-images marks are dropped here rather than carried onto the
-    // regional page (see stripLocImages in dnt.js).
-    url.sourceContent = await removeDnt(text, org, site, { fileType, stripLocImages: true });
+    url.sourceContent = await removeDnt(text, org, site, { fileType, stripLocSelections: true });
     url.normalizeImages = normalizeImages; // read by mergeCopy - GLaaS-only
 
     const overwrite = behavior === 'overwrite' || url.hasExt;

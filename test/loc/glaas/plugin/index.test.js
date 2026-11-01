@@ -5,10 +5,12 @@ import { getLivePreviewUrl } from '../../../../nx/utils/utils.js';
 import {
   fetchPageHtml,
   buildImageRows,
+  buildVideoRows,
   resolveAuthenticatedThumbnails,
   saveSelections,
 } from '../../../../nx/blocks/loc/connectors/glaas/plugin/index.js';
 import { parseSelections, writeSelections } from '../../../../nx/blocks/loc/connectors/glaas/imageSelections.js';
+import { parseVideoSelections, writeVideoSelections } from '../../../../nx/blocks/loc/connectors/glaas/videoSelections.js';
 
 const ORG = 'test-org';
 const SITE = 'test-site';
@@ -50,8 +52,8 @@ describe('GLaaS loc-images plugin (companion util)', () => {
 
   describe('buildImageRows', () => {
     it('builds one row per unique image, reflecting eligibility and existing marks', () => {
-      const markedSrc = 'https://content.da.live/org/site/media_abc.png';
-      const unmarkedSrc = 'https://content.da.live/org/site/media_def.jpg';
+      const markedSrc = 'https://content.da.live/org/site/media-abc.png';
+      const unmarkedSrc = 'https://content.da.live/org/site/media-def.jpg';
       const svgSrc = 'https://content.da.live/org/site/icon.svg';
       const html = pageWithImages(
         `<img src="${markedSrc}" alt="Hero"><img src="${unmarkedSrc}"><img src="${svgSrc}">`,
@@ -73,6 +75,38 @@ describe('GLaaS loc-images plugin (companion util)', () => {
       const svg = rows.find((row) => row.src === svgSrc);
       expect(svg.eligible).to.be.false;
       expect(svg.checked).to.be.false;
+    });
+
+    [
+      'Acrobat.jpg',
+      'acrobat.jpg',
+      'acrobat-family.jpg',
+      'acrobat-v01.jpg',
+      'acrobat-152x85.jpg',
+      'ACROBAT-01.JPEG',
+    ].forEach((filename) => {
+      it(`allows GLaaS-compliant image name ${filename}`, () => {
+        const src = `https://content.da.live/folder_with_spaces/${filename}?width=100&format=png`;
+        const [row] = buildImageRows(`<body><main><img src="${src}"></main></body>`);
+        expect(row.eligible).to.be.true;
+      });
+    });
+
+    [
+      'acrobat family.jpg',
+      'acrobat_family.jpg',
+      'acrobat&family.jpg',
+      'acrobat.family.jpg',
+      'acrobat/family.jpg',
+      'café.jpg',
+      ...Array.from('~!@#$%^&*()`;<>?,[]{}\'"|').map((char) => `acrobat${char}family.jpg`),
+    ].forEach((filename) => {
+      it(`disables image names outside the GLaaS guidelines: ${filename}`, () => {
+        const src = `https://content.da.live/org/site/${encodeURIComponent(filename)}`;
+        const [row] = buildImageRows(`<body><main><img src="${src}"></main></body>`);
+        expect(row.eligible).to.be.false;
+        expect(row.ineligibleReason).to.include('Image name does not adhere to GLaaS guidelines.');
+      });
     });
 
     it('dedupes the same image appearing more than once on the page', () => {
@@ -103,6 +137,49 @@ describe('GLaaS loc-images plugin (companion util)', () => {
       const [row] = buildImageRows(html);
       expect(row.thumbnail).to.equal(`${getLivePreviewUrl('org', 'site', 'main')}/media_abc.jpg`);
       expect(row.previewHost).to.deep.equal({ ref: 'main', repo: 'site', org: 'org' });
+    });
+  });
+
+  describe('buildVideoRows', () => {
+    it('lists only supported unique anchors, restoring saved selections without fetching metadata', () => {
+      const src = 'https://video.tv.adobe.com/v/333754?autoplay=false#t=10';
+      const stage = 'https://stage-video.tv.adobe.com/v/32079';
+      const html = writeVideoSelections(`<body><main>
+        <a href="${src}">Video</a><a href="${src}">Repeat</a>
+        <a href="${stage}">Stage</a><a href="https://example.com/video">Other</a>
+        <iframe src="https://video.tv.adobe.com/v/4"></iframe>
+      </main></body>`, [{ src, translate: 'true' }]);
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const fetchStub = sinon.stub(window, 'fetch');
+      expect(buildVideoRows(doc)).to.deep.equal([
+        { src, checked: true },
+        { src: stage, checked: false },
+      ]);
+      expect(fetchStub.called).to.be.false;
+    });
+
+    it('builds image and video rows from the same document without parsing again', () => {
+      const imageSrc = 'https://content.da.live/org/site/a.png';
+      const src = 'https://video.tv.adobe.com/v/1';
+      const doc = new DOMParser().parseFromString(
+        `<body><main><img src="${imageSrc}"><a href="${src}">Video</a></main></body>`,
+        'text/html',
+      );
+      const parseSpy = sinon.spy(DOMParser.prototype, 'parseFromString');
+      expect(buildImageRows(doc)[0].src).to.equal(imageSrc);
+      expect(buildVideoRows(doc)).to.deep.equal([{ src, checked: false }]);
+      expect(parseSpy.called).to.be.false;
+    });
+
+    it('normalizes and deduplicates selection URLs without losing query or fragment values', () => {
+      const original = 'https://video.tv.adobe.com/v/1?title=First Last#PartOne';
+      const normalized = new URL(original).href;
+      const html = writeVideoSelections(
+        `<body><main><a href="${original}">Video</a><a href="${normalized}">Repeat</a></main></body>`,
+        [{ src: original, translate: 'true' }],
+      );
+      expect(buildVideoRows(new DOMParser().parseFromString(html, 'text/html')))
+        .to.deep.equal([{ src: normalized, checked: true }]);
     });
   });
 
@@ -149,6 +226,10 @@ describe('GLaaS loc-images plugin (companion util)', () => {
   });
 
   describe('saveSelections', () => {
+    const videoSrc = 'https://video.tv.adobe.com/v/333754?autoplay=false';
+    const stageSrc = 'https://stage-video.tv.adobe.com/v/32079';
+    const videoRows = (html) => buildVideoRows(new DOMParser().parseFromString(html, 'text/html'));
+
     function stubServerHtml(getCurrentHtml, { onSave } = {}) {
       return sinon.stub(window, 'fetch').callsFake(async (url, opts = {}) => {
         if (String(url) !== SOURCE_URL) return new Response('', { status: 404 });
@@ -159,6 +240,165 @@ describe('GLaaS loc-images plugin (companion util)', () => {
         return new Response(getCurrentHtml(), { status: 200 });
       });
     }
+
+    it('saves image and video selections in a single page update', async () => {
+      const imageSrc = 'https://content.da.live/org/site/a.png';
+      const html = `<body><main><img src="${imageSrc}"><a href="${videoSrc}">Video</a></main></body>`;
+      let savedHtml;
+      const fetchStub = stubServerHtml(() => html, {
+        onSave: async (opts) => { savedHtml = await opts.body.get('data').text(); },
+      });
+      const initialRows = buildImageRows(html);
+      const initialVideoRows = videoRows(html);
+      const result = await saveSelections({
+        org: ORG,
+        site: SITE,
+        path: PATH,
+        token: TOKEN,
+        initialRows,
+        currentRows: initialRows.map((row) => ({ ...row, checked: true })),
+        initialVideoRows,
+        currentVideoRows: initialVideoRows.map((row) => ({ ...row, checked: true })),
+      });
+      expect(result.ok).to.be.true;
+      expect([...parseSelections(savedHtml)]).to.deep.equal([imageSrc]);
+      expect([...parseVideoSelections(savedHtml)]).to.deep.equal([videoSrc]);
+      expect(savedHtml).to.include(`<a href="${videoSrc}">Video</a>`);
+      expect(fetchStub.callCount).to.equal(2);
+    });
+
+    it('preserves concurrently selected videos, including links added after the panel opened', async () => {
+      const html = `<body><main><a href="${videoSrc}">Video</a></main></body>`;
+      const latest = writeVideoSelections(
+        `<body><main><a href="${videoSrc}">Video</a><a href="${stageSrc}">New video</a><p>Concurrent edit</p></main></body>`,
+        [{ src: stageSrc, translate: 'true' }],
+      );
+      let savedHtml;
+      stubServerHtml(() => latest, {
+        onSave: async (opts) => { savedHtml = await opts.body.get('data').text(); },
+      });
+      const initialVideoRows = videoRows(html);
+      await saveSelections({
+        org: ORG,
+        site: SITE,
+        path: PATH,
+        token: TOKEN,
+        initialRows: [],
+        currentRows: [],
+        initialVideoRows,
+        currentVideoRows: initialVideoRows.map((row) => ({ ...row, checked: true })),
+      });
+      expect([...parseVideoSelections(savedHtml)]).to.have.members([videoSrc, stageSrc]);
+      expect(savedHtml).to.include('<p>Concurrent edit</p>');
+    });
+
+    it('preserves a concurrent change to a video left untouched in this session', async () => {
+      const html = `<body><main><a href="${videoSrc}">Video</a></main></body>`;
+      const latest = writeVideoSelections(html, [{ src: videoSrc, translate: 'true' }]);
+      let savedHtml;
+      stubServerHtml(() => latest, {
+        onSave: async (opts) => { savedHtml = await opts.body.get('data').text(); },
+      });
+      await saveSelections({
+        org: ORG,
+        site: SITE,
+        path: PATH,
+        token: TOKEN,
+        initialRows: [],
+        currentRows: [],
+        initialVideoRows: videoRows(html),
+        currentVideoRows: videoRows(html),
+      });
+      expect([...parseVideoSelections(savedHtml)]).to.deep.equal([videoSrc]);
+    });
+
+    it('does not reselect a video link deleted while the panel was open', async () => {
+      const html = `<body><main><a href="${videoSrc}">Video</a></main></body>`;
+      const latest = writeVideoSelections(
+        '<body><main><p>Video removed</p></main></body>',
+        [{ src: videoSrc, translate: 'true' }],
+      );
+      let savedHtml;
+      stubServerHtml(() => latest, {
+        onSave: async (opts) => { savedHtml = await opts.body.get('data').text(); },
+      });
+      const initialVideoRows = videoRows(html);
+      await saveSelections({
+        org: ORG,
+        site: SITE,
+        path: PATH,
+        token: TOKEN,
+        initialRows: [],
+        currentRows: [],
+        initialVideoRows,
+        currentVideoRows: initialVideoRows.map((row) => ({ ...row, checked: true })),
+      });
+      expect([...parseVideoSelections(savedHtml)]).to.deep.equal([]);
+      expect(savedHtml).to.include('<div>loc-videos</div><div>[]</div>');
+      expect(savedHtml).to.include('<p>Video removed</p>');
+    });
+
+    it('clears video selections explicitly and reopens unchecked without clearing images', async () => {
+      const imageSrc = 'https://content.da.live/org/site/a.png';
+      const html = writeVideoSelections(
+        pageWithImages(
+          `<img src="${imageSrc}"><a href="${videoSrc}">Video</a>`,
+          [{ src: imageSrc, translate: 'true' }],
+        ),
+        [{ src: videoSrc, translate: 'true' }],
+      );
+      let savedHtml;
+      stubServerHtml(() => html, {
+        onSave: async (opts) => { savedHtml = await opts.body.get('data').text(); },
+      });
+      const initialRows = buildImageRows(html);
+      const initialVideoRows = videoRows(html);
+      await saveSelections({
+        org: ORG,
+        site: SITE,
+        path: PATH,
+        token: TOKEN,
+        initialRows,
+        currentRows: initialRows,
+        initialVideoRows,
+        currentVideoRows: initialVideoRows.map((row) => ({ ...row, checked: false })),
+      });
+      expect(savedHtml).to.include('<div>loc-videos</div><div>[]</div>');
+      expect(videoRows(savedHtml)).to.deep.equal([{ src: videoSrc, checked: false }]);
+      expect([...parseSelections(savedHtml)]).to.deep.equal([imageSrc]);
+    });
+
+    it('leaves video metadata unchanged for existing image-only callers', async () => {
+      const html = writeVideoSelections(
+        `<body><main><a href="${videoSrc}">Video</a></main></body>`,
+        [{ src: videoSrc, translate: 'true' }],
+      );
+      let savedHtml;
+      stubServerHtml(() => html, {
+        onSave: async (opts) => { savedHtml = await opts.body.get('data').text(); },
+      });
+      await saveSelections({
+        org: ORG, site: SITE, path: PATH, token: TOKEN, initialRows: [], currentRows: [],
+      });
+      expect([...parseVideoSelections(savedHtml)]).to.deep.equal([videoSrc]);
+    });
+
+    it('reports a failed combined image/video save', async () => {
+      const fetchStub = sinon.stub(window, 'fetch');
+      fetchStub.onFirstCall().resolves(new Response('<body><main></main></body>'));
+      fetchStub.onSecondCall().resolves(new Response('', { status: 503 }));
+      const result = await saveSelections({
+        org: ORG,
+        site: SITE,
+        path: PATH,
+        token: TOKEN,
+        initialRows: [],
+        currentRows: [],
+        initialVideoRows: [],
+        currentVideoRows: [],
+      });
+      expect(result).to.deep.equal({ ok: false, status: 503 });
+    });
 
     it('marks a previously-unmarked image true and saves it', async () => {
       const src = 'https://content.da.live/org/site/media_abc.png';

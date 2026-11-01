@@ -177,14 +177,14 @@ describe('Glaas DNT', () => {
     expect(htmlWithDnt).to.include(`<div>loc-images</div><div>${locImagesValue}</div>`);
     expect(htmlWithDnt).to.include('<div>acceptedhashes</div><div>abc123,def456</div>');
 
-    const htmlWithoutDnt = await removeDnt(htmlWithDnt, 'adobecom', 'da-bacom', { stripLocImages: true });
+    const htmlWithoutDnt = await removeDnt(htmlWithDnt, 'adobecom', 'da-bacom', { stripLocSelections: true });
     expect(htmlWithoutDnt).to.not.include('loc-images');
     expect(htmlWithoutDnt).to.not.include('translate="no"');
     // Unrelated row survives byte-identical.
     expect(htmlWithoutDnt).to.include('<div>acceptedhashes</div><div>abc123,def456</div>');
   });
 
-  it('retains loc-images by default (stripLocImages is opt-in, e.g. for sync/rollout)', async () => {
+  it('retains loc-images by default (stripLocSelections is opt-in, e.g. for sync/rollout)', async () => {
     const config = JSON.parse((await readFile({ path: './mocks/hubspot/translate.json' })));
     const html = `<body>
   <main><p>Some text</p></main>
@@ -196,6 +196,23 @@ describe('Glaas DNT', () => {
     const htmlWithDnt = await addDnt(html, config, { reset: true });
     const htmlWithoutDnt = await removeDnt(htmlWithDnt, 'adobecom', 'da-bacom');
     expect(htmlWithoutDnt).to.include('loc-images');
+  });
+
+  it('protects video selections and strips them only on translated save-back', async () => {
+    const config = JSON.parse((await readFile({ path: './mocks/hubspot/translate.json' })));
+    const selections = '[{"src":"https://video.tv.adobe.com/v/333754","translate":"true"}]';
+    const html = `<body><main><p>Text</p></main><div class="da-metadata">
+      <div><div>loc-videos</div><div>${selections}</div></div>
+      <div><div>acceptedhashes</div><div>abc123</div></div>
+    </div></body>`;
+    const annotated = await addDnt(html, config, { reset: true });
+    expect(annotated).to.include('<div class="da-metadata" translate="no">');
+    expect(annotated).to.include(selections);
+    const retained = await removeDnt(annotated, 'org', 'site');
+    expect(retained).to.include('loc-videos');
+    const stripped = await removeDnt(annotated, 'org', 'site', { stripLocSelections: true });
+    expect(stripped).not.to.include('loc-videos');
+    expect(stripped).to.include('<div>acceptedhashes</div><div>abc123</div>');
   });
 
   it('stashes a marked AEM-hosted image\'s original absolute src in LOC_SRC_ATTR before relativizing it, but leaves an unmarked one alone', async () => {

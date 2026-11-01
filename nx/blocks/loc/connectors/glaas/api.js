@@ -61,7 +61,7 @@ export async function buildGlaasCreateMetadata({ task, service }) {
       key: 'dalocProjectKey',
       value: `v1/${projectHash}`,
     });
-    const hookUrl = `https://${service.preview}/api/v1/web/daloc/glaas-hook`;
+    const hookUrl = 'https://14257-dalocv2-stage.adobeioruntime.net/api/v1/web/daloc/glaas-hook';
     callbackConfig.push({ key: 'taskCallbackURL', value: hookUrl });
     callbackConfig.push({ key: 'assetCallbackURL', value: hookUrl });
   }
@@ -345,7 +345,7 @@ export async function prepareTargetPreview(task, urls, service) {
       targetLocales,
       urls: urls.map((a) => a.aemHref),
     };
-    await fetch(`https://${service.preview}/api/v1/web/daloc/init-target`, {
+    await fetch('https://14257-dalocv2-stage.adobeioruntime.net/api/v1/web/daloc/init-target', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-OW-EXTRA-LOGGING': 'on' },
       body: JSON.stringify(data),

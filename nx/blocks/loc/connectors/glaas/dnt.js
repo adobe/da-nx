@@ -1,4 +1,7 @@
-import { DA_METADATA_SELECTOR, findMetadataRow, parseSelections } from './imageSelections.js';
+import {
+  DA_METADATA_SELECTOR, LOC_IMAGES_KEY, findMetadataRow, parseSelections,
+} from './imageSelections.js';
+import { LOC_VIDEOS_KEY } from './videoSelections.js';
 
 // Data attribute stashing a marked <img>'s original absolute src before it gets relativized
 // below - collectMultimodalImageUrls/rewriteContentDaLiveImageUrls (multimodalApi.js) read
@@ -301,15 +304,15 @@ function resetImages(doc, org, repo) {
   });
 }
 
-function removeLocImagesMetadata(document) {
+function removeLocSelectionsMetadata(document) {
   const daMetadata = document.querySelector(DA_METADATA_SELECTOR);
-  findMetadataRow(daMetadata)?.remove();
+  [LOC_IMAGES_KEY, LOC_VIDEOS_KEY].forEach((metadataKey) => {
+    findMetadataRow(daMetadata, { metadataKey })?.remove();
+  });
 }
 
-// stripLocImages: true only for the translate save-back path - loc-images only
-// matters on the source page, not on translated output. Other removeDnt
-// callers (e.g. sync/rollout) don't set it, so they retain the mark.
-export async function removeDnt(html, org, repo, { fileType = 'html', stripLocImages = false } = {}) {
+// Selection metadata is source-only; sync/rollout callers preserve it by default.
+export async function removeDnt(html, org, repo, { fileType = 'html', stripLocSelections = false } = {}) {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
   unwrapDntContent(document);
@@ -318,7 +321,7 @@ export async function removeDnt(html, org, repo, { fileType = 'html', stripLocIm
   resetHrefs(document, org, repo);
   resetImages(document, org, repo);
   removeDntAttributes(document);
-  if (stripLocImages) removeLocImagesMetadata(document);
+  if (stripLocSelections) removeLocSelectionsMetadata(document);
   if (fileType === 'json') {
     const { html2json } = await import('../../dnt/json2html.js');
     return html2json(document.documentElement.outerHTML);

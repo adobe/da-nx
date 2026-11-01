@@ -63,7 +63,7 @@ async function waitForGlaas(promise, signal) {
   }
 }
 
-async function waitForGlaasDelay(waitMs, signal) {
+export async function waitForGlaasDelay(waitMs, signal) {
   let timer;
   try {
     await waitForGlaas(new Promise((resolve) => {
@@ -447,7 +447,8 @@ export async function createMultimodalTask({
     workflowName,
     textLocalizationWorkflow,
     imageLocalizationWorkflow,
-    videoLocalizationWorkflow: null,
+    videoLocalizationWorkflow: assets.some((asset) => asset.type === 'VIDEO')
+      ? 'Caption_Only' : null,
     audioLocalizationWorkflow: null,
     targetLocales,
     callbackConfig,
@@ -618,8 +619,10 @@ function isAbsoluteContentDaLiveUrl(href) {
  * LOC_SRC_ATTR (see dnt.js), if present, is the image's real href - DNT relativizes
  * some absolute image srcs, which would otherwise make a marked image look ineligible.
  */
-export function collectMultimodalImageUrls(html, { imageSelections } = {}) {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
+export function collectMultimodalImageUrls(htmlOrDoc, { imageSelections } = {}) {
+  const doc = typeof htmlOrDoc === 'string'
+    ? new DOMParser().parseFromString(htmlOrDoc, 'text/html')
+    : htmlOrDoc;
   const urls = new Set();
   doc.querySelectorAll('img[src]').forEach((img) => {
     const src = img.getAttribute(LOC_SRC_ATTR) || img.getAttribute('src');
@@ -822,7 +825,8 @@ export async function getMultimodalV2TaskStatus({
   return { status: 200, json: subtasks };
 }
 
-export function countMultimodalTranslatedPages(pageAssets, assets) {
+export function countMultimodalTranslatedPages(pageAssets, assets, delivery = {}) {
+  const { videoDelivery, sourceCaptionDelivery } = delivery;
   const completedNames = new Set(
     (assets ?? [])
       .filter((asset) => asset.status === 'COMPLETED')
@@ -836,7 +840,11 @@ export function countMultimodalTranslatedPages(pageAssets, assets) {
   return Object.values(pageAssets).reduce((count, page) => {
     if (!completedNames.has(page.htmlGlaasName)) return count;
     const imagesReady = (page.images ?? []).every((img) => completedNames.has(img.glaasName));
-    return imagesReady ? count + 1 : count;
+    const videosReady = (page.videos ?? []).every((video) => (
+      videoDelivery?.[video.glaasName]?.status === 'delivered'
+      && sourceCaptionDelivery?.[video.glaasName]?.status === 'delivered'
+    ));
+    return imagesReady && videosReady ? count + 1 : count;
   }, 0);
 }
 
@@ -995,6 +1003,7 @@ export async function uploadMultimodalPageAssets({
   translationMetadata,
   languageContext,
   imageSelections,
+  resolveVideos,
   org,
   site,
 }) {
@@ -1045,7 +1054,8 @@ export async function uploadMultimodalPageAssets({
     assetMetadataUrl: metadataPut.putURL,
   })];
 
-  let imageUrls = collectMultimodalImageUrls(htmlContent, { imageSelections });
+  const pageDoc = new DOMParser().parseFromString(htmlContent, 'text/html');
+  let imageUrls = collectMultimodalImageUrls(pageDoc, { imageSelections });
   if (maxImages != null) imageUrls = imageUrls.slice(0, maxImages);
   logRequest?.('collect-images', { htmlAssetName, org, site, count: imageUrls.length, imageUrls });
 
@@ -1085,6 +1095,15 @@ export async function uploadMultimodalPageAssets({
 
   const pageAsset = buildMultimodalPageAssetEntry({ htmlAssetName, imageUrls: sentImageUrls });
   logRequest?.('upload-page-assets', { htmlAssetName, assetCount: assets.length, pageAsset });
+  if (resolveVideos) {
+    const { videos, errors } = await resolveVideos(pageDoc);
+    return {
+      assets,
+      pageAsset,
+      videoPage: { pagePath, pagePreviewUrl, videos },
+      videoErrors: errors,
+    };
+  }
   return { assets, pageAsset };
 }
 
