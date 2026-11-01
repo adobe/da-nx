@@ -45,8 +45,7 @@ export function buildCanonicalTimestampMap(medialogEntries) {
 }
 
 /**
- * Returns the names of the first standalone uploads by dedupe key. On hlx6, the preview
- * entries of a page have no name, only the upload of the image has one.
+ * Returns the earliest upload name by dedupe key; on hlx6 only the upload entry has a name.
  */
 function getUploadNames(medialogEntries, org, repo) {
   const uploads = new Map();
@@ -114,7 +113,7 @@ export function buildPageMediaFromMedialog(
       canonicalModifiedTimestamp,
     });
     const upload = uploadNames.get(dedupeKey);
-    if (upload && isHashLikeName(entry.displayName)) {
+    if (upload && !entry.originalPath && isHashLikeName(entry.displayName)) {
       entry.displayName = upload.name;
     }
 
@@ -421,15 +420,20 @@ export function processStandaloneUploads(
   repo,
 ) {
   let added = 0;
-  const standaloneUploads = medialogEntries.filter((m) => !m.resourcePath && m.originalFilename);
+  const standaloneUploads = medialogEntries
+    .filter((m) => !m.resourcePath && m.originalFilename)
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  const uploadNames = getUploadNames(standaloneUploads, org, repo);
+  if (uploadNames.size) {
+    updatedIndex.forEach((e) => {
+      if (!isHashLikeName(e.displayName) || e.originalPath || !e.url) return;
+      const upload = uploadNames.get(getDedupeKey(e.url));
+      if (upload) e.displayName = upload.name;
+    });
+  }
 
   standaloneUploads.forEach((media) => {
-    const name = extractBestFilename(media);
-    if (!isHashLikeName(name)) {
-      updatedIndex
-        .filter((e) => e.hash === media.mediaHash && isHashLikeName(e.displayName))
-        .forEach((e) => { e.displayName = name; });
-    }
     if (!referencedHashes.has(media.mediaHash)) {
       const exists = updatedIndex.some((e) => e.hash === media.mediaHash && !e.doc);
       if (!exists) {
