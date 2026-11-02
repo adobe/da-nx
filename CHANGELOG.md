@@ -1,3 +1,10 @@
+# [1.31.0](https://github.com/adobe/da-nx/compare/v1.30.0...v1.31.0) (2026-11-02)
+
+
+### Features
+
+* add basic artifact renderers ([#885](https://github.com/adobe/da-nx/issues/885)) ([133a0a7](https://github.com/adobe/da-nx/commit/133a0a7d78070cc0ed501d619f956074617dd7f7))
+
 # [1.30.0](https://github.com/adobe/da-nx/compare/v1.29.1...v1.30.0) (2026-11-02)
 
 
