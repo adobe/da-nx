@@ -799,7 +799,8 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
         <p><code>nx2/blocks/shared/chat/input.css</code> shares neutral working colors,
           compact shadows, spinner/logo sizes and expanded input metrics between chat surfaces.
           The expanded composer skin owns gradient artwork and frame geometry separately.
-          Override properties on the actual input host, not its conversation wrapper.</p>
+          Override properties on the actual input host, not its conversation wrapper.
+          Context pills follow the input's S/M size.</p>
         <pre><code>nx-ao-input {
   --nx-chat-input-spinner-arc: var(--s2-blue-900);
   --nx-chat-input-working-shadow: none;
@@ -813,7 +814,8 @@ nx-pills { --nx-pill-background: var(--s2-orange-300); --nx-pill-color: var(--s2
             target="_blank" rel="noopener">docs →</a></h3>
         <p><code>nx2/blocks/shared/chat/composer.css</code> owns the frame, glow and
           state-specific shadows. Adopt it alongside <code>chat/input.css</code>.
-          Page width and input S/M metrics stay with their respective owners.</p>
+          Page width and input S/M metrics stay with their respective owners.
+          Focus within the input shows a theme-aware 2px outline, including across shadow roots.</p>
         <div class="sg-demo">
           <div id="demo-chat-composer" style="width: 100%;"></div>
         </div>

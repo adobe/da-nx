@@ -54,6 +54,8 @@ export default class NxAoInput extends LitElement {
 
   _voiceInterim = '';
 
+  _onPromptSend = (prompt) => this.setPrompt(prompt);
+
   get draft() {
     return this.shadowRoot.querySelector('.chat-input')?.value ?? '';
   }
@@ -259,7 +261,7 @@ export default class NxAoInput extends LitElement {
     const buttonSize = this.variant === 'expanded' ? expandedSize : compactSize;
     return html`
       <nx-popover class="prompts-popover">
-        <nx-prompts .prompts=${this.prompts ?? []} .onSend=${(p) => this.setPrompt(p)}></nx-prompts>
+        <nx-prompts .prompts=${this.prompts} .onSend=${this._onPromptSend}></nx-prompts>
       </nx-popover>
       <nx-menu
         class="slash-menu"
@@ -281,7 +283,8 @@ export default class NxAoInput extends LitElement {
             <span class="chat-drop-title">Drop a file to add context</span>
             <span class="chat-drop-hint">Supports documents, images, and code</span>
           </div>` : nothing}
-        <nx-pills addEvent=${this.addEvent ?? ''} ?hidden=${!this.items.length}
+        <nx-pills .size=${this.size === 'm' ? 'm' : 's'}
+          addEvent=${this.addEvent ?? ''} ?hidden=${!this.items.length}
           @nx-pills-change=${this._onItemsChange}></nx-pills>
         <input
           class="chat-file-input"

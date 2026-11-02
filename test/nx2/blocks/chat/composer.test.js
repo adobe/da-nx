@@ -76,6 +76,36 @@ describe('shared expanded composer skin', () => {
     }
   });
 
+  it('scales expanded context pills without losing the draft or selection', async () => {
+    await input.setPrompt('Keep this draft');
+    input.addItem({ id: 'selection', label: 'Selected content' });
+    const pills = input.shadowRoot.querySelector('nx-pills');
+    await pills.updateComplete;
+    expect(getComputedStyle(pills.shadowRoot.querySelector('.pill-label')).fontSize).to.equal('12px');
+    input.size = 'm';
+    await input.updateComplete;
+    await pills.updateComplete;
+    expect(getComputedStyle(pills.shadowRoot.querySelector('.pill-label')).fontSize).to.equal('14px');
+    expect(input.draft).to.equal('Keep this draft');
+    expect(input.items.map((item) => item.id)).to.deep.equal(['selection']);
+  });
+
+  it('shows a focus outline across the input shadow boundary in both themes without resizing', async () => {
+    for (const scheme of ['light', 'dark']) {
+      host.style.colorScheme = scheme;
+      input.shadowRoot.querySelector('textarea').blur();
+      expect(getComputedStyle(surface).outlineStyle).to.equal('none');
+      const { width, height } = frame.getBoundingClientRect();
+      await input.focusInput();
+      const focused = getComputedStyle(surface);
+      expect(focused.outlineStyle).to.equal('solid');
+      expect(focused.outlineWidth).to.equal('2px');
+      expect(focused.outlineOffset).to.equal('-2px');
+      expect(frame.getBoundingClientRect().width).to.equal(width);
+      expect(frame.getBoundingClientRect().height).to.equal(height);
+    }
+  });
+
   it('preserves focus and drop states and lets hosts override frame geometry', async () => {
     await input.focusInput();
     expect(getComputedStyle(frame, '::before').backdropFilter).to.equal('none');
