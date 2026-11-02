@@ -187,6 +187,7 @@ nx-popover {
     font-size: var(--s2-component-m-regular-font-size);
     line-height: var(--s2-component-m-regular-line-height);
     font-weight: var(--s2-component-m-regular-font-weight);
+    height: var(--nx-picker-height, 32px);
   }
 
   .picker-item {

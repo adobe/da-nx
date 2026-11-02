@@ -176,6 +176,19 @@ describe('nx-picker swatch', () => {
     }
   });
 
+  it('preserves medium trigger height and component weight together', async () => {
+    const el = await createPicker();
+    el.size = 'm';
+    el.style.setProperty('--s2-component-m-regular-font-weight', '450');
+    await el.updateComplete;
+    const trigger = el.shadowRoot.querySelector('.picker-trigger');
+    expect(getComputedStyle(trigger).height).to.equal('32px');
+    expect(getComputedStyle(trigger).fontWeight).to.equal('450');
+    el.style.setProperty('--nx-picker-height', '40px');
+    expect(getComputedStyle(trigger).height).to.equal('40px');
+    expect(getComputedStyle(trigger).fontWeight).to.equal('450');
+  });
+
   it('preserves existing field section and item style overrides', async () => {
     const el = await createPicker({
       items: [{ section: 'Status' }, { value: 'draft', label: 'Draft' }],
