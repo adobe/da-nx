@@ -5,6 +5,7 @@ import {
   fetchMarketplace,
   getCategories,
   filterByCategories,
+  getActions,
 } from '../../../../nx2/blocks/marketplace/marketplace-utils.js';
 
 const origin = 'https://main--da-live--adobe.aem.page';
@@ -23,9 +24,8 @@ describe('normalizeItem', () => {
       'Doc Url': 'https://github.com/adobe-rnd/aem-apps/tree/main/tools/apps/msm',
       'Try Url': 'https://da.live/app/x/msm',
       Owner: ' Adobe ',
-      Type: 'App & Plugin',
       Category: ' Core ',
-      Image: 'https://example.com/t.png',
+      Icon: 'https://example.com/t.png',
     };
     expect(normalizeItem({ row, origin })).to.deep.equal({
       title: 'MSM',
@@ -33,9 +33,8 @@ describe('normalizeItem', () => {
       docHref: 'https://github.com/adobe-rnd/aem-apps/tree/main/tools/apps/msm',
       tryHref: 'https://da.live/app/x/msm',
       owner: 'Adobe',
-      type: 'App & Plugin',
       category: 'Core',
-      imageHref: 'https://example.com/t.png',
+      iconHref: 'https://example.com/t.png',
     });
   });
 
@@ -74,34 +73,58 @@ describe('normalizeItem', () => {
     expect(normalizeItem({ row, origin })).to.equal(null);
   });
 
-  it('resolves relative path and image', () => {
-    const row = { Title: 'MSM', 'Doc Url': '/tools/x.html', Image: '/media/t.png' };
+  it('resolves relative path and icon', () => {
+    const row = { Title: 'MSM', 'Doc Url': '/tools/x.html', Icon: '/media/t.png' };
     const result = normalizeItem({ row, origin });
     expect(result.docHref).to.equal(`${origin}/tools/x.html`);
-    expect(result.imageHref).to.equal(`${origin}/media/t.png`);
+    expect(result.iconHref).to.equal(`${origin}/media/t.png`);
   });
 
-  it('drops unsafe or empty image', () => {
+  it('drops unsafe or empty icon', () => {
     const base = { Title: 'MSM', 'Doc Url': 'https://da.live/a' };
-    expect(normalizeItem({ row: { ...base, Image: '' }, origin }).imageHref).to.equal(undefined);
-    expect(normalizeItem({ row: { ...base, Image: 'data:image/png;base64,AA' }, origin }).imageHref)
+    expect(normalizeItem({ row: { ...base, Icon: '' }, origin }).iconHref).to.equal(undefined);
+    expect(normalizeItem({ row: { ...base, Icon: 'data:image/png;base64,AA' }, origin }).iconHref)
       .to.equal(undefined);
     // eslint-disable-next-line no-script-url
-    expect(normalizeItem({ row: { ...base, Image: 'javascript:x' }, origin }).imageHref).to.equal(undefined);
+    expect(normalizeItem({ row: { ...base, Icon: 'javascript:x' }, origin }).iconHref).to.equal(undefined);
   });
 
-  it('handles missing description, owner and type', () => {
+  it('falls back to the legacy Image column for the icon', () => {
+    const base = { Title: 'MSM', 'Doc Url': 'https://da.live/a' };
+    expect(normalizeItem({ row: { ...base, Image: 'https://example.com/i.png' }, origin }).iconHref)
+      .to.equal('https://example.com/i.png');
+    expect(normalizeItem({
+      row: { ...base, Icon: 'https://example.com/new.png', Image: 'https://example.com/old.png' },
+      origin,
+    }).iconHref).to.equal('https://example.com/new.png');
+  });
+
+  it('handles missing description and owner', () => {
     const row = { Title: 'MSM', 'Doc Url': 'https://da.live/a' };
     const result = normalizeItem({ row, origin });
     expect(result.description).to.equal('');
     expect(result.owner).to.equal('');
-    expect(result.type).to.equal('');
     expect(result.category).to.equal('');
   });
 
-  it('keeps the type text as written, trimmed', () => {
-    const row = { Title: 'MSM', 'Doc Url': 'https://da.live/a', Type: '  App & Plugin ' };
-    expect(normalizeItem({ row, origin }).type).to.equal('App & Plugin');
+  it('ignores the Type column', () => {
+    const row = { Title: 'MSM', 'Doc Url': 'https://da.live/a', Type: 'App & Plugin' };
+    expect('type' in normalizeItem({ row, origin })).to.equal(false);
+  });
+});
+
+describe('getActions', () => {
+  it('returns learn more and try out in order', () => {
+    const actions = getActions({ docHref: 'https://example.com/a', tryHref: 'https://example.com/t' });
+    expect(actions).to.deep.equal([
+      { id: 'learn', label: 'Learn more', href: 'https://example.com/a' },
+      { id: 'try', label: 'Try out', href: 'https://example.com/t' },
+    ]);
+  });
+
+  it('omits actions without a url', () => {
+    expect(getActions({ docHref: 'https://example.com/a' }).map(({ id }) => id)).to.deep.equal(['learn']);
+    expect(getActions({ tryHref: 'https://example.com/t' }).map(({ id }) => id)).to.deep.equal(['try']);
   });
 });
 
@@ -176,8 +199,7 @@ describe('fetchMarketplace', () => {
       Title: 'MSM',
       Description: 'Manage msm',
       'Doc Url': 'https://da.live/app/x/msm',
-      Type: 'App',
-      Image: 'https://example.com/t.png',
+      Icon: 'https://example.com/t.png',
     };
     restoreFetch = installFetch(async () => new Response(
       JSON.stringify({ data: [validRow, { Title: '', 'Doc Url': 'x' }] }),

@@ -22,12 +22,12 @@ export function normalizeItem({ row, origin }) {
 
   const description = (row.Description ?? '').trim();
   const owner = (row.Owner ?? '').trim();
-  const type = (row.Type ?? '').trim();
   const category = (row.Category ?? '').trim();
-  const imageHref = toSafeHref({ value: row.Image, origin });
+  // `Image` is the legacy column name, kept as a fallback while sheets migrate to `Icon`.
+  const iconHref = toSafeHref({ value: row.Icon || row.Image, origin });
 
   return {
-    title, description, docHref, tryHref, owner, type, category, imageHref,
+    title, description, docHref, tryHref, owner, category, iconHref,
   };
 }
 
@@ -42,6 +42,13 @@ export function filterByCategories({ items, categories = [] }) {
 
 export function isAdobeOwned({ owner }) {
   return owner?.toLowerCase() === 'adobe';
+}
+
+export function getActions({ docHref, tryHref }) {
+  return [
+    docHref && { id: 'learn', label: 'Learn more', href: docHref },
+    tryHref && { id: 'try', label: 'Try out', href: tryHref },
+  ].filter(Boolean);
 }
 
 export async function fetchMarketplace({ origin }) {
