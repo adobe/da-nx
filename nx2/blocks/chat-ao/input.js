@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle } from '../../utils/utils.js';
+import { loadStyle, hashChange } from '../../utils/utils.js';
 import { getConfig } from '../../scripts/nx.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
@@ -41,6 +41,82 @@ export default class NxAoInput extends LitElement {
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
 
   _voiceInterim = '';
+
+  _contextEvent = `nx-ao-context-${crypto.randomUUID()}`;
+
+  get isolated() { return !!this._isolated; }
+
+  set isolated(value) {
+    this._isolated = !!value;
+    this._syncSession();
+  }
+
+  get _standalone() {
+    return !this.onSubmit && !!this._context?.org && !!this._context?.site;
+  }
+
+  set context(value) {
+    this._explicitContext = true;
+    this._context = value;
+    this._syncSession();
+  }
+
+  set harnessConfig(value) {
+    this._harnessConfig = value;
+    this._syncSession();
+  }
+
+  _syncSession() {
+    if (!this.isConnected) return;
+    const { org, site } = this._context ?? {};
+    const identity = JSON.stringify([
+      org, site, !!this.onSubmit, this.isolated, this._harnessConfig,
+    ]);
+    if (identity === this._sessionIdentity) return;
+    this._sessionIdentity = identity;
+    this.requestUpdate();
+    const request = {};
+    this._sessionRequest = request;
+    if (this._session) this.blocked = false;
+    this._releaseSession?.();
+    this._releaseSession = undefined;
+    this._session = undefined;
+    this._unsubscribeEvents?.();
+    this._unsubscribeEvents = undefined;
+    if (!this._standalone) return;
+    this._sessionReady = this._joinSession({ request, context: this._context });
+  }
+
+  async _joinSession({ request, context }) {
+    try {
+      const { getAoSession, subscribeChatEvents } = await import('./session.js');
+      const key = `${context.org}/${context.site}`;
+      const supplied = this._harnessConfig;
+      const { altHarness, activationKey } = supplied && (!supplied.key || supplied.key === key)
+        ? supplied
+        : await (await import('../../utils/ewFlags.js')).getCoworkerConfig(context);
+      if (!this.isConnected || this._sessionRequest !== request || !this._standalone) return;
+      this.altHarness = !!altHarness;
+      this._session = getAoSession({
+        context, owner: this, isolated: this.isolated, altHarness, activationKey,
+      });
+      this._releaseSession = this._session.subscribe(this, {
+        onUpdate: (state) => { this.blocked = !!state.thinking && !state.pendingPlanApproval; },
+      });
+      this._unsubscribeEvents = subscribeChatEvents(this, {
+        getContext: () => this._context,
+        getSession: () => this._session,
+        onPrompt: ({ text, autoSend }) => this.setPrompt(text, { autoSend }),
+        onContext: (detail) => {
+          document.dispatchEvent(new CustomEvent(this._contextEvent, { detail }));
+        },
+      });
+    } catch (error) {
+      if (!this.isConnected || this._sessionRequest !== request) return;
+      this._sessionIdentity = undefined;
+      showToast({ text: error.message, variant: 'error' });
+    }
+  }
 
   get draft() {
     return this.shadowRoot.querySelector('.chat-input')?.value ?? '';
@@ -95,12 +171,31 @@ export default class NxAoInput extends LitElement {
       },
       onError: (message) => showToast({ text: message, variant: 'error' }),
     });
+    this._unsubscribeHash = hashChange.subscribe((state) => {
+      if (this._explicitContext) return;
+      this._context = state;
+      this._syncSession();
+    });
+    this._syncSession();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this._voice?.stop();
     this._slashMenu.close();
+    this._unsubscribeHash?.();
+    this._unsubscribeEvents?.();
+    this._releaseSession?.();
+    this._releaseSession = undefined;
+    this._unsubscribeEvents = undefined;
+    this._unsubscribeHash = undefined;
+    this._session = undefined;
+    this._sessionIdentity = undefined;
+    this._sessionRequest = undefined;
+  }
+
+  updated(changed) {
+    if (changed.has('onSubmit')) this._syncSession();
   }
 
   _toggleVoiceInput() {
@@ -124,7 +219,9 @@ export default class NxAoInput extends LitElement {
   }
 
   _getSlashItems(filter) {
-    const skills = (this.getSkills?.() ?? []).map((id) => ({ id, label: id }));
+    const available = this._standalone
+      ? this._session?.controller.getSkills() : this.getSkills?.();
+    const skills = (available ?? []).map((id) => ({ id, label: id }));
     const filtered = filter
       ? skills.filter((item) => item.id.toLowerCase().includes(filter))
       : skills;
@@ -139,17 +236,18 @@ export default class NxAoInput extends LitElement {
   _send(text) {
     const context = this.items.filter((item) => !item.dataBase64);
     const attachments = this.items.filter((item) => item.dataBase64);
-    this.onSubmit?.({ text, context, attachments });
+    if (this._standalone) {
+      if (!this._session?.send({
+        context: this._context, args: [text, context, attachments],
+      })) return;
+    } else if (this.onSubmit?.({ text, context, attachments }) === false) return;
     this.shadowRoot.querySelector('.chat-input').value = '';
     this.shadowRoot.querySelector('nx-pills')?.clear();
   }
 
   _submit(e) {
     e?.preventDefault();
-    if (this.blocked) {
-      this.onStop?.();
-      return;
-    }
+    if (this.blocked) return;
     const text = this.draft.trim();
     if (!text) return;
     const harness = this.altHarness ? 'cma' : 'coworker';
@@ -160,7 +258,13 @@ export default class NxAoInput extends LitElement {
 
   _handleInput(e) {
     this._slashMenu.onInput(e);
-    this.onInput?.();
+    if (this._standalone) this._session?.controller.warmSession();
+    else this.onInput?.();
+  }
+
+  _stop() {
+    if (this._standalone) this._session?.controller.stop();
+    else this.onStop?.();
   }
 
   _handleKeydown(e) {
@@ -216,7 +320,7 @@ export default class NxAoInput extends LitElement {
             <span class="chat-drop-title">Drop a file to add context</span>
             <span class="chat-drop-hint">Supports documents, images, and code</span>
           </div>` : nothing}
-        <nx-pills addEvent=${this.addEvent ?? ''}></nx-pills>
+        <nx-pills addEvent=${this._standalone ? this._contextEvent : this.addEvent ?? ''}></nx-pills>
         <input
           class="chat-file-input"
           type="file"
@@ -257,7 +361,7 @@ export default class NxAoInput extends LitElement {
             <button
               class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
               ?hidden=${!this.blocked}
-              @click=${this._submit}
+              @click=${this._stop}
             > ${icon('stop')}</button>
             <button type="submit" class="chat-send harness-${this.altHarness ? 'cma' : 'coworker'} nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} aria-label="Send">
               ${icon('send')}
