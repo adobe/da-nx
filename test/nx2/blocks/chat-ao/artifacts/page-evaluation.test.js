@@ -38,16 +38,15 @@ describe('page evaluation suggestion actions', () => {
       + 'Suggestion: Add an all-caps eyebrow and a CTA link.\n'
       + '\n'
       + 'Reference: https://example.com/media/image-3.jpg\n'
-      + '\n'
       + 'Only make the changes needed to resolve this check; leave the rest of the page as is.\n'
       + 'If you need to re-run preflight (before or after for confirmation), you can invoke the skill /aem-governance-evaluate-page.',
     );
   });
 
-  it('falls back to the asset label as reference when there is no preview url', () => {
+  it('omits the reference when there is no preview url, ignoring the asset label', () => {
     const { previewUrl: _, ...suggestion } = item.suggestion;
     const text = buildSuggestionPrompt({ item: { ...item, suggestion } });
-    expect(text).to.contain('\nReference: Image 3\n');
+    expect(text).to.not.contain('Reference:');
   });
 
   it('skips missing fields and falls back to the item description as reason', () => {

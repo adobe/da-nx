@@ -74,7 +74,6 @@ const promptLine = (prefix, value) => (value ? [`${prefix}${value}`] : []);
 export function buildSuggestionPrompt({ item }) {
   const suggestion = item?.suggestion ?? {};
   const reason = suggestion.issue ?? item?.description;
-  const reference = suggestion.previewUrl ?? suggestion.assetLabel;
   return [
     'Fix this failed preflight page evaluation check on the current page.',
     ...promptLine('Check: ', item?.title),
@@ -84,7 +83,7 @@ export function buildSuggestionPrompt({ item }) {
     '',
     ...promptLine('Suggestion: ', suggestion.suggested),
     '',
-    ...(reference ? [`Reference: ${reference}`, ''] : []),
+    ...promptLine('Reference: ', suggestion.previewUrl),
     'Only make the changes needed to resolve this check; leave the rest of the page as is.',
     'If you need to re-run preflight (before or after for confirmation), you can invoke the skill /aem-governance-evaluate-page.',
   ].join('\n');
