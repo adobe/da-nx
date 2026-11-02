@@ -36,10 +36,16 @@ class NxCard extends LitElement {
     if (changed.has('size') && !SCALES.includes(this.size)) this.size = 's';
   }
 
+  focus(options) {
+    const input = this.shadowRoot?.querySelector('input[type="checkbox"]');
+    if (this.selectable && input) input.focus(options);
+    else super.focus(options);
+  }
+
   async _onSelectionClick(e) {
     e.stopPropagation();
     const input = e.target;
-    this.dispatchEvent(new CustomEvent('selectionchange', {
+    this.dispatchEvent(new CustomEvent('nx-card-selection-change', {
       detail: { selected: input.checked, shiftKey: e.shiftKey },
       bubbles: true,
       composed: true,
