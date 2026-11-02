@@ -32,8 +32,11 @@ Notifications may repeat: consumers should treat them as invalidation signals,
 not exactly-once lifecycle events. No client-side turn tracking or deduplication
 is performed.
 
-Canvas bridges this event to `canvasBus.chatTurnCompleted`, a non-replaying
-channel for refreshing app data without depending on collaboration updates.
+DA Live exposes this event through `chatTurnCompleted` in
+`blocks/shared/chat-panel.js`, a non-replaying channel available to Canvas,
+Browse, and other hosts without Canvas initialization. Its first subscriber
+attaches the document listener; the last unsubscribe removes it.
+Consumers can refresh app data without depending on collaboration updates.
 This is an invalidation signal, not confirmation of preview, publication, or
 durable editor persistence. Extension subscriptions are documented in
 [SDK messaging](sdk-messaging.md#chat-turn-subscriptions).

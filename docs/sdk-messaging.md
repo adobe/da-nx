@@ -126,7 +126,8 @@ This API does not expose arbitrary canvas bus channels.
 
 The first subscriber sends `{ action: 'subscribeChatTurnCompleted' }` over the
 transferred MessagePort. The host forwards
-`{ action: 'chatTurnCompleted', detail }` from `canvasBus.chatTurnCompleted`.
+`{ action: 'chatTurnCompleted', detail }` from DA Live's shared
+`chatTurnCompleted` channel in `blocks/shared/chat-panel.js`, not the canvas bus.
 The last unsubscribe removes the SDK listener and sends
 `{ action: 'unsubscribeChatTurnCompleted' }`; repeated unsubscribe calls are
 safe. The host also removes subscriptions when the iframe channel is destroyed.
