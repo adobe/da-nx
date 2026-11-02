@@ -17,9 +17,9 @@ const COLOR_FAMILIES = {
   yellow: range(100, 1200, 100),
   green: range(100, 1200, 100),
   seafoam: range(100, 1200, 100),
-  turquoise: [200],
+  turquoise: range(100, 1200, 100),
   cyan: range(100, 1200, 100),
-  purple: [200],
+  purple: range(100, 1200, 100),
   pink: range(100, 1200, 100),
 };
 
