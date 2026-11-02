@@ -129,17 +129,19 @@ class NXSidenav extends LitElement {
     if (!this._navLinks) return nothing;
     const homeIndex = this._navLinks.findIndex((a) => a.text === 'Home');
     const chatOpen = this._chatPanelState === 'open';
+    const showChat = this._chatEnabled && !this._chatChecking && this._hasChatPanel
+      && this._chatPanelState !== 'restoring';
 
     return html`
       <ul>
         ${this._navLinks.map((a, index) => html`
-          ${this._chatEnabled && this._hasChatPanel && index === homeIndex ? html`
-            <li class="nav-link chat ${chatOpen ? 'is-active' : ''} ${this._chatPanelState === 'restoring' ? 'is-restoring' : ''}">
-              <button type="button" aria-label=${chatOpen ? 'Close chat' : 'Open chat'} aria-expanded=${chatOpen ? 'true' : 'false'} aria-disabled=${this._chatChecking && !chatOpen ? 'true' : 'false'} title="Chat" @click=${this.toggleChat}>
+          ${index === homeIndex ? html`
+            <li class="nav-link chat ${chatOpen ? 'is-active' : ''}" aria-hidden=${showChat ? nothing : 'true'}>
+              ${showChat ? html`<button type="button" aria-label=${chatOpen ? 'Close chat' : 'Open chat'} aria-expanded=${chatOpen ? 'true' : 'false'} title="Chat" @click=${this.toggleChat}>
                 <span class="icon" aria-hidden="true">
                   <svg viewBox="0 0 20 20"><use href=${CHAT_ICON_HREF}></use></svg>
                 </span>
-              </button>
+              </button>` : nothing}
             </li>
           ` : nothing}
           <li class="nav-link ${this.getActiveClass(a)}"><a href="${a.href}" @click=${(e) => this.handleClick(e, a)}>${a.icon}${a.text}</a></li>

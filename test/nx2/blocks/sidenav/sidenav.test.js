@@ -218,19 +218,22 @@ describe('sidenav chat action', () => {
     await checks.at(-1);
     await sidenav.updateComplete;
 
-    const button = sidenav.shadowRoot.querySelector('button');
-    const item = button.closest('li');
+    const item = sidenav.shadowRoot.querySelector('.chat');
+    const homeTop = sidenav.shadowRoot.querySelector('a').getBoundingClientRect().top
+      - item.getBoundingClientRect().top;
     expect(sidenav._chatPanelState).to.equal('restoring');
-    expect(getComputedStyle(item).visibility).to.equal('hidden');
-    expect(item.getBoundingClientRect().height).to.be.greaterThan(0);
-    expect(button.getAttribute('aria-expanded')).to.equal('false');
+    expect(sidenav.shadowRoot.querySelector('button')).to.equal(null);
+    expect(item.getAttribute('aria-hidden')).to.equal('true');
+    expect(item.getBoundingClientRect().height).to.equal(32);
 
     release(document.createElement('div'));
     await opened;
     await sidenav.updateComplete;
     expect(item.classList.contains('is-active')).to.equal(true);
     expect(getComputedStyle(item).visibility).to.equal('visible');
-    expect(button.getAttribute('aria-expanded')).to.equal('true');
+    expect(item.querySelector('button').getAttribute('aria-expanded')).to.equal('true');
+    expect(sidenav.shadowRoot.querySelector('a').getBoundingClientRect().top
+      - item.getBoundingClientRect().top).to.equal(homeTop);
   });
 
   it('tracks externally opened chat and resynchronizes visibility on reconnect', async () => {
@@ -279,12 +282,46 @@ describe('sidenav chat action', () => {
     expect(sidenav.shadowRoot.querySelector('button')).not.to.equal(null);
   });
 
+  it('renders navigation immediately with a spacer while the initial chat check is pending', async () => {
+    sidenav.remove();
+    history.replaceState(null, '', `${originalHref.split('#')[0]}#/${org}/initial-check`);
+    const fetchDefault = window.fetch;
+    let release;
+    const delayed = new Promise((resolve) => { release = resolve; });
+    window.fetch = (url, options) => (
+      url.toString().includes('/initial-check/') ? delayed : fetchDefault(url, options)
+    );
+    document.body.append(sidenav);
+    try {
+      await sidenav.updateComplete;
+      expect(sidenav._chatChecking).to.equal(true);
+      expect(sidenav.shadowRoot.querySelector('button')).to.equal(null);
+      expect([...sidenav.shadowRoot.querySelectorAll('a')].map((link) => link.textContent))
+        .to.deep.equal(['Home', 'Apps']);
+      const item = sidenav.shadowRoot.querySelector('.chat');
+      const homeTop = sidenav.shadowRoot.querySelector('a').getBoundingClientRect().top;
+      expect(item.children).to.have.length(0);
+      expect(item.getBoundingClientRect().height).to.equal(32);
+      release(new Response(JSON.stringify({
+        flags: { data: [{ key: 'ew.enabled', value: 'true' }] },
+      })));
+      await checks.at(-1);
+      await sidenav.updateComplete;
+      expect(item.querySelector('button')).not.to.equal(null);
+      expect(sidenav.shadowRoot.querySelector('a').getBoundingClientRect().top).to.equal(homeTop);
+    } finally {
+      release(new Response('{}'));
+      await checks.at(-1);
+    }
+  });
+
   [true, false].forEach((allowed) => {
-    it(`preserves the rail slot and focus while checking an ${allowed ? 'enabled' : 'disabled'} site`, async () => {
-      const button = sidenav.shadowRoot.querySelector('button');
+    it(`preserves rail spacing with a non-interactive spacer while checking an ${allowed ? 'enabled' : 'disabled'} site`, async () => {
+      const item = sidenav.shadowRoot.querySelector('.chat');
       const home = sidenav.shadowRoot.querySelector('a');
       const homeTop = home.getBoundingClientRect().top;
-      button.focus();
+      const slotHeight = item.getBoundingClientRect().height;
+      home.focus();
       const fetchDefault = window.fetch;
       let release;
       const delayed = new Promise((resolve) => { release = resolve; });
@@ -299,12 +336,13 @@ describe('sidenav chat action', () => {
       const pending = navigate(`#/${org}/checking`);
       try {
         await sidenav.updateComplete;
-        expect(sidenav.shadowRoot.querySelector('button')).to.equal(button);
-        expect(getComputedStyle(button.closest('li')).visibility).to.equal('visible');
+        expect(sidenav.shadowRoot.querySelector('button')).to.equal(null);
+        expect(item.children).to.have.length(0);
+        expect(item.getAttribute('aria-hidden')).to.equal('true');
+        expect(item.getBoundingClientRect().height).to.equal(slotHeight);
         expect(home.getBoundingClientRect().top).to.equal(homeTop);
-        expect(sidenav.shadowRoot.activeElement).to.equal(button);
-        expect(button.getAttribute('aria-disabled')).to.equal('true');
-        button.click();
+        expect(sidenav.shadowRoot.activeElement).to.equal(home);
+        item.click();
         expect(opens).to.have.length(0);
 
         release(new Response(JSON.stringify({
@@ -317,12 +355,15 @@ describe('sidenav chat action', () => {
         })));
         await pending;
         if (allowed) {
-          expect(sidenav.shadowRoot.querySelector('button')).to.equal(button);
-          expect(sidenav.shadowRoot.activeElement).to.equal(button);
-          expect(button.getAttribute('aria-disabled')).to.equal('false');
+          expect(item.querySelector('button')).not.to.equal(null);
+          expect(item.hasAttribute('aria-hidden')).to.equal(false);
         } else {
           expect(sidenav.shadowRoot.querySelector('button')).to.equal(null);
+          expect(item.children).to.have.length(0);
         }
+        expect(item.getBoundingClientRect().height).to.equal(slotHeight);
+        expect(home.getBoundingClientRect().top).to.equal(homeTop);
+        expect(sidenav.shadowRoot.activeElement).to.equal(home);
       } finally {
         release(new Response('{}'));
         await pending;
@@ -475,7 +516,7 @@ describe('sidenav chat action', () => {
         expect(sidenav._chatChecking).to.equal(true);
         expect(sidenav._chatEnabled).to.equal(true);
         expect(sidenav._chatSite.site).to.equal('current');
-        expect(sidenav.shadowRoot.querySelector('button').getAttribute('aria-disabled')).to.equal('true');
+        expect(sidenav.shadowRoot.querySelector('button')).to.equal(null);
         expect(errors).to.deep.equal([['Failed to check chat availability', error]]);
       } finally {
         releaseCurrent(new Response(JSON.stringify({
@@ -484,7 +525,7 @@ describe('sidenav chat action', () => {
         await current;
       }
       expect(sidenav._chatChecking).to.equal(false);
-      expect(sidenav.shadowRoot.querySelector('button').getAttribute('aria-disabled')).to.equal('false');
+      expect(sidenav.shadowRoot.querySelector('button')).not.to.equal(null);
     });
 
     it('does not restore disconnected state after a rejection and can recheck on reconnect', async () => {

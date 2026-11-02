@@ -38,8 +38,8 @@
 }
 
 .nav-link {
-  &.chat.is-restoring {
-    visibility: hidden;
+  &.chat {
+    height: 32px;
   }
 
   .icon {
