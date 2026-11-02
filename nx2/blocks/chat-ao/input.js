@@ -22,6 +22,7 @@ const [inputTokens, styles, buttonStyle, spinnerStyle] = await Promise.all([
   loadStyle(new URL('../../styles/spinner.css', import.meta.url).href),
 ]);
 const { codeBase } = getConfig();
+const EMPTY_PROMPTS = [];
 const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
 const isAllowedFile = (file) => AO_UPLOAD_EXTENSIONS
   .some((ext) => (file.name?.toLowerCase() ?? '').endsWith(ext));
@@ -261,7 +262,7 @@ export default class NxAoInput extends LitElement {
     const buttonSize = this.variant === 'expanded' ? expandedSize : compactSize;
     return html`
       <nx-popover class="prompts-popover">
-        <nx-prompts .prompts=${this.prompts} .onSend=${this._onPromptSend}></nx-prompts>
+        <nx-prompts .prompts=${this.prompts ?? EMPTY_PROMPTS} .onSend=${this._onPromptSend}></nx-prompts>
       </nx-popover>
       <nx-menu
         class="slash-menu"

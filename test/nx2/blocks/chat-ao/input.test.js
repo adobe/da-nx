@@ -29,6 +29,9 @@ describe('standalone AO input', () => {
   it('only rerenders the prompt list when its prompts change', async () => {
     const prompts = chatInput.shadowRoot.querySelector('nx-prompts');
     await prompts.updateComplete;
+    const category = prompts.shadowRoot.querySelector('nx-picker');
+    await category.updateComplete;
+    expect(category.shadowRoot.querySelector('button').textContent).to.include('All');
     const render = sinon.spy(prompts, 'render');
     chatInput.statusMessage = 'Reading files...';
     await chatInput.updateComplete;
