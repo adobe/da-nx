@@ -64,7 +64,7 @@ describe('nx-siteselector', () => {
     expect(picker.size).to.equal('m');
     selector.size = 's';
     picker = await settle();
-    expect(picker.size).to.equal('s');
+    expect(picker.size).to.equal('m');
   });
 
   it('does not accept input before the host attaches its adapter', async () => {
@@ -203,6 +203,36 @@ describe('nx-siteselector', () => {
     expect(picker.shadowRoot.querySelector('.picker-trigger').getBoundingClientRect().width).to.equal(280);
   });
 
+  it('uses M bold sections and M medium menu labels independently of trigger size', async () => {
+    selector.heading = 'Your recent sites';
+    selector.sites = [{ value: 'org/site', label: 'Site, org/site' }];
+    selector.style.cssText = `
+      --s2-component-s-bold-font-size: 12px;
+      --s2-component-s-medium-font-size: 12px;
+      --s2-component-m-bold-font-size: 14px;
+      --s2-component-m-bold-line-height: 18px;
+      --s2-component-m-bold-font-weight: 700;
+      --s2-component-m-medium-font-size: 14px;
+      --s2-component-m-medium-line-height: 18px;
+      --s2-component-m-medium-font-weight: 500;
+    `;
+    document.body.append(selector);
+    for (const size of ['s', 'm', undefined]) {
+      selector.size = size;
+      const picker = await settle();
+      const section = getComputedStyle(picker.shadowRoot.querySelector('.picker-section'));
+      expect(section.fontSize).to.equal('14px');
+      expect(section.lineHeight).to.equal('18px');
+      expect(section.fontWeight).to.equal('700');
+      for (const item of picker.shadowRoot.querySelectorAll('.picker-item')) {
+        const style = getComputedStyle(item);
+        expect(style.fontSize).to.equal('14px');
+        expect(style.lineHeight).to.equal('18px');
+        expect(style.fontWeight).to.equal('500');
+      }
+    }
+  });
+
   it('keeps the outlined pill, bold trigger and medium menu labels in both sizes', async () => {
     selector.sites = [{ value: 'org/site', label: 'site (org)' }];
     selector.value = 'org/site';
@@ -215,12 +245,12 @@ describe('nx-siteselector', () => {
       --s2-gray-300: #ccc;
     `;
     document.body.append(selector);
-    for (const [size, titleSize, regular, medium, bold] of [
-      ['s', 'm', '350', '450', '650'], ['m', 'l', '360', '460', '660'],
+    for (const [size, titleSize, bold] of [
+      ['s', 'm', '650'], ['m', 'l', '660'],
     ]) {
       selector.size = size;
-      selector.style.setProperty(`--s2-component-${size}-regular-font-weight`, regular);
-      selector.style.setProperty(`--s2-component-${size}-medium-font-weight`, medium);
+      selector.style.setProperty('--s2-component-m-regular-font-weight', '350');
+      selector.style.setProperty('--s2-component-m-medium-font-weight', '450');
       selector.style.setProperty(`--s2-component-${titleSize}-bold-font-weight`, bold);
       const picker = await settle();
       const trigger = getComputedStyle(picker.shadowRoot.querySelector('.picker-trigger'));
@@ -230,8 +260,8 @@ describe('nx-siteselector', () => {
       expect(trigger.backgroundColor).to.equal('rgb(250, 250, 250)');
       expect(getComputedStyle(picker.shadowRoot.querySelector('[part="label"]')).fontWeight).to.equal(bold);
       expect(picker.variant).to.equal('navigation');
-      expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal(medium);
-      expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item-description')).fontWeight).to.equal(regular);
+      expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal('450');
+      expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item-description')).fontWeight).to.equal('350');
     }
   });
 });

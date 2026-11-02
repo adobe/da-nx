@@ -189,7 +189,7 @@ if both are needed. Nexter lazy-loads `nx2/blocks/siteselector/siteselector.js`.
 
 The block owns presentation only. Set `sites` to `{ value: 'org/site', label: 'Site, org/site' }`
 entries and `value` to the current identifier. Optional `heading`, `size` (`s` or `m`,
-default `m`) and `error` customize content and density without replacing menu layout.
+default `m`) and `error` customize content and trigger typography without replacing menu layout.
 Landing pages can set `heading` to `Your recent sites`.
 Without a custom heading, the loaded, unselected trigger also defaults to `Your recent sites`.
 With no selected `value`, the loaded trigger shows this heading rather than
@@ -204,8 +204,8 @@ component M-bold and L-bold tokens respectively; shared component sizing is unch
 These trigger styles belong to the standalone block
 and use existing picker trigger properties and the label part. Its menu has a 240px
 minimum and follows wider triggers. It uses
-the shared navigation presentation with matching S/M component tokens, including medium labels, regular descriptions,
-blue leading checks and an unindented Add action.
+the shared navigation presentation at size M for both trigger sizes: M-bold section headings,
+M-medium site and Add labels, regular descriptions, blue leading checks and an unindented Add action.
 The trigger grows with its label between 220px and 280px on desktop, and shrinks
 to its content up to 176px on mobile. The nav's site-nav container supplies compact
 padding when space is constrained, without removing the trigger's intrinsic width.
