@@ -5,6 +5,12 @@ import {
   BASE_OPTS, resolveOrigin, getToken, onUnauthorized, isConnected, connect as establishConnection,
 } from './auth.js';
 
+/** `translation.service.{env}.*` keys this connector requires. */
+export const requiredKeys = ['origin', 'projectId'];
+
+/** Credential keys resolved server-side; entries may be arrays of accepted aliases. */
+export const requiredCredentialKeys = ['userIdentifier', 'userSecret'];
+
 export const dnt = { addDnt };
 
 export { isConnected };

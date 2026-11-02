@@ -4,6 +4,12 @@ import { getOrCreateConnectorGuid } from './connectorGuid.js';
 import fetchWithRetry from '../../utils/fetchWithRetry.js';
 import downloadQueue from '../../utils/downloadQueue.js';
 
+/** `translation.service.{env}.*` keys this connector requires. */
+export const requiredKeys = ['apiEndpoint', 'providerId'];
+
+/** Credential keys resolved server-side; entries may be arrays of accepted aliases. */
+export const requiredCredentialKeys = ['authEndpoint', 'clientId', 'clientSecret'];
+
 export const dnt = { addDnt };
 
 const INTEGRATION_NAME = 'lionbridge';

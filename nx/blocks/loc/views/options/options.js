@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
 import { fetchConfig, isSourceDetectEnabled } from '../../utils/utils.js';
+import { validateConfig, configErrorMessage } from '../../utils/validate-config.js';
 import {
   getAllActions,
   formatLangs,
@@ -26,6 +27,7 @@ class NxLocOptions extends LitElement {
     _message: { state: true },
     _serviceOptions: { state: true },
     _detectedSource: { state: true },
+    _configErrors: { state: true },
   };
 
   connectedCallback() {
@@ -44,8 +46,10 @@ class NxLocOptions extends LitElement {
   async formatOptions() {
     const { org, site } = this.project;
     const sheets = await fetchConfig(org, site);
-    if (!(sheets.config || sheets.languages)) {
-      this._message = { text: 'No config available.', type: 'error' };
+    const { errors } = await validateConfig(sheets);
+    if (errors.length) {
+      this._configErrors = errors;
+      this._message = configErrorMessage(errors);
       return;
     }
     const { config, options } = formatConfig(sheets);
@@ -117,6 +121,10 @@ class NxLocOptions extends LitElement {
   }
 
   handleAction(e) {
+    if (this._configErrors?.length) {
+      this._message = configErrorMessage(this._configErrors);
+      return;
+    }
     const { view } = e.detail;
     const { message, updates } = this.updateOptions();
     if (message) {

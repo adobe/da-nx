@@ -10,6 +10,7 @@ import {
   removeWaitingLanguagesFromConf,
 } from './index.js';
 import { getProjectSourceLocations } from '../../utils/utils.js';
+import { validateService, configErrorMessage } from '../../utils/validate-config.js';
 
 const style = await loadStyle(import.meta.url);
 const spinnerStyle = await loadStyle(new URL('../../../../../nx2/styles/spinner.css', import.meta.url).href);
@@ -24,6 +25,7 @@ class NxLocTranslate extends LitElement {
     _urls: { state: true },
     _urlErrors: { state: true },
     _connected: { state: true },
+    _configErrors: { state: true },
     _translateLangs: { state: true },
     _copyLangs: { state: true },
     _message: { state: true },
@@ -77,6 +79,13 @@ class NxLocTranslate extends LitElement {
    */
   async setupService() {
     const { service } = this.project.options;
+    const { errors } = await validateService(service);
+    if (errors.length) {
+      this._configErrors = errors;
+      this.handleMessage(configErrorMessage(errors));
+      return;
+    }
+    this._configErrors = undefined;
     service.connector = await setupConnector(service);
     service.org = this.project.org;
     service.site = this.project.site;
@@ -127,6 +136,7 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleConnect() {
+    if (this._configErrors?.length || !this._service) return;
     this._connectBusy = true;
     try {
       const sendMessage = this.handleMessage.bind(this);
@@ -216,6 +226,12 @@ class NxLocTranslate extends LitElement {
 
   async handleSendAll() {
     if (this._sendAllBusy || this.isBusy) return;
+    if (this._configErrors?.length || !this._service) {
+      this.handleMessage(this._configErrors?.length
+        ? configErrorMessage(this._configErrors)
+        : { text: 'Translation service is not configured.', type: 'error' });
+      return;
+    }
     const managed = this.supportsManagedStatus;
     this._sendAllBusy = true;
     this.handleMessage(undefined);
