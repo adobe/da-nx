@@ -25,6 +25,9 @@ file selection/drop, slash menu, prompts, and voice input. `nx-chat-ao` retains
 conversation, session, approval, history, and document-event handling, delegating
 `setPrompt()` to the input.
 
+The conversation also exposes `openAddAction(id)`. It waits for rendering and
+delegates the request to its input.
+
 Hosts supply `blocked`, `altHarness`, `prompts`, `menuItems`, and `getSkills()`.
 `disabled` prevents editing/submission without showing Stop; `blocked` represents
 an active turn and exposes Stop. `showInputStatus` opts into the working message,
