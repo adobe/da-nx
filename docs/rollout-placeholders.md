@@ -22,8 +22,8 @@ Create a sheet at `/.da/rollout-placeholders.json` with one tab per destination 
 - Tab names are the rollout locale roots without the leading slash: `/nl-nl` uses `nl-nl` and `/eu/nl-nl` uses `eu/nl-nl`. A root (`/`) destination uses a tab named `/`. Matching is exact and there is no fallback to another locale or language.
 - A destination without a tab keeps its tokens unchanged. Use this for intermediate stores in multi-step rollouts (for example global → `/eu` → `/en-nl`): leave out an `eu` tab so `/eu` keeps `{{country}}`, and add an `en-nl` tab so the final rollout fills it in.
 - Keys are case-sensitive, must start with a letter, and may contain letters, digits, `_`, `.` and `-`. `{{country}}` and `{{ country }}` are equivalent.
-- Values may only contain letters and digits in any script, spaces, and `. , ' -`, up to 100 characters. Empty values are allowed. A value with any other character, such as `< > " & : / = ? # %` or a line break, is an error for that locale. Values can't contain markup, URLs or placeholders, and replacement is never recursive.
-- Duplicate keys within a tab, values outside the allowed characters, a missing `value`, non-text values and incomplete (paginated) tabs are errors for that locale only.
+- Values may only contain letters and digits in any script, spaces, and `. , ' -`, up to 100 characters. A value with any other character, such as `< > " & : / = ? # %` or a line break, is an error for that locale. Values can't contain markup, URLs or placeholders, and replacement is never recursive.
+- Duplicate keys within a tab, values outside the allowed characters, a missing or empty `value`, non-text values and incomplete (paginated) tabs are errors for that locale only.
 
 The configuration is read through the DA Source API at most once per rollout (see below for when). A missing document (404) turns the feature off. Any other read failure is reported as an error for documents that contain tokens.
 
@@ -32,11 +32,14 @@ The configuration is read through the DA Source API at most once per rollout (se
 Tokens are replaced only in these places:
 
 - **Text**, including metadata blocks (title, description and similar).
-- **`alt` and `title` attributes.**
-- **`href` and `src` links**, only after the start of the link, for example `/shipping/{{countryCode}}/index.html` or `?country={{countryCode}}`. Values used in a link may only contain `A-Z`, `a-z`, `0-9` and `-`, such as `nl-nl`. A token can't start a link, so a whole link (`href="{{supportUrl}}"`) or a host name can't come from a value. Write the link in the page and put only the locale-specific part in a token.
+- **`alt` and `title`** on `<img>`, and `title` on `<a>`.
+- **Links:** `href` on `<a>` and `src` on `<img>`, only after the start of the link and its host, for example `/shipping/{{countryCode}}/index.html` or `?country={{countryCode}}`. Values used in a link may only contain `A-Z`, `a-z`, `0-9` and `-`, such as `nl-nl`. A token can't start a link, so a whole link (`href="{{supportUrl}}"`) or a host name can't come from a value. Write the link in the page and put only the locale-specific part in a token. Tokens whose braces were URL-encoded (`%7B%7BcountryCode%7D%7D`) are recognized too.
+- **URL-looking text:** text, metadata and sheet cells that look like a URL (start with `http://`, `https://` or `/`) follow the same link rules.
 - **JSON sheets:** string cells in every tab, as text. Numbers, booleans, `null`, column names, row counts and `:` properties are kept as they are.
 
-Tokens anywhere else are left unchanged, without an error. This includes other attributes (`aria-*`, `data-*`, `srcset`, `style`, `on*`), the content of `script`, `style`, `template`, `iframe` and similar elements, and the `da-metadata` system block. Tokens split by formatting (`{{<strong>country</strong>}}`) are reported as errors.
+Tokens anywhere else are left unchanged, without an error. This includes the same attributes on other elements, other attributes (`aria-*`, `data-*`, `srcset`, `style`, `on*`), the content of `script`, `style`, `template`, `iframe` and similar elements, and the `da-metadata` system block. Tokens split by formatting (`{{<strong>country</strong>}}`) are reported as errors.
+
+Each source page is parsed once per rollout, however many locales it goes to.
 
 ## Errors
 

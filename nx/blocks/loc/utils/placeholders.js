@@ -6,8 +6,12 @@ const VALUE = /^[\p{L}\p{M}\p{N} .,'-]{0,100}$/u;
 const SLUG = /^[A-Za-z0-9-]+$/;
 const HAS_HOST = /^([a-z][a-z0-9+.-]*:|\/\/)/i;
 const AFTER_HOST = /^(https?:)?\/\/[^/?#]+[/?#]/i;
-const TEXT_ATTRS = new Set(['alt', 'title']);
-const LINK_ATTRS = new Set(['href', 'src']);
+const URL_LIKE = /^(https?:\/\/|\/)(?:\{\{\s*[A-Za-z][\w.-]*\s*\}\}|\S)*$/i;
+const ENCODED_TOKEN = /%7B%7B((?:%20|\s)*[A-Za-z][\w.-]*(?:%20|\s)*)%7D%7D/gi;
+const DANGLING = /\{\{|\}\}/;
+const TEXT_ATTRS = { a: ['title'], img: ['alt', 'title'] };
+const LINK_ATTRS = { a: ['href'], img: ['src'] };
+const SPLIT_SCOPE = 'p, li, td, th, h1, h2, h3, h4, h5, h6, div';
 const SKIPPED_ELEMENTS = 'script, style, noscript, template, iframe, object, embed';
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
 
@@ -38,7 +42,7 @@ function validateTab(name, sheet) {
     if ((key === undefined || key === '') && (value === undefined || value === '')) return acc;
     if (typeof key !== 'string' || !KEY.test(key)) return [...acc, `${line} has invalid key "${key ?? ''}"`];
     if (values.has(key)) return [...acc, `${line} duplicates key "${key}"`];
-    if (value === undefined) return [...acc, `${line} has no value for "${key}"`];
+    if (value === undefined || value === '') return [...acc, `${line} has no value for "${key}"`];
     if (typeof value !== 'string') return [...acc, `${line} value for "${key}" must be text`];
     if (!VALUE.test(value)) {
       return [...acc, `${line} value for "${key}" may only contain letters, digits, spaces and . , ' - (up to 100 characters)`];
@@ -97,77 +101,136 @@ function describe(el) {
   return block && block !== el ? `${tag} in ${block.classList[0]} block` : tag;
 }
 
-function findSplitTokens(doc) {
-  return [...doc.body.querySelectorAll('*')].reduce((acc, el) => {
-    const own = countTokens(el.textContent);
-    if (!own) return acc;
-    const children = [...el.childNodes]
-      .reduce((sum, node) => sum + countTokens(node.textContent), 0);
-    if (own > children) acc.push(`placeholder is split by formatting (${describe(el)})`);
-    return acc;
-  }, []);
+const isUrlLike = (str) => URL_LIKE.test(str.trim());
+const decodeBraces = (str) => str.replace(ENCODED_TOKEN, (m, inner) => `{{${inner.replace(/%20/gi, ' ')}}}`);
+
+function textSlot({ template, set, location }) {
+  return { template, original: template, set, link: isUrlLike(template), location };
 }
 
-export function expandHtml({ content, values }) {
+function hasSplitToken(scope) {
+  const walker = scope.ownerDocument.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+  let own = 0;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) own += countTokens(node.data);
+  return countTokens(scope.textContent) > own;
+}
+
+export function compileHtml(content) {
   const doc = new DOMParser().parseFromString(content, 'text/html');
-  const errors = findSplitTokens(doc);
-  const { expandText, expandLink } = createReplacer({ values, errors });
   const systemMetadata = doc.querySelector(DA_METADATA_SELECTOR);
-  const isSkipped = (el) => systemMetadata?.contains(el) || el.closest(SKIPPED_ELEMENTS);
+  const slots = [];
+  const errors = [];
+  const checked = new Set();
+  const acceptNode = (node) => (node.nodeType === Node.ELEMENT_NODE
+    && (node === systemMetadata || node.matches(SKIPPED_ELEMENTS))
+    ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT);
+  // eslint-disable-next-line no-bitwise
+  const show = NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT;
+  const walker = doc.createTreeWalker(doc.body, show, { acceptNode });
 
-  doc.body.querySelectorAll('*').forEach((el) => {
-    if (isSkipped(el)) return;
-    [...el.attributes].forEach((attr) => {
-      if (!hasTokens(attr.value)) return;
-      const name = attr.name.toLowerCase();
-      const location = `${name} on ${describe(el)}`;
-      if (TEXT_ATTRS.has(name)) attr.value = expandText(attr.value, location);
-      if (LINK_ATTRS.has(name)) attr.value = expandLink(attr.value, location);
-    });
-  });
-
-  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if (hasTokens(node.data) && !isSkipped(node.parentElement)) {
-      node.data = expandText(node.data, `text in ${describe(node.parentElement)}`);
+    if (node.nodeType === Node.TEXT_NODE) {
+      const { data } = node;
+      if (hasTokens(data)) {
+        slots.push(textSlot({
+          template: data,
+          set: (value) => { node.data = value; },
+          location: `text in ${describe(node.parentElement)}`,
+        }));
+      }
+      const scope = DANGLING.test(data.replace(TOKEN, ''))
+        && (node.parentElement.closest(SPLIT_SCOPE) || node.parentElement);
+      if (scope && !checked.has(scope)) {
+        checked.add(scope);
+        if (hasSplitToken(scope)) errors.push(`placeholder is split by formatting (${describe(scope)})`);
+      }
+    } else {
+      const tag = node.localName;
+      [...(TEXT_ATTRS[tag] || []), ...(LINK_ATTRS[tag] || [])].forEach((name) => {
+        const original = node.getAttribute(name);
+        if (!original) return;
+        const link = LINK_ATTRS[tag]?.includes(name);
+        const template = link ? decodeBraces(original) : original;
+        if (!hasTokens(template)) return;
+        slots.push({
+          template,
+          original,
+          set: (value) => node.setAttribute(name, value),
+          link,
+          location: `${name} on ${describe(node)}`,
+        });
+      });
     }
   }
 
-  if (errors.length) return { errors };
-  if (/<html[\s>]/i.test(content)) {
-    const doctype = /^\s*<!doctype/i.test(content) ? '<!DOCTYPE html>\n' : '';
-    return { content: `${doctype}${doc.documentElement.outerHTML}` };
-  }
-  if (/<body[\s>]/i.test(content)) return { content: doc.body.outerHTML };
-  return { content: doc.body.innerHTML };
+  const serialize = () => {
+    if (/<html[\s>]/i.test(content)) {
+      const doctype = /^\s*<!doctype/i.test(content) ? '<!DOCTYPE html>\n' : '';
+      return `${doctype}${doc.documentElement.outerHTML}`;
+    }
+    if (/<body[\s>]/i.test(content)) return doc.body.outerHTML;
+    return doc.body.innerHTML;
+  };
+
+  return { slots, errors, serialize };
 }
 
-export function expandJson({ content, values }) {
+export function compileJson(content) {
   let json;
   try {
     json = JSON.parse(content);
   } catch {
-    return { errors: ['content is not valid JSON'] };
+    return { slots: [], errors: ['content is not valid JSON'] };
   }
-  const errors = [];
-  const { expandText } = createReplacer({ values, errors });
-  const walk = (value, path) => {
-    if (typeof value === 'string') return hasTokens(value) ? expandText(value, path) : value;
-    if (Array.isArray(value)) return value.map((item, idx) => walk(item, `${path}[${idx}]`));
-    if (value && typeof value === 'object') {
-      return Object.fromEntries(Object.entries(value).map(([key, item]) => (
-        [key, key.startsWith(':') ? item : walk(item, path ? `${path}.${key}` : key)]
-      )));
+  const slots = [];
+  const walk = (parent, key, path) => {
+    const value = parent[key];
+    if (typeof value === 'string') {
+      if (hasTokens(value)) {
+        slots.push(textSlot({ template: value, set: (v) => { parent[key] = v; }, location: path }));
+      }
+      return;
     }
-    return value;
+    if (!value || typeof value !== 'object') return;
+    Object.keys(value).forEach((child) => {
+      if (child.startsWith(':')) return;
+      const childPath = Array.isArray(value) ? `${path}[${child}]` : [path, child].filter(Boolean).join('.');
+      walk(value, child, childPath);
+    });
   };
-  const expanded = walk(json, '');
-  return errors.length ? { errors } : { content: JSON.stringify(expanded) };
+  walk({ json }, 'json', '');
+  return { slots, errors: [], serialize: () => JSON.stringify(json) };
 }
+
+export function applyPlaceholders({ compiled, values }) {
+  const errors = [...compiled.errors];
+  const { expandText, expandLink } = createReplacer({ values, errors });
+  const results = compiled.slots.map(({ template, link, location }) => (
+    link ? expandLink(template, location) : expandText(template, location)));
+  if (errors.length) return { errors };
+  compiled.slots.forEach((slot, idx) => slot.set(results[idx]));
+  const content = compiled.serialize();
+  compiled.slots.forEach((slot) => slot.set(slot.original));
+  return { content };
+}
+
+export const expandHtml = ({ content, values }) => applyPlaceholders({
+  compiled: compileHtml(content), values,
+});
+
+export const expandJson = ({ content, values }) => applyPlaceholders({
+  compiled: compileJson(content), values,
+});
 
 export function createRolloutResolver({ load, sitePath }) {
   let configPromise;
   const sources = {};
+  const compiled = {};
+  const compile = (content, isJson) => {
+    const key = `${isJson}:${content}`;
+    compiled[key] ??= isJson ? compileJson(content) : compileHtml(content);
+    return compiled[key];
+  };
 
   const loadConfig = () => {
     configPromise ??= (async () => {
@@ -186,9 +249,9 @@ export function createRolloutResolver({ load, sitePath }) {
   const expand = async ({ content, root, path }) => {
     if (typeof content !== 'string' || path?.endsWith(ROLLOUT_CONFIG_PATH)) return { content };
     const isJson = path?.endsWith('.json');
-    const tokenized = hasTokens(content) || (!isJson && content.includes('{{')
-      && countTokens(new DOMParser().parseFromString(content, 'text/html').body.textContent) > 0);
-    if (!tokenized) return { content };
+    const maybeTokens = hasTokens(content) || (!isJson
+      && (/%7B%7B/i.test(content) || hasTokens(content.replace(/<[^>]*>/g, ''))));
+    if (!maybeTokens) return { content };
 
     const config = await loadConfig();
     if (config.disabled) return { content };
@@ -196,8 +259,9 @@ export function createRolloutResolver({ load, sitePath }) {
     if (passthrough) return { content };
     if (error) return { error: `${path}: ${error}` };
 
-    const expandFn = isJson ? expandJson : expandHtml;
-    const { content: expanded, errors } = expandFn({ content, values });
+    const source = compile(content, isJson);
+    if (!source.slots.length && !source.errors.length) return { content };
+    const { content: expanded, errors } = applyPlaceholders({ compiled: source, values });
     if (errors) return { error: `${path}: ${errors.join('; ')}` };
     return { content: expanded };
   };
