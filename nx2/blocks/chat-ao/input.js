@@ -359,6 +359,7 @@ export default class NxAoInput extends LitElement {
               >${icon('mic')}</button>
             ` : nothing}
             <button
+              type="button"
               class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
               ?hidden=${!this.blocked}
               @click=${this._stop}
