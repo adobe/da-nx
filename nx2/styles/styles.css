@@ -157,6 +157,7 @@
   --s2-seafoam-1000: light-dark(rgb(5 108 92), rgb(12 173 142));
   --s2-seafoam-1100: light-dark(rgb(3 92 80), rgb(14 190 156));
   --s2-seafoam-1200: light-dark(rgb(1 75 67), rgb(29 214 176));
+  --s2-turquoise-200: light-dark(rgb(209 245 245), rgb(0 37 41));
   --s2-cyan-100: light-dark(rgb(238 250 254), rgb(0 29 39));
   --s2-cyan-200: light-dark(rgb(217 244 253), rgb(0 36 49));
   --s2-cyan-300: light-dark(rgb(183 231 252), rgb(0 48 65));
@@ -169,6 +170,7 @@
   --s2-cyan-1000: light-dark(rgb(4 102 145), rgb(38 159 244));
   --s2-cyan-1100: light-dark(rgb(0 87 121), rgb(63 177 255));
   --s2-cyan-1200: light-dark(rgb(0 71 98), rgb(107 199 255));
+  --s2-purple-200: light-dark(rgb(244 235 252), rgb(50 0 96));
   --s2-pink-100: light-dark(rgb(255 246 252), rgb(58 0 37));
   --s2-pink-200: light-dark(rgb(255 232 247), rgb(71 0 44));
   --s2-pink-300: light-dark(rgb(255 211 240), rgb(90 0 57));
