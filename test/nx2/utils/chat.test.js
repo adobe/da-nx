@@ -5,8 +5,15 @@ import { REQUIRED_SERVICE_CODES } from '../../../nx2/utils/entitlement.js';
 
 // isHlx6's upgrade probe reads resp.headers.get(...) before daConfig ever reads
 // the body, so every mocked fetch here needs a real headers.get, not just json().
+// loadChat() also imports the chat block, whose loadStyle() reads resp.text() —
+// without it that promise never settles and the loadChat tests time out.
 function mockFetch(json) {
-  return async () => ({ ok: true, headers: { get: () => null }, json: async () => json });
+  return async () => ({
+    ok: true,
+    headers: { get: () => null },
+    json: async () => json,
+    text: async () => '',
+  });
 }
 
 function withUrl(hash, search, fn) {
