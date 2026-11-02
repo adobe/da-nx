@@ -66,33 +66,33 @@ describe('page evaluation suggestion actions', () => {
     );
   });
 
-  it('wires Add to chat and Apply change in the page evaluation dialog', async () => {
-    const host = document.createElement('div');
-    document.body.append(host);
-    render(renderUiArtifact({
-      components: [{
-        type: 'PageEvaluationWithIcons',
-        props: { title: 'Eval', sections: [{ label: 'Failures', tone: 'negative', defaultOpen: true, items: [item] }] },
-      }],
-    }), host);
-    const card = host.querySelector('nx-page-eval');
-    await card.updateComplete;
-    card.shadowRoot.querySelector('.ui-artifact-pe-item-action').click();
-    await waitUntil(() => card.shadowRoot.querySelector('.ui-artifact-pe-modal-apply'));
+  [
+    { selector: '.ui-artifact-pe-modal-add', autoSend: false },
+    { selector: '.ui-artifact-pe-modal-apply', autoSend: true },
+  ].forEach(({ selector, autoSend }) => {
+    it(`sends the prompt and closes the dialog on ${selector}`, async () => {
+      const host = document.createElement('div');
+      document.body.append(host);
+      render(renderUiArtifact({
+        components: [{
+          type: 'PageEvaluationWithIcons',
+          props: { title: 'Eval', sections: [{ label: 'Failures', tone: 'negative', defaultOpen: true, items: [item] }] },
+        }],
+      }), host);
+      const card = host.querySelector('nx-page-eval');
+      await card.updateComplete;
+      card.shadowRoot.querySelector('.ui-artifact-pe-item-action').click();
+      await waitUntil(() => card.shadowRoot.querySelector(selector));
 
-    const events = [];
-    const listener = (e) => events.push(e.detail);
-    document.addEventListener(CHAT_EVENT.SET_PROMPT, listener);
-    card.shadowRoot.querySelector('.ui-artifact-pe-modal-add').click();
-    card.shadowRoot.querySelector('.ui-artifact-pe-modal-apply').click();
-    await waitUntil(() => events.length === 2);
-    document.removeEventListener(CHAT_EVENT.SET_PROMPT, listener);
-    host.remove();
+      const events = [];
+      const listener = (e) => events.push(e.detail);
+      document.addEventListener(CHAT_EVENT.SET_PROMPT, listener);
+      card.shadowRoot.querySelector(selector).click();
+      await waitUntil(() => events.length === 1 && !card.shadowRoot.querySelector('nx-dialog'));
+      document.removeEventListener(CHAT_EVENT.SET_PROMPT, listener);
+      host.remove();
 
-    const expected = buildSuggestionPrompt({ item });
-    expect(events).to.deep.equal([
-      { text: expected, autoSend: false },
-      { text: expected, autoSend: true },
-    ]);
+      expect(events).to.deep.equal([{ text: buildSuggestionPrompt({ item }), autoSend }]);
+    });
   });
 });

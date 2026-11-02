@@ -90,7 +90,8 @@ export function buildSuggestionPrompt({ item }) {
 }
 
 function renderSuggestionActions(item) {
-  const send = (autoSend) => {
+  const send = (e, autoSend) => {
+    e.currentTarget.closest('nx-dialog')?.close();
     const text = buildSuggestionPrompt({ item });
     document.dispatchEvent(new CustomEvent(CHAT_EVENT.SET_PROMPT, { detail: { text, autoSend } }));
   };
@@ -100,11 +101,11 @@ function renderSuggestionActions(item) {
         <span class="ui-artifact-pe-modal-copy-icon"></span>Copy suggestion
       </button>
       <div class="ui-artifact-pe-modal-chat-actions">
-        <button type="button" class="nx-action-btn nx-btn-sm ui-artifact-pe-modal-add" @click=${() => send(false)}>
+        <button type="button" class="nx-action-btn nx-btn-sm ui-artifact-pe-modal-add" @click=${(e) => send(e, false)}>
           ${icon('s2-icon-aichat-20-n')}
           <span>Add to chat</span>
         </button>
-        <button type="button" class="nx-btn-accent nx-btn-sm ui-artifact-pe-modal-apply" @click=${() => send(true)}>
+        <button type="button" class="nx-btn-accent nx-btn-sm ui-artifact-pe-modal-apply" @click=${(e) => send(e, true)}>
           ${icon('s2-icon-aisparkles-20-n')}
           <span>Apply change</span>
         </button>
