@@ -1,3 +1,10 @@
+# [1.30.0](https://github.com/adobe/da-nx/compare/v1.29.1...v1.30.0) (2026-11-02)
+
+
+### Features
+
+* add chat option to side nav ([#922](https://github.com/adobe/da-nx/issues/922)) ([655b8bb](https://github.com/adobe/da-nx/commit/655b8bb547d45d8ab61b932e062defd3a66de0fd))
+
 ## [1.29.1](https://github.com/adobe/da-nx/compare/v1.29.0...v1.29.1) (2026-10-29)
 
 
