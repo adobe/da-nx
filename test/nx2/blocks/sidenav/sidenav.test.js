@@ -100,6 +100,45 @@ describe('sidenav chat action', () => {
       .to.deep.equal(['Home', 'Apps']);
   });
 
+  ['light', 'dark'].forEach((scheme) => {
+    it(`loads the closed-chat artwork without changing the active icon or rail spacing in ${scheme} mode`, async () => {
+      sidenav.style.colorScheme = scheme;
+      const opened = new Promise((resolve) => {
+        registerPanelSection('chat', {
+          position: 'before',
+          getContent: async () => document.createElement('div'),
+          onShow: resolve,
+        });
+      });
+      await sidenav.updateComplete;
+      const button = sidenav.shadowRoot.querySelector('button');
+      const icon = button.querySelector('.icon');
+      const glyph = icon.querySelector('use').getAttribute('href');
+      const background = getComputedStyle(icon).backgroundImage;
+      const image = new Image();
+      image.src = background.match(/url\("([^"]+)"\)/)?.[1];
+      await image.decode();
+      expect(image.naturalWidth).to.equal(32);
+      expect(image.naturalHeight).to.equal(32);
+      const item = button.closest('li');
+      const home = sidenav.shadowRoot.querySelector('a');
+      const homeOffset = () => home.getBoundingClientRect().top - item.getBoundingClientRect().top;
+      const homeTop = homeOffset();
+      button.click();
+      await opened;
+      await sidenav.updateComplete;
+      expect(getComputedStyle(icon).backgroundImage).to.equal('none');
+      expect(icon.querySelector('use').getAttribute('href')).to.equal(glyph);
+      expect(icon.getBoundingClientRect().width).to.equal(32);
+      expect(icon.getBoundingClientRect().height).to.equal(32);
+      expect(homeOffset()).to.equal(homeTop);
+      button.click();
+      await sidenav.updateComplete;
+      expect(getComputedStyle(icon).backgroundImage).to.equal(background);
+      expect(homeOffset()).to.equal(homeTop);
+    });
+  });
+
   it('toggles and reuses the registered chat panel without changing navigation', async () => {
     sidenav._navLinks = sidenav._navLinks.map((link) => (
       link.text === 'Home' ? { ...link, href: window.location.href.split('#')[0] } : link

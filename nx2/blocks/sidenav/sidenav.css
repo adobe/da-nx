@@ -67,9 +67,7 @@
   &.chat  .icon {
     color: rgb(105 3 68 / 100%);
     border-radius: 100%;
-    background: radial-gradient(70.43% 54.36% at 83.33% 100%, rgb(236 105 255 / 80%) 0%, rgb(236 105 255 / 35%) 100%);
-    backdrop-filter: blur(50px);
-    box-shadow: 0 4px 8px 0 var(--s2-gray-25) inset;
+    background: var(--nx-sidenav-chat-background) center / contain no-repeat;
 
     svg {
       width: 18px;
