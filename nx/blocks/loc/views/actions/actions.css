@@ -18,6 +18,7 @@
   margin: 0;
   align-content: center;
   text-align: center;
+  white-space: pre-line;
   padding: 0 12px;
   font-weight: 700;
   font-size: 14px;

@@ -96,9 +96,9 @@ function onMessage(e, ctx) {
       });
   } else if (type === MESSAGE_TYPES.SET_EDITOR_STATE) {
     const {
-      editorState, cursorOffset, imageVersion, lengthDiff,
+      editorState, cursorOffset, imageVersion, lengthDiff, origin,
     } = payload;
-    setEditorState(cursorOffset, editorState, ctx, imageVersion, lengthDiff);
+    setEditorState(cursorOffset, editorState, ctx, { imageVersion, lengthDiff, origin });
   } else if (type === MESSAGE_TYPES.NODE_UPDATE) {
     applyImageVersionAck(payload, ctx);
   } else if (type === MESSAGE_TYPES.SET_CURSORS) {
@@ -125,7 +125,7 @@ function blockLinkNavigation() {
   }, true);
 }
 
-function setupParentController(reloadCallback, partialReload) {
+function setupParentController(reloadCallback, { partialReload }) {
   const listener = (e) => {
     const isInit = e.data?.type === MESSAGE_TYPES.INIT;
     if (e.source !== window.parent || !isInit || !e.ports?.length) return;
@@ -167,7 +167,7 @@ function handleLoad(target, config, location, ctx, handler = onMessage) {
   };
 }
 
-function setupIframeController(payload, reloadCallback, partialReload) {
+function setupIframeController(payload, reloadCallback, { partialReload }) {
   const ctx = {
     initialized: false,
     reload: reloadCallback,
@@ -281,6 +281,8 @@ export function claimBootstrap() {
 /**
  * `reloadCallback(document, replaced)` re-decorates after each body update. Pass
  * `partialReload` to preserve header/footer and decorate just `replaced.el`.
+ * With `partialReload`, it is also called with `{ type: 'element', el }` for a detached
+ * inline-edited element once its editor is closed, and may return a replacement element.
  */
 export default async function loadQuickEdit(payload, reloadCallback, {
   bootstrap = false,
@@ -294,10 +296,10 @@ export default async function loadQuickEdit(payload, reloadCallback, {
   const detail = payload?.detail ?? payload ?? {};
   const params = new URLSearchParams(window.location.search);
   if (params.get('controller') === 'parent') {
-    setupParentController(reloadCallback, partialReload);
+    setupParentController(reloadCallback, { partialReload });
   } else if (isStandaloneShell(window.location.href)) {
     setupStandaloneShell(detail);
   } else {
-    setupIframeController(detail, reloadCallback, partialReload);
+    setupIframeController(detail, reloadCallback, { partialReload });
   }
 }

@@ -341,6 +341,14 @@ describe('regionalDiff with hashes from an earlier review', () => {
     expect(main.querySelector('da-diff-deleted > h1#welcome')).to.exist;
   });
 
+  it('keeps an own block whose hash is both accepted and rejected', async () => {
+    const incoming = toDoc('<h1 id="welcome">Welcome</h1>');
+    const target = toDoc('<h1>Welcome</h1>');
+    const ownHash = getDiffHash('<h1>Welcome</h1>');
+    const main = await regionalDiff(incoming, target, [ownHash], [ownHash]);
+    expect(ownHeadings(main)).to.deep.equal(['<h1>Welcome</h1>']);
+  });
+
   it('leaves out an incoming block whose hash is in the rejected hashes', async () => {
     const incoming = toDoc('<h1>Hello</h1>');
     const target = toDoc('<h1>Welcome</h1>');
