@@ -62,6 +62,64 @@ describe('wasPanelOpen', () => {
 });
 
 describe('PANEL_EVENT wiring', () => {
+  it('does not mount an old workspace panel after its load is cancelled', async () => {
+    const request = new AbortController();
+    let finish;
+    let shown = false;
+    registerPanelSection('cancelled-open', {
+      position: 'before',
+      signal: request.signal,
+      getContent: () => new Promise((resolve) => { finish = resolve; }),
+      onShow: () => { shown = true; },
+    });
+    document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, { detail: { section: 'cancelled-open' } }));
+    request.abort();
+    finish(document.createElement('div'));
+    await flush();
+    expect(document.querySelector('aside.panel')).to.equal(null);
+    expect(shown).to.equal(false);
+  });
+
+  it('shares an in-flight panel load between concurrent open requests', async () => {
+    let finish;
+    let loads = 0;
+    registerPanelSection('concurrent-open', {
+      position: 'before',
+      getContent: () => {
+        loads += 1;
+        return new Promise((resolve) => { finish = resolve; });
+      },
+    });
+    for (let i = 0; i < 2; i += 1) {
+      document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, { detail: { section: 'concurrent-open' } }));
+    }
+    expect(loads).to.equal(1);
+    finish(document.createElement('div'));
+    await flush();
+    expect(document.querySelectorAll('aside.panel')).to.have.length(1);
+  });
+
+  it('reports load failures to the host and allows a retry', async () => {
+    let error;
+    let fail = true;
+    registerPanelSection('failed-open', {
+      position: 'before',
+      getContent: async () => {
+        if (fail) throw new Error('Offline');
+        return document.createElement('div');
+      },
+      onError: (value) => { error = value; },
+    });
+    document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, { detail: { section: 'failed-open' } }));
+    await flush();
+    expect(error.message).to.equal('Offline');
+    expect(document.querySelector('aside.panel')).to.equal(null);
+    fail = false;
+    document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, { detail: { section: 'failed-open' } }));
+    await flush();
+    expect(document.querySelector('aside.panel')).not.to.equal(null);
+  });
+
   it('opens the named section and forwards id/options to its onShow', async () => {
     const calls = [];
     registerPanelSection('event-open', {

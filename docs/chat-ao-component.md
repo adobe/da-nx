@@ -26,12 +26,34 @@ conversation, session, approval, history, and document-event handling, delegatin
 `setPrompt()` to the input.
 
 Hosts supply `blocked`, `altHarness`, `prompts`, `menuItems`, and `getSkills()`.
-`onSubmit({ text, context, attachments })` runs synchronously before the draft
-and pills clear. Other callbacks are `onStop()`, `onInput()` (session warming),
-and `onMenuSelect(id)`.
+`disabled` prevents editing/submission without showing Stop; `blocked` represents
+an active turn and exposes Stop. `showInputStatus` opts into the working message,
+blue progress indicator and circular Stop. `statusMessage` announces non-turn
+loading, such as opening the conversation.
 
-Public APIs: `setPrompt(text, { autoSend? })`, `focusInput()`, `openPrompts()`,
-`addItem(item)`, and read-only `draft` / `items`.
+`onSubmit({ text, context, attachments })` may return synchronously or return a
+promise. Returning/resolving `false` retains the draft and pills. Acceptance
+clears them; pending submission prevents duplicate sends. Other callbacks are
+`onStop()`, `onInput()` (session warming), and `onMenuSelect(id)`.
+
+Public APIs: `setPrompt(text, { autoSend?, replace? })`, `focusInput()`,
+`openPrompts()`, `openAddAction(id)`, `addItem(item)`, and read-only `draft` / `items`.
+`setPrompt` resolves to an acceptance boolean; `replace: false` protects a
+different existing draft. File-only submissions supply an attachment label.
+
+The default presentation remains compact. `variant="expanded"` supplies the
+larger input/action layout without page artwork; `placeholder` can be supplied
+by the host. Hosts pass `size="m"` for the next text/button step; the default is S.
+This input does not install a global sizing runtime.
+
+Input state colors, spinner/logo dimensions and expanded metrics use the
+[shared chat input tokens](./chat-ui-component.md#shared-input-tokens).
+Its focus border and ring remain AO-local `--nx-ao-input-focus-*` properties.
+
+`loadChatInput()` in `nx2/utils/chat.js` creates a standalone input only when the
+configured backend is AO, preserving CMA appearance without creating a
+conversation or controller. It returns `undefined` for legacy chat. Hosts retain
+their legacy input path, availability checks, layout and asynchronous handoff.
 
 Set optional `addEvent` before mounting; standalone instances default to a
 unique event name. `nx-chat-ao` supplies `CHAT_EVENT.ADD_TO_CHAT` and translates

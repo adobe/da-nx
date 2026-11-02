@@ -35,10 +35,13 @@ import './question-card/question-card.js';
 import './input.js';
 import { ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 
-const styles = await loadStyle(import.meta.url);
-const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
-const spinnerStyle = await loadStyle(new URL('../../styles/spinner.css', import.meta.url).href);
-const artifactStyle = await loadStyle(new URL('./artifacts/artifacts.css', import.meta.url).href);
+const [inputTokens, styles, buttonStyle, spinnerStyle, artifactStyle] = await Promise.all([
+  loadStyle(new URL('../shared/chat/input.css', import.meta.url).href),
+  loadStyle(import.meta.url),
+  loadStyle(new URL('../../styles/buttons.css', import.meta.url).href),
+  loadStyle(new URL('../../styles/spinner.css', import.meta.url).href),
+  loadStyle(new URL('./artifacts/artifacts.css', import.meta.url).href),
+]);
 
 const { codeBase } = getConfig();
 
@@ -57,6 +60,8 @@ export default class NxChatAo extends LitElement {
     staleEpisode: { type: Object },
     _prompts: { state: true },
     _planFeedback: { state: true },
+    showInputStatus: { type: Boolean, reflect: true },
+    size: { type: String, reflect: true },
   };
 
   set context(value) {
@@ -68,9 +73,19 @@ export default class NxChatAo extends LitElement {
     this._applyHarnessConfig(value);
   }
 
-  async setPrompt(text, { autoSend = false } = {}) {
+  get inputState() {
+    return { busy: !!this._blocked, disabled: !!this._blocked || !!this.loadingEpisode };
+  }
+
+  stop() {
+    if (!this.inputState.busy) return;
+    this._controller?.stop();
+  }
+
+  async setPrompt(text, { autoSend = false, replace = true } = {}) {
     await this.updateComplete;
-    await this._input?.setPrompt(text, { autoSend });
+    if (this.inputState.disabled) return false;
+    return this._input?.setPrompt(text, { autoSend, replace }) ?? false;
   }
 
   get _input() {
@@ -217,7 +232,9 @@ export default class NxChatAo extends LitElement {
     super.connectedCallback();
     fetchResolvedManifestId();
     this._loadCoworkerNav();
-    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle, spinnerStyle, artifactStyle];
+    this.shadowRoot.adoptedStyleSheets = [
+      inputTokens, styles, buttonStyle, spinnerStyle, artifactStyle,
+    ];
     this._initController();
     this._unsubscribeHash = hashChange.subscribe((state) => {
       if (!this._explicitContext) this._applyContext(state);
@@ -252,6 +269,11 @@ export default class NxChatAo extends LitElement {
   }
 
   updated(changed) {
+    if (['thinking', 'pendingPlanApproval', 'loadingEpisode'].some((key) => changed.has(key))) {
+      this.dispatchEvent(new CustomEvent(CHAT_EVENT.INPUT_STATE_CHANGE, {
+        bubbles: true, composed: true, detail: this.inputState,
+      }));
+    }
     if (changed.has('messages')) {
       const log = this.shadowRoot.querySelector('.chat-scroll-container');
       if (log && this._wasNearBottom) {
@@ -270,12 +292,14 @@ export default class NxChatAo extends LitElement {
 
   _getSkills = () => this._controller?.getSkills() ?? [];
 
-  _stop = () => this._controller.stop();
+  _stop = () => this.stop();
 
   _warmSession = () => this._controller.warmSession();
 
   _submit = ({ text, context, attachments }) => {
+    if (this.inputState.disabled) return false;
     this._controller.sendMessage(text, context, attachments);
+    return true;
   };
 
   _handleMenuSelect = (id) => {
@@ -296,7 +320,7 @@ export default class NxChatAo extends LitElement {
 
   async openAddAction(id) {
     await this.updateComplete;
-    await this._input.openAddAction(id);
+    return this._input?.openAddAction(id);
   }
 
   _openCoworker(path) {
@@ -393,7 +417,10 @@ export default class NxChatAo extends LitElement {
             onDecide: (id, approved) => this._controller.respondToPermission(id, approved),
           })}
         <nx-ao-input
+          .size=${this.size === 'm' ? 'm' : 's'}
           .blocked=${this._blocked}
+          .disabled=${!!this.loadingEpisode}
+          .showInputStatus=${this.showInputStatus}
           .altHarness=${this._altHarness}
           .prompts=${prompts}
           .menuItems=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS}

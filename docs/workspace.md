@@ -28,6 +28,14 @@ The following sections highlight some principles in more detail.
 - Components add event listeners to their children to receive data
 - Communicating with a component further outside of the parent/child relationship is also done via props and events, obtaining the component using document.querySelector(...).
 
+`nx-sidenav.actions` optionally accepts host-owned `{ label, icon, disabled,
+onClick, active, activeIcon }` descriptors. They render as accessible 32px buttons
+before the fragment's navigation links. An `icon` URL with a fragment renders
+as overflowing SVG artwork; other URLs render as images. Optional `active`
+sets the selected circle and pressed state; `activeIcon` supplies its 18px SVG
+glyph. Hosts update `actions` to reflect availability and panel visibility and
+remove their descriptors on disconnection; other menus have no added actions.
+
 ### Backend communication
 - Use `daFetch` from `nx2/utils/daFetch.js` to fetch data from the backend
 - Da Admin documentation: https://opensource.adobe.com/da-admin/
@@ -74,6 +82,12 @@ Skills Lab — external app at da.live/apps/skills, linked from Chat
 - **`registerPanelSection(name, { position, width, getContent, onShow? })`** declares a section a host page owns, once per host page. `onShow`, if given, runs after the section's panel is open — e.g. to activate a specific view inside a tool-panel; it isn't called at all for sections with no sub-items. **`PANEL_EVENT.OPEN`** / **`PANEL_EVENT.CLOSE`** (`nx-panel-open` / `nx-panel-close`, dispatched on `document`) are the cross-boundary way to open/close a registered section by name from anywhere — headers, toolbars, BYO plugin iframes — without importing `panel.js` directly. **`getSectionAtPosition(position)`** is the reverse lookup for position-oriented UI (e.g. a before/after toggle button) that needs "whichever section lives here" without hardcoding which one that is.
 
 ### Two panel types
+
+Section configuration also accepts an optional `signal` and `onError(error)`.
+Aborting a workspace's signal prevents a late `getContent` result from mounting
+or invoking `onShow`. The host still closes/removes an already mounted panel.
+Concurrent opens share the section's in-flight content load. A failed load is
+reported to `onError`, when supplied, and the next open retries it.
 
 The distinction between panel types is a **caller convention**, not a framework concept.
 

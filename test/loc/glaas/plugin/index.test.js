@@ -249,5 +249,87 @@ describe('GLaaS loc-images plugin (companion util)', () => {
       });
       expect(result.error).to.be.a('string');
     });
+
+    it('clears the last selection with no main content edits', async () => {
+      const src = 'https://content.da.live/org/site/a.png';
+      const html = pageWithImages(`<img src="${src}">`, [{ src, translate: 'true' }]);
+      let savedHtml;
+      const fetchStub = stubServerHtml(() => html, {
+        onSave: async (opts) => { savedHtml = await opts.body.get('data').text(); },
+      });
+      const initialRows = buildImageRows(html);
+
+      const result = await saveSelections({
+        org: ORG,
+        site: SITE,
+        path: PATH,
+        token: TOKEN,
+        initialRows,
+        currentRows: initialRows.map((row) => ({ ...row, checked: false })),
+      });
+
+      expect(result.ok).to.be.true;
+      expect(parseSelections(savedHtml).size).to.equal(0);
+      expect(savedHtml).to.include('<div>loc-images</div><div>[]</div>');
+      expect(fetchStub.callCount).to.equal(2);
+    });
+
+    it('keeps images unchecked on reopen when the server preserves omitted metadata', async () => {
+      const srcA = 'https://content.da.live/org/site/a.png';
+      const srcB = 'https://content.da.live/org/site/b.png';
+      let serverHtml = pageWithImages(
+        `<img src="${srcA}"><img src="${srcB}">`,
+        [{ src: srcA, translate: 'true' }, { src: srcB, translate: 'true' }],
+      );
+      const initialRows = buildImageRows(serverHtml);
+      stubServerHtml(() => serverHtml, {
+        onSave: async (opts) => {
+          const submittedHtml = await opts.body.get('data').text();
+          const doc = new DOMParser().parseFromString(submittedHtml, 'text/html');
+          if (doc.querySelector('body > .da-metadata')) serverHtml = submittedHtml;
+        },
+      });
+
+      const result = await saveSelections({
+        org: ORG,
+        site: SITE,
+        path: PATH,
+        token: TOKEN,
+        initialRows,
+        currentRows: initialRows.map((row) => ({ ...row, checked: false })),
+      });
+
+      expect(result.ok).to.be.true;
+      expect(serverHtml).to.include('<div>loc-images</div><div>[]</div>');
+      const reopenedHtml = await fetchPageHtml({
+        org: ORG, site: SITE, path: PATH, token: TOKEN,
+      });
+      expect(buildImageRows(reopenedHtml).map((row) => row.checked)).to.deep.equal([false, false]);
+    });
+
+    it('retains the remaining selection when only one image is unchecked', async () => {
+      const srcA = 'https://content.da.live/org/site/a.png';
+      const srcB = 'https://content.da.live/org/site/b.png';
+      const html = pageWithImages(
+        `<img src="${srcA}"><img src="${srcB}">`,
+        [{ src: srcA, translate: 'true' }, { src: srcB, translate: 'true' }],
+      );
+      let savedHtml;
+      stubServerHtml(() => html, {
+        onSave: async (opts) => { savedHtml = await opts.body.get('data').text(); },
+      });
+      const initialRows = buildImageRows(html);
+      const result = await saveSelections({
+        org: ORG,
+        site: SITE,
+        path: PATH,
+        token: TOKEN,
+        initialRows,
+        currentRows: initialRows.map((row) => ({ ...row, checked: row.src === srcB })),
+      });
+
+      expect(result.ok).to.be.true;
+      expect([...parseSelections(savedHtml)]).to.deep.equal([srcB]);
+    });
   });
 });

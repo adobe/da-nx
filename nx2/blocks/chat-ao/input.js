@@ -8,15 +8,19 @@ import { createSlashMenu } from '../shared/chat/slash-menu.js';
 import { createVoiceInput, isVoiceInputSupported, appendTranscript } from './utils/voice-input.js';
 import { showToast } from '../shared/toast/toast.js';
 import { AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES, ADD_MENU_ITEMS } from './ao-constants.js';
-import { ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
+import { CHAT_WORKING_MESSAGE, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 import { sampleRUM } from '../../deps/rum.js';
 import '../shared/pills/pills.js';
 import '../shared/menu/menu.js';
 import '../shared/popover/popover.js';
 import '../shared/chat/prompts/prompts.js';
 
-const styles = await loadStyle(import.meta.url);
-const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
+const [inputTokens, styles, buttonStyle, spinnerStyle] = await Promise.all([
+  loadStyle(new URL('../shared/chat/input.css', import.meta.url).href),
+  loadStyle(import.meta.url),
+  loadStyle(new URL('../../styles/buttons.css', import.meta.url).href),
+  loadStyle(new URL('../../styles/spinner.css', import.meta.url).href),
+]);
 const { codeBase } = getConfig();
 const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
 const isAllowedFile = (file) => AO_UPLOAD_EXTENSIONS
@@ -25,6 +29,12 @@ const isAllowedFile = (file) => AO_UPLOAD_EXTENSIONS
 export default class NxAoInput extends LitElement {
   static properties = {
     blocked: { type: Boolean },
+    disabled: { type: Boolean },
+    showInputStatus: { type: Boolean, reflect: true },
+    statusMessage: { type: String },
+    placeholder: { type: String },
+    variant: { type: String, reflect: true },
+    size: { type: String, reflect: true },
     altHarness: { type: Boolean },
     prompts: { type: Array },
     menuItems: { type: Array },
@@ -36,6 +46,8 @@ export default class NxAoInput extends LitElement {
     onMenuSelect: { attribute: false },
     _dragging: { state: true },
     _voiceListening: { state: true },
+    _submitting: { state: true },
+    _readingFiles: { state: true },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
@@ -50,6 +62,10 @@ export default class NxAoInput extends LitElement {
     return this.shadowRoot.querySelector('nx-pills')?.items ?? [];
   }
 
+  get _disabled() {
+    return this.blocked || this.disabled || this._submitting || this._readingFiles;
+  }
+
   addItem(item) {
     this.shadowRoot.querySelector('nx-pills')?.add(item);
   }
@@ -59,13 +75,15 @@ export default class NxAoInput extends LitElement {
     this.shadowRoot.querySelector('.chat-input')?.focus();
   }
 
-  async setPrompt(text, { autoSend = false } = {}) {
+  async setPrompt(text, { autoSend = false, replace = true } = {}) {
     await this.updateComplete;
-    if (!text || this.blocked) return;
+    if (!text || this._disabled) return false;
+    if (!replace && this.draft.trim() && this.draft !== text) return false;
     this.shadowRoot.querySelector('.prompts-popover')?.close();
     this.shadowRoot.querySelector('.chat-input').value = text;
-    if (autoSend) this.shadowRoot.querySelector('form').requestSubmit();
-    else await this.focusInput();
+    if (autoSend) return this._submit();
+    await this.focusInput();
+    return true;
   }
 
   openPrompts() {
@@ -84,10 +102,10 @@ export default class NxAoInput extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.addEvent ??= `nx-ao-input-${crypto.randomUUID()}`;
-    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
+    this.shadowRoot.adoptedStyleSheets = [inputTokens, styles, buttonStyle, spinnerStyle];
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
-      onDragging: (dragging) => { this._dragging = dragging; },
+      onDragging: (dragging) => { this._dragging = dragging && !this._disabled; },
       onFiles: (files) => this._onFilesSelected(files),
     });
     this._voice = createVoiceInput({
@@ -142,25 +160,47 @@ export default class NxAoInput extends LitElement {
   }
 
   _send(text) {
+    if (this._disabled || !this.onSubmit) return false;
     const context = this.items.filter((item) => !item.dataBase64);
     const attachments = this.items.filter((item) => item.dataBase64);
-    this.onSubmit?.({ text, context, attachments });
-    this.shadowRoot.querySelector('.chat-input').value = '';
-    this.shadowRoot.querySelector('nx-pills')?.clear();
+    const { draft } = this;
+    const finish = (accepted) => {
+      this._submitting = false;
+      if (accepted === false) return false;
+      if (this.isConnected && this.draft === draft) {
+        this.shadowRoot.querySelector('.chat-input').value = '';
+        this.shadowRoot.querySelector('nx-pills')?.clear();
+      }
+      return true;
+    };
+    const fail = (error) => {
+      this._submitting = false;
+      showToast({ text: error.message, variant: 'error' });
+      return false;
+    };
+    this._submitting = true;
+    try {
+      const accepted = this.onSubmit({ text, context, attachments });
+      return accepted?.then ? accepted.then(finish, fail) : finish(accepted);
+    } catch (error) {
+      return fail(error);
+    }
   }
 
   _submit(e) {
     e?.preventDefault();
     if (this.blocked) {
       this.onStop?.();
-      return;
+      return false;
     }
-    const text = this.draft.trim();
-    if (!text) return;
+    if (this._disabled) return false;
+    const count = this.items.filter((item) => item.dataBase64).length;
+    const text = this.draft.trim() || (count ? `Attached file${count > 1 ? 's' : ''}` : '');
+    if (!text) return false;
     const harness = this.altHarness ? 'cma' : 'coworker';
     sampleRUM('click', { source: 'chat-submit', target: `button.chat-send.harness-${harness}` });
     this._slashMenu.close();
-    this._send(text);
+    return this._send(text);
   }
 
   _handleInput(e) {
@@ -168,7 +208,12 @@ export default class NxAoInput extends LitElement {
     this.onInput?.();
   }
 
+  _onItemsChange() {
+    this.requestUpdate();
+  }
+
   _handleKeydown(e) {
+    if (this._disabled || e.isComposing) return;
     if (this._slashMenu.onKeydown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -177,6 +222,7 @@ export default class NxAoInput extends LitElement {
   }
 
   _handleMenuSelect({ detail: { id } }) {
+    if (this._disabled) return;
     if (id === MENU_OPTIONS.FILES) this.shadowRoot.querySelector('.chat-file-input')?.click();
     else if (id === MENU_OPTIONS.PROMPT) this.openPrompts();
     else if (id === MENU_OPTIONS.COMMAND) this._slashMenu.insertSlash();
@@ -184,11 +230,18 @@ export default class NxAoInput extends LitElement {
   }
 
   async _onFilesSelected(fileList) {
-    const items = await buildAttachmentItems(fileList, {
-      currentCount: this.items.filter((item) => item.dataBase64).length,
-      maxFileSize: AO_MAX_FILE_SIZE_BYTES,
-    });
-    items.forEach((item) => this.addItem(item));
+    if (this._disabled) return;
+    this._readingFiles = true;
+    try {
+      const items = await buildAttachmentItems(fileList, {
+        currentCount: this.items.filter((item) => item.dataBase64).length,
+        maxFileSize: AO_MAX_FILE_SIZE_BYTES,
+      });
+      if (this.isConnected) items.forEach((item) => this.addItem(item));
+      else items.forEach((item) => { if (item.thumbnail) URL.revokeObjectURL(item.thumbnail); });
+    } finally {
+      this._readingFiles = false;
+    }
   }
 
   async _onFileInputChange(e) {
@@ -198,6 +251,12 @@ export default class NxAoInput extends LitElement {
   }
 
   render() {
+    const working = this.showInputStatus && this.blocked;
+    const pendingStatus = this._readingFiles ? 'Reading files...' : this.statusMessage;
+    const status = working ? CHAT_WORKING_MESSAGE : pendingStatus;
+    const compactSize = this.size === 'm' ? '' : 'nx-btn-sm';
+    const expandedSize = this.size === 'm' ? 'nx-btn-lg' : '';
+    const buttonSize = this.variant === 'expanded' ? expandedSize : compactSize;
     return html`
       <nx-popover class="prompts-popover">
         <nx-prompts .prompts=${this.prompts ?? []} .onSend=${(p) => this.setPrompt(p)}></nx-prompts>
@@ -210,18 +269,20 @@ export default class NxAoInput extends LitElement {
         @select=${({ detail }) => this._onSlashSelect(detail.id)}
         @mousedown=${(e) => e.preventDefault()}
       ></nx-menu>
-      <form class="chat-form" @submit=${this._submit}
+      <form class="chat-form ${working ? 'is-processing' : ''}" aria-busy=${!!(this.blocked || this._submitting || this._readingFiles || this.statusMessage)}
+        @submit=${this._submit}
         @dragenter=${this._dnd.onDragEnter}
         @dragleave=${this._dnd.onDragLeave}
         @dragover=${this._dnd.onDragOver}
         @drop=${this._dnd.onDrop}
       >
-        ${this._dragging ? html`
+        ${this._dragging && !this._disabled ? html`
           <div class="chat-drop-zone" aria-hidden="true">
             <span class="chat-drop-title">Drop a file to add context</span>
             <span class="chat-drop-hint">Supports documents, images, and code</span>
           </div>` : nothing}
-        <nx-pills addEvent=${this.addEvent ?? ''}></nx-pills>
+        <nx-pills addEvent=${this.addEvent ?? ''} ?hidden=${!this.items.length}
+          @nx-pills-change=${this._onItemsChange}></nx-pills>
         <input
           class="chat-file-input"
           type="file"
@@ -231,18 +292,25 @@ export default class NxAoInput extends LitElement {
           @change=${this._onFileInputChange}
         />
         <div class="chat-input-wrap ${this.altHarness ? '' : 'coworker-chat'}">
+          ${status ? html`<div class="chat-working" role="status">
+            <span class="nx-loading-spinner" aria-hidden="true"></span>${status}
+          </div>` : nothing}
           <textarea
             class="chat-input"
-            placeholder="Ask anything, or type / for skills..."
-            ?disabled=${this.blocked}
+            rows="1"
+            aria-label="Message"
+            placeholder=${this.placeholder ?? 'Ask anything, or type / for skills...'}
+            ?disabled=${this._disabled}
+            ?hidden=${!!status}
             @input=${this._handleInput}
             @keydown=${this._handleKeydown}
             @blur=${this._slashMenu.onBlur}
           ></textarea>
         </div>
-        <div class="chat-actions" ?data-thinking=${this.blocked} ?data-voice-listening=${this._voiceListening}>
+        <div class="chat-actions" ?data-thinking=${this.blocked}
+          ?data-has-items=${!!this.items.length} ?data-voice-listening=${this._voiceListening}>
           <nx-menu size="m" .items=${this.menuItems ?? ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-            <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
+            <button slot="trigger" class="chat-add nx-action-btn-icon ${buttonSize}" type="button" aria-label="Add" ?disabled=${this._disabled} @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>
               <span class="icon-up">${icon('up')}</span>
             </button>
@@ -251,20 +319,23 @@ export default class NxAoInput extends LitElement {
             ${isVoiceInputSupported() ? html`
               <button
                 type="button"
-                class="chat-voice nx-action-btn-icon nx-btn-sm"
+                class="chat-voice nx-action-btn-icon ${buttonSize}"
                 ?data-listening=${this._voiceListening}
-                ?disabled=${this.blocked}
+                ?disabled=${this._disabled}
                 aria-pressed=${this._voiceListening}
                 aria-label=${this._voiceListening ? 'Stop recording' : 'Use voice input'}
                 @click=${this._toggleVoiceInput}
               >${icon('mic')}</button>
             ` : nothing}
             <button
-              class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
+              type="button"
+              aria-label="Stop"
+              class="chat-stop nx-action-btn-icon is-active ${buttonSize}"
               ?hidden=${!this.blocked}
               @click=${this._submit}
-            > ${icon('stop')}</button>
-            <button type="submit" class="chat-send harness-${this.altHarness ? 'cma' : 'coworker'} nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} aria-label="Send">
+            > ${icon(this.showInputStatus ? 'stopProcessing' : 'stop')}</button>
+            <button type="submit" class="chat-send harness-${this.altHarness ? 'cma' : 'coworker'} nx-action-btn-icon is-active ${buttonSize}"
+              ?disabled=${this._disabled} ?hidden=${this.blocked} aria-label="Send">
               ${icon('send')}
             </button>
           </div>

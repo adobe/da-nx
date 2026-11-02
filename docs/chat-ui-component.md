@@ -59,6 +59,31 @@ Context fields on the detail (`blockName`, `innerText`, `proseIndex`) are forwar
 
 ### Setting a prompt programmatically
 
+For a draft handoff, call `await chat.setPrompt(text, { replace: false })`.
+It returns `true` when the draft is accepted, or `false` when processing,
+loading an AO episode, or preserving a different unsent draft prevents it.
+An identical draft is safe to retry. The default `replace: true` retains
+programmatic replacement; `autoSend` remains opt-in.
+
+Both chat elements expose `inputState` as `{ busy, disabled }` and emit
+`CHAT_EVENT.INPUT_STATE_CHANGE` with that snapshot when it changes. The event
+bubbles from its owning chat; hosts listen on that element, read the initial
+snapshot after `updateComplete`, and remove their listener when releasing it.
+`busy` tracks processing, not just panel loading. AO plan feedback remains
+available during plan approval; episode loading disables input independently.
+Legacy input is disabled until connected. Hosts can opt into a spinner and
+working message in the left composer with `chat.showInputStatus = true`.
+This presentation is off by default. Stop and approval controls remain available.
+Both elements expose `chat.stop()` for host Stop controls. It cancels only when
+that instance is busy, uses the same cancellation path as its own Stop button,
+and does not submit or clear an unsent draft. Hosts wait for the next input-state
+snapshot instead of clearing busy state themselves. With `showInputStatus`,
+the compact working state uses a neutral translucent surface, a subtle border,
+and secondary text without a colored ring. Its Stop button has a default 24px
+circular background, including while hidden. Progress spinners use a blue arc
+on a neutral gray track, with theme-safe colors even without host tokens; the
+composer spinner is 16px. Other consumers keep their existing presentation.
+
 Both `nx-chat` and `nx-chat-ao` expose `setPrompt(text, { autoSend? })` as an instance method, and both also listen for `CHAT_EVENT.SET_PROMPT` (`'nx-set-prompt'`, `nx2/utils/chat.js`) on `document` and call their own `setPrompt()` when it fires. Dispatch the event rather than calling the method directly — the caller doesn't need to know (or query for) which of the two elements is actually mounted:
 
 ```js
@@ -74,6 +99,49 @@ document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, { detail: { section: 'c
 The registered `'chat'` section's `onShow` reads `options.text`/`options.autoSend` and dispatches `CHAT_EVENT.SET_PROMPT` — see the host page's `registerPanelSection('chat', { onShow })`.
 
 **Extension iframe usage:** Extensions running in cross-origin iframes cannot dispatch document events directly. Use `actions.setPrompt(text)` or `actions.setPrompt(text, { autoSend: true })` from the DA SDK — the iframe protocol relays it to `PANEL_EVENT.OPEN` (`{ section: 'chat', options: { text, autoSend } }`) on the host document, which opens the panel and (via its `onShow`) dispatches `CHAT_EVENT.SET_PROMPT` for whichever chat element is mounted. `actions.setPrompt` is available on the object resolved from `DA_SDK`.
+
+## Shared input tokens
+
+`nx2/blocks/shared/chat/input.css` supplies chat-family defaults, adopted by
+`nx-chat`, `nx-ao-input`, and landing's legacy composer. It does not style
+conversation messages or install global S2 tokens.
+
+| Properties (`--nx-chat-input-` prefix) | Purpose |
+|---|---|
+| `working-background`, `working-border`, `working-color` | Neutral working surface: 80% fill, 6% border, 56% text, preserving the light/dark palette. |
+| `working-shadow` | Compact working-state shadow; the expanded composer skin has independent state-specific artwork. |
+| `spinner-size`, `spinner-track`, `spinner-arc`, `stroke-width` | 16px progress indicator with a 2px gray track and blue arc. Palette colors use existing S2 tokens with theme-safe fallbacks. |
+| `logo-size` | 20px logo, 22px in M. The spinner advances from 16px to 18px. |
+| `expanded-inset`, `row-height`, `expanded-line-height`, `max-height`, `max-width` | 6px inset, 21px expanded S row/line, 240px height cap and 720px chat column/popover limit. M uses 18px text with the 1.5 body line height (27px). |
+| `disabled-opacity` | 0.5 for disabled textareas, separate from shared buttons' disabled treatment. |
+
+Both chat elements accept `size="m"` and retain their drafts on size changes.
+The shared button classes own all action dimensions through `--nx-btn-height`
+and `--nx-btn-icon-size`: compact uses small/default (24/32px), expanded uses
+default/large (32/40px). `stop-size` remains an optional circle-size override;
+without it Stop follows the same button class as Add, Send and voice.
+
+Override these properties on the actual input host (`nx-chat` or `nx-ao-input`).
+AO-only focus properties live in `chat-ao/input.css` under `--nx-ao-input-*`.
+That namespace also owns `voice-pulse-duration` and `voice-pulse-opacity`.
+Expanded layout remains distinct from the compact sidebar; naming its metrics
+does not make the two surfaces the same size.
+
+## Expanded composer skin
+
+Adopt `nx2/blocks/shared/chat/input.css` and `composer.css` in the containing
+component's shadow root. Wrap the input in `.nx-chat-composer`, with an
+`aria-hidden="true"` `.nx-chat-composer-surface` as its first direct child.
+The skin owns the 24px radius, 6px frame, pastel glow, and idle, ready, focus,
+working and drop shadows through `--nx-chat-composer-*` properties.
+Override those properties on the containing host.
+
+An enabled native textarea activates the ready state. For shadow-DOM inputs,
+the host supplies `is-enabled`; `is-processing` and `is-dropzone` reflect the
+input's other states. Focus is detected with `:focus-within`. The skin leaves
+page width and positioning to the host. Input metrics and button classes
+continue to own S/M sizing; the frame retains its 16px padding in both sizes.
+Compact input styles remain independent.
 
 ## Selection context
 
