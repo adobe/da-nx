@@ -1,4 +1,9 @@
-import { findSourceLocation, getProjectSourceLocations } from '../../../utils/utils.js';
+import {
+  findSourceLocation,
+  getProjectSourceLocations,
+  normalizeLocation,
+  resolveSourceLang,
+} from '../../../utils/utils.js';
 
 const DEFAULT_PROPS = [
   { key: 'sync.conflict.behavior', value: 'overwrite, merge' },
@@ -137,6 +142,49 @@ export function getAllActions(langs) {
       if (b.value === 'skip') return -1;
       return 0;
     });
+}
+
+/**
+ * Get the project's detected source. Validate persists `detectedSource` (null when
+ * nothing was detected); older projects without it are resolved from config.
+ * @returns {{ sourceLang?: Object, detected?: boolean, error?: string }}
+ */
+export function getProjectSource({ project, enabled, langs, defaultSourceLang }) {
+  const { detectedSource, urls } = project;
+  if (detectedSource !== undefined) {
+    return detectedSource
+      ? { sourceLang: detectedSource, detected: true }
+      : { sourceLang: defaultSourceLang, detected: false };
+  }
+  if (!enabled) return { sourceLang: defaultSourceLang, detected: false };
+  return resolveSourceLang({ langs, urls, defaultSourceLang });
+}
+
+/**
+ * Narrow each language row to the actions that start from the project's source root.
+ * Rows left with only Skip are dropped. Returns new row objects.
+ */
+export function filterLangsBySource({ langs, sourceLocation, defaultLocation }) {
+  const root = normalizeLocation(sourceLocation);
+  const fallback = normalizeLocation(defaultLocation);
+
+  return langs.reduce((acc, lang) => {
+    const fromRoot = (lang.source ? normalizeLocation(lang.source) : fallback) === root;
+    const startsHere = fromRoot && lang.orderedActions.some(
+      ({ value }) => value === 'translate' || value === 'copy',
+    );
+
+    const orderedActions = lang.orderedActions.filter(({ value }) => {
+      if (value === 'translate' || value === 'copy') return fromRoot;
+      if (value === 'rollout') return startsHere || normalizeLocation(lang.location) === root;
+      return true;
+    });
+
+    if (orderedActions.some(({ value }) => value !== 'skip')) {
+      acc.push({ ...lang, orderedActions, activeAction: orderedActions[0] });
+    }
+    return acc;
+  }, []);
 }
 
 export function formatLangs(langs, config) {
