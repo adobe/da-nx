@@ -17,7 +17,7 @@
   font-size: var(--s2-component-s-bold-font-size);
   line-height: var(--s2-component-s-bold-line-height);
   font-weight: var(--s2-component-s-bold-font-weight);
-  color: var(--s2-gray-700);
+  color: var(--nx-picker-section-color, var(--s2-gray-700));
   text-transform: none;
 }
 
@@ -48,7 +48,7 @@
   }
 
   &:focus-visible {
-    outline: 2px solid var(--s2-focus-ring-color, currentColor);
+    outline: 2px solid var(--s2-focus-ring-color, var(--s2-blue-800));
     outline-offset: 2px;
   }
 
@@ -97,7 +97,7 @@
   border: none;
   border-radius: var(--s2-corner-radius-200);
   background: none;
-  color: var(--s2-gray-800);
+  color: var(--nx-picker-item-color, var(--s2-gray-800));
   font-family: inherit;
   font-size: var(--s2-component-s-regular-font-size);
   line-height: var(--s2-component-s-regular-line-height);
@@ -178,8 +178,8 @@ nx-popover {
 
 :host([size="m"]) {
   .picker-section {
-    font-size: var(--s2-component-m-bold-font-size);
-    line-height: var(--s2-component-m-bold-line-height);
+    font-size: var(--nx-picker-section-font-size, var(--s2-component-m-bold-font-size));
+    line-height: var(--nx-picker-section-line-height, var(--s2-component-m-bold-line-height));
     font-weight: var(--s2-component-m-bold-font-weight);
   }
 

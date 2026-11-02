@@ -1,5 +1,7 @@
 import { expect } from '@esm-bundle/chai';
-import { useAoChat } from '../../../nx2/utils/chat.js';
+import { useAoChat, loadChatInput } from '../../../nx2/utils/chat.js';
+
+await import('../../../nx2/blocks/chat-ao/input.js');
 
 // isHlx6's upgrade probe reads resp.headers.get(...) before daConfig ever reads
 // the body, so every mocked fetch here needs a real headers.get, not just json().
@@ -59,6 +61,30 @@ describe('useAoChat', () => {
     window.fetch = mockFetch({ flags: { data: [] } });
     await withUrl('#/chat-org2/chat-site2', '', async () => {
       expect(await useAoChat()).to.equal(false);
+    });
+  });
+
+  it('does not create an AO input for the legacy backend', async () => {
+    await withUrl('', '', async () => {
+      expect(await loadChatInput()).to.equal(undefined);
+    });
+  });
+
+  it('creates only the input with the configured CMA appearance, without a conversation', async () => {
+    window.fetch = mockFetch({
+      flags: {
+        data: [
+          { key: 'ew.coworker', value: 'true' },
+          { key: 'ew.altHarness', value: 'test-activation' },
+        ],
+      },
+    });
+    await withUrl('#/input-org/input-site', '', async () => {
+      const input = await loadChatInput();
+      expect(input.localName).to.equal('nx-ao-input');
+      expect(input.altHarness).to.equal(true);
+      expect(input.isConnected).to.equal(false);
+      expect(input._controller).to.equal(undefined);
     });
   });
 });

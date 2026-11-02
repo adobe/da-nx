@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import { setConfig } from '../../../../nx2/scripts/nx.js';
 import { CHAT_EVENT } from '../../../../nx2/utils/chat.js';
 import { MENU_OPTIONS } from '../../../../nx2/blocks/shared/chat/constants.js';
@@ -20,7 +21,34 @@ describe('standalone AO input', () => {
     input = chatInput.shadowRoot.querySelector('.chat-input');
   });
 
-  afterEach(() => chatInput.remove());
+  afterEach(() => {
+    chatInput.remove();
+    sinon.restore();
+  });
+
+  it('only rerenders the prompt list when its prompts change', async () => {
+    const prompts = chatInput.shadowRoot.querySelector('nx-prompts');
+    await prompts.updateComplete;
+    const category = prompts.shadowRoot.querySelector('nx-picker');
+    await category.updateComplete;
+    expect(category.shadowRoot.querySelector('button').textContent).to.include('All');
+    const render = sinon.spy(prompts, 'render');
+    chatInput.statusMessage = 'Reading files...';
+    await chatInput.updateComplete;
+    await prompts.updateComplete;
+    expect(render.callCount).to.equal(0);
+    chatInput.prompts = [{ title: 'Example', prompt: 'Chosen prompt' }];
+    await chatInput.updateComplete;
+    await prompts.updateComplete;
+    expect(render.callCount).to.equal(1);
+    chatInput.statusMessage = '';
+    await chatInput.updateComplete;
+    await prompts.updateComplete;
+    expect(render.callCount).to.equal(1);
+    prompts.shadowRoot.querySelector('.prompt-item').click();
+    await chatInput.updateComplete;
+    expect(chatInput.draft).to.equal('Chosen prompt');
+  });
 
   it('switches context events after mount without losing existing pills', async () => {
     const originalEvent = chatInput.addEvent;
@@ -76,6 +104,82 @@ describe('standalone AO input', () => {
     expect(sent).to.have.length(0);
   });
 
+  it('retains the draft and attachments until asynchronous handoff is accepted', async () => {
+    let finish;
+    chatInput.onSubmit = (payload) => {
+      sent.push(payload);
+      return new Promise((resolve) => { finish = resolve; });
+    };
+    const attachment = { id: 'file', label: 'File', dataBase64: 'ZmlsZQ==' };
+    chatInput.addItem(attachment);
+    await chatInput.setPrompt('Keep until accepted');
+    const submit = chatInput.setPrompt('Keep until accepted', { autoSend: true });
+    await chatInput.updateComplete;
+    await Promise.resolve();
+    expect(chatInput.draft).to.equal('Keep until accepted');
+    expect(chatInput.items).to.deep.equal([attachment]);
+    expect(await chatInput.setPrompt('Duplicate', { autoSend: true })).to.equal(false);
+    expect(sent).to.have.length(1);
+    finish(false);
+    expect(await submit).to.equal(false);
+    expect(chatInput.draft).to.equal('Keep until accepted');
+    expect(chatInput.items).to.deep.equal([attachment]);
+    const retry = chatInput.setPrompt('Keep until accepted', { autoSend: true });
+    await chatInput.updateComplete;
+    await Promise.resolve();
+    finish(true);
+    expect(await retry).to.equal(true);
+    expect(sent).to.have.length(2);
+    expect(chatInput.draft).to.equal('');
+    expect(chatInput.items).to.deep.equal([]);
+  });
+
+  it('does not replace another draft or stop a merely disabled input', async () => {
+    await chatInput.setPrompt('Existing draft');
+    expect(await chatInput.setPrompt('Landing draft', { replace: false })).to.equal(false);
+    chatInput.disabled = true;
+    let stopped = 0;
+    chatInput.onStop = () => { stopped += 1; };
+    await chatInput.updateComplete;
+    expect(await chatInput.setPrompt('Existing draft', { autoSend: true })).to.equal(false);
+    chatInput.shadowRoot.querySelector('form').requestSubmit();
+    expect(chatInput.draft).to.equal('Existing draft');
+    expect(sent).to.deep.equal([]);
+    expect(stopped).to.equal(0);
+  });
+
+  it('keeps standalone drafts and context isolated from the conversation input', async () => {
+    const other = document.createElement('nx-ao-input');
+    other.addEvent = CHAT_EVENT.ADD_TO_CHAT;
+    document.body.append(other);
+    try {
+      await other.updateComplete;
+      await chatInput.setPrompt('Landing');
+      await other.setPrompt('Panel');
+      document.dispatchEvent(new CustomEvent(CHAT_EVENT.ADD_TO_CHAT, {
+        detail: { id: 'panel-only', label: 'Panel only' },
+      }));
+      expect(chatInput.items).to.deep.equal([]);
+      expect(other.items).to.have.length(1);
+      await chatInput.setPrompt('Landing', { autoSend: true });
+      expect(other.draft).to.equal('Panel');
+      expect(other.items).to.have.length(1);
+    } finally {
+      other.remove();
+    }
+  });
+
+  it('submits file-only input once with a visible Send action', async () => {
+    chatInput.addItem({ id: 'file', label: 'File', dataBase64: 'ZmlsZQ==' });
+    await chatInput.updateComplete;
+    expect(chatInput.shadowRoot.querySelector('.chat-actions').hasAttribute('data-has-items')).to.equal(true);
+    chatInput.shadowRoot.querySelector('.chat-send').click();
+    expect(sent).to.have.length(1);
+    expect(sent[0].text).to.equal('Attached file');
+    expect(sent[0].attachments).to.have.length(1);
+    expect(chatInput.items).to.deep.equal([]);
+  });
+
   it('preserves the draft and pills when blocked and stops exactly once', async () => {
     await chatInput.setPrompt('draft');
     chatInput.addItem({ id: 'context', label: 'Context' });
@@ -90,6 +194,24 @@ describe('standalone AO input', () => {
     expect(sent).to.have.length(0);
     expect(chatInput.draft).to.equal('draft');
     expect(chatInput.items).to.have.length(1);
+  });
+
+  it('keeps Stop circular and the same size as Send', async () => {
+    await chatInput.setPrompt('draft');
+    const send = chatInput.shadowRoot.querySelector('.chat-send');
+    const sendBounds = send.getBoundingClientRect();
+    const sendRadius = getComputedStyle(send).borderTopLeftRadius;
+    expect(sendBounds.width).to.be.greaterThan(0);
+    chatInput.blocked = true;
+    await chatInput.updateComplete;
+    const stop = chatInput.shadowRoot.querySelector('.chat-stop');
+    const stopBounds = stop.getBoundingClientRect();
+    const stopRadius = getComputedStyle(stop).borderTopLeftRadius;
+    expect(stopBounds.width).to.equal(sendBounds.width);
+    expect(stopBounds.height).to.equal(sendBounds.height);
+    expect(stopBounds.width).to.equal(stopBounds.height);
+    expect(stopRadius).to.equal(sendRadius);
+    expect(parseFloat(stopRadius)).to.be.at.least(stopBounds.width / 2);
   });
 
   it('submits a slash-selected skill through the same payload boundary', async () => {

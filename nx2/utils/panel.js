@@ -1,5 +1,20 @@
 import { getMetadata } from '../scripts/nx.js';
 
+const panelVisibilitySubscribers = new Set();
+const restoringPanelSections = new Set();
+const pendingPanelOpens = new Map();
+
+function getVisiblePanelSections() {
+  return [...document.querySelectorAll('aside.panel[data-section]:not([hidden])')]
+    .map(({ dataset }) => dataset.section);
+}
+
+function notifyPanelVisibility() {
+  const sections = getVisiblePanelSections();
+  const restoring = [...restoringPanelSections];
+  panelVisibilitySubscribers.forEach((callback) => callback([...sections], [...restoring]));
+}
+
 const PANEL_WIDTH_MIN = 120;
 const PANEL_WIDTH_MAX = () => Math.min(1600, window.innerWidth * 0.4);
 
@@ -119,6 +134,7 @@ function hidePanel(aside) {
   removePanelState(aside.dataset.section);
   aside.hidden = true;
   setPanelsGrid();
+  notifyPanelVisibility();
 }
 
 export const PANEL_EVENT = Object.freeze({
@@ -188,11 +204,13 @@ function showPanel(aside) {
   aside.hidden = false;
   savePanelState(aside.dataset.section, { width: aside.dataset.width });
   setPanelsGrid();
+  notifyPanelVisibility();
 }
 
 function mountPanel(opts) {
   const aside = createPanel(opts);
   setPanelsGrid();
+  notifyPanelVisibility();
   return aside;
 }
 
@@ -205,28 +223,68 @@ function mountPanel(opts) {
  * }} opts
  */
 async function openPanel({
-  position, width = '400px', getContent, section,
+  position, width = '400px', getContent, section, signal,
 } = {}) {
+  if (signal?.aborted) return undefined;
   const existing = document.querySelector(`aside.panel[data-position="${position}"]`);
   if (existing && !existing.hidden) return existing;
   if (existing?.hidden) {
     showPanel(existing);
     return existing;
   }
+  if (pendingPanelOpens.has(position)) return pendingPanelOpens.get(position);
 
   const beforeMain = position === 'before';
-  const content = await getContent?.();
-  return mountPanel({
-    width, beforeMain, content, section,
-  });
+  const restoring = wasPanelOpen(section);
+  if (restoring) {
+    restoringPanelSections.add(section);
+    notifyPanelVisibility();
+  }
+  let opening;
+  const clearPending = () => {
+    if (pendingPanelOpens.get(position) !== opening) return;
+    pendingPanelOpens.delete(position);
+    if (restoring) {
+      restoringPanelSections.delete(section);
+      notifyPanelVisibility();
+    }
+  };
+  try {
+    opening = Promise.resolve(getContent?.()).then((content) => (
+      signal?.aborted ? undefined : mountPanel({
+        width, beforeMain, content, section,
+      })
+    ));
+    pendingPanelOpens.set(position, opening);
+    signal?.addEventListener('abort', clearPending, { once: true });
+    if (signal?.aborted) clearPending();
+    return await opening;
+  } finally {
+    signal?.removeEventListener('abort', clearPending);
+    clearPending();
+  }
 }
 
 const panelSections = new Map();
+const panelSectionSubscribers = new Set();
+
+export function subscribePanelVisibility(callback) {
+  panelVisibilitySubscribers.add(callback);
+  callback(getVisiblePanelSections(), [...restoringPanelSections]);
+  return () => panelVisibilitySubscribers.delete(callback);
+}
 
 // Called once per host page to declare a section it owns — see docs/workspace.md
 // ("Side panels") for the full config contract.
 export function registerPanelSection(name, config) {
   panelSections.set(name, config);
+  panelSectionSubscribers.forEach((callback) => callback([...panelSections.keys()]));
+}
+
+export function subscribePanelSections(callback) {
+  panelSectionSubscribers.add(callback);
+  callback([...panelSections.keys()]);
+  return () => panelSectionSubscribers.delete(callback);
 }
 
 export function getSectionAtPosition(position) {
@@ -240,11 +298,23 @@ async function showPanelSection(name, id, options) {
   const config = panelSections.get(name);
   if (!config) return undefined;
   const width = getPanelStore()[name]?.width ?? config.width;
-  const aside = await openPanel({
-    position: config.position, width, getContent: config.getContent, section: name,
-  });
-  await config.onShow?.(aside, id, options);
-  return aside;
+  try {
+    const aside = await openPanel({
+      position: config.position,
+      width,
+      getContent: config.getContent,
+      section: name,
+      signal: config.signal,
+    });
+    if (!aside || config.signal?.aborted) return undefined;
+    await config.onShow?.(aside, id, options);
+    return aside;
+  } catch (error) {
+    if (config.signal?.aborted) return undefined;
+    if (!config.onError) throw error;
+    config.onError(error);
+    return undefined;
+  }
 }
 
 function closePanelSection(name) {

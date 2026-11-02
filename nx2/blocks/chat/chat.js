@@ -1,5 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
+import { loadHrefSvg } from '../../utils/svg.js';
+import { PANEL_EVENT } from '../../utils/panel.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
 import '../shared/menu/menu.js';
 import ChatBackend from './chat-backend.js';
@@ -12,16 +14,21 @@ import './interaction/interaction.js';
 import { loadSiteConfig } from './utils/api.js';
 import { getConfig } from '../../scripts/nx.js';
 import { buildAttachmentPayload } from './utils/chat-helpers.js';
-import { PANEL_EVENT } from '../../utils/panel.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { createSlashMenu } from '../shared/chat/slash-menu.js';
-import { ADOBE_AI_GUIDELINES_URL, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
+import { ADOBE_AI_GUIDELINES_URL, CHAT_WORKING_MESSAGE, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 import { ADD_MENU_ITEMS, ROLE } from './constants.js';
 import { sampleRUM } from '../../deps/rum.js';
 
-const styles = await loadStyle(import.meta.url);
+const [inputTokens, styles, buttonStyle, spinnerStyle] = await Promise.all([
+  loadStyle(new URL('../shared/chat/input.css', import.meta.url).href),
+  loadStyle(import.meta.url),
+  loadStyle(new URL('../../styles/buttons.css', import.meta.url).href),
+  loadStyle(new URL('../../styles/spinner.css', import.meta.url).href),
+]);
+const closeIcon = await loadHrefSvg(new URL('../../img/icons/S2_Icon_Close_20_N.svg', import.meta.url).href);
 const { codeBase } = getConfig();
 
 const icon = (name) => html`<svg class="chat-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
@@ -44,6 +51,8 @@ class NxChat extends LitElement {
     _prompts: { state: true },
     _hasItems: { state: true },
     _dragging: { state: true },
+    showInputStatus: { type: Boolean, reflect: true },
+    size: { type: String, reflect: true },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
@@ -53,12 +62,24 @@ class NxChat extends LitElement {
     this._applyContext(value);
   }
 
-  setPrompt(text, { autoSend = false } = {}) {
+  get inputState() {
+    return { busy: !!this.thinking, disabled: !!this.thinking || !this.connected };
+  }
+
+  stop() {
+    if (!this.inputState.busy) return;
+    this._controller?.stop();
+  }
+
+  setPrompt(text, { autoSend = false, replace = true } = {}) {
+    if (!text || this.thinking) return false;
+    const draft = this._pendingPrompt?.text || this.shadowRoot?.querySelector('.chat-input')?.value;
+    if (!replace && draft?.trim() && draft !== text) return false;
     if (this.connected) {
-      this._sendPrompt(text, { autoSend });
-    } else {
-      this._pendingPrompt = { text, autoSend };
+      return this._sendPrompt(text, { autoSend });
     }
+    this._pendingPrompt = { text, autoSend };
+    return true;
   }
 
   addAttachment(item) {
@@ -83,10 +104,6 @@ class NxChat extends LitElement {
 
   clear() {
     this._controller?.clear();
-  }
-
-  _closePanel() {
-    this.dispatchEvent(new CustomEvent(PANEL_EVENT.CLOSE, { bubbles: true, composed: true }));
   }
 
   async _loadConfig() {
@@ -126,7 +143,7 @@ class NxChat extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [inputTokens, buttonStyle, spinnerStyle, styles];
 
     if (this._context) this._ensureController(this._context);
 
@@ -136,7 +153,7 @@ class NxChat extends LitElement {
 
     this._dnd = createFileDropHandlers({
       isAllowed: isAllowedFile,
-      onDragging: (dragging) => { this._dragging = dragging; },
+      onDragging: (dragging) => { this._dragging = dragging && !this.inputState.disabled; },
       onFiles: (files) => this._onFilesSelected(files),
     });
 
@@ -200,6 +217,11 @@ class NxChat extends LitElement {
   }
 
   updated(changed) {
+    if (changed.has('thinking') || changed.has('connected')) {
+      this.dispatchEvent(new CustomEvent(CHAT_EVENT.INPUT_STATE_CHANGE, {
+        bubbles: true, composed: true, detail: this.inputState,
+      }));
+    }
     if (changed.has('messages')) {
       const log = this.shadowRoot.querySelector('.chat-scroll-container');
       if (log && this._wasNearBottom) {
@@ -243,7 +265,7 @@ class NxChat extends LitElement {
   _submit(e) {
     e?.preventDefault();
     if (this.thinking) {
-      this._controller.stop();
+      this.stop();
       return;
     }
     const input = this.shadowRoot.querySelector('.chat-input');
@@ -263,16 +285,17 @@ class NxChat extends LitElement {
   }
 
   _sendPrompt(prompt, { autoSend = false } = {}) {
-    if (!prompt || this.thinking || !this.connected) return;
+    if (!prompt || this.thinking || !this.connected) return false;
     this.shadowRoot.querySelector('.prompts-popover')?.close();
     const input = this.shadowRoot.querySelector('.chat-input');
-    if (!input) return;
+    if (!input) return false;
     input.value = prompt;
     if (autoSend) {
       input.closest('form')?.requestSubmit();
     } else {
       input.focus();
     }
+    return true;
   }
 
   _handleMenuSelect({ detail: { id } }) {
@@ -307,6 +330,7 @@ class NxChat extends LitElement {
   }
 
   async _onFilesSelected(fileList) {
+    if (this.inputState.disabled) return;
     const pills = this.shadowRoot.querySelector('nx-pills');
     const currentCount = (pills?.items ?? []).filter((i) => i.dataBase64).length;
     const items = await buildAttachmentItems(fileList, { currentCount });
@@ -327,6 +351,7 @@ class NxChat extends LitElement {
   }
 
   render() {
+    const buttonSize = this.size === 'm' ? '' : 'nx-btn-sm';
     const { view } = this._context ?? {};
     const prompts = (this._prompts ?? [])
       .filter((p) => !p.area || p.area === 'all' || p.area === view);
@@ -348,10 +373,13 @@ class NxChat extends LitElement {
         >${icon('clear')}<span>Clear</span></button>
         <button
           type="button"
-          class="chat-header-btn"
+          class="chat-header-btn close-btn"
+          title="Close chat panel"
           aria-label="Close chat panel"
-          @click=${this._closePanel}
-        >${icon('close')}</button>
+          @click=${() => this.dispatchEvent(new CustomEvent(PANEL_EVENT.CLOSE, {
+            bubbles: true, composed: true,
+          }))}
+        >${closeIcon?.cloneNode(true)}</button>
       </div>
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">
@@ -382,7 +410,7 @@ class NxChat extends LitElement {
           .pending=${this.pendingInteraction}
           .onApprove=${(toolCallId, approved, always) => this._controller.approveToolCall(toolCallId, approved, always)}
         ></nx-chat-interaction>
-        <form class="chat-form" autocomplete="off" @submit=${this._submit}
+        <form class="chat-form ${this.showInputStatus && this.inputState.busy ? 'is-processing' : ''}" autocomplete="off" @submit=${this._submit}
           @dragenter=${this._dnd.onDragEnter}
           @dragleave=${this._dnd.onDragLeave}
           @dragover=${this._dnd.onDragOver}
@@ -402,28 +430,33 @@ class NxChat extends LitElement {
             <span class="chat-drop-hint">Supports PDF, images, and documents</span>
           </div>` : nothing}
         <nx-pills
+          .size=${this.size === 'm' ? 'm' : 's'}
           addEvent=${CHAT_EVENT.ADD_TO_CHAT}
           @nx-pill-activate=${this._handlePillActivate}
           @nx-pills-change=${this._onPillsChange}
         ></nx-pills>
+        ${this.showInputStatus && this.inputState.busy ? html`<div class="chat-working" role="status">
+          <span class="nx-loading-spinner" aria-hidden="true"></span>${CHAT_WORKING_MESSAGE}
+        </div>` : nothing}
         <textarea
           name="chat-input"
           class="chat-input"
           placeholder="Ask anything, or type / for skills..."
-          ?disabled=${this.thinking || !this.connected}
+          ?disabled=${this.inputState.disabled}
+          ?hidden=${this.showInputStatus && this.inputState.busy}
           @input=${this._slashMenu.onInput}
           @keydown=${this._handleKeydown}
           @blur=${this._slashMenu.onBlur}
         ></textarea>
         <div class="chat-actions" ?data-thinking=${this.thinking} ?data-has-items=${this._hasItems}>
           <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-            <button slot="trigger" class="chat-add" type="button" aria-label="Add" @click=${this._onAddClick}>
+            <button slot="trigger" class="chat-add nx-action-btn-icon ${buttonSize}" type="button" aria-label="Add" ?disabled=${this.inputState.disabled} @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>
               <span class="icon-up">${icon('up')}</span>
             </button>
           </nx-menu>
-          <button class="chat-stop action-btn" type="button" aria-label="Stop" @click=${this._submit}>${icon('stop')}</button>
-          <button class="chat-send harness-da-agent action-btn" type="submit" aria-label="Send">${icon('send')}</button>
+          <button class="chat-stop action-btn nx-action-btn-icon is-active ${buttonSize}" type="button" aria-label="Stop" @click=${this.stop}>${icon(this.showInputStatus ? 'stopProcessing' : 'stop')}</button>
+          <button class="chat-send harness-da-agent action-btn nx-action-btn-icon is-active ${buttonSize}" type="submit" aria-label="Send">${icon('send')}</button>
         </div>
         </form>
       </div>

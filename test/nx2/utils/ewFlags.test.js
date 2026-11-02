@@ -4,7 +4,8 @@ import {
   calls, installFetch, restoreFetch,
 } from '../../../nx2/test/mocks/fetch.js';
 import {
-  getEWFlags, isEWEnabled, isEwChatDisabled, getCoworkerConfig, isCoworkerEnabled, getManifestId,
+  getEWFlags, isEWEnabled, isEwChatDisabled, isEwChatEnabled,
+  getCoworkerConfig, isCoworkerEnabled, getManifestId,
 } from '../../../nx2/utils/ewFlags.js';
 
 // getEWFlags -> daConfig.fetchDaConfigs -> api.js's config.get(), which
@@ -99,6 +100,72 @@ describe('isEwChatDisabled', () => {
   it('returns false when ew.disableChat flag is not set at any level', async () => {
     installFetch({ body: JSON.stringify({ flags: { data: [] } }) });
     expect(await isEwChatDisabled({ org: 'dc-org3', site: 'dc-site3' })).to.be.false;
+  });
+});
+
+describe('isEwChatEnabled', () => {
+  let userEnabled;
+
+  beforeEach(() => {
+    userEnabled = localStorage.getItem('nx2:ew-user-enabled');
+    localStorage.removeItem('nx2:ew-user-enabled');
+  });
+
+  afterEach(() => {
+    restoreFetch();
+    if (userEnabled === null) localStorage.removeItem('nx2:ew-user-enabled');
+    else localStorage.setItem('nx2:ew-user-enabled', userEnabled);
+  });
+
+  [
+    { name: 'enabled org', flags: { 'ew.enabled': 'true' }, expected: true },
+    { name: 'legacy org', flags: { 'ew.enabled': 'false' }, expected: false },
+    { name: 'opted-in org', flags: {}, optIn: true, expected: true },
+    {
+      name: 'disabled org',
+      flags: { 'ew.enabled': 'true', 'ew.disableChat': 'true' },
+      expected: false,
+    },
+    {
+      name: 'disabled opted-in org',
+      flags: { 'ew.disableChat': 'true' },
+      optIn: true,
+      expected: false,
+    },
+  ].forEach(({ name, flags, optIn, expected }, index) => {
+    it(`applies shared chat availability to an ${name}`, async () => {
+      if (optIn) localStorage.setItem('nx2:ew-user-enabled', 'true');
+      installFetch({
+        body: JSON.stringify({
+          flags: { data: Object.entries(flags).map(([key, value]) => ({ key, value })) },
+        }),
+      });
+      expect(await isEwChatEnabled({ org: `chat-availability-${index}` })).to.equal(expected);
+    });
+  });
+
+  it('requires an org even when the browser is opted in', async () => {
+    localStorage.setItem('nx2:ew-user-enabled', 'true');
+    expect(await isEwChatEnabled({})).to.be.false;
+  });
+
+  it('inherits org chat-disable flags unless the site explicitly overrides them', async () => {
+    installFlagsByPath({
+      '/chat-override/': JSON.stringify({
+        flags: { data: [{ key: 'ew.disableChat', value: 'false' }] },
+      }),
+      '/chat-inherit/': JSON.stringify({ flags: { data: [] } }),
+      '/chat-org/': JSON.stringify({
+        flags: {
+          data: [
+            { key: 'ew.enabled', value: 'true' },
+            { key: 'ew.disableChat', value: 'true' },
+          ],
+        },
+      }),
+    });
+    expect(await isEwChatEnabled({ org: 'chat-org', site: 'chat-inherit' })).to.be.false;
+    expect(await isEwChatEnabled({ org: 'chat-org', site: 'chat-override' })).to.be.true;
   });
 });
 

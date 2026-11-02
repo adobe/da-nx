@@ -3,6 +3,9 @@ button {
 }
 
 .nx-action-btn, .nx-action-btn-icon, .nx-action-btn-quiet, .nx-btn-accent, .nx-btn-primary  {
+  --nx-btn-height: var(--s2-spacing-500, 32px);
+  --nx-btn-icon-size: 18px;
+
   display: flex;
   transition: transform 0.125s ease-out, background-color 0.125s ease-out, color 0.125s ease-out;
   padding: 7px var(--s2-spacing-200);
@@ -16,7 +19,7 @@ button {
   color: var(--s2-gray-800);
   align-items: center;
   justify-content: center;
-  height: 32px;
+  height: var(--nx-btn-height);
 
   &:disabled {
     opacity: 0.4;
@@ -29,8 +32,8 @@ button {
   }
 
   svg {
-    width: 18px;
-    height: 18px;
+    width: var(--nx-btn-icon-size);
+    height: var(--nx-btn-icon-size);
   }
 
   kbd {
@@ -50,16 +53,34 @@ button {
   }
 
   &.nx-btn-sm {
+    --nx-btn-height: var(--s2-spacing-400, 24px);
+    --nx-btn-icon-size: var(--s2-spacing-300, 16px);
+
     padding: var(--s2-spacing-75) 10px;
     font-size: var(--s2-component-s-medium-font-size);
     line-height: var(--s2-component-s-medium-line-height);
     font-weight: var(--s2-component-s-medium-font-weight);
     gap: var(--s2-spacing-75);
-    height: 24px;
-      
+    height: var(--nx-btn-height);
+
     svg {
-      width: 16px;
-      height: 16px;
+      width: var(--nx-btn-icon-size);
+      height: var(--nx-btn-icon-size);
+    }
+  }
+
+  &.nx-btn-lg {
+    --nx-btn-height: var(--s2-spacing-600, 40px);
+    --nx-btn-icon-size: 20px;
+
+    padding: 9px 18px;
+    font-size: var(--s2-component-l-medium-font-size);
+    line-height: var(--s2-component-l-medium-line-height);
+    height: var(--nx-btn-height);
+
+    svg {
+      width: var(--nx-btn-icon-size);
+      height: var(--nx-btn-icon-size);
     }
   }
 }
@@ -71,6 +92,11 @@ button {
   &.nx-btn-sm {
     border-radius: 12px;
     font-weight: var(--s2-component-s-bold-font-weight);
+  }
+
+  &.nx-btn-lg {
+    border-radius: 20px;
+    font-weight: var(--s2-component-l-bold-font-weight);
   }
 }
 
@@ -111,13 +137,17 @@ button {
   font-size: var(--s2-component-xs-medium-font-size);
 }
 
+.nx-btn-lg kbd {
+  font-size: var(--s2-component-m-medium-font-size);
+}
+
 .nx-action-btn-quiet, .nx-action-btn-icon  {
   background: transparent;
 }
 
 .nx-action-btn-icon {
   display: flex;
-  width: 32px;
+  width: var(--nx-btn-height);
   padding: 7px;
 
   &.is-active {
@@ -131,7 +161,12 @@ button {
   }
 
   &.nx-btn-sm {
-    width: 24px;
+    width: var(--nx-btn-height);
     padding: var(--s2-spacing-75);
+  }
+
+  &.nx-btn-lg {
+    width: var(--nx-btn-height);
+    padding: 9px;
   }
 }
