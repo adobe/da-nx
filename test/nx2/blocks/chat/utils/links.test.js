@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { linkifyBareUrls, sanitizeLinks } from '../../../../../nx2/blocks/chat/utils/links.js';
+import { isSafeHref, linkifyBareUrls, sanitizeLinks } from '../../../../../nx2/blocks/chat/utils/links.js';
 
 const text = (value) => ({ type: 'text', value });
 const el = (tagName, children, properties = {}) => ({
@@ -16,6 +16,19 @@ const anchors = (tree) => {
   walk(tree);
   return found;
 };
+
+describe('isSafeHref', () => {
+  it('accepts parseable absolute HTTP and HTTPS URLs', () => {
+    ['http://example.com/', 'https://example.com/path?q=1#section', 'HTTPS://example.com']
+      .forEach((href) => expect(isSafeHref(href)).to.equal(true));
+  });
+
+  it('rejects malformed, relative, non-HTTP and non-string values', () => {
+    ['', 'https://', 'https://[invalid', '/relative', '//example.com', 'data:text/plain,hello',
+      null, undefined, 42, { path: '/url' }]
+      .forEach((href) => expect(isSafeHref(href)).to.equal(false));
+  });
+});
 
 describe('linkifyBareUrls', () => {
   it('wraps a bare URL in an anchor', () => {
