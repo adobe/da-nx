@@ -25,7 +25,7 @@ const isAllowedFile = (file) => AO_UPLOAD_EXTENSIONS
 export default class NxAoInput extends LitElement {
   static properties = {
     blocked: { type: Boolean },
-    altHarness: { type: Boolean },
+    cma: { type: Boolean },
     prompts: { type: Array },
     menuItems: { type: Array },
     addEvent: { type: String },
@@ -152,7 +152,7 @@ export default class NxAoInput extends LitElement {
     }
     const text = this.draft.trim();
     if (!text) return;
-    const harness = this.altHarness ? 'cma' : 'coworker';
+    const harness = this.cma ? 'cma' : 'coworker';
     sampleRUM('click', { source: 'chat-submit', target: `button.chat-send.harness-${harness}` });
     this._slashMenu.close();
     this._send(text);
@@ -225,7 +225,7 @@ export default class NxAoInput extends LitElement {
           hidden
           @change=${this._onFileInputChange}
         />
-        <div class="chat-input-wrap ${this.altHarness ? '' : 'coworker-chat'}">
+        <div class="chat-input-wrap ${this.cma ? '' : 'coworker-chat'}">
           <textarea
             class="chat-input"
             placeholder="Ask anything, or type / for skills..."
@@ -259,7 +259,7 @@ export default class NxAoInput extends LitElement {
               ?hidden=${!this.blocked}
               @click=${this._submit}
             > ${icon('stop')}</button>
-            <button type="submit" class="chat-send harness-${this.altHarness ? 'cma' : 'coworker'} nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} aria-label="Send">
+            <button type="submit" class="chat-send harness-${this.cma ? 'cma' : 'coworker'} nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} aria-label="Send">
               ${icon('send')}
             </button>
           </div>

@@ -18,7 +18,7 @@ describe('chat send button RUM', () => {
       window.hlx = { rum: { isSelected: true, collector: (...args) => calls.push(args) } };
       try {
         const chat = document.createElement(tag);
-        chat._altHarness = altHarness;
+        chat._cma = altHarness;
         chat._controller = {
           sendMessage(message) { messages.push(message); },
           stop() { stopped += 1; },

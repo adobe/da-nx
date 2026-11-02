@@ -46,16 +46,16 @@ function saveCachedSkills(skills, tenantId) {
 
 // Real catalog lookup. Best-effort: a network error or unexpected response shape
 // returns null, leaving the cache (or empty list) in place rather than throwing.
-// When an alt-harness activation key is present, the skills REST plane routes to
-// the CMA bridge instead of Agent Orchestrator (the bridge requires an explicit
+// When the CMA bridge harness is in use, the skills REST plane routes to the
+// bridge instead of Agent Orchestrator (the bridge requires an explicit
 // x-user-id; AO derives the caller from the token). See docs/chat-ao-alt-harness.md.
-export async function fetchSkills({ org, site, altHarnessKey } = {}) {
+export async function fetchSkills({ org, site, cma } = {}) {
   try {
     const {
       base, headers, tenantId, userId,
     } = await aoContext();
-    const skillsBase = altHarnessKey ? CMA_BRIDGE_HTTP_BASE : base;
-    const skillsHeaders = altHarnessKey && userId ? { ...headers, 'x-user-id': userId } : headers;
+    const skillsBase = cma ? CMA_BRIDGE_HTTP_BASE : base;
+    const skillsHeaders = cma && userId ? { ...headers, 'x-user-id': userId } : headers;
     const { manifestId } = await resolveManifestId({ org, site });
     const resp = await fetch(`${skillsBase}/api/v1/skills?manifest_id=${manifestId}`, { headers: skillsHeaders });
     if (!resp.ok) return null;

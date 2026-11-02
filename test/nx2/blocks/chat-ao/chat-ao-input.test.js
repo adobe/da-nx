@@ -135,7 +135,7 @@ describe('chat AO input', () => {
   it('passes filtered prompts, current skills, and harness appearance to the input', async () => {
     chat._context = { view: 'edit' };
     chat._prompts = [{ area: 'all' }, { area: 'edit' }, { area: 'browse' }];
-    chat._altHarness = true;
+    chat._cma = true;
     chat.requestUpdate();
     await chat.updateComplete;
     await chatInput.updateComplete;

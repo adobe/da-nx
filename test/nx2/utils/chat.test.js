@@ -1,5 +1,7 @@
 import { expect } from '@esm-bundle/chai';
-import { useAoChat } from '../../../nx2/utils/chat.js';
+import { useAoChat, loadChat } from '../../../nx2/utils/chat.js';
+import { resetMockIms, setMockIms } from '../../../nx2/test/mocks/ims.js';
+import { REQUIRED_SERVICE_CODES } from '../../../nx2/utils/entitlement.js';
 
 // isHlx6's upgrade probe reads resp.headers.get(...) before daConfig ever reads
 // the body, so every mocked fetch here needs a real headers.get, not just json().
@@ -59,6 +61,49 @@ describe('useAoChat', () => {
     window.fetch = mockFetch({ flags: { data: [] } });
     await withUrl('#/chat-org2/chat-site2', '', async () => {
       expect(await useAoChat()).to.equal(false);
+    });
+  });
+});
+
+describe('loadChat — ew.cma harness selection', () => {
+  let savedFetch;
+  beforeEach(() => {
+    savedFetch = window.fetch;
+    resetMockIms();
+  });
+  afterEach(() => {
+    window.fetch = savedFetch;
+    resetMockIms();
+  });
+
+  it('selects the CMA harness only when both ew.cma AND entitlement hold', async () => {
+    setMockIms({
+      projectedProductContext: [{ prodCtx: { owningEntity: 'org-1', serviceCode: REQUIRED_SERVICE_CODES[0] } }],
+    });
+    window.fetch = mockFetch({ flags: { data: [{ key: 'ew.cma', value: 'true' }] } });
+    await withUrl('#/cma-org1/cma-site1', '', async () => {
+      const chat = await loadChat();
+      expect(chat.tagName.toLowerCase()).to.equal('nx-chat-ao');
+    });
+  });
+
+  it('does NOT select CMA when the flag is on but the org is not entitled', async () => {
+    window.fetch = mockFetch({ flags: { data: [{ key: 'ew.cma', value: 'true' }] } });
+    await withUrl('#/cma-org2/cma-site2', '', async () => {
+      const chat = await loadChat();
+      // not entitled + no ew.coworker => useAoChat is false => legacy nx-chat
+      expect(chat.tagName.toLowerCase()).to.equal('nx-chat');
+    });
+  });
+
+  it('does NOT select CMA when entitled but the ew.cma flag is off', async () => {
+    setMockIms({
+      projectedProductContext: [{ prodCtx: { owningEntity: 'org-1', serviceCode: REQUIRED_SERVICE_CODES[0] } }],
+    });
+    window.fetch = mockFetch({ flags: { data: [] } });
+    await withUrl('#/cma-org3/cma-site3', '', async () => {
+      const chat = await loadChat();
+      expect(chat.tagName.toLowerCase()).to.equal('nx-chat');
     });
   });
 });

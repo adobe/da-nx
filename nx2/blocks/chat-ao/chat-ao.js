@@ -15,7 +15,8 @@ import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
 import CoworkerChatController from './coworker-chat-controller.js';
 import CmaChatController from './cma-chat-controller.js';
-import { getCoworkerConfig } from '../../utils/ewFlags.js';
+import { isCmaFlagEnabled } from '../../utils/ewFlags.js';
+import { isCmaEntitled } from '../../utils/entitlement.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
   COWORKER_SKILLS_PATH, ENTERPRISE_CONTEXT_PATH, getCoworkerHref, loadCoworkerNav,
@@ -103,10 +104,9 @@ export default class NxChatAo extends LitElement {
     this._loadConfig();
   }
 
-  _applyHarnessConfig({ key = null, altHarness = false, activationKey = null } = {}) {
+  _applyHarnessConfig({ key = null, cma = false } = {}) {
     this._harnessConfigKey = key;
-    this._altHarness = !!altHarness;
-    this._activationKey = activationKey;
+    this._cma = !!cma;
     this._flagsReady = true;
     this._initController();
   }
@@ -120,10 +120,15 @@ export default class NxChatAo extends LitElement {
     const { prompts } = await loadSiteConfig(org, site);
     this._prompts = prompts ?? [];
     if (this._harnessConfigKey !== key) {
-      // ew.altHarness selects the CMA bridge harness; its value is the
-      // activation key that authorizes/routes the chat socket to the bridge.
-      const { altHarness, activationKey } = await getCoworkerConfig({ org, site });
-      this._applyHarnessConfig({ key, altHarness, activationKey });
+      // ew.cma is a per-site rollout opt-in (UI selector, not a security
+      // boundary); isCmaEntitled is the real IMS-entitlement pre-check. Both
+      // must hold for the CMA harness — the bridge independently re-verifies
+      // entitlement server-side regardless of what this resolves to.
+      const [cmaFlagEnabled, entitled] = await Promise.all([
+        isCmaFlagEnabled({ org, site }),
+        isCmaEntitled(),
+      ]);
+      this._applyHarnessConfig({ key, cma: cmaFlagEnabled && entitled });
       return;
     }
     this._initController();
@@ -146,23 +151,21 @@ export default class NxChatAo extends LitElement {
     this.staleEpisode = staleEpisode;
   }
 
-  // The controller is created once the ew.altHarness flag is known, so the
-  // correct harness subclass (Coworker REST history vs CMA bridge) is chosen up
-  // front. Idempotent; recreates only if the harness actually changes. See
-  // docs/chat-ao-controller-decoupling.md.
+  // The controller is created once the ew.cma flag + entitlement are known,
+  // so the correct harness subclass (Coworker REST history vs CMA bridge) is
+  // chosen up front. Idempotent; recreates only if the harness actually
+  // changes. See docs/chat-ao-controller-decoupling.md.
   _initController() {
     if (!this.isConnected || !this._flagsReady || !this._context?.org || !this._context?.site) {
       return;
     }
-    const Controller = this._altHarness ? CmaChatController : CoworkerChatController;
+    const Controller = this._cma ? CmaChatController : CoworkerChatController;
     if (this._controller instanceof Controller) {
-      this._controller.setActivationKey?.(this._activationKey);
       return;
     }
     this._controller?.destroy();
     this._controller = new Controller({
       onUpdate: (state) => this._onControllerUpdate(state),
-      ...(this._altHarness ? { activationKey: this._activationKey } : {}),
     });
     if (this._context) this._controller.setContext(this._context);
     this._controller.loadEpisodes();
@@ -389,7 +392,7 @@ export default class NxChatAo extends LitElement {
           })}
         <nx-ao-input
           .blocked=${this._blocked}
-          .altHarness=${this._altHarness}
+          .cma=${this._cma}
           .prompts=${prompts}
           .menuItems=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS}
           .addEvent=${CHAT_EVENT.ADD_TO_CHAT}

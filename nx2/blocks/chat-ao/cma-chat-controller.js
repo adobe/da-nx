@@ -21,8 +21,8 @@ import { fetchSkills } from './utils/skills.js';
 // backend error untouched. See docs/chat-ao-alt-harness.md.
 function friendlyBackendError(message) {
   if (typeof message !== 'string') return 'Something went wrong.';
-  if (/activation key/i.test(message)) {
-    return 'This site isn\'t enabled for the alternate assistant yet, or its activation key is wrong. Check the site\'s ew.altHarness config.';
+  if (/not provisioned|not entitled/i.test(message)) {
+    return 'This organization isn\'t provisioned for the alternate assistant yet.';
   }
   if (/gate misconfigured/i.test(message)) {
     return 'The alternate assistant is temporarily unavailable. Please try again shortly.';
@@ -35,19 +35,6 @@ function friendlyBackendError(message) {
 // pointer in sessionStorage rather than an orchestrator episode list.
 // See docs/chat-ao-controller-decoupling.md and docs/chat-ao-alt-harness.md.
 export default class CmaChatController extends BaseChatController {
-  constructor({ onUpdate, activationKey } = {}) {
-    super({ onUpdate });
-    this.setActivationKey(activationKey);
-  }
-
-  // Activation key from the `ew.altHarness` site-config flag — rides the AUTH
-  // frame for server-side validation. Trim: config-sheet values often carry
-  // stray whitespace, and the bridge compares the frame key exactly.
-  setActivationKey(key) {
-    const trimmed = typeof key === 'string' ? key.trim() : key;
-    this._activationKey = trimmed || null;
-  }
-
   async _connectionInfo() {
     const {
       accessToken, userId, tenantId, email, name, projectedProductContext,
@@ -63,17 +50,17 @@ export default class CmaChatController extends BaseChatController {
         'x-user-email': email,
         'x-user-id': userId,
         'x-user-name': name,
-        // x-site scopes the session per-site (S12); activationKey authorizes
-        // and routes to the bridge. Both ride the one AUTH frame.
+        // x-site scopes the session per-site (S12). No activation key: the
+        // bridge authenticates this path on IMS identity + tenant entitlement
+        // + site membership alone (#192), identical to the `abv` agent route.
         ...(siteId ? { 'x-site': siteId } : {}),
-        ...(this._activationKey ? { activationKey: this._activationKey } : {}),
       },
       wsBase: CMA_BRIDGE_WS_BASE,
     };
   }
 
   _fetchSkills() {
-    return fetchSkills({ ...(this._context ?? {}), altHarnessKey: this._activationKey });
+    return fetchSkills({ ...(this._context ?? {}), cma: true });
   }
 
   async _uploadAttachment({ fileName, mediaType, dataBase64 }) {

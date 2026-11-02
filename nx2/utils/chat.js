@@ -1,5 +1,6 @@
 import { hashChange } from './utils.js';
-import { getCoworkerConfig } from './ewFlags.js';
+import { getCoworkerConfig, isCmaFlagEnabled } from './ewFlags.js';
+import { isCmaEntitled } from './entitlement.js';
 
 export const CHAT_EVENT = {
   // Chat -> document: notifications chat dispatches when something happened.
@@ -28,17 +29,20 @@ async function resolveAoChatConfig() {
     return {
       useAoChat: query === 'true',
       key,
-      altHarness: false,
-      activationKey: null,
+      cma: false,
     };
   }
 
-  const { enabled, altHarness, activationKey } = await getCoworkerConfig({ org, site });
+  const [{ enabled: coworkerEnabled }, cmaFlagEnabled, entitled] = await Promise.all([
+    getCoworkerConfig({ org, site }),
+    isCmaFlagEnabled({ org, site }),
+    isCmaEntitled(),
+  ]);
+  const cma = cmaFlagEnabled && entitled;
   return {
-    useAoChat: query === 'true' || enabled,
+    useAoChat: query === 'true' || coworkerEnabled || cma,
     key,
-    altHarness,
-    activationKey,
+    cma,
   };
 }
 
@@ -51,13 +55,12 @@ export async function loadChat() {
   const {
     useAoChat: enabled,
     key,
-    altHarness,
-    activationKey,
+    cma,
   } = await resolveAoChatConfig();
   if (enabled) {
     await import('../blocks/chat-ao/chat-ao.js');
     const chat = document.createElement('nx-chat-ao');
-    chat.harnessConfig = { key, altHarness, activationKey };
+    chat.harnessConfig = { key, cma };
     return chat;
   }
   await import('../blocks/chat/chat.js');
