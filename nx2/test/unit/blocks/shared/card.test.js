@@ -53,11 +53,44 @@ describe('nx-card', () => {
     expect(card.shadowRoot.querySelector('input').getAttribute('aria-label')).to.equal('Select about-us');
   });
 
-  it('emits selectionchange and follows the consumer-controlled selected state', async () => {
+  it('focuses the selection control through the card API without changing selection', async () => {
+    card.selectable = true;
+    await card.updateComplete;
+
+    card.focus();
+
+    expect(document.activeElement).to.equal(card);
+    expect(card.shadowRoot.activeElement).to.equal(card.shadowRoot.querySelector('input'));
+    expect(card.selected).to.equal(false);
+  });
+
+  it('forwards focus options to the selection control', async () => {
+    card.selectable = true;
+    await card.updateComplete;
+    const input = card.shadowRoot.querySelector('input');
+    const options = { preventScroll: true };
+    let receivedOptions;
+    input.focus = (value) => { receivedOptions = value; };
+
+    card.focus(options);
+
+    expect(receivedOptions).to.equal(options);
+  });
+
+  it('preserves host focus when the card is not selectable', () => {
+    card.tabIndex = -1;
+
+    card.focus();
+
+    expect(document.activeElement).to.equal(card);
+    expect(card.shadowRoot.activeElement).to.equal(null);
+  });
+
+  it('emits nx-card-selection-change and follows the consumer-controlled selected state', async () => {
     card.selectable = true;
     let cardClicks = 0;
     card.addEventListener('click', () => { cardClicks += 1; });
-    card.addEventListener('selectionchange', (e) => { card.selected = e.detail.selected; });
+    card.addEventListener('nx-card-selection-change', (e) => { card.selected = e.detail.selected; });
     await card.updateComplete;
     const input = card.shadowRoot.querySelector('input');
 
@@ -76,7 +109,7 @@ describe('nx-card', () => {
   it('reverts the checkbox when the consumer does not update selected', async () => {
     card.selectable = true;
     let detail;
-    card.addEventListener('selectionchange', (e) => { detail = e.detail; });
+    card.addEventListener('nx-card-selection-change', (e) => { detail = e.detail; });
     await card.updateComplete;
     const input = card.shadowRoot.querySelector('input');
 
@@ -90,7 +123,7 @@ describe('nx-card', () => {
   it('includes shift-click in selection changes for range selection', async () => {
     card.selectable = true;
     let detail;
-    card.addEventListener('selectionchange', (e) => { detail = e.detail; });
+    card.addEventListener('nx-card-selection-change', (e) => { detail = e.detail; });
     await card.updateComplete;
     card.shadowRoot.querySelector('input')
       .dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
@@ -102,7 +135,7 @@ describe('nx-card', () => {
     let changes = 0;
     let cardClicks = 0;
     card.addEventListener('click', () => { cardClicks += 1; });
-    card.addEventListener('selectionchange', (e) => {
+    card.addEventListener('nx-card-selection-change', (e) => {
       changes += 1;
       card.selected = e.detail.selected;
     });
@@ -133,6 +166,25 @@ describe('nx-card', () => {
     expect(content.querySelector('slot[name="heading"]')).to.exist;
     expect(content.querySelector('slot[name="actions"]')).to.exist;
     expect(content.querySelector('slot[name="metadata"]')).to.equal(null);
+  });
+
+  it('bubbles card selection without dispatching the native selectionchange event name', async () => {
+    card.selectable = true;
+    await card.updateComplete;
+    let detail;
+    let nativeNameEvents = 0;
+    card.addEventListener('selectionchange', () => { nativeNameEvents += 1; });
+    const onSelection = (event) => {
+      if (event.target === card) detail = event.detail;
+    };
+    document.addEventListener('nx-card-selection-change', onSelection);
+    try {
+      card.shadowRoot.querySelector('input').click();
+      expect(detail).to.deep.equal({ selected: true, shiftKey: false });
+      expect(nativeNameEvents).to.equal(0);
+    } finally {
+      document.removeEventListener('nx-card-selection-change', onSelection);
+    }
   });
 
   it('exposes the documented slots', () => {

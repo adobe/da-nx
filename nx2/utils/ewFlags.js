@@ -158,6 +158,15 @@ export async function isEwChatDisabled({ org, site }) {
   return flags['ew.disableChat'] === 'true';
 }
 
+export async function isEwChatEnabled({ org, site }) {
+  if (!org) return false;
+  const [enabled, disabled] = await Promise.all([
+    isEWEnabled({ org, site }),
+    isEwChatDisabled({ org, site }),
+  ]);
+  return enabled && !disabled;
+}
+
 export async function getCoworkerConfig({ org, site }) {
   const flags = await getEWFlags({ org, site });
   return {

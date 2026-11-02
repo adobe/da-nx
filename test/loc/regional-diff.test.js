@@ -81,8 +81,8 @@ describe('Regional diff', () => {
       </div>
     `;
     const mainEl = await regionalDiff(original, modified, [], ['9cf95b80d46d']);
-    // The block with hash 9cf95b80d46d should be removed from the output
-    expect(mainEl.innerHTML).to.not.include('9cf95b80d46d');
+    const ownHero = mainEl.querySelector('.hero-marquee[da-diff-added]');
+    expect(ownHero?.textContent).to.include('Welcome to Canada.');
   });
 
   it('Returns html with differences annotated when metadata is malformed', async () => {
@@ -276,5 +276,59 @@ describe('regionalDiff normalizeImages hook', () => {
     });
     await regionalDiff(original, modified, undefined, undefined, { normalizeImages });
     expect(normalizeImages.calledOnce).to.be.true;
+  });
+});
+
+describe('regionalDiff with hashes from an earlier review', () => {
+  const hashOf = (html) => window.objectHash(html).substring(0, 12);
+  const toDoc = (mainHtml) => {
+    const doc = document.implementation.createHTMLDocument();
+    doc.body.innerHTML = `<main><div>${mainHtml}</div></main>`;
+    return doc;
+  };
+  const ownHeadings = (main) => [...main.querySelectorAll('h1')]
+    .filter((h1) => !h1.closest('da-diff-deleted'))
+    .map((h1) => h1.outerHTML);
+  const incomingHeadings = (main) => [...main.querySelectorAll('da-diff-deleted > h1')]
+    .map((h1) => h1.outerHTML);
+
+  beforeEach(() => {
+    window.fetch = sinon.stub().callsFake(() => mockRes(''));
+  });
+
+  afterEach(() => {
+    window.fetch = originalFetch;
+  });
+
+  it('keeps an own block that equals a rejected incoming block apart from its id', async () => {
+    const incoming = toDoc('<h1 id="welcome">Welcome</h1><p>Check the options online.</p>');
+    const target = toDoc('<h1>Welcome</h1><p>Check the options.</p>');
+    const main = await regionalDiff(incoming, target, [], [hashOf('<h1>Welcome</h1>')]);
+    expect(ownHeadings(main)).to.deep.equal(['<h1 da-diff-added="">Welcome</h1>']);
+    expect(incomingHeadings(main)).to.deep.equal(['<h1 id="welcome">Welcome</h1>']);
+  });
+
+  it('keeps an own block whose hash is in the rejected hashes', async () => {
+    const incoming = toDoc('<h1>Hello</h1>');
+    const target = toDoc('<h1>Welcome</h1>');
+    const main = await regionalDiff(incoming, target, [], [hashOf('<h1>Welcome</h1>')]);
+    expect(ownHeadings(main)).to.deep.equal(['<h1 da-diff-added="">Welcome</h1>']);
+    expect(incomingHeadings(main)).to.deep.equal(['<h1>Hello</h1>']);
+  });
+
+  it('keeps an own block whose hash is both accepted and rejected', async () => {
+    const incoming = toDoc('<h1 id="welcome">Welcome</h1>');
+    const target = toDoc('<h1>Welcome</h1>');
+    const ownHash = hashOf('<h1>Welcome</h1>');
+    const main = await regionalDiff(incoming, target, [ownHash], [ownHash]);
+    expect(ownHeadings(main)).to.deep.equal(['<h1>Welcome</h1>']);
+  });
+
+  it('leaves out an incoming block whose hash is in the rejected hashes', async () => {
+    const incoming = toDoc('<h1>Hello</h1>');
+    const target = toDoc('<h1>Welcome</h1>');
+    const main = await regionalDiff(incoming, target, [], [hashOf('<h1>Hello</h1>')]);
+    expect(ownHeadings(main)).to.deep.equal(['<h1 da-diff-added="">Welcome</h1>']);
+    expect(main.querySelectorAll('da-diff-deleted').length).to.equal(0);
   });
 });
