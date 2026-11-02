@@ -9,6 +9,7 @@
   --nx-chat-composer-frame-shadow: 0 2px 4px #00000008;
   --nx-chat-composer-frame-ready-shadow: 0 2px 4px #ec69ff1a;
   --nx-chat-composer-frame-focus-shadow: 0 2px 4px #0000000f;
+  --nx-chat-composer-focus-color: var(--s2-blue-900, light-dark(#3b63fb, #5681ff));
   --nx-chat-composer-border: light-dark(#0000000f, #ffffff0f);
   --nx-chat-composer-shadow: 0 8px 32px #00000008,
     inset 0 24px 32px #ffffff0a, inset 0 -5px 20px #ffffff0a;
@@ -129,6 +130,11 @@
   backdrop-filter: none;
   background: var(--nx-chat-composer-frame-focus-background);
   box-shadow: var(--nx-chat-composer-frame-focus-shadow);
+}
+
+.nx-chat-composer:focus-within:not(.is-dropzone) > .nx-chat-composer-surface {
+  outline: var(--nx-chat-input-stroke-width) solid var(--nx-chat-composer-focus-color);
+  outline-offset: calc(-1 * var(--nx-chat-input-stroke-width));
 }
 
 @media (hover: hover) and (pointer: fine) {

@@ -182,13 +182,19 @@ describe('chat input coordination', () => {
       }
     });
 
-    it(`${tag} scales all compact actions together and retains its draft`, async () => {
+    it(`${tag} scales compact actions and context together and retains its draft`, async () => {
       const textarea = await mount(tag);
       textarea.value = 'Keep this draft';
+      const pills = inputRoot().querySelector('nx-pills');
+      pills.add({ id: 'selection', label: 'Selected content' });
+      await pills.updateComplete;
+      expect(getComputedStyle(pills.shadowRoot.querySelector('.pill-label')).fontSize).to.equal('12px');
       chat.connected = true;
       chat.size = 'm';
       await chat.updateComplete;
       await chat.shadowRoot.querySelector('nx-ao-input')?.updateComplete;
+      await pills.updateComplete;
+      expect(getComputedStyle(pills.shadowRoot.querySelector('.pill-label')).fontSize).to.equal('14px');
       for (const selector of ['.chat-add', '.chat-send']) {
         const button = inputRoot().querySelector(selector);
         expect(button.getBoundingClientRect().width).to.equal(32);
@@ -207,6 +213,9 @@ describe('chat input coordination', () => {
       chat.size = 's';
       await chat.updateComplete;
       await chat.shadowRoot.querySelector('nx-ao-input')?.updateComplete;
+      await pills.updateComplete;
+      expect(getComputedStyle(pills.shadowRoot.querySelector('.pill-label')).fontSize).to.equal('12px');
+      expect(pills.items.map((item) => item.id)).to.deep.equal(['selection']);
       expect(stop.getBoundingClientRect().width).to.equal(24);
       expect(textarea.value).to.equal('Keep this draft');
     });

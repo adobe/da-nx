@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import { setConfig } from '../../../../nx2/scripts/nx.js';
 import { CHAT_EVENT } from '../../../../nx2/utils/chat.js';
 import { MENU_OPTIONS } from '../../../../nx2/blocks/shared/chat/constants.js';
@@ -20,7 +21,31 @@ describe('standalone AO input', () => {
     input = chatInput.shadowRoot.querySelector('.chat-input');
   });
 
-  afterEach(() => chatInput.remove());
+  afterEach(() => {
+    chatInput.remove();
+    sinon.restore();
+  });
+
+  it('only rerenders the prompt list when its prompts change', async () => {
+    const prompts = chatInput.shadowRoot.querySelector('nx-prompts');
+    await prompts.updateComplete;
+    const render = sinon.spy(prompts, 'render');
+    chatInput.statusMessage = 'Reading files...';
+    await chatInput.updateComplete;
+    await prompts.updateComplete;
+    expect(render.callCount).to.equal(0);
+    chatInput.prompts = [{ title: 'Example', prompt: 'Chosen prompt' }];
+    await chatInput.updateComplete;
+    await prompts.updateComplete;
+    expect(render.callCount).to.equal(1);
+    chatInput.statusMessage = '';
+    await chatInput.updateComplete;
+    await prompts.updateComplete;
+    expect(render.callCount).to.equal(1);
+    prompts.shadowRoot.querySelector('.prompt-item').click();
+    await chatInput.updateComplete;
+    expect(chatInput.draft).to.equal('Chosen prompt');
+  });
 
   it('switches context events after mount without losing existing pills', async () => {
     const originalEvent = chatInput.addEvent;

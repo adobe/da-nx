@@ -418,6 +418,7 @@ class NxChat extends LitElement {
             <span class="chat-drop-hint">Supports PDF, images, and documents</span>
           </div>` : nothing}
         <nx-pills
+          .size=${this.size === 'm' ? 'm' : 's'}
           addEvent=${CHAT_EVENT.ADD_TO_CHAT}
           @nx-pill-activate=${this._handlePillActivate}
           @nx-pills-change=${this._onPillsChange}

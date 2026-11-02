@@ -116,6 +116,7 @@ conversation messages or install global S2 tokens.
 | `disabled-opacity` | 0.5 for disabled textareas, separate from shared buttons' disabled treatment. |
 
 Both chat elements accept `size="m"` and retain their drafts on size changes.
+Context pills follow the input size; menus and the prompts chooser keep their own variants.
 The shared button classes own all action dimensions through `--nx-btn-height`
 and `--nx-btn-icon-size`: compact uses small/default (24/32px), expanded uses
 default/large (32/40px). `stop-size` remains an optional circle-size override;
@@ -138,7 +139,9 @@ Override those properties on the containing host.
 
 An enabled native textarea activates the ready state. For shadow-DOM inputs,
 the host supplies `is-enabled`; `is-processing` and `is-dropzone` reflect the
-input's other states. Focus is detected with `:focus-within`. The skin leaves
+input's other states. Focus is detected with `:focus-within`, including across
+the input's shadow root, and shows a 2px outline using `--nx-chat-composer-focus-color`
+(S2 blue-900 by default). The skin leaves
 page width and positioning to the host. Input metrics and button classes
 continue to own S/M sizing; the frame retains its 16px padding in both sizes.
 Compact input styles remain independent.
