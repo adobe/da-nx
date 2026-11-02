@@ -71,29 +71,27 @@ function renderContextCard(context) {
 
 const promptLine = (prefix, value) => (value ? [`${prefix}${value}`] : []);
 
-export function buildSuggestionPrompt({ item, aligned }) {
+export function buildSuggestionPrompt({ item }) {
   const suggestion = item?.suggestion ?? {};
   const reason = suggestion.issue ?? item?.description;
-  const alignment = aligned === undefined ? undefined : (aligned && 'Yes') || 'No';
   return [
-    'Apply the following suggestion from preflight for the check that failed to the page I have open.',
+    'Fix this failed preflight page evaluation check on the current page.',
     ...promptLine('Check: ', item?.title),
-    ...promptLine('Alignment: ', alignment),
+    ...promptLine('Category: ', suggestion.context?.category),
     '',
     ...promptLine('Reason: ', reason),
     '',
     ...promptLine('Suggestion: ', suggestion.suggested),
     ...promptLine('Asset: ', suggestion.assetLabel),
     '',
-    'Only change what this suggestion covers; leave the rest of the page unchanged.',
-    'If you need to re-run preflight, you can invoke the skill /aem-governance-evaluate-page.',
-    'It is highly recommended to re-run after applying the suggestion to see if it resolves the issue, but you can also run it before, if there is not enough context.',
+    'Only make the changes needed to resolve this check; leave the rest of the page as is.',
+    'If you need to re-run preflight (before or after for confirmation), you can invoke the skill /aem-governance-evaluate-page.',
   ].join('\n');
 }
 
-function renderSuggestionActions(item, tone) {
+function renderSuggestionActions(item) {
   const send = (autoSend) => {
-    const text = buildSuggestionPrompt({ item, aligned: tone === 'negative' ? false : undefined });
+    const text = buildSuggestionPrompt({ item });
     document.dispatchEvent(new CustomEvent(CHAT_EVENT.SET_PROMPT, { detail: { text, autoSend } }));
   };
   return html`
@@ -115,7 +113,7 @@ function renderSuggestionActions(item, tone) {
   `;
 }
 
-function renderSuggestionBody(item, { tone } = {}) {
+function renderSuggestionBody(item) {
   const { suggestion } = item;
   if (!suggestion) return nothing;
   return html`
@@ -133,7 +131,7 @@ function renderSuggestionBody(item, { tone } = {}) {
         <span class="ui-artifact-pe-modal-heading-text">Suggested change</span>
       </div>
       ${suggestion.suggested ? html`<p class="ui-artifact-pe-modal-body">${suggestion.suggested}</p>` : nothing}
-      ${renderSuggestionActions(item, tone)}
+      ${renderSuggestionActions(item)}
     </div>
     ${suggestion.context ? html`
       <div class="ui-artifact-pe-modal-context-title">Context</div>

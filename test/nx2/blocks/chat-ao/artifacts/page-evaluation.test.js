@@ -27,19 +27,18 @@ const item = {
 
 describe('page evaluation suggestion actions', () => {
   it('builds the prompt from the available fields', () => {
-    expect(buildSuggestionPrompt({ item, aligned: false })).to.equal(
-      'Apply the following suggestion from preflight for the check that failed to the page I have open.\n'
+    expect(buildSuggestionPrompt({ item })).to.equal(
+      'Fix this failed preflight page evaluation check on the current page.\n'
       + 'Check: Use feature module content pattern\n'
-      + 'Alignment: No\n'
+      + 'Category: Imagery Content\n'
       + '\n'
       + 'Reason: Missing eyebrow and CTA.\n'
       + '\n'
       + 'Suggestion: Add an all-caps eyebrow and a CTA link.\n'
       + 'Asset: Image 3\n'
       + '\n'
-      + 'Only change what this suggestion covers; leave the rest of the page unchanged.\n'
-      + 'If you need to re-run preflight, you can invoke the skill /aem-governance-evaluate-page.\n'
-      + 'It is highly recommended to re-run after applying the suggestion to see if it resolves the issue, but you can also run it before, if there is not enough context.',
+      + 'Only make the changes needed to resolve this check; leave the rest of the page as is.\n'
+      + 'If you need to re-run preflight (before or after for confirmation), you can invoke the skill /aem-governance-evaluate-page.',
     );
   });
 
@@ -48,16 +47,15 @@ describe('page evaluation suggestion actions', () => {
       item: { title: 'Tone', description: 'Too casual.', suggestion: { label: 'Text', suggested: 'Be formal.' } },
     });
     expect(text).to.equal(
-      'Apply the following suggestion from preflight for the check that failed to the page I have open.\n'
+      'Fix this failed preflight page evaluation check on the current page.\n'
       + 'Check: Tone\n'
       + '\n'
       + 'Reason: Too casual.\n'
       + '\n'
       + 'Suggestion: Be formal.\n'
       + '\n'
-      + 'Only change what this suggestion covers; leave the rest of the page unchanged.\n'
-      + 'If you need to re-run preflight, you can invoke the skill /aem-governance-evaluate-page.\n'
-      + 'It is highly recommended to re-run after applying the suggestion to see if it resolves the issue, but you can also run it before, if there is not enough context.',
+      + 'Only make the changes needed to resolve this check; leave the rest of the page as is.\n'
+      + 'If you need to re-run preflight (before or after for confirmation), you can invoke the skill /aem-governance-evaluate-page.',
     );
   });
 
@@ -84,7 +82,7 @@ describe('page evaluation suggestion actions', () => {
     document.removeEventListener(CHAT_EVENT.SET_PROMPT, listener);
     host.remove();
 
-    const expected = buildSuggestionPrompt({ item, aligned: false });
+    const expected = buildSuggestionPrompt({ item });
     expect(events).to.deep.equal([
       { text: expected, autoSend: false },
       { text: expected, autoSend: true },
