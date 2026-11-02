@@ -48,7 +48,8 @@ Its dropdown matches the rendered trigger width each time it opens unless
 Use `variant="navigation"` with `check-position="start"` for a navigation menu
 with medium-weight labels, regular descriptions, a top-aligned blue check,
 compact row spacing and full-width dividers. Sections retain bold typography.
-All text uses matching S/M component tokens.
+Labels use matching S/M component tokens; descriptions always use S-regular
+(12px/16px, weight 400) and `--s2-gray-700` (#505050 in light mode).
 
 ```html
 <nx-picker variant="navigation" check-position="start" size="m"></nx-picker>
@@ -140,9 +141,10 @@ Use `check-position="start"` for leading checks rather than rearranging menu int
 unless `ariaLabel` supplies an explicit name. Existing item shapes remain unchanged.
 
 Trigger, item and section typography uses the matching S or M component tokens,
-including font weight and dynamic size changes. Descriptions inherit the item's
-font size and line height while
-keeping the matching regular component font-weight token.
+including font weight and dynamic size changes. Default and field descriptions
+inherit the item's font size and line height while keeping the matching regular
+component font-weight token. Navigation descriptions retain S-regular typography
+independently of item size.
 
 ## CSS custom properties
 
@@ -190,11 +192,13 @@ if both are needed. Nexter lazy-loads `nx2/blocks/siteselector/siteselector.js`.
 The block owns presentation only. Set `sites` to `{ value: 'org/site', label: 'Site, org/site' }`
 entries and `value` to the current identifier. Optional `heading`, `size` (`s` or `m`,
 default `m`) and `error` customize content and trigger typography without replacing menu layout.
-Landing pages can set `heading` to `Your recent sites`.
-Without a custom heading, the loaded, unselected trigger also defaults to `Your recent sites`.
+Without a custom heading, both the loaded, unselected trigger and menu section
+default to `Your recent sites`.
 With no selected `value`, the loaded trigger shows this heading rather than
 choosing a site from history. After selection it shows the host-supplied site
-label. Clearing `value` restores the heading; routed deep links can still supply
+label. Menu site names have their first letter capitalized; full org/site
+identifiers and emitted values remain unchanged. Clearing `value` restores the heading;
+routed deep links can still supply
 an explicit selection.
 
 The selector retains its outlined, pill-shaped trigger and light/dark surface.
@@ -205,7 +209,9 @@ These trigger styles belong to the standalone block
 and use existing picker trigger properties and the label part. Its menu has a 240px
 minimum and follows wider triggers. It uses
 the shared navigation presentation at size M for both trigger sizes: M-bold section headings,
-M-medium site and Add labels, regular descriptions, blue leading checks and an unindented Add action.
+M-medium site and Add labels (14px/18px), S-regular site paths (12px/16px,
+weight 400) in `--s2-gray-700` (#505050 in light mode, theme-aware in dark mode),
+blue leading checks and an unindented Add action.
 The trigger grows with its label between 220px and 280px on desktop, and shrinks
 to its content up to 176px on mobile. The nav's site-nav container supplies compact
 padding when space is constrained, without removing the trigger's intrinsic width.

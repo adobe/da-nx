@@ -246,6 +246,12 @@ nx-popover {
     width: 16px;
   }
 
+  .picker-item-description {
+    font-size: var(--s2-component-s-regular-font-size);
+    line-height: var(--s2-component-s-regular-line-height);
+    font-weight: var(--s2-component-s-regular-font-weight);
+  }
+
   .picker-check {
     height: 16px;
     color: var(--s2-blue-900);

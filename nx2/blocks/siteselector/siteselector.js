@@ -47,11 +47,12 @@ class NxSiteselector extends LitElement {
 
   render() {
     const sites = this.sites ?? [];
+    const heading = this.heading ?? 'Your recent sites';
     const items = [
-      { section: this.heading ?? 'Your sites' },
+      { section: heading },
       ...sites.map((site) => ({
         value: site.value,
-        label: site.value.split('/').at(-1),
+        label: site.value.split('/').at(-1).replace(/^./, (letter) => letter.toUpperCase()),
         description: site.value,
         ariaLabel: site.label,
       })),
@@ -64,7 +65,7 @@ class NxSiteselector extends LitElement {
         .value=${this.value ?? ''}
         .labelOverride=${sites.find((site) => site.value === this.value)?.label ?? ''}
         size="m"
-        placeholder=${this.sites === undefined ? 'Loading sites...' : this.heading ?? 'Your recent sites'}
+        placeholder=${this.sites === undefined ? 'Loading sites...' : heading}
         aria-busy=${this.sites === undefined}
         ?inert=${this.sites === undefined}
         variant="navigation"
