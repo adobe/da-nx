@@ -151,6 +151,46 @@ describe('nx-siteselector', () => {
     }
   });
 
+  it('uses title typography for neutral and selected triggers in S, M and the default size', async () => {
+    selector.heading = 'Your recent sites';
+    selector.sites = [{ value: 'org/site', label: 'Site, org/site' }];
+    selector.style.cssText = `
+      --s2-font-family: adobe-clean, sans-serif;
+      --s2-component-s-regular-font-size: 12px;
+      --s2-component-s-regular-line-height: 16px;
+      --s2-component-m-regular-font-size: 14px;
+      --s2-component-m-regular-line-height: 18px;
+      --s2-component-m-bold-font-size: 14px;
+      --s2-component-m-bold-line-height: 18px;
+      --s2-component-m-bold-font-weight: 700;
+      --s2-component-l-bold-font-size: 16px;
+      --s2-component-l-bold-line-height: 20px;
+      --s2-component-l-bold-font-weight: 700;
+      --s2-gray-800: light-dark(#292929, #dbdbdb);
+    `;
+    document.body.append(selector);
+    for (const [scheme, color] of [['light', 'rgb(41, 41, 41)'], ['dark', 'rgb(219, 219, 219)']]) {
+      selector.style.colorScheme = scheme;
+      for (const [size, fontSize, lineHeight] of [
+        ['s', '14px', '18px'], ['m', '16px', '20px'], [undefined, '16px', '20px'],
+      ]) {
+        selector.size = size;
+        for (const value of ['', 'org/site']) {
+          selector.value = value;
+          const picker = await settle();
+          const style = getComputedStyle(picker.shadowRoot.querySelector('[part="label"]'));
+          expect(style.fontSize).to.equal(fontSize);
+          expect(style.lineHeight).to.equal(lineHeight);
+          expect(style.fontWeight).to.equal('700');
+          expect(style.fontStyle).to.equal('normal');
+          expect(style.letterSpacing).to.be.oneOf(['normal', '0px']);
+          expect(style.fontFamily).to.equal('adobe-clean, sans-serif');
+          expect(style.color).to.equal(color);
+        }
+      }
+    }
+  });
+
   it('sizes the pill to its content within its desktop minimum and maximum', async () => {
     selector.sites = [{ value: 'org/site', label: 'Site' }];
     selector.value = 'org/site';
@@ -175,11 +215,13 @@ describe('nx-siteselector', () => {
       --s2-gray-300: #ccc;
     `;
     document.body.append(selector);
-    for (const [size, regular, medium, bold] of [['s', '350', '450', '650'], ['m', '360', '460', '660']]) {
+    for (const [size, titleSize, regular, medium, bold] of [
+      ['s', 'm', '350', '450', '650'], ['m', 'l', '360', '460', '660'],
+    ]) {
       selector.size = size;
       selector.style.setProperty(`--s2-component-${size}-regular-font-weight`, regular);
       selector.style.setProperty(`--s2-component-${size}-medium-font-weight`, medium);
-      selector.style.setProperty(`--s2-component-${size}-bold-font-weight`, bold);
+      selector.style.setProperty(`--s2-component-${titleSize}-bold-font-weight`, bold);
       const picker = await settle();
       const trigger = getComputedStyle(picker.shadowRoot.querySelector('.picker-trigger'));
       expect(trigger.height).to.equal('40px');
