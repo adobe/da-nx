@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import { sendKeys } from '@web/test-runner-commands';
 import { setConfig } from '../../../../../../scripts/nx.js';
 
 // picker.js reads getConfig() at import time.
@@ -90,6 +91,308 @@ describe('nx-picker swatch', () => {
       .to.equal('true');
     expect(el.shadowRoot.querySelector('[data-value="blue"] svg')).to.not.be.null;
     expect(el.shadowRoot.querySelector('[data-value="red"] svg')).to.be.null;
+  });
+
+  it('supports optional descriptions and text-only actions', async () => {
+    const el = await createPicker({
+      value: 'org/site',
+      items: [
+        { value: 'org/site', label: 'Site', description: 'org/site' },
+        { value: 'add', label: 'Add site', action: true },
+      ],
+    });
+    expect(el.shadowRoot.querySelector('.picker-item-description').textContent).to.equal('org/site');
+    expect(el.shadowRoot.querySelector('[data-value="add"] svg')).to.be.null;
+    const change = new Promise((resolve) => { el.addEventListener('change', resolve, { once: true }); });
+    el.shadowRoot.querySelector('[data-value="add"]').click();
+    expect((await change).detail.value).to.equal('add');
+    expect(el.value).to.equal('org/site');
+  });
+
+  it('updates the trigger expanded state when opened and closed', async () => {
+    const el = await createPicker();
+    el.show();
+    await el._popover.updateComplete;
+    expect(el._button.getAttribute('aria-expanded')).to.equal('true');
+    el.close();
+    expect(el._button.getAttribute('aria-expanded')).to.equal('false');
+  });
+
+  it('owns description layout without exposing menu layout parts', async () => {
+    const el = await createPicker({
+      items: [{ section: 'Status' }, { value: 'draft', label: 'Draft', description: 'Not published' }, { divider: true }],
+      value: 'draft',
+    });
+    expect(el.shadowRoot.querySelector('.picker-item-description').textContent).to.equal('Not published');
+    expect(el.shadowRoot.querySelector('[role="option"]').getAttribute('aria-label')).to.equal('Draft, Not published');
+    ['menu', 'section', 'divider', 'item-label', 'check'].forEach((part) => {
+      expect(el.shadowRoot.querySelector(`[part="${part}"]`), part).to.be.null;
+    });
+    expect(el.shadowRoot.querySelector('.picker-trigger-label').textContent).to.equal('Draft');
+  });
+
+  it('uses matching component typography for all picker text when switching between S and M', async () => {
+    const el = await createPicker({
+      items: [
+        { section: 'Status' },
+        { value: 'draft', label: 'Draft', description: 'Not published' },
+        { value: 'add', label: 'Add...', action: true },
+      ],
+      value: 'draft',
+    });
+    el.style.setProperty('--s2-component-s-regular-font-size', '12px');
+    el.style.setProperty('--s2-component-s-regular-line-height', '18px');
+    el.style.setProperty('--s2-component-s-regular-font-weight', '300');
+    el.style.setProperty('--s2-component-s-bold-font-size', '13px');
+    el.style.setProperty('--s2-component-s-bold-line-height', '20px');
+    el.style.setProperty('--s2-component-s-bold-font-weight', '600');
+    el.style.setProperty('--s2-component-m-regular-font-size', '16px');
+    el.style.setProperty('--s2-component-m-regular-line-height', '24px');
+    el.style.setProperty('--s2-component-m-regular-font-weight', '450');
+    el.style.setProperty('--s2-component-m-bold-font-size', '17px');
+    el.style.setProperty('--s2-component-m-bold-line-height', '26px');
+    el.style.setProperty('--s2-component-m-bold-font-weight', '750');
+    for (const size of ['s', 'm', 's']) {
+      el.size = size;
+      await el.updateComplete;
+      const regular = [
+        '.picker-trigger-label',
+        '[data-value="draft"] .picker-item-label',
+        '.picker-item-description',
+        '[data-value="add"] .picker-item-label',
+      ];
+      for (const selector of [...regular, '.picker-section']) {
+        const weight = selector === '.picker-section' ? 'bold' : 'regular';
+        const style = getComputedStyle(el.shadowRoot.querySelector(selector));
+        for (const property of ['font-size', 'line-height', 'font-weight']) {
+          expect(style.getPropertyValue(property), `${size} ${selector} ${property}`)
+            .to.equal(el.style.getPropertyValue(`--s2-component-${size}-${weight}-${property}`));
+        }
+      }
+      const description = el.shadowRoot.querySelector('.picker-item-description');
+      expect(description.textContent).to.equal('Not published');
+      expect(el.shadowRoot.querySelector('[role="option"]').getAttribute('aria-label'))
+        .to.equal('Draft, Not published');
+    }
+  });
+
+  it('preserves existing field section and item style overrides', async () => {
+    const el = await createPicker({
+      items: [{ section: 'Status' }, { value: 'draft', label: 'Draft' }],
+    });
+    el.size = 'm';
+    el.variant = 'field';
+    el.style.cssText = `
+      --nx-picker-section-color: rgb(1, 2, 3);
+      --nx-picker-item-color: rgb(4, 5, 6);
+      --nx-picker-section-font-size: 19px;
+      --nx-picker-section-line-height: 27px;
+    `;
+    await el.updateComplete;
+    const section = getComputedStyle(el.shadowRoot.querySelector('.picker-section'));
+    expect(section.color).to.equal('rgb(1, 2, 3)');
+    expect(section.fontSize).to.equal('19px');
+    expect(section.lineHeight).to.equal('27px');
+    expect(getComputedStyle(el.shadowRoot.querySelector('.picker-item')).color)
+      .to.equal('rgb(4, 5, 6)');
+  });
+
+  it('inherits description size and line height from its item in S and M', async () => {
+    const el = await createPicker({
+      items: [{ value: 'draft', label: 'Draft', description: 'Not published' }],
+    });
+    el.shadowRoot.querySelector('[role="option"]').style.cssText = 'font-size: 21px; line-height: 29px; font-weight: 500;';
+    for (const size of ['s', 'm']) {
+      el.size = size;
+      el.style.setProperty(`--s2-component-${size}-regular-font-size`, '12px');
+      el.style.setProperty(`--s2-component-${size}-regular-line-height`, '18px');
+      el.style.setProperty(`--s2-component-${size}-regular-font-weight`, '350');
+      await el.updateComplete;
+      const style = getComputedStyle(el.shadowRoot.querySelector('.picker-item-description'));
+      expect(style.fontSize, `${size} inherited font size`).to.equal('21px');
+      expect(style.lineHeight, `${size} inherited line height`).to.equal('29px');
+      expect(style.fontWeight, `${size} regular description weight`).to.equal('350');
+    }
+  });
+
+  it('preserves explicit accessible names and does not treat an action as a selection', async () => {
+    const el = await createPicker({
+      items: [
+        { value: 'draft', label: 'Draft', description: 'Not published', ariaLabel: 'Current draft' },
+        { value: 'add', label: 'Add...', action: true },
+      ],
+      value: 'draft',
+    });
+    expect(el.shadowRoot.querySelector('[data-value="draft"]').getAttribute('aria-label')).to.equal('Current draft');
+    const action = el.shadowRoot.querySelector('[data-value="add"]');
+    expect(action.hasAttribute('part')).to.be.false;
+    const changes = [];
+    el.addEventListener('change', ({ detail }) => changes.push(detail.value));
+    action.click();
+    expect(changes).to.deep.equal(['add']);
+    expect(el.value).to.equal('draft');
+  });
+
+  it('keeps end checks by default and reserves leading space only for selectable start-check rows', async () => {
+    const el = await createPicker({
+      items: [...ITEMS, { value: 'add', label: 'Add...', action: true }],
+      value: 'red',
+    });
+    const row = () => el.shadowRoot.querySelector('[data-value="red"]');
+    expect(row().lastElementChild.classList.contains('picker-check')).to.be.true;
+    el.checkPosition = 'start';
+    await el.updateComplete;
+    expect(row().firstElementChild.classList.contains('picker-check-slot')).to.be.true;
+    expect(row().querySelectorAll('.picker-check')).to.have.length(1);
+    expect(el.shadowRoot.querySelector('[data-value="plain"] .picker-check-slot')).to.exist;
+    expect(el.shadowRoot.querySelector('[data-value="add"] .picker-check-slot')).to.be.null;
+    el.multiple = true;
+    el.values = ['red', 'blue'];
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelectorAll('.picker-check-slot .picker-check')).to.have.length(2);
+  });
+
+  it('restores navigation menu spacing and matching S/M medium labels without changing field defaults', async () => {
+    const el = await createPicker({
+      items: [
+        { section: 'Your sites' },
+        { value: 'site', label: 'Site', description: 'org/site' },
+        { divider: true },
+        { value: 'add', label: 'Add site...', action: true },
+      ],
+      value: 'site',
+    });
+    el.variant = 'navigation';
+    el.checkPosition = 'start';
+    el.style.cssText = '--s2-spacing-100: 8px; --s2-spacing-200: 16px; --s2-blue-900: #123456;';
+    for (const [size, fontSize, lineHeight, weight] of [['s', '13px', '19px', '450'], ['m', '15px', '23px', '550']]) {
+      el.size = size;
+      el.style.setProperty(`--s2-component-${size}-medium-font-size`, fontSize);
+      el.style.setProperty(`--s2-component-${size}-medium-line-height`, lineHeight);
+      el.style.setProperty(`--s2-component-${size}-medium-font-weight`, weight);
+      el.style.setProperty(`--s2-component-${size}-regular-font-weight`, '350');
+      await el.updateComplete;
+      for (const query of ['[data-value="site"]', '[data-value="add"]']) {
+        const row = getComputedStyle(el.shadowRoot.querySelector(query));
+        expect(row.fontSize).to.equal(fontSize);
+        expect(row.lineHeight).to.equal(lineHeight);
+        expect(row.fontWeight).to.equal(weight);
+        expect(row.padding).to.equal('7px 16px');
+        expect(row.margin).to.equal('0px');
+        expect(row.gap).to.equal('6px');
+      }
+      const description = getComputedStyle(el.shadowRoot.querySelector('.picker-item-description'));
+      expect(description.fontSize).to.equal(fontSize);
+      expect(description.lineHeight).to.equal(lineHeight);
+      expect(description.fontWeight).to.equal('350');
+      expect(getComputedStyle(el.shadowRoot.querySelector('.picker-section')).padding).to.equal('7px 16px');
+      expect(getComputedStyle(el.shadowRoot.querySelector('.picker-divider')).margin).to.equal('8px 0px');
+      expect(getComputedStyle(el.shadowRoot.querySelector('nx-popover')).padding).to.equal('8px');
+      expect(getComputedStyle(el.shadowRoot.querySelector('.picker-check')).color).to.equal('rgb(18, 52, 86)');
+      expect(getComputedStyle(el.shadowRoot.querySelector('.picker-check-slot')).alignSelf).to.equal('start');
+      expect(el.shadowRoot.querySelector('[data-value="add"] .picker-check-slot')).to.be.null;
+    }
+    el.variant = 'field';
+    await el.updateComplete;
+    expect(getComputedStyle(el.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal('350');
+  });
+
+  it('uses blue keyboard focus in every variant and theme while honoring focus-ring overrides', async () => {
+    const el = await createPicker();
+    el.style.cssText = `
+      --s2-blue-800: light-dark(#4b75ff, #4069fd);
+      --s2-gray-800: light-dark(#292929, #dbdbdb);
+    `;
+    const before = document.createElement('button');
+    before.textContent = 'Before picker';
+    el.before(before);
+    const trigger = el.shadowRoot.querySelector('.picker-trigger');
+    const focus = async () => {
+      before.focus();
+      await sendKeys({ press: 'Tab' });
+      expect(el.shadowRoot.activeElement).to.equal(trigger);
+      expect(trigger.matches(':focus-visible')).to.be.true;
+      return getComputedStyle(trigger);
+    };
+    try {
+      for (const variant of [undefined, 'field', 'navigation']) {
+        el.variant = variant;
+        await el.updateComplete;
+        for (const [scheme, color] of [['light', 'rgb(75, 117, 255)'], ['dark', 'rgb(64, 105, 253)']]) {
+          el.style.colorScheme = scheme;
+          const style = await focus();
+          expect(style.outlineColor).to.equal(color);
+          expect(style.outlineStyle).to.equal('solid');
+          expect(style.outlineWidth).to.equal('2px');
+        }
+      }
+      el.style.setProperty('--s2-focus-ring-color', '#c44500');
+      expect((await focus()).outlineColor).to.equal('rgb(196, 69, 0)');
+    } finally {
+      before.remove();
+    }
+  });
+
+  it('accepts one menu-width property without changing field-width defaults', async () => {
+    const el = await createPicker();
+    el.style.setProperty('--nx-picker-menu-width', '280px');
+    el.show();
+    expect(el.shadowRoot.querySelector('nx-popover').style.width).to.equal('280px');
+    el.close();
+    el.style.removeProperty('--nx-picker-menu-width');
+    for (const variant of ['field', 'navigation']) {
+      el.variant = variant;
+      await el.updateComplete;
+      el.show();
+      expect(el.shadowRoot.querySelector('nx-popover').style.width)
+        .to.equal(`${el.shadowRoot.querySelector('.picker-trigger').getBoundingClientRect().width}px`);
+      el.close();
+    }
+    el.focus();
+    expect(el.shadowRoot.activeElement).to.equal(el.shadowRoot.querySelector('.picker-trigger'));
+  });
+
+  it('focuses a visible item after popover positioning so keyboard events reach the menu', async () => {
+    const el = await createPicker({ value: 'red' });
+    const popover = el.shadowRoot.querySelector('nx-popover');
+    const toggled = new Promise((resolve) => {
+      popover.addEventListener('toggle', () => {
+        popover.style.visibility = 'hidden';
+        requestAnimationFrame(() => { popover.style.visibility = ''; });
+        resolve();
+      }, { once: true });
+    });
+    el.show();
+    await toggled;
+    await new Promise(requestAnimationFrame);
+    expect(el.shadowRoot.activeElement).to.equal(el.shadowRoot.querySelector('[data-value="red"]'));
+    el.shadowRoot.activeElement.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true }),
+    );
+    await el.updateComplete;
+    el.shadowRoot.activeElement.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }),
+    );
+    expect(el.value).to.equal('blue');
+  });
+
+  it('keeps keyboard selection and expanded state working with described items', async () => {
+    const el = await createPicker({
+      items: [{ value: 'draft', label: 'Draft', description: 'Not published' }, { value: 'live', label: 'Live' }],
+      value: 'draft',
+    });
+    const toggled = new Promise((resolve) => {
+      el.shadowRoot.querySelector('nx-popover').addEventListener('toggle', resolve, { once: true });
+    });
+    el.shadowRoot.querySelector('.picker-trigger').click();
+    await toggled;
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.picker-trigger').getAttribute('aria-expanded')).to.equal('true');
+    el.handleKey('ArrowDown');
+    el.handleKey('Enter');
+    await el.updateComplete;
+    expect(el.value).to.equal('live');
+    expect(el.shadowRoot.querySelector('.picker-trigger').getAttribute('aria-expanded')).to.equal('false');
   });
 });
 
