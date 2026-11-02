@@ -1,5 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
+import { loadHrefSvg } from '../../utils/svg.js';
+import { PANEL_EVENT } from '../../utils/panel.js';
 import { buildAttachmentItems } from '../shared/chat/files.js';
 import '../shared/menu/menu.js';
 import ChatBackend from './chat-backend.js';
@@ -12,7 +14,6 @@ import './interaction/interaction.js';
 import { loadSiteConfig } from './utils/api.js';
 import { getConfig } from '../../scripts/nx.js';
 import { buildAttachmentPayload } from './utils/chat-helpers.js';
-import { PANEL_EVENT } from '../../utils/panel.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
@@ -22,6 +23,7 @@ import { ADD_MENU_ITEMS, ROLE } from './constants.js';
 import { sampleRUM } from '../../deps/rum.js';
 
 const styles = await loadStyle(import.meta.url);
+const closeIcon = await loadHrefSvg(new URL('../../img/icons/S2_Icon_Close_20_N.svg', import.meta.url).href);
 const { codeBase } = getConfig();
 
 const icon = (name) => html`<svg class="chat-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
@@ -83,10 +85,6 @@ class NxChat extends LitElement {
 
   clear() {
     this._controller?.clear();
-  }
-
-  _closePanel() {
-    this.dispatchEvent(new CustomEvent(PANEL_EVENT.CLOSE, { bubbles: true, composed: true }));
   }
 
   async _loadConfig() {
@@ -336,10 +334,13 @@ class NxChat extends LitElement {
         >${icon('clear')}<span>Clear</span></button>
         <button
           type="button"
-          class="chat-header-btn"
+          class="chat-header-btn close-btn"
+          title="Close chat panel"
           aria-label="Close chat panel"
-          @click=${this._closePanel}
-        >${icon('close')}</button>
+          @click=${() => this.dispatchEvent(new CustomEvent(PANEL_EVENT.CLOSE, {
+            bubbles: true, composed: true,
+          }))}
+        >${closeIcon?.cloneNode(true)}</button>
       </div>
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">
