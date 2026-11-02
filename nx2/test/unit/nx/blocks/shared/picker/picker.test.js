@@ -264,13 +264,20 @@ describe('nx-picker swatch', () => {
     });
     el.variant = 'navigation';
     el.checkPosition = 'start';
-    el.style.cssText = '--s2-spacing-100: 8px; --s2-spacing-200: 16px; --s2-blue-900: #123456;';
+    el.style.cssText = `
+      --s2-spacing-100: 8px;
+      --s2-spacing-200: 16px;
+      --s2-blue-900: #123456;
+      --s2-component-s-regular-font-size: 12px;
+      --s2-component-s-regular-line-height: 16px;
+      --s2-component-s-regular-font-weight: 350;
+    `;
     for (const [size, fontSize, lineHeight, weight] of [['s', '13px', '19px', '450'], ['m', '15px', '23px', '550']]) {
       el.size = size;
       el.style.setProperty(`--s2-component-${size}-medium-font-size`, fontSize);
       el.style.setProperty(`--s2-component-${size}-medium-line-height`, lineHeight);
       el.style.setProperty(`--s2-component-${size}-medium-font-weight`, weight);
-      el.style.setProperty(`--s2-component-${size}-regular-font-weight`, '350');
+      el.style.setProperty(`--s2-component-${size}-regular-font-weight`, size === 's' ? '350' : '450');
       await el.updateComplete;
       for (const query of ['[data-value="site"]', '[data-value="add"]']) {
         const row = getComputedStyle(el.shadowRoot.querySelector(query));
@@ -282,8 +289,8 @@ describe('nx-picker swatch', () => {
         expect(row.gap).to.equal('6px');
       }
       const description = getComputedStyle(el.shadowRoot.querySelector('.picker-item-description'));
-      expect(description.fontSize).to.equal(fontSize);
-      expect(description.lineHeight).to.equal(lineHeight);
+      expect(description.fontSize).to.equal('12px');
+      expect(description.lineHeight).to.equal('16px');
       expect(description.fontWeight).to.equal('350');
       expect(getComputedStyle(el.shadowRoot.querySelector('.picker-section')).padding).to.equal('7px 16px');
       expect(getComputedStyle(el.shadowRoot.querySelector('.picker-divider')).margin).to.equal('8px 0px');
@@ -294,7 +301,7 @@ describe('nx-picker swatch', () => {
     }
     el.variant = 'field';
     await el.updateComplete;
-    expect(getComputedStyle(el.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal('350');
+    expect(getComputedStyle(el.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal('450');
   });
 
   it('uses blue keyboard focus in every variant and theme while honoring focus-ring overrides', async () => {
