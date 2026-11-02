@@ -76,8 +76,8 @@ With that capability, the helper starts after pointer movement, suppresses the
 native drag, and hands mouse capture to a transparent host overlay. The host
 resolves the target at release, independently of the current selection. Touch
 sources retain pointer capture and send their release over the port. Disposal,
-Escape, pointer cancellation, navigation, blur and a two-minute host deadline
-cancel the session. A click without dragging retains its normal behavior.
+Escape, pointer cancellation, iframe reload, blur and a two-minute host deadline
+cancel the session; a drop after navigating to another page is refused. A click without dragging retains its normal behavior.
 
 An older host gets best-effort native `dataTransfer` wiring instead. Native
 cross-origin delivery is browser-dependent, and this fallback cannot confirm
@@ -94,8 +94,8 @@ the edit. Preview targets must match the current document version. Images are
 uploaded before insertion; a cancelled or stale drop can leave an unused upload
 but does not insert into a changed document.
 
-The host accepts up to ten supported image Files, at most 20 MB combined, with
-the site's existing per-image upload limit also enforced (4.5 MB for hlx6).
+The host accepts up to ten supported image Files; the site's existing per-image
+upload limit is enforced at upload (4.5 MB for hlx6, 20 MB otherwise).
 Each text value is limited to 1,000,000 characters. File names must be ordinary
 names without path separators. Preview image replacement accepts exactly one
 File; document drops can insert multiple images.
@@ -117,9 +117,10 @@ These run separately and serially because concurrent browser tabs share focus
 and pointer capture. Lifecycle and target-resolution unit tests remain in the
 normal test suite.
 
-The AEM Assets selector's private `collectionviewdata` format has a separate
-adapter using the site's existing asset configuration. Other extensions should
-use HTML or Files, not depend on that format. WYSIWYG replacement requires an
+The AEM Assets rail is host UI, not an extension: it reuses the same host drag
+session and drop pipeline, with assets taken from the selector's drag callbacks
+and resolved through the site's asset configuration. Extensions should use HTML
+or Files. WYSIWYG replacement requires an
 indexed, authored image; images generated entirely by block code are not targets.
 
 ## Requests and responses

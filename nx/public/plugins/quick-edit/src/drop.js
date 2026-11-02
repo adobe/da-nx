@@ -30,28 +30,35 @@ export function findDropAnchor({ main, target, y }) {
   }, null);
 }
 
+const isBusy = (ctx) => ctx.reloadRequested || ctx.pendingNodeUpdateId != null
+  || ctx.documentVersion === undefined;
+
+function imageTarget(element) {
+  const picture = element.closest('picture');
+  const img = picture?.querySelector('img');
+  const proseIndex = img && imageSelectPayload(img)?.proseIndex;
+  const imageVersion = img?.getAttribute('data-image-version');
+  if (!Number.isSafeInteger(proseIndex) || !imageVersion) return null;
+  return { picture, target: { proseIndex, imageVersion, originalSrc: img.src } };
+}
+
+// The host owns cross-iframe drags (extensions, assets rail) and asks where a point lands:
+// html goes between blocks, images only onto existing images.
 export function handleDropTarget(payload, ctx) {
   ctx.clearDrop?.();
-  ctx.bridgeDropTarget?.classList.remove('image-drop-target');
-  ctx.bridgeDropTarget = undefined;
-  const { phase, kind, x, y, requestId } = payload;
-  let target = null;
+  const {
+    phase, kind, x, y, requestId,
+  } = payload;
   const main = document.querySelector('main');
   const element = Number.isFinite(x) && Number.isFinite(y) && document.elementFromPoint(x, y);
-  if (!ctx.readOnly && !ctx.reloadRequested && ctx.pendingNodeUpdateId == null
-    && ['hover', 'resolve'].includes(phase) && element && main?.contains(element)) {
+  const busy = isBusy(ctx);
+  let target = null;
+  if (!ctx.readOnly && !busy && ['hover', 'resolve'].includes(phase)
+    && element && main?.contains(element)) {
     if (kind === 'image') {
-      const picture = element.closest('picture');
-      const img = picture?.querySelector('img');
-      const proseIndex = img && imageSelectPayload(img)?.proseIndex;
-      const imageVersion = img?.getAttribute('data-image-version');
-      if (Number.isSafeInteger(proseIndex) && imageVersion) {
-        target = { proseIndex, imageVersion, originalSrc: img.src };
-        if (phase === 'hover') {
-          ctx.bridgeDropTarget = picture;
-          picture.classList.add('image-drop-target');
-        }
-      }
+      const image = imageTarget(element);
+      target = image?.target ?? null;
+      if (image && phase === 'hover') ctx.showImageDrop?.(image.picture);
     } else if (kind === 'html') {
       const anchor = findDropAnchor({ main, target: element, y });
       if (anchor) {
@@ -63,18 +70,31 @@ export function handleDropTarget(payload, ctx) {
   if (phase === 'resolve' && typeof requestId === 'string') {
     ctx.port.postMessage({
       type: MESSAGE_TYPES.DROP_TARGET,
-      payload: { requestId, documentVersion: ctx.documentVersion, target },
+      payload: {
+        requestId,
+        documentVersion: ctx.documentVersion,
+        target,
+        ...(busy && !ctx.readOnly && { reason: 'busy' }),
+      },
     });
   }
 }
 
 export function setupDropListeners(ctx) {
   let indicator;
+  let picture;
   const clear = () => {
     indicator?.remove();
     indicator = undefined;
+    picture?.classList.remove('image-drop-target');
+    picture = undefined;
   };
   ctx.clearDrop = clear;
+  ctx.showImageDrop = (element) => {
+    clear();
+    picture = element;
+    picture.classList.add('image-drop-target');
+  };
   ctx.showDrop = (anchor) => {
     clear();
     const bounds = anchor.element.getBoundingClientRect();
@@ -88,39 +108,16 @@ export function setupDropListeners(ctx) {
     });
     document.body.append(indicator);
   };
-  const onDrag = (event) => {
-    clear();
-    const types = event.dataTransfer?.types;
-    if (ctx.readOnly || !types?.includes('text/html')
-      || types.includes('Files') || types.includes('collectionviewdata')) return;
-    const { target, clientY: y } = event;
-    const main = document.querySelector('main');
-    if (!main?.contains(target)) return;
-    if (target.closest?.('.prosemirror-editor')) return;
-    const anchor = findDropAnchor({ main, target, y });
-    if (!anchor) return;
+  // Native drops from outside the browser are only accepted on images (see images.js);
+  // refuse the rest so the browser does not navigate the preview to the dropped item.
+  const refuse = (event) => {
+    if (event.defaultPrevented || event.target.closest?.('.prosemirror-editor')) return;
     event.preventDefault();
-    event.stopPropagation();
-    event.dataTransfer.dropEffect = 'copy';
-    if (event.type === 'drop') {
-      const html = event.dataTransfer.getData('text/html');
-      if (!html.trim()) return;
-      ctx.port.postMessage({
-        type: MESSAGE_TYPES.HTML_DROP,
-        payload: { html, anchor: { kind: anchor.kind, index: anchor.index }, side: anchor.side },
-      });
-      return;
-    }
-    ctx.showDrop(anchor);
-  };
-  const onLeave = (event) => {
-    if (!event.relatedTarget || !document.querySelector('main')?.contains(event.relatedTarget)) clear();
+    if (event.type === 'dragover') event.dataTransfer.dropEffect = 'none';
   };
   const listeners = [
-    [document, 'dragover', onDrag, true],
-    [document, 'drop', onDrag, true],
-    [document, 'dragend', clear],
-    [document, 'dragleave', onLeave],
+    [document, 'dragover', refuse],
+    [document, 'drop', refuse],
     [window, 'blur', clear],
     [window, 'scroll', clear, true],
   ];
@@ -129,7 +126,6 @@ export function setupDropListeners(ctx) {
   });
   ctx.destroyDrop = () => {
     clear();
-    ctx.bridgeDropTarget?.classList.remove('image-drop-target');
     listeners.forEach(([target, type, listener, capture]) => {
       target.removeEventListener(type, listener, capture);
     });

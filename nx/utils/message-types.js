@@ -32,15 +32,10 @@ export const MESSAGE_TYPES = Object.freeze({
   COMMENT_SHORTCUT: 'comment-shortcut', // no payload
   QUICK_EDIT_IFRAME_CLICK: 'quick-edit-iframe-click', // { target?: string, source: 'ew-wysiwyg-layout' } — quick-edit iframe clicks; `target` in RUM format
   PREVIEW: 'preview', // request: no payload; reply: { ok: boolean, error?: string }
-  HTML_DROP: 'html-drop', // { html: string, anchor: { kind: 'block' | 'text' | 'image' | 'main', index: number }, side: 'before' | 'after' }
-  DROP_TARGET: 'drop-target', // Host -> iframe: { phase: 'hover' | 'resolve' | 'leave', kind: 'html' | 'image', x?, y?, requestId? }; reply: { requestId, documentVersion, target: { anchor, side } | { proseIndex, imageVersion, originalSrc } | null }
+  DROP_TARGET: 'drop-target', // Host -> iframe: { phase: 'hover' | 'resolve' | 'leave', kind: 'html' | 'image', x?, y?, requestId? }; reply: { requestId, documentVersion, target: { anchor: { kind: 'block' | 'text' | 'image' | 'main', index }, side: 'before' | 'after' } | { proseIndex, imageVersion, originalSrc } | null, reason?: 'busy' }
 
   // Iframe -> host: { proseIndex, imageVersion, requestId, imageData, fileName,
-  //                  mimeType, originalSrc } or { proseIndex, imageVersion,
-  //                  requestId, assets: object[], originalSrc } (da-live only)
+  //                  mimeType, originalSrc }
   // Host -> iframe: { proseIndex, requestId, originalSrc, newSrc?, error? }
-  // Host -> iframe (da-live rail): { assets: object[], x: number, y: number }
-  // Host -> iframe (da-live rail feedback): { assets: [], phase: 'hover', x: number, y: number }
-  //                                       or { assets: [], phase: 'leave' }
   IMAGE_REPLACE: 'image-replace',
 });

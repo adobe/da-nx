@@ -52,8 +52,8 @@ export function setupContentEditableListeners(ctx) {
   document.addEventListener('click', ctx.editorRequestListener);
 }
 
-function replaceImage({ ctx, img, file, assets }) {
-  if (ctx.readOnly || (!assets && !file?.type.startsWith('image/'))) return;
+function replaceImage({ ctx, img, file }) {
+  if (ctx.readOnly || !file?.type.startsWith('image/')) return;
   const picture = img.closest('picture');
   const proseIndex = imageSelectPayload(img)?.proseIndex;
   const imageVersion = img.getAttribute('data-image-version');
@@ -89,10 +89,6 @@ function replaceImage({ ctx, img, file, assets }) {
       },
     });
   };
-  if (assets) {
-    send({ assets });
-    return;
-  }
   const reader = new FileReader();
   reader.onload = () => send({
     imageData: reader.result, fileName: file.name, mimeType: file.type,
@@ -101,38 +97,13 @@ function replaceImage({ ctx, img, file, assets }) {
   reader.readAsDataURL(file);
 }
 
-export function handleAssetImageDrop({ assets, x, y, phase = 'drop' }, ctx) {
-  ctx.assetDropTarget?.classList.remove('image-drop-target');
-  ctx.assetDropTarget = undefined;
-  const hover = phase === 'hover';
-  if (ctx.readOnly || (!hover && phase !== 'drop')
-    || !Number.isFinite(x) || !Number.isFinite(y)) return;
-  if (!hover && (!Array.isArray(assets) || !assets.length)) return;
-  const img = document.elementFromPoint(x, y)?.closest('picture')?.querySelector('img');
-  if (!img?.closest('main')) return;
-  if (hover) {
-    if (!Number.isSafeInteger(imageSelectPayload(img)?.proseIndex)
-      || !img.getAttribute('data-image-version')) return;
-    ctx.assetDropTarget = img.closest('picture');
-    ctx.assetDropTarget.classList.add('image-drop-target');
-    return;
-  }
-  if (assets.length !== 1) {
-    handleImageError('Drop a single image asset to replace this image.');
-    return;
-  }
-  replaceImage({ ctx, img, assets });
-}
-
 export function setupImageDropListeners(ctx, dom = document) {
   const images = dom.querySelectorAll('picture img');
   ctx.pendingImageReplacements ??= new Map();
 
   images.forEach((img) => {
     const picture = img.closest('picture');
-    const accepts = (event) => !ctx.readOnly && event.dataTransfer?.types.some(
-      (type) => type === 'Files' || type === 'collectionviewdata',
-    );
+    const accepts = (event) => !ctx.readOnly && !!event.dataTransfer?.types.includes('Files');
     const hasTarget = () => Number.isSafeInteger(imageSelectPayload(img)?.proseIndex)
       && img.hasAttribute('data-image-version');
 
@@ -172,21 +143,12 @@ export function setupImageDropListeners(ctx, dom = document) {
         e.stopPropagation();
         picture?.classList.remove('image-drop-target');
 
-        const file = e.dataTransfer.files[0];
-        if (file) {
-          replaceImage({ ctx, img, file });
+        const { files } = e.dataTransfer;
+        if (files.length !== 1) {
+          handleImageError('Drop a single image to replace this image.');
           return;
         }
-        try {
-          const assets = JSON.parse(e.dataTransfer.getData('collectionviewdata'));
-          if (!Array.isArray(assets) || assets.length !== 1) {
-            handleImageError('Drop a single image asset to replace this image.');
-            return;
-          }
-          replaceImage({ ctx, img, assets });
-        } catch {
-          handleImageError('The dropped asset could not be read.');
-        }
+        replaceImage({ ctx, img, file: files[0] });
       },
     };
 
