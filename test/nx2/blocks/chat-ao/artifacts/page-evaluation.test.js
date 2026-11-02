@@ -19,6 +19,7 @@ const item = {
   suggestion: {
     label: 'Image',
     assetLabel: 'Image 3',
+    previewUrl: 'https://example.com/media/image-3.jpg',
     issue: 'Missing eyebrow and CTA.',
     suggested: 'Add an all-caps eyebrow and a CTA link.',
     context: { category: 'Imagery Content', description: 'Missing eyebrow and CTA.' },
@@ -35,11 +36,18 @@ describe('page evaluation suggestion actions', () => {
       + 'Reason: Missing eyebrow and CTA.\n'
       + '\n'
       + 'Suggestion: Add an all-caps eyebrow and a CTA link.\n'
-      + 'Asset: Image 3\n'
+      + '\n'
+      + 'Reference: https://example.com/media/image-3.jpg\n'
       + '\n'
       + 'Only make the changes needed to resolve this check; leave the rest of the page as is.\n'
       + 'If you need to re-run preflight (before or after for confirmation), you can invoke the skill /aem-governance-evaluate-page.',
     );
+  });
+
+  it('falls back to the asset label as reference when there is no preview url', () => {
+    const { previewUrl: _, ...suggestion } = item.suggestion;
+    const text = buildSuggestionPrompt({ item: { ...item, suggestion } });
+    expect(text).to.contain('\nReference: Image 3\n');
   });
 
   it('skips missing fields and falls back to the item description as reason', () => {
