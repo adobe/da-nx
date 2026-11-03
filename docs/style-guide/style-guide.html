@@ -286,6 +286,9 @@
           <nx-menu id="demo-menu-m" size="m" placement="below">
             <button slot="trigger" class="nx-form-btn-secondary" aria-label="Options">Options (m)</button>
           </nx-menu>
+          <nx-menu id="demo-menu-desc" size="m" placement="below">
+            <button slot="trigger" class="nx-form-btn-secondary" aria-label="Skills">With descriptions</button>
+          </nx-menu>
         </div>
         <pre><code>&lt;nx-menu id="my-menu"&gt;
   &lt;button slot="trigger"&gt;Options&lt;/button&gt;
@@ -300,7 +303,15 @@ menu.items = [
   { id: 'edit', label: 'Edit' },
   { id: 'delete', label: 'Delete' },
 ];
-menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));</code></pre>
+menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));
+
+// descriptions: the menu switches to a two-line label/description layout.
+// Pass the full text; it truncates with an ellipsis, shows the full value
+// on hover, and caps width at --nx-menu-max-width
+menu.items = [
+  { section: 'Skills' },
+  { id: 'summarize', label: '/summarize', description: 'Summarize the current page' },
+];</code></pre>
       </article>
 
       <article class="sg-example">
@@ -664,7 +675,10 @@ autoSave.addEventListener('change', (e) =&gt; console.log(e.detail.checked));
 &lt;!-- Replace only the heading row, e.g. inline rename. --&gt;
 &lt;input slot="content" class="nx-input" aria-label="Rename"&gt;
 
-card.addEventListener('selectionchange', (e) =&gt; { card.selected = e.detail.selected; });</code></pre>
+card.addEventListener('nx-card-selection-change', (e) =&gt; { card.selected = e.detail.selected; });
+
+await card.updateComplete;
+card.focus({ preventScroll: true });</code></pre>
       </article>
 
       <article class="sg-example">
@@ -757,7 +771,7 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
 
     // nx-card
     document.querySelectorAll('.demo-card').forEach((card) => {
-      card.addEventListener('selectionchange', (e) => { card.selected = e.detail.selected; });
+      card.addEventListener('nx-card-selection-change', (e) => { card.selected = e.detail.selected; });
     });
 
     // nx-menu
@@ -769,6 +783,17 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
       menu.items = menuItems;
       menu.addEventListener('select', (e) => showToast({ text: `Selected: ${e.detail.id}` }));
     });
+    const descMenu = document.querySelector('#demo-menu-desc');
+    descMenu.items = [
+      { section: 'Skills' },
+      { id: 'summarize', label: '/summarize', description: 'Summarize the current page' },
+      {
+        id: 'evaluate-page',
+        label: '/evaluate-page',
+        description: 'Check a web page against brand, accessibility, and SEO rules and report every issue found',
+      },
+    ];
+    descMenu.addEventListener('select', (e) => showToast({ text: `Selected: ${e.detail.id}` }));
 
     // nx-dialog
     document.querySelector('#demo-dialog-open').addEventListener('click', () => {

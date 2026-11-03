@@ -1,3 +1,94 @@
+# [1.34.0](https://github.com/adobe/da-nx/compare/v1.33.0...v1.34.0) (2026-11-03)
+
+
+### Features
+
+* **chat:** notify subscribers when a turn finishes ([53ecef2](https://github.com/adobe/da-nx/commit/53ecef210a3612eec52ccf24501b68887c2e9dc4))
+
+# [1.33.0](https://github.com/adobe/da-nx/compare/v1.32.0...v1.33.0) (2026-11-03)
+
+
+### Features
+
+* **chat-ao:** improved slash menu ([#889](https://github.com/adobe/da-nx/issues/889)) ([7444db0](https://github.com/adobe/da-nx/commit/7444db0c09543f81a056a54c72d70a9dd6ac43f4))
+
+# [1.32.0](https://github.com/adobe/da-nx/compare/v1.31.0...v1.32.0) (2026-11-03)
+
+
+### Features
+
+* **styles:** expose complete turquoise and purple scales ([c0bfad1](https://github.com/adobe/da-nx/commit/c0bfad1e5ec522e076ad5e3f5206a64f1d7fcb39))
+* **styles:** expose landing tile surface tokens ([4c97d68](https://github.com/adobe/da-nx/commit/4c97d689acf348f8bd4001b705db1d3ea58e412f)), closes [adobe/da-live#1517](https://github.com/adobe/da-live/issues/1517)
+
+# [1.31.0](https://github.com/adobe/da-nx/compare/v1.30.0...v1.31.0) (2026-11-02)
+
+
+### Features
+
+* add basic artifact renderers ([#885](https://github.com/adobe/da-nx/issues/885)) ([133a0a7](https://github.com/adobe/da-nx/commit/133a0a7d78070cc0ed501d619f956074617dd7f7))
+
+# [1.30.0](https://github.com/adobe/da-nx/compare/v1.29.1...v1.30.0) (2026-11-02)
+
+
+### Features
+
+* add chat option to side nav ([#922](https://github.com/adobe/da-nx/issues/922)) ([655b8bb](https://github.com/adobe/da-nx/commit/655b8bb547d45d8ab61b932e062defd3a66de0fd))
+
+## [1.29.1](https://github.com/adobe/da-nx/compare/v1.29.0...v1.29.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **glaas:** preserve translated images and improve multimodal saves ([#888](https://github.com/adobe/da-nx/issues/888)) ([5f0bc5c](https://github.com/adobe/da-nx/commit/5f0bc5cb774f6700e85f9a2dd70e88da66f1836b))
+
+# [1.29.0](https://github.com/adobe/da-nx/compare/v1.28.1...v1.29.0) (2026-10-29)
+
+
+### Bug Fixes
+
+* **loc:** keep save/connector error messages visible ([#821](https://github.com/adobe/da-nx/issues/821)) ([e83573f](https://github.com/adobe/da-nx/commit/e83573f96c4549e26c2a2fbe32bbd96b4c3c1098))
+
+
+### Features
+
+* **loc:** detect each project's source root from its URLs ([#870](https://github.com/adobe/da-nx/issues/870)) ([347926d](https://github.com/adobe/da-nx/commit/347926d88d08a8afc33cd8b0c0263cd979863fea))
+
+## [1.28.1](https://github.com/adobe/da-nx/compare/v1.28.0...v1.28.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **loc:** keep the target's own blocks when their hash was rejected ([#930](https://github.com/adobe/da-nx/issues/930)) ([2d9eaa9](https://github.com/adobe/da-nx/commit/2d9eaa91cf72f54f83d4d7ff82bcfc53bc3c9ca8))
+
+# [1.28.0](https://github.com/adobe/da-nx/compare/v1.27.3...v1.28.0) (2026-10-29)
+
+
+### Features
+
+* expose site nav actions area ([#927](https://github.com/adobe/da-nx/issues/927)) ([4ecb564](https://github.com/adobe/da-nx/commit/4ecb5648c15a0aa09445dd40313ca9fae0214f80))
+
+## [1.27.3](https://github.com/adobe/da-nx/compare/v1.27.2...v1.27.3) (2026-10-29)
+
+
+### Bug Fixes
+
+* improve card ([#929](https://github.com/adobe/da-nx/issues/929)) ([cc6052f](https://github.com/adobe/da-nx/commit/cc6052f014be0eb8c684970a8ddd51a6908c8462))
+
+## [1.27.2](https://github.com/adobe/da-nx/compare/v1.27.1...v1.27.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* **quick-edit:** decorate buttons and icons after inline edits ([a667fb2](https://github.com/adobe/da-nx/commit/a667fb2fe1709c03926857ac1015e9acaa58e24c))
+* refresh descendant indices when settling quick-edit editors ([a04f115](https://github.com/adobe/da-nx/commit/a04f115439b5adc5b407928978591dd84c00ed65))
+
+## [1.27.1](https://github.com/adobe/da-nx/compare/v1.27.0...v1.27.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **loc:** resolve URLs under per-row source locations ([#793](https://github.com/adobe/da-nx/issues/793)) ([fb5d3d3](https://github.com/adobe/da-nx/commit/fb5d3d342c49743c009eacde97dc0f435aaeddb6)), closes [#792](https://github.com/adobe/da-nx/issues/792)
+
 # [1.27.0](https://github.com/adobe/da-nx/compare/v1.26.0...v1.27.0) (2026-10-28)
 
 

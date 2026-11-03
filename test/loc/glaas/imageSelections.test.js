@@ -102,23 +102,48 @@ describe('imageSelections', () => {
       expect(result).to.include('<div>acceptedhashes</div><div>abc123</div>');
     });
 
-    it('removes the row (and the block, if now empty) when writing an empty selection', () => {
+    it('persists an empty array when clearing the last selection', () => {
       const html = `<body><main></main><div class="da-metadata">
         <div><div>${LOC_IMAGES_KEY}</div><div>[{"src":"https://content.da.live/org/site/media_abc.png","translate":"true"}]</div></div>
       </div></body>`;
       const result = writeSelections(html, []);
-      expect(result).to.not.include('loc-images');
-      expect(result).to.not.include('da-metadata');
+      expect(result).to.include('<div>loc-images</div><div>[]</div>');
+      expect(parseSelections(result).size).to.equal(0);
     });
 
-    it('removes only the loc-images row when other rows remain', () => {
+    it('preserves other metadata rows when clearing selections', () => {
       const html = `<body><main></main><div class="da-metadata">
         <div><div>${LOC_IMAGES_KEY}</div><div>[{"src":"https://content.da.live/org/site/media_abc.png","translate":"true"}]</div></div>
         <div><div>acceptedhashes</div><div>abc123</div></div>
       </div></body>`;
       const result = writeSelections(html, []);
-      expect(result).to.not.include('loc-images');
+      expect(result).to.include('<div>loc-images</div><div>[]</div>');
       expect(result).to.include('<div>acceptedhashes</div><div>abc123</div>');
+    });
+
+    it('creates explicit empty selections when metadata is absent', () => {
+      const result = writeSelections('<body><main><p>Hi</p></main></body>', []);
+      expect(result).to.include('<div>loc-images</div><div>[]</div>');
+      expect(result).to.include('<p>Hi</p>');
+      expect(parseSelections(result).size).to.equal(0);
+    });
+
+    it('adds empty selections without replacing unrelated metadata', () => {
+      const html = `<body><main></main><div class="da-metadata">
+        <div><div>acceptedhashes</div><div>abc123</div></div>
+      </div></body>`;
+      const result = writeSelections(html, []);
+      expect(result).to.include('<div>loc-images</div><div>[]</div>');
+      expect(result).to.include('<div>acceptedhashes</div><div>abc123</div>');
+    });
+
+    it('does not duplicate metadata when saving empty selections repeatedly', () => {
+      const html = '<body><main></main></body>';
+      const result = writeSelections(writeSelections(html, []), []);
+      const doc = new DOMParser().parseFromString(result, 'text/html');
+      expect(doc.querySelectorAll('body > .da-metadata')).to.have.length(1);
+      expect(doc.querySelector('.da-metadata').children).to.have.length(1);
+      expect(parseSelections(doc).size).to.equal(0);
     });
   });
 

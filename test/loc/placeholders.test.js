@@ -6,6 +6,8 @@ import {
   createRolloutResolver,
   expandHtml,
   expandJson,
+  applyPlaceholders,
+  compileHtml,
   getLocaleValues,
   getTabName,
   hasTokens,
@@ -69,7 +71,7 @@ describe('rollout placeholders - config', () => {
   });
 
   it('accepts names in any script with limited punctuation', () => {
-    const ok = ['Côte d\'Ivoire', 'Nederland', 'São Tomé', 'Ελλάδα', '日本', 'Saint-Martin, Fr.', 'Zone 3', ''];
+    const ok = ['Côte d\'Ivoire', 'Nederland', 'São Tomé', 'Ελλάδα', '日本', 'Saint-Martin, Fr.', 'Zone 3'];
     ok.forEach((value) => {
       expect(valuesFor('/x', { ':names': ['x'], x: sheet([{ key: 'a', value }]) }).values.get('a')).to.equal(value);
     });
@@ -86,9 +88,10 @@ describe('rollout placeholders - config', () => {
     });
   });
 
-  it('allows empty values and skips blank rows', () => {
-    const { values: vals } = valuesFor('/x', { ':names': ['x'], x: sheet([{ key: 'a', value: '' }, { key: '', value: '' }]) });
-    expect(vals.get('a')).to.equal('');
+  it('treats empty values as missing and skips blank rows', () => {
+    expect(valuesFor('/x', { ':names': ['x'], x: sheet([{ key: 'a', value: '' }]) }).error)
+      .to.include('has no value for "a"');
+    const { values: vals } = valuesFor('/x', { ':names': ['x'], x: sheet([{ key: 'a', value: 'b' }, { key: '', value: '' }]) });
     expect(vals.size).to.equal(1);
   });
 });
@@ -142,10 +145,62 @@ describe('rollout placeholders - HTML', () => {
 
   it('keeps allowed punctuation literal', () => {
     const v = 'Côte d\'Ivoire, St. Kitts-Nevis 2';
-    const { content } = expandHtml({ content: doc('<p title="{{v}}">{{v}}</p>'), values: values({ v }) });
-    const p = parse(content).querySelector('p');
+    const { content } = expandHtml({ content: doc('<p><a href="/x" title="{{v}}">{{v}}</a></p>'), values: values({ v }) });
+    const p = parse(content).querySelector('a');
     expect(p.textContent).to.equal(v);
     expect(p.getAttribute('title')).to.equal(v);
+  });
+
+  it('only replaces allowed attributes on allowed tags', () => {
+    const vals = values({ c: 'Tonga', code: 'to' });
+    const html = doc(`
+      <p title="{{c}}">x</p>
+      <div><a href="/a/{{code}}" title="{{c}}">x</a><img src="/i/{{code}}.png" alt="{{c}}" title="{{c}}"></div>
+      <link href="/l/{{code}}"><source src="/s/{{code}}"><iframe src="/f/{{code}}"></iframe>`);
+    const { content, errors } = expandHtml({ content: html, values: vals });
+    expect(errors).to.be.undefined;
+    const out = parse(content);
+    expect(out.querySelector('p').getAttribute('title')).to.equal('{{c}}');
+    expect(out.querySelector('a').getAttribute('href')).to.equal('/a/to');
+    expect(out.querySelector('a').getAttribute('title')).to.equal('Tonga');
+    const img = out.querySelector('img');
+    expect([img.getAttribute('src'), img.getAttribute('alt'), img.getAttribute('title')]).to.deep.equal(['/i/to.png', 'Tonga', 'Tonga']);
+    expect(out.querySelector('link').getAttribute('href')).to.equal('/l/{{code}}');
+    expect(out.querySelector('source').getAttribute('src')).to.equal('/s/{{code}}');
+    expect(out.querySelector('iframe').getAttribute('src')).to.equal('/f/{{code}}');
+  });
+
+  it('resolves links whose braces were URL-encoded', () => {
+    const html = doc(`<a href="https://www.fedex.com/tracking/%7B%7BcountryCode%7D%7D/t.html">a</a>
+      <a href="/x/%7b%7b%20countryCode%20%7d%7d?q=%7B">b</a><a href="/y/%7Bnot%7D">c</a>`);
+    const { content } = expandHtml({ content: html, values: values({ countryCode: 'en-to' }) });
+    const [a, b, c] = parse(content).querySelectorAll('a');
+    expect(a.getAttribute('href')).to.equal('https://www.fedex.com/tracking/en-to/t.html');
+    expect(b.getAttribute('href')).to.equal('/x/en-to?q=%7B');
+    expect(c.getAttribute('href')).to.equal('/y/%7Bnot%7D');
+  });
+
+  it('applies link rules to URL-looking text', () => {
+    const run = (main, vals) => expandHtml({ content: doc(main), values: values(vals) });
+    const ok = run('<p>https://www.fedex.com/{{ code }}/x.html</p><p>/shipping/{{code}}</p><p>Visit {{c}}</p>', { code: 'en-to', c: 'Côte d\'Ivoire' });
+    const ps = parse(ok.content).querySelectorAll('p');
+    expect([...ps].map((el) => el.textContent)).to.deep.equal(['https://www.fedex.com/en-to/x.html', '/shipping/en-to', 'Visit Côte d\'Ivoire']);
+    expect(run('<p>/shipping/{{c}}</p>', { c: 'Côte d\'Ivoire' }).errors.join(' ')).to.include('in a link may only contain');
+    expect(run('<p>https://{{c}}.fedex.com/x</p>', { c: 'to' }).errors.join(' ')).to.include('must come after');
+  });
+
+  it('parses each source once and keeps it reusable across destinations', () => {
+    const compiled = compileHtml(doc('<h1>Fedex {{country}}</h1><a href="/t/{{code}}">x</a>'));
+    const spy = sinon.spy(DOMParser.prototype, 'parseFromString');
+    const nl = applyPlaceholders({ compiled, values: values({ country: 'Netherlands', code: 'en-nl' }) });
+    const bad = applyPlaceholders({ compiled, values: values({ country: 'X' }) });
+    const to = applyPlaceholders({ compiled, values: values({ country: 'Tonga', code: 'en-to' }) });
+    spy.restore();
+    expect(spy.called).to.be.false;
+    expect(parse(nl.content).querySelector('h1').textContent).to.equal('Fedex Netherlands');
+    expect(bad.errors.join(' ')).to.include('missing value for {{code}}');
+    expect(parse(to.content).querySelector('h1').textContent).to.equal('Fedex Tonga');
+    expect(parse(to.content).querySelector('a').getAttribute('href')).to.equal('/t/en-to');
   });
 
   it('leaves DA system metadata untouched', () => {
@@ -171,6 +226,8 @@ describe('rollout placeholders - HTML', () => {
     expect(run('<a href="/x/{{u}}">x</a>', { u: 'Côte d\'Ivoire' })).to.include('{{u}} in a link may only contain');
     expect(run('<img src="/x/{{u}}.png">', { u: 'a.b' })).to.include('{{u}} in a link may only contain');
     expect(run('<p>{{<strong>country</strong>}}</p>', { country: 'Tonga' })).to.include('split by formatting (<p>)');
+    expect(run('<ul><li>a {{coun<em>try</em>}} b</li></ul>', { country: 'Tonga' })).to.include('split by formatting (<li>)');
+    expect(run('<p>Price {{ 1 }} and a lone }} brace</p>', {})).to.be.undefined;
   });
 });
 
@@ -195,6 +252,12 @@ describe('rollout placeholders - JSON', () => {
     const json = { ':names': ['a'], a: sheet([{ title: '{{nope}}' }]) };
     const { errors } = expandJson({ content: JSON.stringify(json), values: values({}) });
     expect(errors[0]).to.include('a.data[0].title');
+  });
+
+  it('applies link rules to URL-looking cells', () => {
+    const json = { ':names': ['a'], a: sheet([{ url: '/x/{{country}}' }]) };
+    const { errors } = expandJson({ content: JSON.stringify(json), values: values({ country: 'Côte d\'Ivoire' }) });
+    expect(errors[0]).to.include('in a link may only contain').and.include('a.data[0].url');
   });
 });
 

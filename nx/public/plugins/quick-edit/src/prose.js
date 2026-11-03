@@ -14,6 +14,7 @@ import { createImageWrapperPlugin } from './image-wrapper.js';
 import { setupImageDropListeners } from './images.js';
 import { setRemoteCursors } from './cursors.js';
 import { syncImageIndices } from './dom-index.js';
+import { scheduleSettle, settleEditor, settleOtherEditors } from './settle-editor.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
 function marksEqual(a, b) {
@@ -153,12 +154,14 @@ function initScrollListener(win, ctx) {
 
 let blurClearTimeout = null;
 
-function focus(view) {
+function focus(view, ctx) {
   if (blurClearTimeout !== null) {
     clearTimeout(blurClearTimeout);
     blurClearTimeout = null;
   }
   setCurrentEditorView(view);
+  // The cleared timer may have belonged to another editor; settle that one now.
+  settleOtherEditors(view.dom.parentElement, ctx);
   // showToolbar(view);
   return false;
 }
@@ -169,6 +172,7 @@ function blur(view, event, ctx) {
   blurClearTimeout = setTimeout(() => {
     ctx.port.postMessage({ type: MESSAGE_TYPES.CURSOR_MOVE });
     blurClearTimeout = null;
+    settleEditor(view.dom.parentElement, ctx);
   }, 150);
   return false; // Let other handlers run
 }
@@ -196,7 +200,7 @@ export function captureFocusedEditor() {
   return { cursorOffset: editorParent.getAttribute('data-prose-index'), selection: { anchor, head } };
 }
 
-function createEditor(offset, state, ctx, imageVersion, lengthDiff = 0) {
+function createEditor(offset, state, ctx, { imageVersion, lengthDiff = 0, origin } = {}) {
   const element = document.querySelector(`[data-prose-index="${offset}"]:not(.prosemirror-editor)`);
   if (!element) {
     requestReload(ctx);
@@ -237,7 +241,7 @@ function createEditor(offset, state, ctx, imageVersion, lengthDiff = 0) {
     state: editorState,
     editable: () => !ctx.readOnly,
     handleDOMEvents: {
-      focus,
+      focus: (view) => focus(view, ctx),
       keydown,
       blur: (view, event) => blur(view, event, ctx),
     },
@@ -261,18 +265,22 @@ function createEditor(offset, state, ctx, imageVersion, lengthDiff = 0) {
     clearTimeout(blurClearTimeout);
     blurClearTimeout = null;
     focusEditor(editorView, pending);
+    settleOtherEditors(editorParent, ctx);
     return;
   }
 
-  if (blurClearTimeout !== null) {
-    clearTimeout(blurClearTimeout);
-    blurClearTimeout = null;
-    setCurrentEditorView(editorView);
-    editorView.focus();
+  if (blurClearTimeout === null) {
+    scheduleSettle(editorParent, ctx, origin);
+    return;
   }
+  clearTimeout(blurClearTimeout);
+  blurClearTimeout = null;
+  setCurrentEditorView(editorView);
+  editorView.focus();
+  settleOtherEditors(editorParent, ctx);
 }
 
-function updateEditor(editorEl, state, ctx, imageVersion) {
+function updateEditor(editorEl, state, ctx, { imageVersion, origin } = {}) {
   if (!editorEl) return;
 
   // Editor already exists, update it with a transaction
@@ -307,15 +315,19 @@ function updateEditor(editorEl, state, ctx, imageVersion) {
   ctx.remoteUpdate = false;
   if (!ctx.readOnly) setupImageDropListeners(ctx, editorEl.parentElement);
 
-  if (blurClearTimeout !== null) {
-    clearTimeout(blurClearTimeout);
-    blurClearTimeout = null;
-    setCurrentEditorView(view);
-    view.focus();
+  if (blurClearTimeout === null) {
+    scheduleSettle(view.dom.parentElement, ctx, origin);
+    return;
   }
+  clearTimeout(blurClearTimeout);
+  blurClearTimeout = null;
+  setCurrentEditorView(view);
+  view.focus();
+  settleOtherEditors(view.dom.parentElement, ctx);
 }
 
-export function setEditorState(cursorOffset, state, ctx, imageVersion, lengthDiff) {
+// `options` are the optional SET_EDITOR_STATE fields: `imageVersion`, `lengthDiff`, `origin`.
+export function setEditorState(cursorOffset, state, ctx, options = {}) {
   const offset = Number(cursorOffset);
   if (!Number.isSafeInteger(offset) || offset < 0) {
     requestReload(ctx);
@@ -323,8 +335,8 @@ export function setEditorState(cursorOffset, state, ctx, imageVersion, lengthDif
   }
   const existingEditorParent = document.querySelector(`.prosemirror-editor[data-prose-index="${offset}"]`);
   if (existingEditorParent) {
-    updateEditor(existingEditorParent.view, state, ctx, imageVersion);
+    updateEditor(existingEditorParent.view, state, ctx, options);
     return;
   }
-  createEditor(offset, state, ctx, imageVersion, lengthDiff);
+  createEditor(offset, state, ctx, options);
 }
