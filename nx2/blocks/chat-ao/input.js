@@ -10,6 +10,7 @@ import { showToast } from '../shared/toast/toast.js';
 import { AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES, ADD_MENU_ITEMS } from './ao-constants.js';
 import { ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 import { sampleRUM } from '../../deps/rum.js';
+import { toSlashMenuItems } from './utils/skills.js';
 import '../shared/pills/pills.js';
 import '../shared/menu/menu.js';
 import '../shared/popover/popover.js';
@@ -219,13 +220,9 @@ export default class NxAoInput extends LitElement {
   }
 
   _getSlashItems(filter) {
-    const available = this._standalone
+    const skills = this._standalone
       ? this._session?.controller.getSkills() : this.getSkills?.();
-    const skills = (available ?? []).map((id) => ({ id, label: id }));
-    const filtered = filter
-      ? skills.filter((item) => item.id.toLowerCase().includes(filter))
-      : skills;
-    return filtered.length ? [{ section: 'Skills' }, ...filtered] : [];
+    return toSlashMenuItems({ skills: skills ?? [], filter });
   }
 
   _onSlashSelect(skillId) {

@@ -9,19 +9,48 @@ function getSkillsCacheKey(tenantId) {
   return tenantId ? `${SKILLS_CACHE_PREFIX}--${tenantId}` : null;
 }
 
+const SKILL_NAME_RE = /^[a-z0-9][a-z0-9_-]{1,60}$/i;
+
+export function toSlashMenuItems({ skills = [], filter } = {}) {
+  const items = skills
+    .filter(({ name }) => !filter || name.toLowerCase().includes(filter))
+    .map(({ name, description }) => ({
+      id: name,
+      label: `/${name}`,
+      description,
+    }));
+  return items.length ? [{ section: 'Skills' }, ...items] : [];
+}
+
+const compareByName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+
+// Also accepts legacy cached plain-name strings.
+function normalizeSkills(list) {
+  const skills = list
+    .map((s) => (typeof s === 'string' ? { name: s } : s))
+    .filter((s) => typeof s?.name === 'string')
+    .map((s) => ({
+      name: s.name.trim(),
+      description: typeof s.description === 'string' ? s.description.trim() : '',
+    }))
+    .filter((s) => SKILL_NAME_RE.test(s.name))
+    .sort(compareByName);
+  return skills.length ? skills : null;
+}
+
+// Prefer display_description; fall back to description when missing or blank.
+const pickDescription = ({ display_description: display, description } = {}) => (
+  typeof display === 'string' && display.trim() ? display : description
+);
+
 function parseSkillsListResponse(json) {
   const skills = Array.isArray(json?.skills) ? json.skills : null;
   if (!skills) return null;
-  const ids = skills
+  return normalizeSkills(skills
     .filter((s) => !s?.hidden && s?.user_invocable !== false)
-    .map((s) => s?.name)
-    .filter((s) => typeof s === 'string')
-    .map((s) => s.trim())
-    .filter((s) => /^[a-z0-9][a-z0-9_-]{1,60}$/i.test(s));
-  return ids.length ? ids : null;
+    .map((s) => ({ name: s?.name, description: pickDescription(s ?? {}) })));
 }
 
-// Last-known skill list, so the slash-menu isn't empty before fetchSkills() resolves.
 export async function loadCachedSkills() {
   try {
     const { projectedProductContext } = await loadIms();
@@ -29,7 +58,7 @@ export async function loadCachedSkills() {
     if (!key) return null;
     const raw = localStorage.getItem(key);
     const skills = raw ? JSON.parse(raw) : null;
-    return Array.isArray(skills) && skills.length ? skills : null;
+    return Array.isArray(skills) ? normalizeSkills(skills) : null;
   } catch {
     return null;
   }
@@ -40,15 +69,12 @@ function saveCachedSkills(skills, tenantId) {
     const key = getSkillsCacheKey(tenantId);
     if (key) localStorage.setItem(key, JSON.stringify(skills));
   } catch {
-    // best-effort — localStorage can throw (quota, private mode); safe to ignore
+    // localStorage can throw (quota, private mode)
   }
 }
 
-// Real catalog lookup. Best-effort: a network error or unexpected response shape
-// returns null, leaving the cache (or empty list) in place rather than throwing.
-// When an alt-harness activation key is present, the skills REST plane routes to
-// the CMA bridge instead of Agent Orchestrator (the bridge requires an explicit
-// x-user-id; AO derives the caller from the token). See docs/chat-ao-alt-harness.md.
+// Alt-harness routes to the CMA bridge, which needs an explicit x-user-id.
+// See docs/chat-ao-alt-harness.md.
 export async function fetchSkills({ org, site, altHarnessKey } = {}) {
   try {
     const {

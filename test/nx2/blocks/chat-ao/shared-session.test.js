@@ -101,7 +101,7 @@ describe('standalone input and full AO chat sharing', () => {
     patch(BaseChatController.prototype, '_loadCachedSkills', async () => []);
     const fetchSkills = async () => {
       skillLoads += 1;
-      return ['writeBlog'];
+      return [{ name: 'writeBlog', description: 'Write a blog post' }];
     };
     patch(BaseChatController.prototype, '_fetchSkills', fetchSkills);
     patch(CmaChatController.prototype, '_fetchSkills', fetchSkills);
@@ -195,7 +195,10 @@ describe('standalone input and full AO chat sharing', () => {
       expect(standalone._session).to.equal(full._session);
       expect(skillLoads).to.equal(1);
       if (harness === 'coworker') expect(episodeLoads).to.equal(1);
-      expect(standalone._getSlashItems('write')[1].id).to.equal('writeBlog');
+      expect(standalone._getSlashItems('write')[1]).to.deep.equal({
+        id: 'writeBlog', label: '/writeBlog', description: 'Write a blog post',
+      });
+      expect(full._input._getSlashItems('write')).to.deep.equal(standalone._getSlashItems('write'));
       pills(full).add({ id: 'local', label: 'Local context' });
       submit(standalone, 'From standalone');
       submit(full, 'Keep my draft');
