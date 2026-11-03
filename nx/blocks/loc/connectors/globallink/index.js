@@ -7,10 +7,8 @@ import authReady, {
 import fetchWithRetry from '../../utils/fetchWithRetry.js';
 import downloadQueue from '../../utils/downloadQueue.js';
 
-/** `translation.service.{env}.*` keys this connector requires. */
 export const requiredKeys = ['endpoint', 'fileFormatName'];
 
-/** Credential keys resolved server-side; entries may be arrays of accepted aliases. */
 export const requiredCredentialKeys = ['clientId', 'clientSecret', 'username', 'password'];
 
 export const dnt = { addDnt };

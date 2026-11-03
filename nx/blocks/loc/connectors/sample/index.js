@@ -1,7 +1,5 @@
-/** `translation.service.{env}.*` keys this connector requires. */
 export const requiredKeys = [];
 
-/** Credential keys resolved server-side; entries may be arrays of accepted aliases. */
 export const requiredCredentialKeys = [];
 
 export async function cancelTranslation({ service, lang, sendMessage }) {

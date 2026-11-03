@@ -42,10 +42,8 @@ async function sendForTranslation(org, site, url) {
   }
 }
 
-/** `translation.service.{env}.*` keys this connector requires. */
 export const requiredKeys = [];
 
-/** Credential keys resolved server-side; entries may be arrays of accepted aliases. */
 export const requiredCredentialKeys = [];
 
 export const dnt = { addDnt };

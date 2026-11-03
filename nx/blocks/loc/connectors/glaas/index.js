@@ -91,10 +91,8 @@ function langs2Tasks(langs) {
 
 let token;
 
-/** `translation.service.{env}.*` keys this connector requires. */
 export const requiredKeys = ['origin', 'clientid'];
 
-/** Credential keys resolved server-side; entries may be arrays of accepted aliases. */
 export const requiredCredentialKeys = [];
 
 export const dnt = { addDnt };
