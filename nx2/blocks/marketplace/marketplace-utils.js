@@ -22,26 +22,28 @@ export function normalizeItem({ row, origin }) {
 
   const description = (row.Description ?? '').trim();
   const owner = (row.Owner ?? '').trim();
-  const category = (row.Category ?? '').trim();
   // `Image` is the legacy column name, kept as a fallback while sheets migrate to `Icon`.
   const iconHref = toSafeHref({ value: row.Icon || row.Image, origin });
 
   return {
-    title, description, docHref, tryHref, owner, category, iconHref,
+    title, description, docHref, tryHref, owner, iconHref,
   };
-}
-
-export function getCategories(el) {
-  return [...el.classList].slice(1).map((cls) => cls.toLowerCase());
-}
-
-export function filterByCategories({ items, categories = [] }) {
-  if (!categories.length) return items;
-  return items.filter(({ category }) => categories.includes(category?.toLowerCase()));
 }
 
 export function isAdobeOwned({ owner }) {
   return owner?.toLowerCase() === 'adobe';
+}
+
+export const OWNER_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'adobe', label: 'Created by Adobe' },
+  { value: 'others', label: 'Created by Others' },
+];
+
+export function filterByOwner({ items, filter = 'all' }) {
+  if (filter === 'adobe') return items.filter(isAdobeOwned);
+  if (filter === 'others') return items.filter((item) => !isAdobeOwned(item));
+  return items;
 }
 
 export function getActions({ docHref, tryHref }) {

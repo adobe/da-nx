@@ -4,10 +4,10 @@ import { getConfig } from '../../scripts/nx.js';
 import { loadStyle } from '../../utils/utils.js';
 import { loadHrefSvg } from '../../utils/svg.js';
 import {
+  OWNER_FILTERS,
   fetchMarketplace,
-  filterByCategories,
+  filterByOwner,
   getActions,
-  getCategories,
   isAdobeOwned,
 } from './marketplace-utils.js';
 
@@ -23,17 +23,20 @@ const MORE_ICON_HREF = `${codeBase}/img/icons/s2-icon-more-20-n.svg#icon`;
 
 class NxMarketplace extends LitElement {
   static properties = {
-    categories: { attribute: false },
     _items: { state: true },
     _error: { state: true },
     _adobeLogo: { state: true },
+    _filter: { state: true },
   };
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [buttonStyle, style];
     this._failedIconHrefs ??= new Set();
+    this._filter ??= 'all';
     if (this._items === undefined && !this._error) {
+      // Fetch the filter control in parallel with the data; it renders with the first cards.
+      import('../shared/segmented-btn/segmented.js');
       this._load().catch(() => { this._error = 'Could not load marketplace.'; });
     }
   }
@@ -44,9 +47,8 @@ class NxMarketplace extends LitElement {
       this._error = result.error;
       return;
     }
-    const items = filterByCategories({ items: result.items, categories: this.categories });
-    this._items = items;
-    this._loadCardExtras(items);
+    this._items = result.items;
+    this._loadCardExtras(result.items);
   }
 
   _loadCardExtras(items) {
@@ -134,17 +136,21 @@ class NxMarketplace extends LitElement {
       `;
     }
 
-    if (!this._items.length) {
-      const message = this.categories?.length
-        ? 'No extensions in this category.'
-        : 'No extensions available.';
-      return html`<p class="empty">${message}</p>`;
-    }
+    if (!this._items.length) return html`<p class="empty">No extensions available.</p>`;
+
+    const visible = filterByOwner({ items: this._items, filter: this._filter });
 
     return html`
-      <ul class="grid" role="list">
-        ${this._items.map((item) => this._renderCard(item))}
-      </ul>
+      <nx-segmented-btn
+        size="m"
+        label="Filter extensions"
+        .items=${OWNER_FILTERS}
+        .value=${this._filter}
+        @change=${(e) => { this._filter = e.detail.value; }}
+      ></nx-segmented-btn>
+      ${visible.length
+    ? html`<ul class="grid" role="list">${visible.map((item) => this._renderCard(item))}</ul>`
+    : html`<p class="empty">No extensions match this filter.</p>`}
     `;
   }
 }
@@ -153,7 +159,5 @@ customElements.define('nx-marketplace', NxMarketplace);
 
 export default function init(el) {
   el.style.display = 'contents';
-  const marketplace = document.createElement('nx-marketplace');
-  marketplace.categories = getCategories(el);
-  el.replaceChildren(marketplace);
+  el.replaceChildren(document.createElement('nx-marketplace'));
 }

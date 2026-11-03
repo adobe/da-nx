@@ -249,16 +249,15 @@ describe('nx-marketplace', () => {
     expect(empty.textContent).to.equal('No extensions available.');
   });
 
-  it('shows only items of the block option categories', async () => {
+  it('ignores block options and shows every item', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         { Title: 'Core App', Category: 'Core', 'Doc Url': 'https://example.com/a' },
         { Title: 'Ext App', Category: 'Extension', 'Doc Url': 'https://example.com/b' },
-        { Title: 'Other App', Category: 'Other', 'Doc Url': 'https://example.com/c' },
       ],
     }));
     div = document.createElement('div');
-    div.className = 'marketplace core extension';
+    div.className = 'marketplace core';
     document.body.append(div);
     init(div);
 
@@ -269,20 +268,56 @@ describe('nx-marketplace', () => {
     expect(titles).to.deep.equal(['Core App', 'Ext App']);
   });
 
-  it('shows category empty message when nothing matches', async () => {
+  it('filters by owner with the segmented control', async () => {
     restoreFetch = installFetch(() => jsonResponse({
-      data: [{ Title: 'Ext App', Category: 'Extension', 'Doc Url': 'https://example.com/b' }],
+      data: [
+        { Title: 'Adobe App', Owner: 'Adobe', 'Doc Url': 'https://example.com/a' },
+        { Title: 'Partner App', Owner: 'Acme', 'Doc Url': 'https://example.com/b' },
+        { Title: 'Unknown App', 'Doc Url': 'https://example.com/c' },
+      ],
     }));
     div = document.createElement('div');
-    div.className = 'marketplace core';
     document.body.append(div);
     init(div);
 
     const el = div.firstElementChild;
     await waitForLoad(el);
 
-    const empty = el.shadowRoot.querySelector('.empty');
-    expect(empty.textContent).to.equal('No extensions in this category.');
+    const titles = () => [...el.shadowRoot.querySelectorAll('.card h3')].map((h) => h.textContent);
+    const control = el.shadowRoot.querySelector('nx-segmented-btn');
+    expect(control.getAttribute('size')).to.equal('m');
+    expect(control.items.map(({ label }) => label))
+      .to.deep.equal(['All', 'Created by Adobe', 'Created by Others']);
+    expect(control.value).to.equal('all');
+    expect(titles()).to.deep.equal(['Adobe App', 'Partner App', 'Unknown App']);
+
+    control.dispatchEvent(new CustomEvent('change', { detail: { value: 'adobe' } }));
+    await el.updateComplete;
+    expect(titles()).to.deep.equal(['Adobe App']);
+
+    control.dispatchEvent(new CustomEvent('change', { detail: { value: 'others' } }));
+    await el.updateComplete;
+    expect(titles()).to.deep.equal(['Partner App', 'Unknown App']);
+  });
+
+  it('keeps the filter visible and shows a message when nothing matches', async () => {
+    restoreFetch = installFetch(() => jsonResponse({
+      data: [{ Title: 'Adobe App', Owner: 'Adobe', 'Doc Url': 'https://example.com/a' }],
+    }));
+    div = document.createElement('div');
+    document.body.append(div);
+    init(div);
+
+    const el = div.firstElementChild;
+    await waitForLoad(el);
+
+    const control = el.shadowRoot.querySelector('nx-segmented-btn');
+    control.dispatchEvent(new CustomEvent('change', { detail: { value: 'others' } }));
+    await el.updateComplete;
+
+    expect(el.shadowRoot.querySelector('nx-segmented-btn') !== null).to.equal(true);
+    expect(el.shadowRoot.querySelector('.grid') === null).to.equal(true);
+    expect(el.shadowRoot.querySelector('.empty').textContent).to.equal('No extensions match this filter.');
   });
 
   it('shows error message', async () => {

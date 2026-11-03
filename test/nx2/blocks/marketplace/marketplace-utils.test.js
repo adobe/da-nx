@@ -3,8 +3,8 @@ import {
   MARKETPLACE_PATH,
   normalizeItem,
   fetchMarketplace,
-  getCategories,
-  filterByCategories,
+  filterByOwner,
+  OWNER_FILTERS,
   getActions,
 } from '../../../../nx2/blocks/marketplace/marketplace-utils.js';
 
@@ -33,7 +33,6 @@ describe('normalizeItem', () => {
       docHref: 'https://github.com/adobe-rnd/aem-apps/tree/main/tools/apps/msm',
       tryHref: 'https://da.live/app/x/msm',
       owner: 'Adobe',
-      category: 'Core',
       iconHref: 'https://example.com/t.png',
     });
   });
@@ -104,7 +103,6 @@ describe('normalizeItem', () => {
     const result = normalizeItem({ row, origin });
     expect(result.description).to.equal('');
     expect(result.owner).to.equal('');
-    expect(result.category).to.equal('');
   });
 
   it('ignores the Type column', () => {
@@ -128,50 +126,30 @@ describe('getActions', () => {
   });
 });
 
-describe('getCategories', () => {
-  const block = (className) => {
-    const el = document.createElement('div');
-    el.className = className;
-    return el;
-  };
-
-  it('returns empty list without options', () => {
-    expect(getCategories(block('marketplace'))).to.deep.equal([]);
-  });
-
-  it('returns option classes after the block name', () => {
-    expect(getCategories(block('marketplace core extension'))).to.deep.equal(['core', 'extension']);
-  });
-
-  it('ignores a prefixed block name', () => {
-    expect(getCategories(block('nx-marketplace core'))).to.deep.equal(['core']);
-  });
-});
-
-describe('filterByCategories', () => {
+describe('filterByOwner', () => {
   const items = [
-    { title: 'A', category: 'Core' },
-    { title: 'B', category: 'Extension' },
-    { title: 'C', category: '' },
+    { title: 'A', owner: 'Adobe' },
+    { title: 'B', owner: 'Acme' },
+    { title: 'C', owner: 'adobe' },
+    { title: 'D', owner: '' },
   ];
   const titles = (list) => list.map(({ title }) => title);
 
-  it('returns all items without categories', () => {
-    expect(titles(filterByCategories({ items, categories: [] }))).to.deep.equal(['A', 'B', 'C']);
-    expect(titles(filterByCategories({ items }))).to.deep.equal(['A', 'B', 'C']);
+  it('exposes All, Created by Adobe and Created by Others options', () => {
+    expect(OWNER_FILTERS.map(({ value }) => value)).to.deep.equal(['all', 'adobe', 'others']);
   });
 
-  it('filters by a single category, case-insensitive', () => {
-    expect(titles(filterByCategories({ items, categories: ['core'] }))).to.deep.equal(['A']);
+  it('returns all items for "all" or no filter', () => {
+    expect(titles(filterByOwner({ items, filter: 'all' }))).to.deep.equal(['A', 'B', 'C', 'D']);
+    expect(titles(filterByOwner({ items }))).to.deep.equal(['A', 'B', 'C', 'D']);
   });
 
-  it('filters by multiple categories', () => {
-    expect(titles(filterByCategories({ items, categories: ['core', 'extension'] })))
-      .to.deep.equal(['A', 'B']);
+  it('returns Adobe-owned items, case-insensitive', () => {
+    expect(titles(filterByOwner({ items, filter: 'adobe' }))).to.deep.equal(['A', 'C']);
   });
 
-  it('returns empty list when nothing matches', () => {
-    expect(filterByCategories({ items, categories: ['other'] })).to.deep.equal([]);
+  it('returns everything not owned by Adobe, including items without owner', () => {
+    expect(titles(filterByOwner({ items, filter: 'others' }))).to.deep.equal(['B', 'D']);
   });
 });
 
