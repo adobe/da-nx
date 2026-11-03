@@ -22,15 +22,18 @@ const openDialog = (selector) => new Promise((resolve) => {
 describe('standalone site selector behavior', () => {
   let selector;
   let href;
-  let history;
+  let recentSites;
   let list;
   let permission;
 
   beforeEach(() => {
     href = window.location.href;
-    history = localStorage.getItem('da-sites');
     window.history.replaceState(null, '', window.location.pathname);
-    localStorage.setItem('da-sites', '["org/site","other/site"]');
+    recentSites = '["org/site","other/site"]';
+    const readSites = sinon.stub(Storage.prototype, 'getItem').callThrough();
+    readSites.withArgs('da-sites').callsFake(() => recentSites);
+    const saveSites = sinon.stub(Storage.prototype, 'setItem').callThrough();
+    saveSites.withArgs('da-sites').callsFake((key, value) => { recentSites = value; });
     list = sinon.stub(source, 'list').callsFake(async (path) => ({
       ok: true, items: path === '/org' ? [{ name: 'site' }] : [],
     }));
@@ -43,8 +46,6 @@ describe('standalone site selector behavior', () => {
   afterEach(() => {
     selector.remove();
     window.history.replaceState(null, '', href);
-    if (history === null) localStorage.removeItem('da-sites');
-    else localStorage.setItem('da-sites', history);
     sinon.restore();
   });
 
