@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import { useAoChat, loadChat } from '../../../nx2/utils/chat.js';
 import { resetMockIms, setMockIms } from '../../../nx2/test/mocks/ims.js';
 import { REQUIRED_SERVICE_CODES } from '../../../nx2/utils/entitlement.js';
@@ -112,5 +113,27 @@ describe('loadChat — ew.cma harness selection', () => {
       const chat = await loadChat();
       expect(chat.tagName.toLowerCase()).to.equal('nx-chat');
     });
+  });
+
+  it('falls back to Coworker (not legacy chat) when both flags are on but the org is not entitled, '
+    + 'and warns that the fallback is deliberate rather than failing silently', async () => {
+    window.fetch = mockFetch({
+      flags: { data: [{ key: 'ew.cma', value: 'true' }, { key: 'ew.coworker', value: 'true' }] },
+    });
+    const warnStub = sinon.stub(console, 'warn');
+    try {
+      await withUrl('#/cma-org4/cma-site4', '', async () => {
+        const chat = await loadChat();
+        // Coworker (ew.coworker, no entitlement needed) wins over the dropped
+        // ew.cma intent (which requires entitlement) — still nx-chat-ao, just
+        // not in CMA mode (cma mode is internal/private to the component).
+        expect(chat.tagName.toLowerCase()).to.equal('nx-chat-ao');
+      });
+      expect(warnStub.calledOnce).to.be.true;
+      expect(warnStub.firstCall.args[0]).to.include('cma-org4/cma-site4');
+      expect(warnStub.firstCall.args[0]).to.include('falling back to Coworker');
+    } finally {
+      warnStub.restore();
+    }
   });
 });

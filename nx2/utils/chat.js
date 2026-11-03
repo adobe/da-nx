@@ -39,6 +39,21 @@ async function resolveAoChatConfig() {
     isCmaEntitled(),
   ]);
   const cma = cmaFlagEnabled && entitled;
+  // ew.coworker and ew.cma are independent, permanently-coexisting flags (not
+  // a single either/or choice) — ew.cma is itself transitional and goes away
+  // once da-agent is retired and CMA becomes every entitled org's default, at
+  // which point this precedence question disappears on its own. Until then,
+  // if a site has BOTH flags on but the org isn't CMA-entitled, Coworker wins
+  // by design (ew.cma requires entitlement, ew.coworker doesn't) — make that
+  // explicit instead of a silent fallback, so it doesn't read as a bug.
+  if (cmaFlagEnabled && coworkerEnabled && !entitled) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[chat] ${key}: both ew.cma and ew.coworker are enabled, but this org isn't `
+      + 'CMA-entitled — falling back to Coworker. This is the deliberate '
+      + 'precedence (ew.cma requires entitlement, ew.coworker doesn\'t), not a bug.',
+    );
+  }
   return {
     useAoChat: query === 'true' || coworkerEnabled || cma,
     key,
