@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
 import { fetchConfig, isSourceDetectEnabled } from '../../utils/utils.js';
+import { VIEWS } from '../../utils/steps.js';
 import { validateConfig, configErrorMessage } from '../../utils/validate-config.js';
 import {
   getAllActions,
@@ -120,21 +121,30 @@ class NxLocOptions extends LitElement {
     return { updates: { options, langs } };
   }
 
+  /**
+   * Handles prev/next. Back navigation always proceeds without showing errors,
+   * saving current options only when they are valid.
+   * @param {CustomEvent} e - Action event from nx-loc-actions.
+   */
   handleAction(e) {
-    if (this._configErrors?.length) {
+    const { view } = e.detail;
+    const isBack = view === VIEWS.options(this.project).prev.view;
+    const hasConfigErrors = !!this._configErrors?.length;
+
+    if (!isBack && hasConfigErrors) {
       this._message = configErrorMessage(this._configErrors);
       return;
     }
-    const { view } = e.detail;
-    const { message, updates } = this.updateOptions();
-    if (message) {
+
+    const { message, updates } = hasConfigErrors ? {} : this.updateOptions();
+    if (message && !isBack) {
       this._message = message;
       return;
     }
-    const data = { view, ...updates };
+
+    const data = { view, ...(message ? {} : updates) };
     const opts = { detail: { data }, bubbles: true, composed: true };
-    const event = new CustomEvent('action', opts);
-    this.dispatchEvent(event);
+    this.dispatchEvent(new CustomEvent('action', opts));
   }
 
   handleChangeOption({ target }) {
@@ -479,7 +489,21 @@ class NxLocOptions extends LitElement {
     `;
   }
 
+  /**
+   * Renders the actions bar alone so config errors stay visible when the options can't load.
+   * @returns {import('da-lit').TemplateResult} The actions template.
+   */
+  renderConfigErrors() {
+    return html`
+      <nx-loc-actions
+        .project=${this._project}
+        .message=${this._message}
+        @action=${this.handleAction}>
+      </nx-loc-actions>`;
+  }
+
   render() {
+    if (this._configErrors?.length) return this.renderConfigErrors();
     return html`
       ${this._siteConfig && html`
         <nx-loc-actions
