@@ -15,6 +15,7 @@ describe('nx-siteselector', () => {
 
   beforeEach(() => {
     selector = document.createElement('nx-siteselector');
+    selector.sites = [];
   });
 
   afterEach(() => selector.remove());
@@ -89,6 +90,7 @@ describe('nx-siteselector', () => {
 
   it('does not accept input before the host attaches its adapter', async () => {
     document.body.append(selector);
+    selector.sites = undefined;
     let picker = await settle();
     expect(picker.inert).to.be.true;
     expect(picker.placeholder).to.equal('Loading sites...');
@@ -101,6 +103,7 @@ describe('nx-siteselector', () => {
   it('shows the heading until a site is selected and restores it when selection is cleared', async () => {
     selector.heading = 'Your recent sites';
     document.body.append(selector);
+    selector.sites = undefined;
     let picker = await settle();
     expect(picker.placeholder).to.equal('Loading sites...');
     selector.sites = [

@@ -189,9 +189,9 @@ removing the picker before that frame cancels the pending focus.
 Add `siteselector` to a navigation fragment's site-nav list, alongside breadcrumbs
 if both are needed. Nexter lazy-loads `nx2/blocks/siteselector/siteselector.js`.
 
-The block owns presentation only. Set `sites` to `{ value: 'org/site', label: 'Site, org/site' }`
-entries and `value` to the current identifier. Optional `heading`, `size` (`s` or `m`,
-default `m`) and `error` customize content and trigger typography without replacing menu layout.
+The block owns recent history, access checks, selection and the lazy Add dialog.
+It works without an application adapter. Optional `heading`, `size` (`s` or `m`,
+default `s`) and `error` customize content and trigger typography without replacing menu layout.
 Without a custom heading, both the loaded, unselected trigger and menu section
 default to `Your recent sites`.
 With no selected `value`, the loaded trigger shows this heading rather than
@@ -202,7 +202,7 @@ routed deep links can still supply
 an explicit selection.
 
 The selector retains its outlined, pill-shaped trigger and light/dark surface.
-Its title label uses S at 14px/18px and M (the default) at 16px/20px, both bold
+Its title label uses S at 14px/18px and M at 16px/20px, both bold
 (700), with normal font style and zero letter spacing. These map to existing
 component M-bold and L-bold tokens respectively; shared component sizing is unchanged.
 These trigger styles belong to the standalone block
@@ -217,12 +217,30 @@ to its content up to 176px on mobile. The nav's site-nav container supplies comp
 padding when space is constrained, without removing the trigger's intrinsic width.
 
 On connection it emits bubbling, composed `site-selector-ready` with
-`{ selector, signal }`. Register the host listener before loading the navigation.
-The trigger stays inert until `sites` is assigned; use an empty array for loaded, empty history.
-The signal aborts on removal; use it to release listeners, pending requests and dialogs.
-Each reconnection emits a fresh signal.
+`{ selector, signal }`, then loads its controller. Register a host listener before
+loading navigation if page-specific configuration is needed. The signal aborts on
+removal and releases listeners, pending checks and the Add dialog. Each reconnection
+gets a fresh controller. Await `selector.ready` to wait for initial access checks.
 
-`site-select` carries `{ value }`; `site-add` requests the host's Add flow.
-An error displays a Try again button that emits `site-retry`.
-These events bubble across the navigation shadow root. The host owns history, permission
-checks, dialogs and routing. No DA application modules are imported by Nexter.
+History uses the browser-local `da-sites` list. Confirmed-denied choices are hidden
+without deleting history or changing the current route. Authentication, network and
+server failures remain visible with an error and retry. Previously confirmed denials
+stay hidden until a successful recheck. Add validates both site access and the
+organization listing; it never creates sites, grants access or writes configuration.
+
+Selecting or adding a site updates selection and history without navigating.
+Configure `selector.onSelect = ({ value }) => { ... }` for page-specific reactions.
+An external hash change resynchronizes the selector with the page route.
+Configure `selector.getCreateSiteHref = ({ org }) => '/your-create-route'` to offer
+creation. The link appears only after an explicit organization-config write grant.
+Without that callback, Add existing still works and no Create link is shown.
+
+`site-select` carries `{ value }`; `site-add` requests Add; `site-retry` retries errors.
+These events bubble across the navigation shadow root. No DA application modules
+or application-specific creation routes are imported by Nexter.
+
+For a presentation-only, externally controlled instance, assign `sites` before the
+first connection or in the synchronous `site-selector-ready` listener. Set entries
+to `{ value: 'org/site', label: 'Site, org/site' }` and manage `value` and the events.
+An empty array means loaded, empty choices; `undefined` means loading. Controlled
+instances do not start a controller or expose `ready`.

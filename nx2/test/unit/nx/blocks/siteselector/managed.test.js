@@ -1,0 +1,165 @@
+import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
+import { setConfig } from '../../../../../scripts/nx.js';
+import { getSiteApi } from '../../../../../blocks/siteselector/site-access.js';
+
+await setConfig({ hostnames: [] });
+await import('../../../../../blocks/siteselector/siteselector.js');
+const { source, config } = await getSiteApi();
+const tick = () => new Promise((resolve) => { setTimeout(resolve, 0); });
+const openDialog = (selector) => new Promise((resolve) => {
+  const observer = new MutationObserver(() => {
+    const dialog = document.querySelector('nx-add-site');
+    if (dialog) {
+      observer.disconnect();
+      resolve(dialog);
+    }
+  });
+  observer.observe(document.body, { childList: true });
+  selector.dispatchEvent(new CustomEvent('site-add', { bubbles: true }));
+});
+
+describe('standalone site selector behavior', () => {
+  let selector;
+  let href;
+  let history;
+  let list;
+  let permission;
+
+  beforeEach(() => {
+    href = window.location.href;
+    history = localStorage.getItem('da-sites');
+    window.history.replaceState(null, '', window.location.pathname);
+    localStorage.setItem('da-sites', '["org/site","other/site"]');
+    list = sinon.stub(source, 'list').callsFake(async (path) => ({
+      ok: true, items: path === '/org' ? [{ name: 'site' }] : [],
+    }));
+    permission = sinon.stub(config, 'get').resolves(new Response('{}', {
+      headers: { 'x-da-actions': '/=read,write' },
+    }));
+    selector = document.createElement('nx-siteselector');
+  });
+
+  afterEach(() => {
+    selector.remove();
+    window.history.replaceState(null, '', href);
+    if (history === null) localStorage.removeItem('da-sites');
+    else localStorage.setItem('da-sites', history);
+    sinon.restore();
+  });
+
+  it('loads history and checks access without any consumer adapter', async () => {
+    expect(customElements.get('nx-add-site')).to.be.undefined;
+    document.body.append(selector);
+    await selector.ready;
+    await selector.updateComplete;
+    expect(selector.sites.map(({ value }) => value)).to.deep.equal(['org/site', 'other/site']);
+    expect(selector.value).to.equal('');
+    expect(selector.size).to.equal('s');
+    expect(list.calledTwice).to.be.true;
+    const picker = selector.shadowRoot.querySelector('nx-picker');
+    expect(picker.placeholder).to.equal('Your recent sites');
+    expect(picker.items[0].section).to.equal('Your recent sites');
+    expect(customElements.get('nx-add-site')).to.be.undefined;
+  });
+
+  it('owns selection and persistence while the consumer owns page reactions', async () => {
+    const onSelect = sinon.spy();
+    selector.onSelect = onSelect;
+    document.body.append(selector);
+    await selector.ready;
+    const currentHref = window.location.href;
+    selector.dispatchEvent(new CustomEvent('site-select', { detail: { value: 'other/site' } }));
+    await tick();
+    expect(onSelect.calledOnceWithExactly({ value: 'other/site' })).to.be.true;
+    expect(selector.value).to.equal('other/site');
+    expect(JSON.parse(localStorage.getItem('da-sites'))[0]).to.equal('other/site');
+    expect(window.location.href).to.equal(currentHref);
+    selector.dispatchEvent(new CustomEvent('site-select', { detail: { value: 'unknown/site' } }));
+    expect(onSelect.calledOnce).to.be.true;
+    expect(selector.error).to.include('no longer available');
+  });
+
+  it('lazily adds a verified site without requiring consumer routing or server writes', async () => {
+    localStorage.setItem('da-sites', '[]');
+    const saveSource = sinon.spy(source, 'save');
+    const saveConfig = sinon.spy(config, 'save');
+    document.body.append(selector);
+    await selector.ready;
+    const currentHref = window.location.href;
+    const dialog = await openDialog(selector);
+    await dialog.updateComplete;
+    dialog.shadowRoot.querySelector('input').value = 'https://main--site--org.aem.live';
+    await dialog.submitForm({ preventDefault() {} });
+    await tick();
+    expect(dialog.isConnected).to.be.false;
+    expect(selector.value).to.equal('org/site');
+    expect(JSON.parse(localStorage.getItem('da-sites'))).to.deep.equal(['org/site']);
+    expect(window.location.href).to.equal(currentHref);
+    expect(permission.called).to.be.false;
+    expect(saveSource.called || saveConfig.called).to.be.false;
+  });
+
+  it('uses only the host-provided Create destination after checking admin access', async () => {
+    window.history.replaceState(null, '', '#/org/site');
+    selector.getCreateSiteHref = ({ org }) => `/custom-create?org=${org}`;
+    document.body.append(selector);
+    await selector.ready;
+    const dialog = await openDialog(selector);
+    await dialog.loadCreationPermission();
+    await dialog.updateComplete;
+    expect(dialog.shadowRoot.querySelector('.site-creation a').getAttribute('href'))
+      .to.equal('/custom-create?org=org');
+    expect(permission.calledWith({ org: 'org' })).to.be.true;
+  });
+
+  it('reconnects its controller and releases the previous lifecycle', async () => {
+    document.body.append(selector);
+    await selector.ready;
+    const previous = selector._connection.signal;
+    selector.remove();
+    expect(previous.aborted).to.be.true;
+    list.resetHistory();
+    document.body.append(selector);
+    await selector.ready;
+    expect(selector._connection.signal.aborted).to.be.false;
+    expect(list.calledTwice).to.be.true;
+    selector.dispatchEvent(new CustomEvent('site-select', { detail: { value: 'org/site' } }));
+    await tick();
+    expect(selector.value).to.equal('org/site');
+  });
+
+  it('keeps explicitly supplied data under consumer control', async () => {
+    selector.sites = [{ value: 'custom/site', label: 'Custom site' }];
+    document.body.append(selector);
+    await selector.updateComplete;
+    expect(selector.ready).to.be.undefined;
+    expect(list.called).to.be.false;
+    expect(selector.sites).to.deep.equal([{ value: 'custom/site', label: 'Custom site' }]);
+  });
+
+  it('cancels initialization when removed before the controller loads', async () => {
+    document.body.append(selector);
+    const { ready } = selector;
+    selector.remove();
+    await ready;
+    expect(list.called).to.be.false;
+    expect(selector.error).to.be.undefined;
+    expect(selector._adapter).to.be.undefined;
+  });
+
+  it('filters confirmed denials and restores access on retry without deleting history', async () => {
+    const saved = localStorage.getItem('da-sites');
+    list.callsFake(async (path) => ({ ok: path !== '/org/site', items: [] }));
+    sinon.stub(source, 'getMetadata').resolves(new Response(null, { status: 403 }));
+    document.body.append(selector);
+    await selector.ready;
+    expect(selector.sites.map(({ value }) => value)).to.deep.equal(['other/site']);
+    expect(localStorage.getItem('da-sites')).to.equal(saved);
+    list.resolves({ ok: true, items: [] });
+    selector.dispatchEvent(new CustomEvent('site-retry'));
+    await tick();
+    expect(selector.sites.map(({ value }) => value)).to.deep.equal(['org/site', 'other/site']);
+    expect(localStorage.getItem('da-sites')).to.equal(saved);
+  });
+});
