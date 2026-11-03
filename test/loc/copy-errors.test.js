@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { createCopy } from '../../nx/public/loc/index.js';
+import { createCopy } from '../../nx/public/loc/copy.js';
 
 const ORIGIN = 'https://admin.da.live';
 const SOURCE = '/org/site/de/de/page.html';

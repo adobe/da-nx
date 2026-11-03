@@ -1,9 +1,8 @@
 import sinon from 'sinon';
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
-import {
-  regionalDiff, normalizeLinks, removeLocTags, getDiffHash,
-} from '../../nx/public/loc/index.js';
+import { regionalDiff, normalizeLinks, removeLocTags } from '../../nx/public/loc/regional-diff.js';
+import { getDiffHash } from '../../nx/public/loc/index.js';
 
 function cleanHtmlWhitespace(html) {
   return html.replace(/>\s+</g, '><').trim().replace(/\s+/g, ' ').trim();

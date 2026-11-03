@@ -1,7 +1,7 @@
 import { AEM_ORIGIN, DA_ORIGIN } from '../../../../nx2/public/utils/constants.js';
 import { daFetch, source } from '../../../../nx2/utils/api.js';
 import { loadIms } from '../../../../nx2/utils/ims.js';
-import { createCopy } from '../../../public/loc/index.js';
+import { createCopy } from '../../../public/loc/copy.js';
 import { Queue } from '../../../../nx2/public/utils/tree.js';
 
 const SNAPSHOT_SCHEDULER_URL = 'https://helix-snapshot-scheduler-prod.adobeaem.workers.dev';

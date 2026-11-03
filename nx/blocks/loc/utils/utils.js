@@ -1,6 +1,6 @@
 import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
 import { daFetch, loadIms, source } from '../../../../nx2/utils/api.js';
-import { createCopy } from '../../../public/loc/index.js';
+import { createCopy } from '../../../public/loc/copy.js';
 
 export const copy = createCopy({
   fetch: (url, opts) => daFetch({ url, opts }),

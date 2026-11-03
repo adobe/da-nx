@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { createCopy, createConfigLoader } from '../../nx/public/loc/index.js';
+import { createCopy, createConfigLoader } from '../../nx/public/loc/copy.js';
 import * as loc from '../../nx/public/loc/index.js';
 
 const ORIGIN = 'https://admin.da.live';
@@ -209,13 +209,21 @@ describe('Shared loc configuration loader', () => {
     }
     expect(fetch.callCount).to.equal(1);
   });
+
+  it('treats an unreadable org config as no config', async () => {
+    const fetch = sinon.stub().callsFake(async (href) => (
+      new Response('', { status: href.includes('/site/') ? 404 : 403 })
+    ));
+    const loadConfig = createConfigLoader({ fetch, daOrigin: ORIGIN });
+    expect(await loadConfig({ org: 'org', site: 'site' })).to.deep.equal({ config: { data: [] } });
+    expect(fetch.callCount).to.equal(2);
+  });
 });
 
 describe('Public localization core', () => {
-  it('exports copy, diff, tag, and hash APIs without application context', async () => {
+  it('exports only operation and hash APIs', async () => {
     expect(Object.keys(loc).sort()).to.deep.equal([
-      'ACCEPTED_KEY', 'HASH_LENGTH', 'REJECTED_KEY', 'createConfigLoader', 'createCopy',
-      'getDiffHash', 'mergeCopy', 'normalizeLinks', 'overwriteCopy', 'regionalDiff', 'removeLocTags',
+      'ACCEPTED_KEY', 'HASH_LENGTH', 'REJECTED_KEY', 'getDiffHash', 'mergeCopy', 'overwriteCopy',
     ].sort());
     expect(loc.ACCEPTED_KEY).to.equal('acceptedHashes');
     expect(loc.REJECTED_KEY).to.equal('rejectedHashes');
@@ -240,8 +248,9 @@ describe('Public localization core', () => {
     ))).to.equal(true);
   });
 
-  it('reports the unreadable org config after a missing site config without writing', async () => {
-    const fetch = sinon.stub().callsFake(async (href) => {
+  it('merges without config when the site config is missing and the org config is unreadable', async () => {
+    const fetch = sinon.stub().callsFake(async (href, opts) => {
+      if (opts?.method === 'POST') return new Response('{}');
       if (href === `${ORIGIN}/source/target-org/target-site/.da/translate.json`) {
         return new Response('', { status: 404 });
       }
@@ -253,18 +262,15 @@ describe('Public localization core', () => {
     const result = await loc.mergeCopy({
       fetch, daOrigin: ORIGIN, urlSource: SOURCE, urlTarget: DESTINATION, msg: 'MSM Merge',
     });
-    expect(result).to.deep.equal({
-      ok: false,
-      status: 403,
-      error: 'Reading translation config /target-org/.da/translate.json failed (403)',
-    });
+    expect(result).to.deep.equal({ ok: true, status: 200 });
     expect(fetch.args.map(([href]) => href)).to.deep.equal([
       `${ORIGIN}/source${DESTINATION}`,
       `${ORIGIN}/source${SOURCE}`,
       `${ORIGIN}/source/target-org/target-site/.da/translate.json`,
       `${ORIGIN}/source/target-org/.da/translate.json`,
+      `${ORIGIN}/source${DESTINATION}`,
+      `${ORIGIN}/versionsource${DESTINATION}`,
     ]);
-    expect(fetch.args.every(([, opts]) => !opts?.method)).to.equal(true);
   });
 
   it('exposes overwrite without loading merge configuration and clears review hashes', async () => {

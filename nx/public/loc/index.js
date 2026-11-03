@@ -1,7 +1,5 @@
 import { createCopy } from './copy.js';
 
-export { createCopy, createConfigLoader } from './copy.js';
-export { regionalDiff, normalizeLinks, removeLocTags } from './regional-diff.js';
 export {
   getDiffHash, HASH_LENGTH, ACCEPTED_KEY, REJECTED_KEY,
 } from './hashes.js';
