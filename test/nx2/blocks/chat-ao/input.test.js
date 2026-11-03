@@ -93,7 +93,7 @@ describe('standalone AO input', () => {
   });
 
   it('submits a slash-selected skill through the same payload boundary', async () => {
-    chatInput.getSkills = () => ['writeBlog'];
+    chatInput.getSkills = () => [{ name: 'writeBlog' }];
     chatInput.addItem({ id: 'context', label: 'Context' });
     await chatInput.setPrompt('/w');
     input.dispatchEvent(new Event('input'));
@@ -110,7 +110,7 @@ describe('standalone AO input', () => {
   });
 
   it('lets the slash menu consume navigation, Escape, and Enter before form submission', async () => {
-    chatInput.getSkills = () => ['writeBlog'];
+    chatInput.getSkills = () => [{ name: 'writeBlog' }];
     await chatInput.setPrompt('/');
     input.dispatchEvent(new Event('input'));
     const menu = chatInput.shadowRoot.querySelector('.slash-menu');
