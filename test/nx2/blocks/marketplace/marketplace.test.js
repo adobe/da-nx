@@ -27,13 +27,6 @@ async function waitForLoad(el) {
   await el.updateComplete;
 }
 
-async function waitFor(check) {
-  for (let i = 0; i < 50 && !check(); i += 1) {
-    // eslint-disable-next-line no-await-in-loop
-    await new Promise((resolve) => { setTimeout(resolve, 10); });
-  }
-}
-
 describe('nx-marketplace', () => {
   let div;
   let restoreFetch;
@@ -86,38 +79,6 @@ describe('nx-marketplace', () => {
     const cards = el.shadowRoot.querySelectorAll('.card');
     expect(cards.length).to.equal(2);
     expect(cards[0].querySelector('h3').textContent).to.equal('DA Permissions');
-  });
-
-  it('shows the Adobe logo as icon only for Adobe-owned items without an icon', async () => {
-    restoreFetch = installFetch(() => jsonResponse({
-      data: [
-        {
-          Title: 'Adobe Item', Description: 'd', 'Doc Url': 'https://example.com/a', Owner: 'Adobe',
-        },
-        {
-          Title: 'Partner Item', Description: 'd', 'Doc Url': 'https://example.com/b', Owner: 'Acme',
-        },
-        {
-          Title: 'Adobe With Icon', 'Doc Url': 'https://example.com/c', Owner: 'Adobe', Logo: 'https://example.com/i.png',
-        },
-      ],
-    }));
-    div = document.createElement('div');
-    document.body.append(div);
-    init(div);
-
-    const el = div.firstElementChild;
-    await waitForLoad(el);
-    await waitFor(() => el.shadowRoot.querySelector('.adobe-logo svg'));
-
-    const cards = [...el.shadowRoot.querySelectorAll('.card')];
-    const logo = cards[0].querySelector('.card-icon.adobe-logo');
-    expect(logo.getAttribute('aria-label')).to.equal('Adobe');
-    expect(logo.querySelectorAll('svg').length).to.equal(1);
-    expect(cards[1].querySelector('.adobe-logo') === null).to.equal(true);
-    expect(cards[1].querySelector('.card-icon.placeholder') !== null).to.equal(true);
-    expect(cards[2].querySelector('.adobe-logo') === null).to.equal(true);
-    expect(cards[2].querySelector('img.card-icon').src).to.equal('https://example.com/i.png');
   });
 
   it('renders icon or placeholder', async () => {
@@ -287,7 +248,7 @@ describe('nx-marketplace', () => {
     const control = el.shadowRoot.querySelector('nx-segmented-btn');
     expect(control.getAttribute('size')).to.equal('m');
     expect(control.items.map(({ label }) => label))
-      .to.deep.equal(['All', 'Core capabilities', 'Extensions']);
+      .to.deep.equal(['All', 'Core', 'Extension', 'Other']);
     expect(control.value).to.equal('all');
     expect(titles()).to.deep.equal(['Core App', 'Ext App', 'Other App']);
 
@@ -300,7 +261,7 @@ describe('nx-marketplace', () => {
     expect(titles()).to.deep.equal(['Ext App']);
   });
 
-  it('hides the filter unless both core and extension items are listed', async () => {
+  it('hides the filter when the sheet has fewer than two categories', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         { Title: 'Ext One', Category: 'Extension', 'Doc Url': 'https://example.com/a' },

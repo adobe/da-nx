@@ -2,14 +2,11 @@ import { LitElement, html, nothing } from 'da-lit';
 
 import { getConfig } from '../../scripts/nx.js';
 import { loadStyle } from '../../utils/utils.js';
-import { loadHrefSvg } from '../../utils/svg.js';
 import {
-  CATEGORY_FILTERS,
   fetchMarketplace,
   filterByCategory,
   getActions,
-  hasMixedCategories,
-  isAdobeOwned,
+  getCategoryFilters,
 } from './marketplace-utils.js';
 
 const { codeBase } = getConfig();
@@ -19,14 +16,13 @@ const [buttonStyle, style] = await Promise.all([
   loadStyle(import.meta.url),
 ]);
 
-const ADOBE_LOGO_HREF = new URL('../../../nx/img/logos/aec.svg', import.meta.url).href;
 const MORE_ICON_HREF = `${codeBase}/img/icons/s2-icon-more-20-n.svg#icon`;
 
 class NxMarketplace extends LitElement {
   static properties = {
     _items: { state: true },
     _error: { state: true },
-    _adobeLogo: { state: true },
+    _filters: { state: true },
     _filter: { state: true },
   };
 
@@ -46,21 +42,15 @@ class NxMarketplace extends LitElement {
       this._error = result.error;
       return;
     }
-    // Load the filter before the first render so it doesn't push the cards down once it appears.
-    if (hasMixedCategories(result.items)) {
+    // A filter needs at least two categories besides "All".
+    const filters = getCategoryFilters(result.items);
+    if (filters.length > 2) {
+      // Load the filter before the first render so it doesn't push the cards down once it appears.
       await import('../shared/segmented-btn/segmented.js').catch(() => {});
+      this._filters = filters;
     }
     this._items = result.items;
-    this._loadCardExtras(result.items);
-  }
-
-  _loadCardExtras(items) {
-    if (items.length) import('../shared/menu/menu.js');
-    if (items.some(isAdobeOwned)) {
-      loadHrefSvg(ADOBE_LOGO_HREF)
-        .then((svg) => { this._adobeLogo = svg; })
-        .catch(() => {});
-    }
+    if (result.items.length) import('../shared/menu/menu.js');
   }
 
   _onIconError(iconHref) {
@@ -73,8 +63,7 @@ class NxMarketplace extends LitElement {
     if (action) window.open(action.href, '_blank', 'noopener,noreferrer');
   }
 
-  _renderIcon(item) {
-    const { iconHref } = item;
+  _renderIcon({ iconHref }) {
     if (iconHref && !this._failedIconHrefs.has(iconHref)) {
       return html`<img
         class="card-icon"
@@ -83,11 +72,6 @@ class NxMarketplace extends LitElement {
         loading="lazy"
         @error=${() => this._onIconError(iconHref)}
       />`;
-    }
-    if (this._adobeLogo && isAdobeOwned(item)) {
-      return html`<span class="card-icon adobe-logo" role="img" aria-label="Adobe" title="Adobe">
-        ${this._adobeLogo.cloneNode(true)}
-      </span>`;
     }
     return html`<span class="card-icon placeholder" aria-hidden="true"></span>`;
   }
@@ -141,16 +125,15 @@ class NxMarketplace extends LitElement {
 
     if (!this._items.length) return html`<p class="empty">No extensions available.</p>`;
 
-    const showFilter = hasMixedCategories(this._items);
-    const visible = showFilter
+    const visible = this._filters
       ? filterByCategory({ items: this._items, filter: this._filter })
       : this._items;
 
     return html`
-      ${showFilter ? html`<nx-segmented-btn
+      ${this._filters ? html`<nx-segmented-btn
         size="m"
         label="Filter extensions"
-        .items=${CATEGORY_FILTERS}
+        .items=${this._filters}
         .value=${this._filter}
         @change=${(e) => { this._filter = e.detail.value; }}
       ></nx-segmented-btn>` : nothing}

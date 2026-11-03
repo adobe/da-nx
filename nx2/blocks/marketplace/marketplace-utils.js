@@ -21,36 +21,28 @@ export function normalizeItem({ row, origin }) {
   if (!title || (!docHref && !tryHref)) return null;
 
   const description = (row.Description ?? '').trim();
-  const owner = (row.Owner ?? '').trim();
   const category = (row.Category ?? '').trim();
   const iconHref = toSafeHref({ value: row.Logo, origin });
 
   return {
-    title, description, docHref, tryHref, owner, category, iconHref,
+    title, description, docHref, tryHref, category, iconHref,
   };
 }
 
-export function isAdobeOwned({ owner }) {
-  return owner?.toLowerCase() === 'adobe';
+const ALL_FILTER = { value: 'all', label: 'All' };
+
+export function getCategoryFilters(items = []) {
+  const categories = items.reduce((acc, { category }) => {
+    const value = category?.toLowerCase();
+    if (value && value !== ALL_FILTER.value && !acc.has(value)) acc.set(value, category);
+    return acc;
+  }, new Map());
+  return [ALL_FILTER, ...[...categories].map(([value, label]) => ({ value, label }))];
 }
 
-export const CATEGORY_FILTERS = [
-  { value: 'all', label: 'All' },
-  { value: 'core', label: 'Core capabilities' },
-  { value: 'extension', label: 'Extensions' },
-];
-
-const isCategory = (item, category) => item.category?.toLowerCase() === category;
-
-// The category filter is only useful when both core and extension items are listed.
-export function hasMixedCategories(items = []) {
-  return items.some((item) => isCategory(item, 'core'))
-    && items.some((item) => isCategory(item, 'extension'));
-}
-
-export function filterByCategory({ items, filter = 'all' }) {
-  if (filter === 'all') return items;
-  return items.filter((item) => isCategory(item, filter));
+export function filterByCategory({ items, filter = ALL_FILTER.value }) {
+  if (filter === ALL_FILTER.value) return items;
+  return items.filter(({ category }) => category?.toLowerCase() === filter);
 }
 
 export function getActions({ docHref, tryHref }) {

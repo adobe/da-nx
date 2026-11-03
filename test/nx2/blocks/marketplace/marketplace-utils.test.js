@@ -3,9 +3,8 @@ import {
   MARKETPLACE_PATH,
   normalizeItem,
   fetchMarketplace,
-  CATEGORY_FILTERS,
   filterByCategory,
-  hasMixedCategories,
+  getCategoryFilters,
   getActions,
 } from '../../../../nx2/blocks/marketplace/marketplace-utils.js';
 
@@ -33,7 +32,6 @@ describe('normalizeItem', () => {
       description: 'Manage msm',
       docHref: 'https://github.com/adobe-rnd/aem-apps/tree/main/tools/apps/msm',
       tryHref: 'https://da.live/app/x/msm',
-      owner: 'Adobe',
       category: 'Core',
       iconHref: 'https://example.com/t.png',
     });
@@ -97,11 +95,10 @@ describe('normalizeItem', () => {
     expect(normalizeItem({ row, origin }).iconHref).to.equal(undefined);
   });
 
-  it('handles missing description and owner', () => {
+  it('handles missing description and category', () => {
     const row = { Title: 'MSM', 'Doc Url': 'https://da.live/a' };
     const result = normalizeItem({ row, origin });
     expect(result.description).to.equal('');
-    expect(result.owner).to.equal('');
     expect(result.category).to.equal('');
   });
 
@@ -135,14 +132,6 @@ describe('filterByCategory', () => {
   ];
   const titles = (list) => list.map(({ title }) => title);
 
-  it('exposes All, Core capabilities and Extensions options', () => {
-    expect(CATEGORY_FILTERS).to.deep.equal([
-      { value: 'all', label: 'All' },
-      { value: 'core', label: 'Core capabilities' },
-      { value: 'extension', label: 'Extensions' },
-    ]);
-  });
-
   it('returns all items for "all" or no filter', () => {
     expect(titles(filterByCategory({ items, filter: 'all' }))).to.deep.equal(['A', 'B', 'C', 'D']);
     expect(titles(filterByCategory({ items }))).to.deep.equal(['A', 'B', 'C', 'D']);
@@ -157,17 +146,27 @@ describe('filterByCategory', () => {
   });
 });
 
-describe('hasMixedCategories', () => {
-  it('is true only when both core and extension items exist', () => {
-    expect(hasMixedCategories([{ category: 'Core' }, { category: 'extension' }])).to.equal(true);
+describe('getCategoryFilters', () => {
+  it('starts with All, then each sheet category in first-seen order', () => {
+    const items = [
+      { category: 'Extension' }, { category: 'Core' }, { category: 'extension' }, { category: 'Beta' },
+    ];
+    expect(getCategoryFilters(items)).to.deep.equal([
+      { value: 'all', label: 'All' },
+      { value: 'extension', label: 'Extension' },
+      { value: 'core', label: 'Core' },
+      { value: 'beta', label: 'Beta' },
+    ]);
   });
 
-  it('is false with a single category, other categories, or no items', () => {
-    expect(hasMixedCategories([{ category: 'Core' }, { category: 'CORE' }])).to.equal(false);
-    expect(hasMixedCategories([{ category: 'Extension' }, { category: '' }])).to.equal(false);
-    expect(hasMixedCategories([{ category: 'Core' }, { category: 'Other' }])).to.equal(false);
-    expect(hasMixedCategories([])).to.equal(false);
-    expect(hasMixedCategories()).to.equal(false);
+  it('skips empty categories and one named "all"', () => {
+    const items = [{ category: '' }, { category: 'All' }, {}, { category: 'Core' }];
+    expect(getCategoryFilters(items).map(({ value }) => value)).to.deep.equal(['all', 'core']);
+  });
+
+  it('returns only All without items', () => {
+    expect(getCategoryFilters([])).to.deep.equal([{ value: 'all', label: 'All' }]);
+    expect(getCategoryFilters()).to.deep.equal([{ value: 'all', label: 'All' }]);
   });
 });
 
