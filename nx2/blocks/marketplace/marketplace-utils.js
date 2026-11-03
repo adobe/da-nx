@@ -34,6 +34,11 @@ export function isAdobeOwned({ owner }) {
   return owner?.toLowerCase() === 'adobe';
 }
 
+// The owner filter is only useful when both Adobe and non-Adobe extensions are listed.
+export function hasMixedOwners(items = []) {
+  return items.some(isAdobeOwned) && items.some((item) => !isAdobeOwned(item));
+}
+
 export const OWNER_FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'adobe', label: 'Created by Adobe' },

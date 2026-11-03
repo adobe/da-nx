@@ -4,6 +4,7 @@ import {
   normalizeItem,
   fetchMarketplace,
   filterByOwner,
+  hasMixedOwners,
   OWNER_FILTERS,
   getActions,
 } from '../../../../nx2/blocks/marketplace/marketplace-utils.js';
@@ -150,6 +151,20 @@ describe('filterByOwner', () => {
 
   it('returns everything not owned by Adobe, including items without owner', () => {
     expect(titles(filterByOwner({ items, filter: 'others' }))).to.deep.equal(['B', 'D']);
+  });
+});
+
+describe('hasMixedOwners', () => {
+  it('is true only when both Adobe and non-Adobe items exist', () => {
+    expect(hasMixedOwners([{ owner: 'Adobe' }, { owner: 'Acme' }])).to.equal(true);
+    expect(hasMixedOwners([{ owner: 'adobe' }, { owner: '' }])).to.equal(true);
+  });
+
+  it('is false for a single owner group or no items', () => {
+    expect(hasMixedOwners([{ owner: 'Adobe' }, { owner: 'ADOBE' }])).to.equal(false);
+    expect(hasMixedOwners([{ owner: 'Acme' }, { owner: '' }])).to.equal(false);
+    expect(hasMixedOwners([])).to.equal(false);
+    expect(hasMixedOwners()).to.equal(false);
   });
 });
 

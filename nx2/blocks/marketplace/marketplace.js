@@ -8,6 +8,7 @@ import {
   fetchMarketplace,
   filterByOwner,
   getActions,
+  hasMixedOwners,
   isAdobeOwned,
 } from './marketplace-utils.js';
 
@@ -35,8 +36,6 @@ class NxMarketplace extends LitElement {
     this._failedIconHrefs ??= new Set();
     this._filter ??= 'all';
     if (this._items === undefined && !this._error) {
-      // Fetch the filter control in parallel with the data; it renders with the first cards.
-      import('../shared/segmented-btn/segmented.js');
       this._load().catch(() => { this._error = 'Could not load marketplace.'; });
     }
   }
@@ -46,6 +45,10 @@ class NxMarketplace extends LitElement {
     if (result.error) {
       this._error = result.error;
       return;
+    }
+    // Load the filter before the first render so it doesn't push the cards down once it appears.
+    if (hasMixedOwners(result.items)) {
+      await import('../shared/segmented-btn/segmented.js').catch(() => {});
     }
     this._items = result.items;
     this._loadCardExtras(result.items);
@@ -138,19 +141,20 @@ class NxMarketplace extends LitElement {
 
     if (!this._items.length) return html`<p class="empty">No extensions available.</p>`;
 
-    const visible = filterByOwner({ items: this._items, filter: this._filter });
+    const showFilter = hasMixedOwners(this._items);
+    const visible = showFilter
+      ? filterByOwner({ items: this._items, filter: this._filter })
+      : this._items;
 
     return html`
-      <nx-segmented-btn
+      ${showFilter ? html`<nx-segmented-btn
         size="m"
         label="Filter extensions"
         .items=${OWNER_FILTERS}
         .value=${this._filter}
         @change=${(e) => { this._filter = e.detail.value; }}
-      ></nx-segmented-btn>
-      ${visible.length
-    ? html`<ul class="grid" role="list">${visible.map((item) => this._renderCard(item))}</ul>`
-    : html`<p class="empty">No extensions match this filter.</p>`}
+      ></nx-segmented-btn>` : nothing}
+      <ul class="grid" role="list">${visible.map((item) => this._renderCard(item))}</ul>
     `;
   }
 }
