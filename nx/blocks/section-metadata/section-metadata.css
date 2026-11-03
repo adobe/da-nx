@@ -133,3 +133,12 @@
     grid-template-columns: repeat(4, 1fr);
   }
 }
+
+/*
+ * Fit content: in the app frame `main` is a grid whose rows stretch to fill the
+ * viewport, padding short pages with empty space under every section. A section
+ * with `style: fit content` makes all sections on the page size to their content.
+ */
+main:has(> .section.fit-content) {
+  align-content: start;
+}
