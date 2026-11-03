@@ -32,7 +32,7 @@ One error shows as a single line. Several show a heading ("Translate config has 
 - Each env listed in `all.env` has at least one `translation.service.{env}.*` value. `name`, `all` and `key` are not environments.
 - Credential keys (below) are also required, because the translation service fails at run time without them.
 
-Each connector exports two lists from its `index.js`: `requiredKeys` (client-side values) and `requiredCredentialKeys` (used by the server-side service). The validator loads the connector on demand and reads them. An entry can be an array of aliases; any one value satisfies it.
+Each connector exports two lists from its `index.js`: `requiredKeys` (client-side values) and `requiredCredentialKeys` (used by the server-side service). The validator loads the connector on demand and reads them.
 
 | Service | `requiredKeys` | `requiredCredentialKeys` |
 | --- | --- | --- |

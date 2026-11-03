@@ -92,8 +92,8 @@ export async function validateServiceValues({
   if (!Array.isArray(mod?.requiredKeys)) {
     return [`Unknown translation service "${name}". Check "translation.service.name" in the translate config.`];
   }
-  const missing = (keys) => keys.filter((key) => ![key].flat().some((k) => hasValue(values[k])));
-  const label = (key) => [key].flat().map((k) => `translation.service.${env}.${k}`).join('" or "');
+  const missing = (keys) => keys.filter((key) => !hasValue(values[key]));
+  const label = (key) => `translation.service.${env}.${key}`;
   const credentialKeys = credentials && Array.isArray(mod.requiredCredentialKeys)
     ? mod.requiredCredentialKeys : [];
   const absent = [...missing(mod.requiredKeys), ...missing(credentialKeys)];
