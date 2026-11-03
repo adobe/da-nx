@@ -24,11 +24,14 @@ export function createConfigLoader({ fetch, daOrigin }) {
     const key = `${org}/${site}`;
     if (!cache.has(key)) {
       const promise = (async () => {
-        const paths = [`/${org}/${site}/.da/translate.json`, `/${org}/.da/translate.json`];
-        for (const path of paths) {
+        const paths = [
+          { path: `/${org}/${site}/.da/translate.json`, missing: [404] },
+          { path: `/${org}/.da/translate.json`, missing: [403, 404] },
+        ];
+        for (const { path, missing } of paths) {
           const response = await fetch(`${daOrigin}/source${path}`);
           if (response.ok) return response.json();
-          if (response.status !== 404) throw responseError(response, `Reading translation config ${path}`);
+          if (!missing.includes(response.status)) throw responseError(response, `Reading translation config ${path}`);
         }
         return { config: { data: [] } };
       })().catch((error) => {
