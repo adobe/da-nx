@@ -25,11 +25,20 @@ export async function isCmaEntitled() {
   try {
     const { projectedProductContext } = await loadIms();
     if (!Array.isArray(projectedProductContext)) return false;
-    return projectedProductContext.some((entry) => (
-      entry?.prodCtx
-      && typeof entry.prodCtx.serviceCode === 'string'
-      && REQUIRED_SERVICE_CODES.includes(entry.prodCtx.serviceCode)
-    ));
+    // Must check entitlement on the SAME entry that will actually be sent as
+    // `x-tenant-id` (see nx2/blocks/chat-ao/utils/uploads.js#getOrgId: the
+    // first profile entry carrying an owningEntity). Checking *any* entry in
+    // the array (the prior behavior) could return true off a different,
+    // unselected org's service code while the selected/sent tenant has none —
+    // the bridge's AUTH check requires prodCtx.owningEntity === tenantId for
+    // whichever org it actually receives, so a mismatched selection here
+    // passes the UI pre-check but still gets rejected server-side.
+    const selected = projectedProductContext.find((entry) => entry?.prodCtx?.owningEntity);
+    return !!(
+      selected?.prodCtx
+      && typeof selected.prodCtx.serviceCode === 'string'
+      && REQUIRED_SERVICE_CODES.includes(selected.prodCtx.serviceCode)
+    );
   } catch {
     return false;
   }

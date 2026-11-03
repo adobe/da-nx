@@ -26,11 +26,32 @@ describe('isCmaEntitled', () => {
     });
   });
 
-  it('returns true when at least one of several entries qualifies', async () => {
+  it('returns true when the SELECTED tenant (first entry with an owningEntity) qualifies', async () => {
+    setMockIms({
+      projectedProductContext: [
+        { prodCtx: { owningEntity: 'org-1', serviceCode: REQUIRED_SERVICE_CODES[0] } },
+        { prodCtx: { owningEntity: 'org-2', serviceCode: 'irrelevant' } },
+      ],
+    });
+    expect(await isCmaEntitled()).to.be.true;
+  });
+
+  it('returns false when a LATER entry qualifies but the selected (first owningEntity) one does not '
+    + '— getOrgId would send the unentitled org as x-tenant-id, which the bridge rejects', async () => {
     setMockIms({
       projectedProductContext: [
         { prodCtx: { owningEntity: 'org-1', serviceCode: 'irrelevant' } },
         { prodCtx: { owningEntity: 'org-2', serviceCode: REQUIRED_SERVICE_CODES[0] } },
+      ],
+    });
+    expect(await isCmaEntitled()).to.be.false;
+  });
+
+  it('skips entries with no owningEntity when selecting the tenant to check, matching getOrgId', async () => {
+    setMockIms({
+      projectedProductContext: [
+        { prodCtx: { serviceCode: REQUIRED_SERVICE_CODES[0] } },
+        { prodCtx: { owningEntity: 'org-2', serviceCode: REQUIRED_SERVICE_CODES[1] } },
       ],
     });
     expect(await isCmaEntitled()).to.be.true;
