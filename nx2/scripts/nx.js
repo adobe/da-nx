@@ -12,7 +12,7 @@
 
 const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
 
-const NX_BLOCKS = new Set(['importer', 'exp', 'site-apps', 'hero', 'card', 'section-metadata', 'schema-editor', 'media-library', 'form', 'secure-org', 'bulk', 'tree', 'permissions', 'snapshot-admin', 'loc']);
+const NX_BLOCKS = new Set(['importer', 'exp', 'site-apps', 'hero', 'card', 'section-metadata', 'schema-editor', 'media-library', 'form', 'shell', 'secure-org', 'bulk', 'tree', 'permissions', 'snapshot-admin', 'loc']);
 
 const EW_ORIGINS = {
   dev: 'http://localhost:3001',
@@ -111,7 +111,7 @@ export async function loadBlock(block) {
   const isNx = name.startsWith('nx-');
   if (isNx) {
     name = name.replace('nx-', '');
-    path = NX_BLOCKS.has(name) ? '/nx/blocks' : `${nxBase}/blocks`;
+    path = NX_BLOCKS.has(name) ? `${nxBase.replace(/\/nx2$/, '/nx')}/blocks` : `${nxBase}/blocks`;
   } else {
     const prefix = name.split('-')[0];
     const provider = providers[prefix];
