@@ -9,6 +9,9 @@
 
 nx-segmented-btn {
   align-self: flex-start;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 .grid {

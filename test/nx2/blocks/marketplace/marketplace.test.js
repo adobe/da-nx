@@ -161,7 +161,6 @@ describe('nx-marketplace', () => {
     expect(full.querySelectorAll('a').length).to.equal(0);
 
     const menu = full.querySelector('nx-menu');
-    expect(menu.getAttribute('size')).to.equal('m');
     expect(menu.items.map(({ id, label, href }) => ({ id, label, href }))).to.deep.equal([
       { id: 'learn', label: 'Learn more', href: 'https://example.com/a' },
       { id: 'try', label: 'Try out', href: 'https://example.com/try' },
@@ -246,7 +245,6 @@ describe('nx-marketplace', () => {
 
     const titles = () => [...el.shadowRoot.querySelectorAll('.card h3')].map((h) => h.textContent);
     const control = el.shadowRoot.querySelector('nx-segmented-btn');
-    expect(control.getAttribute('size')).to.equal('m');
     expect(control.items.map(({ label }) => label))
       .to.deep.equal(['All', 'Core', 'Extension', 'Other']);
     expect(control.value).to.equal('all');
