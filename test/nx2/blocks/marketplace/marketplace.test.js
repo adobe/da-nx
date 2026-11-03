@@ -268,12 +268,12 @@ describe('nx-marketplace', () => {
     expect(titles).to.deep.equal(['Core App', 'Ext App']);
   });
 
-  it('filters by owner with the segmented control', async () => {
+  it('filters by category with the segmented control', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
-        { Title: 'Adobe App', Owner: 'Adobe', 'Doc Url': 'https://example.com/a' },
-        { Title: 'Partner App', Owner: 'Acme', 'Doc Url': 'https://example.com/b' },
-        { Title: 'Unknown App', 'Doc Url': 'https://example.com/c' },
+        { Title: 'Core App', Category: 'Core', 'Doc Url': 'https://example.com/a' },
+        { Title: 'Ext App', Category: 'Extension', 'Doc Url': 'https://example.com/b' },
+        { Title: 'Other App', Category: 'Other', 'Doc Url': 'https://example.com/c' },
       ],
     }));
     div = document.createElement('div');
@@ -287,24 +287,25 @@ describe('nx-marketplace', () => {
     const control = el.shadowRoot.querySelector('nx-segmented-btn');
     expect(control.getAttribute('size')).to.equal('m');
     expect(control.items.map(({ label }) => label))
-      .to.deep.equal(['All', 'Created by Adobe', 'Created by Others']);
+      .to.deep.equal(['All', 'Core capabilities', 'Extensions']);
     expect(control.value).to.equal('all');
-    expect(titles()).to.deep.equal(['Adobe App', 'Partner App', 'Unknown App']);
+    expect(titles()).to.deep.equal(['Core App', 'Ext App', 'Other App']);
 
-    control.dispatchEvent(new CustomEvent('change', { detail: { value: 'adobe' } }));
+    control.dispatchEvent(new CustomEvent('change', { detail: { value: 'core' } }));
     await el.updateComplete;
-    expect(titles()).to.deep.equal(['Adobe App']);
+    expect(titles()).to.deep.equal(['Core App']);
 
-    control.dispatchEvent(new CustomEvent('change', { detail: { value: 'others' } }));
+    control.dispatchEvent(new CustomEvent('change', { detail: { value: 'extension' } }));
     await el.updateComplete;
-    expect(titles()).to.deep.equal(['Partner App', 'Unknown App']);
+    expect(titles()).to.deep.equal(['Ext App']);
   });
 
-  it('hides the filter unless both Adobe and other extensions are listed', async () => {
+  it('hides the filter unless both core and extension items are listed', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
-        { Title: 'Adobe One', Owner: 'Adobe', 'Doc Url': 'https://example.com/a' },
-        { Title: 'Adobe Two', Owner: 'adobe', 'Doc Url': 'https://example.com/b' },
+        { Title: 'Ext One', Category: 'Extension', 'Doc Url': 'https://example.com/a' },
+        { Title: 'Ext Two', Category: 'extension', 'Doc Url': 'https://example.com/b' },
+        { Title: 'No Category', 'Doc Url': 'https://example.com/c' },
       ],
     }));
     div = document.createElement('div');
@@ -315,26 +316,7 @@ describe('nx-marketplace', () => {
     await waitForLoad(el);
 
     expect(el.shadowRoot.querySelector('nx-segmented-btn') === null).to.equal(true);
-    const titles = [...el.shadowRoot.querySelectorAll('.card h3')].map((h) => h.textContent);
-    expect(titles).to.deep.equal(['Adobe One', 'Adobe Two']);
-  });
-
-  it('hides the filter when only non-Adobe extensions are listed', async () => {
-    restoreFetch = installFetch(() => jsonResponse({
-      data: [
-        { Title: 'Partner App', Owner: 'Acme', 'Doc Url': 'https://example.com/a' },
-        { Title: 'Unknown App', 'Doc Url': 'https://example.com/b' },
-      ],
-    }));
-    div = document.createElement('div');
-    document.body.append(div);
-    init(div);
-
-    const el = div.firstElementChild;
-    await waitForLoad(el);
-
-    expect(el.shadowRoot.querySelector('nx-segmented-btn') === null).to.equal(true);
-    expect(el.shadowRoot.querySelectorAll('.card').length).to.equal(2);
+    expect(el.shadowRoot.querySelectorAll('.card').length).to.equal(3);
   });
 
   it('shows error message', async () => {

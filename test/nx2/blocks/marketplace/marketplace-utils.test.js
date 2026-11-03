@@ -3,9 +3,9 @@ import {
   MARKETPLACE_PATH,
   normalizeItem,
   fetchMarketplace,
-  filterByOwner,
-  hasMixedOwners,
-  OWNER_FILTERS,
+  CATEGORY_FILTERS,
+  filterByCategory,
+  hasMixedCategories,
   getActions,
 } from '../../../../nx2/blocks/marketplace/marketplace-utils.js';
 
@@ -34,6 +34,7 @@ describe('normalizeItem', () => {
       docHref: 'https://github.com/adobe-rnd/aem-apps/tree/main/tools/apps/msm',
       tryHref: 'https://da.live/app/x/msm',
       owner: 'Adobe',
+      category: 'Core',
       iconHref: 'https://example.com/t.png',
     });
   });
@@ -104,6 +105,7 @@ describe('normalizeItem', () => {
     const result = normalizeItem({ row, origin });
     expect(result.description).to.equal('');
     expect(result.owner).to.equal('');
+    expect(result.category).to.equal('');
   });
 
   it('ignores the Type column', () => {
@@ -127,44 +129,48 @@ describe('getActions', () => {
   });
 });
 
-describe('filterByOwner', () => {
+describe('filterByCategory', () => {
   const items = [
-    { title: 'A', owner: 'Adobe' },
-    { title: 'B', owner: 'Acme' },
-    { title: 'C', owner: 'adobe' },
-    { title: 'D', owner: '' },
+    { title: 'A', category: 'Core' },
+    { title: 'B', category: 'Extension' },
+    { title: 'C', category: 'core' },
+    { title: 'D', category: '' },
   ];
   const titles = (list) => list.map(({ title }) => title);
 
-  it('exposes All, Created by Adobe and Created by Others options', () => {
-    expect(OWNER_FILTERS.map(({ value }) => value)).to.deep.equal(['all', 'adobe', 'others']);
+  it('exposes All, Core capabilities and Extensions options', () => {
+    expect(CATEGORY_FILTERS).to.deep.equal([
+      { value: 'all', label: 'All' },
+      { value: 'core', label: 'Core capabilities' },
+      { value: 'extension', label: 'Extensions' },
+    ]);
   });
 
   it('returns all items for "all" or no filter', () => {
-    expect(titles(filterByOwner({ items, filter: 'all' }))).to.deep.equal(['A', 'B', 'C', 'D']);
-    expect(titles(filterByOwner({ items }))).to.deep.equal(['A', 'B', 'C', 'D']);
+    expect(titles(filterByCategory({ items, filter: 'all' }))).to.deep.equal(['A', 'B', 'C', 'D']);
+    expect(titles(filterByCategory({ items }))).to.deep.equal(['A', 'B', 'C', 'D']);
   });
 
-  it('returns Adobe-owned items, case-insensitive', () => {
-    expect(titles(filterByOwner({ items, filter: 'adobe' }))).to.deep.equal(['A', 'C']);
+  it('returns core items, case-insensitive', () => {
+    expect(titles(filterByCategory({ items, filter: 'core' }))).to.deep.equal(['A', 'C']);
   });
 
-  it('returns everything not owned by Adobe, including items without owner', () => {
-    expect(titles(filterByOwner({ items, filter: 'others' }))).to.deep.equal(['B', 'D']);
+  it('returns extension items', () => {
+    expect(titles(filterByCategory({ items, filter: 'extension' }))).to.deep.equal(['B']);
   });
 });
 
-describe('hasMixedOwners', () => {
-  it('is true only when both Adobe and non-Adobe items exist', () => {
-    expect(hasMixedOwners([{ owner: 'Adobe' }, { owner: 'Acme' }])).to.equal(true);
-    expect(hasMixedOwners([{ owner: 'adobe' }, { owner: '' }])).to.equal(true);
+describe('hasMixedCategories', () => {
+  it('is true only when both core and extension items exist', () => {
+    expect(hasMixedCategories([{ category: 'Core' }, { category: 'extension' }])).to.equal(true);
   });
 
-  it('is false for a single owner group or no items', () => {
-    expect(hasMixedOwners([{ owner: 'Adobe' }, { owner: 'ADOBE' }])).to.equal(false);
-    expect(hasMixedOwners([{ owner: 'Acme' }, { owner: '' }])).to.equal(false);
-    expect(hasMixedOwners([])).to.equal(false);
-    expect(hasMixedOwners()).to.equal(false);
+  it('is false with a single category, other categories, or no items', () => {
+    expect(hasMixedCategories([{ category: 'Core' }, { category: 'CORE' }])).to.equal(false);
+    expect(hasMixedCategories([{ category: 'Extension' }, { category: '' }])).to.equal(false);
+    expect(hasMixedCategories([{ category: 'Core' }, { category: 'Other' }])).to.equal(false);
+    expect(hasMixedCategories([])).to.equal(false);
+    expect(hasMixedCategories()).to.equal(false);
   });
 });
 

@@ -22,11 +22,12 @@ export function normalizeItem({ row, origin }) {
 
   const description = (row.Description ?? '').trim();
   const owner = (row.Owner ?? '').trim();
+  const category = (row.Category ?? '').trim();
   // `Image` is the legacy column name, kept as a fallback while sheets migrate to `Icon`.
   const iconHref = toSafeHref({ value: row.Icon || row.Image, origin });
 
   return {
-    title, description, docHref, tryHref, owner, iconHref,
+    title, description, docHref, tryHref, owner, category, iconHref,
   };
 }
 
@@ -34,21 +35,23 @@ export function isAdobeOwned({ owner }) {
   return owner?.toLowerCase() === 'adobe';
 }
 
-// The owner filter is only useful when both Adobe and non-Adobe extensions are listed.
-export function hasMixedOwners(items = []) {
-  return items.some(isAdobeOwned) && items.some((item) => !isAdobeOwned(item));
-}
-
-export const OWNER_FILTERS = [
+export const CATEGORY_FILTERS = [
   { value: 'all', label: 'All' },
-  { value: 'adobe', label: 'Created by Adobe' },
-  { value: 'others', label: 'Created by Others' },
+  { value: 'core', label: 'Core capabilities' },
+  { value: 'extension', label: 'Extensions' },
 ];
 
-export function filterByOwner({ items, filter = 'all' }) {
-  if (filter === 'adobe') return items.filter(isAdobeOwned);
-  if (filter === 'others') return items.filter((item) => !isAdobeOwned(item));
-  return items;
+const isCategory = (item, category) => item.category?.toLowerCase() === category;
+
+// The category filter is only useful when both core and extension items are listed.
+export function hasMixedCategories(items = []) {
+  return items.some((item) => isCategory(item, 'core'))
+    && items.some((item) => isCategory(item, 'extension'));
+}
+
+export function filterByCategory({ items, filter = 'all' }) {
+  if (filter === 'all') return items;
+  return items.filter((item) => isCategory(item, filter));
 }
 
 export function getActions({ docHref, tryHref }) {

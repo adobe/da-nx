@@ -4,11 +4,11 @@ import { getConfig } from '../../scripts/nx.js';
 import { loadStyle } from '../../utils/utils.js';
 import { loadHrefSvg } from '../../utils/svg.js';
 import {
-  OWNER_FILTERS,
+  CATEGORY_FILTERS,
   fetchMarketplace,
-  filterByOwner,
+  filterByCategory,
   getActions,
-  hasMixedOwners,
+  hasMixedCategories,
   isAdobeOwned,
 } from './marketplace-utils.js';
 
@@ -47,7 +47,7 @@ class NxMarketplace extends LitElement {
       return;
     }
     // Load the filter before the first render so it doesn't push the cards down once it appears.
-    if (hasMixedOwners(result.items)) {
+    if (hasMixedCategories(result.items)) {
       await import('../shared/segmented-btn/segmented.js').catch(() => {});
     }
     this._items = result.items;
@@ -141,16 +141,16 @@ class NxMarketplace extends LitElement {
 
     if (!this._items.length) return html`<p class="empty">No extensions available.</p>`;
 
-    const showFilter = hasMixedOwners(this._items);
+    const showFilter = hasMixedCategories(this._items);
     const visible = showFilter
-      ? filterByOwner({ items: this._items, filter: this._filter })
+      ? filterByCategory({ items: this._items, filter: this._filter })
       : this._items;
 
     return html`
       ${showFilter ? html`<nx-segmented-btn
         size="m"
         label="Filter extensions"
-        .items=${OWNER_FILTERS}
+        .items=${CATEGORY_FILTERS}
         .value=${this._filter}
         @change=${(e) => { this._filter = e.detail.value; }}
       ></nx-segmented-btn>` : nothing}
