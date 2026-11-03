@@ -224,7 +224,7 @@ export async function overwriteCopy(url, title) {
 
   if (!resp?.ok) {
     url.status = 'error';
-    return null;
+    return resp;
   }
 
   url.status = 'success';
@@ -346,10 +346,8 @@ export async function mergeCopy(
     if (labelUpstream) daMetadata['diff-label-upstream'] = labelUpstream;
 
     const daResp = await saveHtml(url, diffed.innerHTML, { daMetadata });
-    if (daResp.ok) {
-      url.status = 'success';
-      saveVersion(url.destination, `${projectTitle} - Rolled Out`);
-    }
+    url.status = daResp.ok ? 'success' : 'error';
+    if (daResp.ok) saveVersion(url.destination, `${projectTitle} - Rolled Out`);
     return daResp;
   } catch (e) {
     return overwriteCopy(url, projectTitle);
