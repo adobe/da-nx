@@ -1,3 +1,10 @@
+# [1.33.0](https://github.com/adobe/da-nx/compare/v1.32.0...v1.33.0) (2026-11-03)
+
+
+### Features
+
+* **chat-ao:** improved slash menu ([#889](https://github.com/adobe/da-nx/issues/889)) ([7444db0](https://github.com/adobe/da-nx/commit/7444db0c09543f81a056a54c72d70a9dd6ac43f4))
+
 # [1.32.0](https://github.com/adobe/da-nx/compare/v1.31.0...v1.32.0) (2026-11-03)
 
 
