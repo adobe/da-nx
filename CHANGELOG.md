@@ -1,3 +1,11 @@
+# [1.32.0](https://github.com/adobe/da-nx/compare/v1.31.0...v1.32.0) (2026-11-03)
+
+
+### Features
+
+* **styles:** expose complete turquoise and purple scales ([c0bfad1](https://github.com/adobe/da-nx/commit/c0bfad1e5ec522e076ad5e3f5206a64f1d7fcb39))
+* **styles:** expose landing tile surface tokens ([4c97d68](https://github.com/adobe/da-nx/commit/4c97d689acf348f8bd4001b705db1d3ea58e412f)), closes [adobe/da-live#1517](https://github.com/adobe/da-live/issues/1517)
+
 # [1.31.0](https://github.com/adobe/da-nx/compare/v1.30.0...v1.31.0) (2026-11-02)
 
 
