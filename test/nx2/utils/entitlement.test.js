@@ -57,6 +57,20 @@ describe('isCmaEntitled', () => {
     expect(await isCmaEntitled()).to.be.true;
   });
 
+  it('returns true when a LATER entry for the SAME selected org qualifies, even if earlier entries '
+    + 'for that org do not — IMS emits one entry per product, not per org, so a profile with many '
+    + 'entries for one org (most not CMA-related) must still check all of them', async () => {
+    setMockIms({
+      projectedProductContext: [
+        { prodCtx: { owningEntity: 'org-1', serviceCode: 'dma_aem_cloud' } },
+        { prodCtx: { owningEntity: 'org-1', serviceCode: 'workfront' } },
+        { prodCtx: { owningEntity: 'org-1', serviceCode: REQUIRED_SERVICE_CODES[1] } },
+        { prodCtx: { owningEntity: 'org-1', serviceCode: 'dma_audiencemanager_int' } },
+      ],
+    });
+    expect(await isCmaEntitled()).to.be.true;
+  });
+
   it('ignores malformed entries (no prodCtx, non-string serviceCode) rather than throwing', async () => {
     setMockIms({
       projectedProductContext: [null, {}, { prodCtx: null }, { prodCtx: { serviceCode: 42 } }],

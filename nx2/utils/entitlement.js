@@ -25,20 +25,25 @@ export async function isCmaEntitled() {
   try {
     const { projectedProductContext } = await loadIms();
     if (!Array.isArray(projectedProductContext)) return false;
-    // Must check entitlement on the SAME entry that will actually be sent as
-    // `x-tenant-id` (see nx2/blocks/chat-ao/utils/uploads.js#getOrgId: the
-    // first profile entry carrying an owningEntity). Checking *any* entry in
-    // the array (the prior behavior) could return true off a different,
-    // unselected org's service code while the selected/sent tenant has none —
-    // the bridge's AUTH check requires prodCtx.owningEntity === tenantId for
-    // whichever org it actually receives, so a mismatched selection here
-    // passes the UI pre-check but still gets rejected server-side.
-    const selected = projectedProductContext.find((entry) => entry?.prodCtx?.owningEntity);
-    return !!(
-      selected?.prodCtx
-      && typeof selected.prodCtx.serviceCode === 'string'
-      && REQUIRED_SERVICE_CODES.includes(selected.prodCtx.serviceCode)
-    );
+    // IMS returns one projectedProductContext entry PER PRODUCT the profile
+    // carries, not one per org — the same org/owningEntity can appear many
+    // times with different serviceCodes. Must mirror the bridge's own check
+    // (src/websocket/auth.ts#isEntitledTenant) exactly: select the tenant the
+    // same way getOrgId() does (first entry with an owningEntity), then check
+    // whether ANY entry for that SAME owningEntity has an allowed serviceCode
+    // — not just the first matching entry overall (too loose — could pass off
+    // a different, unselected org's entitlement) and not just the first
+    // entry's own serviceCode (too strict — misses a later entry for the same
+    // org, which is the common case: a profile with many product
+    // entitlements for one org, CMA's just one of them).
+    const tenantId = projectedProductContext.find((entry) => entry?.prodCtx?.owningEntity)
+      ?.prodCtx?.owningEntity;
+    if (!tenantId) return false;
+    return projectedProductContext.some((entry) => (
+      entry?.prodCtx?.owningEntity === tenantId
+      && typeof entry.prodCtx.serviceCode === 'string'
+      && REQUIRED_SERVICE_CODES.includes(entry.prodCtx.serviceCode)
+    ));
   } catch {
     return false;
   }
