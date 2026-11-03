@@ -117,6 +117,7 @@ class NxMarketplace extends LitElement {
 
     if (this._items === undefined) {
       return html`
+        <div class="filter-skeleton" aria-hidden="true"></div>
         <ul class="grid loading" role="list" aria-busy="true">
           ${[0, 1, 2].map(() => html`<li class="card skeleton" aria-hidden="true"></li>`)}
         </ul>

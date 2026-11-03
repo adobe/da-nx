@@ -95,6 +95,15 @@ nx-segmented-btn {
   min-height: 120px;
 }
 
+.filter-skeleton {
+  align-self: flex-start;
+  width: 240px;
+  max-width: 100%;
+  height: calc(32px + 2 * var(--s2-spacing-50));
+  border-radius: calc(var(--s2-corner-radius-400) + var(--s2-spacing-50));
+  background-color: var(--s2-gray-100);
+}
+
 .empty,
 .error {
   margin: 0;
