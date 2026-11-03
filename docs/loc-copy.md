@@ -64,7 +64,7 @@ The public index exports only `mergeCopy`, `overwriteCopy`, and the hash helpers
 
 `createCopy({ fetch, daOrigin, loadConfig, saveSource })` creates an isolated engine. `loadConfig({ org, site })` defaults to `createConfigLoader({ fetch, daOrigin })`; `saveSource({ org, site, path, body })` optionally supplies the caller's backend-aware HTML writer.
 
-Its methods accept `(url, title, options)`, where `url` contains `source`, `destination`, optional `sourceContent` and `normalizeImages`. `options` contains optional review labels. Methods update `url.status` and return the underlying write response or an error/no-op result:
+Its methods accept `(url, title, options)`, where `url` contains `source`, `destination`, optional `sourceContent`, `sourceHtml` (prepared source used instead of reading `source`), and `normalizeImages`. `options` contains optional review labels. Methods update `url.status` and return the underlying write response or an error/no-op result:
 
 - `mergeCopy`: merge, treating an empty target as missing.
 - `overwriteCopy`: replace.

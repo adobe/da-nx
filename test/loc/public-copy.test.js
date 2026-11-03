@@ -61,6 +61,15 @@ describe('Shared loc copy', () => {
     expect(saved).not.to.include('da-diff-added');
   });
 
+  it('merges prepared source html into an existing destination without reading the source', async () => {
+    const url = { source: SOURCE, destination: DESTINATION, sourceHtml: html('Prepared') };
+    const result = await copy.mergeCopy(url, 'Merge');
+    expect(result.ok).to.equal(true);
+    expect(fetch.args.some(([href]) => href === `${ORIGIN}/source${SOURCE}`)).to.equal(false);
+    const saved = await fetch.args[1][1].body.get('data').text();
+    expect(saved).to.include('Prepared');
+  });
+
   it('does not write when documents are identical', async () => {
     fetch.callsFake(async () => new Response(html('Same')));
     const result = await copy.mergeCopy({ source: SOURCE, destination: DESTINATION }, 'Merge');

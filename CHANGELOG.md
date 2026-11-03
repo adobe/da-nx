@@ -1,3 +1,32 @@
+# [1.35.0](https://github.com/adobe/da-nx/compare/v1.34.0...v1.35.0) (2026-11-03)
+
+
+### Features
+
+* **loc:** resolve locale placeholders during rollout ([4a06a14](https://github.com/adobe/da-nx/commit/4a06a144d8fad6b17f33759d0fb434d2e31a24d8))
+
+# [1.34.0](https://github.com/adobe/da-nx/compare/v1.33.0...v1.34.0) (2026-11-03)
+
+
+### Features
+
+* **chat:** notify subscribers when a turn finishes ([53ecef2](https://github.com/adobe/da-nx/commit/53ecef210a3612eec52ccf24501b68887c2e9dc4))
+
+# [1.33.0](https://github.com/adobe/da-nx/compare/v1.32.0...v1.33.0) (2026-11-03)
+
+
+### Features
+
+* **chat-ao:** improved slash menu ([#889](https://github.com/adobe/da-nx/issues/889)) ([7444db0](https://github.com/adobe/da-nx/commit/7444db0c09543f81a056a54c72d70a9dd6ac43f4))
+
+# [1.32.0](https://github.com/adobe/da-nx/compare/v1.31.0...v1.32.0) (2026-11-03)
+
+
+### Features
+
+* **styles:** expose complete turquoise and purple scales ([c0bfad1](https://github.com/adobe/da-nx/commit/c0bfad1e5ec522e076ad5e3f5206a64f1d7fcb39))
+* **styles:** expose landing tile surface tokens ([4c97d68](https://github.com/adobe/da-nx/commit/4c97d689acf348f8bd4001b705db1d3ea58e412f)), closes [adobe/da-live#1517](https://github.com/adobe/da-live/issues/1517)
+
 # [1.31.0](https://github.com/adobe/da-nx/compare/v1.30.0...v1.31.0) (2026-11-02)
 
 

@@ -130,7 +130,7 @@ export function createCopy({
           fetch,
         });
       } else {
-        const source = await getHtml(url.source);
+        const source = await getHtml(url.source, url.sourceHtml);
         if (!source) throw new Error('Source content not found');
         removeLocTags(source);
         const metadata = getElementMetadata(source.querySelector(DA_METADATA_SELECTOR));
@@ -159,7 +159,10 @@ export function createCopy({
     if (emptyIsMissing && (!main || main.innerHTML === '' || main.innerHTML === '<div></div>')) {
       return { missing: true };
     }
-    const source = await getHtml(url.source, useSourceContent ? url.sourceContent : undefined);
+    const source = await getHtml(
+      url.source,
+      useSourceContent ? url.sourceContent || url.sourceHtml : undefined,
+    );
     if (!source) throw new Error('Source content not found');
     removeLocTags(regional);
     removeLocTags(source);

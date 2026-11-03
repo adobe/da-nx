@@ -52,8 +52,9 @@ const EVENT_HANDLERS = new Map([
 // override the hook methods (loadEpisodes, _onSessionReady, _onSessionError,
 // startNewEpisode). See docs/chat-ao-controller-decoupling.md.
 export default class BaseChatController {
-  constructor({ onUpdate }) {
+  constructor({ onUpdate, onTurnCompleted }) {
     this._onUpdate = onUpdate;
+    this._onTurnCompletedCallback = onTurnCompleted;
     this._messages = [];
     this._streaming = '';
     this._episodes = [];
@@ -388,9 +389,18 @@ export default class BaseChatController {
     this._update();
   }
 
-  _onTurnCompleted() {
+  _onTurnCompleted(evt = {}) {
     this._interrupting = false;
     this._done();
+    const { org, site, path } = this._context ?? {};
+    this._onTurnCompletedCallback?.({
+      org,
+      site,
+      path,
+      sessionId: evt.episode_id ?? this._episodeId,
+      turnId: evt.turn_id ?? evt.data?.turn_id,
+      status: evt.type === AO_EVENT.TURN_ABORTED ? 'aborted' : 'completed',
+    });
   }
 
   // See docs/chat-ao-component.md#episode-switching for why this upserts, not just patches.
