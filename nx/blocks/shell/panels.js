@@ -1,4 +1,4 @@
-import { registerPanelSection, PANEL_EVENT } from '../../../nx2/utils/panel.js';
+import { registerPanelSection, wasPanelOpen, PANEL_EVENT } from '../../../nx2/utils/panel.js';
 import { hashChange } from '../../../nx2/utils/utils.js';
 import { CHAT_EVENT, loadChat } from '../../../nx2/utils/chat.js';
 import { getConfig } from '../../../nx2/scripts/nx.js';
@@ -14,11 +14,12 @@ export async function setupPanels({ org, repo }) {
     return context?.site
       ? { ...context, view: 'browse' } : { org, site: repo, path: null, view: 'browse' };
   };
-  const { org: chatOrg, site: chatSite } = getContext();
-  const chatEnabled = isSiteApp && await isEwChatEnabled({ org: chatOrg, site: chatSite });
+  let chatContext = getContext();
+  let chatEnabled = isSiteApp && await isEwChatEnabled(chatContext);
+  let unregisterChat;
 
-  if (chatEnabled) {
-    registerPanelSection('chat', {
+  const registerChat = () => {
+    unregisterChat = registerPanelSection('chat', {
       position: 'before',
       width: '400px',
       getContent: async () => loadChat({ context: getContext() }),
@@ -26,13 +27,37 @@ export async function setupPanels({ org, repo }) {
         const chat = aside.querySelector('nx-chat, nx-chat-ao');
         chat.context = getContext();
         await chat.updateComplete;
+        if (!chatEnabled || !aside.isConnected) return;
         if (typeof options?.text !== 'string') return;
         document.dispatchEvent(new CustomEvent(CHAT_EVENT.SET_PROMPT, {
           detail: { text: options.text, autoSend: options.autoSend === true },
         }));
       },
     });
-  }
+  };
+  if (chatEnabled) registerChat();
+
+  const syncChat = async () => {
+    const context = getContext();
+    if (context.org === chatContext.org && context.site === chatContext.site) return;
+    const reopen = wasPanelOpen('chat');
+    chatContext = context;
+    chatEnabled = false;
+    unregisterChat?.();
+    try {
+      const enabled = isSiteApp && await isEwChatEnabled(context);
+      if (chatContext !== context) return;
+      chatEnabled = enabled;
+      if (chatEnabled) {
+        registerChat();
+        if (reopen) {
+          document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, { detail: { section: 'chat' } }));
+        }
+      }
+    } catch (error) {
+      getConfig().log(error);
+    }
+  };
 
   const onMessage = ({ action, details }) => {
     if (action === 'setPrompt') {
@@ -53,12 +78,15 @@ export async function setupPanels({ org, repo }) {
   };
 
   return {
-    capabilities: chatEnabled ? { chatTurnCompleted: 1 } : {},
+    get capabilities() {
+      return chatEnabled ? { chatTurnCompleted: 1 } : {};
+    },
     connect(port) {
+      const unsubscribeHash = hashChange.subscribe(syncChat);
       const onTurnCompleted = ({ detail }) => {
-        port.postMessage({ action: 'chatTurnCompleted', detail });
+        if (chatEnabled) port.postMessage({ action: 'chatTurnCompleted', detail });
       };
-      const destroy = () => {
+      const unsubscribeTurns = () => {
         document.removeEventListener(CHAT_EVENT.TURN_COMPLETED, onTurnCompleted);
       };
       return {
@@ -66,12 +94,15 @@ export async function setupPanels({ org, repo }) {
           if (message.action === 'subscribeChatTurnCompleted' && chatEnabled) {
             document.addEventListener(CHAT_EVENT.TURN_COMPLETED, onTurnCompleted);
           } else if (message.action === 'unsubscribeChatTurnCompleted') {
-            destroy();
+            unsubscribeTurns();
           } else {
             onMessage(message);
           }
         },
-        destroy,
+        destroy() {
+          unsubscribeHash();
+          unsubscribeTurns();
+        },
       };
     },
   };

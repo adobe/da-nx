@@ -3,6 +3,7 @@ import sinon from 'sinon';
 import { setConfig } from '../../../../nx2/scripts/nx.js';
 import { registerPanelSection, PANEL_EVENT } from '../../../../nx2/utils/panel.js';
 import { CHAT_EVENT } from '../../../../nx2/utils/chat.js';
+import { hashChange } from '../../../../nx2/utils/utils.js';
 import { setupPanels } from '../../../../nx/blocks/shell/panels.js';
 import decorate from '../../../../nx/blocks/shell/shell.js';
 import { createHostActions } from '../../../../nx/utils/sdk.js';
@@ -34,6 +35,7 @@ describe('nx2 fullscreen shell', () => {
   });
 
   beforeEach(async () => {
+    sinon.spy(hashChange, 'subscribe');
     originalUrl = window.location.href;
     originalTitle = document.title;
     originalEWUserEnabled = localStorage.getItem('nx2:ew-user-enabled');
@@ -80,6 +82,7 @@ describe('nx2 fullscreen shell', () => {
   });
 
   afterEach(() => {
+    hashChange.subscribe.returnValues.forEach((unsubscribe) => unsubscribe());
     connections.forEach((connection) => connection.destroy());
     connections.length = 0;
     ports.forEach((port) => port.close());
@@ -216,6 +219,106 @@ describe('nx2 fullscreen shell', () => {
     expect(aside.hidden).to.equal(false);
     expect(document.querySelectorAll('aside.panel').length).to.equal(1);
     expect(prompt.secondCall.args[0]).to.equal('Second');
+  });
+
+  it('removes open chat and blocks SDK commands after navigating to a disabled site', async () => {
+    configs.set('/config/adobe/navigation-disabled/', {
+      body: { flags: { data: [{ key: 'ew.disableChat', value: 'true' }] } },
+    });
+    const panels = await setupPanels({ org: 'adobe', repo: 'demo' });
+    const port = { postMessage: sinon.spy() };
+    const connection = panels.connect(port);
+    connections.push(connection);
+    connection.onMessage({ action: 'subscribeChatTurnCompleted' });
+    connection.onMessage({ action: 'setPrompt', details: { text: 'Before navigation' } });
+    await waitFor(() => prompt.calledOnce);
+
+    history.replaceState(null, '', `${window.location.href}#/adobe/navigation-disabled`);
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await pause();
+    expect(document.querySelector('aside.panel')).to.equal(null);
+    expect(panels.capabilities).to.deep.equal({});
+    expect(document.body.style.getPropertyValue('--app-frame-columns')).not.to.contain('400px');
+    connection.onMessage({ action: 'setPrompt', details: { text: 'Blocked' } });
+    connection.onMessage({ action: 'showPanel', details: 'chat' });
+    document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, { detail: { section: 'chat' } }));
+    document.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, {
+      detail: { status: 'completed' },
+    }));
+    await pause();
+    expect(prompt.calledOnce).to.equal(true);
+    expect(port.postMessage.called).to.equal(false);
+    expect(document.querySelector('aside.panel')).to.equal(null);
+  });
+
+  it('enables chat after navigating from a disabled target back to the app host', async () => {
+    history.replaceState(null, '', `${window.location.href}#/legacy-navigation/site`);
+    const panels = await setupPanels({ org: 'adobe', repo: 'demo' });
+    const connection = panels.connect({ postMessage() {} });
+    connections.push(connection);
+    expect(panels.capabilities).to.deep.equal({});
+
+    history.replaceState(null, '', window.location.href.split('#')[0]);
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await waitFor(() => panels.capabilities.chatTurnCompleted === 1);
+    connection.onMessage({ action: 'setPrompt', details: { text: 'Enabled again' } });
+    await waitFor(() => prompt.calledOnce);
+    expect(document.querySelector('aside.panel nx-chat')._context).to.include({
+      org: 'adobe', site: 'demo',
+    });
+  });
+
+  it('keeps chat open with the new context when navigating between enabled sites', async () => {
+    const onMessage = await connectPanels({ org: 'adobe', repo: 'demo' });
+    onMessage({ action: 'setPrompt', details: { text: 'Before navigation' } });
+    await waitFor(() => prompt.calledOnce);
+    history.replaceState(null, '', `${window.location.href}#/adobe/navigation-enabled/page`);
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await waitFor(() => document.querySelector('aside.panel:not([hidden]) nx-chat'));
+    expect(document.querySelector('aside.panel nx-chat')._context).to.include({
+      org: 'adobe', site: 'navigation-enabled', path: 'page',
+    });
+    expect(prompt.calledOnce).to.equal(true);
+  });
+
+  it('ignores a stale availability check after another site navigation', async () => {
+    let release;
+    const { fetch } = window;
+    fetch.withArgs(sinon.match((resource) => String(resource).includes('/config/navigation-slow/')))
+      .returns(new Promise((resolve) => { release = resolve; }));
+    const panels = await setupPanels({ org: 'adobe', repo: 'demo' });
+    const connection = panels.connect({ postMessage() {} });
+    connections.push(connection);
+    const base = window.location.href.split('#')[0];
+    history.replaceState(null, '', `${base}#/navigation-slow/site`);
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    expect(panels.capabilities).to.deep.equal({});
+    connection.onMessage({ action: 'setPrompt', details: { text: 'Still checking' } });
+    expect(prompt.called).to.equal(false);
+
+    history.replaceState(null, '', `${base}#/legacy-navigation-latest/site`);
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await pause();
+    release(new Response(JSON.stringify({
+      flags: { data: [{ key: 'ew.enabled', value: 'true' }] },
+    })));
+    await pause();
+    expect(panels.capabilities).to.deep.equal({});
+    connection.onMessage({ action: 'showPanel', details: 'chat' });
+    await pause();
+    expect(document.querySelector('aside.panel')).to.equal(null);
+  });
+
+  it('stops checking hash navigation when the app connection is destroyed', async () => {
+    const panels = await setupPanels({ org: 'adobe', repo: 'demo' });
+    const connection = panels.connect({ postMessage() {} });
+    connections.push(connection);
+    connection.destroy();
+    window.fetch.resetHistory();
+    history.replaceState(null, '', `${window.location.href}#/disconnected-navigation/site`);
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await pause();
+    expect(window.fetch.called).to.equal(false);
   });
 
   it('opens chat without a prompt through showPanel', async () => {
