@@ -236,6 +236,47 @@ describe('standalone input and full AO chat sharing', () => {
       expect(frameCount(AO_FRAME.INTERRUPT)).to.equal(2);
     });
 
+    it(`${harness}: forwards completion events through the shared session without replaying them`, async () => {
+      const [standalone, full] = await pair(harness);
+      await ready(standalone, full);
+      standalone.context = { ...standalone._context, path: '/compact' };
+      const completed = [];
+      const onCompleted = (event) => {
+        completed.push({
+          detail: event.detail, target: event.target, composed: event.composed,
+        });
+      };
+      document.addEventListener(CHAT_EVENT.TURN_COMPLETED, onCompleted);
+      try {
+        submit(standalone, 'Notify the host');
+        await flush();
+        receive(AO_EVENT.TEXT_DONE, { content: 'Done' });
+        expect(completed).to.have.length(0);
+        receive(AO_EVENT.TURN_COMPLETED, { turn_id: 'turn' });
+        expect(completed).to.have.length(1);
+        expect(completed[0].target).to.equal(full);
+        expect(completed[0].composed).to.equal(true);
+        expect(completed[0].detail).to.deep.equal({
+          org,
+          site: 'site',
+          path: '/compact',
+          sessionId: full._controller._episodeId,
+          turnId: 'turn',
+          status: 'completed',
+        });
+        full.remove();
+        receive(AO_EVENT.TURN_COMPLETED, { turn_id: 'while-detached' });
+        document.body.append(full);
+        await ready(full);
+        expect(completed).to.have.length(1);
+        receive(AO_EVENT.TURN_ABORTED, { turn_id: 'aborted' });
+        expect(completed).to.have.length(2);
+        expect(completed[1].detail.status).to.equal('aborted');
+      } finally {
+        document.removeEventListener(CHAT_EVENT.TURN_COMPLETED, onCompleted);
+      }
+    });
+
     it(`${harness}: keeps Stop focus in its own composer and does not steal focus on completion`, async () => {
       const [standalone, full] = await pair(harness);
       await ready(standalone, full);

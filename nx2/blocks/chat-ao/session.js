@@ -38,6 +38,9 @@ export function getAoSession({
   const Controller = altHarness ? CmaChatController : CoworkerChatController;
   const controller = new Controller({
     onUpdate: publish,
+    onTurnCompleted: (detail) => {
+      subscribers.forEach(({ onTurnCompleted }) => onTurnCompleted?.(detail));
+    },
     isolated: isolated || matching.length > 0,
     ...(altHarness ? { activationKey } : {}),
   });
