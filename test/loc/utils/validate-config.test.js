@@ -189,6 +189,55 @@ describe('loc validate-config', () => {
         expect(errors).to.deep.equal(['Language "German" has itself as its source language.']);
       });
 
+      describe('circular chains', () => {
+        const row = (name, source) => lang({
+          name,
+          code: name.toLowerCase(),
+          location: `/${name.toLowerCase()}`,
+          ...(source && { 'source language': source }),
+        });
+        const run = async (languages) => {
+          const { errors } = await validateConfig(sheets({ languages, config }));
+          return errors;
+        };
+
+        it('reports a two-language cycle once', async () => {
+          expect(await run([row('A', 'B'), row('B', 'A')]))
+            .to.deep.equal(['Languages "A" and "B" form a circular source language chain.']);
+        });
+
+        it('reports a three-language cycle', async () => {
+          expect(await run([row('A', 'B'), row('B', 'C'), row('C', 'A')]))
+            .to.deep.equal(['Languages "A", "B", and "C" form a circular source language chain.']);
+        });
+
+        it('reports only the cycle members when a tail feeds into the cycle', async () => {
+          expect(await run([row('T', 'A'), row('A', 'B'), row('B', 'A')]))
+            .to.deep.equal(['Languages "A" and "B" form a circular source language chain.']);
+        });
+
+        it('reports separate cycles separately', async () => {
+          expect(await run([row('A', 'B'), row('B', 'A'), row('C', 'D'), row('D', 'C')]))
+            .to.deep.equal([
+              'Languages "A" and "B" form a circular source language chain.',
+              'Languages "C" and "D" form a circular source language chain.',
+            ]);
+        });
+
+        it('accepts a linear chain', async () => {
+          expect(await run([row('A', 'B'), row('B', 'C'), row('C')])).to.deep.equal([]);
+        });
+
+        it('accepts several languages sharing one source', async () => {
+          expect(await run([row('A', 'C'), row('B', 'C'), row('C')])).to.deep.equal([]);
+        });
+
+        it('reports a self-reference only once', async () => {
+          expect(await run([row('A', 'A')]))
+            .to.deep.equal(['Language "A" has itself as its source language.']);
+        });
+      });
+
       it('ignores an empty column', async () => {
         const languages = [lang({ 'source language': '' })];
         expect((await validateConfig(sheets({ languages, config }))).errors).to.deep.equal([]);

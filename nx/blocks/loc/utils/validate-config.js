@@ -203,6 +203,33 @@ function reportDuplicates(groups, field) {
 }
 
 /**
+ * Finds circular "source language" chains. Self-references are reported elsewhere.
+ * @param {object[]} rows - Language sheet rows.
+ * @returns {string[][]} Language names per cycle, in chain order.
+ */
+function findSourceCycles(rows) {
+  const sourceOf = new Map();
+  rows.forEach((row) => {
+    const source = row?.['source language'];
+    if (row?.name && hasValue(source) && source !== row.name) sourceOf.set(row.name, source);
+  });
+
+  const done = new Set();
+  const cycles = [];
+  sourceOf.forEach((_, start) => {
+    const path = [];
+    let node = start;
+    while (node !== undefined && sourceOf.has(node) && !done.has(node) && !path.includes(node)) {
+      path.push(node);
+      node = sourceOf.get(node);
+    }
+    if (path.includes(node)) cycles.push(path.slice(path.indexOf(node)));
+    path.forEach((name) => done.add(name));
+  });
+  return cycles;
+}
+
+/**
  * Validates the language rows.
  * @param {object[]} rows - Language sheet rows.
  * @param {Object<string, string>} config - Flattened config map.
@@ -247,6 +274,10 @@ function validateLanguages(rows, config) {
   });
 
   errors.push(...reportDuplicates(groups.code, 'code'), ...reportDuplicates(groups.location, 'location'));
+  findSourceCycles(rows).forEach((cycle) => {
+    const who = joinList(cycle.map((name) => `"${String(name).trim()}"`));
+    errors.push(`Languages ${who} form a circular source language chain.`);
+  });
 
   const defaultSource = String(config['source.language'] ?? '').trim();
   if (defaultSource && !names.has(defaultSource.toLowerCase())) {
