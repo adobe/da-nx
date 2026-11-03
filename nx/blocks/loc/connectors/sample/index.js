@@ -1,7 +1,5 @@
 export const requiredKeys = [];
 
-export const requiredCredentialKeys = [];
-
 export async function cancelTranslation({ service, lang, sendMessage }) {
 
 }

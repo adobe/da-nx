@@ -452,8 +452,8 @@ describe('loc validate-config', () => {
         requiredKeys.forEach((key) => expect(key).to.be.a('string'));
       });
 
-      it(`${name} exports requiredCredentialKeys`, async () => {
-        const { requiredCredentialKeys } = await import(`../../../nx/blocks/loc/connectors/${name}/index.js`);
+      it(`${name} requiredCredentialKeys is optional but must be a string array`, async () => {
+        const { requiredCredentialKeys = [] } = await import(`../../../nx/blocks/loc/connectors/${name}/index.js`);
         expect(requiredCredentialKeys).to.be.an('array');
         requiredCredentialKeys.forEach((key) => expect(key).to.be.a('string'));
       });

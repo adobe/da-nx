@@ -44,8 +44,6 @@ async function sendForTranslation(org, site, url) {
 
 export const requiredKeys = [];
 
-export const requiredCredentialKeys = [];
-
 export const dnt = { addDnt };
 
 export async function isConnected() {

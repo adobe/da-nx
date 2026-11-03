@@ -93,8 +93,6 @@ let token;
 
 export const requiredKeys = ['origin', 'clientid'];
 
-export const requiredCredentialKeys = [];
-
 export const dnt = { addDnt };
 export const saveLangConcurrency = 3;
 export const supportsManagedStatus = true;
