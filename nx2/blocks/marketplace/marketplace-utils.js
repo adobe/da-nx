@@ -23,8 +23,7 @@ export function normalizeItem({ row, origin }) {
   const description = (row.Description ?? '').trim();
   const owner = (row.Owner ?? '').trim();
   const category = (row.Category ?? '').trim();
-  // `Image` is the legacy column name, kept as a fallback while sheets migrate to `Icon`.
-  const iconHref = toSafeHref({ value: row.Icon || row.Image, origin });
+  const iconHref = toSafeHref({ value: row.Logo, origin });
 
   return {
     title, description, docHref, tryHref, owner, category, iconHref,

@@ -26,7 +26,7 @@ describe('normalizeItem', () => {
       'Try Url': 'https://da.live/app/x/msm',
       Owner: ' Adobe ',
       Category: ' Core ',
-      Icon: 'https://example.com/t.png',
+      Logo: 'https://example.com/t.png',
     };
     expect(normalizeItem({ row, origin })).to.deep.equal({
       title: 'MSM',
@@ -74,30 +74,27 @@ describe('normalizeItem', () => {
     expect(normalizeItem({ row, origin })).to.equal(null);
   });
 
-  it('resolves relative path and icon', () => {
-    const row = { Title: 'MSM', 'Doc Url': '/tools/x.html', Icon: '/media/t.png' };
+  it('resolves relative path and logo', () => {
+    const row = { Title: 'MSM', 'Doc Url': '/tools/x.html', Logo: '/media/t.png' };
     const result = normalizeItem({ row, origin });
     expect(result.docHref).to.equal(`${origin}/tools/x.html`);
     expect(result.iconHref).to.equal(`${origin}/media/t.png`);
   });
 
-  it('drops unsafe or empty icon', () => {
+  it('drops unsafe or empty logo', () => {
     const base = { Title: 'MSM', 'Doc Url': 'https://da.live/a' };
-    expect(normalizeItem({ row: { ...base, Icon: '' }, origin }).iconHref).to.equal(undefined);
-    expect(normalizeItem({ row: { ...base, Icon: 'data:image/png;base64,AA' }, origin }).iconHref)
+    expect(normalizeItem({ row: { ...base, Logo: '' }, origin }).iconHref).to.equal(undefined);
+    expect(normalizeItem({ row: { ...base, Logo: 'data:image/png;base64,AA' }, origin }).iconHref)
       .to.equal(undefined);
     // eslint-disable-next-line no-script-url
-    expect(normalizeItem({ row: { ...base, Icon: 'javascript:x' }, origin }).iconHref).to.equal(undefined);
+    expect(normalizeItem({ row: { ...base, Logo: 'javascript:x' }, origin }).iconHref).to.equal(undefined);
   });
 
-  it('falls back to the legacy Image column for the icon', () => {
-    const base = { Title: 'MSM', 'Doc Url': 'https://da.live/a' };
-    expect(normalizeItem({ row: { ...base, Image: 'https://example.com/i.png' }, origin }).iconHref)
-      .to.equal('https://example.com/i.png');
-    expect(normalizeItem({
-      row: { ...base, Icon: 'https://example.com/new.png', Image: 'https://example.com/old.png' },
-      origin,
-    }).iconHref).to.equal('https://example.com/new.png');
+  it('ignores the Image and Icon columns for the icon', () => {
+    const row = {
+      Title: 'MSM', 'Doc Url': 'https://da.live/a', Image: 'https://example.com/i.png', Icon: 'https://example.com/c.png',
+    };
+    expect(normalizeItem({ row, origin }).iconHref).to.equal(undefined);
   });
 
   it('handles missing description and owner', () => {
@@ -198,7 +195,7 @@ describe('fetchMarketplace', () => {
       Title: 'MSM',
       Description: 'Manage msm',
       'Doc Url': 'https://da.live/app/x/msm',
-      Icon: 'https://example.com/t.png',
+      Logo: 'https://example.com/t.png',
     };
     restoreFetch = installFetch(async () => new Response(
       JSON.stringify({ data: [validRow, { Title: '', 'Doc Url': 'x' }] }),

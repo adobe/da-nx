@@ -98,7 +98,7 @@ describe('nx-marketplace', () => {
           Title: 'Partner Item', Description: 'd', 'Doc Url': 'https://example.com/b', Owner: 'Acme',
         },
         {
-          Title: 'Adobe With Icon', 'Doc Url': 'https://example.com/c', Owner: 'Adobe', Icon: 'https://example.com/i.png',
+          Title: 'Adobe With Icon', 'Doc Url': 'https://example.com/c', Owner: 'Adobe', Logo: 'https://example.com/i.png',
         },
       ],
     }));
@@ -124,14 +124,14 @@ describe('nx-marketplace', () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         {
-          Title: 'Has Icon', Description: 'd', 'Doc Url': 'https://example.com/a', Icon: 'https://example.com/t.png',
+          Title: 'Has Icon', Description: 'd', 'Doc Url': 'https://example.com/a', Logo: 'https://example.com/t.png',
         },
         {
-          Title: 'No Icon', Description: 'd', 'Doc Url': 'https://example.com/b', Icon: '',
+          Title: 'No Icon', Description: 'd', 'Doc Url': 'https://example.com/b', Logo: '',
         },
         {
           // eslint-disable-next-line no-script-url
-          Title: 'Unsafe Icon', Description: 'd', 'Doc Url': 'https://example.com/c', Icon: 'javascript:x',
+          Title: 'Unsafe Icon', Description: 'd', 'Doc Url': 'https://example.com/c', Logo: 'javascript:x',
         },
       ],
     }));
@@ -161,7 +161,7 @@ describe('nx-marketplace', () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         {
-          Title: 'Has Icon', Description: 'd', 'Doc Url': 'https://example.com/a', Icon: 'https://example.com/t.png',
+          Title: 'Has Icon', Description: 'd', 'Doc Url': 'https://example.com/a', Logo: 'https://example.com/t.png',
         },
       ],
     }));
