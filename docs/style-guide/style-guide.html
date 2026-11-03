@@ -476,7 +476,7 @@ picker.value = 'name:ascending';</code></pre>
       <article class="sg-example">
         <h3>nx-siteselector — navigation</h3>
         <p class="sg-note">Title S is 14px/18px and M is 16px/20px, both weight 700. Tab to see the 2px blue focus ring in either theme. Both sizes use M-bold menu headings, M-medium site and Add labels (14px/18px), S-regular site paths (12px/16px, weight 400) and a blue leading check. Paths use --s2-gray-700 (#505050 in light mode, theme-aware in dark mode).</p>
-        <p class="sg-note">S starts unselected. Both the unselected trigger and menu heading say "Your recent sites" by default. Site names are capitalized without changing their identifiers. M shows the selected site name and full org/site path. This demo uses sample sites; the host owns history, access checks and Add.</p>
+        <p class="sg-note">S starts unselected. Both the unselected trigger and menu heading say "Your recent sites" by default. Site names are capitalized without changing their identifiers. M shows the selected site name and full org/site path. This demo supplies sample sites before connection to use controlled mode. Normal instances own history, access checks and Add; hosts configure only page reactions and the Create destination.</p>
         <div class="sg-demo sg-picker-container">
           <nx-siteselector id="demo-siteselector-s" size="s" heading="Your recent sites"></nx-siteselector>
           <nx-siteselector id="demo-siteselector-m" size="m" heading="Your recent sites"></nx-siteselector>
@@ -769,6 +769,10 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
     import { setConfig } from '/nx2/scripts/nx.js';
 
     await setConfig({});
+
+    document.addEventListener('site-selector-ready', ({ detail: { selector } }) => {
+      if (selector.id.startsWith('demo-siteselector-')) selector.sites = [];
+    });
 
     const [
       { showToast, VARIANT_WARNING },
