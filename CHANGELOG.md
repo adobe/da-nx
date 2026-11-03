@@ -1,3 +1,10 @@
+# [1.35.0](https://github.com/adobe/da-nx/compare/v1.34.0...v1.35.0) (2026-11-03)
+
+
+### Features
+
+* **loc:** resolve locale placeholders during rollout ([4a06a14](https://github.com/adobe/da-nx/commit/4a06a144d8fad6b17f33759d0fb434d2e31a24d8))
+
 # [1.34.0](https://github.com/adobe/da-nx/compare/v1.33.0...v1.34.0) (2026-11-03)
 
 
