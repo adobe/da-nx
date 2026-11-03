@@ -93,6 +93,7 @@ class NxMarketplace extends LitElement {
       <nx-menu
         .items=${actions}
         placement="below-end"
+        size="m"
         @select=${(e) => this._onActionSelect(e, actions)}
       >
         <button
