@@ -1,8 +1,3 @@
-/*
- * The block owns its grid (3 → 2 → 1 columns by available width) and spans
- * the full row of any parent section grid, so a section `grid-n` setting
- * does not squeeze the whole marketplace into one column.
- */
 :host {
   display: flex;
   flex-direction: column;
