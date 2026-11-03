@@ -43,7 +43,11 @@ describe('standalone input and full AO chat sharing', () => {
     input(chat).value = text;
     composer(chat).shadowRoot.querySelector('form').requestSubmit();
   };
-  const stop = (chat) => composer(chat).shadowRoot.querySelector('.chat-stop').click();
+  const stop = (chat) => {
+    const button = composer(chat).shadowRoot.querySelector('.chat-stop');
+    button.focus();
+    button.click();
+  };
   const frameCount = (type) => sockets.flatMap((socket) => socket.frames)
     .filter((frame) => frame.type === type).length;
   const mount = async (options = {}) => {
@@ -230,6 +234,32 @@ describe('standalone input and full AO chat sharing', () => {
       await flush();
       expect(full.thinking).to.equal(false);
       expect(frameCount(AO_FRAME.INTERRUPT)).to.equal(2);
+    });
+
+    it(`${harness}: keeps Stop focus in its own composer and does not steal focus on completion`, async () => {
+      const [standalone, full] = await pair(harness);
+      await ready(standalone, full);
+      submit(standalone, 'Stop from compact');
+      await flush();
+      stop(standalone);
+      await flush();
+      expect(document.activeElement).to.equal(standalone);
+      expect(standalone.shadowRoot.activeElement).to.equal(input(standalone));
+      submit(full, 'Stop from full chat');
+      await flush();
+      stop(full);
+      await flush();
+      expect(document.activeElement).to.equal(full);
+      expect(full.shadowRoot.activeElement).to.equal(full._input);
+      expect(full._input.shadowRoot.activeElement).to.equal(input(full));
+      submit(full, 'Finish without moving focus');
+      await flush();
+      const addButton = standalone.shadowRoot.querySelector('.chat-add');
+      addButton.focus();
+      receive(AO_EVENT.TURN_COMPLETED);
+      await flush();
+      expect(document.activeElement).to.equal(standalone);
+      expect(standalone.shadowRoot.activeElement).to.equal(addButton);
     });
 
     it(`${harness}: keeps the connection alive when either UI is removed and releases the final owner`, async () => {

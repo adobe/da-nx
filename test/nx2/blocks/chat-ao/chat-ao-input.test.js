@@ -54,6 +54,7 @@ describe('chat AO input', () => {
     await chat.updateComplete;
     await chatInput.updateComplete;
     expect(input.disabled).to.be.true;
+    chatInput.shadowRoot.querySelector('.chat-stop').focus();
     chat.thinking = false;
     await chat.updateComplete;
     await chatInput.updateComplete;

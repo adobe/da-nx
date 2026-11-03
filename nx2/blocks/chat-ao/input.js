@@ -262,6 +262,7 @@ export default class NxAoInput extends LitElement {
   _stop() {
     if (this._standalone) this._session?.controller.stop();
     else this.onStop?.();
+    this.focusInput();
   }
 
   _handleKeydown(e) {

@@ -282,7 +282,8 @@ export default class NxChatAo extends LitElement {
         this._scrollRaf = requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
       }
     }
-    if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
+    if (changed.has('thinking') && !this.thinking && changed.get('thinking')
+      && this.shadowRoot.activeElement) {
       this._input?.focusInput();
     }
 
