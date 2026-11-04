@@ -2,26 +2,27 @@
 
 Import the core live from https://da.live/nx/public/loc/index.js. It exposes `mergeCopy`, `overwriteCopy`, and review hash helpers; it does not import the SDK, IMS, connectors, or loc app.
 
-Extensions can use SDK1's lazy `actions.loc` wrappers instead:
+Extensions pass the SDK's `daFetch` as transport:
 
 ```js
 import DA_SDK from 'https://da.live/nx/utils/sdk.js';
+import { mergeCopy } from 'https://da.live/nx/public/loc/index.js';
 
 const { actions } = await DA_SDK;
-const result = await actions.loc.mergeCopy({
+const result = await mergeCopy({
+  fetch: actions.daFetch,
+  daOrigin: 'https://admin.da.live',
   urlSource: '/org/source-site/en/page.html',
   urlTarget: '/org/target-site/fr/page.html',
   msg: 'MSM Merge',
 });
 ```
 
-`actions.loc.mergeCopy` and `actions.loc.overwriteCopy` bind SDK fetch and the configured DA origin. They accept only `urlSource`, `urlTarget`, `msg`, `sourceContent`, `labelLocal`, and `labelUpstream`. Transport overrides and function hooks are not forwarded. The core loads on first use, not during SDK initialization.
+The SDK does not wrap these helpers; it is reserved for host actions the DA REST API can't do.
 
-These wrappers do not change SDK1's token exposure or add host-side permission enforcement. They leave room for a future tokenless SDK to preserve the operation interface.
+## Parameters
 
-## Direct core parameters
-
-The direct `mergeCopy` and `overwriteCopy` exports accept the same operation arguments plus explicit transport and the optional merge hook:
+`mergeCopy` and `overwriteCopy` accept:
 
 | Name | Description |
 |---|---|
