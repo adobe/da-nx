@@ -147,7 +147,7 @@ describe('episodes.js', () => {
           artifacts: [{
             id: 'a1',
             turn_id: 't1',
-            a2ui_surface: { components: [{ type: 'DataTable', props: {} }] },
+            a2ui_surface: { components: [{ id: 'root', component: 'TableView', columns: [], items: [] }] },
             text_fallback: 'a table',
             display_hints: { title: 'Results' },
           }],
@@ -163,7 +163,7 @@ describe('episodes.js', () => {
           role: 'assistant',
           uiArtifact: {
             id: 'a1',
-            components: [{ type: 'DataTable', props: {} }],
+            components: [{ id: 'root', component: 'TableView', columns: [], items: [] }],
             textFallback: 'a table',
             title: 'Results',
           },
@@ -733,6 +733,19 @@ describe('episodes.js', () => {
   });
 
   describe('toUiArtifact', () => {
+    it('preserves flat component records and child references without translation', () => {
+      const surface = {
+        surface_id: 'metric',
+        components: [
+          { id: 'root', component: 'Column', children: ['metric'] },
+          { id: 'metric', component: 'MetricCard', value: 128 },
+        ],
+      };
+      const result = toUiArtifact({ id: 'a1', a2ui_surface: surface });
+      expect(result.components).to.equal(surface.components);
+      expect(result.components[0].children).to.equal(surface.components[0].children);
+    });
+
     it('maps the wire shape to the shape the renderer expects', () => {
       expect(toUiArtifact({
         id: 'a1',

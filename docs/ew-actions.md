@@ -30,7 +30,7 @@ Exactly one card is selected at a time (default: Preview). The primary button re
 | Preview       | `Update`  | AEM `preview`               |
 | Publish       | `Publish` | AEM `preview`, then `live`  |
 
-Selecting a card reveals that environment's delivery URL with a copy-to-clipboard control. The URL is shown **only when the environment is deployed** (status `200`); an environment that has never been previewed/published shows *Not previewed yet* / *Not published yet* with no URL.
+Selecting a card reveals that environment's delivery URL as a link that opens the page in a new tab, next to a copy-to-clipboard control. The URL is shown **only when the environment is deployed** (status `200`); an environment that has never been previewed/published shows *Not previewed yet* / *Not published yet* with no URL.
 
 Timestamps use `formatRelativeDateTime` (`nx2/utils/format.js`) — "Today at 14:32" / "Yesterday at 14:32", falling back to a short date ("17 Jun, 16:02").
 
@@ -56,7 +56,7 @@ The two repositories support rolling deployment. The da-live bridge uses stable 
 
 Canvas library/block previews and custom Prepare-menu previews use resolved branch state too. Plugin READY context includes the selected site `branch` separately from `ref`, which retains its plugin-development meaning (including `local`). Classic-editor `dapreview`/local-plugin loader parameters keep their existing meanings.
 
-For a non-`main` branch the URLs are `https://{branch}--{site}--{org}.aem.page|live{webPath}`; for `main` they use the site's configured preview/production hosts. A `preview-url` / `live-url` meta template still takes precedence for the URL opened after a deploy.
+For a non-`main` branch the URLs are `https://{branch}--{site}--{org}.aem.page|live{webPath}`; for `main` they use the site's configured preview/production hosts from the Sidekick config (`previewHost`, and `host` over `liveHost`), so a site with a production host shows that host instead of `aem.live`. Until that config loads, or when it fails, the cards fall back to the URLs from the status API. A `preview-url` / `live-url` meta template still takes precedence for the URL opened after a deploy.
 
 An explicit `preview-url` (preview) or `live-url` (publish) template in the editor page's head also bypasses the Canvas branch requirement for that action. This lets standalone editors such as Forms deploy without a Canvas bridge. `${aemPath}` is replaced with the current document path, and the deployed environment's copy control uses the same destination. Each action uses only its matching template; save, preflight, and deployment errors remain blocking.
 

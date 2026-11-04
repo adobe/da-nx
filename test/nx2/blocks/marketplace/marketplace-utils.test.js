@@ -3,6 +3,8 @@ import {
   MARKETPLACE_PATH,
   normalizeItem,
   fetchMarketplace,
+  getCategories,
+  filterByCategories,
 } from '../../../../nx2/blocks/marketplace/marketplace-utils.js';
 
 const origin = 'https://main--da-live--adobe.aem.page';
@@ -22,6 +24,7 @@ describe('normalizeItem', () => {
       'Try Url': 'https://da.live/app/x/msm',
       Owner: ' Adobe ',
       Type: 'App & Plugin',
+      Category: ' Core ',
       Image: 'https://example.com/t.png',
     };
     expect(normalizeItem({ row, origin })).to.deep.equal({
@@ -31,6 +34,7 @@ describe('normalizeItem', () => {
       tryHref: 'https://da.live/app/x/msm',
       owner: 'Adobe',
       type: 'App & Plugin',
+      category: 'Core',
       imageHref: 'https://example.com/t.png',
     });
   });
@@ -92,11 +96,59 @@ describe('normalizeItem', () => {
     expect(result.description).to.equal('');
     expect(result.owner).to.equal('');
     expect(result.type).to.equal('');
+    expect(result.category).to.equal('');
   });
 
   it('keeps the type text as written, trimmed', () => {
     const row = { Title: 'MSM', 'Doc Url': 'https://da.live/a', Type: '  App & Plugin ' };
     expect(normalizeItem({ row, origin }).type).to.equal('App & Plugin');
+  });
+});
+
+describe('getCategories', () => {
+  const block = (className) => {
+    const el = document.createElement('div');
+    el.className = className;
+    return el;
+  };
+
+  it('returns empty list without options', () => {
+    expect(getCategories(block('marketplace'))).to.deep.equal([]);
+  });
+
+  it('returns option classes after the block name', () => {
+    expect(getCategories(block('marketplace core extension'))).to.deep.equal(['core', 'extension']);
+  });
+
+  it('ignores a prefixed block name', () => {
+    expect(getCategories(block('nx-marketplace core'))).to.deep.equal(['core']);
+  });
+});
+
+describe('filterByCategories', () => {
+  const items = [
+    { title: 'A', category: 'Core' },
+    { title: 'B', category: 'Extension' },
+    { title: 'C', category: '' },
+  ];
+  const titles = (list) => list.map(({ title }) => title);
+
+  it('returns all items without categories', () => {
+    expect(titles(filterByCategories({ items, categories: [] }))).to.deep.equal(['A', 'B', 'C']);
+    expect(titles(filterByCategories({ items }))).to.deep.equal(['A', 'B', 'C']);
+  });
+
+  it('filters by a single category, case-insensitive', () => {
+    expect(titles(filterByCategories({ items, categories: ['core'] }))).to.deep.equal(['A']);
+  });
+
+  it('filters by multiple categories', () => {
+    expect(titles(filterByCategories({ items, categories: ['core', 'extension'] })))
+      .to.deep.equal(['A', 'B']);
+  });
+
+  it('returns empty list when nothing matches', () => {
+    expect(filterByCategories({ items, categories: ['other'] })).to.deep.equal([]);
   });
 });
 

@@ -14,6 +14,33 @@ chat.context = { org, site, path, view }; // view: 'browse' | 'edit'
 
 The component manages its own controller internally. No external wiring needed.
 
+## Turn completion notifications
+
+Both `nx-chat` and `nx-chat-ao` emit the bubbling, composed
+`CHAT_EVENT.TURN_COMPLETED` (`nx-chat-turn-completed`) event. Its detail is
+`{ org, site, path, sessionId, turnId, status }`; identifiers are supplied when
+available, and `status` is `completed`, `aborted`, or `error`. The page context
+is the controller's current context when the notification fires.
+No chat text, tool results, or credentials are included.
+
+Notifications cover a whole turn, not each text chunk, tool call, or approval
+pause. Legacy chat completes after chained tool rounds and approvals finish;
+stopping it reports `aborted`. AO/Coworker/CMA completes on the server's terminal
+event, including its acknowledgement of an interruption. Legacy request failures
+report `error`; AO does not infer completion from local errors or cleanup.
+Notifications may repeat: consumers should treat them as invalidation signals,
+not exactly-once lifecycle events. No client-side turn tracking or deduplication
+is performed.
+
+DA Live exposes this event through `chatTurnCompleted` in
+`blocks/shared/chat-panel.js`, a non-replaying channel available to Canvas,
+Browse, and other hosts without Canvas initialization. Its first subscriber
+attaches the document listener; the last unsubscribe removes it.
+Consumers can refresh app data without depending on collaboration updates.
+This is an invalidation signal, not confirmation of preview, publication, or
+durable editor persistence. Extension subscriptions are documented in
+[SDK messaging](sdk-messaging.md#chat-turn-subscriptions).
+
 ## Properties in
 
 | Property   | Type      | Description                                                            |

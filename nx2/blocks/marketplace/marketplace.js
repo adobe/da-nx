@@ -2,7 +2,12 @@ import { LitElement, html, nothing } from 'da-lit';
 
 import { loadStyle } from '../../utils/utils.js';
 import { loadHrefSvg } from '../../utils/svg.js';
-import { fetchMarketplace, isAdobeOwned } from './marketplace-utils.js';
+import {
+  fetchMarketplace,
+  filterByCategories,
+  getCategories,
+  isAdobeOwned,
+} from './marketplace-utils.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -10,6 +15,7 @@ const ADOBE_LOGO_HREF = new URL('../../../nx/img/logos/aec.svg', import.meta.url
 
 class NxMarketplace extends LitElement {
   static properties = {
+    categories: { attribute: false },
     _items: { state: true },
     _error: { state: true },
     _adobeLogo: { state: true },
@@ -30,8 +36,9 @@ class NxMarketplace extends LitElement {
       this._error = result.error;
       return;
     }
-    this._items = result.items;
-    this._loadCardExtras(result.items);
+    const items = filterByCategories({ items: result.items, categories: this.categories });
+    this._items = items;
+    this._loadCardExtras(items);
   }
 
   _loadCardExtras(items) {
@@ -114,7 +121,12 @@ class NxMarketplace extends LitElement {
       `;
     }
 
-    if (!this._items.length) return html`<p class="empty">No extensions available.</p>`;
+    if (!this._items.length) {
+      const message = this.categories?.length
+        ? 'No extensions in this category.'
+        : 'No extensions available.';
+      return html`<p class="empty">${message}</p>`;
+    }
 
     return html`
       <ul class="grid" role="list">
@@ -128,5 +140,7 @@ customElements.define('nx-marketplace', NxMarketplace);
 
 export default function init(el) {
   el.style.display = 'contents';
-  el.replaceChildren(document.createElement('nx-marketplace'));
+  const marketplace = document.createElement('nx-marketplace');
+  marketplace.categories = getCategories(el);
+  el.replaceChildren(marketplace);
 }
