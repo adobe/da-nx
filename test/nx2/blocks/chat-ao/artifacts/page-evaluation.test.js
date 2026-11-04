@@ -2,7 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import { render } from 'da-lit';
 import { renderUiArtifact } from '../../../../../nx2/blocks/chat-ao/artifacts/index.js';
 import { buildSuggestionPrompt } from '../../../../../nx2/blocks/chat-ao/artifacts/page-evaluation.js';
-import { CHAT_EVENT } from '../../../../../nx2/utils/chat.js';
+import { PANEL_EVENT } from '../../../../../nx2/utils/panel.js';
 import { installFetch, restoreFetch } from '../../../../../nx2/test/mocks/fetch.js';
 
 async function waitUntil(predicate, timeout = 2000) {
@@ -112,19 +112,22 @@ describe('page evaluation suggestion actions', () => {
       { selector: '.ui-artifact-pe-modal-add', autoSend: false },
       { selector: '.ui-artifact-pe-modal-apply', autoSend: true },
     ].forEach(({ selector, autoSend }) => {
-      it(`sends the prompt and closes the dialog on ${selector}`, async () => {
+      it(`opens the chat panel with the prompt and closes the dialog on ${selector}`, async () => {
         withChat();
         const card = await openSuggestion();
         await waitUntil(() => card.shadowRoot.querySelector(selector));
 
         const events = [];
         const listener = (e) => events.push(e.detail);
-        document.addEventListener(CHAT_EVENT.SET_PROMPT, listener);
+        document.addEventListener(PANEL_EVENT.OPEN, listener);
         card.shadowRoot.querySelector(selector).click();
         await waitUntil(() => events.length === 1 && !card.shadowRoot.querySelector('nx-dialog'));
-        document.removeEventListener(CHAT_EVENT.SET_PROMPT, listener);
+        document.removeEventListener(PANEL_EVENT.OPEN, listener);
 
-        expect(events).to.deep.equal([{ text: buildSuggestionPrompt({ item }), autoSend }]);
+        expect(events).to.deep.equal([{
+          section: 'chat',
+          options: { text: buildSuggestionPrompt({ item }), autoSend },
+        }]);
       });
     });
 

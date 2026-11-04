@@ -13,7 +13,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../../utils/utils.js';
 import { getConfig } from '../../../scripts/nx.js';
-import { CHAT_EVENT } from '../../../utils/chat.js';
+import { PANEL_EVENT } from '../../../utils/panel.js';
 import { registerArtifact } from './registry.js';
 
 const styles = await loadStyle(import.meta.url);
@@ -93,7 +93,9 @@ function renderSuggestionActions(item, { chatEnabled } = {}) {
   const send = (e, autoSend) => {
     e.currentTarget.closest('nx-dialog')?.close();
     const text = buildSuggestionPrompt({ item });
-    document.dispatchEvent(new CustomEvent(CHAT_EVENT.SET_PROMPT, { detail: { text, autoSend } }));
+    document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, {
+      detail: { section: 'chat', options: { text, autoSend } },
+    }));
   };
   return html`
     <div class="ui-artifact-pe-modal-actions">
