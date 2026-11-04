@@ -486,8 +486,8 @@ picker.value = 'name:ascending';</code></pre>
 
       <article class="sg-example">
         <h3>nx-siteselector — navigation</h3>
-        <p class="sg-note">Title S is 14px/18px and M is 16px/20px, both weight 700. Tab to see the 2px blue focus ring in either theme. Both sizes use M-bold menu headings, M-medium site and Add labels (14px/18px), S-regular site paths (12px/16px, weight 400) and a blue leading check. Paths use --s2-gray-700 (#505050 in light mode, theme-aware in dark mode).</p>
-        <p class="sg-note">S starts unselected. Both the unselected trigger and menu heading say "Your recent sites" by default. Site names are capitalized without changing their identifiers. M shows the selected site name and full org/site path. This demo supplies sample sites before connection to use controlled mode. Normal instances own history, access checks, Add and the permission-gated Create link to /start; hosts can optionally override page reactions and the Create destination.</p>
+        <p class="sg-note">S: unselected, 14px/18px bold trigger. M: selected, 16px/20px bold trigger. Both use M menu labels, S-regular paths and theme-aware S2 colors. Tab to check keyboard focus.</p>
+        <p class="sg-note">Controlled demos use sample sites without access requests. Normal instances own history, access checks and Add; Create opens the host's /start page with an organization write grant. See <a href="../picker.md">picker docs</a> for integration and overrides.</p>
         <div class="sg-demo sg-picker-container">
           <nx-siteselector id="demo-siteselector-s" size="s" heading="Your recent sites"></nx-siteselector>
           <nx-siteselector id="demo-siteselector-m" size="m" heading="Your recent sites"></nx-siteselector>
