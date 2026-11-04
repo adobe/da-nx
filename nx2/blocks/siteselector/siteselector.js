@@ -99,7 +99,7 @@ class NxSiteselector extends LitElement {
         placeholder=${this.sites === undefined ? 'Loading sites...' : heading}
         aria-busy=${this.sites === undefined}
         ?inert=${this.sites === undefined}
-        variant="navigation"
+        variant="emphasized"
         check-position="start"
         @change=${this.onChange}
       ></nx-picker>

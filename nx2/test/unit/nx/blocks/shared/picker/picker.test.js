@@ -183,9 +183,9 @@ describe('nx-picker swatch', () => {
     }
   });
 
-  it('preserves navigation medium trigger height and component weight together', async () => {
+  it('preserves emphasized medium trigger height and component weight together', async () => {
     const el = await createPicker();
-    el.variant = 'navigation';
+    el.variant = 'emphasized';
     el.size = 'm';
     el.style.setProperty('--s2-component-m-regular-font-weight', '450');
     await el.updateComplete;
@@ -273,7 +273,7 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelectorAll('.picker-check-slot .picker-check')).to.have.length(2);
   });
 
-  it('restores navigation menu spacing and matching S/M medium labels without changing field defaults', async () => {
+  it('restores emphasized menu spacing and matching S/M medium labels without changing field defaults', async () => {
     const el = await createPicker({
       items: [
         { section: 'Your sites' },
@@ -283,7 +283,7 @@ describe('nx-picker swatch', () => {
       ],
       value: 'site',
     });
-    el.variant = 'navigation';
+    el.variant = 'emphasized';
     el.checkPosition = 'start';
     el.style.cssText = `
       --s2-spacing-100: 8px;
@@ -332,7 +332,7 @@ describe('nx-picker swatch', () => {
     expect(getComputedStyle(el.shadowRoot.querySelector('nx-popover')).maxWidth).to.equal('none');
   });
 
-  it('scopes blue keyboard focus to navigation while preserving defaults and focus-ring overrides', async () => {
+  it('scopes blue keyboard focus to emphasized while preserving defaults and focus-ring overrides', async () => {
     const el = await createPicker();
     el.style.cssText = `
       --s2-blue-800: light-dark(#4b75ff, #4069fd);
@@ -350,7 +350,7 @@ describe('nx-picker swatch', () => {
       return getComputedStyle(trigger);
     };
     try {
-      for (const variant of [undefined, 'field', 'navigation', 'field', undefined]) {
+      for (const variant of [undefined, 'field', 'emphasized', 'field', undefined]) {
         el.variant = variant;
         await el.updateComplete;
         for (const [scheme, blue, gray] of [
@@ -359,7 +359,7 @@ describe('nx-picker swatch', () => {
         ]) {
           el.style.colorScheme = scheme;
           const style = await focus();
-          expect(style.outlineColor).to.equal(variant === 'navigation' ? blue : gray);
+          expect(style.outlineColor).to.equal(variant === 'emphasized' ? blue : gray);
           expect(style.outlineStyle).to.equal('solid');
           expect(style.outlineWidth).to.equal('2px');
         }
@@ -379,7 +379,7 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelector('nx-popover').style.width).to.equal('280px');
     el.close();
     el.style.removeProperty('--nx-picker-menu-width');
-    for (const variant of ['field', 'navigation']) {
+    for (const variant of ['field', 'emphasized']) {
       el.variant = variant;
       await el.updateComplete;
       el.show();

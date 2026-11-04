@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import { sendKeys, sendMouse } from '@web/test-runner-commands';
 import sinon from 'sinon';
 import { setConfig } from '../../../../../scripts/nx.js';
 import { getSiteApi } from '../../../../../blocks/siteselector/site-access.js';
@@ -69,6 +70,50 @@ describe('shared Add site dialog', () => {
           .to.equal(el.style.getPropertyValue(`--s2-component-m-${weight}-${property}`));
       }
     }
+  });
+
+  it('uses shared rounded dialog buttons in light and dark themes', async () => {
+    await sendMouse({ type: 'move', position: [0, 0] });
+    el.style.cssText = `
+      --s2-corner-radius-400: 8px;
+      --s2-corner-radius-800: 16px;
+      --s2-gray-100: light-dark(#eee, #333);
+      --s2-gray-800: light-dark(#292929, #dbdbdb);
+      --s2-gray-25: light-dark(#fff, #161616);
+    `;
+    const cancel = el.shadowRoot.querySelector('[slot="actions"][type="button"]');
+    const add = el.shadowRoot.querySelector('[type="submit"]');
+    [cancel, add].forEach((button) => { button.style.transition = 'none'; });
+    expect(cancel.classList.contains('nx-form-btn-secondary')).to.be.true;
+    expect(add.classList.contains('nx-btn-primary')).to.be.true;
+    for (const [scheme, cancelBackground, addBackground, addColor] of [
+      ['light', 'rgb(238, 238, 238)', 'rgb(41, 41, 41)', 'rgb(255, 255, 255)'],
+      ['dark', 'rgb(51, 51, 51)', 'rgb(219, 219, 219)', 'rgb(22, 22, 22)'],
+    ]) {
+      el.style.colorScheme = scheme;
+      const cancelStyle = getComputedStyle(cancel);
+      const addStyle = getComputedStyle(add);
+      for (const button of [cancelStyle, addStyle]) {
+        expect(button.borderRadius).to.equal('16px');
+        expect(button.height).to.equal('32px');
+      }
+      expect(cancelStyle.backgroundColor).to.equal(cancelBackground);
+      expect(addStyle.backgroundColor).to.equal(addBackground);
+      expect(addStyle.color).to.equal(addColor);
+    }
+  });
+
+  it('submits with Enter and closes with Cancel using native dialog buttons', async () => {
+    const added = new Promise((resolve) => {
+      el.addEventListener('site-added', resolve, { once: true });
+    });
+    el.shadowRoot.querySelector('input').focus();
+    await sendKeys({ press: 'Enter' });
+    expect((await added).detail.value).to.equal('org/site');
+    const closed = sinon.spy();
+    el.addEventListener('close', closed);
+    el.shadowRoot.querySelector('[slot="actions"][type="button"]').click();
+    expect(closed.calledOnce).to.be.true;
   });
 
   it('lets a non-admin add an existing accessible site without server writes', async () => {

@@ -40,13 +40,13 @@ This variant is visual and interactive only. It does not provide a label or part
 Its dropdown matches the rendered trigger width each time it opens unless
 `--nx-picker-menu-width` is set.
 
-### Navigation presentation
+### Emphasized presentation
 
-Use `variant="navigation"` for bold sections, medium-weight labels and S-regular,
+Use `variant="emphasized"` for bold sections, medium-weight labels and S-regular,
 theme-aware descriptions. Add `check-position="start"` for leading blue checks.
 
 ```html
-<nx-picker variant="navigation" check-position="start" size="m"></nx-picker>
+<nx-picker variant="emphasized" check-position="start" size="m"></nx-picker>
 ```
 
 The trigger fills the available width. The menu matches it with a viewport-constrained
@@ -115,7 +115,7 @@ When the selected item has a `swatch`, the trigger shows it before the label too
 | `placeholder`   | `String`              | Trigger fallback shown only when `value` does not match an item.               |
 | `placement`     | `String`              | Default placement when opened: `below` (default), `above`, or `auto`.         |
 | `size`          | `String`              | Item density: `s` (default) or `m`. Reflected as a host attribute.             |
-| `variant`       | `String`              | `field` for a form-style trigger; `navigation` also provides the navigation menu presentation. |
+| `variant`       | `String`              | `field` for a form-style trigger; `emphasized` also provides bold sections and medium-weight menu labels. |
 | `checkPosition` | `String`              | `start` reserves leading check space on selectable rows. Default: end. Attribute: `check-position`. |
 | `open`          | `Boolean` (read-only) | Whether the picker is currently open.                                          |
 
@@ -127,9 +127,9 @@ Use `::part(label)` to style the trigger text, or `::part(label)::before` to add
 
 `variant` controls menu presentation; `check-position="start"` provides leading checks.
 Descriptions appear below labels and join the accessible name unless `ariaLabel` overrides it.
-Navigation typography, focus color and menu bounds are opt-in; default and field
+Emphasized typography, focus color and menu bounds are opt-in; default and field
 styling is preserved. Their descriptions match row size with regular weight;
-navigation descriptions stay S-regular.
+emphasized descriptions stay S-regular.
 
 ## CSS custom properties
 
@@ -141,7 +141,7 @@ navigation descriptions stay S-regular.
 | `--nx-picker-radius`     | `var(--s2-corner-radius-500)`         | Trigger border radius.    |
 | `--nx-picker-background` | `var(--s2-gray-100)`                  | Trigger background.       |
 | `--nx-picker-max-width`  | `none`                                | Maximum component width.  |
-| `--nx-picker-menu-width` | Rendered field width, or automatic    | Menu width; viewport-constrained in navigation. |
+| `--nx-picker-menu-width` | Rendered field width, or automatic    | Menu width; viewport-constrained in emphasized. |
 
 ### Methods
 
@@ -162,7 +162,7 @@ navigation descriptions stay S-regular.
 Arrow keys open the picker when focus is on the trigger. When open, arrow keys move focus between items, Enter selects the active item, and Escape closes the picker.
 
 Triggers use a 2px focus ring: current text color for default/field, blue
-(`--s2-blue-800`) for navigation. `--s2-focus-ring-color` overrides either.
+(`--s2-blue-800`) for emphasized. `--s2-focus-ring-color` overrides either.
 Item focus waits for popover positioning and is skipped if the picker closes or disconnects first.
 
 ## Standalone site selector
@@ -186,7 +186,7 @@ Add validates site access and the organization listing without backend writes or
 | `onSelect` | Optional `({ value }) => { ... }` callback for page-specific reactions. |
 | `getCreateSiteHref` | Optional `({ org }) => href` override; return `undefined` to hide Create. |
 
-Both sizes use the shared M navigation menu with S-regular paths (`--s2-gray-700`).
+Both sizes use the shared M emphasized menu with S-regular paths (`--s2-gray-700`).
 Menu names are capitalized; identifiers and emitted values are unchanged.
 
 Selecting or adding updates selection and history without navigation. Hash changes

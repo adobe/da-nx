@@ -75,7 +75,7 @@
   }
 }
 
-:host(:is([variant='field'], [variant='navigation'])) .picker-trigger {
+:host(:is([variant='field'], [variant='emphasized'])) .picker-trigger {
   justify-content: space-between;
   width: 100%;
   height: var(--nx-picker-height, 32px);
@@ -199,7 +199,7 @@
   }
 }
 
-:host([variant='navigation']) {
+:host([variant='emphasized']) {
   .picker-trigger {
     font-weight: var(--s2-component-s-regular-font-weight);
 
@@ -263,7 +263,7 @@
   }
 }
 
-:host([variant='navigation'][size='m']) {
+:host([variant='emphasized'][size='m']) {
   .picker-trigger {
     font-weight: var(--s2-component-m-regular-font-weight);
   }

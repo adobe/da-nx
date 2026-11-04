@@ -116,7 +116,7 @@ export class NxAddSite extends LitElement {
           <p class="permission-error" role="status">${this._permissionError}
             <button type="button" class="permission-retry" @click=${this.loadCreationPermission}>Try again</button>
           </p>` : nothing}
-        <button type="button" slot="actions" class="nx-action-btn" @click=${this.close}>Cancel</button>
+        <button type="button" slot="actions" class="nx-form-btn-secondary" @click=${this.close}>Cancel</button>
         <button type="submit" slot="actions" form="add-site-form" class="nx-btn-primary"
           ?disabled=${this._saving}>${this._saving ? 'Checking...' : 'Add site'}</button>
       </nx-dialog>`;

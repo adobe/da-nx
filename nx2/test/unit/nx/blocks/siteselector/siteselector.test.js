@@ -311,7 +311,7 @@ describe('nx-siteselector', () => {
       expect(trigger.borderRadius).to.equal('24px');
       expect(trigger.backgroundColor).to.equal('rgb(250, 250, 250)');
       expect(getComputedStyle(picker.shadowRoot.querySelector('[part="label"]')).fontWeight).to.equal(bold);
-      expect(picker.variant).to.equal('navigation');
+      expect(picker.variant).to.equal('emphasized');
       expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal('450');
       expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item-description')).fontWeight).to.equal('300');
     }
