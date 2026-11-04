@@ -35,12 +35,28 @@
 
   <nav class="sg-toc">
     <a href="#buttons">Buttons</a>
+    <a href="#colors">Colors</a>
     <a href="#form">Form</a>
     <a href="#elements">Elements</a>
     <a href="#shared-blocks">Shared Blocks</a>
   </nav>
 
   <main>
+    <section id="colors" class="sg-section">
+      <h2>Colors</h2>
+      <p>Source: <code>nx2/styles/styles.css</code>. Spectrum indigo tokens are available from
+        <code>--s2-indigo-100</code> through <code>--s2-indigo-1200</code> in steps of 100.
+        Each token follows the active light or dark color scheme.</p>
+      <article class="sg-example">
+        <h3>Indigo surface</h3>
+        <div class="sg-demo" style="background-color: var(--s2-indigo-200); color: var(--s2-indigo-1000)">
+          <span>Indigo 200 surface with indigo 1000 text</span>
+        </div>
+        <pre><code>background-color: var(--s2-indigo-200);
+color: var(--s2-indigo-1000);</code></pre>
+      </article>
+    </section>
+
     <section id="buttons" class="sg-section">
       <h2>Buttons</h2>
       <p>Source: <code>nx2/styles/buttons.css</code></p>
