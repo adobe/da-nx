@@ -1,5 +1,5 @@
 import { getSiteOptions } from './site-options.js';
-import { checkSiteChoices, getSiteApi, setRecentSite } from './site-access.js';
+import { checkSiteChoices, getCreateSiteHref, getSiteApi, setRecentSite } from './site-access.js';
 
 export function connectSiteSelector({ selector, signal, onSelect }) {
   if (signal.aborted || !selector.isConnected) return undefined;
@@ -94,7 +94,9 @@ export function connectSiteSelector({ selector, signal, onSelect }) {
       if (signal.aborted || current !== scope) return;
       dialog = document.createElement('nx-add-site');
       [dialog.org] = scope.split('/');
-      dialog.createHref = selector.getCreateSiteHref?.({ org: dialog.org });
+      dialog.createHref = selector.getCreateSiteHref
+        ? selector.getCreateSiteHref({ org: dialog.org })
+        : getCreateSiteHref({ org: dialog.org });
       dialog.addEventListener('close', () => {
         closeDialog();
         selector.focus();

@@ -39,6 +39,16 @@ export function hasOrgAdminGrant(response) {
   return response.ok && !!actions?.some((action) => action.trim() === 'write');
 }
 
+export function getCreateSiteHref({ org, href = window.location.href }) {
+  const url = new URL(href);
+  url.pathname = '/start';
+  url.searchParams.delete('browse');
+  url.searchParams.delete('site');
+  url.searchParams.set('org', org);
+  url.hash = '';
+  return url.href;
+}
+
 export async function checkSiteAccess({ value, source, signal }) {
   signal.throwIfAborted();
   const result = await source.list(`/${value}`, { opts: { signal } });

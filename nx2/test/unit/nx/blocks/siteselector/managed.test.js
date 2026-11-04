@@ -114,6 +114,49 @@ describe('standalone site selector behavior', () => {
     expect(permission.calledWith({ org: 'org' })).to.be.true;
   });
 
+  [['read,write', true], ['read', false]].forEach(([actions, canCreate]) => {
+    it(`handles default creation routing without a DA listener for ${actions} permissions`, async () => {
+      permission.resolves(new Response('{}', { headers: { 'x-da-actions': `/=${actions}` } }));
+      window.history.replaceState(null, '', '?nx=siteselector-main&nxver=2&theme=dark&browse=2&site=old#/org/site/folder');
+      const currentHref = window.location.href;
+      document.body.append(selector);
+      await selector.ready;
+      expect(selector.getCreateSiteHref).to.be.undefined;
+      const dialog = await openDialog(selector);
+      await dialog.loadCreationPermission();
+      await dialog.updateComplete;
+      expect(permission.calledWith({ org: 'org' })).to.be.true;
+      const link = dialog.shadowRoot.querySelector('.site-creation a');
+      expect(!!link).to.equal(canCreate);
+      if (canCreate) {
+        const url = new URL(link.href);
+        expect(url.origin).to.equal(window.location.origin);
+        expect(url.pathname).to.equal('/start');
+        expect(url.searchParams.get('org')).to.equal('org');
+        expect(url.searchParams.get('nx')).to.equal('siteselector-main');
+        expect(url.searchParams.get('nxver')).to.equal('2');
+        expect(url.searchParams.get('theme')).to.equal('dark');
+        expect(url.searchParams.has('browse')).to.be.false;
+        expect(url.searchParams.has('site')).to.be.false;
+        expect(url.hash).to.equal('');
+      }
+      expect(window.location.href).to.equal(currentHref);
+    });
+  });
+
+  it('lets a host explicitly suppress creation without disabling Add existing', async () => {
+    window.history.replaceState(null, '', '#/org/site');
+    selector.getCreateSiteHref = () => undefined;
+    document.body.append(selector);
+    await selector.ready;
+    const dialog = await openDialog(selector);
+    await dialog.updateComplete;
+    expect(dialog.createHref).to.be.undefined;
+    expect(permission.called).to.be.false;
+    expect(dialog.shadowRoot.querySelector('.site-creation')).to.be.null;
+    expect(dialog.shadowRoot.querySelector('input')).to.exist;
+  });
+
   it('reconnects its controller and releases the previous lifecycle', async () => {
     document.body.append(selector);
     await selector.ready;

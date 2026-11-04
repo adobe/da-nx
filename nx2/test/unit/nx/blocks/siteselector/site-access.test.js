@@ -1,10 +1,35 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { parseSubdomain, hasOrgAdminGrant, checkSiteChoices, addExistingSite } from '../../../../../blocks/siteselector/site-access.js';
+import { parseSubdomain, hasOrgAdminGrant, getCreateSiteHref, checkSiteChoices, addExistingSite } from '../../../../../blocks/siteselector/site-access.js';
 
 describe('shared site access', () => {
   afterEach(() => {
     sinon.restore();
+  });
+
+  it('builds creation links on the current host without a DA integration', () => {
+    const url = new URL(getCreateSiteHref({ org: 'example' }));
+    expect(url.origin).to.equal(window.location.origin);
+    expect(url.pathname).to.equal('/start');
+    expect(url.searchParams.get('org')).to.equal('example');
+    expect(url.hash).to.equal('');
+  });
+
+  it('preserves preview settings but removes stale site and Browse routing from creation', () => {
+    const url = new URL(getCreateSiteHref({
+      org: 'org',
+      href: 'https://main--da-live--adobe.aem.live/drafts/example?nx=selector&nxver=2&theme=dark&landing=home&browse=2&site=old#/org/site/folder',
+    }));
+    expect(url.origin).to.equal('https://main--da-live--adobe.aem.live');
+    expect(url.pathname).to.equal('/start');
+    expect(url.searchParams.get('org')).to.equal('org');
+    expect(url.searchParams.get('nx')).to.equal('selector');
+    expect(url.searchParams.get('nxver')).to.equal('2');
+    expect(url.searchParams.get('theme')).to.equal('dark');
+    expect(url.searchParams.get('landing')).to.equal('home');
+    expect(url.searchParams.has('browse')).to.be.false;
+    expect(url.searchParams.has('site')).to.be.false;
+    expect(url.hash).to.equal('');
   });
 
   it('accepts only complete supported site URLs without credentials', () => {

@@ -231,13 +231,16 @@ organization listing; it never creates sites, grants access or writes configurat
 Selecting or adding a site updates selection and history without navigating.
 Configure `selector.onSelect = ({ value }) => { ... }` for page-specific reactions.
 An external hash change resynchronizes the selector with the page route.
-Configure `selector.getCreateSiteHref = ({ org }) => '/your-create-route'` to offer
-creation. The link appears only after an explicit organization-config write grant.
-Without that callback, Add existing still works and no Create link is shown.
+Nexter builds the default creation link to the current host's `/start` page with
+the selected `org`. It preserves preview parameters, removes stale `site` and
+`browse` parameters and clears the hash. The link appears only after an explicit
+organization-config write grant. No DA listener or navigation-content change is needed.
+Optionally override `selector.getCreateSiteHref = ({ org }) => '/your-create-route'`.
+Return `undefined` from that callback to suppress creation without disabling Add existing.
 
 `site-select` carries `{ value }`; `site-add` requests Add; `site-retry` retries errors.
 These events bubble across the navigation shadow root. No DA application modules
-or application-specific creation routes are imported by Nexter.
+are imported by Nexter; opening the creation link uses the existing host page.
 
 For a presentation-only, externally controlled instance, assign `sites` before the
 first connection or in the synchronous `site-selector-ready` listener. Set entries
