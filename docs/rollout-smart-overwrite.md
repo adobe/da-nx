@@ -24,12 +24,12 @@ flowchart TD
   exists -- "no" --> copy["Copy the global page"]
   exists -- "yes" --> base{"Valid rolloutbase<br/>for this page?"}
   base -- "no (first smart rollout)" --> merge["Today's merge<br/>(da-diff markers to review)"]
-  base -- "yes" --> unchanged{"apac unchanged since<br/>last rollout?"}
-  unchanged -- "yes" --> take["Take global as-is"]
-  unchanged -- "no" --> diff3["Block-level three-way merge<br/>baseline vs global vs apac"]
-  diff3 --> who{"Who changed the block<br/>since the last rollout?"}
-  who -- "only global" --> apply["Apply global change"]
-  who -- "only apac" --> keep["Keep apac"]
+  base -- "yes" --> unchanged{"apac has no localized blocks?<br/>(identical to global at the last rollout)"}
+  unchanged -- "yes, nothing localized" --> take["Take global as-is"]
+  unchanged -- "no, apac has localized blocks" --> diff3["Block-level three-way merge<br/>baseline vs global vs apac"]
+  diff3 --> who{"Per block: who differs from the baseline?<br/>(baseline = global at the last rollout)"}
+  who -- "only global (new global edit)" --> apply["Apply global change"]
+  who -- "only apac (localized, old or new)" --> keep["Keep apac"]
   who -- "both, differently" --> skip["Keep apac<br/>count as skipped"]
   copy --> save["Save page + record new rolloutbase"]
   merge --> save
@@ -62,16 +62,16 @@ upstream (S) and destination (D). Logic lives in `nx/blocks/loc/regional-diff/sm
 | inserted at a spot | inserted at the same spot | keep both (destination first, no duplicates) |
 | changed | changed differently | keep destination, count as **skipped** |
 
-4. Upstream reorders: if the destination is unchanged since the last rollout, the result is exactly upstream
-   (reorders included). Otherwise, like merge, upstream moves are not applied: moved blocks stay in the
+4. Upstream reorders: if the destination has no localized blocks (it is still identical to upstream as of the last
+   rollout), the result is exactly upstream (reorders included). Otherwise, like merge, upstream moves are not applied: moved blocks stay in the
    destination's order (not reported), so content is never duplicated, lost or resurrected.
 5. Sections: new sections inserted by both sides at the same spot are compared whole, so boundaries and section
    metadata stay with their content. Section breaks that would leave an empty section after merging are dropped,
    unless the destination or upstream already has an empty section.
 
 Guarantees (covered by seeded randomized tests in `test/loc/smart-merge.test.js`):
-- Destination unchanged → result equals upstream. Upstream unchanged or equal to destination → result equals
-  destination.
+- Destination identical to the baseline (nothing localized) → result equals upstream.
+- Upstream unchanged, or equal to the destination → result equals the destination.
 - Every block the destination added or edited is kept.
 - No block appears more often than in the destination plus the copies upstream newly added; locally deleted
   blocks never come back.
