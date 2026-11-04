@@ -1,3 +1,29 @@
+# [1.37.0](https://github.com/adobe/da-nx/compare/v1.36.0...v1.37.0) (2026-11-04)
+
+
+### Features
+
+* share chat session between full chat + compact variant ([#950](https://github.com/adobe/da-nx/issues/950)) ([34e2393](https://github.com/adobe/da-nx/commit/34e23939e7ff6d05d2c789dda31f854a8faff410))
+
+# [1.36.0](https://github.com/adobe/da-nx/compare/v1.35.0...v1.36.0) (2026-11-03)
+
+
+### Bug Fixes
+
+* **shell:** recheck chat availability on hash navigation ([4ffac45](https://github.com/adobe/da-nx/commit/4ffac45ddd59bb3e6bda7ab33b91f464d5c5c43a))
+
+
+### Features
+
+* **shell:** open chat through existing SDK prompt action ([a813ef6](https://github.com/adobe/da-nx/commit/a813ef6d5fae8a4122b919f23997a52258c27800))
+
+# [1.35.0](https://github.com/adobe/da-nx/compare/v1.34.0...v1.35.0) (2026-11-03)
+
+
+### Features
+
+* **loc:** resolve locale placeholders during rollout ([4a06a14](https://github.com/adobe/da-nx/commit/4a06a144d8fad6b17f33759d0fb434d2e31a24d8))
+
 # [1.34.0](https://github.com/adobe/da-nx/compare/v1.33.0...v1.34.0) (2026-11-03)
 
 

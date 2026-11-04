@@ -16,8 +16,8 @@ before(() => {
   if (!document.querySelector('main')) document.body.append(document.createElement('main'));
 });
 
-// panelSections is a module-level registry that's never cleared (no
-// unregister API), so it accumulates entries across every test in this file.
+// Most tests leave their sections registered, so the module-level registry
+// accumulates entries across tests in this file.
 // Assertions below only ever check "did *my* registered section's onShow
 // fire", never "is this the only aside in the DOM" — that stays robust to
 // whatever else has been registered by earlier tests.
@@ -64,6 +64,95 @@ describe('wasPanelOpen', () => {
 });
 
 describe('PANEL_EVENT wiring', () => {
+  it('unregisters a section, removes its panel and notifies subscribers', async () => {
+    const unregister = registerPanelSection('event-unregister', {
+      position: 'before',
+      getContent: async () => document.createElement('div'),
+    });
+    const sections = [];
+    const visibility = [];
+    const unsubscribeSections = subscribePanelSections((names) => sections.push(names));
+    const unsubscribeVisibility = subscribePanelVisibility((names) => visibility.push(names));
+    try {
+      document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, {
+        detail: { section: 'event-unregister' },
+      }));
+      await flush();
+      expect(document.querySelector('aside.panel')).to.exist;
+      unregister();
+      expect(document.querySelector('aside.panel')).to.equal(null);
+      expect(sections.at(-1)).not.to.include('event-unregister');
+      expect(visibility.at(-1)).not.to.include('event-unregister');
+      expect(wasPanelOpen('event-unregister')).to.equal(false);
+      document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, {
+        detail: { section: 'event-unregister' },
+      }));
+      await flush();
+      expect(document.querySelector('aside.panel')).to.equal(null);
+    } finally {
+      unsubscribeSections();
+      unsubscribeVisibility();
+      unregister();
+    }
+  });
+
+  it('does not mount pending content after its section is unregistered', async () => {
+    let release;
+    const shown = [];
+    const unregister = registerPanelSection('event-unregister-pending', {
+      position: 'before',
+      getContent: () => new Promise((resolve) => { release = resolve; }),
+      onShow: () => shown.push(true),
+    });
+    document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, {
+      detail: { section: 'event-unregister-pending' },
+    }));
+    unregister();
+    release(document.createElement('div'));
+    await flush();
+    expect(document.querySelector('aside.panel')).to.equal(null);
+    expect(shown).to.deep.equal([]);
+    expect(wasPanelOpen('event-unregister-pending')).to.equal(false);
+  });
+
+  it('can open a replacement section while unregistered content is still loading', async () => {
+    let releaseOld;
+    const unregisterOld = registerPanelSection('event-replace-pending', {
+      position: 'before',
+      getContent: () => new Promise((resolve) => { releaseOld = resolve; }),
+    });
+    const open = () => document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, {
+      detail: { section: 'event-replace-pending' },
+    }));
+    open();
+    unregisterOld();
+    let releaseNew;
+    let loads = 0;
+    const unregisterNew = registerPanelSection('event-replace-pending', {
+      position: 'before',
+      getContent: () => {
+        loads += 1;
+        return new Promise((resolve) => { releaseNew = resolve; });
+      },
+    });
+    try {
+      open();
+      releaseOld(document.createElement('div'));
+      await flush();
+      open();
+      expect(loads).to.equal(1);
+      const content = document.createElement('div');
+      releaseNew(content);
+      await flush();
+      expect(document.querySelectorAll('aside.panel')).to.have.length(1);
+      expect(document.querySelector('.panel-body').firstElementChild).to.equal(content);
+      unregisterOld();
+      expect(document.querySelector('aside.panel')).to.exist;
+    } finally {
+      unregisterNew();
+    }
+  });
+
   it('opens the named section and forwards id/options to its onShow', async () => {
     const calls = [];
     registerPanelSection('event-open', {
