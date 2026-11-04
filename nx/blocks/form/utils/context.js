@@ -146,14 +146,11 @@ export async function loadFormContext({
     };
   }
 
-  // Re-read with the schema so rich-text values keep their markup.
-  const { json: schemaJson } = convertHtmlToJson({ html, schema });
-
   return {
     status: 'ready',
     schemaName,
     schema,
-    json: schemaJson ?? json,
+    json,
     ...withBase(details, schemas),
   };
 }

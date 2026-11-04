@@ -56,19 +56,19 @@ rule, so `commands.js` wraps and lifts them one block at a time.
 
 ## Storage
 
-The SDK picks the rich-text codec from the field's semantic type. It only
-treats a value as markup when it knows that type.
+The SDK stores each rich-text value in a block of its own, and the field cell
+holds a typed `self://rich-text#<key>-<id>` reference to it. The SDK's
+[schema spec](https://github.com/adobe/da-sc-sdk/blob/main/docs/schema-spec.md)
+shows the exact HTML.
 
-- `convertJsonToHtml({ json, model })` writes the sanitized HTML into the
-  block cell instead of escaping it. The model carries the semantic type.
-- `convertHtmlToJson({ html, schema })` reads the cell's inner HTML back. No
-  model exists at load time, so the reader takes the schema.
+- `convertJsonToHtml({ json, model })` writes the sanitized HTML into that
+  block. The model carries the semantic type. Without it the value is escaped
+  text in its cell.
+- `convertHtmlToJson({ html })` reads the markup back through the reference
+  type, so loading needs no schema.
 
-[`utils/persistence.js`](../utils/persistence.js) already passes the engine
-model on save. [`utils/context.js`](../utils/context.js) parses once without a
-schema to find `x-schema-name`, then re-reads with the resolved schema. If that
-read fails it keeps the schema-less result. Without a model or schema, both
-converters treat every value as plain text.
+[`utils/persistence.js`](../utils/persistence.js) passes the engine model on
+save, and [`utils/context.js`](../utils/context.js) reads the document once.
 
 ## Editor
 
