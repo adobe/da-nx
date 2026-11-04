@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { sendKeys, sendMouse } from '@web/test-runner-commands';
+import { sendKeys } from '@web/test-runner-commands';
 import sinon from 'sinon';
 import { setConfig } from '../../../../../scripts/nx.js';
 import { getSiteApi } from '../../../../../blocks/siteselector/site-access.js';
@@ -72,13 +72,14 @@ describe('shared Add site dialog', () => {
     }
   });
 
-  it('uses shared rounded dialog buttons in light and dark themes', async () => {
-    await sendMouse({ type: 'move', position: [0, 0] });
+  it('uses shared rounded dialog buttons in light and dark themes', () => {
     el.style.cssText = `
       --s2-corner-radius-400: 8px;
       --s2-corner-radius-800: 16px;
       --s2-gray-100: light-dark(#eee, #333);
+      --s2-gray-200: light-dark(#ddd, #444);
       --s2-gray-800: light-dark(#292929, #dbdbdb);
+      --s2-gray-900: light-dark(#161616, #eee);
       --s2-gray-25: light-dark(#fff, #161616);
     `;
     const cancel = el.shadowRoot.querySelector('[slot="actions"][type="button"]');
@@ -86,9 +87,9 @@ describe('shared Add site dialog', () => {
     [cancel, add].forEach((button) => { button.style.transition = 'none'; });
     expect(cancel.classList.contains('nx-form-btn-secondary')).to.be.true;
     expect(add.classList.contains('nx-btn-primary')).to.be.true;
-    for (const [scheme, cancelBackground, addBackground, addColor] of [
-      ['light', 'rgb(238, 238, 238)', 'rgb(41, 41, 41)', 'rgb(255, 255, 255)'],
-      ['dark', 'rgb(51, 51, 51)', 'rgb(219, 219, 219)', 'rgb(22, 22, 22)'],
+    for (const [scheme, cancelBackground, cancelHover, addBackground, addHover, addColor] of [
+      ['light', 'rgb(238, 238, 238)', 'rgb(221, 221, 221)', 'rgb(41, 41, 41)', 'rgb(22, 22, 22)', 'rgb(255, 255, 255)'],
+      ['dark', 'rgb(51, 51, 51)', 'rgb(68, 68, 68)', 'rgb(219, 219, 219)', 'rgb(238, 238, 238)', 'rgb(22, 22, 22)'],
     ]) {
       el.style.colorScheme = scheme;
       const cancelStyle = getComputedStyle(cancel);
@@ -97,8 +98,8 @@ describe('shared Add site dialog', () => {
         expect(button.borderRadius).to.equal('16px');
         expect(button.height).to.equal('32px');
       }
-      expect(cancelStyle.backgroundColor).to.equal(cancelBackground);
-      expect(addStyle.backgroundColor).to.equal(addBackground);
+      expect(cancelStyle.backgroundColor).to.equal(cancel.matches(':hover') ? cancelHover : cancelBackground);
+      expect(addStyle.backgroundColor).to.equal(add.matches(':hover') ? addHover : addBackground);
       expect(addStyle.color).to.equal(addColor);
     }
   });
