@@ -1,3 +1,10 @@
+# [1.37.0](https://github.com/adobe/da-nx/compare/v1.36.0...v1.37.0) (2026-11-04)
+
+
+### Features
+
+* share chat session between full chat + compact variant ([#950](https://github.com/adobe/da-nx/issues/950)) ([34e2393](https://github.com/adobe/da-nx/commit/34e23939e7ff6d05d2c789dda31f854a8faff410))
+
 # [1.36.0](https://github.com/adobe/da-nx/compare/v1.35.0...v1.36.0) (2026-11-03)
 
 
