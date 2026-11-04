@@ -13,10 +13,9 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
-import CoworkerChatController from './coworker-chat-controller.js';
-import CmaChatController from './cma-chat-controller.js';
 import { isCmaFlagEnabled } from '../../utils/ewFlags.js';
 import { isCmaEntitled } from '../../utils/entitlement.js';
+import { getAoSession, getSessionScope, subscribeChatEvents } from './session.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
   COWORKER_SKILLS_PATH, ENTERPRISE_CONTEXT_PATH, getCoworkerHref, loadCoworkerNav,
@@ -65,6 +64,15 @@ export default class NxChatAo extends LitElement {
     this._applyContext(value);
   }
 
+  _contextEvent = `nx-chat-context-${crypto.randomUUID()}`;
+
+  get isolated() { return !!this._isolated; }
+
+  set isolated(value) {
+    this._isolated = !!value;
+    this._initController();
+  }
+
   set harnessConfig(value) {
     this._applyHarnessConfig(value);
   }
@@ -100,7 +108,7 @@ export default class NxChatAo extends LitElement {
 
   _applyContext(value) {
     this._context = value;
-    this._controller?.setContext(value);
+    this._initController();
     this._loadConfig();
   }
 
@@ -118,6 +126,7 @@ export default class NxChatAo extends LitElement {
     if (this._configKey === key) return;
     this._configKey = key;
     const { prompts } = await loadSiteConfig(org, site);
+    if (this._configKey !== key) return;
     this._prompts = prompts ?? [];
     if (this._harnessConfigKey !== key) {
       // ew.cma is a per-site rollout opt-in (UI selector, not a security
@@ -128,6 +137,7 @@ export default class NxChatAo extends LitElement {
         isCmaFlagEnabled({ org, site }),
         isCmaEntitled(),
       ]);
+      if (this._configKey !== key) return;
       this._applyHarnessConfig({ key, cma: cmaFlagEnabled && entitled });
       return;
     }
@@ -151,20 +161,37 @@ export default class NxChatAo extends LitElement {
     this.staleEpisode = staleEpisode;
   }
 
-  // The controller is created once the ew.cma flag + entitlement are known,
-  // so the correct harness subclass (Coworker REST history vs CMA bridge) is
-  // chosen up front. Idempotent; recreates only if the harness actually
-  // changes. See docs/chat-ao-controller-decoupling.md.
+  // The session (and its underlying controller) is created/joined once the
+  // ew.cma flag + entitlement are known, so the correct harness subclass
+  // (Coworker REST history vs CMA bridge) is chosen up front and shared with
+  // any other chat surface on the same org/site/harness scope (see
+  // session.js). Idempotent; only re-joins if the scope or isolation
+  // actually changes. See docs/chat-ao-controller-decoupling.md.
   _initController() {
-    if (!this.isConnected || !this._flagsReady || !this._context?.org || !this._context?.site) {
+    if (!this.isConnected) return;
+    const { org, site } = this._context ?? {};
+    const configKey = `${org}/${site}`;
+    if (!this._flagsReady || !org || !site || this._harnessConfigKey !== configKey) {
+      if (this._session) {
+        this._releaseSession();
+        this._releaseSession = undefined;
+        this._session = undefined;
+        this._controller = undefined;
+        this._onControllerUpdate({ messages: [], loadingEpisode: true });
+      }
       return;
     }
-    const Controller = this._cma ? CmaChatController : CoworkerChatController;
-    if (this._controller instanceof Controller) {
-      return;
-    }
-    this._controller?.destroy();
-    this._controller = new Controller({
+    const scope = getSessionScope({ org, site, cma: this._cma });
+    if (this._session?.scope === scope && this._session.isolated === this.isolated) return;
+    this._releaseSession?.();
+    this._session = getAoSession({
+      context: this._context,
+      owner: this,
+      isolated: this.isolated,
+      cma: this._cma,
+    });
+    this._controller = this._session.controller;
+    this._releaseSession = this._session.subscribe(this, {
       onUpdate: (state) => this._onControllerUpdate(state),
       onTurnCompleted: (detail) => {
         this.dispatchEvent(new CustomEvent(CHAT_EVENT.TURN_COMPLETED, {
@@ -172,9 +199,6 @@ export default class NxChatAo extends LitElement {
         }));
       },
     });
-    if (this._context) this._controller.setContext(this._context);
-    this._controller.loadEpisodes();
-    this._controller.loadSkills();
   }
 
   _closePanel() {
@@ -201,7 +225,7 @@ export default class NxChatAo extends LitElement {
   }
 
   _handleNewSession() {
-    this._controller.startNewEpisode();
+    this._controller?.startNewEpisode();
     this._input?.focusInput();
   }
 
@@ -230,23 +254,27 @@ export default class NxChatAo extends LitElement {
     this._unsubscribeHash = hashChange.subscribe((state) => {
       if (!this._explicitContext) this._applyContext(state);
     });
-    // See docs/chat-ao-component.md#connection-recovery for why this exists.
-    this._onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') this._controller.reattachIfIdle();
-    };
-    document.addEventListener('visibilitychange', this._onVisibilityChange);
-    this._onSetPromptEvent = ({ detail }) => {
-      this.setPrompt(detail.text, { autoSend: detail.autoSend });
-    };
-    document.addEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
+    this._unsubscribeEvents = subscribeChatEvents(this, {
+      getContext: () => this._context,
+      getSession: () => this._session,
+      onPrompt: ({ text, autoSend }) => this.setPrompt(text, { autoSend }),
+      onContext: (detail) => {
+        document.dispatchEvent(new CustomEvent(this._contextEvent, { detail }));
+      },
+    });
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    this._controller?.destroy();
+    this._releaseSession?.();
+    this._releaseSession = undefined;
+    this._session = undefined;
+    this._controller = undefined;
+    cancelAnimationFrame(this._scrollRaf);
     this._unsubscribeHash?.();
-    document.removeEventListener('visibilitychange', this._onVisibilityChange);
-    document.removeEventListener(CHAT_EVENT.SET_PROMPT, this._onSetPromptEvent);
+    this._unsubscribeEvents?.();
+    this._unsubscribeHash = undefined;
+    this._unsubscribeEvents = undefined;
   }
 
   willUpdate(changed) {
@@ -267,7 +295,8 @@ export default class NxChatAo extends LitElement {
         this._scrollRaf = requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
       }
     }
-    if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
+    if (changed.has('thinking') && !this.thinking && changed.get('thinking')
+      && this.shadowRoot.activeElement) {
       this._input?.focusInput();
     }
 
@@ -278,12 +307,14 @@ export default class NxChatAo extends LitElement {
 
   _getSkills = () => this._controller?.getSkills() ?? [];
 
-  _stop = () => this._controller.stop();
+  _stop = () => this._controller?.stop();
 
-  _warmSession = () => this._controller.warmSession();
+  _warmSession = () => this._controller?.warmSession();
 
   _submit = ({ text, context, attachments }) => {
-    this._controller.sendMessage(text, context, attachments);
+    const args = [text, context, attachments];
+    if (this._session) return this._session.send({ context: this._context, args });
+    return !!this._controller && this._controller.sendMessage(...args) !== false;
   };
 
   _handleMenuSelect = (id) => {
@@ -401,7 +432,7 @@ export default class NxChatAo extends LitElement {
           .cma=${this._cma}
           .prompts=${prompts}
           .menuItems=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS}
-          .addEvent=${CHAT_EVENT.ADD_TO_CHAT}
+          .addEvent=${this._contextEvent}
           .getSkills=${this._getSkills}
           .onSubmit=${this._submit}
           .onStop=${this._stop}

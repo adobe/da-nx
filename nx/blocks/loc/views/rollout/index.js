@@ -1,8 +1,9 @@
 import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
-import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
+import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES } from '../../project/index.js';
 import {
+  copy,
   convertPath,
   createSnapshotPrefix,
   findSourceLocation,
@@ -93,7 +94,7 @@ async function rolloutLangLocales(title, lang, urls, behavior, resolver) {
     }
     url.sourceContent = content;
     const overwrite = behavior === 'overwrite' || url.hasExt;
-    const copyFn = overwrite ? overwriteCopy : mergeCopy;
+    const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
     await copyFn(url, title);
   };
 
