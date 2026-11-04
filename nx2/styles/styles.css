@@ -486,6 +486,7 @@ html:has(meta[content="edge-delivery"]) {
       .section {
           &.container {
               .default-content, .block-content {
+                  width: 100%;
                   max-width: var(--section-container-width);
                   margin-inline: auto;
               }

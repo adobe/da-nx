@@ -27,13 +27,6 @@ async function waitForLoad(el) {
   await el.updateComplete;
 }
 
-async function waitFor(check) {
-  for (let i = 0; i < 50 && !check(); i += 1) {
-    // eslint-disable-next-line no-await-in-loop
-    await new Promise((resolve) => { setTimeout(resolve, 10); });
-  }
-}
-
 describe('nx-marketplace', () => {
   let div;
   let restoreFetch;
@@ -65,7 +58,7 @@ describe('nx-marketplace', () => {
     await el.updateComplete;
 
     expect(el.shadowRoot.querySelector('.loading') !== null).to.equal(true);
-    expect(el.shadowRoot.querySelector('.grid') === null).to.equal(true);
+    expect(el.shadowRoot.querySelector('.card:not(.skeleton)') === null).to.equal(true);
   });
 
   it('renders a card per valid row', async () => {
@@ -88,122 +81,18 @@ describe('nx-marketplace', () => {
     expect(cards[0].querySelector('h3').textContent).to.equal('DA Permissions');
   });
 
-  it('renders the type as a single read-only pill', async () => {
+  it('renders icon or placeholder', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         {
-          Title: 'DA Permissions', Description: 'd', 'Doc Url': 'https://example.com/a', Type: 'App & Plugin',
-        },
-        { Title: 'No Type Item', Description: 'd', 'Doc Url': 'https://example.com/b' },
-      ],
-    }));
-    div = document.createElement('div');
-    document.body.append(div);
-    init(div);
-
-    const el = div.firstElementChild;
-    await waitForLoad(el);
-
-    const cards = el.shadowRoot.querySelectorAll('.card');
-    const pills = cards[0].querySelector('.media nx-pills');
-    expect(pills.label).to.equal('Type');
-    expect(pills.items.map(({ label, removable }) => ({ label, removable }))).to.deep.equal([
-      { label: 'App & Plugin', removable: false },
-    ]);
-    expect(cards[1].querySelectorAll('nx-pills').length).to.equal(0);
-  });
-
-  it('shows the Adobe logo only for Adobe-owned items', async () => {
-    restoreFetch = installFetch(() => jsonResponse({
-      data: [
-        {
-          Title: 'Adobe Item', Description: 'd', 'Doc Url': 'https://example.com/a', Owner: 'Adobe',
+          Title: 'Has Icon', Description: 'd', 'Doc Url': 'https://example.com/a', Logo: 'https://example.com/t.png',
         },
         {
-          Title: 'Partner Item', Description: 'd', 'Doc Url': 'https://example.com/b', Owner: 'Acme',
-        },
-        { Title: 'No Owner', Description: 'd', 'Doc Url': 'https://example.com/c' },
-      ],
-    }));
-    div = document.createElement('div');
-    document.body.append(div);
-    init(div);
-
-    const el = div.firstElementChild;
-    await waitForLoad(el);
-    await waitFor(() => el.shadowRoot.querySelector('.adobe-logo svg'));
-
-    const cards = [...el.shadowRoot.querySelectorAll('.card')];
-    const logo = cards[0].querySelector('.media .adobe-logo');
-    expect(logo.getAttribute('aria-label')).to.equal('Adobe');
-    expect(logo.querySelectorAll('svg').length).to.equal(1);
-    expect(cards[1].querySelectorAll('.adobe-logo').length).to.equal(0);
-    expect(cards[2].querySelectorAll('.adobe-logo').length).to.equal(0);
-  });
-
-  it('renders learn more and try out links', async () => {
-    restoreFetch = installFetch(() => jsonResponse({
-      data: [
-        {
-          Title: 'DA Permissions', Description: 'd', 'Doc Url': 'https://example.com/a', 'Try Url': 'https://example.com/try',
-        },
-      ],
-    }));
-    div = document.createElement('div');
-    document.body.append(div);
-    init(div);
-
-    const el = div.firstElementChild;
-    await waitForLoad(el);
-
-    const cta = el.shadowRoot.querySelector('a.cta-primary');
-    expect(cta.textContent.trim()).to.equal('Learn more');
-    expect(cta.href).to.equal('https://example.com/a');
-    expect(cta.target).to.equal('_blank');
-    expect(cta.rel).to.equal('noopener noreferrer');
-    expect(cta.getAttribute('aria-label')).to.equal('Learn more about DA Permissions');
-
-    const tryCta = el.shadowRoot.querySelector('a.cta-secondary');
-    expect(tryCta.textContent.trim()).to.equal('Try out');
-    expect(tryCta.href).to.equal('https://example.com/try');
-    expect(tryCta.target).to.equal('_blank');
-    expect(tryCta.rel).to.equal('noopener noreferrer');
-    expect(tryCta.getAttribute('aria-label')).to.equal('Try out DA Permissions');
-  });
-
-  it('omits a button when its url is missing', async () => {
-    restoreFetch = installFetch(() => jsonResponse({
-      data: [
-        { Title: 'Docs Only', Description: 'd', 'Doc Url': 'https://example.com/a' },
-        { Title: 'Try Only', Description: 'd', 'Try Url': 'https://example.com/try' },
-      ],
-    }));
-    div = document.createElement('div');
-    document.body.append(div);
-    init(div);
-
-    const el = div.firstElementChild;
-    await waitForLoad(el);
-
-    const [docsOnly, tryOnly] = el.shadowRoot.querySelectorAll('.card');
-    expect(docsOnly.querySelector('a.cta-primary') !== null).to.equal(true);
-    expect(docsOnly.querySelector('a.cta-secondary') === null).to.equal(true);
-    expect(tryOnly.querySelector('a.cta-primary') === null).to.equal(true);
-    expect(tryOnly.querySelector('a.cta-secondary') !== null).to.equal(true);
-  });
-
-  it('renders image or placeholder', async () => {
-    restoreFetch = installFetch(() => jsonResponse({
-      data: [
-        {
-          Title: 'Has Image', Description: 'd', 'Doc Url': 'https://example.com/a', Image: 'https://example.com/t.png',
-        },
-        {
-          Title: 'No Image', Description: 'd', 'Doc Url': 'https://example.com/b', Image: '',
+          Title: 'No Icon', Description: 'd', 'Doc Url': 'https://example.com/b', Logo: '',
         },
         {
           // eslint-disable-next-line no-script-url
-          Title: 'Unsafe Image', Description: 'd', 'Doc Url': 'https://example.com/c', Image: 'javascript:x',
+          Title: 'Unsafe Icon', Description: 'd', 'Doc Url': 'https://example.com/c', Logo: 'javascript:x',
         },
       ],
     }));
@@ -216,9 +105,9 @@ describe('nx-marketplace', () => {
 
     const cards = el.shadowRoot.querySelectorAll('.card');
 
-    const img0 = cards[0].querySelector('img');
-    expect(img0).to.not.equal(null);
+    const img0 = cards[0].querySelector('img.card-icon');
     expect(img0.src).to.equal('https://example.com/t.png');
+    expect(img0.alt).to.equal('');
     expect(img0.loading).to.equal('lazy');
     expect(cards[0].querySelector('.placeholder') === null).to.equal(true);
 
@@ -229,11 +118,11 @@ describe('nx-marketplace', () => {
     expect(cards[2].querySelector('.placeholder') !== null).to.equal(true);
   });
 
-  it('falls back to placeholder when the image fails to load', async () => {
+  it('falls back to placeholder when the icon fails to load', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         {
-          Title: 'Has Image', Description: 'd', 'Doc Url': 'https://example.com/a', Image: 'https://example.com/t.png',
+          Title: 'Has Icon', Description: 'd', 'Doc Url': 'https://example.com/a', Logo: 'https://example.com/t.png',
         },
       ],
     }));
@@ -245,14 +134,65 @@ describe('nx-marketplace', () => {
     await waitForLoad(el);
 
     const card = el.shadowRoot.querySelector('.card');
-    const img = card.querySelector('img');
-    expect(img).to.not.equal(null);
-
-    img.dispatchEvent(new Event('error'));
+    card.querySelector('img').dispatchEvent(new Event('error'));
     await el.updateComplete;
 
     expect(card.querySelector('img') === null).to.equal(true);
     expect(card.querySelector('.placeholder') !== null).to.equal(true);
+  });
+
+  it('puts all actions in a per-card menu and the card itself has no links', async () => {
+    restoreFetch = installFetch(() => jsonResponse({
+      data: [
+        {
+          Title: 'DA Permissions', Description: 'd', 'Doc Url': 'https://example.com/a', 'Try Url': 'https://example.com/try',
+        },
+        { Title: 'Try Only', Description: 'd', 'Try Url': 'https://example.com/try2' },
+      ],
+    }));
+    div = document.createElement('div');
+    document.body.append(div);
+    init(div);
+
+    const el = div.firstElementChild;
+    await waitForLoad(el);
+
+    const [full, tryOnly] = el.shadowRoot.querySelectorAll('.card');
+    expect(full.querySelectorAll('a').length).to.equal(0);
+
+    const menu = full.querySelector('nx-menu');
+    expect(menu.items.map(({ id, label, href }) => ({ id, label, href }))).to.deep.equal([
+      { id: 'learn', label: 'Learn more', href: 'https://example.com/a' },
+      { id: 'try', label: 'Try out', href: 'https://example.com/try' },
+    ]);
+    const trigger = menu.querySelector('button[slot="trigger"]');
+    expect(trigger.getAttribute('aria-label')).to.equal('More actions for DA Permissions');
+
+    expect(tryOnly.querySelector('nx-menu').items.map(({ id }) => id)).to.deep.equal(['try']);
+  });
+
+  it('opens the selected action in a new tab', async () => {
+    restoreFetch = installFetch(() => jsonResponse({
+      data: [{ Title: 'DA Permissions', 'Doc Url': 'https://example.com/a', 'Try Url': 'https://example.com/try' }],
+    }));
+    div = document.createElement('div');
+    document.body.append(div);
+    init(div);
+
+    const el = div.firstElementChild;
+    await waitForLoad(el);
+
+    const origOpen = window.open;
+    const calls = [];
+    window.open = (...args) => { calls.push(args); };
+    try {
+      el.shadowRoot.querySelector('nx-menu')
+        .dispatchEvent(new CustomEvent('select', { detail: { id: 'try' } }));
+    } finally {
+      window.open = origOpen;
+    }
+
+    expect(calls).to.deep.equal([['https://example.com/try', '_blank', 'noopener,noreferrer']]);
   });
 
   it('shows empty message', async () => {
@@ -269,16 +209,15 @@ describe('nx-marketplace', () => {
     expect(empty.textContent).to.equal('No extensions available.');
   });
 
-  it('shows only items of the block option categories', async () => {
+  it('ignores block options and shows every item', async () => {
     restoreFetch = installFetch(() => jsonResponse({
       data: [
         { Title: 'Core App', Category: 'Core', 'Doc Url': 'https://example.com/a' },
         { Title: 'Ext App', Category: 'Extension', 'Doc Url': 'https://example.com/b' },
-        { Title: 'Other App', Category: 'Other', 'Doc Url': 'https://example.com/c' },
       ],
     }));
     div = document.createElement('div');
-    div.className = 'marketplace core extension';
+    div.className = 'marketplace core';
     document.body.append(div);
     init(div);
 
@@ -289,20 +228,54 @@ describe('nx-marketplace', () => {
     expect(titles).to.deep.equal(['Core App', 'Ext App']);
   });
 
-  it('shows category empty message when nothing matches', async () => {
+  it('filters by category with the segmented control', async () => {
     restoreFetch = installFetch(() => jsonResponse({
-      data: [{ Title: 'Ext App', Category: 'Extension', 'Doc Url': 'https://example.com/b' }],
+      data: [
+        { Title: 'Core App', Category: 'Core', 'Doc Url': 'https://example.com/a' },
+        { Title: 'Ext App', Category: 'Extension', 'Doc Url': 'https://example.com/b' },
+        { Title: 'Other App', Category: 'Other', 'Doc Url': 'https://example.com/c' },
+      ],
     }));
     div = document.createElement('div');
-    div.className = 'marketplace core';
     document.body.append(div);
     init(div);
 
     const el = div.firstElementChild;
     await waitForLoad(el);
 
-    const empty = el.shadowRoot.querySelector('.empty');
-    expect(empty.textContent).to.equal('No extensions in this category.');
+    const titles = () => [...el.shadowRoot.querySelectorAll('.card h3')].map((h) => h.textContent);
+    const control = el.shadowRoot.querySelector('nx-segmented-btn');
+    expect(control.items.map(({ label }) => label))
+      .to.deep.equal(['All', 'Core', 'Extension', 'Other']);
+    expect(control.value).to.equal('all');
+    expect(titles()).to.deep.equal(['Core App', 'Ext App', 'Other App']);
+
+    control.dispatchEvent(new CustomEvent('change', { detail: { value: 'core' } }));
+    await el.updateComplete;
+    expect(titles()).to.deep.equal(['Core App']);
+
+    control.dispatchEvent(new CustomEvent('change', { detail: { value: 'extension' } }));
+    await el.updateComplete;
+    expect(titles()).to.deep.equal(['Ext App']);
+  });
+
+  it('hides the filter when the sheet has fewer than two categories', async () => {
+    restoreFetch = installFetch(() => jsonResponse({
+      data: [
+        { Title: 'Ext One', Category: 'Extension', 'Doc Url': 'https://example.com/a' },
+        { Title: 'Ext Two', Category: 'extension', 'Doc Url': 'https://example.com/b' },
+        { Title: 'No Category', 'Doc Url': 'https://example.com/c' },
+      ],
+    }));
+    div = document.createElement('div');
+    document.body.append(div);
+    init(div);
+
+    const el = div.firstElementChild;
+    await waitForLoad(el);
+
+    expect(el.shadowRoot.querySelector('nx-segmented-btn') === null).to.equal(true);
+    expect(el.shadowRoot.querySelectorAll('.card').length).to.equal(3);
   });
 
   it('shows error message', async () => {
