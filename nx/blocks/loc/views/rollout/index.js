@@ -1,7 +1,13 @@
 import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
-import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
+import {
+  MAX_CONCURRENT_READS,
+  MAX_CONCURRENT_WRITES,
+  mergeCopy,
+  overwriteCopy,
+  smartOverwriteCopy,
+} from '../../project/index.js';
 import {
   convertPath,
   createSnapshotPrefix,
@@ -9,6 +15,8 @@ import {
   getProjectSourceLocations,
 } from '../../utils/utils.js';
 import { createRolloutResolver } from '../../utils/placeholders.js';
+
+const COPY_FNS = { overwrite: overwriteCopy, 'smart-overwrite': smartOverwriteCopy };
 
 function getTitle(status) {
   const title = {
@@ -92,8 +100,7 @@ async function rolloutLangLocales(title, lang, urls, behavior, resolver) {
       return;
     }
     url.sourceContent = content;
-    const overwrite = behavior === 'overwrite' || url.hasExt;
-    const copyFn = overwrite ? overwriteCopy : mergeCopy;
+    const copyFn = url.hasExt ? overwriteCopy : (COPY_FNS[behavior] || mergeCopy);
     await copyFn(url, title);
   };
 
@@ -200,7 +207,14 @@ export async function rolloutLang({
   lang.rollout.status = errors ? 'not started' : 'complete';
   lang.rollout.saved = saved.length;
   lang.locales.forEach((locale) => {
-    locale.saved = saved.filter((url) => url.root === locale.code).length;
+    const localeSaved = saved.filter((url) => url.root === locale.code);
+    locale.saved = localeSaved.length;
+    const skipped = localeSaved.reduce((sum, url) => sum + (url.skipped || 0), 0);
+    if (skipped) {
+      locale.skipped = skipped;
+    } else {
+      delete locale.skipped;
+    }
   });
 
   actions.requestUpdate();

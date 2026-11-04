@@ -2,10 +2,12 @@ import DA_SDK from '../../../../nx/utils/sdk.js';
 import { LitElement, html, nothing } from '../../../../nx/public/deps/lit/dist/index.js';
 import getStyle from '../../../../nx/public/utils/styles.js';
 import getSvg from '../../../../nx/public/utils/svg.js';
-import { mergeCopy, overwriteCopy } from '../../../../nx/blocks/loc/project/index.js';
+import { mergeCopy, overwriteCopy, smartOverwriteCopy } from '../../../../nx/blocks/loc/project/index.js';
 import { createRolloutResolver } from '../../../../nx/blocks/loc/utils/placeholders.js';
 import { DA_ORIGIN } from '../../utils/constants.js';
 import getPrefixDetails from './index.js';
+
+const COPY_FNS = { overwrite: overwriteCopy, 'smart-overwrite': smartOverwriteCopy };
 
 const ICONS = [
   'https://da.live/nx/public/icons/Smock_Close_18_N.svg',
@@ -21,6 +23,7 @@ export default class DaRollout extends LitElement {
     _currPrefix: { state: true },
     _prefixes: { state: true },
     _isLocale: { state: true },
+    _smartOverwrite: { state: true },
   };
 
   connectedCallback() {
@@ -32,10 +35,13 @@ export default class DaRollout extends LitElement {
 
   async getRolloutInfo() {
     const { org, repo, path, token } = this;
-    const { currPrefix, prefixes, isLocale } = await getPrefixDetails(org, repo, token, path);
+    const {
+      currPrefix, prefixes, isLocale, smartOverwrite,
+    } = await getPrefixDetails(org, repo, token, path);
     this._currPrefix = currPrefix;
     this._prefixes = prefixes;
     this._isLocale = isLocale;
+    this._smartOverwrite = smartOverwrite;
   }
 
   async handleRollout(e) {
@@ -53,10 +59,11 @@ export default class DaRollout extends LitElement {
       prefix.root = prefix.path;
       const { error } = resolver ? await resolver.prepareSource(prefix) : {};
       prefix.error = error;
+      delete prefix.skipped;
       if (error) {
         prefix.status = 'error';
       } else {
-        const copyFn = behavior === 'overwrite' ? overwriteCopy : mergeCopy;
+        const copyFn = COPY_FNS[behavior] || mergeCopy;
         await copyFn(prefix, copyLabel);
       }
       this.requestUpdate();
@@ -92,7 +99,7 @@ export default class DaRollout extends LitElement {
           <ul class="prefix-list">
             ${items.map((prefix) => html`
               <li class="da-prefix ${prefix.active ? 'is-active' : ''} status-${prefix.status || 'none'}" title=${prefix.error || nothing}>
-                <span>${prefix.path.replace('/', '')}</span>
+                <span>${prefix.path.replace('/', '')}${prefix.skipped ? html` <span class="skipped-count">(${prefix.skipped} skipped: localized)</span>` : nothing}</span>
                 <div class="prefix-actions">
                   <button type="button" @click=${() => this.open(prefix)}>
                     <svg class="icon"><use href="#spectrum-linkOut"/></svg>
@@ -118,6 +125,7 @@ export default class DaRollout extends LitElement {
                 <select name="behavior">
                   <option value="merge">Merge</option>
                   <option value="overwrite">Overwrite</option>
+                  ${this._smartOverwrite ? html`<option value="smart-overwrite">Overwrite (keep local edits)</option>` : nothing}
                 </select>
               </div>
             </div>

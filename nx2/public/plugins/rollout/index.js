@@ -42,9 +42,7 @@ function formatPrefixes(org, repo, currPrefix, locales, path) {
   });
 }
 
-export default async function getPrefixDetails(org, repo, token, path) {
-  const json = await fetchConf(org, repo, token);
-  if (!json) return null;
+function getPrefixes(org, repo, path, json) {
   const { config, languages } = json;
 
   // Determine if path starts with a known language location
@@ -76,4 +74,15 @@ export default async function getPrefixDetails(org, repo, token, path) {
   if (!syncLang) return { currPrefix: null, prefixes: [] };
 
   return { currPrefix: '/', prefixes: formatPrefixes(org, repo, '/', syncLang.location, path) };
+}
+
+function hasSmartOverwrite(config) {
+  const behaviors = config?.data?.find((conf) => conf.key === 'rollout.conflict.behavior')?.value;
+  return !!behaviors?.split(',').some((value) => value.trim() === 'smart-overwrite');
+}
+
+export default async function getPrefixDetails(org, repo, token, path) {
+  const json = await fetchConf(org, repo, token);
+  if (!json) return null;
+  return { ...getPrefixes(org, repo, path, json), smartOverwrite: hasSmartOverwrite(json.config) };
 }

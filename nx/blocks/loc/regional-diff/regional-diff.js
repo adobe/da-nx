@@ -2,6 +2,7 @@
 import { getPathDetails, fetchConfig } from '../utils/utils.js';
 
 import './object_hash.js';
+import threeWayMerge from './smart-merge.js';
 
 const HASH_LENGTH = 12;
 const MIN_LIST_ITEMS_IN_COMMON = 2;
@@ -286,14 +287,14 @@ function groupBlocks(blocks) {
 
 const isNotEmptyParagraphEl = (el) => !(el.nodeName === 'P' && !el.childNodes.length && el.textContent === '');
 
-function getBlockMap(dom) {
+function getBlockMap(dom, { everySection = false } = {}) {
   const sections = [...dom.querySelectorAll('main > div')];
 
   // flatten sections so that they are just dividers between blocks
   let blocks = sections.reduce((acc, section) => {
     const sectionBlocks = [...section.children]
       .filter(isNotEmptyParagraphEl);
-    const sectionArr = acc.length ? [sectionBlock] : [];
+    const sectionArr = everySection || acc.length ? [sectionBlock] : [];
     return [...acc, ...sectionArr, ...sectionBlocks];
   }, []);
 
@@ -476,6 +477,54 @@ export const removeLocTags = (html) => {
   });
 };
 
+async function normalizeDocLinks(doc) {
+  const { org, site } = getPathDetails();
+  const translateConfig = await fetchConfig(org, site);
+  const hostnames = findConfigValue(translateConfig, 'source.fragment.hostnames')?.split?.(',') || [];
+  const equivalentSites = new Set(hostnames.map((hostname) => hostname.split('--')[1]));
+  return normalizeLinks(doc, site, equivalentSites);
+}
+
+const shortHash = (item) => item.hash.substring(0, HASH_LENGTH);
+
+async function getHashedBlocks(doc) {
+  const normalized = await normalizeDocLinks(doc);
+  return getBlockMap(normalized, { everySection: true })
+    .map((item) => ({ ...item, hash: shortHash(item) }));
+}
+
+export async function getBlockHashes(doc) {
+  const blocks = await getHashedBlocks(doc);
+  return blocks.map(({ hash }) => hash);
+}
+
+function buildHtmlFromBlocks(blocks) {
+  const inner = blocks.reduce((html, { block }, idx) => {
+    if (block.isSection) return idx === 0 ? html : `${html}${SECTION_DIV_BREAK}`;
+    if (Array.isArray(block)) return `${html}${getGroupInnerHtml(block)}`;
+    return `${html}${block.outerHTML}`;
+  }, '');
+  return `<div>${inner}</div>`;
+}
+
+/**
+ * Block-level three-way merge. Applies upstream (source) changes made since the
+ * base to the destination, keeping destination edits. When both sides changed
+ * the same region, the destination wins and the change is counted as skipped.
+ * @param {Object} params
+ * @param {String[]} params.base ordered block hashes of the source at the last rollout
+ * @param {Document} params.source the current upstream document
+ * @param {Document} params.dest the current destination document
+ * @returns {Promise<{ html: String, skipped: Number, sourceHashes: String[] }>}
+ */
+export async function smartMerge({ base, source, dest }) {
+  const sourceBlocks = await getHashedBlocks(source);
+  const destBlocks = await getHashedBlocks(dest);
+  const { blocks, skipped } = threeWayMerge({ base, source: sourceBlocks, dest: destBlocks });
+  const sourceHashes = sourceBlocks.map(({ hash }) => hash);
+  return { html: buildHtmlFromBlocks(blocks), skipped, sourceHashes };
+}
+
 export async function regionalDiff(
   original,
   modified,
@@ -483,13 +532,8 @@ export async function regionalDiff(
   rejectedHashes,
   { normalizeImages } = {},
 ) {
-  const { org, site } = getPathDetails();
-  const translateConfig = await fetchConfig(org, site);
-  const hostnames = findConfigValue(translateConfig, 'source.fragment.hostnames')?.split?.(',') || [];
-  const equivalentSites = new Set(hostnames.map((hostname) => hostname.split('--')[1]));
-
-  const normalizedOriginal = await normalizeLinks(original, site, equivalentSites);
-  const normalizedModified = await normalizeLinks(modified, site, equivalentSites);
+  const normalizedOriginal = await normalizeDocLinks(original);
+  const normalizedModified = await normalizeDocLinks(modified);
   // optional connector hook
   if (normalizeImages) normalizeImages(normalizedOriginal, normalizedModified);
   const diff = htmldiff(normalizedOriginal, normalizedModified);

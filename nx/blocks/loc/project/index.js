@@ -1,5 +1,5 @@
 import getElementMetadata from '../../../../nx2/utils/getElementMetadata.js';
-import { regionalDiff, removeLocTags } from '../regional-diff/regional-diff.js';
+import { regionalDiff, removeLocTags, getBlockHashes, smartMerge } from '../regional-diff/regional-diff.js';
 import { daFetch, source as daSource } from '../../../../nx2/utils/api.js';
 import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../nx2/public/utils/tree.js';
@@ -353,6 +353,119 @@ export async function mergeCopy(
     return daResp;
   } catch (e) {
     return overwriteCopy(url, projectTitle);
+  }
+}
+
+const ROLLOUT_BASE_KEY = 'rolloutbase';
+
+const toBasePath = (path) => path.toLowerCase();
+
+const escapeHtml = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// Keeps metadata values as authored (getElementMetadata's `text` is lowercased).
+const readMetadata = (el) => Object.fromEntries(Object.entries(getElementMetadata(el))
+  .map(([key, { content }]) => [key, escapeHtml(content.textContent.trim())]));
+
+function getRolloutBase(daMetadata, path) {
+  const parts = daMetadata[ROLLOUT_BASE_KEY]?.split('|') || [];
+  if (parts.length !== 2) return null;
+  const [basePath, hashes] = parts;
+  if (toBasePath(basePath) !== toBasePath(path)) return null;
+  const list = hashes ? hashes.split(',') : [];
+  return list.every((hash) => /^[0-9a-f]{12}$/.test(hash)) ? list : null;
+}
+
+const formatRolloutBase = (path, hashes) => `${toBasePath(path)}|${hashes.join(',')}`;
+
+async function mergeWithBase({ base, source, dest }) {
+  if (base) return smartMerge({ base, source, dest });
+  const sourceHashes = await getBlockHashes(source);
+  const metadata = getElementMetadata(dest.querySelector(DA_METADATA_SELECTOR));
+  const { acceptedHashes, rejectedHashes } = getPreviousHashes(metadata);
+  const diffed = await regionalDiff(source, dest, acceptedHashes, rejectedHashes);
+  return { html: diffed.innerHTML, skipped: 0, sourceHashes };
+}
+
+async function copySource(source) {
+  const html = source.querySelector('main').innerHTML;
+  const daMetadata = readMetadata(source.querySelector(DA_METADATA_SELECTOR));
+  delete daMetadata.acceptedhashes;
+  delete daMetadata.rejectedhashes;
+  const sourceHashes = await getBlockHashes(source);
+  return { html, skipped: 0, sourceHashes, daMetadata };
+}
+
+async function smartRollout({
+  source, dest, empty, path,
+}) {
+  if (!dest) return copySource(source);
+  const daMetadata = readMetadata(dest.querySelector(DA_METADATA_SELECTOR));
+  const base = getRolloutBase(daMetadata, path);
+  if (empty && !base) return copySource(source);
+  const merged = await mergeWithBase({ base, source, dest });
+  return { ...merged, daMetadata };
+}
+
+// Block extraction only reads `main > div` sections; anything else would be silently dropped.
+function getSectionedMain(doc) {
+  const main = doc?.querySelectorAll('main').length === 1 && doc.querySelector('body > main');
+  const isText = (node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim();
+  const isLoose = (node) => isText(node)
+    || (node.nodeType === Node.ELEMENT_NODE && (node.nodeName !== 'DIV' || [...node.childNodes].some(isText)));
+  return main && ![...main.childNodes].some(isLoose) ? main : null;
+}
+
+const EMPTY_TAGS = new Set(['DIV', 'P', 'BR']);
+
+const isEmptyMain = (main) => !main.textContent.trim()
+  && [...main.querySelectorAll('*')].every((el) => EMPTY_TAGS.has(el.nodeName) && !el.attributes.length);
+
+async function fetchDestination(path) {
+  const resp = await daFetch({ url: `${DA_ADMIN}/source${path}` });
+  if (resp.status === 404) return {};
+  if (!resp.ok) return { error: `Could not read ${path} (${resp.status})` };
+  const doc = PARSER.parseFromString(collapseInnerTextSpaces(await resp.text()), 'text/html');
+  const main = getSectionedMain(doc);
+  if (!main) return { error: `Unexpected content in ${path}` };
+  return { doc, empty: isEmptyMain(main) };
+}
+
+function failSmartCopy(url, error) {
+  url.status = 'error';
+  url.error = error;
+  return { ok: false, error };
+}
+
+export async function smartOverwriteCopy(url, projectTitle) {
+  try {
+    const { doc: regionalCopy, empty, error } = await fetchDestination(url.destination);
+    if (error) return failSmartCopy(url, error);
+
+    const langstoreCopy = url.sourceContent
+      ? await getHtml(null, url.sourceContent)
+      : await getHtml(url.source, url.sourceHtml);
+    if (!getSectionedMain(langstoreCopy)) {
+      return failSmartCopy(url, `Could not read source for ${url.destination}`);
+    }
+
+    if (regionalCopy) removeLocTags(regionalCopy);
+    removeLocTags(langstoreCopy);
+
+    const {
+      html, skipped, sourceHashes, daMetadata,
+    } = await smartRollout({
+      source: langstoreCopy, dest: regionalCopy, empty, path: url.destination,
+    });
+    daMetadata[ROLLOUT_BASE_KEY] = formatRolloutBase(url.destination, sourceHashes);
+
+    const daResp = await saveHtml(url, html, { daMetadata });
+    if (!daResp.ok) return failSmartCopy(url, `Could not save ${url.destination} (${daResp.status})`);
+    url.status = 'success';
+    url.skipped = skipped;
+    saveVersion(url.destination, `${projectTitle} - Rolled Out`);
+    return daResp;
+  } catch (e) {
+    return failSmartCopy(url, `Could not roll out ${url.destination}: ${e.message}`);
   }
 }
 

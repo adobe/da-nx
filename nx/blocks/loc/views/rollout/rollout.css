@@ -134,6 +134,11 @@ nx-loc-actions {
   text-align: center;
 }
 
+.skipped-count {
+  font-size: 12px;
+  color: var(--s2-gray-700);
+}
+
 ul.lang-list {
   margin: 0 0 48px;
   padding: 0;

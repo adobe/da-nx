@@ -1,7 +1,13 @@
 import sinon from 'sinon';
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
-import { regionalDiff, normalizeLinks, removeLocTags } from '../../nx/blocks/loc/regional-diff/regional-diff.js';
+import {
+  regionalDiff,
+  normalizeLinks,
+  removeLocTags,
+  getBlockHashes,
+  smartMerge,
+} from '../../nx/blocks/loc/regional-diff/regional-diff.js';
 
 function cleanHtmlWhitespace(html) {
   return html.replace(/>\s+</g, '><').trim().replace(/\s+/g, ' ').trim();
@@ -330,5 +336,216 @@ describe('regionalDiff with hashes from an earlier review', () => {
     const main = await regionalDiff(incoming, target, [], [hashOf('<h1>Hello</h1>')]);
     expect(ownHeadings(main)).to.deep.equal(['<h1 da-diff-added="">Welcome</h1>']);
     expect(main.querySelectorAll('da-diff-deleted').length).to.equal(0);
+  });
+});
+
+describe('smartMerge', () => {
+  const toDoc = (sections) => {
+    const doc = document.implementation.createHTMLDocument();
+    doc.body.innerHTML = `<main>${[].concat(sections).map((s) => `<div>${s}</div>`).join('')}</main>`;
+    return doc;
+  };
+  const merge = async ({ base, source, dest }) => smartMerge({
+    base: await getBlockHashes(toDoc(base)),
+    source: toDoc(source),
+    dest: toDoc(dest),
+  });
+
+  beforeEach(() => {
+    window.fetch = sinon.stub().callsFake(() => mockRes(''));
+  });
+
+  afterEach(() => {
+    window.fetch = originalFetch;
+  });
+
+  it('applies global edits and keeps local edits to other blocks', async () => {
+    const { html, skipped } = await merge({
+      base: '<h1>A</h1><p>B</p><p>C</p>',
+      source: '<h1>A</h1><p>B2</p><p>C</p>',
+      dest: '<h1>A local</h1><p>B</p><p>C</p>',
+    });
+    expect(html).to.equal('<div><h1>A local</h1><p>B2</p><p>C</p></div>');
+    expect(skipped).to.equal(0);
+  });
+
+  it('keeps the local version and counts a skip when both edited the same block', async () => {
+    const { html, skipped } = await merge({
+      base: '<h1>A</h1><p>B</p><p>C</p>',
+      source: '<h1>A</h1><p>B global</p><p>C</p>',
+      dest: '<h1>A</h1><p>B local</p><p>C</p>',
+    });
+    expect(html).to.equal('<div><h1>A</h1><p>B local</p><p>C</p></div>');
+    expect(skipped).to.equal(1);
+  });
+
+  it('does not count a skip when both sides made the same edit', async () => {
+    const { html, skipped } = await merge({
+      base: '<p>A</p><p>B</p>',
+      source: '<p>A</p><p>B2</p>',
+      dest: '<p>A</p><p>B2</p>',
+    });
+    expect(html).to.equal('<div><p>A</p><p>B2</p></div>');
+    expect(skipped).to.equal(0);
+  });
+
+  it('applies global inserts and deletes while keeping local inserts', async () => {
+    const { html, skipped } = await merge({
+      base: '<p>A</p><p>B</p><p>C</p><p>D</p>',
+      source: '<p>A</p><p>New</p><p>B</p><p>D</p>',
+      dest: '<p>A</p><p>B</p><p>C</p><p>D</p><p>Local</p>',
+    });
+    expect(html).to.equal('<div><p>A</p><p>New</p><p>B</p><p>D</p><p>Local</p></div>');
+    expect(skipped).to.equal(0);
+  });
+
+  it('keeps a locally edited block that global deleted', async () => {
+    const { html, skipped } = await merge({
+      base: '<p>A</p><p>B</p><p>C</p>',
+      source: '<p>A</p><p>C</p>',
+      dest: '<p>A</p><p>B local</p><p>C</p>',
+    });
+    expect(html).to.equal('<div><p>A</p><p>B local</p><p>C</p></div>');
+    expect(skipped).to.equal(1);
+  });
+
+  it('applies a global reorder when the destination is unchanged', async () => {
+    const { html } = await merge({
+      base: '<p>A</p><p>B</p><p>C</p>',
+      source: '<p>B</p><p>A</p><p>C</p>',
+      dest: '<p>A</p><p>B</p><p>C</p>',
+    });
+    expect(html).to.equal('<div><p>B</p><p>A</p><p>C</p></div>');
+  });
+
+  it('preserves sections and blocks', async () => {
+    const block = '<div class="hero"><div><div>Hero</div></div></div>';
+    const { html, skipped } = await merge({
+      base: [`${block}<p>A</p>`, '<p>B</p>'],
+      source: [`${block}<p>A2</p>`, '<p>B</p>'],
+      dest: [`${block}<p>A</p>`, '<p>B local</p>'],
+    });
+    expect(html).to.equal(`<div>${block}<p>A2</p></div><div><p>B local</p></div>`);
+    expect(skipped).to.equal(0);
+  });
+
+  it('does not duplicate a localized block that global moved', async () => {
+    const { html, skipped } = await merge({
+      base: '<p>A</p><p>B</p><p>C</p>',
+      source: '<p>B</p><p>A</p><p>C</p>',
+      dest: '<p>A local</p><p>B</p><p>C</p>',
+    });
+    expect(html).to.not.include('<p>A</p>');
+    expect(html.match(/A local/g)).to.have.length(1);
+    expect(html).to.include('<p>B</p>');
+    expect(skipped).to.equal(0);
+  });
+
+  it('applies a global insert next to a localized block', async () => {
+    const { html, skipped } = await merge({
+      base: '<p>A</p><p>B</p><p>C</p>',
+      source: '<p>A</p><p>X</p><p>B</p><p>C</p>',
+      dest: '<p>A</p><p>B local</p><p>C</p>',
+    });
+    expect(html).to.equal('<div><p>A</p><p>X</p><p>B local</p><p>C</p></div>');
+    expect(skipped).to.equal(0);
+  });
+
+  it('keeps both a local and a global insert at the same spot', async () => {
+    const { html, skipped } = await merge({
+      base: '<p>A</p><p>C</p>',
+      source: '<p>A</p><p>X</p><p>C</p>',
+      dest: '<p>A</p><p>Y</p><p>C</p>',
+    });
+    expect(html).to.equal('<div><p>A</p><p>Y</p><p>X</p><p>C</p></div>');
+    expect(skipped).to.equal(0);
+  });
+
+  it('applies non-conflicting global edits in a region with a conflict', async () => {
+    const { html, skipped } = await merge({
+      base: '<p>A</p><p>B</p><p>C</p>',
+      source: '<p>A2</p><p>B2</p><p>C</p>',
+      dest: '<p>A local</p><p>B</p><p>C</p>',
+    });
+    expect(html).to.equal('<div><p>A local</p><p>B2</p><p>C</p></div>');
+    expect(skipped).to.equal(1);
+  });
+
+  it('keeps destination blocks in a conflicted region instead of dropping them', async () => {
+    const { html, skipped } = await merge({
+      base: '<p>A</p><p>B</p><p>C</p>',
+      source: '<p>A2</p><p>X</p><p>B2</p><p>C</p>',
+      dest: '<p>A local</p><p>B</p><p>C</p>',
+    });
+    expect(html).to.equal('<div><p>A local</p><p>B</p><p>C</p></div>');
+    expect(skipped).to.equal(1);
+  });
+
+  it('does not duplicate a global insert the destination already has', async () => {
+    const { html, skipped } = await merge({
+      base: '<p>A</p><p>C</p>',
+      source: '<p>A</p><p>X</p><p>C</p>',
+      dest: '<p>A</p><p>X</p><p>Y</p><p>C</p>',
+    });
+    expect(html).to.equal('<div><p>A</p><p>X</p><p>Y</p><p>C</p></div>');
+    expect(skipped).to.equal(0);
+  });
+
+  it('applies a new duplicate of a block the destination localized', async () => {
+    const { html, skipped } = await merge({
+      base: '<p>A</p><p>B</p><p>C</p>',
+      source: '<p>A</p><p>A</p><p>B</p><p>C</p>',
+      dest: '<p>A local</p><p>B</p><p>C</p>',
+    });
+    expect(html).to.equal('<div><p>A local</p><p>A</p><p>B</p><p>C</p></div>');
+    expect(skipped).to.equal(0);
+  });
+
+  it('keeps section boundaries when both sides added a section', async () => {
+    const meta = (style) => `<div class="section-metadata"><div><div>style</div><div>${style}</div></div></div>`;
+    const { html, skipped } = await merge({
+      base: '<p>A</p>',
+      source: ['<p>A</p>', `<p>Global</p>${meta('dark')}`],
+      dest: ['<p>A</p>', `<p>Local</p>${meta('light')}`],
+    });
+    expect(html).to.equal(`<div><p>A</p></div><div><p>Local</p>${meta('light')}</div><div><p>Global</p>${meta('dark')}</div>`);
+    expect(skipped).to.equal(0);
+  });
+
+  it('keeps the destination order when upstream moved a section', async () => {
+    const { html, skipped } = await merge({
+      base: ['<p>A</p>', '<p>B</p>'],
+      source: ['<p>B</p>', '<p>A</p>'],
+      dest: ['<p>A local</p>', '<p>B</p>'],
+    });
+    expect(html).to.equal('<div><p>A local</p></div><div><p>B</p></div>');
+    expect(skipped).to.equal(0);
+  });
+
+  it('keeps section metadata with its section when both sides prepended a section', async () => {
+    const meta = (style) => `<div class="section-metadata"><div><div>style</div><div>${style}</div></div></div>`;
+    const { html, skipped } = await merge({
+      base: '<p>A</p>',
+      source: [`<p>Global</p>${meta('dark')}`, '<p>A</p>'],
+      dest: [`<p>Local</p>${meta('light')}`, '<p>A</p>'],
+    });
+    expect(html).to.equal(`<div><p>Local</p>${meta('light')}</div><div><p>Global</p>${meta('dark')}</div><div><p>A</p></div>`);
+    expect(skipped).to.equal(0);
+  });
+
+  it('preserves a leading empty section in the destination', async () => {
+    const { html, skipped } = await merge({
+      base: '<p>A</p>',
+      source: '<p>A</p>',
+      dest: ['', '<p>A</p>'],
+    });
+    expect(html).to.equal('<div></div><div><p>A</p></div>');
+    expect(skipped).to.equal(0);
+  });
+
+  it('returns the source block hashes to use as the next base', async () => {
+    const source = '<p>A</p><p>B</p>';
+    const { sourceHashes } = await merge({ base: '<p>A</p>', source, dest: '<p>A</p>' });
+    expect(sourceHashes).to.deep.equal(await getBlockHashes(toDoc(source)));
   });
 });
