@@ -1,3 +1,10 @@
+# [1.38.0](https://github.com/adobe/da-nx/compare/v1.37.1...v1.38.0) (2026-11-04)
+
+
+### Features
+
+* **styles:** export spectrum indigo palette ([781519e](https://github.com/adobe/da-nx/commit/781519e29e8dd2bb35d4c04b5cb633bc8bc3abb0))
+
 ## [1.37.1](https://github.com/adobe/da-nx/compare/v1.37.0...v1.37.1) (2026-11-04)
 
 
