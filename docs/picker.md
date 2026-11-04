@@ -127,8 +127,9 @@ Use `::part(label)` to style the trigger text, or `::part(label)::before` to add
 
 `variant` controls menu presentation; `check-position="start"` provides leading checks.
 Descriptions appear below labels and join the accessible name unless `ariaLabel` overrides it.
-All variants use S/M component typography tokens. Default and field descriptions match
-row size with regular weight; navigation descriptions stay S-regular.
+Navigation typography, focus color and menu bounds are opt-in; default and field
+styling is preserved. Their descriptions match row size with regular weight;
+navigation descriptions stay S-regular.
 
 ## CSS custom properties
 
@@ -140,7 +141,7 @@ row size with regular weight; navigation descriptions stay S-regular.
 | `--nx-picker-radius`     | `var(--s2-corner-radius-500)`         | Trigger border radius.    |
 | `--nx-picker-background` | `var(--s2-gray-100)`                  | Trigger background.       |
 | `--nx-picker-max-width`  | `none`                                | Maximum component width.  |
-| `--nx-picker-menu-width` | Rendered field width, or automatic    | Menu width, constrained to the viewport. |
+| `--nx-picker-menu-width` | Rendered field width, or automatic    | Menu width; viewport-constrained in navigation. |
 
 ### Methods
 
@@ -160,9 +161,9 @@ row size with regular weight; navigation descriptions stay S-regular.
 
 Arrow keys open the picker when focus is on the trigger. When open, arrow keys move focus between items, Enter selects the active item, and Escape closes the picker.
 
-All variants use a 2px blue trigger focus ring (`--s2-blue-800`), overridable with
-`--s2-focus-ring-color`. Item focus waits for popover positioning and is skipped
-if the picker closes or disconnects first.
+Triggers use a 2px focus ring: current text color for default/field, blue
+(`--s2-blue-800`) for navigation. `--s2-focus-ring-color` overrides either.
+Item focus waits for popover positioning and is skipped if the picker closes or disconnects first.
 
 ## Standalone site selector
 
