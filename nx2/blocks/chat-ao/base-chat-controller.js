@@ -52,8 +52,10 @@ const EVENT_HANDLERS = new Map([
 // override the hook methods (loadEpisodes, _onSessionReady, _onSessionError,
 // startNewEpisode). See docs/chat-ao-controller-decoupling.md.
 export default class BaseChatController {
-  constructor({ onUpdate }) {
+  constructor({ onUpdate, onTurnCompleted, isolated = false }) {
     this._onUpdate = onUpdate;
+    this._isolated = isolated;
+    this._onTurnCompletedCallback = onTurnCompleted;
     this._messages = [];
     this._streaming = '';
     this._episodes = [];
@@ -169,6 +171,7 @@ export default class BaseChatController {
 
   startNewEpisode() {
     if (this._blockedByActiveTurn) return;
+    this._operation = undefined;
     this._ws?.close();
     this._ws = null;
     this._episodeId = undefined;
@@ -180,6 +183,8 @@ export default class BaseChatController {
     this._pendingPlanApproval = undefined;
     this._pendingPermission = undefined;
     this._thinking = false;
+    this._loadingEpisode = false;
+    this._warmedEpisodeId = undefined;
     this._update();
   }
 
@@ -207,6 +212,7 @@ export default class BaseChatController {
 
   // Coalesces concurrent callers onto one in-flight connection attempt.
   async _ensureSocket() {
+    if (this._destroyed) throw new DOMException('Session closed', 'AbortError');
     if (this._ws?.readyState === WebSocket.OPEN) return;
     if (this._connecting) {
       await this._connecting;
@@ -223,16 +229,19 @@ export default class BaseChatController {
 
   async _connect() {
     const { authFrame, wsBase } = await this._connectionInfo();
+    if (this._destroyed) throw new DOMException('Session closed', 'AbortError');
 
     await new Promise((resolve, reject) => {
       const ws = new WebSocket(`${wsBase}/ws/sessions/${this._episodeId ?? 'new'}`);
       this._ws = ws;
+      let opened = false;
 
       // Guards against a stale socket if clear()/a later _ensureSocket() call replaces it.
       const isCurrent = () => this._ws === ws;
 
       ws.addEventListener('open', () => {
         if (!isCurrent()) return;
+        opened = true;
         ws.send(JSON.stringify(authFrame));
         resolve();
       });
@@ -249,9 +258,10 @@ export default class BaseChatController {
       });
 
       ws.addEventListener('close', () => {
+        if (!opened) reject(new Error('AO WebSocket closed'));
         if (!isCurrent()) return;
         this._ws = null;
-        if (this._shouldReattachOnClose()) this._recoverFromClose();
+        if (opened && this._shouldReattachOnClose()) this._recoverFromClose();
       });
 
       ws.addEventListener('error', () => {
@@ -388,9 +398,18 @@ export default class BaseChatController {
     this._update();
   }
 
-  _onTurnCompleted() {
+  _onTurnCompleted(evt = {}) {
     this._interrupting = false;
     this._done();
+    const { org, site, path } = this._context ?? {};
+    this._onTurnCompletedCallback?.({
+      org,
+      site,
+      path,
+      sessionId: evt.episode_id ?? this._episodeId,
+      turnId: evt.turn_id ?? evt.data?.turn_id,
+      status: evt.type === AO_EVENT.TURN_ABORTED ? 'aborted' : 'completed',
+    });
   }
 
   // See docs/chat-ao-component.md#episode-switching for why this upserts, not just patches.
@@ -491,6 +510,7 @@ export default class BaseChatController {
   }
 
   stop() {
+    this._operation = undefined;
     this._interrupting = true;
     if (this._ws?.readyState === WebSocket.OPEN) {
       this._ws.send(JSON.stringify({ type: AO_FRAME.INTERRUPT }));
@@ -502,6 +522,8 @@ export default class BaseChatController {
   // QUESTION_RESPONSE directly — see docs/chat-ao-component.md#question-flow.
   async _respondToQuestion(answers, declined) {
     if (!this._pendingQuestion) return;
+    const operation = {};
+    this._operation = operation;
     const { turnId } = this._pendingQuestion;
     const wasAlreadyOpen = this._ws?.readyState === WebSocket.OPEN;
     this._messages = [
@@ -513,12 +535,13 @@ export default class BaseChatController {
 
     try {
       await this._ensureSocket();
+      if (this._destroyed || this._operation !== operation) return;
       const frame = wasAlreadyOpen
         ? { type: AO_FRAME.QUESTION_RESPONSE, turn_id: turnId, answers, declined }
         : { type: AO_FRAME.RESUME, turn_id: turnId, data: { type: 'question-response', answers, declined } };
       this._ws.send(JSON.stringify(frame));
     } catch (err) {
-      this._pushError(err);
+      if (!this._destroyed && this._operation === operation) this._pushError(err);
     }
   }
 
@@ -533,12 +556,15 @@ export default class BaseChatController {
   // See docs/chat-ao-component.md#plan-approval for why this always uses RESUME.
   async respondToPlanApproval(decision, feedback = '') {
     if (!this._pendingPlanApproval) return;
+    const operation = {};
+    this._operation = operation;
     const { turnId } = this._pendingPlanApproval;
     this._pendingPlanApproval = undefined;
     this._update();
 
     try {
       await this._ensureSocket();
+      if (this._destroyed || this._operation !== operation) return;
       this._ws.send(JSON.stringify({
         type: AO_FRAME.RESUME,
         turn_id: turnId,
@@ -547,7 +573,7 @@ export default class BaseChatController {
         },
       }));
     } catch (err) {
-      this._pushError(err);
+      if (!this._destroyed && this._operation === operation) this._pushError(err);
     }
   }
 
@@ -563,6 +589,8 @@ export default class BaseChatController {
     }
 
     const { turnId } = this._pendingPermission;
+    const operation = {};
+    this._operation = operation;
     const wasAlreadyOpen = this._ws?.readyState === WebSocket.OPEN;
     this._pendingPermission = undefined;
     this._update();
@@ -572,6 +600,7 @@ export default class BaseChatController {
     ));
     try {
       await this._ensureSocket();
+      if (this._destroyed || this._operation !== operation) return;
       const frame = wasAlreadyOpen
         ? { type: AO_FRAME.PERMISSION_RESPONSE, turn_id: turnId, decisions: decisionsPayload }
         : {
@@ -581,7 +610,7 @@ export default class BaseChatController {
         };
       this._ws.send(JSON.stringify(frame));
     } catch (err) {
-      this._pushError(err);
+      if (!this._destroyed && this._operation === operation) this._pushError(err);
     }
   }
 
@@ -591,8 +620,11 @@ export default class BaseChatController {
   }
 
   async sendMessage(message, items = [], attachments = []) {
-    if (!message || (this._thinking && !this._pendingPlanApproval)) return;
+    if (this._destroyed || !message || (this._thinking && !this._pendingPlanApproval)) return;
+    const operation = {};
+    this._operation = operation;
     this._interrupting = false;
+    this._pendingPlanApproval = undefined;
 
     const selectionContext = buildSelectionContext(items);
     const attachmentsMeta = buildAttachmentsMeta(attachments);
@@ -616,11 +648,13 @@ export default class BaseChatController {
       const artifactIds = uploaded.map((a) => a.artifactId).filter(Boolean);
       const failed = uploaded.filter((a) => !a.artifactId);
       const { manifestId, debugMode } = await this._resolveManifest();
+      if (this._destroyed || this._operation !== operation) return;
       // AO reads catalogUrl only from a new session's first frame; resolve it
       // before _ensureSocket, since the episode id is assigned once the session starts.
       const catalogUrl = this._episodeId ? undefined : this._catalogUrl();
 
       await this._ensureSocket();
+      if (this._destroyed || this._operation !== operation) return;
       this._ws.send(JSON.stringify({
         type: AO_FRAME.USER_INPUT,
         text: `${buildFailedUploadsText(failed)}${message}`,
@@ -632,12 +666,15 @@ export default class BaseChatController {
         client_context: buildClientContext(this._context, items),
       }));
     } catch (err) {
-      this._pushError(err);
+      if (!this._destroyed && this._operation === operation) this._pushError(err);
     }
   }
 
   destroy() {
     this._destroyed = true;
-    this._ws?.close();
+    this._operation = undefined;
+    const ws = this._ws;
+    this._ws = null;
+    ws?.close();
   }
 }

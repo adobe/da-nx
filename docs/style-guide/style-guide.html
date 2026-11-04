@@ -35,12 +35,28 @@
 
   <nav class="sg-toc">
     <a href="#buttons">Buttons</a>
+    <a href="#colors">Colors</a>
     <a href="#form">Form</a>
     <a href="#elements">Elements</a>
     <a href="#shared-blocks">Shared Blocks</a>
   </nav>
 
   <main>
+    <section id="colors" class="sg-section">
+      <h2>Colors</h2>
+      <p>Source: <code>nx2/styles/styles.css</code>. Spectrum indigo tokens are available from
+        <code>--s2-indigo-100</code> through <code>--s2-indigo-1200</code> in steps of 100.
+        Each token follows the active light or dark color scheme.</p>
+      <article class="sg-example">
+        <h3>Indigo surface</h3>
+        <div class="sg-demo" style="background-color: var(--s2-indigo-200); color: var(--s2-indigo-1000)">
+          <span>Indigo 200 surface with indigo 1000 text</span>
+        </div>
+        <pre><code>background-color: var(--s2-indigo-200);
+color: var(--s2-indigo-1000);</code></pre>
+      </article>
+    </section>
+
     <section id="buttons" class="sg-section">
       <h2>Buttons</h2>
       <p>Source: <code>nx2/styles/buttons.css</code></p>
@@ -286,6 +302,9 @@
           <nx-menu id="demo-menu-m" size="m" placement="below">
             <button slot="trigger" class="nx-form-btn-secondary" aria-label="Options">Options (m)</button>
           </nx-menu>
+          <nx-menu id="demo-menu-desc" size="m" placement="below">
+            <button slot="trigger" class="nx-form-btn-secondary" aria-label="Skills">With descriptions</button>
+          </nx-menu>
         </div>
         <pre><code>&lt;nx-menu id="my-menu"&gt;
   &lt;button slot="trigger"&gt;Options&lt;/button&gt;
@@ -300,7 +319,15 @@ menu.items = [
   { id: 'edit', label: 'Edit' },
   { id: 'delete', label: 'Delete' },
 ];
-menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));</code></pre>
+menu.addEventListener('select', (e) =&gt; console.log(e.detail.id));
+
+// descriptions: the menu switches to a two-line label/description layout.
+// Pass the full text; it truncates with an ellipsis, shows the full value
+// on hover, and caps width at --nx-menu-max-width
+menu.items = [
+  { section: 'Skills' },
+  { id: 'summarize', label: '/summarize', description: 'Summarize the current page' },
+];</code></pre>
       </article>
 
       <article class="sg-example">
@@ -772,6 +799,17 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
       menu.items = menuItems;
       menu.addEventListener('select', (e) => showToast({ text: `Selected: ${e.detail.id}` }));
     });
+    const descMenu = document.querySelector('#demo-menu-desc');
+    descMenu.items = [
+      { section: 'Skills' },
+      { id: 'summarize', label: '/summarize', description: 'Summarize the current page' },
+      {
+        id: 'evaluate-page',
+        label: '/evaluate-page',
+        description: 'Check a web page against brand, accessibility, and SEO rules and report every issue found',
+      },
+    ];
+    descMenu.addEventListener('select', (e) => showToast({ text: `Selected: ${e.detail.id}` }));
 
     // nx-dialog
     document.querySelector('#demo-dialog-open').addEventListener('click', () => {

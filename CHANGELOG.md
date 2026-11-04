@@ -1,3 +1,72 @@
+# [1.39.0](https://github.com/adobe/da-nx/compare/v1.38.0...v1.39.0) (2026-11-04)
+
+
+### Features
+
+* **loc:** expose public localization core ([#801](https://github.com/adobe/da-nx/issues/801)) ([dfd37a4](https://github.com/adobe/da-nx/commit/dfd37a489a0112ca037dd2b5b930633e48c35dde)), closes [#913](https://github.com/adobe/da-nx/issues/913) [#920](https://github.com/adobe/da-nx/issues/920)
+
+# [1.38.0](https://github.com/adobe/da-nx/compare/v1.37.1...v1.38.0) (2026-11-04)
+
+
+### Features
+
+* **styles:** export spectrum indigo palette ([781519e](https://github.com/adobe/da-nx/commit/781519e29e8dd2bb35d4c04b5cb633bc8bc3abb0))
+
+## [1.37.1](https://github.com/adobe/da-nx/compare/v1.37.0...v1.37.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* **aem-assets:** reject unpublished assets ([#834](https://github.com/adobe/da-nx/issues/834)) ([b4933e6](https://github.com/adobe/da-nx/commit/b4933e6e928975eaa4990df3729dfd54ac5429f0))
+
+# [1.37.0](https://github.com/adobe/da-nx/compare/v1.36.0...v1.37.0) (2026-11-04)
+
+
+### Features
+
+* share chat session between full chat + compact variant ([#950](https://github.com/adobe/da-nx/issues/950)) ([34e2393](https://github.com/adobe/da-nx/commit/34e23939e7ff6d05d2c789dda31f854a8faff410))
+
+# [1.36.0](https://github.com/adobe/da-nx/compare/v1.35.0...v1.36.0) (2026-11-03)
+
+
+### Bug Fixes
+
+* **shell:** recheck chat availability on hash navigation ([4ffac45](https://github.com/adobe/da-nx/commit/4ffac45ddd59bb3e6bda7ab33b91f464d5c5c43a))
+
+
+### Features
+
+* **shell:** open chat through existing SDK prompt action ([a813ef6](https://github.com/adobe/da-nx/commit/a813ef6d5fae8a4122b919f23997a52258c27800))
+
+# [1.35.0](https://github.com/adobe/da-nx/compare/v1.34.0...v1.35.0) (2026-11-03)
+
+
+### Features
+
+* **loc:** resolve locale placeholders during rollout ([4a06a14](https://github.com/adobe/da-nx/commit/4a06a144d8fad6b17f33759d0fb434d2e31a24d8))
+
+# [1.34.0](https://github.com/adobe/da-nx/compare/v1.33.0...v1.34.0) (2026-11-03)
+
+
+### Features
+
+* **chat:** notify subscribers when a turn finishes ([53ecef2](https://github.com/adobe/da-nx/commit/53ecef210a3612eec52ccf24501b68887c2e9dc4))
+
+# [1.33.0](https://github.com/adobe/da-nx/compare/v1.32.0...v1.33.0) (2026-11-03)
+
+
+### Features
+
+* **chat-ao:** improved slash menu ([#889](https://github.com/adobe/da-nx/issues/889)) ([7444db0](https://github.com/adobe/da-nx/commit/7444db0c09543f81a056a54c72d70a9dd6ac43f4))
+
+# [1.32.0](https://github.com/adobe/da-nx/compare/v1.31.0...v1.32.0) (2026-11-03)
+
+
+### Features
+
+* **styles:** expose complete turquoise and purple scales ([c0bfad1](https://github.com/adobe/da-nx/commit/c0bfad1e5ec522e076ad5e3f5206a64f1d7fcb39))
+* **styles:** expose landing tile surface tokens ([4c97d68](https://github.com/adobe/da-nx/commit/4c97d689acf348f8bd4001b705db1d3ea58e412f)), closes [adobe/da-live#1517](https://github.com/adobe/da-live/issues/1517)
+
 # [1.31.0](https://github.com/adobe/da-nx/compare/v1.30.0...v1.31.0) (2026-11-02)
 
 

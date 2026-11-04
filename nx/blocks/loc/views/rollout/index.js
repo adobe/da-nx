@@ -1,13 +1,15 @@
 import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
-import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
+import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES } from '../../project/index.js';
 import {
+  copy,
   convertPath,
   createSnapshotPrefix,
   findSourceLocation,
   getProjectSourceLocations,
 } from '../../utils/utils.js';
+import { createRolloutResolver } from '../../utils/placeholders.js';
 
 function getTitle(status) {
   const title = {
@@ -78,10 +80,21 @@ async function fetchLangSources(lang, urls) {
   return results;
 }
 
-async function rolloutLangLocales(title, lang, urls, behavior) {
+async function rolloutLangLocales(title, lang, urls, behavior, resolver) {
   const rolloutUrl = async (url) => {
+    const { content, error } = await resolver.expand({
+      content: url.sourceContent,
+      root: url.root,
+      path: url.destination,
+    });
+    if (error) {
+      url.status = 'error';
+      url.error = error;
+      return;
+    }
+    url.sourceContent = content;
     const overwrite = behavior === 'overwrite' || url.hasExt;
-    const copyFn = overwrite ? overwriteCopy : mergeCopy;
+    const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
     await copyFn(url, title);
   };
 
@@ -136,6 +149,7 @@ function formatRolloutUrls(org, site, lang, urls, snapshot) {
       });
       return {
         hasExt: langUrl.ext === 'json',
+        root: locale.code,
         sourceContent: langUrl.content,
         source: `/${org}/${site}${langUrl.aemBasePath}`,
         destination: `/${org}/${site}${daDestPath}`,
@@ -176,20 +190,23 @@ export async function rolloutLang({
   // Convert base lang urls to the full locale list
   const urlsToSave = formatRolloutUrls(org, site, lang, urls, snapshot);
 
-  // Perform the actual rollout
-  ({ errors, message, urls } = await rolloutLangLocales(title, lang, urlsToSave, behavior));
-  if (errors) return { errors, message };
+  const load = (path) => daFetch({ url: `${DA_ADMIN}/source${path}` });
+  const resolver = createRolloutResolver({ load, sitePath: `/${org}/${site}` });
 
-  // The presumption is that no errors means success
-  lang.rollout.status = 'complete';
-  lang.rollout.saved = urls.length;
+  // Perform the actual rollout
+  const rollout = await rolloutLangLocales(title, lang, urlsToSave, behavior, resolver);
+  ({ errors, message, urls } = rollout);
+
+  const saved = urls.filter((url) => url.status === 'success');
+  lang.rollout.status = errors ? 'not started' : 'complete';
+  lang.rollout.saved = saved.length;
   lang.locales.forEach((locale) => {
-    locale.saved = projectUrls.length;
+    locale.saved = saved.filter((url) => url.root === locale.code).length;
   });
 
   actions.requestUpdate();
 
-  return { };
+  return errors ? { errors, message } : {};
 }
 
 function getRolloutDetails(lang) {

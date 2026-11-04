@@ -248,6 +248,77 @@ describe('SDK getSelection', () => {
   });
 });
 
+describe('SDK subscribeChatTurnCompleted', () => {
+  let port;
+  let actions;
+  beforeEach(() => {
+    port = new EventTarget();
+    port.postMessage = sinon.spy();
+    port.start = sinon.spy();
+    actions = SDK.createHostActions({ port, capabilities: { chatTurnCompleted: 1 } });
+  });
+  afterEach(() => sinon.restore());
+
+  const detail = {
+    org: 'org', site: 'site', path: 'page', turnId: 'turn', status: 'completed',
+  };
+  function emit(data = { action: 'chatTurnCompleted', detail }) {
+    port.dispatchEvent(new MessageEvent('message', { data }));
+  }
+
+  it('shares a subscription without replay and tears down after the last callback', () => {
+    const first = sinon.spy();
+    const second = sinon.spy();
+    const unsubscribeFirst = actions.subscribeChatTurnCompleted(first);
+    emit();
+    const unsubscribeSecond = actions.subscribeChatTurnCompleted(second);
+    expect(second.called).to.equal(false);
+    expect(port.postMessage.calledOnce).to.equal(true);
+    emit({ action: 'liveDocument', detail });
+    emit({ action: 'chatTurnCompleted', detail: { status: 'thinking' } });
+    expect(first.calledOnce).to.equal(true);
+    unsubscribeFirst();
+    emit();
+    expect(first.calledOnce).to.equal(true);
+    expect(second.calledOnceWithExactly(detail)).to.equal(true);
+    unsubscribeSecond();
+    unsubscribeSecond();
+    emit();
+    expect(second.calledOnce).to.equal(true);
+    expect(port.postMessage.args.map(([message]) => message.action)).to.deep.equal([
+      'subscribeChatTurnCompleted', 'unsubscribeChatTurnCompleted',
+    ]);
+  });
+
+  it('isolates failing callbacks from other subscribers', () => {
+    sinon.stub(console, 'error');
+    const unsubscribeFirst = actions.subscribeChatTurnCompleted(() => { throw new Error('failed'); });
+    const received = sinon.spy();
+    const unsubscribeSecond = actions.subscribeChatTurnCompleted(received);
+    emit();
+    expect(received.calledOnceWithExactly(detail)).to.equal(true);
+    unsubscribeFirst();
+    unsubscribeSecond();
+  });
+
+  it('rejects invalid callbacks and hosts without the capability without subscribing', () => {
+    expect(() => actions.subscribeChatTurnCompleted(null)).to.throw(TypeError);
+    const older = SDK.createHostActions({ port });
+    expect(() => older.subscribeChatTurnCompleted(() => {})).to.throw('not supported');
+    expect(port.postMessage.called).to.equal(false);
+  });
+
+  it('rolls back a failed connection so a subsequent subscription can succeed', () => {
+    port.postMessage = sinon.stub().onFirstCall().throws(new Error('closed'));
+    expect(() => actions.subscribeChatTurnCompleted(() => {})).to.throw('closed');
+    const received = sinon.spy();
+    const unsubscribe = actions.subscribeChatTurnCompleted(received);
+    emit();
+    expect(received.calledOnce).to.equal(true);
+    unsubscribe();
+  });
+});
+
 describe('SDK subscribeLiveDocument', () => {
   let port;
   let actions;
