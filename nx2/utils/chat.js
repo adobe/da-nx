@@ -74,7 +74,7 @@ export async function loadChat({ context } = {}) {
     useAoChat: enabled,
     key,
     cma,
-  } = await resolveAoChatConfig();
+  } = await resolveAoChatConfig(context);
   if (enabled) {
     await import('../blocks/chat-ao/chat-ao.js');
     const chat = document.createElement('nx-chat-ao');

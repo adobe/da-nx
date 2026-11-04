@@ -95,6 +95,21 @@ describe('loadChat — ew.cma harness selection', () => {
     });
   });
 
+  it('forwards an explicit context to resolveAoChatConfig instead of reading the hash '
+    + '(regression: loadChat({ context }) must not silently ignore it - PR #948 review)', async () => {
+    setMockIms({
+      projectedProductContext: [{ prodCtx: { owningEntity: 'org-1', serviceCode: REQUIRED_SERVICE_CODES[0] } }],
+    });
+    window.fetch = mockFetch({ flags: { data: [{ key: 'ew.cma', value: 'true' }] } });
+    // Deliberately no matching hash (or none at all) - if loadChat dropped the
+    // context argument, resolveAoChatConfig would fall back to the empty hash
+    // state and return the legacy chat instead of nx-chat-ao.
+    await withUrl('', '', async () => {
+      const chat = await loadChat({ context: { org: 'cma-org1', site: 'cma-site1' } });
+      expect(chat.tagName.toLowerCase()).to.equal('nx-chat-ao');
+    });
+  });
+
   it('does NOT select CMA when the flag is on but the org is not entitled', async () => {
     window.fetch = mockFetch({ flags: { data: [{ key: 'ew.cma', value: 'true' }] } });
     await withUrl('#/cma-org2/cma-site2', '', async () => {
