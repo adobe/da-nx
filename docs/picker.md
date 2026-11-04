@@ -30,9 +30,6 @@ picker.addEventListener("change", (e) => {
 
 ### Form-style field
 
-Navigation fragments can include `siteselector` in the site-nav area.
-This standalone block composes the picker without occupying the centered search slot.
-
 Use `variant="field"` for a bordered, form-style picker trigger.
 
 ```html
@@ -45,19 +42,15 @@ Its dropdown matches the rendered trigger width each time it opens unless
 
 ### Navigation presentation
 
-Use `variant="navigation"` with `check-position="start"` for a navigation menu
-with medium-weight labels, regular descriptions, a top-aligned blue check,
-compact row spacing and full-width dividers. Sections retain bold typography.
-All text uses matching S/M component tokens.
+Use `variant="navigation"` for bold sections, medium-weight labels and S-regular,
+theme-aware descriptions. Add `check-position="start"` for leading blue checks.
 
 ```html
 <nx-picker variant="navigation" check-position="start" size="m"></nx-picker>
 ```
 
-Like `field`, its trigger fills the available width. The menu matches the trigger,
-with a 240px minimum constrained to the viewport, unless `--nx-picker-menu-width`
-specifies a width. This deliberate shared presentation restores the site selector's
-original menu without exposing individual menu parts or changing other pickers.
+The trigger fills the available width. The menu matches it with a viewport-constrained
+240px minimum; `--nx-picker-menu-width` overrides the width.
 
 ### Fixed trigger label
 
@@ -132,17 +125,11 @@ Trigger text precedence is: non-empty `labelOverride`, matching item label, `pla
 
 Use `::part(label)` to style the trigger text, or `::part(label)::before` to add a decorative icon.
 
-Menu sections, dividers, descriptions, actions and checkmarks use the shared
-presentation selected by `variant`; default and field menus remain unchanged.
-Use `check-position="start"` for leading checks rather than rearranging menu internals.
-
-`description` appears below the item label and is included in its accessible name
-unless `ariaLabel` supplies an explicit name. Existing item shapes remain unchanged.
-
-Trigger, item and section typography uses the matching S or M component tokens,
-including font weight and dynamic size changes. Descriptions inherit the item's
-font size and line height while
-keeping the matching regular component font-weight token.
+`variant` controls menu presentation; `check-position="start"` provides leading checks.
+Descriptions appear below labels and join the accessible name unless `ariaLabel` overrides it.
+Navigation typography, focus color and menu bounds are opt-in; default and field
+styling is preserved. Their descriptions match row size with regular weight;
+navigation descriptions stay S-regular.
 
 ## CSS custom properties
 
@@ -154,7 +141,7 @@ keeping the matching regular component font-weight token.
 | `--nx-picker-radius`     | `var(--s2-corner-radius-500)`         | Trigger border radius.    |
 | `--nx-picker-background` | `var(--s2-gray-100)`                  | Trigger background.       |
 | `--nx-picker-max-width`  | `none`                                | Maximum component width.  |
-| `--nx-picker-menu-width` | Rendered field width, or automatic    | Menu width, constrained to the viewport. |
+| `--nx-picker-menu-width` | Rendered field width, or automatic    | Menu width; viewport-constrained in navigation. |
 
 ### Methods
 
@@ -174,41 +161,46 @@ keeping the matching regular component font-weight token.
 
 Arrow keys open the picker when focus is on the trigger. When open, arrow keys move focus between items, Enter selects the active item, and Escape closes the picker.
 
-Item focus waits for popover positioning so the target is visible. Closing or
-removing the picker before that frame cancels the pending focus.
+Triggers use a 2px focus ring: current text color for default/field, blue
+(`--s2-blue-800`) for navigation. `--s2-focus-ring-color` overrides either.
+Item focus waits for popover positioning and is skipped if the picker closes or disconnects first.
 
 ## Standalone site selector
 
 Add `siteselector` to a navigation fragment's site-nav list, alongside breadcrumbs
-if both are needed. Nexter lazy-loads `nx2/blocks/siteselector/siteselector.js`.
+if needed. Nexter lazy-loads the block and its controller; Add loads only when opened.
+No application adapter or DA imports are required. Only navigation fragments containing
+`siteselector` load it; there is no dedicated rollout toggle.
 
-The block owns presentation only. Set `sites` to `{ value: 'org/site', label: 'Site, org/site' }`
-entries and `value` to the current identifier. Optional `heading`, `size` (`s` or `m`,
-default `m`) and `error` customize content and density without replacing menu layout.
-Landing pages can set `heading` to `Your recent sites`.
-Without a custom heading, the loaded, unselected trigger also defaults to `Your recent sites`.
-With no selected `value`, the loaded trigger shows this heading rather than
-choosing a site from history. After selection it shows the host-supplied site
-label. Clearing `value` restores the heading; routed deep links can still supply
-an explicit selection.
+The block owns current-site and browser-local `da-sites` choices, access checks and
+selection. Confirmed denials hide choices without deleting history or changing the route;
+uncertain failures show an error and retry. Cached denials need a successful recheck.
+Add validates site access and the organization listing without backend writes or access grants.
 
-The selector retains its outlined, pill-shaped trigger, light/dark surface and
-bold S/M component-token label. These trigger styles belong to the standalone block
-and use existing picker trigger properties and the label part. Its menu has a 240px
-minimum and follows wider triggers. It uses
-the shared navigation presentation, including medium labels, regular descriptions,
-blue leading checks and an unindented Add action.
-The trigger grows with its label between 220px and 280px on desktop, and shrinks
-to its content up to 176px on mobile. The nav's site-nav container supplies compact
-padding when space is constrained, without removing the trigger's intrinsic width.
+| Property | Purpose |
+| -------- | ------- |
+| `heading` | Unselected trigger and section label; defaults to `Your recent sites`. |
+| `size` | `s` (managed default) or `m`; bold trigger at 14px/18px or 16px/20px. |
+| `value` | Selected `org/site`; clearing it restores the heading. |
+| `error` | Error message with retry. |
+| `onSelect` | Optional `({ value }) => { ... }` callback for page-specific reactions. |
+| `getCreateSiteHref` | Optional `({ org }) => href` override; return `undefined` to hide Create. |
 
-On connection it emits bubbling, composed `site-selector-ready` with
-`{ selector, signal }`. Register the host listener before loading the navigation.
-The trigger stays inert until `sites` is assigned; use an empty array for loaded, empty history.
-The signal aborts on removal; use it to release listeners, pending requests and dialogs.
-Each reconnection emits a fresh signal.
+Both sizes use the shared M navigation menu with S-regular paths (`--s2-gray-700`).
+Menu names are capitalized; identifiers and emitted values are unchanged.
 
-`site-select` carries `{ value }`; `site-add` requests the host's Add flow.
-An error displays a Try again button that emits `site-retry`.
-These events bubble across the navigation shadow root. The host owns history, permission
-checks, dialogs and routing. No DA application modules are imported by Nexter.
+Selecting or adding updates selection and history without navigation. Hash changes
+resynchronize selection. Create opens the host's `/start?org=...` only after an explicit
+organization-config write grant. Its default URL preserves preview parameters, removes
+`site` and `browse`, and clears the hash. Hosts without `/start` must override or hide Create.
+
+Register optional host configuration before navigation loads. The bubbling, composed
+`site-selector-ready` event carries `{ selector, signal }` before the controller loads;
+the signal aborts on removal and releases listeners, checks and dialogs. Reconnection
+starts a fresh controller. Await `selector.ready` for initial access checks.
+`site-select` (`{ value }`), `site-add` and `site-retry` also bubble across shadow roots.
+
+For externally controlled rendering, assign `sites` before first connection or in the
+synchronous ready listener, then manage `value` and events yourself:
+`[{ value: 'org/site', label: 'Site, org/site' }]`. An empty array means loaded with no
+choices; `undefined` means loading. Controlled instances have no controller or `ready`.

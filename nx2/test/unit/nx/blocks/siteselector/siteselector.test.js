@@ -15,6 +15,7 @@ describe('nx-siteselector', () => {
 
   beforeEach(() => {
     selector = document.createElement('nx-siteselector');
+    selector.sites = [];
   });
 
   afterEach(() => selector.remove());
@@ -48,6 +49,7 @@ describe('nx-siteselector', () => {
     document.body.append(selector);
     let picker = await settle();
     expect(picker.placeholder).to.equal('Your recent sites');
+    expect(picker.items[0].section).to.equal(picker.placeholder);
     expect(picker.shadowRoot.querySelector('[part="label"]').textContent).to.equal('Your recent sites');
     expect(picker.items.at(-1)).to.include({ value: 'add-site', action: true });
     selector.sites = [
@@ -59,7 +61,7 @@ describe('nx-siteselector', () => {
     picker = await settle();
     expect(picker.labelOverride).to.equal('devlive (aemsites)');
     expect(picker.items[0].section).to.equal('Your recent sites');
-    expect(picker.items[1]).to.include({ label: 'devlive', description: 'aemsites/devlive' });
+    expect(picker.items[1]).to.include({ label: 'Devlive', description: 'aemsites/devlive' });
     expect(picker.checkPosition).to.equal('start');
     expect(picker.size).to.equal('m');
     selector.size = 's';
@@ -67,8 +69,28 @@ describe('nx-siteselector', () => {
     expect(picker.size).to.equal('m');
   });
 
+  it('capitalizes only the displayed site name without changing identifiers or descriptions', async () => {
+    selector.sites = [
+      { value: 'exp-workspace/frescopa', label: 'Frescopa, exp-workspace/frescopa' },
+      { value: 'org/my-site_2', label: 'My-site_2, org/my-site_2' },
+    ];
+    selector.value = 'exp-workspace/frescopa';
+    document.body.append(selector);
+    const picker = await settle();
+    expect(picker.items[1]).to.include({
+      value: 'exp-workspace/frescopa', label: 'Frescopa', description: 'exp-workspace/frescopa',
+    });
+    expect(picker.items[2]).to.include({
+      value: 'org/my-site_2', label: 'My-site_2', description: 'org/my-site_2',
+    });
+    expect(picker.value).to.equal('exp-workspace/frescopa');
+    expect(picker.labelOverride).to.equal('Frescopa, exp-workspace/frescopa');
+    expect(selector.sites[0].value).to.equal('exp-workspace/frescopa');
+  });
+
   it('does not accept input before the host attaches its adapter', async () => {
     document.body.append(selector);
+    selector.sites = undefined;
     let picker = await settle();
     expect(picker.inert).to.be.true;
     expect(picker.placeholder).to.equal('Loading sites...');
@@ -81,6 +103,7 @@ describe('nx-siteselector', () => {
   it('shows the heading until a site is selected and restores it when selection is cleared', async () => {
     selector.heading = 'Your recent sites';
     document.body.append(selector);
+    selector.sites = undefined;
     let picker = await settle();
     expect(picker.placeholder).to.equal('Loading sites...');
     selector.sites = [
@@ -233,6 +256,34 @@ describe('nx-siteselector', () => {
     }
   });
 
+  it('uses S regular site paths and subdued theme colors independently of trigger size', async () => {
+    selector.sites = [{ value: 'exp-workspace/frescopa', label: 'Frescopa, exp-workspace/frescopa' }];
+    selector.style.cssText = `
+      --s2-component-s-regular-font-size: 12px;
+      --s2-component-s-regular-line-height: 16px;
+      --s2-component-s-regular-font-weight: 400;
+      --s2-component-m-regular-font-size: 14px;
+      --s2-component-m-regular-line-height: 18px;
+      --s2-component-m-regular-font-weight: 450;
+      --s2-gray-700: light-dark(#505050, #afafaf);
+    `;
+    document.body.append(selector);
+    for (const [scheme, color] of [['light', 'rgb(80, 80, 80)'], ['dark', 'rgb(175, 175, 175)']]) {
+      selector.style.colorScheme = scheme;
+      for (const size of ['s', 'm', undefined]) {
+        selector.size = size;
+        const picker = await settle();
+        const description = picker.shadowRoot.querySelector('.picker-item-description');
+        const style = getComputedStyle(description);
+        expect(description.textContent).to.equal('exp-workspace/frescopa');
+        expect(style.fontSize).to.equal('12px');
+        expect(style.lineHeight).to.equal('16px');
+        expect(style.fontWeight).to.equal('400');
+        expect(style.color).to.equal(color);
+      }
+    }
+  });
+
   it('keeps the outlined pill, bold trigger and medium menu labels in both sizes', async () => {
     selector.sites = [{ value: 'org/site', label: 'site (org)' }];
     selector.value = 'org/site';
@@ -249,6 +300,7 @@ describe('nx-siteselector', () => {
       ['s', 'm', '650'], ['m', 'l', '660'],
     ]) {
       selector.size = size;
+      selector.style.setProperty('--s2-component-s-regular-font-weight', '300');
       selector.style.setProperty('--s2-component-m-regular-font-weight', '350');
       selector.style.setProperty('--s2-component-m-medium-font-weight', '450');
       selector.style.setProperty(`--s2-component-${titleSize}-bold-font-weight`, bold);
@@ -261,7 +313,7 @@ describe('nx-siteselector', () => {
       expect(getComputedStyle(picker.shadowRoot.querySelector('[part="label"]')).fontWeight).to.equal(bold);
       expect(picker.variant).to.equal('navigation');
       expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal('450');
-      expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item-description')).fontWeight).to.equal('350');
+      expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item-description')).fontWeight).to.equal('300');
     }
   });
 });

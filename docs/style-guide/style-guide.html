@@ -485,7 +485,7 @@ document.querySelector('#field-picker').items = [
       <article class="sg-example">
         <h3>nx-picker — descriptions and actions</h3>
         <p>Opening focuses the selected item after positioning; arrow keys move focus and Enter selects.</p>
-        <p class="sg-note">All picker text uses S/M component typography tokens. Descriptions inherit item size and line height, retaining regular token weight: S on the left, M on the right.</p>
+        <p class="sg-note">Descriptions inherit row size and line height with regular S/M weight. Navigation typography and focus colors are opt-in; default/field styling is unchanged.</p>
         <p class="sg-note">Menu layout stays inside the picker. Use <code>check-position="start"</code> for leading checks and <code>--nx-picker-menu-width</code> for width. Sections, descriptions, dividers and Add actions use shared defaults.</p>
         <div class="sg-demo sg-picker-container">
           <nx-picker id="demo-picker-description-s" size="s" placeholder="Small status"></nx-picker>
@@ -516,8 +516,8 @@ picker.value = 'name:ascending';</code></pre>
 
       <article class="sg-example">
         <h3>nx-siteselector — navigation</h3>
-        <p class="sg-note">Outlined pill trigger with bold title typography: S is 14px/18px and M is 16px/20px, both weight 700. Tab to see the 2px blue focus ring in either theme. The navigation menu has a 240px minimum. Both sizes use M-bold menu headings, M-medium site and Add labels, regular descriptions and a blue leading check. Menu styling stays inside Nexter.</p>
-        <p class="sg-note">S on the left starts with “Your recent sites” and no selection. M on the right shows the site name followed by its full org/site path, without parentheses. Choosing a site replaces the heading; remembered sites alone never select one.</p>
+        <p class="sg-note">S: unselected, 14px/18px bold trigger. M: selected, 16px/20px bold trigger. Both use M menu labels, S-regular paths and theme-aware S2 colors.</p>
+        <p class="sg-note">Controlled demos use sample sites without access requests. Normal instances own history, access checks and Add; hosts can override selection reactions and the permission-gated Create destination. See <a href="../picker.md">picker docs</a>.</p>
         <div class="sg-demo sg-picker-container">
           <nx-siteselector id="demo-siteselector-s" size="s" heading="Your recent sites"></nx-siteselector>
           <nx-siteselector id="demo-siteselector-m" size="m" heading="Your recent sites"></nx-siteselector>
@@ -869,6 +869,10 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
     import { loadStyle } from '/nx2/utils/utils.js';
 
     await setConfig({});
+
+    document.addEventListener('site-selector-ready', ({ detail: { selector } }) => {
+      if (selector.id.startsWith('demo-siteselector-')) selector.sites = [];
+    });
 
     const [
       { showToast, VARIANT_WARNING },
