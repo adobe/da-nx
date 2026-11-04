@@ -143,6 +143,13 @@ describe('smartOverwriteCopy', () => {
     expect(saved).to.include('<div id="local"><p>A</p></div><div><p>B2</p></div>');
   });
 
+  it('only records the base when unresolved deletions are the only content', async () => {
+    destHtml = toPage('<da-diff-deleted><p>Old</p></da-diff-deleted>');
+    const url = await rollout(smartOverwriteCopy, '<p>A</p>');
+    expect(url.baselineOnly).to.be.true;
+    expect(saved).to.include('<da-diff-deleted><p>Old</p></da-diff-deleted>');
+  });
+
   it('keeps unresolved diff markers untouched on the first run', async () => {
     destHtml = toPage('<p>A</p><p da-diff-added="">B local</p><da-diff-deleted><p>B old</p></da-diff-deleted>');
     await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>');

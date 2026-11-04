@@ -514,7 +514,10 @@ export async function getBlockHashes({ doc, site, config }) {
 function buildHtmlFromBlocks(blocks) {
   const inner = blocks.reduce((html, { block }, idx) => {
     if (block.isSection) return `${html}${idx ? '</div>' : ''}${block.openTag || '<div>'}`;
-    if (Array.isArray(block)) return `${html}${getGroupInnerHtml(block)}`;
+    if (Array.isArray(block)) {
+      const group = block.map((el) => (el.isSection ? `</div>${el.openTag || '<div>'}` : el.outerHTML));
+      return `${html}${group.join('')}`;
+    }
     return `${html}${block.outerHTML}`;
   }, '');
   return blocks[0]?.block.isSection ? `${inner}</div>` : `<div>${inner}</div>`;

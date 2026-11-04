@@ -586,6 +586,25 @@ describe('smartMerge', () => {
     expect(upstream.html).to.equal(`<div><p>A local</p>${code('    ')}</div>`);
   });
 
+  it('keeps section attributes inside block groups', async () => {
+    const group = (attrs) => `<main><div><div class="block-group-start"></div><p>A</p></div><div${attrs}><p>B</p><div class="block-group-end"></div></div><div><p>C</p></div></main>`;
+    const doc = (html) => {
+      const d = document.implementation.createHTMLDocument();
+      d.body.innerHTML = html;
+      return d;
+    };
+    const base = await hashes(doc(group('')));
+    const { html } = await smartMerge({
+      site: 'site',
+      config: {},
+      base,
+      source: doc(group('').replace('<p>C</p>', '<p>C2</p>')),
+      dest: doc(group(' id="local"')),
+    });
+    expect(html).to.include('<div id="local"><p>B</p>');
+    expect(html).to.include('<p>C2</p>');
+  });
+
   it('returns the source block hashes to use as the next base', async () => {
     const source = '<p>A</p><p>B</p>';
     const { sourceHashes } = await merge({ base: '<p>A</p>', source, dest: '<p>A</p>' });

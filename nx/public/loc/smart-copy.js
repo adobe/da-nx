@@ -97,6 +97,7 @@ export default function createSmartOverwrite({
       if (!getSectionedMain(source)) throw statusError('Source content not found or malformed', 422);
 
       const destHtml = regionalMain?.innerHTML;
+      const empty = !!regionalMain && isEmptyMain(regionalMain);
       if (regional) removeLocTags(regional);
       removeLocTags(source);
 
@@ -110,7 +111,7 @@ export default function createSmartOverwrite({
         source,
         dest: regional,
         destHtml,
-        empty: !!regionalMain && isEmptyMain(regionalMain),
+        empty,
         path: url.destination,
         site,
         config,
