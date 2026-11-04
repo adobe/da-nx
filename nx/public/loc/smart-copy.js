@@ -7,8 +7,6 @@ const EMPTY_TAGS = new Set(['DIV', 'P', 'BR']);
 
 const toBasePath = (path) => path.toLowerCase();
 
-const statusError = (message, status) => Object.assign(new Error(message), { status });
-
 // Keeps metadata values exactly as authored (getElementMetadata's `text` is lowercased).
 const readMetadata = (el) => Object.fromEntries(Object.entries(getElementMetadata(el))
   .map(([key, { content }]) => [key, content.innerHTML]));
@@ -67,34 +65,19 @@ async function smartRollout({
 }
 
 /**
- * Creates the engine's smart-overwrite rollout (see docs/rollout-smart-overwrite.md).
- * Documents are read without whitespace normalization so they are saved exactly as authored.
+ * Creates the engine's smart-overwrite rollout (see docs/rollout-smart-overwrite.md) from the
+ * engine's own helpers. Documents are read raw so they are saved exactly as authored.
  */
 export default function createSmartOverwrite({
-  fetch, daOrigin, loadConfig, saveHtml, saveVersion, fail,
+  getHtml, loadConfig, saveHtml, saveVersion, fail, responseError,
 }) {
-  const parser = new DOMParser();
-
-  const readDoc = async (path) => {
-    const response = await fetch(`${daOrigin}/source${path}`);
-    if (response.status === 404) return { missing: true };
-    if (!response.ok) throw statusError(`Reading ${path} failed (${response.status})`, response.status);
-    return { doc: parser.parseFromString(await response.text(), 'text/html') };
-  };
-
-  const readSource = async (url) => {
-    const content = url.sourceContent || url.sourceHtml;
-    if (content) return parser.parseFromString(content, 'text/html');
-    return (await readDoc(url.source)).doc;
-  };
-
   return async (url, title) => {
     try {
-      const { doc: regional } = await readDoc(url.destination);
+      const regional = await getHtml(url.destination, undefined, { raw: true });
       const regionalMain = regional && getSectionedMain(regional);
-      if (regional && !regionalMain) throw statusError('Unexpected destination content', 422);
-      const source = await readSource(url);
-      if (!getSectionedMain(source)) throw statusError('Source content not found or malformed', 422);
+      if (regional && !regionalMain) throw new Error('Unexpected destination content');
+      const source = await getHtml(url.source, url.sourceContent || url.sourceHtml, { raw: true });
+      if (!getSectionedMain(source)) throw new Error('Source content not found or malformed');
 
       const destHtml = regionalMain?.innerHTML;
       const empty = !!regionalMain && isEmptyMain(regionalMain);
@@ -119,7 +102,7 @@ export default function createSmartOverwrite({
       daMetadata[ROLLOUT_BASE_KEY] = formatRolloutBase(url.destination, sourceHashes);
 
       const response = await saveHtml(url, html, daMetadata);
-      if (!response.ok) return fail(url, statusError(`Save failed (${response.status})`, response.status));
+      if (!response.ok) return fail(url, responseError(response, 'Save'));
       if (!baselineOnly) await saveVersion(url.destination, `${title} - Rolled Out`);
       url.status = 'success';
       url.skipped = skipped;

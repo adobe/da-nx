@@ -78,7 +78,8 @@ export function createCopy({
     return versionSaving.get(path);
   };
 
-  const getHtml = async (path, content) => {
+  // `raw` keeps the document exactly as authored (smart overwrite saves it back unchanged).
+  const getHtml = async (path, content, { raw = false } = {}) => {
     let text = content;
     if (!text) {
       const response = await fetch(`${daOrigin}/source${path}`);
@@ -87,6 +88,7 @@ export function createCopy({
       text = await response.text();
     }
     if (!text) return null;
+    if (raw) return parser.parseFromString(text, 'text/html');
     const collapsed = text.replace(/>([^<]*)</g, (match, value) => (
       value.trim() ? `>${value.replace(/\s+/g, ' ')}<` : match
     ));
@@ -237,7 +239,7 @@ export function createCopy({
   };
 
   const smartOverwriteCopy = createSmartOverwrite({
-    fetch, daOrigin, loadConfig, saveHtml, saveVersion, fail,
+    getHtml, loadConfig, saveHtml, saveVersion, fail, responseError,
   });
 
   return {
