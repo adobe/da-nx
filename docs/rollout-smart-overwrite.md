@@ -46,7 +46,8 @@ rolloutbase = <destination path>|<ordered upstream block hashes>
 ```
 
 The next smart rollout does a block-level three-way merge (diff3, like `git merge`) of baseline (B), current
-upstream (S) and destination (D). Logic lives in `nx/blocks/loc/regional-diff/smart-merge.js`.
+upstream (S) and destination (D). Logic lives in `nx/public/loc/smart-merge.js` (merge) and
+`nx/public/loc/smart-copy.js` (read/save); both are Nexter-internal (not exported from `nx/public/loc/index.js`).
 
 1. Diff B→S and B→D into change hunks (ranges of baseline blocks replaced by new blocks). Equal-length replacements
    are treated as in-place edits of each block.

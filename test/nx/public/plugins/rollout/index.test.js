@@ -45,9 +45,9 @@ const conf = (behavior) => ({
 [['nx', rolloutPrefix], ['nx2', rolloutPrefixNx2]].forEach(([name, fn]) => {
   describe(`${name} rollout plugin rolloutPrefix`, () => {
     const copyFns = () => ({
-      merge: sinon.stub().resolves({ ok: true }),
-      overwrite: sinon.stub().resolves({ ok: true }),
-      'smart-overwrite': sinon.stub().callsFake(async (prefix) => {
+      mergeCopy: sinon.stub().resolves({ ok: true }),
+      overwriteCopy: sinon.stub().resolves({ ok: true }),
+      smartOverwriteCopy: sinon.stub().callsFake(async (prefix) => {
         prefix.baselineOnly = true;
         return { ok: true };
       }),
@@ -57,10 +57,10 @@ const conf = (behavior) => ({
       const fns = copyFns();
       const prefix = { path: '/apac' };
       await fn({
-        prefix, behavior: 'smart-overwrite', label: 'Proj', copyFns: fns,
+        prefix, behavior: 'smart-overwrite', label: 'Proj', copy: fns,
       });
-      expect(fns['smart-overwrite'].calledOnceWith(prefix, 'Proj')).to.be.true;
-      expect(fns.merge.called).to.be.false;
+      expect(fns.smartOverwriteCopy.calledOnceWith(prefix, 'Proj')).to.be.true;
+      expect(fns.mergeCopy.called).to.be.false;
       expect(prefix.root).to.equal('/apac');
       expect(prefix.baselineOnly).to.be.true;
     });
@@ -68,22 +68,22 @@ const conf = (behavior) => ({
     it('falls back to merge for unknown behaviors', async () => {
       const fns = copyFns();
       await fn({
-        prefix: { path: '/apac' }, behavior: 'merge', label: 'Proj', copyFns: fns,
+        prefix: { path: '/apac' }, behavior: 'merge', label: 'Proj', copy: fns,
       });
       await fn({
-        prefix: { path: '/apac' }, behavior: 'unknown', label: 'Proj', copyFns: fns,
+        prefix: { path: '/apac' }, behavior: 'unknown', label: 'Proj', copy: fns,
       });
       await fn({
-        prefix: { path: '/apac' }, behavior: 'constructor', label: 'Proj', copyFns: fns,
+        prefix: { path: '/apac' }, behavior: 'constructor', label: 'Proj', copy: fns,
       });
-      expect(fns.merge.calledThrice).to.be.true;
+      expect(fns.mergeCopy.calledThrice).to.be.true;
     });
 
     it('clears notes from a previous rollout', async () => {
       const fns = copyFns();
       const prefix = { path: '/apac', skipped: 2, baselineOnly: true };
       await fn({
-        prefix, behavior: 'overwrite', label: 'Proj', copyFns: fns,
+        prefix, behavior: 'overwrite', label: 'Proj', copy: fns,
       });
       expect(prefix).to.not.have.property('skipped');
       expect(prefix).to.not.have.property('baselineOnly');
@@ -94,11 +94,11 @@ const conf = (behavior) => ({
       const prefix = { path: '/apac' };
       const resolver = { prepareSource: sinon.stub().resolves({ error: 'Missing placeholders' }) };
       await fn({
-        prefix, behavior: 'smart-overwrite', label: 'Proj', resolver, copyFns: fns,
+        prefix, behavior: 'smart-overwrite', label: 'Proj', resolver, copy: fns,
       });
       expect(prefix.status).to.equal('error');
       expect(prefix.error).to.equal('Missing placeholders');
-      expect(fns['smart-overwrite'].called).to.be.false;
+      expect(fns.smartOverwriteCopy.called).to.be.false;
     });
   });
 });

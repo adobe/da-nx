@@ -97,6 +97,18 @@
   --s2-blue-1000: light-dark(rgb(39 77 234), rgb(105 149 254));
   --s2-blue-1100: light-dark(rgb(29 62 207), rgb(124 169 252));
   --s2-blue-1200: light-dark(rgb(21 50 173), rgb(152 192 252));
+  --s2-indigo-100: light-dark(rgb(247 248 255), rgb(30 0 93));
+  --s2-indigo-200: light-dark(rgb(235 238 255), rgb(35 0 110));
+  --s2-indigo-300: light-dark(rgb(216 222 255), rgb(47 0 140));
+  --s2-indigo-400: light-dark(rgb(192 201 255), rgb(62 12 174));
+  --s2-indigo-500: light-dark(rgb(167 178 255), rgb(79 30 209));
+  --s2-indigo-600: light-dark(rgb(145 151 254), rgb(95 52 235));
+  --s2-indigo-700: light-dark(rgb(132 128 254), rgb(109 75 248));
+  --s2-indigo-800: light-dark(rgb(122 106 253), rgb(116 91 252));
+  --s2-indigo-900: light-dark(rgb(113 85 250), rgb(128 119 254));
+  --s2-indigo-1000: light-dark(rgb(99 56 238), rgb(139 141 254));
+  --s2-indigo-1100: light-dark(rgb(84 36 219), rgb(153 161 255));
+  --s2-indigo-1200: light-dark(rgb(69 19 191), rgb(176 186 255));
   --s2-red-100: light-dark(rgb(255 246 245), rgb(54 10 3));
   --s2-red-200: light-dark(rgb(255 235 232), rgb(68 13 5));
   --s2-red-300: light-dark(rgb(255 214 209), rgb(87 17 7));

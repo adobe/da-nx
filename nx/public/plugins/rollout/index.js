@@ -1,10 +1,7 @@
 import { DA_ORIGIN } from '../../utils/constants.js';
-import { mergeCopy, overwriteCopy, smartOverwriteCopy } from '../../../blocks/loc/project/index.js';
 
 const DA_TRANSLATE = '/.da/translate.json';
 const DA_SOURCE = `${DA_ORIGIN}/source/`;
-
-const COPY_FNS = { merge: mergeCopy, overwrite: overwriteCopy, 'smart-overwrite': smartOverwriteCopy };
 
 async function fetchConf(org, repo, token) {
   const opts = { headers: { Authorization: `Bearer ${token}` } };
@@ -90,8 +87,10 @@ export default async function getPrefixDetails(org, repo, token, path) {
   return { ...getPrefixes(org, repo, path, json), smartOverwrite: hasSmartOverwrite(json.config) };
 }
 
+const COPY_METHODS = { merge: 'mergeCopy', overwrite: 'overwriteCopy', 'smart-overwrite': 'smartOverwriteCopy' };
+
 export async function rolloutPrefix({
-  prefix, behavior, label, resolver, copyFns = COPY_FNS,
+  prefix, behavior, label, resolver, copy,
 }) {
   prefix.status = 'none';
   prefix.root = prefix.path;
@@ -103,6 +102,6 @@ export async function rolloutPrefix({
     prefix.status = 'error';
     return;
   }
-  const copyFn = Object.hasOwn(copyFns, behavior) ? copyFns[behavior] : copyFns.merge;
-  await copyFn(prefix, label);
+  const method = Object.hasOwn(COPY_METHODS, behavior) ? behavior : 'merge';
+  await copy[COPY_METHODS[method]](prefix, label);
 }

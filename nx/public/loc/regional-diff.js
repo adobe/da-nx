@@ -1,10 +1,6 @@
-/* global objectHash */
-import { getPathDetails, fetchConfig } from '../utils/utils.js';
-
-import './object_hash.js';
+import { hashContent, HASH_LENGTH } from './hashes.js';
 import threeWayMerge from './smart-merge.js';
 
-const HASH_LENGTH = 12;
 const MIN_LIST_ITEMS_IN_COMMON = 2;
 const ADDED = 'added';
 const ADDED_TAG = 'da-diff-added';
@@ -135,7 +131,7 @@ function getLists(result) {
 
 function getListHashes(list) {
   return [...list.children].map((child) => {
-    child.hash = objectHash(child.outerHTML);
+    child.hash = hashContent(child.outerHTML);
     return child.hash;
   });
 }
@@ -320,7 +316,7 @@ function hashBlock(block, { smart = false } = {}) {
   const stringToHash = Array.isArray(block)
     ? block.map(toHashString).join('')
     : toHashString(block);
-  return objectHash(stringToHash);
+  return hashContent(stringToHash);
 }
 
 function getBlockMap(dom, options) {
@@ -495,25 +491,23 @@ export const removeLocTags = (html) => {
   });
 };
 
-async function normalizeDocLinks(doc, { org, site }) {
-  const translateConfig = await fetchConfig(org, site);
-  const hostnames = findConfigValue(translateConfig, 'source.fragment.hostnames')?.split?.(',') || [];
-  const equivalentSites = new Set(hostnames.map((hostname) => hostname.split('--')[1]));
-  return normalizeLinks(doc, site, equivalentSites);
-}
+const getEquivalentSites = (config) => {
+  const hostnames = findConfigValue(config, 'source.fragment.hostnames')?.split?.(',') || [];
+  return new Set(hostnames.map((hostname) => hostname.split('--')[1]));
+};
 
 const shortHash = (item) => item.hash.substring(0, HASH_LENGTH);
 
 // Hashes come from a link-normalized copy so the merged output keeps the original links.
-async function getHashedBlocks(doc, siteDetails) {
+async function getHashedBlocks(doc, { site, config }) {
   const options = { smart: true };
-  const normalized = await normalizeDocLinks(doc.cloneNode(true), siteDetails);
+  const normalized = await normalizeLinks(doc.cloneNode(true), site, getEquivalentSites(config));
   const hashed = getBlockMap(normalized, options);
   return getBlocks(doc, options).map((block, idx) => ({ block, hash: shortHash(hashed[idx]) }));
 }
 
-export async function getBlockHashes({ doc, org, site }) {
-  const blocks = await getHashedBlocks(doc, { org, site });
+export async function getBlockHashes({ doc, site, config }) {
+  const blocks = await getHashedBlocks(doc, { site, config });
   return blocks.map(({ hash }) => hash);
 }
 
@@ -534,16 +528,16 @@ function buildHtmlFromBlocks(blocks) {
  * @param {String[]} params.base ordered block hashes of the source at the last rollout
  * @param {Document} params.source the current upstream document
  * @param {Document} params.dest the current destination document
- * @param {String} params.org the DA org, used for link normalization
  * @param {String} params.site the DA site, used for link normalization
+ * @param {Object} params.config the translation config (equivalent fragment hostnames)
  * @returns {Promise<{ html: String, skipped: Number, sourceHashes: String[] }>} sourceHashes is the
  *   next baseline
  */
 export async function smartMerge({
-  base, source, dest, org, site,
+  base, source, dest, site, config,
 }) {
-  const sourceBlocks = await getHashedBlocks(source, { org, site });
-  const destBlocks = await getHashedBlocks(dest, { org, site });
+  const sourceBlocks = await getHashedBlocks(source, { site, config });
+  const destBlocks = await getHashedBlocks(dest, { site, config });
   const { blocks, skipped, baseline } = threeWayMerge({
     base, source: sourceBlocks, dest: destBlocks,
   });
@@ -555,11 +549,12 @@ export async function regionalDiff(
   modified,
   acceptedHashes,
   rejectedHashes,
-  { normalizeImages } = {},
+  { normalizeImages, site, config } = {},
 ) {
-  const siteDetails = getPathDetails();
-  const normalizedOriginal = await normalizeDocLinks(original, siteDetails);
-  const normalizedModified = await normalizeDocLinks(modified, siteDetails);
+  const equivalentSites = getEquivalentSites(config);
+
+  const normalizedOriginal = await normalizeLinks(original, site, equivalentSites);
+  const normalizedModified = await normalizeLinks(modified, site, equivalentSites);
   // optional connector hook
   if (normalizeImages) normalizeImages(normalizedOriginal, normalizedModified);
   const diff = htmldiff(normalizedOriginal, normalizedModified);

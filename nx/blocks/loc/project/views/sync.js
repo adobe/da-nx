@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
-import { overwriteCopy, rolloutCopy, formatDate, MAX_CONCURRENT_WRITES, saveStatus } from '../index.js';
+import { formatDate, MAX_CONCURRENT_WRITES, saveStatus } from '../index.js';
+import { copy } from '../../utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 
 const style = await loadStyle(import.meta.url);
@@ -37,9 +38,9 @@ class NxLocSync extends LitElement {
     };
 
     if (this.conflictBehavior === 'overwrite') {
-      await overwriteCopy(copyUrl, this.title);
+      await copy.overwriteCopy(copyUrl, this.title);
     } else {
-      await rolloutCopy(copyUrl, this.title);
+      await copy.rolloutCopy(copyUrl, this.title);
     }
 
     if (copyUrl.status === 'success') url.synced = true;

@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import threeWayMerge from '../../nx/blocks/loc/regional-diff/smart-merge.js';
+import threeWayMerge from '../../nx/public/loc/smart-merge.js';
 
 const toBlocks = (str) => (str ? str.split(' ') : [])
   .map((hash) => ({ hash, block: hash === '|' ? { isSection: true } : {} }));

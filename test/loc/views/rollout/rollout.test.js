@@ -3,7 +3,7 @@ import sinon from 'sinon';
 import { render } from 'da-lit';
 import { setImsDetails } from '../../../../nx/utils/daFetch.js';
 import '../../../../nx/blocks/loc/views/rollout/rollout.js';
-import { getBlockHashes } from '../../../../nx/blocks/loc/regional-diff/regional-diff.js';
+import { getBlockHashes } from '../../../../nx/public/loc/regional-diff.js';
 
 const sheet = (rows) => ({ total: rows.length, offset: 0, limit: rows.length, data: rows });
 const CONFIG = {
@@ -139,7 +139,7 @@ describe('nx-loc-rollout smart overwrite skipped pages', () => {
     globalThis.fetch = sinon.stub().callsFake(async () => ({ ok: false, status: 404, text: async () => '' }));
     const baseDoc = document.implementation.createHTMLDocument();
     baseDoc.body.innerHTML = '<main><div><h1>Old</h1></div></main>';
-    const base = await getBlockHashes({ doc: baseDoc, org: 'org', site: 'site' });
+    const base = await getBlockHashes({ doc: baseDoc, site: 'site', config: {} });
     const metadata = `<div class="da-metadata"><div><div>rolloutbase</div><div>/org/site/en-nl/page.html|${base}</div></div></div>`;
     const pages = {
       '/en-nl/page.html': `<body><header></header><main><div><h1>Local</h1></div></main>${metadata}<footer></footer></body>`,

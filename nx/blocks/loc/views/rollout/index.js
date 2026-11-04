@@ -1,14 +1,9 @@
 import { DA_ADMIN } from '../../../../../nx2/utils/utils.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { daFetch } from '../../../../../nx2/utils/api.js';
+import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES } from '../../project/index.js';
 import {
-  MAX_CONCURRENT_READS,
-  MAX_CONCURRENT_WRITES,
-  mergeCopy,
-  overwriteCopy,
-  smartOverwriteCopy,
-} from '../../project/index.js';
-import {
+  copy,
   convertPath,
   createSnapshotPrefix,
   findSourceLocation,
@@ -16,7 +11,7 @@ import {
 } from '../../utils/utils.js';
 import { createRolloutResolver } from '../../utils/placeholders.js';
 
-const COPY_FNS = new Map([['overwrite', overwriteCopy], ['smart-overwrite', smartOverwriteCopy]]);
+const COPY_FNS = new Map([['overwrite', copy.overwriteCopy], ['smart-overwrite', copy.smartOverwriteCopy]]);
 
 function getTitle(status) {
   const title = {
@@ -100,7 +95,7 @@ async function rolloutLangLocales(title, lang, urls, behavior, resolver) {
       return;
     }
     url.sourceContent = content;
-    const copyFn = url.hasExt ? overwriteCopy : (COPY_FNS.get(behavior) || mergeCopy);
+    const copyFn = url.hasExt ? copy.overwriteCopy : (COPY_FNS.get(behavior) || copy.mergeCopy);
     await copyFn(url, title);
   };
 

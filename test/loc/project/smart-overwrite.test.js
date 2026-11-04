@@ -1,8 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { setImsDetails } from '../../../nx/utils/daFetch.js';
-import { mergeCopy, smartOverwriteCopy } from '../../../nx/blocks/loc/project/index.js';
-import { getBlockHashes } from '../../../nx/blocks/loc/regional-diff/regional-diff.js';
+import { createCopy } from '../../../nx/public/loc/copy.js';
+import { getBlockHashes } from '../../../nx/public/loc/regional-diff.js';
 
 const DEST = '/org/site/apac/page.html';
 const toPage = (main, metadata = '') => `<body><header></header><main><div>${main}</div></main>${metadata}<footer></footer></body>`;
@@ -11,11 +10,12 @@ const baseRow = (value) => `<div class="da-metadata"><div><div>rolloutbase</div>
 const hashesOf = async (main) => {
   const doc = document.implementation.createHTMLDocument();
   doc.body.innerHTML = `<main><div>${main}</div></main>`;
-  return getBlockHashes({ doc, org: 'org', site: 'site' });
+  return getBlockHashes({ doc, site: 'site', config: {} });
 };
 
 describe('smartOverwriteCopy', () => {
   let originalFetch;
+  let engine;
   let destHtml;
   let destStatus;
   let saveOk;
@@ -24,7 +24,6 @@ describe('smartOverwriteCopy', () => {
   let versionSaves;
 
   beforeEach(() => {
-    setImsDetails('test-token');
     originalFetch = globalThis.fetch;
     saved = undefined;
     versionSaves = 0;
@@ -45,12 +44,16 @@ describe('smartOverwriteCopy', () => {
       }
       return { ok: false, status: 404, headers, text: async () => '' };
     });
+    engine = createCopy({ fetch: (url, opts) => globalThis.fetch(url, opts), daOrigin: 'https://admin.da.live' });
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
     sinon.restore();
   });
+
+  const smartOverwriteCopy = (url, title) => engine.smartOverwriteCopy(url, title);
+  const mergeCopy = (url, title) => engine.mergeCopy(url, title);
 
   const rollout = (fn, sourceMain) => {
     const url = { source: '/org/site/page', destination: DEST, sourceContent: toPage(sourceMain) };
@@ -133,7 +136,7 @@ describe('smartOverwriteCopy', () => {
   it('keeps section wrapper attributes on later rollouts', async () => {
     const doc = document.implementation.createHTMLDocument();
     doc.body.innerHTML = '<main><div><p>A</p></div><div><p>B</p></div></main>';
-    const base = await getBlockHashes({ doc, org: 'org', site: 'site' });
+    const base = await getBlockHashes({ doc, site: 'site', config: {} });
     destHtml = `<body><main><div id="local"><p>A</p></div><div><p>B</p></div></main>${baseRow(`/org/site/apac/page.html|${base.join(',')}`)}</body>`;
     const url = { source: '/org/site/page', destination: DEST, sourceContent: '<body><main><div><p>A</p></div><div><p>B2</p></div></main></body>' };
     await smartOverwriteCopy(url, 'Proj');

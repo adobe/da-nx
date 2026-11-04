@@ -1,3 +1,31 @@
+# [1.39.0](https://github.com/adobe/da-nx/compare/v1.38.0...v1.39.0) (2026-11-04)
+
+
+### Features
+
+* **loc:** expose public localization core ([#801](https://github.com/adobe/da-nx/issues/801)) ([dfd37a4](https://github.com/adobe/da-nx/commit/dfd37a489a0112ca037dd2b5b930633e48c35dde)), closes [#913](https://github.com/adobe/da-nx/issues/913) [#920](https://github.com/adobe/da-nx/issues/920)
+
+# [1.38.0](https://github.com/adobe/da-nx/compare/v1.37.1...v1.38.0) (2026-11-04)
+
+
+### Features
+
+* **styles:** export spectrum indigo palette ([781519e](https://github.com/adobe/da-nx/commit/781519e29e8dd2bb35d4c04b5cb633bc8bc3abb0))
+
+## [1.37.1](https://github.com/adobe/da-nx/compare/v1.37.0...v1.37.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* **aem-assets:** reject unpublished assets ([#834](https://github.com/adobe/da-nx/issues/834)) ([b4933e6](https://github.com/adobe/da-nx/commit/b4933e6e928975eaa4990df3729dfd54ac5429f0))
+
+# [1.37.0](https://github.com/adobe/da-nx/compare/v1.36.0...v1.37.0) (2026-11-04)
+
+
+### Features
+
+* share chat session between full chat + compact variant ([#950](https://github.com/adobe/da-nx/issues/950)) ([34e2393](https://github.com/adobe/da-nx/commit/34e23939e7ff6d05d2c789dda31f854a8faff410))
+
 # [1.36.0](https://github.com/adobe/da-nx/compare/v1.35.0...v1.36.0) (2026-11-03)
 
 

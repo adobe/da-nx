@@ -2,6 +2,7 @@ import DA_SDK from '../../../../nx/utils/sdk.js';
 import { LitElement, html, nothing } from '../../../../nx/public/deps/lit/dist/index.js';
 import getStyle from '../../../../nx/public/utils/styles.js';
 import getSvg from '../../../../nx/public/utils/svg.js';
+import { createCopy } from '../../../../nx/public/loc/copy.js';
 import { createRolloutResolver } from '../../../../nx/blocks/loc/utils/placeholders.js';
 import { DA_ORIGIN } from '../../utils/constants.js';
 import getPrefixDetails, { rolloutPrefix } from './index.js';
@@ -53,7 +54,7 @@ export default class DaRollout extends LitElement {
     });
     this._active.map(async (prefix) => {
       await rolloutPrefix({
-        prefix, behavior, label: copyLabel, resolver,
+        prefix, behavior, label: copyLabel, resolver, copy: this.copy,
       });
       this.requestUpdate();
     });
@@ -154,9 +155,13 @@ export default class DaRollout extends LitElement {
 customElements.define('da-rollout', DaRollout);
 
 (async function init() {
-  const { context, token } = await DA_SDK;
+  const { context, token, actions } = await DA_SDK;
 
   const daRollout = document.createElement('da-rollout');
+  daRollout.copy = createCopy({
+    fetch: actions.daFetch,
+    daOrigin: DA_ORIGIN,
+  });
   daRollout.path = context.path;
   daRollout.token = token;
   daRollout.repo = context.repo;
