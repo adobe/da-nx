@@ -9,10 +9,11 @@ describe('SDK draggable sources', () => {
   let request;
   let port;
   let onResult;
-  const pointer = (type, x = 10, y = 10) => element.dispatchEvent(new PointerEvent(type, {
+  const pointer = (type, x = 10, y = 10, pointerType = 'mouse') => element.dispatchEvent(new PointerEvent(type, {
     bubbles: true,
     cancelable: true,
     pointerId: 1,
+    pointerType,
     isPrimary: true,
     button: 0,
     clientX: x,
@@ -24,7 +25,7 @@ describe('SDK draggable sources', () => {
     document.body.append(element);
     sinon.stub(element, 'setPointerCapture');
     sinon.stub(element, 'hasPointerCapture').returns(true);
-    sinon.stub(element, 'releasePointerCapture');
+    sinon.stub(element, 'releasePointerCapture').callsFake(() => pointer('lostpointercapture'));
     request = sinon.stub().resolves({ ok: true, dragId: 'host-drag' });
     port = new EventTarget();
     port.postMessage = sinon.spy();
@@ -82,6 +83,7 @@ describe('SDK draggable sources', () => {
     expect(element.hasAttribute('draggable')).to.equal(false);
     expect(element.style.touchAction).to.equal('');
     expect(request.calledOnce).to.equal(true);
+    expect(onResult.calledOnceWithExactly({ ok: false, error: 'cancelled' })).to.equal(true);
   });
   it('preserves image Files without base64 encoding and cancels on Escape', async () => {
     const file = new File(['image'], 'image.png', { type: 'image/png' });
@@ -96,7 +98,26 @@ describe('SDK draggable sources', () => {
       action: 'dragCancel', details: { dragId: 'host-drag' },
     })).to.equal(true);
     pointer('pointerup');
+    port.dispatchEvent(new MessageEvent('message', {
+      data: { action: 'dragResult', details: { dragId: 'host-drag', result: { ok: false, error: 'cancelled' } } },
+    }));
+    await settle();
     expect(request.calledOnce).to.equal(true);
+    expect(onResult.calledOnceWithExactly({ ok: false, error: 'cancelled' })).to.equal(true);
+  });
+  it('finishes a touch drag after releasing capture', async () => {
+    bind();
+    pointer('pointerdown', 10, 10, 'touch');
+    pointer('pointermove', 30, 10, 'touch');
+    await settle();
+    expect(element.releasePointerCapture.called).to.equal(false);
+    pointer('pointerup', 40, 50, 'touch');
+    await settle();
+    expect(request.secondCall.args).to.deep.equal(['dragFinish', {
+      dragId: 'host-drag', point: { x: 40, y: 50 },
+    }]);
+    expect(onResult.calledOnceWithExactly({ ok: true, dragId: 'host-drag' })).to.equal(true);
+    expect(port.postMessage.calledWithMatch({ action: 'dragCancel' })).to.equal(false);
   });
   it('uses native dataTransfer on hosts without the negotiated capability', async () => {
     const actions = createHostActions({ port });

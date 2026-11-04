@@ -29,6 +29,7 @@ export function makeDraggable({
       drag.started.then((result) => {
         if (result.ok) post('dragCancel', { dragId: result.dragId });
       });
+      onResult({ ok: false, error: 'cancelled' });
     }
   };
   const settle = (drag, result) => {
@@ -120,7 +121,7 @@ export function makeDraggable({
     }, { signal });
     element.addEventListener('pointercancel', cancel, { signal });
     element.addEventListener('lostpointercapture', () => {
-      if (!active?.handedOff) cancel();
+      if (active && !active.handedOff) cancel();
     }, { signal });
     element.addEventListener('click', (event) => {
       if (!suppressClick) return;
