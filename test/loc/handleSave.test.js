@@ -52,6 +52,46 @@ describe('NxLoc handleSave', () => {
     expect(savedBody.mergeUrls).to.equal(undefined);
   });
 
+  it('does not replace the new project UI when an old project write finishes after navigation', async () => {
+    const el = document.createElement('nx-loc');
+    el.org = 'org';
+    el.site = 'site';
+    el.path = '/project';
+    el._project = { org: 'org', site: 'site', title: 'Old project', urls: [] };
+    let finishWrite;
+    let started;
+    let savedHref;
+    const writing = new Promise((resolve) => { finishWrite = resolve; });
+    const writeStarted = new Promise((resolve) => { started = resolve; });
+    window.fetch = async (href, opts = {}) => {
+      if (opts.method === 'POST') {
+        savedHref = href.toString();
+        started();
+        await writing;
+      }
+      return jsonResponse({});
+    };
+
+    const saved = el.handleSave({
+      detail: { path: '/org/site/project', data: { title: 'Old progress' } },
+    });
+    await writeStarted;
+    el.path = '/different-project';
+    const project = { org: 'org', site: 'site', title: 'New project', urls: [] };
+    const message = { text: 'New project loaded' };
+    el._project = project;
+    el._message = message;
+    window.location.hash = '#/translate/org/site/different-project';
+    finishWrite();
+    await saved;
+
+    expect(savedHref).to.include('/project');
+    expect(savedHref).not.to.include('/different-project');
+    expect(el._project).to.equal(project);
+    expect(el._message).to.equal(message);
+    expect(window.location.hash).to.equal('#/translate/org/site/different-project');
+  });
+
   it('replaces urls wholesale when mergeUrls is not set (validate/basics full-replace flows)', async () => {
     const el = document.createElement('nx-loc');
     el.path = '/project';
