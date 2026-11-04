@@ -78,7 +78,19 @@ export default class NxChatAo extends LitElement {
 
   async setPrompt(text, { autoSend = false } = {}) {
     await this.updateComplete;
-    await this._input?.setPrompt(text, { autoSend });
+    this._pendingAutoSend = autoSend && !this._canSend;
+    await this._input?.setPrompt(text, { autoSend: autoSend && !this._pendingAutoSend });
+  }
+
+  get _canSend() {
+    return this._session ? this._session.canSend() : !!this._controller;
+  }
+
+  // Submits the draft (not the original text) so edits made while waiting are kept.
+  _flushPendingAutoSend() {
+    if (!this._pendingAutoSend || !this._canSend) return;
+    this._pendingAutoSend = false;
+    this._input?.setPrompt(this._input.draft, { autoSend: true });
   }
 
   get _input() {
@@ -154,6 +166,7 @@ export default class NxChatAo extends LitElement {
     this.pendingPermission = pendingPermission;
     this.loadingEpisode = loadingEpisode;
     this.staleEpisode = staleEpisode;
+    this._flushPendingAutoSend();
   }
 
   _initController() {
@@ -262,6 +275,7 @@ export default class NxChatAo extends LitElement {
     this._releaseSession = undefined;
     this._session = undefined;
     this._controller = undefined;
+    this._pendingAutoSend = false;
     cancelAnimationFrame(this._scrollRaf);
     this._unsubscribeHash?.();
     this._unsubscribeEvents?.();

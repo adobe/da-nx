@@ -18,6 +18,11 @@ so callers — including the `PANEL_EVENT.OPEN`/DA SDK `actions.setPrompt`
 paths documented there — don't need to know which element they got, and
 don't need to query for it either.
 
+If `autoSend` arrives before the shared session can accept a message (e.g. the
+chat panel was just opened and episodes are still loading), `nx-chat-ao` fills
+the input and submits the draft on the first session update where
+`session.canSend()` is true, instead of dropping the send.
+
 ## Input ownership
 
 `nx-ao-input` (`input.js` / `input.css`) owns the draft, pills/attachments,

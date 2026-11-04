@@ -369,6 +369,22 @@ describe('standalone input and full AO chat sharing', () => {
       .to.deep.equal(['artifact']);
   });
 
+  it('holds an auto-send prompt received before initialization and sends it once ready', async () => {
+    const pending = deferred();
+    patch(CoworkerChatController.prototype, '_fetchEpisodes', () => pending.promise);
+    const full = await mount();
+    await full.setPrompt('Fix this check', { autoSend: true });
+    await flush();
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+    expect(full._input.draft).to.equal('Fix this check');
+    pending.resolve([]);
+    await ready(full);
+    await flush();
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+    expect(full.messages[0].content).to.equal('Fix this check');
+    expect(full._input.draft).to.equal('');
+  });
+
   it('resolves the same configured harness for a standalone input and full chat without host callbacks', async () => {
     const fetchDefault = window.fetch;
     window.fetch = (resource, options) => {
