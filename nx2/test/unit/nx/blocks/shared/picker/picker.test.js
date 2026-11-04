@@ -362,6 +362,7 @@ describe('nx-picker swatch', () => {
           expect(style.outlineColor).to.equal(variant === 'emphasized' ? blue : gray);
           expect(style.outlineStyle).to.equal('solid');
           expect(style.outlineWidth).to.equal('2px');
+          expect(style.outlineOffset).to.equal(variant === 'emphasized' ? '-2px' : '2px');
         }
         el.style.setProperty('--s2-focus-ring-color', '#c44500');
         expect((await focus()).outlineColor).to.equal('rgb(196, 69, 0)');

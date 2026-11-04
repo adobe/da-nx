@@ -76,6 +76,12 @@ describe('standalone site selector behavior', () => {
     expect(selector.value).to.equal('other/site');
     expect(JSON.parse(localStorage.getItem('da-sites'))[0]).to.equal('other/site');
     expect(window.location.href).to.equal(currentHref);
+    await selector.updateComplete;
+    const picker = selector.shadowRoot.querySelector('nx-picker');
+    await picker.updateComplete;
+    expect(picker.shadowRoot.querySelector('[part="label"]').textContent).to.equal('other/site');
+    expect(picker.items.find((item) => item.value === 'other/site'))
+      .to.include({ label: 'Site', description: 'other/site' });
     selector.dispatchEvent(new CustomEvent('site-select', { detail: { value: 'unknown/site' } }));
     expect(onSelect.calledOnce).to.be.true;
     expect(selector.error).to.include('no longer available');
@@ -180,6 +186,11 @@ describe('standalone site selector behavior', () => {
     expect(selector.ready).to.be.undefined;
     expect(list.called).to.be.false;
     expect(selector.sites).to.deep.equal([{ value: 'custom/site', label: 'Custom site' }]);
+    selector.value = 'custom/site';
+    await selector.updateComplete;
+    const picker = selector.shadowRoot.querySelector('nx-picker');
+    await picker.updateComplete;
+    expect(picker.shadowRoot.querySelector('[part="label"]').textContent).to.equal('Custom site');
   });
 
   it('cancels initialization when removed before the controller loads', async () => {

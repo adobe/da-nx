@@ -162,7 +162,8 @@ emphasized descriptions stay S-regular.
 Arrow keys open the picker when focus is on the trigger. When open, arrow keys move focus between items, Enter selects the active item, and Escape closes the picker.
 
 Triggers use a 2px focus ring: current text color for default/field, blue
-(`--s2-blue-800`) for emphasized. `--s2-focus-ring-color` overrides either.
+(`--s2-blue-800`) and inset for emphasized to avoid clipping in scroll containers.
+`--s2-focus-ring-color` overrides either.
 Item focus waits for popover positioning and is skipped if the picker closes or disconnects first.
 
 ## Standalone site selector
@@ -188,6 +189,8 @@ Add validates site access and the organization listing without backend writes or
 
 Both sizes use the shared M emphasized menu with S-regular paths (`--s2-gray-700`).
 Menu names are capitalized; identifiers and emitted values are unchanged.
+Managed selected triggers show only `org/site`; menu rows retain the name and path.
+Explicitly supplied labels are preserved.
 
 Selecting or adding updates selection and history without navigation. Hash changes
 resynchronize selection. Create opens the host's `/start?org=...` only after an explicit

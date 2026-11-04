@@ -55,8 +55,8 @@ describe('site picker controller', () => {
       current: 'adobe/current',
       recentSites: ['adobe/other', 'adobe/current', '/bad/path', 'adobe/.trash', null],
     })).to.deep.equal([
-      { value: 'adobe/current', label: 'Current, adobe/current' },
-      { value: 'adobe/other', label: 'Other, adobe/other' },
+      { value: 'adobe/current', label: 'adobe/current' },
+      { value: 'adobe/other', label: 'adobe/other' },
     ]);
   });
 
@@ -69,14 +69,14 @@ describe('site picker controller', () => {
     expect(list.called).to.be.false;
   });
 
-  it('uses the stored site name followed by its unchanged full path without parentheses', () => {
+  it('uses the full identifier as the history label without manufacturing a display name', () => {
     expect(getSiteOptions({
       current: 'exp-workspace/frescopa',
       recentSites: ['other/frescopa', 'org/my-site_2'],
     })).to.deep.equal([
-      { value: 'exp-workspace/frescopa', label: 'Frescopa, exp-workspace/frescopa' },
-      { value: 'other/frescopa', label: 'Frescopa, other/frescopa' },
-      { value: 'org/my-site_2', label: 'My-site_2, org/my-site_2' },
+      { value: 'exp-workspace/frescopa', label: 'exp-workspace/frescopa' },
+      { value: 'other/frescopa', label: 'other/frescopa' },
+      { value: 'org/my-site_2', label: 'org/my-site_2' },
     ]);
   });
 
@@ -96,7 +96,7 @@ describe('site picker controller', () => {
     await adapter.refresh();
     expect(window.location.href).to.equal(unscopedHref);
     expect(selector.value).to.equal(value);
-    expect(selector.sites.find((site) => site.value === value).label).to.equal('Frescopaco, exp-workspace/frescopaco');
+    expect(selector.sites.find((site) => site.value === value).label).to.equal(value);
     window.history.replaceState(null, '', '#/aemsites/devlive');
     await adapter.refresh();
     window.history.replaceState(null, '', window.location.pathname);

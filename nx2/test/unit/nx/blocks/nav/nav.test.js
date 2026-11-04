@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import { sendKeys } from '@web/test-runner-commands';
 import { setConfig } from '../../../../../scripts/nx.js';
 
 // fragment.js (a transitive dependency of nav.js) captures getConfig() into a
@@ -6,6 +7,7 @@ import { setConfig } from '../../../../../scripts/nx.js';
 // nav.js is ever imported — see the same pattern in feedback.test.js.
 await setConfig({ hostnames: [] });
 await import('../../../../../blocks/breadcrumb/breadcrumb.js');
+await import('../../../../../blocks/siteselector/siteselector.js');
 const { default: NxBreadcrumb } = await import('../../../../../blocks/shared/breadcrumb/breadcrumb.js');
 // Isolate nav composition from the components' auth and lifecycle behavior.
 ['nx-nav-test', 'nx-editortoggle'].forEach((tag) => {
@@ -213,6 +215,51 @@ describe('nav site navigation', () => {
     document.body.append(nav);
     await nav.updateComplete;
   }
+
+  it('keeps the site picker keyboard focus ring inside the scrolling navigation list', async () => {
+    nav.addEventListener('site-selector-ready', ({ detail: { selector } }) => {
+      selector.sites = [];
+    });
+    nav.style.cssText = `
+      width: 600px;
+      height: 56px;
+      --s2-spacing-500: 32px;
+      --s2-corner-radius-800: 16px;
+      --s2-blue-800: light-dark(#4b75ff, #4069fd);
+    `;
+    await mountFragment({ middle: '<ul><li>siteselector</li></ul>' });
+    const list = nav.shadowRoot.querySelector('.site-nav ul');
+    const selector = list.querySelector('nx-siteselector');
+    expect(getComputedStyle(list).overflowX).to.equal('auto');
+    expect(getComputedStyle(list).overflowY).to.equal('hidden');
+    for (const size of ['s', 'm']) {
+      selector.size = size;
+      await selector.updateComplete;
+      const picker = selector.shadowRoot.querySelector('nx-picker');
+      await picker.updateComplete;
+      const trigger = picker.shadowRoot.querySelector('.picker-trigger');
+      for (const [scheme, color] of [
+        ['light', 'rgb(75, 117, 255)'], ['dark', 'rgb(64, 105, 253)'],
+      ]) {
+        nav.style.colorScheme = scheme;
+        nav._brand.focus();
+        await sendKeys({ press: 'Tab' });
+        expect(picker.shadowRoot.activeElement).to.equal(trigger);
+        expect(trigger.matches(':focus-visible')).to.be.true;
+        const style = getComputedStyle(trigger);
+        expect(style.outlineColor).to.equal(color);
+        expect(style.outlineWidth).to.equal('2px');
+        expect(style.outlineOffset).to.equal('-2px');
+        expect(style.borderRadius).to.equal('16px');
+        const bounds = trigger.getBoundingClientRect();
+        const clip = list.getBoundingClientRect();
+        expect(bounds.left).to.be.closeTo(clip.left, 0.5);
+        expect(bounds.right).to.be.at.most(clip.right);
+        expect(bounds.top).to.be.at.least(clip.top);
+        expect(bounds.bottom).to.be.at.most(clip.bottom);
+      }
+    }
+  });
 
   it('populates the middle section directly after the brand, using action decoration instead of legacy breadcrumbs', async () => {
     await mountFragment({
