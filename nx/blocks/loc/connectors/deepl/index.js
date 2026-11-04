@@ -196,6 +196,11 @@ function toFileName(daBasePath) {
  * Uploads a document to DeepL Document Translation API.
  * @param {object} apiCtx - The API context containing origin and headers.
  * @param {object} conf - Upload parameters.
+ * @param {string} conf.content - HTML content to translate.
+ * @param {string} conf.daBasePath - DA path of the source document.
+ * @param {string} [conf.sourceLang] - DeepL source language code.
+ * @param {string} conf.targetLang - DeepL target language code.
+ * @param {object} [conf.options] - Optional formality and glossary_id.
  * @returns {Promise<{documentId: string, documentKey: string}|{error: string, status: number}>}
  */
 async function uploadDocument(
@@ -392,6 +397,13 @@ export async function sendAllLanguages({
 /**
  * Checks the translation status of all documents on DeepL.
  * @param {object} conf - Status check configuration.
+ * @param {object} conf.service - Service config used to resolve the API context.
+ * @param {Array<object>} conf.langs - Languages whose translation state is updated in place.
+ * @param {Array<{daBasePath: string}>} conf.urls - Documents to check.
+ * @param {object} conf.actions - Host callbacks.
+ * @param {Function} conf.actions.sendMessage - Shows a status message.
+ * @param {Function} conf.actions.saveState - Persists lang state.
+ * @returns {Promise<void>}
  */
 export async function getStatusAll({ service, langs, urls, actions }) {
   const { sendMessage, saveState } = actions;
