@@ -287,26 +287,44 @@ function groupBlocks(blocks) {
 
 const isNotEmptyParagraphEl = (el) => !(el.nodeName === 'P' && !el.childNodes.length && el.textContent === '');
 
-function getBlockMap(dom, { everySection = false } = {}) {
+const preText = (el) => (el.matches?.('pre') ? [el] : [...(el.querySelectorAll?.('pre') || [])])
+  .map((pre) => pre.textContent).join('\u0000');
+
+// `smart` (smart-overwrite) needs a lossless block list: every section break, every element, and
+// whitespace inside <pre> counted as content.
+function getBlocks(dom, { smart = false } = {}) {
   const sections = [...dom.querySelectorAll('main > div')];
 
   // flatten sections so that they are just dividers between blocks
-  let blocks = sections.reduce((acc, section) => {
-    const sectionBlocks = [...section.children]
+  const blocks = sections.reduce((acc, section) => {
+    const sectionBlocks = smart ? [...section.children] : [...section.children]
       .filter(isNotEmptyParagraphEl);
-    const sectionArr = everySection || acc.length ? [sectionBlock] : [];
+    const marker = smart
+      ? { ...sectionBlock, openTag: section.cloneNode(false).outerHTML.replace(/<\/div>$/, '') }
+      : sectionBlock;
+    const sectionArr = smart || acc.length ? [marker] : [];
     return [...acc, ...sectionArr, ...sectionBlocks];
   }, []);
 
-  blocks = groupBlocks(blocks);
+  return groupBlocks(blocks);
+}
 
-  return blocks.map((block) => {
-    const stringToHash = Array.isArray(block)
-      ? block.map(normalizeHTMLFromElement).join('')
-      : normalizeHTMLFromElement(block);
-    const hash = objectHash(stringToHash);
-    return { block, hash };
-  });
+function hashBlock(block, { smart = false } = {}) {
+  const toHashString = (el) => {
+    const normalized = normalizeHTMLFromElement(el);
+    if (!smart) return normalized;
+    if (el.isSection) return `${normalized}${el.openTag}`;
+    const pre = preText(el);
+    return pre ? `${normalized}${pre}` : normalized;
+  };
+  const stringToHash = Array.isArray(block)
+    ? block.map(toHashString).join('')
+    : toHashString(block);
+  return objectHash(stringToHash);
+}
+
+function getBlockMap(dom, options) {
+  return getBlocks(dom, options).map((block) => ({ block, hash: hashBlock(block, options) }));
 }
 
 function htmldiff(originalDOM, modifiedDOM) {
@@ -477,8 +495,7 @@ export const removeLocTags = (html) => {
   });
 };
 
-async function normalizeDocLinks(doc) {
-  const { org, site } = getPathDetails();
+async function normalizeDocLinks(doc, { org, site }) {
   const translateConfig = await fetchConfig(org, site);
   const hostnames = findConfigValue(translateConfig, 'source.fragment.hostnames')?.split?.(',') || [];
   const equivalentSites = new Set(hostnames.map((hostname) => hostname.split('--')[1]));
@@ -487,24 +504,26 @@ async function normalizeDocLinks(doc) {
 
 const shortHash = (item) => item.hash.substring(0, HASH_LENGTH);
 
-async function getHashedBlocks(doc) {
-  const normalized = await normalizeDocLinks(doc);
-  return getBlockMap(normalized, { everySection: true })
-    .map((item) => ({ ...item, hash: shortHash(item) }));
+// Hashes come from a link-normalized copy so the merged output keeps the original links.
+async function getHashedBlocks(doc, siteDetails) {
+  const options = { smart: true };
+  const normalized = await normalizeDocLinks(doc.cloneNode(true), siteDetails);
+  const hashed = getBlockMap(normalized, options);
+  return getBlocks(doc, options).map((block, idx) => ({ block, hash: shortHash(hashed[idx]) }));
 }
 
-export async function getBlockHashes(doc) {
-  const blocks = await getHashedBlocks(doc);
+export async function getBlockHashes({ doc, org, site }) {
+  const blocks = await getHashedBlocks(doc, { org, site });
   return blocks.map(({ hash }) => hash);
 }
 
 function buildHtmlFromBlocks(blocks) {
   const inner = blocks.reduce((html, { block }, idx) => {
-    if (block.isSection) return idx === 0 ? html : `${html}${SECTION_DIV_BREAK}`;
+    if (block.isSection) return `${html}${idx ? '</div>' : ''}${block.openTag || '<div>'}`;
     if (Array.isArray(block)) return `${html}${getGroupInnerHtml(block)}`;
     return `${html}${block.outerHTML}`;
   }, '');
-  return `<div>${inner}</div>`;
+  return blocks[0]?.block.isSection ? `${inner}</div>` : `<div>${inner}</div>`;
 }
 
 /**
@@ -515,14 +534,20 @@ function buildHtmlFromBlocks(blocks) {
  * @param {String[]} params.base ordered block hashes of the source at the last rollout
  * @param {Document} params.source the current upstream document
  * @param {Document} params.dest the current destination document
- * @returns {Promise<{ html: String, skipped: Number, sourceHashes: String[] }>}
+ * @param {String} params.org the DA org, used for link normalization
+ * @param {String} params.site the DA site, used for link normalization
+ * @returns {Promise<{ html: String, skipped: Number, sourceHashes: String[] }>} sourceHashes is the
+ *   next baseline
  */
-export async function smartMerge({ base, source, dest }) {
-  const sourceBlocks = await getHashedBlocks(source);
-  const destBlocks = await getHashedBlocks(dest);
-  const { blocks, skipped } = threeWayMerge({ base, source: sourceBlocks, dest: destBlocks });
-  const sourceHashes = sourceBlocks.map(({ hash }) => hash);
-  return { html: buildHtmlFromBlocks(blocks), skipped, sourceHashes };
+export async function smartMerge({
+  base, source, dest, org, site,
+}) {
+  const sourceBlocks = await getHashedBlocks(source, { org, site });
+  const destBlocks = await getHashedBlocks(dest, { org, site });
+  const { blocks, skipped, baseline } = threeWayMerge({
+    base, source: sourceBlocks, dest: destBlocks,
+  });
+  return { html: buildHtmlFromBlocks(blocks), skipped, sourceHashes: baseline };
 }
 
 export async function regionalDiff(
@@ -532,8 +557,9 @@ export async function regionalDiff(
   rejectedHashes,
   { normalizeImages } = {},
 ) {
-  const normalizedOriginal = await normalizeDocLinks(original);
-  const normalizedModified = await normalizeDocLinks(modified);
+  const siteDetails = getPathDetails();
+  const normalizedOriginal = await normalizeDocLinks(original, siteDetails);
+  const normalizedModified = await normalizeDocLinks(modified, siteDetails);
   // optional connector hook
   if (normalizeImages) normalizeImages(normalizedOriginal, normalizedModified);
   const diff = htmldiff(normalizedOriginal, normalizedModified);

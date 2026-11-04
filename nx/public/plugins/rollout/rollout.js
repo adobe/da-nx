@@ -2,12 +2,9 @@ import DA_SDK from '../../../utils/sdk.js';
 import { LitElement, html, nothing } from '../../deps/lit/dist/index.js';
 import getStyle from '../../utils/styles.js';
 import getSvg from '../../utils/svg.js';
-import { mergeCopy, overwriteCopy, smartOverwriteCopy } from '../../../blocks/loc/project/index.js';
 import { createRolloutResolver } from '../../../blocks/loc/utils/placeholders.js';
 import { DA_ORIGIN } from '../../utils/constants.js';
-import getPrefixDetails from './index.js';
-
-const COPY_FNS = { overwrite: overwriteCopy, 'smart-overwrite': smartOverwriteCopy };
+import getPrefixDetails, { rolloutPrefix } from './index.js';
 
 const ICONS = [
   'https://da.live/nx/public/icons/Smock_Close_18_N.svg',
@@ -55,17 +52,9 @@ export default class DaRollout extends LitElement {
       sitePath: `/${org}/${repo}`,
     });
     this._active.map(async (prefix) => {
-      prefix.status = 'none';
-      prefix.root = prefix.path;
-      const { error } = resolver ? await resolver.prepareSource(prefix) : {};
-      prefix.error = error;
-      delete prefix.skipped;
-      if (error) {
-        prefix.status = 'error';
-      } else {
-        const copyFn = COPY_FNS[behavior] || mergeCopy;
-        await copyFn(prefix, copyLabel);
-      }
+      await rolloutPrefix({
+        prefix, behavior, label: copyLabel, resolver,
+      });
       this.requestUpdate();
     });
   }
@@ -99,7 +88,7 @@ export default class DaRollout extends LitElement {
           <ul class="prefix-list">
             ${items.map((prefix) => html`
               <li class="da-prefix ${prefix.active ? 'is-active' : ''} status-${prefix.status || 'none'}" title=${prefix.error || nothing}>
-                <span>${prefix.path.replace('/', '')}${prefix.skipped ? html` <span class="skipped-count">(${prefix.skipped} skipped: localized)</span>` : nothing}</span>
+                <span>${prefix.path.replace('/', '')}${prefix.skipped ? html` <span class="skipped-count">(${prefix.skipped} skipped: localized)</span>` : nothing}${prefix.baselineOnly ? html` <span class="skipped-count">(baseline recorded)</span>` : nothing}</span>
                 <div class="prefix-actions">
                   <button type="button" @click=${() => this.open(prefix)}>
                     <svg class="icon"><use href="#spectrum-linkOut"/></svg>

@@ -40,12 +40,22 @@ describe('threeWayMerge', () => {
     ['ignores upstream moves while the destination has edits', 'A B C D', 'B A C D', 'A B C L', 'A B C L', 0],
     ['applies upstream moves when the destination is unchanged', 'A B C', 'B A C', 'A B C', 'B A C', 0],
     ['keeps a local reorder and applies an upstream edit', 'A B C', 'A B2 C', 'B A C', 'B2 A C', 0],
+    ['keeps edits with their section when upstream reorders sections', '| A MA | B MB', '| B MB2 | A MA', '| AL MA | B MB', '| AL MA | B MB2', 0],
+    ['keeps a new copy of a section upstream prepended', '| A | B', '| B | A | B', '| L | B', '| B | L | B', 0],
   ];
 
   cases.forEach(([name, base, source, dest, expected, skipped]) => {
     it(name, () => {
       expect(run({ base, source, dest })).to.deep.equal({ result: expected, skipped });
     });
+  });
+
+  it('records the merged upstream order so later upstream edits still apply', () => {
+    const first = threeWayMerge({ base: ['A', 'B', 'C', 'D'], source: toBlocks('B A C D'), dest: toBlocks('A B C L') });
+    expect(first.baseline).to.deep.equal(['A', 'B', 'C', 'D']);
+    const second = threeWayMerge({ base: first.baseline, source: toBlocks('B2 A C D'), dest: first.blocks });
+    expect(second.blocks.map(({ hash }) => hash).join(' ')).to.equal('B2 A C L');
+    expect(second.skipped).to.equal(0);
   });
 
   it('never duplicates a localized block that upstream moved', () => {
@@ -72,12 +82,22 @@ describe('threeWayMerge invariants (seeded random)', () => {
     };
   })();
 
+  const moveSection = (out) => {
+    const starts = out.map((t, j) => (t === '|' ? j : -1)).filter((j) => j >= 0);
+    if (starts.length < 2) return;
+    const from = pick(starts);
+    const next = out.findIndex((t, j) => j > from && t === '|');
+    const section = out.splice(from, (next === -1 ? out.length : next) - from);
+    const targets = [...out.map((t, j) => (t === '|' ? j : -1)).filter((j) => j >= 0), out.length];
+    out.splice(pick(targets), 0, ...section);
+  };
   const mutate = (tokens, prefix) => {
     const out = [...tokens];
     const ops = Math.floor(random() * 4);
     for (let i = 0; i < ops; i += 1) {
       const idx = Math.floor(random() * (out.length + 1));
-      const op = pick(['edit', 'delete', 'insert', 'move', 'copy', 'section']);
+      const op = pick(['edit', 'delete', 'insert', 'move', 'copy', 'section', 'moveSection']);
+      if (op === 'moveSection') moveSection(out);
       if (op === 'edit' && idx < out.length) out[idx] = fresh(prefix);
       if (op === 'delete' && idx < out.length) out.splice(idx, 1);
       if (op === 'insert') out.splice(idx, 0, fresh(prefix));

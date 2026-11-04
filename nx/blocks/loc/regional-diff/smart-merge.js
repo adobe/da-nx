@@ -51,8 +51,9 @@ function splitInPlace(hunk) {
   }));
 }
 
-function getHunks({ base, blocks, side }) {
-  const matches = lcsMatches(base, toHashes(blocks));
+function getHunks({
+  base, blocks, side, matches = lcsMatches(base, toHashes(blocks)),
+}) {
   const anchors = [...matches.entries(), [base.length, blocks.length]];
   const { hunks } = anchors.reduce((acc, [b, s]) => {
     if (b > acc.b + 1 || s > acc.s + 1) {
@@ -195,23 +196,65 @@ function revertMoves({
   return blocks;
 }
 
-function getSourceHunks({ base, source }) {
-  const diff = getHunks({ base, blocks: source, side: 'source' });
-  const moves = getMoves({ base, source, matches: diff.matches });
-  if (!moves.size) return diff.hunks;
-  const reverted = revertMoves({
-    base, source, matches: diff.matches, moves,
-  });
-  return getHunks({ base, blocks: reverted, side: 'source' }).hunks;
+const groupBySection = (items, isBreak) => items.reduce((acc, item) => {
+  if (isBreak(item) || !acc.length) acc.push([]);
+  acc[acc.length - 1].push(item);
+  return acc;
+}, []);
+
+// Puts reordered upstream sections back in baseline order as whole units, so blocks edited inside
+// a moved section (e.g. its section metadata) stay with that section.
+function revertSectionMoves({ base, source }) {
+  const breaks = new Set(toHashes(source.filter(isSection)));
+  if (!breaks.size) return source;
+  const baseContent = groupBySection(base, (hash) => breaks.has(hash))
+    .map((hashes) => new Set(hashes.filter((hash) => !breaks.has(hash))));
+  const groups = groupBySection(source, isSection);
+  const pairs = groups.flatMap((group, i) => baseContent.map((content, j) => ({
+    i, j, score: group.filter(({ hash }) => content.has(hash)).length,
+  }))).filter(({ score }) => score > 0)
+    .sort((x, y) => y.score - x.score || Math.abs(x.i - x.j) - Math.abs(y.i - y.j));
+  const matched = pairs.reduce((acc, { i, j }) => {
+    if (!acc.has(i) && ![...acc.values()].includes(j)) acc.set(i, j);
+    return acc;
+  }, new Map());
+  const order = groups.map((_, i) => matched.get(i)).filter((j) => j !== undefined);
+  if (order.every((j, idx) => !idx || order[idx - 1] < j)) return source;
+  const units = groups.reduce((acc, group, i) => {
+    if (matched.has(i) || !acc.length) acc.push({ key: matched.get(i) ?? -1, blocks: [...group] });
+    else acc[acc.length - 1].blocks.push(...group);
+    return acc;
+  }, []);
+  return [...units].sort((x, y) => x.key - y.key).flatMap(({ blocks }) => blocks);
+}
+
+function withoutMoves({ base, source: upstream }) {
+  const upstreamMatches = lcsMatches(base, toHashes(upstream));
+  if (upstreamMatches.size === base.length) return { blocks: upstream, matches: upstreamMatches };
+  const source = revertSectionMoves({ base, source: upstream });
+  const matches = source === upstream ? upstreamMatches : lcsMatches(base, toHashes(source));
+  const moves = getMoves({ base, source, matches });
+  if (!moves.size) return { blocks: source, matches };
+  return {
+    blocks: revertMoves({
+      base, source, matches, moves,
+    }),
+  };
 }
 
 function destRange({ start, end, hunks, dest, toDest }) {
   const blocks = [];
-  for (let k = start; k <= end; k += 1) {
-    hunks.filter((hunk) => hunk.start === k).forEach((hunk) => blocks.push(...hunk.blocks));
-    const covered = hunks.some((hunk) => hunk.start <= k && k < hunk.end);
-    if (k < end && !covered && toDest.has(k)) blocks.push(dest[toDest.get(k)]);
-  }
+  const pushMatched = (from, to) => {
+    for (let k = from; k < to; k += 1) {
+      if (toDest.has(k)) blocks.push(dest[toDest.get(k)]);
+    }
+  };
+  const pos = [...hunks].sort((x, y) => x.start - y.start).reduce((k, hunk) => {
+    pushMatched(k, hunk.start);
+    blocks.push(...hunk.blocks);
+    return Math.max(k, hunk.end);
+  }, start);
+  pushMatched(pos, end);
   return blocks;
 }
 
@@ -237,34 +280,39 @@ const tidySections = (blocks) => blocks.filter((_, idx) => !opensEmptySection(bl
  * @param {String[]} params.base ordered block hashes at the last rollout
  * @param {{ hash: String }[]} params.source current upstream blocks
  * @param {{ hash: String }[]} params.dest current destination blocks
- * @returns {{ blocks: Object[], skipped: Number }}
+ * @returns {{ blocks: Object[], skipped: Number, baseline: String[] }} `baseline` is the upstream
+ *   order that was merged (with unapplied moves reverted); it becomes the next base
  */
 export default function threeWayMerge({ base, source, dest }) {
   const baseKey = base.join();
-  if (toHashes(source).join() === baseKey) return { blocks: dest, skipped: 0 };
-  if (toHashes(dest).join() === baseKey) return { blocks: source, skipped: 0 };
-  if (toHashes(source).join() === toHashes(dest).join()) return { blocks: dest, skipped: 0 };
+  const baseline = toHashes(source);
+  if (baseline.join() === baseKey) return { blocks: dest, skipped: 0, baseline };
+  if (toHashes(dest).join() === baseKey) return { blocks: source, skipped: 0, baseline };
+  if (baseline.join() === toHashes(dest).join()) return { blocks: dest, skipped: 0, baseline };
+  const { blocks: merged, matches } = withoutMoves({ base, source });
   const destDiff = getHunks({ base, blocks: dest, side: 'dest' });
   const toDest = destDiff.matches;
-  const sourceHunks = getSourceHunks({ base, source });
-  const clusters = getClusters([...sourceHunks, ...destDiff.hunks]).map(classify);
-
-  const merged = clusters.reduce((acc, cluster) => {
-    const unchanged = destRange({
-      start: acc.pos, end: cluster.start, hunks: [], dest, toDest,
-    });
-    const resolved = resolveCluster({ cluster, dest, toDest });
-    return {
-      pos: cluster.end,
-      blocks: [...acc.blocks, ...unchanged, ...resolved.blocks],
-      skipped: acc.skipped + resolved.skipped,
-    };
-  }, { pos: 0, blocks: [], skipped: 0 });
-
-  const tail = destRange({
-    start: merged.pos, end: base.length, hunks: [], dest, toDest,
+  const sourceDiff = getHunks({
+    base, blocks: merged, side: 'source', matches,
   });
-  const blocks = [...merged.blocks, ...tail];
+  const clusters = getClusters([...sourceDiff.hunks, ...destDiff.hunks]).map(classify);
+
+  const blocks = [];
+  const end = clusters.reduce((acc, cluster) => {
+    blocks.push(...destRange({
+      start: acc.pos, end: cluster.start, hunks: [], dest, toDest,
+    }));
+    const resolved = resolveCluster({ cluster, dest, toDest });
+    blocks.push(...resolved.blocks);
+    return { pos: cluster.end, skipped: acc.skipped + resolved.skipped };
+  }, { pos: 0, skipped: 0 });
+  blocks.push(...destRange({
+    start: end.pos, end: base.length, hunks: [], dest, toDest,
+  }));
   const keepAsIs = hasEmptySection(dest) || hasEmptySection(source);
-  return { blocks: keepAsIs ? blocks : tidySections(blocks), skipped: merged.skipped };
+  return {
+    blocks: keepAsIs ? blocks : tidySections(blocks),
+    skipped: end.skipped,
+    baseline: toHashes(merged),
+  };
 }

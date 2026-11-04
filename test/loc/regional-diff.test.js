@@ -345,8 +345,11 @@ describe('smartMerge', () => {
     doc.body.innerHTML = `<main>${[].concat(sections).map((s) => `<div>${s}</div>`).join('')}</main>`;
     return doc;
   };
+  const hashes = (doc) => getBlockHashes({ doc, org: 'org', site: 'site' });
   const merge = async ({ base, source, dest }) => smartMerge({
-    base: await getBlockHashes(toDoc(base)),
+    org: 'org',
+    site: 'site',
+    base: await hashes(toDoc(base)),
     source: toDoc(source),
     dest: toDoc(dest),
   });
@@ -543,9 +546,25 @@ describe('smartMerge', () => {
     expect(skipped).to.equal(0);
   });
 
+  it('treats indentation inside code blocks as a change', async () => {
+    const code = (indent) => `<pre><code>line 1\n${indent}line 2</code></pre>`;
+    const local = await merge({
+      base: `<p>A</p>${code('  ')}`,
+      source: `<p>A2</p>${code('  ')}`,
+      dest: `<p>A</p>${code('    ')}`,
+    });
+    expect(local.html).to.equal(`<div><p>A2</p>${code('    ')}</div>`);
+    const upstream = await merge({
+      base: `<p>A</p>${code('  ')}`,
+      source: `<p>A</p>${code('    ')}`,
+      dest: `<p>A local</p>${code('  ')}`,
+    });
+    expect(upstream.html).to.equal(`<div><p>A local</p>${code('    ')}</div>`);
+  });
+
   it('returns the source block hashes to use as the next base', async () => {
     const source = '<p>A</p><p>B</p>';
     const { sourceHashes } = await merge({ base: '<p>A</p>', source, dest: '<p>A</p>' });
-    expect(sourceHashes).to.deep.equal(await getBlockHashes(toDoc(source)));
+    expect(sourceHashes).to.deep.equal(await hashes(toDoc(source)));
   });
 });

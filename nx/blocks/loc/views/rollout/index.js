@@ -16,7 +16,7 @@ import {
 } from '../../utils/utils.js';
 import { createRolloutResolver } from '../../utils/placeholders.js';
 
-const COPY_FNS = { overwrite: overwriteCopy, 'smart-overwrite': smartOverwriteCopy };
+const COPY_FNS = new Map([['overwrite', overwriteCopy], ['smart-overwrite', smartOverwriteCopy]]);
 
 function getTitle(status) {
   const title = {
@@ -100,7 +100,7 @@ async function rolloutLangLocales(title, lang, urls, behavior, resolver) {
       return;
     }
     url.sourceContent = content;
-    const copyFn = url.hasExt ? overwriteCopy : (COPY_FNS[behavior] || mergeCopy);
+    const copyFn = url.hasExt ? overwriteCopy : (COPY_FNS.get(behavior) || mergeCopy);
     await copyFn(url, title);
   };
 
@@ -209,12 +209,14 @@ export async function rolloutLang({
   lang.locales.forEach((locale) => {
     const localeSaved = saved.filter((url) => url.root === locale.code);
     locale.saved = localeSaved.length;
-    const skipped = localeSaved.reduce((sum, url) => sum + (url.skipped || 0), 0);
-    if (skipped) {
-      locale.skipped = skipped;
-    } else {
-      delete locale.skipped;
-    }
+    const counts = {
+      skipped: localeSaved.reduce((sum, url) => sum + (url.skipped || 0), 0),
+      baselineOnly: localeSaved.filter((url) => url.baselineOnly).length,
+    };
+    Object.entries(counts).forEach(([key, count]) => {
+      if (count) locale[key] = count;
+      else delete locale[key];
+    });
   });
 
   actions.requestUpdate();

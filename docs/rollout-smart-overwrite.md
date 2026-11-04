@@ -20,10 +20,10 @@ Add `smart-overwrite` to `rollout.conflict.behavior` in the site's `/.da/transla
 
 ```mermaid
 flowchart TD
-  start["Rollout global → apac<br/>(Overwrite, keep local edits)"] --> exists{"apac page exists<br/>and has content?"}
-  exists -- "no" --> copy["Copy the global page"]
-  exists -- "yes" --> base{"Valid rolloutbase<br/>for this page?"}
-  base -- "no (first smart rollout)" --> merge["Today's merge<br/>(da-diff markers to review)"]
+  start["Rollout global → apac<br/>(Overwrite, keep local edits)"] --> base{"apac has a valid<br/>rolloutbase for this page?"}
+  base -- "no" --> exists{"apac page has content?"}
+  exists -- "no (missing or empty)" --> copy["Copy the global page"]
+  exists -- "yes (first smart rollout)" --> record["Keep apac as-is<br/>(record the baseline only)"]
   base -- "yes" --> unchanged{"apac has no localized blocks?<br/>(identical to global at the last rollout)"}
   unchanged -- "yes, nothing localized" --> take["Take global as-is"]
   unchanged -- "no, apac has localized blocks" --> diff3["Block-level three-way merge<br/>baseline vs global vs apac"]
@@ -32,7 +32,7 @@ flowchart TD
   who -- "only apac (localized, old or new)" --> keep["Keep apac"]
   who -- "both, differently" --> skip["Keep apac<br/>count as skipped"]
   copy --> save["Save page + record new rolloutbase"]
-  merge --> save
+  record --> save
   take --> save
   apply --> save
   keep --> save
@@ -63,8 +63,11 @@ upstream (S) and destination (D). Logic lives in `nx/blocks/loc/regional-diff/sm
 | changed | changed differently | keep destination, count as **skipped** |
 
 4. Upstream reorders: if the destination has no localized blocks (it is still identical to upstream as of the last
-   rollout), the result is exactly upstream (reorders included). Otherwise, like merge, upstream moves are not applied: moved blocks stay in the
-   destination's order (not reported), so content is never duplicated, lost or resurrected.
+   rollout), the result is exactly upstream (reorders included). Otherwise, like merge, upstream moves are not
+   applied: moved blocks stay in the destination's order (not reported), so content is never duplicated, lost or
+   resurrected. The recorded baseline keeps that (unapplied) order, so later upstream edits to moved blocks still
+   apply. Reordered sections are put back as whole units, so edits inside a moved section (such as its section
+   metadata) stay with that section.
 5. Sections: new sections inserted by both sides at the same spot are compared whole, so boundaries and section
    metadata stay with their content. Section breaks that would leave an empty section after merging are dropped,
    unless the destination or upstream already has an empty section.
@@ -81,8 +84,12 @@ Guarantees (covered by seeded randomized tests in `test/loc/smart-merge.test.js`
 
 Skipped counts are shown per locale (Loc app) and per destination (plugin) as "N skipped (localized)".
 
-- No baseline yet (first smart rollout, or a baseline recorded for a different path): falls back to today's merge
-  output (with `da-diff-*` markers) and records the baseline.
+- No valid baseline yet (first smart rollout, or a baseline that is malformed or recorded for a different path): the
+  destination is saved unchanged and only the baseline (upstream's current blocks) is recorded; no version is saved.
+  This is shown as "N baseline recorded (nothing applied)" (Loc app) or "(baseline recorded)" (plugin). The next
+  smart rollout applies upstream changes made after that point. Upstream changes made **before** the first smart
+  rollout are treated as already seen and are not applied by smart mode; run a merge or overwrite first if the
+  destination needs them.
 - Missing destination, or an empty one without a baseline: the upstream page is copied as-is and the baseline is
   recorded. An empty destination with a baseline was emptied on purpose and is merged like any other.
 - Read or save failures and malformed documents are reported as errors; smart-overwrite never falls back to a
@@ -90,6 +97,7 @@ Skipped counts are shown per locale (Loc app) and per destination (plugin) as "N
 - Only smart rollouts read or write `rolloutbase`; a later plain merge leaves a stale baseline, which is safe because
   identical changes are not treated as conflicts.
 - Granularity is the block (paragraph, heading, block table, block group). Any edit inside a block counts as a
-  change to that block, and blocks are matched by content: an upstream block that is both moved and edited is seen as
-  a deletion plus a new block, so if the destination localized it both versions are kept for the author to tidy.
-- A malformed `rolloutbase` is ignored, so the rollout falls back to the first-run merge.
+  change to that block (whitespace is ignored except inside code blocks, `<pre>`), and blocks are matched by
+  content: an upstream block that is both moved and edited is seen as a deletion plus a new block, so if the
+  destination localized it both versions are kept for the author to tidy. Section wrapper attributes (e.g.
+  `<div id="…">`) and empty paragraphs are kept as authored.

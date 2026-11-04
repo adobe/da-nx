@@ -86,3 +86,5 @@ export default async function getPrefixDetails(org, repo, token, path) {
   if (!json) return null;
   return { ...getPrefixes(org, repo, path, json), smartOverwrite: hasSmartOverwrite(json.config) };
 }
+
+export { rolloutPrefix } from '../../../../nx/public/plugins/rollout/index.js';

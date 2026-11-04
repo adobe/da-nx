@@ -89,7 +89,7 @@ describe('nx-loc-rollout smart overwrite', () => {
     sinon.restore();
   });
 
-  it('rolls out with smartOverwriteCopy without adding a skipped count on the first run', async () => {
+  it('records only the baseline on the first smart rollout and reports it', async () => {
     const lang = {
       code: 'en',
       name: 'English',
@@ -112,10 +112,16 @@ describe('nx-loc-rollout smart overwrite', () => {
     expect(el._errors).to.be.undefined;
     expect(lang.rollout).to.deep.equal({ status: 'complete', saved: 1 });
     expect(lang.locales[0]).to.not.have.property('skipped');
+    expect(lang.locales[0].baselineOnly).to.equal(1);
+    el._urls = el.project.urls;
+    const container = document.createElement('div');
+    render(el.renderLocales(lang.rollout, lang.locales), container);
+    expect(container.textContent).to.include('1 baseline recorded (nothing applied)');
     const posts = globalThis.fetch.getCalls()
       .filter(({ args }) => args[1]?.method === 'POST' && args[0].includes('/source/org/site/en-nl/page.html'));
     const body = await posts[0].args[1].body.get('data').text();
     expect(body).to.include('rolloutbase');
+    expect(body).to.include('<p>Local</p>');
   });
 });
 
@@ -133,7 +139,7 @@ describe('nx-loc-rollout smart overwrite skipped pages', () => {
     globalThis.fetch = sinon.stub().callsFake(async () => ({ ok: false, status: 404, text: async () => '' }));
     const baseDoc = document.implementation.createHTMLDocument();
     baseDoc.body.innerHTML = '<main><div><h1>Old</h1></div></main>';
-    const base = await getBlockHashes(baseDoc);
+    const base = await getBlockHashes({ doc: baseDoc, org: 'org', site: 'site' });
     const metadata = `<div class="da-metadata"><div><div>rolloutbase</div><div>/org/site/en-nl/page.html|${base}</div></div></div>`;
     const pages = {
       '/en-nl/page.html': `<body><header></header><main><div><h1>Local</h1></div></main>${metadata}<footer></footer></body>`,

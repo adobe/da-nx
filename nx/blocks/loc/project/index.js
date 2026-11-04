@@ -144,7 +144,7 @@ function collapseInnerTextSpaces(html) {
   });
 }
 
-const getHtml = async (path, html) => {
+const getHtml = async (path, html, { collapse = true } = {}) => {
   const fetchHtml = async () => {
     const res = await daFetch({ url: `${DA_ADMIN}/source${path}` });
     if (!res.ok) return null;
@@ -154,7 +154,7 @@ const getHtml = async (path, html) => {
 
   const str = html || await fetchHtml(path);
   if (!str) return null;
-  return PARSER.parseFromString(collapseInnerTextSpaces(str), 'text/html');
+  return PARSER.parseFromString(collapse ? collapseInnerTextSpaces(str) : str, 'text/html');
 };
 
 const getDaUrl = (url) => {
@@ -360,14 +360,13 @@ const ROLLOUT_BASE_KEY = 'rolloutbase';
 
 const toBasePath = (path) => path.toLowerCase();
 
-const escapeHtml = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-// Keeps metadata values as authored (getElementMetadata's `text` is lowercased).
+// Keeps metadata values exactly as authored (getElementMetadata's `text` is lowercased).
 const readMetadata = (el) => Object.fromEntries(Object.entries(getElementMetadata(el))
-  .map(([key, { content }]) => [key, escapeHtml(content.textContent.trim())]));
+  .map(([key, { content }]) => [key, content.innerHTML]));
 
-function getRolloutBase(daMetadata, path) {
-  const parts = daMetadata[ROLLOUT_BASE_KEY]?.split('|') || [];
+function getRolloutBase(metadataEl, path) {
+  const value = getElementMetadata(metadataEl)[ROLLOUT_BASE_KEY]?.content.textContent.trim();
+  const parts = value?.split('|') || [];
   if (parts.length !== 2) return null;
   const [basePath, hashes] = parts;
   if (toBasePath(basePath) !== toBasePath(path)) return null;
@@ -377,33 +376,33 @@ function getRolloutBase(daMetadata, path) {
 
 const formatRolloutBase = (path, hashes) => `${toBasePath(path)}|${hashes.join(',')}`;
 
-async function mergeWithBase({ base, source, dest }) {
-  if (base) return smartMerge({ base, source, dest });
-  const sourceHashes = await getBlockHashes(source);
-  const metadata = getElementMetadata(dest.querySelector(DA_METADATA_SELECTOR));
-  const { acceptedHashes, rejectedHashes } = getPreviousHashes(metadata);
-  const diffed = await regionalDiff(source, dest, acceptedHashes, rejectedHashes);
-  return { html: diffed.innerHTML, skipped: 0, sourceHashes };
-}
-
-async function copySource(source) {
+async function copySource({ source, org, site }) {
   const html = source.querySelector('main').innerHTML;
   const daMetadata = readMetadata(source.querySelector(DA_METADATA_SELECTOR));
   delete daMetadata.acceptedhashes;
   delete daMetadata.rejectedhashes;
-  const sourceHashes = await getBlockHashes(source);
+  const sourceHashes = await getBlockHashes({ doc: source, org, site });
   return { html, skipped: 0, sourceHashes, daMetadata };
 }
 
 async function smartRollout({
-  source, dest, empty, path,
+  source, dest, destHtml, empty, path, org, site,
 }) {
-  if (!dest) return copySource(source);
-  const daMetadata = readMetadata(dest.querySelector(DA_METADATA_SELECTOR));
-  const base = getRolloutBase(daMetadata, path);
-  if (empty && !base) return copySource(source);
-  const merged = await mergeWithBase({ base, source, dest });
-  return { ...merged, daMetadata };
+  if (!dest) return copySource({ source, org, site });
+  const metadataEl = dest.querySelector(DA_METADATA_SELECTOR);
+  const daMetadata = readMetadata(metadataEl);
+  const base = getRolloutBase(metadataEl, path);
+  if (base) {
+    const merged = await smartMerge({
+      base, source, dest, org, site,
+    });
+    return { ...merged, daMetadata };
+  }
+  if (empty) return copySource({ source, org, site });
+  const sourceHashes = await getBlockHashes({ doc: source, org, site });
+  return {
+    html: destHtml, skipped: 0, sourceHashes, daMetadata, baselineOnly: true,
+  };
 }
 
 // Block extraction only reads `main > div` sections; anything else would be silently dropped.
@@ -424,11 +423,16 @@ async function fetchDestination(path) {
   const resp = await daFetch({ url: `${DA_ADMIN}/source${path}` });
   if (resp.status === 404) return {};
   if (!resp.ok) return { error: `Could not read ${path} (${resp.status})` };
-  const doc = PARSER.parseFromString(collapseInnerTextSpaces(await resp.text()), 'text/html');
+  const doc = PARSER.parseFromString(await resp.text(), 'text/html');
   const main = getSectionedMain(doc);
   if (!main) return { error: `Unexpected content in ${path}` };
   return { doc, empty: isEmptyMain(main) };
 }
+
+const siteOf = (url) => {
+  const { org, repo } = getDaUrl(url);
+  return { org, site: repo };
+};
 
 function failSmartCopy(url, error) {
   url.status = 'error';
@@ -442,19 +446,25 @@ export async function smartOverwriteCopy(url, projectTitle) {
     if (error) return failSmartCopy(url, error);
 
     const langstoreCopy = url.sourceContent
-      ? await getHtml(null, url.sourceContent)
-      : await getHtml(url.source, url.sourceHtml);
+      ? await getHtml(null, url.sourceContent, { collapse: false })
+      : await getHtml(url.source, url.sourceHtml, { collapse: false });
     if (!getSectionedMain(langstoreCopy)) {
       return failSmartCopy(url, `Could not read source for ${url.destination}`);
     }
 
+    const destHtml = regionalCopy?.querySelector('body > main').innerHTML;
     if (regionalCopy) removeLocTags(regionalCopy);
     removeLocTags(langstoreCopy);
 
     const {
-      html, skipped, sourceHashes, daMetadata,
+      html, skipped, sourceHashes, daMetadata, baselineOnly,
     } = await smartRollout({
-      source: langstoreCopy, dest: regionalCopy, empty, path: url.destination,
+      source: langstoreCopy,
+      dest: regionalCopy,
+      destHtml,
+      empty,
+      path: url.destination,
+      ...siteOf(url),
     });
     daMetadata[ROLLOUT_BASE_KEY] = formatRolloutBase(url.destination, sourceHashes);
 
@@ -462,7 +472,8 @@ export async function smartOverwriteCopy(url, projectTitle) {
     if (!daResp.ok) return failSmartCopy(url, `Could not save ${url.destination} (${daResp.status})`);
     url.status = 'success';
     url.skipped = skipped;
-    saveVersion(url.destination, `${projectTitle} - Rolled Out`);
+    url.baselineOnly = !!baselineOnly;
+    if (!baselineOnly) saveVersion(url.destination, `${projectTitle} - Rolled Out`);
     return daResp;
   } catch (e) {
     return failSmartCopy(url, `Could not roll out ${url.destination}: ${e.message}`);
