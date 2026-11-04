@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { hashChange } from '../../utils/utils.js';
 import '../shared/switch/switch.js';
 import {
-  isEWEnabledBySite,
+  getEWFlags,
   isEWUserEnabled,
   setEWUserEnabled,
   armEwWelcome,
@@ -31,7 +31,7 @@ class NxEditorToggle extends LitElement {
   // /edit redirects to /canvas if the site or user flag is on; /canvas never redirects.
   _redirectToCanvasIfNeeded() {
     if (window.location.pathname !== '/edit') return false;
-    if (!this._siteEwEnabled && !this._userEnabled) return false;
+    if (this._siteEwEnabled !== true && !this._userEnabled) return false;
     const { search, hash } = window.location;
     window.location.href = `/canvas${search}${hash}`;
     return true;
@@ -59,10 +59,12 @@ class NxEditorToggle extends LitElement {
   async _onHashState(state) {
     // No site yet (e.g. org-only view) — show the toggle rather than flash-hide it.
     if (!state?.org || !state?.site) {
-      this._siteEwEnabled = false;
+      this._siteEwEnabled = undefined;
       return;
     }
-    this._siteEwEnabled = await isEWEnabledBySite({ org: state.org, site: state.site });
+    const flags = await getEWFlags({ org: state.org, site: state.site });
+    const enabled = flags['ew.enabled'];
+    this._siteEwEnabled = ['true', 'false'].includes(enabled) ? enabled === 'true' : undefined;
     this._redirectToCanvasIfNeeded();
   }
 
@@ -85,8 +87,8 @@ class NxEditorToggle extends LitElement {
   }
 
   render() {
-    if (this._siteEwEnabled) return nothing;
     const { pathname } = window.location;
+    if (this._siteEwEnabled === true || (this._siteEwEnabled === false && pathname === '/edit')) return nothing;
     if (!['/edit', '/canvas'].includes(pathname)) return nothing;
     return html`
       <nx-switch

@@ -1,3 +1,410 @@
+# [1.36.0](https://github.com/adobe/da-nx/compare/v1.35.0...v1.36.0) (2026-11-03)
+
+
+### Bug Fixes
+
+* **shell:** recheck chat availability on hash navigation ([4ffac45](https://github.com/adobe/da-nx/commit/4ffac45ddd59bb3e6bda7ab33b91f464d5c5c43a))
+
+
+### Features
+
+* **shell:** open chat through existing SDK prompt action ([a813ef6](https://github.com/adobe/da-nx/commit/a813ef6d5fae8a4122b919f23997a52258c27800))
+
+# [1.35.0](https://github.com/adobe/da-nx/compare/v1.34.0...v1.35.0) (2026-11-03)
+
+
+### Features
+
+* **loc:** resolve locale placeholders during rollout ([4a06a14](https://github.com/adobe/da-nx/commit/4a06a144d8fad6b17f33759d0fb434d2e31a24d8))
+
+# [1.34.0](https://github.com/adobe/da-nx/compare/v1.33.0...v1.34.0) (2026-11-03)
+
+
+### Features
+
+* **chat:** notify subscribers when a turn finishes ([53ecef2](https://github.com/adobe/da-nx/commit/53ecef210a3612eec52ccf24501b68887c2e9dc4))
+
+# [1.33.0](https://github.com/adobe/da-nx/compare/v1.32.0...v1.33.0) (2026-11-03)
+
+
+### Features
+
+* **chat-ao:** improved slash menu ([#889](https://github.com/adobe/da-nx/issues/889)) ([7444db0](https://github.com/adobe/da-nx/commit/7444db0c09543f81a056a54c72d70a9dd6ac43f4))
+
+# [1.32.0](https://github.com/adobe/da-nx/compare/v1.31.0...v1.32.0) (2026-11-03)
+
+
+### Features
+
+* **styles:** expose complete turquoise and purple scales ([c0bfad1](https://github.com/adobe/da-nx/commit/c0bfad1e5ec522e076ad5e3f5206a64f1d7fcb39))
+* **styles:** expose landing tile surface tokens ([4c97d68](https://github.com/adobe/da-nx/commit/4c97d689acf348f8bd4001b705db1d3ea58e412f)), closes [adobe/da-live#1517](https://github.com/adobe/da-live/issues/1517)
+
+# [1.31.0](https://github.com/adobe/da-nx/compare/v1.30.0...v1.31.0) (2026-11-02)
+
+
+### Features
+
+* add basic artifact renderers ([#885](https://github.com/adobe/da-nx/issues/885)) ([133a0a7](https://github.com/adobe/da-nx/commit/133a0a7d78070cc0ed501d619f956074617dd7f7))
+
+# [1.30.0](https://github.com/adobe/da-nx/compare/v1.29.1...v1.30.0) (2026-11-02)
+
+
+### Features
+
+* add chat option to side nav ([#922](https://github.com/adobe/da-nx/issues/922)) ([655b8bb](https://github.com/adobe/da-nx/commit/655b8bb547d45d8ab61b932e062defd3a66de0fd))
+
+## [1.29.1](https://github.com/adobe/da-nx/compare/v1.29.0...v1.29.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **glaas:** preserve translated images and improve multimodal saves ([#888](https://github.com/adobe/da-nx/issues/888)) ([5f0bc5c](https://github.com/adobe/da-nx/commit/5f0bc5cb774f6700e85f9a2dd70e88da66f1836b))
+
+# [1.29.0](https://github.com/adobe/da-nx/compare/v1.28.1...v1.29.0) (2026-10-29)
+
+
+### Bug Fixes
+
+* **loc:** keep save/connector error messages visible ([#821](https://github.com/adobe/da-nx/issues/821)) ([e83573f](https://github.com/adobe/da-nx/commit/e83573f96c4549e26c2a2fbe32bbd96b4c3c1098))
+
+
+### Features
+
+* **loc:** detect each project's source root from its URLs ([#870](https://github.com/adobe/da-nx/issues/870)) ([347926d](https://github.com/adobe/da-nx/commit/347926d88d08a8afc33cd8b0c0263cd979863fea))
+
+## [1.28.1](https://github.com/adobe/da-nx/compare/v1.28.0...v1.28.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **loc:** keep the target's own blocks when their hash was rejected ([#930](https://github.com/adobe/da-nx/issues/930)) ([2d9eaa9](https://github.com/adobe/da-nx/commit/2d9eaa91cf72f54f83d4d7ff82bcfc53bc3c9ca8))
+
+# [1.28.0](https://github.com/adobe/da-nx/compare/v1.27.3...v1.28.0) (2026-10-29)
+
+
+### Features
+
+* expose site nav actions area ([#927](https://github.com/adobe/da-nx/issues/927)) ([4ecb564](https://github.com/adobe/da-nx/commit/4ecb5648c15a0aa09445dd40313ca9fae0214f80))
+
+## [1.27.3](https://github.com/adobe/da-nx/compare/v1.27.2...v1.27.3) (2026-10-29)
+
+
+### Bug Fixes
+
+* improve card ([#929](https://github.com/adobe/da-nx/issues/929)) ([cc6052f](https://github.com/adobe/da-nx/commit/cc6052f014be0eb8c684970a8ddd51a6908c8462))
+
+## [1.27.2](https://github.com/adobe/da-nx/compare/v1.27.1...v1.27.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* **quick-edit:** decorate buttons and icons after inline edits ([a667fb2](https://github.com/adobe/da-nx/commit/a667fb2fe1709c03926857ac1015e9acaa58e24c))
+* refresh descendant indices when settling quick-edit editors ([a04f115](https://github.com/adobe/da-nx/commit/a04f115439b5adc5b407928978591dd84c00ed65))
+
+## [1.27.1](https://github.com/adobe/da-nx/compare/v1.27.0...v1.27.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **loc:** resolve URLs under per-row source locations ([#793](https://github.com/adobe/da-nx/issues/793)) ([fb5d3d3](https://github.com/adobe/da-nx/commit/fb5d3d342c49743c009eacde97dc0f435aaeddb6)), closes [#792](https://github.com/adobe/da-nx/issues/792)
+
+# [1.27.0](https://github.com/adobe/da-nx/compare/v1.26.0...v1.27.0) (2026-10-28)
+
+
+### Features
+
+* extract chat input ([#925](https://github.com/adobe/da-nx/issues/925)) ([fb4a402](https://github.com/adobe/da-nx/commit/fb4a4026856bec0a0a63dcc325c02395ae227ea2))
+
+# [1.26.0](https://github.com/adobe/da-nx/compare/v1.25.0...v1.26.0) (2026-10-27)
+
+
+### Features
+
+* retain org on redirect to coworker ([#914](https://github.com/adobe/da-nx/issues/914)) ([e79af62](https://github.com/adobe/da-nx/commit/e79af62ec1a23f9e245c62ba05890df8bbb3c17b))
+
+# [1.25.0](https://github.com/adobe/da-nx/compare/v1.24.0...v1.25.0) (2026-10-27)
+
+
+### Features
+
+* **picker:** add multiple selection to nx-picker ([#902](https://github.com/adobe/da-nx/issues/902)) ([89b6c06](https://github.com/adobe/da-nx/commit/89b6c0620ae3eff424c7d83f7f1f6dda96c782f6))
+
+# [1.24.0](https://github.com/adobe/da-nx/compare/v1.23.4...v1.24.0) (2026-10-27)
+
+
+### Features
+
+* shared card ([#899](https://github.com/adobe/da-nx/issues/899)) ([1fe9cce](https://github.com/adobe/da-nx/commit/1fe9cce4838651a55a2f50dab3e0b32246f66738))
+
+## [1.23.4](https://github.com/adobe/da-nx/compare/v1.23.3...v1.23.4) (2026-10-27)
+
+
+### Bug Fixes
+
+* bring back ao chat artifacts ([#883](https://github.com/adobe/da-nx/issues/883)) ([e9a0917](https://github.com/adobe/da-nx/commit/e9a091749dc65f8290f112c985e3219fb1e98e32))
+
+## [1.23.3](https://github.com/adobe/da-nx/compare/v1.23.2...v1.23.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **loc:** drop empty locales so locale count does not throw ([#901](https://github.com/adobe/da-nx/issues/901)) ([b9e80ea](https://github.com/adobe/da-nx/commit/b9e80eaa1bea61cf9e40c207bdb1c77892014a3e))
+
+## [1.23.2](https://github.com/adobe/da-nx/compare/v1.23.1...v1.23.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* extend nx-pills ([#903](https://github.com/adobe/da-nx/issues/903)) ([949be9d](https://github.com/adobe/da-nx/commit/949be9dc26652be9fb67bc6d2c45598b70c28b26))
+
+## [1.23.1](https://github.com/adobe/da-nx/compare/v1.23.0...v1.23.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **ew:** revert chat fail-closed changes from pr 760 ([f93eeab](https://github.com/adobe/da-nx/commit/f93eeab25096ee686d56c452f44de51017ed484d)), closes [#760](https://github.com/adobe/da-nx/issues/760)
+
+# [1.23.0](https://github.com/adobe/da-nx/compare/v1.22.0...v1.23.0) (2026-10-23)
+
+
+### Features
+
+* add m support for pills ([#898](https://github.com/adobe/da-nx/issues/898)) ([5dd6baf](https://github.com/adobe/da-nx/commit/5dd6baf3eadaceec3590789fd6c90eb5ed82239d))
+* **marketplace:** filter extensions by category via block options ([#900](https://github.com/adobe/da-nx/issues/900)) ([ba1ec37](https://github.com/adobe/da-nx/commit/ba1ec374baf821b5ca11c317fbc64a7e10ea607a))
+
+# [1.23.0](https://github.com/adobe/da-nx/compare/v1.22.0...v1.23.0) (2026-10-23)
+
+
+### Features
+
+* add m support for pills ([#898](https://github.com/adobe/da-nx/issues/898)) ([5dd6baf](https://github.com/adobe/da-nx/commit/5dd6baf3eadaceec3590789fd6c90eb5ed82239d))
+
+# [1.22.0](https://github.com/adobe/da-nx/compare/v1.21.3...v1.22.0) (2026-10-23)
+
+
+### Features
+
+* **ew:** link send dialog urls and show the production host ([#897](https://github.com/adobe/da-nx/issues/897)) ([2e0ef1a](https://github.com/adobe/da-nx/commit/2e0ef1a55db5f6b5b3df567e5e07791399d1cdbd))
+
+## [1.21.3](https://github.com/adobe/da-nx/compare/v1.21.2...v1.21.3) (2026-10-23)
+
+
+### Bug Fixes
+
+* expose user surface to ao ([#890](https://github.com/adobe/da-nx/issues/890)) ([f7c1d25](https://github.com/adobe/da-nx/commit/f7c1d25795a11411dda42a96dde2fdfd50b19517))
+
+## [1.21.2](https://github.com/adobe/da-nx/compare/v1.21.1...v1.21.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* **ew:** fail closed on chat when a config layer is unreadable ([5f547f7](https://github.com/adobe/da-nx/commit/5f547f7293420e41a3f025416185a97f8b8f9d05))
+* **ew:** limit chat fail-closed policy to access errors ([2a1bb93](https://github.com/adobe/da-nx/commit/2a1bb93450533978b93c8d3885abbd0fd49867f3))
+
+## [1.21.1](https://github.com/adobe/da-nx/compare/v1.21.0...v1.21.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **quick-edit:** first native click forwarded to RUM ([efeb620](https://github.com/adobe/da-nx/commit/efeb6206229accff09459493137fb1e8d34d07f3))
+
+# [1.21.0](https://github.com/adobe/da-nx/compare/v1.20.1...v1.21.0) (2026-10-22)
+
+
+### Features
+
+* add loading spinners and Copy all visibility to translate view ([#709](https://github.com/adobe/da-nx/issues/709)) ([45f6ed8](https://github.com/adobe/da-nx/commit/45f6ed8f258883752f99ad6852dd6075ef137ba2))
+
+## [1.20.1](https://github.com/adobe/da-nx/compare/v1.20.0...v1.20.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **editortoggle:** hide disabled editor toggle only on edit ([4325dca](https://github.com/adobe/da-nx/commit/4325dca2ba87aa582af46a13a413835ef66a2fad))
+
+# [1.20.0](https://github.com/adobe/da-nx/compare/v1.19.0...v1.20.0) (2026-10-21)
+
+
+### Bug Fixes
+
+* **ew:** forward WYSIWYG iframe clicks for RUM (adobe/da-live[#1324](https://github.com/adobe/da-nx/issues/1324)) ([4bd6625](https://github.com/adobe/da-nx/commit/4bd6625d9d09fa5f6d438bdec5ca8d111a3f5c85))
+* **quick-edit:** align forwarded click target with RUM enhancer format ([0e7b39b](https://github.com/adobe/da-nx/commit/0e7b39bce56d6621b6518bac40e33ef12404c5ca))
+* **quick-edit:** attribute iframe text clicks to layout ([3f365f3](https://github.com/adobe/da-nx/commit/3f365f316a382f13d4c448e5b280e7196a4e8afa))
+* **quick-edit:** preserve native clicks on block selection labels ([a3d12f7](https://github.com/adobe/da-nx/commit/a3d12f75fb2815400515357953345d13780eea1f))
+
+
+### Features
+
+* identify editor as the source of rum clicks ([b61f2a8](https://github.com/adobe/da-nx/commit/b61f2a80b9c82bfc76f91da8af8ce8be96212244))
+
+# [1.19.0](https://github.com/adobe/da-nx/compare/v1.18.0...v1.19.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **sl:** add select() and default type=text to sl-input ([#843](https://github.com/adobe/da-nx/issues/843)) ([a81d367](https://github.com/adobe/da-nx/commit/a81d367335cdb79e986d99117e201199727d0139))
+
+
+### Features
+
+* **shared:** add treegrid keyboard navigation util ([#838](https://github.com/adobe/da-nx/issues/838)) ([a459d5f](https://github.com/adobe/da-nx/commit/a459d5f70e10fc8d10ec896dae769c1cdb8f42c9))
+
+# [1.18.0](https://github.com/adobe/da-nx/compare/v1.17.0...v1.18.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **form:** import getFirstSheet locally in daConfig ([eb40054](https://github.com/adobe/da-nx/commit/eb4005428b3813f0425564ef176cc5f4598bb929))
+* **quick-edit:** shift later indices when creating an editor from a host edit ([ccbb6d6](https://github.com/adobe/da-nx/commit/ccbb6d6359d97a15722fa6970ac6b38140d9a537))
+* **styles:** adjust padding for preview ([65d8ad7](https://github.com/adobe/da-nx/commit/65d8ad72d521e0d8e871cb4a5943b41e35b34c3b))
+
+
+### Features
+
+* **form:** add editor.preview config flag ([09b9e05](https://github.com/adobe/da-nx/commit/09b9e05e7407995269774aa1176fcb96d02370f7))
+
+# [1.17.0](https://github.com/adobe/da-nx/compare/v1.16.6...v1.17.0) (2026-10-20)
+
+
+### Bug Fixes
+
+* **sdk:** isolate live document subscriber failures ([92002c4](https://github.com/adobe/da-nx/commit/92002c436cafc9a645a312ff40d64e5d3d7e582b))
+
+
+### Features
+
+* add live document and HTML replacement SDK actions ([6caa671](https://github.com/adobe/da-nx/commit/6caa6719f3e970a6d74d1c60efa3fc31f5ffc392))
+
+## [1.16.6](https://github.com/adobe/da-nx/compare/v1.16.5...v1.16.6) (2026-10-19)
+
+
+### Bug Fixes
+
+* use the coworker UI for Experience Context ([#876](https://github.com/adobe/da-nx/issues/876)) ([ae51965](https://github.com/adobe/da-nx/commit/ae51965092d49f7603e8dee4ea82bc5995c32c77))
+
+## [1.16.5](https://github.com/adobe/da-nx/compare/v1.16.4...v1.16.5) (2026-10-19)
+
+
+### Bug Fixes
+
+* **quick-edit:** preserve wrappers when editing nested blocks ([e5d4806](https://github.com/adobe/da-nx/commit/e5d4806da0f029ad762b4871a013d79e038d16b5))
+
+## [1.16.4](https://github.com/adobe/da-nx/compare/v1.16.3...v1.16.4) (2026-10-16)
+
+
+### Bug Fixes
+
+* display the correct message when there is an error ([#862](https://github.com/adobe/da-nx/issues/862)) ([9c45996](https://github.com/adobe/da-nx/commit/9c45996d2fe85c02535aa898584a8494069fc1d3))
+
+## [1.16.3](https://github.com/adobe/da-nx/compare/v1.16.2...v1.16.3) (2026-10-16)
+
+
+### Bug Fixes
+
+* raise preflight timeout to 5 min, to account for ai checks ([#852](https://github.com/adobe/da-nx/issues/852)) ([94326c2](https://github.com/adobe/da-nx/commit/94326c2c80b86a2b43d8c23d0cbaa7fb12371519))
+
+## [1.16.2](https://github.com/adobe/da-nx/compare/v1.16.1...v1.16.2) (2026-10-16)
+
+
+### Bug Fixes
+
+* support for browse ui ([#853](https://github.com/adobe/da-nx/issues/853)) ([82e1b63](https://github.com/adobe/da-nx/commit/82e1b6367b5557990f13107aef76fdcfe052283a))
+
+## [1.16.1](https://github.com/adobe/da-nx/compare/v1.16.0...v1.16.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **forms:** fall back to main without canvas branch state ([3f523c8](https://github.com/adobe/da-nx/commit/3f523c82648e7f09bfdd1ae9a97accde522f1c6d))
+* **forms:** honor metadata preview URLs without canvas branch state ([15583b9](https://github.com/adobe/da-nx/commit/15583b90333f8331381f350521b03a872d8a18b7))
+
+# [1.16.0](https://github.com/adobe/da-nx/compare/v1.15.1...v1.16.0) (2026-10-15)
+
+
+### Bug Fixes
+
+* branch resolution and fail early ([177c4fb](https://github.com/adobe/da-nx/commit/177c4fbcd1083237c21b6b183bfc9fef46e6b283))
+* **ew:** harden branch compatibility and cancellation ([350e872](https://github.com/adobe/da-nx/commit/350e87263b7c635ed3b5798c491640ae9fc349e3))
+* **ew:** use authoritative canvas branch state ([af8d777](https://github.com/adobe/da-nx/commit/af8d777dfa213524c00d701320ab1e0bc90ea2c6))
+* remove redundant preview branch error logging ([3823263](https://github.com/adobe/da-nx/commit/3823263806b84bcc944efd09c123801f97b528cc))
+
+
+### Features
+
+* fetch from config or query string the branch name and surface it into the sareable deploy URL ([6ca178d](https://github.com/adobe/da-nx/commit/6ca178d9a4c1162c404f1c29545895d6c1cb5d0d))
+
+## [1.15.1](https://github.com/adobe/da-nx/compare/v1.15.0...v1.15.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **quick-edit:** require exact preview update targets ([7d4b388](https://github.com/adobe/da-nx/commit/7d4b388913a041bfc15082518d1f84fd1bcde724))
+
+# [1.15.0](https://github.com/adobe/da-nx/compare/v1.14.1...v1.15.0) (2026-10-14)
+
+
+### Features
+
+* **sdk:** add comparison and save actions ([#818](https://github.com/adobe/da-nx/issues/818)) ([2c70c3a](https://github.com/adobe/da-nx/commit/2c70c3a97c258d18f8d2fb20baa01bf6833f0d9d)), closes [adobe/da-live#1405](https://github.com/adobe/da-live/issues/1405)
+
+## [1.14.1](https://github.com/adobe/da-nx/compare/v1.14.0...v1.14.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **quick-edit:** shift later indices when creating an editor from a host edit ([875bfca](https://github.com/adobe/da-nx/commit/875bfca0b4e51a0b2ee2fbea3b6b44a6cd98767a))
+
+# [1.14.0](https://github.com/adobe/da-nx/compare/v1.13.0...v1.14.0) (2026-10-13)
+
+
+### Features
+
+* use scopes to reload sections and blocks individually ([83d6138](https://github.com/adobe/da-nx/commit/83d613876ab41a33d0bf074f5389e01a40978040))
+
+# [1.13.0](https://github.com/adobe/da-nx/compare/v1.12.2...v1.13.0) (2026-10-13)
+
+
+### Features
+
+* shared search field ([#823](https://github.com/adobe/da-nx/issues/823)) ([73b68eb](https://github.com/adobe/da-nx/commit/73b68eb67b5ff9fe272d2282bbc37847d8db6457))
+
+## [1.12.2](https://github.com/adobe/da-nx/compare/v1.12.1...v1.12.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **ew:** clarify history save warning ([542b03d](https://github.com/adobe/da-nx/commit/542b03da163744e257c784de5d98ee6505c774e9))
+* **ew:** notify history after version creation ([dfef8ff](https://github.com/adobe/da-nx/commit/dfef8ff20317134db638edefa81e8b5c02802776)), closes [adobe/da-live#1269](https://github.com/adobe/da-live/issues/1269)
+* **ew:** remove version save warning ([1c10a15](https://github.com/adobe/da-nx/commit/1c10a159c465962e1a972ee625be98e73b0f71e0))
+* **toast:** size dismiss icon to 16px ([0589269](https://github.com/adobe/da-nx/commit/058926983eeee863155fbd7feac4d71c3f95d543))
+
+## [1.12.1](https://github.com/adobe/da-nx/compare/v1.12.0...v1.12.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **chat-ao:** add 4px spacing between New chat and close buttons ([6b71cbe](https://github.com/adobe/da-nx/commit/6b71cbeec75cede789712f36062698660a1625c4))
+* **chat-ao:** address review feedback on New chat button ([f76943c](https://github.com/adobe/da-nx/commit/f76943c64ce95a22a2dcedc75f1953ebcaa54d64))
+* **chat-ao:** bump New chat button border-radius to 16px ([1d2bde3](https://github.com/adobe/da-nx/commit/1d2bde342e5be58a44e9e5cc853323bcd3370aa7))
+* **chat-ao:** center-align header buttons, drop bold weight from New chat label ([6fad526](https://github.com/adobe/da-nx/commit/6fad526de3c76e8de83eb2d6316b0d05498e522a))
+* **chat-ao:** fall back to old icon if Coworker icon fetch fails ([8a54ce3](https://github.com/adobe/da-nx/commit/8a54ce349cc3d582fb73afd055ab9d290a2ebde0))
+* **chat-ao:** fetch new Coworker icon from nx2's own origin, not codeBase ([bc2794b](https://github.com/adobe/da-nx/commit/bc2794b966f96cb9d3447c242fbd29a3d9890750))
+* **chat-ao:** restore gray border on New chat button, 12px radius, 28px height ([024e63a](https://github.com/adobe/da-nx/commit/024e63aabc7e07ac515785cca1aadd115b7c56be))
+* **chat-ao:** size New chat button to compact 24px scale (12px text, 16px icon) ([94b962b](https://github.com/adobe/da-nx/commit/94b962b0430abe1cd26a27d81037c7f669a0133a))
+* **chat-ao:** swap New chat border for hover-only highlight ([0310d9a](https://github.com/adobe/da-nx/commit/0310d9aee595a7ab8dd5087e60c38bd4a295a5ea))
+* **chat-ao:** use distinct Coworker icon for New chat button ([c8dbcd4](https://github.com/adobe/da-nx/commit/c8dbcd4aaa3f4ef893130726a1cc384a8d23fc69)), closes [adobe/da-live#1355](https://github.com/adobe/da-live/issues/1355)
+* **chat-ao:** use published CDN icon for Coworker New chat button ([22a67e1](https://github.com/adobe/da-nx/commit/22a67e1a33c50b8b6a20598ef6db1257dad0fa96))
+* **chat-ao:** use secondary not primary variant colors for New chat button ([93a6e03](https://github.com/adobe/da-nx/commit/93a6e0381d18c8a8225d51bbb8df0b12460f32c8))
+* **chat-ao:** win specificity battle vs chat-ao.css :host button border:none ([c5a0a9d](https://github.com/adobe/da-nx/commit/c5a0a9d6c219a27e3c4a4c7540f708e458aa8e5f))
+* **svg:** loadHrefSvg should never reject on fetch failure ([e6dcc24](https://github.com/adobe/da-nx/commit/e6dcc24a34daf6d7c30752fb1dc446a6ddec16a3))
+
+# [1.12.0](https://github.com/adobe/da-nx/compare/v1.11.0...v1.12.0) (2026-10-09)
+
+
+### Features
+
+* **marketplace:** add marketplace block ([#840](https://github.com/adobe/da-nx/issues/840)) ([eac81c4](https://github.com/adobe/da-nx/commit/eac81c4dee2e3ff298bd1cb533d94d3bab1efc50))
+
 # [1.11.0](https://github.com/adobe/da-nx/compare/v1.10.0...v1.11.0) (2026-10-09)
 
 
@@ -154,6 +561,14 @@ condition already used to decide whether to attach
 `x-content-source-authorization` — via a shared `isPrivilegedOrigin` check.
 Added fetch-mock + test coverage (`nx2/test/mocks/fetch.js` now records
 `referrerPolicy`; two new cases in `test/nx2/utils/api.test.js`).
+
+## 2026-09-21
+
+### nx/blocks/loc/views/translate — loading spinners + Copy all visibility (smartling-split-6-loading-spinners, #709)
+
+- Added spinners to Connect/Translate all/Get status/Cancel project/Cancel lang/Copy all buttons, disabled while their action is in flight
+- Fixed pre-existing bug where `_sendAllBusy` wasn't declared reactive
+- Hide "Copy all" once every language has finished copying (new `incompleteCopyLangs` getter)
 
 ## 2026-09-17
 
