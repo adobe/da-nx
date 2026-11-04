@@ -1,16 +1,19 @@
-.section {
+main > .section:has(.nx-shell),
+.block-content:has(> .nx-shell) {
   height: 100%;
+  min-height: 0;
 }
 
 .nx-shell {
   height: 100%;
+  min-width: 0;
 }
 
 .no-shell {
   background-color: #fff;
 }
 
-iframe {
+.nx-shell iframe {
   display: block;
   border: none;
   width: 100%;

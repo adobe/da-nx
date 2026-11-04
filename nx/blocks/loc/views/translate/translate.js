@@ -17,6 +17,7 @@ const spinnerStyle = await loadStyle(new URL('../../../../../nx2/styles/spinner.
 class NxLocTranslate extends LitElement {
   static properties = {
     project: { attribute: false },
+    path: { attribute: false },
     message: { attribute: false },
     _options: { state: true },
     _langs: { state: true },
@@ -38,6 +39,19 @@ class NxLocTranslate extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [spinnerStyle, style];
     this.setupService();
+  }
+
+  disconnectedCallback() {
+    this._statusController?.abort();
+    super.disconnectedCallback();
+  }
+
+  get supportsManagedStatus() {
+    return this._service?.connector?.supportsManagedStatus === true;
+  }
+
+  get isBusy() {
+    return this.supportsManagedStatus && Boolean(this._getStatusBusy || this._sendAllBusy);
   }
 
   update(props) {
@@ -82,13 +96,24 @@ class NxLocTranslate extends LitElement {
     this._message = message;
   }
 
-  async handleSaveLangs(props) {
+  async handleSaveLangs(props, {
+    waitForSave = false,
+    path = this.supportsManagedStatus ? this.path : undefined,
+  } = {}) {
     const data = props ? { langs: this._langs, ...props } : { langs: this._langs };
     // Connector urls carry per-language metadata; tell the host to merge.
     if (props?.urls) data.mergeUrls = true;
-    const opts = { detail: { data }, bubbles: true, composed: true };
+    const saves = [];
+    const detail = { data };
+    if (path !== undefined) detail.path = path;
+    if (waitForSave) detail.waitUntil = (save) => saves.push(save);
+    const opts = { detail, bubbles: true, composed: true };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
+    if (waitForSave) {
+      if (!saves.length) throw new Error('No project save handler is available.');
+      await Promise.all(saves);
+    }
   }
 
   handleAction(e) {
@@ -160,18 +185,19 @@ class NxLocTranslate extends LitElement {
   }
 
   async getBaseTranslationConf(fetchContent) {
-    const actions = {
-      saveState: this.handleSaveLangs.bind(this),
-      sendMessage: this.handleMessage.bind(this),
-    };
-
+    const managed = this.supportsManagedStatus;
+    const signal = this._statusController?.signal;
+    const { path } = this;
     const { org, site, title, options, snapshot } = this.project;
     const sourceLocations = getProjectSourceLocations(this.project);
     const { _service: service, _translateLangs: langs } = this;
-
-    // langsWithUrls is an in-memory object that contains all URL fetches.
+    const actions = {
+      saveState: managed
+        ? (props, saveOptions) => this.handleSaveLangs(props, { ...saveOptions, path })
+        : this.handleSaveLangs.bind(this),
+      sendMessage: this.handleMessage.bind(this),
+    };
     const { langsWithUrls, urls } = await this.fetchUrls(service, fetchContent, langs);
-
     return {
       org,
       site,
@@ -183,14 +209,17 @@ class NxLocTranslate extends LitElement {
       urls,
       sourceLocations,
       langsWithUrls,
+      ...(managed ? { signal } : {}),
       actions,
     };
   }
 
   async handleSendAll() {
-    if (this._sendAllBusy) return;
+    if (this._sendAllBusy || this.isBusy) return;
+    const managed = this.supportsManagedStatus;
     this._sendAllBusy = true;
     this.handleMessage(undefined);
+    if (managed) this.requestUpdate();
     try {
       const conf = await this.getBaseTranslationConf(true);
       const sendAll = await sendAllForTranslation(conf, this._service.connector);
@@ -204,10 +233,15 @@ class NxLocTranslate extends LitElement {
       // languages to save" before the user ever sees it.
       if (this._message?.type !== 'error') {
         // See if anything is finished immediately
-        this.checkAndSaveLangs(conf);
+        if (managed) await this.checkAndSaveLangs(conf);
+        else this.checkAndSaveLangs(conf);
       }
+    } catch (error) {
+      if (!managed) throw error;
+      this.handleMessage({ text: error.message, type: 'error' });
     } finally {
       this._sendAllBusy = false;
+      if (managed) this.requestUpdate();
     }
   }
 
@@ -216,31 +250,52 @@ class NxLocTranslate extends LitElement {
 
     const langsToSave = this._translateLangs.filter((lang) => lang.translation?.status === 'translated' || lang.translation?.status === 'complete');
 
-    if (langsToSave.length) {
-      const sendMessage = this.handleMessage.bind(this);
-
-      // Overwrite the base langs to only the ones we want to save
-      const saveConf = { ...conf, langs: langsToSave };
-
-      await saveLangItemsToDa(this._options, saveConf, this._service.connector, sendMessage);
-    }
+    const saved = langsToSave.length ? await saveLangItemsToDa(
+      this._options,
+      { ...conf, langs: langsToSave },
+      this._service.connector,
+      this.handleMessage.bind(this),
+    ) : undefined;
     await checkWaitingLanguages(conf, this._service.connector, this._urls, this._options['source.language']?.location);
 
+    if (saved?.errors.length) throw new Error(saved.errors.map(({ text }) => text).join(' '));
     this.handleMessage(undefined);
   }
 
   async handleGetStatus() {
+    if (this.supportsManagedStatus) return this.handleManagedStatus();
     this._getStatusBusy = true;
     try {
       const conf = await this.getBaseTranslationConf(false);
-
       await this._service.connector.getStatusAll(removeWaitingLanguagesFromConf(conf));
-
       await this.checkAndSaveLangs(conf);
-
       this.handleSaveLangs();
     } finally {
       this._getStatusBusy = false;
+    }
+    return undefined;
+  }
+
+  async handleManagedStatus() {
+    if (this._getStatusBusy || this._sendAllBusy) return;
+    this._getStatusBusy = true;
+    const controller = new AbortController();
+    this._statusController = controller;
+    this.requestUpdate();
+    try {
+      const conf = await this.getBaseTranslationConf(false);
+      const result = await this._service.connector.getStatusAll(
+        removeWaitingLanguagesFromConf(conf),
+      );
+      await this.checkAndSaveLangs(conf);
+      await conf.actions.saveState(undefined, { waitForSave: true });
+      if (result?.message) this.handleMessage(result.message);
+    } catch (error) {
+      if (!controller.signal.aborted) this.handleMessage({ text: error.message, type: 'error' });
+    } finally {
+      this._getStatusBusy = false;
+      this._statusController = undefined;
+      this.requestUpdate();
     }
   }
 
@@ -390,12 +445,12 @@ class NxLocTranslate extends LitElement {
           return html`
             ${this.renderBehavior()}
             ${this.canCancel ? html`
-              <sl-button @click=${this.handleCancelAll} class="primary outline" ?disabled=${this._cancelAllBusy}>
+              <sl-button @click=${this.handleCancelAll} class="primary outline" ?disabled=${this._cancelAllBusy || this.isBusy}>
                 ${this._cancelAllBusy ? this.renderSpinner() : nothing} Cancel project
               </sl-button>
             ` : nothing}
             ${this.incompleteLangs ? html`
-              <sl-button @click=${this.handleGetStatus} class="accent" ?disabled=${this._getStatusBusy}>
+              <sl-button @click=${this.handleGetStatus} class="accent" ?disabled=${this._getStatusBusy || this.isBusy}>
                 ${this._getStatusBusy ? this.renderSpinner() : nothing} Get status
               </sl-button>
             ` : nothing}
@@ -404,7 +459,7 @@ class NxLocTranslate extends LitElement {
 
         return html`
           ${this.renderBehavior()}
-          <sl-button @click=${this.handleSendAll} class="accent" ?disabled=${this._sendAllBusy}>
+          <sl-button @click=${this.handleSendAll} class="accent" ?disabled=${this._sendAllBusy || this.isBusy}>
             ${this._sendAllBusy ? this.renderSpinner() : nothing} Translate all
           </sl-button>
         `;
@@ -430,7 +485,7 @@ class NxLocTranslate extends LitElement {
     const busy = this._cancelingLangs?.has(lang.code);
     if (!this.canCancel || !this._connected || (!busy && !this.canCancelLang(lang))) return nothing;
     return html`
-      <sl-button @click=${() => this.handleCancelLang(lang)} class="primary outline" ?disabled=${busy}>
+      <sl-button @click=${() => this.handleCancelLang(lang)} class="primary outline" ?disabled=${busy || this.isBusy}>
         ${busy ? this.renderSpinner() : nothing} Cancel
       </sl-button>
     `;

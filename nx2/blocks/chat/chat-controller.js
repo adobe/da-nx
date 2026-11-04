@@ -87,9 +87,10 @@ export function migrateHistory(messages) {
 }
 
 export default class ChatController {
-  constructor({ onUpdate, onToolDone }) {
+  constructor({ onUpdate, onToolDone, onTurnCompleted }) {
     this._onUpdate = onUpdate;
     this._onToolDone = onToolDone;
+    this._onTurnCompleted = onTurnCompleted;
     this._sessionId = crypto.randomUUID();
     this._currentTurnId = crypto.randomUUID();
     // toolCallIds already submitted to the server in a batch — prevents a
@@ -183,16 +184,21 @@ export default class ChatController {
     }
   }
 
-  _done() {
+  _done(status = 'completed') {
     this._abortController = null;
     this._thinking = false;
     this._streamingText = undefined;
     this._update();
+    if (status === 'completed' && this._awaitingParts().length) return;
+    const { org, site, path } = this._context ?? {};
+    this._onTurnCompleted?.({
+      org, site, path, sessionId: this._sessionId, turnId: this._currentTurnId, status,
+    });
   }
 
   stop() {
     this._abortController?.abort();
-    this._done();
+    this._done('aborted');
   }
 
   async clear() {
@@ -364,14 +370,16 @@ export default class ChatController {
 
     this._thinking = true;
     this._update();
+    let status = 'completed';
     try {
       await this._stream(this._pageContextForAgent());
     } catch (err) {
       if (err.name !== 'AbortError') {
         this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
       }
+      status = err.name === 'AbortError' ? 'aborted' : 'error';
     } finally {
-      this._done();
+      this._done(status);
     }
   };
 
@@ -502,6 +510,7 @@ export default class ChatController {
     this._thinking = true;
     this._update();
 
+    let status = 'completed';
     try {
       await this._stream(this._pageContextForAgent());
     } catch (err) {
@@ -511,8 +520,9 @@ export default class ChatController {
           { role: ROLE.ASSISTANT, content: `Error: ${err.message}` },
         ];
       }
+      status = err.name === 'AbortError' ? 'aborted' : 'error';
     } finally {
-      this._done();
+      this._done(status);
     }
   }
 }

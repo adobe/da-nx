@@ -59,3 +59,31 @@ describe('NxLocTranslate - update() message guard', () => {
     expect(el._message).to.equal(undefined);
   });
 });
+
+describe('NxLocTranslate - Send All retry', () => {
+  [false, true].forEach((managed) => {
+    it(`clears the previous error before retrying with managed status ${managed}`, async () => {
+      const el = createTranslateEl();
+      el._service = { connector: { supportsManagedStatus: managed } };
+      el._message = { text: 'Previous submission failed.', type: 'error' };
+      const state = {};
+      const failure = new Error('Could not prepare translation.');
+      el.getBaseTranslationConf = async () => {
+        state.message = el._message;
+        state.busy = el._sendAllBusy;
+        throw failure;
+      };
+
+      await el.handleSendAll().catch((error) => {
+        expect(error).to.equal(failure);
+      });
+
+      expect(state.message).to.equal(undefined);
+      expect(state.busy).to.equal(true);
+      expect(el._sendAllBusy).to.equal(false);
+      expect(el._message).to.deep.equal(managed
+        ? { text: failure.message, type: 'error' }
+        : undefined);
+    });
+  });
+});

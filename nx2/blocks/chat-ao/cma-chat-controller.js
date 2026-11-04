@@ -35,8 +35,10 @@ function friendlyBackendError(message) {
 // pointer in sessionStorage rather than an orchestrator episode list.
 // See docs/chat-ao-controller-decoupling.md and docs/chat-ao-alt-harness.md.
 export default class CmaChatController extends BaseChatController {
-  constructor({ onUpdate, activationKey } = {}) {
-    super({ onUpdate });
+  constructor({
+    onUpdate, onTurnCompleted, activationKey, isolated,
+  } = {}) {
+    super({ onUpdate, onTurnCompleted, isolated });
     this.setActivationKey(activationKey);
   }
 
@@ -108,6 +110,7 @@ export default class CmaChatController extends BaseChatController {
   // anyway — see the S12 site guard). sessionStorage survives reload (same tab)
   // and clears when the tab closes.
   _episodeStorageKey() {
+    if (this._isolated) return null;
     const { org, site } = this._context ?? {};
     return org && site ? `nx2:cma-episode:${org}/${site}` : null;
   }

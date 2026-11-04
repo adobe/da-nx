@@ -22,9 +22,10 @@ function daAgentApprovalSummary(input) {
  * expects — approval is derived from da-agent's own toolCards vocabulary.
  */
 export default class ChatBackend {
-  constructor({ onToolDone, onUpdate }) {
+  constructor({ onToolDone, onTurnCompleted, onUpdate }) {
     this._controller = new ChatController({
       onToolDone,
+      onTurnCompleted,
       onUpdate: (payload) => onUpdate(this._normalize(payload)),
     });
   }

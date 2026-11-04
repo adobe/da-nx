@@ -13,7 +13,7 @@
 import { applySiteImageModifiers } from './image-modifiers.js';
 import {
   buildAuthorUrl, buildDeliveryUrl, buildDmUrl,
-  getAssetAlt, getDmApprovalStatus, getScene7PublishStatus,
+  getAssetAlt, getDmApprovalStatus,
 } from './urls.js';
 
 export const MISSING_FORMAT_ERROR_MSG = 'The selected asset has no format and cannot be used.';
@@ -42,22 +42,34 @@ function isApprovedForDelivery(asset) {
   return status === 'approved' && (!activationTarget || activationTarget === 'delivery');
 }
 
-function isPublished(asset) {
-  const scene7Status = getScene7PublishStatus(asset);
-  return !scene7Status || scene7Status === 'PublishComplete';
+function isPublishedToAemPublish(asset) {
+  return (asset.isPublishedToAemPublish ?? asset['aem:published']) === true;
+}
+
+function checkAvailability(asset, repoConfig) {
+  if (repoConfig.tierType !== 'author') {
+    return null;
+  }
+
+  if (repoConfig.isDmEnabled) {
+    return isApprovedForDelivery(asset) ? null : DM_ERROR_MSG;
+  }
+
+  return isPublishedToAemPublish(asset) ? null : PUBLISH_ERROR_MSG;
 }
 
 export function resolveAssetSelection({ asset, repoConfig }) {
-  if (!asset?.['aem:formatName']) return { error: MISSING_FORMAT_ERROR_MSG };
+  if (!asset?.['aem:formatName']) {
+    return { error: MISSING_FORMAT_ERROR_MSG };
+  }
 
-  if (repoConfig.tierType === 'author') {
-    if (repoConfig.isDmEnabled && !isApprovedForDelivery(asset)) {
-      return { error: DM_ERROR_MSG };
-    }
-    if (!repoConfig.isDmEnabled && !isPublished(asset)) return { error: PUBLISH_ERROR_MSG };
+  const error = checkAvailability(asset, repoConfig);
+  if (error) {
+    return { error };
   }
 
   const mimetype = asset.mimetype || asset['dc:format'] || '';
+
   return {
     href: resolveAssetUrl(asset, repoConfig),
     isImage: mimetype.toLowerCase().startsWith('image/'),
