@@ -11,7 +11,7 @@
  */
 
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle } from '../../../utils/utils.js';
+import { loadStyle, hashChange } from '../../../utils/utils.js';
 import { getConfig } from '../../../scripts/nx.js';
 import { CHAT_EVENT } from '../../../utils/chat.js';
 import { registerArtifact } from './registry.js';
@@ -89,7 +89,7 @@ export function buildSuggestionPrompt({ item }) {
   ].join('\n');
 }
 
-function renderSuggestionActions(item) {
+function renderSuggestionActions(item, { chatEnabled } = {}) {
   const send = (e, autoSend) => {
     e.currentTarget.closest('nx-dialog')?.close();
     const text = buildSuggestionPrompt({ item });
@@ -100,7 +100,7 @@ function renderSuggestionActions(item) {
       <button class="ui-artifact-pe-modal-copy" @click=${() => navigator.clipboard.writeText(item.suggestion.suggested ?? '')}>
         <span class="ui-artifact-pe-modal-copy-icon"></span>Copy suggestion
       </button>
-      <div class="ui-artifact-pe-modal-chat-actions">
+      ${chatEnabled ? html`<div class="ui-artifact-pe-modal-chat-actions">
         <button type="button" class="nx-action-btn nx-btn-sm ui-artifact-pe-modal-add" @click=${(e) => send(e, false)}>
           ${icon('s2-icon-aichat-20-n')}
           <span>Add to chat</span>
@@ -109,12 +109,12 @@ function renderSuggestionActions(item) {
           ${icon('s2-icon-aisparkles-20-n')}
           <span>Apply change</span>
         </button>
-      </div>
+      </div>` : nothing}
     </div>
   `;
 }
 
-function renderSuggestionBody(item) {
+function renderSuggestionBody(item, opts) {
   const { suggestion } = item;
   if (!suggestion) return nothing;
   return html`
@@ -132,7 +132,7 @@ function renderSuggestionBody(item) {
         <span class="ui-artifact-pe-modal-heading-text">Suggested change</span>
       </div>
       ${suggestion.suggested ? html`<p class="ui-artifact-pe-modal-body">${suggestion.suggested}</p>` : nothing}
-      ${renderSuggestionActions(item)}
+      ${renderSuggestionActions(item, opts)}
     </div>
     ${suggestion.context ? html`
       <div class="ui-artifact-pe-modal-context-title">Context</div>
@@ -171,6 +171,7 @@ class NxPageEval extends LitElement {
     data: { attribute: false },
     _pages: { state: true },
     _modal: { state: true },
+    _chatEnabled: { state: true },
   };
 
   constructor() {
@@ -181,6 +182,26 @@ class NxPageEval extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
+    this._unsubscribeHash = hashChange.subscribe((state) => this._syncChatEnabled(state));
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._unsubscribeHash?.();
+    this._chatSite = undefined;
+  }
+
+  async _syncChatEnabled(state) {
+    const { org, site } = state ?? {};
+    if (this._chatSite?.org === org && this._chatSite?.site === site) return;
+    const context = { org, site };
+    this._chatSite = context;
+    this._chatEnabled = false;
+    if (!org) return;
+    const chatEnabled = await import('../../../utils/ewFlags.js')
+      .then(({ isEwChatEnabled }) => isEwChatEnabled(context))
+      .catch(() => false);
+    if (this._chatSite === context) this._chatEnabled = chatEnabled;
   }
 
   _setPage(sectionIndex, page, total) {
@@ -312,7 +333,7 @@ class NxPageEval extends LitElement {
         @close=${() => { this._modal = undefined; }}
       >
         <div class="ui-artifact-pe-modal-content">
-          ${renderBody(items[index], { tone })}
+          ${renderBody(items[index], { tone, chatEnabled: this._chatEnabled })}
           <div class="ui-artifact-pe-modal-paging">
             <button
               class="ui-artifact-pe-modal-paging-btn ui-artifact-pe-modal-paging-prev"

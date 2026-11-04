@@ -3,6 +3,7 @@ import { render } from 'da-lit';
 import { renderUiArtifact } from '../../../../../nx2/blocks/chat-ao/artifacts/index.js';
 import { buildSuggestionPrompt } from '../../../../../nx2/blocks/chat-ao/artifacts/page-evaluation.js';
 import { CHAT_EVENT } from '../../../../../nx2/utils/chat.js';
+import { installFetch, restoreFetch } from '../../../../../nx2/test/mocks/fetch.js';
 
 async function waitUntil(predicate, timeout = 2000) {
   const start = Date.now();
@@ -66,12 +67,23 @@ describe('page evaluation suggestion actions', () => {
     );
   });
 
-  [
-    { selector: '.ui-artifact-pe-modal-add', autoSend: false },
-    { selector: '.ui-artifact-pe-modal-apply', autoSend: true },
-  ].forEach(({ selector, autoSend }) => {
-    it(`sends the prompt and closes the dialog on ${selector}`, async () => {
-      const host = document.createElement('div');
+  describe('chat actions', () => {
+    let host;
+    let userEnabled;
+    let orgCounter = 0;
+
+    const withChat = ({ org = `pe-org-${orgCounter += 1}`, flags = {} } = {}) => {
+      localStorage.setItem('nx2:ew-user-enabled', 'true');
+      installFetch({
+        body: JSON.stringify({
+          flags: { data: Object.entries(flags).map(([key, value]) => ({ key, value })) },
+        }),
+      });
+      window.location.hash = org ? `#/${org}/site/page` : '';
+    };
+
+    const openSuggestion = async () => {
+      host = document.createElement('div');
       document.body.append(host);
       render(renderUiArtifact({
         components: [{
@@ -82,17 +94,53 @@ describe('page evaluation suggestion actions', () => {
       const card = host.querySelector('nx-page-eval');
       await card.updateComplete;
       card.shadowRoot.querySelector('.ui-artifact-pe-item-action').click();
-      await waitUntil(() => card.shadowRoot.querySelector(selector));
+      await waitUntil(() => card.shadowRoot.querySelector('.ui-artifact-pe-modal-copy'));
+      return card;
+    };
 
-      const events = [];
-      const listener = (e) => events.push(e.detail);
-      document.addEventListener(CHAT_EVENT.SET_PROMPT, listener);
-      card.shadowRoot.querySelector(selector).click();
-      await waitUntil(() => events.length === 1 && !card.shadowRoot.querySelector('nx-dialog'));
-      document.removeEventListener(CHAT_EVENT.SET_PROMPT, listener);
-      host.remove();
+    beforeEach(() => { userEnabled = localStorage.getItem('nx2:ew-user-enabled'); });
 
-      expect(events).to.deep.equal([{ text: buildSuggestionPrompt({ item }), autoSend }]);
+    afterEach(() => {
+      host?.remove();
+      restoreFetch();
+      window.location.hash = '';
+      if (userEnabled === null) localStorage.removeItem('nx2:ew-user-enabled');
+      else localStorage.setItem('nx2:ew-user-enabled', userEnabled);
+    });
+
+    [
+      { selector: '.ui-artifact-pe-modal-add', autoSend: false },
+      { selector: '.ui-artifact-pe-modal-apply', autoSend: true },
+    ].forEach(({ selector, autoSend }) => {
+      it(`sends the prompt and closes the dialog on ${selector}`, async () => {
+        withChat();
+        const card = await openSuggestion();
+        await waitUntil(() => card.shadowRoot.querySelector(selector));
+
+        const events = [];
+        const listener = (e) => events.push(e.detail);
+        document.addEventListener(CHAT_EVENT.SET_PROMPT, listener);
+        card.shadowRoot.querySelector(selector).click();
+        await waitUntil(() => events.length === 1 && !card.shadowRoot.querySelector('nx-dialog'));
+        document.removeEventListener(CHAT_EVENT.SET_PROMPT, listener);
+
+        expect(events).to.deep.equal([{ text: buildSuggestionPrompt({ item }), autoSend }]);
+      });
+    });
+
+    [
+      { name: 'chat is disabled for the site', opts: { flags: { 'ew.disableChat': 'true' } } },
+      { name: 'there is no org in the hash', opts: { org: '' } },
+    ].forEach(({ name, opts }) => {
+      it(`hides chat actions but keeps copy when ${name}`, async () => {
+        withChat(opts);
+        const card = await openSuggestion();
+        await new Promise((resolve) => { setTimeout(resolve, 50); });
+        await card.updateComplete;
+        const root = card.shadowRoot;
+        expect(root.querySelector('.ui-artifact-pe-modal-copy')).to.exist;
+        expect(root.querySelector('.ui-artifact-pe-modal-chat-actions')).to.not.exist;
+      });
     });
   });
 });
