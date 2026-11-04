@@ -1,6 +1,5 @@
 import {
-  findBlock, findSection, findTextBlock, pictureSrc, srcPathsMatch,
-  OVERLAY_SELECTOR, safeQuerySelectorAll, sectionFromDescendant,
+  findBlock, findSection, findTextBlock, pictureSrc, srcPathsMatch, OVERLAY_SELECTOR,
 } from './dom-index.js';
 import { parseIndex, positionBox } from './utils.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
@@ -52,11 +51,8 @@ export function sectionLabel(el, sectionIndex) {
 }
 
 export function sectionSelectPayload(el) {
-  const container = el?.parentElement;
-  if (!container) return null;
-  const sections = safeQuerySelectorAll(container, ':scope > div');
-  const sectionIndex = sections.indexOf(el);
-  if (sectionIndex === -1) return null;
+  const sectionIndex = parseIndex(el?.getAttribute('data-section-index'));
+  if (sectionIndex == null) return null;
   return { anchorType: 'section', sectionIndex };
 }
 
@@ -219,7 +215,7 @@ export function setupNodeSelection(ctx) {
       clearHover();
       return;
     }
-    const section = sectionFromDescendant(e.target);
+    const section = e.target.closest?.('[data-section-index]');
     if (!section || isSelectedSection(section)) clearHover();
     else drawHover(section, sectionSelectPayload(section));
   });
@@ -249,6 +245,16 @@ export function setupNodeSelection(ctx) {
       if (!node) return;
       if (currentSelectedNode?.anchorType === 'table'
         && currentSelectedNode.proseIndex === node.proseIndex) return;
+      blurActiveEditor();
+      clearHover();
+      activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node } });
+      return;
+    }
+
+    const section = t.closest?.('[data-section-index]');
+    if (section) {
+      const node = sectionSelectPayload(section);
+      if (!node || isSelectedSection(section)) return;
       blurActiveEditor();
       clearHover();
       activeCtx?.port?.postMessage({ type: MESSAGE_TYPES.NODE_SELECT, payload: { node } });

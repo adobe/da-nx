@@ -8,7 +8,7 @@ import {
   setSelectedNode,
   setupNodeSelection,
 } from '../../../../../nx/public/plugins/quick-edit/src/selection.js';
-import { findSection } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
+import { findSection, stampSectionIndices } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
 
 function buildBody() {
   document.body.innerHTML = '<main>'
@@ -185,11 +185,21 @@ function buildSections() {
     + '<div><p data-prose-index="20">section 2 text</p></div>'
     + '<div><div class="cards" data-block-index="30">section 3 block</div></div>'
     + '</main>';
+  stampSectionIndices(document);
 }
 
 describe('quick-edit section selection', () => {
   beforeEach(buildSections);
   afterEach(() => { document.body.innerHTML = ''; });
+
+  it('ignores sections the site added during decoration', () => {
+    const main = document.querySelector('main');
+    const authored = [...main.children];
+    main.prepend(document.createElement('div'));
+    expect(findSection(0, document)).to.equal(authored[0]);
+    expect(sectionSelectPayload(main.children[0])).to.equal(null);
+    expect(sectionSelectPayload(authored[1])).to.deep.equal({ anchorType: 'section', sectionIndex: 1 });
+  });
 
   it('findSection returns the nth section in DOM order', () => {
     const main = document.querySelector('main');
@@ -515,11 +525,36 @@ describe('quick-edit section selection gestures', () => {
     expect(document.querySelector('#qe-selection-overlay .qe-selected-pill.is-hover')).to.equal(null);
   });
 
-  it('clears the section selection when clicking outside it', () => {
+  it('clears the section selection when clicking outside any section', () => {
+    setSelectedNode({ anchorType: 'section', sectionIndex: 2 });
+    document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(posted).to.deep.include({ type: 'node-select', payload: { node: null } });
+  });
+
+  it('selects a section when clicking its non-editable area', () => {
     setSelectedNode({ anchorType: 'section', sectionIndex: 2 });
     document.querySelector('main').children[0]
       .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    expect(posted).to.deep.include({ type: 'node-select', payload: { node: null } });
+    expect(posted).to.deep.include({
+      type: 'node-select',
+      payload: { node: { anchorType: 'section', sectionIndex: 0 } },
+    });
+  });
+
+  it('does not re-select the already-selected section on click', () => {
+    setSelectedNode({ anchorType: 'section', sectionIndex: 2 });
+    document.querySelector('main').children[2]
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(posted.some((m) => m.type === 'node-select')).to.equal(false);
+  });
+
+  it('keeps block and prose clicks ahead of the section', () => {
+    document.querySelector('[data-block-index="10"]')
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    document.querySelector('[data-prose-index="20"]')
+      .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(posted.filter((m) => m.type === 'node-select').map((m) => m.payload.node))
+      .to.deep.equal([{ anchorType: 'table', proseIndex: 10 }]);
   });
 
   it('posts node-select null on Escape when a section is selected', () => {

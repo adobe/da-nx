@@ -3,7 +3,7 @@ import loadQuickEdit from '../../../../../nx/public/plugins/quick-edit/quick-edi
 import { MESSAGE_TYPES } from '../../../../../nx/utils/message-types.js';
 import { replaceChanges as replaceNxChanges } from '../../../../../nx/public/plugins/quick-edit/src/reload.js';
 import { replaceChanges as replaceNx2Changes } from '../../../../../nx2/public/plugins/quick-edit/src/reload.js';
-import { restoreBlockIndices } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
+import { restoreBlockIndices, stampSectionIndices } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
 
 const implementations = [
   ['nx', replaceNxChanges, { partialReload: true }],
@@ -239,13 +239,14 @@ describe('quick-edit reload', () => {
 
   describe('section count changes', () => {
     const live = (texts) => texts
-      .map((t) => `<div class="section" data-section-status="loaded"><p>${t}</p></div>`).join('');
+      .map((t, i) => `<div class="section" data-section-status="loaded" data-section-index="${i}"><p>${t}</p></div>`).join('');
     const raw = (texts) => texts.map((t) => `<div><p>${t}</p></div>`).join('');
     const run = ({ before, after, type, sectionIndex }) => {
       const targetDocument = document.implementation.createHTMLDocument();
       targetDocument.body.innerHTML = `<main>${live(before)}</main>`;
       const doc = document.implementation.createHTMLDocument();
       doc.body.innerHTML = `<main>${raw(after)}</main>`;
+      stampSectionIndices(doc);
       replaceNxChanges({
         ctx: { partialReload: true },
         doc,
@@ -256,6 +257,7 @@ describe('quick-edit reload', () => {
       return {
         texts: sections.map((s) => s.textContent),
         untouched: sections.map((s) => s.dataset.sectionStatus === 'loaded'),
+        stamps: sections.map((s) => s.dataset.sectionIndex),
       };
     };
 
@@ -263,15 +265,21 @@ describe('quick-edit reload', () => {
       it(`removes only the section at index ${sectionIndex}`, () => {
         const before = ['a', 'b', 'c', 'd'];
         const after = before.filter((_, i) => i !== sectionIndex);
-        const { texts, untouched } = run({ before, after, type: 'section-removed', sectionIndex });
+        const {
+          texts, untouched, stamps,
+        } = run({ before, after, type: 'section-removed', sectionIndex });
         expect(texts).to.deep.equal(after);
+        expect(stamps).to.deep.equal(['0', '1', '2']);
         expect(untouched.every(Boolean)).to.be.true;
       });
     });
 
     it('inserts only the added section', () => {
-      const { texts, untouched } = run({ before: ['a', 'c'], after: ['a', 'b', 'c'], type: 'section-added', sectionIndex: 1 });
+      const {
+        texts, untouched, stamps,
+      } = run({ before: ['a', 'c'], after: ['a', 'b', 'c'], type: 'section-added', sectionIndex: 1 });
       expect(texts).to.deep.equal(['a', 'b', 'c']);
+      expect(stamps).to.deep.equal(['0', '1', '2']);
       expect(untouched).to.deep.equal([true, false, true]);
     });
 
@@ -291,6 +299,7 @@ describe('quick-edit reload', () => {
   it('replaces a changed section with its raw markup', () => {
     const targetDocument = document.implementation.createHTMLDocument();
     targetDocument.body.innerHTML = '<main><div class="section" data-section-status="loaded"><div class="default-content-wrapper"><p>one</p></div></div><div class="section" data-section-status="loaded"><div class="default-content-wrapper"><p>two</p></div></div></main>';
+    stampSectionIndices(targetDocument);
     const doc = document.implementation.createHTMLDocument();
     doc.body.innerHTML = '<main><div><p>one</p></div><div class="highlight"><p>changed</p></div></main>';
 
@@ -312,6 +321,7 @@ describe('quick-edit reload', () => {
       + '<div class="section" data-section-status="loaded"><div class="default-content-wrapper"><p>a</p></div><div class="cards-wrapper"><div class="cards block" data-block-status="loaded"><p>one</p></div></div></div>'
       + '<div class="section" data-section-status="loaded"><div class="block-marker-wrapper"><p>meta</p></div><div class="columns-wrapper"><div class="columns block" data-block-status="loaded"><p>two</p></div></div></div>'
       + '</main>';
+    stampSectionIndices(targetDocument);
     const doc = document.implementation.createHTMLDocument();
     doc.body.innerHTML = '<main>'
       + '<div><p>a</p><div class="cards" data-block-index="3"><p>one</p></div></div>'
@@ -338,6 +348,7 @@ describe('quick-edit reload', () => {
   it('falls back to the section when the block count changed', () => {
     const targetDocument = document.implementation.createHTMLDocument();
     targetDocument.body.innerHTML = '<header>keep</header><main><div class="section" data-section-status="loaded"><div class="cards-wrapper"><div class="cards block"><p>one</p></div></div></div></main>';
+    stampSectionIndices(targetDocument);
     const doc = document.implementation.createHTMLDocument();
     doc.body.innerHTML = '<header>new</header><main><div><div class="cards" data-block-index="1"><p>one</p></div><div class="columns" data-block-index="9"><p>two</p></div></div></main>';
 
@@ -357,6 +368,7 @@ describe('quick-edit reload', () => {
     const create = (html) => {
       const target = document.implementation.createHTMLDocument();
       target.body.innerHTML = html;
+      stampSectionIndices(target);
       return target;
     };
     const liveBlock = ([name, index, prose, text]) => `<div class="${name}-wrapper">`
@@ -399,6 +411,25 @@ describe('quick-edit reload', () => {
 
       expect(targetDocument.querySelector('main').textContent).to.equal('ac');
       expect(indices(targetDocument, 'data-prose-index')).to.deep.equal(['1', '5']);
+    });
+
+    it('replaces the authored section when the site added one before it', () => {
+      const targetDocument = create('<main>'
+        + '<div class="section"><p data-prose-index="1">a</p></div>'
+        + '<div class="section"><p data-prose-index="5">b</p></div></main>');
+      targetDocument.querySelector('main').prepend(Object.assign(targetDocument.createElement('div'), {
+        className: 'section', textContent: 'hero',
+      }));
+      const doc = create('<main><div><p data-prose-index="1">a</p></div>'
+        + '<div><p data-prose-index="5">b changed</p></div></main>');
+
+      const replaced = replaceNxChanges({
+        ctx: PARTIAL, doc, rerenderScope: { type: 'section', sectionIndex: 1 }, targetDocument,
+      });
+
+      expect(replaced.type).to.equal('section');
+      expect([...targetDocument.querySelectorAll('main > div')].map((el) => el.textContent))
+        .to.deep.equal(['hero', 'a', 'b changed']);
     });
 
     it('re-renders all of main when kept indices cannot be mapped', () => {

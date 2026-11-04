@@ -39,25 +39,15 @@ export function findBlock(from, root = document) {
   return findNearestIndexed('data-block-index', from, root);
 }
 
-// Must match da-live's parseSections ordering.
-function sectionContainer(root) {
-  return root.querySelector?.('main') || root;
+export function stampSectionIndices(doc) {
+  const container = doc.querySelector('main') ?? doc.body;
+  container.querySelectorAll(':scope > div').forEach((section, i) => {
+    section.setAttribute('data-section-index', i);
+  });
 }
 
 export function findSection(sectionIndex, root = document) {
-  const container = sectionContainer(root);
-  const sections = safeQuerySelectorAll(container, ':scope > div');
-  return sections[sectionIndex] ?? null;
-}
-
-export function sectionFromDescendant(target, root = document) {
-  const container = sectionContainer(root);
-  let el = target;
-  while (el && el !== container) {
-    if (el.parentElement === container) return el;
-    el = el.parentElement;
-  }
-  return null;
+  return root.querySelector(`[data-section-index="${sectionIndex}"]`);
 }
 
 export function restoreBlockIndices(sourceRoot, liveRoot = document) {
