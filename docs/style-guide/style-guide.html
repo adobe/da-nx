@@ -36,6 +36,7 @@
   <nav class="sg-toc">
     <a href="#buttons">Buttons</a>
     <a href="#colors">Colors</a>
+    <a href="#shadows">Shadows</a>
     <a href="#form">Form</a>
     <a href="#elements">Elements</a>
     <a href="#shared-blocks">Shared Blocks</a>
@@ -54,6 +55,33 @@
         </div>
         <pre><code>background-color: var(--s2-indigo-200);
 color: var(--s2-indigo-1000);</code></pre>
+      </article>
+    </section>
+
+    <section id="shadows" class="sg-section">
+      <h2>Shadows</h2>
+      <p>Source: <code>nx2/styles/styles.css</code>. Both tokens follow the active light
+        or dark color scheme. Ordinary containers have no shadow by default.</p>
+      <article class="sg-example">
+        <h3>Emphasized container</h3>
+        <p>Use the resting emphasized shadow to distinguish a container within the page.
+          This does not make the entire container interactive.</p>
+        <div class="sg-demo">
+          <div style="padding: var(--s2-spacing-400); background: var(--s2-gray-25); border-radius: var(--s2-corner-radius-800); box-shadow: var(--s2-drop-shadow-emphasized)">
+            Emphasized surface
+          </div>
+        </div>
+        <pre><code>box-shadow: var(--s2-drop-shadow-emphasized);</code></pre>
+      </article>
+      <article class="sg-example">
+        <h3>Elevated surface</h3>
+        <p>Use the elevated shadow for surfaces above other content, such as popovers.</p>
+        <div class="sg-demo">
+          <div style="padding: var(--s2-spacing-400); background: var(--s2-gray-25); border-radius: var(--s2-corner-radius-800); box-shadow: var(--s2-drop-shadow-elevated)">
+            Elevated surface
+          </div>
+        </div>
+        <pre><code>box-shadow: var(--s2-drop-shadow-elevated);</code></pre>
       </article>
     </section>
 
