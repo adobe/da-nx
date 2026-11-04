@@ -28,7 +28,8 @@ function handleSdkResponse({ port, action, details }) {
 }
 
 export function createHostActions({ port, capabilities = {} }) {
-  const subscribers = new Set();
+  const documentSubscribers = new Set();
+  const turnSubscribers = new Set();
   let lastHtml;
   let lastBlockIndex;
   let lastEditable;
@@ -44,7 +45,7 @@ export function createHostActions({ port, capabilities = {} }) {
       lastEditable = typeof data.editable === 'boolean' ? data.editable : undefined;
     } else if (lastHtml === undefined) return;
     lastBlockIndex = selection.blockIndex;
-    subscribers.forEach(({ callback }) => {
+    documentSubscribers.forEach(({ callback }) => {
       try {
         callback({
           html: lastHtml,
@@ -58,7 +59,47 @@ export function createHostActions({ port, capabilities = {} }) {
     });
   };
 
+  const onTurnMessage = ({ data }) => {
+    if (data?.action !== 'chatTurnCompleted'
+      || !['completed', 'aborted', 'error'].includes(data.detail?.status)) return;
+    turnSubscribers.forEach(({ callback }) => {
+      try {
+        callback(data.detail);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Chat turn subscriber failed:', error);
+      }
+    });
+  };
+
   return {
+    subscribeChatTurnCompleted: (callback) => {
+      if (typeof callback !== 'function') throw new TypeError('callback must be a function');
+      if (capabilities.chatTurnCompleted !== 1) {
+        throw new Error('Chat turn notifications are not supported by this host');
+      }
+      const subscriber = { callback };
+      if (!turnSubscribers.size) {
+        port.addEventListener('message', onTurnMessage);
+        try {
+          port.start();
+          port.postMessage({ action: 'subscribeChatTurnCompleted' });
+        } catch (error) {
+          port.removeEventListener('message', onTurnMessage);
+          throw error;
+        }
+      }
+      turnSubscribers.add(subscriber);
+      return () => {
+        if (!turnSubscribers.delete(subscriber) || turnSubscribers.size) return;
+        port.removeEventListener('message', onTurnMessage);
+        try {
+          port.postMessage({ action: 'unsubscribeChatTurnCompleted' });
+        } catch {
+          // The host may already have closed the port.
+        }
+      };
+    },
     sendHTML: (html, options = {}) => {
       if (typeof html !== 'string' || (options.replace !== undefined && typeof options.replace !== 'boolean')) {
         throw new TypeError('invalid-html');
@@ -107,7 +148,7 @@ export function createHostActions({ port, capabilities = {} }) {
     subscribeLiveDocument: (callback) => {
       if (typeof callback !== 'function') throw new TypeError('callback must be a function');
       const subscriber = { callback };
-      if (!subscribers.size) {
+      if (!documentSubscribers.size) {
         port.addEventListener('message', onLiveMessage);
         try {
           port.start();
@@ -117,9 +158,9 @@ export function createHostActions({ port, capabilities = {} }) {
           throw error;
         }
       }
-      subscribers.add(subscriber);
+      documentSubscribers.add(subscriber);
       const unsubscribe = () => {
-        if (!subscribers.delete(subscriber) || subscribers.size) return;
+        if (!documentSubscribers.delete(subscriber) || documentSubscribers.size) return;
         port.removeEventListener('message', onLiveMessage);
         lastHtml = undefined;
         lastBlockIndex = undefined;
