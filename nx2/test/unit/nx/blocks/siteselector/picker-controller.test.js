@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { setConfig } from '../../../../../scripts/nx.js';
-import { connectSiteSelector } from '../../../../../blocks/siteselector/site-selector.js';
+import { connectSiteSelector } from '../../../../../blocks/siteselector/picker-controller.js';
 import { getSiteOptions } from '../../../../../blocks/siteselector/site-options.js';
 import { addExistingSite, getSiteApi } from '../../../../../blocks/siteselector/site-access.js';
 
@@ -9,7 +9,7 @@ await setConfig({ hostnames: [] });
 const { source, config } = await getSiteApi();
 const tick = () => new Promise((resolve) => { setTimeout(resolve, 0); });
 
-describe('shared site selector adapter', () => {
+describe('site picker controller', () => {
   let selector;
   let connection;
   let adapter;

@@ -47,7 +47,7 @@ class NxSiteselector extends LitElement {
     if (this._loading || signal.aborted) return;
     this._loading = true;
     try {
-      const { connectSiteSelector } = await import('./site-selector.js');
+      const { connectSiteSelector } = await import('./picker-controller.js');
       if (signal.aborted || !this.isConnected) return;
       this._adapter = connectSiteSelector({
         selector: this,
