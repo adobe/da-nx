@@ -53,8 +53,8 @@ const INDEX_SCHEMA_VERSION = 2;
 function noop() {}
 
 // Worker-safe version of loadIndexMeta
-async function loadIndexMeta(path, daOrigin, imsToken) {
-  return loadSheetMeta(path, daOrigin, imsToken);
+async function loadIndexMeta(path, sourceOrigin, imsToken) {
+  return loadSheetMeta(path, sourceOrigin, imsToken);
 }
 
 function logPerf(perf, isPerfEnabled) {
@@ -67,7 +67,7 @@ function logPerf(perf, isPerfEnabled) {
  * Worker-safe version of buildIncrementalIndex from build.js:168-527
  * Extracted verbatim, modified ONLY to:
  * - Use worker-safe API functions (streamLog, loadIndexMeta, etc.)
- * - Accept runtime context parameter (imsToken, daOrigin, etc.)
+ * - Accept runtime context parameter (imsToken, sourceOrigin, etc.)
  * - Remove resetAemPageMarkdownRateLimiter (not needed in worker)
  *
  * @param {string} sitePath - Site path
@@ -79,7 +79,7 @@ function logPerf(perf, isPerfEnabled) {
  * @param {Function} onProgressiveData - Progressive data callback
  * @param {object} context - Worker runtime context
  * @param {string} context.imsToken - IMS access token (REQUIRED)
- * @param {string} context.daOrigin - DA origin (REQUIRED)
+ * @param {string} context.sourceOrigin - DA admin or AEM API origin (REQUIRED)
  * @param {string} context.daEtcOrigin - DA ETC origin for CORS proxy (REQUIRED)
  * @param {boolean} context.isPerfEnabled - Enable perf logging
  * @param {object} context.IndexConfig - Index configuration (REQUIRED)
@@ -96,13 +96,13 @@ export async function buildIncrementalIndex(
 ) {
   const {
     imsToken,
-    daOrigin,
+    sourceOrigin,
     daEtcOrigin,
     isPerfEnabled = false,
   } = context;
 
   if (!imsToken) throw new Error('[worker-incremental] imsToken is required in context');
-  if (!daOrigin) throw new Error('[worker-incremental] daOrigin is required in context');
+  if (!sourceOrigin) throw new Error('[worker-incremental] sourceOrigin is required in context');
   if (!daEtcOrigin) throw new Error('[worker-incremental] daEtcOrigin is required in context');
 
   // REMOVED: resetAemPageMarkdownRateLimiter() - not needed in worker
@@ -110,7 +110,7 @@ export async function buildIncrementalIndex(
   const metaPath = `${sitePath}/${IndexFiles.FOLDER}/${IndexFiles.MEDIA_INDEX_META}`;
   const indexPath = `${sitePath}/${IndexFiles.FOLDER}/${IndexFiles.MEDIA_INDEX}`;
 
-  const meta = await loadIndexMeta(metaPath, daOrigin, imsToken);
+  const meta = await loadIndexMeta(metaPath, sourceOrigin, imsToken);
   const lastFetchTime = meta?.lastFetchTime;
 
   if (!lastFetchTime) {
@@ -169,13 +169,13 @@ export async function buildIncrementalIndex(
         basePath,
         chunkCount,
         SheetNames.MEDIA,
-        daOrigin,
+        sourceOrigin,
         imsToken,
       );
       usageData = buildUsageSheet(existingIndex);
     }
   } else {
-    existingIndex = await loadMultiSheet(indexPath, SheetNames.MEDIA, daOrigin, imsToken);
+    existingIndex = await loadMultiSheet(indexPath, SheetNames.MEDIA, sourceOrigin, imsToken);
     usageData = buildUsageSheet(existingIndex);
   }
 
@@ -549,7 +549,7 @@ export async function buildIncrementalIndex(
     basePath,
     mediaSheet,
     chunkSize,
-    daOrigin,
+    sourceOrigin,
     imsToken,
     IndexFiles.MEDIA_INDEX_CHUNK_PREFIX,
   );
@@ -564,7 +564,7 @@ export async function buildIncrementalIndex(
     chunkCount,
     chunkSize,
     schemaVersion: INDEX_SCHEMA_VERSION,
-  }, metaPath, daOrigin, imsToken);
+  }, metaPath, sourceOrigin, imsToken);
 
   if (!metaResp.ok) {
     throw new Error(`Failed to save index metadata: HTTP ${metaResp.status}`);

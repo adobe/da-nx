@@ -10,8 +10,7 @@
  * NO indexing logic - only reads already-published index data.
  */
 
-import { daFetch } from '../core/ims-adapter.js';
-import { DA_ADMIN } from '../../../utils/utils.js';
+import { fetchSource } from '../core/source.js';
 import {
   loadIndexChunks,
   loadSheetMeta,
@@ -83,7 +82,7 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
       }
     }
 
-    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
+    const resp = await fetchSource(path);
 
     if (resp.ok) {
       const data = await resp.json();

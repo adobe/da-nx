@@ -2,7 +2,7 @@
  * Worker-safe version of buildFullIndex from build.js:529-978
  * Extracted verbatim from main branch, modified only to:
  * - Use worker-fetch.js and worker-bulk-status.js instead of admin-api.js/bulk-status.js
- * - Accept runtime context (imsToken, daOrigin, etc.) as parameters
+ * - Accept runtime context (imsToken, sourceOrigin, etc.) as parameters
  * - No window/localStorage dependencies
  */
 
@@ -67,7 +67,7 @@ function logPerf(perf, isPerfEnabled) {
  * @param {Function} onProgressiveData - Progressive data callback
  * @param {object} context - Worker runtime context
  * @param {string} context.imsToken - IMS access token (REQUIRED)
- * @param {string} context.daOrigin - DA origin (e.g., https://admin.da.live) (REQUIRED)
+ * @param {string} context.sourceOrigin - DA admin or AEM API origin (REQUIRED)
  * @param {string} context.daEtcOrigin - DA ETC origin for CORS proxy (REQUIRED)
  * @param {string} context.siteToken - Site token for protected .aem.page sites (optional)
  * @param {boolean} context.isPerfEnabled - Enable perf logging
@@ -84,7 +84,7 @@ export async function buildFullIndex(
 ) {
   const {
     imsToken,
-    daOrigin,
+    sourceOrigin,
     daEtcOrigin,
     isPerfEnabled = false,
     IndexConfig,
@@ -93,8 +93,8 @@ export async function buildFullIndex(
   if (!imsToken) {
     throw new Error('[full-indexer] imsToken is required in context');
   }
-  if (!daOrigin) {
-    throw new Error('[full-indexer] daOrigin is required in context');
+  if (!sourceOrigin) {
+    throw new Error('[full-indexer] sourceOrigin is required in context');
   }
   if (!daEtcOrigin) {
     throw new Error('[full-indexer] daEtcOrigin is required in context');
@@ -622,7 +622,7 @@ export async function buildFullIndex(
     basePath,
     mediaSheet,
     chunkSize,
-    daOrigin,
+    sourceOrigin,
     imsToken,
     IndexFiles.MEDIA_INDEX_CHUNK_PREFIX,
   );
@@ -644,7 +644,7 @@ export async function buildFullIndex(
     chunkCount,
     chunkSize,
     schemaVersion: INDEX_SCHEMA_VERSION,
-  }, `${sitePath}/${IndexFiles.FOLDER}/${IndexFiles.MEDIA_INDEX_META}`, daOrigin, imsToken);
+  }, `${sitePath}/${IndexFiles.FOLDER}/${IndexFiles.MEDIA_INDEX_META}`, sourceOrigin, imsToken);
   const metaSaveMs = Date.now() - metaSaveStart;
 
   if (!metaResp.ok) {

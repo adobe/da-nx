@@ -5,8 +5,7 @@
  * It handles lock creation, refresh (heartbeat), removal, ownership, and checking.
  */
 
-import { daFetch } from '../core/ims-adapter.js';
-import { DA_ADMIN } from '../../../utils/utils.js';
+import { fetchSource, saveSource, deleteSource } from '../core/source.js';
 import { createSheet } from './admin-api.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { getMessage } from '../core/messages.js';
@@ -25,7 +24,7 @@ export function getIndexLockPath(sitePath) {
 export async function checkIndexLock(sitePath) {
   const path = getIndexLockPath(sitePath);
   try {
-    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
+    const resp = await fetchSource(path);
     if (resp.ok) {
       const data = await resp.json();
       const lockData = data.data?.[0] || data;
@@ -90,11 +89,8 @@ export async function createIndexLock(sitePath) {
     ownerId,
     locked: true,
   }];
-  const formData = await createSheet(lockData);
-  const resp = await daFetch(`${DA_ADMIN}/source${path}`, {
-    method: 'PUT',
-    body: formData,
-  });
+  const json = await createSheet(lockData);
+  const resp = await saveSource({ path, json, method: 'PUT' });
   if (!resp.ok) {
     logMediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, { status: resp.status, path });
     const isDenied = resp.status === 401
@@ -108,7 +104,7 @@ export async function createIndexLock(sitePath) {
 export async function refreshIndexLock(sitePath, lockData = {}) {
   const path = getIndexLockPath(sitePath);
   const now = Date.now();
-  const formData = await createSheet([{
+  const json = await createSheet([{
     locked: true,
     timestamp: lockData.timestamp || lockData.startedAt || now,
     startedAt: lockData.startedAt || lockData.timestamp || now,
@@ -116,10 +112,7 @@ export async function refreshIndexLock(sitePath, lockData = {}) {
     ownerId: lockData.ownerId || getIndexLockOwnerId(),
     mode: lockData.mode || '',
   }]);
-  const resp = await daFetch(`${DA_ADMIN}/source${path}`, {
-    method: 'PUT',
-    body: formData,
-  });
+  const resp = await saveSource({ path, json, method: 'PUT' });
   if (!resp.ok) {
     logMediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, { status: resp.status, path });
     const isDenied = resp.status === 401
@@ -132,9 +125,7 @@ export async function refreshIndexLock(sitePath, lockData = {}) {
 
 export async function removeIndexLock(sitePath) {
   const path = getIndexLockPath(sitePath);
-  const resp = await daFetch(`${DA_ADMIN}/source${path}`, {
-    method: 'DELETE',
-  });
+  const resp = await deleteSource(path);
   if (!resp.ok) {
     if (resp.status === 404) return resp;
     logMediaLibraryError(ErrorCodes.LOCK_REMOVE_FAILED, { status: resp.status, path });

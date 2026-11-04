@@ -3,9 +3,14 @@
  * Supports plugin mode token injection and falls back to nx2/utils/ims.js for app mode
  */
 
+import { AEM_API_ORIGIN } from './constants.js';
+import { createPacedFetch } from './rate-limit.js';
+
 let cachedImsDetails;
 let imsLoadPromise;
 let isRedirectingToSignIn = false;
+
+const aemApiFetch = createPacedFetch({ fetchFn: (url, opts) => fetch(url, opts) });
 
 /**
  * Inject IMS token for plugin mode
@@ -67,6 +72,8 @@ export async function initIms() {
 export const daFetch = async (url, opts = {}) => {
   opts.headers ||= {};
 
+  const isAemApi = url.startsWith(AEM_API_ORIGIN);
+
   // Add auth header if user is authenticated
   const hasAuthSession = !!localStorage.getItem('nx-ims');
   if (hasAuthSession || cachedImsDetails) {
@@ -78,7 +85,7 @@ export const daFetch = async (url, opts = {}) => {
 
   let response;
   try {
-    response = await fetch(url, opts);
+    response = await (isAemApi ? aemApiFetch(url, opts) : fetch(url, opts));
   } catch (err) {
     response = new Response(null, { status: 500, statusText: err.message });
   }

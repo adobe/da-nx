@@ -96,7 +96,10 @@ function toPath(href) {
     return u; // Return as-is if not AEM domain
   } catch {
     // Not a valid URL, treat as relative path
-    return u.split('?')[0].split('#')[0];
+    const path = u.split('?')[0].split('#')[0];
+    const name = path.split('/').pop();
+    // Helix 6 pages reference media as ./media_<hash>; the media bus serves it from the root
+    return /^media_[a-f0-9]+\./i.test(name) ? `/${name}` : path;
   }
 }
 
