@@ -1,12 +1,51 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import decorate from '../../../../nx/blocks/shell/shell.js';
+import { setConfig } from '../../../../nx/scripts/nexter.js';
+
+setConfig({ imsClientId: 'legacy-shell-test' });
 
 describe('nx1 fullscreen shell', () => {
+  let decorate;
+  let imsDetails;
+  let originalAdobeIMS;
+  let originalAdobeid;
+  let originalImsFlag;
   let originalUrl;
   let trustedApps;
   let block;
   let clock;
+
+  before(async () => {
+    originalAdobeIMS = window.adobeIMS;
+    originalAdobeid = window.adobeid;
+    originalImsFlag = localStorage.getItem('nx-ims');
+    window.adobeIMS = {
+      getAccessToken: () => ({ token: 'legacy-shell-token' }),
+      getProfile: async () => ({ email: 'legacy-shell@adobe.com' }),
+    };
+    const append = document.head.append.bind(document.head);
+    const scriptStub = sinon.stub(document.head, 'append').callsFake((...nodes) => {
+      if (nodes.some((node) => node.src === 'https://auth.services.adobe.com/imslib/imslib.min.js')) {
+        queueMicrotask(() => window.adobeid.onReady());
+        return;
+      }
+      append(...nodes);
+    });
+    try {
+      const { loadIms } = await import('../../../../nx/utils/ims.js');
+      imsDetails = await loadIms();
+      ({ default: decorate } = await import('../../../../nx/blocks/shell/shell.js'));
+    } finally {
+      scriptStub.restore();
+    }
+  });
+
+  after(() => {
+    window.adobeIMS = originalAdobeIMS;
+    window.adobeid = originalAdobeid;
+    if (originalImsFlag === null) localStorage.removeItem('nx-ims');
+    else localStorage.setItem('nx-ims', originalImsFlag);
+  });
 
   beforeEach(() => {
     originalUrl = window.location.href;
@@ -50,5 +89,20 @@ describe('nx1 fullscreen shell', () => {
     expect(block.querySelector('iframe')).to.exist;
     expect(document.querySelector('.disclaimer')).to.equal(null);
     expect(document.querySelector('aside.panel')).to.equal(null);
+  });
+
+  it('shares the host IMS session in the app SDK handshake', async () => {
+    history.replaceState(null, '', '/app/adobe/demo/tools/app?ref=local');
+    await decorate(block);
+    const iframe = block.querySelector('iframe');
+    expect(iframe).to.exist;
+    const postMessage = sinon.stub(iframe.contentWindow, 'postMessage');
+    await clock.tickAsync(750);
+    const [message, , ports] = postMessage.firstCall.args;
+    ports.forEach((port) => port.close());
+    expect(message.token).to.equal(imsDetails.accessToken.token);
+    expect(message.email).to.equal(imsDetails.email);
+    expect(message.context.imsOrigin).to.equal('https://ims-na1-stg1.adobelogin.com');
+    expect(message.capabilities).to.equal(undefined);
   });
 });

@@ -5,8 +5,10 @@ import { registerPanelSection, PANEL_EVENT } from '../../../../nx2/utils/panel.j
 import { CHAT_EVENT } from '../../../../nx2/utils/chat.js';
 import { hashChange } from '../../../../nx2/utils/utils.js';
 import { setupPanels } from '../../../../nx/blocks/shell/panels.js';
-import decorate from '../../../../nx/blocks/shell/shell.js';
 import { createHostActions } from '../../../../nx/utils/sdk.js';
+
+await setConfig();
+const { default: decorate } = await import('../../../../nx/blocks/shell/shell.js');
 
 const pause = () => new Promise((resolve) => { setTimeout(resolve, 10); });
 

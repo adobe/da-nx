@@ -3,11 +3,12 @@
  * @module shell
  */
 
-import { IMS_ORIGIN, loadIms } from '../../../nx2/utils/ims.js';
 import { getConfig, loadStyle } from '../../../nx2/scripts/nx.js';
 import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { getLivePreviewUrl, livePreviewLogin } from '../../utils/utils.js';
 
+const { IMS_ORIGIN, loadIms } = getConfig().nxBase
+  ? await import('../../../nx2/utils/ims.js') : await import('../../utils/ims.js');
 const IMS_DETAILS = await loadIms();
 
 const TRUSTED_ORGS = ['adobe'];
