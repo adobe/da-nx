@@ -1,3 +1,10 @@
+## [1.37.1](https://github.com/adobe/da-nx/compare/v1.37.0...v1.37.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* **aem-assets:** reject unpublished assets ([#834](https://github.com/adobe/da-nx/issues/834)) ([b4933e6](https://github.com/adobe/da-nx/commit/b4933e6e928975eaa4990df3729dfd54ac5429f0))
+
 # [1.37.0](https://github.com/adobe/da-nx/compare/v1.36.0...v1.37.0) (2026-11-04)
 
 
