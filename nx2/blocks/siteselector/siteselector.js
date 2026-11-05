@@ -8,7 +8,7 @@ const styles = await loadStyle(import.meta.url);
 class NxSiteselector extends LitElement {
   static properties = {
     sites: { state: true },
-    value: { state: true },
+    value: { attribute: false },
     heading: {},
     error: { state: true },
     size: { reflect: true },
@@ -20,12 +20,12 @@ class NxSiteselector extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [styles];
     this._connection = new AbortController();
     this._choicesKey = undefined;
-    this._hash = undefined;
+    this._accessResults = new Map();
     this._inaccessibleSites = undefined;
+    this._selectRecent = !this.value;
     this.size ??= 's';
     const { signal } = this._connection;
     document.addEventListener('site-add', () => this.showAddSite(), { signal });
-    window.addEventListener('hashchange', () => this.refresh(), { signal });
     window.addEventListener('storage', ({ key }) => {
       if (key === 'da-sites' || key === null) this.refresh();
     }, { signal });
@@ -43,10 +43,8 @@ class NxSiteselector extends LitElement {
 
   async refresh() {
     if (!this.isConnected) return;
-    const { hash } = window.location;
-    const current = this._hash === hash ? this.value : hash.replace(/^#\//, '').split('/').slice(0, 2).join('/');
-    this._hash = hash;
-    const value = getSiteOptions({ current })[0]?.value ?? '';
+    const value = getSiteOptions({ current: this.value })[0]?.value ?? '';
+    if (value) this._selectRecent = false;
     let recentSites = [];
     let error;
     try {
@@ -74,14 +72,21 @@ class NxSiteselector extends LitElement {
     this.sites = sites.filter(({ value: siteValue }) => !this._inaccessibleSites?.has(siteValue));
     this.value = value;
     this.error = error;
-    if (!sites.length) return;
+    if (!sites.length) {
+      this._selectRecent = false;
+      return;
+    }
     const request = new AbortController();
     this._request = request;
     try {
       const { source } = await import('../../utils/api.js');
       request.signal.throwIfAborted();
       const result = await checkSiteChoices({
-        sites, source, signal: request.signal, inaccessibleSites: this._inaccessibleSites,
+        sites,
+        source,
+        signal: request.signal,
+        inaccessibleSites: this._inaccessibleSites,
+        accessResults: this._accessResults,
       });
       if (request.signal.aborted) return;
       this._inaccessibleSites = result.inaccessibleSites;
@@ -89,6 +94,14 @@ class NxSiteselector extends LitElement {
       const currentError = this._inaccessibleSites.has(value)
         ? `You do not have access to ${value}. Choose another site or try again.` : undefined;
       this.error = [error, currentError, result.error].filter(Boolean).join(' ') || undefined;
+      if (this._selectRecent) {
+        this._selectRecent = false;
+        const recent = this.sites.find((site) => {
+          const access = this._accessResults.get(site.value);
+          return access.status === 'fulfilled' && access.value;
+        });
+        if (recent) await this.selectSite(recent.value);
+      }
     } catch (cause) {
       if (!request.signal.aborted) {
         this.error = [error, `Could not check your sites: ${cause.message}`].filter(Boolean).join(' ');
@@ -98,7 +111,7 @@ class NxSiteselector extends LitElement {
 
   selectSite(value) {
     if (this.value !== value) this.closeDialog();
-    this._hash = window.location.hash;
+    this._selectRecent = false;
     this.value = value;
     const checking = this.refresh();
     this.dispatchEvent(new CustomEvent('site-select', {
@@ -155,11 +168,16 @@ class NxSiteselector extends LitElement {
   }
 
   onRetry() {
+    this._accessResults.clear();
     this._choicesKey = undefined;
     return this.refresh();
   }
 
-  willUpdate() {
+  willUpdate(changed) {
+    if (changed.has('value')) {
+      this.closeDialog();
+      this.refresh();
+    }
     this.hidden = !this.sites?.length;
   }
 

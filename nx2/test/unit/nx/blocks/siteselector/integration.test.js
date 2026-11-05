@@ -56,12 +56,22 @@ describe('standalone site selector behavior', () => {
     sinon.restore();
   });
 
-  it('loads history and checks access without any consumer adapter', async () => {
+  it('preselects the most recent accessible site and notifies the consumer once', async () => {
+    window.history.replaceState(null, '', '#/unrelated/route');
+    const onSelect = sinon.spy();
+    selector.addEventListener('site-select', onSelect);
     expect(customElements.get('nx-add-site')).to.be.undefined;
     await mount();
     expect(selector.sites.map(({ value }) => value)).to.deep.equal(['org/site', 'other/site']);
-    expect(selector.value).to.equal('');
+    expect(selector.value).to.equal('org/site');
+    expect(onSelect.calledOnce).to.be.true;
+    expect(onSelect.firstCall.args[0].detail).to.deep.equal({ value: 'org/site' });
+    expect(onSelect.firstCall.args[0].bubbles).to.be.true;
+    expect(onSelect.firstCall.args[0].composed).to.be.true;
     expect(selector.size).to.equal('s');
+    expect(list.calledTwice).to.be.true;
+    await selector.refresh();
+    expect(onSelect.calledOnce).to.be.true;
     expect(list.calledTwice).to.be.true;
     const picker = selector.shadowRoot.querySelector('nx-picker');
     expect(picker.placeholder).to.equal('Your recent sites');
@@ -73,6 +83,7 @@ describe('standalone site selector behavior', () => {
     const onSelect = sinon.spy();
     selector.addEventListener('site-select', ({ detail }) => onSelect(detail));
     await mount();
+    onSelect.resetHistory();
     const currentHref = window.location.href;
     selector.onChange({ stopPropagation() {}, detail: { value: 'other/site' } });
     await tick();
@@ -89,6 +100,68 @@ describe('standalone site selector behavior', () => {
     selector.onChange({ stopPropagation() {}, detail: { value: 'unknown/site' } });
     expect(onSelect.calledOnce).to.be.true;
     expect(selector.error).to.include('no longer available');
+  });
+
+  it('uses a consumer-provided selection without interpreting the URL or emitting selection back', async () => {
+    window.history.replaceState(null, '', '/different/consumer/path#/unrelated/route');
+    selector.value = 'other/site';
+    const onSelect = sinon.spy();
+    selector.addEventListener('site-select', onSelect);
+    await mount();
+    expect(selector.value).to.equal('other/site');
+    expect(selector.sites.map(({ value }) => value)).to.deep.equal(['other/site', 'org/site']);
+    expect(onSelect.called).to.be.false;
+    list.resetHistory();
+    window.history.replaceState(null, '', '/another/path#/another/route');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    await tick();
+    expect(selector.value).to.equal('other/site');
+    selector.value = 'org/site';
+    await selector.updateComplete;
+    expect(JSON.parse(recentSites)[0]).to.equal('org/site');
+    expect(onSelect.called || list.called).to.be.false;
+  });
+
+  it('does not preselect an unverified recent site when another site has verified access', async () => {
+    list.callsFake(async (path) => ({ ok: path !== '/org/site', items: [] }));
+    sinon.stub(source, 'getMetadata').resolves(new Response(null, { status: 401 }));
+    const onSelect = sinon.spy();
+    selector.addEventListener('site-select', ({ detail }) => onSelect(detail));
+    await mount();
+    expect(selector.value).to.equal('other/site');
+    expect(selector.sites.map(({ value }) => value)).to.have.members(['org/site', 'other/site']);
+    expect(selector.error).to.include('Sign in to check access to org/site');
+    expect(onSelect.calledOnceWithExactly({ value: 'other/site' })).to.be.true;
+    expect(list.calledTwice).to.be.true;
+  });
+
+  it('remains unselected without emitting when no recent site has verified access', async () => {
+    list.rejects(new Error('Offline'));
+    const onSelect = sinon.spy();
+    selector.addEventListener('site-select', onSelect);
+    await mount();
+    expect(selector.value).to.equal('');
+    expect(selector.error).to.include('Offline');
+    expect(onSelect.called).to.be.false;
+  });
+
+  it('does not replace an explicit selection when an older initialization finishes', async () => {
+    let finish;
+    const started = new Promise((resolveStarted) => {
+      list.onFirstCall().callsFake(() => new Promise((resolve) => {
+        finish = resolve;
+        resolveStarted();
+      }));
+    });
+    const onSelect = sinon.spy();
+    selector.addEventListener('site-select', ({ detail }) => onSelect(detail));
+    const mounting = mount();
+    await started;
+    await selector.selectSite('other/site');
+    finish({ ok: true, items: [] });
+    await mounting;
+    expect(selector.value).to.equal('other/site');
+    expect(onSelect.calledOnceWithExactly({ value: 'other/site' })).to.be.true;
   });
 
   it('lazily adds a verified site without requiring consumer routing or server writes', async () => {
@@ -192,23 +265,31 @@ describe('standalone site selector behavior', () => {
   });
 
   it('cancels initialization when removed before the API loads', async () => {
+    const onSelect = sinon.spy();
+    selector.addEventListener('site-select', onSelect);
     document.body.append(selector);
     selector.remove();
     await tick();
     expect(list.called).to.be.false;
     expect(selector.error).to.be.undefined;
+    expect(onSelect.called).to.be.false;
   });
 
   it('filters confirmed denials and restores access on retry without deleting history', async () => {
     const saved = localStorage.getItem('da-sites');
+    const onSelect = sinon.spy();
+    selector.addEventListener('site-select', ({ detail }) => onSelect(detail));
     list.callsFake(async (path) => ({ ok: path !== '/org/site', items: [] }));
     sinon.stub(source, 'getMetadata').resolves(new Response(null, { status: 403 }));
     await mount();
     expect(selector.sites.map(({ value }) => value)).to.deep.equal(['other/site']);
-    expect(localStorage.getItem('da-sites')).to.equal(saved);
+    expect(selector.value).to.equal('other/site');
+    expect(onSelect.calledOnceWithExactly({ value: 'other/site' })).to.be.true;
+    expect(JSON.parse(localStorage.getItem('da-sites'))).to.have.members(JSON.parse(saved));
     list.resolves({ ok: true, items: [] });
     await selector.onRetry();
-    expect(selector.sites.map(({ value }) => value)).to.deep.equal(['org/site', 'other/site']);
-    expect(localStorage.getItem('da-sites')).to.equal(saved);
+    expect(selector.sites.map(({ value }) => value)).to.deep.equal(['other/site', 'org/site']);
+    expect(JSON.parse(localStorage.getItem('da-sites'))).to.have.members(JSON.parse(saved));
+    expect(onSelect.calledOnce).to.be.true;
   });
 });

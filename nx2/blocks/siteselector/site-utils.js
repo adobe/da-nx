@@ -57,11 +57,16 @@ export async function checkSiteAccess({ value, source, signal }) {
   throw new Error(`Could not verify access to ${value}. Please try again.`);
 }
 
-export async function checkSiteChoices({ sites, source, signal, inaccessibleSites = new Set() }) {
-  const results = await Promise.allSettled(
-    sites.map(({ value }) => checkSiteAccess({ value, source, signal })),
+export async function checkSiteChoices({
+  sites, source, signal, inaccessibleSites = new Set(), accessResults = new Map(),
+}) {
+  const unchecked = sites.filter(({ value }) => !accessResults.has(value));
+  const checked = await Promise.allSettled(
+    unchecked.map(({ value }) => checkSiteAccess({ value, source, signal })),
   );
   signal.throwIfAborted();
+  unchecked.forEach(({ value }, index) => accessResults.set(value, checked[index]));
+  const results = sites.map(({ value }) => accessResults.get(value));
   const inaccessible = new Set(inaccessibleSites);
   results.forEach((result, index) => {
     if (result.status !== 'fulfilled') return;

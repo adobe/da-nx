@@ -32,6 +32,7 @@ describe('site selector history and lifecycle', () => {
     list = sinon.stub(source, 'list').resolves({ ok: true, items: [] });
     sinon.stub(config, 'get').resolves(new Response('{}', { headers: { 'x-da-actions': '/=read' } }));
     selector = document.createElement('nx-siteselector');
+    selector.value = 'aemsites/devlive';
     const refresh = sinon.spy(selector, 'refresh');
     document.body.append(selector);
     connection = selector._connection;
@@ -57,18 +58,24 @@ describe('site selector history and lifecycle', () => {
     expect(selector.size).to.equal('m');
   });
 
-  it('keeps selection independent of folder changes without repeating access checks', async () => {
+  it('ignores URL changes unless the consumer updates its selection', async () => {
     expect(selector.value).to.equal('aemsites/devlive');
     list.resetHistory();
-    window.history.replaceState(null, '', '#/aemsites/devlive/other');
+    window.history.replaceState(null, '', '#/other/site/folder');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
     await selector.refresh();
     expect(selector.value).to.equal('aemsites/devlive');
     expect(list.called).to.be.false;
+    selector.value = 'exp-workspace/frescopaco';
+    await selector.updateComplete;
+    expect(selector.value).to.equal('exp-workspace/frescopaco');
+    expect(list.called).to.be.false;
   });
 
-  it('leaves an unscoped host unselected, selects explicitly and preserves its heading on reset', async () => {
+  it('preserves the heading on explicit reset without inferring selection from the URL', async () => {
     const remembered = localStorage.getItem('da-sites');
     selector.heading = 'Your recent sites';
+    selector.value = '';
     window.history.replaceState(null, '', window.location.pathname);
     await selector.refresh();
     expect(selector.value).to.equal('');
@@ -78,14 +85,13 @@ describe('site selector history and lifecycle', () => {
     expect(localStorage.getItem('da-sites')).to.equal(remembered);
     const value = 'exp-workspace/frescopaco';
     const unscopedHref = window.location.href;
-    choose(value);
-    await tick();
+    await choose(value);
     expect(window.location.href).to.equal(unscopedHref);
     expect(selector.value).to.equal(value);
     expect(selector.sites.find((site) => site.value === value).label).to.equal(value);
-    window.history.replaceState(null, '', '#/aemsites/devlive');
+    selector.value = 'aemsites/devlive';
     await selector.refresh();
-    window.history.replaceState(null, '', window.location.pathname);
+    selector.value = '';
     await selector.refresh();
     expect(selector.value).to.equal('');
     expect(selector.heading).to.equal('Your recent sites');
@@ -94,6 +100,17 @@ describe('site selector history and lifecycle', () => {
     await selector.refresh();
     expect(selector.value).to.equal('');
     expect(selector.sites).to.deep.equal([]);
+  });
+
+  it('reuses access checks when switching between recent sites or reordering history', async () => {
+    list.resetHistory();
+    for (const value of ['exp-workspace/frescopaco', 'aemsites/devlive']) {
+      await choose(value);
+      expect(selector.value).to.equal(value);
+    }
+    localStorage.setItem('da-sites', '["exp-workspace/frescopaco","aemsites/devlive"]');
+    await selector.refresh();
+    expect(list.called).to.be.false;
   });
 
   it('hides denied choices without deleting history or changing a denied current route', async () => {
@@ -116,6 +133,7 @@ describe('site selector history and lifecycle', () => {
     }));
     sinon.stub(source, 'getMetadata').resolves(new Response(null, { status: 403 }));
     const value = 'exp-workspace/frescopaco';
+    await selector.onRetry();
     await addExistingSite({ value, source, signal: connection.signal });
     await choose(value);
     expect(selector.value).to.equal(value);
@@ -153,7 +171,7 @@ describe('site selector history and lifecycle', () => {
     expect(localStorage.getItem('da-sites')).to.equal(saved);
   });
 
-  it('does not apply an old denial after the route changes', async () => {
+  it('does not apply an old denial after the consumer changes selection', async () => {
     let finish;
     list.resetHistory();
     const started = new Promise((resolveStarted) => {
@@ -165,7 +183,7 @@ describe('site selector history and lifecycle', () => {
     const refreshed = selector.onRetry();
     await started;
     const checking = list.firstCall.args[1].opts.signal;
-    window.history.replaceState(null, '', '#/other/site');
+    selector.value = 'other/site';
     await selector.refresh();
     expect(checking.aborted).to.equal(true);
     finish({ ok: false });
@@ -184,10 +202,17 @@ describe('site selector history and lifecycle', () => {
   });
 
   it('refreshes cross-tab history without deleting remembered sites', async () => {
+    list.resetHistory();
     localStorage.setItem('da-sites', '["other/site"]');
+    const refresh = sinon.spy(selector, 'refresh');
     window.dispatchEvent(new StorageEvent('storage', { key: 'da-sites' }));
-    await selector.refresh();
+    await refresh.firstCall.returnValue;
+    refresh.restore();
     expect(selector.sites.map(({ value }) => value)).to.deep.equal(['aemsites/devlive', 'other/site']);
+    expect(list.calledOnce).to.be.true;
+    expect(list.firstCall.args[0]).to.equal('/other/site');
+    await choose('other/site');
+    expect(list.calledOnce).to.be.true;
   });
 
   it('reports corrupt history without overwriting it and recovers after repair', async () => {
@@ -205,12 +230,12 @@ describe('site selector history and lifecycle', () => {
 
   it('reports unavailable storage and failed access verification explicitly', async () => {
     const save = sinon.stub(Storage.prototype, 'setItem').throws(new Error('Storage unavailable'));
-    window.history.replaceState(null, '', '#/other/site');
+    selector.value = 'other/site';
     await selector.refresh();
     expect(selector.error).to.include('Could not save the current site');
     save.restore();
     list.rejects(new Error('Offline'));
-    await selector.refresh();
+    await selector.onRetry();
     expect(selector.error).to.include('Offline');
   });
 
@@ -242,17 +267,21 @@ describe('site selector history and lifecycle', () => {
     list.rejects(new Error('Offline'));
     await selector.refresh();
     expect(selector.error).to.include('Offline');
+    list.resetHistory();
+    await choose('other/site');
+    expect(list.called).to.be.false;
+    expect(selector.error).to.include('Offline');
     list.resolves({ ok: true, items: [] });
-    selector.onRetry();
-    await tick();
+    await selector.onRetry();
+    expect(list.calledTwice).to.be.true;
     expect(selector.error).to.be.undefined;
-    expect(selector.sites.map(({ value }) => value)).to.deep.equal(['aemsites/devlive', 'other/site']);
+    expect(selector.sites.map(({ value }) => value)).to.deep.equal(['other/site', 'aemsites/devlive']);
   });
 
-  it('closes Add on route changes without replacing the host heading', async () => {
+  it('closes Add when the consumer changes selection without replacing the host heading', async () => {
     selector.heading = 'Choose a site';
     await openDialog();
-    window.history.replaceState(null, '', '#/exp-workspace/frescopaco');
+    selector.value = 'exp-workspace/frescopaco';
     await selector.refresh();
     expect(document.querySelector('nx-add-site')).to.be.null;
     expect(selector.heading).to.equal('Choose a site');

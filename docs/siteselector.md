@@ -1,0 +1,32 @@
+# nx-siteselector
+
+Add `siteselector` to a navigation fragment's site-nav list.
+It selects the most recent accessible site by default. Consumers own navigation;
+set `value` to supply a selection instead. It is hidden when no sites are available.
+
+## Properties
+
+| Property | Purpose |
+| -------- | ------- |
+| `heading` | Unselected trigger and section label; defaults to `Your recent sites`. |
+| `size` | `s` (default) or `m`. |
+| `value` | Selected `org/site`. Set before connection to override the default. Later changes do not emit `site-select`; clear with `''`. |
+| `getCreateSiteHref` | Optional `({ org }) => href` override; return `undefined` to hide Create. |
+
+## Events
+
+| Event | Purpose |
+| ----- | ------- |
+| `site-select` | Emits `{ value }` for the default selection, user selection or Add. Bubbles across shadow roots. |
+| `site-add` | Dispatch this request to open Add, including when the selector is hidden. |
+
+Listen before the selector connects to receive its initial selection:
+
+```js
+document.addEventListener('site-select', ({ detail: { value } }) => {
+  console.log(value);
+});
+```
+
+Create is available to organization administrators and opens `/start?org=...`.
+Override or hide it with `getCreateSiteHref` if the host uses a different destination.
