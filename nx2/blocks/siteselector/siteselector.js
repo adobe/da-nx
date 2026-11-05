@@ -134,10 +134,9 @@ class NxSiteselector extends LitElement {
       await import('./add-site.js');
       if (signal.aborted || value !== this.value) return;
       const dialog = document.createElement('nx-add-site');
-      [dialog.org] = value.split('/');
       dialog.createHref = this.getCreateSiteHref
-        ? this.getCreateSiteHref({ org: dialog.org })
-        : getCreateSiteHref({ org: dialog.org });
+        ? this.getCreateSiteHref()
+        : getCreateSiteHref();
       dialog.addEventListener('close', () => {
         this.closeDialog();
         this.focus();

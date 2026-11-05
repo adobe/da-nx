@@ -21,11 +21,10 @@ describe('shared Add site dialog', () => {
     readSites.withArgs('da-sites').callsFake(() => recentSites);
     saveSites = sinon.stub(Storage.prototype, 'setItem').callThrough();
     saveSites.withArgs('da-sites').callsFake((key, value) => { recentSites = value; });
-    permission = sinon.stub(config, 'get').resolves(new Response('{}', { headers: { 'x-da-actions': '/=read' } }));
+    permission = sinon.stub(config, 'get').resolves(new Response(null, { status: 403 }));
     list = sinon.stub(source, 'list').callsFake(async (path) => ({ ok: true, items: path === '/org' ? [{ name: 'site', path: '/org/site' }] : [] }));
     el = document.createElement('nx-add-site');
-    el.org = 'org';
-    el.createHref = '/create?org=org';
+    el.createHref = '/create';
     document.body.append(el);
     await el.updateComplete;
     await tick();
@@ -39,19 +38,40 @@ describe('shared Add site dialog', () => {
   });
 
   it('uses common form error styling and clears it when the input is corrected', async () => {
-    el.style.cssText = '--s2-red-800: #c00; --s2-red-900: #900; --s2-gray-900: #333;';
-    el._error = 'Access denied';
-    await el.updateComplete;
+    el.style.cssText = '--s2-red-800: #c00; --s2-red-900: #900; --s2-gray-900: #333; --s2-spacing-100: 8px;';
     const input = el.shadowRoot.querySelector('input');
-    input.focus();
+    input.value = 'https://example.com';
+    await el.submitForm({ preventDefault() {} });
+    await el.updateComplete;
     const error = el.shadowRoot.querySelector('[role="alert"]');
     expect(getComputedStyle(input).borderColor).to.equal('rgb(204, 0, 0)');
     expect(getComputedStyle(error).color).to.equal('rgb(153, 0, 0)');
     expect(error.hidden).to.be.false;
+    expect(error.getBoundingClientRect().top - input.getBoundingClientRect().bottom)
+      .to.be.closeTo(8, 0.5);
     input.dispatchEvent(new Event('input'));
     await el.updateComplete;
     expect(error.hidden).to.be.true;
     expect(getComputedStyle(input).borderColor).to.equal('rgb(51, 51, 51)');
+  });
+
+  it('shows inline errors instead of browser validation for required and malformed URLs', async () => {
+    const input = el.shadowRoot.querySelector('input');
+    const invalid = sinon.spy();
+    input.addEventListener('invalid', invalid);
+    for (const value of ['', 'not-a-url']) {
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+      input.focus();
+      if (!value) await sendKeys({ press: 'Enter' });
+      else el.shadowRoot.querySelector('[type="submit"]').click();
+      await el.updateComplete;
+      const error = el.shadowRoot.querySelector('[role="alert"]');
+      expect(error.hidden).to.be.false;
+      expect(error.textContent).to.include('Enter an existing AEM site URL');
+      expect(input.getAttribute('aria-invalid')).to.equal('true');
+    }
+    expect(invalid.called || list.called || saveSites.called).to.be.false;
   });
 
   it('uses shared rounded dialog buttons in light and dark themes', () => {
@@ -106,7 +126,7 @@ describe('shared Add site dialog', () => {
     const saveSource = sinon.spy(source, 'save');
     const saveConfig = sinon.spy(config, 'save');
     el.addEventListener('site-added', added);
-    expect(el.shadowRoot.querySelector('.site-creation')).to.equal(null);
+    expect(el.shadowRoot.querySelector('.site-creation')).to.exist;
     await el.submitForm({ preventDefault() {} });
     expect(added.calledOnce).to.equal(true);
     expect(added.firstCall.args[0].detail.value).to.equal('org/site');
@@ -115,66 +135,27 @@ describe('shared Add site dialog', () => {
     expect(saveConfig.called).to.equal(false);
   });
 
-  it('shows creation only for an explicit organization-config write grant', async () => {
-    permission.resolves(new Response('{}', { headers: { 'x-da-actions': '/=read,write' } }));
-    await el.loadCreationPermission();
-    await el.updateComplete;
+  it('shows Create without a selected organization or checking organization permissions', () => {
     const link = new URL(el.shadowRoot.querySelector('.site-creation a').href);
     expect(link.pathname).to.equal('/create');
-    expect(link.searchParams.get('org')).to.equal('org');
+    expect(link.searchParams.has('org')).to.be.false;
     expect(link.hash).to.equal('');
-    permission.resolves(new Response('{}', { headers: { 'x-da-actions': '/=read' } }));
-    await el.loadCreationPermission();
-    await el.updateComplete;
-    expect(el.shadowRoot.querySelector('.site-creation')).to.equal(null);
+    expect(permission.called).to.be.false;
   });
 
   it('preserves host-owned creation routing', async () => {
-    el.createHref = '/start?landing=home&org=org&nx=lp';
-    permission.resolves(new Response('{}', { headers: { 'x-da-actions': '/=read,write' } }));
-    await el.loadCreationPermission();
+    el.createHref = '/start?landing=home&nx=lp';
     await el.updateComplete;
     expect(el.shadowRoot.querySelector('.site-creation a').getAttribute('href')).to.equal(el.createHref);
   });
 
   it('leaves creation to the host without blocking Add existing', async () => {
     el.createHref = undefined;
-    permission.resetHistory();
-    await el.loadCreationPermission();
     await el.updateComplete;
     expect(permission.called).to.be.false;
     expect(el.shadowRoot.querySelector('.site-creation')).to.be.null;
     await el.submitForm({ preventDefault() {} });
     expect(JSON.parse(localStorage.getItem('da-sites'))[0]).to.equal('org/site');
-  });
-
-  it('keeps Add existing available when admin permissions cannot be checked', async () => {
-    permission.rejects(new Error('Offline'));
-    await el.loadCreationPermission();
-    await el.updateComplete;
-    expect(el.shadowRoot.querySelector('.permission-error').textContent).to.include('Offline');
-    expect(el.shadowRoot.querySelector('.site-creation')).to.equal(null);
-    expect(el.shadowRoot.querySelector('button[type="submit"]').disabled).to.equal(false);
-    await el.submitForm({ preventDefault() {} });
-    expect(JSON.parse(localStorage.getItem('da-sites'))[0]).to.equal('org/site');
-  });
-
-  it('does not trust fallback permissions without the explicit action header', async () => {
-    const response = new Response('{}');
-    response.permissions = ['read', 'write'];
-    permission.resolves(response);
-    await el.loadCreationPermission();
-    await el.updateComplete;
-    expect(el.shadowRoot.querySelector('.site-creation')).to.equal(null);
-    expect(el.shadowRoot.querySelector('.permission-error').textContent).to.include('could not be verified');
-  });
-
-  it('does not infer an admin organization when no site is selected', async () => {
-    el.org = undefined;
-    permission.resetHistory();
-    await el.loadCreationPermission();
-    expect(permission.called).to.equal(false);
-    expect(el._canCreate).to.equal(false);
   });
 
   it('rejects invalid URLs before checking access or changing storage', async () => {
@@ -229,16 +210,5 @@ describe('shared Add site dialog', () => {
     await pending;
     expect(added.called).to.equal(false);
     expect(JSON.parse(localStorage.getItem('da-sites'))).to.deep.equal(['org/other']);
-  });
-
-  it('ignores a late administrator response after removal', async () => {
-    let finish;
-    permission.returns(new Promise((resolve) => { finish = resolve; }));
-    const pending = el.loadCreationPermission();
-    await tick();
-    el.remove();
-    finish(new Response('{}', { headers: { 'x-da-actions': '/=read,write' } }));
-    await pending;
-    expect(el._canCreate).to.equal(false);
   });
 });

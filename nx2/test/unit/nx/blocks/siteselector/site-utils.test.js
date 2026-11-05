@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import {
-  getSiteOptions, parseSubdomain, hasOrgAdminGrant,
+  getSiteOptions, parseSubdomain,
   getCreateSiteHref, checkSiteChoices, addExistingSite,
 } from '../../../../../blocks/siteselector/site-utils.js';
 
@@ -32,21 +32,20 @@ describe('shared site access', () => {
   });
 
   it('builds creation links on the current host without a DA integration', () => {
-    const url = new URL(getCreateSiteHref({ org: 'example' }));
+    const url = new URL(getCreateSiteHref());
     expect(url.origin).to.equal(window.location.origin);
     expect(url.pathname).to.equal('/start');
-    expect(url.searchParams.get('org')).to.equal('example');
+    expect(url.searchParams.has('org')).to.be.false;
     expect(url.hash).to.equal('');
   });
 
-  it('preserves preview settings but removes stale site and Browse routing from creation', () => {
+  it('preserves preview settings but removes org, site and Browse routing from creation', () => {
     const url = new URL(getCreateSiteHref({
-      org: 'org',
-      href: 'https://main--da-live--adobe.aem.live/drafts/example?nx=selector&nxver=2&theme=dark&landing=home&browse=2&site=old#/org/site/folder',
+      href: 'https://main--da-live--adobe.aem.live/drafts/example?nx=selector&nxver=2&theme=dark&landing=home&browse=2&site=old&org=old#/org/site/folder',
     }));
     expect(url.origin).to.equal('https://main--da-live--adobe.aem.live');
     expect(url.pathname).to.equal('/start');
-    expect(url.searchParams.get('org')).to.equal('org');
+    expect(url.searchParams.has('org')).to.be.false;
     expect(url.searchParams.get('nx')).to.equal('selector');
     expect(url.searchParams.get('nxver')).to.equal('2');
     expect(url.searchParams.get('theme')).to.equal('dark');
@@ -66,13 +65,6 @@ describe('shared site access', () => {
       'https://user:password@main--site--org.aem.live', 'ftp://main--site--org.aem.live',
       'https://main--site--org--extra.aem.live',
     ].forEach((href) => expect(parseSubdomain(href), href).to.equal(null));
-  });
-
-  it('does not infer org administration from child or fallback permissions', () => {
-    const response = new Response(null, { headers: { 'x-da-actions': '/=read', 'x-da-child-actions': '/**=write' } });
-    response.permissions = ['read', 'write'];
-    expect(hasOrgAdminGrant(response)).to.equal(false);
-    expect(hasOrgAdminGrant(new Response(null, { status: 403, headers: { 'x-da-actions': '/=read,write' } }))).to.equal(false);
   });
 
   it('preserves underscore identifiers and the existing trailing-dash normalization', () => {

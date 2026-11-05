@@ -44,9 +44,7 @@ describe('standalone site selector behavior', () => {
     list = sinon.stub(source, 'list').callsFake(async (path) => ({
       ok: true, items: path === '/org' ? [{ name: 'site' }] : [],
     }));
-    permission = sinon.stub(config, 'get').resolves(new Response('{}', {
-      headers: { 'x-da-actions': '/=read,write' },
-    }));
+    permission = sinon.stub(config, 'get').resolves(new Response(null, { status: 403 }));
     selector = document.createElement('nx-siteselector');
   });
 
@@ -175,6 +173,7 @@ describe('standalone site selector behavior', () => {
     const currentHref = window.location.href;
     const cancelled = await openDialog(selector);
     await cancelled.updateComplete;
+    expect(cancelled.shadowRoot.querySelector('.site-creation a')).to.exist;
     cancelled.shadowRoot.querySelector('[slot="actions"][type="button"]').click();
     await tick();
     expect(cancelled.isConnected).to.be.false;
@@ -197,45 +196,37 @@ describe('standalone site selector behavior', () => {
     expect(picker.shadowRoot.activeElement).to.equal(picker.shadowRoot.querySelector('button'));
   });
 
-  it('uses only the host-provided Create destination after checking admin access', async () => {
+  it('uses the host-provided Create destination without passing an organization', async () => {
     window.history.replaceState(null, '', '#/org/site');
-    selector.getCreateSiteHref = ({ org }) => `/custom-create?org=${org}`;
+    selector.getCreateSiteHref = sinon.stub().returns('/custom-create');
     await mount();
     const dialog = await openDialog(selector);
-    await dialog.loadCreationPermission();
     await dialog.updateComplete;
     expect(dialog.shadowRoot.querySelector('.site-creation a').getAttribute('href'))
-      .to.equal('/custom-create?org=org');
-    expect(permission.calledWith({ org: 'org' })).to.be.true;
+      .to.equal('/custom-create');
+    expect(selector.getCreateSiteHref.calledOnceWithExactly()).to.be.true;
+    expect(permission.called).to.be.false;
   });
 
-  [['read,write', true], ['read', false]].forEach(([actions, canCreate]) => {
-    it(`handles default creation routing without a DA listener for ${actions} permissions`, async () => {
-      permission.resolves(new Response('{}', { headers: { 'x-da-actions': `/=${actions}` } }));
-      window.history.replaceState(null, '', '?nx=siteselector-main&nxver=2&theme=dark&browse=2&site=old#/org/site/folder');
-      const currentHref = window.location.href;
-      await mount();
-      expect(selector.getCreateSiteHref).to.be.undefined;
-      const dialog = await openDialog(selector);
-      await dialog.loadCreationPermission();
-      await dialog.updateComplete;
-      expect(permission.calledWith({ org: 'org' })).to.be.true;
-      const link = dialog.shadowRoot.querySelector('.site-creation a');
-      expect(!!link).to.equal(canCreate);
-      if (canCreate) {
-        const url = new URL(link.href);
-        expect(url.origin).to.equal(window.location.origin);
-        expect(url.pathname).to.equal('/start');
-        expect(url.searchParams.get('org')).to.equal('org');
-        expect(url.searchParams.get('nx')).to.equal('siteselector-main');
-        expect(url.searchParams.get('nxver')).to.equal('2');
-        expect(url.searchParams.get('theme')).to.equal('dark');
-        expect(url.searchParams.has('browse')).to.be.false;
-        expect(url.searchParams.has('site')).to.be.false;
-        expect(url.hash).to.equal('');
-      }
-      expect(window.location.href).to.equal(currentHref);
-    });
+  it('opens the generic creation flow without forwarding the current organization', async () => {
+    window.history.replaceState(null, '', '?nx=siteselector-main&nxver=2&theme=dark&browse=2&site=old&org=old#/org/site/folder');
+    selector.value = 'selected-org/site';
+    const currentHref = window.location.href;
+    await mount();
+    const dialog = await openDialog(selector);
+    await dialog.updateComplete;
+    const url = new URL(dialog.shadowRoot.querySelector('.site-creation a').href);
+    expect(url.origin).to.equal(window.location.origin);
+    expect(url.pathname).to.equal('/start');
+    expect(url.searchParams.has('org')).to.be.false;
+    expect(url.searchParams.get('nx')).to.equal('siteselector-main');
+    expect(url.searchParams.get('nxver')).to.equal('2');
+    expect(url.searchParams.get('theme')).to.equal('dark');
+    expect(url.searchParams.has('browse')).to.be.false;
+    expect(url.searchParams.has('site')).to.be.false;
+    expect(url.hash).to.equal('');
+    expect(permission.called).to.be.false;
+    expect(window.location.href).to.equal(currentHref);
   });
 
   it('lets a host explicitly suppress creation without disabling Add existing', async () => {

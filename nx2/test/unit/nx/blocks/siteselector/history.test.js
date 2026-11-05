@@ -5,7 +5,7 @@ import { addExistingSite } from '../../../../../blocks/siteselector/site-utils.j
 
 await setConfig({ hostnames: [] });
 await import('../../../../../blocks/siteselector/siteselector.js');
-const { source, config } = await import('../../../../../utils/api.js');
+const { source } = await import('../../../../../utils/api.js');
 const tick = () => new Promise((resolve) => { setTimeout(resolve, 0); });
 
 describe('site selector history and lifecycle', () => {
@@ -30,7 +30,6 @@ describe('site selector history and lifecycle', () => {
     window.history.replaceState(null, '', '#/aemsites/devlive/folder');
     localStorage.setItem('da-sites', '["aemsites/devlive","exp-workspace/frescopaco"]');
     list = sinon.stub(source, 'list').resolves({ ok: true, items: [] });
-    sinon.stub(config, 'get').resolves(new Response('{}', { headers: { 'x-da-actions': '/=read' } }));
     selector = document.createElement('nx-siteselector');
     selector.value = 'aemsites/devlive';
     const refresh = sinon.spy(selector, 'refresh');
@@ -251,8 +250,7 @@ describe('site selector history and lifecycle', () => {
     const [dialog] = dialogs;
     await dialog.updateComplete;
     await dialog.shadowRoot.querySelector('nx-dialog').updateComplete;
-    expect(dialog.org).to.equal('aemsites');
-    expect(dialog.shadowRoot.querySelector('.site-creation')).to.be.null;
+    expect(dialog.shadowRoot.querySelector('.site-creation')).to.exist;
     expect(window.location.hash).to.equal(hash);
     dialog.dispatchEvent(new Event('close'));
     expect(dialog.isConnected).to.be.false;

@@ -30,17 +30,12 @@ export function setRecentSite({ org, site }) {
   localStorage.setItem('da-sites', JSON.stringify(sites));
 }
 
-export function hasOrgAdminGrant(response) {
-  const actions = response.headers?.get('x-da-actions')?.split('=').pop().split(',');
-  return response.ok && !!actions?.some((action) => action.trim() === 'write');
-}
-
-export function getCreateSiteHref({ org, href = window.location.href }) {
+export function getCreateSiteHref({ href = window.location.href } = {}) {
   const url = new URL(href);
   url.pathname = '/start';
   url.searchParams.delete('browse');
   url.searchParams.delete('site');
-  url.searchParams.set('org', org);
+  url.searchParams.delete('org');
   url.hash = '';
   return url.href;
 }

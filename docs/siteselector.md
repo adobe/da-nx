@@ -11,7 +11,7 @@ set `value` to supply a selection instead. It is hidden when no sites are availa
 | `heading` | Unselected trigger and section label; defaults to `Your recent sites`. |
 | `size` | `s` (default) or `m`. |
 | `value` | Selected `org/site`. Set before connection to override the default. Later changes do not emit `site-select`; clear with `''`. |
-| `getCreateSiteHref` | Optional `({ org }) => href` override; return `undefined` to hide Create. |
+| `getCreateSiteHref` | Optional `() => href` override; return `undefined` to hide Create. |
 
 ## Events
 
@@ -28,5 +28,5 @@ document.addEventListener('site-select', ({ detail: { value } }) => {
 });
 ```
 
-Create is available to organization administrators and opens `/start?org=...`.
+Create opens `/start` without an organization selection.
 Override or hide it with `getCreateSiteHref` if the host uses a different destination.
