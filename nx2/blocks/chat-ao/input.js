@@ -42,6 +42,7 @@ export default class NxAoInput extends LitElement {
     onMenuSelect: { attribute: false },
     _dragging: { state: true },
     _voiceListening: { state: true },
+    _hasItems: { state: true },
   };
 
   _slashMenu = createSlashMenu(this, { getItems: (filter) => this._getSlashItems(filter) });
@@ -321,7 +322,7 @@ export default class NxAoInput extends LitElement {
         @select=${({ detail }) => this._onSlashSelect(detail.id)}
         @mousedown=${(e) => e.preventDefault()}
       ></nx-menu>
-      <form class="chat-form" aria-busy=${working} @submit=${this._submit}
+      <form class="chat-form" aria-busy=${working} ?data-has-items=${this._hasItems} @submit=${this._submit}
         @dragenter=${this._dnd.onDragEnter}
         @dragleave=${this._dnd.onDragLeave}
         @dragover=${this._dnd.onDragOver}
@@ -333,7 +334,8 @@ export default class NxAoInput extends LitElement {
             <span class="chat-drop-title">Drop a file to add context</span>
             <span class="chat-drop-hint">Supports documents, images, and code</span>
           </div>` : nothing}
-        <nx-pills addEvent=${this._standalone ? this._contextEvent : this.addEvent ?? ''}></nx-pills>
+        <nx-pills addEvent=${this._standalone ? this._contextEvent : this.addEvent ?? ''}
+          @nx-pills-change=${({ detail }) => { this._hasItems = !!detail.items.length; }}></nx-pills>
         <input
           class="chat-file-input"
           type="file"

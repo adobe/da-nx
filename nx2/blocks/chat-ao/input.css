@@ -301,6 +301,10 @@
     box-shadow: 0 2px 4px #0000000f;
   }
 
+  .chat-form:not([data-has-items]) nx-pills {
+    display: none;
+  }
+
   .chat-drop-zone {
     border-radius: 24px;
   }
@@ -308,6 +312,8 @@
   .chat-input-wrap {
     gap: var(--s2-spacing-200);
     padding-inline-start: 6px;
+    font-size: var(--s2-body-size-m);
+    line-height: 1.5;
 
     &.coworker-chat::before {
       margin-block-start: calc((1.5em - 20px) / 2);

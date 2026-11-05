@@ -392,6 +392,14 @@ describe('standalone input and full AO chat sharing', () => {
     expect(standalone.shadowRoot.querySelector('.chat-surface')).to.not.equal(null);
     expect(full._input.hasAttribute('standalone')).to.equal(false);
     expect(full._input.shadowRoot.querySelector('.chat-surface')).to.equal(null);
+    const form = standalone.shadowRoot.querySelector('form');
+    expect(form.hasAttribute('data-has-items')).to.equal(false);
+    pills(standalone).add({ id: 'pill', label: 'Pill' });
+    await flush();
+    expect(form.hasAttribute('data-has-items')).to.equal(true);
+    pills(standalone).clear();
+    await flush();
+    expect(form.hasAttribute('data-has-items')).to.equal(false);
   });
 
   it('shows the working status in the standalone input and the full chat while a reply runs', async () => {
