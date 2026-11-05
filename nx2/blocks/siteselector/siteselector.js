@@ -20,20 +20,13 @@ class NxSiteselector extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [styles];
     this._connection = new AbortController();
     this._adapter = undefined;
-    this._loading = false;
     this.dispatchEvent(new CustomEvent('site-selector-ready', {
       bubbles: true,
       composed: true,
       detail: { selector: this, signal: this._connection.signal },
     }));
     this._managed ??= this.sites === undefined;
-    if (this._managed) {
-      const { signal } = this._connection;
-      this.addEventListener('site-retry', () => {
-        if (!this._adapter) this.ready = this.loadSites(signal);
-      }, { signal });
-      this.ready = this.loadSites(signal);
-    }
+    if (this._managed) this.ready = this.loadSites(this._connection.signal);
   }
 
   disconnectedCallback() {
@@ -44,8 +37,6 @@ class NxSiteselector extends LitElement {
   focus(options) { this.shadowRoot.querySelector('nx-picker')?.focus(options); }
 
   async loadSites(signal) {
-    if (this._loading || signal.aborted) return;
-    this._loading = true;
     try {
       const { connectSiteSelector } = await import('./picker-controller.js');
       if (signal.aborted || !this.isConnected) return;
@@ -57,8 +48,6 @@ class NxSiteselector extends LitElement {
       await this._adapter.ready;
     } catch (error) {
       if (!signal.aborted) this.error = `Could not load your sites: ${error.message}`;
-    } finally {
-      if (!signal.aborted) this._loading = false;
     }
   }
 
