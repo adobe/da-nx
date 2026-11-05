@@ -7,6 +7,10 @@
   max-width: min(100%, 280px);
 }
 
+:host([hidden]) {
+  display: none;
+}
+
 nx-picker {
   --nx-picker-height: var(--s2-spacing-500);
   --nx-picker-padding: var(--s2-spacing-75) var(--s2-spacing-300);
@@ -68,10 +72,6 @@ p button {
   font: inherit;
   text-decoration: underline;
   cursor: pointer;
-}
-
-.nx-btn-accent:focus-visible {
-  outline-offset: -2px;
 }
 
 @media (width < 600px) {

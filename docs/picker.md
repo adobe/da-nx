@@ -192,10 +192,11 @@ Menu names are capitalized; identifiers and emitted values are unchanged.
 Managed selected triggers show only `org/site`; menu rows retain the name and path.
 Explicitly supplied labels are preserved.
 
-With no loaded choices and no error, the selector renders a shared blue
-`nx-btn-accent` Add site button with a trailing plus icon instead of an empty dropdown.
-It opens the same lazy-loaded dialog directly. Loading and error/retry states are
-preserved; available sites still render a picker even when none is selected.
+The selector renders only when there are sites to pick from. While loading or with no
+choices it sets `hidden`, takes no space, and the nav collapses its list item, similar to
+breadcrumbs on root. Pages own the empty-state Add action; dispatching a bubbling
+`site-add` event opens the same dialog while a selector is connected. Available sites
+still render a picker even when none is selected.
 
 Selecting or adding updates selection and history without navigation. Hash changes
 resynchronize selection. Create opens the host's `/start?org=...` only after an explicit
@@ -210,5 +211,5 @@ starts a fresh controller. Await `selector.ready` for initial access checks.
 
 For externally controlled rendering, assign `sites` before first connection or in the
 synchronous ready listener, then manage `value` and events yourself:
-`[{ value: 'org/site', label: 'Site, org/site' }]`. An empty array means loaded with no
-choices; `undefined` means loading. Controlled instances have no controller or `ready`.
+`[{ value: 'org/site', label: 'Site, org/site' }]`. An empty array (no choices) or
+`undefined` (loading) renders nothing. Controlled instances have no controller or `ready`.

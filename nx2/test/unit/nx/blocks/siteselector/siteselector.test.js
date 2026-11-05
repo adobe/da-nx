@@ -44,24 +44,23 @@ describe('nx-siteselector', () => {
     }
   });
 
-  it('replaces the empty picker with a direct shared Add button and restores the picker for sites', async () => {
-    selector.sites = [];
+  it('renders nothing and takes no space until there are sites to pick from', async () => {
     document.body.append(selector);
-    let picker = await settle();
-    expect(picker).to.be.null;
-    const add = selector.shadowRoot.querySelector('.nx-btn-accent');
-    expect(add.textContent.trim()).to.equal('Add site');
-    expect(add.type).to.equal('button');
-    expect(add.querySelector('svg').getAttribute('aria-hidden')).to.equal('true');
-    expect(add.querySelector('use')).to.be.null;
-    expect(add.querySelector('path').getBBox().width).to.be.greaterThan(0);
+    for (const sites of [undefined, []]) {
+      selector.sites = sites;
+      expect(await settle()).to.be.null;
+      expect(selector.hidden).to.be.true;
+      expect(selector.shadowRoot.querySelector('button')).to.be.null;
+      expect(selector.getBoundingClientRect().width).to.equal(0);
+    }
     selector.sites = [
       { value: 'aemsites/devlive', label: 'devlive (aemsites)' },
       { value: 'exp-workspace/frescopaco', label: 'frescopaco (exp-workspace)' },
     ];
     selector.value = 'aemsites/devlive';
     selector.heading = 'Your recent sites';
-    picker = await settle();
+    let picker = await settle();
+    expect(selector.hidden).to.be.false;
     expect(picker.labelOverride).to.equal('devlive (aemsites)');
     expect(picker.items[0].section).to.equal('Your recent sites');
     expect(picker.items[1]).to.include({ label: 'Devlive', description: 'aemsites/devlive' });
@@ -70,76 +69,9 @@ describe('nx-siteselector', () => {
     selector.size = 's';
     picker = await settle();
     expect(picker.size).to.equal('m');
-    expect(selector.shadowRoot.querySelector('.nx-btn-accent')).to.be.null;
-  });
-
-  it('keeps an independent inline plus icon in each empty selector', async () => {
-    document.body.append(selector);
-    await settle();
-    const other = document.createElement('nx-siteselector');
-    other.sites = [];
-    document.body.append(other);
-    try {
-      await other.updateComplete;
-      const first = selector.shadowRoot.querySelector('.nx-btn-accent svg');
-      const second = other.shadowRoot.querySelector('.nx-btn-accent svg');
-      expect(first).not.to.equal(second);
-      for (const icon of [first, second]) {
-        expect(icon.querySelector('use')).to.be.null;
-        expect(icon.querySelector('path').getBBox().width).to.be.greaterThan(0);
-        expect(icon.getAttribute('aria-hidden')).to.equal('true');
-      }
-    } finally {
-      other.remove();
-    }
-  });
-
-  it('uses the shared blue button dimensions, typography and theme colors without picker overrides', async () => {
-    selector.style.cssText = `
-      --s2-font-family: adobe-clean, sans-serif;
-      --s2-spacing-200: 16px;
-      --s2-corner-radius-800: 16px;
-      --s2-component-m-medium-font-size: 14px;
-      --s2-component-m-medium-line-height: 18px;
-      --s2-component-m-bold-font-weight: 700;
-      --s2-blue-900: light-dark(#0265dc, #54a3f6);
-      --s2-blue-1000: light-dark(#0054b6, #72b7f9);
-    `;
-    document.body.append(selector);
-    await settle();
-    const add = selector.shadowRoot.querySelector('.nx-btn-accent');
-    add.style.transition = 'none';
-    for (const [scheme, background, hover] of [
-      ['light', 'rgb(2, 101, 220)', 'rgb(0, 84, 182)'],
-      ['dark', 'rgb(84, 163, 246)', 'rgb(114, 183, 249)'],
-    ]) {
-      selector.style.colorScheme = scheme;
-      const style = getComputedStyle(add);
-      expect(style.height).to.equal('32px');
-      expect(style.fontSize).to.equal('14px');
-      expect(style.fontWeight).to.equal('700');
-      expect(style.borderRadius).to.equal('16px');
-      expect(style.backgroundColor).to.equal(add.matches(':hover') ? hover : background);
-      expect(style.color).to.equal('rgb(255, 255, 255)');
-      expect(style.paddingInlineStart).to.equal('16px');
-      expect(add.querySelector('svg').getBoundingClientRect().left)
-        .to.be.greaterThan(add.getBoundingClientRect().left);
-    }
-  });
-
-  it('focuses the native Add button and emits one request per click', async () => {
-    document.body.append(selector);
-    await settle();
-    const add = selector.shadowRoot.querySelector('.nx-btn-accent');
-    let requests = 0;
-    selector.addEventListener('site-add', () => { requests += 1; });
-    add.click();
-    expect(requests).to.equal(1);
-    selector.focus();
-    expect(selector.shadowRoot.activeElement).to.equal(add);
-    add.click();
-    expect(requests).to.equal(2);
-    expect(selector.value).to.be.undefined;
+    selector.sites = [];
+    expect(await settle()).to.be.null;
+    expect(selector.hidden).to.be.true;
   });
 
   it('capitalizes only the displayed site name without changing identifiers or descriptions', async () => {
@@ -161,29 +93,14 @@ describe('nx-siteselector', () => {
     expect(selector.sites[0].value).to.equal('exp-workspace/frescopa');
   });
 
-  it('does not accept input before the host attaches its adapter', async () => {
-    document.body.append(selector);
-    selector.sites = undefined;
-    let picker = await settle();
-    expect(picker.inert).to.be.true;
-    expect(picker.placeholder).to.equal('Loading sites...');
-    selector.sites = [];
-    picker = await settle();
-    expect(picker).to.be.null;
-    expect(selector.shadowRoot.querySelector('.nx-btn-accent').disabled).to.be.false;
-  });
-
   it('shows the heading until a site is selected and restores it when selection is cleared', async () => {
     selector.heading = 'Your recent sites';
     document.body.append(selector);
-    selector.sites = undefined;
-    let picker = await settle();
-    expect(picker.placeholder).to.equal('Loading sites...');
     selector.sites = [
       { value: 'org/site', label: '(org, site)' },
       { value: 'other/site', label: '(other, site)' },
     ];
-    picker = await settle();
+    let picker = await settle();
     const trigger = () => picker.shadowRoot.querySelector('[part="label"]').textContent;
     expect(trigger()).to.equal('Your recent sites');
     expect(picker.value).to.equal('');
@@ -195,9 +112,7 @@ describe('nx-siteselector', () => {
     picker = await settle();
     expect(trigger()).to.equal('Your recent sites');
     selector.sites = [];
-    picker = await settle();
-    expect(picker).to.be.null;
-    expect(selector.shadowRoot.querySelector('.nx-btn-accent')).to.exist;
+    expect(await settle()).to.be.null;
   });
 
   it('emits selection and Add requests without owning navigation or changing current selection', async () => {
@@ -214,7 +129,7 @@ describe('nx-siteselector', () => {
   });
 
   it('shows host errors and delegates focus to its trigger', async () => {
-    selector.sites = [];
+    selector.sites = [{ value: 'org/site', label: 'org/site' }];
     selector.error = 'Could not load sites.';
     document.body.append(selector);
     const picker = await settle();
@@ -231,6 +146,7 @@ describe('nx-siteselector', () => {
   });
 
   it('uses matching component typography for error and retry text in S and M', async () => {
+    selector.sites = [{ value: 'org/site', label: 'org/site' }];
     selector.error = 'Could not load sites.';
     document.body.append(selector);
     for (const size of ['s', 'm']) {

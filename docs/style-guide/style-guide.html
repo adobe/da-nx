@@ -502,12 +502,11 @@ picker.value = 'name:ascending';</code></pre>
 
       <article class="sg-example">
         <h3>nx-siteselector — navigation</h3>
-        <p class="sg-note">S: unselected, 14px/18px bold trigger. M: selected, 16px/20px bold trigger. Both use M menu labels, S-regular paths and theme-aware S2 colors. With no choices, a shared blue Add site button replaces the picker. Tab to check keyboard focus.</p>
+        <p class="sg-note">S: unselected, 14px/18px bold trigger. M: selected, 16px/20px bold trigger. Both use M menu labels, S-regular paths and theme-aware S2 colors. With no choices (or while loading), the selector renders nothing. Tab to check keyboard focus.</p>
         <p class="sg-note">Controlled demos use sample sites without access requests. Normal instances own history, access checks and Add; Create opens the host's /start page with an organization write grant. See <a href="../picker.md">picker docs</a> for integration and overrides.</p>
         <div class="sg-demo sg-picker-container">
           <nx-siteselector id="demo-siteselector-s" size="s" heading="Your recent sites"></nx-siteselector>
           <nx-siteselector id="demo-siteselector-m" size="m" heading="Your recent sites"></nx-siteselector>
-          <nx-siteselector id="demo-siteselector-empty"></nx-siteselector>
         </div>
         <pre><code>selector.sites = [{ value: 'org/site', label: 'org/site' }];
 selector.value = '';

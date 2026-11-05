@@ -94,18 +94,16 @@ describe('standalone site selector behavior', () => {
     document.body.append(selector);
     await selector.ready;
     await selector.updateComplete;
+    expect(selector.hidden).to.be.true;
     expect(selector.shadowRoot.querySelector('nx-picker')).to.be.null;
-    const add = selector.shadowRoot.querySelector('.nx-btn-accent');
-    selector.focus();
-    expect(selector.shadowRoot.activeElement).to.equal(add);
     const currentHref = window.location.href;
-    const cancelled = await openDialog(selector, () => add.click());
+    const cancelled = await openDialog(selector);
     await cancelled.updateComplete;
     cancelled.shadowRoot.querySelector('[slot="actions"][type="button"]').click();
     await tick();
     expect(cancelled.isConnected).to.be.false;
-    expect(selector.shadowRoot.activeElement).to.equal(add);
-    const dialog = await openDialog(selector, () => add.click());
+    expect(selector.hidden).to.be.true;
+    const dialog = await openDialog(selector);
     await dialog.updateComplete;
     dialog.shadowRoot.querySelector('input').value = 'https://main--site--org.aem.live';
     await dialog.submitForm({ preventDefault() {} });
@@ -119,7 +117,7 @@ describe('standalone site selector behavior', () => {
     await selector.updateComplete;
     const picker = selector.shadowRoot.querySelector('nx-picker');
     await picker.updateComplete;
-    expect(selector.shadowRoot.querySelector('.nx-btn-accent')).to.be.null;
+    expect(selector.hidden).to.be.false;
     expect(picker.shadowRoot.activeElement).to.equal(picker.shadowRoot.querySelector('button'));
   });
 

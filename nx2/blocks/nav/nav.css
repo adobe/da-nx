@@ -108,6 +108,10 @@
 
   li {
     flex-shrink: 0;
+
+    &:has(> nx-siteselector[hidden]) {
+      display: none;
+    }
   }
 
   button {
