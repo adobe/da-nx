@@ -81,15 +81,17 @@ describe('nx-siteselector', () => {
   });
 
   it('handles picker selection and Add/Cancel through the rendered controls', async () => {
+    const target = 'My.Org/Other.Site';
+    localStorage.setItem('da-sites', JSON.stringify(['org/site', target]));
     document.body.append(selector);
     const picker = await settle();
     const events = [];
     selector.addEventListener('site-select', ({ detail }) => events.push(detail));
     picker.shadowRoot.querySelector('.picker-trigger').click();
-    picker.shadowRoot.querySelector('[data-value="other/site"]').click();
+    picker.shadowRoot.querySelector(`[data-value="${target}"]`).click();
     await settle();
-    expect(events).to.deep.equal([{ value: 'other/site' }]);
-    expect(JSON.parse(localStorage.getItem('da-sites'))[0]).to.equal('other/site');
+    expect(events).to.deep.equal([{ value: target }]);
+    expect(JSON.parse(localStorage.getItem('da-sites'))[0]).to.equal(target);
     expect(window.location.href).to.equal(href);
     const dialog = await openDialog(() => {
       picker.shadowRoot.querySelector('.picker-trigger').click();

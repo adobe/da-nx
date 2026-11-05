@@ -1,6 +1,6 @@
 export function getSiteOptions({ recentSites = [], current }) {
   const sites = [...new Set([current, ...recentSites].filter(
-    (site) => typeof site === 'string' && /^[a-z0-9_-]+\/[a-z0-9_-]+$/.test(site),
+    (site) => typeof site === 'string' && /^[^/]+\/[^/]+$/.test(site),
   ))];
   return sites.map((value) => ({ value, label: value }));
 }

@@ -4,13 +4,13 @@ import {
 } from '../../../../../blocks/siteselector/site-utils.js';
 
 describe('site selector utilities', () => {
-  it('deduplicates site identifiers and includes a supplied selection outside history', () => {
+  it('preserves stored names while deduplicating and skipping malformed identifiers', () => {
     expect(getSiteOptions({
-      current: 'adobe/current',
-      recentSites: ['adobe/other', 'adobe/current', '/bad/path', null],
+      current: 'Adobe/Current.Site',
+      recentSites: ['My.Org/Other.Site', 'Adobe/Current.Site', '/bad/path', 'org/', '/site', null],
     })).to.deep.equal([
-      { value: 'adobe/current', label: 'adobe/current' },
-      { value: 'adobe/other', label: 'adobe/other' },
+      { value: 'Adobe/Current.Site', label: 'Adobe/Current.Site' },
+      { value: 'My.Org/Other.Site', label: 'My.Org/Other.Site' },
     ]);
   });
 
