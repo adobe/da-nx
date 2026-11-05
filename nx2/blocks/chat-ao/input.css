@@ -282,12 +282,37 @@
   }
 
   .chat-form:is(:not(:focus-within, :has(.chat-drop-zone)), [aria-busy="true"]) > .chat-surface {
+    overflow: clip;
     border-color: #ec69ff1a;
     background:
       linear-gradient(to bottom, light-dark(#fff6, #ffffff0a) 37%, light-dark(#ffffff21, #ffffff03) 83%),
       radial-gradient(ellipse at bottom right, #ebeeff29, #fad3ff29 35%, #ffebe829 82%, #ffeccf29),
       var(--nx-chat-input-surface);
     box-shadow: 0 -3px 10px 1px #ec69ff0d, inset 0 6px 15px #ffffff0a, inset 0 24px 32px #ffffff0a;
+  }
+
+  .chat-form:is(:not(:focus-within, :has(.chat-drop-zone)), [aria-busy="true"]) > .chat-surface::before {
+    content: "";
+    position: absolute;
+    inset: 23px -1px -25px;
+    background: conic-gradient(from 90deg at 32.6% 50%,
+      transparent, #fef4ff80 8%, #fde9ff 16%, #fef6ff 35%,
+      #ffe8f0 43.5%, #fff4f880 55%, transparent 66%);
+    filter: blur(40px);
+    opacity: 0.12;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .chat-form:hover:not(:focus-within, :has(.chat-drop-zone), [aria-busy="true"]) > .chat-surface {
+      background:
+        linear-gradient(to bottom, light-dark(#ffffff8f, #ffffff0f) 37%, light-dark(#ffffff2e, #ffffff05) 83%),
+        radial-gradient(ellipse at bottom right, #ebeeff3d, #fad3ff3d 35%, #ffebe83d 82%, #ffeccf3d),
+        var(--nx-chat-input-surface);
+    }
+
+    .chat-form:hover:not(:focus-within, :has(.chat-drop-zone), [aria-busy="true"]) > .chat-surface::before {
+      opacity: 0.2;
+    }
   }
 
   .chat-form:focus-within:not(:has(.chat-drop-zone)) > .chat-surface {
