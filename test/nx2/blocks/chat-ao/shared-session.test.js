@@ -386,6 +386,14 @@ describe('standalone input and full AO chat sharing', () => {
     expect(sent).to.deep.equal([{ org, site: 'site' }]);
   });
 
+  it('marks only the standalone input for the gradient look', async () => {
+    const [standalone, full] = await pair('coworker');
+    expect(standalone.hasAttribute('standalone')).to.equal(true);
+    expect(standalone.shadowRoot.querySelector('.chat-surface')).to.not.equal(null);
+    expect(full._input.hasAttribute('standalone')).to.equal(false);
+    expect(full._input.shadowRoot.querySelector('.chat-surface')).to.equal(null);
+  });
+
   it('shows the working status in the standalone input and the full chat while a reply runs', async () => {
     const [standalone, full] = await pair('coworker');
     await ready(standalone, full);

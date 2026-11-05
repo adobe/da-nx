@@ -221,6 +221,118 @@
   display: none;
 }
 
+:host([standalone]) {
+  --nx-chat-input-surface: light-dark(#fffc, #222c);
+
+  .chat-form {
+    isolation: isolate;
+    padding: var(--s2-spacing-300);
+    gap: var(--s2-spacing-400);
+    overflow: visible;
+    border: 0;
+    border-radius: 24px;
+    background: transparent;
+    box-shadow: none;
+
+    &:has(.chat-input:focus) {
+      box-shadow: none;
+    }
+  }
+
+  .chat-form::before,
+  .chat-surface {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .chat-form::before {
+    content: "";
+    inset: -6px;
+    z-index: -2;
+    border-radius: 30px;
+    backdrop-filter: blur(4px);
+    background: linear-gradient(to top, light-dark(#ffffff7a, #3030307a), light-dark(#fff, #303030));
+    box-shadow: 0 2px 4px #00000008;
+  }
+
+  .chat-surface {
+    inset: 0;
+    z-index: -1;
+    box-sizing: border-box;
+    border: 1px solid light-dark(#0000000f, #ffffff0f);
+    border-radius: inherit;
+    background: var(--nx-chat-input-surface);
+    box-shadow: 0 8px 32px #00000008, inset 0 24px 32px #ffffff0a, inset 0 -5px 20px #ffffff0a;
+  }
+
+  .chat-form:is(:not(:focus-within, :has(.chat-drop-zone)), [aria-busy="true"])::before {
+    box-shadow: 0 2px 4px #ec69ff1a;
+  }
+
+  .chat-form:is(:not(:focus-within, :has(.chat-drop-zone)), [aria-busy="true"])::after {
+    content: "";
+    position: absolute;
+    inset: 6px -7px -6px -6px;
+    z-index: -3;
+    pointer-events: none;
+    border-radius: 30px;
+    background: linear-gradient(90deg, #ec69ff99, #ff513d80 37%, #ffa22366 77%);
+    filter: blur(8px);
+    opacity: 0.32;
+  }
+
+  .chat-form:is(:not(:focus-within, :has(.chat-drop-zone)), [aria-busy="true"]) > .chat-surface {
+    border-color: #ec69ff1a;
+    background:
+      linear-gradient(to bottom, light-dark(#fff6, #ffffff0a) 37%, light-dark(#ffffff21, #ffffff03) 83%),
+      radial-gradient(ellipse at bottom right, #ebeeff29, #fad3ff29 35%, #ffebe829 82%, #ffeccf29),
+      var(--nx-chat-input-surface);
+    box-shadow: 0 -3px 10px 1px #ec69ff0d, inset 0 6px 15px #ffffff0a, inset 0 24px 32px #ffffff0a;
+  }
+
+  .chat-form:focus-within:not(:has(.chat-drop-zone)) > .chat-surface {
+    outline: 2px solid var(--s2-blue-900);
+    outline-offset: -2px;
+  }
+
+  .chat-form:focus-within::before {
+    backdrop-filter: none;
+    background: light-dark(#ffffff7a, #3030307a);
+    box-shadow: 0 2px 4px #0000000f;
+  }
+
+  .chat-drop-zone {
+    border-radius: 24px;
+  }
+
+  .chat-input-wrap {
+    gap: var(--s2-spacing-200);
+    padding-inline-start: 6px;
+
+    &.coworker-chat::before {
+      margin-block-start: calc((1.5em - 20px) / 2);
+    }
+  }
+
+  :is(.chat-input, .chat-working) {
+    padding: 0;
+    max-height: 240px;
+    font-size: var(--s2-body-size-m);
+  }
+
+  .chat-input::placeholder {
+    color: var(--s2-gray-600);
+    opacity: 1;
+  }
+}
+
+@media (forced-colors: active) {
+  :host([standalone]) .chat-form:is([aria-busy="true"], :focus-within) > .chat-surface {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
 @keyframes chat-voice-pulse {
   0%, 100% {
     opacity: 1;

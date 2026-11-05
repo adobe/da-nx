@@ -37,7 +37,7 @@ Drafts, context pills and attachments belong to each input. A rejected submissio
 sending UI's path/view context. An accepted standalone submission dispatches the
 bubbling, composed `CHAT_EVENT.MESSAGE_SENT` (`nx-chat-message-sent`) event with
 `{ org, site }`, so a host can reveal the full chat, for example by opening its
-chat panel. Rejected submissions do not dispatch it. While a reply runs, both the standalone input and the full chat's input replace the textarea with a spinner and working message. Stop, approvals, Clear/New chat and episode
+chat panel. Rejected submissions do not dispatch it. While a reply runs, both the standalone input and the full chat's input replace the textarea with a spinner and working message. A standalone input also reflects a `standalone` attribute and uses the gradient composer look from `input.css`; the embedded input keeps the plain look. Stop, approvals, Clear/New chat and episode
 selection operate on the shared controller. Removing one UI only unsubscribes it;
 the last removal destroys the controller and releases document listeners.
 

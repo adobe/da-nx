@@ -200,6 +200,10 @@ export default class NxAoInput extends LitElement {
     this._sessionRequest = undefined;
   }
 
+  willUpdate() {
+    this.toggleAttribute('standalone', this._standalone);
+  }
+
   updated(changed) {
     if (changed.has('onSubmit')) this._syncSession();
   }
@@ -323,6 +327,7 @@ export default class NxAoInput extends LitElement {
         @dragover=${this._dnd.onDragOver}
         @drop=${this._dnd.onDrop}
       >
+        ${this._standalone ? html`<div class="chat-surface" aria-hidden="true"></div>` : nothing}
         ${this._dragging ? html`
           <div class="chat-drop-zone" aria-hidden="true">
             <span class="chat-drop-title">Drop a file to add context</span>
