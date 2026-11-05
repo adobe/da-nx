@@ -42,6 +42,7 @@ describe('threeWayMerge', () => {
     ['keeps a local reorder and applies an upstream edit', 'A B C', 'A B2 C', 'B A C', 'B2 A C', 0],
     ['keeps edits with their section when upstream reorders sections', '| A MA | B MB', '| B MB2 | A MA', '| AL MA | B MB', '| AL MA | B MB2', 0],
     ['keeps a new copy of a section upstream prepended', '| A | B', '| B | A | B', '| L | B', '| B | L | B', 0],
+    ['does not swap sections that only share blocks', '| A X | A Y', '| A Y | A Z', '| L X | A Y', '| L | A Y Z', 0],
   ];
 
   cases.forEach(([name, base, source, dest, expected, skipped]) => {

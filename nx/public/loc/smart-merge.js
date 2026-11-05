@@ -207,17 +207,21 @@ const groupBySection = (items, isBreak) => items.reduce((acc, item) => {
 function revertSectionMoves({ base, source }) {
   const breaks = new Set(toHashes(source.filter(isSection)));
   if (!breaks.size) return source;
-  const baseContent = groupBySection(base, (hash) => breaks.has(hash))
-    .map((hashes) => new Set(hashes.filter((hash) => !breaks.has(hash))));
-  const groups = groupBySection(source, isSection);
-  const pairs = groups.flatMap((group, i) => baseContent.map((content, j) => ({
-    i, j, score: group.filter(({ hash }) => content.has(hash)).length,
-  }))).filter(({ score }) => score > 0)
-    .sort((x, y) => y.score - x.score || Math.abs(x.i - x.j) - Math.abs(y.i - y.j));
-  const matched = pairs.reduce((acc, { i, j }) => {
-    if (!acc.has(i) && ![...acc.values()].includes(j)) acc.set(i, j);
+  // A section is identified only by blocks that appear in exactly one baseline section.
+  const baseGroups = groupBySection(base, (hash) => breaks.has(hash))
+    .map((hashes) => hashes.filter((hash) => !breaks.has(hash)));
+  const owners = baseGroups.reduce((acc, hashes, j) => {
+    new Set(hashes).forEach((hash) => acc.set(hash, acc.has(hash) ? -1 : j));
     return acc;
   }, new Map());
+  const groups = groupBySection(source, isSection);
+  const matched = groups.reduce((acc, group, i) => {
+    const ids = new Set(group.map(({ hash }) => owners.get(hash)).filter((j) => j >= 0));
+    if (ids.size === 1) acc.set(i, [...ids][0]);
+    return acc;
+  }, new Map());
+  const targets = [...matched.values()];
+  if (new Set(targets).size !== targets.length) return source;
   const order = groups.map((_, i) => matched.get(i)).filter((j) => j !== undefined);
   if (order.every((j, idx) => !idx || order[idx - 1] < j)) return source;
   const units = groups.reduce((acc, group, i) => {
@@ -258,13 +262,23 @@ function destRange({ start, end, hunks, dest, toDest }) {
   return blocks;
 }
 
+// Inserts with a section break after loose blocks also move later content into a new section.
+// When both sides insert at one spot that can't be combined safely, so the destination wins.
+const isAmbiguousInsert = (blocks) => blocks.some(isSection) && !isSection(blocks[0]);
+
 function resolveCluster({ cluster, dest, toDest }) {
   const { sourceHunks, destHunks, type } = cluster;
   const keepDest = () => destRange({ ...cluster, hunks: destHunks, dest, toDest });
   const sourceBlocks = sourceHunks.flatMap((hunk) => hunk.blocks);
   if (type === 'dest' || type === 'same') return { blocks: keepDest(), skipped: 0 };
   if (type === 'source') return { blocks: sourceBlocks, skipped: 0 };
-  if (type === 'inserts') return { blocks: mergeInserts(keepDest(), sourceBlocks), skipped: 0 };
+  if (type === 'inserts') {
+    const destBlocks = keepDest();
+    if (isAmbiguousInsert(destBlocks) || isAmbiguousInsert(sourceBlocks)) {
+      return { blocks: destBlocks, skipped: sourceHunks.length };
+    }
+    return { blocks: mergeInserts(destBlocks, sourceBlocks), skipped: 0 };
+  }
   return { blocks: keepDest(), skipped: sourceHunks.length };
 }
 

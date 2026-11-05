@@ -204,14 +204,9 @@ export async function rolloutLang({
   lang.locales.forEach((locale) => {
     const localeSaved = saved.filter((url) => url.root === locale.code);
     locale.saved = localeSaved.length;
-    const counts = {
-      skipped: localeSaved.reduce((sum, url) => sum + (url.skipped || 0), 0),
-      baselineOnly: localeSaved.filter((url) => url.baselineOnly).length,
-    };
-    Object.entries(counts).forEach(([key, count]) => {
-      if (count) locale[key] = count;
-      else delete locale[key];
-    });
+    const skipped = localeSaved.reduce((sum, url) => sum + (url.skipped || 0), 0);
+    if (skipped) locale.skipped = skipped;
+    else delete locale.skipped;
   });
 
   actions.requestUpdate();

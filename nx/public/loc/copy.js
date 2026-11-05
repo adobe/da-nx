@@ -1,6 +1,5 @@
 import getElementMetadata from '../../../nx2/utils/getElementMetadata.js';
 import { regionalDiff, removeLocTags } from './regional-diff.js';
-import createSmartOverwrite from './smart-copy.js';
 
 const DEFAULT_TIMEOUT = 20000;
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
@@ -78,7 +77,8 @@ export function createCopy({
     return versionSaving.get(path);
   };
 
-  // `raw` keeps the document exactly as authored (smart overwrite saves it back unchanged).
+  // `raw` skips whitespace collapsing, and an empty but successful read yields an empty document
+  // (so smart overwrite can reject it) instead of being treated as missing.
   const getHtml = async (path, content, { raw = false } = {}) => {
     let text = content;
     if (!text) {
@@ -87,8 +87,8 @@ export function createCopy({
       if (!response.ok) throw responseError(response, `Reading ${path}`);
       text = await response.text();
     }
+    if (raw) return parser.parseFromString(text || '', 'text/html');
     if (!text) return null;
-    if (raw) return parser.parseFromString(text, 'text/html');
     const collapsed = text.replace(/>([^<]*)</g, (match, value) => (
       value.trim() ? `>${value.replace(/\s+/g, ' ')}<` : match
     ));
@@ -238,9 +238,18 @@ export function createCopy({
     }
   };
 
-  const smartOverwriteCopy = createSmartOverwrite({
-    getHtml, loadConfig, saveHtml, saveVersion, fail, responseError,
-  });
+  let smart;
+  const smartOverwriteCopy = async (url, title) => {
+    smart ??= import('./smart-copy.js').then(({ default: create }) => create({
+      getHtml, loadConfig, saveHtml, saveVersion, fail, responseError,
+    }));
+    try {
+      return (await smart)(url, title);
+    } catch (error) {
+      smart = undefined;
+      return fail(url, error);
+    }
+  };
 
   return {
     mergeCopy, overwriteCopy, rolloutCopy, smartOverwriteCopy,

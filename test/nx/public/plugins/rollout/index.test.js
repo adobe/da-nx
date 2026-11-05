@@ -48,7 +48,7 @@ const conf = (behavior) => ({
       mergeCopy: sinon.stub().resolves({ ok: true }),
       overwriteCopy: sinon.stub().resolves({ ok: true }),
       smartOverwriteCopy: sinon.stub().callsFake(async (prefix) => {
-        prefix.baselineOnly = true;
+        prefix.skipped = 1;
         return { ok: true };
       }),
     });
@@ -62,7 +62,7 @@ const conf = (behavior) => ({
       expect(fns.smartOverwriteCopy.calledOnceWith(prefix, 'Proj')).to.be.true;
       expect(fns.mergeCopy.called).to.be.false;
       expect(prefix.root).to.equal('/apac');
-      expect(prefix.baselineOnly).to.be.true;
+      expect(prefix.skipped).to.equal(1);
     });
 
     it('falls back to merge for unknown behaviors', async () => {
@@ -81,12 +81,11 @@ const conf = (behavior) => ({
 
     it('clears notes from a previous rollout', async () => {
       const fns = copyFns();
-      const prefix = { path: '/apac', skipped: 2, baselineOnly: true };
+      const prefix = { path: '/apac', skipped: 2 };
       await fn({
         prefix, behavior: 'overwrite', label: 'Proj', copy: fns,
       });
       expect(prefix).to.not.have.property('skipped');
-      expect(prefix).to.not.have.property('baselineOnly');
     });
 
     it('marks the destination as errored without copying when the source cannot be prepared', async () => {

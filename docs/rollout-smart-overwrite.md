@@ -23,7 +23,7 @@ flowchart TD
   start["Rollout global → apac<br/>(Overwrite, keep local edits)"] --> base{"apac has a valid<br/>rolloutbase for this page?"}
   base -- "no" --> exists{"apac page has content?"}
   exists -- "no (missing or empty)" --> copy["Copy the global page"]
-  exists -- "yes (first smart rollout)" --> record["Keep apac as-is<br/>(record the baseline only)"]
+  exists -- "yes (first smart rollout)" --> merge["Today's merge<br/>(da-diff markers to review once)"]
   base -- "yes" --> unchanged{"apac has no localized blocks?<br/>(identical to global at the last rollout)"}
   unchanged -- "yes, nothing localized" --> take["Take global as-is"]
   unchanged -- "no, apac has localized blocks" --> diff3["Block-level three-way merge<br/>baseline vs global vs apac"]
@@ -32,7 +32,7 @@ flowchart TD
   who -- "only apac (localized, old or new)" --> keep["Keep apac"]
   who -- "both, differently" --> skip["Keep apac<br/>count as skipped"]
   copy --> save["Save page + record new rolloutbase"]
-  record --> save
+  merge --> save
   take --> save
   apply --> save
   keep --> save
@@ -86,11 +86,12 @@ Guarantees (covered by seeded randomized tests in `test/loc/smart-merge.test.js`
 Skipped counts are shown per locale (Loc app) and per destination (plugin) as "N skipped (localized)".
 
 - No valid baseline yet (first smart rollout, or a baseline that is malformed or recorded for a different path): the
-  destination is saved unchanged and only the baseline (upstream's current blocks) is recorded; no version is saved.
-  This is shown as "N baseline recorded (nothing applied)" (Loc app) or "(baseline recorded)" (plugin). The next
-  smart rollout applies upstream changes made after that point. Upstream changes made **before** the first smart
-  rollout are treated as already seen and are not applied by smart mode; run a merge or overwrite first if the
-  destination needs them.
+  result is today's merge (every difference marked with `da-diff-*` for the author to review once, honoring earlier
+  accept/reject decisions) and the baseline is recorded. Nothing is applied silently and no upstream change is missed;
+  every later smart rollout applies only the upstream changes made since. A plain overwrite or merge does not record
+  a baseline, so the first smart rollout after one is a merge review again. Because the first run is today's merge, it
+  has merge's existing normalizations (section wrapper attributes and empty paragraphs are dropped, whitespace in
+  code blocks is not compared); later smart rollouts keep them as authored.
 - Missing destination, or an empty one without a baseline: the upstream page is copied as-is and the baseline is
   recorded. An empty destination with a baseline was emptied on purpose and is merged like any other.
 - Read or save failures and malformed documents are reported as errors; smart-overwrite never falls back to a

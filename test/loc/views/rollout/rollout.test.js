@@ -89,7 +89,7 @@ describe('nx-loc-rollout smart overwrite', () => {
     sinon.restore();
   });
 
-  it('records only the baseline on the first smart rollout and reports it', async () => {
+  it('merges like today on the first smart rollout and records the baseline', async () => {
     const lang = {
       code: 'en',
       name: 'English',
@@ -112,16 +112,11 @@ describe('nx-loc-rollout smart overwrite', () => {
     expect(el._errors).to.be.undefined;
     expect(lang.rollout).to.deep.equal({ status: 'complete', saved: 1 });
     expect(lang.locales[0]).to.not.have.property('skipped');
-    expect(lang.locales[0].baselineOnly).to.equal(1);
-    el._urls = el.project.urls;
-    const container = document.createElement('div');
-    render(el.renderLocales(lang.rollout, lang.locales), container);
-    expect(container.textContent).to.include('1 baseline recorded (nothing applied)');
     const posts = globalThis.fetch.getCalls()
       .filter(({ args }) => args[1]?.method === 'POST' && args[0].includes('/source/org/site/en-nl/page.html'));
     const body = await posts[0].args[1].body.get('data').text();
     expect(body).to.include('rolloutbase');
-    expect(body).to.include('<p>Local</p>');
+    expect(body).to.include('da-diff');
   });
 });
 

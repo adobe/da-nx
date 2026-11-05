@@ -1,5 +1,7 @@
 import getElementMetadata from '../../../nx2/utils/getElementMetadata.js';
-import { removeLocTags, getBlockHashes, smartMerge } from './regional-diff.js';
+import {
+  regionalDiff, removeLocTags, getBlockHashes, smartMerge,
+} from './regional-diff.js';
 
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
 const ROLLOUT_BASE_KEY = 'rolloutbase';
@@ -44,6 +46,22 @@ async function copySource({ source, site, config }) {
   return { html, skipped: 0, sourceHashes, daMetadata };
 }
 
+// No valid baseline yet: use today's merge so the author reviews every difference once.
+async function firstMerge({
+  source, dest, destHtml, metadataEl, site, config,
+}) {
+  const sourceHashes = await getBlockHashes({ doc: source, site, config });
+  const destHashes = await getBlockHashes({ doc: dest, site, config });
+  if (sourceHashes.join() === destHashes.join()) {
+    return { html: destHtml, skipped: 0, sourceHashes };
+  }
+  const reviewed = getElementMetadata(metadataEl);
+  const accepted = reviewed.acceptedhashes?.text?.split(',') || [];
+  const rejected = reviewed.rejectedhashes?.text?.split(',') || [];
+  const diffed = await regionalDiff(source, dest, accepted, rejected, { site, config });
+  return { html: diffed.innerHTML, skipped: 0, sourceHashes };
+}
+
 async function smartRollout({
   source, dest, destHtml, empty, path, site, config,
 }) {
@@ -58,15 +76,15 @@ async function smartRollout({
     return { ...merged, daMetadata };
   }
   if (empty) return copySource({ source, site, config });
-  const sourceHashes = await getBlockHashes({ doc: source, site, config });
-  return {
-    html: destHtml, skipped: 0, sourceHashes, daMetadata, baselineOnly: true,
-  };
+  const merged = await firstMerge({
+    source, dest, destHtml, metadataEl, site, config,
+  });
+  return { ...merged, daMetadata };
 }
 
 /**
  * Creates the engine's smart-overwrite rollout (see docs/rollout-smart-overwrite.md) from the
- * engine's own helpers. Documents are read raw so they are saved exactly as authored.
+ * engine's own helpers. Documents are read raw so whitespace (e.g. in code) is not collapsed.
  */
 export default function createSmartOverwrite({
   getHtml, loadConfig, saveHtml, saveVersion, fail, responseError,
@@ -79,8 +97,8 @@ export default function createSmartOverwrite({
       const source = await getHtml(url.source, url.sourceContent || url.sourceHtml, { raw: true });
       if (!getSectionedMain(source)) throw new Error('Source content not found or malformed');
 
-      const destHtml = regionalMain?.innerHTML;
       const empty = !!regionalMain && isEmptyMain(regionalMain);
+      const destHtml = regionalMain?.innerHTML;
       if (regional) removeLocTags(regional);
       removeLocTags(source);
 
@@ -89,7 +107,7 @@ export default function createSmartOverwrite({
       if (config?.error) throw new Error(config.error);
 
       const {
-        html, skipped, sourceHashes, daMetadata, baselineOnly,
+        html, skipped, sourceHashes, daMetadata,
       } = await smartRollout({
         source,
         dest: regional,
@@ -103,10 +121,9 @@ export default function createSmartOverwrite({
 
       const response = await saveHtml(url, html, daMetadata);
       if (!response.ok) return fail(url, responseError(response, 'Save'));
-      if (!baselineOnly) await saveVersion(url.destination, `${title} - Rolled Out`);
+      await saveVersion(url.destination, `${title} - Rolled Out`);
       url.status = 'success';
       url.skipped = skipped;
-      url.baselineOnly = !!baselineOnly;
       return response;
     } catch (error) {
       return fail(url, error);

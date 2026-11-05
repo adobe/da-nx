@@ -1,5 +1,4 @@
 import { hashContent, HASH_LENGTH } from './hashes.js';
-import threeWayMerge from './smart-merge.js';
 
 const MIN_LIST_ITEMS_IN_COMMON = 2;
 const ADDED = 'added';
@@ -541,6 +540,7 @@ export async function smartMerge({
 }) {
   const sourceBlocks = await getHashedBlocks(source, { site, config });
   const destBlocks = await getHashedBlocks(dest, { site, config });
+  const { default: threeWayMerge } = await import('./smart-merge.js');
   const { blocks, skipped, baseline } = threeWayMerge({
     base, source: sourceBlocks, dest: destBlocks,
   });
