@@ -1,3 +1,4 @@
+// Covers both nx and nx2 rollout plugins (parametrized below).
 import { expect } from '@esm-bundle/chai';
 import nxGetPrefixDetails from '../../../../../nx/public/plugins/rollout/index.js';
 import nx2GetPrefixDetails from '../../../../../nx2/public/plugins/rollout/index.js';
@@ -52,6 +53,7 @@ describe('Rollout plugin getPrefixDetails', () => {
         mockConf(CONFIG);
         const details = await run('/page');
         expect(details.currPrefix).to.equal('/');
+        expect(details.isSourceStore).to.be.false;
         expect(details.prefixes.map((p) => p.path)).to.deep.equal(['/en-us', '/en-ca']);
         expect(details.prefixes[0]).to.deep.include({
           active: true,
@@ -61,14 +63,35 @@ describe('Rollout plugin getPrefixDetails', () => {
         });
       });
 
+      it('Targets the source language store for a root page', async () => {
+        mockConf(withLanguages([{ name: 'English', location: '/langstore/en', locales: '/en-us' }]));
+        const details = await run('/page');
+        expect(details.currPrefix).to.equal('/');
+        expect(details.isSourceStore).to.be.true;
+        expect(details.prefixes).to.have.length(1);
+        expect(details.prefixes[0]).to.deep.include({
+          path: '/langstore/en',
+          source: '/org/repo/page.html',
+          destination: '/org/repo/langstore/en/page.html',
+        });
+      });
+
       it('Returns no prefixes for a root page when the source language has no locales', async () => {
         mockConf(withLanguages([{ name: 'English', location: '/' }]));
-        expect(await run('/page')).to.deep.equal({ currPrefix: '/', prefixes: [] });
+        expect(await run('/page')).to.deep.equal({
+          currPrefix: '/',
+          prefixes: [],
+          isSourceStore: false,
+        });
       });
 
       it('Returns no prefixes for a root page when the source language locales are empty', async () => {
         mockConf(withLanguages([{ name: 'English', location: '/', locales: '' }]));
-        expect(await run('/page')).to.deep.equal({ currPrefix: '/', prefixes: [] });
+        expect(await run('/page')).to.deep.equal({
+          currPrefix: '/',
+          prefixes: [],
+          isSourceStore: false,
+        });
       });
 
       it('Lists the language locales for a page under a language location', async () => {

@@ -57,7 +57,8 @@ function formatPrefixes(org, repo, currPrefix, locales, path) {
  * @param {string} repo - Repo name.
  * @param {string} token - IMS access token.
  * @param {string} path - Current page path.
- * @returns {Promise<object|null>} Prefix details, or null if no translate config exists.
+ * @returns {Promise<object|null>} Prefix details (isSourceStore: root targets the source
+ *   language store), or null if no translate config exists.
  */
 export default async function getPrefixDetails(org, repo, token, path) {
   const json = await fetchConf(org, repo, token);
@@ -92,5 +93,11 @@ export default async function getPrefixDetails(org, repo, token, path) {
   const syncLang = languages.data.find((lang) => lang.name === sourceLang.value);
   if (!syncLang) return { currPrefix: null, prefixes: [] };
 
-  return { currPrefix: '/', prefixes: formatPrefixes(org, repo, '/', syncLang.locales, path) };
+  const isSourceStore = syncLang.location !== '/';
+  const targets = isSourceStore ? syncLang.location : syncLang.locales;
+  return {
+    currPrefix: '/',
+    prefixes: formatPrefixes(org, repo, '/', targets, path),
+    isSourceStore,
+  };
 }
