@@ -129,10 +129,8 @@ export default class NxChatAo extends LitElement {
     if (this._configKey !== key) return;
     this._prompts = prompts ?? [];
     if (this._harnessConfigKey !== key) {
-      // ew.cma is a per-site rollout opt-in (UI selector, not a security
-      // boundary); isCmaEntitled is the real IMS-entitlement pre-check. Both
-      // must hold for the CMA harness — the bridge independently re-verifies
-      // entitlement server-side regardless of what this resolves to.
+      // Both the ew.cma flag and IMS entitlement must hold for the CMA
+      // harness; the bridge re-verifies entitlement server-side.
       const [cmaFlagEnabled, entitled] = await Promise.all([
         isCmaFlagEnabled({ org, site }),
         isCmaEntitled(),
@@ -161,12 +159,9 @@ export default class NxChatAo extends LitElement {
     this.staleEpisode = staleEpisode;
   }
 
-  // The session (and its underlying controller) is created/joined once the
-  // ew.cma flag + entitlement are known, so the correct harness subclass
-  // (Coworker REST history vs CMA bridge) is chosen up front and shared with
-  // any other chat surface on the same org/site/harness scope (see
-  // session.js). Idempotent; only re-joins if the scope or isolation
-  // actually changes. See docs/chat-ao-controller-decoupling.md.
+  // Creates/joins the session once flags + entitlement are known, picking the
+  // correct harness subclass up front. Idempotent; re-joins only on scope or
+  // isolation change. See docs/chat-ao-controller-decoupling.md.
   _initController() {
     if (!this.isConnected) return;
     const { org, site } = this._context ?? {};

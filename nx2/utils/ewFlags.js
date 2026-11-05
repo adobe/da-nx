@@ -174,15 +174,8 @@ export async function getCoworkerConfig({ org, site }) {
   };
 }
 
-// Site opt-in for the CMA bridge harness (replaces the old `ew.altHarness`
-// activation-key flag, removed per #192). This is a rollout/UI selector only,
-// NOT a security boundary — org+site merged same as every other `ew.*` flag
-// (site overrides org), so an already-entitled org can still be rolled out
-// site by site. The actual hard gate is IMS tenant entitlement, checked both
-// here (see isCmaEntitled, nx2/utils/entitlement.js) for UI selection AND
-// independently, authoritatively, on the bridge itself for every session
-// (src/websocket/auth.ts#isEntitledTenant) — a wrong/stale client-side read
-// can only misselect the harness UI, never grant access to a non-entitled org.
+// Per-site rollout opt-in for the CMA harness (replaces ew.altHarness, #192).
+// Selector only; the hard gate is IMS entitlement (see isCmaEntitled).
 export async function isCmaFlagEnabled({ org, site }) {
   const flags = await getEWFlags({ org, site });
   return flags['ew.cma'] === 'true';

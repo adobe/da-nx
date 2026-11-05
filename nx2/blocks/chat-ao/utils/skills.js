@@ -73,11 +73,9 @@ function saveCachedSkills(skills, tenantId) {
   }
 }
 
-// Real catalog lookup. Best-effort: a network error or unexpected response shape
-// returns null, leaving the cache (or empty list) in place rather than throwing.
-// When the CMA bridge harness is in use, the skills REST plane routes to the
-// bridge instead of Agent Orchestrator (the bridge requires an explicit
-// x-user-id; AO derives the caller from the token). See docs/chat-ao-alt-harness.md.
+// Best-effort catalog lookup; returns null on error, leaving the cache intact.
+// With the CMA harness, skills route to the bridge (needs explicit x-user-id)
+// instead of Agent Orchestrator.
 export async function fetchSkills({ org, site, cma } = {}) {
   try {
     const {

@@ -14,14 +14,8 @@ export function getAoSession({
 }) {
   const { org, site } = context;
   const scope = getSessionScope({ org, site, cma });
-  // Only count non-isolated sessions toward "another session already exists in
-  // this scope" - a sibling that's explicitly isolated was never a reuse
-  // candidate (filtered out below the same way), so its mere existence must
-  // not force an unrelated new request into isolation too. This matters more
-  // now that dropping the old activation-key dimension collapsed the scope
-  // space (two legitimately-different chats can now share org/site/harness),
-  // so an isolated sibling in the same scope is a normal occurrence, not an
-  // edge case.
+  // Only non-isolated sessions count as reuse candidates; an isolated sibling
+  // in the same scope must not force an unrelated request into isolation.
   const matching = [...sessions.keys()].filter(
     (session) => session.scope === scope && !session.isolated,
   );

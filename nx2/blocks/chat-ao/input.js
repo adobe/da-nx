@@ -95,12 +95,8 @@ export default class NxAoInput extends LitElement {
       const supplied = this._harnessConfig;
       let { cma } = supplied && (!supplied.key || supplied.key === key) ? supplied : {};
       if (cma === undefined) {
-        // No (fresh) pre-resolved harnessConfig supplied - resolve it the
-        // same way chat-ao.js does: ew.cma is a per-site rollout opt-in (UI
-        // selector, not a security boundary); isCmaEntitled is the real
-        // IMS-entitlement pre-check. Both must hold for the CMA harness -
-        // the bridge independently re-verifies entitlement server-side
-        // regardless of what this resolves to.
+        // No fresh pre-resolved config supplied; resolve it as chat-ao.js does
+        // (ew.cma flag AND entitlement, both re-verified server-side).
         const { org, site } = context;
         const [{ isCmaFlagEnabled }, { isCmaEntitled }] = await Promise.all([
           import('../../utils/ewFlags.js'),

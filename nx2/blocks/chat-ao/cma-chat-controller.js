@@ -16,9 +16,8 @@ import { AO_FRAME, CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE } from './ao-constan
 import { getOrgId } from './utils/uploads.js';
 import { fetchSkills } from './utils/skills.js';
 
-// The alternate-harness (CMA bridge) rejects the AUTH frame with terse,
-// internal-sounding messages. Map those to tester-facing copy; leave any other
-// backend error untouched. See docs/chat-ao-alt-harness.md.
+// Maps the CMA bridge's terse AUTH-reject messages to tester-facing copy;
+// leaves any other backend error untouched.
 function friendlyBackendError(message) {
   if (typeof message !== 'string') return 'Something went wrong.';
   if (/not provisioned|not entitled/i.test(message)) {
@@ -50,9 +49,9 @@ export default class CmaChatController extends BaseChatController {
         'x-user-email': email,
         'x-user-id': userId,
         'x-user-name': name,
-        // x-site scopes the session per-site (S12). No activation key: the
-        // bridge authenticates this path on IMS identity + tenant entitlement
-        // + site membership alone (#192), identical to the `abv` agent route.
+        // x-site scopes the session per-site. No activation key: the bridge
+        // authenticates on IMS identity + tenant entitlement + site membership
+        // (#192).
         ...(siteId ? { 'x-site': siteId } : {}),
       },
       wsBase: CMA_BRIDGE_WS_BASE,
