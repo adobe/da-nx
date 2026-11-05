@@ -226,13 +226,15 @@ describe('nav site navigation', () => {
     await selector.updateComplete;
     const [slot, next] = list.children;
     expect(getComputedStyle(slot).display).to.equal('none');
-    expect(next.getBoundingClientRect().left).to.be.closeTo(list.getBoundingClientRect().left, 0.5);
+    const padding = parseFloat(getComputedStyle(list).paddingLeft);
+    expect(next.getBoundingClientRect().left)
+      .to.be.closeTo(list.getBoundingClientRect().left + padding, 0.5);
     nav._brand.focus();
     await sendKeys({ press: 'Tab' });
     expect(nav.shadowRoot.activeElement).to.equal(next.querySelector('button'));
   });
 
-  it('keeps picker focus rings inside the scrolling navigation list', async () => {
+  it('leaves room for outer picker focus rings in the scrolling navigation list', async () => {
     nav.style.cssText = `
       width: 600px;
       height: 56px;
@@ -264,14 +266,44 @@ describe('nav site navigation', () => {
         const style = getComputedStyle(trigger);
         expect(style.outlineColor).to.equal(color);
         expect(style.outlineWidth).to.equal('2px');
-        expect(style.outlineOffset).to.equal('-2px');
+        expect(style.outlineOffset).to.equal('2px');
         expect(style.borderRadius).to.equal('16px');
         const bounds = trigger.getBoundingClientRect();
         const clip = list.getBoundingClientRect();
-        expect(bounds.left).to.be.closeTo(clip.left, 0.5);
-        expect(bounds.right).to.be.at.most(clip.right);
-        expect(bounds.top).to.be.at.least(clip.top);
-        expect(bounds.bottom).to.be.at.most(clip.bottom);
+        const ring = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
+        expect(bounds.left - ring).to.be.at.least(clip.left);
+        expect(bounds.right + ring).to.be.at.most(clip.right);
+        expect(bounds.top - ring).to.be.at.least(clip.top);
+        expect(bounds.bottom + ring).to.be.at.most(clip.bottom);
+      }
+    }
+  });
+
+  it('leaves room for regular button focus rings at both ends of scrolling nav and action lists', async () => {
+    nav.style.cssText = 'width: 600px; height: 56px';
+    const buttons = ['First', 'Middle', 'Last']
+      .map((label) => `<li><button type="button" style="width: 120px">${label}</button></li>`).join('');
+    await mountFragment({ middle: `<ul>${buttons}</ul>`, actions: buttons });
+    nav.shadowRoot.querySelector('.action-area').style.display = 'block';
+    nav._brand.focus();
+    await sendKeys({ press: 'Tab' });
+    for (const list of nav.shadowRoot.querySelectorAll('.site-nav ul, .action-area ul')) {
+      list.style.width = '160px';
+      expect(list.scrollWidth).to.be.greaterThan(list.clientWidth);
+      const items = list.querySelectorAll('button');
+      for (const button of [items[0], items[items.length - 1]]) {
+        list.scrollLeft = button === items[0] ? 0 : list.scrollWidth;
+        button.focus();
+        expect(button.matches(':focus-visible')).to.be.true;
+        const style = getComputedStyle(button);
+        expect(parseFloat(style.outlineWidth)).to.be.greaterThan(0);
+        const ring = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
+        const bounds = button.getBoundingClientRect();
+        const clip = list.getBoundingClientRect();
+        expect(bounds.left - ring).to.be.at.least(clip.left);
+        expect(bounds.right + ring).to.be.at.most(clip.right);
+        expect(bounds.top - ring).to.be.at.least(clip.top);
+        expect(bounds.bottom + ring).to.be.at.most(clip.bottom);
       }
     }
   });

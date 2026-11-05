@@ -233,7 +233,6 @@ class NxPicker extends LitElement {
     return html`
       <button
         class="picker-trigger"
-        part="trigger"
         type="button"
         aria-haspopup="listbox"
         aria-expanded="false"

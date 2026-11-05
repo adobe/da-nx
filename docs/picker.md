@@ -111,8 +111,7 @@ Trigger text precedence is: non-empty `labelOverride`, matching item label, `pla
 
 ## CSS parts
 
-Use `::part(trigger)` to style the trigger button and `::part(label)` to style
-its text, or `::part(label)::before` to add a decorative icon.
+Use `::part(label)` to style the trigger text.
 
 `check-position="start"` provides leading checks.
 Descriptions appear below labels and join the accessible name unless `ariaLabel` overrides it.
@@ -177,7 +176,7 @@ Add validates site access and the organization listing without backend writes or
 Both sizes use the standard shared M picker menu, including its description styles.
 Menu names are capitalized; identifiers and emitted values are unchanged.
 Selected triggers show only `org/site`; menu rows retain the name and path.
-Only the outlined pill, bold trigger text and inset navigation focus ring are
+Only the outlined pill, bold trigger text and focus ring color are
 styled by the site-selector consumer. Add uses the shared dialog and form styles.
 
 The selector renders only when there are sites to pick from. While loading or with no

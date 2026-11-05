@@ -19,15 +19,11 @@ nx-picker {
   --nx-picker-radius: var(--s2-corner-radius-800);
   --nx-picker-background: var(--s2-gray-25);
   --nx-picker-max-width: 100%;
+  --s2-focus-ring-color: var(--s2-blue-800);
 }
 
 nx-picker:hover {
   --nx-picker-border: 1px solid var(--s2-gray-500);
-}
-
-nx-picker::part(trigger):focus-visible {
-  outline-color: var(--s2-blue-800);
-  outline-offset: -2px;
 }
 
 nx-picker::part(label) {
