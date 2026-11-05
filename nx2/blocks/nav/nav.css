@@ -51,7 +51,8 @@
 }
 
 .brand-area:has(.brand-icon) {
-  gap: var(--s2-spacing-100);
+  gap: var(--s2-spacing-200);
+  padding-inline-start: var(--s2-spacing-200);
   font-family: var(--s2-font-family);
   font-size: var(--s2-component-m-medium-font-size);
   font-weight: var(--s2-component-m-medium-font-weight);

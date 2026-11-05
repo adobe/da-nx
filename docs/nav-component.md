@@ -18,9 +18,10 @@ Both fields are required for the override. The consumer owns the asset and label
 Nexter owns their presentation. The existing nav fragment still supplies the
 navigation items and actions. No content publication is required for the override.
 
-The logo is 24×24 pixels, centered in a 32×32 pixel wrapper at the nav's left edge.
+The logo is 24×24 pixels, centered in a 32×32 pixel wrapper with a 12px left inset.
+The label starts at 56px, flush with the right edge of the shell's navigation rail.
 The label uses the S2 component M medium tokens (14px, weight 500, 18px line
-height), with an 8px gap after the wrapper. Top-bar branding stays the same size
+height), with a 12px gap after the wrapper. Top-bar branding stays the same size
 for both UI-size preferences. Text inherits the current theme's color, and the
 decorative image has empty alternative text. The link's accessible name is the
 label.

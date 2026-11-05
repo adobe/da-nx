@@ -230,7 +230,7 @@ describe('nav brand override', () => {
     expect(brand.querySelector('svg')).to.be.null;
   });
 
-  it('keeps the logo centered, the brand flush left, and medium typography fixed in S/M and both themes', async () => {
+  it('aligns the logo with the shell rail and the label with its right edge in S/M and both themes', async () => {
     await setConfig({ ...config, navBrand: { logoHref, label: 'Example Product' } });
     const brand = await mountBrand();
     const icon = brand.querySelector('.brand-icon');
@@ -252,8 +252,12 @@ describe('nav brand override', () => {
           expect(imgRect.height).to.equal(24);
           expect(imgRect.left - iconRect.left).to.equal(4);
           expect(imgRect.top - iconRect.top).to.equal(4);
-          expect(iconRect.left - nav.getBoundingClientRect().left).to.equal(0);
-          expect(label.getBoundingClientRect().left - iconRect.right).to.equal(8);
+          const navRect = nav.getBoundingClientRect();
+          const labelRect = label.getBoundingClientRect();
+          expect(iconRect.left - navRect.left).to.equal(12);
+          expect(iconRect.top - navRect.top).to.equal(12);
+          expect(labelRect.left - navRect.left).to.equal(56);
+          expect(labelRect.left - iconRect.right).to.equal(12);
           const textStyle = getComputedStyle(label);
           expect(textStyle.fontFamily).to.include('adobe-clean');
           expect(textStyle.fontSize).to.equal('14px');
