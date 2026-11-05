@@ -211,7 +211,7 @@ export default async function deliverVideos({
       await saveState?.();
     }
   }
-  if (failures.length) throw new Error(failures.join(' '));
+  if (failures.length) throw new Error(failures.join('\n'));
   return awaitingTranslation || queued.length ? {
     type: 'info',
     text: awaitingTranslation

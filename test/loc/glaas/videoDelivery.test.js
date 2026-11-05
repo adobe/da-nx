@@ -391,6 +391,36 @@ describe('GLaaS video delivery from Get Status', () => {
     expect(clock.countTimers()).to.equal(0);
   }));
 
+  ['initial pass', 'polling'].forEach((phase) => it(`separates video delivery errors by newline during ${phase}`, async () => {
+    const langs = ['ja', 'bg'].map((code) => {
+      const lang = language(code);
+      lang.translation.workflowTasks.Task.sourceCaptionDelivery = {
+        [assetName]: { status: 'delivered' },
+      };
+      return lang;
+    });
+    fetchStub.callsFake(async (href, options) => {
+      if (!String(href).endsWith('/video-delivery')) {
+        return new Response(JSON.stringify({ signedURL: 'https://signed.example/srt' }));
+      }
+      const { statusOnly } = JSON.parse(options.body);
+      const body = phase === 'initial pass' || statusOnly
+        ? { status: 'error', error: 'GLaaS caption download failed (404).' }
+        : { status: 'queued' };
+      return new Response(JSON.stringify(body));
+    });
+    try {
+      await check(langs);
+      expect.fail('Expected delivery errors');
+    } catch (error) {
+      expect(error.message).to.equal(
+        `Video delivery failed for ${assetName} (ja): GLaaS caption download failed (404).\n`
+        + `Video delivery failed for ${assetName} (bg): GLaaS caption download failed (404).`,
+      );
+    }
+    expect(clock.countTimers()).to.equal(0);
+  }));
+
   it('skips blocked page probes while still checking unrelated video-free languages', async () => {
     const blocked = language('fr');
     blocked.translation.status = 'created';
