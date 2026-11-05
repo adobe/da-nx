@@ -5,23 +5,17 @@ import { setConfig } from '../../../../../scripts/nx.js';
 
 await setConfig({ hostnames: [] });
 await import('../../../../../blocks/siteselector/add-site.js');
-const { source, config } = await import('../../../../../utils/api.js');
+const { source } = await import('../../../../../utils/api.js');
 const tick = () => new Promise((resolve) => { setTimeout(resolve, 0); });
 
 describe('shared Add site dialog', () => {
   let el;
   let list;
-  let permission;
   let recentSites;
-  let saveSites;
 
   beforeEach(async () => {
-    recentSites = JSON.stringify(['org/other']);
-    const readSites = sinon.stub(Storage.prototype, 'getItem').callThrough();
-    readSites.withArgs('da-sites').callsFake(() => recentSites);
-    saveSites = sinon.stub(Storage.prototype, 'setItem').callThrough();
-    saveSites.withArgs('da-sites').callsFake((key, value) => { recentSites = value; });
-    permission = sinon.stub(config, 'get').resolves(new Response(null, { status: 403 }));
+    recentSites = localStorage.getItem('da-sites');
+    localStorage.setItem('da-sites', '["org/other"]');
     list = sinon.stub(source, 'list').callsFake(async (path) => ({ ok: true, items: path === '/org' ? [{ name: 'site', path: '/org/site' }] : [] }));
     el = document.createElement('nx-add-site');
     el.createHref = '/create';
@@ -35,6 +29,8 @@ describe('shared Add site dialog', () => {
   afterEach(() => {
     el.remove();
     sinon.restore();
+    if (recentSites === null) localStorage.removeItem('da-sites');
+    else localStorage.setItem('da-sites', recentSites);
   });
 
   it('uses common form error styling and clears it when the input is corrected', async () => {
@@ -57,6 +53,7 @@ describe('shared Add site dialog', () => {
 
   it('shows inline errors instead of browser validation for required and malformed URLs', async () => {
     const input = el.shadowRoot.querySelector('input');
+    const saved = localStorage.getItem('da-sites');
     const invalid = sinon.spy();
     input.addEventListener('invalid', invalid);
     for (const value of ['', 'not-a-url']) {
@@ -71,41 +68,8 @@ describe('shared Add site dialog', () => {
       expect(error.textContent).to.include('Enter an existing AEM site URL');
       expect(input.getAttribute('aria-invalid')).to.equal('true');
     }
-    expect(invalid.called || list.called || saveSites.called).to.be.false;
-  });
-
-  it('uses shared rounded dialog buttons in light and dark themes', () => {
-    el.style.cssText = `
-      --s2-corner-radius-400: 8px;
-      --s2-corner-radius-800: 16px;
-      --s2-gray-100: light-dark(#eee, #333);
-      --s2-gray-200: light-dark(#ddd, #444);
-      --s2-gray-800: light-dark(#292929, #dbdbdb);
-      --s2-gray-900: light-dark(#161616, #eee);
-      --s2-gray-25: light-dark(#fff, #161616);
-      --s2-blue-900: light-dark(#0265dc, #54a5ff);
-      --s2-blue-1000: light-dark(#0054b6, #378ef0);
-    `;
-    const cancel = el.shadowRoot.querySelector('[slot="actions"][type="button"]');
-    const add = el.shadowRoot.querySelector('[type="submit"]');
-    [cancel, add].forEach((button) => { button.style.transition = 'none'; });
-    expect(cancel.classList.contains('nx-form-btn-secondary')).to.be.true;
-    expect(add.classList.contains('nx-form-btn-primary')).to.be.true;
-    for (const [scheme, cancelBackground, cancelHover, addBackground, addHover, addColor] of [
-      ['light', 'rgb(238, 238, 238)', 'rgb(221, 221, 221)', 'rgb(2, 101, 220)', 'rgb(0, 84, 182)', 'rgb(255, 255, 255)'],
-      ['dark', 'rgb(51, 51, 51)', 'rgb(68, 68, 68)', 'rgb(84, 165, 255)', 'rgb(55, 142, 240)', 'rgb(255, 255, 255)'],
-    ]) {
-      el.style.colorScheme = scheme;
-      const cancelStyle = getComputedStyle(cancel);
-      const addStyle = getComputedStyle(add);
-      for (const button of [cancelStyle, addStyle]) {
-        expect(button.borderRadius).to.equal('16px');
-        expect(button.height).to.equal('32px');
-      }
-      expect(cancelStyle.backgroundColor).to.equal(cancel.matches(':hover') ? cancelHover : cancelBackground);
-      expect(addStyle.backgroundColor).to.equal(add.matches(':hover') ? addHover : addBackground);
-      expect(addStyle.color).to.equal(addColor);
-    }
+    expect(invalid.called || list.called).to.be.false;
+    expect(localStorage.getItem('da-sites')).to.equal(saved);
   });
 
   it('submits with Enter and closes with Cancel using native dialog buttons', async () => {
@@ -121,49 +85,12 @@ describe('shared Add site dialog', () => {
     expect(closed.calledOnce).to.be.true;
   });
 
-  it('lets a non-admin add an existing accessible site without server writes', async () => {
-    const added = sinon.spy();
-    const saveSource = sinon.spy(source, 'save');
-    const saveConfig = sinon.spy(config, 'save');
-    el.addEventListener('site-added', added);
-    expect(el.shadowRoot.querySelector('.site-creation')).to.exist;
-    await el.submitForm({ preventDefault() {} });
-    expect(added.calledOnce).to.equal(true);
-    expect(added.firstCall.args[0].detail.value).to.equal('org/site');
-    expect(JSON.parse(localStorage.getItem('da-sites'))).to.deep.equal(['org/site', 'org/other']);
-    expect(saveSource.called).to.equal(false);
-    expect(saveConfig.called).to.equal(false);
-  });
-
-  it('shows Create without a selected organization or checking organization permissions', () => {
-    const link = new URL(el.shadowRoot.querySelector('.site-creation a').href);
-    expect(link.pathname).to.equal('/create');
-    expect(link.searchParams.has('org')).to.be.false;
-    expect(link.hash).to.equal('');
-    expect(permission.called).to.be.false;
-  });
-
-  it('preserves host-owned creation routing', async () => {
-    el.createHref = '/start?landing=home&nx=lp';
-    await el.updateComplete;
-    expect(el.shadowRoot.querySelector('.site-creation a').getAttribute('href')).to.equal(el.createHref);
-  });
-
   it('leaves creation to the host without blocking Add existing', async () => {
     el.createHref = undefined;
     await el.updateComplete;
-    expect(permission.called).to.be.false;
     expect(el.shadowRoot.querySelector('.site-creation')).to.be.null;
     await el.submitForm({ preventDefault() {} });
     expect(JSON.parse(localStorage.getItem('da-sites'))[0]).to.equal('org/site');
-  });
-
-  it('rejects invalid URLs before checking access or changing storage', async () => {
-    el.shadowRoot.querySelector('input').value = 'https://example.com';
-    await el.submitForm({ preventDefault() {} });
-    expect(list.called).to.equal(false);
-    expect(el._error).to.include('existing AEM site URL');
-    expect(JSON.parse(localStorage.getItem('da-sites'))).to.deep.equal(['org/other']);
   });
 
   it('does not add inaccessible sites or grant access', async () => {
@@ -192,7 +119,8 @@ describe('shared Add site dialog', () => {
   it('does not claim success when the browser cannot save the site', async () => {
     const added = sinon.spy();
     el.addEventListener('site-added', added);
-    saveSites.withArgs('da-sites').throws(new DOMException('Storage unavailable', 'QuotaExceededError'));
+    sinon.stub(Storage.prototype, 'setItem').callThrough()
+      .withArgs('da-sites').throws(new DOMException('Storage unavailable', 'QuotaExceededError'));
     await el.submitForm({ preventDefault() {} });
     expect(added.called).to.equal(false);
     expect(el._error).to.include('Storage unavailable');

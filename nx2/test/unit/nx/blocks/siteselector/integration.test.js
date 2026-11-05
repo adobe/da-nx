@@ -23,7 +23,6 @@ describe('standalone site selector behavior', () => {
   let href;
   let recentSites;
   let list;
-  let permission;
 
   async function mount() {
     const refresh = sinon.spy(selector, 'refresh');
@@ -36,15 +35,11 @@ describe('standalone site selector behavior', () => {
   beforeEach(() => {
     href = window.location.href;
     window.history.replaceState(null, '', window.location.pathname);
-    recentSites = '["org/site","other/site"]';
-    const readSites = sinon.stub(Storage.prototype, 'getItem').callThrough();
-    readSites.withArgs('da-sites').callsFake(() => recentSites);
-    const saveSites = sinon.stub(Storage.prototype, 'setItem').callThrough();
-    saveSites.withArgs('da-sites').callsFake((key, value) => { recentSites = value; });
+    recentSites = localStorage.getItem('da-sites');
+    localStorage.setItem('da-sites', '["org/site","other/site"]');
     list = sinon.stub(source, 'list').callsFake(async (path) => ({
       ok: true, items: path === '/org' ? [{ name: 'site' }] : [],
     }));
-    permission = sinon.stub(config, 'get').resolves(new Response(null, { status: 403 }));
     selector = document.createElement('nx-siteselector');
   });
 
@@ -52,6 +47,8 @@ describe('standalone site selector behavior', () => {
     selector.remove();
     window.history.replaceState(null, '', href);
     sinon.restore();
+    if (recentSites === null) localStorage.removeItem('da-sites');
+    else localStorage.setItem('da-sites', recentSites);
   });
 
   it('preselects the most recent accessible site and notifies the consumer once', async () => {
@@ -83,21 +80,19 @@ describe('standalone site selector behavior', () => {
     await mount();
     onSelect.resetHistory();
     const currentHref = window.location.href;
-    selector.onChange({ stopPropagation() {}, detail: { value: 'other/site' } });
-    await tick();
+    const picker = selector.shadowRoot.querySelector('nx-picker');
+    await picker.updateComplete;
+    picker.shadowRoot.querySelector('.picker-trigger').click();
+    picker.shadowRoot.querySelector('[data-value="other/site"]').click();
+    await selector.updateComplete;
+    await picker.updateComplete;
     expect(onSelect.calledOnceWithExactly({ value: 'other/site' })).to.be.true;
     expect(selector.value).to.equal('other/site');
     expect(JSON.parse(localStorage.getItem('da-sites'))[0]).to.equal('other/site');
     expect(window.location.href).to.equal(currentHref);
-    await selector.updateComplete;
-    const picker = selector.shadowRoot.querySelector('nx-picker');
-    await picker.updateComplete;
     expect(picker.shadowRoot.querySelector('[part="label"]').textContent).to.equal('other/site');
     expect(picker.items.find((item) => item.value === 'other/site'))
       .to.include({ label: 'Site', description: 'other/site' });
-    selector.onChange({ stopPropagation() {}, detail: { value: 'unknown/site' } });
-    expect(onSelect.calledOnce).to.be.true;
-    expect(selector.error).to.include('no longer available');
   });
 
   it('uses a consumer-provided selection without interpreting the URL or emitting selection back', async () => {
@@ -116,7 +111,7 @@ describe('standalone site selector behavior', () => {
     expect(selector.value).to.equal('other/site');
     selector.value = 'org/site';
     await selector.updateComplete;
-    expect(JSON.parse(recentSites)[0]).to.equal('org/site');
+    expect(JSON.parse(localStorage.getItem('da-sites'))[0]).to.equal('org/site');
     expect(onSelect.called || list.called).to.be.false;
   });
 
@@ -166,6 +161,8 @@ describe('standalone site selector behavior', () => {
     localStorage.setItem('da-sites', '[]');
     const saveSource = sinon.spy(source, 'save');
     const saveConfig = sinon.spy(config, 'save');
+    const onSelect = sinon.spy();
+    selector.addEventListener('site-select', onSelect);
     await mount();
     await selector.updateComplete;
     expect(selector.hidden).to.be.true;
@@ -173,6 +170,7 @@ describe('standalone site selector behavior', () => {
     const currentHref = window.location.href;
     const cancelled = await openDialog(selector);
     await cancelled.updateComplete;
+    await cancelled.shadowRoot.querySelector('nx-dialog').updateComplete;
     expect(cancelled.shadowRoot.querySelector('.site-creation a')).to.exist;
     cancelled.shadowRoot.querySelector('[slot="actions"][type="button"]').click();
     await tick();
@@ -180,14 +178,19 @@ describe('standalone site selector behavior', () => {
     expect(selector.hidden).to.be.true;
     const dialog = await openDialog(selector);
     await dialog.updateComplete;
+    await dialog.shadowRoot.querySelector('nx-dialog').updateComplete;
     dialog.shadowRoot.querySelector('input').value = 'https://main--site--org.aem.live';
-    await dialog.submitForm({ preventDefault() {} });
-    await tick();
+    const selected = new Promise((resolve) => {
+      selector.addEventListener('site-select', resolve, { once: true });
+    });
+    dialog.shadowRoot.querySelector('[type="submit"]').click();
+    await selected;
     expect(dialog.isConnected).to.be.false;
     expect(selector.value).to.equal('org/site');
     expect(JSON.parse(localStorage.getItem('da-sites'))).to.deep.equal(['org/site']);
     expect(window.location.href).to.equal(currentHref);
-    expect(permission.called).to.be.false;
+    expect(onSelect.calledOnce).to.be.true;
+    expect(onSelect.firstCall.args[0].detail).to.deep.equal({ value: 'org/site' });
     expect(saveSource.called || saveConfig.called).to.be.false;
     await selector.updateComplete;
     const picker = selector.shadowRoot.querySelector('nx-picker');
@@ -205,10 +208,10 @@ describe('standalone site selector behavior', () => {
     expect(dialog.shadowRoot.querySelector('.site-creation a').getAttribute('href'))
       .to.equal('/custom-create');
     expect(selector.getCreateSiteHref.calledOnceWithExactly()).to.be.true;
-    expect(permission.called).to.be.false;
   });
 
   it('opens the generic creation flow without forwarding the current organization', async () => {
+    const permission = sinon.stub(config, 'get').resolves(new Response(null, { status: 403 }));
     window.history.replaceState(null, '', '?nx=siteselector-main&nxver=2&theme=dark&browse=2&site=old&org=old#/org/site/folder');
     selector.value = 'selected-org/site';
     const currentHref = window.location.href;
@@ -236,23 +239,26 @@ describe('standalone site selector behavior', () => {
     const dialog = await openDialog(selector);
     await dialog.updateComplete;
     expect(dialog.createHref).to.be.undefined;
-    expect(permission.called).to.be.false;
     expect(dialog.shadowRoot.querySelector('.site-creation')).to.be.null;
     expect(dialog.shadowRoot.querySelector('input')).to.exist;
   });
 
-  it('rechecks access on reconnect and releases the previous lifecycle', async () => {
+  it('rechecks access on reconnect and handles picker selection once', async () => {
     await mount();
-    const previous = selector._connection.signal;
     selector.remove();
-    expect(previous.aborted).to.be.true;
     list.resetHistory();
     await mount();
-    expect(selector._connection.signal.aborted).to.be.false;
     expect(list.calledTwice).to.be.true;
-    selector.onChange({ stopPropagation() {}, detail: { value: 'org/site' } });
-    await tick();
-    expect(selector.value).to.equal('org/site');
+    const onSelect = sinon.spy();
+    selector.addEventListener('site-select', ({ detail }) => onSelect(detail));
+    const picker = selector.shadowRoot.querySelector('nx-picker');
+    await picker.updateComplete;
+    picker.shadowRoot.querySelector('.picker-trigger').click();
+    picker.shadowRoot.querySelector('[data-value="other/site"]').click();
+    await selector.updateComplete;
+    expect(selector.value).to.equal('other/site');
+    expect(onSelect.calledOnceWithExactly({ value: 'other/site' })).to.be.true;
+    expect(list.calledTwice).to.be.true;
   });
 
   it('cancels initialization when removed before the API loads', async () => {

@@ -475,12 +475,14 @@ document.querySelector('#field-picker').items = [
         <p class="sg-note">Descriptions consistently use small regular typography and subdued theme-aware color in both S and M rows; long text wraps. Use <code>check-position="start"</code> for leading checks and <code>--nx-picker-menu-width</code> for width, capped at the viewport minus 20px. Consumers can style <code>::part(label)</code> without changing the shared menu presentation.</p>
         <div class="sg-demo sg-picker-container">
           <nx-picker id="demo-picker-description-s" size="s" placeholder="Small status"></nx-picker>
-          <nx-picker id="demo-picker-description" size="m" check-position="start" placeholder="Medium status"></nx-picker>
+          <nx-picker id="demo-picker-description" size="m" check-position="start" placeholder="Medium status"
+            style="--nx-picker-check-color: var(--s2-blue-900)"></nx-picker>
         </div>
         <pre><code>picker.items = [
   { value: 'draft', label: 'Draft', description: 'Not published' },
   { value: 'add', label: 'Add...', action: true },
-];</code></pre>
+];
+picker.style.setProperty('--nx-picker-check-color', 'var(--s2-blue-900)');</code></pre>
       </article>
 
       <article class="sg-example">

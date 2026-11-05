@@ -13,6 +13,7 @@
 
 nx-picker {
   --nx-picker-menu-width: 240px;
+  --nx-picker-check-color: var(--s2-blue-900);
   --nx-picker-height: var(--s2-spacing-500);
   --nx-picker-padding: var(--s2-spacing-75) var(--s2-spacing-300);
   --nx-picker-border: 1px solid var(--s2-gray-300);

@@ -131,6 +131,7 @@ presentation belongs in the consumer's stylesheet; the menu uses shared picker s
 | `--nx-picker-background` | `var(--s2-gray-100)`                  | Trigger background.       |
 | `--nx-picker-max-width`  | `none`                                | Maximum component width.  |
 | `--nx-picker-menu-width` | Rendered field width, or automatic    | Menu width, capped at the viewport minus 20px. |
+| `--nx-picker-check-color` | `var(--s2-gray-800)`                 | Selected checkmark color. |
 
 ### Methods
 

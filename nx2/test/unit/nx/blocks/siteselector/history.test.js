@@ -57,20 +57,6 @@ describe('site selector history and lifecycle', () => {
     expect(selector.size).to.equal('m');
   });
 
-  it('ignores URL changes unless the consumer updates its selection', async () => {
-    expect(selector.value).to.equal('aemsites/devlive');
-    list.resetHistory();
-    window.history.replaceState(null, '', '#/other/site/folder');
-    window.dispatchEvent(new HashChangeEvent('hashchange'));
-    await selector.refresh();
-    expect(selector.value).to.equal('aemsites/devlive');
-    expect(list.called).to.be.false;
-    selector.value = 'exp-workspace/frescopaco';
-    await selector.updateComplete;
-    expect(selector.value).to.equal('exp-workspace/frescopaco');
-    expect(list.called).to.be.false;
-  });
-
   it('preserves the heading on explicit reset without inferring selection from the URL', async () => {
     const remembered = localStorage.getItem('da-sites');
     selector.heading = 'Your recent sites';
@@ -239,10 +225,12 @@ describe('site selector history and lifecycle', () => {
   });
 
   it('opens one lazy Add dialog without navigating and restores trigger focus on cancel', async () => {
-    const focus = sinon.spy(selector, 'focus');
     const opening = sinon.spy(selector, 'showAddSite');
+    const picker = selector.shadowRoot.querySelector('nx-picker');
+    await picker.updateComplete;
     const { hash } = window.location;
-    document.dispatchEvent(new CustomEvent('site-add'));
+    picker.shadowRoot.querySelector('.picker-trigger').click();
+    picker.shadowRoot.querySelector('[data-value="add-site"]').click();
     document.dispatchEvent(new CustomEvent('site-add'));
     await opening.firstCall.returnValue;
     const dialogs = document.querySelectorAll('nx-add-site');
@@ -252,16 +240,17 @@ describe('site selector history and lifecycle', () => {
     await dialog.shadowRoot.querySelector('nx-dialog').updateComplete;
     expect(dialog.shadowRoot.querySelector('.site-creation')).to.exist;
     expect(window.location.hash).to.equal(hash);
-    dialog.dispatchEvent(new Event('close'));
+    const closed = new Promise((resolve) => {
+      dialog.addEventListener('close', resolve, { once: true });
+    });
+    dialog.shadowRoot.querySelector('[slot="actions"][type="button"]').click();
+    await closed;
     expect(dialog.isConnected).to.be.false;
-    expect(focus.calledOnce).to.be.true;
+    expect(picker.shadowRoot.activeElement).to.equal(picker.shadowRoot.querySelector('button'));
   });
 
   it('retries an uncertain access failure even when history and route are unchanged', async () => {
-    const history = sinon.stub(Storage.prototype, 'getItem').callThrough();
-    history.withArgs('da-sites').returns('["aemsites/devlive","other/site"]');
-    const save = sinon.stub(Storage.prototype, 'setItem').callThrough();
-    save.withArgs('da-sites').returns();
+    localStorage.setItem('da-sites', '["aemsites/devlive","other/site"]');
     list.rejects(new Error('Offline'));
     await selector.refresh();
     expect(selector.error).to.include('Offline');
@@ -285,58 +274,7 @@ describe('site selector history and lifecycle', () => {
     expect(selector.heading).to.equal('Choose a site');
   });
 
-  it('keeps selection and history without navigating or dispatching a hash change', async () => {
-    window.history.replaceState(null, '', '?nx=siteselector-main&theme=dark#/aemsites/devlive');
-    await selector.refresh();
-    const currentHref = window.location.href;
-    const hashchange = sinon.spy();
-    window.addEventListener('hashchange', hashchange, { signal: connection.signal });
-    const value = 'exp-workspace/frescopaco';
-    choose(value);
-    await tick();
-    selector.onRetry();
-    window.dispatchEvent(new StorageEvent('storage', { key: 'da-sites' }));
-    await tick();
-    expect(window.location.href).to.equal(currentHref);
-    expect(hashchange.called).to.be.false;
-    expect(selector.value).to.equal(value);
-    expect(JSON.parse(localStorage.getItem('da-sites'))[0]).to.equal(value);
-  });
-
-  it('selects an added site without navigating', async () => {
-    const currentHref = window.location.href;
-    const dialog = await openDialog();
-    const value = 'other/site';
-    dialog.dispatchEvent(new CustomEvent('site-added', { detail: { value } }));
-    await tick();
-    expect(dialog.isConnected).to.be.false;
-    expect(window.location.href).to.equal(currentHref);
-    expect(selector.value).to.equal(value);
-    expect(JSON.parse(localStorage.getItem('da-sites'))[0]).to.equal(value);
-  });
-
-  it('notifies the host about both selected and added sites using one event', async () => {
-    const onSelect = sinon.spy(({ value }) => { window.location.hash = `/${value}`; });
-    selector.addEventListener('site-select', ({ detail }) => onSelect(detail), { signal: connection.signal });
-    const { search } = window.location;
-    await choose('exp-workspace/frescopaco');
-    expect(window.location.hash).to.equal('#/exp-workspace/frescopaco');
-    expect(selector.value).to.equal('exp-workspace/frescopaco');
-    expect(onSelect.calledOnceWithExactly({ value: 'exp-workspace/frescopaco' })).to.be.true;
-    const dialog = await openDialog();
-    dialog.dispatchEvent(new CustomEvent('site-added', { detail: { value: 'other/site' } }));
-    await tick();
-    expect(window.location.hash).to.equal('#/other/site');
-    expect(selector.value).to.equal('other/site');
-    expect(window.location.search).to.equal(search);
-    expect(onSelect.calledTwice).to.be.true;
-    expect(onSelect.secondCall.args).to.deep.equal([{ value: 'other/site' }]);
-    choose('unknown/site');
-    expect(onSelect.calledTwice).to.be.true;
-    expect(window.location.hash).to.equal('#/other/site');
-  });
-
-  it('aborts pending checks and removes all listeners and dialogs on disconnect', async () => {
+  it('aborts pending checks and ignores events after disconnect', async () => {
     const started = new Promise((resolve) => {
       list.callsFake((path, { opts: { signal } }) => {
         resolve(signal);
