@@ -1,3 +1,10 @@
+# [1.39.0](https://github.com/adobe/da-nx/compare/v1.38.0...v1.39.0) (2026-11-04)
+
+
+### Features
+
+* **loc:** expose public localization core ([#801](https://github.com/adobe/da-nx/issues/801)) ([dfd37a4](https://github.com/adobe/da-nx/commit/dfd37a489a0112ca037dd2b5b930633e48c35dde)), closes [#913](https://github.com/adobe/da-nx/issues/913) [#920](https://github.com/adobe/da-nx/issues/920)
+
 # [1.38.0](https://github.com/adobe/da-nx/compare/v1.37.1...v1.38.0) (2026-11-04)
 
 
