@@ -53,7 +53,8 @@ describe('nx-siteselector', () => {
     expect(add.textContent.trim()).to.equal('Add site');
     expect(add.type).to.equal('button');
     expect(add.querySelector('svg').getAttribute('aria-hidden')).to.equal('true');
-    expect(add.querySelector('use').getAttribute('href')).to.include('S2_Icon_Add_20_N.svg');
+    expect(add.querySelector('use')).to.be.null;
+    expect(add.querySelector('path').getBBox().width).to.be.greaterThan(0);
     selector.sites = [
       { value: 'aemsites/devlive', label: 'devlive (aemsites)' },
       { value: 'exp-workspace/frescopaco', label: 'frescopaco (exp-workspace)' },
@@ -70,6 +71,27 @@ describe('nx-siteselector', () => {
     picker = await settle();
     expect(picker.size).to.equal('m');
     expect(selector.shadowRoot.querySelector('.nx-btn-accent')).to.be.null;
+  });
+
+  it('keeps an independent inline plus icon in each empty selector', async () => {
+    document.body.append(selector);
+    await settle();
+    const other = document.createElement('nx-siteselector');
+    other.sites = [];
+    document.body.append(other);
+    try {
+      await other.updateComplete;
+      const first = selector.shadowRoot.querySelector('.nx-btn-accent svg');
+      const second = other.shadowRoot.querySelector('.nx-btn-accent svg');
+      expect(first).not.to.equal(second);
+      for (const icon of [first, second]) {
+        expect(icon.querySelector('use')).to.be.null;
+        expect(icon.querySelector('path').getBBox().width).to.be.greaterThan(0);
+        expect(icon.getAttribute('aria-hidden')).to.equal('true');
+      }
+    } finally {
+      other.remove();
+    }
   });
 
   it('uses the shared blue button dimensions, typography and theme colors without picker overrides', async () => {

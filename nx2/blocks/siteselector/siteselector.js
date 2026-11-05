@@ -1,12 +1,15 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
+import { loadHrefSvg } from '../../utils/svg.js';
 import '../shared/picker/picker.js';
 
-const styles = await Promise.all([
+const [buttonStyles, styles, addIcon] = await Promise.all([
   loadStyle(new URL('../../styles/buttons.css', import.meta.url).href),
   loadStyle(import.meta.url),
+  loadHrefSvg(new URL('../../public/icons/S2_Icon_Add_20_N.svg', import.meta.url).href),
 ]);
-const addIconHref = new URL('../../public/icons/S2_Icon_Add_20_N.svg#S2_Icon_Add_20_N', import.meta.url).href;
+addIcon?.setAttribute('aria-hidden', 'true');
+addIcon?.setAttribute('focusable', 'false');
 
 class NxSiteselector extends LitElement {
   static properties = {
@@ -21,7 +24,7 @@ class NxSiteselector extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = styles;
+    this.shadowRoot.adoptedStyleSheets = [buttonStyles, styles];
     this._connection = new AbortController();
     this._adapter = undefined;
     this._loading = false;
@@ -102,7 +105,7 @@ class NxSiteselector extends LitElement {
       ${this.sites?.length === 0 && !this.error ? html`
         <button type="button" class="nx-btn-accent" @click=${this.onAdd}>
           Add site
-          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href=${addIconHref}></use></svg>
+          ${addIcon?.cloneNode(true)}
         </button>
       ` : html`<nx-picker
         .items=${items}
