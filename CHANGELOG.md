@@ -1,3 +1,10 @@
+# [1.40.0](https://github.com/adobe/da-nx/compare/v1.39.0...v1.40.0) (2026-11-05)
+
+
+### Features
+
+* **chat-ao:** gate CMA on ew.cma flag + IMS entitlement, remove activation key ([#948](https://github.com/adobe/da-nx/issues/948)) ([ea2d001](https://github.com/adobe/da-nx/commit/ea2d001f6f3352046ea46124acd8a0eca38097ec)), closes [#192](https://github.com/adobe/da-nx/issues/192) [#195](https://github.com/adobe/da-nx/issues/195) [#962](https://github.com/adobe/da-nx/issues/962)
+
 # [1.39.0](https://github.com/adobe/da-nx/compare/v1.38.0...v1.39.0) (2026-11-04)
 
 

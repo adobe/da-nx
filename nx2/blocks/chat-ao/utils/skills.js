@@ -1,7 +1,7 @@
 import { loadIms } from '../../../utils/ims.js';
 import { getOrgId, aoContext } from './uploads.js';
 import { resolveManifestId } from './manifest.js';
-import { CMA_BRIDGE_HTTP_BASE } from '../ao-constants.js';
+import { resolveChatBases } from './endpoints.js';
 
 const SKILLS_CACHE_PREFIX = 'da-chat-ao-skills';
 
@@ -73,17 +73,19 @@ function saveCachedSkills(skills, tenantId) {
   }
 }
 
-// Alt-harness routes to the CMA bridge, which needs an explicit x-user-id.
-// See docs/chat-ao-alt-harness.md.
-export async function fetchSkills({ org, site, altHarnessKey } = {}) {
+// Best-effort catalog lookup; returns null on error, leaving the cache intact.
+// With the CMA harness, skills route to the bridge (needs explicit x-user-id)
+// instead of Agent Orchestrator.
+export async function fetchSkills({ org, site, harness } = {}) {
   try {
     const {
-      base, headers, tenantId, userId,
+      headers, tenantId, userId, projectedProductContext,
     } = await aoContext();
-    const skillsBase = altHarnessKey ? CMA_BRIDGE_HTTP_BASE : base;
-    const skillsHeaders = altHarnessKey && userId ? { ...headers, 'x-user-id': userId } : headers;
+    const isCma = harness === 'cma';
+    const { httpBase } = resolveChatBases({ harness, projectedProductContext });
+    const skillsHeaders = isCma && userId ? { ...headers, 'x-user-id': userId } : headers;
     const { manifestId } = await resolveManifestId({ org, site });
-    const resp = await fetch(`${skillsBase}/api/v1/skills?manifest_id=${manifestId}`, { headers: skillsHeaders });
+    const resp = await fetch(`${httpBase}/api/v1/skills?manifest_id=${manifestId}`, { headers: skillsHeaders });
     if (!resp.ok) return null;
     const skills = parseSkillsListResponse(await resp.json());
     if (skills) saveCachedSkills(skills, tenantId);
