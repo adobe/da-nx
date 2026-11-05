@@ -386,6 +386,24 @@ describe('standalone input and full AO chat sharing', () => {
     expect(sent).to.deep.equal([{ org, site: 'site' }]);
   });
 
+  it('shows the working status only in the standalone input while a reply runs', async () => {
+    const [standalone, full] = await pair('coworker');
+    await ready(standalone, full);
+    const status = (chat) => composer(chat).shadowRoot.querySelector('.chat-working');
+    expect(status(standalone)).to.equal(null);
+    submit(standalone, 'Working check');
+    await flush();
+    expect(status(standalone).textContent).to.include('Working on your question');
+    expect(input(standalone).hidden).to.equal(true);
+    expect(composer(standalone).shadowRoot.querySelector('form').getAttribute('aria-busy')).to.equal('true');
+    expect(full._input.blocked).to.equal(true);
+    expect(status(full)).to.equal(null);
+    receive(AO_EVENT.TURN_COMPLETED);
+    await flush();
+    expect(status(standalone)).to.equal(null);
+    expect(input(standalone).hidden).to.equal(false);
+  });
+
   it('resolves the same configured harness for a standalone input and full chat without host callbacks', async () => {
     const fetchDefault = window.fetch;
     window.fetch = (resource, options) => {

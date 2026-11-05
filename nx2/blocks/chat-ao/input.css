@@ -199,6 +199,27 @@
   }
 }
 
+.chat-working {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--s2-spacing-100);
+  padding: var(--s2-spacing-100) 0;
+  line-height: 1.5;
+  color: var(--s2-gray-700);
+
+  .nx-loading-spinner {
+    flex-shrink: 0;
+    box-sizing: border-box;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.chat-input-wrap.coworker-chat:has(.chat-working)::before {
+  display: none;
+}
+
 @keyframes chat-voice-pulse {
   0%, 100% {
     opacity: 1;
