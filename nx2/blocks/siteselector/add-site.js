@@ -1,13 +1,10 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
-import { parseSubdomain, hasOrgAdminGrant, addExistingSite, getSiteApi } from './site-access.js';
+import { source, config } from '../../utils/api.js';
+import { parseSubdomain, hasOrgAdminGrant, addExistingSite } from './site-utils.js';
 import '../shared/dialog/dialog.js';
 
-const styles = await Promise.all([
-  loadStyle(new URL('../../styles/form.css', import.meta.url).href),
-  loadStyle(new URL('../../styles/buttons.css', import.meta.url).href),
-  loadStyle(import.meta.url),
-]);
+const style = await loadStyle(new URL('../../styles/form.css', import.meta.url).href);
 
 export class NxAddSite extends LitElement {
   static properties = {
@@ -21,7 +18,7 @@ export class NxAddSite extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = styles;
+    this.shadowRoot.adoptedStyleSheets = [style];
   }
 
   firstUpdated() {
@@ -42,7 +39,6 @@ export class NxAddSite extends LitElement {
     this._permissionError = undefined;
     if (!this.org || !this.createHref) return;
     try {
-      const { config } = await getSiteApi();
       const response = await config.get({ org: this.org });
       if (request.signal.aborted || !this.isConnected) return;
       if ([403, 404].includes(response.status)) return;
@@ -80,7 +76,6 @@ export class NxAddSite extends LitElement {
     const request = new AbortController();
     this._submitRequest = request;
     try {
-      const { source } = await getSiteApi();
       await addExistingSite({ value, source, signal: request.signal });
       if (request.signal.aborted || !this.isConnected) return;
       this.dispatchEvent(new CustomEvent('site-added', { detail: { value }, bubbles: true, composed: true }));
@@ -96,7 +91,8 @@ export class NxAddSite extends LitElement {
   render() {
     return html`
       <nx-dialog title="Add site" @close=${this.onClose}>
-        <form id="add-site-form" @submit=${this.submitForm} aria-busy=${!!this._saving}>
+        <form id="add-site-form" class=${this._error ? 'nx-field-error' : nothing}
+          @submit=${this.submitForm} aria-busy=${!!this._saving}>
           <label class="nx-form-field">
             <span>Existing site URL</span>
             <input class="nx-input" type="url" required autofocus autocomplete="url"
@@ -105,19 +101,19 @@ export class NxAddSite extends LitElement {
               @input=${() => { this._error = undefined; }}>
           </label>
           <p id="site-help">Add an existing site to this browser's list. This does not create a site or grant access.</p>
-          <p id="site-error" role="alert">${this._error || ''}</p>
+          <p id="site-error" class="nx-input-error-msg" role="alert" ?hidden=${!this._error}>${this._error || ''}</p>
           ${this._saving ? html`<p role="status">Checking site access...</p>` : nothing}
         </form>
         ${this._canCreate && this.createHref ? html`
-          <div class="site-creation">
+          <p class="site-creation">
             <a href=${this.createHref}>Create new site in ${this.org}</a>
-          </div>` : nothing}
+          </p>` : nothing}
         ${this._permissionError ? html`
           <p class="permission-error" role="status">${this._permissionError}
-            <button type="button" class="permission-retry" @click=${this.loadCreationPermission}>Try again</button>
+            <button type="button" class="nx-form-btn-secondary" @click=${this.loadCreationPermission}>Try again</button>
           </p>` : nothing}
         <button type="button" slot="actions" class="nx-form-btn-secondary" @click=${this.close}>Cancel</button>
-        <button type="submit" slot="actions" form="add-site-form" class="nx-btn-primary"
+        <button type="submit" slot="actions" form="add-site-form" class="nx-form-btn-primary"
           ?disabled=${this._saving}>${this._saving ? 'Checking...' : 'Add site'}</button>
       </nx-dialog>`;
   }

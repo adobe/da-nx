@@ -2,11 +2,10 @@ import { expect } from '@esm-bundle/chai';
 import { sendKeys } from '@web/test-runner-commands';
 import sinon from 'sinon';
 import { setConfig } from '../../../../../scripts/nx.js';
-import { getSiteApi } from '../../../../../blocks/siteselector/site-access.js';
 
 await setConfig({ hostnames: [] });
 await import('../../../../../blocks/siteselector/add-site.js');
-const { source, config } = await getSiteApi();
+const { source, config } = await import('../../../../../utils/api.js');
 const tick = () => new Promise((resolve) => { setTimeout(resolve, 0); });
 
 describe('shared Add site dialog', () => {
@@ -39,37 +38,20 @@ describe('shared Add site dialog', () => {
     sinon.restore();
   });
 
-  it('uses component typography for labels, input, help, status and retry text', async () => {
-    const response = await fetch('/nx2/blocks/siteselector/add-site.css');
-    expect(response.ok).to.equal(true);
-    const styles = new CSSStyleSheet();
-    styles.replaceSync(await response.text());
-    el.shadowRoot.adoptedStyleSheets = [...el.shadowRoot.adoptedStyleSheets, styles];
-    for (const [weight, fontSize, lineHeight, fontWeight] of [
-      ['regular', '13px', '19px', '350'],
-      ['medium', '15px', '21px', '550'],
-    ]) {
-      el.style.setProperty(`--s2-component-m-${weight}-font-size`, fontSize);
-      el.style.setProperty(`--s2-component-m-${weight}-line-height`, lineHeight);
-      el.style.setProperty(`--s2-component-m-${weight}-font-weight`, fontWeight);
-    }
-    el._canCreate = true;
-    el._saving = true;
+  it('uses common form error styling and clears it when the input is corrected', async () => {
+    el.style.cssText = '--s2-red-800: #c00; --s2-red-900: #900; --s2-gray-900: #333;';
     el._error = 'Access denied';
-    el._permissionError = 'Offline';
     await el.updateComplete;
-    const selectors = [
-      '.nx-form-field > span', '.nx-input', '#site-help', '#site-error',
-      'form [role="status"]', '.site-creation a', '.permission-error', '.permission-retry',
-    ];
-    for (const selector of selectors) {
-      const weight = selector === '.nx-form-field > span' ? 'medium' : 'regular';
-      const style = getComputedStyle(el.shadowRoot.querySelector(selector));
-      for (const property of ['font-size', 'line-height', 'font-weight']) {
-        expect(style.getPropertyValue(property), `${selector} ${property}`)
-          .to.equal(el.style.getPropertyValue(`--s2-component-m-${weight}-${property}`));
-      }
-    }
+    const input = el.shadowRoot.querySelector('input');
+    input.focus();
+    const error = el.shadowRoot.querySelector('[role="alert"]');
+    expect(getComputedStyle(input).borderColor).to.equal('rgb(204, 0, 0)');
+    expect(getComputedStyle(error).color).to.equal('rgb(153, 0, 0)');
+    expect(error.hidden).to.be.false;
+    input.dispatchEvent(new Event('input'));
+    await el.updateComplete;
+    expect(error.hidden).to.be.true;
+    expect(getComputedStyle(input).borderColor).to.equal('rgb(51, 51, 51)');
   });
 
   it('uses shared rounded dialog buttons in light and dark themes', () => {
@@ -81,15 +63,17 @@ describe('shared Add site dialog', () => {
       --s2-gray-800: light-dark(#292929, #dbdbdb);
       --s2-gray-900: light-dark(#161616, #eee);
       --s2-gray-25: light-dark(#fff, #161616);
+      --s2-blue-900: light-dark(#0265dc, #54a5ff);
+      --s2-blue-1000: light-dark(#0054b6, #378ef0);
     `;
     const cancel = el.shadowRoot.querySelector('[slot="actions"][type="button"]');
     const add = el.shadowRoot.querySelector('[type="submit"]');
     [cancel, add].forEach((button) => { button.style.transition = 'none'; });
     expect(cancel.classList.contains('nx-form-btn-secondary')).to.be.true;
-    expect(add.classList.contains('nx-btn-primary')).to.be.true;
+    expect(add.classList.contains('nx-form-btn-primary')).to.be.true;
     for (const [scheme, cancelBackground, cancelHover, addBackground, addHover, addColor] of [
-      ['light', 'rgb(238, 238, 238)', 'rgb(221, 221, 221)', 'rgb(41, 41, 41)', 'rgb(22, 22, 22)', 'rgb(255, 255, 255)'],
-      ['dark', 'rgb(51, 51, 51)', 'rgb(68, 68, 68)', 'rgb(219, 219, 219)', 'rgb(238, 238, 238)', 'rgb(22, 22, 22)'],
+      ['light', 'rgb(238, 238, 238)', 'rgb(221, 221, 221)', 'rgb(2, 101, 220)', 'rgb(0, 84, 182)', 'rgb(255, 255, 255)'],
+      ['dark', 'rgb(51, 51, 51)', 'rgb(68, 68, 68)', 'rgb(84, 165, 255)', 'rgb(55, 142, 240)', 'rgb(255, 255, 255)'],
     ]) {
       el.style.colorScheme = scheme;
       const cancelStyle = getComputedStyle(cancel);

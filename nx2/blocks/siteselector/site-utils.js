@@ -1,13 +1,9 @@
-export const getSiteApi = (() => {
-  let request;
-  return () => {
-    request ??= import(new URL('../../utils/api.js', import.meta.url).href).catch((error) => {
-      request = undefined;
-      throw error;
-    });
-    return request;
-  };
-})();
+export function getSiteOptions({ recentSites = [], current }) {
+  const sites = [...new Set([current, ...recentSites].filter(
+    (site) => typeof site === 'string' && /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*$/.test(site),
+  ))];
+  return sites.map((value) => ({ value, label: value }));
+}
 
 export function parseSubdomain(siteUrl) {
   let url;

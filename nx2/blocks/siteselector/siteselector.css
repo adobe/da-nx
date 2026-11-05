@@ -12,6 +12,7 @@
 }
 
 nx-picker {
+  --nx-picker-menu-width: 240px;
   --nx-picker-height: var(--s2-spacing-500);
   --nx-picker-padding: var(--s2-spacing-75) var(--s2-spacing-300);
   --nx-picker-border: 1px solid var(--s2-gray-300);
@@ -22,6 +23,11 @@ nx-picker {
 
 nx-picker:hover {
   --nx-picker-border: 1px solid var(--s2-gray-500);
+}
+
+nx-picker::part(trigger):focus-visible {
+  outline-color: var(--s2-blue-800);
+  outline-offset: -2px;
 }
 
 nx-picker::part(label) {

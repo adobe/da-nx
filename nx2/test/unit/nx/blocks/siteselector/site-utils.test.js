@@ -1,10 +1,34 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { parseSubdomain, hasOrgAdminGrant, getCreateSiteHref, checkSiteChoices, addExistingSite } from '../../../../../blocks/siteselector/site-access.js';
+import {
+  getSiteOptions, parseSubdomain, hasOrgAdminGrant,
+  getCreateSiteHref, checkSiteChoices, addExistingSite,
+} from '../../../../../blocks/siteselector/site-utils.js';
 
 describe('shared site access', () => {
   afterEach(() => {
     sinon.restore();
+  });
+
+  it('deduplicates valid identifiers and includes current site outside history', () => {
+    expect(getSiteOptions({
+      current: 'adobe/current',
+      recentSites: ['adobe/other', 'adobe/current', '/bad/path', 'adobe/.trash', null],
+    })).to.deep.equal([
+      { value: 'adobe/current', label: 'adobe/current' },
+      { value: 'adobe/other', label: 'adobe/other' },
+    ]);
+  });
+
+  it('uses the full identifier as the history label without manufacturing a display name', () => {
+    expect(getSiteOptions({
+      current: 'exp-workspace/frescopa',
+      recentSites: ['other/frescopa', 'org/my-site_2'],
+    })).to.deep.equal([
+      { value: 'exp-workspace/frescopa', label: 'exp-workspace/frescopa' },
+      { value: 'other/frescopa', label: 'other/frescopa' },
+      { value: 'org/my-site_2', label: 'org/my-site_2' },
+    ]);
   });
 
   it('builds creation links on the current host without a DA integration', () => {

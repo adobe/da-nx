@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import { setConfig } from '../../../../../scripts/nx.js';
 
 await setConfig({ hostnames: [] });
@@ -16,32 +17,13 @@ describe('nx-siteselector', () => {
   beforeEach(() => {
     selector = document.createElement('nx-siteselector');
     selector.sites = [];
+    sinon.stub(selector, 'refresh').resolves();
+    sinon.stub(selector, 'showAddSite').resolves();
   });
 
-  afterEach(() => selector.remove());
-
-  it('announces each connection across shadow DOM and aborts its old connection on removal', async () => {
-    const host = document.createElement('div');
-    host.attachShadow({ mode: 'open' });
-    document.body.append(host);
-    const ready = [];
-    const listener = ({ detail }) => ready.push(detail);
-    document.addEventListener('site-selector-ready', listener);
-    try {
-      host.shadowRoot.append(selector);
-      await settle();
-      expect(ready).to.have.length(1);
-      expect(ready[0].selector).to.equal(selector);
-      selector.remove();
-      expect(ready[0].signal.aborted).to.be.true;
-      host.shadowRoot.append(selector);
-      expect(ready).to.have.length(2);
-      expect(ready[1].signal.aborted).to.be.false;
-    } finally {
-      document.removeEventListener('site-selector-ready', listener);
-      selector.remove();
-      host.remove();
-    }
+  afterEach(() => {
+    selector.remove();
+    sinon.restore();
   });
 
   it('renders nothing and takes no space until there are sites to pick from', async () => {
@@ -115,17 +97,19 @@ describe('nx-siteselector', () => {
     expect(await settle()).to.be.null;
   });
 
-  it('emits selection and Add requests without owning navigation or changing current selection', async () => {
+  it('updates selection and emits selection and Add events without navigation', async () => {
     selector.sites = [{ value: 'org/site', label: 'org/site' }];
     document.body.append(selector);
     const picker = await settle();
     const events = [];
+    const { href } = window.location;
     selector.addEventListener('site-select', ({ detail }) => events.push(detail.value));
     selector.addEventListener('site-add', () => events.push('add'));
     picker.dispatchEvent(new CustomEvent('change', { detail: { value: 'org/site' }, bubbles: true }));
     picker.dispatchEvent(new CustomEvent('change', { detail: { value: 'add-site' }, bubbles: true }));
     expect(events).to.deep.equal(['org/site', 'add']);
-    expect(selector.value).to.be.undefined;
+    expect(selector.value).to.equal('org/site');
+    expect(window.location.href).to.equal(href);
   });
 
   it('shows host errors and delegates focus to its trigger', async () => {
@@ -134,10 +118,9 @@ describe('nx-siteselector', () => {
     document.body.append(selector);
     const picker = await settle();
     expect(selector.shadowRoot.querySelector('[role="alert"]').textContent).to.include(selector.error);
-    let retries = 0;
-    selector.addEventListener('site-retry', () => { retries += 1; });
+    selector.refresh.resetHistory();
     selector.shadowRoot.querySelector('button').click();
-    expect(retries).to.equal(1);
+    expect(selector.refresh.calledOnce).to.equal(true);
     selector.focus();
     expect(picker.shadowRoot.activeElement).to.equal(picker.shadowRoot.querySelector('button'));
     selector.error = undefined;
@@ -214,9 +197,15 @@ describe('nx-siteselector', () => {
     const picker = await settle();
     expect(selector.getBoundingClientRect().width).to.equal(280);
     expect(picker.shadowRoot.querySelector('.picker-trigger').getBoundingClientRect().width).to.equal(280);
+    picker.show();
+    const menu = picker.shadowRoot.querySelector('nx-popover');
+    await menu.updateComplete;
+    expect(menu.getBoundingClientRect().width).to.equal(240);
+    expect(selector.getBoundingClientRect().width).to.equal(280);
+    picker.close();
   });
 
-  it('uses M bold sections and M medium menu labels independently of trigger size', async () => {
+  it('uses standard M picker sections and menu labels independently of trigger size', async () => {
     selector.heading = 'Your recent sites';
     selector.sites = [{ value: 'org/site', label: 'Site, org/site' }];
     selector.style.cssText = `
@@ -225,9 +214,8 @@ describe('nx-siteselector', () => {
       --s2-component-m-bold-font-size: 14px;
       --s2-component-m-bold-line-height: 18px;
       --s2-component-m-bold-font-weight: 700;
-      --s2-component-m-medium-font-size: 14px;
-      --s2-component-m-medium-line-height: 18px;
-      --s2-component-m-medium-font-weight: 500;
+      --s2-component-m-regular-font-size: 14px;
+      --s2-component-m-regular-line-height: 18px;
     `;
     document.body.append(selector);
     for (const size of ['s', 'm', undefined]) {
@@ -236,17 +224,17 @@ describe('nx-siteselector', () => {
       const section = getComputedStyle(picker.shadowRoot.querySelector('.picker-section'));
       expect(section.fontSize).to.equal('14px');
       expect(section.lineHeight).to.equal('18px');
-      expect(section.fontWeight).to.equal('700');
+      expect(section.fontWeight).to.equal('600');
       for (const item of picker.shadowRoot.querySelectorAll('.picker-item')) {
         const style = getComputedStyle(item);
         expect(style.fontSize).to.equal('14px');
         expect(style.lineHeight).to.equal('18px');
-        expect(style.fontWeight).to.equal('500');
+        expect(style.fontWeight).to.equal('400');
       }
     }
   });
 
-  it('uses S regular site paths and subdued theme colors independently of trigger size', async () => {
+  it('uses shared small picker descriptions and subdued theme colors independently of trigger size', async () => {
     selector.sites = [{ value: 'exp-workspace/frescopa', label: 'Frescopa, exp-workspace/frescopa' }];
     selector.style.cssText = `
       --s2-component-s-regular-font-size: 12px;
@@ -274,7 +262,7 @@ describe('nx-siteselector', () => {
     }
   });
 
-  it('keeps the outlined pill, bold trigger and medium menu labels in both sizes', async () => {
+  it('keeps the outlined pill and bold trigger without customizing the menu in either size', async () => {
     selector.sites = [{ value: 'org/site', label: 'site (org)' }];
     selector.value = 'org/site';
     selector.style.cssText = `
@@ -301,8 +289,8 @@ describe('nx-siteselector', () => {
       expect(trigger.borderRadius).to.equal('24px');
       expect(trigger.backgroundColor).to.equal('rgb(250, 250, 250)');
       expect(getComputedStyle(picker.shadowRoot.querySelector('[part="label"]')).fontWeight).to.equal(bold);
-      expect(picker.variant).to.equal('emphasized');
-      expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal('450');
+      expect(picker.variant).to.equal('field');
+      expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal('400');
       expect(getComputedStyle(picker.shadowRoot.querySelector('.picker-item-description')).fontWeight).to.equal('300');
     }
   });

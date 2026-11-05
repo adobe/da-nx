@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import { sendKeys } from '@web/test-runner-commands';
 import { setConfig } from '../../../../../scripts/nx.js';
 
@@ -191,6 +192,7 @@ describe('nav site navigation', () => {
 
   beforeEach(() => {
     originalHref = window.location.href;
+    sinon.stub(customElements.get('nx-siteselector').prototype, 'refresh').resolves();
     nav = document.createElement('nx-nav');
   });
 
@@ -199,6 +201,7 @@ describe('nav site navigation', () => {
     restoreFetch?.();
     window.history.replaceState(null, '', originalHref);
     document.querySelectorAll('nx-dialog').forEach((el) => el.remove());
+    sinon.restore();
   });
 
   async function mountFragment({
@@ -217,9 +220,6 @@ describe('nav site navigation', () => {
   }
 
   it('collapses the site selector slot and skips it in tab order when there are no sites', async () => {
-    nav.addEventListener('site-selector-ready', ({ detail: { selector } }) => {
-      selector.sites = [];
-    });
     await mountFragment({ middle: '<ul><li>siteselector</li><li><button type="button">Next</button></li></ul>' });
     const list = nav.shadowRoot.querySelector('.site-nav ul');
     const selector = list.querySelector('nx-siteselector');
@@ -233,9 +233,6 @@ describe('nav site navigation', () => {
   });
 
   it('keeps picker focus rings inside the scrolling navigation list', async () => {
-    nav.addEventListener('site-selector-ready', ({ detail: { selector } }) => {
-      selector.sites = [{ value: 'org/site', label: 'org/site' }];
-    });
     nav.style.cssText = `
       width: 600px;
       height: 56px;
@@ -246,6 +243,7 @@ describe('nav site navigation', () => {
     await mountFragment({ middle: '<ul><li>siteselector</li></ul>' });
     const list = nav.shadowRoot.querySelector('.site-nav ul');
     const selector = list.querySelector('nx-siteselector');
+    selector.sites = [{ value: 'org/site', label: 'org/site' }];
     expect(getComputedStyle(list).overflowX).to.equal('auto');
     expect(getComputedStyle(list).overflowY).to.equal('hidden');
     for (const size of ['s', 'm']) {

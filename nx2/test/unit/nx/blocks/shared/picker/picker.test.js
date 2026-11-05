@@ -95,18 +95,18 @@ describe('nx-picker swatch', () => {
 
   it('supports optional descriptions and text-only actions', async () => {
     const el = await createPicker({
-      value: 'org/site',
+      value: 'draft',
       items: [
-        { value: 'org/site', label: 'Site', description: 'org/site' },
-        { value: 'add', label: 'Add site', action: true },
+        { value: 'draft', label: 'Draft', description: 'Not published' },
+        { value: 'add', label: 'Add status', action: true },
       ],
     });
-    expect(el.shadowRoot.querySelector('.picker-item-description').textContent).to.equal('org/site');
+    expect(el.shadowRoot.querySelector('.picker-item-description').textContent).to.equal('Not published');
     expect(el.shadowRoot.querySelector('[data-value="add"] svg')).to.be.null;
     const change = new Promise((resolve) => { el.addEventListener('change', resolve, { once: true }); });
     el.shadowRoot.querySelector('[data-value="add"]').click();
     expect((await change).detail.value).to.equal('add');
-    expect(el.value).to.equal('org/site');
+    expect(el.value).to.equal('draft');
   });
 
   it('updates the trigger expanded state when opened and closed', async () => {
@@ -131,7 +131,7 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelector('.picker-trigger-label').textContent).to.equal('Draft');
   });
 
-  it('preserves default and field typography and menu bounds when switching between S and M', async () => {
+  it('preserves default and field label typography when switching between S and M', async () => {
     const el = await createPicker({
       items: [
         { section: 'Status' },
@@ -162,39 +162,21 @@ describe('nx-picker swatch', () => {
           '[data-value="draft"] .picker-item-label',
           '[data-value="add"] .picker-item-label',
         ];
-        for (const selector of [...regular, '.picker-section', '.picker-item-description']) {
+        for (const selector of [...regular, '.picker-section']) {
           const section = selector === '.picker-section';
           const style = getComputedStyle(el.shadowRoot.querySelector(selector));
           for (const property of ['font-size', 'line-height']) {
             expect(style.getPropertyValue(property), `${variant} ${size} ${selector} ${property}`)
               .to.equal(el.style.getPropertyValue(`--s2-component-${size}-${section ? 'bold' : 'regular'}-${property}`));
           }
-          const defaultWeight = section ? '600' : '400';
-          const weight = selector === '.picker-item-description'
-            ? el.style.getPropertyValue(`--s2-component-${size}-regular-font-weight`)
-            : defaultWeight;
+          const weight = section ? '600' : '400';
           expect(style.fontWeight, `${variant} ${size} ${selector} weight`).to.equal(weight);
         }
         const section = getComputedStyle(el.shadowRoot.querySelector('.picker-section'));
         expect(parseFloat(section.letterSpacing))
           .to.be.closeTo(parseFloat(section.fontSize) * 0.02, 0.001);
-        expect(getComputedStyle(el.shadowRoot.querySelector('nx-popover')).maxWidth).to.equal('none');
       }
     }
-  });
-
-  it('preserves emphasized medium trigger height and component weight together', async () => {
-    const el = await createPicker();
-    el.variant = 'emphasized';
-    el.size = 'm';
-    el.style.setProperty('--s2-component-m-regular-font-weight', '450');
-    await el.updateComplete;
-    const trigger = el.shadowRoot.querySelector('.picker-trigger');
-    expect(getComputedStyle(trigger).height).to.equal('32px');
-    expect(getComputedStyle(trigger).fontWeight).to.equal('450');
-    el.style.setProperty('--nx-picker-height', '40px');
-    expect(getComputedStyle(trigger).height).to.equal('40px');
-    expect(getComputedStyle(trigger).fontWeight).to.equal('450');
   });
 
   it('preserves existing field section and item style overrides', async () => {
@@ -218,21 +200,33 @@ describe('nx-picker swatch', () => {
       .to.equal('rgb(4, 5, 6)');
   });
 
-  it('inherits description size and line height from its item in S and M', async () => {
+  it('uses the same small regular, theme-aware description style in S and M', async () => {
     const el = await createPicker({
       items: [{ value: 'draft', label: 'Draft', description: 'Not published' }],
     });
+    el.style.cssText = `
+      --s2-component-s-regular-font-size: 12px;
+      --s2-component-s-regular-line-height: 16px;
+      --s2-component-s-regular-font-weight: 350;
+      --s2-component-m-regular-font-size: 14px;
+      --s2-component-m-regular-line-height: 20px;
+      --s2-component-m-regular-font-weight: 450;
+      --s2-gray-700: light-dark(#505050, #afafaf);
+    `;
     el.shadowRoot.querySelector('[role="option"]').style.cssText = 'font-size: 21px; line-height: 29px; font-weight: 500;';
     for (const size of ['s', 'm']) {
       el.size = size;
-      el.style.setProperty(`--s2-component-${size}-regular-font-size`, '12px');
-      el.style.setProperty(`--s2-component-${size}-regular-line-height`, '18px');
-      el.style.setProperty(`--s2-component-${size}-regular-font-weight`, '350');
       await el.updateComplete;
-      const style = getComputedStyle(el.shadowRoot.querySelector('.picker-item-description'));
-      expect(style.fontSize, `${size} inherited font size`).to.equal('21px');
-      expect(style.lineHeight, `${size} inherited line height`).to.equal('29px');
-      expect(style.fontWeight, `${size} regular description weight`).to.equal('350');
+      for (const [scheme, color] of [
+        ['light', 'rgb(80, 80, 80)'], ['dark', 'rgb(175, 175, 175)'],
+      ]) {
+        el.style.colorScheme = scheme;
+        const style = getComputedStyle(el.shadowRoot.querySelector('.picker-item-description'));
+        expect(style.fontSize).to.equal('12px');
+        expect(style.lineHeight).to.equal('16px');
+        expect(style.fontWeight).to.equal('350');
+        expect(style.color).to.equal(color);
+      }
     }
   });
 
@@ -273,69 +267,9 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelectorAll('.picker-check-slot .picker-check')).to.have.length(2);
   });
 
-  it('restores emphasized menu spacing and matching S/M medium labels without changing field defaults', async () => {
-    const el = await createPicker({
-      items: [
-        { section: 'Your sites' },
-        { value: 'site', label: 'Site', description: 'org/site' },
-        { divider: true },
-        { value: 'add', label: 'Add site...', action: true },
-      ],
-      value: 'site',
-    });
-    el.variant = 'emphasized';
-    el.checkPosition = 'start';
-    el.style.cssText = `
-      --s2-spacing-100: 8px;
-      --s2-spacing-200: 16px;
-      --s2-blue-900: #123456;
-      --s2-component-s-regular-font-size: 12px;
-      --s2-component-s-regular-line-height: 16px;
-      --s2-component-s-regular-font-weight: 350;
-      --s2-component-s-bold-font-weight: 650;
-      --s2-component-m-bold-font-weight: 750;
-    `;
-    for (const [size, fontSize, lineHeight, weight] of [['s', '13px', '19px', '450'], ['m', '15px', '23px', '550']]) {
-      el.size = size;
-      el.style.setProperty(`--s2-component-${size}-medium-font-size`, fontSize);
-      el.style.setProperty(`--s2-component-${size}-medium-line-height`, lineHeight);
-      el.style.setProperty(`--s2-component-${size}-medium-font-weight`, weight);
-      el.style.setProperty(`--s2-component-${size}-regular-font-weight`, size === 's' ? '350' : '450');
-      await el.updateComplete;
-      for (const query of ['[data-value="site"]', '[data-value="add"]']) {
-        const row = getComputedStyle(el.shadowRoot.querySelector(query));
-        expect(row.fontSize).to.equal(fontSize);
-        expect(row.lineHeight).to.equal(lineHeight);
-        expect(row.fontWeight).to.equal(weight);
-        expect(row.padding).to.equal('7px 16px');
-        expect(row.margin).to.equal('0px');
-        expect(row.gap).to.equal('6px');
-      }
-      const description = getComputedStyle(el.shadowRoot.querySelector('.picker-item-description'));
-      expect(description.fontSize).to.equal('12px');
-      expect(description.lineHeight).to.equal('16px');
-      expect(description.fontWeight).to.equal('350');
-      const section = getComputedStyle(el.shadowRoot.querySelector('.picker-section'));
-      expect(section.padding).to.equal('7px 16px');
-      expect(section.fontWeight).to.equal(size === 's' ? '650' : '750');
-      expect(section.letterSpacing).to.equal('normal');
-      expect(getComputedStyle(el.shadowRoot.querySelector('.picker-divider')).margin).to.equal('8px 0px');
-      expect(getComputedStyle(el.shadowRoot.querySelector('nx-popover')).padding).to.equal('8px');
-      expect(getComputedStyle(el.shadowRoot.querySelector('.picker-check')).color).to.equal('rgb(18, 52, 86)');
-      expect(getComputedStyle(el.shadowRoot.querySelector('.picker-check-slot')).alignSelf).to.equal('start');
-      expect(el.shadowRoot.querySelector('[data-value="add"] .picker-check-slot')).to.be.null;
-    }
-    el.variant = 'field';
-    await el.updateComplete;
-    expect(getComputedStyle(el.shadowRoot.querySelector('.picker-item')).fontWeight).to.equal('400');
-    expect(getComputedStyle(el.shadowRoot.querySelector('.picker-section')).fontWeight).to.equal('600');
-    expect(getComputedStyle(el.shadowRoot.querySelector('nx-popover')).maxWidth).to.equal('none');
-  });
-
-  it('scopes blue keyboard focus to emphasized while preserving defaults and focus-ring overrides', async () => {
+  it('preserves default keyboard focus and allows focus-ring overrides', async () => {
     const el = await createPicker();
     el.style.cssText = `
-      --s2-blue-800: light-dark(#4b75ff, #4069fd);
       --s2-gray-800: light-dark(#292929, #dbdbdb);
     `;
     const before = document.createElement('button');
@@ -350,19 +284,19 @@ describe('nx-picker swatch', () => {
       return getComputedStyle(trigger);
     };
     try {
-      for (const variant of [undefined, 'field', 'emphasized', 'field', undefined]) {
+      for (const variant of [undefined, 'field']) {
         el.variant = variant;
         await el.updateComplete;
-        for (const [scheme, blue, gray] of [
-          ['light', 'rgb(75, 117, 255)', 'rgb(41, 41, 41)'],
-          ['dark', 'rgb(64, 105, 253)', 'rgb(219, 219, 219)'],
+        for (const [scheme, color] of [
+          ['light', 'rgb(41, 41, 41)'],
+          ['dark', 'rgb(219, 219, 219)'],
         ]) {
           el.style.colorScheme = scheme;
           const style = await focus();
-          expect(style.outlineColor).to.equal(variant === 'emphasized' ? blue : gray);
+          expect(style.outlineColor).to.equal(color);
           expect(style.outlineStyle).to.equal('solid');
           expect(style.outlineWidth).to.equal('2px');
-          expect(style.outlineOffset).to.equal(variant === 'emphasized' ? '-2px' : '2px');
+          expect(style.outlineOffset).to.equal('2px');
         }
         el.style.setProperty('--s2-focus-ring-color', '#c44500');
         expect((await focus()).outlineColor).to.equal('rgb(196, 69, 0)');
@@ -380,16 +314,36 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelector('nx-popover').style.width).to.equal('280px');
     el.close();
     el.style.removeProperty('--nx-picker-menu-width');
-    for (const variant of ['field', 'emphasized']) {
+    el.variant = 'field';
+    await el.updateComplete;
+    el.show();
+    expect(el.shadowRoot.querySelector('nx-popover').style.width)
+      .to.equal(`${el.shadowRoot.querySelector('.picker-trigger').getBoundingClientRect().width}px`);
+    el.close();
+    el.focus();
+    expect(el.shadowRoot.activeElement).to.equal(el.shadowRoot.querySelector('.picker-trigger'));
+  });
+
+  it('constrains oversized menus to the viewport and wraps long descriptions', async () => {
+    const el = await createPicker({
+      items: [{ value: 'draft', label: 'Draft', description: 'UnbrokenDescription'.repeat(100) }],
+    });
+    el.style.setProperty('--nx-picker-menu-width', `${window.innerWidth * 2}px`);
+    const menu = el.shadowRoot.querySelector('nx-popover');
+    for (const variant of [undefined, 'field']) {
       el.variant = variant;
       await el.updateComplete;
       el.show();
-      expect(el.shadowRoot.querySelector('nx-popover').style.width)
-        .to.equal(`${el.shadowRoot.querySelector('.picker-trigger').getBoundingClientRect().width}px`);
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      });
+      const bounds = menu.getBoundingClientRect();
+      expect(bounds.width).to.be.at.most(window.innerWidth - 20);
+      expect(bounds.left).to.be.at.least(0);
+      expect(bounds.right).to.be.at.most(window.innerWidth);
+      expect(menu.scrollWidth).to.be.at.most(menu.clientWidth);
       el.close();
     }
-    el.focus();
-    expect(el.shadowRoot.activeElement).to.equal(el.shadowRoot.querySelector('.picker-trigger'));
   });
 
   it('focuses a visible item after popover positioning so keyboard events reach the menu', async () => {
