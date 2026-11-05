@@ -35,6 +35,7 @@ export async function aoContext() {
   const tenantId = getOrgId(projectedProductContext);
   return {
     base: resolveAoHttpBase(projectedProductContext),
+    projectedProductContext,
     tenantId,
     userId,
     headers: {

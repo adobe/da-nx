@@ -11,7 +11,7 @@ harness-specific subclasses, so a change to one path cannot regress the other.
 
 Proposed classes: `BaseChatController`, `CoworkerChatController extends Base`,
 `CmaChatController extends Base`. `chat-ao.js` picks the subclass by harness
-(`ew.altHarness`). `renderers.js` stays shared.
+(`ew.cma` flag + IMS entitlement). `renderers.js` stays shared.
 
 > **Status:** PR 1 (this change) extracts `BaseChatController` +
 > `CoworkerChatController`, behavior-preserving. `CmaChatController` lands in PR 2.
@@ -85,7 +85,8 @@ Proposed classes: `BaseChatController`, `CoworkerChatController extends Base`,
 
 ## Unchanged / outside the split
 - `renderers.js` — pure rendering, stays shared.
-- `chat-ao.js` — picks the subclass by harness (`ew.altHarness`); otherwise unchanged.
+- `chat-ao.js` — picks the subclass by harness (`ew.cma` flag + IMS entitlement);
+  otherwise unchanged.
 - `utils/*` (episodes.js, uploads.js) — shared helpers; Coworker uses the episode
   REST ones, CMA mostly doesn't.
 

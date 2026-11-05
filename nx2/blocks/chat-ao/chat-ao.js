@@ -13,8 +13,8 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
+import { resolveHarness } from '../../utils/ewFlags.js';
 import { getAoSession, getSessionScope, subscribeChatEvents } from './session.js';
-import { getCoworkerConfig } from '../../utils/ewFlags.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
   COWORKER_SKILLS_PATH, ENTERPRISE_CONTEXT_PATH, getCoworkerHref, loadCoworkerNav,
@@ -111,10 +111,9 @@ export default class NxChatAo extends LitElement {
     this._loadConfig();
   }
 
-  _applyHarnessConfig({ key = null, altHarness = false, activationKey = null } = {}) {
+  _applyHarnessConfig({ key = null, harness = 'coworker' } = {}) {
     this._harnessConfigKey = key;
-    this._altHarness = !!altHarness;
-    this._activationKey = activationKey;
+    this._harness = harness;
     this._flagsReady = true;
     this._initController();
   }
@@ -129,11 +128,12 @@ export default class NxChatAo extends LitElement {
     if (this._configKey !== key) return;
     this._prompts = prompts ?? [];
     if (this._harnessConfigKey !== key) {
-      // ew.altHarness selects the CMA bridge harness; its value is the
-      // activation key that authorizes/routes the chat socket to the bridge.
-      const { altHarness, activationKey } = await getCoworkerConfig({ org, site });
+      // Resolve the harness for this org/site (legacy | coworker | cma) via
+      // the shared resolver. CMA needs the flag + entitlement, both re-verified
+      // server-side by the bridge.
+      const harness = await resolveHarness({ org, site });
       if (this._configKey !== key) return;
-      this._applyHarnessConfig({ key, altHarness, activationKey });
+      this._applyHarnessConfig({ key, harness });
       return;
     }
     this._initController();
@@ -156,6 +156,9 @@ export default class NxChatAo extends LitElement {
     this.staleEpisode = staleEpisode;
   }
 
+  // Creates/joins the session once flags + entitlement are known, picking the
+  // correct harness subclass up front. Idempotent; re-joins only on scope or
+  // isolation change. See docs/chat-ao-controller-decoupling.md.
   _initController() {
     if (!this.isConnected) return;
     const { org, site } = this._context ?? {};
@@ -170,17 +173,14 @@ export default class NxChatAo extends LitElement {
       }
       return;
     }
-    const scope = getSessionScope({
-      org, site, harness: this._altHarness ? 'cma' : 'coworker', activationKey: this._activationKey,
-    });
+    const scope = getSessionScope({ org, site, harness: this._harness });
     if (this._session?.scope === scope && this._session.isolated === this.isolated) return;
     this._releaseSession?.();
     this._session = getAoSession({
       context: this._context,
       owner: this,
       isolated: this.isolated,
-      altHarness: this._altHarness,
-      activationKey: this._activationKey,
+      harness: this._harness,
     });
     this._controller = this._session.controller;
     this._releaseSession = this._session.subscribe(this, {
@@ -421,7 +421,7 @@ export default class NxChatAo extends LitElement {
           })}
         <nx-ao-input
           .blocked=${this._blocked}
-          .altHarness=${this._altHarness}
+          .harness=${this._harness}
           .prompts=${prompts}
           .menuItems=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS}
           .addEvent=${this._contextEvent}

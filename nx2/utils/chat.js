@@ -1,5 +1,5 @@
 import { hashChange } from './utils.js';
-import { getCoworkerConfig } from './ewFlags.js';
+import { resolveHarness } from './ewFlags.js';
 
 export const CHAT_EVENT = {
   // Chat -> document: notifications chat dispatches when something happened.
@@ -31,17 +31,15 @@ async function resolveAoChatConfig(context) {
     return {
       useAoChat: query === 'true',
       key,
-      altHarness: false,
-      activationKey: null,
+      harness: 'legacy',
     };
   }
 
-  const { enabled, altHarness, activationKey } = await getCoworkerConfig({ org, site });
+  const harness = await resolveHarness({ org, site });
   return {
-    useAoChat: query === 'true' || enabled,
+    useAoChat: query === 'true' || harness !== 'legacy',
     key,
-    altHarness,
-    activationKey,
+    harness,
   };
 }
 
@@ -51,16 +49,11 @@ export async function useAoChat() {
 }
 
 export async function loadChat({ context } = {}) {
-  const {
-    useAoChat: enabled,
-    key,
-    altHarness,
-    activationKey,
-  } = await resolveAoChatConfig(context);
+  const { useAoChat: enabled, key, harness } = await resolveAoChatConfig(context);
   if (enabled) {
     await import('../blocks/chat-ao/chat-ao.js');
     const chat = document.createElement('nx-chat-ao');
-    chat.harnessConfig = { key, altHarness, activationKey };
+    chat.harnessConfig = { key, harness };
     return chat;
   }
   await import('../blocks/chat/chat.js');
