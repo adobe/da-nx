@@ -12,12 +12,15 @@ const typography = JSON.parse(readFileSync(new URL('typography.json', TOKENS), '
 const COLOR_FAMILIES = {
   gray: [25, 50, 75, ...range(100, 1000, 100)],
   blue: range(100, 1200, 100),
+  indigo: range(100, 1200, 100),
   red: range(100, 1200, 100),
   orange: range(100, 1200, 100),
   yellow: range(100, 1200, 100),
   green: range(100, 1200, 100),
   seafoam: range(100, 1200, 100),
+  turquoise: range(100, 1200, 100),
   cyan: range(100, 1200, 100),
+  purple: range(100, 1200, 100),
   pink: range(100, 1200, 100),
 };
 
