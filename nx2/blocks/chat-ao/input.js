@@ -26,7 +26,7 @@ const isAllowedFile = (file) => AO_UPLOAD_EXTENSIONS
 export default class NxAoInput extends LitElement {
   static properties = {
     blocked: { type: Boolean },
-    cma: { type: Boolean },
+    harness: { type: String },
     prompts: { type: Array },
     menuItems: { type: Array },
     addEvent: { type: String },
@@ -93,25 +93,18 @@ export default class NxAoInput extends LitElement {
       const { getAoSession, subscribeChatEvents } = await import('./session.js');
       const key = `${context.org}/${context.site}`;
       const supplied = this._harnessConfig;
-      let { cma } = supplied && (!supplied.key || supplied.key === key) ? supplied : {};
-      if (cma === undefined) {
-        // No fresh pre-resolved config supplied; resolve it as chat-ao.js does
-        // (ew.cma flag AND entitlement, both re-verified server-side).
+      let { harness } = supplied && (!supplied.key || supplied.key === key) ? supplied : {};
+      if (harness === undefined) {
+        // No fresh pre-resolved config supplied; resolve via the shared helper
+        // (flag + entitlement, re-verified server-side).
         const { org, site } = context;
-        const [{ isCmaFlagEnabled }, { isCmaEntitled }] = await Promise.all([
-          import('../../utils/ewFlags.js'),
-          import('../../utils/entitlement.js'),
-        ]);
-        const [cmaFlagEnabled, entitled] = await Promise.all([
-          isCmaFlagEnabled({ org, site }),
-          isCmaEntitled(),
-        ]);
-        cma = cmaFlagEnabled && entitled;
+        const { resolveHarness } = await import('../../utils/ewFlags.js');
+        ({ harness } = await resolveHarness({ org, site }));
       }
       if (!this.isConnected || this._sessionRequest !== request || !this._standalone) return;
-      this.cma = !!cma;
+      this.harness = harness;
       this._session = getAoSession({
-        context, owner: this, isolated: this.isolated, cma,
+        context, owner: this, isolated: this.isolated, harness,
       });
       this._releaseSession = this._session.subscribe(this, {
         onUpdate: (state) => { this.blocked = !!state.thinking && !state.pendingPlanApproval; },
@@ -259,7 +252,7 @@ export default class NxAoInput extends LitElement {
     if (this.blocked) return;
     const text = this.draft.trim();
     if (!text) return;
-    const harness = this.cma ? 'cma' : 'coworker';
+    const { harness } = this;
     sampleRUM('click', { source: 'chat-submit', target: `button.chat-send.harness-${harness}` });
     this._slashMenu.close();
     this._send(text);
@@ -339,7 +332,7 @@ export default class NxAoInput extends LitElement {
           hidden
           @change=${this._onFileInputChange}
         />
-        <div class="chat-input-wrap ${this.cma ? '' : 'coworker-chat'}">
+        <div class="chat-input-wrap ${this.harness === 'cma' ? '' : 'coworker-chat'}">
           <textarea
             class="chat-input"
             placeholder="Ask anything, or type / for skills..."
@@ -374,7 +367,7 @@ export default class NxAoInput extends LitElement {
               ?hidden=${!this.blocked}
               @click=${this._stop}
             > ${icon('stop')}</button>
-            <button type="submit" class="chat-send harness-${this.cma ? 'cma' : 'coworker'} nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} aria-label="Send">
+            <button type="submit" class="chat-send harness-${this.harness} nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} aria-label="Send">
               ${icon('send')}
             </button>
           </div>

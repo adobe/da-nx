@@ -61,7 +61,7 @@ describe('standalone input and full AO chat sharing', () => {
     if (!options.resolveHarness) {
       chat.harnessConfig = {
         key: `${chat._context.org}/${chat._context.site}`,
-        cma: options.harness === 'cma',
+        harness: options.harness ?? 'coworker',
       };
     }
     elements.push(chat);
@@ -379,10 +379,10 @@ describe('standalone input and full AO chat sharing', () => {
         return fetchDefault(resource, options);
       }
       return Promise.resolve(new Response(JSON.stringify({
-        flags: { data: [{ key: 'ew.cma', value: 'true' }] },
+        flags: { data: [{ key: 'ew.coworker', value: 'cma' }] },
       })));
     };
-    // ew.cma alone isn't enough - the fallback resolution path (no
+    // ew.coworker=cma alone isn't enough - the fallback resolution path (no
     // pre-supplied harnessConfig) also requires real IMS entitlement, same
     // as chat-ao.js's own flag+entitlement resolution.
     setMockIms({
@@ -395,7 +395,7 @@ describe('standalone input and full AO chat sharing', () => {
     await ready(standalone, full);
     expect(standalone._session).to.equal(full._session);
     expect(full._controller).to.be.instanceOf(CmaChatController);
-    expect(standalone.cma).to.equal(true);
+    expect(standalone.harness).to.equal('cma');
     submit(standalone, 'Configured shared session');
     await flush();
     expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);

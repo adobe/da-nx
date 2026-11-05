@@ -1,4 +1,5 @@
 import { fetchDaConfigs } from './daConfig.js';
+import { isCmaEntitled } from './entitlement.js';
 
 // Experience Workspace flags live in the `flags` sheet of the DA config docs,
 // keyed `ew.*`. Site-level config overrides org-level (it is fetched last).
@@ -176,9 +177,21 @@ export async function getCoworkerConfig({ org, site }) {
 
 // Per-site rollout opt-in for the CMA harness (replaces ew.altHarness, #192).
 // Selector only; the hard gate is IMS entitlement (see isCmaEntitled).
-export async function isCmaFlagEnabled({ org, site }) {
-  const flags = await getEWFlags({ org, site });
-  return flags['ew.cma'] === 'true';
+// Harness resolution from the single `ew.coworker` flag:
+//   'cma'  -> CMA if the signed-in user is entitled, else legacy (da-agent)
+//   'true' -> Coworker
+//   unset/other -> legacy (da-agent)
+// Entitlement is a UI pre-check only; the bridge re-verifies it server-side on
+// every session. Returns { tier (3-way, for the legacy-vs-AO entry decision),
+// harness (cma|coworker, read by the AO component for controller/endpoints/styling) }.
+export async function resolveHarness({ org, site }) {
+  const value = (await getEWFlags({ org, site }))['ew.coworker'];
+  if (value === 'cma') {
+    const tier = (await isCmaEntitled()) ? 'cma' : 'legacy';
+    return { tier, harness: tier === 'cma' ? 'cma' : 'coworker' };
+  }
+  if (value === 'true') return { tier: 'coworker', harness: 'coworker' };
+  return { tier: 'legacy', harness: 'coworker' };
 }
 
 export async function isCoworkerEnabled({ org, site }) {

@@ -5,15 +5,15 @@ import { CHAT_EVENT } from '../../utils/chat.js';
 const sessions = new Map();
 const inputs = new Map();
 
-export function getSessionScope({ org, site, cma }) {
-  return JSON.stringify([org, site, cma ? 'cma' : 'coworker']);
+export function getSessionScope({ org, site, harness }) {
+  return JSON.stringify([org, site, harness]);
 }
 
 export function getAoSession({
-  context, owner, isolated = false, cma = false,
+  context, owner, isolated = false, harness = 'coworker',
 }) {
   const { org, site } = context;
-  const scope = getSessionScope({ org, site, cma });
+  const scope = getSessionScope({ org, site, harness });
   // Only non-isolated sessions count as reuse candidates; an isolated sibling
   // in the same scope must not force an unrelated request into isolation.
   const matching = [...sessions.keys()].filter(
@@ -36,7 +36,7 @@ export function getAoSession({
     if (!state.thinking) sending = false;
     notify();
   };
-  const Controller = cma ? CmaChatController : CoworkerChatController;
+  const Controller = harness === 'cma' ? CmaChatController : CoworkerChatController;
   const controller = new Controller({
     onUpdate: publish,
     onTurnCompleted: (detail) => {

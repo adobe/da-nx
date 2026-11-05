@@ -12,8 +12,9 @@
 
 import { loadIms } from '../../utils/ims.js';
 import BaseChatController from './base-chat-controller.js';
-import { AO_FRAME, CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE } from './ao-constants.js';
+import { AO_FRAME } from './ao-constants.js';
 import { getOrgId } from './utils/uploads.js';
+import { resolveChatBases } from './utils/endpoints.js';
 import { fetchSkills } from './utils/skills.js';
 
 // Maps the CMA bridge's terse AUTH-reject messages to tester-facing copy;
@@ -54,12 +55,12 @@ export default class CmaChatController extends BaseChatController {
         // (#192).
         ...(siteId ? { 'x-site': siteId } : {}),
       },
-      wsBase: CMA_BRIDGE_WS_BASE,
+      wsBase: resolveChatBases({ harness: 'cma' }).wsBase,
     };
   }
 
   _fetchSkills() {
-    return fetchSkills({ ...(this._context ?? {}), cma: true });
+    return fetchSkills({ ...(this._context ?? {}), harness: 'cma' });
   }
 
   async _uploadAttachment({ fileName, mediaType, dataBase64 }) {
@@ -70,7 +71,7 @@ export default class CmaChatController extends BaseChatController {
       const bytes = Uint8Array.from(atob(dataBase64), (c) => c.charCodeAt(0));
       form.append('file', new Blob([bytes], { type: mediaType }), fileName);
 
-      const resp = await fetch(`${CMA_BRIDGE_HTTP_BASE}/api/v1/files`, {
+      const resp = await fetch(`${resolveChatBases({ harness: 'cma' }).httpBase}/api/v1/files`, {
         method: 'POST',
         headers: {
           authorization: `Bearer ${accessToken?.token}`,

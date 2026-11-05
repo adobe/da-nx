@@ -13,8 +13,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
-import { isCmaFlagEnabled } from '../../utils/ewFlags.js';
-import { isCmaEntitled } from '../../utils/entitlement.js';
+import { resolveHarness } from '../../utils/ewFlags.js';
 import { getAoSession, getSessionScope, subscribeChatEvents } from './session.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
@@ -112,9 +111,9 @@ export default class NxChatAo extends LitElement {
     this._loadConfig();
   }
 
-  _applyHarnessConfig({ key = null, cma = false } = {}) {
+  _applyHarnessConfig({ key = null, harness = 'coworker' } = {}) {
     this._harnessConfigKey = key;
-    this._cma = !!cma;
+    this._harness = harness;
     this._flagsReady = true;
     this._initController();
   }
@@ -129,14 +128,11 @@ export default class NxChatAo extends LitElement {
     if (this._configKey !== key) return;
     this._prompts = prompts ?? [];
     if (this._harnessConfigKey !== key) {
-      // Both the ew.cma flag and IMS entitlement must hold for the CMA
-      // harness; the bridge re-verifies entitlement server-side.
-      const [cmaFlagEnabled, entitled] = await Promise.all([
-        isCmaFlagEnabled({ org, site }),
-        isCmaEntitled(),
-      ]);
+      // Resolve cma-vs-coworker for this org/site via the shared resolver
+      // (CMA needs flag + entitlement, both re-verified server-side).
+      const { harness } = await resolveHarness({ org, site });
       if (this._configKey !== key) return;
-      this._applyHarnessConfig({ key, cma: cmaFlagEnabled && entitled });
+      this._applyHarnessConfig({ key, harness });
       return;
     }
     this._initController();
@@ -176,14 +172,14 @@ export default class NxChatAo extends LitElement {
       }
       return;
     }
-    const scope = getSessionScope({ org, site, cma: this._cma });
+    const scope = getSessionScope({ org, site, harness: this._harness });
     if (this._session?.scope === scope && this._session.isolated === this.isolated) return;
     this._releaseSession?.();
     this._session = getAoSession({
       context: this._context,
       owner: this,
       isolated: this.isolated,
-      cma: this._cma,
+      harness: this._harness,
     });
     this._controller = this._session.controller;
     this._releaseSession = this._session.subscribe(this, {
@@ -424,7 +420,7 @@ export default class NxChatAo extends LitElement {
           })}
         <nx-ao-input
           .blocked=${this._blocked}
-          .cma=${this._cma}
+          .harness=${this._harness}
           .prompts=${prompts}
           .menuItems=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS}
           .addEvent=${this._contextEvent}

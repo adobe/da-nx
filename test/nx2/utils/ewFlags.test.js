@@ -6,7 +6,6 @@ import {
 import {
   getEWFlags, isEWEnabled, isEwChatDisabled, isEwChatEnabled,
   getCoworkerConfig, isCoworkerEnabled, getManifestId,
-  isCmaFlagEnabled,
 } from '../../../nx2/utils/ewFlags.js';
 
 // getEWFlags -> daConfig.fetchDaConfigs -> api.js's config.get(), which
@@ -189,24 +188,6 @@ describe('getCoworkerConfig', () => {
     expect(await getCoworkerConfig({ org: 'cw-org2', site: 'cw-site2' })).to.deep.equal({
       enabled: false,
     });
-  });
-});
-
-describe('isCmaFlagEnabled', () => {
-  afterEach(() => restoreFetch());
-
-  it('returns true when ew.cma flag value is "true"', async () => {
-    installFlagsByPath({
-      '/cma-site1/': JSON.stringify({
-        flags: { data: [{ key: 'ew.cma', value: 'true' }] },
-      }),
-    });
-    expect(await isCmaFlagEnabled({ org: 'cma-org1', site: 'cma-site1' })).to.be.true;
-  });
-
-  it('returns false when ew.cma flag is unset or any non-"true" value', async () => {
-    installFetch({ body: JSON.stringify({ flags: { data: [] } }) });
-    expect(await isCmaFlagEnabled({ org: 'cma-org2', site: 'cma-site2' })).to.be.false;
   });
 });
 

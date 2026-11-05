@@ -1,5 +1,4 @@
 import { expect } from '@esm-bundle/chai';
-import sinon from 'sinon';
 import { useAoChat, loadChat } from '../../../nx2/utils/chat.js';
 import { resetMockIms, setMockIms } from '../../../nx2/test/mocks/ims.js';
 import { REQUIRED_SERVICE_CODES } from '../../../nx2/utils/entitlement.js';
@@ -73,7 +72,7 @@ describe('useAoChat', () => {
   });
 });
 
-describe('loadChat — ew.cma harness selection', () => {
+describe('loadChat — ew.coworker=cma harness selection', () => {
   let savedFetch;
   beforeEach(() => {
     savedFetch = window.fetch;
@@ -84,11 +83,11 @@ describe('loadChat — ew.cma harness selection', () => {
     resetMockIms();
   });
 
-  it('selects the CMA harness only when both ew.cma AND entitlement hold', async () => {
+  it('selects the CMA harness when ew.coworker=cma AND the user is entitled', async () => {
     setMockIms({
       projectedProductContext: [{ prodCtx: { owningEntity: 'org-1', serviceCode: REQUIRED_SERVICE_CODES[0] } }],
     });
-    window.fetch = mockFetch({ flags: { data: [{ key: 'ew.cma', value: 'true' }] } });
+    window.fetch = mockFetch({ flags: { data: [{ key: 'ew.coworker', value: 'cma' }] } });
     await withUrl('#/cma-org1/cma-site1', '', async () => {
       const chat = await loadChat();
       expect(chat.tagName.toLowerCase()).to.equal('nx-chat-ao');
@@ -100,7 +99,7 @@ describe('loadChat — ew.cma harness selection', () => {
     setMockIms({
       projectedProductContext: [{ prodCtx: { owningEntity: 'org-1', serviceCode: REQUIRED_SERVICE_CODES[0] } }],
     });
-    window.fetch = mockFetch({ flags: { data: [{ key: 'ew.cma', value: 'true' }] } });
+    window.fetch = mockFetch({ flags: { data: [{ key: 'ew.coworker', value: 'cma' }] } });
     // Deliberately no matching hash (or none at all) - if loadChat dropped the
     // context argument, resolveAoChatConfig would fall back to the empty hash
     // state and return the legacy chat instead of nx-chat-ao.
@@ -110,45 +109,63 @@ describe('loadChat — ew.cma harness selection', () => {
     });
   });
 
-  it('does NOT select CMA when the flag is on but the org is not entitled', async () => {
-    window.fetch = mockFetch({ flags: { data: [{ key: 'ew.cma', value: 'true' }] } });
+  it('falls back to legacy when ew.coworker=cma but the user is NOT entitled', async () => {
+    window.fetch = mockFetch({ flags: { data: [{ key: 'ew.coworker', value: 'cma' }] } });
     await withUrl('#/cma-org2/cma-site2', '', async () => {
       const chat = await loadChat();
-      // not entitled + no ew.coworker => useAoChat is false => legacy nx-chat
+      // not entitled => cma downgrades to legacy, no Coworker fallback
       expect(chat.tagName.toLowerCase()).to.equal('nx-chat');
     });
   });
 
-  it('does NOT select CMA when entitled but the ew.cma flag is off', async () => {
+  it('selects Coworker for ew.coworker=true regardless of entitlement', async () => {
     setMockIms({
       projectedProductContext: [{ prodCtx: { owningEntity: 'org-1', serviceCode: REQUIRED_SERVICE_CODES[0] } }],
     });
-    window.fetch = mockFetch({ flags: { data: [] } });
+    window.fetch = mockFetch({ flags: { data: [{ key: 'ew.coworker', value: 'true' }] } });
     await withUrl('#/cma-org3/cma-site3', '', async () => {
       const chat = await loadChat();
-      expect(chat.tagName.toLowerCase()).to.equal('nx-chat');
+      expect(chat.tagName.toLowerCase()).to.equal('nx-chat-ao');
     });
   });
+});
 
-  it('falls back to Coworker (not legacy chat) when both flags are on but the org is not entitled, '
-    + 'and warns that the fallback is deliberate rather than failing silently', async () => {
-    window.fetch = mockFetch({
-      flags: { data: [{ key: 'ew.cma', value: 'true' }, { key: 'ew.coworker', value: 'true' }] },
-    });
-    const warnStub = sinon.stub(console, 'warn');
-    try {
-      await withUrl('#/cma-org4/cma-site4', '', async () => {
+// The harness resolution table for the single `ew.coworker` flag. One setting,
+// no contradictory state: 'cma' upgrades to CMA when entitled and falls back
+// to legacy otherwise, 'true' is Coworker, unset is legacy.
+describe('loadChat — harness resolution table', () => {
+  let savedFetch;
+  beforeEach(() => {
+    savedFetch = window.fetch;
+    resetMockIms();
+  });
+  afterEach(() => {
+    window.fetch = savedFetch;
+    resetMockIms();
+  });
+
+  const entitledCtx = {
+    projectedProductContext: [
+      { prodCtx: { owningEntity: 'org-1', serviceCode: REQUIRED_SERVICE_CODES[0] } },
+    ],
+  };
+
+  const rows = [
+    { name: 'ew.coworker unset -> legacy', value: null, entitled: false, tag: 'nx-chat' },
+    { name: 'ew.coworker=true -> Coworker (AO)', value: 'true', entitled: false, tag: 'nx-chat-ao' },
+    { name: 'ew.coworker=cma, entitled -> CMA (AO)', value: 'cma', entitled: true, tag: 'nx-chat-ao' },
+    { name: 'ew.coworker=cma, NOT entitled -> legacy', value: 'cma', entitled: false, tag: 'nx-chat' },
+  ];
+
+  rows.forEach((row, i) => {
+    it(`${row.name}`, async () => {
+      if (row.entitled) setMockIms(entitledCtx);
+      const data = row.value ? [{ key: 'ew.coworker', value: row.value }] : [];
+      window.fetch = mockFetch({ flags: { data } });
+      await withUrl(`#/table-org${i}/table-site${i}`, '', async () => {
         const chat = await loadChat();
-        // Coworker (ew.coworker, no entitlement needed) wins over the dropped
-        // ew.cma intent (which requires entitlement) — still nx-chat-ao, just
-        // not in CMA mode (cma mode is internal/private to the component).
-        expect(chat.tagName.toLowerCase()).to.equal('nx-chat-ao');
+        expect(chat.tagName.toLowerCase()).to.equal(row.tag);
       });
-      expect(warnStub.calledOnce).to.be.true;
-      expect(warnStub.firstCall.args[0]).to.include('cma-org4/cma-site4');
-      expect(warnStub.firstCall.args[0]).to.include('falling back to Coworker');
-    } finally {
-      warnStub.restore();
-    }
+    });
   });
 });

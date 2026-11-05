@@ -1,6 +1,5 @@
 import { hashChange } from './utils.js';
-import { getCoworkerConfig, isCmaFlagEnabled } from './ewFlags.js';
-import { isCmaEntitled } from './entitlement.js';
+import { resolveHarness } from './ewFlags.js';
 
 export const CHAT_EVENT = {
   // Chat -> document: notifications chat dispatches when something happened.
@@ -32,31 +31,15 @@ async function resolveAoChatConfig(context) {
     return {
       useAoChat: query === 'true',
       key,
-      cma: false,
+      harness: 'coworker',
     };
   }
 
-  const [{ enabled: coworkerEnabled }, cmaFlagEnabled, entitled] = await Promise.all([
-    getCoworkerConfig({ org, site }),
-    isCmaFlagEnabled({ org, site }),
-    isCmaEntitled(),
-  ]);
-  const cma = cmaFlagEnabled && entitled;
-  // ew.coworker and ew.cma are independent flags, not a single either/or.
-  // When both are on but the org isn't CMA-entitled, Coworker wins by design
-  // (ew.cma requires entitlement, ew.coworker doesn't); warn so it doesn't
-  // read as a silent fallback.
-  if (cmaFlagEnabled && coworkerEnabled && !entitled) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[chat] ${key}: both ew.cma and ew.coworker enabled but org isn't `
-      + 'CMA-entitled; using Coworker (ew.cma requires entitlement).',
-    );
-  }
+  const { tier, harness } = await resolveHarness({ org, site });
   return {
-    useAoChat: query === 'true' || coworkerEnabled || cma,
+    useAoChat: query === 'true' || tier !== 'legacy',
     key,
-    cma,
+    harness,
   };
 }
 
@@ -66,15 +49,11 @@ export async function useAoChat() {
 }
 
 export async function loadChat({ context } = {}) {
-  const {
-    useAoChat: enabled,
-    key,
-    cma,
-  } = await resolveAoChatConfig(context);
+  const { useAoChat: enabled, key, harness } = await resolveAoChatConfig(context);
   if (enabled) {
     await import('../blocks/chat-ao/chat-ao.js');
     const chat = document.createElement('nx-chat-ao');
-    chat.harnessConfig = { key, cma };
+    chat.harnessConfig = { key, harness };
     return chat;
   }
   await import('../blocks/chat/chat.js');
