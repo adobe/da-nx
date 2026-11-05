@@ -4,7 +4,7 @@ import '../../../../nx2/blocks/chat/chat.js';
 import '../../../../nx2/blocks/chat-ao/chat-ao.js';
 
 describe('chat send button RUM', () => {
-  for (const [tag, harness, altHarness] of [
+  for (const [tag, harness, cma] of [
     ['nx-chat', 'da-agent', false],
     ['nx-chat-ao', 'coworker', false],
     ['nx-chat-ao', 'cma', true],
@@ -18,7 +18,7 @@ describe('chat send button RUM', () => {
       window.hlx = { rum: { isSelected: true, collector: (...args) => calls.push(args) } };
       try {
         const chat = document.createElement(tag);
-        chat._cma = altHarness;
+        chat._cma = cma;
         chat._controller = {
           sendMessage(message) { messages.push(message); },
           stop() { stopped += 1; },

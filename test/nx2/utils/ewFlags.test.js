@@ -6,7 +6,6 @@ import {
 import {
   getEWFlags, isEWEnabled, isEwChatDisabled, isEwChatEnabled,
   getCoworkerConfig, isCoworkerEnabled, getManifestId,
-  isCmaFlagEnabled,
 } from '../../../nx2/utils/ewFlags.js';
 
 // getEWFlags -> daConfig.fetchDaConfigs -> api.js's config.get(), which
@@ -181,6 +180,7 @@ describe('getCoworkerConfig', () => {
     });
     expect(await getCoworkerConfig({ org: 'cw-org1', site: 'cw-site1' })).to.deep.equal({
       enabled: true,
+      harness: 'coworker',
     });
   });
 
@@ -188,25 +188,32 @@ describe('getCoworkerConfig', () => {
     installFetch({ body: JSON.stringify({ flags: { data: [] } }) });
     expect(await getCoworkerConfig({ org: 'cw-org2', site: 'cw-site2' })).to.deep.equal({
       enabled: false,
+      harness: 'coworker',
     });
   });
-});
 
-describe('isCmaFlagEnabled', () => {
-  afterEach(() => restoreFetch());
-
-  it('returns true when ew.cma flag value is "true"', async () => {
+  it('selects the CMA harness for ew.coworker=cma', async () => {
     installFlagsByPath({
-      '/cma-site1/': JSON.stringify({
-        flags: { data: [{ key: 'ew.cma', value: 'true' }] },
+      '/cw-site3/': JSON.stringify({
+        flags: { data: [{ key: 'ew.coworker', value: 'cma' }] },
       }),
     });
-    expect(await isCmaFlagEnabled({ org: 'cma-org1', site: 'cma-site1' })).to.be.true;
+    expect(await getCoworkerConfig({ org: 'cw-org3', site: 'cw-site3' })).to.deep.equal({
+      enabled: true,
+      harness: 'cma',
+    });
   });
 
-  it('returns false when ew.cma flag is unset or any non-"true" value', async () => {
-    installFetch({ body: JSON.stringify({ flags: { data: [] } }) });
-    expect(await isCmaFlagEnabled({ org: 'cma-org2', site: 'cma-site2' })).to.be.false;
+  it('lets a site switch an org-wide Coworker rollout to CMA', async () => {
+    installFlagsByPath({
+      '/cw-site4/': JSON.stringify({
+        flags: { data: [{ key: 'ew.coworker', value: 'cma' }] },
+      }),
+      '/cw-org4/': JSON.stringify({
+        flags: { data: [{ key: 'ew.coworker', value: 'true' }] },
+      }),
+    });
+    expect((await getCoworkerConfig({ org: 'cw-org4', site: 'cw-site4' })).harness).to.equal('cma');
   });
 });
 
@@ -218,6 +225,13 @@ describe('isCoworkerEnabled', () => {
       '/cw-site1/': JSON.stringify({ flags: { data: [{ key: 'ew.coworker', value: 'true' }] } }),
     });
     expect(await isCoworkerEnabled({ org: 'cw-org1', site: 'cw-site1' })).to.be.true;
+  });
+
+  it('returns true for ew.coworker=cma (still the nx-chat-ao surface)', async () => {
+    installFlagsByPath({
+      '/cw-site3/': JSON.stringify({ flags: { data: [{ key: 'ew.coworker', value: 'cma' }] } }),
+    });
+    expect(await isCoworkerEnabled({ org: 'cw-org3', site: 'cw-site3' })).to.be.true;
   });
 
   it('returns false when ew.coworker flag is not set at any level', async () => {

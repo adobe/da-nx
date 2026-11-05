@@ -19,7 +19,7 @@ the standalone input does not require a parent chat or host-wired send callbacks
 
 The pair shares initialization, connection, transcript, streaming/busy state,
 approvals and episode selection. Harness configuration includes Coworker versus
-CMA and the CMA activation key. Both components resolve the site's configuration;
+CMA (`ew.coworker=cma` plus IMS entitlement). Both components resolve the site's configuration;
 hosts can supply `harnessConfig` when already resolved. No session key is needed.
 
 Only opposite presentations pair: two full chats or two standalone compact inputs

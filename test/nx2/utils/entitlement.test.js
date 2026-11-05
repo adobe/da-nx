@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
-import { isCmaEntitled, REQUIRED_SERVICE_CODES } from '../../../nx2/utils/entitlement.js';
+import { isCmaEntitled, isCmaHarness, REQUIRED_SERVICE_CODES } from '../../../nx2/utils/entitlement.js';
 import { resetMockIms, setMockIms } from '../../../nx2/test/mocks/ims.js';
+import { installFetch, restoreFetch } from '../../../nx2/test/mocks/fetch.js';
 
 describe('isCmaEntitled', () => {
   beforeEach(resetMockIms);
@@ -81,5 +82,43 @@ describe('isCmaEntitled', () => {
   it('returns false for an anonymous (signed-out) profile', async () => {
     setMockIms({ anonymous: true });
     expect(await isCmaEntitled()).to.be.false;
+  });
+});
+
+describe('isCmaHarness', () => {
+  const entitle = () => setMockIms({
+    projectedProductContext: [{ prodCtx: { owningEntity: 'org-1', serviceCode: REQUIRED_SERVICE_CODES[0] } }],
+  });
+  const coworker = (value) => installFetch({
+    body: JSON.stringify({ flags: { data: value ? [{ key: 'ew.coworker', value }] : [] } }),
+  });
+
+  beforeEach(resetMockIms);
+  afterEach(() => {
+    resetMockIms();
+    restoreFetch();
+  });
+
+  it('is true for ew.coworker=cma when entitled', async () => {
+    entitle();
+    coworker('cma');
+    expect(await isCmaHarness({ org: 'h-org1', site: 'h-site1' })).to.be.true;
+  });
+
+  it('is false for ew.coworker=cma when not entitled', async () => {
+    coworker('cma');
+    expect(await isCmaHarness({ org: 'h-org2', site: 'h-site2' })).to.be.false;
+  });
+
+  it('is false for ew.coworker=true even when entitled', async () => {
+    entitle();
+    coworker('true');
+    expect(await isCmaHarness({ org: 'h-org3', site: 'h-site3' })).to.be.false;
+  });
+
+  it('is false when ew.coworker is unset even when entitled', async () => {
+    entitle();
+    coworker();
+    expect(await isCmaHarness({ org: 'h-org4', site: 'h-site4' })).to.be.false;
   });
 });

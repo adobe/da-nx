@@ -13,8 +13,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadSiteConfig } from '../chat/utils/api.js';
-import { isCmaFlagEnabled } from '../../utils/ewFlags.js';
-import { isCmaEntitled } from '../../utils/entitlement.js';
+import { isCmaHarness } from '../../utils/entitlement.js';
 import { getAoSession, getSessionScope, subscribeChatEvents } from './session.js';
 import { fetchResolvedManifestId } from './utils/manifest.js';
 import {
@@ -129,14 +128,10 @@ export default class NxChatAo extends LitElement {
     if (this._configKey !== key) return;
     this._prompts = prompts ?? [];
     if (this._harnessConfigKey !== key) {
-      // Both the ew.cma flag and IMS entitlement must hold for the CMA
-      // harness; the bridge re-verifies entitlement server-side.
-      const [cmaFlagEnabled, entitled] = await Promise.all([
-        isCmaFlagEnabled({ org, site }),
-        isCmaEntitled(),
-      ]);
+      // ew.coworker=cma AND IMS entitlement; the bridge re-verifies server-side.
+      const cma = await isCmaHarness({ org, site });
       if (this._configKey !== key) return;
-      this._applyHarnessConfig({ key, cma: cmaFlagEnabled && entitled });
+      this._applyHarnessConfig({ key, cma });
       return;
     }
     this._initController();

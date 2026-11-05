@@ -1,4 +1,5 @@
 import { loadIms } from './ims.js';
+import { getCoworkerConfig } from './ewFlags.js';
 
 // Keep in sync with the bridge's auth.requiredServiceCodes allowlist
 // (aem-sites-claudebridge, src/websocket/auth.ts#isEntitledTenant).
@@ -23,4 +24,11 @@ export async function isCmaEntitled() {
   } catch {
     return false;
   }
+}
+
+// True when the site requests the CMA harness (`ew.coworker=cma`) and the
+// signed-in user is entitled. IMS is only consulted when CMA is requested.
+export async function isCmaHarness({ org, site }) {
+  const { harness } = await getCoworkerConfig({ org, site });
+  return harness === 'cma' && isCmaEntitled();
 }

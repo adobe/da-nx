@@ -1,6 +1,6 @@
 import { hashChange } from './utils.js';
-import { getCoworkerConfig, isCmaFlagEnabled } from './ewFlags.js';
-import { isCmaEntitled } from './entitlement.js';
+import { getCoworkerConfig } from './ewFlags.js';
+import { isCmaHarness } from './entitlement.js';
 
 export const CHAT_EVENT = {
   // Chat -> document: notifications chat dispatches when something happened.
@@ -36,25 +36,12 @@ async function resolveAoChatConfig(context) {
     };
   }
 
-  const [{ enabled: coworkerEnabled }, cmaFlagEnabled, entitled] = await Promise.all([
+  const [{ enabled }, cma] = await Promise.all([
     getCoworkerConfig({ org, site }),
-    isCmaFlagEnabled({ org, site }),
-    isCmaEntitled(),
+    isCmaHarness({ org, site }),
   ]);
-  const cma = cmaFlagEnabled && entitled;
-  // ew.coworker and ew.cma are independent flags, not a single either/or.
-  // When both are on but the org isn't CMA-entitled, Coworker wins by design
-  // (ew.cma requires entitlement, ew.coworker doesn't); warn so it doesn't
-  // read as a silent fallback.
-  if (cmaFlagEnabled && coworkerEnabled && !entitled) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[chat] ${key}: both ew.cma and ew.coworker enabled but org isn't `
-      + 'CMA-entitled; using Coworker (ew.cma requires entitlement).',
-    );
-  }
   return {
-    useAoChat: query === 'true' || coworkerEnabled || cma,
+    useAoChat: query === 'true' || enabled,
     key,
     cma,
   };

@@ -93,21 +93,10 @@ export default class NxAoInput extends LitElement {
       const { getAoSession, subscribeChatEvents } = await import('./session.js');
       const key = `${context.org}/${context.site}`;
       const supplied = this._harnessConfig;
-      let { cma } = supplied && (!supplied.key || supplied.key === key) ? supplied : {};
-      if (cma === undefined) {
-        // No fresh pre-resolved config supplied; resolve it as chat-ao.js does
-        // (ew.cma flag AND entitlement, both re-verified server-side).
-        const { org, site } = context;
-        const [{ isCmaFlagEnabled }, { isCmaEntitled }] = await Promise.all([
-          import('../../utils/ewFlags.js'),
-          import('../../utils/entitlement.js'),
-        ]);
-        const [cmaFlagEnabled, entitled] = await Promise.all([
-          isCmaFlagEnabled({ org, site }),
-          isCmaEntitled(),
-        ]);
-        cma = cmaFlagEnabled && entitled;
-      }
+      const fresh = supplied && (!supplied.key || supplied.key === key) ? supplied : {};
+      // No fresh pre-resolved config: resolve it as chat-ao.js does.
+      const cma = fresh.cma ?? await import('../../utils/entitlement.js')
+        .then(({ isCmaHarness }) => isCmaHarness(context));
       if (!this.isConnected || this._sessionRequest !== request || !this._standalone) return;
       this.cma = !!cma;
       this._session = getAoSession({

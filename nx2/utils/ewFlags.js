@@ -167,18 +167,16 @@ export async function isEwChatEnabled({ org, site }) {
   return enabled && !disabled;
 }
 
+// `ew.coworker` selects the nx-chat-ao harness: `true` -> Coworker, `cma` ->
+// CMA bridge (replaces ew.altHarness). `cma` is only a request; the hard gate
+// is IMS entitlement (see isCmaHarness), falling back to Coworker otherwise.
 export async function getCoworkerConfig({ org, site }) {
   const flags = await getEWFlags({ org, site });
+  const value = flags['ew.coworker'];
   return {
-    enabled: flags['ew.coworker'] === 'true',
+    enabled: value === 'true' || value === 'cma',
+    harness: value === 'cma' ? 'cma' : 'coworker',
   };
-}
-
-// Per-site rollout opt-in for the CMA harness (replaces ew.altHarness, #192).
-// Selector only; the hard gate is IMS entitlement (see isCmaEntitled).
-export async function isCmaFlagEnabled({ org, site }) {
-  const flags = await getEWFlags({ org, site });
-  return flags['ew.cma'] === 'true';
 }
 
 export async function isCoworkerEnabled({ org, site }) {

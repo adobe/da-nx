@@ -379,12 +379,12 @@ describe('standalone input and full AO chat sharing', () => {
         return fetchDefault(resource, options);
       }
       return Promise.resolve(new Response(JSON.stringify({
-        flags: { data: [{ key: 'ew.cma', value: 'true' }] },
+        flags: { data: [{ key: 'ew.coworker', value: 'cma' }] },
       })));
     };
-    // ew.cma alone isn't enough - the fallback resolution path (no
-    // pre-supplied harnessConfig) also requires real IMS entitlement, same
-    // as chat-ao.js's own flag+entitlement resolution.
+    // ew.coworker=cma alone isn't enough - the fallback resolution path (no
+    // pre-supplied harnessConfig) also requires IMS entitlement, same as
+    // chat-ao.js's own resolution.
     setMockIms({
       projectedProductContext: [{ prodCtx: { owningEntity: `configured-${org}`, serviceCode: REQUIRED_SERVICE_CODES[0] } }],
     });

@@ -8,7 +8,9 @@ ported from da-agent's client, since the two backends' interaction models
 controller would mean branching throughout instead of a clean implementation
 per backend. Which client loads for a given org/site is decided by
 `loadChat()` in `nx2/utils/chat.js` (the `ew.coworker` flag, or the
-`?nx-chat-ao=true` dev override).
+`?nx-chat-ao=true` dev override). `ew.coworker=true` selects the Coworker
+harness; `ew.coworker=cma` selects the CMA harness when the signed-in user's
+org is entitled, and falls back to Coworker otherwise.
 
 Because either element can be mounted for a given org/site, `nx-chat-ao`
 exposes `setPrompt(text, { autoSend? })` with the same signature as
