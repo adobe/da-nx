@@ -60,6 +60,11 @@ export const ADD_MENU_ITEMS_WITH_EPISODE = ADD_MENU_ITEMS.toSpliced(
   { divider: true },
 );
 
+// CMA menu: ADD_MENU_ITEMS with Manage Skills relabelled, no Coworker items.
+export const ADD_MENU_ITEMS_CMA = ADD_MENU_ITEMS.map((item) => (
+  item.id === MENU_OPTIONS.MANAGE_SKILLS ? { ...item, label: 'Manage Skills' } : item
+));
+
 export const AO_FRAME = {
   AUTH: 'AUTH',
   USER_INPUT: 'USER_INPUT',
