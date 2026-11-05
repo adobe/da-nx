@@ -261,7 +261,7 @@ describe('nav brand override', () => {
           const textStyle = getComputedStyle(label);
           expect(textStyle.fontFamily).to.include('adobe-clean');
           expect(textStyle.fontSize).to.equal('14px');
-          expect(textStyle.fontWeight).to.equal('500');
+          expect(textStyle.fontWeight).to.equal('700');
           expect(textStyle.lineHeight).to.equal('18px');
           expect(textStyle.color).to.equal(scheme === 'light' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)');
         }

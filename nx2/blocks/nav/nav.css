@@ -54,9 +54,9 @@
   gap: var(--s2-spacing-200);
   padding-inline-start: var(--s2-spacing-200);
   font-family: var(--s2-font-family);
-  font-size: var(--s2-component-m-medium-font-size);
-  font-weight: var(--s2-component-m-medium-font-weight);
-  line-height: var(--s2-component-m-medium-line-height);
+  font-size: var(--s2-component-m-bold-font-size);
+  font-weight: var(--s2-component-m-bold-font-weight);
+  line-height: var(--s2-component-m-bold-line-height);
 }
 
 .brand-icon {

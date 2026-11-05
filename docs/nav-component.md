@@ -20,7 +20,7 @@ navigation items and actions. No content publication is required for the overrid
 
 The logo is 24×24 pixels, centered in a 32×32 pixel wrapper with a 12px left inset.
 The label starts at 56px, flush with the right edge of the shell's navigation rail.
-The label uses the S2 component M medium tokens (14px, weight 500, 18px line
+The label uses the S2 component M bold tokens (14px, weight 700, 18px line
 height), with a 12px gap after the wrapper. Top-bar branding stays the same size
 for both UI-size preferences. Text inherits the current theme's color, and the
 decorative image has empty alternative text. The link's accessible name is the
