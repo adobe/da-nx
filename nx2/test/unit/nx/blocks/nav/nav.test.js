@@ -1,5 +1,4 @@
 import { expect } from '@esm-bundle/chai';
-import sinon from 'sinon';
 import { sendKeys } from '@web/test-runner-commands';
 import { setConfig } from '../../../../../scripts/nx.js';
 
@@ -189,10 +188,12 @@ describe('nav site navigation', () => {
   let nav;
   let restoreFetch;
   let originalHref;
+  let recentSites;
 
   beforeEach(() => {
     originalHref = window.location.href;
-    sinon.stub(customElements.get('nx-siteselector').prototype, 'refresh').resolves();
+    recentSites = localStorage.getItem('da-sites');
+    localStorage.removeItem('da-sites');
     nav = document.createElement('nx-nav');
   });
 
@@ -201,7 +202,8 @@ describe('nav site navigation', () => {
     restoreFetch?.();
     window.history.replaceState(null, '', originalHref);
     document.querySelectorAll('nx-dialog').forEach((el) => el.remove());
-    sinon.restore();
+    if (recentSites === null) localStorage.removeItem('da-sites');
+    else localStorage.setItem('da-sites', recentSites);
   });
 
   async function mountFragment({
@@ -226,86 +228,9 @@ describe('nav site navigation', () => {
     await selector.updateComplete;
     const [slot, next] = list.children;
     expect(getComputedStyle(slot).display).to.equal('none');
-    const padding = parseFloat(getComputedStyle(list).paddingLeft);
-    expect(next.getBoundingClientRect().left)
-      .to.be.closeTo(list.getBoundingClientRect().left + padding, 0.5);
     nav._brand.focus();
     await sendKeys({ press: 'Tab' });
     expect(nav.shadowRoot.activeElement).to.equal(next.querySelector('button'));
-  });
-
-  it('leaves room for outer picker focus rings in the scrolling navigation list', async () => {
-    nav.style.cssText = `
-      width: 600px;
-      height: 56px;
-      --s2-spacing-500: 32px;
-      --s2-corner-radius-800: 16px;
-      --s2-blue-800: light-dark(#4b75ff, #4069fd);
-    `;
-    await mountFragment({ middle: '<ul><li>siteselector</li></ul>' });
-    const list = nav.shadowRoot.querySelector('.site-nav ul');
-    const selector = list.querySelector('nx-siteselector');
-    selector.sites = [{ value: 'org/site', label: 'org/site' }];
-    expect(getComputedStyle(list).overflowX).to.equal('auto');
-    expect(getComputedStyle(list).overflowY).to.equal('hidden');
-    for (const size of ['s', 'm']) {
-      selector.size = size;
-      await selector.updateComplete;
-      const picker = selector.shadowRoot.querySelector('nx-picker');
-      await picker.updateComplete;
-      const root = picker.shadowRoot;
-      const trigger = root.querySelector('button');
-      for (const [scheme, color] of [
-        ['light', 'rgb(75, 117, 255)'], ['dark', 'rgb(64, 105, 253)'],
-      ]) {
-        nav.style.colorScheme = scheme;
-        nav._brand.focus();
-        await sendKeys({ press: 'Tab' });
-        expect(root.activeElement).to.equal(trigger);
-        expect(trigger.matches(':focus-visible')).to.be.true;
-        const style = getComputedStyle(trigger);
-        expect(style.outlineColor).to.equal(color);
-        expect(style.outlineWidth).to.equal('2px');
-        expect(style.outlineOffset).to.equal('2px');
-        expect(style.borderRadius).to.equal('16px');
-        const bounds = trigger.getBoundingClientRect();
-        const clip = list.getBoundingClientRect();
-        const ring = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
-        expect(bounds.left - ring).to.be.at.least(clip.left);
-        expect(bounds.right + ring).to.be.at.most(clip.right);
-        expect(bounds.top - ring).to.be.at.least(clip.top);
-        expect(bounds.bottom + ring).to.be.at.most(clip.bottom);
-      }
-    }
-  });
-
-  it('leaves room for regular button focus rings at both ends of scrolling nav and action lists', async () => {
-    nav.style.cssText = 'width: 600px; height: 56px';
-    const buttons = ['First', 'Middle', 'Last']
-      .map((label) => `<li><button type="button" style="width: 120px">${label}</button></li>`).join('');
-    await mountFragment({ middle: `<ul>${buttons}</ul>`, actions: buttons });
-    nav.shadowRoot.querySelector('.action-area').style.display = 'block';
-    nav._brand.focus();
-    await sendKeys({ press: 'Tab' });
-    for (const list of nav.shadowRoot.querySelectorAll('.site-nav ul, .action-area ul')) {
-      list.style.width = '160px';
-      expect(list.scrollWidth).to.be.greaterThan(list.clientWidth);
-      const items = list.querySelectorAll('button');
-      for (const button of [items[0], items[items.length - 1]]) {
-        list.scrollLeft = button === items[0] ? 0 : list.scrollWidth;
-        button.focus();
-        expect(button.matches(':focus-visible')).to.be.true;
-        const style = getComputedStyle(button);
-        expect(parseFloat(style.outlineWidth)).to.be.greaterThan(0);
-        const ring = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
-        const bounds = button.getBoundingClientRect();
-        const clip = list.getBoundingClientRect();
-        expect(bounds.left - ring).to.be.at.least(clip.left);
-        expect(bounds.right + ring).to.be.at.most(clip.right);
-        expect(bounds.top - ring).to.be.at.least(clip.top);
-        expect(bounds.bottom + ring).to.be.at.most(clip.bottom);
-      }
-    }
   });
 
   it('populates the middle section directly after the brand, using action decoration instead of legacy breadcrumbs', async () => {

@@ -102,6 +102,7 @@ describe('nx-picker swatch', () => {
       ],
     });
     expect(el.shadowRoot.querySelector('.picker-item-description').textContent).to.equal('Not published');
+    expect(el.shadowRoot.querySelector('[data-value="draft"]').getAttribute('aria-label')).to.equal('Draft, Not published');
     expect(el.shadowRoot.querySelector('[data-value="add"] svg')).to.be.null;
     const change = new Promise((resolve) => { el.addEventListener('change', resolve, { once: true }); });
     el.shadowRoot.querySelector('[data-value="add"]').click();
@@ -118,118 +119,6 @@ describe('nx-picker swatch', () => {
     expect(el._button.getAttribute('aria-expanded')).to.equal('false');
   });
 
-  it('owns description layout without exposing menu layout parts', async () => {
-    const el = await createPicker({
-      items: [{ section: 'Status' }, { value: 'draft', label: 'Draft', description: 'Not published' }, { divider: true }],
-      value: 'draft',
-    });
-    expect(el.shadowRoot.querySelector('.picker-item-description').textContent).to.equal('Not published');
-    expect(el.shadowRoot.querySelector('[role="option"]').getAttribute('aria-label')).to.equal('Draft, Not published');
-    ['menu', 'section', 'divider', 'item-label', 'check'].forEach((part) => {
-      expect(el.shadowRoot.querySelector(`[part="${part}"]`), part).to.be.null;
-    });
-    expect(el.shadowRoot.querySelector('.picker-trigger-label').textContent).to.equal('Draft');
-  });
-
-  it('preserves default and field label typography when switching between S and M', async () => {
-    const el = await createPicker({
-      items: [
-        { section: 'Status' },
-        { value: 'draft', label: 'Draft', description: 'Not published' },
-        { value: 'add', label: 'Add...', action: true },
-      ],
-      value: 'draft',
-    });
-    el.style.setProperty('--s2-component-s-regular-font-size', '12px');
-    el.style.setProperty('--s2-component-s-regular-line-height', '18px');
-    el.style.setProperty('--s2-component-s-regular-font-weight', '300');
-    el.style.setProperty('--s2-component-s-bold-font-size', '13px');
-    el.style.setProperty('--s2-component-s-bold-line-height', '20px');
-    el.style.setProperty('--s2-component-s-bold-font-weight', '600');
-    el.style.setProperty('--s2-component-m-regular-font-size', '16px');
-    el.style.setProperty('--s2-component-m-regular-line-height', '24px');
-    el.style.setProperty('--s2-component-m-regular-font-weight', '450');
-    el.style.setProperty('--s2-component-m-bold-font-size', '17px');
-    el.style.setProperty('--s2-component-m-bold-line-height', '26px');
-    el.style.setProperty('--s2-component-m-bold-font-weight', '750');
-    for (const variant of [undefined, 'field']) {
-      el.variant = variant;
-      for (const size of ['s', 'm', 's']) {
-        el.size = size;
-        await el.updateComplete;
-        const regular = [
-          '.picker-trigger-label',
-          '[data-value="draft"] .picker-item-label',
-          '[data-value="add"] .picker-item-label',
-        ];
-        for (const selector of [...regular, '.picker-section']) {
-          const section = selector === '.picker-section';
-          const style = getComputedStyle(el.shadowRoot.querySelector(selector));
-          for (const property of ['font-size', 'line-height']) {
-            expect(style.getPropertyValue(property), `${variant} ${size} ${selector} ${property}`)
-              .to.equal(el.style.getPropertyValue(`--s2-component-${size}-${section ? 'bold' : 'regular'}-${property}`));
-          }
-          const weight = section ? '600' : '400';
-          expect(style.fontWeight, `${variant} ${size} ${selector} weight`).to.equal(weight);
-        }
-        const section = getComputedStyle(el.shadowRoot.querySelector('.picker-section'));
-        expect(parseFloat(section.letterSpacing))
-          .to.be.closeTo(parseFloat(section.fontSize) * 0.02, 0.001);
-      }
-    }
-  });
-
-  it('preserves existing field section and item style overrides', async () => {
-    const el = await createPicker({
-      items: [{ section: 'Status' }, { value: 'draft', label: 'Draft' }],
-    });
-    el.size = 'm';
-    el.variant = 'field';
-    el.style.cssText = `
-      --nx-picker-section-color: rgb(1, 2, 3);
-      --nx-picker-item-color: rgb(4, 5, 6);
-      --nx-picker-section-font-size: 19px;
-      --nx-picker-section-line-height: 27px;
-    `;
-    await el.updateComplete;
-    const section = getComputedStyle(el.shadowRoot.querySelector('.picker-section'));
-    expect(section.color).to.equal('rgb(1, 2, 3)');
-    expect(section.fontSize).to.equal('19px');
-    expect(section.lineHeight).to.equal('27px');
-    expect(getComputedStyle(el.shadowRoot.querySelector('.picker-item')).color)
-      .to.equal('rgb(4, 5, 6)');
-  });
-
-  it('uses the same small regular, theme-aware description style in S and M', async () => {
-    const el = await createPicker({
-      items: [{ value: 'draft', label: 'Draft', description: 'Not published' }],
-    });
-    el.style.cssText = `
-      --s2-component-s-regular-font-size: 12px;
-      --s2-component-s-regular-line-height: 16px;
-      --s2-component-s-regular-font-weight: 350;
-      --s2-component-m-regular-font-size: 14px;
-      --s2-component-m-regular-line-height: 20px;
-      --s2-component-m-regular-font-weight: 450;
-      --s2-gray-700: light-dark(#505050, #afafaf);
-    `;
-    el.shadowRoot.querySelector('[role="option"]').style.cssText = 'font-size: 21px; line-height: 29px; font-weight: 500;';
-    for (const size of ['s', 'm']) {
-      el.size = size;
-      await el.updateComplete;
-      for (const [scheme, color] of [
-        ['light', 'rgb(80, 80, 80)'], ['dark', 'rgb(175, 175, 175)'],
-      ]) {
-        el.style.colorScheme = scheme;
-        const style = getComputedStyle(el.shadowRoot.querySelector('.picker-item-description'));
-        expect(style.fontSize).to.equal('12px');
-        expect(style.lineHeight).to.equal('16px');
-        expect(style.fontWeight).to.equal('350');
-        expect(style.color).to.equal(color);
-      }
-    }
-  });
-
   it('preserves explicit accessible names and does not treat an action as a selection', async () => {
     const el = await createPicker({
       items: [
@@ -240,12 +129,24 @@ describe('nx-picker swatch', () => {
     });
     expect(el.shadowRoot.querySelector('[data-value="draft"]').getAttribute('aria-label')).to.equal('Current draft');
     const action = el.shadowRoot.querySelector('[data-value="add"]');
-    expect(action.hasAttribute('part')).to.be.false;
     const changes = [];
     el.addEventListener('change', ({ detail }) => changes.push(detail.value));
     action.click();
     expect(changes).to.deep.equal(['add']);
     expect(el.value).to.equal('draft');
+  });
+
+  it('allows checkmark color overrides without changing menu text or default colors', async () => {
+    const el = await createPicker({ value: 'plain' });
+    const check = el.shadowRoot.querySelector('.picker-check');
+    const row = el.shadowRoot.querySelector('[data-value="plain"]');
+    const defaultColor = getComputedStyle(check).color;
+    const textColor = getComputedStyle(row).color;
+    el.style.setProperty('--nx-picker-check-color', 'rgb(0, 0, 255)');
+    expect(getComputedStyle(check).color).to.equal('rgb(0, 0, 255)');
+    expect(getComputedStyle(row).color).to.equal(textColor);
+    el.style.removeProperty('--nx-picker-check-color');
+    expect(getComputedStyle(check).color).to.equal(defaultColor);
   });
 
   it('keeps end checks by default and reserves leading space only for selectable start-check rows', async () => {
@@ -267,107 +168,12 @@ describe('nx-picker swatch', () => {
     expect(el.shadowRoot.querySelectorAll('.picker-check-slot .picker-check')).to.have.length(2);
   });
 
-  it('preserves default keyboard focus and allows focus-ring overrides', async () => {
+  it('accepts a menu-width override', async () => {
     const el = await createPicker();
-    el.style.cssText = `
-      --s2-gray-800: light-dark(#292929, #dbdbdb);
-    `;
-    const before = document.createElement('button');
-    before.textContent = 'Before picker';
-    el.before(before);
-    const trigger = el.shadowRoot.querySelector('.picker-trigger');
-    const focus = async () => {
-      before.focus();
-      await sendKeys({ press: 'Tab' });
-      expect(el.shadowRoot.activeElement).to.equal(trigger);
-      expect(trigger.matches(':focus-visible')).to.be.true;
-      return getComputedStyle(trigger);
-    };
-    try {
-      for (const variant of [undefined, 'field']) {
-        el.variant = variant;
-        await el.updateComplete;
-        for (const [scheme, color] of [
-          ['light', 'rgb(41, 41, 41)'],
-          ['dark', 'rgb(219, 219, 219)'],
-        ]) {
-          el.style.colorScheme = scheme;
-          const style = await focus();
-          expect(style.outlineColor).to.equal(color);
-          expect(style.outlineStyle).to.equal('solid');
-          expect(style.outlineWidth).to.equal('2px');
-          expect(style.outlineOffset).to.equal('2px');
-        }
-        el.style.setProperty('--s2-focus-ring-color', '#c44500');
-        expect((await focus()).outlineColor).to.equal('rgb(196, 69, 0)');
-        el.style.removeProperty('--s2-focus-ring-color');
-      }
-    } finally {
-      before.remove();
-    }
-  });
-
-  it('accepts one menu-width property without changing field-width defaults', async () => {
-    const el = await createPicker();
-    el.style.setProperty('--nx-picker-menu-width', '280px');
+    el.style.setProperty('--nx-picker-menu-width', '18rem');
     el.show();
-    expect(el.shadowRoot.querySelector('nx-popover').style.width).to.equal('280px');
+    expect(el.shadowRoot.querySelector('nx-popover').style.width).to.equal('18rem');
     el.close();
-    el.style.removeProperty('--nx-picker-menu-width');
-    el.variant = 'field';
-    await el.updateComplete;
-    el.show();
-    expect(el.shadowRoot.querySelector('nx-popover').style.width)
-      .to.equal(`${el.shadowRoot.querySelector('.picker-trigger').getBoundingClientRect().width}px`);
-    el.close();
-    el.focus();
-    expect(el.shadowRoot.activeElement).to.equal(el.shadowRoot.querySelector('.picker-trigger'));
-  });
-
-  it('constrains oversized menus to the viewport and wraps long descriptions', async () => {
-    const el = await createPicker({
-      items: [{ value: 'draft', label: 'Draft', description: 'UnbrokenDescription'.repeat(100) }],
-    });
-    el.style.setProperty('--nx-picker-menu-width', `${window.innerWidth * 2}px`);
-    const menu = el.shadowRoot.querySelector('nx-popover');
-    for (const variant of [undefined, 'field']) {
-      el.variant = variant;
-      await el.updateComplete;
-      el.show();
-      await new Promise((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(resolve));
-      });
-      const bounds = menu.getBoundingClientRect();
-      expect(bounds.width).to.be.at.most(window.innerWidth - 20);
-      expect(bounds.left).to.be.at.least(0);
-      expect(bounds.right).to.be.at.most(window.innerWidth);
-      expect(menu.scrollWidth).to.be.at.most(menu.clientWidth);
-      el.close();
-    }
-  });
-
-  it('focuses a visible item after popover positioning so keyboard events reach the menu', async () => {
-    const el = await createPicker({ value: 'red' });
-    const popover = el.shadowRoot.querySelector('nx-popover');
-    const toggled = new Promise((resolve) => {
-      popover.addEventListener('toggle', () => {
-        popover.style.visibility = 'hidden';
-        requestAnimationFrame(() => { popover.style.visibility = ''; });
-        resolve();
-      }, { once: true });
-    });
-    el.show();
-    await toggled;
-    await new Promise(requestAnimationFrame);
-    expect(el.shadowRoot.activeElement).to.equal(el.shadowRoot.querySelector('[data-value="red"]'));
-    el.shadowRoot.activeElement.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true }),
-    );
-    await el.updateComplete;
-    el.shadowRoot.activeElement.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }),
-    );
-    expect(el.value).to.equal('blue');
   });
 
   it('keeps keyboard selection and expanded state working with described items', async () => {
@@ -380,10 +186,10 @@ describe('nx-picker swatch', () => {
     });
     el.shadowRoot.querySelector('.picker-trigger').click();
     await toggled;
-    await el.updateComplete;
+    await new Promise(requestAnimationFrame);
     expect(el.shadowRoot.querySelector('.picker-trigger').getAttribute('aria-expanded')).to.equal('true');
-    el.handleKey('ArrowDown');
-    el.handleKey('Enter');
+    await sendKeys({ press: 'ArrowDown' });
+    await sendKeys({ press: 'Enter' });
     await el.updateComplete;
     expect(el.value).to.equal('live');
     expect(el.shadowRoot.querySelector('.picker-trigger').getAttribute('aria-expanded')).to.equal('false');

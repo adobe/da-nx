@@ -923,7 +923,7 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
         selector.showAddSite();
       });
       selector.addEventListener('site-select', ({ detail }) => showToast({ text: `Selected: ${detail.value}` }));
-      if (size === 'm') selector.value = 'aemsites/devlive';
+      selector.value = size === 'm' ? 'aemsites/devlive' : '';
       document.querySelector('#demo-siteselectors').append(selector);
     });
 

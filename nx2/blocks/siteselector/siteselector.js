@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
-import { getSiteOptions, checkSiteChoices, getCreateSiteHref, setRecentSite } from './site-utils.js';
+import { getSiteOptions, getCreateSiteHref, setRecentSite } from './site-utils.js';
 import '../shared/picker/picker.js';
 
 const styles = await loadStyle(import.meta.url);
@@ -19,105 +19,46 @@ class NxSiteselector extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     this._connection = new AbortController();
-    this._choicesKey = undefined;
-    this._accessResults = new Map();
-    this._inaccessibleSites = undefined;
-    this._selectRecent = !this.value;
     this.size ??= 's';
     const { signal } = this._connection;
     document.addEventListener('site-add', () => this.showAddSite(), { signal });
-    window.addEventListener('storage', ({ key }) => {
-      if (key === 'da-sites' || key === null) this.refresh();
-    }, { signal });
     this.refresh();
+    if (this.value === undefined) {
+      if (this.sites.length) this.selectSite(this.sites[0].value);
+      else this.value = '';
+    }
   }
 
   disconnectedCallback() {
     this._connection.abort();
-    this._request?.abort();
     this.closeDialog();
     super.disconnectedCallback();
   }
 
   focus(options) { this.shadowRoot.querySelector('nx-picker')?.focus(options); }
 
-  async refresh() {
-    if (!this.isConnected) return;
-    const value = getSiteOptions({ current: this.value })[0]?.value ?? '';
-    if (value) this._selectRecent = false;
-    let recentSites = [];
-    let error;
+  refresh() {
     try {
-      recentSites = JSON.parse(localStorage.getItem('da-sites') || '[]');
+      const recentSites = JSON.parse(localStorage.getItem('da-sites') || '[]');
       if (!Array.isArray(recentSites)) throw new TypeError('Recent sites must be a list.');
-    } catch (cause) {
-      recentSites = [];
-      error = `Could not read recent sites: ${cause.message}`;
-    }
-    if (value && !error) {
-      try {
-        const [org, site] = value.split('/');
+      if (this.value) {
+        const [org, site] = this.value.split('/');
         setRecentSite({ org, site });
-        recentSites = JSON.parse(localStorage.getItem('da-sites'));
-      } catch (cause) {
-        error = `Could not save the current site in this browser: ${cause.message}`;
       }
-    }
-    const sites = getSiteOptions({ recentSites, current: value });
-    const key = JSON.stringify({ sites, value, error });
-    if (key === this._choicesKey) return;
-    this._choicesKey = key;
-    this._request?.abort();
-    if (this.value !== value) this.closeDialog();
-    this.sites = sites.filter(({ value: siteValue }) => !this._inaccessibleSites?.has(siteValue));
-    this.value = value;
-    this.error = error;
-    if (!sites.length) {
-      this._selectRecent = false;
-      return;
-    }
-    const request = new AbortController();
-    this._request = request;
-    try {
-      const { source } = await import('../../utils/api.js');
-      request.signal.throwIfAborted();
-      const result = await checkSiteChoices({
-        sites,
-        source,
-        signal: request.signal,
-        inaccessibleSites: this._inaccessibleSites,
-        accessResults: this._accessResults,
-      });
-      if (request.signal.aborted) return;
-      this._inaccessibleSites = result.inaccessibleSites;
-      this.sites = result.sites;
-      const currentError = this._inaccessibleSites.has(value)
-        ? `You do not have access to ${value}. Choose another site or try again.` : undefined;
-      this.error = [error, currentError, result.error].filter(Boolean).join(' ') || undefined;
-      if (this._selectRecent) {
-        this._selectRecent = false;
-        const recent = this.sites.find((site) => {
-          const access = this._accessResults.get(site.value);
-          return access.status === 'fulfilled' && access.value;
-        });
-        if (recent) await this.selectSite(recent.value);
-      }
-    } catch (cause) {
-      if (!request.signal.aborted) {
-        this.error = [error, `Could not check your sites: ${cause.message}`].filter(Boolean).join(' ');
-      }
+      this.sites = getSiteOptions({ recentSites, current: this.value });
+      this.error = undefined;
+    } catch {
+      this.sites = getSiteOptions({ current: this.value });
+      this.error = 'Could not update recent sites in this browser.';
     }
   }
 
   selectSite(value) {
-    if (this.value !== value) this.closeDialog();
-    this._selectRecent = false;
     this.value = value;
-    const checking = this.refresh();
     this.dispatchEvent(new CustomEvent('site-select', {
       bubbles: true, composed: true, detail: { value },
     }));
-    return checking;
+    return this.updateComplete;
   }
 
   closeDialog() {
@@ -162,14 +103,7 @@ class NxSiteselector extends LitElement {
     if (value === 'add-site') {
       this.dispatchEvent(new CustomEvent('site-add', { bubbles: true, composed: true }));
     } else if (this.sites.some((site) => site.value === value)) return this.selectSite(value);
-    else this.error = 'This site is no longer available. Reload the page and try again.';
     return undefined;
-  }
-
-  onRetry() {
-    this._accessResults.clear();
-    this._choicesKey = undefined;
-    return this.refresh();
   }
 
   willUpdate(changed) {
@@ -206,7 +140,7 @@ class NxSiteselector extends LitElement {
         @change=${this.onChange}
       ></nx-picker>
       ${this.error ? html`<p role="alert">${this.error}
-        <button type="button" @click=${this.onRetry}>Try again</button></p>` : nothing}
+      </p>` : nothing}
     `;
   }
 }

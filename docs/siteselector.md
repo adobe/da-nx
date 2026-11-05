@@ -1,7 +1,7 @@
 # nx-siteselector
 
 Add `siteselector` to a navigation fragment's site-nav list.
-It selects the most recent accessible site by default. Consumers own navigation;
+It selects the most recent site by default. Consumers own navigation and access checks;
 set `value` to supply a selection instead. It is hidden when no sites are available.
 
 ## Properties
@@ -30,3 +30,6 @@ document.addEventListener('site-select', ({ detail: { value } }) => {
 
 Create opens `/start` without an organization selection.
 Override or hide it with `getCreateSiteHref` if the host uses a different destination.
+
+Add parses an AEM site URL and remembers it in this browser, like the landing page.
+It does not check access or whether the site exists.
