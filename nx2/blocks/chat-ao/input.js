@@ -10,6 +10,7 @@ import { showToast } from '../shared/toast/toast.js';
 import { AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES, ADD_MENU_ITEMS } from './ao-constants.js';
 import { ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
 import { sampleRUM } from '../../deps/rum.js';
+import { CHAT_EVENT } from '../../utils/chat.js';
 import { toSlashMenuItems } from './utils/skills.js';
 import '../shared/pills/pills.js';
 import '../shared/menu/menu.js';
@@ -237,6 +238,10 @@ export default class NxAoInput extends LitElement {
       if (!this._session?.send({
         context: this._context, args: [text, context, attachments],
       })) return;
+      const { org, site } = this._context;
+      this.dispatchEvent(new CustomEvent(CHAT_EVENT.MESSAGE_SENT, {
+        bubbles: true, composed: true, detail: { org, site },
+      }));
     } else if (this.onSubmit?.({ text, context, attachments }) === false) return;
     this.shadowRoot.querySelector('.chat-input').value = '';
     this.shadowRoot.querySelector('nx-pills')?.clear();

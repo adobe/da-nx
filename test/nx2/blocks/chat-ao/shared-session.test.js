@@ -369,6 +369,23 @@ describe('standalone input and full AO chat sharing', () => {
       .to.deep.equal(['artifact']);
   });
 
+  it('notifies the host only when a standalone submission is accepted', async () => {
+    const pending = deferred();
+    patch(CoworkerChatController.prototype, '_fetchEpisodes', () => pending.promise);
+    const sent = [];
+    const onSent = (e) => sent.push(e.detail);
+    document.addEventListener(CHAT_EVENT.MESSAGE_SENT, onSent);
+    originals.push(() => document.removeEventListener(CHAT_EVENT.MESSAGE_SENT, onSent));
+    const standalone = await mount({ standalone: true });
+    submit(standalone, 'Not ready');
+    expect(sent).to.deep.equal([]);
+    pending.resolve([]);
+    await ready(standalone);
+    submit(standalone, standalone.draft);
+    await flush();
+    expect(sent).to.deep.equal([{ org, site: 'site' }]);
+  });
+
   it('resolves the same configured harness for a standalone input and full chat without host callbacks', async () => {
     const fetchDefault = window.fetch;
     window.fetch = (resource, options) => {
