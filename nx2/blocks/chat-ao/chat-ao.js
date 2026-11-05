@@ -128,9 +128,10 @@ export default class NxChatAo extends LitElement {
     if (this._configKey !== key) return;
     this._prompts = prompts ?? [];
     if (this._harnessConfigKey !== key) {
-      // Resolve cma-vs-coworker for this org/site via the shared resolver
-      // (CMA needs flag + entitlement, both re-verified server-side).
-      const { harness } = await resolveHarness({ org, site });
+      // Resolve the harness for this org/site (legacy | coworker | cma) via
+      // the shared resolver. CMA needs the flag + entitlement, both re-verified
+      // server-side by the bridge.
+      const harness = await resolveHarness({ org, site });
       if (this._configKey !== key) return;
       this._applyHarnessConfig({ key, harness });
       return;

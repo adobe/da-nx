@@ -99,7 +99,7 @@ export default class NxAoInput extends LitElement {
         // (flag + entitlement, re-verified server-side).
         const { org, site } = context;
         const { resolveHarness } = await import('../../utils/ewFlags.js');
-        ({ harness } = await resolveHarness({ org, site }));
+        harness = await resolveHarness({ org, site });
       }
       if (!this.isConnected || this._sessionRequest !== request || !this._standalone) return;
       this.harness = harness;

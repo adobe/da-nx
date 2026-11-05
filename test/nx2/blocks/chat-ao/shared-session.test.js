@@ -97,7 +97,12 @@ describe('standalone input and full AO chat sharing', () => {
       if (href.startsWith('/') || href.startsWith(window.location.origin)) {
         return originalFetch(resource, options);
       }
-      return new Response('{}', { headers: { 'Content-Type': 'application/json' } });
+      // Default: treat sites as Coworker-enabled so a re-resolved harness
+      // (resolveHarness on navigation) matches the explicitly-coworker mounts.
+      return new Response(
+        JSON.stringify({ flags: { data: [{ key: 'ew.coworker', value: 'true' }] } }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
     });
     patch(BaseChatController.prototype, '_connectionInfo', async () => ({
       authFrame: { type: AO_FRAME.AUTH }, wsBase: 'wss://chat.test',

@@ -177,21 +177,18 @@ export async function getCoworkerConfig({ org, site }) {
 
 // Per-site rollout opt-in for the CMA harness (replaces ew.altHarness, #192).
 // Selector only; the hard gate is IMS entitlement (see isCmaEntitled).
-// Harness resolution from the single `ew.coworker` flag:
-//   'cma'  -> CMA if the signed-in user is entitled, else legacy (da-agent)
-//   'true' -> Coworker
-//   unset/other -> legacy (da-agent)
-// Entitlement is a UI pre-check only; the bridge re-verifies it server-side on
-// every session. Returns { tier (3-way, for the legacy-vs-AO entry decision),
-// harness (cma|coworker, read by the AO component for controller/endpoints/styling) }.
+// Resolves the chat harness from the single `ew.coworker` flag to ONE of three
+// distinct states (they are not interchangeable - a non-entitled cma site
+// falls back to legacy, NOT coworker):
+//   'cma'      -> ew.coworker === 'cma' AND the user is IMS-entitled
+//   'coworker' -> ew.coworker === 'true' (Coworker on Agent Orchestrator)
+//   'legacy'   -> unset/other, or 'cma' without entitlement (da-agent)
+// Entitlement is a UI pre-check only; the bridge re-verifies server-side.
 export async function resolveHarness({ org, site }) {
   const value = (await getEWFlags({ org, site }))['ew.coworker'];
-  if (value === 'cma') {
-    const tier = (await isCmaEntitled()) ? 'cma' : 'legacy';
-    return { tier, harness: tier === 'cma' ? 'cma' : 'coworker' };
-  }
-  if (value === 'true') return { tier: 'coworker', harness: 'coworker' };
-  return { tier: 'legacy', harness: 'coworker' };
+  if (value === 'cma') return (await isCmaEntitled()) ? 'cma' : 'legacy';
+  if (value === 'true') return 'coworker';
+  return 'legacy';
 }
 
 export async function isCoworkerEnabled({ org, site }) {

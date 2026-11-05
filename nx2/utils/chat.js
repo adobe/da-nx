@@ -31,13 +31,13 @@ async function resolveAoChatConfig(context) {
     return {
       useAoChat: query === 'true',
       key,
-      harness: 'coworker',
+      harness: 'legacy',
     };
   }
 
-  const { tier, harness } = await resolveHarness({ org, site });
+  const harness = await resolveHarness({ org, site });
   return {
-    useAoChat: query === 'true' || tier !== 'legacy',
+    useAoChat: query === 'true' || harness !== 'legacy',
     key,
     harness,
   };
