@@ -4,10 +4,10 @@ import '../../../../nx2/blocks/chat/chat.js';
 import '../../../../nx2/blocks/chat-ao/chat-ao.js';
 
 describe('chat send button RUM', () => {
-  for (const [tag, harness, altHarness] of [
-    ['nx-chat', 'da-agent', false],
-    ['nx-chat-ao', 'coworker', false],
-    ['nx-chat-ao', 'cma', true],
+  for (const [tag, harness] of [
+    ['nx-chat', 'da-agent'],
+    ['nx-chat-ao', 'coworker'],
+    ['nx-chat-ao', 'cma'],
   ]) {
     it(`records valid ${harness} button and Enter submissions as standard clicks`, async () => {
       const previousHlx = window.hlx;
@@ -18,7 +18,7 @@ describe('chat send button RUM', () => {
       window.hlx = { rum: { isSelected: true, collector: (...args) => calls.push(args) } };
       try {
         const chat = document.createElement(tag);
-        chat._cma = altHarness;
+        chat._harness = harness;
         chat._controller = {
           sendMessage(message) { messages.push(message); },
           stop() { stopped += 1; },
