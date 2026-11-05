@@ -316,8 +316,8 @@
   }
 
   .chat-form:focus-within:not(:has(.chat-drop-zone)) > .chat-surface {
-    outline: 2px solid var(--s2-blue-900);
-    outline-offset: -2px;
+    border-color: rgb(167 178 255);
+    box-shadow: 0 0 0 4px rgb(59 99 251 / 4%);
   }
 
   .chat-form:focus-within::before {
