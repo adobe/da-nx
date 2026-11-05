@@ -50,6 +50,28 @@
   flex-shrink: 0;
 }
 
+.brand-area:has(.brand-icon) {
+  gap: var(--s2-spacing-100);
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-m-medium-font-size);
+  font-weight: var(--s2-component-m-medium-font-weight);
+  line-height: var(--s2-component-m-medium-line-height);
+}
+
+.brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+
+  img {
+    width: 24px;
+    height: 24px;
+  }
+}
+
 .site-nav {
   display: flex;
   align-items: center;
