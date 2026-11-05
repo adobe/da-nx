@@ -332,6 +332,10 @@
   --s2-nav-height: 56px;
   --s2-nav-width: 56px;
 
+  &:has(nx-sidenav[expanded]) {
+    --s2-nav-width: 320px;
+  }
+
   /* grid */
   --se-grid-container-width: 83.4%;
   --se-grid-gutter-width: 8.3%;
