@@ -7,7 +7,7 @@ await setConfig({ hostnames: [] });
 await import('../../../../../blocks/siteselector/siteselector.js');
 const { source, config } = await getSiteApi();
 const tick = () => new Promise((resolve) => { setTimeout(resolve, 0); });
-const openDialog = (selector) => new Promise((resolve) => {
+const openDialog = (selector, open = () => selector.dispatchEvent(new CustomEvent('site-add', { bubbles: true }))) => new Promise((resolve) => {
   const observer = new MutationObserver(() => {
     const dialog = document.querySelector('nx-add-site');
     if (dialog) {
@@ -16,7 +16,7 @@ const openDialog = (selector) => new Promise((resolve) => {
     }
   });
   observer.observe(document.body, { childList: true });
-  selector.dispatchEvent(new CustomEvent('site-add', { bubbles: true }));
+  open();
 });
 
 describe('standalone site selector behavior', () => {
@@ -93,8 +93,19 @@ describe('standalone site selector behavior', () => {
     const saveConfig = sinon.spy(config, 'save');
     document.body.append(selector);
     await selector.ready;
+    await selector.updateComplete;
+    expect(selector.shadowRoot.querySelector('nx-picker')).to.be.null;
+    const add = selector.shadowRoot.querySelector('.nx-btn-accent');
+    selector.focus();
+    expect(selector.shadowRoot.activeElement).to.equal(add);
     const currentHref = window.location.href;
-    const dialog = await openDialog(selector);
+    const cancelled = await openDialog(selector, () => add.click());
+    await cancelled.updateComplete;
+    cancelled.shadowRoot.querySelector('[slot="actions"][type="button"]').click();
+    await tick();
+    expect(cancelled.isConnected).to.be.false;
+    expect(selector.shadowRoot.activeElement).to.equal(add);
+    const dialog = await openDialog(selector, () => add.click());
     await dialog.updateComplete;
     dialog.shadowRoot.querySelector('input').value = 'https://main--site--org.aem.live';
     await dialog.submitForm({ preventDefault() {} });
@@ -105,6 +116,11 @@ describe('standalone site selector behavior', () => {
     expect(window.location.href).to.equal(currentHref);
     expect(permission.called).to.be.false;
     expect(saveSource.called || saveConfig.called).to.be.false;
+    await selector.updateComplete;
+    const picker = selector.shadowRoot.querySelector('nx-picker');
+    await picker.updateComplete;
+    expect(selector.shadowRoot.querySelector('.nx-btn-accent')).to.be.null;
+    expect(picker.shadowRoot.activeElement).to.equal(picker.shadowRoot.querySelector('button'));
   });
 
   it('uses only the host-provided Create destination after checking admin access', async () => {

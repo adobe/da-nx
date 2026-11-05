@@ -101,9 +101,10 @@ export function connectSiteSelector({ selector, signal, onSelect }) {
         closeDialog();
         selector.focus();
       });
-      dialog.addEventListener('site-added', ({ detail: { value } }) => {
+      dialog.addEventListener('site-added', async ({ detail: { value } }) => {
         closeDialog();
         selectSite(value);
+        await selector.updateComplete;
         selector.focus();
       });
       document.body.append(dialog);

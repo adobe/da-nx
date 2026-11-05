@@ -9,7 +9,7 @@ describe('nx-siteselector', () => {
   const settle = async () => {
     await selector.updateComplete;
     const picker = selector.shadowRoot.querySelector('nx-picker');
-    await picker.updateComplete;
+    await picker?.updateComplete;
     return picker;
   };
 
@@ -44,14 +44,16 @@ describe('nx-siteselector', () => {
     }
   });
 
-  it('renders current site, shared descriptions, heading and Add with no remembered sites', async () => {
+  it('replaces the empty picker with a direct shared Add button and restores the picker for sites', async () => {
     selector.sites = [];
     document.body.append(selector);
     let picker = await settle();
-    expect(picker.placeholder).to.equal('Your recent sites');
-    expect(picker.items[0].section).to.equal(picker.placeholder);
-    expect(picker.shadowRoot.querySelector('[part="label"]').textContent).to.equal('Your recent sites');
-    expect(picker.items.at(-1)).to.include({ value: 'add-site', action: true });
+    expect(picker).to.be.null;
+    const add = selector.shadowRoot.querySelector('.nx-btn-accent');
+    expect(add.textContent.trim()).to.equal('Add site');
+    expect(add.type).to.equal('button');
+    expect(add.querySelector('svg').getAttribute('aria-hidden')).to.equal('true');
+    expect(add.querySelector('use').getAttribute('href')).to.include('S2_Icon_Add_20_N.svg');
     selector.sites = [
       { value: 'aemsites/devlive', label: 'devlive (aemsites)' },
       { value: 'exp-workspace/frescopaco', label: 'frescopaco (exp-workspace)' },
@@ -67,6 +69,55 @@ describe('nx-siteselector', () => {
     selector.size = 's';
     picker = await settle();
     expect(picker.size).to.equal('m');
+    expect(selector.shadowRoot.querySelector('.nx-btn-accent')).to.be.null;
+  });
+
+  it('uses the shared blue button dimensions, typography and theme colors without picker overrides', async () => {
+    selector.style.cssText = `
+      --s2-font-family: adobe-clean, sans-serif;
+      --s2-spacing-200: 16px;
+      --s2-corner-radius-800: 16px;
+      --s2-component-m-medium-font-size: 14px;
+      --s2-component-m-medium-line-height: 18px;
+      --s2-component-m-bold-font-weight: 700;
+      --s2-blue-900: light-dark(#0265dc, #54a3f6);
+      --s2-blue-1000: light-dark(#0054b6, #72b7f9);
+    `;
+    document.body.append(selector);
+    await settle();
+    const add = selector.shadowRoot.querySelector('.nx-btn-accent');
+    add.style.transition = 'none';
+    for (const [scheme, background, hover] of [
+      ['light', 'rgb(2, 101, 220)', 'rgb(0, 84, 182)'],
+      ['dark', 'rgb(84, 163, 246)', 'rgb(114, 183, 249)'],
+    ]) {
+      selector.style.colorScheme = scheme;
+      const style = getComputedStyle(add);
+      expect(style.height).to.equal('32px');
+      expect(style.fontSize).to.equal('14px');
+      expect(style.fontWeight).to.equal('700');
+      expect(style.borderRadius).to.equal('16px');
+      expect(style.backgroundColor).to.equal(add.matches(':hover') ? hover : background);
+      expect(style.color).to.equal('rgb(255, 255, 255)');
+      expect(style.paddingInlineStart).to.equal('16px');
+      expect(add.querySelector('svg').getBoundingClientRect().left)
+        .to.be.greaterThan(add.getBoundingClientRect().left);
+    }
+  });
+
+  it('focuses the native Add button and emits one request per click', async () => {
+    document.body.append(selector);
+    await settle();
+    const add = selector.shadowRoot.querySelector('.nx-btn-accent');
+    let requests = 0;
+    selector.addEventListener('site-add', () => { requests += 1; });
+    add.click();
+    expect(requests).to.equal(1);
+    selector.focus();
+    expect(selector.shadowRoot.activeElement).to.equal(add);
+    add.click();
+    expect(requests).to.equal(2);
+    expect(selector.value).to.be.undefined;
   });
 
   it('capitalizes only the displayed site name without changing identifiers or descriptions', async () => {
@@ -96,8 +147,8 @@ describe('nx-siteselector', () => {
     expect(picker.placeholder).to.equal('Loading sites...');
     selector.sites = [];
     picker = await settle();
-    expect(picker.inert).to.be.false;
-    expect(picker.placeholder).to.equal('Your recent sites');
+    expect(picker).to.be.null;
+    expect(selector.shadowRoot.querySelector('.nx-btn-accent').disabled).to.be.false;
   });
 
   it('shows the heading until a site is selected and restores it when selection is cleared', async () => {
@@ -123,11 +174,12 @@ describe('nx-siteselector', () => {
     expect(trigger()).to.equal('Your recent sites');
     selector.sites = [];
     picker = await settle();
-    expect(trigger()).to.equal('Your recent sites');
-    expect(picker.items.at(-1)).to.include({ value: 'add-site', action: true });
+    expect(picker).to.be.null;
+    expect(selector.shadowRoot.querySelector('.nx-btn-accent')).to.exist;
   });
 
   it('emits selection and Add requests without owning navigation or changing current selection', async () => {
+    selector.sites = [{ value: 'org/site', label: 'org/site' }];
     document.body.append(selector);
     const picker = await settle();
     const events = [];

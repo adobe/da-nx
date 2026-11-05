@@ -2,7 +2,11 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
 import '../shared/picker/picker.js';
 
-const styles = await loadStyle(import.meta.url);
+const styles = await Promise.all([
+  loadStyle(new URL('../../styles/buttons.css', import.meta.url).href),
+  loadStyle(import.meta.url),
+]);
+const addIconHref = new URL('../../public/icons/S2_Icon_Add_20_N.svg#S2_Icon_Add_20_N', import.meta.url).href;
 
 class NxSiteselector extends LitElement {
   static properties = {
@@ -17,7 +21,7 @@ class NxSiteselector extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = styles;
     this._connection = new AbortController();
     this._adapter = undefined;
     this._loading = false;
@@ -41,7 +45,7 @@ class NxSiteselector extends LitElement {
     super.disconnectedCallback();
   }
 
-  focus(options) { this.shadowRoot.querySelector('nx-picker')?.focus(options); }
+  focus(options) { this.shadowRoot.querySelector('nx-picker, .nx-btn-accent')?.focus(options); }
 
   async loadSites(signal) {
     if (this._loading || signal.aborted) return;
@@ -72,6 +76,10 @@ class NxSiteselector extends LitElement {
     }));
   }
 
+  onAdd() {
+    this.dispatchEvent(new CustomEvent('site-add', { bubbles: true, composed: true }));
+  }
+
   onRetry() {
     this.dispatchEvent(new CustomEvent('site-retry', { bubbles: true, composed: true }));
   }
@@ -91,7 +99,12 @@ class NxSiteselector extends LitElement {
       { value: 'add-site', label: 'Add site...', action: true },
     ];
     return html`
-      <nx-picker
+      ${this.sites?.length === 0 && !this.error ? html`
+        <button type="button" class="nx-btn-accent" @click=${this.onAdd}>
+          Add site
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href=${addIconHref}></use></svg>
+        </button>
+      ` : html`<nx-picker
         .items=${items}
         .value=${this.value ?? ''}
         .labelOverride=${sites.find((site) => site.value === this.value)?.label ?? ''}
@@ -102,7 +115,7 @@ class NxSiteselector extends LitElement {
         variant="emphasized"
         check-position="start"
         @change=${this.onChange}
-      ></nx-picker>
+      ></nx-picker>`}
       ${this.error ? html`<p role="alert">${this.error}
         <button type="button" @click=${this.onRetry}>Try again</button></p>` : nothing}
     `;

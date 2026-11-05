@@ -192,6 +192,11 @@ Menu names are capitalized; identifiers and emitted values are unchanged.
 Managed selected triggers show only `org/site`; menu rows retain the name and path.
 Explicitly supplied labels are preserved.
 
+With no loaded choices and no error, the selector renders a shared blue
+`nx-btn-accent` Add site button with a trailing plus icon instead of an empty dropdown.
+It opens the same lazy-loaded dialog directly. Loading and error/retry states are
+preserved; available sites still render a picker even when none is selected.
+
 Selecting or adding updates selection and history without navigation. Hash changes
 resynchronize selection. Create opens the host's `/start?org=...` only after an explicit
 organization-config write grant. Its default URL preserves preview parameters, removes

@@ -59,7 +59,7 @@ p {
   font-weight: var(--s2-component-s-regular-font-weight);
 }
 
-button {
+p button {
   margin-inline-start: var(--s2-spacing-100);
   padding: 0;
   border: none;
@@ -68,6 +68,10 @@ button {
   font: inherit;
   text-decoration: underline;
   cursor: pointer;
+}
+
+.nx-btn-accent:focus-visible {
+  outline-offset: -2px;
 }
 
 @media (width < 600px) {
