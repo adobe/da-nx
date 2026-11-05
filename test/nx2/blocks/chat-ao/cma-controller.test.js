@@ -8,10 +8,10 @@ function reset() {
   resetMockIms();
 }
 
-function makeController({ activationKey = 'act-key', context = { org: 'o', site: 's' } } = {}) {
+function makeController({ context = { org: 'o', site: 's' } } = {}) {
   const updates = [];
   const sent = [];
-  const controller = new CmaChatController({ onUpdate: (u) => updates.push(u), activationKey });
+  const controller = new CmaChatController({ onUpdate: (u) => updates.push(u) });
   controller.setContext(context);
   // Keep tests off the network/socket.
   controller._ensureSocket = async () => { };
@@ -25,22 +25,15 @@ describe('cma-controller connection', () => {
   beforeEach(reset);
   afterEach(reset);
 
-  it('routes the socket to the CMA bridge and carries both activationKey and x-site', async () => {
-    const { controller } = makeController({ activationKey: 'the-key', context: { org: 'acme', site: 'www' } });
+  it('routes the socket to the CMA bridge and carries x-site, no activation key', async () => {
+    const { controller } = makeController({ context: { org: 'acme', site: 'www' } });
 
     const { authFrame, wsBase } = await controller._connectionInfo();
 
     expect(wsBase).to.equal(CMA_BRIDGE_WS_BASE);
-    expect(authFrame.activationKey).to.equal('the-key');
+    expect(authFrame).to.not.have.property('activationKey');
     expect(authFrame['x-site']).to.equal('acme/www');
     expect(authFrame.type).to.equal('AUTH');
-  });
-
-  it('trims the activation key (config sheets carry stray whitespace)', () => {
-    const { controller } = makeController({ activationKey: '  spaced  ' });
-    expect(controller._activationKey).to.equal('spaced');
-    controller.setActivationKey('');
-    expect(controller._activationKey).to.equal(null);
   });
 
   it('does not advertise an A2UI component catalog on a new session', async () => {
@@ -189,11 +182,11 @@ describe('cma-controller error surfacing', () => {
     expect(controller._messages).to.deep.equal([]);
   });
 
-  it('maps a bad activation key to tester-facing copy during a turn', () => {
+  it('maps a not-provisioned error to tester-facing copy during a turn', () => {
     const { controller } = makeController();
     controller._thinking = true; // active turn => _blockedByActiveTurn
-    controller._onSessionError({ data: { message: 'invalid activation key' } });
+    controller._onSessionError({ data: { message: 'Tenant acme is not provisioned for the required product' } });
     const last = controller._messages.at(-1);
-    expect(last.content).to.contain('isn\'t enabled for the alternate assistant');
+    expect(last.content).to.contain('isn\'t provisioned for the alternate assistant');
   });
 });

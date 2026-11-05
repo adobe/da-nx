@@ -15,7 +15,8 @@ import {
   AO_FRAME, AO_EVENT, IGNORED_WHILE_INTERRUPTING, DEDICATED_SUMMARY_TOOLS,
 } from './ao-constants.js';
 import { buildFailedUploadsText, buildClientContext } from './utils/user-context.js';
-import { uploadAttachment, getOrgId, resolveAoWsBase } from './utils/uploads.js';
+import { uploadAttachment, getOrgId } from './utils/uploads.js';
+import { resolveChatBases } from './utils/endpoints.js';
 import { resolveManifestId } from './utils/manifest.js';
 import {
   toUiArtifact, fetchTurnEvents, extractToolCalls,
@@ -206,7 +207,7 @@ export default class BaseChatController {
         'x-user-surface': 'experienceworkspace',
         ...(siteId ? { 'x-site': siteId } : {}),
       },
-      wsBase: resolveAoWsBase(projectedProductContext),
+      wsBase: resolveChatBases({ harness: 'coworker', projectedProductContext }).wsBase,
     };
   }
 
