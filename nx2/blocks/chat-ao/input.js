@@ -304,8 +304,7 @@ export default class NxAoInput extends LitElement {
   }
 
   render() {
-    // The full chat shows its own progress, so only a standalone input reports it.
-    const working = this._standalone && this.blocked;
+    const working = this.blocked;
     return html`
       <nx-popover class="prompts-popover">
         <nx-prompts .prompts=${this.prompts ?? []} .onSend=${(p) => this.setPrompt(p)}></nx-prompts>

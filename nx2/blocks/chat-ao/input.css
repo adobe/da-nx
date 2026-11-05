@@ -213,6 +213,7 @@
     box-sizing: border-box;
     width: 16px;
     height: 16px;
+    border-top-color: var(--s2-blue-900);
   }
 }
 
