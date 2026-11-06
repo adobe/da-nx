@@ -1,3 +1,10 @@
+## [1.42.1](https://github.com/adobe/da-nx/compare/v1.42.0...v1.42.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **chat-ao:** show a skills-only menu on the CMA harness, no Coworker items ([#966](https://github.com/adobe/da-nx/issues/966)) ([c051805](https://github.com/adobe/da-nx/commit/c05180589d7b8acba4d083e2f923ca6b613f5adf))
+
 # [1.42.0](https://github.com/adobe/da-nx/compare/v1.41.0...v1.42.0) (2026-11-06)
 
 
