@@ -52,7 +52,7 @@ function formatService(config) {
       const serviceKey = key.replace('translation.service.', '');
 
       const [env, prop] = serviceKey.split('.');
-      if (env === 'name' || env === 'all') return;
+      if (env === 'name' || env === 'all' || env === 'key') return;
       service.envs[env] ??= {};
       service.envs[env][prop] = config[key];
     }

@@ -279,6 +279,14 @@ export function getPathDetails() {
   };
 }
 
+/**
+ * Clears the cached translate config so the next fetch reads it fresh.
+ * @returns {void}
+ */
+export function clearConfigCache() {
+  CONFIG_CACHE = undefined;
+}
+
 export async function fetchConfig(org, site) {
   if (CONFIG_CACHE) return CONFIG_CACHE;
 

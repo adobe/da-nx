@@ -1,3 +1,5 @@
+export const requiredKeys = [];
+
 export async function cancelTranslation({ service, lang, sendMessage }) {
 
 }

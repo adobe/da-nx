@@ -27,6 +27,28 @@
   background-color: var(--s2-blue-200);
   color: var(--s2-blue-1000);
   border: 1px solid var(--s2-blue-400);
+  min-height: 34px;
+  box-sizing: border-box;
+
+  &.has-items {
+    padding: 8px 16px;
+    text-align: start;
+
+    p {
+      margin: 0 0 4px;
+    }
+
+    ul {
+      margin: 0;
+      padding-inline-start: 20px;
+      font-weight: 400;
+      text-align: start;
+    }
+
+    li + li {
+      margin-top: 2px;
+    }
+  }
 
   &.type-error {
     background: var(--s2-red-900);
@@ -60,6 +82,11 @@
       display: block;
       margin-bottom: 2px;
     }
+  }
+
+  .nx-prev,
+  .nx-next {
+    align-self: flex-start;
   }
 
   .nx-prev {
