@@ -5,6 +5,8 @@ import BaseChatController from '../../../../nx2/blocks/chat-ao/base-chat-control
 import CoworkerChatController from '../../../../nx2/blocks/chat-ao/coworker-chat-controller.js';
 import CmaChatController from '../../../../nx2/blocks/chat-ao/cma-chat-controller.js';
 import { AO_EVENT, AO_FRAME } from '../../../../nx2/blocks/chat-ao/ao-constants.js';
+import { setMockIms, resetMockIms } from '../../../../nx2/test/mocks/ims.js';
+import { REQUIRED_SERVICE_CODES } from '../../../../nx2/utils/entitlement.js';
 
 await setConfig({ hostnames: [] });
 await import('../../../../nx2/blocks/chat-ao/chat-ao.js');
@@ -59,8 +61,7 @@ describe('standalone input and full AO chat sharing', () => {
     if (!options.resolveHarness) {
       chat.harnessConfig = {
         key: `${chat._context.org}/${chat._context.site}`,
-        altHarness: options.harness === 'cma',
-        activationKey: options.activationKey ?? null,
+        harness: options.harness ?? 'coworker',
       };
     }
     elements.push(chat);
@@ -96,7 +97,12 @@ describe('standalone input and full AO chat sharing', () => {
       if (href.startsWith('/') || href.startsWith(window.location.origin)) {
         return originalFetch(resource, options);
       }
-      return new Response('{}', { headers: { 'Content-Type': 'application/json' } });
+      // Default: treat sites as Coworker-enabled so a re-resolved harness
+      // (resolveHarness on navigation) matches the explicitly-coworker mounts.
+      return new Response(
+        JSON.stringify({ flags: { data: [{ key: 'ew.coworker', value: 'true' }] } }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
     });
     patch(BaseChatController.prototype, '_connectionInfo', async () => ({
       authFrame: { type: AO_FRAME.AUTH }, wsBase: 'wss://chat.test',
@@ -166,6 +172,7 @@ describe('standalone input and full AO chat sharing', () => {
       sessionStorage.removeItem(`nx2:cma-episode:${ownerOrg}/${site}`);
     });
     originals.reverse().forEach((restore) => restore());
+    resetMockIms();
   });
 
   ['coworker', 'cma'].forEach((harness) => {
@@ -428,9 +435,15 @@ describe('standalone input and full AO chat sharing', () => {
         return fetchDefault(resource, options);
       }
       return Promise.resolve(new Response(JSON.stringify({
-        flags: { data: [{ key: 'ew.altHarness', value: 'configured-key' }] },
+        flags: { data: [{ key: 'ew.coworker', value: 'cma' }] },
       })));
     };
+    // ew.coworker=cma alone isn't enough - the fallback resolution path (no
+    // pre-supplied harnessConfig) also requires real IMS entitlement, same
+    // as chat-ao.js's own flag+entitlement resolution.
+    setMockIms({
+      projectedProductContext: [{ prodCtx: { owningEntity: `configured-${org}`, serviceCode: REQUIRED_SERVICE_CODES[0] } }],
+    });
     const context = { org: `configured-${org}` };
     const standalone = await mount({ standalone: true, resolveHarness: true, context });
     const full = await mount({ resolveHarness: true, context });
@@ -438,7 +451,7 @@ describe('standalone input and full AO chat sharing', () => {
     await ready(standalone, full);
     expect(standalone._session).to.equal(full._session);
     expect(full._controller).to.be.instanceOf(CmaChatController);
-    expect(standalone.altHarness).to.equal(true);
+    expect(standalone.harness).to.equal('cma');
     submit(standalone, 'Configured shared session');
     await flush();
     expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
@@ -484,17 +497,21 @@ describe('standalone input and full AO chat sharing', () => {
     expect(standalone._session).to.equal(full._session);
   });
 
-  it('isolates independent chats, org/site, harnesses and activation keys, and rejoins when the input changes scope', async () => {
+  it('isolates independent chats by org/site and harness, and rejoins when the input changes scope '
+    + '(same org/site/harness shares a session regardless of mount order - there is no more activation-key '
+    + 'dimension to separate them on, #192)', async () => {
     const [standalone, full] = await pair('coworker');
     const isolated = await mount({ standalone: true, isolated: true });
     const otherSite = await mount({ context: { site: 'another' } });
     const otherOrg = await mount({ standalone: true, context: { org: `${org}-another` } });
-    const cma = await mount({ standalone: true, harness: 'cma', activationKey: 'one' });
-    const anotherKey = await mount({ harness: 'cma', activationKey: 'two' });
-    await ready(standalone, full, isolated, otherSite, otherOrg, cma, anotherKey);
-    const sessions = [standalone, isolated, otherSite, otherOrg, cma, anotherKey]
+    const cma = await mount({ standalone: true, harness: 'cma' });
+    const cmaSibling = await mount({ harness: 'cma' });
+    await ready(standalone, full, isolated, otherSite, otherOrg, cma, cmaSibling);
+    // Same org/site/harness (cma), neither isolated - must share, not duplicate.
+    expect(cmaSibling._session).to.equal(cma._session);
+    const sessions = [standalone, isolated, otherSite, otherOrg, cma]
       .map((chat) => chat._session);
-    expect(new Set(sessions).size).to.equal(6);
+    expect(new Set(sessions).size).to.equal(5);
     submit(isolated, 'Only isolated');
     await flush();
     expect(full.messages).to.deep.equal([]);
@@ -635,8 +652,8 @@ describe('standalone input and full AO chat sharing', () => {
   });
 
   it('preserves CMA resume across compact/full lifetimes without changing the existing storage key', async () => {
-    const standalone = await mount({ standalone: true, harness: 'cma', activationKey: 'one' });
-    const isolated = await mount({ standalone: true, harness: 'cma', isolated: true, activationKey: 'two' });
+    const standalone = await mount({ standalone: true, harness: 'cma' });
+    const isolated = await mount({ standalone: true, harness: 'cma', isolated: true });
     await ready(standalone, isolated);
     submit(standalone, 'Persist this session');
     await flush();
@@ -644,7 +661,7 @@ describe('standalone input and full AO chat sharing', () => {
     expect(sessionStorage.getItem(`nx2:cma-episode:${org}/site`)).to.equal(episodeId);
     stop(standalone);
     standalone.remove();
-    const full = await mount({ harness: 'cma', activationKey: 'one' });
+    const full = await mount({ harness: 'cma' });
     await ready(full);
     expect(full.episodeId).to.equal(episodeId);
     expect(isolated._session.controller._episodeId).to.equal(undefined);
