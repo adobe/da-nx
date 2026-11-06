@@ -414,8 +414,8 @@ export async function getStatusAll({ service, langs, urls, actions }) {
     return;
   }
 
-  // 'complete'/'cancelled' are terminal; DeepL keeps reporting 'done', which would revert them.
-  const activeLangs = langs.filter((l) => !['complete', 'cancelled'].includes(l.translation?.status));
+  // 'complete' is terminal; DeepL keeps reporting 'done', which would revert it.
+  const activeLangs = langs.filter((l) => l.translation?.status !== 'complete');
   const failures = [];
 
   for (const lang of activeLangs) {
@@ -546,26 +546,4 @@ export async function saveItems({
     });
   }
   return saved;
-}
-
-const FINISHED_STATUSES = new Set(['translated', 'complete']);
-
-/**
- * Abandons a language's translation locally. DeepL has no document cancel API,
- * so in-flight documents keep running (and may bill) but their results are discarded.
- * @param {object} conf - Cancel configuration.
- * @param {object} conf.lang - Language entry.
- * @param {Function} [conf.sendMessage] - Host message callback.
- * @returns {Promise<{ok: boolean, skipped?: boolean}>}
- */
-export async function cancelTranslation({ lang, sendMessage }) {
-  if (!lang.translation || FINISHED_STATUSES.has(lang.translation.status)) {
-    return { ok: true, skipped: true };
-  }
-  sendMessage?.({
-    text: `DeepL can't cancel in-flight documents. Abandoning ${lang.name}; results will be discarded.`,
-  });
-  lang.translation.status = 'cancelled';
-  delete lang.translation.documents;
-  return { ok: true };
 }

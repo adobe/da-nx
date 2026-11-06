@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  connect, isConnected, sendAllLanguages, getStatusAll, saveItems, cancelTranslation,
+  connect, isConnected, sendAllLanguages, getStatusAll, saveItems,
   toDeepLLanguageCode,
 } from '../../../../nx/blocks/loc/connectors/deepl/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
@@ -809,15 +809,11 @@ describe('deepl connector', () => {
       expect(langs[0].translation.status).to.equal('translated');
     });
 
-    it('skips langs whose status is already terminal ("complete" or "cancelled")', async () => {
+    it('skips langs whose status is already "complete"', async () => {
       const langs = [
         {
           code: 'fr',
           translation: { status: 'complete', documents: { '/page': { documentId: 'doc-1', documentKey: 'key-1', status: 'queued' } } },
-        },
-        {
-          code: 'de',
-          translation: { status: 'cancelled', documents: { '/page': { documentId: 'doc-2', documentKey: 'key-2', status: 'queued' } } },
         },
       ];
       const urls = [{ daBasePath: '/page' }];
@@ -830,9 +826,7 @@ describe('deepl connector', () => {
       });
 
       expect(calls.some((c) => c.url.includes('/document/doc-1'))).to.equal(false);
-      expect(calls.some((c) => c.url.includes('/document/doc-2'))).to.equal(false);
       expect(langs[0].translation.status).to.equal('complete');
-      expect(langs[1].translation.status).to.equal('cancelled');
     });
   });
 
@@ -1142,55 +1136,6 @@ describe('deepl connector', () => {
       expect(state.maxActive).to.be.at.most(5);
       expect(state.maxActive).to.be.greaterThan(1);
       expect(urls.every((u) => u.status === 'success')).to.equal(true);
-    });
-  });
-
-  describe('cancelTranslation', () => {
-    it('marks translation cancelled and clears the documents map', async () => {
-      const lang = { name: 'French', translation: { status: 'created', documents: { '/page': { documentId: 'doc-1' } } } };
-      const messages = [];
-
-      const result = await cancelTranslation({ lang, sendMessage: (m) => messages.push(m) });
-
-      expect(result).to.deep.equal({ ok: true });
-      expect(lang.translation.status).to.equal('cancelled');
-      expect(lang.translation.documents).to.equal(undefined);
-      expect(messages[0].text).to.equal("DeepL can't cancel in-flight documents. Abandoning French; results will be discarded.");
-    });
-
-    it('skips when the lang has no translation state yet', async () => {
-      const lang = { name: 'French' };
-      const messages = [];
-
-      const result = await cancelTranslation({ lang, sendMessage: (m) => messages.push(m) });
-
-      expect(result).to.deep.equal({ ok: true, skipped: true });
-      expect(lang.translation).to.equal(undefined);
-      expect(messages).to.deep.equal([]);
-    });
-
-    ['translated', 'complete'].forEach((status) => {
-      it(`skips and leaves state intact when already ${status}`, async () => {
-        const documents = { '/page': { documentId: 'doc-1', status: 'done' } };
-        const lang = { name: 'French', translation: { status, documents } };
-        const messages = [];
-
-        const result = await cancelTranslation({ lang, sendMessage: (m) => messages.push(m) });
-
-        expect(result).to.deep.equal({ ok: true, skipped: true });
-        expect(lang.translation.status).to.equal(status);
-        expect(lang.translation.documents).to.equal(documents);
-        expect(messages).to.deep.equal([]);
-      });
-    });
-
-    it('works without a sendMessage callback', async () => {
-      const lang = { name: 'French', translation: { status: 'created' } };
-
-      const result = await cancelTranslation({ lang });
-
-      expect(result).to.deep.equal({ ok: true });
-      expect(lang.translation.status).to.equal('cancelled');
     });
   });
 
