@@ -13,6 +13,7 @@
 import { expect } from '@esm-bundle/chai';
 
 import {
+  ASSET_DRAG_DATA_TYPE,
   buildFeatureSet,
   buildAssetSelectorProps,
   rememberAssetFolder,
@@ -93,6 +94,36 @@ describe('shared AEM asset selector props', () => {
     it('omits onClose when null', () => {
       const props = buildAssetSelectorProps({ ...baseArgs, onClose: null });
       expect(props).to.not.have.property('onClose');
+    });
+
+    it('sets rail when rail mode is requested', () => {
+      expect(buildAssetSelectorProps({ ...baseArgs, rail: true }).rail).to.equal(true);
+    });
+
+    it('omits rail by default', () => {
+      expect(buildAssetSelectorProps(baseArgs)).to.not.have.property('rail');
+    });
+
+    it('adds the drag config when dragAndDrop is requested', () => {
+      const props = buildAssetSelectorProps({ ...baseArgs, rail: true, dragAndDrop: true });
+      expect(props.acvConfig).to.deep.equal({
+        dragOptions: { allowList: { '*': true } },
+        selectionType: 'multiple',
+      });
+    });
+
+    it('omits acvConfig by default', () => {
+      expect(buildAssetSelectorProps(baseArgs)).to.not.have.property('acvConfig');
+    });
+
+    it('exports the drag data type', () => {
+      expect(ASSET_DRAG_DATA_TYPE).to.equal('collectionviewdata');
+    });
+
+    it('omits handleSelection when none is supplied (display-only rail)', () => {
+      const args = { ...baseArgs, rail: true };
+      delete args.handleSelection;
+      expect(buildAssetSelectorProps(args)).to.not.have.property('handleSelection');
     });
 
     it('omits path when no folder has been remembered yet', () => {
