@@ -13,6 +13,7 @@ const CATEGORIES = [
   { value: 'ui', label: 'User Interface' },
   { value: 'assistant', label: 'AI Assistant' },
   { value: 'permissions', label: 'Permissions' },
+  { value: 'extensions', label: 'Extensions' },
   { value: 'other', label: 'Other' },
 ];
 
