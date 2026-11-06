@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { setConfig } from '../../../../../scripts/nx.js';
+import { getConfig, setConfig } from '../../../../../scripts/nx.js';
 
 // fragment.js (a transitive dependency of nav.js) captures getConfig() into a
 // module-level constant at import time, so setConfig() must resolve before
@@ -179,6 +179,105 @@ describe('nav search slot', () => {
           .to.be.closeTo(hostRect.left + hostRect.width / 2, 1);
       }
     }
+  });
+});
+
+describe('nav brand override', () => {
+  let nav;
+  let config;
+  let stylesheet;
+
+  const logoHref = '/nx2/img/icons/S2_Icon_Home_20_N.svg';
+
+  beforeEach(async () => {
+    config = getConfig();
+    nav = document.createElement('nx-nav');
+    nav.loadNav = async () => {};
+    stylesheet = document.createElement('link');
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = '/nx2/styles/styles.css';
+    const loaded = new Promise((resolve) => { stylesheet.onload = resolve; });
+    document.head.append(stylesheet);
+    await loaded;
+  });
+
+  afterEach(async () => {
+    nav.remove();
+    stylesheet.remove();
+    document.body.classList.remove('ui-size-m');
+    await setConfig(config);
+  });
+
+  async function mountBrand() {
+    const section = document.createElement('div');
+    section.innerHTML = `<a href="${logoHref}">Original lockup</a>`;
+    nav._brand = await nav.decorateBrand(section);
+    document.body.append(nav);
+    await nav.updateComplete;
+    return nav._brand;
+  }
+
+  it('replaces the fragment lockup with a named home link and a decorative logo', async () => {
+    await setConfig({ ...config, navBrand: { logoHref, label: 'Example Product' } });
+    const brand = await mountBrand();
+    const img = brand.querySelector('img');
+    await img.decode();
+    expect(brand.getAttribute('href')).to.equal('/');
+    expect(brand.getAttribute('aria-label')).to.equal('Example Product');
+    expect(brand.textContent).to.equal('Example Product');
+    expect(img.getAttribute('src')).to.equal(logoHref);
+    expect(img.alt).to.equal('');
+    expect(brand.querySelector('svg')).to.be.null;
+  });
+
+  it('aligns the logo with the shell rail and the label with its right edge in S/M and both themes', async () => {
+    await setConfig({ ...config, navBrand: { logoHref, label: 'Example Product' } });
+    const brand = await mountBrand();
+    const icon = brand.querySelector('.brand-icon');
+    const img = icon.querySelector('img');
+    const label = brand.querySelector('.brand-label');
+    nav.style.height = '56px';
+    for (const medium of [false, true]) {
+      document.body.classList.toggle('ui-size-m', medium);
+      for (const scheme of ['light', 'dark']) {
+        nav.style.colorScheme = scheme;
+        nav.style.color = 'light-dark(rgb(0, 0, 0), rgb(255, 255, 255))';
+        for (const width of [900, 480]) {
+          nav.style.width = `${width}px`;
+          const iconRect = icon.getBoundingClientRect();
+          const imgRect = img.getBoundingClientRect();
+          expect(iconRect.width).to.equal(32);
+          expect(iconRect.height).to.equal(32);
+          expect(imgRect.width).to.equal(24);
+          expect(imgRect.height).to.equal(24);
+          expect(imgRect.left - iconRect.left).to.equal(4);
+          expect(imgRect.top - iconRect.top).to.equal(4);
+          const navRect = nav.getBoundingClientRect();
+          const labelRect = label.getBoundingClientRect();
+          expect(iconRect.left - navRect.left).to.equal(12);
+          expect(iconRect.top - navRect.top).to.equal(12);
+          expect(labelRect.left - navRect.left).to.equal(56);
+          expect(labelRect.left - iconRect.right).to.equal(12);
+          const textStyle = getComputedStyle(label);
+          expect(textStyle.fontFamily).to.include('adobe-clean');
+          expect(textStyle.fontSize).to.equal('14px');
+          expect(textStyle.fontWeight).to.equal('700');
+          expect(textStyle.lineHeight).to.equal('18px');
+          expect(textStyle.color).to.equal(scheme === 'light' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)');
+        }
+      }
+    }
+  });
+
+  [undefined, { label: 'Missing logo' }, { logoHref }].forEach((navBrand) => {
+    it(`preserves the original SVG lockup with ${JSON.stringify(navBrand)} configuration`, async () => {
+      await setConfig({ ...config, navBrand });
+      const brand = await mountBrand();
+      expect(brand.querySelector('svg')).to.exist;
+      expect(brand.querySelector('img')).to.be.null;
+      expect(brand.getAttribute('aria-label')).to.equal('Original lockup');
+      expect(brand.getAttribute('href')).to.equal('/');
+    });
   });
 });
 
