@@ -60,10 +60,14 @@ export const ADD_MENU_ITEMS_WITH_EPISODE = ADD_MENU_ITEMS.toSpliced(
   { divider: true },
 );
 
-// CMA menu: ADD_MENU_ITEMS with Manage Skills relabelled, no Coworker items.
-export const ADD_MENU_ITEMS_CMA = ADD_MENU_ITEMS.map((item) => (
-  item.id === MENU_OPTIONS.MANAGE_SKILLS ? { ...item, label: 'Manage Skills' } : item
-));
+// CMA menu: ADD_MENU_ITEMS with Manage Skills relabelled, no Coworker items, and
+// no Manage Experience Context either - there is no CMA-side destination for it
+// yet (it would otherwise still fall through to CX Coworker, see PR #966 review).
+export const ADD_MENU_ITEMS_CMA = ADD_MENU_ITEMS
+  .filter((item) => item.id !== MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT)
+  .map((item) => (
+    item.id === MENU_OPTIONS.MANAGE_SKILLS ? { ...item, label: 'Manage Skills' } : item
+  ));
 
 export const AO_FRAME = {
   AUTH: 'AUTH',

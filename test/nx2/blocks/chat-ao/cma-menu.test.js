@@ -14,11 +14,11 @@ describe('chat-ao menu by harness', () => {
     chat._context = { org: 'o', site: 's' };
   });
 
-  it('CMA menu has Manage Skills and NOTHING Coworker', () => {
+  it('CMA menu has Manage Skills and NOTHING Coworker (including Experience Context, no CMA destination yet)', () => {
     const l = labels(ADD_MENU_ITEMS_CMA);
     expect(l).to.include('Manage Skills');
     expect(l).to.include('Manage Prompts');
-    expect(l).to.include('Manage Experience Context');
+    expect(l).to.not.include('Manage Experience Context');
     expect(l).to.not.include('Manage Coworker');
     expect(l).to.not.include('Continue in Coworker');
   });
@@ -65,6 +65,33 @@ describe('chat-ao menu by harness', () => {
     }
     expect(opened).to.be.a('string');
     expect(opened).to.not.include('/apps/skills');
+    expect(opened).to.include('experience.adobe.com');
+  });
+
+  it('CMA Manage Experience Context is a no-op, never opens Coworker (PR #966 review)', () => {
+    chat._harness = 'cma';
+    let opened = false;
+    const realOpen = window.open;
+    window.open = () => { opened = true; };
+    try {
+      chat._handleMenuSelect(MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT);
+    } finally {
+      window.open = realOpen;
+    }
+    expect(opened).to.equal(false);
+  });
+
+  it('Coworker Manage Experience Context still opens Coworker', () => {
+    chat._harness = 'coworker';
+    let opened;
+    const realOpen = window.open;
+    window.open = (href) => { opened = href; };
+    try {
+      chat._handleMenuSelect(MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT);
+    } finally {
+      window.open = realOpen;
+    }
+    expect(opened).to.be.a('string');
     expect(opened).to.include('experience.adobe.com');
   });
 });

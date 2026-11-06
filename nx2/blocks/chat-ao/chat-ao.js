@@ -324,7 +324,13 @@ export default class NxChatAo extends LitElement {
       [MENU_OPTIONS.OPEN_COWORKER]: () => {
         if (this.episodeId) this._openCoworker(this.episodeId);
       },
-      [MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT]: () => this._openCoworker(ENTERPRISE_CONTEXT_PATH),
+      [MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT]: () => {
+        // CMA has no destination for this yet (ao-constants.js already omits it
+        // from ADD_MENU_ITEMS_CMA) - guarded here too so it can never silently
+        // fall through to Coworker if ever reached some other way (PR #966 review).
+        if (this._harness === 'cma') return;
+        this._openCoworker(ENTERPRISE_CONTEXT_PATH);
+      },
     };
     actions[id]?.();
   };
