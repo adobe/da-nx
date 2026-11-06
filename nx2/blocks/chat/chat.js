@@ -14,7 +14,7 @@ import './interaction/interaction.js';
 import { loadSiteConfig } from './utils/api.js';
 import { getConfig } from '../../scripts/nx.js';
 import { buildAttachmentPayload } from './utils/chat-helpers.js';
-import { CHAT_EVENT } from '../../utils/chat.js';
+import { CHAT_EVENT, skillsAppHref } from '../../utils/chat.js';
 import { createFileDropHandlers } from '../shared/chat/dnd.js';
 import { openPopoverAbove } from '../shared/chat/positioning.js';
 import { createSlashMenu } from '../shared/chat/slash-menu.js';
@@ -285,11 +285,7 @@ class NxChat extends LitElement {
     if (id === MENU_OPTIONS.MANAGE_PROMPT || id === MENU_OPTIONS.MANAGE_SKILLS) {
       const { org, site } = this._context ?? {};
       if (!org || !site) return;
-      const url = new URL(window.location.href);
-      url.pathname = '/apps/skills';
-      url.search = `?tab=${id}`;
-      url.hash = `#/${org}/${site}`;
-      window.open(url.href, '_blank', 'noopener,noreferrer');
+      window.open(skillsAppHref({ org, site, tab: id }), '_blank', 'noopener,noreferrer');
     }
   }
 
