@@ -164,6 +164,32 @@ describe('GLaaS video delivery from Get Status', () => {
     expect(saved.at(-1)[0].translation.workflowTasks.Task.videoDelivery[assetName].status).to.equal('delivered');
   });
 
+  it('marks Get Status submissions as manual retries but not status polls', async () => {
+    const lang = language();
+    const task = lang.translation.workflowTasks.Task;
+    task.videoDelivery = { [assetName]: { status: 'error', taskVersion: 7 } };
+    fetchStub.callsFake(async (href, options) => {
+      if (!String(href).endsWith('/video-delivery')) {
+        return new Response(JSON.stringify({ signedURL: 'https://signed.example/srt', taskVersion: 7 }));
+      }
+      const { statusOnly, manualRetry, targetLocale } = JSON.parse(options.body);
+      if (!statusOnly) {
+        expect(Boolean(manualRetry)).to.equal(targetLocale === 'fr');
+        return new Response(JSON.stringify({ status: 'queued' }), { status: 202 });
+      }
+      expect(manualRetry).to.equal(undefined);
+      return new Response(JSON.stringify({ status: 'delivered' }));
+    });
+
+    await check([lang]);
+
+    const calls = submissions().map(({ args }) => JSON.parse(args[1].body));
+    expect(calls).to.have.length(2);
+    expect(calls.find(({ targetLocale }) => targetLocale === 'fr').manualRetry).to.equal(true);
+    expect(calls.find(({ targetLocale }) => targetLocale === 'en-x-cc').manualRetry).to.equal(undefined);
+    expect(lang.translation.workflowTasks.Task.videoDelivery[assetName].status).to.equal('delivered');
+  });
+
   it('keeps an HTML-ready language unsavable until MPC confirms both caption deliveries', async () => {
     const lang = language();
     lang.translation.status = 'translated';

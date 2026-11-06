@@ -71,14 +71,20 @@ export function hasPendingVideoCaptions(task, code) {
   ));
 }
 
-async function requestDelivery({ item, body, signal, statusOnly = false }) {
+async function requestDelivery({
+  item, body, signal, statusOnly = false, manualRetry = false,
+}) {
   const accessToken = window.adobeIMS?.getAccessToken()?.token;
   if (!accessToken) throw new Error('Sign in to Adobe before delivering video captions.');
-  logVideoDelivery('video-delivery-request', { ...body, statusOnly });
+  logVideoDelivery('video-delivery-request', { ...body, statusOnly, manualRetry });
   const resp = await fetch(DELIVERY_HREF, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({ ...body, ...(statusOnly && { statusOnly }) }),
+    body: JSON.stringify({
+      ...body,
+      ...(statusOnly && { statusOnly }),
+      ...(manualRetry && { manualRetry }),
+    }),
     signal,
   });
   const delivery = await resp.json().catch(() => null);
@@ -164,7 +170,13 @@ export default async function deliverVideos({
             videoId: video.videoId,
             taskVersion: meta.json?.taskVersion,
           };
-          const status = await requestDelivery({ item, body, signal, statusOnly: alreadyQueued });
+          const status = await requestDelivery({
+            item,
+            body,
+            signal,
+            statusOnly: alreadyQueued,
+            manualRetry: previous?.status === 'error',
+          });
           if (status !== 'delivered') queued.push({ item, body });
         }
       } catch (error) {
