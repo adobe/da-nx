@@ -25,7 +25,7 @@ file selection/drop, slash menu, prompts, and voice input. `nx-chat-ao` retains
 conversation, session, approval, history, and document-event handling, delegating
 `setPrompt()` to the input.
 
-Hosts supply `blocked`, `cma`, `prompts`, `menuItems`, and `getSkills()`.
+Hosts supply `blocked`, `cma`, `prompts`, `menuItems`, `placeholder`, and `getSkills()`.
 `onSubmit({ text, context, attachments })` runs synchronously before the draft
 and pills clear. Other callbacks are `onStop()`, `onInput()` (session warming),
 and `onMenuSelect(id)`.

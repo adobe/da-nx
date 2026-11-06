@@ -376,6 +376,57 @@ describe('standalone input and full AO chat sharing', () => {
       .to.deep.equal(['artifact']);
   });
 
+  it('notifies the host only when a standalone submission is accepted', async () => {
+    const pending = deferred();
+    patch(CoworkerChatController.prototype, '_fetchEpisodes', () => pending.promise);
+    const sent = [];
+    const onSent = (e) => sent.push(e.detail);
+    document.addEventListener(CHAT_EVENT.MESSAGE_SENT, onSent);
+    originals.push(() => document.removeEventListener(CHAT_EVENT.MESSAGE_SENT, onSent));
+    const standalone = await mount({ standalone: true });
+    submit(standalone, 'Not ready');
+    expect(sent).to.deep.equal([]);
+    pending.resolve([]);
+    await ready(standalone);
+    submit(standalone, standalone.draft);
+    await flush();
+    expect(sent).to.deep.equal([{ org, site: 'site' }]);
+  });
+
+  it('marks only the standalone input for the gradient look', async () => {
+    const [standalone, full] = await pair('coworker');
+    expect(standalone.hasAttribute('standalone')).to.equal(true);
+    expect(standalone.shadowRoot.querySelector('.chat-surface')).to.not.equal(null);
+    expect(full._input.hasAttribute('standalone')).to.equal(false);
+    expect(full._input.shadowRoot.querySelector('.chat-surface')).to.equal(null);
+    const form = standalone.shadowRoot.querySelector('form');
+    expect(form.hasAttribute('data-has-items')).to.equal(false);
+    pills(standalone).add({ id: 'pill', label: 'Pill' });
+    await flush();
+    expect(form.hasAttribute('data-has-items')).to.equal(true);
+    pills(standalone).clear();
+    await flush();
+    expect(form.hasAttribute('data-has-items')).to.equal(false);
+  });
+
+  it('shows the working status in the standalone input and the full chat while a reply runs', async () => {
+    const [standalone, full] = await pair('coworker');
+    await ready(standalone, full);
+    const status = (chat) => composer(chat).shadowRoot.querySelector('.chat-working');
+    expect(status(standalone)).to.equal(null);
+    submit(standalone, 'Working check');
+    await flush();
+    expect(status(standalone).textContent).to.include('Working on your question');
+    expect(input(standalone).hidden).to.equal(true);
+    expect(composer(standalone).shadowRoot.querySelector('form').getAttribute('aria-busy')).to.equal('true');
+    expect(status(full).textContent).to.include('Working on your question');
+    receive(AO_EVENT.TURN_COMPLETED);
+    await flush();
+    expect(status(standalone)).to.equal(null);
+    expect(status(full)).to.equal(null);
+    expect(input(standalone).hidden).to.equal(false);
+  });
+
   it('resolves the same configured harness for a standalone input and full chat without host callbacks', async () => {
     const fetchDefault = window.fetch;
     window.fetch = (resource, options) => {
