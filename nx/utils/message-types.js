@@ -22,7 +22,9 @@ export const MESSAGE_TYPES = Object.freeze({
   RELOAD: 'reload', // no payload
   GET_EDITOR: 'get-editor', // { cursorOffset: number }
   NODE_UPDATE: 'node-update', // iframe -> host: { node, cursorOffset }; host -> iframe: { imageVersion }
-  NODE_SELECT: 'node-select', // { node: { anchorType, proseIndex, src?, blockIndex? } | null }
+  // { node: { anchorType, proseIndex, src?, blockIndex? }
+  //   | { anchorType: 'section', sectionIndex } | null }
+  NODE_SELECT: 'node-select',
   HISTORY: 'history', // { action: 'undo' | 'redo' }
   NEW_VERSION: 'new-version', // no payload
   SELECTION_CHANGE: 'selection-change', // { anchor, head, anchorX, anchorY }
