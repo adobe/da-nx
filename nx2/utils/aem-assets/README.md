@@ -2,9 +2,10 @@
 
 Shared, UI-free logic for picking assets from an AEM as a Cloud Service repository with the [AEM Asset Selector](https://experience.adobe.com/solutions/CQ-assets-selectors). It resolves the site's repository config, builds the URL to store or insert, checks approval and publish status, and loads Adobe's hosted selector script.
 
-Three editors consume it.
+Four consumers use it.
 
 - **Canvas** (da-live `blocks/canvas/ew-panel-extensions/aem-assets.js`)
+- **Canvas rail panel** (da-live `blocks/canvas/ew-canvas-assets/`)
 - **Classic editor** (da-live `blocks/edit/da-assets/`)
 - **SC editor** (`nx/blocks/form/utils/aem-selector.js`)
 
@@ -166,7 +167,9 @@ The default export is the base path `/adobe/assets`.
 ### `selector-props.js`
 
 - `buildFeatureSet(isDmEnabled)` returns `upload`, `collections`, `detail-panel`, and `advisor`, plus `dynamic-media` when DM is enabled.
-- `buildAssetSelectorProps({ imsToken, repoConfig, externalBrief, onClose, handleSelection })` returns the props for `renderAssetSelector`, including the approved-only filter when enabled. For author-tier repos it also sets `path` to the last remembered folder of that repository.
+- `buildAssetSelectorProps({ imsToken, repoConfig, externalBrief, onClose, handleSelection, rail })` returns the props for `renderAssetSelector`, including the approved-only filter when enabled. For author-tier repos it also sets `path` to the last remembered folder of that repository. `handleSelection` is omitted when not supplied, for a display-only selector.
+- `rail: true` renders the selector in rail (side-panel) layout instead of a modal. The caller chooses the mode; it is not a site config key.
+- `dragAndDrop: true` adds `acvConfig` with `dragOptions` (all asset types) and `selectionType: 'multiple'`, so assets can be dragged out of the selector. Drop targets read `JSON.parse(e.dataTransfer.getData(ASSET_DRAG_DATA_TYPE))`, an array of assets, where `ASSET_DRAG_DATA_TYPE` is `'collectionviewdata'`.
 - `rememberAssetFolder(repoConfig, assetPath)` remembers the folder of a selected asset per repository, in memory, so the picker reopens there. Delivery-tier repos have no folder structure and are ignored.
 
 ### `repository-config.js`

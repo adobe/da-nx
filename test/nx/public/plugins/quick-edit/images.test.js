@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import {
   setupImageDropListeners, updateImageSrc, handleImageError,
 } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
@@ -30,15 +31,15 @@ describe('quick-edit image replacement', () => {
   });
 
   afterEach(() => {
+    sinon.restore();
     window.FileReader = originalReader;
     document.body.innerHTML = '';
   });
 
   function drop(img) {
-    const e = new Event('drop', { bubbles: true, cancelable: true });
-    Object.defineProperty(e, 'dataTransfer', {
-      value: { files: [new File(['image'], 'new.png', { type: 'image/png' })] },
-    });
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(new File(['image'], 'new.png', { type: 'image/png' }));
+    const e = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer });
     img.dispatchEvent(e);
   }
 
@@ -130,5 +131,20 @@ describe('quick-edit image replacement', () => {
     expect(first.getAttribute('src')).to.equal('/same.png');
     expect(second.getAttribute('src')).to.equal('/same.png');
     expect(ctx.pendingImageReplacements.size).to.equal(0);
+  });
+
+  it('ignores non-file drags and refuses multiple files', () => {
+    const html = new DataTransfer();
+    html.setData('text/html', '<p>x</p>');
+    const htmlDrop = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: html });
+    second.dispatchEvent(htmlDrop);
+    expect(htmlDrop.defaultPrevented).to.equal(false);
+
+    sinon.stub(console, 'error');
+    const files = new DataTransfer();
+    files.items.add(new File(['a'], 'a.png', { type: 'image/png' }));
+    files.items.add(new File(['b'], 'b.png', { type: 'image/png' }));
+    second.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: files }));
+    expect(posted).to.have.length(0);
   });
 });
