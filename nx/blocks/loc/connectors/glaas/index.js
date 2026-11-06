@@ -576,7 +576,7 @@ export async function getStatusAll({
     if (langs.some((lang) => Object.values(lang.translation?.workflowTasks ?? {}).some((task) => (
       Object.values(task.pageAssets ?? {}).some((page) => page.videos?.length)
     )))) await saveState(undefined, { waitForSave: true });
-    if (videoError) throw videoError;
+    if (videoError) return { message: { type: 'error', text: videoError.message } };
     sendMessage(videoMessage || { text: 'All languages translated, complete or canceled.' });
     return videoMessage ? { message: videoMessage } : undefined;
   }
@@ -588,7 +588,6 @@ export async function getStatusAll({
   if (callerSignal?.aborted) cancel();
   let rateLimitedUntil;
   const errors = new Map();
-  if (videoError) errors.set('video-delivery', { text: videoError.message });
   const progress = new Map();
   const reportProgress = (task, update) => {
     signal.throwIfAborted();
@@ -724,14 +723,23 @@ export async function getStatusAll({
     if (incompleteLangs.some((lang) => lang.translation?.workflowTasks)) {
       await saveState(undefined, { waitForSave: true });
     }
-    if (errors.size) throw new Error([...errors.values()].map(({ text }) => text).join(' '));
+    if (errors.size) throw new Error([videoError?.message, ...[...errors.values()].map(({ text }) => text)].filter(Boolean).join(' '));
+    if (videoError) return { message: { type: 'error', text: videoError.message } };
     sendMessage();
     return videoMessage ? { message: videoMessage } : undefined;
   } catch (error) {
     if (rateLimitedUntil !== undefined && !callerSignal?.aborted) {
       await saveState(undefined, { waitForSave: true });
       callerSignal?.throwIfAborted();
-      if (errors.size) throw new Error([...errors.values()].map(({ text }) => text).join(' '));
+      if (errors.size) throw new Error([videoError?.message, ...[...errors.values()].map(({ text }) => text)].filter(Boolean).join(' '));
+      if (videoError) {
+        return {
+          message: {
+            type: 'error',
+            text: `${videoError.message} GLaaS rate limit (HTTP 429). Use Get Status again after ${new Date(rateLimitedUntil).toLocaleString()}.`,
+          },
+        };
+      }
       return {
         message: {
           type: 'warning',

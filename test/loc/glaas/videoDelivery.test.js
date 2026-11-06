@@ -266,12 +266,9 @@ describe('GLaaS video delivery from Get Status', () => {
 
   it('rejects missing Adobe sessions without calling AIO', async () => {
     window.adobeIMS = undefined;
-    try {
-      await check([language()]);
-      expect.fail('Expected sign-in error');
-    } catch (error) {
-      expect(error.message).to.include('Sign in to Adobe');
-    }
+    const result = await check([language()]);
+    expect(result.message).to.include({ type: 'error' });
+    expect(result.message.text).to.include('Sign in to Adobe');
     expect(fetchStub.called).to.equal(false);
   });
 
@@ -280,12 +277,9 @@ describe('GLaaS video delivery from Get Status', () => {
       new Response(JSON.stringify({ error: 'Invalid Adobe user token.' }), { status: 401 }),
     );
     const langs = [language()];
-    try {
-      await check(langs);
-      expect.fail('Expected delivery error');
-    } catch (error) {
-      expect(error.message).to.include('Invalid Adobe user token.');
-    }
+    const result = await check(langs);
+    expect(result.message).to.include({ type: 'error' });
+    expect(result.message.text).to.include('Invalid Adobe user token.');
     expect(langs[0].translation.workflowTasks.Task.videoDelivery).to.equal(undefined);
   });
 
@@ -377,12 +371,9 @@ describe('GLaaS video delivery from Get Status', () => {
         : { status: 'error', error: 'Upload requires review.' };
       return new Response(JSON.stringify(body));
     });
-    try {
-      await check([lang]);
-      expect.fail('Expected delivery failure');
-    } catch (error) {
-      expect(error.message).to.include('Upload requires review.');
-    }
+    const result = await check([lang]);
+    expect(result.message).to.include({ type: 'error' });
+    expect(result.message.text).to.include('Upload requires review.');
     const task = saved.at(-1).translation.workflowTasks.Task;
     expect(task.videoDelivery[assetName].status).to.equal('delivered');
     expect(task.sourceCaptionDelivery[assetName].status).to.equal('error');
@@ -403,12 +394,9 @@ describe('GLaaS video delivery from Get Status', () => {
       }
       return new Response(JSON.stringify({ status: statusOnly ? 'delivered' : 'queued' }));
     });
-    try {
-      await check([lang]);
-      expect.fail('Expected French delivery error');
-    } catch (error) {
-      expect(error.message).to.include('French upload requires review.');
-    }
+    const result = await check([lang]);
+    expect(result.message).to.include({ type: 'error' });
+    expect(result.message.text).to.include('French upload requires review.');
     const task = saved.at(-1).translation.workflowTasks.Task;
     expect(task.videoDelivery[assetName].status).to.equal('error');
     expect(task.sourceCaptionDelivery[assetName].status).to.equal('delivered');
@@ -435,15 +423,12 @@ describe('GLaaS video delivery from Get Status', () => {
         : { status: 'queued' };
       return new Response(JSON.stringify(body));
     });
-    try {
-      await check(langs);
-      expect.fail('Expected delivery errors');
-    } catch (error) {
-      expect(error.message).to.equal(
-        `Video delivery failed for ${assetName} (ja): GLaaS caption download failed (404).\n`
-        + `Video delivery failed for ${assetName} (bg): GLaaS caption download failed (404).`,
-      );
-    }
+    const result = await check(langs);
+    expect(result.message).to.include({ type: 'error' });
+    expect(result.message.text).to.equal(
+      `Video delivery failed for ${assetName} (ja): GLaaS caption download failed (404).\n`
+      + `Video delivery failed for ${assetName} (bg): GLaaS caption download failed (404).`,
+    );
     expect(clock.countTimers()).to.equal(0);
   }));
 
@@ -463,6 +448,126 @@ describe('GLaaS video delivery from Get Status', () => {
     expect(pageCalls.length).to.be.greaterThan(0);
     expect(pageCalls.every(({ args }) => String(args[0]).includes('/assets/de/'))).to.equal(true);
     expect(blocked.translation.status).to.equal('created');
+  });
+
+  it('saves a ready language while reporting another language’s caption failure', async () => {
+    const blocked = language('fr');
+    blocked.location = '/fr';
+    blocked.translation.status = 'created';
+    blocked.translation.workflowTasks.Task.status = { status: 'created', sent: 1, translated: 0 };
+    blocked.translation.workflowTasks.Task.sourceCaptionDelivery = {
+      [assetName]: { status: 'delivered' },
+    };
+    const ready = language('de');
+    ready.location = '/de';
+    ready.translation.status = 'created';
+    ready.translation.workflowTasks.Task.status = { status: 'created', sent: 1, translated: 0 };
+    ready.translation.workflowTasks.Task.pageAssets = {
+      '/page': { htmlGlaasName: '/page.html', images: [] },
+    };
+    const langs = [blocked, ready];
+    const urls = [{ suppliedPath: '/page', basePath: '/page', ext: 'html' }];
+    fetchStub.callsFake(async (href) => {
+      if (String(href).endsWith('/video-delivery')) {
+        return new Response(JSON.stringify({ status: 'error', error: 'Caption upload failed.' }));
+      }
+      return new Response(JSON.stringify({ signedURL: 'https://signed.example/srt' }));
+    });
+
+    const el = document.createElement('nx-loc-translate');
+    el._translateLangs = langs;
+    el._urls = urls;
+    el._options = { 'translate.conflict.behavior': 'overwrite', 'source.language': { location: '/' } };
+    const saveItems = sinon.stub().callsFake(async ({ urls: items }) => (
+      items.map((item) => ({ ...item, status: 'success' }))
+    ));
+    el._service = {
+      connector: {
+        supportsManagedStatus: true, saveLangConcurrency: 3, getStatusAll, saveItems,
+      },
+    };
+    sinon.stub(el, 'getBaseTranslationConf').resolves({
+      org: 'org',
+      site: 'site',
+      title: 'Project',
+      service,
+      langs,
+      urls,
+      options: el._options,
+      actions: { saveState: actions.saveState, sendMessage: el.handleMessage.bind(el) },
+    });
+
+    let settled = false;
+    const pending = el.handleGetStatus().finally(() => { settled = true; });
+    while (!settled) await clock.tickAsync(1000);
+    await pending;
+
+    expect(saveItems.calledOnce).to.equal(true);
+    expect(saveItems.firstCall.args[0].lang.code).to.equal('de');
+    expect(ready.translation.status).to.equal('complete');
+    expect(blocked.translation.status).to.equal('created');
+    expect(el._message.type).to.equal('error');
+    expect(el._message.text).to.include('Caption upload failed.');
+  });
+
+  it('preserves both caption and GLaaS status errors when they occur together', async () => {
+    const blocked = language('fr');
+    blocked.translation.status = 'created';
+    blocked.translation.workflowTasks.Task.status = { status: 'created', sent: 1 };
+    blocked.translation.workflowTasks.Task.sourceCaptionDelivery = {
+      [assetName]: { status: 'delivered' },
+    };
+    const other = language('de');
+    other.translation.status = 'created';
+    other.translation.workflowTasks.Task.status = { status: 'created', sent: 1 };
+    other.translation.workflowTasks.Task.pageAssets = {
+      '/page': { htmlGlaasName: '/page.html', images: [] },
+    };
+    fetchStub.callsFake(async (href) => {
+      if (String(href).endsWith('/video-delivery')) {
+        return new Response(JSON.stringify({ status: 'error', error: 'Caption upload failed.' }));
+      }
+      if (String(href).includes('/assets/de/')) return new Response('', { status: 403 });
+      return new Response(JSON.stringify({ signedURL: 'https://signed.example/srt' }));
+    });
+
+    let result;
+    try {
+      await check([blocked, other]);
+    } catch (error) {
+      result = error;
+    }
+    expect(result).to.be.instanceOf(Error);
+    expect(result.message).to.include('Caption upload failed.');
+    expect(result.message).to.include('Could not check GLaaS status for de');
+  });
+
+  it('reports both caption failure and rate limiting while retaining unfinished status', async () => {
+    const blocked = language('fr');
+    blocked.translation.status = 'created';
+    blocked.translation.workflowTasks.Task.status = { status: 'created', sent: 1 };
+    blocked.translation.workflowTasks.Task.sourceCaptionDelivery = {
+      [assetName]: { status: 'delivered' },
+    };
+    const limited = language('de');
+    limited.translation.status = 'created';
+    limited.translation.workflowTasks.Task.status = { status: 'created', sent: 1 };
+    limited.translation.workflowTasks.Task.pageAssets = {
+      '/page': { htmlGlaasName: '/page.html', images: [] },
+    };
+    fetchStub.callsFake(async (href) => {
+      if (String(href).endsWith('/video-delivery')) {
+        return new Response(JSON.stringify({ status: 'error', error: 'Caption upload failed.' }));
+      }
+      if (String(href).includes('/assets/de/')) return new Response('', { status: 429 });
+      return new Response(JSON.stringify({ signedURL: 'https://signed.example/srt' }));
+    });
+
+    const result = await check([blocked, limited]);
+    expect(result.message.type).to.equal('error');
+    expect(result.message.text).to.include('Caption upload failed.');
+    expect(result.message.text).to.include('HTTP 429');
+    expect(limited.translation.status).to.equal('created');
   });
 
   it('uses normal incomplete-language Get Status visibility while captions are pending', () => {
