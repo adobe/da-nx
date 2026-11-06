@@ -125,8 +125,6 @@ class NXNav extends LitElement {
       const img = document.createElement('img');
       img.src = navBrand.logoHref;
       img.alt = '';
-      img.width = 24;
-      img.height = 24;
       icon.append(img);
       const label = document.createElement('span');
       label.classList.add('brand-label');
