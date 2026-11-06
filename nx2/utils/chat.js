@@ -12,9 +12,7 @@ export const CHAT_EVENT = {
   SET_PROMPT: 'nx-set-prompt', // see docs/chat-ui-component.md#setting-a-prompt-programmatically
 };
 
-// URL for the ew-extensions skills app (served at /apps/skills on this origin)
-// for an org/site, optionally opening a specific tab. Returns the href; the
-// caller decides whether to open it.
+// Href for the ew-extensions skills app (/apps/skills) for an org/site, optional tab.
 export function skillsAppHref({ org, site, tab } = {}) {
   const url = new URL(window.location.href);
   url.pathname = '/apps/skills';
