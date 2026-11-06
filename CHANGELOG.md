@@ -1,3 +1,10 @@
+# [1.42.0](https://github.com/adobe/da-nx/compare/v1.41.0...v1.42.0) (2026-11-06)
+
+
+### Features
+
+* **aem-assets:** add an images-only filter ([#800](https://github.com/adobe/da-nx/issues/800)) ([433d05d](https://github.com/adobe/da-nx/commit/433d05de29545e905efb11504f3dcd021ffc557f))
+
 # [1.41.0](https://github.com/adobe/da-nx/compare/v1.40.1...v1.41.0) (2026-11-06)
 
 
