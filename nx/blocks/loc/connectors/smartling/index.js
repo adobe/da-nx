@@ -24,6 +24,219 @@ export async function connect(service, sendMessage) {
 }
 
 /**
+ * Looks up the Smartling account that owns a project. Used only as a
+ * fallback for connectors still configured with a `projectId` but no
+ * `accountId` (see {@link resolveAccountUid}), since Smartling has no
+ * "list projects for the current user" endpoint - enumerating every
+ * project requires an `accountUid`, which this discovers via the
+ * single-project endpoint for whichever `projectId` is configured.
+ * @param {string} endpoint - The resolved Smartling API origin.
+ * @param {string} projectId - The Smartling project id to look up.
+ * @param {Object} opts - Fetch options, including the Authorization header.
+ * @returns {Promise<string|null>} The owning `accountUid`, or null if the
+ *  project is missing, inaccessible, or the request otherwise fails.
+ */
+async function fetchAccountUid(endpoint, projectId, opts) {
+  const url = `${endpoint}/projects-api/v2/projects/${projectId}`;
+  const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
+  if (!resp.ok) return null;
+  const { response } = await resp.json();
+  return response?.data?.accountUid || null;
+}
+
+/**
+ * Resolves the Smartling `accountUid` to use for account-scoped lookups
+ * (listing projects, listing workflows). Prefers the `accountId` config
+ * value directly. `projectId` is deprecated for this purpose (it requires
+ * an extra lookup to discover the owning account) but is still supported
+ * as a fallback so existing connector instances that only have `projectId`
+ * configured keep working until they're migrated to `accountId`.
+ * @param {Object} service - The flattened per-environment service config.
+ * @param {string} endpoint - The resolved Smartling API origin.
+ * @returns {Promise<string|null>} The `accountUid`, or null if neither
+ *  `accountId` nor `projectId` is configured, or if `projectId` can't be
+ *  looked up (e.g. it's since been deleted or the account no longer has
+ *  access to it).
+ */
+async function resolveAccountUid(service, endpoint) {
+  const {
+    org, site, env, accountId, projectId,
+  } = service;
+  if (accountId) return accountId;
+  if (!projectId) return null;
+
+  const opts = { headers: { Authorization: `Bearer ${await getToken(org, site, env)}` } };
+  return fetchAccountUid(endpoint, projectId, opts);
+}
+
+const PROJECTS_PAGE_SIZE = 500;
+const PROJECTS_MAX_PAGES = 20;
+const WORKFLOWS_LIMIT = 500;
+
+/**
+ * Flags a listing as partial so consumers don't treat missing entries as deleted.
+ * @param {Array} list - The listing.
+ * @param {boolean} incomplete - Whether the listing is partial.
+ * @returns {Array} The same list, with an `incomplete` property when partial.
+ */
+function markIncomplete(list, incomplete) {
+  return incomplete ? Object.assign(list, { incomplete: true }) : list;
+}
+
+/**
+ * Walks offset-paginated project pages until `totalCount` is reached.
+ * @param {Object} params
+ * @param {(offset: number) => Promise<{items?: Object[], totalCount?: number,
+ *  error?: number}>} params.fetchPage - Fetches one page at the given offset.
+ * @param {number} [params.page] - Zero-based page index.
+ * @param {Object[]} [params.collected] - Items gathered from prior pages.
+ * @returns {Promise<{items: Object[], incomplete: boolean}>} All items gathered, and
+ *  whether a page failed or the page cap was hit before the end was reached.
+ */
+async function collectProjectPages({ fetchPage, page = 0, collected = [] }) {
+  const result = await fetchPage(collected.length);
+  if (result.error) return { items: collected, incomplete: true };
+
+  const items = [...collected, ...result.items];
+  const done = !result.items.length || (Number.isFinite(result.totalCount)
+    ? items.length >= result.totalCount
+    : result.items.length < PROJECTS_PAGE_SIZE);
+  if (done) return { items, incomplete: false };
+  if (page + 1 >= PROJECTS_MAX_PAGES) return { items, incomplete: true };
+  return collectProjectPages({ fetchPage, page: page + 1, collected: items });
+}
+
+/**
+ * Lists every non-archived Smartling project available to the configured
+ * account, for populating the `projectId` {@link serviceOptions} entry
+ * instead of requiring it to be hand-typed into the site's config sheet.
+ * Pages through the full account listing.
+ * @param {Object} service - The flattened per-environment service config.
+ * @returns {Promise<{projectId: string, projectName: string}[]>} Enabled
+ *  projects (with an `incomplete` property set if a page failed or the page cap
+ *  was hit), or an empty array if the account can't be resolved (see
+ *  {@link resolveAccountUid}) or the request fails.
+ */
+export async function listProjects(service) {
+  const { org, site, env, origin } = service;
+  const endpoint = resolveOrigin(origin, org, site);
+
+  const accountUid = await resolveAccountUid(service, endpoint);
+  if (!accountUid) return [];
+
+  const baseUrl = `${endpoint}/accounts-api/v2/accounts/${accountUid}/projects`;
+  const opts = { headers: { Authorization: `Bearer ${await getToken(org, site, env)}` } };
+  const fetchPage = async (offset) => {
+    const url = `${baseUrl}?offset=${offset}&limit=${PROJECTS_PAGE_SIZE}`;
+    const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
+    if (!resp.ok) return { error: resp.status };
+    const { response } = await resp.json();
+    return { items: response?.data?.items || [], totalCount: response?.data?.totalCount };
+  };
+
+  const { items, incomplete } = await collectProjectPages({ fetchPage });
+  const projects = items
+    .filter((project) => !project.archived)
+    .map((project) => ({ projectId: project.projectId, projectName: project.projectName }));
+  return markIncomplete(projects, incomplete);
+}
+
+/**
+ * Lists every Smartling workflow the configured account can use to
+ * authorize a job, for populating the `workflowUid` {@link serviceOptions}
+ * entry. Excludes workflows scoped to a different project than the one
+ * currently configured - those can't be used to authorize this job.
+ * @param {Object} service - The flattened per-environment service config.
+ * @returns {Promise<{workflowUid: string, workflowName: string}[]>} Usable
+ *  workflows, or an empty array if the account can't be resolved (see
+ *  {@link resolveAccountUid}) or the request fails.
+ */
+export async function listWorkflows(service) {
+  const {
+    org, site, env, origin, projectId,
+  } = service;
+  const endpoint = resolveOrigin(origin, org, site);
+
+  const accountUid = await resolveAccountUid(service, endpoint);
+  if (!accountUid) return [];
+
+  const url = `${endpoint}/workflows-api/v3/accounts/${accountUid}/workflows`;
+  const opts = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await getToken(org, site, env)}` },
+    body: JSON.stringify({ limit: WORKFLOWS_LIMIT }),
+  };
+  const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
+  if (!resp.ok) return markIncomplete([], true);
+
+  const { response } = await resp.json();
+  const items = response?.data?.items || [];
+  const workflows = items
+    .filter((workflow) => !workflow.projectId || workflow.projectId === projectId)
+    .map((workflow) => ({
+      workflowUid: workflow.workflowUid,
+      workflowName: workflow.workflowName,
+    }));
+  return markIncomplete(workflows, response?.data?.totalCount > items.length);
+}
+
+/**
+ * Service options the Options UI (`loc/views/options/options.js`) should render as a
+ * live-populated select rather than a hand-typed value, sourced from this connector's
+ * own API. Read generically - Options.js has no Smartling-specific knowledge; it just
+ * looks for this optional export on whichever connector is active, calls `connect`, and
+ * (once connected) each option's `fetch` to get its `{value, label}` choices. A connector
+ * that needs no dynamic service options simply omits this export. `enabledWhen`, when
+ * present, is read generically too - the option's rendered control is disabled whenever
+ * it returns false for the current per-env config.
+ * @type {{key: string, label: string, fetch: (service: object) =>
+ * Promise<{value: string, label: string}[]>, enabledWhen?: (envConfig: object) =>
+ * boolean}[]}
+ */
+export const serviceOptions = [
+  {
+    key: 'projectId',
+    label: 'Project',
+    // workflowUid's choices are scoped to the selected project - reload all service
+    // options so it gets refetched/refiltered whenever this changes.
+    reloadServiceOptionsOnChange: true,
+    fetch: async (service) => {
+      const projects = await listProjects(service);
+      return markIncomplete(
+        projects.map((project) => ({ value: project.projectId, label: project.projectName })),
+        projects.incomplete,
+      );
+    },
+  },
+  {
+    key: 'autoAuthorize',
+    label: 'Auto-authorize',
+    // Reload so workflowUid is normalized once it becomes enabled.
+    reloadServiceOptionsOnChange: true,
+    // Static choices - no API call needed, unlike the other service options.
+    fetch: async () => ([
+      { value: 'no', label: 'Disabled' },
+      { value: 'yes', label: 'Enabled' },
+    ]),
+  },
+  {
+    key: 'workflowUid',
+    label: 'Workflow',
+    enabledWhen: (envConfig) => envConfig?.autoAuthorize === 'yes',
+    fetch: async (service) => {
+      const workflows = await listWorkflows(service);
+      return markIncomplete(
+        workflows.map((workflow) => ({
+          value: workflow.workflowUid,
+          label: workflow.workflowName,
+        })),
+        workflows.incomplete,
+      );
+    },
+  },
+];
+
+/**
  * Extracts a human-readable message from Smartling's documented error
  * envelope. Per their Error Handling docs, every 4xx/5xx response on every
  * endpoint returns `{ response: { code, errors: [{ key, message,
@@ -146,21 +359,32 @@ async function createJob({
  * @param {string} params.endpoint - The resolved Smartling API origin.
  * @param {string} params.projectId - The Smartling project id.
  * @param {string} params.jobUid - The job to attach the batch to.
+ * @param {Object[]} params.langs - Target languages; only read for their
+ *  `code` when `autoAuthorize` and `workflowUid` are both set, to assign
+ *  every target locale to that workflow.
  * @param {Object[]} params.urls - The urls that will be uploaded to this batch.
  * @param {boolean} params.autoAuthorize - Whether Smartling should immediately
  *  authorize the job for translation once the batch finishes processing,
  *  instead of requiring manual authorization in Smartling's dashboard.
+ * @param {string} [params.workflowUid] - The workflow to authorize every
+ *  target locale into. Ignored unless `autoAuthorize` is true; if omitted,
+ *  Smartling authorizes into each locale's default workflow.
  * @param {Function} params.sendMessage - Callback to surface a status/error
  *  message to the user.
  * @returns {Promise<string|null>} The new batch's id, or null on failure.
  */
 async function createBatch({
-  org, site, env, endpoint, projectId, jobUid, urls, autoAuthorize, sendMessage,
+  org, site, env, endpoint, projectId, jobUid, langs, urls, autoAuthorize, workflowUid, sendMessage,
 }) {
+  const localeWorkflows = autoAuthorize && workflowUid
+    ? langs.map((lang) => ({ targetLocaleId: lang.code, workflowUid }))
+    : undefined;
+
   const body = JSON.stringify({
     authorize: autoAuthorize,
     translationJobUid: jobUid,
     fileUris: urls.map((url) => url.daBasePath),
+    ...(localeWorkflows ? { localeWorkflows } : {}),
   });
 
   const opts = { ...BASE_OPTS, body };
@@ -282,7 +506,7 @@ export async function sendAllLanguages({
 }) {
   const { sendMessage, saveState } = actions;
 
-  const { origin, projectId, autoAuthorize, env } = options.service;
+  const { origin, projectId, autoAuthorize, workflowUid, env } = options.service;
   const endpoint = resolveOrigin(origin, org, site);
 
   sendMessage({ text: `Creating job in Smartling for: ${title}.` });
@@ -308,8 +532,10 @@ export async function sendAllLanguages({
     endpoint,
     projectId,
     jobUid,
+    langs,
     urls,
     autoAuthorize: autoAuthorize === 'yes',
+    workflowUid,
     sendMessage,
   });
   if (!batchUid) {
