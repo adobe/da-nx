@@ -6,6 +6,8 @@ import {
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
 const ROLLOUT_BASE_KEY = 'rolloutbase';
 const EMPTY_TAGS = new Set(['DIV', 'P', 'BR']);
+const DIFF_MARKERS = 'da-diff-deleted, [da-diff-added], da-loc-added, da-loc-deleted, [loc-temp-dom]';
+const VERSION_ID = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.html$/i;
 
 const toBasePath = (path) => path.toLowerCase();
 
@@ -46,15 +48,9 @@ async function copySource({ source, site, config }) {
   return { html, skipped: 0, sourceHashes, daMetadata };
 }
 
-// No valid baseline yet: use today's merge so the author reviews every difference once.
-async function firstMerge({
-  source, dest, destHtml, metadataEl, site, config,
+async function mergeReview({
+  source, dest, metadataEl, site, config, sourceHashes,
 }) {
-  const sourceHashes = await getBlockHashes({ doc: source, site, config });
-  const destHashes = await getBlockHashes({ doc: dest, site, config });
-  if (sourceHashes.join() === destHashes.join()) {
-    return { html: destHtml, skipped: 0, sourceHashes };
-  }
   const reviewed = getElementMetadata(metadataEl);
   const accepted = reviewed.acceptedhashes?.text?.split(',') || [];
   const rejected = reviewed.rejectedhashes?.text?.split(',') || [];
@@ -62,8 +58,68 @@ async function firstMerge({
   return { html: diffed.innerHTML, skipped: 0, sourceHashes };
 }
 
+// Legacy DA lists audit-only entries alongside saved versions; only saved ones have a url.
+async function readParentVersion({
+  fetch, daOrigin, path, responseError,
+}) {
+  const listResponse = await fetch(`${daOrigin}/versionlist${path}`);
+  if (listResponse.status === 404) return null;
+  if (!listResponse.ok) throw responseError(listResponse, 'Reading parent versions');
+  const entries = await listResponse.json();
+  if (!Array.isArray(entries)) throw new Error('Unexpected parent version list');
+  const latest = entries
+    .filter((entry) => typeof entry?.url === 'string' && Number.isFinite(entry.timestamp))
+    .reduce((newest, entry) => (newest?.timestamp >= entry.timestamp ? newest : entry), null);
+  if (!latest) return null;
+
+  const [, org, site] = path.split('/');
+  const prefix = `/versionsource/${org}/${site}/`;
+  const sameSite = latest.url.toLowerCase().startsWith(prefix.toLowerCase());
+  const id = sameSite && latest.url.slice(prefix.length);
+  if (!id || !VERSION_ID.test(id)) throw new Error('Unexpected parent version');
+  const response = await fetch(`${daOrigin}${prefix}${id}`);
+  if (!response.ok) throw responseError(response, 'Reading parent version');
+  return response.text();
+}
+
+async function getParentBase({
+  readParent, expand, getHtml, site, config,
+}) {
+  const text = await readParent();
+  if (text === null) return null;
+  const { content, error } = expand ? await expand(text) : {};
+  const prepared = !error && typeof content === 'string' ? content : text;
+  const parent = prepared.trim() ? await getHtml(undefined, prepared, { raw: true }) : null;
+  if (!parent || !getSectionedMain(parent)) throw new Error('Parent version is malformed');
+  if (parent.querySelector(DIFF_MARKERS)) return null;
+  return getBlockHashes({ doc: parent, site, config });
+}
+
+// No valid baseline yet: the parent's latest saved version stands in for it when usable;
+// otherwise today's merge so the author reviews every difference once.
+async function firstRollout({
+  source, dest, destHtml, destMarked, metadataEl, site, config, readParent, expand, getHtml,
+}) {
+  const sourceHashes = await getBlockHashes({ doc: source, site, config });
+  const destHashes = await getBlockHashes({ doc: dest, site, config });
+  if (sourceHashes.join() === destHashes.join()) {
+    return { html: destHtml, skipped: 0, sourceHashes };
+  }
+  const review = () => mergeReview({
+    source, dest, metadataEl, site, config, sourceHashes,
+  });
+  if (destMarked) return review();
+  const base = await getParentBase({
+    readParent, expand, getHtml, site, config,
+  });
+  if (!base || base.join() === sourceHashes.join()) return review();
+  return smartMerge({
+    base, source, dest, site, config,
+  });
+}
+
 async function smartRollout({
-  source, dest, destHtml, empty, path, site, config,
+  source, dest, destHtml, destMarked, empty, path, site, config, readParent, expand, getHtml,
 }) {
   if (!dest) return copySource({ source, site, config });
   const metadataEl = dest.querySelector(DA_METADATA_SELECTOR);
@@ -76,8 +132,8 @@ async function smartRollout({
     return { ...merged, daMetadata };
   }
   if (empty) return copySource({ source, site, config });
-  const merged = await firstMerge({
-    source, dest, destHtml, metadataEl, site, config,
+  const merged = await firstRollout({
+    source, dest, destHtml, destMarked, metadataEl, site, config, readParent, expand, getHtml,
   });
   return { ...merged, daMetadata };
 }
@@ -87,9 +143,9 @@ async function smartRollout({
  * engine's own helpers. Documents are read raw so whitespace (e.g. in code) is not collapsed.
  */
 export default function createSmartOverwrite({
-  getHtml, loadConfig, saveHtml, saveVersion, fail, responseError,
+  fetch, daOrigin, getHtml, loadConfig, saveHtml, saveVersion, fail, responseError,
 }) {
-  return async (url, title) => {
+  return async (url, title, { expand } = {}) => {
     try {
       const regional = await getHtml(url.destination, undefined, { raw: true });
       const regionalMain = regional && getSectionedMain(regional);
@@ -99,6 +155,7 @@ export default function createSmartOverwrite({
 
       const empty = !!regionalMain && isEmptyMain(regionalMain);
       const destHtml = regionalMain?.innerHTML;
+      const destMarked = !!regional?.querySelector(DIFF_MARKERS);
       if (regional) removeLocTags(regional);
       removeLocTags(source);
 
@@ -112,10 +169,16 @@ export default function createSmartOverwrite({
         source,
         dest: regional,
         destHtml,
+        destMarked,
         empty,
         path: url.destination,
         site,
         config,
+        readParent: () => readParentVersion({
+          fetch, daOrigin, path: url.source, responseError,
+        }),
+        expand,
+        getHtml,
       });
       daMetadata[ROLLOUT_BASE_KEY] = formatRolloutBase(url.destination, sourceHashes);
 

@@ -65,6 +65,21 @@ const conf = (behavior) => ({
       expect(prefix.skipped).to.equal(1);
     });
 
+    it('fills placeholders for the destination when smart overwrite reads older parent content', async () => {
+      const fns = copyFns();
+      const prefix = { path: '/apac', destination: '/org/site/apac/page.html' };
+      const resolver = {
+        prepareSource: sinon.stub().resolves({}),
+        expand: sinon.stub().resolves({ content: 'filled' }),
+      };
+      await fn({
+        prefix, behavior: 'smart-overwrite', label: 'Proj', resolver, copy: fns,
+      });
+      const { expand } = fns.smartOverwriteCopy.firstCall.args[2];
+      expect(await expand('text')).to.deep.equal({ content: 'filled' });
+      expect(resolver.expand.calledOnceWith({ content: 'text', root: '/apac', path: '/org/site/apac/page.html' })).to.be.true;
+    });
+
     it('falls back to merge for unknown behaviors', async () => {
       const fns = copyFns();
       await fn({

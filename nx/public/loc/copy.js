@@ -239,12 +239,12 @@ export function createCopy({
   };
 
   let smart;
-  const smartOverwriteCopy = async (url, title) => {
-    smart ??= import('./smart-copy.js').then(({ default: create }) => create({
-      getHtml, loadConfig, saveHtml, saveVersion, fail, responseError,
+  const smartOverwriteCopy = async (url, title, options) => {
+    smart ??= import('./smart-overwrite.js').then(({ default: create }) => create({
+      fetch, daOrigin, getHtml, loadConfig, saveHtml, saveVersion, fail, responseError,
     }));
     try {
-      return (await smart)(url, title);
+      return (await smart)(url, title, options);
     } catch (error) {
       smart = undefined;
       return fail(url, error);

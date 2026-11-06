@@ -22,8 +22,18 @@ describe('smartOverwriteCopy', () => {
   let saveThrows;
   let saved;
   let versionSaves;
+  let versionList;
+  let versionListStatus;
+  let versions;
+  let historyCalls;
+  let versionListFails;
 
   beforeEach(() => {
+    versionList = undefined;
+    versionListStatus = 200;
+    versionListFails = undefined;
+    versions = {};
+    historyCalls = [];
     originalFetch = globalThis.fetch;
     saved = undefined;
     versionSaves = 0;
@@ -37,8 +47,27 @@ describe('smartOverwriteCopy', () => {
         saved = await opts.body.get('data').text();
         return { ok: saveOk, status: saveOk ? 200 : 500, headers, json: async () => ({}), text: async () => '' };
       }
-      if (url.includes('/versionsource/')) versionSaves += 1;
-      if (opts.method && opts.method !== 'GET') return { ok: true, status: 200, headers, text: async () => '' };
+      if (opts.method && opts.method !== 'GET') {
+        if (url.includes('/versionsource/')) versionSaves += 1;
+        return { ok: true, status: 200, headers, text: async () => '' };
+      }
+      if (url.includes('/versionlist/')) {
+        historyCalls.push(url);
+        if (versionListFails === 'network') throw new Error('network');
+        const status = versionList === undefined ? 404 : versionListStatus;
+        const json = versionListFails === 'json'
+          ? async () => { throw new SyntaxError('Unexpected token'); }
+          : async () => versionList;
+        return { ok: status === 200, status, headers, json };
+      }
+      if (url.includes('/versionsource/')) {
+        historyCalls.push(url);
+        const version = versions[url.split('/versionsource/org/site/')[1]];
+        const status = version?.status || (version ? 200 : 404);
+        return {
+          ok: status === 200, status, headers, text: async () => version?.html,
+        };
+      }
       if (url.endsWith(`/source${DEST}`)) {
         return { ok: destStatus === 200, status: destStatus, headers, text: async () => destHtml };
       }
@@ -358,5 +387,139 @@ describe('smartOverwriteCopy', () => {
     await rollout(mergeCopy, '<p>A</p><p>B</p>');
     expect(saved).to.include('da-diff-added');
     expect(saved).to.not.include('rolloutbase');
+  });
+  describe('without a baseline, using the parent\'s latest saved version', () => {
+    const FILE = '11111111-1111-1111-1111-111111111111';
+    const OLD = `${FILE}/22222222-2222-2222-2222-222222222222.html`;
+    const NEW = `${FILE}/33333333-3333-3333-3333-333333333333.html`;
+    const saveVersion = (id, main, timestamp) => {
+      versions[id] = { html: toPage(main) };
+      return { url: `/versionsource/org/site/${id}`, timestamp };
+    };
+
+    it('applies parent edits made since that version and keeps earlier local differences', async () => {
+      versionList = [saveVersion(OLD, '<p>A</p><p>B</p><p>C</p>', 100)];
+      destHtml = toPage('<p>A local</p><p>B</p><p>C</p>');
+      const url = await rollout(smartOverwriteCopy, '<p>A</p><p>B</p><p>C2</p>');
+      expect(url.status).to.equal('success');
+      expect(url.skipped).to.equal(0);
+      expect(saved).to.include('<p>A local</p><p>B</p><p>C2</p>');
+      expect(saved).to.not.include('da-diff');
+      const next = await hashesOf('<p>A</p><p>B</p><p>C2</p>');
+      expect(saved).to.include(`/org/site/apac/page.html|${next.join(',')}`);
+      expect(historyCalls).to.deep.equal([
+        'https://admin.da.live/versionlist/org/site/page',
+        `https://admin.da.live/versionsource/org/site/${OLD}`,
+      ]);
+      expect(versionSaves).to.equal(1);
+    });
+
+    it('ignores audit-only entries and picks the newest saved version by date', async () => {
+      versionList = [
+        { timestamp: 300, users: [] },
+        saveVersion(NEW, '<p>A</p><p>B2</p>', 200),
+        saveVersion(OLD, '<p>A</p><p>B</p>', 100),
+      ].reverse();
+      destHtml = toPage('<p>A local</p><p>B2</p>');
+      await rollout(smartOverwriteCopy, '<p>A</p><p>B3</p>');
+      expect(historyCalls[1]).to.equal(`https://admin.da.live/versionsource/org/site/${NEW}`);
+      expect(saved).to.include('<p>A local</p><p>B3</p>');
+    });
+
+    it('reports a parent edit that overlaps a local difference as skipped', async () => {
+      versionList = [saveVersion(OLD, '<p>A</p><p>B</p>', 100)];
+      destHtml = toPage('<p>A</p><p>B local</p>');
+      const url = await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>');
+      expect(saved).to.include('<p>A</p><p>B local</p>');
+      expect(saved).to.not.include('B global');
+      expect(url.skipped).to.equal(1);
+    });
+
+    it('shows a merge review when the parent has no saved version', async () => {
+      versionList = [{ timestamp: 300, users: [] }];
+      destHtml = toPage('<p>A</p><p>B local</p>');
+      await expectFirstMerge(await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>'), '<p>A</p><p>B global</p>');
+    });
+
+    it('shows a merge review when the saved version matches the current parent', async () => {
+      versionList = [saveVersion(OLD, '<p>A</p><p>B global</p>', 100)];
+      destHtml = toPage('<p>A</p><p>B local</p>');
+      await expectFirstMerge(await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>'), '<p>A</p><p>B global</p>');
+    });
+
+    it('shows a merge review when the saved version has unresolved diff markers', async () => {
+      versionList = [saveVersion(OLD, '<p>A</p><da-diff-deleted><p>B</p></da-diff-deleted>', 100)];
+      destHtml = toPage('<p>A</p><p>B local</p>');
+      await expectFirstMerge(await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>'), '<p>A</p><p>B global</p>');
+    });
+
+    it('shows a merge review without reading versions when the page has unresolved diff markers', async () => {
+      versionList = [saveVersion(OLD, '<p>A</p><p>B</p>', 100)];
+      destHtml = toPage('<p>A</p><p da-diff-added="">B local</p><da-diff-deleted><p>B old</p></da-diff-deleted>');
+      await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>');
+      expect(saved).to.include('<da-diff-deleted><p>B global</p></da-diff-deleted>');
+      expect(historyCalls).to.be.empty;
+    });
+
+    it('does not read versions when a baseline exists or the page already matches', async () => {
+      versionList = [saveVersion(OLD, '<p>A</p>', 100)];
+      const base = await hashesOf('<p>A</p>');
+      destHtml = toPage('<p>A</p>', baseRow(`/org/site/apac/page.html|${base.join(',')}`));
+      await rollout(smartOverwriteCopy, '<p>A2</p>');
+      destHtml = toPage('<p>A</p>');
+      await rollout(smartOverwriteCopy, '<p>A</p>');
+      expect(historyCalls).to.be.empty;
+    });
+
+    it('fills placeholders in the saved version with the destination values', async () => {
+      versionList = [saveVersion(OLD, '<p>Hi {{c}}</p><p>B</p>', 100)];
+      destHtml = toPage('<p>Hi SG</p><p>B local</p>');
+      const expand = sinon.stub().callsFake(async (text) => ({ content: text.replaceAll('{{c}}', 'SG') }));
+      const url = { source: '/org/site/page', destination: DEST, sourceContent: toPage('<p>Hi SG new</p><p>B</p>') };
+      await engine.smartOverwriteCopy(url, 'Proj', { expand });
+      expect(expand.calledOnce).to.be.true;
+      expect(saved).to.include('<p>Hi SG new</p><p>B local</p>');
+      expect(url.skipped).to.equal(0);
+    });
+
+    it('uses the saved version unfilled when its placeholders cannot be filled', async () => {
+      versionList = [saveVersion(OLD, '<p>Hi {{c}}</p><p>B</p>', 100)];
+      destHtml = toPage('<p>Hi SG</p><p>B</p>');
+      const expand = async () => ({ error: 'missing value for {{c}}' });
+      const url = { source: '/org/site/page', destination: DEST, sourceContent: toPage('<p>Hi SG</p><p>B2</p>') };
+      await engine.smartOverwriteCopy(url, 'Proj', { expand });
+      expect(url.status).to.equal('success');
+      expect(saved).to.include('<p>Hi SG</p><p>B2</p>');
+      expect(saved).to.not.include('da-diff');
+    });
+
+    [
+      ['the version list cannot be read', () => { versionList = []; versionListStatus = 500; }],
+      ['the version list request fails', () => { versionList = []; versionListFails = 'network'; }],
+      ['the version list is not JSON', () => { versionList = []; versionListFails = 'json'; }],
+      ['the version list is not a list', () => { versionList = { url: 'x' }; }],
+      ['the version cannot be read', () => { versionList = [saveVersion(OLD, '', 100)]; versions[OLD] = { status: 500 }; }],
+      ['the version id is unexpected', () => { versionList = [{ url: '/versionsource/org/site/../../x.html', timestamp: 1 }]; }],
+      ['the version belongs to another site', () => { versionList = [{ url: `/versionsource/org/other/${OLD}`, timestamp: 1 }]; }],
+      ['the version is empty', () => { versionList = [saveVersion(OLD, '', 100)]; versions[OLD] = { html: '' }; }],
+      ['the version is malformed', () => { versionList = [saveVersion(OLD, '', 100)]; versions[OLD] = { html: '<body><main><p>Loose</p></main></body>' }; }],
+    ].forEach(([name, setup]) => {
+      it(`never saves when ${name}`, async () => {
+        setup();
+        destHtml = toPage('<p>A</p><p>B local</p>');
+        const url = await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>');
+        expect(url.status).to.equal('error');
+        expect(url.error).to.include(DEST);
+        expect(saved).to.be.undefined;
+      });
+    });
+
+    it('keeps copying a missing destination without reading versions', async () => {
+      versionList = [saveVersion(OLD, '<p>A</p>', 100)];
+      destStatus = 404;
+      await rollout(smartOverwriteCopy, '<p>A2</p>');
+      expect(saved).to.include('<p>A2</p>');
+      expect(historyCalls).to.be.empty;
+    });
   });
 });

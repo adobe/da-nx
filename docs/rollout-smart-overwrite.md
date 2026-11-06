@@ -23,11 +23,13 @@ flowchart TD
   start["Rollout global → apac<br/>(Overwrite, keep local edits)"] --> base{"apac has a valid<br/>rolloutbase for this page?"}
   base -- "no" --> exists{"apac page has content?"}
   exists -- "no (missing or empty)" --> copy["Copy the global page"]
-  exists -- "yes (first smart rollout)" --> merge["Today's merge<br/>(da-diff markers to review once)"]
+  exists -- "yes (first smart rollout)" --> parent{"global has a saved version that<br/>differs from global now?"}
+  parent -- "yes" --> diff3
+  parent -- "no" --> merge["Today's merge<br/>(da-diff markers to review once)"]
   base -- "yes" --> unchanged{"apac has no localized blocks?<br/>(identical to global at the last rollout)"}
   unchanged -- "yes, nothing localized" --> take["Take global as-is"]
   unchanged -- "no, apac has localized blocks" --> diff3["Block-level three-way merge<br/>baseline vs global vs apac"]
-  diff3 --> who{"Per block: who differs from the baseline?<br/>(baseline = global at the last rollout)"}
+  diff3 --> who{"Per block: who differs from the baseline?<br/>(baseline = global at the last rollout,<br/>or its saved version on the first one)"}
   who -- "only global (new global edit)" --> apply["Apply global change"]
   who -- "only apac (localized, old or new)" --> keep["Keep apac"]
   who -- "both, differently" --> skip["Keep apac<br/>count as skipped"]
@@ -47,7 +49,7 @@ rolloutbase = <destination path>|<ordered upstream block hashes>
 
 The next smart rollout does a block-level three-way merge (diff3, like `git merge`) of baseline (B), current
 upstream (S) and destination (D). Logic lives in `nx/public/loc/smart-merge.js` (merge) and
-`nx/public/loc/smart-copy.js` (read/save); both are Nexter-internal (not exported from `nx/public/loc/index.js`).
+`nx/public/loc/smart-overwrite.js` (read/save); both are Nexter-internal (not exported from `nx/public/loc/index.js`).
 
 1. Diff B→S and B→D into change hunks (ranges of baseline blocks replaced by new blocks). Equal-length replacements
    are treated as in-place edits of each block.
@@ -85,16 +87,37 @@ Guarantees (covered by seeded randomized tests in `test/loc/smart-merge.test.js`
 
 Skipped counts are shown per locale (Loc app) and per destination (plugin) as "N skipped (localized)".
 
-- No valid baseline yet (first smart rollout, or a baseline that is malformed or recorded for a different path): the
-  result is today's merge (every difference marked with `da-diff-*` for the author to review once, honoring earlier
-  accept/reject decisions) and the baseline is recorded. Nothing is applied silently and no upstream change is missed;
-  every later smart rollout applies only the upstream changes made since. A plain overwrite or merge does not record
-  a baseline, so the first smart rollout after one is a merge review again. Because the first run is today's merge, it
-  has merge's existing normalizations (section wrapper attributes and empty paragraphs are dropped, whitespace in
-  code blocks is not compared); later smart rollouts keep them as authored.
+- No valid baseline yet (first smart rollout, or a baseline that is malformed or recorded for a different path):
+  - Destination already identical to upstream: kept exactly as authored; the baseline is recorded.
+  - Otherwise the **latest saved version of the upstream page** (the immediate parent, e.g. global for apac and apac
+    for en-to) stands in for the baseline. Saved versions come from Preview/Publish in DA, "save version",
+    rollouts and translations; ordinary edits do not create one. Only the newest saved version is used (by date;
+    older ones are never tried). It is prepared like the current upstream page (placeholders filled with the
+    destination's values, links normalized) and the three-way merge runs as usual: upstream edits made since that
+    version are applied, everything else the destination has is kept, overlaps are counted as skipped.
+  - Today's merge (every difference marked with `da-diff-*` for the author to review once, honoring earlier
+    accept/reject decisions) is used instead when the upstream page has no saved version, when that version is
+    identical to the current upstream page (nothing tells new edits apart), or when the destination or that version
+    still has unresolved `da-diff-*` markers. Because this is today's merge, it has merge's existing normalizations
+    (section wrapper attributes and empty paragraphs are dropped, whitespace in code blocks is not compared); later
+    smart rollouts keep them as authored.
+  - Either way the baseline is then recorded, and every later smart rollout applies only the upstream changes made
+    since. A plain overwrite or merge does not record a baseline, so the first smart rollout after one starts here
+    again.
+  - Limits of the saved-version fallback: it rolls out "changes since the upstream page's latest saved version",
+    not a proven sync point. Upstream edits made after the destination last matched upstream (e.g. after import)
+    but before that version count as already handled and are not rolled out; edits after it are. A placeholder
+    value changed in the sheet before the first rollout is not rolled out (the destination's old value looks
+    local), and destination values typed by hand that differ from the sheet count as local edits. A placeholder the
+    sheet no longer defines leaves that version unfilled; affected blocks are kept as the destination has them and
+    may be counted as skipped.
+  - Versions are read through legacy DA (`admin.da.live` `/versionlist` and `/versionsource`), the same backend
+    the rollout reads pages from, in both the Loc app and the Library plugin. Helix 6 (AEM API) support for the
+    rollout as a whole is a follow-up.
 - Missing destination, or an empty one without a baseline: the upstream page is copied as-is and the baseline is
   recorded. An empty destination with a baseline was emptied on purpose and is merged like any other.
-- Read or save failures and malformed documents are reported as errors; smart-overwrite never falls back to a
+- Read or save failures (including reading the upstream page's versions) and malformed documents are reported as
+  errors and nothing is written; smart-overwrite never falls back to a
   plain overwrite.
 - Only smart rollouts read or write `rolloutbase`; a later plain merge leaves a stale baseline, which is safe because
   identical changes are not treated as conflicts.

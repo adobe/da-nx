@@ -102,5 +102,7 @@ export async function rolloutPrefix({
     return;
   }
   const method = Object.hasOwn(COPY_METHODS, behavior) ? behavior : 'merge';
-  await copy[COPY_METHODS[method]](prefix, label);
+  const expand = resolver
+    && ((content) => resolver.expand({ content, root: prefix.root, path: prefix.destination }));
+  await copy[COPY_METHODS[method]](prefix, label, { expand });
 }

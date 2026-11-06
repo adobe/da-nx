@@ -12,6 +12,7 @@ const CONFIG = {
   'en-nl': sheet([{ key: 'country', value: 'Netherlands' }]),
   'en-to': sheet([{ key: 'country', value: 'Tonga' }, { key: 'country', value: 'dup' }]),
 };
+const VERSION_URL = '/versionsource/org/site/11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222.html';
 const SOURCE = '<body><header></header><main><div><h1>Fedex {{country}}</h1></div></main><footer></footer></body>';
 
 describe('nx-loc-rollout partial rollout', () => {
@@ -68,16 +69,28 @@ describe('nx-loc-rollout smart overwrite', () => {
   let originalFetch;
   const DEST_PAGE = '<body><header></header><main><div><h1>Fedex Netherlands</h1><p>Local</p></div></main><footer></footer></body>';
   let destPages;
+  let sourcePage;
+  let parentVersion;
 
   beforeEach(() => {
     setImsDetails('test-token');
     destPages = { '/en-nl/page.html': DEST_PAGE };
+    sourcePage = SOURCE;
+    parentVersion = undefined;
     originalFetch = globalThis.fetch;
     globalThis.fetch = sinon.stub().callsFake(async (url, opts = {}) => {
       const headers = new Headers({ 'x-da-actions': 'read=true' });
       if (opts.method && opts.method !== 'GET') return { ok: true, status: 200, headers, json: async () => ({}), text: async () => '' };
       if (url.endsWith('/.da/rollout-placeholders.json')) return { ok: true, status: 200, headers, json: async () => CONFIG };
-      if (url.includes('/langstore/en/')) return { ok: true, status: 200, headers, text: async () => SOURCE };
+      if (url.endsWith('/versionlist/org/site/langstore/en/page.html')) {
+        if (!parentVersion) return { ok: false, status: 404, headers, json: async () => ({}) };
+        const list = [{ url: VERSION_URL, timestamp: 1 }];
+        return { ok: true, status: 200, headers, json: async () => list };
+      }
+      if (url.endsWith(VERSION_URL)) {
+        return { ok: true, status: 200, headers, text: async () => parentVersion };
+      }
+      if (url.includes('/langstore/en/')) return { ok: true, status: 200, headers, text: async () => sourcePage };
       const dest = Object.keys(destPages).find((path) => url.endsWith(path));
       if (dest) return { ok: true, status: 200, headers, text: async () => destPages[dest] };
       return { ok: false, status: 404, headers, text: async () => '' };
@@ -117,6 +130,40 @@ describe('nx-loc-rollout smart overwrite', () => {
     const body = await posts[0].args[1].body.get('data').text();
     expect(body).to.include('rolloutbase');
     expect(body).to.include('da-diff');
+  });
+
+  it('uses the latest saved parent version, filled for the locale, as the first baseline', async () => {
+    parentVersion = SOURCE;
+    sourcePage = '<body><header></header><main><div><h1>FedEx {{country}}</h1></div></main><footer></footer></body>';
+    destPages['/en-nl/page.html'] = '<body><header></header><main><div><h1>Fedex Netherlands</h1><p>Local</p></div></main><footer></footer></body>';
+    const lang = {
+      code: 'en',
+      name: 'English',
+      location: '/langstore/en',
+      locales: [{ code: '/en-nl' }],
+      rollout: { status: 'not started' },
+    };
+    const el = document.createElement('nx-loc-rollout');
+    el.project = {
+      org: 'org',
+      site: 'site',
+      title: 'Proj',
+      options: { 'source.language': { location: '/' }, 'rollout.conflict.behavior': 'smart-overwrite' },
+      urls: [{ suppliedPath: '/page' }],
+    };
+    el._langs = [lang];
+
+    await el.handleRolloutLang(lang);
+
+    expect(lang.locales[0]).to.not.have.property('skipped');
+    const posts = globalThis.fetch.getCalls()
+      .filter(({ args }) => args[1]?.method === 'POST' && args[0].includes('/source/org/site/en-nl/page.html'));
+    const body = await posts[0].args[1].body.get('data').text();
+    expect(body).to.include('<h1>FedEx Netherlands</h1><p>Local</p>');
+    expect(body).to.not.include('da-diff');
+    const listCalls = globalThis.fetch.getCalls().map(({ args }) => new URL(args[0]).pathname)
+      .filter((path) => path.startsWith('/versionlist/'));
+    expect(listCalls).to.deep.equal(['/versionlist/org/site/langstore/en/page.html']);
   });
 });
 

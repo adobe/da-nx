@@ -96,7 +96,9 @@ async function rolloutLangLocales(title, lang, urls, behavior, resolver) {
     }
     url.sourceContent = content;
     const copyFn = url.hasExt ? copy.overwriteCopy : (COPY_FNS.get(behavior) || copy.mergeCopy);
-    await copyFn(url, title);
+    const { root, destination: path } = url;
+    const expand = (text) => resolver.expand({ content: text, root, path });
+    await copyFn(url, title, { expand });
   };
 
   const queue = new Queue(rolloutUrl, MAX_CONCURRENT_WRITES);
@@ -152,7 +154,7 @@ function formatRolloutUrls(org, site, lang, urls, snapshot) {
         hasExt: langUrl.ext === 'json',
         root: locale.code,
         sourceContent: langUrl.content,
-        source: `/${org}/${site}${langUrl.aemBasePath}`,
+        source: langUrl.source,
         destination: `/${org}/${site}${daDestPath}`,
       };
     });
