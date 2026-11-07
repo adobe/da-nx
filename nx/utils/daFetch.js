@@ -30,6 +30,16 @@ async function refreshHostToken() {
   return pendingRefresh;
 }
 
+async function ensureFreshToken() {
+  if (requestToken && isExpiring(imsDetails?.accessToken.expire)) await refreshHostToken();
+}
+
+export async function getToken() {
+  await ensureFreshToken();
+  const { token, expire } = imsDetails?.accessToken ?? {};
+  return { token, expire };
+}
+
 export async function initIms() {
   if (imsDetails) return imsDetails;
   const { loadIms } = await import('./ims.js');
@@ -43,9 +53,7 @@ export async function initIms() {
 
 export const daFetch = async (url, opts = {}) => {
   opts.headers ||= {};
-  if (requestToken && isExpiring(imsDetails?.accessToken.expire)) {
-    await refreshHostToken();
-  }
+  await ensureFreshToken();
   if (localStorage.getItem('nx-ims') || imsDetails) {
     const { accessToken } = await initIms();
     if (accessToken) {

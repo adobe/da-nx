@@ -255,12 +255,40 @@ Callback failures do not interrupt other subscribers.
 These are invalidation signals, not save, preview, or publish acknowledgements.
 They are independent of live-document subscriptions and request/response calls.
 
+## Token refresh
+
+The `ready` handshake carries `token` and `tokenExpire` (epoch ms). Hosts
+advertising `capabilities.tokenRefresh === 1` (the fullscreen shell) answer
+`getToken` requests:
+
+```js
+{ action: 'getToken', requestId }
+{ action: 'sdkResponse', requestId, result: { ok: true, token, expire } }
+{ action: 'sdkResponse', requestId, result: { ok: false, error: 'token-unavailable' } }
+```
+
+`actions.daFetch` requests a new token when the current one expires within five
+minutes, so long-lived apps keep working without a reload. Refresh happens only
+when the app makes a request. Concurrent requests share one refresh; a failed
+refresh keeps the old token. Apps using `actions.daFetch` need no changes.
+
+The handshake `token` is a snapshot. Apps calling their own `fetch` should use
+`actions.getToken()`, which resolves to `{ token, expire }` with the same refresh
+rule:
+
+```js
+const { token } = await actions.getToken();
+```
+
+With a host-provided token, a `401` is returned to the caller; the SDK does not
+attempt an IMS sign-in inside the iframe.
+
 ## Timeouts and host support
 
 After 15 seconds without a reply, the SDK returns `{ ok: false, error: 'timeout' }` (`getSelection()` rejects with `timeout`). The host may still complete the operation. Timeout does not cancel it, and the SDK does not retry. Do not automatically retry a mutation or continue work that needed a successful response. Request IDs correlate replies; they do not prevent duplicate execution.
 
 The SDK and EW deploy independently. The `liveDocument`, `sendHTMLReplace`,
-`chatTurnCompleted` and `dragDrop` capabilities are advertised in the ready handshake;
+`chatTurnCompleted`, `dragDrop` and `tokenRefresh` capabilities are advertised in the ready handshake;
 other actions do not negotiate
 host support. An action's presence does not prove EW support. Unsupported commands
 may be ignored, and acknowledged calls time out. This includes `getSelection()`:

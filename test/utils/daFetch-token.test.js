@@ -1,6 +1,8 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { daFetch, setImsDetails, setTokenRefresh } from '../../nx/utils/daFetch.js';
+import {
+  daFetch, getToken, setImsDetails, setTokenRefresh,
+} from '../../nx/utils/daFetch.js';
 
 const HREF = 'https://admin.da.live/source/org/site/page.html';
 const MINUTE = 60 * 1000;
@@ -68,5 +70,21 @@ describe('daFetch with a host-provided token', () => {
     setImsDetails('old-token', { expire: Date.now() + MINUTE });
     await daFetch(HREF);
     expect(authHeader()).to.equal('Bearer old-token');
+  });
+
+  it('refreshes an expiring token before returning it from getToken', async () => {
+    const expire = Date.now() + 60 * MINUTE;
+    setTokenRefresh(sinon.stub().resolves({ ok: true, token: 'new-token', expire }));
+    setImsDetails('old-token', { expire: Date.now() + MINUTE });
+    expect(await getToken()).to.deep.equal({ token: 'new-token', expire });
+  });
+
+  it('returns the current token from getToken when it is not close to expiry', async () => {
+    const expire = Date.now() + 60 * MINUTE;
+    const refresh = sinon.stub();
+    setTokenRefresh(refresh);
+    setImsDetails('current-token', { expire });
+    expect(await getToken()).to.deep.equal({ token: 'current-token', expire });
+    expect(refresh.called).to.equal(false);
   });
 });
