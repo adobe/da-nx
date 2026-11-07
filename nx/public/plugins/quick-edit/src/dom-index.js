@@ -66,10 +66,12 @@ export function restoreBlockIndices(sourceRoot, liveRoot = document) {
 }
 
 export function restoreImageIndices(sourceRoot, liveRoot = document) {
+  const scopeOf = (el) => el.parentElement?.closest('[data-prose-index], [data-block-index]');
   const sourceImages = sourceRoot.querySelectorAll('main img[data-image-index]');
   const scopes = new Set([...sourceImages]
-    .map((img) => img.parentElement?.closest('[data-prose-index], [data-block-index]'))
-    .filter(Boolean));
+    .map((img) => scopeOf(img))
+    .filter(Boolean)
+    .filter((scope) => ![...scope.querySelectorAll('a[data-edit-as="image"]')].some((a) => scopeOf(a) === scope)));
 
   scopes.forEach((sourceScope) => {
     const attr = sourceScope.hasAttribute('data-prose-index') ? 'data-prose-index' : 'data-block-index';
@@ -77,7 +79,7 @@ export function restoreImageIndices(sourceRoot, liveRoot = document) {
     if (parseIndex(index) == null) return;
     const liveScope = liveRoot.querySelector(`[${attr}="${index}"]`);
     if (!liveScope) return;
-    const inScope = (img, scope) => img.parentElement?.closest('[data-prose-index], [data-block-index]') === scope;
+    const inScope = (img, scope) => scopeOf(img) === scope;
     const originals = [...sourceScope.querySelectorAll('img[data-image-index]')]
       .filter((img) => inScope(img, sourceScope));
     const rendered = [...liveScope.querySelectorAll('img')]
@@ -99,7 +101,7 @@ export function restoreImageIndices(sourceRoot, liveRoot = document) {
 export function syncImageIndices(view, editorParent, offset, oldSize = 0, lengthDiff = 0) {
   const base = offset - 1;
   if (lengthDiff) {
-    document.querySelectorAll('img[data-image-index]').forEach((img) => {
+    document.querySelectorAll('img[data-image-index], a[data-edit-as="image"][data-image-index]').forEach((img) => {
       if (editorParent.contains(img)) return;
       const index = parseIndex(img.getAttribute('data-image-index'));
       if (index != null && index >= base + oldSize) {
@@ -133,7 +135,7 @@ export function setImageVersion(version, root = document) {
   if (typeof version !== 'string' || !version) {
     throw new Error('Image document version is missing');
   }
-  root.querySelectorAll('img[data-image-index], .prosemirror-editor').forEach((el) => {
+  root.querySelectorAll('img[data-image-index],  a[data-edit-as="image"][data-image-index], .prosemirror-editor').forEach((el) => {
     el.setAttribute('data-image-version', version);
   });
 }
@@ -176,7 +178,8 @@ export function srcPathsMatch(a, b) {
 
 function isAtomicInline(el) {
   if (!el?.tagName) return false;
-  return ATOMIC_TAGS.has(el.tagName.toLowerCase());
+  return ATOMIC_TAGS.has(el.tagName.toLowerCase())
+    || (el.tagName.toLowerCase() === 'a' && el.getAttribute('data-edit-as') === 'image');
 }
 
 export function walkProsePositions(root, startPos, callbacks) {

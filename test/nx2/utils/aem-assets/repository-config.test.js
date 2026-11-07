@@ -43,7 +43,7 @@ describe('getRepositoryConfig', () => {
       expect(cfg.assetBasePath).to.equal('/adobe/assets');
       expect(cfg.isDmEnabled).to.be.false;
       expect(cfg.isSmartCrop).to.be.false;
-      expect(cfg.insertAsLink).to.be.false;
+      expect(cfg.imageType).to.equal(null);
     } finally {
       window.fetch = orgFetch;
     }
@@ -117,7 +117,7 @@ describe('getRepositoryConfig', () => {
     }
   });
 
-  it('sets insertAsLink when aem.assets.image.type is link', async () => {
+  it('sets imageType link when aem.assets.image.type is link', async () => {
     const orgFetch = window.fetch;
     window.fetch = makeFetch({
       '/rcfg/linktype/': makeSheet([
@@ -127,7 +127,7 @@ describe('getRepositoryConfig', () => {
     });
     try {
       const cfg = await getRepositoryConfig('rcfg', 'linktype');
-      expect(cfg.insertAsLink).to.be.true;
+      expect(cfg.imageType).to.equal('link');
     } finally {
       window.fetch = orgFetch;
     }
@@ -517,5 +517,117 @@ describe('getResponsiveImageConfig', () => {
     } finally {
       window.fetch = orgFetch;
     }
+  });
+});
+
+describe('getRepositoryConfig imageType', () => {
+  const REPO_ID = { key: 'aem.repositoryId', value: 'author-p60-e60.adobeaemcloud.com' };
+  const TYPE_LINK = { key: 'aem.assets.image.type', value: 'link' };
+  const FLAG_ON = { key: 'aem.assets.image.linkAsImage', value: 'true' };
+  const FLAG_OFF = { key: 'aem.assets.image.linkAsImage', value: 'false' };
+
+  const multiSheet = ({ data = [], flags } = {}) => {
+    const names = flags ? ['data', 'flags'] : ['data'];
+    const json = {
+      ':type': 'multi-sheet',
+      ':names': names,
+      data: { data },
+    };
+    if (flags) json.flags = { data: flags };
+    return { ok: true, json: async () => json };
+  };
+
+  const resolve = async (org, site, { siteSheets, orgSheets }) => {
+    const orgFetch = window.fetch;
+    window.fetch = async (url) => {
+      if (url.includes('/ping/')) return new Response('', { status: 200 });
+      if (url.includes(`/${org}/${site}/`) || url.endsWith(`/${org}/${site}`)) return multiSheet(siteSheets);
+      return multiSheet(orgSheets);
+    };
+    try {
+      return await getRepositoryConfig(org, site);
+    } finally {
+      window.fetch = orgFetch;
+    }
+  };
+
+  it('is editable-link when type is link and the flag is true', async () => {
+    const cfg = await resolve('imgt1', 'a', {
+      siteSheets: { data: [REPO_ID, TYPE_LINK], flags: [FLAG_ON] },
+    });
+    expect(cfg.imageType).to.equal('editable-link');
+  });
+
+  it('is link when type is link and the flag is absent', async () => {
+    const cfg = await resolve('imgt2', 'a', { siteSheets: { data: [REPO_ID, TYPE_LINK] } });
+    expect(cfg.imageType).to.equal('link');
+  });
+
+  it('is link when type is link and the flag is not true', async () => {
+    const cfg = await resolve('imgt3', 'a', {
+      siteSheets: {
+        data: [REPO_ID, TYPE_LINK],
+        flags: [FLAG_OFF],
+      },
+    });
+    expect(cfg.imageType).to.equal('link');
+  });
+
+  it('is null when the flag is true but type is not link', async () => {
+    const cfg = await resolve('imgt4', 'a', { siteSheets: { data: [REPO_ID], flags: [FLAG_ON] } });
+    expect(cfg.imageType).to.equal(null);
+  });
+
+  it('is null when neither setting is present', async () => {
+    const cfg = await resolve('imgt5', 'a', { siteSheets: { data: [REPO_ID] } });
+    expect(cfg.imageType).to.equal(null);
+  });
+
+  it('ignores the flag key when it is in the data sheet instead of flags', async () => {
+    const cfg = await resolve('imgt6', 'a', { siteSheets: { data: [REPO_ID, TYPE_LINK, FLAG_ON] } });
+    expect(cfg.imageType).to.equal('link');
+  });
+
+  it('reads the flag from org config when the site config has none', async () => {
+    const cfg = await resolve('imgt7', 'a', {
+      siteSheets: { data: [REPO_ID, TYPE_LINK] },
+      orgSheets: { flags: [FLAG_ON] },
+    });
+    expect(cfg.imageType).to.equal('editable-link');
+  });
+
+  it('lets a site flag override the org flag', async () => {
+    const cfg = await resolve('imgt8', 'a', {
+      siteSheets: {
+        data: [REPO_ID, TYPE_LINK],
+        flags: [FLAG_OFF],
+      },
+      orgSheets: { flags: [FLAG_ON] },
+    });
+    expect(cfg.imageType).to.equal('link');
+  });
+
+  it('matches the link type case-insensitively', async () => {
+    const upper = { key: 'aem.assets.image.type', value: 'LINK' };
+    const plain = await resolve('imgt12', 'a', { siteSheets: { data: [REPO_ID, upper] } });
+    const editable = await resolve('imgt13', 'a', {
+      siteSheets: { data: [REPO_ID, upper], flags: [FLAG_ON] },
+    });
+    expect(plain.imageType).to.equal('link');
+    expect(editable.imageType).to.equal('editable-link');
+  });
+
+  it('skips a malformed flags row', async () => {
+    const cfg = await resolve('imgt14', 'a', {
+      siteSheets: { data: [REPO_ID, TYPE_LINK], flags: [{ value: 'true' }, FLAG_ON] },
+    });
+    expect(cfg.imageType).to.equal('editable-link');
+  });
+
+  it('falls back to link when the flags sheet is not a list', async () => {
+    const cfg = await resolve('imgt15', 'a', {
+      siteSheets: { data: [REPO_ID, TYPE_LINK], flags: 5 },
+    });
+    expect(cfg.imageType).to.equal('link');
   });
 });
