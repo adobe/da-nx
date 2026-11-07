@@ -8,12 +8,13 @@ let _orgs = { data: [] };
 let _ownerOrg;
 let _tenantId;
 let _projectedProductContext;
+let _freshToken;
 
 export const IMS_ORIGIN = 'https://ims-na1.adobelogin.com';
 
 export function setMockIms({
   token, anonymous, userId, displayName, email, io, orgs,
-  ownerOrg, tenantId, projectedProductContext,
+  ownerOrg, tenantId, projectedProductContext, freshToken,
 } = {}) {
   if (token !== undefined) _accessToken = token;
   if (anonymous !== undefined) _anonymous = anonymous;
@@ -25,6 +26,7 @@ export function setMockIms({
   if (ownerOrg !== undefined) _ownerOrg = ownerOrg;
   if (tenantId !== undefined) _tenantId = tenantId;
   if (projectedProductContext !== undefined) _projectedProductContext = projectedProductContext;
+  if (freshToken !== undefined) _freshToken = freshToken;
 }
 
 export function resetMockIms() {
@@ -38,6 +40,7 @@ export function resetMockIms() {
   _ownerOrg = undefined;
   _tenantId = undefined;
   _projectedProductContext = undefined;
+  _freshToken = undefined;
 }
 
 export const loadIms = async () => {
@@ -57,5 +60,10 @@ export const loadIms = async () => {
 };
 
 export function handleSignIn() {}
+
+export async function getFreshAccessToken() {
+  if (_freshToken instanceof Error) throw _freshToken;
+  return _freshToken ?? _accessToken;
+}
 
 export function handleSignOut() {}
