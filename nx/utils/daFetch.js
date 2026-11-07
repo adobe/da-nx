@@ -7,8 +7,8 @@ let hostToken = false;
 let requestToken;
 let pendingRefresh;
 
-export function setImsDetails(token, { expire } = {}) {
-  imsDetails = { accessToken: { token, expire } };
+export function setImsDetails(token, { tokenExpire } = {}) {
+  imsDetails = { accessToken: { token, expire: tokenExpire } };
   hostToken = true;
 }
 
@@ -23,7 +23,7 @@ async function refreshHostToken() {
   pendingRefresh ??= (async () => {
     const result = await Promise.resolve().then(requestToken).catch(() => undefined);
     if (result?.ok && typeof result.token === 'string') {
-      setImsDetails(result.token, { expire: result.expire });
+      setImsDetails(result.token, { tokenExpire: result.tokenExpire });
     }
     pendingRefresh = undefined;
   })();
@@ -31,13 +31,13 @@ async function refreshHostToken() {
 }
 
 async function ensureFreshToken() {
-  if (requestToken && isExpiring(imsDetails?.accessToken.expire)) await refreshHostToken();
+  if (requestToken && isExpiring(imsDetails?.accessToken?.expire)) await refreshHostToken();
 }
 
 export async function getToken() {
   await ensureFreshToken();
-  const { token, expire } = imsDetails?.accessToken ?? {};
-  return { token, expire };
+  const { token, expire: tokenExpire } = imsDetails?.accessToken ?? {};
+  return { token, tokenExpire };
 }
 
 export async function initIms() {

@@ -19,7 +19,7 @@ describe('SDK token refresh', () => {
       channel.port1.postMessage({
         action: 'sdkResponse',
         requestId: data.requestId,
-        result: { ok: true, token: 'fresh-token', expire: Date.now() + 60 * MINUTE },
+        result: { ok: true, token: 'fresh-token', tokenExpire: Date.now() + 60 * MINUTE },
       });
     };
     window.dispatchEvent(new MessageEvent('message', {
@@ -58,9 +58,9 @@ describe('SDK token refresh', () => {
   });
 
   it('exposes the current token and expiry through getToken', async () => {
-    const { token, expire } = await actions.getToken();
+    const { token, tokenExpire } = await actions.getToken();
     expect(token).to.equal('fresh-token');
-    expect(expire).to.be.greaterThan(Date.now() + 59 * MINUTE);
+    expect(tokenExpire).to.be.greaterThan(Date.now() + 59 * MINUTE);
     expect(requests.length).to.equal(1);
   });
 });

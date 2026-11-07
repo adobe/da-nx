@@ -151,7 +151,7 @@ describe('nx2 fullscreen shell', () => {
     port.postMessage({ action: 'getToken', requestId: 'r1' });
     await waitFor(() => replies.length);
     expect(replies[0]).to.deep.equal({
-      action: 'sdkResponse', requestId: 'r1', result: { ok: true, token: 'fresh-token', expire },
+      action: 'sdkResponse', requestId: 'r1', result: { ok: true, token: 'fresh-token', tokenExpire: expire },
     });
     setMockIms({ freshToken: new Error('refresh failed') });
     port.postMessage({ action: 'getToken', requestId: 'r2' });

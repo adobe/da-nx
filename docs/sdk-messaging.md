@@ -263,7 +263,7 @@ advertising `capabilities.tokenRefresh === 1` (the fullscreen shell) answer
 
 ```js
 { action: 'getToken', requestId }
-{ action: 'sdkResponse', requestId, result: { ok: true, token, expire } }
+{ action: 'sdkResponse', requestId, result: { ok: true, token, tokenExpire } }
 { action: 'sdkResponse', requestId, result: { ok: false, error: 'token-unavailable' } }
 ```
 
@@ -273,7 +273,7 @@ when the app makes a request. Concurrent requests share one refresh; a failed
 refresh keeps the old token. Apps using `actions.daFetch` need no changes.
 
 The handshake `token` is a snapshot. Apps calling their own `fetch` should use
-`actions.getToken()`, which resolves to `{ token, expire }` with the same refresh
+`actions.getToken()`, which resolves to `{ token, tokenExpire }` with the same refresh
 rule:
 
 ```js

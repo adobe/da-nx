@@ -243,7 +243,7 @@ const DA_SDK = (() => new Promise((resolve) => {
       setTitle(document.title);
 
       if (e.data.token) {
-        setImsDetails(e.data.token, { expire: e.data.tokenExpire });
+        setImsDetails(e.data.token, { tokenExpire: e.data.tokenExpire });
       }
       if (e.data.capabilities?.tokenRefresh === 1) {
         setTokenRefresh(() => handleSdkResponse({ port: port2, action: 'getToken' }));
@@ -268,7 +268,7 @@ const DA_SDK = (() => new Promise((resolve) => {
     // Subsequent messages (e.g., token refresh) — keep IMS details current
     // but do not re-resolve or rebind port2.
     if (initialized && e.data.token) {
-      setImsDetails(e.data.token, { expire: e.data.tokenExpire });
+      setImsDetails(e.data.token, { tokenExpire: e.data.tokenExpire });
     }
   });
 }))();

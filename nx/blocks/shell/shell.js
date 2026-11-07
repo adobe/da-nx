@@ -67,7 +67,7 @@ const toTime = (expire) => (expire ? new Date(expire).getTime() : undefined);
 
 async function sendToken(port, requestId) {
   const result = await getFreshAccessToken()
-    .then(({ token, expire }) => ({ ok: true, token, expire: toTime(expire) }))
+    .then(({ token, expire }) => ({ ok: true, token, tokenExpire: toTime(expire) }))
     .catch(() => ({ ok: false, error: 'token-unavailable' }));
   port.postMessage({ action: 'sdkResponse', requestId, result });
 }
