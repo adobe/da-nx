@@ -70,7 +70,7 @@ Its methods accept `(url, title, options)`, where `url` contains `source`, `dest
 - `mergeCopy`: merge, treating an empty target as missing.
 - `overwriteCopy`: replace.
 - `rolloutCopy`: merge, preserving empty-target metadata and the old loc app's 20-second save timeout. Identical content returns `undefined`; timeout returns `'timeout'`.
-- `smartOverwriteCopy`: opt-in rollout that applies only upstream changes since the last rollout and keeps localized blocks; sets `url.skipped`. Its `options` may include `expand(content)`, used to fill placeholders for the destination in the upstream page's older saved version (callers pass their rollout placeholder resolver). The first smart rollout of a page (no baseline yet) uses the upstream page's latest saved version as the baseline, or is a regular merge when there is none. See [rollout-smart-overwrite.md](rollout-smart-overwrite.md).
+- `smartOverwriteCopy`: opt-in rollout that applies only upstream changes since the last rollout and keeps localized blocks; sets `url.skipped`. Its `options` may include `expand(content)`, used to fill placeholders for the destination in the upstream page's older saved version (callers pass their rollout placeholder resolver). The first smart rollout of a page (no baseline yet) uses the upstream page's latest saved version (ignoring versions saved by rollouts into it) as the baseline, or is a regular merge when there is none. See [rollout-smart-overwrite.md](rollout-smart-overwrite.md).
 
 The loc app configures its engine in `nx/blocks/loc/utils/utils.js`. Snapshot Admin and both Rollout plugins configure their own engines. No compatibility exports remain at the old project, diff, or private engine paths.
 

@@ -8,6 +8,7 @@ const ROLLOUT_BASE_KEY = 'rolloutbase';
 const EMPTY_TAGS = new Set(['DIV', 'P', 'BR']);
 const DIFF_MARKERS = 'da-diff-deleted, [da-diff-added], da-loc-added, da-loc-deleted, [loc-temp-dom]';
 const VERSION_ID = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.html$/i;
+const ROLLOUT_VERSION_SUFFIX = ' - Rolled Out';
 
 const toBasePath = (path) => path.toLowerCase();
 
@@ -59,6 +60,7 @@ async function mergeReview({
 }
 
 // Legacy DA lists audit-only entries alongside saved versions; only saved ones have a url.
+// Versions saved by a rollout into the parent hold upstream changes the child has not seen yet.
 async function readParentVersion({
   fetch, daOrigin, path, responseError,
 }) {
@@ -69,6 +71,7 @@ async function readParentVersion({
   if (!Array.isArray(entries)) throw new Error('Unexpected parent version list');
   const latest = entries
     .filter((entry) => typeof entry?.url === 'string' && Number.isFinite(entry.timestamp))
+    .filter((entry) => !String(entry.label ?? '').endsWith(ROLLOUT_VERSION_SUFFIX))
     .reduce((newest, entry) => (newest?.timestamp >= entry.timestamp ? newest : entry), null);
   if (!latest) return null;
 

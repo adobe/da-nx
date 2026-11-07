@@ -414,6 +414,26 @@ describe('smartOverwriteCopy', () => {
       expect(versionSaves).to.equal(1);
     });
 
+    it('ignores versions saved by a rollout into the parent', async () => {
+      versionList = [
+        { ...saveVersion(NEW, '<p>A</p><p>B2</p>', 200), label: 'Proj - Rolled Out' },
+        { ...saveVersion(OLD, '<p>A</p><p>B</p>', 100), label: 'Previewed' },
+      ];
+      destHtml = toPage('<p>A local</p><p>B</p>');
+      const url = await rollout(smartOverwriteCopy, '<p>A</p><p>B2</p><p>C apac</p>');
+      expect(historyCalls[1]).to.equal(`https://admin.da.live/versionsource/org/site/${OLD}`);
+      expect(saved).to.include('<p>A local</p><p>B2</p><p>C apac</p>');
+      expect(saved).to.not.include('da-diff');
+      expect(url.skipped).to.equal(0);
+    });
+
+    it('shows a merge review when the parent only has versions saved by rollouts', async () => {
+      versionList = [{ ...saveVersion(OLD, '<p>A</p><p>B</p>', 100), label: 'Proj - Rolled Out' }];
+      destHtml = toPage('<p>A</p><p>B local</p>');
+      await expectFirstMerge(await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>'), '<p>A</p><p>B global</p>');
+      expect(historyCalls).to.have.length(1);
+    });
+
     it('ignores audit-only entries and picks the newest saved version by date', async () => {
       versionList = [
         { timestamp: 300, users: [] },

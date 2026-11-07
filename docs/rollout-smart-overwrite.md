@@ -91,8 +91,10 @@ Skipped counts are shown per locale (Loc app) and per destination (plugin) as "N
   - Destination already identical to upstream: kept exactly as authored; the baseline is recorded.
   - Otherwise the **latest saved version of the upstream page** (the immediate parent, e.g. global for apac and apac
     for en-to) stands in for the baseline. Saved versions come from Preview/Publish in DA, "save version",
-    rollouts and translations; ordinary edits do not create one. Only the newest saved version is used (by date;
-    older ones are never tried). It is prepared like the current upstream page (placeholders filled with the
+    rollouts and translations; ordinary edits do not create one. Versions saved by a rollout into the upstream page
+    (labelled `… - Rolled Out`) are ignored: they already contain changes from further up (e.g. global edits just
+    rolled out to apac) that the destination has not received. Of the rest, only the newest is used (by date; older
+    ones are never tried). It is prepared like the current upstream page (placeholders filled with the
     destination's values, links normalized) and the three-way merge runs as usual: upstream edits made since that
     version are applied, everything else the destination has is kept, overlaps are counted as skipped.
   - Today's merge (every difference marked with `da-diff-*` for the author to review once, honoring earlier
@@ -111,6 +113,11 @@ Skipped counts are shown per locale (Loc app) and per destination (plugin) as "N
     local), and destination values typed by hand that differ from the sheet count as local edits. A placeholder the
     sheet no longer defines leaves that version unfilled; affected blocks are kept as the destination has them and
     may be counted as skipped.
+  - Chained rollouts (global → region → locale): on the first smart rollout, **roll out each level before
+    previewing or publishing the region**. Rollout versions are ignored, but a Preview/Publish of the region after
+    it received global changes saves a version that contains them; if the region is then edited, the locale's
+    first smart rollout treats those global changes as already handled and does not roll them out. Rolling the
+    region out to its locales before previewing it avoids this; once every page has a baseline it no longer matters.
   - Versions are read through legacy DA (`admin.da.live` `/versionlist` and `/versionsource`), the same backend
     the rollout reads pages from, in both the Loc app and the Library plugin. Helix 6 (AEM API) support for the
     rollout as a whole is a follow-up.
