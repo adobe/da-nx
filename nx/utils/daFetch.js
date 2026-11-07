@@ -1,9 +1,33 @@
 import { DA_ORIGIN, AEM_ORIGIN } from '../public/utils/constants.js';
 
-let imsDetails;
+const TOKEN_REFRESH_WINDOW = 5 * 60 * 1000;
 
-export function setImsDetails(token) {
-  imsDetails = { accessToken: { token } };
+let imsDetails;
+let hostToken = false;
+let requestToken;
+let pendingRefresh;
+
+export function setImsDetails(token, { expire } = {}) {
+  imsDetails = { accessToken: { token, expire } };
+  hostToken = true;
+}
+
+export function setTokenRefresh(refresh) {
+  requestToken = refresh;
+}
+
+const isExpiring = (expire) => Number.isFinite(expire)
+  && expire - Date.now() < TOKEN_REFRESH_WINDOW;
+
+async function refreshHostToken() {
+  pendingRefresh ??= (async () => {
+    const result = await Promise.resolve().then(requestToken).catch(() => undefined);
+    if (result?.ok && typeof result.token === 'string') {
+      setImsDetails(result.token, { expire: result.expire });
+    }
+    pendingRefresh = undefined;
+  })();
+  return pendingRefresh;
 }
 
 export async function initIms() {
@@ -19,6 +43,9 @@ export async function initIms() {
 
 export const daFetch = async (url, opts = {}) => {
   opts.headers ||= {};
+  if (requestToken && isExpiring(imsDetails?.accessToken.expire)) {
+    await refreshHostToken();
+  }
   if (localStorage.getItem('nx-ims') || imsDetails) {
     const { accessToken } = await initIms();
     if (accessToken) {
@@ -35,7 +62,7 @@ export const daFetch = async (url, opts = {}) => {
   } catch (err) {
     resp = new Response(null, { status: 500, statusText: err.message });
   }
-  if (resp.status === 401) {
+  if (resp.status === 401 && !hostToken) {
     const { loadIms, handleSignIn } = await import('./ims.js');
     await loadIms();
     handleSignIn();
