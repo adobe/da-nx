@@ -61,7 +61,7 @@ A version-save failure can follow a successful content write. Don't automaticall
 
 ## Internal modules
 
-The public index exports only `mergeCopy`, `overwriteCopy`, and the hash helpers. `copy.js` (`createCopy`, `createConfigLoader`) and `regional-diff.js` (`regionalDiff`, `normalizeLinks`, `removeLocTags`) are Nexter-internal and may change.
+The public index exports only `mergeCopy`, `overwriteCopy`, and the hash helpers. `copy.js` (`createCopy`, `createConfigLoader`), `regional-diff.js` (`regionalDiff`, `normalizeLinks`, `removeLocTags`, `getBlockHashes`, `smartMerge`), `smart-overwrite.js` and `smart-merge.js` are Nexter-internal and may change.
 
 `createCopy({ fetch, daOrigin, loadConfig, saveSource })` creates an isolated engine. `loadConfig({ org, site })` defaults to `createConfigLoader({ fetch, daOrigin })`; `saveSource({ org, site, path, body })` optionally supplies the caller's backend-aware HTML writer.
 
@@ -70,6 +70,7 @@ Its methods accept `(url, title, options)`, where `url` contains `source`, `dest
 - `mergeCopy`: merge, treating an empty target as missing.
 - `overwriteCopy`: replace.
 - `rolloutCopy`: merge, preserving empty-target metadata and the old loc app's 20-second save timeout. Identical content returns `undefined`; timeout returns `'timeout'`.
+- `smartOverwriteCopy`: opt-in rollout that applies only upstream changes since the last rollout and keeps localized blocks; sets `url.skipped`. Its `options` may include `expand(content)`, used to fill placeholders for the destination in the upstream page's older saved version (callers pass their rollout placeholder resolver). The first smart rollout of a page (no baseline yet) uses the upstream page's latest saved version (ignoring versions saved by rollouts into it) as the baseline, or is a regular merge when there is none. See [rollout-smart-overwrite.md](rollout-smart-overwrite.md).
 
 The loc app configures its engine in `nx/blocks/loc/utils/utils.js`. Snapshot Admin and both Rollout plugins configure their own engines. No compatibility exports remain at the old project, diff, or private engine paths.
 

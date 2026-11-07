@@ -11,6 +11,8 @@ import {
 } from '../../utils/utils.js';
 import { createRolloutResolver } from '../../utils/placeholders.js';
 
+const COPY_FNS = new Map([['overwrite', copy.overwriteCopy], ['smart-overwrite', copy.smartOverwriteCopy]]);
+
 function getTitle(status) {
   const title = {
     'not started': 'Ready',
@@ -93,9 +95,10 @@ async function rolloutLangLocales(title, lang, urls, behavior, resolver) {
       return;
     }
     url.sourceContent = content;
-    const overwrite = behavior === 'overwrite' || url.hasExt;
-    const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
-    await copyFn(url, title);
+    const copyFn = url.hasExt ? copy.overwriteCopy : (COPY_FNS.get(behavior) || copy.mergeCopy);
+    const { root, destination: path } = url;
+    const expand = (text) => resolver.expand({ content: text, root, path });
+    await copyFn(url, title, { expand });
   };
 
   const queue = new Queue(rolloutUrl, MAX_CONCURRENT_WRITES);
@@ -151,7 +154,7 @@ function formatRolloutUrls(org, site, lang, urls, snapshot) {
         hasExt: langUrl.ext === 'json',
         root: locale.code,
         sourceContent: langUrl.content,
-        source: `/${org}/${site}${langUrl.aemBasePath}`,
+        source: langUrl.source,
         destination: `/${org}/${site}${daDestPath}`,
       };
     });
@@ -201,7 +204,11 @@ export async function rolloutLang({
   lang.rollout.status = errors ? 'not started' : 'complete';
   lang.rollout.saved = saved.length;
   lang.locales.forEach((locale) => {
-    locale.saved = saved.filter((url) => url.root === locale.code).length;
+    const localeSaved = saved.filter((url) => url.root === locale.code);
+    locale.saved = localeSaved.length;
+    const skipped = localeSaved.reduce((sum, url) => sum + (url.skipped || 0), 0);
+    if (skipped) locale.skipped = skipped;
+    else delete locale.skipped;
   });
 
   actions.requestUpdate();

@@ -142,7 +142,7 @@ class NxLocRollout extends LitElement {
       ${locales.map((locale) => html`
         <li class="locale-item ${locale.expand ? 'is-expanded' : ''}">
           <div class="locale-details">
-            <p>${locale.code}</p>
+            <p>${locale.code}${locale.skipped ? html` <span class="skipped-count">${locale.skipped} global change${locale.skipped === 1 ? '' : 's'} skipped (localized)</span>` : nothing}</p>
             <p class="sources-count">${this._urls.length}</p>
             <p class="saved-count">${locale.saved || 0}</p>
             <p class="rollout-status">${rollout.status}</p>

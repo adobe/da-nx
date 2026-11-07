@@ -1,7 +1,9 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
+import { render } from 'da-lit';
 import { setImsDetails } from '../../../../nx/utils/daFetch.js';
 import '../../../../nx/blocks/loc/views/rollout/rollout.js';
+import { getBlockHashes } from '../../../../nx/public/loc/regional-diff.js';
 
 const sheet = (rows) => ({ total: rows.length, offset: 0, limit: rows.length, data: rows });
 const CONFIG = {
@@ -10,6 +12,7 @@ const CONFIG = {
   'en-nl': sheet([{ key: 'country', value: 'Netherlands' }]),
   'en-to': sheet([{ key: 'country', value: 'Tonga' }, { key: 'country', value: 'dup' }]),
 };
+const VERSION_URL = '/versionsource/org/site/11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222.html';
 const SOURCE = '<body><header></header><main><div><h1>Fedex {{country}}</h1></div></main><footer></footer></body>';
 
 describe('nx-loc-rollout partial rollout', () => {
@@ -59,5 +62,165 @@ describe('nx-loc-rollout partial rollout', () => {
     expect(lang.rollout).to.deep.equal({ status: 'not started', saved: 1 });
     expect(actions).to.have.length(1);
     expect(actions[0].langs[0].locales.map((locale) => locale.saved)).to.deep.equal([1, 0]);
+  });
+});
+
+describe('nx-loc-rollout smart overwrite', () => {
+  let originalFetch;
+  const DEST_PAGE = '<body><header></header><main><div><h1>Fedex Netherlands</h1><p>Local</p></div></main><footer></footer></body>';
+  let destPages;
+  let sourcePage;
+  let parentVersion;
+
+  beforeEach(() => {
+    setImsDetails('test-token');
+    destPages = { '/en-nl/page.html': DEST_PAGE };
+    sourcePage = SOURCE;
+    parentVersion = undefined;
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = sinon.stub().callsFake(async (url, opts = {}) => {
+      const headers = new Headers({ 'x-da-actions': 'read=true' });
+      if (opts.method && opts.method !== 'GET') return { ok: true, status: 200, headers, json: async () => ({}), text: async () => '' };
+      if (url.endsWith('/.da/rollout-placeholders.json')) return { ok: true, status: 200, headers, json: async () => CONFIG };
+      if (url.endsWith('/versionlist/org/site/langstore/en/page.html')) {
+        if (!parentVersion) return { ok: false, status: 404, headers, json: async () => ({}) };
+        const list = [{ url: VERSION_URL, timestamp: 1 }];
+        return { ok: true, status: 200, headers, json: async () => list };
+      }
+      if (url.endsWith(VERSION_URL)) {
+        return { ok: true, status: 200, headers, text: async () => parentVersion };
+      }
+      if (url.includes('/langstore/en/')) return { ok: true, status: 200, headers, text: async () => sourcePage };
+      const dest = Object.keys(destPages).find((path) => url.endsWith(path));
+      if (dest) return { ok: true, status: 200, headers, text: async () => destPages[dest] };
+      return { ok: false, status: 404, headers, text: async () => '' };
+    });
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    sinon.restore();
+  });
+
+  it('merges like today on the first smart rollout and records the baseline', async () => {
+    const lang = {
+      code: 'en',
+      name: 'English',
+      location: '/langstore/en',
+      locales: [{ code: '/en-nl' }],
+      rollout: { status: 'not started' },
+    };
+    const el = document.createElement('nx-loc-rollout');
+    el.project = {
+      org: 'org',
+      site: 'site',
+      title: 'Proj',
+      options: { 'source.language': { location: '/' }, 'rollout.conflict.behavior': 'smart-overwrite' },
+      urls: [{ suppliedPath: '/page' }],
+    };
+    el._langs = [lang];
+
+    await el.handleRolloutLang(lang);
+
+    expect(el._errors).to.be.undefined;
+    expect(lang.rollout).to.deep.equal({ status: 'complete', saved: 1 });
+    expect(lang.locales[0]).to.not.have.property('skipped');
+    const posts = globalThis.fetch.getCalls()
+      .filter(({ args }) => args[1]?.method === 'POST' && args[0].includes('/source/org/site/en-nl/page.html'));
+    const body = await posts[0].args[1].body.get('data').text();
+    expect(body).to.include('rolloutbase');
+    expect(body).to.include('da-diff');
+  });
+
+  it('uses the latest saved parent version, filled for the locale, as the first baseline', async () => {
+    parentVersion = SOURCE;
+    sourcePage = '<body><header></header><main><div><h1>FedEx {{country}}</h1></div></main><footer></footer></body>';
+    destPages['/en-nl/page.html'] = '<body><header></header><main><div><h1>Fedex Netherlands</h1><p>Local</p></div></main><footer></footer></body>';
+    const lang = {
+      code: 'en',
+      name: 'English',
+      location: '/langstore/en',
+      locales: [{ code: '/en-nl' }],
+      rollout: { status: 'not started' },
+    };
+    const el = document.createElement('nx-loc-rollout');
+    el.project = {
+      org: 'org',
+      site: 'site',
+      title: 'Proj',
+      options: { 'source.language': { location: '/' }, 'rollout.conflict.behavior': 'smart-overwrite' },
+      urls: [{ suppliedPath: '/page' }],
+    };
+    el._langs = [lang];
+
+    await el.handleRolloutLang(lang);
+
+    expect(lang.locales[0]).to.not.have.property('skipped');
+    const posts = globalThis.fetch.getCalls()
+      .filter(({ args }) => args[1]?.method === 'POST' && args[0].includes('/source/org/site/en-nl/page.html'));
+    const body = await posts[0].args[1].body.get('data').text();
+    expect(body).to.include('<h1>FedEx Netherlands</h1><p>Local</p>');
+    expect(body).to.not.include('da-diff');
+    const listCalls = globalThis.fetch.getCalls().map(({ args }) => new URL(args[0]).pathname)
+      .filter((path) => path.startsWith('/versionlist/'));
+    expect(listCalls).to.deep.equal(['/versionlist/org/site/langstore/en/page.html']);
+  });
+});
+
+describe('nx-loc-rollout smart overwrite skipped pages', () => {
+  let originalFetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    sinon.restore();
+  });
+
+  it('reports skipped global changes per locale', async () => {
+    setImsDetails('test-token');
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = sinon.stub().callsFake(async () => ({ ok: false, status: 404, text: async () => '' }));
+    const baseDoc = document.implementation.createHTMLDocument();
+    baseDoc.body.innerHTML = '<main><div><h1>Old</h1></div></main>';
+    const base = await getBlockHashes({ doc: baseDoc, site: 'site', config: {} });
+    const metadata = `<div class="da-metadata"><div><div>rolloutbase</div><div>/org/site/en-nl/page.html|${base}</div></div></div>`;
+    const pages = {
+      '/en-nl/page.html': `<body><header></header><main><div><h1>Local</h1></div></main>${metadata}<footer></footer></body>`,
+    };
+    globalThis.fetch = sinon.stub().callsFake(async (url, opts = {}) => {
+      const headers = new Headers({ 'x-da-actions': 'read=true' });
+      if (opts.method && opts.method !== 'GET') return { ok: true, status: 200, headers, json: async () => ({}), text: async () => '' };
+      if (url.endsWith('/.da/rollout-placeholders.json')) return { ok: true, status: 200, headers, json: async () => CONFIG };
+      if (url.includes('/langstore/en/')) return { ok: true, status: 200, headers, text: async () => SOURCE };
+      const dest = Object.keys(pages).find((path) => url.endsWith(path));
+      if (dest) return { ok: true, status: 200, headers, text: async () => pages[dest] };
+      return { ok: false, status: 404, headers, text: async () => '' };
+    });
+
+    const lang = {
+      code: 'en',
+      name: 'English',
+      location: '/langstore/en',
+      locales: [{ code: '/en-nl' }],
+      rollout: { status: 'not started' },
+    };
+    const el = document.createElement('nx-loc-rollout');
+    el.project = {
+      org: 'org',
+      site: 'site',
+      title: 'Proj',
+      options: { 'source.language': { location: '/' }, 'rollout.conflict.behavior': 'smart-overwrite' },
+      urls: [{ suppliedPath: '/page' }, { suppliedPath: '/other' }],
+    };
+    el._langs = [lang];
+
+    await el.handleRolloutLang(lang);
+
+    expect(lang.rollout.saved).to.equal(2);
+    expect(lang.locales[0].skipped).to.equal(1);
+
+    el._urls = el.project.urls;
+    const container = document.createElement('div');
+    render(el.renderLocales(lang.rollout, lang.locales), container);
+    expect(container.querySelector('.skipped-count').textContent).to.include('1 global change skipped');
   });
 });

@@ -282,26 +282,44 @@ function groupBlocks(blocks) {
 
 const isNotEmptyParagraphEl = (el) => !(el.nodeName === 'P' && !el.childNodes.length && el.textContent === '');
 
-function getBlockMap(dom) {
+const preText = (el) => (el.matches?.('pre') ? [el] : [...(el.querySelectorAll?.('pre') || [])])
+  .map((pre) => pre.textContent).join('\u0000');
+
+// `smart` (smart-overwrite) needs a lossless block list: every section break, every element, and
+// whitespace inside <pre> counted as content.
+function getBlocks(dom, { smart = false } = {}) {
   const sections = [...dom.querySelectorAll('main > div')];
 
   // flatten sections so that they are just dividers between blocks
-  let blocks = sections.reduce((acc, section) => {
-    const sectionBlocks = [...section.children]
+  const blocks = sections.reduce((acc, section) => {
+    const sectionBlocks = smart ? [...section.children] : [...section.children]
       .filter(isNotEmptyParagraphEl);
-    const sectionArr = acc.length ? [sectionBlock] : [];
+    const marker = smart
+      ? { ...sectionBlock, openTag: section.cloneNode(false).outerHTML.replace(/<\/div>$/, '') }
+      : sectionBlock;
+    const sectionArr = smart || acc.length ? [marker] : [];
     return [...acc, ...sectionArr, ...sectionBlocks];
   }, []);
 
-  blocks = groupBlocks(blocks);
+  return groupBlocks(blocks);
+}
 
-  return blocks.map((block) => {
-    const stringToHash = Array.isArray(block)
-      ? block.map(normalizeHTMLFromElement).join('')
-      : normalizeHTMLFromElement(block);
-    const hash = hashContent(stringToHash);
-    return { block, hash };
-  });
+function hashBlock(block, { smart = false } = {}) {
+  const toHashString = (el) => {
+    const normalized = normalizeHTMLFromElement(el);
+    if (!smart) return normalized;
+    if (el.isSection) return `${normalized}${el.openTag}`;
+    const pre = preText(el);
+    return pre ? `${normalized}${pre}` : normalized;
+  };
+  const stringToHash = Array.isArray(block)
+    ? block.map(toHashString).join('')
+    : toHashString(block);
+  return hashContent(stringToHash);
+}
+
+function getBlockMap(dom, options) {
+  return getBlocks(dom, options).map((block) => ({ block, hash: hashBlock(block, options) }));
 }
 
 function htmldiff(originalDOM, modifiedDOM) {
@@ -472,6 +490,63 @@ export const removeLocTags = (html) => {
   });
 };
 
+const getEquivalentSites = (config) => {
+  const hostnames = findConfigValue(config, 'source.fragment.hostnames')?.split?.(',') || [];
+  return new Set(hostnames.map((hostname) => hostname.split('--')[1]));
+};
+
+const shortHash = (item) => item.hash.substring(0, HASH_LENGTH);
+
+// Hashes come from a link-normalized copy so the merged output keeps the original links.
+async function getHashedBlocks(doc, { site, config }) {
+  const options = { smart: true };
+  const normalized = await normalizeLinks(doc.cloneNode(true), site, getEquivalentSites(config));
+  const hashed = getBlockMap(normalized, options);
+  return getBlocks(doc, options).map((block, idx) => ({ block, hash: shortHash(hashed[idx]) }));
+}
+
+export async function getBlockHashes({ doc, site, config }) {
+  const blocks = await getHashedBlocks(doc, { site, config });
+  return blocks.map(({ hash }) => hash);
+}
+
+function buildHtmlFromBlocks(blocks) {
+  const inner = blocks.reduce((html, { block }, idx) => {
+    if (block.isSection) return `${html}${idx ? '</div>' : ''}${block.openTag || '<div>'}`;
+    if (Array.isArray(block)) {
+      const group = block.map((el) => (el.isSection ? `</div>${el.openTag || '<div>'}` : el.outerHTML));
+      return `${html}${group.join('')}`;
+    }
+    return `${html}${block.outerHTML}`;
+  }, '');
+  return blocks[0]?.block.isSection ? `${inner}</div>` : `<div>${inner}</div>`;
+}
+
+/**
+ * Block-level three-way merge. Applies upstream (source) changes made since the
+ * base to the destination, keeping destination edits. When both sides changed
+ * the same region, the destination wins and the change is counted as skipped.
+ * @param {Object} params
+ * @param {String[]} params.base ordered block hashes of the source at the last rollout
+ * @param {Document} params.source the current upstream document
+ * @param {Document} params.dest the current destination document
+ * @param {String} params.site the DA site, used for link normalization
+ * @param {Object} params.config the translation config (equivalent fragment hostnames)
+ * @returns {Promise<{ html: String, skipped: Number, sourceHashes: String[] }>} sourceHashes is the
+ *   next baseline
+ */
+export async function smartMerge({
+  base, source, dest, site, config,
+}) {
+  const sourceBlocks = await getHashedBlocks(source, { site, config });
+  const destBlocks = await getHashedBlocks(dest, { site, config });
+  const { default: threeWayMerge } = await import('./smart-merge.js');
+  const { blocks, skipped, baseline } = threeWayMerge({
+    base, source: sourceBlocks, dest: destBlocks,
+  });
+  return { html: buildHtmlFromBlocks(blocks), skipped, sourceHashes: baseline };
+}
+
 export async function regionalDiff(
   original,
   modified,
@@ -479,8 +554,7 @@ export async function regionalDiff(
   rejectedHashes,
   { normalizeImages, site, config } = {},
 ) {
-  const hostnames = findConfigValue(config, 'source.fragment.hostnames')?.split?.(',') || [];
-  const equivalentSites = new Set(hostnames.map((hostname) => hostname.split('--')[1]));
+  const equivalentSites = getEquivalentSites(config);
 
   const normalizedOriginal = await normalizeLinks(original, site, equivalentSites);
   const normalizedModified = await normalizeLinks(modified, site, equivalentSites);

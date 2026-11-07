@@ -77,7 +77,9 @@ export function createCopy({
     return versionSaving.get(path);
   };
 
-  const getHtml = async (path, content) => {
+  // `raw` skips whitespace collapsing, and an empty but successful read yields an empty document
+  // (so smart overwrite can reject it) instead of being treated as missing.
+  const getHtml = async (path, content, { raw = false } = {}) => {
     let text = content;
     if (!text) {
       const response = await fetch(`${daOrigin}/source${path}`);
@@ -85,6 +87,7 @@ export function createCopy({
       if (!response.ok) throw responseError(response, `Reading ${path}`);
       text = await response.text();
     }
+    if (raw) return parser.parseFromString(text || '', 'text/html');
     if (!text) return null;
     const collapsed = text.replace(/>([^<]*)</g, (match, value) => (
       value.trim() ? `>${value.replace(/\s+/g, ' ')}<` : match
@@ -235,5 +238,20 @@ export function createCopy({
     }
   };
 
-  return { mergeCopy, overwriteCopy, rolloutCopy };
+  let smart;
+  const smartOverwriteCopy = async (url, title, options) => {
+    smart ??= import('./smart-overwrite.js').then(({ default: create }) => create({
+      fetch, daOrigin, getHtml, loadConfig, saveHtml, saveVersion, fail, responseError,
+    }));
+    try {
+      return (await smart)(url, title, options);
+    } catch (error) {
+      smart = undefined;
+      return fail(url, error);
+    }
+  };
+
+  return {
+    mergeCopy, overwriteCopy, rolloutCopy, smartOverwriteCopy,
+  };
 }
