@@ -191,12 +191,29 @@ function checkLists(res) {
   return result;
 }
 
+const isDeletedItem = (item) => item.type === DELETED;
+
+// When two section breaks are matched, keep the deleted blocks in the section they came from
+function pairSectionBreak(result, i, deletedFirst) {
+  const before = result.slice(0, i);
+  const between = result.slice(i + 1);
+  const deleted = between.filter(isDeletedItem);
+  const others = between.filter((item) => !isDeletedItem(item));
+  const pairedBreak = { ...result[i], type: SAME };
+  return deletedFirst
+    ? [...before, ...others, pairedBreak, ...deleted]
+    : [...before, ...deleted, pairedBreak, ...others];
+}
+
 function addToResult(result, newItem, type) {
   for (let i = 0; i < result.length; i += 1) {
     const resultItem = result[i];
     if (resultItem.hash !== newItem.hash || resultItem.type === SAME) {
       // eslint-disable-next-line no-continue
       continue;
+    }
+    if (newItem.block.isSection && type !== SAME && resultItem.type !== type) {
+      return pairSectionBreak(result, i, resultItem.type === DELETED);
     }
     if (resultItem.type === DELETED) {
       if (type === ADDED) {
@@ -286,16 +303,22 @@ function getBlockMap(dom) {
   const sections = [...dom.querySelectorAll('main > div')];
 
   // flatten sections so that they are just dividers between blocks
-  let blocks = sections.reduce((acc, section) => {
+  let blocks = sections.reduce((acc, section, index) => {
     const sectionBlocks = [...section.children]
       .filter(isNotEmptyParagraphEl);
-    const sectionArr = acc.length ? [sectionBlock] : [];
+    const sectionArr = index ? [sectionBlock] : [];
     return [...acc, ...sectionArr, ...sectionBlocks];
   }, []);
 
   blocks = groupBlocks(blocks);
 
+  // Number each section break so the 1st break only matches the 1st break, the 2nd the 2nd, etc.
+  let sectionIndex = 0;
   return blocks.map((block) => {
+    if (block.isSection) {
+      sectionIndex += 1;
+      return { block, hash: hashContent(`${block.outerHTML}-${sectionIndex}`) };
+    }
     const stringToHash = Array.isArray(block)
       ? block.map(normalizeHTMLFromElement).join('')
       : normalizeHTMLFromElement(block);
@@ -377,7 +400,7 @@ function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes =
     let modifiedBlock = item.block;
     const hash = item.hash.substring(0, HASH_LENGTH);
 
-    if (item.block.isSection && i !== 0) {
+    if (item.block.isSection) {
       htmlText += SECTION_DIV_BREAK;
       // eslint-disable-next-line no-continue
       continue;

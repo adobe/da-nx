@@ -356,3 +356,64 @@ describe('regionalDiff with hashes from an earlier review', () => {
     expect(main.querySelector('da-diff-deleted')).to.be.null;
   });
 });
+
+describe('regionalDiff keeps blocks in their own section', () => {
+  const toDoc = (sections) => {
+    const doc = document.implementation.createHTMLDocument();
+    const html = sections.map((blocks) => `<div>${blocks.map((text) => `<p>${text}</p>`).join('')}</div>`).join('');
+    doc.body.innerHTML = `<main>${html}</main>`;
+    return doc;
+  };
+  const toSections = (main) => [...main.querySelectorAll(':scope > div')]
+    .map((section) => [...section.children].map((el) => {
+      if (el.nodeName === 'DA-DIFF-DELETED') return `-${el.textContent}`;
+      if (el.hasAttribute('da-diff-added')) return `+${el.textContent}`;
+      return el.textContent;
+    }));
+  const diffSections = async (original, modified) => toSections(
+    await regionalDiff(toDoc(original), toDoc(modified), [], []),
+  );
+
+  beforeEach(() => {
+    window.fetch = sinon.stub().callsFake(() => mockRes(''));
+  });
+
+  afterEach(() => {
+    window.fetch = originalFetch;
+  });
+
+  it('keeps an incoming trailing block before the section break when the target section is shorter', async () => {
+    const sections = await diffSections(
+      [['intro', 'detail', 'section-metadata'], ['next']],
+      [['intro'], ['next']],
+    );
+    expect(sections).to.deep.equal([['intro', '-detail', '-section-metadata'], ['next']]);
+  });
+
+  it('keeps an incoming block after the section break when the target section is longer', async () => {
+    const sections = await diffSections(
+      [['intro'], ['incoming', 'next']],
+      [['intro', 'local'], ['next']],
+    );
+    expect(sections).to.deep.equal([['intro', '+local'], ['-incoming', 'next']]);
+  });
+
+  it('pairs section breaks in order when sections change size differently', async () => {
+    const sections = await diffSections(
+      [['b0', 'b1'], ['b2'], ['b3', 'b4', 'b5'], ['b6']],
+      [['b0', 'n8', 'n10', 'b1'], ['n9', 'b2'], ['b3', 'b4', 'b5'], ['m7']],
+    );
+    expect(sections[3]).to.include.members(['-b6', '+m7']);
+    expect(sections.slice(0, 3).flat()).to.not.include('-b6');
+  });
+
+  it('keeps an empty leading section in the target', async () => {
+    const sections = await diffSections([['intro'], ['next']], [[], ['next']]);
+    expect(sections).to.deep.equal([['-intro'], ['next']]);
+  });
+
+  it('keeps an empty leading section that both documents share', async () => {
+    const sections = await diffSections([[], ['next']], [[], ['next']]);
+    expect(sections).to.deep.equal([[], ['next']]);
+  });
+});
