@@ -5,8 +5,10 @@ import { registerPanelSection, PANEL_EVENT } from '../../../../nx2/utils/panel.j
 import { CHAT_EVENT } from '../../../../nx2/utils/chat.js';
 import { hashChange } from '../../../../nx2/utils/utils.js';
 import { setupPanels } from '../../../../nx/blocks/shell/panels.js';
-import decorate from '../../../../nx/blocks/shell/shell.js';
 import { createHostActions } from '../../../../nx/utils/sdk.js';
+import { setMockIms, resetMockIms } from '../../../../nx2/test/mocks/ims.js';
+
+const TOKEN_EXPIRE = Date.UTC(2030, 0, 1);
 
 const pause = () => new Promise((resolve) => { setTimeout(resolve, 10); });
 
@@ -26,13 +28,18 @@ describe('nx2 fullscreen shell', () => {
   let prompt;
   let log;
   let configs;
+  let decorate;
   const ports = [];
   const connections = [];
 
   before(async () => {
+    setMockIms({ token: { token: 'test-token', expire: new Date(TOKEN_EXPIRE) } });
+    ({ default: decorate } = await import('../../../../nx/blocks/shell/shell.js'));
     await setConfig();
     await import('../../../../nx2/blocks/chat/chat.js');
   });
+
+  after(() => resetMockIms());
 
   beforeEach(async () => {
     sinon.spy(hashChange, 'subscribe');
@@ -124,14 +131,35 @@ describe('nx2 fullscreen shell', () => {
     expect(iframe.dataset.appSrc).to.equal('http://localhost:3000/tools/open-chat/open-chat.html?nxver=2&ref=local');
     expect(message.ready).to.equal(true);
     expect(message.token).to.equal('test-token');
+    expect(message.tokenExpire).to.equal(TOKEN_EXPIRE);
     expect(message.context.org).to.equal('adobe');
     expect(message.context.repo).to.equal('demo');
     expect(message.context.path).to.equal('tools/open-chat/open-chat');
-    expect(message.capabilities).to.deep.equal({ chatTurnCompleted: 1 });
+    expect(message.capabilities).to.deep.equal({ chatTurnCompleted: 1, tokenRefresh: 1 });
     expect(document.querySelector('aside.panel')).to.equal(null);
     port.postMessage({ action: 'setTitle', details: 'Fullscreen demo' });
     await waitFor(() => document.title === 'Fullscreen demo');
     expect(document.adoptedStyleSheets.some((sheet) => sheet.path?.includes('/shell/shell.css'))).to.equal(true);
+  });
+
+  it('answers token requests with a fresh IMS token', async () => {
+    const expire = Date.UTC(2031, 0, 1);
+    setMockIms({ freshToken: { token: 'fresh-token', expire: new Date(expire) } });
+    const { port } = await connectApp();
+    const replies = [];
+    port.onmessage = ({ data }) => replies.push(data);
+    port.postMessage({ action: 'getToken', requestId: 'r1' });
+    await waitFor(() => replies.length);
+    expect(replies[0]).to.deep.equal({
+      action: 'sdkResponse', requestId: 'r1', result: { ok: true, token: 'fresh-token', expire },
+    });
+    setMockIms({ freshToken: new Error('refresh failed') });
+    port.postMessage({ action: 'getToken', requestId: 'r2' });
+    await waitFor(() => replies.length === 2);
+    expect(replies[1]).to.deep.equal({
+      action: 'sdkResponse', requestId: 'r2', result: { ok: false, error: 'token-unavailable' },
+    });
+    expect(log.called).to.equal(false);
   });
 
   it('opens chat and sends the first prompt after the chat is mounted', async () => {
@@ -414,7 +442,7 @@ describe('nx2 fullscreen shell', () => {
       body: { flags: { data: [{ key: 'ew.enabled', value: 'true' }] } },
     });
     const { port, message } = await connectApp();
-    expect(message.capabilities).to.deep.equal({ chatTurnCompleted: 1 });
+    expect(message.capabilities).to.deep.equal({ chatTurnCompleted: 1, tokenRefresh: 1 });
     port.postMessage({ action: 'setPrompt', details: { text: 'Target site' } });
     await waitFor(() => prompt.called);
     expect(document.querySelector('aside.panel nx-chat')._context).to.include({
@@ -479,7 +507,7 @@ describe('nx2 fullscreen shell', () => {
     history.replaceState(null, '', '/app/adobe/demo/tools/app#/opted-in-org/site');
     localStorage.setItem('nx2:ew-user-enabled', 'true');
     const { port, message } = await connectApp();
-    expect(message.capabilities).to.deep.equal({ chatTurnCompleted: 1 });
+    expect(message.capabilities).to.deep.equal({ chatTurnCompleted: 1, tokenRefresh: 1 });
     port.postMessage({ action: 'setPrompt', details: { text: 'Opted-in site' } });
     await waitFor(() => prompt.called);
     expect(document.querySelector('aside.panel nx-chat')._context).to.include({

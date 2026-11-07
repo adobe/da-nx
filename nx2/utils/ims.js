@@ -13,6 +13,7 @@ const { imsClientId, imsScope, imsEnv, env } = await (async () => {
 const IMS_URL = 'https://auth.services.adobe.com/imslib/imslib.min.js';
 const DEFAULT_SCOPE = 'AdobeID,openid,gnav';
 const IMS_TIMEOUT = 5000;
+const TOKEN_REFRESH_WINDOW = 5 * 60 * 1000;
 const IMS_ENV = {
   dev: 'stg1',
   stage: 'stg1',
@@ -155,3 +156,11 @@ export const loadIms = (() => {
     return ims;
   };
 })();
+
+export async function getFreshAccessToken() {
+  await loadIms();
+  const current = window.adobeIMS.getAccessToken();
+  if (current && current.expire - Date.now() > TOKEN_REFRESH_WINDOW) return current;
+  await window.adobeIMS.refreshToken();
+  return window.adobeIMS.getAccessToken();
+}
