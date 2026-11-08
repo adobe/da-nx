@@ -360,7 +360,8 @@ describe('regionalDiff with hashes from an earlier review', () => {
 describe('regionalDiff keeps blocks in their own section', () => {
   const toDoc = (sections) => {
     const doc = document.implementation.createHTMLDocument();
-    const html = sections.map((blocks) => `<div>${blocks.map((text) => `<p>${text}</p>`).join('')}</div>`).join('');
+    const toHtml = (text) => (text.startsWith('<') ? text : `<p>${text}</p>`);
+    const html = sections.map((blocks) => `<div>${blocks.map(toHtml).join('')}</div>`).join('');
     doc.body.innerHTML = `<main>${html}</main>`;
     return doc;
   };
@@ -403,8 +404,12 @@ describe('regionalDiff keeps blocks in their own section', () => {
       [['b0', 'b1'], ['b2'], ['b3', 'b4', 'b5'], ['b6']],
       [['b0', 'n8', 'n10', 'b1'], ['n9', 'b2'], ['b3', 'b4', 'b5'], ['m7']],
     );
-    expect(sections[3]).to.include.members(['-b6', '+m7']);
-    expect(sections.slice(0, 3).flat()).to.not.include('-b6');
+    expect(sections).to.deep.equal([
+      ['b0', '+n8', '+n10', 'b1'],
+      ['+n9', 'b2'],
+      ['b3', 'b4', 'b5'],
+      ['-b6', '+m7'],
+    ]);
   });
 
   it('keeps an empty leading section in the target', async () => {
@@ -415,5 +420,62 @@ describe('regionalDiff keeps blocks in their own section', () => {
   it('keeps an empty leading section that both documents share', async () => {
     const sections = await diffSections([[], ['next']], [[], ['next']]);
     expect(sections).to.deep.equal([[], ['next']]);
+  });
+
+  it('does not add an empty section when only the incoming document starts with one', async () => {
+    const sections = await diffSections([[], ['a'], ['b']], [['a'], ['b']]);
+    expect(sections).to.deep.equal([['a'], ['b']]);
+  });
+
+  it('keeps an incoming block in its section when only the incoming document starts empty', async () => {
+    const sections = await diffSections([[], ['a', 'x'], ['b']], [['a'], ['b']]);
+    expect(sections).to.deep.equal([['a', '-x'], ['b']]);
+  });
+
+  it('matches sections as before when the documents have a different number of sections', async () => {
+    const incoming = await diffSections([[], [], ['a', 'x'], ['b']], [[], ['a'], ['b']]);
+    expect(incoming).to.deep.equal([['a', '-x'], ['b']]);
+    const local = await diffSections([[], ['a'], ['b']], [[], [], ['a', 'x'], ['b']]);
+    expect(local).to.deep.equal([['a', '+x'], ['b']]);
+  });
+
+  it('keeps an incoming block with its section when a block group spans sections differently', async () => {
+    const start = '<div class="block-group-start"><div><div>start</div></div></div>';
+    const end = '<div class="block-group-end"><div><div>end</div></div></div>';
+    const sections = await diffSections(
+      [['a'], [start, 'g'], [end], ['b', 'x'], ['c']],
+      [['a'], [start, 'g', end], [], ['b'], ['c']],
+    );
+    expect(sections).to.deep.equal([
+      ['a'],
+      ['-startgend', '+start', 'g', 'end'],
+      [],
+      ['-x', 'b'],
+      ['c'],
+    ]);
+  });
+
+  it('does not add an empty section between two changed block groups', async () => {
+    const start = (name) => `<div class="block-group-start"><div><div>${name}</div></div></div>`;
+    const end = '<div class="block-group-end"><div><div>end</div></div></div>';
+    const changed = await diffSections(
+      [['a', start('one'), 'g1', end, start('two'), 'g2', end], ['b']],
+      [['a', start('one'), 'g1x', end, start('two'), 'g2x', end], ['b']],
+    );
+    expect(changed).to.deep.equal([
+      ['a'],
+      ['-oneg1end', '+one', 'g1x', 'end'],
+      ['-twog2end', '+two', 'g2x', 'end'],
+      ['b'],
+    ]);
+    const sameThenChanged = await diffSections(
+      [[start('one'), 'g1', end, start('two'), 'g2', end], ['b']],
+      [[start('one'), 'g1', end, start('two'), 'g2x', end], ['b']],
+    );
+    expect(sameThenChanged).to.deep.equal([
+      ['one', 'g1', 'end'],
+      ['-twog2end', '+two', 'g2x', 'end'],
+      ['b'],
+    ]);
   });
 });
