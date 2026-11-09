@@ -3,11 +3,14 @@ import threeWayMerge from '../../nx/public/loc/smart-merge.js';
 
 const toBlocks = (str) => (str ? str.split(' ') : [])
   .map((hash) => ({ hash, block: hash === '|' ? { isSection: true } : {} }));
-const run = ({ base, source, dest }) => {
+const run = ({
+  base, source, dest, rejected,
+}) => {
   const { blocks, skipped } = threeWayMerge({
     base: base ? base.split(' ') : [],
     source: toBlocks(source),
     dest: toBlocks(dest),
+    rejected: new Set(rejected ? rejected.split(' ') : []),
   });
   return { result: blocks.map(({ hash }) => hash).join(' '), skipped };
 };
@@ -48,6 +51,22 @@ describe('threeWayMerge', () => {
   cases.forEach(([name, base, source, dest, expected, skipped]) => {
     it(name, () => {
       expect(run({ base, source, dest })).to.deep.equal({ result: expected, skipped });
+    });
+  });
+
+  const rejectedCases = [
+    ['keeps a rejected upstream edit out', 'A B', 'A2 B2', 'A B', 'A2', 'A B2', 0],
+    ['keeps a rejected upstream edit out next to a local edit', 'A B C', 'A2 B C', 'A B L', 'A2', 'A B L', 0],
+    ['keeps a rejected upstream insert out', 'A C', 'A N C', 'A C', 'N', 'A C', 0],
+    ['keeps a rejected insert out when both sides insert at one spot', 'A C', 'A N C', 'A Y C', 'N', 'A Y C', 0],
+    ['applies upstream edits when other blocks are rejected', 'A B', 'A2 B', 'A B', 'X', 'A2 B', 0],
+  ];
+
+  rejectedCases.forEach(([name, base, source, dest, rejected, expected, skipped]) => {
+    it(name, () => {
+      expect(run({
+        base, source, dest, rejected,
+      })).to.deep.equal({ result: expected, skipped });
     });
   });
 
@@ -151,6 +170,25 @@ describe('threeWayMerge invariants (seeded random)', () => {
           expect(result, `applied when nothing skipped: ${label}`).to.include(token);
         });
       }
+    }
+  });
+
+  it('never adds a rejected upstream block in 3000 random documents', () => {
+    for (let i = 0; i < 3000; i += 1) {
+      const base = Array.from({ length: Math.floor(random() * 7) }, () => pick(['A', 'B', 'C', 'D', 'E', '|']));
+      const source = mutate(base, 's');
+      const dest = mutate(base, 'd');
+      const rejected = new Set(source.filter((t) => t.startsWith('s') && random() < 0.5));
+      const { blocks } = threeWayMerge({
+        base, source: toBlocks(source.join(' ')), dest: toBlocks(dest.join(' ')), rejected,
+      });
+      const result = blocks.map(({ hash }) => hash);
+      const label = `base=${base} source=${source} dest=${dest} rejected=${[...rejected]} result=${result}`;
+
+      expect(result.filter((t) => rejected.has(t)), `no rejected blocks: ${label}`).to.deep.equal([]);
+      dest.filter((t) => t !== '|' && !base.includes(t)).forEach((token) => {
+        expect(count(result, token), `local content kept: ${label}`).to.equal(count(dest, token));
+      });
     }
   });
 });

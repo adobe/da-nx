@@ -6,6 +6,7 @@ import { getBlockHashes } from '../../../nx/public/loc/regional-diff.js';
 const DEST = '/org/site/apac/page.html';
 const toPage = (main, metadata = '') => `<body><header></header><main><div>${main}</div></main>${metadata}<footer></footer></body>`;
 const baseRow = (value) => `<div class="da-metadata"><div><div>rolloutbase</div><div>${value}</div></div></div>`;
+const rejectedRow = (hashes, base) => `<div class="da-metadata">${base ? `<div><div>rolloutbase</div><div>${base}</div></div>` : ''}<div><div>rejectedhashes</div><div>${hashes}</div></div></div>`;
 
 const hashesOf = async (main) => {
   const doc = document.implementation.createHTMLDocument();
@@ -147,6 +148,16 @@ describe('smartOverwriteCopy', () => {
     destHtml = toPage('<p id="anchor"></p><p>A</p><p>B</p>', baseRow(`/org/site/apac/page.html|${base.join(',')}`));
     await rollout(smartOverwriteCopy, '<p>A</p><p>B2</p>');
     expect(saved).to.include('<p id="anchor"></p><p>A</p><p>B2</p>');
+  });
+
+  it('keeps a global change out that the author rejected in a merge review', async () => {
+    const base = await hashesOf('<p>A</p><p>B</p>');
+    const rejected = (await hashesOf('<p>A2</p>')).at(-1);
+    destHtml = toPage('<p>A</p><p>B</p>', rejectedRow(rejected, `/org/site/apac/page.html|${base.join(',')}`));
+    const url = await rollout(smartOverwriteCopy, '<p>A2</p><p>B2</p>');
+    expect(saved).to.include('<p>A</p><p>B2</p>');
+    expect(saved).to.not.include('A2');
+    expect(url.skipped).to.equal(0);
   });
 
   it('reads a baseline value wrapped in a paragraph or whitespace', async () => {
@@ -453,6 +464,16 @@ describe('smartOverwriteCopy', () => {
       expect(saved).to.include('<p>A</p><p>B local</p>');
       expect(saved).to.not.include('B global');
       expect(url.skipped).to.equal(1);
+    });
+
+    it('keeps a parent edit out that the author rejected in a merge review', async () => {
+      versionList = [saveVersion(OLD, '<p>A</p><p>B</p>', 100)];
+      const rejected = (await hashesOf('<p>A2</p>')).at(-1);
+      destHtml = toPage('<p>A</p><p>B</p>', rejectedRow(rejected));
+      const url = await rollout(smartOverwriteCopy, '<p>A2</p><p>B2</p>');
+      expect(saved).to.include('<p>A</p><p>B2</p>');
+      expect(saved).to.not.include('A2');
+      expect(url.skipped).to.equal(0);
     });
 
     it('shows a merge review when the parent has no saved version', async () => {
