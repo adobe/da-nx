@@ -104,14 +104,14 @@ async function firstRollout({
   source, dest, destHtml, destMarked, metadataEl, site, config, readParent, expand, getHtml,
 }) {
   const sourceHashes = await getBlockHashes({ doc: source, site, config });
-  const destHashes = await getBlockHashes({ doc: dest, site, config });
-  if (sourceHashes.join() === destHashes.join()) {
-    return { html: destHtml, skipped: 0, sourceHashes };
-  }
   const review = () => mergeReview({
     source, dest, metadataEl, site, config, sourceHashes,
   });
   if (destMarked) return review();
+  const destHashes = await getBlockHashes({ doc: dest, site, config });
+  if (sourceHashes.join() === destHashes.join()) {
+    return { html: destHtml, skipped: 0, sourceHashes };
+  }
   const base = await getParentBase({
     readParent, expand, getHtml, site, config,
   });
@@ -128,7 +128,7 @@ async function smartRollout({
   const metadataEl = dest.querySelector(DA_METADATA_SELECTOR);
   const daMetadata = readMetadata(metadataEl);
   const base = getRolloutBase(metadataEl, path);
-  if (base) {
+  if (base && !destMarked) {
     const merged = await smartMerge({
       base, source, dest, site, config,
     });

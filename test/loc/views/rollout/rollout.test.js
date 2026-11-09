@@ -221,6 +221,6 @@ describe('nx-loc-rollout smart overwrite skipped pages', () => {
     el._urls = el.project.urls;
     const container = document.createElement('div');
     render(el.renderLocales(lang.rollout, lang.locales), container);
-    expect(container.querySelector('.skipped-count').textContent).to.include('1 global change skipped');
+    expect(container.querySelector('.skipped-count').textContent).to.include('1 skipped (localized)');
   });
 });

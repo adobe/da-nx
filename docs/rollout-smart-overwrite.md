@@ -26,7 +26,9 @@ flowchart TD
   exists -- "yes (first smart rollout)" --> parent{"global has a saved version that<br/>differs from global now?"}
   parent -- "yes" --> diff3
   parent -- "no" --> merge["Today's merge<br/>(da-diff markers to review once)"]
-  base -- "yes" --> unchanged{"apac has no localized blocks?<br/>(identical to global at the last rollout)"}
+  base -- "yes" --> pending{"apac still has unresolved<br/>da-diff markers?"}
+  pending -- "yes" --> merge
+  pending -- "no" --> unchanged{"apac has no localized blocks?<br/>(identical to global at the last rollout)"}
   unchanged -- "yes, nothing localized" --> take["Take global as-is"]
   unchanged -- "no, apac has localized blocks" --> diff3["Block-level three-way merge<br/>baseline vs global vs apac"]
   diff3 --> who{"Per block: who differs from the baseline?<br/>(baseline = global at the last rollout,<br/>or its saved version on the first one)"}
@@ -86,6 +88,11 @@ Guarantees (covered by seeded randomized tests in `test/loc/smart-merge.test.js`
 - If nothing is reported as skipped, every new upstream block was applied.
 
 Skipped counts are shown per locale (Loc app) and per destination (plugin) as "N skipped (localized)".
+
+- Unresolved review: while the destination still has `da-diff-*` markers (e.g. a first-run merge review that
+  was not resolved yet), every smart rollout is today's merge again, honoring earlier accept/reject decisions,
+  even when a baseline exists. Pending upstream changes keep showing until the author resolves them and are never
+  dropped; once the markers are gone, the next smart rollout uses the baseline.
 
 - No valid baseline yet (first smart rollout, or a baseline that is malformed or recorded for a different path):
   - Destination already identical to upstream: kept exactly as authored; the baseline is recorded.

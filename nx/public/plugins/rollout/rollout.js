@@ -89,7 +89,7 @@ export default class DaRollout extends LitElement {
           <ul class="prefix-list">
             ${items.map((prefix) => html`
               <li class="da-prefix ${prefix.active ? 'is-active' : ''} status-${prefix.status || 'none'}" title=${prefix.error || nothing}>
-                <span>${prefix.path.replace('/', '')}${prefix.skipped ? html` <span class="skipped-count">(${prefix.skipped} skipped: localized)</span>` : nothing}</span>
+                <span>${prefix.path.replace('/', '')}${prefix.skipped ? html` <span class="skipped-count">${prefix.skipped} skipped (localized)</span>` : nothing}</span>
                 <div class="prefix-actions">
                   <button type="button" @click=${() => this.open(prefix)}>
                     <svg class="icon"><use href="#spectrum-linkOut"/></svg>

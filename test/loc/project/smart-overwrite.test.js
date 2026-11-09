@@ -97,6 +97,11 @@ describe('smartOverwriteCopy', () => {
     expect(saved).to.include(`<div>rolloutbase</div><div>/org/site/apac/page.html|${hashes.join(',')}</div>`);
   };
 
+  // Keeps the local side of every difference, like an author resolving the review in DA.
+  const keepLocal = (html) => html
+    .replace(/<da-diff-deleted>[\s\S]*?<\/da-diff-deleted>/g, '')
+    .replaceAll(' da-diff-added=""', '');
+
   it('merges like today on the first run and records the base', async () => {
     destHtml = toPage('<p>A</p><p>B local</p>');
     const url = await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>');
@@ -104,14 +109,45 @@ describe('smartOverwriteCopy', () => {
     expect(versionSaves).to.equal(1);
   });
 
-  it('applies global changes made after the first run', async () => {
+  it('applies global changes made after the first run review is resolved', async () => {
     destHtml = toPage('<p>A</p><p>B local</p><p>C</p>');
     await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p><p>C</p>');
-    destHtml = saved;
+    destHtml = keepLocal(saved);
     await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p><p>C2</p>');
     expect(saved).to.include('<p>A</p><p>B local</p><p>C2</p>');
     expect(saved).to.not.include('da-diff');
     expect(versionSaves).to.equal(2);
+  });
+
+  it('keeps showing pending global changes while the first run review is unresolved', async () => {
+    destHtml = toPage('<p>A</p><p>B local</p>');
+    await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>');
+    destHtml = saved;
+    await expectFirstMerge(await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>'), '<p>A</p><p>B global</p>');
+  });
+
+  it('clears a stale review when upstream now matches the local content', async () => {
+    destHtml = toPage('<p>A</p><p>B local</p>');
+    await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>');
+    destHtml = saved;
+    const url = await rollout(smartOverwriteCopy, '<p>A</p><p>B local</p>');
+    expect(url.status).to.equal('success');
+    expect(saved).to.include('<main><div><p>A</p><p>B local</p></div></main>');
+    expect(saved).to.not.include('da-diff');
+    expect(saved).to.not.include('B global');
+  });
+
+  it('adds new global changes to an unresolved first run review', async () => {
+    destHtml = toPage('<p>A</p><p>B local</p><p>C</p>');
+    await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p><p>C</p>');
+    destHtml = saved;
+    const url = await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p><p>C2</p>');
+    expect(url.status).to.equal('success');
+    expect(saved).to.include('<da-diff-deleted><p>B global</p></da-diff-deleted>');
+    expect(saved).to.include('<p da-diff-added="">B local</p>');
+    expect(saved).to.include('C2');
+    const hashes = await hashesOf('<p>A</p><p>B global</p><p>C2</p>');
+    expect(saved).to.include(`/org/site/apac/page.html|${hashes.join(',')}`);
   });
 
   it('keeps whitespace-sensitive content exactly as-is on the first run', async () => {
@@ -127,7 +163,7 @@ describe('smartOverwriteCopy', () => {
     destHtml = toPage(`<p>A</p>${code}`, meta);
     await rollout(smartOverwriteCopy, '<p>A</p>');
     expect(saved).to.include('<div>Two  spaces</div>');
-    destHtml = saved;
+    destHtml = keepLocal(saved);
     await rollout(smartOverwriteCopy, '<p>A</p>');
     expect(saved).to.include(code);
     expect(saved).to.include('<div>Two  spaces</div>');
