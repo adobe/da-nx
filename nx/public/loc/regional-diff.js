@@ -498,11 +498,16 @@ const getEquivalentSites = (config) => {
 const shortHash = (item) => item.hash.substring(0, HASH_LENGTH);
 
 // Hashes come from a link-normalized copy so the merged output keeps the original links.
+// `reviewHash` is the hash a merge review stores in acceptedhashes/rejectedhashes.
 async function getHashedBlocks(doc, { site, config }) {
   const options = { smart: true };
   const normalized = await normalizeLinks(doc.cloneNode(true), site, getEquivalentSites(config));
   const hashed = getBlockMap(normalized, options);
-  return getBlocks(doc, options).map((block, idx) => ({ block, hash: shortHash(hashed[idx]) }));
+  return getBlocks(doc, options).map((block, idx) => ({
+    block,
+    hash: shortHash(hashed[idx]),
+    reviewHash: shortHash({ hash: hashBlock(hashed[idx].block) }),
+  }));
 }
 
 export async function getBlockHashes({ doc, site, config }) {
@@ -541,9 +546,14 @@ export async function smartMerge({
 }) {
   const sourceBlocks = await getHashedBlocks(source, { site, config });
   const destBlocks = await getHashedBlocks(dest, { site, config });
+  const rejectedBlocks = sourceBlocks
+    .filter(({ block, reviewHash }) => !block.isSection && rejected.includes(reviewHash));
   const { default: threeWayMerge } = await import('./smart-merge.js');
   const { blocks, skipped, baseline } = threeWayMerge({
-    base, source: sourceBlocks, dest: destBlocks, rejected: new Set(rejected),
+    base,
+    source: sourceBlocks,
+    dest: destBlocks,
+    rejected: new Set(rejectedBlocks.map(({ hash }) => hash)),
   });
   return { html: buildHtmlFromBlocks(blocks), skipped, sourceHashes: baseline };
 }

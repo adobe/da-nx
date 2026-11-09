@@ -266,27 +266,40 @@ function destRange({ start, end, hunks, dest, toDest }) {
 // When both sides insert at one spot that can't be combined safely, so the destination wins.
 const isAmbiguousInsert = (blocks) => blocks.some(isSection) && !isSection(blocks[0]);
 
+// Upstream blocks the author rejected in an earlier merge review stay out, like in regionalDiff.
+// A replacement that holds one can't be split safely: the destination keeps it, counted as skipped.
+function withoutRejected(hunks, rejected) {
+  const isRejected = ({ hash }) => rejected.has(hash);
+  return hunks.reduce((acc, hunk) => {
+    if (!hunk.blocks.some(isRejected)) return { ...acc, hunks: [...acc.hunks, hunk] };
+    const blocks = hunk.blocks.filter((block) => !isRejected(block));
+    if (hunk.start === hunk.end) {
+      return blocks.length ? { ...acc, hunks: [...acc.hunks, { ...hunk, blocks }] } : acc;
+    }
+    return blocks.some((block) => !isSection(block)) ? { ...acc, dropped: acc.dropped + 1 } : acc;
+  }, { hunks: [], dropped: 0 });
+}
+
 function resolveCluster({
   cluster, dest, toDest, rejected,
 }) {
   const { destHunks, type } = cluster;
-  // Upstream changes the author rejected in an earlier merge review stay out, like in regionalDiff.
-  const sourceHunks = cluster.sourceHunks
-    .filter((hunk) => !hunk.blocks.some(({ hash }) => rejected.has(hash)));
+  const { hunks: sourceHunks, dropped } = withoutRejected(cluster.sourceHunks, rejected);
   const keepDest = () => destRange({ ...cluster, hunks: destHunks, dest, toDest });
   const sourceBlocks = sourceHunks.flatMap((hunk) => hunk.blocks);
   if (type === 'dest' || type === 'same') return { blocks: keepDest(), skipped: 0 };
   if (type === 'source') {
-    return { blocks: destRange({ ...cluster, hunks: sourceHunks, dest, toDest }), skipped: 0 };
+    const blocks = destRange({ ...cluster, hunks: sourceHunks, dest, toDest });
+    return { blocks, skipped: dropped };
   }
   if (type === 'inserts') {
     const destBlocks = keepDest();
     if (isAmbiguousInsert(destBlocks) || isAmbiguousInsert(sourceBlocks)) {
-      return { blocks: destBlocks, skipped: sourceHunks.length };
+      return { blocks: destBlocks, skipped: sourceHunks.length + dropped };
     }
-    return { blocks: mergeInserts(destBlocks, sourceBlocks), skipped: 0 };
+    return { blocks: mergeInserts(destBlocks, sourceBlocks), skipped: dropped };
   }
-  return { blocks: keepDest(), skipped: sourceHunks.length };
+  return { blocks: keepDest(), skipped: sourceHunks.length + dropped };
 }
 
 const opensEmptySection = (blocks, idx) => isSection(blocks[idx])

@@ -64,7 +64,7 @@ upstream (S) and destination (D). Logic lives in `nx/public/loc/smart-merge.js` 
 | changed identically | changed identically | keep destination |
 | inserted at a spot | inserted at the same spot | keep both (destination first, no duplicates) |
 | changed | changed differently | keep destination, count as **skipped** |
-| changed to a block rejected in a merge review (`rejectedhashes`) | any | keep destination |
+| adds a block rejected in a merge review (`rejectedhashes`) | any | leave that block out, apply the rest; a replacement that also adds other blocks keeps the destination, counted as **skipped** |
 
 4. Upstream reorders: if the destination has no localized blocks (it is still identical to upstream as of the last
    rollout), the result is exactly upstream (reorders included). Otherwise, like merge, upstream moves are not
