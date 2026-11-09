@@ -17,7 +17,7 @@ const deferred = () => {
   const promise = new Promise((done) => { resolve = done; });
   return { promise, resolve };
 };
-const tick = () => new Promise((resolve) => { setTimeout(resolve, 0); });
+const tick = () => new Promise((resolve) => { requestAnimationFrame(resolve); });
 
 describe('standalone input and full AO chat sharing', () => {
   let elements;

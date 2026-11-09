@@ -209,11 +209,12 @@
   color: var(--s2-gray-700);
 
   .nx-loading-spinner {
+    --nx-spinner-active-color: var(--s2-blue-900);
+
     flex-shrink: 0;
     box-sizing: border-box;
     width: 16px;
     height: 16px;
-    border-top-color: var(--s2-blue-900);
   }
 }
 

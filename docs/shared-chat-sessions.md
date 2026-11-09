@@ -37,9 +37,20 @@ Drafts, context pills and attachments belong to each input. A rejected submissio
 sending UI's path/view context. An accepted standalone submission dispatches the
 bubbling, composed `CHAT_EVENT.MESSAGE_SENT` (`nx-chat-message-sent`) event with
 `{ org, site }`, so a host can reveal the full chat, for example by opening its
-chat panel. Rejected submissions do not dispatch it. While a reply runs, both the standalone input and the full chat's input replace the textarea with a spinner and working message. While the agent waits on the user (a pending question or tool permission), the full chat shows its question or permission card and keeps the input disabled; the standalone input has no card, so it shows a short "input needed" message with an Open chat button that dispatches `PANEL_EVENT.OPEN` (`{ section: 'chat' }`) for the host to reveal the full chat. A standalone input also reflects a `standalone` attribute and uses the gradient composer look from `input.css`; the embedded input keeps the plain look. Stop, approvals, Clear/New chat and episode
-selection operate on the shared controller. Removing one UI only unsubscribes it;
-the last removal destroys the controller and releases document listeners.
+chat panel. Rejected submissions do not dispatch it.
+
+While a reply runs, both the standalone input and the full chat's input replace
+the textarea with a spinner and working message. While the agent waits on the
+user (a pending question or tool permission), the full chat shows its question or
+permission card and keeps the input disabled. The standalone input has no card,
+so it shows a short "input needed" message with an Open chat button that
+dispatches `PANEL_EVENT.OPEN` (`{ section: 'chat' }`) for the host to reveal the
+full chat. A standalone input also reflects a `standalone` attribute and uses the
+gradient composer look from `input.css`; the embedded input keeps the plain look.
+
+Stop, approvals, Clear/New chat and episode selection operate on the shared
+controller. Removing one UI only unsubscribes it; the last removal destroys the
+controller and releases document listeners.
 
 The first conversation preserves existing Coworker auto-resume and CMA's per-site
 sessionStorage pointer. Additional conversations in the same scope and explicitly
