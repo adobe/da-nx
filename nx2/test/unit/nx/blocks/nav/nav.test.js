@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import { sendKeys } from '@web/test-runner-commands';
 import { getConfig, setConfig } from '../../../../../scripts/nx.js';
 
 // fragment.js (a transitive dependency of nav.js) captures getConfig() into a
@@ -6,6 +7,7 @@ import { getConfig, setConfig } from '../../../../../scripts/nx.js';
 // nav.js is ever imported — see the same pattern in feedback.test.js.
 await setConfig({ hostnames: [] });
 await import('../../../../../blocks/breadcrumb/breadcrumb.js');
+await import('../../../../../blocks/siteselector/siteselector.js');
 const { default: NxBreadcrumb } = await import('../../../../../blocks/shared/breadcrumb/breadcrumb.js');
 // Isolate nav composition from the components' auth and lifecycle behavior.
 ['nx-nav-test', 'nx-editortoggle'].forEach((tag) => {
@@ -276,9 +278,12 @@ describe('nav site navigation', () => {
   let nav;
   let restoreFetch;
   let originalHref;
+  let recentSites;
 
   beforeEach(() => {
     originalHref = window.location.href;
+    recentSites = localStorage.getItem('da-sites');
+    localStorage.removeItem('da-sites');
     nav = document.createElement('nx-nav');
   });
 
@@ -287,6 +292,8 @@ describe('nav site navigation', () => {
     restoreFetch?.();
     window.history.replaceState(null, '', originalHref);
     document.querySelectorAll('nx-dialog').forEach((el) => el.remove());
+    if (recentSites === null) localStorage.removeItem('da-sites');
+    else localStorage.setItem('da-sites', recentSites);
   });
 
   async function mountFragment({
@@ -303,6 +310,18 @@ describe('nav site navigation', () => {
     document.body.append(nav);
     await nav.updateComplete;
   }
+
+  it('collapses the site selector slot and skips it in tab order when there are no sites', async () => {
+    await mountFragment({ middle: '<ul><li>siteselector</li><li><button type="button">Next</button></li></ul>' });
+    const list = nav.shadowRoot.querySelector('.site-nav ul');
+    const selector = list.querySelector('nx-siteselector');
+    await selector.updateComplete;
+    const [slot, next] = list.children;
+    expect(getComputedStyle(slot).display).to.equal('none');
+    nav._brand.focus();
+    await sendKeys({ press: 'Tab' });
+    expect(nav.shadowRoot.activeElement).to.equal(next.querySelector('button'));
+  });
 
   it('populates the middle section directly after the brand, using action decoration instead of legacy breadcrumbs', async () => {
     await mountFragment({
