@@ -1,3 +1,40 @@
+## [1.44.1](https://github.com/adobe/da-nx/compare/v1.44.0...v1.44.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **quick-edit:** sync image versions after host editor updates ([21f1edf](https://github.com/adobe/da-nx/commit/21f1edfdc560ce1a7f9e6ff64bb44bc609fe0e8c))
+
+# [1.44.0](https://github.com/adobe/da-nx/compare/v1.43.0...v1.44.0) (2026-11-09)
+
+
+### Bug Fixes
+
+* **picker:** isolate navigation styling from existing variants ([0d80f5d](https://github.com/adobe/da-nx/commit/0d80f5d65025f266dddb1496516d07c84fd9437c))
+* **siteselector:** align dialog buttons and generalize picker variant ([3b49ec0](https://github.com/adobe/da-nx/commit/3b49ec0495de8dce6b12ea370479a3b128c5f653))
+* **siteselector:** align menu typography and labels ([7688707](https://github.com/adobe/da-nx/commit/76887078a2b9310fdc8aa295f7bc337c0a04dc00))
+* **siteselector:** build creation links without a DA listener ([f9b2b62](https://github.com/adobe/da-nx/commit/f9b2b621b85d975917555e93437132feb33df1f1))
+* **siteselector:** close Add and sync selection when only the hash changes ([218be06](https://github.com/adobe/da-nx/commit/218be06fcfac2e372b2ad618d515adf0af3ac389))
+* **siteselector:** contain focus ring and simplify selected label ([b4a7a15](https://github.com/adobe/da-nx/commit/b4a7a15ac5afb8c0c0ec6d15a6c2b05f8ce67a51))
+* **siteselector:** hide picker when no sites are available ([a10b3af](https://github.com/adobe/da-nx/commit/a10b3af8156c9a6f002a4c579dc1ab50fa0f6970))
+* **siteselector:** keep dropdown typography at size m ([97f82bb](https://github.com/adobe/da-nx/commit/97f82bbdfe15469864d94fbf4a5ec9a15433e746))
+* **siteselector:** open added site in browse ([e67bd90](https://github.com/adobe/da-nx/commit/e67bd90f9a64571507129e9ef28a952fcbc2dda4))
+* **siteselector:** render add icon inline across origins ([38a6372](https://github.com/adobe/da-nx/commit/38a6372db0c9764caff8c6b84f6e8907636e9ce3))
+* **siteselector:** restore section title color and taller menu rows ([97d950a](https://github.com/adobe/da-nx/commit/97d950a3f8021965f852de77c7ba06f01b9d84de))
+* **siteselector:** show shared add button for empty sites ([5b21811](https://github.com/adobe/da-nx/commit/5b218112a16aa6ba83d073db7b889d32605e1e8a))
+
+
+### Features
+
+* **siteselector:** add standalone shared site selector ([83e6875](https://github.com/adobe/da-nx/commit/83e687599d1f389aa725ba2753465f1f68e75b6b))
+
+# [1.43.0](https://github.com/adobe/da-nx/compare/v1.42.1...v1.43.0) (2026-11-09)
+
+
+### Features
+
+* **styles:** export emphasized shadow token ([f7c52e6](https://github.com/adobe/da-nx/commit/f7c52e602a8514dd8a08d3887c277380e6768de7))
+
 ## [1.42.1](https://github.com/adobe/da-nx/compare/v1.42.0...v1.42.1) (2026-11-06)
 
 

@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import { sendKeys } from '@web/test-runner-commands';
 import { setConfig } from '../../../../../../scripts/nx.js';
 
 // picker.js reads getConfig() at import time.
@@ -90,6 +91,108 @@ describe('nx-picker swatch', () => {
       .to.equal('true');
     expect(el.shadowRoot.querySelector('[data-value="blue"] svg')).to.not.be.null;
     expect(el.shadowRoot.querySelector('[data-value="red"] svg')).to.be.null;
+  });
+
+  it('supports optional descriptions and text-only actions', async () => {
+    const el = await createPicker({
+      value: 'draft',
+      items: [
+        { value: 'draft', label: 'Draft', description: 'Not published' },
+        { value: 'add', label: 'Add status', action: true },
+      ],
+    });
+    expect(el.shadowRoot.querySelector('.picker-item-description').textContent).to.equal('Not published');
+    expect(el.shadowRoot.querySelector('[data-value="draft"]').getAttribute('aria-label')).to.equal('Draft, Not published');
+    expect(el.shadowRoot.querySelector('[data-value="add"] svg')).to.be.null;
+    const change = new Promise((resolve) => { el.addEventListener('change', resolve, { once: true }); });
+    el.shadowRoot.querySelector('[data-value="add"]').click();
+    expect((await change).detail.value).to.equal('add');
+    expect(el.value).to.equal('draft');
+  });
+
+  it('updates the trigger expanded state when opened and closed', async () => {
+    const el = await createPicker();
+    el.show();
+    await el._popover.updateComplete;
+    expect(el._button.getAttribute('aria-expanded')).to.equal('true');
+    el.close();
+    expect(el._button.getAttribute('aria-expanded')).to.equal('false');
+  });
+
+  it('preserves explicit accessible names and does not treat an action as a selection', async () => {
+    const el = await createPicker({
+      items: [
+        { value: 'draft', label: 'Draft', description: 'Not published', ariaLabel: 'Current draft' },
+        { value: 'add', label: 'Add...', action: true },
+      ],
+      value: 'draft',
+    });
+    expect(el.shadowRoot.querySelector('[data-value="draft"]').getAttribute('aria-label')).to.equal('Current draft');
+    const action = el.shadowRoot.querySelector('[data-value="add"]');
+    const changes = [];
+    el.addEventListener('change', ({ detail }) => changes.push(detail.value));
+    action.click();
+    expect(changes).to.deep.equal(['add']);
+    expect(el.value).to.equal('draft');
+  });
+
+  it('allows checkmark color overrides without changing menu text or default colors', async () => {
+    const el = await createPicker({ value: 'plain' });
+    const check = el.shadowRoot.querySelector('.picker-check');
+    const row = el.shadowRoot.querySelector('[data-value="plain"]');
+    const defaultColor = getComputedStyle(check).color;
+    const textColor = getComputedStyle(row).color;
+    el.style.setProperty('--nx-picker-check-color', 'rgb(0, 0, 255)');
+    expect(getComputedStyle(check).color).to.equal('rgb(0, 0, 255)');
+    expect(getComputedStyle(row).color).to.equal(textColor);
+    el.style.removeProperty('--nx-picker-check-color');
+    expect(getComputedStyle(check).color).to.equal(defaultColor);
+  });
+
+  it('keeps end checks by default and reserves leading space only for selectable start-check rows', async () => {
+    const el = await createPicker({
+      items: [...ITEMS, { value: 'add', label: 'Add...', action: true }],
+      value: 'red',
+    });
+    const row = () => el.shadowRoot.querySelector('[data-value="red"]');
+    expect(row().lastElementChild.classList.contains('picker-check')).to.be.true;
+    el.checkPosition = 'start';
+    await el.updateComplete;
+    expect(row().firstElementChild.classList.contains('picker-check-slot')).to.be.true;
+    expect(row().querySelectorAll('.picker-check')).to.have.length(1);
+    expect(el.shadowRoot.querySelector('[data-value="plain"] .picker-check-slot')).to.exist;
+    expect(el.shadowRoot.querySelector('[data-value="add"] .picker-check-slot')).to.be.null;
+    el.multiple = true;
+    el.values = ['red', 'blue'];
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelectorAll('.picker-check-slot .picker-check')).to.have.length(2);
+  });
+
+  it('accepts a menu-width override', async () => {
+    const el = await createPicker();
+    el.style.setProperty('--nx-picker-menu-width', '18rem');
+    el.show();
+    expect(el.shadowRoot.querySelector('nx-popover').style.width).to.equal('18rem');
+    el.close();
+  });
+
+  it('keeps keyboard selection and expanded state working with described items', async () => {
+    const el = await createPicker({
+      items: [{ value: 'draft', label: 'Draft', description: 'Not published' }, { value: 'live', label: 'Live' }],
+      value: 'draft',
+    });
+    const toggled = new Promise((resolve) => {
+      el.shadowRoot.querySelector('nx-popover').addEventListener('toggle', resolve, { once: true });
+    });
+    el.shadowRoot.querySelector('.picker-trigger').click();
+    await toggled;
+    await new Promise(requestAnimationFrame);
+    expect(el.shadowRoot.querySelector('.picker-trigger').getAttribute('aria-expanded')).to.equal('true');
+    await sendKeys({ press: 'ArrowDown' });
+    await sendKeys({ press: 'Enter' });
+    await el.updateComplete;
+    expect(el.value).to.equal('live');
+    expect(el.shadowRoot.querySelector('.picker-trigger').getAttribute('aria-expanded')).to.equal('false');
   });
 });
 
