@@ -530,19 +530,20 @@ function buildHtmlFromBlocks(blocks) {
  * @param {String[]} params.base ordered block hashes of the source at the last rollout
  * @param {Document} params.source the current upstream document
  * @param {Document} params.dest the current destination document
+ * @param {String[]} [params.rejected] block hashes the author rejected in a merge review
  * @param {String} params.site the DA site, used for link normalization
  * @param {Object} params.config the translation config (equivalent fragment hostnames)
  * @returns {Promise<{ html: String, skipped: Number, sourceHashes: String[] }>} sourceHashes is the
  *   next baseline
  */
 export async function smartMerge({
-  base, source, dest, site, config,
+  base, source, dest, rejected = [], site, config,
 }) {
   const sourceBlocks = await getHashedBlocks(source, { site, config });
   const destBlocks = await getHashedBlocks(dest, { site, config });
   const { default: threeWayMerge } = await import('./smart-merge.js');
   const { blocks, skipped, baseline } = threeWayMerge({
-    base, source: sourceBlocks, dest: destBlocks,
+    base, source: sourceBlocks, dest: destBlocks, rejected: new Set(rejected),
   });
   return { html: buildHtmlFromBlocks(blocks), skipped, sourceHashes: baseline };
 }

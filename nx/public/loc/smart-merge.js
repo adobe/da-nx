@@ -266,12 +266,19 @@ function destRange({ start, end, hunks, dest, toDest }) {
 // When both sides insert at one spot that can't be combined safely, so the destination wins.
 const isAmbiguousInsert = (blocks) => blocks.some(isSection) && !isSection(blocks[0]);
 
-function resolveCluster({ cluster, dest, toDest }) {
-  const { sourceHunks, destHunks, type } = cluster;
+function resolveCluster({
+  cluster, dest, toDest, rejected,
+}) {
+  const { destHunks, type } = cluster;
+  // Upstream changes the author rejected in an earlier merge review stay out, like in regionalDiff.
+  const sourceHunks = cluster.sourceHunks
+    .filter((hunk) => !hunk.blocks.some(({ hash }) => rejected.has(hash)));
   const keepDest = () => destRange({ ...cluster, hunks: destHunks, dest, toDest });
   const sourceBlocks = sourceHunks.flatMap((hunk) => hunk.blocks);
   if (type === 'dest' || type === 'same') return { blocks: keepDest(), skipped: 0 };
-  if (type === 'source') return { blocks: sourceBlocks, skipped: 0 };
+  if (type === 'source') {
+    return { blocks: destRange({ ...cluster, hunks: sourceHunks, dest, toDest }), skipped: 0 };
+  }
   if (type === 'inserts') {
     const destBlocks = keepDest();
     if (isAmbiguousInsert(destBlocks) || isAmbiguousInsert(sourceBlocks)) {
@@ -294,14 +301,20 @@ const tidySections = (blocks) => blocks.filter((_, idx) => !opensEmptySection(bl
  * @param {String[]} params.base ordered block hashes at the last rollout
  * @param {{ hash: String }[]} params.source current upstream blocks
  * @param {{ hash: String }[]} params.dest current destination blocks
+ * @param {Set<String>} [params.rejected] upstream block hashes that are never applied
  * @returns {{ blocks: Object[], skipped: Number, baseline: String[] }} `baseline` is the upstream
  *   order that was merged (with unapplied moves reverted); it becomes the next base
  */
-export default function threeWayMerge({ base, source, dest }) {
+export default function threeWayMerge({
+  base, source, dest, rejected = new Set(),
+}) {
   const baseKey = base.join();
   const baseline = toHashes(source);
   if (baseline.join() === baseKey) return { blocks: dest, skipped: 0, baseline };
-  if (toHashes(dest).join() === baseKey) return { blocks: source, skipped: 0, baseline };
+  const hasRejected = source.some(({ hash }) => rejected.has(hash));
+  if (!hasRejected && toHashes(dest).join() === baseKey) {
+    return { blocks: source, skipped: 0, baseline };
+  }
   if (baseline.join() === toHashes(dest).join()) return { blocks: dest, skipped: 0, baseline };
   const { blocks: merged, matches } = withoutMoves({ base, source });
   const destDiff = getHunks({ base, blocks: dest, side: 'dest' });
@@ -316,7 +329,9 @@ export default function threeWayMerge({ base, source, dest }) {
     blocks.push(...destRange({
       start: acc.pos, end: cluster.start, hunks: [], dest, toDest,
     }));
-    const resolved = resolveCluster({ cluster, dest, toDest });
+    const resolved = resolveCluster({
+      cluster, dest, toDest, rejected,
+    });
     blocks.push(...resolved.blocks);
     return { pos: cluster.end, skipped: acc.skipped + resolved.skipped };
   }, { pos: 0, skipped: 0 });

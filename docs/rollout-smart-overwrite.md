@@ -64,6 +64,7 @@ upstream (S) and destination (D). Logic lives in `nx/public/loc/smart-merge.js` 
 | changed identically | changed identically | keep destination |
 | inserted at a spot | inserted at the same spot | keep both (destination first, no duplicates) |
 | changed | changed differently | keep destination, count as **skipped** |
+| changed to a block rejected in a merge review (`rejectedhashes`) | any | keep destination |
 
 4. Upstream reorders: if the destination has no localized blocks (it is still identical to upstream as of the last
    rollout), the result is exactly upstream (reorders included). Otherwise, like merge, upstream moves are not
@@ -83,7 +84,8 @@ Guarantees (covered by seeded randomized tests in `test/loc/smart-merge.test.js`
   blocks never come back.
 - A block present exactly once in the baseline, upstream and destination is always kept.
 - The merge never creates an empty section.
-- If nothing is reported as skipped, every new upstream block was applied.
+- If nothing is reported as skipped, every new upstream block was applied, except blocks in the destination's
+  `rejectedhashes`, which are never added.
 
 Skipped counts are shown per locale (Loc app) and per destination (plugin) as "N skipped (localized)".
 

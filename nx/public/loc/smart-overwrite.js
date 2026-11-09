@@ -49,6 +49,8 @@ async function copySource({ source, site, config }) {
   return { html, skipped: 0, sourceHashes, daMetadata };
 }
 
+const getRejected = (el) => getElementMetadata(el).rejectedhashes?.text?.split(',') || [];
+
 async function mergeReview({
   source, dest, metadataEl, site, config, sourceHashes,
 }) {
@@ -117,7 +119,7 @@ async function firstRollout({
   });
   if (!base || base.join() === sourceHashes.join()) return review();
   return smartMerge({
-    base, source, dest, site, config,
+    base, source, dest, rejected: getRejected(metadataEl), site, config,
   });
 }
 
@@ -130,7 +132,7 @@ async function smartRollout({
   const base = getRolloutBase(metadataEl, path);
   if (base) {
     const merged = await smartMerge({
-      base, source, dest, site, config,
+      base, source, dest, rejected: getRejected(metadataEl), site, config,
     });
     return { ...merged, daMetadata };
   }
