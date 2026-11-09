@@ -60,6 +60,9 @@ describe('threeWayMerge', () => {
     ['keeps a rejected upstream insert out', 'A C', 'A N C', 'A C', 'N', 'A C', 0],
     ['keeps a rejected insert out when both sides insert at one spot', 'A C', 'A N C', 'A Y C', 'N', 'A Y C', 0],
     ['applies upstream edits when other blocks are rejected', 'A B', 'A2 B', 'A B', 'X', 'A2 B', 0],
+    ['keeps an upstream insert next to a rejected one', 'A B', 'A N R B', 'A B', 'R', 'A N B', 0],
+    ['keeps the rest of an upstream section with a rejected block', 'A', 'A | N R', 'A', 'R', 'A | N', 0],
+    ['counts a replacement with a rejected block as skipped', 'A B C', 'A N R C', 'A B C', 'R', 'A B C', 1],
   ];
 
   rejectedCases.forEach(([name, base, source, dest, rejected, expected, skipped]) => {
@@ -179,16 +182,21 @@ describe('threeWayMerge invariants (seeded random)', () => {
       const source = mutate(base, 's');
       const dest = mutate(base, 'd');
       const rejected = new Set(source.filter((t) => t.startsWith('s') && random() < 0.5));
-      const { blocks } = threeWayMerge({
+      const { blocks, skipped } = threeWayMerge({
         base, source: toBlocks(source.join(' ')), dest: toBlocks(dest.join(' ')), rejected,
       });
       const result = blocks.map(({ hash }) => hash);
-      const label = `base=${base} source=${source} dest=${dest} rejected=${[...rejected]} result=${result}`;
+      const label = `base=${base} source=${source} dest=${dest} rejected=${[...rejected]} result=${result} skipped=${skipped}`;
 
       expect(result.filter((t) => rejected.has(t)), `no rejected blocks: ${label}`).to.deep.equal([]);
       dest.filter((t) => t !== '|' && !base.includes(t)).forEach((token) => {
         expect(count(result, token), `local content kept: ${label}`).to.equal(count(dest, token));
       });
+      if (skipped === 0) {
+        source.filter((t) => t !== '|' && !base.includes(t) && !rejected.has(t)).forEach((token) => {
+          expect(result, `applied when nothing skipped: ${label}`).to.include(token);
+        });
+      }
     }
   });
 });

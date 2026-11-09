@@ -2,6 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { createCopy } from '../../../nx/public/loc/copy.js';
 import { getBlockHashes } from '../../../nx/public/loc/regional-diff.js';
+import { getDiffHash } from '../../../nx/public/loc/hashes.js';
 
 const DEST = '/org/site/apac/page.html';
 const toPage = (main, metadata = '') => `<body><header></header><main><div>${main}</div></main>${metadata}<footer></footer></body>`;
@@ -150,10 +151,29 @@ describe('smartOverwriteCopy', () => {
     expect(saved).to.include('<p id="anchor"></p><p>A</p><p>B2</p>');
   });
 
+  it('keeps upstream inserts next to a rejected one on consecutive rollouts', async () => {
+    const base = await hashesOf('<p>A</p><p>B</p>');
+    destHtml = toPage('<p>A</p><p>B</p>', rejectedRow(getDiffHash('<p>R</p>'), `/org/site/apac/page.html|${base.join(',')}`));
+    await rollout(smartOverwriteCopy, '<p>A</p><p>N</p><p>R</p><p>B</p>');
+    expect(saved).to.include('<p>A</p><p>N</p><p>B</p>');
+    destHtml = saved;
+    const url = await rollout(smartOverwriteCopy, '<p>A</p><p>N</p><p>R</p><p>B</p>');
+    expect(saved).to.include('<p>A</p><p>N</p><p>B</p>');
+    expect(saved).to.not.include('<p>R</p>');
+    expect(url.skipped).to.equal(0);
+  });
+
+  it('keeps a code block out that the author rejected in a merge review', async () => {
+    const base = await hashesOf('<p>A</p><p>B</p>');
+    destHtml = toPage('<p>A</p><p>B</p>', rejectedRow(getDiffHash('<pre><code>R</code></pre>'), `/org/site/apac/page.html|${base.join(',')}`));
+    await rollout(smartOverwriteCopy, '<p>A</p><pre><code>R</code></pre><p>B</p>');
+    expect(saved).to.include('<p>A</p><p>B</p>');
+    expect(saved).to.not.include('<pre>');
+  });
+
   it('keeps a global change out that the author rejected in a merge review', async () => {
     const base = await hashesOf('<p>A</p><p>B</p>');
-    const rejected = (await hashesOf('<p>A2</p>')).at(-1);
-    destHtml = toPage('<p>A</p><p>B</p>', rejectedRow(rejected, `/org/site/apac/page.html|${base.join(',')}`));
+    destHtml = toPage('<p>A</p><p>B</p>', rejectedRow(getDiffHash('<p>A2</p>'), `/org/site/apac/page.html|${base.join(',')}`));
     const url = await rollout(smartOverwriteCopy, '<p>A2</p><p>B2</p>');
     expect(saved).to.include('<p>A</p><p>B2</p>');
     expect(saved).to.not.include('A2');
@@ -468,8 +488,7 @@ describe('smartOverwriteCopy', () => {
 
     it('keeps a parent edit out that the author rejected in a merge review', async () => {
       versionList = [saveVersion(OLD, '<p>A</p><p>B</p>', 100)];
-      const rejected = (await hashesOf('<p>A2</p>')).at(-1);
-      destHtml = toPage('<p>A</p><p>B</p>', rejectedRow(rejected));
+      destHtml = toPage('<p>A</p><p>B</p>', rejectedRow(getDiffHash('<p>A2</p>')));
       const url = await rollout(smartOverwriteCopy, '<p>A2</p><p>B2</p>');
       expect(saved).to.include('<p>A</p><p>B2</p>');
       expect(saved).to.not.include('A2');
