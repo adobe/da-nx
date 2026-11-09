@@ -1,3 +1,10 @@
+# [1.43.0](https://github.com/adobe/da-nx/compare/v1.42.1...v1.43.0) (2026-11-09)
+
+
+### Features
+
+* **styles:** export emphasized shadow token ([f7c52e6](https://github.com/adobe/da-nx/commit/f7c52e602a8514dd8a08d3887c277380e6768de7))
+
 ## [1.42.1](https://github.com/adobe/da-nx/compare/v1.42.0...v1.42.1) (2026-11-06)
 
 
