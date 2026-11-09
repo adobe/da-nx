@@ -297,7 +297,7 @@ function checkDocumentStatus({ apiCtx, documentId, documentKey }) {
  * @param {object} params.apiCtx - The API context.
  * @param {string} params.documentId - The DeepL document ID.
  * @param {string} params.documentKey - The DeepL document key.
- * @returns {Promise<{text?: string, error?: string}>} The translated HTML content.
+ * @returns {Promise<{text?: string, error?: string, status?: number}>} The translated HTML content.
  */
 function downloadDocumentResult({ apiCtx, documentId, documentKey }) {
   return postDocumentKey({
@@ -476,6 +476,9 @@ export async function getStatusAll({ service, langs, urls, actions }) {
 
 /**
  * Downloads translated documents from DeepL, cleans DNT markers, and invokes saveFn.
+ * DeepL allows one result download per document, so a successful save stamps
+ * `downloadedAt` on the document record (persisted with the project). A 404 on
+ * re-download counts as saved only when that stamp exists.
  * @param {object} conf - Save items configuration.
  * @returns {Promise<object[]>}
  */
@@ -513,9 +516,17 @@ export async function saveItems({
         return;
       }
 
-      const { text: translatedHtml } = await downloadDocumentResult({
+      const { text: translatedHtml, status } = await downloadDocumentResult({
         apiCtx, documentId, documentKey,
       });
+      if (status === 404) {
+        if (docRecord.downloadedAt) {
+          url.status = 'success';
+        } else {
+          fail(url, 'DeepL result already downloaded but no save was recorded');
+        }
+        return;
+      }
       if (!translatedHtml) {
         fail(url, 'download failed');
         return;
@@ -527,6 +538,7 @@ export async function saveItems({
         fail(url, 'save failed');
         return;
       }
+      docRecord.downloadedAt = Date.now();
       if (sendMessage) {
         const remaining = urls.filter((u) => !u.status).length;
         sendMessage({ text: `${remaining} items left to save for ${lang.name}.` });

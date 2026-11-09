@@ -851,9 +851,69 @@ describe('deepl connector', () => {
       expect(messages.some((m) => m?.type === 'error')).to.equal(true);
     });
 
-    it('reports a failed download with the path and reason', async () => {
+    const run404 = async (downloadedAt) => {
       installFetch((u) => {
         if (u.endsWith('/result')) return new Response('nope', { status: 404 });
+        return defaultHandler(u);
+      });
+      const messages = [];
+      const urls = [{ daBasePath: '/page', ext: 'html', destination: '/org/site/fr/page.html' }];
+      const docRecord = { documentId: 'doc-1', documentKey: 'key-1', status: 'done', downloadedAt };
+      const lang = { name: 'French', translation: { documents: { '/page': docRecord } } };
+      const state = { saved: 0 };
+
+      const result = await saveItems({
+        org,
+        site,
+        service: baseService(),
+        lang,
+        urls,
+        saveFn: async (u) => { state.saved += 1; u.status = 'success'; },
+        sendMessage: (m) => messages.push(m),
+      });
+      return { result, messages, state };
+    };
+
+    it('treats a 404 on re-download as already downloaded when a save was recorded', async () => {
+      const { result, messages, state } = await run404(1700000000000);
+
+      expect(result[0].status).to.equal('success');
+      expect(state.saved).to.equal(0);
+      expect(messages.some((m) => m?.type === 'error')).to.equal(false);
+    });
+
+    it('fails a 404 on re-download when no save was recorded', async () => {
+      const { result, messages, state } = await run404(undefined);
+
+      expect(result[0].status).to.equal('error');
+      expect(state.saved).to.equal(0);
+      expect(messages.some((m) => m?.type === 'error')).to.equal(true);
+    });
+
+    it('records downloadedAt after a successful save only', async () => {
+      installFetch(defaultHandler);
+      const docRecord = { documentId: 'doc-1', documentKey: 'key-1', status: 'done' };
+      const lang = { name: 'French', translation: { documents: { '/page': docRecord } } };
+      const run = (saveFn) => saveItems({
+        org,
+        site,
+        service: baseService(),
+        lang,
+        urls: [{ daBasePath: '/page', ext: 'html' }],
+        saveFn,
+        sendMessage: () => {},
+      });
+
+      await run(async () => {});
+      expect(docRecord.downloadedAt).to.equal(undefined);
+
+      await run(async (u) => { u.status = 'success'; });
+      expect(docRecord.downloadedAt).to.be.a('number');
+    });
+
+    it('reports a failed download with the path and reason', async () => {
+      installFetch((u) => {
+        if (u.endsWith('/result')) return new Response('nope', { status: 403 });
         return defaultHandler(u);
       });
       const messages = [];
