@@ -35,6 +35,7 @@ export class NxAddSite extends LitElement {
 
   openSite(href) {
     window.location.href = href;
+    this.close();
   }
 
   render() {
@@ -49,7 +50,7 @@ export class NxAddSite extends LitElement {
               @input=${() => { this._error = undefined; }}>
             <span id="site-error" class="nx-input-error-msg" role="alert" ?hidden=${!this._error}>${this._error || ''}</span>
           </div>
-          <p id="site-help">Add an existing site to this browser's list. This does not create a site or grant access.</p>
+          <p id="site-help">Open an existing site in Browse. This does not create a site or grant access.</p>
           <hr style="border: 0; border-top: 1px solid var(--s2-gray-300);"/>
         </form>
         ${this.createHref ? html`
