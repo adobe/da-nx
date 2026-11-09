@@ -191,12 +191,29 @@ function checkLists(res) {
   return result;
 }
 
+const isDeletedItem = (item) => item.type === DELETED;
+
+// When two section breaks are matched, keep the deleted blocks in the section they came from
+function pairSectionBreak(result, i, deletedFirst) {
+  const before = result.slice(0, i);
+  const between = result.slice(i + 1);
+  const deleted = between.filter(isDeletedItem);
+  const others = between.filter((item) => !isDeletedItem(item));
+  const pairedBreak = { ...result[i], type: SAME };
+  return deletedFirst
+    ? [...before, ...others, pairedBreak, ...deleted]
+    : [...before, ...deleted, pairedBreak, ...others];
+}
+
 function addToResult(result, newItem, type) {
   for (let i = 0; i < result.length; i += 1) {
     const resultItem = result[i];
     if (resultItem.hash !== newItem.hash || resultItem.type === SAME) {
       // eslint-disable-next-line no-continue
       continue;
+    }
+    if (newItem.sectionNumber && type !== SAME && resultItem.type !== type) {
+      return pairSectionBreak(result, i, resultItem.type === DELETED);
     }
     if (resultItem.type === DELETED) {
       if (type === ADDED) {
@@ -282,20 +299,28 @@ function groupBlocks(blocks) {
 
 const isNotEmptyParagraphEl = (el) => !(el.nodeName === 'P' && !el.childNodes.length && el.textContent === '');
 
-function getBlockMap(dom) {
-  const sections = [...dom.querySelectorAll('main > div')];
-
+// keepAllBreaks: also keep the breaks of empty sections at the top of the page
+function getBlocks(dom, keepAllBreaks) {
   // flatten sections so that they are just dividers between blocks
-  let blocks = sections.reduce((acc, section) => {
+  const blocks = [...dom.querySelectorAll('main > div')].reduce((acc, section, index) => {
     const sectionBlocks = [...section.children]
       .filter(isNotEmptyParagraphEl);
-    const sectionArr = acc.length ? [sectionBlock] : [];
+    const sectionArr = (keepAllBreaks ? index : acc.length) ? [sectionBlock] : [];
     return [...acc, ...sectionArr, ...sectionBlocks];
   }, []);
+  return groupBlocks(blocks);
+}
 
-  blocks = groupBlocks(blocks);
+const countSectionBreaks = (blocks) => blocks.filter((block) => block.isSection).length;
 
-  return blocks.map((block) => {
+// alignSections: both documents have the same number of section breaks, so they line up in order
+function getBlockMap(blocks, alignSections) {
+  return blocks.map((block, index) => {
+    // Number each section break so the 1st break only matches the 1st break, the 2nd the 2nd, etc.
+    if (block.isSection && alignSections) {
+      const sectionNumber = countSectionBreaks(blocks.slice(0, index + 1));
+      return { block, sectionNumber, hash: hashContent(`${block.outerHTML}-${sectionNumber}`) };
+    }
     const stringToHash = Array.isArray(block)
       ? block.map(normalizeHTMLFromElement).join('')
       : normalizeHTMLFromElement(block);
@@ -305,9 +330,15 @@ function getBlockMap(dom) {
 }
 
 function htmldiff(originalDOM, modifiedDOM) {
-  const original = getBlockMap(originalDOM);
-  const modified = getBlockMap(modifiedDOM);
-  const diffArr = blockDiff(original, modified);
+  const originalBlocks = getBlocks(originalDOM, true);
+  const modifiedBlocks = getBlocks(modifiedDOM, true);
+  const alignSections = countSectionBreaks(originalBlocks) === countSectionBreaks(modifiedBlocks);
+  const original = alignSections ? originalBlocks : getBlocks(originalDOM);
+  const modified = alignSections ? modifiedBlocks : getBlocks(modifiedDOM);
+  const diffArr = blockDiff(
+    getBlockMap(original, alignSections),
+    getBlockMap(modified, alignSections),
+  );
   return diffArr;
 }
 
@@ -339,7 +370,9 @@ function getGroupInnerHtml(blockGroup, { sectionSeparator = SECTION_DIV_BREAK } 
 function diffEntryNeedsSectionBreakBefore(diff, index) {
   if (index === 0) return false;
   const prev = diff[index - 1];
-  return Boolean(prev && !prev.block?.isSection);
+  // A changed group before this one has already added a break after itself
+  const prevIsChangedGroup = Array.isArray(prev?.block) && prev.type !== SAME;
+  return Boolean(prev && !prev.block?.isSection && !prevIsChangedGroup);
 }
 
 function diffEntryNeedsSectionBreakAfter(diff, index, consumedCount) {
@@ -377,7 +410,7 @@ function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes =
     let modifiedBlock = item.block;
     const hash = item.hash.substring(0, HASH_LENGTH);
 
-    if (item.block.isSection && i !== 0) {
+    if (item.block.isSection) {
       htmlText += SECTION_DIV_BREAK;
       // eslint-disable-next-line no-continue
       continue;
