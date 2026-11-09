@@ -9,7 +9,9 @@ import { setEditorState, captureFocusedEditor } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
-import { restoreBlockIndices, restoreImageIndices, applyImageVersionAck } from './src/dom-index.js';
+import {
+  restoreBlockIndices, restoreDiffMarkers, restoreImageIndices, applyImageVersionAck,
+} from './src/dom-index.js';
 import { captureScrollAnchor, restoreScrollAnchor } from './src/scroll-anchor.js';
 import {
   getQuickEditPortalSrc,
@@ -61,6 +63,7 @@ async function setBody(body, rerenderScope, ctx) {
   // A newer SET_BODY replaced the DOM while this one was loading.
   if (generation !== ctx.bodyGeneration) return;
   restoreBlockIndices(doc, document);
+  restoreDiffMarkers(doc, document);
   restoreImageIndices(doc, document);
   applyCommentMarkers(ctx);
   setupNodeSelection(ctx);
@@ -76,6 +79,16 @@ async function setBody(body, rerenderScope, ctx) {
     setupActions(ctx);
   }
   restoreScrollAnchor(anchor);
+}
+
+function setReadOnly({ readOnly }, ctx) {
+  ctx.hostReadOnly = readOnly === true;
+  ctx.readOnly = ctx.canWrite === false || ctx.hostReadOnly;
+  document.querySelectorAll('.prosemirror-editor').forEach((editorParent) => {
+    if (ctx.readOnly) editorParent.querySelector('.ProseMirror')?.blur();
+    editorParent.view?.setProps({});
+  });
+  if (!ctx.readOnly) setupImageDropListeners(ctx, document.body.querySelector('main'));
 }
 
 function handleReady(e, ctx) {
@@ -110,6 +123,8 @@ function onMessage(e, ctx) {
     if (applyImageVersionAck(payload, ctx)) ctx.documentVersion = payload.imageVersion;
   } else if (type === MESSAGE_TYPES.DROP_TARGET) {
     Promise.resolve(ctx.bodyQueue).then(() => handleDropTarget(payload, ctx));
+  } else if (type === MESSAGE_TYPES.SET_READ_ONLY) {
+    setReadOnly(payload, ctx);
   } else if (type === MESSAGE_TYPES.SET_CURSORS) {
     setCursors(payload.cursors, ctx);
   } else if (type === MESSAGE_TYPES.IMAGE_REPLACE) {
@@ -149,6 +164,8 @@ function setupParentController(reloadCallback, { partialReload }) {
       initialized: true,
       reload: reloadCallback,
       port,
+      canWrite: config?.canWrite === true,
+      hostReadOnly: false,
       readOnly: config?.canWrite !== true,
       partialReload,
     };

@@ -14,6 +14,7 @@ export const MESSAGE_TYPES = Object.freeze({
   SET_EDITOR_STATE: 'set-editor-state', // { editorState: PM node JSON, cursorOffset: number, imageVersion, lengthDiff?: number (host doc size change from the edit that produced this state), origin?: 'local' | 'remote' (who made the edit; remote edits are decorated later, missing means local) }
   SET_CURSORS: 'set-cursors', // { cursors: [{ proseIndex, remote, color }] }
   SET_SELECTED_NODE: 'set-selected-node', // { node: { anchorType, proseIndex, ... } | null, scrollIntoView }
+  SET_READ_ONLY: 'set-read-only', // { readOnly: boolean } — can only lock; never unlocks a user without write permission (config.canWrite)
   SET_COMMENT_MARKERS: 'set-comment-markers', // { markers: [...], selectedThreadId: string | null }
   SCROLL_TO_POS: 'scroll-to-pos', // { proseIndex: number } — scroll layout mode to a comment
 

@@ -65,6 +65,33 @@ export function restoreBlockIndices(sourceRoot, liveRoot = document) {
   });
 }
 
+const DIFF_INDEX_ATTRS = ['data-block-index', 'data-prose-index'];
+
+// Indexed markers are restored by index. A marker without an index is kept where it was
+// delivered; only an indexed live element whose source counterpart lost the marker is cleared.
+export function restoreDiffMarkers(sourceRoot, liveRoot = document) {
+  const kinds = new Map();
+  sourceRoot.querySelectorAll('[data-diff]').forEach((src) => {
+    DIFF_INDEX_ATTRS.forEach((attr) => {
+      const index = src.getAttribute(attr);
+      if (index) kinds.set(`${attr}=${index}`, src.getAttribute('data-diff'));
+    });
+  });
+  liveRoot.querySelectorAll('[data-diff]').forEach((live) => {
+    const stale = DIFF_INDEX_ATTRS.some((attr) => {
+      const index = live.getAttribute(attr);
+      return index && !kinds.has(`${attr}=${index}`)
+        && sourceRoot.querySelector(`[${attr}="${index}"]`);
+    });
+    if (stale) live.removeAttribute('data-diff');
+  });
+  kinds.forEach((kind, key) => {
+    const [attr, index] = key.split('=');
+    const live = liveRoot.querySelector(`[${attr}="${index}"]`);
+    if (live) live.setAttribute('data-diff', kind);
+  });
+}
+
 export function restoreImageIndices(sourceRoot, liveRoot = document) {
   const sourceImages = sourceRoot.querySelectorAll('main img[data-image-index]');
   const scopes = new Set([...sourceImages]

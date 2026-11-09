@@ -36,6 +36,23 @@
   }
 }
 
+/* Diff markers. Kinds `added`, `removed` and `changed` are reserved and use the neutral style. */
+[data-diff] {
+  outline: 2px dashed var(--s2-gray-500, light-dark(#909090, #b1b1b1));
+  outline-offset: 2px;
+  background-color: light-dark(rgb(0 0 0 / 5%), rgb(255 255 255 / 8%));
+}
+
+[data-diff="local"] {
+  outline-color: var(--s2-green-600, light-dark(#058b4b, #2fbf71));
+  background-color: light-dark(rgb(0 160 80 / 14%), rgb(47 191 113 / 18%));
+}
+
+[data-diff="upstream"] {
+  outline-color: var(--s2-red-600, light-dark(#d31510, #ff6d63));
+  background-color: light-dark(rgb(211 21 16 / 12%), rgb(255 109 99 / 18%));
+}
+
 /* Image drop zone styles */
 picture.image-drop-target {
   position: relative;

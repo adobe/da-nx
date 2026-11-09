@@ -1,6 +1,11 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  restoreBlockIndices, restoreImageIndices, syncImageIndices, applyImageVersionAck, findTextBlock,
+  restoreBlockIndices,
+  restoreDiffMarkers,
+  restoreImageIndices,
+  syncImageIndices,
+  applyImageVersionAck,
+  findTextBlock,
 } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
 
 describe('findTextBlock', () => {
@@ -33,6 +38,74 @@ describe('findTextBlock', () => {
       + '<div class="prosemirror-editor" data-prose-index="20">live</div>');
     // Nearest at-or-before 23 is the live editor at 20; exclude it and use 10.
     expect(findTextBlock(23, r, '.prosemirror-editor')).to.equal(r.querySelector('p'));
+  });
+});
+
+describe('restoreDiffMarkers', () => {
+  const root = (html) => {
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    return el;
+  };
+
+  it('restores the marker on default content and on a block that dropped attributes', () => {
+    const source = root('<p data-prose-index="3" data-diff="local">a</p>'
+      + '<div class="hero" data-block-index="9" data-diff="upstream">h</div>');
+    const live = root('<p data-prose-index="3">a</p><div class="hero" data-block-index="9">h</div>');
+    restoreDiffMarkers(source, live);
+    expect(live.querySelector('p').getAttribute('data-diff')).to.equal('local');
+    expect(live.querySelector('.hero').getAttribute('data-diff')).to.equal('upstream');
+  });
+
+  it('keeps unknown kinds as-is and removes markers the source no longer has', () => {
+    const source = root('<p data-prose-index="3" data-diff="added">a</p><p data-prose-index="5">b</p>');
+    const live = root('<p data-prose-index="3">a</p><p data-prose-index="5" data-diff="local">b</p>');
+    restoreDiffMarkers(source, live);
+    expect(live.querySelector('[data-prose-index="3"]').getAttribute('data-diff')).to.equal('added');
+    expect(live.querySelector('[data-prose-index="5"]').hasAttribute('data-diff')).to.equal(false);
+  });
+
+  it('keeps markers without an index where they were delivered', () => {
+    const html = '<ul data-prose-index="4"><li data-diff="local">a</li><li>b</li></ul>'
+      + '<p data-prose-index="9"><picture data-diff="local"><img data-image-index="10"></picture></p>'
+      + '<div class="hero" data-diff="local">h</div>';
+    const source = root(html);
+    const live = root(html);
+    restoreDiffMarkers(source, live);
+    expect(live.querySelector('li').getAttribute('data-diff')).to.equal('local');
+    expect(live.querySelector('li + li').hasAttribute('data-diff')).to.equal(false);
+    expect(live.querySelector('picture').getAttribute('data-diff')).to.equal('local');
+    expect(live.querySelector('.hero').getAttribute('data-diff')).to.equal('local');
+  });
+
+  it('leaves unindexed live markers alone and clears indexed ones the source lost', () => {
+    const source = root('<ul data-prose-index="4"><li>a</li></ul><p data-prose-index="9">b</p>');
+    const live = root('<ul data-prose-index="4"><li data-diff="local">a</li></ul>'
+      + '<p data-prose-index="9" data-diff="local">b</p>');
+    restoreDiffMarkers(source, live);
+    expect(live.querySelector('li').getAttribute('data-diff')).to.equal('local');
+    expect(live.querySelector('p').hasAttribute('data-diff')).to.equal(false);
+  });
+
+  it('styles each kind and falls back to a neutral outline', () => {
+    const cases = ['local', 'upstream', 'changed'];
+    const style = document.createElement('link');
+    style.rel = 'stylesheet';
+    style.href = new URL('../../../../../nx/public/plugins/quick-edit/quick-edit.css', import.meta.url).href;
+    document.head.append(style);
+    return new Promise((resolve) => { style.onload = resolve; }).then(() => {
+      const colors = cases.map((kind) => {
+        const el = document.createElement('p');
+        el.setAttribute('data-diff', kind);
+        document.body.append(el);
+        const { outlineStyle, outlineColor } = getComputedStyle(el);
+        el.remove();
+        return { outlineStyle, outlineColor };
+      });
+      colors.forEach((c) => expect(c.outlineStyle).to.equal('dashed'));
+      expect(new Set(colors.map((c) => c.outlineColor)).size).to.equal(3);
+      style.remove();
+    });
   });
 });
 

@@ -3,7 +3,7 @@ import loadQuickEdit from '../../../../../nx/public/plugins/quick-edit/quick-edi
 import { MESSAGE_TYPES } from '../../../../../nx/utils/message-types.js';
 import { replaceChanges as replaceNxChanges } from '../../../../../nx/public/plugins/quick-edit/src/reload.js';
 import { replaceChanges as replaceNx2Changes } from '../../../../../nx2/public/plugins/quick-edit/src/reload.js';
-import { restoreBlockIndices } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
+import { restoreBlockIndices, restoreDiffMarkers } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
 
 const implementations = [
   ['nx', replaceNxChanges, { partialReload: true }],
@@ -304,6 +304,27 @@ describe('quick-edit reload', () => {
     const sections = targetDocument.querySelectorAll('main > div');
     expect(sections[0].dataset.sectionStatus).to.equal('loaded');
     expect(sections[1].outerHTML).to.equal('<div class="highlight"><p>changed</p></div>');
+  });
+
+  it('drops an unindexed diff marker when its section is re-rendered without it', () => {
+    const targetDocument = document.implementation.createHTMLDocument();
+    targetDocument.body.innerHTML = '<main><div class="section"><div><ul data-prose-index="1"><li data-diff="local">a</li></ul></div></div>'
+      + '<div class="section"><div><ul data-prose-index="9"><li data-diff="local">kept</li></ul></div></div></main>';
+    const doc = document.implementation.createHTMLDocument();
+    doc.body.innerHTML = '<main><div><ul data-prose-index="1"><li>a</li></ul></div>'
+      + '<div><ul data-prose-index="9"><li data-diff="local">kept</li></ul></div></main>';
+
+    replaceNxChanges({
+      ctx: { partialReload: true },
+      doc,
+      rerenderScope: { type: 'section', sectionIndex: 0 },
+      targetDocument,
+    });
+    restoreDiffMarkers(doc, targetDocument);
+
+    const items = targetDocument.querySelectorAll('li');
+    expect(items[0].hasAttribute('data-diff')).to.equal(false);
+    expect(items[1].getAttribute('data-diff')).to.equal('local');
   });
 
   it('replaces a changed block using the page-wide block index', () => {
