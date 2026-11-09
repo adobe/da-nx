@@ -66,6 +66,7 @@ parallel one. If you do add a new key:
 | `PREVIEW` | iframe ↔ host (request/reply) | standalone (quick-edit-portal) only |
 | `IMAGE_REPLACE` | iframe ↔ host (request/reply) | both hosts |
 | `DROP_TARGET` | Host ↔ iframe (request/reply) | da-live only |
+| `SET_READ_ONLY` | Host → iframe | da-live only |
 | `SET_COMMENT_MARKERS` | Host → iframe | da-live only |
 | `SCROLL_TO_POS` | Host → iframe | da-live only |
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
@@ -74,6 +75,24 @@ parallel one. If you do add a new key:
 | `QUICK_EDIT_IFRAME_CLICK` | iframe → host | da-live only |
 
 ---
+
+### `SET_READ_ONLY`
+
+`INIT` fixes read-only from `config.canWrite`; `SET_READ_ONLY { readOnly }` lets the
+host lock or unlock the surface live (e.g. while a doc has unresolved merge conflicts).
+Locking closes any open inline editor, makes editors non-editable, and rejects image
+and block drops. It is not merge-specific. The effective state is
+`!canWrite || readOnly`, so `readOnly: false` never unlocks a user without write
+permission. The host must still drop `node-update` / `image-replace` itself.
+
+### `data-diff` markers
+
+Not a message: an attribute on a top-level element or block wrapper in the `SET_BODY`
+HTML, shown as a highlight in layout. Quick-edit restores it after decoration, so it
+survives blocks that drop attributes, and removes it when a later body no longer has it.
+Kinds: `local` (green) and `upstream` (red) match the content view; `added`, `removed`
+and `changed` are reserved for version comparison and, like any unknown kind, get a
+neutral dashed outline. The markers are purely visual; they do not affect editing.
 
 ### `DROP_TARGET`
 

@@ -1,6 +1,11 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  restoreBlockIndices, restoreImageIndices, syncImageIndices, applyImageVersionAck, findTextBlock,
+  restoreBlockIndices,
+  restoreDiffMarkers,
+  restoreImageIndices,
+  syncImageIndices,
+  applyImageVersionAck,
+  findTextBlock,
 } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
 
 describe('findTextBlock', () => {
@@ -33,6 +38,55 @@ describe('findTextBlock', () => {
       + '<div class="prosemirror-editor" data-prose-index="20">live</div>');
     // Nearest at-or-before 23 is the live editor at 20; exclude it and use 10.
     expect(findTextBlock(23, r, '.prosemirror-editor')).to.equal(r.querySelector('p'));
+  });
+});
+
+describe('restoreDiffMarkers', () => {
+  const root = (html) => {
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    return el;
+  };
+
+  it('restores the marker on default content and on a block that dropped attributes', () => {
+    const source = root('<p data-prose-index="3" data-diff="local">a</p>'
+      + '<div class="hero" data-block-index="9" data-diff="upstream">h</div>');
+    const live = root('<p data-prose-index="3">a</p><div class="hero" data-block-index="9">h</div>');
+    restoreDiffMarkers(source, live);
+    expect(live.querySelector('p').getAttribute('data-diff')).to.equal('local');
+    expect(live.querySelector('.hero').getAttribute('data-diff')).to.equal('upstream');
+  });
+
+  it('keeps unknown kinds as-is and removes markers the source no longer has', () => {
+    const source = root('<p data-prose-index="3" data-diff="added">a</p><p data-prose-index="5">b</p>');
+    const live = root('<p data-prose-index="3">a</p><p data-prose-index="5" data-diff="local">b</p>');
+    restoreDiffMarkers(source, live);
+    expect(live.querySelector('[data-prose-index="3"]').getAttribute('data-diff')).to.equal('added');
+    expect(live.querySelector('[data-prose-index="5"]').hasAttribute('data-diff')).to.equal(false);
+  });
+
+  it('styles each kind and falls back to a neutral outline', () => {
+    const cases = ['local', 'upstream', 'changed'];
+    const style = document.createElement('link');
+    style.rel = 'stylesheet';
+    style.href = new URL('../../../../../nx/public/plugins/quick-edit/quick-edit.css', import.meta.url).href;
+    document.head.append(style);
+    document.documentElement.style.cssText = '--s2-gray-500:gray;--s2-gray-100:#eee;'
+      + '--s2-green-600:green;--s2-green-200:#cfc;--s2-red-600:red;--s2-red-200:#fcc;';
+    return new Promise((resolve) => { style.onload = resolve; }).then(() => {
+      const colors = cases.map((kind) => {
+        const el = document.createElement('p');
+        el.setAttribute('data-diff', kind);
+        document.body.append(el);
+        const { outlineStyle, outlineColor } = getComputedStyle(el);
+        el.remove();
+        return { outlineStyle, outlineColor };
+      });
+      colors.forEach((c) => expect(c.outlineStyle).to.equal('dashed'));
+      expect(new Set(colors.map((c) => c.outlineColor)).size).to.equal(3);
+      style.remove();
+      document.documentElement.style.cssText = '';
+    });
   });
 });
 

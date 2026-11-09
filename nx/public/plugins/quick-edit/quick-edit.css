@@ -36,6 +36,23 @@
   }
 }
 
+/* Diff markers. Kinds `added`, `removed` and `changed` are reserved and use the neutral style. */
+[data-diff] {
+  outline: 2px dashed var(--s2-gray-500);
+  outline-offset: 2px;
+  background-color: color-mix(in srgb, var(--s2-gray-100) 25%, transparent);
+}
+
+[data-diff="local"] {
+  outline-color: var(--s2-green-600);
+  background-color: color-mix(in srgb, var(--s2-green-200) 25%, transparent);
+}
+
+[data-diff="upstream"] {
+  outline-color: var(--s2-red-600);
+  background-color: color-mix(in srgb, var(--s2-red-200) 25%, transparent);
+}
+
 /* Image drop zone styles */
 picture.image-drop-target {
   position: relative;

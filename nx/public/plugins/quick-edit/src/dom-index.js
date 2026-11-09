@@ -65,6 +65,26 @@ export function restoreBlockIndices(sourceRoot, liveRoot = document) {
   });
 }
 
+export function restoreDiffMarkers(sourceRoot, liveRoot = document) {
+  const kinds = new Map();
+  sourceRoot.querySelectorAll('[data-diff]').forEach((src) => {
+    ['data-block-index', 'data-prose-index'].forEach((attr) => {
+      const index = src.getAttribute(attr);
+      if (index) kinds.set(`${attr}=${index}`, src.getAttribute('data-diff'));
+    });
+  });
+  liveRoot.querySelectorAll('[data-diff]').forEach((live) => {
+    const stale = !['data-block-index', 'data-prose-index'].some((attr) => live.hasAttribute(attr)
+      && kinds.has(`${attr}=${live.getAttribute(attr)}`));
+    if (stale) live.removeAttribute('data-diff');
+  });
+  kinds.forEach((kind, key) => {
+    const [attr, index] = key.split('=');
+    const live = liveRoot.querySelector(`[${attr}="${index}"]`);
+    if (live) live.setAttribute('data-diff', kind);
+  });
+}
+
 export function restoreImageIndices(sourceRoot, liveRoot = document) {
   const sourceImages = sourceRoot.querySelectorAll('main img[data-image-index]');
   const scopes = new Set([...sourceImages]
