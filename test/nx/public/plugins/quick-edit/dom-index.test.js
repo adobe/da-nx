@@ -71,8 +71,6 @@ describe('restoreDiffMarkers', () => {
     style.rel = 'stylesheet';
     style.href = new URL('../../../../../nx/public/plugins/quick-edit/quick-edit.css', import.meta.url).href;
     document.head.append(style);
-    document.documentElement.style.cssText = '--s2-gray-500:gray;--s2-gray-100:#eee;'
-      + '--s2-green-600:green;--s2-green-200:#cfc;--s2-red-600:red;--s2-red-200:#fcc;';
     return new Promise((resolve) => { style.onload = resolve; }).then(() => {
       const colors = cases.map((kind) => {
         const el = document.createElement('p');
@@ -85,7 +83,6 @@ describe('restoreDiffMarkers', () => {
       colors.forEach((c) => expect(c.outlineStyle).to.equal('dashed'));
       expect(new Set(colors.map((c) => c.outlineColor)).size).to.equal(3);
       style.remove();
-      document.documentElement.style.cssText = '';
     });
   });
 });

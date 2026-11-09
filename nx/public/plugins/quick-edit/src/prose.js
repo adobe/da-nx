@@ -232,6 +232,10 @@ function createEditor(offset, state, ctx, { imageVersion, lengthDiff = 0, origin
   if (imageVersion) editorParent.setAttribute('data-image-version', imageVersion);
   editorParent.classList.add('prosemirror-editor');
 
+  if (element.hasAttribute('data-diff')) {
+    editorParent.setAttribute('data-diff', element.getAttribute('data-diff'));
+  }
+
   if (element.getAttribute('data-cursor-remote')) {
     editorParent.setAttribute('data-cursor-remote', element.getAttribute('data-cursor-remote'));
     editorParent.setAttribute('data-cursor-remote-color', element.getAttribute('data-cursor-remote-color'));
