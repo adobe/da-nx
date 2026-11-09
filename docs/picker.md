@@ -132,6 +132,8 @@ presentation belongs in the consumer's stylesheet; the menu uses shared picker s
 | `--nx-picker-max-width`  | `none`                                | Maximum component width.  |
 | `--nx-picker-menu-width` | Rendered field width, or automatic    | Menu width, capped at the viewport minus 20px. |
 | `--nx-picker-check-color` | `var(--s2-gray-800)`                 | Selected checkmark color. |
+| `--nx-picker-section-color` | `var(--s2-gray-700)`               | Section title color.      |
+| `--nx-picker-item-padding` | `var(--s2-spacing-75) var(--s2-spacing-100)` | Menu row padding. |
 
 ### Methods
 
