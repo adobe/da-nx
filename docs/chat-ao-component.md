@@ -18,6 +18,16 @@ so callers — including the `PANEL_EVENT.OPEN`/DA SDK `actions.setPrompt`
 paths documented there — don't need to know which element they got, and
 don't need to query for it either.
 
+Automatic prompts wait for the selected harness and session to initialize,
+including restored episode history. This applies to both Coworker and CMA,
+in full chat and standalone inputs. Only the latest startup prompt is submitted.
+Manual prompts still prefill immediately without sending.
+
+Editing the draft, replacing the prompt with a manual one, changing the session
+scope, or removing the input/chat cancels its pending automatic submission.
+Initialization errors remain visible; automatic prompts are not retried after
+a failed initialization or while another turn blocks input.
+
 ## Input ownership
 
 `nx-ao-input` (`input.js` / `input.css`) owns the draft, pills/attachments,

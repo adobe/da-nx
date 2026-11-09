@@ -77,8 +77,32 @@ export default class NxChatAo extends LitElement {
   }
 
   async setPrompt(text, { autoSend = false } = {}) {
+    const request = {};
+    this._promptRequest = request;
+    this._pendingPrompt = undefined;
     await this.updateComplete;
-    await this._input?.setPrompt(text, { autoSend });
+    if (!this.isConnected || this._promptRequest !== request || !text || this._blocked) return;
+    if (!autoSend || (!this._session && this._controller)) {
+      await this._input?.setPrompt(text, { autoSend });
+      return;
+    }
+    this._pendingPrompt = {
+      request, text, context: this._context, draft: this._input?.draft,
+    };
+    await this._flushPendingPrompt();
+  }
+
+  async _flushPendingPrompt() {
+    const prompt = this._pendingPrompt;
+    const session = this._session;
+    if (!prompt || !session) return;
+    await session.ready;
+    await this.updateComplete;
+    if (!this.isConnected || this._pendingPrompt !== prompt
+      || this._promptRequest !== prompt.request || this._session !== session
+      || this._context !== prompt.context || this._input?.draft !== prompt.draft) return;
+    this._pendingPrompt = undefined;
+    await this._input?.setPrompt(prompt.text, { autoSend: true });
   }
 
   get _input() {
@@ -191,6 +215,9 @@ export default class NxChatAo extends LitElement {
         }));
       },
     });
+    if (this._pendingPrompt) {
+      this._flushPendingPrompt().catch((error) => showToast({ text: error.message, variant: 'error' }));
+    }
   }
 
   _closePanel() {
@@ -258,6 +285,8 @@ export default class NxChatAo extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this._promptRequest = undefined;
+    this._pendingPrompt = undefined;
     this._releaseSession?.();
     this._releaseSession = undefined;
     this._session = undefined;

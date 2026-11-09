@@ -137,12 +137,27 @@ export default class NxAoInput extends LitElement {
   }
 
   async setPrompt(text, { autoSend = false } = {}) {
+    const request = {};
+    this._promptRequest = request;
     await this.updateComplete;
-    if (!text || this.blocked) return;
+    if (!this.isConnected || this._promptRequest !== request || !text || this.blocked) return;
     this.shadowRoot.querySelector('.prompts-popover')?.close();
     this.shadowRoot.querySelector('.chat-input').value = text;
-    if (autoSend) this.shadowRoot.querySelector('form').requestSubmit();
-    else await this.focusInput();
+    if (!autoSend) {
+      await this.focusInput();
+      return;
+    }
+    if (this._standalone) {
+      const sessionRequest = this._sessionRequest;
+      await this._sessionReady;
+      const session = this._session;
+      await session?.ready;
+      if (!this.isConnected || this._promptRequest !== request
+        || this._sessionRequest !== sessionRequest || this._session !== session
+        || this.draft !== text || this.blocked) return;
+    }
+    this._promptRequest = undefined;
+    this.shadowRoot.querySelector('form').requestSubmit();
   }
 
   openPrompts() {
@@ -182,6 +197,7 @@ export default class NxAoInput extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this._promptRequest = undefined;
     this._voice?.stop();
     this._slashMenu.close();
     this._unsubscribeHash?.();

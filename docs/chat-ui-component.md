@@ -93,6 +93,10 @@ A prompt set during startup waits for that restoration: `autoSend: true` submits
 once ready; `autoSend: false` prefills the input without submitting. Removing the
 chat during restoration cancels the queued submission.
 
+`nx-chat-ao` also waits for its owned Coworker/CMA session before automatic
+submission. Its compact standalone input follows the same rule. See
+[AO prompt startup behavior](./chat-ao-component.md).
+
 ```js
 document.dispatchEvent(new CustomEvent(CHAT_EVENT.SET_PROMPT, { detail: { text, autoSend } }));
 ```
