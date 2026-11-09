@@ -551,6 +551,20 @@ describe('getRepositoryConfig imageType', () => {
     }
   };
 
+  it('keeps deprecated insertAsLink true for link and editable-link', async () => {
+    const plain = await resolve('imgt-d1', 'a', { siteSheets: { data: [REPO_ID, TYPE_LINK] } });
+    const editable = await resolve('imgt-d2', 'a', {
+      siteSheets: { data: [REPO_ID, TYPE_LINK], flags: [FLAG_ON] },
+    });
+    expect(plain.insertAsLink).to.equal(true);
+    expect(editable.insertAsLink).to.equal(true);
+  });
+
+  it('keeps deprecated insertAsLink false when type is not link', async () => {
+    const cfg = await resolve('imgt-d3', 'a', { siteSheets: { data: [REPO_ID] } });
+    expect(cfg.insertAsLink).to.equal(false);
+  });
+
   it('is editable-link when type is link and the flag is true', async () => {
     const cfg = await resolve('imgt1', 'a', {
       siteSheets: { data: [REPO_ID, TYPE_LINK], flags: [FLAG_ON] },
