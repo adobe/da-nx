@@ -294,7 +294,14 @@ export default class BaseChatController {
   // owns the reconnect path (_recoverFromClose) that depends on it.
   async _attach() {
     await this._ensureSocket();
-    this._ws?.send(JSON.stringify({ type: AO_FRAME.ATTACH }));
+    this._ws?.send(JSON.stringify(this._attachFrame()));
+  }
+
+  // The ATTACH frame payload. Overridable so a harness can add fields without
+  // changing the base reconnect flow. Base sends the bare frame; the CMA
+  // bridge adds `replayHistory` (see CmaChatController).
+  _attachFrame() {
+    return { type: AO_FRAME.ATTACH };
   }
 
   // See docs/chat-ao-component.md#connection-recovery for why this exists
