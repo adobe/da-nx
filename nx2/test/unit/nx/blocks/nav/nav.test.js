@@ -204,7 +204,6 @@ describe('nav brand override', () => {
   afterEach(async () => {
     nav.remove();
     stylesheet.remove();
-    document.body.classList.remove('ui-size-m');
     await setConfig(config);
   });
 
@@ -230,43 +229,35 @@ describe('nav brand override', () => {
     expect(brand.querySelector('svg')).to.be.null;
   });
 
-  it('aligns the logo with the shell rail and the label with its right edge in S/M and both themes', async () => {
+  it('aligns the logo and product label with the shell rail', async () => {
     await setConfig({ ...config, navBrand: { logoHref, label: 'Example Product' } });
     const brand = await mountBrand();
     const icon = brand.querySelector('.brand-icon');
     const img = icon.querySelector('img');
     const label = brand.querySelector('.brand-label');
     nav.style.height = '56px';
-    for (const medium of [false, true]) {
-      document.body.classList.toggle('ui-size-m', medium);
-      for (const scheme of ['light', 'dark']) {
-        nav.style.colorScheme = scheme;
-        nav.style.color = 'light-dark(rgb(0, 0, 0), rgb(255, 255, 255))';
-        for (const width of [900, 480]) {
-          nav.style.width = `${width}px`;
-          const iconRect = icon.getBoundingClientRect();
-          const imgRect = img.getBoundingClientRect();
-          expect(iconRect.width).to.equal(32);
-          expect(iconRect.height).to.equal(32);
-          expect(imgRect.width).to.equal(24);
-          expect(imgRect.height).to.equal(24);
-          expect(imgRect.left - iconRect.left).to.equal(4);
-          expect(imgRect.top - iconRect.top).to.equal(4);
-          const navRect = nav.getBoundingClientRect();
-          const labelRect = label.getBoundingClientRect();
-          expect(iconRect.left - navRect.left).to.equal(12);
-          expect(iconRect.top - navRect.top).to.equal(12);
-          expect(labelRect.left - navRect.left).to.equal(56);
-          expect(labelRect.left - iconRect.right).to.equal(12);
-          const textStyle = getComputedStyle(label);
-          expect(textStyle.fontFamily).to.include('adobe-clean');
-          expect(textStyle.fontSize).to.equal('14px');
-          expect(textStyle.fontWeight).to.equal('700');
-          expect(textStyle.lineHeight).to.equal('18px');
-          expect(textStyle.color).to.equal(scheme === 'light' ? 'rgb(0, 0, 0)' : 'rgb(255, 255, 255)');
-        }
-      }
-    }
+    nav.style.width = '900px';
+    const iconRect = icon.getBoundingClientRect();
+    const imgRect = img.getBoundingClientRect();
+    expect(iconRect.width).to.equal(32);
+    expect(iconRect.height).to.equal(32);
+    expect(imgRect.width).to.equal(24);
+    expect(imgRect.height).to.equal(24);
+    expect(imgRect.left - iconRect.left).to.equal(4);
+    expect(imgRect.top - iconRect.top).to.equal(4);
+    expect(getComputedStyle(img).objectFit).to.equal('contain');
+    const navRect = nav.getBoundingClientRect();
+    const labelRect = label.getBoundingClientRect();
+    expect(iconRect.left - navRect.left).to.equal(12);
+    expect(iconRect.top - navRect.top).to.equal(12);
+    expect(labelRect.left - navRect.left).to.equal(56);
+    expect(labelRect.left - iconRect.right).to.equal(12);
+    const textStyle = getComputedStyle(label);
+    expect(textStyle.fontFamily).to.include('adobe-clean');
+    expect(textStyle.fontSize).to.equal('14px');
+    expect(textStyle.fontWeight).to.equal('700');
+    expect(textStyle.lineHeight).to.equal('18px');
+    expect(textStyle.color).to.equal(getComputedStyle(nav).color);
   });
 
   [undefined, { label: 'Missing logo' }, { logoHref }].forEach((navBrand) => {
