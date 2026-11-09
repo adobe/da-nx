@@ -61,25 +61,14 @@ describe('shared Add site dialog', () => {
     expect(localStorage.getItem('da-sites')).to.equal(saved);
   });
 
-  it('submits with Enter and prepends the site to recent history', async () => {
-    const added = new Promise((resolve) => {
-      el.addEventListener('site-added', resolve, { once: true });
-    });
+  it('submits with Enter and opens the site in Browse, keeping the query', async () => {
+    const openSite = sinon.stub(el, 'openSite');
     el.shadowRoot.querySelector('input').focus();
     await sendKeys({ press: 'Enter' });
-    expect((await added).detail.value).to.equal('org/site');
-    expect(JSON.parse(localStorage.getItem('da-sites'))).to.deep.equal(['org/site', 'org/other']);
-  });
-
-  it('does not claim success when the browser cannot save the site', async () => {
-    const added = sinon.spy();
-    el.addEventListener('site-added', added);
-    sinon.stub(Storage.prototype, 'setItem').callThrough()
-      .withArgs('da-sites').throws(new DOMException('Storage unavailable', 'QuotaExceededError'));
-    el.shadowRoot.querySelector('[type="submit"]').click();
-    await el.updateComplete;
-    expect(added.called).to.equal(false);
-    expect(el.shadowRoot.querySelector('[role="alert"]').textContent).to.include('Could not save this site');
-    expect(JSON.parse(localStorage.getItem('da-sites'))).to.deep.equal(['org/other']);
+    const url = new URL(openSite.firstCall.args[0]);
+    expect(url.pathname).to.equal('/');
+    expect(url.search).to.equal(window.location.search);
+    expect(url.hash).to.equal('#/org/site');
+    expect(localStorage.getItem('da-sites')).to.equal('["org/other"]');
   });
 });

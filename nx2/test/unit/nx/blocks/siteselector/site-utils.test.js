@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  getSiteOptions, parseSubdomain, getCreateSiteHref, setRecentSite,
+  getSiteOptions, parseSubdomain, getCreateSiteHref, getBrowseHref, setRecentSite,
 } from '../../../../../blocks/siteselector/site-utils.js';
 
 describe('site selector utilities', () => {
@@ -46,5 +46,12 @@ describe('site selector utilities', () => {
       if (saved === null) localStorage.removeItem('da-sites');
       else localStorage.setItem('da-sites', saved);
     }
+  });
+
+  it('builds a Browse link at the root that keeps the query', () => {
+    expect(getBrowseHref({
+      hash: '#/org/site',
+      href: 'https://da.live/drafts/landing?nx=preview&nxver=2#/old/site',
+    })).to.equal('https://da.live/?nx=preview&nxver=2#/org/site');
   });
 });

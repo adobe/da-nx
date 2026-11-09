@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
-import { parseSubdomain, setRecentSite } from './site-utils.js';
+import { getBrowseHref, parseSubdomain } from './site-utils.js';
 import '../shared/dialog/dialog.js';
 
 const style = await loadStyle(new URL('../../styles/form.css', import.meta.url).href);
@@ -30,14 +30,11 @@ export class NxAddSite extends LitElement {
       input.focus();
       return;
     }
-    const value = hash.slice(2);
-    try {
-      const [org, site] = value.split('/');
-      setRecentSite({ org, site });
-      this.dispatchEvent(new CustomEvent('site-added', { detail: { value }, bubbles: true, composed: true }));
-    } catch {
-      this._error = 'Could not save this site in your browser.';
-    }
+    this.openSite(getBrowseHref({ hash }));
+  }
+
+  openSite(href) {
+    window.location.href = href;
   }
 
   render() {

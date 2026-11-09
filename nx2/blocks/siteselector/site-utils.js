@@ -38,3 +38,10 @@ export function getCreateSiteHref({ href = window.location.href } = {}) {
   url.hash = '';
   return url.href;
 }
+
+export function getBrowseHref({ hash, href = window.location.href }) {
+  const url = new URL(href);
+  url.pathname = '/';
+  url.hash = hash;
+  return url.href;
+}

@@ -82,12 +82,6 @@ class NxSiteselector extends LitElement {
         this.closeDialog();
         this.focus();
       });
-      dialog.addEventListener('site-added', async ({ detail: { value: added } }) => {
-        this.closeDialog();
-        this.selectSite(added);
-        await this.updateComplete;
-        this.focus();
-      });
       this._dialog = dialog;
       document.body.append(dialog);
     } catch (error) {

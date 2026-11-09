@@ -17,7 +17,7 @@ set `value` to supply a selection instead. It is hidden when no sites are availa
 
 | Event | Purpose |
 | ----- | ------- |
-| `site-select` | Emits `{ value }` for the default selection, user selection or Add. Bubbles across shadow roots. |
+| `site-select` | Emits `{ value }` for the default selection or user selection. Bubbles across shadow roots. |
 | `site-add` | Dispatch this request to open Add, including when the selector is hidden. |
 
 Listen before the selector connects to receive its initial selection:
@@ -31,5 +31,5 @@ document.addEventListener('site-select', ({ detail: { value } }) => {
 Create opens `/start` without an organization selection.
 Override or hide it with `getCreateSiteHref` if the host uses a different destination.
 
-Add parses an AEM site URL and remembers it in this browser, like the landing page.
-It does not check access or whether the site exists.
+Add parses an AEM site URL and opens it in Browse (`/#/org/site`), keeping the query, like the old landing page "Go".
+Browse adds it to recent sites, so the selector shows it. Add does not check access or whether the site exists.

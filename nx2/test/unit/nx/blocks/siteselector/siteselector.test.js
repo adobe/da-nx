@@ -104,21 +104,18 @@ describe('nx-siteselector', () => {
     expect(picker.shadowRoot.activeElement).to.equal(picker.shadowRoot.querySelector('.picker-trigger'));
   });
 
-  it('allows Add when empty and remembers the parsed site without navigating', async () => {
+  it('allows Add when empty and opens the parsed site in Browse', async () => {
     localStorage.setItem('da-sites', '[]');
     document.body.append(selector);
     expect(await settle()).to.be.null;
     expect(selector.hidden).to.be.true;
     const dialog = await openDialog(() => document.dispatchEvent(new CustomEvent('site-add')));
-    const selected = new Promise((resolve) => { selector.addEventListener('site-select', resolve, { once: true }); });
+    let opened;
+    dialog.openSite = (value) => { opened = value; };
     dialog.shadowRoot.querySelector('input').value = 'https://main--new-site--org.aem.page';
     dialog.shadowRoot.querySelector('[type="submit"]').click();
-    expect((await selected).detail).to.deep.equal({ value: 'org/new-site' });
-    const picker = await settle();
-    expect(dialog.isConnected).to.be.false;
-    expect(selector.hidden).to.be.false;
-    expect(picker.shadowRoot.querySelector('[part="label"]').textContent).to.equal('org/new-site');
-    expect(JSON.parse(localStorage.getItem('da-sites'))).to.deep.equal(['org/new-site']);
+    expect(new URL(opened).hash).to.equal('#/org/new-site');
+    expect(localStorage.getItem('da-sites')).to.equal('[]');
     expect(window.location.href).to.equal(href);
   });
 
