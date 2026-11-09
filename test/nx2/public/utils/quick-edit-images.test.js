@@ -180,6 +180,32 @@ describe('updateImageInDocument with link-images', () => {
     });
   });
 
+  it('keeps editAs on asset replace when editAs is passed', () => {
+    const target = state.doc.nodeAt(2);
+    updateImageInDocument({
+      view, target, newSrc: 'https://cdn.example.com/assets/new.jpg', editAs: 'image',
+    });
+    expect(state.doc.nodeAt(2).attrs).to.deep.equal({
+      src: 'https://cdn.example.com/assets/new.jpg', alt: 'Link alt', editAs: 'image',
+    });
+  });
+
+  it('sets editAs on a plain image on asset replace', () => {
+    const target = state.doc.nodeAt(3);
+    updateImageInDocument({
+      view, target, newSrc: 'https://cdn.example.com/assets/new.jpg', editAs: 'image',
+    });
+    expect(state.doc.nodeAt(3).attrs.editAs).to.equal('image');
+  });
+
+  it('clears editAs when editAs is null', () => {
+    const target = state.doc.nodeAt(2);
+    updateImageInDocument({
+      view, target, newSrc: '/new.png', editAs: null,
+    });
+    expect(state.doc.nodeAt(2).attrs.editAs).to.equal(null);
+  });
+
   it('keeps editAs on other link-images when one is replaced', () => {
     const target = state.doc.nodeAt(2);
     updateImageInDocument({ view, target, newSrc: '/new.png' });

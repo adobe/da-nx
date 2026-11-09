@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
+  assetNodeSpec,
   DM_ERROR_MSG,
   MISSING_FORMAT_ERROR_MSG,
   PUBLISH_ERROR_MSG,
@@ -296,5 +297,42 @@ describe('resolveAssetSelection', () => {
     expect(result.error).to.equal(undefined);
     expect(result.isImage).to.equal(true);
     expect(result.href).to.equal('https://delivery-p1-e1.adobeaemcloud.com/adobe/assets/urn:aaid:aem:del-001/as/photo.avif');
+  });
+});
+
+describe('assetNodeSpec', () => {
+  const href = 'https://cdn.example.com/a.jpg';
+
+  [null, 'link', 'editable-link'].forEach((imageType) => {
+    it(`returns a link for non-images (imageType ${imageType})`, () => {
+      expect(assetNodeSpec({
+        href, isImage: false, alt: 'x', imageType,
+      })).to.deep.equal({ kind: 'link', href });
+    });
+  });
+
+  it('returns a link for images when imageType is link', () => {
+    expect(assetNodeSpec({
+      href, isImage: true, alt: 'x', imageType: 'link',
+    })).to.deep.equal({ kind: 'link', href });
+  });
+
+  it('returns a plain image when imageType is null', () => {
+    expect(assetNodeSpec({
+      href, isImage: true, alt: 'x', imageType: null,
+    })).to.deep.equal({ kind: 'image', attrs: { src: href, alt: 'x' } });
+  });
+
+  it('sets editAs when imageType is editable-link', () => {
+    expect(assetNodeSpec({
+      href, isImage: true, alt: 'x', imageType: 'editable-link',
+    })).to.deep.equal({ kind: 'image', attrs: { src: href, alt: 'x', editAs: 'image' } });
+  });
+
+  it('omits alt when absent or empty', () => {
+    expect(assetNodeSpec({ href, isImage: true }).attrs).to.deep.equal({ src: href });
+    expect(assetNodeSpec({
+      href, isImage: true, alt: '', imageType: 'editable-link',
+    }).attrs).to.deep.equal({ src: href, editAs: 'image' });
   });
 });

@@ -77,7 +77,7 @@ Keys live in the DA config at `https://da.live/config#/<org>/` or `https://da.li
 | `aem.repositoryId` | Yes | `author-p1-e1.adobeaemcloud.com` or `delivery-p1-e1.adobeaemcloud.com` | Selects the repository mode by its prefix. Host only, without `https://`. |
 | `aem.assets.prod.origin` | No | e.g. `assets.example.com` | Overrides the derived URL host. A value starting with `delivery-` also enables DM delivery. |
 | `aem.assets.prod.basepath` | No | e.g. `/adobe/assets` | Overrides the default base path for DM and delivery URLs. |
-| `aem.assets.image.type` | No | `link` | Sets `imageType` to `link` so consumers insert images as links. |
+| `aem.assets.image.type` | No | `link` | Sets `imageType` to `link` so consumers insert images as links (see `assetNodeSpec`). |
 | `aem.asset.dm.delivery` | No | `on` | Browses author but builds DM delivery URLs. Enables Author + DM. |
 | `aem.asset.dm.approvedonly` | No | absent, `on`, or `off` | Author + DM only. Absent or `on` locks the Approved filter. Exact `off` removes it. |
 | `aem.asset.smartcrop.select` | No | `on` | Sets `isSmartCrop`. Implies DM delivery. |
@@ -88,7 +88,7 @@ Keys in the `flags` sheet:
 
 | Key | Required | Values | Description |
 |---|---|---|---|
-| `aem.assets.image.linkAsImage` | No | `true` | With `aem.assets.image.type` `link`, sets `imageType` to `editable-link`: inserted as links, edited as images. |
+| `aem.assets.image.linkAsImage` | No | `true` | With `aem.assets.image.type` `link`, sets `imageType` to `editable-link`: inserted as links, edited as images (`assetNodeSpec` yields an image with `editAs: 'image'`). |
 
 ---
 
@@ -199,7 +199,7 @@ Config documents load through `nx2/utils/daConfig.js`, which caches them per pag
   isDmEnabled,            // DM delivery URLs apply
   isSmartCrop,            // Smart Crop selection is on
   approvedOnly,           // the Approved filter is locked on
-  imageType,              // 'link' | 'editable-link' | null
+  imageType,              // 'link' | 'editable-link' | null; see assetNodeSpec
   mimeRenditionOverrides, // Record<string, string> from aem.asset.mime.renditions
   siteImageModifiers,     // query string from aem.asset.image.modifiers, or null
 }
@@ -230,6 +230,7 @@ Helpers.
 
 - `resolveAssetUrl(asset, repoConfig)` picks the URL builder for the mode and applies the site image modifiers.
 - `resolveAssetSelection({ asset, repoConfig })` returns `{ href, isImage, alt }` or `{ error }`.
+- `assetNodeSpec({ href, isImage, alt, imageType })` returns `{ kind: 'link', href }` (non-image, or `imageType` `link`) or `{ kind: 'image', attrs: { src, alt?, editAs? } }`. `alt` is set only when truthy; `editAs: 'image'` only for `editable-link`. Width styling is left to the host.
 
 | Error | When |
 |---|---|
