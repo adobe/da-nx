@@ -22,7 +22,6 @@ class NxSiteselector extends LitElement {
     this.size ??= 's';
     const { signal } = this._connection;
     document.addEventListener('site-add', () => this.showAddSite(), { signal });
-    window.addEventListener('hashchange', () => this.syncFromHash(), { signal });
     this.refresh();
     if (this.value === undefined) {
       if (this.sites.length) this.selectSite(this.sites[0].value);
@@ -52,15 +51,6 @@ class NxSiteselector extends LitElement {
       this.sites = getSiteOptions({ current: this.value });
       this.error = 'Could not update recent sites in this browser.';
     }
-  }
-
-  syncFromHash() {
-    const { hash } = window.location;
-    if (!hash.startsWith('#/')) return;
-    const [org, site] = hash.slice(2).split('/');
-    if (!org || !site || site.startsWith('.')) return;
-    const value = `${org}/${site}`;
-    if (value !== this.value) this.selectSite(value);
   }
 
   selectSite(value) {

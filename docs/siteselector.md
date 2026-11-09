@@ -17,7 +17,7 @@ set `value` to supply a selection instead. It is hidden when no sites are availa
 
 | Event | Purpose |
 | ----- | ------- |
-| `site-select` | Emits `{ value }` for the default selection, user selection or a `#/org/site` hash change. Bubbles across shadow roots. |
+| `site-select` | Emits `{ value }` for the default selection or user selection. Bubbles across shadow roots. |
 | `site-add` | Dispatch this request to open Add, including when the selector is hidden. |
 
 Listen before the selector connects to receive its initial selection:
@@ -33,4 +33,4 @@ Override or hide it with `getCreateSiteHref` if the host uses a different destin
 
 Add parses an AEM site URL and opens it in Browse (`/#/org/site`), keeping the query, like the old landing page "Go".
 Browse adds it to recent sites, so the selector shows it. Add does not check access or whether the site exists.
-When the host is already at `/` only the hash changes, so the dialog closes and the selector selects the `#/org/site` from the new hash.
+When the host is already at `/` only the hash changes, so Add closes the dialog.

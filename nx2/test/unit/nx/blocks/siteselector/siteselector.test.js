@@ -119,21 +119,16 @@ describe('nx-siteselector', () => {
     expect(window.location.href).to.equal(href);
   });
 
-  it('closes Add and selects the site when Browse is already at the root path', async () => {
+  it('closes Add when Browse is already at the root path', async () => {
     window.history.replaceState(null, '', '/?landing=true');
     document.body.append(selector);
     await settle();
     const dialog = await openDialog(() => document.dispatchEvent(new CustomEvent('site-add')));
-    const selected = new Promise((resolve) => {
-      selector.addEventListener('site-select', resolve, { once: true });
-    });
     dialog.shadowRoot.querySelector('input').value = 'https://main--new-site--org.aem.page';
     dialog.shadowRoot.querySelector('[type="submit"]').click();
-    expect((await selected).detail).to.deep.equal({ value: 'org/new-site' });
-    const picker = await settle();
-    expect(window.location.pathname + window.location.search).to.equal('/?landing=true');
+    await selector.updateComplete;
+    expect(window.location.pathname + window.location.search + window.location.hash).to.equal('/?landing=true#/org/new-site');
     expect(dialog.isConnected).to.be.false;
-    expect(picker.shadowRoot.querySelector('[part="label"]').textContent).to.equal('org/new-site');
   });
 
   it('opens generic creation without forwarding org, site or Browse context', async () => {
