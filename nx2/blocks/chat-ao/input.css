@@ -217,6 +217,11 @@
   }
 }
 
+.chat-awaiting-input {
+  justify-content: space-between;
+  color: var(--s2-gray-800);
+}
+
 .chat-input-wrap.coworker-chat:has(.chat-working)::before {
   display: none;
 }

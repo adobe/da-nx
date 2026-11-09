@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../nx2/scripts/nx.js';
 import { CHAT_EVENT } from '../../../../nx2/utils/chat.js';
+import { PANEL_EVENT } from '../../../../nx2/utils/panel.js';
 import BaseChatController from '../../../../nx2/blocks/chat-ao/base-chat-controller.js';
 import CoworkerChatController from '../../../../nx2/blocks/chat-ao/coworker-chat-controller.js';
 import CmaChatController from '../../../../nx2/blocks/chat-ao/cma-chat-controller.js';
@@ -16,7 +17,7 @@ const deferred = () => {
   const promise = new Promise((done) => { resolve = done; });
   return { promise, resolve };
 };
-const tick = () => new Promise((resolve) => { requestAnimationFrame(resolve); });
+const tick = () => new Promise((resolve) => { setTimeout(resolve, 0); });
 
 describe('standalone input and full AO chat sharing', () => {
   let elements;
@@ -425,6 +426,55 @@ describe('standalone input and full AO chat sharing', () => {
     expect(status(standalone)).to.equal(null);
     expect(status(full)).to.equal(null);
     expect(input(standalone).hidden).to.equal(false);
+  });
+
+  it('asks for input instead of showing the working status while the agent waits on the user', async () => {
+    const [standalone, full] = await pair('coworker');
+    await ready(standalone, full);
+    const status = (chat) => composer(chat).shadowRoot.querySelector('.chat-working');
+    const opened = [];
+    const panelOpened = new Promise((resolve) => {
+      const onOpen = (e) => {
+        opened.push(e.detail);
+        resolve();
+      };
+      document.addEventListener(PANEL_EVENT.OPEN, onOpen);
+      originals.push(() => document.removeEventListener(PANEL_EVENT.OPEN, onOpen));
+    });
+
+    submit(standalone, 'Ask me');
+    await flush();
+    receive(AO_EVENT.USER_QUESTION, { questions: [] });
+    await flush();
+    expect(status(standalone).classList.contains('chat-awaiting-input')).to.equal(true);
+    expect(status(standalone).textContent).to.not.include('Working on your question');
+    expect(status(standalone).querySelector('.nx-loading-spinner')).to.equal(null);
+    expect(input(standalone).hidden).to.equal(true);
+    expect(composer(standalone).shadowRoot.querySelector('form').getAttribute('aria-busy')).to.equal('false');
+    expect(status(full)).to.equal(null);
+    expect(input(full).disabled).to.equal(true);
+
+    status(standalone).querySelector('button').click();
+    await panelOpened;
+    await flush();
+    expect(opened).to.deep.equal([{ section: 'chat' }]);
+
+    receive(AO_EVENT.TURN_COMPLETED);
+    await flush();
+    expect(status(standalone)).to.equal(null);
+    expect(input(standalone).hidden).to.equal(false);
+  });
+
+  it('asks for input while a tool permission is pending', async () => {
+    const [standalone, full] = await pair('coworker');
+    await ready(standalone, full);
+    const status = (chat) => composer(chat).shadowRoot.querySelector('.chat-working');
+    submit(standalone, 'Use a tool');
+    await flush();
+    receive(AO_EVENT.PERMISSION_REQUEST, { turn_id: 'turn', pending_calls: [{ id: 'call', name: 'tool' }] });
+    await flush();
+    expect(status(standalone).classList.contains('chat-awaiting-input')).to.equal(true);
+    expect(status(full)).to.equal(null);
   });
 
   it('resolves the same configured harness for a standalone input and full chat without host callbacks', async () => {

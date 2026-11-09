@@ -8,7 +8,9 @@ import { createSlashMenu } from '../shared/chat/slash-menu.js';
 import { createVoiceInput, isVoiceInputSupported, appendTranscript } from './utils/voice-input.js';
 import { showToast } from '../shared/toast/toast.js';
 import { AO_UPLOAD_EXTENSIONS, AO_MAX_FILE_SIZE_BYTES, ADD_MENU_ITEMS } from './ao-constants.js';
-import { CHAT_WORKING_MESSAGE, ICON_NAMES, MENU_OPTIONS } from '../shared/chat/constants.js';
+import {
+  CHAT_AWAITING_INPUT_MESSAGE, CHAT_WORKING_MESSAGE, ICON_NAMES, MENU_OPTIONS,
+} from '../shared/chat/constants.js';
 import { sampleRUM } from '../../deps/rum.js';
 import { CHAT_EVENT } from '../../utils/chat.js';
 import { toSlashMenuItems } from './utils/skills.js';
@@ -30,6 +32,7 @@ const isAllowedFile = (file) => AO_UPLOAD_EXTENSIONS
 export default class NxAoInput extends LitElement {
   static properties = {
     blocked: { type: Boolean },
+    awaitingInput: { type: Boolean },
     harness: { type: String },
     prompts: { type: Array },
     menuItems: { type: Array },
@@ -84,7 +87,10 @@ export default class NxAoInput extends LitElement {
     this.requestUpdate();
     const request = {};
     this._sessionRequest = request;
-    if (this._session) this.blocked = false;
+    if (this._session) {
+      this.blocked = false;
+      this.awaitingInput = false;
+    }
     this._releaseSession?.();
     this._releaseSession = undefined;
     this._session = undefined;
@@ -113,7 +119,10 @@ export default class NxAoInput extends LitElement {
         context, owner: this, isolated: this.isolated, harness,
       });
       this._releaseSession = this._session.subscribe(this, {
-        onUpdate: (state) => { this.blocked = !!state.thinking && !state.pendingPlanApproval; },
+        onUpdate: (state) => {
+          this.blocked = !!state.thinking && !state.pendingPlanApproval;
+          this.awaitingInput = !!(state.pendingQuestion || state.pendingPermission);
+        },
       });
       this._unsubscribeEvents = subscribeChatEvents(this, {
         getContext: () => this._context,
@@ -313,8 +322,29 @@ export default class NxAoInput extends LitElement {
     target.value = '';
   }
 
+  async _openChat() {
+    const { PANEL_EVENT } = await import('../../utils/panel.js');
+    document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, { detail: { section: 'chat' } }));
+  }
+
+  _renderStatus({ working, awaiting }) {
+    if (working) {
+      return html`<div class="chat-working" role="status">
+        <span class="nx-loading-spinner" aria-hidden="true"></span>${CHAT_WORKING_MESSAGE}
+      </div>`;
+    }
+    if (awaiting) {
+      return html`<div class="chat-working chat-awaiting-input" role="status">
+        <span>${CHAT_AWAITING_INPUT_MESSAGE}</span>
+        <button type="button" class="nx-action-btn nx-btn-sm" @click=${this._openChat}>Open chat</button>
+      </div>`;
+    }
+    return nothing;
+  }
+
   render() {
-    const working = this.blocked;
+    const working = this.blocked && !this.awaitingInput;
+    const awaiting = this.blocked && !!this.awaitingInput && this._standalone;
     return html`
       <nx-popover class="prompts-popover">
         <nx-prompts .prompts=${this.prompts ?? []} .onSend=${(p) => this.setPrompt(p)}></nx-prompts>
@@ -350,13 +380,11 @@ export default class NxAoInput extends LitElement {
           @change=${this._onFileInputChange}
         />
         <div class="chat-input-wrap ${this.harness === 'cma' ? '' : 'coworker-chat'}">
-          ${working ? html`<div class="chat-working" role="status">
-            <span class="nx-loading-spinner" aria-hidden="true"></span>${CHAT_WORKING_MESSAGE}
-          </div>` : nothing}
+          ${this._renderStatus({ working, awaiting })}
           <textarea
             class="chat-input"
             placeholder=${this.placeholder ?? 'Ask anything, or type / for skills...'}
-            ?hidden=${working}
+            ?hidden=${working || awaiting}
             ?disabled=${this.blocked}
             @input=${this._handleInput}
             @keydown=${this._handleKeydown}
