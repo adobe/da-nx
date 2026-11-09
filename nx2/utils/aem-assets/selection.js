@@ -78,7 +78,10 @@ export function resolveAssetSelection({ asset, repoConfig }) {
 }
 
 /**
- * Describes the document node to insert for a selected asset.
+ * Describes the document node to insert for a selected AEM asset.
+ *
+ * Assets only: file uploads never use this and never set `editAs`. An upload is a DA
+ * media file (a plain image), whatever `imageType` the site has.
  *
  * imageType values:
  * - null: images insert as images, non-images as links.

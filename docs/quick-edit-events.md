@@ -266,8 +266,9 @@ What the iframe and host do when the contract isn't met:
   only a `src` (no index). Without a link-image, file-name matching is unchanged.
 - `IMAGE_REPLACE` refuses without index and version, as for any image. Replacing a
   link-image with an upload clears `editAs`: the upload is a DA media file, so the
-  result is a regular image. Host-side AEM-asset replacement can instead preserve or
-  set it: `updateImageInDocument` takes an optional `editAs` (omitted or `null`
+  result is a regular image. Uploads never carry `editAs`, on insert or replace, whatever
+  the site's `imageType`; `assetNodeSpec` is for AEM assets only. Host-side AEM-asset
+  replacement can instead preserve or set it: `updateImageInDocument` takes an optional `editAs` (omitted or `null`
   clears it, a string sets it), and hosts pass the `editAs` from `assetNodeSpec`.
 
 So in a document with link-images, any image without its own `data-image-*`
