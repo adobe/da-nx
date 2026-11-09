@@ -12,17 +12,17 @@
 
 import { loadIms } from '../../utils/ims.js';
 import BaseChatController from './base-chat-controller.js';
-import { AO_FRAME, CMA_BRIDGE_WS_BASE, CMA_BRIDGE_HTTP_BASE } from './ao-constants.js';
+import { AO_FRAME } from './ao-constants.js';
 import { getOrgId } from './utils/uploads.js';
+import { resolveChatBases } from './utils/endpoints.js';
 import { fetchSkills } from './utils/skills.js';
 
-// The alternate-harness (CMA bridge) rejects the AUTH frame with terse,
-// internal-sounding messages. Map those to tester-facing copy; leave any other
-// backend error untouched. See docs/chat-ao-alt-harness.md.
+// Maps the CMA bridge's terse AUTH-reject messages to tester-facing copy;
+// leaves any other backend error untouched.
 function friendlyBackendError(message) {
   if (typeof message !== 'string') return 'Something went wrong.';
-  if (/activation key/i.test(message)) {
-    return 'This site isn\'t enabled for the alternate assistant yet, or its activation key is wrong. Check the site\'s ew.altHarness config.';
+  if (/not provisioned|not entitled/i.test(message)) {
+    return 'This organization isn\'t provisioned for the alternate assistant yet.';
   }
   if (/gate misconfigured/i.test(message)) {
     return 'The alternate assistant is temporarily unavailable. Please try again shortly.';
@@ -35,21 +35,6 @@ function friendlyBackendError(message) {
 // pointer in sessionStorage rather than an orchestrator episode list.
 // See docs/chat-ao-controller-decoupling.md and docs/chat-ao-alt-harness.md.
 export default class CmaChatController extends BaseChatController {
-  constructor({
-    onUpdate, onTurnCompleted, activationKey, isolated,
-  } = {}) {
-    super({ onUpdate, onTurnCompleted, isolated });
-    this.setActivationKey(activationKey);
-  }
-
-  // Activation key from the `ew.altHarness` site-config flag — rides the AUTH
-  // frame for server-side validation. Trim: config-sheet values often carry
-  // stray whitespace, and the bridge compares the frame key exactly.
-  setActivationKey(key) {
-    const trimmed = typeof key === 'string' ? key.trim() : key;
-    this._activationKey = trimmed || null;
-  }
-
   async _connectionInfo() {
     const {
       accessToken, userId, tenantId, email, name, projectedProductContext,
@@ -65,17 +50,17 @@ export default class CmaChatController extends BaseChatController {
         'x-user-email': email,
         'x-user-id': userId,
         'x-user-name': name,
-        // x-site scopes the session per-site (S12); activationKey authorizes
-        // and routes to the bridge. Both ride the one AUTH frame.
+        // x-site scopes the session per-site. No activation key: the bridge
+        // authenticates on IMS identity + tenant entitlement + site membership
+        // (#192).
         ...(siteId ? { 'x-site': siteId } : {}),
-        ...(this._activationKey ? { activationKey: this._activationKey } : {}),
       },
-      wsBase: CMA_BRIDGE_WS_BASE,
+      wsBase: resolveChatBases({ harness: 'cma' }).wsBase,
     };
   }
 
   _fetchSkills() {
-    return fetchSkills({ ...(this._context ?? {}), altHarnessKey: this._activationKey });
+    return fetchSkills({ ...(this._context ?? {}), harness: 'cma' });
   }
 
   async _uploadAttachment({ fileName, mediaType, dataBase64 }) {
@@ -86,7 +71,7 @@ export default class CmaChatController extends BaseChatController {
       const bytes = Uint8Array.from(atob(dataBase64), (c) => c.charCodeAt(0));
       form.append('file', new Blob([bytes], { type: mediaType }), fileName);
 
-      const resp = await fetch(`${CMA_BRIDGE_HTTP_BASE}/api/v1/files`, {
+      const resp = await fetch(`${resolveChatBases({ harness: 'cma' }).httpBase}/api/v1/files`, {
         method: 'POST',
         headers: {
           authorization: `Bearer ${accessToken?.token}`,

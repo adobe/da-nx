@@ -172,25 +172,21 @@ describe('isEwChatEnabled', () => {
 describe('getCoworkerConfig', () => {
   afterEach(() => restoreFetch());
 
-  it('returns the coworker enablement plus alternate harness details', async () => {
+  it('returns the coworker enablement', async () => {
     installFlagsByPath({
       '/cw-site1/': JSON.stringify({
-        flags: { data: [{ key: 'ew.coworker', value: 'true' }, { key: 'ew.altHarness', value: 'act-key' }] },
+        flags: { data: [{ key: 'ew.coworker', value: 'true' }] },
       }),
     });
     expect(await getCoworkerConfig({ org: 'cw-org1', site: 'cw-site1' })).to.deep.equal({
       enabled: true,
-      altHarness: true,
-      activationKey: 'act-key',
     });
   });
 
-  it('returns false/null defaults when no coworker flags are set', async () => {
+  it('returns false default when no coworker flag is set', async () => {
     installFetch({ body: JSON.stringify({ flags: { data: [] } }) });
     expect(await getCoworkerConfig({ org: 'cw-org2', site: 'cw-site2' })).to.deep.equal({
       enabled: false,
-      altHarness: false,
-      activationKey: null,
     });
   });
 });
