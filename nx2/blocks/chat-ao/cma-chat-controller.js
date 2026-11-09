@@ -149,13 +149,9 @@ export default class CmaChatController extends BaseChatController {
     }
   }
 
-  // The bridge replays the prior conversation over the socket on attach, but
-  // only a COLD resume (reload — _messages was just cleared in _loadEpisode)
-  // wants that: on a warm socket recovery (_recoverFromClose / reattachIfIdle)
-  // _messages is still intact, so a replay would duplicate the whole
-  // conversation in the UI. Signal which case this attach is by the one fact
-  // that distinguishes them — whether we still hold a transcript — so the
-  // bridge replays only when ours is empty. (claudebridge PR #230.)
+  // replayHistory: true only when _messages is empty (cold resume) - avoids
+  // the bridge duplicating a warm reconnect's already-held transcript
+  // (claudebridge #230).
   _attachFrame() {
     return { type: AO_FRAME.ATTACH, replayHistory: this._messages.length === 0 };
   }

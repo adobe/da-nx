@@ -195,10 +195,7 @@ describe('cma-controller ATTACH replayHistory flag (claudebridge PR #230)', () =
   beforeEach(reset);
   afterEach(reset);
 
-  // The bridge replays the transcript on attach; on a warm reconnect the
-  // client still holds its messages, so it must signal replayHistory:false to
-  // avoid duplicating the conversation. The one fact that distinguishes cold
-  // resume from warm reconnect is whether the client still has a transcript.
+  // Warm reconnect must signal replayHistory:false (still holds its transcript).
   it('_attachFrame requests replay when the transcript is empty (cold resume)', () => {
     const { controller } = makeController();
     controller._messages = [];

@@ -297,9 +297,7 @@ export default class BaseChatController {
     this._ws?.send(JSON.stringify(this._attachFrame()));
   }
 
-  // The ATTACH frame payload. Overridable so a harness can add fields without
-  // changing the base reconnect flow. Base sends the bare frame; the CMA
-  // bridge adds `replayHistory` (see CmaChatController).
+  // Overridable ATTACH payload; CMA adds `replayHistory` (claudebridge #230).
   _attachFrame() {
     return { type: AO_FRAME.ATTACH };
   }
