@@ -1,3 +1,10 @@
+## [1.44.1](https://github.com/adobe/da-nx/compare/v1.44.0...v1.44.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **quick-edit:** sync image versions after host editor updates ([21f1edf](https://github.com/adobe/da-nx/commit/21f1edfdc560ce1a7f9e6ff64bb44bc609fe0e8c))
+
 # [1.44.0](https://github.com/adobe/da-nx/compare/v1.43.0...v1.44.0) (2026-11-09)
 
 
