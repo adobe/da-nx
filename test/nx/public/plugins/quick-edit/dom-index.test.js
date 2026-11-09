@@ -342,7 +342,22 @@ describe('restoreImageIndices with link-images', () => {
     expect(indexOf(second)).to.equal('11');
   });
 
-  it('only skips the scope that directly contains the link-image, not its parent block', () => {
+  it('skips a block whose nested scope has a link-image, even if decoration unwraps that scope', () => {
+    const live = restore(
+      '<main><div class="cards" data-block-index="5"><div><div>'
+        + `<p data-prose-index="6">${anchor(7)}</p>`
+        + '<img data-image-index="8" data-image-version="v1">'
+        + '</div></div></div></main>',
+      '<main><div class="cards" data-block-index="5"><div><div>'
+        + '<picture><img src="https://cdn.example.com/x.jpg?w=750"></picture>'
+        + '</div></div></div></main>',
+    );
+    const img = live.querySelector('img');
+    expect(img.hasAttribute('data-image-index')).to.equal(false);
+    expect(img.hasAttribute('data-image-version')).to.equal(false);
+  });
+
+  it('skips a block with a nested link-image scope when decoration keeps both scopes', () => {
     const live = restore(
       '<main><div class="cards" data-block-index="5"><div><div>'
         + `<p data-prose-index="6">${anchor(7)}</p>`
@@ -353,9 +368,8 @@ describe('restoreImageIndices with link-images', () => {
         + '<picture><img src="/a.png"></picture>'
         + '</div></div></div></main>',
     );
-    const [linkPicture, regular] = live.querySelectorAll('img');
-    expect(linkPicture.hasAttribute('data-image-index')).to.equal(false);
-    expect(indexOf(regular)).to.equal('8');
-    expect(regular.getAttribute('data-image-version')).to.equal('v1');
+    live.querySelectorAll('img').forEach((img) => {
+      expect(img.hasAttribute('data-image-index')).to.equal(false);
+    });
   });
 });

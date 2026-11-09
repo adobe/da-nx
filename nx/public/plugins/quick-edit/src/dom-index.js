@@ -71,7 +71,7 @@ export function restoreImageIndices(sourceRoot, liveRoot = document) {
   const scopes = new Set([...sourceImages]
     .map((img) => scopeOf(img))
     .filter(Boolean)
-    .filter((scope) => ![...scope.querySelectorAll('a[data-edit-as="image"]')].some((a) => scopeOf(a) === scope)));
+    .filter((scope) => !scope.querySelector('a[data-edit-as="image"]')));
 
   scopes.forEach((sourceScope) => {
     const attr = sourceScope.hasAttribute('data-prose-index') ? 'data-prose-index' : 'data-block-index';
