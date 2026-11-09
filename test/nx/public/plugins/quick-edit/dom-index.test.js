@@ -65,6 +65,28 @@ describe('restoreDiffMarkers', () => {
     expect(live.querySelector('[data-prose-index="5"]').hasAttribute('data-diff')).to.equal(false);
   });
 
+  it('keeps markers without an index where they were delivered', () => {
+    const html = '<ul data-prose-index="4"><li data-diff="local">a</li><li>b</li></ul>'
+      + '<p data-prose-index="9"><picture data-diff="local"><img data-image-index="10"></picture></p>'
+      + '<div class="hero" data-diff="local">h</div>';
+    const source = root(html);
+    const live = root(html);
+    restoreDiffMarkers(source, live);
+    expect(live.querySelector('li').getAttribute('data-diff')).to.equal('local');
+    expect(live.querySelector('li + li').hasAttribute('data-diff')).to.equal(false);
+    expect(live.querySelector('picture').getAttribute('data-diff')).to.equal('local');
+    expect(live.querySelector('.hero').getAttribute('data-diff')).to.equal('local');
+  });
+
+  it('leaves unindexed live markers alone and clears indexed ones the source lost', () => {
+    const source = root('<ul data-prose-index="4"><li>a</li></ul><p data-prose-index="9">b</p>');
+    const live = root('<ul data-prose-index="4"><li data-diff="local">a</li></ul>'
+      + '<p data-prose-index="9" data-diff="local">b</p>');
+    restoreDiffMarkers(source, live);
+    expect(live.querySelector('li').getAttribute('data-diff')).to.equal('local');
+    expect(live.querySelector('p').hasAttribute('data-diff')).to.equal(false);
+  });
+
   it('styles each kind and falls back to a neutral outline', () => {
     const cases = ['local', 'upstream', 'changed'];
     const style = document.createElement('link');

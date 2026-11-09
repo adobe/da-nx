@@ -88,8 +88,14 @@ permission. The host must still drop `node-update` / `image-replace` itself.
 ### `data-diff` markers
 
 Not a message: an attribute on a top-level element or block wrapper in the `SET_BODY`
-HTML, shown as a highlight in layout. Quick-edit restores it after decoration, so it
-survives blocks that drop attributes, and removes it when a later body no longer has it.
+HTML, shown as a highlight in layout. A marker that arrives in the body stays on its
+element as delivered. Markers should also carry the element's `data-prose-index` or
+`data-block-index`: quick-edit uses that to put the marker back when decoration drops it
+or rebuilds the element (and to clear it when a later body no longer has it). Elements
+that never get an index (a `li`, a `picture`, a block from a paired conflict) keep their
+marker only while decoration leaves the attribute in place, and are cleared only when
+their region is re-rendered from a body without it. Quick-edit does not guess which
+unindexed element a stale marker belongs to.
 Kinds: `local` (green) and `upstream` (red) match the content view; `added`, `removed`
 and `changed` are reserved for version comparison and, like any unknown kind, get a
 neutral dashed outline. The markers are purely visual; they do not affect editing.
