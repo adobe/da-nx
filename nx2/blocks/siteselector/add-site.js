@@ -1,72 +1,27 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
-import { parseSubdomain, hasOrgAdminGrant, addExistingSite, getSiteApi } from './site-access.js';
+import { parseSubdomain, setRecentSite } from './site-utils.js';
 import '../shared/dialog/dialog.js';
 
-const styles = await Promise.all([
-  loadStyle(new URL('../../styles/form.css', import.meta.url).href),
-  loadStyle(new URL('../../styles/buttons.css', import.meta.url).href),
-  loadStyle(import.meta.url),
-]);
+const style = await loadStyle(new URL('../../styles/form.css', import.meta.url).href);
 
 export class NxAddSite extends LitElement {
   static properties = {
-    org: { attribute: false },
     createHref: { attribute: false },
-    _saving: { state: true },
     _error: { state: true },
-    _canCreate: { state: true },
-    _permissionError: { state: true },
   };
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = styles;
-  }
-
-  firstUpdated() {
-    this.loadCreationPermission();
-  }
-
-  disconnectedCallback() {
-    this._permissionRequest?.abort();
-    this._submitRequest?.abort();
-    super.disconnectedCallback();
-  }
-
-  async loadCreationPermission() {
-    this._permissionRequest?.abort();
-    const request = new AbortController();
-    this._permissionRequest = request;
-    this._canCreate = false;
-    this._permissionError = undefined;
-    if (!this.org || !this.createHref) return;
-    try {
-      const { config } = await getSiteApi();
-      const response = await config.get({ org: this.org });
-      if (request.signal.aborted || !this.isConnected) return;
-      if ([403, 404].includes(response.status)) return;
-      if (!response.ok || !response.headers?.has('x-da-actions')) {
-        throw new Error('Administrator permissions could not be verified. You can still add an existing site.');
-      }
-      this._canCreate = hasOrgAdminGrant(response);
-    } catch (error) {
-      if (!request.signal.aborted && this.isConnected) this._permissionError = error.message;
-    }
+    this.shadowRoot.adoptedStyleSheets = [style];
   }
 
   close() {
     this.shadowRoot.querySelector('nx-dialog').close();
   }
 
-  onClose() {
-    this._permissionRequest?.abort();
-    this._submitRequest?.abort();
-  }
-
-  async submitForm(event) {
+  submitForm(event) {
     event.preventDefault();
-    if (this._saving) return;
     this._error = undefined;
     const input = this.shadowRoot.querySelector('input');
     const hash = parseSubdomain(input.value.trim());
@@ -76,49 +31,36 @@ export class NxAddSite extends LitElement {
       return;
     }
     const value = hash.slice(2);
-    this._saving = true;
-    const request = new AbortController();
-    this._submitRequest = request;
     try {
-      const { source } = await getSiteApi();
-      await addExistingSite({ value, source, signal: request.signal });
-      if (request.signal.aborted || !this.isConnected) return;
+      const [org, site] = value.split('/');
+      setRecentSite({ org, site });
       this.dispatchEvent(new CustomEvent('site-added', { detail: { value }, bubbles: true, composed: true }));
-    } catch (error) {
-      if (!request.signal.aborted && this.isConnected) {
-        this._error = `Could not add the site: ${error.message}`;
-      }
-    } finally {
-      if (!request.signal.aborted && this.isConnected) this._saving = false;
+    } catch {
+      this._error = 'Could not save this site in your browser.';
     }
   }
 
   render() {
     return html`
-      <nx-dialog title="Add site" @close=${this.onClose}>
-        <form id="add-site-form" @submit=${this.submitForm} aria-busy=${!!this._saving}>
-          <label class="nx-form-field">
-            <span>Existing site URL</span>
-            <input class="nx-input" type="url" required autofocus autocomplete="url"
-              placeholder="https://main--site--org.aem.page" ?disabled=${this._saving}
+      <nx-dialog title="Add site">
+        <form id="add-site-form" novalidate @submit=${this.submitForm}>
+          <div class="nx-form-field ${this._error ? 'nx-field-error' : ''}">
+            <label for="site-url">Existing site URL</label>
+            <input id="site-url" class="nx-input" type="url" required autofocus autocomplete="url"
+              placeholder="https://main--site--org.aem.page"
               aria-describedby="site-help site-error" aria-invalid=${!!this._error}
               @input=${() => { this._error = undefined; }}>
-          </label>
+            <span id="site-error" class="nx-input-error-msg" role="alert" ?hidden=${!this._error}>${this._error || ''}</span>
+          </div>
           <p id="site-help">Add an existing site to this browser's list. This does not create a site or grant access.</p>
-          <p id="site-error" role="alert">${this._error || ''}</p>
-          ${this._saving ? html`<p role="status">Checking site access...</p>` : nothing}
+          <hr style="border: 0; border-top: 1px solid var(--s2-gray-300);"/>
         </form>
-        ${this._canCreate && this.createHref ? html`
-          <div class="site-creation">
-            <a href=${this.createHref}>Create new site in ${this.org}</a>
-          </div>` : nothing}
-        ${this._permissionError ? html`
-          <p class="permission-error" role="status">${this._permissionError}
-            <button type="button" class="permission-retry" @click=${this.loadCreationPermission}>Try again</button>
+        ${this.createHref ? html`
+          <p class="site-creation">
+            <a href=${this.createHref}>Create a new site</a>
           </p>` : nothing}
         <button type="button" slot="actions" class="nx-form-btn-secondary" @click=${this.close}>Cancel</button>
-        <button type="submit" slot="actions" form="add-site-form" class="nx-btn-primary"
-          ?disabled=${this._saving}>${this._saving ? 'Checking...' : 'Add site'}</button>
+        <button type="submit" slot="actions" form="add-site-form" class="nx-form-btn-primary">Add site</button>
       </nx-dialog>`;
   }
 }
