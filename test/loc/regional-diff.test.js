@@ -399,6 +399,19 @@ describe('regionalDiff keeps blocks in their own section', () => {
     expect(sections).to.deep.equal([['intro', '+local'], ['-incoming', 'next']]);
   });
 
+  it('keeps each block on its own side when a section break is at a different position in each document', async () => {
+    const targetBreakFirst = await diffSections(
+      [['a', 'x', 'y'], ['b', 'c']],
+      [['a'], ['b', 'c']],
+    );
+    expect(targetBreakFirst).to.deep.equal([['a', '-x', '-y'], ['b', 'c']]);
+    const incomingBreakFirst = await diffSections(
+      [['a'], ['x', 'y', 'b']],
+      [['a', 'l1', 'l2'], ['b']],
+    );
+    expect(incomingBreakFirst).to.deep.equal([['a', '+l1', '+l2'], ['-x', '-y', 'b']]);
+  });
+
   it('pairs section breaks in order when sections change size differently', async () => {
     const sections = await diffSections(
       [['b0', 'b1'], ['b2'], ['b3', 'b4', 'b5'], ['b6']],
