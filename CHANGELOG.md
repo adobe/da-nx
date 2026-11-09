@@ -1,3 +1,41 @@
+## [1.42.1](https://github.com/adobe/da-nx/compare/v1.42.0...v1.42.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **chat-ao:** show a skills-only menu on the CMA harness, no Coworker items ([#966](https://github.com/adobe/da-nx/issues/966)) ([c051805](https://github.com/adobe/da-nx/commit/c05180589d7b8acba4d083e2f923ca6b613f5adf))
+
+# [1.42.0](https://github.com/adobe/da-nx/compare/v1.41.0...v1.42.0) (2026-11-06)
+
+
+### Features
+
+* **aem-assets:** add an images-only filter ([#800](https://github.com/adobe/da-nx/issues/800)) ([433d05d](https://github.com/adobe/da-nx/commit/433d05de29545e905efb11504f3dcd021ffc557f))
+
+# [1.41.0](https://github.com/adobe/da-nx/compare/v1.40.1...v1.41.0) (2026-11-06)
+
+
+### Bug Fixes
+
+* **quick-edit:** accept bridged asset image replacements ([cfbf204](https://github.com/adobe/da-nx/commit/cfbf20495e477ab523cfef1b3657470780cb52aa))
+* **quick-edit:** highlight bridged asset drop targets ([366e48d](https://github.com/adobe/da-nx/commit/366e48de272569850e3c8a9c7c9c15e69f683f60))
+* **sdk:** preserve drops on capture release and report cancellations ([a2a7ef4](https://github.com/adobe/da-nx/commit/a2a7ef4327d28cdd8ccad7d01448a0d45a6dbbbe))
+
+
+### Features
+
+* **quick-edit:** support native extension drops ([7f212c9](https://github.com/adobe/da-nx/commit/7f212c9ede64ba3a9351caaa04fcae53ed998dad))
+* **sdk:** add host-managed extension dragging ([1e8216e](https://github.com/adobe/da-nx/commit/1e8216e5d4915064dbe22c1201bb666d1886a298))
+* support drag and drop in AEM asset selector props ([7cf7ae4](https://github.com/adobe/da-nx/commit/7cf7ae4ccb58c163cc7f0108a3320a42ebf04f58))
+* support rail mode in AEM asset selector props ([66d99f5](https://github.com/adobe/da-nx/commit/66d99f52f9319dd76e8b2e132a315240b4765c15))
+
+## [1.40.1](https://github.com/adobe/da-nx/compare/v1.40.0...v1.40.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **card:** avoid top-level await for safari stylesheet loading ([#964](https://github.com/adobe/da-nx/issues/964)) ([dedc910](https://github.com/adobe/da-nx/commit/dedc91037bc5ee01baca4fbec7038d689280043f))
+
 # [1.40.0](https://github.com/adobe/da-nx/compare/v1.39.0...v1.40.0) (2026-11-05)
 
 
