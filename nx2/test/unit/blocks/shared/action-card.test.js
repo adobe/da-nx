@@ -3,11 +3,11 @@ import sinon from 'sinon';
 import { setConfig } from '../../../../scripts/nx.js';
 
 await setConfig({ hostnames: [] });
-await import('../../../../blocks/shared/tool-card/tool-card.js');
-const { attachCardSearch } = await import('../../../../blocks/shared/tool-card/search.js');
+await import('../../../../blocks/shared/action-card/action-card.js');
+const { attachCardSearch } = await import('../../../../blocks/shared/action-card/search.js');
 
 async function make(props = {}) {
-  const card = document.createElement('nx-tool-card');
+  const card = document.createElement('nx-action-card');
   Object.assign(card, { heading: 'Traverse', description: 'Get a birds eye view.', ...props });
   document.body.append(card);
   await card.updateComplete;
@@ -33,7 +33,7 @@ afterEach(() => {
   sinon.restore();
 });
 
-describe('nx-tool-card content', () => {
+describe('nx-action-card content', () => {
   it('renders heading and description', async () => {
     const card = await make();
     expect($(card, '.heading').textContent.trim()).to.equal('Traverse');
@@ -91,7 +91,7 @@ describe('nx-tool-card content', () => {
   });
 });
 
-describe('nx-tool-card open', () => {
+describe('nx-action-card open', () => {
   it('renders an M open link from href', async () => {
     const card = await make({ href: '/apps/traverse' });
     const open = $(card, '.open');
@@ -115,7 +115,7 @@ describe('nx-tool-card open', () => {
   });
 });
 
-describe('nx-tool-card menu', () => {
+describe('nx-action-card menu', () => {
   it('renders the more button when there are menu items', async () => {
     const card = await make({ href: '/apps/traverse' });
     const btn = $(card, '.more');

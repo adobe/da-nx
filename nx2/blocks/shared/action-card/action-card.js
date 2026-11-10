@@ -26,7 +26,7 @@ const isExternal = (href) => new URL(href, window.location.href).origin !== wind
 
 const absolute = (href) => new URL(href, window.location.href).href;
 
-class NxToolCard extends LitElement {
+class NxActionCard extends LitElement {
   static properties = {
     heading: { type: String },
     description: { type: String },
@@ -125,4 +125,4 @@ class NxToolCard extends LitElement {
   }
 }
 
-if (!customElements.get('nx-tool-card')) customElements.define('nx-tool-card', NxToolCard);
+if (!customElements.get('nx-action-card')) customElements.define('nx-action-card', NxActionCard);
