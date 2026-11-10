@@ -1,3 +1,10 @@
+# [1.47.0](https://github.com/adobe/da-nx/compare/v1.46.0...v1.47.0) (2026-11-10)
+
+
+### Features
+
+* **feedback:** add extensions category ([#975](https://github.com/adobe/da-nx/issues/975)) ([8c9089f](https://github.com/adobe/da-nx/commit/8c9089f3cda216bb282718875032fc62450440fd))
+
 # [1.46.0](https://github.com/adobe/da-nx/compare/v1.45.1...v1.46.0) (2026-11-10)
 
 
