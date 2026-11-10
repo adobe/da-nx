@@ -20,10 +20,10 @@ import {
   COWORKER_SKILLS_PATH, ENTERPRISE_CONTEXT_PATH, getCoworkerHref, loadCoworkerNav,
 } from './utils/coworker-nav.js';
 import {
-  ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE,
+  ADD_MENU_ITEMS, ADD_MENU_ITEMS_WITH_EPISODE, ADD_MENU_ITEMS_CMA,
 } from './ao-constants.js';
 import { getConfig } from '../../scripts/nx.js';
-import { CHAT_EVENT } from '../../utils/chat.js';
+import { CHAT_EVENT, skillsAppHref } from '../../utils/chat.js';
 import { PANEL_EVENT } from '../../utils/panel.js';
 import { renderAssistantMessageBody, renderPlanApprovalCard, renderPermissionCard } from './renderers.js';
 import { renderSelectionPills } from '../shared/chat/selection-pills.js';
@@ -78,7 +78,22 @@ export default class NxChatAo extends LitElement {
 
   async setPrompt(text, { autoSend = false } = {}) {
     await this.updateComplete;
-    await this._input?.setPrompt(text, { autoSend });
+    const defer = autoSend && !this._canSend;
+    const accepted = !!(await this._input?.setPrompt(text, { autoSend: autoSend && !defer }));
+    this._pendingAutoSend = accepted && defer;
+    this._flushPendingAutoSend();
+    return accepted;
+  }
+
+  get _canSend() {
+    return this._session ? this._session.canSend() : !!this._controller;
+  }
+
+  // Submits the draft (not the original text) so edits made while waiting are kept.
+  _flushPendingAutoSend() {
+    if (!this._pendingAutoSend || !this._canSend) return;
+    this._pendingAutoSend = false;
+    this._input?.setPrompt(this._input.draft, { autoSend: true });
   }
 
   get _input() {
@@ -154,6 +169,7 @@ export default class NxChatAo extends LitElement {
     this.pendingPermission = pendingPermission;
     this.loadingEpisode = loadingEpisode;
     this.staleEpisode = staleEpisode;
+    this._flushPendingAutoSend();
   }
 
   // Creates/joins the session once flags + entitlement are known, picking the
@@ -262,6 +278,7 @@ export default class NxChatAo extends LitElement {
     this._releaseSession = undefined;
     this._session = undefined;
     this._controller = undefined;
+    this._pendingAutoSend = false;
     cancelAnimationFrame(this._scrollRaf);
     this._unsubscribeHash?.();
     this._unsubscribeEvents?.();
@@ -309,12 +326,37 @@ export default class NxChatAo extends LitElement {
     return !!this._controller && this._controller.sendMessage(...args) !== false;
   };
 
+  // CMA never shows Coworker items; Coworker shows "Continue in Coworker" with an episode.
+  get _menuItems() {
+    if (this._harness === 'cma') return ADD_MENU_ITEMS_CMA;
+    return this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS;
+  }
+
   _handleMenuSelect = (id) => {
-    if (id === MENU_OPTIONS.MANAGE_PROMPT) this._openConfigPage();
-    if (id === MENU_OPTIONS.MANAGE_SKILLS) this._openCoworker(COWORKER_SKILLS_PATH);
-    if (id === MENU_OPTIONS.OPEN_COWORKER && this.episodeId) this._openCoworker(this.episodeId);
-    if (id === MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT) this._openCoworker(ENTERPRISE_CONTEXT_PATH);
+    const actions = {
+      [MENU_OPTIONS.MANAGE_PROMPT]: () => this._openConfigPage(),
+      [MENU_OPTIONS.MANAGE_SKILLS]: () => (this._harness === 'cma'
+        ? this._openSkillsApp()
+        : this._openCoworker(COWORKER_SKILLS_PATH)),
+      [MENU_OPTIONS.OPEN_COWORKER]: () => {
+        if (this.episodeId) this._openCoworker(this.episodeId);
+      },
+      [MENU_OPTIONS.MANAGE_ENTERPRISE_CONTEXT]: () => {
+        // Defense in depth: the CMA menu already omits this; never fall through to Coworker.
+        if (this._harness === 'cma') return;
+        this._openCoworker(ENTERPRISE_CONTEXT_PATH);
+      },
+    };
+    actions[id]?.();
   };
+
+  // CMA: skills live in the ew-extensions skills app, not CX Coworker.
+  _openSkillsApp() {
+    const { org, site } = this._context ?? {};
+    if (!org || !site) return;
+    const href = skillsAppHref({ org, site, tab: MENU_OPTIONS.MANAGE_SKILLS });
+    window.open(href, '_blank', 'noopener,noreferrer');
+  }
 
   async _loadCoworkerNav() {
     this._coworkerNav = undefined;
@@ -423,7 +465,7 @@ export default class NxChatAo extends LitElement {
           .blocked=${this._blocked}
           .harness=${this._harness}
           .prompts=${prompts}
-          .menuItems=${this.episodeId ? ADD_MENU_ITEMS_WITH_EPISODE : ADD_MENU_ITEMS}
+          .menuItems=${this._menuItems}
           .addEvent=${this._contextEvent}
           .getSkills=${this._getSkills}
           .onSubmit=${this._submit}

@@ -29,6 +29,7 @@ class NxPicker extends LitElement {
     ignoreFocus: { attribute: true },
     size: { type: String, reflect: true },
     variant: { type: String, reflect: true },
+    checkPosition: { type: String, attribute: 'check-position', reflect: true },
   };
 
   constructor() {
@@ -75,10 +76,13 @@ class NxPicker extends LitElement {
   }
 
   _syncPopoverWidth() {
-    this._popover.style.width = this.variant === 'field'
+    const width = getComputedStyle(this).getPropertyValue('--nx-picker-menu-width').trim();
+    this._popover.style.width = width || (this.variant === 'field'
       ? `${this._button.getBoundingClientRect().width}px`
-      : '';
+      : '');
   }
+
+  focus(options) { this._button?.focus(options); }
 
   show() {
     this._syncPopoverWidth();
@@ -86,6 +90,7 @@ class NxPicker extends LitElement {
       anchor: this._button,
       placement: this.getAttribute('placement') ?? 'below',
     });
+    this._button?.setAttribute('aria-expanded', 'true');
   }
 
   close() { this._popover?.close(); }
@@ -110,11 +115,12 @@ class NxPicker extends LitElement {
       ? selectable.find((i) => this._isSelected(i))
       : selectable.find((i) => i.value === this.value);
     this._active = first ? first.value : (selectable[0]?.value ?? this.value);
-    this.updateComplete.then(() => {
+    this.updateComplete.then(() => requestAnimationFrame(() => {
+      if (!this.open || !this.isConnected) return;
       const key = String(this._active ?? '');
       const esc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(key) : key.replace(/"/g, '\\"');
       if (!this.ignoreFocus) this.shadowRoot.querySelector(`[data-value="${esc}"]`)?.focus();
-    });
+    }));
   }
 
   _select(item) {
@@ -201,18 +207,23 @@ class NxPicker extends LitElement {
           data-value=${item.value}
           class="picker-item ${active ? 'picker-item-active' : ''}"
           type="button"
-          aria-label=${item.ariaLabel ?? item.label}
+          aria-label=${item.ariaLabel ?? (item.description ? `${item.label}, ${item.description}` : item.label)}
           @click=${() => this._handleItemActivated(item)}
           @mouseenter=${() => { this._active = item.value; }}
           @focus=${() => { this._active = item.value; }}
         >
+          ${this.checkPosition === 'start' && !item.action ? html`
+            <span class="picker-check-slot" aria-hidden="true">${selected ? CHECKMARK : nothing}</span>` : nothing}
           ${this._renderSwatch(item.swatch)}
-          <span class="picker-item-label">${item.label}</span>
+          <span class="picker-item-label">
+            ${item.label}
+            ${item.description ? html`<span class="picker-item-description">${item.description}</span>` : nothing}
+          </span>
           ${item.trailingIcon ? html`
             <svg class="picker-open-in-icon" viewBox="0 0 20 20" aria-hidden="true">
               <use href="${item.trailingIcon}#icon"></use>
             </svg>` : nothing}
-          ${selected ? CHECKMARK : nothing}
+          ${selected && this.checkPosition !== 'start' ? CHECKMARK : nothing}
         </button>
       </li>
     `;
