@@ -1,11 +1,13 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig, loc } from '../../../scripts/nx.js';
+import { loc } from '../../../scripts/nx.js';
 import { loadStyle } from '../../../utils/utils.js';
+import { loadHrefSvg } from '../../../utils/svg.js';
 
-const styles = await loadStyle(import.meta.url);
-const { codeBase } = getConfig();
-
-const MORE_ICON = `${codeBase}/img/icons/s2-icon-more-20-n.svg`;
+// The "…" icon ships with nx2 and is inlined, so it works on any host (no cross-origin <use>).
+const [styles, moreIcon] = await Promise.all([
+  loadStyle(import.meta.url),
+  loadHrefSvg(new URL('../../../img/icons/s2-icon-more-20-n.svg', import.meta.url).href),
+]);
 
 const loadMenu = (() => {
   let promise;
@@ -57,20 +59,31 @@ class NxActionCard extends LitElement {
 
   _renderTile() {
     const validTint = this.tint && CSS.supports('color', this.tint);
+    if (!this.icon && !validTint) return nothing;
     return html`<div class="tile ${validTint ? 'has-bg' : ''}" style=${validTint ? `--tile-bg: ${this.tint}` : nothing}>
       ${this.icon ? iconSvg(this.icon) : nothing}
     </div>`;
   }
 
+  _renderHeader() {
+    const tile = this._renderTile();
+    const more = this._renderMore();
+    if (tile === nothing && more === nothing) return nothing;
+    return html`<div class="header">${tile}${more}</div>`;
+  }
+
+  get _moreSvg() {
+    this._moreIcon ??= moreIcon?.cloneNode(true);
+    return this._moreIcon ?? nothing;
+  }
+
   _renderMore() {
     if (!this.menu?.length) return nothing;
-    // nx-menu's `select` event is composed and bubbles out of this card.
     return html`
       <button type="button" class="more" aria-haspopup="menu"
         aria-expanded=${this._menuOpen ? 'true' : 'false'}
         aria-label="${loc`More options for`} ${this.heading ?? ''}"
-        @click=${this._onMoreClick}>${iconSvg(MORE_ICON)}</button>
-      <nx-menu @close=${this._onMenuClose}></nx-menu>`;
+        @click=${this._onMoreClick}>${this._moreSvg}</button>`;
   }
 
   _renderAction() {
@@ -82,10 +95,12 @@ class NxActionCard extends LitElement {
       aria-label="${label} ${this.heading ?? ''}">${label}</a>`;
   }
 
+  // nx-menu sits outside the layout (it opens anchored to the "…" button);
+  // its `select` event is composed and bubbles out of this card.
   render() {
     return html`
       <div class="card">
-        <div class="header">${this._renderTile()}${this._renderMore()}</div>
+        ${this._renderHeader()}
         <div class="body">
           <h3 class="heading">${this.heading}</h3>
           ${this.description ? html`<p class="description">${this.description}</p>` : nothing}
@@ -94,7 +109,8 @@ class NxActionCard extends LitElement {
           <div class="extra"><slot name="extra"></slot></div>
           ${this._renderAction()}
         </div>
-      </div>`;
+      </div>
+      ${this.menu?.length ? html`<nx-menu @close=${this._onMenuClose}></nx-menu>` : nothing}`;
   }
 }
 

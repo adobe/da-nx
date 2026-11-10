@@ -43,7 +43,7 @@ Place cards in your own grid, e.g. `grid-template-columns: repeat(auto-fill, min
 | ------------- | -------------- | -------- | ----------- |
 | `heading`     | `heading`      | `String` | Card title. |
 | `description` | `description`  | `String` | Body text. Optional. |
-| `icon`        | `icon`         | `String` | URL of an SVG icon. The SVG's root needs `id="icon"` (rendered as `<use href="{icon}#icon">`). Optional; without it the tile is gray. |
+| `icon`        | `icon`         | `String` | URL of an SVG icon. The SVG needs an element with `id="icon"` (rendered as `<use href="{icon}#icon">`) on the same origin as the page. Optional. |
 | `tint`        | `tint`         | `String` | Tile background color, any CSS color. Invalid colors are ignored. |
 | `menu`        | —              | `Array`  | Entries for the "…" menu, same shape as [`nx-menu`](menu.md) `items` (`{ id, label, icon?, description? }`, `{ section }`, `{ divider: true }`). Empty or unset → no "…" button. |
 | `action`      | `action`       | `String` | URL of the action button. Unset → no button. URLs on another origin open in a new tab. |
@@ -67,7 +67,12 @@ Place cards in your own grid, e.g. `grid-template-columns: repeat(auto-fill, min
 | --------------- | ------ |
 | `icon` + `tint` | 20px icon on the tinted 40px tile. |
 | `icon` only     | Icon fills the whole 40px tile (e.g. a full-color logo). |
-| nothing         | Gray 40px tile. |
+| `tint` only     | Tinted 40px tile without an icon. |
+| nothing         | No tile is rendered. Without a tile and a menu, the card starts with the heading. |
+
+### "…" icon
+
+The "…" icon ships with nx2 (`nx2/img/icons/s2-icon-more-20-n.svg`) and is inlined, so it shows on any host.
 
 ## Hiding
 
