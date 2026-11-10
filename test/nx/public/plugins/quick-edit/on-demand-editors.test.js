@@ -1,7 +1,9 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import { sendMouse } from '@web/test-runner-commands';
-import { setupContentEditableListeners } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
+import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
 import { setEditorState } from '../../../../../nx/public/plugins/quick-edit/src/prose.js';
+import { settleEditor } from '../../../../../nx/public/plugins/quick-edit/src/settle-editor.js';
 import { installClickForwarding } from '../../../../../nx/public/plugins/quick-edit/src/click-forwarding.js';
 
 describe('quick-edit on-demand editors', () => {
@@ -23,7 +25,10 @@ describe('quick-edit on-demand editors', () => {
   afterEach(() => {
     cleanupClickForwarding?.();
     document.removeEventListener('click', ctx.editorRequestListener);
-    document.querySelectorAll('.prosemirror-editor').forEach((el) => el.view?.destroy());
+    document.querySelectorAll('.prosemirror-editor').forEach((el) => {
+      clearTimeout(el.settleTimer);
+      el.view?.destroy();
+    });
     document.body.innerHTML = '';
   });
 
@@ -162,7 +167,7 @@ describe('quick-edit on-demand editors', () => {
       + '<picture data-prose-index="10"><img data-image-index="10"></picture>'
       + '</div></main>';
 
-    setEditorState(1, paragraph('aaaa'), ctx, undefined, 3);
+    setEditorState(1, paragraph('aaaa'), ctx, { lengthDiff: 3 });
 
     expect(document.querySelector('p[data-prose-index="7"]').textContent).to.equal('b');
     expect(document.querySelector('[data-block-index]').getAttribute('data-block-index')).to.equal('10');
@@ -170,7 +175,7 @@ describe('quick-edit on-demand editors', () => {
     expect(document.querySelector('img').getAttribute('data-image-index')).to.equal('13');
 
     const firstEditor = document.querySelector('.prosemirror-editor');
-    setEditorState('01', paragraph('aaaaa'), ctx, undefined, 1);
+    setEditorState('01', paragraph('aaaaa'), ctx, { lengthDiff: 1 });
 
     expect(document.querySelector('.prosemirror-editor')).to.equal(firstEditor);
     expect(document.querySelector('p[data-prose-index="8"]').textContent).to.equal('b');
@@ -178,7 +183,7 @@ describe('quick-edit on-demand editors', () => {
     expect(document.querySelector('picture').getAttribute('data-prose-index')).to.equal('14');
     expect(document.querySelector('img').getAttribute('data-image-index')).to.equal('14');
 
-    setEditorState(8, paragraph('B'), ctx, undefined, 0);
+    setEditorState(8, paragraph('B'), ctx, { lengthDiff: 0 });
 
     expect(firstEditor.textContent).to.equal('aaaaa');
     expect(document.querySelector('.prosemirror-editor[data-prose-index="8"]').textContent).to.equal('B');
@@ -192,6 +197,51 @@ describe('quick-edit on-demand editors', () => {
 
     expect(document.body.innerHTML).to.equal(before);
     expect(posted).to.deep.equal([{ type: 'reload' }]);
+  });
+
+  [false, true].forEach((alreadyOpen) => {
+    it(`uses the current version for a second image replacement after ${alreadyOpen ? 'updating' : 'mounting'} an editor`, () => {
+      const reader = sinon.stub(window, 'FileReader').callsFake(() => ({
+        readAsDataURL() {
+          this.result = 'data:image/png;base64,iVBORw0KGgo=';
+          this.onload();
+        },
+      }));
+      const imageParagraph = (src) => ({
+        type: 'paragraph',
+        content: [{ type: 'image', attrs: { src } }],
+      });
+      const drop = (img) => {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(new File(['image'], 'new.png', { type: 'image/png' }));
+        img.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
+      };
+      try {
+        document.body.innerHTML = '<main>'
+          + '<p data-prose-index="1"><picture><img src="/same.png" data-image-index="1" data-image-version="v1"></picture></p>'
+          + '<p data-prose-index="4"><picture><img src="/same.png" data-image-index="4" data-image-version="v1"></picture></p>'
+          + '</main>';
+        if (alreadyOpen) setEditorState(1, imageParagraph('/same.png'), ctx, { imageVersion: 'v1' });
+        setupImageDropListeners(ctx, document.querySelector('main'));
+        drop(document.querySelector('img[data-image-index="1"]'));
+        const firstRequest = posted.find((message) => message.type === 'image-replace');
+
+        setEditorState(1, imageParagraph('/first.png'), ctx, { imageVersion: 'v2' });
+        updateImageSrc(firstRequest.payload.requestId, '/first.png', ctx);
+        const second = document.querySelector('img[data-image-index="4"]');
+        drop(second);
+
+        const requests = posted.filter((message) => message.type === 'image-replace');
+        expect(requests.map(({ payload }) => [payload.proseIndex, payload.imageVersion]))
+          .to.deep.equal([[1, 'v1'], [4, 'v2']]);
+        updateImageSrc(requests[1].payload.requestId, '/second.png', ctx);
+        expect(document.querySelector('img[data-image-index="1"]').getAttribute('src')).to.equal('/first.png');
+        expect(second.getAttribute('src')).to.equal('/second.png');
+        expect(ctx.pendingImageReplacements.size).to.equal(0);
+      } finally {
+        reader.restore();
+      }
+    });
   });
 
   it('coalesces invalid top-level nodes without replacing either plain text or an open editor', () => {
@@ -208,5 +258,85 @@ describe('quick-edit on-demand editors', () => {
     expect(document.querySelector('.prosemirror-editor')).to.equal(editor);
     expect(editor.textContent).to.equal('Hello world');
     expect(posted).to.deep.equal([{ type: 'reload' }]);
+  });
+
+  it('settles the previous editor when focus moves straight into another open editor', async () => {
+    document.querySelector('main > div').insertAdjacentHTML('beforeend', '<p data-prose-index="40">Other</p>');
+    setEditorState(1, paragraph('Hello world'), ctx);
+    setEditorState(40, paragraph('Other'), ctx);
+    const first = document.querySelector('.prosemirror-editor[data-prose-index="1"]');
+    const second = document.querySelector('.prosemirror-editor[data-prose-index="40"]');
+    Object.assign(ctx, { partialReload: true, reload: () => {} });
+
+    // Dispatched directly: real focus events only fire in the focused test page.
+    first.view.dom.dispatchEvent(new FocusEvent('blur'));
+    second.view.dom.dispatchEvent(new FocusEvent('focus'));
+    await new Promise((resolve) => { setTimeout(resolve, 200); });
+
+    expect(first.isConnected).to.equal(false);
+    expect(document.querySelector('p[data-prose-index="1"]').textContent).to.equal('Hello world');
+    expect(second.isConnected).to.equal(true);
+  });
+
+  it('keeps settled image metadata current when an earlier editor changes during decoration', async () => {
+    setEditorState(14, {
+      type: 'paragraph',
+      content: [{ type: 'image', attrs: { src: '/a.png' } }],
+    }, ctx, { imageVersion: 'v1' });
+    const editor = document.querySelector('.prosemirror-editor[data-prose-index="14"]');
+    const oldIndex = Number(editor.querySelector('img').getAttribute('data-image-index'));
+    let finishReload;
+    const reloading = new Promise((resolve) => { finishReload = resolve; });
+    Object.assign(ctx, {
+      partialReload: true,
+      reload: async (doc, { el }) => {
+        await reloading;
+        return el;
+      },
+    });
+    const settling = settleEditor(editor, ctx);
+
+    // The earlier paragraph grows by five; the settling editor's document is unchanged.
+    setEditorState(1, paragraph('Hello world!!!!!'), ctx, { lengthDiff: 5, imageVersion: 'v2' });
+    finishReload();
+    await settling;
+
+    const p = document.querySelector('p[data-prose-index="19"]');
+    expect(p).to.exist;
+    expect(p.querySelector('img').getAttribute('data-image-index')).to.equal(String(oldIndex + 5));
+    expect(p.querySelector('img').getAttribute('data-image-version')).to.equal('v2');
+    expect(editor.view.isDestroyed).to.equal(true);
+  });
+
+  it('decorates host edits after a pause and collaborator edits later', async () => {
+    const clock = sinon.useFakeTimers();
+    try {
+      let reloaded = [];
+      Object.assign(ctx, {
+        partialReload: true,
+        reload: (doc, { el }) => { reloaded.push(el.textContent); },
+      });
+      document.querySelector('main > div').insertAdjacentHTML('beforeend', '<p data-prose-index="40">Other</p>');
+      setEditorState(1, paragraph('Local'), ctx, { origin: 'local' });
+      setEditorState(40, paragraph('Remote'), ctx, { origin: 'remote' });
+      expect(document.querySelectorAll('.prosemirror-editor')).to.have.length(2);
+
+      await clock.tickAsync(500);
+      expect(reloaded).to.deep.equal(['Local']);
+      reloaded = [];
+      await clock.tickAsync(2500);
+      expect(reloaded).to.deep.equal(['Remote']);
+      expect(document.querySelectorAll('.prosemirror-editor')).to.have.length(0);
+    } finally {
+      clock.restore();
+    }
+  });
+
+  it('blurs an open editor when clicking outside of it', () => {
+    document.querySelector('main > div').insertAdjacentHTML('beforeend', '<div class="prosemirror-editor"><div class="ProseMirror" contenteditable="true">x</div></div>');
+    const editor = document.querySelector('.ProseMirror');
+    editor.focus();
+    click(document.querySelector('[data-prose-index="1"]'));
+    expect(document.activeElement).to.not.equal(editor);
   });
 });

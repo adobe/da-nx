@@ -50,6 +50,38 @@
   flex-shrink: 0;
 }
 
+.brand-area:has(.brand-icon) {
+  gap: var(--s2-spacing-200);
+  padding-inline-start: var(--s2-spacing-200);
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-m-bold-font-size);
+  font-weight: var(--s2-component-m-bold-font-weight);
+  line-height: var(--s2-component-m-bold-line-height);
+}
+
+.brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+
+  img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+  }
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .nav-breadcrumb {
   flex: 1 1 auto;
   min-width: 0;
@@ -80,19 +112,30 @@
   max-width: 100%;
   display: none;
 
+  &:has(nx-profile.is-loaded) {
+    display: unset;
+  }
+}
+
+.site-nav,
+.action-area {
   ul {
     height: 100%;
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0 16px 0 0;
-    padding: 0;
+    margin: -4px;
+    padding: 4px;
     list-style: none;
     overflow: auto hidden;
   }
 
   li {
     flex-shrink: 0;
+
+    &:has(> nx-siteselector[hidden]) {
+      display: none;
+    }
   }
 
   button {
@@ -137,10 +180,10 @@
     width: 20px;
     height: 20px;
   }
+}
 
-  &:has(nx-profile.is-loaded) {
-    display: unset;
-  }
+.action-area ul {
+  margin-right: 16px;
 }
 
 :host(:not([data-has-search])) .action-area {

@@ -18,6 +18,33 @@ so callers — including the `PANEL_EVENT.OPEN`/DA SDK `actions.setPrompt`
 paths documented there — don't need to know which element they got, and
 don't need to query for it either.
 
+If `autoSend` arrives before the shared session can accept a message (e.g. the
+chat panel was just opened and episodes are still loading), `nx-chat-ao` fills
+the input and submits the draft on the first session update where
+`session.canSend()` is true, instead of dropping the send. While a turn is
+running (unless a plan approval is pending) the input is blocked, so the prompt
+is rejected (`setPrompt` resolves `false`): the draft is left untouched, no
+send is scheduled, and a warning toast asks the user to wait for the response.
+
+## Input ownership
+
+`nx-ao-input` (`input.js` / `input.css`) owns the draft, pills/attachments,
+file selection/drop, slash menu, prompts, and voice input. `nx-chat-ao` retains
+conversation, session, approval, history, and document-event handling, delegating
+`setPrompt()` to the input.
+
+Hosts supply `blocked`, `cma`, `prompts`, `menuItems`, and `getSkills()`.
+`onSubmit({ text, context, attachments })` runs synchronously before the draft
+and pills clear. Other callbacks are `onStop()`, `onInput()` (session warming),
+and `onMenuSelect(id)`.
+
+Public APIs: `setPrompt(text, { autoSend? })`, `focusInput()`, `openPrompts()`,
+`addItem(item)`, and read-only `draft` / `items`.
+
+Set optional `addEvent` before mounting; standalone instances default to a
+unique event name. `nx-chat-ao` supplies `CHAT_EVENT.ADD_TO_CHAT` and translates
+bubbled pill activation into `HIGHLIGHT_SELECTION`.
+
 ## Session warming
 
 `AoChatController.warmSession()` (`ao-controller.js`) kicks the current

@@ -53,7 +53,7 @@ export function updateState(data, ctx) {
 
 export function getEditor(data, ctx) {
   if (ctx.suppressRerender) { return; }
-  const { cursorOffset, lengthDiff } = data;
+  const { cursorOffset, lengthDiff, origin } = data;
 
   const { node, cursorOffset: newCursorOffset } = resolveEditableNode(
     window.view.state.doc,
@@ -67,6 +67,7 @@ export function getEditor(data, ctx) {
       cursorOffset: newCursorOffset,
       imageVersion: getImageDocumentVersion(window.view.state.doc),
       lengthDiff,
+      origin,
     },
   });
 }
