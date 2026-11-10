@@ -1,7 +1,8 @@
 import sinon from 'sinon';
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
-import { regionalDiff, normalizeLinks, removeLocTags } from '../../nx/blocks/loc/regional-diff/regional-diff.js';
+import { regionalDiff, normalizeLinks, removeLocTags } from '../../nx/public/loc/regional-diff.js';
+import { getDiffHash } from '../../nx/public/loc/index.js';
 
 function cleanHtmlWhitespace(html) {
   return html.replace(/>\s+</g, '><').trim().replace(/\s+/g, ' ').trim();
@@ -25,6 +26,24 @@ describe('Regional diff', () => {
   afterEach(() => {
     // Do not build up any test state - reset window.fetch to it's original state
     window.fetch = originalFetch;
+  });
+
+  it('uses explicit destination configuration without legacy fetch or page context', async () => {
+    window.fetch = sinon.stub().throws(new Error('Unexpected legacy fetch'));
+    const original = document.implementation.createHTMLDocument();
+    original.body.innerHTML = '<main><div><p><a href="https://main--source--org.aem.live/page">Link</a></p></div></main>';
+    const modified = document.implementation.createHTMLDocument();
+    modified.body.innerHTML = '<main><div><p><a href="https://main--target--org.aem.live/page">Link</a></p></div></main>';
+    const main = await regionalDiff(original, modified, [], [], {
+      site: 'target',
+      config: {
+        config: { data: [{ key: 'source.fragment.hostnames', value: 'main--source--org.aem.live' }] },
+      },
+    });
+    expect(main.innerHTML).to.include('main--target--org.aem.live');
+    expect(main.innerHTML).not.to.include('da-diff-added');
+    expect(main.innerHTML).not.to.include('da-diff-deleted');
+    expect(window.fetch.called).to.equal(false);
   });
 
   it('Returns html with differences annotated when both have diffs', async () => {
@@ -280,7 +299,6 @@ describe('regionalDiff normalizeImages hook', () => {
 });
 
 describe('regionalDiff with hashes from an earlier review', () => {
-  const hashOf = (html) => window.objectHash(html).substring(0, 12);
   const toDoc = (mainHtml) => {
     const doc = document.implementation.createHTMLDocument();
     doc.body.innerHTML = `<main><div>${mainHtml}</div></main>`;
@@ -288,8 +306,6 @@ describe('regionalDiff with hashes from an earlier review', () => {
   };
   const ownHeadings = (main) => [...main.querySelectorAll('h1')]
     .filter((h1) => !h1.closest('da-diff-deleted'))
-    .map((h1) => h1.outerHTML);
-  const incomingHeadings = (main) => [...main.querySelectorAll('da-diff-deleted > h1')]
     .map((h1) => h1.outerHTML);
 
   beforeEach(() => {
@@ -303,23 +319,31 @@ describe('regionalDiff with hashes from an earlier review', () => {
   it('keeps an own block that equals a rejected incoming block apart from its id', async () => {
     const incoming = toDoc('<h1 id="welcome">Welcome</h1><p>Check the options online.</p>');
     const target = toDoc('<h1>Welcome</h1><p>Check the options.</p>');
-    const main = await regionalDiff(incoming, target, [], [hashOf('<h1>Welcome</h1>')]);
+    const main = await regionalDiff(incoming, target, [], [getDiffHash('<h1>Welcome</h1>')]);
     expect(ownHeadings(main)).to.deep.equal(['<h1 da-diff-added="">Welcome</h1>']);
-    expect(incomingHeadings(main)).to.deep.equal(['<h1 id="welcome">Welcome</h1>']);
+    expect(main.querySelector('da-diff-deleted > h1#welcome')).to.exist;
   });
 
   it('keeps an own block whose hash is in the rejected hashes', async () => {
     const incoming = toDoc('<h1>Hello</h1>');
     const target = toDoc('<h1>Welcome</h1>');
-    const main = await regionalDiff(incoming, target, [], [hashOf('<h1>Welcome</h1>')]);
+    const main = await regionalDiff(incoming, target, [], [getDiffHash('<h1>Welcome</h1>')]);
     expect(ownHeadings(main)).to.deep.equal(['<h1 da-diff-added="">Welcome</h1>']);
-    expect(incomingHeadings(main)).to.deep.equal(['<h1>Hello</h1>']);
+    expect(main.querySelector('da-diff-deleted > h1').outerHTML).to.equal('<h1>Hello</h1>');
+  });
+
+  it('marks both blocks when there are no hashes from an earlier review', async () => {
+    const incoming = toDoc('<h1 id="welcome">Welcome</h1><p>Check the options online.</p>');
+    const target = toDoc('<h1>Welcome</h1><p>Check the options.</p>');
+    const main = await regionalDiff(incoming, target, [], []);
+    expect(ownHeadings(main)).to.deep.equal(['<h1 da-diff-added="">Welcome</h1>']);
+    expect(main.querySelector('da-diff-deleted > h1#welcome')).to.exist;
   });
 
   it('keeps an own block whose hash is both accepted and rejected', async () => {
     const incoming = toDoc('<h1 id="welcome">Welcome</h1>');
     const target = toDoc('<h1>Welcome</h1>');
-    const ownHash = hashOf('<h1>Welcome</h1>');
+    const ownHash = getDiffHash('<h1>Welcome</h1>');
     const main = await regionalDiff(incoming, target, [ownHash], [ownHash]);
     expect(ownHeadings(main)).to.deep.equal(['<h1>Welcome</h1>']);
   });
@@ -327,8 +351,144 @@ describe('regionalDiff with hashes from an earlier review', () => {
   it('leaves out an incoming block whose hash is in the rejected hashes', async () => {
     const incoming = toDoc('<h1>Hello</h1>');
     const target = toDoc('<h1>Welcome</h1>');
-    const main = await regionalDiff(incoming, target, [], [hashOf('<h1>Hello</h1>')]);
+    const main = await regionalDiff(incoming, target, [], [getDiffHash('<h1>Hello</h1>')]);
     expect(ownHeadings(main)).to.deep.equal(['<h1 da-diff-added="">Welcome</h1>']);
-    expect(main.querySelectorAll('da-diff-deleted').length).to.equal(0);
+    expect(main.querySelector('da-diff-deleted')).to.be.null;
+  });
+});
+
+describe('regionalDiff keeps blocks in their own section', () => {
+  const toDoc = (sections) => {
+    const doc = document.implementation.createHTMLDocument();
+    const toHtml = (text) => (text.startsWith('<') ? text : `<p>${text}</p>`);
+    const html = sections.map((blocks) => `<div>${blocks.map(toHtml).join('')}</div>`).join('');
+    doc.body.innerHTML = `<main>${html}</main>`;
+    return doc;
+  };
+  const toSections = (main) => [...main.querySelectorAll(':scope > div')]
+    .map((section) => [...section.children].map((el) => {
+      if (el.nodeName === 'DA-DIFF-DELETED') return `-${el.textContent}`;
+      if (el.hasAttribute('da-diff-added')) return `+${el.textContent}`;
+      return el.textContent;
+    }));
+  const diffSections = async (original, modified) => toSections(
+    await regionalDiff(toDoc(original), toDoc(modified), [], []),
+  );
+
+  beforeEach(() => {
+    window.fetch = sinon.stub().callsFake(() => mockRes(''));
+  });
+
+  afterEach(() => {
+    window.fetch = originalFetch;
+  });
+
+  it('keeps an incoming trailing block before the section break when the target section is shorter', async () => {
+    const sections = await diffSections(
+      [['intro', 'detail', 'section-metadata'], ['next']],
+      [['intro'], ['next']],
+    );
+    expect(sections).to.deep.equal([['intro', '-detail', '-section-metadata'], ['next']]);
+  });
+
+  it('keeps an incoming block after the section break when the target section is longer', async () => {
+    const sections = await diffSections(
+      [['intro'], ['incoming', 'next']],
+      [['intro', 'local'], ['next']],
+    );
+    expect(sections).to.deep.equal([['intro', '+local'], ['-incoming', 'next']]);
+  });
+
+  it('keeps each block on its own side when a section break is at a different position in each document', async () => {
+    const targetBreakFirst = await diffSections(
+      [['a', 'x', 'y'], ['b', 'c']],
+      [['a'], ['b', 'c']],
+    );
+    expect(targetBreakFirst).to.deep.equal([['a', '-x', '-y'], ['b', 'c']]);
+    const incomingBreakFirst = await diffSections(
+      [['a'], ['x', 'y', 'b']],
+      [['a', 'l1', 'l2'], ['b']],
+    );
+    expect(incomingBreakFirst).to.deep.equal([['a', '+l1', '+l2'], ['-x', '-y', 'b']]);
+  });
+
+  it('pairs section breaks in order when sections change size differently', async () => {
+    const sections = await diffSections(
+      [['b0', 'b1'], ['b2'], ['b3', 'b4', 'b5'], ['b6']],
+      [['b0', 'n8', 'n10', 'b1'], ['n9', 'b2'], ['b3', 'b4', 'b5'], ['m7']],
+    );
+    expect(sections).to.deep.equal([
+      ['b0', '+n8', '+n10', 'b1'],
+      ['+n9', 'b2'],
+      ['b3', 'b4', 'b5'],
+      ['-b6', '+m7'],
+    ]);
+  });
+
+  it('keeps an empty leading section in the target', async () => {
+    const sections = await diffSections([['intro'], ['next']], [[], ['next']]);
+    expect(sections).to.deep.equal([['-intro'], ['next']]);
+  });
+
+  it('keeps an empty leading section that both documents share', async () => {
+    const sections = await diffSections([[], ['next']], [[], ['next']]);
+    expect(sections).to.deep.equal([[], ['next']]);
+  });
+
+  it('does not add an empty section when only the incoming document starts with one', async () => {
+    const sections = await diffSections([[], ['a'], ['b']], [['a'], ['b']]);
+    expect(sections).to.deep.equal([['a'], ['b']]);
+  });
+
+  it('keeps an incoming block in its section when only the incoming document starts empty', async () => {
+    const sections = await diffSections([[], ['a', 'x'], ['b']], [['a'], ['b']]);
+    expect(sections).to.deep.equal([['a', '-x'], ['b']]);
+  });
+
+  it('matches sections as before when the documents have a different number of sections', async () => {
+    const incoming = await diffSections([[], [], ['a', 'x'], ['b']], [[], ['a'], ['b']]);
+    expect(incoming).to.deep.equal([['a', '-x'], ['b']]);
+    const local = await diffSections([[], ['a'], ['b']], [[], [], ['a', 'x'], ['b']]);
+    expect(local).to.deep.equal([['a', '+x'], ['b']]);
+  });
+
+  it('keeps an incoming block with its section when a block group spans sections differently', async () => {
+    const start = '<div class="block-group-start"><div><div>start</div></div></div>';
+    const end = '<div class="block-group-end"><div><div>end</div></div></div>';
+    const sections = await diffSections(
+      [['a'], [start, 'g'], [end], ['b', 'x'], ['c']],
+      [['a'], [start, 'g', end], [], ['b'], ['c']],
+    );
+    expect(sections).to.deep.equal([
+      ['a'],
+      ['-startgend', '+start', 'g', 'end'],
+      [],
+      ['-x', 'b'],
+      ['c'],
+    ]);
+  });
+
+  it('does not add an empty section between two changed block groups', async () => {
+    const start = (name) => `<div class="block-group-start"><div><div>${name}</div></div></div>`;
+    const end = '<div class="block-group-end"><div><div>end</div></div></div>';
+    const changed = await diffSections(
+      [['a', start('one'), 'g1', end, start('two'), 'g2', end], ['b']],
+      [['a', start('one'), 'g1x', end, start('two'), 'g2x', end], ['b']],
+    );
+    expect(changed).to.deep.equal([
+      ['a'],
+      ['-oneg1end', '+one', 'g1x', 'end'],
+      ['-twog2end', '+two', 'g2x', 'end'],
+      ['b'],
+    ]);
+    const sameThenChanged = await diffSections(
+      [[start('one'), 'g1', end, start('two'), 'g2', end], ['b']],
+      [[start('one'), 'g1', end, start('two'), 'g2x', end], ['b']],
+    );
+    expect(sameThenChanged).to.deep.equal([
+      ['one', 'g1', 'end'],
+      ['-twog2end', '+two', 'g2x', 'end'],
+      ['b'],
+    ]);
   });
 });

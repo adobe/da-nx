@@ -65,6 +65,7 @@ parallel one. If you do add a new key:
 | `STORED_MARKS` | iframe → host | da-live only |
 | `PREVIEW` | iframe ↔ host (request/reply) | standalone (quick-edit-portal) only |
 | `IMAGE_REPLACE` | iframe ↔ host (request/reply) | both hosts |
+| `DROP_TARGET` | Host ↔ iframe (request/reply) | da-live only |
 | `SET_COMMENT_MARKERS` | Host → iframe | da-live only |
 | `SCROLL_TO_POS` | Host → iframe | da-live only |
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
@@ -73,6 +74,23 @@ parallel one. If you do add a new key:
 | `QUICK_EDIT_IFRAME_CLICK` | iframe → host | da-live only |
 
 ---
+
+### `DROP_TARGET`
+
+da-live owns drags that start in another iframe (extension SDK drags and the AEM
+Assets rail): a host overlay captures the pointer above every iframe, so the
+preview never sees those drags or their content. The host asks quick-edit to
+highlight (`hover`) or resolve (`resolve`) the point under the pointer: `html`
+resolves to a before/after boundary between indexed content, `image` only to an
+existing authored image. The reply carries the rendered document version so the
+host can reject stale coordinates before applying the editor transaction.
+While an edit acknowledgement or reload is pending, the reply is
+`{ target: null, reason: 'busy' }` and the host retries briefly. `leave`,
+cancellation and completion clear the highlight. Only da-live initiates this
+flow; the standalone portal does not consume it.
+
+Native drops from outside the browser are a separate path: only image Files on an
+existing image are accepted, and they use `IMAGE_REPLACE` like the replace action.
 
 ### `SET_BODY` (`rerenderScope`)
 
@@ -200,7 +218,9 @@ upload request, the host replies with the same `IMAGE_REPLACE` type, distinguish
 `payload.error` (failure) vs `payload.newSrc` (success). Both hosts implement the full
 round-trip. Hosts stamp every image in `SET_BODY` with its ProseMirror position
 (`data-image-index`) and the document snapshot (`data-image-version`); `SET_EDITOR_STATE`
-carries the same version for an active inline editor. The iframe sends both values with
+carries the same version for an active inline editor and refreshes it on every indexed
+image and open editor, so a subsequent replacement elsewhere uses the current snapshot.
+The iframe sends both values with
 a per-upload `requestId`, and the host updates exactly that image only while the
 document snapshot is current when the request arrives. During upload, the host
 tracks that image through collaborative edits; unrelated edits do not cancel the

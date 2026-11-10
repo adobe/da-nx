@@ -14,7 +14,7 @@ import {
   parseRolloutConfig,
 } from '../../nx/blocks/loc/utils/placeholders.js';
 import { rolloutLang } from '../../nx/blocks/loc/views/rollout/index.js';
-import { mergeCopy, overwriteCopy } from '../../nx/blocks/loc/project/index.js';
+import { copy } from '../../nx/blocks/loc/utils/utils.js';
 
 const sheet = (rows) => ({ total: rows.length, offset: 0, limit: rows.length, data: rows });
 
@@ -453,8 +453,8 @@ describe('rolloutLang with placeholders', () => {
   it('copy helpers use prepared source html for overwrite and merge fallback', async () => {
     const sourceHtml = doc('<div><h1>Prepared</h1></div>');
     const src = '/org/site/langstore/en/page.html';
-    await overwriteCopy({ source: src, destination: '/org/site/en-nl/page.html', sourceHtml }, 'P');
-    await mergeCopy({ source: src, destination: '/org/site/en-to/page.html', sourceHtml }, 'P');
+    await copy.overwriteCopy({ source: src, destination: '/org/site/en-nl/page.html', sourceHtml }, 'P');
+    await copy.mergeCopy({ source: src, destination: '/org/site/en-to/page.html', sourceHtml }, 'P');
     expect(posted('/en-nl/page.html')).to.equal('Prepared');
     expect(posted('/en-to/page.html')).to.equal('Prepared');
   });

@@ -5,21 +5,22 @@ import { CHAT_EVENT } from '../../utils/chat.js';
 const sessions = new Map();
 const inputs = new Map();
 
-export function getSessionScope({ org, site, harness, activationKey = null }) {
-  return JSON.stringify([org, site, harness, activationKey?.trim() || null]);
+export function getSessionScope({ org, site, harness }) {
+  return JSON.stringify([org, site, harness]);
 }
 
 export function getAoSession({
-  context, owner, isolated = false, altHarness = false, activationKey = null,
+  context, owner, isolated = false, harness = 'coworker',
 }) {
   const { org, site } = context;
-  const scope = getSessionScope({
-    org, site, harness: altHarness ? 'cma' : 'coworker', activationKey,
-  });
-  const matching = [...sessions.keys()].filter((session) => session.scope === scope);
+  const scope = getSessionScope({ org, site, harness });
+  // Only non-isolated sessions count as reuse candidates; an isolated sibling
+  // in the same scope must not force an unrelated request into isolation.
+  const matching = [...sessions.keys()].filter(
+    (session) => session.scope === scope && !session.isolated,
+  );
   const available = !isolated && matching.find((session) => (
-    !session.isolated
-    && ![...sessions.get(session).keys()].some((view) => view.localName === owner.localName)
+    ![...sessions.get(session).keys()].some((view) => view.localName === owner.localName)
   ));
   if (available) return available;
 
@@ -35,14 +36,13 @@ export function getAoSession({
     if (!state.thinking) sending = false;
     notify();
   };
-  const Controller = altHarness ? CmaChatController : CoworkerChatController;
+  const Controller = harness === 'cma' ? CmaChatController : CoworkerChatController;
   const controller = new Controller({
     onUpdate: publish,
     onTurnCompleted: (detail) => {
       subscribers.forEach(({ onTurnCompleted }) => onTurnCompleted?.(detail));
     },
     isolated: isolated || matching.length > 0,
-    ...(altHarness ? { activationKey } : {}),
   });
   const onVisibilityChange = () => {
     if (document.visibilityState === 'visible' && initialized) controller.reattachIfIdle?.();
