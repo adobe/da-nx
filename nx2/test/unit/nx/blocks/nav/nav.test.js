@@ -271,6 +271,8 @@ describe('nav brand override', () => {
     expect(getComputedStyle(label).display).to.equal('none');
     expect(brand.getBoundingClientRect().width).to.equal(44);
     expect(brand.getAttribute('aria-label')).to.equal('Example Product');
+    const siteNav = nav.shadowRoot.querySelector('.site-nav');
+    expect(siteNav.getBoundingClientRect().left - nav.getBoundingClientRect().left).to.equal(56);
 
     nav.style.setProperty('--nx-nav-brand-label-display', 'inline');
     expect(getComputedStyle(label).display).not.to.equal('none');
