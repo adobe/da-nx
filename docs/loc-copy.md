@@ -65,12 +65,13 @@ The public index exports only `mergeCopy`, `overwriteCopy`, and the hash helpers
 
 `createCopy({ fetch, daOrigin, loadConfig, saveSource })` creates an isolated engine. `loadConfig({ org, site })` defaults to `createConfigLoader({ fetch, daOrigin })`; `saveSource({ org, site, path, body })` optionally supplies the caller's backend-aware HTML writer.
 
-Its methods accept `(url, title, options)`, where `url` contains `source`, `destination`, optional `sourceContent`, `sourceHtml` (prepared source used instead of reading `source`), and `normalizeImages`. `options` contains optional review labels. Methods update `url.status` and return the underlying write response or an error/no-op result:
+Its methods accept `(url, title, options)`, where `url` contains `source`, `destination`, optional `sourceContent`, `sourceHtml` (prepared source used instead of reading `source`), and `normalizeImages`. `options` contains optional review labels and `recordBaseline` (rollout callers only: on sites that opted into smart-overwrite, `mergeCopy`/`overwriteCopy` also store the smart-overwrite baseline for HTML pages; off by default, so other callers and sites are unchanged). Methods update `url.status` and return the underlying write response or an error/no-op result:
 
 - `mergeCopy`: merge, treating an empty target as missing.
 - `overwriteCopy`: replace.
 - `rolloutCopy`: merge, preserving empty-target metadata and the old loc app's 20-second save timeout. Identical content returns `undefined`; timeout returns `'timeout'`.
-- `smartOverwriteCopy`: opt-in rollout that applies only upstream changes since the last rollout and keeps localized blocks; sets `url.skipped`. Its `options` may include `expand(content)`, used to fill placeholders for the destination in the upstream page's older saved version (callers pass their rollout placeholder resolver). The first smart rollout of a page (no baseline yet) uses the upstream page's latest saved version (ignoring versions saved by rollouts into it) as the baseline, or is a regular merge when there is none. See [rollout-smart-overwrite.md](rollout-smart-overwrite.md).
+- `smartOverwriteCopy`: opt-in rollout that applies only upstream changes since the last rollout and keeps localized blocks; sets `url.skipped`. Without a baseline it is a regular merge review; when nothing changed upstream since the baseline it writes nothing. See [rollout-smart-overwrite.md](rollout-smart-overwrite.md).
+- `markInSync(url, { dryRun })`: smart-overwrite sites only. Records the upstream page as the destination's baseline without changing content and saves a "Marked in sync" version; sets `url.sync` (`marked`, `to-mark` with `url.differences` in a dry run, `in-sync`, `missing`, `unresolved`, `sheet`, `snapshot`).
 
 The loc app configures its engine in `nx/blocks/loc/utils/utils.js`. Snapshot Admin and both Rollout plugins configure their own engines. No compatibility exports remain at the old project, diff, or private engine paths.
 

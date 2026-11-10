@@ -386,6 +386,39 @@ describe('smartMerge', () => {
     window.fetch = originalFetch;
   });
 
+  const mainDoc = (main) => {
+    const doc = document.implementation.createHTMLDocument();
+    doc.body.innerHTML = `<main>${main}</main>`;
+    return doc;
+  };
+  const mergeMains = async ({ base, source, dest }) => smartMerge({
+    site: 'site',
+    config: {},
+    base: await hashes(mainDoc(base)),
+    source: mainDoc(source),
+    dest: mainDoc(dest),
+  });
+
+  it('keeps section boundaries when upstream reorders a section and changes its wrapper', async () => {
+    const { html, skipped } = await mergeMains({
+      base: '<div id="a"><p>A</p></div><div id="b"><p>B</p></div>',
+      source: '<div id="b-new"><p>B</p></div><div id="a"><p>A</p></div>',
+      dest: '<div id="a"><p>A localized</p></div><div id="b"><p>B</p></div>',
+    });
+    expect(html).to.equal('<div id="a"><p>A localized</p></div><div id="b-new"><p>B</p></div>');
+    expect(skipped).to.equal(0);
+  });
+
+  it('keeps the local wrapper when both sides changed it and upstream also reordered', async () => {
+    const { html, skipped } = await mergeMains({
+      base: '<div id="a"><p>A</p></div><div id="b"><p>B</p></div>',
+      source: '<div id="b-new"><p>B</p></div><div id="a"><p>A</p></div>',
+      dest: '<div id="a"><p>A localized</p></div><div id="b-apac"><p>B</p></div>',
+    });
+    expect(html).to.equal('<div id="a"><p>A localized</p></div><div id="b-apac"><p>B</p></div>');
+    expect(skipped).to.equal(1);
+  });
+
   it('applies global edits and keeps local edits to other blocks', async () => {
     const { html, skipped } = await merge({
       base: '<h1>A</h1><p>B</p><p>C</p>',

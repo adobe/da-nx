@@ -1,14 +1,14 @@
 import getElementMetadata from '../../../nx2/utils/getElementMetadata.js';
 import {
-  regionalDiff, removeLocTags, getBlockHashes, smartMerge,
+  regionalDiff, removeLocTags, getBlockHashes, getContentHashes, smartMerge, LOC_MARKERS,
+  isSnapshotPath,
 } from './regional-diff.js';
 
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
 const ROLLOUT_BASE_KEY = 'rolloutbase';
 const EMPTY_TAGS = new Set(['DIV', 'P', 'BR']);
-const DIFF_MARKERS = 'da-diff-deleted, [da-diff-added], da-loc-added, da-loc-deleted, [loc-temp-dom]';
-const VERSION_ID = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.html$/i;
-const ROLLOUT_VERSION_SUFFIX = ' - Rolled Out';
+const MARKED_VERSION_LABEL = 'Marked in sync';
+const NOT_ENABLED = 'Smart overwrite is not enabled for this site';
 
 const toBasePath = (path) => path.toLowerCase();
 
@@ -59,115 +59,119 @@ async function mergeReview({
   return { html: diffed.innerHTML, skipped: 0, sourceHashes };
 }
 
-// Legacy DA lists audit-only entries alongside saved versions; only saved ones have a url.
-// Versions saved by a rollout into the parent hold upstream changes the child has not seen yet.
-async function readParentVersion({
-  fetch, daOrigin, path, responseError,
-}) {
-  const listResponse = await fetch(`${daOrigin}/versionlist${path}`);
-  if (listResponse.status === 404) return null;
-  if (!listResponse.ok) throw responseError(listResponse, 'Reading parent versions');
-  const entries = await listResponse.json();
-  if (!Array.isArray(entries)) throw new Error('Unexpected parent version list');
-  const latest = entries
-    .filter((entry) => typeof entry?.url === 'string' && Number.isFinite(entry.timestamp))
-    .filter((entry) => !String(entry.label ?? '').endsWith(ROLLOUT_VERSION_SUFFIX))
-    .reduce((newest, entry) => (newest?.timestamp >= entry.timestamp ? newest : entry), null);
-  if (!latest) return null;
-
-  const [, org, site] = path.split('/');
-  const prefix = `/versionsource/${org}/${site}/`;
-  const sameSite = latest.url.toLowerCase().startsWith(prefix.toLowerCase());
-  const id = sameSite && latest.url.slice(prefix.length);
-  if (!id || !VERSION_ID.test(id)) throw new Error('Unexpected parent version');
-  const response = await fetch(`${daOrigin}${prefix}${id}`);
-  if (!response.ok) throw responseError(response, 'Reading parent version');
-  return response.text();
-}
-
-async function getParentBase({
-  readParent, expand, getHtml, site, config,
-}) {
-  const text = await readParent();
-  if (text === null) return null;
-  const { content, error } = expand ? await expand(text) : {};
-  const prepared = !error && typeof content === 'string' ? content : text;
-  const parent = prepared.trim() ? await getHtml(undefined, prepared, { raw: true }) : null;
-  if (!parent || !getSectionedMain(parent)) throw new Error('Parent version is malformed');
-  if (parent.querySelector(DIFF_MARKERS)) return null;
-  return getBlockHashes({ doc: parent, site, config });
-}
-
-// No valid baseline yet: the parent's latest saved version stands in for it when usable;
-// otherwise today's merge so the author reviews every difference once.
+// No valid baseline yet: today's merge, so the author reviews every difference once.
 async function firstRollout({
-  source, dest, destHtml, destMarked, metadataEl, site, config, readParent, expand, getHtml,
+  source, dest, destHtml, destMarked, metadataEl, site, config,
 }) {
   const sourceHashes = await getBlockHashes({ doc: source, site, config });
-  const review = () => mergeReview({
-    source, dest, metadataEl, site, config, sourceHashes,
-  });
-  if (destMarked) return review();
-  const destHashes = await getBlockHashes({ doc: dest, site, config });
-  if (sourceHashes.join() === destHashes.join()) {
-    return { html: destHtml, skipped: 0, sourceHashes };
+  if (!destMarked) {
+    const destHashes = await getBlockHashes({ doc: dest, site, config });
+    if (sourceHashes.join() === destHashes.join()) {
+      return { html: destHtml, skipped: 0, sourceHashes };
+    }
   }
-  const base = await getParentBase({
-    readParent, expand, getHtml, site, config,
-  });
-  if (!base || base.join() === sourceHashes.join()) return review();
-  return smartMerge({
-    base, source, dest, site, config,
+  return mergeReview({
+    source, dest, metadataEl, site, config, sourceHashes,
   });
 }
 
 async function smartRollout({
-  source, dest, destHtml, destMarked, empty, path, site, config, readParent, expand, getHtml,
+  source, dest, destHtml, destMarked, empty, path, site, config,
 }) {
   if (!dest) return copySource({ source, site, config });
   const metadataEl = dest.querySelector(DA_METADATA_SELECTOR);
   const daMetadata = readMetadata(metadataEl);
   const base = getRolloutBase(metadataEl, path);
   if (base && !destMarked) {
+    const sourceHashes = await getBlockHashes({ doc: source, site, config });
+    if (sourceHashes.join() === base.join()) return { unchanged: true };
     const merged = await smartMerge({
       base, source, dest, site, config,
     });
+    if (merged.sourceHashes.join() === base.join()) return { unchanged: true };
     return { ...merged, daMetadata };
   }
   if (empty) return copySource({ source, site, config });
   const merged = await firstRollout({
-    source, dest, destHtml, destMarked, metadataEl, site, config, readParent, expand, getHtml,
+    source, dest, destHtml, destMarked, metadataEl, site, config,
   });
   return { ...merged, daMetadata };
 }
 
+const isHtmlPath = (path) => path.toLowerCase().endsWith('.html');
+
+// Sets only the baseline row; everything else on the page stays exactly as authored.
+function withBaselineRow(doc, value, { dropKeys = [] } = {}) {
+  const page = doc.cloneNode(true);
+  let metadata = page.querySelector(DA_METADATA_SELECTOR);
+  if (!metadata) {
+    metadata = page.createElement('div');
+    metadata.className = 'da-metadata';
+    page.body.insertBefore(metadata, page.querySelector('body > footer'));
+  }
+  const removed = [ROLLOUT_BASE_KEY, ...dropKeys];
+  [...metadata.children]
+    .filter((el) => removed.includes(el.children[0]?.textContent.trim().toLowerCase()))
+    .forEach((el) => el.remove());
+  const row = page.createElement('div');
+  row.append(page.createElement('div'), page.createElement('div'));
+  row.firstElementChild.textContent = ROLLOUT_BASE_KEY;
+  row.lastElementChild.textContent = value;
+  metadata.append(row);
+  if (!doc.sourceShape?.html && !doc.head?.childNodes.length) return page.body.outerHTML;
+  const doctype = doc.sourceShape.doctype ? '<!DOCTYPE html>\n' : '';
+  return `${doctype}${page.documentElement.outerHTML}`;
+}
+
+// Destination blocks with no matching upstream block (repeated blocks are matched one for one).
+function countLocalBlocks(sourceHashes, destHashes) {
+  const available = new Map();
+  sourceHashes.forEach((hash) => available.set(hash, (available.get(hash) || 0) + 1));
+  return destHashes.filter((hash) => {
+    const left = available.get(hash) || 0;
+    available.set(hash, left - 1);
+    return left <= 0;
+  }).length;
+}
+
 /**
- * Creates the engine's smart-overwrite rollout (see docs/rollout-smart-overwrite.md) from the
+ * Creates the engine's smart-overwrite methods (see docs/rollout-smart-overwrite.md) from the
  * engine's own helpers. Documents are read raw so whitespace (e.g. in code) is not collapsed.
  */
 export default function createSmartOverwrite({
-  fetch, daOrigin, getHtml, loadConfig, saveHtml, saveVersion, fail, responseError,
+  getHtml, loadConfig, saveHtml, saveBody, saveVersion, fail, responseError,
+  isSmartOverwriteEnabled,
 }) {
-  return async (url, title, { expand } = {}) => {
+  const getConfig = async (url) => {
+    const [, org, site] = url.destination.split('/');
+    const config = await loadConfig({ org, site });
+    if (config?.error) throw new Error(config.error);
+    return { site, config };
+  };
+
+  const readSource = async (url) => {
+    const source = await getHtml(url.source, url.sourceContent || url.sourceHtml, { raw: true });
+    if (!getSectionedMain(source)) throw new Error('Source content not found or malformed');
+    removeLocTags(source);
+    return source;
+  };
+
+  const smartOverwrite = async (url, title) => {
     try {
       const regional = await getHtml(url.destination, undefined, { raw: true });
       const regionalMain = regional && getSectionedMain(regional);
       if (regional && !regionalMain) throw new Error('Unexpected destination content');
-      const source = await getHtml(url.source, url.sourceContent || url.sourceHtml, { raw: true });
-      if (!getSectionedMain(source)) throw new Error('Source content not found or malformed');
+      const { site, config } = await getConfig(url);
+      if (!isSmartOverwriteEnabled(config)) throw new Error(NOT_ENABLED);
+      const source = await readSource(url);
 
       const empty = !!regionalMain && isEmptyMain(regionalMain);
       const destHtml = regionalMain?.innerHTML;
-      const destMarked = !!regional?.querySelector(DIFF_MARKERS);
+      const destMarked = !!regional?.querySelector(LOC_MARKERS);
       if (regional) removeLocTags(regional);
-      removeLocTags(source);
-
-      const [, org, site] = url.destination.split('/');
-      const config = await loadConfig({ org, site });
-      if (config?.error) throw new Error(config.error);
 
       const {
-        html, skipped, sourceHashes, daMetadata,
+        html, skipped, sourceHashes, daMetadata, unchanged,
       } = await smartRollout({
         source,
         dest: regional,
@@ -177,12 +181,12 @@ export default function createSmartOverwrite({
         path: url.destination,
         site,
         config,
-        readParent: () => readParentVersion({
-          fetch, daOrigin, path: url.source, responseError,
-        }),
-        expand,
-        getHtml,
       });
+      if (unchanged) {
+        url.status = 'success';
+        url.skipped = 0;
+        return { ok: true };
+      }
       daMetadata[ROLLOUT_BASE_KEY] = formatRolloutBase(url.destination, sourceHashes);
 
       const response = await saveHtml(url, html, daMetadata);
@@ -194,5 +198,87 @@ export default function createSmartOverwrite({
     } catch (error) {
       return fail(url, error);
     }
+  };
+
+  const getBaselineValue = async (url) => {
+    const { site, config } = await getConfig(url);
+    const source = await readSource(url);
+    const sourceHashes = await getBlockHashes({ doc: source, site, config });
+    return formatRolloutBase(url.destination, sourceHashes);
+  };
+
+  const getOverwriteWithBaseline = async (url) => {
+    const { site, config } = await getConfig(url);
+    const source = await readSource(url);
+    const sourceHashes = await getBlockHashes({ doc: source, site, config });
+    const value = formatRolloutBase(url.destination, sourceHashes);
+    return { body: withBaselineRow(source, value, { dropKeys: ['acceptedhashes', 'rejectedhashes'] }) };
+  };
+
+  const readMarkable = async (url) => {
+    const regional = await getHtml(url.destination, undefined, { raw: true });
+    if (!regional) return { sync: 'missing' };
+    const main = getSectionedMain(regional);
+    if (!main) throw new Error('Unexpected destination content');
+    if (isEmptyMain(main)) return { sync: 'missing' };
+    if (regional.querySelector(LOC_MARKERS)) return { sync: 'unresolved' };
+    const metadataEl = regional.querySelector(DA_METADATA_SELECTOR);
+    if (getRolloutBase(metadataEl, url.destination)) return { sync: 'in-sync' };
+    return { regional };
+  };
+
+  const setSync = (url, sync, extra = {}) => {
+    Object.assign(url, { status: 'success', sync, ...extra });
+    return { ok: true };
+  };
+
+  const recordBaseline = async (url, value) => {
+    const regional = await getHtml(url.destination, undefined, { raw: true });
+    if (!regional || !getSectionedMain(regional)) return { ok: true };
+    return saveBody(url, withBaselineRow(regional, value));
+  };
+
+  const markInSync = async (url, { dryRun = false } = {}) => {
+    try {
+      delete url.sync;
+      delete url.differences;
+      delete url.error;
+      if (!isHtmlPath(url.destination)) return setSync(url, 'sheet');
+      if (isSnapshotPath(url.destination)) return setSync(url, 'snapshot');
+      const { site, config } = await getConfig(url);
+      if (!isSmartOverwriteEnabled(config)) throw new Error(NOT_ENABLED);
+      const checked = await readMarkable(url);
+      if (checked.sync) return setSync(url, checked.sync);
+
+      const source = await readSource(url);
+      if (dryRun) {
+        const differences = countLocalBlocks(
+          await getContentHashes({ doc: source, site, config }),
+          await getContentHashes({ doc: checked.regional, site, config }),
+        );
+        return setSync(url, 'to-mark', { differences });
+      }
+      // Re-read right before saving so an edit made while hashing the source is kept.
+      const latest = await readMarkable(url);
+      if (latest.sync) return setSync(url, latest.sync);
+      const sourceHashes = await getBlockHashes({ doc: source, site, config });
+      const value = formatRolloutBase(url.destination, sourceHashes);
+      const response = await saveBody(url, withBaselineRow(latest.regional, value));
+      if (!response.ok) return fail(url, responseError(response, 'Save'));
+      await saveVersion(url.destination, MARKED_VERSION_LABEL);
+      setSync(url, 'marked');
+      return response;
+    } catch (error) {
+      return fail(url, error);
+    }
+  };
+
+  return {
+    smartOverwrite,
+    markInSync,
+    getBaselineValue,
+    getOverwriteWithBaseline,
+    recordBaseline,
+    baselineKey: ROLLOUT_BASE_KEY,
   };
 }

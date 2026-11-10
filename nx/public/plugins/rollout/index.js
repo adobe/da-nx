@@ -1,4 +1,5 @@
 import { DA_ORIGIN } from '../../utils/constants.js';
+import { isSmartOverwriteEnabled } from '../../loc/copy.js';
 
 const DA_TRANSLATE = '/.da/translate.json';
 const DA_SOURCE = `${DA_ORIGIN}/source/`;
@@ -76,18 +77,19 @@ function getPrefixes(org, repo, path, json) {
   return { currPrefix: '/', prefixes: formatPrefixes(org, repo, '/', syncLang.location, path) };
 }
 
-function hasSmartOverwrite(config) {
-  const behaviors = config?.data?.find((conf) => conf.key === 'rollout.conflict.behavior')?.value;
-  return !!behaviors?.split(',').some((value) => value.trim() === 'smart-overwrite');
-}
-
 export default async function getPrefixDetails(org, repo, token, path) {
   const json = await fetchConf(org, repo, token);
   if (!json) return null;
-  return { ...getPrefixes(org, repo, path, json), smartOverwrite: hasSmartOverwrite(json.config) };
+  return { ...getPrefixes(org, repo, path, json), smartOverwrite: !!isSmartOverwriteEnabled(json) };
 }
 
-const COPY_METHODS = { merge: 'mergeCopy', overwrite: 'overwriteCopy', 'smart-overwrite': 'smartOverwriteCopy' };
+const COPY_METHODS = {
+  merge: 'mergeCopy',
+  overwrite: 'overwriteCopy',
+  'smart-overwrite': 'smartOverwriteCopy',
+  'mark-in-sync': 'markInSync',
+};
+const RECORDS_BASELINE = new Set(['merge', 'overwrite']);
 
 export async function rolloutPrefix({
   prefix, behavior, label, resolver, copy,
@@ -95,6 +97,7 @@ export async function rolloutPrefix({
   prefix.status = 'none';
   prefix.root = prefix.path;
   delete prefix.skipped;
+  delete prefix.sync;
   const { error } = resolver ? await resolver.prepareSource(prefix) : {};
   prefix.error = error;
   if (error) {
@@ -102,7 +105,11 @@ export async function rolloutPrefix({
     return;
   }
   const method = Object.hasOwn(COPY_METHODS, behavior) ? behavior : 'merge';
-  const expand = resolver
-    && ((content) => resolver.expand({ content, root: prefix.root, path: prefix.destination }));
-  await copy[COPY_METHODS[method]](prefix, label, { expand });
+  if (method === 'mark-in-sync') {
+    await copy.markInSync(prefix);
+    if (prefix.status === 'success' && prefix.sync !== 'marked') prefix.status = 'none';
+    return;
+  }
+  const options = RECORDS_BASELINE.has(method) ? { recordBaseline: true } : undefined;
+  await copy[COPY_METHODS[method]](prefix, label, options);
 }

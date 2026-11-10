@@ -202,10 +202,10 @@ const groupBySection = (items, isBreak) => items.reduce((acc, item) => {
   return acc;
 }, []);
 
-// Puts reordered upstream sections back in baseline order as whole units, so blocks edited inside
-// a moved section (e.g. its section metadata) stay with that section.
-function revertSectionMoves({ base, source }) {
-  const breaks = new Set(toHashes(source.filter(isSection)));
+// Puts reordered upstream sections back in baseline order as whole units. Breaks also come from the
+// destination, so a section whose wrapper changed upstream is still found in the baseline.
+function revertSectionMoves({ base, source, dest = [] }) {
+  const breaks = new Set(toHashes([...source, ...dest].filter(isSection)));
   if (!breaks.size) return source;
   // A section is identified only by blocks that appear in exactly one baseline section.
   const baseGroups = groupBySection(base, (hash) => breaks.has(hash))
@@ -232,10 +232,10 @@ function revertSectionMoves({ base, source }) {
   return [...units].sort((x, y) => x.key - y.key).flatMap(({ blocks }) => blocks);
 }
 
-function withoutMoves({ base, source: upstream }) {
+function withoutMoves({ base, source: upstream, dest }) {
   const upstreamMatches = lcsMatches(base, toHashes(upstream));
   if (upstreamMatches.size === base.length) return { blocks: upstream, matches: upstreamMatches };
-  const source = revertSectionMoves({ base, source: upstream });
+  const source = revertSectionMoves({ base, source: upstream, dest });
   const matches = source === upstream ? upstreamMatches : lcsMatches(base, toHashes(source));
   const moves = getMoves({ base, source, matches });
   if (!moves.size) return { blocks: source, matches };
@@ -303,7 +303,7 @@ export default function threeWayMerge({ base, source, dest }) {
   if (baseline.join() === baseKey) return { blocks: dest, skipped: 0, baseline };
   if (toHashes(dest).join() === baseKey) return { blocks: source, skipped: 0, baseline };
   if (baseline.join() === toHashes(dest).join()) return { blocks: dest, skipped: 0, baseline };
-  const { blocks: merged, matches } = withoutMoves({ base, source });
+  const { blocks: merged, matches } = withoutMoves({ base, source, dest });
   const destDiff = getHunks({ base, blocks: dest, side: 'dest' });
   const toDest = destDiff.matches;
   const sourceDiff = getHunks({

@@ -13,6 +13,15 @@ const ICONS = [
   'https://da.live/nx/public/icons/Smock_LinkOut_18_N.svg',
 ];
 
+const SYNC_LABELS = {
+  marked: 'marked in sync',
+  'in-sync': 'already in sync',
+  missing: 'missing',
+  unresolved: 'unresolved review',
+  sheet: 'sheet skipped',
+  snapshot: 'snapshot skipped',
+};
+
 const style = await getStyle(import.meta.url);
 const buttons = await getStyle('https://da.live/nx/styles/buttons.js');
 
@@ -22,6 +31,8 @@ export default class DaRollout extends LitElement {
     _prefixes: { state: true },
     _isLocale: { state: true },
     _smartOverwrite: { state: true },
+    _busy: { state: true },
+    _behavior: { state: true },
   };
 
   connectedCallback() {
@@ -52,12 +63,18 @@ export default class DaRollout extends LitElement {
       load: (path) => fetch(`${DA_ORIGIN}/source${path}`, { headers: { Authorization: `Bearer ${token}` } }),
       sitePath: `/${org}/${repo}`,
     });
-    this._active.map(async (prefix) => {
-      await rolloutPrefix({
-        prefix, behavior, label: copyLabel, resolver, copy: this.copy,
-      });
-      this.requestUpdate();
-    });
+    if (this._busy) return;
+    this._busy = true;
+    try {
+      await Promise.all(this._active.map(async (prefix) => {
+        await rolloutPrefix({
+          prefix, behavior, label: copyLabel, resolver, copy: this.copy,
+        });
+        this.requestUpdate();
+      }));
+    } finally {
+      this._busy = false;
+    }
   }
 
   open(prefix) {
@@ -89,7 +106,7 @@ export default class DaRollout extends LitElement {
           <ul class="prefix-list">
             ${items.map((prefix) => html`
               <li class="da-prefix ${prefix.active ? 'is-active' : ''} status-${prefix.status || 'none'}" title=${prefix.error || nothing}>
-                <span>${prefix.path.replace('/', '')}${prefix.skipped ? html` <span class="skipped-count">${prefix.skipped} skipped (localized)</span>` : nothing}</span>
+                <span>${prefix.path.replace('/', '')}${prefix.skipped ? html` <span class="skipped-count">${prefix.skipped} skipped (localized)</span>` : nothing}${prefix.sync ? html` <span class="skipped-count">${SYNC_LABELS[prefix.sync]}</span>` : nothing}</span>
                 <div class="prefix-actions">
                   <button type="button" @click=${() => this.open(prefix)}>
                     <svg class="icon"><use href="#spectrum-linkOut"/></svg>
@@ -112,16 +129,18 @@ export default class DaRollout extends LitElement {
             <div>
               <label>Behavior</label>
               <div class="select-wrapper">
-                <select name="behavior">
+                <select name="behavior" @change=${(e) => { this._behavior = e.target.value; }}>
                   <option value="merge">Merge</option>
                   <option value="overwrite">Overwrite</option>
-                  ${this._smartOverwrite ? html`<option value="smart-overwrite">Overwrite (keep local edits)</option>` : nothing}
+                  ${this._smartOverwrite ? html`
+                    <option value="smart-overwrite">Overwrite (keep local edits)</option>
+                    <option value="mark-in-sync">Mark in sync (no content change)</option>` : nothing}
                 </select>
               </div>
             </div>
             <div>
               <label>Label <span>(optional)</span></label>
-              <input type="text" name="label" placeholder="adhoc" />
+              <input type="text" name="label" placeholder="adhoc" ?disabled=${this._behavior === 'mark-in-sync'} />
             </div>
           </div>
         </div>
@@ -133,7 +152,7 @@ export default class DaRollout extends LitElement {
           </div>
         ${this._prefixes?.filter((prefix) => prefix.error).map((prefix) => html`<p class="prefix-error">${prefix.error}</p>`)}
         <div class="da-form-row da-form-actions">
-          <button class="accent" ?disabled=${this._disabled}>Rollout</button>
+          <button class="accent" ?disabled=${this._disabled || this._busy}>${this._behavior === 'mark-in-sync' ? 'Mark in sync' : 'Rollout'}</button>
         </div>
       </form>`;
   }

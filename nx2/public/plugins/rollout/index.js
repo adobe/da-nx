@@ -1,4 +1,5 @@
 import { DA_ORIGIN } from '../../utils/constants.js';
+import { isSmartOverwriteEnabled } from '../../../../nx/public/loc/copy.js';
 
 const DA_TRANSLATE = '/.da/translate.json';
 const DA_SOURCE = `${DA_ORIGIN}/source/`;
@@ -76,15 +77,10 @@ function getPrefixes(org, repo, path, json) {
   return { currPrefix: '/', prefixes: formatPrefixes(org, repo, '/', syncLang.location, path) };
 }
 
-function hasSmartOverwrite(config) {
-  const behaviors = config?.data?.find((conf) => conf.key === 'rollout.conflict.behavior')?.value;
-  return !!behaviors?.split(',').some((value) => value.trim() === 'smart-overwrite');
-}
-
 export default async function getPrefixDetails(org, repo, token, path) {
   const json = await fetchConf(org, repo, token);
   if (!json) return null;
-  return { ...getPrefixes(org, repo, path, json), smartOverwrite: hasSmartOverwrite(json.config) };
+  return { ...getPrefixes(org, repo, path, json), smartOverwrite: !!isSmartOverwriteEnabled(json) };
 }
 
 export { rolloutPrefix } from '../../../../nx/public/plugins/rollout/index.js';

@@ -51,6 +51,11 @@ const conf = (behavior) => ({
         prefix.skipped = 1;
         return { ok: true };
       }),
+      markInSync: sinon.stub().callsFake(async (prefix) => {
+        prefix.status = 'success';
+        prefix.sync = prefix.skipAs || (prefix.sync ? 'stale' : 'marked');
+        return { ok: true };
+      }),
     });
 
     it('dispatches to the copy function for the chosen behavior', async () => {
@@ -65,19 +70,42 @@ const conf = (behavior) => ({
       expect(prefix.skipped).to.equal(1);
     });
 
-    it('fills placeholders for the destination when smart overwrite reads older parent content', async () => {
+    it('asks plain merge and overwrite to record the smart-overwrite baseline', async () => {
       const fns = copyFns();
-      const prefix = { path: '/apac', destination: '/org/site/apac/page.html' };
-      const resolver = {
-        prepareSource: sinon.stub().resolves({}),
-        expand: sinon.stub().resolves({ content: 'filled' }),
-      };
       await fn({
-        prefix, behavior: 'smart-overwrite', label: 'Proj', resolver, copy: fns,
+        prefix: { path: '/apac' }, behavior: 'merge', label: 'Proj', copy: fns,
       });
-      const { expand } = fns.smartOverwriteCopy.firstCall.args[2];
-      expect(await expand('text')).to.deep.equal({ content: 'filled' });
-      expect(resolver.expand.calledOnceWith({ content: 'text', root: '/apac', path: '/org/site/apac/page.html' })).to.be.true;
+      await fn({
+        prefix: { path: '/apac' }, behavior: 'overwrite', label: 'Proj', copy: fns,
+      });
+      expect(fns.mergeCopy.firstCall.args[2]).to.deep.equal({ recordBaseline: true });
+      expect(fns.overwriteCopy.firstCall.args[2]).to.deep.equal({ recordBaseline: true });
+    });
+
+    it('marks the destination in sync without copying', async () => {
+      const fns = copyFns();
+      const prefix = { path: '/apac', sync: 'in-sync' };
+      await fn({
+        prefix, behavior: 'mark-in-sync', label: 'Proj', copy: fns,
+      });
+      expect(fns.markInSync.firstCall.args).to.deep.equal([prefix]);
+      expect(prefix.sync).to.equal('marked');
+      const copies = [fns.mergeCopy, fns.overwriteCopy, fns.smartOverwriteCopy];
+      const copied = copies.some((stub) => stub.called);
+      expect(copied).to.be.false;
+    });
+
+    it('shows pages skipped by mark in sync as neutral and passes no options to smart overwrite', async () => {
+      const fns = copyFns();
+      const skipped = { path: '/apac', skipAs: 'in-sync' };
+      await fn({
+        prefix: skipped, behavior: 'mark-in-sync', label: 'Proj', copy: fns,
+      });
+      expect(skipped.status).to.equal('none');
+      await fn({
+        prefix: { path: '/apac' }, behavior: 'smart-overwrite', label: 'Proj', copy: fns,
+      });
+      expect(fns.smartOverwriteCopy.firstCall.args[2]).to.be.undefined;
     });
 
     it('falls back to merge for unknown behaviors', async () => {

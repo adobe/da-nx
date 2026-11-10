@@ -1,6 +1,23 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/utils/utils.js';
-import { sortLangs, rolloutLang, getFilteredLangs, getSummaryCards } from './index.js';
+import {
+  sortLangs, rolloutLang, markLangInSync, getFilteredLangs, getSummaryCards,
+} from './index.js';
+
+const SYNC_LABELS = {
+  'to-mark': 'to mark',
+  marked: 'marked',
+  'in-sync': 'already in sync',
+  missing: 'missing',
+  unresolved: 'unresolved review',
+  sheet: 'sheets skipped',
+  snapshot: 'snapshot pages skipped',
+};
+
+const syncSummary = (counts = {}) => Object.entries(SYNC_LABELS)
+  .filter(([key]) => counts[key])
+  .map(([key, label]) => `${counts[key]} ${label}`)
+  .join(', ');
 
 const style = await loadStyle(import.meta.url);
 
@@ -32,6 +49,8 @@ class NxLocRollout extends LitElement {
   }
 
   async handleRolloutLang(langToRollout) {
+    if (this.anyMarking) return;
+    delete langToRollout.sync;
     this._message = { text: `Rolling out ${langToRollout.name}.` };
 
     const actions = {
@@ -57,9 +76,58 @@ class NxLocRollout extends LitElement {
     const foundIdx = this._langs.findIndex((lang) => lang.code === langToRollout.code);
     this._langs[foundIdx] = langToRollout;
 
-    const opts = { detail: { data: { langs: this._langs } }, bubbles: true, composed: true };
+    // Mark in sync state is for this view only and must not be saved with the project.
+    const langs = this._langs.map((lang) => {
+      const saved = { ...lang };
+      delete saved.sync;
+      return saved;
+    });
+    const opts = { detail: { data: { langs } }, bubbles: true, composed: true };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
+  }
+
+  get canMarkInSync() {
+    return this.project.options?.['rollout.conflict.behavior'] === 'smart-overwrite';
+  }
+
+  async handleMarkInSync(lang, dryRun) {
+    if (this.anyRollout) return;
+    const action = dryRun ? 'Checking' : 'Marking';
+    this._message = { text: `${action} ${lang.name} in sync.` };
+    const actions = {
+      sendMessage: (message) => { this._message = message; },
+      requestUpdate: this.requestUpdate.bind(this),
+    };
+    const { message, errors } = await markLangInSync({
+      ...this.project, lang, actions, dryRun,
+    });
+    this._message = message || { text: `${lang.name}: ${syncSummary(lang.sync) || 'nothing to mark'}.` };
+    this._errors = errors;
+  }
+
+  cancelMarkInSync(lang) {
+    delete lang.sync;
+    this._message = undefined;
+    this.requestUpdate();
+  }
+
+  renderMarkInSync(lang) {
+    if (!this.canMarkInSync || !this.canLangRollout(lang)) return nothing;
+    const { status } = lang.sync || {};
+    if (status === 'checking' || status === 'marking') return nothing;
+    if (status === 'checked') {
+      return html`
+        <div class="sync-confirm">
+          <p class="sync-summary">${syncSummary(lang.sync)}${lang.sync.differences ? ` (${lang.sync.differences} local-only blocks kept)` : ''}</p>
+          <sl-button @click=${() => this.handleMarkInSync(lang, false)} class="primary outline" ?disabled=${!lang.sync['to-mark']}>Confirm mark in sync</sl-button>
+          <sl-button @click=${() => this.cancelMarkInSync(lang)} class="primary outline">Cancel</sl-button>
+        </div>`;
+    }
+    return html`
+      <div class="sync-confirm">
+        <sl-button @click=${() => this.handleMarkInSync(lang, true)} class="primary outline">Mark in sync</sl-button>
+      </div>`;
   }
 
   async handleRolloutGroup(group) {
@@ -124,8 +192,14 @@ class NxLocRollout extends LitElement {
     };
   }
 
+  get anyMarking() {
+    return (this._sortedLangs || []).some((lang) => ['checking', 'marking'].includes(lang.sync?.status));
+  }
+
+  // Rolling out and marking in sync write the same pages, so they never run at the same time.
   get anyRollout() {
-    return this._sortedLangs.some((lang) => lang.rollout.status === 'rolling out');
+    return this.anyMarking
+      || (this._sortedLangs || []).some((lang) => lang.rollout.status === 'rolling out');
   }
 
   get langGroups() {
@@ -137,12 +211,12 @@ class NxLocRollout extends LitElement {
     return this._sortedLangs.every((lang) => lang.rollout?.status === 'complete');
   }
 
-  renderLocales(rollout, locales) {
+  renderLocales(rollout, locales, sync) {
     return html`<ul class="locale-list">
       ${locales.map((locale) => html`
         <li class="locale-item ${locale.expand ? 'is-expanded' : ''}">
           <div class="locale-details">
-            <p>${locale.code}${locale.skipped ? html` <span class="skipped-count">${locale.skipped} skipped (localized)</span>` : nothing}</p>
+            <p>${locale.code}${locale.skipped ? html` <span class="skipped-count">${locale.skipped} skipped (localized)</span>` : nothing}${sync?.locales?.[locale.code] ? html` <span class="skipped-count">${syncSummary(sync.locales[locale.code])}</span>` : nothing}</p>
             <p class="sources-count">${this._urls.length}</p>
             <p class="saved-count">${locale.saved || 0}</p>
             <p class="rollout-status">${rollout.status}</p>
@@ -171,8 +245,9 @@ class NxLocRollout extends LitElement {
           </div>
           <button @click=${() => this.handleLangToggle(lang)} class="expand">Expand language</button>
         </div>
+        ${this.renderMarkInSync(lang)}
         <div class="lang-item-locales">
-          ${lang.expand ? this.renderLocales(lang.rollout, lang.locales) : nothing}
+          ${lang.expand ? this.renderLocales(lang.rollout, lang.locales, lang.sync) : nothing}
         </div>
       </li>
     `;

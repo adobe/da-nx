@@ -508,6 +508,10 @@ function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes =
   return modified;
 }
 
+export const LOC_MARKERS = `${DELETED_TAG}, [${ADDED_TAG}], da-loc-added, da-loc-deleted, [loc-temp-dom]`;
+
+export const isSnapshotPath = (path) => path.includes('/.snapshots/');
+
 // Remove all diff tags - document is updated to only keep local changes, upstream is deleted
 export const removeLocTags = (html) => {
   // TODO: Remove da-loc-deleted once we've migrated all regional edits to the new loc tags
@@ -549,6 +553,11 @@ async function getHashedBlocks(doc, { site, config }) {
 export async function getBlockHashes({ doc, site, config }) {
   const blocks = await getHashedBlocks(doc, { site, config });
   return blocks.map(({ hash }) => hash);
+}
+
+export async function getContentHashes({ doc, site, config }) {
+  const blocks = await getHashedBlocks(doc, { site, config });
+  return blocks.filter(({ block }) => !block.isSection).map(({ hash }) => hash);
 }
 
 function buildHtmlFromBlocks(blocks) {
