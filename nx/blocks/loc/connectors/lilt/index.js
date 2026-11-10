@@ -48,6 +48,16 @@ function dueDateIso(days) {
   return new Date(Date.now() + (days * 24 * 60 * 60 * 1000)).toISOString();
 }
 
+/**
+ * Reads the optional Lilt import configuration id from the site translate config.
+ * @param {Object} service - The flattened per-environment service config.
+ * @returns {number|undefined} The positive integer id, or undefined if unset or invalid.
+ */
+function getConfigId(service) {
+  const id = Number(service.configId);
+  return Number.isInteger(id) && id > 0 ? id : undefined;
+}
+
 const TRADITIONAL_CHINESE_TAGS = ['HANT', 'TW', 'HK', 'MO'];
 
 /**
@@ -307,6 +317,8 @@ async function sendAiTranslation({
   service, options, langs, urls, fileIdsByPath, memories, srcLang, srcLocale, sendMessage,
 }) {
   const fileIds = Object.values(fileIdsByPath);
+  const configId = getConfigId(service);
+  const configParam = configId ? `&configId=${configId}` : '';
   const translationIdsByLang = {};
   const errors = [];
 
@@ -325,7 +337,7 @@ async function sendAiTranslation({
       service,
       ids: fileIds,
       method: 'POST',
-      buildUrl: (ids) => `${resolveOrigin(service)}/v2/translate/file?fileId=${ids}&memoryId=${memoryId}`,
+      buildUrl: (ids) => `${resolveOrigin(service)}/v2/translate/file?fileId=${ids}&memoryId=${memoryId}${configParam}`,
     });
     if (error) errors.push(`Lilt translation request failed for ${lang.name}: ${error}`);
     if (error && !infos.length) return;
@@ -466,6 +478,7 @@ async function sendVerifiedTranslation({
   title, service, options, langs, urls, fileIdsByPath, memories, srcLang, srcLocale, sendMessage,
 }) {
   const fileIds = Object.values(fileIdsByPath);
+  const configId = getConfigId(service);
   const languagePairs = [];
   const matchedLangs = [];
   const errors = [];
@@ -480,7 +493,9 @@ async function sendVerifiedTranslation({
       errors.push(`No Lilt memory found for ${srcLang} -> ${lang.code}.`);
       return;
     }
-    languagePairs.push({ trgLang, trgLocale, memoryId });
+    languagePairs.push({
+      trgLang, trgLocale, memoryId, configId,
+    });
     matchedLangs.push(lang);
   });
 

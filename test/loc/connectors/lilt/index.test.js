@@ -186,6 +186,35 @@ describe('lilt connector', () => {
       expect(translationIds['fr-FR']['/page']).to.equal(101);
     });
 
+    it('passes the configured configId to translate/file', async () => {
+      const service = baseService({ configId: '123' });
+      const options = { service };
+      const langs = [{ code: 'fr-FR', name: 'French' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 'My Project', service, options, langs, urls, actions,
+      });
+
+      expect(calls.some((c) => c.url.includes('/v2/translate/file?fileId=1&memoryId=11&configId=123'))).to.equal(true);
+    });
+
+    it('omits configId from translate/file when it is not set', async () => {
+      const service = baseService();
+      const options = { service };
+      const langs = [{ code: 'fr-FR', name: 'French' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 'My Project', service, options, langs, urls, actions,
+      });
+
+      const translateCall = calls.find((c) => c.url.includes('/v2/translate/file?fileId='));
+      expect(translateCall.url).to.not.include('configId');
+    });
+
     it('keeps ids from earlier sends when a dependent language is sent later', async () => {
       let nextId = 100;
       installFetch((u, opts) => {
@@ -424,6 +453,41 @@ describe('lilt connector', () => {
       expect(body.languagePairs).to.deep.equal([{ trgLang: 'fr', trgLocale: 'FR', memoryId: 11 }]);
       expect(langs[0].translation.status).to.equal('created');
       expect(JSON.parse(options.service.jobIds.value)).to.deep.equal({ 'fr-FR': '501' });
+    });
+
+    it('adds the configured configId to every language pair', async () => {
+      const service = baseService({ translationMode: 'verified', configId: '123' });
+      const options = { service };
+      const langs = [{ code: 'fr-FR', name: 'French' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 'My Project', service, options, langs, urls, actions,
+      });
+
+      const jobCall = calls.find((c) => c.url.endsWith('/v2/jobs') && c.method === 'POST');
+      const body = JSON.parse(jobCall.body);
+      expect(body.languagePairs).to.deep.equal([{
+        trgLang: 'fr', trgLocale: 'FR', memoryId: 11, configId: 123,
+      }]);
+      expect(body).to.not.have.property('configId');
+    });
+
+    it('ignores an invalid configId', async () => {
+      const service = baseService({ translationMode: 'verified', configId: 'abc' });
+      const options = { service };
+      const langs = [{ code: 'fr-FR', name: 'French' }];
+      const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 'My Project', service, options, langs, urls, actions,
+      });
+
+      const jobCall = calls.find((c) => c.url.endsWith('/v2/jobs') && c.method === 'POST');
+      const body = JSON.parse(jobCall.body);
+      expect(body.languagePairs[0]).to.not.have.property('configId');
     });
 
     it('keeps earlier job ids and polls and saves each language from its own job', async () => {
