@@ -100,14 +100,18 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0;
-    padding: 0;
+    margin: -4px;
+    padding: 4px;
     list-style: none;
     overflow: auto hidden;
   }
 
   li {
     flex-shrink: 0;
+
+    &:has(> nx-siteselector[hidden]) {
+      display: none;
+    }
   }
 
   button {

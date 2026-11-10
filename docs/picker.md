@@ -37,7 +37,8 @@ Use `variant="field"` for a bordered, form-style picker trigger.
 ```
 
 This variant is visual and interactive only. It does not provide a label or participate in native form submission, validation, or reset behavior.
-Its dropdown matches the rendered trigger width each time it opens.
+Its dropdown matches the rendered trigger width each time it opens unless
+`--nx-picker-menu-width` is set.
 
 ### Fixed trigger label
 
@@ -73,6 +74,12 @@ Each entry in the `items` array is one of:
 // Regular item
 { value: 'content', label: 'Content' }
 
+// Optional secondary text
+{ value: 'draft', label: 'Draft', description: 'Not published' }
+
+// Action: emits change without replacing the current selection
+{ value: 'add', label: 'Add...', action: true }
+
 // Item with a color swatch (any CSS background value: hex, rgb(), gradient…)
 { value: 'blue', label: 'Blue', swatch: '#1473e6' }
 
@@ -96,14 +103,22 @@ When the selected item has a `swatch`, the trigger shows it before the label too
 | `placeholder`   | `String`              | Trigger fallback shown only when `value` does not match an item.               |
 | `placement`     | `String`              | Default placement when opened: `below` (default), `above`, or `auto`.         |
 | `size`          | `String`              | Item density: `s` (default) or `m`. Reflected as a host attribute.             |
-| `variant`       | `String`              | Set to `field` for the bordered form-style presentation.                       |
+| `variant`       | `String`              | `field` for a form-style trigger. |
+| `checkPosition` | `String`              | `start` reserves leading check space on selectable rows. Default: end. Attribute: `check-position`. |
 | `open`          | `Boolean` (read-only) | Whether the picker is currently open.                                          |
 
 Trigger text precedence is: non-empty `labelOverride`, matching item label, `placeholder`, then blank. A placeholder is never added to the dropdown and does not change `value`.
 
 ## CSS parts
 
-Use `::part(label)` to style the trigger text, or `::part(label)::before` to add a decorative icon.
+Use `::part(label)` to style the trigger text.
+
+`check-position="start"` provides leading checks.
+Descriptions appear below labels and join the accessible name unless `ariaLabel` overrides it.
+Descriptions consistently use small regular typography and the subdued,
+theme-aware `--s2-gray-700` color in both row sizes. Long descriptions wrap.
+Consumer-specific trigger
+presentation belongs in the consumer's stylesheet; the menu uses shared picker styles.
 
 ## CSS custom properties
 
@@ -115,6 +130,10 @@ Use `::part(label)` to style the trigger text, or `::part(label)::before` to add
 | `--nx-picker-radius`     | `var(--s2-corner-radius-500)`         | Trigger border radius.    |
 | `--nx-picker-background` | `var(--s2-gray-100)`                  | Trigger background.       |
 | `--nx-picker-max-width`  | `none`                                | Maximum component width.  |
+| `--nx-picker-menu-width` | Rendered field width, or automatic    | Menu width, capped at the viewport minus 20px. |
+| `--nx-picker-check-color` | `var(--s2-gray-800)`                 | Selected checkmark color. |
+| `--nx-picker-section-color` | `var(--s2-gray-700)`               | Section title color.      |
+| `--nx-picker-item-padding` | `var(--s2-spacing-75) var(--s2-spacing-100)` | Menu row padding. |
 
 ### Methods
 
@@ -122,6 +141,7 @@ Use `::part(label)` to style the trigger text, or `::part(label)::before` to add
 | ------- | --------- | ---------------------------------- |
 | `show`  | `()`      | Opens the picker.                  |
 | `close` | `()`      | Closes the picker.                 |
+| `focus` | `(options)` | Focuses the trigger.              |
 
 ### Events
 
@@ -132,3 +152,7 @@ Use `::part(label)` to style the trigger text, or `::part(label)::before` to add
 ## Keyboard behaviour
 
 Arrow keys open the picker when focus is on the trigger. When open, arrow keys move focus between items, Enter selects the active item, and Escape closes the picker.
+
+Triggers use a 2px focus ring in the current text color.
+`--s2-focus-ring-color` overrides it.
+Item focus waits for popover positioning and is skipped if the picker closes or disconnects first.
