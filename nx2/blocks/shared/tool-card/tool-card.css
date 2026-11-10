@@ -1,0 +1,175 @@
+:host {
+  display: block;
+  min-width: 0;
+  font-family: var(--s2-font-family);
+}
+
+:host([hidden]) {
+  display: none !important;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-300, 16px);
+  box-sizing: border-box;
+  height: 100%;
+  padding: var(--s2-spacing-300, 16px);
+  border-radius: 16px;
+  background: var(--s2-gray-50);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s2-spacing-100, 8px);
+}
+
+.byline-logo svg {
+  width: 18px;
+  height: 18px;
+}
+
+.more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--s2-corner-radius-400, 7px);
+  background: transparent;
+  color: var(--s2-gray-800);
+  cursor: pointer;
+
+  svg {
+    width: 16px;
+    height: 16px;
+    fill: currentcolor;
+  }
+
+  &:hover {
+    background: var(--s2-gray-200);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-800);
+    outline-offset: 2px;
+  }
+}
+
+.tile {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
+  border-radius: var(--s2-corner-radius-500, 8px);
+  background: var(--s2-gray-200);
+  color: var(--s2-gray-800);
+
+  &:has(svg) {
+    background: none;
+  }
+
+  svg {
+    width: 40px;
+    height: 40px;
+    fill: currentcolor;
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &.has-bg {
+    background: var(--tile-bg);
+    color: rgb(41 41 41);
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s2-spacing-100, 8px);
+  min-width: 0;
+}
+
+.heading {
+  margin: 0;
+  color: var(--s2-gray-800);
+  font-size: var(--s2-body-size-l, 18px);
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.description {
+  margin: 0;
+  color: var(--s2-gray-700);
+  font-size: var(--s2-body-size-s, 14px);
+  line-height: 1.5;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2-spacing-100, 8px);
+  margin-top: var(--s2-spacing-100, 8px);
+}
+
+.byline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--s2-gray-700);
+  font-size: var(--s2-body-size-s, 14px);
+  line-height: 1.5;
+}
+
+.byline-logo {
+  display: inline-flex;
+}
+
+/* Center the logo on the cap height (as in Figma), not on the line box. */
+.byline-text {
+  text-box: trim-both cap alphabetic;
+}
+
+.open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 var(--s2-spacing-200, 12px);
+  border: 2px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-800, 16px);
+  color: var(--s2-gray-800);
+  font-size: var(--s2-component-m-bold-font-size, 14px);
+  font-weight: var(--s2-component-m-bold-font-weight, 700);
+  line-height: var(--s2-component-m-bold-line-height, 18px);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--s2-gray-200);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-800);
+    outline-offset: 2px;
+  }
+}

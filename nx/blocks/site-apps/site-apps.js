@@ -1,5 +1,8 @@
 import { DA_ADMIN, loadStyle } from '../../../nx2/utils/utils.js';
 import { daFetch } from '../../../nx2/utils/api.js';
+import { loc } from '../../../nx2/scripts/nx.js';
+import '../../../nx2/blocks/shared/tool-card/tool-card.js';
+import { attachCardSearch } from '../../../nx2/blocks/shared/tool-card/search.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -7,27 +10,7 @@ if (!document.adoptedStyleSheets.includes(style)) {
   document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
 }
 
-const MOCK_IMG = './media_1728df71ca494e752fda7ddf788b9cad0b39b5323.jpeg';
-
 const ref = new URLSearchParams(window.location.search).get('ref') || 'main';
-
-const CARD_TEMPLATE = `
-<div class="nx-card" data-block-name="card">
-  <div class="nx-card-inner">
-    <div class="nx-card-picture-container">
-      <picture>
-        <img loading="lazy" src="{{image}}">
-      </picture>
-    </div>
-    <div class="nx-card-content-container">
-
-      <h3 id="mp4-doctor">{{title}}</h3>
-      <p>{{description}}</p>
-
-    </div>
-    <p class="nx-card-cta-container"><strong><a href="{{href}}">Go</a></strong></p>
-  </div>
-</div>`;
 
 function getIsAppAllowed(cardRef) {
   const pluginRef = cardRef || 'main';
@@ -45,11 +28,22 @@ function getIsAppAllowed(cardRef) {
 }
 
 function getCard({ title, description, path, image }) {
-  const img = image || MOCK_IMG;
-  return CARD_TEMPLATE.replace('{{title}}', title)
-    .replace('{{image}}', img)
-    .replace('{{description}}', description)
-    .replace('{{href}}', path);
+  const card = document.createElement('nx-tool-card');
+  card.setAttribute('role', 'listitem');
+  card.heading = title ?? '';
+  card.description = description ?? '';
+  card.byline = loc`By Admin`;
+  if (path) card.href = path;
+  if (image) card.image = image;
+  return card;
+}
+
+// Renders the allowed apps as <nx-tool-card>s and joins the cards-filter search.
+export function renderApps({ el, apps }) {
+  el.setAttribute('role', 'list');
+  const allowed = (apps ?? []).filter((app) => getIsAppAllowed(app.ref || 'main'));
+  el.replaceChildren(...allowed.map(getCard));
+  attachCardSearch(el);
 }
 
 function removeSection(el) {
@@ -71,13 +65,7 @@ export default async function init(el) {
       return;
     }
 
-    json.apps.data.forEach((app) => {
-      const appRef = app.ref || 'main';
-      const isAllowed = getIsAppAllowed(appRef);
-      if (!isAllowed) return;
-      const html = getCard(app);
-      el.insertAdjacentHTML('beforeend', html);
-    });
+    renderApps({ el, apps: json.apps.data });
   } catch {
     removeSection(el);
   }

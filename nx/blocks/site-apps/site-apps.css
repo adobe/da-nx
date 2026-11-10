@@ -1,6 +1,6 @@
+/* Card grid, same as nx2/blocks/cards. Each card is a shared <nx-tool-card>. */
 .nx-site-apps {
-  margin-top: var(--s2-spacing-600);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--s2-spacing-600);
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--s2-spacing-300);
 }
