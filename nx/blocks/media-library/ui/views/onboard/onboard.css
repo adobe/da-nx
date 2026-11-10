@@ -489,11 +489,23 @@ form button:hover {
   outline: 2px solid var(--s2-blue-500);
   outline-offset: 2px;
   border-radius: 4px;
+}
 
-  svg.more {
-    width: 20px;
-    height: 20px;
-  }
+.card-open {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--s2-radius-200);
+  background: transparent;
+  cursor: pointer;
+}
+
+.card-open:focus-visible {
+  outline: 2px solid var(--s2-blue-500);
+  outline-offset: -2px;
 }
 
 .nx-card .da-card-style-0 {

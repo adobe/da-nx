@@ -150,14 +150,24 @@ class NxMediaOnboard extends LitElement {
     }));
   }
 
-  handleCardFlip(e, cardId) {
+  async handleCardFlip(e, cardId) {
     e.stopPropagation();
+    const toggle = e.currentTarget;
+    const card = toggle.closest('.nx-card');
+    const hadFocus = this.shadowRoot.activeElement === toggle;
     if (this._flippedCards.has(cardId)) {
       this._flippedCards.delete(cardId);
     } else {
       this._flippedCards.add(cardId);
     }
     this.requestUpdate();
+    if (!hadFocus) return;
+    // The face holding the toggle becomes inert, so keep keyboard focus on the visible face.
+    await this.updateComplete;
+    const target = this._flippedCards.has(cardId)
+      ? card?.querySelector('.nx-card-back button')
+      : card?.querySelector('.nx-card-front .card-menu-btn');
+    target?.focus();
   }
 
   handleShare(e, siteName) {
@@ -259,9 +269,14 @@ class NxMediaOnboard extends LitElement {
     return html`
       <div class="nx-card ${isFlipped ? 'flipped' : ''}" @click=${() => this.handleSiteClick(site.name)}>
         <div class="nx-card-inner">
-          <div class="nx-card-front">
+          <div class="nx-card-front" ?inert=${isFlipped}>
             <div class="nx-card-picture-container">
               <div class="nx-card-overlay ${site.cardStyle}">
+                <button
+                  type="button"
+                  class="card-open"
+                  aria-label=${getMessage('UI_OPEN_SITE', { name: siteName })}
+                ></button>
                 <h3>${repo}</h3>
                 <p>${org}${basePath ? html`<span class="base-path">${basePath}</span>` : nothing}</p>
                 <button
@@ -282,7 +297,7 @@ class NxMediaOnboard extends LitElement {
               </div>
             </div>
           </div>
-          <div class="nx-card-back">
+          <div class="nx-card-back" ?inert=${!isFlipped}>
             <button
               class="card-action-btn share-btn"
               @click=${(e) => this.handleShare(e, site.name)}
