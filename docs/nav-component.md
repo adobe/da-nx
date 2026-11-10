@@ -26,7 +26,8 @@ for both UI-size preferences. Text inherits the current theme's color, and the
 decorative image has empty alternative text. The link's accessible name is the
 label.
 
-Only the logo is visible by default. Consumers show the label by setting a CSS custom property on the nav:
+Only the logo is visible by default. Consumers show the label by setting a CSS
+custom property on the nav:
 
 ```css
 nx-nav {
