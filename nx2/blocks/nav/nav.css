@@ -75,7 +75,7 @@
 }
 
 .brand-label {
-  display: var(--nx-nav-brand-label-display, inline);
+  display: var(--nx-nav-brand-label-display, none);
 }
 
 .site-nav {

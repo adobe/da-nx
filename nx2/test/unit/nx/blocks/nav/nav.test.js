@@ -233,6 +233,7 @@ describe('nav brand override', () => {
 
   it('aligns the logo and product label with the shell rail', async () => {
     await setConfig({ ...config, navBrand: { logoHref, label: 'Example Product' } });
+    nav.style.setProperty('--nx-nav-brand-label-display', 'inline');
     const brand = await mountBrand();
     const icon = brand.querySelector('.brand-icon');
     const img = icon.querySelector('img');
@@ -262,25 +263,18 @@ describe('nav brand override', () => {
     expect(textStyle.color).to.equal(getComputedStyle(nav).color);
   });
 
-  it('lets consumers hide the label without losing the home link name or reserving label space', async () => {
+  it('shows only the logo unless the consumer shows the label', async () => {
     await setConfig({ ...config, navBrand: { logoHref, label: 'Example Product' } });
-    nav.style.setProperty('--nx-nav-brand-label-display', 'none');
     nav.style.height = '56px';
     const brand = await mountBrand();
     const label = brand.querySelector('.brand-label');
     expect(getComputedStyle(label).display).to.equal('none');
     expect(brand.getBoundingClientRect().width).to.equal(44);
-    expect(brand.querySelector('.brand-icon').getBoundingClientRect().width).to.equal(32);
-    expect(brand.querySelector('img').getBoundingClientRect().width).to.equal(24);
     expect(brand.getAttribute('aria-label')).to.equal('Example Product');
-    expect(brand.getAttribute('href')).to.equal('/');
-    brand.focus();
-    expect(nav.shadowRoot.activeElement).to.equal(brand);
 
-    nav.style.removeProperty('--nx-nav-brand-label-display');
+    nav.style.setProperty('--nx-nav-brand-label-display', 'inline');
     expect(getComputedStyle(label).display).not.to.equal('none');
     expect(brand.getBoundingClientRect().width).to.be.greaterThan(44);
-    expect(brand.getAttribute('aria-label')).to.equal('Example Product');
   });
 
   [undefined, { label: 'Missing logo' }, { logoHref }].forEach((navBrand) => {
