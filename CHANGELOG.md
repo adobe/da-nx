@@ -1,3 +1,10 @@
+# [1.48.0](https://github.com/adobe/da-nx/compare/v1.47.0...v1.48.0) (2026-11-10)
+
+
+### Features
+
+* **quick-edit:** support editable link-images ([#829](https://github.com/adobe/da-nx/issues/829)) ([ea1aa30](https://github.com/adobe/da-nx/commit/ea1aa30d468986f983dcb0f13da375f4578fa900))
+
 # [1.47.0](https://github.com/adobe/da-nx/compare/v1.46.0...v1.47.0) (2026-11-10)
 
 
