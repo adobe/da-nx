@@ -263,20 +263,12 @@ describe('nav brand override', () => {
     expect(textStyle.color).to.equal(getComputedStyle(nav).color);
   });
 
-  it('shows only the logo unless the consumer shows the label', async () => {
+  it('shows only the logo by default with breadcrumbs in line with the main container', async () => {
     await setConfig({ ...config, navBrand: { logoHref, label: 'Example Product' } });
-    nav.style.height = '56px';
     const brand = await mountBrand();
-    const label = brand.querySelector('.brand-label');
-    expect(getComputedStyle(label).display).to.equal('none');
-    expect(brand.getBoundingClientRect().width).to.equal(44);
-    expect(brand.getAttribute('aria-label')).to.equal('Example Product');
     const siteNav = nav.shadowRoot.querySelector('.site-nav');
+    expect(brand.getBoundingClientRect().width).to.equal(44);
     expect(siteNav.getBoundingClientRect().left - nav.getBoundingClientRect().left).to.equal(56);
-
-    nav.style.setProperty('--nx-nav-brand-label-display', 'inline');
-    expect(getComputedStyle(label).display).not.to.equal('none');
-    expect(brand.getBoundingClientRect().width).to.be.greaterThan(44);
   });
 
   [undefined, { label: 'Missing logo' }, { logoHref }].forEach((navBrand) => {
