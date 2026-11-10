@@ -105,19 +105,89 @@ describe('nx2 fullscreen shell', () => {
     return connection.onMessage;
   }
 
-  async function connectApp() {
+  async function connectApp({ beforeHandshake } = {}) {
     const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     await decorate(block);
     expect(log.called).to.equal(false);
     const iframe = block.querySelector('iframe');
     expect(iframe).to.exist;
     const send = sinon.stub(iframe.contentWindow, 'postMessage');
+    await beforeHandshake?.({ clock, iframe, send });
     await clock.tickAsync(750);
     clock.restore();
     expect(send.called).to.equal(true);
     send.getCalls().forEach((call) => ports.push(call.args[2][0]));
     return { iframe, port: send.firstCall.args[2][0], message: send.firstCall.args[0] };
   }
+
+  [true, false].forEach((enabled) => {
+    it(`waits for selected-site flags before advertising chat support: ${enabled}`, async () => {
+      const org = `handshake-${enabled}`;
+      let release;
+      const pending = new Promise((resolve) => { release = resolve; });
+      window.fetch.withArgs(sinon.match((resource) => String(resource).includes(`/config/${org}/`)))
+        .callsFake(async () => {
+          await pending;
+          return Response.json({ flags: { data: [{ key: 'ew.enabled', value: String(enabled) }] } });
+        });
+      const { message } = await connectApp({
+        beforeHandshake: async ({ clock, send }) => {
+          history.replaceState(null, '', `${window.location.href}#/${org}/site`);
+          window.dispatchEvent(new HashChangeEvent('hashchange'));
+          await clock.tickAsync(750);
+          expect(send.called).to.equal(false);
+          release();
+          await clock.tickAsync(0);
+        },
+      });
+      expect(message.context.hash).to.equal(`#/${org}/site`);
+      expect(message.capabilities).to.deep.equal(enabled ? { chatTurnCompleted: 1 } : {});
+    });
+  });
+
+  it('initializes the latest target without waiting for a superseded availability check', async () => {
+    window.fetch.withArgs(sinon.match((resource) => String(resource).includes('/config/handshake-superseded/')))
+      .returns(new Promise(() => {}));
+    const { message } = await connectApp({
+      beforeHandshake: async ({ clock, send }) => {
+        const base = window.location.href.split('#')[0];
+        history.replaceState(null, '', `${base}#/handshake-superseded/site`);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+        await clock.tickAsync(750);
+        expect(send.called).to.equal(false);
+        history.replaceState(null, '', `${base}#/adobe/latest-site`);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+        await clock.tickAsync(0);
+      },
+    });
+    expect(message.context.hash).to.equal('#/adobe/latest-site');
+    expect(message.capabilities).to.deep.equal({ chatTurnCompleted: 1 });
+  });
+
+  it('does not send an old handshake when the iframe reloads while flags are pending', async () => {
+    let release;
+    const pending = new Promise((resolve) => { release = resolve; });
+    window.fetch.withArgs(sinon.match((resource) => String(resource).includes('/config/handshake-reload/')))
+      .callsFake(async () => {
+        await pending;
+        return Response.json({ flags: { data: [{ key: 'ew.enabled', value: 'true' }] } });
+      });
+    const { iframe: loadedIframe, message } = await connectApp({
+      beforeHandshake: async ({ clock, iframe, send }) => {
+        history.replaceState(null, '', `${window.location.href}#/handshake-reload/site`);
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+        await clock.tickAsync(750);
+        expect(send.called).to.equal(false);
+        iframe.dispatchEvent(new Event('load'));
+        release();
+        await clock.tickAsync(0);
+        expect(send.called).to.equal(false);
+      },
+    });
+    expect(message.context.hash).to.equal('#/handshake-reload/site');
+    expect(loadedIframe.contentWindow.postMessage.calledOnce).to.equal(true);
+    expect(message.capabilities).to.deep.equal({ chatTurnCompleted: 1 });
+  });
 
   it('preserves the app URL and SDK handshake when hosted by nx2', async () => {
     const { iframe, message, port } = await connectApp();
