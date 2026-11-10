@@ -16,6 +16,7 @@ const CHAT_ICON_HREF = `${codeBase}/img/icons/${ICON_NAMES.coworker}.svg#icon`;
 class NXSidenav extends LitElement {
   static properties = {
     path: { attribute: false },
+    expanded: { type: Boolean, reflect: true },
     _navLinks: { state: true },
     _hasChatPanel: { state: true },
     _chatEnabled: { state: true },
@@ -139,10 +140,11 @@ class NXSidenav extends LitElement {
                 <span class="icon" aria-hidden="true">
                   <svg viewBox="0 0 20 20"><use href=${CHAT_ICON_HREF}></use></svg>
                 </span>
+                <span class="label">Ask Coworker</span>
               </button>
             </li>
           ` : nothing}
-          <li class="nav-link ${this.getActiveClass(a)}"><a href="${a.href}" @click=${(e) => this.handleClick(e, a)}>${a.icon}${a.text}</a></li>
+          <li class="nav-link ${this.getActiveClass(a)}"><a href="${a.href}" @click=${(e) => this.handleClick(e, a)}>${a.icon}<span class="label">${a.text}</span></a></li>
         `)}
       </ul>
     `;
