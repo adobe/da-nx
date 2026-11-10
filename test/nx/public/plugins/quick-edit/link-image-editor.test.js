@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { setEditorState } from '../../../../../nx/public/plugins/quick-edit/src/prose.js';
+import { setEditorState, cannotEditLinkImage } from '../../../../../nx/public/plugins/quick-edit/src/prose.js';
 
 const URL_TEXT = 'https://delivery-p1.adobeaemcloud.com/adobe/assets/urn:aaid:aem:1/as/hero.jpg';
 
@@ -7,12 +7,6 @@ describe('quick-edit mini-editor with a link-image', () => {
   let ctx;
   let posted;
   let view;
-
-  // The iframe loads da-parser from prod; skip until prod ships 2.2.0 (editAs).
-  before(async function skipUntilParserShips() {
-    const { getSchema } = await import('https://da.live/deps/da-parser/dist/index.js');
-    if (!getSchema().nodes.image.spec.attrs.editAs) this.skip();
-  });
 
   beforeEach(() => {
     document.body.innerHTML = '<main><div>'
@@ -63,5 +57,28 @@ describe('quick-edit mini-editor with a link-image', () => {
   it('shifts images after the editor by the length of the edit', () => {
     typeBefore('Hello ');
     expect(document.querySelector('img[src="/x.png"]').getAttribute('data-image-index')).to.equal('19');
+  });
+});
+
+describe('cannotEditLinkImage', () => {
+  const withEditAs = { nodes: { image: { spec: { attrs: { editAs: {} } } } } };
+  const withoutEditAs = { nodes: { image: { spec: { attrs: { src: {} } } } } };
+  const el = (html) => {
+    const p = document.createElement('p');
+    p.innerHTML = html;
+    return p;
+  };
+  const linkImage = '<a href="u" data-edit-as="image">u</a>';
+
+  it('refuses a link-image paragraph when the parser lacks editAs', () => {
+    expect(cannotEditLinkImage(el(`Hi ${linkImage}`), withoutEditAs)).to.equal(true);
+  });
+
+  it('allows a link-image paragraph when the parser has editAs', () => {
+    expect(cannotEditLinkImage(el(`Hi ${linkImage}`), withEditAs)).to.equal(false);
+  });
+
+  it('allows paragraphs without a link-image whatever the parser', () => {
+    expect(cannotEditLinkImage(el('Hi <a href="u">u</a>'), withoutEditAs)).to.equal(false);
   });
 });

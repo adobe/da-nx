@@ -276,8 +276,9 @@ attributes, regular or link, can't be selected or replaced in layout mode. Conte
 mode, saved HTML and text editing stay correct either way.
 
 The iframe imports its parser from `https://da.live/deps/da-parser`. It must be
-da-parser ≥ 2.2.0 to keep `editAs` through `NODE_UPDATE`; older iframes silently turn
-the link-image into a regular image on the next text edit.
+da-parser ≥ 2.2.0 to keep `editAs` through `NODE_UPDATE`. With an older parser the
+iframe doesn't mount an editor on a paragraph or block that contains a link-image, so the
+link-image can't be silently turned into a regular image. Such paragraphs stay read-only.
 
 ### Comments (`SET_COMMENT_MARKERS` / `SCROLL_TO_POS` / `COMMENT_MARKER_CLICK` / `COMMENT_MARKER_CLEAR` / `COMMENT_SHORTCUT`)
 
