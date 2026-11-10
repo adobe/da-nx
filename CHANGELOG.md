@@ -1,3 +1,11 @@
+## [1.44.2](https://github.com/adobe/da-nx/compare/v1.44.1...v1.44.2) (2026-11-09)
+
+
+### Bug Fixes
+
+* **loc:** keep merged blocks in their own section ([0dcb6bf](https://github.com/adobe/da-nx/commit/0dcb6bf5ef5ef66cbf41e35067d582b5c93429c2)), closes [#968](https://github.com/adobe/da-nx/issues/968)
+* **loc:** only line up sections when break counts match ([1cac016](https://github.com/adobe/da-nx/commit/1cac01672b5eb3d4e4eeb4868bbfb5d02cca8294))
+
 ## [1.44.1](https://github.com/adobe/da-nx/compare/v1.44.0...v1.44.1) (2026-11-09)
 
 
