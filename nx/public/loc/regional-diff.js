@@ -191,12 +191,29 @@ function checkLists(res) {
   return result;
 }
 
+const isDeletedItem = (item) => item.type === DELETED;
+
+// When two section breaks are matched, keep the deleted blocks in the section they came from
+function pairSectionBreak(result, i, deletedFirst) {
+  const before = result.slice(0, i);
+  const between = result.slice(i + 1);
+  const deleted = between.filter(isDeletedItem);
+  const others = between.filter((item) => !isDeletedItem(item));
+  const pairedBreak = { ...result[i], type: SAME };
+  return deletedFirst
+    ? [...before, ...others, pairedBreak, ...deleted]
+    : [...before, ...deleted, pairedBreak, ...others];
+}
+
 function addToResult(result, newItem, type) {
   for (let i = 0; i < result.length; i += 1) {
     const resultItem = result[i];
     if (resultItem.hash !== newItem.hash || resultItem.type === SAME) {
       // eslint-disable-next-line no-continue
       continue;
+    }
+    if (newItem.sectionNumber && type !== SAME && resultItem.type !== type) {
+      return pairSectionBreak(result, i, resultItem.type === DELETED);
     }
     if (resultItem.type === DELETED) {
       if (type === ADDED) {
@@ -287,20 +304,20 @@ const preText = (el) => (el.matches?.('pre') ? [el] : [...(el.querySelectorAll?.
 
 // `smart` (smart-overwrite) needs a lossless block list: every section break, every element, and
 // whitespace inside <pre> counted as content.
-function getBlocks(dom, { smart = false } = {}) {
+// keepAllBreaks: also keep the breaks of empty sections at the top of the page
+function getBlocks(dom, { smart = false, keepAllBreaks = false } = {}) {
   const sections = [...dom.querySelectorAll('main > div')];
 
   // flatten sections so that they are just dividers between blocks
-  const blocks = sections.reduce((acc, section) => {
+  const blocks = sections.reduce((acc, section, index) => {
     const sectionBlocks = smart ? [...section.children] : [...section.children]
       .filter(isNotEmptyParagraphEl);
     const marker = smart
       ? { ...sectionBlock, openTag: section.cloneNode(false).outerHTML.replace(/<\/div>$/, '') }
       : sectionBlock;
-    const sectionArr = smart || acc.length ? [marker] : [];
+    const sectionArr = smart || (keepAllBreaks ? index : acc.length) ? [marker] : [];
     return [...acc, ...sectionArr, ...sectionBlocks];
   }, []);
-
   return groupBlocks(blocks);
 }
 
@@ -318,14 +335,36 @@ function hashBlock(block, { smart = false } = {}) {
   return hashContent(stringToHash);
 }
 
-function getBlockMap(dom, options) {
+const countSectionBreaks = (blocks) => blocks.filter((block) => block.isSection).length;
+
+// alignSections: both documents have the same number of section breaks, so they line up in order
+function getBlockMap(blocks, alignSections) {
+  return blocks.map((block, index) => {
+    // Number each section break so the 1st break only matches the 1st break, the 2nd the 2nd, etc.
+    if (block.isSection && alignSections) {
+      const sectionNumber = countSectionBreaks(blocks.slice(0, index + 1));
+      return { block, sectionNumber, hash: hashContent(`${block.outerHTML}-${sectionNumber}`) };
+    }
+    return { block, hash: hashBlock(block) };
+  });
+}
+
+// Smart hashes never number section breaks, so adding a section doesn't change other baselines.
+function getSmartBlockMap(dom) {
+  const options = { smart: true };
   return getBlocks(dom, options).map((block) => ({ block, hash: hashBlock(block, options) }));
 }
 
 function htmldiff(originalDOM, modifiedDOM) {
-  const original = getBlockMap(originalDOM);
-  const modified = getBlockMap(modifiedDOM);
-  const diffArr = blockDiff(original, modified);
+  const originalBlocks = getBlocks(originalDOM, { keepAllBreaks: true });
+  const modifiedBlocks = getBlocks(modifiedDOM, { keepAllBreaks: true });
+  const alignSections = countSectionBreaks(originalBlocks) === countSectionBreaks(modifiedBlocks);
+  const original = alignSections ? originalBlocks : getBlocks(originalDOM);
+  const modified = alignSections ? modifiedBlocks : getBlocks(modifiedDOM);
+  const diffArr = blockDiff(
+    getBlockMap(original, alignSections),
+    getBlockMap(modified, alignSections),
+  );
   return diffArr;
 }
 
@@ -357,7 +396,9 @@ function getGroupInnerHtml(blockGroup, { sectionSeparator = SECTION_DIV_BREAK } 
 function diffEntryNeedsSectionBreakBefore(diff, index) {
   if (index === 0) return false;
   const prev = diff[index - 1];
-  return Boolean(prev && !prev.block?.isSection);
+  // A changed group before this one has already added a break after itself
+  const prevIsChangedGroup = Array.isArray(prev?.block) && prev.type !== SAME;
+  return Boolean(prev && !prev.block?.isSection && !prevIsChangedGroup);
 }
 
 function diffEntryNeedsSectionBreakAfter(diff, index, consumedCount) {
@@ -395,7 +436,7 @@ function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes =
     let modifiedBlock = item.block;
     const hash = item.hash.substring(0, HASH_LENGTH);
 
-    if (item.block.isSection && i !== 0) {
+    if (item.block.isSection) {
       htmlText += SECTION_DIV_BREAK;
       // eslint-disable-next-line no-continue
       continue;
@@ -501,7 +542,7 @@ const shortHash = (item) => item.hash.substring(0, HASH_LENGTH);
 async function getHashedBlocks(doc, { site, config }) {
   const options = { smart: true };
   const normalized = await normalizeLinks(doc.cloneNode(true), site, getEquivalentSites(config));
-  const hashed = getBlockMap(normalized, options);
+  const hashed = getSmartBlockMap(normalized);
   return getBlocks(doc, options).map((block, idx) => ({ block, hash: shortHash(hashed[idx]) }));
 }
 
