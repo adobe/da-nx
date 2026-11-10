@@ -8,12 +8,6 @@ describe('quick-edit mini-editor with a link-image', () => {
   let posted;
   let view;
 
-  // The iframe loads da-parser from prod; skip until prod ships 2.2.0 (editAs).
-  before(async function skipUntilParserShips() {
-    const { getSchema } = await import('https://da.live/deps/da-parser/dist/index.js');
-    if (!getSchema().nodes.image.spec.attrs.editAs) this.skip();
-  });
-
   beforeEach(() => {
     document.body.innerHTML = '<main><div>'
       + `<p data-prose-index="1">Hi <a href="${URL_TEXT}" data-edit-as="image" data-image-index="4">${URL_TEXT}</a></p>`
