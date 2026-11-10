@@ -116,6 +116,31 @@ describe('nx-action-card action', () => {
     const card = await make({ actionLabel: 'Open' });
     expect(!!$(card, '.action')).to.be.false;
   });
+
+  it('uses the action target', async () => {
+    const card = await make({ action: '/apps/traverse', actionTarget: '_blank' });
+    expect($(card, '.action').getAttribute('target')).to.equal('_blank');
+    expect($(card, '.action').getAttribute('rel')).to.equal('noopener');
+  });
+
+  it('opens a named window with noopener', async () => {
+    const card = await make({ action: '/apps/traverse', actionTarget: 'tools' });
+    expect($(card, '.action').getAttribute('target')).to.equal('tools');
+    expect($(card, '.action').getAttribute('rel')).to.equal('noopener');
+  });
+
+  it('lets the action target override the external default', async () => {
+    const card = await make({ action: 'https://labs.aem.live/x', actionTarget: '_self' });
+    expect($(card, '.action').getAttribute('target')).to.equal('_self');
+    expect($(card, '.action').hasAttribute('rel')).to.be.false;
+  });
+
+  it('reads the action target from its attribute', async () => {
+    document.body.innerHTML = '<nx-action-card heading="T" action="/x" action-target="_blank"></nx-action-card>';
+    const card = document.querySelector('nx-action-card');
+    await card.updateComplete;
+    expect(card.actionTarget).to.equal('_blank');
+  });
 });
 
 describe('nx-action-card menu', () => {

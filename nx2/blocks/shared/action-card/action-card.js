@@ -22,6 +22,9 @@ const iconSvg = (url) => html`<svg class="icon" viewBox="0 0 20 20" aria-hidden=
 
 const isExternal = (href) => new URL(href, window.location.href).origin !== window.location.origin;
 
+// Targets that stay in the current browsing context need no `rel="noopener"`.
+const SAME_CONTEXT = ['_self', '_parent', '_top'];
+
 class NxActionCard extends LitElement {
   static properties = {
     heading: { type: String },
@@ -31,6 +34,7 @@ class NxActionCard extends LitElement {
     menu: { attribute: false },
     action: { type: String },
     actionLabel: { type: String, attribute: 'action-label' },
+    actionTarget: { type: String, attribute: 'action-target' },
     _menuOpen: { state: true },
   };
 
@@ -89,9 +93,11 @@ class NxActionCard extends LitElement {
   _renderAction() {
     if (!this.action) return nothing;
     const label = this.actionLabel || loc`Open`;
-    const external = isExternal(this.action);
+    // An explicit target wins; otherwise links to another origin open in a new tab.
+    const target = this.actionTarget || (isExternal(this.action) ? '_blank' : undefined);
+    const rel = target && !SAME_CONTEXT.includes(target) ? 'noopener' : undefined;
     return html`<a class="action" href=${this.action}
-      target=${external ? '_blank' : nothing} rel=${external ? 'noopener' : nothing}
+      target=${target ?? nothing} rel=${rel ?? nothing}
       aria-label="${label} ${this.heading ?? ''}">${label}</a>`;
   }
 

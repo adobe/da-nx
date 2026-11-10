@@ -718,8 +718,8 @@ card.focus({ preventScroll: true });</code></pre>
               icon="./icons/selected.svg" tint="#E5F0FE" action="#traverse" action-label="Open">
               <span slot="extra">By Adobe</span>
             </nx-action-card>
-            <nx-action-card heading="Bulk Helper" description="Icon without tint fills the tile; custom action label."
-              icon="./icons/selected.svg" action="#bulk" action-label="Launch">
+            <nx-action-card heading="Bulk Helper" description="Icon without tint fills the tile; custom action label, opens in a new tab."
+              icon="./icons/selected.svg" action="#bulk" action-label="Launch" action-target="_blank">
               <span slot="extra">By Admin</span>
             </nx-action-card>
             <nx-action-card id="demo-action-card-menu" heading="With menu"
@@ -737,6 +737,9 @@ card.focus({ preventScroll: true });</code></pre>
   action="/apps/traverse" action-label="Open"&gt;
   &lt;span slot="extra"&gt;By Adobe&lt;/span&gt;
 &lt;/nx-action-card&gt;
+
+&lt;!-- Optional target for the action, e.g. a new tab --&gt;
+&lt;nx-action-card heading="Bulk Helper" action="/tools/bulk" action-label="Launch" action-target="_blank"&gt;&lt;/nx-action-card&gt;
 
 // Menu entries use the nx-menu item shape; `select` bubbles out of the card
 card.menu = [

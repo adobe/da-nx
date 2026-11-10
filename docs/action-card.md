@@ -16,6 +16,7 @@ card.icon = '/img/icons/s2-icon-treeview-20-n.svg';
 card.tint = '#E5F0FE';
 card.action = '/apps/traverse';
 card.actionLabel = 'Open';
+card.actionTarget = '_blank'; // optional
 card.menu = [
   { id: 'learn-more', label: 'Learn more' },
   { id: 'open-new-tab', label: 'Open in new tab' },
@@ -28,7 +29,7 @@ grid.append(card);
 
 ```html
 <nx-action-card heading="Bulk Helper" description="Bulk things."
-  icon="/media/bulk.svg" action="/tools/bulk" action-label="Open">
+  icon="/media/bulk.svg" action="/tools/bulk" action-label="Open" action-target="_blank">
   <span slot="extra">By Admin</span>
 </nx-action-card>
 ```
@@ -46,8 +47,9 @@ Place cards in your own grid, e.g. `grid-template-columns: repeat(auto-fill, min
 | `icon`        | `icon`         | `String` | URL of an SVG icon. The SVG needs an element with `id="icon"` (rendered as `<use href="{icon}#icon">`) on the same origin as the page. Optional. |
 | `tint`        | `tint`         | `String` | Tile background color, any CSS color. Invalid colors are ignored. |
 | `menu`        | —              | `Array`  | Entries for the "…" menu, same shape as [`nx-menu`](menu.md) `items` (`{ id, label, icon?, description? }`, `{ section }`, `{ divider: true }`). Empty or unset → no "…" button. |
-| `action`      | `action`       | `String` | URL of the action button. Unset → no button. URLs on another origin open in a new tab. |
+| `action`      | `action`       | `String` | URL of the action button. Unset → no button. |
 | `actionLabel` | `action-label` | `String` | Text of the action button. Defaults to "Open". |
+| `actionTarget` | `action-target` | `String` | Optional browser target for the action link, e.g. `_blank` (new tab) or a window name. Targets other than `_self`, `_parent`, `_top` get `rel="noopener"`. Unset → URLs on another origin open in a new tab, others in the same tab. |
 
 ### Slots
 
