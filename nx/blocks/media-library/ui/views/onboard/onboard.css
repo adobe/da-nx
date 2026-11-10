@@ -382,7 +382,8 @@ form button:hover {
   transition: all 0.6s ease;
 }
 
-.nx-card:hover {
+.nx-card:hover,
+.nx-card:has(:focus-visible) {
   transform: scale(1.015);
 
   .nx-card-inner {

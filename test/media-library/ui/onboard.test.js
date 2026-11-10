@@ -70,17 +70,38 @@ describe('nx-media-onboard site cards', () => {
     expect(el.shadowRoot.activeElement).to.equal(card.querySelector('.nx-card-front .card-menu-btn'));
   });
 
+  it('hides the decorative arrow from assistive tech', () => {
+    const arrow = el.shadowRoot.querySelector('.nx-card .card-arrow');
+    expect(arrow.getAttribute('aria-hidden')).to.equal('true');
+  });
+
+  it('applies the hover treatment when the card is focused with the keyboard', async () => {
+    const card = el.shadowRoot.querySelector('.nx-card');
+    const arrowIcon = card.querySelector('.card-arrow svg');
+    expect(getComputedStyle(arrowIcon).transform).to.equal('none');
+
+    const open = card.querySelector('.card-open');
+    open.focus();
+    await sendKeys({ press: 'Shift' });
+    expect(el.shadowRoot.activeElement).to.equal(open);
+    expect(open.matches(':focus-visible')).to.be.true;
+
+    await Promise.all(card.getAnimations({ subtree: true }).map((a) => a.finished));
+    expect(getComputedStyle(card).transform).to.not.equal('none');
+    expect(getComputedStyle(arrowIcon).transform).to.not.equal('none');
+  });
+
   it('does not resize the options icon on keyboard focus', async () => {
     const menuBtn = el.shadowRoot.querySelector('.nx-card-front .card-menu-btn');
     const icon = menuBtn.querySelector('svg.more');
-    const { width, height } = icon.getBoundingClientRect();
+    const { width, height } = getComputedStyle(icon);
 
     el.shadowRoot.querySelector('.nx-card .card-open').focus();
     await sendKeys({ press: 'Tab' });
     expect(el.shadowRoot.activeElement).to.equal(menuBtn);
     expect(menuBtn.matches(':focus-visible')).to.be.true;
 
-    const focused = icon.getBoundingClientRect();
+    const focused = getComputedStyle(icon);
     expect(focused.width).to.equal(width);
     expect(focused.height).to.equal(height);
   });

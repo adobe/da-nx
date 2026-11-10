@@ -289,7 +289,7 @@ class NxMediaOnboard extends LitElement {
                   <use href="#S2_Icon_More_20_N"></use>
                 </svg>
                 </button>
-                <div class="card-arrow">
+                <div class="card-arrow" aria-hidden="true">
                   <svg xmlns="http://www.w3.org/2000/svg" class="icon mini-arrow" viewBox="0 0 26 26">
                     <use href="#C_Icon_Arrow_Next"></use>
                   </svg>
