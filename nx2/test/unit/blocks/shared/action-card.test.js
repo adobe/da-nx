@@ -51,9 +51,24 @@ describe('nx-action-card content', () => {
     expect([use.getAttribute('width'), use.getAttribute('height')]).to.deep.equal(['100%', '100%']);
   });
 
-  it('renders an empty tile without an icon', async () => {
+  it('renders no tile without icon and tint', async () => {
     const card = await make();
-    expect($(card, '.tile svg')).to.equal(null);
+    expect(!!$(card, '.tile')).to.be.false;
+    expect(!!$(card, '.header')).to.be.false;
+  });
+
+  it('renders a tinted tile without an icon', async () => {
+    const card = await make({ tint: '#F4EBFC' });
+    expect($(card, '.tile').classList.contains('has-bg')).to.be.true;
+    expect(!!$(card, '.tile svg')).to.be.false;
+  });
+
+  it('keeps the more button on the right without a tile', async () => {
+    const card = await make({ menu: MENU });
+    expect(!!$(card, '.tile')).to.be.false;
+    const header = $(card, '.header').getBoundingClientRect();
+    const btn = $(card, '.more').getBoundingClientRect();
+    expect(Math.round(header.right - btn.right)).to.equal(0);
   });
 
   it('applies a valid tint and sizes the icon', async () => {
@@ -102,7 +117,7 @@ describe('nx-action-card action', () => {
 
   it('omits the action without a url', async () => {
     const card = await make({ actionLabel: 'Open' });
-    expect($(card, '.action')).to.equal(null);
+    expect(!!$(card, '.action')).to.be.false;
   });
 });
 
@@ -115,9 +130,16 @@ describe('nx-action-card menu', () => {
     expect(btn.getAttribute('aria-expanded')).to.equal('false');
   });
 
+  it('ships its own more icon inline', async () => {
+    const card = await make({ menu: MENU });
+    const svg = $(card, '.more svg');
+    expect(!!svg.querySelector('use')).to.be.false;
+    expect(svg.querySelectorAll('circle').length).to.be.greaterThan(0);
+  });
+
   it('omits the more button without menu items', async () => {
-    expect($(await make(), '.more')).to.equal(null);
-    expect($(await make({ menu: [] }), '.more')).to.equal(null);
+    expect(!!$(await make(), '.more')).to.be.false;
+    expect(!!$(await make({ menu: [] }), '.more')).to.be.false;
   });
 
   it('shows the menu items', async () => {

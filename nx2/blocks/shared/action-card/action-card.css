@@ -24,6 +24,7 @@
 
 .more {
   display: inline-flex;
+  margin-left: auto;
   align-items: center;
   justify-content: center;
   width: 24px;
