@@ -121,8 +121,8 @@ async function rolloutLangLocales(title, lang, urls, behavior, resolver, sync) {
   // If errors, add them to results
   if (errors.length) {
     results.errors = errors;
-    const action = sync ? 'marking in sync' : 'rolling out';
-    results.message = { text: `Errors ${action} content from ${lang.name}.`, type: 'error' };
+    const text = sync ? `Errors setting sync points from ${lang.name}.` : `Errors rolling out content from ${lang.name}.`;
+    results.message = { text, type: 'error' };
   }
 
   return results;
@@ -265,7 +265,7 @@ export async function markLangInSync({ dryRun = false, ...conf }) {
     return errors ? { errors, message } : {};
   } catch (error) {
     delete lang.sync;
-    return { message: { text: `Could not mark ${lang.name} in sync: ${error.message}`, type: 'error' } };
+    return { message: { text: `Could not set the sync point for ${lang.name}: ${error.message}`, type: 'error' } };
   } finally {
     actions.requestUpdate();
   }

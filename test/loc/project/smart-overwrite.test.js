@@ -472,7 +472,7 @@ describe('smartOverwriteCopy', () => {
       expect(saved).to.include('<main><div><p>A local</p><p>B</p></div></main>');
       expect(saved).to.include('<div>Two  spaces</div>');
       expect(saved).to.include(`<div>rolloutbase</div><div>${await baseOf('<p>A</p><p>B</p>')}</div>`);
-      expect(versionLabels).to.deep.equal(['Marked in sync']);
+      expect(versionLabels).to.deep.equal(['Sync point set']);
     });
 
     it('lets the next smart rollout apply only later parent edits', async () => {

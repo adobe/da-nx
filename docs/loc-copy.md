@@ -71,7 +71,7 @@ Its methods accept `(url, title, options)`, where `url` contains `source`, `dest
 - `overwriteCopy`: replace.
 - `rolloutCopy`: merge, preserving empty-target metadata and the old loc app's 20-second save timeout. Identical content returns `undefined`; timeout returns `'timeout'`.
 - `smartOverwriteCopy`: opt-in rollout that applies only upstream changes since the last rollout and keeps localized blocks; sets `url.skipped`. Without a baseline it is a regular merge review; when nothing changed upstream since the baseline it writes nothing. See [rollout-smart-overwrite.md](rollout-smart-overwrite.md).
-- `markInSync(url, { dryRun })`: smart-overwrite sites only. Records the upstream page as the destination's baseline without changing content and saves a "Marked in sync" version; sets `url.sync` (`marked`, `to-mark` with `url.differences` in a dry run, `in-sync`, `missing`, `unresolved`, `sheet`, `snapshot`).
+- `markInSync(url, { dryRun })`: smart-overwrite sites only. Records the upstream page as the destination's baseline without changing content and saves a "Sync point set" version; sets `url.sync` (`marked`, `to-mark` with `url.differences` in a dry run, `in-sync`, `missing`, `unresolved`, `sheet`, `snapshot`).
 
 The loc app configures its engine in `nx/blocks/loc/utils/utils.js`. Snapshot Admin and both Rollout plugins configure their own engines. No compatibility exports remain at the old project, diff, or private engine paths.
 

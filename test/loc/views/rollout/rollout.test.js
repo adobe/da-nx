@@ -176,7 +176,7 @@ describe('nx-loc-rollout smart overwrite', () => {
     const hashes = await getBlockHashes({ doc: filled, site: 'site', config: {} });
     expect(body).to.include(`/org/optin/en-nl/page.html|${hashes.join(',')}`);
     const versions = posts('/versionsource/org/optin/en-nl/page.html');
-    expect(JSON.parse(versions[0].args[1].body).label).to.equal('Marked in sync');
+    expect(JSON.parse(versions[0].args[1].body).label).to.equal('Sync point set');
   });
 
   it('does not start a rollout while marking in sync', async () => {

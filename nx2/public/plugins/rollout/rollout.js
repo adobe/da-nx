@@ -14,8 +14,8 @@ const ICONS = [
 ];
 
 const SYNC_LABELS = {
-  marked: 'marked in sync',
-  'in-sync': 'already in sync',
+  marked: 'sync point set',
+  'in-sync': 'sync point already set',
   missing: 'missing',
   unresolved: 'unresolved review',
   sheet: 'sheet skipped',
@@ -134,7 +134,7 @@ export default class DaRollout extends LitElement {
                   <option value="overwrite">Overwrite</option>
                   ${this._smartOverwrite ? html`
                     <option value="smart-overwrite">Overwrite (keep local edits)</option>
-                    <option value="mark-in-sync">Mark in sync (no content change)</option>` : nothing}
+                    <option value="mark-in-sync">Set sync point (no content change)</option>` : nothing}
                 </select>
               </div>
             </div>
@@ -152,7 +152,7 @@ export default class DaRollout extends LitElement {
           </div>
         ${this._prefixes?.filter((prefix) => prefix.error).map((prefix) => html`<p class="prefix-error">${prefix.error}</p>`)}
         <div class="da-form-row da-form-actions">
-          <button class="accent" ?disabled=${this._disabled || this._busy}>${this._behavior === 'mark-in-sync' ? 'Mark in sync' : 'Rollout'}</button>
+          <button class="accent" ?disabled=${this._disabled || this._busy}>${this._behavior === 'mark-in-sync' ? 'Set sync point' : 'Rollout'}</button>
         </div>
       </form>`;
   }

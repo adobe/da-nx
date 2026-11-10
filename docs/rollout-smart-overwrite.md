@@ -14,11 +14,11 @@ Add `smart-overwrite` to `rollout.conflict.behavior` in the site's `/.da/transla
 | `rollout.conflict.behavior` | `merge, overwrite, smart-overwrite` |
 
 - **Loc app**: the value appears in the "On rollout" option (the first value stays the default). Projects that use
-  it also get a **Mark in sync** action per language (see below).
-- **Library rollout plugin**: "Overwrite (keep local edits)" and "Mark in sync (no content change)" appear in the
+  it also get a **Set sync point** action per language (see below).
+- **Library rollout plugin**: "Overwrite (keep local edits)" and "Set sync point (no content change)" appear in the
   Behavior select.
 
-Everything on this page (baselines, Mark in sync) only happens on sites that opt in. Other sites behave exactly as
+Everything on this page (baselines, sync points) only happens on sites that opt in. Other sites behave exactly as
 before.
 
 ## How it works
@@ -28,7 +28,7 @@ flowchart TD
   start["Rollout global → apac<br/>(Overwrite, keep local edits)"] --> base{"apac has a valid<br/>rolloutbase for this page?"}
   base -- "no" --> exists{"apac page has content?"}
   exists -- "no (missing or empty)" --> copy["Copy the global page"]
-  exists -- "yes (never marked in sync or rolled out)" --> merge["Today's merge<br/>(da-diff markers to review once)"]
+  exists -- "yes (no sync point set, never rolled out)" --> merge["Today's merge<br/>(da-diff markers to review once)"]
   base -- "yes" --> pending{"apac still has unresolved<br/>da-diff markers?"}
   pending -- "yes" --> merge
   pending -- "no" --> same{"global unchanged since<br/>the baseline?"}
@@ -59,9 +59,9 @@ On opted-in sites the baseline is recorded by:
 - plain **merge** and **overwrite** rollouts from the Loc app (including the legacy project rollout view) or the
   Library plugin (overwrite: the page now equals upstream; merge: upstream at review time, so blocks the author keeps
   local stay local afterwards);
-- **Mark in sync** (below).
+- **Set sync point** (below).
 
-Snapshots, translations and sync do not record baselines, and neither do rollouts or Mark in sync into snapshot
+Snapshots, translations and sync do not record baselines, and neither do rollouts or sync points into snapshot
 paths (`/.snapshots/…`). A snapshot keeps the page's baseline, so edits made in a snapshot count as local edits when
 merged or overwritten back. Translations and sync write the upstream (language)
 pages, so they are upstream edits that roll out normally.
@@ -112,14 +112,14 @@ change is not offered again: the next baseline already contains it.
   even when a baseline exists. Pending upstream changes keep showing until the author resolves them and are never
   dropped; once the markers are gone, the next smart rollout uses the baseline.
 
-- No valid baseline yet (never marked in sync or rolled out on this site, or a baseline that is malformed or
+- No valid baseline yet (no sync point set and never rolled out on this site, or a baseline that is malformed or
   recorded for a different path):
   - Destination already identical to upstream: kept exactly as authored; the baseline is recorded.
   - Otherwise today's merge (every difference marked with `da-diff-*` for the author to review once, honoring
     earlier accept/reject decisions), and the baseline is recorded. Because this is today's merge, it has merge's
     existing normalizations (section wrapper attributes and empty paragraphs are dropped, whitespace in code blocks
     is not compared); later smart rollouts keep them as authored.
-  - To skip that one-time review for content that already exists (e.g. after an import), use **Mark in sync**.
+  - To skip that one-time review for content that already exists (e.g. after an import), use **Set sync point**.
 - Nothing changed upstream since the baseline: nothing is written and no version is saved.
 - Missing destination, or an empty one without a baseline: the upstream page is copied as-is and the baseline is
   recorded. An empty destination with a baseline was emptied on purpose and is merged like any other.
@@ -132,21 +132,23 @@ change is not offered again: the next baseline already contains it.
   destination localized it both versions are kept for the author to tidy. Section wrapper attributes (e.g.
   `<div id="…">`) and empty paragraphs are kept as authored.
 
-## Mark in sync
+## Set sync point
 
 For pages that already exist on both sides (e.g. imported content) and have no baseline yet. It records the
 upstream page's **current** content as the baseline and changes nothing else, so later smart rollouts apply only
 upstream edits made after that moment and keep every existing local difference.
 
-- **Loc app (bulk)**: in a project whose rollout behavior is "smart-overwrite", each language has **Mark in sync**.
-  It first checks every page × locale and shows counts (to mark, already in sync, missing, unresolved review,
-  sheets) and how many blocks exist only on the locale pages (kept as local), then **Confirm mark in sync** writes.
-- **Library plugin (per page)**: choose "Mark in sync (no content change)" and the regions, then **Mark in sync**.
+- **Loc app (bulk)**: in a project whose rollout behavior is "smart-overwrite", each language has **Set sync point**
+  (next to Rollout). It first checks every page × locale and shows counts (ready to set, already set, missing,
+  unresolved review, sheets) and how many blocks exist only on the locale pages (kept as local), then
+  **Confirm sync point** writes.
+- **Library plugin (per page)**: choose "Set sync point (no content change)" and the regions, then **Set sync point**.
   Each region shows the result.
 - Pages that already have a baseline, missing or empty pages, sheets and pages with an unresolved review are skipped.
-  Marked pages get a version labelled "Marked in sync". Placeholders are filled for each locale, as in a rollout.
-- **Run it right after the import, before anyone edits the upstream pages.** Upstream edits made before marking are
-  treated as already handled and never roll out. For chains (global → region → locale), mark every level before
-  editing any of them.
-- Undo: delete the `rolloutbase` row; the next smart rollout is a merge review again. (The "Marked in sync"
-  version already contains the baseline, so restoring it does not undo marking.)
+  Each page that is set gets a version labelled "Sync point set". Placeholders are filled for each locale, as in a
+  rollout.
+- **Run it right after the import, before anyone edits the upstream pages.** Upstream edits made before setting it are
+  treated as already handled and never roll out. For chains (global → region → locale), set the sync point on every
+  level before editing any of them.
+- Undo: delete the `rolloutbase` row; the next smart rollout is a merge review again. (The "Sync point set"
+  version already contains the baseline, so restoring it does not undo it.)

@@ -139,6 +139,15 @@ nx-loc-actions {
   color: var(--s2-gray-700);
 }
 
+.can-mark {
+  --actions-width: 216px;
+}
+
+.lang-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .sync-confirm {
   display: flex;
   flex-wrap: wrap;
@@ -206,7 +215,7 @@ ul.lang-list {
     display: grid;
     padding: 12px 24px;
     align-items: center;
-    grid-template-columns: 1fr 120px 120px 120px 80px 32px;
+    grid-template-columns: 1fr 120px 120px 120px var(--actions-width, 80px) 32px;
 
     .lang-name {
       font-weight: 700;
@@ -242,7 +251,7 @@ ul.lang-list {
 
     .locale-details {
       display: grid;
-      grid-template-columns: 1fr 120px 120px 120px 80px 32px;
+      grid-template-columns: 1fr 120px 120px 120px var(--actions-width, 80px) 32px;
     }
   }
 
@@ -260,7 +269,7 @@ ul.lang-list {
 
 .lang-group-labels {
   display: grid;
-  grid-template-columns: 1fr 120px 120px 120px 80px 32px;
+  grid-template-columns: 1fr 120px 120px 120px var(--actions-width, 80px) 32px;
   padding: 0 25px 8px;
   font-weight: 700;
 }

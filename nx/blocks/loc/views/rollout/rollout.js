@@ -5,9 +5,9 @@ import {
 } from './index.js';
 
 const SYNC_LABELS = {
-  'to-mark': 'to mark',
-  marked: 'marked',
-  'in-sync': 'already in sync',
+  'to-mark': 'ready to set',
+  marked: 'set',
+  'in-sync': 'already set',
   missing: 'missing',
   unresolved: 'unresolved review',
   sheet: 'sheets skipped',
@@ -93,8 +93,8 @@ class NxLocRollout extends LitElement {
 
   async handleMarkInSync(lang, dryRun) {
     if (this.anyRollout) return;
-    const action = dryRun ? 'Checking' : 'Marking';
-    this._message = { text: `${action} ${lang.name} in sync.` };
+    const action = dryRun ? 'Checking' : 'Setting';
+    this._message = { text: `${action} sync point for ${lang.name}.` };
     const actions = {
       sendMessage: (message) => { this._message = message; },
       requestUpdate: this.requestUpdate.bind(this),
@@ -102,7 +102,7 @@ class NxLocRollout extends LitElement {
     const { message, errors } = await markLangInSync({
       ...this.project, lang, actions, dryRun,
     });
-    this._message = message || { text: `${lang.name}: ${syncSummary(lang.sync) || 'nothing to mark'}.` };
+    this._message = message || { text: `${lang.name}: ${syncSummary(lang.sync) || 'nothing to set'}.` };
     this._errors = errors;
   }
 
@@ -112,21 +112,20 @@ class NxLocRollout extends LitElement {
     this.requestUpdate();
   }
 
-  renderMarkInSync(lang) {
+  renderMarkInSyncButton(lang) {
     if (!this.canMarkInSync || !this.canLangRollout(lang)) return nothing;
-    const { status } = lang.sync || {};
-    if (status === 'checking' || status === 'marking') return nothing;
-    if (status === 'checked') {
-      return html`
-        <div class="sync-confirm">
-          <p class="sync-summary">${syncSummary(lang.sync)}${lang.sync.differences ? ` (${lang.sync.differences} local-only blocks kept)` : ''}</p>
-          <sl-button @click=${() => this.handleMarkInSync(lang, false)} class="primary outline" ?disabled=${!lang.sync['to-mark']}>Confirm mark in sync</sl-button>
-          <sl-button @click=${() => this.cancelMarkInSync(lang)} class="primary outline">Cancel</sl-button>
-        </div>`;
-    }
+    if (['checking', 'marking', 'checked'].includes(lang.sync?.status)) return nothing;
+    return html`<sl-button @click=${() => this.handleMarkInSync(lang, true)} class="primary outline">Set sync point</sl-button>`;
+  }
+
+  renderMarkInSyncConfirm(lang) {
+    if (!this.canMarkInSync || !this.canLangRollout(lang)) return nothing;
+    if (lang.sync?.status !== 'checked') return nothing;
     return html`
       <div class="sync-confirm">
-        <sl-button @click=${() => this.handleMarkInSync(lang, true)} class="primary outline">Mark in sync</sl-button>
+        <p class="sync-summary">${syncSummary(lang.sync)}${lang.sync.differences ? ` (${lang.sync.differences} local-only blocks kept)` : ''}</p>
+        <sl-button @click=${() => this.handleMarkInSync(lang, false)} class="primary outline" ?disabled=${!lang.sync['to-mark']}>Confirm sync point</sl-button>
+        <sl-button @click=${() => this.cancelMarkInSync(lang)} class="primary outline">Cancel</sl-button>
       </div>`;
   }
 
@@ -240,12 +239,13 @@ class NxLocRollout extends LitElement {
           <p class="sources-count">${this._urls.length}</p>
           <p class="saved-count">${lang.rollout.saved || 0}</p>
           <p class="rollout-status">${lang.rollout.status}</p>
-          <div>
+          <div class="lang-actions">
             ${canRollout ? html`<sl-button @click=${() => this.handleRolloutLang(lang)} class="primary outline">Rollout</sl-button>` : nothing}
+            ${this.renderMarkInSyncButton(lang)}
           </div>
           <button @click=${() => this.handleLangToggle(lang)} class="expand">Expand language</button>
         </div>
-        ${this.renderMarkInSync(lang)}
+        ${this.renderMarkInSyncConfirm(lang)}
         <div class="lang-item-locales">
           ${lang.expand ? this.renderLocales(lang.rollout, lang.locales, lang.sync) : nothing}
         </div>
@@ -255,7 +255,7 @@ class NxLocRollout extends LitElement {
 
   renderLangs(langs) {
     return html`
-      <ul class="lang-list">
+      <ul class="lang-list ${this.canMarkInSync ? 'can-mark' : ''}">
         ${langs.map((lang) => this.renderLang(lang))}
       </ul>
     `;
@@ -270,7 +270,7 @@ class NxLocRollout extends LitElement {
             ${group.title === 'Complete' ? 'Re-rollout' : 'Rollout'} all ${group.title.toLowerCase()}
           </sl-button>` : nothing}
       </div>
-      <div class="lang-group-labels">
+      <div class="lang-group-labels ${this.canMarkInSync ? 'can-mark' : ''}">
         <p>Name</p>
         <p class="sources-count">Sources</p>
         <p class="saved-count">Rolled out</p>

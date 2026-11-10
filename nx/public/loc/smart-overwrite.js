@@ -7,7 +7,7 @@ import {
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
 const ROLLOUT_BASE_KEY = 'rolloutbase';
 const EMPTY_TAGS = new Set(['DIV', 'P', 'BR']);
-const MARKED_VERSION_LABEL = 'Marked in sync';
+const MARKED_VERSION_LABEL = 'Sync point set';
 const NOT_ENABLED = 'Smart overwrite is not enabled for this site';
 
 const toBasePath = (path) => path.toLowerCase();
