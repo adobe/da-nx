@@ -11,10 +11,16 @@
  */
 
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle } from '../../../utils/utils.js';
+import { loadStyle, hashChange } from '../../../utils/utils.js';
+import { getConfig } from '../../../scripts/nx.js';
+import { PANEL_EVENT } from '../../../utils/panel.js';
 import { registerArtifact } from './registry.js';
 
 const styles = await loadStyle(import.meta.url);
+const buttonStyle = await loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href);
+const { codeBase } = getConfig();
+
+const icon = (name) => html`<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${name}.svg#icon"></use></svg>`;
 
 const PAGE_SIZE = 5;
 
@@ -63,7 +69,54 @@ function renderContextCard(context) {
   `;
 }
 
-function renderSuggestionBody(item) {
+const promptLine = (prefix, value) => (value ? [`${prefix}${value}`] : []);
+
+export function buildSuggestionPrompt({ item }) {
+  const suggestion = item?.suggestion ?? {};
+  const reason = suggestion.issue ?? item?.description;
+  return [
+    'Fix this failed preflight page evaluation check on the current page.',
+    ...promptLine('Check: ', item?.title),
+    ...promptLine('Category: ', suggestion.context?.category),
+    '',
+    ...promptLine('Reason: ', reason),
+    '',
+    ...promptLine('Suggestion: ', suggestion.suggested),
+    '',
+    ...promptLine('Reference: ', suggestion.previewUrl),
+    'Only make the changes needed to resolve this check; leave the rest of the page as is.',
+    'If you need to re-run preflight (before or after for confirmation), you can invoke the skill /aem-governance-evaluate-page.',
+  ].join('\n');
+}
+
+function renderSuggestionActions(item, { chatEnabled } = {}) {
+  const send = (e, autoSend) => {
+    e.currentTarget.closest('nx-dialog')?.close();
+    const text = buildSuggestionPrompt({ item });
+    document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, {
+      detail: { section: 'chat', options: { text, autoSend } },
+    }));
+  };
+  return html`
+    <div class="ui-artifact-pe-modal-actions">
+      <button class="ui-artifact-pe-modal-copy" @click=${() => navigator.clipboard.writeText(item.suggestion.suggested ?? '')}>
+        <span class="ui-artifact-pe-modal-copy-icon"></span>Copy suggestion
+      </button>
+      ${chatEnabled ? html`<div class="ui-artifact-pe-modal-chat-actions">
+        <button type="button" class="nx-action-btn nx-btn-sm ui-artifact-pe-modal-add" @click=${(e) => send(e, false)}>
+          ${icon('s2-icon-aichat-20-n')}
+          <span>Add to chat</span>
+        </button>
+        <button type="button" class="nx-btn-accent nx-btn-sm ui-artifact-pe-modal-apply" @click=${(e) => send(e, true)}>
+          ${icon('s2-icon-aisparkles-20-n')}
+          <span>Apply change</span>
+        </button>
+      </div>` : nothing}
+    </div>
+  `;
+}
+
+function renderSuggestionBody(item, opts) {
   const { suggestion } = item;
   if (!suggestion) return nothing;
   return html`
@@ -81,9 +134,7 @@ function renderSuggestionBody(item) {
         <span class="ui-artifact-pe-modal-heading-text">Suggested change</span>
       </div>
       ${suggestion.suggested ? html`<p class="ui-artifact-pe-modal-body">${suggestion.suggested}</p>` : nothing}
-      <button class="ui-artifact-pe-modal-copy" @click=${() => navigator.clipboard.writeText(suggestion.suggested ?? '')}>
-        <span class="ui-artifact-pe-modal-copy-icon"></span>Copy suggestion
-      </button>
+      ${renderSuggestionActions(item, opts)}
     </div>
     ${suggestion.context ? html`
       <div class="ui-artifact-pe-modal-context-title">Context</div>
@@ -122,6 +173,7 @@ class NxPageEval extends LitElement {
     data: { attribute: false },
     _pages: { state: true },
     _modal: { state: true },
+    _chatEnabled: { state: true },
   };
 
   constructor() {
@@ -131,7 +183,27 @@ class NxPageEval extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [styles, buttonStyle];
+    this._unsubscribeHash = hashChange.subscribe((state) => this._syncChatEnabled(state));
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._unsubscribeHash?.();
+    this._chatSite = undefined;
+  }
+
+  async _syncChatEnabled(state) {
+    const { org, site } = state ?? {};
+    if (this._chatSite?.org === org && this._chatSite?.site === site) return;
+    const context = { org, site };
+    this._chatSite = context;
+    this._chatEnabled = false;
+    if (!org) return;
+    const chatEnabled = await import('../../../utils/ewFlags.js')
+      .then(({ isEwChatEnabled }) => isEwChatEnabled(context))
+      .catch(() => false);
+    if (this._chatSite === context) this._chatEnabled = chatEnabled;
   }
 
   _setPage(sectionIndex, page, total) {
@@ -158,6 +230,7 @@ class NxPageEval extends LitElement {
       kind,
       items: filtered,
       index: idx >= 0 ? idx : 0,
+      tone,
       sectionLabel: sectionLabelFromTone(tone),
       title: componentTitle || 'Page evaluation',
     };
@@ -251,7 +324,7 @@ class NxPageEval extends LitElement {
 
   _renderModal() {
     const {
-      kind, items, index, sectionLabel, title,
+      kind, items, index, tone, sectionLabel, title,
     } = this._modal;
     const total = items.length;
     const renderBody = kind === 'suggestion' ? renderSuggestionBody : renderCheckBody;
@@ -262,7 +335,7 @@ class NxPageEval extends LitElement {
         @close=${() => { this._modal = undefined; }}
       >
         <div class="ui-artifact-pe-modal-content">
-          ${renderBody(items[index])}
+          ${renderBody(items[index], { tone, chatEnabled: this._chatEnabled })}
           <div class="ui-artifact-pe-modal-paging">
             <button
               class="ui-artifact-pe-modal-paging-btn ui-artifact-pe-modal-paging-prev"

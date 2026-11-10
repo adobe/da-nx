@@ -88,7 +88,7 @@ class NxEditorToggle extends LitElement {
 
   render() {
     const { pathname } = window.location;
-    if (this._siteEwEnabled === true || (this._siteEwEnabled === false && pathname === '/edit')) return nothing;
+    if (this._siteEwEnabled !== undefined) return nothing;
     if (!['/edit', '/canvas'].includes(pathname)) return nothing;
     return html`
       <nx-switch
