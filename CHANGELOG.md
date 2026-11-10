@@ -1,3 +1,10 @@
+# [1.46.0](https://github.com/adobe/da-nx/compare/v1.45.1...v1.46.0) (2026-11-10)
+
+
+### Features
+
+* apply preflight suggestions via chat ([#910](https://github.com/adobe/da-nx/issues/910)) ([541c929](https://github.com/adobe/da-nx/commit/541c92929f17777dd54f07b0be847fa2d5540f3b))
+
 ## [1.45.1](https://github.com/adobe/da-nx/compare/v1.45.0...v1.45.1) (2026-11-10)
 
 
