@@ -1,10 +1,9 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { sendMouse } from '@web/test-runner-commands';
-import { setupContentEditableListeners } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
+import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
 import { setEditorState } from '../../../../../nx/public/plugins/quick-edit/src/prose.js';
 import { settleEditor } from '../../../../../nx/public/plugins/quick-edit/src/settle-editor.js';
-import { setImageVersion } from '../../../../../nx/public/plugins/quick-edit/src/dom-index.js';
 import { installClickForwarding } from '../../../../../nx/public/plugins/quick-edit/src/click-forwarding.js';
 
 describe('quick-edit on-demand editors', () => {
@@ -200,6 +199,51 @@ describe('quick-edit on-demand editors', () => {
     expect(posted).to.deep.equal([{ type: 'reload' }]);
   });
 
+  [false, true].forEach((alreadyOpen) => {
+    it(`uses the current version for a second image replacement after ${alreadyOpen ? 'updating' : 'mounting'} an editor`, () => {
+      const reader = sinon.stub(window, 'FileReader').callsFake(() => ({
+        readAsDataURL() {
+          this.result = 'data:image/png;base64,iVBORw0KGgo=';
+          this.onload();
+        },
+      }));
+      const imageParagraph = (src) => ({
+        type: 'paragraph',
+        content: [{ type: 'image', attrs: { src } }],
+      });
+      const drop = (img) => {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(new File(['image'], 'new.png', { type: 'image/png' }));
+        img.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
+      };
+      try {
+        document.body.innerHTML = '<main>'
+          + '<p data-prose-index="1"><picture><img src="/same.png" data-image-index="1" data-image-version="v1"></picture></p>'
+          + '<p data-prose-index="4"><picture><img src="/same.png" data-image-index="4" data-image-version="v1"></picture></p>'
+          + '</main>';
+        if (alreadyOpen) setEditorState(1, imageParagraph('/same.png'), ctx, { imageVersion: 'v1' });
+        setupImageDropListeners(ctx, document.querySelector('main'));
+        drop(document.querySelector('img[data-image-index="1"]'));
+        const firstRequest = posted.find((message) => message.type === 'image-replace');
+
+        setEditorState(1, imageParagraph('/first.png'), ctx, { imageVersion: 'v2' });
+        updateImageSrc(firstRequest.payload.requestId, '/first.png', ctx);
+        const second = document.querySelector('img[data-image-index="4"]');
+        drop(second);
+
+        const requests = posted.filter((message) => message.type === 'image-replace');
+        expect(requests.map(({ payload }) => [payload.proseIndex, payload.imageVersion]))
+          .to.deep.equal([[1, 'v1'], [4, 'v2']]);
+        updateImageSrc(requests[1].payload.requestId, '/second.png', ctx);
+        expect(document.querySelector('img[data-image-index="1"]').getAttribute('src')).to.equal('/first.png');
+        expect(second.getAttribute('src')).to.equal('/second.png');
+        expect(ctx.pendingImageReplacements.size).to.equal(0);
+      } finally {
+        reader.restore();
+      }
+    });
+  });
+
   it('coalesces invalid top-level nodes without replacing either plain text or an open editor', () => {
     const invalidNode = { type: 'table_cell', content: [paragraph('invalid')] };
     const before = document.body.innerHTML;
@@ -254,7 +298,6 @@ describe('quick-edit on-demand editors', () => {
 
     // The earlier paragraph grows by five; the settling editor's document is unchanged.
     setEditorState(1, paragraph('Hello world!!!!!'), ctx, { lengthDiff: 5, imageVersion: 'v2' });
-    setImageVersion('v2');
     finishReload();
     await settling;
 
