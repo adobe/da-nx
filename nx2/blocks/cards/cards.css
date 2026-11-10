@@ -1,4 +1,4 @@
-/* Card grid. Each card is a shared <nx-tool-card> (nx2/blocks/shared/tool-card). */
+/* Card grid. Each card is a shared <nx-action-card> (nx2/blocks/shared/action-card). */
 .nx-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

@@ -21,7 +21,7 @@ function build() {
   return { main, el: main.querySelector('.nx-site-apps') };
 }
 
-const cards = (el) => [...el.querySelectorAll(':scope > nx-tool-card')];
+const cards = (el) => [...el.querySelectorAll(':scope > nx-action-card')];
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -39,7 +39,7 @@ describe('site-apps init', () => {
 });
 
 describe('site-apps renderApps', () => {
-  it('renders an nx-tool-card per allowed app in a list', () => {
+  it('renders an nx-action-card per allowed app in a list', () => {
     const { el } = build();
     renderApps({ el, apps: APPS });
     expect(cards(el).map((c) => c.heading)).to.deep.equal(['Bulk Helper', 'Plain App']);

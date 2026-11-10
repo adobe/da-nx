@@ -1,18 +1,18 @@
 import { loc } from '../../scripts/nx.js';
 import { loadStyle } from '../../utils/utils.js';
-import '../shared/tool-card/tool-card.js';
-import { attachCardSearch } from '../shared/tool-card/search.js';
+import '../shared/action-card/action-card.js';
+import { attachCardSearch } from '../shared/action-card/search.js';
 
 const style = await loadStyle(import.meta.url);
 
-// Authored icon `:treeview:` → class `icon-treeview` → short name for nx-tool-card.
+// Authored icon `:treeview:` → class `icon-treeview` → short name for nx-action-card.
 const iconName = (col) => [...(col?.querySelector('span.icon')?.classList ?? [])]
   .find((c) => c.startsWith('icon-'))?.slice(5);
 
 function toCard({ row, tools }) {
   const [iconCol, bodyCol] = row.querySelectorAll(':scope > div');
   const heading = bodyCol?.querySelector('h1, h2, h3, h4, h5, h6');
-  const card = document.createElement('nx-tool-card');
+  const card = document.createElement('nx-action-card');
   card.setAttribute('role', 'listitem');
   card.heading = heading?.textContent.trim() ?? '';
   card.description = [...(bodyCol?.querySelectorAll('p') ?? [])]

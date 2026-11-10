@@ -725,29 +725,29 @@ card.focus({ preventScroll: true });</code></pre>
       </article>
 
       <article class="sg-example">
-        <h3>nx-tool-card <a href="https://github.com/adobe/da-nx/blob/main/docs/tool-card.md" target="_blank"
+        <h3>nx-action-card <a href="https://github.com/adobe/da-nx/blob/main/docs/action-card.md" target="_blank"
             rel="noopener">docs →</a></h3>
         <div class="sg-demo">
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--s2-spacing-300); width: 100%;">
-            <nx-tool-card heading="Traverse" description="Get a birds eye view of the content by traversing a content tree."
+            <nx-action-card heading="Traverse" description="Get a birds eye view of the content by traversing a content tree."
               href="/apps/traverse" learn-more-href="https://www.aem.live/docs/" icon="treeview" tint="#E5F0FE"
-              byline="By Adobe" byline-icon="byadobe"></nx-tool-card>
-            <nx-tool-card heading="Bulk Helper" description="An app added by the site admin, with an image tile."
-              href="/tools/bulk" image="./icons/selected.svg" byline="By Admin"></nx-tool-card>
-            <nx-tool-card heading="No link" description="No href: no Open button and no menu; gray tile without icon or image."></nx-tool-card>
+              byline="By Adobe" byline-icon="byadobe"></nx-action-card>
+            <nx-action-card heading="Bulk Helper" description="An app added by the site admin, with an image tile."
+              href="/tools/bulk" image="./icons/selected.svg" byline="By Admin"></nx-action-card>
+            <nx-action-card heading="No link" description="No href: no Open button and no menu; gray tile without icon or image."></nx-action-card>
           </div>
         </div>
-        <pre><code>import '/nx2/blocks/shared/tool-card/tool-card.js';
+        <pre><code>import '/nx2/blocks/shared/action-card/action-card.js';
 
-&lt;nx-tool-card heading="Traverse" description="..." href="/apps/traverse"
+&lt;nx-action-card heading="Traverse" description="..." href="/apps/traverse"
   learn-more-href="https://..." icon="treeview" tint="#E5F0FE"
-  byline="By Adobe" byline-icon="byadobe"&gt;&lt;/nx-tool-card&gt;
+  byline="By Adobe" byline-icon="byadobe"&gt;&lt;/nx-action-card&gt;
 
 &lt;!-- Image tile, admin byline --&gt;
-&lt;nx-tool-card heading="Bulk Helper" href="/tools/bulk" image="/media/app.png" byline="By Admin"&gt;&lt;/nx-tool-card&gt;
+&lt;nx-action-card heading="Bulk Helper" href="/tools/bulk" image="/media/app.png" byline="By Admin"&gt;&lt;/nx-action-card&gt;
 
 // Answer the cards-filter search for a grid of cards
-import { attachCardSearch } from '/nx2/blocks/shared/tool-card/search.js';
+import { attachCardSearch } from '/nx2/blocks/shared/action-card/search.js';
 attachCardSearch(grid);</code></pre>
       </article>
 
@@ -838,7 +838,7 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
       import('/nx2/blocks/shared/switch/switch.js'),
       import('/nx2/blocks/shared/pills/pills.js'),
       import('/nx2/blocks/shared/card/card.js'),
-      import('/nx2/blocks/shared/tool-card/tool-card.js'),
+      import('/nx2/blocks/shared/action-card/action-card.js'),
     ]);
 
     // nx-card

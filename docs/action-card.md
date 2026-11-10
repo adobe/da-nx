@@ -1,15 +1,15 @@
-# nx-tool-card
+# nx-action-card
 
-A card for a tool or app: icon or image tile, heading, description, a footer with an optional byline and an **Open** button, and a "…" menu ("Learn more", "Open in new tab"). Used by the `cards` block (Tools page) and `site-apps`.
+A card for a tool or app: icon or image tile, heading, description, a footer with an optional byline and an **Open** button, and a "…" menu ("Learn more", "Open in new tab"). Built for the Tools page (tool cards and site apps).
 
 Not to be confused with [`nx-card`](card.md), the media-preview card.
 
 ## Usage
 
 ```js
-import '/nx2/blocks/shared/tool-card/tool-card.js';
+import '/nx2/blocks/shared/action-card/action-card.js';
 
-const card = document.createElement('nx-tool-card');
+const card = document.createElement('nx-action-card');
 card.heading = 'Traverse';
 card.description = 'Get a birds eye view of the content by traversing a content tree.';
 card.href = '/apps/traverse';
@@ -22,8 +22,8 @@ grid.append(card);
 ```
 
 ```html
-<nx-tool-card heading="Bulk Helper" description="Bulk things." href="/tools/bulk"
-  image="/media/bulk.png" byline="By Admin"></nx-tool-card>
+<nx-action-card heading="Bulk Helper" description="Bulk things." href="/tools/bulk"
+  image="/media/bulk.png" byline="By Admin"></nx-action-card>
 ```
 
 Place cards in your own grid, e.g. `grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--s2-spacing-300);`. The card fills its grid cell, so cards in a row share one height and their footers line up.
@@ -60,15 +60,15 @@ The "…" button appears when the card has `href` and/or `learnMoreHref`. The me
 
 ## Search
 
-`nx2/blocks/shared/tool-card/search.js` lets a container of cards answer the cards-filter search:
+`nx2/blocks/shared/action-card/search.js` lets a container of cards answer the cards-filter search:
 
 ```js
-import { attachCardSearch } from '/nx2/blocks/shared/tool-card/search.js';
+import { attachCardSearch } from '/nx2/blocks/shared/action-card/search.js';
 
-attachCardSearch(grid); // grid contains <nx-tool-card> children
+attachCardSearch(grid); // grid contains <nx-action-card> children
 ```
 
-It listens for `nx-cards-filter` on `document` (`detail: { query, results }`), hides cards whose heading and description don't contain the query (case-insensitive), pushes `{ section, count }` into `detail.results`, and dispatches `nx-cards-ready` once attached so a filter can re-send its current query. See the `cards-filter` block.
+It listens for `nx-cards-filter` on `document` (`detail: { query, results }`), hides cards whose heading and description don't contain the query (case-insensitive), pushes `{ section, count }` into `detail.results`, and dispatches `nx-cards-ready` once attached so a filter can re-send its current query.
 
 ## Accessibility
 

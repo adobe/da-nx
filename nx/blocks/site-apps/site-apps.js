@@ -1,8 +1,8 @@
 import { DA_ADMIN, loadStyle } from '../../../nx2/utils/utils.js';
 import { daFetch } from '../../../nx2/utils/api.js';
 import { loc } from '../../../nx2/scripts/nx.js';
-import '../../../nx2/blocks/shared/tool-card/tool-card.js';
-import { attachCardSearch } from '../../../nx2/blocks/shared/tool-card/search.js';
+import '../../../nx2/blocks/shared/action-card/action-card.js';
+import { attachCardSearch } from '../../../nx2/blocks/shared/action-card/search.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -28,7 +28,7 @@ function getIsAppAllowed(cardRef) {
 }
 
 function getCard({ title, description, path, image }) {
-  const card = document.createElement('nx-tool-card');
+  const card = document.createElement('nx-action-card');
   card.setAttribute('role', 'listitem');
   card.heading = title ?? '';
   card.description = description ?? '';
@@ -38,7 +38,7 @@ function getCard({ title, description, path, image }) {
   return card;
 }
 
-// Renders the allowed apps as <nx-tool-card>s and joins the cards-filter search.
+// Renders the allowed apps as <nx-action-card>s and joins the cards-filter search.
 export function renderApps({ el, apps }) {
   el.setAttribute('role', 'list');
   const allowed = (apps ?? []).filter((app) => getIsAppAllowed(app.ref || 'main'));

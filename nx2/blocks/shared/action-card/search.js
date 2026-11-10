@@ -1,4 +1,4 @@
-// Answers the cards-filter search for the <nx-tool-card> children of `container`.
+// Answers the cards-filter search for the <nx-action-card> children of `container`.
 const matches = ({ card, query }) => `${card.heading ?? ''} ${card.description ?? ''}`
   .toLowerCase().includes(query);
 
@@ -7,7 +7,7 @@ export function attachCardSearch(container) {
   document.addEventListener('nx-cards-filter', ({ detail }) => {
     if (!container.isConnected) return;
     const query = (detail?.query ?? '').trim().toLowerCase();
-    const cards = [...container.querySelectorAll(':scope > nx-tool-card')];
+    const cards = [...container.querySelectorAll(':scope > nx-action-card')];
     const count = cards.reduce((acc, card) => {
       const match = !query || matches({ card, query });
       card.hidden = !match;

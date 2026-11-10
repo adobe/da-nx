@@ -32,14 +32,14 @@ async function buildBlock(rowsHtml, variant = 'tools') {
   return el;
 }
 
-const cards = (el) => [...el.querySelectorAll(':scope > nx-tool-card')];
+const cards = (el) => [...el.querySelectorAll(':scope > nx-action-card')];
 
 afterEach(() => {
   document.body.innerHTML = '';
 });
 
 describe('cards block', () => {
-  it('renders one nx-tool-card per row in a list', async () => {
+  it('renders one nx-action-card per row in a list', async () => {
     const el = await buildBlock(row() + row());
     expect(el.getAttribute('role')).to.equal('list');
     expect(cards(el).length).to.equal(2);
