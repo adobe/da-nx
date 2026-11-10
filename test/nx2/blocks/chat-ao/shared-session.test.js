@@ -376,6 +376,41 @@ describe('standalone input and full AO chat sharing', () => {
       .to.deep.equal(['artifact']);
   });
 
+  it('holds an auto-send prompt received before initialization and sends it once ready', async () => {
+    const pending = deferred();
+    patch(CoworkerChatController.prototype, '_fetchEpisodes', () => pending.promise);
+    const full = await mount();
+    await full.setPrompt('Fix this check', { autoSend: true });
+    await flush();
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+    expect(full._input.draft).to.equal('Fix this check');
+    pending.resolve([]);
+    await ready(full);
+    await flush();
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+    expect(full.messages[0].content).to.equal('Fix this check');
+    expect(full._input.draft).to.equal('');
+  });
+
+  it('rejects an auto-send prompt while a turn is running without sending the existing draft', async () => {
+    const [standalone, full] = await pair('coworker');
+    input(full).value = 'Unrelated draft';
+    submit(standalone, 'From compact');
+    await flush();
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+    expect(await full.setPrompt('Apply change', { autoSend: true })).to.equal(false);
+    expect(full._input.draft).to.equal('Unrelated draft');
+    const toast = [...document.querySelectorAll('nx-toast')].at(-1);
+    expect(toast?.message).to.equal('Wait for the current response to finish');
+    expect(toast?.variant).to.equal('warning');
+    toast?.remove();
+    stop(standalone);
+    await flush();
+    expect(full.thinking).to.equal(false);
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+    expect(full._input.draft).to.equal('Unrelated draft');
+  });
+
   it('resolves the same configured harness for a standalone input and full chat without host callbacks', async () => {
     const fetchDefault = window.fetch;
     window.fetch = (resource, options) => {

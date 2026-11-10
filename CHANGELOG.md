@@ -1,3 +1,39 @@
+# [1.47.0](https://github.com/adobe/da-nx/compare/v1.46.0...v1.47.0) (2026-11-10)
+
+
+### Features
+
+* **feedback:** add extensions category ([#975](https://github.com/adobe/da-nx/issues/975)) ([8c9089f](https://github.com/adobe/da-nx/commit/8c9089f3cda216bb282718875032fc62450440fd))
+
+# [1.46.0](https://github.com/adobe/da-nx/compare/v1.45.1...v1.46.0) (2026-11-10)
+
+
+### Features
+
+* apply preflight suggestions via chat ([#910](https://github.com/adobe/da-nx/issues/910)) ([541c929](https://github.com/adobe/da-nx/commit/541c92929f17777dd54f07b0be847fa2d5540f3b))
+
+## [1.45.1](https://github.com/adobe/da-nx/compare/v1.45.0...v1.45.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **editortoggle:** hide disabled toggle on canvas ([399d3c2](https://github.com/adobe/da-nx/commit/399d3c29e8da4b4bf1ac01e72ad5dbed6d08b5ee))
+
+# [1.45.0](https://github.com/adobe/da-nx/compare/v1.44.2...v1.45.0) (2026-11-10)
+
+
+### Bug Fixes
+
+* **nav:** align branding with the shell navigation rail ([fdccd23](https://github.com/adobe/da-nx/commit/fdccd2382fc0e851a47008a3014cc5460f45b935))
+* **nav:** keep logo sizing in css ([c840136](https://github.com/adobe/da-nx/commit/c84013616aec0f3e8321b9e14c174e39950fefb5))
+* **nav:** preserve logo aspect ratio ([2aa3dc4](https://github.com/adobe/da-nx/commit/2aa3dc4a95e6d827ec49184546a3623e82be88fd))
+* **nav:** use s2 bold typography for the product label ([69d3dac](https://github.com/adobe/da-nx/commit/69d3dac0dd04ecd7b4d6e5817edbc38944bf68ec))
+
+
+### Features
+
+* **nav:** support consumer-owned logo and product label ([2ea71d7](https://github.com/adobe/da-nx/commit/2ea71d7d39bc8cac64b5154168a95b1b814b93ce))
+
 ## [1.44.2](https://github.com/adobe/da-nx/compare/v1.44.1...v1.44.2) (2026-11-09)
 
 
