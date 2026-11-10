@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { setConfig } from '../../../../nx2/scripts/nx.js';
 import { CHAT_EVENT } from '../../../../nx2/utils/chat.js';
+import { PANEL_EVENT } from '../../../../nx2/utils/panel.js';
 import BaseChatController from '../../../../nx2/blocks/chat-ao/base-chat-controller.js';
 import CoworkerChatController from '../../../../nx2/blocks/chat-ao/coworker-chat-controller.js';
 import CmaChatController from '../../../../nx2/blocks/chat-ao/cma-chat-controller.js';
@@ -374,6 +375,106 @@ describe('standalone input and full AO chat sharing', () => {
     expect(pills(full).items).to.have.length(1);
     expect(sockets[0].frames.find((frame) => frame.type === AO_FRAME.USER_INPUT).attachments)
       .to.deep.equal(['artifact']);
+  });
+
+  it('notifies the host only when a standalone submission is accepted', async () => {
+    const pending = deferred();
+    patch(CoworkerChatController.prototype, '_fetchEpisodes', () => pending.promise);
+    const sent = [];
+    const onSent = (e) => sent.push(e.detail);
+    document.addEventListener(CHAT_EVENT.MESSAGE_SENT, onSent);
+    originals.push(() => document.removeEventListener(CHAT_EVENT.MESSAGE_SENT, onSent));
+    const standalone = await mount({ standalone: true });
+    submit(standalone, 'Not ready');
+    expect(sent).to.deep.equal([]);
+    pending.resolve([]);
+    await ready(standalone);
+    submit(standalone, standalone.draft);
+    await flush();
+    expect(sent).to.deep.equal([{ org, site: 'site' }]);
+  });
+
+  it('marks only the standalone input for the gradient look', async () => {
+    const [standalone, full] = await pair('coworker');
+    expect(standalone.hasAttribute('standalone')).to.equal(true);
+    expect(standalone.shadowRoot.querySelector('.chat-surface')).to.not.equal(null);
+    expect(full._input.hasAttribute('standalone')).to.equal(false);
+    expect(full._input.shadowRoot.querySelector('.chat-surface')).to.equal(null);
+    const form = standalone.shadowRoot.querySelector('form');
+    expect(form.hasAttribute('data-has-items')).to.equal(false);
+    pills(standalone).add({ id: 'pill', label: 'Pill' });
+    await flush();
+    expect(form.hasAttribute('data-has-items')).to.equal(true);
+    pills(standalone).clear();
+    await flush();
+    expect(form.hasAttribute('data-has-items')).to.equal(false);
+  });
+
+  it('shows the working status in the standalone input and the full chat while a reply runs', async () => {
+    const [standalone, full] = await pair('coworker');
+    await ready(standalone, full);
+    const status = (chat) => composer(chat).shadowRoot.querySelector('.chat-working');
+    expect(status(standalone)).to.equal(null);
+    submit(standalone, 'Working check');
+    await flush();
+    expect(status(standalone).textContent).to.include('Working on your question');
+    expect(input(standalone).hidden).to.equal(true);
+    expect(composer(standalone).shadowRoot.querySelector('form').getAttribute('aria-busy')).to.equal('true');
+    expect(status(full).textContent).to.include('Working on your question');
+    receive(AO_EVENT.TURN_COMPLETED);
+    await flush();
+    expect(status(standalone)).to.equal(null);
+    expect(status(full)).to.equal(null);
+    expect(input(standalone).hidden).to.equal(false);
+  });
+
+  it('asks for input instead of showing the working status while the agent waits on the user', async () => {
+    const [standalone, full] = await pair('coworker');
+    await ready(standalone, full);
+    const status = (chat) => composer(chat).shadowRoot.querySelector('.chat-working');
+    const opened = [];
+    const panelOpened = new Promise((resolve) => {
+      const onOpen = (e) => {
+        opened.push(e.detail);
+        resolve();
+      };
+      document.addEventListener(PANEL_EVENT.OPEN, onOpen);
+      originals.push(() => document.removeEventListener(PANEL_EVENT.OPEN, onOpen));
+    });
+
+    submit(standalone, 'Ask me');
+    await flush();
+    receive(AO_EVENT.USER_QUESTION, { questions: [] });
+    await flush();
+    expect(status(standalone).classList.contains('chat-awaiting-input')).to.equal(true);
+    expect(status(standalone).textContent).to.not.include('Working on your question');
+    expect(status(standalone).querySelector('.nx-loading-spinner')).to.equal(null);
+    expect(input(standalone).hidden).to.equal(true);
+    expect(composer(standalone).shadowRoot.querySelector('form').getAttribute('aria-busy')).to.equal('false');
+    expect(status(full)).to.equal(null);
+    expect(input(full).disabled).to.equal(true);
+
+    status(standalone).querySelector('button').click();
+    await panelOpened;
+    await flush();
+    expect(opened).to.deep.equal([{ section: 'chat' }]);
+
+    receive(AO_EVENT.TURN_COMPLETED);
+    await flush();
+    expect(status(standalone)).to.equal(null);
+    expect(input(standalone).hidden).to.equal(false);
+  });
+
+  it('asks for input while a tool permission is pending', async () => {
+    const [standalone, full] = await pair('coworker');
+    await ready(standalone, full);
+    const status = (chat) => composer(chat).shadowRoot.querySelector('.chat-working');
+    submit(standalone, 'Use a tool');
+    await flush();
+    receive(AO_EVENT.PERMISSION_REQUEST, { turn_id: 'turn', pending_calls: [{ id: 'call', name: 'tool' }] });
+    await flush();
+    expect(status(standalone).classList.contains('chat-awaiting-input')).to.equal(true);
+    expect(status(full)).to.equal(null);
   });
 
   it('resolves the same configured harness for a standalone input and full chat without host callbacks', async () => {

@@ -446,6 +446,7 @@ export default class NxChatAo extends LitElement {
           })}
         <nx-ao-input
           .blocked=${this._blocked}
+          .awaitingInput=${!!(this.pendingQuestion || this.pendingPermission)}
           .harness=${this._harness}
           .prompts=${prompts}
           .menuItems=${this._menuItems}

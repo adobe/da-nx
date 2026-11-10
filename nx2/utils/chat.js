@@ -5,6 +5,7 @@ export const CHAT_EVENT = {
   // Chat -> document: notifications chat dispatches when something happened.
   AGENT_CHANGE: 'nx-agent-change',
   TURN_COMPLETED: 'nx-chat-turn-completed',
+  MESSAGE_SENT: 'nx-chat-message-sent', // { org, site } — a standalone nx-ao-input send was accepted
   HIGHLIGHT_SELECTION: 'nx-highlight-selection',
 
   // document -> chat: commands other components dispatch for chat to act on.
