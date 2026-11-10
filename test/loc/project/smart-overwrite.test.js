@@ -462,6 +462,56 @@ describe('smartOverwriteCopy', () => {
   const pageUrl = (sourceMain) => ({ source: '/org/site/page', destination: DEST, sourceContent: toPage(sourceMain) });
   const baseOf = async (main) => `/org/site/apac/page.html|${(await hashesOf(main)).join(',')}`;
 
+  describe('outcome', () => {
+    const withBase = async (main, baseMain) => toPage(main, baseRow(`/org/site/apac/page.html|${(await hashesOf(baseMain)).join(',')}`));
+
+    it('reports a first run that differs as needing review', async () => {
+      destHtml = toPage('<p>A</p><p>B local</p>');
+      const url = await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>');
+      expect(url.outcome).to.equal('review');
+    });
+
+    it('keeps reporting review while the review is unresolved', async () => {
+      destHtml = toPage('<p>A</p><p da-diff-added="">B local</p><da-diff-deleted><p>B global</p></da-diff-deleted>');
+      const url = await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>');
+      expect(url.outcome).to.equal('review');
+    });
+
+    it('reports a page with nothing new upstream as unchanged', async () => {
+      destHtml = await withBase('<p>A local</p><p>B</p>', '<p>A</p><p>B</p>');
+      const url = await rollout(smartOverwriteCopy, '<p>A</p><p>B</p>');
+      expect(url.outcome).to.equal('unchanged');
+      expect(saved).to.be.undefined;
+    });
+
+    it('reports nothing when upstream changes are applied or a page is copied or kept', async () => {
+      destHtml = await withBase('<p>A local</p><p>B</p>', '<p>A</p><p>B</p>');
+      expect((await rollout(smartOverwriteCopy, '<p>A</p><p>B global</p>')).outcome).to.be.undefined;
+      destHtml = toPage('<p>A</p>');
+      expect((await rollout(smartOverwriteCopy, '<p>A</p>')).outcome).to.be.undefined;
+      destStatus = 404;
+      expect((await rollout(smartOverwriteCopy, '<p>A</p>')).outcome).to.be.undefined;
+    });
+
+    it('reports nothing once a stale review is cleared by upstream', async () => {
+      destHtml = toPage('<p>A</p><p da-diff-added="">B local</p><da-diff-deleted><p>B global</p></da-diff-deleted>');
+      const url = await rollout(smartOverwriteCopy, '<p>A</p><p>B local</p>');
+      expect(saved).to.not.include('da-diff');
+      expect(url.outcome).to.be.undefined;
+    });
+
+    it('clears an earlier outcome, also when the next rollout fails', async () => {
+      destHtml = await withBase('<p>A</p>', '<p>A</p>');
+      const url = { source: '/org/site/page', destination: DEST, sourceContent: toPage('<p>A</p>') };
+      await smartOverwriteCopy(url, 'Proj');
+      expect(url.outcome).to.equal('unchanged');
+      destStatus = 500;
+      await smartOverwriteCopy(url, 'Proj');
+      expect(url.status).to.equal('error');
+      expect(url.outcome).to.be.undefined;
+    });
+  });
+
   describe('markInSync', () => {
     it('records the parent as the baseline without changing the page', async () => {
       optIn();

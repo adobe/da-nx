@@ -124,11 +124,12 @@ const conf = (behavior) => ({
 
     it('clears notes from a previous rollout', async () => {
       const fns = copyFns();
-      const prefix = { path: '/apac', skipped: 2 };
+      const prefix = { path: '/apac', skipped: 2, outcome: 'review' };
       await fn({
         prefix, behavior: 'overwrite', label: 'Proj', copy: fns,
       });
       expect(prefix).to.not.have.property('skipped');
+      expect(prefix).to.not.have.property('outcome');
     });
 
     it('marks the destination as errored without copying when the source cannot be prepared', async () => {

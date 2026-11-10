@@ -112,6 +112,11 @@ select {
   color: var(--s2-gray-700);
 }
 
+.da-prefix .review-link {
+  font-size: 12px;
+  color: var(--s2-blue-900);
+}
+
 .da-prefix .prefix-actions {
   display: flex;
 }

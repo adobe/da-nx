@@ -106,7 +106,7 @@ export default class DaRollout extends LitElement {
           <ul class="prefix-list">
             ${items.map((prefix) => html`
               <li class="da-prefix ${prefix.active ? 'is-active' : ''} status-${prefix.status || 'none'}" title=${prefix.error || nothing}>
-                <span>${prefix.path.replace('/', '')}${prefix.skipped ? html` <span class="skipped-count">${prefix.skipped} skipped (localized)</span>` : nothing}${prefix.sync ? html` <span class="skipped-count">${SYNC_LABELS[prefix.sync]}</span>` : nothing}</span>
+                <span>${prefix.path.replace('/', '')}${prefix.skipped ? html` <span class="skipped-count">${prefix.skipped} skipped (localized)</span>` : nothing}${prefix.outcome === 'unchanged' ? html` <span class="skipped-count">unchanged</span>` : nothing}${prefix.outcome === 'review' ? html` <a class="review-link" href="https://da.live/edit#${prefix.edit}" target="_blank" rel="noopener">needs review</a>` : nothing}${prefix.sync ? html` <span class="skipped-count">${SYNC_LABELS[prefix.sync]}</span>` : nothing}</span>
                 <div class="prefix-actions">
                   <button type="button" @click=${() => this.open(prefix)}>
                     <svg class="icon"><use href="#spectrum-linkOut"/></svg>
@@ -133,7 +133,7 @@ export default class DaRollout extends LitElement {
                   <option value="merge">Merge</option>
                   <option value="overwrite">Overwrite</option>
                   ${this._smartOverwrite ? html`
-                    <option value="smart-overwrite">Overwrite (keep local edits)</option>
+                    <option value="smart-overwrite">Smart Overwrite (keep local edits)</option>
                     <option value="mark-in-sync">Set sync point (no content change)</option>` : nothing}
                 </select>
               </div>

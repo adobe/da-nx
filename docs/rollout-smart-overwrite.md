@@ -1,4 +1,4 @@
-# Rollout: Overwrite (keep local edits)
+# Rollout: Smart Overwrite (keep local edits)
 
 `smart-overwrite` is an opt-in rollout behavior. It rolls out only the upstream (e.g. global) changes made since the
 last rollout to each destination (e.g. apac) and keeps blocks the destination has localized.
@@ -15,8 +15,8 @@ Add `smart-overwrite` to `rollout.conflict.behavior` in the site's `/.da/transla
 
 - **Loc app**: the value appears in the "On rollout" option (the first value stays the default). Projects that use
   it also get a **Set sync point** action per language (see below).
-- **Library rollout plugin**: "Overwrite (keep local edits)" and "Set sync point (no content change)" appear in the
-  Behavior select.
+- **Library rollout plugin**: "Smart Overwrite (keep local edits)" and "Set sync point (no content change)" appear in
+  the Behavior select.
 
 Everything on this page (baselines, sync points) only happens on sites that opt in. Other sites behave exactly as
 before.
@@ -25,7 +25,7 @@ before.
 
 ```mermaid
 flowchart TD
-  start["Rollout global → apac<br/>(Overwrite, keep local edits)"] --> base{"apac has a valid<br/>rolloutbase for this page?"}
+  start["Rollout global → apac<br/>(Smart Overwrite, keep local edits)"] --> base{"apac has a valid<br/>rolloutbase for this page?"}
   base -- "no" --> exists{"apac page has content?"}
   exists -- "no (missing or empty)" --> copy["Copy the global page"]
   exists -- "yes (no sync point set, never rolled out)" --> merge["Today's merge<br/>(da-diff markers to review once)"]
@@ -55,7 +55,7 @@ rolloutbase = <destination path>|<ordered upstream block hashes>
 ```
 
 On opted-in sites the baseline is recorded by:
-- every smart rollout ("Overwrite (keep local edits)");
+- every smart rollout ("Smart Overwrite (keep local edits)");
 - plain **merge** and **overwrite** rollouts from the Loc app (including the legacy project rollout view) or the
   Library plugin (overwrite: the page now equals upstream; merge: upstream at review time, so blocks the author keeps
   local stay local afterwards);
@@ -106,6 +106,16 @@ Guarantees (covered by seeded randomized tests in `test/loc/smart-merge.test.js`
 
 Skipped counts are shown per locale (Loc app) and per destination (plugin) as "N skipped (localized)". A skipped
 change is not offered again: the next baseline already contains it.
+
+Each smart rollout also reports, per page:
+- **unchanged**: nothing changed upstream since the sync point, so nothing was written (Loc app: "N unchanged" per
+  locale; plugin: "unchanged").
+- **needs review**: the saved page has `da-diff-*` markers to accept or reject in the editor (e.g. a first rollout
+  without a sync point, or a review that is still unresolved). The Loc app lists these pages under each locale, each
+  linking to the page in the DA editor; in the plugin, "needs review" links to the page. The list is saved with the
+  project and replaced by the next rollout.
+
+Merge and overwrite rollouts do not report these.
 
 - Unresolved review: while the destination still has `da-diff-*` markers (e.g. a first-run merge review that
   was not resolved yet), every smart rollout is today's merge again, honoring earlier accept/reject decisions,

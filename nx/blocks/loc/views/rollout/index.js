@@ -195,11 +195,16 @@ export async function rolloutLang(conf) {
   const {
     title, options, lang, actions,
   } = conf;
+  const previousStatus = lang.rollout.status;
   lang.rollout.status = 'rolling out';
   actions.requestUpdate();
 
   const prepared = await prepareLangRollout(conf);
-  if (prepared.errors) return prepared;
+  if (prepared.errors) {
+    lang.rollout.status = previousStatus;
+    actions.requestUpdate();
+    return { ...prepared, aborted: true };
+  }
   const { urlsToSave, resolver } = prepared;
   const behavior = options['rollout.conflict.behavior'];
 
@@ -221,6 +226,12 @@ export async function rolloutLang(conf) {
     const skipped = localeSaved.reduce((sum, url) => sum + (url.skipped || 0), 0);
     if (skipped) locale.skipped = skipped;
     else delete locale.skipped;
+    const unchanged = localeSaved.filter((url) => url.outcome === 'unchanged').length;
+    if (unchanged) locale.unchanged = unchanged;
+    else delete locale.unchanged;
+    const review = localeSaved.filter((url) => url.outcome === 'review').map((url) => url.destination);
+    if (review.length) locale.review = review;
+    else delete locale.review;
   });
 
   actions.requestUpdate();

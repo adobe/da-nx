@@ -19,6 +19,17 @@ const syncSummary = (counts = {}) => Object.entries(SYNC_LABELS)
   .map(([key, label]) => `${counts[key]} ${label}`)
   .join(', ');
 
+const DA_LIVE = 'https://da.live';
+const toEditHref = (path) => `${DA_LIVE}/edit#${path.replace(/\.html$/, '')}`;
+const toDisplayPath = (path) => `/${path.split('/').slice(3).join('/').replace(/\.html$/, '')}`;
+
+const localeLabels = (locale, syncCounts) => [
+  locale.skipped && `${locale.skipped} skipped (localized)`,
+  locale.unchanged && `${locale.unchanged} unchanged`,
+  locale.review?.length && `${locale.review.length} ${locale.review.length === 1 ? 'needs' : 'need'} review`,
+  syncCounts && syncSummary(syncCounts),
+].filter(Boolean);
+
 const style = await loadStyle(import.meta.url);
 
 class NxLocRollout extends LitElement {
@@ -64,11 +75,11 @@ class NxLocRollout extends LitElement {
       actions,
     };
 
-    const { message, errors } = await rolloutLang(rolloutConf);
+    const { message, errors, aborted } = await rolloutLang(rolloutConf);
     if (message || errors) {
       this._message = message;
       this._errors = errors;
-      if (langToRollout.rollout.status === 'rolling out') return;
+      if (aborted) return;
     }
 
     // Replace the lang from the main list
@@ -124,8 +135,10 @@ class NxLocRollout extends LitElement {
     return html`
       <div class="sync-confirm">
         <p class="sync-summary">${syncSummary(lang.sync)}${lang.sync.differences ? ` (${lang.sync.differences} local-only blocks kept)` : ''}</p>
-        <sl-button @click=${() => this.handleMarkInSync(lang, false)} class="primary outline" ?disabled=${!lang.sync['to-mark']}>Confirm sync point</sl-button>
-        <sl-button @click=${() => this.cancelMarkInSync(lang)} class="primary outline">Cancel</sl-button>
+        <div class="sync-actions">
+          <sl-button @click=${() => this.handleMarkInSync(lang, false)} class="primary" ?disabled=${!lang.sync['to-mark']}>Confirm sync point</sl-button>
+          <sl-button @click=${() => this.cancelMarkInSync(lang)} class="primary outline">Cancel</sl-button>
+        </div>
       </div>`;
   }
 
@@ -210,23 +223,27 @@ class NxLocRollout extends LitElement {
     return this._sortedLangs.every((lang) => lang.rollout?.status === 'complete');
   }
 
+  renderLocale(rollout, locale, sync) {
+    const labels = localeLabels(locale, sync?.locales?.[locale.code]);
+    return html`
+      <li class="locale-item ${locale.expand ? 'is-expanded' : ''}">
+        <div class="locale-details">
+          <p>${locale.code}${labels.length ? html` <span class="skipped-count">${labels.join(' · ')}</span>` : nothing}</p>
+          <p class="sources-count">${this._urls.length}</p>
+          <p class="saved-count">${locale.saved || 0}</p>
+          <p class="rollout-status">${rollout.status}</p>
+        </div>
+        ${locale.review?.length ? html`
+          <ul class="review-list">
+            ${locale.review.map((path) => html`
+              <li><a href=${toEditHref(path)} target="_blank" rel="noopener">${toDisplayPath(path)}</a></li>`)}
+          </ul>` : nothing}
+      </li>`;
+  }
+
   renderLocales(rollout, locales, sync) {
     return html`<ul class="locale-list">
-      ${locales.map((locale) => html`
-        <li class="locale-item ${locale.expand ? 'is-expanded' : ''}">
-          <div class="locale-details">
-            <p>${locale.code}${locale.skipped ? html` <span class="skipped-count">${locale.skipped} skipped (localized)</span>` : nothing}${sync?.locales?.[locale.code] ? html` <span class="skipped-count">${syncSummary(sync.locales[locale.code])}</span>` : nothing}</p>
-            <p class="sources-count">${this._urls.length}</p>
-            <p class="saved-count">${locale.saved || 0}</p>
-            <p class="rollout-status">${rollout.status}</p>
-          <div>
-          <div class="locale-urls">
-            <ul>
-
-            </ul>
-          </div>
-        </li>
-      `)}
+      ${locales.map((locale) => this.renderLocale(rollout, locale, sync))}
     </ul>`;
   }
 

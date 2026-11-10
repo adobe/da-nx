@@ -56,7 +56,9 @@ async function mergeReview({
   const accepted = reviewed.acceptedhashes?.text?.split(',') || [];
   const rejected = reviewed.rejectedhashes?.text?.split(',') || [];
   const diffed = await regionalDiff(source, dest, accepted, rejected, { site, config });
-  return { html: diffed.innerHTML, skipped: 0, sourceHashes };
+  return {
+    html: diffed.innerHTML, skipped: 0, sourceHashes, review: !!diffed.querySelector(LOC_MARKERS),
+  };
 }
 
 // No valid baseline yet: today's merge, so the author reviews every difference once.
@@ -157,6 +159,7 @@ export default function createSmartOverwrite({
   };
 
   const smartOverwrite = async (url, title) => {
+    delete url.outcome;
     try {
       const regional = await getHtml(url.destination, undefined, { raw: true });
       const regionalMain = regional && getSectionedMain(regional);
@@ -171,7 +174,7 @@ export default function createSmartOverwrite({
       if (regional) removeLocTags(regional);
 
       const {
-        html, skipped, sourceHashes, daMetadata, unchanged,
+        html, skipped, sourceHashes, daMetadata, unchanged, review,
       } = await smartRollout({
         source,
         dest: regional,
@@ -185,6 +188,7 @@ export default function createSmartOverwrite({
       if (unchanged) {
         url.status = 'success';
         url.skipped = 0;
+        url.outcome = 'unchanged';
         return { ok: true };
       }
       daMetadata[ROLLOUT_BASE_KEY] = formatRolloutBase(url.destination, sourceHashes);
@@ -194,6 +198,7 @@ export default function createSmartOverwrite({
       await saveVersion(url.destination, `${title} - Rolled Out`);
       url.status = 'success';
       url.skipped = skipped;
+      if (review) url.outcome = 'review';
       return response;
     } catch (error) {
       return fail(url, error);

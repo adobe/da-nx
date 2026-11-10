@@ -270,6 +270,63 @@ describe('nx-loc-rollout smart overwrite', () => {
     expect(newRollout('merge', newLang()).canMarkInSync).to.be.false;
   });
 
+  const renderLocales = (el, lang) => {
+    el._urls = el.project.urls;
+    const container = document.createElement('div');
+    render(el.renderLocales(lang.rollout, lang.locales), container);
+    return container;
+  };
+
+  it('lists pages that need review per locale, each linking to the editor', async () => {
+    siteConfig = OPTED_IN;
+    const lang = newLang();
+    const el = newRollout('smart-overwrite', lang);
+    await el.handleRolloutLang(lang);
+    expect(lang.locales[0].review).to.deep.equal(['/org/optin/en-nl/page.html']);
+    expect(lang.locales[0]).to.not.have.property('unchanged');
+    const container = renderLocales(el, lang);
+    expect(container.querySelector('.skipped-count').textContent).to.equal('1 needs review');
+    const link = container.querySelector('.review-list a');
+    expect(link.getAttribute('href')).to.equal('https://da.live/edit#/org/optin/en-nl/page');
+    expect(link.getAttribute('target')).to.equal('_blank');
+    expect(link.textContent).to.equal('/en-nl/page');
+  });
+
+  it('counts unchanged pages and replaces the previous rollout report', async () => {
+    siteConfig = OPTED_IN;
+    const lang = newLang();
+    const el = newRollout('smart-overwrite', lang);
+    await el.handleRolloutLang(lang);
+    const reviewed = await postedPage(posts('/source/org/optin/en-nl/page.html')[0]);
+    destPages['/en-nl/page.html'] = reviewed
+      .replace(/<da-diff-deleted>[\s\S]*?<\/da-diff-deleted>/g, '')
+      .replaceAll(' da-diff-added=""', '');
+    await el.handleRolloutLang(lang);
+    expect(lang.locales[0].unchanged).to.equal(1);
+    expect(lang.locales[0]).to.not.have.property('review');
+    const container = renderLocales(el, lang);
+    expect(container.querySelector('.skipped-count').textContent).to.equal('1 unchanged');
+    expect(container.querySelector('.review-list')).to.be.null;
+  });
+
+  ['not started', 'complete'].forEach((status) => {
+    it(`returns a refused language to ${status} without saving the project`, async () => {
+      siteConfig = OPTED_IN;
+      sourcePage = '<body><main><div><p da-diff-added="">Pending</p></div></main></body>';
+      const lang = { ...newLang(), rollout: { status } };
+      const el = newRollout('smart-overwrite', lang);
+      el._sortedLangs = [lang];
+      let saved = false;
+      el.addEventListener('action', () => { saved = true; });
+      await el.handleRolloutLang(lang);
+      expect(lang.rollout.status).to.equal(status);
+      expect(el._errors[0].error).to.include('has unmerged changes');
+      expect(el.anyRollout).to.be.false;
+      expect(saved).to.be.false;
+      expect(posts('/source/org/optin/en-nl/page.html')).to.have.length(0);
+    });
+  });
+
   it('records the baseline on a plain merge rollout on an opted-in site', async () => {
     siteConfig = OPTED_IN;
     const lang = newLang();
