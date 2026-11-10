@@ -84,7 +84,7 @@ describe('nx-editortoggle', () => {
   });
 
   ['/edit', '/canvas'].forEach((path) => {
-    it(`${path === '/edit' ? 'hides' : 'shows'} the switch on ${path} when ew.enabled is explicitly false`, async () => {
+    it(`hides the switch on ${path} when ew.enabled is explicitly false`, async () => {
       await expectToolbarOn(path, false, path === '/canvas' ? 'true' : 'false');
       installFetch({
         body: JSON.stringify({ flags: { data: [{ key: 'ew.enabled', value: 'false' }] } }),
@@ -96,13 +96,7 @@ describe('nx-editortoggle', () => {
       for (const userEnabled of [false, true]) {
         toggle._userEnabled = userEnabled;
         await toggle.updateComplete;
-        const control = toggle.shadowRoot.querySelector('nx-switch');
-        if (path === '/edit') {
-          expect(control).to.be.null;
-        } else {
-          expect(control).to.not.be.null;
-          expect(control.checked).to.be.true;
-        }
+        expect(toggle.shadowRoot.querySelector('nx-switch') === null).to.be.true;
       }
     });
 

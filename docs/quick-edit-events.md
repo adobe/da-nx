@@ -218,7 +218,9 @@ upload request, the host replies with the same `IMAGE_REPLACE` type, distinguish
 `payload.error` (failure) vs `payload.newSrc` (success). Both hosts implement the full
 round-trip. Hosts stamp every image in `SET_BODY` with its ProseMirror position
 (`data-image-index`) and the document snapshot (`data-image-version`); `SET_EDITOR_STATE`
-carries the same version for an active inline editor. The iframe sends both values with
+carries the same version for an active inline editor and refreshes it on every indexed
+image and open editor, so a subsequent replacement elsewhere uses the current snapshot.
+The iframe sends both values with
 a per-upload `requestId`, and the host updates exactly that image only while the
 document snapshot is current when the request arrives. During upload, the host
 tracks that image through collaborative edits; unrelated edits do not cancel the
