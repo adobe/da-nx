@@ -4,10 +4,6 @@
   font-family: var(--s2-font-family);
 }
 
-:host([hidden]) {
-  display: none !important;
-}
-
 .card {
   display: flex;
   flex-direction: column;
@@ -24,11 +20,6 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--s2-spacing-100, 8px);
-}
-
-.byline-logo svg {
-  width: 18px;
-  height: 18px;
 }
 
 .more {
@@ -130,25 +121,16 @@
   margin-top: var(--s2-spacing-100, 8px);
 }
 
-.byline {
-  display: inline-flex;
+.extra {
+  display: flex;
   align-items: center;
-  gap: 4px;
+  min-width: 0;
   color: var(--s2-gray-700);
   font-size: var(--s2-body-size-s, 14px);
   line-height: 1.5;
 }
 
-.byline-logo {
-  display: inline-flex;
-}
-
-/* Center the logo on the cap height (as in Figma), not on the line box. */
-.byline-text {
-  text-box: trim-both cap alphabetic;
-}
-
-.open {
+.action {
   display: inline-flex;
   align-items: center;
   justify-content: center;

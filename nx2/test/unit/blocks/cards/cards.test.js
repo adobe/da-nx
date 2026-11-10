@@ -1,8 +1,12 @@
 import { expect } from '@esm-bundle/chai';
-import { setConfig } from '../../../../scripts/nx.js';
+import sinon from 'sinon';
+import { setConfig, getConfig } from '../../../../scripts/nx.js';
 
 await setConfig({ hostnames: [] });
 const { default: init } = await import('../../../../blocks/cards/cards.js');
+const { attachCardSearch } = await import('../../../../blocks/cards/search.js');
+
+const { codeBase } = getConfig();
 
 const row = ({
   icon = 'icon-calendar',
@@ -34,8 +38,15 @@ async function buildBlock(rowsHtml, variant = 'tools') {
 
 const cards = (el) => [...el.querySelectorAll(':scope > nx-action-card')];
 
+const search = (query) => {
+  const results = [];
+  document.dispatchEvent(new CustomEvent('nx-cards-filter', { detail: { query, results } }));
+  return results;
+};
+
 afterEach(() => {
   document.body.innerHTML = '';
+  sinon.restore();
 });
 
 describe('cards block', () => {
@@ -48,42 +59,119 @@ describe('cards block', () => {
   });
 
   it('maps the row to card properties', async () => {
-    const el = await buildBlock(row({ icon: 'icon-TreeView', em: '<em>#F4EBFC</em>' }));
+    const el = await buildBlock(row({ icon: 'icon-Tree-View', em: '<em>#F4EBFC</em>' }));
     const [card] = cards(el);
     expect(card.heading).to.equal('Traverse');
     expect(card.description).to.equal('Get a birds eye view.');
-    expect(card.href).to.equal(new URL('/apps/traverse', window.location.href).href);
-    expect(card.learnMoreHref).to.equal('https://www.adobe.com/learn');
-    expect(card.icon).to.equal('TreeView');
+    expect(card.icon).to.equal(`${codeBase}/img/icons/s2-icon-treeview-20-n.svg`);
     expect(card.tint).to.equal('#F4EBFC');
+    expect(card.action).to.equal(new URL('/apps/traverse', window.location.href).href);
+    expect(card.actionLabel).to.equal('Open');
   });
 
-  it('leaves optional properties unset', async () => {
+  it('skips icons with unsafe names', async () => {
+    const section = document.createElement('div');
+    section.className = 'section';
+    const el = document.createElement('div');
+    el.className = 'nx-cards tools';
+    el.innerHTML = row();
+    el.querySelector('span.icon').className = 'icon icon-s2"><img';
+    section.append(el);
+    document.body.append(section);
+    await init(el);
+    expect(cards(el)[0].icon).to.equal(undefined);
+  });
+
+  it('leaves action and tint unset when not authored', async () => {
     const el = await buildBlock(row({ title: 'Plain', learnMore: '' }));
     const [card] = cards(el);
-    expect(card.heading).to.equal('Plain');
-    expect(card.href).to.equal(undefined);
-    expect(card.learnMoreHref).to.equal(undefined);
+    expect(card.action).to.equal(undefined);
     expect(card.tint).to.equal(undefined);
+    expect(card.menu).to.deep.equal([]);
   });
 
-  it('adds the by adobe byline for the tools variant', async () => {
+  it('builds the menu from learn more and the title link', async () => {
+    const el = await buildBlock(row());
+    expect(cards(el)[0].menu).to.deep.equal([
+      { id: 'learn-more', label: 'Learn more' },
+      { id: 'open-new-tab', label: 'Open in new tab' },
+    ]);
+  });
+
+  it('opens the selected menu entry in a new tab', async () => {
+    const stub = sinon.stub(window, 'open');
     const el = await buildBlock(row());
     const [card] = cards(el);
-    expect(card.byline).to.equal('By Adobe');
-    expect(card.bylineIcon).to.equal('byadobe');
+    card.dispatchEvent(new CustomEvent('select', { detail: { id: 'learn-more' }, bubbles: true }));
+    card.dispatchEvent(new CustomEvent('select', { detail: { id: 'open-new-tab' }, bubbles: true }));
+    expect(stub.firstCall.args).to.deep.equal(['https://www.adobe.com/learn', '_blank', 'noopener']);
+    expect(stub.secondCall.args).to.deep.equal([new URL('/apps/traverse', window.location.href).href, '_blank', 'noopener']);
   });
 
-  it('has no byline without the tools variant', async () => {
+  it('puts the by adobe byline into the extra slot for the tools variant', async () => {
+    const el = await buildBlock(row());
+    const extra = cards(el)[0].querySelector('[slot="extra"]');
+    expect(extra.querySelector('.byline-text').textContent).to.equal('By Adobe');
+    expect(extra.querySelector('use').getAttribute('href')).to.equal(`${codeBase}/img/icons/s2-icon-byadobe-20-n.svg#icon`);
+    expect(getComputedStyle(extra.querySelector('svg')).width).to.equal('18px');
+  });
+
+  it('has no extra content without the tools variant', async () => {
     const el = await buildBlock(row(), '');
-    expect(cards(el)[0].byline).to.equal(undefined);
+    expect(cards(el)[0].querySelector('[slot="extra"]')).to.equal(null);
   });
 
-  it('answers the cards-filter search', async () => {
+  it('hides cards that do not match the search', async () => {
     const el = await buildBlock(row() + row({ title: '<a href="/apps/bulk">Bulk Operations</a>', desc: 'Preview.' }));
-    const results = [];
-    document.dispatchEvent(new CustomEvent('nx-cards-filter', { detail: { query: 'trav', results } }));
+    const results = search('trav');
     expect(cards(el).map((c) => c.hidden)).to.deep.equal([false, true]);
+    expect(getComputedStyle(cards(el)[1]).display).to.equal('none');
     expect(results.find((r) => r.section === el.closest('.section')).count).to.equal(1);
+  });
+});
+
+describe('attachCardSearch', () => {
+  function setup() {
+    const section = document.createElement('div');
+    section.className = 'section';
+    const container = document.createElement('div');
+    section.append(container);
+    document.body.append(section);
+    const a = Object.assign(document.createElement('nx-action-card'), { heading: 'Traverse', description: 'Birds eye view.' });
+    const b = Object.assign(document.createElement('nx-action-card'), { heading: 'Bulk Operations', description: 'Preview, publish.' });
+    container.append(a, b);
+    return { section, container, a, b };
+  }
+
+  it('matches heading and description case-insensitively', () => {
+    const { section, container, a, b } = setup();
+    attachCardSearch(container);
+    const results = search('  BIRDS ');
+    expect([a.hidden, b.hidden]).to.deep.equal([false, true]);
+    expect(results.find((r) => r.section === section).count).to.equal(1);
+  });
+
+  it('shows all cards for an empty query', () => {
+    const { container, a, b } = setup();
+    attachCardSearch(container);
+    search('trav');
+    search('');
+    expect([a.hidden, b.hidden]).to.deep.equal([false, false]);
+  });
+
+  it('ignores events once the container is removed', () => {
+    const { section, container } = setup();
+    attachCardSearch(container);
+    section.remove();
+    expect(search('trav').some((r) => r.section === section)).to.be.false;
+  });
+
+  it('announces readiness', () => {
+    const { container } = setup();
+    const spy = sinon.spy();
+    document.addEventListener('nx-cards-ready', spy);
+    attachCardSearch(container);
+    document.removeEventListener('nx-cards-ready', spy);
+    expect(spy.calledOnce).to.be.true;
   });
 });

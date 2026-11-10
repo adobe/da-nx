@@ -5,4 +5,26 @@
   gap: var(--s2-spacing-300);
   margin: 0;
   padding: 0;
+
+  /* Search hides cards from outside the card. */
+  > nx-action-card[hidden] {
+    display: none;
+  }
+
+  /* "By Adobe" in the card's extra slot. */
+  .byline {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+
+    svg {
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  /* Center the logo on the cap height (as in Figma), not on the line box. */
+  .byline-text {
+    text-box: trim-both cap alphabetic;
+  }
 }

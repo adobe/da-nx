@@ -2,7 +2,7 @@ import { DA_ADMIN, loadStyle } from '../../../nx2/utils/utils.js';
 import { daFetch } from '../../../nx2/utils/api.js';
 import { loc } from '../../../nx2/scripts/nx.js';
 import '../../../nx2/blocks/shared/action-card/action-card.js';
-import { attachCardSearch } from '../../../nx2/blocks/shared/action-card/search.js';
+import { attachCardSearch } from '../../../nx2/blocks/cards/search.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -32,9 +32,19 @@ function getCard({ title, description, path, image }) {
   card.setAttribute('role', 'listitem');
   card.heading = title ?? '';
   card.description = description ?? '';
-  card.byline = loc`By Admin`;
-  if (path) card.href = path;
-  if (image) card.image = image;
+  card.menu = path ? [{ id: 'open-new-tab', label: loc`Open in new tab` }] : [];
+  if (image) card.icon = image;
+  if (path) {
+    card.action = path;
+    card.actionLabel = loc`Open`;
+    card.addEventListener('select', ({ detail }) => {
+      if (detail?.id === 'open-new-tab') window.open(new URL(path, window.location.href).href, '_blank', 'noopener');
+    });
+  }
+  const extra = document.createElement('span');
+  extra.slot = 'extra';
+  extra.textContent = loc`By Admin`;
+  card.append(extra);
   return card;
 }
 

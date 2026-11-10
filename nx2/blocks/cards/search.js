@@ -1,4 +1,5 @@
 // Answers the cards-filter search for the <nx-action-card> children of `container`.
+// Hiding is done here, outside the card: blocks style `nx-action-card[hidden]`.
 const matches = ({ card, query }) => `${card.heading ?? ''} ${card.description ?? ''}`
   .toLowerCase().includes(query);
 

@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import { setConfig } from '../../../../../scripts/nx.js';
 
 await setConfig({ hostnames: [] });
@@ -7,7 +8,7 @@ await setConfig({ hostnames: [] });
 const { default: init, renderApps } = await import('../../../../../../nx/blocks/site-apps/site-apps.js');
 
 const APPS = [
-  { title: 'Bulk Helper', description: 'Bulk things.', path: '/tools/bulk', image: '/media/bulk.png' },
+  { title: 'Bulk Helper', description: 'Bulk things.', path: '/tools/bulk', image: '/media/bulk.svg' },
   { title: 'Feature App', description: 'Branch only.', path: '/tools/feature', ref: 'feature' },
   { title: 'Plain App', description: 'No image.', path: 'https://example.com/app', ref: 'main' },
 ];
@@ -25,6 +26,7 @@ const cards = (el) => [...el.querySelectorAll(':scope > nx-action-card')];
 
 afterEach(() => {
   document.body.innerHTML = '';
+  sinon.restore();
 });
 
 describe('site-apps init', () => {
@@ -52,12 +54,26 @@ describe('site-apps renderApps', () => {
     renderApps({ el, apps: APPS });
     const [first, second] = cards(el);
     expect(first.description).to.equal('Bulk things.');
-    expect(first.href).to.equal('/tools/bulk');
-    expect(first.image).to.equal('/media/bulk.png');
-    expect(first.byline).to.equal('By Admin');
-    expect(first.bylineIcon).to.equal(undefined);
+    expect(first.icon).to.equal('/media/bulk.svg');
+    expect(first.action).to.equal('/tools/bulk');
+    expect(first.actionLabel).to.equal('Open');
+    expect(first.menu).to.deep.equal([{ id: 'open-new-tab', label: 'Open in new tab' }]);
     expect(first.getAttribute('role')).to.equal('listitem');
-    expect(second.image).to.equal(undefined);
+    expect(second.icon).to.equal(undefined);
+  });
+
+  it('puts by admin into the extra slot', () => {
+    const { el } = build();
+    renderApps({ el, apps: APPS });
+    expect(cards(el)[0].querySelector('[slot="extra"]').textContent).to.equal('By Admin');
+  });
+
+  it('opens the app in a new tab from the menu', () => {
+    const stub = sinon.stub(window, 'open');
+    const { el } = build();
+    renderApps({ el, apps: APPS });
+    cards(el)[1].dispatchEvent(new CustomEvent('select', { detail: { id: 'open-new-tab' }, bubbles: true }));
+    expect(stub.calledOnceWith('https://example.com/app', '_blank', 'noopener')).to.be.true;
   });
 
   it('renders nothing for an empty list', () => {
@@ -72,6 +88,7 @@ describe('site-apps renderApps', () => {
     const results = [];
     document.dispatchEvent(new CustomEvent('nx-cards-filter', { detail: { query: 'plain', results } }));
     expect(cards(el).map((c) => c.hidden)).to.deep.equal([true, false]);
+    expect(getComputedStyle(cards(el)[0]).display).to.equal('none');
     expect(results.find((r) => r.section === el.closest('.section')).count).to.equal(1);
   });
 });
