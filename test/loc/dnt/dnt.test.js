@@ -502,3 +502,86 @@ describe('addDntInfoToHtml', () => {
     expect(removed).to.equal(metadataTable);
   });
 });
+
+describe('dnt sheet document path rules', () => {
+  const single = JSON.stringify({
+    ':type': 'sheet',
+    total: 1,
+    offset: 0,
+    limit: 1,
+    data: [{ sku: 'A-1', title: 'Hello' }],
+  });
+  const multi = JSON.stringify({
+    ':type': 'multi-sheet',
+    ':names': ['data', 'other'],
+    ':version': 1,
+    data: { total: 1, offset: 0, limit: 1, data: [{ sku: 'A-1', title: 'Hello' }] },
+    other: { total: 1, offset: 0, limit: 1, data: [{ sku: 'B-1', title: 'World' }] },
+  });
+  const cfg = (...rows) => ({ dnt: { data: rows.map(([sheet, cols]) => ({ 'dnt-sheet': sheet, 'dnt-columns': cols })) } });
+  const run = async (json, config, path) => new DOMParser()
+    .parseFromString(await addDnt(json, config, { fileType: 'json', path }), 'text/html');
+  const isDnt = (html, sheet, key) => html.querySelector(`div[name="${sheet}"] div[key="${key}"]`)
+    .getAttribute('translate') === 'no';
+
+  it('applies a path rule only to the matching document', async () => {
+    const config = cfg(['/products/prices:data', 'sku']);
+    expect(isDnt(await run(multi, config, '/products/prices.json'), 'data', 'sku')).to.be.true;
+    expect(isDnt(await run(multi, config, '/products/other.json'), 'data', 'sku')).to.be.false;
+  });
+
+  it('scopes the tab within the matching document', async () => {
+    const html = await run(multi, cfg(['/products/prices:data', 'sku']), '/products/prices.json');
+    expect(isDnt(html, 'other', 'sku')).to.be.false;
+  });
+
+  it('matches single-tab sheets by default or data', async () => {
+    const path = '/products/prices.json';
+    expect(isDnt(await run(single, cfg(['/products/prices:data', 'sku']), path), 'default', 'sku')).to.be.true;
+    expect(isDnt(await run(single, cfg(['/products/prices:default', 'sku']), path), 'default', 'sku')).to.be.true;
+    expect(isDnt(await run(single, cfg(['data', 'sku']), path), 'default', 'sku')).to.be.true;
+  });
+
+  it('matches a single-tab sheet by its :sheetname', async () => {
+    const named = JSON.stringify({ ...JSON.parse(single), ':sheetname': 'prices' });
+    const path = '/products/prices.json';
+    expect(isDnt(await run(named, cfg(['/products/prices:prices', 'sku']), path), 'default', 'sku')).to.be.true;
+    expect(isDnt(await run(named, cfg(['/products/prices:data', 'sku']), path), 'default', 'sku')).to.be.false;
+    expect(isDnt(await run(named, cfg(['default', 'sku']), path), 'default', 'sku')).to.be.true;
+  });
+
+  it('applies a path rule to every tab when no tab is given', async () => {
+    const html = await run(multi, cfg(['/products/prices', 'sku']), '/products/prices.json');
+    expect(isDnt(html, 'data', 'sku')).to.be.true;
+    expect(isDnt(html, 'other', 'sku')).to.be.true;
+    expect(isDnt(html, 'data', 'title')).to.be.false;
+  });
+
+  it('marks all tabs DNT for /path with * columns', async () => {
+    const html = await run(multi, cfg(['/products/prices', '*']), '/products/prices.json');
+    expect(html.querySelector('div[name="data"]').getAttribute('translate')).to.equal('no');
+    expect(html.querySelector('div[name="other"]').getAttribute('translate')).to.equal('no');
+  });
+
+  it('marks a single tab DNT for /path:tab with * columns', async () => {
+    const html = await run(multi, cfg(['/products/prices:other', '*']), '/products/prices.json');
+    expect(html.querySelector('div[name="other"]').getAttribute('translate')).to.equal('no');
+    expect(html.querySelector('div[name="data"]').getAttribute('translate')).to.be.null;
+  });
+
+  it('supports * wildcards in the path', async () => {
+    const config = cfg(['/products/*:data', 'sku']);
+    expect(isDnt(await run(multi, config, '/products/prices.json'), 'data', 'sku')).to.be.true;
+    expect(isDnt(await run(multi, config, '/blog/prices.json'), 'data', 'sku')).to.be.false;
+  });
+
+  it('ignores path rules when no path is supplied', async () => {
+    const html = await run(multi, cfg(['/products/prices:data', 'sku']));
+    expect(isDnt(html, 'data', 'sku')).to.be.false;
+  });
+
+  it('keeps tab-name rules applying to every document', async () => {
+    const html = await run(multi, cfg(['data', 'sku']), '/any/doc.json');
+    expect(isDnt(html, 'data', 'sku')).to.be.true;
+  });
+});
