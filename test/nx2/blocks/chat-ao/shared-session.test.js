@@ -393,6 +393,10 @@ describe('standalone input and full AO chat sharing', () => {
     expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
     expect(await full.setPrompt('Apply change', { autoSend: true })).to.equal(false);
     expect(full._input.draft).to.equal('Unrelated draft');
+    const toast = [...document.querySelectorAll('nx-toast')].at(-1);
+    expect(toast?.message).to.equal('Wait for the current response to finish');
+    expect(toast?.variant).to.equal('warning');
+    toast?.remove();
     stop(standalone);
     await flush();
     expect(full.thinking).to.equal(false);
