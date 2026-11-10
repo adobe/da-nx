@@ -385,6 +385,21 @@ describe('standalone input and full AO chat sharing', () => {
     expect(full._input.draft).to.equal('');
   });
 
+  it('rejects an auto-send prompt while a turn is running without sending the existing draft', async () => {
+    const [standalone, full] = await pair('coworker');
+    input(full).value = 'Unrelated draft';
+    submit(standalone, 'From compact');
+    await flush();
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+    expect(await full.setPrompt('Apply change', { autoSend: true })).to.equal(false);
+    expect(full._input.draft).to.equal('Unrelated draft');
+    stop(standalone);
+    await flush();
+    expect(full.thinking).to.equal(false);
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+    expect(full._input.draft).to.equal('Unrelated draft');
+  });
+
   it('resolves the same configured harness for a standalone input and full chat without host callbacks', async () => {
     const fetchDefault = window.fetch;
     window.fetch = (resource, options) => {

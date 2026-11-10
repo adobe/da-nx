@@ -21,7 +21,9 @@ don't need to query for it either.
 If `autoSend` arrives before the shared session can accept a message (e.g. the
 chat panel was just opened and episodes are still loading), `nx-chat-ao` fills
 the input and submits the draft on the first session update where
-`session.canSend()` is true, instead of dropping the send.
+`session.canSend()` is true, instead of dropping the send. While a turn is
+running the input is blocked, so the prompt is rejected (`setPrompt` resolves
+`false`): the draft is left untouched and no send is scheduled.
 
 ## Input ownership
 

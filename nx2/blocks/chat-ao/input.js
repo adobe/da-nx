@@ -138,11 +138,12 @@ export default class NxAoInput extends LitElement {
 
   async setPrompt(text, { autoSend = false } = {}) {
     await this.updateComplete;
-    if (!text || this.blocked) return;
+    if (!text || this.blocked) return false;
     this.shadowRoot.querySelector('.prompts-popover')?.close();
     this.shadowRoot.querySelector('.chat-input').value = text;
     if (autoSend) this.shadowRoot.querySelector('form').requestSubmit();
     else await this.focusInput();
+    return true;
   }
 
   openPrompts() {

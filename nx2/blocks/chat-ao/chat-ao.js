@@ -78,8 +78,10 @@ export default class NxChatAo extends LitElement {
 
   async setPrompt(text, { autoSend = false } = {}) {
     await this.updateComplete;
-    this._pendingAutoSend = autoSend && !this._canSend;
-    await this._input?.setPrompt(text, { autoSend: autoSend && !this._pendingAutoSend });
+    const defer = autoSend && !this._canSend;
+    const accepted = !!(await this._input?.setPrompt(text, { autoSend: autoSend && !defer }));
+    this._pendingAutoSend = accepted && defer;
+    return accepted;
   }
 
   get _canSend() {
