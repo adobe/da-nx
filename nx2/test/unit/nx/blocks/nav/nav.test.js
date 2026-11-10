@@ -262,6 +262,27 @@ describe('nav brand override', () => {
     expect(textStyle.color).to.equal(getComputedStyle(nav).color);
   });
 
+  it('lets consumers hide the label without losing the home link name or reserving label space', async () => {
+    await setConfig({ ...config, navBrand: { logoHref, label: 'Example Product' } });
+    nav.style.setProperty('--nx-nav-brand-label-display', 'none');
+    nav.style.height = '56px';
+    const brand = await mountBrand();
+    const label = brand.querySelector('.brand-label');
+    expect(getComputedStyle(label).display).to.equal('none');
+    expect(brand.getBoundingClientRect().width).to.equal(44);
+    expect(brand.querySelector('.brand-icon').getBoundingClientRect().width).to.equal(32);
+    expect(brand.querySelector('img').getBoundingClientRect().width).to.equal(24);
+    expect(brand.getAttribute('aria-label')).to.equal('Example Product');
+    expect(brand.getAttribute('href')).to.equal('/');
+    brand.focus();
+    expect(nav.shadowRoot.activeElement).to.equal(brand);
+
+    nav.style.removeProperty('--nx-nav-brand-label-display');
+    expect(getComputedStyle(label).display).not.to.equal('none');
+    expect(brand.getBoundingClientRect().width).to.be.greaterThan(44);
+    expect(brand.getAttribute('aria-label')).to.equal('Example Product');
+  });
+
   [undefined, { label: 'Missing logo' }, { logoHref }].forEach((navBrand) => {
     it(`preserves the original SVG lockup with ${JSON.stringify(navBrand)} configuration`, async () => {
       await setConfig({ ...config, navBrand });

@@ -74,6 +74,10 @@
   }
 }
 
+.brand-label {
+  display: var(--nx-nav-brand-label-display, inline);
+}
+
 .site-nav {
   display: flex;
   align-items: center;
