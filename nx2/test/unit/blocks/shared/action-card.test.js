@@ -5,6 +5,9 @@ import { setConfig } from '../../../../scripts/nx.js';
 // the custom test reporter crashes when it has to print a DOM element on failure.
 
 await setConfig({ hostnames: [] });
+// Global design tokens, so shared styles (e.g. buttons.css) resolve as on a real page.
+const { loadStyle } = await import('../../../../utils/utils.js');
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, await loadStyle('/nx2/styles/styles.css')];
 await import('../../../../blocks/shared/action-card/action-card.js');
 // Preload the menu the card lazy-loads on first click, so opening it needs no polling.
 await import('../../../../blocks/shared/menu/menu.js');
@@ -90,15 +93,22 @@ describe('nx-action-card tile', () => {
 });
 
 describe('nx-action-card action', () => {
-  it('renders an M action link with its label', async () => {
+  it('renders the action link with its label', async () => {
     const card = await make({ action: '/apps/traverse', actionLabel: 'Launch' });
     const link = $(card, '.action');
     expect(link.getAttribute('href')).to.equal('/apps/traverse');
     expect(link.textContent.trim()).to.equal('Launch');
     expect(link.getAttribute('aria-label')).to.equal('Launch Traverse');
     expect(link.hasAttribute('target')).to.be.false;
+  });
+
+  it('reuses the shared primary button, outlined', async () => {
+    const card = await make({ action: '/apps/traverse' });
+    const link = $(card, '.action');
+    expect(link.classList.contains('nx-btn-primary')).to.be.true;
     const cs = getComputedStyle(link);
-    expect([cs.height, cs.fontSize, cs.fontWeight]).to.deep.equal(['32px', '14px', '700']);
+    expect([cs.height, cs.fontSize, cs.fontWeight, cs.borderRadius]).to.deep.equal(['32px', '14px', '700', '16px']);
+    expect([cs.borderTopWidth, cs.backgroundColor, cs.textDecorationLine]).to.deep.equal(['2px', 'rgba(0, 0, 0, 0)', 'none']);
   });
 
   it('defaults the label to Open', async () => {

@@ -3,8 +3,10 @@ import { loc } from '../../../scripts/nx.js';
 import { loadStyle } from '../../../utils/utils.js';
 import { loadHrefSvg } from '../../../utils/svg.js';
 
+// Shared buttons.css for the action (nx-btn-primary, outlined in action-card.css).
 // The "…" icon ships with nx2 and is inlined, so it works on any host (no cross-origin <use>).
-const [styles, moreIcon] = await Promise.all([
+const [buttonStyles, styles, moreIcon] = await Promise.all([
+  loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href),
   loadStyle(import.meta.url),
   loadHrefSvg(new URL('../../../img/icons/s2-icon-more-20-n.svg', import.meta.url).href),
 ]);
@@ -40,7 +42,7 @@ class NxActionCard extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [buttonStyles, styles];
   }
 
   async _onMoreClick(e) {
@@ -96,7 +98,7 @@ class NxActionCard extends LitElement {
     // An explicit target wins; otherwise links to another origin open in a new tab.
     const target = this.actionTarget || (isExternal(this.action) ? '_blank' : undefined);
     const rel = target && !SAME_CONTEXT.includes(target) ? 'noopener' : undefined;
-    return html`<a class="action" href=${this.action}
+    return html`<a class="action nx-btn-primary" href=${this.action}
       target=${target ?? nothing} rel=${rel ?? nothing}
       aria-label="${label} ${this.heading ?? ''}">${label}</a>`;
   }
