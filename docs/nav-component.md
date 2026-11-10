@@ -26,14 +26,8 @@ for both UI-size preferences. Text inherits the current theme's color, and the
 decorative image has empty alternative text. The link's accessible name is the
 label.
 
-Only the logo is visible by default. Consumers show the label by setting a CSS
-custom property on the nav:
-
-```css
-nx-nav {
-  --nx-nav-brand-label-display: inline;
-}
-```
+Only the logo is visible by default. Set `--nx-nav-brand-label-display: inline`
+on `nx-nav` to show the label.
 
 Deploy the Nexter capability before enabling it in a consuming application.
 Older Nexter versions ignore `navBrand` and continue rendering the fragment's
