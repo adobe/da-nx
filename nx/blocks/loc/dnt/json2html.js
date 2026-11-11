@@ -37,13 +37,20 @@ const json2html = (json, dntConfig, path) => {
     universalColumns: configUniversalColumns,
     allSheets,
   } = resolveSheetRules(dntConfig, path);
+  /**
+   * Checks a cell value against `dnt-sheet-rules`, ignoring case.
+   * @param {string} text - Cell value.
+   * @returns {boolean} True when any rule matches.
+   */
   const isTextInDntRules = (text) => sheetRules && sheetRules
     .some((rule) => {
       if (rule.condition === 'exists') {
         return true;
       }
+      // Rule values are lowercased in `extractPattern`.
+      const value = String(text).toLowerCase();
       const matchTexts = rule.match;
-      return (rule.condition === 'equals' && matchTexts.includes(text)) || (rule.condition === 'beginsWith' && matchTexts.some((matchText) => text.startsWith(matchText)));
+      return (rule.condition === 'equals' && matchTexts.includes(value)) || (rule.condition === 'beginsWith' && matchTexts.some((matchText) => value.startsWith(matchText)));
     });
 
   // Single-tab sheets match their `:sheetname` (DA's default is `data`) or the legacy `default`.

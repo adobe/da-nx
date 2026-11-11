@@ -153,6 +153,33 @@ describe('parseConfig with dnt sheet', () => {
     const titleCol = html.querySelector('div[key="title"]');
     expect(titleCol.getAttribute('translate')).to.be.null;
   });
+
+  it('matches dnt-sheet-rules patterns regardless of case', async () => {
+    const config = {
+      'dnt-sheet-rules': {
+        data: [
+          { pattern: 'equals(Adobe Express)', action: 'dnt' },
+          { pattern: 'beginsWith(SKU-)', action: 'dnt' },
+        ],
+      },
+    };
+
+    const json = JSON.stringify({
+      ':type': 'sheet',
+      data: [
+        { brand: 'ADOBE EXPRESS', sku: 'Sku-123', title: 'Hello', other: 'adobe express app' },
+      ],
+    });
+
+    const result = await addDnt(json, config, { fileType: 'json' });
+    const html = new DOMParser().parseFromString(result, 'text/html');
+    const isDnt = (key) => html.querySelector(`div[key="${key}"]`).getAttribute('translate') === 'no';
+
+    expect(isDnt('brand')).to.be.true;
+    expect(isDnt('sku')).to.be.true;
+    expect(isDnt('title')).to.be.false;
+    expect(isDnt('other')).to.be.false;
+  });
 });
 
 describe('resetIcons', () => {
