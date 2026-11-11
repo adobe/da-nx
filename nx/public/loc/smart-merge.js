@@ -289,15 +289,42 @@ const hasEmptySection = (blocks) => blocks.some((_, idx) => opensEmptySection(bl
 
 const tidySections = (blocks) => blocks.filter((_, idx) => !opensEmptySection(blocks, idx));
 
+// Removes new rejected blocks and sections holding only them; copies the base holds stay.
+function withoutRejected({ base, source, rejected }) {
+  if (!source.some(({ hash }) => rejected.has(hash))) return source;
+  const inBase = countHashes(base.filter((hash) => rejected.has(hash)));
+  const isRejected = ({ hash }) => {
+    if (!rejected.has(hash)) return false;
+    const left = inBase.get(hash) || 0;
+    inBase.set(hash, left - 1);
+    return left <= 0;
+  };
+  const removed = new Set(source.filter(isRejected));
+  const kept = groupBySection(source, isSection).flatMap((section) => {
+    const opens = isSection(section[0]);
+    const content = opens ? section.slice(1) : section;
+    const blocks = content.filter((block) => !removed.has(block));
+    if (opens && content.length && !blocks.length) return [];
+    return opens ? [section[0], ...blocks] : blocks;
+  });
+  // A page keeps one section (the last, as the empty-page copy does): a saved empty page has one.
+  return kept.length ? kept : source.filter(isSection).slice(-1);
+}
+
 /**
  * @param {Object} params
  * @param {String[]} params.base ordered block hashes at the last rollout
  * @param {{ hash: String }[]} params.source current upstream blocks
  * @param {{ hash: String }[]} params.dest current destination blocks
+ * @param {Set<String>} [params.rejected] upstream block hashes rejected in a merge review
  * @returns {{ blocks: Object[], skipped: Number, baseline: String[] }} `baseline` is the upstream
- *   order that was merged (with unapplied moves reverted); it becomes the next base
+ *   order that was merged (unapplied moves reverted, rejected blocks left out); it becomes the next
+ *   base
  */
-export default function threeWayMerge({ base, source, dest }) {
+export default function threeWayMerge({
+  base, source: upstream, dest, rejected = new Set(),
+}) {
+  const source = withoutRejected({ base, source: upstream, rejected });
   const baseKey = base.join();
   const baseline = toHashes(source);
   if (baseline.join() === baseKey) return { blocks: dest, skipped: 0, baseline };

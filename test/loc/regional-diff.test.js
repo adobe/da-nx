@@ -7,6 +7,7 @@ import {
   removeLocTags,
   getBlockHashes,
   smartMerge,
+  removeRejectedBlocks,
 } from '../../nx/public/loc/regional-diff.js';
 import { getDiffHash } from '../../nx/public/loc/index.js';
 
@@ -659,6 +660,102 @@ describe('smartMerge', () => {
     const source = '<p>A</p><p>B</p>';
     const { sourceHashes } = await merge({ base: '<p>A</p>', source, dest: '<p>A</p>' });
     expect(sourceHashes).to.deep.equal(await hashes(toDoc(source)));
+  });
+
+  it('matches rejected blocks by the hash merge stores, taken from the link-normalized copy', async () => {
+    const link = '<p><a href="https://main--site--org.hlx.page/x">L</a></p>';
+    const rejected = [getDiffHash('<p><a href="https://main--site--org.aem.live/x">L</a></p>')];
+    const { html } = await smartMerge({
+      site: 'site',
+      config: {},
+      base: await hashes(toDoc('<p>A</p><p>B</p>')),
+      source: toDoc(`<p>A</p>${link}<p>B</p>`),
+      dest: toDoc('<p>A</p><p>B</p>'),
+      rejected,
+    });
+    expect(html).to.equal('<div><p>A</p><p>B</p></div>');
+    const reviewed = await regionalDiff(toDoc(`<p>A</p>${link}<p>B</p>`), toDoc('<p>A</p><p>B</p>'), [], rejected, { site: 'site', config: {} });
+    expect(reviewed.innerHTML).to.not.include('/x');
+  });
+
+  it('saves a page whose blocks match its next base when every upstream block was rejected', async () => {
+    const rejected = [getDiffHash('<p>R</p>')];
+    const first = await smartMerge({
+      site: 'site', config: {}, base: await hashes(toDoc('<p>A</p>')), source: toDoc('<p>R</p>'), dest: toDoc('<p>A</p>'), rejected,
+    });
+    const saved = mainDoc(first.html);
+    expect(await hashes(saved)).to.deep.equal(first.sourceHashes);
+    const second = await smartMerge({
+      site: 'site', config: {}, base: first.sourceHashes, source: toDoc('<p>R</p><p>N</p>'), dest: saved, rejected,
+    });
+    expect(second.html).to.equal('<div><p>N</p></div>');
+  });
+
+  it('saves real pages consistent with their next base when blocks are rejected (300 random pages)', async () => {
+    let state = 20261110;
+    const random = () => {
+      state = (state * 48271) % 2147483647;
+      return (state - 1) / 2147483646;
+    };
+    const pick = (list) => list[Math.floor(random() * list.length)];
+    const toSections = (tokens) => tokens.join(' ').split('|').map((s) => s.trim().split(' ').filter(Boolean));
+    const toPage = (tokens) => toDoc(toSections(tokens).map((s) => s.map((x) => `<p>${x}</p>`).join('')));
+    const edit = (tokens) => tokens.flatMap((x) => {
+      const roll = random();
+      if (roll < 0.15) return [];
+      if (roll < 0.3) return [x, pick(['R', 'N', '|'])];
+      return [x];
+    });
+    const rejected = [getDiffHash('<p>R</p>')];
+    for (let i = 0; i < 300; i += 1) {
+      const base = Array.from({ length: 1 + Math.floor(random() * 5) }, () => pick(['A', 'B', 'C', '|']));
+      const source = random() < 0.1 ? base.map((x) => (x === '|' ? x : 'R')) : edit(base);
+      const local = random() < 0.5;
+      const dest = local ? [...base, `L${i}`] : base;
+      const baseHashes = await hashes(toPage(base));
+      const { html, sourceHashes } = await smartMerge({
+        site: 'site', config: {}, base: baseHashes, source: toPage(source), dest: toPage(dest), rejected,
+      });
+      const label = `base=${base} source=${source} dest=${dest} html=${html}`;
+      expect(html, `rejected stays out: ${label}`).to.not.include('<p>R</p>');
+      if (local) expect(html, `local kept: ${label}`).to.include(`<p>L${i}</p>`);
+      if (!local) expect(await hashes(mainDoc(html)), `saved page equals next base: ${label}`).to.deep.equal(sourceHashes);
+    }
+  });
+
+  it('removes sections that held only rejected blocks but keeps one section', async () => {
+    const rejected = [getDiffHash('<p>R</p>')];
+    const copy = await removeRejectedBlocks({
+      doc: toDoc(['<p>R</p>', '<p>A</p><p>R</p>']), rejected, site: 'site', config: {},
+    });
+    expect(copy.querySelector('main').innerHTML).to.equal('<div><p>A</p></div>');
+    const all = await removeRejectedBlocks({
+      doc: toDoc(['<p>R</p>', '<p>R</p>']), rejected, site: 'site', config: {},
+    });
+    expect(all.querySelector('main').innerHTML).to.equal('<div></div>');
+  });
+
+  it('keeps the same section in the merge and the empty-page copy when everything was rejected', async () => {
+    const rejected = [getDiffHash('<p>R</p>')];
+    const source = () => mainDoc('<div class="a"><p>R</p></div><div class="b"><p>R</p></div>');
+    const copy = await removeRejectedBlocks({
+      doc: source(), rejected, site: 'site', config: {},
+    });
+    const page = mainDoc(copy.querySelector('main').innerHTML);
+    const base = await hashes(page);
+    const { sourceHashes } = await smartMerge({
+      site: 'site', config: {}, base, source: source(), dest: page, rejected,
+    });
+    expect(sourceHashes).to.deep.equal(base);
+  });
+
+  it('leaves out a first section that held only rejected blocks', async () => {
+    const rejected = [getDiffHash('<p>R</p>')];
+    const { html, sourceHashes } = await smartMerge({
+      site: 'site', config: {}, base: await hashes(toDoc('<p>A</p>')), source: toDoc(['<p>R</p>', '<p>A</p>']), dest: toDoc('<p>A</p>'), rejected,
+    });
+    expect(html).to.equal('<div><p>A</p></div>');
+    expect(await hashes(mainDoc(html))).to.deep.equal(sourceHashes);
   });
 });
 

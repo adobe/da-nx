@@ -542,12 +542,39 @@ const getEquivalentSites = (config) => {
 
 const shortHash = (item) => item.hash.substring(0, HASH_LENGTH);
 
-// Hashes come from a link-normalized copy so the merged output keeps the original links.
-async function getHashedBlocks(doc, { site, config }) {
+// Like merge, rejections only apply to single upstream blocks (never to groups or list items).
+const isSingleBlock = (block) => !block.isSection && !Array.isArray(block);
+
+// Hashes (and merge's reviewHash, single blocks only) come from a link-normalized copy.
+async function getHashedBlocks(doc, { site, config, withReviewHash = false }) {
   const options = { smart: true };
   const normalized = await normalizeLinks(doc.cloneNode(true), site, getEquivalentSites(config));
   const hashed = getSmartBlockMap(normalized);
-  return getBlocks(doc, options).map((block, idx) => ({ block, hash: shortHash(hashed[idx]) }));
+  return getBlocks(doc, options).map((block, idx) => ({
+    block,
+    hash: shortHash(hashed[idx]),
+    ...(withReviewHash && isSingleBlock(block)
+      ? { reviewHash: shortHash({ hash: hashBlock(hashed[idx].block) }) } : {}),
+  }));
+}
+
+const isRejectedBlock = (rejected) => ({ reviewHash }) => !!reviewHash
+  && rejected.includes(reviewHash);
+
+export async function removeRejectedBlocks({
+  doc, rejected = [], site, config,
+}) {
+  const copy = doc.cloneNode(true);
+  if (!rejected.length) return copy;
+  const blocks = await getHashedBlocks(copy, { site, config, withReviewHash: true });
+  blocks.filter(isRejectedBlock(rejected)).forEach(({ block }) => {
+    const section = block.parentElement;
+    block.remove();
+    const emptied = section && !section.children.length && !section.textContent.trim();
+    // The last section stays: a saved empty page still has one.
+    if (emptied && section.parentElement.children.length > 1) section.remove();
+  });
+  return copy;
 }
 
 export async function getBlockHashes({ doc, site, config }) {
@@ -580,19 +607,25 @@ function buildHtmlFromBlocks(blocks) {
  * @param {String[]} params.base ordered block hashes of the source at the last rollout
  * @param {Document} params.source the current upstream document
  * @param {Document} params.dest the current destination document
+ * @param {String[]} [params.rejected] block hashes the author rejected in a merge review
  * @param {String} params.site the DA site, used for link normalization
  * @param {Object} params.config the translation config (equivalent fragment hostnames)
  * @returns {Promise<{ html: String, skipped: Number, sourceHashes: String[] }>} sourceHashes is the
  *   next baseline
  */
 export async function smartMerge({
-  base, source, dest, site, config,
+  base, source, dest, rejected = [], site, config,
 }) {
-  const sourceBlocks = await getHashedBlocks(source, { site, config });
+  const withReviewHash = rejected.length > 0;
+  const sourceBlocks = await getHashedBlocks(source, { site, config, withReviewHash });
   const destBlocks = await getHashedBlocks(dest, { site, config });
+  const rejectedBlocks = sourceBlocks.filter(isRejectedBlock(rejected));
   const { default: threeWayMerge } = await import('./smart-merge.js');
   const { blocks, skipped, baseline } = threeWayMerge({
-    base, source: sourceBlocks, dest: destBlocks,
+    base,
+    source: sourceBlocks,
+    dest: destBlocks,
+    rejected: new Set(rejectedBlocks.map(({ hash }) => hash)),
   });
   return { html: buildHtmlFromBlocks(blocks), skipped, sourceHashes: baseline };
 }

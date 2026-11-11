@@ -1,7 +1,7 @@
 import getElementMetadata from '../../../nx2/utils/getElementMetadata.js';
 import {
   regionalDiff, removeLocTags, getBlockHashes, getContentHashes, smartMerge, LOC_MARKERS,
-  isSnapshotPath,
+  isSnapshotPath, removeRejectedBlocks,
 } from './regional-diff.js';
 
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
@@ -40,12 +40,27 @@ function getSectionedMain(doc) {
 const isEmptyMain = (main) => !main.textContent.trim()
   && [...main.querySelectorAll('*')].every((el) => EMPTY_TAGS.has(el.nodeName) && !el.attributes.length);
 
-async function copySource({ source, site, config }) {
-  const html = source.querySelector('main').innerHTML;
+const REVIEW_KEYS = ['acceptedhashes', 'rejectedhashes'];
+
+const getRejected = (el) => (getElementMetadata(el).rejectedhashes?.text || '')
+  .split(',').map((hash) => hash.trim()).filter(Boolean);
+
+// An emptied page keeps its merge review decisions: rejected blocks stay out of the copy.
+async function copySource({
+  source, site, config, destMetadataEl,
+}) {
+  const rejected = getRejected(destMetadataEl);
+  const copy = await removeRejectedBlocks({
+    doc: source, rejected, site, config,
+  });
+  const html = copy.querySelector('main').innerHTML;
   const daMetadata = readMetadata(source.querySelector(DA_METADATA_SELECTOR));
-  delete daMetadata.acceptedhashes;
-  delete daMetadata.rejectedhashes;
-  const sourceHashes = await getBlockHashes({ doc: source, site, config });
+  const destMetadata = readMetadata(destMetadataEl);
+  REVIEW_KEYS.forEach((key) => {
+    if (destMetadata[key]) daMetadata[key] = destMetadata[key];
+    else delete daMetadata[key];
+  });
+  const sourceHashes = await getBlockHashes({ doc: copy, site, config });
   return { html, skipped: 0, sourceHashes, daMetadata };
 }
 
@@ -54,7 +69,7 @@ async function mergeReview({
 }) {
   const reviewed = getElementMetadata(metadataEl);
   const accepted = reviewed.acceptedhashes?.text?.split(',') || [];
-  const rejected = reviewed.rejectedhashes?.text?.split(',') || [];
+  const rejected = getRejected(metadataEl);
   const diffed = await regionalDiff(source, dest, accepted, rejected, { site, config });
   return {
     html: diffed.innerHTML, skipped: 0, sourceHashes, review: !!diffed.querySelector(LOC_MARKERS),
@@ -88,12 +103,16 @@ async function smartRollout({
     const sourceHashes = await getBlockHashes({ doc: source, site, config });
     if (sourceHashes.join() === base.join()) return { unchanged: true };
     const merged = await smartMerge({
-      base, source, dest, site, config,
+      base, source, dest, rejected: getRejected(metadataEl), site, config,
     });
     if (merged.sourceHashes.join() === base.join()) return { unchanged: true };
     return { ...merged, daMetadata };
   }
-  if (empty) return copySource({ source, site, config });
+  if (empty) {
+    return copySource({
+      source, site, config, destMetadataEl: metadataEl,
+    });
+  }
   const merged = await firstRollout({
     source, dest, destHtml, destMarked, metadataEl, site, config,
   });
@@ -217,7 +236,7 @@ export default function createSmartOverwrite({
     const source = await readSource(url);
     const sourceHashes = await getBlockHashes({ doc: source, site, config });
     const value = formatRolloutBase(url.destination, sourceHashes);
-    return { body: withBaselineRow(source, value, { dropKeys: ['acceptedhashes', 'rejectedhashes'] }) };
+    return { body: withBaselineRow(source, value, { dropKeys: REVIEW_KEYS }) };
   };
 
   const readMarkable = async (url) => {

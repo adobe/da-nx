@@ -34,7 +34,7 @@ flowchart TD
   pending -- "no" --> same{"global unchanged since<br/>the baseline?"}
   same -- "yes" --> nothing["Nothing to do<br/>(no write, no version)"]
   same -- "no" --> unchanged{"apac has no localized blocks?<br/>(identical to global at the last rollout)"}
-  unchanged -- "yes, nothing localized" --> take["Take global as-is"]
+  unchanged -- "yes, nothing localized" --> take["Take global as-is<br/>(minus rejected blocks)"]
   unchanged -- "no, apac has localized blocks" --> diff3["Block-level three-way merge<br/>baseline vs global vs apac"]
   diff3 --> who{"Per block: who differs from the baseline?<br/>(baseline = global when apac last received it)"}
   who -- "only global (new global edit)" --> apply["Apply global change"]
@@ -84,6 +84,20 @@ upstream (S) and destination (D). Logic lives in `nx/public/loc/smart-merge.js` 
 | inserted at a spot | inserted at the same spot | keep both (destination first, no duplicates) |
 | changed | changed differently | keep destination, count as **skipped** |
 
+Blocks rejected in a merge review (the page's `rejectedhashes`) are treated as if upstream never had them: before
+the merge they are removed from the upstream page, together with any section that held only rejected blocks, and
+the rest of upstream is merged by the rules above. So the rest of an upstream replacement that holds a rejected block
+is applied, and a block upstream replaced with only rejected blocks is deleted like any upstream deletion.
+- Only single blocks are matched, by the same hash merge uses. Like merge, a rejection never applies to a block group
+  or to one item of a list (a whole list can be rejected).
+- Copies the baseline already holds are not removed: the merge then sees the page's choice as a local change. For
+  example, after a merge review where the author rejected an upstream edit and kept their own block, the page keeps
+  its block. Extra copies beyond the baseline's are removed.
+- Rejected blocks that were left out are not recorded in the next baseline, so they stay out on later rollouts and
+  upstream edits around them still apply.
+- An emptied page without a baseline leaves rejected blocks out of the copy and keeps its `acceptedhashes` /
+  `rejectedhashes`.
+
 4. Upstream reorders: if the destination has no localized blocks (it is still identical to upstream as of the last
    rollout), the result is exactly upstream (reorders included). Otherwise, like merge, upstream moves are not
    applied: moved blocks stay in the destination's order (not reported), so content is never duplicated, lost or
@@ -95,21 +109,27 @@ upstream (S) and destination (D). Logic lives in `nx/public/loc/smart-merge.js` 
    unless the destination or upstream already has an empty section.
 
 Guarantees (covered by seeded randomized tests in `test/loc/smart-merge.test.js`):
-- Destination identical to the baseline (nothing localized) → result equals upstream.
+- Destination identical to the baseline (nothing localized) → result equals upstream, minus rejected blocks.
 - Upstream unchanged, or equal to the destination → result equals the destination.
 - Every block the destination added or edited is kept.
 - No block appears more often than in the destination plus the copies upstream newly added; locally deleted
   blocks never come back.
 - A block present exactly once in the baseline, upstream and destination is always kept.
-- The merge never creates an empty section.
-- If nothing is reported as skipped, every new upstream block was applied.
+- The merge never creates an empty section, except one (the last) when every upstream block was rejected: a
+  saved empty page still has one section.
+- If nothing is reported as skipped, every new upstream block was applied, except blocks in the destination's
+  `rejectedhashes`, which are never added (also on later rollouts).
 
 Skipped counts are shown per locale (Loc app) and per destination (plugin) as "N skipped (localized)". A skipped
 change is not offered again: the next baseline already contains it.
 
+Known limitation: a section break dropped as empty (rule 5) stays in the baseline, so upstream content added to that
+section later is reported as skipped. Leaving the break out of the baseline instead would let it come back on later
+rollouts and move localized blocks into it (see the "keeps local content in its section" test).
+
 Each smart rollout also reports, per page:
-- **unchanged**: nothing changed upstream since the sync point, so nothing was written (Loc app: "N unchanged" per
-  locale; plugin: "unchanged").
+- **unchanged**: nothing new to apply since the sync point (upstream unchanged, or only rejected changes), so
+  nothing was written (Loc app: "N unchanged" per locale; plugin: "unchanged").
 - **needs review**: the saved page has `da-diff-*` markers to accept or reject in the editor (e.g. a first rollout
   without a sync point, or a review that is still unresolved). The Loc app lists these pages under each locale, each
   linking to the page in the DA editor; in the plugin, "needs review" links to the page. The list is saved with the
@@ -131,8 +151,9 @@ Merge and overwrite rollouts do not report these.
     is not compared); later smart rollouts keep them as authored.
   - To skip that one-time review for content that already exists (e.g. after an import), use **Set sync point**.
 - Nothing changed upstream since the baseline: nothing is written and no version is saved.
-- Missing destination, or an empty one without a baseline: the upstream page is copied as-is and the baseline is
-  recorded. An empty destination with a baseline was emptied on purpose and is merged like any other.
+- Missing destination, or an empty one without a baseline: the upstream page is copied (an emptied page leaves
+  out blocks it rejected and keeps its review decisions) and the baseline is recorded. An empty destination
+  with a baseline was emptied on purpose and is merged like any other.
 - Read or save failures and malformed documents are reported as errors and nothing is written; smart-overwrite never
   falls back to a plain overwrite. As in the other modes, a failed version save after a successful page save is
   reported as an error although the page was written.

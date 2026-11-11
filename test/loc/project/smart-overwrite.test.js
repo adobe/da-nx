@@ -2,10 +2,12 @@ import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { createCopy } from '../../../nx/public/loc/copy.js';
 import { getBlockHashes } from '../../../nx/public/loc/regional-diff.js';
+import { getDiffHash } from '../../../nx/public/loc/hashes.js';
 
 const DEST = '/org/site/apac/page.html';
 const toPage = (main, metadata = '') => `<body><header></header><main><div>${main}</div></main>${metadata}<footer></footer></body>`;
 const baseRow = (value) => `<div class="da-metadata"><div><div>rolloutbase</div><div>${value}</div></div></div>`;
+const rejectedRow = (hashes, base) => `<div class="da-metadata">${base ? `<div><div>rolloutbase</div><div>${base}</div></div>` : ''}<div><div>rejectedhashes</div><div>${hashes}</div></div></div>`;
 
 const hashesOf = async (main) => {
   const doc = document.implementation.createHTMLDocument();
@@ -182,6 +184,82 @@ describe('smartOverwriteCopy', () => {
     destHtml = toPage('<p id="anchor"></p><p>A</p><p>B</p>', baseRow(`/org/site/apac/page.html|${base.join(',')}`));
     await rollout(smartOverwriteCopy, '<p>A</p><p>B2</p>');
     expect(saved).to.include('<p id="anchor"></p><p>A</p><p>B2</p>');
+  });
+
+  it('keeps upstream inserts next to a rejected one on consecutive rollouts', async () => {
+    const base = await hashesOf('<p>A</p><p>B</p>');
+    destHtml = toPage('<p>A</p><p>B</p>', rejectedRow(getDiffHash('<p>R</p>'), `/org/site/apac/page.html|${base.join(',')}`));
+    await rollout(smartOverwriteCopy, '<p>A</p><p>N</p><p>R</p><p>B</p>');
+    expect(saved).to.include('<p>A</p><p>N</p><p>B</p>');
+    destHtml = saved;
+    saved = undefined;
+    const again = await rollout(smartOverwriteCopy, '<p>A</p><p>N</p><p>R</p><p>B</p>');
+    expect(again.outcome).to.equal('unchanged');
+    expect(saved).to.be.undefined;
+    const url = await rollout(smartOverwriteCopy, '<p>A</p><p>N2</p><p>R</p><p>B</p>');
+    expect(saved).to.include('<p>A</p><p>N2</p><p>B</p>');
+    expect(saved).to.not.include('<p>R</p>');
+    expect(url.skipped).to.equal(0);
+  });
+
+  it('keeps a code block out that the author rejected in a merge review', async () => {
+    const base = await hashesOf('<p>A</p><p>B</p><p>C</p>');
+    destHtml = toPage('<p>A</p><p>B</p><p>C</p>', rejectedRow(getDiffHash('<pre><code>R</code></pre>'), `/org/site/apac/page.html|${base.join(',')}`));
+    const unchanged = await rollout(smartOverwriteCopy, '<p>A</p><pre><code>R</code></pre><p>B</p><p>C</p>');
+    expect(unchanged.outcome).to.equal('unchanged');
+    expect(saved).to.be.undefined;
+    await rollout(smartOverwriteCopy, '<p>A</p><pre><code>R</code></pre><p>B</p><p>C2</p>');
+    expect(saved).to.include('<p>A</p><p>B</p><p>C2</p>');
+    expect(saved).to.not.include('<pre>');
+  });
+
+  it('keeps a global change out that the author rejected in a merge review', async () => {
+    const base = await hashesOf('<p>A2</p><p>B</p>');
+    destHtml = toPage('<p>A</p><p>B</p>', rejectedRow(getDiffHash('<p>A2</p>'), `/org/site/apac/page.html|${base.join(',')}`));
+    const url = await rollout(smartOverwriteCopy, '<p>A2</p><p>B2</p>');
+    expect(saved).to.include('<p>A</p><p>B2</p>');
+    expect(saved).to.not.include('A2');
+    expect(url.skipped).to.equal(0);
+  });
+
+  it('leaves rejected blocks out of a copy to an emptied page and keeps its review decisions', async () => {
+    const rejected = getDiffHash('<p>R</p>');
+    destHtml = toPage('', `<div class="da-metadata"><div><div>rejectedhashes</div><div>${rejected}</div></div><div><div>acceptedhashes</div><div>0123456789ab</div></div></div>`);
+    const url = { source: '/org/site/page', destination: DEST, sourceContent: '<body><main><div><p>A</p><p>R</p><p>B</p></div><div><p>R</p></div></main></body>' };
+    await smartOverwriteCopy(url, 'Proj');
+    expect(url.status).to.equal('success');
+    expect(saved).to.include('<main><div><p>A</p><p>B</p></div></main>');
+    expect(saved).to.include(rejected);
+    expect(saved).to.include('0123456789ab');
+    const received = await hashesOf('<p>A</p><p>B</p>');
+    expect(saved).to.include(`<div>rolloutbase</div><div>/org/site/apac/page.html|${received.join(',')}</div>`);
+  });
+
+  it('applies the rest of an upstream replacement that holds a rejected block', async () => {
+    const base = await hashesOf('<p>A</p><p>B</p><p>C</p>');
+    destHtml = toPage('<p>A</p><p>B</p><p>C</p><p>L</p>', rejectedRow(getDiffHash('<p>R</p>'), `/org/site/apac/page.html|${base.join(',')}`));
+    const url = await rollout(smartOverwriteCopy, '<p>A</p><p>N</p><p>R</p><p>C</p>');
+    expect(url.status).to.equal('success');
+    expect(url.skipped).to.equal(0);
+    expect(saved).to.include('<p>A</p><p>N</p><p>C</p><p>L</p>');
+    expect(saved).to.not.include('<p>R</p>');
+  });
+
+  it('honors rejections like merge: whole blocks and lists, not block groups or list items', async () => {
+    const base = await hashesOf('<p>A</p><p>B</p>');
+    const group = '<div class="block-group-start"></div><p>G</p><div class="block-group-end"></div>';
+    const rejected = [
+      getDiffHash('<ul><li>X</li><li>Y</li></ul>'),
+      getDiffHash('<li>Z</li>'),
+      getDiffHash('<p>G</p>'),
+      getDiffHash('<div class="block-group-start"></div>'),
+      getDiffHash(group),
+    ].join(',');
+    destHtml = toPage('<p>A</p><p>B</p>', rejectedRow(rejected, `/org/site/apac/page.html|${base.join(',')}`));
+    await rollout(smartOverwriteCopy, `<p>A</p><ul><li>X</li><li>Y</li></ul><ol><li>Z</li><li>W</li></ol>${group}<p>B</p>`);
+    expect(saved).to.not.include('<li>X</li>');
+    expect(saved).to.include('<ol><li>Z</li><li>W</li></ol>');
+    expect(saved).to.include(group);
   });
 
   it('reads a baseline value wrapped in a paragraph or whitespace', async () => {

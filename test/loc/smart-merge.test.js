@@ -3,11 +3,14 @@ import threeWayMerge from '../../nx/public/loc/smart-merge.js';
 
 const toBlocks = (str) => (str ? str.split(' ') : [])
   .map((hash) => ({ hash, block: hash === '|' ? { isSection: true } : {} }));
-const run = ({ base, source, dest }) => {
+const run = ({
+  base, source, dest, rejected,
+}) => {
   const { blocks, skipped } = threeWayMerge({
     base: base ? base.split(' ') : [],
     source: toBlocks(source),
     dest: toBlocks(dest),
+    rejected: new Set(rejected ? rejected.split(' ') : []),
   });
   return { result: blocks.map(({ hash }) => hash).join(' '), skipped };
 };
@@ -51,12 +54,103 @@ describe('threeWayMerge', () => {
     });
   });
 
+  // Rejected blocks: as if upstream never had them (docs/rollout-smart-overwrite.md).
+  const rejectedCases = [
+    ['keeps a rejected upstream insert out', 'A C', 'A N C', 'A C', 'N', 'A C', 0],
+    ['keeps a rejected insert out when both sides insert at one spot', 'A C', 'A N C', 'A Y C', 'N', 'A Y C', 0],
+    ['applies upstream edits when other blocks are rejected', 'A B', 'A2 B', 'A B', 'X', 'A2 B', 0],
+    ['keeps an upstream insert next to a rejected one', 'A B', 'A N R B', 'A B', 'R', 'A N B', 0],
+    ['keeps the rest of an upstream section with a rejected block', 'A', 'A | N R', 'A', 'R', 'A | N', 0],
+    ['applies the rest of a replacement that holds a rejected block', 'A B C', 'A N R C', 'A B C', 'R', 'A N C', 0],
+    ['deletes a block upstream replaced with only rejected blocks', 'A B C', 'A R C', 'A B C', 'R', 'A C', 0],
+    ['applies upstream changes around a rejected edit next to a local edit', 'A B C', 'A2 B C', 'A B L', 'A2', 'B L', 0],
+    ['applies an upstream edit next to a rejected block left out earlier', 'A N B', 'A N2 R B', 'A N B', 'R', 'A N2 B', 0],
+    ['applies an upstream move next to a rejected insert on an unchanged page', 'A B C', 'A R C B', 'A B C', 'R', 'A C B', 0],
+    ['applies an upstream move to the end next to a rejected insert', 'A X B', 'R X A B', 'A X B', 'R', 'X A B', 0],
+    ['applies an upstream reorder when the rejected block was already received', 'R A B', 'R B A', 'R A B', 'R', 'R B A', 0],
+    ['treats a rejected block the page already received as content', 'A R B', 'A R B2', 'A R B', 'R', 'A R B2', 0],
+    ['keeps the author\'s block over a rejected edit a review recorded', 'A2 B', 'A2 B2', 'A B', 'A2', 'A B2', 0],
+    ['leaves out an extra copy of a rejected block the base already has', 'A R B', 'A R B R', 'A B', 'R', 'A B', 0],
+    ['leaves out a rejected block that replaced another upstream', 'A R B', 'A R R', 'A B', 'R', 'A', 0],
+  ];
+
+  rejectedCases.forEach(([name, base, source, dest, rejected, expected, skipped]) => {
+    it(name, () => {
+      expect(run({
+        base, source, dest, rejected,
+      })).to.deep.equal({ result: expected, skipped });
+    });
+  });
+
+  const sectioned = (str) => str.split(' ')
+    .map((hash) => ({ hash, block: hash.startsWith('S') ? { isSection: true } : {} }));
+  const hashesOf = (list) => list.map(({ hash }) => hash).join(' ');
+
+  it('leaves out a section that held only rejected blocks, also for later rollouts', () => {
+    const rejected = new Set(['R']);
+    const first = threeWayMerge({
+      base: ['S1', 'A'], source: sectioned('S1 A S2 R'), dest: sectioned('S1 A'), rejected,
+    });
+    expect(hashesOf(first.blocks)).to.equal('S1 A');
+    expect(first.baseline).to.deep.equal(['S1', 'A']);
+    const second = threeWayMerge({
+      base: first.baseline, source: sectioned('S1 A S2 N'), dest: first.blocks, rejected,
+    });
+    expect(hashesOf(second.blocks)).to.equal('S1 A S2 N');
+  });
+
+  it('applies the section structure upstream has around a rejected block', () => {
+    const rejected = new Set(['R']);
+    const first = threeWayMerge({
+      base: ['S0', 'P', 'S1', 'A'], source: sectioned('S0 P S1 R S2 A'), dest: sectioned('S0 P S1 A'), rejected,
+    });
+    expect(hashesOf(first.blocks)).to.equal('S0 P S2 A');
+    expect(first.baseline).to.deep.equal(['S0', 'P', 'S2', 'A']);
+    const wrapper = threeWayMerge({
+      base: ['S', 'A', 'S', 'B'], source: sectioned('S A Sx R B'), dest: sectioned('S A S B'), rejected,
+    });
+    expect(hashesOf(wrapper.blocks)).to.equal('S A Sx B');
+  });
+
+  it('records exactly what a page without local changes now has as its next base', () => {
+    const { blocks: result, baseline } = threeWayMerge({
+      base: ['B', 'Sx', 'A'], source: sectioned('R Sx B'), dest: sectioned('B Sx A'), rejected: new Set(['R']),
+    });
+    expect(baseline).to.deep.equal(result.map(({ hash }) => hash));
+  });
+
+  it('keeps the page\'s own copy when upstream later removes a block next to a rejected one', () => {
+    const rejected = new Set(['R']);
+    const first = threeWayMerge({
+      base: ['A'], source: toBlocks('R L'), dest: toBlocks('A L'), rejected,
+    });
+    const second = threeWayMerge({
+      base: first.baseline, source: toBlocks('R'), dest: first.blocks, rejected,
+    });
+    expect(second.blocks.map(({ hash }) => hash)).to.include('L');
+  });
+
   it('records the merged upstream order so later upstream edits still apply', () => {
     const first = threeWayMerge({ base: ['A', 'B', 'C', 'D'], source: toBlocks('B A C D'), dest: toBlocks('A B C L') });
     expect(first.baseline).to.deep.equal(['A', 'B', 'C', 'D']);
     const second = threeWayMerge({ base: first.baseline, source: toBlocks('B2 A C D'), dest: first.blocks });
     expect(second.blocks.map(({ hash }) => hash).join(' ')).to.equal('B2 A C L');
     expect(second.skipped).to.equal(0);
+  });
+
+  it('keeps local content in its section on rollouts after tidying away an upstream section', () => {
+    const start = { base: ['S1', 'Hero', 'Promo'], source: sectioned('S1 Hero S2 Promo') };
+    const first = threeWayMerge({ ...start, dest: sectioned('S1 Hero') });
+    expect(hashesOf(first.blocks)).to.equal('S1 Hero');
+    const unchanged = threeWayMerge({
+      base: first.baseline, source: start.source, dest: sectioned('S1 Hero Local'),
+    });
+    expect(hashesOf(unchanged.blocks)).to.equal('S1 Hero Local');
+    const ownBreak = threeWayMerge({ ...start, dest: sectioned('S1 Hero S2 Local') });
+    const later = threeWayMerge({
+      base: ownBreak.baseline, source: sectioned('S1 Hero S2 Banner Promo'), dest: ownBreak.blocks,
+    });
+    expect(hashesOf(later.blocks)).to.equal('S1 Hero S2 Banner Local');
   });
 
   it('never duplicates a localized block that upstream moved', () => {
@@ -112,6 +206,49 @@ describe('threeWayMerge invariants (seeded random)', () => {
     return out;
   };
   const count = (list, token) => list.filter((t) => t === token).length;
+  // Reference for "upstream minus rejected blocks": extra copies beyond the base's go, and so do
+  // sections left holding nothing; one (the last) section stays if nothing remains.
+  const upstreamWithoutRejected = ({ base, source, rejected }) => {
+    const budget = new Map([...rejected].map((t) => [t, count(base, t)]));
+    const removed = source.map((t) => {
+      if (!rejected.has(t)) return false;
+      budget.set(t, budget.get(t) - 1);
+      return budget.get(t) < 0;
+    });
+    const sections = source.reduce((acc, t, idx) => {
+      if (t === '|' || !acc.length) acc.push([]);
+      acc[acc.length - 1].push(idx);
+      return acc;
+    }, []);
+    const kept = sections.flatMap((idxs) => {
+      const opens = source[idxs[0]] === '|';
+      const content = opens ? idxs.slice(1) : idxs;
+      const left = content.filter((idx) => !removed[idx]);
+      if (opens && content.length && !left.length) return [];
+      return (opens ? [idxs[0], ...left] : left).map((idx) => source[idx]);
+    });
+    return kept.length ? kept : source.filter((t) => t === '|').slice(-1);
+  };
+  const opensEmpty = (list) => list
+    .some((t, idx) => t === '|' && (idx === list.length - 1 || list[idx + 1] === '|'));
+  const expectNoLossOrDuplicates = ({
+    base, source, dest, result, label, rejected = new Set(),
+  }) => {
+    // A page whose upstream content was all rejected still keeps one (empty) section.
+    const allRejected = rejected.size > 0 && source.filter((t) => t !== '|').every((t) => rejected.has(t));
+    if (opensEmpty(result) && !allRejected) {
+      expect(opensEmpty(dest) || opensEmpty(source), `no new empty sections: ${label}`).to.be.true;
+    }
+    new Set(result).forEach((token) => {
+      const addedUpstream = Math.max(0, count(source, token) - count(base, token));
+      expect(count(result, token), `no duplicates or resurrected local deletions: ${label}`)
+        .to.be.at.most(count(dest, token) + addedUpstream);
+    });
+    new Set([...base, ...source, ...dest]).forEach((token) => {
+      if (token === '|' || ![base, source, dest].every((list) => count(list, token) === 1)) return;
+      expect(count(result, token), `unique common content kept: ${label}`).to.equal(1);
+    });
+  };
 
   it('holds for 3000 random documents', () => {
     for (let i = 0; i < 3000; i += 1) {
@@ -132,25 +269,124 @@ describe('threeWayMerge invariants (seeded random)', () => {
       dest.filter((t) => t !== '|' && !base.includes(t)).forEach((token) => {
         expect(count(result, token), `local content kept: ${label}`).to.equal(count(dest, token));
       });
-      new Set(result).forEach((token) => {
-        const addedUpstream = Math.max(0, count(source, token) - count(base, token));
-        expect(count(result, token), `no duplicates or resurrected local deletions: ${label}`)
-          .to.be.at.most(count(dest, token) + addedUpstream);
+      expectNoLossOrDuplicates({
+        base, source, dest, result, label,
       });
-      new Set([...base, ...source, ...dest]).forEach((token) => {
-        if (token === '|' || ![base, source, dest].every((list) => count(list, token) === 1)) return;
-        expect(count(result, token), `unique common content kept: ${label}`).to.equal(1);
-      });
-      const emptySection = (list) => list
-        .some((t, idx) => t === '|' && (idx === list.length - 1 || list[idx + 1] === '|'));
-      if (emptySection(result)) {
-        expect(emptySection(dest) || emptySection(source), `no new empty sections: ${label}`).to.be.true;
-      }
       if (skipped === 0) {
         source.filter((t) => t !== '|' && !base.includes(t)).forEach((token) => {
           expect(result, `applied when nothing skipped: ${label}`).to.include(token);
         });
       }
+    }
+  });
+
+  it('never adds a rejected upstream block in 3000 random documents', () => {
+    for (let i = 0; i < 3000; i += 1) {
+      const base = Array.from({ length: Math.floor(random() * 7) }, () => pick(['A', 'B', 'C', 'D', 'E', '|']));
+      const source = mutate(base, 's');
+      const dest = mutate(base, 'd');
+      const rejected = new Set(source.filter((t) => t.startsWith('s') && random() < 0.5));
+      const { blocks, skipped } = threeWayMerge({
+        base, source: toBlocks(source.join(' ')), dest: toBlocks(dest.join(' ')), rejected,
+      });
+      const result = blocks.map(({ hash }) => hash);
+      const label = `base=${base} source=${source} dest=${dest} rejected=${[...rejected]} result=${result} skipped=${skipped}`;
+
+      expect(result.filter((t) => rejected.has(t)), `no rejected blocks: ${label}`).to.deep.equal([]);
+      expectNoLossOrDuplicates({
+        base, source, dest, result, label, rejected,
+      });
+      dest.filter((t) => t !== '|' && !base.includes(t)).forEach((token) => {
+        expect(count(result, token), `local content kept: ${label}`).to.equal(count(dest, token));
+      });
+      if (skipped === 0) {
+        source.filter((t) => t !== '|' && !base.includes(t) && !rejected.has(t)).forEach((token) => {
+          expect(result, `applied when nothing skipped: ${label}`).to.include(token);
+        });
+      }
+    }
+  });
+
+  it('applies later upstream changes after rejections in 3000 random two-rollout sequences', () => {
+    for (let i = 0; i < 3000; i += 1) {
+      const base = Array.from({ length: Math.floor(random() * 7) }, () => pick(['A', 'B', 'C', 'D', '|']));
+      const source = mutate(base, 's').map((t) => (t.startsWith('s') && random() < 0.4 ? 'R' : t));
+      const dest = mutate(base, 'd');
+      const rejected = new Set(['R']);
+      const first = threeWayMerge({
+        base, source: toBlocks(source.join(' ')), dest: toBlocks(dest.join(' ')), rejected,
+      });
+      const later = source.map((t) => (t === 'R' ? fresh('n') : t));
+      const second = threeWayMerge({
+        base: first.baseline, source: toBlocks(later.join(' ')), dest: first.blocks, rejected,
+      });
+      const result = second.blocks.map(({ hash }) => hash);
+      const label = `base=${base} source=${source} dest=${dest} later=${later} result=${result}`;
+
+      if (second.skipped === 0) {
+        later.filter((t) => t.startsWith('n')).forEach((token) => {
+          expect(result, `later upstream block applied: ${label}`).to.include(token);
+        });
+      }
+      dest.filter((t) => t.startsWith('d')).forEach((token) => {
+        expect(count(result, token), `local content kept: ${label}`).to.equal(count(dest, token));
+      });
+      expect(count(result, 'R'), `rejected block stays out: ${label}`).to.be.at.most(count(dest, 'R'));
+    }
+  });
+
+  it('applies later edits next to a rejected block without skips in 3000 random pages', () => {
+    for (let i = 0; i < 3000; i += 1) {
+      const base = Array.from({ length: 2 + Math.floor(random() * 5) }, () => pick(['A', 'B', 'C', 'D', '|']));
+      const source = [...base];
+      source.splice(Math.floor(random() * (source.length + 1)), 0, 'R');
+      const rejected = new Set(['R']);
+      const first = threeWayMerge({
+        base, source: toBlocks(source.join(' ')), dest: toBlocks(base.join(' ')), rejected,
+      });
+      const later = source.map((t) => (t !== 'R' && t !== '|' && random() < 0.4 ? fresh('n') : t));
+      const second = threeWayMerge({
+        base: first.baseline, source: toBlocks(later.join(' ')), dest: first.blocks, rejected,
+      });
+      const label = `base=${base} source=${source} later=${later}`;
+      expect(second.skipped, `nothing skipped: ${label}`).to.equal(0);
+      const content = (list) => list.filter((t) => t !== 'R' && t !== '|');
+      expect(content(second.blocks.map(({ hash }) => hash)), label).to.deep.equal(content(later));
+    }
+  });
+
+  it('stays stable with rejected blocks the page may already have in 3000 random documents', () => {
+    for (let i = 0; i < 3000; i += 1) {
+      const base = Array.from({ length: Math.floor(random() * 7) }, () => pick(['A', 'B', 'C', 'R', '|']));
+      const source = mutate(base, 's').map((t) => (t.startsWith('s') && random() < 0.3 ? 'R' : t));
+      const dest = mutate(base, 'd');
+      const rejected = new Set(random() < 0.8 ? ['R'] : []);
+      const first = threeWayMerge({
+        base, source: toBlocks(source.join(' ')), dest: toBlocks(dest.join(' ')), rejected,
+      });
+      const result = first.blocks.map(({ hash }) => hash);
+      const label = `base=${base} source=${source} dest=${dest} rejected=${[...rejected]} result=${result}`;
+
+      const second = threeWayMerge({
+        base: first.baseline, source: toBlocks(source.join(' ')), dest: first.blocks, rejected,
+      }).blocks.map(({ hash }) => hash);
+      expectNoLossOrDuplicates({
+        base, source, dest, result, label, rejected,
+      });
+      if (rejected.has('R')) {
+        expect(count(result, 'R'), `new rejected block left out: ${label}`).to.be.at.most(count(dest, 'R'));
+        expect(count(second, 'R'), `still left out next time: ${label}`).to.be.at.most(count(dest, 'R'));
+      }
+      if (dest.join() === base.join()) {
+        expect(result, `unchanged page takes upstream minus rejected blocks: ${label}`)
+          .to.deep.equal(upstreamWithoutRejected({ base, source, rejected }));
+      }
+      if (dest.join() === base.join()) {
+        expect(first.baseline, `page without local changes equals its next base: ${label}`).to.deep.equal(result);
+      }
+      dest.filter((t) => t.startsWith('d')).forEach((token) => {
+        expect(count(second, token), `local content kept next time: ${label}`).to.equal(count(dest, token));
+      });
     }
   });
 });
