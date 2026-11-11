@@ -714,12 +714,14 @@ card.focus({ preventScroll: true });</code></pre>
         <div class="sg-demo">
           <div class="demo-action-cards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--s2-spacing-300); width: 100%;">
             <nx-action-card id="demo-action-card" heading="Traverse"
-              description="Tinted icon, menu, action and a byline in the extra slot."
-              icon="./icons/selected.svg" tint="#E5F0FE" action="#traverse" action-label="Open">
+              description="Tinted svg icon, menu, action and a byline in the extra slot."
+              tint="#E5F0FE" action="#traverse" action-label="Open">
+              <svg slot="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="./icons/selected.svg#icon"></use></svg>
               <span slot="extra">By Adobe</span>
             </nx-action-card>
-            <nx-action-card heading="Bulk Helper" description="Icon without tint fills the tile; custom action label, opens in a new tab."
-              icon="./icons/selected.svg" action="#bulk" action-label="Launch" action-target="_blank">
+            <nx-action-card heading="Bulk Helper" description="Image without tint fills the tile; custom action label, opens in a new tab."
+              action="#bulk" action-label="Launch" action-target="_blank">
+              <img slot="icon" src="./icons/selected.svg" alt="">
               <span slot="extra">By Admin</span>
             </nx-action-card>
             <nx-action-card id="demo-action-card-menu" heading="With menu"
@@ -732,10 +734,15 @@ card.focus({ preventScroll: true });</code></pre>
         </div>
         <pre><code>import '/nx2/blocks/shared/action-card/action-card.js';
 
-&lt;nx-action-card heading="Traverse" description="..."
-  icon="/img/icons/s2-icon-treeview-20-n.svg" tint="#E5F0FE"
+&lt;nx-action-card heading="Traverse" description="..." tint="#E5F0FE"
   action="/apps/traverse" action-label="Open"&gt;
+  &lt;svg slot="icon" viewBox="0 0 20 20"&gt;&lt;use href="/img/icons/s2-icon-treeview-20-n.svg#icon"&gt;&lt;/use&gt;&lt;/svg&gt;
   &lt;span slot="extra"&gt;By Adobe&lt;/span&gt;
+&lt;/nx-action-card&gt;
+
+&lt;!-- Any image format via &lt;img slot="icon"&gt; --&gt;
+&lt;nx-action-card heading="Bulk Helper" action="/tools/bulk"&gt;
+  &lt;img slot="icon" src="/media/app.jpeg" alt=""&gt;
 &lt;/nx-action-card&gt;
 
 &lt;!-- Optional target for the action, e.g. a new tab --&gt;
