@@ -45,11 +45,12 @@ export default class DaRollout extends LitElement {
   async getRolloutInfo() {
     const { org, repo, path, token } = this;
     const {
-      currPrefix, prefixes, isLocale, smartOverwrite,
+      currPrefix, prefixes, isLocale, isSourceStore, smartOverwrite,
     } = await getPrefixDetails(org, repo, token, path);
     this._currPrefix = currPrefix;
     this._prefixes = prefixes;
     this._isLocale = isLocale;
+    this._isSourceStore = isSourceStore;
     this._smartOverwrite = smartOverwrite;
   }
 
@@ -59,7 +60,7 @@ export default class DaRollout extends LitElement {
     const { behavior, label } = Object.fromEntries(formData);
     const copyLabel = label === '' ? 'Adhoc' : label;
     const { org, repo, token } = this;
-    const resolver = this._currPrefix !== '/' && createRolloutResolver({
+    const resolver = !this._isSourceStore && createRolloutResolver({
       load: (path) => fetch(`${DA_ORIGIN}/source${path}`, { headers: { Authorization: `Bearer ${token}` } }),
       sitePath: `/${org}/${repo}`,
     });

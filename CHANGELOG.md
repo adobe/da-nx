@@ -1,3 +1,10 @@
+## [1.51.2](https://github.com/adobe/da-nx/compare/v1.51.1...v1.51.2) (2026-11-11)
+
+
+### Bug Fixes
+
+* **loc:** handle languages without locales in rollout ([#915](https://github.com/adobe/da-nx/issues/915)) ([bb35897](https://github.com/adobe/da-nx/commit/bb35897ca62d295d4ecde284289ee2d7d899d325))
+
 ## [1.51.1](https://github.com/adobe/da-nx/compare/v1.51.0...v1.51.1) (2026-11-11)
 
 
