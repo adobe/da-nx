@@ -1,3 +1,10 @@
+# [1.50.0](https://github.com/adobe/da-nx/compare/v1.49.0...v1.50.0) (2026-11-11)
+
+
+### Features
+
+* **action-card:** add shared nx-action-card component ([#979](https://github.com/adobe/da-nx/issues/979)) ([a433cad](https://github.com/adobe/da-nx/commit/a433cad84eb7db1acfcdb3fc9f58c487e419385b))
+
 # [1.49.0](https://github.com/adobe/da-nx/compare/v1.48.0...v1.49.0) (2026-11-11)
 
 
