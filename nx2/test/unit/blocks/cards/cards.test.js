@@ -8,6 +8,11 @@ const { attachCardSearch } = await import('../../../../blocks/cards/search.js');
 
 const { codeBase } = getConfig();
 
+// Element presence is asserted as booleans (`!!el`): the test reporter crashes printing DOM nodes.
+const original = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+const setHash = (hash) => window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
+const local = (path) => new URL(path, window.location.href).href;
+
 const row = ({
   icon = 'icon-calendar',
   em = '',
@@ -24,12 +29,13 @@ const row = ({
     </div>
   </div>`;
 
-async function buildBlock(rowsHtml, variant = 'tools') {
+async function buildBlock(rowsHtml, { variant = 'tools', prepare } = {}) {
   const section = document.createElement('div');
   section.className = 'section';
   const el = document.createElement('div');
   el.className = `nx-cards ${variant}`.trim();
   el.innerHTML = rowsHtml;
+  prepare?.(el);
   section.append(el);
   document.body.append(section);
   await init(el);
@@ -47,6 +53,7 @@ const search = (query) => {
 afterEach(() => {
   document.body.innerHTML = '';
   sinon.restore();
+  window.history.replaceState(null, '', original);
 });
 
 describe('cards block', () => {
@@ -67,20 +74,14 @@ describe('cards block', () => {
     expect(icon.querySelector('use').getAttribute('href')).to.equal(`${codeBase}/img/icons/s2-icon-treeview-20-n.svg#icon`);
     expect(icon.getAttribute('aria-hidden')).to.equal('true');
     expect(card.tint).to.equal('#F4EBFC');
-    expect(card.action).to.equal(new URL('/apps/traverse', window.location.href).href);
+    expect(card.action).to.equal(local('/apps/traverse'));
     expect(card.actionLabel).to.equal('Open');
   });
 
   it('skips icons with unsafe names', async () => {
-    const section = document.createElement('div');
-    section.className = 'section';
-    const el = document.createElement('div');
-    el.className = 'nx-cards tools';
-    el.innerHTML = row();
-    el.querySelector('span.icon').className = 'icon icon-s2"><img';
-    section.append(el);
-    document.body.append(section);
-    await init(el);
+    const el = await buildBlock(row(), {
+      prepare: (block) => { block.querySelector('span.icon').className = 'icon icon-s2"><img'; },
+    });
     expect(!!cards(el)[0].querySelector('[slot="icon"]')).to.be.false;
   });
 
@@ -100,16 +101,6 @@ describe('cards block', () => {
     ]);
   });
 
-  it('opens the selected menu entry in a new tab', async () => {
-    const stub = sinon.stub(window, 'open');
-    const el = await buildBlock(row());
-    const [card] = cards(el);
-    card.dispatchEvent(new CustomEvent('select', { detail: { id: 'learn-more' }, bubbles: true }));
-    card.dispatchEvent(new CustomEvent('select', { detail: { id: 'open-new-tab' }, bubbles: true }));
-    expect(stub.firstCall.args).to.deep.equal(['https://www.adobe.com/learn', '_blank', 'noopener']);
-    expect(stub.secondCall.args).to.deep.equal([new URL('/apps/traverse', window.location.href).href, '_blank', 'noopener']);
-  });
-
   it('puts the by adobe byline into the extra slot for the tools variant', async () => {
     const el = await buildBlock(row());
     const extra = cards(el)[0].querySelector('[slot="extra"]');
@@ -119,8 +110,8 @@ describe('cards block', () => {
   });
 
   it('has no extra content without the tools variant', async () => {
-    const el = await buildBlock(row(), '');
-    expect(cards(el)[0].querySelector('[slot="extra"]')).to.equal(null);
+    const el = await buildBlock(row(), { variant: '' });
+    expect(!!cards(el)[0].querySelector('[slot="extra"]')).to.be.false;
   });
 
   it('hides cards that do not match the search', async () => {
@@ -180,15 +171,10 @@ describe('attachCardSearch', () => {
 
 describe('site hash', () => {
   let siteHash;
-  const original = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  const setHash = (hash) => window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
-  const local = (path) => new URL(path, window.location.href).href;
 
   before(async () => {
     siteHash = await import('../../../../blocks/cards/site-hash.js');
   });
-
-  afterEach(() => window.history.replaceState(null, '', original));
 
   it('withSiteHash replaces the url hash with the page hash', () => {
     setHash('#/org/site');
@@ -229,15 +215,15 @@ describe('site hash', () => {
     ]);
   });
 
-  it('opens the hashed url in a new tab but leaves learn more alone', async () => {
+  it('opens menu entries in a new tab: tool url with the page hash, learn more unchanged', async () => {
     setHash('#/org/site');
     const stub = sinon.stub(window, 'open');
     const el = await buildBlock(row());
     const [card] = cards(el);
     card.dispatchEvent(new CustomEvent('select', { detail: { id: 'open-new-tab' }, bubbles: true }));
     card.dispatchEvent(new CustomEvent('select', { detail: { id: 'learn-more' }, bubbles: true }));
-    expect(stub.firstCall.args[0]).to.equal(local('/apps/traverse#/org/site'));
-    expect(stub.secondCall.args[0]).to.equal('https://www.adobe.com/learn');
+    expect(stub.firstCall.args).to.deep.equal([local('/apps/traverse#/org/site'), '_blank', 'noopener']);
+    expect(stub.secondCall.args).to.deep.equal(['https://www.adobe.com/learn', '_blank', 'noopener']);
   });
 
   it('updates the links when the page hash changes', async () => {

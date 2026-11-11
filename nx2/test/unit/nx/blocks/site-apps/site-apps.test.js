@@ -8,7 +8,7 @@ await setConfig({ hostnames: [] });
 const { default: init, renderApps } = await import('../../../../../../nx/blocks/site-apps/site-apps.js');
 
 const APPS = [
-  { title: 'Bulk Helper', description: 'Bulk things.', path: '/tools/bulk', image: '/media/bulk.svg' },
+  { title: 'Bulk Helper', description: 'Bulk things.', path: '/tools/bulk', image: '/media/bulk.jpeg' },
   { title: 'Feature App', description: 'Branch only.', path: '/tools/feature', ref: 'feature' },
   { title: 'Plain App', description: 'No image.', path: 'https://example.com/app', ref: 'main' },
 ];
@@ -24,19 +24,23 @@ function build() {
 
 const cards = (el) => [...el.querySelectorAll(':scope > nx-action-card')];
 
+// Element presence is asserted as booleans (`!!el`): the test reporter crashes printing DOM nodes.
+const original = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+const setHash = (hash) => window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
+const local = (path) => new URL(path, window.location.href).href;
+
 afterEach(() => {
   document.body.innerHTML = '';
   sinon.restore();
+  window.history.replaceState(null, '', original);
 });
 
 describe('site-apps init', () => {
   it('removes its section without a site hash', async () => {
-    const { hash } = window.location;
-    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    setHash('');
     const { main, el } = build();
     await init(el);
-    expect(main.querySelector('.section')).to.equal(null);
-    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
+    expect(!!main.querySelector('.section')).to.be.false;
   });
 });
 
@@ -52,16 +56,27 @@ describe('site-apps renderApps', () => {
   it('maps app data to card properties', () => {
     const { el } = build();
     renderApps({ el, apps: APPS });
-    const [first, second] = cards(el);
+    const [first] = cards(el);
     expect(first.description).to.equal('Bulk things.');
-    const img = first.querySelector(':scope > img[slot="icon"]');
-    expect(img.getAttribute('src')).to.equal('/media/bulk.svg');
-    expect(img.getAttribute('alt')).to.equal('');
     expect(first.action).to.equal('/tools/bulk');
     expect(first.actionLabel).to.equal('Open');
     expect(first.menu).to.deep.equal([{ id: 'open-new-tab', label: 'Open in new tab' }]);
     expect(first.getAttribute('role')).to.equal('listitem');
+  });
+
+  it('uses the configured image as an untinted icon', () => {
+    const { el } = build();
+    renderApps({ el, apps: APPS });
+    const [first] = cards(el);
+    const img = first.querySelector(':scope > img[slot="icon"]');
+    expect([img.getAttribute('src'), img.getAttribute('alt')]).to.deep.equal(['/media/bulk.jpeg', '']);
     expect(first.tint).to.equal(undefined);
+  });
+
+  it('falls back to the tools icon on a light blue tile', () => {
+    const { el } = build();
+    renderApps({ el, apps: APPS });
+    const [, second] = cards(el);
     const fallback = second.querySelector(':scope > svg[slot="icon"]');
     expect(fallback.querySelector('use').getAttribute('href')).to.equal(`${getConfig().codeBase}/img/icons/s2-icon-tools-20-n.svg#icon`);
     expect(fallback.getAttribute('aria-hidden')).to.equal('true');
@@ -72,14 +87,6 @@ describe('site-apps renderApps', () => {
     const { el } = build();
     renderApps({ el, apps: APPS });
     expect(cards(el)[0].querySelector('[slot="extra"]').textContent).to.equal('By Admin');
-  });
-
-  it('opens the app in a new tab from the menu', () => {
-    const stub = sinon.stub(window, 'open');
-    const { el } = build();
-    renderApps({ el, apps: APPS });
-    cards(el)[1].dispatchEvent(new CustomEvent('select', { detail: { id: 'open-new-tab' }, bubbles: true }));
-    expect(stub.calledOnceWith('https://example.com/app', '_blank', 'noopener')).to.be.true;
   });
 
   it('renders nothing for an empty list', () => {
@@ -100,12 +107,6 @@ describe('site-apps renderApps', () => {
 });
 
 describe('site-apps site hash', () => {
-  const original = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  const setHash = (hash) => window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
-  const local = (path) => new URL(path, window.location.href).href;
-
-  afterEach(() => window.history.replaceState(null, '', original));
-
   it('always adds the page hash to the app url', () => {
     setHash('#/org/site');
     const { el } = build();
@@ -116,7 +117,7 @@ describe('site-apps site hash', () => {
     ]);
   });
 
-  it('opens the hashed app url in a new tab', () => {
+  it('opens the hashed app url in a new tab from the menu', () => {
     setHash('#/org/site');
     const stub = sinon.stub(window, 'open');
     const { el } = build();
