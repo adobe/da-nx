@@ -646,8 +646,35 @@ describe('api.js', () => {
       const { org: o, site: s } = makeOrgSite();
       const result = await source.delete({ org: o, site: s, path: '/x.html' });
       expect(lastCall().method).to.equal('DELETE');
+      expect(lastCall().body).to.be.undefined;
       expect(result.ok).to.equal(true);
       expect(result.status).to.equal(204);
+    });
+
+    ['delete', 'deleteFolder', 'copy', 'move', 'copyFolder'].forEach((method) => {
+      it(`source.${method} forwards a continuation token and preserves the raw Response`, async () => {
+        restoreFetch();
+        installFetch({ status: 206, body: JSON.stringify({ continuationToken: 'next-page' }) });
+        const { org: o, site: s } = makeOrgSite();
+        const destination = `/${o}/${s}/.trash/folder`;
+        const result = await source[method](`/${o}/${s}/folder`, {
+          destination,
+          continuationToken: 'current-page',
+        });
+        const last = lastCall();
+        const deleting = method.startsWith('delete');
+        const route = { delete: 'source', deleteFolder: 'source', copyFolder: 'copy' }[method] || method;
+        const suffix = method === 'deleteFolder' ? '/' : '';
+        expect(last.url).to.equal(`${DA_ADMIN}/${route}/${o}/${s}/folder${suffix}`);
+        expect(last.method).to.equal(deleting ? 'DELETE' : 'POST');
+        expect(last.body).to.be.instanceof(FormData);
+        expect(last.body.get('continuation-token')).to.equal('current-page');
+        if (!deleting) expect(last.body.get('destination')).to.equal(destination);
+        expect(result).to.be.instanceof(Response);
+        expect(result.status).to.equal(206);
+        expect(result.bodyUsed).to.be.false;
+        expect(await result.json()).to.deep.equal({ continuationToken: 'next-page' });
+      });
     });
 
     it('source.copy hlx6 PUTs with source/collision query params', async () => {
