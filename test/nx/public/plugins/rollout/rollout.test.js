@@ -1,5 +1,6 @@
 // Covers both nx and nx2 rollout plugins (parametrized below).
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import nxGetPrefixDetails from '../../../../../nx/public/plugins/rollout/index.js';
 import nx2GetPrefixDetails from '../../../../../nx2/public/plugins/rollout/index.js';
 
@@ -82,6 +83,7 @@ describe('Rollout plugin getPrefixDetails', () => {
           currPrefix: '/',
           prefixes: [],
           isSourceStore: false,
+          smartOverwrite: false,
         });
       });
 
@@ -91,6 +93,7 @@ describe('Rollout plugin getPrefixDetails', () => {
           currPrefix: '/',
           prefixes: [],
           isSourceStore: false,
+          smartOverwrite: false,
         });
       });
 
@@ -108,7 +111,7 @@ describe('Rollout plugin getPrefixDetails', () => {
 
       it('Returns no prefixes for a page under a language without locales', async () => {
         mockConf(CONFIG);
-        expect(await run('/de/page')).to.deep.equal({ currPrefix: '/de', prefixes: [] });
+        expect(await run('/de/page')).to.deep.equal({ currPrefix: '/de', prefixes: [], smartOverwrite: false });
       });
 
       it('Flags a page under a locale', async () => {
@@ -117,18 +120,51 @@ describe('Rollout plugin getPrefixDetails', () => {
           currPrefix: '/en-ca',
           prefixes: [],
           isLocale: true,
+          smartOverwrite: false,
         });
       });
 
       it('Returns no prefixes when no source language is configured', async () => {
         mockConf({ ...CONFIG, config: { data: [] } });
-        expect(await run('/page')).to.deep.equal({ currPrefix: null, prefixes: [] });
+        expect(await run('/page')).to.deep.equal({ currPrefix: null, prefixes: [], smartOverwrite: false });
       });
 
       it('Returns no prefixes when the source language is not in the languages sheet', async () => {
         mockConf(withLanguages([{ name: 'French', location: '/fr-fr', locales: '/fr-ca' }]));
-        expect(await run('/page')).to.deep.equal({ currPrefix: null, prefixes: [] });
+        expect(await run('/page')).to.deep.equal({ currPrefix: null, prefixes: [], smartOverwrite: false });
       });
     });
+  });
+});
+
+describe('rollout plugin report', () => {
+  let DaRollout;
+
+  before(async () => {
+    const localFetch = window.fetch;
+    sinon.stub(window, 'fetch').callsFake((resource, opts) => (String(resource).startsWith('https://da.live/')
+      ? Promise.resolve(new Response(''))
+      : localFetch(resource, opts)));
+    ({ default: DaRollout } = await import('../../../../../nx/public/plugins/rollout/rollout.js'));
+    customElements.define('test-da-rollout', class extends DaRollout {
+      async getRolloutInfo() {
+        this._prefixes = this.prefixes;
+      }
+    });
+  });
+
+  after(() => {
+    sinon.restore();
+  });
+
+  it('labels a destination left without a sync point', async () => {
+    const el = document.createElement('test-da-rollout');
+    el.prefixes = [{
+      path: '/apac', active: true, status: 'success', outcome: 'no-sync-point',
+    }];
+    document.body.append(el);
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.skipped-count').textContent).to.equal('no sync point');
+    el.remove();
   });
 });

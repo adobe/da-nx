@@ -1,4 +1,5 @@
 import { DA_ORIGIN } from '../../utils/constants.js';
+import { isSmartOverwriteEnabled } from '../../../../nx/public/loc/copy.js';
 
 const DA_TRANSLATE = '/.da/translate.json';
 const DA_SOURCE = `${DA_ORIGIN}/source/`;
@@ -51,18 +52,7 @@ function formatPrefixes(org, repo, currPrefix, locales, path) {
   });
 }
 
-/**
- * Resolves the current page's language and its rollout targets from the translate config.
- * @param {string} org - Org name.
- * @param {string} repo - Repo name.
- * @param {string} token - IMS access token.
- * @param {string} path - Current page path.
- * @returns {Promise<object|null>} Prefix details (isSourceStore: root targets the source
- *   language store), or null if no translate config exists.
- */
-export default async function getPrefixDetails(org, repo, token, path) {
-  const json = await fetchConf(org, repo, token);
-  if (!json) return null;
+function getPrefixes(org, repo, path, json) {
   const { config, languages } = json;
 
   // Determine if path starts with a known language location
@@ -101,3 +91,21 @@ export default async function getPrefixDetails(org, repo, token, path) {
     isSourceStore,
   };
 }
+
+/**
+ * Resolves the current page's language and its rollout targets from the translate config.
+ * @param {string} org - Org name.
+ * @param {string} repo - Repo name.
+ * @param {string} token - IMS access token.
+ * @param {string} path - Current page path.
+ * @returns {Promise<object|null>} Prefix details (isSourceStore: root targets the source
+ *   language store; smartOverwrite: the site offers smart overwrite), or null if no translate
+ *   config exists.
+ */
+export default async function getPrefixDetails(org, repo, token, path) {
+  const json = await fetchConf(org, repo, token);
+  if (!json) return null;
+  return { ...getPrefixes(org, repo, path, json), smartOverwrite: !!isSmartOverwriteEnabled(json) };
+}
+
+export { rolloutPrefix } from '../../../../nx/public/plugins/rollout/index.js';
