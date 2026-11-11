@@ -67,9 +67,13 @@ export default class DaRollout extends LitElement {
     window.open(`https://da.live/edit#${prefix.edit}`, `_${prefix.edit}`);
   }
 
-  toggle(prefix) {
+  async toggle(prefix) {
     prefix.active = !prefix.active;
     this.requestUpdate();
+    await this.updateComplete;
+    // The prefix moves between lists, so keep focus on its toggle in the new location
+    const toggles = [...this.shadowRoot.querySelectorAll('button.toggle')];
+    toggles.find((btn) => btn.dataset.path === prefix.path)?.focus();
   }
 
   get _active() {
@@ -84,27 +88,38 @@ export default class DaRollout extends LitElement {
     return !this._prefixes || this._prefixes.length === this._inactive.length;
   }
 
+  renderPrefix(prefix) {
+    const name = prefix.path.replace('/', '');
+    return html`
+      <li class="da-prefix ${prefix.active ? 'is-active' : ''} status-${prefix.status || 'none'}" title=${prefix.error || nothing}>
+        <span>${name}</span>
+        <div class="prefix-actions">
+          <button type="button" aria-label="Open ${name} in a new tab" @click=${() => this.open(prefix)}>
+            <svg class="icon" aria-hidden="true"><use href="#spectrum-linkOut"/></svg>
+          </button>
+          <button
+            type="button"
+            class="toggle"
+            data-path=${prefix.path}
+            aria-label="Include ${name}"
+            aria-pressed=${prefix.active ? 'true' : 'false'}
+            @click=${() => this.toggle(prefix)}>
+            ${prefix.active ? html`<svg class="icon" aria-hidden="true"><use href="#spectrum-close"/></svg>` : html`<svg class="icon" aria-hidden="true"><use href="#spectrum-add"/></svg>`}
+          </button>
+        </div>
+      </li>`;
+  }
+
   renderList(title, items) {
+    const labelId = `${title.toLowerCase()}-label`;
     return html`
       <div class="da-form-row">
         ${items.length === 0 ? nothing : html`
-          <label>${title}</label>
-          <ul class="prefix-list">
-            ${items.map((prefix) => html`
-              <li class="da-prefix ${prefix.active ? 'is-active' : ''} status-${prefix.status || 'none'}" title=${prefix.error || nothing}>
-                <span>${prefix.path.replace('/', '')}</span>
-                <div class="prefix-actions">
-                  <button type="button" @click=${() => this.open(prefix)}>
-                    <svg class="icon"><use href="#spectrum-linkOut"/></svg>
-                  </button>
-                  <button type="button" @click=${() => this.toggle(prefix)} class="toggle">
-                    ${prefix.active ? html`<svg class="icon"><use href="#spectrum-close"/></svg>` : html`<svg class="icon"><use href="#spectrum-add"/></svg>`}
-                  </button>
-                </div>
-              </li>
-          </ul>`)}
-      </div>`}
-    `;
+          <label id=${labelId}>${title}</label>
+          <ul class="prefix-list" aria-labelledby=${labelId}>
+            ${items.map((prefix) => this.renderPrefix(prefix))}
+          </ul>`}
+      </div>`;
   }
 
   renderForm() {
@@ -131,8 +146,7 @@ export default class DaRollout extends LitElement {
           <div class="two-col">
             ${this.renderList('Include', this._active)}
             ${this.renderList('Exclude', this._inactive)}
-            ` : nothing}
-          </div>
+          </div>` : nothing}
         ${this._prefixes?.filter((prefix) => prefix.error).map((prefix) => html`<p class="prefix-error">${prefix.error}</p>`)}
         <div class="da-form-row da-form-actions">
           <button class="accent" ?disabled=${this._disabled}>Rollout</button>
