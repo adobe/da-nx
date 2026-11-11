@@ -72,10 +72,6 @@ Place cards in your own grid, e.g. `grid-template-columns: repeat(auto-fill, min
 | `tint` only     | Tinted 40px tile without an icon. |
 | nothing         | No tile is rendered. Without a tile and a menu, the card starts with the heading. |
 
-### "…" icon
-
-The "…" icon ships with nx2 (`nx2/img/icons/s2-icon-more-20-n.svg`) and is inlined, so it shows on any host.
-
 ## Hiding
 
 The card has no visibility logic. Consumers that filter cards (e.g. the `cards` block's search) set `hidden` on the card and style it themselves, e.g. `.my-grid > nx-action-card[hidden] { display: none; }`.

@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { setConfig } from '../../../../scripts/nx.js';
+import { setConfig, getConfig } from '../../../../scripts/nx.js';
 
 // Note: element presence is asserted as booleans (`!!el`), not `to.equal(null)`;
 // the custom test reporter crashes when it has to print a DOM element on failure.
@@ -183,11 +183,10 @@ describe('nx-action-card menu', () => {
     expect(!!$(await make({ menu: [] }), '.more')).to.be.false;
   });
 
-  it('ships its own more icon inline', async () => {
+  it('uses the more icon from the code base', async () => {
     const card = await make({ menu: MENU });
-    const svg = $(card, '.more svg');
-    expect(!!svg.querySelector('use')).to.be.false;
-    expect(svg.querySelectorAll('circle').length).to.be.greaterThan(0);
+    const use = $(card, '.more svg use');
+    expect(use.getAttribute('href')).to.equal(`${getConfig().codeBase}/img/icons/s2-icon-more-20-n.svg#icon`);
   });
 
   it('keeps the more button on the right without a tile', async () => {

@@ -1,15 +1,15 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loc } from '../../../scripts/nx.js';
+import { getConfig, loc } from '../../../scripts/nx.js';
 import { loadStyle } from '../../../utils/utils.js';
-import { loadHrefSvg } from '../../../utils/svg.js';
 
 // Shared buttons.css: action (nx-btn-primary, outlined) and "…" (nx-action-btn-icon).
-// The "…" icon ships with nx2 and is inlined, so it works on any host (no cross-origin <use>).
-const [buttonStyles, styles, moreIcon] = await Promise.all([
+const [buttonStyles, styles] = await Promise.all([
   loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href),
   loadStyle(import.meta.url),
-  loadHrefSvg(new URL('../../../img/icons/s2-icon-more-20-n.svg', import.meta.url).href),
 ]);
+const { codeBase } = getConfig();
+
+const MORE_ICON = `${codeBase}/img/icons/s2-icon-more-20-n.svg`;
 
 const loadMenu = (() => {
   let promise;
@@ -85,18 +85,13 @@ class NxActionCard extends LitElement {
     return html`<div class="header">${tile}${more}</div>`;
   }
 
-  get _moreSvg() {
-    this._moreIcon ??= moreIcon?.cloneNode(true);
-    return this._moreIcon ?? nothing;
-  }
-
   _renderMore() {
     if (!this.menu?.length) return nothing;
     return html`
       <button type="button" class="more nx-action-btn-icon nx-btn-sm" aria-haspopup="menu"
         aria-expanded=${this._menuOpen ? 'true' : 'false'}
         aria-label="${loc`More options for`} ${this.heading ?? ''}"
-        @click=${this._onMoreClick}>${this._moreSvg}</button>`;
+        @click=${this._onMoreClick}>${iconSvg(MORE_ICON)}</button>`;
   }
 
   _renderAction() {
