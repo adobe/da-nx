@@ -92,3 +92,39 @@ describe('site-apps renderApps', () => {
     expect(results.find((r) => r.section === el.closest('.section')).count).to.equal(1);
   });
 });
+
+describe('site-apps site hash', () => {
+  const original = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const setHash = (hash) => window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
+  const local = (path) => new URL(path, window.location.href).href;
+
+  afterEach(() => window.history.replaceState(null, '', original));
+
+  it('always adds the page hash to the app url', () => {
+    setHash('#/org/site');
+    const { el } = build();
+    renderApps({ el, apps: APPS });
+    expect(cards(el).map((c) => c.action)).to.deep.equal([
+      local('/tools/bulk#/org/site'),
+      'https://example.com/app#/org/site',
+    ]);
+  });
+
+  it('opens the hashed app url in a new tab', () => {
+    setHash('#/org/site');
+    const stub = sinon.stub(window, 'open');
+    const { el } = build();
+    renderApps({ el, apps: APPS });
+    cards(el)[1].dispatchEvent(new CustomEvent('select', { detail: { id: 'open-new-tab' }, bubbles: true }));
+    expect(stub.calledOnceWith('https://example.com/app#/org/site', '_blank', 'noopener')).to.be.true;
+  });
+
+  it('updates the app urls when the page hash changes', () => {
+    setHash('#/org/site');
+    const { el } = build();
+    renderApps({ el, apps: APPS });
+    setHash('#/org/other');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    expect(cards(el)[0].action).to.equal(local('/tools/bulk#/org/other'));
+  });
+});

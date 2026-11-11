@@ -3,6 +3,7 @@ import { daFetch } from '../../../nx2/utils/api.js';
 import { loc } from '../../../nx2/scripts/nx.js';
 import '../../../nx2/blocks/shared/action-card/action-card.js';
 import { attachCardSearch } from '../../../nx2/blocks/cards/search.js';
+import { withSiteHash } from '../../../nx2/blocks/cards/site-hash.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -34,25 +35,33 @@ function getCard({ title, description, path, image }) {
   card.description = description ?? '';
   card.menu = path ? [{ id: 'open-new-tab', label: loc`Open in new tab` }] : [];
   if (image) card.icon = image;
+  // Site apps always get the page's site hash (e.g. `#/org/site`).
+  const sync = () => { if (path) card.action = withSiteHash(path); };
+  sync();
   if (path) {
-    card.action = path;
     card.actionLabel = loc`Open`;
     card.addEventListener('select', ({ detail }) => {
-      if (detail?.id === 'open-new-tab') window.open(new URL(path, window.location.href).href, '_blank', 'noopener');
+      if (detail?.id !== 'open-new-tab') return;
+      const url = new URL(withSiteHash(path), window.location.href).href;
+      window.open(url, '_blank', 'noopener');
     });
   }
   const extra = document.createElement('span');
   extra.slot = 'extra';
   extra.textContent = loc`By Admin`;
   card.append(extra);
-  return card;
+  return { card, sync };
 }
 
 // Renders the allowed apps as <nx-action-card>s and joins the cards-filter search.
 export function renderApps({ el, apps }) {
   el.setAttribute('role', 'list');
   const allowed = (apps ?? []).filter((app) => getIsAppAllowed(app.ref || 'main'));
-  el.replaceChildren(...allowed.map(getCard));
+  const items = allowed.map(getCard);
+  el.replaceChildren(...items.map(({ card }) => card));
+  window.addEventListener('hashchange', () => {
+    if (el.isConnected) items.forEach(({ sync }) => sync());
+  });
   attachCardSearch(el);
 }
 

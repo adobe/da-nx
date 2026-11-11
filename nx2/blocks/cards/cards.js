@@ -2,6 +2,7 @@ import { getConfig, loc } from '../../scripts/nx.js';
 import { loadStyle } from '../../utils/utils.js';
 import '../shared/action-card/action-card.js';
 import { attachCardSearch } from './search.js';
+import { isSiteTool, withSiteHash } from './site-hash.js';
 
 const style = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
@@ -33,9 +34,11 @@ function toCard({ row, tools }) {
   const icon = iconUrl(iconName(iconCol));
   const tint = iconCol?.querySelector('em')?.textContent.trim();
 
+  // Tools on this site, da.live or author.aem.live carry the page's site hash.
+  const toolUrl = () => (isSiteTool(href) ? withSiteHash(href) : href);
   const links = [
-    learnMoreHref && { id: 'learn-more', label: loc`Learn more`, url: learnMoreHref },
-    href && { id: 'open-new-tab', label: loc`Open in new tab`, url: href },
+    learnMoreHref && { id: 'learn-more', label: loc`Learn more`, url: () => learnMoreHref },
+    href && { id: 'open-new-tab', label: loc`Open in new tab`, url: toolUrl },
   ].filter(Boolean);
 
   const card = document.createElement('nx-action-card');
@@ -46,16 +49,15 @@ function toCard({ row, tools }) {
   card.menu = links.map(({ id, label }) => ({ id, label }));
   if (icon) card.icon = icon;
   if (tint) card.tint = tint;
-  if (href) {
-    card.action = href;
-    card.actionLabel = loc`Open`;
-  }
+  const sync = () => { if (href) card.action = toolUrl(); };
+  sync();
+  if (href) card.actionLabel = loc`Open`;
   card.addEventListener('select', ({ detail }) => {
     const link = links.find((l) => l.id === detail?.id);
-    if (link) window.open(link.url, '_blank', 'noopener');
+    if (link) window.open(link.url(), '_blank', 'noopener');
   });
   if (tools) card.append(byAdobe());
-  return card;
+  return { card, sync };
 }
 
 export default function init(el) {
@@ -64,6 +66,10 @@ export default function init(el) {
   }
   const tools = el.classList.contains('tools');
   el.setAttribute('role', 'list');
-  el.replaceChildren(...[...el.querySelectorAll(':scope > div')].map((row) => toCard({ row, tools })));
+  const items = [...el.querySelectorAll(':scope > div')].map((row) => toCard({ row, tools }));
+  el.replaceChildren(...items.map(({ card }) => card));
+  window.addEventListener('hashchange', () => {
+    if (el.isConnected) items.forEach(({ sync }) => sync());
+  });
   attachCardSearch(el);
 }

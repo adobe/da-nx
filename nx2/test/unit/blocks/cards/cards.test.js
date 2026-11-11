@@ -175,3 +175,74 @@ describe('attachCardSearch', () => {
     expect(spy.calledOnce).to.be.true;
   });
 });
+
+describe('site hash', () => {
+  let siteHash;
+  const original = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const setHash = (hash) => window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${hash}`);
+  const local = (path) => new URL(path, window.location.href).href;
+
+  before(async () => {
+    siteHash = await import('../../../../blocks/cards/site-hash.js');
+  });
+
+  afterEach(() => window.history.replaceState(null, '', original));
+
+  it('withSiteHash replaces the url hash with the page hash', () => {
+    setHash('#/org/site');
+    expect(siteHash.withSiteHash('/apps/traverse')).to.equal(local('/apps/traverse#/org/site'));
+    expect(siteHash.withSiteHash('https://example.com/app#old')).to.equal('https://example.com/app#/org/site');
+  });
+
+  it('withSiteHash leaves the url alone without a page hash', () => {
+    setHash('');
+    expect(siteHash.withSiteHash('/apps/traverse')).to.equal('/apps/traverse');
+  });
+
+  it('withSiteHash leaves unparsable urls alone', () => {
+    setHash('#/org/site');
+    expect(siteHash.withSiteHash('http://')).to.equal('http://');
+  });
+
+  it('isSiteTool matches this site, da.live and author.aem.live only', () => {
+    expect(siteHash.isSiteTool('/apps/traverse')).to.be.true;
+    expect(siteHash.isSiteTool('https://da.live/apps/scheduler')).to.be.true;
+    expect(siteHash.isSiteTool('https://author.aem.live/x')).to.be.true;
+    expect(siteHash.isSiteTool('https://labs.aem.live/tools/x')).to.be.false;
+    expect(siteHash.isSiteTool('https://stage.da.live/x')).to.be.false;
+    expect(siteHash.isSiteTool('https://www.aem.live/tools/rum/explorer.html')).to.be.false;
+  });
+
+  it('adds the page hash to site tools in the cards block', async () => {
+    setHash('#/org/site');
+    const el = await buildBlock(
+      row()
+      + row({ title: '<a href="https://da.live/apps/scheduler">Scheduler</a>' })
+      + row({ title: '<a href="https://labs.aem.live/tools/x">Labs</a>' }),
+    );
+    expect(cards(el).map((c) => c.action)).to.deep.equal([
+      local('/apps/traverse#/org/site'),
+      'https://da.live/apps/scheduler#/org/site',
+      'https://labs.aem.live/tools/x',
+    ]);
+  });
+
+  it('opens the hashed url in a new tab but leaves learn more alone', async () => {
+    setHash('#/org/site');
+    const stub = sinon.stub(window, 'open');
+    const el = await buildBlock(row());
+    const [card] = cards(el);
+    card.dispatchEvent(new CustomEvent('select', { detail: { id: 'open-new-tab' }, bubbles: true }));
+    card.dispatchEvent(new CustomEvent('select', { detail: { id: 'learn-more' }, bubbles: true }));
+    expect(stub.firstCall.args[0]).to.equal(local('/apps/traverse#/org/site'));
+    expect(stub.secondCall.args[0]).to.equal('https://www.adobe.com/learn');
+  });
+
+  it('updates the links when the page hash changes', async () => {
+    setHash('#/org/site');
+    const el = await buildBlock(row());
+    setHash('#/org/other');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    expect(cards(el)[0].action).to.equal(local('/apps/traverse#/org/other'));
+  });
+});
