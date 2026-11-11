@@ -121,12 +121,12 @@ nx-popover.deploy-popover {
 
 .deploy-card-preview.is-selected {
   border-color: var(--s2-blue-900, #3b63fb);
-  background: #cbe2fe99;
+  background: color-mix(in srgb, var(--s2-blue-300) 60%, transparent);
 }
 
 .deploy-card-live.is-selected {
   border-color: #12b867;
-  background: #adeec599;
+  background: color-mix(in srgb, var(--s2-green-300) 60%, transparent);
 }
 
 .deploy-card-main {
@@ -273,4 +273,3 @@ nx-popover.deploy-popover {
 .deploy .deploy-action.is-publish:hover:not(:disabled) {
   background: #0fa25b;
 }
-
