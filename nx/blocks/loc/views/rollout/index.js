@@ -11,6 +11,8 @@ import {
 } from '../../utils/utils.js';
 import { createRolloutResolver } from '../../utils/placeholders.js';
 
+const COPY_FNS = new Map([['overwrite', copy.overwriteCopy], ['smart-overwrite', copy.smartOverwriteCopy]]);
+
 function getTitle(status) {
   const title = {
     'not started': 'Ready',
@@ -80,7 +82,7 @@ async function fetchLangSources(lang, urls) {
   return results;
 }
 
-async function rolloutLangLocales(title, lang, urls, behavior, resolver) {
+async function rolloutLangLocales(title, lang, urls, behavior, resolver, sync) {
   const rolloutUrl = async (url) => {
     const { content, error } = await resolver.expand({
       content: url.sourceContent,
@@ -93,9 +95,12 @@ async function rolloutLangLocales(title, lang, urls, behavior, resolver) {
       return;
     }
     url.sourceContent = content;
-    const overwrite = behavior === 'overwrite' || url.hasExt;
-    const copyFn = overwrite ? copy.overwriteCopy : copy.mergeCopy;
-    await copyFn(url, title);
+    if (sync) {
+      await copy.markInSync(url, sync);
+      return;
+    }
+    const copyFn = url.hasExt ? copy.overwriteCopy : (COPY_FNS.get(behavior) || copy.mergeCopy);
+    await copyFn(url, title, { recordBaseline: true });
   };
 
   const queue = new Queue(rolloutUrl, MAX_CONCURRENT_WRITES);
@@ -116,7 +121,8 @@ async function rolloutLangLocales(title, lang, urls, behavior, resolver) {
   // If errors, add them to results
   if (errors.length) {
     results.errors = errors;
-    results.message = { text: `Errors rolling out content from ${lang.name}.`, type: 'error' };
+    const text = sync ? `Errors setting sync points from ${lang.name}.` : `Errors rolling out content from ${lang.name}.`;
+    results.message = { text, type: 'error' };
   }
 
   return results;
@@ -151,7 +157,7 @@ function formatRolloutUrls(org, site, lang, urls, snapshot) {
         hasExt: langUrl.ext === 'json',
         root: locale.code,
         sourceContent: langUrl.content,
-        source: `/${org}/${site}${langUrl.aemBasePath}`,
+        source: langUrl.source,
         destination: `/${org}/${site}${daDestPath}`,
       };
     });
@@ -160,53 +166,123 @@ function formatRolloutUrls(org, site, lang, urls, snapshot) {
   }, []);
 }
 
-export async function rolloutLang({
-  org,
-  site,
-  snapshot,
-  title,
-  options,
-  langs,
-  lang,
-  urls: projectUrls,
-  sourceLocations: projectLocations,
-  actions,
+async function prepareLangRollout({
+  org, site, snapshot, options, langs, lang, urls: projectUrls, sourceLocations: projectLocations,
+  pagesOnly = false,
 }) {
-  lang.rollout.status = 'rolling out';
-  actions.requestUpdate();
-
   const sourceLocations = getProjectSourceLocations({
     sourceLocations: projectLocations,
     options,
     langs,
   });
-  const behavior = options['rollout.conflict.behavior'];
 
   // Determine all sources are valid before continuing
-  const langUrls = formatLangUrls(org, site, sourceLocations, lang, projectUrls, snapshot);
-  let { errors, message, urls } = await fetchLangSources(lang, langUrls);
+  const allUrls = formatLangUrls(org, site, sourceLocations, lang, projectUrls, snapshot);
+  // Mark in sync never touches sheets, so they are counted without reading their source.
+  const sheets = pagesOnly ? allUrls.filter(({ ext }) => ext === 'json') : [];
+  const langUrls = allUrls.filter((url) => !sheets.includes(url));
+  const { errors, message, urls } = await fetchLangSources(lang, langUrls);
   if (errors) return { errors, message };
 
   // Convert base lang urls to the full locale list
-  const urlsToSave = formatRolloutUrls(org, site, lang, urls, snapshot);
-
+  const urlsToSave = formatRolloutUrls(org, site, lang, [...urls, ...sheets], snapshot);
   const load = (path) => daFetch({ url: `${DA_ADMIN}/source${path}` });
   const resolver = createRolloutResolver({ load, sitePath: `/${org}/${site}` });
+  return { urlsToSave, resolver };
+}
+
+export async function rolloutLang(conf) {
+  const {
+    title, options, lang, actions,
+  } = conf;
+  const previousStatus = lang.rollout.status;
+  lang.rollout.status = 'rolling out';
+  actions.requestUpdate();
+
+  const prepared = await prepareLangRollout(conf);
+  if (prepared.errors) {
+    lang.rollout.status = previousStatus;
+    actions.requestUpdate();
+    return { ...prepared, aborted: true };
+  }
+  const { urlsToSave, resolver } = prepared;
+  const behavior = options['rollout.conflict.behavior'];
 
   // Perform the actual rollout
-  const rollout = await rolloutLangLocales(title, lang, urlsToSave, behavior, resolver);
-  ({ errors, message, urls } = rollout);
+  const { errors, message, urls } = await rolloutLangLocales(
+    title,
+    lang,
+    urlsToSave,
+    behavior,
+    resolver,
+  );
 
   const saved = urls.filter((url) => url.status === 'success');
   lang.rollout.status = errors ? 'not started' : 'complete';
   lang.rollout.saved = saved.length;
   lang.locales.forEach((locale) => {
-    locale.saved = saved.filter((url) => url.root === locale.code).length;
+    const localeSaved = saved.filter((url) => url.root === locale.code);
+    locale.saved = localeSaved.length;
+    const skipped = localeSaved.reduce((sum, url) => sum + (url.skipped || 0), 0);
+    if (skipped) locale.skipped = skipped;
+    else delete locale.skipped;
+    const unchanged = localeSaved.filter((url) => url.outcome === 'unchanged').length;
+    if (unchanged) locale.unchanged = unchanged;
+    else delete locale.unchanged;
+    const review = localeSaved.filter((url) => url.outcome === 'review').map((url) => url.destination);
+    if (review.length) locale.review = review;
+    else delete locale.review;
+    const noSync = localeSaved.filter((url) => url.outcome === 'no-sync-point').map((url) => url.source);
+    if (noSync.length) locale.noSync = noSync;
+    else delete locale.noSync;
   });
 
   actions.requestUpdate();
 
   return errors ? { errors, message } : {};
+}
+
+const countSync = (urls) => urls.reduce((acc, { sync, differences }) => {
+  if (sync) acc[sync] = (acc[sync] || 0) + 1;
+  if (differences) acc.differences = (acc.differences || 0) + differences;
+  return acc;
+}, {});
+
+// Confirming marks the source content the dry run checked, not whatever the source is by then.
+export async function markLangInSync({ dryRun = false, ...conf }) {
+  const { title, lang, actions } = conf;
+  const checked = !dryRun && lang.sync?.status === 'checked' ? lang.sync.prepared : undefined;
+  lang.sync = { status: dryRun ? 'checking' : 'marking' };
+  actions.requestUpdate();
+  try {
+    const prepared = checked || await prepareLangRollout({ ...conf, pagesOnly: true });
+    if (prepared.errors) {
+      delete lang.sync;
+      return prepared;
+    }
+    const { errors, message, urls } = await rolloutLangLocales(
+      title,
+      lang,
+      prepared.urlsToSave,
+      undefined,
+      prepared.resolver,
+      { dryRun },
+    );
+    const locales = Object.fromEntries(lang.locales.map(({ code }) => (
+      [code, countSync(urls.filter((url) => url.root === code))])));
+    lang.sync = {
+      status: dryRun ? 'checked' : 'marked',
+      ...countSync(urls),
+      locales,
+      ...(dryRun ? { prepared } : {}),
+    };
+    return errors ? { errors, message } : {};
+  } catch (error) {
+    delete lang.sync;
+    return { message: { text: `Could not set the sync point for ${lang.name}: ${error.message}`, type: 'error' } };
+  } finally {
+    actions.requestUpdate();
+  }
 }
 
 function getRolloutDetails(lang) {

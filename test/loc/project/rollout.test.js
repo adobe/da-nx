@@ -63,3 +63,55 @@ describe('legacy nx-loc-rollout with placeholder errors', () => {
     expect(el.canRollout(lang)).to.be.true;
   });
 });
+
+describe('legacy nx-loc-rollout on a smart-overwrite site', () => {
+  let originalFetch;
+  let bodies;
+
+  beforeEach(() => {
+    setImsDetails('test-token');
+    originalFetch = globalThis.fetch;
+    bodies = {};
+    globalThis.fetch = sinon.stub().callsFake(async (url, opts = {}) => {
+      const headers = new Headers({ 'x-da-actions': 'read=true' });
+      if (opts.method && opts.method !== 'GET') {
+        if (opts.body?.get) bodies[url] = await opts.body.get('data').text();
+        return { ok: true, status: 200, headers, text: async () => '' };
+      }
+      if (url.endsWith('/org/legacy/.da/translate.json')) {
+        const config = { data: [{ key: 'rollout.conflict.behavior', value: 'merge, smart-overwrite' }] };
+        return { ok: true, status: 200, headers, json: async () => ({ config }) };
+      }
+      if (url.endsWith('/.da/rollout-placeholders.json')) return { ok: true, status: 200, headers, json: async () => CONFIG };
+      if (url.includes('/langstore/en/')) return { ok: true, status: 200, headers, text: async () => SOURCE };
+      return { ok: false, status: 404, headers, text: async () => '' };
+    });
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    sinon.restore();
+  });
+
+  it('records the smart-overwrite baseline on plain rollouts', async () => {
+    const lang = {
+      name: 'English',
+      location: '/langstore/en',
+      locales: [{ code: '/en-nl' }],
+      rollout: { status: 'ready' },
+    };
+    const el = document.createElement('nx-loc-rollout');
+    el.sitePath = '/org/legacy';
+    el.title = 'Proj';
+    el.conflictBehavior = 'overwrite';
+    el.urls = [{ basePath: '/page.html' }];
+    el.langs = [lang];
+    el.state = { urls: [], langs: [lang] };
+
+    await el.handleRolloutLang(lang);
+
+    const saved = Object.entries(bodies).find(([url]) => url.endsWith('/source/org/legacy/en-nl/page.html'))?.[1];
+    expect(saved).to.include('<h1>Fedex Netherlands</h1>');
+    expect(saved).to.include('<div>rolloutbase</div><div>/org/legacy/en-nl/page.html|');
+  });
+});
