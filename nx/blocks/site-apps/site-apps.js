@@ -1,9 +1,10 @@
-import { DA_ADMIN, loadStyle } from '../../../nx2/utils/utils.js';
+import {
+  DA_ADMIN, hashChange, loadStyle, withSiteHash,
+} from '../../../nx2/utils/utils.js';
 import { daFetch } from '../../../nx2/utils/api.js';
 import { getConfig, loc } from '../../../nx2/scripts/nx.js';
 import '../../../nx2/blocks/shared/action-card/action-card.js';
 import { attachCardSearch } from '../../../nx2/blocks/cards/search.js';
-import { withSiteHash } from '../../../nx2/blocks/cards/site-hash.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -60,15 +61,15 @@ function getCard({ title, description, path, image }) {
     card.tint = FALLBACK_TINT;
     card.append(fallbackIcon());
   }
-  // Site apps always get the page's site hash (e.g. `#/org/site`).
-  const sync = () => { if (path) card.action = withSiteHash(path); };
-  sync();
+  // Site apps always get the page's site path as hash (e.g. `#/org/site`).
+  const sync = ({ fullpath } = {}) => {
+    if (path) card.action = withSiteHash({ href: path, fullpath });
+  };
   if (path) {
     card.actionLabel = loc`Open`;
     card.addEventListener('select', ({ detail }) => {
       if (detail?.id !== 'open-new-tab') return;
-      const url = new URL(withSiteHash(path), window.location.href).href;
-      window.open(url, '_blank', 'noopener');
+      window.open(new URL(card.action, window.location.href).href, '_blank', 'noopener');
     });
   }
   const extra = document.createElement('span');
@@ -84,8 +85,8 @@ export function renderApps({ el, apps }) {
   const allowed = (apps ?? []).filter((app) => getIsAppAllowed(app.ref || 'main'));
   const items = allowed.map(getCard);
   el.replaceChildren(...items.map(({ card }) => card));
-  window.addEventListener('hashchange', () => {
-    if (el.isConnected) items.forEach(({ sync }) => sync());
+  hashChange.subscribe((details) => {
+    if (el.isConnected) items.forEach(({ sync }) => sync(details ?? {}));
   });
   attachCardSearch(el);
 }

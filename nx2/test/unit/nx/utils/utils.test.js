@@ -14,6 +14,8 @@ import {
   ALLOWED_TOKEN,
   hashChange,
   loadStyle,
+  acceptsSiteHash,
+  withSiteHash,
 } from '../../../../utils/utils.js';
 import { daFetch, signout } from '../../../../utils/api.js';
 
@@ -286,5 +288,44 @@ describe('api', () => {
     it('is a callable function', () => {
       expect(signout).to.be.a('function');
     });
+  });
+});
+
+// ─── site hash ──────────────────────────────────────────────────────────────
+
+describe('acceptsSiteHash', () => {
+  it('accepts this site, da.live and author.aem.live only', () => {
+    expect(acceptsSiteHash('/apps/traverse')).to.be.true;
+    expect(acceptsSiteHash(`${window.location.origin}/apps/x`)).to.be.true;
+    expect(acceptsSiteHash('https://da.live/apps/scheduler')).to.be.true;
+    expect(acceptsSiteHash('https://author.aem.live/x')).to.be.true;
+    expect(acceptsSiteHash('https://labs.aem.live/tools/x')).to.be.false;
+    expect(acceptsSiteHash('https://stage.da.live/x')).to.be.false;
+    expect(acceptsSiteHash('https://www.aem.live/tools/rum/explorer.html')).to.be.false;
+  });
+
+  it('rejects unparsable urls', () => {
+    expect(acceptsSiteHash('http://')).to.be.false;
+  });
+});
+
+describe('withSiteHash', () => {
+  const local = (path) => new URL(path, window.location.href).href;
+
+  it('sets the site path as the url hash', () => {
+    expect(withSiteHash({ href: '/apps/traverse', fullpath: '/org/site' })).to.equal(local('/apps/traverse#/org/site'));
+  });
+
+  it('replaces an existing url hash', () => {
+    expect(withSiteHash({ href: 'https://example.com/app#old', fullpath: '/org/site' })).to.equal('https://example.com/app#/org/site');
+  });
+
+  it('leaves the url alone without a site path', () => {
+    expect(withSiteHash({ href: '/apps/traverse' })).to.equal('/apps/traverse');
+    expect(withSiteHash({ href: '/apps/traverse', fullpath: null })).to.equal('/apps/traverse');
+  });
+
+  it('leaves unparsable urls alone', () => {
+    expect(withSiteHash({ href: 'http://', fullpath: '/org/site' })).to.equal('http://');
   });
 });

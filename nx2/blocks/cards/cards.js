@@ -1,8 +1,9 @@
 import { getConfig, loc } from '../../scripts/nx.js';
-import { loadStyle } from '../../utils/utils.js';
+import {
+  acceptsSiteHash, hashChange, loadStyle, withSiteHash,
+} from '../../utils/utils.js';
 import '../shared/action-card/action-card.js';
 import { attachCardSearch } from './search.js';
-import { isSiteTool, withSiteHash } from './site-hash.js';
 
 const style = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
@@ -34,14 +35,13 @@ function toCard({ row, tools }) {
   const icon = iconUrl(iconName(iconCol));
   const tint = iconCol?.querySelector('em')?.textContent.trim();
 
-  // Tools on this site, da.live or author.aem.live carry the page's site hash.
-  const toolUrl = () => (isSiteTool(href) ? withSiteHash(href) : href);
+  const card = document.createElement('nx-action-card');
+  // "Open in new tab" opens the current action, which carries the site hash where accepted.
   const links = [
     learnMoreHref && { id: 'learn-more', label: loc`Learn more`, url: () => learnMoreHref },
-    href && { id: 'open-new-tab', label: loc`Open in new tab`, url: toolUrl },
+    href && { id: 'open-new-tab', label: loc`Open in new tab`, url: () => card.action },
   ].filter(Boolean);
 
-  const card = document.createElement('nx-action-card');
   card.setAttribute('role', 'listitem');
   card.heading = heading?.textContent.trim() ?? '';
   card.description = [...(bodyCol?.querySelectorAll('p') ?? [])]
@@ -56,8 +56,10 @@ function toCard({ row, tools }) {
     card.append(svg);
   }
   if (tint) card.tint = tint;
-  const sync = () => { if (href) card.action = toolUrl(); };
-  sync();
+  // Tools on this site, da.live or author.aem.live carry the page's site path as hash.
+  const sync = ({ fullpath } = {}) => {
+    if (href) card.action = acceptsSiteHash(href) ? withSiteHash({ href, fullpath }) : href;
+  };
   if (href) card.actionLabel = loc`Open`;
   card.addEventListener('select', ({ detail }) => {
     const link = links.find((l) => l.id === detail?.id);
@@ -75,8 +77,8 @@ export default function init(el) {
   el.setAttribute('role', 'list');
   const items = [...el.querySelectorAll(':scope > div')].map((row) => toCard({ row, tools }));
   el.replaceChildren(...items.map(({ card }) => card));
-  window.addEventListener('hashchange', () => {
-    if (el.isConnected) items.forEach(({ sync }) => sync());
+  hashChange.subscribe((details) => {
+    if (el.isConnected) items.forEach(({ sync }) => sync(details ?? {}));
   });
   attachCardSearch(el);
 }

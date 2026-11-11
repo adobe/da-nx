@@ -170,37 +170,6 @@ describe('attachCardSearch', () => {
 });
 
 describe('site hash', () => {
-  let siteHash;
-
-  before(async () => {
-    siteHash = await import('../../../../blocks/cards/site-hash.js');
-  });
-
-  it('withSiteHash replaces the url hash with the page hash', () => {
-    setHash('#/org/site');
-    expect(siteHash.withSiteHash('/apps/traverse')).to.equal(local('/apps/traverse#/org/site'));
-    expect(siteHash.withSiteHash('https://example.com/app#old')).to.equal('https://example.com/app#/org/site');
-  });
-
-  it('withSiteHash leaves the url alone without a page hash', () => {
-    setHash('');
-    expect(siteHash.withSiteHash('/apps/traverse')).to.equal('/apps/traverse');
-  });
-
-  it('withSiteHash leaves unparsable urls alone', () => {
-    setHash('#/org/site');
-    expect(siteHash.withSiteHash('http://')).to.equal('http://');
-  });
-
-  it('isSiteTool matches this site, da.live and author.aem.live only', () => {
-    expect(siteHash.isSiteTool('/apps/traverse')).to.be.true;
-    expect(siteHash.isSiteTool('https://da.live/apps/scheduler')).to.be.true;
-    expect(siteHash.isSiteTool('https://author.aem.live/x')).to.be.true;
-    expect(siteHash.isSiteTool('https://labs.aem.live/tools/x')).to.be.false;
-    expect(siteHash.isSiteTool('https://stage.da.live/x')).to.be.false;
-    expect(siteHash.isSiteTool('https://www.aem.live/tools/rum/explorer.html')).to.be.false;
-  });
-
   it('adds the page hash to site tools in the cards block', async () => {
     setHash('#/org/site');
     const el = await buildBlock(
