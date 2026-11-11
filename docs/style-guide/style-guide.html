@@ -917,7 +917,7 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
           { value: 'exp-workspace/frescopaco', label: 'exp-workspace/frescopaco' },
         ];
       };
-      selector.showAddSite = () => showToast({ text: 'Demo only: Add site opens the shared dialog in your application.' });
+      selector.showAddSite = () => showToast({ text: 'Demo only: Add site navigates directly to /start in your application.' });
       selector.addEventListener('site-add', (event) => {
         event.stopPropagation();
         selector.showAddSite();

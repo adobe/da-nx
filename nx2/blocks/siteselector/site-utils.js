@@ -5,20 +5,6 @@ export function getSiteOptions({ recentSites = [], current }) {
   return sites.map((value) => ({ value, label: value }));
 }
 
-export function parseSubdomain(siteUrl) {
-  try {
-    const url = new URL(siteUrl);
-    if (!/\.(?:hlx|aem)\.(?:live|page)$/.test(url.hostname)) return null;
-    const [, site, org] = url.hostname.split('.')[0].split('--');
-    if (!site || !org) return null;
-    return `#/${[org, site]
-      .map((name) => name.replace(/[^a-z0-9_]+/g, '-').replace(/-$/, ''))
-      .join('/')}`;
-  } catch {
-    return null;
-  }
-}
-
 export function setRecentSite({ org, site }) {
   if (!site || site.startsWith('.')) return;
   const currentSites = JSON.parse(localStorage.getItem('da-sites') || '[]');
@@ -36,12 +22,5 @@ export function getCreateSiteHref({ href = window.location.href } = {}) {
   url.searchParams.delete('site');
   url.searchParams.delete('org');
   url.hash = '';
-  return url.href;
-}
-
-export function getBrowseHref({ hash, href = window.location.href }) {
-  const url = new URL(href);
-  url.pathname = '/';
-  url.hash = hash;
   return url.href;
 }
