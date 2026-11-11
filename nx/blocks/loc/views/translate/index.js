@@ -81,7 +81,7 @@ export async function getUrls(
       url.content = content;
       if (connector) {
         try {
-          const dntOpts = { fileType, path: url.daBasePath };
+          const dntOpts = { fileType, path: url.daBasePath.slice(snapshotPrefix.length) };
           url.content = await connector.dnt.addDnt(content, config, dntOpts);
         } catch (error) {
           url.error = `Error adding DNT to ${url.daBasePath} - ${error.message}`;
