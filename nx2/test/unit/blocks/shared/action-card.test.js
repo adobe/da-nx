@@ -127,6 +127,13 @@ describe('nx-action-card action', () => {
     expect(!!$(card, '.action')).to.be.false;
   });
 
+  it('still renders the card for an invalid action url', async () => {
+    const card = await make({ action: 'http://' });
+    expect($(card, '.heading').textContent.trim()).to.equal('Traverse');
+    expect($(card, '.action').getAttribute('href')).to.equal('http://');
+    expect($(card, '.action').hasAttribute('target')).to.be.false;
+  });
+
   it('uses the action target', async () => {
     const card = await make({ action: '/apps/traverse', actionTarget: '_blank' });
     expect($(card, '.action').getAttribute('target')).to.equal('_blank');
@@ -160,6 +167,15 @@ describe('nx-action-card menu', () => {
     expect(btn.getAttribute('aria-label')).to.equal('More options for Traverse');
     expect(btn.getAttribute('aria-haspopup')).to.equal('menu');
     expect(btn.getAttribute('aria-expanded')).to.equal('false');
+  });
+
+  it('reuses the shared small icon button for more', async () => {
+    const card = await make({ menu: MENU });
+    const btn = $(card, '.more');
+    expect(['nx-action-btn-icon', 'nx-btn-sm'].every((c) => btn.classList.contains(c))).to.be.true;
+    const cs = getComputedStyle(btn);
+    expect([cs.width, cs.height]).to.deep.equal(['24px', '24px']);
+    expect(getComputedStyle(btn.querySelector('svg')).width).to.equal('16px');
   });
 
   it('omits the more button without menu items', async () => {

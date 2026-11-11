@@ -3,7 +3,7 @@ import { loc } from '../../../scripts/nx.js';
 import { loadStyle } from '../../../utils/utils.js';
 import { loadHrefSvg } from '../../../utils/svg.js';
 
-// Shared buttons.css for the action (nx-btn-primary, outlined in action-card.css).
+// Shared buttons.css: action (nx-btn-primary, outlined) and "…" (nx-action-btn-icon).
 // The "…" icon ships with nx2 and is inlined, so it works on any host (no cross-origin <use>).
 const [buttonStyles, styles, moreIcon] = await Promise.all([
   loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href),
@@ -22,7 +22,14 @@ const loadMenu = (() => {
 // `use` at 100% scales the referenced <svg> (whatever its native size) into the frame.
 const iconSvg = (url) => html`<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${url}#icon" width="100%" height="100%"></use></svg>`;
 
-const isExternal = (href) => new URL(href, window.location.href).origin !== window.location.origin;
+// An unparsable URL counts as not external, so a bad `action` never breaks rendering.
+const isExternal = (href) => {
+  try {
+    return new URL(href, window.location.href).origin !== window.location.origin;
+  } catch {
+    return false;
+  }
+};
 
 // Targets that stay in the current browsing context need no `rel="noopener"`.
 const SAME_CONTEXT = ['_self', '_parent', '_top'];
@@ -86,7 +93,7 @@ class NxActionCard extends LitElement {
   _renderMore() {
     if (!this.menu?.length) return nothing;
     return html`
-      <button type="button" class="more" aria-haspopup="menu"
+      <button type="button" class="more nx-action-btn-icon nx-btn-sm" aria-haspopup="menu"
         aria-expanded=${this._menuOpen ? 'true' : 'false'}
         aria-label="${loc`More options for`} ${this.heading ?? ''}"
         @click=${this._onMoreClick}>${this._moreSvg}</button>`;
