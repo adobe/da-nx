@@ -205,3 +205,20 @@ describe('CoworkerChatController — overrides the episode-list hooks', () => {
     expect(sent).to.deep.equal([{ type: AO_FRAME.ATTACH }]);
   });
 });
+
+describe('ATTACH frame contract across harnesses (claudebridge PR #230)', () => {
+  it('Base and Coworker send a bare ATTACH frame (no replayHistory)', () => {
+    const base = new BaseChatController({ onUpdate: () => {} });
+    const coworker = new CoworkerChatController({ onUpdate: () => {} });
+    expect(base._attachFrame()).to.deep.equal({ type: AO_FRAME.ATTACH });
+    expect(coworker._attachFrame()).to.deep.equal({ type: AO_FRAME.ATTACH });
+  });
+
+  it('only the CMA harness adds the replayHistory flag', () => {
+    const cma = new CmaChatController({ onUpdate: () => {} });
+    cma._messages = [];
+    expect(cma._attachFrame()).to.have.property('replayHistory', true);
+    cma._messages = [{ role: 'user', content: 'x' }];
+    expect(cma._attachFrame()).to.have.property('replayHistory', false);
+  });
+});

@@ -149,6 +149,13 @@ export default class CmaChatController extends BaseChatController {
     }
   }
 
+  // replayHistory: true only when _messages is empty (cold resume) - avoids
+  // the bridge duplicating a warm reconnect's already-held transcript
+  // (claudebridge #230).
+  _attachFrame() {
+    return { type: AO_FRAME.ATTACH, replayHistory: this._messages.length === 0 };
+  }
+
   _onSessionReady(evt) {
     this._episodeId = evt.episode_id ?? this._episodeId;
     this._resuming = false; // resume (or new session) succeeded
