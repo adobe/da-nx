@@ -4,7 +4,7 @@ import {
 } from '../../utils/utils.js';
 import '../shared/action-card/action-card.js';
 import { iconSvg } from '../shared/utils/icons.js';
-import { attachCardSearch } from './search.js';
+import { attachCardSearch } from '../shared/utils/card-search.js';
 
 const style = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();

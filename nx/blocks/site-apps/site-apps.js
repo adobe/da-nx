@@ -5,7 +5,7 @@ import { daFetch } from '../../../nx2/utils/api.js';
 import { getConfig, loc } from '../../../nx2/scripts/nx.js';
 import '../../../nx2/blocks/shared/action-card/action-card.js';
 import { iconSvg } from '../../../nx2/blocks/shared/utils/icons.js';
-import { attachCardSearch } from '../../../nx2/blocks/cards/search.js';
+import { attachCardSearch } from '../../../nx2/blocks/shared/utils/card-search.js';
 
 const style = await loadStyle(import.meta.url);
 
