@@ -26,6 +26,9 @@ for both UI-size preferences. Text inherits the current theme's color, and the
 decorative image has empty alternative text. The link's accessible name is the
 label.
 
+Only the logo is visible by default, and breadcrumbs start at 56px. Set
+`--nx-nav-brand-label-display: inline` on `nx-nav` to show the label.
+
 Deploy the Nexter capability before enabling it in a consuming application.
 Older Nexter versions ignore `navBrand` and continue rendering the fragment's
 original brand.

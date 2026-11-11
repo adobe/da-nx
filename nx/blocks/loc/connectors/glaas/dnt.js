@@ -157,6 +157,17 @@ const processAltText = (document) => {
   };
 
   document.querySelectorAll('a').forEach((element) => {
+    if (element.dataset.editAs === 'image') {
+      const text = element.textContent;
+
+      const span = document.createElement('span');
+      span.setAttribute('translate', 'no');
+      span.className = 'dnt-text';
+      span.textContent = text;
+      element.replaceChildren(span);
+      return;
+    }
+
     const elementText = element.textContent;
     const { alt, dnt } = getAltTextDntInfo(element.textContent);
     if (dnt) {

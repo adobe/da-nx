@@ -1,13 +1,15 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loc } from '../../../scripts/nx.js';
+import { getConfig, loc } from '../../../scripts/nx.js';
 import { loadStyle } from '../../../utils/utils.js';
-import { loadHrefSvg } from '../../../utils/svg.js';
 
-// The "…" icon ships with nx2 and is inlined, so it works on any host (no cross-origin <use>).
-const [styles, moreIcon] = await Promise.all([
+// Shared buttons.css: action (nx-btn-primary, outlined) and "…" (nx-action-btn-icon).
+const [buttonStyles, styles] = await Promise.all([
+  loadStyle(new URL('../../../styles/buttons.css', import.meta.url).href),
   loadStyle(import.meta.url),
-  loadHrefSvg(new URL('../../../img/icons/s2-icon-more-20-n.svg', import.meta.url).href),
 ]);
+const { codeBase } = getConfig();
+
+const MORE_ICON = `${codeBase}/img/icons/s2-icon-more-20-n.svg`;
 
 const loadMenu = (() => {
   let promise;
@@ -20,7 +22,17 @@ const loadMenu = (() => {
 // `use` at 100% scales the referenced <svg> (whatever its native size) into the frame.
 const iconSvg = (url) => html`<svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${url}#icon" width="100%" height="100%"></use></svg>`;
 
-const isExternal = (href) => new URL(href, window.location.href).origin !== window.location.origin;
+// An unparsable URL counts as not external, so a bad `action` never breaks rendering.
+const isExternal = (href) => {
+  try {
+    return new URL(href, window.location.href).origin !== window.location.origin;
+  } catch {
+    return false;
+  }
+};
+
+// Targets that stay in the current browsing context need no `rel="noopener"`.
+const SAME_CONTEXT = ['_self', '_parent', '_top'];
 
 class NxActionCard extends LitElement {
   static properties = {
@@ -31,12 +43,13 @@ class NxActionCard extends LitElement {
     menu: { attribute: false },
     action: { type: String },
     actionLabel: { type: String, attribute: 'action-label' },
+    actionTarget: { type: String, attribute: 'action-target' },
     _menuOpen: { state: true },
   };
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [buttonStyles, styles];
   }
 
   async _onMoreClick(e) {
@@ -72,26 +85,23 @@ class NxActionCard extends LitElement {
     return html`<div class="header">${tile}${more}</div>`;
   }
 
-  get _moreSvg() {
-    this._moreIcon ??= moreIcon?.cloneNode(true);
-    return this._moreIcon ?? nothing;
-  }
-
   _renderMore() {
     if (!this.menu?.length) return nothing;
     return html`
-      <button type="button" class="more" aria-haspopup="menu"
+      <button type="button" class="more nx-action-btn-icon nx-btn-sm" aria-haspopup="menu"
         aria-expanded=${this._menuOpen ? 'true' : 'false'}
         aria-label="${loc`More options for`} ${this.heading ?? ''}"
-        @click=${this._onMoreClick}>${this._moreSvg}</button>`;
+        @click=${this._onMoreClick}>${iconSvg(MORE_ICON)}</button>`;
   }
 
   _renderAction() {
     if (!this.action) return nothing;
     const label = this.actionLabel || loc`Open`;
-    const external = isExternal(this.action);
-    return html`<a class="action" href=${this.action}
-      target=${external ? '_blank' : nothing} rel=${external ? 'noopener' : nothing}
+    // An explicit target wins; otherwise links to another origin open in a new tab.
+    const target = this.actionTarget || (isExternal(this.action) ? '_blank' : undefined);
+    const rel = target && !SAME_CONTEXT.includes(target) ? 'noopener' : undefined;
+    return html`<a class="action nx-btn-primary" href=${this.action}
+      target=${target ?? nothing} rel=${rel ?? nothing}
       aria-label="${label} ${this.heading ?? ''}">${label}</a>`;
   }
 
