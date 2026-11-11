@@ -3,6 +3,7 @@ import {
   acceptsSiteHash, hashChange, loadStyle, withSiteHash,
 } from '../../utils/utils.js';
 import '../shared/action-card/action-card.js';
+import { iconSvg } from '../shared/utils/icons.js';
 import { attachCardSearch } from './search.js';
 
 const style = await loadStyle(import.meta.url);
@@ -22,8 +23,10 @@ const byAdobe = () => {
   const extra = document.createElement('span');
   extra.slot = 'extra';
   extra.className = 'byline';
-  extra.innerHTML = `<svg viewBox="0 0 20 20" aria-hidden="true"><use href="${iconUrl('byadobe')}#icon" width="100%" height="100%"></use></svg><span class="byline-text"></span>`;
-  extra.querySelector('.byline-text').textContent = loc`By Adobe`;
+  const text = document.createElement('span');
+  text.className = 'byline-text';
+  text.textContent = loc`By Adobe`;
+  extra.append(iconSvg({ href: iconUrl('byadobe') }), text);
   return extra;
 };
 
@@ -47,14 +50,7 @@ function toCard({ row, tools }) {
   card.description = [...(bodyCol?.querySelectorAll('p') ?? [])]
     .map((p) => p.textContent.trim()).filter(Boolean).join(' ');
   card.menu = links.map(({ id, label }) => ({ id, label }));
-  if (icon) {
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('slot', 'icon');
-    svg.setAttribute('viewBox', '0 0 20 20');
-    svg.setAttribute('aria-hidden', 'true');
-    svg.innerHTML = `<use href="${icon}#icon" width="100%" height="100%"></use>`;
-    card.append(svg);
-  }
+  if (icon) card.append(iconSvg({ href: icon, slot: 'icon' }));
   if (tint) card.tint = tint;
   // Tools on this site, da.live or author.aem.live carry the page's site path as hash.
   const sync = ({ fullpath } = {}) => {

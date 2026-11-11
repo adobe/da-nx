@@ -4,6 +4,7 @@ import {
 import { daFetch } from '../../../nx2/utils/api.js';
 import { getConfig, loc } from '../../../nx2/scripts/nx.js';
 import '../../../nx2/blocks/shared/action-card/action-card.js';
+import { iconSvg } from '../../../nx2/blocks/shared/utils/icons.js';
 import { attachCardSearch } from '../../../nx2/blocks/cards/search.js';
 
 const style = await loadStyle(import.meta.url);
@@ -33,16 +34,6 @@ function getIsAppAllowed(cardRef) {
 const FALLBACK_ICON = 's2-icon-tools-20-n';
 const FALLBACK_TINT = '#E5F0FE';
 
-function fallbackIcon() {
-  const { codeBase } = getConfig();
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('slot', 'icon');
-  svg.setAttribute('viewBox', '0 0 20 20');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.innerHTML = `<use href="${codeBase}/img/icons/${FALLBACK_ICON}.svg#icon" width="100%" height="100%"></use>`;
-  return svg;
-}
-
 function getCard({ title, description, path, image }) {
   const card = document.createElement('nx-action-card');
   card.setAttribute('role', 'listitem');
@@ -59,7 +50,7 @@ function getCard({ title, description, path, image }) {
     card.append(img);
   } else {
     card.tint = FALLBACK_TINT;
-    card.append(fallbackIcon());
+    card.append(iconSvg({ href: `${getConfig().codeBase}/img/icons/${FALLBACK_ICON}.svg`, slot: 'icon' }));
   }
   // Site apps always get the page's site path as hash (e.g. `#/org/site`).
   const sync = ({ fullpath } = {}) => {
