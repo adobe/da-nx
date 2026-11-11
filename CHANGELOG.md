@@ -1,3 +1,17 @@
+## [1.51.1](https://github.com/adobe/da-nx/compare/v1.51.0...v1.51.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **api:** forward mutation continuation tokens ([#984](https://github.com/adobe/da-nx/issues/984)) ([37b28d4](https://github.com/adobe/da-nx/commit/37b28d4335963593cb83fd0aef0c3a7f8e3a32de)), closes [adobe/da-live#1708](https://github.com/adobe/da-live/issues/1708)
+
+# [1.51.0](https://github.com/adobe/da-nx/compare/v1.50.0...v1.51.0) (2026-11-11)
+
+
+### Features
+
+* **action-card:** icon slot for svg or any image ([#985](https://github.com/adobe/da-nx/issues/985)) ([0978f07](https://github.com/adobe/da-nx/commit/0978f0718d68572fa9709cad8e7c0951ce099de8))
+
 # [1.50.0](https://github.com/adobe/da-nx/compare/v1.49.0...v1.50.0) (2026-11-11)
 
 

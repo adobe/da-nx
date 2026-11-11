@@ -54,41 +54,72 @@ describe('nx-action-card content', () => {
 });
 
 describe('nx-action-card tile', () => {
-  it('renders the icon from an svg url', async () => {
-    const card = await make({ icon: ICON });
-    const use = $(card, '.tile use');
-    expect(use.getAttribute('href')).to.equal(`${ICON}#icon`);
-    expect([use.getAttribute('width'), use.getAttribute('height')]).to.deep.equal(['100%', '100%']);
+  const SVG = `<svg slot="icon" viewBox="0 0 20 20"><use href="${ICON}#icon"></use></svg>`;
+  const IMG = '<img slot="icon" src="/media/app.jpeg" alt="">';
+  const slotted = (card) => card.shadowRoot.querySelector('slot[name="icon"]').assignedElements();
+  const size = (el) => [getComputedStyle(el).width, getComputedStyle(el).height];
+  const visible = (el) => getComputedStyle(el).display !== 'none';
+
+  it('renders a slotted svg icon in the tile', async () => {
+    const card = await make({}, SVG);
+    expect(slotted(card).map((e) => e.tagName)).to.deep.equal(['svg']);
+    expect(visible($(card, '.tile'))).to.be.true;
+  });
+
+  it('renders a slotted image in the tile', async () => {
+    const card = await make({}, IMG);
+    const [img] = slotted(card);
+    expect(img.tagName).to.equal('IMG');
+    expect(getComputedStyle(img).objectFit).to.equal('cover');
   });
 
   it('applies a valid tint', async () => {
-    const card = await make({ icon: ICON, tint: TINT });
+    const card = await make({ tint: TINT }, SVG);
     expect($(card, '.tile').classList.contains('has-bg')).to.be.true;
     expect($(card, '.tile').style.getPropertyValue('--tile-bg')).to.equal(TINT);
   });
 
   it('sizes the icon by tint: 20px tinted, 40px untinted', async () => {
-    const tinted = await make({ icon: ICON, tint: TINT });
-    const plain = await make({ icon: ICON });
-    expect(getComputedStyle($(tinted, '.tile svg')).width).to.equal('20px');
-    expect(getComputedStyle($(plain, '.tile svg')).width).to.equal('40px');
+    const tintedSvg = await make({ tint: TINT }, SVG);
+    const plainSvg = await make({}, SVG);
+    const tintedImg = await make({ tint: TINT }, IMG);
+    const plainImg = await make({}, IMG);
+    expect(size(slotted(tintedSvg)[0])).to.deep.equal(['20px', '20px']);
+    expect(size(slotted(plainSvg)[0])).to.deep.equal(['40px', '40px']);
+    expect(size(slotted(tintedImg)[0])).to.deep.equal(['20px', '20px']);
+    expect(size(slotted(plainImg)[0])).to.deep.equal(['40px', '40px']);
+  });
+
+  it('colors a slotted svg with the tile color', async () => {
+    const card = await make({ tint: TINT }, SVG);
+    const [svg] = slotted(card);
+    expect(getComputedStyle(svg).fill).to.equal('rgb(41, 41, 41)');
   });
 
   it('renders a tinted tile without an icon', async () => {
     const card = await make({ tint: TINT });
-    expect(!!$(card, '.tile.has-bg')).to.be.true;
-    expect(!!$(card, '.tile svg')).to.be.false;
+    expect(visible($(card, '.tile.has-bg'))).to.be.true;
+    expect(slotted(card).length).to.equal(0);
   });
 
   it('ignores an invalid tint', async () => {
-    const card = await make({ icon: ICON, tint: 'not a color' });
+    const card = await make({ tint: 'not a color' }, SVG);
     expect($(card, '.tile').classList.contains('has-bg')).to.be.false;
   });
 
-  it('renders no tile and no header without icon, tint and menu', async () => {
+  it('hides tile and header without icon, tint and menu', async () => {
     const card = await make();
-    expect(!!$(card, '.tile')).to.be.false;
-    expect(!!$(card, '.header')).to.be.false;
+    expect(visible($(card, '.tile'))).to.be.false;
+    expect(visible($(card, '.header'))).to.be.false;
+  });
+
+  it('shows the tile when an icon is slotted later', async () => {
+    const card = await make();
+    card.insertAdjacentHTML('beforeend', SVG);
+    await tick();
+    await card.updateComplete;
+    expect(visible($(card, '.tile'))).to.be.true;
+    expect(visible($(card, '.header'))).to.be.true;
   });
 });
 

@@ -38,13 +38,13 @@ class NxActionCard extends LitElement {
   static properties = {
     heading: { type: String },
     description: { type: String },
-    icon: { type: String },
     tint: { type: String },
     menu: { attribute: false },
     action: { type: String },
     actionLabel: { type: String, attribute: 'action-label' },
     actionTarget: { type: String, attribute: 'action-target' },
     _menuOpen: { state: true },
+    _hasIcon: { state: true },
   };
 
   connectedCallback() {
@@ -70,19 +70,28 @@ class NxActionCard extends LitElement {
     this._menuOpen = false;
   }
 
-  _renderTile() {
-    const validTint = this.tint && CSS.supports('color', this.tint);
-    if (!this.icon && !validTint) return nothing;
-    return html`<div class="tile ${validTint ? 'has-bg' : ''}" style=${validTint ? `--tile-bg: ${this.tint}` : nothing}>
-      ${this.icon ? iconSvg(this.icon) : nothing}
-    </div>`;
+  willUpdate() {
+    // Known before the first render, so the tile doesn't flash; kept current via slotchange.
+    this._hasIcon ??= !!this.querySelector(':scope > [slot="icon"]');
   }
 
+  _onIconSlotChange(e) {
+    this._hasIcon = e.target.assignedElements().length > 0;
+  }
+
+  // The icon is slotted (`<svg slot="icon">` or `<img slot="icon">`); the slot always
+  // exists so content added later is picked up. Tile shows with an icon or a valid tint.
   _renderHeader() {
-    const tile = this._renderTile();
+    const validTint = this.tint && CSS.supports('color', this.tint);
+    const showTile = this._hasIcon || validTint;
     const more = this._renderMore();
-    if (tile === nothing && more === nothing) return nothing;
-    return html`<div class="header">${tile}${more}</div>`;
+    return html`<div class="header" ?hidden=${!showTile && more === nothing}>
+      <div class="tile ${validTint ? 'has-bg' : ''}" ?hidden=${!showTile}
+        style=${validTint ? `--tile-bg: ${this.tint}` : nothing}>
+        <slot name="icon" @slotchange=${this._onIconSlotChange}></slot>
+      </div>
+      ${more}
+    </div>`;
   }
 
   _renderMore() {
