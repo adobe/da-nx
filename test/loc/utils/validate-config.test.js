@@ -57,6 +57,23 @@ describe('loc validate-config', () => {
       expect((await validateConfig(sheets())).errors[0]).to.include('Translation service is not set');
     });
 
+    it('accepts a rollout-only config with no service', async () => {
+      const languages = [lang({ actions: 'rollout' })];
+      expect((await validateConfig(sheets({ languages }))).errors).to.deep.equal([]);
+    });
+
+    it('accepts a copy-only config with no service', async () => {
+      const languages = [lang({ actions: 'copy, skip' })];
+      expect((await validateConfig(sheets({ languages }))).errors).to.deep.equal([]);
+    });
+
+    it('validates the service when any row uses Translate', async () => {
+      const languages = [lang({ actions: 'rollout' }), lang({ name: 'French', code: 'fr', location: '/fr', actions: 'Translate' })];
+      const { errors } = await validateConfig(sheets({ languages }));
+      expect(errors).to.have.length(1);
+      expect(errors[0]).to.include('Translation service is not set');
+    });
+
     it('accepts a fully configured smartling service', async () => {
       const config = service([
         ['translation.service.name', 'smartling'],
@@ -67,6 +84,8 @@ describe('loc validate-config', () => {
         ['translation.service.stage.userSecret', 's'],
         ['translation.service.prod.origin', 'https://prod'],
         ['translation.service.prod.projectId', '2'],
+        ['translation.service.prod.userIdentifier', 'u'],
+        ['translation.service.prod.userSecret', 's'],
       ]);
       expect((await validateConfig(sheets({ config }))).errors).to.deep.equal([]);
     });
@@ -253,6 +272,24 @@ describe('loc validate-config', () => {
       expect(errors[0]).to.include('"source.language"');
     });
 
+    it('matches source.language by exact name, like the options view', async () => {
+      const config = service([
+        ['translation.service.name', 'google'],
+        ['source.language', 'german'],
+      ]);
+      const { errors } = await validateConfig(sheets({ config }));
+      expect(errors).to.deep.equal(['"source.language" is "german", which is not a configured language.']);
+    });
+
+    it('accepts a source.language that matches a configured name', async () => {
+      const config = service([
+        ['translation.service.name', 'google'],
+        ['source.language', 'German'],
+      ]);
+      const { errors } = await validateConfig(sheets({ config }));
+      expect(errors).to.deep.equal([]);
+    });
+
     it('reports an unknown service', async () => {
       const config = service([['translation.service.name', 'nope']]);
       const { errors } = await validateConfig(sheets({ config }));
@@ -265,7 +302,7 @@ describe('loc validate-config', () => {
       expect(errors[0]).to.include('Unknown translation service');
     });
 
-    it('reports missing connector values for the first env', async () => {
+    it('reports missing connector values for a single listed env', async () => {
       const config = service([
         ['translation.service.name', 'smartling'],
         ['translation.service.all.env', 'stage'],
@@ -289,6 +326,43 @@ describe('loc validate-config', () => {
       const { errors } = await validateConfig(sheets({ config }));
       expect(errors).to.have.length(1);
       expect(errors[0]).to.include('Environment "prod"');
+    });
+
+    it('reports missing connector values for every listed env', async () => {
+      const config = service([
+        ['translation.service.name', 'smartling'],
+        ['translation.service.all.env', 'prod, stage'],
+        ['translation.service.prod.origin', 'https://prod'],
+        ['translation.service.prod.projectId', '1'],
+        ['translation.service.prod.userIdentifier', 'u'],
+        ['translation.service.prod.userSecret', 's'],
+        ['translation.service.stage.origin', 'https://stage'],
+        ['translation.service.stage.userIdentifier', 'u'],
+        ['translation.service.stage.userSecret', 's'],
+      ]);
+      const { errors } = await validateConfig(sheets({ config }));
+      expect(errors).to.deep.equal(['Translation service "smartling" is missing "translation.service.stage.projectId".']);
+    });
+
+    it('reports an unknown service once across several envs', async () => {
+      const config = service([
+        ['translation.service.name', 'nope'],
+        ['translation.service.all.env', 'prod,stage'],
+        ['translation.service.prod.origin', 'o'],
+        ['translation.service.stage.origin', 'o'],
+      ]);
+      const { errors } = await validateConfig(sheets({ config }));
+      expect(errors).to.deep.equal(['Unknown translation service "nope". Check "translation.service.name" in the translate config.']);
+    });
+
+    it('reports an unknown service when every listed env is empty', async () => {
+      const config = service([
+        ['translation.service.name', 'nope'],
+        ['translation.service.all.env', 'stage'],
+        ['translation.service.prod.origin', 'o'],
+      ]);
+      const { errors } = await validateConfig(sheets({ config }));
+      expect(errors.join()).to.include('Unknown translation service "nope"');
     });
 
     it('requires credential keys in the config sheet when there is no key path', async () => {
@@ -399,6 +473,25 @@ describe('loc validate-config', () => {
         ];
         const { errors } = await validateConfig(sheets({ config }));
         expect(errors.join()).to.not.include('Environment "key"');
+      });
+
+      it('accepts an env supplied only by the key sheet', async () => {
+        stub(JSON.stringify({
+          data: service([
+            ['translation.service.prod.userIdentifier', 'u'],
+            ['translation.service.prod.userSecret', 's'],
+            ['translation.service.stage.origin', 'o'],
+            ['translation.service.stage.projectId', '2'],
+            ['translation.service.stage.userIdentifier', 'u'],
+            ['translation.service.stage.userSecret', 's'],
+          ]),
+        }));
+        const config = [
+          ...smartlingConfig(),
+          ...service([['translation.service.all.env', 'prod,stage']]),
+        ];
+        const { errors } = await validateConfig(sheets({ config }));
+        expect(errors).to.deep.equal([]);
       });
     });
 

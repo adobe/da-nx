@@ -51,4 +51,24 @@ describe('loc config cache', () => {
     expect(result.name).to.equal('second');
     expect(stub.count()).to.equal(1);
   });
+
+  it('drops fully blank language rows', async () => {
+    const languages = {
+      total: 3,
+      data: [
+        { name: 'German', code: 'de', location: '/de', actions: 'translate' },
+        { name: '', code: ' ', location: '', actions: '' },
+        { name: 'French', code: '', location: '', actions: '' },
+      ],
+    };
+    window.fetch = async () => new Response(JSON.stringify({ languages }), { status: 200 });
+    const result = await fetchConfig('acme', 'site1');
+    expect(result.languages.data.map((row) => row.name)).to.deep.equal(['German', 'French']);
+  });
+
+  it('leaves configs without a languages sheet unchanged', async () => {
+    stubConfig('plain');
+    const result = await fetchConfig('acme', 'site1');
+    expect(result).to.deep.equal({ name: 'plain' });
+  });
 });

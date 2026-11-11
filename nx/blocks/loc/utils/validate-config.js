@@ -119,7 +119,7 @@ async function fetchKeySheet(keyPath) {
 }
 
 /**
- * Validates the service config (name, env, required connector values, and key sheet).
+ * Validates the service config (name, every listed env's required values, and key sheet).
  * @param {Object<string, string>} config - Flattened config map.
  * @returns {Promise<string[]>} Error messages.
  */
@@ -128,33 +128,35 @@ async function validateConnector(config) {
   const envs = toEnvs(config);
   const keyPath = String(config[KEY_PATH] ?? '').trim();
 
-  const envList = splitList(config['translation.service.all.env']);
-  const env = envList[0] ?? DEFAULT_ENV;
+  const listed = splitList(config['translation.service.all.env'])
+    .filter((e) => !SKIPPED_ENV_KEYS.includes(e));
+  const envList = listed.length ? listed : [DEFAULT_ENV];
   const errors = [];
 
-  if (hasValue(name) && Object.keys(envs).length && envList.length) {
-    const missing = envList.filter((e) => !SKIPPED_ENV_KEYS.includes(e) && !envs[e]);
-    missing.forEach((e) => errors.push(`Environment "${e}" in "translation.service.all.env" has no "translation.service.${e}.*" values.`));
-  }
-
-  let keyValues = {};
+  let keyEnvs = {};
   let keyReadable = true;
   if (keyPath) {
     const { map, error } = await fetchKeySheet(keyPath);
     keyReadable = !error;
     if (error) errors.push(error);
-    else keyValues = toEnvs(map)[env] ?? {};
+    else keyEnvs = toEnvs(map);
   }
 
+  const hasEnvValues = Object.keys(envs).length || Object.keys(keyEnvs).length;
+  const emptyEnvs = hasValue(name) && hasEnvValues && listed.length
+    ? listed.filter((e) => !envs[e] && !keyEnvs[e]) : [];
+  emptyEnvs.forEach((e) => errors.push(`Environment "${e}" in "translation.service.all.env" has no "translation.service.${e}.*" values.`));
+
   // The key sheet takes precedence over the config sheet, as at runtime.
-  const values = { ...envs[env], ...keyValues };
-  const serviceErrors = await validateServiceValues({
-    name,
-    values,
-    env,
-    credentials: keyReadable,
-  });
-  return [...errors, ...serviceErrors];
+  const filled = envList.filter((env) => !emptyEnvs.includes(env));
+  const serviceErrors = await Promise.all((filled.length ? filled : envList.slice(0, 1))
+    .map((env) => validateServiceValues({
+      name,
+      values: { ...envs[env], ...keyEnvs[env] },
+      env,
+      credentials: keyReadable,
+    })));
+  return [...new Set([...errors, ...serviceErrors.flat()])];
 }
 
 /**
@@ -239,8 +241,6 @@ function validateLanguages(rows, config) {
   if (!rows.length) return ['No languages are configured. Add rows to the "languages" sheet of the translate config.'];
 
   const errors = [];
-  const names = new Set(rows.map((row) => String(row?.name ?? '').trim().toLowerCase()).filter(Boolean));
-  // The options view matches "source language" by exact name, so this does too.
   const exactNames = new Set(rows.map((row) => row?.name).filter(Boolean));
   const groups = { code: new Map(), location: new Map() };
   const group = (field, key, value, who) => {
@@ -279,15 +279,16 @@ function validateLanguages(rows, config) {
     errors.push(`Languages ${who} form a circular source language chain.`);
   });
 
-  const defaultSource = String(config['source.language'] ?? '').trim();
-  if (defaultSource && !names.has(defaultSource.toLowerCase())) {
+  const defaultSource = config['source.language'];
+  if (hasValue(defaultSource) && !exactNames.has(defaultSource)) {
     errors.push(`"source.language" is "${defaultSource}", which is not a configured language.`);
   }
   return errors;
 }
 
 /**
- * Validates the translate config sheets. Never throws.
+ * Validates the translate config sheets. The service is checked only when a row uses Translate.
+ * Never throws.
  * @param {object} sheets - Config sheets from `fetchConfig`.
  * @returns {Promise<{ errors: string[] }>} Human-readable errors; empty when valid.
  */
@@ -297,7 +298,10 @@ export async function validateConfig(sheets) {
   }
   const config = toConfigMap(sheets);
   const rows = Array.isArray(sheets.languages?.data) ? sheets.languages.data : [];
-  return { errors: [...validateLanguages(rows, config), ...await validateConnector(config)] };
+  const usesTranslate = rows.some((row) => splitList(row?.actions)
+    .some((action) => action.toLowerCase() === 'translate'));
+  const connectorErrors = usesTranslate ? await validateConnector(config) : [];
+  return { errors: [...validateLanguages(rows, config), ...connectorErrors] };
 }
 
 /**

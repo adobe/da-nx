@@ -75,22 +75,26 @@ class NxLocTranslate extends LitElement {
    * A spread/copy here would leave `this._service` permanently stale for
    * any property a connector adds after initial setup, until the next
    * full page load rebuilds it from the freshly persisted project.
+   * Skipped when no language uses Translate (e.g. copy-only projects).
+   * Config errors block sending, but the connector still loads when it can so
+   * in-flight projects keep Connect, Get status, and Cancel.
    * @returns {Promise<void>}
    */
   async setupService() {
+    if (!this.project.langs?.some((lang) => lang.action === 'translate')) return;
     const { service } = this.project.options;
     const { errors } = await validateService(service);
-    if (errors.length) {
-      this._configErrors = errors;
-      this.handleMessage(configErrorMessage(errors));
-      return;
+    this._configErrors = errors.length ? errors : undefined;
+    if (errors.length) this.handleMessage(configErrorMessage(errors));
+    try {
+      service.connector = await setupConnector(service);
+      service.org = this.project.org;
+      service.site = this.project.site;
+      this._service = service;
+      this._connected = await this._service.connector.isConnected(this._service);
+    } catch (e) {
+      if (!errors.length) throw e;
     }
-    this._configErrors = undefined;
-    service.connector = await setupConnector(service);
-    service.org = this.project.org;
-    service.site = this.project.site;
-    this._service = service;
-    this._connected = await this._service.connector.isConnected(this._service);
   }
 
   setupProject() {
@@ -136,7 +140,7 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleConnect() {
-    if (this._configErrors?.length || !this._service) return;
+    if (!this._service) return;
     this._connectBusy = true;
     try {
       const sendMessage = this.handleMessage.bind(this);
