@@ -17,6 +17,8 @@ export async function setupPanels({ org, repo }) {
   let chatContext = getContext();
   let chatEnabled = isSiteApp && await isEwChatEnabled(chatContext);
   let unregisterChat;
+  let chatCheck = Promise.resolve();
+  let supersedeCheck;
 
   const registerChat = () => {
     unregisterChat = registerPanelSection('chat', {
@@ -37,26 +39,32 @@ export async function setupPanels({ org, repo }) {
   };
   if (chatEnabled) registerChat();
 
-  const syncChat = async () => {
+  const syncChat = () => {
     const context = getContext();
-    if (context.org === chatContext.org && context.site === chatContext.site) return;
+    if (context.org === chatContext.org && context.site === chatContext.site) return chatCheck;
     const reopen = wasPanelOpen('chat');
     chatContext = context;
     chatEnabled = false;
     unregisterChat?.();
-    try {
-      const enabled = isSiteApp && await isEwChatEnabled(context);
-      if (chatContext !== context) return;
-      chatEnabled = enabled;
-      if (chatEnabled) {
-        registerChat();
-        if (reopen) {
-          document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, { detail: { section: 'chat' } }));
+    supersedeCheck?.();
+    const superseded = new Promise((resolve) => { supersedeCheck = resolve; });
+    const checking = (async () => {
+      try {
+        const enabled = isSiteApp && await isEwChatEnabled(context);
+        if (chatContext !== context) return;
+        chatEnabled = enabled;
+        if (chatEnabled) {
+          registerChat();
+          if (reopen) {
+            document.dispatchEvent(new CustomEvent(PANEL_EVENT.OPEN, { detail: { section: 'chat' } }));
+          }
         }
+      } catch (error) {
+        getConfig().log(error);
       }
-    } catch (error) {
-      getConfig().log(error);
-    }
+    })();
+    chatCheck = Promise.race([checking, superseded]);
+    return chatCheck;
   };
 
   const onMessage = ({ action, details }) => {
@@ -78,6 +86,13 @@ export async function setupPanels({ org, repo }) {
   };
 
   return {
+    async ready() {
+      let current;
+      do {
+        current = syncChat();
+        await current;
+      } while (current !== chatCheck);
+    },
     get capabilities() {
       return chatEnabled ? { chatTurnCompleted: 1 } : {};
     },
