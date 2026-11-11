@@ -7,6 +7,8 @@ import { resolveSheetRules } from './sheetRules.js';
   so no transformation is needed for that service.
 */
 
+const SYSTEM_COLUMNS = [':translate', ':rollout', ':uid', ':regional'];
+
 const setDntAttribute = (el) => {
   el.setAttribute('translate', 'no');
 };
@@ -103,12 +105,11 @@ const json2html = (json, dntConfig, path) => {
     const dntInfo = {
       sheets: [...configSheets],
       sheetToColumns: new Map(configSheetToColumns),
-      universalColumns: [...configUniversalColumns],
+      universalColumns: [...SYSTEM_COLUMNS, ...configUniversalColumns],
     };
     const { data } = dntJson || {};
     if (data?.length > 0) {
       dntInfo.sheets.push('dnt', 'non-default');
-      dntInfo.universalColumns.push(...[':translate', ':rollout', ':uid', ':regional']);
       data.forEach((jsonObject) => {
         const dntSheet = jsonObject['dnt-sheet'];
         const dntColumnsStr = jsonObject['dnt-columns'];

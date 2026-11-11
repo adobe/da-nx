@@ -47,7 +47,7 @@ export function resolveSheetRules(dntConfig, path) {
   const sheets = [...(dntConfig?.dntSheets || [])];
   const sheetToColumns = new Map(dntConfig?.dntSheetToColumns || []);
   const universalColumns = [...(dntConfig?.dntUniversalColumns || [])];
-  let allSheets = false;
+  let allSheets = sheets.includes('*');
 
   (dntConfig?.dntPathRules || [])
     .filter((rule) => matchesPath(rule.path, path))

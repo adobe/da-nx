@@ -22,3 +22,7 @@ The `dnt` tab of `.da/translate.json` marks tabs and columns of JSON sheets as d
 DA saves a single-tab sheet with its tab name in `:sheetname` (new sheets default to `data`). Rules match that name, so `/path:data` works on a sheet that has one `data` tab. Files without `:sheetname` are treated as `data`. A rule for `default` also still matches any single-tab sheet.
 
 Prefer `/path:data` over a bare `data` rule when only some sheets should be protected, because a bare tab name applies to every sheet.
+
+## System columns
+
+`:translate`, `:rollout`, `:uid` and `:regional` are never translated, in every tab of every sheet, whether or not any `dnt` rules exist. A row with `:translate` set to `no` is skipped entirely.
