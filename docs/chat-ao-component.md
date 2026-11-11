@@ -23,10 +23,18 @@ including restored episode history. This applies to both Coworker and CMA,
 in full chat and standalone inputs. Only the latest startup prompt is submitted.
 Manual prompts still prefill immediately without sending.
 
-Editing the draft, replacing the prompt with a manual one, changing the session
-scope, or removing the input/chat cancels its pending automatic submission.
-Initialization errors remain visible; automatic prompts are not retried after
-a failed initialization or while another turn blocks input.
+If `autoSend` arrives before the shared session can accept a message (e.g. the
+chat panel was just opened and episodes are still loading), `nx-chat-ao` fills
+the input and submits the draft on the first session update where
+`session.canSend()` is true, instead of dropping the send. Edits made while
+waiting are preserved in that submission. `setPrompt` resolves `true` when the
+prompt is accepted, without waiting for initialization or acknowledging delivery.
+Replacing it with a manual prompt, changing the session scope, or removing the
+input/chat cancels the queued submission. Initialization errors remain visible.
+While a turn is
+running (unless a plan approval is pending) the input is blocked, so the prompt
+is rejected (`setPrompt` resolves `false`): the draft is left untouched, no
+send is scheduled, and a warning toast asks the user to wait for the response.
 
 ## Input ownership
 

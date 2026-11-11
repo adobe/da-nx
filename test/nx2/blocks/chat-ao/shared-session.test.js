@@ -191,12 +191,12 @@ describe('standalone input and full AO chat sharing', () => {
         const pending = holdStartup();
         history = [{ id: 'existing', updated_at: new Date().toISOString() }];
         const chat = await mount({ harness, standalone });
-        const prompt = chat.setPrompt('Automatic startup prompt', { autoSend: true });
+        const accepted = await chat.setPrompt('Automatic startup prompt', { autoSend: true });
+        expect(accepted).to.equal(true);
         await flush();
         expect(userFrames()).to.have.length(0);
         pending.resolve();
         await ready(chat);
-        await prompt;
         await flush();
         expect(userFrames()).to.have.length(1);
         expect(userFrames()[0].text).to.equal('Automatic startup prompt');
@@ -238,7 +238,7 @@ describe('standalone input and full AO chat sharing', () => {
         expect(userFrames()[0].text).to.equal('Second prompt');
       });
 
-      it(`${harness} ${view}: does not submit a startup prompt after the draft is edited`, async () => {
+      it(`${harness} ${view}: submits the edited draft after startup instead of the original prompt`, async () => {
         const pending = holdStartup();
         const chat = await mount({ harness, standalone });
         const prompt = chat.setPrompt('Original prompt', { autoSend: true });
@@ -249,8 +249,27 @@ describe('standalone input and full AO chat sharing', () => {
         await ready(chat);
         await prompt;
         await flush();
-        expect(userFrames()).to.have.length(0);
-        expect(input(chat).value).to.equal('Author edit');
+        expect(userFrames()).to.have.length(1);
+        expect(userFrames()[0].text).to.equal('Author edit');
+        expect(input(chat).value).to.equal('');
+      });
+
+      it(`${harness} ${view}: rejects a busy prompt without scheduling the existing draft`, async () => {
+        const chat = await mount({ harness, standalone });
+        await ready(chat);
+        submit(chat, 'Active turn');
+        await flush();
+        input(chat).value = 'Keep this draft';
+        expect(await chat.setPrompt('Do not queue', { autoSend: true })).to.equal(false);
+        expect(input(chat).value).to.equal('Keep this draft');
+        const toast = [...document.querySelectorAll('nx-toast')].at(-1);
+        expect(toast?.message).to.equal('Wait for the current response to finish');
+        expect(toast?.variant).to.equal('warning');
+        toast?.remove();
+        stop(chat);
+        await flush();
+        expect(userFrames()).to.have.length(1);
+        expect(input(chat).value).to.equal('Keep this draft');
       });
 
       it(`${harness} ${view}: cancels a pending auto-send when a manual prompt replaces it`, async () => {
@@ -359,7 +378,7 @@ describe('standalone input and full AO chat sharing', () => {
       expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
     });
 
-    it(`${harness}: preserves an edited draft while harness configuration is still pending`, async () => {
+    it(`${harness}: submits the edited draft when harness configuration becomes ready`, async () => {
       patch(customElements.get('nx-chat-ao').prototype, '_loadConfig', async () => {});
       const full = await mount({ harness, resolveHarness: true });
       await full.setPrompt('Automatic prompt', { autoSend: true });
@@ -368,8 +387,9 @@ describe('standalone input and full AO chat sharing', () => {
       full.harnessConfig = { key: `${org}/site`, harness };
       await ready(full);
       await flush();
-      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
-      expect(input(full).value).to.equal('Author draft');
+      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+      expect(full._controller._messages.at(-1).content).to.equal('Author draft');
+      expect(input(full).value).to.equal('');
     });
 
     it(`${harness}: pairs compact/full views without merging separate conversations`, async () => {
@@ -570,6 +590,41 @@ describe('standalone input and full AO chat sharing', () => {
     expect(pills(full).items).to.have.length(1);
     expect(sockets[0].frames.find((frame) => frame.type === AO_FRAME.USER_INPUT).attachments)
       .to.deep.equal(['artifact']);
+  });
+
+  it('holds an auto-send prompt received before initialization and sends it once ready', async () => {
+    const pending = deferred();
+    patch(CoworkerChatController.prototype, '_fetchEpisodes', () => pending.promise);
+    const full = await mount();
+    await full.setPrompt('Fix this check', { autoSend: true });
+    await flush();
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+    expect(full._input.draft).to.equal('Fix this check');
+    pending.resolve([]);
+    await ready(full);
+    await flush();
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+    expect(full.messages[0].content).to.equal('Fix this check');
+    expect(full._input.draft).to.equal('');
+  });
+
+  it('rejects an auto-send prompt while a turn is running without sending the existing draft', async () => {
+    const [standalone, full] = await pair('coworker');
+    input(full).value = 'Unrelated draft';
+    submit(standalone, 'From compact');
+    await flush();
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+    expect(await full.setPrompt('Apply change', { autoSend: true })).to.equal(false);
+    expect(full._input.draft).to.equal('Unrelated draft');
+    const toast = [...document.querySelectorAll('nx-toast')].at(-1);
+    expect(toast?.message).to.equal('Wait for the current response to finish');
+    expect(toast?.variant).to.equal('warning');
+    toast?.remove();
+    stop(standalone);
+    await flush();
+    expect(full.thinking).to.equal(false);
+    expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+    expect(full._input.draft).to.equal('Unrelated draft');
   });
 
   it('resolves the same configured harness for a standalone input and full chat without host callbacks', async () => {

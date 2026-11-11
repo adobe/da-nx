@@ -78,31 +78,39 @@ export default class NxChatAo extends LitElement {
 
   async setPrompt(text, { autoSend = false } = {}) {
     const request = {};
+    const context = this._context;
     this._promptRequest = request;
-    this._pendingPrompt = undefined;
+    this._pendingAutoSend = undefined;
     await this.updateComplete;
-    if (!this.isConnected || this._promptRequest !== request || !text || this._blocked) return;
-    if (!autoSend || (!this._session && this._controller)) {
-      await this._input?.setPrompt(text, { autoSend });
-      return;
-    }
-    this._pendingPrompt = {
-      request, text, context: this._context, draft: this._input?.draft,
-    };
-    await this._flushPendingPrompt();
+    if (!this.isConnected || this._promptRequest !== request
+      || this._context !== context) return false;
+    const defer = autoSend && !this._canSend;
+    const accepted = !!(await this._input?.setPrompt(text, { autoSend: autoSend && !defer }));
+    if (!this.isConnected || this._promptRequest !== request
+      || this._context !== context) return false;
+    this._pendingAutoSend = accepted && defer
+      ? { request, context, session: this._session } : undefined;
+    this._flushPendingAutoSend();
+    return accepted;
   }
 
-  async _flushPendingPrompt() {
-    const prompt = this._pendingPrompt;
-    const session = this._session;
-    if (!prompt || !session) return;
-    await session.ready;
-    await this.updateComplete;
-    if (!this.isConnected || this._pendingPrompt !== prompt
-      || this._promptRequest !== prompt.request || this._session !== session
-      || this._context !== prompt.context || this._input?.draft !== prompt.draft) return;
-    this._pendingPrompt = undefined;
-    await this._input?.setPrompt(prompt.text, { autoSend: true });
+  get _canSend() {
+    return this._session ? this._session.canSend() : !!this._controller;
+  }
+
+  // Submits the draft (not the original text) so edits made while waiting are kept.
+  _flushPendingAutoSend() {
+    const prompt = this._pendingAutoSend;
+    if (!prompt) return;
+    if (!this.isConnected || this._promptRequest !== prompt.request
+      || this._context !== prompt.context || (prompt.session && this._session !== prompt.session)) {
+      this._pendingAutoSend = undefined;
+      return;
+    }
+    if (!this._canSend) return;
+    this._pendingAutoSend = undefined;
+    this._input?.setPrompt(this._input.draft, { autoSend: true })
+      .catch((error) => showToast({ text: error.message, variant: 'error' }));
   }
 
   get _input() {
@@ -178,6 +186,7 @@ export default class NxChatAo extends LitElement {
     this.pendingPermission = pendingPermission;
     this.loadingEpisode = loadingEpisode;
     this.staleEpisode = staleEpisode;
+    this._flushPendingAutoSend();
   }
 
   // Creates/joins the session once flags + entitlement are known, picking the
@@ -215,9 +224,7 @@ export default class NxChatAo extends LitElement {
         }));
       },
     });
-    if (this._pendingPrompt) {
-      this._flushPendingPrompt().catch((error) => showToast({ text: error.message, variant: 'error' }));
-    }
+    this._flushPendingAutoSend();
   }
 
   _closePanel() {
@@ -286,11 +293,11 @@ export default class NxChatAo extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this._promptRequest = undefined;
-    this._pendingPrompt = undefined;
     this._releaseSession?.();
     this._releaseSession = undefined;
     this._session = undefined;
     this._controller = undefined;
+    this._pendingAutoSend = undefined;
     cancelAnimationFrame(this._scrollRaf);
     this._unsubscribeHash?.();
     this._unsubscribeEvents?.();

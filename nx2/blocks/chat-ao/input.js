@@ -143,24 +143,38 @@ export default class NxAoInput extends LitElement {
 
   async setPrompt(text, { autoSend = false } = {}) {
     const request = {};
+    const sessionRequest = this._sessionRequest;
     this._promptRequest = request;
     await this.updateComplete;
-    if (!this.isConnected || this._promptRequest !== request || !text || this.blocked) return;
+    if (!this.isConnected || this._promptRequest !== request
+      || this._sessionRequest !== sessionRequest || !text) return false;
+    if (this.blocked) {
+      showToast({ text: 'Wait for the current response to finish', variant: 'warning' });
+      return false;
+    }
     this.shadowRoot.querySelector('.prompts-popover')?.close();
     this.shadowRoot.querySelector('.chat-input').value = text;
     if (!autoSend) {
       await this.focusInput();
-      return;
+      return true;
     }
     if (this._standalone) {
-      const sessionRequest = this._sessionRequest;
-      await this._sessionReady;
-      const session = this._session;
-      await session?.ready;
-      if (!this.isConnected || this._promptRequest !== request
-        || this._sessionRequest !== sessionRequest || this._session !== session
-        || this.draft !== text || this.blocked) return;
+      this._submitWhenReady({ request, sessionRequest })
+        .catch((error) => showToast({ text: error.message, variant: 'error' }));
+    } else {
+      this._promptRequest = undefined;
+      this.shadowRoot.querySelector('form').requestSubmit();
     }
+    return true;
+  }
+
+  async _submitWhenReady({ request, sessionRequest }) {
+    await this._sessionReady;
+    const session = this._session;
+    await session?.ready;
+    if (!this.isConnected || this._promptRequest !== request
+      || this._sessionRequest !== sessionRequest || this._session !== session
+      || !session?.canSend() || this.blocked) return;
     this._promptRequest = undefined;
     this.shadowRoot.querySelector('form').requestSubmit();
   }

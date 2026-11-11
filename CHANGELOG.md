@@ -1,3 +1,68 @@
+# [1.49.0](https://github.com/adobe/da-nx/compare/v1.48.0...v1.49.0) (2026-11-11)
+
+
+### Features
+
+* **nav:** show logo-only branding by default ([#980](https://github.com/adobe/da-nx/issues/980)) ([367d2e9](https://github.com/adobe/da-nx/commit/367d2e99bd03e80044862fe2e00f61d61d6c3664))
+
+# [1.48.0](https://github.com/adobe/da-nx/compare/v1.47.0...v1.48.0) (2026-11-10)
+
+
+### Features
+
+* **quick-edit:** support editable link-images ([#829](https://github.com/adobe/da-nx/issues/829)) ([ea1aa30](https://github.com/adobe/da-nx/commit/ea1aa30d468986f983dcb0f13da375f4578fa900))
+
+# [1.47.0](https://github.com/adobe/da-nx/compare/v1.46.0...v1.47.0) (2026-11-10)
+
+
+### Features
+
+* **feedback:** add extensions category ([#975](https://github.com/adobe/da-nx/issues/975)) ([8c9089f](https://github.com/adobe/da-nx/commit/8c9089f3cda216bb282718875032fc62450440fd))
+
+# [1.46.0](https://github.com/adobe/da-nx/compare/v1.45.1...v1.46.0) (2026-11-10)
+
+
+### Features
+
+* apply preflight suggestions via chat ([#910](https://github.com/adobe/da-nx/issues/910)) ([541c929](https://github.com/adobe/da-nx/commit/541c92929f17777dd54f07b0be847fa2d5540f3b))
+
+## [1.45.1](https://github.com/adobe/da-nx/compare/v1.45.0...v1.45.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **editortoggle:** hide disabled toggle on canvas ([399d3c2](https://github.com/adobe/da-nx/commit/399d3c29e8da4b4bf1ac01e72ad5dbed6d08b5ee))
+
+# [1.45.0](https://github.com/adobe/da-nx/compare/v1.44.2...v1.45.0) (2026-11-10)
+
+
+### Bug Fixes
+
+* **nav:** align branding with the shell navigation rail ([fdccd23](https://github.com/adobe/da-nx/commit/fdccd2382fc0e851a47008a3014cc5460f45b935))
+* **nav:** keep logo sizing in css ([c840136](https://github.com/adobe/da-nx/commit/c84013616aec0f3e8321b9e14c174e39950fefb5))
+* **nav:** preserve logo aspect ratio ([2aa3dc4](https://github.com/adobe/da-nx/commit/2aa3dc4a95e6d827ec49184546a3623e82be88fd))
+* **nav:** use s2 bold typography for the product label ([69d3dac](https://github.com/adobe/da-nx/commit/69d3dac0dd04ecd7b4d6e5817edbc38944bf68ec))
+
+
+### Features
+
+* **nav:** support consumer-owned logo and product label ([2ea71d7](https://github.com/adobe/da-nx/commit/2ea71d7d39bc8cac64b5154168a95b1b814b93ce))
+
+## [1.44.2](https://github.com/adobe/da-nx/compare/v1.44.1...v1.44.2) (2026-11-09)
+
+
+### Bug Fixes
+
+* **loc:** keep merged blocks in their own section ([0dcb6bf](https://github.com/adobe/da-nx/commit/0dcb6bf5ef5ef66cbf41e35067d582b5c93429c2)), closes [#968](https://github.com/adobe/da-nx/issues/968)
+* **loc:** only line up sections when break counts match ([1cac016](https://github.com/adobe/da-nx/commit/1cac01672b5eb3d4e4eeb4868bbfb5d02cca8294))
+
+## [1.44.1](https://github.com/adobe/da-nx/compare/v1.44.0...v1.44.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **quick-edit:** sync image versions after host editor updates ([21f1edf](https://github.com/adobe/da-nx/commit/21f1edfdc560ce1a7f9e6ff64bb44bc609fe0e8c))
+
 # [1.44.0](https://github.com/adobe/da-nx/compare/v1.43.0...v1.44.0) (2026-11-09)
 
 
