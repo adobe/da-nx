@@ -34,7 +34,15 @@ function getCard({ title, description, path, image }) {
   card.heading = title ?? '';
   card.description = description ?? '';
   card.menu = path ? [{ id: 'open-new-tab', label: loc`Open in new tab` }] : [];
-  if (image) card.icon = image;
+  if (image) {
+    // Admins can configure any image format, so it goes into the card's icon slot as <img>.
+    const img = document.createElement('img');
+    img.slot = 'icon';
+    img.src = image;
+    img.alt = '';
+    img.loading = 'lazy';
+    card.append(img);
+  }
   // Site apps always get the page's site hash (e.g. `#/org/site`).
   const sync = () => { if (path) card.action = withSiteHash(path); };
   sync();

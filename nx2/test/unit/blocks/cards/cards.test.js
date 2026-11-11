@@ -63,7 +63,9 @@ describe('cards block', () => {
     const [card] = cards(el);
     expect(card.heading).to.equal('Traverse');
     expect(card.description).to.equal('Get a birds eye view.');
-    expect(card.icon).to.equal(`${codeBase}/img/icons/s2-icon-treeview-20-n.svg`);
+    const icon = card.querySelector(':scope > svg[slot="icon"]');
+    expect(icon.querySelector('use').getAttribute('href')).to.equal(`${codeBase}/img/icons/s2-icon-treeview-20-n.svg#icon`);
+    expect(icon.getAttribute('aria-hidden')).to.equal('true');
     expect(card.tint).to.equal('#F4EBFC');
     expect(card.action).to.equal(new URL('/apps/traverse', window.location.href).href);
     expect(card.actionLabel).to.equal('Open');
@@ -79,7 +81,7 @@ describe('cards block', () => {
     section.append(el);
     document.body.append(section);
     await init(el);
-    expect(cards(el)[0].icon).to.equal(undefined);
+    expect(!!cards(el)[0].querySelector('[slot="icon"]')).to.be.false;
   });
 
   it('leaves action and tint unset when not authored', async () => {

@@ -54,12 +54,14 @@ describe('site-apps renderApps', () => {
     renderApps({ el, apps: APPS });
     const [first, second] = cards(el);
     expect(first.description).to.equal('Bulk things.');
-    expect(first.icon).to.equal('/media/bulk.svg');
+    const img = first.querySelector(':scope > img[slot="icon"]');
+    expect(img.getAttribute('src')).to.equal('/media/bulk.svg');
+    expect(img.getAttribute('alt')).to.equal('');
     expect(first.action).to.equal('/tools/bulk');
     expect(first.actionLabel).to.equal('Open');
     expect(first.menu).to.deep.equal([{ id: 'open-new-tab', label: 'Open in new tab' }]);
     expect(first.getAttribute('role')).to.equal('listitem');
-    expect(second.icon).to.equal(undefined);
+    expect(!!second.querySelector('[slot="icon"]')).to.be.false;
   });
 
   it('puts by admin into the extra slot', () => {

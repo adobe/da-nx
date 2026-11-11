@@ -47,7 +47,14 @@ function toCard({ row, tools }) {
   card.description = [...(bodyCol?.querySelectorAll('p') ?? [])]
     .map((p) => p.textContent.trim()).filter(Boolean).join(' ');
   card.menu = links.map(({ id, label }) => ({ id, label }));
-  if (icon) card.icon = icon;
+  if (icon) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('slot', 'icon');
+    svg.setAttribute('viewBox', '0 0 20 20');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.innerHTML = `<use href="${icon}#icon" width="100%" height="100%"></use>`;
+    card.append(svg);
+  }
   if (tint) card.tint = tint;
   const sync = () => { if (href) card.action = toolUrl(); };
   sync();
