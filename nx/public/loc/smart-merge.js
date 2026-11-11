@@ -3,7 +3,7 @@
  * See docs/rollout-smart-overwrite.md for the rules.
  */
 
-function lcsMatches(a, b) {
+function tableMatches(a, b) {
   const table = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
   for (let i = a.length - 1; i >= 0; i -= 1) {
     for (let j = b.length - 1; j >= 0; j -= 1) {
@@ -27,6 +27,17 @@ function lcsMatches(a, b) {
     }
   }
   return matches;
+}
+
+// Matching the shared prefix up front gives the same result as the table and keeps it small.
+function lcsMatches(a, b) {
+  let start = 0;
+  while (start < a.length && start < b.length && a[start] === b[start]) start += 1;
+  const rest = tableMatches(a.slice(start), b.slice(start));
+  return new Map([
+    ...Array.from({ length: start }, (_, idx) => [idx, idx]),
+    ...[...rest].map(([i, j]) => [i + start, j + start]),
+  ]);
 }
 
 const toHashes = (blocks) => blocks.map(({ hash }) => hash);

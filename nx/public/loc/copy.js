@@ -2,10 +2,12 @@ import getElementMetadata from '../../../nx2/utils/getElementMetadata.js';
 import {
   regionalDiff, removeLocTags, LOC_MARKERS, isSnapshotPath,
 } from './regional-diff.js';
+import { ROLLOUT_BASE_KEY } from './hashes.js';
 
 const DEFAULT_TIMEOUT = 20000;
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
 const VERSION_SAVE_EXTS = new Set(['json', 'html']);
+const NO_SYNC_POINT = 'no-sync-point';
 
 function saveDaSource({
   url, body, contentType, fetch,
@@ -163,23 +165,36 @@ export function createCopy({
     return smart;
   };
 
+  // `configErrorOptsOut`: plain overwrite never read the config, so an unreadable one opts out.
+  const readRolloutConfig = async (destination, { configErrorOptsOut }) => {
+    const [, org, site] = destination.split('/');
+    try {
+      const config = await loadConfig({ org, site });
+      if (config?.error) throw new Error(config.error);
+      return config;
+    } catch (error) {
+      if (!configErrorOptsOut) throw error;
+      // eslint-disable-next-line no-console
+      console.warn(`${destination}: overwriting without a sync point (${error.message})`);
+      return null;
+    }
+  };
+
   // `recordBaseline`: rollout callers only, and only on sites that opted into smart-overwrite.
-  const getSmartForRollout = async (url, { recordBaseline } = {}) => {
+  const getSmartForRollout = async (url, { recordBaseline } = {}, { configErrorOptsOut } = {}) => {
     const { destination } = url;
     const isPage = destination.toLowerCase().endsWith('.html') && !isSnapshotPath(destination);
     if (!recordBaseline || !isPage) return null;
-    const [, org, site] = destination.split('/');
-    const config = await loadConfig({ org, site });
-    if (config?.error) throw new Error(config.error);
+    const config = await readRolloutConfig(destination, { configErrorOptsOut });
     return isSmartOverwriteEnabled(config) ? loadSmart() : null;
   };
 
   const overwriteCopy = async (url, title, options = {}) => {
     try {
       let response;
-      const smartRollout = await getSmartForRollout(url, options);
-      const withBaseline = smartRollout
-        && await smartRollout.getOverwriteWithBaseline(url).catch(() => null);
+      delete url.outcome;
+      const smartRollout = await getSmartForRollout(url, options, { configErrorOptsOut: true });
+      const withBaseline = smartRollout && await smartRollout.getOverwriteWithBaseline(url);
       if (withBaseline) {
         response = await saveBody(url, withBaseline.body);
       } else if (url.sourceContent) {
@@ -204,6 +219,7 @@ export function createCopy({
       }
       await saveVersion(url.destination, `${title} - Rolled Out`);
       url.status = 'success';
+      if (smartRollout && !withBaseline) url.outcome = NO_SYNC_POINT;
       return response;
     } catch (error) {
       return fail(url, error);
@@ -266,8 +282,10 @@ export function createCopy({
     return { ...url, sourceHtml };
   };
 
+  // `dropBaseline`: callers that can't record a baseline remove the page's (now stale) one.
   const mergeCopy = async (url, title, options = {}) => {
     try {
+      delete url.outcome;
       const smartRollout = await getSmartForRollout(url, options);
       const sourceUrl = smartRollout ? await withSourceText(url) : url;
       const result = await prepareDiff({
@@ -278,22 +296,25 @@ export function createCopy({
         sameMain: !!smartRollout,
       });
       if (result.missing) return overwriteCopy(url, title, options);
-      const baseline = smartRollout
-        && await smartRollout.getBaselineValue(sourceUrl).catch(() => null);
+      const baseline = smartRollout && await smartRollout.getBaselineValue(sourceUrl);
+      const noSyncPoint = smartRollout && !baseline;
       if (result.same) {
-        if (baseline && result.metadata[smartRollout.baselineKey]?.text !== baseline) {
+        const current = result.metadata[ROLLOUT_BASE_KEY]?.text;
+        if (smartRollout && (baseline ? current !== baseline : current)) {
           const recorded = await smartRollout.recordBaseline(url, baseline);
           if (!recorded.ok) return fail(url, responseError(recorded, 'Save'));
         }
         url.status = 'success';
+        if (noSyncPoint) url.outcome = NO_SYNC_POINT;
         return { ok: true };
       }
-      if (baseline) result.metadata[smartRollout.baselineKey] = baseline;
-      else if (smartRollout) delete result.metadata[smartRollout.baselineKey];
+      if (baseline) result.metadata[ROLLOUT_BASE_KEY] = baseline;
+      else if (smartRollout || options.dropBaseline) delete result.metadata[ROLLOUT_BASE_KEY];
       applyLabels(result.metadata, options);
       const response = await saveHtml(url, result.diffed.innerHTML, result.metadata);
       if (response.ok) await saveVersion(url.destination, `${title} - Rolled Out`);
       setSaveStatus(url, response);
+      if (response.ok && noSyncPoint) url.outcome = NO_SYNC_POINT;
       return response;
     } catch (error) {
       return fail(url, error);

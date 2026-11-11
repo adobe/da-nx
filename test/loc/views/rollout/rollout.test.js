@@ -292,6 +292,20 @@ describe('nx-loc-rollout smart overwrite', () => {
     expect(link.textContent).to.equal('/en-nl/page');
   });
 
+  it('lists source pages that left a locale without a sync point, each linking to the editor', async () => {
+    siteConfig = OPTED_IN;
+    sourcePage = '<body><header></header><main><div><h1>Fedex {{country}}</h1></div>Loose</main><footer></footer></body>';
+    const lang = newLang();
+    const el = newRollout('merge', lang);
+    await el.handleRolloutLang(lang);
+    expect(lang.locales[0].noSync).to.deep.equal(['/org/optin/langstore/en/page.html']);
+    const container = renderLocales(el, lang);
+    expect(container.querySelector('.skipped-count').textContent).to.equal('1 without sync point');
+    const link = container.querySelector('.review-list a');
+    expect(link.getAttribute('href')).to.equal('https://da.live/edit#/org/optin/langstore/en/page');
+    expect(link.textContent).to.equal('/langstore/en/page');
+  });
+
   it('counts unchanged pages and replaces the previous rollout report', async () => {
     siteConfig = OPTED_IN;
     const lang = newLang();

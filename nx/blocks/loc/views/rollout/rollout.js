@@ -27,6 +27,7 @@ const localeLabels = (locale, syncCounts) => [
   locale.skipped && `${locale.skipped} skipped (localized)`,
   locale.unchanged && `${locale.unchanged} unchanged`,
   locale.review?.length && `${locale.review.length} ${locale.review.length === 1 ? 'needs' : 'need'} review`,
+  locale.noSync?.length && `${locale.noSync.length} without sync point`,
   syncCounts && syncSummary(syncCounts),
 ].filter(Boolean);
 
@@ -236,6 +237,12 @@ class NxLocRollout extends LitElement {
         ${locale.review?.length ? html`
           <ul class="review-list">
             ${locale.review.map((path) => html`
+              <li><a href=${toEditHref(path)} target="_blank" rel="noopener">${toDisplayPath(path)}</a></li>`)}
+          </ul>` : nothing}
+        ${locale.noSync?.length ? html`
+          <p class="no-sync-note">No sync point. Move all content into sections in these source pages:</p>
+          <ul class="review-list no-sync-list">
+            ${locale.noSync.map((path) => html`
               <li><a href=${toEditHref(path)} target="_blank" rel="noopener">${toDisplayPath(path)}</a></li>`)}
           </ul>` : nothing}
       </li>`;

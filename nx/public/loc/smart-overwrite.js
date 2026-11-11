@@ -3,9 +3,9 @@ import {
   regionalDiff, removeLocTags, getBlockHashes, getContentHashes, smartMerge, LOC_MARKERS,
   isSnapshotPath, removeRejectedBlocks,
 } from './regional-diff.js';
+import { ROLLOUT_BASE_KEY } from './hashes.js';
 
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
-const ROLLOUT_BASE_KEY = 'rolloutbase';
 const EMPTY_TAGS = new Set(['DIV', 'P', 'BR']);
 const MARKED_VERSION_LABEL = 'Sync point set';
 const NOT_ENABLED = 'Smart overwrite is not enabled for this site';
@@ -98,7 +98,8 @@ async function smartRollout({
   if (!dest) return copySource({ source, site, config });
   const metadataEl = dest.querySelector(DA_METADATA_SELECTOR);
   const daMetadata = readMetadata(metadataEl);
-  const base = getRolloutBase(metadataEl, path);
+  // A snapshot never merges against a sync point: it only keeps the live page's.
+  const base = !isSnapshotPath(path) && getRolloutBase(metadataEl, path);
   if (base && !destMarked) {
     const sourceHashes = await getBlockHashes({ doc: source, site, config });
     if (sourceHashes.join() === base.join()) return { unchanged: true };
@@ -121,24 +122,26 @@ async function smartRollout({
 
 const isHtmlPath = (path) => path.toLowerCase().endsWith('.html');
 
-// Sets only the baseline row; everything else on the page stays exactly as authored.
+// Sets only the baseline row (a null value removes it); everything else stays exactly as authored.
 function withBaselineRow(doc, value, { dropKeys = [] } = {}) {
   const page = doc.cloneNode(true);
   let metadata = page.querySelector(DA_METADATA_SELECTOR);
-  if (!metadata) {
+  if (!metadata && value) {
     metadata = page.createElement('div');
     metadata.className = 'da-metadata';
     page.body.insertBefore(metadata, page.querySelector('body > footer'));
   }
   const removed = [ROLLOUT_BASE_KEY, ...dropKeys];
-  [...metadata.children]
+  [...metadata?.children || []]
     .filter((el) => removed.includes(el.children[0]?.textContent.trim().toLowerCase()))
     .forEach((el) => el.remove());
-  const row = page.createElement('div');
-  row.append(page.createElement('div'), page.createElement('div'));
-  row.firstElementChild.textContent = ROLLOUT_BASE_KEY;
-  row.lastElementChild.textContent = value;
-  metadata.append(row);
+  if (value) {
+    const row = page.createElement('div');
+    row.append(page.createElement('div'), page.createElement('div'));
+    row.firstElementChild.textContent = ROLLOUT_BASE_KEY;
+    row.lastElementChild.textContent = value;
+    metadata.append(row);
+  }
   if (!doc.sourceShape?.html && !doc.head?.childNodes.length) return page.body.outerHTML;
   const doctype = doc.sourceShape.doctype ? '<!DOCTYPE html>\n' : '';
   return `${doctype}${page.documentElement.outerHTML}`;
@@ -170,10 +173,16 @@ export default function createSmartOverwrite({
     return { site, config };
   };
 
-  const readSource = async (url) => {
+  const readSectioned = async (url) => {
     const source = await getHtml(url.source, url.sourceContent || url.sourceHtml, { raw: true });
-    if (!getSectionedMain(source)) throw new Error('Source content not found or malformed');
+    if (!getSectionedMain(source)) return null;
     removeLocTags(source);
+    return source;
+  };
+
+  const readSource = async (url) => {
+    const source = await readSectioned(url);
+    if (!source) throw new Error('Source content not found or malformed');
     return source;
   };
 
@@ -190,6 +199,8 @@ export default function createSmartOverwrite({
       const empty = !!regionalMain && isEmptyMain(regionalMain);
       const destHtml = regionalMain?.innerHTML;
       const destMarked = !!regional?.querySelector(LOC_MARKERS);
+      const destMetadata = readMetadata(regional?.querySelector(DA_METADATA_SELECTOR));
+      const keptBase = destMetadata[ROLLOUT_BASE_KEY];
       if (regional) removeLocTags(regional);
 
       const {
@@ -210,7 +221,11 @@ export default function createSmartOverwrite({
         url.outcome = 'unchanged';
         return { ok: true };
       }
-      daMetadata[ROLLOUT_BASE_KEY] = formatRolloutBase(url.destination, sourceHashes);
+      // A snapshot keeps the page's sync point and never records one.
+      if (!isSnapshotPath(url.destination)) {
+        daMetadata[ROLLOUT_BASE_KEY] = formatRolloutBase(url.destination, sourceHashes);
+      } else if (keptBase) daMetadata[ROLLOUT_BASE_KEY] = keptBase;
+      else delete daMetadata[ROLLOUT_BASE_KEY];
 
       const response = await saveHtml(url, html, daMetadata);
       if (!response.ok) return fail(url, responseError(response, 'Save'));
@@ -226,14 +241,16 @@ export default function createSmartOverwrite({
 
   const getBaselineValue = async (url) => {
     const { site, config } = await getConfig(url);
-    const source = await readSource(url);
+    const source = await readSectioned(url);
+    if (!source) return null;
     const sourceHashes = await getBlockHashes({ doc: source, site, config });
     return formatRolloutBase(url.destination, sourceHashes);
   };
 
   const getOverwriteWithBaseline = async (url) => {
     const { site, config } = await getConfig(url);
-    const source = await readSource(url);
+    const source = await readSectioned(url);
+    if (!source) return null;
     const sourceHashes = await getBlockHashes({ doc: source, site, config });
     const value = formatRolloutBase(url.destination, sourceHashes);
     return { body: withBaselineRow(source, value, { dropKeys: REVIEW_KEYS }) };
@@ -258,7 +275,7 @@ export default function createSmartOverwrite({
 
   const recordBaseline = async (url, value) => {
     const regional = await getHtml(url.destination, undefined, { raw: true });
-    if (!regional || !getSectionedMain(regional)) return { ok: true };
+    if (!regional || (value && !getSectionedMain(regional))) return { ok: true };
     return saveBody(url, withBaselineRow(regional, value));
   };
 
@@ -303,6 +320,5 @@ export default function createSmartOverwrite({
     getBaselineValue,
     getOverwriteWithBaseline,
     recordBaseline,
-    baselineKey: ROLLOUT_BASE_KEY,
   };
 }

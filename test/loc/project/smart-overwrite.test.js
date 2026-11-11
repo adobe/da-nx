@@ -30,8 +30,10 @@ describe('smartOverwriteCopy', () => {
   let siteConfigStatus;
   let postedTo;
   let destReads;
+  let destPath;
 
   beforeEach(() => {
+    destPath = DEST;
     versionLabels = [];
     siteConfig = { config: { data: [{ key: 'rollout.conflict.behavior', value: 'merge, smart-overwrite' }] } };
     siteConfigStatus = 200;
@@ -47,7 +49,7 @@ describe('smartOverwriteCopy', () => {
     globalThis.fetch = sinon.stub().callsFake(async (url, opts = {}) => {
       const headers = new Headers({ 'x-da-actions': 'read=true' });
       if (opts.method === 'POST' && url.includes('/source/')) postedTo.push(url);
-      if (opts.method === 'POST' && url.includes(`/source${DEST}`)) {
+      if (opts.method === 'POST' && url.includes(`/source${destPath}`)) {
         if (saveThrows) throw new Error('network');
         saved = await opts.body.get('data').text();
         return { ok: saveOk, status: saveOk ? 200 : 500, headers, json: async () => ({}), text: async () => '' };
@@ -67,7 +69,7 @@ describe('smartOverwriteCopy', () => {
         const ok = siteConfigStatus === 200;
         return { ok, status: siteConfigStatus, headers, json: async () => siteConfig };
       }
-      if (url.endsWith(`/source${DEST}`)) {
+      if (url.endsWith(`/source${destPath}`)) {
         if (destReads.length) destHtml = destReads.shift();
         return { ok: destStatus === 200, status: destStatus, headers, text: async () => destHtml };
       }
@@ -653,6 +655,60 @@ describe('smartOverwriteCopy', () => {
       expect(saved).to.equal(`<body><header><p>H</p></header><main id="local"><div class="x"><p>A local</p></div></main><div class="da-metadata"><div><div>label</div><div><p>Keep</p></div></div><div><div>rolloutbase</div><div>${value}</div></div></div><footer><p>F</p></footer></body>`);
     });
 
+    describe('smart rollouts into snapshot pages', () => {
+      const SNAPSHOT = '/org/site/.snapshots/s1/apac/page.html';
+      const toSnapshot = async (sourceContent) => {
+        const url = { source: '/org/site/page', destination: SNAPSHOT, sourceContent };
+        await engine.smartOverwriteCopy(url, 'Proj');
+        return url;
+      };
+
+      it('review every difference, keep code as authored and keep the page sync point', async () => {
+        optIn();
+        destPath = SNAPSHOT;
+        const base = await baseOf('<p>A</p><p>B</p>');
+        const code = '<pre><code>const a = 1;\n  // note\nconst b = 2;</code></pre>';
+        destHtml = toPage(`${code}<p>B local</p>`, baseRow(base));
+        const url = await toSnapshot(toPage(`${code}<p>B global</p>`));
+        expect(url.status).to.equal('success');
+        expect(saved).to.include('<da-diff-deleted><p>B global</p></da-diff-deleted>');
+        expect(saved).to.include(code);
+        expect(saved).to.include(`<div>rolloutbase</div><div>${base}</div>`);
+        expect(saved.match(/rolloutbase/g)).to.have.length(1);
+      });
+
+      it('keep the sync point and review decisions of an emptied snapshot page', async () => {
+        optIn();
+        destPath = SNAPSHOT;
+        const base = await baseOf('<p>A</p>');
+        const rejected = getDiffHash('<p>R</p>');
+        destHtml = toPage('', rejectedRow(rejected, base));
+        await toSnapshot('<body><main><div><p>A</p><p>R</p></div></main></body>');
+        expect(saved).to.include('<main><div><p>A</p></div></main>');
+        expect(saved).to.include(rejected);
+        expect(saved).to.include(`<div>rolloutbase</div><div>${base}</div>`);
+      });
+
+      it('never merge against a sync point keyed to the snapshot path', async () => {
+        optIn();
+        destPath = SNAPSHOT;
+        const stale = `${SNAPSHOT}|${(await hashesOf('<p>A</p>')).join(',')}`;
+        destHtml = toPage('<p>A</p><p>L</p>', baseRow(stale));
+        await toSnapshot(toPage('<p>A2</p>'));
+        expect(saved).to.include('da-diff');
+        expect(saved).to.include('<p da-diff-added="">L</p>');
+      });
+
+      it('record no sync point on a new snapshot page', async () => {
+        optIn();
+        destPath = SNAPSHOT;
+        destStatus = 404;
+        await toSnapshot(toPage('<p>A</p>', baseRow('/org/site/page.html|0123456789ab')));
+        expect(saved).to.include('<main><div><p>A</p></div></main>');
+        expect(saved).to.not.include('rolloutbase');
+      });
+    });
+
     it('skips snapshot pages', async () => {
       optIn();
       const url = { source: '/org/site/.snapshots/s1/page.html', destination: '/org/site/.snapshots/s1/apac/page.html' };
@@ -808,14 +864,55 @@ describe('smartOverwriteCopy', () => {
       expect(saved).to.include(`<div>rolloutbase</div><div>${await baseOf('<p>A</p>')}</div>`);
     });
 
-    it('fall back to a plain overwrite when the source cannot be hashed', async () => {
+    it('overwrite without a sync point and report it when the source has content outside sections', async () => {
       optIn();
       destHtml = toPage('<p>A</p>');
       const sourceContent = '<body><main><p>Loose</p></main></body>';
       const url = { source: '/org/site/page', destination: DEST, sourceContent };
       await engine.overwriteCopy(url, 'Proj', { recordBaseline: true });
       expect(url.status).to.equal('success');
+      expect(url.outcome).to.equal('no-sync-point');
       expect(saved).to.equal(sourceContent);
+    });
+
+    it('merge without a sync point, remove the old one and report it when the source has content outside sections', async () => {
+      optIn();
+      destHtml = toPage('<p>A</p>', baseRow(await baseOf('<p>Old</p>')));
+      const url = { source: '/org/site/page', destination: DEST, sourceContent: '<body><main><div><p>A</p><p>B</p></div>Loose</main></body>' };
+      await engine.mergeCopy(url, 'Proj', { recordBaseline: true });
+      expect(url.status).to.equal('success');
+      expect(url.outcome).to.equal('no-sync-point');
+      expect(saved).to.include('da-diff');
+      expect(saved).to.not.include('rolloutbase');
+    });
+
+    it('remove the old sync point from an unchanged page when the source has content outside sections', async () => {
+      optIn();
+      const main = '<div><p>A</p></div>Loose';
+      destHtml = `<body><header></header><main>${main}</main>${baseRow(await baseOf('<p>Old</p>'))}<footer></footer></body>`;
+      const url = { source: '/org/site/page', destination: DEST, sourceContent: `<body><main>${main}</main></body>` };
+      await engine.mergeCopy(url, 'Proj', { recordBaseline: true });
+      expect(url.status).to.equal('success');
+      expect(url.outcome).to.equal('no-sync-point');
+      expect(saved).to.include(`<main>${main}</main>`);
+      expect(saved).to.not.include('rolloutbase');
+      expect(versionSaves).to.equal(0);
+    });
+
+    it('fail without writing when hashing the sync point fails', async () => {
+      optIn();
+      destHtml = toPage('<p>B</p>');
+      const hash = sinon.stub(globalThis, 'objectHash').throws(new Error('Hashing failed'));
+      const merged = pageUrl('<p>B</p>');
+      await engine.mergeCopy(merged, 'Proj', { recordBaseline: true });
+      const overwritten = pageUrl('<p>B</p>');
+      await engine.overwriteCopy(overwritten, 'Proj', { recordBaseline: true });
+      hash.restore();
+      [merged, overwritten].forEach((url) => {
+        expect(url.status).to.equal('error');
+        expect(url).to.not.have.property('outcome');
+      });
+      expect(saved).to.be.undefined;
     });
 
     it('keep the exact source on an overwrite without the opt-in', async () => {
@@ -843,12 +940,39 @@ describe('smartOverwriteCopy', () => {
       expect(postedTo).to.deep.equal(['https://admin.da.live/source/org/site/a.html/page.html']);
     });
 
-    it('fail without writing when the site config cannot be read', async () => {
+    it('overwrite like a site without the opt-in when the site config cannot be read', async () => {
       optIn();
       siteConfigStatus = 500;
       destHtml = toPage('<p>A</p>');
       const url = pageUrl('<p>B</p>');
       await engine.overwriteCopy(url, 'Proj', { recordBaseline: true });
+      expect(url.status).to.equal('success');
+      expect(url).to.not.have.property('outcome');
+      expect(saved).to.equal(toPage('<p>B</p>'));
+    });
+
+    it('accept a synchronous config loader, and overwrite plainly when it throws', async () => {
+      destHtml = toPage('<p>A</p>');
+      const overwriteWith = async (loadConfig) => {
+        saved = undefined;
+        const sync = createCopy({ fetch: (u, o) => globalThis.fetch(u, o), daOrigin: 'https://admin.da.live', loadConfig });
+        const url = pageUrl('<p>B</p>');
+        await sync.overwriteCopy(url, 'Proj', { recordBaseline: true });
+        return url;
+      };
+      const optedIn = { config: { data: [{ key: 'rollout.conflict.behavior', value: 'smart-overwrite' }] } };
+      expect((await overwriteWith(() => optedIn)).status).to.equal('success');
+      expect(saved).to.include('rolloutbase');
+      expect((await overwriteWith(() => { throw new Error('Config failed'); })).status).to.equal('success');
+      expect(saved).to.equal(toPage('<p>B</p>'));
+    });
+
+    it('fail a merge without writing when the site config cannot be read', async () => {
+      optIn();
+      siteConfigStatus = 500;
+      destHtml = toPage('<p>A</p>');
+      const url = pageUrl('<p>B</p>');
+      await engine.mergeCopy(url, 'Proj', { recordBaseline: true });
       expect(url.status).to.equal('error');
       expect(saved).to.be.undefined;
     });

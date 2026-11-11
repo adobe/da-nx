@@ -232,6 +232,9 @@ export async function rolloutLang(conf) {
     const review = localeSaved.filter((url) => url.outcome === 'review').map((url) => url.destination);
     if (review.length) locale.review = review;
     else delete locale.review;
+    const noSync = localeSaved.filter((url) => url.outcome === 'no-sync-point').map((url) => url.source);
+    if (noSync.length) locale.noSync = noSync;
+    else delete locale.noSync;
   });
 
   actions.requestUpdate();

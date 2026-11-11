@@ -61,9 +61,20 @@ On opted-in sites the baseline is recorded by:
   local stay local afterwards);
 - **Set sync point** (below).
 
+If the upstream page's content isn't all in `main > div` sections (e.g. loose content in `main`), no baseline can be
+computed: a plain merge or overwrite still saves the page, records none and removes the old one (it no longer
+matches the page). The report shows this (Loc app rollout step: "N without sync point" per locale, listing the
+upstream pages to fix; plugin: "no sync point"). Any other error while computing the baseline fails the page before
+anything is saved. If the translation config can't be read, an overwrite proceeds as on a site that hasn't opted in
+(the page takes upstream's metadata, so it has no sync point and its next smart rollout is a merge review). This is
+only logged to the console, as the site may not have opted in.
+
 Snapshots, translations and sync do not record baselines, and neither do rollouts or sync points into snapshot
 paths (`/.snapshots/…`). A snapshot keeps the page's baseline, so edits made in a snapshot count as local edits when
-merged or overwritten back. Translations and sync write the upstream (language)
+merged or overwritten back. That baseline is keyed to the live page, so a smart rollout into a snapshot is a merge
+review. The public `mergeCopy`
+([loc-copy.md](loc-copy.md)) can't tell whether its source is the page's rollout parent, so when it writes a merge it removes the
+baseline and the next smart rollout to that page is a merge review. Translations and sync write the upstream (language)
 pages, so they are upstream edits that roll out normally.
 
 The next smart rollout does a block-level three-way merge (diff3, like `git merge`) of baseline (B), current
@@ -135,7 +146,8 @@ Each smart rollout also reports, per page:
   linking to the page in the DA editor; in the plugin, "needs review" links to the page. The list is saved with the
   project and replaced by the next rollout.
 
-Merge and overwrite rollouts do not report these.
+Merge and overwrite rollouts report only "without sync point" (above). The legacy project rollout view reports none of
+these.
 
 - Unresolved review: while the destination still has `da-diff-*` markers (e.g. a first-run merge review that
   was not resolved yet), every smart rollout is today's merge again, honoring earlier accept/reject decisions,
