@@ -1,3 +1,10 @@
+## [1.51.1](https://github.com/adobe/da-nx/compare/v1.51.0...v1.51.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **api:** forward mutation continuation tokens ([#984](https://github.com/adobe/da-nx/issues/984)) ([37b28d4](https://github.com/adobe/da-nx/commit/37b28d4335963593cb83fd0aef0c3a7f8e3a32de)), closes [adobe/da-live#1708](https://github.com/adobe/da-live/issues/1708)
+
 # [1.51.0](https://github.com/adobe/da-nx/compare/v1.50.0...v1.51.0) (2026-11-11)
 
 
