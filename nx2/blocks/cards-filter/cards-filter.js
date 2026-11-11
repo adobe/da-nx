@@ -70,7 +70,8 @@ export default async function init(el) {
   bar.append(pills, field);
   el.replaceChildren(bar, empty);
 
-  let query = '';
+  // The search field holds the current query.
+  const getQuery = () => (field.value ?? '').trim();
 
   const showCategory = (value) => {
     sections.forEach((section) => { section.hidden = value !== ALL && section.id !== value; });
@@ -78,6 +79,7 @@ export default async function init(el) {
   };
 
   const applySearch = () => {
+    const query = getQuery();
     const results = search(query);
     if (!query) {
       showCategory(ALL);
@@ -90,8 +92,7 @@ export default async function init(el) {
 
   pills.addEventListener('change', (e) => {
     e.stopPropagation();
-    if (query) {
-      query = '';
+    if (getQuery()) {
       field.value = '';
       search('');
     }
@@ -99,13 +100,12 @@ export default async function init(el) {
   });
 
   field.addEventListener('input', () => {
-    query = (field.value ?? '').trim();
     pills.value = ALL;
     applySearch();
   });
 
   document.addEventListener('nx-cards-ready', () => {
-    if (el.isConnected && query) applySearch();
+    if (el.isConnected && getQuery()) applySearch();
   });
 
   // Blocks may remove their own section later (e.g. site-apps without apps).
