@@ -376,6 +376,25 @@
   mask-position: center;
 }
 
+.ui-artifact-pe-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2-spacing-100);
+  margin-top: var(--s2-spacing-75);
+
+  .ui-artifact-pe-modal-copy {
+    margin-top: 0;
+  }
+}
+
+.ui-artifact-pe-modal-chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2-spacing-100);
+}
+
 .ui-artifact-pe-modal-context-title {
   font-size: var(--s2-body-size-m);
   font-weight: bold;

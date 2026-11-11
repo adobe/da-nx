@@ -233,6 +233,7 @@ describe('nav brand override', () => {
 
   it('aligns the logo and product label with the shell rail', async () => {
     await setConfig({ ...config, navBrand: { logoHref, label: 'Example Product' } });
+    nav.style.setProperty('--nx-nav-brand-label-display', 'inline');
     const brand = await mountBrand();
     const icon = brand.querySelector('.brand-icon');
     const img = icon.querySelector('img');
@@ -260,6 +261,14 @@ describe('nav brand override', () => {
     expect(textStyle.fontWeight).to.equal('700');
     expect(textStyle.lineHeight).to.equal('18px');
     expect(textStyle.color).to.equal(getComputedStyle(nav).color);
+  });
+
+  it('shows only the logo by default with breadcrumbs in line with the main container', async () => {
+    await setConfig({ ...config, navBrand: { logoHref, label: 'Example Product' } });
+    const brand = await mountBrand();
+    const siteNav = nav.shadowRoot.querySelector('.site-nav');
+    expect(brand.getBoundingClientRect().width).to.equal(44);
+    expect(siteNav.getBoundingClientRect().left - nav.getBoundingClientRect().left).to.equal(56);
   });
 
   [undefined, { label: 'Missing logo' }, { logoHref }].forEach((navBrand) => {
