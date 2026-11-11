@@ -33,6 +33,10 @@
   gap: var(--s2-spacing-100);
 }
 
+.brand-cluster:has(.brand-icon) {
+  gap: var(--s2-spacing-200);
+}
+
 .brand-area {
   flex-shrink: 0;
   display: inline-flex;
@@ -72,6 +76,10 @@
     height: 24px;
     object-fit: contain;
   }
+}
+
+.brand-label {
+  display: var(--nx-nav-brand-label-display, none);
 }
 
 .site-nav {
