@@ -143,4 +143,57 @@ describe('getUrls', () => {
 
     expect(result[0].error).to.include('404');
   });
+
+  describe('DNT document path', () => {
+    const run = async (suppliedPath) => {
+      globalThis.fetch = makeFetchStub({ delay: 0 });
+      const addDnt = sinon.stub().resolves('<p>dnt</p>');
+      const service = { connector: { dnt: { addDnt } } };
+      const { urls } = await getUrls(
+        ORG,
+        SITE,
+        service,
+        '/en',
+        '/fr',
+        [{ suppliedPath }],
+        true,
+      );
+      return { addDnt, urls };
+    };
+
+    it('passes the language-agnostic path with extension to addDnt', async () => {
+      const { addDnt, urls } = await run('/en/products/prices.json');
+
+      expect(addDnt.calledOnce).to.be.true;
+      expect(addDnt.firstCall.args[2]).to.deep.equal({
+        fileType: 'json',
+        path: '/products/prices.json',
+      });
+      expect(urls[0].content).to.equal('<p>dnt</p>');
+    });
+
+    it('passes a .html path for extensionless documents', async () => {
+      const { addDnt } = await run('/en/products/page');
+
+      expect(addDnt.firstCall.args[2]).to.deep.equal({
+        fileType: undefined,
+        path: '/products/page.html',
+      });
+    });
+
+    it('does not call addDnt without a connector', async () => {
+      globalThis.fetch = makeFetchStub({ delay: 0 });
+      const { urls } = await getUrls(
+        ORG,
+        SITE,
+        makeService(),
+        '/en',
+        '/fr',
+        [{ suppliedPath: '/en/products/prices.json' }],
+        true,
+      );
+
+      expect(urls[0].content).to.equal('<p>hello</p>');
+    });
+  });
 });
