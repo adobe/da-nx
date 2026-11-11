@@ -195,6 +195,24 @@ describe('Regional diff', () => {
   });
 });
 
+describe('list item review markers', () => {
+  const toDoc = (main) => new DOMParser().parseFromString(`<body><main><div>${main}</div></main></body>`, 'text/html');
+
+  it('removeLocTags keeps the content of an added list item', () => {
+    const doc = toDoc('<ul><li>A</li><li><da-diff-added><strong>Local</strong></da-diff-added></li><li><da-diff-deleted>Up</da-diff-deleted></li></ul>');
+    removeLocTags(doc);
+    expect(doc.querySelector('main').innerHTML).to.equal('<div><ul><li>A</li><li><strong>Local</strong></li><li></li></ul></div>');
+  });
+
+  it('does not nest an unresolved list item review in the next merge', async () => {
+    const regional = toDoc('<ul><li>A</li><li>B</li><li><da-diff-added>Local</da-diff-added></li></ul>');
+    removeLocTags(regional);
+    const main = await regionalDiff(toDoc('<ul><li>A2</li><li>B</li></ul>'), regional);
+    expect(main.innerHTML).to.include('<li>Local</li>');
+    expect(main.querySelectorAll('da-diff-added da-diff-added, [da-diff-added] da-diff-added')).to.have.length(0);
+  });
+});
+
 describe('normalizeLinks', () => {
   function createDocWithLinks(hrefs) {
     const doc = document.implementation.createHTMLDocument();

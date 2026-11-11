@@ -152,7 +152,8 @@ these.
 - Unresolved review: while the destination still has `da-diff-*` markers (e.g. a first-run merge review that
   was not resolved yet), every smart rollout is today's merge again, honoring earlier accept/reject decisions,
   even when a baseline exists. Pending upstream changes keep showing until the author resolves them and are never
-  dropped; once the markers are gone, the next smart rollout uses the baseline.
+  dropped; once the markers are gone, the next smart rollout uses the baseline. Markers include the
+  `da-diff-added` attribute and the `<da-diff-added>` element that list items wrap their added content in.
 
 - No valid baseline yet (no sync point set and never rolled out on this site, or a baseline that is malformed or
   recorded for a different path):

@@ -803,6 +803,34 @@ describe('smartOverwriteCopy', () => {
     });
   });
 
+  describe('list item reviews', () => {
+    const listPage = (items) => toPage(`<ul>${items.map((item) => `<li>${item}</li>`).join('')}</ul>`);
+
+    it('report and keep an addition-only list review until it is resolved', async () => {
+      optIn();
+      destHtml = listPage(['A', 'B', 'Local']);
+      const first = await rollout(smartOverwriteCopy, '<ul><li>A</li><li>B</li></ul>');
+      expect(saved).to.include('<li><da-diff-added>Local</da-diff-added></li>');
+      expect(first.outcome).to.equal('review');
+      destHtml = saved;
+      const second = await rollout(smartOverwriteCopy, '<ul><li>A2</li><li>B</li></ul>');
+      expect(second.outcome).to.equal('review');
+      expect(second.skipped).to.equal(0);
+      expect(saved).to.include('A2');
+      const doc = new DOMParser().parseFromString(saved, 'text/html');
+      expect(doc.querySelectorAll('da-diff-added da-diff-added, [da-diff-added] da-diff-added')).to.have.length(0);
+    });
+
+    it('set no sync point on a page with an unresolved list review', async () => {
+      optIn();
+      destHtml = toPage('<ul><li>A</li><li><da-diff-added>Local</da-diff-added></li></ul>');
+      const url = pageUrl('<ul><li>A</li></ul>');
+      await engine.markInSync(url);
+      expect(url.sync).to.equal('unresolved');
+      expect(saved).to.be.undefined;
+    });
+  });
+
   describe('plain rollouts on opted-in sites', () => {
     const merge = (sourceMain) => {
       const url = pageUrl(sourceMain);

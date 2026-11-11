@@ -508,7 +508,8 @@ function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes =
   return modified;
 }
 
-export const LOC_MARKERS = `${DELETED_TAG}, [${ADDED_TAG}], da-loc-added, da-loc-deleted, [loc-temp-dom]`;
+// List items wrap added content in a <da-diff-added> element instead of using the attribute.
+export const LOC_MARKERS = `${DELETED_TAG}, ${ADDED_TAG}, [${ADDED_TAG}], da-loc-added, da-loc-deleted, [loc-temp-dom]`;
 
 export const isSnapshotPath = (path) => path.includes('/.snapshots/');
 
@@ -518,8 +519,8 @@ export const removeLocTags = (html) => {
   const locElsToRemove = html.querySelectorAll(`${DELETED_TAG}, [loc-temp-dom], da-loc-deleted`);
   locElsToRemove.forEach((el) => el.remove());
 
-  // Temp code to support old regional edits
-  const daLocAddedEls = html.querySelectorAll('da-loc-added');
+  // Keep added content: old regional edits (da-loc-added) and list items (<li><da-diff-added>)
+  const daLocAddedEls = html.querySelectorAll(`da-loc-added, ${ADDED_TAG}`);
   daLocAddedEls.forEach((el) => {
     const parent = el.parentNode;
     if (!parent) return;
