@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { setConfig } from '../../../../../scripts/nx.js';
+import { setConfig, getConfig } from '../../../../../scripts/nx.js';
 
 await setConfig({ hostnames: [] });
 // daFetch uses the nx1 IMS module, which the test import map does not mock, so the
@@ -61,7 +61,11 @@ describe('site-apps renderApps', () => {
     expect(first.actionLabel).to.equal('Open');
     expect(first.menu).to.deep.equal([{ id: 'open-new-tab', label: 'Open in new tab' }]);
     expect(first.getAttribute('role')).to.equal('listitem');
-    expect(!!second.querySelector('[slot="icon"]')).to.be.false;
+    expect(first.tint).to.equal(undefined);
+    const fallback = second.querySelector(':scope > svg[slot="icon"]');
+    expect(fallback.querySelector('use').getAttribute('href')).to.equal(`${getConfig().codeBase}/img/icons/s2-icon-tools-20-n.svg#icon`);
+    expect(fallback.getAttribute('aria-hidden')).to.equal('true');
+    expect(second.tint).to.equal('#E5F0FE');
   });
 
   it('puts by admin into the extra slot', () => {
