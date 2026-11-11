@@ -1,3 +1,10 @@
+# [1.49.0](https://github.com/adobe/da-nx/compare/v1.48.0...v1.49.0) (2026-11-11)
+
+
+### Features
+
+* **nav:** show logo-only branding by default ([#980](https://github.com/adobe/da-nx/issues/980)) ([367d2e9](https://github.com/adobe/da-nx/commit/367d2e99bd03e80044862fe2e00f61d61d6c3664))
+
 # [1.48.0](https://github.com/adobe/da-nx/compare/v1.47.0...v1.48.0) (2026-11-10)
 
 
