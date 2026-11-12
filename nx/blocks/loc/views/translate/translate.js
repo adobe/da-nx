@@ -245,6 +245,13 @@ class NxLocTranslate extends LitElement {
     }
   }
 
+  /**
+   * Saves translated languages, then sends any dependent languages that are ready.
+   * Leaves an error message up when a dependent language is still waiting on
+   * unusable source pages; Get Status retries it.
+   * @param {Object} conf - The translation conf.
+   * @returns {Promise<void>}
+   */
   async checkAndSaveLangs(conf) {
     this.handleMessage({ text: 'Checking for languages to save' });
 
@@ -256,9 +263,13 @@ class NxLocTranslate extends LitElement {
       this._service.connector,
       this.handleMessage.bind(this),
     ) : undefined;
-    await checkWaitingLanguages(conf, this._service.connector, this._urls, this._options['source.language']?.location);
+    const waiting = await checkWaitingLanguages(conf, this._service.connector, this._urls, this._options['source.language']?.location);
 
     if (saved?.errors.length) throw new Error(saved.errors.map(({ text }) => text).join(' '));
+    if (waiting?.errors?.length) {
+      this.handleMessage({ text: waiting.errors.map(({ error }) => error).join(' '), type: 'error' });
+      return;
+    }
     this.handleMessage(undefined);
   }
 
@@ -289,7 +300,7 @@ class NxLocTranslate extends LitElement {
       );
       await this.checkAndSaveLangs(conf);
       await conf.actions.saveState(undefined, { waitForSave: true });
-      if (result?.message) this.handleMessage(result.message);
+      if (result?.message && this._message?.type !== 'error') this.handleMessage(result.message);
     } catch (error) {
       if (!controller.signal.aborted) this.handleMessage({ text: error.message, type: 'error' });
     } finally {

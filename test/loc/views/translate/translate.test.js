@@ -1,4 +1,6 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
+import { setImsDetails } from '../../../../nx/utils/daFetch.js';
 import '../../../../nx/blocks/loc/views/translate/translate.js';
 
 function createTranslateEl() {
@@ -84,6 +86,64 @@ describe('NxLocTranslate - Send All retry', () => {
       expect(el._message).to.deep.equal(managed
         ? { text: failure.message, type: 'error' }
         : undefined);
+    });
+  });
+});
+
+describe('NxLocTranslate - waiting language errors', () => {
+  let originalFetch;
+
+  beforeEach(() => {
+    setImsDetails('test-token');
+    originalFetch = globalThis.fetch;
+    window.location.hash = '#/org/site';
+    globalThis.fetch = sinon.stub().callsFake(async (url) => {
+      if (url.includes('/.da/translate')) {
+        const json = async () => ({ config: { data: [] } });
+        return { ok: true, status: 200, headers: new Headers(), json };
+      }
+      const text = async () => '<p class="da-diff-added">hola</p>';
+      return { ok: true, status: 200, headers: new Headers(), text };
+    });
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    sinon.restore();
+  });
+
+  it('shows an error when a dependent language source has unmerged changes', async () => {
+    const el = createTranslateEl();
+    const connector = {
+      dnt: { addDnt: async (c) => c },
+      sendAllLanguages: sinon.stub().resolves(),
+    };
+    const urls = [{ suppliedPath: '/en/page' }];
+    const catalan = {
+      name: 'Catalan',
+      code: 'ca',
+      waitingFor: { name: 'Spanish', code: 'es', location: '/es' },
+      translation: { status: 'waiting' },
+    };
+    const conf = {
+      org: 'org',
+      site: 'site',
+      urls,
+      langs: [{ name: 'Spanish', code: 'es', translation: { status: 'complete', saved: 1 } }, catalan],
+      options: {},
+      sourceLocations: ['/en'],
+    };
+    el._service = { connector };
+    el._translateLangs = [];
+    el._options = {};
+    el._urls = urls;
+
+    await el.checkAndSaveLangs(conf);
+
+    expect(connector.sendAllLanguages.called).to.be.false;
+    expect(el._message).to.deep.equal({
+      text: 'Catalan is waiting on Spanish: /page.html has unmerged changes. Please resolve before translating.',
+      type: 'error',
     });
   });
 });

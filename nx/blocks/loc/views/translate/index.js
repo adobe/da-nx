@@ -326,13 +326,15 @@ export async function sendAllForTranslation(conf, connector) {
  *  are not mutated (this function builds its own `options` override).
  * @param {Object} connector - The active loc connector.
  * @param {Object} lang - The dependent language to submit; mutated in
- *  place (`translation.status`, and `waitingFor` is deleted).
+ *  place (`translation.status`, and `waitingFor` is deleted) only when sent.
  * @param {Object[]} originalUrls - The project's full supplied urls.
  * @param {string} [sourceLocation] - The project's default source
  *  location, the fallback prefix when a url is under no configured source.
  *  Each url is de-prefixed by its own source location (`conf.sourceLocations`)
  *  before re-prefixing with the dependent language's own source location.
- * @returns {Promise<void>}
+ * @returns {Promise<{ errors: Object[] }|*>} `{ errors }` (urls with `.error`)
+ *  when any source page can't be used, leaving the language waiting;
+ *  otherwise the connector's `sendAllLanguages` result.
  */
 async function sendLanguageForTranslation(conf, connector, lang, originalUrls, sourceLocation) {
   const { waitingFor } = lang;
@@ -356,6 +358,9 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     baseUrls,
     true,
   );
+  const errors = urls.filter((url) => url.error);
+  if (errors.length) return { errors };
+
   lang.translation.status = 'not started';
   delete lang.waitingFor;
 
@@ -370,6 +375,15 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
   });
 }
 
+/**
+ * Sends each waiting language whose source language is fully saved.
+ * @param {Object} conf - The translation conf.
+ * @param {Object} connector - The active loc connector.
+ * @param {Object[]} originalUrls - The project's full supplied urls.
+ * @param {string} [originalSourceLocation] - The project's default source location.
+ * @returns {Promise<{ errors: { error: string }[] }>} Errors for languages left
+ *  waiting because a source page couldn't be used (e.g. unmerged changes).
+ */
 export async function checkWaitingLanguages(conf, connector, originalUrls, originalSourceLocation) {
   const waitingLangs = conf.langs.filter((lang) => (lang.waitingFor && lang.translation?.status === 'waiting'));
 
@@ -381,7 +395,19 @@ export async function checkWaitingLanguages(conf, connector, originalUrls, origi
     }
   }
 
+  const errors = [];
   for (const lang of readyLangs) {
-    await sendLanguageForTranslation(conf, connector, lang, originalUrls, originalSourceLocation);
+    const { name, waitingFor } = lang;
+    const result = await sendLanguageForTranslation(
+      conf,
+      connector,
+      lang,
+      originalUrls,
+      originalSourceLocation,
+    );
+    result?.errors?.forEach(({ error }) => {
+      errors.push({ error: `${name} is waiting on ${waitingFor.name}: ${error}` });
+    });
   }
+  return { errors };
 }
