@@ -45,6 +45,74 @@ Set optional `addEvent` before mounting; standalone instances default to a
 unique event name. `nx-chat-ao` supplies `CHAT_EVENT.ADD_TO_CHAT` and translates
 bubbled pill activation into `HIGHLIGHT_SELECTION`.
 
+## Composed artifact controls
+
+`nx-chat-ao` renders `Button`, `ActionButton`, and `Divider` alongside the existing
+`Text`, `Badge`, `Link`, `Row`, and `Column` primitives. Row and Column support
+literal `width` (a positive pixel number, `full`, `min`, `max`, `fit`, or `screen`),
+`gap`/`padding` (0, 4, 8, 12, 16, 24, or 32 pixels), `align`, `justify`, and `wrap`.
+Other layout fields, including arbitrary `style`, are not applied.
+
+Buttons support literal labels, accessible labels, catalog icons, tooltips,
+disabled/visible flags, and `type: "button"`. Button supports the catalog's
+semantic variants and safe absolute HTTP(S) `href` navigation with
+`openInNewTab` (default false). Disabled URL buttons have no navigable link.
+ActionButton supports a nonnegative integer `notificationBadge`. Submit/reset
+buttons, function-call actions, and dynamic property bindings are not supported;
+unsupported values fall back to the artifact's text summary.
+Divider supports horizontal (default) and vertical orientations.
+
+Named-event actions are opt-in through the chat element's `onArtifactAction`
+property. No callbacks are sent to Coworker or CMA automatically. A button without
+an action or without a host callback is disabled, rather than appearing functional.
+
+```js
+chat.onArtifactAction = ({ artifactId, componentId, name, context }) => {
+  // Validate the event and resolve its references against host-owned proposal state.
+  if (name !== 'editor.viewDiff') return;
+  const page = findProposalPage({ artifactId, componentId, context });
+  if (page) openEditorDiff(page);
+};
+```
+
+`findProposalPage` and `openEditorDiff` above are illustrative host functions, not
+Nexter APIs. The callback receives the artifact ID, the source component ID, the
+event name, and a copy of the event's context. Legacy components without IDs
+produce an undefined component ID.
+
+For example, the following component routes a diff request to that callback:
+
+```json
+{
+  "id": "home-diff",
+  "component": "ActionButton",
+  "label": "View diff",
+  "icon": "Layers",
+  "action": {
+    "event": {
+      "name": "editor.viewDiff",
+      "context": { "pagePath": { "path": "/pages/home/path" } }
+    }
+  }
+}
+```
+
+Context values follow the catalog's `{ "path": "..." }` reference shape. References
+are passed through **unresolved**: this renderer does not implement an A2UI data
+model or expression runtime. Hosts must allowlist event names, validate all
+LLM-provided identifiers and references, authorize the requested operation, and
+resolve references against trusted state. Nothing dynamically dispatches DOM
+events or invokes editor commands based on a generated name.
+
+The host owns asynchronous work, error reporting, confirmation for mutations,
+and updated artifact state after an action. This callback alone does not implement
+collapse, diff, reset, acceptance, or persistence. It is shared by Coworker and CMA
+in `nx-chat-ao`, not the legacy `nx-chat` UI.
+
+For direct renderer consumers, use
+`renderUiArtifact(artifact, { onAction: callback })`, or
+`renderAssistantMessageBody(message, { onArtifactAction: callback })`.
+
 ## Session warming
 
 `AoChatController.warmSession()` (`ao-controller.js`) kicks the current
