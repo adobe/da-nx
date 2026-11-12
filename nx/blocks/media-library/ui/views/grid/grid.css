@@ -158,9 +158,32 @@ svg.icon {
   pointer-events: none;
 }
 
-.media-info.clickable,
-.media-preview.clickable {
+.media-info.clickable {
   cursor: pointer;
+}
+
+.media-open {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.media-open:focus-visible {
+  outline: 2px solid var(--s2-blue-500);
+  outline-offset: -2px;
+  border-radius: var(--s2-radius-300);
+}
+
+.media-card:focus-within .media-info {
+  opacity: 1;
+  visibility: visible;
 }
 
 .media-card {

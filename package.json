@@ -1,7 +1,7 @@
 {
   "name": "nexter",
   "private": true,
-  "version": "1.52.0",
+  "version": "1.52.1",
   "description": "Next generation unified shell for Edge Delivery applications.",
   "type": "module",
   "scripts": {
@@ -62,9 +62,9 @@
     "@semantic-release/github": "^12.0.10",
     "@semantic-release/npm": "^13.2.0",
     "@semantic-release/release-notes-generator": "^14.1.1",
-    "@web/dev-server-import-maps": "^0.2.0",
-    "@web/test-runner": "^0.18.0",
-    "@web/test-runner-commands": "0.9.0",
+    "@web/dev-server-import-maps": "^0.3.0",
+    "@web/test-runner": "^1.0.0",
+    "@web/test-runner-commands": "^1.0.1",
     "chai": "4.5.0",
     "eslint": "9.39.2",
     "globals": "^17.3.0",
