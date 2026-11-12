@@ -92,12 +92,14 @@ describe('cards block', () => {
     expect(card.menu).to.deep.equal([]);
   });
 
-  it('builds the menu from learn more and the title link', async () => {
+  it('builds the menu from learn more only', async () => {
     const el = await buildBlock(row());
-    expect(cards(el)[0].menu).to.deep.equal([
-      { id: 'learn-more', label: 'Learn more' },
-      { id: 'open-new-tab', label: 'Open in new tab' },
-    ]);
+    expect(cards(el)[0].menu).to.deep.equal([{ id: 'learn-more', label: 'Learn more' }]);
+  });
+
+  it('has no menu without learn more', async () => {
+    const el = await buildBlock(row({ learnMore: '' }));
+    expect(cards(el)[0].menu).to.deep.equal([]);
   });
 
   it('puts the by adobe byline into the extra slot for the tools variant', async () => {
@@ -137,15 +139,12 @@ describe('site hash', () => {
     ]);
   });
 
-  it('opens menu entries in a new tab: tool url with the page hash, learn more unchanged', async () => {
+  it('opens learn more in a new tab without the page hash', async () => {
     setHash('#/org/site');
     const stub = sinon.stub(window, 'open');
     const el = await buildBlock(row());
-    const [card] = cards(el);
-    card.dispatchEvent(new CustomEvent('select', { detail: { id: 'open-new-tab' }, bubbles: true }));
-    card.dispatchEvent(new CustomEvent('select', { detail: { id: 'learn-more' }, bubbles: true }));
-    expect(stub.firstCall.args).to.deep.equal([local('/apps/traverse#/org/site'), '_blank', 'noopener']);
-    expect(stub.secondCall.args).to.deep.equal(['https://www.adobe.com/learn', '_blank', 'noopener']);
+    cards(el)[0].dispatchEvent(new CustomEvent('select', { detail: { id: 'learn-more' }, bubbles: true }));
+    expect(stub.calledOnceWith('https://www.adobe.com/learn', '_blank', 'noopener')).to.be.true;
   });
 
   it('updates the links when the page hash changes', async () => {

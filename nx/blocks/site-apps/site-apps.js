@@ -39,7 +39,6 @@ function getCard({ title, description, path, image }) {
   card.setAttribute('role', 'listitem');
   card.heading = title ?? '';
   card.description = description ?? '';
-  card.menu = path ? [{ id: 'open-new-tab', label: loc`Open in new tab` }] : [];
   if (image) {
     // Admins can configure any image format, so it goes into the card's icon slot as <img>.
     const img = document.createElement('img');
@@ -56,13 +55,7 @@ function getCard({ title, description, path, image }) {
   const sync = ({ fullpath } = {}) => {
     if (path) card.action = withSiteHash({ href: path, fullpath });
   };
-  if (path) {
-    card.actionLabel = loc`Open`;
-    card.addEventListener('select', ({ detail }) => {
-      if (detail?.id !== 'open-new-tab') return;
-      window.open(new URL(card.action, window.location.href).href, '_blank', 'noopener');
-    });
-  }
+  if (path) card.actionLabel = loc`Open`;
   const extra = document.createElement('span');
   extra.slot = 'extra';
   extra.textContent = loc`By Admin`;

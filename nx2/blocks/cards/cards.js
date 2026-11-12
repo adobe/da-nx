@@ -39,17 +39,12 @@ function toCard({ row, tools }) {
   const tint = iconCol?.querySelector('em')?.textContent.trim();
 
   const card = document.createElement('nx-action-card');
-  // "Open in new tab" opens the current action, which carries the site hash where accepted.
-  const links = [
-    learnMoreHref && { id: 'learn-more', label: loc`Learn more`, url: () => learnMoreHref },
-    href && { id: 'open-new-tab', label: loc`Open in new tab`, url: () => card.action },
-  ].filter(Boolean);
-
   card.setAttribute('role', 'listitem');
   card.heading = heading?.textContent.trim() ?? '';
   card.description = [...(bodyCol?.querySelectorAll('p') ?? [])]
     .map((p) => p.textContent.trim()).filter(Boolean).join(' ');
-  card.menu = links.map(({ id, label }) => ({ id, label }));
+  // Opening the tool in a new tab is left to the browser (the action is a link).
+  card.menu = learnMoreHref ? [{ id: 'learn-more', label: loc`Learn more` }] : [];
   if (icon) card.append(iconSvg({ href: icon, slot: 'icon' }));
   if (tint) card.tint = tint;
   // Tools on this site, da.live or author.aem.live carry the page's site path as hash.
@@ -58,8 +53,7 @@ function toCard({ row, tools }) {
   };
   if (href) card.actionLabel = loc`Open`;
   card.addEventListener('select', ({ detail }) => {
-    const link = links.find((l) => l.id === detail?.id);
-    if (link) window.open(link.url(), '_blank', 'noopener');
+    if (detail?.id === 'learn-more') window.open(learnMoreHref, '_blank', 'noopener');
   });
   if (tools) card.append(byAdobe());
   return { card, sync };

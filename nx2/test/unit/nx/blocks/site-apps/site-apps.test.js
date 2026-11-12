@@ -1,5 +1,4 @@
 import { expect } from '@esm-bundle/chai';
-import sinon from 'sinon';
 import { setConfig, getConfig } from '../../../../../scripts/nx.js';
 
 await setConfig({ hostnames: [] });
@@ -31,7 +30,6 @@ const local = (path) => new URL(path, window.location.href).href;
 
 afterEach(() => {
   document.body.innerHTML = '';
-  sinon.restore();
   window.history.replaceState(null, '', original);
 });
 
@@ -60,7 +58,7 @@ describe('site-apps renderApps', () => {
     expect(first.description).to.equal('Bulk things.');
     expect(first.action).to.equal('/tools/bulk');
     expect(first.actionLabel).to.equal('Open');
-    expect(first.menu).to.deep.equal([{ id: 'open-new-tab', label: 'Open in new tab' }]);
+    expect(first.menu ?? []).to.deep.equal([]);
     expect(first.getAttribute('role')).to.equal('listitem');
   });
 
@@ -115,15 +113,6 @@ describe('site-apps site hash', () => {
       local('/tools/bulk#/org/site'),
       'https://example.com/app#/org/site',
     ]);
-  });
-
-  it('opens the hashed app url in a new tab from the menu', () => {
-    setHash('#/org/site');
-    const stub = sinon.stub(window, 'open');
-    const { el } = build();
-    renderApps({ el, apps: APPS });
-    cards(el)[1].dispatchEvent(new CustomEvent('select', { detail: { id: 'open-new-tab' }, bubbles: true }));
-    expect(stub.calledOnceWith('https://example.com/app#/org/site', '_blank', 'noopener')).to.be.true;
   });
 
   it('updates the app urls when the page hash changes', () => {
