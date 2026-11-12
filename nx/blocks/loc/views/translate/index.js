@@ -375,15 +375,6 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
   });
 }
 
-/**
- * Sends each waiting language whose source language is fully saved.
- * @param {Object} conf - The translation conf.
- * @param {Object} connector - The active loc connector.
- * @param {Object[]} originalUrls - The project's full supplied urls.
- * @param {string} [originalSourceLocation] - The project's default source location.
- * @returns {Promise<{ errors: { error: string }[] }>} Errors for languages left
- *  waiting because a source page couldn't be used (e.g. unmerged changes).
- */
 export async function checkWaitingLanguages(conf, connector, originalUrls, originalSourceLocation) {
   const waitingLangs = conf.langs.filter((lang) => (lang.waitingFor && lang.translation?.status === 'waiting'));
 

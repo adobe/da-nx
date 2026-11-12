@@ -245,13 +245,6 @@ class NxLocTranslate extends LitElement {
     }
   }
 
-  /**
-   * Saves translated languages, then sends any dependent languages that are ready.
-   * Leaves an error message up when a dependent language is still waiting on
-   * unusable source pages; Get Status retries it.
-   * @param {Object} conf - The translation conf.
-   * @returns {Promise<void>}
-   */
   async checkAndSaveLangs(conf) {
     this.handleMessage({ text: 'Checking for languages to save' });
 
