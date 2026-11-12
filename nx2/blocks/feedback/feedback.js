@@ -14,7 +14,7 @@ const [buttonStyle, style] = await Promise.all([
 // of whatever content nav.js's decorateActions() finds in the nav fragment's
 // action-area <li> (it only ever sees a plain "Feedback" label, no href).
 const FEEDBACK_PATH = '/fragments/nav/feedback';
-const ICON_HREF = `${codeBase}/img/icons/s2-icon-commenttext-20-n.svg#icon`;
+const ICON_HREF = `${codeBase}/img/icons/s2-icon-feedback-20-n.svg#icon`;
 
 export function parseFeedbackItems(fragment) {
   // Descendant search (not :scope > p): loadFragment() wraps the authored
