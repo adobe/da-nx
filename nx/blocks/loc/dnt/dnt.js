@@ -51,20 +51,38 @@ function resetHrefs(doc, org, repo) {
   });
 }
 
-const addDntWrapper = (root, dntContent) => {
+/**
+ * Wraps each occurrence of dntContent under root in a translate="no" span.
+ * @param {Node} root Node to search; skipped if inside translate="no".
+ * @param {string} dntContent Literal text to protect.
+ * @returns {void}
+ */
+const addDntWrappers = (root, dntContent) => {
   if (!dntContent) return;
+  if (root.closest?.('[translate="no"]')) return;
 
   const document = root.ownerDocument || root;
-  const textNodes = [];
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const walker = document.createTreeWalker(
+    root,
+    // eslint-disable-next-line no-bitwise
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: (node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          return node.getAttribute('translate') === 'no'
+            ? NodeFilter.FILTER_REJECT
+            : NodeFilter.FILTER_SKIP;
+        }
+        return node.nodeValue.includes(dntContent)
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_SKIP;
+      },
+    },
+  );
 
-  for (let textNode = walker.nextNode(); textNode; textNode = walker.nextNode()) {
-    if (
-      textNode.nodeValue.includes(dntContent)
-      && !textNode.parentElement?.closest('[translate="no"]')
-    ) {
-      textNodes.push(textNode);
-    }
+  const textNodes = [];
+  while (walker.nextNode()) {
+    textNodes.push(walker.currentNode);
   }
 
   textNodes.forEach((textNode) => {
@@ -119,7 +137,7 @@ const addDntInfoToHtml = (html, dntRules) => {
   });
 
   dntRules.contentRules.forEach((dntContent) => {
-    addDntWrapper(document.body, dntContent);
+    addDntWrappers(document.body, dntContent);
   });
 
   DNT_ELEMENTS.forEach((dntElement) => {
@@ -128,7 +146,7 @@ const addDntInfoToHtml = (html, dntRules) => {
     });
   });
 
-  processAltText(document, addDntWrapper);
+  processAltText(document, addDntWrappers);
   return document.documentElement.outerHTML;
 };
 
