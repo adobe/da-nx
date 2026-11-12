@@ -17,6 +17,8 @@ export function toUiArtifact(artifact) {
   return {
     id: artifact.id,
     components: artifact.a2ui_surface?.components ?? [],
+    ...(artifact.a2ui_surface?.data_model !== undefined
+      ? { dataModel: artifact.a2ui_surface.data_model } : {}),
     textFallback: artifact.text_fallback,
     title: artifact.display_hints?.title,
   };

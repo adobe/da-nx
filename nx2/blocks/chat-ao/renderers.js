@@ -87,9 +87,15 @@ export function renderQuestionResponseCard({
   `;
 }
 
-export function renderAssistantMessageBody(msg, { onExpandToolCall, onArtifactAction } = {}) {
+export function renderAssistantMessageBody(msg, {
+  onExpandToolCall, onArtifactAction, artifactActionNames,
+} = {}) {
   if (msg.toolCall) return renderToolCallCard(msg.toolCall, { onExpand: onExpandToolCall });
-  if (msg.uiArtifact) return renderUiArtifact(msg.uiArtifact, { onAction: onArtifactAction });
+  if (msg.uiArtifact) {
+    return renderUiArtifact(msg.uiArtifact, {
+      onAction: onArtifactAction, actionNames: artifactActionNames,
+    });
+  }
   if (msg.questionResponse) return renderQuestionResponseCard(msg.questionResponse);
   return html`
     <div class="message-content">${renderMarkdown(msg.content)}</div>

@@ -30,7 +30,7 @@ function renderComponents(components, textFallback, ctx) {
   return renderArtifactNode(root, textFallback, { ...ctx, recordsById });
 }
 
-export function renderUiArtifact(uiArtifact, { onAction } = {}) {
+export function renderUiArtifact(uiArtifact, { onAction, actionNames } = {}) {
   if (!uiArtifact) return nothing;
   const { components, textFallback, title } = uiArtifact;
   if (!components?.length) {
@@ -39,7 +39,11 @@ export function renderUiArtifact(uiArtifact, { onAction } = {}) {
   return html`
     <div class="ui-artifact">
       ${title ? html`<span class="ui-artifact-title">${title}</span>` : nothing}
-      ${renderComponents(components, textFallback, { onAction, artifactId: uiArtifact.id })}
+      ${renderComponents(components, textFallback, {
+    onAction: typeof onAction === 'function' ? (action) => onAction(action, uiArtifact) : undefined,
+    actionNames,
+    artifactId: uiArtifact.id,
+  })}
     </div>
   `;
 }
