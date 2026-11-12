@@ -183,7 +183,10 @@ class NxChat extends LitElement {
       },
     });
     this._controller.setContext(this._context ?? context);
-    this._controller.connect().then(() => this._controller.loadInitialMessages());
+    // History restoration resets messages, so finish it before flushing queued prompts.
+    await this._controller.loadInitialMessages();
+    if (this._destroyed) return;
+    await this._controller.connect();
   }
 
   disconnectedCallback() {
