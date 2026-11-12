@@ -81,9 +81,12 @@ export function getAoSession({
         controller.destroy();
       };
     },
+    canSend() {
+      return !destroyed && initialized && !sending && !state.loadingEpisode
+        && !(state.thinking && !state.pendingPlanApproval);
+    },
     send({ context: currentContext, args }) {
-      if (destroyed || !initialized || sending || state.loadingEpisode
-        || (state.thinking && !state.pendingPlanApproval)) return false;
+      if (!session.canSend()) return false;
       controller.setContext(currentContext);
       sending = true;
       try {
