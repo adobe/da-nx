@@ -10,7 +10,7 @@ await import('../../../../../blocks/breadcrumb/breadcrumb.js');
 await import('../../../../../blocks/siteselector/siteselector.js');
 const { default: NxBreadcrumb } = await import('../../../../../blocks/shared/breadcrumb/breadcrumb.js');
 // Isolate nav composition from the components' auth and lifecycle behavior.
-['nx-nav-test', 'nx-editortoggle'].forEach((tag) => {
+['nx-nav-test', 'nx-editortoggle', 'nx-notifications'].forEach((tag) => {
   customElements.define(tag, class extends HTMLElement {});
 });
 await import('../../../../../blocks/nav/nav.js');
@@ -353,6 +353,7 @@ describe('nav site navigation', () => {
     expect(siteNav.querySelector('nx-editortoggle')).to.be.null;
     expect(siteNav.querySelector('nx-breadcrumb')).to.be.null;
     expect(actions.querySelectorAll('nx-editortoggle')).to.have.length(1);
+    expect(actions.querySelectorAll('nx-notifications')).to.have.length(1);
     expect(getComputedStyle(actions.querySelector('ul')).marginRight).to.equal('16px');
 
     const button = siteNav.querySelector('button');
@@ -463,7 +464,8 @@ describe('nav site navigation', () => {
     expect(nav._actions.querySelector('nx-nav-test')).to.exist;
     expect(nav._actions.querySelector('button').textContent).to.equal('Action');
     expect(nav._actions.querySelector('nx-editortoggle')).to.exist;
-    expect(nav._actions.children).to.have.length(3);
+    expect(nav._actions.querySelector('nx-notifications')).to.exist;
+    expect(nav._actions.children).to.have.length(4);
   });
 
   it('preserves the current nav when reloading its fragment fails', async () => {
