@@ -153,7 +153,11 @@ class NxSnapshot extends LitElement {
     const metadata = { ...manifest.metadata, scheduledPublish: undefined };
     const result = await saveManifest(name, { ...manifest, metadata })
       .catch((e) => ({ error: e.message }));
-    if (!result.error) this._manifest = result;
+    if (!result.error) {
+      this._manifest = result;
+      const input = this.shadowRoot.querySelector('[name="scheduler"]');
+      if (input) input.value = '';
+    }
     const error = scheduleResult.text || 'Failed to schedule publish';
     this._message = {
       heading: 'Schedule Error',
@@ -254,7 +258,7 @@ class NxSnapshot extends LitElement {
   handleDelete() {
     this._message = {
       heading: 'Delete Snapshot',
-      message: html`This will delete <b>${this.basics.name}</b>.<br/>Any files in the <b>.snapshots</b> directory will also be deleted.<br/><br/>Are you sure?`,
+      message: html`This will delete <b>${this.basics.name}</b>, including any content staged for it.<br/><br/>Are you sure?`,
       open: true,
       actions: [
         { label: 'Cancel', value: 'cancel', variant: 'primary' },

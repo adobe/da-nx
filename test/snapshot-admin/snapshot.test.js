@@ -173,6 +173,17 @@ describe('NxSnapshot', () => {
       expect(saved[1].metadata).to.not.have.property('scheduledPublish');
     });
 
+    it('Resets the scheduler input after a failed approve', async () => {
+      mockScheduleFailure([]);
+      const el = await createElement({ isRegistered: true, userPermissions: true });
+      const input = el.shadowRoot.querySelector('[name="scheduler"]');
+      input.value = future.slice(0, 16);
+      await el.handleReview('approve');
+      await el.updateComplete;
+      expect(el._message.heading).to.equal('Schedule Error');
+      expect(input.value).to.equal('');
+    });
+
     it('Clears scheduledPublish when the scheduler request throws', async () => {
       const saved = [];
       setupFetchMock(originalFetch, {
