@@ -26,7 +26,7 @@ export async function connect(service, sendMessage) {
 /**
  * Looks up the Smartling account that owns a project. Used only as a
  * fallback for connectors still configured with a `projectId` but no
- * `accountId` (see {@link resolveAccountUid}), since Smartling has no
+ * `accountUid` (see {@link resolveAccountUid}), since Smartling has no
  * "list projects for the current user" endpoint - enumerating every
  * project requires an `accountUid`, which this discovers via the
  * single-project endpoint for whichever `projectId` is configured.
@@ -46,23 +46,23 @@ async function fetchAccountUid(endpoint, projectId, opts) {
 
 /**
  * Resolves the Smartling `accountUid` to use for account-scoped lookups
- * (listing projects, listing workflows). Prefers the `accountId` config
+ * (listing projects, listing workflows). Prefers the `accountUid` config
  * value directly. `projectId` is deprecated for this purpose (it requires
  * an extra lookup to discover the owning account) but is still supported
  * as a fallback so existing connector instances that only have `projectId`
- * configured keep working until they're migrated to `accountId`.
+ * configured keep working until they're migrated to `accountUid`.
  * @param {Object} service - The flattened per-environment service config.
  * @param {string} endpoint - The resolved Smartling API origin.
  * @returns {Promise<string|null>} The `accountUid`, or null if neither
- *  `accountId` nor `projectId` is configured, or if `projectId` can't be
+ *  `accountUid` nor `projectId` is configured, or if `projectId` can't be
  *  looked up (e.g. it's since been deleted or the account no longer has
  *  access to it).
  */
 async function resolveAccountUid(service, endpoint) {
   const {
-    org, site, env, accountId, projectId,
+    org, site, env, accountUid, projectId,
   } = service;
-  if (accountId) return accountId;
+  if (accountUid) return accountUid;
   if (!projectId) return null;
 
   const opts = { headers: { Authorization: `Bearer ${await getToken(org, site, env)}` } };
@@ -72,16 +72,6 @@ async function resolveAccountUid(service, endpoint) {
 const PROJECTS_PAGE_SIZE = 500;
 const PROJECTS_MAX_PAGES = 20;
 const WORKFLOWS_LIMIT = 500;
-
-/**
- * Flags a listing as partial so consumers don't treat missing entries as deleted.
- * @param {Array} list - The listing.
- * @param {boolean} incomplete - Whether the listing is partial.
- * @returns {Array} The same list, with an `incomplete` property when partial.
- */
-function markIncomplete(list, incomplete) {
-  return incomplete ? Object.assign(list, { incomplete: true }) : list;
-}
 
 /**
  * Walks offset-paginated project pages until `totalCount` is reached.
@@ -112,17 +102,17 @@ async function collectProjectPages({ fetchPage, page = 0, collected = [] }) {
  * instead of requiring it to be hand-typed into the site's config sheet.
  * Pages through the full account listing.
  * @param {Object} service - The flattened per-environment service config.
- * @returns {Promise<{projectId: string, projectName: string}[]>} Enabled
- *  projects (with an `incomplete` property set if a page failed or the page cap
- *  was hit), or an empty array if the account can't be resolved (see
- *  {@link resolveAccountUid}) or the request fails.
+ * @returns {Promise<{items: {projectId: string, projectName: string}[],
+ *  incomplete: boolean}>} Enabled projects, flagged `incomplete` if a page failed
+ *  or the page cap was hit. `items` is empty if the account can't be resolved
+ *  (see {@link resolveAccountUid}).
  */
 export async function listProjects(service) {
   const { org, site, env, origin } = service;
   const endpoint = resolveOrigin(origin, org, site);
 
   const accountUid = await resolveAccountUid(service, endpoint);
-  if (!accountUid) return [];
+  if (!accountUid) return { items: [], incomplete: false };
 
   const baseUrl = `${endpoint}/accounts-api/v2/accounts/${accountUid}/projects`;
   const opts = { headers: { Authorization: `Bearer ${await getToken(org, site, env)}` } };
@@ -138,46 +128,117 @@ export async function listProjects(service) {
   const projects = items
     .filter((project) => !project.archived)
     .map((project) => ({ projectId: project.projectId, projectName: project.projectName }));
-  return markIncomplete(projects, incomplete);
+  return { items: projects, incomplete };
 }
 
 /**
- * Lists every Smartling workflow the configured account can use to
- * authorize a job, for populating the `workflowUid` {@link serviceOptions}
- * entry. Excludes workflows scoped to a different project than the one
- * currently configured - those can't be used to authorize this job.
- * @param {Object} service - The flattened per-environment service config.
- * @returns {Promise<{workflowUid: string, workflowName: string}[]>} Usable
- *  workflows, or an empty array if the account can't be resolved (see
- *  {@link resolveAccountUid}) or the request fails.
+ * Runs one workflow search against the account-scoped workflows endpoint.
+ * @param {Object} params
+ * @param {Object} params.service - The flattened per-environment service config.
+ * @param {string} params.endpoint - The resolved Smartling API origin.
+ * @param {string} params.accountUid - The account to search.
+ * @param {Object} params.filter - A `UserWorkflowFilterCommand` request body.
+ * @returns {Promise<{items: Object[], incomplete: boolean}|{error: string}>} The
+ *  matching workflows, flagged `incomplete` when the result was truncated.
  */
-export async function listWorkflows(service) {
-  const {
-    org, site, env, origin, projectId,
-  } = service;
-  const endpoint = resolveOrigin(origin, org, site);
-
-  const accountUid = await resolveAccountUid(service, endpoint);
-  if (!accountUid) return [];
-
+async function searchWorkflows({
+  service, endpoint, accountUid, filter,
+}) {
+  const { org, site, env } = service;
+  const limit = filter.limit ?? WORKFLOWS_LIMIT;
   const url = `${endpoint}/workflows-api/v3/accounts/${accountUid}/workflows`;
   const opts = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await getToken(org, site, env)}` },
-    body: JSON.stringify({ limit: WORKFLOWS_LIMIT }),
+    body: JSON.stringify({ ...filter, limit }),
   };
   const resp = await fetchWithRetry(url, opts, { onUnauthorized: onUnauthorized(opts) });
-  if (!resp.ok) return markIncomplete([], true);
+  if (!resp.ok) return { error: `The workflow lookup failed (${resp.status}).` };
 
   const { response } = await resp.json();
   const items = response?.data?.items || [];
-  const workflows = items
+  const incomplete = items.length >= limit || response?.data?.totalCount > items.length;
+  return { items, incomplete };
+}
+
+/**
+ * Lists the Smartling workflows that can authorize a job in the selected
+ * project, for populating the `workflowUid` {@link serviceOptions} entry.
+ * A single search returns at most 500 workflows, so this merges a
+ * project-scoped search with account-wide CUSTOM and LOCKED searches.
+ * Workflows scoped to another project, or with no locale pairs (which can't
+ * authorize a job), are excluded.
+ * @param {Object} service - The flattened per-environment service config.
+ * @returns {Promise<{items: {workflowUid: string, workflowName: string}[],
+ *  incomplete: boolean}>} Usable workflows, flagged `incomplete` if any search
+ *  failed or was truncated. `items` is empty if the account can't be resolved
+ *  (see {@link resolveAccountUid}).
+ */
+export async function listWorkflows(service) {
+  const { org, site, origin, projectId } = service;
+  const endpoint = resolveOrigin(origin, org, site);
+
+  const accountUid = await resolveAccountUid(service, endpoint);
+  if (!accountUid) return { items: [], incomplete: false };
+
+  const filters = [
+    ...(projectId ? [{ projectId }] : []),
+    { localePairManagementType: 'CUSTOM' },
+    { localePairManagementType: 'LOCKED' },
+  ];
+  const results = await Promise.all(filters.map((filter) => searchWorkflows({
+    service, endpoint, accountUid, filter,
+  })));
+
+  const byUid = new Map(results
+    .flatMap((result) => result.items || [])
     .filter((workflow) => !workflow.projectId || workflow.projectId === projectId)
-    .map((workflow) => ({
+    .filter((workflow) => workflow.localePairs?.length)
+    .map((workflow) => [workflow.workflowUid, {
       workflowUid: workflow.workflowUid,
       workflowName: workflow.workflowName,
-    }));
-  return markIncomplete(workflows, response?.data?.totalCount > items.length);
+    }]));
+  const incomplete = results.some((result) => result.error || result.incomplete);
+  return { items: [...byUid.values()], incomplete };
+}
+
+/**
+ * Confirms a workflow covers every target locale before a job is created, so
+ * auto-authorize can't leave locales the workflow doesn't handle unauthorized.
+ * @param {Object} params
+ * @param {Object} params.service - The flattened per-environment service config.
+ * @param {string} params.workflowUid - The workflow selected for auto-authorize.
+ * @param {{code: string}[]} params.langs - The languages being sent.
+ * @returns {Promise<{error?: string}>} An `error` explaining why the workflow
+ *  can't be used, or an empty object when it covers every locale.
+ */
+export async function checkWorkflowCoverage({ service, workflowUid, langs }) {
+  const { org, site, origin } = service;
+  const endpoint = resolveOrigin(origin, org, site);
+
+  const accountUid = await resolveAccountUid(service, endpoint);
+  if (!accountUid) return { error: 'Could not verify the Smartling workflow. The Smartling account could not be resolved.' };
+
+  const filter = { workflowUids: [workflowUid], limit: 1 };
+  const result = await searchWorkflows({
+    service, endpoint, accountUid, filter,
+  });
+  if (result.error) return { error: `Could not verify the Smartling workflow. ${result.error}` };
+
+  const workflow = result.items.find((item) => item.workflowUid === workflowUid);
+  if (!workflow) return { error: `Smartling workflow ${workflowUid} was not found.` };
+
+  const name = workflow.workflowName || workflowUid;
+  if (!workflow.localePairs?.length) {
+    return { error: `Smartling workflow "${name}" has no locale pairs and can't authorize jobs.` };
+  }
+
+  const covered = new Set(workflow.localePairs.flatMap((pair) => pair.targetLocaleIds || []));
+  const missing = langs.map((lang) => lang.code).filter((code) => !covered.has(code));
+  if (missing.length) {
+    return { error: `Smartling workflow "${name}" doesn't cover: ${missing.join(', ')}.` };
+  }
+  return {};
 }
 
 /**
@@ -185,35 +246,25 @@ export async function listWorkflows(service) {
  * live-populated select rather than a hand-typed value, sourced from this connector's
  * own API. Read generically - Options.js has no Smartling-specific knowledge; it just
  * looks for this optional export on whichever connector is active, calls `connect`, and
- * (once connected) each option's `fetch` to get its `{value, label}` choices. A connector
- * that needs no dynamic service options simply omits this export. `enabledWhen`, when
- * present, is read generically too - the option's rendered control is disabled whenever
- * it returns false for the current per-env config.
- * @type {{key: string, label: string, fetch: (service: object) =>
- * Promise<{value: string, label: string}[]>, enabledWhen?: (envConfig: object) =>
- * boolean}[]}
+ * (once connected) each option's `fetch` to get its choices. A connector that needs no
+ * dynamic service options simply omits this export.
+ * @type {import('../../views/options/utils/utils.js').ServiceOption[]}
  */
 export const serviceOptions = [
   {
     key: 'projectId',
     label: 'Project',
-    // workflowUid's choices are scoped to the selected project - reload all service
-    // options so it gets refetched/refiltered whenever this changes.
-    reloadServiceOptionsOnChange: true,
     fetch: async (service) => {
-      const projects = await listProjects(service);
-      return markIncomplete(
-        projects.map((project) => ({ value: project.projectId, label: project.projectName })),
-        projects.incomplete,
-      );
+      const { items, incomplete } = await listProjects(service);
+      return {
+        items: items.map((project) => ({ value: project.projectId, label: project.projectName })),
+        incomplete,
+      };
     },
   },
   {
     key: 'autoAuthorize',
     label: 'Auto-authorize',
-    // Reload so workflowUid is normalized once it becomes enabled.
-    reloadServiceOptionsOnChange: true,
-    // Static choices - no API call needed, unlike the other service options.
     fetch: async () => ([
       { value: 'no', label: 'Disabled' },
       { value: 'yes', label: 'Enabled' },
@@ -222,16 +273,20 @@ export const serviceOptions = [
   {
     key: 'workflowUid',
     label: 'Workflow',
+    dependsOn: ['projectId'],
     enabledWhen: (envConfig) => envConfig?.autoAuthorize === 'yes',
     fetch: async (service) => {
-      const workflows = await listWorkflows(service);
-      return markIncomplete(
-        workflows.map((workflow) => ({
-          value: workflow.workflowUid,
-          label: workflow.workflowName,
-        })),
-        workflows.incomplete,
-      );
+      const { items, incomplete } = await listWorkflows(service);
+      return {
+        items: [
+          { value: '', label: 'Project default' },
+          ...items.map((workflow) => ({
+            value: workflow.workflowUid,
+            label: workflow.workflowName,
+          })),
+        ],
+        incomplete,
+      };
     },
   },
 ];
@@ -508,6 +563,15 @@ export async function sendAllLanguages({
 
   const { origin, projectId, autoAuthorize, workflowUid, env } = options.service;
   const endpoint = resolveOrigin(origin, org, site);
+
+  if (autoAuthorize === 'yes' && workflowUid) {
+    const service = { ...options.service, org, site };
+    const { error } = await checkWorkflowCoverage({ service, workflowUid, langs });
+    if (error) {
+      sendMessage({ text: error, type: 'error' });
+      return;
+    }
+  }
 
   sendMessage({ text: `Creating job in Smartling for: ${title}.` });
   const jobUid = await createJob({

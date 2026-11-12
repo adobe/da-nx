@@ -6,6 +6,9 @@ import {
   formatLangs,
   finalizeOptions,
   getProjectSource,
+  normalizeFetchResult,
+  clearDependents,
+  orderStages,
 } from '../../../../nx/blocks/loc/views/options/utils/utils.js';
 
 // Dynamic-expression import (not a literal string) so @web/dev-server-import-maps
@@ -480,8 +483,13 @@ describe('NxLocOptions - handleChangeServiceOption reload', () => {
     sessionStorage.clear();
   });
 
-  function smartlingHandlerWithTwoProjects() {
-    return (u) => {
+  const localePairs = [{ sourceLocaleId: 'en', targetLocaleIds: ['fr'] }];
+
+  function smartlingHandlerWithTwoProjects({
+    calls = [], workflowsGate, workflowsData,
+  } = {}) {
+    return async (u) => {
+      calls.push(u);
       if (u.includes('/integrations/smartling/login')) {
         return new Response(JSON.stringify({
           response: { data: { accessToken: 'sl-token', refreshToken: 'sl-refresh' } },
@@ -503,13 +511,20 @@ describe('NxLocOptions - handleChangeServiceOption reload', () => {
         }), { status: 200 });
       }
       if (u.includes('/workflows-api/v3/accounts/acct-1/workflows')) {
+        if (workflowsGate) await workflowsGate();
         return new Response(JSON.stringify({
           response: {
-            data: {
+            data: workflowsData ?? {
               items: [
-                { workflowUid: 'wf-1', workflowName: 'Project One Workflow', projectId: 'proj-1' },
-                { workflowUid: 'wf-2', workflowName: 'Project Two Workflow', projectId: 'proj-2' },
-                { workflowUid: 'wf-account', workflowName: 'Account Default', projectId: null },
+                {
+                  workflowUid: 'wf-1', workflowName: 'Project One Workflow', projectId: 'proj-1', localePairs,
+                },
+                {
+                  workflowUid: 'wf-2', workflowName: 'Project Two Workflow', projectId: 'proj-2', localePairs,
+                },
+                {
+                  workflowUid: 'wf-account', workflowName: 'Account Default', projectId: null, localePairs,
+                },
               ],
             },
           },
@@ -519,137 +534,161 @@ describe('NxLocOptions - handleChangeServiceOption reload', () => {
     };
   }
 
-  it('refetches and refilters workflowUid to the newly selected project when projectId changes', async () => {
-    installFetch(smartlingHandlerWithTwoProjects());
-    const el = createSmartlingOptionsEl();
-    el._siteConfig.service.envs.prod.accountId = 'acct-1';
-    el._siteConfig.service.envs.prod.projectId = 'proj-1';
-    el._siteConfig.service.envs.prod.autoAuthorize = 'yes';
-    el._siteConfig.service.envs.prod.workflowUid = 'wf-1';
-
-    await el.loadConnectorServiceOptions();
-
-    const workflowOption = () => el._serviceOptions.find((o) => o.key === 'workflowUid');
-    expect(workflowOption().items).to.deep.equal([
-      { value: 'wf-1', label: 'Project One Workflow' },
-      { value: 'wf-account', label: 'Account Default' },
-    ]);
-
-    const reloaded = new Promise((resolve) => {
-      const original = el.loadConnectorServiceOptions.bind(el);
-      el.loadConnectorServiceOptions = async (...args) => {
-        const result = await original(...args);
-        resolve();
-        return result;
-      };
-    });
-    el.handleChangeServiceOption({ target: { dataset: { key: 'projectId' }, value: 'proj-2' } });
-    await reloaded;
-
-    expect(el._siteConfig.service.envs.prod.projectId).to.equal('proj-2');
-    expect(workflowOption().items).to.deep.equal([
-      { value: 'wf-2', label: 'Project Two Workflow' },
-      { value: 'wf-account', label: 'Account Default' },
-    ]);
-    // wf-1 is no longer valid for proj-2, so workflowUid is reseeded to the first
-    // choice among proj-2's own filtered options.
-    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-2');
-  });
-
-  it('does not seed workflowUid while autoAuthorize is off', async () => {
-    installFetch(smartlingHandlerWithTwoProjects());
-    const el = createSmartlingOptionsEl();
-    el._siteConfig.service.envs.prod.accountId = 'acct-1';
-    el._siteConfig.service.envs.prod.projectId = 'proj-1';
-
-    await el.loadConnectorServiceOptions();
-
-    expect(el._siteConfig.service.envs.prod.autoAuthorize).to.equal('no');
-    expect(el._siteConfig.service.envs.prod.workflowUid).to.be.undefined;
-    expect(el._options.service.workflowUid).to.be.undefined;
-  });
+  const projectOneWorkflows = [
+    { value: '', label: 'Project default' },
+    { value: 'wf-1', label: 'Project One Workflow' },
+    { value: 'wf-account', label: 'Account Default' },
+  ];
+  const projectTwoWorkflows = [
+    { value: '', label: 'Project default' },
+    { value: 'wf-2', label: 'Project Two Workflow' },
+    { value: 'wf-account', label: 'Account Default' },
+  ];
 
   function onNextReload(el) {
     return new Promise((resolve) => {
       const original = el.loadConnectorServiceOptions.bind(el);
       el.loadConnectorServiceOptions = async (...args) => {
         const result = await original(...args);
-        resolve();
+        resolve(args);
         return result;
       };
     });
   }
 
-  it('replaces a stale workflowUid when autoAuthorize is enabled after a project change', async () => {
+  function deferred() {
+    let release;
+    const promise = new Promise((resolve) => { release = resolve; });
+    return { promise, release };
+  }
+
+  const workflowOption = (el) => el._serviceOptions.find((o) => o.key === 'workflowUid');
+
+  it('refetches workflowUid for the newly selected project when projectId changes', async () => {
     installFetch(smartlingHandlerWithTwoProjects());
     const el = createSmartlingOptionsEl();
-    el._siteConfig.service.envs.prod.accountId = 'acct-1';
+    el._siteConfig.service.envs.prod.accountUid = 'acct-1';
+    el._siteConfig.service.envs.prod.projectId = 'proj-1';
+    el._siteConfig.service.envs.prod.autoAuthorize = 'yes';
+    el._siteConfig.service.envs.prod.workflowUid = 'wf-1';
+
+    await el.loadConnectorServiceOptions();
+
+    expect(workflowOption(el).items).to.deep.equal(projectOneWorkflows);
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-1');
+
+    const reloaded = onNextReload(el);
+    el.handleChangeServiceOption({ target: { dataset: { key: 'projectId' }, value: 'proj-2' } });
+    const [args] = await reloaded;
+
+    expect(args).to.deep.equal({ keys: ['workflowUid'] });
+    expect(el._siteConfig.service.envs.prod.projectId).to.equal('proj-2');
+    expect(workflowOption(el).items).to.deep.equal(projectTwoWorkflows);
+    // wf-1 belongs to proj-1, so the selection falls back to the project default.
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('');
+    expect(el._options.service.workflowUid).to.equal('');
+  });
+
+  it('refetches only workflows, not projects or the login, when projectId changes', async () => {
+    const calls = [];
+    installFetch(smartlingHandlerWithTwoProjects({ calls }));
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.accountUid = 'acct-1';
+    el._siteConfig.service.envs.prod.projectId = 'proj-1';
+
+    await el.loadConnectorServiceOptions();
+    calls.length = 0;
+
+    const reloaded = onNextReload(el);
+    el.handleChangeServiceOption({ target: { dataset: { key: 'projectId' }, value: 'proj-2' } });
+    await reloaded;
+
+    expect(calls.length).to.be.greaterThan(0);
+    expect(calls.every((u) => u.includes('/workflows-api/'))).to.equal(true);
+  });
+
+  it('seeds workflowUid to the project default while autoAuthorize is off', async () => {
+    installFetch(smartlingHandlerWithTwoProjects());
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.accountUid = 'acct-1';
+    el._siteConfig.service.envs.prod.projectId = 'proj-1';
+
+    await el.loadConnectorServiceOptions();
+
+    expect(el._siteConfig.service.envs.prod.autoAuthorize).to.equal('no');
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('');
+    expect(el._options.service.workflowUid).to.equal('');
+  });
+
+  it('replaces a workflowUid from another project with the project default', async () => {
+    installFetch(smartlingHandlerWithTwoProjects());
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.accountUid = 'acct-1';
     el._siteConfig.service.envs.prod.projectId = 'proj-2';
     el._siteConfig.service.envs.prod.workflowUid = 'wf-1';
 
     await el.loadConnectorServiceOptions();
-    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-1');
 
-    const reloaded = onNextReload(el);
-    el.handleChangeServiceOption({ target: { dataset: { key: 'autoAuthorize' }, value: 'yes' } });
-    await reloaded;
-
-    expect(el._siteConfig.service.envs.prod.autoAuthorize).to.equal('yes');
-    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-2');
-    expect(el._options.service.workflowUid).to.equal('wf-2');
+    expect(workflowOption(el).items).to.deep.equal(projectTwoWorkflows);
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('');
   });
 
-  it('seeds an unset workflowUid when autoAuthorize is enabled', async () => {
+  it('enables autoAuthorize without reloading, keeping the workflow choices', async () => {
     installFetch(smartlingHandlerWithTwoProjects());
     const el = createSmartlingOptionsEl();
-    el._siteConfig.service.envs.prod.accountId = 'acct-1';
+    el._siteConfig.service.envs.prod.accountUid = 'acct-1';
     el._siteConfig.service.envs.prod.projectId = 'proj-1';
 
     await el.loadConnectorServiceOptions();
-    expect(el._siteConfig.service.envs.prod.workflowUid).to.be.undefined;
 
-    const reloaded = onNextReload(el);
+    let reloadCount = 0;
+    const original = el.loadConnectorServiceOptions.bind(el);
+    el.loadConnectorServiceOptions = async (...args) => {
+      reloadCount += 1;
+      return original(...args);
+    };
     el.handleChangeServiceOption({ target: { dataset: { key: 'autoAuthorize' }, value: 'yes' } });
-    await reloaded;
 
-    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-1');
-    expect(el._options.service.workflowUid).to.equal('wf-1');
+    expect(reloadCount).to.equal(0);
+    expect(el._siteConfig.service.envs.prod.autoAuthorize).to.equal('yes');
+    expect(el._options.service.autoAuthorize).to.equal('yes');
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('');
+    expect(workflowOption(el).items).to.deep.equal(projectOneWorkflows);
   });
 
   it('fetches workflows for the seeded project when projectId is unset', async () => {
     installFetch(smartlingHandlerWithTwoProjects());
     const el = createSmartlingOptionsEl();
-    el._siteConfig.service.envs.prod.accountId = 'acct-1';
+    delete el._siteConfig.service.envs.prod.projectId;
+    el._siteConfig.service.envs.prod.accountUid = 'acct-1';
     el._siteConfig.service.envs.prod.autoAuthorize = 'yes';
 
     await el.loadConnectorServiceOptions();
 
     expect(el._siteConfig.service.envs.prod.projectId).to.equal('proj-1');
-    const workflowOption = el._serviceOptions.find((o) => o.key === 'workflowUid');
-    expect(workflowOption.items).to.deep.equal([
-      { value: 'wf-1', label: 'Project One Workflow' },
-      { value: 'wf-account', label: 'Account Default' },
-    ]);
-    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-1');
+    expect(workflowOption(el).items).to.deep.equal(projectOneWorkflows);
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('');
   });
 
   it('fetches workflows for the reseeded project when the saved project is gone', async () => {
     installFetch(smartlingHandlerWithTwoProjects());
     const el = createSmartlingOptionsEl();
-    el._siteConfig.service.envs.prod.accountId = 'acct-1';
+    el._siteConfig.service.envs.prod.accountUid = 'acct-1';
     el._siteConfig.service.envs.prod.projectId = 'proj-gone';
     el._siteConfig.service.envs.prod.autoAuthorize = 'yes';
+    el._siteConfig.service.envs.prod.workflowUid = 'wf-2';
 
     await el.loadConnectorServiceOptions();
 
     expect(el._siteConfig.service.envs.prod.projectId).to.equal('proj-1');
-    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-1');
+    expect(workflowOption(el).items).to.deep.equal(projectOneWorkflows);
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('');
   });
 
   it('keeps the saved project when it is already known', async () => {
     installFetch(smartlingHandlerWithTwoProjects());
     const el = createSmartlingOptionsEl();
-    el._siteConfig.service.envs.prod.accountId = 'acct-1';
+    el._siteConfig.service.envs.prod.accountUid = 'acct-1';
     el._siteConfig.service.envs.prod.projectId = 'proj-2';
     el._siteConfig.service.envs.prod.autoAuthorize = 'no';
 
@@ -658,20 +697,98 @@ describe('NxLocOptions - handleChangeServiceOption reload', () => {
     expect(el._siteConfig.service.envs.prod.projectId).to.equal('proj-2');
   });
 
-  it('seeds a non-flagged option without changing the project', async () => {
+  it('keeps a saved workflowUid that a valid project lists', async () => {
     installFetch(smartlingHandlerWithTwoProjects());
     const el = createSmartlingOptionsEl();
-    el._siteConfig.service.envs.prod.accountId = 'acct-1';
+    el._siteConfig.service.envs.prod.accountUid = 'acct-1';
     el._siteConfig.service.envs.prod.projectId = 'proj-1';
     el._siteConfig.service.envs.prod.autoAuthorize = 'yes';
+    el._siteConfig.service.envs.prod.workflowUid = 'wf-account';
 
     await el.loadConnectorServiceOptions();
 
     expect(el._siteConfig.service.envs.prod.projectId).to.equal('proj-1');
-    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-1');
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-account');
   });
 
-  it('does not reload service options when a key without reloadServiceOptionsOnChange changes', async () => {
+  it('keeps an unlisted saved workflowUid as the first choice when the list is incomplete', async () => {
+    installFetch(smartlingHandlerWithTwoProjects({
+      workflowsData: {
+        totalCount: 900,
+        items: [{
+          workflowUid: 'wf-1', workflowName: 'Project One Workflow', projectId: 'proj-1', localePairs,
+        }],
+      },
+    }));
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.accountUid = 'acct-1';
+    el._siteConfig.service.envs.prod.projectId = 'proj-1';
+    el._siteConfig.service.envs.prod.autoAuthorize = 'yes';
+    el._siteConfig.service.envs.prod.workflowUid = 'wf-hidden';
+
+    await el.loadConnectorServiceOptions();
+
+    expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-hidden');
+    expect(workflowOption(el).items).to.deep.equal([
+      { value: 'wf-hidden', label: 'wf-hidden' },
+      { value: '', label: 'Project default' },
+      { value: 'wf-1', label: 'Project One Workflow' },
+    ]);
+  });
+
+  it('reports loading and blocks Next until dependent options finish reloading', async () => {
+    let gate;
+    installFetch(smartlingHandlerWithTwoProjects({ workflowsGate: () => gate?.promise }));
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.accountUid = 'acct-1';
+    el._siteConfig.service.envs.prod.projectId = 'proj-1';
+
+    await el.loadConnectorServiceOptions();
+    expect(el.serviceOptionsLoading).to.equal(false);
+
+    gate = deferred();
+    const reloaded = onNextReload(el);
+    el.handleChangeServiceOption({ target: { dataset: { key: 'projectId' }, value: 'proj-2' } });
+
+    expect(el.serviceOptionsLoading).to.equal(true);
+    expect(workflowOption(el).items).to.be.undefined;
+    let dispatched = 0;
+    el.addEventListener('action', () => { dispatched += 1; });
+    el.handleAction({ detail: { view: 'validate' } });
+    expect(dispatched).to.equal(0);
+
+    gate.release();
+    await reloaded;
+
+    expect(el.serviceOptionsLoading).to.equal(false);
+    expect(workflowOption(el).items).to.deep.equal(projectTwoWorkflows);
+  });
+
+  it('drops the results of a load superseded by a newer one', async () => {
+    let gate;
+    installFetch(smartlingHandlerWithTwoProjects({ workflowsGate: () => gate?.promise }));
+    const el = createSmartlingOptionsEl();
+    el._siteConfig.service.envs.prod.accountUid = 'acct-1';
+    el._siteConfig.service.envs.prod.projectId = 'proj-1';
+
+    await el.loadConnectorServiceOptions();
+
+    gate = deferred();
+    const first = el.loadConnectorServiceOptions({ keys: ['workflowUid'] });
+    const firstGate = gate;
+    gate = undefined;
+    el._siteConfig.service.envs.prod.projectId = 'proj-2';
+    await el.loadConnectorServiceOptions({ keys: ['workflowUid'] });
+
+    expect(workflowOption(el).items).to.deep.equal(projectTwoWorkflows);
+
+    firstGate.release();
+    await first;
+
+    expect(workflowOption(el).items).to.deep.equal(projectTwoWorkflows);
+  });
+
+  it('does not reload when an option with no dependents changes', async () => {
     installFetch(smartlingHandlerWithTwoProjects());
     const el = createSmartlingOptionsEl();
     el._siteConfig.service.envs.prod.projectId = 'proj-1';
@@ -689,6 +806,81 @@ describe('NxLocOptions - handleChangeServiceOption reload', () => {
 
     expect(reloadCount).to.equal(0);
     expect(el._siteConfig.service.envs.prod.workflowUid).to.equal('wf-1');
+  });
+});
+
+describe('options utils - service option helpers', () => {
+  describe('normalizeFetchResult', () => {
+    it('wraps a plain array as a complete list', () => {
+      const items = [{ value: 'a', label: 'A' }];
+      expect(normalizeFetchResult(items)).to.deep.equal({ items, incomplete: false });
+    });
+
+    it('passes through items and the incomplete flag', () => {
+      const items = [{ value: 'a', label: 'A' }];
+      expect(normalizeFetchResult({ items, incomplete: true }))
+        .to.deep.equal({ items, incomplete: true });
+    });
+
+    it('treats a missing result as an empty, complete list', () => {
+      expect(normalizeFetchResult(undefined)).to.deep.equal({ items: [], incomplete: false });
+      expect(normalizeFetchResult({})).to.deep.equal({ items: [], incomplete: false });
+    });
+  });
+
+  describe('clearDependents', () => {
+    const options = [
+      { key: 'a' },
+      { key: 'b', dependsOn: ['a'] },
+      { key: 'c', dependsOn: ['b'] },
+      { key: 'd' },
+    ];
+
+    it('clears direct and transitive dependents and returns their keys', () => {
+      const envConfig = {
+        a: 1, b: 2, c: 3, d: 4,
+      };
+      const cleared = clearDependents({ options, envConfig, key: 'a' });
+      expect(cleared).to.deep.equal(['b', 'c']);
+      expect(envConfig).to.deep.equal({ a: 1, d: 4 });
+    });
+
+    it('returns an empty list when nothing depends on the key', () => {
+      const envConfig = { a: 1, d: 4 };
+      expect(clearDependents({ options, envConfig, key: 'd' })).to.deep.equal([]);
+      expect(envConfig).to.deep.equal({ a: 1, d: 4 });
+    });
+  });
+
+  describe('orderStages', () => {
+    const keysOf = (stages) => stages.map((stage) => stage.map(({ key }) => key));
+
+    it('places each option after the options it depends on', () => {
+      const stages = orderStages([
+        { key: 'c', dependsOn: ['b'] },
+        { key: 'a' },
+        { key: 'b', dependsOn: ['a'] },
+        { key: 'd' },
+      ]);
+      expect(keysOf(stages)).to.deep.equal([['a', 'd'], ['b'], ['c']]);
+    });
+
+    it('ignores dependencies outside the given options', () => {
+      const stages = orderStages([{ key: 'workflowUid', dependsOn: ['projectId'] }]);
+      expect(keysOf(stages)).to.deep.equal([['workflowUid']]);
+    });
+
+    it('returns a single stage for a dependency cycle', () => {
+      const stages = orderStages([
+        { key: 'a', dependsOn: ['b'] },
+        { key: 'b', dependsOn: ['a'] },
+      ]);
+      expect(keysOf(stages)).to.deep.equal([['a', 'b']]);
+    });
+
+    it('returns no stages for no options', () => {
+      expect(orderStages([])).to.deep.equal([]);
+    });
   });
 });
 
