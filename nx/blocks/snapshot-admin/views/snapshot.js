@@ -144,7 +144,22 @@ class NxSnapshot extends LitElement {
         message: 'Scheduled publish date must be at least 5 minutes from now',
         open: true,
       };
+      return false;
     }
+    return true;
+  }
+
+  async clearScheduledPublish(name, manifest, scheduleResult) {
+    const metadata = { ...manifest.metadata, scheduledPublish: undefined };
+    const result = await saveManifest(name, { ...manifest, metadata })
+      .catch((e) => ({ error: e.message }));
+    if (!result.error) this._manifest = result;
+    const error = scheduleResult.text || 'Failed to schedule publish';
+    this._message = {
+      heading: 'Schedule Error',
+      message: result.error ? `${error}. The scheduled publish date could not be cleared: ${result.error}` : error,
+      open: true,
+    };
   }
 
   async handleSave(lock) {
@@ -155,14 +170,13 @@ class NxSnapshot extends LitElement {
       return;
     }
 
+    const scheduledPublish = this.getValue('[name="scheduler"]');
+    if (scheduledPublish && !this.validateSchedule(scheduledPublish)) return;
+
     this._action = 'Saving';
 
     // Set the name if it isn't already set
     if (!this.basics.name) this.basics.name = name;
-
-    // Validate scheduled publish time before saving
-    const scheduledPublish = this.getValue('[name="scheduler"]');
-    if (scheduledPublish && scheduledPublish !== '') this.validateSchedule(scheduledPublish);
 
     const manifest = this.getUpdatedManifest();
 
@@ -185,11 +199,7 @@ class NxSnapshot extends LitElement {
     if (!scheduledPublish || scheduledPublish === '') return;
     const scheduleResult = await updateSchedule(name);
     if (scheduleResult.status !== 200) {
-      this._message = {
-        heading: 'Schedule Error',
-        message: scheduleResult.headers.get('X-Error') || 'Failed to schedule publish',
-        open: true,
-      };
+      await this.clearScheduledPublish(name, manifest, scheduleResult);
     }
   }
 
@@ -258,11 +268,10 @@ class NxSnapshot extends LitElement {
     if (state === 'approve') {
       const scheduledPublish = this.getValue('[name="scheduler"]');
       if (scheduledPublish && scheduledPublish !== '') {
+        if (!this.validateSchedule(scheduledPublish)) return;
+
         // Schedule the publish instead of immediate approval
         this._action = 'Scheduling';
-
-        // Validate scheduled publish time before saving
-        this.validateSchedule(scheduledPublish);
 
         // Save the manifest first with the scheduled publish data
         const manifest = this.getUpdatedManifest();
@@ -280,11 +289,7 @@ class NxSnapshot extends LitElement {
         this._action = undefined;
 
         if (scheduleResult.status !== 200) {
-          this._message = {
-            heading: 'Schedule Error',
-            message: scheduleResult.text || 'Failed to schedule publish',
-            open: true,
-          };
+          await this.clearScheduledPublish(this.basics.name, manifest, scheduleResult);
           return;
         }
 
