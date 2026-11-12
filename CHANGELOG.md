@@ -1,3 +1,10 @@
+## [1.52.2](https://github.com/adobe/da-nx/compare/v1.52.1...v1.52.2) (2026-11-12)
+
+
+### Bug Fixes
+
+* **rollout:** name include/exclude toggles and expose state ([73138fa](https://github.com/adobe/da-nx/commit/73138fa692f2d8f8ec26ce459307b9ad6befb381))
+
 ## [1.52.1](https://github.com/adobe/da-nx/compare/v1.52.0...v1.52.1) (2026-11-12)
 
 
