@@ -57,7 +57,7 @@ export async function getUrls(
     const config = await fetchConfig(org, site);
 
     // Fetch the content and add DNT
-    const fetchUrl = async (url) => {
+    const readUrl = async (url) => {
       const opts = { headers: { 'Cache-Control': 'no-cache' } };
       const resp = await daFetch({ url: `${DA_ADMIN}/source/${org}/${site}${url.daDestPath}`, opts });
       if (!resp.ok) {
@@ -85,6 +85,14 @@ export async function getUrls(
         } catch (error) {
           url.error = `Error adding DNT to ${url.daBasePath} - ${error.message}`;
         }
+      }
+    };
+
+    const fetchUrl = async (url) => {
+      try {
+        await readUrl(url);
+      } catch (error) {
+        url.error = `Error fetching content from ${url.daDestPath} - ${error.message}`;
       }
     };
 
@@ -348,7 +356,7 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     if (!prefix || prefix === '/') return url;
     return { ...url, suppliedPath: path.startsWith(prefix) ? path.slice(prefix.length) : path };
   });
-  const { org, site } = conf;
+  const { org, site, snapshot } = conf;
   const { urls } = await getUrls(
     org,
     site,
@@ -357,6 +365,7 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     newSourceLocation,
     baseUrls,
     true,
+    snapshot,
   );
   const errors = urls.filter((url) => url.error);
   if (errors.length) return { errors };

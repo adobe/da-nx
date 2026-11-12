@@ -102,6 +102,40 @@ describe('checkWaitingLanguages', () => {
     expect(errors[0].error).to.equal('Catalan is waiting on Spanish: /page.html has unmerged changes. Please resolve before translating.');
   });
 
+  it('keeps the language waiting when a source page read rejects', async () => {
+    const fetchStub = stubFetch('<p>hola</p>');
+    globalThis.fetch = sinon.stub().callsFake((url) => {
+      if (url.includes('/source/')) return Promise.reject(new Error('connection reset'));
+      return fetchStub(url);
+    });
+    const { conf, catalan } = makeConf();
+    const connector = makeConnector();
+
+    const { errors } = await checkWaitingLanguages(conf, connector, conf.urls, '/en');
+
+    expect(connector.sendAllLanguages.called).to.be.false;
+    expect(catalan.translation.status).to.equal('waiting');
+    expect(catalan.waitingFor).to.include({ code: 'es' });
+    expect(errors).to.have.length(1);
+    expect(errors[0].error).to.include('connection reset');
+  });
+
+  it('reads the source language from the project snapshot', async () => {
+    globalThis.fetch = stubFetch('<p>hola</p>');
+    const { conf, catalan } = makeConf();
+    conf.snapshot = 's1';
+    const connector = makeConnector();
+
+    const { errors } = await checkWaitingLanguages(conf, connector, conf.urls, '/en');
+
+    expect(errors).to.deep.equal([]);
+    const sourceReads = globalThis.fetch.args.map(([url]) => url).filter((url) => url.includes('/source/'));
+    expect(sourceReads).to.have.length(1);
+    expect(sourceReads[0]).to.include(`/source/${ORG}/${SITE}/.snapshots/s1/es/page.html`);
+    expect(connector.sendAllLanguages.calledOnce).to.be.true;
+    expect(catalan.waitingFor).to.be.undefined;
+  });
+
   it('skips a waiting language whose source language is not fully saved', async () => {
     globalThis.fetch = stubFetch('<p>hola</p>');
     const { conf, catalan } = makeConf();
