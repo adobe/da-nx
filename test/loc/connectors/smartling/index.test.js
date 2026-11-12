@@ -2,7 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import {
   isConnected, connect, saveItems, sendAllLanguages, getStatusAll, listProjects, listWorkflows,
-  serviceOptions, cancelTranslation,
+  serviceOptions, cancelTranslation, checkWorkflowCoverage,
 } from '../../../../nx/blocks/loc/connectors/smartling/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 
@@ -91,6 +91,24 @@ function installFetch() {
 function restoreFetch() {
   if (origFetch) window.fetch = origFetch;
   origFetch = null;
+}
+
+// Layers a workflows-api mock over the currently installed fetch mock.
+function mockWorkflowSearch(respond) {
+  const inner = window.fetch;
+  window.fetch = async (url, opts = {}) => {
+    const u = url.toString();
+    if (u.includes('/workflows-api/v3/accounts/')) {
+      calls.push({ url: u, method: opts.method, body: opts.body });
+      return respond(JSON.parse(opts.body || '{}'), u);
+    }
+    return inner(url, opts);
+  };
+}
+
+function workflowItemsResponse(items, totalCount) {
+  const body = { response: { data: { totalCount, items } } };
+  return new Response(JSON.stringify(body), { status: 200 });
 }
 
 describe('smartling connector - legacy origin rewriting', () => {
@@ -242,9 +260,16 @@ describe('smartling connector - legacy origin rewriting', () => {
   });
 
   it('includes localeWorkflows in the batch body when autoAuthorize and workflowUid are set', async () => {
+    mockWorkflowSearch(() => workflowItemsResponse([
+      { workflowUid: 'wf-1', workflowName: 'WF', localePairs: [{ targetLocaleIds: ['fr-FR', 'de-DE'] }] },
+    ]));
     const options = {
       service: {
-        origin: 'https://api.smartling.com', projectId: 'proj-1', autoAuthorize: 'yes', workflowUid: 'wf-1',
+        origin: 'https://api.smartling.com',
+        accountUid: 'acct-1',
+        projectId: 'proj-1',
+        autoAuthorize: 'yes',
+        workflowUid: 'wf-1',
       },
     };
     const langs = [
@@ -303,6 +328,53 @@ describe('smartling connector - legacy origin rewriting', () => {
     const body = JSON.parse(batchCall.body);
     expect(body.authorize).to.equal(true);
     expect(body.localeWorkflows).to.equal(undefined);
+  });
+
+  it('stops before creating a job when the workflow does not cover every locale', async () => {
+    mockWorkflowSearch(() => workflowItemsResponse([
+      { workflowUid: 'wf-1', workflowName: 'WF', localePairs: [{ targetLocaleIds: ['fr-FR'] }] },
+    ]));
+    const options = {
+      service: {
+        origin: 'https://api.smartling.com',
+        accountUid: 'acct-1',
+        projectId: 'proj-1',
+        autoAuthorize: 'yes',
+        workflowUid: 'wf-1',
+      },
+    };
+    const langs = [
+      { name: 'French', code: 'fr-FR' },
+      { name: 'German', code: 'de-DE' },
+    ];
+    const messages = [];
+    const actions = { sendMessage: (m) => messages.push(m), saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls: [], actions,
+    });
+
+    expect(calls.some((c) => c.url.includes('/jobs-api/v3/projects') && c.method === 'POST')).to.equal(false);
+    expect(messages).to.deep.include({ text: 'Smartling workflow "WF" doesn\'t cover: de-DE.', type: 'error' });
+    expect(options.service.jobUid).to.equal(undefined);
+  });
+
+  it('skips the workflow check when workflowUid is the project default', async () => {
+    const options = {
+      service: {
+        origin: 'https://api.smartling.com', projectId: 'proj-1', autoAuthorize: 'yes', workflowUid: '',
+      },
+    };
+    const langs = [{ name: 'French', code: 'fr-FR' }];
+    const urls = [{ daBasePath: '/page', content: '<p>hi</p>' }];
+    const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+    await sendAllLanguages({
+      org, site, title: 'title', options, langs, urls, actions,
+    });
+
+    expect(calls.some((c) => c.url.includes('/workflows-api/'))).to.equal(false);
+    expect(calls.some((c) => c.url.includes('/jobs-api/v3/projects') && c.method === 'POST')).to.equal(true);
   });
 
   it('surfaces an error and stops when job creation fails', async () => {
@@ -1292,13 +1364,13 @@ describe('smartling connector - legacy origin rewriting', () => {
       return new Response(JSON.stringify({ response: { data: { items } } }), { status: 200 });
     }
 
-    it('resolves an empty array when neither accountId nor projectId is configured', async () => {
+    it('resolves no items when neither accountUid nor projectId is configured', async () => {
       expect(await listProjects({
         org, site, env: 'prod', origin: 'https://api.smartling.com',
-      })).to.deep.equal([]);
+      })).to.deep.equal({ items: [], incomplete: false });
     });
 
-    it('uses the configured accountId directly, without a projectId lookup', async () => {
+    it('uses the configured accountUid directly, without a projectId lookup', async () => {
       origFetch = window.fetch;
       window.fetch = async (url, opts = {}) => {
         const u = url.toString();
@@ -1311,15 +1383,18 @@ describe('smartling connector - legacy origin rewriting', () => {
       };
 
       const projects = await listProjects({
-        org, site, env: 'prod', origin: 'https://api.smartling.com', accountId: 'acct-direct', projectId: 'proj-1',
+        org, site, env: 'prod', origin: 'https://api.smartling.com', accountUid: 'acct-direct', projectId: 'proj-1',
       });
 
-      expect(projects).to.deep.equal([{ projectId: 'proj-1', projectName: 'Marketing Site' }]);
+      expect(projects).to.deep.equal({
+        items: [{ projectId: 'proj-1', projectName: 'Marketing Site' }],
+        incomplete: false,
+      });
       expect(calls.some((c) => c.url.includes('/projects-api/v2/projects/'))).to.equal(false);
       expect(calls.some((c) => c.url.includes('/accounts-api/v2/accounts/acct-direct/projects'))).to.equal(true);
     });
 
-    it('falls back to discovering the accountUid via the deprecated projectId when accountId is absent', async () => {
+    it('falls back to discovering the accountUid via the deprecated projectId when accountUid is absent', async () => {
       origFetch = window.fetch;
       window.fetch = async (url, opts = {}) => {
         const u = url.toString();
@@ -1339,12 +1414,12 @@ describe('smartling connector - legacy origin rewriting', () => {
         org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1',
       });
 
-      expect(projects).to.deep.equal([{ projectId: 'proj-1', projectName: 'Marketing Site' }]);
+      expect(projects.items).to.deep.equal([{ projectId: 'proj-1', projectName: 'Marketing Site' }]);
       expect(calls.some((c) => c.url.includes('/projects-api/v2/projects/proj-1'))).to.equal(true);
       expect(calls.some((c) => c.url.includes('/accounts-api/v2/accounts/acct-1/projects'))).to.equal(true);
     });
 
-    it('resolves an empty array when the configured project cannot be looked up', async () => {
+    it('resolves no items when the configured project cannot be looked up', async () => {
       origFetch = window.fetch;
       window.fetch = async (url, opts = {}) => {
         const u = url.toString();
@@ -1358,10 +1433,10 @@ describe('smartling connector - legacy origin rewriting', () => {
         org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-missing',
       });
 
-      expect(projects).to.deep.equal([]);
+      expect(projects).to.deep.equal({ items: [], incomplete: false });
     });
 
-    it('resolves an empty array when the account project list request fails', async () => {
+    it('flags the listing incomplete when the account project list request fails', async () => {
       origFetch = window.fetch;
       window.fetch = async (url, opts = {}) => {
         const u = url.toString();
@@ -1376,7 +1451,7 @@ describe('smartling connector - legacy origin rewriting', () => {
         org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1',
       });
 
-      expect(projects).to.deep.equal([]);
+      expect(projects).to.deep.equal({ items: [], incomplete: true });
     });
 
     describe('pagination', () => {
@@ -1388,7 +1463,7 @@ describe('smartling connector - legacy origin rewriting', () => {
         { status: 200 },
       );
       const config = {
-        org, site, env: 'prod', origin: 'https://api.smartling.com', accountId: 'acct-direct',
+        org, site, env: 'prod', origin: 'https://api.smartling.com', accountUid: 'acct-direct',
       };
 
       it('fetches every page using offset and limit', async () => {
@@ -1404,9 +1479,9 @@ describe('smartling connector - legacy origin rewriting', () => {
 
         const projects = await listProjects(config);
 
-        expect(projects).to.have.length(501);
-        expect(projects[500].projectId).to.equal('proj-501');
-        expect(projects.incomplete).to.equal(undefined);
+        expect(projects.items).to.have.length(501);
+        expect(projects.items[500].projectId).to.equal('proj-501');
+        expect(projects.incomplete).to.equal(false);
         const params = calls.map((c) => new URL(c.url).searchParams);
         expect(params.map((p) => p.get('offset'))).to.deep.equal(['0', '500']);
         expect(params.every((p) => p.get('limit') === '500')).to.equal(true);
@@ -1421,7 +1496,7 @@ describe('smartling connector - legacy origin rewriting', () => {
 
         const projects = await listProjects(config);
 
-        expect(projects).to.have.length(500);
+        expect(projects.items).to.have.length(500);
         expect(projects.incomplete).to.equal(true);
       });
 
@@ -1435,7 +1510,7 @@ describe('smartling connector - legacy origin rewriting', () => {
         const projects = await listProjects(config);
 
         expect(projects.incomplete).to.equal(true);
-        expect(projects.length).to.equal(500 * 20);
+        expect(projects.items.length).to.equal(500 * 20);
       });
 
       it('flags a failed first page as incomplete', async () => {
@@ -1444,8 +1519,7 @@ describe('smartling connector - legacy origin rewriting', () => {
 
         const projects = await listProjects(config);
 
-        expect(projects).to.have.length(0);
-        expect(projects.incomplete).to.equal(true);
+        expect(projects).to.deep.equal({ items: [], incomplete: true });
       });
     });
   });
@@ -1455,14 +1529,14 @@ describe('smartling connector - legacy origin rewriting', () => {
       origFetch = window.fetch;
       window.fetch = async () => new Response('', { status: 400 });
       const service = {
-        org, site, env: 'prod', origin: 'https://api.smartling.com', accountId: 'acct-direct', projectId: 'p',
+        org, site, env: 'prod', origin: 'https://api.smartling.com', accountUid: 'acct-direct', projectId: 'p',
       };
 
-      const projectItems = await serviceOptions.find((o) => o.key === 'projectId').fetch(service);
-      const workflowItems = await serviceOptions.find((o) => o.key === 'workflowUid').fetch(service);
+      const projectResult = await serviceOptions.find((o) => o.key === 'projectId').fetch(service);
+      const workflowResult = await serviceOptions.find((o) => o.key === 'workflowUid').fetch(service);
 
-      expect(projectItems.incomplete).to.equal(true);
-      expect(workflowItems.incomplete).to.equal(true);
+      expect(projectResult.incomplete).to.equal(true);
+      expect(workflowResult.incomplete).to.equal(true);
     });
 
     it('exposes a projectId option whose fetch maps listProjects to {value, label}', async () => {
@@ -1484,17 +1558,22 @@ describe('smartling connector - legacy origin rewriting', () => {
 
       const option = serviceOptions.find((o) => o.key === 'projectId');
       expect(option.label).to.equal('Project');
+      expect(option.dependsOn).to.equal(undefined);
 
-      const items = await option.fetch({
+      const result = await option.fetch({
         org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1',
       });
-      expect(items).to.deep.equal([{ value: 'proj-1', label: 'Marketing Site' }]);
+      expect(result).to.deep.equal({
+        items: [{ value: 'proj-1', label: 'Marketing Site' }],
+        incomplete: false,
+      });
     });
 
     it('exposes an autoAuthorize option with static Disabled/Enabled choices and no enabledWhen', async () => {
       const option = serviceOptions.find((o) => o.key === 'autoAuthorize');
       expect(option.label).to.equal('Auto-authorize');
       expect(option.enabledWhen).to.equal(undefined);
+      expect(option.dependsOn).to.equal(undefined);
 
       const items = await option.fetch();
       expect(items).to.deep.equal([
@@ -1503,7 +1582,7 @@ describe('smartling connector - legacy origin rewriting', () => {
       ]);
     });
 
-    it('exposes a workflowUid option whose fetch maps listWorkflows to {value, label}', async () => {
+    it('exposes a workflowUid option that lists a project default ahead of the workflows', async () => {
       origFetch = window.fetch;
       window.fetch = async (url, opts = {}) => {
         const u = url.toString();
@@ -1513,20 +1592,27 @@ describe('smartling connector - legacy origin rewriting', () => {
           return new Response(JSON.stringify({ response: { data: { accountUid: 'acct-1' } } }), { status: 200 });
         }
         if (u.includes('/workflows-api/v3/accounts/acct-1/workflows')) {
-          return new Response(JSON.stringify({
-            response: { data: { items: [{ workflowUid: 'wf-1', workflowName: 'Default', projectId: null }] } },
-          }), { status: 200 });
+          return workflowItemsResponse([{
+            workflowUid: 'wf-1', workflowName: 'Default', projectId: null, localePairs: [{ targetLocaleIds: ['fr-FR'] }],
+          }]);
         }
         return new Response('{}', { status: 200 });
       };
 
       const option = serviceOptions.find((o) => o.key === 'workflowUid');
       expect(option.label).to.equal('Workflow');
+      expect(option.dependsOn).to.deep.equal(['projectId']);
 
-      const items = await option.fetch({
+      const result = await option.fetch({
         org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1',
       });
-      expect(items).to.deep.equal([{ value: 'wf-1', label: 'Default' }]);
+      expect(result).to.deep.equal({
+        items: [
+          { value: '', label: 'Project default' },
+          { value: 'wf-1', label: 'Default' },
+        ],
+        incomplete: false,
+      });
     });
 
     it('only enables the workflowUid option when autoAuthorize is yes', () => {
@@ -1540,77 +1626,125 @@ describe('smartling connector - legacy origin rewriting', () => {
   });
 
   describe('listWorkflows', () => {
-    function workflowsResponse(items) {
-      return new Response(JSON.stringify({ response: { data: { items } } }), { status: 200 });
-    }
+    const pairs = [{ targetLocaleIds: ['fr-FR'] }];
+    const config = {
+      org, site, env: 'prod', origin: 'https://api.smartling.com', accountUid: 'acct-direct', projectId: 'proj-1',
+    };
 
-    it('resolves an empty array when neither accountId nor projectId is configured', async () => {
+    it('resolves no items when neither accountUid nor projectId is configured', async () => {
       expect(await listWorkflows({
         org, site, env: 'prod', origin: 'https://api.smartling.com',
-      })).to.deep.equal([]);
+      })).to.deep.equal({ items: [], incomplete: false });
     });
 
-    it('includes account-wide workflows and workflows scoped to the configured project', async () => {
+    it('runs a project search plus CUSTOM and LOCKED account searches', async () => {
       origFetch = window.fetch;
-      window.fetch = async (url, opts = {}) => {
-        const u = url.toString();
-        calls.push({ url: u, method: opts.method, body: opts.body });
+      window.fetch = async () => new Response('{}', { status: 200 });
+      mockWorkflowSearch(() => workflowItemsResponse([]));
 
-        if (u.includes('/workflows-api/v3/accounts/acct-direct/workflows')) {
-          return workflowsResponse([
-            { workflowUid: 'wf-account', workflowName: 'Account Default', projectId: null },
-            { workflowUid: 'wf-mine', workflowName: 'My Project', projectId: 'proj-1' },
-            { workflowUid: 'wf-other', workflowName: 'Other Project', projectId: 'proj-2' },
-          ]);
-        }
-        return new Response('{}', { status: 200 });
-      };
+      await listWorkflows(config);
 
-      const workflows = await listWorkflows({
-        org, site, env: 'prod', origin: 'https://api.smartling.com', accountId: 'acct-direct', projectId: 'proj-1',
-      });
-
-      expect(workflows).to.deep.equal([
-        { workflowUid: 'wf-account', workflowName: 'Account Default' },
-        { workflowUid: 'wf-mine', workflowName: 'My Project' },
+      const bodies = calls.filter((c) => c.url.includes('/workflows-api/v3/accounts/acct-direct/workflows'))
+        .map((c) => c.body);
+      expect(bodies).to.have.members([
+        '{"projectId":"proj-1","limit":500}',
+        '{"localePairManagementType":"CUSTOM","limit":500}',
+        '{"localePairManagementType":"LOCKED","limit":500}',
       ]);
       expect(calls.some((c) => c.url.includes('/projects-api/v2/projects/'))).to.equal(false);
-      expect(calls.some((c) => c.method === 'POST' && c.body === '{"limit":500}')).to.equal(true);
-      expect(workflows.incomplete).to.equal(undefined);
+    });
+
+    it('skips the project search when no projectId is set', async () => {
+      origFetch = window.fetch;
+      window.fetch = async () => new Response('{}', { status: 200 });
+      mockWorkflowSearch(() => workflowItemsResponse([]));
+
+      await listWorkflows({ ...config, projectId: undefined });
+
+      const bodies = calls.filter((c) => c.url.includes('/workflows-api/')).map((c) => c.body);
+      expect(bodies).to.have.members([
+        '{"localePairManagementType":"CUSTOM","limit":500}',
+        '{"localePairManagementType":"LOCKED","limit":500}',
+      ]);
+    });
+
+    it('merges the searches, drops other-project workflows, and dedupes by workflowUid', async () => {
+      origFetch = window.fetch;
+      window.fetch = async () => new Response('{}', { status: 200 });
+      mockWorkflowSearch((body) => {
+        if (body.projectId) {
+          return workflowItemsResponse([
+            { workflowUid: 'wf-mine', workflowName: 'My Project', projectId: 'proj-1', localePairs: pairs },
+          ]);
+        }
+        if (body.localePairManagementType === 'CUSTOM') {
+          return workflowItemsResponse([
+            { workflowUid: 'wf-account', workflowName: 'Account Default', projectId: null, localePairs: pairs },
+            { workflowUid: 'wf-mine', workflowName: 'My Project', projectId: 'proj-1', localePairs: pairs },
+            { workflowUid: 'wf-other', workflowName: 'Other Project', projectId: 'proj-2', localePairs: pairs },
+          ]);
+        }
+        return workflowItemsResponse([
+          { workflowUid: 'wf-account', workflowName: 'Account Default', projectId: null, localePairs: pairs },
+        ]);
+      });
+
+      const workflows = await listWorkflows(config);
+
+      expect(workflows).to.deep.equal({
+        items: [
+          { workflowUid: 'wf-mine', workflowName: 'My Project' },
+          { workflowUid: 'wf-account', workflowName: 'Account Default' },
+        ],
+        incomplete: false,
+      });
+    });
+
+    it('excludes workflows with no locale pairs', async () => {
+      origFetch = window.fetch;
+      window.fetch = async () => new Response('{}', { status: 200 });
+      mockWorkflowSearch((body) => (body.localePairManagementType === 'CUSTOM'
+        ? workflowItemsResponse([
+          { workflowUid: 'wf-null', workflowName: 'Null pairs', localePairs: null },
+          { workflowUid: 'wf-empty', workflowName: 'Empty pairs', localePairs: [] },
+          { workflowUid: 'wf-ok', workflowName: 'Usable', localePairs: pairs },
+        ])
+        : workflowItemsResponse([])));
+
+      const workflows = await listWorkflows(config);
+
+      expect(workflows.items).to.deep.equal([{ workflowUid: 'wf-ok', workflowName: 'Usable' }]);
     });
 
     it('flags the listing incomplete when totalCount exceeds the returned items', async () => {
       origFetch = window.fetch;
-      window.fetch = async () => new Response(JSON.stringify({
-        response: {
-          data: {
-            totalCount: 501,
-            items: [{ workflowUid: 'wf-1', workflowName: 'Default', projectId: null }],
-          },
-        },
-      }), { status: 200 });
+      window.fetch = async () => new Response('{}', { status: 200 });
+      mockWorkflowSearch((body) => (body.localePairManagementType === 'LOCKED'
+        ? workflowItemsResponse([{ workflowUid: 'wf-1', workflowName: 'Default', localePairs: pairs }], 501)
+        : workflowItemsResponse([])));
 
-      const workflows = await listWorkflows({
-        org, site, env: 'prod', origin: 'https://api.smartling.com', accountId: 'acct-direct', projectId: 'proj-1',
-      });
+      const workflows = await listWorkflows(config);
 
-      expect(workflows).to.have.length(1);
+      expect(workflows.items).to.have.length(1);
       expect(workflows.incomplete).to.equal(true);
     });
 
-    it('flags a failed workflows request as incomplete', async () => {
+    it('keeps results from the other searches but flags incomplete when one search fails', async () => {
       origFetch = window.fetch;
-      window.fetch = async () => new Response('', { status: 400 });
+      window.fetch = async () => new Response('{}', { status: 200 });
+      mockWorkflowSearch((body) => (body.localePairManagementType === 'CUSTOM'
+        ? new Response('', { status: 403 })
+        : workflowItemsResponse([{ workflowUid: 'wf-1', workflowName: 'Default', localePairs: pairs }])));
 
-      const workflows = await listWorkflows({
-        org, site, env: 'prod', origin: 'https://api.smartling.com', accountId: 'acct-direct', projectId: 'proj-1',
+      const workflows = await listWorkflows(config);
+
+      expect(workflows).to.deep.equal({
+        items: [{ workflowUid: 'wf-1', workflowName: 'Default' }],
+        incomplete: true,
       });
-
-      expect(workflows).to.have.length(0);
-      expect(workflows.incomplete).to.equal(true);
     });
 
-    it('falls back to discovering the accountUid via the deprecated projectId when accountId is absent', async () => {
+    it('falls back to discovering the accountUid via the deprecated projectId when accountUid is absent', async () => {
       origFetch = window.fetch;
       window.fetch = async (url, opts = {}) => {
         const u = url.toString();
@@ -1620,34 +1754,100 @@ describe('smartling connector - legacy origin rewriting', () => {
           return new Response(JSON.stringify({ response: { data: { accountUid: 'acct-1' } } }), { status: 200 });
         }
         if (u.includes('/workflows-api/v3/accounts/acct-1/workflows')) {
-          return workflowsResponse([{ workflowUid: 'wf-1', workflowName: 'Default', projectId: null }]);
+          return workflowItemsResponse([{
+            workflowUid: 'wf-1', workflowName: 'Default', projectId: null, localePairs: pairs,
+          }]);
         }
         return new Response('{}', { status: 200 });
       };
 
-      const workflows = await listWorkflows({
-        org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-1',
-      });
+      const workflows = await listWorkflows({ ...config, accountUid: undefined });
 
-      expect(workflows).to.deep.equal([{ workflowUid: 'wf-1', workflowName: 'Default' }]);
+      expect(workflows.items).to.deep.equal([{ workflowUid: 'wf-1', workflowName: 'Default' }]);
       expect(calls.some((c) => c.url.includes('/projects-api/v2/projects/proj-1'))).to.equal(true);
     });
+  });
 
-    it('resolves an empty array when the workflows request fails', async () => {
+  describe('checkWorkflowCoverage', () => {
+    const service = {
+      org, site, env: 'prod', origin: 'https://api.smartling.com', accountUid: 'acct-1', projectId: 'proj-1',
+    };
+    const langs = [{ code: 'fr-FR' }, { code: 'de-DE' }];
+    const workflow = (localePairs) => ({ workflowUid: 'wf-1', workflowName: 'WF', localePairs });
+
+    beforeEach(() => {
       origFetch = window.fetch;
-      window.fetch = async (url, opts = {}) => {
-        const u = url.toString();
-        calls.push({ url: u, method: opts.method, body: opts.body });
+      window.fetch = async () => new Response('{}', { status: 200 });
+    });
 
-        if (u.includes('/workflows-api/v3/accounts/acct-direct/workflows')) return new Response('', { status: 400 });
-        return new Response('{}', { status: 200 });
-      };
+    it('passes when the workflow covers every target locale', async () => {
+      mockWorkflowSearch(() => workflowItemsResponse([workflow([
+        { sourceLocaleId: 'en-US', targetLocaleIds: ['fr-FR'] },
+        { sourceLocaleId: 'en-US', targetLocaleIds: ['de-DE', 'es-ES'] },
+      ])]));
 
-      const workflows = await listWorkflows({
-        org, site, env: 'prod', origin: 'https://api.smartling.com', accountId: 'acct-direct', projectId: 'proj-1',
+      const result = await checkWorkflowCoverage({ service, workflowUid: 'wf-1', langs });
+
+      expect(result).to.deep.equal({});
+      const search = calls.find((c) => c.url.includes('/workflows-api/v3/accounts/acct-1/workflows'));
+      expect(search.method).to.equal('POST');
+      expect(search.body).to.equal('{"workflowUids":["wf-1"],"limit":1}');
+    });
+
+    it('lists the locales the workflow does not cover', async () => {
+      mockWorkflowSearch(() => workflowItemsResponse([workflow([{ targetLocaleIds: ['es-ES'] }])]));
+
+      const result = await checkWorkflowCoverage({ service, workflowUid: 'wf-1', langs });
+
+      expect(result).to.deep.equal({ error: 'Smartling workflow "WF" doesn\'t cover: fr-FR, de-DE.' });
+    });
+
+    it('rejects a workflow with no locale pairs', async () => {
+      mockWorkflowSearch(() => workflowItemsResponse([workflow(null)]));
+
+      const result = await checkWorkflowCoverage({ service, workflowUid: 'wf-1', langs });
+
+      expect(result).to.deep.equal({
+        error: 'Smartling workflow "WF" has no locale pairs and can\'t authorize jobs.',
+      });
+    });
+
+    it('falls back to the workflowUid when the workflow has no name', async () => {
+      mockWorkflowSearch(() => workflowItemsResponse([{ workflowUid: 'wf-1', localePairs: [] }]));
+
+      const result = await checkWorkflowCoverage({ service, workflowUid: 'wf-1', langs });
+
+      expect(result.error).to.equal('Smartling workflow "wf-1" has no locale pairs and can\'t authorize jobs.');
+    });
+
+    it('reports a workflow that was not found', async () => {
+      mockWorkflowSearch(() => workflowItemsResponse([]));
+
+      const result = await checkWorkflowCoverage({ service, workflowUid: 'wf-1', langs });
+
+      expect(result).to.deep.equal({ error: 'Smartling workflow wf-1 was not found.' });
+    });
+
+    it('reports a failed workflow lookup', async () => {
+      mockWorkflowSearch(() => new Response('', { status: 403 }));
+
+      const result = await checkWorkflowCoverage({ service, workflowUid: 'wf-1', langs });
+
+      expect(result).to.deep.equal({
+        error: 'Could not verify the Smartling workflow. The workflow lookup failed (403).',
+      });
+    });
+
+    it('reports an account that cannot be resolved', async () => {
+      const result = await checkWorkflowCoverage({
+        service: { ...service, accountUid: undefined, projectId: undefined },
+        workflowUid: 'wf-1',
+        langs,
       });
 
-      expect(workflows).to.deep.equal([]);
+      expect(result).to.deep.equal({
+        error: 'Could not verify the Smartling workflow. The Smartling account could not be resolved.',
+      });
     });
   });
 });
