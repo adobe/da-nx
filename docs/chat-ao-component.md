@@ -81,8 +81,10 @@ chat.onArtifactAction = ({ artifactId, componentId, name, context }, artifact) =
 `findProposalPage` and `openEditorDiff` above are illustrative host functions, not
 Nexter APIs. The callback receives the artifact ID, the source component ID, the
 event name, and a copy of the event's context. Its optional second argument is
-the owning normalized artifact, including all component records, so hosts can
-resolve bounded component references without searching chat history. Treat it
+the owning normalized artifact, including all component records and `dataModel`
+(mapped from wire `a2ui_surface.data_model`) when supplied, so hosts can resolve bounded data-model references
+without searching chat history. The model is preserved for both history and
+streamed artifacts. Treat it
 as read-only, untrusted model output. Existing single-argument callbacks continue
 to work. Legacy components without IDs
 produce an undefined component ID.
@@ -98,7 +100,7 @@ For example, the following component routes a diff request to that callback:
   "action": {
     "event": {
       "name": "editor.viewDiff",
-      "context": { "pagePath": { "path": "/pages/home/path" } }
+      "context": { "proposedPath": { "path": "/proposals/page1" } }
     }
   }
 }
@@ -108,7 +110,11 @@ Context values follow the catalog's `{ "path": "..." }` reference shape. Referen
 are passed through **unresolved**: this renderer does not implement an A2UI data
 model or expression runtime. Hosts must allowlist event names, validate all
 LLM-provided identifiers and references, authorize the requested operation, and
-resolve references against trusted state. Nothing dynamically dispatches DOM
+resolve references against the owning artifact's data model and host-owned state.
+Coworker's `add_artifact` loads its `data_file` JSON into `a2ui_surface.data_model`.
+That file is metadata, not page content. Component IDs are not data-model paths;
+`/components/<id>/text` does not reference a component record through this model.
+Nothing dynamically dispatches DOM
 events or invokes editor commands based on a generated name.
 
 The host owns asynchronous work, error reporting, confirmation for mutations,

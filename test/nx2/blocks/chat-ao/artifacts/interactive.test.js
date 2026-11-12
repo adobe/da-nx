@@ -19,13 +19,12 @@ function mount({ component = 'ActionButton', fields = {}, onAction } = {}) {
 }
 
 describe('artifact buttons', () => {
-  it('supplies the owning artifact so hosts can resolve component references', () => {
+  it('supplies the owning artifact and data model so hosts can resolve action references', () => {
+    const modelAction = { event: { name: 'editor.viewDiff', context: { proposedPath: { path: '/proposals/page1' } } } };
     const artifact = {
       id: 'proposal',
-      components: [
-        { id: 'root', component: 'ActionButton', label: 'View diff', action },
-        { id: 'proposal-path', component: 'Text', text: '/org/site/.da/index.html', visible: false },
-      ],
+      dataModel: { proposals: { page1: '/org/site/.da/index.html' } },
+      components: [{ id: 'root', component: 'ActionButton', label: 'View diff', action: modelAction }],
     };
     const host = document.createElement('div');
     let received;
@@ -35,6 +34,8 @@ describe('artifact buttons', () => {
     host.querySelector('button').click();
     expect(received.owner).to.equal(artifact);
     expect(received.event.artifactId).to.equal(artifact.id);
+    expect(received.event.context.proposedPath.path).to.equal('/proposals/page1');
+    expect(received.owner.dataModel.proposals.page1).to.equal('/org/site/.da/index.html');
     expect(host.textContent).not.to.include('/org/site/.da/index.html');
   });
 
