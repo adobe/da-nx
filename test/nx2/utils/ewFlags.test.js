@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
-import { HLX_ADMIN } from '../../../nx2/utils/utils.js';
+import { HLX_ADMIN, DA_ADMIN } from '../../../nx2/utils/utils.js';
+import { fetchDaConfigs } from '../../../nx2/utils/daConfig.js';
 import {
   calls, installFetch, restoreFetch,
 } from '../../../nx2/test/mocks/fetch.js';
@@ -57,6 +58,25 @@ describe('getEWFlags', () => {
   it('ignores non-ew.* flags', async () => {
     installFetch({ body: JSON.stringify({ flags: { data: [{ key: 'other.flag', value: 'true' }] } }) });
     expect(await getEWFlags({ org: 'flag-org4', site: 'flag-site4' })).to.deep.equal({});
+  });
+
+  it('uses only site flags for hlx6, even when legacy org flags are cached', async () => {
+    const org = 'flag-org-hlx6';
+    const site = 'site';
+    installFetch({
+      body: JSON.stringify({
+        flags: { data: [{ key: 'ew.enabled', value: 'false' }, { key: 'ew.disableChat', value: 'true' }] },
+      }),
+    });
+    await Promise.all(fetchDaConfigs({ org }));
+
+    restoreFetch();
+    installFetch({
+      pingHlx6: true,
+      body: JSON.stringify({ config: [], flags: [{ key: 'ew.enabled', value: 'true' }] }),
+    });
+    expect(await getEWFlags({ org, site })).to.deep.equal({ 'ew.enabled': 'true' });
+    expect(calls.filter((call) => call.url.startsWith(DA_ADMIN))).to.have.lengthOf(0);
   });
 });
 

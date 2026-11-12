@@ -1,4 +1,4 @@
-import { config } from './api.js';
+import { config, isHlx6 } from './api.js';
 import { getFirstSheet } from './utils.js';
 
 // Kept here for existing importers; lives in utils.js so callers can use it without api.js.
@@ -12,7 +12,8 @@ export { getFirstSheet };
  * @param {string} params.org - The org to fetch config for.
  * @param {string} [params.site] - The site to also fetch config for.
  * @returns {Promise[]} `[orgConfigPromise]`, or `[orgConfigPromise, siteConfigPromise]`
- *   when `site` is given; `[Promise.resolve(null)]` when `org` is missing.
+ *   when `site` is given (the org promise resolves to null for hlx6);
+ *   `[Promise.resolve(null)]` when `org` is missing.
  */
 export const fetchDaConfigs = (() => {
   const configCache = {};
@@ -39,11 +40,16 @@ export const fetchDaConfigs = (() => {
     return configCache[key];
   };
 
+  const fetchOrgConfig = async (org, site) => {
+    if (site && await isHlx6(org, site)) return null;
+    configCache[`/${org}`] ??= cacheConfig(`/${org}`, org);
+    return configCache[`/${org}`];
+  };
+
   return ({ org, site }) => {
     if (!org) return [Promise.resolve(null)];
 
-    // Set the org config promise if it does not exist
-    configCache[`/${org}`] ??= cacheConfig(`/${org}`, org);
+    const orgConfig = fetchOrgConfig(org, site);
 
     if (site) {
       // Set the site config promise if it does not exist
@@ -51,7 +57,7 @@ export const fetchDaConfigs = (() => {
     }
 
     // return array of cached configs (org = 0, site = 1)
-    const configs = [configCache[`/${org}`]];
+    const configs = [orgConfig];
     if (site) configs.push(configCache[`/${org}/${site}`]);
 
     return configs;
