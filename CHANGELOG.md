@@ -1,3 +1,79 @@
+## [1.52.1](https://github.com/adobe/da-nx/compare/v1.52.0...v1.52.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **chat-ao:** wait for session readiness before auto-send ([fddddbc](https://github.com/adobe/da-nx/commit/fddddbc1014d06a7b136af9a7c78603180172dab))
+* **chat:** restore history before accepting prompts ([4e0a529](https://github.com/adobe/da-nx/commit/4e0a52979f737fa7b474f21e86880857541e694f))
+* **media-library:** make grid cards keyboard accessible ([ff70eac](https://github.com/adobe/da-nx/commit/ff70eac24f4662905bdf218af96effce4c2ee08f))
+* **media-library:** make onboard site cards keyboard accessible ([ea7b246](https://github.com/adobe/da-nx/commit/ea7b2461672735fd287efb835872ad555b0ed9ef))
+* **media-library:** mirror site card hover on keyboard focus ([6797fb0](https://github.com/adobe/da-nx/commit/6797fb05595036d6d49f487afd9d173c54037c59))
+
+# [1.52.0](https://github.com/adobe/da-nx/compare/v1.51.2...v1.52.0) (2026-11-11)
+
+
+### Bug Fixes
+
+* **loc:** detect list-item review markers ([094c933](https://github.com/adobe/da-nx/commit/094c933d649faad4b1d72cf196cc1db7d69a3c4c))
+* **loc:** keep unresolved deletions and grouped section attributes in smart rollout ([19010ed](https://github.com/adobe/da-nx/commit/19010ed6f21619b96a25f3c30410483a2d80cb08))
+* **loc:** keep unresolved reviews on smart rollout and unify skipped label ([3be33b7](https://github.com/adobe/da-nx/commit/3be33b78f6752cb56fb15559931a19e74fe958d0))
+* **loc:** rename mark in sync to set sync point, place it beside rollout ([a993ca9](https://github.com/adobe/da-nx/commit/a993ca910b0d1a99b3488305067965fde1ce9ef2))
+* **loc:** skip rollout versions when seeding the first smart rollout ([c234d3c](https://github.com/adobe/da-nx/commit/c234d3c56a438aa574ea328571c1a1641451b3d7))
+* **loc:** surface missing sync points and keep snapshot baselines ([339eede](https://github.com/adobe/da-nx/commit/339eede94fb53ec2095237d619f30542129fe7b0))
+
+
+### Features
+
+* **loc:** add opt-in smart-overwrite rollout that keeps local edits ([360756f](https://github.com/adobe/da-nx/commit/360756fca6f888be81411b5b7a3e2346c7a3c6b2))
+* **loc:** first smart rollout is a merge review instead of baseline only ([8ae8d0c](https://github.com/adobe/da-nx/commit/8ae8d0c60ff53cd33c7192b431d5b51a3a9119e3))
+* **loc:** honor merge-review rejections in smart rollouts ([c2151a2](https://github.com/adobe/da-nx/commit/c2151a27cb62e3968b4fdc1cf36f512d5c47275e))
+* **loc:** mark in sync and baseline recording for smart-overwrite rollouts ([1e6f4db](https://github.com/adobe/da-nx/commit/1e6f4db6f627152ed3f041fbbbc376b953e2ba64))
+* **loc:** record only the baseline on the first smart rollout ([cafb072](https://github.com/adobe/da-nx/commit/cafb0720375a4ba40ee140369dc618c396eb43f5))
+* **loc:** report unchanged and needs-review pages after smart rollouts ([892fe6c](https://github.com/adobe/da-nx/commit/892fe6ca356f05b63637182bc21a06874eae7608))
+* **loc:** seed first smart rollout from the parent's latest saved version ([3969c9b](https://github.com/adobe/da-nx/commit/3969c9ba3542e8a49705d89ab42bb8a2e8149beb))
+
+## [1.51.2](https://github.com/adobe/da-nx/compare/v1.51.1...v1.51.2) (2026-11-11)
+
+
+### Bug Fixes
+
+* **loc:** handle languages without locales in rollout ([#915](https://github.com/adobe/da-nx/issues/915)) ([bb35897](https://github.com/adobe/da-nx/commit/bb35897ca62d295d4ecde284289ee2d7d899d325))
+
+## [1.51.1](https://github.com/adobe/da-nx/compare/v1.51.0...v1.51.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **api:** forward mutation continuation tokens ([#984](https://github.com/adobe/da-nx/issues/984)) ([37b28d4](https://github.com/adobe/da-nx/commit/37b28d4335963593cb83fd0aef0c3a7f8e3a32de)), closes [adobe/da-live#1708](https://github.com/adobe/da-live/issues/1708)
+
+# [1.51.0](https://github.com/adobe/da-nx/compare/v1.50.0...v1.51.0) (2026-11-11)
+
+
+### Features
+
+* **action-card:** icon slot for svg or any image ([#985](https://github.com/adobe/da-nx/issues/985)) ([0978f07](https://github.com/adobe/da-nx/commit/0978f0718d68572fa9709cad8e7c0951ce099de8))
+
+# [1.50.0](https://github.com/adobe/da-nx/compare/v1.49.0...v1.50.0) (2026-11-11)
+
+
+### Features
+
+* **action-card:** add shared nx-action-card component ([#979](https://github.com/adobe/da-nx/issues/979)) ([a433cad](https://github.com/adobe/da-nx/commit/a433cad84eb7db1acfcdb3fc9f58c487e419385b))
+
+# [1.49.0](https://github.com/adobe/da-nx/compare/v1.48.0...v1.49.0) (2026-11-11)
+
+
+### Features
+
+* **nav:** show logo-only branding by default ([#980](https://github.com/adobe/da-nx/issues/980)) ([367d2e9](https://github.com/adobe/da-nx/commit/367d2e99bd03e80044862fe2e00f61d61d6c3664))
+
+# [1.48.0](https://github.com/adobe/da-nx/compare/v1.47.0...v1.48.0) (2026-11-10)
+
+
+### Features
+
+* **quick-edit:** support editable link-images ([#829](https://github.com/adobe/da-nx/issues/829)) ([ea1aa30](https://github.com/adobe/da-nx/commit/ea1aa30d468986f983dcb0f13da375f4578fa900))
+
 # [1.47.0](https://github.com/adobe/da-nx/compare/v1.46.0...v1.47.0) (2026-11-10)
 
 
