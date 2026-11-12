@@ -121,7 +121,7 @@ function onMessage(e, ctx) {
   } else if (type === MESSAGE_TYPES.SET_COMMENT_MARKERS) {
     setCommentMarkers(payload, ctx);
   } else if (type === MESSAGE_TYPES.SCROLL_TO_POS) {
-    scrollToProseIndex(payload.proseIndex);
+    Promise.resolve(ctx.bodyQueue).then(() => scrollToProseIndex(payload.proseIndex));
   } else if (type === MESSAGE_TYPES.SET_SELECTED_NODE) {
     setSelectedNode(payload.node, document, { scrollIntoView: payload.scrollIntoView });
   }

@@ -6,6 +6,12 @@ function indexedBlocks() {
   return [...scope.querySelectorAll('[data-block-index]')];
 }
 
+let stopActiveRestore = () => {};
+
+export function stopScrollRestore() {
+  stopActiveRestore();
+}
+
 export function captureScrollAnchor() {
   const block = indexedBlocks().find((el) => el.getBoundingClientRect().bottom > 0);
   if (block) {
@@ -40,6 +46,7 @@ export function restoreScrollAnchor(anchor) {
     window.removeEventListener('touchmove', stop);
     window.removeEventListener('keydown', stop);
   };
+  stopActiveRestore = stop;
   timer = setTimeout(stop, 600);
   window.addEventListener('wheel', stop, { passive: true });
   window.addEventListener('touchmove', stop, { passive: true });

@@ -1,6 +1,7 @@
 import { MESSAGE_TYPES } from '../../../../../utils/message-types.js';
 import { findTextBlock } from '../dom-index.js';
 import { findPictureForImageMarker } from './geometry.js';
+import { stopScrollRestore } from '../scroll-anchor.js';
 import {
   clearOverlay,
   renderCommentMarkers,
@@ -91,6 +92,7 @@ function findScrollTarget(proseIndex, root) {
 }
 
 export function scrollToProseIndex(proseIndex, root = document) {
+  stopScrollRestore();
   if (scrollRetryTimer) {
     clearInterval(scrollRetryTimer);
     scrollRetryTimer = null;
