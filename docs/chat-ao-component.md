@@ -63,21 +63,28 @@ unsupported values fall back to the artifact's text summary.
 Divider supports horizontal (default) and vertical orientations.
 
 Named-event actions are opt-in through the chat element's `onArtifactAction`
-property. No callbacks are sent to Coworker or CMA automatically. A button without
+property. Optional `artifactActionNames` restricts enabled named-event buttons to
+the host's supported names; an empty array disables all of them. No callbacks are
+sent to Coworker or CMA automatically. A button without
 an action or without a host callback is disabled, rather than appearing functional.
 
 ```js
-chat.onArtifactAction = ({ artifactId, componentId, name, context }) => {
+chat.artifactActionNames = ['editor.viewDiff'];
+chat.onArtifactAction = ({ artifactId, componentId, name, context }, artifact) => {
   // Validate the event and resolve its references against host-owned proposal state.
   if (name !== 'editor.viewDiff') return;
-  const page = findProposalPage({ artifactId, componentId, context });
+  const page = findProposalPage({ artifactId, componentId, context, artifact });
   if (page) openEditorDiff(page);
 };
 ```
 
 `findProposalPage` and `openEditorDiff` above are illustrative host functions, not
 Nexter APIs. The callback receives the artifact ID, the source component ID, the
-event name, and a copy of the event's context. Legacy components without IDs
+event name, and a copy of the event's context. Its optional second argument is
+the owning normalized artifact, including all component records, so hosts can
+resolve bounded component references without searching chat history. Treat it
+as read-only, untrusted model output. Existing single-argument callbacks continue
+to work. Legacy components without IDs
 produce an undefined component ID.
 
 For example, the following component routes a diff request to that callback:
@@ -112,6 +119,7 @@ in `nx-chat-ao`, not the legacy `nx-chat` UI.
 For direct renderer consumers, use
 `renderUiArtifact(artifact, { onAction: callback })`, or
 `renderAssistantMessageBody(message, { onArtifactAction: callback })`.
+Their allowlist options are `actionNames` and `artifactActionNames`, respectively.
 
 ## Session warming
 

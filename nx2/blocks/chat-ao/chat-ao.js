@@ -55,6 +55,7 @@ export default class NxChatAo extends LitElement {
     loadingEpisode: { type: Boolean },
     staleEpisode: { type: Object },
     onArtifactAction: { attribute: false },
+    artifactActionNames: { attribute: false },
     _prompts: { state: true },
     _planFeedback: { state: true },
   };
@@ -436,6 +437,7 @@ export default class NxChatAo extends LitElement {
                 ${renderAssistantMessageBody(msg, {
             onExpandToolCall: (toolCallId) => this._controller.hydrateToolCall(toolCallId),
             onArtifactAction: this.onArtifactAction,
+            artifactActionNames: this.artifactActionNames,
           })}
               </div>
             ` : html`

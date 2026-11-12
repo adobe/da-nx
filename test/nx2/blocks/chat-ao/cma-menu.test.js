@@ -19,7 +19,12 @@ describe('chat-ao menu by harness', () => {
     it(`passes artifact actions to the host callback for ${harness}`, () => {
       const calls = [];
       chat._harness = harness;
-      chat.onArtifactAction = (value) => calls.push(value);
+      let owner;
+      chat.onArtifactAction = (value, artifact) => {
+        calls.push(value);
+        owner = artifact;
+      };
+      chat.artifactActionNames = ['editor.viewDiff'];
       chat.messages = [{
         role: 'assistant',
         uiArtifact: {
@@ -38,6 +43,10 @@ describe('chat-ao menu by harness', () => {
       expect(calls).to.deep.equal([{
         artifactId: 'proposal', componentId: 'root', name: 'editor.viewDiff', context: {},
       }]);
+      expect(owner).to.equal(chat.messages[0].uiArtifact);
+      chat.artifactActionNames = [];
+      render(chat.render(), host);
+      expect(host.querySelector('.ui-artifact button').disabled).to.equal(true);
     });
   });
 
