@@ -391,13 +391,21 @@ export const source = {
     return daFetch({ url, opts: { method: 'HEAD' } });
   }),
 
-  delete: withArgs(async ({ org, site, path }) => {
+  delete: withArgs(async ({
+    org, site, path, continuationToken,
+  }) => {
     const url = await getDaApiPath(SOURCE, org, site, path);
-    return daFetch({ url, opts: { method: 'DELETE' } });
+    const opts = { method: 'DELETE' };
+    if (continuationToken) {
+      const formData = new FormData();
+      formData.append('continuation-token', continuationToken);
+      opts.body = formData;
+    }
+    return daFetch({ url, opts });
   }),
 
   copy: withArgs(async ({
-    org, site, path, destination, collision,
+    org, site, path, destination, collision, continuationToken,
   }) => {
     const dest = fromPath(destination);
     const sameSite = org === dest.org && site === dest.site;
@@ -440,6 +448,7 @@ export const source = {
     }
     const formData = new FormData();
     formData.append('destination', destination);
+    if (continuationToken) formData.append('continuation-token', continuationToken);
     return daFetch({
       url: `${DA_ADMIN}/copy/${org}/${site}${path}`,
       opts: { method: 'POST', body: formData },
@@ -447,7 +456,7 @@ export const source = {
   }),
 
   move: withArgs(async ({
-    org, site, path, destination, collision,
+    org, site, path, destination, collision, continuationToken,
   }) => {
     const dest = fromPath(destination);
     const [srcHlx6, destHlx6] = await Promise.all([
@@ -467,6 +476,7 @@ export const source = {
     }
     const formData = new FormData();
     formData.append('destination', destination);
+    if (continuationToken) formData.append('continuation-token', continuationToken);
     return daFetch({
       url: `${DA_ADMIN}/move/${org}/${site}${path}`,
       opts: { method: 'POST', body: formData },
@@ -478,13 +488,14 @@ export const source = {
     return daFetch({ url, opts: { method: 'POST' } });
   }),
 
-  deleteFolder: withArgs(async ({ org, site, path }) => {
-    const url = await getDaApiPath(SOURCE, org, site, `${path}/`);
-    return daFetch({ url, opts: { method: 'DELETE' } });
-  }),
+  deleteFolder: withArgs(({
+    org, site, path, continuationToken,
+  }) => source.delete({
+    org, site, path: `${path}/`, continuationToken,
+  })),
 
   copyFolder: withArgs(async ({
-    org, site, path, destination, collision,
+    org, site, path, destination, collision, continuationToken,
   }) => {
     const hlx6 = await isHlx6(org, site);
     if (hlx6) {
@@ -497,6 +508,7 @@ export const source = {
     }
     const formData = new FormData();
     formData.append('destination', destination);
+    if (continuationToken) formData.append('continuation-token', continuationToken);
     return daFetch({
       url: `${DA_ADMIN}/copy/${org}/${site}${path}`,
       opts: { method: 'POST', body: formData },

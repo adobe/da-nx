@@ -1,3 +1,40 @@
+# [1.52.0](https://github.com/adobe/da-nx/compare/v1.51.2...v1.52.0) (2026-11-11)
+
+
+### Bug Fixes
+
+* **loc:** detect list-item review markers ([094c933](https://github.com/adobe/da-nx/commit/094c933d649faad4b1d72cf196cc1db7d69a3c4c))
+* **loc:** keep unresolved deletions and grouped section attributes in smart rollout ([19010ed](https://github.com/adobe/da-nx/commit/19010ed6f21619b96a25f3c30410483a2d80cb08))
+* **loc:** keep unresolved reviews on smart rollout and unify skipped label ([3be33b7](https://github.com/adobe/da-nx/commit/3be33b78f6752cb56fb15559931a19e74fe958d0))
+* **loc:** rename mark in sync to set sync point, place it beside rollout ([a993ca9](https://github.com/adobe/da-nx/commit/a993ca910b0d1a99b3488305067965fde1ce9ef2))
+* **loc:** skip rollout versions when seeding the first smart rollout ([c234d3c](https://github.com/adobe/da-nx/commit/c234d3c56a438aa574ea328571c1a1641451b3d7))
+* **loc:** surface missing sync points and keep snapshot baselines ([339eede](https://github.com/adobe/da-nx/commit/339eede94fb53ec2095237d619f30542129fe7b0))
+
+
+### Features
+
+* **loc:** add opt-in smart-overwrite rollout that keeps local edits ([360756f](https://github.com/adobe/da-nx/commit/360756fca6f888be81411b5b7a3e2346c7a3c6b2))
+* **loc:** first smart rollout is a merge review instead of baseline only ([8ae8d0c](https://github.com/adobe/da-nx/commit/8ae8d0c60ff53cd33c7192b431d5b51a3a9119e3))
+* **loc:** honor merge-review rejections in smart rollouts ([c2151a2](https://github.com/adobe/da-nx/commit/c2151a27cb62e3968b4fdc1cf36f512d5c47275e))
+* **loc:** mark in sync and baseline recording for smart-overwrite rollouts ([1e6f4db](https://github.com/adobe/da-nx/commit/1e6f4db6f627152ed3f041fbbbc376b953e2ba64))
+* **loc:** record only the baseline on the first smart rollout ([cafb072](https://github.com/adobe/da-nx/commit/cafb0720375a4ba40ee140369dc618c396eb43f5))
+* **loc:** report unchanged and needs-review pages after smart rollouts ([892fe6c](https://github.com/adobe/da-nx/commit/892fe6ca356f05b63637182bc21a06874eae7608))
+* **loc:** seed first smart rollout from the parent's latest saved version ([3969c9b](https://github.com/adobe/da-nx/commit/3969c9ba3542e8a49705d89ab42bb8a2e8149beb))
+
+## [1.51.2](https://github.com/adobe/da-nx/compare/v1.51.1...v1.51.2) (2026-11-11)
+
+
+### Bug Fixes
+
+* **loc:** handle languages without locales in rollout ([#915](https://github.com/adobe/da-nx/issues/915)) ([bb35897](https://github.com/adobe/da-nx/commit/bb35897ca62d295d4ecde284289ee2d7d899d325))
+
+## [1.51.1](https://github.com/adobe/da-nx/compare/v1.51.0...v1.51.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **api:** forward mutation continuation tokens ([#984](https://github.com/adobe/da-nx/issues/984)) ([37b28d4](https://github.com/adobe/da-nx/commit/37b28d4335963593cb83fd0aef0c3a7f8e3a32de)), closes [adobe/da-live#1708](https://github.com/adobe/da-live/issues/1708)
+
 # [1.51.0](https://github.com/adobe/da-nx/compare/v1.50.0...v1.51.0) (2026-11-11)
 
 
