@@ -8,6 +8,7 @@
 
 .segmented {
   display: inline-flex;
+  isolation: isolate;
   align-items: center;
   padding: var(--s2-spacing-50);
   border-radius: calc(var(--s2-corner-radius-400) + var(--s2-spacing-50));
@@ -42,6 +43,13 @@
 
   &:focus {
     outline: none;
+  }
+
+  &:focus-visible {
+    position: relative;
+    z-index: 1;
+    outline: 2px solid var(--s2-blue-900);
+    outline-offset: 2px;
   }
 
   &:hover:not(.is-selected) {
