@@ -187,12 +187,19 @@ class NxMediaGrid extends LitElement {
     const copyAria = pluginMode ? getMessage('UI_INSERT_MEDIA') : getMessage('UI_COPY_MEDIA_ARIA');
     const usageCount = media.usageCount ?? '-';
     const cardLabel = this.getCardAriaLabel(media, usageCount);
+    const openLabel = getMessage('UI_VIEW_MEDIA_DETAILS', { name: getMediaCardLabel(media) });
 
     return html`
       <div class="media-card" role="listitem" aria-label="${cardLabel}">
-        <div class="media-preview clickable" @click=${handlers.mediaClick}>
+        <div class="media-preview">
           ${this.renderMediaPreview(media)}
         </div>
+        <button
+          type="button"
+          class="media-open"
+          aria-label=${openLabel}
+          @click=${handlers.mediaClick}
+        ></button>
         <div class="media-info clickable" @click=${handlers.mediaClick}>
           <div class="media-meta">
             <span class="media-label media-used">${usageCount}</span>
