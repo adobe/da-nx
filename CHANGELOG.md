@@ -1,3 +1,10 @@
+## [1.52.4](https://github.com/adobe/da-nx/compare/v1.52.3...v1.52.4) (2026-11-13)
+
+
+### Bug Fixes
+
+* **deps:** update adobe fixes ([#999](https://github.com/adobe/da-nx/issues/999)) ([7209414](https://github.com/adobe/da-nx/commit/72094144c7353a396fcb8e29a3c7a1b70f7c95ce))
+
 ## [1.52.3](https://github.com/adobe/da-nx/compare/v1.52.2...v1.52.3) (2026-11-13)
 
 
