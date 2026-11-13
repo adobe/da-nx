@@ -9,7 +9,7 @@ export function updateDocument(ctx) {
   // Skip rerender if suppressed (e.g., during image updates)
   if (ctx.suppressRerender) return;
   const { doc } = window.view.state;
-  const body = getInstrumentedHTML(window.view);
+  const body = getInstrumentedHTML(window.view, ctx.previewOptions);
   const rerenderScope = getRerenderScope({ previousDoc: ctx.syncedDoc, doc, body });
   ctx.port.postMessage({ type: MESSAGE_TYPES.SET_BODY, payload: { body, rerenderScope } });
   ctx.syncedDoc = doc;

@@ -1,4 +1,6 @@
-import { checkPermissions, signIn, handlePreview, getImageCookie } from './src/utils.js';
+import {
+  checkPermissions, signIn, handlePreview, getImageCookie, fetchPreviewOptions,
+} from './src/utils.js';
 import createProse from './src/prose.js';
 import {
   updateDocument, updateCursors, updateState, handleUndoRedo, getEditor, handleCursorMove,
@@ -35,6 +37,7 @@ async function initProse(owner, repo, path, el, ctx) {
   if (!resp.ok) return;
 
   const { permissions } = resp;
+  ctx.previewOptions = await fetchPreviewOptions({ owner, repo });
 
   const { proseEl, wsProvider, view } = createProse({
     path: sourceUrl,

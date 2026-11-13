@@ -51,6 +51,63 @@ describe('quick-edit on-demand editors', () => {
     });
   });
 
+  [false, true].forEach((hidden) => {
+    it(`opens the clicked responsive copy when the first copy is ${hidden ? 'hidden' : 'visible'}`, () => {
+      const first = document.querySelector('[data-prose-index="1"]');
+      first.parentElement.hidden = hidden;
+      const group = document.createElement('div');
+      group.innerHTML = '<p data-prose-index="1">Desktop rendering</p>';
+      document.querySelector('main').append(group);
+      const target = group.firstElementChild;
+
+      click(target);
+      setEditorState(1, paragraph('Hello world'), ctx);
+
+      const editor = group.querySelector('.prosemirror-editor');
+      expect(editor).to.not.equal(null);
+      expect(editor.view.hasFocus()).to.equal(true);
+      expect(first.isConnected).to.equal(true);
+      expect(first.textContent).to.equal('Hello world');
+      expect(target.isConnected).to.equal(false);
+      expect(ctx.pendingEditor).to.equal(null);
+    });
+  });
+
+  it('does not reuse an open editor in another responsive copy', () => {
+    setEditorState(1, paragraph('Hello world'), ctx);
+    const first = document.querySelector('.prosemirror-editor');
+    first.parentElement.hidden = true;
+    const group = document.createElement('div');
+    group.innerHTML = '<p data-prose-index="1">Desktop rendering</p>';
+    document.querySelector('main').append(group);
+
+    click(group.firstElementChild);
+    setEditorState(1, paragraph('Hello world'), ctx);
+
+    const editor = group.querySelector('.prosemirror-editor');
+    expect(editor).to.not.equal(null);
+    expect(editor).to.not.equal(first);
+    expect(editor.view.hasFocus()).to.equal(true);
+    expect(first.isConnected).to.equal(true);
+    expect(ctx.pendingEditor).to.equal(null);
+  });
+
+  ['detached', 'different index'].forEach((kind) => {
+    it(`ignores a pending click with a ${kind} target when applying an update`, () => {
+      const target = document.querySelector('[data-prose-index="1"]');
+      const pending = kind === 'detached'
+        ? target.cloneNode(true) : document.querySelector('[data-prose-index="14"]');
+      ctx.pendingEditor = { element: pending };
+
+      setEditorState(1, paragraph('Updated'), ctx);
+
+      expect(document.querySelector('.prosemirror-editor').textContent).to.equal('Updated');
+      expect(target.isConnected).to.equal(false);
+      expect(ctx.pendingEditor.element).to.equal(pending);
+      expect(pending.isConnected).to.equal(kind !== 'detached');
+    });
+  });
+
   it('does not request an editor on mousedown', () => {
     document.querySelector('[data-prose-index="1"]')
       .dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));

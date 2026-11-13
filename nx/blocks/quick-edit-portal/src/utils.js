@@ -1,5 +1,6 @@
 import { handleSignIn, loadIms } from '../../../utils/ims.js';
 import { MESSAGE_TYPES } from '../../../utils/message-types.js';
+import { AEM_API } from '../../../utils/utils.js';
 import { isRenderedBlock } from './rerender-scope.js';
 
 const DA_LIVE_PREVIEW_ENVS = {
@@ -13,6 +14,25 @@ export async function getToken() {
   if (ims.anonymous) return null;
   const { token } = ims.accessToken;
   return token;
+}
+
+export async function fetchPreviewOptions({ owner, repo }) {
+  try {
+    const token = await getToken();
+    const resp = await fetch(`${AEM_API}/${owner}/sites/${repo}/config.json`, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!resp.ok) throw new Error('Error loading site configuration');
+    const config = await resp.json();
+    const { version } = config.features?.rendering ?? {};
+    const enabled = version !== undefined
+      ? version >= 2
+      : new Date(config.created) >= new Date('2026-05-01');
+    return { legacySectionMetadata: !enabled };
+  } catch {
+    return { legacySectionMetadata: false };
+  }
 }
 
 function getLivePreviewDomain() {
