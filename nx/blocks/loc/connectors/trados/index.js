@@ -398,13 +398,51 @@ export async function sendAllLanguages({
   sendMessage();
 }
 
+const isFailedTask = (task) => task.status === 'failed'
+  || (task.taskType?.key === 'error' && !['completed', 'skipped', 'canceled'].includes(task.status));
+
+const taskSeverity = (task) => {
+  if (isFailedTask(task)) return 3;
+  return { canceled: 2, skipped: 1 }[task.status] ?? 0;
+};
+
+// Trados task order isn't chronological, so ties and missing timestamps favor the worse status.
+function isLaterTask(task, prev) {
+  const [time, prevTime] = [Date.parse(task.createdAt), Date.parse(prev.createdAt)];
+  if (time > prevTime) return true;
+  if (time < prevTime) return false;
+  return taskSeverity(task) >= taskSeverity(prev);
+}
+
+/**
+ * Picks the most recent task for each target or source file.
+ * @param {Object[]} tasks - Tasks for a single language, or source tasks.
+ * @returns {Object[]} One task per file, independent of list order.
+ */
+function getLatestFileTasks(tasks) {
+  const latest = tasks.reduce((acc, task) => {
+    const key = task.input?.targetFile?.id ?? task.input?.sourceFile?.id ?? task.id;
+    const prev = acc.get(key);
+    if (!prev || isLaterTask(task, prev)) acc.set(key, task);
+    return acc;
+  }, new Map());
+  return [...latest.values()];
+}
+
+/**
+ * Determines whether a source file problem blocks every language.
+ * Only each source file's latest task counts: Trados keeps retried or
+ * resolved tasks in its history.
+ * @param {Object[]} tasks - All tasks for the project.
+ * @returns {string|null} `'error'`, `'canceled'`, `'skipped'`, or null.
+ */
 export function getSourceFileStatus(tasks) {
-  // If source file tasks fail, all langs fail
   const sourceTasks = tasks.filter((task) => task.input?.type === 'sourceFile');
   if (!sourceTasks.length) return null;
-  if (sourceTasks.some((t) => t.status === 'failed')) return 'error';
-  if (sourceTasks.some((t) => t.status === 'canceled')) return 'canceled';
-  if (sourceTasks.some((t) => t.status === 'skipped')) return 'skipped';
+  const latest = getLatestFileTasks(sourceTasks);
+  if (latest.some(isFailedTask)) return 'error';
+  if (latest.some((t) => t.status === 'canceled')) return 'canceled';
+  if (latest.some((t) => t.status === 'skipped')) return 'skipped';
   return null;
 }
 
@@ -413,6 +451,8 @@ export function getSourceFileStatus(tasks) {
  * `file-delivery` is the terminal step of Trados's workflow - other task
  * types (e.g. translation-memory matching, machine translation) mark
  * progression through the workflow, not completion of the language itself.
+ * Only each file's latest task counts toward `'error'`: Trados retries or
+ * resolves failed tasks and keeps the failed ones in its history.
  * @param {Object[]} tasks - All tasks for the project.
  * @param {string} langCode - The target language code to check.
  * @param {number} fileCount - The number of files expected for this lang.
@@ -430,8 +470,8 @@ export function getLangStatus(tasks, langCode, fileCount) {
     t.taskType?.key === 'file-delivery' && t.status === 'completed'
   )).length;
 
-  if (langTasks.some((t) => t.status === 'failed')) return { status: 'error', translated };
   if (translated === fileCount) return { status: 'translated', translated };
+  if (getLatestFileTasks(langTasks).some(isFailedTask)) return { status: 'error', translated };
 
   return { status: 'in progress', translated };
 }
@@ -449,7 +489,7 @@ function fetchAllTasks(service, projectId) {
   const { apiEndpoint } = service;
   return fetchAllPages(
     service,
-    `${apiEndpoint}/projects/${projectId}/tasks?fields=taskType,status,input.targetFile`,
+    `${apiEndpoint}/projects/${projectId}/tasks?fields=taskType,status,createdAt,input.targetFile,input.sourceFile`,
   );
 }
 

@@ -48,9 +48,69 @@ describe('getSourceFileStatus', () => {
   });
 
   it('should prioritize failed over canceled', () => {
-    // Combine both failure modes into one task list
-    const mixed = [...sourceFailed.items, ...sourceCanceled.items];
+    // Combine both failure modes, on separate source files, into one task list
+    const otherFile = sourceCanceled.items.map((t) => (t.input.type === 'sourceFile'
+      ? { ...t, input: { ...t.input, sourceFile: { ...t.input.sourceFile, id: 'other-file' } } }
+      : t));
+    const mixed = [...sourceFailed.items, ...otherFile];
     expect(getSourceFileStatus(mixed)).to.equal('error');
+  });
+
+  describe('with task history', () => {
+    const task = ({ fileId, key, status, createdAt }) => ({
+      status,
+      createdAt,
+      taskType: { key },
+      input: { type: 'sourceFile', sourceFile: { id: fileId } },
+    });
+
+    it('should ignore a failure that was later retried', () => {
+      const tasks = [
+        task({ fileId: 'a', key: 'convert', status: 'failed', createdAt: '2026-11-09T10:00:00Z' }),
+        task({ fileId: 'a', key: 'error', status: 'completed', createdAt: '2026-11-09T10:10:00Z' }),
+        task({ fileId: 'a', key: 'convert', status: 'completed', createdAt: '2026-11-09T10:20:00Z' }),
+      ];
+      expect(getSourceFileStatus(tasks)).to.be.null;
+    });
+
+    it('should return error while an error-handling task is still open', () => {
+      const tasks = [
+        task({ fileId: 'a', key: 'convert', status: 'failed', createdAt: '2026-11-09T10:00:00Z' }),
+        task({ fileId: 'a', key: 'error', status: 'created', createdAt: '2026-11-09T10:00:10Z' }),
+      ];
+      expect(getSourceFileStatus(tasks)).to.equal('error');
+    });
+
+    it('should use createdAt rather than list order to find the latest task', () => {
+      const tasks = [
+        task({ fileId: 'a', key: 'convert', status: 'failed', createdAt: '2026-11-09T10:00:00Z' }),
+        task({ fileId: 'a', key: 'scan', status: 'completed', createdAt: '2026-11-09T09:00:00Z' }),
+      ];
+      expect(getSourceFileStatus(tasks)).to.equal('error');
+    });
+
+    it('should return error if any one source file is still failed', () => {
+      const tasks = [
+        task({ fileId: 'a', key: 'convert', status: 'completed', createdAt: '2026-11-09T10:20:00Z' }),
+        task({ fileId: 'b', key: 'convert', status: 'failed', createdAt: '2026-11-09T10:00:00Z' }),
+      ];
+      expect(getSourceFileStatus(tasks)).to.equal('error');
+    });
+
+    it('should prefer the failed task when timestamps tie or are missing, in any order', () => {
+      const failed = task({ fileId: 'a', key: 'convert', status: 'failed', createdAt: '2026-11-09T10:00:00Z' });
+      [
+        task({ fileId: 'a', key: 'scan', status: 'completed', createdAt: '2026-11-09T10:00:00Z' }),
+        task({ fileId: 'a', key: 'scan', status: 'completed' }),
+      ].forEach((other) => {
+        expect(getSourceFileStatus([failed, other])).to.equal('error');
+        expect(getSourceFileStatus([other, failed])).to.equal('error');
+      });
+      const undatedFailed = { ...failed, createdAt: undefined };
+      const dated = task({ fileId: 'a', key: 'scan', status: 'completed', createdAt: '2026-11-09T10:00:00Z' });
+      expect(getSourceFileStatus([dated, undatedFailed])).to.equal('error');
+      expect(getSourceFileStatus([undatedFailed, dated])).to.equal('error');
+    });
   });
 });
 
@@ -113,6 +173,73 @@ describe('getLangStatus', () => {
     const result = getLangStatus(allCompleted.items, 'de-DE', 5);
     expect(result.status).to.equal('in progress');
     expect(result.translated).to.equal(1);
+  });
+
+  describe('with task history', () => {
+    const task = ({ fileId, key, status, createdAt, lang = 'de-DE' }) => ({
+      status,
+      createdAt,
+      taskType: { key },
+      input: {
+        type: 'targetFile',
+        targetFile: { id: fileId, languageDirection: { targetLanguage: { languageCode: lang } } },
+      },
+    });
+
+    it('should ignore a failure that was later retried', () => {
+      const tasks = [
+        task({ fileId: 'a', key: 'human-review', status: 'failed', createdAt: '2026-11-09T13:15:19Z' }),
+        task({ fileId: 'a', key: 'error', status: 'completed', createdAt: '2026-11-09T16:19:07Z' }),
+        task({ fileId: 'a', key: 'final-check', status: 'created', createdAt: '2026-11-10T08:00:00Z' }),
+        task({ fileId: 'b', key: 'final-check', status: 'created', createdAt: '2026-11-10T08:00:00Z' }),
+      ];
+      expect(getLangStatus(tasks, 'de-DE', 2)).to.deep.equal({ status: 'in progress', translated: 0 });
+    });
+
+    it('should return translated when every file is delivered despite an earlier failure', () => {
+      const tasks = [
+        task({ fileId: 'a', key: 'automated-qa-check', status: 'failed', createdAt: '2026-10-28T18:42:30Z' }),
+        task({ fileId: 'a', key: 'file-delivery', status: 'completed', createdAt: '2026-11-01T00:00:00Z' }),
+      ];
+      expect(getLangStatus(tasks, 'de-DE', 1)).to.deep.equal({ status: 'translated', translated: 1 });
+    });
+
+    it('should use createdAt rather than list order to find the latest task', () => {
+      const tasks = [
+        task({ fileId: 'a', key: 'human-review', status: 'failed', createdAt: '2026-11-09T13:15:19Z' }),
+        task({ fileId: 'a', key: 'export', status: 'completed', createdAt: '2026-11-08T00:00:00Z' }),
+      ];
+      expect(getLangStatus(tasks, 'de-DE', 1).status).to.equal('error');
+    });
+
+    it('should return error while an error-handling task is still open', () => {
+      const tasks = [
+        task({ fileId: 'a', key: 'human-review', status: 'failed', createdAt: '2026-11-09T13:15:19Z' }),
+        task({ fileId: 'a', key: 'error', status: 'created', createdAt: '2026-11-09T13:15:29Z' }),
+      ];
+      expect(getLangStatus(tasks, 'de-DE', 1).status).to.equal('error');
+    });
+
+    it('should return error if any one file is still failed', () => {
+      const tasks = [
+        task({ fileId: 'a', key: 'human-review', status: 'created', createdAt: '2026-11-10T00:00:00Z' }),
+        task({ fileId: 'b', key: 'import', status: 'failed', createdAt: '2026-11-05T08:06:17Z' }),
+      ];
+      expect(getLangStatus(tasks, 'de-DE', 2).status).to.equal('error');
+    });
+
+    it('should prefer the failed task when timestamps tie or are missing, in any order', () => {
+      const failed = task({ fileId: 'a', key: 'import', status: 'failed', createdAt: '2026-11-05T08:06:17Z' });
+      const pairs = [
+        [failed, task({ fileId: 'a', key: 'export', status: 'completed', createdAt: '2026-11-05T08:06:17Z' })],
+        [failed, task({ fileId: 'a', key: 'export', status: 'completed' })],
+        [{ ...failed, createdAt: undefined }, task({ fileId: 'a', key: 'export', status: 'completed', createdAt: '2026-11-05T08:06:17Z' })],
+      ];
+      pairs.forEach(([a, b]) => {
+        expect(getLangStatus([a, b], 'de-DE', 1).status).to.equal('error');
+        expect(getLangStatus([b, a], 'de-DE', 1).status).to.equal('error');
+      });
+    });
   });
 });
 
