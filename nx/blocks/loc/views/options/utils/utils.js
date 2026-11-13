@@ -290,3 +290,55 @@ export function finalizeOptions(
 
   return { view, options, langs };
 }
+
+/**
+ * A connector-defined service option rendered as a live-populated select.
+ * @typedef {object} ServiceOption
+ * @property {string} key - The env config key the selected value is stored under.
+ * @property {string} label
+ * @property {(service: object) => Promise<{items: {value: string, label: string}[],
+ *   incomplete?: boolean} | {value: string, label: string}[]>} fetch - Resolves the choices.
+ *   `incomplete` means the list may be missing entries, so a saved value that isn't listed
+ *   is kept instead of being replaced.
+ * @property {(envConfig: object) => boolean} [enabledWhen] - Renders the option as not
+ *   applicable when false.
+ * @property {string[]} [dependsOn] - Keys whose change clears this option's value and
+ *   refetches its choices.
+ */
+
+/**
+ * @param {{items: object[], incomplete?: boolean} | object[] | undefined} result
+ * @returns {{items: object[], incomplete: boolean}}
+ */
+export function normalizeFetchResult(result) {
+  if (Array.isArray(result)) return { items: result, incomplete: false };
+  return { items: result?.items ?? [], incomplete: !!result?.incomplete };
+}
+
+/**
+ * Deletes the env values of every option that depends on `key`, directly or transitively.
+ * @param {{options: ServiceOption[], envConfig: object, key: string}} params
+ * @returns {string[]} The keys that were cleared.
+ */
+export function clearDependents({ options, envConfig, key }) {
+  return options
+    .filter((option) => option.dependsOn?.includes(key))
+    .flatMap((option) => {
+      delete envConfig[option.key];
+      return [option.key, ...clearDependents({ options, envConfig, key: option.key })];
+    });
+}
+
+/**
+ * Groups options into stages so each option loads after the options it depends on.
+ * @param {ServiceOption[]} options
+ * @returns {ServiceOption[][]}
+ */
+export function orderStages(options) {
+  if (!options.length) return [];
+  const keys = options.map(({ key }) => key);
+  const ready = options.filter((option) => !option.dependsOn?.some((dep) => keys.includes(dep)));
+  if (!ready.length) return [options];
+  const rest = options.filter((option) => !ready.includes(option));
+  return [ready, ...orderStages(rest)];
+}
