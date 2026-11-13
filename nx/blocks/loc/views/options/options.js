@@ -146,6 +146,7 @@ class NxLocOptions extends LitElement {
    * `serviceOptions` export (see e.g. `connectors/globallink/index.js`), so values like a
    * GlobalLink `projectId` can be picked from a live-fetched list instead of hand-typed
    * into the config sheet. A no-op for connectors that don't export `serviceOptions`.
+   * Options with `type: 'text' | 'textarea'` and no `fetch` render as free-text fields.
    * Re-triggered by `handleChangeOption` when the Environment field changes, since the
    * env can affect which credentials/endpoint - and therefore which choices - apply.
    * @returns {Promise<void>}
@@ -186,7 +187,7 @@ class NxLocOptions extends LitElement {
       if (this._siteOptions['translation.service.all.env'] !== env) return;
 
       if (connected) {
-        items = await Promise.all(serviceOptions.map((option) => option.fetch(service)));
+        items = await Promise.all(serviceOptions.map((option) => option.fetch?.(service)));
         if (this._siteOptions['translation.service.all.env'] !== env) return;
       }
     } catch {
@@ -204,6 +205,7 @@ class NxLocOptions extends LitElement {
     // choice, or the visually-selected value would never reach _siteConfig (and therefore
     // never get persisted) unless the user happened to touch the select.
     serviceOptions.forEach((option, i) => {
+      if (!option.fetch) return;
       const value = envConfig[option.key];
       const known = items[i]?.some((item) => item.value === value);
       if (!known) envConfig[option.key] = items[i]?.[0]?.value;
@@ -309,6 +311,22 @@ class NxLocOptions extends LitElement {
   renderServiceOption(option) {
     const env = this._siteOptions['translation.service.all.env'];
     const value = this._siteConfig.service.envs[env]?.[option.key];
+
+    if (option.type === 'textarea') {
+      return html`
+        <div class="nx-loc-fieldgroup">
+          <p>${option.label}</p>
+          <sl-textarea data-key="${option.key}" value="${value || ''}" placeholder="${option.placeholder || ''}" @change=${this.handleChangeServiceOption}></sl-textarea>
+        </div>`;
+    }
+
+    if (option.type === 'text') {
+      return html`
+        <div class="nx-loc-fieldgroup">
+          <p>${option.label}</p>
+          <sl-input data-key="${option.key}" value="${value || ''}" placeholder="${option.placeholder || ''}" @change=${this.handleChangeServiceOption}></sl-input>
+        </div>`;
+    }
 
     if (option.items === undefined) {
       return html`

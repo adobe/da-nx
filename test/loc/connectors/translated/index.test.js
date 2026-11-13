@@ -95,6 +95,16 @@ describe('translated connector', () => {
       installFetch(() => json({ message: 'nope' }, 400));
       expect(await serviceOptions[0].fetch(baseService())).to.deep.equal([]);
     });
+
+    it('declares free-text context fields', () => {
+      const fields = serviceOptions.filter((option) => !option.fetch)
+        .map(({ key, type }) => ({ key, type }));
+      expect(fields).to.deep.equal([
+        { key: 'instructions', type: 'textarea' },
+        { key: 'references', type: 'text' },
+        { key: 'screenshot', type: 'text' },
+      ]);
+    });
   });
 
   describe('sendAllLanguages', () => {
@@ -234,6 +244,46 @@ describe('translated connector', () => {
       await send();
       expect(calls.some((c) => c.url.endsWith('/v2/translate'))).to.equal(false);
       expect(messages.at(-1).type).to.equal('error');
+    });
+
+    it('omits context when no context fields are set', async () => {
+      installFetch(submitHandler());
+      await send(baseService({ instructions: '  ', references: '' }));
+
+      expect(lastCall('/v2/translate').body[0]).to.not.have.property('context');
+    });
+
+    it('sends instructions, reference and screenshot URLs as order context', async () => {
+      installFetch(submitHandler());
+      await send(baseService({
+        instructions: ' Keep product names in English. ',
+        references: { value: 'https://example.com/glossary' },
+        screenshot: 'https://example.com/shot.png',
+      }));
+
+      const { body } = lastCall('/v2/translate');
+      body.forEach((order) => expect(order.context).to.deep.equal({
+        instructions: 'Keep product names in English.',
+        references: 'https://example.com/glossary',
+        screenshot: 'https://example.com/shot.png',
+      }));
+    });
+
+    it('refuses a non-https context URL and makes no submission', async () => {
+      installFetch(submitHandler());
+      await send(baseService({ screenshot: 'http://example.com/shot.png' }));
+
+      expect(calls.some((c) => c.url.endsWith('/v2/translate'))).to.equal(false);
+      expect(langs[0].translation).to.equal(undefined);
+      expect(messages.at(-1)).to.deep.equal({ text: 'Screenshot URL must be an https:// URL.', type: 'error' });
+    });
+
+    it('refuses a context URL that does not parse', async () => {
+      installFetch(submitHandler());
+      await send(baseService({ references: 'example.com/glossary' }));
+
+      expect(calls.some((c) => c.url.endsWith('/v2/translate'))).to.equal(false);
+      expect(messages.at(-1).text).to.equal('Reference URL must be an https:// URL.');
     });
   });
 

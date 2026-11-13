@@ -240,14 +240,50 @@ export const serviceOptions = [
         .map((type) => ({ value: type.name, label: type.name }));
     },
   },
+  { key: 'instructions', label: 'Instructions for linguists', type: 'textarea' },
+  {
+    key: 'references', label: 'Reference URL', type: 'text', placeholder: 'https://',
+  },
+  {
+    key: 'screenshot', label: 'Screenshot URL', type: 'text', placeholder: 'https://',
+  },
 ];
+
+const CONTEXT_URL_FIELDS = { references: 'Reference URL', screenshot: 'Screenshot URL' };
+
+/**
+ * Builds the TranslationOS order `context` from the free-text service options.
+ * @param {Object} service - The service config.
+ * @returns {{ context?: Object, error?: string }} `context` is omitted when every field is empty.
+ */
+export function buildContext(service) {
+  const context = {};
+  const instructions = readValue(service.instructions)?.trim();
+  if (instructions) context.instructions = instructions;
+
+  for (const [key, label] of Object.entries(CONTEXT_URL_FIELDS)) {
+    const value = readValue(service[key])?.trim();
+    if (value) {
+      let url;
+      try {
+        url = new URL(value);
+      } catch {
+        url = undefined;
+      }
+      if (url?.protocol !== 'https:') return { error: `${label} must be an https:// URL.` };
+      context[key] = value;
+    }
+  }
+
+  return Object.keys(context).length ? { context } : {};
+}
 
 /**
  * Sends every page for every language in one `/translate` call, so the submission succeeds
  * or fails as a whole. Does not poll for completion.
  * @param {Object} conf
  * @param {string} conf.title - The project title.
- * @param {Object} conf.service - The service config; reads `serviceType`.
+ * @param {Object} conf.service - The service config; reads `serviceType` and context fields.
  * @param {Object} conf.options - The options sheet; `options.service` persists connector state.
  *  `source.language` is optional and defaults to `en-US`.
  * @param {Object[]} conf.langs - Target languages, mutated (`.translation`) on success only.
@@ -268,6 +304,12 @@ export async function sendAllLanguages({
   const serviceType = readValue(service.serviceType);
   if (!serviceType) {
     sendMessage({ text: 'Select a Translated service type in the project options.', type: 'error' });
+    return;
+  }
+
+  const { context, error: contextError } = buildContext(service);
+  if (contextError) {
+    sendMessage({ text: contextError, type: 'error' });
     return;
   }
 
@@ -296,6 +338,7 @@ export async function sendAllLanguages({
     source_language: canonicalCode(accepted, sourceLanguage),
     target_languages: langs.map((lang) => canonicalCode(accepted, lang.code)),
     service_type: serviceType,
+    ...(context && { context }),
   }));
 
   const tooLong = orders.find((order) => order.id_content.length > MAX_CONTENT_ID_LENGTH);

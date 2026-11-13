@@ -150,6 +150,36 @@ describe('NxLocOptions - loadConnectorServiceOptions', () => {
 
     expect(el._serviceOptions).to.equal(undefined);
   });
+
+  it('fetches only select options and leaves free-text values untouched', async () => {
+    installFetch((u) => {
+      if (u.includes('/integrations/translated/status')) {
+        return new Response(JSON.stringify({ connected: true }), { status: 200 });
+      }
+      if (u.endsWith('/v2/symbol/service-type-names')) {
+        return new Response(JSON.stringify([{ name: 'professional', human_enabled: true }]), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const el = createOptionsEl();
+    el._siteConfig.service = { name: 'Translated', envs: { prod: { instructions: 'Be formal.' } } };
+
+    await el.loadConnectorServiceOptions();
+
+    const envConfig = el._siteConfig.service.envs.prod;
+    expect(envConfig.serviceType).to.equal('professional');
+    expect(envConfig.instructions).to.equal('Be formal.');
+    expect(envConfig).to.not.have.property('references');
+    expect(el._options.service.instructions).to.equal('Be formal.');
+  });
+
+  it('stores a free-text service option edit in the project options', async () => {
+    const el = createOptionsEl();
+    el.updateOptions();
+    el.handleChangeServiceOption({ target: { dataset: { key: 'instructions' }, value: 'Be formal.' } });
+
+    expect(el._options.service.instructions).to.equal('Be formal.');
+  });
 });
 
 describe('filterLangsBySource', () => {
