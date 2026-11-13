@@ -1,0 +1,47 @@
+.nx-cards-filter {
+  margin-block: var(--s2-spacing-300);
+
+  .cards-filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s2-spacing-300);
+  }
+
+  .cards-filter-categories {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .cards-filter-search {
+    flex-shrink: 0;
+    width: 200px;
+  }
+
+  .cards-filter-empty {
+    margin: var(--s2-spacing-400) 0 0;
+    color: var(--s2-gray-700);
+    font-size: var(--s2-body-size-m);
+
+    &:empty {
+      display: none;
+    }
+  }
+}
+
+/* Align the bar with the section's default content (title + description above it). */
+main > .section > .block-content:has(> .nx-cards-filter) {
+  max-width: var(--se-grid-container-width);
+  margin-inline: auto;
+}
+
+/* Keep sections at their natural height when the filter hides most of them (main is a fixed-height grid in app-frame). */
+main:has(.nx-cards-filter) {
+  align-content: start;
+}
+
+/* Sections the filter hides (category or search). Must beat the global `.section { display: block }`. */
+main > .section[hidden] {
+  display: none !important;
+}

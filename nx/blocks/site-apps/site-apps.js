@@ -1,5 +1,11 @@
-import { DA_ADMIN, loadStyle } from '../../../nx2/utils/utils.js';
+import {
+  DA_ADMIN, hashChange, loadStyle, withSiteHash,
+} from '../../../nx2/utils/utils.js';
 import { daFetch } from '../../../nx2/utils/api.js';
+import { getConfig, loc } from '../../../nx2/scripts/nx.js';
+import '../../../nx2/blocks/shared/action-card/action-card.js';
+import { iconSvg } from '../../../nx2/blocks/shared/utils/icons.js';
+import { attachCardSearch } from '../../../nx2/blocks/shared/utils/card-search.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -7,27 +13,7 @@ if (!document.adoptedStyleSheets.includes(style)) {
   document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
 }
 
-const MOCK_IMG = './media_1728df71ca494e752fda7ddf788b9cad0b39b5323.jpeg';
-
 const ref = new URLSearchParams(window.location.search).get('ref') || 'main';
-
-const CARD_TEMPLATE = `
-<div class="nx-card" data-block-name="card">
-  <div class="nx-card-inner">
-    <div class="nx-card-picture-container">
-      <picture>
-        <img loading="lazy" src="{{image}}">
-      </picture>
-    </div>
-    <div class="nx-card-content-container">
-
-      <h3 id="mp4-doctor">{{title}}</h3>
-      <p>{{description}}</p>
-
-    </div>
-    <p class="nx-card-cta-container"><strong><a href="{{href}}">Go</a></strong></p>
-  </div>
-</div>`;
 
 function getIsAppAllowed(cardRef) {
   const pluginRef = cardRef || 'main';
@@ -44,12 +30,49 @@ function getIsAppAllowed(cardRef) {
   return false;
 }
 
+// Apps without a configured image get a generic Spectrum icon on a light blue tile.
+const FALLBACK_ICON = 's2-icon-tools-20-n';
+const FALLBACK_TINT = '#E5F0FE';
+
 function getCard({ title, description, path, image }) {
-  const img = image || MOCK_IMG;
-  return CARD_TEMPLATE.replace('{{title}}', title)
-    .replace('{{image}}', img)
-    .replace('{{description}}', description)
-    .replace('{{href}}', path);
+  const card = document.createElement('nx-action-card');
+  card.setAttribute('role', 'listitem');
+  card.heading = title ?? '';
+  card.description = description ?? '';
+  if (image) {
+    // Admins can configure any image format, so it goes into the card's icon slot as <img>.
+    const img = document.createElement('img');
+    img.slot = 'icon';
+    img.src = image;
+    img.alt = '';
+    img.loading = 'lazy';
+    card.append(img);
+  } else {
+    card.tint = FALLBACK_TINT;
+    card.append(iconSvg({ href: `${getConfig().codeBase}/img/icons/${FALLBACK_ICON}.svg`, slot: 'icon' }));
+  }
+  // Site apps always get the page's site path as hash (e.g. `#/org/site`).
+  const sync = ({ fullpath } = {}) => {
+    if (path) card.action = withSiteHash({ href: path, fullpath });
+  };
+  if (path) card.actionLabel = loc`Open`;
+  const extra = document.createElement('span');
+  extra.slot = 'extra';
+  extra.textContent = loc`By Admin`;
+  card.append(extra);
+  return { card, sync };
+}
+
+// Renders the allowed apps as <nx-action-card>s and joins the cards-filter search.
+export function renderApps({ el, apps }) {
+  el.setAttribute('role', 'list');
+  const allowed = (apps ?? []).filter((app) => getIsAppAllowed(app.ref || 'main'));
+  const items = allowed.map(getCard);
+  el.replaceChildren(...items.map(({ card }) => card));
+  hashChange.subscribe((details) => {
+    if (el.isConnected) items.forEach(({ sync }) => sync(details ?? {}));
+  });
+  attachCardSearch(el);
 }
 
 function removeSection(el) {
@@ -71,13 +94,7 @@ export default async function init(el) {
       return;
     }
 
-    json.apps.data.forEach((app) => {
-      const appRef = app.ref || 'main';
-      const isAllowed = getIsAppAllowed(appRef);
-      if (!isAllowed) return;
-      const html = getCard(app);
-      el.insertAdjacentHTML('beforeend', html);
-    });
+    renderApps({ el, apps: json.apps.data });
   } catch {
     removeSection(el);
   }
