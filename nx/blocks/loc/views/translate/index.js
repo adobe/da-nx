@@ -57,7 +57,7 @@ export async function getUrls(
     const config = await fetchConfig(org, site);
 
     // Fetch the content and add DNT
-    const fetchUrl = async (url) => {
+    const readUrl = async (url) => {
       const opts = { headers: { 'Cache-Control': 'no-cache' } };
       const resp = await daFetch({ url: `${DA_ADMIN}/source/${org}/${site}${url.daDestPath}`, opts });
       if (!resp.ok) {
@@ -85,6 +85,14 @@ export async function getUrls(
         } catch (error) {
           url.error = `Error adding DNT to ${url.daBasePath} - ${error.message}`;
         }
+      }
+    };
+
+    const fetchUrl = async (url) => {
+      try {
+        await readUrl(url);
+      } catch (error) {
+        url.error = `Error fetching content from ${url.daDestPath} - ${error.message}`;
       }
     };
 
@@ -326,13 +334,15 @@ export async function sendAllForTranslation(conf, connector) {
  *  are not mutated (this function builds its own `options` override).
  * @param {Object} connector - The active loc connector.
  * @param {Object} lang - The dependent language to submit; mutated in
- *  place (`translation.status`, and `waitingFor` is deleted).
+ *  place (`translation.status`, and `waitingFor` is deleted) only when sent.
  * @param {Object[]} originalUrls - The project's full supplied urls.
  * @param {string} [sourceLocation] - The project's default source
  *  location, the fallback prefix when a url is under no configured source.
  *  Each url is de-prefixed by its own source location (`conf.sourceLocations`)
  *  before re-prefixing with the dependent language's own source location.
- * @returns {Promise<void>}
+ * @returns {Promise<{ errors: Object[] }|*>} `{ errors }` (urls with `.error`)
+ *  when any source page can't be used, leaving the language waiting;
+ *  otherwise the connector's `sendAllLanguages` result.
  */
 async function sendLanguageForTranslation(conf, connector, lang, originalUrls, sourceLocation) {
   const { waitingFor } = lang;
@@ -346,7 +356,7 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     if (!prefix || prefix === '/') return url;
     return { ...url, suppliedPath: path.startsWith(prefix) ? path.slice(prefix.length) : path };
   });
-  const { org, site } = conf;
+  const { org, site, snapshot } = conf;
   const { urls } = await getUrls(
     org,
     site,
@@ -355,7 +365,11 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     newSourceLocation,
     baseUrls,
     true,
+    snapshot,
   );
+  const errors = urls.filter((url) => url.error);
+  if (errors.length) return { errors };
+
   lang.translation.status = 'not started';
   delete lang.waitingFor;
 
@@ -381,7 +395,19 @@ export async function checkWaitingLanguages(conf, connector, originalUrls, origi
     }
   }
 
+  const errors = [];
   for (const lang of readyLangs) {
-    await sendLanguageForTranslation(conf, connector, lang, originalUrls, originalSourceLocation);
+    const { name, waitingFor } = lang;
+    const result = await sendLanguageForTranslation(
+      conf,
+      connector,
+      lang,
+      originalUrls,
+      originalSourceLocation,
+    );
+    result?.errors?.forEach(({ error }) => {
+      errors.push({ error: `${name} is waiting on ${waitingFor.name}: ${error}` });
+    });
   }
+  return { errors };
 }

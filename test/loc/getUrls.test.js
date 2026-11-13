@@ -143,4 +143,47 @@ describe('getUrls', () => {
 
     expect(result[0].error).to.include('404');
   });
+
+  it('marks a URL with an error when the /source/ fetch rejects', async () => {
+    globalThis.fetch = sinon.stub().callsFake((url) => {
+      if (url.includes('/.da/translate')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          json: async () => ({ config: { data: [] } }),
+        });
+      }
+      return Promise.reject(new Error('connection reset'));
+    });
+
+    const { urls: result } = await getUrls(ORG, SITE, makeService(), '/', '/', makeUrls(1), true);
+
+    expect(result[0].error).to.include('connection reset');
+    expect(result[0].content).to.be.undefined;
+  });
+
+  it('marks a URL with an error when reading the response body rejects', async () => {
+    globalThis.fetch = sinon.stub().callsFake((url) => {
+      if (url.includes('/.da/translate')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          json: async () => ({ config: { data: [] } }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        text: async () => { throw new Error('body stream aborted'); },
+      });
+    });
+
+    const { urls: result } = await getUrls(ORG, SITE, makeService(), '/', '/', makeUrls(1), true);
+
+    expect(result[0].error).to.include('body stream aborted');
+    expect(result[0].content).to.be.undefined;
+  });
 });
