@@ -48,9 +48,54 @@ describe('getSourceFileStatus', () => {
   });
 
   it('should prioritize failed over canceled', () => {
-    // Combine both failure modes into one task list
-    const mixed = [...sourceFailed.items, ...sourceCanceled.items];
+    // Combine both failure modes, on separate source files, into one task list
+    const otherFile = sourceCanceled.items.map((t) => (t.input.type === 'sourceFile'
+      ? { ...t, input: { ...t.input, sourceFile: { ...t.input.sourceFile, id: 'other-file' } } }
+      : t));
+    const mixed = [...sourceFailed.items, ...otherFile];
     expect(getSourceFileStatus(mixed)).to.equal('error');
+  });
+
+  describe('with task history', () => {
+    const task = ({ fileId, key, status, createdAt }) => ({
+      status,
+      createdAt,
+      taskType: { key },
+      input: { type: 'sourceFile', sourceFile: { id: fileId } },
+    });
+
+    it('should ignore a failure that was later retried', () => {
+      const tasks = [
+        task({ fileId: 'a', key: 'convert', status: 'failed', createdAt: '2026-11-09T10:00:00Z' }),
+        task({ fileId: 'a', key: 'error', status: 'completed', createdAt: '2026-11-09T10:10:00Z' }),
+        task({ fileId: 'a', key: 'convert', status: 'completed', createdAt: '2026-11-09T10:20:00Z' }),
+      ];
+      expect(getSourceFileStatus(tasks)).to.be.null;
+    });
+
+    it('should return error while an error-handling task is still open', () => {
+      const tasks = [
+        task({ fileId: 'a', key: 'convert', status: 'failed', createdAt: '2026-11-09T10:00:00Z' }),
+        task({ fileId: 'a', key: 'error', status: 'created', createdAt: '2026-11-09T10:00:10Z' }),
+      ];
+      expect(getSourceFileStatus(tasks)).to.equal('error');
+    });
+
+    it('should use createdAt rather than list order to find the latest task', () => {
+      const tasks = [
+        task({ fileId: 'a', key: 'convert', status: 'failed', createdAt: '2026-11-09T10:00:00Z' }),
+        task({ fileId: 'a', key: 'scan', status: 'completed', createdAt: '2026-11-09T09:00:00Z' }),
+      ];
+      expect(getSourceFileStatus(tasks)).to.equal('error');
+    });
+
+    it('should return error if any one source file is still failed', () => {
+      const tasks = [
+        task({ fileId: 'a', key: 'convert', status: 'completed', createdAt: '2026-11-09T10:20:00Z' }),
+        task({ fileId: 'b', key: 'convert', status: 'failed', createdAt: '2026-11-09T10:00:00Z' }),
+      ];
+      expect(getSourceFileStatus(tasks)).to.equal('error');
+    });
   });
 });
 
