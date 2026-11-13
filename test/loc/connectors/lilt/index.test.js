@@ -186,6 +186,25 @@ describe('lilt connector', () => {
       expect(translationIds['fr-FR']['/page']).to.equal(101);
     });
 
+    it('uploads sheets with an .html name since addDnt converts them to HTML', async () => {
+      const service = baseService();
+      const langs = [{ code: 'fr-FR', name: 'French' }];
+      const urls = [
+        { daBasePath: '/a/sheet.json', content: '<html></html>' },
+        { daBasePath: '/a/page', content: '<p>hi</p>' },
+      ];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 'My Project', service, options: { service }, langs, urls, actions,
+      });
+
+      const names = calls
+        .filter((c) => c.url.startsWith(`${proxyOrigin}/v2/files?name=`))
+        .map((c) => new URL(c.url).searchParams.get('name'));
+      expect(names).to.have.members(['a_sheet.json.html', 'a_page.html']);
+    });
+
     it('passes the configured configId to translate/file', async () => {
       const service = baseService({ configId: '123' });
       const options = { service };
@@ -883,6 +902,31 @@ describe('lilt connector', () => {
 
       expect(result[0].status).to.equal('success');
       expect(saved[0]).to.include('mine');
+    });
+
+    it('matches a sheet exported under its .json.html upload name', async () => {
+      installFetch((u, opts) => {
+        if (u.endsWith('/download')) {
+          return new Response(zipSync({
+            'Project_1_en-US_fr-FR/a_sheet.json.frFR.html': strToU8('<p>sheet</p>'),
+          }), { status: 200 });
+        }
+        return defaultHandler(u, opts);
+      });
+      const service = verifiedService();
+      const urls = [{ daBasePath: '/a/sheet.json', ext: 'json' }];
+      const saved = [];
+      const saveFn = async (url) => {
+        saved.push(url.sourceContent);
+        url.status = 'success';
+      };
+
+      const result = await saveItems({
+        org, site, service, lang: { code: 'fr-FR', name: 'French' }, urls, saveFn, sendMessage: () => {},
+      });
+
+      expect(result[0].status).to.equal('success');
+      expect(saved[0]).to.include('sheet');
     });
 
     it('errors a url whose file only exists in another language folder', async () => {

@@ -26,7 +26,8 @@ const AI_DONE_STATUSES = ['Completed', 'ReadyForDownload'];
 /**
  * Flattens a nested DA path into a safe upload filename, escaping literal underscores
  * before collapsing path separators (so `/a/b_c` and `/a_b/c` can't collide), defaulting to
- * `.html` when the path has no extension.
+ * `.html` when the path has no extension. `.json` paths also get `.html`, since `addDnt`
+ * converts sheets to HTML and Lilt picks its parser from the extension.
  * @param {string} daBasePath - The DA path to flatten.
  * @returns {string} The safe filename.
  */
@@ -36,7 +37,8 @@ function toFileName(daBasePath) {
     .split(/[/\\]/)
     .map((segment) => segment.replace(/_/g, '__'))
     .join('_') || 'document';
-  return /\.[a-z0-9]+$/i.test(escaped) ? escaped : `${escaped}.html`;
+  const hasExt = /\.[a-z0-9]+$/i.test(escaped) && !/\.json$/i.test(escaped);
+  return hasExt ? escaped : `${escaped}.html`;
 }
 
 /**
