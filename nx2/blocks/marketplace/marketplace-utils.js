@@ -21,27 +21,35 @@ export function normalizeItem({ row, origin }) {
   if (!title || (!docHref && !tryHref)) return null;
 
   const description = (row.Description ?? '').trim();
-  const owner = (row.Owner ?? '').trim();
-  const type = (row.Type ?? '').trim();
   const category = (row.Category ?? '').trim();
-  const imageHref = toSafeHref({ value: row.Image, origin });
+  const iconHref = toSafeHref({ value: row.Logo, origin });
 
   return {
-    title, description, docHref, tryHref, owner, type, category, imageHref,
+    title, description, docHref, tryHref, category, iconHref,
   };
 }
 
-export function getCategories(el) {
-  return [...el.classList].slice(1).map((cls) => cls.toLowerCase());
+const ALL_FILTER = { value: 'all', label: 'All' };
+
+export function getCategoryFilters(items = []) {
+  const categories = items.reduce((acc, { category }) => {
+    const value = category?.toLowerCase();
+    if (value && value !== ALL_FILTER.value && !acc.has(value)) acc.set(value, category);
+    return acc;
+  }, new Map());
+  return [ALL_FILTER, ...[...categories].map(([value, label]) => ({ value, label }))];
 }
 
-export function filterByCategories({ items, categories = [] }) {
-  if (!categories.length) return items;
-  return items.filter(({ category }) => categories.includes(category?.toLowerCase()));
+export function filterByCategory({ items, filter = ALL_FILTER.value }) {
+  if (filter === ALL_FILTER.value) return items;
+  return items.filter(({ category }) => category?.toLowerCase() === filter);
 }
 
-export function isAdobeOwned({ owner }) {
-  return owner?.toLowerCase() === 'adobe';
+export function getActions({ docHref, tryHref }) {
+  return [
+    docHref && { id: 'learn', label: 'Learn more', href: docHref },
+    tryHref && { id: 'try', label: 'Try out', href: tryHref },
+  ].filter(Boolean);
 }
 
 export async function fetchMarketplace({ origin }) {
