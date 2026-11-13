@@ -1,6 +1,7 @@
 import decorateTable from './decorateTable.js';
 import parseQuery from './parseQuery.js';
 import { processAltText, resetAltText } from './processAltText.js';
+import { parseSheetRef } from './sheetRules.js';
 
 const DNT_ELEMENTS = ['code', 'body > .da-metadata'];
 
@@ -135,6 +136,7 @@ function parseConfig(config) {
     dntSheets: [],
     dntSheetToColumns: new Map(),
     dntUniversalColumns: [],
+    dntPathRules: [],
   };
 
   docRules.forEach((rule) => {
@@ -157,17 +159,17 @@ function parseConfig(config) {
   });
 
   dntSheetData.forEach((row) => {
-    const dntSheet = row['dnt-sheet'];
+    const { path, sheet: dntSheet } = parseSheetRef(row['dnt-sheet']);
     const dntColumnsStr = row['dnt-columns'];
-    if (dntColumnsStr === '*') {
+    const dntColumns = dntColumnsStr === '*' ? '*' : dntColumnsStr.split(',').map((col) => col.trim());
+    if (path) {
+      rules.dntPathRules.push({ path, sheet: dntSheet, columns: dntColumns });
+    } else if (dntColumns === '*') {
       rules.dntSheets.push(dntSheet);
+    } else if (dntSheet === '*') {
+      rules.dntUniversalColumns.push(...dntColumns);
     } else {
-      const dntColumns = dntColumnsStr.split(',').map((col) => col.trim());
-      if (dntSheet === '*') {
-        rules.dntUniversalColumns.push(...dntColumns);
-      } else {
-        rules.dntSheetToColumns.set(dntSheet, dntColumns);
-      }
+      rules.dntSheetToColumns.set(dntSheet, dntColumns);
     }
   });
 
@@ -190,14 +192,23 @@ export async function removeDnt({ org, site, html, ext = 'html' }) {
   return document.documentElement.outerHTML;
 }
 
-export async function addDnt(inputText, config, { fileType = 'html' } = {}) {
+/**
+ * Wraps do-not-translate content in markup for a translation service.
+ * @param {string} inputText - Document source (HTML or JSON text).
+ * @param {Object} config - Site translate config sheets.
+ * @param {Object} [options] - Options.
+ * @param {string} [options.fileType] - `html` (default) or `json`.
+ * @param {string} [options.path] - Language-agnostic document path, used to match `/path` rules.
+ * @returns {Promise<string>} HTML with DNT markup applied.
+ */
+export async function addDnt(inputText, config, { fileType = 'html', path } = {}) {
   let html = inputText;
   const rules = parseConfig(config);
 
   if (fileType === 'json') {
     const json = JSON.parse(inputText);
     const { json2html } = await import('./json2html.js');
-    html = json2html(json, rules);
+    html = json2html(json, rules, path);
   }
 
   if (fileType === 'html') {

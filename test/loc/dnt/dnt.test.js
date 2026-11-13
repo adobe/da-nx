@@ -153,6 +153,33 @@ describe('parseConfig with dnt sheet', () => {
     const titleCol = html.querySelector('div[key="title"]');
     expect(titleCol.getAttribute('translate')).to.be.null;
   });
+
+  it('matches dnt-sheet-rules patterns regardless of case', async () => {
+    const config = {
+      'dnt-sheet-rules': {
+        data: [
+          { pattern: 'equals(Adobe Express)', action: 'dnt' },
+          { pattern: 'beginsWith(SKU-)', action: 'dnt' },
+        ],
+      },
+    };
+
+    const json = JSON.stringify({
+      ':type': 'sheet',
+      data: [
+        { brand: 'ADOBE EXPRESS', sku: 'Sku-123', title: 'Hello', other: 'adobe express app' },
+      ],
+    });
+
+    const result = await addDnt(json, config, { fileType: 'json' });
+    const html = new DOMParser().parseFromString(result, 'text/html');
+    const isDnt = (key) => html.querySelector(`div[key="${key}"]`).getAttribute('translate') === 'no';
+
+    expect(isDnt('brand')).to.be.true;
+    expect(isDnt('sku')).to.be.true;
+    expect(isDnt('title')).to.be.false;
+    expect(isDnt('other')).to.be.false;
+  });
 });
 
 describe('resetIcons', () => {
@@ -500,5 +527,383 @@ describe('addDntInfoToHtml', () => {
 
     const removed = await removeDnt({ html: result, org: 'adobecom', site: 'adobe' });
     expect(removed).to.equal(metadataTable);
+  });
+});
+
+describe('dnt sheet document path rules', () => {
+  const single = JSON.stringify({
+    ':type': 'sheet',
+    total: 1,
+    offset: 0,
+    limit: 1,
+    data: [{ sku: 'A-1', title: 'Hello' }],
+  });
+  const multi = JSON.stringify({
+    ':type': 'multi-sheet',
+    ':names': ['data', 'other'],
+    ':version': 1,
+    data: { total: 1, offset: 0, limit: 1, data: [{ sku: 'A-1', title: 'Hello' }] },
+    other: { total: 1, offset: 0, limit: 1, data: [{ sku: 'B-1', title: 'World' }] },
+  });
+  const cfg = (...rows) => ({ dnt: { data: rows.map(([sheet, cols]) => ({ 'dnt-sheet': sheet, 'dnt-columns': cols })) } });
+  const run = async (json, config, path) => new DOMParser()
+    .parseFromString(await addDnt(json, config, { fileType: 'json', path }), 'text/html');
+  const isDnt = (html, sheet, key) => html.querySelector(`div[name="${sheet}"] div[key="${key}"]`)
+    .getAttribute('translate') === 'no';
+
+  it('applies a path rule only to the matching document', async () => {
+    const config = cfg(['/products/prices:data', 'sku']);
+    expect(isDnt(await run(multi, config, '/products/prices.json'), 'data', 'sku')).to.be.true;
+    expect(isDnt(await run(multi, config, '/products/other.json'), 'data', 'sku')).to.be.false;
+  });
+
+  it('scopes the tab within the matching document', async () => {
+    const html = await run(multi, cfg(['/products/prices:data', 'sku']), '/products/prices.json');
+    expect(isDnt(html, 'other', 'sku')).to.be.false;
+  });
+
+  it('matches single-tab sheets by default or data', async () => {
+    const path = '/products/prices.json';
+    expect(isDnt(await run(single, cfg(['/products/prices:data', 'sku']), path), 'default', 'sku')).to.be.true;
+    expect(isDnt(await run(single, cfg(['/products/prices:default', 'sku']), path), 'default', 'sku')).to.be.true;
+    expect(isDnt(await run(single, cfg(['data', 'sku']), path), 'default', 'sku')).to.be.true;
+  });
+
+  it('matches a single-tab sheet by its :sheetname', async () => {
+    const named = JSON.stringify({ ...JSON.parse(single), ':sheetname': 'prices' });
+    const path = '/products/prices.json';
+    expect(isDnt(await run(named, cfg(['/products/prices:prices', 'sku']), path), 'default', 'sku')).to.be.true;
+    expect(isDnt(await run(named, cfg(['/products/prices:data', 'sku']), path), 'default', 'sku')).to.be.false;
+    expect(isDnt(await run(named, cfg(['default', 'sku']), path), 'default', 'sku')).to.be.true;
+  });
+
+  it('applies a path rule to every tab when no tab is given', async () => {
+    const html = await run(multi, cfg(['/products/prices', 'sku']), '/products/prices.json');
+    expect(isDnt(html, 'data', 'sku')).to.be.true;
+    expect(isDnt(html, 'other', 'sku')).to.be.true;
+    expect(isDnt(html, 'data', 'title')).to.be.false;
+  });
+
+  it('marks all tabs DNT for /path with * columns', async () => {
+    const html = await run(multi, cfg(['/products/prices', '*']), '/products/prices.json');
+    expect(html.querySelector('div[name="data"]').getAttribute('translate')).to.equal('no');
+    expect(html.querySelector('div[name="other"]').getAttribute('translate')).to.equal('no');
+  });
+
+  it('marks a single tab DNT for /path:tab with * columns', async () => {
+    const html = await run(multi, cfg(['/products/prices:other', '*']), '/products/prices.json');
+    expect(html.querySelector('div[name="other"]').getAttribute('translate')).to.equal('no');
+    expect(html.querySelector('div[name="data"]').getAttribute('translate')).to.be.null;
+  });
+
+  it('supports * wildcards in the path', async () => {
+    const config = cfg(['/products/*:data', 'sku']);
+    expect(isDnt(await run(multi, config, '/products/prices.json'), 'data', 'sku')).to.be.true;
+    expect(isDnt(await run(multi, config, '/blog/prices.json'), 'data', 'sku')).to.be.false;
+  });
+
+  it('ignores path rules when no path is supplied', async () => {
+    const html = await run(multi, cfg(['/products/prices:data', 'sku']));
+    expect(isDnt(html, 'data', 'sku')).to.be.false;
+  });
+
+  it('keeps tab-name rules applying to every document', async () => {
+    const html = await run(multi, cfg(['data', 'sku']), '/any/doc.json');
+    expect(isDnt(html, 'data', 'sku')).to.be.true;
+  });
+
+  it('applies a /path rule with a column list to a single-tab sheet', async () => {
+    const html = await run(single, cfg(['/products/prices', 'sku']), '/products/prices.json');
+    expect(isDnt(html, 'default', 'sku')).to.be.true;
+    expect(isDnt(html, 'default', 'title')).to.be.false;
+  });
+
+  it('matches paths written with an extension, .html, or a trailing slash', async () => {
+    const paths = ['/products/prices.json', '/products/prices.html', '/products/prices/'];
+    const results = await Promise.all(paths.map((path) => run(
+      multi,
+      cfg(['/products/prices.json:data', 'sku']),
+      path,
+    )));
+    results.forEach((html) => expect(isDnt(html, 'data', 'sku')).to.be.true);
+  });
+
+  it('combines a path rule with a global rule for the same tab', async () => {
+    const config = cfg(['data', 'sku'], ['/products/prices:data', 'title']);
+    const html = await run(multi, config, '/products/prices.json');
+    expect(isDnt(html, 'data', 'sku')).to.be.true;
+    expect(isDnt(html, 'data', 'title')).to.be.true;
+    const other = await run(multi, config, '/products/other.json');
+    expect(isDnt(other, 'data', 'sku')).to.be.true;
+    expect(isDnt(other, 'data', 'title')).to.be.false;
+  });
+
+  it('combines every path rule that matches a document', async () => {
+    const config = cfg(['/products/*:data', 'sku'], ['/products/prices:data', 'title']);
+    const html = await run(multi, config, '/products/prices.json');
+    expect(isDnt(html, 'data', 'sku')).to.be.true;
+    expect(isDnt(html, 'data', 'title')).to.be.true;
+  });
+
+  it('applies a /path:* column rule to every tab of the matching document only', async () => {
+    const config = cfg(['/products/prices:*', 'sku']);
+    const html = await run(multi, config, '/products/prices.json');
+    expect(isDnt(html, 'data', 'sku')).to.be.true;
+    expect(isDnt(html, 'other', 'sku')).to.be.true;
+    const other = await run(multi, config, '/products/other.json');
+    expect(isDnt(other, 'data', 'sku')).to.be.false;
+    expect(isDnt(other, 'other', 'sku')).to.be.false;
+  });
+
+  it('leaves output unchanged for configs without path rules', async () => {
+    const config = cfg(['data', 'sku'], ['*', 'id'], ['other', '*']);
+    const withPath = await addDnt(multi, config, { fileType: 'json', path: '/products/prices.json' });
+    const withoutPath = await addDnt(multi, config, { fileType: 'json' });
+    expect(withPath).to.equal(withoutPath);
+  });
+
+  it('does not apply path rules to HTML documents', async () => {
+    const html = '<body><main><div><p>Hello</p></div></main></body>';
+    const config = cfg(['/products/prices:data', 'sku']);
+    const withPath = await addDnt(html, config, { path: '/products/prices.html' });
+    const withoutPath = await addDnt(html, config);
+    expect(withPath).to.equal(withoutPath);
+  });
+
+  it('combines a path rule with a * universal column and a row-level :translate', async () => {
+    const withRow = JSON.stringify({
+      ':type': 'sheet',
+      ':sheetname': 'data',
+      data: [
+        { sku: 'A-1', title: 'Hello', ':translate': 'yes' },
+        { sku: 'A-2', title: 'World', ':translate': 'no' },
+      ],
+    });
+    const config = cfg(['*', 'sku'], ['/products/prices:data', 'title']);
+    const html = await run(withRow, config, '/products/prices.json');
+    const [first, second] = html.querySelectorAll('div[data-type="row"]');
+    expect(first.querySelector('[key="sku"]').getAttribute('translate')).to.equal('no');
+    expect(first.querySelector('[key="title"]').getAttribute('translate')).to.equal('no');
+    expect(second.getAttribute('translate')).to.equal('no');
+  });
+
+  it('combines a path rule with dnt-sheet-rules content matching', async () => {
+    const lower = JSON.stringify({
+      ':type': 'multi-sheet',
+      ':names': ['data', 'other'],
+      data: { data: [{ sku: 'a-1', title: 'Hello' }] },
+      other: { data: [{ sku: 'b-1', title: 'world' }] },
+    });
+    const config = {
+      ...cfg(['/products/prices:data', 'sku']),
+      'dnt-sheet-rules': { data: [{ pattern: 'equals(world)' }] },
+    };
+    const html = await run(lower, config, '/products/prices.json');
+    expect(isDnt(html, 'data', 'sku')).to.be.true;
+    expect(isDnt(html, 'other', 'title')).to.be.true;
+    expect(isDnt(html, 'other', 'sku')).to.be.false;
+  });
+
+  it('lets a path * columns rule override column rules on the same tab', async () => {
+    const config = cfg(['data', 'sku'], ['/products/prices:data', '*']);
+    const html = await run(multi, config, '/products/prices.json');
+    expect(html.querySelector('div[name="data"]').getAttribute('translate')).to.equal('no');
+    const other = await run(multi, config, '/products/other.json');
+    expect(other.querySelector('div[name="data"]').getAttribute('translate')).to.be.null;
+    expect(isDnt(other, 'data', 'sku')).to.be.true;
+  });
+
+  it('appends rows for the same path and tab instead of overwriting them', async () => {
+    const config = cfg(['/products/prices:data', 'sku'], ['/products/prices:data', 'title']);
+    const html = await run(multi, config, '/products/prices.json');
+    expect(isDnt(html, 'data', 'sku')).to.be.true;
+    expect(isDnt(html, 'data', 'title')).to.be.true;
+  });
+});
+
+describe('dnt sheet config backward compatibility', () => {
+  const multi = JSON.stringify({
+    ':type': 'multi-sheet',
+    ':names': ['data', 'other'],
+    data: { data: [{ sku: 'A-1', title: 'Hello' }] },
+    other: { data: [{ sku: 'B-1', title: 'World' }] },
+  });
+  const single = JSON.stringify({ ':type': 'sheet', data: [{ sku: 'A-1', title: 'Hello' }] });
+  const dntRows = (...rows) => ({ dnt: { data: rows.map(([s, c]) => ({ 'dnt-sheet': s, 'dnt-columns': c })) } });
+  const run = async (json, config, path) => new DOMParser()
+    .parseFromString(await addDnt(json, config, { fileType: 'json', path }), 'text/html');
+  const isDnt = (html, sheet, key) => html.querySelector(`div[name="${sheet}"] div[key="${key}"]`)
+    .getAttribute('translate') === 'no';
+
+  it('marks every tab and single-tab sheet for a bare * with * columns', async () => {
+    const config = dntRows(['*', '*']);
+    const html = await run(multi, config);
+    ['data', 'other'].forEach((sheet) => {
+      expect(html.querySelector(`div[name="${sheet}"]`).getAttribute('translate')).to.equal('no');
+    });
+    const singleHtml = await run(single, config);
+    expect(singleHtml.querySelector('div[name="default"]').getAttribute('translate')).to.equal('no');
+  });
+
+  it('handles configs with no dnt tab, an empty dnt tab, or no data array', async () => {
+    const configs = [{}, { dnt: {} }, { dnt: { data: [] } }];
+    const outputs = await Promise.all(configs.map((config) => addDnt(multi, config, { fileType: 'json' })));
+    expect(outputs[1]).to.equal(outputs[0]);
+    expect(outputs[2]).to.equal(outputs[0]);
+    expect(outputs[0]).to.not.include('translate="no"');
+  });
+
+  it('keeps bare-tab column rules scoped to that tab in multi-sheet documents', async () => {
+    const html = await run(multi, dntRows(['other', 'sku']), '/any/doc.json');
+    expect(isDnt(html, 'other', 'sku')).to.be.true;
+    expect(isDnt(html, 'data', 'sku')).to.be.false;
+  });
+
+  it('keeps * tab with a column list as a universal column', async () => {
+    const html = await run(multi, dntRows(['*', 'sku']), '/any/doc.json');
+    expect(isDnt(html, 'data', 'sku')).to.be.true;
+    expect(isDnt(html, 'other', 'sku')).to.be.true;
+  });
+
+  it('keeps bare-tab * columns marking the whole tab', async () => {
+    const html = await run(multi, dntRows(['other', '*']), '/any/doc.json');
+    expect(html.querySelector('div[name="other"]').getAttribute('translate')).to.equal('no');
+    expect(html.querySelector('div[name="data"]').getAttribute('translate')).to.be.null;
+  });
+
+  it('trims whitespace around column names', async () => {
+    const html = await run(multi, dntRows(['data', ' sku , title ']), '/any/doc.json');
+    expect(isDnt(html, 'data', 'sku')).to.be.true;
+    expect(isDnt(html, 'data', 'title')).to.be.true;
+  });
+
+  it('still lets the last row win for a repeated bare tab', async () => {
+    const html = await run(multi, dntRows(['data', 'sku'], ['data', 'title']), '/any/doc.json');
+    expect(isDnt(html, 'data', 'sku')).to.be.false;
+    expect(isDnt(html, 'data', 'title')).to.be.true;
+  });
+
+  it('keeps default rules matching any single-tab sheet', async () => {
+    const html = await run(single, dntRows(['default', 'sku']), '/any/doc.json');
+    expect(isDnt(html, 'default', 'sku')).to.be.true;
+  });
+
+  it('does not treat bare tab names containing a colon as path rules', async () => {
+    const html = await run(multi, dntRows(['data:v2', 'sku']), '/data/v2.json');
+    expect(isDnt(html, 'data', 'sku')).to.be.false;
+  });
+
+  it('produces identical output with and without a path for legacy-only configs', async () => {
+    const config = dntRows(['*', 'id'], ['data', 'sku'], ['other', '*'], ['default', 'title']);
+    const [withPath, withoutPath] = await Promise.all([
+      addDnt(multi, config, { fileType: 'json', path: '/a/b.json' }),
+      addDnt(multi, config, { fileType: 'json' }),
+    ]);
+    expect(withPath).to.equal(withoutPath);
+  });
+});
+
+describe('dnt tab inside a sheet document', () => {
+  const withDntTab = (rows) => JSON.stringify({
+    ':type': 'multi-sheet',
+    ':names': ['data', 'other', 'dnt'],
+    data: { data: [{ sku: 'A-1', title: 'Hello' }] },
+    other: { data: [{ sku: 'B-1', title: 'World' }] },
+    dnt: { data: rows },
+  });
+  const run = async (json, config, path) => new DOMParser()
+    .parseFromString(await addDnt(json, config, { fileType: 'json', path }), 'text/html');
+  const isDnt = (html, sheet, key) => html.querySelector(`div[name="${sheet}"] div[key="${key}"]`)
+    .getAttribute('translate') === 'no';
+
+  it('marks the dnt tab itself as do-not-translate', async () => {
+    const html = await run(withDntTab([{ 'dnt-sheet': 'data', 'dnt-columns': 'sku' }]), {});
+    expect(html.querySelector('div[name="dnt"]').getAttribute('translate')).to.equal('no');
+  });
+
+  it('applies bare-tab rules from the in-document dnt tab', async () => {
+    const json = withDntTab([{ 'dnt-sheet': 'other', 'dnt-columns': 'sku' }]);
+    const html = await run(json, {}, '/products/prices.json');
+    expect(isDnt(html, 'other', 'sku')).to.be.true;
+    expect(isDnt(html, 'data', 'sku')).to.be.false;
+  });
+
+  it('does not parse /path values in the in-document dnt tab', async () => {
+    const json = withDntTab([{ 'dnt-sheet': '/products/prices:data', 'dnt-columns': 'sku' }]);
+    const html = await run(json, {}, '/products/prices.json');
+    expect(isDnt(html, 'data', 'sku')).to.be.false;
+  });
+
+  it('adds in-document dnt rules on top of site config path rules', async () => {
+    const json = withDntTab([{ 'dnt-sheet': 'other', 'dnt-columns': 'sku' }]);
+    const config = { dnt: { data: [{ 'dnt-sheet': '/products/prices:data', 'dnt-columns': 'title' }] } };
+    const html = await run(json, config, '/products/prices.json');
+    expect(isDnt(html, 'other', 'sku')).to.be.true;
+    expect(isDnt(html, 'data', 'title')).to.be.true;
+  });
+});
+
+describe('dnt system columns', () => {
+  const SYSTEM = [':translate', ':rollout', ':uid', ':regional'];
+  const row = { ':uid': 'u1', ':rollout': 'r', ':regional': 'x', ':translate': 'yes', title: 'Hi' };
+  const single = JSON.stringify({ ':type': 'sheet', ':sheetname': 'data', data: [row] });
+  const multi = JSON.stringify({
+    ':type': 'multi-sheet',
+    ':names': ['data', 'other'],
+    data: { data: [row] },
+    other: { data: [row] },
+  });
+  const run = async (json, config) => new DOMParser()
+    .parseFromString(await addDnt(json, config, { fileType: 'json', path: '/a/b.json' }), 'text/html');
+  const isDnt = (html, key, sheet = 'default') => html
+    .querySelector(`div[name="${sheet}"] div[key="${key}"]`).getAttribute('translate') === 'no';
+
+  [
+    ['no dnt tab', {}],
+    ['a site dnt tab with unrelated rules', { dnt: { data: [{ 'dnt-sheet': 'x', 'dnt-columns': 'y' }] } }],
+    ['a site path rule', { dnt: { data: [{ 'dnt-sheet': '/a/b:data', 'dnt-columns': 'z' }] } }],
+  ].forEach(([name, config]) => {
+    it(`excludes system columns on a single-tab sheet with ${name}`, async () => {
+      const html = await run(single, config);
+      SYSTEM.forEach((key) => expect(isDnt(html, key), key).to.be.true);
+      expect(isDnt(html, 'title')).to.be.false;
+    });
+
+    it(`excludes system columns on every tab of a multi-sheet with ${name}`, async () => {
+      const html = await run(multi, config);
+      ['data', 'other'].forEach((sheet) => {
+        SYSTEM.forEach((key) => expect(isDnt(html, key, sheet), `${sheet} ${key}`).to.be.true);
+        expect(isDnt(html, 'title', sheet)).to.be.false;
+      });
+    });
+  });
+
+  it('excludes system columns with an in-document dnt tab', async () => {
+    const json = JSON.stringify({
+      ':type': 'multi-sheet',
+      ':names': ['data', 'dnt'],
+      data: { data: [row] },
+      dnt: { data: [{ 'dnt-sheet': 'data', 'dnt-columns': 'title' }] },
+    });
+    const html = await run(json, {});
+    SYSTEM.forEach((key) => expect(isDnt(html, key, 'data'), key).to.be.true);
+    expect(isDnt(html, 'title', 'data')).to.be.true;
+  });
+
+  it('still skips a whole row when :translate is no', async () => {
+    const skipped = JSON.stringify({
+      ':type': 'sheet',
+      ':sheetname': 'data',
+      data: [{ ':translate': 'no', title: 'Hi' }],
+    });
+    const html = await run(skipped, {});
+    expect(html.querySelector('div[data-type="row"]').getAttribute('translate')).to.equal('no');
+  });
+
+  it('keeps the system columns when the site config marks other columns', async () => {
+    const config = { dnt: { data: [{ 'dnt-sheet': '*', 'dnt-columns': 'title' }] } };
+    const html = await run(single, config);
+    SYSTEM.forEach((key) => expect(isDnt(html, key), key).to.be.true);
+    expect(isDnt(html, 'title')).to.be.true;
   });
 });

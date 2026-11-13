@@ -239,4 +239,33 @@ describe('Glaas DNT', () => {
     expect(htmlWithoutDnt).to.include(`<img src="${markedSrc}" loading="lazy">`);
     expect(htmlWithoutDnt).to.not.include(LOC_SRC_ATTR);
   });
+
+  describe('site config dnt tab', () => {
+    const multi = JSON.stringify({
+      ':type': 'multi-sheet',
+      ':names': ['data', 'other'],
+      data: { data: [{ sku: 'A-1', title: 'Hello' }] },
+      other: { data: [{ sku: 'B-1', title: 'World' }] },
+    });
+    const dntConfig = (...rows) => ({
+      dnt: { data: rows.map(([s, c]) => ({ 'dnt-sheet': s, 'dnt-columns': c })) },
+    });
+    const run = async (config, path) => new DOMParser().parseFromString(
+      await addDnt(multi, config, { fileType: 'json', reset: true, path }),
+      'text/html',
+    );
+    const isDnt = (html, sheet, key) => html.querySelector(`div[name="${sheet}"] div[key="${key}"]`)
+      .getAttribute('translate') === 'no';
+
+    it('ignores bare-tab rules', async () => {
+      const html = await run(dntConfig(['data', 'sku'], ['other', '*']));
+      expect(isDnt(html, 'data', 'sku')).to.be.false;
+      expect(html.querySelector('div[name="other"]').getAttribute('translate')).to.be.null;
+    });
+
+    it('ignores /path rules even when a path is supplied', async () => {
+      const html = await run(dntConfig(['/products/prices:data', 'sku']), '/products/prices.json');
+      expect(isDnt(html, 'data', 'sku')).to.be.false;
+    });
+  });
 });
