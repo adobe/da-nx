@@ -119,6 +119,7 @@ function retryConfig(service, opts) {
  * folder separators are collapsed to a single underscore, so distinct paths can't collide
  * on the flattened name (e.g. "/blog/post-1" and "/blog_post-1" no longer both flatten to
  * the same file name) — a real collision would silently drop one file from the upload zip.
+ * `.json` paths also get `.html`: addDnt converts sheets to HTML before upload.
  * @param {string} daBasePath - The DA-formatted base path (e.g. "/blog/post-1").
  * @returns {string} The flattened file name (e.g. "blog_post-1.html").
  */
@@ -126,7 +127,8 @@ function toFileName(daBasePath) {
   const trimmed = (daBasePath || '/document').replace(/^\//, '');
   const escaped = trimmed.split(/[\\/]/).map((segment) => segment.replace(/_/g, '__')).join('_');
   const safe = escaped || 'document';
-  return /\.[a-z0-9]+$/i.test(safe) ? safe : `${safe}.html`;
+  const hasExt = /\.[a-z0-9]+$/i.test(safe) && !/\.json$/i.test(safe);
+  return hasExt ? safe : `${safe}.html`;
 }
 
 /**

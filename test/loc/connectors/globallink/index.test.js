@@ -640,6 +640,37 @@ describe('globallink connector', () => {
       expect(langs[0].translation.sent).to.equal(2);
     });
 
+    it('uploads sheets with an .html name since addDnt converts them to HTML', async () => {
+      let uploadedFiles;
+      installFetch(async (u, opts) => {
+        if (u.includes('/upload/source')) {
+          const zipBlob = opts.body.get('file');
+          const buf = new Uint8Array(await zipBlob.arrayBuffer());
+          uploadedFiles = unzipSync(buf);
+          const documentIds = Object.keys(uploadedFiles).map((name, i) => (
+            { name, documentId: `doc-${i}`, submissionId: 'sub-1' }
+          ));
+          return new Response(JSON.stringify({ documentIds }), { status: 200 });
+        }
+        return defaultHandler(u);
+      });
+      const service = baseService();
+      const options = { service };
+      const langs = [{ name: 'French', code: 'fr-FR' }];
+      const urls = [
+        { daBasePath: '/a/sheet.json', content: '<html></html>' },
+        { daBasePath: '/a/page', content: '<p>hi</p>' },
+      ];
+      const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+      await sendAllLanguages({
+        title: 't', service, options, langs, urls, actions,
+      });
+
+      expect(Object.keys(uploadedFiles)).to.have.members(['a_sheet.json.html', 'a_page.html']);
+      expect(langs[0].translation.sent).to.equal(2);
+    });
+
     it('uploads every file in a batch spanning multiple chunk-yield boundaries', async () => {
       const total = 25;
       let uploadedFiles;
