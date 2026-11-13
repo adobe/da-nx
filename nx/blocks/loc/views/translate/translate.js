@@ -259,7 +259,9 @@ class NxLocTranslate extends LitElement {
     await checkWaitingLanguages(conf, this._service.connector, this._urls, this._options['source.language']?.location);
 
     if (saved?.errors.length) throw new Error(saved.errors.map(({ text }) => text).join(' '));
-    this.handleMessage(undefined);
+
+    // Keep a dependent-language submission error visible.
+    if (this._message?.type !== 'error') this.handleMessage(undefined);
   }
 
   async handleGetStatus() {
