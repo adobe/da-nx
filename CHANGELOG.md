@@ -1,3 +1,11 @@
+## [1.52.5](https://github.com/adobe/da-nx/compare/v1.52.4...v1.52.5) (2026-11-13)
+
+
+### Bug Fixes
+
+* **segmented-btn:** keep focus outline above neighbouring segments ([271ff37](https://github.com/adobe/da-nx/commit/271ff37882c92bb478051e9cc909d2f897a9396f))
+* **segmented-btn:** show visible keyboard focus ([d11e7e4](https://github.com/adobe/da-nx/commit/d11e7e4ff77bd25ac8e52dad073a4c6099002dd4))
+
 ## [1.52.4](https://github.com/adobe/da-nx/compare/v1.52.3...v1.52.4) (2026-11-13)
 
 
