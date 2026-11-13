@@ -39,6 +39,17 @@ export function findBlock(from, root = document) {
   return findNearestIndexed('data-block-index', from, root);
 }
 
+export function stampSectionIndices(doc) {
+  const container = doc.querySelector('main') ?? doc.body;
+  container.querySelectorAll(':scope > div').forEach((section, i) => {
+    section.setAttribute('data-section-index', i);
+  });
+}
+
+export function findSection(sectionIndex, root = document) {
+  return root.querySelector(`[data-section-index="${sectionIndex}"]`);
+}
+
 export function restoreBlockIndices(sourceRoot, liveRoot = document) {
   const sourceBlocks = [...sourceRoot.querySelectorAll('[data-block-index]')];
   if (!sourceBlocks.length) return;
