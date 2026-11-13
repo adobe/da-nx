@@ -1041,6 +1041,31 @@ describe('NxSnapshot', () => {
       const buttons = group.querySelectorAll('button');
       expect(buttons.length).to.equal(2);
     });
+
+    it('Renders the Launch toggle as a keyboard-operable button', async () => {
+      const el = await createElement({ startOpen: true });
+      el.hasLaunchPermission = true;
+      el.requestUpdate();
+      await el.updateComplete;
+      const toggle = el.shadowRoot.querySelector('.nx-launch-sub-heading');
+      expect(toggle.tagName).to.equal('BUTTON');
+      expect(toggle.getAttribute('type')).to.equal('button');
+      expect(toggle.getAttribute('aria-expanded')).to.equal('false');
+      expect(toggle.getAttribute('aria-controls')).to.equal('nx-launch-panel');
+      expect(el.shadowRoot.querySelector('#nx-launch-panel')).to.not.be.null;
+      expect(el.shadowRoot.querySelector('.nx-launch-action-group')).to.be.null;
+
+      toggle.click();
+      await el.updateComplete;
+      expect(toggle.getAttribute('aria-expanded')).to.equal('true');
+      const group = el.shadowRoot.querySelector('#nx-launch-panel .nx-launch-action-group');
+      expect(group).to.not.be.null;
+
+      toggle.click();
+      await el.updateComplete;
+      expect(toggle.getAttribute('aria-expanded')).to.equal('false');
+      expect(el.shadowRoot.querySelector('.nx-launch-action-group')).to.be.null;
+    });
   });
 
   // --- 202 async job polling ---
