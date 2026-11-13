@@ -408,11 +408,33 @@ export function getSourceFileStatus(tasks) {
   return null;
 }
 
+const taskTime = (task) => new Date(task.createdAt).getTime() || 0;
+
+/**
+ * Picks the most recent task for each target file.
+ * @param {Object[]} tasks - Tasks for a single language.
+ * @returns {Object[]} One task per target file (ties go to the later item).
+ */
+function getLatestFileTasks(tasks) {
+  const latest = tasks.reduce((acc, task) => {
+    const key = task.input?.targetFile?.id ?? task.id;
+    const prev = acc.get(key);
+    if (!prev || taskTime(task) >= taskTime(prev)) acc.set(key, task);
+    return acc;
+  }, new Map());
+  return [...latest.values()];
+}
+
+const isFailedTask = (task) => task.status === 'failed'
+  || (task.taskType?.key === 'error' && !['completed', 'skipped', 'canceled'].includes(task.status));
+
 /**
  * Determines a language's translation status from its Trados tasks.
  * `file-delivery` is the terminal step of Trados's workflow - other task
  * types (e.g. translation-memory matching, machine translation) mark
  * progression through the workflow, not completion of the language itself.
+ * Only each file's latest task counts toward `'error'`: Trados retries or
+ * resolves failed tasks and keeps the failed ones in its history.
  * @param {Object[]} tasks - All tasks for the project.
  * @param {string} langCode - The target language code to check.
  * @param {number} fileCount - The number of files expected for this lang.
@@ -430,8 +452,8 @@ export function getLangStatus(tasks, langCode, fileCount) {
     t.taskType?.key === 'file-delivery' && t.status === 'completed'
   )).length;
 
-  if (langTasks.some((t) => t.status === 'failed')) return { status: 'error', translated };
   if (translated === fileCount) return { status: 'translated', translated };
+  if (getLatestFileTasks(langTasks).some(isFailedTask)) return { status: 'error', translated };
 
   return { status: 'in progress', translated };
 }
@@ -449,7 +471,7 @@ function fetchAllTasks(service, projectId) {
   const { apiEndpoint } = service;
   return fetchAllPages(
     service,
-    `${apiEndpoint}/projects/${projectId}/tasks?fields=taskType,status,input.targetFile`,
+    `${apiEndpoint}/projects/${projectId}/tasks?fields=taskType,status,createdAt,input.targetFile`,
   );
 }
 
