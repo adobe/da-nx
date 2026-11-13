@@ -91,6 +91,8 @@ function langs2Tasks(langs) {
 
 let token;
 
+export const requiredKeys = ['origin', 'clientid'];
+
 export const dnt = { addDnt };
 export const saveLangConcurrency = 3;
 export const supportsManagedStatus = true;

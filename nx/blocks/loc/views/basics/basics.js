@@ -1,6 +1,8 @@
 import { LitElement, html } from 'da-lit';
 import { loadStyle } from '../../../../../nx2/scripts/nx.js';
 import formatBasics from './index.js';
+import { fetchConfig, clearConfigCache } from '../../utils/utils.js';
+import { validateConfig, configErrorMessage } from '../../utils/validate-config.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -52,6 +54,14 @@ class NxLocBasics extends LitElement {
     const { message, updates } = await formatBasics(title, urls);
     if (message) {
       this._message = message;
+      return null;
+    }
+
+    clearConfigCache();
+    const sheets = await fetchConfig(updates.org, updates.site);
+    const { errors } = await validateConfig(sheets);
+    if (errors.length) {
+      this._message = configErrorMessage(errors);
       return null;
     }
 

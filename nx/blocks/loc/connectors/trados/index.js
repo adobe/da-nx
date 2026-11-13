@@ -3,6 +3,10 @@ import downloadQueue from '../../utils/downloadQueue.js';
 import authReady, { getAccessToken as getCachedAccessToken } from '../../utils/auth.js';
 import { corsFetch } from './utils.js';
 
+export const requiredKeys = ['tenantId', 'apiEndpoint'];
+
+export const requiredCredentialKeys = ['authEndpoint', 'clientId', 'clientSecret'];
+
 export const dnt = { addDnt };
 
 const INTEGRATION_NAME = 'trados';

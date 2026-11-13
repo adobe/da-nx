@@ -5,6 +5,10 @@ import {
   BASE_OPTS, resolveOrigin, getToken, onUnauthorized, isConnected, connect as establishConnection,
 } from './auth.js';
 
+export const requiredKeys = ['origin', 'projectId'];
+
+export const requiredCredentialKeys = ['userIdentifier', 'userSecret'];
+
 export const dnt = { addDnt };
 
 export { isConnected };
