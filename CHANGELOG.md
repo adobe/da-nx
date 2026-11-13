@@ -1,3 +1,10 @@
+## [1.52.3](https://github.com/adobe/da-nx/compare/v1.52.2...v1.52.3) (2026-11-13)
+
+
+### Bug Fixes
+
+* **snapshot-admin:** make launch section and actions keyboard accessible ([7abed52](https://github.com/adobe/da-nx/commit/7abed523a0843c6cb287cb8a1e13da1b5f1d1b0d)), closes [adobe/da-live#1539](https://github.com/adobe/da-live/issues/1539)
+
 ## [1.52.2](https://github.com/adobe/da-nx/compare/v1.52.1...v1.52.2) (2026-11-12)
 
 
