@@ -398,25 +398,36 @@ export async function sendAllLanguages({
   sendMessage();
 }
 
-const taskTime = (task) => new Date(task.createdAt).getTime() || 0;
+const isFailedTask = (task) => task.status === 'failed'
+  || (task.taskType?.key === 'error' && !['completed', 'skipped', 'canceled'].includes(task.status));
+
+const taskSeverity = (task) => {
+  if (isFailedTask(task)) return 3;
+  return { canceled: 2, skipped: 1 }[task.status] ?? 0;
+};
+
+// Trados task order isn't chronological, so ties and missing timestamps favor the worse status.
+function isLaterTask(task, prev) {
+  const [time, prevTime] = [Date.parse(task.createdAt), Date.parse(prev.createdAt)];
+  if (time > prevTime) return true;
+  if (time < prevTime) return false;
+  return taskSeverity(task) >= taskSeverity(prev);
+}
 
 /**
  * Picks the most recent task for each target or source file.
  * @param {Object[]} tasks - Tasks for a single language, or source tasks.
- * @returns {Object[]} One task per file (ties go to the later item).
+ * @returns {Object[]} One task per file, independent of list order.
  */
 function getLatestFileTasks(tasks) {
   const latest = tasks.reduce((acc, task) => {
     const key = task.input?.targetFile?.id ?? task.input?.sourceFile?.id ?? task.id;
     const prev = acc.get(key);
-    if (!prev || taskTime(task) >= taskTime(prev)) acc.set(key, task);
+    if (!prev || isLaterTask(task, prev)) acc.set(key, task);
     return acc;
   }, new Map());
   return [...latest.values()];
 }
-
-const isFailedTask = (task) => task.status === 'failed'
-  || (task.taskType?.key === 'error' && !['completed', 'skipped', 'canceled'].includes(task.status));
 
 /**
  * Determines whether a source file problem blocks every language.

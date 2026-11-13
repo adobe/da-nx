@@ -96,6 +96,21 @@ describe('getSourceFileStatus', () => {
       ];
       expect(getSourceFileStatus(tasks)).to.equal('error');
     });
+
+    it('should prefer the failed task when timestamps tie or are missing, in any order', () => {
+      const failed = task({ fileId: 'a', key: 'convert', status: 'failed', createdAt: '2026-11-09T10:00:00Z' });
+      [
+        task({ fileId: 'a', key: 'scan', status: 'completed', createdAt: '2026-11-09T10:00:00Z' }),
+        task({ fileId: 'a', key: 'scan', status: 'completed' }),
+      ].forEach((other) => {
+        expect(getSourceFileStatus([failed, other])).to.equal('error');
+        expect(getSourceFileStatus([other, failed])).to.equal('error');
+      });
+      const undatedFailed = { ...failed, createdAt: undefined };
+      const dated = task({ fileId: 'a', key: 'scan', status: 'completed', createdAt: '2026-11-09T10:00:00Z' });
+      expect(getSourceFileStatus([dated, undatedFailed])).to.equal('error');
+      expect(getSourceFileStatus([undatedFailed, dated])).to.equal('error');
+    });
   });
 });
 
@@ -211,6 +226,19 @@ describe('getLangStatus', () => {
         task({ fileId: 'b', key: 'import', status: 'failed', createdAt: '2026-11-05T08:06:17Z' }),
       ];
       expect(getLangStatus(tasks, 'de-DE', 2).status).to.equal('error');
+    });
+
+    it('should prefer the failed task when timestamps tie or are missing, in any order', () => {
+      const failed = task({ fileId: 'a', key: 'import', status: 'failed', createdAt: '2026-11-05T08:06:17Z' });
+      const pairs = [
+        [failed, task({ fileId: 'a', key: 'export', status: 'completed', createdAt: '2026-11-05T08:06:17Z' })],
+        [failed, task({ fileId: 'a', key: 'export', status: 'completed' })],
+        [{ ...failed, createdAt: undefined }, task({ fileId: 'a', key: 'export', status: 'completed', createdAt: '2026-11-05T08:06:17Z' })],
+      ];
+      pairs.forEach(([a, b]) => {
+        expect(getLangStatus([a, b], 'de-DE', 1).status).to.equal('error');
+        expect(getLangStatus([b, a], 'de-DE', 1).status).to.equal('error');
+      });
     });
   });
 });
