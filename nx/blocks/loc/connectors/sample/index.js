@@ -1,3 +1,10 @@
+/**
+ * Opt in to the per-language Re-download action. Set to true only if `saveItems`
+ * fetches the vendor's latest content on every call, so redelivered corrections
+ * are saved again.
+ */
+export const supportsReDownload = false;
+
 export async function cancelTranslation({ service, lang, sendMessage }) {
 
 }
