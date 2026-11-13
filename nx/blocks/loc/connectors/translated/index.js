@@ -1,6 +1,7 @@
 import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import fetchWithRetry from '../../utils/fetchWithRetry.js';
 import downloadQueue from '../../utils/downloadQueue.js';
+import { loadIms } from '../../../../../nx2/utils/api.js';
 import {
   resolveOrigin, authHeaders, retryConfig, isConnected, connect as establishConnection,
 } from './auth.js';
@@ -247,9 +248,50 @@ export const serviceOptions = [
   {
     key: 'screenshot', label: 'Screenshot URL', type: 'text', placeholder: 'https://',
   },
+  { key: 'purchaseOrder', label: 'Purchase order', type: 'text' },
+  { key: 'costCenter', label: 'Cost center', type: 'text' },
 ];
 
 const CONTEXT_URL_FIELDS = { references: 'Reference URL', screenshot: 'Screenshot URL' };
+
+const BILLING_FIELDS = [
+  { key: 'purchaseOrder', field: 'purchase_order', label: 'Purchase order' },
+  { key: 'costCenter', field: 'cost_attribution_label', label: 'Cost center' },
+];
+const MAX_BILLING_LENGTH = 250;
+const MAX_REQUESTED_BY_LENGTH = 256;
+
+/**
+ * Builds the optional TranslationOS billing fields from the free-text service options.
+ * @param {Object} service - The service config.
+ * @returns {{ fields?: Object, error?: string }} `fields` holds only non-empty values.
+ */
+export function buildBillingFields(service) {
+  const fields = {};
+  for (const { key, field, label } of BILLING_FIELDS) {
+    const value = readValue(service[key])?.trim();
+    if (value) {
+      if (value.length > MAX_BILLING_LENGTH) {
+        return { error: `${label} must be ${MAX_BILLING_LENGTH} characters or fewer.` };
+      }
+      fields[field] = value;
+    }
+  }
+  return { fields };
+}
+
+/**
+ * Reads the signed-in user's email for `requested_by`.
+ * @returns {Promise<string|undefined>} The email, or undefined if unavailable or too long.
+ */
+async function requestedBy() {
+  try {
+    const { email } = await loadIms();
+    return email && email.length <= MAX_REQUESTED_BY_LENGTH ? email : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Builds the TranslationOS order `context` from the free-text service options.
@@ -283,7 +325,8 @@ export function buildContext(service) {
  * or fails as a whole. Does not poll for completion.
  * @param {Object} conf
  * @param {string} conf.title - The project title.
- * @param {Object} conf.service - The service config; reads `serviceType` and context fields.
+ * @param {Object} conf.service - The service config; reads `serviceType`, context and billing
+ *  fields.
  * @param {Object} conf.options - The options sheet; `options.service` persists connector state.
  *  `source.language` is optional and defaults to `en-US`.
  * @param {Object[]} conf.langs - Target languages, mutated (`.translation`) on success only.
@@ -313,6 +356,12 @@ export async function sendAllLanguages({
     return;
   }
 
+  const { fields: billing, error: billingError } = buildBillingFields(service);
+  if (billingError) {
+    sendMessage({ text: billingError, type: 'error' });
+    return;
+  }
+
   if (urls.length * langs.length > MAX_REQUESTS_PER_CALL) {
     sendMessage({ text: `Translated accepts at most ${MAX_REQUESTS_PER_CALL} requests per submission (pages x languages).`, type: 'error' });
     return;
@@ -330,6 +379,7 @@ export async function sendAllLanguages({
   }
 
   const orderId = `${title || 'project'}-${Date.now()}`.slice(0, 255);
+  const requester = await requestedBy();
   const orders = urls.map((url) => ({
     id_content: toContentId({ title, path: url.daBasePath }),
     id_order: orderId,
@@ -339,6 +389,8 @@ export async function sendAllLanguages({
     target_languages: langs.map((lang) => canonicalCode(accepted, lang.code)),
     service_type: serviceType,
     ...(context && { context }),
+    ...billing,
+    ...(requester && { requested_by: requester }),
   }));
 
   const tooLong = orders.find((order) => order.id_content.length > MAX_CONTENT_ID_LENGTH);

@@ -103,6 +103,8 @@ describe('translated connector', () => {
         { key: 'instructions', type: 'textarea' },
         { key: 'references', type: 'text' },
         { key: 'screenshot', type: 'text' },
+        { key: 'purchaseOrder', type: 'text' },
+        { key: 'costCenter', type: 'text' },
       ]);
     });
   });
@@ -284,6 +286,51 @@ describe('translated connector', () => {
 
       expect(calls.some((c) => c.url.endsWith('/v2/translate'))).to.equal(false);
       expect(messages.at(-1).text).to.equal('Reference URL must be an https:// URL.');
+    });
+
+    it('omits billing fields when empty', async () => {
+      installFetch(submitHandler());
+      await send(baseService({ purchaseOrder: ' ', costCenter: '' }));
+
+      const [order] = lastCall('/v2/translate').body;
+      expect(order).to.not.have.property('purchase_order');
+      expect(order).to.not.have.property('cost_attribution_label');
+    });
+
+    it('sends trimmed purchase order and cost center on every order', async () => {
+      installFetch(submitHandler());
+      await send(baseService({ purchaseOrder: ' PO-123 ', costCenter: { value: 'Marketing' } }));
+
+      lastCall('/v2/translate').body.forEach((order) => {
+        expect(order.purchase_order).to.equal('PO-123');
+        expect(order.cost_attribution_label).to.equal('Marketing');
+      });
+    });
+
+    it('refuses a billing field over 250 characters', async () => {
+      installFetch(submitHandler());
+      await send(baseService({ costCenter: 'x'.repeat(251) }));
+
+      expect(calls.some((c) => c.url.endsWith('/v2/translate'))).to.equal(false);
+      expect(messages.at(-1)).to.deep.equal({ text: 'Cost center must be 250 characters or fewer.', type: 'error' });
+    });
+
+    it('sends the signed-in user as requested_by', async () => {
+      setMockIms({ email: 'author@example.com' });
+      installFetch(submitHandler());
+      await send();
+
+      lastCall('/v2/translate').body.forEach((order) => {
+        expect(order.requested_by).to.equal('author@example.com');
+      });
+    });
+
+    it('omits requested_by when the profile has no email', async () => {
+      setMockIms({ email: null });
+      installFetch(submitHandler());
+      await send();
+
+      expect(lastCall('/v2/translate').body[0]).to.not.have.property('requested_by');
     });
   });
 
