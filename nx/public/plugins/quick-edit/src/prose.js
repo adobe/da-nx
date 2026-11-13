@@ -11,7 +11,7 @@ import {
 } from './toolbar.js';
 import { createSimpleKeymap } from './simple-keymap.js';
 import { createImageWrapperPlugin } from './image-wrapper.js';
-import { setupImageDropListeners } from './images.js';
+import { requestEditor, setupImageDropListeners } from './images.js';
 import { setRemoteCursors } from './cursors.js';
 import { syncImageIndices, setImageVersion } from './dom-index.js';
 import { scheduleSettle, settleEditor, settleOtherEditors } from './settle-editor.js';
@@ -169,6 +169,13 @@ function focus(view, ctx) {
 function blur(view, event, ctx) {
   hideToolbar(view);
   setCurrentEditorView(null);
+  // Remembered so the host can return keyboard focus here (FOCUS_EDITOR) after the
+  // user tabs into its toolbar, which settles this editor.
+  const { anchor, head } = view.state.selection;
+  ctx.lastEditorFocus = {
+    cursorOffset: view.dom.parentElement?.getAttribute('data-prose-index'),
+    selection: { anchor, head },
+  };
   blurClearTimeout = setTimeout(() => {
     ctx.port.postMessage({ type: MESSAGE_TYPES.CURSOR_MOVE });
     blurClearTimeout = null;
@@ -198,6 +205,20 @@ export function captureFocusedEditor() {
   if (!editorParent?.view) return null;
   const { anchor, head } = editorParent.view.state.selection;
   return { cursorOffset: editorParent.getAttribute('data-prose-index'), selection: { anchor, head } };
+}
+
+/** FOCUS_EDITOR: put the caret back where the user left it, reopening the editor if it
+ * settled to static markup while focus was in the host. */
+export function restoreEditorFocus(ctx) {
+  const last = ctx.lastEditorFocus;
+  if (last?.cursorOffset == null) return;
+  const live = document.querySelector(`.prosemirror-editor[data-prose-index="${last.cursorOffset}"]`);
+  if (live?.view) {
+    focusEditor(live.view, { selection: last.selection });
+    return;
+  }
+  const element = document.querySelector(`[data-prose-index="${last.cursorOffset}"]:not(picture)`);
+  if (element) requestEditor(ctx, element, { selection: last.selection });
 }
 
 function createEditor(offset, state, ctx, { imageVersion, lengthDiff = 0, origin } = {}) {

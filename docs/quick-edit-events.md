@@ -71,6 +71,8 @@ parallel one. If you do add a new key:
 | `COMMENT_MARKER_CLICK` | iframe → host | da-live only |
 | `COMMENT_MARKER_CLEAR` | iframe → host | da-live only |
 | `COMMENT_SHORTCUT` | iframe → host | da-live only |
+| `FOCUS_TOOLBAR` | iframe → host | da-live only |
+| `FOCUS_EDITOR` | Host → iframe | da-live only |
 | `QUICK_EDIT_IFRAME_CLICK` | iframe → host | da-live only |
 
 ---
@@ -300,6 +302,21 @@ of marker bubbles and highlights on top of the previewed page (`nx/public/plugin
 
 All five are da-live-embedded only; the standalone `quick-edit-portal.js` host has no
 comments UI, so none are wired up there.
+
+### Toolbar keyboard access (`FOCUS_TOOLBAR` / `FOCUS_EDITOR`)
+
+da-live's formatting and block toolbars float in the host page, so keyboard users can't
+Tab to them from the preview (WCAG 2.1.1). Keys pressed in the iframe never reach the host.
+
+- `FOCUS_TOOLBAR` — the user pressed Alt+F10 inside the iframe (`src/toolbar-shortcut.js`);
+  the host moves focus to the visible toolbar. The host handles the same shortcut itself when
+  focus is in its doc editor.
+- `FOCUS_EDITOR` — the host returns keyboard focus to the preview (Escape in the toolbar, or
+  after a toolbar command). The inline editor usually settled to static markup once focus
+  left the iframe, so the iframe reopens the last-blurred editor and restores its selection
+  (`restoreEditorFocus` in `src/prose.js`).
+
+Both are da-live-embedded only.
 
 ### `QUICK_EDIT_IFRAME_CLICK`
 

@@ -1,8 +1,9 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { sendMouse } from '@web/test-runner-commands';
+import { TextSelection } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
 import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
-import { setEditorState } from '../../../../../nx/public/plugins/quick-edit/src/prose.js';
+import { setEditorState, restoreEditorFocus } from '../../../../../nx/public/plugins/quick-edit/src/prose.js';
 import { settleEditor } from '../../../../../nx/public/plugins/quick-edit/src/settle-editor.js';
 import { installClickForwarding } from '../../../../../nx/public/plugins/quick-edit/src/click-forwarding.js';
 
@@ -338,5 +339,58 @@ describe('quick-edit on-demand editors', () => {
     editor.focus();
     click(document.querySelector('[data-prose-index="1"]'));
     expect(document.activeElement).to.not.equal(editor);
+  });
+
+  describe('restoreEditorFocus', () => {
+    const blurWithSelection = (editor, anchor, head) => {
+      const { view } = editor;
+      view.dispatch(view.state.tr.setSelection(
+        TextSelection.create(view.state.doc, anchor, head),
+      ));
+      // Real focus events only fire in the focused test page.
+      if (view.hasFocus()) view.dom.blur();
+      else view.dom.dispatchEvent(new FocusEvent('blur'));
+    };
+
+    it('does nothing before any editor blurred', () => {
+      restoreEditorFocus(ctx);
+      expect(editorRequests()).to.have.length(0);
+    });
+
+    it('refocuses a still-open editor at its last selection', () => {
+      setEditorState(1, paragraph('Hello world'), ctx);
+      const editor = document.querySelector('.prosemirror-editor');
+      blurWithSelection(editor, 2, 5);
+      expect(ctx.lastEditorFocus).to.deep.equal({
+        cursorOffset: '1', selection: { anchor: 2, head: 5 },
+      });
+      editor.view.dispatch(editor.view.state.tr.setSelection(
+        TextSelection.create(editor.view.state.doc, 1),
+      ));
+
+      restoreEditorFocus(ctx);
+
+      expect(editor.view.hasFocus()).to.equal(true);
+      const { anchor, head } = editor.view.state.selection;
+      expect([anchor, head]).to.deep.equal([2, 5]);
+      expect(editorRequests()).to.have.length(0);
+    });
+
+    it('reopens a settled editor with the last selection', async () => {
+      setEditorState(1, paragraph('Hello world'), ctx);
+      const editor = document.querySelector('.prosemirror-editor');
+      blurWithSelection(editor, 3, 3);
+      Object.assign(ctx, { partialReload: true, reload: () => {} });
+      await settleEditor(editor, ctx);
+      expect(editor.isConnected).to.equal(false);
+
+      restoreEditorFocus(ctx);
+
+      expect(editorRequests()).to.deep.equal([{ type: 'get-editor', payload: { cursorOffset: 1 } }]);
+      expect(ctx.pendingEditor).to.deep.equal({
+        element: document.querySelector('p[data-prose-index="1"]'),
+        selection: { anchor: 3, head: 3 },
+      });
+    });
   });
 });
