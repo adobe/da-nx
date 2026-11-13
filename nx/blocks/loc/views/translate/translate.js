@@ -270,7 +270,9 @@ class NxLocTranslate extends LitElement {
     try {
       const conf = await this.getBaseTranslationConf(false);
       await this._service.connector.getStatusAll(removeWaitingLanguagesFromConf(conf));
+      const statusError = this._message?.type === 'error' ? this._message : undefined;
       await this.checkAndSaveLangs(conf);
+      if (statusError && this._message?.type !== 'error') this.handleMessage(statusError);
       this.handleSaveLangs();
     } finally {
       this._getStatusBusy = false;

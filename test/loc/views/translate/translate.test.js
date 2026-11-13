@@ -87,3 +87,45 @@ describe('NxLocTranslate - Send All retry', () => {
     });
   });
 });
+
+describe('NxLocTranslate - Get status errors', () => {
+  const setup = (statusMessage, saveMessage) => {
+    const el = createTranslateEl();
+    el._service = {
+      connector: { getStatusAll: async () => el.handleMessage(statusMessage) },
+    };
+    el.getBaseTranslationConf = async () => ({ langs: [], urls: [] });
+    el.checkAndSaveLangs = async () => {
+      el.handleMessage({ text: 'Checking for languages to save' });
+      el.handleMessage(saveMessage);
+    };
+    el.handleSaveLangs = () => {};
+    return el;
+  };
+
+  it('keeps a status error visible after checking languages to save', async () => {
+    const error = { type: 'error', text: 'Translated reported 2 failures:', items: ['a', 'b'] };
+    const el = setup(error, undefined);
+
+    await el.handleGetStatus();
+
+    expect(el._message).to.equal(error);
+  });
+
+  it('prefers a newer error from saving languages', async () => {
+    const saveError = { type: 'error', text: 'Save failed.' };
+    const el = setup({ type: 'error', text: 'Status failed.' }, saveError);
+
+    await el.handleGetStatus();
+
+    expect(el._message).to.equal(saveError);
+  });
+
+  it('clears the message when status had no error', async () => {
+    const el = setup(undefined, undefined);
+
+    await el.handleGetStatus();
+
+    expect(el._message).to.equal(undefined);
+  });
+});

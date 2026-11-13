@@ -218,6 +218,34 @@ function rollUpStatus(requests, expected) {
 }
 
 /**
+ * Describes why a language rolled up to `error`: one line per failed page, plus the
+ * count of pages cancelled when only some were.
+ * @param {Object} byPath - The latest request per `daBasePath` for one language.
+ * @param {number} expected - The number of urls sent.
+ * @returns {string[]} Failure descriptions.
+ */
+function describeFailures(byPath, expected) {
+  const entries = Object.entries(byPath);
+  const failed = entries
+    .filter(([, request]) => STATUS_MAP[request.status] === 'error')
+    .map(([path, request]) => `${path}: ${request.error_message || request.status}`);
+  const cancelled = entries.filter(([, request]) => request.status === 'cancelled').length;
+  if (cancelled) failed.push(`${cancelled} of ${expected} pages cancelled in TranslationOS`);
+  return failed.length ? failed : ['failed with no details from TranslationOS'];
+}
+
+/**
+ * Builds the status message for every failure found, listing them when there is more than one.
+ * @param {string[]} failures - Failure descriptions.
+ * @returns {Object|undefined} The message, or undefined when nothing failed.
+ */
+function failureMessage(failures) {
+  if (!failures.length) return undefined;
+  if (failures.length === 1) return { type: 'error', text: `Translated reported a failure: ${failures[0]}` };
+  return { type: 'error', text: `Translated reported ${failures.length} failures:`, items: failures };
+}
+
+/**
  * Connects to Translated, surfacing an error message if it fails.
  * @param {Object} service - The service config.
  * @param {Function} [sendMessage] - Reports an error message.
@@ -446,20 +474,25 @@ export async function getStatusAll({
   const orderIds = readMap(service, 'orderIds');
   const projects = [...new Set(active.map((lang) => orderIds[lang.code]).filter(Boolean))];
 
+  const failuresByLang = new Map();
   await Promise.all(projects.map(async (orderId) => {
     const { requests } = await fetchRequests(service, { id_order: orderId });
     if (!requests) return;
     active.filter((lang) => orderIds[lang.code] === orderId).forEach((lang) => {
-      const latest = Object.values(latestByContent(forLang(requests, lang.code)));
+      const byPath = latestByContent(forLang(requests, lang.code));
+      const latest = Object.values(byPath);
       if (!latest.length) return;
       const { status, translated } = rollUpStatus(latest, urls.length);
       lang.translation ??= {};
       lang.translation.status = status;
       lang.translation.translated = translated;
+      if (status === 'error') failuresByLang.set(lang, describeFailures(byPath, urls.length));
     });
   }));
 
-  sendMessage();
+  const failures = active.flatMap((lang) => (failuresByLang.get(lang) || [])
+    .map((reason) => `${lang.name || lang.code} — ${reason}`));
+  sendMessage(failureMessage(failures));
   await saveState();
 }
 

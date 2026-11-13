@@ -399,6 +399,55 @@ describe('translated connector', () => {
       expect(langs[0].translation.status).to.equal('error');
     });
 
+    it('reports a single failure as one message', async () => {
+      const messages = [];
+      actions.sendMessage = (msg) => messages.push(msg);
+      const langs = [{ code: 'fr', name: 'French', translation: { status: 'in progress', sent: 2 } }];
+      await run([
+        request({ id: 1, id_content: '/p0', status: 'delivered' }),
+        request({ id: 2, id_content: '/p1', status: 'failed delivery', error_message: 'bad html' }),
+      ], langs);
+
+      expect(messages.at(-1)).to.deep.equal({
+        type: 'error',
+        text: 'Translated reported a failure: French — /p1: bad html',
+      });
+    });
+
+    it('lists multiple failures across languages in language order', async () => {
+      const messages = [];
+      actions.sendMessage = (msg) => messages.push(msg);
+      const langs = [
+        { code: 'fr', name: 'French', translation: { status: 'in progress', sent: 2 } },
+        { code: 'de', name: 'German', translation: { status: 'in progress', sent: 2 } },
+      ];
+      await run([
+        request({ id: 1, id_content: '/p0', status: 'failed' }),
+        request({ id: 2, id_content: '/p1', status: 'failed delivery' }),
+        request({ id: 3, id_content: '/p0', target_language: 'de', status: 'cancelled' }),
+        request({ id: 4, id_content: '/p1', target_language: 'de', status: 'delivered' }),
+      ], langs);
+
+      expect(messages.at(-1)).to.deep.equal({
+        type: 'error',
+        text: 'Translated reported 3 failures:',
+        items: [
+          'French — /p0: failed',
+          'French — /p1: failed delivery',
+          'German — 1 of 2 pages cancelled in TranslationOS',
+        ],
+      });
+    });
+
+    it('clears the message when nothing failed', async () => {
+      const messages = [];
+      actions.sendMessage = (msg) => messages.push(msg);
+      const langs = [{ code: 'fr', translation: { status: 'created', sent: 2 } }];
+      await run([request({ id_content: '/p0', status: 'delivered' })], langs);
+
+      expect(messages.at(-1)).to.equal(undefined);
+    });
+
     it('marks a language as cancelled when all pages are cancelled', async () => {
       const langs = [{ code: 'fr', translation: { status: 'created', sent: 2 } }];
       await run([
