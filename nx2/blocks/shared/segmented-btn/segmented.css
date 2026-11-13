@@ -44,6 +44,11 @@
     outline: none;
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-900);
+    outline-offset: 2px;
+  }
+
   &:hover:not(.is-selected) {
     color: var(--s2-gray-900);
     background-color: var(--s2-gray-200);
