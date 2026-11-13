@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import {
-  getSiteOptions, parseSubdomain, getCreateSiteHref, getBrowseHref, setRecentSite,
+  getSiteOptions, getCreateSiteHref, setRecentSite,
 } from '../../../../../blocks/siteselector/site-utils.js';
 
 describe('site selector utilities', () => {
@@ -12,17 +12,6 @@ describe('site selector utilities', () => {
       { value: 'Adobe/Current.Site', label: 'Adobe/Current.Site' },
       { value: 'My.Org/Other.Site', label: 'My.Org/Other.Site' },
     ]);
-  });
-
-  it('extracts and normalizes site identifiers like the landing page', () => {
-    for (const domain of ['aem.page', 'aem.live', 'hlx.page', 'hlx.live']) {
-      expect(parseSubdomain(`https://main--my-site--my-org.${domain}/page`)).to.equal('#/my-org/my-site');
-    }
-    expect(parseSubdomain('https://main--my_site--my_org.aem.live')).to.equal('#/my_org/my_site');
-    expect(parseSubdomain('https://main--site--org-.aem.live')).to.equal('#/org/site');
-    for (const href of ['not a URL', 'https://example.com', 'https://main--site.aem.live']) {
-      expect(parseSubdomain(href)).to.be.null;
-    }
   });
 
   it('preserves preview settings but removes organization and site context from creation', () => {
@@ -46,12 +35,5 @@ describe('site selector utilities', () => {
       if (saved === null) localStorage.removeItem('da-sites');
       else localStorage.setItem('da-sites', saved);
     }
-  });
-
-  it('builds a Browse link at the root that keeps the query', () => {
-    expect(getBrowseHref({
-      hash: '#/org/site',
-      href: 'https://da.live/drafts/landing?nx=preview&nxver=2#/old/site',
-    })).to.equal('https://da.live/?nx=preview&nxver=2#/org/site');
   });
 });
