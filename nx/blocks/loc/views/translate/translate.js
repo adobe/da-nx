@@ -245,7 +245,25 @@ class NxLocTranslate extends LitElement {
     }
   }
 
-  async checkAndSaveLangs(conf) {
+  /**
+   * Saves finished languages to DA. Calls are serialized so overlapping runs
+   * never re-fetch a language an earlier run is still saving.
+   * @param {object} conf - Translation configuration.
+   * @returns {Promise<void>}
+   */
+  checkAndSaveLangs(conf) {
+    const prior = this._saveLangsChain ?? Promise.resolve();
+    const run = prior.then(() => this.runCheckAndSaveLangs(conf));
+    this._saveLangsChain = run.catch(() => {});
+    return run;
+  }
+
+  /**
+   * Saves translated or complete languages, then checks waiting languages.
+   * @param {object} conf - Translation configuration.
+   * @returns {Promise<void>}
+   */
+  async runCheckAndSaveLangs(conf) {
     this.handleMessage({ text: 'Checking for languages to save' });
 
     const langsToSave = this._translateLangs.filter((lang) => lang.translation?.status === 'translated' || lang.translation?.status === 'complete');
@@ -262,6 +280,11 @@ class NxLocTranslate extends LitElement {
     this.handleMessage(undefined);
   }
 
+  /**
+   * Polls connector status, saves translated items, then persists the project
+   * and waits for the write. Failures are shown as an error message.
+   * @returns {Promise<void>}
+   */
   async handleGetStatus() {
     if (this.supportsManagedStatus) return this.handleManagedStatus();
     this._getStatusBusy = true;
@@ -269,7 +292,9 @@ class NxLocTranslate extends LitElement {
       const conf = await this.getBaseTranslationConf(false);
       await this._service.connector.getStatusAll(removeWaitingLanguagesFromConf(conf));
       await this.checkAndSaveLangs(conf);
-      this.handleSaveLangs();
+      await this.handleSaveLangs(undefined, { waitForSave: true });
+    } catch (error) {
+      this.handleMessage({ text: error.message, type: 'error' });
     } finally {
       this._getStatusBusy = false;
     }
