@@ -246,19 +246,19 @@ describe('api', () => {
       expect(fetchStub.called).to.be.false;
     });
 
-    it('adds x-content-source-authorization for HLX_ADMIN', async () => {
+    it('does not add x-content-source-authorization for HLX_ADMIN', async () => {
       fetchStub.resolves(mockResp());
       await daFetch({ url: `${HLX_ADMIN}/some/path` });
       const [, opts] = fetchStub.firstCall.args;
-      expect(opts.headers['x-content-source-authorization']).to.equal('Bearer test-token');
+      expect(opts.headers['x-content-source-authorization']).to.be.undefined;
       expect(opts.headers.Authorization).to.equal('Bearer test-token');
     });
 
-    it('adds x-content-source-authorization for AEM_API', async () => {
+    it('does not add x-content-source-authorization for AEM_API', async () => {
       fetchStub.resolves(mockResp());
       await daFetch({ url: `${AEM_API}/some/path` });
       const [, opts] = fetchStub.firstCall.args;
-      expect(opts.headers['x-content-source-authorization']).to.equal('Bearer test-token');
+      expect(opts.headers['x-content-source-authorization']).to.be.undefined;
     });
 
     it('defaults to GET method', async () => {

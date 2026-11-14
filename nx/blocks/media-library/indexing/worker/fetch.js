@@ -88,12 +88,6 @@ export async function workerDaFetch(url, imsToken, opts = {}) {
 
   if (imsToken) {
     opts.headers.Authorization = `Bearer ${imsToken}`;
-
-    // For admin.hlx.page URLs, add x-content-source-authorization header
-    // This is required for writes and API access (matches daFetch.js:27-29)
-    if (url.startsWith('https://admin.hlx.page')) {
-      opts.headers['x-content-source-authorization'] = `Bearer ${imsToken}`;
-    }
   }
 
   let resp;
@@ -123,12 +117,6 @@ export async function workerFetchWithAuth(url, imsToken, opts = {}) {
 
   if (imsToken) {
     opts.headers.Authorization = `Bearer ${imsToken}`;
-
-    // For admin.hlx.page URLs, add x-content-source-authorization header
-    // This is required for Status API, Audit log, Media log (matches daFetch.js:27-29)
-    if (url.startsWith('https://admin.hlx.page')) {
-      opts.headers['x-content-source-authorization'] = `Bearer ${imsToken}`;
-    }
   } else {
     // eslint-disable-next-line no-console
     console.warn('[workerFetchWithAuth] No imsToken provided for URL:', url);

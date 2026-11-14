@@ -64,12 +64,12 @@ describe('api.js', () => {
       expect(lastCall().headers.Authorization).to.equal('Bearer test-token');
     });
 
-    it('also attaches x-content-source-authorization for HLX_ADMIN and AEM_API', async () => {
+    it('does not attach x-content-source-authorization for HLX_ADMIN and AEM_API', async () => {
       await daFetch({ url: `${HLX_ADMIN}/ping/x/y` });
-      expect(lastCall().headers['x-content-source-authorization']).to.equal('Bearer test-token');
+      expect(lastCall().headers['x-content-source-authorization']).to.be.undefined;
 
       await daFetch({ url: `${AEM_API}/some/path` });
-      expect(lastCall().headers['x-content-source-authorization']).to.equal('Bearer test-token');
+      expect(lastCall().headers['x-content-source-authorization']).to.be.undefined;
     });
 
     it('does not attach auth for unknown origins', async () => {
