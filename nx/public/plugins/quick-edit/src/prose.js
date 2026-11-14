@@ -200,6 +200,11 @@ export function captureFocusedEditor() {
   return { cursorOffset: editorParent.getAttribute('data-prose-index'), selection: { anchor, head } };
 }
 
+export function cannotEditLinkImage(element, schema) {
+  return !schema.nodes.image?.spec.attrs?.editAs
+    && !!element.querySelector('a[data-edit-as="image"]');
+}
+
 function createEditor(offset, state, ctx, { imageVersion, lengthDiff = 0, origin } = {}) {
   const element = document.querySelector(`[data-prose-index="${offset}"]:not(.prosemirror-editor)`);
   if (!element) {
@@ -208,6 +213,10 @@ function createEditor(offset, state, ctx, { imageVersion, lengthDiff = 0, origin
   }
 
   const schema = getSchema();
+  if (cannotEditLinkImage(element, schema)) {
+    if (ctx.pendingEditor?.element === element) ctx.pendingEditor = null;
+    return;
+  }
   const node = schema.nodeFromJSON(state);
 
   // A node that is not valid top-level `doc` content (e.g. a `table_cell`, which

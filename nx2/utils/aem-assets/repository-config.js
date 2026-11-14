@@ -88,9 +88,6 @@ export async function getRepositoryConfig(owner, repo) {
       configuredValue: getValue('aem.asset.dm.approvedonly'),
     }),
     imageType,
-    // Deprecated: use imageType. Kept for older da-live clients.
-    // Will be removed entirely in a fast-follow PR.
-    insertAsLink: isLinkType,
     mimeRenditionOverrides: parseMimeRenditions(getValue('aem.asset.mime.renditions')),
     siteImageModifiers: parseSiteImageModifiers(getValue('aem.asset.image.modifiers')),
   };
