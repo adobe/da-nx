@@ -3,7 +3,7 @@
  * @module shell
  */
 
-import { IMS_ORIGIN, loadIms } from '../../../nx2/utils/ims.js';
+import { IMS_ORIGIN, loadIms, getFreshAccessToken } from '../../../nx2/utils/ims.js';
 import { getConfig, loadStyle } from '../../../nx2/scripts/nx.js';
 import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { getLivePreviewUrl, livePreviewLogin } from '../../utils/utils.js';
@@ -63,6 +63,15 @@ function getUrl(usePreview) {
   return `https://${ref}--${repo}--${org}.aem.live/${path}.html${search}${hash}`;
 }
 
+const toTime = (expire) => (expire ? new Date(expire).getTime() : undefined);
+
+async function sendToken(port, requestId) {
+  const result = await getFreshAccessToken()
+    .then(({ token, expire }) => ({ ok: true, token, tokenExpire: toTime(expire) }))
+    .catch(() => ({ ok: false, error: 'token-unavailable' }));
+  port.postMessage({ action: 'sdkResponse', requestId, result });
+}
+
 /**
  * Handles iframe load event and sets up message channel communication
  * @param {Object} event - Load event object
@@ -74,6 +83,10 @@ function handleLoad({ target }, panels) {
   const connection = panels?.connect(port1);
 
   port1.onmessage = (e) => {
+    if (e.data.action === 'getToken') {
+      sendToken(port1, e.data.requestId);
+      return;
+    }
     if (e.data.action === 'setTitle') {
       document.title = e.data.details;
     }
@@ -83,9 +96,10 @@ function handleLoad({ target }, panels) {
   const message = {
     ready: true,
     token: IMS_DETAILS.accessToken?.token,
+    tokenExpire: toTime(IMS_DETAILS.accessToken?.expire),
     email: IMS_DETAILS.email,
     context: getParts(),
-    ...(panels && { capabilities: panels.capabilities }),
+    capabilities: { ...panels?.capabilities, tokenRefresh: 1 },
   };
 
   const timer = setTimeout(() => {
