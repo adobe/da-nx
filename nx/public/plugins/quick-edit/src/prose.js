@@ -200,8 +200,17 @@ export function captureFocusedEditor() {
   return { cursorOffset: editorParent.getAttribute('data-prose-index'), selection: { anchor, head } };
 }
 
+// Responsive decoration can give several DOM copies the same source index.
+function getRequestedElement(offset, ctx) {
+  const element = ctx.pendingEditor?.element;
+  return element?.isConnected
+    && element.getAttribute('data-prose-index') === String(offset)
+    && !element.classList.contains('prosemirror-editor') ? element : null;
+}
+
 function createEditor(offset, state, ctx, { imageVersion, lengthDiff = 0, origin } = {}) {
-  const element = document.querySelector(`[data-prose-index="${offset}"]:not(.prosemirror-editor)`);
+  const element = getRequestedElement(offset, ctx)
+    || document.querySelector(`[data-prose-index="${offset}"]:not(.prosemirror-editor)`);
   if (!element) {
     requestReload(ctx);
     return;
@@ -335,7 +344,8 @@ export function setEditorState(cursorOffset, state, ctx, options = {}) {
     requestReload(ctx);
     return;
   }
-  const existingEditorParent = document.querySelector(`.prosemirror-editor[data-prose-index="${offset}"]`);
+  const existingEditorParent = getRequestedElement(offset, ctx) ? null
+    : document.querySelector(`.prosemirror-editor[data-prose-index="${offset}"]`);
   if (existingEditorParent) {
     updateEditor(existingEditorParent.view, state, ctx, options);
     return;

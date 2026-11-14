@@ -41,7 +41,7 @@ export function extractCursors(view) {
   return [...cursorMap.values()];
 }
 
-export function getInstrumentedHTML(view) {
+export function getInstrumentedHTML(view, options) {
   // Clone the editor first so we don't modify the real DOM
   const editorClone = view.dom.cloneNode(true);
 
@@ -109,5 +109,5 @@ export function getInstrumentedHTML(view) {
   });
 
   // Convert to an HTML string using prose2aem.
-  return prose2aem(editorClone, true, false, true);
+  return prose2aem(editorClone, true, false, options);
 }

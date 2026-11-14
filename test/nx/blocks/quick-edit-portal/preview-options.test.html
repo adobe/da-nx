@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script type="importmap">
+      {
+        "imports": {
+          "/nx/utils/ims.js": "/nx2/test/mocks/ims.js",
+          "https://da.live/blocks/shared/prose2aem.js": "/test/mocks/prose2aem.js",
+          "da-y-wrapper": "/test/mocks/da-y-wrapper.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <script type="module">
+      // eslint-disable-next-line import/no-extraneous-dependencies
+      import { runTests } from '@web/test-runner-mocha';
+      import { expect } from '@esm-bundle/chai';
+      import { Schema } from 'prosemirror-model';
+      import { fetchPreviewOptions } from '../../../../nx/blocks/quick-edit-portal/src/utils.js';
+      import { updateDocument } from '../../../../nx/blocks/quick-edit-portal/src/render.js';
+      import { calls } from '../../../mocks/prose2aem.js';
+
+      runTests(() => describe('standalone Quick Edit rendering options', () => {
+        let savedFetch;
+        let savedView;
+
+        beforeEach(() => {
+          savedFetch = window.fetch;
+          savedView = window.view;
+          calls.length = 0;
+        });
+
+        afterEach(() => {
+          window.fetch = savedFetch;
+          window.view = savedView;
+        });
+
+        const cases = [
+          [{ features: { rendering: { version: 1 } }, created: '2026-06-01' }, true],
+          [{ features: { rendering: { version: 2 } }, created: '2026-01-01' }, false],
+          [{ features: { rendering: { version: 3 } } }, false],
+          [{ created: '2026-04-30T23:59:59Z' }, true],
+          [{ created: '2026-05-01T00:00:00Z' }, false],
+          [{}, true],
+        ];
+
+        cases.forEach(([config, legacySectionMetadata]) => {
+          it(`uses AEM rendering rules for ${JSON.stringify(config)}`, async () => {
+            let request;
+            window.fetch = async (href, options) => {
+              request = { href, options };
+              return new Response(JSON.stringify(config));
+            };
+            const options = await fetchPreviewOptions({ owner: 'org', repo: 'site' });
+            expect(request.href).to.equal('https://api.aem.live/org/sites/site/config.json');
+            expect(request.options.credentials).to.equal('include');
+            expect(request.options.headers.Authorization).to.equal('Bearer test-token');
+            expect(options).to.deep.equal({ legacySectionMetadata });
+
+            const schema = new Schema({
+              nodes: {
+                doc: { content: 'paragraph+' },
+                paragraph: { content: 'text*' },
+                text: {},
+              },
+            });
+            const dom = document.createElement('div');
+            dom.innerHTML = '<p>Initial content</p>';
+            window.view = {
+              dom,
+              state: { doc: schema.node('doc', null, [schema.node('paragraph')]) },
+              posAtDOM: () => 1,
+            };
+            const messages = [];
+            const ctx = {
+              previewOptions: options,
+              port: { postMessage: (message) => messages.push(message) },
+            };
+            updateDocument(ctx);
+            dom.querySelector('p').textContent = 'Updated content';
+            updateDocument(ctx);
+
+            expect(calls).to.have.lengthOf(2);
+            calls.forEach(([clone, livePreview, isFragment, receivedOptions]) => {
+              expect(clone).to.not.equal(dom);
+              expect(clone.querySelector('p').dataset.proseIndex).to.equal('1');
+              expect(livePreview).to.equal(true);
+              expect(isFragment).to.equal(false);
+              expect(receivedOptions).to.deep.equal(options);
+            });
+            expect(dom.querySelector('p').hasAttribute('data-prose-index')).to.equal(false);
+            expect(messages.map(({ type }) => type)).to.deep.equal(['set-body', 'set-body']);
+          });
+        });
+
+        [401, 403, 404, 500].forEach((status) => {
+          it(`keeps the existing rendering fallback for a ${status} config response`, async () => {
+            window.fetch = async () => new Response('', { status });
+            expect(await fetchPreviewOptions({ owner: 'org', repo: 'site' }))
+              .to.deep.equal({ legacySectionMetadata: false });
+          });
+        });
+
+        it('keeps preview usable on network errors and invalid JSON', async () => {
+          window.fetch = async () => { throw new Error('offline'); };
+          expect(await fetchPreviewOptions({ owner: 'org', repo: 'site' }))
+            .to.deep.equal({ legacySectionMetadata: false });
+          window.fetch = async () => new Response('not json');
+          expect(await fetchPreviewOptions({ owner: 'org', repo: 'site' }))
+            .to.deep.equal({ legacySectionMetadata: false });
+        });
+      }));
+    </script>
+  </body>
+</html>
