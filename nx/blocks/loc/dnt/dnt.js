@@ -51,15 +51,56 @@ function resetHrefs(doc, org, repo) {
   });
 }
 
-const addDntWrapper = (node, dntContent) => {
-  node.innerHTML = node.innerHTML.replaceAll(dntContent, `<span translate="no" class="dnt-text">${dntContent}</span>`);
-};
+/**
+ * Wraps each occurrence of dntContent under root in a translate="no" span.
+ * @param {Node} root Node to search; skipped if inside translate="no".
+ * @param {string} dntContent Literal text to protect.
+ * @returns {void}
+ */
+const addDntWrappers = (root, dntContent) => {
+  if (!dntContent) return;
+  if (root.closest?.('[translate="no"]')) return;
 
-const findAndAddDntWrapper = (document, dntContent) => {
-  const contentMatches = document.evaluate(`//text()[contains(., "${dntContent}")]/..`, document, null, 0, null);
-  // eslint-disable-next-line no-underscore-dangle
-  contentMatches?._value?.nodes.forEach((node) => {
-    addDntWrapper(node, dntContent);
+  const document = root.ownerDocument || root;
+  const walker = document.createTreeWalker(
+    root,
+    // eslint-disable-next-line no-bitwise
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: (node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          return node.getAttribute('translate') === 'no'
+            ? NodeFilter.FILTER_REJECT
+            : NodeFilter.FILTER_SKIP;
+        }
+        return node.nodeValue.includes(dntContent)
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_SKIP;
+      },
+    },
+  );
+
+  const textNodes = [];
+  while (walker.nextNode()) {
+    textNodes.push(walker.currentNode);
+  }
+
+  textNodes.forEach((textNode) => {
+    const parts = textNode.nodeValue.split(dntContent);
+    const fragment = document.createDocumentFragment();
+
+    parts.forEach((part, index) => {
+      if (part) fragment.append(document.createTextNode(part));
+      if (index < parts.length - 1) {
+        const wrapper = document.createElement('span');
+        wrapper.classList.add('dnt-text');
+        wrapper.setAttribute('translate', 'no');
+        wrapper.textContent = dntContent;
+        fragment.append(wrapper);
+      }
+    });
+
+    textNode.replaceWith(fragment);
   });
 };
 
@@ -96,7 +137,7 @@ const addDntInfoToHtml = (html, dntRules) => {
   });
 
   dntRules.contentRules.forEach((dntContent) => {
-    findAndAddDntWrapper(document, dntContent);
+    addDntWrappers(document.body, dntContent);
   });
 
   DNT_ELEMENTS.forEach((dntElement) => {
@@ -105,7 +146,7 @@ const addDntInfoToHtml = (html, dntRules) => {
     });
   });
 
-  processAltText(document, addDntWrapper);
+  processAltText(document, addDntWrappers);
   return document.documentElement.outerHTML;
 };
 
