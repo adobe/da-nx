@@ -106,6 +106,23 @@ function mockWorkflowSearch(respond) {
   };
 }
 
+// Layers a projects-api project-details mock over the currently installed fetch mock.
+function mockProjectDetails(respond) {
+  const inner = window.fetch;
+  window.fetch = async (url, opts = {}) => {
+    const u = url.toString();
+    if (u.includes('/projects-api/v2/projects/')) {
+      calls.push({ url: u, method: opts.method, body: opts.body });
+      return respond(u);
+    }
+    return inner(url, opts);
+  };
+}
+
+function projectDataResponse(data) {
+  return new Response(JSON.stringify({ response: { data } }), { status: 200 });
+}
+
 function workflowItemsResponse(items, totalCount) {
   const body = { response: { data: { totalCount, items } } };
   return new Response(JSON.stringify(body), { status: 200 });
@@ -260,9 +277,12 @@ describe('smartling connector - legacy origin rewriting', () => {
   });
 
   it('includes localeWorkflows in the batch body when autoAuthorize and workflowUid are set', async () => {
-    mockWorkflowSearch(() => workflowItemsResponse([
-      { workflowUid: 'wf-1', workflowName: 'WF', localePairs: [{ targetLocaleIds: ['fr-FR', 'de-DE'] }] },
-    ]));
+    mockProjectDetails(() => projectDataResponse({ sourceLocaleId: 'en-US' }));
+    mockWorkflowSearch(() => workflowItemsResponse([{
+      workflowUid: 'wf-1',
+      workflowName: 'WF',
+      localePairs: [{ sourceLocaleId: 'en-US', targetLocaleIds: ['fr-FR', 'de-DE'] }],
+    }]));
     const options = {
       service: {
         origin: 'https://api.smartling.com',
@@ -331,9 +351,12 @@ describe('smartling connector - legacy origin rewriting', () => {
   });
 
   it('stops before creating a job when the workflow does not cover every locale', async () => {
-    mockWorkflowSearch(() => workflowItemsResponse([
-      { workflowUid: 'wf-1', workflowName: 'WF', localePairs: [{ targetLocaleIds: ['fr-FR'] }] },
-    ]));
+    mockProjectDetails(() => projectDataResponse({ sourceLocaleId: 'en-US' }));
+    mockWorkflowSearch(() => workflowItemsResponse([{
+      workflowUid: 'wf-1',
+      workflowName: 'WF',
+      localePairs: [{ sourceLocaleId: 'en-US', targetLocaleIds: ['fr-FR'] }],
+    }]));
     const options = {
       service: {
         origin: 'https://api.smartling.com',
@@ -1419,7 +1442,7 @@ describe('smartling connector - legacy origin rewriting', () => {
       expect(calls.some((c) => c.url.includes('/accounts-api/v2/accounts/acct-1/projects'))).to.equal(true);
     });
 
-    it('resolves no items when the configured project cannot be looked up', async () => {
+    it('flags the listing incomplete when the configured project cannot be looked up', async () => {
       origFetch = window.fetch;
       window.fetch = async (url, opts = {}) => {
         const u = url.toString();
@@ -1433,7 +1456,7 @@ describe('smartling connector - legacy origin rewriting', () => {
         org, site, env: 'prod', origin: 'https://api.smartling.com', projectId: 'proj-missing',
       });
 
-      expect(projects).to.deep.equal({ items: [], incomplete: false });
+      expect(projects).to.deep.equal({ items: [], incomplete: true });
     });
 
     it('flags the listing incomplete when the account project list request fails', async () => {
@@ -1766,6 +1789,17 @@ describe('smartling connector - legacy origin rewriting', () => {
       expect(workflows.items).to.deep.equal([{ workflowUid: 'wf-1', workflowName: 'Default' }]);
       expect(calls.some((c) => c.url.includes('/projects-api/v2/projects/proj-1'))).to.equal(true);
     });
+
+    it('flags the listing incomplete when the deprecated projectId lookup fails', async () => {
+      origFetch = window.fetch;
+      window.fetch = async () => new Response('{}', { status: 200 });
+      mockProjectDetails(() => new Response('', { status: 403 }));
+
+      const workflows = await listWorkflows({ ...config, accountUid: undefined });
+
+      expect(workflows).to.deep.equal({ items: [], incomplete: true });
+      expect(calls.some((c) => c.url.includes('/workflows-api/'))).to.equal(false);
+    });
   });
 
   describe('checkWorkflowCoverage', () => {
@@ -1778,6 +1812,7 @@ describe('smartling connector - legacy origin rewriting', () => {
     beforeEach(() => {
       origFetch = window.fetch;
       window.fetch = async () => new Response('{}', { status: 200 });
+      mockProjectDetails(() => projectDataResponse({ sourceLocaleId: 'en-US' }));
     });
 
     it('passes when the workflow covers every target locale', async () => {
@@ -1795,11 +1830,52 @@ describe('smartling connector - legacy origin rewriting', () => {
     });
 
     it('lists the locales the workflow does not cover', async () => {
-      mockWorkflowSearch(() => workflowItemsResponse([workflow([{ targetLocaleIds: ['es-ES'] }])]));
+      mockWorkflowSearch(() => workflowItemsResponse([workflow([
+        { sourceLocaleId: 'en-US', targetLocaleIds: ['es-ES'] },
+      ])]));
 
       const result = await checkWorkflowCoverage({ service, workflowUid: 'wf-1', langs });
 
       expect(result).to.deep.equal({ error: 'Smartling workflow "WF" doesn\'t cover: fr-FR, de-DE.' });
+    });
+
+    it('ignores locale pairs from a source locale other than the project\'s', async () => {
+      mockWorkflowSearch(() => workflowItemsResponse([workflow([
+        { sourceLocaleId: 'en-US', targetLocaleIds: ['fr-FR'] },
+        { sourceLocaleId: 'fr-FR', targetLocaleIds: ['de-DE'] },
+      ])]));
+
+      const result = await checkWorkflowCoverage({ service, workflowUid: 'wf-1', langs });
+
+      expect(result).to.deep.equal({ error: 'Smartling workflow "WF" doesn\'t cover: de-DE.' });
+      expect(calls.some((c) => c.url.includes('/projects-api/v2/projects/proj-1'))).to.equal(true);
+    });
+
+    it('reuses the project details fetched to resolve a deprecated projectId-only account', async () => {
+      mockProjectDetails(() => projectDataResponse({ accountUid: 'acct-1', sourceLocaleId: 'en-US' }));
+      mockWorkflowSearch(() => workflowItemsResponse([workflow([
+        { sourceLocaleId: 'en-US', targetLocaleIds: ['fr-FR', 'de-DE'] },
+      ])]));
+
+      const result = await checkWorkflowCoverage({
+        service: { ...service, accountUid: undefined }, workflowUid: 'wf-1', langs,
+      });
+
+      expect(result).to.deep.equal({});
+      expect(calls.filter((c) => c.url.includes('/projects-api/v2/projects/proj-1')).length).to.equal(1);
+    });
+
+    it('reports a project source locale that cannot be resolved', async () => {
+      mockProjectDetails(() => new Response('', { status: 403 }));
+      mockWorkflowSearch(() => workflowItemsResponse([workflow([
+        { sourceLocaleId: 'en-US', targetLocaleIds: ['fr-FR', 'de-DE'] },
+      ])]));
+
+      const result = await checkWorkflowCoverage({ service, workflowUid: 'wf-1', langs });
+
+      expect(result).to.deep.equal({
+        error: 'Could not verify the Smartling workflow. The Smartling project\'s source locale could not be resolved.',
+      });
     });
 
     it('rejects a workflow with no locale pairs', async () => {
