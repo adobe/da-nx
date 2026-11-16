@@ -27,6 +27,7 @@ function ensureHost() {
   if (!host) {
     host = document.createElement('div');
     host.id = HOST_ID;
+    host.popover = 'manual';
     host.setAttribute('role', 'region');
     host.setAttribute('aria-label', 'Notifications');
     document.body.append(host);
@@ -106,7 +107,11 @@ export function showToast({ text, variant = VARIANT_SUCCESS, cta, timeout = 6000
   toast.cta = cta;
   toast.duration = timeout; // null = indefinite (no auto-dismiss)
   if (maxWidth) toast.style.setProperty('--nx-toast-max-width', maxWidth);
-  ensureHost().append(toast);
+  const host = ensureHost();
+  host.append(toast);
+  // Reopen to place new notifications above any intervening top-layer toolbar.
+  host.hidePopover();
+  host.showPopover();
 }
 
 if (!customElements.get('nx-toast')) customElements.define('nx-toast', NxToast);
