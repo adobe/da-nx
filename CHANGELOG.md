@@ -1,3 +1,227 @@
+## [1.52.5](https://github.com/adobe/da-nx/compare/v1.52.4...v1.52.5) (2026-11-13)
+
+
+### Bug Fixes
+
+* **segmented-btn:** keep focus outline above neighbouring segments ([271ff37](https://github.com/adobe/da-nx/commit/271ff37882c92bb478051e9cc909d2f897a9396f))
+* **segmented-btn:** show visible keyboard focus ([d11e7e4](https://github.com/adobe/da-nx/commit/d11e7e4ff77bd25ac8e52dad073a4c6099002dd4))
+
+## [1.52.4](https://github.com/adobe/da-nx/compare/v1.52.3...v1.52.4) (2026-11-13)
+
+
+### Bug Fixes
+
+* **deps:** update adobe fixes ([#999](https://github.com/adobe/da-nx/issues/999)) ([7209414](https://github.com/adobe/da-nx/commit/72094144c7353a396fcb8e29a3c7a1b70f7c95ce))
+
+## [1.52.3](https://github.com/adobe/da-nx/compare/v1.52.2...v1.52.3) (2026-11-13)
+
+
+### Bug Fixes
+
+* **snapshot-admin:** make launch section and actions keyboard accessible ([7abed52](https://github.com/adobe/da-nx/commit/7abed523a0843c6cb287cb8a1e13da1b5f1d1b0d)), closes [adobe/da-live#1539](https://github.com/adobe/da-live/issues/1539)
+
+## [1.52.2](https://github.com/adobe/da-nx/compare/v1.52.1...v1.52.2) (2026-11-12)
+
+
+### Bug Fixes
+
+* **rollout:** name include/exclude toggles and expose state ([73138fa](https://github.com/adobe/da-nx/commit/73138fa692f2d8f8ec26ce459307b9ad6befb381))
+
+## [1.52.1](https://github.com/adobe/da-nx/compare/v1.52.0...v1.52.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **chat-ao:** wait for session readiness before auto-send ([fddddbc](https://github.com/adobe/da-nx/commit/fddddbc1014d06a7b136af9a7c78603180172dab))
+* **chat:** restore history before accepting prompts ([4e0a529](https://github.com/adobe/da-nx/commit/4e0a52979f737fa7b474f21e86880857541e694f))
+* **media-library:** make grid cards keyboard accessible ([ff70eac](https://github.com/adobe/da-nx/commit/ff70eac24f4662905bdf218af96effce4c2ee08f))
+* **media-library:** make onboard site cards keyboard accessible ([ea7b246](https://github.com/adobe/da-nx/commit/ea7b2461672735fd287efb835872ad555b0ed9ef))
+* **media-library:** mirror site card hover on keyboard focus ([6797fb0](https://github.com/adobe/da-nx/commit/6797fb05595036d6d49f487afd9d173c54037c59))
+
+# [1.52.0](https://github.com/adobe/da-nx/compare/v1.51.2...v1.52.0) (2026-11-11)
+
+
+### Bug Fixes
+
+* **loc:** detect list-item review markers ([094c933](https://github.com/adobe/da-nx/commit/094c933d649faad4b1d72cf196cc1db7d69a3c4c))
+* **loc:** keep unresolved deletions and grouped section attributes in smart rollout ([19010ed](https://github.com/adobe/da-nx/commit/19010ed6f21619b96a25f3c30410483a2d80cb08))
+* **loc:** keep unresolved reviews on smart rollout and unify skipped label ([3be33b7](https://github.com/adobe/da-nx/commit/3be33b78f6752cb56fb15559931a19e74fe958d0))
+* **loc:** rename mark in sync to set sync point, place it beside rollout ([a993ca9](https://github.com/adobe/da-nx/commit/a993ca910b0d1a99b3488305067965fde1ce9ef2))
+* **loc:** skip rollout versions when seeding the first smart rollout ([c234d3c](https://github.com/adobe/da-nx/commit/c234d3c56a438aa574ea328571c1a1641451b3d7))
+* **loc:** surface missing sync points and keep snapshot baselines ([339eede](https://github.com/adobe/da-nx/commit/339eede94fb53ec2095237d619f30542129fe7b0))
+
+
+### Features
+
+* **loc:** add opt-in smart-overwrite rollout that keeps local edits ([360756f](https://github.com/adobe/da-nx/commit/360756fca6f888be81411b5b7a3e2346c7a3c6b2))
+* **loc:** first smart rollout is a merge review instead of baseline only ([8ae8d0c](https://github.com/adobe/da-nx/commit/8ae8d0c60ff53cd33c7192b431d5b51a3a9119e3))
+* **loc:** honor merge-review rejections in smart rollouts ([c2151a2](https://github.com/adobe/da-nx/commit/c2151a27cb62e3968b4fdc1cf36f512d5c47275e))
+* **loc:** mark in sync and baseline recording for smart-overwrite rollouts ([1e6f4db](https://github.com/adobe/da-nx/commit/1e6f4db6f627152ed3f041fbbbc376b953e2ba64))
+* **loc:** record only the baseline on the first smart rollout ([cafb072](https://github.com/adobe/da-nx/commit/cafb0720375a4ba40ee140369dc618c396eb43f5))
+* **loc:** report unchanged and needs-review pages after smart rollouts ([892fe6c](https://github.com/adobe/da-nx/commit/892fe6ca356f05b63637182bc21a06874eae7608))
+* **loc:** seed first smart rollout from the parent's latest saved version ([3969c9b](https://github.com/adobe/da-nx/commit/3969c9ba3542e8a49705d89ab42bb8a2e8149beb))
+
+## [1.51.2](https://github.com/adobe/da-nx/compare/v1.51.1...v1.51.2) (2026-11-11)
+
+
+### Bug Fixes
+
+* **loc:** handle languages without locales in rollout ([#915](https://github.com/adobe/da-nx/issues/915)) ([bb35897](https://github.com/adobe/da-nx/commit/bb35897ca62d295d4ecde284289ee2d7d899d325))
+
+## [1.51.1](https://github.com/adobe/da-nx/compare/v1.51.0...v1.51.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **api:** forward mutation continuation tokens ([#984](https://github.com/adobe/da-nx/issues/984)) ([37b28d4](https://github.com/adobe/da-nx/commit/37b28d4335963593cb83fd0aef0c3a7f8e3a32de)), closes [adobe/da-live#1708](https://github.com/adobe/da-live/issues/1708)
+
+# [1.51.0](https://github.com/adobe/da-nx/compare/v1.50.0...v1.51.0) (2026-11-11)
+
+
+### Features
+
+* **action-card:** icon slot for svg or any image ([#985](https://github.com/adobe/da-nx/issues/985)) ([0978f07](https://github.com/adobe/da-nx/commit/0978f0718d68572fa9709cad8e7c0951ce099de8))
+
+# [1.50.0](https://github.com/adobe/da-nx/compare/v1.49.0...v1.50.0) (2026-11-11)
+
+
+### Features
+
+* **action-card:** add shared nx-action-card component ([#979](https://github.com/adobe/da-nx/issues/979)) ([a433cad](https://github.com/adobe/da-nx/commit/a433cad84eb7db1acfcdb3fc9f58c487e419385b))
+
+# [1.49.0](https://github.com/adobe/da-nx/compare/v1.48.0...v1.49.0) (2026-11-11)
+
+
+### Features
+
+* **nav:** show logo-only branding by default ([#980](https://github.com/adobe/da-nx/issues/980)) ([367d2e9](https://github.com/adobe/da-nx/commit/367d2e99bd03e80044862fe2e00f61d61d6c3664))
+
+# [1.48.0](https://github.com/adobe/da-nx/compare/v1.47.0...v1.48.0) (2026-11-10)
+
+
+### Features
+
+* **quick-edit:** support editable link-images ([#829](https://github.com/adobe/da-nx/issues/829)) ([ea1aa30](https://github.com/adobe/da-nx/commit/ea1aa30d468986f983dcb0f13da375f4578fa900))
+
+# [1.47.0](https://github.com/adobe/da-nx/compare/v1.46.0...v1.47.0) (2026-11-10)
+
+
+### Features
+
+* **feedback:** add extensions category ([#975](https://github.com/adobe/da-nx/issues/975)) ([8c9089f](https://github.com/adobe/da-nx/commit/8c9089f3cda216bb282718875032fc62450440fd))
+
+# [1.46.0](https://github.com/adobe/da-nx/compare/v1.45.1...v1.46.0) (2026-11-10)
+
+
+### Features
+
+* apply preflight suggestions via chat ([#910](https://github.com/adobe/da-nx/issues/910)) ([541c929](https://github.com/adobe/da-nx/commit/541c92929f17777dd54f07b0be847fa2d5540f3b))
+
+## [1.45.1](https://github.com/adobe/da-nx/compare/v1.45.0...v1.45.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **editortoggle:** hide disabled toggle on canvas ([399d3c2](https://github.com/adobe/da-nx/commit/399d3c29e8da4b4bf1ac01e72ad5dbed6d08b5ee))
+
+# [1.45.0](https://github.com/adobe/da-nx/compare/v1.44.2...v1.45.0) (2026-11-10)
+
+
+### Bug Fixes
+
+* **nav:** align branding with the shell navigation rail ([fdccd23](https://github.com/adobe/da-nx/commit/fdccd2382fc0e851a47008a3014cc5460f45b935))
+* **nav:** keep logo sizing in css ([c840136](https://github.com/adobe/da-nx/commit/c84013616aec0f3e8321b9e14c174e39950fefb5))
+* **nav:** preserve logo aspect ratio ([2aa3dc4](https://github.com/adobe/da-nx/commit/2aa3dc4a95e6d827ec49184546a3623e82be88fd))
+* **nav:** use s2 bold typography for the product label ([69d3dac](https://github.com/adobe/da-nx/commit/69d3dac0dd04ecd7b4d6e5817edbc38944bf68ec))
+
+
+### Features
+
+* **nav:** support consumer-owned logo and product label ([2ea71d7](https://github.com/adobe/da-nx/commit/2ea71d7d39bc8cac64b5154168a95b1b814b93ce))
+
+## [1.44.2](https://github.com/adobe/da-nx/compare/v1.44.1...v1.44.2) (2026-11-09)
+
+
+### Bug Fixes
+
+* **loc:** keep merged blocks in their own section ([0dcb6bf](https://github.com/adobe/da-nx/commit/0dcb6bf5ef5ef66cbf41e35067d582b5c93429c2)), closes [#968](https://github.com/adobe/da-nx/issues/968)
+* **loc:** only line up sections when break counts match ([1cac016](https://github.com/adobe/da-nx/commit/1cac01672b5eb3d4e4eeb4868bbfb5d02cca8294))
+
+## [1.44.1](https://github.com/adobe/da-nx/compare/v1.44.0...v1.44.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **quick-edit:** sync image versions after host editor updates ([21f1edf](https://github.com/adobe/da-nx/commit/21f1edfdc560ce1a7f9e6ff64bb44bc609fe0e8c))
+
+# [1.44.0](https://github.com/adobe/da-nx/compare/v1.43.0...v1.44.0) (2026-11-09)
+
+
+### Bug Fixes
+
+* **picker:** isolate navigation styling from existing variants ([0d80f5d](https://github.com/adobe/da-nx/commit/0d80f5d65025f266dddb1496516d07c84fd9437c))
+* **siteselector:** align dialog buttons and generalize picker variant ([3b49ec0](https://github.com/adobe/da-nx/commit/3b49ec0495de8dce6b12ea370479a3b128c5f653))
+* **siteselector:** align menu typography and labels ([7688707](https://github.com/adobe/da-nx/commit/76887078a2b9310fdc8aa295f7bc337c0a04dc00))
+* **siteselector:** build creation links without a DA listener ([f9b2b62](https://github.com/adobe/da-nx/commit/f9b2b621b85d975917555e93437132feb33df1f1))
+* **siteselector:** close Add and sync selection when only the hash changes ([218be06](https://github.com/adobe/da-nx/commit/218be06fcfac2e372b2ad618d515adf0af3ac389))
+* **siteselector:** contain focus ring and simplify selected label ([b4a7a15](https://github.com/adobe/da-nx/commit/b4a7a15ac5afb8c0c0ec6d15a6c2b05f8ce67a51))
+* **siteselector:** hide picker when no sites are available ([a10b3af](https://github.com/adobe/da-nx/commit/a10b3af8156c9a6f002a4c579dc1ab50fa0f6970))
+* **siteselector:** keep dropdown typography at size m ([97f82bb](https://github.com/adobe/da-nx/commit/97f82bbdfe15469864d94fbf4a5ec9a15433e746))
+* **siteselector:** open added site in browse ([e67bd90](https://github.com/adobe/da-nx/commit/e67bd90f9a64571507129e9ef28a952fcbc2dda4))
+* **siteselector:** render add icon inline across origins ([38a6372](https://github.com/adobe/da-nx/commit/38a6372db0c9764caff8c6b84f6e8907636e9ce3))
+* **siteselector:** restore section title color and taller menu rows ([97d950a](https://github.com/adobe/da-nx/commit/97d950a3f8021965f852de77c7ba06f01b9d84de))
+* **siteselector:** show shared add button for empty sites ([5b21811](https://github.com/adobe/da-nx/commit/5b218112a16aa6ba83d073db7b889d32605e1e8a))
+
+
+### Features
+
+* **siteselector:** add standalone shared site selector ([83e6875](https://github.com/adobe/da-nx/commit/83e687599d1f389aa725ba2753465f1f68e75b6b))
+
+# [1.43.0](https://github.com/adobe/da-nx/compare/v1.42.1...v1.43.0) (2026-11-09)
+
+
+### Features
+
+* **styles:** export emphasized shadow token ([f7c52e6](https://github.com/adobe/da-nx/commit/f7c52e602a8514dd8a08d3887c277380e6768de7))
+
+## [1.42.1](https://github.com/adobe/da-nx/compare/v1.42.0...v1.42.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **chat-ao:** show a skills-only menu on the CMA harness, no Coworker items ([#966](https://github.com/adobe/da-nx/issues/966)) ([c051805](https://github.com/adobe/da-nx/commit/c05180589d7b8acba4d083e2f923ca6b613f5adf))
+
+# [1.42.0](https://github.com/adobe/da-nx/compare/v1.41.0...v1.42.0) (2026-11-06)
+
+
+### Features
+
+* **aem-assets:** add an images-only filter ([#800](https://github.com/adobe/da-nx/issues/800)) ([433d05d](https://github.com/adobe/da-nx/commit/433d05de29545e905efb11504f3dcd021ffc557f))
+
+# [1.41.0](https://github.com/adobe/da-nx/compare/v1.40.1...v1.41.0) (2026-11-06)
+
+
+### Bug Fixes
+
+* **quick-edit:** accept bridged asset image replacements ([cfbf204](https://github.com/adobe/da-nx/commit/cfbf20495e477ab523cfef1b3657470780cb52aa))
+* **quick-edit:** highlight bridged asset drop targets ([366e48d](https://github.com/adobe/da-nx/commit/366e48de272569850e3c8a9c7c9c15e69f683f60))
+* **sdk:** preserve drops on capture release and report cancellations ([a2a7ef4](https://github.com/adobe/da-nx/commit/a2a7ef4327d28cdd8ccad7d01448a0d45a6dbbbe))
+
+
+### Features
+
+* **quick-edit:** support native extension drops ([7f212c9](https://github.com/adobe/da-nx/commit/7f212c9ede64ba3a9351caaa04fcae53ed998dad))
+* **sdk:** add host-managed extension dragging ([1e8216e](https://github.com/adobe/da-nx/commit/1e8216e5d4915064dbe22c1201bb666d1886a298))
+* support drag and drop in AEM asset selector props ([7cf7ae4](https://github.com/adobe/da-nx/commit/7cf7ae4ccb58c163cc7f0108a3320a42ebf04f58))
+* support rail mode in AEM asset selector props ([66d99f5](https://github.com/adobe/da-nx/commit/66d99f52f9319dd76e8b2e132a315240b4765c15))
+
+## [1.40.1](https://github.com/adobe/da-nx/compare/v1.40.0...v1.40.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **card:** avoid top-level await for safari stylesheet loading ([#964](https://github.com/adobe/da-nx/issues/964)) ([dedc910](https://github.com/adobe/da-nx/commit/dedc91037bc5ee01baca4fbec7038d689280043f))
+
 # [1.40.0](https://github.com/adobe/da-nx/compare/v1.39.0...v1.40.0) (2026-11-05)
 
 

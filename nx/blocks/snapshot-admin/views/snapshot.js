@@ -615,7 +615,13 @@ class NxSnapshot extends LitElement {
           </div>
           ${this.hasLaunchPermission ? html`
             <div class="nx-launch-actions">
-              <p class="nx-launch-sub-heading ${this._launchesCollapsed ? '' : 'is-expanded'}" @click=${this.handleLaunchesToggle}>Launch</p>
+              <button
+                type="button"
+                class="nx-launch-sub-heading ${this._launchesCollapsed ? '' : 'is-expanded'}"
+                aria-expanded=${this._launchesCollapsed ? 'false' : 'true'}
+                aria-controls="nx-launch-panel"
+                @click=${this.handleLaunchesToggle}>Launch</button>
+              <div id="nx-launch-panel">
               ${this._launchesCollapsed ? nothing : html`
                 ${this._launchEnabled ? html`
                   <div class="nx-launch-action-group">
@@ -634,6 +640,7 @@ class NxSnapshot extends LitElement {
                   </div>
                 `}
               `}
+              </div>
             </div>
           ` : nothing}
           <div class="nx-snapshot-actions">

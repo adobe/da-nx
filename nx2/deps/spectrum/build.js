@@ -31,7 +31,7 @@ const COMPONENT_WEIGHTS = ['regular', 'medium', 'bold'];
 
 const SPACING = [50, 75, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
 const CORNER_RADIUS = [0, 75, 100, 200, 300, 400, 500, 600, 700, 800];
-const DROP_SHADOWS = ['elevated'];
+const DROP_SHADOWS = ['emphasized', 'elevated'];
 
 const FONT_WEIGHT_MAP = {
   'light': 300,

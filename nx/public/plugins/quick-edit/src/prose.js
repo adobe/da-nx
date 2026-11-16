@@ -13,7 +13,7 @@ import { createSimpleKeymap } from './simple-keymap.js';
 import { createImageWrapperPlugin } from './image-wrapper.js';
 import { setupImageDropListeners } from './images.js';
 import { setRemoteCursors } from './cursors.js';
-import { syncImageIndices } from './dom-index.js';
+import { syncImageIndices, setImageVersion } from './dom-index.js';
 import { scheduleSettle, settleEditor, settleOtherEditors } from './settle-editor.js';
 import { MESSAGE_TYPES } from '../../../../utils/message-types.js';
 
@@ -255,6 +255,7 @@ function createEditor(offset, state, ctx, { imageVersion, lengthDiff = 0, origin
   // The replaced element still had the pre-edit content, so later indices haven't moved yet.
   if (lengthDiff) updateInstrumentation(lengthDiff, offset);
   syncImageIndices(editorView, editorParent, offset, node.nodeSize - lengthDiff, lengthDiff);
+  if (imageVersion) setImageVersion(imageVersion);
   if (!ctx.readOnly) setupImageDropListeners(ctx, editorParent);
   setRemoteCursors();
   initScrollListener(editorParent.ownerDocument.defaultView, ctx);
@@ -285,7 +286,6 @@ function updateEditor(editorEl, state, ctx, { imageVersion, origin } = {}) {
 
   // Editor already exists, update it with a transaction
   const view = editorEl;
-  if (imageVersion) view.dom.parentElement.setAttribute('data-image-version', imageVersion);
   const { schema } = view.state;
   const node = schema.nodeFromJSON(state);
 
@@ -295,6 +295,8 @@ function updateEditor(editorEl, state, ctx, { imageVersion, origin } = {}) {
     requestReload(ctx);
     return;
   }
+
+  if (imageVersion) setImageVersion(imageVersion);
 
   // Save selection to restore after the content replacement.
   // Marks don't change node structure, so positions are identical in the new doc.
