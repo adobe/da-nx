@@ -36,6 +36,7 @@
 }
 
 .wn-toc {
+  position: relative;
   grid-column: 1;
   grid-row: 1 / -1;
   box-sizing: border-box;
@@ -114,6 +115,47 @@
   width: 2px;
   background: var(--s2-gray-800);
   transition: transform 0.2s ease, height 0.2s ease;
+}
+
+/* Pinned to the bottom of the toc; a long toc list slides behind it instead of pushing it down. */
+.wn-toc-footer {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2-spacing-200);
+  padding: var(--s2-spacing-300) var(--s2-spacing-600) var(--s2-spacing-500) calc(var(--s2-spacing-600) + 16px);
+  background: var(--s2-gray-50);
+}
+
+/* Left edge (text) lines up with the toc entry labels. */
+.wn-toc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2-spacing-75);
+  color: var(--s2-blue-900);
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-l-regular-font-size);
+  font-weight: var(--s2-component-l-regular-font-weight);
+  line-height: var(--s2-component-l-regular-line-height);
+  text-decoration: none;
+  border-radius: var(--s2-corner-radius-100);
+
+  svg {
+    flex: none;
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover span {
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--s2-blue-800);
+    outline-offset: 2px;
+  }
 }
 
 .wn-cards-panel {
@@ -219,7 +261,8 @@
     margin: 0;
   }
 
-  .wn-toc-list {
+  .wn-toc-list,
+  .wn-toc-footer {
     display: none;
   }
 

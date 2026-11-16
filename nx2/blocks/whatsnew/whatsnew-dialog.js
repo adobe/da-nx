@@ -7,9 +7,13 @@ import '../shared/dialog/dialog.js';
 
 const style = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
-const closeIcon = await loadHrefSvg('/img/icons/s2-icon-close-20-n.svg');
+const [closeIcon, openInIcon] = await Promise.all([
+  loadHrefSvg('/img/icons/s2-icon-close-20-n.svg'),
+  loadHrefSvg('/img/icons/s2-icon-openin-20-n.svg'),
+]);
 
 const WHATSNEW_PATH = '/fragments/guides/whats-new';
+const RELEASE_NOTES_HREF = 'https://www.aem.live/docs/ew/release-notes';
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -162,6 +166,11 @@ class NxWhatsNewDialog extends LitElement {
                   </li>
                 `)}
               </ul>
+            </div>
+            <div class="wn-toc-footer">
+              <a class="wn-toc-link" href=${RELEASE_NOTES_HREF} target="_blank" rel="noopener">
+                <span>Release Notes</span>${openInIcon}
+              </a>
             </div>
           </nav>
           <div class="wn-cards-panel">
