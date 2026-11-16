@@ -1,16 +1,13 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
-import { loadHrefSvg } from '../../utils/svg.js';
+import { getConfig } from '../../scripts/nx.js';
 import { loadEntries } from './whatsnew-parser.js';
 import { setLastSeen } from './whatsnew-storage.js';
 import '../shared/dialog/dialog.js';
 
 const style = await loadStyle(import.meta.url);
 const buttonStyle = await loadStyle(new URL('../../styles/buttons.css', import.meta.url).href);
-const [closeIcon, openInIcon] = await Promise.all([
-  loadHrefSvg('/img/icons/s2-icon-close-20-n.svg'),
-  loadHrefSvg('/img/icons/s2-icon-openin-20-n.svg'),
-]);
+const { codeBase } = getConfig();
 
 const WHATSNEW_PATH = '/fragments/guides/whats-new';
 const RELEASE_NOTES_HREF = 'https://www.aem.live/docs/ew/release-notes';
@@ -146,7 +143,7 @@ class NxWhatsNewDialog extends LitElement {
       <nx-dialog class="wn-dialog" @close=${this._onClose}>
         <div class="wn-body">
           <button type="button" class="wn-close nx-action-btn-icon" aria-label="Close" @click=${this.close}>
-            ${closeIcon}
+            <svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-close-20-n.svg#icon"></use></svg>
           </button>
           <nav class="wn-toc" aria-label="What's new sections">
             <div class="wn-toc-scroll">
@@ -169,7 +166,8 @@ class NxWhatsNewDialog extends LitElement {
             </div>
             <div class="wn-toc-footer">
               <a class="wn-toc-link" href=${RELEASE_NOTES_HREF} target="_blank" rel="noopener">
-                Release Notes ${openInIcon}
+                Release Notes
+                <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-openin-20-n.svg#icon"></use></svg>
               </a>
             </div>
           </nav>
