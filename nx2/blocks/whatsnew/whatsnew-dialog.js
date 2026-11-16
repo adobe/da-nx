@@ -169,7 +169,7 @@ class NxWhatsNewDialog extends LitElement {
             </div>
             <div class="wn-toc-footer">
               <a class="wn-toc-link" href=${RELEASE_NOTES_HREF} target="_blank" rel="noopener">
-                <span>Release Notes</span>${openInIcon}
+                Release Notes ${openInIcon}
               </a>
             </div>
           </nav>
