@@ -30,7 +30,7 @@ p {
   }
 
   &.with-cancel {
-    grid-template-columns: 1fr 92px 92px 92px 92px 120px 68px;
+    grid-template-columns: 1fr 92px 92px 92px 92px 120px 108px;
   }
 }
 
@@ -57,7 +57,7 @@ ul {
       min-height: 20px;
 
       &.with-cancel {
-        grid-template-columns: 1fr 92px 92px 92px 92px 120px 68px;
+        grid-template-columns: 1fr 92px 92px 92px 92px 120px 108px;
       }
     }
 
