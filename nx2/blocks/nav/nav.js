@@ -116,9 +116,22 @@ class NXNav extends LitElement {
     if (!brandLink) return null;
     brandLink.classList.add('brand-area');
     const { href, textContent } = brandLink;
+    const { navBrand } = getConfig();
 
     const hasLockup = href.includes('.svg');
-    if (hasLockup) {
+    if (navBrand?.logoHref && navBrand.label) {
+      const icon = document.createElement('span');
+      icon.classList.add('brand-icon');
+      const img = document.createElement('img');
+      img.src = navBrand.logoHref;
+      img.alt = '';
+      icon.append(img);
+      const label = document.createElement('span');
+      label.classList.add('brand-label');
+      label.textContent = navBrand.label;
+      brandLink.setAttribute('aria-label', navBrand.label);
+      brandLink.replaceChildren(icon, label);
+    } else if (hasLockup) {
       brandLink.setAttribute('aria-label', textContent);
       const lockup = await loadHrefSvg(href);
       if (lockup) brandLink.replaceChildren(lockup);

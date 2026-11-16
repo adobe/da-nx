@@ -1,5 +1,12 @@
 import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
-import { daFetch, loadIms } from '../../../../nx2/utils/api.js';
+import { daFetch, loadIms, source } from '../../../../nx2/utils/api.js';
+import { createCopy } from '../../../public/loc/copy.js';
+
+export const copy = createCopy({
+  fetch: (url, opts) => daFetch({ url, opts }),
+  daOrigin: DA_ADMIN,
+  saveSource: source.save,
+});
 
 // Branch-only: reading translate-brief.json instead of translate.json for testing
 // the new 'Campaign' custom option before it's safe to add to production translate.json.
