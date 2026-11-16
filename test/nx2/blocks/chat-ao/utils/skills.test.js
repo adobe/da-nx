@@ -1,5 +1,7 @@
 import { expect } from '@esm-bundle/chai';
-import { loadCachedSkills, fetchSkills } from '../../../../../nx2/blocks/chat-ao/utils/skills.js';
+import {
+  loadCachedSkills, fetchSkills, toSlashMenuItems,
+} from '../../../../../nx2/blocks/chat-ao/utils/skills.js';
 import { AO_HTTP_BASE, AO_MANIFEST_ID } from '../../../../../nx2/blocks/chat-ao/ao-constants.js';
 import { resetMockIms, setMockIms } from '../../../../../nx2/test/mocks/ims.js';
 
@@ -23,9 +25,23 @@ describe('loadCachedSkills', () => {
     expect(await loadCachedSkills()).to.equal(null);
   });
 
-  it('returns the cached list for the active tenant', async () => {
+  it('returns the cached list for the active tenant, sorted by name', async () => {
+    localStorage.setItem(cacheKey('org1'), JSON.stringify([
+      { name: 'writeBlog', description: 'Write a blog post' },
+      { name: 'summarize', description: 'Summarize a page' },
+    ]));
+    expect(await loadCachedSkills()).to.deep.equal([
+      { name: 'summarize', description: 'Summarize a page' },
+      { name: 'writeBlog', description: 'Write a blog post' },
+    ]);
+  });
+
+  it('upgrades a legacy cache of plain skill names', async () => {
     localStorage.setItem(cacheKey('org1'), JSON.stringify(['writeBlog', 'summarize']));
-    expect(await loadCachedSkills()).to.deep.equal(['writeBlog', 'summarize']);
+    expect(await loadCachedSkills()).to.deep.equal([
+      { name: 'summarize', description: '' },
+      { name: 'writeBlog', description: '' },
+    ]);
   });
 
   it('does not return another tenant\'s cached list', async () => {
@@ -107,7 +123,45 @@ describe('fetchSkills', () => {
       }),
     });
 
-    expect(await fetchSkills()).to.deep.equal(['writeBlog']);
+    expect(await fetchSkills()).to.deep.equal([{ name: 'writeBlog', description: '' }]);
+  });
+
+  it('returns skills sorted alphabetically (case-insensitive) with their descriptions', async () => {
+    installFetch({
+      body: JSON.stringify({
+        skills: [
+          { name: 'writeBlog', display_description: '  Write a blog post ' },
+          { name: 'Audit', display_description: 'Audit a page' },
+          { name: 'summarize', display_description: 42 },
+        ],
+      }),
+    });
+
+    expect(await fetchSkills()).to.deep.equal([
+      { name: 'Audit', description: 'Audit a page' },
+      { name: 'summarize', description: '' },
+      { name: 'writeBlog', description: 'Write a blog post' },
+    ]);
+  });
+
+  it('prefers display_description and falls back to description when it is missing', async () => {
+    installFetch({
+      body: JSON.stringify({
+        skills: [
+          { name: 'writeBlog', description: 'Model instructions', display_description: 'Write a blog post' },
+          { name: 'summarize', description: 'Summarize a page' },
+          { name: 'audit', description: 'Audit a page', display_description: '   ' },
+          { name: 'translate' },
+        ],
+      }),
+    });
+
+    expect(await fetchSkills()).to.deep.equal([
+      { name: 'audit', description: 'Audit a page' },
+      { name: 'summarize', description: 'Summarize a page' },
+      { name: 'translate', description: '' },
+      { name: 'writeBlog', description: 'Write a blog post' },
+    ]);
   });
 
   it('returns null and does not cache when the filtered list is empty', async () => {
@@ -118,11 +172,18 @@ describe('fetchSkills', () => {
   });
 
   it('caches the fetched list for the active tenant', async () => {
-    installFetch({ body: JSON.stringify({ skills: [{ name: 'writeBlog' }, { name: 'summarize' }] }) });
+    installFetch({
+      body: JSON.stringify({
+        skills: [{ name: 'writeBlog', display_description: 'Write' }, { name: 'summarize', display_description: 'Sum' }],
+      }),
+    });
 
     await fetchSkills();
 
-    expect(await loadCachedSkills()).to.deep.equal(['writeBlog', 'summarize']);
+    expect(await loadCachedSkills()).to.deep.equal([
+      { name: 'summarize', description: 'Sum' },
+      { name: 'writeBlog', description: 'Write' },
+    ]);
     setMockIms({ projectedProductContext: projectedProductContext('org2') });
     expect(await loadCachedSkills()).to.equal(null);
   });
@@ -138,5 +199,37 @@ describe('fetchSkills', () => {
     window.fetch = async () => { throw new Error('network down'); };
 
     expect(await fetchSkills()).to.equal(null);
+  });
+});
+
+describe('toSlashMenuItems', () => {
+  const longDescription = `Check a web page against brand rules ${'x'.repeat(40)}`;
+  const skills = [
+    { name: 'account-research', description: 'Deep company and account research' },
+    { name: 'aem-governance-evaluate-page', description: longDescription },
+    { name: 'summarize', description: '' },
+  ];
+
+  it('renders a section header followed by slash-prefixed skills with full descriptions', () => {
+    expect(toSlashMenuItems({ skills })).to.deep.equal([
+      { section: 'Skills' },
+      { id: 'account-research', label: '/account-research', description: 'Deep company and account research' },
+      {
+        id: 'aem-governance-evaluate-page',
+        label: '/aem-governance-evaluate-page',
+        description: longDescription,
+      },
+      { id: 'summarize', label: '/summarize', description: '' },
+    ]);
+  });
+
+  it('filters by skill name, case-insensitively', () => {
+    const items = toSlashMenuItems({ skills, filter: 'aem' });
+    expect(items.map((i) => i.id ?? i.section)).to.deep.equal(['Skills', 'aem-governance-evaluate-page']);
+  });
+
+  it('returns an empty list when nothing matches', () => {
+    expect(toSlashMenuItems({ skills, filter: 'nope' })).to.deep.equal([]);
+    expect(toSlashMenuItems({ skills: [] })).to.deep.equal([]);
   });
 });

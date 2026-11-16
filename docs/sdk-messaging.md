@@ -4,6 +4,125 @@ Use fire-and-forget when the caller does not need to wait for the host. `openCom
 
 Wait for a response when the next step depends on completion. Request Publish waits for `saveDocument()` to return `{ ok: true }` before previewing source content, even when comparison was never opened. Comparison also attempts a save, with a read-only fallback, but its fire-and-forget command does not confirm completion to the caller. Save success does not imply preview or publication success, or prevent later edits. See [Workspace comparison actions](comparison-sdk.md) for the API details.
 
+## Fullscreen app chat
+
+With `?nxver=2`, the existing `nx-shell` block can open a docked chat without
+migrating the iframe app or the rest of the block to nx2:
+
+```js
+const { actions } = await DA_SDK;
+actions.setPrompt('Hello from my app!', { autoSend: true });
+```
+
+The existing `setPrompt(text, { autoSend = false } = {})` posts
+`{ action: 'setPrompt', details: { text, autoSend } }` on the SDK port.
+The host opens chat lazily, waits for it to mount, then sets the prompt.
+Omit `autoSend` to prefill rather than submit. This is a fire-and-forget command,
+not confirmation that the agent accepted or completed the prompt.
+No SDK changes are required.
+
+Chat is available only on `/app/{org}/{site}/...` URLs when the shared
+`isEwChatEnabled` check passes: EW is enabled through `ew.enabled` or browser
+opt-in, and chat is not disabled through `ew.disableChat`.
+Disabled chat requests (`setPrompt` and `showPanel('chat')`) are silent no-ops;
+other registered panels are unaffected.
+The configuration check uses the target org/site from a valid `#/org/site` hash,
+falling back to the app URL's org/site when there is no target-site hash. The same
+target site is passed as chat context.
+
+Chat uses `#/org/site/path` from the parent URL when present; otherwise it uses
+the app URL's org/repo as its site, with browse context and no content path.
+The hosting app's `/tools/...` path is never used as a content-document path.
+`actions.showPanel('chat')` opens chat without setting a prompt; other panel names
+work when the host has registered them. The nx1 shell does not handle panel/chat
+commands.
+
+Fullscreen nx2 apps also support `actions.subscribeChatTurnCompleted(callback)`
+when the handshake advertises `capabilities.chatTurnCompleted === 1`. The shell
+forwards chat completion events over the existing SDK port, including chat opened
+against a target-site hash. Unlike canvas extensions, fullscreen apps are not bound
+to a content document, so notifications are not filtered by document path.
+Unsubscribe stops forwarding; reloading the iframe removes the old subscription.
+See [Chat turn subscriptions](#chat-turn-subscriptions) for the payload and API.
+
+## Extension drag and drop
+
+Register a source with the SDK rather than depending on native drag events
+crossing an extension iframe. HTML and images share one payload and lifecycle:
+
+```js
+const dispose = await actions.makeDraggable({
+  element,
+  getData: () => ({
+    data: { 'text/html': '<h2>Heading</h2><p>Content</p>' },
+    // For an image instead: files: [imageFile]
+  }),
+  onResult: ({ ok, error }) => {
+    if (!ok && error !== 'cancelled') showError(error);
+  },
+});
+// When the source is removed:
+dispose();
+```
+
+`makeDraggable` lazily loads the helper and resolves with a disposer. `getData`
+must synchronously return prepared content; fetch image files beforehand. The
+optional `data` map supports `text/html` and `text/plain`; optional `files` contains
+real image `File` objects, transferred by structured clone, not base64. An `<img>`
+or URL alone is not an image File. Files take precedence over HTML.
+
+Hosts advertise `capabilities.dragDrop === 1` in the existing ready handshake.
+With that capability, the helper starts after pointer movement, suppresses the
+native drag, and hands mouse capture to a transparent host overlay. The host
+resolves the target at release, independently of the current selection. Touch
+sources retain pointer capture and send their release over the port. Disposal,
+Escape, pointer cancellation, iframe reload, blur and a two-minute host deadline
+cancel the session; a drop after navigating to another page is refused. A click without dragging retains its normal behavior.
+
+An older host gets best-effort native `dataTransfer` wiring instead. Native
+cross-origin delivery is browser-dependent, and this fallback cannot confirm
+completion through `onResult`. Older extensions that already populate native
+HTML/Files continue to work where the browser delivers their native drop.
+
+The document editor parses HTML using its schema at the drop coordinates; image
+files use the host upload API. In layout/WYSIWYG mode, HTML shows an insertion
+line before or after editable content, while files use the existing image
+replacement targets and upload flow. Arbitrary HTML has the same schema parsing
+semantics as `sendHTML`, not unrestricted DOM insertion. The host checks editor
+write permission, channel/page context and document freshness before applying
+the edit. Preview targets must match the current document version. Images are
+uploaded before insertion; a cancelled or stale drop can leave an unused upload
+but does not insert into a changed document.
+
+The host accepts up to ten supported image Files; the site's existing per-image
+upload limit is enforced at upload (4.5 MB for hlx6, 20 MB otherwise).
+Each text value is limited to 1,000,000 characters. File names must be ordinary
+names without path separators. Preview image replacement accepts exactly one
+File; document drops can insert multiple images.
+
+The SDK uses the existing MessagePort, not a second channel. `dragStart` carries
+`{ payload, point: { x, y } }` and returns a host-generated `dragId`.
+`dragMove`, `dragFinish` and `dragCancel` refer to that ID; points are relative to
+the source iframe viewport and may lie outside it. Extensions never supply
+editor positions. Start and finish use normal `sdkResponse` acknowledgements;
+move and cancel are fire-and-forget. When the parent owns release or cancellation,
+it sends `{ action: 'dragResult', details: { dragId, result: { ok, error? } } }`.
+The helper reports one terminal result, even if both finish paths reply.
+Repeated finishes for an active session share the same operation; completed IDs
+are rejected. Success confirms an editor transaction, not autosave or
+publication. Do not retry a timed-out mutation.
+
+Run `npm run test:drag` for real cross-origin HTML/File pointer regressions.
+These run separately and serially because concurrent browser tabs share focus
+and pointer capture. Lifecycle and target-resolution unit tests remain in the
+normal test suite.
+
+The AEM Assets rail is host UI, not an extension: it reuses the same host drag
+session and drop pipeline, with assets taken from the selector's drag callbacks
+and resolved through the site's asset configuration. Extensions should use HTML
+or Files. WYSIWYG replacement requires an
+indexed, authored image; images generated entirely by block code are not targets.
+
 ## Requests and responses
 
 Actions use the MessagePort transferred in the `ready` handshake. Each acknowledged call gets a unique `requestId`; the host replies on the same port with that ID:
@@ -103,12 +222,46 @@ external images. They do not apply the site preview's image URL rewriting.
 Extensions can round-trip unchanged images without reconstructing their origin.
 These notifications are not `sdkResponse` replies and have no `requestId`; they do not settle pending `getSelection()`, replacement or `saveDocument()` calls. `getSelection()` remains a one-shot request for selected HTML, independent of this live-document stream.
 
+## Chat turn subscriptions
+
+Canvas and fullscreen nx2 hosts advertising `capabilities.chatTurnCompleted === 1` expose
+`actions.subscribeChatTurnCompleted(callback)`. Check both the capability and
+the method before calling; unsupported hosts throw without subscribing.
+
+```js
+const unsubscribe = actions.subscribeChatTurnCompleted(({ status, org, site, path }) => {
+  // Invalidate or refetch app data for this document, including partial edits
+  // from an aborted or failed turn.
+});
+// When the extension no longer needs notifications:
+unsubscribe();
+```
+
+The callback receives `{ org, site, path, sessionId, turnId, status }`, with
+identifiers when available and `status: 'completed' | 'aborted' | 'error'`.
+No conversation contents or credentials are sent. Notifications do not replay,
+and canvas extensions receive only turns for their org, site, and document.
+This API does not expose arbitrary canvas bus channels.
+
+The first subscriber sends `{ action: 'subscribeChatTurnCompleted' }` over the
+transferred MessagePort. The host forwards
+`{ action: 'chatTurnCompleted', detail }` from DA Live's shared
+`chatTurnCompleted` channel in `blocks/shared/chat-panel.js`, not the canvas bus.
+The last unsubscribe removes the SDK listener and sends
+`{ action: 'unsubscribeChatTurnCompleted' }`; repeated unsubscribe calls are
+safe. The host also removes subscriptions when the iframe channel is destroyed.
+Callback failures do not interrupt other subscribers.
+
+These are invalidation signals, not save, preview, or publish acknowledgements.
+They are independent of live-document subscriptions and request/response calls.
+
 ## Timeouts and host support
 
 After 15 seconds without a reply, the SDK returns `{ ok: false, error: 'timeout' }` (`getSelection()` rejects with `timeout`). The host may still complete the operation. Timeout does not cancel it, and the SDK does not retry. Do not automatically retry a mutation or continue work that needed a successful response. Request IDs correlate replies; they do not prevent duplicate execution.
 
-The SDK and EW deploy independently. The `liveDocument` and `sendHTMLReplace`
-capabilities are advertised in the ready handshake; other actions do not negotiate
+The SDK and EW deploy independently. The `liveDocument`, `sendHTMLReplace`,
+`chatTurnCompleted` and `dragDrop` capabilities are advertised in the ready handshake;
+other actions do not negotiate
 host support. An action's presence does not prove EW support. Unsupported commands
 may be ignored, and acknowledged calls time out. This includes `getSelection()`:
 against a host that only knows the old reply, it rejects with `timeout`, so the host
