@@ -1,3 +1,17 @@
+## [1.52.9](https://github.com/adobe/da-nx/compare/v1.52.8...v1.52.9) (2026-11-16)
+
+
+### Bug Fixes
+
+* skip legacy org config for hlx6 sites ([#990](https://github.com/adobe/da-nx/issues/990)) ([f791116](https://github.com/adobe/da-nx/commit/f791116aae545d12578679f351e5cd7e9dadedd8)), closes [adobe/da-live#1446](https://github.com/adobe/da-live/issues/1446)
+
+## [1.52.8](https://github.com/adobe/da-nx/compare/v1.52.7...v1.52.8) (2026-11-16)
+
+
+### Bug Fixes
+
+* **shell:** render untrusted app details as text ([e69b9a4](https://github.com/adobe/da-nx/commit/e69b9a465ed03182996deec938182c9aaa017d89))
+
 ## [1.52.7](https://github.com/adobe/da-nx/compare/v1.52.6...v1.52.7) (2026-11-16)
 
 
