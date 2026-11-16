@@ -31,7 +31,6 @@ class NxSiteselector extends LitElement {
 
   disconnectedCallback() {
     this._connection.abort();
-    this.closeDialog();
     super.disconnectedCallback();
   }
 
@@ -61,34 +60,9 @@ class NxSiteselector extends LitElement {
     return this.updateComplete;
   }
 
-  closeDialog() {
-    this._dialog?.remove();
-    this._dialog = undefined;
-  }
-
-  async showAddSite() {
-    if (this._opening || this._dialog) return;
-    this._opening = true;
-    const { signal } = this._connection;
-    const { value } = this;
-    try {
-      await import('./add-site.js');
-      if (signal.aborted || value !== this.value) return;
-      const dialog = document.createElement('nx-add-site');
-      dialog.createHref = this.getCreateSiteHref
-        ? this.getCreateSiteHref()
-        : getCreateSiteHref();
-      dialog.addEventListener('close', () => {
-        this.closeDialog();
-        this.focus();
-      });
-      this._dialog = dialog;
-      document.body.append(dialog);
-    } catch (error) {
-      if (!signal.aborted && value === this.value) this.error = `Could not open Add site: ${error.message}`;
-    } finally {
-      this._opening = false;
-    }
+  showAddSite() {
+    const href = this.getCreateSiteHref ? this.getCreateSiteHref() : getCreateSiteHref();
+    if (href) window.location.href = href;
   }
 
   onChange(event) {
@@ -101,10 +75,7 @@ class NxSiteselector extends LitElement {
   }
 
   willUpdate(changed) {
-    if (changed.has('value')) {
-      this.closeDialog();
-      this.refresh();
-    }
+    if (changed.has('value')) this.refresh();
     this.hidden = !this.sites?.length;
   }
 
