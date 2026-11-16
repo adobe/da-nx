@@ -1,3 +1,11 @@
+## [1.52.6](https://github.com/adobe/da-nx/compare/v1.52.5...v1.52.6) (2026-11-16)
+
+
+### Bug Fixes
+
+* **quick-edit:** keep a toolbar-queued mark when focus returns to the editor ([eabb189](https://github.com/adobe/da-nx/commit/eabb189ab8c9583375ca04f9d02b08f652a0f30d))
+* **quick-edit:** relay the toolbar shortcut and restore editor focus ([02cbeca](https://github.com/adobe/da-nx/commit/02cbecac644b23b10db183242d670446897ca618))
+
 ## [1.52.5](https://github.com/adobe/da-nx/compare/v1.52.4...v1.52.5) (2026-11-13)
 
 
