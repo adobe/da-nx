@@ -35,7 +35,9 @@ function ensureHost() {
   return host;
 }
 
-function bringHostToFront(host) {
+function showAndBringToFront(toast) {
+  const host = ensureHost();
+  host.append(toast);
   if (typeof host.showPopover !== 'function' || typeof host.hidePopover !== 'function') return;
   // Reopen to place new notifications above any intervening top-layer toolbar.
   if (host.matches(':popover-open')) host.hidePopover();
@@ -114,9 +116,7 @@ export function showToast({ text, variant = VARIANT_SUCCESS, cta, timeout = 6000
   toast.cta = cta;
   toast.duration = timeout; // null = indefinite (no auto-dismiss)
   if (maxWidth) toast.style.setProperty('--nx-toast-max-width', maxWidth);
-  const host = ensureHost();
-  host.append(toast);
-  bringHostToFront(host);
+  showAndBringToFront(toast);
 }
 
 if (!customElements.get('nx-toast')) customElements.define('nx-toast', NxToast);
