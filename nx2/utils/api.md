@@ -199,9 +199,17 @@ Document version history. Versions are document-scoped, so all methods take a `p
 
 | Method   | Signature                                                                               | Notes                                                                                                                                                                                         |
 | -------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `list`   | `({ org, site, path })` or `(fullPath)`                                                 | List versions. **hlx6**: `…/source{path}/.versions`. **DA**: `${DA_ADMIN}/versionlist/{org}/{site}{path}`.                                                                                    |
-| `get`    | `({ org, site, path, versionId })` or `(fullPath, { versionId })`                       | Retrieve specific version content. **hlx6**: `versionId` is the ULID returned by `list`. **DA**: `versionId` is the trailing `{versionGuid}/{fileGuid}.{ext}` segment from the list response. |
+| `list`   | `({ org, site, path })` or `(fullPath)`                                                 | List version history. **hlx6**: merges `…/source{path}/.versions` snapshots with `…/source{path}/.versions/audit` activity. **DA**: `${DA_ADMIN}/versionlist/{org}/{site}{path}`. |
+| `get`    | `({ org, site, path, versionId })` or `(fullPath, { versionId })`                       | Retrieve specific version content. **hlx6**: `versionId` is a listing entry's `version` ULID. **DA**: `versionId` is the trailing `{versionGuid}/{fileGuid}.{ext}` segment from the list response. |
 | `create` | `({ org, site, path, operation?, comment? })` or `(fullPath, { operation?, comment? })` | Create a version snapshot. **hlx6**: POSTs `{ operation, comment }` JSON body. **DA**: POSTs `{ label }` JSON body, with `comment` mapped to `label`.                                         |
+
+On hlx6, `list` still returns a `Response` whose JSON body is an array, ordered newest first:
+
+- Audit entries retain their original fields (`id`, `t`, `t0`, `op`, `users`, `p`, `snapshot`, etc.) and add `timestamp: t` for existing history consumers.
+- A local `snapshot` reference is merged with its matching snapshot record, retaining the existing `version`, `version-date`, `version-by`, and other metadata without duplicating the row.
+- Snapshots without audit entries remain in the list, including snapshots created before audit logging. Only entries with a `version` field identify local, restorable snapshots. Opaque `snapshot.type: 'da'` references are not treated as local versions.
+- The audit endpoint provides at most 500 recent activities. `resp.truncated` preserves its truncation flag; snapshot listings are not restricted by this activity limit. There is no audit pagination.
+- Failure of either request is returned as a non-ok response, not a partial history. Legacy DA responses are unchanged.
 
 
 ### Example
@@ -212,9 +220,12 @@ await versions.create({
   org, site, path: '/index.html', comment: 'Pre-launch checkpoint',
 });
 
-// List all versions
+// List snapshots and recent activity
 const list = await versions.list({ org, site, path: '/index.html' });
-const versions = await list.json();
+if (list.ok) {
+  const history = await list.json();
+  if (list.truncated) console.warn('Older audit activity was omitted');
+}
 ```
 
 ---

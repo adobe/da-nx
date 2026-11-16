@@ -529,7 +529,20 @@ export const versions = {
   list: withArgs(async ({ org, site, path }) => {
     const hlx6 = await isHlx6(org, site);
     if (hlx6) {
-      return daFetch({ url: `${AEM_API}/${org}/sites/${site}/source${path}/.versions` });
+      const url = `${AEM_API}/${org}/sites/${site}/source${path}/.versions`;
+      const [versionResp, auditResp] = await Promise.all([
+        daFetch({ url }),
+        daFetch({ url: `${url}/audit` }),
+      ]);
+      if (!versionResp.ok) return versionResp;
+      if (!auditResp.ok) return auditResp;
+      const [snapshots, { entries, truncated }] = await Promise.all([
+        versionResp.json(),
+        auditResp.json(),
+      ]);
+      const resp = adaptJsonResponse(versionResp, hlx6ToDaVersions({ snapshots, entries }));
+      resp.truncated = truncated;
+      return resp;
     }
     // Legacy DA uses a separate /versionlist endpoint for listing.
     return daFetch({ url: `${DA_ADMIN}/versionlist/${org}/${site}${path}` });
@@ -840,6 +853,21 @@ function adaptJsonResponse(resp, obj) {
   // permissions daFetch attached to the original response are carried over here.
   adapted.permissions = resp.permissions;
   return adapted;
+}
+
+function hlx6ToDaVersions({ snapshots, entries }) {
+  const byId = new Map(snapshots.map((entry) => [entry.version, entry]));
+  const history = entries.map((entry) => {
+    const version = entry.snapshot?.type === 'local' ? byId.get(entry.snapshot.id) : undefined;
+    return { ...version, ...entry, timestamp: entry.t };
+  });
+  const versionIds = new Set(history.map((entry) => entry.version));
+  // Snapshots may predate audit logging or have no journal entry after a best-effort write.
+  return [...history, ...snapshots.filter((entry) => !versionIds.has(entry.version))]
+    .sort((a, b) => (
+      (b.timestamp ?? Date.parse(b['version-date']))
+      - (a.timestamp ?? Date.parse(a['version-date']))
+    ));
 }
 
 function jsonOpts(method, payload) {
