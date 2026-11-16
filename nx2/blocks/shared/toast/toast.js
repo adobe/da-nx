@@ -35,6 +35,13 @@ function ensureHost() {
   return host;
 }
 
+function bringHostToFront(host) {
+  if (typeof host.showPopover !== 'function' || typeof host.hidePopover !== 'function') return;
+  // Reopen to place new notifications above any intervening top-layer toolbar.
+  if (host.matches(':popover-open')) host.hidePopover();
+  host.showPopover();
+}
+
 class NxToast extends LitElement {
   static properties = {
     message: { type: String, attribute: false },
@@ -109,9 +116,7 @@ export function showToast({ text, variant = VARIANT_SUCCESS, cta, timeout = 6000
   if (maxWidth) toast.style.setProperty('--nx-toast-max-width', maxWidth);
   const host = ensureHost();
   host.append(toast);
-  // Reopen to place new notifications above any intervening top-layer toolbar.
-  host.hidePopover();
-  host.showPopover();
+  bringHostToFront(host);
 }
 
 if (!customElements.get('nx-toast')) customElements.define('nx-toast', NxToast);

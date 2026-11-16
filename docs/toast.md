@@ -18,6 +18,7 @@ showToast({ text: "Syncing…", timeout: null }); // no auto-dismiss
 `showToast` is a fire-and-forget call — no cleanup needed. The host element and document styles are created automatically on first use.
 
 The notification stack uses a manual popover in the browser's top layer. Each call brings the stack in front of open toolbar popovers without closing them or moving keyboard focus.
+Browsers without the Popover API still receive notifications without top-layer promotion.
 
 ## API
 
