@@ -709,8 +709,7 @@ export async function listProjects(service) {
  * looks for this optional export on whichever connector is active, calls `connect`, and
  * (once connected) each option's `fetch` to get its `{value, label}` choices. A connector
  * that needs no dynamic service options simply omits this export.
- * @type {{key: string, label: string, fetch: (service: object) =>
- * Promise<{value: string, label: string}[]>}[]}
+ * @type {import('../../views/options/utils/utils.js').ServiceOption[]}
  */
 export const serviceOptions = [
   {
