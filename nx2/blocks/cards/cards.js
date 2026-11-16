@@ -30,28 +30,36 @@ const byAdobe = () => {
   return extra;
 };
 
-function toCard({ row, tools }) {
+function toCard({ row, tools, start }) {
   const [iconCol, bodyCol] = row.querySelectorAll(':scope > div');
   const heading = bodyCol?.querySelector('h1, h2, h3, h4, h5, h6');
-  const href = heading?.querySelector('a')?.href;
+  const actionLink = start ? [...(bodyCol?.querySelectorAll('p > a:only-child') ?? [])]
+    .find((link) => link.parentElement.textContent.trim() === link.textContent.trim()) : undefined;
+  const href = actionLink?.href || heading?.querySelector('a')?.href;
   const learnMoreHref = bodyCol?.querySelector('ul a')?.href;
   const icon = iconUrl(iconName(iconCol));
+  const image = iconCol?.querySelector('img');
   const tint = iconCol?.querySelector('em')?.textContent.trim();
 
   const card = document.createElement('nx-action-card');
   card.setAttribute('role', 'listitem');
+  if (start) card.variant = 'start';
   card.heading = heading?.textContent.trim() ?? '';
   card.description = [...(bodyCol?.querySelectorAll('p') ?? [])]
+    .filter((p) => p !== actionLink?.closest('p'))
     .map((p) => p.textContent.trim()).filter(Boolean).join(' ');
   // Opening the tool in a new tab is left to the browser (the action is a link).
   card.menu = learnMoreHref ? [{ id: 'learn-more', label: loc`Learn more` }] : [];
-  if (icon) card.append(iconSvg({ href: icon, slot: 'icon' }));
+  if (image) {
+    image.slot = 'icon';
+    card.append(image);
+  } else if (icon) card.append(iconSvg({ href: icon, slot: 'icon' }));
   if (tint) card.tint = tint;
   // Tools on this site, da.live or author.aem.live carry the page's site path as hash.
   const sync = ({ fullpath } = {}) => {
     if (href) card.action = acceptsSiteHash(href) ? withSiteHash({ href, fullpath }) : href;
   };
-  if (href) card.actionLabel = loc`Open`;
+  if (href) card.actionLabel = actionLink?.textContent.trim() || loc`Open`;
   card.addEventListener('select', ({ detail }) => {
     if (detail?.id === 'learn-more') window.open(learnMoreHref, '_blank', 'noopener');
   });
@@ -64,8 +72,9 @@ export default function init(el) {
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
   }
   const tools = el.classList.contains('tools');
+  const start = el.classList.contains('start');
   el.setAttribute('role', 'list');
-  const items = [...el.querySelectorAll(':scope > div')].map((row) => toCard({ row, tools }));
+  const items = [...el.querySelectorAll(':scope > div')].map((row) => toCard({ row, tools, start }));
   el.replaceChildren(...items.map(({ card }) => card));
   hashChange.subscribe((details) => {
     if (el.isConnected) items.forEach(({ sync }) => sync(details ?? {}));

@@ -125,3 +125,65 @@
     color: var(--s2-gray-900);
   }
 }
+
+:host([variant="start"]) {
+  .card {
+    gap: var(--s2-spacing-100);
+    border-radius: var(--s2-corner-radius-500);
+  }
+
+  .tile {
+    box-sizing: border-box;
+    width: 56px;
+    height: 56px;
+    border: 1px solid var(--s2-gray-300);
+    background: var(--tile-bg, var(--s2-gray-25));
+  }
+
+  .tile ::slotted([slot="icon"]) {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+  }
+
+  .body {
+    gap: var(--s2-spacing-75);
+  }
+
+  .heading {
+    font-size: var(--s2-component-m-bold-font-size);
+    line-height: var(--s2-body-line-height);
+  }
+
+  .footer {
+    justify-content: flex-start;
+    margin-top: var(--s2-spacing-300);
+  }
+
+  .extra {
+    display: none;
+  }
+}
+
+:host([variant="start"][size="m"]) {
+  .heading,
+  .description,
+  .action {
+    font-size: var(--s2-component-l-regular-font-size);
+  }
+
+  .tile ::slotted([slot="icon"]) {
+    width: 34px;
+    height: 34px;
+  }
+
+  .action {
+    height: 40px;
+  }
+}
+
+@media (forced-colors: active) {
+  :host([variant="start"]) .card {
+    outline: 1px solid CanvasText;
+  }
+}

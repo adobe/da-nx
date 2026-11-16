@@ -123,6 +123,41 @@ describe('nx-action-card tile', () => {
   });
 });
 
+describe('nx-action-card Start presentation', () => {
+  const LOGO = '<img slot="icon" src="/nx2/img/favicons/favicon.ico" alt="">';
+  const dimensions = (el) => {
+    const style = getComputedStyle(el);
+    return [style.width, style.height];
+  };
+
+  it('uses a larger logo tile and a left-aligned action without changing default cards', async () => {
+    const start = await make({ variant: 'start', action: '/start', actionLabel: 'Use Modernization Agent' }, LOGO);
+    const tools = await make({ action: '/apps/traverse' }, LOGO);
+    expect(dimensions($(start, '.tile'))).to.deep.equal(['56px', '56px']);
+    expect(dimensions(start.querySelector('img'))).to.deep.equal(['32px', '32px']);
+    expect(getComputedStyle(start.querySelector('img')).objectFit).to.equal('contain');
+    expect(getComputedStyle($(start, '.heading')).fontSize).to.equal('14px');
+    expect(getComputedStyle($(start, '.card')).borderRadius).to.equal('8px');
+    expect($(start, '.action').offsetLeft).to.equal($(start, '.heading').offsetLeft);
+    expect(dimensions($(tools, '.tile'))).to.deep.equal(['40px', '40px']);
+    expect(getComputedStyle($(tools, '.heading')).fontSize).to.equal('18px');
+  });
+
+  it('updates Start text, logos and buttons when its own size changes', async () => {
+    const card = await make({ variant: 'start', action: '/start' }, LOGO);
+    card.size = 'm';
+    await card.updateComplete;
+    expect(getComputedStyle($(card, '.heading')).fontSize).to.equal('16px');
+    expect(getComputedStyle($(card, '.description')).fontSize).to.equal('16px');
+    expect(dimensions(card.querySelector('img'))).to.deep.equal(['34px', '34px']);
+    expect(getComputedStyle($(card, '.action')).height).to.equal('40px');
+    card.size = 's';
+    await card.updateComplete;
+    expect(getComputedStyle($(card, '.action')).height).to.equal('32px');
+    expect(dimensions(card.querySelector('img'))).to.deep.equal(['32px', '32px']);
+  });
+});
+
 describe('nx-action-card action', () => {
   it('renders the action link with its label', async () => {
     const card = await make({ action: '/apps/traverse', actionLabel: 'Launch' });

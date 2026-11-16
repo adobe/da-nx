@@ -23,6 +23,10 @@
     }
   }
 
+  &.start {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  }
+
   /* Center the logo on the cap height (as in Figma), not on the line box. */
   .byline-text {
     text-box: trim-both cap alphabetic;

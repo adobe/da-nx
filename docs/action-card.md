@@ -50,6 +50,8 @@ Place cards in your own grid, e.g. `grid-template-columns: repeat(auto-fill, min
 | `action`      | `action`       | `String` | URL of the action button. Unset → no button. The button is the shared `.nx-btn-primary` (`nx2/styles/buttons.css`), outlined by the card's own CSS. |
 | `actionLabel` | `action-label` | `String` | Text of the action button. Defaults to "Open". |
 | `actionTarget` | `action-target` | `String` | Optional browser target for the action link, e.g. `_blank` (new tab) or a window name. Targets other than `_self`, `_parent`, `_top` get `rel="noopener"`. Unset → URLs on another origin open in a new tab, others in the same tab. |
+| `variant` | `variant` | `String` | `start`: compact heading, 56px bordered logo tile, left-aligned action, no footer byline. Unset preserves the default Tools presentation. |
+| `size` | `size` | `String` | For `variant="start"`, `s` (default) or `m`. M uses 16px text, 34px logos and 40px action buttons. The owner passes this size; the card does not read the global preference. |
 
 ### Slots
 
@@ -72,6 +74,32 @@ Place cards in your own grid, e.g. `grid-template-columns: repeat(auto-fill, min
 | icon only       | Icon fills the whole 40px tile (e.g. a full-color logo or an image). |
 | `tint` only     | Tinted 40px tile without an icon. |
 | nothing         | No tile is rendered. Without a tile and a menu, the card starts with the heading. |
+
+With `variant="start"`, the tile is 56px with a border and a 32px logo (34px in M), with or without a tint. Images use `object-fit: contain`.
+
+## Authored Start cards
+
+The `nx-cards start` block renders the same shared cards with the Start presentation. Each row has two cells:
+
+1. An image or an S2 icon (`:name:`), optionally followed by an italic tint color.
+2. A heading, description paragraphs, and an optional standalone paragraph link for the action label and destination.
+
+```html
+<div class="nx-cards start">
+  <div>
+    <div><picture><img src="/img/figma-logo.svg" alt=""></picture></div>
+    <div>
+      <h3>Figma Design</h3>
+      <p>Create an AEM site from your Figma design.</p>
+      <p><a href="/modernization">Use Modernization Agent</a></p>
+    </div>
+  </div>
+</div>
+```
+
+The action paragraph is not included in the description. Without it, a heading link remains the action with the default "Open" label. An authored list link still supplies the optional Learn more menu, as in Tools; omit it for cards without a menu. The byline is only added by the `tools` block variant.
+
+The consuming page owns the surrounding heading, panel and page layout. The grid fits two 308px cards in a 632px container and collapses to one column when narrower. Content is read from the block on the page, without a separate content fetch.
 
 ## Hiding
 
