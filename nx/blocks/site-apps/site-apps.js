@@ -1,5 +1,5 @@
-import { DA_ADMIN, loadStyle } from '../../../nx2/utils/utils.js';
-import { daFetch } from '../../../nx2/utils/api.js';
+import { loadStyle } from '../../../nx2/utils/utils.js';
+import { config } from '../../../nx2/utils/api.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -64,14 +64,15 @@ export default async function init(el) {
   el.innerHTML = '';
   const [org, repo] = window.location.hash.slice(2).split('/');
   try {
-    const resp = await daFetch({ url: `${DA_ADMIN}/config/${org}/${repo}/` });
+    const resp = await config.get({ org, site: repo });
     const json = await resp.json();
-    if (!json.apps) {
+    const apps = json.apps ?? (json[':sheetname'] === 'apps' ? json : undefined);
+    if (!apps) {
       removeSection(el);
       return;
     }
 
-    json.apps.data.forEach((app) => {
+    apps.data.forEach((app) => {
       const appRef = app.ref || 'main';
       const isAllowed = getIsAppAllowed(appRef);
       if (!isAllowed) return;
