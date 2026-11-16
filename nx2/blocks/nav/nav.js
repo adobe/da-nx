@@ -183,18 +183,23 @@ class NXNav extends LitElement {
   async decorateActions(section) {
     const ul = await this.decorateNavItems(section);
     if (!ul) return null;
-    // Inject the toggle so every site has it without changing its nav fragment.
-    if (!ul.querySelector('nx-editortoggle')) {
-      try {
-        if (!customElements.get('nx-editortoggle')) await import('../editortoggle/editortoggle.js');
-        const li = document.createElement('li');
-        li.append(document.createElement('nx-editortoggle'));
-        ul.prepend(li);
-      } catch (error) {
-        getConfig().log('Unable to load nav editor toggle', error);
-      }
-    }
+    // Inject these so every site has them without changing its nav fragment.
+    await this.injectAction(ul, 'notifications');
+    await this.injectAction(ul, 'editortoggle');
     return ul;
+  }
+
+  async injectAction(ul, name) {
+    const tag = `nx-${name}`;
+    if (ul.querySelector(tag)) return;
+    try {
+      if (!customElements.get(tag)) await import(`../${name}/${name}.js`);
+      const li = document.createElement('li');
+      li.append(document.createElement(tag));
+      ul.prepend(li);
+    } catch (error) {
+      getConfig().log(`Unable to load nav ${name}`, error);
+    }
   }
 
   get _path() {
