@@ -314,7 +314,9 @@ Tab to them from the preview (WCAG 2.1.1). Keys pressed in the iframe never reac
 - `FOCUS_EDITOR` — the host returns keyboard focus to the preview (Escape in the toolbar, or
   after a toolbar command). The inline editor usually settled to static markup once focus
   left the iframe, so the iframe reopens the last-blurred editor and restores its selection
-  (`restoreEditorFocus` in `src/prose.js`).
+  (`restoreEditorFocus` in `src/prose.js`). The restored caret is not reported back as a
+  `CURSOR_MOVE`/`SELECTION_CHANGE`: the host already holds that selection, and da-live
+  treats a caret move as a reason to drop a mark just queued from its toolbar (e.g. Bold).
 
 Both are da-live-embedded only.
 

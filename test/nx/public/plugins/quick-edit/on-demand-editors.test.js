@@ -2,7 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
 import { sendMouse } from '@web/test-runner-commands';
 import { TextSelection } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
-import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
+import { requestEditor, setupContentEditableListeners, setupImageDropListeners, updateImageSrc } from '../../../../../nx/public/plugins/quick-edit/src/images.js';
 import { setEditorState, restoreEditorFocus } from '../../../../../nx/public/plugins/quick-edit/src/prose.js';
 import { settleEditor } from '../../../../../nx/public/plugins/quick-edit/src/settle-editor.js';
 import { installClickForwarding } from '../../../../../nx/public/plugins/quick-edit/src/click-forwarding.js';
@@ -351,6 +351,8 @@ describe('quick-edit on-demand editors', () => {
       if (view.hasFocus()) view.dom.blur();
       else view.dom.dispatchEvent(new FocusEvent('blur'));
     };
+    const caretReports = (messages) => messages
+      .filter((m) => m.type === 'cursor-move' || m.type === 'selection-change');
 
     it('does nothing before any editor blurred', () => {
       restoreEditorFocus(ctx);
@@ -367,6 +369,7 @@ describe('quick-edit on-demand editors', () => {
       editor.view.dispatch(editor.view.state.tr.setSelection(
         TextSelection.create(editor.view.state.doc, 1),
       ));
+      const before = posted.length;
 
       restoreEditorFocus(ctx);
 
@@ -374,6 +377,8 @@ describe('quick-edit on-demand editors', () => {
       const { anchor, head } = editor.view.state.selection;
       expect([anchor, head]).to.deep.equal([2, 5]);
       expect(editorRequests()).to.have.length(0);
+      // The host already holds this selection; a report would read as a caret move.
+      expect(caretReports(posted.slice(before))).to.deep.equal([]);
     });
 
     it('reopens a settled editor with the last selection', async () => {
@@ -390,7 +395,39 @@ describe('quick-edit on-demand editors', () => {
       expect(ctx.pendingEditor).to.deep.equal({
         element: document.querySelector('p[data-prose-index="1"]'),
         selection: { anchor: 3, head: 3 },
+        restored: true,
       });
+    });
+
+    // A mark queued from the host toolbar (e.g. Bold at a collapsed caret) is dropped by
+    // the host on any caret move, so the round trip back into the editor must not report one.
+    it('restores the caret without reporting a caret move once the host answers', async () => {
+      setEditorState(1, paragraph('Hello world'), ctx);
+      const editor = document.querySelector('.prosemirror-editor');
+      blurWithSelection(editor, 3, 3);
+      Object.assign(ctx, { partialReload: true, reload: () => {} });
+      await settleEditor(editor, ctx);
+      const before = posted.length;
+
+      restoreEditorFocus(ctx);
+      setEditorState(1, paragraph('Hello world'), ctx);
+
+      const reopened = document.querySelector('.prosemirror-editor');
+      expect(reopened).to.not.equal(editor);
+      expect(reopened.view.hasFocus()).to.equal(true);
+      const { anchor, head } = reopened.view.state.selection;
+      expect([anchor, head]).to.deep.equal([3, 3]);
+      expect(caretReports(posted.slice(before))).to.deep.equal([]);
+    });
+
+    it('still reports the caret when an editor opens for a genuine caret move', () => {
+      requestEditor(ctx, document.querySelector('[data-prose-index="1"]'), {
+        selection: { anchor: 4, head: 4 },
+      });
+      setEditorState(1, paragraph('Hello world'), ctx);
+      expect(caretReports(posted)).to.deep.equal([{
+        type: 'cursor-move', payload: { cursorOffset: 0, textCursorOffset: 4 },
+      }]);
     });
   });
 });
