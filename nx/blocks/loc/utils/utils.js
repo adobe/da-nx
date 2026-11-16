@@ -8,9 +8,7 @@ export const copy = createCopy({
   saveSource: source.save,
 });
 
-// Branch-only: reading translate-brief.json instead of translate.json for testing
-// the new 'Campaign' custom option before it's safe to add to production translate.json.
-const CONFIG_PATH = '/.da/translate-brief.json';
+const CONFIG_PATH = '/.da/translate.json';
 
 export const VIEWS = [
   'dashboard',
