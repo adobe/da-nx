@@ -1,3 +1,10 @@
+## [1.52.10](https://github.com/adobe/da-nx/compare/v1.52.9...v1.52.10) (2026-11-16)
+
+
+### Bug Fixes
+
+* **whatsnew:** add release notes link to dialog ([#1009](https://github.com/adobe/da-nx/issues/1009)) ([ce99f0c](https://github.com/adobe/da-nx/commit/ce99f0c74eb3a8cca6f4b951b14348d161b69718))
+
 ## [1.52.9](https://github.com/adobe/da-nx/compare/v1.52.8...v1.52.9) (2026-11-16)
 
 
