@@ -1,3 +1,10 @@
+## [1.52.7](https://github.com/adobe/da-nx/compare/v1.52.6...v1.52.7) (2026-11-16)
+
+
+### Bug Fixes
+
+* siteselector add redicts to start directly ([#982](https://github.com/adobe/da-nx/issues/982)) ([f5cce16](https://github.com/adobe/da-nx/commit/f5cce169b3bc97be961628918ed93e19fe2ff1cf))
+
 ## [1.52.6](https://github.com/adobe/da-nx/compare/v1.52.5...v1.52.6) (2026-11-16)
 
 
