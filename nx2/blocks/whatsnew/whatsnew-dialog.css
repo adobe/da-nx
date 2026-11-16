@@ -117,7 +117,6 @@
   transition: transform 0.2s ease, height 0.2s ease;
 }
 
-/* Pinned to the bottom of the toc; a long toc list slides behind it instead of pushing it down. */
 .wn-toc-footer {
   position: absolute;
   inset: auto 0 0;
@@ -129,7 +128,6 @@
   background: var(--s2-gray-50);
 }
 
-/* Left edge (text) lines up with the toc entry labels. */
 .wn-toc-link {
   display: inline-flex;
   align-items: center;
