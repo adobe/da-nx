@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import {
   connect, isConnected, sendAllLanguages, getStatusAll, saveItems, cancelTranslation,
-  serviceOptions,
+  serviceOptions, saveLangConcurrency,
 } from '../../../../nx/blocks/loc/connectors/translated/index.js';
 import { DA_TRANSLATE } from '../../../../nx2/utils/utils.js';
 
@@ -112,6 +112,7 @@ describe('translated connector', () => {
   describe('sendAllLanguages', () => {
     let messages;
     let saved;
+    let saves;
     let actions;
     let options;
     let langs;
@@ -119,7 +120,14 @@ describe('translated connector', () => {
     beforeEach(() => {
       messages = [];
       saved = 0;
-      actions = { sendMessage: (m) => messages.push(m), saveState: async () => { saved += 1; } };
+      saves = [];
+      actions = {
+        sendMessage: (m) => messages.push(m),
+        saveState: async (props, saveOptions) => {
+          saved += 1;
+          saves.push({ service: { ...props?.options?.service }, saveOptions });
+        },
+      };
       options = { 'source.language': { code: 'en-US' }, service: {} };
       langs = [{ code: 'fr-FR', name: 'French' }, { code: 'de-DE', name: 'German' }];
     });
@@ -154,7 +162,8 @@ describe('translated connector', () => {
       expect(langs.map((l) => l.translation)).to.deep.equal([
         { status: 'created', sent: 2 }, { status: 'created', sent: 2 },
       ]);
-      expect(saved).to.equal(1);
+      expect(saved).to.equal(2);
+      expect(options.service.pendingSubmission).to.equal(undefined);
       expect(messages.at(-1)).to.equal(undefined);
     });
 
@@ -204,9 +213,103 @@ describe('translated connector', () => {
 
       expect(langs.every((l) => l.translation === undefined)).to.equal(true);
       expect(options.service.orderIds).to.equal(undefined);
-      expect(saved).to.equal(0);
+      expect(saved).to.equal(1);
       expect(messages.at(-1).type).to.equal('error');
       expect(messages.at(-1).text).to.contain('bad service type');
+    });
+
+    describe('duplicate submission protection', () => {
+      const failThenSucceed = () => {
+        let attempts = 0;
+        return (url) => {
+          if (url.endsWith('/v2/symbol/languages')) return submitHandler()(url);
+          attempts += 1;
+          return attempts === 1 ? json({ error: true, message: 'bad gateway' }, 400) : json([{ id: 1 }]);
+        };
+      };
+      const submits = () => calls.filter((c) => c.url.endsWith('/v2/translate'));
+      const pending = () => JSON.parse(options.service.pendingSubmission.value);
+
+      it('persists the idempotency key and order id before sending', async () => {
+        installFetch(submitHandler());
+        await send();
+
+        const [first] = saves;
+        expect(first.saveOptions).to.deep.equal({ waitForSave: true });
+        const stored = JSON.parse(first.service.pendingSubmission.value);
+        const call = lastCall('/v2/translate');
+        expect(call.headers['x-idempotency-id']).to.equal(stored.key);
+        expect(call.body[0].id_order).to.equal(stored.orderId);
+        expect(saves[1].service.pendingSubmission).to.equal(undefined);
+      });
+
+      it('reuses the key and order id when retrying the same submission', async () => {
+        const service = baseService();
+        options.service = service;
+        installFetch(failThenSucceed());
+        await send(service);
+        const stored = pending();
+
+        await send(service);
+
+        const [first, second] = submits();
+        expect(second.headers['x-idempotency-id']).to.equal(first.headers['x-idempotency-id']);
+        expect(second.body[0].id_order).to.equal(first.body[0].id_order);
+        expect(second.headers['x-idempotency-id']).to.equal(stored.key);
+        expect(options.service.pendingSubmission).to.equal(undefined);
+      });
+
+      it('uses a new key when the pages or languages changed', async () => {
+        const service = baseService();
+        options.service = service;
+        installFetch(failThenSucceed());
+        await send(service);
+
+        await send(service, makeUrls(3));
+
+        const [first, second] = submits();
+        expect(second.headers['x-idempotency-id']).to.not.equal(first.headers['x-idempotency-id']);
+      });
+
+      it('uses a new key when the stored one is close to expiring', async () => {
+        const service = baseService();
+        options.service = service;
+        installFetch(failThenSucceed());
+        await send(service);
+        const stored = pending();
+        stored.createdAt -= 4 * 24 * 60 * 60 * 1000;
+        options.service.pendingSubmission = { value: JSON.stringify(stored) };
+
+        await send(service);
+
+        const [first, second] = submits();
+        expect(second.headers['x-idempotency-id']).to.not.equal(first.headers['x-idempotency-id']);
+      });
+
+      it('retries a 425 with the same key', async () => {
+        let attempts = 0;
+        installFetch((url) => {
+          if (url.endsWith('/v2/symbol/languages')) return submitHandler()(url);
+          attempts += 1;
+          return attempts === 1 ? json({ error: true, message: 'too early' }, 425) : json([{ id: 1 }]);
+        });
+        await send();
+
+        const [first, second] = submits();
+        expect(submits()).to.have.length(2);
+        expect(second.headers['x-idempotency-id']).to.equal(first.headers['x-idempotency-id']);
+        expect(langs[0].translation.status).to.equal('created');
+      });
+
+      it('does not send when the key cannot be saved first', async () => {
+        installFetch(submitHandler());
+        actions.saveState = async () => { throw new Error('DA is down'); };
+        await send();
+
+        expect(submits()).to.have.length(0);
+        expect(messages.at(-1).type).to.equal('error');
+        expect(messages.at(-1).text).to.contain('DA is down');
+      });
     });
 
     it('errors without a service type and makes no submission', async () => {
@@ -511,6 +614,7 @@ describe('translated connector', () => {
       expect(saved).to.deep.equal(['/p0']);
       expect(urls[0].status).to.equal('success');
       expect(urls[1].status).to.equal('error');
+      expect(urls[1].error).to.equal('Translation is not ready (status: in progress).');
       expect(calls.at(-1).body).to.deep.include({ id_order: 'o1', target_language: 'fr', fetch_content: true });
     });
 
@@ -542,6 +646,17 @@ describe('translated connector', () => {
       });
 
       expect(urls[0].status).to.equal('error');
+      expect(urls[0].error).to.match(/^Could not fetch translations: /);
+    });
+
+    it('flags a url without a matching request', async () => {
+      installFetch(() => json([]));
+      const urls = makeUrls(1);
+      await saveItems({
+        org, site, service: service(), lang: { code: 'fr' }, urls, saveFn: async () => {},
+      });
+
+      expect(urls[0]).to.include({ status: 'error', error: 'No translation request found.' });
     });
 
     it('flags a url as an error when saving throws', async () => {
@@ -558,7 +673,11 @@ describe('translated connector', () => {
         saveFn: async () => { throw new Error('boom'); },
       });
 
-      expect(urls[0].status).to.equal('error');
+      expect(urls[0]).to.include({ status: 'error', error: 'boom' });
+    });
+
+    it('saves two languages at a time', () => {
+      expect(saveLangConcurrency).to.equal(2);
     });
   });
 

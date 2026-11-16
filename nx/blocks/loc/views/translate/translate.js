@@ -14,6 +14,23 @@ import { getProjectSourceLocations } from '../../utils/utils.js';
 const style = await loadStyle(import.meta.url);
 const spinnerStyle = await loadStyle(new URL('../../../../../nx2/styles/spinner.css', import.meta.url).href);
 
+const MAX_LISTED_SAVE_ERRORS = 5;
+
+export function saveErrorsToError(errors) {
+  if (errors.length === 1) return new Error(errors[0].text);
+  const error = new Error(`${errors.length} items failed to save:`);
+  error.items = errors.slice(0, MAX_LISTED_SAVE_ERRORS).map(({ text }) => text);
+  const more = errors.length - MAX_LISTED_SAVE_ERRORS;
+  if (more > 0) error.items.push(`…and ${more} more.`);
+  return error;
+}
+
+function errorMessage(error) {
+  const message = { text: error.message, type: 'error' };
+  if (error.items?.length) message.items = error.items;
+  return message;
+}
+
 class NxLocTranslate extends LitElement {
   static properties = {
     project: { attribute: false },
@@ -231,14 +248,9 @@ class NxLocTranslate extends LitElement {
       // skip checking for finished languages, which would otherwise
       // immediately overwrite the error message with "Checking for
       // languages to save" before the user ever sees it.
-      if (this._message?.type !== 'error') {
-        // See if anything is finished immediately
-        if (managed) await this.checkAndSaveLangs(conf);
-        else this.checkAndSaveLangs(conf);
-      }
+      if (this._message?.type !== 'error') await this.checkAndSaveLangs(conf);
     } catch (error) {
-      if (!managed) throw error;
-      this.handleMessage({ text: error.message, type: 'error' });
+      this.handleMessage(errorMessage(error));
     } finally {
       this._sendAllBusy = false;
       if (managed) this.requestUpdate();
@@ -258,7 +270,7 @@ class NxLocTranslate extends LitElement {
     ) : undefined;
     await checkWaitingLanguages(conf, this._service.connector, this._urls, this._options['source.language']?.location);
 
-    if (saved?.errors.length) throw new Error(saved.errors.map(({ text }) => text).join(' '));
+    if (saved?.errors.length) throw saveErrorsToError(saved.errors);
 
     // Keep a dependent-language submission error visible.
     if (this._message?.type !== 'error') this.handleMessage(undefined);
@@ -273,10 +285,13 @@ class NxLocTranslate extends LitElement {
       const statusError = this._message?.type === 'error' ? this._message : undefined;
       await this.checkAndSaveLangs(conf);
       if (statusError && this._message?.type !== 'error') this.handleMessage(statusError);
-      this.handleSaveLangs();
+    } catch (error) {
+      this.handleMessage(errorMessage(error));
     } finally {
       this._getStatusBusy = false;
     }
+    // Persist status changes even when saving a language failed.
+    this.handleSaveLangs();
     return undefined;
   }
 
@@ -295,7 +310,7 @@ class NxLocTranslate extends LitElement {
       await conf.actions.saveState(undefined, { waitForSave: true });
       if (result?.message) this.handleMessage(result.message);
     } catch (error) {
-      if (!controller.signal.aborted) this.handleMessage({ text: error.message, type: 'error' });
+      if (!controller.signal.aborted) this.handleMessage(errorMessage(error));
     } finally {
       this._getStatusBusy = false;
       this._statusController = undefined;

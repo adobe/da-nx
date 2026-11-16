@@ -187,13 +187,6 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   };
 
   const concurrency = connector.saveLangConcurrency ?? 1;
-  if (concurrency === 1) {
-    for (const [langIndex, lang] of conf.langs.entries()) {
-      await saveLanguage({ lang, langIndex });
-    }
-    return undefined;
-  }
-
   const errors = [];
   const collectError = (lang, result) => {
     const path = result.suppliedPath ? ` (${result.suppliedPath})` : '';
@@ -211,6 +204,7 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
     } catch (error) {
       collectError(lang, { error });
     }
+    // Persist after each language so an interrupted save resumes where it stopped.
     await conf.actions?.saveState?.(undefined, { waitForSave: true });
   }, concurrency, ({ lang }, error) => collectError(lang, { error }));
 
@@ -371,12 +365,12 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
       if (message?.type === 'error') failed = true;
       sendMessage(message);
     },
-    saveState: (props) => {
-      if (!props?.options) return saveState(props);
+    saveState: (props, saveOptions) => {
+      if (!props?.options) return saveState(props, saveOptions);
       const options = { ...props.options };
       if (originalSource) options['source.language'] = originalSource;
       else delete options['source.language'];
-      return saveState({ ...props, options });
+      return saveState({ ...props, options }, saveOptions);
     },
   };
 

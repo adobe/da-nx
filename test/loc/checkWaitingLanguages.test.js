@@ -123,4 +123,18 @@ describe('checkWaitingLanguages', () => {
 
     expect(saveState.firstCall.args[0].options).to.not.have.property('source.language');
   });
+
+  it('passes save options through to the host save', async () => {
+    const { conf, connector, saveState } = makeConf({
+      sendAllLanguages: async ({ options, actions }) => {
+        await actions.saveState({ options }, { waitForSave: true });
+        await actions.saveState(undefined, { waitForSave: true });
+      },
+    });
+
+    await checkWaitingLanguages(conf, connector, URLS, '/en');
+
+    expect(saveState.firstCall.args[1]).to.deep.equal({ waitForSave: true });
+    expect(saveState.secondCall.args[1]).to.deep.equal({ waitForSave: true });
+  });
 });

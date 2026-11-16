@@ -1,11 +1,72 @@
 import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
 import { daFetch, loadIms, source } from '../../../../nx2/utils/api.js';
 import { createCopy } from '../../../public/loc/copy.js';
+import fetchWithRetry from './fetchWithRetry.js';
+import createRateLimiter from './rateLimiter.js';
+
+export const DA_RETRY = {
+  maxRetries: 3, baseDelayMs: 500, maxDelayMs: 8000, maxRetryAfterMs: 8000,
+};
+
+// The AEM admin API allows 10 requests/second per project.
+export const DA_RATE_LIMIT = { ratePerSec: 8, burst: 8, cooldownMs: 1000 };
+
+const writeLimiters = new Map();
+
+function getWriteLimiter(org, site) {
+  const key = `${org}/${site}`;
+  if (!writeLimiters.has(key)) writeLimiters.set(key, createRateLimiter(() => DA_RATE_LIMIT));
+  return writeLimiters.get(key);
+}
+
+async function limitWrite(limiter, write) {
+  await limiter.acquire();
+  const resp = await write();
+  if (resp?.status === 429) {
+    const retryAfterSecs = Number(resp.headers?.get('retry-after'));
+    limiter.pause(retryAfterSecs > 0
+      ? Math.min(retryAfterSecs * 1000, DA_RETRY.maxRetryAfterMs)
+      : DA_RATE_LIMIT.cooldownMs);
+  }
+  return resp;
+}
+
+/**
+ * Calls DA, retrying 429 and 5xx responses with backoff. Writes are
+ * rate limited per site.
+ * @param {string} url - The DA URL.
+ * @param {Object} [opts] - Fetch options.
+ * @returns {Promise<Response>}
+ */
+export function daFetchWithRetry(url, opts = {}) {
+  const isWrite = (opts.method ?? 'GET').toUpperCase() !== 'GET';
+  const [, , org, site] = new URL(url).pathname.split('/');
+  return fetchWithRetry(url, opts, {
+    ...DA_RETRY,
+    fetch: (u, o) => (isWrite
+      ? limitWrite(getWriteLimiter(org, site), () => daFetch({ url: u, opts: o }))
+      : daFetch({ url: u, opts: o })),
+  });
+}
+
+/**
+ * Saves a source document, rate limited per site and retrying 429 and
+ * 5xx responses with backoff.
+ * @param {Object} args - `source.save` arguments.
+ * @returns {Promise<Response>}
+ */
+export function saveSourceWithRetry(args) {
+  const limiter = getWriteLimiter(args.org, args.site);
+  return fetchWithRetry(undefined, undefined, {
+    ...DA_RETRY,
+    fetch: () => limitWrite(limiter, () => source.save({ ...args })),
+  });
+}
 
 export const copy = createCopy({
-  fetch: (url, opts) => daFetch({ url, opts }),
+  fetch: daFetchWithRetry,
   daOrigin: DA_ADMIN,
-  saveSource: source.save,
+  saveSource: saveSourceWithRetry,
 });
 
 const CONFIG_PATH = '/.da/translate.json';
@@ -430,7 +491,7 @@ async function fetchProject({ path, updates, updateDocTitle = true }) {
     opts.body = body;
   }
 
-  const resp = await daFetch({ url: `${DA_ADMIN}/source${path}.json`, opts });
+  const resp = await daFetchWithRetry(`${DA_ADMIN}/source${path}.json`, opts);
   if (!resp.ok) {
     if (resp.status === 401 || resp.status === 403) {
       const [org, site] = path.substring(1).split('/');

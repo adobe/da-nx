@@ -19,6 +19,9 @@ import { groupUrlsByWorkflow } from './locPageRules.js';
 import { fetchConfig } from '../../utils/utils.js';
 import { addTranslationMetadata } from './translationMetadata.js';
 
+// Paces asset downloads to stay under GLaaS rate limits (downloads aren't retried on 429).
+const GLAAS_DOWNLOAD_INTERVAL_MS = 250;
+
 function determineStatus(translation) {
   if (translation.error > 0) return 'failed';
   // Respect existing final statuses
@@ -797,7 +800,7 @@ export async function saveItems({
   };
 
   reportProgress();
-  return downloadQueue(urls, downloadCallback);
+  return downloadQueue(urls, downloadCallback, 5, { minIntervalMs: GLAAS_DOWNLOAD_INTERVAL_MS });
 }
 
 async function canCancelLang({ lang }) {

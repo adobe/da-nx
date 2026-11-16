@@ -10,6 +10,8 @@ export const dnt = { addDnt };
 
 export { isConnected };
 
+export const saveLangConcurrency = 2;
+
 const TERMINAL_LANG_STATUSES = ['complete', 'cancelled'];
 const MAX_REQUESTS_PER_CALL = 5000;
 const STATUS_PAGE_SIZE = 1000;
@@ -19,6 +21,9 @@ const LANGUAGES_DOC_URL = 'https://api.translated.com/v2#tag/Symbol/operation/sy
 const MAX_TITLE_LENGTH = 100;
 const CANCELLABLE_STATUSES = ['upload', 'wc raw', 'ingested', 'bucketing'];
 const PROGRESS = { created: 0, 'in progress': 1, translated: 2 };
+// Translated keeps idempotency keys for 4 days; stop reusing one well before it expires.
+const IDEMPOTENCY_KEY_TTL_MS = 3.5 * 24 * 60 * 60 * 1000;
+const TOO_EARLY = 425;
 
 const STATUS_MAP = {
   preprocessing: 'created',
@@ -78,13 +83,13 @@ function errorMessage(json) {
  * @param {Object} [opts] - Fetch options; `headers` are merged with the auth headers.
  * @returns {Promise<{json?: *, error?: string, status: number}>} The parsed result.
  */
-async function apiFetch(service, path, opts = {}) {
+async function apiFetch(service, path, opts = {}, config = {}) {
   const { headers, ...rest } = opts;
   const reqOpts = { ...rest, headers: await authHeaders(service, headers) };
   const resp = await fetchWithRetry(
     `${resolveOrigin(service)}${path}`,
     reqOpts,
-    retryConfig(service, reqOpts),
+    { ...retryConfig(service, reqOpts), ...config },
   );
   const json = await resp.json().catch(() => null);
   if (!resp.ok) return { error: errorMessage(json), status: resp.status };
@@ -97,14 +102,57 @@ async function apiFetch(service, path, opts = {}) {
  * @param {string} path - The API path, without origin.
  * @param {*} body - The JSON-serializable body.
  * @param {Object} [headers] - Extra headers, such as `x-idempotency-id`.
+ * @param {Object} [config] - Extra `fetchWithRetry` config, such as `isRetryable`.
  * @returns {Promise<{json?: *, error?: string, status: number}>} The parsed result.
  */
-function apiPost(service, path, body, headers = {}) {
+function apiPost(service, path, body, headers = {}, config = {}) {
   return apiFetch(service, path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
-  });
+  }, config);
+}
+
+/**
+ * Hashes a submission payload so a retry can tell whether it is resending the same order.
+ * @param {Object[]} orders - The `/translate` payload, without `id_order`.
+ * @returns {Promise<string>} The hex SHA-256 digest.
+ */
+async function fingerprint(orders) {
+  const bytes = new TextEncoder().encode(JSON.stringify(orders));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Returns the persisted submission to retry when it matches this payload and its idempotency
+ * key is still valid, otherwise a new one. Reusing the key and order ID makes Translated replay
+ * the original response instead of creating a duplicate order.
+ * @param {Object} service - The service config.
+ * @param {string} title - The project title.
+ * @param {string} hash - The payload fingerprint.
+ * @returns {{ key: string, orderId: string, fingerprint: string, createdAt: number }}
+ */
+function resolveSubmission(service, title, hash) {
+  const pending = readMap(service, 'pendingSubmission');
+  const reusable = pending.key && pending.orderId && pending.fingerprint === hash
+    && Date.now() - pending.createdAt < IDEMPOTENCY_KEY_TTL_MS;
+  if (reusable) return pending;
+  return {
+    key: crypto.randomUUID(),
+    orderId: `${title || 'project'}-${Date.now()}`.slice(0, 255),
+    fingerprint: hash,
+    createdAt: Date.now(),
+  };
+}
+
+/**
+ * Retries a 425, which means Translated is still processing a request with the same key.
+ * @param {number} status - The response status.
+ * @returns {boolean} Whether to retry.
+ */
+function isSubmitRetryable(status) {
+  return status === TOO_EARLY || status === 429 || status >= 500;
 }
 
 /**
@@ -406,11 +454,9 @@ export async function sendAllLanguages({
     return;
   }
 
-  const orderId = `${title || 'project'}-${Date.now()}`.slice(0, 255);
   const requester = await requestedBy();
-  const orders = urls.map((url) => ({
+  const payload = urls.map((url) => ({
     id_content: toContentId({ title, path: url.daBasePath }),
-    id_order: orderId,
     content: url.content,
     content_type: url.ext === 'json' ? 'application/json' : 'text/html',
     source_language: canonicalCode(accepted, sourceLanguage),
@@ -421,16 +467,33 @@ export async function sendAllLanguages({
     ...(requester && { requested_by: requester }),
   }));
 
-  const tooLong = orders.find((order) => order.id_content.length > MAX_CONTENT_ID_LENGTH);
+  const tooLong = payload.find((order) => order.id_content.length > MAX_CONTENT_ID_LENGTH);
   if (tooLong) {
     sendMessage({ text: `Translated limits page paths to ${MAX_CONTENT_ID_LENGTH} characters including the title: ${toPath(tooLong.id_content)}`, type: 'error' });
     return;
   }
 
+  // Persist the key before sending so a retry after a lost response or a reload
+  // replays the same order instead of creating a duplicate.
+  const submission = resolveSubmission(service, title, await fingerprint(payload));
+  options.service.pendingSubmission = { value: JSON.stringify(submission) };
+  try {
+    await saveState({ options }, { waitForSave: true });
+  } catch (e) {
+    sendMessage({ text: `Could not save the project before sending to Translated: ${e.message}`, type: 'error' });
+    return;
+  }
+
+  const { orderId } = submission;
+  const orders = payload.map((order) => ({ ...order, id_order: orderId }));
   sendMessage({ text: `Sending ${urls.length} items to Translated.` });
-  const { json, error } = await apiPost(service, '/v2/translate', orders, {
-    'x-idempotency-id': crypto.randomUUID(),
-  });
+  const { json, error } = await apiPost(
+    service,
+    '/v2/translate',
+    orders,
+    { 'x-idempotency-id': submission.key },
+    { isRetryable: isSubmitRetryable },
+  );
   if (error || !Array.isArray(json)) {
     sendMessage({ text: `Translated submission failed: ${error || 'Unexpected response'}`, type: 'error' });
     return;
@@ -444,6 +507,7 @@ export async function sendAllLanguages({
     lang.translation.sent = urls.length;
   });
   options.service.orderIds = { value: JSON.stringify(orderIds) };
+  delete options.service.pendingSubmission;
 
   sendMessage();
   await saveState({ options });
@@ -514,17 +578,30 @@ export async function saveItems({
   if (!orderId) return urls;
 
   const accepted = await fetchLanguageCodes(service);
-  const { requests } = await fetchRequests(service, {
+  const { requests, error } = await fetchRequests(service, {
     id_order: orderId,
     target_language: canonicalCode(accepted, lang.code),
     fetch_content: true,
   });
-  const byContent = latestByContent(forLang(requests || [], lang.code));
+  if (error) {
+    urls.forEach((url) => {
+      url.status = 'error';
+      url.error = `Could not fetch translations: ${error}`;
+    });
+    return urls;
+  }
+  const byContent = latestByContent(forLang(requests, lang.code));
 
   const download = async (url) => {
     const request = byContent[url.daBasePath];
-    if (STATUS_MAP[request?.status] !== 'translated' || !request.translated_content) {
+    if (!request) {
       url.status = 'error';
+      url.error = 'No translation request found.';
+      return;
+    }
+    if (STATUS_MAP[request.status] !== 'translated' || !request.translated_content) {
+      url.status = 'error';
+      url.error = `Translation is not ready (status: ${request.status}).`;
       return;
     }
     try {
@@ -532,8 +609,9 @@ export async function saveItems({
         org, site, html: request.translated_content, ext: url.ext,
       });
       await saveFn(url);
-    } catch {
+    } catch (e) {
       url.status = 'error';
+      url.error = e?.message || String(e);
     }
   };
 

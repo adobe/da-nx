@@ -41,6 +41,9 @@ function wait(ms) {
  * @param {number} [config.baseDelayMs] - Base delay before the first
  *  retry; doubles each subsequent attempt.
  * @param {number} [config.maxDelayMs] - Delay cap, before jitter.
+ * @param {number} [config.maxRetryAfterMs] - Cap on a Retry-After delay.
+ * @param {Function} [config.fetch] - The fetch to call; defaults to the
+ *  global `fetch`.
  * @param {(status: number) => boolean} [config.isRetryable] - Whether a
  *  response status should trigger a backoff retry. Defaults to 429 and
  *  5xx; 401 is intentionally excluded here since it's handled by
@@ -58,6 +61,8 @@ export default async function fetchWithRetry(url, opts, config = {}) {
     maxRetries = DEFAULT_MAX_RETRIES,
     baseDelayMs = DEFAULT_BASE_DELAY_MS,
     maxDelayMs = DEFAULT_MAX_DELAY_MS,
+    maxRetryAfterMs = Infinity,
+    fetch: doFetch = (...args) => fetch(...args),
     isRetryable = isDefaultRetryable,
     onUnauthorized,
   } = config;
@@ -73,7 +78,7 @@ export default async function fetchWithRetry(url, opts, config = {}) {
    * @returns {Promise<Response>} The final response (ok or not).
    */
   async function attempt(attemptNum, currentOpts, reauthAttempted) {
-    const resp = await fetch(url, currentOpts);
+    const resp = await doFetch(url, currentOpts);
 
     if (resp.status === 401 && onUnauthorized && !reauthAttempted) {
       const refreshedOpts = await onUnauthorized();
@@ -86,7 +91,7 @@ export default async function fetchWithRetry(url, opts, config = {}) {
     const backoff = Math.min(baseDelayMs * (2 ** attemptNum), maxDelayMs);
     const jitter = Math.random() * backoff * 0.3;
     const delayMs = Number.isFinite(retryAfterSecs) && retryAfterSecs > 0
-      ? retryAfterSecs * 1000
+      ? Math.min(retryAfterSecs * 1000, maxRetryAfterMs)
       : backoff + jitter;
 
     await wait(delayMs);
