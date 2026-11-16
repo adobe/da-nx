@@ -36,17 +36,16 @@
 }
 
 .wn-toc {
-  position: relative;
   grid-column: 1;
   grid-row: 1 / -1;
   box-sizing: border-box;
   display: flex;
+  flex-direction: column;
   padding: var(--s2-spacing-500) 0 var(--s2-spacing-500) var(--s2-spacing-600);
   background: var(--s2-gray-50);
   overflow: hidden;
 }
 
-/* Not independently scrollable — its gray background just stretches to match .wn-cards-panel's height. */
 .wn-toc-scroll {
   box-sizing: border-box;
   flex: 1;
@@ -54,7 +53,7 @@
   display: flex;
   flex-direction: column;
   padding-right: 20px;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .wn-toc-title {
@@ -118,14 +117,10 @@
 }
 
 .wn-toc-footer {
-  position: absolute;
-  inset: auto 0 0;
-  z-index: 1;
   display: flex;
   flex-wrap: wrap;
   gap: var(--s2-spacing-200);
-  padding: var(--s2-spacing-300) var(--s2-spacing-600) var(--s2-spacing-500) calc(var(--s2-spacing-600) + 16px);
-  background: var(--s2-gray-50);
+  padding: var(--s2-spacing-300) 20px 0 16px;
 }
 
 .wn-toc-link {
