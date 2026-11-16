@@ -1,3 +1,10 @@
+## [1.52.8](https://github.com/adobe/da-nx/compare/v1.52.7...v1.52.8) (2026-11-16)
+
+
+### Bug Fixes
+
+* **shell:** render untrusted app details as text ([e69b9a4](https://github.com/adobe/da-nx/commit/e69b9a465ed03182996deec938182c9aaa017d89))
+
 ## [1.52.7](https://github.com/adobe/da-nx/compare/v1.52.6...v1.52.7) (2026-11-16)
 
 
