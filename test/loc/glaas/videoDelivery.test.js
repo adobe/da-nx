@@ -33,9 +33,11 @@ describe('GLaaS video delivery from Get Status', () => {
   let delivered;
   let originalDebug;
   let clock;
+  let originalHref;
   let now = Date.now();
 
   beforeEach(() => {
+    originalHref = window.location.href;
     now += 600_000;
     clock = sinon.useFakeTimers({ now, toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     originalIms = window.adobeIMS;
@@ -46,6 +48,7 @@ describe('GLaaS video delivery from Get Status', () => {
     delivered = { status: 'queued' };
     actions = { sendMessage: sinon.stub(), saveState: sinon.stub().resolves() };
     fetchStub = sinon.stub(window, 'fetch').callsFake(async (href) => {
+      if (new URL(href, window.location.href).pathname.endsWith('.css')) return new Response('');
       if (String(href).includes('/assets/')) {
         return new Response(JSON.stringify({ signedURL: 'https://signed.example/srt?secret=value', taskVersion: 7 }));
       }
@@ -55,6 +58,8 @@ describe('GLaaS video delivery from Get Status', () => {
   });
 
   afterEach(() => {
+    window.history.replaceState(null, '', originalHref);
+    document.querySelectorAll('nx-toast').forEach((toast) => toast.remove());
     clock.restore();
     window.adobeIMS = originalIms;
     if (originalDebug === null) localStorage.removeItem('glaas.log');
@@ -76,6 +81,55 @@ describe('GLaaS video delivery from Get Status', () => {
   const submissions = () => fetchStub.getCalls().filter(({ args }) => (
     String(args[0]).endsWith('/video-delivery') && !JSON.parse(args[1].body).statusOnly
   ));
+
+  [undefined, 'stage', 'invalid', 'https://example.com'].forEach((value) => {
+    it(`keeps stage delivery for mpc=${value}`, async () => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('mpc');
+      if (value !== undefined) url.searchParams.set('mpc', value);
+      window.history.replaceState(null, '', url);
+      delivered = { status: 'delivered' };
+      await check([language()]);
+      expect(submissions()).to.have.length(2);
+      submissions().forEach(({ args }) => {
+        expect(new URL(args[0]).hostname).to.equal('14257-dalocv2-stage.adobeioruntime.net');
+      });
+      expect(document.querySelector('nx-toast')).to.equal(null);
+    });
+  });
+
+  it('routes production retries and polling to UAT with a persistent warning', async () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('mpc', 'prod');
+    window.history.replaceState(null, '', url);
+    const lang = language();
+    lang.translation.workflowTasks.Task.videoDelivery = { [assetName]: { status: 'error' } };
+    const originalFetch = fetchStub.wrappedMethod;
+    fetchStub.callsFake(async (href, options) => {
+      if (String(href).endsWith('/video-delivery')) {
+        const { statusOnly } = JSON.parse(options.body);
+        return new Response(JSON.stringify({ status: statusOnly ? 'delivered' : 'queued' }));
+      }
+      if (String(href).includes('/assets/')) {
+        return new Response(JSON.stringify({ signedURL: 'https://signed.example/srt', taskVersion: 7 }));
+      }
+      if (new URL(href, window.location.href).pathname.endsWith('.css')) return new Response('');
+      return originalFetch.call(window, href, options);
+    });
+    await check([lang]);
+    const calls = fetchStub.getCalls().filter(({ args }) => String(args[0]).endsWith('/video-delivery'));
+    expect(calls).to.have.length(4);
+    calls.forEach(({ args }) => {
+      expect(new URL(args[0]).hostname).to.equal('14257-dalocv2-uat.adobeioruntime.net');
+    });
+    expect(JSON.parse(submissions()[0].args[1].body).manualRetry).to.equal(true);
+    expect(calls.filter(({ args }) => JSON.parse(args[1].body).statusOnly)).to.have.length(2);
+    const toast = document.querySelector('nx-toast');
+    expect(toast.message).to.include('MPC production test');
+    expect(toast.duration).to.equal(null);
+    await check([lang]);
+    expect(document.querySelectorAll('nx-toast')).to.have.length(1);
+  });
 
   it('queues completed English captions from an SRT reference without a top-level URL', async () => {
     fetchStub.callsFake(async (href) => {

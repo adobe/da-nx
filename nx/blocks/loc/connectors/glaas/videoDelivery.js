@@ -3,6 +3,8 @@ import { SOURCE_CAPTION_LOCALE } from './videoPayload.js';
 import { shouldLogGLaaSRequests } from './api.js';
 
 const DELIVERY_HREF = 'https://14257-dalocv2-stage.adobeioruntime.net/api/v1/web/daloc/video-delivery';
+const PROD_DELIVERY_HREF = 'https://14257-dalocv2-uat.adobeioruntime.net/api/v1/web/daloc/video-delivery';
+const PROD_WARNING = 'MPC production test: caption uploads will modify production videos. Use a dedicated test project and video.';
 // Allow one minute-based scheduler cycle before asking the author to refresh.
 const DELIVERY_WAIT_MS = 75_000;
 const DELIVERY_POLL_MS = 3000;
@@ -72,12 +74,12 @@ export function hasPendingVideoCaptions(task, code) {
 }
 
 async function requestDelivery({
-  item, body, signal, statusOnly = false, manualRetry = false,
+  item, body, signal, deliveryHref, statusOnly = false, manualRetry = false,
 }) {
   const accessToken = window.adobeIMS?.getAccessToken()?.token;
   if (!accessToken) throw new Error('Sign in to Adobe before delivering video captions.');
   logVideoDelivery('video-delivery-request', { ...body, statusOnly, manualRetry });
-  const resp = await fetch(DELIVERY_HREF, {
+  const resp = await fetch(deliveryHref, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify({
@@ -120,8 +122,16 @@ export default async function deliverVideos({
 }) {
   const pending = pendingVideos(langs);
   if (!pending.length) return undefined;
+  const production = new URLSearchParams(window.location.search).get('mpc') === 'prod';
+  const deliveryHref = production ? PROD_DELIVERY_HREF : DELIVERY_HREF;
   const accessToken = window.adobeIMS?.getAccessToken()?.token;
   if (!accessToken) throw new Error('Sign in to Adobe before delivering video captions.');
+  if (production) {
+    const { showToast } = await import('../../../../../nx2/blocks/shared/toast/toast.js');
+    if (![...document.querySelectorAll('nx-toast')].some((toast) => toast.message === PROD_WARNING)) {
+      showToast({ text: PROD_WARNING, variant: 'warning', timeout: null, maxWidth: '42rem' });
+    }
+  }
   const queued = [];
   const failures = [];
   let awaitingTranslation = false;
@@ -174,10 +184,11 @@ export default async function deliverVideos({
             item,
             body,
             signal,
+            deliveryHref,
             statusOnly: alreadyQueued,
             manualRetry: previous?.status === 'error',
           });
-          if (status !== 'delivered') queued.push({ item, body });
+          if (status !== 'delivered') queued.push({ item, body, deliveryHref });
         }
       } catch (error) {
         signal?.throwIfAborted();
