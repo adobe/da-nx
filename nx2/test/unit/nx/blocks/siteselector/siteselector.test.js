@@ -4,24 +4,6 @@ import { setConfig } from '../../../../../scripts/nx.js';
 await setConfig({ hostnames: [] });
 await import('../../../../../blocks/siteselector/siteselector.js');
 
-async function openDialog(open) {
-  const added = new Promise((resolve) => {
-    const observer = new MutationObserver(() => {
-      const dialog = document.querySelector('nx-add-site');
-      if (dialog) {
-        observer.disconnect();
-        resolve(dialog);
-      }
-    });
-    observer.observe(document.body, { childList: true });
-  });
-  open();
-  const dialog = await added;
-  await dialog.updateComplete;
-  await dialog.shadowRoot.querySelector('nx-dialog').updateComplete;
-  return dialog;
-}
-
 describe('nx-siteselector', () => {
   let selector;
   let recentSites;
@@ -80,7 +62,7 @@ describe('nx-siteselector', () => {
     expect(events).to.be.empty;
   });
 
-  it('handles picker selection and Add/Cancel through the rendered controls', async () => {
+  it('handles picker selection and redirects Add through the rendered controls', async () => {
     const target = 'My.Org/Other.Site';
     localStorage.setItem('da-sites', JSON.stringify(['org/site', target]));
     document.body.append(selector);
@@ -93,71 +75,30 @@ describe('nx-siteselector', () => {
     expect(events).to.deep.equal([{ value: target }]);
     expect(JSON.parse(localStorage.getItem('da-sites'))[0]).to.equal(target);
     expect(window.location.href).to.equal(href);
-    const dialog = await openDialog(() => {
-      picker.shadowRoot.querySelector('.picker-trigger').click();
-      picker.shadowRoot.querySelector('[data-value="add-site"]').click();
-    });
-    const closed = new Promise((resolve) => { dialog.addEventListener('close', resolve, { once: true }); });
-    dialog.shadowRoot.querySelector('[type="button"]').click();
-    await closed;
-    expect(dialog.isConnected).to.be.false;
-    expect(picker.shadowRoot.activeElement).to.equal(picker.shadowRoot.querySelector('.picker-trigger'));
+    selector.getCreateSiteHref = () => '#/start';
+    picker.shadowRoot.querySelector('.picker-trigger').click();
+    picker.shadowRoot.querySelector('[data-value="add-site"]').click();
+    expect(window.location.hash).to.equal('#/start');
+    expect(events).to.deep.equal([{ value: target }]);
   });
 
-  it('allows Add when empty and opens the parsed site in Browse', async () => {
+  it('redirects an external Add request when the selector is hidden', async () => {
     localStorage.setItem('da-sites', '[]');
+    selector.getCreateSiteHref = () => '#/custom-start';
     document.body.append(selector);
     expect(await settle()).to.be.null;
     expect(selector.hidden).to.be.true;
-    const dialog = await openDialog(() => document.dispatchEvent(new CustomEvent('site-add')));
-    let opened;
-    dialog.openSite = (value) => { opened = value; };
-    dialog.shadowRoot.querySelector('input').value = 'https://main--new-site--org.aem.page';
-    dialog.shadowRoot.querySelector('[type="submit"]').click();
-    expect(new URL(opened).hash).to.equal('#/org/new-site');
+    document.dispatchEvent(new CustomEvent('site-add'));
+    expect(window.location.hash).to.equal('#/custom-start');
     expect(localStorage.getItem('da-sites')).to.equal('[]');
+  });
+
+  it('skips navigation when the host disables creation', async () => {
+    selector.getCreateSiteHref = () => undefined;
+    document.body.append(selector);
+    await settle();
+    document.dispatchEvent(new CustomEvent('site-add'));
     expect(window.location.href).to.equal(href);
-  });
-
-  it('closes Add when Browse is already at the root path', async () => {
-    window.history.replaceState(null, '', '/?landing=true');
-    document.body.append(selector);
-    await settle();
-    const dialog = await openDialog(() => document.dispatchEvent(new CustomEvent('site-add')));
-    dialog.shadowRoot.querySelector('input').value = 'https://main--new-site--org.aem.page';
-    dialog.shadowRoot.querySelector('[type="submit"]').click();
-    await selector.updateComplete;
-    expect(window.location.pathname + window.location.search + window.location.hash).to.equal('/?landing=true#/org/new-site');
-    expect(dialog.isConnected).to.be.false;
-  });
-
-  it('opens generic creation without forwarding org, site or Browse context', async () => {
-    window.history.replaceState(null, '', '?nx=preview&browse=2&site=old&org=old#/org/site');
-    document.body.append(selector);
-    await settle();
-    const dialog = await openDialog(() => document.dispatchEvent(new CustomEvent('site-add')));
-    const url = new URL(dialog.shadowRoot.querySelector('.site-creation a').href);
-    expect(url.pathname).to.equal('/start');
-    expect([...url.searchParams]).to.deep.equal([['nx', 'preview']]);
-    expect(url.hash).to.equal('');
-  });
-
-  it('accepts a host Create destination or hides it when the host returns undefined', async () => {
-    document.body.append(selector);
-    await settle();
-    for (const destination of ['/custom-create', undefined]) {
-      const calls = [];
-      selector.getCreateSiteHref = (...args) => {
-        calls.push(args);
-        return destination;
-      };
-      const dialog = await openDialog(() => document.dispatchEvent(new CustomEvent('site-add')));
-      const link = dialog.shadowRoot.querySelector('.site-creation a');
-      if (destination) expect(link.getAttribute('href')).to.equal(destination);
-      else expect(link).to.be.null;
-      expect(calls).to.deep.equal([[]]);
-      selector.closeDialog();
-    }
   });
 
   it('reports corrupt history without overwriting it or losing the supplied selection', async () => {

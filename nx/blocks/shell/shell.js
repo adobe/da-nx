@@ -140,9 +140,6 @@ async function showDisclaimer(el, panels) {
   }
   const { org, repo, ref, path } = getParts();
   const appName = path.split('/').pop();
-  const devWarning = ref !== 'main'
-    ? `<p><b>Note:</b> You are accessing a development version of the app on branch <b>${ref}</b>.`
-    : '';
   const disclaimer = document.createElement('div');
   disclaimer.classList.add('disclaimer');
   disclaimer.innerHTML = `
@@ -151,9 +148,9 @@ async function showDisclaimer(el, panels) {
         <h2>Warning</h2>
         <div>
         </div>
-        <p>You are about to access an app named <b>${appName}</b> hosted by <b>${org}/${repo}</b>.<br>
-        Make sure you trust the host <b>${org}/${repo}</b>. Their app may take any action on your behalf, including <b>deleting content</b> you have access to.</p>
-        ${devWarning}
+        <p>You are about to access an app named <b data-app-name></b> hosted by <b data-app-host></b>.<br>
+        Make sure you trust the host <b data-app-host></b>. Their app may take any action on your behalf, including <b>deleting content</b> you have access to.</p>
+        <p class="development-warning"><b>Note:</b> You are accessing a development version of the app on branch <b data-app-ref></b>.</p>
         <p><b>Are you sure you want to continue?</b></p>
         <div class="nx-button-group">
           <sl-button class="negative outline" name="continue">Continue</sl-button>
@@ -162,6 +159,15 @@ async function showDisclaimer(el, panels) {
       </div>
     </sl-dialog>
   `;
+  disclaimer.querySelector('[data-app-name]').textContent = appName;
+  disclaimer.querySelectorAll('[data-app-host]').forEach((host) => {
+    host.textContent = `${org}/${repo}`;
+  });
+  if (ref === 'main') {
+    disclaimer.querySelector('.development-warning').remove();
+  } else {
+    disclaimer.querySelector('[data-app-ref]').textContent = ref;
+  }
   document.body.appendChild(disclaimer);
   disclaimer.querySelector('sl-button[name="continue"]').addEventListener('click', () => {
     trustApp(org, repo, ref);
