@@ -206,9 +206,9 @@ class NxLocOptions extends LitElement {
     // never get persisted) unless the user happened to touch the select.
     serviceOptions.forEach((option, i) => {
       if (!option.fetch) return;
-      const value = envConfig[option.key];
-      const known = items[i]?.some((item) => item.value === value);
-      if (!known) envConfig[option.key] = items[i]?.[0]?.value;
+      const value = String(envConfig[option.key] ?? '').toLowerCase();
+      const match = items[i]?.find((item) => String(item.value).toLowerCase() === value);
+      envConfig[option.key] = (match ?? items[i]?.[0])?.value;
     });
 
     this._serviceOptions = serviceOptions.map(

@@ -173,6 +173,28 @@ describe('NxLocOptions - loadConnectorServiceOptions', () => {
     expect(el._options.service.instructions).to.equal('Be formal.');
   });
 
+  it('matches a configured default service type regardless of case', async () => {
+    installFetch((u) => {
+      if (u.includes('/integrations/translated/status')) {
+        return new Response(JSON.stringify({ connected: true }), { status: 200 });
+      }
+      if (u.endsWith('/v2/symbol/service-type-names')) {
+        return new Response(JSON.stringify([
+          { name: 'economy', human_enabled: true },
+          { name: 'professional', human_enabled: true },
+        ]), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    });
+    const el = createOptionsEl();
+    el._siteConfig.service = { name: 'Translated', envs: { prod: { serviceType: 'Professional' } } };
+
+    await el.loadConnectorServiceOptions();
+
+    expect(el._siteConfig.service.envs.prod.serviceType).to.equal('professional');
+    expect(el._options.service.serviceType).to.equal('professional');
+  });
+
   it('stores a free-text service option edit in the project options', async () => {
     const el = createOptionsEl();
     el.updateOptions();
