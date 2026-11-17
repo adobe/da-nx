@@ -136,7 +136,7 @@
     padding: var(--s2-spacing-75);
   }
 
-  .nx-action-btn-icon {
+  .nx-action-btn-icon:not(.chat-add) {
     border-radius: 50%;
   }
 }
