@@ -121,8 +121,14 @@ describe('cards block', () => {
     el.style.width = '900px';
     expect(el.getBoundingClientRect().width).to.equal(664);
     expect(getComputedStyle(el).gridTemplateColumns.split(' ').length).to.equal(2);
-    el.style.width = '260px';
-    expect(el.scrollWidth).to.equal(260);
+    el.style.removeProperty('width');
+    const section = el.parentElement;
+    const frame = document.createElement('div');
+    frame.style.cssText = 'display: grid; width: 260px';
+    section.before(frame);
+    frame.append(section);
+    expect(frame.scrollWidth).to.equal(260);
+    expect(el.getBoundingClientRect().width).to.equal(260);
     expect(getComputedStyle(el).gridTemplateColumns.split(' ').length).to.equal(1);
     expect(cards(el)[1].offsetTop).to.be.greaterThan(cards(el)[0].offsetTop);
   });
