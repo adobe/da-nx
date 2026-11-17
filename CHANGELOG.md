@@ -1,3 +1,17 @@
+## [1.53.1](https://github.com/adobe/da-nx/compare/v1.53.0...v1.53.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* use theme-aware colors for send menu selection ([#986](https://github.com/adobe/da-nx/issues/986)) ([ed99f92](https://github.com/adobe/da-nx/commit/ed99f9243e8915198e86a1ed6e398d614295f13f))
+
+# [1.53.0](https://github.com/adobe/da-nx/compare/v1.52.10...v1.53.0) (2026-11-16)
+
+
+### Features
+
+* **glaas:** add campaign brief metadata hand-off ([#1017](https://github.com/adobe/da-nx/issues/1017)) ([1876044](https://github.com/adobe/da-nx/commit/187604494945b99d37334bca254e8955d9c70867))
+
 ## [1.52.10](https://github.com/adobe/da-nx/compare/v1.52.9...v1.52.10) (2026-11-16)
 
 
