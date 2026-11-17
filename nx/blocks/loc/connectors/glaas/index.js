@@ -414,6 +414,7 @@ async function recreateTaskAndFetchSubtasks({
     name: task.name,
     workflow: task.workflow,
     workflowName: task.workflowName,
+    status: workflowMeta?.status?.status,
     businessUnit: workflowMeta?.businessUnit,
     reviewerResync: workflowMeta?.reviewerResync,
     campaign: workflowMeta?.campaign,
