@@ -22,6 +22,18 @@ describe('standalone AO input', () => {
 
   afterEach(() => chatInput.remove());
 
+  it('uses 32px buttons with 18px icons for Add and voice input', () => {
+    ['.chat-add', '.chat-voice'].forEach((selector) => {
+      const button = chatInput.shadowRoot.querySelector(selector);
+      const buttonStyle = getComputedStyle(button);
+      const iconStyle = getComputedStyle(button.querySelector('svg'));
+      expect(buttonStyle.width).to.equal('32px');
+      expect(buttonStyle.height).to.equal('32px');
+      expect(iconStyle.width).to.equal('18px');
+      expect(iconStyle.height).to.equal('18px');
+    });
+  });
+
   it('switches context events after mount without losing existing pills', async () => {
     const originalEvent = chatInput.addEvent;
     chatInput.addItem({ id: 'existing', label: 'Existing' });

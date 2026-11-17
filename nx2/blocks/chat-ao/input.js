@@ -423,7 +423,7 @@ export default class NxAoInput extends LitElement {
         </div>
         <div class="chat-actions" ?data-thinking=${this.blocked} ?data-voice-listening=${this._voiceListening}>
           <nx-menu size="m" .items=${this.menuItems ?? ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
-            <button slot="trigger" class="chat-add nx-action-btn-icon nx-btn-sm" type="button" aria-label="Add" @click=${this._onAddClick}>
+            <button slot="trigger" class="chat-add nx-action-btn-icon" type="button" aria-label="Add" @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>
               <span class="icon-up">${icon('up')}</span>
             </button>
@@ -432,7 +432,7 @@ export default class NxAoInput extends LitElement {
             ${isVoiceInputSupported() ? html`
               <button
                 type="button"
-                class="chat-voice nx-action-btn-icon nx-btn-sm"
+                class="chat-voice nx-action-btn-icon"
                 ?data-listening=${this._voiceListening}
                 ?disabled=${this.blocked}
                 aria-pressed=${this._voiceListening}
