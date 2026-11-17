@@ -1,8 +1,11 @@
 .nx-cards-filter {
   margin-block: var(--s2-spacing-300);
 
+  /* When categories and search don't fit on one line, wrap-reverse stacks the search
+     above the categories (DOM/tab order stays categories → search). */
   .cards-filter-bar {
     display: flex;
+    flex-wrap: wrap-reverse;
     align-items: center;
     justify-content: space-between;
     gap: var(--s2-spacing-300);
@@ -10,6 +13,7 @@
 
   .cards-filter-categories {
     min-width: 0;
+    max-width: 100%;
     overflow-x: auto;
     scrollbar-width: none;
   }
@@ -17,6 +21,8 @@
   .cards-filter-search {
     flex-shrink: 0;
     width: 200px;
+    max-width: 100%;
+    margin-inline-start: auto;
   }
 
   .cards-filter-empty {
