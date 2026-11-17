@@ -1,6 +1,7 @@
 import decorateTable from './decorateTable.js';
 import parseQuery from './parseQuery.js';
 import { processAltText, resetAltText } from './processAltText.js';
+import { parseInlineRule } from './inlineDnt.js';
 
 const DNT_ELEMENTS = ['code', 'body > .da-metadata'];
 
@@ -152,7 +153,7 @@ function parseConfig(config) {
 
   sheetRules.forEach((sheetRule) => {
     if (Object.keys(sheetRule).length > 0) {
-      rules.sheetRules.push(extractPattern(sheetRule));
+      rules.sheetRules.push(parseInlineRule(sheetRule) || extractPattern(sheetRule));
     }
   });
 

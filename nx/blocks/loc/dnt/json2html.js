@@ -4,6 +4,7 @@
   services to their own format. This output format is the format used by GLAAS,
   so no transformation is needed for that service.
 */
+import { addInlineDnt } from './inlineDnt.js';
 
 const setDntAttribute = (el) => {
   el.setAttribute('translate', 'no');
@@ -23,8 +24,10 @@ const json2html = (json, dntConfig) => {
   const configSheets = dntConfig?.dntSheets || [];
   const configSheetToColumns = dntConfig?.dntSheetToColumns || new Map();
   const configUniversalColumns = dntConfig?.dntUniversalColumns || [];
+  const inlineRules = sheetRules?.filter((rule) => rule.action === 'dnt-inline') || [];
   const isTextInDntRules = (text) => sheetRules && sheetRules
     .some((rule) => {
+      if (rule.action === 'dnt-inline') return false;
       if (rule.condition === 'exists') {
         return true;
       }
@@ -79,6 +82,7 @@ const json2html = (json, dntConfig) => {
           } else {
             colDiv.textContent = text;
           }
+          addInlineDnt({ root: colDiv, rules: inlineRules });
         });
       });
     }

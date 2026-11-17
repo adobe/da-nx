@@ -1,4 +1,5 @@
 import { DA_METADATA_SELECTOR, findMetadataRow, parseSelections } from './imageSelections.js';
+import { parseInlineRule } from '../../dnt/inlineDnt.js';
 
 // Data attribute stashing a marked <img>'s original absolute src before it gets relativized
 // below - collectMultimodalImageUrls/rewriteContentDaLiveImageUrls (multimodalApi.js) read
@@ -83,7 +84,7 @@ const parseDntConfig = (config, reset = false) => {
   const sheetRules = dntConfig.get('sheetRules');
   config['dnt-sheet-rules']?.data.forEach((sheetRule) => {
     if (Object.keys(sheetRule).length > 0) {
-      sheetRules.push(extractPattern(sheetRule));
+      sheetRules.push(parseInlineRule(sheetRule) || extractPattern(sheetRule));
     }
   });
 
