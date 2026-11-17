@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import { render } from 'da-lit';
 import { saveErrorsToError } from '../../../../nx/blocks/loc/views/translate/translate.js';
 
 function createTranslateEl() {
@@ -189,5 +190,29 @@ describe('NxLocTranslate - Get status errors', () => {
     });
     expect(el._getStatusBusy).to.equal(false);
     expect(persisted).to.equal(1);
+  });
+});
+
+describe('NxLocTranslate - service link', () => {
+  const renderLink = (service) => {
+    const el = createTranslateEl();
+    el._options = { service };
+    const target = document.createElement('p');
+    render(el.renderServiceLink(), target);
+    return target;
+  };
+
+  it('links the service name when the connector set a link', () => {
+    const target = renderLink({ name: 'Translated', link: 'https://os.translated.com/orgs/1/request-groups/id_order_group/g' });
+    const a = target.querySelector('a');
+    expect(a.textContent).to.equal('Translated');
+    expect(a.href).to.equal('https://os.translated.com/orgs/1/request-groups/id_order_group/g');
+    expect(a.target).to.equal('_blank');
+  });
+
+  it('shows the plain service name without a link', () => {
+    const target = renderLink({ name: 'Translated' });
+    expect(target.querySelector('a')).to.equal(null);
+    expect(target.textContent).to.equal('Translated');
   });
 });

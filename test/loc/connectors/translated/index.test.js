@@ -105,6 +105,7 @@ describe('translated connector', () => {
         { key: 'screenshot', type: 'text' },
         { key: 'purchaseOrder', type: 'text' },
         { key: 'costCenter', type: 'text' },
+        { key: 'orderGroup', type: 'text' },
       ]);
     });
   });
@@ -165,6 +166,61 @@ describe('translated connector', () => {
       expect(saved).to.equal(2);
       expect(options.service.pendingSubmission).to.equal(undefined);
       expect(messages.at(-1)).to.equal(undefined);
+    });
+
+    describe('order group', () => {
+      it('sends the trimmed order group on every order', async () => {
+        installFetch(submitHandler());
+        await send(baseService({ orderGroup: { value: '  spring-launch ' } }));
+
+        const { body } = lastCall('/v2/translate');
+        expect(body.map((order) => order.id_order_group)).to.deep.equal(['spring-launch', 'spring-launch']);
+      });
+
+      it('omits id_order_group when no group is set', async () => {
+        installFetch(submitHandler());
+        await send(baseService({ orderGroup: '   ' }));
+
+        expect(lastCall('/v2/translate').body[0]).to.not.have.property('id_order_group');
+      });
+
+      it('refuses an order group over 255 characters', async () => {
+        installFetch(submitHandler());
+        await send(baseService({ orderGroup: 'g'.repeat(256) }));
+
+        expect(calls.some((c) => c.url.endsWith('/v2/translate'))).to.equal(false);
+        expect(messages.at(-1)).to.deep.equal({ text: 'Order group must be 255 characters or fewer.', type: 'error' });
+      });
+
+      it('links to the group in TranslationOS when an org ID is configured', async () => {
+        installFetch(submitHandler());
+        await send(baseService({ orderGroup: 'Proj 1', orgId: 'org/1' }));
+
+        expect(options.service.link).to.equal(
+          'https://os.translated.com/orgs/org%2F1/request-groups/id_order_group/Proj%201',
+        );
+      });
+
+      it('adds no link without an org ID', async () => {
+        installFetch(submitHandler());
+        await send(baseService({ orderGroup: 'Proj 1' }));
+
+        expect(options.service.link).to.equal(undefined);
+      });
+
+      it('adds no link without an order group', async () => {
+        installFetch(submitHandler());
+        await send(baseService({ orgId: 'org1' }));
+
+        expect(options.service.link).to.equal(undefined);
+      });
+
+      it('adds no link when the submission fails', async () => {
+        installFetch(() => json({ error: true, message: 'nope' }, 400));
+        await send(baseService({ orderGroup: 'Proj 1', orgId: { value: 'org1' } }));
+
+        expect(options.service.link).to.equal(undefined);
+      });
     });
 
     it('accepts language codes in any case and sends Translated casing', async () => {

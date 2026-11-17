@@ -16,6 +16,8 @@ const TERMINAL_LANG_STATUSES = ['complete', 'cancelled'];
 const MAX_REQUESTS_PER_CALL = 5000;
 const STATUS_PAGE_SIZE = 1000;
 const MAX_CONTENT_ID_LENGTH = 255;
+const MAX_ORDER_GROUP_LENGTH = 255;
+const TOS_APP_ORIGIN = 'https://os.translated.com';
 const DEFAULT_SOURCE_LANGUAGE = 'en-US';
 const LANGUAGES_DOC_URL = 'https://api.translated.com/v2#tag/Symbol/operation/symbol-languages';
 const MAX_TITLE_LENGTH = 100;
@@ -122,6 +124,19 @@ async function fingerprint(orders) {
   const bytes = new TextEncoder().encode(JSON.stringify(orders));
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Builds the TranslationOS dashboard link to every request in an order group.
+ * @param {Object} conf
+ * @param {string} [conf.orgId] - The TranslationOS organization ID.
+ * @param {string} [conf.orderGroup] - The `id_order_group`.
+ * @returns {string|undefined} The link, or undefined without both values.
+ */
+export function orderGroupHref({ orgId, orderGroup }) {
+  if (!orgId || !orderGroup) return undefined;
+  const org = encodeURIComponent(orgId);
+  return `${TOS_APP_ORIGIN}/orgs/${org}/request-groups/id_order_group/${encodeURIComponent(orderGroup)}`;
 }
 
 /**
@@ -326,6 +341,7 @@ export const serviceOptions = [
   },
   { key: 'purchaseOrder', label: 'Purchase order', type: 'text' },
   { key: 'costCenter', label: 'Cost center', type: 'text' },
+  { key: 'orderGroup', label: 'Order group', type: 'text' },
 ];
 
 const CONTEXT_URL_FIELDS = { references: 'Reference URL', screenshot: 'Screenshot URL' };
@@ -438,6 +454,12 @@ export async function sendAllLanguages({
     return;
   }
 
+  const orderGroup = readValue(service.orderGroup)?.trim();
+  if (orderGroup?.length > MAX_ORDER_GROUP_LENGTH) {
+    sendMessage({ text: `Order group must be ${MAX_ORDER_GROUP_LENGTH} characters or fewer.`, type: 'error' });
+    return;
+  }
+
   if (urls.length * langs.length > MAX_REQUESTS_PER_CALL) {
     sendMessage({ text: `Translated accepts at most ${MAX_REQUESTS_PER_CALL} requests per submission (pages x languages).`, type: 'error' });
     return;
@@ -464,6 +486,7 @@ export async function sendAllLanguages({
     service_type: serviceType,
     ...(context && { context }),
     ...billing,
+    ...(orderGroup && { id_order_group: orderGroup }),
     ...(requester && { requested_by: requester }),
   }));
 
@@ -508,6 +531,8 @@ export async function sendAllLanguages({
   });
   options.service.orderIds = { value: JSON.stringify(orderIds) };
   delete options.service.pendingSubmission;
+  const href = orderGroupHref({ orgId: readValue(service.orgId), orderGroup });
+  if (href) options.service.link = href;
 
   sendMessage();
   await saveState({ options });
