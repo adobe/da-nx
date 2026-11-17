@@ -69,6 +69,8 @@ function defaultHandler(u, opts) {
   if (u.includes('/v2/jobs/')) {
     return new Response(JSON.stringify({
       isProcessing: 0,
+      status: 'delivered',
+      deliveredAt: '2026-11-16T14:05:08.000Z',
       stats: { projects: [{ id: 1, trgLang: 'fr', isComplete: true }] },
     }), { status: 200 });
   }
@@ -739,7 +741,7 @@ describe('lilt connector', () => {
   });
 
   describe('getStatusAll - Verified Translation', () => {
-    it('marks a language translated once its job project is complete', async () => {
+    it('marks a language translated once its job is delivered', async () => {
       const service = verifiedService();
       const langs = [{ code: 'fr-FR', translation: { status: 'created' } }];
       const urls = [{ daBasePath: '/page' }];
@@ -751,6 +753,54 @@ describe('lilt connector', () => {
 
       expect(langs[0].translation.status).to.equal('translated');
       expect(langs[0].translation.translated).to.equal(1);
+    });
+
+    it('marks a language translated when the job is delivered but the project is not complete', async () => {
+      installFetch((u, opts) => {
+        if (u.includes('/v2/jobs/') && !u.includes('export')) {
+          return new Response(JSON.stringify({
+            status: 'delivered',
+            stats: {
+              projects: [{
+                id: 1, trgLang: 'fr', isComplete: false, state: 'done', workflowStatus: 'IN_PROGRESS',
+              }],
+            },
+          }), { status: 200 });
+        }
+        return defaultHandler(u, opts);
+      });
+      const langs = [{ code: 'fr-FR', translation: { status: 'created' } }];
+
+      await getStatusAll({
+        service: verifiedService(),
+        langs,
+        urls: [{ daBasePath: '/page' }],
+        actions: { sendMessage: () => {}, saveState: async () => {} },
+      });
+
+      expect(langs[0].translation.status).to.equal('translated');
+    });
+
+    it('keeps a language created until its job is delivered', async () => {
+      installFetch((u, opts) => {
+        if (u.includes('/v2/jobs/') && !u.includes('export')) {
+          return new Response(JSON.stringify({
+            status: 'active',
+            stats: { projects: [{ id: 1, trgLang: 'fr', isComplete: true }] },
+          }), { status: 200 });
+        }
+        return defaultHandler(u, opts);
+      });
+      const langs = [{ code: 'fr-FR', translation: { status: 'created' } }];
+
+      await getStatusAll({
+        service: verifiedService(),
+        langs,
+        urls: [{ daBasePath: '/page' }],
+        actions: { sendMessage: () => {}, saveState: async () => {} },
+      });
+
+      expect(langs[0].translation).to.deep.equal({ status: 'created', translated: 0 });
     });
 
     it('does not mark a waiting dependent language translated from another language\'s project', async () => {
@@ -955,7 +1005,7 @@ describe('lilt connector', () => {
         'Project_2_en-US_de-DE/page.deDE.html': strToU8('<p>hallo</p>'),
       });
 
-      function jobHandler({ complete = [true, true], onArchive } = {}) {
+      function jobHandler({ status = 'delivered', deliveredAt = 'd1', onArchive } = {}) {
         return (u, opts) => {
           if (u.endsWith('/download')) return new Response(twoLangZip(), { status: 200 });
           if (u.endsWith('/archive')) {
@@ -965,10 +1015,12 @@ describe('lilt connector', () => {
           if (u.includes('/v2/jobs/') && !u.includes('export')) {
             return new Response(JSON.stringify({
               isProcessing: 0,
+              status: typeof status === 'function' ? status() : status,
+              deliveredAt: typeof deliveredAt === 'function' ? deliveredAt() : deliveredAt,
               stats: {
                 projects: [
-                  { id: 1, trgLang: 'fr', isComplete: complete[0] },
-                  { id: 2, trgLang: 'de', isComplete: complete[1] },
+                  { id: 1, trgLang: 'fr', isComplete: false },
+                  { id: 2, trgLang: 'de', isComplete: false },
                 ],
               },
             }), { status: 200 });
@@ -1007,9 +1059,9 @@ describe('lilt connector', () => {
         expect(calls.filter((c) => c.url.includes('/export?type=files'))).to.have.lengthOf(1);
       });
 
-      it('downloads again when a project completes between languages', async () => {
-        let state = [true, false];
-        installFetch((u, opts) => jobHandler({ complete: state })(u, opts));
+      it('downloads again when the job is redelivered between languages', async () => {
+        let deliveredAt = 'd1';
+        installFetch(jobHandler({ deliveredAt: () => deliveredAt }));
         const service = verifiedService({ 'fr-FR': 'shared-2', 'de-DE': 'shared-2' });
         const frUrls = [{ daBasePath: '/page', ext: 'html' }];
         const saveFn = async (url) => { url.status = 'success'; };
@@ -1017,7 +1069,7 @@ describe('lilt connector', () => {
         await saveItems({
           org, site, service, lang: { code: 'fr-FR', name: 'French' }, urls: frUrls, saveFn, sendMessage: () => {},
         });
-        state = [true, true];
+        deliveredAt = 'd2';
         await saveItems({
           org,
           site,
@@ -1031,7 +1083,7 @@ describe('lilt connector', () => {
         expect(calls.filter((c) => c.url.endsWith('/download'))).to.have.lengthOf(2);
       });
 
-      it('archives the job once every project is complete and the save succeeded', async () => {
+      it('archives the job once it is delivered and the save succeeded', async () => {
         let archived = 0;
         installFetch(jobHandler({ onArchive: () => { archived += 1; } }));
 
@@ -1042,9 +1094,9 @@ describe('lilt connector', () => {
           .to.equal(true);
       });
 
-      it('does not archive while a project is incomplete', async () => {
+      it('does not archive a job that is not delivered', async () => {
         let archived = 0;
-        installFetch(jobHandler({ complete: [true, false], onArchive: () => { archived += 1; } }));
+        installFetch(jobHandler({ status: 'active', onArchive: () => { archived += 1; } }));
         const urls = [{ daBasePath: '/page', ext: 'html' }];
         const saveFn = async (url) => { url.status = 'success'; };
 
@@ -1269,7 +1321,7 @@ describe('lilt connector', () => {
       const jobHandler = (u, opts) => {
         if (u.endsWith('/download')) return new Response(zip(), { status: 200 });
         if (u.includes('/v2/jobs/') && !u.includes('export') && !u.endsWith('/archive')) {
-          const job = { isProcessing: 0, stats: { projects } };
+          const job = { isProcessing: 0, status: 'delivered', stats: { projects } };
           return new Response(JSON.stringify(job), { status: 200 });
         }
         return defaultHandler(u, opts);
@@ -1305,11 +1357,12 @@ describe('lilt connector', () => {
         expect(saved['zh-Hant']).to.include('traditional');
       });
 
-      it('reports each regional project status separately', async () => {
+      it('marks every regional language translated once the shared job is delivered', async () => {
         installFetch((u, opts) => {
           if (u.includes('/v2/jobs/') && !u.includes('export')) {
             return new Response(JSON.stringify({
               isProcessing: 0,
+              status: 'delivered',
               stats: {
                 projects: [
                   { id: 10, trgLang: 'pt', trgLocale: 'BR', isComplete: true },
@@ -1331,7 +1384,7 @@ describe('lilt connector', () => {
         });
 
         expect(langs[0].translation.status).to.equal('translated');
-        expect(langs[1].translation.status).to.equal('created');
+        expect(langs[1].translation.status).to.equal('translated');
       });
     });
   });

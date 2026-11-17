@@ -541,9 +541,9 @@ async function sendVerifiedTranslation({
 }
 
 /**
- * Polls Verified Translation status for every not-yet-terminal language via the job's
- * per-language-pair `stats.projects`. Lilt's `JobProject.isComplete` is the only granularity
- * available before export, so `.translated` is reported as all-or-nothing per language.
+ * Polls Verified Translation status for every not-yet-terminal language. A language is
+ * translated once its job is `delivered`; project `isComplete` is not used because Lilt
+ * leaves it false while a workflow's Review stage is unfinished, even after delivery.
  * @param {Object} conf
  * @param {Object} conf.service - The flattened per-environment service config. Only languages
  *  with an entry in `service.jobIds` are polled, so `waiting` dependent languages are never
@@ -569,13 +569,14 @@ async function getVerifiedStatus({ service, langs, urls }) {
     if (!resp.ok) return;
     const job = await resp.json().catch(() => null);
     const projects = job?.stats?.projects || [];
+    const delivered = job?.status === 'delivered';
 
     jobLangs.forEach((lang) => {
       const project = findProject(projects, lang.code);
       if (!project) return;
 
       lang.translation ??= {};
-      if (project.isComplete) {
+      if (delivered) {
         lang.translation.translated = urls.length;
         lang.translation.status = 'translated';
       } else {
@@ -625,13 +626,12 @@ async function waitForJobExportReady(service, jobId) {
 }
 
 /**
- * Summarizes which of a job's projects are complete, so a cached zip is reused only while
- * no project has changed completion state.
+ * Identifies a job delivery, so a cached zip is reused only until the job is redelivered.
  * @param {Object} job - The Lilt job.
  * @returns {string} The signature.
  */
 function jobSignature(job) {
-  return (job?.stats?.projects || []).map((p) => `${p.id}:${p.isComplete}`).join(',');
+  return `${job?.deliveredAt}`;
 }
 
 /**
@@ -660,8 +660,8 @@ function findLangEntry({ entries, project, fileName }) {
 }
 
 /**
- * Exports, downloads and unzips a job, reusing the previous download while the job's
- * project completion state is unchanged so a multi-language job downloads once.
+ * Exports, downloads and unzips a job, reusing the previous download until the job is
+ * redelivered so a multi-language job downloads once.
  * @param {Object} service - The flattened per-environment service config.
  * @param {string} jobId - The Lilt job id.
  * @returns {Promise<{entries: ?Array[], job: ?Object, error: ?string}>} The zip entries
@@ -701,7 +701,7 @@ async function loadJobEntries(service, jobId) {
 }
 
 /**
- * Archives a job once every one of its projects is complete. Best-effort: archived jobs
+ * Archives a job once it is delivered. Best-effort: archived jobs
  * stay downloadable, and a failure here must not fail the save.
  * @param {Object} service - The flattened per-environment service config.
  * @param {string} jobId - The Lilt job id.
@@ -709,10 +709,7 @@ async function loadJobEntries(service, jobId) {
  * @returns {Promise<void>}
  */
 async function archiveCompletedJob(service, jobId, job) {
-  const projects = job?.stats?.projects || [];
-  if (job?.status === 'archived' || !projects.length || !projects.every((p) => p.isComplete)) {
-    return;
-  }
+  if (job?.status !== 'delivered') return;
   try {
     const opts = { method: 'POST', headers: await authHeaders(service) };
     await fetchWithRetry(
@@ -729,8 +726,8 @@ async function archiveCompletedJob(service, jobId, job) {
  * Downloads and saves Verified Translation output for a single language. Unlike AI
  * Translation, Lilt only exposes one zip download per job, so the zip is cached per job and
  * each url is matched to the language's project folder and upload filename, rather than
- * using {@link downloadQueue}'s one-network-call-per-url pattern. Archives the job once all
- * of its projects are complete and this language saved in full.
+ * using {@link downloadQueue}'s one-network-call-per-url pattern. Archives the job once it
+ * is delivered and this language saved in full.
  * @param {Object} conf
  * @param {string} conf.org - The DA org.
  * @param {string} conf.site - The DA site.
