@@ -309,6 +309,7 @@ svg.icon {
   }
 
   .nx-url-actions {
+    position: relative;
     display: flex;
     flex-shrink: 0;
     gap: var(--s2-spacing-75);
@@ -455,10 +456,14 @@ svg.icon {
   animation: tooltip-appear 0.15s ease-out;
 }
 
+/* Beside the buttons, not above: the scrolling URL list clips anything above the first row */
+.nx-url-actions [data-tooltip] {
+  position: static;
+}
+
 .nx-url-actions [data-tooltip]:hover::after {
-  left: auto;
-  right: 0;
-  transform: none;
+  inset: 50% calc(100% + 6px) auto auto;
+  transform: translateY(-50%);
 }
 
 @media (width < 900px) {
@@ -502,6 +507,11 @@ svg.icon {
 
   .nx-snapshot-urls .nx-url-actions {
     padding-left: var(--s2-spacing-300);
+  }
+
+  .nx-url-actions [data-tooltip]:hover::after {
+    inset: auto auto calc(100% + 4px) var(--s2-spacing-300);
+    transform: none;
   }
 }
 
