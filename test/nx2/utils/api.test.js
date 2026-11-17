@@ -994,7 +994,7 @@ describe('api.js', () => {
     } = {}) {
       window.fetch = async (url, opts = {}) => {
         calls.push({ url, method: opts.method || 'GET', headers: opts.headers });
-        const isAudit = url.endsWith('/.versions/audit');
+        const isAudit = url.endsWith('/.audit');
         if (!isAudit && !url.endsWith('/.versions')) throw new Error(`Unexpected request: ${url}`);
         return new Response(JSON.stringify(isAudit ? audit : snapshots), {
           status: isAudit ? auditStatus : snapshotStatus,
@@ -1024,34 +1024,32 @@ describe('api.js', () => {
         'version-comment': 'Checkpoint',
       };
       const edit = {
-        v: 1,
         id: 'edit',
-        t: Date.parse('2026-01-02T00:00:00.000Z'),
-        t0: 1000,
-        op: 'edit',
+        timestamp: Date.parse('2026-01-02T00:00:00.000Z'),
+        firstTimestamp: 1000,
+        operation: 'edit',
         users: [{ email: 'one@example.com' }, { email: 'two@example.com' }],
-        p: '/x.html',
+        path: '/x.html',
       };
       const activity = {
-        v: 1,
         id: 'snapshot',
-        t: Date.parse('2026-01-03T00:00:00.000Z'),
-        op: 'version',
+        timestamp: Date.parse('2026-01-03T00:00:00.000Z'),
+        operation: 'version',
         users: [{ email: 'author@example.com' }],
-        p: '/x.html',
+        path: '/x.html',
         label: 'Checkpoint',
-        snapshot: { type: 'local', id: 'local' },
+        snapshot: 'local',
       };
       installListingFetch({
         snapshots: [oldVersion, version], audit: { entries: [activity, edit], truncated: true },
       });
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       const resp = await versions.list({ org: o, site: s, path: '/x.html' });
-      const url = `${AEM_API}/${o}/sites/${s}/source/x.html/.versions`;
-      expect(calls.map((call) => call.url)).to.deep.equal([url, `${url}/audit`]);
+      const url = `${AEM_API}/${o}/sites/${s}/source/x.html`;
+      expect(calls.map((call) => call.url)).to.deep.equal([`${url}/.versions`, `${url}/.audit`]);
       expect(await resp.json()).to.deep.equal([
-        { ...version, ...activity, timestamp: activity.t },
-        { ...edit, timestamp: edit.t },
+        { ...version, ...activity },
+        edit,
         oldVersion,
       ]);
       expect(resp.truncated).to.equal(true);
@@ -1064,7 +1062,7 @@ describe('api.js', () => {
       installListingFetch();
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       const resp = await versions.list(`/${o}/${s}/x.html`);
-      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/source/x.html/.versions/audit`);
+      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/source/x.html/.audit`);
       expect(await resp.json()).to.deep.equal([]);
       expect(resp.truncated).to.equal(false);
     });
@@ -1077,35 +1075,23 @@ describe('api.js', () => {
       expect(await resp.json()).to.deep.equal([entry]);
     });
 
-    it('versions.list does not turn opaque DA or unlisted snapshot references into local versions', async () => {
+    it('versions.list keeps unlisted snapshot references as activity entries', async () => {
       const version = { version: 'local', 'version-date': '2026-01-01T00:00:00.000Z' };
       const entries = [
         {
-          v: 1,
-          id: 'legacy',
-          t: Date.parse('2026-01-03T00:00:00.000Z'),
-          op: 'version',
-          users: [],
-          p: '/x.html',
-          snapshot: { type: 'da', id: 'local' },
-        },
-        {
-          v: 1,
           id: 'missing',
-          t: Date.parse('2026-01-02T00:00:00.000Z'),
-          op: 'trash',
+          timestamp: Date.parse('2026-01-02T00:00:00.000Z'),
+          operation: 'trash',
           users: [],
-          p: '/.trash/x.html',
+          path: '/.trash/x.html',
           sourcePath: '/x.html',
-          snapshot: { type: 'local', id: 'missing' },
+          snapshot: 'missing',
         },
       ];
       installListingFetch({ snapshots: [version], audit: { entries, truncated: false } });
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       const resp = await versions.list({ org: o, site: s, path: '/x.html' });
-      expect(await resp.json()).to.deep.equal([
-        ...entries.map((entry) => ({ ...entry, timestamp: entry.t })), version,
-      ]);
+      expect(await resp.json()).to.deep.equal([...entries, version]);
     });
 
     [

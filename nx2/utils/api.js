@@ -529,10 +529,10 @@ export const versions = {
   list: withArgs(async ({ org, site, path }) => {
     const hlx6 = await isHlx6(org, site);
     if (hlx6) {
-      const url = `${AEM_API}/${org}/sites/${site}/source${path}/.versions`;
+      const url = `${AEM_API}/${org}/sites/${site}/source${path}`;
       const [versionResp, auditResp] = await Promise.all([
-        daFetch({ url }),
-        daFetch({ url: `${url}/audit` }),
+        daFetch({ url: `${url}/.versions` }),
+        daFetch({ url: `${url}/.audit` }),
       ]);
       if (!versionResp.ok) return versionResp;
       if (!auditResp.ok) return auditResp;
@@ -858,8 +858,8 @@ function adaptJsonResponse(resp, obj) {
 function hlx6ToDaVersions({ snapshots, entries }) {
   const byId = new Map(snapshots.map((entry) => [entry.version, entry]));
   const history = entries.map((entry) => {
-    const version = entry.snapshot?.type === 'local' ? byId.get(entry.snapshot.id) : undefined;
-    return { ...version, ...entry, timestamp: entry.t };
+    const version = byId.get(entry.snapshot);
+    return { ...version, ...entry };
   });
   const versionIds = new Set(history.map((entry) => entry.version));
   // Snapshots may predate audit logging or have no journal entry after a best-effort write.
