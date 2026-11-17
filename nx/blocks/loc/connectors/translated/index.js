@@ -16,6 +16,7 @@ const TERMINAL_LANG_STATUSES = ['complete', 'cancelled'];
 const MAX_REQUESTS_PER_CALL = 5000;
 const STATUS_PAGE_SIZE = 1000;
 const MAX_CONTENT_ID_LENGTH = 255;
+const MAX_ORDER_ID_LENGTH = 255;
 const MAX_ORDER_GROUP_LENGTH = 255;
 const TOS_APP_ORIGIN = 'https://os.translated.com';
 const DEFAULT_SOURCE_LANGUAGE = 'en-US';
@@ -117,7 +118,7 @@ function apiPost(service, path, body, headers = {}, config = {}) {
 
 /**
  * Hashes a submission payload so a retry can tell whether it is resending the same order.
- * @param {Object[]} orders - The `/translate` payload, without `id_order`.
+ * @param {Object[]} orders - The `/translate` payload.
  * @returns {Promise<string>} The hex SHA-256 digest.
  */
 async function fingerprint(orders) {
@@ -141,24 +142,18 @@ export function orderGroupHref({ orgId, orderGroup }) {
 
 /**
  * Returns the persisted submission to retry when it matches this payload and its idempotency
- * key is still valid, otherwise a new one. Reusing the key and order ID makes Translated replay
- * the original response instead of creating a duplicate order.
+ * key is still valid, otherwise a new one. Reusing the key makes Translated replay the original
+ * response instead of creating a duplicate order.
  * @param {Object} service - The service config.
- * @param {string} title - The project title.
  * @param {string} hash - The payload fingerprint.
- * @returns {{ key: string, orderId: string, fingerprint: string, createdAt: number }}
+ * @returns {{ key: string, fingerprint: string, createdAt: number }}
  */
-function resolveSubmission(service, title, hash) {
+function resolveSubmission(service, hash) {
   const pending = readMap(service, 'pendingSubmission');
-  const reusable = pending.key && pending.orderId && pending.fingerprint === hash
+  const reusable = pending.key && pending.fingerprint === hash
     && Date.now() - pending.createdAt < IDEMPOTENCY_KEY_TTL_MS;
   if (reusable) return pending;
-  return {
-    key: crypto.randomUUID(),
-    orderId: `${title || 'project'}-${Date.now()}`.slice(0, 255),
-    fingerprint: hash,
-    createdAt: Date.now(),
-  };
+  return { key: crypto.randomUUID(), fingerprint: hash, createdAt: Date.now() };
 }
 
 /**
@@ -332,23 +327,24 @@ export const serviceOptions = [
         .map((type) => ({ value: type.name, label: type.name }));
     },
   },
-  { key: 'instructions', label: 'Instructions for linguists', type: 'textarea' },
+  { key: 'instructions', label: 'Instructions text (optional)', type: 'textarea' },
   {
-    key: 'references', label: 'Reference URL', type: 'text', placeholder: 'https://',
+    key: 'references', label: 'Reference URL (optional)', type: 'text', placeholder: 'https://',
   },
   {
-    key: 'screenshot', label: 'Screenshot URL', type: 'text', placeholder: 'https://',
+    key: 'screenshot', label: 'Screenshot URL (optional)', type: 'text', placeholder: 'https://',
   },
-  { key: 'purchaseOrder', label: 'Purchase order', type: 'text' },
-  { key: 'costCenter', label: 'Cost center', type: 'text' },
-  { key: 'orderGroup', label: 'Order group', type: 'text' },
+  { key: 'orderId', label: 'Order ID (optional)', type: 'text' },
+  { key: 'purchaseOrder', label: 'Purchase Order (optional)', type: 'text' },
+  { key: 'costCenter', label: 'Cost Center (optional)', type: 'text' },
+  { key: 'orderGroup', label: 'Order group ID (optional)', type: 'text' },
 ];
 
 const CONTEXT_URL_FIELDS = { references: 'Reference URL', screenshot: 'Screenshot URL' };
 
 const BILLING_FIELDS = [
-  { key: 'purchaseOrder', field: 'purchase_order', label: 'Purchase order' },
-  { key: 'costCenter', field: 'cost_attribution_label', label: 'Cost center' },
+  { key: 'purchaseOrder', field: 'purchase_order', label: 'Purchase Order' },
+  { key: 'costCenter', field: 'cost_attribution_label', label: 'Cost Center' },
 ];
 const MAX_BILLING_LENGTH = 250;
 const MAX_REQUESTED_BY_LENGTH = 256;
@@ -417,8 +413,8 @@ export function buildContext(service) {
  * or fails as a whole. Does not poll for completion.
  * @param {Object} conf
  * @param {string} conf.title - The project title.
- * @param {Object} conf.service - The service config; reads `serviceType`, context and billing
- *  fields.
+ * @param {Object} conf.service - The service config; reads `serviceType`, context, billing and
+ *  order fields.
  * @param {Object} conf.options - The options sheet; `options.service` persists connector state.
  *  `source.language` is optional and defaults to `en-US`.
  * @param {Object[]} conf.langs - Target languages, mutated (`.translation`) on success only.
@@ -454,9 +450,15 @@ export async function sendAllLanguages({
     return;
   }
 
+  const orderId = readValue(service.orderId)?.trim();
+  if (orderId?.length > MAX_ORDER_ID_LENGTH) {
+    sendMessage({ text: `Order ID must be ${MAX_ORDER_ID_LENGTH} characters or fewer.`, type: 'error' });
+    return;
+  }
+
   const orderGroup = readValue(service.orderGroup)?.trim();
   if (orderGroup?.length > MAX_ORDER_GROUP_LENGTH) {
-    sendMessage({ text: `Order group must be ${MAX_ORDER_GROUP_LENGTH} characters or fewer.`, type: 'error' });
+    sendMessage({ text: `Order group ID must be ${MAX_ORDER_GROUP_LENGTH} characters or fewer.`, type: 'error' });
     return;
   }
 
@@ -486,6 +488,7 @@ export async function sendAllLanguages({
     service_type: serviceType,
     ...(context && { context }),
     ...billing,
+    ...(orderId && { id_order: orderId }),
     ...(orderGroup && { id_order_group: orderGroup }),
     ...(requester && { requested_by: requester }),
   }));
@@ -498,7 +501,7 @@ export async function sendAllLanguages({
 
   // Persist the key before sending so a retry after a lost response or a reload
   // replays the same order instead of creating a duplicate.
-  const submission = resolveSubmission(service, title, await fingerprint(payload));
+  const submission = resolveSubmission(service, await fingerprint(payload));
   options.service.pendingSubmission = { value: JSON.stringify(submission) };
   try {
     await saveState({ options }, { waitForSave: true });
@@ -507,29 +510,30 @@ export async function sendAllLanguages({
     return;
   }
 
-  const { orderId } = submission;
-  const orders = payload.map((order) => ({ ...order, id_order: orderId }));
   sendMessage({ text: `Sending ${urls.length} items to Translated.` });
   const { json, error } = await apiPost(
     service,
     '/v2/translate',
-    orders,
+    payload,
     { 'x-idempotency-id': submission.key },
     { isRetryable: isSubmitRetryable },
   );
-  if (error || !Array.isArray(json)) {
+  const sentIds = Array.isArray(json)
+    ? langs.map((lang) => forLang(json, lang.code).map((request) => request.id).filter(Boolean))
+    : [];
+  if (error || !sentIds.length || sentIds.some((ids) => !ids.length)) {
     sendMessage({ text: `Translated submission failed: ${error || 'Unexpected response'}`, type: 'error' });
     return;
   }
 
-  const orderIds = { ...readMap(service, 'orderIds') };
-  langs.forEach((lang) => {
-    orderIds[lang.code] = orderId;
+  const requestIds = { ...readMap(service, 'requestIds') };
+  langs.forEach((lang, i) => {
+    requestIds[lang.code] = sentIds[i];
     lang.translation ??= {};
     lang.translation.status = 'created';
     lang.translation.sent = urls.length;
   });
-  options.service.orderIds = { value: JSON.stringify(orderIds) };
+  options.service.requestIds = { value: JSON.stringify(requestIds) };
   delete options.service.pendingSubmission;
   const href = orderGroupHref({ orgId: readValue(service.orgId), orderGroup });
   if (href) options.service.link = href;
@@ -560,14 +564,13 @@ export async function getStatusAll({
   }
 
   sendMessage({ text: 'Checking Translated status.' });
-  const orderIds = readMap(service, 'orderIds');
-  const projects = [...new Set(active.map((lang) => orderIds[lang.code]).filter(Boolean))];
+  const requestIds = readMap(service, 'requestIds');
+  const ids = [...new Set(active.flatMap((lang) => requestIds[lang.code] || []))];
 
   const failuresByLang = new Map();
-  await Promise.all(projects.map(async (orderId) => {
-    const { requests } = await fetchRequests(service, { id_order: orderId });
-    if (!requests) return;
-    active.filter((lang) => orderIds[lang.code] === orderId).forEach((lang) => {
+  const { requests } = ids.length ? await fetchRequests(service, { id_request: ids }) : {};
+  if (requests) {
+    active.filter((lang) => requestIds[lang.code]?.length).forEach((lang) => {
       const byPath = latestByContent(forLang(requests, lang.code));
       const latest = Object.values(byPath);
       if (!latest.length) return;
@@ -577,7 +580,7 @@ export async function getStatusAll({
       lang.translation.translated = translated;
       if (status === 'error') failuresByLang.set(lang, describeFailures(byPath, urls.length));
     });
-  }));
+  }
 
   const failures = active.flatMap((lang) => (failuresByLang.get(lang) || [])
     .map((reason) => `${lang.name || lang.code} — ${reason}`));
@@ -599,13 +602,11 @@ export async function getStatusAll({
 export async function saveItems({
   org, site, service, lang, urls, saveFn,
 }) {
-  const orderId = readMap(service, 'orderIds')[lang.code];
-  if (!orderId) return urls;
+  const ids = readMap(service, 'requestIds')[lang.code];
+  if (!ids?.length) return urls;
 
-  const accepted = await fetchLanguageCodes(service);
   const { requests, error } = await fetchRequests(service, {
-    id_order: orderId,
-    target_language: canonicalCode(accepted, lang.code),
+    id_request: ids,
     fetch_content: true,
   });
   if (error) {
@@ -654,18 +655,15 @@ export async function saveItems({
  * @returns {Promise<{ok: boolean, skipped?: boolean}>} The outcome.
  */
 export async function cancelTranslation({ service, lang, sendMessage }) {
-  const orderId = readMap(service, 'orderIds')[lang.code];
-  if (!lang.translation || !orderId || TERMINAL_LANG_STATUSES.includes(lang.translation.status)) {
+  const ids = readMap(service, 'requestIds')[lang.code];
+  const terminal = TERMINAL_LANG_STATUSES.includes(lang.translation?.status);
+  if (!lang.translation || !ids?.length || terminal) {
     sendMessage({ text: `Skipping ${lang.name}. Nothing to cancel.` });
     return { ok: true, skipped: true };
   }
 
   sendMessage({ text: `Canceling ${lang.name}.` });
-  const accepted = await fetchLanguageCodes(service);
-  const { requests, error } = await fetchRequests(service, {
-    id_order: orderId,
-    target_language: canonicalCode(accepted, lang.code),
-  });
+  const { requests, error } = await fetchRequests(service, { id_request: ids });
   if (error) {
     sendMessage({ text: `Canceling ${lang.name} failed: ${error}`, type: 'error' });
     return { ok: false };

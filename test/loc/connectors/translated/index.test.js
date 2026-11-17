@@ -27,6 +27,12 @@ const makeUrls = (n) => Array.from({ length: n }, (_, i) => ({
   daBasePath: `/p${i}`, content: `<html>${i}</html>`, ext: 'html',
 }));
 
+const echoRequests = (opts) => json(JSON.parse(opts.body).flatMap((order, i) => (
+  order.target_languages.map((lang, j) => ({
+    id: (i + 1) * 100 + j, id_content: order.id_content, target_language: lang, status: 'analyzing',
+  }))
+)));
+
 const request = (overrides) => ({
   id: 1, id_order: 'o1', id_content: '/p0', target_language: 'fr', status: 'delivered', ...overrides,
 });
@@ -103,6 +109,7 @@ describe('translated connector', () => {
         { key: 'instructions', type: 'textarea' },
         { key: 'references', type: 'text' },
         { key: 'screenshot', type: 'text' },
+        { key: 'orderId', type: 'text' },
         { key: 'purchaseOrder', type: 'text' },
         { key: 'costCenter', type: 'text' },
         { key: 'orderGroup', type: 'text' },
@@ -133,17 +140,17 @@ describe('translated connector', () => {
       langs = [{ code: 'fr-FR', name: 'French' }, { code: 'de-DE', name: 'German' }];
     });
 
-    const submitHandler = (languages = ['en-US', 'fr-FR', 'de-DE']) => (url) => (
+    const submitHandler = (languages = ['en-US', 'fr-FR', 'de-DE']) => (url, opts) => (
       url.endsWith('/v2/symbol/languages')
         ? json(languages.map((key) => ({ key, value: key })))
-        : json([{ id: 1 }])
+        : echoRequests(opts)
     );
 
     const send = (service = baseService(), urls = makeUrls(2)) => sendAllLanguages({
       title: 'Proj', service, options, langs, urls, actions,
     });
 
-    it('submits one order per page for all languages and records the order id', async () => {
+    it('submits one order per page for all languages and records the request ids', async () => {
       installFetch(submitHandler());
       await send();
 
@@ -153,19 +160,44 @@ describe('translated connector', () => {
         id_content: 'Proj:/p0', source_language: 'en-US', service_type: 'test_connectors', content_type: 'text/html',
       });
       expect(call.body[0].target_languages).to.deep.equal(['fr-FR', 'de-DE']);
-      expect(call.body[0].id_order).to.equal(call.body[1].id_order);
+      expect(call.body[0]).to.not.have.property('id_order');
       expect(call.headers['x-idempotency-id']).to.be.a('string');
       expect(call.headers['x-api-key']).to.equal(undefined);
 
-      const orderIds = JSON.parse(options.service.orderIds.value);
-      expect(orderIds['fr-FR']).to.equal(call.body[0].id_order);
-      expect(orderIds['de-DE']).to.equal(call.body[0].id_order);
+      expect(JSON.parse(options.service.requestIds.value)).to.deep.equal({
+        'fr-FR': [100, 200], 'de-DE': [101, 201],
+      });
       expect(langs.map((l) => l.translation)).to.deep.equal([
         { status: 'created', sent: 2 }, { status: 'created', sent: 2 },
       ]);
       expect(saved).to.equal(2);
       expect(options.service.pendingSubmission).to.equal(undefined);
       expect(messages.at(-1)).to.equal(undefined);
+    });
+
+    describe('order id', () => {
+      it('sends the trimmed order id on every order', async () => {
+        installFetch(submitHandler());
+        await send(baseService({ orderId: { value: '  PO-42-batch ' } }));
+
+        const { body } = lastCall('/v2/translate');
+        expect(body.map((order) => order.id_order)).to.deep.equal(['PO-42-batch', 'PO-42-batch']);
+      });
+
+      it('omits id_order when no order id is set', async () => {
+        installFetch(submitHandler());
+        await send(baseService({ orderId: '   ' }));
+
+        expect(lastCall('/v2/translate').body[0]).to.not.have.property('id_order');
+      });
+
+      it('refuses an order id over 255 characters', async () => {
+        installFetch(submitHandler());
+        await send(baseService({ orderId: 'o'.repeat(256) }));
+
+        expect(calls.some((c) => c.url.endsWith('/v2/translate'))).to.equal(false);
+        expect(messages.at(-1)).to.deep.equal({ text: 'Order ID must be 255 characters or fewer.', type: 'error' });
+      });
     });
 
     describe('order group', () => {
@@ -189,7 +221,7 @@ describe('translated connector', () => {
         await send(baseService({ orderGroup: 'g'.repeat(256) }));
 
         expect(calls.some((c) => c.url.endsWith('/v2/translate'))).to.equal(false);
-        expect(messages.at(-1)).to.deep.equal({ text: 'Order group must be 255 characters or fewer.', type: 'error' });
+        expect(messages.at(-1)).to.deep.equal({ text: 'Order group ID must be 255 characters or fewer.', type: 'error' });
       });
 
       it('links to the group in TranslationOS when an org ID is configured', async () => {
@@ -232,7 +264,9 @@ describe('translated connector', () => {
       const call = lastCall('/v2/translate');
       expect(call.body[0].source_language).to.equal('en-US');
       expect(call.body[0].target_languages).to.deep.equal(['fr-CA', 'de-DE']);
-      expect(Object.keys(JSON.parse(options.service.orderIds.value))).to.deep.equal(['fr-ca', 'de-DE']);
+      expect(JSON.parse(options.service.requestIds.value)).to.deep.equal({
+        'fr-ca': [100, 200], 'de-DE': [101, 201],
+      });
       expect(langs[0].translation.status).to.equal('created');
     });
 
@@ -257,7 +291,7 @@ describe('translated connector', () => {
     });
 
     it('still submits when the language lookup fails', async () => {
-      installFetch((url) => (url.endsWith('/v2/symbol/languages') ? json({ message: 'nope' }, 400) : json([{ id: 1 }])));
+      installFetch((url, opts) => (url.endsWith('/v2/symbol/languages') ? json({ message: 'nope' }, 400) : echoRequests(opts)));
       await send();
 
       expect(lastCall('/v2/translate').body).to.have.length(2);
@@ -268,25 +302,37 @@ describe('translated connector', () => {
       await send();
 
       expect(langs.every((l) => l.translation === undefined)).to.equal(true);
-      expect(options.service.orderIds).to.equal(undefined);
+      expect(options.service.requestIds).to.equal(undefined);
       expect(saved).to.equal(1);
       expect(messages.at(-1).type).to.equal('error');
       expect(messages.at(-1).text).to.contain('bad service type');
     });
 
+    it('treats a response missing a language as a failed submission', async () => {
+      installFetch((url, opts) => (url.endsWith('/v2/symbol/languages')
+        ? submitHandler()(url)
+        : json([{ id: 1, id_content: JSON.parse(opts.body)[0].id_content, target_language: 'fr-FR' }])));
+      await send();
+
+      expect(langs.every((l) => l.translation === undefined)).to.equal(true);
+      expect(options.service.requestIds).to.equal(undefined);
+      expect(options.service.pendingSubmission).to.not.equal(undefined);
+      expect(messages.at(-1)).to.deep.equal({ text: 'Translated submission failed: Unexpected response', type: 'error' });
+    });
+
     describe('duplicate submission protection', () => {
       const failThenSucceed = () => {
         let attempts = 0;
-        return (url) => {
+        return (url, opts) => {
           if (url.endsWith('/v2/symbol/languages')) return submitHandler()(url);
           attempts += 1;
-          return attempts === 1 ? json({ error: true, message: 'bad gateway' }, 400) : json([{ id: 1 }]);
+          return attempts === 1 ? json({ error: true, message: 'bad gateway' }, 400) : echoRequests(opts);
         };
       };
       const submits = () => calls.filter((c) => c.url.endsWith('/v2/translate'));
       const pending = () => JSON.parse(options.service.pendingSubmission.value);
 
-      it('persists the idempotency key and order id before sending', async () => {
+      it('persists the idempotency key before sending', async () => {
         installFetch(submitHandler());
         await send();
 
@@ -295,11 +341,10 @@ describe('translated connector', () => {
         const stored = JSON.parse(first.service.pendingSubmission.value);
         const call = lastCall('/v2/translate');
         expect(call.headers['x-idempotency-id']).to.equal(stored.key);
-        expect(call.body[0].id_order).to.equal(stored.orderId);
         expect(saves[1].service.pendingSubmission).to.equal(undefined);
       });
 
-      it('reuses the key and order id when retrying the same submission', async () => {
+      it('reuses the key when retrying the same submission', async () => {
         const service = baseService();
         options.service = service;
         installFetch(failThenSucceed());
@@ -310,7 +355,6 @@ describe('translated connector', () => {
 
         const [first, second] = submits();
         expect(second.headers['x-idempotency-id']).to.equal(first.headers['x-idempotency-id']);
-        expect(second.body[0].id_order).to.equal(first.body[0].id_order);
         expect(second.headers['x-idempotency-id']).to.equal(stored.key);
         expect(options.service.pendingSubmission).to.equal(undefined);
       });
@@ -325,6 +369,20 @@ describe('translated connector', () => {
 
         const [first, second] = submits();
         expect(second.headers['x-idempotency-id']).to.not.equal(first.headers['x-idempotency-id']);
+      });
+
+      it('uses a new key when the order id changed', async () => {
+        const service = baseService({ orderId: 'first' });
+        options.service = service;
+        installFetch(failThenSucceed());
+        await send(service);
+
+        service.orderId = 'second';
+        await send(service);
+
+        const [first, second] = submits();
+        expect(second.headers['x-idempotency-id']).to.not.equal(first.headers['x-idempotency-id']);
+        expect(second.body[0].id_order).to.equal('second');
       });
 
       it('uses a new key when the stored one is close to expiring', async () => {
@@ -344,10 +402,10 @@ describe('translated connector', () => {
 
       it('retries a 425 with the same key', async () => {
         let attempts = 0;
-        installFetch((url) => {
+        installFetch((url, opts) => {
           if (url.endsWith('/v2/symbol/languages')) return submitHandler()(url);
           attempts += 1;
-          return attempts === 1 ? json({ error: true, message: 'too early' }, 425) : json([{ id: 1 }]);
+          return attempts === 1 ? json({ error: true, message: 'too early' }, 425) : echoRequests(opts);
         });
         await send();
 
@@ -471,7 +529,7 @@ describe('translated connector', () => {
       await send(baseService({ costCenter: 'x'.repeat(251) }));
 
       expect(calls.some((c) => c.url.endsWith('/v2/translate'))).to.equal(false);
-      expect(messages.at(-1)).to.deep.equal({ text: 'Cost center must be 250 characters or fewer.', type: 'error' });
+      expect(messages.at(-1)).to.deep.equal({ text: 'Cost Center must be 250 characters or fewer.', type: 'error' });
     });
 
     it('sends the signed-in user as requested_by', async () => {
@@ -494,7 +552,9 @@ describe('translated connector', () => {
   });
 
   describe('getStatusAll', () => {
-    const service = () => baseService({ orderIds: { value: JSON.stringify({ fr: 'o1', de: 'o1' }) } });
+    const service = () => baseService({
+      requestIds: { value: JSON.stringify({ fr: [1, 2], de: [3, 4] }) },
+    });
     let saved;
     let actions;
 
@@ -524,7 +584,8 @@ describe('translated connector', () => {
 
       expect(langs[0].translation).to.deep.include({ status: 'in progress', translated: 1 });
       expect(langs[1].translation).to.deep.include({ status: 'translated', translated: 2 });
-      expect(calls.at(-1).body).to.deep.include({ id_order: 'o1' });
+      expect(calls.filter((c) => c.url.endsWith('/v2/status'))).to.have.length(1);
+      expect(calls.at(-1).body).to.deep.include({ id_request: [1, 2, 3, 4] });
       expect(saved).to.equal(1);
     });
 
@@ -627,6 +688,25 @@ describe('translated connector', () => {
       expect(calls).to.have.length(0);
     });
 
+    it('only queries the request ids of active languages', async () => {
+      const langs = [
+        { code: 'fr', translation: { status: 'created', sent: 2 } },
+        { code: 'de', translation: { status: 'complete' } },
+      ];
+      await run([request({ id_content: '/p0', status: 'delivered' })], langs);
+
+      expect(lastCall('/v2/status').body).to.deep.include({ id_request: [1, 2] });
+    });
+
+    it('skips the status call when no request ids are recorded', async () => {
+      const langs = [{ code: 'it', translation: { status: 'created', sent: 2 } }];
+      await run([], langs);
+
+      expect(calls.some((c) => c.url.endsWith('/v2/status'))).to.equal(false);
+      expect(langs[0].translation.status).to.equal('created');
+      expect(saved).to.equal(1);
+    });
+
     it('leaves status unchanged when the status call fails', async () => {
       const langs = [{ code: 'fr', translation: { status: 'created', sent: 2 } }];
       installFetch(() => json({ message: 'down' }, 400));
@@ -649,7 +729,7 @@ describe('translated connector', () => {
   });
 
   describe('saveItems', () => {
-    const service = () => baseService({ orderIds: { value: JSON.stringify({ fr: 'o1' }) } });
+    const service = () => baseService({ requestIds: { value: JSON.stringify({ fr: [1, 2] }) } });
 
     it('saves delivered content and flags the rest as errors', async () => {
       installFetch(() => json([
@@ -671,27 +751,34 @@ describe('translated connector', () => {
       expect(urls[0].status).to.equal('success');
       expect(urls[1].status).to.equal('error');
       expect(urls[1].error).to.equal('Translation is not ready (status: in progress).');
-      expect(calls.at(-1).body).to.deep.include({ id_order: 'o1', target_language: 'fr', fetch_content: true });
+      expect(calls.at(-1).body).to.deep.include({ id_request: [1, 2], fetch_content: true });
     });
 
-    it('queries /status with Translated casing for a differently cased code', async () => {
-      installFetch((url) => (url.endsWith('/v2/symbol/languages')
-        ? json([{ key: 'fr-CA', value: 'French (Canada)' }])
-        : json([request({
-          id_content: 'Proj:/p0', target_language: 'fr-CA', translated_content: '<main>salut</main>',
-        })])));
+    it('matches a differently cased language code', async () => {
+      installFetch(() => json([request({
+        id_content: 'Proj:/p0', target_language: 'fr-CA', translated_content: '<main>salut</main>',
+      })]));
       const urls = makeUrls(1);
       await saveItems({
         org,
         site,
-        service: baseService({ orderIds: { value: JSON.stringify({ 'fr-ca': 'o1' }) } }),
+        service: baseService({ requestIds: { value: JSON.stringify({ 'fr-ca': [1] }) } }),
         lang: { code: 'fr-ca' },
         urls,
         saveFn: async (url) => { url.status = 'success'; },
       });
 
-      expect(calls.at(-1).body.target_language).to.equal('fr-CA');
       expect(urls[0].status).to.equal('success');
+    });
+
+    it('leaves urls untouched when no request ids are recorded', async () => {
+      const urls = makeUrls(1);
+      await saveItems({
+        org, site, service: service(), lang: { code: 'de' }, urls, saveFn: async () => {},
+      });
+
+      expect(calls).to.have.length(0);
+      expect(urls[0].status).to.equal(undefined);
     });
 
     it('flags urls as errors when the lookup fails', async () => {
@@ -738,7 +825,7 @@ describe('translated connector', () => {
   });
 
   describe('cancelTranslation', () => {
-    const service = () => baseService({ orderIds: { value: JSON.stringify({ fr: 'o1' }) } });
+    const service = () => baseService({ requestIds: { value: JSON.stringify({ fr: [7, 8] }) } });
     const lang = () => ({ code: 'fr', name: 'French', translation: { status: 'created' } });
     let messages;
     const sendMessage = (m) => messages.push(m);
@@ -754,21 +841,19 @@ describe('translated connector', () => {
 
       expect(result).to.deep.equal({ ok: true });
       expect(l.translation.status).to.equal('cancelled');
+      expect(lastCall('/v2/status').body).to.deep.include({ id_request: [7, 8] });
       expect(lastCall('/v2/translate/cancel').body).to.deep.equal({ id: [7, 8] });
     });
 
-    it('queries /status with Translated casing for a differently cased code', async () => {
-      installFetch((u) => {
-        if (u.endsWith('/v2/symbol/languages')) return json([{ key: 'fr-CA', value: 'French (Canada)' }]);
-        return json(u.endsWith('/v2/status') ? [request({ id: 7, target_language: 'fr-CA', status: 'bucketing' })] : {});
-      });
+    it('matches a differently cased language code', async () => {
+      installFetch((u) => json(u.endsWith('/v2/status') ? [request({ id: 7, target_language: 'fr-CA', status: 'bucketing' })] : {}));
       const l = { code: 'fr-ca', name: 'French', translation: { status: 'created' } };
       const result = await cancelTranslation({
-        service: baseService({ orderIds: { value: JSON.stringify({ 'fr-ca': 'o1' }) } }), lang: l, sendMessage,
+        service: baseService({ requestIds: { value: JSON.stringify({ 'fr-ca': [7] }) } }), lang: l, sendMessage,
       });
 
       expect(result).to.deep.equal({ ok: true });
-      expect(calls.find((c) => c.url.endsWith('/v2/status')).body.target_language).to.equal('fr-CA');
+      expect(lastCall('/v2/translate/cancel').body).to.deep.equal({ id: [7] });
     });
 
     it('refuses when translation already started and does not call cancel', async () => {
