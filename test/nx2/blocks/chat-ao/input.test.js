@@ -34,6 +34,23 @@ describe('standalone AO input', () => {
     });
   });
 
+  it('keeps the working-state replacement at 32px with an 18px Stop icon', async () => {
+    chatInput.blocked = true;
+    await chatInput.updateComplete;
+    const stop = chatInput.shadowRoot.querySelector('.chat-stop');
+    const buttonStyle = getComputedStyle(stop);
+    const iconStyle = getComputedStyle(stop.querySelector('svg'));
+    expect(chatInput.shadowRoot.querySelector('.chat-working').textContent).to.include('Working on your question');
+    expect(getComputedStyle(chatInput.shadowRoot.querySelector('.chat-voice')).display).to.equal('none');
+    expect(buttonStyle.display).to.equal('flex');
+    expect(buttonStyle.width).to.equal('32px');
+    expect(buttonStyle.height).to.equal('32px');
+    expect(buttonStyle.borderRadius).to.equal('50%');
+    expect(iconStyle.width).to.equal('18px');
+    expect(iconStyle.height).to.equal('18px');
+    expect(stop.querySelector('use').getAttribute('href')).to.include('s2-icon-stopprocessing-20-n.svg');
+  });
+
   it('switches context events after mount without losing existing pills', async () => {
     const originalEvent = chatInput.addEvent;
     chatInput.addItem({ id: 'existing', label: 'Existing' });

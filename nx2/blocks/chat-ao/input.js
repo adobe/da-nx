@@ -442,7 +442,7 @@ export default class NxAoInput extends LitElement {
             ` : nothing}
             <button
               type="button"
-              class="chat-stop nx-action-btn-icon is-active nx-btn-sm"
+              class="chat-stop nx-action-btn-icon is-active"
               ?hidden=${!this.blocked}
               aria-label="Stop"
               @click=${this._stop}
