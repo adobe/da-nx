@@ -98,28 +98,6 @@ body {
   width: min(100%, 240px);
 }
 
-.demo-start-panel {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 664px;
-  padding: var(--s2-spacing-300);
-  border-radius: var(--s2-corner-radius-800);
-  background: var(--s2-gray-25);
-  box-shadow: var(--s2-drop-shadow-emphasized);
-
-  h2,
-  p {
-    margin: 0;
-    font-size: var(--s2-component-l-regular-font-size);
-    line-height: var(--s2-body-line-height);
-  }
-
-  > p {
-    margin-bottom: var(--s2-spacing-300);
-    color: var(--s2-gray-700);
-  }
-}
-
 /* form.css references icons at a root-relative path that consuming sites are
    expected to serve; this repo doesn't ship them, so point this preview at a
    live consumer (da.live) that does, instead of a broken image. */

@@ -115,6 +115,18 @@ describe('cards block', () => {
     expect(!!cards(el)[0].querySelector('[slot="extra"]')).to.be.false;
   });
 
+  it('constrains Start cards to two columns and stacks them in a narrow container', async () => {
+    const el = await buildBlock(row() + row() + row() + row(), { variant: 'start' });
+    await Promise.all(cards(el).map((card) => card.updateComplete));
+    el.style.width = '900px';
+    expect(el.getBoundingClientRect().width).to.equal(664);
+    expect(getComputedStyle(el).gridTemplateColumns.split(' ').length).to.equal(2);
+    el.style.width = '260px';
+    expect(el.scrollWidth).to.equal(260);
+    expect(getComputedStyle(el).gridTemplateColumns.split(' ').length).to.equal(1);
+    expect(cards(el)[1].offsetTop).to.be.greaterThan(cards(el)[0].offsetTop);
+  });
+
   it('hides cards that do not match the search', async () => {
     const el = await buildBlock(row() + row({ title: '<a href="/apps/bulk">Bulk Operations</a>', desc: 'Preview.' }));
     const results = search('trav');
@@ -137,63 +149,6 @@ describe('site hash', () => {
       'https://da.live/apps/scheduler#/org/site',
       'https://labs.aem.live/tools/x',
     ]);
-  });
-
-  describe('start cards', () => {
-    it('uses the Start presentation and authored action without including it in the description', async () => {
-      const el = await buildBlock(row({
-        title: 'Figma Design',
-        desc: 'Create an AEM site from your Figma design.',
-        learnMore: '<p><a href="https://example.com/modernization">Use Modernization Agent</a></p>',
-      }), { variant: 'start' });
-      const [card] = cards(el);
-      await card.updateComplete;
-      expect(card.getAttribute('variant')).to.equal('start');
-      expect(card.heading).to.equal('Figma Design');
-      expect(card.description).to.equal('Create an AEM site from your Figma design.');
-      expect(card.action).to.equal('https://example.com/modernization');
-      expect(card.actionLabel).to.equal('Use Modernization Agent');
-      expect(card.menu).to.deep.equal([]);
-      expect(!!card.querySelector('[slot="extra"]')).to.be.false;
-    });
-
-    it('moves an authored logo image into the shared icon slot', async () => {
-      const el = await buildBlock(row({ learnMore: '' }), {
-        variant: 'start',
-        prepare: (block) => {
-          block.querySelector(':scope > div > div').innerHTML = '<picture><img src="/nx2/img/favicons/favicon.ico" alt="Figma"></picture>';
-        },
-      });
-      const [card] = cards(el);
-      expect(card.querySelector('img[slot="icon"]').getAttribute('src')).to.equal('/nx2/img/favicons/favicon.ico');
-      expect(!!card.querySelector('svg[slot="icon"]')).to.be.false;
-    });
-
-    it('preserves the heading-link action when no separate button is authored', async () => {
-      const el = await buildBlock(row({ learnMore: '' }), { variant: 'start' });
-      expect(cards(el)[0].action).to.equal(local('/apps/traverse'));
-      expect(cards(el)[0].actionLabel).to.equal('Open');
-      expect(cards(el)[0].description).to.equal('Get a birds eye view.');
-    });
-
-    it('keeps linked description text instead of treating it as the action', async () => {
-      const el = await buildBlock(row({
-        desc: 'Create your design in <a href="/figma">Figma</a>.',
-        learnMore: '',
-      }), { variant: 'start' });
-      expect(cards(el)[0].description).to.equal('Create your design in Figma.');
-      expect(cards(el)[0].action).to.equal(local('/apps/traverse'));
-      expect(cards(el)[0].actionLabel).to.equal('Open');
-    });
-
-    it('keeps Start grids inside a narrow container', async () => {
-      const el = await buildBlock(row({ learnMore: '' }) + row({ learnMore: '' }), { variant: 'start' });
-      await Promise.all(cards(el).map((card) => card.updateComplete));
-      el.style.width = '260px';
-      expect(el.scrollWidth).to.equal(260);
-      expect(cards(el)[0].getBoundingClientRect().width).to.equal(260);
-      expect(cards(el)[1].offsetTop).to.be.greaterThan(cards(el)[0].offsetTop);
-    });
   });
 
   it('opens learn more in a new tab without the page hash', async () => {

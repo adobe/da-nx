@@ -756,59 +756,6 @@ card.menu = [
 card.addEventListener('select', (e) =&gt; console.log(e.detail.id));</code></pre>
       </article>
 
-      <article id="start-cards" class="sg-example">
-        <h3>nx-cards start</h3>
-        <p class="sg-note">Authored logos and action labels, using the shared card's Start presentation.
-          The surrounding panel belongs to the consuming page. Demo links stay on this page.</p>
-        <div class="sg-demo">
-          <section class="demo-start-panel">
-            <h2>Need to create a site?</h2>
-            <p>Choose a starting point to create your AEM site</p>
-            <div id="demo-start-cards" class="nx-cards start">
-              <div>
-                <div><img src="https://da.live/img/adobe-logo.svg" alt=""></div>
-                <div>
-                  <h3>Migrate or Redesign</h3>
-                  <p>Bring your existing website into AEM with Experience Modernization Agent.</p>
-                  <p><a href="#start-cards">Use Modernization Agent</a></p>
-                </div>
-              </div>
-              <div>
-                <div><img src="https://da.live/img/figma-logo.svg" alt=""></div>
-                <div>
-                  <h3>Figma Design</h3>
-                  <p>Create an AEM site from your Figma design with Experience Modernization Agent.</p>
-                  <p><a href="#start-cards">Use Modernization Agent</a></p>
-                </div>
-              </div>
-              <div>
-                <div><img src="https://da.live/img/claude-logo.svg" alt=""></div>
-                <div>
-                  <h3>Claude Design</h3>
-                  <p>Create your design in Claude Design, then send it to AEM.</p>
-                  <p><a href="#start-cards">Explore Claude Design</a></p>
-                </div>
-              </div>
-              <div>
-                <div><img src="https://da.live/img/adobe-logo.svg" alt=""></div>
-                <div>
-                  <h3>AEM Boilerplate</h3>
-                  <p>Create your site from an AEM starter project on GitHub.</p>
-                  <p><a href="#start-cards">View Github Template</a></p>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-        <pre><code>&lt;nx-action-card variant="start" heading="Figma Design"
-  description="Create an AEM site from your Figma design."
-  action="/modernization" action-label="Use Modernization Agent"&gt;
-  &lt;img slot="icon" src="/img/figma-logo.svg" alt=""&gt;
-&lt;/nx-action-card&gt;
-
-card.size = 'm'; // Owner-provided S/M size; defaults to S.</code></pre>
-      </article>
-
       <article class="sg-example">
         <h3>showToast <a href="https://github.com/adobe/da-nx/blob/main/docs/toast.md" target="_blank"
             rel="noopener">docs →</a></h3>
@@ -898,9 +845,6 @@ pills.addEventListener('nx-pill-remove', (e) =&gt; console.log(e.detail.id));</c
       import('/nx2/blocks/shared/card/card.js'),
       import('/nx2/blocks/shared/action-card/action-card.js'),
     ]);
-
-    const { default: initCards } = await import('/nx2/blocks/cards/cards.js');
-    initCards(document.querySelector('#demo-start-cards'));
 
     // nx-action-card
     const actionCard = document.querySelector('#demo-action-card');

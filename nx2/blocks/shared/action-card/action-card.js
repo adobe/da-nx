@@ -43,8 +43,6 @@ class NxActionCard extends LitElement {
     action: { type: String },
     actionLabel: { type: String, attribute: 'action-label' },
     actionTarget: { type: String, attribute: 'action-target' },
-    variant: { type: String, reflect: true },
-    size: { type: String, reflect: true },
     _menuOpen: { state: true },
     _hasIcon: { state: true },
   };
