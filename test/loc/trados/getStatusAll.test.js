@@ -370,6 +370,31 @@ describe('getStatusAll', () => {
     expect(langs[0].translation.translated).to.equal(1);
   });
 
+  it('requests the task fields that status detection depends on', async () => {
+    installFetch(allCompleted.items);
+    const stubFetch = window.fetch;
+    const taskUrls = [];
+    window.fetch = (url, opts) => {
+      const u = decodeURIComponent(url.toString());
+      if (u.includes('/tasks')) taskUrls.push(new URL(u.slice(u.indexOf('https://api.sdl.com'))));
+      return stubFetch(url, opts);
+    };
+
+    const service = {
+      org: uniq('org'), site: uniq('site'), env: 'prod', tenantId: 'tenant-1', apiEndpoint: 'https://api.sdl.com',
+    };
+    const langs = [{ code: 'de-DE', translation: { projectId: 'proj-1', status: 'in progress', translated: 0 } }];
+    const actions = { sendMessage: () => {}, saveState: async () => {} };
+
+    await getStatusAll({ service, langs, urls: [{}], actions });
+
+    expect(taskUrls).to.not.be.empty;
+    taskUrls.forEach((taskUrl) => {
+      const fields = taskUrl.searchParams.get('fields').split(',');
+      expect(fields).to.include.members(['taskType', 'status', 'createdAt', 'input.targetFile', 'input.sourceFile']);
+    });
+  });
+
   it('surfaces an error and does not clear it when the tasks fetch fails', async () => {
     origFetch = window.fetch;
     window.fetch = async (url) => {
