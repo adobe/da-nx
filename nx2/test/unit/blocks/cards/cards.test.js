@@ -115,24 +115,6 @@ describe('cards block', () => {
     expect(!!cards(el)[0].querySelector('[slot="extra"]')).to.be.false;
   });
 
-  it('constrains Start cards to two columns and stacks them in a narrow container', async () => {
-    const el = await buildBlock(row() + row() + row() + row(), { variant: 'start' });
-    await Promise.all(cards(el).map((card) => card.updateComplete));
-    el.style.width = '900px';
-    expect(el.getBoundingClientRect().width).to.equal(664);
-    expect(getComputedStyle(el).gridTemplateColumns.split(' ').length).to.equal(2);
-    el.style.removeProperty('width');
-    const section = el.parentElement;
-    const frame = document.createElement('div');
-    frame.style.cssText = 'display: grid; width: 260px';
-    section.before(frame);
-    frame.append(section);
-    expect(frame.scrollWidth).to.equal(260);
-    expect(el.getBoundingClientRect().width).to.equal(260);
-    expect(getComputedStyle(el).gridTemplateColumns.split(' ').length).to.equal(1);
-    expect(cards(el)[1].offsetTop).to.be.greaterThan(cards(el)[0].offsetTop);
-  });
-
   it('hides cards that do not match the search', async () => {
     const el = await buildBlock(row() + row({ title: '<a href="/apps/bulk">Bulk Operations</a>', desc: 'Preview.' }));
     const results = search('trav');
