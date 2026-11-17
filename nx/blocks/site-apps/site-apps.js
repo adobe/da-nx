@@ -1,7 +1,5 @@
-import {
-  DA_ADMIN, hashChange, loadStyle, withSiteHash,
-} from '../../../nx2/utils/utils.js';
-import { daFetch } from '../../../nx2/utils/api.js';
+import { hashChange, loadStyle, withSiteHash } from '../../../nx2/utils/utils.js';
+import { config } from '../../../nx2/utils/api.js';
 import { getConfig, loc } from '../../../nx2/scripts/nx.js';
 import '../../../nx2/blocks/shared/action-card/action-card.js';
 import { iconSvg } from '../../../nx2/blocks/shared/utils/icons.js';
@@ -87,14 +85,15 @@ export default async function init(el) {
   el.innerHTML = '';
   const [org, repo] = window.location.hash.slice(2).split('/');
   try {
-    const resp = await daFetch({ url: `${DA_ADMIN}/config/${org}/${repo}/` });
+    const resp = await config.get({ org, site: repo });
     const json = await resp.json();
-    if (!json.apps) {
+    const apps = json.apps ?? (json[':sheetname'] === 'apps' ? json : undefined);
+    if (!apps) {
       removeSection(el);
       return;
     }
 
-    renderApps({ el, apps: json.apps.data });
+    renderApps({ el, apps: apps.data });
   } catch {
     removeSection(el);
   }
