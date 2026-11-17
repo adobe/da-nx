@@ -327,17 +327,30 @@ export const serviceOptions = [
         .map((type) => ({ value: type.name, label: type.name }));
     },
   },
-  { key: 'instructions', label: 'Instructions text (optional)', type: 'textarea' },
+  {
+    key: 'instructions',
+    label: 'Instructions text (optional)',
+    type: 'textarea',
+    placeholder: 'Share context, intended audience, private/public use, trigger warnings, attach references',
+  },
   {
     key: 'references', label: 'Reference URL (optional)', type: 'text', placeholder: 'https://',
   },
   {
     key: 'screenshot', label: 'Screenshot URL (optional)', type: 'text', placeholder: 'https://',
   },
-  { key: 'orderId', label: 'Order ID (optional)', type: 'text' },
-  { key: 'orderGroup', label: 'Order group ID (optional)', type: 'text' },
-  { key: 'purchaseOrder', label: 'Purchase Order (optional)', type: 'text' },
-  { key: 'costCenter', label: 'Cost Center (optional)', type: 'text' },
+  {
+    key: 'orderId', label: 'Order ID (optional)', type: 'text', placeholder: 'e.g. My new standard order',
+  },
+  {
+    key: 'orderGroup', label: 'Order group ID (optional)', type: 'text', placeholder: 'e.g. App mobile',
+  },
+  {
+    key: 'purchaseOrder', label: 'Purchase Order (optional)', type: 'text', placeholder: '#123456',
+  },
+  {
+    key: 'costCenter', label: 'Cost Center (optional)', type: 'text', placeholder: 'Department XYZ',
+  },
 ];
 
 const CONTEXT_URL_FIELDS = { references: 'Reference URL', screenshot: 'Screenshot URL' };
