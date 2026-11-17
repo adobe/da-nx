@@ -335,9 +335,9 @@ export const serviceOptions = [
     key: 'screenshot', label: 'Screenshot URL (optional)', type: 'text', placeholder: 'https://',
   },
   { key: 'orderId', label: 'Order ID (optional)', type: 'text' },
+  { key: 'orderGroup', label: 'Order group ID (optional)', type: 'text' },
   { key: 'purchaseOrder', label: 'Purchase Order (optional)', type: 'text' },
   { key: 'costCenter', label: 'Cost Center (optional)', type: 'text' },
-  { key: 'orderGroup', label: 'Order group ID (optional)', type: 'text' },
 ];
 
 const CONTEXT_URL_FIELDS = { references: 'Reference URL', screenshot: 'Screenshot URL' };

@@ -110,9 +110,9 @@ describe('translated connector', () => {
         { key: 'references', type: 'text' },
         { key: 'screenshot', type: 'text' },
         { key: 'orderId', type: 'text' },
+        { key: 'orderGroup', type: 'text' },
         { key: 'purchaseOrder', type: 'text' },
         { key: 'costCenter', type: 'text' },
-        { key: 'orderGroup', type: 'text' },
       ]);
     });
   });
