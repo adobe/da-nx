@@ -298,7 +298,7 @@ async function saveDoc(url, opts, doc) {
   opts.body = body;
 
   const resp = await fetch(url, opts);
-  if (!resp.ok) return { error: 'Error saving to DA.' };
+  if (!resp.ok) return { error: 'Error saving to EW.' };
   return resp.json();
 }
 

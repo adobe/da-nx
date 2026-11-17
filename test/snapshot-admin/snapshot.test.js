@@ -672,10 +672,11 @@ describe('NxSnapshot', () => {
       const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
       expect(accordion).to.not.be.null;
       const links = accordion.querySelectorAll('a');
-      expect(links.length).to.equal(3); // reviews, aem.live, DA edit (no snapshot edit)
+      expect(links.length).to.equal(3); // reviews, aem.live, EW edit (no snapshot edit)
+      expect([...links].map((link) => link.textContent.trim())).to.include('Edit in EW');
     });
 
-    it('Shows Edit Snapshot in DA when snapshot exists', async () => {
+    it('Shows Edit Snapshot in EW when snapshot exists', async () => {
       const el = await createElement({ startOpen: true });
       el._expandedUrl = '/page1';
       el._snapshotExists = { '/page1': true };
@@ -684,6 +685,7 @@ describe('NxSnapshot', () => {
       const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
       const links = accordion.querySelectorAll('a');
       expect(links.length).to.equal(4);
+      expect([...links].map((link) => link.textContent.trim())).to.include('Edit Snapshot in EW');
     });
 
     it('Hides Sync/Promote when hasLaunchPermission is false', async () => {

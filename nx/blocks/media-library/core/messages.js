@@ -6,7 +6,7 @@ const MESSAGES = {
   INDEX_MISSING_PLUGIN: 'No media index for this site yet.',
   INDEX_MISSING_PLUGIN_HINT: 'Open the Media Library app to run discovery. Wait until indexing completes, then open this plugin again from the document.',
   INDEX_MISSING_PLUGIN_OPEN: 'Open Media Library app',
-  LOCK_CREATE_FAILED_PERMISSION: 'You need write access on the DA site to save the latest media data. You can still browse through existing data.',
+  LOCK_CREATE_FAILED_PERMISSION: 'You need write access on the EW site to save the latest media data. You can still browse through existing data.',
   LOCK_CREATE_FAILED_GENERIC: "Couldn't start discovery. Try again.",
   LOCK_REMOVE_FAILED: "Couldn't clear the previous discovery session. Try again.",
   DA_READ_DENIED: 'You can\'t access this site with your current profile. Check you\'re signed in to the right account.',

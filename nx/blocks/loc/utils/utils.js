@@ -445,7 +445,7 @@ async function fetchProject({ path, updates, updateDocTitle = true }) {
   // Set the title of the doc
   if (updateDocTitle) {
     const { title } = PROJECT_CACHE[path];
-    document.title = `${title} - DA Translation`;
+    document.title = `${title} - EW Translation`;
   }
 
   return { project: PROJECT_CACHE[path] };
