@@ -435,7 +435,10 @@ export async function createMultimodalTask({
     imageLocalizationWorkflow = 'Agentic_Translation',
   } = task;
   const [product = '', project = ''] = workflow?.split('/') ?? [];
-  const { callbackConfig, config } = await buildGlaasCreateMetadata({ task, service });
+  const { callbackConfig, config, aiContextConfig } = await buildGlaasCreateMetadata({
+    task,
+    service,
+  });
 
   const body = {
     productName: product,
@@ -452,6 +455,7 @@ export async function createMultimodalTask({
     targetLocales,
     callbackConfig,
     config,
+    ...(aiContextConfig && { aiContextConfig }),
     assets,
   };
 
