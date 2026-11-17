@@ -50,7 +50,6 @@ describe('GLaaS video delivery from Get Status', () => {
     delivered = { status: 'queued' };
     actions = { sendMessage: sinon.stub(), saveState: sinon.stub().resolves() };
     fetchStub = sinon.stub(window, 'fetch').callsFake(async (href) => {
-      if (new URL(href, window.location.href).pathname.endsWith('.css')) return new Response('');
       if (String(href).includes('/assets/')) {
         return new Response(JSON.stringify({ signedURL: 'https://signed.example/srt?secret=value', taskVersion: 7 }));
       }
@@ -61,7 +60,6 @@ describe('GLaaS video delivery from Get Status', () => {
 
   afterEach(() => {
     window.history.replaceState(null, '', originalHref);
-    document.querySelectorAll('nx-toast').forEach((toast) => toast.remove());
     clock.restore();
     window.adobeIMS = originalIms;
     if (originalDebug === null) localStorage.removeItem('glaas.log');
@@ -84,7 +82,7 @@ describe('GLaaS video delivery from Get Status', () => {
     String(args[0]).endsWith('/video-delivery') && !JSON.parse(args[1].body).statusOnly
   ));
 
-  [undefined, 'stage', 'invalid', 'https://example.com'].forEach((value) => {
+  [undefined, 'prod', 'stage', 'invalid', 'https://example.com'].forEach((value) => {
     it(`uses the configured delivery host for mpc=${value}`, async () => {
       const url = new URL(window.location.href);
       url.searchParams.delete('mpc');
@@ -96,7 +94,6 @@ describe('GLaaS video delivery from Get Status', () => {
       submissions().forEach(({ args }) => {
         expect(new URL(args[0]).hostname).to.equal(service.mpc);
       });
-      expect(document.querySelector('nx-toast')).to.equal(null);
     });
   });
 
@@ -142,39 +139,6 @@ describe('GLaaS video delivery from Get Status', () => {
     const result = await check([lang], undefined, { ...service, mpc: undefined });
     expect(result).to.equal(undefined);
     expect(fetchStub.called).to.equal(false);
-  });
-
-  it('routes production retries and polling to UAT with a persistent warning', async () => {
-    const url = new URL(window.location.href);
-    url.searchParams.set('mpc', 'prod');
-    window.history.replaceState(null, '', url);
-    const lang = language();
-    lang.translation.workflowTasks.Task.videoDelivery = { [assetName]: { status: 'error' } };
-    const originalFetch = fetchStub.wrappedMethod;
-    fetchStub.callsFake(async (href, options) => {
-      if (String(href).endsWith('/video-delivery')) {
-        const { statusOnly } = JSON.parse(options.body);
-        return new Response(JSON.stringify({ status: statusOnly ? 'delivered' : 'queued' }));
-      }
-      if (String(href).includes('/assets/')) {
-        return new Response(JSON.stringify({ signedURL: 'https://signed.example/srt', taskVersion: 7 }));
-      }
-      if (new URL(href, window.location.href).pathname.endsWith('.css')) return new Response('');
-      return originalFetch.call(window, href, options);
-    });
-    await check([lang], undefined, { ...service, mpc: undefined });
-    const calls = fetchStub.getCalls().filter(({ args }) => String(args[0]).endsWith('/video-delivery'));
-    expect(calls).to.have.length(4);
-    calls.forEach(({ args }) => {
-      expect(new URL(args[0]).hostname).to.equal('14257-dalocv2-uat.adobeioruntime.net');
-    });
-    expect(JSON.parse(submissions()[0].args[1].body).manualRetry).to.equal(true);
-    expect(calls.filter(({ args }) => JSON.parse(args[1].body).statusOnly)).to.have.length(2);
-    const toast = document.querySelector('nx-toast');
-    expect(toast.message).to.include('MPC production test');
-    expect(toast.duration).to.equal(null);
-    await check([lang]);
-    expect(document.querySelectorAll('nx-toast')).to.have.length(1);
   });
 
   it('queues completed English captions from an SRT reference without a top-level URL', async () => {

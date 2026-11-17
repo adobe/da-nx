@@ -2,8 +2,6 @@ import { getV2Asset, waitForGlaasDelay } from './multimodalApi.js';
 import { SOURCE_CAPTION_LOCALE } from './videoPayload.js';
 import { shouldLogGLaaSRequests } from './api.js';
 
-const PROD_DELIVERY_HREF = 'https://14257-dalocv2-uat.adobeioruntime.net/api/v1/web/daloc/video-delivery';
-const PROD_WARNING = 'MPC production test: caption uploads will modify production videos. Use a dedicated test project and video.';
 // Allow one minute-based scheduler cycle before asking the author to refresh.
 const DELIVERY_WAIT_MS = 75_000;
 const DELIVERY_POLL_MS = 3000;
@@ -121,20 +119,12 @@ export default async function deliverVideos({
 }) {
   const pending = pendingVideos(langs);
   if (!pending.length) return undefined;
-  const production = new URLSearchParams(window.location.search).get('mpc') === 'prod';
-  if (!production && !service.mpc) {
+  if (!service.mpc) {
     throw new Error('Configure translation.service.<environment>.mpc with the AIO hostname before delivering video captions.');
   }
-  const deliveryHref = production
-    ? PROD_DELIVERY_HREF : `https://${service.mpc}/api/v1/web/daloc/video-delivery`;
+  const deliveryHref = `https://${service.mpc}/api/v1/web/daloc/video-delivery`;
   const accessToken = window.adobeIMS?.getAccessToken()?.token;
   if (!accessToken) throw new Error('Sign in to Adobe before delivering video captions.');
-  if (production) {
-    const { showToast } = await import('../../../../../nx2/blocks/shared/toast/toast.js');
-    if (![...document.querySelectorAll('nx-toast')].some((toast) => toast.message === PROD_WARNING)) {
-      showToast({ text: PROD_WARNING, variant: 'warning', timeout: null, maxWidth: '42rem' });
-    }
-  }
   const queued = [];
   const failures = [];
   let awaitingTranslation = false;
