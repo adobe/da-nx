@@ -113,7 +113,7 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card {
-  border: 2px solid #e1e1e1;
+  border: 2px solid var(--s2-gray-200);
   border-radius: 8px;
   background: var(--s2-gray-25, #fff);
   overflow: hidden;
@@ -121,12 +121,12 @@ nx-popover.deploy-popover {
 
 .deploy-card-preview.is-selected {
   border-color: var(--s2-blue-900, #3b63fb);
-  background: #cbe2fe99;
+  background: var(--s2-blue-300);
 }
 
 .deploy-card-live.is-selected {
-  border-color: #12b867;
-  background: #adeec599;
+  border-color: light-dark(var(--s2-green-600), var(--s2-green-1000));
+  background: var(--s2-green-200);
 }
 
 .deploy-card-main {
@@ -140,8 +140,20 @@ nx-popover.deploy-popover {
   cursor: pointer;
 }
 
+.deploy-card-main:hover {
+  background: var(--s2-gray-75);
+}
+
+.deploy-card-preview.is-selected .deploy-card-main:hover {
+  background: var(--s2-blue-400);
+}
+
+.deploy-card-live.is-selected .deploy-card-main:hover {
+  background: var(--s2-green-300);
+}
+
 /* The native radio drives selection + keyboard nav; it is visually hidden
-   because the card's border/tint and the check icon convey the state. */
+   because the card's border and tint convey the state. */
 .deploy-card-radio {
   position: absolute;
   width: 1px;
@@ -177,24 +189,6 @@ nx-popover.deploy-popover {
   color: var(--s2-gray-700, #464646);
 }
 
-.deploy-card-check {
-  display: inline-flex;
-  flex-shrink: 0;
-}
-
-.deploy-card-check .deploy-glyph {
-  width: 24px;
-  height: 24px;
-}
-
-.deploy-card-preview .deploy-card-check {
-  color: var(--s2-blue-900, #3b63fb);
-}
-
-.deploy-card-live .deploy-card-check {
-  color: #12b867;
-}
-
 .deploy-url {
   display: flex;
   align-items: center;
@@ -205,11 +199,11 @@ nx-popover.deploy-popover {
 }
 
 .deploy-card-preview.is-selected .deploy-url {
-  border-top-color: #3b63fb99;
+  border-top-color: var(--s2-blue-900);
 }
 
 .deploy-card-live.is-selected .deploy-url {
-  border-top-color: #12b86799;
+  border-top-color: light-dark(var(--s2-green-600), var(--s2-green-1000));
 }
 
 .deploy-url-text {
@@ -267,10 +261,9 @@ nx-popover.deploy-popover {
 }
 
 .deploy .deploy-action.is-publish {
-  background: #12b867;
+  background: light-dark(var(--s2-green-600), var(--s2-green-1000));
 }
 
 .deploy .deploy-action.is-publish:hover:not(:disabled) {
-  background: #0fa25b;
+  background: light-dark(var(--s2-green-700), var(--s2-green-1100));
 }
-
