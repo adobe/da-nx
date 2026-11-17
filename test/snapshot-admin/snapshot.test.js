@@ -675,7 +675,7 @@ describe('NxSnapshot', () => {
       expect(links.length).to.equal(3); // reviews, aem.live, DA edit (no snapshot edit)
     });
 
-    it('Shows Edit Snapshot in DA when snapshot exists', async () => {
+    it('Shows Edit snapshot content when snapshot exists', async () => {
       const el = await createElement({ startOpen: true });
       el._expandedUrl = '/page1';
       el._snapshotExists = { '/page1': true };
@@ -689,57 +689,70 @@ describe('NxSnapshot', () => {
     it('Hides Sync/Promote when hasLaunchPermission is false', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = false;
-      el._expandedUrl = '/page1';
+      el._launchEnabled = true;
       el._snapshotExists = { '/page1': true };
       el.requestUpdate();
       await el.updateComplete;
-      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
-      const buttons = accordion.querySelectorAll('button');
-      expect(buttons.length).to.equal(0);
+      expect(el.shadowRoot.querySelector('.nx-url-actions')).to.be.null;
     });
 
-    it('Shows Sync Down but not Promote Up when snapshot does not exist', async () => {
+    it('Disables Promote when snapshot does not exist', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = true;
       el._launchEnabled = true;
-      el._expandedUrl = '/page1';
       el._snapshotExists = { '/page1': false };
       el.requestUpdate();
       await el.updateComplete;
-      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
-      const buttons = accordion.querySelectorAll('button');
-      expect(buttons.length).to.equal(1);
+      const buttons = el.shadowRoot.querySelector('.nx-url-actions').querySelectorAll('button');
+      expect(buttons.length).to.equal(2);
       expect(buttons[0].textContent).to.include('Sync');
+      expect(buttons[0].disabled).to.be.false;
+      expect(buttons[1].textContent).to.include('Promote');
+      expect(buttons[1].disabled).to.be.true;
+      expect(buttons[1].dataset.tooltip).to.equal('Sync this page first');
     });
 
-    it('Shows both Sync Down and Promote Up when snapshot exists', async () => {
+    it('Enables Sync and Promote when snapshot exists', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = true;
       el._launchEnabled = true;
-      el._expandedUrl = '/page1';
       el._snapshotExists = { '/page1': true };
       el.requestUpdate();
       await el.updateComplete;
-      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
-      const buttons = accordion.querySelectorAll('button');
-      expect(buttons.length).to.equal(2);
+      const buttons = el.shadowRoot.querySelector('.nx-url-actions').querySelectorAll('button');
+      expect(buttons[0].dataset.tooltip).to.equal('Sync from main content');
+      expect(buttons[1].disabled).to.be.false;
+      expect(buttons[1].dataset.tooltip).to.equal('Promote to main content');
     });
 
     it('Hides Sync/Promote when launchEnabled is false', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = true;
       el._launchEnabled = false;
-      el._expandedUrl = '/page1';
-      el._snapshotExists = { '/page1': true };
       el.requestUpdate();
       await el.updateComplete;
-      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
-      const buttons = accordion.querySelectorAll('button');
-      expect(buttons.length).to.equal(0);
+      expect(el.shadowRoot.querySelector('.nx-url-actions')).to.be.null;
     });
   });
 
   // --- URL row rendering ---
+
+  describe('header meta', () => {
+    it('Shows page count and scheduled badge only for a future schedule', async () => {
+      const el = await createElement();
+      const future = new Date(Date.now() + 86400000).toISOString();
+      el._manifest = { resources: [{ path: '/page1' }], metadata: { scheduledPublish: future } };
+      el.requestUpdate();
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.nx-snapshot-count').textContent).to.equal('1 page');
+      expect(el.shadowRoot.querySelector('.is-scheduled').textContent).to.include('Scheduled');
+
+      el._manifest = { resources: [], metadata: { scheduledPublish: '2000-01-01T00:00:00Z' } };
+      el.requestUpdate();
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('.is-scheduled')).to.be.null;
+    });
+  });
 
   describe('renderUrls - accordion', () => {
     it('Renders URL rows instead of links', async () => {
