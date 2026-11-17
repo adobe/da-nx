@@ -40,12 +40,12 @@
   grid-row: 1 / -1;
   box-sizing: border-box;
   display: flex;
+  flex-direction: column;
   padding: var(--s2-spacing-500) 0 var(--s2-spacing-500) var(--s2-spacing-600);
   background: var(--s2-gray-50);
   overflow: hidden;
 }
 
-/* Not independently scrollable — its gray background just stretches to match .wn-cards-panel's height. */
 .wn-toc-scroll {
   box-sizing: border-box;
   flex: 1;
@@ -53,7 +53,7 @@
   display: flex;
   flex-direction: column;
   padding-right: 20px;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .wn-toc-title {
@@ -114,6 +114,27 @@
   width: 2px;
   background: var(--s2-gray-800);
   transition: transform 0.2s ease, height 0.2s ease;
+}
+
+.wn-toc-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2-spacing-200);
+  padding: var(--s2-spacing-300) 20px 0 16px;
+}
+
+.wn-toc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2-spacing-75);
+  color: var(--s2-blue-900);
+  font-size: var(--s2-component-l-regular-font-size);
+  line-height: var(--s2-component-l-regular-line-height);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
 }
 
 .wn-cards-panel {
@@ -219,7 +240,8 @@
     margin: 0;
   }
 
-  .wn-toc-list {
+  .wn-toc-list,
+  .wn-toc-footer {
     display: none;
   }
 

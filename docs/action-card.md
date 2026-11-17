@@ -12,7 +12,7 @@ import '/nx2/blocks/shared/action-card/action-card.js';
 const card = document.createElement('nx-action-card');
 card.heading = 'Traverse';
 card.description = 'Get a birds eye view of the content by traversing a content tree.';
-card.icon = '/img/icons/s2-icon-treeview-20-n.svg';
+card.innerHTML = '<svg slot="icon" viewBox="0 0 20 20"><use href="/img/icons/s2-icon-treeview-20-n.svg#icon"></use></svg>';
 card.tint = '#E5F0FE';
 card.action = '/apps/traverse';
 card.actionLabel = 'Open';
@@ -29,7 +29,8 @@ grid.append(card);
 
 ```html
 <nx-action-card heading="Bulk Helper" description="Bulk things."
-  icon="/media/bulk.svg" action="/tools/bulk" action-label="Open" action-target="_blank">
+  action="/tools/bulk" action-label="Open" action-target="_blank">
+  <img slot="icon" src="/media/bulk.jpeg" alt="">
   <span slot="extra">By Admin</span>
 </nx-action-card>
 ```
@@ -44,7 +45,6 @@ Place cards in your own grid, e.g. `grid-template-columns: repeat(auto-fill, min
 | ------------- | -------------- | -------- | ----------- |
 | `heading`     | `heading`      | `String` | Card title. |
 | `description` | `description`  | `String` | Body text. Optional. |
-| `icon`        | `icon`         | `String` | URL of an SVG icon. The SVG needs an element with `id="icon"` (rendered as `<use href="{icon}#icon">`) on the same origin as the page. Optional. |
 | `tint`        | `tint`         | `String` | Tile background color, any CSS color. Invalid colors are ignored. |
 | `menu`        | —              | `Array`  | Entries for the "…" menu, same shape as [`nx-menu`](menu.md) `items` (`{ id, label, icon?, description? }`, `{ section }`, `{ divider: true }`). Empty or unset → no "…" button. |
 | `action`      | `action`       | `String` | URL of the action button. Unset → no button. The button is the shared `.nx-btn-primary` (`nx2/styles/buttons.css`), outlined by the card's own CSS. |
@@ -55,6 +55,7 @@ Place cards in your own grid, e.g. `grid-template-columns: repeat(auto-fill, min
 
 | Slot    | Description |
 | ------- | ----------- |
+| `icon`  | The tile content: any element, typically an `<svg>` (e.g. `<svg><use href="/img/icons/s2-icon-treeview-20-n.svg#icon"></use></svg>`, colored with the tile's `currentcolor`) or an `<img>` (any format, shown with `object-fit: cover`). Optional. |
 | `extra` | Content on the left of the footer, e.g. a byline ("By Adobe" with a logo, "By Admin"). The card sets the base text style (14px, gray); the consumer styles anything else. |
 
 ### Events
@@ -67,8 +68,8 @@ Place cards in your own grid, e.g. `grid-template-columns: repeat(auto-fill, min
 
 | Setup           | Result |
 | --------------- | ------ |
-| `icon` + `tint` | 20px icon on the tinted 40px tile. |
-| `icon` only     | Icon fills the whole 40px tile (e.g. a full-color logo). |
+| icon + `tint`   | 20px icon on the tinted 40px tile. |
+| icon only       | Icon fills the whole 40px tile (e.g. a full-color logo or an image). |
 | `tint` only     | Tinted 40px tile without an icon. |
 | nothing         | No tile is rendered. Without a tile and a menu, the card starts with the heading. |
 

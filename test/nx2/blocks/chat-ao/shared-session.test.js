@@ -28,7 +28,8 @@ describe('standalone input and full AO chat sharing', () => {
   let org;
 
   const patch = (object, name, value) => {
-    originals.push(() => { object[name] = value; });
+    const original = object[name];
+    originals.push(() => { object[name] = original; });
     object[name] = value;
   };
   const flush = async () => {
@@ -176,6 +177,221 @@ describe('standalone input and full AO chat sharing', () => {
   });
 
   ['coworker', 'cma'].forEach((harness) => {
+    [false, true].forEach((standalone) => {
+      const view = standalone ? 'compact' : 'full';
+      const holdStartup = () => {
+        const pending = deferred();
+        patch(BaseChatController.prototype, 'loadSkills', () => pending.promise);
+        return pending;
+      };
+      const userFrames = () => sockets.flatMap((socket) => socket.frames)
+        .filter((frame) => frame.type === AO_FRAME.USER_INPUT);
+
+      it(`${harness} ${view}: sends a startup prompt once after its session is ready`, async () => {
+        const pending = holdStartup();
+        history = [{ id: 'existing', updated_at: new Date().toISOString() }];
+        const chat = await mount({ harness, standalone });
+        const accepted = await chat.setPrompt('Automatic startup prompt', { autoSend: true });
+        expect(accepted).to.equal(true);
+        await flush();
+        expect(userFrames()).to.have.length(0);
+        pending.resolve();
+        await ready(chat);
+        await flush();
+        expect(userFrames()).to.have.length(1);
+        expect(userFrames()[0].text).to.equal('Automatic startup prompt');
+        const { controller } = chat._session;
+        expect(controller._messages.at(-1).content).to.equal('Automatic startup prompt');
+        if (harness === 'coworker') {
+          expect(controller._episodeId).to.equal('existing');
+          expect(controller._messages[0].content).to.equal('Resumed conversation');
+        }
+        expect(input(chat).value).to.equal('');
+      });
+
+      it(`${harness} ${view}: keeps manual prefill immediate without sending on readiness`, async () => {
+        const pending = holdStartup();
+        const chat = await mount({ harness, standalone });
+        await chat.setPrompt('Manual startup prompt');
+        expect(input(chat).value).to.equal('Manual startup prompt');
+        expect(userFrames()).to.have.length(0);
+        pending.resolve();
+        await ready(chat);
+        expect(userFrames()).to.have.length(0);
+        submit(chat, 'Manual startup prompt');
+        await flush();
+        expect(userFrames()).to.have.length(1);
+      });
+
+      it(`${harness} ${view}: only sends the latest prompt received during startup`, async () => {
+        const pending = holdStartup();
+        const chat = await mount({ harness, standalone });
+        const first = chat.setPrompt('First prompt', { autoSend: true });
+        await flush();
+        const second = chat.setPrompt('Second prompt', { autoSend: true });
+        await flush();
+        pending.resolve();
+        await ready(chat);
+        await Promise.all([first, second]);
+        await flush();
+        expect(userFrames()).to.have.length(1);
+        expect(userFrames()[0].text).to.equal('Second prompt');
+      });
+
+      it(`${harness} ${view}: submits the edited draft after startup instead of the original prompt`, async () => {
+        const pending = holdStartup();
+        const chat = await mount({ harness, standalone });
+        const prompt = chat.setPrompt('Original prompt', { autoSend: true });
+        await flush();
+        input(chat).value = 'Author edit';
+        input(chat).dispatchEvent(new Event('input'));
+        pending.resolve();
+        await ready(chat);
+        await prompt;
+        await flush();
+        expect(userFrames()).to.have.length(1);
+        expect(userFrames()[0].text).to.equal('Author edit');
+        expect(input(chat).value).to.equal('');
+      });
+
+      it(`${harness} ${view}: rejects a busy prompt without scheduling the existing draft`, async () => {
+        const chat = await mount({ harness, standalone });
+        await ready(chat);
+        submit(chat, 'Active turn');
+        await flush();
+        input(chat).value = 'Keep this draft';
+        expect(await chat.setPrompt('Do not queue', { autoSend: true })).to.equal(false);
+        expect(input(chat).value).to.equal('Keep this draft');
+        const toast = [...document.querySelectorAll('nx-toast')].at(-1);
+        expect(toast?.message).to.equal('Wait for the current response to finish');
+        expect(toast?.variant).to.equal('warning');
+        toast?.remove();
+        stop(chat);
+        await flush();
+        expect(userFrames()).to.have.length(1);
+        expect(input(chat).value).to.equal('Keep this draft');
+      });
+
+      it(`${harness} ${view}: cancels a pending auto-send when a manual prompt replaces it`, async () => {
+        const pending = holdStartup();
+        const chat = await mount({ harness, standalone });
+        const prompt = chat.setPrompt('Automatic prompt', { autoSend: true });
+        await flush();
+        await chat.setPrompt('Review this manually');
+        pending.resolve();
+        await ready(chat);
+        await prompt;
+        await flush();
+        expect(userFrames()).to.have.length(0);
+        expect(input(chat).value).to.equal('Review this manually');
+      });
+
+      it(`${harness} ${view}: cancels the startup prompt on removal even if a sibling keeps the session`, async () => {
+        const pending = holdStartup();
+        const [compact, full] = await pair(harness);
+        const chat = standalone ? compact : full;
+        const sibling = standalone ? full : compact;
+        const prompt = chat.setPrompt('Detached prompt', { autoSend: true });
+        await flush();
+        chat.remove();
+        pending.resolve();
+        await ready(sibling);
+        await prompt;
+        await flush();
+        expect(userFrames()).to.have.length(0);
+      });
+
+      it(`${harness} ${view}: does not send the old prompt into a changed site`, async () => {
+        const pending = holdStartup();
+        const chat = await mount({ harness, standalone });
+        const prompt = chat.setPrompt('Old site prompt', { autoSend: true });
+        await flush();
+        chat.context = { org, site: 'other-site', path: '/other' };
+        chat.harnessConfig = {
+          key: `${org}/other-site`, harness,
+        };
+        await flush();
+        pending.resolve();
+        await ready(chat);
+        await prompt;
+        await flush();
+        expect(userFrames()).to.have.length(0);
+      });
+
+      it(`${harness} ${view}: does not submit after session initialization fails`, async () => {
+        const pending = deferred();
+        patch(BaseChatController.prototype, 'loadSkills', async () => {
+          await pending.promise;
+          throw new Error('Startup unavailable');
+        });
+        const chat = await mount({ harness, standalone });
+        const prompt = chat.setPrompt('Do not send', { autoSend: true });
+        await flush();
+        let failure;
+        const unsubscribe = chat._session.subscribe({}, {
+          onUpdate: (state) => { failure = state.messages; },
+        });
+        try {
+          pending.resolve();
+          await ready(chat);
+          await prompt;
+          await flush();
+          expect(userFrames()).to.have.length(0);
+          expect(failure.at(-1).content).to.equal('Error: Startup unavailable');
+        } finally {
+          unsubscribe();
+        }
+      });
+    });
+
+    it(`${harness}: queues a document prompt until harness configuration creates the session`, async () => {
+      patch(customElements.get('nx-chat-ao').prototype, '_loadConfig', async () => {});
+      const full = await mount({ harness, resolveHarness: true });
+      expect(full._session).to.equal(undefined);
+      document.dispatchEvent(new CustomEvent(CHAT_EVENT.SET_PROMPT, {
+        detail: { target: full, text: 'Prompt before flags', autoSend: true },
+      }));
+      await flush();
+      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+      full.harnessConfig = { key: `${org}/site`, harness };
+      await ready(full);
+      await flush();
+      expect(full._controller).to.be.instanceOf(harness === 'cma'
+        ? CmaChatController : CoworkerChatController);
+      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+      expect(full._controller._messages.at(-1).content).to.equal('Prompt before flags');
+    });
+
+    it(`${harness}: cancels a prompt when the site changes during composer delegation`, async () => {
+      const full = await mount({ harness });
+      await ready(full);
+      const delegate = full._input.setPrompt.bind(full._input);
+      patch(full._input, 'setPrompt', (...args) => {
+        const sending = delegate(...args);
+        full.context = { org, site: 'other-site', path: '/other' };
+        full.harnessConfig = { key: `${org}/other-site`, harness };
+        return sending;
+      });
+      await full.setPrompt('Old site prompt', { autoSend: true });
+      await ready(full);
+      await flush();
+      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(0);
+    });
+
+    it(`${harness}: submits the edited draft when harness configuration becomes ready`, async () => {
+      patch(customElements.get('nx-chat-ao').prototype, '_loadConfig', async () => {});
+      const full = await mount({ harness, resolveHarness: true });
+      await full.setPrompt('Automatic prompt', { autoSend: true });
+      input(full).value = 'Author draft';
+      input(full).dispatchEvent(new Event('input'));
+      full.harnessConfig = { key: `${org}/site`, harness };
+      await ready(full);
+      await flush();
+      expect(frameCount(AO_FRAME.USER_INPUT)).to.equal(1);
+      expect(full._controller._messages.at(-1).content).to.equal('Author draft');
+      expect(input(full).value).to.equal('');
+    });
+
     it(`${harness}: pairs compact/full views without merging separate conversations`, async () => {
       history = [{ id: 'existing', updated_at: new Date().toISOString() }];
       const first = await mount({ harness });
