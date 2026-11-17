@@ -447,7 +447,7 @@ export default class NxAoInput extends LitElement {
               aria-label="Stop"
               @click=${this._stop}
             > ${icon(working ? 'stopProcessing' : 'stop')}</button>
-            <button type="submit" class="chat-send harness-${this.harness} nx-action-btn-icon is-active nx-btn-sm" ?hidden=${this.blocked} aria-label="Send">
+            <button type="submit" class="chat-send harness-${this.harness} nx-action-btn-icon is-active" ?hidden=${this.blocked} aria-label="Send">
               ${icon('send')}
             </button>
           </div>

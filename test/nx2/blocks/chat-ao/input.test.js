@@ -34,7 +34,18 @@ describe('standalone AO input', () => {
     });
   });
 
-  it('keeps the working-state replacement at 32px with an 18px Stop icon', async () => {
+  it('keeps Send and Stop at 32px with 18px icons across the working state', async () => {
+    await chatInput.setPrompt('A question');
+    const send = chatInput.shadowRoot.querySelector('.chat-send');
+    const sendStyle = getComputedStyle(send);
+    const arrowStyle = getComputedStyle(send.querySelector('svg'));
+    expect(sendStyle.display).to.equal('flex');
+    expect(sendStyle.width).to.equal('32px');
+    expect(sendStyle.height).to.equal('32px');
+    expect(sendStyle.borderRadius).to.equal('50%');
+    expect(arrowStyle.width).to.equal('18px');
+    expect(arrowStyle.height).to.equal('18px');
+    expect(send.querySelector('use').getAttribute('href')).to.include('s2-icon-arrowupsend-20-n.svg');
     chatInput.blocked = true;
     await chatInput.updateComplete;
     const stop = chatInput.shadowRoot.querySelector('.chat-stop');
