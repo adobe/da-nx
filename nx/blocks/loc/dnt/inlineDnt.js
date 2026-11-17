@@ -13,32 +13,19 @@ export function parseInlineRule({ pattern, action }) {
 
 function findRanges(text, { open, close }) {
   const ranges = [];
-  let start = -1;
-  let depth = 0;
+  const starts = [];
   let cursor = 0;
 
   while (cursor < text.length) {
     if (text[cursor] === '\n' || text[cursor] === '\r') {
-      start = -1;
-      depth = 0;
+      starts.length = 0;
       cursor += 1;
-    } else if (start === -1) {
-      if (text.startsWith(open, cursor)) {
-        start = cursor;
-        depth = 1;
-        cursor += open.length;
-      } else {
-        cursor += 1;
-      }
-    } else if (text.startsWith(close, cursor)) {
-      depth -= 1;
+    } else if (starts.length && text.startsWith(close, cursor)) {
+      const start = starts.pop();
       cursor += close.length;
-      if (depth === 0) {
-        ranges.push({ start, end: cursor });
-        start = -1;
-      }
-    } else if (open !== close && text.startsWith(open, cursor)) {
-      depth += 1;
+      ranges.push({ start, end: cursor });
+    } else if (text.startsWith(open, cursor)) {
+      starts.push(cursor);
       cursor += open.length;
     } else {
       cursor += 1;

@@ -55,6 +55,52 @@ const tokens = (doc) => [...doc.querySelectorAll('.dnt-text')]
       expect(tokens(doc)).to.deep.equal(['{valid}']);
     });
 
+    it('protects complete tokens inside unmatched openers while keeping balanced outer tokens intact', async () => {
+      const cases = [
+        ['Use { to start a token; {count} items remain', 'between({, })', ['{count}']],
+        ['{{count}}', 'between({, })', ['{{count}}']],
+        ['{{count}}', 'between({{, }})', ['{{count}}']],
+        ['Use { here; {count} of {total} remain', 'between({, })', ['{count}', '{total}']],
+        ['{broken {count}\n{total}', 'between({, })', ['{count}', '{total}']],
+      ];
+      for (const [value, pattern, expected] of cases) {
+        const json = sheet([value]);
+        const html = await add(json, [rule(pattern)]);
+        const doc = parse(html);
+        expect(tokens(doc)).to.deep.equal(expected);
+        expect(doc.querySelector('.dnt-text .dnt-text')).to.equal(null);
+        expect(JSON.parse(await remove(html))).to.deep.equal(json);
+      }
+    });
+
+    it('ignores malformed inline rules for HTML but still rejects them for JSON using cached configuration', async () => {
+      const invalidConfig = config([rule('between({)')]);
+      const input = '<p>Plain page</p>';
+      const html = await connector.addDnt(input, invalidConfig, { fileType: 'html', reset: true });
+      expect(parse(html).querySelector('p').textContent).to.equal('Plain page');
+      try {
+        await connector.addDnt(JSON.stringify(sheet(['Hello {name}'])), invalidConfig, { fileType: 'json' });
+        expect.fail('Expected invalid inline configuration to reject JSON preparation');
+      } catch (error) {
+        expect(error.message).to.include('Invalid dnt-inline rule');
+      }
+      const nextHtml = await connector.addDnt(input, invalidConfig, { fileType: 'html' });
+      expect(parse(nextHtml).querySelector('p').textContent).to.equal('Plain page');
+    });
+
+    it('preserves cached inline rules across HTML and repeated JSON preparation', async () => {
+      const inlineConfig = config([rule('between({, })')]);
+      const input = '<p>Hello {name}</p>';
+      const html = await connector.addDnt(input, inlineConfig, { fileType: 'html', reset: true });
+      expect(tokens(parse(html))).to.deep.equal([]);
+      for (let index = 0; index < 2; index += 1) {
+        const jsonHtml = await connector.addDnt(JSON.stringify(sheet(['Hello {name}'])), inlineConfig, { fileType: 'json' });
+        expect(tokens(parse(jsonHtml))).to.deep.equal(['{name}']);
+      }
+      const nextHtml = await connector.addDnt(input, inlineConfig, { fileType: 'html' });
+      expect(tokens(parse(nextHtml))).to.deep.equal([]);
+    });
+
     it('preserves literal delimiter case, parentheses, and HTML-sensitive token text', async () => {
       const value = 'Hello BEGIN(Name)END {a<&"b} begin(other)end';
       const json = sheet([value]);
