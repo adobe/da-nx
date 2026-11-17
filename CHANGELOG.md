@@ -1,3 +1,86 @@
+# [1.53.0](https://github.com/adobe/da-nx/compare/v1.52.10...v1.53.0) (2026-11-16)
+
+
+### Features
+
+* **glaas:** add campaign brief metadata hand-off ([#1017](https://github.com/adobe/da-nx/issues/1017)) ([1876044](https://github.com/adobe/da-nx/commit/187604494945b99d37334bca254e8955d9c70867))
+
+## [1.52.10](https://github.com/adobe/da-nx/compare/v1.52.9...v1.52.10) (2026-11-16)
+
+
+### Bug Fixes
+
+* **whatsnew:** add release notes link to dialog ([#1009](https://github.com/adobe/da-nx/issues/1009)) ([ce99f0c](https://github.com/adobe/da-nx/commit/ce99f0c74eb3a8cca6f4b951b14348d161b69718))
+
+## [1.52.9](https://github.com/adobe/da-nx/compare/v1.52.8...v1.52.9) (2026-11-16)
+
+
+### Bug Fixes
+
+* skip legacy org config for hlx6 sites ([#990](https://github.com/adobe/da-nx/issues/990)) ([f791116](https://github.com/adobe/da-nx/commit/f791116aae545d12578679f351e5cd7e9dadedd8)), closes [adobe/da-live#1446](https://github.com/adobe/da-live/issues/1446)
+
+## [1.52.8](https://github.com/adobe/da-nx/compare/v1.52.7...v1.52.8) (2026-11-16)
+
+
+### Bug Fixes
+
+* **shell:** render untrusted app details as text ([e69b9a4](https://github.com/adobe/da-nx/commit/e69b9a465ed03182996deec938182c9aaa017d89))
+
+## [1.52.7](https://github.com/adobe/da-nx/compare/v1.52.6...v1.52.7) (2026-11-16)
+
+
+### Bug Fixes
+
+* siteselector add redicts to start directly ([#982](https://github.com/adobe/da-nx/issues/982)) ([f5cce16](https://github.com/adobe/da-nx/commit/f5cce169b3bc97be961628918ed93e19fe2ff1cf))
+
+## [1.52.6](https://github.com/adobe/da-nx/compare/v1.52.5...v1.52.6) (2026-11-16)
+
+
+### Bug Fixes
+
+* **quick-edit:** keep a toolbar-queued mark when focus returns to the editor ([eabb189](https://github.com/adobe/da-nx/commit/eabb189ab8c9583375ca04f9d02b08f652a0f30d))
+* **quick-edit:** relay the toolbar shortcut and restore editor focus ([02cbeca](https://github.com/adobe/da-nx/commit/02cbecac644b23b10db183242d670446897ca618))
+
+## [1.52.5](https://github.com/adobe/da-nx/compare/v1.52.4...v1.52.5) (2026-11-13)
+
+
+### Bug Fixes
+
+* **segmented-btn:** keep focus outline above neighbouring segments ([271ff37](https://github.com/adobe/da-nx/commit/271ff37882c92bb478051e9cc909d2f897a9396f))
+* **segmented-btn:** show visible keyboard focus ([d11e7e4](https://github.com/adobe/da-nx/commit/d11e7e4ff77bd25ac8e52dad073a4c6099002dd4))
+
+## [1.52.4](https://github.com/adobe/da-nx/compare/v1.52.3...v1.52.4) (2026-11-13)
+
+
+### Bug Fixes
+
+* **deps:** update adobe fixes ([#999](https://github.com/adobe/da-nx/issues/999)) ([7209414](https://github.com/adobe/da-nx/commit/72094144c7353a396fcb8e29a3c7a1b70f7c95ce))
+
+## [1.52.3](https://github.com/adobe/da-nx/compare/v1.52.2...v1.52.3) (2026-11-13)
+
+
+### Bug Fixes
+
+* **snapshot-admin:** make launch section and actions keyboard accessible ([7abed52](https://github.com/adobe/da-nx/commit/7abed523a0843c6cb287cb8a1e13da1b5f1d1b0d)), closes [adobe/da-live#1539](https://github.com/adobe/da-live/issues/1539)
+
+## [1.52.2](https://github.com/adobe/da-nx/compare/v1.52.1...v1.52.2) (2026-11-12)
+
+
+### Bug Fixes
+
+* **rollout:** name include/exclude toggles and expose state ([73138fa](https://github.com/adobe/da-nx/commit/73138fa692f2d8f8ec26ce459307b9ad6befb381))
+
+## [1.52.1](https://github.com/adobe/da-nx/compare/v1.52.0...v1.52.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **chat-ao:** wait for session readiness before auto-send ([fddddbc](https://github.com/adobe/da-nx/commit/fddddbc1014d06a7b136af9a7c78603180172dab))
+* **chat:** restore history before accepting prompts ([4e0a529](https://github.com/adobe/da-nx/commit/4e0a52979f737fa7b474f21e86880857541e694f))
+* **media-library:** make grid cards keyboard accessible ([ff70eac](https://github.com/adobe/da-nx/commit/ff70eac24f4662905bdf218af96effce4c2ee08f))
+* **media-library:** make onboard site cards keyboard accessible ([ea7b246](https://github.com/adobe/da-nx/commit/ea7b2461672735fd287efb835872ad555b0ed9ef))
+* **media-library:** mirror site card hover on keyboard focus ([6797fb0](https://github.com/adobe/da-nx/commit/6797fb05595036d6d49f487afd9d173c54037c59))
+
 # [1.52.0](https://github.com/adobe/da-nx/compare/v1.51.2...v1.52.0) (2026-11-11)
 
 
