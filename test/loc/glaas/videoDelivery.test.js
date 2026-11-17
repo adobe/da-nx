@@ -7,7 +7,9 @@ import '../../../nx/blocks/loc/views/translate/translate.js';
 
 const videoId = '08aeb35d-e0f0-4b07-9f7b-b64e1fd28983';
 const assetName = `/page/${videoId}.mp4`;
-const service = { origin: 'https://glaas.example', clientid: 'client' };
+const service = {
+  origin: 'https://glaas.example', clientid: 'client', mpc: 'mpc-stage.example',
+};
 const language = (code = 'fr') => ({
   code,
   translation: {
@@ -68,10 +70,10 @@ describe('GLaaS video delivery from Get Status', () => {
     resetV2AssetCacheForTests();
   });
 
-  const check = async (langs, signal) => {
+  const check = async (langs, signal, selectedService = service) => {
     let settled = false;
     const result = getStatusAll({
-      service, langs, actions, signal, urls: [],
+      service: selectedService, langs, actions, signal, urls: [],
     }).then((value) => ({ value }), (error) => ({ error })).finally(() => { settled = true; });
     while (!settled) await clock.tickAsync(1000);
     const outcome = await result;
@@ -83,7 +85,7 @@ describe('GLaaS video delivery from Get Status', () => {
   ));
 
   [undefined, 'stage', 'invalid', 'https://example.com'].forEach((value) => {
-    it(`keeps stage delivery for mpc=${value}`, async () => {
+    it(`uses the configured delivery host for mpc=${value}`, async () => {
       const url = new URL(window.location.href);
       url.searchParams.delete('mpc');
       if (value !== undefined) url.searchParams.set('mpc', value);
@@ -92,10 +94,54 @@ describe('GLaaS video delivery from Get Status', () => {
       await check([language()]);
       expect(submissions()).to.have.length(2);
       submissions().forEach(({ args }) => {
-        expect(new URL(args[0]).hostname).to.equal('14257-dalocv2-stage.adobeioruntime.net');
+        expect(new URL(args[0]).hostname).to.equal(service.mpc);
       });
       expect(document.querySelector('nx-toast')).to.equal(null);
     });
+  });
+
+  it('uses the separate MPC host for retries and polling without changing GLaaS or preview', async () => {
+    const selectedService = {
+      ...service, mpc: 'mpc-prod.example', preview: 'preview-prod.example',
+    };
+    const lang = language();
+    lang.translation.workflowTasks.Task.videoDelivery = { [assetName]: { status: 'error' } };
+    fetchStub.callsFake(async (href, options) => {
+      if (String(href).endsWith('/video-delivery')) {
+        const { statusOnly } = JSON.parse(options.body);
+        return new Response(JSON.stringify({ status: statusOnly ? 'delivered' : 'queued' }));
+      }
+      expect(String(href)).to.include(`${service.origin}/`);
+      return new Response(JSON.stringify({ signedURL: 'https://signed.example/srt' }));
+    });
+    await check([lang], undefined, selectedService);
+    const calls = fetchStub.getCalls().filter(({ args }) => String(args[0]).endsWith('/video-delivery'));
+    expect(calls).to.have.length(4);
+    calls.forEach(({ args }) => {
+      expect(args[0]).to.equal('https://mpc-prod.example/api/v1/web/daloc/video-delivery');
+    });
+    expect(JSON.parse(submissions()[0].args[1].body).manualRetry).to.equal(true);
+    expect(calls.filter(({ args }) => JSON.parse(args[1].body).statusOnly)).to.have.length(2);
+    expect(selectedService.preview).to.equal('preview-prod.example');
+  });
+
+  it('reports missing MPC configuration without using preview or a stage fallback', async () => {
+    const result = await check([language()], undefined, {
+      ...service, mpc: undefined, preview: 'preview.example',
+    });
+    expect(result.message.type).to.equal('error');
+    expect(result.message.text).to.include('translation.service.<environment>.mpc');
+    expect(fetchStub.called).to.equal(false);
+  });
+
+  it('does not require MPC configuration when no video captions are pending', async () => {
+    const lang = language();
+    const task = lang.translation.workflowTasks.Task;
+    task.videoDelivery = { [assetName]: { status: 'delivered' } };
+    task.sourceCaptionDelivery = { [assetName]: { status: 'delivered' } };
+    const result = await check([lang], undefined, { ...service, mpc: undefined });
+    expect(result).to.equal(undefined);
+    expect(fetchStub.called).to.equal(false);
   });
 
   it('routes production retries and polling to UAT with a persistent warning', async () => {
@@ -116,7 +162,7 @@ describe('GLaaS video delivery from Get Status', () => {
       if (new URL(href, window.location.href).pathname.endsWith('.css')) return new Response('');
       return originalFetch.call(window, href, options);
     });
-    await check([lang]);
+    await check([lang], undefined, { ...service, mpc: undefined });
     const calls = fetchStub.getCalls().filter(({ args }) => String(args[0]).endsWith('/video-delivery'));
     expect(calls).to.have.length(4);
     calls.forEach(({ args }) => {
