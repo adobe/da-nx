@@ -100,3 +100,59 @@ describe('showToast', () => {
     expect(toast.style.getPropertyValue('--nx-toast-max-width')).to.equal('320px');
   });
 });
+
+describe('toast stacking', () => {
+  let toolbar;
+
+  beforeEach(() => {
+    toolbar = document.createElement('div');
+    toolbar.style.cssText = 'position: fixed; inset: 0; margin: 0; width: auto; height: auto; z-index: 100; background: white;';
+    document.body.append(toolbar);
+  });
+
+  afterEach(() => {
+    toolbar.remove();
+    getHost()?.remove();
+  });
+
+  async function expectToastInFront() {
+    const toast = document.querySelector('nx-toast:last-child');
+    await toast.updateComplete;
+    const { left, top, width, height } = toast.getBoundingClientRect();
+    expect(width).to.be.greaterThan(0);
+    expect(height).to.be.greaterThan(0);
+    expect(document.elementFromPoint(left + width / 2, top + height / 2)).to.equal(toast);
+  }
+
+  it('renders above a fixed toolbar', async () => {
+    showToast({ text: 'Upload failed', variant: VARIANT_ERROR });
+    await expectToastInFront();
+  });
+
+  it('renders above a top-layer toolbar without closing it or moving focus', async () => {
+    toolbar.popover = 'auto';
+    const button = document.createElement('button');
+    button.textContent = 'Add image';
+    toolbar.append(button);
+    toolbar.showPopover();
+    button.focus();
+
+    showToast({ text: 'Max image size allowed is 20 MB', variant: VARIANT_ERROR });
+
+    await expectToastInFront();
+    expect(toolbar.matches(':popover-open')).to.be.true;
+    expect(document.activeElement).to.equal(button);
+  });
+
+  it('raises an existing toast stack above a subsequently opened toolbar', async () => {
+    showToast({ text: 'Saved', timeout: null });
+    toolbar.popover = 'manual';
+    toolbar.showPopover();
+
+    showToast({ text: 'Upload failed', variant: VARIANT_ERROR });
+
+    await expectToastInFront();
+    expect(document.querySelectorAll('nx-toast')).to.have.length(2);
+    expect(toolbar.matches(':popover-open')).to.be.true;
+  });
+});
