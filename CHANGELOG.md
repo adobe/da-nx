@@ -1,3 +1,46 @@
+## [1.54.1](https://github.com/adobe/da-nx/compare/v1.54.0...v1.54.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **toast:** display notifications above toolbar popovers ([4196d78](https://github.com/adobe/da-nx/commit/4196d78af06a538251200886252dbd246c5c9e94))
+* **toast:** guard popover promotion in a helper ([032137a](https://github.com/adobe/da-nx/commit/032137a436b3b9f651ff484d3ac68bd33609f30d))
+
+# [1.54.0](https://github.com/adobe/da-nx/compare/v1.53.1...v1.54.0) (2026-11-18)
+
+
+### Features
+
+* **loc:** flag uncertain smart overwrite merges for review ([f753335](https://github.com/adobe/da-nx/commit/f753335721ef7ddd105d3ab8b75a5a6b9bda2588))
+
+## [1.53.1](https://github.com/adobe/da-nx/compare/v1.53.0...v1.53.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* use theme-aware colors for send menu selection ([#986](https://github.com/adobe/da-nx/issues/986)) ([ed99f92](https://github.com/adobe/da-nx/commit/ed99f9243e8915198e86a1ed6e398d614295f13f))
+
+# [1.53.0](https://github.com/adobe/da-nx/compare/v1.52.10...v1.53.0) (2026-11-16)
+
+
+### Features
+
+* **glaas:** add campaign brief metadata hand-off ([#1017](https://github.com/adobe/da-nx/issues/1017)) ([1876044](https://github.com/adobe/da-nx/commit/187604494945b99d37334bca254e8955d9c70867))
+
+## [1.52.10](https://github.com/adobe/da-nx/compare/v1.52.9...v1.52.10) (2026-11-16)
+
+
+### Bug Fixes
+
+* **whatsnew:** add release notes link to dialog ([#1009](https://github.com/adobe/da-nx/issues/1009)) ([ce99f0c](https://github.com/adobe/da-nx/commit/ce99f0c74eb3a8cca6f4b951b14348d161b69718))
+
+## [1.52.9](https://github.com/adobe/da-nx/compare/v1.52.8...v1.52.9) (2026-11-16)
+
+
+### Bug Fixes
+
+* skip legacy org config for hlx6 sites ([#990](https://github.com/adobe/da-nx/issues/990)) ([f791116](https://github.com/adobe/da-nx/commit/f791116aae545d12578679f351e5cd7e9dadedd8)), closes [adobe/da-live#1446](https://github.com/adobe/da-live/issues/1446)
+
 ## [1.52.8](https://github.com/adobe/da-nx/compare/v1.52.7...v1.52.8) (2026-11-16)
 
 
