@@ -550,14 +550,15 @@ describe('smartMerge', () => {
     expect(skipped).to.equal(1);
   });
 
-  it('keeps destination blocks in a conflicted region instead of dropping them', async () => {
-    const { html, skipped } = await merge({
+  it('keeps destination blocks in a conflicted region and offers the upstream version beside them', async () => {
+    const { html, skipped, review } = await merge({
       base: '<p>A</p><p>B</p><p>C</p>',
       source: '<p>A2</p><p>X</p><p>B2</p><p>C</p>',
       dest: '<p>A local</p><p>B</p><p>C</p>',
     });
-    expect(html).to.equal('<div><p>A local</p><p>B</p><p>C</p></div>');
-    expect(skipped).to.equal(1);
+    expect(html).to.equal('<div><da-diff-deleted><p>A2</p><p>X</p><p>B2</p></da-diff-deleted><p da-diff-added="">A local</p><p da-diff-added="">B</p><p>C</p></div>');
+    expect(skipped).to.equal(0);
+    expect(review).to.be.true;
   });
 
   it('does not duplicate a global insert the destination already has', async () => {
@@ -644,7 +645,7 @@ describe('smartMerge', () => {
       d.body.innerHTML = `<main>${sections}</main>`;
       return d;
     };
-    const { html, skipped } = await smartMerge({
+    const { html, skipped, review } = await smartMerge({
       site: 'site',
       config: {},
       base: await hashes(doc('<div><p>A</p></div>')),
@@ -652,7 +653,19 @@ describe('smartMerge', () => {
       dest: doc('<div><p>L</p></div><div id="local"><p>A</p></div>'),
     });
     expect(html).to.equal('<div><p>L</p></div><div id="local"><p>A</p></div>');
-    expect(skipped).to.equal(1);
+    expect(skipped).to.equal(0);
+    expect(review).to.be.true;
+  });
+
+  it('marks a block group like merge does, on its first element', async () => {
+    const group = (text) => `<div class="block-group-start"></div><p>${text}</p><div class="block-group-end"></div>`;
+    const { html, review } = await merge({
+      base: `${group('A')}<p>B</p><p>C</p>`,
+      source: `${group('A2')}<p>Y</p><p>B</p><p>C</p>`,
+      dest: `${group('A local')}<p>B</p><p>C</p>`,
+    });
+    expect(html).to.equal(`<div><da-diff-deleted>${group('A2')}<p>Y</p></da-diff-deleted><div class="block-group-start" da-diff-added=""></div><p>A local</p><div class="block-group-end"></div><p>B</p><p>C</p></div>`);
+    expect(review).to.be.true;
   });
 
   it('keeps section attributes inside block groups', async () => {
