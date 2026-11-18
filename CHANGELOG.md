@@ -1,3 +1,17 @@
+## [1.57.1](https://github.com/adobe/da-nx/compare/v1.57.0...v1.57.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **loc:** keep smart overwrite moves out of page-only content ([938ba40](https://github.com/adobe/da-nx/commit/938ba405a26725c3f8202d0e43f2844a7affdc1f))
+
+# [1.57.0](https://github.com/adobe/da-nx/compare/v1.56.0...v1.57.0) (2026-11-18)
+
+
+### Features
+
+* **loc:** scope sheet translation exclusions by document path ([#987](https://github.com/adobe/da-nx/issues/987)) ([9b5be1d](https://github.com/adobe/da-nx/commit/9b5be1d2bc6cb5d8428178e2dedf087c8be3b890))
+
 # [1.56.0](https://github.com/adobe/da-nx/compare/v1.55.0...v1.56.0) (2026-11-18)
 
 
