@@ -122,6 +122,8 @@ export async function rolloutPrefix({
   prefix.status = 'none';
   prefix.root = prefix.path;
   delete prefix.skipped;
+  delete prefix.removedUpstream;
+  delete prefix.reordered;
   delete prefix.sync;
   delete prefix.outcome;
   const { error } = resolver ? await resolver.prepareSource(prefix) : {};

@@ -23,6 +23,13 @@ const DA_LIVE = 'https://da.live';
 const toEditHref = (path) => `${DA_LIVE}/edit#${path.replace(/\.html$/, '')}`;
 const toDisplayPath = (path) => `/${path.split('/').slice(3).join('/').replace(/\.html$/, '')}`;
 
+const renderPageItems = (paths) => paths.map((path) => html`
+  <li><a href=${toEditHref(path)} target="_blank" rel="noopener">${toDisplayPath(path)}</a></li>`);
+
+const renderPageList = (note, paths) => (paths?.length ? html`
+  <p class="review-note">${note}</p>
+  <ul class="review-list">${renderPageItems(paths)}</ul>` : nothing);
+
 const localeLabels = (locale, syncCounts) => [
   locale.skipped && `${locale.skipped} skipped (localized)`,
   locale.unchanged && `${locale.unchanged} unchanged`,
@@ -235,16 +242,12 @@ class NxLocRollout extends LitElement {
           <p class="rollout-status">${rollout.status}</p>
         </div>
         ${locale.review?.length ? html`
-          <ul class="review-list">
-            ${locale.review.map((path) => html`
-              <li><a href=${toEditHref(path)} target="_blank" rel="noopener">${toDisplayPath(path)}</a></li>`)}
-          </ul>` : nothing}
+          <ul class="review-list">${renderPageItems(locale.review)}</ul>` : nothing}
+        ${renderPageList('Upstream removed a block these pages edited (local version kept):', locale.removedUpstream)}
+        ${renderPageList('Upstream reordered blocks on these pages (some moves not applied):', locale.reordered)}
         ${locale.noSync?.length ? html`
           <p class="no-sync-note">No sync point. Move all content into sections in these source pages:</p>
-          <ul class="review-list no-sync-list">
-            ${locale.noSync.map((path) => html`
-              <li><a href=${toEditHref(path)} target="_blank" rel="noopener">${toDisplayPath(path)}</a></li>`)}
-          </ul>` : nothing}
+          <ul class="review-list no-sync-list">${renderPageItems(locale.noSync)}</ul>` : nothing}
       </li>`;
   }
 

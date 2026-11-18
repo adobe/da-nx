@@ -292,6 +292,45 @@ describe('nx-loc-rollout smart overwrite', () => {
     expect(link.textContent).to.equal('/en-nl/page');
   });
 
+  it('lists pages where upstream removed an edited block or reordered blocks, each linking to the editor', async () => {
+    siteConfig = OPTED_IN;
+    const synced = document.implementation.createHTMLDocument();
+    synced.body.innerHTML = '<main><div><h1>Fedex Netherlands</h1><p>B</p><p>C</p></div></main>';
+    const base = await getBlockHashes({ doc: synced, site: 'site', config: {} });
+    const row = `<div class="da-metadata"><div><div>rolloutbase</div><div>/org/optin/en-nl/page.html|${base.join(',')}</div></div></div>`;
+    destPages['/en-nl/page.html'] = `<body><header></header><main><div><h1>Fedex Netherlands</h1><p>B local</p><p>C</p></div></main>${row}<footer></footer></body>`;
+    sourcePage = '<body><header></header><main><div><h1>Fedex {{country}}</h1><p>C</p></div></main><footer></footer></body>';
+    const lang = newLang();
+    const el = newRollout('smart-overwrite', lang);
+    await el.handleRolloutLang(lang);
+    expect(lang.locales[0].removedUpstream).to.deep.equal(['/org/optin/en-nl/page.html']);
+    expect(lang.locales[0]).to.not.have.property('review');
+    lang.locales[0].reordered = ['/org/optin/en-nl/other.html'];
+    const container = renderLocales(el, lang);
+    expect(container.querySelector('.skipped-count').textContent).to.equal('1 skipped (localized)');
+    const notes = [...container.querySelectorAll('.review-note')].map((note) => note.textContent);
+    expect(notes).to.deep.equal([
+      'Upstream removed a block these pages edited (local version kept):',
+      'Upstream reordered blocks on these pages (some moves not applied):',
+    ]);
+    const links = [...container.querySelectorAll('.review-list a')].map((link) => link.getAttribute('href'));
+    expect(links).to.deep.equal(['https://da.live/edit#/org/optin/en-nl/page', 'https://da.live/edit#/org/optin/en-nl/other']);
+  });
+
+  it('lists pages where a rollout kept the page order for an upstream move', async () => {
+    siteConfig = OPTED_IN;
+    const synced = document.implementation.createHTMLDocument();
+    synced.body.innerHTML = '<main><div><h1>Fedex Netherlands</h1><p>B</p><p>C</p><p>D</p></div></main>';
+    const base = await getBlockHashes({ doc: synced, site: 'site', config: {} });
+    const row = `<div class="da-metadata"><div><div>rolloutbase</div><div>/org/optin/en-nl/page.html|${base.join(',')}</div></div></div>`;
+    destPages['/en-nl/page.html'] = `<body><header></header><main><div><h1>Fedex Netherlands</h1><p>B</p><p>C</p><p>D local</p></div></main>${row}<footer></footer></body>`;
+    sourcePage = '<body><header></header><main><div><h1>Fedex {{country}}</h1><p>D</p><p>B</p><p>C</p></div></main><footer></footer></body>';
+    const lang = newLang();
+    const el = newRollout('smart-overwrite', lang);
+    await el.handleRolloutLang(lang);
+    expect(lang.locales[0].reordered).to.deep.equal(['/org/optin/en-nl/page.html']);
+  });
+
   it('lists source pages that left a locale without a sync point, each linking to the editor', async () => {
     siteConfig = OPTED_IN;
     sourcePage = '<body><header></header><main><div><h1>Fedex {{country}}</h1></div>Loose</main><footer></footer></body>';

@@ -56,23 +56,38 @@ describe('cross-origin SDK pointer dragging', () => {
       const messages = [];
       let started;
       const hostReady = new Promise((resolve) => { started = resolve; });
+      let moved;
+      const outsideMove = new Promise((resolve) => { moved = resolve; });
+      let dropCount = 0;
       const dropped = new Promise((resolve) => {
+        const finish = (point) => {
+          if (dropCount) return;
+          dropCount += 1;
+          if (!image) shadow.innerHTML = messages[0].details.payload.data['text/html'];
+          layer.remove();
+          resolve(point);
+        };
         channel.port1.onmessage = ({ data }) => {
           messages.push(data);
-          const result = { ok: true, dragId: 'host-id' };
+          const result = data.action === 'dragStart' ? { ok: true, dragId: 'host-id' } : { ok: true };
           if (data.action === 'dragStart') {
             layer = document.createElement('div');
             layer.style.cssText = 'position:fixed;inset:0;z-index:10000';
+            layer.addEventListener('pointermove', (event) => {
+              if (event.buttons === 1 && event.clientY > 120) moved();
+            });
             layer.addEventListener('pointerup', (event) => {
-              if (!image) shadow.innerHTML = data.details.payload.data['text/html'];
+              finish({ x: event.clientX - 20, y: event.clientY - 20 });
               channel.port1.postMessage({
                 action: 'dragResult', details: { dragId: 'host-id', result: { ok: true } },
               });
-              layer.remove();
-              resolve({ x: event.clientX - 20, y: event.clientY - 20 });
             }, { once: true });
             document.body.append(layer);
             started();
+          }
+          if (data.action === 'dragMove' && data.details.point.y > 100) moved();
+          if (data.action === 'dragFinish') {
+            finish(data.details.point);
           }
           if (data.requestId) {
             channel.port1.postMessage({ action: 'sdkResponse', requestId: data.requestId, result });
@@ -85,6 +100,9 @@ describe('cross-origin SDK pointer dragging', () => {
       await hostReady;
       await sendMouse({ type: 'move', position: [100, 160] });
       await sendMouse({ type: 'move', position: [100, 230] });
+      await outsideMove;
+      expect(messages.some(({ action }) => action === 'dragFinish')).to.equal(false);
+      expect(dropCount).to.equal(0);
       await sendMouse({ type: 'up' });
       const release = await dropped;
       expect(release).to.deep.equal({ x: 80, y: 210 });
@@ -99,6 +117,7 @@ describe('cross-origin SDK pointer dragging', () => {
         expect(shadow.querySelector('h2').textContent).to.equal('Heading');
       }
       expect(messages.filter(({ action }) => action === 'dragStart')).to.have.length(1);
+      expect(dropCount).to.equal(1);
     });
   });
 });
