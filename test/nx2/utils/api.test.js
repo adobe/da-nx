@@ -1013,7 +1013,7 @@ describe('api.js', () => {
       expect(await resp.json()).to.deep.equal(entries);
     });
 
-    it('versions.list hlx6 merges audit history with snapshots without duplicate versions', async () => {
+    it('versions.list hlx6 normalizes email strings and merges history without duplicate versions', async () => {
       const oldVersion = {
         version: 'old', 'version-date': '2026-01-01T00:00:00.000Z', 'version-by': 'old@example.com',
       };
@@ -1028,14 +1028,14 @@ describe('api.js', () => {
         timestamp: Date.parse('2026-01-02T00:00:00.000Z'),
         firstTimestamp: 1000,
         operation: 'edit',
-        users: [{ email: 'one@example.com' }, { email: 'two@example.com' }],
+        users: ['one@example.com', 'two@example.com'],
         path: '/x.html',
       };
       const activity = {
         id: 'snapshot',
         timestamp: Date.parse('2026-01-03T00:00:00.000Z'),
         operation: 'version',
-        users: [{ email: 'author@example.com' }],
+        users: ['author@example.com'],
         path: '/x.html',
         label: 'Checkpoint',
         snapshot: 'local',
@@ -1048,8 +1048,8 @@ describe('api.js', () => {
       const url = `${AEM_API}/${o}/sites/${s}/source/x.html`;
       expect(calls.map((call) => call.url)).to.deep.equal([`${url}/.versions`, `${url}/.history`]);
       expect(await resp.json()).to.deep.equal([
-        { ...version, ...activity },
-        edit,
+        { ...version, ...activity, users: [{ email: 'author@example.com' }] },
+        { ...edit, users: [{ email: 'one@example.com' }, { email: 'two@example.com' }] },
         oldVersion,
       ]);
       expect(resp.truncated).to.equal(true);
