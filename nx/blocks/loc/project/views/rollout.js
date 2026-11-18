@@ -58,9 +58,9 @@ class NxLocRollout extends LitElement {
           }
           let resp;
           if (this.conflictBehavior === 'overwrite') {
-            resp = await copy.overwriteCopy(copyUrl, this.title);
+            resp = await copy.overwriteCopy(copyUrl, this.title, { recordBaseline: true });
           } else {
-            resp = await copy.mergeCopy(copyUrl, this.title);
+            resp = await copy.mergeCopy(copyUrl, this.title, { recordBaseline: true });
           }
           if (resp.ok || resp.error === 'timeout') {
             lang.rolledOut += 1;

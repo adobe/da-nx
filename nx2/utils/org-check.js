@@ -1,4 +1,4 @@
-import { config, source } from './api.js';
+import { config, source, isHlx6 } from './api.js';
 import { showToast, VARIANT_WARNING } from '../blocks/shared/toast/toast.js';
 
 const DEF_SANDBOX = 'aem-sandbox';
@@ -34,14 +34,15 @@ async function getIsSandbox(org) {
   return items.length > 0;
 }
 
-async function orgCheck() {
+export async function orgCheck() {
   const { pathname, hash } = window.location;
   if (pathname.startsWith('/app')) return;
   if (!hash) return;
   const hashVal = hash.replace('#', '');
   if (!hashVal.startsWith('/')) return;
-  const [org] = hashVal.substring(1).split('/');
+  const [org, site] = hashVal.substring(1).split('/');
   if (!org || org === DEF_SANDBOX) return;
+  if (site && await isHlx6(org, site)) return;
   const isSandbox = await getIsSandbox(org);
   if (!isSandbox) return;
 
