@@ -1,3 +1,32 @@
+## [1.54.3](https://github.com/adobe/da-nx/compare/v1.54.2...v1.54.3) (2026-11-18)
+
+
+### Bug Fixes
+
+* **shell:** await target chat readiness before SDK init ([#977](https://github.com/adobe/da-nx/issues/977)) ([f709d11](https://github.com/adobe/da-nx/commit/f709d110a4670083427d6d1e131ecaed484dca78))
+
+## [1.54.2](https://github.com/adobe/da-nx/compare/v1.54.1...v1.54.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **sdk:** retain pointer capture during extension drags ([e5489ca](https://github.com/adobe/da-nx/commit/e5489cac292ad210acbb50eaa2415716c0e51bf0))
+
+## [1.54.1](https://github.com/adobe/da-nx/compare/v1.54.0...v1.54.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **toast:** display notifications above toolbar popovers ([4196d78](https://github.com/adobe/da-nx/commit/4196d78af06a538251200886252dbd246c5c9e94))
+* **toast:** guard popover promotion in a helper ([032137a](https://github.com/adobe/da-nx/commit/032137a436b3b9f651ff484d3ac68bd33609f30d))
+
+# [1.54.0](https://github.com/adobe/da-nx/compare/v1.53.1...v1.54.0) (2026-11-18)
+
+
+### Features
+
+* **loc:** flag uncertain smart overwrite merges for review ([f753335](https://github.com/adobe/da-nx/commit/f753335721ef7ddd105d3ab8b75a5a6b9bda2588))
+
 ## [1.53.1](https://github.com/adobe/da-nx/compare/v1.53.0...v1.53.1) (2026-11-17)
 
 

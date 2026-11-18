@@ -2,7 +2,7 @@ import getElementMetadata from '../../../nx2/utils/getElementMetadata.js';
 import {
   regionalDiff, removeLocTags, LOC_MARKERS, isSnapshotPath,
 } from './regional-diff.js';
-import { ROLLOUT_BASE_KEY } from './hashes.js';
+import { ROLLOUT_BASE_KEY, ROLLOUT_ORDER_KEY } from './hashes.js';
 
 const DEFAULT_TIMEOUT = 20000;
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
@@ -310,6 +310,7 @@ export function createCopy({
       }
       if (baseline) result.metadata[ROLLOUT_BASE_KEY] = baseline;
       else if (smartRollout || options.dropBaseline) delete result.metadata[ROLLOUT_BASE_KEY];
+      if (smartRollout || options.dropBaseline) delete result.metadata[ROLLOUT_ORDER_KEY];
       applyLabels(result.metadata, options);
       const response = await saveHtml(url, result.diffed.innerHTML, result.metadata);
       if (response.ok) await saveVersion(url.destination, `${title} - Rolled Out`);
