@@ -1,3 +1,10 @@
+## [1.54.2](https://github.com/adobe/da-nx/compare/v1.54.1...v1.54.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **sdk:** retain pointer capture during extension drags ([e5489ca](https://github.com/adobe/da-nx/commit/e5489cac292ad210acbb50eaa2415716c0e51bf0))
+
 ## [1.54.1](https://github.com/adobe/da-nx/compare/v1.54.0...v1.54.1) (2026-11-18)
 
 
