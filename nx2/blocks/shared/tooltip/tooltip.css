@@ -1,0 +1,96 @@
+:host {
+  display: none;
+  position: fixed;
+  inset: auto;
+  position-area: top span-all;
+  position-try-fallbacks: flip-block;
+  justify-self: anchor-center;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(var(--nx-tooltip-max-width, 240px), calc(100vw - 24px));
+  margin: 8px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--s2-corner-radius-500);
+  background: var(--s2-gray-800);
+  color: var(--s2-gray-25);
+  font: var(--s2-body-size-xs)/var(--s2-body-line-height) var(--s2-font-family);
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+
+:host(:popover-open) {
+  display: block;
+}
+
+:host([placement="bottom"]) {
+  position-area: bottom span-all;
+}
+
+:host([placement="left"]),
+:host([placement="right"]) {
+  position-try-fallbacks: flip-inline;
+  place-self: anchor-center normal;
+}
+
+:host([placement="left"]) {
+  position-area: left span-all;
+}
+
+:host([placement="right"]) {
+  position-area: right span-all;
+}
+
+/* Bridge the gap so moving onto the tooltip never crosses a non-hoverable area. */
+:host::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+.arrow {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  rotate: 45deg;
+  pointer-events: none;
+}
+
+:host([data-side="top"]) .arrow,
+:host([data-side="bottom"]) .arrow {
+  left: var(--tooltip-arrow-x);
+  translate: -50% 0;
+}
+
+:host([data-side="top"]) .arrow {
+  bottom: -4px;
+}
+
+:host([data-side="bottom"]) .arrow {
+  top: -4px;
+}
+
+:host([data-side="left"]) .arrow,
+:host([data-side="right"]) .arrow {
+  top: var(--tooltip-arrow-y);
+  translate: 0 -50%;
+}
+
+:host([data-side="left"]) .arrow {
+  right: -4px;
+}
+
+:host([data-side="right"]) .arrow {
+  left: -4px;
+}
+
+@media (forced-colors: active) {
+  :host {
+    border: 1px solid CanvasText;
+  }
+
+  .arrow {
+    display: none;
+  }
+}
